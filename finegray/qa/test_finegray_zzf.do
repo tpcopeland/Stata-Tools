@@ -803,10 +803,11 @@ else {
 * Three reachable values, and each is asserted against the branch that produces
 * it -- a contract macro that is merely PRESENT (Z9) can still be wrong.
 *
-*   no delayed entry  -> not_applicable   (right-censoring branch, unchanged)
-*   LT, default       -> fg_sandwich      (Fine & Gray 1999 eq. 7-8, carrying A)
-*   LT, norobust      -> model_based      (inverse information; Geskus 2011 p.44)
-*   LT, cluster()     -> fg_sandwich      (same estimator, cluster-robust meat)
+*   no delayed entry  -> not_applicable        (right-censoring branch, unchanged)
+*   LT, default       -> fixed_weight_sandwich (score sandwich, G and A FIXED --
+*                                               NOT the eq. 7-8 nuisance variance)
+*   LT, norobust      -> model_based           (inverse information; Geskus 2011 p.44)
+*   LT, cluster()     -> fixed_weight_sandwich (same estimator, cluster-robust meat)
 *
 * nuisance_adjusted is NOT reachable and must NOT appear: it is unimplemented on
 * purpose (ZZF 2011 Appendix B's equations are images in every obtainable copy;
@@ -832,15 +833,15 @@ quietly finegray z1 z2, compete(status) cause(1)
 local _v_nolt `"`e(lt_vce)'"'
 restore
 
-if "`_v_def'" == "fg_sandwich" & "`_v_mod'" == "model_based" & ///
-   "`_v_cl'"  == "fg_sandwich" & "`_v_nolt'" == "not_applicable" {
+if "`_v_def'" == "fixed_weight_sandwich" & "`_v_mod'" == "model_based" & ///
+   "`_v_cl'"  == "fixed_weight_sandwich" & "`_v_nolt'" == "not_applicable" {
     local ++pass_count
-    display as result "  PASS: Z26 e(lt_vce) = fg_sandwich / model_based / fg_sandwich(cluster) / not_applicable"
+    display as result "  PASS: Z26 e(lt_vce) = fixed_weight_sandwich / model_based / fixed_weight_sandwich(cluster) / not_applicable"
 }
 else {
     local ++fail_count
     display as error "  FAIL: Z26 e(lt_vce) got default='`_v_def'' norobust='`_v_mod'' cluster='`_v_cl'' noLT='`_v_nolt''"
-    display as error "        expected fg_sandwich / model_based / fg_sandwich / not_applicable"
+    display as error "        expected fixed_weight_sandwich / model_based / fixed_weight_sandwich / not_applicable"
 }
 
 * ---------------------------------------------------------------------------

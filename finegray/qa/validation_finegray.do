@@ -1,6 +1,6 @@
 * validation_finegray.do - Validation suite for finegray package
 * Tests: cross-validation vs stcrreg, known-answer, invariants, CIF, basehaz
-* Package: finegray v1.1.0
+* Package: finegray v1.2.0
 
 clear all
 set more off
@@ -822,44 +822,48 @@ else {
     local ++fail_count
 }
 
-* V31: Each per-variable df == 1
+* V31: Each per-variable events count is the number of cause events (FG-03).
+* The retired chi2/df/p surface is gone; column 2 is now the event count used.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest
     matrix ph = r(phtest)
+    local nfail = r(N_fail)
     forvalues i = 1/3 {
-        assert ph[`i', 2] == 1
+        assert ph[`i', 2] > 0 & ph[`i', 2] <= `nfail'
     }
 }
 if _rc == 0 {
-    display as result "  PASS: V31 each per-var df == 1"
+    display as result "  PASS: V31 each per-var events count is valid"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V31 per-var df (rc=`=_rc')"
+    display as error "  FAIL: V31 per-var events (rc=`=_rc')"
     local ++fail_count
 }
 
-* V32: Each per-variable p == chi2tail(1, chi2_i)
+* V32: Each per-variable correlation is a valid Pearson correlation (FG-03).
+* finegray_phtest reports the residual-time correlation only -- no chi2/p -- so
+* column 1 must lie in [-1, 1]; there is no p-value column to verify.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest
     matrix ph = r(phtest)
+    assert colsof(ph) == 2
     forvalues i = 1/3 {
-        local p_manual = chi2tail(1, ph[`i', 1])
-        assert abs(ph[`i', 3] - `p_manual') < 1e-10
+        assert ph[`i', 1] >= -1 & ph[`i', 1] <= 1 & !missing(ph[`i', 1])
     }
 }
 if _rc == 0 {
-    display as result "  PASS: V32 per-var p == chi2tail(1, chi2_i)"
+    display as result "  PASS: V32 per-var correlation in [-1,1]"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V32 per-var p formula (rc=`=_rc')"
+    display as error "  FAIL: V32 per-var correlation (rc=`=_rc')"
     local ++fail_count
 }
 

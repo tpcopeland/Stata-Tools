@@ -179,14 +179,18 @@ write.csv(as.data.frame(sch_mat),
 #    content of the comparison is therefore crr's beta and the Schoenfeld
 #    residuals built from it (section 3 / test P11), not the statistic.
 #
-#    Through 1.2.2 this script also emitted a "GLOBAL" row that summed the
+#    Before 1.2.0 this script also emitted a "GLOBAL" row that summed the
 #    per-covariate chi2 and referred the total to chi2(p) -- reproducing
 #    finegray_phtest's own rule exactly.  That made the global comparison a
 #    MIRROR ORACLE: both sides shared the identical wrong semantics, so the
 #    check passed while the statistic was wrong on its face (the components
 #    are correlated, so the sum is not chi2(p)).  The omnibus was retired in
-#    finegray 1.2.3 and the GLOBAL row is removed here.  Do not re-add it:
-#    an oracle that recomputes the code's own rule tests nothing.
+#    finegray 1.2.0 and the GLOBAL row is removed here.  Do not re-add it:
+#    an oracle that recomputes the code's own rule tests nothing.  As of the
+#    diagnostic-only change (FG-03), finegray_phtest reports the residual-time
+#    CORRELATION only (no chi2/p); the Stata side compares that correlation to
+#    the `rho' column this script writes -- a coding-consistency check, not a
+#    test-calibration claim.
 # =====================================================================
 phtest_rows <- list()
 for (tf_name in c("rank", "log", "identity")) {

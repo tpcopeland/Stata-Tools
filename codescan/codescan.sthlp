@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.0.0  17jul2026}{...}
+{* *! version 4.0.1  18jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -408,8 +408,12 @@ are collapsed with {cmd:(sum)} instead.
 
 {phang}
 {opt merge} computes patient-level results exactly as {cmd:collapse} would, then
-merges them back onto the original row structure. Every row for a given
-{cmd:id()} receives the same patient-level values.
+merges them back onto the original row structure. Every {it:analyzed} row for a
+given {cmd:id()} receives the same patient-level values. An {cmd:id()} whose rows
+are all excluded from the analysis — by {cmd:if}/{cmd:in} or by a
+{cmd:lookback()}/{cmd:lookforward()} window — receives {cmd:.} (missing), not 0,
+in every condition variable: missing marks "not analyzed" and is distinct from 0
+("analyzed, no match"), mirroring the three-state {cmd:unmatched()} design.
 
 {phang}
 {opt earliestdate}, {opt latestdate}, and {opt countdate} create {it:name}_first, {it:name}_last, and
@@ -525,7 +529,9 @@ anchors each pattern at the start of the code. {cmd:prefix} compares simple
 pipe-separated prefixes and is usually faster on large datasets.
 
 {phang}
-{opt level(#)} truncates each prefix token to {it:#} characters before scanning. It is
+{opt level(#)} truncates each {it:inclusion} prefix to {it:#} characters before
+scanning; {it:exclusion} patterns (those after {cmd:~}) are matched at full
+precision. This gives level-{it:#} matching with full-precision exclusions. It is
 meaningful only in {cmd:mode(prefix)} and must be between 1 and 10.
 
 {phang}
@@ -535,7 +541,11 @@ pattern, so escapes such as {cmd:\d} retain their meaning.
 
 {phang}
 {opt nodots} strips periods from each code value during matching. The original
-data are unchanged.
+data are unchanged. Patterns are matched against the {it:undotted} form of the
+data, so write them without dots: in {cmd:mode(prefix)} a pattern that contains
+a period (for example {cmd:"E11.0"}) can never match a stripped value like
+{cmd:E110} and is almost always a mistake. (In {cmd:mode(regex)} a {cmd:.} is
+the regex "any character" metacharacter and is left untouched.)
 
 {phang}
 {opt tostring} converts numeric variables in {varlist} to temporary strings for scanning,
@@ -705,8 +715,8 @@ the same session.
 code variables, so you express a multi-condition definition once instead of
 writing one {cmd:generate}/{cmd:replace} per condition per variable. Its value is
 correctness and conciseness — per-cell exclusions, patient-level collapse with
-date statistics, time windows, and prevalence CIs in one command — rather than
-raw speed against a hand-written loop.
+date statistics, time windows, and prevalence summaries in one command — rather
+than raw speed against a hand-written loop.
 
 
 {marker examples}{...}
@@ -898,7 +908,7 @@ its own, which makes the table independent of {varlist} order.
 
 {p2col 5 26 30 2: Matrices}{p_end}
 {synopt:{cmd:r(summary)}}counts and prevalence{p_end}
-{synopt:{cmd:r(codelist)}}the count columns of {cmd:r(summary)}{p_end}
+{synopt:{cmd:r(codelist)}}legacy alias — an exact copy of {cmd:r(summary)}{p_end}
 {synopt:{cmd:r(varcounts)}}per-variable counts, with {cmd:detail}{p_end}
 {synopt:{cmd:r(cooccurrence)}}pairwise co-occurrence counts{p_end}
 {synopt:{cmd:r(sensitivity)}}prevalence by lookback window{p_end}

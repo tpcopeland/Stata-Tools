@@ -1,6 +1,6 @@
 * crossval_finegray.do - Cross-validation suite for finegray package
 * Tests: systematic vs stcrreg, strata, robust/cluster SEs, CIF, DGP, benchmarks
-* Package: finegray v1.1.0
+* Package: finegray v1.2.0
 
 clear all
 set more off
@@ -1009,15 +1009,22 @@ capture noisily {
     stset t, failure(d) id(id)
     finegray x1, compete(status) cause(1) nolog
     finegray_phtest
-    * 1.2.0: single-covariate fit, so the retired omnibus scalar was exactly
-    * this row -- the power claim is unchanged.
+    * FG-03: finegray_phtest is a diagnostic and reports the residual-time
+    * CORRELATION only (column 1), no p-value.  "Detection" is therefore checked
+    * as a diagnostic MAGNITUDE: for a strong known PH violation the correlation
+    * must be clearly non-zero.  The floor here is the same boundary the retired
+    * p<0.10 implied, |rho| > z(0.95)/sqrt(events) -- computed test-side, so the
+    * package makes no calibration claim -- which keeps this test's power to catch
+    * a diagnostic that goes blind to a real violation.
     matrix _Pv = r(phtest)
-    * With 2000 obs and strong PH violation, p should be small
-    display as text "  PH violation test: chi2=" %8.3f _Pv[1,1] " p=" %8.5f _Pv[1,3]
-    assert _Pv[1,3] < 0.10
+    local _events = _Pv[1, 2]
+    local _floor = invnormal(0.95) / sqrt(`_events')
+    display as text "  PH violation diagnostic: correlation=" %8.4f _Pv[1,1] ///
+        " |rho| floor=" %8.4f `_floor'
+    assert abs(_Pv[1,1]) > `_floor'
 }
 if _rc == 0 {
-    display as result "  PASS: C31 phtest detects PH violation"
+    display as result "  PASS: C31 phtest diagnostic flags PH violation"
     local ++pass_count
 }
 else {
@@ -1048,14 +1055,22 @@ capture noisily {
     stset t, failure(d) id(id)
     finegray x1, compete(status) cause(1) nolog
     finegray_phtest
-    * 1.2.0: single-covariate fit; see the note on the PH-violation arm above.
+    * FG-03: diagnostic surface [correlation, events]; no p-value.  The weak /
+    * no-violation counterpart to C31: the residual-time correlation must stay
+    * BELOW the same detection floor (|rho| < z(0.95)/sqrt(events)), i.e. the
+    * diagnostic does not flag proportionality where there is none.  (The former
+    * `assert _Pw[1,3] > 0.01' read a nonexistent 3rd column, which returns
+    * missing, and `missing > 0.01' is vacuously true -- a false green.)
     matrix _Pw = r(phtest)
-    * With weak effect and moderate N, p should be non-significant
-    display as text "  Weak effect PH test: chi2=" %8.3f _Pw[1,1] " p=" %8.5f _Pw[1,3]
-    assert _Pw[1,3] > 0.01
+    assert colsof(_Pw) == 2
+    local _events = _Pw[1, 2]
+    local _floor = invnormal(0.95) / sqrt(`_events')
+    display as text "  Weak-effect PH diagnostic: correlation=" %8.4f _Pw[1,1] ///
+        " |rho| floor=" %8.4f `_floor'
+    assert abs(_Pw[1,1]) < `_floor'
 }
 if _rc == 0 {
-    display as result "  PASS: C32 phtest non-rejection (weak effect)"
+    display as result "  PASS: C32 phtest diagnostic does not flag weak effect"
     local ++pass_count
 }
 else {

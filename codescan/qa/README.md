@@ -95,9 +95,9 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_coverage.do` | functional | 64 | Consolidated coverage: window boundaries, label/date/type contracts, `r()` surface, v1.4.2 fixes, `saving()`/`format()`/`export()` content, cross-variable exclusion |
 | `test_countrows.do` | functional | 25 | `countrows`/`countmode` counting semantics |
 | `test_mata_opt.do` | functional | 15 | Mata fast-path semantics. Every block compares codescan against a naive Stata-level oracle (one `ustrregexm()` per cell, no memoization, no early exit) on an immutable reloaded fixture, so the optimizations must reproduce a brute-force scan exactly: row-level, collapse, merge, `countmode` (`total_hits` vs `positive_units`), nested/overlapping conditions, multi-window sensitivity **and** its `r(sensitivity_n)` denominators, describe vs a `reshape`+`levelsof` tabulation, `nodots` invariance, first-slot vs `allslots` detail, prefix, `nocase`, co-occurrence, and `matched_code` first-hit order |
-| `test_codescan_regressions.do` | functional | 31 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary describe row names, prefix validation, and path guards |
+| `test_codescan_regressions.do` | functional | 37 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary describe row names, prefix validation, path guards, and the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37) |
 | `test_codescan_v208.do` | functional | 5 | v2.0.8: `label()` backslash preserved (Windows paths) + `\` separator still splits, bare `.`/all-dots skipped to match `codescan_describe`, `if` on numeric scan var works with `tostring` (proven-fail on pre-2.0.8) |
-| `test_codescan_v300_critical.do` | functional | 46 | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
+| `test_codescan_v300_critical.do` | functional | 62 | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
 | `test_codescan_v2_no_scoring.do` | functional | 5 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
 | `test_codescan_v203_hardening.do` | functional | 15 | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
 | `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
@@ -205,9 +205,12 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_documentation_examples` |  |  | ✓ |
 | `test_release_integrity` |  |  | ✓ |
 
-`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **33 suites,
-746 assertions**. Every runnable suite belongs to at least one lane except the
-two exploratory benchmarks above; there is no `_skip.txt`.
+`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **33 suites**
+(737 assertions as of 2026-07-18). The authoritative counts are the
+`RESULT: ... tests=N` sentinels each suite prints, aggregated into the
+`RESULT: run_all_full ...` line — not this snapshot. Every runnable suite
+belongs to at least one lane except the two exploratory benchmarks above; there
+is no `_skip.txt`.
 
 ## Adversarial coverage notes
 

@@ -7,8 +7,12 @@
 #     for (p in c("cmprsk","fastcmprsk","riskRegression","survival","prodlim")) \
 #       cat(sprintf("%-16s %s\n", p, as.character(packageVersion(p))))'
 #
-# Recorded on the machine that produced the committed qa/*.log files.
-recorded_on:    2026-07-16T13:52:08Z
+# Records the R comparator toolchain used by the crossval_*_r.R oracles.  The
+# per-run qa/*.log files are gitignored and transient; the committed evidence of
+# a run is the run_status_*.txt receipt written by run_all.sh, which this file
+# documents the comparator environment for.  Re-record with the command above
+# whenever the R toolchain changes.
+recorded_on:    2026-07-18T00:00:00Z
 host_os:        Linux 6.17.0-40-generic
 stata:          stata17 MP (c(stata_version)=17, c(SE)=1, c(MP)=1, processors=16)
 R:              4.6.1

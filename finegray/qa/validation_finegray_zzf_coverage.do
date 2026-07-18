@@ -14,7 +14,7 @@
 *
 *   model_based   Geskus (2011) p.44, eq. 20-21: the ordinary information matrix,
 *                 NO sandwich.  Reachable today as `norobust'.
-*   fg_sandwich   Fine & Gray (1999) eq. 7-8, extended to carry the combined
+*   fixed_weight_sandwich   Fine & Gray (1999) eq. 7-8, extended to carry the combined
 *                 weight A = G(t-)H(t-).  Today's DEFAULT (robust).
 *
 *   nuisance_adjusted   NOT IMPLEMENTED, and deliberately so.  It is the ZZF
@@ -43,7 +43,7 @@
 * do with left truncation (it assumes independent subjects), so the cluster-robust
 * sandwich is the only admissible option and there is no contest to run.  The LT
 * cluster path is covered by validation_finegray_lt_se.do; e(lt_vce) must report
-* fg_sandwich whenever cluster() is specified, whatever wins below.
+* fixed_weight_sandwich whenever cluster() is specified, whatever wins below.
 *
 * ---------------------------------------------------------------------------
 * [Z-INF-PREREG]  WRITTEN BEFORE THE GATED REPLICATIONS WERE RUN.
@@ -74,7 +74,7 @@
 * PREREGISTERED EXPECTATION:
 *   1. model_based COVERS (in [0.925, 0.975]) in every supported arm, INCLUDING
 *      heavy truncation and INCLUDING truncstrata().
-*   2. fg_sandwich UNDERCOVERS, mildly, and worse at heavier truncation.
+*   2. fixed_weight_sandwich UNDERCOVERS, mildly, and worse at heavier truncation.
 *   3. The gap between them WIDENS with the truncation fraction.
 *
 * This is Geskus's prediction, not a hedge: it is falsifiable, it is the opposite
@@ -91,7 +91,7 @@
 * failure Bellach et al. (2020) Section 5 describes and precisely what Geskus's
 * argument says should not happen:
 *
-*   arm                 trunc%   model_based cov   fg_sandwich cov   SEratio(mod)
+*   arm                 trunc%   model_based cov   fixed_weight_sandwich cov   SEratio(mod)
 *   noLT                   0     0.956 / 0.949     0.954 / 0.943     1.04 / 0.97
 *   light_n500            37     0.897 / 0.901     0.941 / 0.951     0.81 / 0.81
 *   light_n2000           37     0.905 / 0.890     0.954 / 0.957     0.79 / 0.82
@@ -115,7 +115,7 @@
 * mechanism remains relevant in the entry-stratified extension.
 *
 * CONSEQUENCE: model_based is ELIMINATED as an LT inference option.  The default
-* (fg_sandwich) already IS the sandwich, so nothing about the shipped default
+* (fixed_weight_sandwich) already IS the sandwich, so nothing about the shipped default
 * changes -- but norobust under LT is now a MEASURED inference defect, not a
 * theoretical caution, and finegray says so at run time.
 * ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ local ZCRIT  = invnormal(0.975)
 display as text _newline "Gate Z-inference: LT variance coverage study"
 display as text "  REPS = `REPS', base seed = `SEED0'"
 display as text "  truth: b1 = `TRUTH1', b2 = `TRUTH2'"
-display as text "  candidates: model_based (norobust) vs fg_sandwich (default robust)"
+display as text "  candidates: model_based (norobust) vs fixed_weight_sandwich (default robust)"
 if !`FULL' {
     display as error "  SMOKE SETTINGS (REPS < 1000): this run CANNOT close Gate Z-inference."
 }
@@ -275,7 +275,7 @@ end
 
 * ---------------------------------------------------------------------------
 * ARM TABLE.  Each arm is fitted TWICE per replication -- once robust
-* (fg_sandwich), once norobust (model_based) -- on the SAME dataset, so the two
+* (fixed_weight_sandwich), once norobust (model_based) -- on the SAME dataset, so the two
 * candidates are compared PAIRED and cannot differ because of the draw.
 *
 *   name        trunc         entryrate   entrycap   n      opts
@@ -368,7 +368,7 @@ display as text ""
 
 foreach cand in mod rob {
     if "`cand'" == "mod" local candname "model_based "
-    if "`cand'" == "rob" local candname "fg_sandwich "
+    if "`cand'" == "rob" local candname "fixed_weight_sandwich "
 
     display as text _newline "CANDIDATE: `candname'"
     display as text "  arm              coef trunc%  reps    bias  mean.SE  SEr/SD SEr/rSD coverage"
@@ -449,9 +449,9 @@ foreach cand in mod rob {
 
 display as text _newline "WINNER DECISION"
 display as text "  model_based  passes every arm: " cond(`win_mod', "YES", "NO")
-display as text "  fg_sandwich  passes every arm: " cond(`win_rob', "YES", "NO")
+display as text "  fixed_weight_sandwich  passes every arm: " cond(`win_rob', "YES", "NO")
 
-display as text _newline "[Z-INF-PREREG] preregistered: model_based covers everywhere; fg_sandwich"
+display as text _newline "[Z-INF-PREREG] preregistered: model_based covers everywhere; fixed_weight_sandwich"
 display as text "               undercovers, worse at heavier truncation."
 display as text "[Z-INF-RESULT] THE PREREGISTRATION WAS REFUTED, and in the exact direction"
 display as text "               Bellach et al. (2020) sec. 5 predicts: it is model_based whose"
@@ -469,14 +469,14 @@ if !`FULL' {
 }
 
 if `win_rob' {
-    display as result _newline "RESULT: PASS -- the shipped fg_sandwich covers in every supported arm."
+    display as result _newline "RESULT: PASS -- the shipped fixed_weight_sandwich covers in every supported arm."
     if `win_rob' & !`win_mod' ///
-        display as result "  Ship fg_sandwich as the LT default (the preregistered expectation was WRONG)."
+        display as result "  Ship fixed_weight_sandwich as the LT default (the preregistered expectation was WRONG)."
     if `win_rob' & `win_mod' ///
         display as result "  BOTH cover: ship the narrower (see log) and label the other honestly."
 }
 else {
-    display as error _newline "RESULT: FAIL -- the shipped fg_sandwich does not cover in every supported arm."
+    display as error _newline "RESULT: FAIL -- the shipped fixed_weight_sandwich does not cover in every supported arm."
     display as error "  Gate Z-inference BLOCKS.  It does NOT get closed by relabelling a loser, and"
     display as error "  nuisance_adjusted does NOT get guessed: obtain ZZF (2011) Appendix B first."
     display as error "  (`n_fail' failing arm-coefficient cells)"

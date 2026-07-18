@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.4.0, 17jul2026
+Version 1.4.1, 18jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -428,6 +428,25 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.4.1 (2026-07-18)
+
+- Fixed a silent-result defect: an astronomical `tolerance()` (roughly 1e290 or
+  larger) combined with an open or missing interval bound no longer overflows the
+  tolerance-shifted search bound to a missing value, which had silently dropped
+  every legitimate match at `rc=0`. All three Mata backends (sweep, binary/
+  `nearest()`, and overlap) now clamp the shift to the finite double range.
+- Removed the `(all newnames==oldnames)` rename messages printed on every run.
+- Extended the float-precision warning to the master key under `nearest()`, where
+  it is a matching input.
+- Widened the result-table rule so the value column no longer overruns it.
+- Documented that an explicit empty `prefix("")`/`suffix("")` is treated as
+  omitted (the `_U` default still applies on collisions); that dataset notes and
+  `_dta[]` characteristics are not carried onto the output; that `assert()` fires
+  under `dryrun`/`count` before counts are shown; and how using-only rows display
+  by-variable value labels.
+- Removed a dead resort block; allocated free timers in the benchmark and demo
+  scripts so they never clobber a caller's running timers.
 
 ### 1.4.0 (2026-07-17)
 

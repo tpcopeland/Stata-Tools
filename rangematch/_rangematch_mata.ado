@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.4.0  2026/07/17
+*! _rangematch_mata Version 1.4.1  2026/07/18
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -36,7 +36,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.4.0")
+    return("1.4.1")
 }
 
 // ============================================================================
@@ -451,8 +451,12 @@ void _rm_build_pairs_sweep(
         gid_i = trunc(g)
         lo = (M[i, 2] >= . ? mindouble() : M[i, 2])
         hi = (M[i, 3] >= . ? maxdouble() : M[i, 3])
-        lo_search = lo - tolerance
-        hi_search = hi + tolerance
+        // Clamp the tolerance shift to the finite double range. Without this,
+        // mindouble() - tolerance (or maxdouble() + tolerance) overflows to
+        // missing for tolerance >~ 1e290; a missing lo_search sorts above every
+        // key and silently drops all matches (max/min ignore the missing).
+        lo_search = max((lo - tolerance, mindouble()))
+        hi_search = min((hi + tolerance, maxdouble()))
         mobs = M[i, 4]
 
         if (gid_i != cur_gid) {
@@ -749,8 +753,11 @@ void _rm_build_pairs(
         g    = M[i, 1]
         lo   = M[i, 2]
         hi   = M[i, 3]
-        lo_search = lo - tolerance
-        hi_search = hi + tolerance
+        // Clamp the tolerance shift to the finite double range (see the sweep
+        // backend): an unclamped shift overflows to missing for a large
+        // tolerance and drops every match. max/min ignore the missing operand.
+        lo_search = max((lo - tolerance, mindouble()))
+        hi_search = min((hi + tolerance, maxdouble()))
         mobs = M[i, 4]
         mkey = (nearest_code == 0 ? . : M[i, 5])
 
@@ -1418,8 +1425,11 @@ void _rm_build_pairs_overlap(
         if (_rm_interval_nonempty(M[i, 2], M[i, 3], both)) {
             p++
             VM[p, 1] = M[i, 1]
-            VM[p, 2] = M[i, 2] - tolerance
-            VM[p, 3] = M[i, 3] + tolerance
+            // Clamp the tolerance shift to the finite double range (see the
+            // sweep backend): an unclamped shift overflows to missing for a
+            // large tolerance and drops every match.
+            VM[p, 2] = max((M[i, 2] - tolerance, mindouble()))
+            VM[p, 3] = min((M[i, 3] + tolerance, maxdouble()))
             VM[p, 4] = i
         }
     }

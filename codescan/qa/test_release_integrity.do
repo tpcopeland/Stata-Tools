@@ -106,6 +106,7 @@ capture noisily {
 
     foreach f in ///
         codescan.ado ///
+        _codescan_engine.ado ///
         _codescan_codefile.ado ///
         _codescan_definitions.ado ///
         _codescan_outputs.ado ///
@@ -142,8 +143,8 @@ capture noisily {
 
     * Every .ado header must carry that same version. Their dates are NOT
     * compared to the distribution date.
-    foreach f in codescan.ado codescan_describe.ado _codescan_codefile.ado ///
-        _codescan_definitions.ado _codescan_outputs.ado ///
+    foreach f in codescan.ado _codescan_engine.ado codescan_describe.ado ///
+        _codescan_codefile.ado _codescan_definitions.ado _codescan_outputs.ado ///
         _codescan_parse_filespec.ado _codescan_validate_path.ado {
         _cs_extract_first "`pkg_dir'/`f'" "^\*! [_a-zA-Z]+ Version ([0-9]+\.[0-9]+\.[0-9]+)"
         if "`r(value)'" != "`ver'" {

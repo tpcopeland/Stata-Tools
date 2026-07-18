@@ -412,11 +412,12 @@ capture noisily {
     * the retired omnibus scalar was exactly this row's statistic.
     matrix _Pm03 = r(phtest)
     assert rowsof(_Pm03) == 1
+    * FG-03: diagnostic surface [correlation, events]; no chi2/df/p
     assert !missing(_Pm03[1,1])
-    assert !missing(_Pm03[1,3])
-    assert _Pm03[1,1] >= 0
-    assert _Pm03[1,3] >= 0 & _Pm03[1,3] <= 1
-    display as text "  chi2 = " %8.4f _Pm03[1,1] "  p = " %6.4f _Pm03[1,3]
+    assert !missing(_Pm03[1,2])
+    assert _Pm03[1,1] >= -1 & _Pm03[1,1] <= 1
+    assert _Pm03[1,2] > 0 & _Pm03[1,2] < .
+    display as text "  correlation = " %8.4f _Pm03[1,1] "  events = " %6.0f _Pm03[1,2]
 }
 if _rc == 0 {
     display as result "  PASS: FG-M03 well-posed PH test still reports real statistics"

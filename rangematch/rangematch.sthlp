@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  17jul2026}{...}
+{* *! version 1.4.1  18jul2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -140,7 +140,9 @@ definition is copied under a collision-free name ({it:name}{cmd:_U}, then
 {it:name}{cmd:_U2}, and so on), to which the carried using variables are
 attached; carried variables sharing one mapping share one copy. Both meanings
 therefore survive, and {helpb decode} on a carried variable returns the using
-data's own text.
+data's own text. Dataset {helpb notes} and {cmd:_dta[]} characteristics are not
+carried onto the output; unlike {helpb merge}, which leaves the master data in
+place, {cmd:rangematch} rebuilds the result from the matched rows.
 
 {pstd}
 If you only need summary statistics over a range, {cmd:rangestat} is usually
@@ -197,7 +199,11 @@ bounds are not allowed. All other options ({opt by()}, {opt unmatched()}, {opt k
 of {it:varlist} in both master and using datasets. By-variables must exist in
 both datasets and have compatible types. {cmd:strL} by-variables are not
 allowed (Stata cannot sort or merge on {cmd:strL}); recast to {cmd:str#}
-first. Matches are only considered within groups defined by {opt by()}.
+first. Matches are only considered within groups defined by {opt by()}. The
+shared by-column in the output takes the master side's value label; under
+{opt unmatch:ed(both)}, using-only rows display their by-value through that same
+master-side label. If the two datasets attach different value labels to the same
+by-variable, decode using-only rows against the using data.
 
 {phang}
 {opt keepu:sing(varlist)} specifies which variables to carry from the using
@@ -213,7 +219,12 @@ combined with {opt s:uffix()}.
 {phang}
 {opt s:uffix(string)} adds a suffix to renamed using variables. If neither
 {opt p:refix()} nor {opt s:uffix()} is specified, conflicting using variables are
-renamed with suffix {bf:_U}.
+renamed with suffix {bf:_U}. An explicitly empty {cmd:prefix("")} or
+{cmd:suffix("")} is treated the same as omitting it: the default {bf:_U} suffix
+still applies to conflicting names. To keep a conflicting using variable under
+its own name, drop the master-side clash or select the using variables with
+{opt keepus:ing()}; a genuine name collision is reported rather than silently
+overwritten.
 
 {phang}
 {opt all} renames all using variables with the requested prefix and/or suffix,
@@ -377,7 +388,9 @@ current random-number stream and advances it as usual.
 requires every master observation under consideration to match at least one
 using observation. {opt as:sert(using)} requires every using observation to match at
 least one master observation. You may specify both tokens, for example
-{cmd:assert(match using)}.
+{cmd:assert(match using)}. The assertion is enforced during matching, so it also
+fires under {opt dryrun} and {opt count}: if it fails there, {cmd:rangematch}
+aborts before any counts are displayed or posted to {cmd:r()}.
 
 {dlgtab:Output}
 
@@ -800,7 +813,7 @@ posted only when {opt stats} is specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.0, 17jul2026{p_end}
+{pstd}Version 1.4.1, 18jul2026{p_end}
 
 
 {title:Also see}

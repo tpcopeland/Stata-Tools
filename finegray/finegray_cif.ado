@@ -35,8 +35,13 @@ program define finegray_cif, rclass sortpreserve
     capture noisily {
 
     syntax [, AT(string) ATTime(numlist sort >=0) ///
-        TImepoints(numlist sort >=0) CI Level(cilevel) ///
+        TImepoints(numlist sort >=0) CI Level(string) ///
         SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH *]
+
+    * level() is parsed as a string (not cilevel) so an OMITTED level() is empty
+    * and distinguishable from an explicit one -- cilevel would auto-fill it with
+    * c(level), making the "level() requires ci" guard misfire on every plain
+    * finegray_cif call.  Validated as a confidence level below when supplied.
 
     if `bootstrap' < 0 {
         display as error "bootstrap() must be a non-negative integer"
@@ -58,6 +63,19 @@ program define finegray_cif, rclass sortpreserve
     * because they asked for it to be.
     if `"`seed'"' != "" & `bootstrap' == 0 {
         display as error "seed() requires bootstrap()"
+        exit 198
+    }
+    * FG-07: bootstrap() and level() shape a confidence interval, so both require
+    * ci.  Before this guard, bootstrap() without ci performed every refit and
+    * changed the SE but returned missing interval limits, and level() without ci
+    * was parsed and ignored -- either one silently accepted an analysis option
+    * that had no effect.  This mirrors finegray_predict.
+    if `bootstrap' > 0 & "`ci'" == "" {
+        display as error "bootstrap() requires the ci option"
+        exit 198
+    }
+    if "`level'" != "" & "`ci'" == "" {
+        display as error "level() requires the ci option"
         exit 198
     }
 
@@ -94,7 +112,16 @@ program define finegray_cif, rclass sortpreserve
         display as error "no observations in estimation sample"
         exit 2000
     }
-    if "`level'" == "" local level = c(level)
+    if "`level'" == "" {
+        local level = c(level)
+    }
+    else {
+        capture confirm number `level'
+        if _rc | real("`level'") <= 0 | real("`level'") >= 100 {
+            display as error "level() must be a number between 0 and 100"
+            exit 198
+        }
+    }
 
     * Entry-time source: multi-record fits persist each subject's earliest
     * entry in a finegray-created variable; single-record fits use _t0.
@@ -179,7 +206,7 @@ program define finegray_cif, rclass sortpreserve
         quietly gen double `_cv' = 1 if e(sample)
         local _fgrebuilt "`_fgrebuilt' `_cv'"
         foreach _tp of local _tparts {
-            if regexm("`_tp'", "^([0-9]+)\.(.+)$") {
+            if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
                 local _flev = regexs(1)
                 local _fvar = regexs(2)
                 capture confirm numeric variable `_fvar'

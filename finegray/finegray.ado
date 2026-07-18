@@ -480,13 +480,26 @@ program define finegray, eclass sortpreserve
                     local _remaining ""
                 }
 
-                if regexm("`_part'", "^([0-9]+)\.(.+)$") {
+                * A kept factor level part is `N.var' or `Nbn.var' (base-none:
+                * ibn. omits no reference, so its first level 1bn.var carries a
+                * REAL coefficient and must produce a legal name, not the raw
+                * token _fg_1bn.varXx that r(198)'d before).  Base parts (Nb.var)
+                * never reach here -- the whole term is skipped above.
+                if regexm("`_part'", "^([0-9]+)(bn)?\.(.+)$") {
                     if "`_fg_parts'" != "" local _fg_parts "`_fg_parts'X"
-                    local _fg_parts "`_fg_parts'`=regexs(2)'_`=regexs(1)'"
+                    local _fg_parts "`_fg_parts'`=regexs(3)'_`=regexs(1)'"
                 }
                 else if regexm("`_part'", "^c\.(.+)$") {
                     if "`_fg_parts'" != "" local _fg_parts "`_fg_parts'X"
                     local _fg_parts "`_fg_parts'`=regexs(1)'"
+                }
+                else if strpos("`_part'", ".") {
+                    * A dotted operator the shared grammar does not model (o., a
+                    * future marker).  Copying it verbatim into a variable name
+                    * produced an illegal name; refuse explicitly instead.
+                    display as error "factor-variable operator in `_part' is not supported"
+                    display as error "finegray supports i., ib#., ibn., c., #, and ## terms"
+                    exit 198
                 }
                 else {
                     if "`_fg_parts'" != "" local _fg_parts "`_fg_parts'X"
@@ -543,10 +556,11 @@ program define finegray, eclass sortpreserve
                     local _lbl_remaining ""
                 }
 
-                if regexm("`_lbl_part'", "^([0-9]+)\.(.+)$") {
-                    * Factor part: use value label if available
+                if regexm("`_lbl_part'", "^([0-9]+)(bn)?\.(.+)$") {
+                    * Factor part: use value label if available (Nbn. base-none
+                    * levels label like ordinary levels; they have no reference)
                     local _lp_lev = regexs(1)
-                    local _lp_var = regexs(2)
+                    local _lp_var = regexs(3)
                     local _lp_vallbl : value label `_lp_var'
                     local _lp_txt ""
                     if "`_lp_vallbl'" != "" {
@@ -921,18 +935,27 @@ program define finegray, eclass sortpreserve
     * list.  Adjudicated by Gate Z-inference (qa/validation_finegray_zzf_coverage.do),
     * which measures 95% coverage against a known truth across two truncation
     * intensities and two sample sizes:
-    *   model_based    inverse information, no sandwich (Geskus 2011 p.44)
-    *   fg_sandwich    Fine-Gray (1999) eq. 7-8 sandwich, carrying A = G(t-)H(t-);
-    *                  cluster-robust when cluster() is given
+    *   model_based          inverse information, no sandwich (Geskus 2011 p.44)
+    *   fixed_weight_sandwich  score-residual sandwich that treats the estimated
+    *                  censoring distribution G -- and, under delayed entry, the
+    *                  entry distribution H, carried as A = G(t-)H(t-) -- as
+    *                  FIXED.  It is cluster-robust when cluster() is given.  This
+    *                  is NOT the full Fine-Gray (1999) eq. 7-8 / ZZF (2011)
+    *                  nuisance-adjusted variance: the two-part influence term for
+    *                  having ESTIMATED G (and H) is not added.  That term's
+    *                  explicit form is in ZZF (2011) Appendix B, whose display
+    *                  equations are images in every copy obtainable and are not
+    *                  being written from memory (see literature/_requested.md);
+    *                  its omission is documented and, in the right-censored and
+    *                  tested left-truncated settings, empirically small (see
+    *                  finegray.sthlp, Variance).  For nuisance-adjusted
+    *                  coefficient inference, bootstrap the whole fit (help
+    *                  finegray, "Bootstrap coefficient inference").
     *   not_applicable no delayed entry -- the right-censoring branch is unchanged
     *                  from prior releases and its variance is not at issue here
-    * nuisance_adjusted (the ZZF two-part influence function) is NOT implemented:
-    * its explicit form is in ZZF (2011) Appendix B, whose display equations are
-    * images in every copy obtainable, and it is not being written from memory.
-    * See literature/_requested.md.
     if !`_fg_has_lt'                      ereturn local lt_vce "not_applicable"
     else if "`robust'" == "norobust"      ereturn local lt_vce "model_based"
-    else                                  ereturn local lt_vce "fg_sandwich"
+    else                                  ereturn local lt_vce "fixed_weight_sandwich"
 
     * Weight-sensitivity diagnostics, computed once by _finegray_weight_diag over
     * the cells the scan ACTUALLY consults (a stratum's A may collapse in a tail

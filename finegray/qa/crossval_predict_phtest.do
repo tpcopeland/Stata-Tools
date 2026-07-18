@@ -1,17 +1,20 @@
 * crossval_predict_phtest.do - Cross-validation for finegray_predict and finegray_phtest
-* Tests: row-level xb/CIF/Schoenfeld vs R, phtest chi2 vs R, internal consistency
+* Tests: row-level xb/CIF/Schoenfeld vs R, phtest residual-time correlation vs R,
+*        internal consistency
 * Package: finegray
 *
 * Companion: crossval_predict_phtest_r.R (called via shell)
 * Equivalence: finegray_predict xb/cif/schoenfeld ~ cmprsk::crr manual computation
-*              finegray_phtest ~ cor(schoenfeld, time) in R
+*              finegray_phtest correlation ~ cor(schoenfeld, time) in R
 *
 * The Schoenfeld/PH residuals are cross-validated against cmprsk at a COMMON
 * beta (finegray's coefficients are passed to R), isolating the residual/risk-
-* set algorithm from optimizer-to-optimizer beta differences.  The authoritative
-* chi2 parity is asserted on tie-free, well-conditioned simulated data (P12),
-* where finegray and cmprsk agree to numerical precision; hypoxia (heavy ties +
-* a near-zero censoring weight) is checked only for functional validity, with
+* set algorithm from optimizer-to-optimizer beta differences.  finegray_phtest
+* is a DIAGNOSTIC (FG-03): it reports the residual-time correlation, no chi2 or
+* p-value, so the R comparison is a coding-consistency check of that correlation
+* on tie-free, well-conditioned simulated data (P12), not a test-calibration
+* claim; hypoxia (heavy ties + a near-zero censoring weight) is checked only for
+* functional validity, with
 * its residuals validated bit-for-bit against stcrreg in
 * crossval_predict_stcrreg.do.
 
@@ -223,10 +226,11 @@ capture noisily {
         * surface instead.
         matrix _P3m = r(phtest)
         assert rowsof(_P3m) == 3
+        * FG-03: diagnostic surface [correlation, events]; no chi2/df/p columns.
+        assert colsof(_P3m) == 2
         forvalues v = 1/3 {
-            assert _P3m[`v',1] > 0 & _P3m[`v',1] < .
-            assert _P3m[`v',2] == 1
-            assert _P3m[`v',3] >= 0 & _P3m[`v',3] <= 1
+            assert _P3m[`v',1] >= -1 & _P3m[`v',1] <= 1
+            assert _P3m[`v',2] > 0 & _P3m[`v',2] < .
         }
         assert r(N_fail) == `N_fail_hyp'
     }
@@ -480,24 +484,24 @@ else {
     local ++fail_count
 }
 
-* P12: Simulated per-covariate phtest chi2 vs cmprsk.
+* P12: Simulated per-covariate phtest CORRELATION vs the R recomputation.
 * Tie-free, well-conditioned data with the Schoenfeld residuals computed at a
-* COMMON beta (passed to R), so finegray's chi2 = N*rho^2 and cmprsk's must
-* agree to numerical precision across all three time transforms.  (The 20%
-* band the hypoxia checks used was tie/G-truncation slack — gone here.)
-* Model is still active from P11.
+* COMMON beta (passed to R), so finegray's reported residual-time correlation
+* rho and R's cor(residual, time) must agree to numerical precision across all
+* three time transforms.  Model is still active from P11.
 *
-* ORACLE SCOPE — read before trusting this test.  cmprsk does NOT ship a PH
-* test, so the R side computes N*rho^2 itself, by the same rule as the .ado.
-* What is therefore independently checked is the SCHOENFELD RESIDUAL (P11) and
-* crr's beta: the chi2 comparison rides on those, and cannot detect a shared
-* misreading of the statistic itself.  This is why the retired global test
-* stayed green here for 23 comparison groups while being wrong on its face —
-* the R script reimplemented the same sum-and-refer-to-chi2(p) rule (mirror
-* oracle).  That GLOBAL row is gone from crossval_predict_phtest_r.R as of
-* 1.2.0; only the per-covariate rows, which are well-defined 1-df tests, are
-* compared.  A genuinely independent PH-test oracle would need Zhou et al.
-* (2013) or Li et al. (2015); neither is implemented.
+* WHAT THIS DOES AND DOES NOT ESTABLISH (read before trusting it).  This is a
+* CODING-CONSISTENCY check, not a statistical validation.  finegray_phtest is a
+* DIAGNOSTIC (FG-03): it reports only the residual-time correlation, with no
+* chi2 and no p-value, because no published null calibration exists for the
+* marginal n*rho^2 statistic under the subdistribution model.  cmprsk ships no
+* PH test either, so the R side simply recomputes the SAME correlation from the
+* Schoenfeld residuals independently checked in P11.  Agreement therefore shows
+* the two implementations compute the same descriptive quantity; it says nothing
+* about a reference distribution, and none is claimed.  A genuinely independent
+* PH-test oracle would need Zhou et al. (2013) or Li et al. (2015); neither is
+* implemented.  r_phtest.csv still carries R's vestigial chi2/p columns; they
+* are deliberately NOT compared here.
 foreach tf in rank log identity {
     local ++test_count
     capture noisily {
@@ -517,24 +521,25 @@ foreach tf in rank log identity {
         assert rowsof(_P12m) == 2
         forvalues v = 1/2 {
             local vn : word `v' of `_vnames'
-            local s_chi2 = _P12m[`v', 1]
+            * column 1 is now the residual-time correlation (rho)
+            local s_rho = _P12m[`v', 1]
             preserve
             import delimited using "`datadir'/r_phtest.csv", clear
-            quietly summ chi2 if variable == "`vn'" & time_func == "`tf'", meanonly
-            local r_chi2 = r(mean)
+            quietly summ rho if variable == "`vn'" & time_func == "`tf'", meanonly
+            local r_rho = r(mean)
             restore
-            local rel_diff = abs(`s_chi2' - `r_chi2') / max(`r_chi2', 0.01)
-            display as text "  sim `tf' `vn' chi2: Stata=" %9.5f `s_chi2' ///
-                " R=" %9.5f `r_chi2' " rel_diff=" %8.6f `rel_diff'
-            assert `rel_diff' < 0.005
+            local abs_diff = abs(`s_rho' - `r_rho')
+            display as text "  sim `tf' `vn' rho: Stata=" %9.6f `s_rho' ///
+                " R=" %9.6f `r_rho' " abs_diff=" %9.7f `abs_diff'
+            assert `abs_diff' < 1e-4
         }
     }
     if _rc == 0 {
-        display as result "  PASS: P12 simulated phtest `tf' per-covariate chi2 vs cmprsk (< 0.5%)"
+        display as result "  PASS: P12 simulated phtest `tf' per-covariate correlation vs R (coding-consistency)"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: P12 simulated phtest `tf' per-covariate chi2 vs cmprsk (rc=`=_rc')"
+        display as error "  FAIL: P12 simulated phtest `tf' per-covariate correlation vs R (rc=`=_rc')"
         capture restore
         local ++fail_count
     }
@@ -584,9 +589,10 @@ else {
     local ++fail_count
 }
 
-* P14: predict schoenfeld + manual correlation == phtest chi2
-* Pearson r is scale-invariant, so unscaled Schoenfeld residuals
-* should give the same chi2 as phtest's scaled version.
+* P14: predict schoenfeld + manual correlation == phtest correlation
+* Pearson r is scale-invariant, so unscaled Schoenfeld residuals give the same
+* residual-time correlation as phtest's scaled version.  FG-03: phtest reports
+* the correlation (column 1), not chi2, so this checks correlation-vs-correlation.
 local ++test_count
 local p14_pass = 1
 capture noisily {
@@ -607,14 +613,12 @@ capture noisily {
         local ++varnum
         quietly correlate `v' t_rank
         local rho = r(rho)
-        local n_corr = r(N)
-        local chi2_v = `n_corr' * (`rho')^2
-        local ph_chi2_v = ph_mat[`varnum', 1]
-        local vdiff = abs(`chi2_v' - `ph_chi2_v')
-        display as text "  var `varnum': manual chi2=" %8.4f `chi2_v' ///
-            " phtest chi2=" %8.4f `ph_chi2_v' " diff=" %8.6f `vdiff'
-        if `vdiff' >= 0.01 {
-            display as error "  FAIL: var `varnum' diff " %8.6f `vdiff' " >= 0.01"
+        local ph_rho_v = ph_mat[`varnum', 1]
+        local vdiff = abs(`rho' - `ph_rho_v')
+        display as text "  var `varnum': manual rho=" %9.6f `rho' ///
+            " phtest rho=" %9.6f `ph_rho_v' " diff=" %9.7f `vdiff'
+        if `vdiff' >= 1e-4 {
+            display as error "  FAIL: var `varnum' diff " %9.7f `vdiff' " >= 1e-4"
             local p14_pass = 0
         }
     }
@@ -629,7 +633,7 @@ if _rc != 0 {
     capture restore
 }
 if `p14_pass' {
-    display as result "  PASS: P14 predict schoenfeld + manual cor == phtest chi2"
+    display as result "  PASS: P14 predict schoenfeld + manual cor == phtest correlation"
     local ++pass_count
 }
 else {

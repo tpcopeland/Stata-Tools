@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.0.0  2026/07/17
+*! _codescan_definitions Version 4.0.1  2026/07/18
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 

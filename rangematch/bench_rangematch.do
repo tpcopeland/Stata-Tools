@@ -87,6 +87,22 @@ capture noisily {
         double pairs int rc str12 status using "`bench_results'", replace
     local post_open = 1
 
+    * Allocate a free Stata timer instead of hardcoding timer 1, so the
+    * benchmark never clobbers a caller's running timers (matching how the
+    * rangematch command itself allocates unused timers).
+    local _bt ""
+    forvalues _c = 1/100 {
+        quietly timer list `_c'
+        if r(t`_c') >= . {
+            local _bt `_c'
+            continue, break
+        }
+    }
+    if "`_bt'" == "" {
+        display as error "benchmark requires one free Stata timer"
+        error 498
+    }
+
     forvalues i = 1/6 {
         local scenario  "`scenario`i''"
         local nmaster   `nmaster`i''
@@ -133,14 +149,14 @@ capture noisily {
         quietly save "`master'", replace
 
         use "`master'", clear
-        timer clear 1
-        timer on 1
+        timer clear `_bt'
+        timer on `_bt'
         capture noisily rangematch key lo hi using "`using'", ///
             by(group) keepusing(uid key) unmatched(none) nosort
         local rm_rc = _rc
-        timer off 1
-        quietly timer list 1
-        local rm_seconds = r(t1)
+        timer off `_bt'
+        quietly timer list `_bt'
+        local rm_seconds = r(t`_bt')
         local rm_pairs = .
         local rm_status "error"
         if `rm_rc' == 0 {
@@ -154,13 +170,13 @@ capture noisily {
 
         if `has_rangejoin' {
             use "`master'", clear
-            timer clear 1
-            timer on 1
+            timer clear `_bt'
+            timer on `_bt'
             capture noisily rangejoin key lo hi using "`using'", by(group)
             local rj_rc = _rc
-            timer off 1
-            quietly timer list 1
-            local rj_seconds = r(t1)
+            timer off `_bt'
+            quietly timer list `_bt'
+            local rj_seconds = r(t`_bt')
             local rj_pairs = .
             local rj_status "error"
             if `rj_rc' == 0 {

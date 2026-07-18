@@ -1,5 +1,5 @@
 *! finegray_phtest Version 1.2.0  2026/07/18
-*! Proportional subdistribution hazards test after finegray
+*! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
@@ -8,11 +8,15 @@ Basic syntax:
   finegray_phtest [, time(rank|log|identity) detail]
 
 Description:
-  Tests the proportional subdistribution hazards assumption after finegray.
-  Computes scaled Schoenfeld residuals and tests their correlation with time.
-  Approximate PH diagnostic (diagonal scaling, per-covariate marginal tests).
-  No omnibus test is reported -- see the "No omnibus statistic" comment at the
-  end of the test loop, and help finegray_phtest (Global test).
+  Exploratory diagnostic for the proportional subdistribution hazards
+  assumption after finegray.  Computes scaled Schoenfeld residuals and reports,
+  per covariate, the CORRELATION between the residual and a function of event
+  time (diagonal scaling).  It reports no chi-squared statistic and no p-value:
+  no published null calibration exists for the marginal n*rho^2 statistic under
+  the subdistribution-hazards model, so a nominal p-value would assert a level
+  the package has not established.  A correlation far from zero flags a covariate
+  for follow-up (residual plot; time-interaction fit).  No omnibus statistic is
+  reported.
 
 Options:
   time(string)  - time function: rank (default), log, identity
@@ -247,9 +251,17 @@ program define finegray_phtest, rclass
         exit 459
     }
 
-    * Build test results: p x 3 matrix [chi2, df, p]
+    * Build diagnostic results: p x 2 matrix [correlation, n_event_times].
+    * This command reports the scaled-Schoenfeld/time CORRELATION as an
+    * exploratory diagnostic only.  It deliberately does NOT form chi2 = n*rho^2
+    * or a p-value: no published null calibration exists for that statistic under
+    * the proportional SUBDISTRIBUTION hazards model (the Cox Grambsch-Therneau
+    * reference distribution does not transfer -- see the long note below), so a
+    * printed Prob>chi2 would assert a nominal level the package has not
+    * established.  Users needing a formal test should fit the time-interaction
+    * model directly or use a published subdistribution PH test.
     tempname test_mat
-    matrix `test_mat' = J(`p', 3, .)
+    matrix `test_mat' = J(`p', 2, .)
 
     * Load Schoenfeld matrix into a temporary dataset once (svmat),
     * then loop correlations over columns — avoids O(p) preserve/clear cycles.
@@ -286,22 +298,16 @@ program define finegray_phtest, rclass
         }
 
         * A missing rho means the residual or the time function had no variation,
-        * so this variable's test does not exist.  It must not be reported as a
-        * blank row, and above all it must not be summed into the global
-        * statistic, where a single missing term silently makes the WHOLE test
-        * missing while still returning rc 0.
+        * so this variable's diagnostic does not exist.  It must not be reported
+        * as a blank row -- flag it and refuse rather than emit a hollow zero.
         if missing(`rho') {
             local vname : word `v' of `covlabels'
             local _undef "`_undef' `vname'"
             continue
         }
 
-        local chi2_v = `n_corr' * (`rho')^2
-        local p_v = chi2tail(1, `chi2_v')
-
-        matrix `test_mat'[`v', 1] = `chi2_v'
-        matrix `test_mat'[`v', 2] = 1
-        matrix `test_mat'[`v', 3] = `p_v'
+        matrix `test_mat'[`v', 1] = `rho'
+        matrix `test_mat'[`v', 2] = `n_corr'
     }
     restore
     local _preserved = 0
@@ -325,11 +331,13 @@ program define finegray_phtest, rclass
     * does NOT transfer to this estimator.  GT's null covariance for the scaled
     * residuals is the Cox information, an identity that holds because the Cox
     * score is a martingale integral.  finegray's score is IPCW-weighted with an
-    * ESTIMATED censoring distribution, so its variance is a sandwich carrying
-    * an extra term for that estimation (Fine & Gray 1999, eq. 7-8; Bellach et
-    * al. 2019, Sec. 3.3: "this additional variability cannot be ignored").
-    * That is why the fit itself defaults to vce(robust) rather than the inverse
-    * information.  Reusing the information as a null covariance here would
+    * ESTIMATED censoring distribution, so its true variance is a sandwich and in
+    * principle carries an extra term for that estimation (Fine & Gray 1999, eq.
+    * 7-8; Bellach et al. 2019, Sec. 3.3: "this additional variability cannot be
+    * ignored").  That is why the fit defaults to a sandwich rather than the
+    * inverse information -- though the shipped default is the FIXED-WEIGHT
+    * sandwich (e(lt_vce)=fixed_weight_sandwich), which does not add that extra
+    * term either.  Reusing the information as a null covariance here would
     * reintroduce the same defect -- an unstated reference distribution -- in a
     * form that merely looks rigorous.
     *
@@ -349,35 +357,41 @@ program define finegray_phtest, rclass
         local rownames "`rownames' `v'"
     }
     matrix rownames `test_mat' = `rownames'
-    matrix colnames `test_mat' = chi2 df p
+    matrix colnames `test_mat' = correlation events
 
-    * Display results
+    * Display results.  This is a DIAGNOSTIC, not a test: it reports the
+    * correlation between each scaled Schoenfeld residual and the time function.
+    * A correlation far from zero is a sign of nonproportionality worth
+    * following up (plot the residual, fit the time interaction); it is not
+    * referred to any null distribution and carries no p-value.
     display as text ""
-    display as text "Test of proportional subdistribution hazards assumption"
+    display as text "Proportional subdistribution hazards diagnostic (exploratory)"
     display as text ""
     display as text "Time function: " as result "`time'"
     display as text "Cause events:  " as result "`n_fail'"
     display as text ""
 
-    display as text "{hline 13}{c TT}{hline 36}"
+    display as text "{hline 13}{c TT}{hline 30}"
     display as text %12s "Variable" " {c |}" ///
-        %10s "chi2" %6s "df" %12s "Prob>chi2"
-    display as text "{hline 13}{c +}{hline 36}"
+        %14s "correlation" %10s "events"
+    display as text "{hline 13}{c +}{hline 30}"
 
     forvalues v = 1/`p' {
         local vname : word `v' of `covlabels'
-        local chi2_v = `test_mat'[`v', 1]
-        local p_v = `test_mat'[`v', 3]
+        local rho_v = `test_mat'[`v', 1]
+        local n_v   = `test_mat'[`v', 2]
         display as text %12s abbrev("`vname'", 12) " {c |}" ///
-            as result %10.2f `chi2_v' %6.0f 1 %12.4f `p_v'
+            as result %14.4f `rho_v' %10.0f `n_v'
     }
 
-    display as text "{hline 13}{c BT}{hline 36}"
+    display as text "{hline 13}{c BT}{hline 30}"
     display as text ""
-    display as text "Each row is a separate 1-df test; no omnibus test is"
+    display as text "Correlation of the scaled Schoenfeld residual with the time"
+    display as text "function; exploratory diagnostic only, no test or p-value is"
     display as text "reported.  See {bf:help finegray_phtest}."
 
-    * Return results
+    * Return results.  r(phtest) carries the diagnostic correlations (and the
+    * per-covariate event count), NOT chi2/df/p -- those are deliberately absent.
     return scalar N_fail = `n_fail'
     return local time "`time'"
     return matrix phtest = `test_mat'

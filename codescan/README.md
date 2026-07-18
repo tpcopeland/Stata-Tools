@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 4.0.0** | 2026-07-17
+**Version 4.0.1** | 2026-07-18
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data. `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -481,6 +481,14 @@ The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `c
 The per-suite file index, test counts, lane membership, and the coverage map live in `qa/README.md` and are not duplicated here. A hand-maintained copy of those counts sat in this file and went stale silently — it read 26 suites and 680 assertions while the full lane ran 723. The authoritative counts are the `RESULT: ... tests=N` sentinels each suite prints, aggregated by `run_all.do`.
 
 ## Version History
+
+### 4.0.1 (2026-07-18)
+
+- **Bugfix — `saving()` under `merge` no longer leaks internal tempvars.** With `merge` (and any of `countrows`/date summaries/`cooccurrence`/`tostring`), the file written by `saving()` previously contained codescan's internal scratch variables (`__000000` etc.) alongside the intended result columns. `saving()` now drops those tempvars before writing, so the deliverable holds only the id/date/scan/result columns — matching what `frame()` and the in-memory result already returned.
+- **Robustness — `codescan` self-heals after `mata: mata clear`.** The Mata scanning engine now lives in `_codescan_engine.ado` and is recompiled on demand. Previously, clearing Mata mid-session left every later `codescan` call failing with a cryptic `r(3499)` until the user ran `discard`.
+- **Stricter — case-variant duplicate condition/output names are rejected.** Names that differ only in case (`DM2` vs `dm2`) create distinct Stata variables and are almost always a typo; `define()`, `codefile()`, and the output planner now reject them (`r(198)`) instead of silently creating both.
+- **Clearer error — datetime `date()`/`refdate()`.** A `%tc`/`%tC` datetime passed to `date()` or `refdate()` is rejected up front with a `dofc()` hint, instead of producing an opaque `r(2000)` or a silently near-empty cohort (time windows are measured in days).
+- **Docs.** Clarified `nodots` (patterns are matched against the undotted data), `merge` (fully-excluded ids receive `.`, not 0), `level()` (truncates inclusion prefixes only; exclusions match at full precision), `detail` under `collapse`/`merge` (contributions are row-level), and `r(codelist)` (a legacy exact copy of `r(summary)`). Removed a stale "prevalence CIs" phrase left over from the 4.0.0 CI removal.
 
 ### 4.0.0 (2026-07-17)
 

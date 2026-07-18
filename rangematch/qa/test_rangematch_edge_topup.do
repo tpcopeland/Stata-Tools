@@ -164,12 +164,66 @@ if _rc | _N != `Nbefore' | sentinel[1] != `sent_before' {
     local ++FAIL
 }
 
+* ===== A8: astronomical tolerance() + open bound must not overflow to =====
+* missing and silently drop a legitimate match (regression for the
+* tolerance-shift underflow: mindouble() - tol -> . sorts above every key, so
+* lo_search excludes everything). One cell per backend (sweep / binary-nearest
+* / overlap). Each SHOULD match; the pre-fix code returned matched=0.
+* A single using key at 50 sits inside the open-below master interval [.,100].
+clear
+input double key long uid
+50 1
+end
+tempfile UA8
+save "`UA8'"
+* master interval open below, closed at 100
+clear
+input double key double lo double hi long mid
+50 . 100 1
+end
+tempfile MA8
+save "`MA8'"
+
+* A8a sweep (default backend): open-below master, huge tolerance -> still 1 match
+use "`MA8'", clear
+quietly rangematch key lo hi using "`UA8'", keepusing(uid) ///
+    unmatched(none) tolerance(1e300)
+if r(N_matched_pairs) != 1 {
+    di as error "A8a sweep huge-tol: matched=" r(N_matched_pairs) ///
+        " backend=" r(backend) " (want 1)"
+    local ++FAIL
+}
+* A8b binary backend (nearest): master key present, distance 0 -> 1 match
+use "`MA8'", clear
+quietly rangematch key lo hi using "`UA8'", keepusing(uid) ///
+    nearest(both) unmatched(none) tolerance(1e300)
+if r(N_matched_pairs) != 1 {
+    di as error "A8b nearest huge-tol: matched=" r(N_matched_pairs) ///
+        " backend=" r(backend) " (want 1)"
+    local ++FAIL
+}
+* A8c overlap backend: master [.,100] overlaps using [40,60] -> 1 match
+clear
+input double ulo double uhi long uid
+40 60 1
+end
+tempfile UOA8
+save "`UOA8'"
+use "`MA8'", clear
+quietly rangematch lo hi using "`UOA8'", overlap(ulo uhi) keepusing(uid) ///
+    unmatched(none) tolerance(1e300)
+if r(N_matched_pairs) != 1 {
+    di as error "A8c overlap huge-tol: matched=" r(N_matched_pairs) ///
+        " backend=" r(backend) " (want 1)"
+    local ++FAIL
+}
+
 di as txt "{hline 60}"
 if `FAIL' > 0 {
     di as error "test_rangematch_edge_topup: FAILED (`FAIL')"
-    di "RESULT: test_rangematch_edge_topup tests=5 pass=" 5-`FAIL' ///
+    di "RESULT: test_rangematch_edge_topup tests=6 pass=" 6-`FAIL' ///
         " fail=" `FAIL'
     exit 9
 }
 di as result "test_rangematch_edge_topup: PASSED"
-di "RESULT: test_rangematch_edge_topup tests=5 pass=5 fail=0"
+di "RESULT: test_rangematch_edge_topup tests=6 pass=6 fail=0"

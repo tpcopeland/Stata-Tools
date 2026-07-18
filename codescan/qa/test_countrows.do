@@ -1,5 +1,4 @@
 * test_countrows.do - Tests for codescan countrows option
-* Tests: 24
 * Date: 2026-04-07
 
 clear all

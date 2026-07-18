@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  16jul2026}{...}
+{* *! version 1.2.0  18jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -233,16 +233,41 @@ truncation-dependent undercoverage. On this estimator,
 left-truncated data.
 
 {pmore}
-{bf:Scope of the sandwich estimator.} The default sandwich treats the estimated
-inverse-probability-of-censoring weights as {it:fixed}; it does not propagate the
-uncertainty in the estimated censoring distribution G(t). This is the same
-variance {helpb stcrreg} reports, and coefficients are unaffected — only the standard
-errors are. Against {cmd:cmprsk::crr}, whose variance includes the censoring-weight
-nuisance term, {cmd:finegray}'s standard errors differ by roughly 0.2% in relative
-terms on tie-free data. Where that difference matters, {opt bootstrap()} in
-{helpb finegray_cif} and {helpb finegray_predict} resamples subjects and
-re-estimates the model and G(t) in every replication. With delayed entry it
-also re-estimates H(t) and the weight strata.
+{bf:Scope of the sandwich estimator.} The default sandwich is a
+{it:fixed-weight} sandwich: it treats the estimated inverse-probability-of-
+censoring weights as fixed and does not propagate the uncertainty in the
+estimated censoring distribution G(t) (nor, under delayed entry, the entry
+distribution H(t)). This is the same variance {helpb stcrreg} reports, and
+coefficients are unaffected — only the standard errors are. {cmd:e(lt_vce)}
+records the delayed-entry variance actually computed as
+{cmd:fixed_weight_sandwich} (or {cmd:model_based} under {opt norobust}); it is
+{bf:not} the full Fine and Gray (1999, eq. 7-8) / Zhang, Zhang and Fine (2011)
+nuisance-adjusted variance. Against {cmd:cmprsk::crr}, whose variance includes
+the censoring-weight nuisance term, {cmd:finegray}'s standard errors differ by
+roughly 0.2% in relative terms on tie-free data. Where that difference matters,
+see {it:Bootstrap coefficient inference} below.
+
+{pmore}
+{bf:Bootstrap coefficient inference.} The {opt bootstrap()} options of
+{helpb finegray_cif} and {helpb finegray_predict} resample subjects to get
+{it:CIF} and {it:prediction} standard errors; they do {bf:not} produce
+nuisance-adjusted standard errors for the coefficient vector {cmd:e(b)}. For
+coefficient-level inference that accounts for estimating G(t) (and H(t) under
+delayed entry), bootstrap the whole fit by resampling subjects and re-estimating
+in each replication. Wrap the {cmd:stset}+{cmd:finegray} step and bootstrap with
+subject-cluster resampling:
+
+{pmore2}{cmd:. program define myfit, eclass}{p_end}
+{pmore2}{cmd:.     quietly stset t, failure(ev) id(id)}{p_end}
+{pmore2}{cmd:.     quietly finegray x1 x2, compete(ev) cause(1)}{p_end}
+{pmore2}{cmd:. end}{p_end}
+{pmore2}{cmd:. bootstrap _b, reps(500) seed(12345) cluster(id) idcluster(newid) group(id): myfit}{p_end}
+
+{pmore}
+Each replication re-estimates the model and, under delayed entry, G(t), H(t) and
+the weight strata, so the resulting standard errors propagate the weight-
+estimation uncertainty the fixed-weight sandwich omits. Use enough replications
+(500+) for a stable standard error.
 
 {dlgtab:Reporting}
 
@@ -473,8 +498,10 @@ coefficients; conditioning it in both reproduces the stratified
 Zhang-Zhang-Fine weight, which removes that bias at the cost of somewhat larger
 standard errors. Should the fully-joint fit cross the positivity boundary and
 stop with {cmd:r(459)}, fall back to coarser groupings: the pooled or one-sided
-weight remains estimable, and its bias under a shared entry-censoring dependence
-is bounded -- the trade the factorized default makes on purpose.
+weight remains estimable, and in the constructed sensitivity scenario the
+package tests (see {cmd:qa/README.md}) its bias under a shared entry-censoring
+dependence was small -- the trade the factorized default makes on purpose. This
+is the observed bias in that tested scenario, not a general theoretical bound.
 
 {pstd}
 {bf:Support boundary, and a breaking change.} Under delayed entry the weight A is
@@ -509,20 +536,23 @@ On this estimator the measurement agrees with Bellach: the model-based
 standard errors ran up to 38% below the true sampling variability, and the
 failure worsened with truncation. The default sandwich covered 94-96% in every
 arm tested, including 69% truncation and stratified entry. {cmd:e(lt_vce)} records
-which variance a fit actually used ({cmd:fg_sandwich} or {cmd:model_based}), and {opt norobust}
+which variance a fit actually used ({cmd:fixed_weight_sandwich} or {cmd:model_based}), and {opt norobust}
 prints this warning at run time. {opt cluster()} fits use the cluster-robust form of
 the same sandwich.
 
 {pstd}
 {bf:What the sandwich does not do.} It treats the estimated weights as fixed — it
-does not propagate the uncertainty in estimating G and H. Zhang, Zhang and
-Fine (2011, Appendix B) give a two-part variance whose second and third terms
-account for that uncertainty, and it is not implemented here. The coverage
-study above is the evidence that the fixed-weight sandwich is nevertheless
-adequate across the supported range. Where weight-estimation uncertainty
-matters, {opt bootstrap()} in {helpb finegray_cif} and
-{helpb finegray_predict} re-estimates G, H and the weight strata in every
-replication.
+does not propagate the uncertainty in estimating G and H, so {cmd:e(lt_vce)} is
+reported as {cmd:fixed_weight_sandwich}, not as the Fine and Gray (1999, eq. 7-8)
+nuisance-adjusted variance. Zhang, Zhang and Fine (2011, Appendix B) give a
+two-part variance whose second and third terms account for that uncertainty, and
+it is not implemented here. The coverage study above is the evidence that the
+fixed-weight sandwich is nevertheless adequate across the supported range. For
+{it:coefficient} standard errors that propagate weight-estimation uncertainty,
+bootstrap the whole fit (see {it:Bootstrap coefficient inference} under
+{help finegray##options:Options}); the {opt bootstrap()} options of
+{helpb finegray_cif} and {helpb finegray_predict} give CIF/prediction standard
+errors, not coefficient ones.
 
 {pstd}
 {bf:Diagnostics.} {cmd:finegray} reports the weight design and its
@@ -664,10 +694,12 @@ default; {opt noadjust} now reproduces those earlier numbers exactly.
 {cmd:cmprsk::crr} computes a sandwich that additionally propagates the uncertainty
 in the estimated censoring distribution G(t). Coefficients match {cmd:finegray} to 8
 decimal places, but its standard errors are larger by roughly 0.2% in relative
-terms because {cmd:finegray} omits that nuisance term. To account for
-censoring-weight estimation through resampling, use {opt bootstrap()} in
-{helpb finegray_cif} or {helpb finegray_predict}; each replication re-estimates
-G(t).
+terms because {cmd:finegray}'s default is the fixed-weight sandwich and omits that
+nuisance term. To obtain coefficient standard errors that account for
+censoring-weight estimation, bootstrap the whole fit (see
+{it:Bootstrap coefficient inference} under {help finegray##options:Options}). The
+{opt bootstrap()} options of {helpb finegray_cif} and {helpb finegray_predict}
+resample for CIF/prediction standard errors, not coefficient ones.
 
 {pstd}
 {cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse observed
@@ -718,31 +750,38 @@ See {helpb finegray_predict} for the per-prediction detail.
 strata, the forward-backward scan is linear in n. Per Newton-Raphson iteration,
 the score work is O(np) and the full information-matrix work is O(np^2),
 compared with event-time data expansion in {cmd:stcrreg}, where D is the number
-of unique event times. Benchmarks on simulated competing risks data (3
-covariates, Stata/MP):
+of unique event times. The figures below are {bf:illustrative} timings on one
+machine (simulated competing-risks data, 3 covariates, Stata/MP; absolute
+seconds are machine-dependent and will differ on your hardware). Regenerate
+comparable numbers on your own machine with {bf:demo/benchmark_large.do}, which
+reports the median of three timed runs after a warm-up and captures the run
+environment; the reproducible, portable quantity is the {it:speedup ratio}, not
+the absolute seconds.
 
 {col 10}{bf:N}{col 24}{bf:finegray}{col 40}{bf:stcrreg}{col 56}{bf:Speedup}
 {col 10}{hline 52}
-{col 10}500{col 24}0.04s{col 40}1.5s{col 56}40x
-{col 10}1,000{col 24}0.06s{col 40}3.9s{col 56}63x
-{col 10}2,000{col 24}0.14s{col 40}15.9s{col 56}114x
-{col 10}5,000{col 24}0.27s{col 40}96.8s{col 56}357x
-{col 10}10,000{col 24}0.58s{col 40}378.7s{col 56}651x
+{col 10}500{col 24}0.04s{col 40}1.5s{col 56}~40x
+{col 10}1,000{col 24}0.06s{col 40}3.9s{col 56}~65x
+{col 10}2,000{col 24}0.14s{col 40}15.9s{col 56}~115x
+{col 10}5,000{col 24}0.27s{col 40}96.8s{col 56}~355x
+{col 10}10,000{col 24}0.58s{col 40}378.7s{col 56}~650x
 
 {pstd}
 The speedup grows with sample size because {cmd:stcrreg} expands the dataset by
-the number of unique event times.
+the number of unique event times; the ratios above are approximate and rounded.
 
 {pstd}
-Runtime is linear in N. Measured CPU time (Stata/MP, 2 covariates, delayed entry,
-one truncation stratum), doubling N each row:
+Runtime is linear in N. {bf:Illustrative} CPU time on one machine (Stata/MP, 2
+covariates, delayed entry, one truncation stratum), doubling N each row; absolute
+seconds are machine-dependent, but the near-2x per-doubling ratio (linear
+scaling) is the portable observation:
 
 {col 10}{bf:N}{col 26}{bf:CPU}{col 40}{bf:vs previous}
 {col 10}{hline 40}
 {col 10}25,000{col 26}2.0s
-{col 10}50,000{col 26}4.0s{col 40}2.0x
-{col 10}100,000{col 26}8.3s{col 40}2.1x
-{col 10}200,000{col 26}17.5s{col 40}2.1x
+{col 10}50,000{col 26}4.0s{col 40}~2.0x
+{col 10}100,000{col 26}8.3s{col 40}~2.1x
+{col 10}200,000{col 26}17.5s{col 40}~2.1x
 
 {pstd}
 {bf:Why {opt basehaz} is not the default:} {cmd:e(basehaz)} carries one row per
@@ -1025,7 +1064,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-07-16{p_end}
+{pstd}Version 1.2.0, 2026-07-18{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

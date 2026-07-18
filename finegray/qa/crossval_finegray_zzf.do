@@ -65,10 +65,33 @@ net install finegray, from("`pkgroot'") replace
 * Pin the full oracle size here.  The R generator accepts smaller environment
 * overrides for direct smoke work; inheriting one into this suite must not turn
 * a 100-dataset cross-validation into a green three-dataset smoke run.
-capture noisily shell ZZF_XV_N=3000 ZZF_XV_REPS=20 ///
-    Rscript "`qadir'/crossval_finegray_zzf_beta_r.R"
+*
+* FAIL-CLOSED GENERATION (FG-02).  Stata's `shell' does NOT put the child's exit
+* status in _rc -- a bare `shell /usr/bin/false' returns _rc 0 -- so the former
+* `if _rc' guard could never see an R failure.  With an ignored data/ cache from
+* a prior good run still present, a broken or missing Rscript (which never even
+* reaches R's own stale-file cleanup) would let the suite consume last run's
+* oracle as if it were fresh and report 102/102.  Two guards close that:
+*   1. erase the oracle index files HERE, in Stata, before calling R, so a
+*      no-op Rscript cannot leave a stale oracle+manifest behind; and
+*   2. capture R's REAL exit code through a sentinel file and fail on nonzero.
+capture erase "`datadir'/zzf_xv_oracle_beta.csv"
+capture erase "`datadir'/zzf_xv_manifest.csv"
+tempfile rcsent
+shell ZZF_XV_N=3000 ZZF_XV_REPS=20 Rscript "`qadir'/crossval_finegray_zzf_beta_r.R" ; echo $? > "`rcsent'"
+capture confirm file "`rcsent'"
 if _rc {
-    display as error "R oracle generation failed (rc=`=_rc')"
+    display as error "R oracle wrapper produced no exit-status sentinel"
+    exit 9
+}
+tempname _shrc
+file open `_shrc' using "`rcsent'", read text
+file read `_shrc' _rc_line
+file close `_shrc'
+local _rexit = real(trim("`_rc_line'"))
+if `_rexit' != 0 {
+    display as error "R oracle generation failed (child exit `=trim(`"`_rc_line'"')')"
+    display as error "no stale oracle is consumed: the index files were erased before R ran"
     exit 9
 }
 capture confirm file "`datadir'/zzf_xv_oracle_beta.csv"

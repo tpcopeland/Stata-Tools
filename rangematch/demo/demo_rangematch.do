@@ -203,6 +203,23 @@ quietly {
         double rangejoin_pps int rangejoin_rc str12 status ///
         using "`bench_results'", replace
 
+    * Allocate two free Stata timers rather than hardcoding 1 and 2, so the demo
+    * never clobbers a caller's running timers.
+    local _dt ""
+    forvalues _c = 1/100 {
+        quietly timer list `_c'
+        if r(t`_c') >= . {
+            local _dt "`_dt' `_c'"
+            if `: word count `_dt'' == 2 continue, break
+        }
+    }
+    if `: word count `_dt'' < 2 {
+        display as error "demo requires two free Stata timers"
+        error 498
+    }
+    local _dt1 : word 1 of `_dt'
+    local _dt2 : word 2 of `_dt'
+
     forvalues i = 1/6 {
         local scenario  "`scenario`i''"
         local nmaster   `nmaster`i''
@@ -231,13 +248,13 @@ quietly {
         save "`master'", replace
 
         use "`master'", clear
-        timer clear 1
-        timer on 1
+        timer clear `_dt1'
+        timer on `_dt1'
         rangematch key lo hi using "`using'", ///
             by(group) keepusing(uid key) unmatched(none) nosort
-        timer off 1
-        timer list 1
-        local rm_seconds = r(t1)
+        timer off `_dt1'
+        timer list `_dt1'
+        local rm_seconds = r(t`_dt1')
         local rm_pairs = _N
         local rm_pps = `rm_pairs' / `rm_seconds'
 
@@ -250,13 +267,13 @@ quietly {
 
         if `has_rangejoin' {
             use "`master'", clear
-            timer clear 2
-            timer on 2
+            timer clear `_dt2'
+            timer on `_dt2'
             capture rangejoin key lo hi using "`using'", by(group)
             local rj_rc = _rc
-            timer off 2
-            timer list 2
-            local rj_seconds = r(t2)
+            timer off `_dt2'
+            timer list `_dt2'
+            local rj_seconds = r(t`_dt2')
             local status "error"
 
             if `rj_rc' == 0 {

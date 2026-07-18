@@ -1,4 +1,4 @@
-*! _codescan_outputs Version 4.0.0  2026/07/17
+*! _codescan_outputs Version 4.0.1  2026/07/18
 *! Private output-name helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -91,9 +91,11 @@ program define _codescan_plan_outputs, rclass
                 exit 198
             }
         }
+        * Case-insensitive: names differing only in case make distinct Stata
+        * variables but are almost always a typo (F10)
         forvalues j = 1/`=`i'-1' {
-            if "`_out_nm'" == "`_output_`j''" {
-                display as error "output name `_out_nm' is specified more than once; choose distinct names"
+            if strlower("`_out_nm'") == strlower("`_output_`j''") {
+                display as error "output name `_out_nm' is specified more than once (names must be unique ignoring case); choose distinct names"
                 exit 198
             }
         }

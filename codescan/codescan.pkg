@@ -22,7 +22,7 @@ d Works with ICD, KVA, CPT, ATC, OPCS, or any string code system.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260717
+d Distribution-Date: 20260718
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -36,6 +36,7 @@ d KW: claims
 d KW: pattern matching
 d
 f codescan.ado
+f _codescan_engine.ado
 f _codescan_codefile.ado
 f _codescan_definitions.ado
 f _codescan_outputs.ado

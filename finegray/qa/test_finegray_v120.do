@@ -76,12 +76,16 @@ capture noisily {
     assert "`r(time)'" == "rank"
     matrix ph = r(phtest)
     assert rowsof(ph) == 3
-    assert colsof(ph) == 3
-    * every per-covariate row is a real 1-df test
+    * FG-03: diagnostic-only surface -- two columns [correlation, events],
+    * NOT [chi2, df, p].  On the pre-FG-03 code colsof(ph) == 3 and column 2 is
+    * df==1, so both asserts below fail there.
+    assert colsof(ph) == 2
+    local cn : colnames ph
+    assert "`cn'" == "correlation events"
     forvalues v = 1/3 {
-        assert ph[`v', 1] >= 0 & ph[`v', 1] < .
-        assert ph[`v', 2] == 1
-        assert ph[`v', 3] >= 0 & ph[`v', 3] <= 1
+        * correlation in [-1, 1]; event count positive and finite
+        assert ph[`v', 1] >= -1 & ph[`v', 1] <= 1
+        assert ph[`v', 2] > 0 & ph[`v', 2] < .
     }
     local rn : rowfullnames ph
     assert "`rn'" == "x1 x2 x3"

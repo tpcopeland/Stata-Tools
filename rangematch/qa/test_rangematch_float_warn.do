@@ -124,6 +124,34 @@ if r(warned) != 1 | r(rc) != 0 {
     local ++FAIL
 }
 
+* --- 5: nearest() with a FLOAT master key and a DOUBLE using key -> WARN.
+* Regression for the coverage gap where the master-key float check fired only
+* under scalar key offsets, never under nearest(). The master key is a matching
+* input under nearest() (distance is measured from it), so its float boundary
+* hazard must be flagged. Using key is double here, so the only float input is
+* the master key: a detected warning can ONLY be the master-key one. The pre-fix
+* code produced warned=0.
+clear
+set obs 5
+gen double key = clock("2020-01-0" + string(_n) + " 00:00:00", "YMDhms")
+gen long   uid = _n
+tempfile UND
+save "`UND'"
+clear
+set obs 1
+gen double keyd = clock("2020-01-03 12:00:00", "YMDhms")
+gen float  key  = keyd
+gen double lo = clock("2019-01-01 00:00:00", "YMDhms")
+gen double hi = clock("2021-01-01 00:00:00", "YMDhms")
+gen long   mid = 1
+drop keyd
+_rm_did_warn `"rangematch key lo hi using "`UND'", keepusing(uid) nearest(both) unmatched(none)"'
+local ++TESTS
+if r(warned) != 1 | r(rc) != 0 {
+    di as error "S5 nearest float master key: warned=" r(warned) " rc=" r(rc) " (want 1,0)"
+    local ++FAIL
+}
+
 di as txt "{hline 60}"
 display "RESULT: test_rangematch_float_warn tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {

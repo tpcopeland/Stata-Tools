@@ -44,9 +44,13 @@ residual series with a function of time.
 
 {pstd}
 Time patterns in the residuals suggest that a covariate's effect may change
-over time. The reported chi-squared statistics and p-values are screening
-summaries, not formally calibrated subdistribution-hazard tests; see
-{it:Statistical scope} below.
+over time. The command reports, per covariate, the residual-time
+{it:correlation} only: it deliberately reports
+{bf:no chi-squared statistic and no p-value}, because no published null
+calibration exists for that statistic under the subdistribution-hazards
+model. Treat a correlation far from zero as a flag for follow-up, not as an
+accept/reject test; see {it:Statistical scope}
+below.
 
 {pstd}
 {bf:Left truncation (delayed entry).} The weighted risk sets underlying the
@@ -71,17 +75,24 @@ with a larger {opt iterate()} or a different specification.
 {pstd}
 {bf:Statistical scope.} For each covariate, the command multiplies its raw
 Schoenfeld residual by the corresponding diagonal element of the inverse
-observed-information matrix. It then calculates the residual-time correlation
-rho and reports n*rho^2 against a one-degree-of-freedom chi-squared
-reference. Each row is a separate marginal test.
+observed-information matrix, then reports the correlation {it:rho} between that
+scaled residual series and the chosen function of event time. That correlation
+is the entire reported quantity: it is a descriptive diagnostic, not a test.
 
 {pstd}
-This construction is inspired by weighted-residual diagnostics for Cox models,
-but it does not implement the full Grambsch-Therneau transformation or a
-published subdistribution-hazard calibration. The marginal p-values are
-therefore approximate. Use the residual pattern and sensitivity across
-{opt time()} choices as diagnostic evidence, not as a stand-alone accept/reject
-procedure.
+Earlier releases squared and rescaled this correlation into {cmd:n*rho^2} and
+referred it to a one-degree-of-freedom chi-squared, printing a
+{cmd:Prob>chi2}. That statistic has no published null calibration under the
+proportional
+{it:subdistribution} hazards model -- the construction is inspired by
+weighted-residual diagnostics for the {it:Cox} model but does not implement the
+Grambsch-Therneau transformation, and the Cox reference distribution does not
+transfer (see {help finegray_phtest##global:Global test}). The chi-squared and
+p-value are therefore {bf:no longer reported}. Use the correlation, the residual
+pattern, and its sensitivity across {opt time()} choices as diagnostic
+evidence; for a formal claim, fit the time-interaction model directly or use a
+published
+subdistribution PH test.
 
 {marker global}{...}
 {pstd}
@@ -99,11 +110,16 @@ The apparent repair does not transfer to this estimator. Grambsch and Therneau
 (1994) build a joint statistic for the {it:Cox} model whose null covariance is
 the Cox information -- an identity that holds because the Cox score is a
 martingale integral. {cmd:finegray}'s score is IPCW-weighted with an {it:estimated}
-censoring distribution, so its variance is a sandwich carrying an additional
-term for that estimation (Fine and Gray 1999, eq. 7-8; Bellach et al. 2019,
-sec. 3.3, "this additional variability cannot be ignored"). That is precisely why
-{cmd:finegray} itself defaults to {opt vce(robust)} rather than the inverse
-information. Reusing the information as a null covariance here would restate the
+censoring distribution, so its true variance is a sandwich, and in principle
+carries an additional term for having estimated that distribution (Fine and Gray
+1999, eq. 7-8; Bellach et al. 2019, sec. 3.3, "this additional variability
+cannot be ignored"). That is why {cmd:finegray} defaults to a sandwich
+({opt vce(robust)}) rather than the inverse information. Note that the shipped
+default is the {it:fixed-weight} sandwich ({cmd:e(lt_vce)} =
+{cmd:fixed_weight_sandwich}), which does {bf:not} add that extra nuisance term
+either -- see {help finegray##options:finegray}, Scope of the sandwich
+estimator, for its magnitude and for coefficient-bootstrap inference. Reusing
+the information as a null covariance here would restate the
 original defect -- an unstated reference distribution -- in a form that merely
 looks rigorous.
 
@@ -114,15 +130,15 @@ test on modified Schoenfeld residuals, and Li, Scheike and Zhang (2015) a
 cumulative-sums-of-residuals test with simulated p-values -- but neither is
 implemented or validated here. PSHREG (Kohl et al. 2015), the closest reference
 implementation for this model, likewise reports only per-covariate correlation
-tests and residual plots. If a single global claim is needed, Bonferroni-adjust
-across the {it:p} rows reported below, or fit the time-interaction model
+tests and residual plots. If a single global claim is needed, inspect the
+{it:p} correlations reported below together, or fit the time-interaction model
 directly and test the interaction terms.
 
 {pstd}
-The test is only defined where it can be computed. If every cause event occurs
-at a single time, the time function is constant and no correlation
+The diagnostic is only defined where it can be computed. If every cause event
+occurs at a single time, the time function is constant and no correlation
 exists: {cmd:finegray_phtest} exits with {cmd:r(459)} rather than reporting a blank
-chi-squared. The same applies to any individual term whose scaled residuals do
+row. The same applies to any individual term whose scaled residuals do
 not vary across cause-event times.
 
 {pstd}
@@ -200,15 +216,17 @@ less sensitive to extreme event times and is the default screening choice.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(phtest)}}p x 3 matrix: marginal chi2, df, approximate p{p_end}
+{synopt:{cmd:r(phtest)}}p x 2 matrix: residual-time {cmd:correlation} and event count{p_end}
 
 {pstd}
-{bf:Changed in 1.2.0.} {cmd:r(chi2)}, {cmd:r(df)} and {cmd:r(p)} held the retired
-omnibus statistic and are {bf:no longer stored}; see
-{help finegray_phtest##global:Global test} above. Existing code that reads them
-will now see them as empty rather than receive a wrong number. Per-covariate
-statistics remain available in {cmd:r(phtest)}, whose columns and rownames are
-unchanged.
+{bf:Diagnostic-only surface.} {cmd:r(phtest)} holds one row per covariate with
+columns {cmd:correlation} (the scaled-Schoenfeld/time correlation) and
+{cmd:events} (the number of cause-event times used). It does {bf:not} carry
+{cmd:chi2}, {cmd:df}, or a p-value: those are not reported (see
+{it:Statistical scope}). The omnibus scalars {cmd:r(chi2)}, {cmd:r(df)} and
+{cmd:r(p)} were retired earlier and remain unset; see
+{help finegray_phtest##global:Global test}. Code written against the former
+p x 3 {cmd:[chi2, df, p]} matrix must read the {cmd:correlation} column instead.
 
 
 {marker references}{...}
@@ -266,10 +284,11 @@ information as a null covariance for a joint test here. Grambsch and Therneau
 (1994, corrected 1995) concern the Cox model and are cited only as inspiration
 for time-transformed weighted-residual diagnostics; their joint test is
 {bf:not} implemented, and their null covariance does not transfer to this
-estimator. No article cited here validates the marginal n*rho^2 statistics as
-implemented. Zhou et al. (2013), Li et al. (2015) and Kohl et al. (2015) are
-cited to document the state of omnibus testing for this model, not as
-implemented methods.
+estimator. This command reports the residual-time correlation as a descriptive
+diagnostic only; it computes no marginal or omnibus test statistic, so no null
+calibration is claimed. Zhou et al. (2013), Li et al. (2015) and Kohl
+et al. (2015) are cited to document the state of formal testing for this model,
+not as implemented methods.
 
 
 {marker author}{...}

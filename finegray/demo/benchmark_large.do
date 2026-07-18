@@ -17,8 +17,9 @@ capture log close _all
 log using "`pkg_dir'/benchmark_large.log", ///
     replace text name(benchmark) nomsg
 
-capture ado uninstall finegray
-quietly net install finegray, from("`c(pwd)'/finegray") replace
+* Use the local development copy via adopath, without mutating the user's ado
+* tree (no `ado uninstall'/`net install').  Session-local; removed on exit.
+adopath ++ "`c(pwd)'/finegray"
 
 **# Synthetic competing-risks data
 capture program drop _finegray_demo_data
@@ -53,28 +54,68 @@ program define _finegray_demo_data
     quietly stset time, failure(fail) id(id)
 end
 
-**# Timed comparisons
-foreach n in 500 1000 2000 5000 {
+**# Environment capture (so the table is interpretable and reproducible)
+display as text "Benchmark environment:"
+display as text "  Stata:   " c(stata_version) " " c(flavor) " (" c(bit) "-bit), MP procs=" c(processors)
+display as text "  OS:      " c(os) " " c(machine_type)
+display as text "  Note:    absolute seconds are machine-dependent; the SPEEDUP"
+display as text "           ratio is the reproducible, portable quantity."
+
+**# Timed comparisons.
+* A single timer call is too noisy for a release claim: report the MEDIAN of
+* three timed runs after one untimed warm-up (first call pays one-time cache and
+* JIT costs neither command should be charged for).  N runs to 10,000 so the
+* published table row is reproducible from this harness.
+capture matrix drop _bench
+foreach n in 500 1000 2000 5000 10000 {
     _finegray_demo_data `n'
-    timer clear
 
-    timer on 1
+    * warm-up (untimed): both commands, so first-call costs are excluded
     quietly finegray x1 x2 x3, compete(status) cause(1) nolog
-    timer off 1
-
     preserve
     quietly stset time, failure(status==1) id(id)
-    timer on 2
     quietly stcrreg x1 x2 x3, compete(status == 2)
-    timer off 2
     restore
 
-    display as text "N=`n' timings (seconds):"
-    timer list 1
-    timer list 2
+    * three timed repeats; take the median
+    forvalues rep = 1/3 {
+        _finegray_demo_data `n'
+        timer clear
+        timer on 1
+        quietly finegray x1 x2 x3, compete(status) cause(1) nolog
+        timer off 1
+        quietly timer list 1
+        local fg`rep' = r(t1)
+
+        preserve
+        quietly stset time, failure(status==1) id(id)
+        timer clear
+        timer on 2
+        quietly stcrreg x1 x2 x3, compete(status == 2)
+        timer off 2
+        quietly timer list 2
+        local cr`rep' = r(t2)
+        restore
+    }
+    * median of three = the middle value after sorting
+    local fgmed = max(min(`fg1',`fg2'), min(max(`fg1',`fg2'),`fg3'))
+    local crmed = max(min(`cr1',`cr2'), min(max(`cr1',`cr2'),`cr3'))
+    local ratio = cond(`fgmed' > 0, `crmed'/`fgmed', .)
+
+    display as text "N=`n': finegray median=" as result %8.3f `fgmed' ///
+        as text "s  stcrreg median=" as result %8.3f `crmed' ///
+        as text "s  speedup=" as result %7.1f `ratio' as text "x"
+    matrix _row = (`n', `fgmed', `crmed', `ratio')
+    matrix _bench = nullmat(_bench) \ _row
 }
+
+matrix colnames _bench = N finegray_s stcrreg_s speedup
+display as text _newline "Benchmark table (median of 3 timed runs, one warm-up):"
+matrix list _bench, noheader format(%10.3f)
 
 **# Cleanup
 capture program drop _finegray_demo_data
+capture matrix drop _bench _row
 log close benchmark
+capture adopath - "`c(pwd)'/finegray"
 clear

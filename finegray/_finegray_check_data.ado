@@ -1,4 +1,4 @@
-*! _finegray_check_data Version 1.2.0  2026/07/16
+*! _finegray_check_data Version 1.2.0  2026/07/18
 *! Verify that post-estimation commands still see the finegray estimation data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal
@@ -80,7 +80,7 @@ program define _finegray_check_data
                 local _parts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
                 local _bad = 0
                 foreach _p of local _parts {
-                    if regexm("`_p'", "^([0-9]+)\.(.+)$") {
+                    if regexm("`_p'", "^([0-9]+)[a-z]*\.(.+)$") {
                         local _lv = regexs(1)
                         local _vr = regexs(2)
                         capture confirm numeric variable `_vr'

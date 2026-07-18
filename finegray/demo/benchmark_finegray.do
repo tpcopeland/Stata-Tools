@@ -16,8 +16,9 @@ capture log close _all
 log using "`pkg_dir'/benchmark_finegray.log", ///
     replace text name(benchmark) nomsg
 
-capture ado uninstall finegray
-quietly net install finegray, from("`c(pwd)'/finegray") replace
+* Use the local development copy via adopath, without mutating the user's ado
+* tree (no `ado uninstall'/`net install').  Session-local; removed on exit.
+adopath ++ "`c(pwd)'/finegray"
 
 **# Hypoxia data
 webuse hypoxia, clear
@@ -42,4 +43,5 @@ timer list 1
 timer list 2
 
 log close benchmark
+capture adopath - "`c(pwd)'/finegray"
 clear

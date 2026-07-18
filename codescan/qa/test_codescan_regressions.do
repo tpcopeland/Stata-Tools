@@ -26,6 +26,12 @@
 *   T23: graph tempfile round-trip leaves r() populated and restores indicators
 *   T24: empty alternation branch (E11|, |E11, E11||E12, (E11|)) rejected 198 (2.0.7)
 *   T25: duplicate/overlapping varlist rejected 198 in both commands (2.0.7)
+*   T32: saving()+merge writes no internal tempvars (4.0.1, audit F1)
+*   T33: codescan self-heals after mata: mata clear (4.0.1, audit F7)
+*   T34: case-variant duplicate condition/output/codefile names rejected (4.0.1, F10)
+*   T35: datetime %tc date()/refdate() rejected 198 with a clear hint (4.0.1, F11)
+*   T36: merge marks a fully-excluded id as . not 0 (4.0.1 doc, audit F8)
+*   T37: reloaded regex validator still rejects invalid patterns post-clear (F7)
 
 clear all
 set seed 12345
@@ -1180,6 +1186,315 @@ else {
     display as error "  FAIL T31: file-path guards (rc=`=_rc')"
     local ++fail_count
 }
+
+
+* ============================================================
+* T32: saving() under merge writes NO internal tempvars (F32/4.0.1, audit F1)
+* ============================================================
+* The old code did a plain `save' of the in-memory data, which under merge
+* still holds touse and the merge/date/row-count scaffolding, so the saved
+* file carried __00000X columns beside the intended outputs. Proven red: on the
+* old build the __-name assertion below fails for every sub-case.
+capture program drop _cs_assert_no_tempvars
+program define _cs_assert_no_tempvars
+    * errors if any variable name in memory begins with __ (a Stata tempvar)
+    foreach _v of varlist * {
+        assert substr("`_v'", 1, 2) != "__"
+    }
+end
+
+local ++test_count
+capture noisily {
+    tempfile _s1 _s2 _s3
+    clear
+    input long pid str6 dx1
+    1 "E11"
+    1 "I10"
+    2 "E11"
+    2 "I10"
+    end
+
+    * (a) plain merge
+    preserve
+    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) merge saving(`"`_s1'"', replace)
+    restore
+    preserve
+    use `"`_s1'"', clear
+    _cs_assert_no_tempvars
+    * discriminating: the real result columns must be present
+    confirm variable dm2 htn pid dx1
+    restore
+
+    * (b) merge + countrows + all date summaries (the audit Q5 leak: 11 tempvars)
+    preserve
+    gen mdate = mdy(1, _n, 2020)
+    format mdate %td
+    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) date(mdate) merge ///
+        countrows alldates saving(`"`_s2'"', replace)
+    restore
+    preserve
+    use `"`_s2'"', clear
+    _cs_assert_no_tempvars
+    confirm variable dm2_first dm2_last dm2_count dm2_nrows
+    restore
+
+    * (c) tostring + merge exercises the _scan_string_* tempvar the audit missed
+    preserve
+    clear
+    input long pid double numdx
+    1 111
+    2 111
+    end
+    codescan numdx, define(dm2 "111") id(pid) tostring merge saving(`"`_s3'"', replace)
+    restore
+    preserve
+    use `"`_s3'"', clear
+    _cs_assert_no_tempvars
+    confirm variable dm2 numdx pid
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS T32: saving()+merge writes no internal tempvars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T32: saving()+merge tempvar leak (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T33: codescan self-heals after mata: mata clear (4.0.1, audit F7)
+* ============================================================
+* The scan engine lives in _codescan_engine.ado and the regex validator in
+* _codescan_definitions.ado; clearing Mata drops both while leaving the ado
+* programs in place, so the program-list reload never fired and every later
+* call died r(3499). Proven red: on the old build the post-clear call fails
+* r(3499) here.
+capture program drop _cs_f7_data
+program define _cs_f7_data
+    clear
+    set obs 4
+    gen long pid = _n
+    gen str3 dx1 = "E11"
+end
+
+local ++test_count
+capture noisily {
+    * warm the engine
+    _cs_f7_data
+    quietly codescan dx1, define(dm2 "E11") id(pid) collapse
+    * nuke Mata, then prefix mode (scan engine) must self-heal on fresh data
+    mata: mata clear
+    _cs_f7_data
+    capture noisily codescan dx1, define(dm2 "E11") mode(prefix)
+    assert _rc == 0
+    * regex mode (needs _codescan_validate_regex) after another clear
+    mata: mata clear
+    _cs_f7_data
+    capture noisily codescan dx1, define(dm2 "E1[12]") mode(regex)
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS T33: codescan self-heals after mata clear"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T33: mata-clear recovery (rc=`=_rc')"
+    local ++fail_count
+}
+* T33's final regex-mode call already recompiled the full engine, so Mata is
+* live again for the tests and suites that follow.
+
+
+* ============================================================
+* T34: case-variant duplicate names rejected everywhere (4.0.1, audit F10)
+* ============================================================
+* DM2 and dm2 make distinct Stata variables but are almost always a typo. The
+* three uniqueness checks (define, codefile, output planner) were exact-match.
+* Proven red: on the old build each define/codefile/output call below returned
+* rc=0 instead of 198. Each rejection is paired with a same-shaped positive
+* control that must still succeed.
+capture program drop _cs_f10_data
+program define _cs_f10_data
+    clear
+    set obs 3
+    gen str3 dx1 = "E11"
+end
+
+local ++test_count
+capture noisily {
+    * Build the codefiles first, before any codescan call touches the data.
+    tempfile _cf_dup _cf_ok
+    clear
+    input str8 name str8 pattern
+    "DM2" "E11"
+    "dm2" "I10"
+    end
+    export delimited using `"`_cf_dup'.csv"', replace
+    clear
+    input str8 name str8 pattern
+    "dm2" "E11"
+    "htn" "I10"
+    end
+    export delimited using `"`_cf_ok'.csv"', replace
+
+    * Each codescan call gets fresh data so a prior success can't leave a
+    * variable behind that trips the "already exists" guard before the check.
+    * define(): case-variant duplicate rejected; distinct names accepted
+    _cs_f10_data
+    capture codescan dx1, define(DM2 "E11" | dm2 "I10")
+    assert _rc == 198
+    _cs_f10_data
+    capture codescan dx1, define(dm2 "E11" | htn "I10")
+    assert _rc == 0
+
+    * output planner: unmatched() colliding with a condition name by case only
+    _cs_f10_data
+    capture codescan dx1, define(dm2 "E11") unmatched(DM2)
+    assert _rc == 198
+    _cs_f10_data
+    capture codescan dx1, define(dm2 "E11") unmatched(nomatch)
+    assert _rc == 0
+
+    * codefile(): two rows whose names differ only in case
+    _cs_f10_data
+    capture codescan dx1, codefile(`"`_cf_dup'.csv"')
+    assert _rc == 198
+    _cs_f10_data
+    capture codescan dx1, codefile(`"`_cf_ok'.csv"')
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS T34: case-variant duplicate names rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T34: case-insensitive uniqueness (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T35: datetime date()/refdate() rejected with a clear message (4.0.1, F11)
+* ============================================================
+* Time windows are measured in days; a %tc/%tC datetime makes the window ~86.4M
+* times too narrow. Proven red: on the old build the datetime call returned
+* r(2000) (or a silent near-empty cohort), not the diagnostic r(198) asserted
+* here. The daily-date control must still run.
+local ++test_count
+capture noisily {
+    clear
+    set obs 4
+    gen long pid = _n
+    gen str3 dx1 = "E11"
+    gen double edate_tc = mdyhms(1, _n, 2020, 0, 0, 0)
+    format edate_tc %tc
+    gen double rdate_tc = mdyhms(6, 1, 2020, 0, 0, 0)
+    format rdate_tc %tc
+    gen edate_td = mdy(1, _n, 2020)
+    format edate_td %td
+    gen rdate_td = mdy(6, 1, 2020)
+    format rdate_td %td
+
+    * datetime date() rejected
+    capture codescan dx1, define(dm2 "E11") id(pid) date(edate_tc) refdate(rdate_td) lookback(365)
+    assert _rc == 198
+    * datetime refdate() rejected
+    capture codescan dx1, define(dm2 "E11") id(pid) date(edate_td) refdate(rdate_tc) lookback(365)
+    assert _rc == 198
+    * daily dates accepted (positive control)
+    capture codescan dx1, define(dm2 "E11") id(pid) date(edate_td) refdate(rdate_td) lookback(365)
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS T35: datetime date()/refdate() rejected 198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T35: datetime guard (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T36: merge leaves . (not 0) on a fully-excluded id (4.0.1 doc, audit F8)
+* ============================================================
+* Characterization guard for the documented three-state merge behavior: an
+* id() whose rows are all excluded returns missing, distinct from an analyzed
+* id that had no match (0).
+local ++test_count
+capture noisily {
+    clear
+    input long pid str3 dx1 byte keeprow
+    1 "E11" 1
+    1 "I10" 1
+    2 "E11" 0
+    2 "I10" 0
+    end
+    codescan dx1 if keeprow, define(dm2 "E11") id(pid) merge
+    * pid 2 fully excluded -> missing in every condition variable
+    quietly count if pid == 2 & missing(dm2)
+    assert r(N) == 2
+    * pid 1 analyzed -> 0/1, not missing
+    quietly count if pid == 1 & !missing(dm2)
+    assert r(N) == 2
+    assert dm2[1] == 1
+}
+if _rc == 0 {
+    display as result "  PASS T36: merge marks fully-excluded id as missing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T36: merge missing-id characterization (rc=`=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* T37: reloaded regex validator still VALIDATES after mata clear (4.0.1, F7)
+* ============================================================
+* T33 proves a VALID regex reaches rc==0 post-clear. This is the stronger
+* semantic guard: after mata clear, an INVALID pattern must still be REJECTED
+* (rc==198), proving _codescan_validate_regex (Mata, in _codescan_definitions.ado)
+* was not just reloaded but is functioning — otherwise a broken cohort scans
+* silently. Proven red on the pre-F7 build: with the validator's Mata dropped and
+* the program-list reload never firing, the same call dies r(3499), and on any
+* build where the validator is skipped the bad pattern would scan at rc==0.
+* NOTE: the scan/cooccurrence engine self-heals on the pre-F7 build too (its
+* inline Mata recompiles on invocation), so the genuine F7 regression lives in
+* the separately-loaded definitions helper, which is what this test pins.
+capture program drop _cs_f7b_data
+program define _cs_f7b_data
+    clear
+    set obs 6
+    gen str4 dx1 = "E11"
+end
+
+local ++test_count
+capture noisily {
+    * warm both Mata files, then nuke Mata
+    _cs_f7b_data
+    quietly codescan dx1, define(dm "E11") mode(regex)
+    mata: mata clear
+    * valid pattern must recover to rc==0 (engine + validator reloaded)
+    _cs_f7b_data
+    capture codescan dx1, define(dm "E11") mode(regex)
+    assert _rc == 0
+    * invalid pattern after another clear must be REJECTED 198, not 3499/0
+    mata: mata clear
+    _cs_f7b_data
+    capture codescan dx1, define(bad "E1[0-9") mode(regex)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS T37: reloaded regex validator still rejects bad patterns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T37: validator-reload semantics (rc=`=_rc')"
+    local ++fail_count
+}
+* T37's calls recompiled both Mata files; Mata is live for what follows.
 * ============================================================
 
 **# Settings hygiene

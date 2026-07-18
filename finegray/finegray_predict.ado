@@ -36,8 +36,13 @@ program define finegray_predict, rclass sortpreserve
     capture noisily {
 
     syntax newvarname [if] [in] , ///
-        [CIF XB SCHoenfeld BASECSHazard TIMEvar(varname numeric) CI Level(cilevel) ///
+        [CIF XB SCHoenfeld BASECSHazard TIMEvar(varname numeric) CI Level(string) ///
          BOOTstrap(integer 0) SEED(string)]
+
+    * level() is parsed as a string (not cilevel) so an OMITTED level() leaves
+    * the macro empty and can be told apart from an explicit one; cilevel would
+    * auto-fill it with c(level) and make "was it given?" undetectable.  It is
+    * validated as a confidence level below only when actually supplied.
 
     if `bootstrap' < 0 {
         display as error "bootstrap() must be a non-negative integer"
@@ -103,7 +108,33 @@ program define finegray_predict, rclass sortpreserve
         display as error "ci requires the cif option"
         exit 198
     }
-    if "`level'" == "" local level = c(level)
+
+    * FG-07: refuse options that the selected statistic silently ignores, so a
+    * misspelled or misplaced analysis option is never accepted as if honored.
+    * timevar() sets the evaluation time and is meaningful only for cif and
+    * basecshazard; it does nothing for the linear predictor or the residuals.
+    if "`timevar'" != "" & ("`xb'" != "" | "`schoenfeld'" != "") {
+        display as error "timevar() is not allowed with xb or schoenfeld"
+        display as error "it sets the evaluation time for cif and basecshazard only"
+        exit 198
+    }
+    * level() controls a confidence interval, so it means something only for
+    * cif WITH ci.  With Level(string) an omitted level() is empty here.
+    if "`level'" != "" & !("`cif'" != "" & "`ci'" != "") {
+        display as error "level() requires the cif and ci options"
+        display as error "it sets the confidence level for the cif interval only"
+        exit 198
+    }
+    if "`level'" == "" {
+        local level = c(level)
+    }
+    else {
+        capture confirm number `level'
+        if _rc | real("`level'") <= 0 | real("`level'") >= 100 {
+            display as error "level() must be a number between 0 and 100"
+            exit 198
+        }
+    }
 
     marksample touse, novarlist
 
@@ -209,11 +240,20 @@ program define finegray_predict, rclass sortpreserve
         }
 
         * --- the fitted level support, per factor variable (base levels included) ---
+        * Also collect every underlying raw covariate (factor and continuous) so
+        * rows with a missing constituent are marked OUT of the scoreable sample
+        * below.  Without that, a missing factor value fails every `var==level'
+        * comparison, all its dummies collapse to zero, and the row silently
+        * scores as the fitted base category (FG-01) -- a fabricated, plausible
+        * prediction returned at rc 0 instead of an honest missing.
         local _fv_facvars ""
+        local _fv_rawvars ""
         foreach _term of local _fv_semantic {
             local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
             foreach _tp of local _tparts {
-                if regexm("`_tp'", "^([0-9]+)b?\.(.+)$") {
+                * Tolerate any factor operator on the level marker (b base, bn
+                * base-none, o omitted) so bn. levels are counted as supported.
+                if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
                     local _flev = regexs(1)
                     local _fvar = regexs(2)
                     local _seen : list posof "`_fvar'" in _fv_facvars
@@ -225,8 +265,26 @@ program define finegray_predict, rclass sortpreserve
                     if `_lseen' == 0 {
                         local _fvlevels_`_fvar' "`_fvlevels_`_fvar'' `_flev'"
                     }
+                    local _rseen : list posof "`_fvar'" in _fv_rawvars
+                    if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_fvar'"
+                }
+                else {
+                    * continuous part (c.x, or a bare interaction covariate)
+                    local _cvraw = subinstr("`_tp'", "c.", "", .)
+                    local _rseen : list posof "`_cvraw'" in _fv_rawvars
+                    if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_cvraw'"
                 }
             }
+        }
+
+        * FG-01: exclude any row missing a constituent covariate (system . and
+        * extended .a-.z) from the scoreable sample, so xb/CIF are left MISSING
+        * there rather than fabricated as the base category.  markout screens all
+        * missing kinds.  Applied before the unseen-level check so a missing value
+        * is never conflated with an unseen (nonmissing) level.
+        foreach _rv of local _fv_rawvars {
+            capture confirm numeric variable `_rv'
+            if !_rc markout `_fvbasis' `_rv'
         }
 
         * A level the fit never saw has no coefficient.  Scoring it would silently
@@ -268,7 +326,7 @@ program define finegray_predict, rclass sortpreserve
             tempvar _fgcol
             quietly gen double `_fgcol' = 1 if `_fvbasis'
             foreach _tp of local _tparts {
-                if regexm("`_tp'", "^([0-9]+)\.(.+)$") {
+                if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
                     quietly replace `_fgcol' = `_fgcol' * ///
                         (`=regexs(2)' == `=regexs(1)') if `_fvbasis'
                 }

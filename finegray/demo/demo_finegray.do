@@ -16,14 +16,16 @@ local pkg_dir "finegray/demo"
 capture mkdir "`pkg_dir'"
 capture log close _all
 
-capture ado uninstall finegray
-quietly net install finegray, from("`c(pwd)'/finegray") replace
-
+* Use the local development copies via adopath, WITHOUT installing into or
+* uninstalling from the user's ado tree.  `ado uninstall'/`net install' would
+* remove whatever finegray (SSC/GitHub) the user had chosen and leave this dev
+* copy behind; a demo must not mutate installed ado state.  `adopath ++' is
+* session-local and is removed again on exit below.
+adopath ++ "`c(pwd)'/finegray"
 * tc_schemes is a graph-cosmetic dependency shipped as a sibling Stata-Tools
-* package.  A checkout of finegray alone will not have it, so install and set
-* the scheme softly and fall back to s2color -- the numeric demo is unaffected.
-capture ado uninstall tc_schemes
-capture quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+* package.  Put it on the path softly and fall back to s2color -- the numeric
+* demo is unaffected.
+adopath ++ "`c(pwd)'/tc_schemes"
 capture set scheme plotplainblind
 if _rc {
     set scheme s2color
@@ -165,4 +167,8 @@ capture graph close _all
 
 **# Cleanup
 capture log close _all
+* Remove the session-local adopath entries added at the top, leaving the user's
+* ado path exactly as we found it.
+capture adopath - "`c(pwd)'/finegray"
+capture adopath - "`c(pwd)'/tc_schemes"
 clear

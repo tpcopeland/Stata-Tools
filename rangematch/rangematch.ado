@@ -1,4 +1,4 @@
-*! rangematch Version 1.4.0  2026/07/17
+*! rangematch Version 1.4.1  2026/07/18
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -30,12 +30,12 @@ program define _rangematch_display_counts
             display as text "    Result                       " ///
                 "Number of obs"
         }
-        display as text "    {hline 49}"
+        display as text "    {hline 51}"
         display as text "    Not matched" ///
             _col(44) as result %12.0fc `unmatched'
         display as text "    Matched" ///
             _col(44) as result %12.0fc `matched'
-        display as text "    {hline 49}"
+        display as text "    {hline 51}"
         display as text "    Total output" ///
             _col(44) as result %12.0fc `pairs'
         if `"`dryrun'"' != "" {
@@ -77,7 +77,7 @@ program define _rangematch_display_stats
         display as text ""
         display as text "    Match density                " ///
             "Value"
-        display as text "    {hline 49}"
+        display as text "    {hline 51}"
         display as text "    Matched master rows" ///
             _col(44) as result %12.0fc `nmatchedmaster'
         display as text "    Unmatched master rows" ///
@@ -113,7 +113,7 @@ program define _rangematch_display_timing
 
         display as text ""
         display as text "    Timing                       Seconds"
-        display as text "    {hline 49}"
+        display as text "    {hline 51}"
         display as text "    Load" ///
             _col(44) as result %12.3fc `loadtime'
         display as text "    Match" ///
@@ -484,7 +484,6 @@ program define _rangematch_build_group_ids
     set varabbrev off
     capture noisily {
         args by touse N_master N_using master_gid using_gid master_obs using_obs
-        local _rm_need_obs_resort = 0
         if "`by'" != "" {
             local _rm_direct_gid = 0
             local _rm_by_n : word count `by'
@@ -630,13 +629,6 @@ program define _rangematch_build_group_ids
             quietly gen byte `master_gid' = 1
             frame __rm_using {
                 quietly gen byte `using_gid' = 1
-            }
-        }
-
-        if `_rm_need_obs_resort' {
-            quietly sort `master_obs'
-            frame __rm_using {
-                quietly sort `using_obs'
             }
         }
     }
@@ -822,7 +814,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.4.0"
+    local _rm_required_mata_version "1.4.1"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1085,7 +1077,12 @@ program define rangematch, rclass
     if "`ties'" == "random" local ties_code = 4
 
     * seed() only governs the random tie-break; reject it otherwise so a
-    * typo cannot silently do nothing.
+    * typo cannot silently do nothing. The option is declared SEED(string), not
+    * SEED(integer), on purpose: the value is passed verbatim to `set seed'
+    * (rangematch.ado ~L1762), which accepts an integer OR a full seed-state
+    * token and validates it itself. The help documents the common case,
+    * seed(#); do not narrow the grammar to integer -- that would reject valid
+    * seed-state tokens that `set seed' accepts today.
     if `"`seed'"' != "" & "`ties'" != "random" {
         display as error "seed() is only allowed with ties(random)"
         exit 198
@@ -1556,7 +1553,10 @@ program define rangematch, rclass
         _rangematch_warn_float "using bound" "__rm_using" `uhi' ""
     }
     else {
-        if `uses_key_offsets' {
+        * The master key is a matching input both when it offsets a bound
+        * (low/high uses key) AND under nearest(), where the match distance is
+        * measured from it -- so flag its float boundary hazard in either mode.
+        if `_rm_master_key_input' {
             _rangematch_warn_float "master key" "." `key' "`touse'"
         }
         _rangematch_warn_float "using key" "__rm_using" `key' ""
@@ -1712,12 +1712,15 @@ program define rangematch, rclass
     quietly frame put `_rm_master_work_vars' if `touse', ///
         into(__rm_master)
     frame __rm_master {
-        rename `_rm_gid' __rm_gid
-        rename `_rm_low' __rm_low
-        rename `_rm_high' __rm_high
-        rename `_rm_obs' __rm_obs
+        * Guard each rename: when the first-choice work name was free, the
+        * allocated tempname IS the target, so an unguarded rename fires
+        * "(all newnames==oldnames)" on every run.
+        if "`_rm_gid'"  != "__rm_gid"  rename `_rm_gid'  __rm_gid
+        if "`_rm_low'"  != "__rm_low"  rename `_rm_low'  __rm_low
+        if "`_rm_high'" != "__rm_high" rename `_rm_high' __rm_high
+        if "`_rm_obs'"  != "__rm_obs"  rename `_rm_obs'  __rm_obs
         if `_rm_need_master_key' {
-            rename `_rm_key' __rm_key
+            if "`_rm_key'" != "__rm_key" rename `_rm_key' __rm_key
         }
     }
 
@@ -1728,8 +1731,8 @@ program define rangematch, rclass
         }
     }
     frame __rm_uwork {
-        rename `_rm_ugid' __rm_gid
-        rename `_rm_uobs' __rm_obs
+        if "`_rm_ugid'" != "__rm_gid" rename `_rm_ugid' __rm_gid
+        if "`_rm_uobs'" != "__rm_obs" rename `_rm_uobs' __rm_obs
     }
 
     * -------------------------------------------------------------------

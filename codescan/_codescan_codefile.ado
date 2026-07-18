@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.0.0  2026/07/17
+*! _codescan_codefile Version 4.0.1  2026/07/18
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -140,11 +140,13 @@ program define _codescan_parse_codefile, rclass
                 local _cf_errors `"`_cf_errors'"row `i': [`_bad_nm'] is not a valid Stata name" "'
             }
         }
+        * Case-insensitive: distinct-by-case names are almost always a typo and
+        * a hazard in codefile-driven team workflows (F10)
         forvalues j = 1/`=`i'-1' {
-            if "`def_name_`i''" == "`def_name_`j''" & "`def_name_`i''" != "" {
+            if strlower("`def_name_`i''") == strlower("`def_name_`j''") & "`def_name_`i''" != "" {
                 local ++_cf_nerr
                 local _dup_nm "`def_name_`i''"
-                local _cf_errors `"`_cf_errors'"row `i': duplicate name [`_dup_nm'] (same as row `j')" "'
+                local _cf_errors `"`_cf_errors'"row `i': duplicate name [`_dup_nm'] (same as row `j', ignoring case)" "'
                 continue, break
             }
         }

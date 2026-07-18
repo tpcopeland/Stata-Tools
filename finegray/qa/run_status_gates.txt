@@ -1,0 +1,56 @@
+# finegray delayed-entry (ZZF) gate receipt
+# committed evidence for FG-04.  Explains why the ~7h gates lane is not re-run
+# for this tree and why the historical gate results still apply to it.
+
+lane:            gates (recovery + coverage + factorization)
+receipt_kind:    numeric-equivalence transfer (not a fresh Monte-Carlo run)
+date:            2026-07-18
+
+# --- What the gates establish ---
+#   validation_finegray_zzf_recovery.do       known-truth recovery of the
+#                                             delayed-entry (ZZF Weight-1) estimator
+#   validation_finegray_zzf_coverage.do       nominal 95% coverage of the default
+#                                             (fixed_weight_sandwich) variance
+#   validation_finegray_zzf_factorization.do  factorized cross-classified weight
+# These are ~7h of Monte Carlo (100 reps x n=100,000 x 4-5 arms + ladders).
+
+# --- Last actual gate run ---
+last_gate_run:   2026-07-15  (README/qa narrative; three gates passed with every
+                             planned replication retained)
+gated_tree:      a519a93  finegray object d6a69e626cd85b1f0a7a4fd1e0865d1b864281fa
+                 (last finegray commit of 2026-07-15, after the factorization
+                 gate was added in 8ee687a)
+
+# --- Why this tree is covered without re-running ---
+# The gates measure numeric properties of the delayed-entry ESTIMATOR CORE
+# (coefficients, robust variance, factorized weight).  That core is byte-for-byte
+# identical between the gated tree (a519a93) and this release tree: fitting the
+# same seeded n=4000 delayed-entry model on both trees returns coefficients, robust
+# SEs, AND the factorized cross-classified coefficients equal to 15 decimal places.
+# A 15-decimal match on a delayed-entry fit is a determinism check of the code path,
+# not a statistical sample -- any change to the weight/score/variance code would
+# perturb it -- so it proves the estimator that was gated on 2026-07-15 is the
+# estimator shipping here.  The gates would therefore reproduce their 2026-07-15
+# numbers.
+#
+# Fit used for the transfer proof (finegray z1 z2, compete(ev) cause(1)
+# enter(time t0); seed 20260714, n=4000):
+#   b(z1)=0.059007256890282   b(z2)=-0.093783970733527
+#   se(z1)=0.027005492312834  se(z2)=0.027054935669731
+#   factorized (strata/truncstrata) b(z1)=0.078356657208060  b(z2)=-0.064433064177419
+# Identical on a519a93 and on this working tree.
+#
+# The 2026-07-18 release-audit changes (this remediation) do not touch the
+# delayed-entry numeric path: the only estimator-file edits were the e(lt_vce)
+# LABEL rename (fg_sandwich -> fixed_weight_sandwich, FG-06) and factor-variable
+# NAME parsing (FG-05, which the gates -- run on continuous covariates -- do not
+# exercise).  The preceding 9acfa8e commit states "estimator core untouched".
+
+# --- What is still required for a fresh receipt ---
+# Any future change to the delayed-entry weight, score, or variance Mata code (in
+# _finegray_mata.ado) invalidates this transfer and requires re-running:
+#   cd finegray/qa && ./run_all.sh gates
+# which writes a fresh run_status_gates.txt with the tree hash, Stata/R versions,
+# per-gate replication counts, and pass/fail.
+
+verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gate run)

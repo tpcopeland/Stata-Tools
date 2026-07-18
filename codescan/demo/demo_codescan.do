@@ -10,6 +10,13 @@
     Optional: tc_schemes (plotplainblind). The demo uses it when it is already
     installed and falls back to the current scheme otherwise; it never installs
     or uninstalls it.
+
+    Side effect: this demo (re)installs codescan into your real PLUS directory
+    from the local source (ado uninstall + net install) and leaves it there. If
+    you had a GitHub/SSC build of codescan installed, you will be on the local
+    build after running this. Re-run `net install codescan` from your usual
+    source to switch back. (The demo deliberately does not sandbox PLUS, so an
+    already-installed tc_schemes stays visible for the graph scheme.)
 */
 
 version 16.0
@@ -51,6 +58,8 @@ if "`src_dir'" == "" {
 capture mkdir "`pkg_dir'"
 
 * --- Install package from local source ---
+* NOTE: this mutates the caller's real PLUS (see the side-effect note in the
+* header) — it leaves the local build installed after the demo finishes.
 capture ado uninstall codescan
 quietly net install codescan, from("`src_dir'") replace
 

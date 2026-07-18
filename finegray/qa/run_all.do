@@ -1,9 +1,10 @@
 * run_all.do - curated QA runner for finegray
 * Usage: cd finegray/qa && stata-mp -b do run_all.do [quick|core|python|full|gates]
 *
-* The `gates' lane is the two ZZF Monte Carlo gates.  They are HOURS, not minutes
-* (known-truth recovery: 100 reps x n=100,000 x 4 arms; LT variance coverage: 1000
-* reps x 7 arms x 2 fits), so they are deliberately NOT in `full' -- a lane nobody
+* The `gates' lane is the three ZZF Monte Carlo gates (recovery, coverage, and
+* factorization).  They are HOURS, not minutes (known-truth recovery: 100 reps x
+* n=100,000 x 4 arms; LT variance coverage: 1000 reps x 7 arms x 2 fits;
+* factorization positivity ladder), so they are deliberately NOT in `full' -- a lane nobody
 * can afford to run is a lane nobody runs, and it would take the ordinary suites
 * down with it.  They are gates, run on demand, not regression tests.
 
@@ -43,6 +44,8 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///
+    test_finegray_fvgrammar.do test_finegray_fg03_diagnostic.do ///
+    test_finegray_fg06_vce.do test_finegray_fg07_options.do ///
     test_documentation_examples.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///

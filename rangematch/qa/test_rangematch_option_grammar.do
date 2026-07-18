@@ -491,6 +491,35 @@ else {
     display as error "FAIL: dotted/tempfile saving() name"
 }
 
+**# T13: explicit empty suffix("")/prefix("") is treated as omitted, so a
+*        colliding carried using variable still gets the default _U suffix
+*        (documented contract; syntax cannot distinguish empty from omitted).
+local ++test_count
+capture noisily {
+    _rm_mk_using
+    tempfile u
+    quietly save "`u'"
+    * master carries a variable named x1 that collides with the using x1
+    clear
+    quietly set obs 1
+    quietly gen double mlow = 0
+    quietly gen double mhigh = 10
+    quietly gen double x1 = -1
+    rangematch key mlow mhigh using "`u'", keepusing(x1) suffix("")
+    confirm variable x1_U
+    assert x1 == -1
+    assert x1_U == 10
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: explicit empty suffix() falls back to _U on collision"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' T13_empty_suffix_default"
+    display as error "FAIL: explicit empty suffix() collision handling"
+}
+
 capture program drop _rm_mk_master
 capture program drop _rm_mk_using
 

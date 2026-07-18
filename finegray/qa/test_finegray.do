@@ -1,6 +1,6 @@
 * test_finegray.do - Functional test suite for finegray package
 * Tests: installation, options, error handling, return values, data preservation
-* Package: finegray v1.1.0
+* Package: finegray v1.2.0
 
 clear all
 set more off
@@ -1412,9 +1412,9 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest
-    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    * 1.2.0 + FG-03: diagnostic surface; column 1 is a correlation in [-1,1].
     matrix _Tph = r(phtest)
-    assert _Tph[1,1] >= 0
+    assert _Tph[1,1] >= -1 & _Tph[1,1] <= 1
 }
 if _rc == 0 {
     display as result "  PASS: T64 basic phtest"
@@ -1482,9 +1482,9 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest, detail
-    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    * 1.2.0 + FG-03: diagnostic surface; column 1 is a correlation in [-1,1].
     matrix _Tph = r(phtest)
-    assert _Tph[1,1] >= 0
+    assert _Tph[1,1] >= -1 & _Tph[1,1] <= 1
 }
 if _rc == 0 {
     display as result "  PASS: T68 detail option"
@@ -1502,11 +1502,11 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     local nfail_e = e(N_fail)
     finegray_phtest
-    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    * 1.2.0 + FG-03: diagnostic surface [correlation, events]; no chi2/df/p.
     matrix _Tph = r(phtest)
-    assert _Tph[1,1] > 0
+    assert _Tph[1,1] >= -1 & _Tph[1,1] <= 1
     assert rowsof(_Tph) == 3
-    assert _Tph[1,3] >= 0 & _Tph[1,3] <= 1
+    assert _Tph[1,2] > 0 & _Tph[1,2] < .
     assert r(N_fail) == `nfail_e'
 }
 if _rc == 0 {
@@ -1526,14 +1526,15 @@ capture noisily {
     finegray_phtest
     confirm matrix r(phtest)
     assert rowsof(r(phtest)) == 3
-    assert colsof(r(phtest)) == 3
+    * FG-03: diagnostic surface -- two columns [correlation, events]
+    assert colsof(r(phtest)) == 2
     local cnames : colnames r(phtest)
-    assert "`cnames'" == "chi2 df p"
+    assert "`cnames'" == "correlation events"
     local rnames : rownames r(phtest)
     assert "`rnames'" == "ifp tumsize pelnode"
 }
 if _rc == 0 {
-    display as result "  PASS: T70 r(phtest) matrix 3x3 with correct labels"
+    display as result "  PASS: T70 r(phtest) matrix 3x2 diagnostic with correct labels"
     local ++pass_count
 }
 else {
@@ -2308,9 +2309,9 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
     finegray_phtest
-    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    * 1.2.0 + FG-03: diagnostic surface; column 1 is a correlation in [-1,1].
     matrix _Tph = r(phtest)
-    assert _Tph[1,1] >= 0
+    assert _Tph[1,1] >= -1 & _Tph[1,1] <= 1
     assert rowsof(_Tph) == 2
 }
 if _rc == 0 {
@@ -2328,9 +2329,9 @@ capture noisily {
     _setup_hypoxia
     finegray i.pelnode ifp, compete(status) cause(1) nolog
     finegray_phtest
-    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    * 1.2.0 + FG-03: diagnostic surface; column 1 is a correlation in [-1,1].
     matrix _Tph = r(phtest)
-    assert _Tph[1,1] >= 0
+    assert _Tph[1,1] >= -1 & _Tph[1,1] <= 1
     assert rowsof(_Tph) == 2
     cap drop _fg_*
 }
@@ -2585,11 +2586,11 @@ capture noisily {
     finegray i.pelnode ifp, compete(status) cause(1) nolog
     cap drop _fg_*
     finegray_phtest
-    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    * 1.2.0 + FG-03: diagnostic surface [correlation, events]; no col 3.
     matrix _Tph = r(phtest)
     assert _Tph[1,1] < .
     assert rowsof(_Tph) == 2
-    assert _Tph[1,3] < .
+    assert _Tph[1,2] < .
 }
 if _rc == 0 {
     display as result "  PASS: T121 FV phtest rebuilds missing design columns"
