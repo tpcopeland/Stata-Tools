@@ -1,4 +1,4 @@
-*! diagtab Version 1.9.10  2026/07/17
+*! diagtab Version 1.9.11  2026/07/18
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -268,7 +268,7 @@ capture noisily {
                     local _p = `prevalence'
                     local _vse = `Se' * (1 - `Se') / (`TP' + `FN')
                     local _vsp = `Sp' * (1 - `Sp') / (`TN' + `FP')
-                    local _z = invnormal(0.975)
+                    local _z = invnormal(1 - (100 - `level')/200)
                     if `_ppv_d' > 0 & !missing(`PPV') {
                         local _dse = `_p' * (1 - `Sp') * (1 - `_p') / (`_ppv_d'^2)
                         local _dsp = (`Se' * `_p') * (1 - `_p') / (`_ppv_d'^2)
@@ -508,16 +508,17 @@ capture noisily {
     local DOR_lo = .
     local DOR_hi = .
     if `TP' > 0 & `FP' > 0 & `FN' > 0 & `TN' > 0 {
+        local _zlr = invnormal(1 - (100 - `level')/200)
         local _se_ln_lrp = sqrt(1/`TP' - 1/(`TP'+`FN') + 1/`FP' - 1/(`FP'+`TN'))
-        local LRp_lo = exp(ln(`LRp') - invnormal(0.975) * `_se_ln_lrp')
-        local LRp_hi = exp(ln(`LRp') + invnormal(0.975) * `_se_ln_lrp')
+        local LRp_lo = exp(ln(`LRp') - `_zlr' * `_se_ln_lrp')
+        local LRp_hi = exp(ln(`LRp') + `_zlr' * `_se_ln_lrp')
         local _se_ln_lrn = sqrt(1/`FN' - 1/(`TP'+`FN') + 1/`TN' - 1/(`FP'+`TN'))
-        local LRn_lo = exp(ln(`LRn') - invnormal(0.975) * `_se_ln_lrn')
-        local LRn_hi = exp(ln(`LRn') + invnormal(0.975) * `_se_ln_lrn')
+        local LRn_lo = exp(ln(`LRn') - `_zlr' * `_se_ln_lrn')
+        local LRn_hi = exp(ln(`LRn') + `_zlr' * `_se_ln_lrn')
         * DOR CI (Woolf's method)
         local _se_ln_dor = sqrt(1/`TP' + 1/`FP' + 1/`FN' + 1/`TN')
-        local DOR_lo = exp(ln(`DOR') - invnormal(0.975) * `_se_ln_dor')
-        local DOR_hi = exp(ln(`DOR') + invnormal(0.975) * `_se_ln_dor')
+        local DOR_lo = exp(ln(`DOR') - `_zlr' * `_se_ln_dor')
+        local DOR_hi = exp(ln(`DOR') + `_zlr' * `_se_ln_dor')
     }
 
     * AUC
@@ -545,7 +546,7 @@ capture noisily {
             local _p = `prevalence'
             local _vse = `Se' * (1 - `Se') / (`TP' + `FN')
             local _vsp = `Sp' * (1 - `Sp') / (`TN' + `FP')
-            local _z = invnormal(0.975)
+            local _z = invnormal(1 - (100 - `level')/200)
             if `_ppv_d' > 0 & !missing(`PPV') {
                 local _dse = `_p' * (1 - `Sp') * (1 - `_p') / (`_ppv_d'^2)
                 local _dsp = (`Se' * `_p') * (1 - `_p') / (`_ppv_d'^2)

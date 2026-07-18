@@ -109,7 +109,8 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {opt coltotals} keep column totals when {opt nototals} is also specified{p_end}
 
 {phang}
-{opt csv(string)} also export the display table as CSV{p_end}
+{opt csv(string)} also export the display table as CSV. The CSV holds the table's data columns only; the
+title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt digits(#)} digits for continuous statistics. Default is 2, or the session default set by

@@ -1,4 +1,4 @@
-*! effecttab Version 1.9.10  2026/07/17
+*! effecttab Version 1.9.11  2026/07/18
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -83,7 +83,10 @@ program define effecttab, rclass
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
 		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
-	        LABELWidth(integer 0) Level(real -1)]
+	        LABELWidth(integer 0) Level(real -1) REFcat(string)]
+
+	* Label used for reference (base-category) rows; matches regtab's refcat()
+	if `"`refcat'"' == "" local refcat "Reference"
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -939,15 +942,15 @@ quietly {
 			* Matrix input has no structural base-level metadata, so a numeric zero
 			* can never be reinterpreted as a reference category.
 			if !`_from_matrix' {
-				replace c`i' = "Reference" if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
+				replace c`i' = "`refcat'" if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
 					& strtrim(c`=`i'+1') == "" & _n >= 3
 			}
-		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "Reference"
+		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "`refcat'"
 		* Clear CI and p-value for Reference rows
-			replace c`=`i'+1' = "" if c`i' == "Reference" & _n >= 3
+			replace c`=`i'+1' = "" if c`i' == "`refcat'" & _n >= 3
 			capture confirm variable c`=`i'+2'
-			if _rc == 0 replace c`=`i'+2' = "" if c`i' == "Reference" & _n >= 3
-			replace _eplot_est`_model_ix' = . if c`i' == "Reference" & _n >= 3
+			if _rc == 0 replace c`=`i'+2' = "" if c`i' == "`refcat'" & _n >= 3
+			replace _eplot_est`_model_ix' = . if c`i' == "`refcat'" & _n >= 3
 			drop c`i'z
 		capture confirm variable c`=`i'+1'
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -1068,7 +1071,7 @@ quietly {
 					if `"`_ep_model_label'"' == "" local _ep_model_label "Model `_ep_m'"
 					local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
 					local _ep_rowtype "effect"
-					if lower(`"`_ep_cell'"') == "reference" local _ep_rowtype "reference"
+					if lower(`"`_ep_cell'"') == lower(`"`refcat'"') local _ep_rowtype "reference"
 					if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
 						frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
 							(`_ep_p') (`_ep_m') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ("") ///
@@ -1151,7 +1154,7 @@ quietly {
 	* Track Reference rows for merged cell formatting (after title row added)
 	local ref_rows ""
 	forvalues i = 1(3)`last' {
-		gen ref`i' = _n if c`i' == "Reference"
+		gen ref`i' = _n if c`i' == "`refcat'"
 		levelsof ref`i', local(ref`i'_levels)
 		local ref_rows "`ref_rows' `ref`i'_levels'"
 		drop ref`i'

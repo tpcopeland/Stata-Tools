@@ -1,4 +1,4 @@
-*! survtab Version 1.9.10  2026/07/17
+*! survtab Version 1.9.11  2026/07/18
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -77,12 +77,12 @@ capture noisily {
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
     if `pdp' == -1 local pdp = 3
     if `highpdp' == -1 local highpdp = 2
-    if `pdp' < 0 | `pdp' > 10 {
-        noisily display as error "pdp() must be between 0 and 10"
+    if `pdp' < 1 | `pdp' > 10 {
+        noisily display as error "pdp() must be between 1 and 10"
         exit 198
     }
-    if `highpdp' < 0 | `highpdp' > 10 {
-        noisily display as error "highpdp() must be between 0 and 10"
+    if `highpdp' < 1 | `highpdp' > 10 {
+        noisily display as error "highpdp() must be between 1 and 10"
         exit 198
     }
 

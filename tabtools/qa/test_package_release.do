@@ -1265,6 +1265,51 @@ else {
         local ++fail_count
         local failed_tests "`failed_tests' demo_artifacts"
     }
+
+    **# eplot integration demo runs and regenerates both forest PNGs
+    * Guards the documented table-to-forest-plot workflow (regtab/comptab
+    * eplotframe() -> eplot) against silent API drift. Requires the eplot
+    * sibling package; skip (recorded) when it is absent from the tree.
+    capture confirm file "`repo_root'/eplot/eplot.pkg"
+    local has_eplot = (_rc == 0)
+    if !`has_eplot' {
+        display as error "  SKIP: eplot demo (eplot sibling package not present in tree)"
+        local ++skip_count
+        local failed_tests "`failed_tests' eplot_demo_skipped"
+    }
+    else {
+        capture noisily {
+            capture shell rm -f "`demo_stage_root'/eplot"
+            shell ln -s "`repo_root'/eplot" "`demo_stage_root'/eplot"
+            confirm file "`demo_stage_root'/eplot/eplot.pkg"
+            * The eplot demo derives all paths from c(pwd) = repo root and writes
+            * its PNGs to tabtools/demo/ under that root.
+            capture erase "`demo_dir'/forest_regtab.png"
+            capture erase "`demo_dir'/forest_comptab.png"
+            cd "`demo_stage_root'"
+            do "tabtools/demo/demo_tabtools_eplot.do"
+            cd "`old_pwd'"
+            * Both forest plots must regenerate as non-empty PNGs.
+            confirm file "`demo_dir'/forest_regtab.png"
+            confirm file "`demo_dir'/forest_comptab.png"
+            shell test -s "`demo_dir'/forest_regtab.png"
+            shell test -s "`demo_dir'/forest_comptab.png"
+            * Confirm the tracked assets exist to compare against.
+            confirm file "`tracked_demo_dir'/forest_regtab.png"
+            confirm file "`tracked_demo_dir'/forest_comptab.png"
+        }
+        local eplot_rc = _rc
+        capture cd "`old_pwd'"
+        if `eplot_rc' == 0 {
+            display as result "  PASS: demo_tabtools_eplot.do runs and regenerates both forest PNGs"
+            local ++pass_count
+        }
+        else {
+            display as error "  FAIL: eplot integration demo (rc=`eplot_rc')"
+            local ++fail_count
+            local failed_tests "`failed_tests' eplot_demo"
+        }
+    }
 }
 capture cd "`old_pwd'"
 capture shell rm -rf "`demo_stage_root'"
@@ -1451,10 +1496,10 @@ display ""
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    display "RESULT: test_package_release tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    display "RESULT: test_package_release tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
     log close _pkgrel
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: test_package_release tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_package_release tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
 log close _pkgrel

@@ -147,7 +147,8 @@ Remarks){p_end}
 {opt comp:act} merge estimate and CI into one column per model{p_end}
 
 {phang}
-{opt csv(filename)} also export the table as a CSV file{p_end}
+{opt csv(filename)} also export the table as a CSV file. The CSV holds the table's data columns only; the
+title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt cutl:abels(string)} custom labels for ordered-model cutpoint rows, backslash-separated{p_end}

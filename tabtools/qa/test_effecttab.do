@@ -2170,6 +2170,29 @@ else {
     local failed_tests "`failed_tests' 12"
 }
 
+* ============================================================
+* Test: refcat() option accepted (added in 1.9.11 for regtab parity)
+* Fail-on-old: pre-1.9.11 effecttab has no refcat() -> r(198). Assert the
+* option parses and does not corrupt normal margins output.
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect clear
+    collect: margins, dydx(mbsmoke)
+    effecttab, effect("AME") refcat("Baseline") frame(_ef_refcat, replace)
+    assert r(type) == "margins"
+    assert r(N_rows) >= 4
+}
+if _rc == 0 {
+    display as result "PASS: refcat — effecttab accepts refcat() without disturbing output"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: refcat — effecttab refcat() option (rc=`=_rc')"
+    local ++fail_count
+}
 
 
 

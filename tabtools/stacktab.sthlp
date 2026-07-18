@@ -86,7 +86,8 @@ one composite sheet with {cmd:stacktab}.
 {opt col:umnmerge(mergespec)} concatenate column pairs with header label{p_end}
 
 {phang}
-{opt csv(filename)} export the composed table to CSV{p_end}
+{opt csv(filename)} export the composed table to CSV. The CSV holds the table's data columns only; the
+title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt dis:play} list the composed table in the Results window before writing{p_end}

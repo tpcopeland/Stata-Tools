@@ -24,7 +24,7 @@
 {opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt markdown(filename)} {opt mdappend}
-{opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
+{opt addr:ow(string asis)} {opt ref:cat(string)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or
 {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and
@@ -89,6 +89,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below the table body{p_end}
+{synopt:{opt ref:cat(string)}}label for reference rows (default {cmd:Reference}){p_end}
 {synopt:{opt pdp(#)}}maximum decimal places for small p-values (p < 0.10){p_end}
 {synopt:{opt highpdp(#)}}maximum decimal places for large p-values (p >= 0.10){p_end}
 {synoptline}
@@ -112,7 +113,8 @@ values. Use backslash to separate multiple rows{p_end}
 {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}), otherwise falls back to basic cleanup{p_end}
 
 {phang}
-{opt csv(filename)} also export the table as a CSV file{p_end}
+{opt csv(filename)} also export the table as a CSV file. The CSV holds the table's data columns only; the
+title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt digits(#)} number of decimal places for effects and CIs (default 2, range 0-6){p_end}
@@ -187,6 +189,15 @@ Excel, CSV, and frame exports{p_end}
 {phang}
 {opt pdp(#)} maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1
 to 10{p_end}
+
+{phang}
+{opt ref:cat(string)} label written into base-category (reference) rows. Default is {cmd:Reference}, matching
+{helpb regtab}. Unlike {cmd:regtab}, which identifies reference rows from the structural base-level key of
+the underlying model, {cmd:effecttab} reads {cmd:teffects}/{cmd:margins} output that carries no such key and
+therefore flags a reference row heuristically: a point estimate that displays as exactly {cmd:0} at the current
+{opt digits()} together with an empty confidence interval. A genuine effect that rounds to {cmd:0.00} with a
+missing CI would be labeled with this string; such cases are rare in {cmd:teffects}/{cmd:margins} output but
+can be avoided by increasing {opt digits()}{p_end}
 
 {phang}
 {opt sep(string asis)} delimiter between CI endpoints. Default is {cmd:", "}{p_end}

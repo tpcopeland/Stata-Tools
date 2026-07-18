@@ -57,7 +57,9 @@ label variable hypertension "Hypertension"
 label variable prior_cvd "Prior CVD"
 
 **# Console output
-capture log close _all
+* Close only this demo's named log (not _all) so the demo stays embeddable in
+* the release gate without closing the caller's log. Matches demo_tabtools.do.
+capture log close demo
 log using "`pkg_dir'/console_tabtools_eplot.log", replace text name(demo) nomsg
 
 * # tabtools + eplot integration

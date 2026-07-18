@@ -1083,6 +1083,94 @@ else {
     local ++fail_count
 }
 
+* --- VC13.8: LR+/LR-/DOR bounds honor level() (regression for 1.9.11) ---
+* Pre-1.9.11 hardcoded invnormal(0.975) at all levels, so the (##% CI) header
+* and r(ci_level) disagreed with the actual 95% bounds. Assert the level(90)
+* bounds match a 90%-derived oracle AND differ from the level(95) bounds.
+local ++n_total
+capture noisily {
+    _ke_diag2x2
+    local _lrp = 8.0
+    local _lrn = 0.2/0.9
+    local _dor = 36.0
+    local _se_lrp = sqrt(1/80 - 1/100 + 1/10 - 1/100)
+    local _se_lrn = sqrt(1/20 - 1/100 + 1/90 - 1/100)
+    local _se_dor = sqrt(1/80 + 1/10 + 1/20 + 1/90)
+
+    * 95% reference bounds
+    diagtab test gold, level(95)
+    local _lrp_lb95 = r(lr_pos_lb)
+    local _dor_ub95 = r(dor_ub)
+
+    * 90% bounds vs a 90%-derived oracle (z = invnormal(0.95))
+    diagtab test gold, level(90)
+    assert r(ci_level) == 90
+    local _z90 = invnormal(1 - (100 - 90)/200)
+    assert abs(r(lr_pos_lb) - exp(ln(`_lrp') - `_z90'*`_se_lrp')) < 1e-9
+    assert abs(r(lr_pos_ub) - exp(ln(`_lrp') + `_z90'*`_se_lrp')) < 1e-9
+    assert abs(r(lr_neg_lb) - exp(ln(`_lrn') - `_z90'*`_se_lrn')) < 1e-9
+    assert abs(r(lr_neg_ub) - exp(ln(`_lrn') + `_z90'*`_se_lrn')) < 1e-9
+    assert abs(r(dor_lb) - exp(ln(`_dor') - `_z90'*`_se_dor')) < 1e-9
+    assert abs(r(dor_ub) - exp(ln(`_dor') + `_z90'*`_se_dor')) < 1e-9
+
+    * 90% interval is strictly narrower than 95% (proves level() is honored)
+    assert r(lr_pos_lb) > `_lrp_lb95' + 1e-6
+    assert r(dor_ub) < `_dor_ub95' - 1e-6
+}
+if _rc == 0 {
+    display as result "  PASS: VC13.8 — diagtab LR+/LR-/DOR bounds honor level()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VC13.8 — diagtab LR/DOR level() response (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- VC13.9: prevalence-adjusted PPV/NPV delta CIs honor level() (1.9.11) ---
+local ++n_total
+capture noisily {
+    _ke_diag2x2
+    local p = 0.2
+    local se = 0.8
+    local sp = 0.9
+    local dppv = `se'*`p' + (1-`sp')*(1-`p')
+    local dnpv = (1-`se')*`p' + `sp'*(1-`p')
+    local ppv = (`se'*`p')/`dppv'
+    local npv = (`sp'*(1-`p'))/`dnpv'
+    local vse = `se'*(1-`se')/100
+    local vsp = `sp'*(1-`sp')/100
+    local ppv_dse = `p'*(1-`sp')*(1-`p')/(`dppv'^2)
+    local ppv_dsp = (`se'*`p')*(1-`p')/(`dppv'^2)
+    local npv_dse = (`sp'*(1-`p'))*`p'/(`dnpv'^2)
+    local npv_dsp = (1-`p')*(1-`se')*`p'/(`dnpv'^2)
+    local se_ppv = sqrt((`ppv_dse'^2)*`vse' + (`ppv_dsp'^2)*`vsp')
+    local se_npv = sqrt((`npv_dse'^2)*`vse' + (`npv_dsp'^2)*`vsp')
+
+    * 95% reference
+    diagtab test gold, prevalence(`p') level(95)
+    local _ppv_lb95 = r(ppv_lb)
+
+    * 90% bounds vs 90%-derived oracle
+    diagtab test gold, prevalence(`p') level(90)
+    assert r(ci_level) == 90
+    local z90 = invnormal(1 - (100 - 90)/200)
+    assert abs(r(ppv_lb) - max(0, `ppv' - `z90'*`se_ppv')) < 1e-9
+    assert abs(r(ppv_ub) - min(1, `ppv' + `z90'*`se_ppv')) < 1e-9
+    assert abs(r(npv_lb) - max(0, `npv' - `z90'*`se_npv')) < 1e-9
+    assert abs(r(npv_ub) - min(1, `npv' + `z90'*`se_npv')) < 1e-9
+
+    * 90% lower bound strictly above the 95% lower bound
+    assert r(ppv_lb) > `_ppv_lb95' + 1e-9
+}
+if _rc == 0 {
+    display as result "  PASS: VC13.9 — prevalence-adjusted delta CIs honor level()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VC13.9 — prevalence-adjusted delta CIs level() response (rc=`=_rc')"
+    local ++fail_count
+}
+
 * =========================================================================
 
 **# Summary

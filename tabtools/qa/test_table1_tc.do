@@ -76,6 +76,24 @@ else {
     local ++fail_count
 }
 
+* Test: pdp(0) rejected with r(198) (harmonized to 1-10 in 1.9.11)
+* pdp(3) positive control proves the pdp guard, not an unrelated error, fires.
+sysuse auto, clear
+capture table1_tc, by(foreign) vars(mpg conts) pdp(0)
+local _rc_pdp0 = _rc
+capture table1_tc, by(foreign) vars(mpg conts) highpdp(0)
+local _rc_hpdp0 = _rc
+capture noisily table1_tc, by(foreign) vars(mpg conts) pdp(3)
+local _rc_pdp3 = _rc
+if `_rc_pdp0' == 198 & `_rc_hpdp0' == 198 & `_rc_pdp3' == 0 {
+    display as result "  PASS: table1_tc pdp(0)/highpdp(0) rejected r(198), pdp(3) accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc pdp bound (pdp0=`_rc_pdp0' hpdp0=`_rc_hpdp0' pdp3=`_rc_pdp3'; expect 198/198/0)"
+    local ++fail_count
+}
+
 * Test: Quick-start auto-detect contract matches help example
 capture noisily {
     sysuse auto, clear

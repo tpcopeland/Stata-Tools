@@ -28,9 +28,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | Lane | Files |
 |------|-------|
-| `quick` | 23 explicitly listed `test_*.do` files (all except `test_package_adversarial.do`) |
-| `full` | 24 tests + 10 validations + `crossval_tabtools.do` (35 files) |
-| `release` | `full` plus `benchmark_tabtools_speed.do` (36 files) |
+| `quick` | 24 explicitly listed `test_*.do` files (all except `test_package_adversarial.do`) |
+| `full` | 25 tests + 10 validations + `crossval_tabtools.do` (36 files) |
+| `release` | `full` plus `benchmark_tabtools_speed.do` (37 files) |
 | `benchmark` | `benchmark_tabtools_speed.do` only |
 
 ## Conventions
@@ -55,13 +55,13 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | File | Covers | Notes |
 |------|--------|-------|
-| `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, edge cases (all-missing, single obs/group, long labels), dots progress option, v1.0.13–v1.5 regressions |
-| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing/valuelabels options, returns (r(version) parsed live from the .ado header) |
+| `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, edge cases (all-missing, single obs/group, long labels), dots progress option, pdp()/highpdp() 1-10 bound (1.9.11), v1.0.13–v1.5 regressions |
+| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns (r(version) parsed live from the .ado header) |
 | `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions |
 | `test_corrtab.do` | corrtab | Pearson/Spearman, stars, shapes, pairwise-N p-value regression |
 | `test_regtab.do` | regtab | Model families (OLS/logit/Cox/GEE/mixed/multilevel), stats() incl. AIC/BIC recompute and n_sub aliases, compact mode, keep/drop, refcat, frames, console display, nopvalue |
-| `test_effecttab.do` | effecttab | margins/teffects collects, from() matrix path, IPTW PS-coefficient filtering, digits, frames, console-only returns |
-| `test_survtab.do` | survtab | KM estimates, medians, RMST (+difference, no-late-entry), events option, riskset, highlight bounds, ev abbreviation, user-variable collisions |
+| `test_effecttab.do` | effecttab | margins/teffects collects, from() matrix path, IPTW PS-coefficient filtering, digits, frames, console-only returns, refcat() option (1.9.11) |
+| `test_survtab.do` | survtab | KM estimates, medians, RMST (+difference, no-late-entry), events option, riskset, highlight bounds, ev abbreviation, user-variable collisions, pdp()/highpdp() 1-10 bound (1.9.11) |
 | `test_stratetab.do` | stratetab | strate-file workflows, multi-outcome/exposure scaffolds, rateratio, console/frame modes without xlsx(), sheet validation, row-order regression, error handling, varabbrev restore |
 | `test_diagtab.do` | diagtab | Se/Sp/PPV/NPV/AUC, cutoff sweeps, prevalence adjustment, degenerate 2x2 markers, single-cutoff zebra layout |
 | `test_comptab.do` | comptab | Composite tables from regtab/effecttab frames, varabbrev restore on error |
@@ -83,7 +83,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `test_package_hardening.do` | Hostile edge-case sweep across the shared export surface: extreme table shapes (single column/row, no title, title wider than table, sheet-reshape stale-cell clearing → B2 geometry), pathological cell content round-trip (pipes/commas/quotes/leading-`=`/negatives through md/csv/xlsx), locale (`set dp comma` must not corrupt numeric export), and re-run / session-state safety (varabbrev + data + frame restoration) |
 | `test_deep_audit_core.do` | Critical destructive/silent-corruption regressions plus Table 1 and simtab sample/cell identity contracts: Excel used ranges, frame alias/current-source transactions, semantic metadata, GLM scales, fweight/sample handling, and adversarial failures |
 | `test_deep_audit_output.do` | Output/provenance regressions: CI levels, near-one p-values, zero effects, reserved labels, maximum precision, atomic sinks, trend errors, Markdown, medians, empty templates, and quotation preservation |
-| `test_package_release.do` | Release gates: required artifacts, canonical metadata, manifest/install contracts, help versions, staged demo regeneration compared semantically with all 15 tracked workbooks, and golden-output digests vs `baseline/summaries/`; tracked demo assets are never rewritten by ordinary QA |
+| `test_package_release.do` | Release gates: required artifacts, canonical metadata, manifest/install contracts, help versions, staged demo regeneration compared semantically with all 15 tracked workbooks, the eplot integration demo (runs `demo_tabtools_eplot.do` and regenerates both forest PNGs; skips-with-record when the `eplot` sibling is absent), and golden-output digests vs `baseline/summaries/`; tracked demo assets are never rewritten by ordinary QA |
 | `test_option_coverage.do` | Drives per-command OPTION coverage to 100% of the testable surface: every public option of every command is passed in a real invocation and accepted (see [Option coverage](#option-coverage)). Excludes `open` (GUI launch). |
 
 ### Validation (known answers, oracles, invariants)
@@ -96,7 +96,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `validation_stratetab.do` | Structure/content of rate scaffolds, return values |
 | `validation_survtab.do` | KM estimates vs `sts`, events/atrisk conservation, log-rank cross-checks, in-code RMST point/SE/CI bounds vs `stci, rmean` oracle, Excel survival probabilities, rendering checks (`tools/check_tabtools_render.py`) |
 | `validation_crosstab.do` | Hand-computed 2x2 OR/RR/RD/chi2, counts vs `tabulate` |
-| `validation_diagtab.do` | Algebraic identities (LR+/-, DOR, Youden, F1), full CI-bound surface for both wilson and exact (Se/Sp/PPV/NPV/accuracy/LR/DOR/AUC bounds vs `cii proportions` oracle, ordering + in-range), cutoff-table monotonicity, confusion matrix in Excel |
+| `validation_diagtab.do` | Algebraic identities (LR+/-, DOR, Youden, F1), full CI-bound surface for both wilson and exact (Se/Sp/PPV/NPV/accuracy/LR/DOR/AUC bounds vs `cii proportions` oracle, ordering + in-range), cutoff-table monotonicity, confusion matrix in Excel, and `level()` response for LR/DOR/prevalence-adjusted PPV/NPV bounds (VC13.8/13.9 — 90% vs 95% oracle, 1.9.11 regression) |
 | `validation_corrtab.do` | Correlations vs `pwcorr`/`spearman`, symmetry, in-code Pearson p-values (r->t->p) vs `regress` slope-p oracle + closed form, Spearman p passthrough, Excel accuracy |
 | `validation_simtab.do` | Exact known-answer + simsum oracle for performance measures |
 | `validation_package.do` | Cross-command consistency (commands agree on shared statistics), universal sanity bounds, detect_vartype accuracy, set/get round-trip, comptab source-frame preservation, frame-Excel parity |

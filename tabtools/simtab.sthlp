@@ -120,7 +120,9 @@ table-grade measures itself from replication-level data.{p_end}
 {synoptline}
 {p2colreset}{...}
 {p 4 6 2}At least one output target ({opt xlsx()}, {opt csv()}, {opt markdown()},
-{opt frame()}, {opt plotframe()}, or {opt display}) is required.{p_end}
+{opt frame()}, {opt plotframe()}, or {opt display}) is required. {opt csv()} writes the table's data
+columns only; the title and footnote, if set, are not written (they are included in {opt xlsx()} and
+{opt markdown()} output).{p_end}
 
 
 {pstd}

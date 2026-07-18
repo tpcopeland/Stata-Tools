@@ -129,7 +129,8 @@ with {opt cutoffs()}.{p_end}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 
 {phang}
-{opt csv(filename)} also export the output dataset as CSV{p_end}
+{opt csv(filename)} also export the output dataset as CSV. The CSV holds the table's data columns only; the
+title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt excel(filename)} synonym for {opt xlsx(filename)}{p_end}

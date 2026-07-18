@@ -92,6 +92,26 @@ else {
     local ++fail_count
 }
 
+* Test: pdp(0) rejected with r(198) (harmonized to 1-10 in 1.9.11)
+* Positive control below (pdp(3) must succeed) proves the guard, not an
+* unrelated failure, is what rejects pdp(0). [reference: rc198 needs a control]
+use `survdata', clear
+stset time, failure(event)
+capture survtab, times(1 3 5) pdp(0)
+local _rc_pdp0 = _rc
+capture survtab, times(1 3 5) highpdp(0)
+local _rc_hpdp0 = _rc
+capture noisily survtab, times(1 3 5) pdp(3)
+local _rc_pdp3 = _rc
+if `_rc_pdp0' == 198 & `_rc_hpdp0' == 198 & `_rc_pdp3' == 0 {
+    display as result "  PASS: survtab pdp(0)/highpdp(0) rejected r(198), pdp(3) accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: survtab pdp bound (pdp0=`_rc_pdp0' hpdp0=`_rc_hpdp0' pdp3=`_rc_pdp3'; expect 198/198/0)"
+    local ++fail_count
+}
+
 * Test: survtab returns logrank_p when by() used
 capture noisily {
     use `survdata', clear

@@ -121,7 +121,8 @@ and matrices in memory are left unchanged.{p_end}
 {it:Detailed option contracts}{p_end}
 
 {phang}
-{opt csv(filename)} also write the assembled table to a CSV file{p_end}
+{opt csv(filename)} also write the assembled table to a CSV file. The CSV holds the table's data columns
+only; the title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for numeric columns; default 2, range 0-6; also respects

@@ -113,7 +113,8 @@ and 1{p_end}
 {opt col:pct} column percentages (default); may not be combined with {opt rowpct} or {opt totalpct}{p_end}
 
 {phang}
-{opt csv(filename)} also export the output dataset as CSV{p_end}
+{opt csv(filename)} also export the output dataset as CSV. The CSV holds the table's data columns only; the
+title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for percentages and association measures (default 1, range 0-6){p_end}

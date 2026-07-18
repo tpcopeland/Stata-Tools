@@ -142,7 +142,8 @@ is {cmd:thin}{p_end}
 {opt clear} replace dataset in memory with the table{p_end}
 
 {phang}
-{opt csv("filename")} also export as CSV file{p_end}
+{opt csv("filename")} also export as CSV file. The CSV holds the table's data columns only; the title and
+footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}
 {opt dots} show progress dots while processing variables{p_end}

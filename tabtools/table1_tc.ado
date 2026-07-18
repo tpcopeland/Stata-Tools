@@ -1,4 +1,4 @@
-*! table1_tc Version 1.9.10  2026/07/17 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.9.11  2026/07/18 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -46,8 +46,8 @@ program define table1_tc, rclass
         [gsdright(string asis)] /// Symbol after GSD; default is ")"
         [percent]               /// Report categorical vars just as % (no N)
         [MISsing]               /// Don't exclude missing values
-        [pdp(integer 3)]        /// Max decimal places in p-value < 0.1 (0-10)
-        [highpdp(integer 2)]    /// Max decimal places in p-value >= 0.1 (0-10)
+        [pdp(integer 3)]        /// Max decimal places in p-value < 0.1 (1-10)
+        [highpdp(integer 2)]    /// Max decimal places in p-value >= 0.1 (1-10)
         [test]                  /// Include column specifying which test was used
         [STATistic]             /// Give value of test statistic
         [excel(string)]         /// Excel file to save output
@@ -197,12 +197,12 @@ program define table1_tc, rclass
     }
 
     /* Validate pdp and highpdp options */
-    if `pdp' < 0 | `pdp' > 10 {
-        display as error "pdp() must be between 0 and 10"
+    if `pdp' < 1 | `pdp' > 10 {
+        display as error "pdp() must be between 1 and 10"
         error 198
     }
-    if `highpdp' < 0 | `highpdp' > 10 {
-        display as error "highpdp() must be between 0 and 10"
+    if `highpdp' < 1 | `highpdp' > 10 {
+        display as error "highpdp() must be between 1 and 10"
         error 198
     }
 
