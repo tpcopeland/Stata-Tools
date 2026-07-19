@@ -723,61 +723,77 @@ preserve
 sysuse auto, clear
 gen byte treat = foreign
 
-_test_start 73 "balance auto-detect with i.varname"
+* RB-03: factor/interaction terms are EXPANDED into design columns (indicators
+* for non-base levels, interaction products), not stripped to base varnames. The
+* assertions below verify the expanded design is assessed -- each fails on the
+* pre-RB-03 code, which returned the collapsed base variable name instead.
+_test_start 73 "balance auto-detect expands i.varname to level indicators"
 capture {
     logit treat i.rep78 weight length
     predict double ps_fv, pr
     psdash balance ps_fv, nowvar
     assert r(N) > 0
     local covs_used "`r(varlist)'"
-    assert strpos("`covs_used'", "i.") == 0
-    assert strpos("`covs_used'", "rep78") > 0
+    * Expanded: one indicator per non-base rep78 level (2.rep78 .. 5.rep78),
+    * plus the two continuous main effects. Old code returned bare "rep78".
+    assert strpos("`covs_used'", "2.rep78") > 0
+    assert strpos("`covs_used'", "5.rep78") > 0
+    assert strpos("`covs_used'", "1b.rep78") == 0   // base level dropped
+    assert strpos("`covs_used'", "weight") > 0
+    assert strpos("`covs_used'", "length") > 0
+    assert `: word count `covs_used'' == 6
 }
 local fv_rc = _rc
 capture drop ps_fv _psdash_wt
 _test_result `fv_rc'
 
-_test_start 74 "balance auto-detect with c.var##c.var interaction"
+_test_start 74 "balance auto-detect assesses c.var##c.var interaction column"
 capture {
     logit treat c.weight##c.length
     predict double ps_fv2, pr
     psdash balance ps_fv2, nowvar
     assert r(N) > 0
     local covs_used "`r(varlist)'"
-    assert strpos("`covs_used'", "c.") == 0
-    assert strpos("`covs_used'", "##") == 0
+    * The interaction product IS assessed (F2 fix). Old code discarded it and
+    * returned only the two main effects.
+    assert strpos("`covs_used'", "c.weight#c.length") > 0
     assert strpos("`covs_used'", "weight") > 0
     assert strpos("`covs_used'", "length") > 0
+    assert `: word count `covs_used'' == 3
 }
 local fv2_rc = _rc
 capture drop ps_fv2 _psdash_wt
 _test_result `fv2_rc'
 
-_test_start 75 "balance auto-detect with mixed factor and plain vars"
+_test_start 75 "balance auto-detect expands mixed factor + interaction + plain"
 capture {
     logit treat i.rep78 c.weight##c.length mpg
     predict double ps_fv3, pr
     psdash balance ps_fv3, nowvar
     assert r(N) > 0
     local covs_used "`r(varlist)'"
-    assert strpos("`covs_used'", "rep78") > 0
-    assert strpos("`covs_used'", "weight") > 0
-    assert strpos("`covs_used'", "length") > 0
+    assert strpos("`covs_used'", "2.rep78") > 0
+    assert strpos("`covs_used'", "c.weight#c.length") > 0
     assert strpos("`covs_used'", "mpg") > 0
+    * 4 rep78 indicators + weight + length + interaction + mpg = 8 columns
+    assert `: word count `covs_used'' == 8
 }
 local fv3_rc = _rc
 capture drop ps_fv3 _psdash_wt
 _test_result `fv3_rc'
 
-_test_start 76 "balance auto-detect with ib#.varname base specifier"
+_test_start 76 "balance auto-detect honours ib#. base-level specifier"
 capture {
     logit treat ib3.rep78
     predict double ps_fv4, pr
     psdash balance ps_fv4, nowvar
     assert r(N) > 0
     local covs_used "`r(varlist)'"
-    assert strpos("`covs_used'", "ib") == 0
-    assert strpos("`covs_used'", "rep78") > 0
+    * Base moved to level 3: indicators for 1,2,4,5; the level-3 indicator is
+    * the omitted reference and must NOT appear.
+    assert strpos("`covs_used'", "1.rep78") > 0
+    assert strpos("`covs_used'", "3.rep78") == 0
+    assert `: word count `covs_used'' == 4
 }
 local fv4_rc = _rc
 capture drop ps_fv4 _psdash_wt

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.5  13jul2026}{...}
+{* *! version 1.4.6  19jul2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -605,6 +605,13 @@ bootstrap replicate runs the full simulation. Start small and increase until
 results stabilize.
 
 {pstd}
+Every run prints Stata's benign message {cmd:_gcomp_bootstrap does not set}
+{cmd:e(sample), so no observations will be excluded from the resampling}. This
+is expected and harmless: {cmd:gcomp} pre-filters the analytic sample and
+resamples at the subject level over an already-complete wide frame, so there is
+nothing for the outer {cmd:bootstrap} prefix to exclude. No action is needed.
+
+{pstd}
 {bf:Missing data}
 
 {pstd}
@@ -857,9 +864,9 @@ commands:
 {synopt:{cmd:e(V)}}full bootstrap covariance matrix{p_end}
 {synopt:{cmd:e(se)}}standard-error vector{p_end}
 {synopt:{cmd:e(ci_normal)}}normal CI; rows are lower, upper{p_end}
-{synopt:{cmd:e(ci_percentile)}}percentile CI with {cmd:all}{p_end}
-{synopt:{cmd:e(ci_bc)}}bias-corrected CI with {cmd:all}{p_end}
-{synopt:{cmd:e(ci_bca)}}BCa CI with {cmd:all}{p_end}
+{synopt:{cmd:e(ci_percentile)}}percentile CI (always computed){p_end}
+{synopt:{cmd:e(ci_bc)}}bias-corrected CI (always computed){p_end}
+{synopt:{cmd:e(ci_bca)}}BCa CI; requires {cmd:all}{p_end}
 {synopt:{cmd:e(effects)}}named mediation-effect table{p_end}
 {synopt:{cmd:e(model_diagnostics)}}component diagnostic matrix{p_end}
 
@@ -925,7 +932,7 @@ commands:
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Scalars}{p_end}
-{synopt:{cmd:e(obs_data)}}observed outcome mean{p_end}
+{synopt:{cmd:e(obs_data)}}observed mean (eofu) / av. log IR (survival){p_end}
 
 {pstd}
 {cmd:e(sample)} marks original analytic rows. All requested bootstrap draws must
@@ -981,7 +988,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.4.5, 2026-07-13{p_end}
+{pstd}Version 1.4.6, 2026-07-19{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

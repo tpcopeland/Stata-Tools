@@ -171,6 +171,9 @@ program define psdash_weights, rclass
         local treatment "`_psd_treatment'"
         local psvar "`_psd_psvar'"
         local source "`_psd_source'"
+        * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
+        local n_estimation "`_psd_n_estimation'"
+        local n_excluded "`_psd_n_excluded'"
         if "`estimand'" == "" local estimand "`_psd_estimand'"
         local wvar_auto "0"
 
@@ -311,6 +314,35 @@ program define psdash_weights, rclass
         _psdash_pscheck `psvar' if `touse'
         local n_ps_boundary = r(n_ps_boundary)
         local n_ps_near = r(n_ps_near)
+    }
+
+    * RB-09: account for observations whose weight is undefined (missing) BEFORE
+    * they are silently dropped by the markout below.
+    *  - An AUTO-generated weight that is missing at an exact 0/1 PS boundary is a
+    *    genuinely non-existent weight for the requested estimand, not a diagnostic
+    *    to run on a smaller sample -> reject. (Rows missing because their PS is
+    *    missing -- e.g. outside a teffects e(sample), RB-05 -- are NOT boundary
+    *    rows, so they are excluded from this test and dropped as intended.)
+    *  - A user-supplied weight with missing values is surfaced as an exclusion
+    *    finding rather than dropped without a word.
+    local n_wt_undefined = 0
+    local n_wt_dropped = 0
+    if "`psvar'" != "" & "`multigroup'" == "0" {
+        quietly count if `touse' & missing(`wvar') & (`psvar' == 0 | `psvar' == 1)
+        local n_wt_undefined = r(N)
+        if `n_wt_undefined' > 0 & "`wvar_auto'" == "1" {
+            display as error "`n_wt_undefined' observation(s) have an undefined propensity-based weight"
+            display as error "  (propensity score at an exact 0 or 1 boundary). The weight for the"
+            display as error "  requested estimand does not exist at these values, so a diagnostic"
+            display as error "  computed after dropping them would describe a different sample."
+            display as error "  Trim the boundary observations ({cmd:psdash support, crump}) or supply"
+            display as error "  a weight variable explicitly before requesting weight diagnostics."
+            exit 459
+        }
+    }
+    if "`wvar_auto'" != "1" {
+        quietly count if `touse' & missing(`wvar')
+        local n_wt_dropped = r(N)
     }
 
     * Mark out missing weights after PS diagnostics have been computed on
@@ -610,6 +642,15 @@ program define psdash_weights, rclass
         local _pf `"`_pf' | max weight `=string(`max_wt',"%6.2f")' > `_evh'"'
         local ++_pfn
     }
+    * RB-09: a max/mean weight ratio at or above 20 means a single observation
+    * carries >= 20x the mean weight and dominates the weighted estimate -- an
+    * explicit, scale-invariant dominance threshold that was printed but never
+    * entered the verdict.
+    if `max_ratio' >= 20 & `max_ratio' < . {
+        display as error "Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates)."
+        local _pf `"`_pf' | max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20"'
+        local ++_pfn
+    }
     * Exact PS-boundary observations yield undefined weights and are silently
     * dropped from this panel's N (B6); surface them as a finding.
     if "`n_ps_boundary'" != "" {
@@ -618,6 +659,13 @@ program define psdash_weights, rclass
             local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary obs (undefined weight)"'
             local ++_pfn
         }
+    }
+    * RB-09: user-supplied weights that were missing (and therefore dropped) are
+    * surfaced rather than silently reducing the analysis N.
+    if `n_wt_dropped' > 0 {
+        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
+        local ++_pfn
     }
     local _pf = strtrim("`_pf'")
     if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
@@ -1077,6 +1125,17 @@ program define psdash_weights, rclass
         local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
         local ++_pfn
     }
+    * RB-09: an aggregate ESS can mask one collapsed arm in the multi-group path
+    * exactly as in the binary path (B5). Flag the minimum per-group ESS.
+    local _min_grp_ess = .
+    foreach lev of local levels {
+        if `ess_pct_`lev'' < `_min_grp_ess' local _min_grp_ess = `ess_pct_`lev''
+    }
+    if `_min_grp_ess' < 50 & `_min_grp_ess' < . {
+        display as error "Warning: minimum per-group ESS is `=string(`_min_grp_ess',"%4.1f")'% of N (group collapse)."
+        local _pf `"`_pf' | min per-group ESS `=string(`_min_grp_ess',"%4.1f")'% < 50%"'
+        local ++_pfn
+    }
     if `cv' > 1 {
         display as error "Warning: High CV indicates substantial weight variability."
         local _pf `"`_pf' | weight CV `=string(`cv',"%5.2f")' > 1"'
@@ -1085,6 +1144,12 @@ program define psdash_weights, rclass
     if `n_extreme' > 0 {
         display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
         local _pf `"`_pf' | `n_extreme' extreme weights > `_eh'"'
+        local ++_pfn
+    }
+    * RB-09: max/mean weight ratio dominance threshold (multi-group).
+    if `max_ratio' >= 20 & `max_ratio' < . {
+        display as error "Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates)."
+        local _pf `"`_pf' | max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20"'
         local ++_pfn
     }
     if `max_wt' > `extvhi' {
@@ -1305,6 +1370,9 @@ program define psdash_weights, rclass
                 return scalar n_ps_boundary = `n_ps_boundary'
                 return scalar n_ps_near_boundary = `n_ps_near'
             }
+            * RB-09: exclusion ledger for undefined/dropped weights.
+            return scalar n_wt_undefined = `n_wt_undefined'
+            return scalar n_wt_dropped = `n_wt_dropped'
             if "`wvar_auto'" == "1" {
                 return local wvar "auto-generated"
             }
@@ -1371,6 +1439,12 @@ program define psdash_weights, rclass
         if "`_weights_nfind'" == "" local _weights_nfind = 0
         return scalar n_warnings = `_weights_nfind'
         return local warnings `"`_weights_findings'"'
+
+        * RB-05 estimation-sample exclusion ledger (teffects only)
+        if "`n_excluded'" != "" {
+            return scalar n_excluded = `n_excluded'
+            return scalar n_estimation = `n_estimation'
+        }
     }
     if `rc' exit `rc'
 

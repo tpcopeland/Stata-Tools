@@ -36,7 +36,9 @@ Maximum |SMD| (raw):       0.483
 Maximum |SMD| (adjusted):  0.091
 Covariates > SMD threshold:    0 of   6
 Maximum KS (raw):             0.208
+Maximum KS (adjusted):        0.095
 ---------------------------------------------------------------------------------------------------------------------
+Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
 
 Balance: Adequate (max |SMD| =  0.091)
 ```

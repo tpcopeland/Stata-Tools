@@ -36,6 +36,8 @@ Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
 ---------------------------------------------------------------------------------------
+Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
+      (VR for a two-level covariate is determined by the SMD; excluded from the VR count).
 
 Balance: Adequate (max |SMD| =  0.047)
 ```

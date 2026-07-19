@@ -29,8 +29,15 @@ program define _setup_k2_single_ps
     replace ps = .90 in 8
     gen double x = _n
     gen double w_ate = cond(arm == 1, 1 / (1 - ps), 1 / ps)
-    gen double w_att_ref1 = cond(arm == 1, 1, (1 - ps) / ps)
-    gen double w_att_ref2 = cond(arm == 2, 1, ps / (1 - ps))
+    * RB-06: ATT targets the TREATED (non-reference) arm, matching the documented
+    * binary contract ("1 for treated, ps/(1-ps) for control") and the 0/1 panel
+    * path, so the weights are invariant to the arbitrary 1/2 coding. (The prior
+    * expectation gave the reference arm weight 1 -- that is the ATC formula, and
+    * it made results depend on the numeric coding: the RB-06 defect.)
+    * reference=1 => control=arm1, treated=arm2, ps=P(arm=2): arm2->1, arm1->ps/(1-ps)
+    gen double w_att_ref1 = cond(arm == 1, ps / (1 - ps), 1)
+    * reference=2 => control=arm2, treated=arm1: arm1->1, arm2->(1-ps)/ps
+    gen double w_att_ref2 = cond(arm == 2, (1 - ps) / ps, 1)
 end
 
 capture program drop _setup_bad_psvars

@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.4.5  2026/07/13
+*! _gcomp_bootstrap_impl Version 1.4.6  2026/07/19
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel
@@ -114,8 +114,13 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
 if "`gcdiagshow'" != "" {
 	local _gc_show_flag "show"
 }
+* NOTE: this preserve intentionally has no matching restore.  Stata auto-restores
+* the preserved data when the program exits (on success AND on error), and the
+* entire bootstrap/editing machinery relies on that: each bootstrap replication
+* mutates this working copy freely and the auto-restore returns the caller's data.
+* Do NOT "fix" this by adding a manual restore.
 preserve
-*for the time-varying option, the first step is to make the dataset long again; this is how we want it, 
+*for the time-varying option, the first step is to make the dataset long again; this is how we want it,
 *but we had to start with it wide for the sake of the boostrapping
 local maxid=_N
 if _N!=`simulations' {
@@ -1920,6 +1925,28 @@ else {
 				max(cond(`int_no'==2, `_gc_exp', .))
 		}
 		quietly sort `_gc_arm_order'
+		* Cross-world post-confounder handling.  A post_confs() variable that feeds a
+		* mediator model must, for the natural-direct-effect arm (int_no==1), be
+		* conditioned on the BASELINE exposure world (x') during the mediator block,
+		* then restored to the arm's own (outcome) world for the outcome model.  This
+		* is the E[Y(x, M(x'))] estimand of Daniel, De Stavola & Cousens 2011 (SJ
+		* 11(4):479-517), Daniel et al. 2015 (Biometrics 71(1):1-14) and VanderWeele
+		* 2015, where M(x') marginalizes the post-exposure confounder under x'.
+		* Reserve the holder tempvars here; they are populated at the first mediator,
+		* because post_confs are themselves simulated inside this loop.  Also flag
+		* which derived() rules reference a post_conf so the swap propagates to them.
+		local _gc_npostconf : word count `post_confs'
+		local _gc_postconf_index 0
+		foreach _gc_pc of local post_confs {
+			local ++_gc_postconf_index
+			tempvar _gc_outcome_pc`_gc_postconf_index' _gc_mediator_pc`_gc_postconf_index'
+		}
+		forvalues l=1/`nder' {
+			local _gc_der_uses_pc`l' 0
+			foreach _gc_pc of local post_confs {
+				if ustrregexm(`"`derrule`l''"', "\b`_gc_pc'\b") local _gc_der_uses_pc`l' 1
+			}
+		}
 	   	forvalues i=1/`nvar' {
 			* For the natural-direct-effect arm, draw the entire ordered mediator
 			* vector under the baseline exposure world.  Later mediators therefore
@@ -1930,6 +1957,29 @@ else {
 				foreach _gc_exp of local exposure {
 					local ++_gc_exposure_index
 					quietly replace `_gc_exp'=`_gc_mediator_exp`_gc_exposure_index'' if `int_no'==1
+				}
+				* Swap each post-confounder to its baseline-world (int_no==2) draw for
+				* the arm-1 mediator block, saving the arm's own draw for restoration
+				* before the outcome model.  All post_confs precede the mediators in
+				* varlist2, so every arm's post_confs are already simulated here.
+				local _gc_postconf_index 0
+				foreach _gc_pc of local post_confs {
+					local ++_gc_postconf_index
+					quietly clonevar `_gc_outcome_pc`_gc_postconf_index''=`_gc_pc' if `int_no'==1
+					quietly bysort `subjectid': egen double `_gc_mediator_pc`_gc_postconf_index'' = ///
+						max(cond(`int_no'==2, `_gc_pc', .))
+					quietly replace `_gc_pc'=`_gc_mediator_pc`_gc_postconf_index'' if `int_no'==1
+				}
+				if `_gc_npostconf'>0 {
+					quietly sort `_gc_arm_order'
+					* Recompute derived() variables that depend on a post_conf so the
+					* baseline-world swap propagates (bypass the if-missing guard).
+					forvalues l=1/`nder' {
+						if `_gc_der_uses_pc`l'' {
+							_gcomp_apply_rule, rule(`"`der`l''=`derrule`l''"') ///
+								condition(`"if `int_no'==1"') context("derrules() for `der`l'' (cross-world post_conf swap)")
+						}
+					}
 				}
 			}
 	   	if `_gc_chk_prt'==0 {
@@ -2053,6 +2103,20 @@ else {
 				foreach _gc_exp of local exposure {
 					local ++_gc_exposure_index
 					quietly replace `_gc_exp'=`_gc_outcome_exp`_gc_exposure_index'' if `int_no'==1
+				}
+				* Restore each post-confounder to the arm's own (outcome) world before
+				* the outcome model is fit, and re-recompute any derived() that depends
+				* on it so the outcome conditions on the correct (outcome) world.
+				local _gc_postconf_index 0
+				foreach _gc_pc of local post_confs {
+					local ++_gc_postconf_index
+					quietly replace `_gc_pc'=`_gc_outcome_pc`_gc_postconf_index'' if `int_no'==1
+				}
+				forvalues l=1/`nder' {
+					if `_gc_der_uses_pc`l'' {
+						_gcomp_apply_rule, rule(`"`der`l''=`derrule`l''"') ///
+							condition(`"if `int_no'==1"') context("derrules() for `der`l'' (restore outcome-world post_conf)")
+					}
 				}
 			}
 		}

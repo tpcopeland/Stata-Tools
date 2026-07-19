@@ -55,13 +55,15 @@ Effective Sample Size (ESS)
 Extreme Weight Detection
 --------------------------------------------------
 Coefficient of Variation:    0.637
+Max / mean weight ratio:      6.31
 Weights > 10:                    3 ( 0.38%)
 Weights > 20:                    0
 --------------------------------------------------
 
 Warning: 3 extreme weights detected (>10).
 
-Weights: Acceptable (ESS = 71.2% of N)
+Weights: WARNING (ESS = 71.2% of N; 1 finding(s))
+  Consider: psdash weights, trim(99) generate(w_trim) or psdash weights, truncate(#) generate(w_trunc)
 ```
 
 ```stata
@@ -99,13 +101,15 @@ Effective Sample Size (ESS)
 Extreme Weight Detection
 --------------------------------------------------
 Coefficient of Variation:    0.637
+Max / mean weight ratio:      6.31
 Weights > 10:                    3 ( 0.38%)
 Weights > 20:                    0
 --------------------------------------------------
 
 Warning: 3 extreme weights detected (>10).
 
-Weights: Acceptable (ESS = 71.2% of N)
+Weights: WARNING (ESS = 71.2% of N; 1 finding(s))
+  Consider: psdash weights, trim(99) generate(w_trim) or psdash weights, truncate(#) generate(w_trunc)
 
 ----------------------------------------------------------------------
 Modified Weight Statistics: ipw_trimmed
@@ -157,13 +161,17 @@ Effective Sample Size (ESS)
 Extreme Weight Detection
 --------------------------------------------------
 Coefficient of Variation:    0.637
+Max / mean weight ratio:      6.31
 Weights > 10:                    3 ( 0.38%)
 Weights > 20:                    0
 --------------------------------------------------
 
 Warning: 3 extreme weights detected (>10).
 
-Weights: Acceptable (ESS = 71.2% of N)
+Weights: WARNING (ESS = 71.2% of N; 1 finding(s))
+  Consider: psdash weights, trim(99) generate(w_trim) or psdash weights, truncate(#) generate(w_trunc)
+Note: stabilize multiplies the supplied weights by the marginal P(treatment);
+      this is correct only for unstabilized inverse-probability weights (1/PS scale).
 
 ----------------------------------------------------------------------
 Modified Weight Statistics: ipw_stabilized

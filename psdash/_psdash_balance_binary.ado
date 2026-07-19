@@ -11,11 +11,17 @@ program define _psdash_balance_binary, rclass
 
     capture noisily {
         syntax varlist(numeric), TREATment(varname numeric) SAMPLEvar(varname) ///
-            THReshold(real) [Wvar(varname numeric) VRLo(real 0.5) VRHi(real 2)]
+            THReshold(real) [Wvar(varname numeric) VRLo(real 0.5) VRHi(real 2) ///
+            LABels(string asis)]
 
         return clear
         local nvars : word count `varlist'
         local has_adj = ("`wvar'" != "")
+
+        * Readable row labels for factor-variable design columns (RB-03). When the
+        * caller passes materialized fv tempvars, labels() carries the term names
+        * (2.cat, c.x#c.z, ...) so matrix rownames and vr_na_vars stay readable.
+        if `"`labels'"' == "" local labels `"`varlist'"'
 
         preserve
         quietly keep if `samplevar'
@@ -37,7 +43,7 @@ program define _psdash_balance_binary, rclass
 
         local i = 1
         foreach var of local varlist {
-            local rownames "`rownames' `var'"
+            local rownames `"`rownames' `: word `i' of `labels''"'
 
             * Flag binary/indicator covariates: VR carries no information beyond
             * the SMD for a two-level covariate, so it is excluded from the VR
@@ -159,7 +165,8 @@ program define _psdash_balance_binary, rclass
         local max_ks_raw = 0
         local max_ks_adj = 0
         local n_imbalanced = 0
-        local n_vr_imbalanced = 0
+        local n_vr_imbalanced_raw = 0
+        local n_vr_imbalanced_adj = 0
         local n_binary_vr = 0
         local vr_na_vars ""
 
@@ -181,7 +188,7 @@ program define _psdash_balance_binary, rclass
                     local max_vr_raw_dev = `dev_from_1'
                 }
                 if `vr_i' < `vrlo' | `vr_i' > `vrhi' {
-                    local n_vr_imbalanced = `n_vr_imbalanced' + 1
+                    local n_vr_imbalanced_raw = `n_vr_imbalanced_raw' + 1
                 }
             }
 
@@ -212,6 +219,14 @@ program define _psdash_balance_binary, rclass
                         local max_vr_adj = `vr_adj_i'
                         local max_vr_adj_dev = `dev_adj'
                     }
+                    * RB-08: count the ADJUSTED VR imbalance separately from raw.
+                    * When weights are supplied the verdict must judge the weighted
+                    * (adjusted) VR, not the raw VR -- probe B2 has raw VR in bounds
+                    * while the adjusted VR is far outside them, and the old code
+                    * counted only the raw VR, so the adjusted failure was invisible.
+                    if `vr_adj_i' < `vrlo' | `vr_adj_i' > `vrhi' {
+                        local n_vr_imbalanced_adj = `n_vr_imbalanced_adj' + 1
+                    }
                 }
             }
             else {
@@ -235,7 +250,13 @@ program define _psdash_balance_binary, rclass
         return scalar max_ks_raw = `max_ks_raw'
         return scalar max_ks_adj = `max_ks_adj'
         return scalar n_imbalanced = `n_imbalanced'
+        * RB-08: n_vr_imbalanced is the verdict-scale count of imbalanced covariates
+        * (adjusted when weights are supplied, raw otherwise). Both raw and adjusted
+        * counts are returned so the caller can report each unambiguously.
+        local n_vr_imbalanced = cond(`has_adj', `n_vr_imbalanced_adj', `n_vr_imbalanced_raw')
         return scalar n_vr_imbalanced = `n_vr_imbalanced'
+        return scalar n_vr_imbalanced_raw = `n_vr_imbalanced_raw'
+        return scalar n_vr_imbalanced_adj = `n_vr_imbalanced_adj'
         return scalar n_binary_vr = `n_binary_vr'
         return local vr_na_vars = strtrim("`vr_na_vars'")
         return matrix balance = `balance_mat'

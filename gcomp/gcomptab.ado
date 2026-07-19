@@ -1,4 +1,4 @@
-*! gcomptab Version 1.4.5  2026/07/13
+*! gcomptab Version 1.4.6  2026/07/19
 *! Export gcomp mediation, dose-response, or component-model results
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -968,6 +968,9 @@ program define _gcomptab_doseresponse, rclass
         fontsize(`fontsize') borderstyle(`"`borderstyle'"')
     local ci "`r(ci)'"
     local effect "`r(effect)'"
+    local pocol "`r(pocol)'"
+    local poscale "`r(poscale)'"
+    local survival = r(survival)
     local font "`r(font)'"
     local borderstyle "`r(borderstyle)'"
     local _hborder "`r(hborder)'"
@@ -985,7 +988,8 @@ program define _gcomptab_doseresponse, rclass
     capture noisily {
         _gcomptab_dr_build, ci(`"`ci'"') k(`k') decimal(`decimal') ///
             reference(`reference') effect(`"`effect'"') title(`"`title'"') ///
-            strategylabels(`"`strategylabels'"') expyears(`expyears') `rd'
+            strategylabels(`"`strategylabels'"') expyears(`expyears') `rd' ///
+            pocol(`pocol')
         local num_rows = r(num_rows)
         local num_cols = r(num_cols)
         local strat_width = r(strat_width)
@@ -995,15 +999,17 @@ program define _gcomptab_doseresponse, rclass
         local ref_label `"`r(ref_label)'"'
         matrix `_drtab' = r(table)
 
-        * Default footnote: g-formula MC settings + reference strategy
+        * Default footnote: g-formula MC settings + reference strategy.  The noun is
+        * outcome-type aware (cumulative incidence for survival, risk for a binary
+        * eofu outcome, mean potential outcome for a continuous eofu outcome).
         if `"`footnote'"' == "" {
-            local _fn "Counterfactual cumulative incidence under each sustained-treatment strategy from the parametric g-formula"
+            local _fn "Counterfactual `poscale' under each sustained-treatment strategy from the parametric g-formula"
             if "`e(MC_sims)'" != "" {
                 local _fn `"`_fn' (`e(MC_sims)' Monte Carlo simulations"'
                 if "`e(samples)'" != "" local _fn `"`_fn', `e(samples)' bootstrap samples"'
                 local _fn `"`_fn')"'
             }
-            local _fn `"`_fn'. Risk difference shown versus reference strategy: `ref_label'."'
+            local _fn `"`_fn'. `effect' difference versus reference strategy shown: `ref_label'."'
             local footnote `"`_fn'"'
         }
 
@@ -1050,7 +1056,7 @@ program define _gcomptab_dr_validate, rclass
         [CI(string) EFFECT(string) Font(string) BORDERstyle(string)]
 
     if "`ci'" == "" local ci "normal"
-    if "`effect'" == "" local effect "Risk"
+    local _effect_user = ("`effect'" != "")
     if "`font'" == "" local font "Arial"
     if "`borderstyle'" == "" local borderstyle "thin"
     local hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
@@ -1081,6 +1087,45 @@ program define _gcomptab_dr_validate, rclass
         exit 198
     }
 
+    * Outcome-type awareness.  Survival (non-eofu) runs also carry out# cumulative
+    * incidence columns; the PO# columns are then average LOG INCIDENCE RATES and
+    * must NOT be tabled as risks.  In that case table the out# columns.  In eofu
+    * mode there are no out# columns and PO# is the mean potential outcome (risk for
+    * a binary outcome via logit, mean for a continuous outcome via regress).
+    local _survival = (colnumb(`eb', "out1") != .)
+    if `_survival' {
+        local pocol "out"
+        local poscale "cumulative incidence"
+        local polabel "Risk"
+    }
+    else {
+        local pocol "PO"
+        * Distinguish binary (risk) from continuous (mean) via the outcome model cmd.
+        local _oc "`e(outcome)'"
+        local _deps "`e(model_depvars)'"
+        local _cmds "`e(model_cmds)'"
+        local _ocmd ""
+        local _nw : word count `_deps'
+        forvalues _w = 1/`_nw' {
+            if "`: word `_w' of `_deps''" == "`_oc'" local _ocmd "`: word `_w' of `_cmds''"
+        }
+        * poscale is the noun the default footnote appends after "Counterfactual ",
+        * so it must not itself contain "counterfactual".
+        if "`_ocmd'" == "regress" {
+            local poscale "mean potential outcome"
+            local polabel "Mean"
+        }
+        else if "`_ocmd'" == "logit" {
+            local poscale "risk"
+            local polabel "Risk"
+        }
+        else {
+            local poscale "outcome"
+            local polabel "Value"
+        }
+    }
+    if !`_effect_user' local effect "`polabel'"
+
     if !inlist("`ci'", "normal", "percentile", "bc", "bca") {
         noisily display as error "ci() must be normal, percentile, bc, or bca"
         exit 198
@@ -1093,7 +1138,7 @@ program define _gcomptab_dr_validate, rclass
     }
     tempname cimat
     matrix `cimat' = e(ci_`ci')
-    if rowsof(`cimat') != 2 | colnumb(`cimat', "PO1") == . {
+    if rowsof(`cimat') != 2 | colnumb(`cimat', "`pocol'1") == . {
         noisily display as error "CI matrix ci_`ci' has unexpected shape"
         exit 198
     }
@@ -1118,8 +1163,11 @@ program define _gcomptab_dr_validate, rclass
     }
 
     return scalar k = `k'
+    return scalar survival = `_survival'
     return local ci "`ci'"
     return local effect "`effect'"
+    return local pocol "`pocol'"
+    return local poscale "`poscale'"
     return local font "`font'"
     return local borderstyle "`borderstyle'"
     return local hborder "`hborder'"
@@ -1129,9 +1177,11 @@ capture program drop _gcomptab_dr_build
 program define _gcomptab_dr_build, rclass
     version 16.0
     syntax, CI(string) K(integer) DECimal(integer) REFerence(integer) ///
-        [EFFECT(string) TITLE(string) STRATEGYlabels(string) EXPYears(numlist) noRD]
+        [EFFECT(string) TITLE(string) STRATEGYlabels(string) EXPYears(numlist) noRD ///
+        POCOL(string)]
 
     if "`effect'" == "" local effect "Risk"
+    if "`pocol'" == "" local pocol "PO"
     local has_rd = ("`rd'" != "nord")
 
     tempname eb cimat
@@ -1160,8 +1210,8 @@ program define _gcomptab_dr_build, rclass
     }
     local has_exp = (`n_exp' > 0)
 
-    * Reference risk
-    local _ref_col = colnumb(`eb', "PO`reference'")
+    * Reference risk (column prefix is PO for eofu, out for survival cum. incidence)
+    local _ref_col = colnumb(`eb', "`pocol'`reference'")
     local risk_ref = `eb'[1, `_ref_col']
     local ref_label `"`lab`reference''"'
 
@@ -1170,7 +1220,7 @@ program define _gcomptab_dr_build, rclass
     matrix `_T' = J(`k', 5, .)
     local _rn ""
     forvalues i = 1/`k' {
-        local _col = colnumb(`eb', "PO`i'")
+        local _col = colnumb(`eb', "`pocol'`i'")
         matrix `_T'[`i', 1] = `eb'[1, `_col']
         matrix `_T'[`i', 2] = `cimat'[1, `_col']
         matrix `_T'[`i', 3] = `cimat'[2, `_col']
@@ -1181,7 +1231,7 @@ program define _gcomptab_dr_build, rclass
         }
         matrix `_T'[`i', 4] = `_ev'
         matrix `_T'[`i', 5] = `eb'[1, `_col'] - `risk_ref'
-        local _rn "`_rn' PO`i'"
+        local _rn "`_rn' `pocol'`i'"
     }
     matrix colnames `_T' = risk ci_lower ci_upper exp_years rd
     matrix rownames `_T' = `=strtrim("`_rn'")'
@@ -1201,7 +1251,8 @@ program define _gcomptab_dr_build, rclass
     replace strat = "Strategy" in 2
     if `has_exp' replace expcol = "Mean exposure-years" in 2
     replace riskcol = "`effect' (95% CI)" in 2
-    if `has_rd' replace rdcol = "RD vs ref" in 2
+    local _rdhdr = cond("`effect'" == "Risk", "RD vs ref", "Diff vs ref")
+    if `has_rd' replace rdcol = "`_rdhdr'" in 2
 
     forvalues i = 1/`k' {
         local _r = `i' + 2

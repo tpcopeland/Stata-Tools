@@ -102,6 +102,8 @@ Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
 ---------------------------------------------------------------------------------------
+Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
+      (VR for a two-level covariate is determined by the SMD; excluded from the VR count).
 
 Balance: Adequate (max |SMD| =  0.032)
 
@@ -137,13 +139,15 @@ Effective Sample Size (ESS)
 Extreme Weight Detection
 --------------------------------------------------
 Coefficient of Variation:    0.650
+Max / mean weight ratio:      7.04
 Weights > 10:                    3 ( 0.38%)
 Weights > 20:                    0
 --------------------------------------------------
 
 Warning: 3 extreme weights detected (>10).
 
-Weights: Acceptable (ESS = 70.3% of N)
+Weights: WARNING (ESS = 70.3% of N; 1 finding(s))
+  Consider: psdash weights, trim(99) generate(w_trim) or psdash weights, truncate(#) generate(w_trunc)
 
 === COMMON SUPPORT ASSESSMENT ===
 
@@ -165,6 +169,7 @@ Propensity Score Range
 -------------------------------------------------------
 Common Support Region
 -------------------------------------------------------
+Method:                min-max overlap (optimistic)
 Lower bound:               0.2828
 Upper bound:               0.9289
 Outside support:               10 ( 1.25%)
@@ -173,5 +178,8 @@ Outside support:               10 ( 1.25%)
 -------------------------------------------------------
 
 Support: Good ( 1.2% outside support)
-Overall: PASS
+
+Overall: FAIL (1 finding(s) across 4 panel(s): weights)
+  Findings: [weights] 3 extreme weights > 10
+  Consider: rerun failing panels individually for targeted diagnostics
 ```

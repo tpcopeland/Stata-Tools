@@ -1,6 +1,7 @@
 feature_id,expected_behavior,oracle_type,suite,lane,seed,fixture_or_contract
 GCOMP-C01,Pooled monotreat fits the treatment model only while no prior observed treatment has occurred,hand-built e(sample) and coefficient identity,test_audit_remediation,quick,1462,audit/validation_monotreat_risk.do
 GCOMP-C02,Multiple mediators are drawn sequentially so later mediators condition on earlier simulated mediators,dependent-mediator known answer,test_audit_remediation,quick,91273,audit/validation_joint_mediator.do
+GCOMP-C08,A post-exposure confounder feeding a mediator model is drawn under the baseline exposure world for the natural-direct-effect arm (cross-world conditioning),analytic mediation oracle (obe + no-bias control + oce two-contrast),test_audit_remediation,quick,101,audit/validation_postconfs_crossworld.do
 GCOMP-C03,boceam without msm() fails before mutation and boceam with msm() leaves ordinary mediation effects invariant,error plus invariance oracle,test_audit_remediation,quick,35,audit/validation_boceam.do
 GCOMP-C04,Factor-level MSM terms retain distinct full coefficient identities and values,stripe and value oracle,test_audit_remediation,quick,2281,audit/validation_factor_msm.do
 GCOMP-C05,An imputation target with no finite donors returns promptly with rc 2000,timeout and error oracle,test_audit_remediation,quick,1,audit/test_imputation_no_donor.do

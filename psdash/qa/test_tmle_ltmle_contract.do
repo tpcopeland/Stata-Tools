@@ -1,5 +1,19 @@
 * test_tmle_ltmle_contract.do
-* Focused tmle/ltmle contract-state smoke tests for psdash
+* RB-07 tmle/ltmle contract validation for psdash.
+*
+* The pre-RB-07 version FABRICATED tmle/ltmle estimation state (a fake eclass
+* program setting e(cmd)="tmle"/"ltmle" plus dataset characteristics) and asserted
+* psdash ACCEPTED it and dispatched diagnostics. Per the audit (C1/C2) that is the
+* failure mode: psdash trusted a contract the producer's own guard would reject.
+* psdash now calls the producer guard (_tmle_get_context / _ltmle_get_context) via
+* _psdash_verify_producer and fails closed when the state is unverifiable or the
+* producer package is not installed. tmle and ltmle are development-only producers
+* (RB-15): a released psdash cannot install them, so it correctly refuses their
+* metadata rather than presenting diagnostics for an unverifiable analysis.
+*
+* Fail-on-old: against shipped psdash 1.4.1 the fabricated contracts below were
+* ACCEPTED (source=tmle/ltmle, r0). Every reject assertion here fails on old.
+*
 * Usage: cd psdash/qa && stata-mp -b do test_tmle_ltmle_contract.do
 
 clear all
@@ -34,59 +48,27 @@ end
 capture program drop _fake_tmle_contract
 program define _fake_tmle_contract, eclass
     quietly regress y x1 x2
-    ereturn scalar is_longitudinal = 0
     ereturn local cmd "tmle"
-    ereturn local method "tmle"
-    ereturn local contract_version "1.0"
-    ereturn local ps_var "_tmle_ps"
-    ereturn local weight_var ""
-    ereturn local if_var "_tmle_if"
-    ereturn local covariates "x1 x2"
-    ereturn local outcome "y"
-    ereturn local treatment "treat"
-    ereturn local tmodel "x1 x2"
-    ereturn local estimand "ATT"
     char _dta[_tmle_estimated] "1"
     char _dta[_tmle_method] "tmle"
-    char _dta[_tmle_contract_version] "1.0"
     char _dta[_tmle_treatment] "treat"
     char _dta[_tmle_covariates] "x1 x2"
-    char _dta[_tmle_tmodel] "x1 x2"
     char _dta[_tmle_ps_var] "_tmle_ps"
-    char _dta[_tmle_weight_var] ""
     char _dta[_tmle_estimand] "ATT"
 end
 
 capture program drop _fake_ltmle_contract
 program define _fake_ltmle_contract, eclass
     quietly regress y x tv_x base_x
-    ereturn scalar is_longitudinal = 1
-    ereturn scalar N_id = 40
-    ereturn scalar T = 3
     ereturn local cmd "ltmle"
-    ereturn local method "ltmle"
-    ereturn local contract_version "1.0"
-    ereturn local id "pid"
-    ereturn local period "period"
-    ereturn local outcome "y"
-    ereturn local treatment "a"
-    ereturn local covariates "tv_x"
-    ereturn local baseline "base_x"
-    ereturn local regime "always_never"
-    ereturn local estimand "ATE"
-    ereturn local ps_var "g_ps"
-    ereturn local weight_var "g_w"
     char _dta[_ltmle_estimated] "1"
     char _dta[_ltmle_method] "ltmle"
-    char _dta[_ltmle_contract_version] "1.0"
     char _dta[_ltmle_treatment] "a"
     char _dta[_ltmle_id] "pid"
     char _dta[_ltmle_period] "period"
     char _dta[_ltmle_ps_var] "g_ps"
     char _dta[_ltmle_weight_var] "g_w"
-    char _dta[_ltmle_tmodel] "tv_x base_x"
     char _dta[_ltmle_estimand] "ATE"
-    char _dta[_ltmle_regime] "always_never"
 end
 
 capture program drop _tmlect_cross_sectional_data
@@ -101,8 +83,6 @@ program define _tmlect_cross_sectional_data
     replace treat = 0 in 1/4
     replace treat = 1 in 117/120
     gen double y = 1 + 1.2*treat + 0.3*x1 - 0.2*x2 + rnormal()
-    gen double _tmle_if = y - 1
-    gen byte _tmle_esample = 1
 end
 
 capture program drop _tmlect_longitudinal_data
@@ -122,81 +102,47 @@ program define _tmlect_longitudinal_data
     gen double g_w = cond(a == 1, 1 / g_ps, 1 / (1 - g_ps))
     gen double x = tv_x + base_x
     gen double y = 1 + a + 0.2*tv_x + 0.1*base_x + rnormal()
-    gen byte _ltmle_esample = 1
 end
 
+* --- TEST 1: fabricated cross-sectional tmle contract is rejected ---
 local ++test_count
 capture noisily {
     _tmlect_cross_sectional_data
     _fake_tmle_contract
-    psdash overlap, nograph
-    assert r(N) == 120
-    assert "`r(treatment)'" == "treat"
-    assert "`r(psvar)'" == "_tmle_ps"
-    assert "`r(estimand)'" == "att"
-
-    psdash balance, nowvar
-    assert "`r(varlist)'" == "x1 x2"
-
-    psdash weights
-    assert "`r(treatment)'" == "treat"
-    assert "`r(estimand)'" == "att"
-    assert "`r(wvar)'" == "auto-generated"
-
-    psdash support, nograph
-    assert r(N) == 120
-    assert "`r(treatment)'" == "treat"
-    assert "`r(psvar)'" == "_tmle_ps"
+    local vabbrev_before "`c(varabbrev)'"
+    foreach subcmd in overlap balance weights support combined {
+        capture noisily psdash `subcmd'
+        assert _rc != 0
+        assert "`c(varabbrev)'" == "`vabbrev_before'"
+    }
 }
-_tmlect_result tmle_contract_autodetects_individual_subcommands `=_rc'
+_tmlect_result fabricated_tmle_contract_rejected `=_rc'
 
-local ++test_count
-capture noisily {
-    _tmlect_cross_sectional_data
-    _fake_tmle_contract
-    capture graph drop _all
-    psdash combined
-    assert "`r(source)'" == "tmle"
-    assert "`r(treatment)'" == "treat"
-    assert "`r(psvar)'" == "_tmle_ps"
-    assert "`r(estimand)'" == "att"
-    assert r(N) == 120
-    assert r(pct_outside) >= 0
-}
-_tmlect_result tmle_contract_uses_cross_sectional_combined_path `=_rc'
-
+* --- TEST 2: fabricated longitudinal ltmle contract is rejected ---
 local ++test_count
 capture noisily {
     _tmlect_longitudinal_data
     _fake_ltmle_contract
     local vabbrev_before "`c(varabbrev)'"
-    foreach subcmd in overlap balance weights support {
+    foreach subcmd in overlap balance weights support combined {
         capture noisily psdash `subcmd'
-        assert _rc == 198
+        assert _rc != 0
         assert "`c(varabbrev)'" == "`vabbrev_before'"
     }
-
-    psdash combined
-    assert "`c(varabbrev)'" == "`vabbrev_before'"
-    assert "`r(source)'" == "ltmle"
-    assert r(longitudinal) == 1
-    assert "`r(treatment)'" == "a"
-    assert "`r(psvar)'" == "g_ps"
-    assert "`r(wvar)'" == "g_w"
-    assert "`r(period)'" == "period"
-    assert "`r(id)'" == "pid"
-    assert "`r(method)'" == "ltmle"
-    assert "`r(regime)'" == "always_never"
-    assert "`r(contract_version)'" == "1.0"
-    assert r(N_periods) == 3
-    matrix O = r(overlap_by_period)
-    matrix W = r(weights_by_period)
-    assert rowsof(O) == 3
-    assert colsof(O) == 12
-    assert rowsof(W) == 3
-    assert colsof(W) == 7
 }
-_tmlect_result ltmle_contract_uses_longitudinal_combined_path `=_rc'
+_tmlect_result fabricated_ltmle_contract_rejected `=_rc'
+
+* --- TEST 3: explicit args bypass the (unverifiable) tmle contract ---
+local ++test_count
+capture noisily {
+    _tmlect_cross_sectional_data
+    _fake_tmle_contract
+    psdash overlap treat _tmle_ps, nograph
+    assert "`r(source)'" == "manual"
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "_tmle_ps"
+}
+_tmlect_result explicit_args_bypass_tmle_contract `=_rc'
 
 display as text _n "=== TMLE/LTMLE contract summary: " ///
     as result $PSDASH_TMLE_PASS_COUNT as text " passed, " ///
@@ -205,6 +151,7 @@ display as text _n "=== TMLE/LTMLE contract summary: " ///
 _psdash_qa_cleanup
 capture log close _all
 
+display "RESULT: test_tmle_ltmle_contract tests=`test_count' pass=$PSDASH_TMLE_PASS_COUNT fail=$PSDASH_TMLE_FAIL_COUNT"
 if $PSDASH_TMLE_FAIL_COUNT > 0 {
     display as error "Failed tests: $PSDASH_TMLE_FAILED_TESTS"
     exit 9

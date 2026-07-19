@@ -1,5 +1,27 @@
 * test_msm_tte_contract.do
-* Focused msm/tte longitudinal contract-state smoke tests for psdash
+* RB-07 msm/tte longitudinal contract validation for psdash.
+*
+* The pre-RB-07 version FABRICATED msm and tte dataset characteristics and
+* asserted psdash ACCEPTED them and dispatched longitudinal diagnostics. Per the
+* audit (C1/C2) that is exactly the failure mode: psdash trusted labels the
+* producer's own guard rejects. psdash now calls the producer guard
+* (_msm_check_weighted / _tte_get_weight_state) via _psdash_verify_producer and
+* fails closed when the contract is unverified, stale, or the producer package is
+* not installed. This suite asserts that fail-closed contract.
+*
+*   - Fabricated msm/tte metadata (no real msm_weight / tte_weight run) is
+*     REJECTED, whether or not the producer is installed.
+*   - psdash never mutates the caller's varabbrev setting on any path.
+*
+* NOTE: a real end-to-end positive control (run the producer, accept, tamper,
+* reject) is provided for iivw in test_iivw_contract.do. msm is released and a
+* real msm_prepare/msm_weight positive control is worthwhile future work; tte is
+* a development-only producer (RB-15), so a released psdash cannot install it and
+* correctly refuses its unverifiable metadata.
+*
+* Fail-on-old: against shipped psdash 1.4.1 the fabricated contracts below were
+* ACCEPTED (source=msm/tte, r0). Every reject assertion here fails on old.
+*
 * Usage: cd psdash/qa && stata-mp -b do test_msm_tte_contract.do
 
 clear all
@@ -31,10 +53,6 @@ program define _mtct_result
     }
 end
 
-* Synthetic person-period data with a per-period treatment PS and weights.
-* A trailing logit fit is left active so e(cmd)=="logit" with e(depvar)=a, which
-* mimics the real post-msm_weight / post-tte_weight session state: psdash must
-* route via the dataset contract, NOT the stale estimation result.
 capture program drop _mtct_longitudinal_data
 program define _mtct_longitudinal_data
     clear
@@ -56,8 +74,6 @@ end
 
 capture program drop _fake_msm_contract
 program define _fake_msm_contract
-    * leave e(cmd)=="logit" active on purpose
-    quietly logit a tv_x period
     char _dta[_msm_weighted] "1"
     char _dta[_msm_treatment] "a"
     char _dta[_msm_ps_var] "ps"
@@ -72,7 +88,6 @@ end
 
 capture program drop _fake_tte_contract
 program define _fake_tte_contract
-    quietly logit a tv_x period
     char _dta[_tte_weighted] "1"
     char _dta[_tte_treatment] "a"
     char _dta[_tte_pscore_var] "ps"
@@ -83,83 +98,52 @@ program define _fake_tte_contract
     char _dta[_tte_estimand] "PP"
 end
 
-* --- TEST 1: msm contract routes to longitudinal combined path ---
+* --- TEST 1: fabricated msm contract is rejected (fail closed) ---
 local ++test_count
 capture noisily {
     _mtct_longitudinal_data
     _fake_msm_contract
     local vabbrev_before "`c(varabbrev)'"
-
-    * pooled subcommands must refuse to auto-run on longitudinal data
-    foreach subcmd in overlap balance weights support {
-        capture noisily psdash `subcmd'
-        assert _rc == 198
-        assert "`c(varabbrev)'" == "`vabbrev_before'"
-    }
-
-    psdash combined
-    assert "`c(varabbrev)'" == "`vabbrev_before'"
-    assert "`r(source)'" == "msm"
-    assert r(longitudinal) == 1
-    assert "`r(treatment)'" == "a"
-    assert "`r(psvar)'" == "ps"
-    assert "`r(wvar)'" == "tw"
-    assert "`r(period)'" == "period"
-    assert "`r(id)'" == "pid"
-    assert "`r(estimand)'" == "ate"
-    matrix O = r(overlap_by_period)
-    matrix W = r(weights_by_period)
-    assert colsof(O) == 12
-    assert colsof(W) == 7
-}
-_mtct_result msm_contract_uses_longitudinal_combined_path `=_rc'
-
-* --- TEST 2: tte contract routes to longitudinal combined path ---
-local ++test_count
-capture noisily {
-    _mtct_longitudinal_data
-    _fake_tte_contract
-    local vabbrev_before "`c(varabbrev)'"
-
-    foreach subcmd in overlap balance weights support {
-        capture noisily psdash `subcmd'
-        assert _rc == 198
-    }
-
-    psdash combined
-    assert "`r(source)'" == "tte"
-    assert r(longitudinal) == 1
-    assert "`r(treatment)'" == "a"
-    assert "`r(psvar)'" == "ps"
-    assert "`r(wvar)'" == "w"
-    assert "`r(period)'" == "period"
-    assert "`r(id)'" == "pid"
-    assert "`r(estimand)'" == "pp"
-}
-_mtct_result tte_contract_uses_longitudinal_combined_path `=_rc'
-
-* --- TEST 3: msm contract with missing PS variable gives a clean error ---
-local ++test_count
-capture noisily {
-    _mtct_longitudinal_data
-    _fake_msm_contract
-    char _dta[_msm_ps_var] "no_such_ps"
     capture noisily psdash combined
     assert _rc != 0
-    assert _rc != 1
+    assert "`c(varabbrev)'" == "`vabbrev_before'"
+    * pooled subcommands must also refuse the unverified contract
+    foreach subcmd in overlap balance weights support {
+        capture noisily psdash `subcmd'
+        assert _rc != 0
+        assert "`c(varabbrev)'" == "`vabbrev_before'"
+    }
 }
-_mtct_result msm_contract_missing_ps_errors_cleanly `=_rc'
+_mtct_result fabricated_msm_contract_rejected `=_rc'
 
-* --- TEST 4: tte contract without a saved pscore gives a clean error ---
+* --- TEST 2: fabricated tte contract is rejected (fail closed) ---
 local ++test_count
 capture noisily {
     _mtct_longitudinal_data
     _fake_tte_contract
-    char _dta[_tte_pscore_var]
+    local vabbrev_before "`c(varabbrev)'"
     capture noisily psdash combined
-    assert _rc == 198
+    assert _rc != 0
+    assert "`c(varabbrev)'" == "`vabbrev_before'"
+    foreach subcmd in overlap balance weights support {
+        capture noisily psdash `subcmd'
+        assert _rc != 0
+    }
 }
-_mtct_result tte_contract_without_save_ps_errors_cleanly `=_rc'
+_mtct_result fabricated_tte_contract_rejected `=_rc'
+
+* --- TEST 3: explicit args still bypass the contract entirely ---
+* A user who supplies treatment + PS explicitly is not relying on producer
+* metadata, so no producer guard is involved and the manual path works.
+local ++test_count
+capture noisily {
+    _mtct_longitudinal_data
+    _fake_msm_contract
+    psdash overlap a ps, nograph
+    assert "`r(source)'" == "manual"
+    assert "`r(treatment)'" == "a"
+}
+_mtct_result explicit_args_bypass_contract `=_rc'
 
 display as text _n "=== MSM/TTE contract summary: " ///
     as result $PSDASH_MT_PASS_COUNT as text " passed, " ///
@@ -168,6 +152,7 @@ display as text _n "=== MSM/TTE contract summary: " ///
 _psdash_qa_cleanup
 capture log close _all
 
+display "RESULT: test_msm_tte_contract tests=`test_count' pass=$PSDASH_MT_PASS_COUNT fail=$PSDASH_MT_FAIL_COUNT"
 if $PSDASH_MT_FAIL_COUNT > 0 {
     display as error "Failed tests: $PSDASH_MT_FAILED_TESTS"
     exit 9

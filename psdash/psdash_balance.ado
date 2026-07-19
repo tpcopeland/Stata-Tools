@@ -66,7 +66,7 @@ program define psdash_balance, rclass
 
     * SYNTAX PARSING
     syntax [anything] [if] [in], ///
-        [COVariates(varlist numeric) ///
+        [COVariates(varlist numeric fv) ///
          Wvar(varname) ///
          MATCHed ///
          THReshold(real 0.1) ///
@@ -152,6 +152,9 @@ program define psdash_balance, rclass
         local treatment "`_psd_treatment'"
         local psvar "`_psd_psvar'"
         local source "`_psd_source'"
+        * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
+        local n_estimation "`_psd_n_estimation'"
+        local n_excluded "`_psd_n_excluded'"
         if "`estimand'" == "" local estimand "`_psd_estimand'"
         local wvar_auto "0"
 
@@ -173,6 +176,44 @@ program define psdash_balance, rclass
     if "`wvar'" == "" & "`_psd_wvar'" != "" & "`nowvar'" == "" & "`matched'" == "" {
         local wvar "`_psd_wvar'"
         local wvar_auto "`_psd_wvar_auto'"
+    }
+
+    * RB-03: FACTOR-VARIABLE / INTERACTION EXPANSION
+    * Expand factor and interaction covariate terms into the actual fitted design
+    * columns (one indicator per non-base level, one product per interaction cell)
+    * using Stata's own fvexpand/fvrevar. Balance is then assessed on the design
+    * the assignment model used -- not on arbitrary integer category codes (which
+    * hide categorical imbalance) or on main effects with the interaction silently
+    * discarded. Applies uniformly to user-supplied covariates() and to terms
+    * auto-detected from a fitted logit/probit/mlogit/teffects model. `_cov_labels'
+    * carries the readable term names (2.cat, c.x#c.z, ...) used for display,
+    * matrix rownames, and r(varlist); `covariates' is replaced by the materialized
+    * design columns. Plain (non-factor) varlists pass through unchanged.
+    local _cov_labels ""
+    local _cov_basevars ""
+    if "`covariates'" != "" {
+        markout `touse' `treatment'
+        _psdash_expand_fv `covariates' , touse(`touse')
+        local _cov_labels `"`r(labels)'"'
+        local _cov_keepidx "`r(keepidx)'"
+        local _cov_nall = r(nall)
+        local _cov_basevars "`r(basevars)'"
+        * Materialize design columns in THIS scope so the tempvars survive to the
+        * balance engine and displays. fvrevar drops nothing and aligns 1:1 with
+        * fvexpand, so we pick the non-base columns by their recorded position.
+        fvrevar `covariates' if `touse'
+        local _allvars `r(varlist)'
+        local _nfv : word count `_allvars'
+        if `_nfv' != `_cov_nall' {
+            display as error ///
+                "psdash: factor-variable design for covariates(`covariates') could not be reconstructed exactly"
+            exit 459
+        }
+        local _cov_vars ""
+        foreach _p of local _cov_keepidx {
+            local _cov_vars "`_cov_vars' `: word `_p' of `_allvars''"
+        }
+        local covariates = strtrim("`_cov_vars'")
     }
 
     * BRANCH: BINARY vs MULTI-GROUP
@@ -311,7 +352,7 @@ program define psdash_balance, rclass
     }
     if "`distribution'" != "" {
         foreach dv of local distribution {
-            local _dvok : list dv in varlist
+            local _dvok : list dv in _cov_basevars
             if !`_dvok' {
                 display as error "distribution() variable `dv' is not among the assessed covariates"
                 exit 198
@@ -345,7 +386,8 @@ program define psdash_balance, rclass
     local wvar_opt ""
     if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
     _psdash_balance_binary `varlist', treatment(`treatment') samplevar(`touse') ///
-        threshold(`threshold') `wvar_opt' vrlo(`vrlo') vrhi(`vrhi')
+        threshold(`threshold') `wvar_opt' vrlo(`vrlo') vrhi(`vrhi') ///
+        labels(`_cov_labels')
     tempname balance_mat
     matrix `balance_mat' = r(balance)
     local n_treated = r(n_treated)
@@ -358,6 +400,8 @@ program define psdash_balance, rclass
     local max_ks_adj = r(max_ks_adj)
     local n_imbalanced = r(n_imbalanced)
     local n_vr_imbalanced = r(n_vr_imbalanced)
+    local n_vr_imbalanced_raw = r(n_vr_imbalanced_raw)
+    local n_vr_imbalanced_adj = r(n_vr_imbalanced_adj)
     local n_binary_vr = r(n_binary_vr)
     local vr_na_vars "`r(vr_na_vars)'"
 
@@ -452,7 +496,7 @@ program define psdash_balance, rclass
             local status_color "as error"
         }
 
-        local varname = abbrev("`var'", 20)
+        local varname = abbrev("`: word `i' of `_cov_labels''", 20)
 
         if `has_adj' {
             if `show_ks' {
@@ -579,7 +623,7 @@ program define psdash_balance, rclass
 
                 local i = 1
                 foreach var of local varlist {
-                    replace covariate = "`var'" in `i'
+                    replace covariate = "`: word `i' of `_cov_labels''" in `i'
                     replace smd_raw = `balance_mat'[`i', 3] in `i'
                     if `has_adj' {
                         replace smd_adj = `balance_mat'[`i', 8] in `i'
@@ -705,7 +749,7 @@ program define psdash_balance, rclass
                     gen double smd_`s' = .
                 }
                 forvalues i = 1/`nvars' {
-                    local cv : word `i' of `varlist'
+                    local cv : word `i' of `_cov_labels'
                     replace covariate = "`cv'" in `i'
                     forvalues s = 1/`nstrat' {
                         replace smd_`s' = `smd_strat'[`i', `s'] in `i'
@@ -860,7 +904,7 @@ program define psdash_balance, rclass
                 local i = 1
                 foreach var of local varlist {
                     local row = `i' + 2
-                    replace A = "`var'" in `row'
+                    replace A = "`: word `i' of `_cov_labels''" in `row'
                     replace B = string(`balance_mat'[`i', 1], "`format'") in `row'
                     replace C = string(`balance_mat'[`i', 2], "`format'") in `row'
                     replace D = string(`balance_mat'[`i', 3], "`format'") in `row'
@@ -996,7 +1040,7 @@ program define psdash_balance, rclass
     if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
     _psdash_balance_multigroup `varlist', treatment(`treatment') samplevar(`touse') ///
         levels(`levels') reference(`mg_reference') threshold(`threshold') `wvar_opt' ///
-        vrlo(`vrlo') vrhi(`vrhi')
+        vrlo(`vrlo') vrhi(`vrhi') labels(`_cov_labels')
     tempname balance_mat
     matrix `balance_mat' = r(balance)
     local contrasts "`r(contrasts)'"
@@ -1014,6 +1058,14 @@ program define psdash_balance, rclass
     local vr_na_vars "`r(vr_na_vars)'"
     local n_imbalanced = r(n_imbalanced)
     local n_vr_imbalanced = r(n_vr_imbalanced)
+    * RB-08: the engine now returns the worst VR on each scale and the underlying
+    * contrast tally; the verdict/display below read them (the multi-group verdict
+    * previously referenced max_vr_adj/max_vr_raw that the engine never returned).
+    local max_vr_raw = r(max_vr_raw)
+    local max_vr_adj = r(max_vr_adj)
+    local n_vr_imbalanced_raw = r(n_vr_imbalanced_raw)
+    local n_vr_imbalanced_adj = r(n_vr_imbalanced_adj)
+    local n_vr_contrasts_imbalanced = r(n_vr_contrasts_imbalanced)
     local show_ks = ("`ks'" != "")
 
     * DISPLAY (multi-group)
@@ -1089,7 +1141,7 @@ program define psdash_balance, rclass
     * Display each covariate
     local i = 1
     foreach var of local varlist {
-        local varname = abbrev("`var'", 20)
+        local varname = abbrev("`: word `i' of `_cov_labels''", 20)
         local row_line ""
         local row_line `"as text %20s "`varname'" " {c |}""'
 
@@ -1172,7 +1224,14 @@ program define psdash_balance, rclass
     display as text "Covariates > SMD threshold:  " as result %3.0f `n_imbalanced' " of " %3.0f `nvars'
     local _vrb "[`=string(`vrlo',"%3.1f")', `=string(`vrhi',"%3.1f")']"
     if `n_vr_imbalanced' > 0 {
-        display as text "VR outside `_vrb':       " as result %3.0f `n_vr_imbalanced'
+        * RB-08: report the covariate count (the documented unit) and, when a
+        * covariate is imbalanced in more than one contrast, the contrast tally.
+        local _vr_contr_note ""
+        if `n_vr_contrasts_imbalanced' > `n_vr_imbalanced' {
+            local _vr_contr_note "  (`n_vr_contrasts_imbalanced' contrast(s))"
+        }
+        display as text "VR outside `_vrb':       " as result %3.0f `n_vr_imbalanced' ///
+            as text " covariate(s)`_vr_contr_note'"
     }
     if `show_ks' {
         display as text "Maximum KS (raw):            " as result `ks_fmt' `max_ks_raw'
@@ -1241,7 +1300,7 @@ program define psdash_balance, rclass
 
                 local i = 1
                 foreach var of local varlist {
-                    replace covariate = "`var'" in `i'
+                    replace covariate = "`: word `i' of `_cov_labels''" in `i'
                     local cnum = 0
                     foreach clev of local contrasts {
                         local cnum = `cnum' + 1
@@ -1382,7 +1441,7 @@ program define psdash_balance, rclass
                 local i = 1
                 foreach var of local varlist {
                     local row = `i' + 2
-                    replace col_1 = "`var'" in `row'
+                    replace col_1 = "`: word `i' of `_cov_labels''" in `row'
                     local c = 1
                     local cnum = 0
                     foreach clev of local contrasts {
@@ -1457,6 +1516,8 @@ program define psdash_balance, rclass
             }
             return scalar n_imbalanced = `n_imbalanced'
             return scalar n_vr_imbalanced = `n_vr_imbalanced'
+            return scalar n_vr_imbalanced_raw = `n_vr_imbalanced_raw'
+            if `has_adj' return scalar n_vr_imbalanced_adj = `n_vr_imbalanced_adj'
             return scalar n_binary_vr = `n_binary_vr'
             return scalar max_ks_raw = `max_ks_raw'
             if `has_adj' return scalar max_ks_adj = `max_ks_adj'
@@ -1467,7 +1528,7 @@ program define psdash_balance, rclass
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"
-            return local varlist "`varlist'"
+            return local varlist "`_cov_labels'"
             if "`wvar'" != "" {
                 if "`wvar_auto'" == "1" {
                     return local wvar "auto-generated"
@@ -1502,6 +1563,11 @@ program define psdash_balance, rclass
             }
             return scalar n_imbalanced = `n_imbalanced'
             return scalar n_vr_imbalanced = `n_vr_imbalanced'
+            return scalar n_vr_imbalanced_raw = `n_vr_imbalanced_raw'
+            if `has_adj' return scalar n_vr_imbalanced_adj = `n_vr_imbalanced_adj'
+            return scalar n_vr_contrasts_imbalanced = `n_vr_contrasts_imbalanced'
+            return scalar max_vr_raw = `max_vr_raw'
+            if `has_adj' return scalar max_vr_adj = `max_vr_adj'
             return scalar n_binary_vr = `n_binary_vr'
             return scalar max_ks_raw = `max_ks_raw'
             if `has_adj' return scalar max_ks_adj = `max_ks_adj'
@@ -1510,7 +1576,7 @@ program define psdash_balance, rclass
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"
-            return local varlist "`varlist'"
+            return local varlist "`_cov_labels'"
             return local levels "`levels'"
             return local reference "`mg_reference'"
             if "`wvar'" != "" {
@@ -1563,6 +1629,12 @@ program define psdash_balance, rclass
         if "`_balance_nfind'" == "" local _balance_nfind = 0
         return scalar n_warnings = `_balance_nfind'
         return local warnings `"`_balance_findings'"'
+
+        * RB-05 estimation-sample exclusion ledger (teffects only)
+        if "`n_excluded'" != "" {
+            return scalar n_excluded = `n_excluded'
+            return scalar n_estimation = `n_estimation'
+        }
     }
     if `rc' exit `rc'
 end

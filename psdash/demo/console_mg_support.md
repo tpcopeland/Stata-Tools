@@ -27,11 +27,22 @@ Propensity Score Range
 -----------------------------------------------------------
 
 -------------------------------------------------------
-Common Support Region
+Generalized Positivity (full GPS vector)
+-------------------------------------------------------
+Min GPS (worst unit):       0.0214
+Floor:                     0.0100
+Below floor:                    0 ( 0.00%)
+  min e(Placebo):       0.0214
+  min e(Low dose):       0.1273
+  min e(High dose):       0.3046
+-------------------------------------------------------
+
+-------------------------------------------------------
+Observed-arm PS Overlap (informational)
 -------------------------------------------------------
 Lower bound:               0.3046
 Upper bound:               0.3586
-Outside support:             1129 (94.08%)
+Outside overlap:             1129 (94.08%)
   Placebo outside:        152
   Low dose outside:        253
   High dose outside:        724
@@ -47,7 +58,7 @@ Remaining sample:            1170
 -------------------------------------------------------
 
 Support indicator generated: mg_support
-Warning: >10% of observations outside common support.
+Warning: >10% of observations outside observed-arm PS overlap.
 
 Support: Trimmed ( 2.5% excluded)
 ```

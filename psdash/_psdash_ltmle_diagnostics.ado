@@ -60,6 +60,25 @@ program define _psdash_ltmle_diagnostics, rclass
             exit 198
         }
 
+        * RB-10 (L2): negative inverse-probability weights are invalid and must be
+        * rejected before any summary statistic is computed. A negative weight is
+        * not a small diagnostic quirk -- it indicates a corrupted weighting
+        * artifact, and the old code summarised it into a positive ESS at rc=0.
+        quietly count if `samplevar' & `wvar' < 0
+        local _n_neg_wt = r(N)
+        if `_n_neg_wt' > 0 {
+            display as error "`source' weights must be nonnegative"
+            display as error "  `_n_neg_wt' observation(s) have a negative longitudinal weight;"
+            display as error "  negative inverse-probability weights indicate a corrupted weighting artifact."
+            display as error "  Re-run the producer ({cmd:`source'}) to regenerate valid weights."
+            exit 198
+        }
+
+        * RB-10: exact-boundary PS (0 or 1) makes the inverse-probability weight
+        * undefined; count them so the verdict can surface them.
+        quietly count if `samplevar' & (`psvar' == 0 | `psvar' == 1)
+        local n_ps_boundary = r(N)
+
         quietly levelsof `period' if `samplevar', local(period_values)
         local n_periods : word count `period_values'
         if `n_periods' == 0 {
@@ -82,6 +101,13 @@ program define _psdash_ltmle_diagnostics, rclass
         local rownames ""
         local max_pct_outside = 0
         local max_weight_p99 = .
+        * RB-10 (L1): a period with only one treatment arm present is NOT estimable
+        * -- its overlap/outside-support is undefined, and folding a missing
+        * pct_outside into max as if it were zero turns "cannot be assessed" into
+        * "perfect support". Track estimable vs single-arm periods explicitly.
+        local n_single_arm = 0
+        local n_estimable = 0
+        local min_period_ess = .
         local i = 0
         foreach p of local period_values {
             local ++i
@@ -93,6 +119,13 @@ program define _psdash_ltmle_diagnostics, rclass
             local p_Nt = r(N)
             quietly count if `samplevar' & `period' == `p' & `treatment' == 0
             local p_Nc = r(N)
+
+            if `p_Nt' == 0 | `p_Nc' == 0 {
+                local ++n_single_arm
+            }
+            else {
+                local ++n_estimable
+            }
 
             local mean_t = .
             local min_t = .
@@ -162,6 +195,7 @@ program define _psdash_ltmle_diagnostics, rclass
             if `sum_wt_sq' > 0 & `p_N' > 0 {
                 local ess = (`sum_wt'^2) / `sum_wt_sq'
                 local ess_pct = 100 * `ess' / `p_N'
+                if `ess_pct' < `min_period_ess' local min_period_ess = `ess_pct'
             }
 
             matrix `wtperiod'[`i', 1] = `p_N'
@@ -285,11 +319,52 @@ program define _psdash_ltmle_diagnostics, rclass
             as text " (" as result %5.1f `pct_extreme' as text "%)"
         display as text "{hline 55}"
 
+        * RB-10: unified findings/verdict contract (RB-01 style) for the
+        * longitudinal path. ANY finding forces a FAIL verdict and enters
+        * r(warnings). A non-estimable (single-arm) period is itself a finding,
+        * so the "0% outside / perfect support" illusion (L1) can no longer pass.
+        local _pf ""
+        local _pfn = 0
+        if `n_single_arm' > 0 {
+            display as error "Warning: `n_single_arm' period(s) have only one treatment arm (overlap not estimable)."
+            local _pf `"`_pf' | `n_single_arm' single-arm period(s) (overlap not estimable)"'
+            local ++_pfn
+        }
         if `max_pct_outside' > 10 {
             display as error "Warning: at least one period has >10% outside common support."
+            local _pf `"`_pf' | max period `=string(`max_pct_outside',"%4.1f")'% outside common support"'
+            local ++_pfn
         }
         if `ess_pct' < 50 {
             display as error "Warning: overall ESS is below 50% of rows in the diagnostic sample."
+            local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
+            local ++_pfn
+        }
+        if `min_period_ess' < 50 & `min_period_ess' < . {
+            display as error "Warning: minimum per-period ESS is `=string(`min_period_ess',"%4.1f")'% (period collapse)."
+            local _pf `"`_pf' | min per-period ESS `=string(`min_period_ess',"%4.1f")'% < 50%"'
+            local ++_pfn
+        }
+        if `n_extreme' > 0 {
+            display as error "Warning: `n_extreme' extreme weight(s) (>10) in the diagnostic sample."
+            local _pf `"`_pf' | `n_extreme' extreme weights > 10"'
+            local ++_pfn
+        }
+        if `n_ps_boundary' > 0 {
+            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary (undefined weight)."
+            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary obs (undefined weight)"'
+            local ++_pfn
+        }
+        local _pf = strtrim("`_pf'")
+        if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+        local _verdict = cond(`_pfn' > 0, "FAIL", "PASS")
+        if `_pfn' > 0 {
+            display as text _n "Longitudinal support: " as error "`_verdict'" ///
+                as text " (" as result `_pfn' as text " finding(s))"
+        }
+        else {
+            display as text _n "Longitudinal support: " as result "PASS" ///
+                as text " (`n_estimable' estimable period(s))"
         }
 
         return clear
@@ -311,6 +386,15 @@ program define _psdash_ltmle_diagnostics, rclass
         return scalar n_extreme = `n_extreme'
         return scalar pct_extreme = `pct_extreme'
         return scalar longitudinal = 1
+        * RB-10: longitudinal verdict/warning contract + estimability ledger.
+        return local verdict "`_verdict'"
+        return scalar n_warnings = `_pfn'
+        return local warnings `"`_pf'"'
+        return scalar n_single_arm_periods = `n_single_arm'
+        return scalar n_estimable_periods = `n_estimable'
+        return scalar min_period_ess_pct = `min_period_ess'
+        return scalar n_ps_boundary = `n_ps_boundary'
+        return scalar n_neg_wt = `_n_neg_wt'
         return local periods "`period_values'"
         return local treatment "`treatment'"
         return local psvar "`psvar'"

@@ -1,7 +1,13 @@
-* test_doc_examples.do - Run help-file + README examples verbatim
-* Covers: Documentation Reality (SKILL.md category 13) — every displayed example
-*         must be runnable exactly as printed. Uses small sim/samples for speed.
-* Runtime: ~2 minutes
+* test_doc_examples.do - Run help-file + README example COMMANDS
+* Covers: Documentation Reality (SKILL.md category 13) — every displayed gcomp/
+*         gcomptab command must run exactly as printed. The command lines are
+*         verbatim; the fixture DGP is a local generator (_doc_make_obe_data,
+*         stronger coefficients than the printed DGP) chosen to keep the total
+*         and indirect effects away from zero so the proportion-mediated ratio
+*         and its BC interval stay defined in every deletion/bootstrap run. The
+*         printed DGPs themselves run (verified equivalent paths); the analytic
+*         cross-world oracle lives in audit/validation_postconfs_crossworld.do.
+*         Uses small sim/samples for speed. Runtime: ~2 minutes
 
 clear all
 set more off

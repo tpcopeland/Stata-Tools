@@ -116,8 +116,10 @@ accepts any of Excel, Markdown, CSV, or Results-window display.
 {p2colreset}{...}
 {p 4 6 2}
 In dose-response mode {opt effect()}
-defaults to {cmd:"Risk"}; mediation-only options are rejected or excluded by
-the mode contract.
+defaults to the tabled quantity: {cmd:"Risk"} for a survival run (cumulative
+incidence) or a binary {opt eofu} outcome, and {cmd:"Mean"} for a continuous
+{opt eofu} outcome. Mediation-only options are rejected or excluded by the mode
+contract.
 
 
 {marker description}{...}
@@ -169,10 +171,21 @@ baseline-based mediation.
 {pstd}
 {bf:Dose-response mode} formats a time-varying intervention run
 ({cmd:gcomp ..., interventions(...)}). It emits one row per intervention with
-the strategy label, the counterfactual risk and its 95% CI, an optional implied
-mean cumulative exposure-years column, and the risk difference versus a chosen
-reference strategy. This mode is selected automatically when {cmd:e(b)} contains
-{cmd:PO#} columns and no {cmd:tce} column, or explicitly with {opt doseresponse}.
+the strategy label, the counterfactual outcome and its 95% CI, an optional
+implied mean cumulative exposure-years column, and the difference versus a
+chosen reference strategy. This mode is selected automatically when {cmd:e(b)}
+contains {cmd:PO#} columns and no {cmd:tce} column, or explicitly with
+{opt doseresponse}.
+
+{pstd}
+The tabled quantity is outcome-type aware. A {bf:survival} run (no {opt eofu})
+carries both {cmd:PO#} average log incidence rates and {cmd:out#} cumulative
+incidences; dose-response mode tables the {cmd:out#} cumulative incidences (a
+risk on the 0-1 scale), {it:not} the log incidence rates. An {opt eofu} run has
+only {cmd:PO#} columns: the counterfactual risk for a binary outcome, or the
+mean potential outcome for a continuous outcome. The default column header and
+footnote follow suit ({cmd:"Risk"}/cumulative incidence for survival, risk for
+binary {opt eofu}, mean potential outcome for continuous {opt eofu}).
 
 {pstd}
 {bf:Component-model mode} formats one or more stored estimates, normally the
@@ -470,8 +483,9 @@ Export the default results (normal CIs, 3 decimal places) to a new workbook:
 {bf:Example 2: Percentile bootstrap CIs}
 
 {pstd}
-Use percentile CIs instead of normal approximation. This requires that
-{cmd:gcomp} was run with {opt all}:
+Use percentile CIs instead of the normal approximation. Percentile and
+bias-corrected CIs ({cmd:ci(percentile)}, {cmd:ci(bc)}) are computed by every
+{cmd:gcomp} bootstrap run; only {cmd:ci(bca)} requires {opt all}:
 
 {phang2}{cmd:. gcomptab, xlsx(mediation_results.xlsx) sheet("Percentile CI") ///}{p_end}
 {phang2}{cmd:      ci(percentile) title("Mediation Results (Percentile CI)")}{p_end}
@@ -584,8 +598,9 @@ smaller font.{p_end}
 
 {pstd}
 In {bf:dose-response} mode the columns are instead Strategy | Mean exposure-years
-(when {opt expyears()} is supplied) | {it:effect} (95% CI) | RD vs ref (unless
-{opt nord}), with one data row per {cmd:PO#} column.
+(when {opt expyears()} is supplied) | {it:effect} (95% CI) | difference vs ref
+(unless {opt nord}; header {cmd:RD vs ref} for a risk, {cmd:Diff vs ref}
+otherwise), with one data row per intervention.
 
 {pstd}
 Formatting details:

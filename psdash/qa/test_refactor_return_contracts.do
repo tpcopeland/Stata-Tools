@@ -164,12 +164,11 @@ _rc_result "binary_support_contract" `=_rc'
 
 capture noisily {
     _rc_binary_data
-    psdash combined treat ps, covariates(x1 x2) wvar(wt) ///
+    * RB-01/RB-12: a fully-suppressed combined runs zero diagnostic panels and
+    * must ERROR (r(198)) rather than return a bare PASS with no evidence.
+    capture psdash combined treat ps, covariates(x1 x2) wvar(wt) ///
         nooverlap nobalance noweights nosupport
-    assert "`r(treatment)'" == "treat"
-    assert "`r(psvar)'" == "ps"
-    assert "`r(estimand)'" == "ate"
-    assert "`r(source)'" == "manual"
+    assert _rc == 198
 }
 _rc_result "binary_combined_suppressed_contract" `=_rc'
 
@@ -250,15 +249,11 @@ _rc_result "multigroup_support_contract" `=_rc'
 
 capture noisily {
     _rc_multigroup_data
-    psdash combined arm gps0, covariates(x1 x2) wvar(wt) ///
+    * RB-01/RB-12: zero-panel combined must error, not emit an evidence-free PASS.
+    capture psdash combined arm gps0, covariates(x1 x2) wvar(wt) ///
         psvars(gps0 gps1 gps2) reference(1) ///
         nooverlap nobalance noweights nosupport
-    assert "`r(treatment)'" == "arm"
-    assert "`r(psvar)'" == "gps0"
-    assert "`r(source)'" == "manual"
-    assert r(K) == 3
-    assert "`r(levels)'" == "0 1 2"
-    assert "`r(reference)'" == "1"
+    assert _rc == 198
 }
 _rc_result "multigroup_combined_suppressed_contract" `=_rc'
 

@@ -80,6 +80,7 @@ program define psdash_support, rclass
          CRUMP ///
          THReshold(real -1) ///
          QTRIM(real -1) ///
+         GPSFLOOR(real 0.01) ///
          GENerate(name) ///
          replace ///
          COMPare ///
@@ -106,6 +107,12 @@ program define psdash_support, rclass
             display as error "qtrim() must be strictly between 0 and 50"
             exit 198
         }
+    }
+
+    * Validate gpsfloor() (multi-arm practical positivity floor on min_j e_j(X))
+    if `gpsfloor' <= 0 | `gpsfloor' >= 1 {
+        display as error "gpsfloor() must be strictly between 0 and 1"
+        exit 198
     }
 
     * MARK SAMPLE AND AUTO-DETECT
@@ -137,6 +144,9 @@ program define psdash_support, rclass
     local psvar_auto "`_psd_psvar_auto'"
     local det_wvar "`_psd_wvar'"
     local source "`_psd_source'"
+    * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
+    local n_estimation "`_psd_n_estimation'"
+    local n_excluded "`_psd_n_excluded'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
@@ -370,6 +380,37 @@ program define psdash_support, rclass
             count if (`psvar' < `trim_lower' | `psvar' > `trim_upper') & `touse'
             local n_trimmed = r(N)
             local pct_trimmed = 100 * `n_trimmed' / `N'
+        }
+    }
+
+    * RB-11: a trim that retains no analysis sample -- or that eliminates a
+    * treatment arm -- destroys identifiability and is not a usable support
+    * remedy. Probe S1 trimmed 100% of observations, generated an all-missing
+    * indicator, and still returned "Trimmed" with rc=0. Recheck the retained
+    * sample here, BEFORE the indicator is generated or a success verdict is
+    * displayed, and fail closed if the estimand is no longer identifiable.
+    if `has_trimming' {
+        tempvar _psd_retain
+        quietly gen byte `_psd_retain' = ///
+            (`psvar' >= `trim_lower' & `psvar' <= `trim_upper') & `touse'
+        quietly count if `_psd_retain'
+        local n_retained = r(N)
+        if `n_retained' == 0 {
+            display as error "trimming removed every observation (`=string(`pct_trimmed',"%4.1f")'% excluded)"
+            display as error "  the trim region [`=string(`trim_lower',"%5.3f")', `=string(`trim_upper',"%5.3f")'] contains no"
+            display as error "  propensity scores, so no analysis sample remains. Widen the threshold"
+            display as error "  or use {cmd:psdash support, crump} for a data-driven trim."
+            exit 459
+        }
+        quietly count if `_psd_retain' & `treatment' == 1
+        local n_ret_t = r(N)
+        quietly count if `_psd_retain' & `treatment' == 0
+        local n_ret_c = r(N)
+        if `n_ret_t' == 0 | `n_ret_c' == 0 {
+            display as error "trimming eliminated a treatment arm"
+            display as error "  the retained sample has `n_ret_t' treated and `n_ret_c' control observation(s);"
+            display as error "  a common-support region must keep both arms to remain identifiable."
+            exit 459
         }
     }
 
@@ -749,17 +790,22 @@ program define psdash_support, rclass
     }
     _psdash_support_stats, treatment(`treatment') samplevar(`touse') ///
         obsps(`obs_ps') levels(`levels') grouppsvars(`_mg_group_psvars') ///
-        multigroup(`multigroup') n(`N')
+        multigroup(`multigroup') n(`N') gpsfloor(`gpsfloor')
     foreach lev of local levels {
         local n_group_`lev' = r(n_group_`lev')
         local min_ps_`lev' = r(min_ps_`lev')
         local max_ps_`lev' = r(max_ps_`lev')
         local n_outside_`lev' = r(n_outside_`lev')
+        local min_gps_`lev' = r(min_gps_`lev')
     }
     local lower_bound = r(lower_bound)
     local upper_bound = r(upper_bound)
     local n_outside = r(n_outside)
     local pct_outside = r(pct_outside)
+    * Full-vector GPS positivity (RB-02)
+    local min_gps = r(min_gps)
+    local n_gps_violate = r(n_gps_violate)
+    local pct_gps_violate = r(pct_gps_violate)
 
     * THRESHOLD TRIMMING (multi-group)
     local trim_lower = 0
@@ -777,6 +823,30 @@ program define psdash_support, rclass
             count if (`obs_ps' < `trim_lower' | `obs_ps' > `trim_upper') & `touse'
             local n_trimmed = r(N)
             local pct_trimmed = 100 * `n_trimmed' / `N'
+        }
+    }
+
+    * RB-11: reject a multi-group trim that empties the sample or eliminates a
+    * group before generating an indicator or reporting success. (Trimming still
+    * operates on the observed-arm PS scalar; the full-vector trim redesign is
+    * the deferred RB-02 point 4.)
+    if `has_trimming' {
+        tempvar _psd_retain_mg
+        quietly gen byte `_psd_retain_mg' = ///
+            (`obs_ps' >= `trim_lower' & `obs_ps' <= `trim_upper') & `touse'
+        quietly count if `_psd_retain_mg'
+        if r(N) == 0 {
+            display as error "trimming removed every observation (`=string(`pct_trimmed',"%4.1f")'% excluded)"
+            display as error "  no analysis sample remains after trimming to [`=string(`trim_lower',"%5.3f")', `=string(`trim_upper',"%5.3f")']."
+            exit 459
+        }
+        foreach lev of local levels {
+            quietly count if `_psd_retain_mg' & `treatment' == `lev'
+            if r(N) == 0 {
+                display as error "trimming eliminated treatment group `lev'"
+                display as error "  a multi-group support region must keep every arm to remain identifiable."
+                exit 459
+            }
         }
     }
 
@@ -847,13 +917,32 @@ program define psdash_support, rclass
     display as text "{hline `hline_width'}"
     display ""
 
-    * Common support
+    * Generalized-propensity-score positivity (full vector) — the valid
+    * multi-arm common-support diagnostic (Li & Li 2019, Assumption 2;
+    * McCaffrey et al. 2013). Evaluates every e_j(X), not the observed-arm
+    * scalar, so a near-zero probability of an UNRECEIVED arm is visible.
     display as text "{hline 55}"
-    display as text "Common Support Region"
+    display as text "Generalized Positivity (full GPS vector)"
+    display as text "{hline 55}"
+    display as text "Min GPS (worst unit): " as result %12.4f `min_gps'
+    display as text "Floor:               " as result %12.4f `gpsfloor'
+    display as text "Below floor:         " ///
+        as result %12.0f `n_gps_violate' as text " (" as result %5.2f `pct_gps_violate' as text "%)"
+    foreach lev of local levels {
+        display as text "  min e(`lbl_`lev''): " as result %12.4f `min_gps_`lev''
+    }
+    display as text "{hline 55}"
+    display ""
+
+    * Observed-arm PS overlap (informational only; NOT a valid multi-arm
+    * common-support rule — it intersects arm-specific ranges of the observed-
+    * arm score. Retained for the observed-arm indicator/trimming path.)
+    display as text "{hline 55}"
+    display as text "Observed-arm PS Overlap (informational)"
     display as text "{hline 55}"
     display as text "Lower bound:           " as result %10.4f `lower_bound'
     display as text "Upper bound:           " as result %10.4f `upper_bound'
-    display as text "Outside support:       " ///
+    display as text "Outside overlap:       " ///
         as result %10.0f `n_outside' as text " (" as result %5.2f `pct_outside' as text "%)"
     foreach lev of local levels {
         display as text "  `lbl_`lev'' outside: " as result %10.0f `n_outside_`lev''
@@ -883,14 +972,23 @@ program define psdash_support, rclass
     * finding list; ANY finding forces a non-Good verdict + r(warnings).)
     local _pf ""
     local _pfn = 0
+    * PRIMARY multi-arm finding: full-vector GPS positivity violation
+    * (Li & Li 2019 Assumption 2). Catches a near-zero probability of an
+    * unreceived arm that the observed-arm overlap rule below cannot see.
+    if `n_gps_violate' > 0 {
+        display as error "Warning: `n_gps_violate' observation(s) violate GPS positivity" ///
+            _n "  (probability of some treatment < `=string(`gpsfloor',"%4.3f")'; min GPS = `=string(`min_gps',"%5.4f")')."
+        local _pf `"`_pf' | `n_gps_violate' unit(s) below GPS positivity floor `=string(`gpsfloor',"%4.3f")' (min GPS `=string(`min_gps',"%5.4f")')"'
+        local ++_pfn
+    }
     if `pct_outside' > 10 {
-        display as error "Warning: >10% of observations outside common support."
-        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
+        display as error "Warning: >10% of observations outside observed-arm PS overlap."
+        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside observed-arm PS overlap"'
         local ++_pfn
     }
     if `upper_bound' <= `lower_bound' {
-        display as error "Warning: No common support region (upper <= lower bound)."
-        local _pf `"`_pf' | no common support region (upper <= lower)"'
+        display as error "Warning: No observed-arm PS overlap region (upper <= lower bound)."
+        local _pf `"`_pf' | no observed-arm PS overlap region (upper <= lower)"'
         local ++_pfn
     }
     local _pf = strtrim("`_pf'")
@@ -905,8 +1003,7 @@ program define psdash_support, rclass
     }
     else if `_pfn' > 0 {
         display as text _n "Support: " as error "WARNING" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
-            as result `_pfn' as text " finding(s))"
+            as text " (" as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
     }
     else {
@@ -1043,11 +1140,17 @@ program define psdash_support, rclass
             foreach lev of local levels {
                 return scalar N_group_`lev' = `n_group_`lev''
                 return scalar n_outside_group_`lev' = `n_outside_`lev''
+                return scalar min_gps_group_`lev' = `min_gps_`lev''
             }
             return scalar lower_bound = `lower_bound'
             return scalar upper_bound = `upper_bound'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
+            * Full-vector GPS positivity (RB-02)
+            return scalar min_gps = `min_gps'
+            return scalar n_gps_violate = `n_gps_violate'
+            return scalar pct_gps_violate = `pct_gps_violate'
+            return scalar gps_floor = `gpsfloor'
             if `has_trimming' {
                 return scalar trim_lower = `trim_lower'
                 return scalar trim_upper = `trim_upper'
@@ -1067,6 +1170,12 @@ program define psdash_support, rclass
         if "`_support_nfind'" == "" local _support_nfind = 0
         return scalar n_warnings = `_support_nfind'
         return local warnings `"`_support_findings'"'
+
+        * RB-05 estimation-sample exclusion ledger (teffects only)
+        if "`n_excluded'" != "" {
+            return scalar n_excluded = `n_excluded'
+            return scalar n_estimation = `n_estimation'
+        }
     }
     if `rc' exit `rc'
 end

@@ -36,6 +36,8 @@ Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
 ---------------------------------------------------------------------------------------
+Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
+      (VR for a two-level covariate is determined by the SMD; excluded from the VR count).
 
 Balance: Adequate (max |SMD| =  0.047)
 ```
@@ -46,11 +48,18 @@ Balance: Adequate (max |SMD| =  0.047)
 
 ```
 scalars:
+         r(n_warnings) =  0
   r(n_ps_near_boundar
     y)                 =  0
       r(n_ps_boundary) =  0
           r(threshold) =  .1
+         r(max_ks_adj) =  .093744814098041
          r(max_ks_raw) =  .2105117384237494
+        r(n_binary_vr) =  1
+  r(n_vr_imbalanced_a
+    dj)                =  0
+  r(n_vr_imbalanced_r
+    aw)                =  0
     r(n_vr_imbalanced) =  0
        r(n_imbalanced) =  0
          r(max_vr_adj) =  1.072659849876111
@@ -67,6 +76,7 @@ macros:
              r(source) : "manual"
            r(estimand) : "ate"
           r(treatment) : "statin"
+         r(vr_na_vars) : "female"
 
 matrices:
             r(balance) :  5 x 10
@@ -87,9 +97,9 @@ r(balance)[5,10]
 cholesterol   201.03442   199.49472   .03903631   1.0409973   .03875393   201.36172   199.50661   .04703299   .99087308
 
                  KS_Adj
-        age           .
-     female           .
-        bmi           .
-        sbp           .
-cholesterol           .
+        age   .05085488
+     female   .00056253
+        bmi   .04475379
+        sbp   .09374481
+cholesterol   .03769891
 ```

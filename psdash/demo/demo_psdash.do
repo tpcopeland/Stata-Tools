@@ -43,6 +43,23 @@ capture log close _all
 set varabbrev off
 set linesize 120
 
+* --- Non-mutating install sandbox (RB-16) -----------------------------------
+* This demo installs psdash, tc_schemes, and logdoc to exercise them. It must
+* NOT replace the packages in the user's real ado directories. Redirect PLUS and
+* PERSONAL to a temporary sandbox for the duration of the demo and restore them
+* in the cleanup zone, so a documentation demo never mutates the user's Stata
+* installation. (The locals are declared here, before the captured block, so the
+* cleanup zone can restore them on every exit path.)
+local _demo_plus_orig "`c(sysdir_plus)'"
+local _demo_personal_orig "`c(sysdir_personal)'"
+tempfile _demo_marker
+local _demo_sysroot "`_demo_marker'_sysdir"
+capture mkdir "`_demo_sysroot'"
+capture mkdir "`_demo_sysroot'/plus"
+capture mkdir "`_demo_sysroot'/personal"
+sysdir set PLUS "`_demo_sysroot'/plus"
+sysdir set PERSONAL "`_demo_sysroot'/personal"
+
 capture noisily {
 
 * --- Paths ---
@@ -366,5 +383,9 @@ capture log close _all
 capture graph close _all
 capture drop _psdash_ps
 capture drop _psdash_wt
+* Restore the user's real ado directories and remove the sandbox (RB-16).
+capture sysdir set PLUS "`_demo_plus_orig'"
+capture sysdir set PERSONAL "`_demo_personal_orig'"
+if `"`_demo_sysroot'"' != "" capture shell rm -rf "`_demo_sysroot'"
 set varabbrev `_demo_varabbrev'
 if `_demo_rc' exit `_demo_rc'

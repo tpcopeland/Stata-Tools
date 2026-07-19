@@ -45,7 +45,12 @@ where {it:subcommand} is one of:
 
 {pstd}
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected
-from {cmd:e()}. After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the
+from {cmd:e()}. The inverse-probability estimators {cmd:teffects ipw}, {cmd:ipwra}, and {cmd:aipw}
+are supported; {cmd:teffects psmatch} is a matching estimator that exposes no propensity-score
+prediction, so it is rejected with an explicit error rather than diagnosed as if it were IPW.
+Diagnostics are computed on the estimation sample {cmd:e(sample)}: observations the fitted
+estimator excluded (by {cmd:if}/{cmd:in} or missing covariates) are dropped from every panel, and
+{cmd:r(n_estimation)}/{cmd:r(n_excluded)} report the counts. After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the
 estimand are read from the tmle contract state. After {cmd:ltmle}, use
 {cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled
 subcommands require explicit variables. After {cmd:msm_weight}, {cmd:psdash combined}
@@ -61,6 +66,19 @@ but {it:psvar} must be supplied explicitly. In that setting, {cmd:psdash overlap
 argument as the propensity score variable and uses the treatment from
 {cmd:e(depvar)}. After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K
 predicted probabilities (one per treatment level, ordered by level value).
+
+{pstd}
+{bf:Producer-contract verification.} Before trusting a detected iivw/msm/tte/tmle/ltmle
+contract, {cmd:psdash} calls the producing package's own validity guard, which re-derives
+the producer's fingerprint and rejects stale, edited, or unsigned state. If the guard
+rejects, {cmd:psdash} fails closed with the producer's diagnostic rather than diagnosing
+weights that no longer describe the data. A detected integration is therefore available
+only when the producing package is installed so its guard can run: {cmd:iivw} and
+{cmd:msm} are released alongside {cmd:psdash}, while {cmd:tmle}, {cmd:ltmle}, and
+{cmd:tte} are development-only producers -- when one is not installed, {cmd:psdash}
+refuses its contract with an explicit error rather than presenting diagnostics for an
+unverifiable analysis. Supplying {it:treatment} and {it:psvar} explicitly (manual mode)
+always works and involves no producer guard.
 
 
 {marker subcommands}{...}
@@ -104,6 +122,7 @@ predicted probabilities (one per treatment level, ordered by level value).
 {phang}
 {cmd:psdash support} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt crump} {opt thr:eshold(#)} {opt qtrim(#)}
+{opt gpsfloor(#)}
 {opt gen:erate(name)} {opt replace} {opt comp:are} {opt nog:raph} {opt sav:ing(filename)}
 {opt sch:eme(schemename)} {opt graphopt:ions(string)} {opt ti:tle(string)}
 {opt name(string)} {opt xlsx(filename)} {opt sheet(string)} {opt esti:mand(string)}
@@ -165,7 +184,17 @@ asks which observations should be excluded before outcome estimation.
 
 {phang}
 {opt covariates(varlist)} specifies the covariates to assess. Auto-detected
-from the estimation command if omitted.
+from the estimation command if omitted. Factor-variable and interaction notation
+is supported and expanded into the fitted design: {cmd:i.}{it:var} becomes one
+indicator column per non-base level, {cmd:c.}{it:x}{cmd:##c.}{it:z} becomes the
+two main effects plus the interaction product, and {cmd:ib}{it:#}{cmd:.}{it:var}
+honours the requested base level. Balance is then assessed on those design
+columns (labelled {cmd:2.}{it:var}, {cmd:c.}{it:x}{cmd:#c.}{it:z}, ...) rather
+than on the underlying integer category codes, so categorical and joint-
+distribution imbalance is not hidden. The same expansion is applied to terms
+auto-detected from a fitted {cmd:logit}/{cmd:probit}/{cmd:mlogit}/{cmd:teffects}
+model. A specification that cannot be mapped to design columns is rejected with
+an explicit error rather than silently reduced.
 
 {phang}
 {opt wvar(varname)} specifies a pre-existing weight variable for subcommands
@@ -177,9 +206,13 @@ auto-generated based on the {opt estimand()} option.
 (default) generates standard IPTW weights: {cmd:1/ps} for treated and {cmd:1/(1-ps)} for
 control. {opt att} generates ATT weights: {cmd:1} for treated and {cmd:ps/(1-ps)} for
 control. {opt atc} generates ATC weights: {cmd:(1-ps)/ps} for treated and {cmd:1} for
-control. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
+control. For a binary treatment these formulas apply to {it:any} two level values,
+not only 0/1: the {opt reference()} arm (default: the smaller level) is the control
+and the other arm is the treated, so recoding the levels leaves the weights
+unchanged. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
 specified by the user; if {opt estimand()} is given explicitly, it is always
-respected regardless of {cmd:e(stat)}.
+respected regardless of {cmd:e(stat)}. {opt atc} is rejected with an error for a
+multi-valued treatment (K>2) — see the {it:Multi-group ATC note} below.
 
 {pstd}
 Auto-generated propensity scores and weights are temporary working
@@ -425,6 +458,24 @@ small value such as {cmd:qtrim(1)} or {cmd:qtrim(2.5)} gives a more robust bound
 must be strictly between 0 and 50. Binary treatment only.
 
 {phang}
+{opt gpsfloor(#)} sets the practical-positivity floor for the multi-group
+generalized-positivity diagnostic. For K treatments each unit has a full GPS
+vector {it:e_1(X), ..., e_K(X)}; positivity requires {it:min_j e_j(X)} to be
+bounded away from zero (Li and Li 2019, Assumption 2), i.e. every unit must have
+a non-negligible probability of receiving {it:each} arm — not merely the arm it
+received. A unit with {it:min_j e_j(X)} below {it:#} is flagged as a positivity
+violation and forces a non-PASS verdict. {it:#} must be strictly between 0 and 1;
+default is 0.01. Applies to multi-group treatments only.
+
+{pmore}
+This replaces the previous multi-group rule, which reduced each unit to the
+probability of its {it:observed} arm and intersected binary min-max ranges — a
+scalarization that could report "Good" while an unreceived arm had essentially
+zero probability. The observed-arm overlap range is still shown, labelled as
+informational. There is no universal positivity threshold (McCaffrey et al. 2013);
+report {cmd:r(min_gps)} and tune {opt gpsfloor()} to the design.
+
+{phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
 observations within the support region. With {opt crump} or {opt threshold()},
 the indicator marks the trimmed region; otherwise it marks the empirical common
@@ -515,7 +566,10 @@ committing to a full run. See {help psdash##detection:Detection sources} below.
 
 {phang2}
 1. {bf:After teffects}: treatment, covariates, PS, and weights are fully
-auto-detected. Just run {cmd:psdash combined}.
+auto-detected. Just run {cmd:psdash combined}. Supported subcommands are
+{cmd:ipw}, {cmd:ipwra}, and {cmd:aipw}; {cmd:teffects psmatch} is rejected
+(matched-design diagnostics are not implemented). All panels diagnose the
+{cmd:e(sample)} estimation sample.
 
 {phang2}
 2. {bf:After tmle}: treatment, {cmd:_tmle_ps}, covariates, and estimand are
@@ -597,12 +651,14 @@ save a new weight variable.
 {bf:Multi-group ATC note:} The ATC estimand is not uniquely defined for a
 multi-valued treatment (K>2 groups), because there is no single control group
 to target. When {opt estimand(atc)} is requested with K>2 groups, {cmd:psdash}
-falls back to the generalized ATE weights ({cmd:w = 1 / P(A=a|X)}) and prints a
-one-time note. For a group-targeted estimand with K>2 groups, use
-{opt estimand(att)} together with {opt reference()} to weight every group toward
-a chosen reference group's covariate distribution. Binary (K=2) treatments are
-unaffected and use the standard ATC weights ({cmd:(1-e)/e} for treated,
-{cmd:1} for control).
+rejects the request with an error ({cmd:r(198)}) rather than substitute
+generalized ATE weights under an {cmd:atc} label. For a group-targeted estimand
+with K>2 groups, use {opt estimand(att)} together with {opt reference()} to
+weight every group toward a chosen reference group's covariate distribution, or
+fit a binary contrast. Binary (K=2) treatments — including arbitrary two-level
+codings, not only 0/1 — are unaffected and use the standard ATC weights
+({cmd:(1-e)/e} for treated, {cmd:1} for control), with the {opt reference()} arm
+(default: the smaller level) as the control.
 
 {pstd}
 {bf:Diagnostic workflow:} A typical PS analysis proceeds as follows: (1) estimate
@@ -751,6 +807,12 @@ per-group results use the naming convention {cmd:r(N_group_{it:<level>})}, {cmd:
 returns the number of groups, {cmd:r(levels)} lists the treatment values, and
 {cmd:r(reference)} identifies the reference group.
 
+{pstd}
+{bf:Estimation-sample note:} After {cmd:teffects}, every subcommand restricts its
+diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimation)}
+(observations in the estimation sample that were diagnosed) and {cmd:r(n_excluded)}
+(requested observations dropped because the fitted estimator did not use them).
+
 {dlgtab:overlap}
 
 {synoptset 30 tabbed}{...}
@@ -886,6 +948,11 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(crump_alpha)}}Crump optimal alpha (if {opt crump}){p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
+{synopt:{cmd:r(min_gps)}}minimum {it:min_j e_j(X)} over units (multi-group generalized positivity){p_end}
+{synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
+{synopt:{cmd:r(pct_gps_violate)}}percentage of units below the GPS positivity floor (multi-group){p_end}
+{synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
+{synopt:{cmd:r(min_gps_group_{it:<level>})}}minimum {it:e_j(X)} for arm {it:<level>} over all units (multi-group){p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
@@ -998,6 +1065,16 @@ studies. {it:Multivariate Behavioral Research}, 46(3), 399-424.
 Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009). Dealing with
 limited overlap in estimation of average treatment effects. {it:Biometrika}, 96(1),
 187-199.
+
+{phang}
+Li, F., & Li, F. (2019). Propensity score weighting for causal inference with
+multiple treatments. {it:Annals of Applied Statistics}, 13(4), 2389-2415.
+
+{phang}
+McCaffrey, D. F., Griffin, B. A., Almirall, D., Slaughter, M. E., Ramchand, R., &
+Burgette, L. F. (2013). A tutorial on propensity score estimation for multiple
+treatments using generalized boosted models. {it:Statistics in Medicine}, 32(19),
+3388-3414.
 
 
 {title:Also see}

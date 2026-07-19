@@ -38,6 +38,6 @@ Outside support:             1129 (94.08%)
 -------------------------------------------------------
 Warning: >10% of observations outside common support region.
 
-Overlap: WARNING (94.1% outside support)
+Overlap: WARNING (94.1% outside support; 1 finding(s))
   Consider: psdash support, threshold(0.05)
 ```

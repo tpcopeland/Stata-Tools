@@ -51,7 +51,6 @@ program define psdash, rclass
 
     }
     local rc = _rc
-    capture macro drop PSDASH_atc_warned   // once-per-command guard for multi-group atc note
     set varabbrev `_vao'
     if `rc' == 0 & `_psdash_return_add' {
         return add

@@ -812,15 +812,13 @@ quietly {
 
 display _n "--- CV Dataset N: Combined all-no-* flags (N=60) ---"
 
-* CV32: Combined nooverlap+nobalance+noweights+nosupport → r(treatment) non-empty
+* CV32: Combined with every panel suppressed runs zero diagnostic panels and
+* must ERROR (RB-01/RB-12: no evidence-free PASS), not return bare metadata.
 capture noisily {
-    psdash combined treated ps, nooverlap nobalance noweights nosupport
-    * With all panels suppressed, only the shared return locals are set
-    assert "`r(treatment)'" == "treated"
-    assert "`r(psvar)'" == "ps"
-    assert "`r(estimand)'" == "ate"
+    capture psdash combined treated ps, nooverlap nobalance noweights nosupport
+    assert _rc == 198
 }
-_cv_result "N32: Combined all-no-* flags returns r(treatment)" `=_rc'
+_cv_result "N32: Combined all-no-* flags errors (zero-panel guard)" `=_rc'
 
 * =========================================================================
 * DATASET O: max_vr_adj hand calculation (uniform weights = raw VR)

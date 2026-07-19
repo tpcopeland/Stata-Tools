@@ -65,12 +65,14 @@ capture noisily {
     which _psdash_balance_binary
     which _psdash_balance_multigroup
     which _psdash_detect
+    which _psdash_expand_fv
     which _psdash_graph_export
     which _psdash_ltmle_diagnostics
     which _psdash_manual_detect
     which _psdash_mgps_map
     which _psdash_pscheck
     which _psdash_support_stats
+    which _psdash_verify_producer
     which _psdash_strip_fv
     which _psdash_validate_levels
     which _psdash_validate_psvars
@@ -133,11 +135,12 @@ _autoload_result direct_weights_autoloads `=_rc'
 local ++test_count
 capture noisily {
     _autoload_data
-    psdash_combined treat ps, covariates(x1 x2) wvar(wt) ///
+    * Autoload proof: if psdash_combined resolves and runs, it reaches the
+    * RB-01 zero-panel guard and errors r(198); an unresolved program would
+    * error r(199)/r(111) instead. So r(198) proves the autoload.
+    capture psdash_combined treat ps, covariates(x1 x2) wvar(wt) ///
         nooverlap nobalance noweights nosupport
-    assert "`r(treatment)'" == "treat"
-    assert "`r(psvar)'" == "ps"
-    assert "`r(source)'" == "manual"
+    assert _rc == 198
 }
 _autoload_result direct_combined_autoloads `=_rc'
 

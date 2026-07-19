@@ -41,7 +41,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | Suite | Class | Lane | Timeout | Dependency | Oracle or fixture | Generator / seed | Feature IDs |
 | --- | --- | --- | ---: | --- | --- | --- | --- |
 | `test_errors.do` | functional | quick | 600s | Stata | explicit return-code matrix | fixed seeds in suite | option error surface |
-| `test_audit_remediation.do` | adversarial/known-answer | quick | 2400s | Stata | 23 package-local audit probes | per-probe seeds | C01-C05, C07, H01-H15, GCTAB-H02-H06, M01, M03 |
+| `test_audit_remediation.do` | adversarial/known-answer | quick | 2400s | Stata | 24 package-local audit probes | per-probe seeds | C01-C05, C07, C30, H01-H15, GCTAB-H02-H06, M01, M03 |
 | `test_expected_resampling_failure.do` | adversarial | quick | 300s | Stata | fail-closed rc plus bounded progress markers | 606 | C06, Q02 |
 | `test_gcomptab_regressions.do` | functional | quick | 600s | Stata | mocked result/value and workbook contracts | fixed | gcomptab regressions |
 | `test_refactor_bootstrap_dispatch.do` | regression | quick/refactor | 600s | Stata | repeated-seed matrix identity | fixed | bootstrap dispatch |

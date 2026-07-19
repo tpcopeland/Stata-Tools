@@ -5,9 +5,10 @@
 *   INT — name()/saving() accept a twoway-style ", replace" suboption end-to-end
 *         (no cryptic r(198)); plain values still work; the right graph name/file
 *         results (proving the ", replace" was stripped, not passed through).
-*   ATC — multi-group estimand(atc): fires the once-per-command note, uses the
-*         generalized ATE weights (unchanged behavior), never double-warns in
-*         combined, does not warn for att/binary, and leaks no guard global.
+*   ATC — RB-06: multi-group (K>2) estimand(atc) is now REJECTED with r(198)
+*         instead of silently substituting generalized ATE weights under an atc
+*         label; combined propagates the same error; att/ate for K>2 still work;
+*         binary atc is unaffected; the old once-per-command guard global is gone.
 *   DOC — the sthlp documents all three behavior notes.
 * Usage: cd psdash/qa && stata-mp -b do test_v141_features.do
 
@@ -158,40 +159,34 @@ capture noisily {
 }
 _t "INT3_plain_name_regression" `=_rc'
 
-**# ATC1 — multi-group atc uses generalized ATE weights (unchanged behavior)
-display as text _n "--- ATC1: multi-group atc == ate weights ---"
+**# ATC1 — RB-06: multi-group (K=3) atc is REJECTED, not silently == ate
+* Fail-on-old: shipped 1.4.1 returned rc=0 with ate weights and r(estimand)=atc.
+display as text _n "--- ATC1: multi-group atc rejected (r198) ---"
 capture noisily {
     _mg_data
-    psdash weights g, psvars(p0 p1 p2) estimand(atc)
-    local atc_mean = r(mean_wt)
-    local atc_ess  = r(ess)
+    capture noisily psdash weights g, psvars(p0 p1 p2) estimand(atc)
+    assert _rc == 198
+    * Positive control: the SAME K=3 scenario succeeds for ate and att, proving the
+    * refusal is atc-specific (not psdash rejecting this dataset wholesale).
     _mg_data
     psdash weights g, psvars(p0 p1 p2) estimand(ate)
-    local ate_mean = r(mean_wt)
-    local ate_ess  = r(ess)
-    assert reldif(`atc_mean', `ate_mean') < 1e-10
-    assert reldif(`atc_ess',  `ate_ess')  < 1e-10
-    * And att must genuinely differ (proves the scenario is discriminating)
+    assert _rc == 0
+    assert "`r(estimand)'" == "ate"
     _mg_data
     psdash weights g, psvars(p0 p1 p2) estimand(att)
-    assert reldif(r(mean_wt), `atc_mean') > 1e-4
+    assert _rc == 0
+    assert "`r(estimand)'" == "att"
 }
-_t "ATC1_atc_equals_ate_weights" `=_rc'
+_t "ATC1_multigroup_atc_rejected" `=_rc'
 
-**# ATC2 — combined fires the note EXACTLY once despite 5 internal detect calls
-display as text _n "--- ATC2: combined atc warns exactly once ---"
+**# ATC2 — combined propagates the K>2 atc rejection (does not fall through to PASS)
+display as text _n "--- ATC2: combined atc rejected (r198) ---"
 capture noisily {
     _mg_data
-    tempfile atclog
-    quietly log using "`atclog'.log", replace text name(atccap)
     capture noisily psdash combined g, covariates(x1 x2) psvars(p0 p1 p2) estimand(atc)
-    local _crc = _rc
-    capture log close atccap
-    assert `_crc' == 0
-    _note_count "`atclog'.log"
-    assert r(cnt) == 1
+    assert _rc == 198
 }
-_t "ATC2_combined_warns_once" `=_rc'
+_t "ATC2_combined_atc_rejected" `=_rc'
 
 **# ATC3 — multi-group att does NOT warn
 display as text _n "--- ATC3: att does not warn ---"
@@ -221,11 +216,11 @@ capture noisily {
 }
 _t "ATC4_binary_atc_no_warn" `=_rc'
 
-**# ATC5 — the once-guard global is cleared after the command (no leak)
-display as text _n "--- ATC5: guard global does not leak ---"
+**# ATC5 — the old once-guard global is gone entirely (no leak, ever set)
+display as text _n "--- ATC5: guard global eliminated ---"
 capture noisily {
     _mg_data
-    psdash weights g, psvars(p0 p1 p2) estimand(atc)
+    psdash weights g, psvars(p0 p1 p2) estimand(ate)
     assert "$PSDASH_atc_warned" == ""
 }
 _t "ATC5_no_global_leak" `=_rc'

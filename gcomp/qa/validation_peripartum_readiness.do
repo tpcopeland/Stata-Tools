@@ -915,6 +915,13 @@ capture noisily {
     local decomp = abs(e(tce) - (e(nde) + e(nie)))
     assert `decomp' < 0.001
     assert e(tce) > 0
+    * Both direct and indirect components are present and positive here (z enters
+    * the mediator model, so the arm-1 mediator is drawn under the baseline
+    * exposure world).  The full analytic cross-world oracle for this path lives in
+    * audit/validation_postconfs_crossworld.do (GCOMP-C08).
+    assert e(nde) > 0
+    assert e(nie) > 0
+    assert e(pm) > 0 & e(pm) < 1
 }
 if _rc == 0 {
     display as result "  PASS: P11 post_confs() works (TCE=" %6.4f e(tce) ///

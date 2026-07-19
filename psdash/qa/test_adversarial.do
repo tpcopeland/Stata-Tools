@@ -182,12 +182,15 @@ capture noisily {
     gen double ps = cond(treat == 1, 0, 0.5)
     psdash weights treat ps, nograph
 }
-if _rc == 198 | _rc == 2001 {
-    display as result "  PASS: T12 PS=0 for all treated → group excluded (rc=`=_rc')"
+* RB-09: an auto-generated weight is undefined at an exact 0/1 PS boundary and is
+* now rejected with r(459) rather than silently dropping the boundary rows and
+* failing later on a reduced sample.
+if _rc == 198 | _rc == 2001 | _rc == 459 {
+    display as result "  PASS: T12 PS=0 for all treated → rejected (rc=`=_rc')"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T12 PS=0 expected rc=198 or 2001, got `=_rc'"
+    display as error "  FAIL: T12 PS=0 expected rc=198, 2001, or 459, got `=_rc'"
     local ++fail_count
 }
 
@@ -201,12 +204,13 @@ capture noisily {
     gen double ps = cond(treat == 0, 1, 0.5)
     psdash weights treat ps, nograph
 }
-if _rc == 198 | _rc == 2001 {
-    display as result "  PASS: T13 PS=1 for all controls → group excluded (rc=`=_rc')"
+* RB-09: undefined auto-weight at an exact 0/1 PS boundary -> r(459).
+if _rc == 198 | _rc == 2001 | _rc == 459 {
+    display as result "  PASS: T13 PS=1 for all controls → rejected (rc=`=_rc')"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T13 PS=1 expected rc=198 or 2001, got `=_rc'"
+    display as error "  FAIL: T13 PS=1 expected rc=198, 2001, or 459, got `=_rc'"
     local ++fail_count
 }
 

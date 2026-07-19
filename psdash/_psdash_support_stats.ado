@@ -11,7 +11,7 @@ program define _psdash_support_stats, rclass
         syntax , TREATment(varname numeric) SAMPLEvar(varname) N(real) ///
             [PSVar(varname numeric) OBSps(varname numeric) ///
              LEVELS(string asis) GROUPPSVars(varlist numeric) ///
-             MULTIgroup(string) QTRIM(real -1)]
+             MULTIgroup(string) QTRIM(real -1) GPSFLOOR(real 0.01)]
 
         return clear
 
@@ -123,6 +123,34 @@ program define _psdash_support_stats, rclass
                         & `treatment' == `lev' & `samplevar'
                     local n_outside_`lev' = r(N)
                 }
+
+                * GENERALIZED-PROPENSITY-SCORE POSITIVITY (full vector).
+                * Practical positivity for K treatments is a property of the
+                * WHOLE GPS vector, not the observed-arm scalar: a unit satisfies
+                * it only if min_j e_j(X) is bounded away from zero (Li & Li 2019,
+                * Assumption 2; McCaffrey et al. 2013 evaluate each e_j over all
+                * units regardless of assignment). min_j e_j(X) is also the
+                * generalized matching-weight tilt (Yoshida et al. 2017). A unit
+                * with a healthy observed-arm probability but a near-zero
+                * probability of some OTHER arm is a positivity violation the old
+                * observed-arm min-max rule could not see (audit probe M1).
+                tempvar _min_gps
+                egen double `_min_gps' = rowmin(`grouppsvars') if `samplevar'
+                summarize `_min_gps' if `samplevar'
+                local min_gps = r(min)
+                count if `_min_gps' < `gpsfloor' & `samplevar'
+                local n_gps_violate = r(N)
+                local pct_gps_violate = 100 * `n_gps_violate' / `n'
+
+                * Componentwise floor: min of each e_j over ALL in-sample units
+                * (McCaffrey: e_j for every unit, regardless of received arm).
+                local gidx = 1
+                foreach lev of local levels {
+                    local lev_ps : word `gidx' of `grouppsvars'
+                    summarize `lev_ps' if `samplevar'
+                    local min_gps_`lev' = r(min)
+                    local gidx = `gidx' + 1
+                }
             }
 
             foreach lev of local levels {
@@ -132,6 +160,7 @@ program define _psdash_support_stats, rclass
                 return scalar max_ps_`lev' = `max_ps_`lev''
                 return scalar sd_ps_`lev' = `sd_ps_`lev''
                 return scalar n_outside_`lev' = `n_outside_`lev''
+                return scalar min_gps_`lev' = `min_gps_`lev''
             }
             return scalar lower_bound = `lower_bound'
             return scalar upper_bound = `upper_bound'
@@ -139,6 +168,11 @@ program define _psdash_support_stats, rclass
             return scalar overlap_upper = `upper_bound'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
+            * Full-vector GPS positivity (RB-02)
+            return scalar min_gps = `min_gps'
+            return scalar n_gps_violate = `n_gps_violate'
+            return scalar pct_gps_violate = `pct_gps_violate'
+            return scalar gps_floor = `gpsfloor'
         }
     }
     local rc = _rc

@@ -55,6 +55,7 @@ Effective Sample Size (ESS)
 Extreme Weight Detection
 --------------------------------------------------
 Coefficient of Variation:    0.787
+Max / mean weight ratio:      7.93
 Weights > 10:                   30 ( 2.50%)
 Weights > 20:                    1
 --------------------------------------------------
@@ -62,5 +63,6 @@ Weights > 20:                    1
 Warning: 30 extreme weights detected (>10).
 Warning: Maximum weight exceeds 20. Consider truncation.
 
-Weights: Acceptable (ESS = 61.8% of N)
+Weights: WARNING (ESS = 61.8% of N; 2 finding(s))
+  Consider: psdash weights, trim(99) generate(w_trim) or psdash weights, truncate(#) generate(w_trunc)
 ```

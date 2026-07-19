@@ -28,6 +28,7 @@ Propensity Score Range
 -------------------------------------------------------
 Common Support Region
 -------------------------------------------------------
+Method:                min-max overlap (optimistic)
 Lower bound:               0.3136
 Upper bound:               0.9206
 Outside support:               17 ( 2.12%)
@@ -38,18 +39,18 @@ Outside support:               17 ( 2.12%)
 -------------------------------------------------------
 Crump et al. (2009) Optimal Trimming
 -------------------------------------------------------
-Optimal alpha:             0.1000
-Trim region:           [0.100, 0.900]
-Observations trimmed:          26 ( 3.25%)
-Remaining sample:             774
+Optimal alpha:             0.1040
+Trim region:           [0.104, 0.896]
+Observations trimmed:          32 ( 4.00%)
+Remaining sample:             768
 -------------------------------------------------------
 
-Support: Trimmed ( 3.2% excluded)
+Support: Trimmed ( 4.0% excluded)
 
 Pre/Post-Trimming Comparison
                       Metric          Pre         Post
-                  N retained          800          774
-         Outside support (%)         2.12         2.33
+                  N retained          800          768
+         Outside support (%)         2.12         1.56
                 ESS (% of N)         71.2         75.1
-             Max |SMD| (raw)        0.472        0.439
+             Max |SMD| (raw)        0.472        0.426
 ```

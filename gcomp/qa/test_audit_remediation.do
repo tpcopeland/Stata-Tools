@@ -34,6 +34,18 @@ else {
 }
 
 local ++test_count
+capture noisily do "`qa_dir'/audit/validation_postconfs_crossworld.do"
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: validation_postconfs_crossworld"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' validation_postconfs_crossworld"
+    display as error "  FAIL: validation_postconfs_crossworld (rc=`=_rc')"
+}
+
+local ++test_count
 capture noisily do "`qa_dir'/audit/validation_boceam.do"
 if _rc == 0 {
     local ++pass_count

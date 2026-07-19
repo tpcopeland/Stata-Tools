@@ -25,7 +25,11 @@ local suite_files test_psdash.do validation_psdash.do validation_known_answers.d
     test_overlap_support_multigroup_adversarial.do ///
     test_multigroup_psvars_regression.do ///
     test_v130_features.do test_v140_features.do test_v141_features.do ///
-    test_rb01_verdict.do
+    test_rb01_verdict.do test_rb02_gps_positivity.do ///
+    test_rb03_factor_expansion.do test_rb0405_teffects_sample.do ///
+    test_rb06_estimand.do ///
+    test_rb08_vr_count.do test_rb09_weight_thresholds.do ///
+    test_rb10_longitudinal.do test_rb11_trim_guard.do
 
 foreach f of local suite_files {
     capture noisily do "`qa_dir'/`f'"

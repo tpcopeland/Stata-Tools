@@ -1921,24 +1921,32 @@ else {
     local ++fail_count
 }
 
-* 74. post_confs() option
+* 74. post_confs() option — cross-world conditioning oracle (light).
+* A post-exposure confounder z feeds the mediator model, so the arm-1 mediator
+* must be drawn under the baseline exposure world.  Linear DGP with hand-derived
+* truth NDE=0.62, NIE=0.49, TCE=1.11 (full-strength oracle:
+* audit/validation_postconfs_crossworld.do).  The pre-fix code returned NDE~0.86,
+* NIE~0.25, well outside this band.
 local ++test_count
 capture noisily {
     clear
     set seed 44444
-    set obs 400
+    set obs 4000
     gen double c = rnormal()
-    gen double x = rbinomial(1, invlogit(-0.5 + 0.2*c))
-    gen double z = rnormal(0.3*x, 1)
-    gen double m = rbinomial(1, invlogit(-1 + 0.5*x + 0.3*z + 0.2*c))
-    gen double y = rbinomial(1, invlogit(-1.5 + 0.4*m + 0.3*x + 0.2*z + 0.1*c))
+    gen double x = rbinomial(1, 0.5)
+    gen double z = 0.8*x + 0.2*c + rnormal()
+    gen double m = 0.5*x + 0.6*z + 0.2*c + rnormal()
+    gen double y = 0.3*x + 0.5*m + 0.4*z + 0.1*c + rnormal()
     gcomp y z m x c, outcome(y) mediation obe ///
         exposure(x) mediator(m) ///
-        commands(z: regress, m: logit, y: logit) ///
+        commands(z: regress, m: regress, y: regress) ///
         equations(z: x c, m: x z c, y: m x z c) ///
-        base_confs(c) post_confs(z) sim(100) samples(3) seed(1)
+        base_confs(c) post_confs(z) sim(3000) samples(2) seed(1)
     assert "`e(mediation_type)'" == "obe"
     confirm scalar e(tce)
+    assert abs(e(tce) - 1.11) < 0.10
+    assert abs(e(nde) - 0.62) < 0.10
+    assert abs(e(nie) - 0.49) < 0.10
 }
 if _rc == 0 {
     display as result "  PASS: post_confs() option"

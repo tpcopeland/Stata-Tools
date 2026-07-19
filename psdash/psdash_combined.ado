@@ -112,6 +112,9 @@ program define psdash_combined, rclass
     local det_wvar "`_psd_wvar'"
     local wvar_auto "`_psd_wvar_auto'"
     local source "`_psd_source'"
+    * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
+    local n_estimation "`_psd_n_estimation'"
+    local n_excluded "`_psd_n_excluded'"
     local method "`_psd_method'"
     local contract_version "`_psd_contract_version'"
     local iivw_component "`_psd_iivw_component'"
@@ -494,6 +497,11 @@ program define psdash_combined, rclass
     return local wvar "`wvar'"
     return local estimand "`estimand'"
     return local source "`source'"
+    * RB-05 estimation-sample exclusion ledger (teffects only)
+    if "`n_excluded'" != "" {
+        return scalar n_excluded = `n_excluded'
+        return scalar n_estimation = `n_estimation'
+    }
     if "`iivw_component'" != "" {
         return local iivwcomponent "`iivw_component'"
     }

@@ -120,6 +120,9 @@ program define psdash_overlap, rclass
     local psvar "`_psd_psvar'"
     local psvar_auto "`_psd_psvar_auto'"
     local source "`_psd_source'"
+    * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
+    local n_estimation "`_psd_n_estimation'"
+    local n_excluded "`_psd_n_excluded'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
@@ -739,6 +742,12 @@ program define psdash_overlap, rclass
         if "`_overlap_nfind'" == "" local _overlap_nfind = 0
         return scalar n_warnings = `_overlap_nfind'
         return local warnings `"`_overlap_findings'"'
+
+        * RB-05 estimation-sample exclusion ledger (teffects only)
+        if "`n_excluded'" != "" {
+            return scalar n_excluded = `n_excluded'
+            return scalar n_estimation = `n_estimation'
+        }
     }
     if `rc' exit `rc'
 end

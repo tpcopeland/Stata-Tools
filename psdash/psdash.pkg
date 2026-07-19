@@ -23,6 +23,7 @@ f psdash.sthlp
 f _psdash_balance_binary.ado
 f _psdash_balance_multigroup.ado
 f _psdash_detect.ado
+f _psdash_expand_fv.ado
 f _psdash_export_kv.ado
 f _psdash_graph_export.ado
 f _psdash_ltmle_diagnostics.ado
@@ -30,6 +31,7 @@ f _psdash_manual_detect.ado
 f _psdash_mgps_map.ado
 f _psdash_pscheck.ado
 f _psdash_support_stats.ado
+f _psdash_verify_producer.ado
 f _psdash_strip_fv.ado
 f _psdash_strip_replace.ado
 f _psdash_validate_levels.ado

@@ -12,11 +12,15 @@ program define _psdash_balance_multigroup, rclass
     capture noisily {
         syntax varlist(numeric), TREATment(varname numeric) SAMPLEvar(varname) ///
             LEVELS(string asis) REFerence(string) THReshold(real) ///
-            [Wvar(varname numeric) VRLo(real 0.5) VRHi(real 2)]
+            [Wvar(varname numeric) VRLo(real 0.5) VRHi(real 2) LABels(string asis)]
 
         return clear
         local nvars : word count `varlist'
         local has_adj = ("`wvar'" != "")
+
+        * Readable row labels for factor-variable design columns (RB-03); see the
+        * binary helper. Falls back to the varlist tokens when labels() is absent.
+        if `"`labels'"' == "" local labels `"`varlist'"'
 
         local contrasts ""
         local n_contrasts = 0
@@ -64,7 +68,7 @@ program define _psdash_balance_multigroup, rclass
 
         local i = 1
         foreach var of local varlist {
-            local rownames "`rownames' `var'"
+            local rownames `"`rownames' `: word `i' of `labels''"'
 
             * Flag binary/indicator covariates (VR uninformative; see binary helper)
             quietly summarize `var'
@@ -186,10 +190,22 @@ program define _psdash_balance_multigroup, rclass
 
         local max_smd_raw = 0
         local max_smd_adj = 0
+        local max_vr_raw = 1
+        local max_vr_adj = 1
+        local max_vr_raw_dev = 0
+        local max_vr_adj_dev = 0
         local max_ks_raw = 0
         local max_ks_adj = 0
         local n_imbalanced = 0
-        local n_vr_imbalanced = 0
+        * RB-08: count imbalanced COVARIATES (the documented unit), not pairwise
+        * contrasts. A single covariate with two out-of-bounds contrasts is one
+        * imbalanced covariate; the contrast tally is returned separately. Raw and
+        * adjusted are counted independently so the weighted verdict judges the
+        * adjusted VR.
+        local n_vr_imbalanced_raw = 0
+        local n_vr_imbalanced_adj = 0
+        local n_vr_contrasts_raw = 0
+        local n_vr_contrasts_adj = 0
         local n_binary_vr = 0
         local vr_na_vars ""
 
@@ -197,6 +213,8 @@ program define _psdash_balance_multigroup, rclass
             local worst_smd_raw_i = 0
             local worst_smd_adj_i = 0
             local cov_imbalanced = 0
+            local cov_vr_raw_i = 0
+            local cov_vr_adj_i = 0
 
             if `_isbin_`i'' {
                 local n_binary_vr = `n_binary_vr' + 1
@@ -218,8 +236,14 @@ program define _psdash_balance_multigroup, rclass
 
                 if !`_isbin_`i'' & !missing(`balance_mat'[`i', `col_vr_raw']) {
                     local vr_i = `balance_mat'[`i', `col_vr_raw']
+                    local dev_raw = max(abs(`vr_i' - 1), abs(1/`vr_i' - 1))
+                    if `dev_raw' > `max_vr_raw_dev' {
+                        local max_vr_raw = `vr_i'
+                        local max_vr_raw_dev = `dev_raw'
+                    }
                     if `vr_i' < `vrlo' | `vr_i' > `vrhi' {
-                        local n_vr_imbalanced = `n_vr_imbalanced' + 1
+                        local cov_vr_raw_i = 1
+                        local n_vr_contrasts_raw = `n_vr_contrasts_raw' + 1
                     }
                 }
 
@@ -244,6 +268,20 @@ program define _psdash_balance_multigroup, rclass
                     else {
                         local cov_imbalanced = 1
                     }
+                    * RB-08: read the ADJUSTED VR contrast (weighted verdict scale).
+                    local col_vr_adj = `ncols_raw' + (`cnum' - 1) * 5 + 4
+                    if !`_isbin_`i'' & !missing(`balance_mat'[`i', `col_vr_adj']) {
+                        local vr_a_i = `balance_mat'[`i', `col_vr_adj']
+                        local dev_adj = max(abs(`vr_a_i' - 1), abs(1/`vr_a_i' - 1))
+                        if `dev_adj' > `max_vr_adj_dev' {
+                            local max_vr_adj = `vr_a_i'
+                            local max_vr_adj_dev = `dev_adj'
+                        }
+                        if `vr_a_i' < `vrlo' | `vr_a_i' > `vrhi' {
+                            local cov_vr_adj_i = 1
+                            local n_vr_contrasts_adj = `n_vr_contrasts_adj' + 1
+                        }
+                    }
                 }
                 else {
                     if !missing(`balance_mat'[`i', `col_smd_raw']) {
@@ -258,7 +296,15 @@ program define _psdash_balance_multigroup, rclass
             }
 
             if `cov_imbalanced' local n_imbalanced = `n_imbalanced' + 1
+            if `cov_vr_raw_i' local n_vr_imbalanced_raw = `n_vr_imbalanced_raw' + 1
+            if `cov_vr_adj_i' local n_vr_imbalanced_adj = `n_vr_imbalanced_adj' + 1
         }
+
+        * RB-08: verdict-scale VR counts (adjusted when weighted, raw otherwise);
+        * n_vr_imbalanced counts covariates, n_vr_contrasts_imbalanced counts the
+        * pairwise contrasts underneath them.
+        local n_vr_imbalanced = cond(`has_adj', `n_vr_imbalanced_adj', `n_vr_imbalanced_raw')
+        local n_vr_contrasts_imbalanced = cond(`has_adj', `n_vr_contrasts_adj', `n_vr_contrasts_raw')
 
         foreach lev of local levels {
             return scalar n_group_`lev' = `n_group_`lev''
@@ -268,10 +314,17 @@ program define _psdash_balance_multigroup, rclass
         return scalar ncols = `ncols'
         return scalar max_smd_raw = `max_smd_raw'
         return scalar max_smd_adj = `max_smd_adj'
+        return scalar max_vr_raw = `max_vr_raw'
+        return scalar max_vr_adj = `max_vr_adj'
         return scalar max_ks_raw = `max_ks_raw'
         return scalar max_ks_adj = `max_ks_adj'
         return scalar n_imbalanced = `n_imbalanced'
         return scalar n_vr_imbalanced = `n_vr_imbalanced'
+        return scalar n_vr_imbalanced_raw = `n_vr_imbalanced_raw'
+        return scalar n_vr_imbalanced_adj = `n_vr_imbalanced_adj'
+        return scalar n_vr_contrasts_imbalanced = `n_vr_contrasts_imbalanced'
+        return scalar n_vr_contrasts_raw = `n_vr_contrasts_raw'
+        return scalar n_vr_contrasts_adj = `n_vr_contrasts_adj'
         return scalar n_binary_vr = `n_binary_vr'
         return local vr_na_vars = strtrim("`vr_na_vars'")
         return local contrasts "`contrasts'"

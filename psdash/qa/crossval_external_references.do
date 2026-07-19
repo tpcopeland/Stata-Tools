@@ -272,15 +272,23 @@ capture noisily {
     assert abs(w_ir[120] - `ref_ir_w120') <= `tight'
     assert "`r(wvar)'" == "auto-generated"
 
-    psdash support species, psvars(gps0 gps1 gps2) threshold(0.1) nograph
+    * Common-support geometry (min-max, independent of any trim threshold).
+    psdash support species, psvars(gps0 gps1 gps2) nograph
     assert abs(r(lower_bound) - `ref_ir_sup_lo') <= `tight'
     assert abs(r(upper_bound) - `ref_ir_sup_hi') <= `tight'
     assert r(n_outside) == `ref_ir_sup_nout'
     assert r(n_outside_group_0) == `ref_ir_sup_nout0'
     assert r(n_outside_group_1) == `ref_ir_sup_nout1'
     assert r(n_outside_group_2) == `ref_ir_sup_nout2'
-    assert r(n_trimmed) == `ref_ir_tr_n'
-    assert abs(r(pct_trimmed) - `ref_ir_tr_pct') <= `tight'
+    * RB-11: threshold(0.1) trims every setosa observation (all 50 have an
+    * observed-arm GPS > 0.9), eliminating species 0 entirely. A trim that
+    * removes a whole treatment group destroys identifiability and is no longer
+    * silently reported as a successful support remedy -- it is rejected. (The
+    * old code returned n_trimmed and proceeded; the sklearn reference counts the
+    * same rows but does not endorse the trim as a valid design.)
+    capture noisily psdash support species, psvars(gps0 gps1 gps2) ///
+        threshold(0.1) generate(_ir_trim_ind) nograph
+    assert _rc == 459
 
     psdash balance species, psvars(gps0 gps1 gps2) ///
         covariates(sepal_length sepal_width petal_length petal_width)

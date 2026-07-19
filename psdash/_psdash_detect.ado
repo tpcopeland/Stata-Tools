@@ -38,7 +38,7 @@ program define _psdash_detect
 
     * Parse using anything to avoid varlist greedy parsing issues
     syntax [anything] , ///
-        [COVariates(varlist numeric) Wvar(varname) SAMPLEvar(varname) ///
+        [COVariates(varlist numeric fv) Wvar(varname) SAMPLEvar(varname) ///
          ESTImand(string) PSOUT(name) WOUT(name) GETWvar ///
          REFerence(string) PSVars(varlist numeric) ALLOWLongitudinal]
 
@@ -161,6 +161,19 @@ program define _psdash_detect
             * Multi-group path (K>2, or K=2 with non-0/1 values)
             c_local _psd_multigroup "1"
 
+            * RB-06: atc targets a single control population and is not uniquely
+            * defined once there are three or more arms. Reject it here rather than
+            * silently substitute generalized ATE weights while returning
+            * r(estimand)=atc. (K=2 with arbitrary levels keeps a well-defined atc,
+            * handled by the binary weight formulas below.)
+            if "`estimand'" == "atc" & `_K' > 2 {
+                display as error "estimand(atc) is not uniquely defined for a multi-valued treatment (K=`_K')"
+                display as error "  atc targets a single control population; with K>2 arms there is no"
+                display as error "  unique control arm. Fit a binary contrast, or use estimand(att)"
+                display as error "  with reference() to target a named arm."
+                exit 198
+            }
+
             * Reference group: explicit or smallest level
             if "`reference'" != "" {
                 * Validate reference exists in levels
@@ -270,43 +283,70 @@ program define _psdash_detect
                         }
                     }
 
-                    if "`estimand'" == "ate" {
-                        * ATE: w = 1 / P(A=a|X) for each obs's own group
+                    if `_K' == 2 {
+                        * RB-06: binary treatment with ARBITRARY levels. Map the two
+                        * levels to a documented reference (control) / other (treated)
+                        * arm keyed to own-PS, so ate/att/atc are correct and
+                        * recoding-invariant. reference = `_ref_level' (default:
+                        * smallest level); the other level is the treated arm. These
+                        * reduce to the classic 0/1 formulas used elsewhere in the
+                        * package (see the binary panel path and the tmle branch).
+                        local _oth_level ""
                         foreach _lv of local _trt_levels {
-                            local _ps_expr "`_ownps_`_lv''"
-                            replace `wt_storage' = 1 / (`_ps_expr') ///
-                                if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
+                            if "`_lv'" != "`_ref_level'" local _oth_level "`_lv'"
+                        }
+                        local _ps_ref "`_ownps_`_ref_level''"    // own-PS of control
+                        local _ps_oth "`_ownps_`_oth_level''"    // own-PS of treated
+                        if "`estimand'" == "ate" {
+                            replace `wt_storage' = 1 / (`_ps_ref') ///
+                                if `arg_treatment' == `_ref_level' & (`_ps_ref') > 0 `_sv'
+                            replace `wt_storage' = 1 / (`_ps_oth') ///
+                                if `arg_treatment' == `_oth_level' & (`_ps_oth') > 0 `_sv'
+                        }
+                        else if "`estimand'" == "att" {
+                            * ATT: target = the treated (non-reference) arm.
+                            replace `wt_storage' = 1 ///
+                                if `arg_treatment' == `_oth_level' `_sv'
+                            replace `wt_storage' = (`_ps_oth') / (`_ps_ref') ///
+                                if `arg_treatment' == `_ref_level' & (`_ps_ref') > 0 `_sv'
+                        }
+                        else if "`estimand'" == "atc" {
+                            * ATC: target = the control (reference) arm.
+                            replace `wt_storage' = 1 ///
+                                if `arg_treatment' == `_ref_level' `_sv'
+                            replace `wt_storage' = (`_ps_ref') / (`_ps_oth') ///
+                                if `arg_treatment' == `_oth_level' & (`_ps_oth') > 0 `_sv'
                         }
                     }
-                    else if "`estimand'" == "att" {
-                        * ATT: w=1 for reference, w=P(A=ref|X)/P(A=a|X) for others
-                        * Get reference group PS variable
-                        local _ps_ref "`_ownps_`_ref_level''"
-                        foreach _lv of local _trt_levels {
-                            if "`_lv'" == "`_ref_level'" {
-                                replace `wt_storage' = 1 ///
-                                    if `arg_treatment' == `_lv' `_sv'
-                            }
-                            else {
+                    else {
+                        * Multi-group (K>2). atc is rejected at detection (above).
+                        if "`estimand'" == "ate" {
+                            * ATE: w = 1 / P(A=a|X) for each obs's own group
+                            foreach _lv of local _trt_levels {
                                 local _ps_expr "`_ownps_`_lv''"
-                                replace `wt_storage' = (`_ps_ref') / (`_ps_expr') ///
+                                replace `wt_storage' = 1 / (`_ps_expr') ///
                                     if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
                             }
                         }
-                    }
-                    else if "`estimand'" == "atc" {
-                        * ATC is not uniquely defined for K>2 groups: fall back to the
-                        * generalized ATE weights (w = 1/P(A=a|X)) and warn the user once.
-                        if "$PSDASH_atc_warned" == "" {
-                            noisily display as text "note: estimand(atc) with a multi-valued treatment (K>2) is not uniquely"
-                            noisily display as text "      defined; using generalized ATE weights (w = 1/P(A=a|X)). For a"
-                            noisily display as text "      group-targeted estimand use estimand(att) with reference()."
-                            global PSDASH_atc_warned 1
+                        else if "`estimand'" == "att" {
+                            * ATT: w=1 for reference arm, w=P(A=ref|X)/P(A=a|X) for others
+                            local _ps_ref "`_ownps_`_ref_level''"
+                            foreach _lv of local _trt_levels {
+                                if "`_lv'" == "`_ref_level'" {
+                                    replace `wt_storage' = 1 ///
+                                        if `arg_treatment' == `_lv' `_sv'
+                                }
+                                else {
+                                    local _ps_expr "`_ownps_`_lv''"
+                                    replace `wt_storage' = (`_ps_ref') / (`_ps_expr') ///
+                                        if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
+                                }
+                            }
                         }
-                        foreach _lv of local _trt_levels {
-                            local _ps_expr "`_ownps_`_lv''"
-                            replace `wt_storage' = 1 / (`_ps_expr') ///
-                                if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
+                        else if "`estimand'" == "atc" {
+                            * Unreachable: guarded at detection. Defensive only.
+                            noisily display as error "estimand(atc) is not defined for K>2 arms"
+                            exit 198
                         }
                     }
                 }
@@ -326,6 +366,10 @@ program define _psdash_detect
     if `nargs' == 0 & "`psvars'" == "" {
         local iivw_weighted : char _dta[_iivw_weighted]
         if "`iivw_weighted'" == "1" {
+            * RB-07: verify the iivw weighting contract with iivw's own guard
+            * before trusting any of its characteristics (fail closed on stale,
+            * unsigned, or unverifiable state).
+            _psdash_verify_producer iivw : _iivw_check_weighted
             local iivw_wtype : char _dta[_iivw_weighttype]
             local iivw_wtype = strlower("`iivw_wtype'")
 
@@ -439,6 +483,8 @@ program define _psdash_detect
     if `nargs' == 0 & "`psvars'" == "" {
         local msm_weighted : char _dta[_msm_weighted]
         if "`msm_weighted'" == "1" {
+            * RB-07: verify the msm weighting contract with msm's own guard.
+            _psdash_verify_producer msm : _msm_check_weighted
             if "`allowlongitudinal'" == "" {
                 display as error "last msm_weight run is longitudinal"
                 display as error "  pooled psdash subcommands are not run automatically after msm_weight"
@@ -530,6 +576,9 @@ program define _psdash_detect
     if `nargs' == 0 & "`psvars'" == "" {
         local tte_weighted : char _dta[_tte_weighted]
         if "`tte_weighted'" == "1" {
+            * RB-07: verify the tte weighting contract with tte's own guard
+            * (re-derives the weight data signature; rejects a modified dataset).
+            _psdash_verify_producer tte : _tte_get_weight_state, required
             if "`allowlongitudinal'" == "" {
                 display as error "last tte_weight run is longitudinal"
                 display as error "  pooled psdash subcommands are not run automatically after tte_weight"
@@ -614,6 +663,8 @@ program define _psdash_detect
     * Strategy 1c: Auto-detect from cross-sectional tmle contract state
     * -----------------------------------------------------------------
     if "`e(cmd)'" == "tmle" {
+        * RB-07: verify the tmle estimation contract with tmle's own guard.
+        _psdash_verify_producer tmle : _tmle_get_context
         local tmle_treatment "`e(treatment)'"
         if "`tmle_treatment'" == "" {
             local tmle_treatment : char _dta[_tmle_treatment]
@@ -793,6 +844,8 @@ program define _psdash_detect
     * Strategy 1d: Auto-detect from longitudinal ltmle contract state
     * -----------------------------------------------------------------
     if "`e(cmd)'" == "ltmle" {
+        * RB-07: verify the ltmle estimation contract with ltmle's own guard.
+        _psdash_verify_producer ltmle : _ltmle_get_context
         if "`allowlongitudinal'" == "" {
             display as error "last estimation command is longitudinal ltmle"
             display as error "  pooled psdash subcommands are not run automatically after ltmle"
@@ -924,6 +977,23 @@ program define _psdash_detect
     * Strategy 2: Auto-detect from teffects
     * -----------------------------------------------------------------
     if "`e(cmd)'" == "teffects" {
+        * RB-05: restrict every automatic diagnostic to the estimation sample.
+        * teffects may fit on a strict subset of the data (if/in restriction or
+        * observations dropped for missing covariates); diagnosing the full dataset
+        * silently contaminates overlap/balance/weights/support with observations the
+        * fitted estimator never used. Intersect the caller's touse with e(sample)
+        * here, before treatment-level discovery, PS prediction, or weight generation,
+        * so every panel that re-detects lands on one common estimation sample.
+        if "`samplevar'" != "" {
+            quietly count if `samplevar'
+            local _psd_n_before = r(N)
+            quietly replace `samplevar' = 0 if `samplevar' & !e(sample)
+            quietly count if `samplevar'
+            local _psd_n_after = r(N)
+            c_local _psd_n_estimation "`_psd_n_after'"
+            c_local _psd_n_excluded = `_psd_n_before' - `_psd_n_after'
+        }
+
         * Parse treatment and covariates from e(cmdline)
         * teffects cmdline format: teffects <subcmd> (outcome [omodel]) (treatment covars [tmodel]) [, options]
         local cmdline "`e(cmdline)'"
@@ -976,13 +1046,31 @@ program define _psdash_detect
                 c_local _psd_covariates "`covariates'"
             }
             else if "`te_covars'" != "" {
-                _psdash_strip_fv `"`te_covars'"'
-                c_local _psd_covariates "`_psd_stripped_covars'"
+                * RB-03: raw factor-variable treatment-model terms; balance expands.
+                c_local _psd_covariates "`te_covars'"
             }
 
             * Guard: only predict PS for teffects subcommands that produce one
             local te_subcmd = e(subcmd)
-            if !inlist("`te_subcmd'", "ipw", "ipwra", "aipw", "psmatch") {
+            * RB-04: teffects psmatch is a matching estimator, not an IPW estimator.
+            * It exposes no `predict, ps` (predict,ps -> r(322); with an if qualifier
+            * -> r(101)), so the old code accepted psmatch and then died with a cryptic
+            * downstream error. Worse, repairing predict alone would generate ordinary
+            * IPTW weights and diagnose a DIFFERENT design than the matched sample the
+            * user fitted. psdash has no matched-design diagnostics, so fail closed with
+            * an explicit unsupported-estimator error rather than diagnose the wrong thing.
+            if "`te_subcmd'" == "psmatch" {
+                display as error "teffects psmatch is not supported by psdash auto-detection"
+                display as error "  psmatch produces a matched design (nearest-neighbour on the"
+                display as error "  propensity score), not inverse-probability weights, and teffects"
+                display as error "  exposes no propensity-score prediction for it. Matched-design"
+                display as error "  diagnostics are not implemented. To diagnose the propensity model,"
+                display as error "  fit it explicitly (e.g. teffects ipw, logit, or probit) and pass"
+                display as error "  the PS variable directly:"
+                display as error "    psdash overlap `te_treatment' ps_var"
+                exit 198
+            }
+            if !inlist("`te_subcmd'", "ipw", "ipwra", "aipw") {
                 display as error "teffects `te_subcmd' does not produce a propensity score"
                 display as error "  provide psvar explicitly, e.g.: psdash overlap `te_treatment' ps_var"
                 exit 198
@@ -1124,6 +1212,16 @@ program define _psdash_detect
             * Default to ate if still unset after auto-detection
             if "`estimand'" == "" local estimand "ate"
 
+            * RB-06: atc is not uniquely defined for a multi-valued treatment (K>2).
+            * Reject rather than return generalized ATE weights under an atc label.
+            if "`estimand'" == "atc" & `_K' > 2 {
+                display as error "estimand(atc) is not uniquely defined for a multi-valued treatment (K=`_K')"
+                display as error "  atc targets a single control population; with K>2 arms there is no"
+                display as error "  unique control arm. Fit a binary contrast, or use estimand(att)"
+                display as error "  with reference() to target a named arm."
+                exit 198
+            }
+
             * Try to get weights from teffects ipw
             if "`getwvar'" != "" & inlist("`te_subcmd'", "ipw", "ipwra", "aipw") {
                 if "`wvar'" != "" {
@@ -1177,45 +1275,70 @@ program define _psdash_detect
                             }
                         }
                         else {
-                            * Multi-group: generalized weights
+                            * Multi-group predicted PS in _psdash_ps_<lev>.
                             local _ref_level "`reference'"
                             if "`_ref_level'" == "" {
                                 local _ref_level : word 1 of `_trt_levels'
                             }
-                            if "`estimand'" == "ate" {
+                            if `_K' == 2 {
+                                * RB-06: binary treatment with ARBITRARY levels. Same
+                                * reference(control)/other(treated) mapping as the manual
+                                * branch, keyed to own-PS, so ate/att/atc are correct and
+                                * recoding-invariant instead of routed through the
+                                * generalized (atc==ate) fallback.
+                                local _oth_level ""
                                 foreach _lv of local _trt_levels {
-                                    local _ps_lv "_psdash_ps_`_lv'"
-                                    replace `wt_storage' = 1 / `_ps_lv' ///
-                                        if `te_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
+                                    if "`_lv'" != "`_ref_level'" local _oth_level "`_lv'"
+                                }
+                                local _ps_ref "_psdash_ps_`_ref_level'"
+                                local _ps_oth "_psdash_ps_`_oth_level'"
+                                if "`estimand'" == "ate" {
+                                    replace `wt_storage' = 1 / `_ps_ref' ///
+                                        if `te_treatment' == `_ref_level' & `_ps_ref' > 0 `_sv'
+                                    replace `wt_storage' = 1 / `_ps_oth' ///
+                                        if `te_treatment' == `_oth_level' & `_ps_oth' > 0 `_sv'
+                                }
+                                else if "`estimand'" == "att" {
+                                    replace `wt_storage' = 1 ///
+                                        if `te_treatment' == `_oth_level' `_sv'
+                                    replace `wt_storage' = `_ps_oth' / `_ps_ref' ///
+                                        if `te_treatment' == `_ref_level' & `_ps_ref' > 0 `_sv'
+                                }
+                                else if "`estimand'" == "atc" {
+                                    replace `wt_storage' = 1 ///
+                                        if `te_treatment' == `_ref_level' `_sv'
+                                    replace `wt_storage' = `_ps_ref' / `_ps_oth' ///
+                                        if `te_treatment' == `_oth_level' & `_ps_oth' > 0 `_sv'
                                 }
                             }
-                            else if "`estimand'" == "att" {
-                                local _ps_ref "_psdash_ps_`_ref_level'"
-                                foreach _lv of local _trt_levels {
-                                    if "`_lv'" == "`_ref_level'" {
-                                        replace `wt_storage' = 1 ///
-                                            if `te_treatment' == `_lv' `_sv'
-                                    }
-                                    else {
+                            else {
+                                * Multi-group (K>2): generalized weights. atc is rejected
+                                * at detection (above), so only ate/att reach here.
+                                if "`estimand'" == "ate" {
+                                    foreach _lv of local _trt_levels {
                                         local _ps_lv "_psdash_ps_`_lv'"
-                                        replace `wt_storage' = `_ps_ref' / `_ps_lv' ///
+                                        replace `wt_storage' = 1 / `_ps_lv' ///
                                             if `te_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
                                     }
                                 }
-                            }
-                            else if "`estimand'" == "atc" {
-                                * ATC is not uniquely defined for K>2 groups: fall back to
-                                * generalized ATE weights (w = 1/P(A=a|X)) and warn once.
-                                if "$PSDASH_atc_warned" == "" {
-                                    noisily display as text "note: estimand(atc) with a multi-valued treatment (K>2) is not uniquely"
-                                    noisily display as text "      defined; using generalized ATE weights (w = 1/P(A=a|X)). For a"
-                                    noisily display as text "      group-targeted estimand use estimand(att) with reference()."
-                                    global PSDASH_atc_warned 1
+                                else if "`estimand'" == "att" {
+                                    local _ps_ref "_psdash_ps_`_ref_level'"
+                                    foreach _lv of local _trt_levels {
+                                        if "`_lv'" == "`_ref_level'" {
+                                            replace `wt_storage' = 1 ///
+                                                if `te_treatment' == `_lv' `_sv'
+                                        }
+                                        else {
+                                            local _ps_lv "_psdash_ps_`_lv'"
+                                            replace `wt_storage' = `_ps_ref' / `_ps_lv' ///
+                                                if `te_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
+                                        }
+                                    }
                                 }
-                                foreach _lv of local _trt_levels {
-                                    local _ps_lv "_psdash_ps_`_lv'"
-                                    replace `wt_storage' = 1 / `_ps_lv' ///
-                                        if `te_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
+                                else if "`estimand'" == "atc" {
+                                    * Unreachable: guarded at detection. Defensive only.
+                                    noisily display as error "estimand(atc) is not defined for K>2 arms"
+                                    exit 198
                                 }
                             }
                         }
@@ -1305,8 +1428,10 @@ program define _psdash_detect
             }
             local rhs = strtrim("`rhs'")
             if "`rhs'" != "" {
-                _psdash_strip_fv `"`rhs'"'
-                c_local _psd_covariates "`_psd_stripped_covars'"
+                * RB-03: pass the raw factor-variable RHS through; psdash_balance
+                * expands i./c./## into design columns. Stripping here collapsed
+                * factors to integer codes and discarded interactions.
+                c_local _psd_covariates "`rhs'"
             }
         }
 
@@ -1372,8 +1497,8 @@ program define _psdash_detect
             }
             local rhs = strtrim("`rhs'")
             if "`rhs'" != "" {
-                _psdash_strip_fv `"`rhs'"'
-                c_local _psd_covariates "`_psd_stripped_covars'"
+                * RB-03: raw factor-variable RHS; balance expands the design.
+                c_local _psd_covariates "`rhs'"
             }
         }
 

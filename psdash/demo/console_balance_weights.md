@@ -36,7 +36,10 @@ Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
 Maximum KS (raw):             0.211
+Maximum KS (adjusted):        0.094
 ------------------------------------------------------------------------------------------------
+Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
+      (VR for a two-level covariate is determined by the SMD; excluded from the VR count).
 
 Balance: Adequate (max |SMD| =  0.047)
 ```
@@ -76,11 +79,13 @@ Effective Sample Size (ESS)
 Extreme Weight Detection
 --------------------------------------------------
 Coefficient of Variation:    0.637
+Max / mean weight ratio:      6.31
 Weights > 10:                    3 ( 0.38%)
 Weights > 20:                    0
 --------------------------------------------------
 
 Warning: 3 extreme weights detected (>10).
 
-Weights: Acceptable (ESS = 71.2% of N)
+Weights: WARNING (ESS = 71.2% of N; 1 finding(s))
+  Consider: psdash weights, trim(99) generate(w_trim) or psdash weights, truncate(#) generate(w_trunc)
 ```

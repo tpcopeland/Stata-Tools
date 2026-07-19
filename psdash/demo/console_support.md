@@ -27,6 +27,7 @@ Propensity Score Range
 -------------------------------------------------------
 Common Support Region
 -------------------------------------------------------
+Method:                min-max overlap (optimistic)
 Lower bound:               0.3136
 Upper bound:               0.9206
 Outside support:               17 ( 2.12%)
@@ -37,15 +38,15 @@ Outside support:               17 ( 2.12%)
 -------------------------------------------------------
 Crump et al. (2009) Optimal Trimming
 -------------------------------------------------------
-Optimal alpha:             0.1000
-Trim region:           [0.100, 0.900]
-Observations trimmed:          26 ( 3.25%)
-Remaining sample:             774
+Optimal alpha:             0.1040
+Trim region:           [0.104, 0.896]
+Observations trimmed:          32 ( 4.00%)
+Remaining sample:             768
 -------------------------------------------------------
 
 Support indicator generated: in_support
 
-Support: Trimmed ( 3.2% excluded)
+Support: Trimmed ( 4.0% excluded)
 ```
 
 ```stata
@@ -62,14 +63,14 @@ Support: Trimmed ( 3.2% excluded)
 
 In trimmed |
    support |
-   [0.100, |      Statin use
-    0.900] |        No        Yes |     Total
+   [0.104, |      Statin use
+    0.896] |        No        Yes |     Total
 -----------+----------------------+----------
-         0 |         3         23 |        26
-           |      1.20       4.17 |      3.25
+         0 |         3         29 |        32
+           |      1.20       5.26 |      4.00
 -----------+----------------------+----------
-         1 |       246        528 |       774
-           |     98.80      95.83 |     96.75
+         1 |       246        522 |       768
+           |     98.80      94.74 |     96.00
 -----------+----------------------+----------
      Total |       249        551 |       800
            |    100.00     100.00 |    100.00

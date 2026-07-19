@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.5  2026/07/13
+*! gcomp Version 1.4.6  2026/07/19
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -463,8 +463,18 @@ if "`impute'"!="" {
 		local imp_var`i': word `i' of `impute'
 		qui count if missing(`imp_var`i'')
 		local _gc_imp_needed_`i' = r(N)
-		foreach var in `imp_eq`i'' {
-			local var=subinstr("`var'","i.","",1)
+		* Resolve every imp_eq() predictor to its underlying variable(s) with fvunab/
+		* fvrevar so factor-variable syntax (i.arm, ib2.arm, 2.arm, interactions) is
+		* screened for donor availability instead of mis-parsing (ib#. -> r198;
+		* #.var -> silently true).  Unexpandable terms error clearly and name imp_eq().
+		local _gc_imp_pred`i' ""
+		capture fvrevar `imp_eq`i'', list
+		if _rc {
+			noi di as err "imp_eq(): could not interpret predictor term(s) for `imp_var`i'': `imp_eq`i''"
+			exit 198
+		}
+		local _gc_imp_pred`i' `r(varlist)'
+		foreach var of local _gc_imp_pred`i' {
 			qui replace `missing2'=0 if `var'<.
 		}
 		qui count if `missing2'==1 & missing(`imp_var`i'')
@@ -1618,11 +1628,7 @@ if _rc == 0 {
 	capture matrix drop _gc_diag_result
 }
 
-local _gc_check_delete `_gc_check_delete'
-local _gc_check_print `_gc_check_print'
-local _gc_check_save `_gc_check_save'
-
-if "`mediation'"=="" {	
+if "`mediation'"=="" {
 	local _b=""
 	if "`msm'"!="" {
 		local r1=r(N_msm_params)

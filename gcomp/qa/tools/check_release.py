@@ -181,7 +181,7 @@ def main() -> int:
     if [path.name for path in visual_baselines] != expected_visual_names:
         problems.append("visual baseline must contain exactly three canonical workbook pages")
     expected_features = {
-        *(f"GCOMP-C{i:02d}" for i in range(1, 8)),
+        *(f"GCOMP-C{i:02d}" for i in range(1, 9)),
         *(f"GCOMP-H{i:02d}" for i in range(1, 16)),
         *(f"GCTAB-H{i:02d}" for i in range(1, 7)),
         *(f"GCOMP-D{i:02d}" for i in range(1, 8)),
