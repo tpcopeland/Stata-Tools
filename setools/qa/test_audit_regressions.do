@@ -579,6 +579,96 @@ capture {
 ar_check "SET-M03 flag separates analytic and returned populations" ///
     `=(_rc == 0)'
 
+**# 2026-07-18 audit BUG 1: cdp roving allevents candidate-free engine pass
+
+* BUG1a. Progressor with a trailing flat follow-up visit. The confirmed event
+* consumes the progression rows; the residual flat visit leaves a nonempty
+* working set for a candidate-free second engine pass. Pre-fix: __00000J not
+* found, r(111) (candidate_base/candidate_thresh never created). Fix: the
+* engine materializes those frozen columns as all-missing and returns 0 new
+* events, so the roving loop terminates with exactly the one real event.
+clear
+input long id double edss long edss_date long dx_date
+1 3.0 20090 20090
+1 4.5 20241 20090
+1 4.5 20424 20090
+1 4.5 20606 20090
+end
+format edss_date dx_date %td
+capture noisily cdp id edss edss_date, dxdate(dx_date) roving allevents ///
+    eventnumvar(event_num) quietly
+capture {
+    assert _rc == 0
+    assert _N == 1
+    assert event_num == 1
+}
+ar_check "SET-B01 roving allevents: progressor + trailing flat visit (rc 0, 1 event)" ///
+    `=(_rc == 0)'
+
+* BUG1b. Cohort with no progression anywhere: the very first engine pass is
+* candidate-free. Pre-fix: r(111) on the baseout() generation. Fix: 0 events,
+* rc 0. With keepall the persons are retained carrying a missing event date.
+clear
+input long id double edss long edss_date long dx_date
+1 3.0 20090 20090
+1 3.0 20241 20090
+2 2.0 20090 20090
+2 2.0 20241 20090
+end
+format edss_date dx_date %td
+capture noisily cdp id edss edss_date, dxdate(dx_date) roving allevents ///
+    eventvar(cdp_event) keepall quietly
+capture {
+    assert _rc == 0
+    assert cdp_event == 0
+}
+ar_check "SET-B02 roving allevents: zero-progression cohort (rc 0, no events)" ///
+    `=(_rc == 0)'
+
+**# 2026-07-18 audit BUG 2: migrations long-format all-emigrate-first
+
+* BUG2a. Long-format file where every immigrated person's first observed event
+* is an emigration (born-in-country, emigrated, returned). The +1 slot offset
+* pushes all immigrations to in_2+, so reshape produces no in_1. Pre-fix:
+* "variable in_1 not found", r(111). Fix: base slots materialized -> rc 0.
+clear
+input long id str12 event_type long event_date
+1 "Utvandring" 18628
+1 "Invandring" 18993
+end
+format event_date %td
+save "`migfile'", replace
+clear
+input long id long study_start
+1 18262
+2 18262
+end
+format study_start %td
+capture noisily migrations, migfile("`migfile'") flag
+capture assert _rc == 0
+ar_check "SET-B03 long-format all-emigrate-first return (rc 0, no missing in_1)" ///
+    `=(_rc == 0)'
+
+* BUG2b. Same-day Invandring/Utvandring tie as a person's first events. The
+* tie-break min(is_in)=0 classifies the day as emigration-first, so the same
+* all-offset path fires. Pre-fix r(111); fix rc 0.
+clear
+input long id str12 event_type long event_date
+1 "Utvandring" 18628
+1 "Invandring" 18628
+end
+format event_date %td
+save "`migfile'", replace
+clear
+input long id long study_start
+1 18262
+end
+format study_start %td
+capture noisily migrations, migfile("`migfile'")
+capture assert _rc == 0
+ar_check "SET-B04 long-format same-day in/out tie as first events (rc 0)" ///
+    `=(_rc == 0)'
+
 foreach file in `migfile' `pairfile' `linkfile' `sentinel' {
     capture erase "`file'"
 }

@@ -152,7 +152,8 @@ missing exit date are left unchanged. The observation is retained; pair with
 {opt keepall} retains all observations from the original dataset, adding the
 sustained date variable with missing values for patients without sustained
 events. By default, only rows for patients who experienced a sustained event
-are kept.
+are kept; the exception is exit-censored persons, who carry a valid (0)
+{opt eventvar()} indicator and are therefore retained even without {opt keepall}.
 
 {phang}
 {opt quietly} suppresses the iteration progress messages and the summary
@@ -287,13 +288,13 @@ date.{p_end}
 {synopt:{cmd:r(converged)}}whether the algorithm converged{p_end}
 {synopt:{cmd:r(threshold)}}EDSS threshold used{p_end}
 {synopt:{cmd:r(confirmwindow)}}confirmation window in days{p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated date variable{p_end}
 {synopt:{cmd:r(confirmvisit)}}confirmation mode; blank, {cmd:window}, or {cmd:unlimited}{p_end}
 {synopt:{cmd:r(eventvar)}}event-indicator name, if requested{p_end}
-{synopt:{cmd:r(exit)}}study-exit variable name, if requested{p_end}
+{synopt:{cmd:r(exit)}}study-exit variable name; only with {opt exit()}{p_end}
 
 
 {marker references}{...}

@@ -1,4 +1,4 @@
-*! sustainedss Version 1.5.0  2026/07/13
+*! sustainedss Version 1.5.1  2026/07/19
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet

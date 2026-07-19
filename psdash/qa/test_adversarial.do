@@ -1241,7 +1241,9 @@ else {
     local ++fail_count
 }
 
-* T74: Combined with all panels skipped — degenerate but shouldn't crash
+* T74: Combined with all panels skipped -> must ERROR (RB-12): a verdict
+* requires at least one executed panel. (Previously returned a bare false-green
+* PASS with no evidence.)
 local ++test_count
 capture noisily {
     clear
@@ -1249,14 +1251,15 @@ capture noisily {
     gen byte treat = mod(_n, 2)
     gen double ps = runiform() * 0.8 + 0.1
     gen double x1 = rnormal()
-    psdash combined treat ps, covariates(x1) nooverlap nobalance noweights nosupport
+    capture psdash combined treat ps, covariates(x1) nooverlap nobalance noweights nosupport
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: T74 combined all panels skipped (still runs)"
+    display as result "  PASS: T74 combined all panels skipped errors (no evidence -> no verdict)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T74 combined all skipped (error `=_rc')"
+    display as error "  FAIL: T74 combined all skipped should error 198 (got `=_rc')"
     local ++fail_count
 }
 

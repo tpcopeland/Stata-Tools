@@ -77,7 +77,7 @@ _t "U1_dryrun" `=_rc'
 display as text _n "--- I2: combined returns verdict/warnings ---"
 capture noisily {
     psdash combined treat ps, covariates(x1 x2 x3)
-    assert inlist("`r(verdict)'", "PASS", "CAUTION")
+    assert inlist("`r(verdict)'", "PASS", "FAIL")
     assert r(n_warnings) >= 0
     assert r(overlapmax) == 10
     assert r(essmin) == 50
@@ -85,10 +85,10 @@ capture noisily {
 }
 _t "I2_verdict" `=_rc'
 
-display as text _n "--- U2: tightening overlapmax flips verdict to CAUTION ---"
+display as text _n "--- U2: tightening overlapmax flips verdict to FAIL ---"
 capture noisily {
     psdash combined treat ps, covariates(x1 x2 x3) overlapmax(0)
-    assert "`r(verdict)'" == "CAUTION"
+    assert "`r(verdict)'" == "FAIL"
     assert r(n_warnings) >= 1
     assert strpos("`r(warnings)'", "overlap") > 0
     assert r(overlapmax) == 0

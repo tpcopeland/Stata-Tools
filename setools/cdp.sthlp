@@ -156,7 +156,11 @@ person's exit date, the date is set to missing and {opt eventvar()} (if requeste
 is set to 0 {hline 1} the event is censored as occurring outside the observation
 window. This replaces the hand-written post-exit clipping that follows most
 {cmd:cdp} calls. Persons with a missing exit date are left unchanged; observations
-are retained. Under {opt allevents}, censoring is applied per event.
+are retained. Under {opt allevents}, censoring is applied per event; an
+exit-censored event row keeps its {opt eventnumvar()} and {opt baseedssvar()}
+values with a missing event date and {opt eventvar()} set to 0. Because
+exit-censored persons carry a valid (0) event indicator, they are retained even
+without {opt keepall}.
 
 {phang}
 {opt roving} specifies that the baseline should be reset after each confirmed
@@ -296,7 +300,7 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(confirmdays)}}confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}whether confirmation converged{p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated CDP date variable{p_end}
@@ -306,7 +310,7 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(eventvar)}}event-indicator name, if requested{p_end}
 {synopt:{cmd:r(eventnumvar)}}event-number name, if requested{p_end}
 {synopt:{cmd:r(baseedssvar)}}event-baseline name, if requested{p_end}
-{synopt:{cmd:r(exit)}}study-exit variable name, if requested{p_end}
+{synopt:{cmd:r(exit)}}study-exit variable name; only with {opt exit()}{p_end}
 
 
 {marker references}{...}

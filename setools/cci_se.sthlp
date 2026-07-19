@@ -318,11 +318,11 @@ error. Numeric YYYYMMDD values are not auto-detected; specify
 {phang2}{cmd:. * Load diagnosis data and compute CCI}{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use "https://.../diagnoses.dta", clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date)":. cci_se, id(id) icd(icd) date(visit_date)}{p_end}
-{phang2}{stata `"save cci.dta, replace"':. save cci.dta, replace}{p_end}
+{phang2}{stata `"save "`c(tmpdir)'/cci_scores.dta", replace"':. save "`c(tmpdir)'/cci_scores.dta", replace}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Merge into analysis cohort}{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use "https://.../cohort.dta", clear}{p_end}
-{phang2}{stata `"merge 1:1 id using cci.dta, nogenerate keep(master match)"':. merge 1:1 id using cci.dta, nogenerate keep(master match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "`c(tmpdir)'/cci_scores.dta", nogenerate keep(master match)"':. merge 1:1 id using "`c(tmpdir)'/cci_scores.dta", nogenerate keep(master match)}{p_end}
 {phang2}{stata "replace charlson = 0 if missing(charlson)":. replace charlson = 0 if missing(charlson)}{p_end}
 
 {pstd}

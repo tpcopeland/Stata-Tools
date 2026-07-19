@@ -1,4 +1,4 @@
-*! migrations Version 1.5.0  2026/07/13
+*! migrations Version 1.5.1  2026/07/19
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -16,7 +16,7 @@ program define migrations, rclass
 
     capture noisily {
 
-    syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) MINresidence(integer 0) SAVEExclude(string) SAVECensor(string) REPLACE VERBose KEEPimmigrants INTYPE(string) OUTTYPE(string) FLAG]
+    syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) MINresidence(integer 0) SAVEExclude(string) SAVECensor(string) REPLACE VERBose QUIetly KEEPimmigrants INTYPE(string) OUTTYPE(string) FLAG]
 
     * Note: using _mig_* prefix (not tempvar) for working variables because
     * tempvars get lost on dataset switching (use/clear within program scope).
@@ -156,11 +156,14 @@ program define migrations, rclass
     }
 
     * Compare canonical paths with platform-appropriate case semantics.
+    * Windows and macOS (HFS+/APFS) are case-insensitive by default, so a
+    * case-only difference still names the same on-disk file on both.
+    local _fold_case = ("`c(os)'" == "Windows" | "`c(os)'" == "MacOSX")
     local _migfile_cmp `"`migfile'"'
-    if "`c(os)'" == "Windows" local _migfile_cmp = lower(`"`migfile'"')
+    if `_fold_case' local _migfile_cmp = lower(`"`migfile'"')
     if "`saveexclude'" != "" {
         local _saveexclude_cmp `"`saveexclude'"'
-        if "`c(os)'" == "Windows" local _saveexclude_cmp = lower(`"`saveexclude'"')
+        if `_fold_case' local _saveexclude_cmp = lower(`"`saveexclude'"')
         if `"`_saveexclude_cmp'"' == `"`_migfile_cmp'"' {
             display as error "saveexclude() may not overwrite migfile()"
             exit 198
@@ -176,7 +179,7 @@ program define migrations, rclass
     }
     if "`savecensor'" != "" {
         local _savecensor_cmp `"`savecensor'"'
-        if "`c(os)'" == "Windows" local _savecensor_cmp = lower(`"`savecensor'"')
+        if `_fold_case' local _savecensor_cmp = lower(`"`savecensor'"')
         if `"`_savecensor_cmp'"' == `"`_migfile_cmp'"' {
             display as error "savecensor() may not overwrite migfile()"
             exit 198
@@ -243,7 +246,20 @@ program define migrations, rclass
             exit 459
         }
 
-        unab _mig_wide_date_vars : in_* out_*
+        * Restrict the wide-format date sweep to numeric-suffixed slot
+        * variables (in_1, out_2, ...). A bare in_*/out_* also matches unrelated
+        * columns such as income/outcome, which must not be force-validated as
+        * %td migration dates.
+        unab _mig_wide_raw : in_* out_*
+        local _mig_wide_date_vars ""
+        foreach wide_date_var of local _mig_wide_raw {
+            if ustrregexm("`wide_date_var'", "^(in|out)_[0-9]+$") ///
+                local _mig_wide_date_vars "`_mig_wide_date_vars' `wide_date_var'"
+        }
+        if "`_mig_wide_date_vars'" == "" {
+            display as error "Wide-format migration file has no in_#/out_# slot variables"
+            exit 111
+        }
         foreach wide_date_var of local _mig_wide_date_vars {
             capture confirm numeric variable `wide_date_var'
             if _rc {
@@ -440,6 +456,15 @@ program define migrations, rclass
             else {
                 qui gen long out_1 = .
             }
+            * When every immigrated person's first observed event is an
+            * emigration, the +1 slot offset pushes all immigrations to in_2+
+            * and reshape produces no in_1 (symmetrically for out_1). Materialize
+            * the base slots so the downstream contract checks and the reshape
+            * long path behave identically to the historical wide layout.
+            capture confirm variable in_1
+            if _rc qui gen long in_1 = .
+            capture confirm variable out_1
+            if _rc qui gen long out_1 = .
             qui order `idvar' in_1 out_1
             qui format in_* out_* %tdCCYY/NN/DD
         }
@@ -469,12 +494,19 @@ program define migrations, rclass
         exit 111
     }
 
-    * Keep only the migration columns before merging. Any other migfile column
-    * that shares a name with a master column (e.g. a stray `startvar' copy)
-    * would otherwise silently shadow the master values during exclusion and
-    * censoring computation — the master is the using dataset in the merge
-    * below, and memory values win for overlapping variables.
-    qui keep `idvar' in_* out_*
+    * Keep only the numeric-suffixed migration slot columns before merging. Any
+    * other migfile column that shares a name with a master column (e.g. a stray
+    * `startvar' copy, or an unrelated income/outcome variable swept by a bare
+    * in_*/out_*) would otherwise silently shadow the master values during
+    * exclusion and censoring computation — the master is the using dataset in
+    * the merge below, and memory values win for overlapping variables.
+    qui ds in_* out_*
+    local _mig_keep_slots "`idvar'"
+    foreach v of varlist `r(varlist)' {
+        if ustrregexm("`v'", "^(in|out)_[0-9]+$") ///
+            local _mig_keep_slots "`_mig_keep_slots' `v'"
+    }
+    qui keep `_mig_keep_slots'
 
     * Merge with master (keep only cohort members)
     qui merge 1:1 `idvar' using `master', nogen keep(3)
@@ -983,34 +1015,36 @@ program define migrations, rclass
     restore, not
     local _mig_preserved = 0
 
-    if `no_cohort_matches' {
+    if `no_cohort_matches' & "`quietly'" == "" {
         display as text "Note: No cohort members found in migration file"
         display as text "No exclusions or censoring dates applied"
     }
 
-    * Display summary
-    display as text _n "Migration Processing Summary"
-    display as text "{hline 55}"
-    display as text "Excluded (emigrated before start, no return):    " as result `n_exclude1'
-    if "`keepimmigrants'" != "" {
-        display as text "Included (immigration after study start):        " as result `n_included_inmig'
-    }
-    else {
-        display as text "Excluded (immigration after study start):        " as result `n_exclude2'
-    }
-    display as text "Excluded (abroad at baseline, returned after):   " as result `n_exclude3'
-    if `minresidence' > 0 {
-        display as text "Excluded (residence < `minresidence' days):       " as result `n_exclude4'
-    }
-    display as text "{hline 55}"
-    display as text "Total excluded:                                  " as result `n_exclude_total'
-    display as text "Individuals with emigration censoring date:      " as result `n_censor'
-    display as text "Analytic cohort size:                           " as result `n_analytic'
-    display as text "Rows returned:                                  " as result `n_returned'
-    display as text "{hline 55}"
-    if "`flag'" != "" {
-        display as text "Flag mode: excluded individuals retained and marked in"
-        display as text "  mig_excluded (0/1) and mig_exclude_reason"
+    * Display summary (suppressed by quietly)
+    if "`quietly'" == "" {
+        display as text _n "Migration Processing Summary"
+        display as text "{hline 55}"
+        display as text "Excluded (emigrated before start, no return):    " as result `n_exclude1'
+        if "`keepimmigrants'" != "" {
+            display as text "Included (immigration after study start):        " as result `n_included_inmig'
+        }
+        else {
+            display as text "Excluded (immigration after study start):        " as result `n_exclude2'
+        }
+        display as text "Excluded (abroad at baseline, returned after):   " as result `n_exclude3'
+        if `minresidence' > 0 {
+            display as text "Excluded (residence < `minresidence' days):       " as result `n_exclude4'
+        }
+        display as text "{hline 55}"
+        display as text "Total excluded:                                  " as result `n_exclude_total'
+        display as text "Individuals with emigration censoring date:      " as result `n_censor'
+        display as text "Analytic cohort size:                           " as result `n_analytic'
+        display as text "Rows returned:                                  " as result `n_returned'
+        display as text "{hline 55}"
+        if "`flag'" != "" {
+            display as text "Flag mode: excluded individuals retained and marked in"
+            display as text "  mig_excluded (0/1) and mig_exclude_reason"
+        }
     }
 
     if `n_analytic' == 0 {

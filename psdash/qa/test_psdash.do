@@ -1108,8 +1108,12 @@ _test_result `=_rc'
 
 _test_start 108 "help syntax documents explicit psvar requirement after logit/probit"
 capture {
+    * RB-13: assert the two prose halves separately so a source line-break inside
+    * the sentence does not fail a brittle exact one-line substring match.
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
-        "After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied explicitly.") > 0
+        "{cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected") > 0
+    assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
+        "{it:psvar} must be supplied explicitly.") > 0
 }
 _test_result `=_rc'
 

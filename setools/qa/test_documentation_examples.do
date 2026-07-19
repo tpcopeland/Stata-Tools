@@ -169,6 +169,42 @@ else {
     local failed_tests "`failed_tests' pira_examples"
 }
 
+**# cdp.sthlp Example 3 / README roving example on the SHIPPED example data
+* The in-file cdp fixtures above are all constructed so the confirming visit
+* consumes every progression row, so they never reach a candidate-free engine
+* pass. cdp.sthlp Example 3 and the README "Command Examples" roving example
+* run on _data/relapses.dta, whose realistic histories (trailing flat visits,
+* non-progressors) DO reach that path -- the exact 2026-07-18 audit BUG 1
+* crash. Exercise the shipped data when present; otherwise fall back to an
+* in-file multi-person fixture that reproduces the same trailing-flat shape.
+local ++test_count
+local repo_dir = subinstr("`pkg_dir'", "/setools", "", 1)
+capture confirm file "`repo_dir'/_data/relapses.dta"
+capture noisily {
+    if _rc == 0 {
+        use "`repo_dir'/_data/relapses.dta", clear
+        cdp id edss edss_date, dxdate(dx_date) roving allevents
+    }
+    else {
+        clear
+        input long id double edss long edss_date long dx_date
+        1 3.0 20090 20090
+        1 4.5 20241 20090
+        1 4.5 20424 20090
+        1 4.5 20606 20090
+        2 2.0 20090 20090
+        2 2.0 20241 20090
+        end
+        format edss_date dx_date %td
+        cdp id edss edss_date, dxdate(dx_date) roving allevents
+    }
+}
+if !_rc local ++pass_count
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' cdp_shipped_roving_example"
+}
+
 display "RESULT: test_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"

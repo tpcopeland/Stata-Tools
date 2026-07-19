@@ -213,7 +213,9 @@ with a {cmd:%td} format). Both the PIRA date and the RAW date are set to missing
 when they fall strictly after a person's exit date, and {opt eventvar()} (if
 requested) is recomputed from the censored PIRA date. This replaces the
 hand-written post-exit clipping that follows most {cmd:pira} calls. Persons with a
-missing exit date are left unchanged; observations are retained.
+missing exit date are left unchanged; observations are retained. Because
+exit-censored persons carry a valid (0) event indicator, they are retained even
+without {opt keepall}.
 
 {phang}
 {opt keepall} specifies that all observations should be retained in the output,
@@ -340,7 +342,7 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(confirmdays)}}CDP confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(pira_varname)}}name of the generated PIRA date variable{p_end}
@@ -350,7 +352,7 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(rebaselinerelapse)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(event_scope)}}{cmd:first_confirmed_cdp}{p_end}
 {synopt:{cmd:r(eventvar)}}event-indicator name, if requested{p_end}
-{synopt:{cmd:r(exit)}}study-exit variable name, if requested{p_end}
+{synopt:{cmd:r(exit)}}study-exit variable name; only with {opt exit()}{p_end}
 
 
 {marker references}{...}

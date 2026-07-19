@@ -461,22 +461,34 @@ program define psdash_support, rclass
         display as text _n "Support indicator generated: " as result "`generate'"
     }
 
-    * Warnings
+    * Warnings (RB-01: every warning-worthy condition becomes a machine-readable
+    * finding; ANY finding forces a non-Good verdict and enters r(warnings).)
+    local _pf ""
+    local _pfn = 0
     if `pct_outside' > 10 {
         display as error "Warning: >10% of observations outside common support."
+        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
+        local ++_pfn
     }
     if `upper_bound' <= `lower_bound' {
         display as error "Warning: No common support region (upper <= lower bound)."
+        local _pf `"`_pf' | no common support region (upper <= lower)"'
+        local ++_pfn
     }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _support_findings `"`_pf'"'
+    local _support_nfind = `_pfn'
 
-    * Verdict
+    * Verdict (WARNING on ANY finding)
     if `has_trimming' {
         display as text _n "Support: " as result "Trimmed" ///
             as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
     }
-    else if `pct_outside' > 10 {
+    else if `_pfn' > 0 {
         display as text _n "Support: " as error "WARNING" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+            as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
+            as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, crump generate(in_support)}"
     }
     else {
@@ -867,22 +879,34 @@ program define psdash_support, rclass
         display as text _n "Support indicator generated: " as result "`generate'"
     }
 
-    * Warnings
+    * Warnings (RB-01: propagate every printed warning into a machine-readable
+    * finding list; ANY finding forces a non-Good verdict + r(warnings).)
+    local _pf ""
+    local _pfn = 0
     if `pct_outside' > 10 {
         display as error "Warning: >10% of observations outside common support."
+        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
+        local ++_pfn
     }
     if `upper_bound' <= `lower_bound' {
         display as error "Warning: No common support region (upper <= lower bound)."
+        local _pf `"`_pf' | no common support region (upper <= lower)"'
+        local ++_pfn
     }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _support_findings `"`_pf'"'
+    local _support_nfind = `_pfn'
 
-    * Verdict
+    * Verdict (WARNING on ANY finding)
     if `has_trimming' {
         display as text _n "Support: " as result "Trimmed" ///
             as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
     }
-    else if `pct_outside' > 10 {
+    else if `_pfn' > 0 {
         display as text _n "Support: " as error "WARNING" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+            as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
+            as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
     }
     else {
@@ -1039,6 +1063,10 @@ program define psdash_support, rclass
             return local estimand "`estimand'"
             return local source "`source'"
         }
+        * RB-01 unified findings surface (both modes)
+        if "`_support_nfind'" == "" local _support_nfind = 0
+        return scalar n_warnings = `_support_nfind'
+        return local warnings `"`_support_findings'"'
     }
     if `rc' exit `rc'
 end

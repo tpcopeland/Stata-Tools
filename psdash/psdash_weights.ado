@@ -578,25 +578,57 @@ program define psdash_weights, rclass
     display as text "Weights > `_evh':             " as result %8.0f `n_very_extreme'
     display as text "{hline 50}"
 
-    * Warnings
+    * Warnings (RB-01: every warning-worthy condition becomes a machine-readable
+    * finding; ANY finding forces a non-Acceptable verdict and enters r(warnings).)
     display ""
+    local _pf ""
+    local _pfn = 0
     if `ess_pct' < 50 {
         display as error "Warning: ESS is less than 50% of N. Consider trimming weights."
+        local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
+        local ++_pfn
+    }
+    * Per-arm ESS collapse: an aggregate ESS can mask one destroyed arm (B5).
+    local _min_arm_ess = min(`ess_pct_t', `ess_pct_c')
+    if `_min_arm_ess' < 50 & `_min_arm_ess' < . {
+        display as error "Warning: minimum per-arm ESS is `=string(`_min_arm_ess',"%4.1f")'% of N (arm collapse)."
+        local _pf `"`_pf' | min per-arm ESS `=string(`_min_arm_ess',"%4.1f")'% < 50%"'
+        local ++_pfn
     }
     if `cv' > 1 {
         display as error "Warning: High CV indicates substantial weight variability."
+        local _pf `"`_pf' | weight CV `=string(`cv',"%5.2f")' > 1"'
+        local ++_pfn
     }
     if `n_extreme' > 0 {
         display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
+        local _pf `"`_pf' | `n_extreme' extreme weights > `_eh'"'
+        local ++_pfn
     }
     if `max_wt' > `extvhi' {
         display as error "Warning: Maximum weight exceeds `_evh'. Consider truncation."
+        local _pf `"`_pf' | max weight `=string(`max_wt',"%6.2f")' > `_evh'"'
+        local ++_pfn
     }
+    * Exact PS-boundary observations yield undefined weights and are silently
+    * dropped from this panel's N (B6); surface them as a finding.
+    if "`n_ps_boundary'" != "" {
+        if `n_ps_boundary' > 0 {
+            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary have undefined weights."
+            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary obs (undefined weight)"'
+            local ++_pfn
+        }
+    }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _weights_findings `"`_pf'"'
+    local _weights_nfind = `_pfn'
 
-    * Verdict
-    if `ess_pct' < 50 {
+    * Verdict (WARNING on ANY finding, not ESS alone)
+    if `_pfn' > 0 {
         display as text _n "Weights: " as error "WARNING" ///
-            as text " (ESS = " as result %4.1f `ess_pct' as text "% of N)"
+            as text " (ESS = " as result %4.1f `ess_pct' as text "% of N; " ///
+            as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash weights, truncate(#) generate(w_trunc)}"
     }
     else {
@@ -1035,25 +1067,41 @@ program define psdash_weights, rclass
     display as text "Weights > `_evh':             " as result %8.0f `n_very_extreme'
     display as text "{hline 50}"
 
-    * Warnings
+    * Warnings (RB-01: propagate every printed warning into a machine-readable
+    * finding list; ANY finding forces a non-Acceptable verdict + r(warnings).)
     display ""
+    local _pf ""
+    local _pfn = 0
     if `ess_pct' < 50 {
         display as error "Warning: ESS is less than 50% of N. Consider trimming weights."
+        local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
+        local ++_pfn
     }
     if `cv' > 1 {
         display as error "Warning: High CV indicates substantial weight variability."
+        local _pf `"`_pf' | weight CV `=string(`cv',"%5.2f")' > 1"'
+        local ++_pfn
     }
     if `n_extreme' > 0 {
         display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
+        local _pf `"`_pf' | `n_extreme' extreme weights > `_eh'"'
+        local ++_pfn
     }
     if `max_wt' > `extvhi' {
         display as error "Warning: Maximum weight exceeds `_evh'. Consider truncation."
+        local _pf `"`_pf' | max weight `=string(`max_wt',"%6.2f")' > `_evh'"'
+        local ++_pfn
     }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _weights_findings `"`_pf'"'
+    local _weights_nfind = `_pfn'
 
-    * Verdict
-    if `ess_pct' < 50 {
+    * Verdict (WARNING on ANY finding, not ESS alone)
+    if `_pfn' > 0 {
         display as text _n "Weights: " as error "WARNING" ///
-            as text " (ESS = " as result %4.1f `ess_pct' as text "% of N)"
+            as text " (ESS = " as result %4.1f `ess_pct' as text "% of N; " ///
+            as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash weights, truncate(#) generate(w_trunc)}"
     }
     else {
@@ -1319,6 +1367,10 @@ program define psdash_weights, rclass
                 return local wvar "`wvar'"
             }
         }
+        * RB-01 unified findings surface (both modes)
+        if "`_weights_nfind'" == "" local _weights_nfind = 0
+        return scalar n_warnings = `_weights_nfind'
+        return local warnings `"`_weights_findings'"'
     }
     if `rc' exit `rc'
 

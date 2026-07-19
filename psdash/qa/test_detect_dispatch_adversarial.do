@@ -129,9 +129,11 @@ capture noisily {
     assert r(ess) > 0
     psdash support treat ps, nograph
     assert r(N) == 300
-    psdash combined treat ps, covariates(x1 x2 x3) ///
+    * A combined run with every panel suppressed is now an error (RB-12): a
+    * verdict requires at least one executed panel. (Was a bare false-green PASS.)
+    capture psdash combined treat ps, covariates(x1 x2 x3) ///
         nooverlap nobalance noweights nosupport
-    assert "`r(treatment)'" == "treat"
+    assert _rc == 198
 }
 _dd_result "T2" `=_rc'
 
@@ -181,7 +183,10 @@ display as text _n "--- T6: teffects auto-detects treatment, PS, weights, and so
 capture noisily {
     _dd_binary_data, n(500) seed(2003)
     quietly teffects ipw (y) (treat x1 x2 x3)
-    psdash combined, nooverlap nobalance noweights nosupport
+    * Run the weights panel (the teffects-relevant one) so a verdict has evidence;
+    * detection metadata is still exercised. (Was nooverlap nobalance noweights
+    * nosupport, which relied on the now-rejected zero-panel path.)
+    psdash combined, nooverlap nobalance nosupport
     assert "`r(treatment)'" == "treat"
     assert "`r(psvar)'" == "auto-generated"
     assert "`r(source)'" == "teffects"
@@ -389,8 +394,12 @@ capture noisily {
         "After `logit`/`probit`") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "treatment and covariates are read from the estimation context") > 0
+    * RB-13: assert the two prose halves separately so a source line-break inside
+    * the sentence does not fail a brittle exact one-line substring match.
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
-        "After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied explicitly.") > 0
+        "{cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected") > 0
+    assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
+        "{it:psvar} must be supplied explicitly.") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "After `mlogit` (multi-group)") > 0
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///

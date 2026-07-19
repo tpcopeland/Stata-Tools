@@ -529,18 +529,34 @@ program define psdash_balance, rclass
         display as text "      (VR for a two-level covariate is determined by the SMD; excluded from the VR count)."
     }
 
-    * Verdict
+    * Verdict (RB-01: SMD *and* VR imbalance are findings; ANY finding forces an
+    * IMBALANCED verdict and enters r(warnings). KS remains informational -- it
+    * has no accepted universal threshold -- pending the RB-08 status rule.)
     if `has_adj' {
         local _verdict_smd = `max_smd_adj'
     }
     else {
         local _verdict_smd = `max_smd_raw'
     }
+    local _pf ""
+    local _pfn = 0
     if `n_imbalanced' > 0 {
+        local _pf `"`_pf' | `n_imbalanced' of `nvars' covariate(s) exceed the SMD threshold"'
+        local ++_pfn
+    }
+    if `n_vr_imbalanced' > 0 {
+        local _pf `"`_pf' | `n_vr_imbalanced' variance-ratio imbalance(s) (max VR = `=string(cond(`has_adj',`max_vr_adj',`max_vr_raw'),"%5.2f")')"'
+        local ++_pfn
+    }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _balance_findings `"`_pf'"'
+    local _balance_nfind = `_pfn'
+    if `_pfn' > 0 {
         display as text _n "Balance: " as error "IMBALANCED" ///
-            as text " (" as result %3.0f `n_imbalanced' ///
-            as text " of " as result %3.0f `nvars' ///
-            as text " covariates exceed threshold)"
+            as text " (" as result %3.0f `_pfn' as text " finding(s); " ///
+            as result %3.0f `n_imbalanced' as text " SMD, " ///
+            as result %3.0f `n_vr_imbalanced' as text " VR)"
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash support, crump}"
     }
     else {
@@ -1170,18 +1186,34 @@ program define psdash_balance, rclass
             " binary covariate(s): `vr_na_vars'"
     }
 
-    * Verdict
+    * Verdict (RB-01: SMD *and* VR imbalance are findings; ANY finding forces an
+    * IMBALANCED verdict and enters r(warnings). KS remains informational -- it
+    * has no accepted universal threshold -- pending the RB-08 status rule.)
     if `has_adj' {
         local _verdict_smd = `max_smd_adj'
     }
     else {
         local _verdict_smd = `max_smd_raw'
     }
+    local _pf ""
+    local _pfn = 0
     if `n_imbalanced' > 0 {
+        local _pf `"`_pf' | `n_imbalanced' of `nvars' covariate(s) exceed the SMD threshold"'
+        local ++_pfn
+    }
+    if `n_vr_imbalanced' > 0 {
+        local _pf `"`_pf' | `n_vr_imbalanced' variance-ratio imbalance(s) (max VR = `=string(cond(`has_adj',`max_vr_adj',`max_vr_raw'),"%5.2f")')"'
+        local ++_pfn
+    }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _balance_findings `"`_pf'"'
+    local _balance_nfind = `_pfn'
+    if `_pfn' > 0 {
         display as text _n "Balance: " as error "IMBALANCED" ///
-            as text " (" as result %3.0f `n_imbalanced' ///
-            as text " of " as result %3.0f `nvars' ///
-            as text " covariates exceed threshold)"
+            as text " (" as result %3.0f `_pfn' as text " finding(s); " ///
+            as result %3.0f `n_imbalanced' as text " SMD, " ///
+            as result %3.0f `n_vr_imbalanced' as text " VR)"
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash support, crump}"
     }
     else {
@@ -1527,6 +1559,10 @@ program define psdash_balance, rclass
             return matrix smd = `_smd_out'
             return matrix balance = `balance_mat'
         }
+        * RB-01 unified findings surface (both modes)
+        if "`_balance_nfind'" == "" local _balance_nfind = 0
+        return scalar n_warnings = `_balance_nfind'
+        return local warnings `"`_balance_findings'"'
     }
     if `rc' exit `rc'
 end

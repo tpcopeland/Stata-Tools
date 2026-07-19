@@ -1,4 +1,4 @@
-*! _setools_cdp_core Version 1.5.0  2026/07/13
+*! _setools_cdp_core Version 1.5.1  2026/07/19
 *! setools internal: confirmed disability progression engine (non-roving)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -109,6 +109,16 @@ program define _setools_cdp_core, rclass
     if _rc qui gen long `assessment_date' = .
     capture confirm variable `assessment_edss'
     if _rc qui gen double `assessment_edss' = .
+
+    * When the confirmation loop broke on a candidate-free pass (no progression
+    * anywhere, or only residual flat follow-up after the last confirmed event),
+    * the frozen reference/threshold columns were never created. Materialize them
+    * as all-missing so the baseout()/genname() generation below yields 0 events
+    * gracefully instead of referencing a nonexistent variable (r(111)).
+    capture confirm variable `candidate_base'
+    if _rc qui gen double `candidate_base' = .
+    capture confirm variable `candidate_thresh'
+    if _rc qui gen double `candidate_thresh' = .
 
     * CDP date is the confirmed candidate date
     qui gen long `genname' = `candidate' if `okall' == 1

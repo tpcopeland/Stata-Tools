@@ -279,6 +279,11 @@ program define psdash_combined, rclass
     * Track which graphs to combine and verdict status
     local graph_list ""
     local verdict_warnings ""
+    * RB-01 unified findings aggregation: every panel finding is collected here,
+    * and ANY finding (or zero executed panels) forces a non-PASS verdict.
+    local _all_findings ""
+    local _total_nfind = 0
+    local _panels_run = 0
 
     * OVERLAP PANEL
     if "`nooverlap'" == "" {
@@ -288,9 +293,21 @@ program define psdash_combined, rclass
             title("PS Overlap") estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_overlap'
         local graph_list "`graph_list' psdash_c_overlap"
-        if r(pct_outside) > `overlapmax' {
+        local _pw = r(n_warnings)
+        local _pwt `"`r(warnings)'"'
+        local _pct = r(pct_outside)
+        if "`_pw'" == "" local _pw = 0
+        if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' overlap"
+            local _all_findings `"`_all_findings' [overlap] `_pwt'"'
+            local _total_nfind = `_total_nfind' + `_pw'
         }
+        else if `_pct' > `overlapmax' {
+            local verdict_warnings "`verdict_warnings' overlap"
+            local _all_findings `"`_all_findings' [overlap] `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
+            local _total_nfind = `_total_nfind' + 1
+        }
+        local _panels_run = `_panels_run' + 1
         return add
     }
 
@@ -306,9 +323,21 @@ program define psdash_combined, rclass
             title("Covariate Balance") estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_balance'
         local graph_list "`graph_list' psdash_c_balance"
-        if r(n_imbalanced) > `imbalmax' {
+        local _pw = r(n_warnings)
+        local _pwt `"`r(warnings)'"'
+        local _nimb = r(n_imbalanced)
+        if "`_pw'" == "" local _pw = 0
+        if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' balance"
+            local _all_findings `"`_all_findings' [balance] `_pwt'"'
+            local _total_nfind = `_total_nfind' + `_pw'
         }
+        else if `_nimb' > `imbalmax' {
+            local verdict_warnings "`verdict_warnings' balance"
+            local _all_findings `"`_all_findings' [balance] `_nimb' covariate(s) > imbalmax(`imbalmax')"'
+            local _total_nfind = `_total_nfind' + 1
+        }
+        local _panels_run = `_panels_run' + 1
         return add
     }
     else if "`nobalance'" == "" & "`covariates'" == "" {
@@ -325,9 +354,21 @@ program define psdash_combined, rclass
             name(psdash_c_weights) `scheme_opt' estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_weights'
         local graph_list "`graph_list' psdash_c_weights"
-        if r(ess_pct) < `essmin' {
+        local _pw = r(n_warnings)
+        local _pwt `"`r(warnings)'"'
+        local _ess = r(ess_pct)
+        if "`_pw'" == "" local _pw = 0
+        if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' weights"
+            local _all_findings `"`_all_findings' [weights] `_pwt'"'
+            local _total_nfind = `_total_nfind' + `_pw'
         }
+        else if `_ess' < `essmin' {
+            local verdict_warnings "`verdict_warnings' weights"
+            local _all_findings `"`_all_findings' [weights] ESS `=string(`_ess',"%4.1f")'% < essmin(`essmin')"'
+            local _total_nfind = `_total_nfind' + 1
+        }
+        local _panels_run = `_panels_run' + 1
         return add
     }
 
@@ -339,9 +380,21 @@ program define psdash_combined, rclass
             title("Common Support") estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_support'
         local graph_list "`graph_list' psdash_c_support"
-        if r(pct_outside) > `overlapmax' {
+        local _pw = r(n_warnings)
+        local _pwt `"`r(warnings)'"'
+        local _pct = r(pct_outside)
+        if "`_pw'" == "" local _pw = 0
+        if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' support"
+            local _all_findings `"`_all_findings' [support] `_pwt'"'
+            local _total_nfind = `_total_nfind' + `_pw'
         }
+        else if `_pct' > `overlapmax' {
+            local verdict_warnings "`verdict_warnings' support"
+            local _all_findings `"`_all_findings' [support] `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
+            local _total_nfind = `_total_nfind' + 1
+        }
+        local _panels_run = `_panels_run' + 1
         return add
     }
 
@@ -379,17 +432,30 @@ program define psdash_combined, rclass
         }
     }
 
-    * Overall verdict
+    * Zero-panel guard (RB-12/V1): a verdict requires evidence. If every panel was
+    * suppressed, there is nothing to verdict -- error rather than return PASS.
+    if `_panels_run' == 0 {
+        display as error "No diagnostic panel executed; a verdict requires at least one of"
+        display as error "overlap/balance/weights/support to run. Remove a no* option."
+        exit 198
+    }
+
+    * Overall verdict (RB-01 binary policy: ANY finding across any panel -> FAIL;
+    * PASS only when every executed panel is clean).
     local verdict_warnings = strtrim("`verdict_warnings'")
-    local n_warnings : word count `verdict_warnings'
-    if "`verdict_warnings'" == "" {
+    local _all_findings = strtrim("`_all_findings'")
+    local n_warnings = `_total_nfind'
+    if `_total_nfind' == 0 {
         local verdict "PASS"
-        display as text "Overall: " as result "PASS"
+        display as text _n "Overall: " as result "PASS" ///
+            as text " (" as result `_panels_run' as text " panel(s), 0 findings)"
     }
     else {
-        local verdict "CAUTION"
-        display as text "Overall: " as error "CAUTION" ///
-            as text " — see " as result "`verdict_warnings'"
+        local verdict "FAIL"
+        display as text _n "Overall: " as error "FAIL" ///
+            as text " (" as result `_total_nfind' as text " finding(s) across " ///
+            as result `_panels_run' as text " panel(s): " as result "`verdict_warnings'" as text ")"
+        display as text `"  Findings: `_all_findings'"'
         display as text "  Consider: rerun failing panels individually for targeted diagnostics"
     }
 
@@ -410,10 +476,13 @@ program define psdash_combined, rclass
         }
     }
 
-    * Store shared return values
+    * Store shared return values (RB-01: r(verdict)/r(warnings)/r(n_warnings) all
+    * derive from the same aggregated findings object)
     return local verdict "`verdict'"
     return scalar n_warnings = `n_warnings'
-    return local warnings "`verdict_warnings'"
+    return local warnings `"`_all_findings'"'
+    return scalar n_panels = `_panels_run'
+    return local warning_panels "`verdict_warnings'"
     if `"`report'"' != "" {
         return local report "`report'"
     }

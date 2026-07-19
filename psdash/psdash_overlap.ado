@@ -283,17 +283,40 @@ program define psdash_overlap, rclass
     }
     display as text "{hline 55}"
 
+    * Warnings (RB-01: every warning-worthy condition becomes a machine-readable
+    * finding; ANY finding forces a non-Good verdict and enters r(warnings).)
+    local _pf ""
+    local _pfn = 0
     if `pct_outside' > 10 {
         display as error "Warning: >10% of observations outside common support region."
+        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
+        local ++_pfn
     }
-    if !missing(`auc') & `auc' > 0.95 {
-        display as error "Warning: AUC > 0.95 may indicate overfit or strong separation; verify positivity."
+    * AUC is orientation-sensitive: discrimination is max(AUC, 1-AUC), so a
+    * reversed PS (AUC~0.02) is as much a separation signal as AUC~0.98 (B7/B8).
+    if !missing(`auc') {
+        local _disc = max(`auc', 1 - `auc')
+        if `_disc' > 0.95 {
+            display as error "Warning: near-separation (discrimination = `=string(`_disc',"%4.2f")', AUC = `=string(`auc',"%4.2f")'); verify positivity."
+            local _pf `"`_pf' | near-separation (discrimination `=string(`_disc',"%4.2f")')"'
+            local ++_pfn
+        }
+        if `auc' < 0.5 & `_disc' > 0.55 {
+            display as error "Warning: PS orientation appears reversed (AUC = `=string(`auc',"%4.2f")' < 0.5); check treatment/PS mapping."
+            local _pf `"`_pf' | PS orientation reversed (AUC `=string(`auc',"%4.2f")')"'
+            local ++_pfn
+        }
     }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _overlap_findings `"`_pf'"'
+    local _overlap_nfind = `_pfn'
 
-    * Verdict
-    if `pct_outside' > 10 {
+    * Verdict (WARNING on ANY finding)
+    if `_pfn' > 0 {
         display as text _n "Overlap: " as error "WARNING" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+            as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
+            as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"
     }
     else {
@@ -529,14 +552,25 @@ program define psdash_overlap, rclass
     }
     display as text "{hline 55}"
 
+    * Warnings (RB-01: propagate every printed warning into a machine-readable
+    * finding list; ANY finding forces a non-Good verdict + r(warnings).)
+    local _pf ""
+    local _pfn = 0
     if `pct_outside' > 10 {
         display as error "Warning: >10% of observations outside common support region."
+        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
+        local ++_pfn
     }
+    local _pf = strtrim("`_pf'")
+    if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
+    local _overlap_findings `"`_pf'"'
+    local _overlap_nfind = `_pfn'
 
-    * Verdict
-    if `pct_outside' > 10 {
+    * Verdict (WARNING on ANY finding)
+    if `_pfn' > 0 {
         display as text _n "Overlap: " as error "WARNING" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+            as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
+            as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
     }
     else {
@@ -701,6 +735,10 @@ program define psdash_overlap, rclass
             return local estimand "`estimand'"
             return local source "`source'"
         }
+        * RB-01 unified findings surface (both modes)
+        if "`_overlap_nfind'" == "" local _overlap_nfind = 0
+        return scalar n_warnings = `_overlap_nfind'
+        return local warnings `"`_overlap_findings'"'
     }
     if `rc' exit `rc'
 end

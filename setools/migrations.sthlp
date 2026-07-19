@@ -38,6 +38,7 @@
 {synopt:{opt savec:ensor(filename)}}save emigration censoring dates{p_end}
 {synopt:{opt replace}}allow replacing output datasets{p_end}
 {synopt:{opt verb:ose}}display processing messages{p_end}
+{synopt:{opt q:uietly}}suppress the processing summary{p_end}
 {synopt:{opt keep:immigrants}}include post-start immigrants{p_end}
 {synopt:{opt flag}}flag rather than drop exclusions{p_end}
 {synopt:{opt intype(codes)}}long-format {cmd:event_type} values denoting immigration{p_end}
@@ -101,6 +102,15 @@ start is an immigration. A later emigration does not change this — the person
 was still abroad at baseline. (Persons whose first post-start event is an
 emigration are treated as resident at baseline, e.g. born in Sweden. With
 {opt keepimmigrants}, Type 2 persons are retained instead of excluded.){p_end}
+
+{pstd}
+{bf:Same-day (on the study-start date) semantics.} An immigration dated on the
+study-start date counts as being in Sweden at baseline (the immigration test is
+{cmd:in_} {cmd:<=} {it:startvar}), whereas an emigration dated on the start date
+does not count as emigrating before baseline (the pre-start emigration test is
+{cmd:out_} {cmd:<} {it:startvar}). Emigration censoring dates are recorded only
+for emigrations strictly after study start ({cmd:out_} {cmd:>} {it:startvar}), so
+a same-day emigration is not treated as post-start censoring.{p_end}
 
 
 {marker options}{...}
@@ -175,6 +185,12 @@ earlier targets are restored.
 {phang}
 {opt verbose} displays additional processing messages, including migration file
 format detection and exclusion/censoring progress.
+
+{phang}
+{opt quietly} suppresses the Migration Processing Summary table that is
+displayed by default. Warnings (for example, when all observations are excluded)
+are still shown. This mirrors the {opt quietly} option of the other
+{cmd:setools} commands.
 
 {phang}
 {opt keepimmigrants} specifies that Type 2 individuals (whose first migration event
