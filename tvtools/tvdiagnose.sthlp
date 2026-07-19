@@ -62,7 +62,8 @@ can be used to assess data quality and identify potential issues in
 time-varying datasets, whether created by {cmd:tvexpose}, {cmd:tvmerge}, or other methods.
 
 {pstd}
-The command provides four diagnostic reports:
+The command provides four diagnostic reports (plus a {opt swimlane} timeline
+visualization, described under {help tvdiagnose##options:Options}):
 
 {phang2}
 {opt coverage} - Calculates the percentage of the study period covered by

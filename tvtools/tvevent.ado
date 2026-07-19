@@ -1,4 +1,4 @@
-*! tvevent Version 1.7.1  2026/07/17
+*! tvevent Version 1.7.2  2026/07/19
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -1118,12 +1118,21 @@ program define tvevent, rclass
         _tvtools_new_vallabel, base(`_ev_lbl_base')
         local _ev_lbl_name "`r(name)'"
 
-        * Warn if interval data has variables matching the date stub pattern
+        * Warn if interval data has variables matching the date stub pattern.
+        * Scan the full `date'* namespace (not a fixed 1..20 window) so a stub
+        * like `date'25 on an interval needing >20 splits is still caught with a
+        * curated message instead of reshape's raw r(110) (F10b). Same
+        * canonical-suffix filter as the recurring-event scan above.
         local stub_collisions = 0
-        forvalues i = 1/20 {
-            capture confirm variable `date'`i'
-            if _rc == 0 {
-                local stub_collisions = `stub_collisions' + 1
+        capture ds `date'*
+        if _rc == 0 local _stub_cands "`r(varlist)'"
+        foreach _cand of local _stub_cands {
+            local _sfx = substr("`_cand'", strlen("`date'") + 1, .)
+            if "`_sfx'" != "" & regexm("`_sfx'", "^[0-9]+$") {
+                local _idx = real("`_sfx'")
+                if `_idx' >= 1 & "`_cand'" == "`date'`_idx'" {
+                    local stub_collisions = `stub_collisions' + 1
+                }
             }
         }
         if `stub_collisions' > 0 {
@@ -1677,93 +1686,4 @@ program define tvevent, rclass
         exit `rc'
     }
 
-end
-
-// Subroutine: Handle empty event data (no events to flag)
-// Loads interval data, creates censored outcome, optionally creates timegen
-cap program drop _tvevent_empty_output
-program define _tvevent_empty_output, rclass
-    version 16.0
-    local orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-        syntax , using(string) id(name) STARTvar(name) STOPvar(name) ///
-            GENerate(name) TIMEUnit(string) [TIMEGen(name) REPlace]
-
-    use "`using'", clear
-
-    * Validate using dataset has required variables
-    capture confirm variable `id'
-    if _rc {
-        noisily di as error "ID variable `id' not found in using (interval) dataset."
-        exit 111
-    }
-    foreach v in `startvar' `stopvar' {
-        capture confirm variable `v'
-        if _rc {
-            noisily di as error "Variable '`v'' not found in using (interval) dataset."
-            exit 111
-        }
-    }
-
-    * Create outcome variable (all censored = 0)
-    if "`replace'" == "replace" {
-        capture drop `generate'
-        if "`timegen'" != "" capture drop `timegen'
-    }
-    gen byte `generate' = 0
-    label var `generate' "Event outcome"
-    local _short_gen = substr("`generate'", 1, 28)
-    local _ev_lbl_base "`_short_gen'_lbl"
-    _tvtools_new_vallabel, base(`_ev_lbl_base')
-    local _ev_lbl_name "`r(name)'"
-    label define `_ev_lbl_name' 0 "Censored"
-    label values `generate' `_ev_lbl_name'
-
-    * Create timegen if requested (cumulative time from first start)
-    if "`timegen'" != "" {
-        tempvar first_start
-        bysort `id' (`startvar'): gen double `first_start' = `startvar'[1]
-        gen double `timegen' = `stopvar' - `first_start'
-        if "`timeunit'" == "months" {
-            replace `timegen' = `timegen' / 30.4375
-            label var `timegen' "Time since entry (months)"
-        }
-        else if "`timeunit'" == "years" {
-            replace `timegen' = `timegen' / 365.25
-            label var `timegen' "Time since entry (years)"
-        }
-        else {
-            label var `timegen' "Time since entry (days)"
-        }
-        drop `first_start'
-    }
-
-    sort `id' `startvar' `stopvar'
-
-    quietly count
-    local n_total = r(N)
-    local n_failures = 0
-
-    return scalar N = `n_total'
-    return scalar N_events = `n_failures'
-    return local generate "`generate'"
-    return local startvar "`startvar'"
-    return local stopvar  "`stopvar'"
-    if "`timegen'" != "" return local timegen "`timegen'"
-
-    noisily {
-        di _newline
-        di as txt "{hline 50}"
-        di as txt "Event integration complete"
-        di as txt "  Observations: " as result `n_total'
-        di as txt "  Events flagged (`generate'): " as result `n_failures'
-        di as txt "  Variable `generate' labels:"
-        di as txt "    0 = Censored"
-        di as txt "{hline 50}"
-    }
-    }
-    local rc = _rc
-    set varabbrev `orig_varabbrev'
-    if `rc' exit `rc'
 end

@@ -183,6 +183,14 @@ treatment and informative censoring (Hernan & Robins). Requires {opt id()} and
 {opt truncate()}, truncation is applied to the final combined weight.
 
 {pmore}
+The stabilized IPCW numerator is the {bf:marginal} (constant) probability of
+remaining uncensored -- the same stabilization form used for the treatment
+weight -- not a time-varying numerator model of censoring. Readers expecting the
+fully stabilized Robins-Hernan censoring weights (a numerator model conditional
+on the past-treatment and baseline history) should note that {cmd:tvweight}
+stabilizes the censoring weight in form only.
+
+{pmore}
 The censoring model uses its raw fitted P(uncensored|history). Probabilities are
 reported but never silently capped. A zero, one, or missing probability makes
 IPCW undefined and stops with error 498; {opt truncate()} acts on the final

@@ -90,6 +90,12 @@ spacing keeps any lagged cumulative-exposure derivation aligned to the
 day. {cmd:tvpanel} is the entry point for building that grid before
 {helpb msm_prepare} and {helpb msm_weight}.
 
+{pstd}
+{bf:Important}: {cmd:tvpanel} replaces the data in memory with the person-period
+grid and writes the {opt period()} output variable (default {cmd:period}),
+overwriting any same-named variable already in memory. Preserve your data or
+work with copies.
+
 
 {marker options}{...}
 {title:Options}

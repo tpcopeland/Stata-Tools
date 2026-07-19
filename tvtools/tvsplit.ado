@@ -1,4 +1,4 @@
-*! tvsplit Version 1.7.1  2026/07/17
+*! tvsplit Version 1.7.2  2026/07/19
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -50,7 +50,12 @@ program define tvsplit, rclass
     }
 
     * --- Validate id/start/stop are numeric daily dates ------------------
-    foreach v in `id' `start' `stop' {
+    capture confirm numeric variable `id'
+    if _rc {
+        display as error "Variable '`id'' must be numeric"
+        exit 109
+    }
+    foreach v in `start' `stop' {
         capture confirm numeric variable `v'
         if _rc {
             display as error "Variable '`v'' must be numeric (date format)"

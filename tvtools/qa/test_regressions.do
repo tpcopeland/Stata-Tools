@@ -2010,8 +2010,9 @@ else {
 }
 
 * Test 19.4: tvevent empty master returns r(N) and r(N_events) (MEDIUM fix)
-* Bug: _tvevent_empty_output r() values not propagated to caller
-* Fix: Capture subroutine returns before exit
+* Bug: empty-event r() values not propagated to caller
+* Fix: empty/all-missing events flow through the ordinary interval pipeline,
+*      which posts the full r() contract (inline at tvevent.ado ~956-964)
 local ++test_count
 capture noisily {
     * Create empty event dataset
@@ -4508,6 +4509,153 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' 20.20"
 }
+
+**# ===== SECTION 21: 1.7.2 release-audit regressions (F04-F06) =====
+* Each block fails on 1.7.1 and passes on 1.7.2; confirmed by installing both.
+
+* Test 21.1 (F04): tvexpose value labels are collision-safe AND the ever-treated
+* output is actually labeled. Pre-1.7.2 the label was defined with a fixed name
+* and applied BEFORE the collapse (which drops value labels), so the output was
+* unlabeled; the fixed name also risked clobbering a caller's same-named label.
+local ++test_count
+capture noisily {
+    clear
+    input long id str9(entry_s exit_s) byte female
+    1 "01jan2020" "31dec2020" 1
+    2 "01jan2020" "31dec2020" 0
+    end
+    gen double study_entry = date(entry_s, "DMY")
+    gen double study_exit  = date(exit_s, "DMY")
+    format study_entry study_exit %td
+    drop entry_s exit_s
+    label define et_labels 0 "Female" 1 "Male" 7 "MY_USER_LABEL"
+    label values female et_labels
+    tempfile coh epi
+    save "`coh'"
+    clear
+    input long id str9(start_s stop_s) byte drug
+    1 "05jan2020" "20feb2020" 1
+    2 "10jun2020" "31jul2020" 1
+    end
+    gen double rx_start = date(start_s, "DMY")
+    gen double rx_stop  = date(stop_s, "DMY")
+    format rx_start rx_stop %td
+    drop start_s stop_s
+    save "`epi'"
+    use "`coh'", clear
+    tvexpose using "`epi'", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) reference(0) entry(study_entry) exit(study_exit) ///
+        evertreated generate(tv_et) keepvars(female)
+    * (1) caller's et_labels intact
+    local surv7 : label et_labels 7
+    local surv0 : label et_labels 0
+    assert "`surv7'" == "MY_USER_LABEL"
+    assert "`surv0'" == "Female"
+    * (2) ever-treated output carries its OWN semantics, not the caller's
+    local tvlbl : value label tv_et
+    assert "`tvlbl'" != ""
+    local out1 : label `tvlbl' 1
+    local out0 : label `tvlbl' 0
+    assert "`out1'" == "Ever exposed"
+    assert "`out0'" == "Never exposed"
+}
+if _rc == 0 {
+    display as result "  PASS: F04 tvexpose value labels collision-safe + output labeled"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: F04 value-label collision/labeling (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 21.1"
+}
+
+* Test 21.2 (F05): tvband rejects missing IDs with r(416), matching tvsplit.
+local ++test_count
+capture noisily {
+    clear
+    input long id double(start stop)
+    1 21915 22280
+    . 21915 22280
+    end
+    format start stop %td
+    capture tvband, id(id) start(start) stop(stop) type(calendar) width(1)
+    assert _rc == 416
+}
+if _rc == 0 {
+    display as result "  PASS: F05 tvband rejects missing IDs (r 416)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: F05 tvband missing-ID rejection (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 21.2"
+}
+
+* Test 21.3 (F05): tvage rejects missing IDs with r(416).
+local ++test_count
+capture noisily {
+    clear
+    input long id double(dob entry exit_d)
+    1 -3653 21915 22280
+    . -3653 21915 22280
+    end
+    format dob entry exit_d %td
+    capture tvage, id(id) dob(dob) entry(entry) exit(exit_d)
+    assert _rc == 416
+}
+if _rc == 0 {
+    display as result "  PASS: F05 tvage rejects missing IDs (r 416)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: F05 tvage missing-ID rejection (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 21.3"
+}
+
+* Test 21.4 (F06): tvexpose duration() keeps legitimate pre-1960 (negative-date)
+* segments. Pre-1.7.2 the threshold-split cleanup dropped exp_start<0/exp_stop<0
+* rows and died r(498) "Internal tiling invariant failed".
+local ++test_count
+capture noisily {
+    clear
+    input long id str9(entry_s exit_s)
+    1 "01jan1955" "31dec1959"
+    2 "01jan1955" "31dec1959"
+    end
+    gen double study_entry = date(entry_s, "DMY")
+    gen double study_exit  = date(exit_s, "DMY")
+    format study_entry study_exit %td
+    drop entry_s exit_s
+    tempfile coh epi
+    save "`coh'"
+    clear
+    input long id str9(start_s stop_s) byte drug
+    1 "01jan1956" "31dec1958" 1
+    2 "01jan1957" "31dec1958" 1
+    end
+    gen double rx_start = date(start_s, "DMY")
+    gen double rx_stop  = date(stop_s, "DMY")
+    format rx_start rx_stop %td
+    drop start_s stop_s
+    save "`epi'"
+    use "`coh'", clear
+    tvexpose using "`epi'", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) reference(0) entry(study_entry) exit(study_exit) ///
+        duration(1 2) continuousunit(years) generate(dur_grp)
+    assert r(n_uncovered_days) == 0
+    assert r(exposed_time) > 0 & r(exposed_time) < .
+}
+if _rc == 0 {
+    display as result "  PASS: F06 tvexpose duration() keeps pre-1960 segments"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: F06 pre-1960 duration contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 21.4"
+}
+
 
 * TEST RESULTS
 

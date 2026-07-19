@@ -1,4 +1,4 @@
-*! _tvexpose_frame_commit Version 1.7.1  2026/07/17
+*! _tvexpose_frame_commit Version 1.7.2  2026/07/19
 *! Transactional frame replacement helper for tvexpose
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility (called internally by tvexpose)

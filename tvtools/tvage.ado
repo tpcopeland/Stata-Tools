@@ -1,4 +1,4 @@
-*! tvage Version 1.7.1  2026/07/17
+*! tvage Version 1.7.2  2026/07/19
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -79,7 +79,8 @@ program define tvage, rclass
         }
         capture confirm numeric variable `v'
         if _rc {
-            display as error "Variable '`v'' must be numeric (date format)"
+            if "`v'" == "`idvar'" display as error "Variable '`v'' must be numeric"
+            else                  display as error "Variable '`v'' must be numeric (date format)"
             exit 109
         }
     }
@@ -126,6 +127,15 @@ program define tvage, rclass
     if `minage' > `maxage' {
         display as error "minage() must be less than or equal to maxage()"
         exit 198
+    }
+
+    * Validate no missing ID
+    * (F05: reject missing IDs like tvsplit/tvexpose, rather than emitting
+    *  rows for a phantom missing-ID person)
+    quietly count if missing(`idvar')
+    if r(N) > 0 {
+        display as error r(N) " observation(s) have missing `idvar'"
+        exit 416
     }
 
     * Validate no missing dates

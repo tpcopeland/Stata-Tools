@@ -1,4 +1,4 @@
-*! tvband Version 1.7.1  2026/07/17
+*! tvband Version 1.7.2  2026/07/19
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -61,7 +61,12 @@ program define tvband, rclass
     }
 
     * --- Validate variables exist, are numeric, are daily dates ----------
-    foreach v in `id' `start' `stop' `origin' {
+    capture confirm numeric variable `id'
+    if _rc {
+        display as error "Variable '`id'' must be numeric"
+        exit 109
+    }
+    foreach v in `start' `stop' `origin' {
         capture confirm numeric variable `v'
         if _rc {
             display as error "Variable '`v'' must be numeric (date format)"
@@ -78,7 +83,14 @@ program define tvband, rclass
         }
     }
 
-    * --- No missing interval/origin dates --------------------------------
+    * --- No missing id or interval/origin dates --------------------------
+    * (F05: reject missing IDs like tvsplit/tvexpose, rather than emitting
+    *  rows for a phantom missing-ID person)
+    quietly count if missing(`id')
+    if r(N) > 0 {
+        display as error "`r(N)' observation(s) have missing `id'"
+        exit 416
+    }
     quietly count if missing(`start') | missing(`stop')
     if r(N) > 0 {
         display as error "`r(N)' observation(s) have missing `start' or `stop'"

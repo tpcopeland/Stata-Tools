@@ -59,7 +59,7 @@ else {
 
 local ++test_count
 capture noisily {
-    foreach helper in _tvband_split _tvexpose_diagnose _tvexpose_mata ///
+    foreach helper in _tvband_split _tvexpose_mata ///
         _tvmerge_mata _tvtools_new_vallabel {
         findfile `helper'.ado
         assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1

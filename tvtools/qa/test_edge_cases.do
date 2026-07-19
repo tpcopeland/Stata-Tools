@@ -335,7 +335,7 @@ else {
 }
 
 // =========================================================================
-// TEST 3: tvevent _tvevent_empty_output subroutine
+// TEST 3: tvevent empty/censored-only event handling (inline path)
 // =========================================================================
 local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test 3a: tvevent with events (normal path)}"
@@ -387,7 +387,7 @@ else {
 // TEST 3b: tvevent empty-output path (no matching events)
 // =========================================================================
 local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test 3b: tvevent empty events path (subroutine)}"
+display as text _newline "{bf:Test 3b: tvevent empty events path (inline)}"
 
 // Create event data with IDs that DON'T match interval data
 clear
@@ -448,9 +448,7 @@ display as text _newline "{bf:Test 5: All tvtools programs load without error}"
 
 local load_fails = 0
 // Drop subprograms that would cause "already defined" on reload
-foreach sub in _tvtools_detail _tvevent_empty_output ///
-    _tvexpose_check _tvexpose_gaps _tvexpose_overlaps ///
-    _tvexpose_summarize _tvexpose_validate {
+foreach sub in _tvtools_detail {
     capture program drop `sub'
 }
 foreach cmd in tvtools tvexpose tvmerge tvevent tvdiagnose ///

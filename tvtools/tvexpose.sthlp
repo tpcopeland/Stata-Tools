@@ -145,7 +145,9 @@ quantity, and survival-time contracts used by the package, see
 
 {pstd}
 {bf:Important}: {cmd:tvexpose} modifies the data in memory and changes the sort order
-to id-start-stop. Always preserve your data or work with copies.
+to id-start-stop. It writes the structural interval variables {cmd:start} and
+{cmd:stop}, replacing any same-named variables already in memory. Always
+preserve your data or work with copies.
 
 
 {marker required_options}{...}
@@ -227,18 +229,24 @@ starts, so it does not include exposure accrued during the current row. It can
 be combined with {cmd:expandunit()} for period splitting.
 
 {phang}
-{opt expandunit(unit)} splits person-time into rows at regular calendar
-intervals (days, weeks, months, quarters, or years). Used with
-{cmd:continuousunit()} to create finely-grained time-varying data. If omitted,
-it defaults to the unit named in {opt continuousunit()}; therefore requesting
-continuous exposure can add regular boundary rows even when {opt expandunit()}
-is not written explicitly. Specify a coarser or finer {opt expandunit()} to
-control that row-count increase.
+{opt expandunit(unit)} splits person-time into rows at fixed average-width bins
+{bf:anchored at each episode start} -- {bf:not} calendar boundaries. The bin
+widths are 7 days (weeks), 30.4375 days (months), 91.3125 days (quarters), and
+365.25 days (years); {cmd:days} performs no expansion. An episode beginning
+15jan2020 with {cmd:expandunit(months)} therefore splits at 15jan, 14feb, 15mar,
+..., never on the 1st of a calendar month. Used with {cmd:continuousunit()} to
+create finely-grained time-varying data. If omitted, it defaults to the unit
+named in {opt continuousunit()}; therefore requesting continuous exposure can
+add regular boundary rows even when {opt expandunit()} is not written
+explicitly. Specify a coarser or finer {opt expandunit()} to control that
+row-count increase.
 
 {phang}
 {opt bytype} creates separate time-varying variables for each exposure type
-instead of a single variable. Variable names append 1, 2, etc. for each
-type. Useful when different exposure types have independent effects.
+instead of a single variable. Each variable name appends the sanitized
+exposure {it:value} (for example {cmd:5}, {cmd:10}, {cmd:2p5} for 2.5,
+{cmd:neg1} for -1), not a sequential 1, 2, .... Useful when different exposure
+types have independent effects.
 
 {phang}
 {opt recency(numlist)} creates categories based on time since last exposure. {cmd:recencyunit(days|years)}
@@ -278,10 +286,15 @@ numlist specifies ascending cutpoints for categorization. For example,
 {title:Data handling options}
 
 {phang}
-{opt grace(#)} specifies a grace period in days for merging small gaps between
-episodes of the same exposure type. Same-type gaps of # or fewer days are
-bridged. A gap between different exposure types is always reference
-person-time, even when it is shorter than the grace period. Default is 0.
+{opt grace(#)} specifies a grace period for merging small gaps between
+episodes of the same exposure type. The gap is measured as the number of
+{bf:uncovered days} between two same-type episodes,
+{cmd:start}{it:(next)} {cmd:-} {cmd:stop}{it:(current)} {cmd:- 1}; a gap of #
+or fewer uncovered days is bridged. For example, one uncovered day between two
+episodes is bridged by {cmd:grace(1)}. A gap between different exposure types
+is always reference person-time, even when it is shorter than the grace
+period. Default is 0. {bf:Note:} {opt grace()} and {opt merge()} measure the
+gap differently -- see {opt merge()}.
 
 {phang}
 {opt grace(exp=# exp=# ...)} specifies different grace periods for different
@@ -297,9 +310,15 @@ returned in {cmd:r()}, and {cmd:r(flow)} is returned automatically. Without
 remain unchanged.
 
 {phang}
-{opt merge(#)} merges consecutive periods of the same exposure type if they occur
-within # days of each other. Default is 0 (no merging). Useful for treating
-closely-spaced identical exposures as continuous.
+{opt merge(#)} merges consecutive periods of the same exposure type if they
+occur within # days of each other. Here the distance is measured as
+{cmd:start}{it:(next)} {cmd:-} {cmd:stop}{it:(current)} -- the stop-to-start
+distance, {bf:without} the {cmd:- 1} that {opt grace()} applies. It is
+therefore one larger than the uncovered-day gap used by {opt grace()}: one
+uncovered day between two episodes needs {cmd:merge(2)} (not {cmd:merge(1)})
+to bridge, whereas {cmd:grace(1)} bridges the same gap. Default is 0 (no
+merging). Useful for treating closely-spaced identical exposures as
+continuous.
 
 {phang}
 {opt fillgaps(#)} assumes exposure continues for # days beyond the last
@@ -360,7 +379,7 @@ are returned in {cmd:r(window_min)} and {cmd:r(window_max)}.
 {title:Pattern tracking options}
 
 {phang}
-{opt switching} creates a binary indicator variable ({cmd:has_switched}) that
+{opt switching} creates a binary indicator variable ({cmd:ever_switched}) that
 equals 1 once a person has ever switched between exposure types, 0 otherwise.
 
 {phang}
@@ -369,8 +388,11 @@ containing the complete sequence of exposure changes. For example, "0->1->2"
 indicates starting unexposed, then type 1, then type 2.
 
 {phang}
-{opt statetime} creates a continuous variable tracking cumulative time (in days)
-spent in the current exposure state. Resets to 0 when exposure changes.
+{opt statetime} creates a continuous variable ({cmd:state_time_years}) tracking
+cumulative time in {bf:years} spent in the current exposure state. The value is a
+running total evaluated at the {bf:end} of each row, so the first row of a new
+state already carries that row's own duration (it is not 0). The count restarts
+at the start of a new state, i.e. whenever the exposure category changes.
 
 
 {marker output}{...}
@@ -572,7 +594,8 @@ after installation from any working directory:
 
 {pstd}
 Because {opt expandunit()} is omitted, it defaults to months here and adds
-monthly boundary rows. To report years on a monthly grid, specify
+~30.44-day boundary rows (fixed-width bins from each episode start, not calendar
+months). To report years on that grid, specify
 {cmd:continuousunit(years) expandunit(months)}.
 
 {pstd}{bf:Duration and recency categories}{p_end}

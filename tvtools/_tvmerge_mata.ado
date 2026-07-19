@@ -1,4 +1,4 @@
-*! _tvmerge_mata Version 1.7.1  2026/07/17
+*! _tvmerge_mata Version 1.7.2  2026/07/19
 *! Mata interval-overlap engine for tvmerge
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (wrapper)
@@ -578,7 +578,9 @@ void _tvm_build_pairs_point(
     }
 
     if (nu > 0) {
-        Usorted = sort(U, (1, 2))
+        // Tiebreak on the unique obs column (3) for symmetry with the overlap
+        // engine's (1,2,4) sort, so the two engines agree on emit order (F10a).
+        Usorted = sort(U, (1, 2, 3))
         ugid  = Usorted[., 1]
         ukeys = Usorted[., 2]
         uobs  = Usorted[., 3]

@@ -60,8 +60,15 @@ years and on 29 February in leap years.
 
 {pstd}
 All date variables must be non-missing. The command will exit with an error
-if any observation has missing values in {opt dob()}, {opt entry()},
+if any observation has missing values in {opt id()}, {opt dob()}, {opt entry()},
 or {opt exit()}.
+
+{pstd}
+{bf:Important}: the output dataset retains only the identifier and the three
+generated interval variables ({opt id()}, {opt generate()}, {opt startgen()},
+and {opt stopgen()}). {bf:All other variables in memory -- sex and other}
+{bf:baseline covariates -- are dropped.} Merge the age intervals back onto your
+covariates by {opt id()}, or save the covariates before running {cmd:tvage}.
 
 
 {marker options}{...}

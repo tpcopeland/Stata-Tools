@@ -1,4 +1,4 @@
-*! tvexpose Version 1.7.1  2026/07/17
+*! tvexpose Version 1.7.2  2026/07/19
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -43,14 +43,15 @@ Exposure definition options (choose one):
   expandunit(unit)     - Row expansion granularity for continuous exposure (optional)
                          units are {days, weeks, months, quarters, years}
                          Defaults to match continuousunit() if not specified.
-                         Row expansion:
+                         Row expansion (fixed average-width bins anchored at
+                         each episode start, NOT calendar boundaries):
                            • days    → No row expansion; one row per original exposure period
                            • weeks   → 7-day bins starting at exposure start
-                           • months  → calendar months
-                           • quarters→ calendar quarters
-                           • years   → calendar years
-                         Example 1: continuousunit(years) expandunit(months) creates one row per 
-                         calendar month and reports cumulative YEARS of exposure.
+                           • months  → 30.4375-day bins from exposure start
+                           • quarters→ 91.3125-day bins from exposure start
+                           • years   → 365.25-day bins from exposure start
+                         Example 1: continuousunit(years) expandunit(months) creates one row per
+                         ~30.44-day bin and reports cumulative YEARS of exposure.
                          Example 2: continuousunit(days) expandunit(weeks) creates 7-day bins
                          and reports cumulative DAYS of exposure.
                          Unexposed periods are never expanded.
@@ -129,14 +130,6 @@ program define tvexpose, rclass
     }
     else {
         noisily display as error "_tvexpose_mata.ado not found; reinstall tvtools"
-        exit 111
-    }
-    capture findfile _tvexpose_diagnose.ado
-    if _rc == 0 {
-        quietly run "`r(fn)'"
-    }
-    else {
-        noisily display as error "_tvexpose_diagnose.ado not found; reinstall tvtools"
         exit 111
     }
 
@@ -886,24 +879,29 @@ program define tvexpose, rclass
     local study_entry_vallab : value label study_entry
     local study_exit_vallab : value label study_exit
     
+    * Namespace the label-restore scripts (F10e): a tempfile-derived stub keeps
+    * two parallel tvexpose runs sharing a TMPDIR from cross-writing each other's
+    * label_*.do files. The same stub local is reused at the restore sites below.
+    tempfile _lbl_stub
+
     * Save value label definitions for study dates if they exist
     if "`study_entry_vallab'" != "" {
-        quietly label save `study_entry_vallab' using `c(tmpdir)'/label_study_entry.do, replace
+        quietly label save `study_entry_vallab' using "`_lbl_stub'_study_entry.do", replace
     }
     if "`study_exit_vallab'" != "" {
-        quietly label save `study_exit_vallab' using `c(tmpdir)'/label_study_exit.do, replace
+        quietly label save `study_exit_vallab' using "`_lbl_stub'_study_exit.do", replace
     }
-    
+
     if "`keepvars'" != "" {
         foreach var of local keepvars {
             * Capture variable label
             local varlab_`var' : variable label `var'
-            
+
             * Check if variable has value labels and capture them
             local vallab_`var' : value label `var'
             if "`vallab_`var''" != "" {
                 * Save the value label definition
-                quietly label save `vallab_`var'' using `c(tmpdir)'/label_`var'.do, replace
+                quietly label save `vallab_`var'' using "`_lbl_stub'_label_`var'.do", replace
             }
         }
     }
@@ -2256,7 +2254,7 @@ program define tvexpose, rclass
             
             * Restore value labels if they existed
             if "`vallab_`var''" != "" {
-                capture do `c(tmpdir)'/label_`var'.do
+                capture do "`_lbl_stub'_label_`var'.do"
                 if _rc == 0 {
                     label values `var' `vallab_`var''
                 }
@@ -2461,15 +2459,11 @@ program define tvexpose, rclass
             drop exp_value __orig_exp_binary __first_exp_temp __first_exp_any
             rename exp_value_et exp_value
             
-            * Define and apply value labels for binary ever-treated
-            label define et_labels 0 "Never exposed" 1 "Ever exposed", replace
-            label values exp_value et_labels
-            
             * Collapse consecutive periods with same value
             quietly by id : gen double __new_et = (exp_value != exp_value[_n-1]) if _n > 1 & id == id[_n-1]
             quietly replace __new_et = 1 if _n == 1
             quietly by id: gen double __grp_et = sum(__new_et)
-            
+
             * Collapse to create clean periods
             if "`keepvars'" != "" {
                 collapse (min) exp_start (max) exp_stop (first) exp_value `keepvars' study_entry study_exit, ///
@@ -2480,6 +2474,15 @@ program define tvexpose, rclass
                     by(id __grp_et)
             }
             drop __grp_et
+
+            * Define and apply value labels for binary ever-treated AFTER the
+            * collapse -- collapse drops value labels, so labeling before it left
+            * the output unlabeled. Use a collision-safe name so a caller's
+            * same-named label is never clobbered.
+            _tvtools_new_vallabel, base(et_labels)
+            local _et_lbl "`r(name)'"
+            label define `_et_lbl' 0 "Never exposed" 1 "Ever exposed"
+            label values exp_value `_et_lbl'
         }
     }
     
@@ -2627,8 +2630,11 @@ program define tvexpose, rclass
             drop __grp_cf
             
             * Define and apply value labels
-            label define cf_labels 0 "Never" 1 "Current" 2 "Former", replace
-            label values exp_value cf_labels
+            * (collision-safe name so a caller's same-named label is never clobbered)
+            _tvtools_new_vallabel, base(cf_labels)
+            local _cf_lbl "`r(name)'"
+            label define `_cf_lbl' 0 "Never" 1 "Current" 2 "Former"
+            label values exp_value `_cf_lbl'
         }
     }
     
@@ -3133,7 +3139,9 @@ program define tvexpose, rclass
                     }
                     quietly drop exp_start exp_stop
                     quietly rename (__new_start __new_stop) (exp_start exp_stop)
-                    quietly drop if exp_start > exp_stop | exp_start < 0 | exp_stop < 0
+                    * Reversed bounds are malformed; negative Stata dates (pre-01jan1960)
+                    * are legitimate, so do NOT drop on exp_start<0/exp_stop<0 (F06).
+                    quietly drop if exp_start > exp_stop
                     
                     tempfile split_periods
                     quietly save `split_periods', replace
@@ -3479,7 +3487,9 @@ program define tvexpose, rclass
                     
                     * Clean up
                     quietly drop __obs_id __thresh_num __n_splits __split_seq __is_final __needs_split
-                    quietly drop if exp_start > exp_stop | exp_start < 0 | exp_stop < 0
+                    * Reversed bounds are malformed; negative Stata dates (pre-01jan1960)
+                    * are legitimate, so do NOT drop on exp_start<0/exp_stop<0 (F06).
+                    quietly drop if exp_start > exp_stop
                     
                     tempfile split_periods
                     quietly save `split_periods', replace
@@ -3569,12 +3579,15 @@ program define tvexpose, rclass
             quietly drop __first_exp
             
             * Create value labels
-            label define dur_labels `reference' "`referencelabel'", replace
+            * (collision-safe name so a caller's same-named label is never clobbered)
+            _tvtools_new_vallabel, base(dur_labels)
+            local _dur_lbl "`r(name)'"
+            label define `_dur_lbl' `reference' "`referencelabel'"
             if `n_cuts' > 0 {
                 local first_cut = `1'
                 local first_cut_str = string(`first_cut', "%9.0f")
                 local first_cut_str = trim("`first_cut_str'")
-                label define dur_labels 1 "<`first_cut_str' `unit_name'", add
+                label define `_dur_lbl' 1 "<`first_cut_str' `unit_name'", add
                 local i = 2
                 while `i' <= `n_cuts' {
                     local prev_cut = ``=`i'-1''
@@ -3583,16 +3596,16 @@ program define tvexpose, rclass
                     local curr_cut_str = string(`curr_cut', "%9.0f")
                     local prev_cut_str = trim("`prev_cut_str'")
                     local curr_cut_str = trim("`curr_cut_str'")
-                    label define dur_labels `i' "`prev_cut_str'-<`curr_cut_str' `unit_name'", add
+                    label define `_dur_lbl' `i' "`prev_cut_str'-<`curr_cut_str' `unit_name'", add
                     local i = `i' + 1
                 }
                 local last_cut = ``n_cuts''
                 local last_cut_str = string(`last_cut', "%9.0f")
                 local last_cut_str = trim("`last_cut_str'")
-                label define dur_labels `=`n_cuts'+1' "`last_cut_str'+ `unit_name'", add
+                label define `_dur_lbl' `=`n_cuts'+1' "`last_cut_str'+ `unit_name'", add
             }
             else {
-                label define dur_labels 1 "Exposed", add
+                label define `_dur_lbl' 1 "Exposed", add
             }
             
             * Clear numbered macros
@@ -3605,7 +3618,7 @@ program define tvexpose, rclass
             * Replace exposure variable with duration category
             drop exp_value __orig_exp_binary period_days cumul_days_start cumul_days_end
             rename exp_duration exp_value
-            label values exp_value dur_labels
+            label values exp_value `_dur_lbl'
             
             * Collapse consecutive identical periods
             sort id exp_start exp_stop exp_value
@@ -3624,7 +3637,7 @@ program define tvexpose, rclass
                 collapse (min) exp_start (max) exp_stop (first) exp_value study_entry study_exit, by(id __period_id)
             }
             drop __period_id
-            label values exp_value dur_labels
+            label values exp_value `_dur_lbl'
         }
     }
 
@@ -3671,22 +3684,25 @@ program define tvexpose, rclass
             quietly replace exp_dose_cat = `n_cuts' + 1 if __cumul_dose >= ``n_cuts''
 
             * Create value labels
-            label define dose_labels 0 "No dose", replace
-            label define dose_labels 1 "<`1'", add
+            * (collision-safe name so a caller's same-named label is never clobbered)
+            _tvtools_new_vallabel, base(dose_labels)
+            local _dose_lbl "`r(name)'"
+            label define `_dose_lbl' 0 "No dose"
+            label define `_dose_lbl' 1 "<`1'", add
 
             local cat = 2
             forvalues i = 2/`n_cuts' {
                 local prev = ``=`i'-1''
                 local curr = ``i''
-                label define dose_labels `cat' "`prev'-<`curr'", add
+                label define `_dose_lbl' `cat' "`prev'-<`curr'", add
                 local cat = `cat' + 1
             }
-            label define dose_labels `=`n_cuts'+1' "``n_cuts''+", add
+            label define `_dose_lbl' `=`n_cuts'+1' "``n_cuts''+", add
 
             * Replace exp_value with category
             drop exp_value
             rename exp_dose_cat exp_value
-            label values exp_value dose_labels
+            label values exp_value `_dose_lbl'
 
             * Clean up tokenize macros
             forvalues i = 1/`n_cuts' {
@@ -3730,7 +3746,7 @@ program define tvexpose, rclass
 
         * Reapply value labels for categorized dose
         if "`dose_cuts'" != "" {
-            label values exp_value dose_labels
+            label values exp_value `_dose_lbl'
         }
 
         * Clean up
@@ -4026,30 +4042,33 @@ program define tvexpose, rclass
             }
             
             * Define and apply value labels for recency categories
-            label define rec_labels `reference' "Never exposed", replace
-            label define rec_labels 1 "Currently exposed", add
+            * (collision-safe name so a caller's same-named label is never clobbered)
+            _tvtools_new_vallabel, base(rec_labels)
+            local _rec_lbl "`r(name)'"
+            label define `_rec_lbl' `reference' "Never exposed"
+            label define `_rec_lbl' 1 "Currently exposed", add
             if `n_cuts' > 0 {
                 tokenize `recency_cutdays'
                 local cat = 2
                 if "`1'" != "" {
-                    label define rec_labels `cat' "<`1' days since exposure", add
+                    label define `_rec_lbl' `cat' "<`1' days since exposure", add
                     local cat = `cat' + 1
                 }
                 local i = 2
                 while `i' <= `n_cuts' {
                     local prev = ``=`i'-1''
                     local curr = ``i''
-                    label define rec_labels `cat' "`prev'-<`curr' days since exposure", add
+                    label define `_rec_lbl' `cat' "`prev'-<`curr' days since exposure", add
                     local cat = `cat' + 1
                     local i = `i' + 1
                 }
-                label define rec_labels `cat' "`last_cut'+ days since exposure", add
+                label define `_rec_lbl' `cat' "`last_cut'+ days since exposure", add
             }
-            
+
             * Replace exposure variable with recency category
             drop exp_value __orig_exp_binary __exp_now_rec __last_exp_end __last_exp_carried __days_since
             rename exp_recency exp_value
-            label values exp_value rec_labels
+            label values exp_value `_rec_lbl'
             
             * Clear numbered macros from tokenize
             if `n_cuts' > 0 {
@@ -4073,10 +4092,13 @@ program define tvexpose, rclass
                     collapse (min) exp_start (max) exp_stop (first) exp_value study_entry study_exit, by(id __period_id)
                 }
             drop __period_id
+
+            * Reapply value labels after collapse (collapse drops value labels).
+            label values exp_value `_rec_lbl'
         }
     }
-    
-    
+
+
     **# Time-Varying (Keep Original Categories)
     * Default: no transformation; keeps original exposure categories
     * Allows analysis of multiple exposure types simultaneously
@@ -4934,9 +4956,9 @@ program define tvexpose, rclass
                     label variable study_entry "`study_entry_varlab'"
                 }
                 if "`study_entry_vallab'" != "" {
-                    capture confirm file "`c(tmpdir)'/label_study_entry.do"
+                    capture confirm file "`_lbl_stub'_study_entry.do"
                     if _rc == 0 {
-                        quietly do "`c(tmpdir)'/label_study_entry.do"
+                        quietly do "`_lbl_stub'_study_entry.do"
                         label values study_entry `study_entry_vallab'
                     }
                 }
@@ -4947,9 +4969,9 @@ program define tvexpose, rclass
                     label variable study_exit "`study_exit_varlab'"
                 }
                 if "`study_exit_vallab'" != "" {
-                    capture confirm file "`c(tmpdir)'/label_study_exit.do"
+                    capture confirm file "`_lbl_stub'_study_exit.do"
                     if _rc == 0 {
-                        quietly do "`c(tmpdir)'/label_study_exit.do"
+                        quietly do "`_lbl_stub'_study_exit.do"
                         label values study_exit `study_exit_vallab'
                     }
                 }
@@ -4968,9 +4990,9 @@ program define tvexpose, rclass
                     
                     * Restore value labels if they were saved
                     if "`vallab_`var''" != "" {
-                        capture confirm file "`c(tmpdir)'/label_`var'.do"
+                        capture confirm file "`_lbl_stub'_label_`var'.do"
                         if _rc == 0 {
-                            quietly do "`c(tmpdir)'/label_`var'.do"
+                            quietly do "`_lbl_stub'_label_`var'.do"
                             label values `var' `vallab_`var''
                         }
                     }
