@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.0.1** | 2026-07-21
+**Version 2.1.0** | 2026-07-21
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -696,6 +696,36 @@ Three defects from the 2026-07-21 independent audit, all of the `rc=0`-but-wrong
 **Compatibility.** Weighted point estimates, standard errors and `refitweights` intervals will differ from 2.0.1 on the same data. That is the fix, not a regression: the previous defaults were not reproducible under a harmless recoding of a visit covariate. Analyses that need the old numbers should record 2.0.1 explicitly.
 
 **Still open.** SOL-04 through SOL-17 from the same audit are unaddressed. In particular the 999-replicate coverage study has not been run, so the default inference remains uncleared (`e(iivw_inference_status)` still never reports `cleared`).
+
+### v2.1.0 (2026-07-21)
+
+**Contains breaking changes to returned results.** A script that reads the names below will get a silent missing value, not an error — check it before upgrading.
+
+| Removed / renamed | Replacement | Why |
+|---|---|---|
+| `r(endogenous_flag)` (`iivw_exogtest`) | `r(history_association_flag)` | The Cox model regresses modeled visit timing on recorded outcome history. A rejection is an **association**; endogeneity of the monitoring process is an interpretation of it, not something this model measures. The old name asserted the interpretation |
+| `r(decomp)` rows `bounds_lower`, `bounds_upper` (`iivw_diagnose`) | `range_min`, `range_max` | They are the min and max of two coefficients. That is a range, not a partial-identification bound, and the old names invited the stronger reading |
+| Excel rows "Lower bound" / "Upper bound" (`iivw_diagnose`) | "Range min" / "Range max" | Same reason, in the exported workbook |
+
+**Diagnostics now fail closed.** These change `rc` or the reported verdict for inputs that previously returned a confident-looking answer:
+
+- **`iivw_diagnose` refuses a decomposition it cannot justify.** It now compares the `e(sample)` **marker**, not `e(N)` — two disjoint 52-observation samples used to decompose at `rc 0`. A marker that disagrees with its fit's own `e(N)` is treated as **stale** (the data changed after `estimates store`, so every marker was subsetted along with it) and reported unverifiable. `r(decomposable) = 1` is now confined to identity-link/Gaussian fits: under a nonlinear link, adding a prognostic covariate moves the coefficient even when it is independent of the exposure, so the artifact gap contains noncollapsibility. New: `r(sample_identical)`, `r(n_sample_*)`, `r(noncollapsible)`
+- **`iivw_exogtest` has a three-valued group status.** `stcox` returns `rc 0` at the iteration ceiling, and `(joint_p < alpha)` is 0 for a **missing** p — so a test that never ran printed "no evidence that prior outcomes predict visit timing". Nonconverged fits and uncomputable omnibus tests are now `unknown`, contribute no p-value to the flag, and a run where no group yields a valid test **errors** rather than reporting 0. New: `r(n_unknown)`, `r(unknown_label_#)`. Note `r(n_models)` **includes** `r(n_unknown)`; the groups behind the flag are `r(n_tests)`
+- **`iivw_balance` withdraws the verdict when the target is not identified.** With no terminal at-risk interval the person-time target collapses toward the observed visits and `|target SMD|` is small almost regardless of the weights. That state now returns `r(target_status) = "not_identified"` and no `within_rule`/`exceeds_rule`. All three internal `stcox` refits are convergence-gated. New: `r(target_status)`, `r(replay_mode)`, `r(replay_max_reldif)`, `r(replay_scale)`, `r(replay_n)`, `r(N_replay)`, `r(ess_cluster)`, `r(ess_cluster_ratio)`
+- **`iivw_fit` rejects an interaction-only `stabcov()`.** `interaction(z)` with `z` absent from the main varlist fits `z × time` and no `z` main effect, so `z` is not recoverable at `time == 0`. That specification used to return `e(iivw_stabilization_validated) = 1`
+
+**Fixes**
+
+- **`iivw_balance`'s replay was on the wrong scale under any trimming.** It normalized over every Cox row, but `iivw_weight` normalizes the IIW over modelled **event** rows only — a terminal at-risk interval is not a visit. Invisible untrimmed (the scale cancels in every ratio), but the stored cutpoints are absolute: **5.9% error at the weight extremes under `truncvisit(5 95)`**, a legal combination since 2.0.0. `r(replay_max_reldif)` now verifies the replay against the stored weight
+- **One-sided trimming is expressible.** `trunc*()` required two percentiles strictly inside (0, 100), so Tompkins et al. (2025, §4.4) literal upper-95th rule could not be written. `0` and `100` now mean "no trim on that side": `trunctreat(0 95)`. `trunc*(0 100)` is refused as a no-op
+- **Extreme propensity scores are counted in subjects.** The propensity model is fitted once per subject and merged `m:1`, so the old row count multiplied each extreme subject by their visit count. New: `r(n_ps_extreme_id)` beside the row-level `r(n_ps_extreme)`
+- **Effective sample size is reported at both units.** `r(ess_ratio)` is row-weight concentration; `r(ess_cluster_ratio)` is the subject-level companion. Inference is clustered on the subject, and the two can disagree sharply
+- **Every shipped help example runs.** Six examples passed `truncate(1 99)`, removed in 2.0.0 and now an error; every example in three help files passed `censor(fu_end)` against a dataset that never created `fu_end`. Guarded by `qa/test_help_examples.do`
+- **FIPTIW is *Flexible*, not "Fully"**, and `iivw.pkg` now credits Coulombe, Moodie & Platt (2021) as the originators, with Tompkins et al. (2025) as the naming and sensitivity paper
+
+**Documentation.** `censor()` is documented as an end-of-observation time and explicitly **not** a censoring model, with the conditional-noninformative-censoring assumption stated beside every IIW/FIPTIW block. ATE/marginal language is confined to identity-link fits. Visit-model predictors are classified baseline / externally-updated / visit-measured. The circular "IIW mean should be near 1" check is removed — it is normalized to 1 by construction. New section on replay-safe factor-variable and spline expansion.
+
+**Inference status is unchanged and still `candidate`.** The default refit-bootstrap variance has no coverage evidence yet; the preregistered simulation has not reported. Do not read this release as clearing it.
 
 ### v2.0.1 (2026-07-21)
 

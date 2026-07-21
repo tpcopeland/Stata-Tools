@@ -376,7 +376,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
 {synopt:{cmd:r(n_unknown)}}groups fitted but not interpretable{p_end}
-{synopt:{cmd:r(n_tests)}}groups in the Holm family; equals {cmd:n_models - n_unknown}{p_end}
+{synopt:{cmd:r(n_tests)}}groups in the Holm family{p_end}
 {synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
