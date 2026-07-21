@@ -1101,7 +1101,8 @@ than the default Breslow method.
 {synopt:{cmd:r(ps_prevalence)}}treatment prevalence in the propensity model's sample{p_end}
 {synopt:{cmd:r(ps_min)}}minimum treatment propensity score (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(ps_max)}}maximum treatment propensity score (IPTW/FIPTIW){p_end}
-{synopt:{cmd:r(n_ps_extreme)}}extreme propensity-score observations{p_end}
+{synopt:{cmd:r(n_ps_extreme)}}extreme propensity panel rows{p_end}
+{synopt:{cmd:r(n_ps_extreme_id)}}extreme propensity subjects{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}

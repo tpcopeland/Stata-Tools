@@ -343,9 +343,27 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {pstd}
 {cmd:iivw_diagnose} stores the following in {cmd:r()}:
 
+{pstd}
+{cmd:r(decomposable)} is 1 only when all three fits share an estimand, were
+fitted on the {bf:same rows} ({cmd:r(sample_identical)} = 1), and use an
+identity link. Equal {cmd:e(N)} is not an equal sample, so the check compares
+the estimation-sample markers rather than the counts. When a marker cannot be
+read at all -- a hand-posted {cmd:ereturn post} with no {cmd:esample()}, or
+estimates stored against data no longer in memory -- {cmd:r(sample_identical)}
+is missing and the result is reported non-decomposable, because unverifiable is
+not the same as verified. On a nonlinear link {cmd:r(noncollapsible)} names the
+offending fits: adding a prognostic covariate moves the coefficient there even
+when it is independent of the exposure, so the artifact gap contains
+noncollapsibility as well as any real artifact.
+
 {synoptset 28 tabbed}{...}
 {synopthdr:Scalars}
 {synoptline}
+{synopt:{cmd:r(decomposable)}}1 if the gaps are a decomposition{p_end}
+{synopt:{cmd:r(sample_identical)}}1 same rows, 0 different, . unverifiable{p_end}
+{synopt:{cmd:r(n_sample_unweighted)}}rows in the unweighted sample{p_end}
+{synopt:{cmd:r(n_sample_weighted)}}rows in the weighted sample{p_end}
+{synopt:{cmd:r(n_sample_adjusted)}}rows in the adjusted sample{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 {synoptline}
 
@@ -357,7 +375,7 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {synopt:{cmd:r(adjusted)}}stored adjusted model name{p_end}
 {synopt:{cmd:r(exogeneity)}}exogeneity setting{p_end}
 {synopt:{cmd:r(estimand)}}estimand setting{p_end}
-{synopt:{cmd:r(decomposable)}}1 if the estimates share an estimand{p_end}
+{synopt:{cmd:r(noncollapsible)}}why the link is not collapsible; empty if it is{p_end}
 {synopt:{cmd:r(depvar)}}outcome shared by the three models{p_end}
 {synopt:{cmd:r(ci_dist_unweighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(ci_dist_weighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}

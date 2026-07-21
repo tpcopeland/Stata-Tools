@@ -375,6 +375,24 @@ AG-refit view.{p_end}
 {pstd}
 {cmd:iivw_balance} stores the following in {cmd:r()}:
 
+{pstd}
+{cmd:r(N)} counts the rows this report describes, after any {cmd:if}/{cmd:in};
+{cmd:r(N_replay)} counts the rows the visit model was replayed on, which is
+always the full stored rowset. They differ exactly when {cmd:if}/{cmd:in} was
+given. {cmd:r(replay_max_reldif)} verifies that the replayed weight reproduces
+the weight {cmd:iivw_weight} stored, up to the mean-1 scaling reported in
+{cmd:r(replay_scale)}; it should be at machine precision, and a nonzero value
+means the diagnostic is describing a weight vector the outcome model never
+used. {cmd:r(target_status)} is {cmd:not_identified} when no terminal at-risk
+interval exists, in which case no balance verdict is reported at all.
+
+{pstd}
+{cmd:r(ess_ratio)} is a {bf:row-weight} concentration measure over panel rows.
+{cmd:r(ess_cluster_ratio)} is the same measure over {bf:subjects}. Inference is
+clustered on the subject, so read the cluster figure beside the row one: a
+subject with forty visits is forty rows and one cluster, and the two can
+disagree sharply.
+
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2:Scalars}{p_end}
 {synopt:{cmd:r(N)}}analysis observations{p_end}
@@ -387,12 +405,20 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(refit_N)}}at-risk intervals used by the visit-model refit{p_end}
 {synopt:{cmd:r(refit_n_censrows)}}terminal at-risk intervals in the refit{p_end}
 {synopt:{cmd:r(refit_ok)}}1 if the refit that supports the verdict completed{p_end}
+{synopt:{cmd:r(ess_cluster)}}subject-level effective sample size{p_end}
+{synopt:{cmd:r(ess_cluster_ratio)}}{cmd:r(ess_cluster)} divided by {cmd:r(n_ids)}{p_end}
+{synopt:{cmd:r(N_replay)}}rows the visit model was replayed on{p_end}
+{synopt:{cmd:r(replay_n)}}visit rows in the replay check{p_end}
+{synopt:{cmd:r(replay_max_reldif)}}max deviation from the stored weight{p_end}
+{synopt:{cmd:r(replay_scale)}}replay mean over stored mean{p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
 {synopt:{cmd:r(id)}}stored panel ID variable{p_end}
 {synopt:{cmd:r(time)}}stored visit time variable{p_end}
 {synopt:{cmd:r(weighttype)}}stored weight type{p_end}
 {synopt:{cmd:r(weight_var)}}stored weight variable{p_end}
+{synopt:{cmd:r(replay_mode)}}replay mode; always {cmd:stored}{p_end}
+{synopt:{cmd:r(target_status)}}{cmd:identified}, {cmd:not_identified}, or {cmd:unavailable}{p_end}
 {synopt:{cmd:r(visit_covars)}}stored visit-model covariates{p_end}
 {synopt:{cmd:r(extra_covars)}}extra covariates supplied in {it:varlist}{p_end}
 {synopt:{cmd:r(balance_covars)}}all covariates in the displayed table{p_end}
