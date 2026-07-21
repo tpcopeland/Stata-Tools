@@ -207,8 +207,18 @@ capture noisily {
     capture matrix list r(hr_weighted)
     assert _rc != 0
 
+    * The target SMD is still MEASURED here -- it is what replaced the null-less
+    * weighted refit, and this test's point is that it exists.
     assert r(balance_max_tsmd) < .
-    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule", "unknown")
+
+    * But this fixture is endatlastvisit, so there is no terminal at-risk
+    * interval and the person-time target is not identified: |target SMD| is
+    * then small almost regardless of the weights, and from the SOL-11 fix the
+    * VERDICT is withdrawn rather than issued. The measured value and the
+    * verdict are separate things, and only the first is this test's subject.
+    assert "`r(target_status)'" == "not_identified"
+    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule", ///
+        "unknown", "not_identified")
 }
 if _rc == 0 {
     display as result "  PASS: T4 - the null-less weighted AG refit is not reported"
