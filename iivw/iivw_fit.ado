@@ -1547,6 +1547,17 @@ program define iivw_fit, eclass
                 vce(cluster `cluster') level(`level') `log_opt' `geeopts'
         }
 
+        * `== 0', NOT `!= 1', and deliberately so. glm's IRLS optimizer never
+        * sets e(converged) at all, so `!= 1' would reject every geeopts(irls)
+        * fit -- including converged ones -- on the strength of a scalar that
+        * engine does not produce. Under a bootstrap that ambiguity is
+        * intolerable and _iivw_check_passthru refuses irls outright (noirls);
+        * here, with no draws to gate, a missing flag means "this engine cannot
+        * report convergence", which is not the same as "it did not converge".
+        *
+        * The stcox-based guards in iivw_balance and iivw_exogtest use `!= 1'
+        * because stcox always sets the scalar, so there a missing value really
+        * is a failure and must fail closed.
         if `bootstrap' == 0 & e(converged) == 0 {
             _iivw_require_converged, model(GEE outcome) ///
                 `allownonconverged'

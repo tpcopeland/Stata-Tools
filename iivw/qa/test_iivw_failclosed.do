@@ -181,6 +181,57 @@ else {
     display "FAIL S7b: identical-sample decomposition regressed"
 }
 
+**# S7e - a STALE e(sample) marker is not mistaken for an identical sample
+
+* Found by independent review of the SOL-07 fix, not by the fix's own probes.
+*
+* `estimates store' leaves an _est_<name> column in the dataset, and that column
+* is subsetted along with everything else. So when the data changes between the
+* store and the call, EVERY marker shrinks -- consistently. Three models fitted
+* on 40, 64 and 64 observations, followed by an ordinary `keep if', produced
+* three 30-row markers, compared equal, and returned sample_identical == 1 with
+* a printed causal decomposition at rc 0.
+*
+* That is the SOL-07 defect arriving through a different door: the marker check
+* was itself unverified. S7a could not see it because its fixture never touches
+* the data between storing and diagnosing.
+*
+* e(N) is the fit's own record and does not move with the data, so a marker that
+* disagrees with it is stale. The result is MISSING (cannot verify), not 0
+* (provably different) -- we do not know the samples differ, we know we cannot
+* tell.
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    quietly regress price mpg weight if rep78 <= 3
+    estimates store s_unw
+    local _n_unw = e(N)
+    quietly regress price mpg weight if rep78 >= 3
+    estimates store s_wt
+    quietly regress price mpg weight headroom if rep78 >= 3
+    estimates store s_adj
+
+    * The fixture must genuinely be three different samples, or this proves
+    * nothing about staleness.
+    assert `_n_unw' != e(N)
+
+    keep if rep78 == 3
+    assert _N < `_n_unw'
+
+    quietly iivw_diagnose mpg, unweighted(s_unw) weighted(s_wt) adjusted(s_adj)
+    assert r(sample_identical) >= .
+    assert r(decomposable) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS S7e: a stale sample marker is reported unverifiable"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' S7e"
+    display "FAIL S7e: stale markers compared equal and decomposed"
+}
+
 **# S7c - a nonlinear link is not decomposable (SOL-07)
 
 * Under randomization the true artifact gap is zero, but logit is noncollapsible

@@ -212,9 +212,34 @@ program define iivw_diagnose, rclass
         * (a hand-posted matrix, or estimates stored against data no longer in
         * memory). Unverifiable is not the same as verified, and it must not
         * be reported as either.
+        * The marker must still DESCRIBE the fit it came from.
+        *
+        * `estimates store' leaves an _est_<name> column in the dataset, and that
+        * column is subsetted along with everything else. So if the data changed
+        * between the store and this call, every marker shrinks -- consistently,
+        * which is the trap. Three models fitted on 40, 64 and 64 observations,
+        * followed by an ordinary `keep if', produced three markers of 30 rows
+        * each, compared equal, and returned sample_identical = 1 with a printed
+        * causal decomposition at rc 0. That is the SOL-07 defect arriving
+        * through a different door: the marker check was itself unverified.
+        *
+        * e(N) is the fit's own record of its sample size and does not move with
+        * the data. If the materialized marker disagrees with it, the marker is
+        * no longer the estimation sample and nothing here can be trusted --
+        * including the comparison between roles. Fail to MISSING (unverifiable)
+        * rather than 0 (provably different): we do not know that they differ,
+        * we know we cannot tell. A weighted fit whose e(N) is a sum of weights
+        * rather than a row count lands here too, and unverifiable is the honest
+        * answer for it as well.
         local _sample_avail = 1
+        local _sample_stale ""
         foreach role in unweighted weighted adjusted {
             if `_esrc_`role'' != 0 | `_esn_`role'' == 0 local _sample_avail = 0
+            else if `N_`role'' < . & `_esn_`role'' != `N_`role'' {
+                local _sample_avail = 0
+                local _sample_stale ///
+                    "`_sample_stale' `role'(marker `_esn_`role'' vs e(N) `N_`role'')"
+            }
         }
         local _sample_identical = .
         if `_sample_avail' {
@@ -467,10 +492,20 @@ program define iivw_diagnose, rclass
         * outside the chain above rather than extending it.
         if `_sample_identical' == . {
             display as text ""
-            display as text "note: the estimation sample could not be verified for at least one"
-            display as text "  estimate (no usable e(sample) marker), so this command cannot"
-            display as text "  confirm the three fits describe the same rows. Reported as"
-            display as text "  non-decomposable."
+            if "`_sample_stale'" != "" {
+                display as error "note: the estimation sample marker is STALE:`_sample_stale'"
+                display as text  "  The data in memory changed after these estimates were stored, so"
+                display as text  "  each e(sample) marker was subsetted along with it and no longer"
+                display as text  "  identifies the rows its model was fitted on. The markers may"
+                display as text  "  still agree with each other -- that agreement means nothing."
+                display as text  "  Restore the estimation data, or refit, before decomposing."
+            }
+            else {
+                display as text "note: the estimation sample could not be verified for at least one"
+                display as text "  estimate (no usable e(sample) marker), so this command cannot"
+                display as text "  confirm the three fits describe the same rows."
+            }
+            display as text "  Reported as non-decomposable."
         }
         if "`_noncollapsible'" != "" {
             display as text ""

@@ -622,7 +622,7 @@ program define iivw_balance, rclass
         quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
             level(`level') vce(cluster `panel_id')
         local __iivw_fit_rc = _rc
-        if `__iivw_fit_rc' == 0 & e(converged) == 0 {
+        if `__iivw_fit_rc' == 0 & e(converged) != 1 {
             _iivw_require_converged, model("visit-model balance replay")
         }
 
@@ -630,7 +630,7 @@ program define iivw_balance, rclass
         quietly predict double `__iivw_xbf', xb
         if "`rep_stabcov'" != "" {
             quietly stcox `rep_stabcov' if `__iivw_coxok', `rep_efron'
-            if e(converged) == 0 {
+            if e(converged) != 1 {
                 _iivw_require_converged, model("stabilization balance replay")
             }
             quietly predict double `__iivw_xbs', xb
@@ -640,7 +640,7 @@ program define iivw_balance, rclass
             * active estimates again.
             quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
                 level(`level') vce(cluster `panel_id')
-            if e(converged) == 0 {
+            if e(converged) != 1 {
                 _iivw_require_converged, model("visit-model balance replay")
             }
         }

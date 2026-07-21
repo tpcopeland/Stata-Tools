@@ -593,7 +593,7 @@ program define iivw_exogtest, rclass sortpreserve
         * The helper prints the standard nonconvergence text; the group is then
         * recorded unknown rather than aborting the whole diagnostic, because
         * other groups may still be estimable.
-        if e(converged) == 0 {
+        if e(converged) != 1 {
             _iivw_require_converged, model("exogeneity Cox (`glabel')") ///
                 allownonconverged
             local ++n_unknown
@@ -603,6 +603,13 @@ program define iivw_exogtest, rclass sortpreserve
             * __iivw_fitted_groups: that list drives the Holm family, and its
             * loop dereferences __iivw_jointp_<g>, which does not exist here.
             local ++n_models
+            * r(N)/r(n_ids) describe the rows and subjects the command FITTED,
+            * so a nonconverged group contributes to them exactly as the
+            * missing-joint-p group below does. Incrementing n_models here but
+            * skipping the totals left r(N) describing neither n_models nor
+            * n_tests -- a third, unnamed group set.
+            local total_N = `total_N' + `gN'
+            local total_ids = `total_ids' + `gIds'
             display as text "note: group status is UNKNOWN -- the model did not converge, so"
             display as text "      its p-value is not evidence either way and does not enter"
             display as text "      the flag."

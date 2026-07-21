@@ -374,9 +374,9 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(min_p)}}minimum unadjusted Wald p-value{p_end}
 {synopt:{cmd:r(joint_min_p)}}minimum raw within-group omnibus p-value{p_end}
 {synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
-{synopt:{cmd:r(n_tests)}}number of omnibus tests in the Holm family{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
 {synopt:{cmd:r(n_unknown)}}groups fitted but not interpretable{p_end}
+{synopt:{cmd:r(n_tests)}}groups in the Holm family; equals {cmd:n_models - n_unknown}{p_end}
 {synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
@@ -433,6 +433,15 @@ contribute usable intervals to two groups and is counted once per group, so
 omnibus (joint) test of all lagged predictors, one per fitted group,
 {bf:Holm-adjusted across groups}. The flag is 1 when the smallest adjusted
 omnibus p-value falls below alpha.
+
+{pstd}
+{bf:The group counters overlap; do not add them up.} {cmd:r(n_models)} counts
+every group the command FITTED, and that {it:includes} the groups counted in
+{cmd:r(n_unknown)} -- a nonconverged fit is still a fit. {cmd:r(n_skipped)}
+counts groups that could not be fitted at all and is disjoint from both. The
+groups that actually contribute a p-value to the flag are
+{cmd:r(n_tests)} = {cmd:r(n_models)} - {cmd:r(n_unknown)}. {cmd:r(N)} and
+{cmd:r(n_ids)} describe the rows and subjects behind {cmd:r(n_models)}.
 
 {pstd}
 A flag of {bf:0} means no association was detected among the groups that

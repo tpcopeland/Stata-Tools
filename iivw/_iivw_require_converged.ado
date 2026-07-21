@@ -16,7 +16,11 @@ program define _iivw_require_converged
 
     if "`allownonconverged'" != "" {
         display as error "warning: the `model' model did not converge"
-        display as text  "  allownonconverged was specified, so estimation continues."
+        * Callers use this branch two ways: a user-supplied allownonconverged,
+        * and an internal caller that downgrades a per-group failure rather than
+        * aborting a whole diagnostic. Naming the option here told users of the
+        * second kind that they had specified something they had not.
+        display as text  "  Estimation continues and the result is marked unusable."
         display as text  "  These estimates are not trustworthy: the optimizer never reached"
         display as text  "  a maximum, so the coefficients and standard errors do not solve"
         display as text  "  the estimating equation. The fit is stamped nonconverged and is"
