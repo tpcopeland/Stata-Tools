@@ -439,7 +439,18 @@ program define _inf_engine, rclass
         local n_fail = `sims' - `n_ok'
     }
     else {
-    postfile `P' int(sim arm) double(b_refit se_refit cov_refit ///
+    * PROVENANCE STAMP. Every row records the (reps, sims, seed) it was produced
+    * under. Without this the verdict line's "reps=" is a free-text label copied
+    * from the command argument and never checked against the rows -- measured:
+    * one fabricated pool combined to "gate=PASS sims=1000 reps=999" and
+    * "gate=PASS sims=1000 reps=10" with byte-identical coverage. That is
+    * reachable, not hypothetical: run_coverage_gate.sh skips a block whose .dta
+    * is already in the pool, and the pool filename encodes only family and
+    * range -- so a REPS=10 plumbing pilot (which the runbook describes doing)
+    * leaves files named exactly what the REPS=999 run wants. combine would then
+    * certify pilot rows as the release gate. Stamped here, verified in combine.
+    postfile `P' int(sim arm) long(blk_reps blk_sims blk_seed) ///
+        double(b_refit se_refit cov_refit ///
         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
         using "`rowsfile'", replace
 
@@ -468,7 +479,8 @@ program define _inf_engine, rclass
                 display as error "unknown family `family'"
                 error 198
             }
-            post `P' (`s') (`arm') (`r(b_refit)') (`r(se_refit)') (`r(cov_refit)') ///
+            post `P' (`s') (`arm') (`reps') (`sims') (`master') ///
+                (`r(b_refit)') (`r(se_refit)') (`r(cov_refit)') ///
                 (`r(b_fix)') (`r(se_fix)') (`r(cov_fix)') ///
                 (`r(b_fwb)') (`r(se_fwb)') (`r(cov_fwb)') (`r(cov_naive)') ///
                 (`r(nrow)') (`r(nsub)')
@@ -664,6 +676,40 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
         local first = 0
     }
     quietly use "`allrows'", clear
+
+    * PROVENANCE PROOF. The tiling proof below shows the blocks cover 1..SIMS;
+    * it cannot show they were produced under the SAME configuration, because a
+    * block filename carries only family and range. Two blocks run at different
+    * REPS, different SIMS, or different master seeds tile perfectly and combine
+    * silently into one number that describes no study -- and the verdict line
+    * would label it with whatever REPS/SEED this invocation was handed.
+    * Measured before this check existed: one fabricated pool certified as both
+    * "reps=999" and "reps=10". Refuse rather than mislabel.
+    foreach v in blk_reps blk_sims blk_seed {
+        capture confirm variable `v'
+        if _rc {
+            display as error "combine(`fam'): block rows carry no `v' stamp"
+            display as error "  these blocks predate the provenance stamp; re-run them"
+            exit 459
+        }
+    }
+    local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED'
+    while "`stamps'" != "" {
+        gettoken v stamps : stamps
+        gettoken want stamps : stamps
+        quietly summarize `v'
+        if r(min) != r(max) {
+            display as error "combine(`fam'): blocks disagree on `v' (`=r(min)' .. `=r(max)')"
+            display as error "  the union mixes configurations; it is not one study"
+            exit 459
+        }
+        if r(min) != `want' {
+            display as error "combine(`fam'): blocks were produced at `v'=`=r(min)'," ///
+                " but this combine was invoked with `want'"
+            display as error "  the verdict would carry a label the rows do not support"
+            exit 459
+        }
+    }
 
     * TILING PROOF. A block that never ran, or ran twice, must not be
     * aggregated silently -- that is how a coverage number gets computed over

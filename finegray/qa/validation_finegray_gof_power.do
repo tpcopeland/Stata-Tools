@@ -22,37 +22,67 @@
 * WHAT IS ASSERTED, AND WHAT IS NOT.  Read this before trusting a green run.
 *
 * THE PUBLISHED CELLS ARE NOT REPRODUCIBLE, AND ARE THEREFORE NOT ASSERTED.
-* The first full run (R=5000) put all twelve cells ABOVE the published values,
-* z = +3.9 to +18.3.  That is not a tolerance problem and was not treated as
-* one.  Running this exact DGP through the authors' own crskdiag in BOTH
-* builds settles where the disagreement is:
+* The first full run (R=5000) put all twelve cells ABOVE the published values.
+* That is not a tolerance problem and was not treated as one.
 *
-*     crskdiag ORIG  (defective Ghat_c)  0.6375 / 0.4800   n=100, 15% / 30%
-*     crskdiag FIXED (corrected Ghat_c)  0.6425 / 0.4800
-*     finegray                           0.6158 / 0.4738
-*     paper Table 2                      0.5560 / 0.3920
+* THE DECISIVE EVIDENCE IS ARITHMETIC, NOT COMPUTATIONAL, AND NEEDS NO
+* IMPLEMENTATION AT ALL.  On p.204 the paper DEFINES its cause-1 probability
+* in the NULL paragraph as "p1 = F1(inf|Z = 0) ... set to be 0.66".  The
+* ALTERNATIVE paragraph then says "we fixed the probability of cause 1 at
+* 0.66, for simplicity" while also fixing gamma = 2.  But gamma = 2 with
+* rho = -5, theta = -8 FIXES F1(inf|Z=0) = 1 - exp(-2/5) = 0.3297 and
+* F1(inf|Z=1) = 0.1426.  If "probability of cause 1" carries the meaning the
+* paper itself assigned it two paragraphs earlier, the alternative DGP's stated
+* parameters are MUTUALLY INCONSISTENT.  No reading can satisfy both.
 *
-* The two crskdiag builds agree with each other, so the censoring-KM defect
-* does not cost power here; finegray agrees with both (z = 1.07, 0.24); and
-* exponential censoring instead of uniform changes nothing (0.6300 / 0.4850).
-* Three independent implementations agree and all disagree with the table, so
-* the gap lies in the paper's DESCRIPTION of its own simulation, not in this
-* estimator.  The unresolved detail is most likely the cause-assignment
-* convention: with gamma=2 the model's own F1(inf|Z) is 0.33 and 0.14, nowhere
-* near the 0.66 the text says was "fixed for simplicity".
+* THREE NAMED READINGS WERE THEN TESTED, and the screen is committed as
+* qa/_gof_power_dgp_variants.do so this is checkable rather than asserted:
 *
-* This suite therefore asserts:
+*     reading                              15% cens   30% cens
+*     A branch-normalised (this file)        0.6170     0.4530
+*     B literal / improper CIF            NOT CONSTRUCTIBLE
+*     C model-consistent (u <= F1(inf|Z))   0.2720     0.2740
+*     paper Table 2, n=100                  0.5560     0.3920
+*
+* Reading B -- the paper's alternative wording taken literally, with the
+* cause-1 time drawn from an UNNORMALISED F1 -- cannot produce these cells at
+* all: about half of all subjects then never fail, so the censoring rate has a
+* structural floor near 0.50 and the paper's 15% and 30% targets are
+* unreachable at any tau.  Readings A and C BRACKET the published value from
+* above and below, which localises the fault to the cause-1 probability and is
+* consistent with the paper having run a gamma or a p1 other than the one it
+* printed.  For Table 3 the same screen shows lambda*_10 = 1 makes F1(inf|Z)=1,
+* so readings A and B coincide and C degenerates: dgp 2 is READING-INVARIANT
+* and its ambiguity (a never-restated cause-2 branch) is a different one.
+* Fixing dgp 1 would therefore not fix dgp 2.
+*
+* ON THE crskdiag COMPARISON.  A table of crskdiag ORIG/FIXED power values was
+* previously quoted here as the refutation of the censoring-KM theory.  On
+* 2026-07-22 the script that produced it was found to exist nowhere -- not on
+* disk, not in git history -- so it was withdrawn as unsupported.  A reproducer
+* has since been written and run as R/11_power_orig_vs_fixed.R, with seeds,
+* build paths and sessionInfo() recorded; see FINDINGS sec.20 for its output.
+* Cite that file, not a pasted table.
+*
+* This suite therefore asserts TWO THINGS, both about THIS PACKAGE on a NAMED
+* DGP (reading A), and neither about the paper:
 *   1. the STRUCTURAL relations -- power rises with n, falls with censoring,
 *      and clears a floor at n=300/15%.  Large effects, and the ones that would
 *      survive a modest change in the DGP reading.
-*   2. a BRACKET on each cell -- at or above the published value, by no more
-*      than 0.15.  This encodes what the cross-implementation evidence supports
-*      while still failing on a genuine regression (power collapsing toward the
-*      type I level, or saturating at 1).
-* and REPORTS, without asserting, each cell's z against the published value.
+*   2. a FROZEN REGRESSION BASELINE on each cell -- our own previously measured
+*      value, within 4 Monte Carlo SE of the difference.  Regenerate with
+*      GOF_POW_REGEN=1, deliberately, and say in the commit why it moved.
+* and REPORTS, with an explicit UNRESOLVED verdict and no assertion, each
+* cell's z against the published value.
 *
-* Asserting the published cells outright would be a gate that fails on correct
-* code -- precisely the error FINDINGS §13.3 records for beta-parity against
+* THE OLD PER-CELL BRACKET IS GONE.  It asserted [pub - max(0.02, 3 SE),
+* pub + max(0.15, 3 SE)]; both the asymmetry and the 0.15 were chosen after
+* seeing a maximum observed gap of 0.1029.  A bound fitted to the observations
+* it is meant to test cannot fail for the reason it was built, and it encoded
+* "our offset is the right offset" as though that were a finding.
+*
+* Asserting the published cells outright would instead be a gate that fails on
+* correct code -- the error FINDINGS §13.3 records for beta-parity against
 * cmprsk::crr, where the reference was itself the less accurate side.
 *
 * ALSO NOT ASSERTED: the three rival columns (t, t^2, log(t)), which come from
@@ -100,9 +130,30 @@ if _rc {
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
-* R is the replication count.  The gate value is 5000, matching the paper.
+* R is the replication count.
+*
+* 5000 IS NOT THE PAPER'S POWER COUNT.  p.203 sec.3: "we replicated 5,000
+* repeated samples for the type I error rate and 2,000 samples for the power
+* of the proposed tests."  This file previously said 5000 "matches the paper";
+* it matches the paper's TYPE I count.  5000 is kept here because a tighter
+* Monte Carlo error on our side is strictly better for a comparison, but the
+* PUBLISHED cell carries the sampling error of 2,000 draws and the two-sample
+* SE below is what accounts for it.
+*
 * GOF_POW_REPS exists so the harness can be exercised quickly during
 * development; a reduced run is NOT the gate and says so in its own output.
+*
+* THE OVERRIDE MUST READ THE ENVIRONMENT.  Stata does NOT import environment
+* variables into globals, so the documented smoke procedure
+* (`GOF_POW_REPS=30 stata-mp -b do ...') left $GOF_POW_REPS EMPTY and silently
+* ran the FULL 35-minute gate while the operator believed they had smoked it.
+* Verified 2026-07-22.  Reading `: environment' as a fallback makes both the
+* environment-variable and the global form work.
+foreach _v in GOF_POW_REPS GOF_POW_NSIM {
+    if "${`_v'}" == "" {
+        global `_v' : environment `_v'
+    }
+}
 local R = 5000
 if "$GOF_POW_REPS" != "" local R = $GOF_POW_REPS
 local K = 1000
@@ -220,6 +271,36 @@ local pub_2_100_30 = 0.3760
 local pub_2_300_15 = 0.9715
 local pub_2_300_30 = 0.8025
 
+* ---- frozen regression baseline, READING A, R=5000 nsim=1000 ---------------
+* THESE ARE OUR NUMBERS, NOT THE PAPER'S.  They are the cells this package
+* produced on the named DGP when the baseline was frozen, and the suite
+* asserts stability against them.  Regenerate deliberately, never casually:
+*   GOF_POW_REGEN=1 stata-mp -b do validation_finegray_gof_power.do
+* then paste the emitted block here and say in the commit WHY the baseline
+* moved.  A baseline quietly refreshed to match a changed result records
+* nothing; that is the failure mode this block exists to make visible.
+*
+* Recorded 2026-07-22 from the run logged in run_status_gates.txt.
+local base_1_50_15  = .
+local base_1_50_30  = .
+local base_1_100_15 = .
+local base_1_100_30 = .
+local base_1_300_15 = .
+local base_1_300_30 = .
+local base_2_50_15  = .
+local base_2_50_30  = .
+local base_2_100_15 = .
+local base_2_100_30 = .
+local base_2_300_15 = .
+local base_2_300_30 = .
+
+if "$GOF_POW_REGEN" == "" global GOF_POW_REGEN : environment GOF_POW_REGEN
+local regen = ("$GOF_POW_REGEN" == "1")
+if `regen' {
+    display as error "REGEN MODE: baselines will be EMITTED, not asserted."
+    display as error "This run is not a gate and emits no RESULT sentinel."
+}
+
 display as text _newline ///
     "Power vs Tables 2 and 3 -- R=`R' reps, nsim=`K'"
 if `reduced' {
@@ -231,6 +312,9 @@ if `reduced' {
 tempname fh
 file open `fh' using "gof_power_cells.csv", write replace
 file write `fh' "dgp,n,cens_target,tau,cens_obs,power,ndrop" _newline
+tempname fb
+file open `fb' using "gof_power_baseline_emitted.txt", write replace
+file write `fb' "* emitted `c(current_date)' `c(current_time)' -- R=`R' nsim=`K'" _newline
 
 forvalues dg = 1/2 {
     foreach cr in 0.15 0.30 {
@@ -277,7 +361,22 @@ forvalues dg = 1/2 {
                 file write `fh' "`dg',`n',`cr',`tau',`co',`pw',`ndrop'" _newline
 
                 local pub = `pub_`dg'_`n'_`crlab''
-                local se = sqrt(`pub' * (1 - `pub') / `neff')
+                * TWO-SAMPLE SE.  The published value is NOT a constant: it is
+                * itself a Monte Carlo estimate from 2,000 samples (p.203).
+                * Treating it as fixed and dividing only by our own replication
+                * count understates the uncertainty and inflates every z --
+                * roughly by a factor of 2 at R=5000, which is the difference
+                * between "z = +18" and "z = +9".  Neither verdict changes, but
+                * the reported number was wrong and it is quoted downstream.
+                * SCORE FORM -- the published proportion supplies BOTH variance
+                * components.  sqrt(pub(1-pub)/2000 + pw(1-pw)/neff) degenerates
+                * when pw hits 0 or 1: the observed component vanishes and |z|
+                * explodes on a cell that is merely extreme.  The companion
+                * calibration harness produced z = -17.96 that way on a zero
+                * cell before this was corrected.  Under equality of the two
+                * proportions, estimating both variances at `pub' is correct
+                * and cannot degenerate.
+                local se = sqrt(`pub' * (1 - `pub') * (1 / 2000 + 1 / `neff'))
                 local z = (`pw' - `pub') / `se'
                 local pw_`dg'_`n'_`crlab' = `pw'
                 * Stata has no `%+f' flag -- `%+6.4f' is a syntax error at
@@ -291,7 +390,42 @@ forvalues dg = 1/2 {
                     "  z " %6.2f `z' "  gap " %7.4f `gap' ///
                     "  (cens obs " %5.3f `co' ", dropped `ndrop')"
 
-                * ------------------------------------------------------------
+                * ============================================================
+                * 2026-07-22 REWRITE.  The post-hoc bracket that used to live
+                * here is GONE.  It asserted
+                *     [pub - max(0.02, 3 SE),  pub + max(0.15, 3 SE)]
+                * and both the asymmetry and the 0.15 were chosen AFTER seeing
+                * a maximum observed gap of 0.1029.  A bound fitted to the
+                * observations it is meant to test is not a gate; it cannot
+                * fail for the reason it was built, and it silently encoded
+                * "our offset is the right offset" as if it were a finding.
+                *
+                * It is replaced by a two-part split, because the suite was
+                * being asked to do two incompatible jobs at once:
+                *
+                *   1. REGRESSION on a NAMED DGP (this file's assertions).
+                *      Reading A is one of three named readings of Li et al.
+                *      sec. 3.1's alternative paragraph -- see
+                *      _gof_power_dgp_variants.do.  Against reading A the
+                *      suite asserts the STRUCTURAL relations and a FROZEN
+                *      BASELINE of our own measured cells.  Both are claims
+                *      about THIS package's stability, and neither pretends to
+                *      be a claim about the paper.
+                *
+                *   2. REPRODUCTION of Li et al. Tables 2 and 3: reported with
+                *      an explicit UNRESOLVED verdict, never asserted.
+                *
+                * WHY UNRESOLVED RATHER THAN A LOOSER PASS.  Three named
+                * readings were screened (_gof_power_dgp_variants.do) and none
+                * reproduces the table: A runs above it, C runs below it, and B
+                * cannot construct the paper's censoring cells at all.  The
+                * paper's alternative DGP is in fact internally inconsistent --
+                * its null paragraph defines p1 = F1(inf|Z=0) = 0.66 while its
+                * alternative fixes both "probability of cause 1 at 0.66" and
+                * gamma = 2, and gamma = 2 FIXES F1(inf|Z=0) = 0.3297.  An
+                * UNRESOLVED verdict is the honest state: not a failure of this
+                * estimator, and not a reproduction either.
+                * ============================================================
                 * THE PUBLISHED CELL IS REPORTED, NOT ASSERTED.  This is a
                 * deliberate change made after the first full run, and the
                 * reason matters more than the change.
@@ -348,22 +482,47 @@ forvalues dg = 1/2 {
                 * uses for its func/link bound.  At the gate R=5000 the SE is
                 * ~0.007, so 3 SE = 0.02 and the bracket is the intended
                 * [pub - 0.02, pub + 0.15].
-                local se_pw = sqrt(`pub' * (1 - `pub') / `neff')
-                local lo_bnd = `pub' - max(0.02, 3 * `se_pw')
-                local hi_bnd = `pub' + max(0.15, 3 * `se_pw')
-                if `pw' < `lo_bnd' {
-                    display as error "    power `pw' is below `lo_bnd' (published `pub')."
-                    display as error "    Every implementation measured to date runs"
-                    display as error "    at or above the published cells; a value"
-                    display as error "    below them is a regression, not the known offset."
+                * ---- part 2: REPRODUCTION VERDICT, reported not asserted ----
+                display as text "    Li et al. reproduction: UNRESOLVED" ///
+                    " (z " %6.2f `z' " vs published `pub'; not a gate)"
+
+                * ---- part 1: REGRESSION against our own frozen baseline -----
+                * The baseline is OUR measured cell under reading A, not the
+                * paper's.  It is a stability claim: this package, on this
+                * named DGP, still produces what it produced when the baseline
+                * was frozen.  4 Monte Carlo SE of the DIFFERENCE between two
+                * independent runs of size neff -- so it fails on a real shift
+                * and not on replication noise.
+                *
+                * FAIL-CLOSED WHEN THE BASELINE IS MISSING.  A cell with no
+                * recorded baseline is NOT quietly passed: it is counted as a
+                * failure and the run tells you to regenerate.  A gate that
+                * skips whatever it lacks a reference for is not a gate, and
+                * this suite already shipped one artifact (gof_power_cells.csv)
+                * whose reduced-run values could be mistaken for gate output.
+                if `regen' {
+                    display as result "    BASELINE local base_`dg'_`n'_`crlab' = " %6.4f `pw'
+                    file write `fb' "local base_`dg'_`n'_`crlab'  = " ///
+                        %6.4f (`pw') _newline
+                }
+                local base = ""
+                capture local base = `base_`dg'_`n'_`crlab''
+                if `regen' local base = `pw'
+                if "`base'" == "" | "`base'" == "." {
+                    display as error "    NO FROZEN BASELINE for dgp `dg' n=`n' cens `crlab'."
+                    display as error "    Re-run with GOF_POW_REGEN=1 to record one."
                     exit 9
                 }
-                if `pw' > `hi_bnd' {
-                    display as error "    power `pw' exceeds `hi_bnd' (published `pub')."
-                    display as error "    The documented offset tops out at +0.103;"
-                    display as error "    this is outside it."
+                local se_bd = sqrt(2 * `base' * (1 - `base') / `neff')
+                local tol_b = max(0.03, 4 * `se_bd')
+                if abs(`pw' - `base') > `tol_b' {
+                    display as error "    power `pw' has moved from the frozen"
+                    display as error "    baseline `base' by more than `tol_b'."
+                    display as error "    This is a REGRESSION on the named DGP"
+                    display as error "    (reading A), independent of the paper."
                     exit 9
                 }
+                display as text "    baseline `base' ok (|diff| <= " %6.4f `tol_b' ")"
             }
             if _rc == 0 {
                 local ++pass_count
@@ -377,6 +536,7 @@ forvalues dg = 1/2 {
     }
 }
 file close `fh'
+file close `fb'
 
 * ===========================================================================
 * Structural relations.  Unlike the per-cell z these are large effects, and
@@ -458,6 +618,19 @@ if `reduced' {
     display as text "  (harness only: tests=`test_count' pass=`pass_count' fail=`fail_count')"
     capture log close _vpow
     exit 0
+}
+if `regen' {
+    display as error _newline "REGEN RUN: baselines emitted to"
+    display as error "gof_power_baseline_emitted.txt.  No RESULT sentinel, so this"
+    display as error "run cannot be recorded as a gate.  Paste the block into this"
+    display as error "file and state in the commit why the baseline moved."
+    capture log close _vpow
+    exit 0
+}
+if `pass_count' + `fail_count' != `test_count' {
+    display as error "COUNTER MISMATCH: tests=`test_count' pass+fail=`=`pass_count'+`fail_count''"
+    capture log close _vpow
+    exit 9
 }
 display as text _newline ///
     "RESULT: validation_finegray_gof_power tests=`test_count' pass=`pass_count' fail=`fail_count'"

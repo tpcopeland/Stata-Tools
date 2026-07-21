@@ -4407,6 +4407,45 @@ real scalar _finegray_gof_edge(real matrix Wp)
     return(max(abs(Wp[., cols(Wp)])))
 }
 
+/* Enforce that identity ON THE PRODUCTION PATH.
+   Until 2026-07-22 the comment above claimed the check fires "before any
+   p-value is computed", but _finegray_gof_edge() was called ONLY from
+   qa/crossval_gof.do -- so on every real user run the identity was computed
+   nowhere and the claim was false.  It is cheap (one column max) and it is
+   the only check that catches C(.), Omega^-1, tie multiplicity and term 3
+   simultaneously without an oracle, so the honest repair is to call it
+   rather than to soften the comment.
+
+   ERRORS rather than warns.  W_i at the last grid point is zero as a matter
+   of algebra, not of numerical luck; if it is not, the influence matrix that
+   the multiplier bootstrap resamples is wrong, and every p-value derived from
+   it is meaningless.  Returning a plausible number in that state is exactly
+   the rc=0-but-wrong failure this package's QA standard exists to prevent.
+
+   Tolerance is 1e-6 RELATIVE to max|eta|, two orders looser than the 1e-8 the
+   crossval asserts on small fixtures, so that ordinary floating-point
+   accumulation at large n cannot trip it.  Observed values on the crossval
+   fixtures are ~1e-14. */
+/* eta is `real matrix' (n x p), NOT a colvector -- declaring the parameter as
+   a colvector compiles fine and then fails at RUNTIME on any multi-covariate
+   model, which is the common case. */
+void _finegray_gof_edge_assert(real matrix Wp, real matrix eta,
+                               string scalar what)
+{
+    real scalar escale, rel
+    escale = max(abs(eta))
+    if (escale <= 0) return
+    rel = _finegray_gof_edge(Wp) / escale
+    if (rel > 1e-6) {
+        errprintf("{p}finegray_gof: the %s influence process violates the\n", what)
+        errprintf("identity W_i(edge) == 0 (relative error %g).  This means the\n", rel)
+        errprintf("cumulative-residual process was built incorrectly, so the\n")
+        errprintf("multiplier-bootstrap p-values would not be valid.  No p-value\n")
+        errprintf("is reported.{p_end}\n")
+        exit(499)
+    }
+}
+
 /* Multiplier-bootstrap block size.  A function rather than a literal so the
    two bootstrap routines cannot drift apart: they must consume the RNG
    stream identically or the overall statistic stops being comparable with
@@ -4549,6 +4588,7 @@ void _finegray_gof_run(
         Wall = J(n, 0, 0)
         for (j = 1; j <= p; j++) {
             Wp = _finegray_gof_prop(sc, j, obs)
+            _finegray_gof_edge_assert(Wp, sc.eta, "proportionality")
             Wall = Wall, Wp
             U[., j] = obs
             pres[j, .] = _finegray_gof_boot(Wp, obs, scl[j], K)
@@ -4571,6 +4611,7 @@ void _finegray_gof_run(
         for (i = 1; i <= nf; i++) {
             j = funcidx[i]
             Wp = _finegray_gof_xaxis(sc, Z[., j], grid, obs)
+            _finegray_gof_edge_assert(Wp, sc.eta, "functional-form")
             fres[i, .] = _finegray_gof_boot(Wp, obs, 1, K)
             if (want_paths) {
                 keep    = _finegray_gof_thin(rows(grid))
@@ -4585,6 +4626,7 @@ void _finegray_gof_run(
 
     if (do_link) {
         Wp = _finegray_gof_xaxis(sc, Z * beta, grid, obs)
+        _finegray_gof_edge_assert(Wp, sc.eta, "link")
         st_matrix("_finegray_gof_link_res", _finegray_gof_boot(Wp, obs, 1, K))
         if (want_paths) {
             keep    = _finegray_gof_thin(rows(grid))

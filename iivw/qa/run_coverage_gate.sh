@@ -45,7 +45,13 @@ SEED="${SEED:-20260715}"
 FAMILIES="${FAMILIES:-iiw fiptiw iptw}"
 
 WORK="$BASE/work"
-POOL="$BASE/blockpool"      # every block's .dta is collected here
+# Pools are segregated by the configuration that produced them. A block .dta is
+# named <family>_<from>_<to>.dta and carries REPS/SEED nowhere in its name, so a
+# single flat pool lets a REPS=10 pilot's files satisfy the REPS=999 run's
+# skip-if-present test -- the real run would then skip every block and combine
+# would certify pilot rows. The do-file refuses such a union outright (it stamps
+# and verifies provenance per row); this keeps the two from ever meeting.
+POOL="$BASE/blockpool/r${REPS}_s${SEED}"
 COMBINE="$BASE/combine"
 LOGS="$BASE/logs"
 

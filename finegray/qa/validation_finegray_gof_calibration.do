@@ -70,6 +70,11 @@ quietly net install finegray, from("`pkg_dir'") replace
 * GOF_CAL_REPS exists so the harness can be exercised quickly during
 * development; a reduced run is NOT the gate and says so in its own output.
 local R = 5000
+* THE OVERRIDE MUST READ THE ENVIRONMENT.  Stata does NOT import environment
+* variables into globals, so `GOF_CAL_REPS=20 stata-mp -b do ...' -- the smoke
+* procedure this project documents -- left $GOF_CAL_REPS EMPTY and silently ran
+* the FULL 42-minute gate.  Verified 2026-07-22.
+if "$GOF_CAL_REPS" == "" global GOF_CAL_REPS : environment GOF_CAL_REPS
 if "$GOF_CAL_REPS" != "" local R = $GOF_CAL_REPS
 local K = 1000
 local reduced = (`R' < 5000)
@@ -243,7 +248,34 @@ forvalues dg = 1/2 {
                     local sum_func = `sum_func' + `nrej_f'
                     local n_func = `n_func' + `neff'
                 }
-                local se = sqrt(`pub' * (1 - `pub') / `neff')
+                * TWO-SAMPLE SE.  The published value is itself a Monte Carlo
+                * estimate, not a constant: p.203 sec.3 gives 5,000 repeated
+                * samples for the TYPE I error rate (the power tables use
+                * 2,000, which is why the power harness divides by a different
+                * number).  Treating it as fixed understates the uncertainty.
+                *
+                * THIS LOOSENS THE GATE, AND THAT IS STATED RATHER THAN BURIED.
+                * A larger SE means a smaller |z| against the same band of 3,
+                * so cells that previously sat near the edge now sit further
+                * inside it.  Nothing is being manufactured green: the gate
+                * already PASSED all twelve cells under the stricter (and
+                * incorrect) one-sample SE, max |z| = 2.67.  The change is made
+                * because the statistic was wrong, not because a cell needed
+                * help -- and if a future cell passes only because of this
+                * widening, that is a cell whose evidence never supported the
+                * tighter claim in the first place.
+                * SCORE FORM: the reference proportion supplies BOTH variance
+                * components.  The obvious two-sample SE,
+                *     sqrt(pub(1-pub)/5000 + obs(1-obs)/neff),
+                * DEGENERATES when obs is 0 or 1 -- the observed component
+                * vanishes, the SE collapses to the published component alone,
+                * and |z| explodes.  That is not hypothetical: at R=25 a cell
+                * with a true rate near 0.05 returns zero rejections about 28%
+                * of the time, and this harness produced z = -17.96 on a cell
+                * whose observed rate was simply 0.  Under the null being
+                * tested the two proportions are equal, so estimating both
+                * variances at `pub' is both correct and well-behaved.
+                local se = sqrt(`pub' * (1 - `pub') * (1 / 5000 + 1 / `neff'))
                 local z = (`obs' - `pub') / `se'
 
                 display as text "  `lab' n=" %4.0f `n' " cens " %5.2f `cr' ///

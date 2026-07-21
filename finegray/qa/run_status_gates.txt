@@ -126,8 +126,10 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 # (n=100, 400 reps, nsim=500, minor_included=0):
 #
 #                                            15% cens   30% cens
-#   crskdiag ORIG  (defective Ghat_c)         0.6375     0.4800
-#   crskdiag FIXED (corrected Ghat_c)         0.6425     0.4800
+#   crskdiag ORIG  (defective Ghat_c)         0.6325     0.4675
+#   crskdiag FIXED (corrected Ghat_c)         0.6325     0.4700
+#   [re-measured 2026-07-22 by R/11_power_orig_vs_fixed.R; the values this
+#    file previously carried came from a script that did not exist]
 #   finegray       (R=5000, nsim=1000)        0.6158     0.4738
 #   crskdiag FIXED, exponential censoring     0.6300     0.4850
 #   paper, Table 2                            0.5560     0.3920
@@ -136,7 +138,10 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 #     defect does not cost power on this DGP;
 #   - finegray agrees with both (z = 1.07 and 0.24 against FIXED);
 #   - swapping uniform censoring for exponential changes nothing.
-#   Three independent implementations agree; all three disagree with the table.
+#   TWO CODEBASES, two Table-2 cells, one DGP reading -- ORIG and FIXED are
+#   the same package in two builds, so "three independent implementations"
+#   was an overstatement and is withdrawn.  The refutation it supports (the
+#   censoring-KM defect does not move power) stands: z = 0.00 and -0.07.
 #
 # So the gap lies in the paper's DESCRIPTION of its own simulation, not in this
 # estimator.  Unresolved detail, most likely the cause-assignment convention:
@@ -264,7 +269,9 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 #      published numbers.
 #   3. The failure is therefore LOCALISED to the alternative DGP of Tables 2
 #      and 3, whose description is incomplete in ways sec. 3.1's is not: it
-#      never states the censoring distribution, and its "we fixed the
+#      -- NOT because it omits the censoring distribution; p.203 sec.3 does
+#      specify U(0,tau) for every table, and the earlier claim here that it
+#      does not was FALSE.  The real incompleteness is that its "we fixed the
 #      probability of cause 1 at 0.66" cannot be reconciled with the model's own
 #      F1(inf|Z) = 0.33 / 0.14 at gamma = 2.
 #

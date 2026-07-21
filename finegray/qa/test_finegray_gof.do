@@ -1304,6 +1304,12 @@ capture noisily {
     quietly finegray_gof, seed(5) nsim(200) funcform(Z1) link ///
         graph simlines(7) saving("`_paths'", replace)
 
+    * Captured BEFORE the `use' below: loading the saved dataset clears r(),
+    * so an oracle read afterwards would silently compare the artifact with
+    * itself-as-missing rather than with the reported statistic.
+    matrix _G23_F = r(funcform)
+    scalar _G23_supl = r(sup_link)
+
     * the user's data is untouched
     assert _N == `_n0'
     assert c(k) == `_k0'
@@ -1342,7 +1348,64 @@ capture noisily {
     assert `: word count `_kinds'' == 2
     quietly count if missing(x) | missing(observed)
     assert r(N) == 0
+
+    * -----------------------------------------------------------------------
+    * NUMERICAL CONTENT, not just shape.  Everything above this line passes on
+    * a dataset of the right shape carrying arbitrary numbers: it checks that
+    * columns EXIST and are nonmissing, never that any value is right.  The
+    * block comment has claimed "x must be sorted within a block" since the
+    * test was written and nothing tested it.  Added 2026-07-22.
+    * -----------------------------------------------------------------------
+
+    * (1) the documented block labels, in the documented order.
+    *     kind 2 = functional form, kind 3 = link (kind 1 = proportionality,
+    *     not requested here).  Asserted as an exact list so that a reordering
+    *     or a relabelling is a failure, not a silent change of meaning.
+    assert "`_kinds'" == "2 3"
+
+    * (2) x STRICTLY increasing within each block -- the untested claim.
+    *     Strict, not weak: a duplicated grid point would mean the process is
+    *     carrying the same index twice, which breaks the supremum's grid.
+    quietly by kind (x), sort: gen byte _g23inc = (_n == 1) | (x > x[_n-1])
+    quietly count if _g23inc == 0
+    assert r(N) == 0
+
+    * (3) THE ARTIFACT MUST REPRODUCE THE REPORTED STATISTIC.  sup|observed|
+    *     within a block is exactly the sup statistic the command returned for
+    *     that process.  This is the oracle that ties the saved picture to the
+    *     inference: a path matrix built from the wrong process, or scaled
+    *     differently on its way to disk, plots a plausible curve and reports a
+    *     p-value from something else.  Measured agreement is ~3e-16; asserted
+    *     at 1e-12 so it cannot fail on floating-point noise.
+    *
+    *     Sound here ONLY because this fixture is not thinned: n = 300 gives
+    *     300 grid points per block, under _finegray_gof_maxgrid(), so the
+    *     saved grid is the full grid.  Asserted rather than assumed, because
+    *     on a thinned artifact sup|observed| is a sup over a SUBSET and would
+    *     be legitimately smaller -- the check would then fail on correct code.
+    quietly count if kind == 2
+    assert r(N) == 300
+    quietly count if kind == 3
+    assert r(N) == 300
+
+    quietly summarize observed if kind == 2
+    local _s2 = max(abs(r(min)), abs(r(max)))
+    assert reldif(`_s2', _G23_F[1,1]) < 1e-12
+
+    quietly summarize observed if kind == 3
+    local _s3 = max(abs(r(min)), abs(r(max)))
+    assert reldif(`_s3', scalar(_G23_supl)) < 1e-12
+
+    * (4) the simulated paths carry signal.  A column of zeros satisfies every
+    *     existence check above and would mean the multiplier draw never
+    *     reached the saved matrix.
+    forvalues _s = 1/7 {
+        quietly summarize _fgsim`_s'
+        assert r(sd) > 0
+    }
     restore
+    capture matrix drop _G23_F
+    capture scalar drop _G23_supl
 }
 if _rc == 0 {
     local ++pass_count

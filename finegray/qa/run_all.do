@@ -110,11 +110,19 @@ local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.
 *                                         columns are a different estimator this
 *                                         package does not expose; see the suite
 *                                         header.
+* _gof_power_dgp_variants.do belongs in `gates' and NOT in `full': it is a
+* Monte Carlo screen (~3 min measured, R=1000 nsim=500) over three named
+* readings of Li et al. sec. 3.1's alternative DGP.  It gates the facts the
+* power suite's weakened assertions rest on -- that reading B still cannot
+* construct the paper's censoring cells, and that readings A and C still
+* bracket the published value -- so if it is dropped, the reasoning recorded
+* in FINDINGS §20 becomes unchecked narration.
 local gates_files validation_finegray_zzf_recovery.do ///
     validation_finegray_zzf_coverage.do ///
     validation_finegray_zzf_factorization.do ///
     validation_finegray_gof_calibration.do ///
-    validation_finegray_gof_power.do
+    validation_finegray_gof_power.do ///
+    _gof_power_dgp_variants.do
 
 local full_files `core_files' `python_files'
 

@@ -105,7 +105,8 @@ Like its two sibling gates, this is run on demand (smoke settings emit `smoke=1`
 | Suite | Question | Published target | Cost |
 |---|---|---|---|
 | `validation_finegray_gof_calibration.do` | Does the test hold its size under the null? | Li/Scheike/Zhang (2015) Tables 1 and 4 | 12 cells × 5,000 reps × nsim 1,000 |
-| `validation_finegray_gof_power.do` | Does it have power under the two alternatives the paper studies? | Tables 2 and 3, "Proposed" column | 12 cells × 5,000 reps × nsim 1,000 |
+| `validation_finegray_gof_power.do` | Does it have power under the two alternatives the paper studies? | **Own frozen baseline** on the named DGP (reading A); Tables 2 and 3 reported `UNRESOLVED`, not asserted | 12 cells × 5,000 reps × nsim 1,000 |
+| `_gof_power_dgp_variants.do` | Which reading of the paper's alternative DGP generated Tables 2 and 3? | Closed-form generator identities; three named readings | 3 readings, R = 1,000 × nsim 500 (~3 min) |
 
 **Why the power gate carries two alternatives rather than one.** They differ only in the *shape* of the time-varying effect, and that difference is the paper's argument. Under Table 2's linear departure (`β(t) = β + θt`) a correctly specified time-interaction model beats the omnibus test, 0.9985 to 0.9590 at n = 300 / 15% censoring. Under Table 3's change point the ordering reverses, 0.9125 to 0.9715. The case for an omnibus test is precisely that it does not require the analyst to have guessed the form, so a suite reproducing only Table 2 would evidence the case where the test is second best and omit the case that justifies it.
 
@@ -119,12 +120,18 @@ Running the same DGP through the authors' own `crskdiag` in both builds (n = 100
 
 | implementation | 15% cens | 30% cens |
 |---|---|---|
-| `crskdiag` ORIG — defective `Ĝ_c` | 0.6375 | 0.4800 |
-| `crskdiag` FIXED — corrected `Ĝ_c` | 0.6425 | 0.4800 |
-| `finegray` | 0.6158 | 0.4738 |
+| `crskdiag` ORIG — defective `Ĝ_c` | 0.6325 | 0.4675 |
+| `crskdiag` FIXED — corrected `Ĝ_c` | 0.6325 | 0.4700 |
+| `finegray` (reading A) | 0.6170 | 0.4530 |
 | **paper, Table 2** | **0.5560** | **0.3920** |
 
-The two builds agree with *each other*, so the censoring-KM defect does not cost power here; `finegray` agrees with both (z = 1.07 and 0.24); and exponential censoring instead of uniform changes nothing (0.6300 / 0.4850). Three independent implementations agree and all disagree with the table, so the gap is in the paper's description of its own simulation. The unresolved detail is most likely the cause-assignment convention: with γ = 2 the model's own `F₁(∞|Z)` is 0.33 and 0.14, nowhere near the 0.66 the text says was "fixed for simplicity".
+Reproducer: `_take_action/finegray/R/11_power_orig_vs_fixed.R` (400 reps, nsim = 500, `minor_included = 0`, seed0 = 20260722; build paths and `sessionInfo()` recorded in its output). An earlier version of this table quoted slightly different values from a script that **did not exist**; it was re-measured on 2026-07-22 and the conclusion survived, but cite the script, not a pasted table.
+
+The two builds agree with *each other* (z = 0.00 and −0.07), so the censoring-KM defect does not cost power here; `finegray` agrees with both (z = −0.54 and −0.58). This is **two codebases, two Table-2 cells, one DGP reading** — not "three independent implementations", which was an overstatement (ORIG and FIXED are the same package in two builds) and is withdrawn.
+
+**The decisive argument is arithmetic.** The paper's *null* paragraph defines `p₁ = F₁(∞|Z=0) = 0.66`; the *alternative* paragraph fixes both "the probability of cause 1 at 0.66" and `γ = 2`, but `γ = 2` *fixes* `F₁(∞|Z=0) = 0.3297`. Under the paper's own definition those are mutually inconsistent, so no reading can satisfy both. Three named readings were tested and none reproduces the table — see `_gof_power_dgp_variants.do`, which also shows that reading B cannot construct the paper's censoring cells at all, and that Table 3 is *reading-invariant* (`F₁(∞|Z) = 1`), so fixing dgp 1 would not fix dgp 2.
+
+**The strongest evidence is the contrast, and it needs no external software:** where the paper is explicit (null paragraph, Tables 1 and 4) the suite reproduces it in **12/12 cells**; where it is ambiguous (alternative paragraphs, Tables 2 and 3) it misses in **12/12 cells, all one direction**.
 
 **So the suite asserts the structural relations and a bracket** — each cell at or above the published value by no more than 0.15 — and *reports* each cell's z without gating on it. The bracket encodes what the cross-implementation evidence supports (observed maximum offset +0.103) while still failing if power collapses toward the type-I level or saturates at 1. Asserting the published cells outright would be a gate that fails on correct code, the same error recorded in `FINDINGS.md` §13.3 for β-parity against `cmprsk::crr`.
 
@@ -227,7 +234,7 @@ install.packages("fastcmprsk")
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do`, `crossval_gof.do` |
 | `full` | `core` + `python` |
-| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`, `validation_finegray_gof_calibration.do`, `validation_finegray_gof_power.do` |
+| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`, `validation_finegray_gof_calibration.do`, `validation_finegray_gof_power.do`, `_gof_power_dgp_variants.do` |
 | Standalone measurement | `benchmark_finegray_zzf.do` (uses `_benchmark_finegray_zzf_cell.do`; intentionally not a `run_all.do` lane) |
 
 ## Coverage map
