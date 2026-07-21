@@ -193,3 +193,86 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 #
 # verdict:     PASS (structural relations + bracket); published cells REPORTED,
 #              not reproduced, with the reason established above.
+
+# ===========================================================================
+# 2026-07-21  CALIBRATION GATE -- validation_finegray_gof_calibration.do
+#             (Gate L4, FIRST RUN AT FULL SIZE)
+# ===========================================================================
+#
+# lane:        gates (run standalone, not via run_all.sh gates)
+# date:        2026-07-21
+# settings:    R=5000 replications, nsim=1000, 12 cells
+# runtime:     42 min measured (19:45 -> 20:27), against the "~16h" figure
+#              carried in the plan since Gate L4. That estimate was never
+#              measured and is off by ~23x. The reasoning behind it was also
+#              wrong: design 2 was expected to dominate because its funcform
+#              and link processes are n x ngrid, but Z in {0,...,9} gives
+#              ngrid = 10, so design 2 is CHEAPER than design 1, not dearer.
+# verdict:     PASS  (RESULT: tests=13 pass=13 fail=0)
+#
+# ALL TWELVE CELLS REPRODUCE THE PUBLISHED VALUES.
+#   max |z| = 2.67, mean |z| = 0.89 against Tables 1 and 4.
+#
+#   test  n    cens  obs     paper   z
+#   prop  50   0.15  0.0624  0.0624   0.00
+#   prop  100  0.15  0.0516  0.0606  -2.67
+#   prop  300  0.15  0.0522  0.0536  -0.44
+#   prop  50   0.30  0.0706  0.0642  +1.85
+#   prop  100  0.30  0.0566  0.0564  +0.06
+#   prop  300  0.30  0.0556  0.0536  +0.63
+#   func  50   0.15  0.0530  0.0568  -1.16
+#   func  100  0.15  0.0554  0.0514  +1.28
+#   func  300  0.15  0.0504  0.0478  +0.86
+#   func  50   0.30  0.0536  0.0556  -0.62
+#   func  100  0.30  0.0548  0.0566  -0.55
+#   func  300  0.30  0.0488  0.0506  -0.58
+#
+# pooled proportionality 0.0582  (vs 0.05: z = 6.04)   -- paper reports 0.0585
+# pooled functional form 0.0527  (vs 0.05: z = 2.07)
+# prop - func            0.0055  (z = 2.94)
+#
+# Both pooled relations assert and pass: the proportionality test IS
+# anticonservative (the paper's central claim about it, and why the help file
+# says so), and it is MORE anticonservative than the functional-form test,
+# which is the ordering Tables 1 and 4 show.
+#
+# The func-vs-link agreement check passes in all six design-2 cells
+# (|func - link| = 0.0002 to 0.0028 against bounds of 0.0129 to 0.0137): with a
+# single covariate the two statistics index the same indicator set, so a large
+# gap would mean the link axis was built from something other than the linear
+# predictor.
+#
+# ===========================================================================
+# WHY THIS RESULT MATTERS FOR THE POWER GATE ABOVE
+# ===========================================================================
+#
+# These two gates were run on the same day, through the same commands, with the
+# same harness idiom and the same U(0,tau] censoring construction, by the same
+# author reading the same paper. They disagree completely:
+#
+#   calibration (Tables 1 and 4)   ALL 12 cells reproduce   max |z| = 2.67
+#   power       (Tables 2 and 3)   ZERO cells reproduce     z = +3.89 .. +18.28
+#
+# That contrast is the strongest available evidence on where the Tables 2-3
+# discrepancy lives, and it points away from this package:
+#
+#   1. The ESTIMATOR is correctly calibrated. That is not inferred from the
+#      power run; it is the direct content of this gate, at R=5000.
+#   2. The DGP-READING METHOD is sound. The same approach reproduces the paper
+#      exactly wherever the paper is fully specified -- sec. 3.1 gives explicit
+#      F1(t|Z) and F2(t|Z) formulas for the null, and those cells land on the
+#      published numbers.
+#   3. The failure is therefore LOCALISED to the alternative DGP of Tables 2
+#      and 3, whose description is incomplete in ways sec. 3.1's is not: it
+#      never states the censoring distribution, and its "we fixed the
+#      probability of cause 1 at 0.66" cannot be reconciled with the model's own
+#      F1(inf|Z) = 0.33 / 0.14 at gamma = 2.
+#
+# Read with the ORIG-vs-FIXED crskdiag comparison in the power section above --
+# where the authors' own code, in both builds, agrees with finegray and not with
+# their published table -- the conclusion is that Tables 2 and 3 are not
+# reproducible from the paper as written. Tables 1 and 4 are, and this gate
+# proves it.
+#
+# verdict:     PASS -- Gate L4 closed. Type I error reproduces Li/Scheike/Zhang
+#              (2015) Tables 1 and 4 at R=5000 in all twelve cells.
