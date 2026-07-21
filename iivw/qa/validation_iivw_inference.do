@@ -39,7 +39,28 @@ set varabbrev off
 *   does not separate and the demonstrable difference is the fixed/refit SE ratio.
 *
 * Usage (from iivw/qa):
-*   stata-mp -b do validation_iivw_inference.do MODE [SIMS] [REPS] [SEED]
+*   stata-mp -b do validation_iivw_inference.do MODE [SIMS] [REPS] [SEED] [FROM] [TO]
+*
+*   BLOCK SHARDING (recommended for a gate run)
+*     The 1000 replications are independent -- the seed ledger derives both
+*     seeds for replication s from (master, arm, s) and nothing carries between
+*     them -- so they can be split across processes and recombined exactly.
+*     Verified: replications 1-6 run as one block and as blocks 1-3 + 4-6 agree
+*     to a worst reldif of 9.8e-17 across all 12 posted quantities.
+*
+*       # eight blocks of 125, run concurrently
+*       for f in 1 126 251 376 501 626 751 876; do
+*         t=$((f+124))
+*         stata-mp -b do validation_iivw_inference.do iiw 1000 999 20260715 $f $t &
+*       done; wait
+*       # then ONE verdict over the union
+*       stata-mp -b do validation_iivw_inference.do combine_iiw 1000 999 20260715
+*
+*     A block emits rows and never a verdict. combine_<family> proves the blocks
+*     TILE 1..SIMS exactly -- refusing on overlap or on a missing block -- and
+*     then applies the preregistered acceptance once. Sharding by family alone
+*     leaves a 16-core box mostly idle: Stata-MP parallelises within a command,
+*     and these fits are far too small to benefit.
 *     MODE  smoke  (default) small NON-GATE plumbing run, prints a failing sentinel
 *           iiw    IIW random-slope coverage cell (gate arithmetic)
 *           iptw   stabilized ATE IPTW coverage cell (gate arithmetic)
@@ -49,9 +70,12 @@ set varabbrev off
 *     SEED  master seed          (default 20260715)
 * =============================================================================
 
-args MODE SIMS REPS SEED
+args MODE SIMS REPS SEED FROM TO
 if "`MODE'" == "" local MODE smoke
-if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release") {
+if "`FROM'" == "" local FROM 0
+if "`TO'"   == "" local TO 0
+if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
+    "combine_iiw", "combine_iptw", "combine_fiptiw") {
     display as error "MODE must be smoke, iiw, iptw, fiptiw, or release (got: `MODE')"
     exit 198
 }
@@ -337,9 +361,41 @@ program define _inf_engine, rclass
     version 16.0
     syntax , family(string) arm(integer) sims(integer) reps(integer) ///
         master(integer) truth(real) [GAMMA(real 1.0) DELTA(real 0.6) NSUB(integer 0) ///
-        FLOOR(real 0.92)]
+        FLOOR(real 0.92) FROM(integer 0) TO(integer 0) ///
+        ROWSOUT(string) ROWSIN(string)]
     * FLOOR is the registered COVERAGE_FLOOR passed in: driver-scope locals are
     * NOT visible inside a program, so the constant must arrive as an option.
+    *
+    * BLOCK SHARDING (from/to, rowsout, rowsin)
+    * -----------------------------------------
+    * The 1000 outer replications are mutually independent: the seed ledger
+    * derives BOTH seeds for replication s from (master, arm, s) alone, and no
+    * state carries from one replication to the next. Replication 700 therefore
+    * produces byte-identical output whether it is the 700th iteration of a
+    * monolithic loop or the 5th of a block covering 696-820. Block sharding is
+    * equivalent BY CONSTRUCTION here, not merely in practice.
+    *
+    * That matters because the gate was sharded by FAMILY -- three units of work
+    * on a 16-core box -- while Stata-MP's within-command parallelism is close to
+    * useless on fits this small (250 subjects). Measured: 44 replications in 3
+    * hours for iiw, i.e. ~68 hours for the family. Sharding by replication block
+    * uses the machine in the dimension the problem is actually parallel in.
+    *
+    * rowsout() writes a block's raw rows and returns WITHOUT a verdict.
+    * rowsin() skips the loop and evaluates rows collected elsewhere.
+    * The acceptance rule is applied exactly ONCE, to the union of all blocks --
+    * never per block. A per-block PASS/FAIL would be multiple testing on the
+    * preregistered band, and would let a reader cherry-pick a green block.
+    if `from' == 0 local from 1
+    if `to' == 0 local to `sims'
+    if `from' < 1 | `to' > `sims' | `from' > `to' {
+        display as error "engine(`family'): block range `from'-`to' is not inside 1-`sims'"
+        exit 198
+    }
+    if `"`rowsout'"' != "" & `"`rowsin'"' != "" {
+        display as error "engine(`family'): rowsout() and rowsin() are mutually exclusive"
+        exit 198
+    }
 
     tempname P
     tempfile rowsfile
@@ -349,7 +405,7 @@ program define _inf_engine, rclass
 
     local n_ok = 0
     local n_fail = 0
-    forvalues s = 1/`sims' {
+    forvalues s = `from'/`to' {
         _inf_dgpseed  `master' `arm' `s'
         local dgpseed = `r(seed)'
         _inf_bootseed `master' `arm' `s'
@@ -384,7 +440,25 @@ program define _inf_engine, rclass
     }
     postclose `P'
 
-    use "`rowsfile'", clear
+    if `"`rowsin'"' != "" {
+        use `"`rowsin'"', clear
+    }
+    else {
+        use "`rowsfile'", clear
+    }
+
+    * A block emits rows and stops. No verdict, and a sentinel that cannot be
+    * mistaken for one.
+    if `"`rowsout'"' != "" {
+        quietly save `"`rowsout'"', replace
+        quietly count
+        display as text "engine(`family'): block `from'-`to' wrote " r(N) ///
+            " row(s) to `rowsout' (`n_fail' failed draw(s))"
+        display as error "BLOCK-ONLY: no gate verdict is computed for a block"
+        return scalar gate_ok = 0
+        return scalar block_rows = r(N)
+        exit 0
+    }
 
     * --- aggregation integrity: no missing/duplicate (arm, sim) keys ---
     quietly count
@@ -500,6 +574,97 @@ if "`MODE'" == "smoke" {
     display as error "RESULT: validation_iivw_inference INFERENCE-SMOKE non-gate (SIMS=`SIMS' < COVERAGE_R=`COVERAGE_R')"
     display as error "  a smoke run exercises the plumbing only; it is NOT the release gate"
     exit 1
+}
+else if inlist("`MODE'", "iiw", "iptw", "fiptiw") & `FROM' > 0 & `TO' > 0 {
+    * BLOCK RUN. Emits rows for replications FROM..TO and no verdict. The gate
+    * is applied later, once, by combine_<family> over the union of all blocks.
+    if `SIMS' < `COVERAGE_R' {
+        display as error "a gate block still requires SIMS >= COVERAGE_R (`COVERAGE_R')"
+        display as error "  SIMS is the size of the WHOLE study; FROM/TO select this block's slice"
+        exit 198
+    }
+    if "`MODE'" == "iiw"    local truth 0.5
+    if "`MODE'" == "iptw"   local truth 1.5
+    if "`MODE'" == "fiptiw" local truth 1
+    if "`MODE'" == "iiw"    local arm 1
+    if "`MODE'" == "iptw"   local arm 2
+    if "`MODE'" == "fiptiw" local arm 3
+    local blockdir "`c(pwd)'/_inf_blocks"
+    capture mkdir "`blockdir'"
+    local tag = string(`FROM', "%05.0f") + "_" + string(`TO', "%05.0f")
+    _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
+        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') ///
+        from(`FROM') to(`TO') rowsout("`blockdir'/`MODE'_`tag'.dta")
+    display as text "{hline 74}"
+    display as error "RESULT: validation_iivw_inference `MODE' BLOCK `FROM'-`TO' non-gate"
+    display as error "  a block is not the gate; run combine_`MODE' over all blocks"
+    exit 1
+}
+else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
+    * COMBINE. Load every block for the family, prove the blocks TILE 1..SIMS
+    * exactly, then apply the preregistered acceptance once to the union.
+    local fam = subinstr("`MODE'", "combine_", "", 1)
+    if `SIMS' < `COVERAGE_R' {
+        display as error "combine requires SIMS >= COVERAGE_R (`COVERAGE_R')"
+        exit 198
+    }
+    if "`fam'" == "iiw"    local truth 0.5
+    if "`fam'" == "iptw"   local truth 1.5
+    if "`fam'" == "fiptiw" local truth 1
+    if "`fam'" == "iiw"    local arm 1
+    if "`fam'" == "iptw"   local arm 2
+    if "`fam'" == "fiptiw" local arm 3
+
+    local blockdir "`c(pwd)'/_inf_blocks"
+    local blocks : dir "`blockdir'" files "`fam'_*.dta"
+    local nblk : word count `blocks'
+    if `nblk' == 0 {
+        display as error "combine(`fam'): no block files in `blockdir'"
+        exit 601
+    }
+    tempfile allrows
+    local first = 1
+    foreach b of local blocks {
+        quietly use "`blockdir'/`b'", clear
+        if `first' == 0 quietly append using "`allrows'"
+        quietly save "`allrows'", replace
+        local first = 0
+    }
+    quietly use "`allrows'", clear
+
+    * TILING PROOF. A block that never ran, or ran twice, must not be
+    * aggregated silently -- that is how a coverage number gets computed over
+    * a subset and reported as the whole study.
+    quietly count
+    local nrows = r(N)
+    tempvar dupk
+    quietly bysort arm sim: gen byte `dupk' = _N
+    quietly count if `dupk' > 1
+    if r(N) > 0 {
+        display as error "combine(`fam'): duplicate (arm,sim) keys across blocks"
+        display as error "  the blocks overlap; re-run with disjoint FROM/TO ranges"
+        exit 459
+    }
+    quietly summarize sim
+    if r(min) != 1 | r(max) != `SIMS' {
+        display as error "combine(`fam'): blocks span sim `=r(min)'-`=r(max)', expected 1-`SIMS'"
+        display as error "  at least one block is missing; the union is not the study"
+        exit 459
+    }
+    local ndrop = `SIMS' - `nrows'
+    display as text "combine(`fam'): `nblk' block(s), `nrows' of `SIMS' replications" ///
+        " (`ndrop' failed draw(s))"
+
+    _inf_engine, family(`fam') arm(`arm') sims(`SIMS') reps(`REPS') ///
+        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') rowsin("`allrows'")
+    local gate = `r(gate_ok)'
+    display as text "{hline 74}"
+    if `gate' {
+        display as result "RESULT: validation_iivw_inference `fam' gate=PASS sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+        exit 0
+    }
+    display as error "RESULT: validation_iivw_inference `fam' gate=FAIL sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+    exit 9
 }
 else if inlist("`MODE'", "iiw", "iptw", "fiptiw") {
     if `SIMS' < `COVERAGE_R' {
