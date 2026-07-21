@@ -76,6 +76,11 @@ program define _iivw_bs_estimate, eclass
         display as error "model() must be gee or mixed"
         error 198
     }
+
+    * The outcome fit must have CONVERGED to count as a replicate; see
+    * _iivw_require_draw_converged.ado for why, and for why a missing
+    * e(converged) fails closed rather than passing.
+    _iivw_require_draw_converged, model(`model')
     }
     local rc = _rc
     set varabbrev `__iivw_old_varabbrev'

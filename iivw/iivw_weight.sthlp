@@ -151,9 +151,9 @@ process is at risk from time 0, so visits at negative times are rejected
 rather than silently excluded from the Cox model. Shift or rescale a centered
 time variable before weighting. A first visit at exactly time 0 is allowed; it
 spans no risk time, so it is excluded from the visit-intensity model and keeps
-the conventional raw baseline weight of 1 (rescaled with the rest, as described
-under {it:Mean-1 normalization}), and a note reports how many subjects are
-affected.
+the conventional baseline weight of exactly 1 (assigned after the rescaling, as
+described under {it:Mean-1 normalization}), and a note reports how many
+subjects are affected.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 
@@ -506,10 +506,10 @@ assigned a raw weight of 1, because there is no prior inter-visit interval from
 which to estimate an intensity; the baseline visit is a recruitment visit,
 observed with probability 1. (This is the convention used by the reference R
 implementation, {cmd:IrregLong}, under its {cmd:first=TRUE} argument.) Note that
-the raw weights are then rescaled to mean 1, so the {it:reported} first-visit
-weight is 1/mean(exp(-xb)), not 1 -- see {it:Mean-1 normalization} below. It is
-the same for every subject and carries no covariate information, which is what
-the convention is for.
+the fitted weights are rescaled to mean 1 over the modelled events {it:before}
+that 1 is assigned, so the reported first-visit weight is exactly 1 -- see
+{it:Mean-1 normalization} below. It is the same for every subject and carries
+no covariate information, which is what the convention is for.
 
 {pstd}
 {bf:IPTW (inverse probability of treatment weighting)}
@@ -629,28 +629,58 @@ endogenous.
 {bf:First-observation weights}
 
 {pstd}
-The first observation per subject receives IIW weight 1 by convention before
-normalization: there is no prior visit from which to estimate intensity at the
-first visit. If visit covariates are missing for first observations, a note
-is displayed and the raw weight is set to 1. In every case the reported weight
-is the rescaled one, 1/mean(exp(-xb)) -- never exactly 1. See
-{it:Mean-1 normalization} below.
+Under the default {cmd:baseline(entry)} the first observation per subject is
+study entry rather than a modelled monitoring event: there is no prior visit
+from which to estimate an intensity at the first visit, so it is excluded from
+the Cox fit and receives IIW weight exactly 1. That 1 is assigned {it:after}
+the mean-1 rescaling, so the reported first-visit weight is 1 -- see
+{it:Mean-1 normalization} below for why the ordering matters.
+
+{pstd}
+Under {cmd:baseline(event)} the first visit {it:is} a modelled event and keeps
+the fitted weight the Cox model produced for it, exactly like every other
+event. A first visit whose visit-model covariates are missing therefore has no
+fitted weight, and leaves the weighted analysis rather than being assigned a
+conventional 1; a note reports how many subjects are affected. Builds before
+2.1 overwrote that fitted weight with 1, which discarded an estimated quantity
+and made the estimator depend on the origin of the Cox covariates.
 
 {pstd}
 {bf:Mean-1 normalization}
 
 {pstd}
 The visit-intensity component ({cmd:_iivw_iw}, and hence the FIPTIW product)
-is normalized to mean 1 over the estimating sample. The raw IIW weight
+is normalized to mean 1 {it:over the modelled visit events}. The raw IIW weight
 {cmd:exp(-xb)} has an arbitrary scale, because the Andersen-Gill Cox model
 carries no intercept and its linear predictor is uncentered, so the raw weight
-mean reflects covariate location rather than model fit. Rescaling to mean 1
+mean reflects covariate location rather than model fit. Rescaling by a constant
 leaves the weighted point estimates and the cluster-robust standard errors
 unchanged -- a constant weight factor cancels in the estimating equation and
 in both the bread and the meat of the sandwich variance -- while making the
 reported weight mean, effective sample size, and {cmd:max > 10} thresholds
-interpretable on a common scale. After normalization the first-observation
-weight equals 1 divided by the sample mean of {cmd:exp(-xb)}, not exactly 1.
+interpretable on a common scale.
+
+{pstd}
+The {it:scope} of that mean is part of the estimator, not a detail. Under the
+default {cmd:baseline(entry)} the scheduled study-entry visit is not a modelled
+monitoring event: it is excluded from the Cox fit, assigned weight exactly 1,
+and that 1 is inserted {it:after} the normalization, so entry rows never enter
+the mean the fitted component is scaled against. Under {cmd:baseline(event)}
+every visit including the first is a modelled event, keeps its own fitted
+weight, and enters the same single normalization.
+
+{pstd}
+This ordering is what makes the weights invariant to how the visit model is
+parameterized. Replacing a visit covariate {cmd:z} by {cmd:z + c} leaves the
+partial likelihood, the coefficients and the risk ordering unchanged -- the
+same scientific model -- but multiplies every fitted weight by the common
+factor {cmd:exp(-gamma_z*c)}. A common factor cancels only if the mean is taken
+over exactly the rows that carry it. Normalizing a pooled vector of fitted
+weights together with hard-coded 1s does not cancel it: the baseline-to-
+follow-up ratio moves, and dividing by a pooled mean cannot undo a change in a
+ratio. Point estimates, standard errors and truncation cutpoints are therefore
+all invariant to an additive shift or a positive rescaling of any visit-model
+covariate.
 
 {pstd}
 {bf:Truncation}

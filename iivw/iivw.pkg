@@ -40,5 +40,7 @@ f _iivw_check_passthru.ado
 f _iivw_export_table.ado
 f _iivw_own.ado
 f _iivw_reserve_names.ado
+f _iivw_repost_outcome_n.ado
 f _iivw_require_converged.ado
+f _iivw_require_draw_converged.ado
 f _iivw_weight_signature.ado

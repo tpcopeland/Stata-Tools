@@ -487,11 +487,17 @@ if `run_only' == 0 | `run_only' == 11 {
         iivw_weight, endatlastvisit baseline(event) id(pid) time(months) visit_cov(severity) nolog
         assert r(N) == 160
         assert r(n_ids) == 40
-        * First-obs IIW weights identical across subjects (mean-1 normalized)
+        * This runs baseline(event), so first visits are modelled events with
+        * their own fitted weights. What matters for a STRING id is that the
+        * per-subject grouping worked at all: every subject has exactly one
+        * first visit and every one of them got a usable weight. (The
+        * first-visit weight contract itself is owned by validation_iivw V1.)
         tempvar _fafirst
         bysort pid (months): gen byte `_fafirst' = (_n == 1)
-        quietly summarize _iivw_iw if `_fafirst'
-        assert r(sd) < 1e-9
+        quietly count if `_fafirst'
+        assert r(N) == 40
+        quietly count if `_fafirst' & (missing(_iivw_iw) | _iivw_iw <= 0)
+        assert r(N) == 0
 
         * String id stored in metadata means markout on cluster fails
         * (markout excludes all obs for string vars). Must supply numeric cluster.

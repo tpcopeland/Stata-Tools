@@ -402,14 +402,18 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 12 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
+        * The study-entry convention must survive a stabilization model: under
+        * baseline(entry) the entry visit is not a modelled event whatever the
+        * numerator is doing, so it takes weight exactly 1 -- assigned after the
+        * fitted component is normalized, which is what keeps the stabilized
+        * ratio invariant to the origin of either model's covariates.
+        iivw_weight, endatlastvisit id(id) time(months) visit_cov(severity) ///
             stabcov(sev_bl) nolog
-        * First-obs IIW weights identical across subjects (baseline convention,
-        * mean-1 normalized) even with a stabilization model
         tempvar _ev12first
         bysort id (months): gen byte `_ev12first' = (_n == 1)
         quietly summarize _iivw_iw if `_ev12first'
         assert r(sd) < 1e-9
+        assert abs(r(mean) - 1) < 1e-12
     }
     if _rc == 0 {
         display as result "  PASS: EV12 - First-obs IW identical with stabcov"

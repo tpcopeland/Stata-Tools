@@ -497,28 +497,47 @@ if `run_only' == 0 | `run_only' == 46 {
         *     that normalizer is derivable from the oracle -- so derive it rather
         *     than rescale both sides and call whatever is left a match.
         *
-        *     iivw rescales the RAW weights to mean 1 over every row it weights.
-        *     Those rows are the 95 matched visits, PLUS each subject's first
-        *     visit, which takes raw weight 1 by convention (there is no prior
-        *     interval to estimate an intensity from). So
+        *     iivw rescales the raw weights to mean 1 over the MODELLED EVENTS.
+        *     Those rows are exactly the matched visits: the first visit per
+        *     subject is study entry, not a modelled event, so it is excluded
+        *     from the Cox fit AND from this mean, and takes weight 1 afterwards.
+        *     So
         *
-        *         mean_raw = (n_first * 1 + sum(w_R)) / (n_first + n_match)
+        *         mean_raw = sum(w_R) / n_match
         *         ratio    = 1 / mean_raw
         *
-        *     This ties (b) to the first-visit convention in iivw_weight.sthlp.
-        *     If either the normalization set or the first-visit raw value ever
-        *     changes, this fires -- which a bare "rescale both to mean 1" check
-        *     could never do, because that divides out the very quantity under
-        *     test. Measured: predicted 0.6046958039295871, observed ...875.
+        *     This ties (b) to the normalization scope documented under
+        *     "Mean-1 normalization" in iivw_weight.sthlp. If the normalization
+        *     set ever changes, this fires -- which a bare "rescale both to mean
+        *     1" check could never do, because that divides out the very
+        *     quantity under test.
+        *
+        *     Before the SOL-01 fix the normalizer ran over the matched visits
+        *     PLUS the first visits at a hard-coded raw 1, i.e.
+        *     (n_first + sum(w_R)) / (n_first + n_match). That pooled mean is
+        *     what made the weights depend on the origin of a Cox covariate:
+        *     shifting one scales sum(w_R) but not the 1s, so the ratio moved.
+        *     IrregLong's own first1 convention has the same property, which is
+        *     why parity here is asserted on the modelled component and the
+        *     entry rows are checked separately below.
         quietly count if _mrg == 1
         local n_first = r(N)
         quietly summarize r_w if _mrg == 3, meanonly
         local sum_rw = r(sum)
-        local mean_raw = (`n_first' + `sum_rw') / (`n_first' + `n_match')
+        local mean_raw = `sum_rw' / `n_match'
         local expected = 1 / `mean_raw'
         display as text "  first visits      : `n_first'"
         display as text "  predicted ratio   : " %20.16f `expected'
         assert abs(`rmean' - `expected') / `expected' < 1e-9
+
+        * (c) ENTRY ROWS. Under the current convention the study-entry visits
+        *     carry weight exactly 1 -- not 1/mean_raw. That is an assertion the
+        *     old pooled normalization could not make at all, and it is what
+        *     makes the whole vector invariant to a covariate shift.
+        quietly summarize _iivw_iw if _mrg == 1
+        assert r(N) == `n_first'
+        assert abs(r(min) - 1) < 1e-12
+        assert abs(r(max) - 1) < 1e-12
 
         * Guard the guard. If the merge had matched nothing, `ratio' would be all
         * missing, summarize would return r(N)==0, and `spread' would be missing
@@ -554,12 +573,29 @@ if `run_only' == 0 | `run_only' == 5 {
         rename d treated
         rename wt wt_cov
         rename z z_cov
-        rename iiw_unstab_first1 r_iiw_weight
+        * The oracle is iiw_unstab -- R's raw exp(-xb) on EVERY row -- not
+        * iiw_unstab_first1, which overrides the first observation to 1.
+        *
+        * baseline(event) declares every visit including the first to be a
+        * modelled monitoring event, so every row carries its own fitted
+        * rate-ratio weight and the whole vector is normalized together. The
+        * matching oracle is therefore the unmodified exp(-xb).
+        *
+        * Comparing against first1 here would be comparing against a different
+        * estimand: it hard-codes the first row to 1 while the rest are fitted,
+        * which is precisely the mixed-scale construction that made the weights
+        * depend on the origin of a Cox covariate (SOL-01). iivw's own
+        * baseline(entry) mode is the one that matches a first1-style
+        * convention, and XV4c is where that comparison is made.
+        rename iiw_unstab r_iiw_weight
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(treated wt_cov z_cov) nolog
 
-        * Normalize R's IIW weights to mean 1 to match the package's normalization
+        * Both sides carry an arbitrary common scale (the Cox model has no
+        * intercept), so normalize each to mean 1 before differencing. The
+        * shape comparison below is what has teeth; the rescale only removes
+        * the scale that neither implementation pins down.
         quietly summarize r_iiw_weight if !missing(r_iiw_weight), meanonly
         quietly replace r_iiw_weight = r_iiw_weight / r(mean)
         gen double iiw_diff = abs(_iivw_iw - r_iiw_weight)

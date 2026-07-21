@@ -224,7 +224,16 @@ xb_cond <- predict(gamma_fit, newdata = simdata_obs, type = "lp",
     reference = "zero")
 simdata_obs$iiw_unstab <- exp(-xb_cond)
 
-# Set first observation weight = 1 (matching iivw_weight behavior)
+# The first1 convention: override the first observation's weight to 1 while
+# every other row keeps its fitted exp(-xb). This is IrregLong's `first=TRUE`
+# and it corresponds to iivw's baseline(entry) mode, where the study-entry
+# visit is not a modelled monitoring event.
+#
+# Note that first1 is NOT invariant to the parameterization of the visit model:
+# shifting a Cox covariate by a constant multiplies every fitted weight by a
+# common factor while leaving the hard-coded 1s alone, so the baseline-to-
+# follow-up ratio moves. Kept here because it is the published convention and
+# the reference implementation's default, not because it is the better one.
 first_obs <- !duplicated(simdata_obs$id)
 simdata_obs$iiw_unstab_first1 <- simdata_obs$iiw_unstab
 simdata_obs$iiw_unstab_first1[first_obs] <- 1
@@ -235,11 +244,22 @@ print(summary(simdata_obs$iiw_unstab_first1))
 simdata_obs$stata_fiptiw_weight <-
     simdata_obs$iiw_unstab_first1 * simdata_obs$iptw_weight
 
+# The weight matching iivw's baseline(event) mode, where EVERY visit including
+# the first is a modelled event and keeps its own fitted rate-ratio weight.
+# This is the oracle for the FIPTIW outcome comparison below, which runs the
+# package in baseline(event).
+simdata_obs$fiptiw_weight_baseevent <-
+    simdata_obs$iiw_unstab * simdata_obs$iptw_weight
+
+# Fitted with the baseline(event) weight, because the Stata side of this
+# comparison (crossval_iivw.do XV10) runs iivw_weight in baseline(event). Using
+# the first1 weight here would compare two different estimands and report the
+# difference as a parity failure.
 outcome_gee <- geeglm(
     y ~ D + time,
     id = id,
     data = simdata_obs,
-    weights = stata_fiptiw_weight,
+    weights = fiptiw_weight_baseevent,
     family = gaussian(),
     corstr = "independence",
     std.err = "san.se"

@@ -48,7 +48,7 @@ program define _iivw_bs_refit, eclass
     syntax varlist(numeric min=1) [if] [in], ///
         NEWID(varname) TIMEvar(varname) WTYPE(string) PREFIX(string) ///
         MODel(string) ///
-        [PANELid(varname) ///
+        [PANELid(varname) OUTCOMETOUSE(varname) ///
          VISITcov(string) LAGvars(string) TREAT(string) TREATcov(string) ///
          STABcov(string) EFRon BASEline(string) ///
          TRUNCVisit(string) TRUNCTreat(string) TRUNCFinal(string) ///
@@ -58,12 +58,55 @@ program define _iivw_bs_refit, eclass
          FAMily(string) LINk(string) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
+    * ---------------------------------------------------------------------
+    * The RESAMPLING FRAME, captured before any varlist markout.
+    *
+    * bootstrap does not resample the rows matching the prefix's `if'. It runs
+    * this program once on the observed data and then resamples THE e(sample)
+    * THAT RUN POSTS. So the frame is whatever e(sample) says it is, and an
+    * e(sample) of just the outcome rows sends every replicate back to the
+    * truncated panel no matter what `if' the prefix was given.
+    *
+    * novarlist is the point: the frame must not be marked out on depvar or the
+    * outcome covariates. A visit with a missing outcome is still a visit the
+    * weight model consumed, and it has to survive into the draws.
+    * ---------------------------------------------------------------------
+    tempvar frame_touse
+    marksample frame_touse, novarlist
+
     marksample touse
+
+    * ---------------------------------------------------------------------
+    * Two samples, deliberately.
+    *
+    * The rows handed to this program are the WEIGHT-model frame: the whole
+    * resampled visit panel, including visits whose outcome is missing. Those
+    * rows have to be here, because the visit-intensity model is fitted on
+    * them -- a visit is an event in the counting process whether or not its
+    * outcome was recorded.
+    *
+    * outcometouse() carries the caller's outcome-ELIGIBILITY marker (its
+    * if/in, depvar, outcome covariates, cluster and time), which travels with
+    * the resampled rows because it is an ordinary column. It restricts the
+    * outcome fit only, and never the weight refit above it.
+    *
+    * Weight AVAILABILITY is deliberately not part of that marker: it is
+    * recomputed per draw, so it is applied further down (markout on the
+    * refitted weight) from THIS draw's weights, not frozen at the observed
+    * sample's.
+    * ---------------------------------------------------------------------
+    if "`outcometouse'" != "" {
+        quietly replace `touse' = 0 if `outcometouse' == 0 | missing(`outcometouse')
+    }
 
     * Same pass-through guard as iivw_fit (IIVW-B08): no variance/resampling
     * token in geeopts()/mixedopts() may reach the inner glm inside a draw.
-    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
-    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
+    * noirls unconditionally: this program only ever runs inside a bootstrap,
+    * so the e(converged) gate below is always live. iivw_fit refuses irls
+    * before it gets here; this is the second half of the same guard, for the
+    * day something else calls this wrapper.
+    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')  noirls
+    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"') noirls
 
     local log_opt = cond("`log'" == "nolog", "nolog", "")
     local weight_var "`prefix'weight"
@@ -83,6 +126,13 @@ program define _iivw_bs_refit, eclass
     * (draw, patient), so a clinic drawn twice still yields two distinct copies
     * of each of its patients. When cluster() IS the panel the mapping is
     * one-to-one with newid, which is why the common case never showed the bug.
+    *
+    * DEFENSIVE ONLY under the current contract: iivw_fit refuses refitweights
+    * when cluster() differs from the panel id, so the two branches below are
+    * equivalent on every path that can actually reach this program today. It is
+    * kept rather than collapsed because the identical construction IS live in
+    * _iivw_bs_estimate, where cluster() may sit above the panel, and because
+    * the day that refusal is lifted this is the behaviour that has to be here.
     * ---------------------------------------------------------------------
     tempvar _bs_subj
     if "`panelid'" != "" {
@@ -215,6 +265,28 @@ program define _iivw_bs_refit, eclass
         display as error "model() must be gee or mixed"
         error 198
     }
+
+    * The outcome fit must have CONVERGED to count as a replicate; see
+    * _iivw_require_draw_converged.ado for why, why allownonconverged is not
+    * honoured inside a draw, and why a missing e(converged) fails closed.
+    _iivw_require_draw_converged, model(`model')
+
+    * ---------------------------------------------------------------------
+    * Declare the frame, not the outcome sample, as e(sample).
+    *
+    * This is what actually makes the resampling frame the visit panel: see
+    * the novarlist note at the top. bootstrap reads e(sample) from the
+    * observed evaluation and draws clusters from exactly those rows, so
+    * leaving glm's e(sample) in place would hand every replicate the
+    * outcome-only panel again -- which is the defect, restated.
+    *
+    * e(sample) here means "rows this replicate consumed", and the weight
+    * model consumed the whole panel. The coefficient vector is untouched: the
+    * glm above still fitted on `touse' alone. iivw_fit re-posts the
+    * user-facing e(N) from the observed outcome fit, so the reported N stays
+    * the number of outcome rows and does not become the panel row count.
+    * ---------------------------------------------------------------------
+    ereturn repost, esample(`frame_touse')
 
     }
     local rc = _rc

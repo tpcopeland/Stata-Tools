@@ -163,12 +163,18 @@ capture noisily {
     iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
     gen double w_nbe = _iivw_iw
     bysort id (days): gen byte _f = (_n == 1)
-    * first visits share one weight within each mode (mean-1 normalized: the
-    * study-entry convention weight rescaled by that run's own mean)
+    * The two modes make opposite promises about the first visit, which is half
+    * of what "nobaseevent changes the weights" means.
+    *
+    * baseline(event): the first visit is a modelled event and carries its own
+    * FITTED weight, so first-visit weights differ across subjects.
     quietly summarize w_def if _f
-    assert r(sd) < 1e-9
+    assert r(sd) > 1e-9
+    * baseline(entry): the first visit is study entry, not a modelled event, and
+    * carries exactly 1 -- assigned after the fitted component is normalized.
     quietly summarize w_nbe if _f
     assert r(sd) < 1e-9
+    assert abs(r(mean) - 1) < 1e-12
     * follow-up visits differ because the fitted intensity model changed
     quietly count if !_f & abs(w_def - w_nbe) > 1e-8
     assert r(N) > 0

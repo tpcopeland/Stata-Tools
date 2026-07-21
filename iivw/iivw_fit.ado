@@ -320,9 +320,6 @@ program define iivw_fit, eclass
     local if `"`_iivw_if'"'
     local in `"`_iivw_in'"'
     marksample touse
-    if "`weight_var'" != "" {
-        markout `touse' `weight_var'
-    }
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -350,6 +347,31 @@ program define iivw_fit, eclass
     }
     if "`interaction'" != "" {
         markout `touse' `interaction'
+    }
+
+    * ---------------------------------------------------------------------
+    * Outcome ELIGIBILITY, recorded before weight availability.
+    *
+    * `touse' is about to be marked out on the weight column, which is right
+    * for the observed fit: a row with no weight cannot enter a weighted
+    * estimating equation. It is wrong for the refit bootstrap, which
+    * recomputes the weights inside every draw -- there, weight availability
+    * is a property OF THE DRAW, not a fact to be frozen at the observed
+    * sample. So snapshot eligibility here, one line before the weight
+    * markout, and hand that marker to the bootstrap helper. The helper
+    * re-applies its own draw's weight completeness (markout on the
+    * recomputed weight) after it refits.
+    *
+    * This marker is also what keeps the resampling frame and the outcome
+    * frame separate: the prefix now resamples the whole visit panel, and
+    * this column -- a row attribute, so it travels with resampled rows --
+    * decides which of those rows the outcome model is allowed to use.
+    * ---------------------------------------------------------------------
+    tempvar oc_touse
+    quietly gen byte `oc_touse' = `touse'
+
+    if "`weight_var'" != "" {
+        markout `touse' `weight_var'
     }
 
     quietly count if `touse'
@@ -400,6 +422,53 @@ program define iivw_fit, eclass
             display as error "  rebuild the lags inside each resampled subject"
             display as error "  re-run iivw_weight before iivw_fit, refitweights"
             error 198
+        }
+
+        * -----------------------------------------------------------------
+        * The RESAMPLING FRAME is the visit panel, not the outcome sample.
+        *
+        * A refit bootstrap has to draw from the data the WEIGHT model was
+        * estimated on, because that is the model each replicate re-estimates.
+        * iivw_weight takes no if/in: it consumed every row in memory. So the
+        * frame is the whole dataset, and the prefix must be given that frame
+        * rather than `touse'.
+        *
+        * Handing the prefix `if `touse'' instead -- which is what every build
+        * before 2.1 did -- silently deleted the monitoring-only rows before
+        * the helper ever ran. A visit whose OUTCOME is missing is still a
+        * visit: it is an event in the visit-intensity counting process, and
+        * dropping it changes the intensity model, the weights, and therefore
+        * the estimator being bootstrapped. A probe on 2026-07-21 with 668
+        * panel rows and 581 outcome rows put the identity draw at 0.63015547
+        * against an observed estimate of 0.63280949 -- every replicate was
+        * bootstrapping a different estimator than the one being reported.
+        *
+        * bootstrap() drops rows with a missing cluster id rather than
+        * erroring, which would silently shrink the frame back down. Prove the
+        * frame is intact instead of assuming it.
+        * -----------------------------------------------------------------
+        tempvar bs_frame
+        quietly gen byte `bs_frame' = 1
+
+        quietly count if missing(`panel_id')
+        if r(N) > 0 {
+            local _n_badid = r(N)
+            display as error "refitweights needs a complete visit panel to resample"
+            display as error "  `_n_badid' observation(s) have a missing `panel_id'"
+            display as error "  the weight model was fitted on every row in memory, so a row the"
+            display as error "  resampler cannot place would change the estimator being"
+            display as error "  bootstrapped; drop those rows before iivw_weight, or fix the id"
+            error 459
+        }
+        if "`panel_time'" != "" {
+            quietly count if missing(`panel_time')
+            if r(N) > 0 {
+                local _n_badtime = r(N)
+                display as error "refitweights needs a complete visit panel to resample"
+                display as error "  `_n_badtime' observation(s) have a missing `panel_time'"
+                display as error "  the visit-intensity model cannot order a visit with no time"
+                error 459
+            }
         }
         if inlist("`weighttype'", "iptw", "fiptiw") & "`rep_treat'" == "" {
             display as error "refitweights needs the stored treatment-model contract"
@@ -1365,8 +1434,14 @@ program define iivw_fit, eclass
     * either error or silently substitute a covariance under iivw's label. The
     * post-fit variance lock re-verifies the result; this stops it at the door
     * for every abbreviation and quoting form, not just the literal spellings.
-    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
-    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
+    *
+    * Under a bootstrap, additionally refuse glm's IRLS optimizer: it does not
+    * set e(converged), which is the scalar every draw is gated on. See the
+    * noirls note in _iivw_check_passthru.ado.
+    local _noirls ""
+    if `bootstrap' > 0 local _noirls "noirls"
+    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')  `_noirls'
+    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"') `_noirls'
 
     * vce(bootstrap, seed(#)) fixes the resampling stream for reproducibility.
     * Set it immediately before the draws so no intervening RNG use consumes the
@@ -1412,8 +1487,9 @@ program define iivw_fit, eclass
             tempvar bsid
             bootstrap, reps(`bootstrap') cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
-                _iivw_bs_refit `depvar' `all_covars' if `touse', ///
+                _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
+                outcometouse(`oc_touse') ///
                 wtype(`weighttype') ///
                 prefix(`prefix') model(gee) ///
                 visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
@@ -1426,6 +1502,8 @@ program define iivw_fit, eclass
                 `rep_ntv_flag' ///
                 family(`family') link(`link') ///
                 geeopts(`geeopts') `log_opt'
+
+            _iivw_repost_outcome_n `touse', frame(`bs_frame') cluster(`cluster')
         }
         else if `bootstrap' > 0 {
             local bs_weightopt ""
@@ -1498,8 +1576,9 @@ program define iivw_fit, eclass
             tempvar bsid
             bootstrap, reps(`bootstrap') cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
-                _iivw_bs_refit `depvar' `all_covars' if `touse', ///
+                _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
+                outcometouse(`oc_touse') ///
                 wtype(`weighttype') ///
                 prefix(`prefix') model(mixed) ///
                 visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
@@ -1511,6 +1590,8 @@ program define iivw_fit, eclass
                 entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
                 `rep_ntv_flag' ///
                 mixedopts(`mixedopts') `log_opt'
+
+            _iivw_repost_outcome_n `touse', frame(`bs_frame') cluster(`cluster')
         }
         else if `bootstrap' > 0 {
             local bs_weightopt ""

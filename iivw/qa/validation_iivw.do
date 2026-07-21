@@ -61,16 +61,38 @@ if `run_only' == 0 | `run_only' == 1 {
             4 8    3.5
             4 16   4
         end
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        * First obs per subject share the baseline-convention weight. After the
-        * mean-1 normalization of _iivw_iw the common value is 1/mean(exp(-xb)),
-        * not 1, but it is identical across subjects (SD 0).
+        * The two baseline modes make OPPOSITE promises about the first visit,
+        * and this test asserts each one against the mode it belongs to.
+        *
+        * baseline(entry): the entry visit is not a modelled monitoring event.
+        * It carries weight exactly 1 -- assigned after the mean-1
+        * normalization of the fitted component, which is what makes the whole
+        * vector invariant to the origin of a Cox covariate. Identical across
+        * subjects because it carries no covariate information at all.
         tempvar _v1first
+        iivw_weight, endatlastvisit id(id) time(months) visit_cov(severity) nolog
         bysort id (months): gen byte `_v1first' = (_n == 1)
         quietly summarize _iivw_iw if `_v1first'
         assert r(sd) < 1e-9
+        assert abs(r(mean) - 1) < 1e-12
         quietly summarize _iivw_weight if `_v1first'
         assert r(sd) < 1e-9
+
+        * baseline(event): the first visit IS a modelled event and keeps the
+        * weight the Cox model fitted for it. Subjects with different severity
+        * therefore get DIFFERENT first-visit weights -- if they did not, the
+        * fitted value would have been overwritten by a convention, which is
+        * the defect (SOL-01) that made the estimator depend on covariate
+        * location. This is the assertion that would fail on the old build.
+        drop `_v1first'
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(severity) replace nolog
+        bysort id (months): gen byte `_v1first' = (_n == 1)
+        quietly summarize severity if `_v1first'
+        assert r(sd) > 0
+        quietly summarize _iivw_iw if `_v1first'
+        assert r(sd) > 1e-9
+        assert r(N) > 0
     }
     if _rc == 0 {
         display as result "  PASS: V1 - First-observation weights identical (baseline convention)"
@@ -114,8 +136,14 @@ if `run_only' == 0 | `run_only' == 2 {
         tempvar xb manual_w
         predict double `xb', xb
         gen double `manual_w' = exp(-`xb')
-        bysort id (months): replace `manual_w' = 1 if _n == 1
-        * Mirror the package's mean-1 normalization of the IIW component
+        * NO first-row override. This runs baseline(event), where every visit
+        * including the first is a modelled monitoring event and keeps its own
+        * fitted exp(-xb). Overriding the first row to 1 -- as this oracle did
+        * before the SOL-01 fix -- would hand-compute the defect and then
+        * confirm the package reproduced it.
+        *
+        * Mirror the package's mean-1 normalization over the modelled events,
+        * which under baseline(event) is every row.
         quietly summarize `manual_w' if !missing(`manual_w'), meanonly
         quietly replace `manual_w' = `manual_w' / r(mean)
 
@@ -730,11 +758,16 @@ if `run_only' == 0 | `run_only' == 18 {
         * Both should produce valid weights
         assert `n_entry' == `n_noentry'
         assert `n_entry' == 9
-        * First obs still shares the baseline-convention weight (equal, mean-1 scaled)
+        * Under baseline(event) the first visit is a modelled event over
+        * (entry_t, t1], so it carries a FITTED weight -- not a shared
+        * convention value. Assert it exists and is usable; V1 owns the
+        * per-mode first-visit contract.
         tempvar _v18first
         bysort id (months): gen byte `_v18first' = (_n == 1)
+        quietly count if `_v18first' & missing(_iivw_iw)
+        assert r(N) == 0
         quietly summarize _iivw_iw if `_v18first'
-        assert r(sd) < 1e-9
+        assert r(min) > 0
     }
     if _rc == 0 {
         display as result "  PASS: V18 - Entry option works, first-obs weights identical"

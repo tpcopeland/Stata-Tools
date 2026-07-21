@@ -21,7 +21,7 @@
 
 program define _iivw_check_passthru
     version 16.0
-    syntax , OPTname(string) [VALue(string)]
+    syntax , OPTname(string) [VALue(string) NOIRLS]
 
     if `"`value'"' == "" exit
 
@@ -51,6 +51,42 @@ program define _iivw_check_passthru
         display as error "  found `bad' in `optname'(`value')"
         display as error "  iivw owns the variance: use vce(fixed) or the refit"
         display as error "  bootstrap, not an inner `optname'() override"
+        error 198
+    }
+
+    * -------------------------------------------------------------------------
+    * Under a bootstrap, refuse anything that selects glm's IRLS optimizer.
+    *
+    * Every bootstrap wrapper gates its outcome fit on e(converged), because a
+    * nonconverged glm returns a full coefficient vector at rc=0 and bootstrap
+    * would otherwise book it as a completed replicate. `glm, irls' does not set
+    * e(converged) AT ALL -- verified 2026-07-21, a clean converged
+    * `glm y x, family(gaussian) irls' leaves it missing -- so that gate cannot
+    * distinguish a converged IRLS fit from a failed one.
+    *
+    * The gate fails closed, which is the right default, but the consequence was
+    * a message that said the opposite of the truth: `iivw_fit ...,
+    * bootstrap(5) geeopts(irls)' died at r(430) "outcome model did not
+    * converge" about a model that had converged perfectly, on BOTH the refit
+    * and fixed-weight paths. geeopts() is documented as passing options
+    * directly to glm, so this was a documented path failing with a false
+    * diagnosis.
+    *
+    * Refusing at the door is the honest repair: it names the real reason, it
+    * fires once at the call site instead of once per replicate, and it leaves
+    * the non-bootstrap path -- where nothing consults e(converged) per draw --
+    * free to use irls exactly as glm documents it.
+    *
+    * Matched as a standalone token so a user variable or a substring inside
+    * another option (`irlsopts', say) is not caught by accident.
+    * -------------------------------------------------------------------------
+    if "`noirls'" != "" & regexm(`"`v'"', " irls ") {
+        display as error "`optname'(irls) is not available with a bootstrap variance"
+        display as error "  found irls in `optname'(`value')"
+        display as error "  glm, irls does not set e(converged), so iivw cannot verify that"
+        display as error "  a bootstrap replicate's outcome model actually converged --"
+        display as error "  and an unverifiable draw must not enter the variance."
+        display as error "  Drop irls to keep the bootstrap, or use vce(fixed) to keep irls."
         error 198
     }
 end

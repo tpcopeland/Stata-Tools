@@ -192,36 +192,61 @@ if `run_only' == 0 | `run_only' == 3 {
 * =============================================================================
 * TEST 4: the baseline visit carries a common, model-free weight
 *
-* IrregLong's `first=TRUE` convention, from ?iiw.weights: "the first observation
-* for each individual is assigned an intensity of 1. This is appropriate if the
-* first visit is a baseline visit at which recruitment to the study occurred; in
-* this case the baseline visit is observed with probability 1." iivw_weight
-* implements the same rule (iivw_weight.ado:602).
+* IrregLong's `first=TRUE` convention, verified verbatim against the installed
+* IrregLong 0.4.1 ?iiw.weights on 2026-07-21: "logical variable. If TRUE, the
+* first observation for each individual is assigned an intensity of 1. This is
+* appropriate if the first visit is a baseline visit at which recruitment to
+* the study occurred; in this case the baseline visit is observed with
+* probability 1."
 *
-* NOTE what is asserted and what is not. The rule sets the raw weight to 1, but
-* iivw_weight then rescales all IIW weights to mean 1, so the SHIPPED first-visit
-* weight is 1/mean(raw), not 1. Measured 2026-07-13: 1.2001454 on the fixture
-* below. The invariant that survives normalization -- and the one that actually
-* encodes the convention -- is that every subject's first visit carries the SAME
-* weight, free of that subject's covariates. Asserting "== 1" here would be
-* asserting the help file's claim rather than the code's behaviour.
-* (The help text saying the baseline weight is exactly 1 is a known doc defect.)
+* READ THE CONDITION, not just the rule. The weight of 1 is licensed by the
+* first visit being a RECRUITMENT visit observed with probability 1 -- that is,
+* by its NOT being an intensity-driven monitoring event. In iivw's vocabulary
+* that is baseline(entry), the default.
+*
+* This test used to run baseline(event), which declares the opposite: that the
+* first visit IS a modelled monitoring event. Applying the recruitment
+* convention to the event mode is exactly the conflation behind SOL-01 -- it
+* overwrote a fitted weight with a convention and, because the hard-coded 1s
+* did not move with the fitted weights under a covariate shift, made the point
+* estimate depend on the arbitrary origin of a Cox covariate.
+*
+* So each mode is now asserted against the contract that actually applies to it.
+* The old note here said the shipped first-visit weight was 1/mean(raw) rather
+* than 1, and called the help file's "exactly 1" a known doc defect. That doc
+* defect is fixed: the fitted component is normalized over the modelled events
+* and entry rows are set to 1 afterwards, so the shipped weight IS exactly 1
+* and the stronger assertion is now the correct one.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
+        * baseline(entry): recruitment visit, observed with probability 1.
         _setup_irregular
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) nolog
+        iivw_weight, endatlastvisit id(id) time(months) visit_cov(z) nolog
         tempvar isfirst
         bysort id (months): gen byte `isfirst' = (_n == 1)
         quietly summarize _iivw_iw if `isfirst'
-        * constant across subjects, and independent of z
+        * constant across subjects, free of that subject's covariates, and
+        * exactly 1 -- the literal value the cited convention specifies
         assert reldif(r(min), r(max)) < 1e-10
+        assert abs(r(mean) - 1) < 1e-12
         quietly correlate _iivw_iw z if `isfirst'
         assert missing(r(rho)) | abs(r(rho)) < 1e-8
         * and it is NOT the model-driven weight: later visits do vary
         quietly summarize _iivw_iw if !`isfirst'
         assert reldif(r(min), r(max)) > 1e-6
+
+        * baseline(event): the user has declared the first visit to be an
+        * intensity-driven monitoring event, so the convention's condition does
+        * NOT hold and the fitted rate-ratio weight is the correct one. It must
+        * depend on that subject's covariates -- the opposite of the above.
+        drop `isfirst'
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(z) replace nolog
+        bysort id (months): gen byte `isfirst' = (_n == 1)
+        quietly summarize _iivw_iw if `isfirst'
+        assert r(sd) > 1e-9
     }
     if _rc == 0 {
         local ++pass_count

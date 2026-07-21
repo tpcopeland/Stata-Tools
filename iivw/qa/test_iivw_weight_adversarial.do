@@ -430,14 +430,26 @@ if `run_only' == 0 | `run_only' == 9 {
         * ABOUT those rows, so it acknowledges the complete-case analysis.
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity marker) allowmissingweights nolog
-        * id==1 v1 is a first obs with a missing covariate: it takes the
-        * baseline-convention weight (shared across first obs after mean-1
-        * normalization, no longer literally 1) and is not dropped
+        * id==1 v1 is a first obs with a missing covariate. It has no linear
+        * predictor, so it is not a modelled event however baseline(event)
+        * declared it -- and it takes the same study-entry weight of exactly 1
+        * that baseline(entry) gives every entry visit, assigned after the
+        * fitted component is normalized. It is not dropped.
         assert !missing(_iivw_weight) if id == 1 & visit == 1
+        quietly summarize _iivw_iw if id == 1 & visit == 1
+        assert abs(r(mean) - 1) < 1e-12
+
+        * The OTHER first observations do have their covariates, so under
+        * baseline(event) they are modelled events carrying fitted weights that
+        * differ from each other. Before the SOL-01 fix every first observation
+        * was overwritten with a single shared value, which is what this used to
+        * assert; that overwrite is what made the estimator depend on the
+        * arbitrary origin of a Cox covariate.
         tempvar _t9first
         bysort id (months): gen byte `_t9first' = (_n == 1)
-        quietly summarize _iivw_weight if `_t9first'
-        assert r(sd) < 1e-9
+        quietly summarize _iivw_iw if `_t9first' & id != 1
+        assert r(N) > 1
+        assert r(sd) > 1e-9
         assert missing(_iivw_weight) if id == 2 & visit == 3
         quietly count if missing(_iivw_weight)
         assert r(N) >= 1

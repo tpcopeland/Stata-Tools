@@ -449,7 +449,13 @@ multi-model tables. Use this when combining results from multiple
 {cmd:model(mixed)}.
 
 {phang}
-{opt gee:opts(string)} passes additional options directly to {cmd:glm}.
+{opt gee:opts(string)} passes additional options directly to {cmd:glm}. Options
+that would set the variance estimator ({cmd:vce()}, {cmd:robust},
+{cmd:cluster()}) are rejected: {cmd:iivw} owns the variance. {cmd:irls} is
+additionally rejected whenever a bootstrap variance is requested, because
+{cmd:glm, irls} does not set {cmd:e(converged)} and each replicate's outcome fit
+is gated on it -- a draw whose convergence cannot be verified must not enter the
+variance. {cmd:irls} remains available with {cmd:vce(fixed)}.
 
 {phang}
 {opt mixed:opts(string)} passes additional options directly to {cmd:mixed}.
@@ -880,6 +886,17 @@ Add {opt refitweights} to re-estimate the weights inside each replicate so the
 interval also reflects weight estimation uncertainty. The point estimates match
 the fixed-weight fit; only the standard errors differ.
 
+{pstd}
+Each replicate resamples whole subjects from the {it:visit panel} -- the rows
+{cmd:iivw_weight} was fitted on -- and not from the outcome sample. A visit
+whose outcome or outcome covariate is missing, or which an {cmd:if}/{cmd:in}
+restricts out of the outcome analysis, is still an event in the monitoring
+process and still belongs to the model each replicate re-estimates. The outcome
+equation is restricted separately, so {cmd:e(N)} and {cmd:e(sample)} continue to
+describe the outcome sample. A replicate whose outcome model fails to converge
+is a failed draw, never a completed one; {opt allownonconverged} governs the
+nuisance models and does not admit a nonconverged outcome fit inside a draw.
+
 {phang2}{cmd:. iivw_fit edss treated edss_bl, bootstrap(500) refitweights nolog replace}{p_end}
 
 {pstd}
@@ -1044,11 +1061,27 @@ a conditional (subject-specific) treatment effect rather than the marginal
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
+{synopt:{cmd:e(N)}}number of observations in the outcome equation{p_end}
 {synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} was validated against the outcome design{p_end}
 {synopt:{cmd:e(iivw_vce_locked)}}1 if the post-fit variance lock confirmed the VCE{p_end}
 {synopt:{cmd:e(iivw_bs_reps_requested)}}bootstrap replicates requested{p_end}
 {synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}
+{synopt:{cmd:e(iivw_bs_frame_N)}}rows in the resampling frame ({opt refitweights} only){p_end}
+{synopt:{cmd:e(iivw_outcome_nclust)}}clusters contributing to the outcome equation ({opt refitweights} only){p_end}
+
+{pstd}
+{bf:Reading e(N) and e(N_clust) after} {opt refitweights}{bf:.} These two
+scalars describe different samples, deliberately. A refit bootstrap resamples
+the {it:visit panel}, because that is the data the visit-intensity model was
+fitted on and which every replicate re-fits; the outcome equation is then
+evaluated on the smaller {it:outcome sample}. So {cmd:e(N_clust)} reports the
+clusters actually resampled -- the number the "Replications based on ..."
+header line refers to -- while {cmd:e(N)} reports outcome-equation rows. When a
+subject contributes monitoring visits but no recorded outcome, it is counted in
+{cmd:e(N_clust)} and not in {cmd:e(N)}. Use {cmd:e(iivw_outcome_nclust)} for the
+outcome sample's own cluster count and {cmd:e(iivw_bs_frame_N)} for the frame's
+row count; the four together reconcile the two samples.
 
 {pstd}
 The command also stores fit metadata in dataset characteristics so downstream

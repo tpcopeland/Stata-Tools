@@ -1078,27 +1078,68 @@ program define iivw_weight, rclass sortpreserve
             * they carry no weight and must not travel back to the user's data.
             drop if `_censrow'
 
-            * In default mode the preserved data still holds the baseline rows.
-            * Under baseline(entry) those rows were dropped before fitting; their
-            * weight (1) is reinstated after restore in the full data, so the
-            * first-visit handling below is skipped to avoid mislabeling the
-            * first follow-up visit as the baseline.
+            * Under baseline(event) the first visit is a MODELED monitoring
+            * event: it was declared as one and it entered the partial
+            * likelihood as one, so it carries the same fitted rate-ratio rule
+            * as every other event. This block used to overwrite that fitted
+            * weight with 1, which is half of what made the estimator depend on
+            * the arbitrary zero of a Cox covariate (see the normalization note
+            * below). A first visit missing a visit-model covariate now gets a
+            * MISSING weight and leaves the weighted analysis, exactly as any
+            * other modeled row would -- fail closed, rather than substituting a
+            * convention for a fit.
             if !`exclude_base' {
-                * Warn if first observations have missing covariates
-                * (predict xb gives missing when covariates are missing)
                 tempvar _first_visit
                 bysort `id' (`time'): gen byte `_first_visit' = (_n == 1)
                 quietly count if `_first_visit' & missing(`_xb_full')
                 if r(N) > 0 {
                     local n_miss_first = r(N)
-                    noisily display as text "note: `n_miss_first' subjects have " ///
-                        "missing visit model covariates at first observation"
-                    noisily display as text "  weight set to 1 by convention; " ///
-                        "check covariate completeness"
+                    noisily display as text "note: `n_miss_first' subjects have no " ///
+                        "fitted visit-intensity weight at their first visit"
+                    noisily display as text "  those visits are not modeled events " ///
+                        "and take the study-entry weight of 1"
+                    if "`lagvars'" != "" {
+                        noisily display as text "  with lagvars() this is structural: " ///
+                            "a first visit has no prior visit to lag from"
+                    }
+                    else {
+                        noisily display as text "  check covariate completeness at " ///
+                            "the first visit"
+                    }
                 }
+            }
 
-                * First observation per subject: set weight = 1
-                bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
+            * ---------------------------------------------------------------
+            * Normalize the IIW component to mean 1 over the MODELED EVENTS.
+            *
+            * exp(-xb) has an arbitrary scale: the Cox model carries no
+            * intercept and predict, xb is uncentered, so the raw mean of
+            * exp(-xb) is a function of covariate LOCATION, not of model fit.
+            * Replacing a visit covariate z by z+c leaves the partial
+            * likelihood, the coefficients and the risk ordering untouched --
+            * the same scientific model -- but multiplies every modeled weight
+            * by the common factor exp(-gamma_z*c).
+            *
+            * A weighted estimator is invariant to a COMMON factor on every
+            * analysis weight. So the mean has to be taken over exactly the rows
+            * whose weights carry that factor: the modeled events. At this point
+            * in the program that is precisely what is in memory -- the
+            * censoring rows were just dropped, and under baseline(entry) the
+            * scheduled entry rows were dropped before the fit. Entry rows are
+            * reinstated at exactly 1 AFTER the restore below, so they never
+            * enter this mean.
+            *
+            * Normalizing the POOLED vector instead -- hard-coded baseline 1s
+            * mixed in with fitted weights -- is what the pre-2.1 build did, and
+            * it is not invariant: the 1s do not move with exp(-gamma_z*c), so
+            * the baseline-to-follow-up relative scale shifts, and dividing by a
+            * pooled mean cannot undo a change in a RATIO. A probe on 2026-07-21
+            * saw a treatment coefficient move by 0.0041, the baseline weights
+            * scale by 1.121 and the follow-up weights by 0.969, under z -> z+8.
+            * ---------------------------------------------------------------
+            quietly summarize `prefix'iw if !missing(`prefix'iw), meanonly
+            if r(N) > 0 & r(mean) > 0 & r(mean) < . {
+                quietly replace `prefix'iw = `prefix'iw / r(mean)
             }
 
             keep `_obsno' `prefix'iw
@@ -1148,26 +1189,41 @@ program define iivw_weight, rclass sortpreserve
         if `exclude_base' {
             * Baseline rows were dropped before fitting, so they are master-only
             * here; reinstate their IIW weight to 1 (study-entry convention).
+            *
+            * The merged weights are ALREADY normalized to mean 1 over the
+            * modeled events. That ordering is the whole point: a scheduled
+            * entry visit is not a modeled monitoring event, so it must not
+            * contribute to the scale the fitted component is measured against,
+            * and it must not be rescaled afterwards either. Insert the 1s last
+            * and leave them alone -- that is what makes the weight vector, and
+            * therefore every downstream point estimate, standard error and trim
+            * cutpoint, invariant to the origin of a Cox covariate.
             merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match master)
             bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
         }
         else {
             merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
+
+            * A first visit that got no FITTED weight was not a modeled event,
+            * whatever baseline(event) declared it to be. With lagvars() that is
+            * structural rather than accidental: the lag is v[_n-1], so every
+            * subject's first visit has an undefined lag, is dropped from the
+            * Cox risk set, and has no linear predictor to exponentiate.
+            *
+            * Such a row takes the same study-entry weight of 1 that
+            * baseline(entry) gives every entry visit -- and, as there, the 1 is
+            * assigned AFTER the normalization above, so it does not disturb the
+            * scale of the fitted component and the result stays invariant to
+            * the origin of a Cox covariate.
+            *
+            * A first visit that DID get a fitted weight keeps it. That is the
+            * half of the old behaviour that was wrong: it overwrote an
+            * estimated weight with a convention, discarding the fit and mixing
+            * a hard-coded 1 into the pooled scale.
+            bysort `id' (`time'): replace `prefix'iw = 1 ///
+                if _n == 1 & missing(`prefix'iw)
         }
         local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
-
-        * Normalize the IIW component to mean 1 over the estimating sample.
-        * exp(-xb) has an arbitrary scale: the Cox model carries no intercept and
-        * predict, xb is uncentered, so the raw mean of exp(-xb) is a function of
-        * covariate location, not of model fit. Rescaling to mean 1 is invariant
-        * for the weighted point estimates AND the cluster-robust (sandwich) SE --
-        * a constant weight factor cancels in the estimating equation and both the
-        * bread and meat of the sandwich -- but it makes the reported mean, ESS,
-        * and max-weight diagnostics interpretable rather than scale-dependent.
-        quietly summarize `prefix'iw if !missing(`prefix'iw), meanonly
-        if r(N) > 0 & r(mean) > 0 & r(mean) < . {
-            quietly replace `prefix'iw = `prefix'iw / r(mean)
-        }
 
         label variable `prefix'iw "Inverse intensity weight"
 

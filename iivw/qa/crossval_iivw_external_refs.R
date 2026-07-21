@@ -72,8 +72,12 @@ bladder_cox <- coxph(
 bladder_se <- sqrt(diag(vcov(bladder_cox)))
 bladder_lp <- predict(bladder_cox, newdata = bladder, type = "lp",
     reference = "zero")
+# baseline(event) keeps the first visit as a modelled event carrying its own
+# fitted rate-ratio weight, so the reference is the unmodified exp(-xb). The
+# Stata side of this comparison runs iivw_weight in baseline(event); overriding
+# the first row to 1 here (IrregLong's first=TRUE convention, which corresponds
+# to iivw's baseline(entry)) would compare two different estimands.
 bladder$r_iivw <- exp(-bladder_lp)
-bladder$r_iivw[bladder$visit_n == 1] <- 1
 
 write_ref(
     bladder[, c("id", "time", "time_lag", "event_one", "rx2",
@@ -211,8 +215,10 @@ dietox_lp_num <- predict(dietox_num, newdata = dietox, type = "lp",
     reference = "zero")
 dietox_lp_den <- predict(dietox_den, newdata = dietox, type = "lp",
     reference = "zero")
+# As above: the Stata comparison runs baseline(event), where every visit
+# including the first is a modelled event with its own fitted stabilized
+# weight. No first-visit override.
 dietox$r_iiw <- exp(dietox_lp_num - dietox_lp_den)
-dietox$r_iiw[dietox$visit_n == 1] <- 1
 
 dietox_pr_treat <- mean(dietox$cu_high[!duplicated(dietox$id)])
 dietox_ps_hat <- predict(dietox_ps, newdata = dietox, type = "response")

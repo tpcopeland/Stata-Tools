@@ -14,6 +14,31 @@ nothing. Oracle strength, best first:
 | **2** | **Known-truth recovery** — simulate from a DGP whose truth you set | Independent of the estimator, but only asymptotically, and it can hide a bias smaller than Monte Carlo noise. |
 | **3** | **Published worked example / independent implementation (R)** | Independent *software*, but may share the same wrong **semantics** — see the warning below. |
 
+> **⚠ A reference implementation can encode the defect too (2026-07-21, SOL-01).** IrregLong's
+> `iiw(..., first=TRUE)` sets each subject's first visit weight to a hard-coded 1 while every other row
+> keeps its fitted `exp(-xb)`. That mixed-scale construction is **not invariant to the parameterization of
+> the visit model**: shifting a Cox covariate by a constant multiplies the fitted weights by a common
+> factor and leaves the 1s alone, so the baseline-to-follow-up ratio moves. `iivw` shared that convention
+> and the parity tests were exact — two implementations agreeing on the same non-invariant convention.
+>
+> The oracles were realigned when SOL-01 was fixed, and the realignment is **narrow and auditable**:
+>
+> - `crossval_fiptiw.R` and `crossval_iivw_external_refs.R` no longer apply the `[first] <- 1` override
+>   for the arms whose Stata side runs `baseline(event)`. Under that mode every visit including the first
+>   *is* a modelled event with its own fitted weight, so the matching oracle is the unmodified
+>   `exp(-xb)`. The override was comparing two different estimands, not detecting a discrepancy.
+> - **No formula was changed.** The R side still fits its own `coxph` and computes its own linear
+>   predictor; only a post-hoc convention override was removed. `crossval_iivw.do` XV1 (Cox coefficient
+>   parity) is untouched and still exact, which is the check that the underlying model did not move.
+> - `crossval_iivw.do` XV4c — the `baseline(entry)` arm — still **derives** the expected normalizer from
+>   the oracle rather than rescaling both sides, so it retains its teeth. Its formula changed from a
+>   pooled mean over `n_first + n_match` rows to a mean over the `n_match` modelled events, and it now
+>   additionally asserts the entry rows are **exactly 1** — an assertion the old pooled normalization
+>   could not make.
+>
+> The invariance property itself is proved by `test_iivw_invariance.do`, not by any R oracle: metamorphic
+> shift/rescale checks cannot be satisfied by a reference implementation that shares the convention.
+
 > **⚠ Tier-3 is not a free pass.** `iivw`'s FIPTIW parity arms and the R references **both** build
 > observed-event-only risk sets and the Stata arms request `endatlastvisit`. Two programs agreeing on the
 > **same wrong construction** is not evidence. The same trap applies to the variance: fixed-weight

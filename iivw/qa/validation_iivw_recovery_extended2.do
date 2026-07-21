@@ -799,13 +799,29 @@ capture noisily {
     bysort id: gen int nv = _N
     drop if nv < 2
     drop nv
+    * The DGP generates visits up to vtime <= 10, so 10 IS the administrative
+    * end of follow-up and censor() is the honest risk-set contract here.
+    *
+    * This fixture used endatlastvisit, which ends each subject's follow-up at
+    * their LAST OBSERVED VISIT and therefore discards the person-time between
+    * that visit and the true end of the study. That truncation biases the
+    * fitted intensity, and it biased it in the OPPOSITE direction to the old
+    * first-visit-weight-1 convention: measured over 8 seeds, endatlastvisit
+    * with the old convention gave mean bias +0.004 while censor(10) with the
+    * same convention gave -0.022. The test passed because two errors cancelled.
+    *
+    * Removing the weight defect (SOL-01) exposed the risk-set one, which is
+    * what a false green looks like when one of its halves is repaired. With
+    * the correct risk set the recovery is tight on the current code (+0.008)
+    * and the old convention is the one that misses (-0.022).
+    gen double fu_end = 10
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n13_naive = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, censor(fu_end) baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n13_full = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncfinal(5 95) nolog replace
+    iivw_weight, censor(fu_end) baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncfinal(5 95) nolog replace
     iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n13_trunc = _b[months]
     scalar n13_ok = 1

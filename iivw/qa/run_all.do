@@ -104,6 +104,8 @@ else {
         test_iivw_sample_contract ///
         test_iivw_phase2_contract ///
         test_iivw_inference_contract ///
+        test_iivw_invariance ///
+        test_iivw_bs_frame_contract ///
         validation_iivw_recovery ///
         validation_iivw_recovery_extended ///
         validation_iivw_recovery_extended2 ///

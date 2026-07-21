@@ -183,12 +183,34 @@ capture noisily {
     quietly count if missing(_iivw_weight) | _iivw_weight <= 0
     assert r(N) == 0
 
-    * all first-visit rows carry the same (normalized) baseline IIW weight,
-    * whether or not their zero-length interval was excluded by stset
+    * Under baseline(event) a first visit is a modelled event and keeps the
+    * weight the Cox model fitted for it, so first-visit weights VARY across
+    * subjects. Before the SOL-01 fix they were all overwritten with one shared
+    * value, which is what this test used to assert.
+    *
+    * That holds for the time-0 first visits too, and the reason is worth
+    * stating: their (0,0] interval spans no risk time and stset drops it from
+    * the risk set, but `predict, xb' evaluates the linear predictor from the
+    * row's COVARIATES, not from its membership of the estimation sample. The
+    * weight exp(-xb) is a function of Z, so a row that contributed nothing to
+    * the partial likelihood still has a well-defined weight. Only a row whose
+    * covariates are missing has no weight, and that is the case that takes the
+    * study-entry 1.
+    *
+    * What the zero-length interval must not do is cost the row its weight or
+    * make it non-positive -- that is the regression this test guards.
     quietly bysort id (time): gen double fw = _iivw_iw if _n == 1
-    quietly summarize fw
-    assert reldif(r(min), r(max)) < 1e-12
-    drop fw
+    quietly bysort id (time): gen double ft = time if _n == 1
+
+    foreach grp in "ft == 0" "ft > 0 & !missing(ft)" {
+        quietly count if `grp'
+        assert r(N) > 1
+        quietly count if (`grp') & (missing(fw) | fw <= 0)
+        assert r(N) == 0
+        quietly summarize fw if `grp'
+        assert r(sd) > 1e-9
+    }
+    drop fw ft
 }
 if _rc == 0 {
     display as result "  PASS: T6 - time-0 first visits weighted consistently"

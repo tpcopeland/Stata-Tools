@@ -700,6 +700,283 @@ else {
     local failed_tests "`failed_tests' I17"
 }
 
+**# I18 - the refit bootstrap resamples the VISIT PANEL, not the outcome sample
+*
+* SOL-02. Stata's bootstrap prefix does not resample the rows matching the
+* prefix's `if'. It runs the command once on the observed data and then
+* resamples whatever e(sample) that run posted. Every build before 2.1 let the
+* helper post glm's e(sample) -- the outcome rows -- so each replicate refitted
+* the visit-intensity model on a panel with the missing-outcome visits already
+* deleted, bootstrapping a different estimator than the one being reported.
+*
+* A visit with a missing outcome is still a visit: it is an event in the
+* counting process and it belongs in the weight model. The identity draw is
+* the sharpest statement of the contract -- run the replicate helper on the
+* undisturbed panel and it must reproduce the observed point estimate exactly.
+*
+* Measured on the pre-fix build with this fixture: 0.63015547 against an
+* observed 0.63280949.
+
+capture program drop _inf_missout
+program define _inf_missout
+    version 16.0
+    syntax [, INTERMEDIATE MISSCOV]
+    clear
+    set seed 20260721
+    set obs 160
+    gen long id = _n
+    gen double z = rnormal()
+    gen byte a = runiform() < 0.5
+    gen int nvis = 2 + floor(5 * runiform())
+    expand nvis
+    bysort id: gen int visit = _n
+    bysort id: gen double time = sum(0.5 + runiform())
+    replace time = 0 if visit == 1
+    gen double xout = rnormal()
+    gen double y = 1 + 0.30*time + 0.50*a + 0.25*z + rnormal()
+
+    if "`misscov'" != "" {
+        * The OUTCOME COVARIATE is missing, not the outcome. Same consequence:
+        * the outcome sample is smaller than the visit panel.
+        bysort id (time): replace xout = . if _n == _N & runiform() < 0.5
+    }
+    else if "`intermediate'" != "" {
+        * Missingness in the MIDDLE of a subject's history, which leaves a gap
+        * in the visit sequence rather than truncating its tail.
+        bysort id (time): replace y = . if _n > 1 & _n < _N & runiform() < 0.5
+    }
+    else {
+        bysort id (time): replace y = . if _n == _N & runiform() < 0.5
+    }
+
+    bysort id (time): egen double fu_end = max(time)
+    replace fu_end = fu_end + 0.5
+end
+
+local ++test_count
+capture noisily {
+    _inf_missout
+    quietly count
+    local n_panel = r(N)
+    quietly count if !missing(y)
+    local n_outcome = r(N)
+    assert `n_panel' > `n_outcome'
+
+    quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
+    quietly iivw_fit y a, timespec(linear) bootstrap(0) nolog
+    local b_observed = _b[a]
+
+    * The identity draw: newid == id, nothing resampled, whole panel present.
+    quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
+        prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+        censor(fu_end) family(gaussian) nolog
+    assert reldif(_b[a], `b_observed') < 1e-10
+
+    * And e(sample) from that helper must be the PANEL, because that is what
+    * bootstrap will resample. If it were the outcome sample, the draws would
+    * silently go back to the truncated panel.
+    quietly count if e(sample)
+    assert r(N) == `n_panel'
+}
+if _rc == 0 {
+    display as result "  PASS: I18 - identity draw reproduces the estimate on the full panel"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I18 - identity draw did not reproduce the observed estimate (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I18"
+}
+
+**# I19 - the same identity, for intermediate missingness and missing covariates
+
+local ++test_count
+capture noisily {
+    foreach variant in intermediate misscov {
+        _inf_missout, `variant'
+        quietly count
+        local n_panel = r(N)
+
+        quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
+        quietly iivw_fit y a xout, timespec(linear) bootstrap(0) nolog
+        local b_observed = _b[a]
+
+        quietly _iivw_bs_refit y a xout time, newid(id) timevar(time) ///
+            wtype(iivw) prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+            censor(fu_end) family(gaussian) nolog
+        assert reldif(_b[a], `b_observed') < 1e-10
+
+        quietly count if e(sample)
+        assert r(N) == `n_panel'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: I19 - identity holds for intermediate and covariate missingness"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I19 - identity broke under intermediate/covariate missingness (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I19"
+}
+
+**# I20 - an outcome-only if() restricts the outcome fit, not the weight model
+*
+* A user restricting the OUTCOME analysis is not redefining the monitoring
+* history. The weight model must still see every visit; only the outcome
+* equation is restricted. e(N) is the outcome row count either way -- the panel
+* frame is an internal device and must never surface as the reported N.
+
+local ++test_count
+capture noisily {
+    _inf_missout
+    quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
+
+    quietly count if !missing(y) & time > 0
+    local n_restricted = r(N)
+
+    * The target: weights estimated on the WHOLE panel, outcome equation
+    * evaluated on the restricted rows only.
+    quietly iivw_fit y a if time > 0, timespec(linear) bootstrap(0) nolog
+    local b_target = _b[a]
+
+    * A replicate must reproduce exactly that. outcometouse() carries the
+    * restriction to the outcome fit while the weight refit above it still
+    * sees every visit.
+    tempvar ocmark
+    quietly gen byte `ocmark' = (time > 0)
+    quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
+        prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+        outcometouse(`ocmark') censor(fu_end) family(gaussian) nolog
+    assert reldif(_b[a], `b_target') < 1e-10
+
+    * DISCRIMINATION: had the restriction been applied to the PANEL instead of
+    * to the outcome equation -- which is what passing it through the prefix's
+    * if() does -- the weight model would have been refitted on a different
+    * risk set and the answer would move. Assert that it does, so the identity
+    * above is not passing merely because the restriction is inert here.
+    preserve
+    quietly drop if time <= 0
+    quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
+        prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+        censor(fu_end) family(gaussian) nolog
+    local b_wrongframe = _b[a]
+    restore
+    assert reldif(`b_wrongframe', `b_target') > 1e-8
+
+    * And the reported N stays the outcome row count: the panel frame is an
+    * internal device and must never surface as the user-facing N or sample.
+    quietly iivw_fit y a if time > 0, timespec(linear) bootstrap(12) ///
+        refitweights nolog
+    assert e(N) == `n_restricted'
+    quietly count if e(sample)
+    assert r(N) == `n_restricted'
+}
+if _rc == 0 {
+    display as result "  PASS: I20 - outcome-only if() leaves the weight frame intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I20 - outcome-only if() leaked into the weight frame or e(N) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I20"
+}
+
+**# I21 - a nonconverged outcome model cannot become a completed replicate
+*
+* SOL-03. glm and mixed both return a numeric coefficient vector after printing
+* "convergence not achieved", and bootstrap cannot tell that apart from a real
+* fit -- it sees numbers and books the draw. On the pre-fix build an outcome
+* model capped at one iteration returned rc=0 with 3 completed and 0 failed
+* replicates, quietly folding non-solutions into the reported variance.
+*
+* Both wrappers are checked: refitweights routes through _iivw_bs_refit, a
+* plain bootstrap() through _iivw_bs_estimate.
+*
+* The uncapped control is what makes this discriminating. `assert _rc != 0' on
+* its own would also be satisfied by a fixture that simply cannot fit.
+
+capture program drop _inf_binpanel
+program define _inf_binpanel
+    version 16.0
+    clear
+    set seed 20260721
+    set obs 120
+    gen long id = _n
+    gen double z = rnormal()
+    gen byte a = runiform() < 0.5
+    gen int nvis = 2 + floor(4 * runiform())
+    expand nvis
+    bysort id: gen int visit = _n
+    bysort id: gen double time = sum(0.5 + runiform())
+    replace time = 0 if visit == 1
+    gen byte ybin = runiform() < invlogit(-0.3 + 0.4*time + 0.6*a)
+    bysort id (time): egen double fu_end = max(time)
+    replace fu_end = fu_end + 0.5
+end
+
+local ++test_count
+capture noisily {
+    _inf_binpanel
+    quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
+
+    * refitweights path: must fail closed.
+    capture iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
+        bootstrap(3) refitweights geeopts(iterate(1)) nolog
+    assert _rc == 430
+
+    * fixed-weight bootstrap path: must fail closed too.
+    capture iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
+        bootstrap(3) geeopts(iterate(1)) nolog
+    assert _rc == 430
+
+    * CONTROL: the same models without the iteration cap must succeed and book
+    * their replicates, so the assertions above are about convergence and not
+    * about a fixture that cannot fit at all.
+    quietly iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
+        bootstrap(3) refitweights nolog
+    assert e(iivw_bs_reps_completed) == 3
+    assert e(iivw_bs_reps_failed) == 0
+
+    quietly iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
+        bootstrap(3) nolog
+    assert e(iivw_bs_reps_completed) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: I21 - nonconverged outcome fails closed in both wrappers"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I21 - nonconverged outcome counted as a replicate (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I21"
+}
+
+**# I22 - allownonconverged does not buy an outcome model into a draw
+*
+* allownonconverged exists so a user can read a warning and decide. A bootstrap
+* replicate has no user reading it, so the option must not convert a
+* nonconverged outcome fit inside a draw into inferential evidence.
+
+local ++test_count
+capture noisily {
+    _inf_binpanel
+    quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
+
+    capture iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
+        bootstrap(3) refitweights geeopts(iterate(1)) allownonconverged nolog
+    assert _rc == 430
+}
+if _rc == 0 {
+    display as result "  PASS: I22 - allownonconverged does not admit a nonconverged draw"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I22 - allownonconverged admitted a nonconverged draw (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I22"
+}
+
 **# Summary
 
 display as result "iivw inference contract results: `pass_count'/`test_count' passed, `fail_count' failed"
