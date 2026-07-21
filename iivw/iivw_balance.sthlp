@@ -376,8 +376,8 @@ AG-refit view.{p_end}
 {cmd:iivw_balance} stores the following in {cmd:r()}:
 
 {pstd}
-{cmd:r(N)} counts the rows this report describes, after any {cmd:if}/{cmd:in};
-{cmd:r(N_replay)} counts the rows the visit model was replayed on, which is
+{cmd:r(N)} counts the rows this report describes, after any
+{cmd:if}/{cmd:in}; {cmd:r(N_replay)} counts the rows the visit model was replayed on, which is
 always the full stored rowset. They differ exactly when {cmd:if}/{cmd:in} was
 given. {cmd:r(replay_max_reldif)} verifies that the replayed weight reproduces
 the weight {cmd:iivw_weight} stored, up to the mean-1 scaling reported in
@@ -387,8 +387,8 @@ used. {cmd:r(target_status)} is {cmd:not_identified} when no terminal at-risk
 interval exists, in which case no balance verdict is reported at all.
 
 {pstd}
-{cmd:r(ess_ratio)} is a {bf:row-weight} concentration measure over panel rows.
-{cmd:r(ess_cluster_ratio)} is the same measure over {bf:subjects}. Inference is
+{cmd:r(ess_ratio)} is a {bf:row-weight} concentration measure over panel
+rows. {cmd:r(ess_cluster_ratio)} is the same measure over {bf:subjects}. Inference is
 clustered on the subject, so read the cluster figure beside the row one: a
 subject with forty visits is forty rows and one cluster, and the two can
 disagree sharply.

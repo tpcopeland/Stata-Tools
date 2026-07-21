@@ -163,8 +163,8 @@ subjects are affected.
 that predicts visit frequency. Required for IIW and FIPTIW weights.
 
 {pmore}
-{bf:A visit-model covariate must be known before the interval it explains.}
-The model asks why a visit happened {it:when} it did, so every predictor has to
+{bf:A visit-model covariate must be known before the interval it explains.} The
+model asks why a visit happened {it:when} it did, so every predictor has to
 be measurable at the {it:start} of the at-risk interval that ends in that
 visit. There are three admissible kinds, and the distinction is not
 stylistic -- it decides whether the weight is a weight or a circularity:
@@ -175,8 +175,8 @@ Measured once, before follow-up: baseline severity, sex, enrolment year,
 clinic. Put them straight in {opt visit_cov()}.{p_end}
 {p2col:{bf:Externally updated}}
 Time-varying, but stamped by a clock outside the visit process and known
-before the interval opens: calendar period, age, a policy or formulary change.
-Put them in {opt visit_cov()} only if the value used on each row was already
+before the interval opens: calendar period, age, a policy or formulary
+change. Put them in {opt visit_cov()} only if the value used on each row was already
 determined when that row's interval began.{p_end}
 {p2col:{bf:Visit-measured}}
 Recorded {it:at} a visit -- disease activity, a lab value, a clinician's
@@ -683,10 +683,10 @@ set.{p_end}
 
 {pstd}
 {bf:Knots and reference levels are yours to fix.} If you build a spline basis
-with {helpb mkspline}, the knot locations are chosen from the data in memory.
-A bootstrap replicate resamples that data, but it reuses the {it:columns} you
-generated -- it does not recompute the knots. That is the intended behavior:
-the basis is part of the model specification, held fixed across replicates,
+with {helpb mkspline}, the knot locations are chosen from the data in memory. A
+bootstrap replicate resamples that data, but it reuses the {it:columns} you
+generated -- it does not recompute the knots. That is the intended
+behavior: the basis is part of the model specification, held fixed across replicates,
 exactly as the covariate list is. If you want knot-location uncertainty
 propagated as well, that is outside what this package estimates.
 
@@ -866,11 +866,11 @@ figure beside the row one -- a subject with forty visits is forty rows and one
 cluster. If either is much below 1, look first at the visit model
 specification.{p_end}
 
-{phang2}3. {bf:Weight mean.} {bf:Do not use the IIW mean as a diagnostic.}
-{cmd:iivw_weight} normalizes the visit component to mean 1 by construction
-(see {it:Mean-1 normalization}), so "the mean is near 1" is arithmetic, not
-evidence, and it will read as reassuring on a badly misspecified visit model.
-The IPTW component is different: its mean-one property is a real
+{phang2}3. {bf:Weight mean.} {bf:Do not use the IIW mean as a diagnostic.} The
+{cmd:iivw_weight} command normalizes the visit component to mean 1 by construction (see
+{it:Mean-1 normalization}), so "the mean is near 1" is arithmetic, not evidence,
+and it will read as reassuring on a badly misspecified visit model. The IPTW
+component is different: its mean-one property is a real
 model-specification check (Cole & Hernan 2008), and a stabilized treatment
 weight whose mean is far from 1 does indicate misspecification or a positivity
 problem. For the visit component, use {helpb iivw_balance} -- Target SMD is a

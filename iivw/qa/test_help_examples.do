@@ -4,7 +4,7 @@ set varabbrev off
 
 * test_help_examples.do - documentation reality tests for iivw
 *
-* Lineage: adapted from ~/Stata-Dev/ltmle/qa/test_help_examples.do.
+* Lineage: adapted from the ltmle package's help-example suite.
 *
 * WHY THIS EXISTS
 * ---------------

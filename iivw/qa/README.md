@@ -155,6 +155,15 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   exercised: the convergence guard, the nonconverged-weight taint (and that
   `iivw_fit` does not launder it), the refit counts, the risk-set returns, and
   `censor()`/`maxfu()` on `iivw_exogtest`.
+- `test_iivw_bs_frame_contract.do` — the bootstrap resampling frame (SOL-02).
+  Asserts that a refit draw resamples the visit PANEL, not `iivw_fit`'s outcome
+  `e(sample)`, and that the user-facing `e(N)`/`e(sample)` are restored
+  afterwards. Scores 3/8 pre-fix, 8/8 after.
+- `test_iivw_invariance.do` — the point estimate must not move when a
+  visit-model covariate is shifted or rescaled (SOL-01). A Cox model has no
+  intercept, so `z -> z + c` leaves the fit unchanged but rescales every
+  weight; the old pooled normalization could not undo that because it is a
+  change in a ratio. Scores 3/10 against the pre-fix code.
 - `test_iivw_failclosed.do` — Gate 4/5 probes for audit findings SOL-05, SOL-07,
   SOL-08, SOL-11, SOL-12, SOL-13 and SOL-17. **Pre-fix score 1/11, post-fix
   16/16** (same file, both runs), and the single pre-fix pass was S5b, the
@@ -172,8 +181,10 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   proving no shipped example passes an option the package now rejects. H2 runs
   the documented refit-bootstrap default verbatim; the later arms append
   `vce(fixed)` for runtime, which the file explains.
-- `test_iivw_weight_adversarial.do`
-- `test_iivw_weight_validation_guards.do`
+- `test_iivw_weight_adversarial.do` — adversarial probes for `iivw_weight`
+  option parsing, weight construction and the name-transaction contract.
+- `test_iivw_weight_validation_guards.do` — the `iivw_weight` input guards:
+  end-of-follow-up contract, censor()/maxfu() validity, and trimming bounds.
 
 ### Validation
 

@@ -438,11 +438,11 @@ omnibus p-value falls below alpha.
 A flag of {bf:0} means no association was detected among the groups that
 produced a {it:valid} test. It is not evidence of exogeneity, and it says
 nothing at all about groups counted in {cmd:r(n_unknown)} or
-{cmd:r(n_skipped)}.
-{cmd:r(n_unknown)} counts groups whose model was fitted but cannot be
+{cmd:r(n_skipped)}. {cmd:r(n_unknown)}
+counts groups whose model was fitted but cannot be
 interpreted -- the Cox model stopped without converging, or its omnibus test
-could not be computed. Those groups contribute no p-value to the Holm family.
-When every group is unknown or skipped there is no valid test at all, and the
+could not be computed. Those groups contribute no p-value to the Holm
+family. When every group is unknown or skipped there is no valid test at all, and the
 command exits with an error rather than reporting a flag of 0.
 
 {pstd}

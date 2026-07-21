@@ -163,6 +163,13 @@ capture noisily {
     quietly iivw_diagnose mpg, unweighted(c_unw) weighted(c_wt) adjusted(c_adj)
     assert r(decomposable) == 1
     assert r(sample_identical) == 1
+
+    * The per-role sample sizes are what the marker check is built on, so they
+    * must be present and agree with each other on an identical-sample fit.
+    assert r(n_sample_unweighted) == 74
+    assert r(n_sample_weighted)   == 74
+    assert r(n_sample_adjusted)   == 74
+    assert "`r(noncollapsible)'" == ""
 }
 if _rc == 0 {
     local ++pass_count
@@ -301,6 +308,17 @@ capture noisily {
 
     assert `_s8b_rc' == 2000
     assert `_s8b_flag' >= .
+
+    * A group ruled unknown is named, not just counted. by() gives a run that
+    * survives to the return block so unknown_label_# can be read.
+    _fc_panel, n(200) seed(77105)
+    quietly iivw_weight, id(id) time(time) visit(z) censor(cens)
+    quietly generate byte grp = mod(id, 2)
+    quietly iivw_exogtest y, id(id) time(time) censor(cens) by(grp) nolog replace
+    assert r(n_unknown) < .
+    if r(n_unknown) >= 1 {
+        assert `"`r(unknown_label_1)'"' != ""
+    }
 }
 if _rc == 0 {
     local ++pass_count
@@ -324,6 +342,10 @@ capture noisily {
 
     quietly iivw_balance, nolog
     assert r(replay_max_reldif) < 1e-8
+    * replay_scale separates a normalization-convention mismatch from a
+    * specification mismatch; it must be present and finite either way.
+    assert r(replay_scale) < .
+    assert r(replay_scale) > 0
 }
 if _rc == 0 {
     local ++pass_count

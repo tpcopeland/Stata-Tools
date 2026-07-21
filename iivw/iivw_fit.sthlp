@@ -588,8 +588,8 @@ Confine the words {bf:ATE} and {bf:marginal causal contrast} to identity-link
 specifications and to marginal structural models built for the purpose. On a
 nonlinear link, either report the coefficient as the conditional association
 it is, or obtain a marginal contrast explicitly with {helpb margins} after the
-fit -- the weights do not make a conditional nonlinear coefficient marginal.
-{helpb iivw_diagnose} enforces the same boundary: it returns
+fit -- the weights do not make a conditional nonlinear coefficient
+marginal. {helpb iivw_diagnose} enforces the same boundary: it returns
 {cmd:r(decomposable) = 0} for non-identity-link fits.
 
 {pstd}
