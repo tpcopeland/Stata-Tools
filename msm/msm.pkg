@@ -58,6 +58,7 @@ f _msm_coef_display_name.ado
 f _msm_coef_pvalue_string.ado
 f _msm_coef_scale_label.ado
 f _msm_contract.ado
+f _msm_crit_dist.ado
 f _msm_invalidate.ado
 f _msm_verify.ado
 f _msm_uuid.ado

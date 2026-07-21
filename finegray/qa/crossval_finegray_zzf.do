@@ -75,10 +75,24 @@ net install finegray, from("`pkgroot'") replace
 *   1. erase the oracle index files HERE, in Stata, before calling R, so a
 *      no-op Rscript cannot leave a stale oracle+manifest behind; and
 *   2. capture R's REAL exit code through a sentinel file and fail on nonzero.
+*
+* The sentinel is written with `&& echo 0 || echo 1' rather than `echo $?'.
+* `$?' is sh/bash syntax: fish exposes the status as $status, and in csh a bare
+* `$?' is a syntax error, so on a Stata whose `shell' honours a non-sh login
+* shell the sentinel would come back empty.  That fails CLOSED (empty ->
+* missing -> `missing != 0' is true -> exit 9), so it could never produce a
+* false green -- but it would report "R oracle generation failed" on a machine
+* where R is fine, sending the next reader after the wrong bug.  `&&'/`||' are
+* portable across sh, bash, fish and csh.
+*
+* Redirect ONLY the echo, never the whole command as a group: wrapping this in
+* `( ... ) > sentinel' captures R's progress output into the sentinel, whose
+* first line then parses as missing and reports a generation failure on a run
+* that actually succeeded.
 capture erase "`datadir'/zzf_xv_oracle_beta.csv"
 capture erase "`datadir'/zzf_xv_manifest.csv"
 tempfile rcsent
-shell ZZF_XV_N=3000 ZZF_XV_REPS=20 Rscript "`qadir'/crossval_finegray_zzf_beta_r.R" ; echo $? > "`rcsent'"
+shell ZZF_XV_N=3000 ZZF_XV_REPS=20 Rscript "`qadir'/crossval_finegray_zzf_beta_r.R" && echo 0 > "`rcsent'" || echo 1 > "`rcsent'"
 capture confirm file "`rcsent'"
 if _rc {
     display as error "R oracle wrapper produced no exit-status sentinel"
@@ -90,8 +104,10 @@ file read `_shrc' _rc_line
 file close `_shrc'
 local _rexit = real(trim("`_rc_line'"))
 if `_rexit' != 0 {
-    display as error "R oracle generation failed (child exit `=trim(`"`_rc_line'"')')"
+    display as error "R oracle generation failed (sentinel `=trim(`"`_rc_line'"')')"
     display as error "no stale oracle is consumed: the index files were erased before R ran"
+    display as error "an EMPTY sentinel means the shell could not run the wrapper,"
+    display as error "not that R failed; check Rscript is on PATH first"
     exit 9
 }
 capture confirm file "`datadir'/zzf_xv_oracle_beta.csv"

@@ -1,5 +1,5 @@
-*! _msm_tbl_pred Version 1.2.2  2026/07/02
-*! Author: Timothy P Copeland
+*! _msm_tbl_pred Version 1.2.3  2026/07/02
+*! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_pred, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)

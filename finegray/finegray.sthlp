@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  18jul2026}{...}
+{* *! version 1.2.0  20jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -47,6 +47,7 @@
 {synopt:{opth cl:uster(varname:numvar)}}adjust SEs for intragroup correlation (numeric only){p_end}
 {synopt:{opt noadj:ust}}omit finite-sample adjustment to the sandwich{p_end}
 {synopt:{opt norob:ust}}report model-based SEs, not sandwich{p_end}
+{synopt:{opt nuis:ance}}add the estimated-{it:G} nuisance term to the sandwich{p_end}
 
 {syntab:Reporting}
 {synopt:{opt noshr}}report coefficients, not hazard ratios{p_end}
@@ -240,12 +241,57 @@ estimated censoring distribution G(t) (nor, under delayed entry, the entry
 distribution H(t)). This is the same variance {helpb stcrreg} reports, and
 coefficients are unaffected — only the standard errors are. {cmd:e(lt_vce)}
 records the delayed-entry variance actually computed as
-{cmd:fixed_weight_sandwich} (or {cmd:model_based} under {opt norobust}); it is
-{bf:not} the full Fine and Gray (1999, eq. 7-8) / Zhang, Zhang and Fine (2011)
-nuisance-adjusted variance. Against {cmd:cmprsk::crr}, whose variance includes
-the censoring-weight nuisance term, {cmd:finegray}'s standard errors differ by
-roughly 0.2% in relative terms on tie-free data. Where that difference matters,
-see {it:Bootstrap coefficient inference} below.
+{cmd:fixed_weight_sandwich} (or {cmd:model_based} under {opt norobust}), and
+{cmd:e(vce_meat)} records which sandwich meat was used on any fit. Under right
+censoring the Fine and Gray (1999, eq. 7-8) nuisance term is available via
+{opt nuisance}; under delayed entry the corresponding term is Zhang, Zhang and
+Fine (2011, Appendix B), which this package does not implement.
+
+{phang}
+{opt nuisance} adds the Fine and Gray (1999, eq. 7-8, pp. 500-501)
+{it:psi} term to the sandwich meat, so that the meat becomes
+sum_i (eta_i + psi_i)^2 rather than sum_i eta_i^2. The {it:eta} term is the
+score contribution treating the censoring survivor G as known; {it:psi} is the
+additional contribution from having {bf:estimated} G by Kaplan-Meier. With
+{opt nuisance}, {cmd:finegray}'s variance reproduces {cmd:cmprsk::crr} — whose
+Fortran variance routine is by R. J. Gray, the paper's second author — to
+approximately 1e-7 relative on the package's parity fixtures.
+
+{pmore}
+The correction is not always conservative: {it:eta} and {it:psi} are
+correlated, so the nuisance-adjusted variance can be larger or smaller than
+the default. Measured across the parity fixtures in {cmd:qa/data/}, it ranges
+from {bf:-1.3% to +1.4%} on the variance scale ({bf:-0.6% to +0.7%} on
+standard errors). It is therefore not safe to assume the default is the
+"conservative" choice. The effect on covariances is larger than on variances,
+so a multi-coefficient {helpb test} or {helpb lincom} moves more than the
+individual standard errors do.
+
+{pmore}
+{opt nuisance} requires the sandwich, so it is not allowed with
+{opt norobust}. It is {bf:not allowed under delayed entry}: eq. (7)-(8) is
+derived for right censoring with no entry times, and applying a
+right-censoring correction to left-truncated data would return a plausible
+number with no derivation behind it. For nuisance-adjusted inference under
+delayed entry, bootstrap the whole fit; see
+{it:Bootstrap coefficient inference} below.
+
+{pmore}
+{opt nuisance} is {bf:not} the default, so upgrading does not move standard
+errors reported from earlier releases. When it is specified,
+{cmd:e(vce_meat)} is {cmd:nuisance_adjusted}; otherwise it is
+{cmd:fixed_weight} (or {cmd:not_applicable} under {opt norobust}).
+
+{pmore}
+{bf:It does not propagate to post-estimation.} {helpb finegray_cif} and
+{helpb finegray_predict} build their interval estimates from the
+cumulative-incidence influence function of Fine and Gray (1999, sec. 5), which
+is a different derivation with its own nuisance term — not the coefficient
+{it:psi} added here. Their standard errors are therefore {bf:identical} after a
+{opt nuisance} fit and after a default fit, by design: adding the coefficient
+{it:psi} to a CIF influence function would be wrong, not conservative. If you
+need nuisance-adjusted CIF intervals, use the bootstrap options on those
+commands.
 
 {pmore}
 {bf:Bootstrap coefficient inference.} The {opt bootstrap()} options of
@@ -998,6 +1044,7 @@ the package diagnostic's limitations.
 {synopt:{cmd:e(weight_warn_strata)}}joint-group codes flagged by the weight diagnostics{p_end}
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
+{synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
 {synopt:{cmd:e(title)}}Fine-Gray competing risks regression{p_end}
 {synopt:{cmd:e(marginsok)}}{cmd:xb} (empty for factor-variable models){p_end}
 {synopt:{cmd:e(properties)}}b V{p_end}
@@ -1064,7 +1111,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-07-18{p_end}
+{pstd}Version 1.2.0, 2026-07-20{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

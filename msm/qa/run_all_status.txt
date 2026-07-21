@@ -1,0 +1,39 @@
+mode=full
+suite=test_msm rc=0
+suite=test_msm_table rc=0
+suite=test_msm_options rc=0
+suite=test_msm_expanded rc=0
+suite=test_msm_status rc=0
+suite=test_msm_weight_ergonomics rc=0
+suite=test_msm_fit_guidance rc=0
+suite=test_msm_cox_state rc=0
+suite=test_msm_continuous_exposure rc=0
+suite=test_msm_weight_failures rc=0
+suite=test_msm_weight_adversarial rc=0
+suite=test_msm_prepare_validate_adversarial rc=0
+suite=test_msm_state_guards rc=0
+suite=test_msm_state_identity rc=0
+suite=test_msm_independent_review rc=0
+suite=test_msm_phase3 rc=0
+suite=test_msm_phase2 rc=0
+suite=test_msm_phase4 rc=0
+suite=test_msm_phase5 rc=0
+suite=test_msm_phase6 rc=0
+suite=test_package_release rc=0
+suite=test_demo_contract rc=0
+suite=test_msm_psdash_contract rc=0
+suite=test_export_surface rc=0
+suite=test_msm_diagtab rc=0
+suite=test_msm_output_adversarial rc=0
+suite=test_msm_abbrev_reload rc=0
+suite=validation_msm rc=0
+suite=validation_msm_known_answers rc=0
+suite=validation_msm_expanded rc=0
+suite=validation_msm_sensitivity rc=0
+suite=validation_msm_recovery rc=0
+suite=validation_msm_dgp_recovery rc=0
+suite=validation_msm_phase3_recovery rc=0
+suite=crossval_msm rc=0
+suite=crossval_external_models rc=0
+suites=36 passed=36 failed=0
+failed_suites=

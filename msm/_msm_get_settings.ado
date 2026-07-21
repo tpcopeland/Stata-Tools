@@ -1,6 +1,6 @@
-*! _msm_get_settings Version 1.2.2  2026/07/02
+*! _msm_get_settings Version 1.2.3  2026/07/02
 *! Retrieve stored metadata from characteristics
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 * Returns via c_local: id, period, treatment, outcome, censor,
 *   covariates, baseline_covariates, prefix

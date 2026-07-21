@@ -33,23 +33,34 @@ cat("  Loaded:", nrow(dgp1), "rows,", length(unique(dgp1$id)), "individuals\n")
 # --- Method 1: Manual IPTW (matching msm_weight.ado logic exactly) ---
 cat("\n  Method 1: Manual IPTW computation\n")
 
+# At-risk (decision-risk) sample: person-periods before the subject's first prior
+# outcome. msm fits its treatment models ONLY among still-at-risk person-periods
+# and accumulates the weight over those periods (audit A11 / _msm_decision_risk).
+# The reference must use the SAME estimation sample, else the fitted coefficients
+# -- and every downstream weight -- diverge (compounding ~1%/period). Verified:
+# with this restriction the manual weight equals msm's _msm_weight to ~3e-7.
+dgp1 <- dgp1[order(dgp1$id, dgp1$period), ]
+dgp1$cum_prior_out <- ave(dgp1$outcome, dgp1$id,
+                          FUN = function(y) cumsum(c(0, head(y, -1))))
+dgp1$at_risk <- dgp1$cum_prior_out == 0
+
 # Denominator model: treatment ~ lag_treatment + L + V + period
 # (excluding first period which has no lag)
 # First period: treatment ~ L + V
 denom_fit_lag <- glm(treatment ~ lag_treatment + L + V + period,
-                     data = dgp1[!is.na(dgp1$lag_treatment), ],
+                     data = dgp1[!is.na(dgp1$lag_treatment) & dgp1$at_risk, ],
                      family = binomial(link = "logit"))
 denom_fit_p0 <- glm(treatment ~ L + V,
-                     data = dgp1[dgp1$period == 0, ],
+                     data = dgp1[dgp1$period == 0 & dgp1$at_risk, ],
                      family = binomial(link = "logit"))
 
 # Numerator model: treatment ~ lag_treatment + V (baseline only)
 # First period: treatment ~ V
 numer_fit_lag <- glm(treatment ~ lag_treatment + V,
-                     data = dgp1[!is.na(dgp1$lag_treatment), ],
+                     data = dgp1[!is.na(dgp1$lag_treatment) & dgp1$at_risk, ],
                      family = binomial(link = "logit"))
 numer_fit_p0 <- glm(treatment ~ V,
-                     data = dgp1[dgp1$period == 0, ],
+                     data = dgp1[dgp1$period == 0 & dgp1$at_risk, ],
                      family = binomial(link = "logit"))
 
 # Predict probabilities
@@ -71,9 +82,11 @@ dgp1$w_t <- ifelse(dgp1$treatment == 1,
                     dgp1$numer_pr / dgp1$denom_pr,
                     (1 - dgp1$numer_pr) / (1 - dgp1$denom_pr))
 
-# Cumulative product within individuals (via log-sum)
+# Cumulative product within individuals (via log-sum). Only at-risk periods
+# contribute a factor; post-event periods carry the last at-risk weight forward
+# (log factor 0), matching msm's decision-risk accumulation.
 dgp1 <- dgp1[order(dgp1$id, dgp1$period), ]
-dgp1$log_w <- log(dgp1$w_t)
+dgp1$log_w <- ifelse(dgp1$at_risk & !is.na(dgp1$w_t), log(dgp1$w_t), 0)
 dgp1$cum_log_w <- ave(dgp1$log_w, dgp1$id, FUN = cumsum)
 dgp1$manual_weight <- exp(dgp1$cum_log_w)
 

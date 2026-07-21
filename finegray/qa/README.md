@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.2.0): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
+Quality assurance for the **finegray** package (v1.2.0): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`, `finegray_gof`).
 
 This suite is built on four assurance layers, applied in increasing order of authority:
 
@@ -11,11 +11,13 @@ This suite is built on four assurance layers, applied in increasing order of aut
 
 ## Headline results
 
-The latest isolated `full` lane passed 25/25 suites and 563/563 checks on 2026-07-18, with no failures or skips (plus the shell-level `fg02_failclosed` gate). Smoke gate runs are never counted as passes.
+The latest isolated `full` lane passed **29/29 suites and 609/609 checks on 2026-07-21**, with no failures and no skips, plus the shell-level `fg02_failclosed` gate. Smoke gate runs are never counted as passes. The receipt is `run_all_status.txt`.
+
+Two things about that number are worth stating, because both have gone wrong here before. It comes from **one** run — the per-suite counts are summed within a single lane, not carried across runs, which is what made the previous `600*` figure arithmetic rather than evidence. And it was produced by **`run_all.sh`**, not by `run_all.do`: only the shell wrapper writes `run_all_status.txt` and runs `fg02_failclosed`, which manipulates `PATH` and so cannot live in the `.do` runner. A `run_all.do` lane is a lane with that gate missing and no receipt written.
 
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
-| `test_finegray.do` | functional / regression | 133 | 133 | 0 | 0 |
+| `test_finegray.do` | functional / regression | 136 | 136 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0: CIF/predict/bootstrap surface + graph polish, multi-record post-estimation, LT SEs, stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, factor-level bootstrap skips, `saving()` parsing, prediction-variable cleanup) | 52 | 52 | 0 | 0 |
 | `test_finegray_v120.do` | regression (v1.2.0: `finegray_phtest` omnibus test retired — `r(chi2)`/`r(df)`/`r(p)` no longer stored, no Global test row printed, no global row appended to `r(phtest)`; per-covariate surface is the diagnostic `[correlation, events]`) | 4 | 4 | 0 | 0 |
 | `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary, ZZF entry-time at-risk count, intentional stcrreg LT non-parity) | 6 | 6 | 0 | 0 |
@@ -40,7 +42,13 @@ The latest isolated `full` lane passed 25/25 suites and 563/563 checks on 2026-0
 | `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 27 | 27 | 0 | 0 |
 | `test_documentation_examples.do` | **runnable doc examples** — every README/help code block run verbatim (Quick Start, basic fit, `predict cif`, phtest, fit variants, cif/predict CI, `basehaz`/`basecshazard`) | 7 | 7 | 0 | 0 |
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (100 datasets, arms A/B/C/D/X, plus manifest/tolerance guards) | 102 | 102 | 0 | 0 |
-| **Total** | | **563** | **563** | **0** | **0** |
+| `test_finegray_nuisance.do` | **`nuisance` (FG 1999 eq. 7-8 psi) contract** — R-free: materiality, default-unchanged, both refusal gates with positive controls, `e(vce_meat)`, cluster path, `sum(psi)==0` invariant, finite-sample composition, beta invariance, post-estimation non-propagation, the Mata-level LT guard, and the no-competing-events reduction to Cox | 12 | 12 | 0 | 0 |
+| `crossval_nuisance.do` | **`nuisance` parity vs the FG eq. (7)-(8) oracle** (5 fixtures: hand-checkable, tie-free, 5-way tied events, 3 censoring strata, PBC n=416/p=5). Checks **variances and covariances** — psi's effect is concentrated off-diagonal (up to 19.9% on PBC vs ~1% on the diagonals), and a covariance-only psi defect passes every diagonal assertion | 6 | 6 | 0 | 0 |
+| `test_finegray_gof.do` | **`finegray_gof` contract** (Li/Scheike/Zhang 2015) — R-free: the `r()` surface, the absence of `r(chi2)`/`r(df)` with a populated-`r()` control, `seed()` reproducibility and seed-invariance of the observed supremum, `nsim()` proven live, the `1/nsim` display floor with a negative control, all six refusal gates each with its own positive control, and state hygiene including the global `_finegray_gof_*` matrix namespace on both the success and error paths. Factor variables and interactions are covered on both the columns-present and rebuild paths, including G18: an `fvset base` change *after* the fit must move neither the labels nor the numbers, and G19 testing the shared `_finegray_fv_design` helper directly | 19 | 19 | 0 | 0 |
+| `crossval_gof.do` | **`finegray_gof` parity vs the Li/Scheike/Zhang R oracle** (3 fixtures, one with tied event times). Compares the observed process and a fixed-multiplier contraction `V0'W` at 1e-10 — `obs` alone is blind to eq. (17)'s terms 2 and 3 — plus the command's own suprema, including `sup_overall`, the single number in the package that can see the `{I^-1_jj}^(1/2)` standardizing factor. Also asserts that `finegray`'s beta solves the oracle's score equation, which `cmprsk::crr`'s does not to the same precision | 6 | 6 | 0 | 0 |
+| **Total** | | **609** | **609** | **0** | **0** |
+
+Observed, not computed: `RESULT: run_all tests=29 pass=29 fail=0 skip=0` from the 2026-07-21 isolated `run_all.sh full` lane, with the 609 summed from that same lane's per-suite sentinels. See `run_all_status.txt`.
 
 A shell-level negative gate, `test_finegray_fg02_failclosed.sh`, is run by `run_all.sh` at the end of the `python` and `full` lanes (it manipulates `PATH`, so it cannot live in the `.do` runner): it puts a failing `Rscript` first on `PATH` with a complete stale oracle cache present and asserts the ZZF crossval fails **closed** (`r(9)`, no passing `RESULT:` line) rather than consuming the stale cache — the FG-02 fail-open regression.
 
@@ -127,6 +135,7 @@ Each suite prints a machine-parseable sentinel as its last line, e.g. `RESULT: v
 | `crossval_cif.do` | R + `riskRegression`, `prodlim`, and `survival` |
 | `crossval_predict_phtest.do` | R + `cmprsk` |
 | `crossval_finegray_zzf.do` | R + `survival`; the suite regenerates and manifest-checks its oracle itself and fails if any required arm/replication is absent |
+| `crossval_nuisance.do` | R + `survival`, `cmprsk`; regenerates `qa/data/` via `crossval_nuisance_r.R`, which self-validates against `cmprsk::crr` (whole matrix, not just diagonals) and aborts rather than emit a drifted oracle. It also prints the measured psi effect on both the variance and SE scales — the ranges quoted in `README.md` and `finegray.sthlp` come from that print, not from memory |
 
 Some R-backed files can report a standalone skip, but the curated runner treats every skip as an unrun check and therefore fails the lane. Install the references to get full parity coverage:
 
@@ -180,11 +189,11 @@ install.packages("fastcmprsk")
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_documentation_examples.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_documentation_examples.do`, `test_finegray_gof.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
-| `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do` |
+| `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do`, `crossval_gof.do` |
 | `full` | `core` + `python` |
-| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do` |
+| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`, `validation_finegray_gof_calibration.do` |
 | Standalone measurement | `benchmark_finegray_zzf.do` (uses `_benchmark_finegray_zzf_cell.do`; intentionally not a `run_all.do` lane) |
 
 ## Coverage map

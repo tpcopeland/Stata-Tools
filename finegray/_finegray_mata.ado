@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/07/18
+*! _finegray_mata Version 1.2.0  2026/07/20
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -1853,6 +1853,246 @@ real matrix _finegray_score_residuals(
     return(scores)
 }
 
+/* ------------------------------------------------------------------------
+   psi_i -- Fine & Gray (1999) eq. (7)-(8), p.500.
+
+   eta_i (above) is the score's i.i.d. contribution treating the censoring
+   survivor G as KNOWN.  psi_i is the SECOND term: the contribution from
+   having ESTIMATED G by Kaplan-Meier.  The full sandwich meat is
+   sum_i (eta_i + psi_i)^{(x)2}; using eta alone understates or overstates
+   the variance by about a percent (measured: -1.28% to +1.42% across the
+   qa/data/ parity fixtures; the covariances move more than the variances).
+   The range is printed by qa/crossval_nuisance_r.R -- do not quote it from
+   memory, and do not confuse it with crskdiag's psi effect, which is a
+   different and defective quantity.  See FG 1999 sec. 4, pp.500-501.
+
+       psi_i = integral_0^{X_i} { q_g(u) / Y_g(u) } dMc_i(u)
+             = 1{eps_i = 0} q_g(X_i)/Y_g(X_i)
+               - sum_{u <= X_i} dNc_g(u) q_g(u) / Y_g(u)^2
+
+   with g = i's censoring stratum, Y_g(u) = #{j in g : X_j >= u}, and
+
+       q_g(t) = sum_{s >= t, s an event time FROM GROUP g} d_s^g
+                  [ S1_2^g(s,t) - zbar(s) S0_2^g(s,t) ] / S0(s)
+       S0_2^g(s,t) = sum_{X_j < t, eps_j = 2, g(j) = g}
+                        exp(eta_j) Ghat_g(s-)/Ghat_g(X_j-)
+
+   THREE THINGS THAT ARE EASY TO GET WRONG, each verified against
+   cmprsk's Fortran crrvv (written by R.J. Gray, FG's second author) and
+   proven by fixtures in qa/:
+
+   1. BOTH sums in q are group-restricted.  crr.f:379 accumulates into
+      qu(., icg(j1)) -- the group of the EVENT subject -- so a cause-1 event
+      in group A contributes only to q_A.  S0(s) and zbar(s) stay GLOBAL.
+      Restricting only the inner competing-event sum passes every
+      single-stratum fixture and fails at ~1e-3 with strata().
+   2. TIE MULTIPLICITY.  A time carrying d tied cause-1 events contributes
+      d times (Breslow); crr.f loops over event SUBJECTS, not distinct event
+      times.  Dropping it is invisible without tied events and >100% wrong
+      with them.
+   3. Ghat is the LEFT limit Ghat(t-) throughout, which is what
+      _finegray_G_at_times already returns (it advances on strict <).
+
+   RIGHT CENSORING ONLY.  Li/Scheike/Zhang (2015) and FG (1999) eq. (7)-(8)
+   are both derived without entry times; the delayed-entry analogue is the
+   ZZF (2011) Appendix B term, which we do not hold.  The caller must not
+   reach here with t0 > 0; this function errors rather than returning a
+   quantity whose derivation does not cover the data.
+
+   Complexity is O(n * p * ng), not O(n^2): q factorises as
+   q_g(t) = B1_g(t) C0_g(t) - B0_g(t) C1_g(t), where B is a forward running
+   sum over competing events and C a reverse running sum over event times.
+   ------------------------------------------------------------------------ */
+real matrix _finegray_psi_residuals(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0)
+{
+    real scalar n, p, ng, i, j, k, g, idx, it, nt, S0_t, cur_time
+    real scalar risk_S0, cS0, dNc_g
+    real colvector row_id, ord, gidx, levels, eta, expeta
+    real colvector is_cause, is_compete, is_cens, Gminus, Yg, S0arr, bwd_s0
+    real matrix Gt, psi, Zbar, Dg, Gg, C0, C1, cumL, bwd_s1, qg
+    real rowvector risk_S1, S1_t, z_bar_t, c1row, qrow
+
+    n = rows(t)
+    p = cols(Z)
+
+    if (colmax(t0) > 0) {
+        errprintf("finegray: psi (FG 1999 eq. 7-8) is derived for right ")
+        errprintf("censoring only;\n")
+        errprintf("       it is not defined under delayed entry\n")
+        exit(198)
+    }
+
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1)
+    is_cens = (delta :== 0) :| (event_type :== censval)
+
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
+
+    /* ---- pass A: per distinct time, collect S0, zbar, event counts, Ghat */
+    nt = 0
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        nt++
+        i = j
+    }
+
+    S0arr = J(nt, 1, 0)
+    Zbar = J(nt, p, 0)
+    Dg = J(nt, ng, 0)
+    Gg = J(nt, ng, 1)
+
+    risk_S0 = colsum(expeta)
+    risk_S1 = colsum(expeta :* Z)
+    bwd_s0 = J(ng, 1, 0)
+    bwd_s1 = J(ng, p, 0)
+
+    it = 0
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        it++
+
+        for (g = 1; g <= ng; g++) Gg[it, g] = Gt[ord[i], g]
+
+        S0_t = risk_S0 + Gg[it, .] * bwd_s0
+        S1_t = risk_S1 + Gg[it, .] * bwd_s1
+        if (S0_t > 0) {
+            z_bar_t = S1_t / S0_t
+            S0arr[it] = S0_t
+            Zbar[it, .] = z_bar_t
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) Dg[it, gidx[idx]] = Dg[it, gidx[idx]] + 1
+        }
+
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd_s0[g] = bwd_s0[g] + expeta[idx] / Gminus[idx]
+                bwd_s1[g, .] = bwd_s1[g, .] +
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            risk_S0 = risk_S0 - expeta[idx]
+            risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+        }
+        i = j
+    }
+
+    /* ---- pass B: reverse cumulative C0_g, C1_g over group-g event times */
+    C0 = J(nt, ng, 0)
+    C1 = J(nt, ng * p, 0)
+    for (it = nt; it >= 1; it--) {
+        if (it < nt) {
+            C0[it, .] = C0[it + 1, .]
+            C1[it, .] = C1[it + 1, .]
+        }
+        if (S0arr[it] <= 0) continue
+        for (g = 1; g <= ng; g++) {
+            if (Dg[it, g] == 0) continue
+            cS0 = Dg[it, g] * Gg[it, g] / S0arr[it]
+            C0[it, g] = C0[it, g] + cS0
+            C1[it, ((g - 1) * p + 1)..(g * p)] =
+                C1[it, ((g - 1) * p + 1)..(g * p)] + cS0 * Zbar[it, .]
+        }
+    }
+
+    /* ---- pass C: forward, form q_g(t) and accumulate psi */
+    psi = J(n, p, 0)
+    cumL = J(ng, p, 0)
+    qg = J(ng, p, 0)
+    Yg = J(ng, 1, 0)
+    for (i = 1; i <= n; i++) Yg[gidx[i]] = Yg[gidx[i]] + 1
+
+    bwd_s0 = J(ng, 1, 0)
+    bwd_s1 = J(ng, p, 0)
+
+    it = 0
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        it++
+
+        for (g = 1; g <= ng; g++) {
+            c1row = C1[it, ((g - 1) * p + 1)..(g * p)]
+            qg[g, .] = bwd_s1[g, .] * C0[it, g] - bwd_s0[g] * c1row
+        }
+
+        for (g = 1; g <= ng; g++) {
+            dNc_g = 0
+            for (k = i; k < j; k++) {
+                idx = ord[k]
+                if (is_cens[idx] & gidx[idx] == g) dNc_g = dNc_g + 1
+            }
+            if (dNc_g > 0 & Yg[g] > 0)
+                cumL[g, .] = cumL[g, .] +
+                    dNc_g * qg[g, .] / (Yg[g] * Yg[g])
+        }
+
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            psi[idx, .] = -cumL[g, .]
+            if (is_cens[idx] & Yg[g] > 0)
+                psi[idx, .] = psi[idx, .] + qg[g, .] / Yg[g]
+        }
+
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd_s0[g] = bwd_s0[g] + expeta[idx] / Gminus[idx]
+                bwd_s1[g, .] = bwd_s1[g, .] +
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
+            }
+        }
+        for (k = i; k < j; k++) Yg[gidx[ord[k]]] = Yg[gidx[ord[k]]] - 1
+
+        i = j
+    }
+
+    return(psi)
+}
+
 /* Robust (sandwich) variance estimator with left truncation support */
 real matrix _finegray_robust_var(
     real colvector t,
@@ -1868,17 +2108,30 @@ real matrix _finegray_robust_var(
     string scalar clust_var,
     real colvector clust_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar nuisance)
 {
     real scalar n, p, i, use_cluster
     real colvector clev, sel
     real matrix scores, meat, clust_scores
+
+    if (args() < 15) nuisance = 0
 
     n = rows(t)
     p = cols(Z)
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, t0, tg_id)
+
+    /* FG (1999) eq. (7)-(8): add the influence contribution from having
+       ESTIMATED G.  The caller guarantees right censoring only -- the psi
+       derivation does not cover delayed entry -- and _finegray_psi_residuals
+       errors rather than silently returning an ungrounded quantity if that
+       guarantee is broken. */
+    if (nuisance) {
+        scores = scores + _finegray_psi_residuals(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, t0)
+    }
 
     use_cluster = (clust_var != "" & rows(clust_id) == n)
     if (use_cluster) {
@@ -2490,7 +2743,8 @@ void _finegray_engine(
     real scalar tol,
     real scalar show_log,
     real scalar adjust,
-    real scalar want_bh)
+    real scalar want_bh,
+    real scalar nuisance)
 {
     real colvector t, delta, event_type, G, byg_id, t0, tg_id
     real matrix Z, V, bh
@@ -2724,7 +2978,8 @@ void _finegray_engine(
             clust_id = J(n, 1, .)
         }
         V = _finegray_robust_var(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0, tg_id)
+            Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0, tg_id,
+            nuisance)
 
         /* Finite-sample adjustment, on by default and suppressed by noadjust.
            This is StataCorp's stcrreg contract exactly: g/(g-1) when clustered,
@@ -3738,6 +3993,583 @@ void _finegray_assign_schoenfeld_vars(
         }
         st_store(., varnames[col], vals)
     }
+}
+
+/* ========================================================================
+   LI, SCHEIKE & ZHANG (2015) CUMULATIVE-RESIDUAL GOODNESS OF FIT
+   Lifetime Data Anal 21(2):197-217.  Appendix eq. (17), pp.215-216.
+
+   Four statistics, all suprema of a cumulative sum of weighted martingale
+   residuals whose null distribution comes from a Lin-Wei-Ying multiplier
+   bootstrap rather than from a table:
+
+     proportionality  B^(p)_j(t) = {I^-1_jj}^(1/2) U_j(bhat,t)
+     overall prop     sup_t sum_j |{I^-1_jj}^(1/2) U_j(bhat,t)|
+     functional form  B^(f)_j(z) = sum_i int 1{Z_ij <= z} w_i dM_i
+     link function    B^(l)(x)   = sum_i int 1{bhat'Z_i <= x} w_i dM_i
+
+   THE INFLUENCE MATRIX HAS THREE TERMS, NOT TWO.  eq. (17):
+
+     term 1   int_0^t {f - g} w dM^1_i
+     term 2   C'(b0,t,x) Omega^-1 (eta_i + psi_i)
+     term 3   -q^(f)_i(t,x)
+
+   crskdiag -- the paper's own companion package -- simulates only terms 1
+   and 2 (src/diag.cc:138).  Gate L2 established numerically that term 3
+   exists to CANCEL the psi that term 2 introduces: with a correct psi,
+   dropping term 3 moves p by ~0.0005, but crskdiag's default
+   (minor_included = 1) adds a DEFECTIVE psi with no cancelling term 3 and
+   moves the edge sd from 4e-16 to 3.3e-01.  We implement all three.
+   See _take_action/finegray/FINDINGS.md sections 9 and 10.
+
+   FOUR THINGS THAT ARE EASY TO GET WRONG
+   --------------------------------------
+   1. The standardizing factor is {I^-1_jj}^(1/2) -- the SQUARE ROOT of the
+      jth diagonal of the INVERSE INFORMATION, not a sandwich SE.  It comes
+      from _finegray_score_info, never from e(V).  The paper's own Appendix
+      (p.215) drops the sqrt and contradicts its main text (p.201, p.202
+      twice); the main text wins.  Reading e(V) or dropping the sqrt gives
+      plausible numbers that CANCEL in all three per-covariate tests and are
+      wrong only in the overall statistic -- so it is checked there.
+   2. Term 2 always uses eta_i + psi_i, whether or not the fit used
+      `nuisance'.  psi here is a property of eq. (17), not of e(V); gating
+      it on the variance option would silently change the test by option.
+   3. Breslow tie multiplicity: a time carrying d tied cause-1 events
+      contributes d times.  Looping over distinct event TIMES instead of
+      event SUBJECTS is invisible on one-event-per-time fixtures and ~167%
+      wrong with ties.
+   4. Term 3 must be FACTORISED.  The literal definition is a triple loop
+      over (subject, grid point, event time); it is what forced the paper's
+      authors into C++.  Because w2_l(s) = ev_l Ghat(s)/Ghat(X_l) separates
+      as c_l * Gev[s], the inner bracket collapses to
+
+        q(u, grid) = A_u(grid) * P1(u) - C_u * P2(u, grid)
+
+      turning O(n * ngrid * m) into O(n * ngrid).  The factorisation is
+      validated against a literal triple loop in
+      _take_action/finegray/R/10_gate_L3_naive_check.R -- NOT against the
+      fast path in R/09, which shares the same algebra and would share a bug.
+
+   RIGHT CENSORING, ONE CENSORING STRATUM.  The paper has no entry time
+   anywhere -- not section 2, not the Appendix, not the simulations, not
+   either data example -- and its Ghat_c is the MARGINAL Kaplan-Meier.  Both
+   are refused here rather than extrapolated.  The ado-level gates in
+   finegray_gof.ado are the user-facing message; these are the backstop that
+   makes a bypass impossible rather than merely unlikely.
+
+   FREE SELF-CHECK.  W_i(t_max) = 0 exactly, for every subject, in all four
+   tests: at the right edge the three terms collapse to eta_i, -(eta+psi)_i
+   and +psi_i.  It catches errors in C(.), Omega^-1, tie multiplicity and
+   term 3 simultaneously, costs nothing, and is strictly stronger than the
+   usual colSums(eta) ~ 0.  _finegray_gof_edge() returns it.
+   ======================================================================== */
+
+struct _finegray_gof_sc {
+    real matrix    Z, W, xbar, dM, eta, psi, Oi
+    real colvector X, ev, Gmin, S0, dk, ft, Gev, ut, ai, Ysafe, dNc
+    real colvector iscens, iscomp, rowsdM
+    real scalar    n, p, m, nu
+}
+
+/* Position of each value on a sorted grid; 0 if absent.  Exact equality is
+   the right test because the grids are built from these very values. */
+real colvector _finegray_gof_pos(real colvector vals, real colvector grid)
+{
+    real scalar i, lo, hi, mid, n, g
+    real colvector out
+
+    n = rows(vals)
+    g = rows(grid)
+    out = J(n, 1, 0)
+    for (i = 1; i <= n; i++) {
+        lo = 1
+        hi = g
+        while (lo <= hi) {
+            mid = floor((lo + hi) / 2)
+            if (grid[mid] < vals[i]) lo = mid + 1
+            else if (grid[mid] > vals[i]) hi = mid - 1
+            else {
+                out[i] = mid
+                break
+            }
+        }
+    }
+    return(out)
+}
+
+/* Risk-set scaffolding shared by all four statistics, built once per fit. */
+struct _finegray_gof_sc scalar _finegray_gof_scaffold(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    struct _finegray_gof_sc scalar sc
+    real colvector levels, gidx, is_cause, ki, Y, cnt, score
+    real matrix info
+    real scalar k, i
+
+    sc.n = rows(t)
+    sc.p = cols(Z)
+
+    if (colmax(t0) > 0) {
+        errprintf("finegray_gof: the Li/Scheike/Zhang (2015) residual process ")
+        errprintf("is derived for\n")
+        errprintf("       right censoring only; it is not defined under ")
+        errprintf("delayed entry\n")
+        exit(198)
+    }
+    levels = uniqrows(byg_id)
+    if (rows(levels) > 1) {
+        errprintf("finegray_gof: the test is built on the MARGINAL censoring ")
+        errprintf("Kaplan-Meier;\n")
+        errprintf("       it is not defined with stratified censoring weights\n")
+        exit(198)
+    }
+    gidx = _finegray_group_index(byg_id, levels)
+
+    sc.Z = Z
+    sc.X = t
+    sc.ev = exp(Z * beta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    sc.iscomp = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1)
+    sc.iscens = (delta :== 0) :| (event_type :== censval)
+
+    /* Ghat(X_i-) per subject, and Ghat(ft_k-) on the cause-event grid.
+       _finegray_G_at_times advances on strict <, so both are LEFT limits --
+       the convention cmprsk::crr and stcrreg both use. */
+    sc.Gmin = _finegray_G_minus(gidx, _finegray_G_at_times(t, G, byg_id, t))
+    sc.ft = uniqrows(select(t, is_cause))
+    sc.m = rows(sc.ft)
+    sc.Gev = _finegray_G_at_times(t, G, byg_id, sc.ft)[., 1]
+
+    ki = _finegray_gof_pos(t, sc.ft)
+    sc.dk = J(sc.m, 1, 0)
+    for (i = 1; i <= sc.n; i++)
+        if (is_cause[i]) sc.dk[ki[i]] = sc.dk[ki[i]] + 1
+
+    /* Subdistribution at-risk weight: 1 while still at risk, Ghat(s-)/Ghat(X-)
+       once a competing event has occurred, 0 after censoring. */
+    sc.W = J(sc.n, sc.m, 0)
+    for (k = 1; k <= sc.m; k++)
+        sc.W[., k] = ((t :>= sc.ft[k]) :+
+            ((t :< sc.ft[k]) :& sc.iscomp) :* (sc.Gev[k] :/ sc.Gmin)) :* sc.ev
+
+    sc.S0 = colsum(sc.W)'
+    sc.xbar = (sc.W' * Z) :/ sc.S0
+
+    sc.dM = -sc.W :* (sc.dk :/ sc.S0)'
+    for (i = 1; i <= sc.n; i++)
+        if (is_cause[i]) sc.dM[i, ki[i]] = sc.dM[i, ki[i]] + 1
+    sc.rowsdM = rowsum(sc.dM)
+
+    sc.ut = uniqrows(t)
+    sc.nu = rows(sc.ut)
+    sc.ai = _finegray_gof_pos(t, sc.ut)
+    cnt = J(sc.nu, 1, 0)
+    sc.dNc = J(sc.nu, 1, 0)
+    for (i = 1; i <= sc.n; i++) {
+        cnt[sc.ai[i]] = cnt[sc.ai[i]] + 1
+        if (sc.iscens[i]) sc.dNc[sc.ai[i]] = sc.dNc[sc.ai[i]] + 1
+    }
+    /* Y(u) = #{X >= u}: n minus the number strictly below u. */
+    Y = sc.n :- (runningsum(cnt) - cnt)
+    sc.Ysafe = Y :+ (Y :== 0)
+
+    sc.eta = _finegray_score_residuals(t, delta, cause, censval, event_type,
+        Z, beta, G, byg_id, t0, tg_id)
+    sc.psi = _finegray_psi_residuals(t, delta, cause, censval, event_type,
+        Z, beta, G, byg_id, t0)
+    _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
+        byg_id, score, info, t0, tg_id)
+    sc.Oi = invsym(info)
+
+    return(sc)
+}
+
+/* Standardizing factors {I^-1_jj}^(1/2), one per covariate. */
+real colvector _finegray_gof_scale(struct _finegray_gof_sc scalar sc)
+{
+    return(sqrt(diagonal(sc.Oi)))
+}
+
+/* term 3 = -int_0^{X_i} {q(u,.)/Y(u)} dM^c_i(u), given q on the u-grid. */
+real matrix _finegray_gof_term3(
+    struct _finegray_gof_sc scalar sc,
+    real matrix qmat)
+{
+    real matrix cumdL, T3
+    real scalar a, i, ng
+
+    ng = cols(qmat)
+    cumdL = qmat :* (sc.dNc :/ (sc.Ysafe :^ 2))
+    for (a = 2; a <= sc.nu; a++) cumdL[a, .] = cumdL[a, .] + cumdL[a - 1, .]
+
+    T3 = J(sc.n, ng, 0)
+    for (i = 1; i <= sc.n; i++) {
+        T3[i, .] = -cumdL[sc.ai[i], .]
+        if (sc.iscens[i])
+            T3[i, .] = T3[i, .] + qmat[sc.ai[i], .] :/ sc.Ysafe[sc.ai[i]]
+    }
+    return(T3)
+}
+
+/* Proportionality process for covariate j, indexed by TIME (f = Z_j fixed,
+   the cumulative sum run along the event grid).  Returns the n x m influence
+   matrix; obs receives the observed process. */
+real matrix _finegray_gof_prop(
+    struct _finegray_gof_sc scalar sc,
+    real scalar j,
+    real colvector obs)
+{
+    real matrix W1, Cinc, Ct, W2, qmat, Zc
+    real colvector cl, accA, accC, Au, Cu, base, base2, cum1, cum2, row
+    real scalar k, i, a, s0a, off1, off2
+
+    /* NOTE the explicit J(n,1,1) * rowvector.  Mata's c-conformability does
+       NOT broadcast an n x 1 against a 1 x m the way R and NumPy do: a colon
+       operator accepts a column vector with matching ROWS or a row vector
+       with matching COLUMNS, never the outer combination of the two.  The R
+       reference this was ported from relies on that broadcast throughout, so
+       every such site had to be expanded by hand. */
+    W1 = (sc.Z[., j] :- J(sc.n, 1, 1) * sc.xbar[., j]') :* sc.dM
+    for (k = 2; k <= sc.m; k++) W1[., k] = W1[., k] + W1[., k - 1]
+    obs = colsum(W1)'
+
+    Cinc = J(sc.m, sc.p, 0)
+    for (k = 1; k <= sc.m; k++) {
+        Zc = sc.Z :- sc.xbar[k, .]
+        Cinc[k, .] = -(sc.dk[k] / sc.S0[k]) *
+            colsum(sc.Z[., j] :* sc.W[., k] :* Zc)
+    }
+    Ct = Cinc
+    for (k = 2; k <= sc.m; k++) Ct[k, .] = Ct[k, .] + Ct[k - 1, .]
+    W2 = ((sc.eta + sc.psi) * sc.Oi) * Ct'
+
+    /* q_j(u,t) via the factorisation: A_u and C_u are running sums over
+       competing-event subjects with X < u; the s-sums are running sums over
+       the event grid, capped at t and tailed at u. */
+    cl = sc.ev :/ sc.Gmin
+    accA = J(sc.nu, 1, 0)
+    accC = J(sc.nu, 1, 0)
+    for (i = 1; i <= sc.n; i++) {
+        if (sc.iscomp[i]) {
+            accA[sc.ai[i]] = accA[sc.ai[i]] + cl[i] * sc.Z[i, j]
+            accC[sc.ai[i]] = accC[sc.ai[i]] + cl[i]
+        }
+    }
+    Au = runningsum(accA) - accA
+    Cu = runningsum(accC) - accC
+
+    base = sc.Gev :* sc.dk :/ sc.S0
+    base2 = base :* sc.xbar[., j]
+    cum1 = runningsum(base)
+    cum2 = runningsum(base2)
+
+    qmat = J(sc.nu, sc.m, 0)
+    s0a = 1
+    for (a = 1; a <= sc.nu; a++) {
+        while (s0a <= sc.m) {
+            if (sc.ft[s0a] >= sc.ut[a]) break
+            s0a++
+        }
+        if (s0a > sc.m) break
+        off1 = (s0a > 1 ? cum1[s0a - 1] : 0)
+        off2 = (s0a > 1 ? cum2[s0a - 1] : 0)
+        /* Built full-length and then zeroed below s0a rather than assigned
+           into a slice: a colvector subscripted by a rowvector index range
+           does NOT keep its orientation, and the mismatch surfaces as a
+           conformability error far from the subscript that caused it. */
+        row = Au[a] :* (cum1 :- off1) - Cu[a] :* (cum2 :- off2)
+        if (s0a > 1) row[|1 \ s0a - 1|] = J(s0a - 1, 1, 0)
+        qmat[a, .] = row'
+    }
+
+    return(W1 + W2 + _finegray_gof_term3(sc, qmat))
+}
+
+/* Functional-form / link process, indexed by a COVARIATE VALUE with the time
+   integral run to infinity.  fvar is Z_j for functional form and bhat'Z for
+   the link.  grid and obs are set on return. */
+real matrix _finegray_gof_xaxis(
+    struct _finegray_gof_sc scalar sc,
+    real colvector fvar,
+    real colvector grid,
+    real colvector obs)
+{
+    real matrix gbar, W1, Cx, W2, Au, P2, qmat, cumG, pre, ZA
+    real colvector cl, Cu, base, P1, cum1, a_i, ford, cntg, lastpos, r0, rs
+    real scalar k, i, a, ng, s0a
+
+    grid = uniqrows(fvar)
+    ng = rows(grid)
+
+    /* THE INDICATOR MATRIX F = 1{fvar_i <= x} IS NEVER MATERIALISED.
+       It is n x ngrid, and for the link test ngrid = n, so at n = 4000 F alone
+       is 128 MB -- on top of the n x ngrid process matrix that genuinely has
+       to exist.  Every place the R reference writes an F product, the same
+       quantity is a PREFIX SUM over subjects sorted by fvar, because
+       1{fvar_i <= grid_r} is exactly "i comes at or before rank r".  That
+       replaces an O(m*n*ngrid) contraction with an O(n*m) running sum.
+
+       r0[i] is subject i's own position on the grid, so the columns where the
+       indicator is 1 are exactly r0[i]..ngrid -- a contiguous slice, which is
+       why the accumulations below are range assignments rather than products
+       against a dense 0/1 matrix. */
+    r0 = _finegray_gof_pos(fvar, grid)
+    ford = order(fvar, 1)
+    cntg = J(ng, 1, 0)
+    for (i = 1; i <= sc.n; i++) cntg[r0[i]] = cntg[r0[i]] + 1
+    lastpos = runningsum(cntg)
+
+    pre = sc.W[ford, .]
+    for (i = 2; i <= sc.n; i++) pre[i, .] = pre[i, .] + pre[i - 1, .]
+    gbar = pre[lastpos, .]' :/ sc.S0
+
+    /* 1{fvar_i <= x} does not depend on u, so its part of term 1 is the
+       subject's total dM times the indicator; gbar does depend on u and is
+       contracted against dM over the event grid. */
+    W1 = -(sc.dM * gbar)
+    for (i = 1; i <= sc.n; i++)
+        W1[|i, r0[i] \ i, ng|] = W1[|i, r0[i] \ i, ng|] :+ sc.rowsdM[i]
+    rs = sc.rowsdM[ford]
+    obs = runningsum(rs)[lastpos]
+
+    /* C(x) FACTORISED OUT OF ITS EVENT-TIME LOOP.  Written literally,
+          C(x) = -sum_k (d_k/S0_k) (Z - xbar_k)' diag(W[.,k]) F
+       is m separate p x n by n x ngrid products: O(m*n*ngrid*p), the single
+       cubic term in this routine and measured at 40x per doubling of n.
+       Expanding the bracket lets both halves collapse to ONE product each:
+
+          sum_k c_k (Z:*W[.,k])' F = (Z :* a)' F,   a_i = sum_k c_k W[i,k]
+          -sum_k c_k xbar_k' (W[.,k]' F)            = (xbar :* d)' gbar
+
+       using W[.,k]'F = S0_k gbar[k,.] and c_k = -d_k/S0_k.  The first is then
+       another prefix sum; the second is a single m-length contraction. */
+    a_i = -(sc.W * (sc.dk :/ sc.S0))
+    ZA = sc.Z :* a_i
+    pre = ZA[ford, .]
+    for (i = 2; i <= sc.n; i++) pre[i, .] = pre[i, .] + pre[i - 1, .]
+    Cx = pre[lastpos, .]' + (sc.xbar :* sc.dk)' * gbar
+    W2 = ((sc.eta + sc.psi) * sc.Oi) * Cx
+
+    cl = sc.ev :/ sc.Gmin
+    Au = J(sc.nu, ng, 0)
+    Cu = J(sc.nu, 1, 0)
+    for (i = 1; i <= sc.n; i++) {
+        if (sc.iscomp[i]) {
+            Au[|sc.ai[i], r0[i] \ sc.ai[i], ng|] =
+                Au[|sc.ai[i], r0[i] \ sc.ai[i], ng|] :+ cl[i]
+            Cu[sc.ai[i]] = Cu[sc.ai[i]] + cl[i]
+        }
+    }
+    for (a = 2; a <= sc.nu; a++) Au[a, .] = Au[a, .] + Au[a - 1, .]
+    for (a = sc.nu; a >= 2; a--) Au[a, .] = Au[a - 1, .]
+    Au[1, .] = J(1, ng, 0)
+    Cu = runningsum(Cu) - Cu
+
+    base = sc.Gev :* sc.dk :/ sc.S0
+    cum1 = runningsum(base)
+    cumG = base :* gbar
+    for (k = 2; k <= sc.m; k++) cumG[k, .] = cumG[k, .] + cumG[k - 1, .]
+
+    P1 = J(sc.nu, 1, 0)
+    P2 = J(sc.nu, ng, 0)
+    s0a = 1
+    for (a = 1; a <= sc.nu; a++) {
+        while (s0a <= sc.m) {
+            if (sc.ft[s0a] >= sc.ut[a]) break
+            s0a++
+        }
+        if (s0a > sc.m) break
+        P1[a] = cum1[sc.m] - (s0a > 1 ? cum1[s0a - 1] : 0)
+        P2[a, .] = cumG[sc.m, .] -
+            (s0a > 1 ? cumG[s0a - 1, .] : J(1, ng, 0))
+    }
+    qmat = Au :* P1 - Cu :* P2
+
+    return(W1 + W2 + _finegray_gof_term3(sc, qmat))
+}
+
+/* max_i |W_i(edge)| -- the free self-check.  Must be ~0 relative to the
+   scale of eta.  Nonzero means C(.), Omega^-1, tie multiplicity or term 3
+   is wrong, and it says so before any p-value is computed. */
+real scalar _finegray_gof_edge(real matrix Wp)
+{
+    return(max(abs(Wp[., cols(Wp)])))
+}
+
+/* Multiplier-bootstrap block size.  A function rather than a literal so the
+   two bootstrap routines cannot drift apart: they must consume the RNG
+   stream identically or the overall statistic stops being comparable with
+   the per-covariate ones computed from the same seed. */
+real scalar _finegray_gof_bs()
+{
+    return(64)
+}
+
+/* Lin-Wei-Ying multiplier bootstrap.  Only the V_i ~ N(0,1) are redrawn:
+   Wp is computed ONCE and nothing is refitted per replication.  The caller
+   sets the seed, so `set seed' governs reproducibility uniformly.
+
+   p is counted with >= : a simulated supremum that TIES the observed one
+   counts toward the p-value.  p can be exactly 0 and must be displayed as
+   < 1/K rather than as a bare 0.000. */
+real rowvector _finegray_gof_boot(
+    real matrix Wp,
+    real colvector obs,
+    real scalar scale,
+    real scalar K)
+{
+    real scalar sup_obs, cnt, k, n, b0, nb
+    real matrix B
+
+    sup_obs = max(abs(obs :* scale))
+    cnt = 0
+    n = rows(Wp)
+    /* Drawn in blocks rather than one replication at a time.  Each
+       replication is a 1 x n by n x ngrid product -- a rank-1 update that
+       leaves most of the matrix-multiply throughput on the floor.  Blocking
+       turns K of those into K/BS real matrix products at identical flop count
+       and ~3x the speed.  BS is a fixed constant, not tuned per call, because
+       Mata fills a drawn matrix in a set order: changing the block size
+       changes which draw lands where and therefore changes the p-value for a
+       given seed.  Same seed, same block size, same answer. */
+    for (b0 = 1; b0 <= K; b0 = b0 + _finegray_gof_bs()) {
+        nb = min((_finegray_gof_bs(), K - b0 + 1))
+        B = rnormal(nb, n, 0, 1) * Wp
+        for (k = 1; k <= nb; k++)
+            if (max(abs(B[k, .] :* scale)) >= sup_obs) cnt++
+    }
+    return((sup_obs, cnt / K))
+}
+
+/* Overall proportionality: sup_t sum_j |{I^-1_jj}^(1/2) U_j(t)|.  All p
+   processes are driven by the SAME V draw within a replication -- they are
+   not independent tests being combined, they are one statistic.
+
+   This is the only test in which the standardizing factor does not cancel,
+   so it is the only place a bug in that factor is visible. */
+/* Driver called by finegray_gof.ado.  Reads the estimation sample, builds the
+   scaffolding once, runs whichever tests were requested, and hands results
+   back as Stata matrices.
+
+   The caller has already refused delayed entry, stratified censoring weights
+   and clustering; the scaffold refuses the first two again rather than trust
+   that, because a refusal that exists only in the ado is one `capture' away
+   from being bypassed.
+
+   funcidx carries the COLUMN POSITIONS in Z of the covariates named in
+   funcform(), not their names: the design matrix here may be a reconstructed
+   factor-variable expansion whose column names no longer match anything the
+   user typed. */
+void _finegray_gof_run(
+    string scalar covvars,
+    string scalar evvar,
+    real scalar cause,
+    real scalar censval,
+    string scalar t0var,
+    real scalar do_prop,
+    real rowvector funcidx,
+    real scalar do_link,
+    real scalar K)
+{
+    struct _finegray_gof_sc scalar sc
+    real colvector t, d, ct, t0, one, G, beta, obs, grid, scl
+    real matrix Z, Wp, U, pres, fres, Wall
+    real scalar n, p, j, nf, i
+
+    t  = st_data(., "_t")
+    d  = st_data(., "_d")
+    ct = st_data(., evvar)
+    Z  = st_data(., covvars)
+    n  = rows(t)
+    p  = cols(Z)
+    t0 = (t0var == "" ? J(n, 1, 0) : st_data(., t0var))
+    one = J(n, 1, 1)
+    beta = st_matrix("_finegray_gof_b")'
+
+    G  = _finegray_km_censor(t, d, censval, ct, one, t0, 1)
+    sc = _finegray_gof_scaffold(t, d, cause, censval, ct, Z, beta, G, one,
+                                t0, one)
+    scl = _finegray_gof_scale(sc)
+    st_matrix("_finegray_gof_scale", scl')
+
+    if (do_prop) {
+        pres = J(p, 2, 0)
+        U = J(sc.m, p, 0)
+        /* All p processes are retained, stacked side by side, because the
+           OVERALL statistic needs every one of them driven by the SAME
+           multiplier draw within a replication -- it is a single statistic,
+           not p separate tests combined afterwards.  Stacked into one
+           n x (m*p) matrix rather than a pointer array: `&(f(...))' takes the
+           address of a temporary, and the obvious fix of assigning to a named
+           variable first makes every pointer alias that one variable, so each
+           iteration would silently overwrite the last.
+           Cost is n*m*p doubles -- ~200 MB at n=4000, m=1278, p=5. */
+        Wall = J(n, 0, 0)
+        for (j = 1; j <= p; j++) {
+            Wp = _finegray_gof_prop(sc, j, obs)
+            Wall = Wall, Wp
+            U[., j] = obs
+            pres[j, .] = _finegray_gof_boot(Wp, obs, scl[j], K)
+        }
+        st_matrix("_finegray_gof_prop_res", pres)
+        st_matrix("_finegray_gof_overall",
+                  _finegray_gof_boot_overall(Wall, U, scl, K))
+    }
+
+    nf = cols(funcidx)
+    if (nf > 0 & funcidx[1] > 0) {
+        fres = J(nf, 2, 0)
+        for (i = 1; i <= nf; i++) {
+            j = funcidx[i]
+            Wp = _finegray_gof_xaxis(sc, Z[., j], grid, obs)
+            fres[i, .] = _finegray_gof_boot(Wp, obs, 1, K)
+        }
+        st_matrix("_finegray_gof_func_res", fres)
+    }
+
+    if (do_link) {
+        Wp = _finegray_gof_xaxis(sc, Z * beta, grid, obs)
+        st_matrix("_finegray_gof_link_res", _finegray_gof_boot(Wp, obs, 1, K))
+    }
+}
+
+real rowvector _finegray_gof_boot_overall(
+    real matrix Wall,
+    real matrix U,
+    real colvector scale,
+    real scalar K)
+{
+    real scalar sup_obs, cnt, k, j, p, n, m, b0, nb
+    real matrix acc, V, B
+
+    p = cols(U)
+    m = rows(U)
+    n = rows(Wall)
+    sup_obs = max(rowsum(abs(U :* scale')))
+    cnt = 0
+    for (b0 = 1; b0 <= K; b0 = b0 + _finegray_gof_bs()) {
+        nb = min((_finegray_gof_bs(), K - b0 + 1))
+        V = rnormal(nb, n, 0, 1)
+        B = V * Wall
+        acc = J(nb, m, 0)
+        for (j = 1; j <= p; j++)
+            acc = acc +
+                abs(B[|1, (j - 1) * m + 1 \ nb, j * m|] :* scale[j])
+        for (k = 1; k <= nb; k++)
+            if (max(acc[k, .]) >= sup_obs) cnt++
+    }
+    return((sup_obs, cnt / K))
 }
 
 end

@@ -1,6 +1,6 @@
-*! _msm_xlsx_title_header_style Version 1.2.2  2026/07/02
+*! _msm_xlsx_title_header_style Version 1.2.3  2026/07/02
 *! Apply common Excel title and one-row header styling
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _msm_xlsx_title_header_style, nclass
     version 16.0

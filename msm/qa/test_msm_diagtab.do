@@ -390,4 +390,5 @@ capture erase "`work_dir'/missing.xlsx"
 capture erase "`work_dir'/nclass.xlsx"
 capture erase "`opt_xlsx'"
 
+display as text "RESULT: test_msm_diagtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 exit 1

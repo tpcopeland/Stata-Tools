@@ -1,7 +1,6 @@
-*! msm_fit Version 1.2.2  2026/07/02
+*! msm_fit Version 1.2.3  2026/07/02
 *! Weighted outcome model for marginal structural models
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
 
 /*
@@ -311,6 +310,125 @@ program define msm_fit, eclass
         _msm_hist_lag1 _msm_hist_cum _msm_hist_dur _msm_hist_int
 
     * =========================================================================
+    * MARK ESTIMATION SAMPLE (before basis construction, audit A18)
+    *
+    * Exclude rows after prior outcome/censoring so the pooled model is fit
+    * only on person-periods still at risk at the start of each interval. This
+    * runs BEFORE the period basis so spline knots are placed on the fitted
+    * support, not on post-event/censor rows.
+    * =========================================================================
+    tempvar _esample _post_outcome
+    local n_post_outcome = 0
+    local n_post_censor = 0
+
+    bysort `id' (`period'): gen byte `_post_outcome' = ///
+        (sum(`outcome'[_n-1]) >= 1) if _n > 1
+    replace `_post_outcome' = 0 if missing(`_post_outcome')
+    quietly count if `_post_outcome' == 1
+    local n_post_outcome = r(N)
+
+    if "`censor'" != "" {
+        tempvar _post_censor
+        bysort `id' (`period'): gen byte `_post_censor' = ///
+            (sum(`censor'[_n-1]) >= 1) if _n > 1
+        replace `_post_censor' = 0 if missing(`_post_censor')
+        quietly count if `_post_censor' == 1
+        local n_post_censor = r(N)
+        gen byte `_esample' = (`_post_outcome' == 0 & `_post_censor' == 0 & ///
+            `censor' == 0 & !missing(_msm_weight))
+    }
+    else {
+        gen byte `_esample' = (`_post_outcome' == 0 & !missing(_msm_weight))
+    }
+
+    quietly count if `_esample'
+    if r(N) == 0 {
+        display as error "no observations remain in the MSM estimation sample"
+        exit 2000
+    }
+
+    if `n_post_outcome' > 0 {
+        display as text "Excluding " as result `n_post_outcome' ///
+            as text " row(s) after prior outcome events."
+    }
+    if `n_post_censor' > 0 {
+        display as text "Excluding " as result `n_post_censor' ///
+            as text " row(s) after prior censoring."
+    }
+    if `n_post_outcome' > 0 | `n_post_censor' > 0 {
+        display as text ""
+    }
+
+    * -------------------------------------------------------------------------
+    * VCE nesting contract (audit A21)
+    *
+    * Person-period rows within an id are correlated. Row-level vce(robust) is
+    * valid only when each id contributes at most one fitted row; a custom
+    * cluster must wholly nest each id (id constant-to-cluster). Otherwise the
+    * SEs ignore within-id dependence. Report the number of independent clusters.
+    * -------------------------------------------------------------------------
+    tempvar _id_rows _idtag
+    quietly bysort `id': egen long `_id_rows' = total(`_esample')
+    quietly bysort `id' (`period'): gen byte `_idtag' = (_n == 1)
+    if "`vce_type'" == "robust" {
+        quietly count if `_idtag' & `_id_rows' > 1
+        if r(N) > 0 {
+            display as error "vce(robust) is invalid: " as result r(N) as error ///
+                " id(s) contribute more than one fitted person-period row."
+            display as error "Within-id outcomes are correlated; use vce(cluster `id') " ///
+                "or a higher-level cluster in which each `id' is wholly nested."
+            exit 198
+        }
+    }
+    if "`vce_type'" == "cluster" & "`vce_cluster'" != "`id'" {
+        * Each id must map to exactly one cluster value (wholly nested). Count the
+        * distinct (id, cluster) pairs among fitted rows: >1 pair for an id means
+        * that id spans more than one cluster.
+        tempvar _pairtag _npair
+        quietly egen byte `_pairtag' = tag(`id' `vce_cluster') if `_esample'
+        quietly bysort `id': egen long `_npair' = total(`_pairtag') if `_esample'
+        quietly count if `_esample' & `_npair' > 1
+        if r(N) > 0 {
+            display as error "vce(cluster `vce_cluster') does not nest `id': some id(s) " ///
+                "span more than one cluster value in the fit sample."
+            display as error "Each `id' must fall wholly within one cluster; use vce(cluster `id')."
+            exit 198
+        }
+    }
+    * Count independent clusters among fitted rows.
+    local _clustvar "`id'"
+    if "`vce_type'" == "cluster" local _clustvar "`vce_cluster'"
+    if "`vce_type'" == "robust" local _clustvar ""
+    if "`_clustvar'" != "" {
+        * Count distinct cluster values among fitted rows. The naive
+        * `bysort clustvar: gen (_n==1) if _esample' undercounts when a cluster's
+        * first sorted row is outside the fit sample (the tag lands on a dropped
+        * row). Sorting the estimation-sample rows together first
+        * (`bysort _esample clustvar') guarantees the tagged row is in-sample,
+        * so the count is correct (audit A21). A plain `sort`-based tag is used
+        * rather than egen tag(), whose internal sort perturbs the sort-tie state
+        * and breaks msm_predict's cross-run reproducibility (test_msm_expanded F5).
+        tempvar _ctag
+        quietly bysort `_esample' `_clustvar' : gen byte `_ctag' = (`_esample' & _n == 1)
+        quietly count if `_ctag'
+        local _n_indep_clusters = r(N)
+    }
+    else {
+        quietly count if `_esample'
+        local _n_indep_clusters = r(N)
+    }
+
+    * The VCE-metadata steps above sort the data (by id, cluster, ...), and a
+    * sort with ties leaves the rows in a sort-tie-state-dependent order. If the
+    * estimator then runs on that order, its coefficients pick up a ~1e-15
+    * summation-order difference that can amplify through the nonlinear Monte
+    * Carlo prediction to break bit-exact reproducibility across two identical
+    * runs in one session (test_msm_expanded F5). Restore the deterministic
+    * incoming order so the estimator always sees the same rows in the same
+    * order, independent of prior session state.
+    quietly sort `_msm_orig_order'
+
+    * =========================================================================
     * BUILD PERIOD SPECIFICATION VARIABLES
     * =========================================================================
 
@@ -323,7 +441,14 @@ program define msm_fit, eclass
     local time_vars ""
     local time_vars_created ""
 
-    if "`period_spec'" != "none" {
+    * Cox uses analysis time as the outcome and omits period covariates, so no
+    * period basis is built for it (audit A18): constructing an invalid spline
+    * that the Cox model never uses must not be able to block the fit.
+    if "`period_spec'" != "none" & "`model'" == "cox" {
+        display as text "Note: period_spec(`period_spec') is ignored for model(cox); " ///
+            "time is the analysis outcome."
+    }
+    if "`period_spec'" != "none" & "`model'" != "cox" {
         local time_vars "`period'"
 
         * Reserved period-basis names that msm did not create belong to the
@@ -347,7 +472,9 @@ program define msm_fit, eclass
         if regexm("`period_spec'", "^ns\(([0-9]+)\)$") {
             local ns_df = regexs(1)
 
-            _msm_natural_spline `period', df(`ns_df') prefix(_msm_per_ns)
+            * Knots are placed on the fitted estimation sample (audit A18).
+            _msm_natural_spline `period', df(`ns_df') prefix(_msm_per_ns) ///
+                touse(`_esample')
             local time_vars "`_msm_spline_vars'"
             local time_vars_created "`time_vars_created' `_msm_spline_vars'"
             local per_ns_knots "`_msm_spline_knots'"
@@ -478,53 +605,8 @@ program define msm_fit, eclass
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
 
-    * =========================================================================
-    * MARK ESTIMATION SAMPLE
-    * =========================================================================
-
-    * Exclude rows after prior outcome/censoring so the pooled model is fit
-    * only on person-periods still at risk at the start of each interval.
-    tempvar _esample _post_outcome
-    local n_post_outcome = 0
-    local n_post_censor = 0
-
-    bysort `id' (`period'): gen byte `_post_outcome' = ///
-        (sum(`outcome'[_n-1]) >= 1) if _n > 1
-    replace `_post_outcome' = 0 if missing(`_post_outcome')
-    quietly count if `_post_outcome' == 1
-    local n_post_outcome = r(N)
-
-    if "`censor'" != "" {
-        tempvar _post_censor
-        bysort `id' (`period'): gen byte `_post_censor' = ///
-            (sum(`censor'[_n-1]) >= 1) if _n > 1
-        replace `_post_censor' = 0 if missing(`_post_censor')
-        quietly count if `_post_censor' == 1
-        local n_post_censor = r(N)
-        gen byte `_esample' = (`_post_outcome' == 0 & `_post_censor' == 0 & ///
-            `censor' == 0 & !missing(_msm_weight))
-    }
-    else {
-        gen byte `_esample' = (`_post_outcome' == 0 & !missing(_msm_weight))
-    }
-
-    quietly count if `_esample'
-    if r(N) == 0 {
-        display as error "no observations remain in the MSM estimation sample"
-        exit 2000
-    }
-
-    if `n_post_outcome' > 0 {
-        display as text "Excluding " as result `n_post_outcome' ///
-            as text " row(s) after prior outcome events."
-    }
-    if `n_post_censor' > 0 {
-        display as text "Excluding " as result `n_post_censor' ///
-            as text " row(s) after prior censoring."
-    }
-    if `n_post_outcome' > 0 | `n_post_censor' > 0 {
-        display as text ""
-    }
+    * (Estimation sample `_esample' was marked before basis construction so the
+    * spline knots use the fitted risk-set support -- see audit A18 above.)
 
     * =========================================================================
     * FIT MODEL
@@ -557,6 +639,9 @@ program define msm_fit, eclass
 
         regress `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
             `vce_opt' level(`level')
+        * Weighted linear models use t inference with the residual/cluster df
+        * (audit A20). Capture it now, before any downstream command touches e().
+        local _lin_df_r = e(df_r)
     }
     else if "`model'" == "cox" {
         display as text "Setting up survival data..."
@@ -603,7 +688,10 @@ program define msm_fit, eclass
         * subset of the logistic sample without warning. Rebasing every
         * interval by the external minimum period puts the earliest decision at
         * analysis time 0->1 so no at-risk row is discarded. The external
-        * origin is stored and displayed; msm_predict maps external times back.
+        * origin is displayed here; it is not yet stored as a characteristic, so
+        * msm_predict does not convert signed external prediction times (Phase 4
+        * owns prediction and the origin round-trip; predict currently requires
+        * times() on the rebased zero-origin scale).
         * Delayed entry is already refused in msm_weight, so all subjects share
         * this baseline.
         * -----------------------------------------------------------------
@@ -783,6 +871,9 @@ program define msm_fit, eclass
     char _dta[_msm_fit_level] "`level'"
     char _dta[_msm_fit_uuid] "`_fit_uuid'"
     char _dta[_msm_fit_effect_term] "`effect_term'"
+    * External Cox time origin (audit A17); empty for non-Cox fits, which also
+    * clears any origin left by a previous Cox fit on this dataset.
+    char _dta[_msm_cox_origin] "`_cox_origin'"
 
     * Bind this fit to the weighting it used. If the weights are re-estimated
     * afterwards, this dependency no longer resolves and the fit is refused
@@ -826,7 +917,33 @@ program define msm_fit, eclass
     local b_treat = _msm_fit_b[1, `_tidx']
     local se_treat = sqrt(_msm_fit_V[`_tidx', `_tidx'])
     local z_treat = `b_treat' / `se_treat'
-    local p_treat = 2 * normal(-abs(`z_treat'))
+
+    * -------------------------------------------------------------------------
+    * Inference distribution (audit A20)
+    *
+    * Weighted linear models (regress) use t inference with finite e(df_r);
+    * GLM (logistic) and Cox use the normal approximation. The old code used
+    * invnormal()/normal() for every model, giving too-narrow CIs and wrong
+    * p-values for linear fits (8 clusters, df 7: z CI [-1.16,1.55] vs correct
+    * t CI [-1.44,1.83]). _crit is the two-sided critical value; the same
+    * distribution drives the p-value and the stored e(effects) row, and is
+    * persisted for msm_report / msm_table / msm_sensitivity.
+    * -------------------------------------------------------------------------
+    local _alpha2 = (100 - `level') / 200
+    if "`model'" == "linear" {
+        local _inf_dist "t"
+        local _inf_df = `_lin_df_r'
+        local _crit   = invttail(`_inf_df', `_alpha2')
+        local p_treat = 2 * ttail(`_inf_df', abs(`z_treat'))
+    }
+    else {
+        local _inf_dist "z"
+        local _inf_df = .
+        local _crit   = invnormal(1 - `_alpha2')
+        local p_treat = 2 * normal(-abs(`z_treat'))
+    }
+    char _dta[_msm_fit_inf_dist] "`_inf_dist'"
+    char _dta[_msm_fit_inf_df] "`_inf_df'"
 
     local _effect_header "Treatment effect (MSM causal estimate):"
     if "`exposure'" != "" {
@@ -835,8 +952,8 @@ program define msm_fit, eclass
 
     if "`model'" == "logistic" {
         local or = exp(`b_treat')
-        local or_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
-        local or_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
+        local or_lo = exp(`b_treat' - `_crit' * `se_treat')
+        local or_hi = exp(`b_treat' + `_crit' * `se_treat')
 
         display as text "`_effect_header'"
         display as text "  Log-odds:   " as result %9.4f `b_treat' ///
@@ -847,20 +964,21 @@ program define msm_fit, eclass
         display as text "  p-value:    " as result %9.4f `p_treat'
     }
     else if "`model'" == "linear" {
-        local ci_lo = `b_treat' - invnormal((100+`level')/200) * `se_treat'
-        local ci_hi = `b_treat' + invnormal((100+`level')/200) * `se_treat'
+        local ci_lo = `b_treat' - `_crit' * `se_treat'
+        local ci_hi = `b_treat' + `_crit' * `se_treat'
 
         display as text "`_effect_header'"
         display as text "  Coefficient: " as result %9.6f `b_treat' ///
             as text " (SE: " as result %7.6f `se_treat' as text ")"
         display as text "  `level'% CI: " as result %9.6f `ci_lo' ///
-            as text " - " as result %9.6f `ci_hi'
+            as text " - " as result %9.6f `ci_hi' ///
+            as text " (t, df " as result `_inf_df' as text ")"
         display as text "  p-value:     " as result %9.4f `p_treat'
     }
     else {
         local hr = exp(`b_treat')
-        local hr_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
-        local hr_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
+        local hr_lo = exp(`b_treat' - `_crit' * `se_treat')
+        local hr_hi = exp(`b_treat' + `_crit' * `se_treat')
 
         display as text "`_effect_header'"
         display as text "  Log-HR:       " as result %9.4f `b_treat' ///
@@ -870,6 +988,15 @@ program define msm_fit, eclass
             as text " - " as result %7.4f `hr_hi' as text ")"
         display as text "  p-value:      " as result %9.4f `p_treat'
     }
+
+    * Uncertainty disclosure (audit A22): the sandwich VCE treats the estimated
+    * IP weights as fixed and conditions on the observed reference sample, so it
+    * does not propagate treatment/censor-model estimation or reference-population
+    * sampling. Intervals are final-stage, conditional-on-estimated-weights.
+    display as text ""
+    display as text "Note: standard errors are final-stage, conditional on the estimated IP"
+    display as text "      weights and the observed sample; they do not propagate weight-model"
+    display as text "      estimation uncertainty (see {bf:msm_fit} help, audit A22)."
 
     display as text ""
     if "`model'" == "logistic" & "`predict_disabled'" == "" {
@@ -903,6 +1030,8 @@ program define msm_fit, eclass
     ereturn local msm_vce "`vce_type'"
     ereturn local msm_cluster "`vce_cluster'"
     ereturn local msm_strata "`strata'"
+    * Number of independent clusters used for the robust/clustered VCE (audit A21).
+    ereturn scalar msm_n_clusters = `_n_indep_clusters'
 
     * Build e(effects) matrix for effecttab integration
     tempname _msm_b _msm_V _msm_effects
@@ -923,14 +1052,25 @@ program define msm_fit, eclass
     }
     local _est = `_msm_b'[1, `_msm_trt_idx']
     local _se = sqrt(`_msm_V'[`_msm_trt_idx', `_msm_trt_idx'])
-    local _z_eff = invnormal((100 + `level') / 200)
-    local _ci_lo = `_est' - `_z_eff' * `_se'
-    local _ci_hi = `_est' + `_z_eff' * `_se'
-    local _pval = 2 * normal(-abs(`_est' / `_se'))
+    * Same inference distribution as the console block (audit A20): t for linear
+    * (already computed above as _crit / _inf_df), z otherwise.
+    local _ci_lo = `_est' - `_crit' * `_se'
+    local _ci_hi = `_est' + `_crit' * `_se'
+    if "`_inf_dist'" == "t" {
+        local _pval = 2 * ttail(`_inf_df', abs(`_est' / `_se'))
+    }
+    else {
+        local _pval = 2 * normal(-abs(`_est' / `_se'))
+    }
     matrix `_msm_effects' = (`_est', `_ci_lo', `_ci_hi', `_pval')
     matrix colnames `_msm_effects' = estimate ci_lower ci_upper pvalue
     matrix rownames `_msm_effects' = `effect_term'
     ereturn matrix effects = `_msm_effects'
+
+    * Persist the inference distribution and df so msm_report, msm_table, and
+    * msm_sensitivity reproduce the same CI/p-value (audit A20).
+    ereturn local msm_inf_dist "`_inf_dist'"
+    ereturn scalar msm_inf_df = `_inf_df'
 
     restore, not
     local _fit_preserved = 0

@@ -1,13 +1,13 @@
 *! _msm_role_check Version 1.2.3  2026/07/17
 *! Central structural-role validator for marginal structural models
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
 Syntax:
   _msm_role_check , [ID(varname) PERiod(varname) TREATment(varname) ///
       OUTcome(varname) CENsor(varname) EXPosure(varname) ///
-      PREDictors(varlist) ]
+      PREDictors(varlist) COVariates(varlist) BASEline(varlist) ]
 
 Purpose (audit A07):
   Enforce that the structural roles of an MSM specification do not overlap and
@@ -23,6 +23,10 @@ Rules enforced:
   2. No predictor (predictors()) may coincide with any structural role
      variable. Predictors are confounders/covariates and must never include the
      id, period, treatment, outcome, censor, or exposure they help model.
+  3. covariates() (time-varying) and baseline() (baseline-fixed) must be
+     disjoint. A variable cannot be both a time-varying and a baseline covariate:
+     the two roles imply contradictory within-id constancy, and msm_weight/
+     msm_fit would build inconsistent designs from the same name.
 
 Any violation exits 198 with a targeted message naming the two roles and the
 offending variable. Callers run this after syntax parsing and before any
@@ -36,7 +40,7 @@ program define _msm_role_check, rclass
     capture noisily {
         syntax , [ID(varname) PERiod(varname) TREATment(varname) ///
             OUTcome(varname) CENsor(varname) EXPosure(varname) ///
-            PREDictors(varlist)]
+            PREDictors(varlist) COVariates(varlist) BASEline(varlist)]
 
         * Assemble the structural single-variable roles that were supplied.
         local _rolenames id period treatment outcome censor exposure
@@ -74,6 +78,19 @@ program define _msm_role_check, rclass
                         exit 198
                     }
                 }
+            }
+        }
+
+        * Rule 3: a variable cannot be both a time-varying covariate() and a
+        * baseline() covariate. The intersection of the two lists is a role clash.
+        if "`covariates'" != "" & "`baseline'" != "" {
+            local _both : list covariates & baseline
+            if "`_both'" != "" {
+                local _clash : word 1 of `_both'
+                display as error ///
+                    "`_clash' is in both covariates() and baseline_covariates(); " ///
+                    "a variable cannot be both time-varying and baseline"
+                exit 198
             }
         }
     }

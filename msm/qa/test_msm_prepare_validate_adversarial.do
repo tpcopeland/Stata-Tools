@@ -469,6 +469,7 @@ else {
 display as text "Prepare/validate adversarial tests run: " as result `test_count'
 display as text "Passed: " as result `pass_count'
 display as text "Failed: " as result `fail_count'
+display as text "RESULT: test_msm_prepare_validate_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 459

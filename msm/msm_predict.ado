@@ -1,7 +1,6 @@
-*! msm_predict Version 1.2.2  2026/07/02
+*! msm_predict Version 1.2.3  2026/07/02
 *! Counterfactual predictions from marginal structural models
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -52,7 +51,10 @@ program define msm_predict, rclass
     * SYNTAX PARSING
     * =========================================================================
 
-    syntax , TIMEs(numlist sort integer >=0) ///
+    * times() accepts the external period scale, which may be signed when the
+    * fit used negative external periods (audit A17). The lower bound is enforced
+    * against the fitted risk-set support below, not by the numlist range.
+    syntax , TIMEs(numlist sort integer) ///
         [STRAtegy(string) TYPe(string) SAMPles(integer 100) ///
          SEED(integer -1) Level(cilevel) DIFFerence EXTRApolate]
 
@@ -81,6 +83,14 @@ program define msm_predict, rclass
 
     if "`strategy'" == "" local strategy "both"
     if "`type'" == "" local type "cum_inc"
+
+    * The contrast is a difference of the DISPLAYED quantity: a risk difference
+    * under cum_inc (F1-F0), a survival difference under survival (S1-S0). The
+    * old code always computed always-minus-never and returned/labelled it a
+    * "risk difference", so under survival it silently reported -(F1-F0) as a
+    * risk difference (audit A14). Label and name the return by the actual type.
+    local diff_label  = cond("`type'" == "survival", "Survival difference", "Risk difference")
+    local diff_prefix = cond("`type'" == "survival", "sd", "rd")
 
     if !inlist("`strategy'", "always", "never", "both") {
         display as error "strategy() must be always, never, or both"
@@ -153,7 +163,7 @@ program define msm_predict, rclass
             local difference ""
         }
         else {
-            display as text "Risk difference:  " as result "Yes"
+            display as text "`diff_label':  " as result "Yes"
         }
     }
     display as text ""
@@ -176,33 +186,63 @@ program define msm_predict, rclass
     preserve
     local _restore_needed = 1
 
-    * Reference population: unique individuals at first period
-    quietly summarize `period'
+    * -------------------------------------------------------------------------
+    * Fitted risk-set support (audit A15)
+    *
+    * Prediction support is defined by the periods that actually contributed a
+    * fitted risk set (_msm_esample == 1), NOT by the raw data range. Post-event,
+    * post-censor, and held-out rows can extend `period' well beyond the fitted
+    * support; validating times() against the raw max silently authorized
+    * extrapolation. _msm_esample is created by every msm_fit, so require it.
+    * -------------------------------------------------------------------------
+    capture confirm variable _msm_esample
+    if _rc != 0 {
+        display as error "msm_predict requires the fitted estimation-sample marker _msm_esample"
+        display as error "Re-run {bf:msm_fit}: prediction support is defined by the fitted risk sets."
+        restore
+        local _restore_needed = 0
+        exit 198
+    }
+    quietly summarize `period' if _msm_esample == 1
+    if r(N) == 0 {
+        display as error "the fitted estimation sample (_msm_esample) is empty; cannot define prediction support"
+        restore
+        local _restore_needed = 0
+        exit 2000
+    }
     local min_period = r(min)
     local max_period = r(max)
+    local min_support = r(min)
+    local max_support = r(max)
 
-    * Validate requested times are within data range
+    * Validate requested times against the fitted support. Beyond the support,
+    * only explicit extrapolate proceeds, and it is flagged in the returns.
+    local extrapolated = 0
     foreach t of local times {
-        if `t' < `min_period' {
-            display as error "times() value `t' is less than the minimum period (`min_period')"
+        if `t' < `min_support' {
+            display as error "times() value `t' is less than the first fitted period (`min_support')"
             restore
             local _restore_needed = 0
             exit 198
         }
-        if `t' > `max_period' & "`extrapolate'" == "" {
-            display as error "times() value `t' exceeds the maximum observed period (`max_period')"
-            display as error "Use the {bf:extrapolate} option to allow predictions beyond observed follow-up."
-            restore
-            local _restore_needed = 0
-            exit 198
+        if `t' > `max_support' {
+            if "`extrapolate'" == "" {
+                display as error "times() value `t' exceeds the fitted risk-set support (max fitted period `max_support')"
+                display as error "Post-event/censor rows may extend the data further, but the fit does not support this period."
+                display as error "Use the {bf:extrapolate} option to allow predictions beyond fitted support."
+                restore
+                local _restore_needed = 0
+                exit 198
+            }
+            local extrapolated = 1
         }
+    }
+    if `extrapolated' {
+        display as text "  Warning: one or more times() exceed fitted support `max_support'; extrapolating."
     }
 
-    quietly keep if `period' == `min_period'
-    capture confirm variable _msm_esample
-    if _rc == 0 {
-        quietly keep if _msm_esample == 1
-    }
+    quietly keep if `period' == `min_support'
+    quietly keep if _msm_esample == 1
     quietly bysort `id': keep if _n == 1
 
     local n_ref = _N
@@ -307,28 +347,40 @@ program define msm_predict, rclass
     matrix `mc_0' = J(`samples', `n_times', .)
     matrix `mc_1' = J(`samples', `n_times', .)
 
-    * Cholesky decomposition
-    tempname L_chol V_use b_use
-    local chol_ok = 1
+    * -----------------------------------------------------------------
+    * MVN factor for coefficient draws (audit A19)
+    *
+    * The old code used cholesky() and, when it failed, fell back to
+    * INDEPENDENT per-coefficient normal draws -- discarding every
+    * off-diagonal covariance in V and returning an ordinary-looking MC CI
+    * from the wrong joint distribution (correlation among intercept,
+    * treatment, and time terms drives cumulative-risk uncertainty). Instead
+    * symmetrize V and take an eigendecomposition. Tiny negative eigenvalues
+    * (numerical noise) are clipped to zero under a relative tolerance; a
+    * genuinely indefinite V is refused rather than approximated. The draw
+    * method and any repair are returned in r(draw_method).
+    * -----------------------------------------------------------------
+    tempname V_use b_use F_fac
+    local mvn_tol = 1e-6
 
-    * Check for zero-variance (dropped) coefficients
+    * Reduce to the coefficients with positive fitted variance; a dropped
+    * (zero-variance) coefficient is held at its point value in every draw.
     local n_keep = 0
     forvalues i = 1/`n_coefs' {
         if `V_hat'[`i', `i'] > 0 {
             local ++n_keep
         }
     }
-
-    if `n_keep' == `n_coefs' {
-        matrix `V_use' = `V_hat'
-        matrix `b_use' = `b_hat'
-        capture matrix `L_chol' = cholesky(`V_use')
-        if _rc != 0 {
-            local chol_ok = 0
-        }
+    * A fully degenerate covariance (every coefficient has zero variance, e.g. a
+    * deterministic/separated fit) yields point predictions with a zero-width
+    * interval: every MC draw equals b_hat. That is uninformative but not
+    * invalid, so predict rather than refuse; the draw method records it.
+    local _degenerate = 0
+    if `n_keep' == 0 {
+        local _degenerate = 1
+        local draw_method "degenerate"
     }
-    else if `n_keep' > 0 {
-        * Build reduced matrices
+    else {
         matrix `V_use' = J(`n_keep', `n_keep', 0)
         matrix `b_use' = J(1, `n_keep', 0)
         local ki = 0
@@ -345,46 +397,42 @@ program define msm_predict, rclass
                 }
             }
         }
-        capture matrix `L_chol' = cholesky(`V_use')
-        if _rc != 0 {
-            local chol_ok = 0
-        }
-    }
-    else {
-        local chol_ok = 0
-    }
 
-    if !`chol_ok' {
-        display as text "  Warning: using diagonal approximation for MC draws"
+        local draw_status ""
+        mata: st_local("draw_status", _msm_mvn_factor("`V_use'", "`F_fac'", `mvn_tol'))
+        if "`draw_status'" == "fail" {
+            display as error "the fitted coefficient covariance is not positive semidefinite"
+            display as error "(a genuinely indefinite V, beyond the numerical clip tolerance `mvn_tol')."
+            display as error "Monte Carlo draws from a non-PSD covariance are invalid; refusing to fabricate a CI."
+            restore
+            local _restore_needed = 0
+            exit 506
+        }
+        local draw_method = cond("`draw_status'" == "clipped", "eigen(clipped)", "eigen")
+        if "`draw_status'" == "clipped" {
+            display as text "  Note: clipped tiny negative eigenvalues of V (tolerance `mvn_tol'); draw method eigen."
+        }
     }
 
     forvalues sim = 1/`samples' {
-        * Draw from MVN(b_hat, V_hat)
+        * Draw from MVN(b_hat, V_hat) via the eigen factor F (F F' = V_use), or
+        * hold at b_hat when the covariance is fully degenerate.
         tempname b_draw
-        if `chol_ok' {
+        matrix `b_draw' = `b_hat'
+        if !`_degenerate' {
             tempname z_draw b_reduced
             matrix `z_draw' = J(1, `n_keep', 0)
             forvalues j = 1/`n_keep' {
                 matrix `z_draw'[1, `j'] = rnormal()
             }
-            matrix `b_reduced' = `b_use' + `z_draw' * `L_chol''
+            matrix `b_reduced' = `b_use' + `z_draw' * `F_fac''
 
-            * Reconstruct full vector
-            matrix `b_draw' = `b_hat'
+            * Reconstruct full vector; dropped coefficients keep their point value.
             local ki = 0
             forvalues i = 1/`n_coefs' {
                 if `V_hat'[`i', `i'] > 0 {
                     local ++ki
                     matrix `b_draw'[1, `i'] = `b_reduced'[1, `ki']
-                }
-            }
-        }
-        else {
-            matrix `b_draw' = `b_hat'
-            forvalues j = 1/`n_coefs' {
-                local se_j = sqrt(`V_hat'[`j', `j'])
-                if `se_j' > 0 {
-                    matrix `b_draw'[1, `j'] = `b_hat'[1, `j'] + rnormal() * `se_j'
                 }
             }
         }
@@ -560,6 +608,13 @@ program define msm_predict, rclass
 
     display as text ""
     display as text "Reference population: " as result `n_ref' as text " individuals"
+    display as text ""
+    * Uncertainty disclosure (audit A22): MC draws come only from the saved
+    * outcome-model covariance; the weight models and reference rows are held
+    * fixed, so these intervals are final-stage, conditional-on-estimated-weights.
+    display as text "Note: Monte Carlo intervals draw from the outcome-model covariance only."
+    display as text "      They condition on the estimated IP weights and the reference sample"
+    display as text "      and do not propagate weight-model estimation (audit A22)."
     display as text "{hline 70}"
 
     * =========================================================================
@@ -588,7 +643,7 @@ program define msm_predict, rclass
     foreach t of local times {
         local ++time_idx
         if "`difference'" != "" & "`strategy'" == "both" {
-            local _rd_`t' = `results'[`time_idx', 8]
+            local _diff_`t' = `results'[`time_idx', 8]
         }
     }
 
@@ -599,16 +654,23 @@ program define msm_predict, rclass
     return local type "`type'"
     return local strategy "`strategy'"
     return local history_spec "`history_spec'"
+    return local diff_type "`diff_prefix'"
+    return local draw_method "`draw_method'"
     return scalar n_times = `n_times'
     return scalar n_ref = `n_ref'
     return scalar samples = `samples'
     return scalar level = `level'
+    return scalar min_support = `min_support'
+    return scalar max_support = `max_support'
+    return scalar extrapolated = `extrapolated'
 
+    * The contrast return is named for the actual quantity (audit A14):
+    * rd_<t> under cum_inc, sd_<t> under survival.
     local time_idx = 0
     foreach t of local times {
         local ++time_idx
         if "`difference'" != "" & "`strategy'" == "both" {
-            return scalar rd_`t' = `_rd_`t''
+            return scalar `diff_prefix'_`t' = `_diff_`t''
         }
     }
 
@@ -775,6 +837,33 @@ end
 * =========================================================================
 
 mata:
+// Symmetrized-eigendecomposition MVN factor (audit A19).
+// Writes an n x n factor F with F*F' ~= (V+V')/2 into `fname' and returns a
+// status string: "psd" (all eigenvalues positive), "clipped" (tiny negatives
+// zeroed under the relative tolerance), or "fail" (genuinely indefinite).
+string scalar _msm_mvn_factor(string scalar vname, string scalar fname, real scalar tol)
+{
+    real matrix V, Vs, X, F
+    real rowvector L
+    real scalar mx, mn
+
+    V  = st_matrix(vname)
+    Vs = (V + V') / 2
+    symeigensystem(Vs, X=., L=.)
+    mx = max(abs(L))
+    if (mx == 0) mx = 1
+    mn = min(L)
+    if (mn < -tol * mx) {
+        return("fail")
+    }
+    // Clip tiny negatives / zeros to exactly 0, then form F = X * sqrt(diag(L)).
+    L = L :* (L :> 0)
+    F = X * diag(sqrt(L))
+    st_matrix(fname, F)
+    if (mn > 0) return("psd")
+    return("clipped")
+}
+
 real scalar _msm_pctile(string scalar matname, real scalar col, real scalar pct)
 {
     real matrix M

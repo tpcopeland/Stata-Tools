@@ -9,8 +9,12 @@ d competing events. The implementation uses a native Mata
 d forward-backward scan algorithm that avoids data expansion
 d entirely. Supports delayed entry with Zhang-Zhang-Fine Weight 1,
 d censoring and entry strata, factor variables, robust/clustered
-d SEs, CIF prediction, Schoenfeld residuals, and an approximate
-d proportional subdistribution hazards diagnostic.
+d SEs, CIF prediction, and Schoenfeld residuals. Post-estimation
+d goodness of fit is available two ways: an approximate
+d proportional subdistribution hazards diagnostic, and
+d cumulative-residual tests of proportionality, functional form
+d and the link function with multiplier-bootstrap p-values
+d (Li, Scheike and Zhang 2015).
 d
 d KW: competing risks
 d KW: Fine-Gray
@@ -20,7 +24,7 @@ d KW: survival analysis
 d
 d Requires: Stata version 16
 d
-d Distribution-Date: 20260718
+d Distribution-Date: 20260720
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d Support: timothy.copeland@ki.se
@@ -29,6 +33,7 @@ f finegray.ado
 f finegray.sthlp
 f _finegray_mata.ado
 f _finegray_check_data.ado
+f _finegray_fv_design.ado
 f _finegray_weight_groups.ado
 f _finegray_resolve_baseline.ado
 f finegray_predict.ado
@@ -37,3 +42,5 @@ f finegray_cif.ado
 f finegray_cif.sthlp
 f finegray_phtest.ado
 f finegray_phtest.sthlp
+f finegray_gof.ado
+f finegray_gof.sthlp

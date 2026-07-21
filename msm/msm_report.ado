@@ -1,7 +1,6 @@
-*! msm_report Version 1.2.2  2026/07/02
+*! msm_report Version 1.2.3  2026/07/02
 *! Publication-quality results tables for MSM
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -63,6 +62,14 @@ program define msm_report, rclass
     if "`format'" == "" local format "display"
     if !inlist("`format'", "display", "csv", "excel") {
         display as error "format() must be display, csv, or excel"
+        exit 198
+    }
+
+    * export() with format(display) is a silent no-op: the report goes to the
+    * console and nothing is written. Reject the meaningless combination rather
+    * than let a user believe a file was produced (audit A31).
+    if "`format'" == "display" & `"`export'"' != "" {
+        display as error "export() has no effect with format(display); use format(csv) or format(excel)"
         exit 198
     }
 
@@ -207,7 +214,11 @@ program define msm_report, rclass
             matrix `_rpt_V' = _msm_fit_V
             local coef_names: colnames `_rpt_b'
             local n_coefs: word count `coef_names'
-            local _z_crit = invnormal((100 + `fit_level') / 200)
+            * Inference distribution follows the fit (audit A20).
+            _msm_crit_dist, level(`fit_level')
+            local _z_crit = r(crit)
+            local _inf_dist = r(dist)
+            local _inf_df   = r(df)
 
             if "`eform'" != "" {
                 _msm_coef_scale_label, model("`model'") eform report
@@ -229,7 +240,12 @@ program define msm_report, rclass
                 if `v_ii' <= 0 continue
                 local se = sqrt(`v_ii')
                 local z = `b' / `se'
-                local p = 2 * normal(-abs(`z'))
+                if "`_inf_dist'" == "t" {
+                    local p = 2 * ttail(`_inf_df', abs(`z'))
+                }
+                else {
+                    local p = 2 * normal(-abs(`z'))
+                }
 
                 local abbrev_name = abbrev("`cname'", 20)
 
@@ -314,14 +330,23 @@ program define msm_report, rclass
                 matrix `_csv_V' = _msm_fit_V
                 local coef_names: colnames `_csv_b'
                 local n_coefs: word count `coef_names'
-                local _z_crit = invnormal((100 + `fit_level') / 200)
+                * Inference distribution follows the fit (audit A20).
+                _msm_crit_dist, level(`fit_level')
+                local _z_crit = r(crit)
+                local _inf_dist = r(dist)
+                local _inf_df   = r(df)
                 forvalues i = 1/`n_coefs' {
                     local cname: word `i' of `coef_names'
                     local b = `_csv_b'[1, `i']
                     local v_ii = `_csv_V'[`i', `i']
                     if `v_ii' <= 0 continue
                     local se = sqrt(`v_ii')
-                    local p = 2 * normal(-abs(`b'/`se'))
+                    if "`_inf_dist'" == "t" {
+                        local p = 2 * ttail(`_inf_df', abs(`b'/`se'))
+                    }
+                    else {
+                        local p = 2 * normal(-abs(`b'/`se'))
+                    }
 
                     if "`eform'" != "" {
                         local ef = exp(`b')
@@ -345,9 +370,17 @@ program define msm_report, rclass
             file close `fh'
             local _fh_open = 0
         }
+        * Save the write rc BEFORE any cleanup (audit A30): `capture file close'
+        * resets _rc to 0, so `exit _rc' after it silently swallowed the write
+        * error and returned success on a failed export.
+        local write_rc = _rc
+        if `_fh_open' capture file close `fh'
+        if `write_rc' exit `write_rc'
+        * Verify the artifact actually exists before announcing success.
+        capture confirm file "`export'"
         if _rc {
-            if `_fh_open' capture file close `fh'
-            exit _rc
+            display as error "csv export reported success but no file was written: `export'"
+            exit 603
         }
         display as text "Report exported to: " as result "`export'"
     }
@@ -554,7 +587,11 @@ program define msm_report, rclass
                 matrix `_xl_V' = _msm_fit_V
                 local coef_names: colnames `_xl_b'
                 local n_coefs: word count `coef_names'
-                local _z_crit = invnormal((100 + `fit_level') / 200)
+                * Inference distribution follows the fit (audit A20).
+                _msm_crit_dist, level(`fit_level')
+                local _z_crit = r(crit)
+                local _inf_dist = r(dist)
+                local _inf_df   = r(df)
                 local _coef_xfmt "0"
                 if `decimals' > 0 {
                     local _coef_xfmt "0."
@@ -598,7 +635,12 @@ program define msm_report, rclass
                         local _se_i = sqrt(`_v_ii')
                         local _lo = `_b_i' - `_z_crit' * `_se_i'
                         local _hi = `_b_i' + `_z_crit' * `_se_i'
-                        local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
+                        if "`_inf_dist'" == "t" {
+                            local _p = 2 * ttail(`_inf_df', abs(`_b_i'/`_se_i'))
+                        }
+                        else {
+                            local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
+                        }
                         local _disp_b = exp(`_b_i')
                         replace B = strtrim(string(`_disp_b', "%9.`decimals'f")) in `_row'
                         local _ci_lo = strtrim(string(exp(`_lo'), "%9.`decimals'f"))
@@ -635,7 +677,12 @@ program define msm_report, rclass
                             continue
                         }
                         local _se_i = sqrt(`_v_ii')
-                        local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
+                        if "`_inf_dist'" == "t" {
+                            local _p = 2 * ttail(`_inf_df', abs(`_b_i'/`_se_i'))
+                        }
+                        else {
+                            local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
+                        }
                         replace B = strtrim(string(`_b_i', "%9.`decimals'f")) in `_row'
                         replace C = strtrim(string(`_se_i', "%9.`decimals'f")) in `_row'
 
@@ -737,6 +784,20 @@ program define msm_report, rclass
                 restore
                 local _restore_needed = 0
             }
+        }
+
+        * Validate the workbook exists before announcing success (audit A31):
+        * a formatting or conversion failure must surface as an export failure,
+        * not a success message over an absent or empty file.
+        capture confirm file "`export'"
+        if _rc {
+            display as error "excel export reported success but no workbook was written: `export'"
+            exit 603
+        }
+        quietly checksum "`export'"
+        if r(filelen) <= 0 {
+            display as error "excel export produced an empty workbook: `export'"
+            exit 603
         }
 
         display as text "Report exported to: " as result "`export'"

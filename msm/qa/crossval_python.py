@@ -41,16 +41,27 @@ print(f"  Loaded: {len(dgp1)} rows, {dgp1['id'].nunique()} individuals")
 # Numerator: treatment ~ lag_treatment + V
 # For period 0: treatment ~ V
 
-# Period 0 models
-p0 = dgp1[dgp1['period'] == 0].copy()
+# At-risk (decision-risk) sample: person-periods before the subject's first prior
+# outcome. msm fits its treatment models ONLY among still-at-risk person-periods
+# and accumulates the weight over those periods (audit A11 / _msm_decision_risk).
+# The reference must use the SAME estimation sample, else the fitted coefficients
+# -- and every downstream weight -- diverge (compounding ~1%/period). Verified:
+# with this restriction the manual weight equals msm's _msm_weight to ~3e-7.
+dgp1 = dgp1.sort_values(['id', 'period'])
+dgp1['cum_prior_out'] = dgp1.groupby('id')['outcome'].apply(
+    lambda y: y.shift(fill_value=0).cumsum()).reset_index(level=0, drop=True)
+dgp1['at_risk'] = dgp1['cum_prior_out'] == 0
+
+# Period 0 models (period 0 is always at-risk; keep the filter for symmetry)
+p0 = dgp1[(dgp1['period'] == 0) & dgp1['at_risk']].copy()
 p0_X_d = sm.add_constant(p0[['L', 'V']])
 denom_p0 = sm.GLM(p0['treatment'], p0_X_d, family=sm.families.Binomial()).fit()
 
 p0_X_n = sm.add_constant(p0[['V']])
 numer_p0 = sm.GLM(p0['treatment'], p0_X_n, family=sm.families.Binomial()).fit()
 
-# Periods > 0 models
-plag = dgp1[dgp1['lag_treatment'].notna()].copy()
+# Periods > 0 models, at-risk person-periods only
+plag = dgp1[dgp1['lag_treatment'].notna() & dgp1['at_risk']].copy()
 plag_X_d = sm.add_constant(plag[['lag_treatment', 'L', 'V', 'period']])
 denom_lag = sm.GLM(plag['treatment'], plag_X_d, family=sm.families.Binomial()).fit()
 
@@ -80,9 +91,11 @@ dgp1['w_t'] = np.where(
     (1 - dgp1['numer_pr']) / (1 - dgp1['denom_pr'])
 )
 
-# Cumulative product via log-sum within individuals
+# Cumulative product via log-sum within individuals. Only at-risk periods
+# contribute a factor; post-event periods carry the last at-risk weight forward
+# (log factor 0), matching msm's decision-risk accumulation.
 dgp1 = dgp1.sort_values(['id', 'period'])
-dgp1['log_w'] = np.log(dgp1['w_t'])
+dgp1['log_w'] = np.where(dgp1['at_risk'] & dgp1['w_t'].notna(), np.log(dgp1['w_t']), 0.0)
 dgp1['cum_log_w'] = dgp1.groupby('id')['log_w'].cumsum()
 dgp1['py_weight'] = np.exp(dgp1['cum_log_w'])
 

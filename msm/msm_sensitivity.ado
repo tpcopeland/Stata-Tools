@@ -1,7 +1,6 @@
-*! msm_sensitivity Version 1.2.2  2026/07/02
+*! msm_sensitivity Version 1.2.3  2026/07/02
 *! Sensitivity analysis for unmeasured confounding in MSM
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -20,11 +19,13 @@ Options:
   evalue           - Compute E-value (default if no options)
   confounding_strength(# #) - RR_UD and RR_UY for bias factor
   level(#)         - Confidence level (default: 95)
-  rarethreshold(#) - Maximum weighted outcome prevalence for default
-                      logistic rare-outcome approximation (default: 0.10)
-  orapprox         - Force OR-based rare-outcome approximation for logistic
-                      models even when weighted outcome prevalence exceeds
-                      rarethreshold()
+  rarethreshold(#) - Cumulative-incidence cutoff (end of follow-up) below
+                      which the OR/HR is used directly as the risk ratio;
+                      above it, the common-outcome transform is used
+                      (sqrt(OR) for logistic, the HR->RR transform for Cox).
+                      Default: 0.15 (VanderWeele & Ding 2017 rarity cut)
+  orapprox         - Force the raw OR/HR as the RR scale even for a common
+                      outcome, bypassing the common-outcome transform
 
 See help msm_sensitivity for complete documentation
 */
@@ -49,7 +50,7 @@ program define msm_sensitivity, rclass
     syntax [, EVAlue ///
         CONFounding_strength(numlist min=2 max=2) ///
         Level(cilevel) ///
-        RARETHReshold(real 0.10) ///
+        RARETHReshold(real 0.15) ///
         ORApprox]
 
     _msm_check_fitted
@@ -96,10 +97,17 @@ program define msm_sensitivity, rclass
     local b_treat = `_fit_b'[1, `_treat_idx']
     local se_treat = sqrt(`_fit_V'[`_treat_idx', `_treat_idx'])
 
+    * Two-sided critical value following the fit's inference distribution (audit
+    * A20): z for logistic/cox effect ratios, t (with e(df_r)) for the linear
+    * coefficient. _msm_crit_dist returns z for logistic/cox, so all branches
+    * share the same call.
+    _msm_crit_dist, level(`level')
+    local _crit = r(crit)
+
     if "`model'" == "logistic" {
         local or = exp(`b_treat')
-        local or_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
-        local or_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
+        local or_lo = exp(`b_treat' - `_crit' * `se_treat')
+        local or_hi = exp(`b_treat' + `_crit' * `se_treat')
         local effect = `or'
         local effect_lo = `or_lo'
         local effect_hi = `or_hi'
@@ -107,18 +115,18 @@ program define msm_sensitivity, rclass
     }
     else if "`model'" == "cox" {
         local hr = exp(`b_treat')
-        local hr_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
-        local hr_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
+        local hr_lo = exp(`b_treat' - `_crit' * `se_treat')
+        local hr_hi = exp(`b_treat' + `_crit' * `se_treat')
         local effect = `hr'
         local effect_lo = `hr_lo'
         local effect_hi = `hr_hi'
         local effect_label "HR"
     }
     else {
-        * Linear model: use coefficient directly for bounds
+        * Linear model: use coefficient directly for bounds (t inference)
         local effect = `b_treat'
-        local effect_lo = `b_treat' - invnormal((100+`level')/200) * `se_treat'
-        local effect_hi = `b_treat' + invnormal((100+`level')/200) * `se_treat'
+        local effect_lo = `b_treat' - `_crit' * `se_treat'
+        local effect_hi = `b_treat' + `_crit' * `se_treat'
         local effect_label "Coef"
     }
 
@@ -129,91 +137,75 @@ program define msm_sensitivity, rclass
     local approximation "none"
     local outcome_prevalence = .
 
-    if "`model'" == "logistic" & ///
+    if inlist("`model'", "logistic", "cox") & ///
         ("`evalue'" != "" | "`confounding_strength'" != "") {
-        tempvar _sens_post_outcome _sens_esample _sens_weight _sens_weighted_outcome
-
-        bysort `id' (`period'): gen byte `_sens_post_outcome' = ///
-            (sum(`outcome'[_n-1]) >= 1) if _n > 1
-        replace `_sens_post_outcome' = 0 if missing(`_sens_post_outcome')
-
-        if "`censor'" != "" {
-            tempvar _sens_post_censor
-            bysort `id' (`period'): gen byte `_sens_post_censor' = ///
-                (sum(`censor'[_n-1]) >= 1) if _n > 1
-            replace `_sens_post_censor' = 0 if missing(`_sens_post_censor')
-            gen byte `_sens_esample' = ///
-                (`_sens_post_outcome' == 0 & `_sens_post_censor' == 0 & ///
-                `censor' == 0 & !missing(_msm_weight))
-        }
-        else {
-            gen byte `_sens_esample' = ///
-                (`_sens_post_outcome' == 0 & !missing(_msm_weight))
-        }
-
-        quietly count if `_sens_esample'
+        * -----------------------------------------------------------------
+        * Risk-ratio-scale conversion for the E-value (audit A12, A13)
+        *
+        * The E-value is defined on the RISK-RATIO scale (VanderWeele & Ding
+        * 2017; notes: vanderweele-2017-evalue). An odds ratio or a hazard
+        * ratio approximates the RR only when the outcome is rare BY THE END OF
+        * FOLLOW-UP. The old code judged rarity by the pooled weighted
+        * person-period outcome mean (wrong denominator, A12) and treated a Cox
+        * HR as an RR with no rarity check at all (A13). Rarity is now the
+        * subject-level cumulative incidence; common outcomes use the paper's
+        * transforms -- RR = sqrt(OR) for a logistic MSM, and
+        * RR = (1 - 0.5^sqrt(HR)) / (1 - 0.5^sqrt(1/HR)) for a Cox MSM --
+        * applied to the point estimate and both CI limits.
+        * -----------------------------------------------------------------
+        tempvar _sens_ever _sens_idtag
+        quietly bysort `id': egen byte `_sens_ever' = max(`outcome' == 1)
+        quietly bysort `id' (`period'): gen byte `_sens_idtag' = (_n == _N)
+        quietly count if `_sens_idtag'
         if r(N) == 0 {
-            display as error "no observations remain in the MSM estimation sample"
+            display as error "no subjects available to assess outcome rarity"
             exit 2000
         }
-
-        gen double `_sens_weight' = _msm_weight if `_sens_esample'
-        gen double `_sens_weighted_outcome' = ///
-            `_sens_weight' * `outcome' if `_sens_esample'
-
-        quietly summarize `_sens_weight' if `_sens_esample', meanonly
-        local _mean_weight = r(mean)
-        if missing(`_mean_weight') | abs(`_mean_weight') < 1e-12 {
-            display as error "weighted outcome prevalence could not be computed"
-            exit 498
-        }
-
-        quietly summarize `_sens_weighted_outcome' if `_sens_esample', meanonly
-        local outcome_prevalence = r(mean) / `_mean_weight'
-
+        quietly summarize `_sens_ever' if `_sens_idtag', meanonly
+        local outcome_prevalence = r(mean)
         if missing(`outcome_prevalence') | `outcome_prevalence' < 0 | ///
             `outcome_prevalence' > 1 {
-            display as error "weighted outcome prevalence is outside [0,1]"
+            display as error "cumulative outcome incidence is outside [0,1]"
             exit 498
         }
 
-        if `outcome_prevalence' > `rarethreshold' & "`orapprox'" == "" {
-            display as error ///
-                "logistic-model sensitivity quantities require a risk-ratio scale"
-            display as error ///
-                "input. By default, msm_sensitivity only uses the odds ratio"
-            display as error ///
-                "as a rare-outcome approximation when the weighted outcome"
-            display as error ///
-                "prevalence in the MSM estimation sample is <= rarethreshold()."
-            display as error "Observed weighted outcome prevalence: " ///
-                %6.4f `outcome_prevalence'
-            display as error "Requested rarethreshold():       " ///
-                %6.4f `rarethreshold'
-            display as error ///
-                "Re-run with orapprox only if you want the OR-based"
-            display as error ///
-                "rare-outcome approximation despite this common outcome."
-            exit 498
-        }
+        local _is_rare = (`outcome_prevalence' <= `rarethreshold')
 
-        local rr_scale_point = `effect'
-        local rr_scale_lo = `effect_lo'
-        local rr_scale_hi = `effect_hi'
-        local rr_scale_label "OR rare-outcome approximation"
-
-        if `outcome_prevalence' <= `rarethreshold' {
-            local approximation "rare-outcome auto"
+        if "`model'" == "logistic" {
+            if `_is_rare' | "`orapprox'" != "" {
+                local rr_scale_point = `effect'
+                local rr_scale_lo    = `effect_lo'
+                local rr_scale_hi    = `effect_hi'
+                local rr_scale_label "OR used directly (rare-outcome: RR~OR)"
+                local approximation = cond(`_is_rare', "rare-outcome", "OR-direct override")
+            }
+            else {
+                * Common outcome: RR ~ sqrt(OR) on the point and both limits.
+                local rr_scale_point = sqrt(`effect')
+                local rr_scale_lo    = sqrt(`effect_lo')
+                local rr_scale_hi    = sqrt(`effect_hi')
+                local rr_scale_label "sqrt(OR) common-outcome approximation"
+                local approximation "common-outcome sqrt(OR)"
+            }
         }
         else {
-            local approximation "rare-outcome override"
+            * Cox: same rarity gate (audit A13).
+            if `_is_rare' | "`orapprox'" != "" {
+                local rr_scale_point = `effect'
+                local rr_scale_lo    = `effect_lo'
+                local rr_scale_hi    = `effect_hi'
+                local rr_scale_label "HR used directly (rare-outcome: RR~HR)"
+                local approximation = cond(`_is_rare', "rare-outcome", "HR-direct override")
+            }
+            else {
+                * Common outcome: RR ~ (1-0.5^sqrt(HR))/(1-0.5^sqrt(1/HR)).
+                local rr_scale_point = (1 - 0.5^sqrt(`effect'))    / (1 - 0.5^sqrt(1/`effect'))
+                local rr_scale_lo    = (1 - 0.5^sqrt(`effect_lo')) / (1 - 0.5^sqrt(1/`effect_lo'))
+                local rr_scale_hi    = (1 - 0.5^sqrt(`effect_hi')) / (1 - 0.5^sqrt(1/`effect_hi'))
+                local rr_scale_label "HR->RR common-outcome approximation"
+                local approximation "common-outcome HR transform"
+            }
         }
-    }
-    else if "`model'" == "cox" {
-        local rr_scale_point = `effect'
-        local rr_scale_lo = `effect_lo'
-        local rr_scale_hi = `effect_hi'
-        local rr_scale_label "HR"
     }
 
     display as text ""
@@ -232,30 +224,31 @@ program define msm_sensitivity, rclass
     display as text "  `level'% CI:          " as result %9.4f `effect_lo' ///
         as text " - " as result %9.4f `effect_hi'
 
-    if "`model'" == "logistic" & ///
+    if inlist("`model'", "logistic", "cox") & ///
         ("`evalue'" != "" | "`confounding_strength'" != "") {
         display as text ""
-        display as text "Risk-ratio scale handling for logistic MSM:"
-        display as text "  Weighted outcome prevalence: " ///
+        display as text "Risk-ratio scale handling (`model' MSM):"
+        display as text "  Cumulative incidence (end of follow-up): " ///
             as result %9.4f `outcome_prevalence'
         display as text "  rarethreshold():      " ///
             as result %9.4f `rarethreshold'
-        if "`approximation'" == "rare-outcome auto" {
-            display as text "  Using the OR as a rare-outcome approximation"
-            display as text "  because the weighted outcome prevalence is"
-            display as text "  within rarethreshold()."
-        }
-        else if "`approximation'" == "rare-outcome override" {
-            display as error "  Warning: orapprox requested. The OR is being"
-            display as error "  treated as a rare-outcome approximation even"
-            display as error "  though the weighted outcome prevalence exceeds"
-            display as error "  rarethreshold()."
+        display as text "  RR-scale input:       " as result "`rr_scale_label'"
+        if inlist("`approximation'", "OR-direct override", "HR-direct override") {
+            display as error "  Warning: orapprox forces the raw `effect_label' as the"
+            display as error "  RR scale even though the outcome is common"
+            display as error "  (cumulative incidence exceeds rarethreshold())."
         }
     }
 
     * =========================================================================
     * E-VALUE
     * =========================================================================
+
+    * A real sensitivity measure must be produced before the run is marked saved
+    * (audit A28). E-value and the RR bias factor are both defined on the
+    * risk-ratio scale; for model(linear) neither is computed, so the old code
+    * exited rc 0 with _msm_sens_saved=1 and no metric. This flag forces a refusal.
+    local _metric_produced = 0
 
     if "`evalue'" != "" {
         display as text ""
@@ -304,10 +297,8 @@ program define msm_sensitivity, rclass
 
             display as text "  E-value (point estimate): " as result %9.4f `evalue_point'
             display as text "  E-value (`level'% CI limit):   " as result %9.4f `evalue_ci'
-            if "`model'" == "logistic" {
-                display as text "  Scale input:             " ///
-                    as result "`rr_scale_label'"
-            }
+            display as text "  RR-scale input:          " ///
+                as result "`rr_scale_label'"
             display as text ""
 
             if `evalue_ci' <= 1 {
@@ -330,6 +321,7 @@ program define msm_sensitivity, rclass
 
             return scalar evalue_point = `evalue_point'
             return scalar evalue_ci = `evalue_ci'
+            local _metric_produced = 1
         }
         else {
             display as text "  E-value not available for linear models."
@@ -407,11 +399,31 @@ program define msm_sensitivity, rclass
             }
 
             return scalar bias_factor = `bias_factor'
+            * "bound", not "corrected effect" (audit A29): this is the bias-adjusted
+            * bound under the hypothesised confounder, not a corrected estimate.
+            return scalar bound = `corrected'
             return scalar corrected_effect = `corrected'
+            local _bias_factor_saved = `bias_factor'
+            local _bound_saved = `corrected'
+            local _metric_produced = 1
         }
 
         return scalar rr_ud = `rr_ud'
         return scalar rr_uy = `rr_uy'
+    }
+
+    * A28: when no risk-ratio-scale sensitivity measure could be computed (e.g.
+    * model(linear), where the E-value and the bias factor are undefined), the
+    * effect estimate is still returned for information, but the run is NOT marked
+    * saved -- the old code set _msm_sens_saved=1 with a missing E-value, so
+    * msm_table then exported the bare effect under a "Sensitivity Analysis"
+    * heading as though a sensitivity result existed.
+    if !`_metric_produced' {
+        display as text ""
+        display as text "No risk-ratio-scale sensitivity measure is available for this model."
+        display as text "The E-value and the confounding bias factor require a risk-ratio"
+        display as text "scale; model(linear) reports the effect estimate only. No sensitivity"
+        display as text "result is saved."
     }
 
     display as text ""
@@ -420,10 +432,16 @@ program define msm_sensitivity, rclass
     return scalar effect = `effect'
     return scalar effect_lo = `effect_lo'
     return scalar effect_hi = `effect_hi'
-    if "`model'" == "logistic" {
+    return scalar effect_se = `se_treat'
+    if inlist("`model'", "logistic", "cox") {
+        * Cumulative incidence by end of follow-up (audit A12); the name is kept
+        * for back-compatibility but the quantity is now subject-level, not the
+        * old pooled person-period mean.
         return scalar outcome_prevalence = `outcome_prevalence'
+        return scalar cumulative_incidence = `outcome_prevalence'
         return scalar rare_threshold = `rarethreshold'
     }
+    return local rr_scale "`rr_scale_label'"
     return local effect_label "`effect_label'"
     return local model "`model'"
     return local approximation "`approximation'"
@@ -440,8 +458,18 @@ program define msm_sensitivity, rclass
         char _dta[_msm_sens_evalue_point] "`evalue_point'"
         char _dta[_msm_sens_evalue_ci] "`evalue_ci'"
     }
+    * Persist the bias factor and bound so msm_table can export them (audit A29).
+    char _dta[_msm_sens_bias_factor]
+    char _dta[_msm_sens_bound]
+    if "`confounding_strength'" != "" & inlist("`model'", "logistic", "cox") {
+        char _dta[_msm_sens_bias_factor] "`_bias_factor_saved'"
+        char _dta[_msm_sens_bound] "`_bound_saved'"
+    }
     char _dta[_msm_sens_level] "`level'"
-    char _dta[_msm_sens_saved] "1"
+    * Mark the run saved only when a real sensitivity measure was produced (A28).
+    char _dta[_msm_sens_saved]
+    if `_metric_produced' char _dta[_msm_sens_saved] "1"
+    return scalar metric_produced = `_metric_produced'
 
     } /* end capture noisily */
     local _rc = _rc

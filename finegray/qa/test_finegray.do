@@ -116,6 +116,23 @@ else {
     local ++fail_count
 }
 
+* T3b: _finegray_fv_design installed.
+* `net install' silently skips files whose extension it does not recognise, at
+* rc = 0, so the .pkg listing a file is not evidence that the file shipped --
+* only resolving it on the adopath is.
+local ++test_count
+capture noisily {
+    which _finegray_fv_design
+}
+if _rc == 0 {
+    display as result "  PASS: T3b _finegray_fv_design.ado installed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T3b _finegray_fv_design.ado not installed"
+    local ++fail_count
+}
+
 * T4: Helper auto-loads after fresh install
 local ++test_count
 capture noisily {
@@ -2680,6 +2697,121 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: T125 FV phtest rebuild rownames (rc=`=_rc')"
+    local ++fail_count
+}
+
+* T125b: FV phtest labels the SAME fit the same way whether or not finegray's
+*        design columns are still in memory.
+*
+* Through 2026-07-20 finegray_phtest computed its labels only inside the rebuild
+* branch, so one fit described itself two ways: `_fg_pelnode_2' while the _fg_*
+* columns were present, `2.pelnode' after the user dropped them (a documented,
+* supported action).  The correlations were identical both times -- only the
+* names moved -- so nothing numerical caught it, and T125 above could not
+* either: it asserts the rebuilt name CONTAINS "pelnode", which the internal
+* spelling _fg_pelnode_2 also does.  This pins both spellings to the term name.
+*
+* Run against the pre-fix .ado, the first assertion fails (observed: the
+* columns-present label came back as _fg_pelnode_2).
+local ++test_count
+capture noisily {
+    _setup_hypoxia
+    finegray i.pelnode ifp, compete(status) cause(1) nolog
+    finegray_phtest
+    matrix _ph_pres = r(phtest)
+    local _pres_rn : rownames _ph_pres
+
+    * no internal design-column name may reach the user
+    assert strpos("`_pres_rn'", "_fg_") == 0
+    assert strpos("`_pres_rn'", "pelnode") > 0
+
+    * drop the columns and confirm the drop happened, so the rebuild branch
+    * genuinely runs rather than the comparison being against itself
+    quietly ds _fg_*
+    local _fgc "`r(varlist)'"
+    assert "`_fgc'" != ""
+    quietly drop `_fgc'
+
+    finegray_phtest
+    matrix _ph_rb = r(phtest)
+    local _rb_rn : rownames _ph_rb
+    assert "`_rb_rn'" == "`_pres_rn'"
+    forvalues j = 1/`=rowsof(_ph_pres)' {
+        assert reldif(_ph_pres[`j',1], _ph_rb[`j',1]) < 1e-10
+    }
+    matrix drop _ph_pres _ph_rb
+}
+if _rc == 0 {
+    display as result "  PASS: T125b FV phtest labels are fit-determined, not memory-determined"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T125b FV phtest label consistency (rc=`=_rc')"
+    local ++fail_count
+}
+
+* T125c: an fvset base change after the fit must not move finegray_phtest's
+*        design.
+*
+* Through 2026-07-21 finegray_phtest resolved its factor design by re-running
+* `fvexpand e(fvvarlist)' on the CURRENT data.  fvexpand reads the base level
+* from the variable's current fvset setting, so moving the base after the fit
+* changed WHICH terms were kept while keeping HOW MANY -- passing every count
+* check, including the colsof(e(b)) assertion.  Observed on a 3-level factor:
+* with the _fg_* columns present the table relabelled the level-2 and level-3
+* rows as level 1 and 2; with them dropped the correlations themselves changed
+* (-0.2348/-0.2062/0.1931 -> -0.2300/0.0315/-0.2124).  Both at rc = 0.
+*
+* e(fvsemantic) -- the fit-time expansion -- is the fix.  finegray_predict and
+* finegray_cif already read it and were never affected.
+*
+* Run against the pre-fix .ado, the columns-present name assertion fails.
+local ++test_count
+capture noisily {
+    _setup_hypoxia
+    finegray i.pelnode ifp, compete(status) cause(1) nolog
+    local _nb = colsof(e(b))
+    finegray_phtest
+    matrix _ph_b0 = r(phtest)
+    local _rn0 : rownames _ph_b0
+
+    * the base must be movable, or the test is vacuous
+    quietly levelsof pelnode, local(_pl)
+    assert `: word count `_pl'' >= 2
+    local _newbase : word 2 of `_pl'
+    fvset base `_newbase' pelnode
+
+    * (a) columns present: names and correlations both unchanged
+    finegray_phtest
+    matrix _ph_b1 = r(phtest)
+    local _rn1 : rownames _ph_b1
+    assert "`_rn1'" == "`_rn0'"
+    forvalues j = 1/`_nb' {
+        assert reldif(_ph_b0[`j',1], _ph_b1[`j',1]) < 1e-10
+    }
+
+    * (b) columns dropped, so the rebuild runs under the moved base
+    quietly ds _fg_*
+    local _fgc "`r(varlist)'"
+    assert "`_fgc'" != ""
+    quietly drop `_fgc'
+    finegray_phtest
+    matrix _ph_b2 = r(phtest)
+    local _rn2 : rownames _ph_b2
+    assert "`_rn2'" == "`_rn0'"
+    forvalues j = 1/`_nb' {
+        assert reldif(_ph_b0[`j',1], _ph_b2[`j',1]) < 1e-10
+    }
+
+    fvset clear pelnode
+    matrix drop _ph_b0 _ph_b1 _ph_b2
+}
+if _rc == 0 {
+    display as result "  PASS: T125c fvset base change after the fit does not move phtest's design"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T125c phtest fvset base invariance (rc=`=_rc')"
     local ++fail_count
 }
 

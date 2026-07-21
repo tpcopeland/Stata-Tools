@@ -1,6 +1,6 @@
 *! _msm_time_invariant_hint Version 1.2.3  2026/07/04
 *! Diagnostic hint for time-invariant (baseline) treatment in msm_weight
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 * Emits a targeted diagnostic when the treatment denominator model degenerates
 * because treatment is held constant within person (A_t == A_{t-1} for every

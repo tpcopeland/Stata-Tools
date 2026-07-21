@@ -1,5 +1,6 @@
 {smcl}
 {vieweralsosee "finegray" "help finegray"}{...}
+{vieweralsosee "finegray_gof" "help finegray_gof"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
@@ -50,7 +51,8 @@ over time. The command reports, per covariate, the residual-time
 calibration exists for that statistic under the subdistribution-hazards
 model. Treat a correlation far from zero as a flag for follow-up, not as an
 accept/reject test; see {it:Statistical scope}
-below.
+below. For a calibrated test of the same assumption, with p-values, see
+{helpb finegray_gof}.
 
 {pstd}
 {bf:Left truncation (delayed entry).} The weighted risk sets underlying the
@@ -124,15 +126,18 @@ original defect -- an unstated reference distribution -- in a form that merely
 looks rigorous.
 
 {pstd}
-No published omnibus test for the proportional {it:subdistribution} hazards
-assumption is implemented. Candidates exist -- Zhou et al. (2013) give a score
-test on modified Schoenfeld residuals, and Li, Scheike and Zhang (2015) a
-cumulative-sums-of-residuals test with simulated p-values -- but neither is
-implemented or validated here. PSHREG (Kohl et al. 2015), the closest reference
-implementation for this model, likewise reports only per-covariate correlation
-tests and residual plots. If a single global claim is needed, inspect the
-{it:p} correlations reported below together, or fit the time-interaction model
-directly and test the interaction terms.
+No omnibus test is implemented {it:by this command}. One is available elsewhere
+in the package: {helpb finegray_gof} implements the
+cumulative-sums-of-residuals tests of Li, Scheike and Zhang (2015), whose
+p-values come from a multiplier bootstrap rather than from an asserted
+reference distribution, and which therefore reports an overall proportionality
+test that {cmd:finegray_phtest} cannot. Prefer it when a formal claim is
+needed. It covers right censoring only, so under delayed entry, {opt strata()},
+or {opt cluster()} it refuses and this diagnostic remains the available
+instrument. Zhou et al. (2013) give a score test on modified Schoenfeld
+residuals that is {bf:not} implemented here. PSHREG (Kohl et al. 2015), the
+closest reference implementation for this model, likewise reports only
+per-covariate correlation tests and residual plots.
 
 {pstd}
 The diagnostic is only defined where it can be computed. If every cause event
@@ -287,8 +292,10 @@ for time-transformed weighted-residual diagnostics; their joint test is
 estimator. This command reports the residual-time correlation as a descriptive
 diagnostic only; it computes no marginal or omnibus test statistic, so no null
 calibration is claimed. Zhou et al. (2013), Li et al. (2015) and Kohl
-et al. (2015) are cited to document the state of formal testing for this model,
-not as implemented methods.
+et al. (2015) are cited to document the state of formal testing for this
+model. Of these, Li et al. (2015) {it:is} implemented in the package, by
+{helpb finegray_gof} rather than by this command; Zhou et al. (2013) and Kohl
+et al. (2015) are not implemented.
 
 
 {marker author}{...}

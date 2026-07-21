@@ -42,7 +42,7 @@
 {synopt:{opt vce(string)}}robust or clustered standard errors{p_end}
 {synopt:{opt str:ata(varlist)}}Cox-only baseline hazard strata{p_end}
 {synopt:{opt boot:strap(#)}}bootstrap replicates (not yet implemented){p_end}
-{synopt:{opt level(#)}}confidence level; default is {cmd:95}{p_end}
+{synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synoptline}
 
@@ -284,7 +284,7 @@ not implemented; the command exits with an error if a nonzero value is
 specified.
 
 {phang}
-{opt level(#)} specifies the confidence level for reported intervals. Default is 95.
+{opt level(#)} specifies the confidence level for reported intervals. The default is the current {cmd:c(level)}, usually 95.
 
 {phang}
 {opt nolog} suppresses the iteration log from the estimation command.
@@ -310,6 +310,11 @@ specified.
 {synopt:{cmd:e(msm_vce)}}variance estimator ({cmd:robust} or {cmd:cluster}){p_end}
 {synopt:{cmd:e(msm_cluster)}}cluster variable when clustered SEs are used{p_end}
 {synopt:{cmd:e(msm_strata)}}Cox strata variables, if specified{p_end}
+{synopt:{cmd:e(msm_inf_dist)}}inference dist ({cmd:t} linear, {cmd:z} GLM/Cox){p_end}
+
+{p2col 5 25 29 2: Scalars}{p_end}
+{synopt:{cmd:e(msm_inf_df)}}t-inference residual df (linear; . for z){p_end}
+{synopt:{cmd:e(msm_n_clusters)}}number of independent clusters in the fit{p_end}
 
 {p2col 5 25 29 2: Matrices}{p_end}
 {synopt:{cmd:e(effects)}}primary-effect estimate and interval{p_end}

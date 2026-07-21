@@ -43,7 +43,7 @@
 {syntab:Monte Carlo settings}
 {synopt:{opt samp:les(#)}}MC draws for confidence intervals; default {cmd:100}{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
+{synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Extrapolation}
 {synopt:{opt extra:polate}}allow predictions beyond observed follow-up{p_end}
@@ -151,7 +151,7 @@ reproducibility. If omitted, the command uses the current session RNG state
 and returns the starting state so you can reproduce the results later.
 
 {phang}
-{opt level(#)} specifies the confidence level. Default is 95.
+{opt level(#)} specifies the confidence level. The default is the current {cmd:c(level)}, usually 95.
 
 {phang}
 {opt extra:polate} allows prediction at time points beyond the maximum
@@ -248,6 +248,9 @@ datasets fitted by older versions.{p_end}
 {synopt:{cmd:r(n_ref)}}number of individuals in the reference population{p_end}
 {synopt:{cmd:r(samples)}}number of MC draws used{p_end}
 {synopt:{cmd:r(level)}}confidence level{p_end}
+{synopt:{cmd:r(min_support)}}smallest fitted period (support floor){p_end}
+{synopt:{cmd:r(max_support)}}largest fitted period (support ceiling){p_end}
+{synopt:{cmd:r(extrapolated)}}1 if any requested time exceeded fitted support{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(seed)}}seed or RNG state used for the MC simulation{p_end}
@@ -255,6 +258,8 @@ datasets fitted by older versions.{p_end}
 {synopt:{cmd:r(seed_state)}}full starting RNG state string{p_end}
 {synopt:{cmd:r(type)}}prediction type ({cmd:cum_inc} or {cmd:survival}){p_end}
 {synopt:{cmd:r(strategy)}}strategy used ({cmd:always}, {cmd:never}, or {cmd:both}){p_end}
+{synopt:{cmd:r(diff_type)}}contrast type: {cmd:rd} (cum_inc) or {cmd:sd} (survival){p_end}
+{synopt:{cmd:r(draw_method)}}MVN draw: {cmd:eigen}, {cmd:eigen(clipped)}, or {cmd:degenerate}{p_end}
 {synopt:{cmd:r(history_spec)}}built-in history terms used by the fit{p_end}
 
 

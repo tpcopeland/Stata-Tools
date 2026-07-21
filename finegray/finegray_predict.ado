@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/07/18
+*! finegray_predict Version 1.2.0  2026/07/20
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -803,7 +803,21 @@ program define finegray_predict, rclass sortpreserve
     * A bootstrap that errored mid-loop leaves the cache snapshotted; restore it so
     * the fit's baseline stays resolvable (falls back to prior behaviour if it too
     * fails -- no worse than not stashing).
-    if `_bh_stashed' capture mata: _finegray_bh_unstash()
+    if `_bh_stashed' {
+        capture mata: _finegray_bh_unstash()
+        * Saved on the very next line: the first `display' below would otherwise
+        * reset _rc to 0 and the message would report rc = 0.
+        local _unstash_rc = _rc
+        * Captured on purpose: this runs in the cleanup zone, where raising a new
+        * error would mask the one that brought us here.  But it must not fail
+        * SILENTLY -- the cache stays snapshotted, and the next command that
+        * needs the fit's baseline hits a stale or missing one with no clue why.
+        if `_unstash_rc' {
+            display as error "note: the baseline-hazard cache could not be restored"
+            display as error "(mata: _finegray_bh_unstash failed, rc = `_unstash_rc'); re-run"
+            display as error "{bf:finegray} before further post-estimation"
+        }
+    }
     * All-or-nothing output: drop any permanent variables this call created
     * when it exits with an error, so a failed ci/bootstrap/schoenfeld path
     * does not leave a partial prediction behind.

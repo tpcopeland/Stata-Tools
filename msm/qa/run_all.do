@@ -3,7 +3,9 @@
 * Master runner for the msm QA surface.
 *
 * Default scope: full Stata and cross-language QA in this package
-*   - test_msm.do
+*   - test_msm.do            (core functional, T1)
+*   - test_msm_table.do      (msm_table workbook export, T2)
+*   - test_msm_options.do    (per-command option-path coverage, T3)
 *   - test_msm_expanded.do
 *   - test_msm_status.do
 *   - test_msm_weight_ergonomics.do
@@ -18,6 +20,8 @@
 *   - test_msm_independent_review.do
 *   - test_msm_phase3.do
 *   - test_msm_phase2.do
+*   - test_msm_phase4.do
+*   - test_msm_phase5.do
 *   - test_msm_psdash_contract.do
 *   - test_export_surface.do
 *   - test_msm_diagtab.do
@@ -75,10 +79,10 @@ if "`mode'" == "all" local mode "full"
 
 local suite_list ""
 if "`mode'" == "core" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_msm_state_identity test_msm_independent_review test_msm_phase3 test_msm_phase2 test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_phase3_recovery"
+    local suite_list "test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_msm_state_identity test_msm_independent_review test_msm_phase3 test_msm_phase2 test_msm_phase4 test_msm_phase5 test_msm_phase6 test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_phase3_recovery"
 }
 else if "`mode'" == "quick" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_msm_state_identity test_msm_independent_review test_msm_phase3 test_msm_phase2 test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload"
+    local suite_list "test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_msm_state_identity test_msm_independent_review test_msm_phase3 test_msm_phase2 test_msm_phase4 test_msm_phase5 test_msm_phase6 test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload"
 }
 else if "`mode'" == "validations" {
     local suite_list "validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_phase3_recovery"
@@ -87,7 +91,7 @@ else if "`mode'" == "crossval" {
     local suite_list "crossval_msm crossval_external_models"
 }
 else if "`mode'" == "full" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_msm_state_identity test_msm_independent_review test_msm_phase3 test_msm_phase2 test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_phase3_recovery crossval_msm crossval_external_models"
+    local suite_list "test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_msm_state_identity test_msm_independent_review test_msm_phase3 test_msm_phase2 test_msm_phase4 test_msm_phase5 test_msm_phase6 test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_phase3_recovery crossval_msm crossval_external_models"
 }
 else {
     display as error "Unknown run_all mode: `mode'"

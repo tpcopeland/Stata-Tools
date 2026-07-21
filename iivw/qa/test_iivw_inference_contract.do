@@ -10,15 +10,10 @@ set varabbrev off
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
-* iivw's default variance treats the estimated weights as KNOWN. That is not the
-* variance Buzkova & Lumley (2007) derive -- they add the visit-model score
-* correction -- nor the two-step sandwich of Coulombe, Moodie & Platt (2021).
-* Fixed-weight Stata/R SE agreement proves only that both programs computed the
-* same incomplete variance.
-*
-* Phase 3 does not yet replace that default (see IIVW-B02, still open). What it
-* does is make the output stop hiding which variance you got, and stop reporting
-* one that was quietly computed from fewer draws than you asked for.
+* iivw's weighted default is the candidate 999-draw refit bootstrap, which
+* propagates weight-estimation uncertainty. Its coverage gate is still pending,
+* so e(iivw_inference_status) deliberately never calls it cleared. vce(fixed)
+* and the fixedweights bootstrap remain explicit weights-known alternatives.
 *
 * THE DEFECT THIS SUITE EXISTS FOR
 * --------------------------------
@@ -51,11 +46,9 @@ set varabbrev off
 *
 * WHAT THIS SUITE DOES NOT SHOW
 * ----------------------------
-* Nothing here says the default variance is CORRECT. It is not: IIVW-B02 is open,
-* the default still treats the weights as known, and no coverage simulation has
-* been run against a preregistered gate. This suite proves only that the output
-* now tells you which variance you got and stops silently dropping draws. That is
-* a disclosure fix, not an inference fix.
+* Nothing here says the candidate default has nominal coverage. The full
+* preregistered coverage simulation has not run. This suite proves the variance
+* selection, replay, failure, provenance, and disclosure contracts only.
 
 local qa_dir "`c(pwd)'"
 local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
@@ -426,10 +419,28 @@ capture noisily {
     capture iivw_fit y treat x, timespec(linear) vce(sandwich) nolog replace
     assert _rc == 198
 
-    * vce(bootstrap) with no reps now takes the release-frozen default of 999
-    * (Phase 3B) -- it is no longer an error. What IS refused is a degenerate
-    * replicate count: a variance is undefined from a single draw.
+    * An explicit reps() is never the same thing as omitting reps(). The parser
+    * used to give reps() the same numeric sentinel as "not supplied", so
+    * reps(0) and reps(-1) silently launched the 999-draw default. The same
+    * collision let vce(fixed, reps(0)) pass even though vce(fixed) takes no
+    * suboptions. Check that cheap fixed case first: on the broken build it
+    * fails here before either bootstrap typo can start 999 draws.
+    capture iivw_fit y treat x, timespec(linear) vce(fixed, reps(0)) nolog replace
+    assert _rc == 198
+
+    * vce(bootstrap) with no reps takes the release-frozen default of 999.
+    * Explicit nonpositive values and one draw are invalid: a bootstrap
+    * variance needs at least two replicates.
+    capture iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(0)) nolog replace
+    assert _rc == 198
+    capture iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(-1)) nolog replace
+    assert _rc == 198
     capture iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(1)) nolog replace
+    assert _rc == 198
+
+    * The deprecated spelling names the same mathematical object and must not
+    * allow a one-draw variance either.
+    capture iivw_fit y treat x, timespec(linear) bootstrap(1) nolog replace
     assert _rc == 198
 
     * vce(fixed) takes no replicate machinery.
@@ -642,6 +653,51 @@ else {
     display as error "  FAIL: I16 - pass-through guard (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' I16"
+}
+
+**# I17 - the default message must not claim release clearance
+
+local ++test_count
+display as text "I17: the default bootstrap message says candidate, never cleared"
+capture noisily {
+    _inf_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
+
+    * Force an empty analysis sample after variance selection. This exercises
+    * the user-visible default-selection message without running 999 draws.
+    tempfile msglog
+    log using "`msglog'", text replace name(_iivw_default_msg)
+    capture noisily iivw_fit y treat x if 0, timespec(linear) nolog replace
+    local fit_rc = _rc
+    log close _iivw_default_msg
+    assert `fit_rc' == 2000
+
+    tempname fh
+    file open `fh' using "`msglog'", read text
+    local cleared_hits = 0
+    local candidate_hits = 0
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(lower(`"`line'"'), "cleared default") {
+            local ++cleared_hits
+        }
+        if strpos(lower(`"`line'"'), "candidate default") {
+            local ++candidate_hits
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `cleared_hits' == 0
+    assert `candidate_hits' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: I17 - default message does not overclaim clearance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I17 - default message claimed release clearance (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I17"
 }
 
 **# Summary

@@ -1,6 +1,6 @@
 *! _msm_verify Version 1.2.3  2026/07/17
 *! Verify that a claimed MSM stage artifact is complete, current, and this dataset's
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*

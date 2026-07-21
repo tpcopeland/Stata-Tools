@@ -1,6 +1,6 @@
-*! _msm_coef_pvalue_string Version 1.2.2  2026/07/02
+*! _msm_coef_pvalue_string Version 1.2.3  2026/07/02
 *! P-value display string for MSM coefficient tables
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _msm_coef_pvalue_string, rclass
     version 16.0
@@ -9,6 +9,14 @@ program define _msm_coef_pvalue_string, rclass
 
     capture noisily {
         syntax , PVALUE(real)
+
+        * A missing p-value must render as NA, not as a number (audit A33).
+        * Stata treats `.' as +infinity, so the old code fell through to the
+        * `>= 0.995' branch and printed a missing p-value as "0.99".
+        if missing(`pvalue') {
+            return local pvalue "NA"
+            exit
+        }
 
         local p_str ""
         if `pvalue' < 0.001 {

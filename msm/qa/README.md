@@ -27,7 +27,9 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 
 | File | Primary coverage |
 |------|------------------|
-| `test_msm.do` | End-to-end prepare, validate, weight, fit, predict, diagnose, and report behavior |
+| `test_msm.do` | Core functional tests across all commands (prepare, validate, weight, fit, predict, diagnose, report) |
+| `test_msm_table.do` | `msm_table` workbook export (all sheets, re-import verification, error paths, persistence) |
+| `test_msm_options.do` | Per-command option-path coverage, SECTION A–M (prepare/validate/weight/fit/predict/diagnose/plot/report/protocol/sensitivity, helpers, metadata, audit-fix regressions) |
 | `test_msm_expanded.do` | Expanded command options and pipeline combinations |
 | `test_msm_status.do` | Flagship controller and pipeline-state reporting |
 | `test_msm_weight_ergonomics.do` | Weight defaults, preview, truncation, and returned specifications |
@@ -74,9 +76,10 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `msm_prepare`, `msm_validate` | `test_msm_prepare_validate_adversarial.do`, `validation_msm.do`, `validation_msm_known_answers.do` |
 | `msm_weight` | `test_msm_weight_ergonomics.do`, `test_msm_weight_failures.do`, `test_msm_weight_adversarial.do`, `test_msm_phase3.do`, `crossval_msm.do` |
 | `msm_fit` | `test_msm_fit_guidance.do`, `test_msm_cox_state.do`, `test_msm_continuous_exposure.do`, `test_msm_phase3.do`, `validation_msm_recovery.do`, `validation_msm_dgp_recovery.do`, `validation_msm_phase3_recovery.do` |
-| `msm_predict` | `test_msm.do`, `test_msm_expanded.do`, `test_msm_phase3.do`, `validation_msm_phase3_recovery.do`, `crossval_external_models.do` |
-| `msm_diagnose`, `msm_diagtab` | `test_msm_diagtab.do`, `test_msm_phase3.do`, `test_msm_psdash_contract.do`, `test_export_surface.do` |
-| `msm_plot`, `msm_report`, `msm_table` | `test_export_surface.do`, `test_msm_output_adversarial.do`, `test_msm_expanded.do` |
+| `msm_predict` | `test_msm.do`, `test_msm_options.do`, `test_msm_expanded.do`, `test_msm_phase3.do`, `validation_msm_phase3_recovery.do`, `crossval_external_models.do` |
+| `msm_diagnose`, `msm_diagtab` | `test_msm_diagtab.do`, `test_msm_options.do`, `test_msm_phase3.do`, `test_msm_psdash_contract.do`, `test_export_surface.do` |
+| `msm_plot`, `msm_report`, `msm_table` | `test_msm_table.do`, `test_export_surface.do`, `test_msm_output_adversarial.do`, `test_msm_options.do`, `test_msm_expanded.do` |
+| All commands — per-command option paths | `test_msm.do` (functional), `test_msm_options.do` (options SECTION A–M) |
 | `msm_protocol`, `msm_sensitivity` | `test_export_surface.do`, `validation_msm_sensitivity.do` |
 | Shared artifact/transaction layer | `test_msm_state_identity.do`, `test_msm_independent_review.do`, `test_msm_abbrev_reload.do` |
 
@@ -85,7 +88,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 - `_install_msm_isolated.do` installs the package into the runner's isolated Stata directories.
 - `_msm_qa_common.do` provides registered fixtures and shared assertions.
 - `_cleanup_runtime_artifacts.do` removes disposable child logs and cross-validation products before a lane.
-- `_crossval_dgp_generate.do` is a dependency invoked by validation and cross-validation suites; it is not a standalone lane.
+- `_crossval_dgp_generate.do` is a dependency invoked by the cross-validation suite `crossval_msm.do`; it is not a standalone lane.
 - `crossval_external_models.R`, `crossval_external_models.py`, `crossval_r.R`, `crossval_python.py`, and `tools/check_xlsx.py` provide external reference calculations and workbook inspection.
 
 The full lane retains `run_all.log`, `run_all_runner.log`, `run_all_status.txt`, and child logs as execution evidence. Remove them after reviewing the result; they are runtime artifacts and must not be committed.

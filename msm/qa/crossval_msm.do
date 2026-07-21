@@ -370,19 +370,32 @@ else {
     local failed_tests "`failed_tests' C6"
 }
 
-* --- Test C7: msm estimate within 0.20 of true log-OR (DGP1) ---
+* --- Test C7: non-collapsibility smoke check (DGP1) ---
+* NOT a truth-recovery test. ln(0.70) is the CONDITIONAL data-generating
+* coefficient (conditional on L, V, t). msm fits a MARGINAL structural model,
+* whose exposure log-OR is non-collapsible with the conditional one: it is
+* attenuated TOWARD THE NULL even with confounding fully removed by the weights
+* (Pang, Kaufman & Platt 2016, Stat Methods Med Res 25(5):1925; the mean
+* difference is collapsible but the log-OR is not). Asserting the marginal
+* estimate ~= the conditional ln(0.70) is a category error -- it passed here
+* only because the wide 0.20 tolerance happened to straddle the attenuation
+* (observed marginal ~-0.17 vs conditional -0.357, gap 0.18). The correctly
+* defined MARGINAL recovery lives in validation_msm_recovery.do (exogenous-L
+* DGP + point-treatment scenario). This smoke check asserts only the
+* qualitative non-collapsibility signature: same sign, strictly attenuated.
 local ++test_count
 capture {
-    local diff = abs(`stata_b' - `true_logor')
-    display "  C7: msm vs truth diff = " %7.4f `diff'
-    assert `diff' < 0.20
+    display "  C7: msm marginal log-OR = " %7.4f `stata_b' ///
+        " ; conditional ln(0.70) = " %7.4f `true_logor'
+    assert `stata_b' < 0                       // same (protective) sign
+    assert `stata_b' > `true_logor'            // attenuated toward the null
 }
 if _rc == 0 {
-    display as result "  PASS C7: msm estimate within 0.20 of truth"
+    display as result "  PASS C7: msm marginal estimate is attenuated toward null vs conditional (non-collapsibility)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C7: msm estimate too far from truth"
+    display as error "  FAIL C7: msm marginal estimate does not show the expected non-collapsibility signature"
     local ++fail_count
     local failed_tests "`failed_tests' C7"
 }
@@ -458,56 +471,93 @@ else {
     local failed_tests "`failed_tests' C11"
 }
 
-* --- Test C12: Individual-level weight correlation Stata vs R (DGP1) ---
+* --- Test C12: row-level weight parity Stata vs R (DGP1) ---
+* msm, R, and Python compute the SAME stabilized-weight formula (num=P(A|V),
+* den=P(A|L,V), pooled logit) ON THE SAME at-risk (decision-risk) estimation
+* sample, so agreement should be row-level tight, not merely correlated -- a
+* correlation >0.95 survives a systematic scale error, and the prior gate hid a
+* real divergence: before the crossval_r.R / crossval_python.py scripts were
+* aligned to msm's at-risk restriction (audit A11) they fit the treatment models
+* on ALL person-periods, so their weights drifted from msm's by up to ~2.4
+* (compounding ~1%/period) yet still correlated >0.99. The merge must be
+* COMPLETE: every (id,period) on both sides (audit Q09: "fail on merge
+* omissions"). TOL set 50x above the observed cross-solver residual (max abs
+* ~1.9e-6, max rel ~2.6e-7 between Stata logit, R glm, and Python statsmodels)
+* and ~24000x below the pre-alignment divergence it must catch.
+local TOL_ABS = 1e-4
+local TOL_REL = 1e-4
 local ++test_count
 capture {
     preserve
         import delimited using "`results_dir'/stata_weights_dgp1.csv", clear varnames(1)
+        local _n_stata = _N
         tempfile stata_w
         save `stata_w'
 
         import delimited using "`results_dir'/r_weights_dgp1.csv", clear varnames(1)
-        merge 1:1 id period using `stata_w', nogenerate
+        local _n_r = _N
+        merge 1:1 id period using `stata_w'
+        * Merge omission => a dropped/duplicated row the correlation gate hid.
+        assert _merge == 3
+        assert _N == `_n_stata' & _N == `_n_r'
+        drop _merge
 
-        correlate stata_weight r_manual_weight
-        local corr_sr = r(rho)
-        display "  C12: Stata-R weight correlation = " %7.5f `corr_sr'
-        assert `corr_sr' > 0.95
+        gen double _adiff = abs(stata_weight - r_manual_weight)
+        gen double _rdiff = _adiff / max(abs(stata_weight), 1e-8)
+        quietly summarize _adiff, meanonly
+        local _maxabs = r(max)
+        quietly summarize _rdiff, meanonly
+        local _maxrel = r(max)
+        display "  C12: Stata-R row-level max |diff| = " %9.6f `_maxabs' ///
+            " ; max rel = " %9.6f `_maxrel' " (n=" `_n_stata' ")"
+        assert `_maxabs' < `TOL_ABS'
+        assert `_maxrel' < `TOL_REL'
     restore
 }
 if _rc == 0 {
-    display as result "  PASS C12: Stata-R individual weight correlation > 0.95"
+    display as result "  PASS C12: Stata-R weights agree row-level (complete merge, max |diff| < `TOL_ABS')"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C12: Stata-R weight correlation too low"
+    display as error "  FAIL C12: Stata-R row-level weight parity failed (merge omission or diff too large)"
     local ++fail_count
     local failed_tests "`failed_tests' C12"
 }
 
-* --- Test C13: Individual-level weight correlation Stata vs Python (DGP1) ---
+* --- Test C13: row-level weight parity Stata vs Python (DGP1) ---
 local ++test_count
 capture {
     preserve
         import delimited using "`results_dir'/stata_weights_dgp1.csv", clear varnames(1)
+        local _n_stata = _N
         tempfile stata_w
         save `stata_w'
 
         import delimited using "`results_dir'/py_weights_dgp1.csv", clear varnames(1)
-        merge 1:1 id period using `stata_w', nogenerate
+        local _n_py = _N
+        merge 1:1 id period using `stata_w'
+        assert _merge == 3
+        assert _N == `_n_stata' & _N == `_n_py'
+        drop _merge
 
-        correlate stata_weight py_weight
-        local corr_sp = r(rho)
-        display "  C13: Stata-Python weight correlation = " %7.5f `corr_sp'
-        assert `corr_sp' > 0.95
+        gen double _adiff = abs(stata_weight - py_weight)
+        gen double _rdiff = _adiff / max(abs(stata_weight), 1e-8)
+        quietly summarize _adiff, meanonly
+        local _maxabs = r(max)
+        quietly summarize _rdiff, meanonly
+        local _maxrel = r(max)
+        display "  C13: Stata-Python row-level max |diff| = " %9.6f `_maxabs' ///
+            " ; max rel = " %9.6f `_maxrel' " (n=" `_n_stata' ")"
+        assert `_maxabs' < `TOL_ABS'
+        assert `_maxrel' < `TOL_REL'
     restore
 }
 if _rc == 0 {
-    display as result "  PASS C13: Stata-Python individual weight correlation > 0.95"
+    display as result "  PASS C13: Stata-Python weights agree row-level (complete merge, max |diff| < `TOL_ABS')"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C13: Stata-Python weight correlation too low"
+    display as error "  FAIL C13: Stata-Python row-level weight parity failed (merge omission or diff too large)"
     local ++fail_count
     local failed_tests "`failed_tests' C13"
 }
@@ -592,23 +642,36 @@ else {
     local failed_tests "`failed_tests' C15"
 }
 
-* --- Test C16: msm 95% CI covers true conditional log-OR ---
-* The MSM coefficient should recover the DGP's conditional treatment effect
-* (true_logor = ln(0.70) = -0.357), not the sustained-strategy effect.
+* --- Test C16: msm interval is a valid final-stage interval (DGP1) ---
+* Reclassified smoke check. The prior version asserted the 95% CI COVERS the
+* conditional ln(0.70); that passed vacuously because the final-stage CI is wide
+* (SE ~0.11) and straddles zero, the marginal estimate, AND the conditional
+* value at once -- a wide interval covers everything, so coverage of the
+* conditional target proves nothing, and the target is the wrong estimand
+* anyway (see C7 / Pang 2016 non-collapsibility). Here we assert only that the
+* interval is well-formed and the point estimate sits inside it, using z (GLM
+* inference). Coverage of the MARGINAL estimand is validated in
+* validation_msm_recovery.do, not against the conditional coefficient here.
 local ++test_count
 capture {
-    local ci_lo = `stata_b' - 1.96 * `stata_se'
-    local ci_hi = `stata_b' + 1.96 * `stata_se'
+    local _zc = invnormal(0.975)
+    local ci_lo = `stata_b' - `_zc' * `stata_se'
+    local ci_hi = `stata_b' + `_zc' * `stata_se'
     display "  C16: msm 95% CI = [" %7.4f `ci_lo' ", " %7.4f `ci_hi' "]"
-    display "        True conditional log-OR = " %7.4f `true_logor'
-    assert `ci_lo' < `true_logor' & `ci_hi' > `true_logor'
+    assert !missing(`ci_lo', `ci_hi', `stata_se')
+    assert `stata_se' > 0
+    assert `ci_lo' < `ci_hi'
+    assert `ci_lo' < `stata_b' & `stata_b' < `ci_hi'
+    * Document (not assert) that the conditional target need not be covered.
+    local _covers_cond = (`ci_lo' < `true_logor' & `true_logor' < `ci_hi')
+    display "        (conditional ln(0.70) inside CI: `_covers_cond' -- not an oracle; see C7)"
 }
 if _rc == 0 {
-    display as result "  PASS C16: msm 95% CI covers true conditional log-OR"
+    display as result "  PASS C16: msm final-stage interval is well-formed and contains its estimate"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C16: msm 95% CI does not cover true conditional log-OR"
+    display as error "  FAIL C16: msm interval is malformed"
     local ++fail_count
     local failed_tests "`failed_tests' C16"
 }

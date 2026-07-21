@@ -31,9 +31,9 @@
 {synoptline}
 {synopt:{opt eva:lue}}compute E-value; default with no options{p_end}
 {synopt:{opt conf:ounding_strength(# #)}}RR(U,D) and RR(U,Y) for bias factor computation{p_end}
-{synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
-{synopt:{opt rarethr:eshold(#)}}prevalence limit for automatic approximation{p_end}
-{synopt:{opt orapprox}}force logistic rare-outcome approximation{p_end}
+{synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
+{synopt:{opt rarethr:eshold(#)}}rare/common cumulative-incidence cut; default {cmd:0.15}{p_end}
+{synopt:{opt orapprox}}force the raw OR/HR as the RR scale{p_end}
 {synoptline}
 
 
@@ -91,27 +91,31 @@ specified confidence level.
 {title:Remarks}
 
 {pstd}
-E-values and bias-factor corrections are defined on the risk ratio scale. For
-{cmd:msm_fit, model(logistic)}, {cmd:msm_sensitivity} therefore treats the odds ratio as a
-{it:rare-outcome approximation}, not an exact risk ratio.
+E-values and bias-factor corrections are defined on the {it:risk ratio} scale
+(VanderWeele & Ding 2017). An odds ratio or a hazard ratio approximates the
+risk ratio only when the outcome is rare {it:by the end of follow-up}.
 
 {pstd}
-By default, the logistic branch is only used when the weighted outcome
-prevalence in the MSM estimation sample is at most {cmd:rarethreshold()}
-(default 0.10). The prevalence is computed on the same at-risk sample used
-by {helpb msm_fit}.
+{cmd:msm_sensitivity} therefore judges rarity by the subject-level
+{bf:cumulative incidence} (the share of subjects who experience the event over
+follow-up), returned in {cmd:r(cumulative_incidence)}. When it is at most
+{cmd:rarethreshold()} (default 0.15, the VanderWeele-Ding rare/common cut), the
+OR (logistic) or HR (Cox) is used directly as the risk ratio.
 
 {pstd}
-If the weighted outcome prevalence exceeds {cmd:rarethreshold()}, the command
-stops with an error rather than silently reporting sensitivity quantities from
-a common-outcome odds ratio. Use {opt orapprox} only when you deliberately
-accept the OR approximation despite the prevalence screen.
+When the outcome is common (cumulative incidence above {cmd:rarethreshold()}),
+the command applies the paper's common-outcome transforms rather than treating
+the raw OR/HR as a risk ratio: for {cmd:model(logistic)} it uses
+{cmd:RR = sqrt(OR)}, and for {cmd:model(cox)} it uses
+{cmd:RR = (1 - 0.5^sqrt(HR)) / (1 - 0.5^sqrt(1/HR))}, applied to the point
+estimate and both confidence limits before the E-value formula. Specify
+{opt orapprox} to force the raw OR/HR as the risk ratio even for a common
+outcome (the cruder rare-outcome approximation).
 
 {pstd}
-For {cmd:model(cox)}, the hazard ratio is used directly on the RR scale. For
-{cmd:model(linear)}, E-values are not applicable because the coefficient is
-not on a ratio scale; use {opt confounding_strength()} for bound
-explorations.
+For {cmd:model(linear)} the coefficient is not on a ratio scale, so no E-value
+or bias factor is produced; use {opt confounding_strength()} for bound
+explorations, and see {cmd:r(metric_produced)}.
 
 
 {marker options}{...}
@@ -133,18 +137,20 @@ shifted toward the null: the observed effect is divided by the bias factor
 when it exceeds 1 and multiplied by it when it is below 1.
 
 {phang}
-{opt level(#)} specifies the confidence level. Default is 95.
+{opt level(#)} specifies the confidence level. The default is the current {cmd:c(level)}, usually 95.
 
 {phang}
-{opt rarethr:eshold(#)} specifies the maximum weighted outcome prevalence
-that will be treated as consistent with the rare-outcome approximation for
-logistic fits. Default is 0.10. Must be strictly between 0 and 1.
+{opt rarethr:eshold(#)} specifies the cumulative-incidence cut (share of
+subjects with the event by the end of follow-up) at or below which the OR/HR
+is used directly as the risk ratio; above it, the common-outcome transform is
+applied ({cmd:sqrt(OR)} for logistic, the HR-to-RR transform for Cox). Default
+is 0.15 (VanderWeele & Ding 2017). Must be strictly between 0 and 1.
 
 {phang}
-{opt orapprox} forces the logistic branch to use the odds ratio as a
-rare-outcome approximation even when the weighted outcome prevalence exceeds
-{cmd:rarethreshold()}. The result is labeled as an approximation. Use this
-only when you are willing to defend the approximation substantively.
+{opt orapprox} forces the raw odds ratio or hazard ratio to be used as the
+risk ratio even when the outcome is common, bypassing the common-outcome
+transform. Use this only when you are willing to defend the cruder
+approximation substantively.
 
 
 {marker examples}{...}
@@ -190,17 +196,22 @@ RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 {synopt:{cmd:r(effect)}}treatment effect estimate (OR, HR, or coefficient){p_end}
 {synopt:{cmd:r(effect_lo)}}lower confidence bound{p_end}
 {synopt:{cmd:r(effect_hi)}}upper confidence bound{p_end}
+{synopt:{cmd:r(effect_se)}}standard error of the effect term{p_end}
 {synopt:{cmd:r(bias_factor)}}computed bias factor (with {opt confounding_strength()}){p_end}
+{synopt:{cmd:r(bound)}}bias-adjusted bound on the RR scale{p_end}
 {synopt:{cmd:r(corrected_effect)}}effect corrected toward the null by the bias factor{p_end}
 {synopt:{cmd:r(rr_ud)}}hypothetical RR(U,D) specified{p_end}
 {synopt:{cmd:r(rr_uy)}}hypothetical RR(U,Y) specified{p_end}
-{synopt:{cmd:r(outcome_prevalence)}}weighted outcome prevalence (logistic models){p_end}
+{synopt:{cmd:r(cumulative_incidence)}}cumulative incidence by end of follow-up{p_end}
+{synopt:{cmd:r(outcome_prevalence)}}alias of {cmd:r(cumulative_incidence)}{p_end}
 {synopt:{cmd:r(rare_threshold)}}value of {cmd:rarethreshold()} used{p_end}
+{synopt:{cmd:r(metric_produced)}}1 if a RR-scale measure was produced{p_end}
 
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(effect_label)}}effect measure label ({cmd:OR}, {cmd:HR}, or {cmd:Coef}){p_end}
 {synopt:{cmd:r(model)}}model type{p_end}
-{synopt:{cmd:r(approximation)}}{cmd:none}, {cmd:rare-outcome auto}, or {cmd:rare-outcome override}{p_end}
+{synopt:{cmd:r(rr_scale)}}RR-scale input label for the E-value{p_end}
+{synopt:{cmd:r(approximation)}}RR-scale approximation applied (see Remarks){p_end}
 
 
 {marker references}{...}

@@ -51,6 +51,10 @@ if _rc {
 local pkg_dir  = substr("`qa_dir'",  1, strlen("`qa_dir'")  - strlen("/qa"))
 local repo_dir = substr("`pkg_dir'", 1, strlen("`pkg_dir'") - strlen("/iivw"))
 
+* Explicit release-only exclusion. This file is intentionally not appended to
+* any ordinary lane: its preregistered release mode is a multi-day simulation.
+local release_only_suites validation_iivw_inference
+
 * Each sub-suite's bootstrap uses `c(pwd)' to find the package — run from qa
 cd "`qa_dir'"
 

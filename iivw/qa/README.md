@@ -97,7 +97,7 @@ The load-bearing oracle is **saturated stabilization**. Set `stabcov()` equal to
 
 What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by construction and survives the bootstrap replay; a stabilization numerator outside the outcome design is **refused** before the outcome is fitted; the ambiguous `truncate()` is gone and each component trims separately, keeps its raw column, reports its own cutpoints, and is the weight `iivw_balance` actually describes.
 
-`test_iivw_inference_contract.do` covers what the reported standard error actually is (Phase 3). Its load-bearing find: an incomplete bootstrap used to be silent — a measured probe asked for 40 replicates, 6 failed, and the command printed an SE built from 34 draws with nothing in the output or `e()` to say so; that is now `r(430)`, with `allowfailedreps` as the explicit acknowledgment. It also pins the `vce()` contract that replaces the ambiguous `bootstrap()`/`refitweights` spelling: `vce(bootstrap, reps(#) [seed(#)])` is the refit bootstrap (the recommended method), `vce(bootstrap, reps(#) fixedweights)` holds the weights fixed, and `vce(fixed)` is the analytic sandwich — each mapping to exactly one `e(iivw_vce)`, with malformed and doubled specifications refused. **5 of its 11 tests fail against the pre-Phase-3 build**; the header names the three guards. What it does *not* show: that the default variance is correct. It is not — IIVW-B02 remains open, the default still treats the weights as known, and no coverage simulation has yet run against a preregistered gate.
+`test_iivw_inference_contract.do` covers what the reported standard error actually is (Phase 3). Its load-bearing find: an incomplete bootstrap used to be silent — a measured probe asked for 40 replicates, 6 failed, and the command printed an SE built from 34 draws with nothing in the output or `e()` to say so; that is now `r(430)`, with `allowfailedreps` as the explicit acknowledgment. It also pins the `vce()` contract that replaces the ambiguous `bootstrap()`/`refitweights` spelling: `vce(bootstrap, reps(#) [seed(#)])` is the candidate refit bootstrap, `vce(bootstrap, reps(#) fixedweights)` holds the weights fixed, and `vce(fixed)` is the analytic sandwich — each mapping to exactly one `e(iivw_vce)`, with malformed, doubled, and degenerate replicate specifications refused. It also checks that the console calls the default `candidate`, never `cleared`. What it does *not* show is nominal coverage: the full preregistered coverage simulation remains a separate release-only gate.
 
 ### Functional and regression tests
 
@@ -163,6 +163,9 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 - `validation_iivw.do`
 - `validation_iivw_diagnostics_known_answers.do`
 - `validation_iivw_expanded.do`
+- `validation_iivw_fiptiw_recovery.do`
+- `validation_iivw_inference.do` — release-only nested coverage simulation. It is intentionally excluded from `run_all.do` because release mode requires at least 1,000 outer simulations with 999 inner bootstrap draws; run it explicitly. `_skip.txt` records the exclusion so it cannot masquerade as ordinary lane coverage.
+- `validation_iivw_iptw_oracle.do`
 - `validation_iivw_known_answers.do`
 - `validation_iivw_recovery.do`
 - `validation_iivw_recovery_extended.do`
@@ -188,6 +191,7 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
     estimator recovers and adjusting for test count drives the marginal slope to
     the wrong sign. Its gates assert the stress bites, the artifact-share
     diagnostic flags it, and nothing escapes a documented bias envelope.
+- `benchmark_iivw_coverage.do` — reduced coverage-harness benchmark/pilot; not a release gate and not part of a standard lane.
 
 ### Support
 
@@ -217,3 +221,5 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 | `quick` | All functional and validation files listed above, excluding R cross-validation and simulation scripts |
 | `full` | `quick` plus the three simulation scripts and both `crossval_*.do` suites; R reference generators run first |
 | `sim` | `sim_scenarios_abc.do`, `sim_scenario_d.do`, `sim_scenario_e.do` |
+
+`validation_iivw_inference.do` is outside all standard lanes by design and is listed in `_skip.txt`; its release mode is invoked explicitly when the multi-day inference gate is authorized.

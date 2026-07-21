@@ -1,5 +1,5 @@
-*! _msm_tbl_coef Version 1.2.2  2026/07/02
-*! Author: Timothy P Copeland
+*! _msm_tbl_coef Version 1.2.3  2026/07/02
+*! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_coef, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -92,10 +92,20 @@ program define _msm_tbl_coef, nclass
             }
 
             local se = sqrt(`v_ii')
-            local z = invnormal((100 + `_fit_level') / 200)
+            * Inference distribution follows the fit (audit A20): t for weighted
+            * linear models, z for GLM/Cox.
+            _msm_crit_dist, level(`_fit_level')
+            local z = r(crit)
+            local _idist = r(dist)
+            local _idf   = r(df)
             local lo = `coef' - `z' * `se'
             local hi = `coef' + `z' * `se'
-            local p = 2 * normal(-abs(`coef' / `se'))
+            if "`_idist'" == "t" {
+                local p = 2 * ttail(`_idf', abs(`coef' / `se'))
+            }
+            else {
+                local p = 2 * normal(-abs(`coef' / `se'))
+            }
 
             * Exponentiate if requested
             if "`eform'" != "" {

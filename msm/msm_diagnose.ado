@@ -1,7 +1,6 @@
-*! msm_diagnose Version 1.2.2  2026/07/02
+*! msm_diagnose Version 1.2.3  2026/07/02
 *! Weight diagnostics and covariate balance for MSM
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 *! Longitudinal balance: Adenyo et al. (2024), doi:10.1002/sim.10188
 
@@ -34,11 +33,34 @@ program define msm_diagnose, rclass
     capture noisily {
 
     syntax [, BALance_covariates(varlist numeric) BY_period THReshold(real 0.1) ///
-              ACCUMulate(name) CONTrast(string) OUTcome(string)]
+              ACCUMulate(name) CONTrast(string) OUTcome(string) ///
+              POSITivity(real 0.01)]
+
+    * Operational positivity floor (audit A25): the estimated probability of the
+    * OBSERVED treatment must stay away from 0, or the inverse-probability weight
+    * is unstable (Cole & Hernan 2008). Must be a proper probability floor.
+    if `positivity' <= 0 | `positivity' >= 0.5 {
+        display as error "positivity() must be strictly between 0 and 0.5; got `positivity'"
+        exit 198
+    }
 
     * contrast() identifies the accumulate row and is required with accumulate()
     if "`accumulate'" != "" & `"`contrast'"' == "" {
         display as error "contrast() is required with accumulate()"
+        exit 198
+    }
+    * contrast()/outcome() only label an accumulate row; without accumulate()
+    * they are silently ignored, so reject the meaningless combination (A35).
+    if "`accumulate'" == "" & (`"`contrast'"' != "" | `"`outcome'"' != "") {
+        display as error "contrast()/outcome() require accumulate()"
+        exit 198
+    }
+
+    * The SMD threshold must be finite and nonnegative (audit A26): a negative
+    * threshold makes |SMD| > threshold always true (everything "imbalanced"),
+    * and a missing threshold compares as +infinity.
+    if `threshold' < 0 | `threshold' >= . {
+        display as error "threshold() must be finite and nonnegative; got `threshold'"
         exit 198
     }
 
@@ -293,6 +315,32 @@ program define msm_diagnose, rclass
         return matrix treatment_balance = `_tbal'
         return matrix support = `_support'
 
+        * Operational positivity (audit A25): flag periods whose smallest estimated
+        * probability of the observed treatment (support ps_min, column 5) falls
+        * below the positivity() floor -- the cells that generate the extreme
+        * weights a marginal by-period support count cannot see (Cole & Hernan
+        * 2008). Returned as a count plus the periods, not just displayed.
+        * Read the persisted copy (_msm_support_matrix); `return matrix support'
+        * above MOVES the `_support' tempname, so it no longer exists here.
+        local _n_pos_viol = 0
+        local _pos_viol_periods ""
+        forvalues _r = 1/`=rowsof(_msm_support_matrix)' {
+            local _p_r  = _msm_support_matrix[`_r', 1]
+            local _psmn = _msm_support_matrix[`_r', 5]
+            if !missing(`_psmn') & `_psmn' < `positivity' {
+                local ++_n_pos_viol
+                local _pos_viol_periods "`_pos_viol_periods' `_p_r'"
+            }
+        }
+        local _pos_viol_periods = strtrim("`_pos_viol_periods'")
+        return scalar positivity_threshold = `positivity'
+        return scalar n_positivity_violations = `_n_pos_viol'
+        if `_n_pos_viol' > 0 {
+            display as error "  WARNING: `_n_pos_viol' period(s) breach the operational positivity floor (min P(observed treatment) < `positivity')"
+            display as text "    Affected periods: `_pos_viol_periods'"
+            display as text "    Estimated probabilities this close to 0 produce extreme weights; consider truncation (an explicit, named choice) or a richer treatment model."
+        }
+
         display as text ""
         display as text "{bf:Primary treatment balance: period x prior-treatment history}"
         display as text "  Rows: " as result rowsof(_msm_tbal_matrix) ///
@@ -369,6 +417,7 @@ program define msm_diagnose, rclass
 
         local n_balanced = 0
         local n_imbalanced = 0
+        local n_unavailable = 0
         local n_covs : word count `balance_covariates'
 
         tempname bal_matrix
@@ -386,21 +435,29 @@ program define msm_diagnose, rclass
             _msm_smd `var', treatment(`treatment') weight(_msm_weight)
             local smd_w = `_msm_smd_value'
 
-            * Change
+            * Percent change is undefined when the unweighted SMD is ~0: leave it
+            * missing rather than reporting 0 even if weighting made it worse
+            * (audit A26).
             if abs(`smd_uw') > 0.001 {
                 local pct_change = 100 * (abs(`smd_w') - abs(`smd_uw')) / abs(`smd_uw')
             }
             else {
-                local pct_change = 0
+                local pct_change = .
             }
 
             matrix `bal_matrix'[`cov_idx', 1] = `smd_uw'
             matrix `bal_matrix'[`cov_idx', 2] = `smd_w'
             matrix `bal_matrix'[`cov_idx', 3] = `pct_change'
 
-            * Display with balance indicator
+            * A missing weighted SMD is UNAVAILABLE, not imbalanced (audit A26):
+            * `abs(.) > threshold' is true in Stata because `.' is +infinity, so
+            * the old code silently counted an unavailable SMD as imbalanced.
             local bal_flag ""
-            if abs(`smd_w') > `threshold' {
+            if missing(`smd_w') {
+                local bal_flag " (n/a)"
+                local ++n_unavailable
+            }
+            else if abs(`smd_w') > `threshold' {
                 local bal_flag " *"
                 local ++n_imbalanced
             }
@@ -420,6 +477,10 @@ program define msm_diagnose, rclass
         if `n_imbalanced' > 0 {
             display as text "Imbalanced: " as error `n_imbalanced' as text " covariates marked with *"
         }
+        if `n_unavailable' > 0 {
+            display as text "Unavailable: " as error `n_unavailable' as text " covariates (SMD could not be computed), marked (n/a)"
+        }
+        return scalar n_unavailable = `n_unavailable'
 
         * Add names and persist for msm_table
         matrix rownames `bal_matrix' = `balance_covariates'

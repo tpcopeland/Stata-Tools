@@ -46,6 +46,7 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_postest.do test_finegray_zzf.do ///
     test_finegray_fvgrammar.do test_finegray_fg03_diagnostic.do ///
     test_finegray_fg06_vce.do test_finegray_fg07_options.do ///
+    test_finegray_nuisance.do test_finegray_gof.do ///
     test_documentation_examples.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
@@ -53,7 +54,7 @@ local core_files `quick_files' ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     crossval_predict_stcrreg.do
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
-    crossval_finegray_zzf.do
+    crossval_finegray_zzf.do crossval_nuisance.do crossval_gof.do
 
 * The ZZF Monte Carlo GATES.  Hours, not minutes -- see the header.  They live in
 * their own lane so that (a) they are wired in and runnable by name rather than
@@ -75,9 +76,25 @@ local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.
 *                                         positivity/variance (Z23) choice
 *                                         (100 reps x n=100,000 x 5 fits + a
 *                                         positivity ladder, ~2h)
+*   validation_finegray_gof_calibration.do
+*                                         Gate L4: type I error of finegray_gof
+*                                         against Li/Scheike/Zhang (2015) Tables
+*                                         1 and 4.  Twelve cells, each 5,000
+*                                         replications x nsim=1,000, fitted and
+*                                         tested through the shipped commands
+*                                         rather than through Mata directly.
+*                                         It asserts each cell's distance from
+*                                         the PUBLISHED value, not 0.05: the
+*                                         test is anticonservative at small n by
+*                                         the authors' own measurement.  It does
+*                                         NOT assert the monotone easing toward
+*                                         0.05 -- that shape is not resolvable
+*                                         at this R and the assertion fails on
+*                                         correct code; see the suite header.
 local gates_files validation_finegray_zzf_recovery.do ///
     validation_finegray_zzf_coverage.do ///
-    validation_finegray_zzf_factorization.do
+    validation_finegray_zzf_factorization.do ///
+    validation_finegray_gof_calibration.do
 
 local full_files `core_files' `python_files'
 

@@ -744,6 +744,64 @@ else {
     local failed_tests "`failed_tests' X15"
 }
 
+* -------------------------------------------------------------------------
+* X16 (audit A31): complete sheet replacement. A tall Coefficients sheet
+* written first, then a SHORT one with replace into the SAME workbook, must
+* leave NO stale trailing rows from the longer prior write. The user axis is
+* the cell grid a reader sees, so assert the exact used-row count of the
+* Coefficients sheet after the short write, not merely that the file exists.
+* Under `replace' msm_report uses export excel, sheetreplace, which fully
+* clears the sheet; this test locks that so a future refactor to sheetmodify
+* (which leaves stale cells) is caught.
+* -------------------------------------------------------------------------
+local a31_wb "`work_dir'/report_a31_replace.xlsx"
+capture erase "`a31_wb'"
+local ++test_count
+capture noisily {
+    * Tall fit: a natural-spline period basis makes many coefficient rows.
+    use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) truncate(1 99) nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(ns(4)) nolog
+    matrix _a31_tall = _msm_fit_b
+    local _a31_ntall : colsof _a31_tall
+    msm_report, export("`a31_wb'") format(excel) eform title("A31 tall") replace
+
+    * Short fit into the SAME workbook: no period terms => fewest coefficients.
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(none) nolog
+    matrix _a31_short = _msm_fit_b
+    local _a31_nshort : colsof _a31_short
+    msm_report, export("`a31_wb'") format(excel) eform title("A31 short") replace
+}
+* Fixture must discriminate: the short sheet has to be strictly shorter, else
+* a no-op replace would pass the row-count assertion vacuously.
+if _rc == 0 & `_a31_nshort' >= `_a31_ntall' {
+    display as error "  FAIL X16: A31 fixture non-discriminating (tall=`_a31_ntall' short=`_a31_nshort')"
+    local _a31_setup_bad = 1
+}
+* Coefficients sheet rows = title(1) + header(1) + n_coefs (no footnote here).
+local _a31_expect = `_a31_nshort' + 2
+if _rc == 0 & "`_a31_setup_bad'" != "1" {
+    tempfile x16_status
+    capture noisily shell python3 "`checker'" "`a31_wb'" ///
+        --sheet Coefficients --exact-rows `_a31_expect' ///
+        --result-file "`x16_status'"
+    quietly _read_check_status "`x16_status'"
+}
+if _rc == 0 & "`_a31_setup_bad'" != "1" & "`r(status)'" == "PASS" {
+    display as result "  PASS X16: replace fully overwrites a longer prior Coefficients sheet"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X16: stale rows survive a shorter replace (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X16"
+}
+capture erase "`a31_wb'"
+
 display as text ""
 display as text "========================================"
 display as text "EXPORT SURFACE QA SUMMARY"
@@ -771,4 +829,5 @@ capture erase "`protocol_csv'"
 capture erase "`protocol_xlsx'"
 capture erase "`protocol_tex'"
 
+display as text "RESULT: test_export_surface tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 exit 1

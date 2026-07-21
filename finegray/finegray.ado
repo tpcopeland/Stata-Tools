@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/07/18
+*! finegray Version 1.2.0  2026/07/20
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -48,7 +48,7 @@ program define finegray, eclass sortpreserve
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
          STRata(varlist numeric) TRUNCstrata(varlist numeric) ///
          CLuster(varname numeric) noROBust ///
-         noADJust noLOG BASEHaz ///
+         noADJust noLOG BASEHaz NUISance ///
          ITERate(integer 200) TOLerance(real 1e-8)]
 
     * noadjust suppresses the finite-sample correction applied to the sandwich
@@ -58,6 +58,15 @@ program define finegray, eclass sortpreserve
         display as error "noadjust is not allowed with norobust"
         display as error "the finite-sample adjustment applies to the robust " ///
             "(sandwich) variance only"
+        exit 198
+    }
+
+    * nuisance adds the Fine-Gray (1999) eq. 7-8 psi term to the sandwich meat.
+    * It is a property of the SANDWICH, so it is meaningless without one.
+    if "`nuisance'" != "" & "`robust'" == "norobust" {
+        display as error "nuisance is not allowed with norobust"
+        display as error "the nuisance (psi) correction applies to the " ///
+            "robust (sandwich) variance only"
         exit 198
     }
 
@@ -280,6 +289,22 @@ program define finegray, eclass sortpreserve
         quietly count if `touse' & _t0 > 0
     }
     local _fg_has_lt = (r(N) > 0)
+
+    * The psi term is Fine & Gray (1999) eq. 7-8, derived for right censoring
+    * with no entry times.  Its delayed-entry analogue is the ZZF (2011)
+    * Appendix B term, which this package does not implement.  Refuse rather
+    * than apply a right-censoring correction to left-truncated data, which
+    * would return a plausible number with no derivation behind it.
+    if "`nuisance'" != "" & `_fg_has_lt' {
+        display as error "nuisance is not allowed with delayed entry"
+        display as error "the psi correction is Fine & Gray (1999) eq. 7-8, " ///
+            "derived for right censoring only"
+        display as error "under left truncation the corresponding term is " ///
+            "ZZF (2011) Appendix B, which finegray does not implement"
+        display as error "use bootstrap coefficient inference instead; " ///
+            "see {help finegray##variance:help finegray}"
+        exit 198
+    }
 
     if "`truncstrata'" != "" & !`_fg_has_lt' {
         display as error "truncstrata() requires delayed entry"
@@ -774,7 +799,8 @@ program define finegray, eclass sortpreserve
             "`varlist'", "`compete'", `cause', `censvalue', ///
             "`_byg_mata'", "`_tg_mata'", "`vce_type'", "`cluster'", ///
             `iterate', `tolerance', ("`log'" != "nolog"), ///
-            ("`adjust'" != "noadjust"), ("`basehaz'" != ""))
+            ("`adjust'" != "noadjust"), ("`basehaz'" != ""), ///
+            ("`nuisance'" != ""))
     }
 
     local _rc_fit = _rc
@@ -986,6 +1012,14 @@ program define finegray, eclass sortpreserve
     else {
         ereturn local vce "oim"
     }
+    * Which sandwich meat was used.  A consumer must never have to infer from
+    * the option list whether the FG (1999) eq. 7-8 psi term is in e(V).
+    *   fixed_weight   sum_i eta_i^(x)2        -- G treated as known (default)
+    *   nuisance_adjusted  sum_i (eta_i+psi_i)^(x)2 -- G estimated (nuisance)
+    *   not_applicable model-based variance; no sandwich meat exists
+    if "`robust'" == "norobust"      ereturn local vce_meat "not_applicable"
+    else if "`nuisance'" != ""       ereturn local vce_meat "nuisance_adjusted"
+    else                             ereturn local vce_meat "fixed_weight"
     ereturn local title "Fine-Gray competing risks regression"
     if `_has_fv' {
         ereturn local marginsok ""

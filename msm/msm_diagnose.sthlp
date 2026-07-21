@@ -32,6 +32,7 @@
 {synopt:{opth bal:ance_covariates(varlist)}}covariates for SMD balance assessment{p_end}
 {synopt:{opt by_:period}}show weight statistics separately by period{p_end}
 {synopt:{opt thr:eshold(#)}}SMD balance threshold; default is {cmd:0.1}{p_end}
+{synopt:{opt posit:ivity(#)}}operational positivity floor; default {cmd:0.01}{p_end}
 {synopt:{opt accum:ulate(name)}}append a diagnostic row to a named frame{p_end}
 {synopt:{opt cont:rast(string)}}label for the accumulated diagnostic row{p_end}
 {synopt:{opt out:come(string)}}outcome label for the accumulate row{p_end}
@@ -145,6 +146,15 @@ weighted absolute SMD exceeding this threshold are flagged in the output. The
 balance summary reports how many covariates are balanced versus imbalanced.
 
 {phang}
+{opt positivity(#)} sets the operational positivity floor. A period whose
+smallest estimated probability of the observed treatment ({cmd:ps_min} in
+{cmd:r(support)}) falls below this value is flagged: such probabilities produce
+extreme inverse-probability weights that a marginal treated/untreated count by
+period cannot detect (Cole & Hernan 2008). The default is {cmd:0.01} and the
+value must lie strictly between {cmd:0} and {cmd:0.5}. The count of breaching
+periods is returned in {cmd:r(n_positivity_violations)}.
+
+{phang}
 {opt accumulate(name)} appends one summary row for the current weighted panel
 to the named {help frames:frame}, creating the frame with a fixed schema on
 first use. This is intended for loops over many pairwise contrasts, where each
@@ -242,6 +252,9 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 {synopt:{cmd:r(ess)}}effective sample size{p_end}
 {synopt:{cmd:r(ess_pct)}}ESS as a percentage of total observations{p_end}
 {synopt:{cmd:r(n_extreme)}}number of observations with extreme weights (above P99){p_end}
+{synopt:{cmd:r(n_unavailable)}}covariates whose weighted SMD could not be computed{p_end}
+{synopt:{cmd:r(positivity_threshold)}}operational positivity floor used{p_end}
+{synopt:{cmd:r(n_positivity_violations)}}periods whose {cmd:ps_min} falls below the floor{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(treatment_balance)}}primary period/history-specific treatment balance{p_end}

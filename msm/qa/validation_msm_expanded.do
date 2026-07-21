@@ -126,14 +126,13 @@ capture noisily {
     msm_fit, model(logistic) period_spec(linear) nolog
     msm_sensitivity, evalue
 
-    * E-value should use 1/OR when OR < 1
-    local rr = r(effect)
-    if `rr' < 1 {
-        local rr_use = 1 / `rr'
-    }
-    else {
-        local rr_use = `rr'
-    }
+    * The E-value is on the RR scale (audit A12): a common outcome (this fixture's
+    * cumulative incidence exceeds rarethreshold) uses RR=sqrt(OR), a rare one the
+    * OR directly. Mirror whichever transform the command reported, then invert
+    * for a protective effect.
+    local rr_use = r(effect)
+    if "`r(approximation)'" == "common-outcome sqrt(OR)" local rr_use = sqrt(`rr_use')
+    if `rr_use' < 1 local rr_use = 1 / `rr_use'
     local expected = `rr_use' + sqrt(`rr_use' * (`rr_use' - 1))
     assert abs(r(evalue_point) - `expected') < 0.001
 }

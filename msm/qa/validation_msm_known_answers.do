@@ -466,7 +466,7 @@ capture noisily {
     assert abs(r(corrected_effect) - `expected_corrected') < 1e-10
     assert "`r(effect_label)'" == "OR"
     assert "`r(model)'" == "logistic"
-    assert "`r(approximation)'" == "rare-outcome auto"
+    assert "`r(approximation)'" == "rare-outcome"
 }
 if _rc == 0 {
     display as result "  PASS KA8: exact logistic sensitivity values"
@@ -507,7 +507,9 @@ capture noisily {
     assert abs(r(corrected_effect) - (4/3)) < 1e-10
     assert "`r(effect_label)'" == "HR"
     assert "`r(model)'" == "cox"
-    assert "`r(approximation)'" == "none"
+    * Cox now runs the rarity gate too (audit A13): outcome==0 => cumulative
+    * incidence 0 => rare, HR used directly (was "none" before the gate existed).
+    assert "`r(approximation)'" == "rare-outcome"
 }
 if _rc == 0 {
     display as result "  PASS KA9: exact Cox sensitivity values"
@@ -723,7 +725,7 @@ capture noisily {
     assert abs(r(corrected_effect) - 0.75) < 1e-10
     assert "`r(effect_label)'" == "OR"
     assert "`r(model)'" == "logistic"
-    assert "`r(approximation)'" == "rare-outcome auto"
+    assert "`r(approximation)'" == "rare-outcome"
 }
 if _rc == 0 {
     display as result "  PASS KA13: exact protective logistic sensitivity values"
@@ -768,7 +770,7 @@ capture noisily {
     assert r(effect_hi) > 1
     assert abs(r(evalue_point) - `expected_evalue') < 1e-10
     assert abs(r(evalue_ci) - 1) < 1e-12
-    assert "`r(approximation)'" == "rare-outcome auto"
+    assert "`r(approximation)'" == "rare-outcome"
 }
 if _rc == 0 {
     display as result "  PASS KA14: exact E-value CI null-crossing behavior"
@@ -855,6 +857,7 @@ display as text "Tests run: `test_count'"
 display as result "Passed:   `pass_count'"
 display as error  "Failed:   `fail_count'"
 
+display as text "RESULT: validation_msm_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

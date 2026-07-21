@@ -54,3 +54,52 @@ gated_tree:      a519a93  finegray object d6a69e626cd85b1f0a7a4fd1e0865d1b864281
 # per-gate replication counts, and pass/fail.
 
 verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gate run)
+
+# ===========================================================================
+# 2026-07-20 RE-ESTABLISHMENT (Gate L1 `nuisance' work)
+# ===========================================================================
+#
+# The L1 work edited _finegray_mata.ado (+259/-4), including _finegray_robust_var
+# and _finegray_engine's signature.  Per this receipt's own invalidation rule
+# that voids the transfer, so it was re-established rather than inherited.
+#
+# FIRST, A DEFECT IN THIS RECEIPT: the fit named above --
+#   "finegray z1 z2, compete(ev) cause(1) enter(time t0); seed 20260714, n=4000"
+# matches NO committed generator.  `_zzf_fix' (test_finegray_zzf.do) builds
+# status/anyev, not ev; `_mk_lt06' (test_finegray_fg06_vce.do) uses ev and seed
+# 20260714 but n=1500.  Re-running _mk_lt06 at n=4000 lands within 1.5e-04 on
+# b(z1)/se(z1) but 5.5e-02 away on b(z2), so it is a near miss, not the fixture.
+# The four constants above are therefore NOT reproducible from this tree and
+# must not be used as targets.  A receipt whose experiment cannot be re-run is
+# not evidence, however precise its numbers look.
+#
+# WHAT WAS DONE INSTEAD (qa/gates_transfer_proof.do -- committed, re-runnable):
+# the gated tree is extracted with `git archive a519a93', and four delayed-entry
+# arms are fitted on BOTH trees in separate Stata sessions, comparing the trees
+# to each other rather than to transcribed constants.
+#
+#   arm          fixture                                    exercises
+#   lt06_1500    _mk_lt06 n=1500   (test_finegray_fg06_vce) weight/score/variance
+#   lt06_4000    _mk_lt06 n=4000                            same, larger n
+#   zzf_4000     _zzf_fix n=4000   (test_finegray_zzf)      ZZF delayed-entry path
+#   zzf_fact     _zzf_fix + strata(g4) truncstrata(z1)      factorized weight
+#
+# RESULT 2026-07-20: all 4 arms x 4 quantities (b(z1), b(z2), se(z1), se(z2))
+# IDENTICAL between a519a93 and this tree at 16 decimals -- exact string match,
+# not a tolerance.
+#
+#   lt06_1500|0.0710693937199330|0.0328802303226045|0.0461851133439094|0.0414784816061813
+#   lt06_4000|0.0588622905820205|-0.0392258369911564|0.0268980395033793|0.0267275889885915
+#   zzf_4000 |0.4095896943932678|-0.4907406941048384|0.0596863753272399|0.0294086774366359
+#   zzf_fact |0.5176794819866547|-0.4928949500805593|0.0607460557334499|0.0303502734206076
+#
+# STRUCTURAL CORROBORATION: `git diff' on _finegray_mata.ado removes exactly four
+# lines -- a version comment, two argument-list lines, and one call site.  No
+# existing computational line is modified; every insertion is a new function or
+# sits behind `if (nuisance)', and nuisance is refused under delayed entry at both
+# the .ado gate and inside _finegray_psi_residuals.  So the delayed-entry numeric
+# path cannot execute new code -- which is stronger than a numeric coincidence.
+#
+# transfer_reestablished: 2026-07-20  (gated a519a93 -> current working tree)
+# proof:                  qa/gates_transfer_proof.do  (re-runnable)
+# verdict:                COVERED-BY-EQUIVALENCE (re-verified, reproducibly)

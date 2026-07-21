@@ -289,8 +289,11 @@ model inside each draw, so the interval propagates weight-estimation uncertainty
 (2007) and Coulombe, Moodie & Platt (2021) derive analytically. {opt reps()}
 omitted takes the release-frozen {bf:999}; fewer than 999 is allowed but stamped
 {cmd:e(iivw_inference_status)}={cmd:uncleared-low-reps}. The printed interval is
-the normal/Wald interval from the bootstrap covariance ({cmd:e(iivw_ci_type)} =
-{cmd:wald-normal}); percentile/BC/BCa are separate methods and are not implied. {opt seed()}
+the normal/Wald interval from the bootstrap covariance. An explicit {opt reps()}
+must be at least 2; zero, one, and negative values are rejected rather than
+being mistaken for omission. The stored method is
+{cmd:e(iivw_ci_type)}={cmd:wald-normal}; percentile/BC/BCa are separate methods
+and are not implied. {opt seed()}
 fixes the resampling stream; with no seed, the exact pre-draw RNG
 state is stored in {cmd:e(iivw_rngstate_start)} so the run is still replayable.
 
@@ -318,7 +321,7 @@ positive, the {cmd:bootstrap} prefix is applied with clustering at
 {opt cluster()}, which defaults to the subject ID stored by
 {cmd:iivw_weight}. Negative values are not allowed. Prefer {opt vce()}; a plain
 {cmd:bootstrap(#)} was ambiguous because it meant fixed weights only by the
-absence of {opt refitweights}.
+absence of {opt refitweights}. Positive legacy counts must be at least 2.
 
 {pmore}
 The legacy {opt bootstrap(#)} without {opt refitweights} treats the IIW/IPTW

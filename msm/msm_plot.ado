@@ -1,7 +1,6 @@
-*! msm_plot Version 1.2.2  2026/07/02
+*! msm_plot Version 1.2.3  2026/07/02
 *! Visualization for marginal structural models
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -189,15 +188,24 @@ program define msm_plot, rclass
         capture matrix `_save_pred_mat' = _msm_pred_matrix
         if _rc == 0 local _had_pred_mat = 1
 
-        * Run predictions for plotting
-        msm_predict, times(`times') type(cum_inc) ///
+        * Run predictions for plotting. Capture the rc: whether msm_predict
+        * succeeds or fails, the caller's prior prediction state MUST be restored
+        * before returning (audit A27). The old code restored only after a
+        * successful predict, so a plot-time prediction failure (e.g. no eligible
+        * baseline reference) jumped to outer cleanup and destroyed a previous
+        * prediction artifact -- contradicting the non-destructive promise in
+        * msm_plot.sthlp.
+        capture noisily msm_predict, times(`times') type(cum_inc) ///
             samples(`samples') `seed_opt'
-
-        * Extract results from r(predictions)
+        local _pred_rc = _rc
         tempname pred_mat
-        matrix `pred_mat' = r(predictions)
+        local _n_times_plot = .
+        if `_pred_rc' == 0 {
+            matrix `pred_mat' = r(predictions)
+            local _n_times_plot = r(n_times)
+        }
 
-        * Restore prior prediction state
+        * Restore prior prediction state UNCONDITIONALLY.
         char _dta[_msm_pred_saved] "`_save_pred_saved'"
         char _dta[_msm_pred_type] "`_save_pred_type'"
         char _dta[_msm_pred_strategy] "`_save_pred_strategy'"
@@ -206,7 +214,12 @@ program define msm_plot, rclass
         if `_had_pred_mat' {
             matrix _msm_pred_matrix = `_save_pred_mat'
         }
-        local n_times = r(n_times)
+
+        * Prior state is now restored; only then surface a plot-time failure.
+        if `_pred_rc' {
+            exit `_pred_rc'
+        }
+        local n_times = `_n_times_plot'
 
         * Build plot data
         preserve

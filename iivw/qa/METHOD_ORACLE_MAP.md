@@ -61,8 +61,8 @@ independent gate fail**. A mutation that everything survives means the suite is 
 | **M2** | **Hold weights fixed inside the bootstrap** (or fail to reconstruct lag sources within a draw) | `test_iivw_replay` exact observed-vs-replay weights; the Phase-3 coverage gate (fixed-weight must undercover) |
 | **M3** | **Omit treatment from the FIPTIW visit model** (or allow an outcome-invalid stabilizer) | The Coulombe eq.-3.12 spec assertion (#8); the stabilization-validity error path (#2/#5) |
 
-**Today, `iivw`'s suite would survive M2 and M3 entirely green.** That is the whole argument of the
-finalization plan, and it is why the 43/43 quick-lane PASS is not evidence.
+M3 is now closed by the Phase-2 design and validation checks. The replay half of M2 is closed by the
+identity-draw oracle; the coverage half remains open until the preregistered release simulation runs.
 
 ### M2 status after Phase 1 — half closed, and only half
 
@@ -81,9 +81,9 @@ was (`visit_cov()` receiving precomputed `*_lag1` columns instead of `lagvars()`
 sources). A defect *inside* `iivw_weight` itself would cancel on both sides and pass. That is what the
 IrregLong parity arm (#1) is for, and the two are not substitutes.
 
-**The fixed-weight half of M2 is still open.** Nothing here tests whether holding weights fixed
-undercovers — that is the Phase-3 coverage gate, and it has not been built. **M3 remains entirely
-open.** Phase 1 made the replay *faithful*; it did not make any estimator or any variance *correct*.
+**The coverage half of M2 is still open.** The release harness exists, but the multi-day gate has not
+run. M3 is closed: treatment-in-visit and stabilization-validity mutations are exercised directly by
+`test_iivw_phase2_contract` and `test_iivw_literature_invariants`.
 
 ---
 

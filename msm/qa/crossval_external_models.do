@@ -185,6 +185,26 @@ preserve
     }
 restore
 
+* Every independent backend output must be FINITE before it is used as a
+* reference (audit Q08): a backend that erred/warned but still wrote a partial
+* CSV must fail the suite here, with a clear message, rather than surfacing as
+* an opaque comparison mismatch downstream.
+foreach m in lpm_robust lpm_cluster logit_robust logit_cluster ///
+    cox_cluster cox_strata_cluster {
+    capture assert !missing(`r_`m'_b') & !missing(`r_`m'_se')
+    if _rc {
+        display as error "R reference for model `m' is non-finite (backend error/warning?); see external_reference_r.log"
+        exit 459
+    }
+}
+foreach m in lpm_robust lpm_cluster logit_robust logit_cluster {
+    capture assert !missing(`py_`m'_b') & !missing(`py_`m'_se')
+    if _rc {
+        display as error "Python reference for model `m' is non-finite (backend error/warning?); see external_reference_py.log"
+        exit 459
+    }
+}
+
 display as text ""
 display as text "{hline 72}"
 display as result "External model cross-validation"
@@ -327,6 +347,7 @@ display as text ""
 display as text "External cross-validation tests run: " as result `test_count'
 display as text "Passed: " as result `pass_count'
 display as text "Failed: " as result `fail_count'
+display as text "RESULT: crossval_external_models tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 capture log close external
 
@@ -342,7 +363,9 @@ if `keep_outputs' {
     display as text "Retained staging directory: " as result "`work_root'"
 }
 else {
-    shell rm -rf "`work_root'"
+    * Portable recursive removal (Q12): try the Windows form then the Unix form.
+    capture shell rmdir /s /q "`work_root'"
+    capture shell rm -rf "`work_root'"
 }
 
 display as result "All external model cross-validation tests passed"

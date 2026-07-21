@@ -1,7 +1,6 @@
-*! msm_prepare Version 1.2.2  2026/07/02
+*! msm_prepare Version 1.2.3  2026/07/02
 *! Data preparation and variable mapping for marginal structural models
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -55,7 +54,8 @@ program define msm_prepare, rclass
     * fit a causally meaningless specification that still returns rc 0.
     _msm_role_check, id(`id') period(`period') treatment(`treatment') ///
         outcome(`outcome') censor(`censor') ///
-        predictors(`covariates' `baseline_covariates')
+        predictors(`covariates' `baseline_covariates') ///
+        covariates(`covariates') baseline(`baseline_covariates')
 
     * =========================================================================
     * VARIABLE VALIDATION

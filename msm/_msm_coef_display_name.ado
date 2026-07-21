@@ -1,6 +1,6 @@
-*! _msm_coef_display_name Version 1.2.2  2026/07/02
+*! _msm_coef_display_name Version 1.2.3  2026/07/02
 *! Display label for MSM coefficient names
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _msm_coef_display_name, rclass
     version 16.0

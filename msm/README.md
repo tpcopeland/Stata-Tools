@@ -20,6 +20,8 @@ If your treatment is assigned at a single point in time (not time-varying), cons
 ## Requirements
 
 - Stata 16 or later
+- No required external dependencies.
+- *Optional:* [`psdash`](https://github.com/tpcopeland/Stata-Tools) for the per-period propensity-overlap dashboard (`net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash")`). `msm_weight` records a psdash contract so `psdash combined` auto-detects the treatment model; every other command runs without it.
 
 ## Installation
 
@@ -240,6 +242,17 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 - `msm_weight` assumes a shared baseline period. Late entry/left truncation is not supported.
 - By default, `msm_predict` only allows `times()` within the observed follow-up range. Use `extrapolate` only when you deliberately want out-of-range predictions.
 
+## QA
+
+The package ships a comprehensive QA lane in `qa/`: 30 Stata test and validation suites plus two cross-language suites (`crossval_msm`, `crossval_external_models`) that check the weight, fit, prediction, diagnostic, sensitivity, and export surfaces against hand calculations, known-truth data-generating processes (parameter recovery), and independent R/Python reference implementations. Run the whole lane from a fresh working copy:
+
+```stata
+cd qa
+do run_all.do full     // quick | core | validations | crossval | full
+```
+
+The runner sandboxes its install directories, writes a durable `run_all_status.txt`, and exits nonzero on any failed suite. Estimator correctness is anchored by known-truth recovery (`validation_msm_dgp_recovery`, `validation_msm_phase3_recovery`) rather than by tests that only mirror the implementation.
+
 ## Demo
 
 The demo runs the full pipeline on the bundled `msm_example.dta` dataset.
@@ -254,16 +267,14 @@ The demo runs the full pipeline on the bundled `msm_example.dta` dataset.
 
 ### Excel exports
 
-<details>
-<summary>Excel workbook screenshots (click to expand)</summary>
+The demo regenerates three publication-ready workbooks from the bundled example
+data (500 subjects, 4,586 person-periods, stabilized IPTW *and* IPCW):
 
-![Protocol export](demo/msm_protocol.png)
+- [`demo/msm_protocol.xlsx`](demo/msm_protocol.xlsx) — the study-protocol export
+- [`demo/msm_report.xlsx`](demo/msm_report.xlsx) — the formatted results table
+- [`demo/msm_tables.xlsx`](demo/msm_tables.xlsx) — the multi-sheet workbook (balance, weights, coefficients, predictions)
 
-![Report export](demo/msm_report.png)
-
-![Multi-sheet workbook](demo/msm_tables.png)
-
-</details>
+Regenerate them (and the graphs above) with `do demo/demo_msm.do`.
 
 ## Worked Examples
 

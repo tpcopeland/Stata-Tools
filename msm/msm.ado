@@ -1,7 +1,6 @@
 *! msm Version 1.2.3  2026/07/04
 *! Marginal Structural Models suite for Stata
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -26,11 +25,22 @@ program define msm, rclass
 
     syntax [, List Detail PROTocol STATus]
 
-    local version "1.2.3"
-    local n_commands = 11
+    * At most one umbrella mode option may be given (audit A35): otherwise the
+    * else-if dispatch silently honours one and drops the rest.
+    local _n_modes = ("`list'" != "") + ("`detail'" != "") + ///
+        ("`protocol'" != "") + ("`status'" != "")
+    if `_n_modes' > 1 {
+        display as error "specify at most one of list, detail, protocol, or status"
+        exit 198
+    }
 
-    * All user-facing commands
-    local all_commands "msm_prepare msm_validate msm_weight msm_diagnose msm_fit msm_predict msm_plot msm_table msm_report msm_protocol msm_sensitivity"
+    local version "1.2.3"
+
+    * Canonical public-command manifest (audit A32): the single source that
+    * drives the list mode, r(commands), and release QA. All twelve subcommands
+    * are listed, including msm_diagtab.
+    local all_commands "msm_prepare msm_validate msm_weight msm_diagnose msm_diagtab msm_fit msm_predict msm_plot msm_table msm_report msm_protocol msm_sensitivity"
+    local n_commands : word count `all_commands'
 
     display as text ""
     display as text "{hline 70}"
@@ -208,6 +218,7 @@ program define msm, rclass
         display as text ""
         display as text "{bf:Diagnostics & Reporting}"
         display as result "  msm_diagnose    " as text "- Weight distribution and covariate balance"
+        display as result "  msm_diagtab     " as text "- Diagnostics summary table (Excel)"
         display as result "  msm_plot        " as text "- Weights, balance, survival, trajectory plots"
         display as result "  msm_table       " as text "- Publication-quality Excel tables"
         display as result "  msm_report      " as text "- Publication-quality results tables"

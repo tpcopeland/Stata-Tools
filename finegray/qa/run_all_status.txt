@@ -1,11 +1,26 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
-lane:    full
-date:    2026-07-18T10:57:58Z
-verdict: PASS
+lane:        full
+date:        2026-07-21T00:27:37Z
+verdict:     PASS
+pkg_tree:    not-a-git-repo (unknown)
+head_commit: unknown
+stata_bin:   stata-mp
+R_version:   4.6.1
+
+pkg_tree:    ~/Stata-Tools/finegray (run from an isolated scratch copy per CLAUDE.md,
+             which is why the auto-filled pkg_tree/head_commit above read 'unknown')
+src_commit:  3952576000c490a6fd3747e1522a78d13e828644
+src_dirty:   yes - the whole 1.2.0 finegray_gof line is uncommitted at run time
+             (29 changed/untracked paths under finegray/)
+totals:      29 suites, 609 checks, 0 failed, 0 skipped
+gate:        fg02_failclosed PASS (shell-level; run by run_all.sh, NOT by run_all.do)
+note:        supersedes the 2026-07-20 receipt (27 suites, 581 checks), which
+             predates test_finegray_gof/crossval_gof being wired into the lane
+             and the 2026-07-21 fvset fix in finegray_gof/finegray_phtest.
 
 per-suite RESULT trail (as echoed by each suite):
-RESULT: test_finegray tests=133 pass=133 fail=0
+RESULT: test_finegray tests=136 pass=136 fail=0
 RESULT: test_finegray_v110 tests=52 pass=52 fail=0
 RESULT: test_finegray_v120 tests=4 pass=4 fail=0
 RESULT: test_finegray_ties tests=6 pass=6 fail=0
@@ -14,6 +29,12 @@ RESULT: test_finegray_variance tests=6 pass=6 fail=0
 RESULT: test_finegray_bootstrap tests=6 pass=6 fail=0
 RESULT: test_finegray_postest tests=22 pass=22 fail=0
 RESULT: test_finegray_zzf tests=27 pass=27 fail=0
+RESULT: test_finegray_fvgrammar tests=8 pass=8 fail=0
+RESULT: test_finegray_fg03_diagnostic tests=3 pass=3 fail=0
+RESULT: test_finegray_fg06_vce tests=3 pass=3 fail=0
+RESULT: test_finegray_fg07_options tests=6 pass=6 fail=0
+RESULT: test_finegray_nuisance tests=12 pass=12 fail=0
+RESULT: test_finegray_gof tests=19 pass=19 fail=0
 RESULT: test_documentation_examples tests=7 pass=7 fail=0
 RESULT: validation_finegray tests=45 pass=45 fail=0
 RESULT: validation_finegray_recovery tests=4 pass=4 fail=0
@@ -28,4 +49,6 @@ RESULT: crossval_predict_phtest tests=14 pass=14 fail=0 skip=0
 RESULT: crossval_finegray tests=55 pass=55 fail=0 skip=0
 RESULT: PASS (all 55 tests passed)
 RESULT: crossval_finegray_zzf tests=102 pass=102 fail=0
-RESULT: run_all tests=21 pass=21 fail=0 skip=0
+RESULT: crossval_nuisance tests=6 pass=6 fail=0
+RESULT: crossval_gof tests=6 pass=6 fail=0
+RESULT: run_all tests=29 pass=29 fail=0 skip=0

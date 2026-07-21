@@ -1,6 +1,6 @@
-*! _msm_natural_spline Version 1.2.2  2026/07/02
+*! _msm_natural_spline Version 1.2.3  2026/07/02
 *! Generate natural spline basis variables
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 * Creates basis variables for natural cubic splines using the Harrell
 * restricted cubic spline formulation.
@@ -62,6 +62,35 @@ program define _msm_natural_spline
             * Boundary knots at min and max
             local knot0 = `xmin'
             local knot`df' = `xmax'
+
+            * -----------------------------------------------------------------
+            * Support and strict-ordering guards (audit A18)
+            *
+            * A natural spline with df needs at least df+1 distinct support
+            * points; with fewer, quantile knots collide and the d_j
+            * denominators below divide by zero, producing all-missing bases and
+            * an opaque rc 2000. Bound df by the distinct support and require
+            * strictly increasing knots, with a targeted rc 198.
+            * -----------------------------------------------------------------
+            quietly levelsof `x' if `touse', local(_xlev)
+            local _n_distinct : word count `_xlev'
+            if `df' > `_n_distinct' - 1 {
+                display as error "period_spec(ns(`df')) needs at least " ///
+                    `=`df'+1' " distinct periods in the fit sample, but only " ///
+                    "`_n_distinct' are supported"
+                display as error "Reduce df or use a lower-order period_spec()."
+                exit 198
+            }
+            local _kprev = `knot0'
+            forvalues k = 1/`df' {
+                if `knot`k'' <= `_kprev' {
+                    display as error "natural spline knots are not strictly increasing " ///
+                        "(duplicate knot at `knot`k'')"
+                    display as error "Too few distinct `x' values for df(`df'); reduce df."
+                    exit 198
+                }
+                local _kprev = `knot`k''
+            }
 
             * Generate basis: first column is x itself
             gen double `prefix'1 = `x'

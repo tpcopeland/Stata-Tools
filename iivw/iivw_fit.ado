@@ -1,4 +1,4 @@
-*! iivw_fit Version 2.0.0  2026/07/14
+*! iivw_fit Version 2.0.1  2026/07/21
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -226,8 +226,13 @@ program define iivw_fit, eclass
         * Parse the method-specific suboptions off a rebuilt command line. The
         * primary syntax has already been consumed, so reusing local 0 here is
         * safe and the sub-option names collide with nothing above.
+        * Keep an explicit reps(0) or reps(-1) distinct from omission. Using 0
+        * as syntax's default collapsed all three states: bootstrap typos
+        * silently launched 999 draws, and fixed,reps(0) silently passed even
+        * though fixed takes no suboptions.
+        local _vce_reps_sentinel = -999999
         local 0 `", `_vcesub'"'
-        capture syntax [, REPS(integer 0) SEED(string) FIXEDWEIGHTS]
+        capture syntax [, REPS(integer -999999) SEED(string) FIXEDWEIGHTS]
         if _rc {
             display as error "invalid vce() suboptions: `_vcesub'"
             display as error "  allowed: reps(#), seed(#), fixedweights"
@@ -235,7 +240,8 @@ program define iivw_fit, eclass
         }
 
         if "`_vcemethod'" == "fixed" {
-            if `reps' > 0 | "`seed'" != "" | "`fixedweights'" != "" {
+            if `reps' != `_vce_reps_sentinel' | ///
+                "`seed'" != "" | "`fixedweights'" != "" {
                 display as error "vce(fixed) takes no suboptions"
                 display as error "  it is the analytic cluster-robust sandwich; there are no replicates"
                 error 198
@@ -250,7 +256,7 @@ program define iivw_fit, eclass
             * a single replicate); fewer than 999 is allowed but stamped
             * uncleared-low-reps below, because the coverage gate was frozen at
             * 999 and a smaller run has not earned the release claim.
-            if `reps' <= 0 {
+            if `reps' == `_vce_reps_sentinel' {
                 local reps 999
             }
             if `reps' < 2 {
@@ -279,14 +285,14 @@ program define iivw_fit, eclass
     }
     else if "`weighttype'" != "unweighted" & "`model'" == "gee" & `_boot_explicit' == 0 {
         * ---------------------------------------------------------------------
-        * THE CLEARED DEFAULT (IIVW-B02): a WEIGHTED model(gee) fit with no vce()
+        * THE CANDIDATE DEFAULT (IIVW-B02): a WEIGHTED model(gee) fit with no vce()
         * and no legacy spelling gets the 999-draw subject bootstrap that REFITS
         * every nuisance model inside each draw. Treating the estimated weights as
         * known (vce(fixed)) omits the weight-estimation term that both source
         * papers put inside the sandwich (B&L p.10-11; Coulombe PDF p.86), so it
         * is now an explicit opt-in, not the silent default it used to be.
         * model(mixed) is deliberately excluded: the weighted random-effects path
-        * is experimental and never inherits the cleared default (it keeps the
+        * is experimental and never inherits the candidate default (it keeps the
         * analytic sandwich unless a variance is named explicitly).
         *
         * The refit bootstrap needs the stored replay contract (raw visit
@@ -299,7 +305,7 @@ program define iivw_fit, eclass
         local bootstrap 999
         local refitweights "refitweights"
         display as text ///
-            "note: weighted fit with no vce(); using the cleared default" ///
+            "note: weighted fit with no vce(); using the candidate default" ///
             " vce(bootstrap, reps(999)) [refit]"
         display as text ///
             "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
@@ -358,8 +364,9 @@ program define iivw_fit, eclass
         error 198
     }
 
-    if `bootstrap' < 0 {
-        display as error "bootstrap() must be greater than or equal to 0"
+    if `bootstrap' < 0 | `bootstrap' == 1 {
+        display as error "bootstrap() must be 0 or at least 2"
+        display as error "  a bootstrap variance is undefined from one draw"
         error 198
     }
 

@@ -163,6 +163,77 @@ else {
     local ++fail_count
 }
 
+* Scenario C: POINT-TREATMENT marginal recovery (audit Q09 "run the package in
+* DGP2"). A single-period (T=1) confounded point treatment with a confounder X
+* that affects BOTH treatment and outcome, so the odds ratio is non-collapsible
+* (Pang, Kaufman & Platt 2016): the MARGINAL log-OR the MSM targets is attenuated
+* toward the null relative to the conditional DGP coefficient. The truth is the
+* marginal log-OR obtained by forward-simulating both potential-outcome worlds at
+* huge N -- NOT the conditional coefficient (that conflation is exactly the
+* invalid oracle removed from crossval_msm.do C7/C16). msm is run as a degenerate
+* one-period panel; it must recover the MARGINAL truth, and the naive unadjusted
+* estimator (which carries X-confounding) must miss it.
+local ++test_count
+capture noisily {
+    local _bA_cond = 0.8          // conditional log-OR in the DGP (NOT the target)
+    * --- TRUTH: marginal log-OR from simulated potential outcomes at huge N ---
+    clear
+    set seed 20260718
+    set obs 400000
+    gen double X = rnormal(0,1)
+    gen double _p1 = invlogit(-0.5 + `_bA_cond'*1 + 1.0*X)
+    gen double _p0 = invlogit(-0.5 + `_bA_cond'*0 + 1.0*X)
+    quietly summarize _p1, meanonly
+    local _r1 = r(mean)
+    quietly summarize _p0, meanonly
+    local _r0 = r(mean)
+    local truthC = ln( (`_r1'/(1-`_r1')) / (`_r0'/(1-`_r0')) )
+
+    * --- observed confounded point-treatment sample ---
+    clear
+    set seed 71120
+    set obs 150000
+    gen long id = _n
+    gen int period = 0
+    gen double X = rnormal(0,1)
+    gen byte a = runiform() < invlogit(0.4 + 0.7*X)     // confounded by X
+    gen byte y = runiform() < invlogit(-0.5 + `_bA_cond'*a + 1.0*X)
+
+    * --- NAIVE: unadjusted logit ignoring X -> carries confounding ---
+    quietly logit y a
+    local naiveC = _b[a]
+
+    * --- IPTW-MSM as a one-period panel: recover the MARGINAL log-OR ---
+    msm_prepare, id(id) period(period) treatment(a) outcome(y) baseline_covariates(X)
+    msm_weight, treat_d_cov(X) nolog
+    msm_fit, model(logistic) period_spec(none) nolog
+    local estC = _b[a]
+    local seC  = _se[a]
+
+    display as text "  [C: point treatment, cond log-OR 0.8, confounder X]"
+    display as text "    true marginal log-OR : " as result %8.4f `truthC' ///
+        as text "  (conditional 0.8000; attenuated by non-collapsibility)"
+    display as text "    naive _b[a] (bias)   : " as result %8.4f `naiveC' ///
+        as text "  (" as result %6.4f `naiveC'-`truthC' as text ")"
+    display as text "    IPTW-MSM _b[a] (err) : " as result %8.4f `estC' ///
+        as text "  (" as result %6.4f `estC'-`truthC' as text ", se " %6.4f `seC' as text ")"
+
+    * marginal truth must be strictly attenuated toward null vs the conditional
+    assert `truthC' > 0 & `truthC' < `_bA_cond'
+    * naive must miss the marginal truth (X-confounding)
+    assert abs(`naiveC' - `truthC') > 0.05
+    * IPTW-MSM must recover the marginal truth (point-treatment run of the package)
+    assert abs(`estC' - `truthC') < 0.03
+}
+if _rc == 0 {
+    display as result "  PASS: recovery C (point treatment, marginal log-OR)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: recovery C (error `=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"

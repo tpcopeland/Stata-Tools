@@ -77,7 +77,7 @@ local ++test_count
 capture noisily {
     msm
     assert "`r(version)'" != ""
-    assert r(n_commands) == 11
+    assert r(n_commands) == 12
 }
 if _rc == 0 {
     display as result "  PASS A1: msm default display"
@@ -95,7 +95,7 @@ capture noisily {
     msm, list
     assert "`r(commands)'" != ""
     local ncmds : word count `r(commands)'
-    assert `ncmds' == 11
+    assert `ncmds' == 12
 }
 if _rc == 0 {
     display as result "  PASS A2: msm list option"
@@ -698,16 +698,30 @@ else {
     local failed_tests "`failed_tests' D13"
 }
 
-* --- D14: vce(robust) sets robust SE metadata ---
+* --- D14: vce(robust) contract and robust SE metadata (audit A21) ---
+* Person-period outcomes within an id are correlated, so vce(robust) is refused
+* when any id contributes more than one fitted row, and is valid only on a
+* one-record-per-id sample. Verify the refusal AND the robust metadata plumbing.
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(linear) outcome_cov(age sex) period_spec(linear) ///
+    * repeated person-periods per id -> vce(robust) is refused (rc 198)
+    capture msm_fit, model(linear) outcome_cov(age sex) period_spec(linear) ///
+        vce(robust) nolog
+    assert _rc == 198
+
+    * one-record-per-id sample -> vce(robust) is valid and records its metadata
+    keep if period == 0
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+        covariates(biomarker) baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker age sex) nolog
+    msm_fit, model(linear) outcome_cov(age sex) period_spec(none) ///
         vce(robust) nolog
     assert "`e(msm_vce)'" == "robust"
     assert "`e(msm_cluster)'" == ""
     local stored_vce : char _dta[_msm_vce]
     assert "`stored_vce'" == "robust"
+    assert e(msm_n_clusters) == e(N)
 }
 if _rc == 0 {
     display as result "  PASS D14: msm_fit vce(robust)"

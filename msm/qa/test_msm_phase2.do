@@ -89,6 +89,22 @@ capture noisily {
         covariates(out L)
     assert _rc == 198
 
+    * a variable in BOTH covariates() and baseline_covariates() (Rule 3). B is
+    * constant within id, so the baseline time-fixed check passes and the ONLY
+    * reason to reject is the covariates/baseline role clash. Old code passed
+    * this (predictors() saw the merged list and found no duplicate role).
+    _p2_clean_panel
+    by id: gen double B = id / 1000
+    capture msm_prepare, id(id) period(period) treatment(treat) outcome(out) ///
+        covariates(B L) baseline_covariates(B)
+    assert _rc == 198
+    * positive control: B as a baseline covariate only, disjoint from covariates()
+    _p2_clean_panel
+    by id: gen double B = id / 1000
+    msm_prepare, id(id) period(period) treatment(treat) outcome(out) ///
+        covariates(L) baseline_covariates(B)
+    assert "`: char _dta[_msm_prepared]'" == "1"
+
     * fit-side: tvcov() may not be the outcome; exposure() may not be the period
     _p2_clean_panel
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) covariates(L)

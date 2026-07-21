@@ -11,24 +11,43 @@
 */
 
 version 16.0
+capture log close _all
 set more off
 set varabbrev off
-set linesize 250
+set linesize 120
+capture set scheme plotplainblind
 
 **# Setup
-local repo_root "`c(pwd)'"
-local pkg_dir "msm/demo"
+* Paths are derived from this script's own location so the demo runs from any
+* working directory (audit D08). c(pwd) is only a fallback.
+local pkg_dir "`c(pwd)'/msm/demo"
+capture confirm file "`pkg_dir'/demo_msm.do"
+if _rc {
+    * running from inside msm/demo (the /demo skill's isolated copy)
+    local pkg_dir "`c(pwd)'"
+}
+local pkg_root : subinstr local pkg_dir "/demo" ""
 capture mkdir "`pkg_dir'"
 
 capture ado uninstall msm
-quietly net install msm, from("`repo_root'/msm") replace
+quietly net install msm, from("`pkg_root'") replace
 
-local data_file "`repo_root'/msm/msm_example.dta"
+local data_file "`pkg_root'/msm_example.dta"
 local protocol_xlsx "`pkg_dir'/msm_protocol.xlsx"
 local report_xlsx "`pkg_dir'/msm_report.xlsx"
 local tables_xlsx "`pkg_dir'/msm_tables.xlsx"
 
 use "`data_file'", clear
+
+* Demo counts are derived from the data, not hardcoded (audit D06).
+quietly count
+local n_rows = r(N)
+quietly levelsof id, local(_ids)
+local n_ids : word count `_ids'
+quietly summarize period, meanonly
+local p_min = r(min)
+local p_max = r(max)
+local n_periods = `p_max' - `p_min' + 1
 
 **## Console: setup, protocol, validation
 log using "`pkg_dir'/console_pipeline_setup.smcl", replace smcl name(setup) nomsg
@@ -39,7 +58,7 @@ noisily list id period treatment biomarker comorbidity outcome censored in 1/12,
     sepby(id) noobs
 
 noisily msm_protocol, ///
-    population("Adults followed for 10 discrete periods (N=500; 5000 person-period observations)") ///
+    population("Adults followed for `n_periods' discrete periods (N=`n_ids'; `n_rows' person-period observations)") ///
     treatment("Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated") ///
     confounders("Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator") ///
     outcome("Binary outcome assessed each period and summarized as cumulative incidence over follow-up") ///
@@ -48,7 +67,7 @@ noisily msm_protocol, ///
     analysis("Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis")
 
 noisily msm_protocol, ///
-    population("Adults followed for 10 discrete periods (N=500; 5000 person-period observations)") ///
+    population("Adults followed for `n_periods' discrete periods (N=`n_ids'; `n_rows' person-period observations)") ///
     treatment("Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated") ///
     confounders("Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator") ///
     outcome("Binary outcome assessed each period and summarized as cumulative incidence over follow-up") ///
@@ -69,8 +88,12 @@ log close setup
 **# Diagnostics
 log using "`pkg_dir'/console_pipeline_diagnostics.smcl", replace smcl name(diagnostics) nomsg
 
+* Stabilized IPTW *and* IPCW: the protocol claims informative censoring, so the
+* weights include a censoring model, not just a treatment model (audit D06).
 noisily msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) truncate(1 99) nolog
+    treat_n_cov(age sex) ///
+    censor_d_cov(biomarker comorbidity age sex) censor_n_cov(age sex) ///
+    truncate(1 99) nolog
 
 noisily summarize _msm_weight, detail
 

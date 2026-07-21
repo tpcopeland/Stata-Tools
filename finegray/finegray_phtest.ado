@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/07/18
+*! finegray_phtest Version 1.2.0  2026/07/20
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -122,9 +122,34 @@ program define finegray_phtest, rclass
         }
     }
 
-    * For FV models, reconstruct the design matrix if _fg_* columns are gone
+    * For FV models: label every design column with the term the user typed,
+    * and reconstruct the columns themselves if they have been dropped.
+    *
+    * THE LABELLING IS NOT GATED ON THE REBUILD.  Through 2026-07-20 it was,
+    * and the effect was that one fit described itself two different ways: the
+    * table said `_fg_pelnode_2' while finegray's own design columns were still
+    * in memory, and `2.pelnode' once the user dropped them -- which is a
+    * documented, supported thing to do.  Same fit, same correlations, two
+    * vocabularies, and the internal spelling is the one the user never typed.
+    * The names are a property of the FIT, not of what happens to survive in
+    * memory afterwards, so they are computed whenever e(fvvarlist) is set.
+    *
+    * Both the names and the rebuilt columns come from e(fvsemantic), the
+    * fit-time expansion, via _finegray_fv_design.  Through 2026-07-21 this
+    * block re-ran fvexpand/fvrevar on the CURRENT data instead, which made an
+    * fvset base change between the fit and this call silently relabel -- and,
+    * once the columns had been dropped, silently recompute -- the whole table
+    * at rc 0.  See that helper's header for the observed numbers.
     local covlabels "`covariates'"
     if `"`e(fvvarlist)'"' != "" {
+        _finegray_fv_design, caller("finegray_phtest")
+        * Copy the whole r() payload out BEFORE anything else touches r().
+        local _fvk = r(k)
+        local covlabels "`r(terms)'"
+        forvalues _j = 1/`_fvk' {
+            local _fvexpr`_j' "`r(expr`_j')'"
+        }
+
         local _need_rebuild = 0
         foreach _cov of local covariates {
             capture confirm variable `_cov'
@@ -133,61 +158,30 @@ program define finegray_phtest, rclass
                 continue, break
             }
         }
+
         if `_need_rebuild' {
-            capture noisily fvexpand `e(fvvarlist)' if e(sample)
-            if _rc {
-                display as error "unable to expand factor-variable terms for PH test"
-                exit _rc
-            }
-            local _fv_semantic `r(varlist)'
-
-            capture noisily fvrevar `e(fvvarlist)' if e(sample)
-            if _rc {
-                display as error "unable to reconstruct factor-variable design for PH test"
-                exit _rc
-            }
-            local _fv_actual `r(varlist)'
-
-            local _n_sem : word count `_fv_semantic'
-            local _n_act : word count `_fv_actual'
-            if `_n_sem' != `_n_act' {
-                display as error "internal error: fvexpand/fvrevar mismatch in PH test"
-                exit 198
-            }
-
+            * Built only over e(sample); outside it a `(race == 2)' indicator
+            * would read a missing race as 0 and quietly assign the base
+            * category.  _finegray_check_data has already verified the data
+            * signature over e(sample).
             local _rebuild_varlist ""
-            local _rebuild_labels ""
-            forvalues _i = 1/`_n_sem' {
-                local _term : word `_i' of `_fv_semantic'
-                local _var : word `_i' of `_fv_actual'
-                local _label_term = subinstr("`_term'", "c.", "", .)
-                if regexm("`_term'", "[0-9]+b\.") {
-                    continue
-                }
-                if substr("`_var'", 1, 2) != "__" {
-                    local _rebuild_varlist "`_rebuild_varlist' `_var'"
-                    local _rebuild_labels "`_rebuild_labels' `_label_term'"
-                    continue
-                }
-                local _tvname "_fg_ph_`_i'"
+            forvalues _j = 1/`_fvk' {
+                local _tvname "_fg_ph_`_j'"
                 tempvar `_tvname'
-                local _tv ``_tvname''
-                quietly gen double `_tv' = `_var'
-                local _rebuild_varlist "`_rebuild_varlist' `_tv'"
-                local _rebuild_labels "`_rebuild_labels' `_label_term'"
+                quietly gen double ``_tvname'' = `_fvexpr`_j'' if e(sample)
+                local _rebuild_varlist "`_rebuild_varlist' ``_tvname''"
             }
-
             local covariates : list retokenize _rebuild_varlist
-            local covlabels : list retokenize _rebuild_labels
-
-            local _n_score : word count `covariates'
-            local _n_b = colsof(e(b))
-            if `_n_score' != `_n_b' {
-                display as error "reconstructed FV design does not match stored coefficients"
-                exit 198
-            }
-            local p : word count `covariates'
         }
+
+        local _n_lab : word count `covlabels'
+        local _n_score : word count `covariates'
+        if `_n_lab' != `_n_score' | `_n_score' != colsof(e(b)) {
+            display as error "reconstructed FV design does not match stored coefficients"
+            display as error "(`_n_score' columns, `_n_lab' labels, `=colsof(e(b))' coefficients)"
+            exit 198
+        }
+        local p = `_n_score'
     }
 
     * Preserve and compute Schoenfeld residuals on estimation sample

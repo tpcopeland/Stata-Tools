@@ -1,6 +1,6 @@
-*! _msm_pipeline_state Version 1.2.2  2026/07/02
+*! _msm_pipeline_state Version 1.2.3  2026/07/02
 *! Compute current MSM pipeline stage and saved-artifact state
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _msm_pipeline_state
     version 16.0

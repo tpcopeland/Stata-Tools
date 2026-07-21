@@ -1,7 +1,6 @@
-*! msm_protocol Version 1.2.2  2026/07/02
+*! msm_protocol Version 1.2.3  2026/07/02
 *! MSM study protocol specification
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -48,6 +47,13 @@ program define msm_protocol, rclass
     if "`format'" == "" local format "display"
     if !inlist("`format'", "display", "csv", "excel", "latex") {
         display as error "format() must be display, csv, excel, or latex"
+        exit 198
+    }
+
+    * export() with format(display) is a silent no-op: the protocol prints to the
+    * console and nothing is written. Reject the meaningless combination (A35).
+    if "`format'" == "display" & `"`export'"' != "" {
+        display as error "export() has no effect with format(display); use format(csv), format(excel), or format(latex)"
         exit 198
     }
 
@@ -120,9 +126,15 @@ program define msm_protocol, rclass
             file close `fh'
             local _fh_open = 0
         }
+        * Save the write rc BEFORE cleanup (audit A30): `capture file close'
+        * resets _rc to 0, so the old `exit _rc' swallowed a failed write.
+        local write_rc = _rc
+        if `_fh_open' capture file close `fh'
+        if `write_rc' exit `write_rc'
+        capture confirm file "`export'"
         if _rc {
-            if `_fh_open' capture file close `fh'
-            exit _rc
+            display as error "protocol export reported success but no file was written: `export'"
+            exit 603
         }
         display as text "Protocol exported to: " as result "`export'"
     }
@@ -216,9 +228,15 @@ program define msm_protocol, rclass
             file close `fh'
             local _fh_open = 0
         }
+        * Save the write rc BEFORE cleanup (audit A30): `capture file close'
+        * resets _rc to 0, so the old `exit _rc' swallowed a failed write.
+        local write_rc = _rc
+        if `_fh_open' capture file close `fh'
+        if `write_rc' exit `write_rc'
+        capture confirm file "`export'"
         if _rc {
-            if `_fh_open' capture file close `fh'
-            exit _rc
+            display as error "protocol export reported success but no file was written: `export'"
+            exit 603
         }
         display as text "Protocol exported to: " as result "`export'"
     }

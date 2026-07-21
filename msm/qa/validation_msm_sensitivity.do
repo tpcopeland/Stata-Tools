@@ -84,8 +84,10 @@ capture noisily {
 
     assert r(evalue_point) > 1
     assert abs(r(evalue_point) - `expected_evalue') < 1e-6
-    assert r(outcome_prevalence) <= r(rare_threshold)
-    assert "`r(approximation)'" == "rare-outcome auto"
+    * Rarity is now the subject-level cumulative incidence by end of follow-up
+    * (audit A12), not the old pooled person-period outcome mean.
+    assert r(cumulative_incidence) <= r(rare_threshold)
+    assert "`r(approximation)'" == "rare-outcome"
     assert "`r(effect_label)'" == "OR"
 }
 if _rc == 0 {
@@ -98,39 +100,48 @@ else {
     local failed_tests "`failed_tests' S1"
 }
 
-* --- S2: common logistic outcome refuses default E-value ---
+* --- S2: common logistic outcome uses the sqrt(OR) transform (audit A12) ---
+* The old code REFUSED a common outcome (rc 498); VanderWeele & Ding (2017)
+* instead approximate RR ~ sqrt(OR), so the default now computes the E-value on
+* that scale. RED on HEAD (which returned 498).
 local ++test_count
 capture noisily {
     _setup_common_logistic
-    local before_varabbrev = c(varabbrev)
-    capture noisily msm_sensitivity, evalue
-    local sens_rc = _rc
-    assert `sens_rc' == 498
-    assert c(varabbrev) == "`before_varabbrev'"
+    msm_sensitivity, evalue
+    assert r(cumulative_incidence) > r(rare_threshold)
+    assert "`r(approximation)'" == "common-outcome sqrt(OR)"
+    * the E-value must be computed from RR = sqrt(OR), not the raw OR
+    local rr = sqrt(r(effect))
+    if `rr' < 1 local rr = 1 / `rr'
+    local expected = `rr' + sqrt(`rr' * (`rr' - 1))
+    assert abs(r(evalue_point) - `expected') < 1e-6
+    assert r(evalue_point) > 1
 }
 if _rc == 0 {
-    display as result "  PASS S2: common logistic default refusal"
+    display as result "  PASS S2: common logistic uses sqrt(OR) transform"
     local ++pass_count
 }
 else {
-    display as error "  FAIL S2: common logistic default refusal (rc=`=_rc')"
+    display as error "  FAIL S2: common logistic sqrt(OR) transform (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' S2"
 }
 
-* --- S3: common logistic outcome refuses default bias-factor correction ---
+* --- S3: common logistic bias-factor bound computes on the RR scale (A12) ---
 local ++test_count
 capture noisily {
     _setup_common_logistic
-    capture noisily msm_sensitivity, confounding_strength(2 3)
-    assert _rc == 498
+    msm_sensitivity, confounding_strength(2 3)
+    assert r(bias_factor) != .
+    assert r(bound) != .
+    assert "`r(approximation)'" == "common-outcome sqrt(OR)"
 }
 if _rc == 0 {
-    display as result "  PASS S3: common logistic default bias-factor refusal"
+    display as result "  PASS S3: common logistic bias-factor computes on RR scale"
     local ++pass_count
 }
 else {
-    display as error "  FAIL S3: common logistic default bias-factor refusal (rc=`=_rc')"
+    display as error "  FAIL S3: common logistic bias-factor (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' S3"
 }
@@ -141,8 +152,8 @@ capture noisily {
     _setup_common_logistic
     msm_sensitivity, evalue confounding_strength(2 3) orapprox
 
-    assert r(outcome_prevalence) > r(rare_threshold)
-    assert "`r(approximation)'" == "rare-outcome override"
+    assert r(cumulative_incidence) > r(rare_threshold)
+    assert "`r(approximation)'" == "OR-direct override"
     assert r(evalue_point) > 1
     assert abs(r(bias_factor) - 1.5) < 1e-6
     assert abs(r(corrected_effect) - (r(effect) / r(bias_factor))) < 1e-6
@@ -161,11 +172,13 @@ else {
 local ++test_count
 capture noisily {
     _setup_common_logistic
-    msm_sensitivity, evalue rarethreshold(0.90)
+    * cumulative incidence of this fixture is ~0.96, so only a threshold above
+    * it reclassifies the outcome as rare and uses the OR directly.
+    msm_sensitivity, evalue rarethreshold(0.99)
 
-    assert r(outcome_prevalence) < r(rare_threshold)
-    assert r(rare_threshold) == 0.90
-    assert "`r(approximation)'" == "rare-outcome auto"
+    assert r(cumulative_incidence) < r(rare_threshold)
+    assert r(rare_threshold) == 0.99
+    assert "`r(approximation)'" == "rare-outcome"
     assert r(evalue_point) > 1
 }
 if _rc == 0 {
@@ -178,20 +191,33 @@ else {
     local failed_tests "`failed_tests' S5"
 }
 
-* --- S6: Cox branch remains available without approximation metadata ---
+* --- S6: Cox now runs the same rarity gate (audit A13) ---
+* The old code treated a Cox HR as an RR with NO rarity check (approximation
+* "none"). The rare example fixture (cumulative incidence ~0.10 < 0.15) now
+* reports "rare-outcome" and uses the HR directly. RED on HEAD ("none").
 local ++test_count
 capture noisily {
     _setup_example_logistic
-    shell rm -f "`c(pwd)'/_cox_sample_map"*
+    * Portable removal of any stale Cox sandbox maps (Q12: no Unix-only shell).
+    local _stale : dir "`c(pwd)'" files "_cox_sample_map*"
+    foreach _m of local _stale {
+        capture erase "`c(pwd)'/`_m'"
+    }
     msm_fit, model(cox) nolog
     msm_sensitivity, evalue
 
     assert r(evalue_point) > 1
     assert "`r(effect_label)'" == "HR"
-    assert "`r(approximation)'" == "none"
+    assert r(cumulative_incidence) <= r(rare_threshold)
+    assert "`r(approximation)'" == "rare-outcome"
+    * rare -> HR used directly as the RR scale
+    local rr = r(effect)
+    if `rr' < 1 local rr = 1 / `rr'
+    local expected = `rr' + sqrt(`rr' * (`rr' - 1))
+    assert abs(r(evalue_point) - `expected') < 1e-6
 }
 if _rc == 0 {
-    display as result "  PASS S6: Cox sensitivity unaffected"
+    display as result "  PASS S6: Cox rarity gate (rare-outcome)"
     local ++pass_count
 }
 else {
@@ -266,6 +292,7 @@ display as text "Tests run: `test_count'"
 display as result "Passed:   `pass_count'"
 display as error  "Failed:   `fail_count'"
 
+display as text "RESULT: validation_msm_sensitivity tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1
