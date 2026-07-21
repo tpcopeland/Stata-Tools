@@ -98,6 +98,23 @@ The scale check uses an **IQR-implied** SD and prints the plain-SD ratio beside 
 
 Like its two sibling gates, this is run on demand (smoke settings emit `smoke=1` and a failing sentinel, which `run_all.sh`/the runner treat as non-gating).
 
+### The two `finegray_gof` gates — size and power
+
+`validation_finegray_gof_calibration.do` and `validation_finegray_gof_power.do` are a pair, and neither is sufficient alone: a test can be perfectly sized and still detect nothing, so size was never the whole claim. Both fit with `finegray` and test with `finegray_gof` — through the shipped commands, not through Mata directly — so the numbers belong to what users run.
+
+| Suite | Question | Published target | Cost |
+|---|---|---|---|
+| `validation_finegray_gof_calibration.do` | Does the test hold its size under the null? | Li/Scheike/Zhang (2015) Tables 1 and 4 | 12 cells × 5,000 reps × nsim 1,000 |
+| `validation_finegray_gof_power.do` | Does it have power under the two alternatives the paper studies? | Tables 2 and 3, "Proposed" column | 12 cells × 5,000 reps × nsim 1,000 |
+
+**Why the power gate carries two alternatives rather than one.** They differ only in the *shape* of the time-varying effect, and that difference is the paper's argument. Under Table 2's linear departure (`β(t) = β + θt`) a correctly specified time-interaction model beats the omnibus test, 0.9985 to 0.9590 at n = 300 / 15% censoring. Under Table 3's change point the ordering reverses, 0.9125 to 0.9715. The case for an omnibus test is precisely that it does not require the analyst to have guessed the form, so a suite reproducing only Table 2 would evidence the case where the test is second best and omit the case that justifies it.
+
+**What the power gate does not claim.** Only the "Proposed" column is asserted. The three rival columns (`t`, `t²`, `log(t)`) come from refitting Fine-Gray with a time-varying interaction — a different estimator this package does not expose — so reproducing them would be a second implementation effort whose failures would be indistinguishable from failures of the test under study. The ordering claim above is quoted in `finegray_gof.sthlp` from the paper and is **not** verified here.
+
+**One DGP detail is an interpretation, not a transcription.** For Table 3 the paper gives `β(t)`, `λ*₁₀(t) = 1`, `β₁ = 1`, `β₂ = 0.2` and `t₀ = 0.5`, and says the data come from model (4), but it does not restate the cause-2 distribution or the cause-1 probability for that table. Both are carried over from the Table 2 paragraph (p.204): `P(cause 1) = 0.66`, cause 2 exponential with rate `exp(αZ)`, `α = −0.5`. If a cell misses at the full R, that assumption is the first thing to re-examine — ahead of the estimator.
+
+**Status: harness proven, gate not run.** Exercised at R = 40 / nsim = 200, where all 12 cells land within the widened reduced-run band, and separately at R = 60 / nsim = 200 on the four corner cells: Table 2 n=50 0.2167 vs 0.3260 (z = −1.81), n=300 0.9833 vs 0.9590 (z = +0.95); Table 3 n=50 0.4500 vs 0.3510 (z = +1.61), n=300 0.9500 vs 0.9715 (z = −1.00). That is the same standard the calibration harness was held to before its own gate run. **A reduced run deliberately emits no `RESULT:` sentinel**, so it cannot be recorded as a pass — the runner treats a missing sentinel as a failure, which fails closed. Override the replication count with `GOF_POW_REPS` and the bootstrap size with `GOF_POW_NSIM`; the full gate is neither set.
+
 This gate runs under the `gates` lane (on demand, hours not minutes), separately from the `full` lane whose counts appear in the Headline results above; its last recorded green run was 2026-07-15.
 
 ### Why the tie and optimizer suites exist
@@ -193,7 +210,7 @@ install.packages("fastcmprsk")
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do`, `crossval_gof.do` |
 | `full` | `core` + `python` |
-| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`, `validation_finegray_gof_calibration.do` |
+| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`, `validation_finegray_gof_calibration.do`, `validation_finegray_gof_power.do` |
 | Standalone measurement | `benchmark_finegray_zzf.do` (uses `_benchmark_finegray_zzf_cell.do`; intentionally not a `run_all.do` lane) |
 
 ## Coverage map

@@ -1,4 +1,4 @@
-*! finegray_gof Version 1.2.0  2026/07/20
+*! finegray_gof Version 1.2.0  2026/07/21
 *! Cumulative-residual goodness-of-fit tests after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -38,7 +38,7 @@ program define finegray_gof, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _preserved = 0
-    local _seedset = 0
+    local _framelive = 0
 
     capture noisily {
 
@@ -48,7 +48,7 @@ program define finegray_gof, rclass
     * would silently do nothing at rc = 0, which reads to the user as a level
     * that was honoured.  An unrecognised option erroring is the honest answer.
     syntax [, PROPortional FUNCform(string) LINK NSIM(integer 1000) ///
-        SEED(string)]
+        SEED(string) GRAPH SIMLines(integer 20) SAVing(string)]
 
     * ---- estimator identity ------------------------------------------------
     if "`e(cmd)'" != "finegray" {
@@ -273,6 +273,70 @@ program define finegray_gof, rclass
     }
     if "`funcidx'" == "" local funcidx "0"
 
+    * ---- graph() / saving() -------------------------------------------------
+    *
+    * The graph is OPT-IN, unlike finegray_cif where the curve IS the output and
+    * `nograph' suppresses it.  Here the table is the output, and a five-covariate
+    * fit would otherwise throw five uninvited graphs on screen.  saving() keeps
+    * finegray_cif's semantics exactly -- write the numeric dataset, accept only
+    * filename[, replace] -- because a user who knows one should not have to
+    * learn the other.
+    local savefile ""
+    local savereplace ""
+    if `"`saving'"' != "" {
+        gettoken savefile _svrest : saving, parse(",") bind
+        local savefile = strtrim(`"`savefile'"')
+        local _svrest = lower(strtrim(`"`_svrest'"'))
+        if substr(`"`_svrest'"', 1, 1) == "," {
+            local _svrest = strtrim(substr(`"`_svrest'"', 2, .))
+        }
+        if `"`savefile'"' == "" | !inlist(`"`_svrest'"', "", "replace") {
+            display as error "saving() must be filename[, replace]"
+            exit 198
+        }
+        if `"`_svrest'"' == "replace" local savereplace "replace"
+        if strpos(`"`savefile'"', ";") | strpos(`"`savefile'"', "|") | ///
+           strpos(`"`savefile'"', "&") | strpos(`"`savefile'"', "<") | ///
+           strpos(`"`savefile'"', ">") | strpos(`"`savefile'"', "$") | ///
+           strpos(`"`savefile'"', char(96)) | ///
+           strpos(`"`savefile'"', char(34)) | ///
+           strpos(`"`savefile'"', char(39)) {
+            display as error "invalid characters in saving() filename"
+            exit 198
+        }
+    }
+
+    local _wantpaths = ("`graph'" != "" | `"`savefile'"' != "")
+    local _npaths = 0
+    if `_wantpaths' {
+        * simlines() is the number of simulated realizations OVERLAID, which is
+        * a display choice; nsim() is what the p-value is computed from.  They
+        * are different quantities and conflating them is the trap here: an
+        * overlay of 1000 lines is an unreadable black band, and a p-value from
+        * 20 draws is not a p-value.
+        if `simlines' < 1 {
+            display as error "simlines() must be at least 1"
+            exit 198
+        }
+        if `simlines' > `nsim' {
+            display as error "simlines() (`simlines') cannot exceed nsim() (`nsim')"
+            display as error "the overlaid paths are drawn from the same multiplier"
+            display as error "bootstrap the p-value uses; asking for more display"
+            display as error "paths than replications would show paths the test"
+            display as error "never evaluated."
+            exit 198
+        }
+        local _npaths = `simlines'
+    }
+    else if `simlines' != 20 {
+        * A parsed-but-unconsumed option is the silent no-op pattern this
+        * command already refused level() for.  Same answer here.
+        display as error "simlines() requires graph or saving()"
+        display as error "it sets how many simulated paths are drawn for the"
+        display as error "picture; with neither requested there is no picture."
+        exit 198
+    }
+
     * ---- seed --------------------------------------------------------------
     * p-values are simulation based.  An unseeded run is NOT reproducible, so
     * the seed actually used is recorded in r(seed) either way.
@@ -302,9 +366,13 @@ program define finegray_gof, rclass
     capture matrix drop _finegray_gof_func_res
     capture matrix drop _finegray_gof_link_res
     capture matrix drop _finegray_gof_scale
+    capture matrix drop _finegray_gof_psim
+    capture matrix drop _finegray_gof_pgrid
+    capture matrix drop _finegray_gof_pobs
+    capture matrix drop _finegray_gof_pinfo
 
     mata: _finegray_gof_run("`covariates'", "`events'", `cause', `censvalue', ///
-        "", `do_prop', (`funcidx'), `do_link', `nsim')
+        "", `do_prop', (`funcidx'), `do_link', `nsim', `_npaths')
 
     restore
     local _preserved = 0
@@ -318,7 +386,17 @@ program define finegray_gof, rclass
     * p can be exactly 0.  Displaying a bare 0.0000 would assert a precision the
     * bootstrap does not have: the resolution floor is 1/nsim, so an observed 0
     * means "below the floor", not "zero".
-    local _flr = string(1 / `nsim', "%6.4f")
+    *
+    * The DECIMALS must scale with nsim.  A fixed %6.4f prints the floor itself
+    * as 0.0000 once nsim >= 50000, so the display read "< 0.0000" -- a bare
+    * zero wearing a "<", which is the precision overclaim this whole branch
+    * exists to prevent.  Observed, not theorised: nsim(50000) on a
+    * non-proportional fixture printed "    OVERALL   4.6479   < 0.0000".
+    * The 4-decimal minimum keeps the conventional nsim(200)/nsim(1000) output
+    * byte-identical; trim() is required because string() right-pads to the
+    * field width and would otherwise emit "<      0.00002".
+    local _flrdec = max(4, ceil(log10(`nsim')))
+    local _flr = trim(string(1 / `nsim', "%12.`_flrdec'f"))
 
     tempname res
     if `do_prop' {
@@ -404,16 +482,127 @@ program define finegray_gof, rclass
         return scalar p_link = `res'[1,2]
     }
 
+    * ---- graph() / saving() -------------------------------------------------
+    *
+    * Built in a FRAME, not by preserving and clearing.  The user's data is
+    * already restored by this point and the returns are staged; a preserve
+    * here would be a second preserve inside the same program (r(621)) and
+    * clearing outright would strand them.  The frame is dropped on every path
+    * out, including the error path in the cleanup zone below.
+    if `_wantpaths' {
+        capture confirm matrix _finegray_gof_pinfo
+        if _rc {
+            display as error "graph()/saving(): no residual paths were produced"
+            display as error "this should not happen once a test has run; report it"
+            exit 198
+        }
+
+        tempname pfr
+        frame create `pfr'
+        local _framelive = 1
+        frame `pfr' {
+            quietly set obs `=rowsof(_finegray_gof_pgrid)'
+            quietly svmat double _finegray_gof_pgrid, names(_fgx)
+            quietly svmat double _finegray_gof_pobs,  names(_fgobs)
+            quietly svmat double _finegray_gof_psim,  names(_fgsim)
+            rename _fgx1   x
+            rename _fgobs1 observed
+
+            * str32 is not enough for a long interaction term such as
+            * `2.race#c.age' on a 32-character variable name; strL is not
+            * needed either.  Size it from the labels actually in hand.
+            local _lablen = 32
+            foreach _l of local covlabels {
+                if length("`_l'") > `_lablen' local _lablen = length("`_l'")
+            }
+            quietly gen str`_lablen' process = ""
+            quietly gen byte kind = .
+
+            local _nproc = rowsof(_finegray_gof_pinfo)
+            local _lo = 1
+            forvalues _i = 1/`_nproc' {
+                local _knd = _finegray_gof_pinfo[`_i',1]
+                local _idx = _finegray_gof_pinfo[`_i',2]
+                local _ng  = _finegray_gof_pinfo[`_i',3]
+                local _hi  = `_lo' + `_ng' - 1
+                if `_knd' == 1      local _lab : word `_idx' of `covlabels'
+                else if `_knd' == 2 local _lab : word `_idx' of `funclab'
+                else                local _lab "linear predictor"
+                quietly replace process = "`_lab'" in `_lo'/`_hi'
+                quietly replace kind    = `_knd'   in `_lo'/`_hi'
+                local _plo`_i' = `_lo'
+                local _phi`_i' = `_hi'
+                local _plab`_i' `"`_lab'"'
+                local _pknd`_i' = `_knd'
+                local _lo = `_hi' + 1
+            }
+            label define _fg_gof_kind 1 "proportionality" 2 "functional form" ///
+                3 "link", replace
+            label values kind _fg_gof_kind
+            label variable x        "process index (time, covariate value, or linear predictor)"
+            label variable observed "observed standardized process"
+            order process kind x observed
+
+            if `"`savefile'"' != "" {
+                quietly save `"`savefile'"', `savereplace'
+                display as text `"(residual paths saved to `savefile')"'
+            }
+
+            if "`graph'" != "" {
+                forvalues _i = 1/`_nproc' {
+                    local _lines ""
+                    forvalues _s = 1/`_npaths' {
+                        local _lines `"`_lines' (line _fgsim`_s' x in `_plo`_i''/`_phi`_i'', lcolor(gs12) lwidth(vthin))"'
+                    }
+                    * observed drawn LAST so it sits on top of the band
+                    local _lines `"`_lines' (line observed x in `_plo`_i''/`_phi`_i'', lcolor(black) lwidth(medthick))"'
+
+                    if `_pknd`_i'' == 1 {
+                        local _ttl `"Proportionality: `_plab`_i''"'
+                        local _xtl "analysis time"
+                    }
+                    else if `_pknd`_i'' == 2 {
+                        local _ttl `"Functional form: `_plab`_i''"'
+                        local _xtl `"`_plab`_i''"'
+                    }
+                    else {
+                        local _ttl "Link function"
+                        local _xtl "linear predictor"
+                    }
+                    twoway `_lines', legend(off) ///
+                        title(`"`_ttl'"') ///
+                        subtitle("observed (black) vs `_npaths' simulated under the null") ///
+                        xtitle(`"`_xtl'"') ///
+                        ytitle("cumulative residual process") ///
+                        yline(0, lcolor(gs8) lpattern(dash)) ///
+                        name(fggof`_i', replace)
+                }
+                display as text "(graphs named fggof1" _continue
+                if `_nproc' > 1 display as text " ... fggof`_nproc'" _continue
+                display as text ")"
+            }
+        }
+        frame drop `pfr'
+        local _framelive = 0
+    }
+
     capture matrix drop _finegray_gof_prop_res
     capture matrix drop _finegray_gof_overall
     capture matrix drop _finegray_gof_func_res
     capture matrix drop _finegray_gof_link_res
     capture matrix drop _finegray_gof_scale
+    capture matrix drop _finegray_gof_psim
+    capture matrix drop _finegray_gof_pgrid
+    capture matrix drop _finegray_gof_pobs
+    capture matrix drop _finegray_gof_pinfo
 
     } /* end capture noisily */
 
     local rc = _rc
     if `_preserved' capture restore
+    * An error raised INSIDE the frame block leaves the frame standing; a
+    * tempname guarantees the name is unique, not that it is cleaned up.
+    if `_framelive' capture frame drop `pfr'
     * These are GLOBAL matrix names, not tempnames -- Mata writes them via
     * st_matrix() and cannot see a tempname local.  The success path drops them
     * above, but an error inside the capture block jumps past that, so without
@@ -421,7 +610,8 @@ program define finegray_gof, rclass
     * user's matrix namespace.  A later call then reads a STALE matrix if its
     * own Mata step fails before overwriting it, which is the rc=0-but-wrong
     * class: p-values from the previous model, displayed as if current.
-    foreach _m in b prop_res overall func_res link_res scale {
+    foreach _m in b prop_res overall func_res link_res scale ///
+                  psim pgrid pobs pinfo {
         capture matrix drop _finegray_gof_`_m'
     }
     set varabbrev `_orig_varabbrev'

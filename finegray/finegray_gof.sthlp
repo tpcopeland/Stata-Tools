@@ -37,6 +37,9 @@
 {synopt:{opt link}}test the link function{p_end}
 {synopt:{opt nsim(#)}}bootstrap replications; default 1000{p_end}
 {synopt:{opt seed(#|state)}}random-number seed or state{p_end}
+{synopt:{opt graph}}plot the observed process against simulated null paths{p_end}
+{synopt:{opt siml:ines(#)}}simulated paths overlaid; default 20{p_end}
+{synopt:{opt sav:ing(filename[, replace])}}write the plotted paths as a dataset{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -110,6 +113,77 @@ run can still be reproduced after the fact -- but note what it holds. When
 ({cmd:c(rngstate)}), which is a string thousands of characters long, not a
 short seed. Either form can be passed straight back to {opt seed()} on a later
 run to reproduce the p-values exactly.
+
+
+{phang}
+{opt graph} plots each tested process against a sample of realizations drawn
+from its own null distribution. One graph is produced per tested process, named
+{cmd:fggof1}, {cmd:fggof2}, and so on in the order the results are tabled; see
+{help finegray_gof##plot:Reading the plot} for what to look for.
+
+{phang}
+{opt simlines(#)} sets how many simulated realizations are overlaid; the default
+is 20 and it may not exceed {opt nsim()}. This is a {it:display} choice and is
+kept separate from {opt nsim()}, which is what the p-value is computed from: an
+overlay of 1,000 paths is an unreadable black band, and a p-value from 20 draws
+is not a p-value. Specifying it without {opt graph} or {opt saving()} is an
+error rather than a silent no-op.
+
+{phang}
+{opt saving(filename[, replace])} writes the plotted paths as a dataset in
+which {cmd:process} and {cmd:kind} identify the test, {cmd:x} is the process index
+(analysis time, covariate value, or linear predictor), {cmd:observed} is the
+observed standardized process, and {cmd:_fgsim1}...{cmd:_fgsim}{it:#} are the
+simulated ones. Only the suboption {cmd:replace} is accepted, and shell
+metacharacters and embedded quotes are rejected in {it:filename}. Use it to
+build a plot this command does not draw.
+
+{pmore}
+Both options leave the data in memory untouched: the dataset is assembled in a
+temporary {help frames:frame} that is dropped on every exit path.
+
+{pmore}
+{bf:Requesting a plot cannot change a p-value.} The overlaid paths are drawn
+from the same multiplier bootstrap, but strictly {it:after} every replication
+the test itself consumes, so the random-number stream the p-values are computed
+from is untouched. For a given {opt seed()}, {cmd:r(gof)}, {cmd:r(p_overall)}
+and every other stored result are bit-for-bit identical with and without
+{opt graph}. Had the display draws been interleaved with the test draws — the
+natural way to write it — they would have silently re-seeded every subsequent
+replication and moved every p-value at {cmd:rc = 0}.
+
+{pmore}
+For display only, a process is thinned to at most 2,000 evenly spaced grid
+points, endpoints retained. The link process has one grid point per distinct
+linear predictor, so an unthinned path matrix would exceed Stata's matrix limits
+on exactly the datasets people want to plot. Statistics and p-values are always
+computed on the full grid, so thinning cannot move a reported number; it only
+means the drawn line may not pass through the exact point where the supremum was
+attained.
+
+
+{marker plot}{...}
+{title:Reading the plot}
+
+{pstd}
+The black line is the observed process; the grey lines are realizations drawn
+under the null. This is the diagnostic the paper describes at p.202, and it
+answers a question the p-value cannot: {it:where} and {it:how} the model fails.
+
+{pstd}
+Under the null the observed line is one grey line among many — wandering around
+zero, no more extreme than its neighbours. A departure shows up as the observed
+line being {bf:isolated} above or below the simulated band over some stretch of
+the axis. For a proportionality plot, the stretch names {it:when} the effect
+departs from proportional: an observed path that runs high early and crosses low
+later is the signature of an effect that reverses, which a single number cannot
+tell you. For a functional-form plot, it names {it:which range} of the covariate
+is fitted badly, which is what points at the transformation to try.
+
+{pstd}
+A supremum statistic collapses all of that to the single largest excursion. The
+plot and the p-value are the same object, scaled the same way, so they never
+disagree; the plot simply retains the shape that the supremum discards.
 
 
 {marker pvalue}{...}
@@ -228,6 +302,19 @@ plain form.
 {bf:Data requirement.} The residual process is recomputed from the estimation
 data, so the unchanged original {cmd:stset} data must be in memory.
 
+{pstd}
+{bf:The estimated-weight correction is always applied here.} It does not matter
+whether the fit used {opt nuisance}. On {helpb finegray} the correction is
+opt-in, because it changes a reported variance. It is not optional here, since
+the limiting distribution in the Appendix decomposition (eq. 17) carries the
+influence function of {bf:beta-hat} itself, which is
+{cmd:Omega^-1 (eta_i + psi_i)} -- the {cmd:psi} term accounts for having
+estimated the censoring distribution rather than known it. Dropping it would
+simulate the wrong null and mis-size every test. So the residual process is
+built from the full influence function even after a default fit, and the test
+is {it:not} conditional on the variance convention shown in {cmd:e(V)}. No
+option is offered to disable it, because there is no correct reason to.
+
 
 {marker choosing}{...}
 {title:Choosing between the tests}
@@ -297,6 +384,23 @@ statistics on a given dataset differ.
 {bf:A finer p-value near a decision boundary}
 
 {phang2}{cmd:. finegray_gof, nsim(10000) seed(20260720)}{p_end}
+
+{pstd}
+{bf:Plot the observed process against the null band}
+
+{phang2}{cmd:. finegray_gof, seed(20260720) graph}{p_end}
+
+{pstd}
+{bf:A denser band, and the numbers behind it}
+
+{phang2}{cmd:. finegray_gof, seed(20260720) graph simlines(50) saving(gofpaths.dta, replace)}{p_end}
+
+{pstd}
+{bf:The paths without the graph, to plot them your own way}
+
+{phang2}{cmd:. finegray_gof, seed(20260720) funcform(ifp) saving(gofpaths.dta, replace)}{p_end}
+{phang2}{cmd:. use gofpaths.dta, clear}{p_end}
+{phang2}{cmd:. twoway line _fgsim1 _fgsim2 _fgsim3 observed x, legend(off)}{p_end}
 
 
 {marker results}{...}

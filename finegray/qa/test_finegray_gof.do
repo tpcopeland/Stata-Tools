@@ -1108,6 +1108,251 @@ else {
     display as error "  FAIL: G19 (rc=`=_rc')"
 }
 
+* ===========================================================================
+* G20  the displayed floor survives a LARGE nsim -- the G8 magnitude gap
+*
+* G8 proves the floor is displayed rather than printed as a bare 0, but it
+* asserts at nsim(200), where the floor is 0.0050 and any sane format shows
+* it.  The display used a fixed "%6.4f", which prints the FLOOR ITSELF as
+* 0.0000 once nsim >= 50000 -- so the row read "< 0.0000", a bare zero
+* wearing a "<", which is exactly what G8 exists to forbid.  G8 could never
+* see it: right axis (the rendered log), wrong magnitude.
+*
+* Confirmed to FAIL against the previous behavior: at nsim(50000) the OVERALL
+* row printed "< 0.0000".  nsim(50000) costs ~7s on this fixture.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    _mknonprop 400 20260727
+    quietly finegray Z1 Z2, compete(cause) cause(1) censvalue(0) nolog
+
+    tempfile blog
+    log using "`blog'", replace text name(_bigfloor)
+    finegray_gof, seed(55) nsim(50000)
+    local pB = r(p_overall)
+    log close _bigfloor
+
+    * the fixture must still drive p to the floor at this nsim, or the test
+    * proves nothing about the display
+    assert `pB' == 0
+
+    tempname bh
+    local _bhit = 0
+    local _bbad = 0
+    file open `bh' using "`blog'", read text
+    file read `bh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "OVERALL") & ///
+           strpos(`"`macval(line)'"', "< 0.00002") local _bhit = 1
+        * the defect: a floor that rounded away to a bare zero
+        if strpos(`"`macval(line)'"', "OVERALL") & ///
+           strpos(`"`macval(line)'"', "< 0.0000 ") local _bbad = 1
+        if strpos(`"`macval(line)'"', "OVERALL") & ///
+           substr(rtrim(`"`macval(line)'"'), -8, 8) == "< 0.0000" local _bbad = 1
+        file read `bh' line
+    }
+    file close `bh'
+    if `_bbad' {
+        display as error "    OVERALL row displayed the floor as a bare 0.0000"
+        exit 9
+    }
+    if `_bhit' != 1 {
+        display as error "    OVERALL row did not display the 1/50000 floor"
+        exit 9
+    }
+
+    * and the conventional magnitude is UNCHANGED -- 4 decimals, as G8 pins
+    assert trim(string(1/200,  "%12.`=max(4, ceil(log10(200)))'f"))  == "0.0050"
+    assert trim(string(1/1000, "%12.`=max(4, ceil(log10(1000)))'f")) == "0.0010"
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: G20 the displayed floor scales with nsim"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: G20 (rc=`=_rc')"
+}
+
+* ===========================================================================
+* G21  graph() MUST NOT MOVE A P-VALUE -- the central contract of the feature
+*
+* The overlaid paths come from the same multiplier bootstrap the p-value uses.
+* Drawing them inside the per-covariate loops -- the natural place to write it
+* -- would consume RNG draws mid-stream and silently re-seed every subsequent
+* replication, moving every p-value at rc = 0 for a fixed seed.  They are
+* therefore drawn strictly AFTER every p-value bootstrap has finished.
+*
+* This asserts the whole stored-results surface bit-for-bit, not just p: a
+* p-value is discrete with atoms of 1/nsim, so two different RNG streams can
+* easily land on the same p and an equality test on p alone would pass on
+* broken code.  sup is continuous, and mreldif(A,B)==0 on r(gof) covers every
+* covariate at once.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    _mknonprop 300 20260727
+    quietly finegray Z1 Z2, compete(cause) cause(1) censvalue(0) nolog
+
+    quietly finegray_gof, seed(99) nsim(500)
+    local _a_p  = r(p_overall)
+    local _a_s  = string(r(sup_overall), "%21.17e")
+    matrix _A   = r(gof)
+
+    quietly finegray_gof, seed(99) nsim(500) graph simlines(15)
+    local _b_p  = r(p_overall)
+    local _b_s  = string(r(sup_overall), "%21.17e")
+    matrix _B   = r(gof)
+
+    if `_a_p' != `_b_p' {
+        display as error "    graph() moved p_overall (`_a_p' -> `_b_p')"
+        exit 9
+    }
+    if "`_a_s'" != "`_b_s'" {
+        display as error "    graph() moved sup_overall (`_a_s' -> `_b_s')"
+        exit 9
+    }
+    if mreldif(_A, _B) != 0 {
+        display as error "    graph() moved r(gof)"
+        exit 9
+    }
+
+    * and the same for the other two families, where the scale is 1
+    quietly finegray_gof, seed(77) nsim(300) funcform(Z1) link
+    local _c_f = string(r(sup_link), "%21.17e")
+    matrix _C  = r(funcform)
+    quietly finegray_gof, seed(77) nsim(300) funcform(Z1) link graph simlines(5)
+    local _d_f = string(r(sup_link), "%21.17e")
+    matrix _D  = r(funcform)
+    if "`_c_f'" != "`_d_f'" | mreldif(_C, _D) != 0 {
+        display as error "    graph() moved funcform/link results"
+        exit 9
+    }
+    matrix drop _A _B _C _D
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: G21 graph() leaves every stored result bit-identical"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: G21 (rc=`=_rc')"
+}
+
+* ===========================================================================
+* G22  graph()/saving() refusals, each with its own reason
+*
+* simlines() without a picture is the silent-no-op pattern this command
+* already refuses level() for, so it must ERROR rather than be ignored.
+* simlines() > nsim() would display paths the test never evaluated.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    _mkprop 300 20260720
+    quietly finegray Z1 Z2, compete(cause) cause(1) censvalue(0) nolog
+
+    * simlines() with neither graph nor saving
+    capture finegray_gof, seed(1) nsim(200) simlines(5)
+    assert _rc == 198
+    * ... and the POSITIVE CONTROL: identical call plus graph must succeed
+    capture finegray_gof, seed(1) nsim(200) simlines(5) graph
+    assert _rc == 0
+
+    * simlines() above nsim()
+    capture finegray_gof, seed(1) nsim(200) graph simlines(500)
+    assert _rc == 198
+    * positive control: at the boundary it is accepted
+    capture finegray_gof, seed(1) nsim(200) graph simlines(200)
+    assert _rc == 0
+
+    capture finegray_gof, seed(1) nsim(200) graph simlines(0)
+    assert _rc == 198
+
+    * saving() filename validation, mirroring finegray_cif
+    capture finegray_gof, seed(1) nsim(200) saving("bad;file.dta")
+    assert _rc == 198
+    capture finegray_gof, seed(1) nsim(200) saving("x.dta, bogus")
+    assert _rc == 198
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: G22 graph/saving refusals fire, controls still pass"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: G22 (rc=`=_rc')"
+}
+
+* ===========================================================================
+* G23  saving() writes the documented dataset; graphs exist; nothing leaks
+*
+* State hygiene is the risk specific to this feature: it builds a dataset, so
+* it could clobber the user's data, strand a frame, or leave a value label
+* behind.  G12 covers the pre-graph surface; this extends it to the frame.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    _mkprop 300 20260720
+    quietly finegray Z1 Z2, compete(cause) cause(1) censvalue(0) nolog
+
+    local _n0 = _N
+    local _k0 = c(k)
+    quietly label dir
+    local _lbl0 "`r(names)'"
+
+    tempfile _paths
+    quietly finegray_gof, seed(5) nsim(200) funcform(Z1) link ///
+        graph simlines(7) saving("`_paths'", replace)
+
+    * the user's data is untouched
+    assert _N == `_n0'
+    assert c(k) == `_k0'
+    quietly label dir
+    assert "`r(names)'" == "`_lbl0'"
+
+    * no path matrices survive
+    foreach _m in psim pgrid pobs pinfo {
+        capture confirm matrix _finegray_gof_`_m'
+        assert _rc != 0
+    }
+
+    * the graphs really were drawn -- two processes here (funcform + link)
+    capture graph describe fggof1
+    assert _rc == 0
+    capture graph describe fggof2
+    assert _rc == 0
+    capture graph describe fggof3
+    assert _rc != 0
+
+    * the saved dataset has the documented shape
+    preserve
+    quietly use "`_paths'", clear
+    foreach _v in process kind x observed {
+        capture confirm variable `_v'
+        assert _rc == 0
+    }
+    forvalues _s = 1/7 {
+        capture confirm variable _fgsim`_s'
+        assert _rc == 0
+    }
+    capture confirm variable _fgsim8
+    assert _rc != 0
+    * one block per tested process, and x must be sorted within a block
+    quietly levelsof kind, local(_kinds)
+    assert `: word count `_kinds'' == 2
+    quietly count if missing(x) | missing(observed)
+    assert r(N) == 0
+    restore
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: G23 saving() shape, graphs drawn, user state intact"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: G23 (rc=`=_rc')"
+}
+
 **# Summary
 * The runner parses this sentinel and requires tests == pass + fail with
 * fail == 0.  A suite that exits 0 without it is counted as a FAILURE, not a

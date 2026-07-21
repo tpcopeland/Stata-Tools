@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/07/20
+*! finegray_predict Version 1.2.0  2026/07/21
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)

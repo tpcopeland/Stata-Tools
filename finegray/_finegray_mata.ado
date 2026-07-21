@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/07/20
+*! _finegray_mata Version 1.2.0  2026/07/21
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -4416,6 +4416,26 @@ real scalar _finegray_gof_bs()
     return(64)
 }
 
+/* Display-only cap on the number of grid points carried back for graph() and
+   saving().  The LINK process has one grid point per distinct linear
+   predictor -- ngrid = n -- so an uncapped path matrix is n x npaths and
+   blows past Stata's matrix limits on exactly the datasets people plot.
+   The STATISTIC and its p-value are always computed on the full grid; only
+   the picture is thinned, which is why this cannot move a number. */
+real scalar _finegray_gof_maxgrid()
+{
+    return(2000)
+}
+
+/* Evenly spaced display indices, endpoints always retained.  The supremum can
+   sit anywhere on the grid, so thinning is not allowed to imply the plotted
+   path reaches it -- the reported sup comes from the full grid regardless. */
+real colvector _finegray_gof_thin(real scalar ng)
+{
+    if (ng <= _finegray_gof_maxgrid()) return((1::ng))
+    return(uniqrows(round(rangen(1, ng, _finegray_gof_maxgrid()))))
+}
+
 /* Lin-Wei-Ying multiplier bootstrap.  Only the V_i ~ N(0,1) are redrawn:
    Wp is computed ONCE and nothing is refitted per replication.  The caller
    sets the seed, so `set seed' governs reproducibility uniformly.
@@ -4452,12 +4472,6 @@ real rowvector _finegray_gof_boot(
     return((sup_obs, cnt / K))
 }
 
-/* Overall proportionality: sup_t sum_j |{I^-1_jj}^(1/2) U_j(t)|.  All p
-   processes are driven by the SAME V draw within a replication -- they are
-   not independent tests being combined, they are one statistic.
-
-   This is the only test in which the standardizing factor does not cancel,
-   so it is the only place a bug in that factor is visible. */
 /* Driver called by finegray_gof.ado.  Reads the estimation sample, builds the
    scaffolding once, runs whichever tests were requested, and hands results
    back as Stata matrices.
@@ -4480,12 +4494,23 @@ void _finegray_gof_run(
     real scalar do_prop,
     real rowvector funcidx,
     real scalar do_link,
-    real scalar K)
+    real scalar K,
+    real scalar npaths)
 {
     struct _finegray_gof_sc scalar sc
     real colvector t, d, ct, t0, one, G, beta, obs, grid, scl
     real matrix Z, Wp, U, pres, fres, Wall
     real scalar n, p, j, nf, i
+    /* ---- graph()/saving() display paths --------------------------------
+       Wpath stacks the influence matrix of every plotted process side by
+       side, so ONE multiplier draw can produce every plotted realization.
+       pinfo records, per process, where its block starts and what it is:
+       (kind, index, ngrid, scale), kind 1 = proportionality, 2 = functional
+       form, 3 = link.  Nothing here is allocated unless paths were asked
+       for -- the stack is the same order of memory as Wall. */
+    real matrix Wpath, pinfo, Spath
+    real colvector gridall, obsall, keep
+    real scalar want_paths, ncur
 
     t  = st_data(., "_t")
     d  = st_data(., "_d")
@@ -4502,6 +4527,12 @@ void _finegray_gof_run(
                                 t0, one)
     scl = _finegray_gof_scale(sc)
     st_matrix("_finegray_gof_scale", scl')
+
+    want_paths = (npaths > 0)
+    Wpath   = J(n, 0, 0)
+    gridall = J(0, 1, 0)
+    obsall  = J(0, 1, 0)
+    pinfo   = J(0, 4, 0)
 
     if (do_prop) {
         pres = J(p, 2, 0)
@@ -4521,6 +4552,13 @@ void _finegray_gof_run(
             Wall = Wall, Wp
             U[., j] = obs
             pres[j, .] = _finegray_gof_boot(Wp, obs, scl[j], K)
+            if (want_paths) {
+                keep    = _finegray_gof_thin(sc.m)
+                Wpath   = Wpath, Wp[., keep]
+                gridall = gridall \ sc.ft[keep]
+                obsall  = obsall \ (obs[keep] :* scl[j])
+                pinfo   = pinfo \ (1, j, rows(keep), scl[j])
+            }
         }
         st_matrix("_finegray_gof_prop_res", pres)
         st_matrix("_finegray_gof_overall",
@@ -4534,6 +4572,13 @@ void _finegray_gof_run(
             j = funcidx[i]
             Wp = _finegray_gof_xaxis(sc, Z[., j], grid, obs)
             fres[i, .] = _finegray_gof_boot(Wp, obs, 1, K)
+            if (want_paths) {
+                keep    = _finegray_gof_thin(rows(grid))
+                Wpath   = Wpath, Wp[., keep]
+                gridall = gridall \ grid[keep]
+                obsall  = obsall \ obs[keep]
+                pinfo   = pinfo \ (2, i, rows(keep), 1)
+            }
         }
         st_matrix("_finegray_gof_func_res", fres)
     }
@@ -4541,9 +4586,53 @@ void _finegray_gof_run(
     if (do_link) {
         Wp = _finegray_gof_xaxis(sc, Z * beta, grid, obs)
         st_matrix("_finegray_gof_link_res", _finegray_gof_boot(Wp, obs, 1, K))
+        if (want_paths) {
+            keep    = _finegray_gof_thin(rows(grid))
+            Wpath   = Wpath, Wp[., keep]
+            gridall = gridall \ grid[keep]
+            obsall  = obsall \ obs[keep]
+            pinfo   = pinfo \ (3, 1, rows(keep), 1)
+        }
+    }
+
+    /* ---- display paths, drawn LAST and only now ------------------------
+       THE ORDERING IS THE CONTRACT, not an implementation detail.  Every
+       p-value bootstrap above has already consumed its share of the RNG
+       stream; this draw happens strictly after all of them, so requesting
+       graph() cannot shift a single subsequent draw and cannot move a single
+       p-value.  "Same seed, same p-values, with and without graph()" is
+       therefore bit-for-bit true and is asserted by test G21.  Drawing these
+       paths inside the loops above -- the obvious place -- would silently
+       re-seed every later test at rc = 0. */
+    if (want_paths & cols(Wpath) > 0) {
+        Spath = rnormal(npaths, rows(Wpath), 0, 1) * Wpath
+        /* Each block carries its own standardizing factor, the same one its
+           statistic used, so the picture and the p-value are one object. */
+        ncur = 0
+        for (i = 1; i <= rows(pinfo); i++) {
+            if (pinfo[i, 4] != 1)
+                Spath[|1, ncur + 1 \ npaths, ncur + pinfo[i, 3]|] =
+                    Spath[|1, ncur + 1 \ npaths, ncur + pinfo[i, 3]|] :*
+                    pinfo[i, 4]
+            ncur = ncur + pinfo[i, 3]
+        }
+        st_matrix("_finegray_gof_psim",  Spath')
+        st_matrix("_finegray_gof_pgrid", gridall)
+        st_matrix("_finegray_gof_pobs",  obsall)
+        st_matrix("_finegray_gof_pinfo", pinfo)
     }
 }
 
+/* Overall proportionality: sup_t sum_j |{I^-1_jj}^(1/2) U_j(t)|.  All p
+   processes are driven by the SAME V draw within a replication -- they are
+   not independent tests being combined, they are one statistic.
+
+   This is the only test in which the standardizing factor does not cancel,
+   so it is the only place a bug in that factor is visible.  Verified against
+   the paper: p.202 gives sup_t sum_j |{I^-1_jj(bhat)}^(1/2) U_j(bhat,t)|,
+   WITH the square root.  The Appendix (p.215) drops it; that sentence claims
+   to restate the main text and so cannot override it.  See
+   _literature/finegray/li-scheike-zhang-2015.notes.md. */
 real rowvector _finegray_gof_boot_overall(
     real matrix Wall,
     real matrix U,

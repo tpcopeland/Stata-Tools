@@ -91,10 +91,30 @@ local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.
 *                                         0.05 -- that shape is not resolvable
 *                                         at this R and the assertion fails on
 *                                         correct code; see the suite header.
+*   validation_finegray_gof_power.do      The companion to the calibration
+*                                         gate: power of finegray_gof against
+*                                         Li/Scheike/Zhang (2015) Tables 2 and
+*                                         3.  A test can be perfectly sized and
+*                                         useless, so size was never the whole
+*                                         claim.  Twelve cells (two alternative
+*                                         SHAPES x two censoring levels x three
+*                                         n), each 5,000 replications x
+*                                         nsim=1,000.  Both shapes are needed:
+*                                         a correctly specified time-interaction
+*                                         model beats this test under the LINEAR
+*                                         departure of Table 2 and loses to it
+*                                         under the CHANGE POINT of Table 3,
+*                                         which is the entire argument for an
+*                                         omnibus test.  Only the "Proposed"
+*                                         column is asserted -- the three rival
+*                                         columns are a different estimator this
+*                                         package does not expose; see the suite
+*                                         header.
 local gates_files validation_finegray_zzf_recovery.do ///
     validation_finegray_zzf_coverage.do ///
     validation_finegray_zzf_factorization.do ///
-    validation_finegray_gof_calibration.do
+    validation_finegray_gof_calibration.do ///
+    validation_finegray_gof_power.do
 
 local full_files `core_files' `python_files'
 
