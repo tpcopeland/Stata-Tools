@@ -466,6 +466,29 @@ capture noisily {
     assert reldif(r(min), `_raw_min') < 1e-12
     assert r(max) < .
 
+    * The PRINTED description must name only the side actually trimmed. The
+    * first cut of this feature printed "at the 0th and 95th percentiles" and
+    * "cutpoints: . / 2.3" for a one-sided request -- claiming a 0th-percentile
+    * clip that never happened, and rendering a missing cutpoint as a bare dot.
+    * A user reading that would believe both tails were bounded.
+    tempname _s12log
+    tempfile _s12f
+    quietly log using "`_s12f'", text replace name(s12cap)
+    iivw_weight, id(id) time(time) visit(z) censor(cens) truncvisit(0 95) replace
+    capture log close s12cap
+
+    local _s12txt ""
+    file open `_s12log' using "`_s12f'", read text
+    file read `_s12log' line
+    while r(eof) == 0 {
+        local _s12txt `"`_s12txt' `macval(line)'"'
+        file read `_s12log' line
+    }
+    file close `_s12log'
+    assert strpos(`"`_s12txt'"', "upper tail only") > 0
+    assert strpos(`"`_s12txt'"', "0th and") == 0
+    assert strpos(`"`_s12txt'"', "cutpoints: upper") > 0
+
     * A request that trims nothing is refused rather than silently accepted.
     _fc_panel, n(120) seed(77109)
     capture quietly iivw_weight, id(id) time(time) visit(z) censor(cens) ///

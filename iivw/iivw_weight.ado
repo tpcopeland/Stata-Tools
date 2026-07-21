@@ -1295,11 +1295,22 @@ program define iivw_weight, rclass sortpreserve
                 }
             }
             local __iivw_tv_n = `__iivw_tv_nlo' + `__iivw_tv_nhi'
-            display as text "Trimming the VISIT component at the `tv_lo'th and `tv_hi'th percentiles..."
+            * Describe only the side(s) actually trimmed (SOL-12). With a
+            * one-sided request the old wording claimed a clip at the 0th or
+            * 100th percentile that never happened, and printed a bare "." as
+            * its cutpoint.
+            local __iivw_tdesc "at the `tv_lo'th and `tv_hi'th percentiles"
+            if `tv_lo' == 0   local __iivw_tdesc "at the `tv_hi'th percentile (upper tail only)"
+            if `tv_hi' == 100 local __iivw_tdesc "at the `tv_lo'th percentile (lower tail only)"
+            display as text "Trimming the VISIT component `__iivw_tdesc'..."
             display as text "  Trimmed `__iivw_tv_n' observations (`__iivw_tv_nlo' low, `__iivw_tv_nhi' high)"
-            display as text "  cutpoints: " as result ///
-                "`=string(`__iivw_tv_locut',"%9.0g")'" as text " / " as result ///
-                "`=string(`__iivw_tv_hicut',"%9.0g")'"
+            local __iivw_tcut ""
+            if `__iivw_tv_locut' < . local __iivw_tcut "lower `=string(`__iivw_tv_locut',"%9.0g")'"
+            if `__iivw_tv_hicut' < . {
+                if "`__iivw_tcut'" != "" local __iivw_tcut "`__iivw_tcut', "
+                local __iivw_tcut "`__iivw_tcut'upper `=string(`__iivw_tv_hicut',"%9.0g")'"
+            }
+            display as text "  cutpoints: " as result "`__iivw_tcut'"
             display as text "  note: trimming the visit weight does NOT repair a misspecified visit"
             display as text "  model. It bounds the influence of rows the model already fitted"
             display as text "  badly; it does not make the model fit them. Untrimmed IIW is the"
@@ -1526,11 +1537,22 @@ program define iivw_weight, rclass sortpreserve
                 }
             }
             local __iivw_tt_n = `__iivw_tt_nlo' + `__iivw_tt_nhi'
-            display as text "Trimming the TREATMENT component at the `tt_lo'th and `tt_hi'th percentiles..."
+            * Describe only the side(s) actually trimmed (SOL-12). With a
+            * one-sided request the old wording claimed a clip at the 0th or
+            * 100th percentile that never happened, and printed a bare "." as
+            * its cutpoint.
+            local __iivw_tdesc "at the `tt_lo'th and `tt_hi'th percentiles"
+            if `tt_lo' == 0   local __iivw_tdesc "at the `tt_hi'th percentile (upper tail only)"
+            if `tt_hi' == 100 local __iivw_tdesc "at the `tt_lo'th percentile (lower tail only)"
+            display as text "Trimming the TREATMENT component `__iivw_tdesc'..."
             display as text "  Trimmed `__iivw_tt_n' observations (`__iivw_tt_nlo' low, `__iivw_tt_nhi' high)"
-            display as text "  cutpoints: " as result ///
-                "`=string(`__iivw_tt_locut',"%9.0g")'" as text " / " as result ///
-                "`=string(`__iivw_tt_hicut',"%9.0g")'"
+            local __iivw_tcut ""
+            if `__iivw_tt_locut' < . local __iivw_tcut "lower `=string(`__iivw_tt_locut',"%9.0g")'"
+            if `__iivw_tt_hicut' < . {
+                if "`__iivw_tcut'" != "" local __iivw_tcut "`__iivw_tcut', "
+                local __iivw_tcut "`__iivw_tcut'upper `=string(`__iivw_tt_hicut',"%9.0g")'"
+            }
+            display as text "  cutpoints: " as result "`__iivw_tcut'"
             display as text "  note: this bounds the influence of subjects with the weakest overlap,"
             display as text "  so it shifts the target away from the ATE. It is a sensitivity"
             display as text "  analysis. The raw component is kept in `prefix'tw_raw."
@@ -1651,7 +1673,11 @@ program define iivw_weight, rclass sortpreserve
     if "`truncfinal'" != "" {
         local tf_lo : word 1 of `truncfinal'
         local tf_hi : word 2 of `truncfinal'
-        display as text "Trimming the FINAL weight at the `tf_lo'th and `tf_hi'th percentiles..."
+        * Describe only the side(s) actually trimmed (SOL-12); see the visit block.
+        local __iivw_tdesc "at the `tf_lo'th and `tf_hi'th percentiles"
+        if `tf_lo' == 0   local __iivw_tdesc "at the `tf_hi'th percentile (upper tail only)"
+        if `tf_hi' == 100 local __iivw_tdesc "at the `tf_lo'th percentile (lower tail only)"
+        display as text "Trimming the FINAL weight `__iivw_tdesc'..."
 
         quietly {
             * See the visit-component block above: _pctile refuses 0 and 100,
@@ -1693,8 +1719,13 @@ program define iivw_weight, rclass sortpreserve
         }
 
         display as text "  Trimmed `n_truncated' observations (`n_lo' low, `n_hi' high)"
-        display as text "  cutpoints: " as result "`=string(`lo_val',"%9.0g")'" ///
-            as text " / " as result "`=string(`hi_val',"%9.0g")'"
+        local __iivw_tcut ""
+        if `lo_val' < . local __iivw_tcut "lower `=string(`lo_val',"%9.0g")'"
+        if `hi_val' < . {
+            if "`__iivw_tcut'" != "" local __iivw_tcut "`__iivw_tcut', "
+            local __iivw_tcut "`__iivw_tcut'upper `=string(`hi_val',"%9.0g")'"
+        }
+        display as text "  cutpoints: " as result "`__iivw_tcut'"
         if "`wtype'" == "fiptiw" {
             display as text "  note: this clips the PRODUCT, so it cannot say whether a trimmed row"
             display as text "  was extreme through its visit weight or its treatment weight. Use"
