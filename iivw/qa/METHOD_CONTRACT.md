@@ -302,9 +302,39 @@ Raised by the independent audit of the 2.0.1 snapshot. Each is a regression test
 
 | ID | Defect | Proved by (old-code behaviour measured 2026-07-21) | Status |
 |---|---|---|---|
-| **SOL-01** | The IIW component was normalized to mean 1 over a **pooled** vector mixing hard-coded baseline weights of 1 with fitted `exp(-xb)` weights, and `baseline(event)` additionally overwrote the first fitted event's weight with 1. Since a Cox model has no intercept, `z -> z+c` multiplies every fitted weight by a common factor while the 1s stay put — so the baseline-to-follow-up ratio moved and the **point estimate depended on the arbitrary origin of a visit covariate** | `test_iivw_invariance.do`, **2/9 on the pre-fix build**. On the V1 fixture the coefficient on `a` moved by **0.0041** under `z -> z+8`, mean baseline weights scaled by **1.121** and follow-up weights by **0.969**. V9 is the discrimination control (the fixture *is* sensitive to the visit model); V2 passes on both builds because a rescale leaves `xb` untouched | ✅ **FIXED** — normalization is taken over the **modelled events only**, entry rows are inserted at exactly 1 *afterwards*, and no fitted weight is overwritten |
+| **SOL-01** | The IIW component was normalized to mean 1 over a **pooled** vector mixing hard-coded baseline weights of 1 with fitted `exp(-xb)` weights, and `baseline(event)` additionally overwrote the first fitted event's weight with 1. Since a Cox model has no intercept, `z -> z+c` multiplies every fitted weight by a common factor while the 1s stay put — so the baseline-to-follow-up ratio moved and the **point estimate depended on the arbitrary origin of a visit covariate** | `test_iivw_invariance.do`, **3/10 on the pre-fix build**. On the V1 fixture the coefficient on `a` moved by **0.0041** under `z -> z+8`, mean baseline weights scaled by **1.121** and follow-up weights by **0.969**. V9 is the discrimination control (the fixture *is* sensitive to the visit model); V2 passes on both builds because a rescale leaves `xb` untouched | ✅ **FIXED** — normalization is taken over the **modelled events only**, entry rows are inserted at exactly 1 *afterwards*, and no fitted weight is overwritten |
 | **SOL-02** | The refit bootstrap resampled the **outcome sample**, then refitted the visit-intensity model on that truncated panel. Stata's `bootstrap` does not resample the prefix's `if` — it resamples the `e(sample)` the observed evaluation posts, and the helper posted `glm`'s. Visits with a missing outcome, a missing outcome covariate, or excluded by an outcome `if` were deleted before the weight model ran, so **every replicate bootstrapped a different estimator than the one reported** | `test_iivw_inference_contract.do` I18–I20. **I18/I19 fail numerically on the old code**: with 668 panel rows and 581 outcome rows the identity draw gave **0.63015547** against an observed **0.63280949**. Draw traces read `[567/567]`, `[546/546]`, `[576/576]` where the observed pass read `[668/581]`; after the fix they read `[660/567]`, `[628/546]`, `[659/576]`. **I20 is not old-code evidence** — it fails there at r(198) because `outcometouse()` does not exist on that build, so its discrimination leg (restricting the panel instead of the outcome equation must move the answer) is only exercised on the current tree | ✅ **FIXED** — the helper posts the **panel frame** as `e(sample)` (`marksample …, novarlist`), a separate `outcometouse()` marker restricts the outcome equation, and `_iivw_repost_outcome_n` restores the user-facing `e(N)`/`e(sample)` afterwards |
 | **SOL-03** | Neither bootstrap wrapper checked `e(converged)`. `glm` and `mixed` both return a numeric coefficient vector after printing "convergence not achieved", so `bootstrap` booked non-solutions as completed replicates and folded them into the reported variance | `test_iivw_inference_contract.do` I21–I22. An outcome model capped at `iterate(1)` returned **rc=0 with 3 completed / 0 failed** replicates; it is now **r(430)**. The uncapped control still completes 3/3, so the test discriminates convergence from a fixture that cannot fit | ✅ **FIXED** — both wrappers gate `e(converged)` (a *missing* value fails closed too), and `allownonconverged` does not admit a nonconverged **outcome** fit inside a draw |
+
+### `baseline()` is a substantive modelling choice, and the coverage gate had it wrong (2026-07-21)
+
+Recorded here because it is a **method** fact, not a test detail, and because the package's own gate authors got it wrong — which is evidence about how the option reads, not just about one fixture.
+
+`baseline()` decides what a subject's **first observed visit** is:
+
+- `baseline(entry)` (the **default**) — the first visit is a *scheduled study-entry / recruitment* visit. It is not an event of the monitoring process, it is not modelled, and it receives a hard-coded weight of **1**.
+- `baseline(event)` — the first visit is an *event of the monitoring process*, modelled like any other, and it keeps its fitted `exp(-xb)` weight.
+
+**These are not interchangeable, and the default is only right when a recruitment visit actually exists.** Choosing `entry` for a visit process that has no entry visit assigns a hard-coded 1 to a genuine, informative monitoring event, and that is not a small approximation:
+
+| `nsub` | slope bias under wrong mode | bias/SD | predicted 95% coverage |
+|---|---|---|---|
+| 250 | −0.0179 | 0.64 | 0.902 |
+| 500 | −0.0171 | 0.84 | 0.866 |
+| 1000 | −0.0161 | 1.14 | 0.793 |
+| 2000 | −0.0166 | 1.66 | 0.617 |
+
+The bias is **flat in n** while the sampling SD falls like `1/√n`, so it is an **asymptotic offset**: coverage degrades as the study grows. Under `baseline(event)` on the same DGP the slope bias is +0.002…+0.003 and predicted coverage is ~0.948 at both `nsub` — and the marginal **level** recovers to +0.0005 (against +0.128 under the wrong mode).
+
+Attribution, measured rather than argued (400 sims, `nsub=1000`): true weights `exp(-γZ)` on every row → bias −0.0006 (0.7 MCSE, unbiased); the same true weights with **only** the first visit forced to 1 → −0.0169 (22.0 MCSE), reproducing the package's −0.0173; keeping `<2`-visit singletons changes nothing (−0.0007). The convention is the entire effect.
+
+**Where this bit.** `benchmark_iivw_coverage.do` and the `iiw` family of `validation_iivw_inference.do` both called `iivw_weight` with **no** `baseline()`, taking the entry default, on `_cov_dgp`/`_inf_dgp_iiw` — a pure exponential-gap Poisson process with no entry visit. Both now pass `baseline(event)`. Corrected **before** the gate was ever run, so no preregistered constant was tuned to a seen result.
+
+**Where it did not.** The `fiptiw` family passes `baseline(entry)` **deliberately and correctly**: `_inf_dgp_fiptiw` appends a real `t=0` carrier row (`entry=1`, `y=.`). The `iptw` family is one row per subject. Only the `iiw` fixture was wrong. The blanket fix would have broken a correct arm.
+
+**Consequence for the SOL-01 story.** The old rationale in `benchmark_iivw_coverage.do` blamed the marginal-level offset on the SOL-01 baseline convention. That is falsified: on this DGP the pre-fix and post-fix weight vectors are **bit-identical** (`max reldif 0.000e+00` over 4471 rows), so SOL-01 cannot be moving anything here, yet the offset was still +0.128. SOL-01 and this are different defects that happened to involve the same word.
+
+---
 
 **What this did NOT touch.** SOL-04 through SOL-17 from the same audit are all still open — in particular the **999-replicate coverage study (SOL-04) has not been run**, so the default inference remains uncleared, and the stabilization guard (SOL-05), `iivw_diagnose` decomposition language (SOL-07), `iivw_exogtest` failure states (SOL-08) and the documentation/attribution items are unchanged. Fixing SOL-01–03 makes the default estimator invariant, the draws faithful, and the components fail-closed; it does not establish that the reported interval has nominal coverage.
 

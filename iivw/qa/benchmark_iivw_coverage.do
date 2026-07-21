@@ -29,12 +29,56 @@ set varabbrev off
 * marginal slope is biased. IIW with visit_cov(Z) reweights them back and recovers
 * the population slope E[s_i] = b1.
 *
-* The SLOPE is used, not the intercept, on purpose: the IIW marginal LEVEL carries
-* a documented asymptotic offset that does not vanish with n (the baseline-visit
-* convention leaves high-intensity subjects slightly more total weight), so it is
-* a biased target and would fail coverage for a reason that has nothing to do with
-* the variance method. The slope recovers tightly. Coverage is whether the 95% CI
-* for _b[months] contains b1. See validation_iivw_recovery_extended.do (S1 vs S2b).
+* The SLOPE is the target. Coverage is whether the 95% CI for _b[months] contains
+* b1. See validation_iivw_recovery_extended.do (S1 vs S2b).
+*
+* WHY THE OLD RATIONALE FOR THAT CHOICE WAS WRONG (re-derived 2026-07-21)
+* ----------------------------------------------------------------------
+* This block used to justify avoiding the intercept by asserting that "the IIW
+* marginal LEVEL carries a documented asymptotic offset that does not vanish
+* with n (the baseline-visit convention leaves high-intensity subjects slightly
+* more total weight)", and that by contrast "the slope recovers tightly". Both
+* halves were false, and the parenthetical named the SOL-01 defect as the cause.
+*
+* SOL-01 is not the cause. On this DGP the pre-fix and post-fix weight vectors
+* are bit-identical (max reldif 0.000e+00 over 4471 rows), so the fix cannot
+* move anything here, yet the level offset was still +0.128.
+*
+* The real cause was this driver, not the estimator: it called iivw_weight
+* WITHOUT baseline(), taking the entry default, on a DGP that has no entry
+* visit. _cov_dgp is a pure exponential-gap Poisson process -- the first visit
+* is the first EVENT of that process, informative like every other -- and the
+* entry convention handed it a hard-coded weight of 1.
+*
+* Measured consequences of that mistake, 400 sims per cell:
+*
+*   nsub    slope bias   bias/SD   predicted coverage
+*    250      -0.0179      0.64          0.902
+*    500      -0.0171      0.84          0.866
+*   1000      -0.0161      1.14          0.793
+*   2000      -0.0166      1.66          0.617
+*
+* The bias is FLAT in n while the SD falls like 1/sqrt(n), so coverage gets
+* worse the larger the study -- the signature of an asymptotic offset, not of
+* finite-sample noise. At the gate's own nsub=250 that is already below
+* COVERAGE_FLOOR=0.92, on target bias alone, before the variance method
+* contributes anything.
+*
+* Attribution (400 sims, nsub=1000): true weights exp(-gamma*Z) on every row
+* give bias -0.0006 (0.7 MCSE, unbiased); the same true weights with only the
+* first visit forced to 1 give -0.0169 (22.0 MCSE), reproducing the package's
+* -0.0173. Keeping the <2-visit singletons changes nothing (-0.0007). So the
+* first-visit convention was the entire effect.
+*
+* With baseline(event) the slope bias falls to +0.002..+0.003 and predicted
+* coverage is ~0.948 at both nsub=250 and 1000, stable in n.
+*
+* And the LEVEL is fine too: +0.0005 at nsub=250, +0.0008 at 1000, against
+* +0.128 under the wrong mode. The old rationale's conclusion was as wrong as
+* its premise -- the intercept was never the biased target it was said to be.
+* The slope is kept as the target because it is what the estimand section above
+* describes and what the recovery suites compare against, not because the level
+* cannot be estimated.
 *
 * WHY THE TWO VARIANCES DIFFER
 * ----------------------------
@@ -153,7 +197,10 @@ forvalues s = 1/`SIMS' {
         _cov_dgp, seed(`simseed') b1(`B1') a0(`A0') delta(`DELTA') ///
             gamma(`GAMMA') r0(`R0') tau(`TAU') nsub(`NSUB') maxslot(`MAXSLOT')
 
-        quietly iivw_weight, id(id) time(months) visit_cov(Z) censor(fu_end) nolog
+        * baseline(event): every visit here is an event of the Poisson process,
+        * so none of them is a recruitment visit. See the rationale block above.
+        quietly iivw_weight, id(id) time(months) visit_cov(Z) censor(fu_end) ///
+            baseline(event) nolog
 
         * refit bootstrap -- the method under test. Target: marginal slope b[months].
         quietly iivw_fit y, timespec(linear) ///

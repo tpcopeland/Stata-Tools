@@ -150,7 +150,30 @@ program define _inf_run_iiw, rclass
     return scalar nrow = r(N)
     quietly levelsof id, local(_ids)
     return scalar nsub = `: word count `_ids''
-    quietly iivw_weight, id(id) time(months) visit_cov(Z) censor(fu_end) nolog
+    * baseline(event), NOT the entry default. _inf_dgp_iiw generates a pure
+    * exponential-gap Poisson visit process: a subject's first visit is the
+    * first EVENT of that process, stochastic and informative exactly like
+    * every later visit. There is no recruitment visit here (contrast
+    * _inf_dgp_fiptiw, which appends a real t=0 entry row and correctly asks
+    * for baseline(entry) below).
+    *
+    * Taking the entry default assigned that genuine monitoring event a
+    * hard-coded weight of 1, which biases the marginal slope by roughly
+    * -0.015 -- an ASYMPTOTIC offset, measured flat across nsub 250->2000 while
+    * the sampling SD falls like 1/sqrt(n). Predicted coverage of a
+    * correctly-sized 95% CI therefore DEGRADES with sample size: 0.902 at
+    * n=250, 0.866 at 500, 0.793 at 1000, 0.617 at 2000. The gate would have
+    * failed COVERAGE_FLOOR=0.92 at its own n on target bias alone, and the
+    * failure would have been read as a verdict on the variance method.
+    *
+    * Attributed, not guessed (400 sims, nsub=1000): true weights on every row
+    * give bias -0.0006 (0.7 MCSE); true weights with only the first visit
+    * forced to 1 give -0.0169 (22.0 MCSE), reproducing the package result of
+    * -0.0173. The convention is the whole effect. With baseline(event) the
+    * residual slope bias is +0.002..+0.003 and predicted coverage is ~0.948,
+    * stable in n.
+    quietly iivw_weight, id(id) time(months) visit_cov(Z) censor(fu_end) ///
+        baseline(event) nolog
 
     local zc = invnormal(0.975)
     * refit bootstrap (candidate)
@@ -484,9 +507,19 @@ else if inlist("`MODE'", "iiw", "iptw", "fiptiw") {
         display as error "  for a quick plumbing check use MODE=smoke"
         exit 198
     }
-    if "`MODE'" == "iiw"  { local truth 0.5 }
-    if "`MODE'" == "iptw" { local truth 1.5 }
-    if "`MODE'" == "fiptiw" { local truth 1 }
+    * Braceless, deliberately. `if cond { local truth 0.5 }' on ONE line is not
+    * valid Stata: the opening brace must be the last token on its line. Stata
+    * does not error on the malformed form -- it silently leaves `truth' EMPTY,
+    * so _inf_engine below was called as truth() arm() and died at r(198),
+    * taking the brace structure with it and dropping execution into the
+    * MODE=release branch. That is why every gate cell exited in seconds with
+    * "MODE=release is a multi-day nested run" while MODE=smoke worked fine:
+    * smoke never reaches these lines, and the SIMS<COVERAGE_R guard above
+    * exits before them too, so ONLY a real gate run could hit it.
+    * Found 2026-07-21, the first time a gate cell was ever launched.
+    if "`MODE'" == "iiw"    local truth 0.5
+    if "`MODE'" == "iptw"   local truth 1.5
+    if "`MODE'" == "fiptiw" local truth 1
     if "`MODE'" == "iiw"    local arm 1
     if "`MODE'" == "iptw"   local arm 2
     if "`MODE'" == "fiptiw" local arm 3
