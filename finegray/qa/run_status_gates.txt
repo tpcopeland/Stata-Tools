@@ -103,3 +103,93 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 # transfer_reestablished: 2026-07-20  (gated a519a93 -> current working tree)
 # proof:                  qa/gates_transfer_proof.do  (re-runnable)
 # verdict:                COVERED-BY-EQUIVALENCE (re-verified, reproducibly)
+
+# ===========================================================================
+# 2026-07-21  POWER GATE -- validation_finegray_gof_power.do  (FIRST RUN)
+# ===========================================================================
+#
+# lane:        gates (run standalone, not via run_all.sh gates)
+# date:        2026-07-21
+# settings:    R=5000 replications, nsim=1000, 12 cells
+# runtime:     ~35 min (measured, against a "~16h" assumption that was never
+#              measured -- see FINDINGS.md §18.6)
+# verdict:     PASS  (RESULT: tests=13 pass=13 fail=0)
+#
+# WHAT THIS GATE DOES NOT CLAIM.  It does NOT reproduce Li/Scheike/Zhang (2015)
+# Tables 2 and 3.  The first run of this suite asserted the published cells and
+# failed ALL TWELVE, every one ABOVE the published value, z = +3.89 to +18.28.
+# That was investigated rather than tuned away, and the investigation is the
+# main result here.
+#
+# THE PUBLISHED CELLS ARE NOT REPRODUCIBLE FROM THE DGP AS PUBLISHED.
+# Running the same DGP through the authors' own crskdiag in BOTH builds
+# (n=100, 400 reps, nsim=500, minor_included=0):
+#
+#                                            15% cens   30% cens
+#   crskdiag ORIG  (defective Ghat_c)         0.6375     0.4800
+#   crskdiag FIXED (corrected Ghat_c)         0.6425     0.4800
+#   finegray       (R=5000, nsim=1000)        0.6158     0.4738
+#   crskdiag FIXED, exponential censoring     0.6300     0.4850
+#   paper, Table 2                            0.5560     0.3920
+#
+#   - the two crskdiag builds agree with EACH OTHER, so the censoring-KM
+#     defect does not cost power on this DGP;
+#   - finegray agrees with both (z = 1.07 and 0.24 against FIXED);
+#   - swapping uniform censoring for exponential changes nothing.
+#   Three independent implementations agree; all three disagree with the table.
+#
+# So the gap lies in the paper's DESCRIPTION of its own simulation, not in this
+# estimator.  Unresolved detail, most likely the cause-assignment convention:
+# with gamma=2 the model's own F1(inf|Z) is 0.33 and 0.14, nowhere near the
+# 0.66 the text says was "fixed for simplicity" (p.204).  Note the offset is
+# present in Table 2 as well, whose DGP IS fully specified, so the Table 3
+# cause-2 carry-over cannot be the whole story.
+#
+# A SIDE RESULT WORTH KEEPING: this closes the question left open by §12 and
+# §13.7 item 8.  Tables 1-4 were all produced under the defective Ghat_c, and
+# whether that distorted them was unresolved; §12 showed it did not distort
+# type I error, and the ORIG-vs-FIXED comparison above now shows it does not
+# move POWER either.  The obvious suspect is cleared.
+#
+# WHAT IS THEREFORE ASSERTED
+#   1. structural relations -- power rises with n, falls with censoring, and
+#      clears a 0.90 floor at n=300/15%.  All passed:
+#        dgp 1 cens 15: 0.3518 -> 0.6158 -> 0.9790
+#        dgp 1 cens 30: 0.2724 -> 0.4738 -> 0.9088
+#        dgp 2 cens 15: 0.3776 -> 0.6454 -> 0.9852
+#        dgp 2 cens 30: 0.2668 -> 0.4660 -> 0.9054
+#   2. a per-cell bracket -- at or above the published value, by no more than
+#      0.15, widened by 3 Monte Carlo SE so the claim is stated at whatever R
+#      is running rather than being an assertion about the replication count.
+#   3. each cell's z against the published value is REPORTED, not asserted.
+#
+# Asserting the published cells outright would be a gate that fails on correct
+# code -- the same error FINDINGS.md §13.3 records for beta-parity against
+# cmprsk::crr, where the reference was itself the less accurate side.
+#
+# observed cells (identical across two runs at the same seeds, i.e. determinism
+# of the harness is itself confirmed):
+#
+#   dgp n    cens  power   paper   z       gap
+#   1   50   0.15  0.3518  0.3260  +3.89   +0.0258
+#   1   100  0.15  0.6158  0.5560  +8.51   +0.0598
+#   1   300  0.15  0.9790  0.9590  +7.13   +0.0200
+#   1   50   0.30  0.2724  0.2100  +10.83  +0.0624
+#   1   100  0.30  0.4738  0.3920  +11.85  +0.0818
+#   1   300  0.30  0.9088  0.8420  +12.95  +0.0668
+#   2   50   0.15  0.3776  0.3510  +3.94   +0.0266
+#   2   100  0.15  0.6454  0.5770  +9.79   +0.0684
+#   2   300  0.15  0.9852  0.9715  +5.82   +0.0137
+#   2   50   0.30  0.2668  0.2045  +10.92  +0.0623
+#   2   100  0.30  0.4660  0.3760  +13.14  +0.0900
+#   2   300  0.30  0.9054  0.8025  +18.28  +0.1029
+#
+# A CAUTION THAT TRANSFERS TO THE CALIBRATION GATE.  This harness was recorded
+# as "proven at R=60" before its first full run.  It was not: at R=40-60 the
+# cell SE is ~0.06 and the widened reduced-run band absorbed a systematic
+# offset that was present in EVERY cell.  A reduced run that PASSES is weak
+# evidence.  validation_finegray_gof_calibration.do carries the identical
+# "harness proven at R=60" claim and has never been checked against a full run.
+#
+# verdict:     PASS (structural relations + bracket); published cells REPORTED,
+#              not reproduced, with the reason established above.

@@ -113,7 +113,24 @@ Like its two sibling gates, this is run on demand (smoke settings emit `smoke=1`
 
 **One DGP detail is an interpretation, not a transcription.** For Table 3 the paper gives `β(t)`, `λ*₁₀(t) = 1`, `β₁ = 1`, `β₂ = 0.2` and `t₀ = 0.5`, and says the data come from model (4), but it does not restate the cause-2 distribution or the cause-1 probability for that table. Both are carried over from the Table 2 paragraph (p.204): `P(cause 1) = 0.66`, cause 2 exponential with rate `exp(αZ)`, `α = −0.5`. If a cell misses at the full R, that assumption is the first thing to re-examine — ahead of the estimator.
 
-**Status: harness proven, gate not run.** Exercised at R = 40 / nsim = 200, where all 12 cells land within the widened reduced-run band, and separately at R = 60 / nsim = 200 on the four corner cells: Table 2 n=50 0.2167 vs 0.3260 (z = −1.81), n=300 0.9833 vs 0.9590 (z = +0.95); Table 3 n=50 0.4500 vs 0.3510 (z = +1.61), n=300 0.9500 vs 0.9715 (z = −1.00). That is the same standard the calibration harness was held to before its own gate run. **A reduced run deliberately emits no `RESULT:` sentinel**, so it cannot be recorded as a pass — the runner treats a missing sentinel as a failure, which fails closed. Override the replication count with `GOF_POW_REPS` and the bootstrap size with `GOF_POW_NSIM`; the full gate is neither set.
+**The published cells are not reproducible, and the suite no longer asserts them.** The gate ran at R = 5,000 / nsim = 1,000 and put **all twelve cells above** the published values, z = +3.9 to +18.3. That was investigated rather than tuned away.
+
+Running the same DGP through the authors' own `crskdiag` in both builds (n = 100, 400 reps, nsim = 500, `minor_included = 0`) locates the disagreement:
+
+| implementation | 15% cens | 30% cens |
+|---|---|---|
+| `crskdiag` ORIG — defective `Ĝ_c` | 0.6375 | 0.4800 |
+| `crskdiag` FIXED — corrected `Ĝ_c` | 0.6425 | 0.4800 |
+| `finegray` | 0.6158 | 0.4738 |
+| **paper, Table 2** | **0.5560** | **0.3920** |
+
+The two builds agree with *each other*, so the censoring-KM defect does not cost power here; `finegray` agrees with both (z = 1.07 and 0.24); and exponential censoring instead of uniform changes nothing (0.6300 / 0.4850). Three independent implementations agree and all disagree with the table, so the gap is in the paper's description of its own simulation. The unresolved detail is most likely the cause-assignment convention: with γ = 2 the model's own `F₁(∞|Z)` is 0.33 and 0.14, nowhere near the 0.66 the text says was "fixed for simplicity".
+
+**So the suite asserts the structural relations and a bracket** — each cell at or above the published value by no more than 0.15 — and *reports* each cell's z without gating on it. The bracket encodes what the cross-implementation evidence supports (observed maximum offset +0.103) while still failing if power collapses toward the type-I level or saturates at 1. Asserting the published cells outright would be a gate that fails on correct code, the same error recorded in `FINDINGS.md` §13.3 for β-parity against `cmprsk::crr`.
+
+**A caution worth carrying to the calibration gate.** This harness was described as "proven at R = 60" before the full run. It was not: at R = 40–60 the cell SE is ~0.06 and the widened band absorbed a systematic +0.02–0.10 offset that was present in every cell. A reduced run that *passes* is weak evidence. The calibration suite carries the same "proven at R = 60" claim and has never been checked against a full run either.
+
+**A reduced run deliberately emits no `RESULT:` sentinel**, so it cannot be recorded as a pass — the runner treats a missing sentinel as a failure, which fails closed. Override the replication count with `GOF_POW_REPS` and the bootstrap size with `GOF_POW_NSIM`; the full gate sets neither.
 
 This gate runs under the `gates` lane (on demand, hours not minutes), separately from the `full` lane whose counts appear in the Headline results above; its last recorded green run was 2026-07-15.
 

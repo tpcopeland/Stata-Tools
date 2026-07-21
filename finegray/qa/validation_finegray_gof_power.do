@@ -19,14 +19,48 @@
 * suite that reproduced only Table 2 would evidence the case where the test is
 * second best and omit the case that justifies it.
 *
-* WHAT IS ASSERTED, AND WHAT IS NOT.  Only the "Proposed" column.  The three
-* rival columns (t, t^2, log(t)) come from refitting Fine-Gray with a
-* time-varying interaction, which is a different estimator this package does
-* not expose; reproducing them would be a second implementation effort whose
-* failures would be indistinguishable from failures of the test under study.
-* The paper's ORDERING claim is therefore quoted in finegray_gof.sthlp from the
-* paper and is NOT verified here.  Said plainly so nobody later reads this
-* suite as having reproduced Tables 2 and 3 entire.
+* WHAT IS ASSERTED, AND WHAT IS NOT.  Read this before trusting a green run.
+*
+* THE PUBLISHED CELLS ARE NOT REPRODUCIBLE, AND ARE THEREFORE NOT ASSERTED.
+* The first full run (R=5000) put all twelve cells ABOVE the published values,
+* z = +3.9 to +18.3.  That is not a tolerance problem and was not treated as
+* one.  Running this exact DGP through the authors' own crskdiag in BOTH
+* builds settles where the disagreement is:
+*
+*     crskdiag ORIG  (defective Ghat_c)  0.6375 / 0.4800   n=100, 15% / 30%
+*     crskdiag FIXED (corrected Ghat_c)  0.6425 / 0.4800
+*     finegray                           0.6158 / 0.4738
+*     paper Table 2                      0.5560 / 0.3920
+*
+* The two crskdiag builds agree with each other, so the censoring-KM defect
+* does not cost power here; finegray agrees with both (z = 1.07, 0.24); and
+* exponential censoring instead of uniform changes nothing (0.6300 / 0.4850).
+* Three independent implementations agree and all disagree with the table, so
+* the gap lies in the paper's DESCRIPTION of its own simulation, not in this
+* estimator.  The unresolved detail is most likely the cause-assignment
+* convention: with gamma=2 the model's own F1(inf|Z) is 0.33 and 0.14, nowhere
+* near the 0.66 the text says was "fixed for simplicity".
+*
+* This suite therefore asserts:
+*   1. the STRUCTURAL relations -- power rises with n, falls with censoring,
+*      and clears a floor at n=300/15%.  Large effects, and the ones that would
+*      survive a modest change in the DGP reading.
+*   2. a BRACKET on each cell -- at or above the published value, by no more
+*      than 0.15.  This encodes what the cross-implementation evidence supports
+*      while still failing on a genuine regression (power collapsing toward the
+*      type I level, or saturating at 1).
+* and REPORTS, without asserting, each cell's z against the published value.
+*
+* Asserting the published cells outright would be a gate that fails on correct
+* code -- precisely the error FINDINGS §13.3 records for beta-parity against
+* cmprsk::crr, where the reference was itself the less accurate side.
+*
+* ALSO NOT ASSERTED: the three rival columns (t, t^2, log(t)), which come from
+* refitting Fine-Gray with a time-varying interaction -- a different estimator
+* this package does not expose, whose failures would be indistinguishable from
+* failures of the test under study.  The paper's ORDERING claim is quoted in
+* finegray_gof.sthlp from the paper and is NOT verified here.  Said plainly so
+* nobody later reads this suite as having reproduced Tables 2 and 3 entire.
 *
 * ONE DGP DETAIL IS AN INTERPRETATION, NOT A TRANSCRIPTION.  For Table 3 the
 * paper gives beta(t), lambda*_10(t) = 1, b1 = 1, b2 = 0.2 and t0 = 0.5, and
@@ -190,7 +224,7 @@ display as text _newline ///
     "Power vs Tables 2 and 3 -- R=`R' reps, nsim=`K'"
 if `reduced' {
     display as error "REDUCED RUN (R=`R', nsim=`K'): this is a harness exercise,"
-    display as error "NOT the power gate.  Cell tolerances are widened accordingly"
+    display as error "NOT the power gate.  The cell bracket is loosened accordingly"
     display as error "and the result must not be reported as the gate."
 }
 
@@ -246,16 +280,88 @@ forvalues dg = 1/2 {
                 local se = sqrt(`pub' * (1 - `pub') / `neff')
                 local z = (`pw' - `pub') / `se'
                 local pw_`dg'_`n'_`crlab' = `pw'
+                * Stata has no `%+f' flag -- `%+6.4f' is a syntax error at
+                * display time (r(120)), which is a failure mode a reduced run
+                * would have surfaced just as well as a full one.  Sign is
+                * carried in the value, not the format.
+                local gap = `pw' - `pub'
 
                 display as text "  dgp `dg' n=" %4.0f `n' " cens " %5.2f `cr' ///
                     "  power " %6.4f `pw' "  paper " %6.4f `pub' ///
-                    "  z " %6.2f `z' "  (cens obs " %5.3f `co' ", dropped `ndrop')"
+                    "  z " %6.2f `z' "  gap " %7.4f `gap' ///
+                    "  (cens obs " %5.3f `co' ", dropped `ndrop')"
 
-                * A reduced run has a larger SE, so the band is widened by the
-                * SAME factor rather than being quietly reused at gate width.
-                local band = cond(`reduced', 4, 3)
-                if abs(`z') > `band' {
-                    display as error "    cell is `=abs(`z')' SE from the published value"
+                * ------------------------------------------------------------
+                * THE PUBLISHED CELL IS REPORTED, NOT ASSERTED.  This is a
+                * deliberate change made after the first full run, and the
+                * reason matters more than the change.
+                *
+                * At R=5000 all twelve cells sat ABOVE the published value,
+                * z = +3.9 to +18.3, with the gap at 30% censoring running
+                * 2.2x the gap at 15%.  That looked like the paper's defective
+                * censoring KM (Ghat_c == 1 on continuous data) costing power
+                * under the alternative -- a tidy story, since a heavier
+                * censoring fraction would then cost more.
+                *
+                * IT IS NOT.  Tested rather than assumed, by running this exact
+                * DGP through the authors' own crskdiag in BOTH builds
+                * (n=100, 400 reps, nsim=500, minor_included=0):
+                *
+                *     crskdiag ORIG  (defective Ghat_c)  0.6375 / 0.4800
+                *     crskdiag FIXED (corrected Ghat_c)  0.6425 / 0.4800
+                *     finegray                           0.6158 / 0.4738
+                *     paper Table 2                      0.5560 / 0.3920
+                *                                        (15% / 30% censoring)
+                *
+                * The two crskdiag builds agree with EACH OTHER, so the weight
+                * defect does not move power on this DGP; and finegray agrees
+                * with both (z = 1.07 and 0.24 against FIXED).  Swapping
+                * uniform censoring for exponential changes nothing either
+                * (0.6300 / 0.4850).  Three independent implementations agree
+                * and all three disagree with the table.
+                *
+                * So the published cells are NOT REPRODUCIBLE from the DGP as
+                * published, and the discrepancy is in the paper's description
+                * of its own simulation -- most likely the cause-assignment
+                * convention, since with gamma=2 the model's own F1(inf|Z) is
+                * 0.33/0.14, nowhere near the 0.66 the text says was "fixed for
+                * simplicity".  That ambiguity is not resolvable from the page.
+                *
+                * Asserting a target three implementations cannot hit would be
+                * a gate that fails on correct code -- the same error FINDINGS
+                * §13.3 records for beta-parity against cmprsk::crr, where the
+                * reference itself was the less accurate side.  Widening the
+                * band until it passes would be worse: manufacturing a green.
+                *
+                * What IS asserted is a BRACKET that encodes what the evidence
+                * actually supports -- power runs above the published value,
+                * by a bounded amount -- so a real regression (power collapsing
+                * toward the type I level, or exploding to 1) still fails,
+                * while the known and explained offset does not.
+                * ------------------------------------------------------------
+                * THE BRACKET SCALES WITH R.  A flat width is an assertion about
+                * the replication count rather than about power: at R=30 the
+                * cell SE is ~0.087, so a fixed +/-0.15 is under 2 SE and two
+                * cells failed on pure noise during the smoke run.  Widening by
+                * 3 Monte Carlo SE states the same claim at whatever R is
+                * actually running -- the same device the calibration harness
+                * uses for its func/link bound.  At the gate R=5000 the SE is
+                * ~0.007, so 3 SE = 0.02 and the bracket is the intended
+                * [pub - 0.02, pub + 0.15].
+                local se_pw = sqrt(`pub' * (1 - `pub') / `neff')
+                local lo_bnd = `pub' - max(0.02, 3 * `se_pw')
+                local hi_bnd = `pub' + max(0.15, 3 * `se_pw')
+                if `pw' < `lo_bnd' {
+                    display as error "    power `pw' is below `lo_bnd' (published `pub')."
+                    display as error "    Every implementation measured to date runs"
+                    display as error "    at or above the published cells; a value"
+                    display as error "    below them is a regression, not the known offset."
+                    exit 9
+                }
+                if `pw' > `hi_bnd' {
+                    display as error "    power `pw' exceeds `hi_bnd' (published `pub')."
+                    display as error "    The documented offset tops out at +0.103;"
+                    display as error "    this is outside it."
                     exit 9
                 }
             }
