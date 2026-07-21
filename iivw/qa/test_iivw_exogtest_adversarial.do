@@ -330,7 +330,7 @@ if `run_only' == 0 | `run_only' == 8 {
         assert r(n_skipped) == 0
         assert r(N) == 560
         assert r(n_ids) == 140
-        assert r(endogenous_flag) == 1
+        assert r(history_association_flag) == 1
         assert r(joint_min_p) < 0.05
         assert "`r(by)'" == "arm"
         assert r(n_groups) == 2

@@ -147,6 +147,8 @@ else {
         test_iivw_v200_phase3b ///
         test_iivw_v200_coverage ///
         test_iivw_v200_qagate ///
+        test_iivw_failclosed ///
+        test_help_examples ///
         test_iivw_final_adversarial ///
         test_iivw_release_adversarial
 }

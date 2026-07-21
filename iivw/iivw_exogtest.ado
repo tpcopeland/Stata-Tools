@@ -498,11 +498,15 @@ program define iivw_exogtest, rclass sortpreserve
     local row = 0
     local n_models = 0
     local n_skipped = 0
+    * n_unknown counts groups whose test exists but could not be trusted: the
+    * Cox fit returned rc 0 without converging, or the omnibus test could not be
+    * computed. Pre-fix these fell through to the reassuring branch (SOL-08).
+    local n_unknown = 0
     local total_N = 0
     local total_ids = 0
     local min_p = .
     local joint_min_p = .
-    local endogenous_flag = 0
+    local history_association_flag = 0
     local row_labels ""
     local __iivw_fitted_groups ""
 
@@ -582,6 +586,29 @@ program define iivw_exogtest, rclass sortpreserve
             continue
         }
 
+        * A converged fit is a precondition for reading anything off this model.
+        * stcox returns rc 0 when it stops at the iteration ceiling, so the rc
+        * check above does not cover it: pre-fix, a nonconverged group was
+        * counted in n_models and its p-value entered the Holm family (SOL-08).
+        * The helper prints the standard nonconvergence text; the group is then
+        * recorded unknown rather than aborting the whole diagnostic, because
+        * other groups may still be estimable.
+        if e(converged) == 0 {
+            _iivw_require_converged, model("exogeneity Cox (`glabel')") ///
+                allownonconverged
+            local ++n_unknown
+            local __iivw_unklab_`n_unknown' `"`glabel'"'
+            * n_models counts models FITTED, so this one counts -- it was fitted,
+            * it just cannot be read. It is deliberately NOT appended to
+            * __iivw_fitted_groups: that list drives the Holm family, and its
+            * loop dereferences __iivw_jointp_<g>, which does not exist here.
+            local ++n_models
+            display as text "note: group status is UNKNOWN -- the model did not converge, so"
+            display as text "      its p-value is not evidence either way and does not enter"
+            display as text "      the flag."
+            continue
+        }
+
         local ++n_models
         local __iivw_fitted_groups "`__iivw_fitted_groups' `group_index'"
         local total_N = `total_N' + `gN'
@@ -600,7 +627,20 @@ program define iivw_exogtest, rclass sortpreserve
             if `joint_p' < `joint_min_p' local joint_min_p = `joint_p'
         }
         local __iivw_jointp_`group_index' = `joint_p'
-        local group_sig = (`joint_p' < `alpha')
+        * Three-valued, not two. `(joint_p < alpha)' is 0 for a MISSING joint p
+        * in Stata, so a group whose omnibus test could not be computed printed
+        * "no evidence ... predict visit timing" -- the most reassuring sentence
+        * the command has -- on the strength of a test that never ran (SOL-08).
+        local group_status "no_association"
+        if `joint_p' >= . {
+            local group_status "unknown"
+            local ++n_unknown
+            local __iivw_unklab_`n_unknown' `"`glabel'"'
+        }
+        else if `joint_p' < `alpha' {
+            local group_status "association"
+        }
+        local group_sig = ("`group_status'" == "association")
 
         display as text _col(4) "`__iivw_smcl_lb'ralign 22:Predictor`__iivw_smcl_rb'" ///
             _col(30) "`__iivw_smcl_lb'ralign 9:HR`__iivw_smcl_rb'" ///
@@ -686,18 +726,62 @@ program define iivw_exogtest, rclass sortpreserve
             display as text "Joint test p-value: " as result "."
         }
 
-        if `group_sig' {
-            display as text "Interpretation: lagged predictors are associated with visit timing."
+        if "`group_status'" == "association" {
+            display as text "Interpretation: recorded outcome history predicts modeled visit timing."
             display as text "  Interpret cumulative-test adjustment as potentially endogenous."
         }
-        else {
-            display as text "Interpretation: no evidence in this diagnostic that prior outcomes"
-            display as text "  predict visit timing in this model."
+        else if "`group_status'" == "unknown" {
+            display as text "Interpretation: UNKNOWN. The joint test could not be computed for"
+            display as text "  this group, so this diagnostic says nothing about it either way."
+            display as text "  It is excluded from the flag rather than counted as reassurance."
         }
+        else {
+            display as text "Interpretation: no association detected by this test, which did"
+            display as text "  converge and was computable. Absence of evidence at alpha ="
+            display as text "  " as result %5.3f `alpha' as text " is not evidence that visit timing is exogenous."
+        }
+    }
+
+    * __iivw_tested / __iivw_m are the groups that produced a usable omnibus
+    * p-value -- the Holm family. Computed here, before the matrix trim below,
+    * because a run where every group is unknown writes NO result rows: `row'
+    * is 0, and [1..0, 1..11] is a bare conformability error (r 503) that hides
+    * the actual diagnosis.
+    local __iivw_tested ""
+    foreach __g of local __iivw_fitted_groups {
+        if `__iivw_jointp_`__g'' < . local __iivw_tested "`__iivw_tested' `__g'"
+    }
+    local __iivw_m : word count `__iivw_tested'
+
+    if `n_models' > 0 & `__iivw_m' == 0 {
+        display as error "no interpretable exogeneity test"
+        display as error ""
+        display as error "  `n_models' model(s) were fitted, but none produced a usable omnibus"
+        display as error "  p-value: `n_unknown' group(s) did not converge or had an omnibus test"
+        display as error "  that could not be computed, and `n_skipped' could not be fitted."
+        display as error ""
+        display as text  "  This is not a null result and it is not reported as one. Check for"
+        display as text  "  collinear lag terms, groups with too few events per parameter, or an"
+        display as text  "  adjust() specification the data cannot support."
+        error 2000
     }
 
     if `n_models' == 0 {
         display as error "no estimable exogeneity models"
+        display as error ""
+        if `n_unknown' > 0 {
+            display as error "  `n_unknown' group(s) produced a fit that could not be interpreted:"
+            display as error "  the Cox model did not converge, or its omnibus test could not be"
+            display as error "  computed. That is not a null result. Reporting a flag of 0 here"
+            display as error "  would present a test that never validly ran as reassurance."
+            display as error ""
+        }
+        if `n_skipped' > 0 {
+            display as error "  `n_skipped' group(s) could not be fitted at all."
+            display as error ""
+        }
+        display as text  "  Check for collinear lag terms, groups with too few events per"
+        display as text  "  parameter, or an adjust() specification the data cannot support."
         error 2000
     }
 
@@ -722,12 +806,6 @@ program define iivw_exogtest, rclass sortpreserve
     * Ranks are computed by counting, not by sorting: `: list sort' orders
     * STRINGS, and a p-value of 6.7e-11 sorts after 0.04 lexically. Silent, and
     * it would corrupt every adjusted p-value in the table.
-    local __iivw_tested ""
-    foreach __g of local __iivw_fitted_groups {
-        if `__iivw_jointp_`__g'' < . local __iivw_tested "`__iivw_tested' `__g'"
-    }
-    local __iivw_m : word count `__iivw_tested'
-
     local holm_min_p = .
     if `__iivw_m' > 0 {
         * Step 1: rank ascending (ties share the lower rank), then the raw Holm
@@ -762,20 +840,33 @@ program define iivw_exogtest, rclass sortpreserve
 
     * The flag. One family, adjusted. Individual term p-values are exploratory
     * and deliberately do not enter it.
-    local endogenous_flag = 0
-    if `holm_min_p' < . & `holm_min_p' < `alpha' local endogenous_flag = 1
+    * Renamed from endogenous_flag (SOL-08). The test regresses modeled visit
+    * timing on recorded outcome history; a rejection is an ASSOCIATION, and
+    * endogeneity of the monitoring process is an interpretation of it, not a
+    * thing this Cox model measures.
+    local history_association_flag = 0
+    if `holm_min_p' < . & `holm_min_p' < `alpha' local history_association_flag = 1
 
-    if `endogenous_flag' {
-        local conclusion "evidence that lagged predictors are associated with visit timing"
+    if `history_association_flag' {
+        local conclusion "evidence that recorded outcome history predicts modeled visit timing"
+    }
+    else if `n_unknown' > 0 | `n_skipped' > 0 {
+        * A zero flag built partly on groups that were never validly tested is
+        * not "no evidence" -- it is "no evidence where the test ran". Saying so
+        * is the whole point of the three-valued status.
+        local conclusion "no association where the test was valid; `n_unknown' group(s) unknown and `n_skipped' skipped"
     }
     else {
-        local conclusion "no evidence in this diagnostic that prior outcomes predict visit timing"
+        local conclusion "no association detected by this diagnostic in any group tested"
     }
 
     display as text ""
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text "Models fitted:     " as result `n_models'
-    display as text "Groups skipped:    " as result `n_skipped'
+    display as text "Groups skipped:    " as result `n_skipped' ///
+        as text "  (model could not be fitted at all)"
+    display as text "Groups unknown:    " as result `n_unknown' ///
+        as text "  (fitted but nonconverged, or omnibus test not computable)"
     display as text "Minimum joint p:   " as result %8.4f `joint_min_p' ///
         as text "  (raw, within-group omnibus)"
     display as text "Minimum Holm p:    " as result %8.4f `holm_min_p' ///
@@ -843,7 +934,7 @@ program define iivw_exogtest, rclass sortpreserve
             local __iivw_mp = strtrim("`__iivw_mp'")
             local __iivw_jmp = strtrim("`__iivw_jmp'")
             local __iivw_clean_foot ///
-                "Andersen-Gill Cox models, cluster-robust SEs on `id'. Minimum term p = `__iivw_mp'; minimum joint p = `__iivw_jmp'; endogeneity flag = `endogenous_flag'. `conclusion'. Small p-values indicate outcome-dependent visit timing, so cumulative test-count adjustment may be endogenous."
+                "Andersen-Gill Cox models, cluster-robust SEs on `id'. Minimum term p = `__iivw_mp'; minimum joint p = `__iivw_jmp'; history-association flag = `history_association_flag'; groups unknown = `n_unknown'; groups skipped = `n_skipped'. `conclusion'. A small p-value means recorded outcome history predicts modeled visit timing, so cumulative test-count adjustment may be endogenous. A large p-value is not evidence of exogeneity, and an unknown or skipped group is not evidence of anything."
         }
 
         frame post `__iivw_exog_frame' ///
@@ -1047,16 +1138,18 @@ program define iivw_exogtest, rclass sortpreserve
         return scalar n_ids = `total_ids'
         return scalar n_models = `n_models'
         return scalar n_skipped = `n_skipped'
+        return scalar n_unknown = `n_unknown'
         * min_p is the smallest INDIVIDUAL term p-value: exploratory, unadjusted,
         * and no longer part of the flag. joint_min_p is the smallest raw
         * within-group omnibus p. holm_min_p is that family Holm-adjusted across
-        * groups, and it -- alone -- decides endogenous_flag.
+        * groups, and it -- alone -- decides history_association_flag. Groups
+        * counted in n_unknown or n_skipped contribute no p-value to that family.
         return scalar min_p = `min_p'
         return scalar joint_min_p = `joint_min_p'
         return scalar holm_min_p = `holm_min_p'
         return scalar n_tests = `__iivw_m'
         return scalar alpha = `alpha'
-        return scalar endogenous_flag = `endogenous_flag'
+        return scalar history_association_flag = `history_association_flag'
         return local id "`id'"
         return local time "`time'"
         return local testvars "`varlist'"
@@ -1075,6 +1168,9 @@ program define iivw_exogtest, rclass sortpreserve
         }
         forvalues __iivw_si = 1/`n_skipped' {
             return local skipped_label_`__iivw_si' `"`__iivw_skiplab_`__iivw_si''"'
+        }
+        forvalues __iivw_ui = 1/`n_unknown' {
+            return local unknown_label_`__iivw_ui' `"`__iivw_unklab_`__iivw_ui''"'
         }
         forvalues __iivw_ti = 1/`__iivw_n_terms' {
             return local term_label_`__iivw_ti' `"`__iivw_term_label_`__iivw_ti''"'

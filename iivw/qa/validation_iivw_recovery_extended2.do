@@ -496,7 +496,7 @@ _rc_result `rc' "N8 cluster() point-invariant, recovers (b=" + string(n8_bdef,"%
 **# N9: iivw_exogtest -- endogenous DGP flags, endatlastvisit exogenous does not
 * Known-answer power/size for the visit-process exogeneity test. In the ENDOGENOUS
 * DGP the next-visit gap depends on the lagged outcome (rate rises with past y), so
-* the test must flag endogeneity (r(endogenous_flag)==1). In the EXOGENOUS control
+* the test must flag endogeneity (r(history_association_flag)==1). In the EXOGENOUS control
 * the gap is independent of y and the test must NOT flag (flag==0).
 scalar n9_ok = 0
 local ++test_count
@@ -521,7 +521,7 @@ capture noisily {
     bysort id: gen int nv = _N
     drop if nv < 2
     iivw_exogtest y, endatlastvisit id(id) time(months) nolog
-    scalar n9_endo_flag = r(endogenous_flag)
+    scalar n9_endo_flag = r(history_association_flag)
     scalar n9_endo_p = r(min_p)
 
     * -- exogenous: gap independent of y
@@ -541,7 +541,7 @@ capture noisily {
     bysort id: gen int nv = _N
     drop if nv < 2
     iivw_exogtest y, endatlastvisit id(id) time(months) nolog
-    scalar n9_exo_flag = r(endogenous_flag)
+    scalar n9_exo_flag = r(history_association_flag)
     scalar n9_exo_p = r(min_p)
     scalar n9_ok = 1
 }
@@ -592,9 +592,22 @@ capture noisily {
     drop if nv < 2
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    * censor(cens), not endatlastvisit. This DGP censors administratively at
+    * t = 10 (`keep if vtime <= 10'), so every subject IS observed to 10 and
+    * that is the honest end-of-follow-up specification.
+    *
+    * Under endatlastvisit the refit builds no terminal at-risk interval, the
+    * person-time target collapses toward the observed visits, and |target SMD|
+    * comes out small almost regardless of the weights -- so the assertion
+    * below on n10_inf_tsmd was a check that could not fail (SOL-11). From the
+    * SOL-11 fix that state returns target_status "not_identified" and no
+    * verdict, which is what made this arm fail. Supplying the real censoring
+    * time makes the target identified and the assertion meaningful.
+    gen double cens = 10
+    iivw_weight, censor(cens) baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_balance Z, nolog
     matrix Binf = r(balance)
+    scalar n10_inf_target = ("`r(target_status)'" == "identified")
     scalar n10_inf_unw = Binf[1,1]
     scalar n10_inf_wt = Binf[1,2]
     scalar n10_inf_smd = r(balance_max_shift)
@@ -621,9 +634,11 @@ capture noisily {
     drop if nv < 2
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    gen double cens = 10
+    iivw_weight, censor(cens) baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_balance Z, nolog
     scalar n10_ni_smd = r(balance_max_shift)
+    scalar n10_ni_target = ("`r(target_status)'" == "identified")
     scalar n10_ok = 1
 }
 local rc = _rc
@@ -648,6 +663,10 @@ capture noisily {
     *
     * Movement is now descriptive. The verdict comes from the gap to the at-risk
     * person-time target, which correct weights close.
+    * The target must actually be identified, or the two assertions below are
+    * vacuous rather than passing.
+    assert n10_inf_target == 1
+    assert n10_ni_target == 1
     assert abs(n10_inf_tsmd) < 0.10
     assert n10_inf_flag_good == 1
 }

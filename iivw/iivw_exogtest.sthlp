@@ -376,7 +376,8 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
 {synopt:{cmd:r(n_tests)}}number of omnibus tests in the Holm family{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
-{synopt:{cmd:r(endogenous_flag)}}1 if {cmd:r(holm_min_p)} is below alpha; otherwise 0{p_end}
+{synopt:{cmd:r(n_unknown)}}groups fitted but not interpretable{p_end}
+{synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
@@ -388,6 +389,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(by)}}by variable, if specified{p_end}
 {synopt:{cmd:r(group_label_}{it:#}{cmd:)}}label of group {it:#}, for {it:#} = 1 to {cmd:r(n_groups)}{p_end}
 {synopt:{cmd:r(skipped_label_}{it:#}{cmd:)}}label of skipped group {it:#}, for {it:#} = 1 to {cmd:r(n_skipped)}{p_end}
+{synopt:{cmd:r(unknown_label_}{it:#}{cmd:)}}label of unknown group {it:#}, for {it:#} = 1 to {cmd:r(n_unknown)}{p_end}
 {synopt:{cmd:r(term_label_}{it:#}{cmd:)}}label of lagged term {it:#}, for {it:#} = 1 to {cmd:r(n_terms)}{p_end}
 {synopt:{cmd:r(result_row_labels)}}row labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(result_columns)}}column labels for {cmd:r(results)}{p_end}
@@ -424,13 +426,24 @@ contribute usable intervals to two groups and is counted once per group, so
 
 
 {marker multiplicity}{...}
-{title:Multiplicity and the endogeneity flag}
+{title:Multiplicity and the history-association flag}
 
 {pstd}
-{cmd:r(endogenous_flag)} is driven by {bf:one} family of tests: the within-group
+{cmd:r(history_association_flag)} is driven by {bf:one} family of tests: the within-group
 omnibus (joint) test of all lagged predictors, one per fitted group,
 {bf:Holm-adjusted across groups}. The flag is 1 when the smallest adjusted
 omnibus p-value falls below alpha.
+
+{pstd}
+A flag of {bf:0} means no association was detected among the groups that
+produced a {it:valid} test. It is not evidence of exogeneity, and it says
+nothing at all about groups counted in {cmd:r(n_unknown)} or
+{cmd:r(n_skipped)}.
+{cmd:r(n_unknown)} counts groups whose model was fitted but cannot be
+interpreted -- the Cox model stopped without converging, or its omnibus test
+could not be computed. Those groups contribute no p-value to the Holm family.
+When every group is unknown or skipped there is no valid test at all, and the
+command exits with an error rather than reporting a flag of 0.
 
 {pstd}
 The individual term p-values in the table are {bf:exploratory}. They are reported

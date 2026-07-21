@@ -159,7 +159,14 @@ capture noisily {
     assert r(ess_ratio) > 0
     assert r(ess_ratio) <= 1
     assert inlist("`r(leverage)'", "low", "moderate", "adequate")
-    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
+    * endatlastvisit means follow-up ends at each subject's last visit, so the
+    * refit builds NO terminal at-risk interval and the person-time target is
+    * not identified (SOL-11). This assertion previously accepted a verdict on
+    * a fixture that cannot produce one. The verdict path is exercised on a
+    * censored fixture below instead.
+    assert "`r(balance_flag)'" == "not_identified"
+    assert "`r(target_status)'" == "not_identified"
+    assert r(refit_n_censrows) == 0
     assert "`r(visit_covars)'" == "age female severity"
 
     * Panel metadata is echoed back from the stored weighting contract.
@@ -192,6 +199,26 @@ capture noisily {
     assert rowsof(B) == 3
     assert colsof(B) == 8
     assert colsof(B) == wordcount("`r(result_columns)'")
+
+    * Censored arm: a real terminal at-risk interval exists, so the target IS
+    * identified and a verdict is reported. Without this, the edit above would
+    * have removed all coverage of within_rule/exceeds_rule from T1.
+    _balance_weight_panel
+    quietly bysort id (months): egen double cens = max(months)
+    quietly replace cens = cens + 6
+    iivw_weight, censor(cens) baseline(event) id(id) time(months) ///
+        visit_cov(age female severity) nolog
+    iivw_balance, balcut(10) nolog
+    assert r(refit_n_censrows) > 0
+    assert "`r(target_status)'" == "identified"
+    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
+
+    * The replay must reproduce the stored visit weight, or every number in
+    * this report describes a weight nobody fitted with (SOL-11).
+    assert r(replay_n) > 0
+    assert r(replay_max_reldif) < 1e-8
+    assert "`r(replay_mode)'" == "stored"
+    assert r(N_replay) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS: T1 - iivw_weight metadata drives iivw_balance"
@@ -226,7 +253,11 @@ capture noisily {
     _balance_manual_panel good
     iivw_balance
     assert "`r(leverage)'" == "adequate"
-    assert "`r(balance_flag)'" == "within_rule"
+    * The hand-built contract carries no censor()/maxfu(), so there is no
+    * terminal at-risk interval and no identified target (SOL-11). Leverage and
+    * shift are still measured -- they do not depend on the target.
+    assert "`r(balance_flag)'" == "not_identified"
+    assert "`r(target_status)'" == "not_identified"
     assert abs(r(balance_max_shift)) < .001
 }
 if _rc == 0 {
@@ -251,12 +282,14 @@ capture noisily {
 
     * The verdict is now a function of the TARGET gap and of nothing else.
     * Movement is descriptive; it does not enter the flag in either direction.
-    if r(refit_ok) == 1 {
+    if r(refit_ok) == 1 & "`r(target_status)'" == "identified" {
         assert ("`r(balance_flag)'" == "within_rule") == (abs(r(balance_max_tsmd)) <= .1)
         assert ("`r(balance_flag)'" == "exceeds_rule") == (abs(r(balance_max_tsmd)) > .1)
     }
     else {
-        assert "`r(balance_flag)'" == "unknown"
+        * No terminal at-risk interval (this fixture) or no usable refit: either
+        * way the verdict is withdrawn rather than defaulted to a pass.
+        assert inlist("`r(balance_flag)'", "unknown", "not_identified")
     }
 }
 if _rc == 0 {

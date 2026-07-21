@@ -1,6 +1,6 @@
 # `iivw` — Method → Oracle Map
 
-**Phase 0 gate artifact.** Companion to `../METHOD_CONTRACT.md`, which owns the *method*; this file owns
+**Phase 0 gate artifact.** Companion to `METHOD_CONTRACT.md`, which owns the *method*; this file owns
 the *proof*. Written 2026-07-14 against package version 2.0.0.
 
 **The rule this file enforces:** every supported formula must have an oracle that is **independent of the

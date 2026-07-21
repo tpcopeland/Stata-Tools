@@ -11,6 +11,7 @@
 {viewerjumpto "Options" "iivw_weight##options"}{...}
 {viewerjumpto "Weight types" "iivw_weight##wtypes"}{...}
 {viewerjumpto "Covariate strategy" "iivw_weight##covariates"}{...}
+{viewerjumpto "Factor variables and splines" "iivw_weight##fvworkflow"}{...}
 {viewerjumpto "Remarks" "iivw_weight##remarks"}{...}
 {viewerjumpto "Diagnostics" "iivw_weight##diagnostics"}{...}
 {viewerjumpto "Troubleshooting" "iivw_weight##troubleshooting"}{...}
@@ -99,7 +100,7 @@ confounding by indication using a cross-sectional logistic model. Use this
 when treatment assignment is driven by patient characteristics (e.g., sicker
 patients are more likely to receive an active drug).{p_end}
 
-{phang2}{bf:FIPTIW} (fully inverse probability of treatment and intensity
+{phang2}{bf:FIPTIW} (flexible inverse probability of treatment and intensity
 weighting) is the product IIW x IPTW, correcting for both sources of bias
 simultaneously. Use this when both visit frequency and treatment assignment
 are driven by patient characteristics.{p_end}
@@ -159,10 +160,43 @@ subjects are affected.
 
 {phang}
 {opt visit_cov(varlist)} specifies covariates for the Andersen-Gill Cox model
-that predicts visit frequency. These should include factors that you believe
-drive visit timing: current disease severity, recent clinical events, and any
-other variables associated with when a patient comes in for a visit. Required
-for IIW and FIPTIW weights.
+that predicts visit frequency. Required for IIW and FIPTIW weights.
+
+{pmore}
+{bf:A visit-model covariate must be known before the interval it explains.}
+The model asks why a visit happened {it:when} it did, so every predictor has to
+be measurable at the {it:start} of the at-risk interval that ends in that
+visit. There are three admissible kinds, and the distinction is not
+stylistic -- it decides whether the weight is a weight or a circularity:
+
+{p2colset 9 40 42 2}{...}
+{p2col:{bf:Baseline or time-fixed}}
+Measured once, before follow-up: baseline severity, sex, enrolment year,
+clinic. Put them straight in {opt visit_cov()}.{p_end}
+{p2col:{bf:Externally updated}}
+Time-varying, but stamped by a clock outside the visit process and known
+before the interval opens: calendar period, age, a policy or formulary change.
+Put them in {opt visit_cov()} only if the value used on each row was already
+determined when that row's interval began.{p_end}
+{p2col:{bf:Visit-measured}}
+Recorded {it:at} a visit -- disease activity, a lab value, a clinician's
+assessment. These may {bf:never} enter {opt visit_cov()} at their current
+value. Pass them through {opt lagvars()} instead, so the {it:previous} visit's
+value explains the {it:next} interval.{p_end}
+{p2colreset}{...}
+
+{pmore}
+Using a visit-measured value at its current value asks the visit to explain
+itself: the measurement exists only because the visit happened. The result is
+not a mildly optimistic model, it is a fitted intensity conditioned on the
+outcome of the very event being modelled.
+
+{pmore}
+{bf:The terminal interval carries an assumption.} A lagged predictor is held
+at its last observed value from the final visit to the end of follow-up
+(last-observation-carried-forward). Over a long terminal interval that is a
+substantive assumption about a value nobody measured, not a technicality. Keep
+it in view when {opt censor()} extends well past the last visit.
 
 {pmore}
 For {cmd:wtype(iptw)}, {opt visit_cov()} is optional. The visit model is skipped entirely,
@@ -283,11 +317,29 @@ visit-intensity coefficient by about a quarter, and since the weights are
 exp(-xb), the error propagated into every downstream estimate.
 
 {phang}
-{opt censor(varname)} gives each subject's end of follow-up: administrative
-censoring, death, or loss to follow-up. It must be constant within {opt id()} and
-must not be earlier than the subject's last observed visit. This is the usual
-choice for registry and EHR cohorts, where follow-up ends at different times for
-different people.
+{opt censor(varname)} gives each subject's {bf:end of observation time}: the
+moment they stop being at risk of a recorded visit, whether through
+administrative close-out, death, or loss to follow-up. It must be constant
+within {opt id()} and must not be earlier than the subject's last observed
+visit. This is the usual choice for registry and EHR cohorts, where follow-up
+ends at different times for different people.
+
+{pmore}
+{bf:This is a risk-set boundary, not a censoring model.} {cmd:iivw_weight}
+estimates {it:no} model for why follow-up ended and computes {it:no} censoring
+weight. {opt censor()} tells the Andersen-Gill visit model when each subject
+left the risk set; it does nothing else. The weights it produces are valid for
+the marginal parameter only under {bf:conditional noninformative censoring} --
+that is, only if the end of observation is independent of the outcome given the
+covariates in the visit model and the outcome model. Nothing in this package
+tests that assumption, and no option in it relaxes the assumption.
+
+{pmore}
+Multiplying an IIW by a separately estimated censoring weight does {it:not}
+retroactively satisfy the monitoring model's derivation; Tompkins et al. (2025,
+section 4.2) examine the resulting sensitivity and find it real. If informative
+censoring is your primary concern, that is a different estimator, not a
+different option here.
 
 {phang}
 {opt maxfu(#)} gives a single end of follow-up shared by every subject. It is the
@@ -557,9 +609,11 @@ not copy the same covariate list into both models automatically.
 Usually belongs in both {cmd:visit_cov()} and {cmd:treat_cov()} when it
 predicts both follow-up intensity and treatment choice.{p_end}
 {p2col:Previous outcome or recent event}
-Use {cmd:lagvars()} or a precomputed lagged variable in
-{cmd:visit_cov()}. This avoids using the current measurement to explain why
-the current visit occurred.{p_end}
+Use {cmd:lagvars()}. A precomputed lag may go in {cmd:visit_cov()} instead,
+but only if you have verified it is the {it:previous} visit's value on every
+row -- {cmd:lagvars()} builds exactly that and is the safer route. Either way
+the point is the same: the current measurement must not explain why the
+current visit occurred.{p_end}
 {p2col:Calendar year, clinic, access variables}
 Include when they plausibly affect visit scheduling or treatment
 assignment. These variables are often useful for explaining structural
@@ -579,6 +633,69 @@ distribution. Adding many weak predictors can make the weights more variable
 without improving bias correction. If the maximum weight is very large or the
 effective sample size is poor, simplify the visit or treatment model before
 interpreting a precise-looking weighted coefficient.
+
+
+{marker fvworkflow}{...}
+{title:Factor variables, splines, and interactions in the weight models}
+
+{pstd}
+{opt visit_cov()}, {opt treat_cov()}, {opt stabcov()} and {opt lagvars()} take
+{bf:plain numeric varlists only}. Factor-variable notation ({cmd:i.arm},
+{cmd:c.age##c.age}, {cmd:ib2.stage}) and inline spline syntax are {bf:not}
+accepted and will be rejected by {cmd:syntax}. This is deliberate: the weight
+models are refitted in places the user never sees -- inside every
+{cmd:vce(bootstrap)} replicate under {helpb iivw_fit:iivw_fit, refitweights},
+and again when {helpb iivw_balance} replays the stored visit model. A term that
+exists only as parser notation is not guaranteed to expand to the same columns,
+in the same order, with the same reference level, on a resampled dataset. The
+supported route is to build the columns yourself, so the same physical
+variables are present at every refit.
+
+{pstd}
+{bf:Expand first, then pass the generated columns.} Do the expansion once, on
+the analysis dataset, before calling {cmd:iivw_weight}:
+
+{phang2}{cmd:. quietly tabulate stage, generate(_stage)}{p_end}
+{phang2}{cmd:. drop _stage1}   // reference level: drop exactly one{p_end}
+{phang2}{cmd:. gen double age_c  = age - 50}{p_end}
+{phang2}{cmd:. gen double age_c2 = age_c^2}{p_end}
+{phang2}{cmd:. mkspline t_s = months, cubic nknots(3)}{p_end}
+{phang2}{cmd:. gen double arm_x_t = arm * months}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(months) censor(fu_end) visit_cov(_stage2 _stage3 age_c age_c2 t_s1 t_s2 arm_x_t) nolog}{p_end}
+
+{pstd}
+{bf:Three rules make the expansion replay-safe.}
+
+{phang2}1. {bf:Drop exactly one level per categorical}, and drop the same one
+every time. The Andersen-Gill visit model has no intercept term to absorb a
+redundant level, and a collinear pair is removed by the fit rather than by
+you -- which is a decision you did not make and cannot see.{p_end}
+
+{phang2}2. {bf:The generated columns must survive to every consumer.} Do not
+drop them after {cmd:iivw_weight} returns. {cmd:iivw_fit, refitweights} and
+{cmd:iivw_balance} both re-fit the stored visit-model specification by name; a
+missing column is an error at that point, not at weight time.{p_end}
+
+{phang2}3. {bf:Center before squaring or interacting, not after.} Weight
+models are exponentiated, so an uncentered quadratic or product term puts the
+fitted intensity on a scale where a single observation can dominate the risk
+set.{p_end}
+
+{pstd}
+{bf:Knots and reference levels are yours to fix.} If you build a spline basis
+with {helpb mkspline}, the knot locations are chosen from the data in memory.
+A bootstrap replicate resamples that data, but it reuses the {it:columns} you
+generated -- it does not recompute the knots. That is the intended behavior:
+the basis is part of the model specification, held fixed across replicates,
+exactly as the covariate list is. If you want knot-location uncertainty
+propagated as well, that is outside what this package estimates.
+
+{pstd}
+A {opt visit_cov()} list of generated columns is treated as a plain covariate
+vector throughout: the stored specification, the bootstrap refit, and the
+{cmd:iivw_balance} replay all reference the same names, which is what makes
+{cmd:r(replay_max_reldif)} an honest check that the replay reproduces the
+analysis weight.
 
 
 {marker remarks}{...}
@@ -741,15 +858,31 @@ max, and percentiles. Weights with a max above 10 or a ratio of max/min above
 100 suggest the model may be struggling with certain subjects.{p_end}
 
 {phang2}2. {bf:Effective sample size.} Reported by {cmd:iivw_weight}
-automatically. If ESS is much less than N, look first at the visit model
+automatically. {cmd:iivw_balance} reports it two ways, and they answer
+different questions: {cmd:r(ess_ratio)} is a {bf:row-weight concentration}
+measure over panel rows, while {cmd:r(ess_cluster_ratio)} is the same measure
+over {it:subjects}. Inference is clustered on the subject, so read the cluster
+figure beside the row one -- a subject with forty visits is forty rows and one
+cluster. If either is much below 1, look first at the visit model
 specification.{p_end}
 
-{phang2}3. {bf:Weight mean.} Should be near 1.0. A mean far from 1
-suggests model misspecification.{p_end}
+{phang2}3. {bf:Weight mean.} {bf:Do not use the IIW mean as a diagnostic.}
+{cmd:iivw_weight} normalizes the visit component to mean 1 by construction
+(see {it:Mean-1 normalization}), so "the mean is near 1" is arithmetic, not
+evidence, and it will read as reassuring on a badly misspecified visit model.
+The IPTW component is different: its mean-one property is a real
+model-specification check (Cole & Hernan 2008), and a stabilized treatment
+weight whose mean is far from 1 does indicate misspecification or a positivity
+problem. For the visit component, use {helpb iivw_balance} -- Target SMD is a
+diagnostic that can fail.{p_end}
 
 {phang2}4. {bf:Sensitivity to trimming.} Compare results with and without
-{opt trunctreat(1 99)}. If the treatment effect changes substantially, the
-estimate may be driven by a few subjects with weak overlap.{p_end}
+{opt trunctreat(0 95)} -- Tompkins et al. (2025, section 4.4) upper-95th rule,
+one-sided because that is what the paper recommends. If the treatment effect
+changes substantially, the estimate may be driven by a few subjects with weak
+overlap. Winsorizing is not a repair: it changes the estimand to a
+modified-weight one, and the same paper finds it does not help for
+{it:visit}-model extremes at all.{p_end}
 
 {phang2}5. {bf:Treatment propensity component.} For IPTW/FIPTIW, run
 {cmd:psdash combined} after {cmd:iivw_weight} to inspect treatment-propensity
@@ -833,6 +966,8 @@ effective sample size.{p_end}
 {phang2}{cmd:. bysort id: replace treated = treated[1]}{p_end}
 {phang2}{cmd:. gen double edss = edss_bl + 0.012 * days - 0.7 * treated + rnormal(0, 0.45)}{p_end}
 {phang2}{cmd:. gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))}{p_end}
+{phang2}{cmd:. bysort id (days): egen double fu_end = max(days)}{p_end}
+{phang2}{cmd:. replace fu_end = fu_end + 30}{p_end}
 
 {pstd}
 {bf:Example 1: Basic IIW weights}

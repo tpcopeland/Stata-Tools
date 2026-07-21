@@ -114,8 +114,10 @@ informative visit timing.{p_end}
 schedule (all patients observed at the same planned time points).{p_end}
 
 {phang2}(b) Missing visits are the main concern rather than differential
-visit frequency. For missing data due to dropout, consider inverse
-probability of censoring weighting (IPCW) instead.{p_end}
+visit frequency. This package models {it:when} recorded visits happen; it
+estimates no model for {it:why} follow-up ended and computes no censoring
+weight. Dropout that depends on the outcome given the modeled covariates is
+outside what these weights identify.{p_end}
 
 
 {marker commands}{...}
@@ -220,8 +222,13 @@ re-estimate the {cmd:iivw_weight} models inside every replicate so the reported
 interval also propagates weight-estimation uncertainty.{p_end}
 
 {pstd}
-Use IPCW methods for censoring/dropout problems, and use a time-varying
-treatment method when treatment changes over follow-up.
+{opt censor()} supplies the end of observation time and nothing more: it bounds
+the visit model's risk set and is not a censoring model. These weights identify
+the marginal parameter only under {bf:conditional noninformative censoring} --
+end of follow-up independent of the outcome given the modeled covariates -- and
+the package neither tests that assumption nor provides an option that relaxes
+it. Informative dropout, and treatment that changes over follow-up, each require
+a different estimator rather than a different option here.
 
 
 {marker workflow}{...}
@@ -236,9 +243,15 @@ final weight variable (default {cmd:_iivw_weight}), component weights when
 applicable, and dataset metadata used by {cmd:iivw_fit}.{p_end}
 
 {phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}. Look for extreme
-values (very large max or very small min). If the weight distribution has
-heavy tails, re-run {cmd:iivw_weight} with {cmd:truncate(1 99)} to stabilize the
-weights. A mean near 1.0 is expected for well-specified models.{p_end}
+values (very large max or very small min). {cmd:truncate()} was removed in 2.0.0
+and now errors; trimming is component-specific and is a labelled sensitivity
+analysis, not the default. Tompkins et al. (2025, §4.4) report that trimming
+helps for {it:treatment}-model extremes ({cmd:trunctreat()}) and does {bf:not}
+help for {it:visit}-model extremes -- an extreme IIW means the visit model needs
+respecifying, not capping. Do not read the mean of the IIW component as a
+diagnostic: {cmd:iivw_weight} normalizes it to mean 1 by construction, so "the
+mean is near 1" is arithmetic, not evidence. Use {cmd:iivw_balance} for a
+diagnostic that can fail.{p_end}
 
 {phang2}3. {bf:Fit the outcome model} with {cmd:iivw_fit}, which reads the
 weights from the dataset automatically. The default is a GEE-style model
@@ -313,6 +326,8 @@ event (relapse) that also predicts future visit timing.
 {phang2}{cmd:. gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))}{p_end}
 {phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
 {phang2}{cmd:. label values treatment arm}{p_end}
+{phang2}{cmd:. bysort id (days): egen double fu_end = max(days)}{p_end}
+{phang2}{cmd:. replace fu_end = fu_end + 30}{p_end}
 
 {pstd}
 {bf:Example 1: IIW only (correct the visit process)}
@@ -338,7 +353,7 @@ When both visit frequency and treatment assignment are driven by disease
 severity, add {cmd:treat()} and {cmd:treat_cov()} to correct for both
 simultaneously:
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)}{p_end}
 
 {pstd}
@@ -352,14 +367,14 @@ marginal or reference-arm time slope, here {cmd:days}.
 
 {phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, unweighted id(id) time(days) timespec(none) nolog}{p_end}
 {phang2}{cmd:. estimates store M_unweighted}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_balance, nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, model(gee) timespec(none) replace nolog}{p_end}
 {phang2}{cmd:. estimates store M_fiptiw}{p_end}
 {phang2}{cmd:. gen double log_visit = log(visit + 1)}{p_end}
 {phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl log_visit, model(gee) timespec(none) replace nolog}{p_end}
 {phang2}{cmd:. estimates store M_adjusted}{p_end}
-{phang2}{cmd:. iivw_exogtest edss relapse, id(id) time(days) adjust(age sex edss_bl) by(treated) nolog}{p_end}
+{phang2}{cmd:. iivw_exogtest edss relapse, id(id) time(days) censor(fu_end) adjust(age sex edss_bl) by(treated) nolog}{p_end}
 {phang2}{cmd:. iivw_diagnose days, unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) estimand(marginal) exogeneity(unknown)}{p_end}
 
 {pstd}

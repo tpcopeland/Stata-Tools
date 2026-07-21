@@ -3,7 +3,8 @@ d 'IIVW': Inverse intensity of visit weighting and diagnostics
 d
 d Corrects for informative visit processes in longitudinal observational
 d studies. Implements IIW (Buzkova & Lumley 2007), IPTW, and FIPTIW
-d (Tompkins et al. 2025) via Andersen-Gill Cox and logistic models,
+d (Coulombe et al. 2021; named by Tompkins et al. 2025) via Andersen-Gill
+d Cox and logistic models,
 d plus diagnostics for sampling bias versus measurement artifact.
 d
 d Requires: Stata version 16+

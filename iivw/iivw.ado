@@ -58,7 +58,7 @@ program define iivw, rclass
     display as text "`__iivw_smcl_lb'bf:Weight types`__iivw_smcl_rb'"
     display as text "  IIW     - Inverse intensity weighting (visit process correction)"
     display as text "  IPTW    - Inverse probability of treatment weighting"
-    display as text "  FIPTIW  - Fully inverse probability of treatment and intensity"
+    display as text "  FIPTIW  - Flexible inverse probability of treatment and intensity"
     display as text "            weighting (IIW x IPTW)"
     display as text ""
     display as text "`__iivw_smcl_lb'bf:Typical diagnostic workflow`__iivw_smcl_rb'"

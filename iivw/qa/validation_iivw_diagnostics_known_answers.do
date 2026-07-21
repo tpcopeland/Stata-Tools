@@ -98,7 +98,7 @@ capture noisily {
 
     * Decomposition quantities now live in r(decomp); values unchanged from v1.5.3
     local drn : rownames D
-    assert "`drn'" == "sampling_gap artifact_gap total_gap sampling_share artifact_share bounds_lower bounds_upper"
+    assert "`drn'" == "sampling_gap artifact_gap total_gap sampling_share artifact_share range_min range_max"
     assert abs(D[1,1] - 3) < 1e-12
     assert abs(D[2,1] - 3) < 1e-12
     assert abs(D[3,1] - 6) < 1e-12

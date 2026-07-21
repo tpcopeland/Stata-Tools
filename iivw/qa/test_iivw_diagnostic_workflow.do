@@ -162,7 +162,7 @@ capture noisily {
     assert r(n_models) == 1
     assert r(n_skipped) == 0
     assert r(alpha) == 0.10
-    assert inlist(r(endogenous_flag), 0, 1)
+    assert inlist(r(history_association_flag), 0, 1)
     assert "`r(id)'" == "id"
     assert "`r(time)'" == "months"
     assert "`r(testvars)'" == "y marker"

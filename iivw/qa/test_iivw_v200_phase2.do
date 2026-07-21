@@ -387,12 +387,12 @@ capture noisily {
     assert reldif(r(holm_min_p), `expect') < 1e-10
 
     * The flag follows the ADJUSTED omnibus p, and nothing else.
-    assert r(endogenous_flag) == (r(holm_min_p) < r(alpha))
+    assert r(history_association_flag) == (r(holm_min_p) < r(alpha))
 
     * The exploratory term p-values are reported but must not drive the flag.
     * On null data with 24 of them, at least one is very likely below .05.
     if r(min_p) < r(alpha) & r(holm_min_p) >= r(alpha) {
-        assert r(endogenous_flag) == 0
+        assert r(history_association_flag) == 0
     }
 }
 if _rc == 0 {

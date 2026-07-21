@@ -381,7 +381,7 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {cmd:ul}. {cmd:r(decomp)} has a {cmd:value} column and rows
 {cmd:sampling_gap},
 {cmd:artifact_gap}, {cmd:total_gap}, {cmd:sampling_share},
-{cmd:artifact_share}, {cmd:bounds_lower}, and {cmd:bounds_upper}. Shares are
+{cmd:artifact_share}, {cmd:range_min}, and {cmd:range_max}. Shares are
 missing for contrast estimands or when the total gap is too small.
 
 {pstd}

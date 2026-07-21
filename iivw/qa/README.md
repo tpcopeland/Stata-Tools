@@ -155,6 +155,23 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   exercised: the convergence guard, the nonconverged-weight taint (and that
   `iivw_fit` does not launder it), the refit counts, the risk-set returns, and
   `censor()`/`maxfu()` on `iivw_exogtest`.
+- `test_iivw_failclosed.do` — Gate 4/5 probes for audit findings SOL-05, SOL-07,
+  SOL-08, SOL-11, SOL-12, SOL-13 and SOL-17. **Pre-fix score 1/11, post-fix
+  16/16** (same file, both runs), and the single pre-fix pass was S5b, the
+  positive control that must be green both ways. Each probe asserts a state the
+  shipped build got wrong at `rc=0`: an interaction-only `stabcov()` certified
+  as validated; two disjoint equal-N samples decomposed; a noncollapsible logit
+  gap reported as an artifact share; a nonconverged Cox counted as "no
+  evidence"; a balance verdict issued with no identified person-time target;
+  `iivw_balance` mixing a subset refit with full-sample stored weights. S17 is
+  the odd one out — it locks behavior the audit proposed **deleting**; see the
+  in-file note.
+- `test_help_examples.do` — documentation reality tests (SOL-14). Every worked
+  sequence in `iivw.sthlp`, `iivw_weight.sthlp` and `iivw_fit.sthlp` is
+  transcribed and run from a clean sandboxed PLUS directory, plus a source scan
+  proving no shipped example passes an option the package now rejects. H2 runs
+  the documented refit-bootstrap default verbatim; the later arms append
+  `vce(fixed)` for runtime, which the file explains.
 - `test_iivw_weight_adversarial.do`
 - `test_iivw_weight_validation_guards.do`
 

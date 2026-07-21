@@ -387,9 +387,9 @@ capture noisily {
     import excel using "`workbook'", sheet("Diagnostics") clear allstring
     * No true(): divider row at 7 shifts the bound rows down one; value in C.
     assert _N == 15
-    assert B[13] == "Lower bound"
+    assert B[13] == "Range min"
     assert abs(real(C[13]) - 0.10) < 0.0001
-    assert B[14] == "Upper bound"
+    assert B[14] == "Range max"
     assert abs(real(C[14]) - 0.31) < 0.0001
 }
 if _rc == 0 {
@@ -491,7 +491,7 @@ capture noisily {
 
     import excel using "`protectxlsx'", sheet("Diagnostics") clear allstring
     assert A[1] == "IIVW diagnostic decomposition"
-    assert B[13] == "Lower bound"
+    assert B[13] == "Range min"
 }
 if _rc == 0 {
     display as result "  PASS: T7 - existing sheets protected without replace"

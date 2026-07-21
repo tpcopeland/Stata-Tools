@@ -108,14 +108,14 @@ if `run_only' == 0 | `run_only' == 1 {
         iivw_exogtest y marker, endatlastvisit id(id) time(months) ///
             adjust(age female treatment) level(99) nolog
 
-        assert r(endogenous_flag) == 0
+        assert r(history_association_flag) == 0
         assert r(n_models) == 1
         assert r(n_skipped) == 0
         assert r(N) == 480
         assert r(alpha) == 0.01
         assert "`r(lagvars)'" == "_iivw_exog_y_lag1 _iivw_exog_marker_lag1"
         assert "`r(conclusion)'" == ///
-            "no evidence in this diagnostic that prior outcomes predict visit timing"
+            "no association detected by this diagnostic in any group tested"
         matrix R = r(results)
         assert rowsof(R) == 2
         assert colsof(R) == 11
@@ -141,13 +141,13 @@ if `run_only' == 0 | `run_only' == 2 {
         iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female) ///
             level(90) nolog
 
-        assert r(endogenous_flag) == 1
+        assert r(history_association_flag) == 1
         assert r(min_p) < 0.10
         assert r(joint_min_p) < 0.10
         assert r(n_models) == 1
         assert r(N) == 480
         assert "`r(conclusion)'" == ///
-            "evidence that lagged predictors are associated with visit timing"
+            "evidence that recorded outcome history predicts modeled visit timing"
         assert "`r(adjust)'" == "age female"
         matrix R = r(results)
         assert rowsof(R) == 1
@@ -243,17 +243,49 @@ if `run_only' == 0 | `run_only' == 5 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
+        * With 2 visits per subject and endatlastvisit, EVERY modeled event is a
+        * first observation whose lag is missing, so the Cox model has nothing
+        * to estimate: the HR row comes back all-missing and the omnibus test
+        * cannot be computed.
+        *
+        * The pre-fix build returned rc 0, n_models == 1 and a flag of 0 for
+        * this -- reporting "no evidence that prior outcomes predict visit
+        * timing" off a test that never ran (SOL-08). This assertion used to
+        * encode that false null as the expected contract. It now asserts the
+        * refusal, and the lag machinery is checked on the same fixture before
+        * the refusal is triggered.
         _exog_dependent_panel, nids(30) visits(2)
-        iivw_exogtest y, endatlastvisit id(id) time(months) level(90) nolog
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
+            level(90) nolog
+        local _t6_rc = _rc
+        assert `_t6_rc' == 2000
 
+        * The failed run leaves no generated lag variable behind -- a refusal
+        * must not litter the caller's data with half-built columns.
+        capture confirm variable _iivw_exog_y_lag1
+        assert _rc != 0
+
+        * Positive control: give the same generator enough visits per subject
+        * that lagged events exist, and the command estimates normally. This is
+        * where the original point of test 6 is checked -- the lag variable is
+        * built and each subject's FIRST observation is the one left missing.
+        * Without this arm the edit above would leave test 6 asserting only a
+        * refusal, which would be green against a command that refuses always.
+        _exog_dependent_panel, nids(30) visits(5)
+        iivw_exogtest y, endatlastvisit id(id) time(months) level(90) nolog
         assert r(n_models) == 1
-        assert r(N) == 30
+        assert r(n_unknown) == 0
+        assert r(history_association_flag) < .
         confirm variable _iivw_exog_y_lag1
         quietly count if missing(_iivw_exog_y_lag1)
         assert r(N) == 30
+        quietly bysort id (months): gen byte _t6_first = (_n == 1)
+        quietly count if _t6_first & missing(_iivw_exog_y_lag1)
+        assert r(N) == 30
+        drop _t6_first
     }
     if _rc == 0 {
-        display as result "  PASS: 6 - first lag missing handled"
+        display as result "  PASS: 6 - unestimable lag model is refused, not reported as a null"
         local ++pass_count
     }
     else {

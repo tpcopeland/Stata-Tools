@@ -1384,22 +1384,40 @@ program define iivw_fit, eclass
     * counted recovery as a pass, which encoded the violation as evidence.
     *
     * The check is deliberately conservative: it requires each stabcov() variable
-    * to be a SOURCE of the outcome design (an independent variable, a
-    * categorical or interaction source, or the panel time variable behind the
-    * fitted time terms). A stabilization variable that is some other
-    * deterministic function of a design covariate is defensible in theory, but
-    * the package cannot prove that from the data, and a guard that accepts what
-    * it cannot verify is not a guard. Put the function in the outcome model.
+    * to be a MAIN-EFFECT source of the outcome design (an independent variable,
+    * a categorical source, or the panel time variable behind the fitted time
+    * terms). A stabilization variable that is some other deterministic function
+    * of a design covariate is defensible in theory, but the package cannot prove
+    * that from the data, and a guard that accepts what it cannot verify is not a
+    * guard. Put the function in the outcome model.
+    *
+    * interaction() is deliberately NOT a source (SOL-05). interaction(z) with z
+    * absent from indepvars fits z x time and no z main effect: the design column
+    * is identically zero at time == 0, so the model does not condition on z
+    * there, and the numerator h(z) is not a function of what was conditioned on.
+    * The pre-fix build put interaction() into this list and returned
+    * e(iivw_stabilization_validated) == 1 for exactly that specification -- a
+    * guard certifying the case it exists to catch. A z that IS a main effect
+    * reaches the list through `indepvars' regardless of any interaction it also
+    * appears in, so nothing legitimate is lost by dropping it here.
     local stab_validated = 0
     local stab_terms ""
     if "`unweighted'" == "" & "`rep_stabcov'" != "" {
         local design_sources "`indepvars'"
         if "`categorical'" != ""  local design_sources "`design_sources' `categorical'"
-        if "`interaction'" != ""  local design_sources "`design_sources' `interaction'"
         if "`time_vars'" != "" & "`panel_time'" != "" {
             local design_sources "`design_sources' `panel_time'"
         }
         local design_sources : list uniq design_sources
+
+        * Name the interaction-only case explicitly: "z is in my model" is the
+        * user's most likely objection to the error below, and it is true --
+        * just not as a main effect.
+        local stab_ixonly ""
+        if "`interaction'" != "" {
+            local stab_ixonly : list rep_stabcov & interaction
+            local stab_ixonly : list stab_ixonly - design_sources
+        }
 
         local stab_missing : list rep_stabcov - design_sources
         if "`stab_missing'" != "" {
@@ -1415,6 +1433,13 @@ program define iivw_fit, eclass
             display as text  "  Stabilizing on a variable this model never sees changes the estimand:"
             display as text  "  the weighted fit targets a numerator-weighted average of"
             display as text  "  subject-specific effects, not the beta printed in the table."
+            if "`stab_ixonly'" != "" {
+                display as text  ""
+                display as text  "  Appearing only in interaction() does not count:`stab_ixonly'"
+                display as text  "  An interaction with time contributes a column that is identically"
+                display as text  "  zero at time == 0, so the model does not condition on the variable"
+                display as text  "  there. Add it to the main varlist as well as interaction()."
+            }
             display as text  ""
             display as text  "  Either add those variables to the outcome model, or recompute the"
             display as text  "  weights with a stabcov() that this model contains -- including"

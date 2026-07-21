@@ -572,6 +572,27 @@ time specification.
 {phang2}{cmd:. iivw_fit score treated age sex baseline_score, timespec(linear) nolog}{p_end}
 
 {pstd}
+{bf:What "population-average" means here, and where it stops.} With the
+default {cmd:family(gaussian) link(identity)}, the fitted coefficient on an
+adjusted treatment indicator is collapsible: it is a difference of weighted
+means and carries the marginal reading above. On a {bf:nonlinear} link --
+{cmd:family(binomial) link(logit)}, {cmd:family(poisson) link(log)}, and
+anything else non-identity -- it does not. A conditional odds ratio or hazard
+ratio adjusted for covariates is {bf:noncollapsible}: it differs from the
+marginal contrast even when the covariates are independent of treatment and
+even when every model is correctly specified, so it is not the effect of
+moving the whole population from untreated to treated.
+
+{pstd}
+Confine the words {bf:ATE} and {bf:marginal causal contrast} to identity-link
+specifications and to marginal structural models built for the purpose. On a
+nonlinear link, either report the coefficient as the conditional association
+it is, or obtain a marginal contrast explicitly with {helpb margins} after the
+fit -- the weights do not make a conditional nonlinear coefficient marginal.
+{helpb iivw_diagnose} enforces the same boundary: it returns
+{cmd:r(decomposable) = 0} for non-identity-link fits.
+
+{pstd}
 {bf:Nonlinear disease trajectory.} Use a natural spline when the outcome
 changes quickly early in follow-up and then plateaus, or when linear time is
 not credible.
@@ -669,10 +690,10 @@ output.
 To compare multiple weighting strategies side by side:
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) truncate(1 99) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit y treated age, model(gee) nolog collect}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) treat(treated) treat_cov(age) truncate(1 99) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit y treated age, model(gee) nolog collect}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_fit edss treated age, model(gee) nolog collect}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl) treat(treated) treat_cov(age) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_fit edss treated age, model(gee) nolog collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(Compare) models(IIW \ FIPTIW) coef(Coef.) stats(n)}{p_end}
 
 
@@ -822,6 +843,8 @@ target for {helpb iivw_diagnose}.{p_end}
 {phang2}{cmd:. gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))}{p_end}
 {phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
 {phang2}{cmd:. label values treatment arm}{p_end}
+{phang2}{cmd:. bysort id (days): egen double fu_end = max(days)}{p_end}
+{phang2}{cmd:. replace fu_end = fu_end + 30}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) nolog}{p_end}
 
 {pstd}
@@ -950,9 +973,9 @@ Allow both treatment and age effects to vary over time.
 Run two weighting strategies and combine them in a single Excel table.
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) truncate(1 99) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog collect}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Comparison) models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint}{p_end}
 
@@ -994,7 +1017,7 @@ labels.
 {phang2}{cmd:. gen byte visit_wave = visit}{p_end}
 {phang2}{cmd:. label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12" 4 "Month 18", replace}{p_end}
 {phang2}{cmd:. label values visit_wave wave}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(visit_wave) visit_cov(edss_bl relapse) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(visit_wave) visit_cov(edss_bl relapse) replace endatlastvisit nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treatment edss_bl, timespec(categorical) categorical(treatment) interaction(treatment) replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Waves) title(Treatment by Visit Wave)}{p_end}
 
@@ -1068,7 +1091,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}
 {synopt:{cmd:e(iivw_bs_frame_N)}}rows in the resampling frame ({opt refitweights} only){p_end}
-{synopt:{cmd:e(iivw_outcome_nclust)}}clusters contributing to the outcome equation ({opt refitweights} only){p_end}
+{synopt:{cmd:e(iivw_outcome_nclust)}}clusters in the outcome equation{p_end}
 
 {pstd}
 {bf:Reading e(N) and e(N_clust) after} {opt refitweights}{bf:.} These two

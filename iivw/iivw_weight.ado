@@ -632,8 +632,25 @@ program define iivw_weight, rclass sortpreserve
                 display as error "trunc`__iivw_tk'() lower bound must be less than upper bound"
                 error 198
             }
-            if `__iivw_tlo' <= 0 | `__iivw_thi' >= 100 {
-                display as error "trunc`__iivw_tk'() values must be strictly between 0 and 100"
+            * 0 and 100 are admissible endpoints and mean "do not trim on that
+            * side" (SOL-12). The p0 of a sample is its minimum and the p100 is
+            * its maximum, so clipping there is exactly a no-op -- there is no
+            * special case being invented, only one that used to be refused.
+            *
+            * This is what makes Tompkins et al. (2025, section 4.4) literal
+            * upper-95th-percentile rule expressible: trunc`__iivw_tk'(0 95).
+            * Requiring two interior percentiles made the published rule
+            * impossible to state, so anyone following the paper had to invent
+            * a lower cut the paper never asked for.
+            if `__iivw_tlo' < 0 | `__iivw_thi' > 100 {
+                display as error "trunc`__iivw_tk'() values must lie in [0, 100]"
+                error 198
+            }
+            if `__iivw_tlo' == 0 & `__iivw_thi' == 100 {
+                display as error "trunc`__iivw_tk'(0 100) would trim nothing"
+                display as text  "  0 means no lower trim and 100 means no upper trim, so this asks"
+                display as text  "  for no trimming at all. Omit the option instead -- the supported"
+                display as text  "  default is untrimmed."
                 error 198
             }
         }
@@ -1240,18 +1257,42 @@ program define iivw_weight, rclass sortpreserve
                 local __iivw_created_vars "`__iivw_created_vars' `prefix'iw_raw"
                 label variable `prefix'iw_raw "Inverse intensity weight (untrimmed)"
 
+                * Ask _pctile only for the endpoints that are interior: it
+                * rejects 0 and 100 outright (r 198). An omitted side leaves its
+                * cutpoint missing, and every comparison below is guarded on
+                * `< .' so a missing cutpoint clips nothing rather than
+                * swallowing the whole column.
+                local __iivw_pcts ""
+                if `tv_lo' > 0   local __iivw_pcts "`tv_lo'"
+                if `tv_hi' < 100 local __iivw_pcts "`__iivw_pcts' `tv_hi'"
                 _pctile `prefix'iw if !missing(`prefix'iw), ///
-                    percentiles(`tv_lo' `tv_hi')
-                local __iivw_tv_locut = r(r1)
-                local __iivw_tv_hicut = r(r2)
-                count if `prefix'iw < `__iivw_tv_locut' & !missing(`prefix'iw)
-                local __iivw_tv_nlo = r(N)
-                count if `prefix'iw > `__iivw_tv_hicut' & !missing(`prefix'iw)
-                local __iivw_tv_nhi = r(N)
-                replace `prefix'iw = `__iivw_tv_locut' ///
-                    if `prefix'iw < `__iivw_tv_locut' & !missing(`prefix'iw)
-                replace `prefix'iw = `__iivw_tv_hicut' ///
-                    if `prefix'iw > `__iivw_tv_hicut' & !missing(`prefix'iw)
+                    percentiles(`__iivw_pcts')
+                local __iivw_tv_locut = .
+                local __iivw_tv_hicut = .
+                if `tv_lo' > 0 & `tv_hi' < 100 {
+                    local __iivw_tv_locut = r(r1)
+                    local __iivw_tv_hicut = r(r2)
+                }
+                else if `tv_lo' > 0 {
+                    local __iivw_tv_locut = r(r1)
+                }
+                else {
+                    local __iivw_tv_hicut = r(r1)
+                }
+                local __iivw_tv_nlo = 0
+                local __iivw_tv_nhi = 0
+                if `__iivw_tv_locut' < . {
+                    count if `prefix'iw < `__iivw_tv_locut' & !missing(`prefix'iw)
+                    local __iivw_tv_nlo = r(N)
+                    replace `prefix'iw = `__iivw_tv_locut' ///
+                        if `prefix'iw < `__iivw_tv_locut' & !missing(`prefix'iw)
+                }
+                if `__iivw_tv_hicut' < . {
+                    count if `prefix'iw > `__iivw_tv_hicut' & !missing(`prefix'iw)
+                    local __iivw_tv_nhi = r(N)
+                    replace `prefix'iw = `__iivw_tv_hicut' ///
+                        if `prefix'iw > `__iivw_tv_hicut' & !missing(`prefix'iw)
+                }
             }
             local __iivw_tv_n = `__iivw_tv_nlo' + `__iivw_tv_nhi'
             display as text "Trimming the VISIT component at the `tv_lo'th and `tv_hi'th percentiles..."
@@ -1278,6 +1319,7 @@ program define iivw_weight, rclass sortpreserve
         local n_ps_lo = 0
         local n_ps_hi = 0
         local n_ps_extreme = 0
+        local n_ps_extreme_id = 0
 
         * Fit propensity score model on cross-sectional data (one row per subject)
         * Using full panel would over-represent subjects with more visits.
@@ -1386,14 +1428,33 @@ program define iivw_weight, rclass sortpreserve
             local ps_min = r(min)
             local ps_max = r(max)
 
+            * Counted in SUBJECTS, not rows (SOL-13). The propensity model is
+            * fitted once per subject and merged m:1 onto the panel, so a row
+            * count multiplies each extreme subject by their number of visits:
+            * the same 4 subjects were reported as "112 observations" on a
+            * 28-visit panel, which reads as a far larger overlap problem than
+            * the data contain. Rows are still returned, but the message names
+            * the unit the quantity actually has.
+            tempvar __iivw_pstag
+            egen byte `__iivw_pstag' = tag(`id') if !missing(`prefix'ps)
+
             count if `prefix'ps < 0.01 & !missing(`prefix'ps)
             local n_ps_lo = r(N)
             count if `prefix'ps > 0.99 & !missing(`prefix'ps)
             local n_ps_hi = r(N)
+            count if `__iivw_pstag' == 1 & `prefix'ps < 0.01 & !missing(`prefix'ps)
+            local n_ps_lo_id = r(N)
+            count if `__iivw_pstag' == 1 & `prefix'ps > 0.99 & !missing(`prefix'ps)
+            local n_ps_hi_id = r(N)
+            drop `__iivw_pstag'
+
             if `n_ps_lo' > 0 | `n_ps_hi' > 0 {
                 local n_ps_extreme = `n_ps_lo' + `n_ps_hi'
-                noisily display as text "note: `n_ps_extreme' observations have " ///
+                local n_ps_extreme_id = `n_ps_lo_id' + `n_ps_hi_id'
+                noisily display as text "note: `n_ps_extreme_id' subject(s) have " ///
                     "extreme propensity scores (<0.01 or >0.99)"
+                noisily display as text "  (`n_ps_extreme' panel rows; the propensity is estimated" ///
+                    " once per subject)"
                 noisily display as text "  trunctreat() bounds their influence, as a labelled" ///
                     " sensitivity analysis"
             }
@@ -1427,18 +1488,42 @@ program define iivw_weight, rclass sortpreserve
                 local __iivw_created_vars "`__iivw_created_vars' `prefix'tw_raw"
                 label variable `prefix'tw_raw "IPT weight (untrimmed)"
 
+                * Ask _pctile only for the endpoints that are interior: it
+                * rejects 0 and 100 outright (r 198). An omitted side leaves its
+                * cutpoint missing, and every comparison below is guarded on
+                * `< .' so a missing cutpoint clips nothing rather than
+                * swallowing the whole column.
+                local __iivw_pcts ""
+                if `tt_lo' > 0   local __iivw_pcts "`tt_lo'"
+                if `tt_hi' < 100 local __iivw_pcts "`__iivw_pcts' `tt_hi'"
                 _pctile `prefix'tw if !missing(`prefix'tw), ///
-                    percentiles(`tt_lo' `tt_hi')
-                local __iivw_tt_locut = r(r1)
-                local __iivw_tt_hicut = r(r2)
-                count if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
-                local __iivw_tt_nlo = r(N)
-                count if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
-                local __iivw_tt_nhi = r(N)
-                replace `prefix'tw = `__iivw_tt_locut' ///
-                    if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
-                replace `prefix'tw = `__iivw_tt_hicut' ///
-                    if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
+                    percentiles(`__iivw_pcts')
+                local __iivw_tt_locut = .
+                local __iivw_tt_hicut = .
+                if `tt_lo' > 0 & `tt_hi' < 100 {
+                    local __iivw_tt_locut = r(r1)
+                    local __iivw_tt_hicut = r(r2)
+                }
+                else if `tt_lo' > 0 {
+                    local __iivw_tt_locut = r(r1)
+                }
+                else {
+                    local __iivw_tt_hicut = r(r1)
+                }
+                local __iivw_tt_nlo = 0
+                local __iivw_tt_nhi = 0
+                if `__iivw_tt_locut' < . {
+                    count if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
+                    local __iivw_tt_nlo = r(N)
+                    replace `prefix'tw = `__iivw_tt_locut' ///
+                        if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
+                }
+                if `__iivw_tt_hicut' < . {
+                    count if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
+                    local __iivw_tt_nhi = r(N)
+                    replace `prefix'tw = `__iivw_tt_hicut' ///
+                        if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
+                }
             }
             local __iivw_tt_n = `__iivw_tt_nlo' + `__iivw_tt_nhi'
             display as text "Trimming the TREATMENT component at the `tt_lo'th and `tt_hi'th percentiles..."
@@ -1569,21 +1654,42 @@ program define iivw_weight, rclass sortpreserve
         display as text "Trimming the FINAL weight at the `tf_lo'th and `tf_hi'th percentiles..."
 
         quietly {
+            * See the visit-component block above: _pctile refuses 0 and 100,
+            * so only interior endpoints are requested and an omitted side
+            * leaves a missing cutpoint that clips nothing (SOL-12).
+            local __iivw_pcts ""
+            if `tf_lo' > 0   local __iivw_pcts "`tf_lo'"
+            if `tf_hi' < 100 local __iivw_pcts "`__iivw_pcts' `tf_hi'"
             _pctile `prefix'weight if !missing(`prefix'weight), ///
-                percentiles(`tf_lo' `tf_hi')
-            local lo_val = r(r1)
-            local hi_val = r(r2)
+                percentiles(`__iivw_pcts')
+            local lo_val = .
+            local hi_val = .
+            if `tf_lo' > 0 & `tf_hi' < 100 {
+                local lo_val = r(r1)
+                local hi_val = r(r2)
+            }
+            else if `tf_lo' > 0 {
+                local lo_val = r(r1)
+            }
+            else {
+                local hi_val = r(r1)
+            }
 
-            count if `prefix'weight < `lo_val' & !missing(`prefix'weight)
-            local n_lo = r(N)
-            count if `prefix'weight > `hi_val' & !missing(`prefix'weight)
-            local n_hi = r(N)
+            local n_lo = 0
+            local n_hi = 0
+            if `lo_val' < . {
+                count if `prefix'weight < `lo_val' & !missing(`prefix'weight)
+                local n_lo = r(N)
+                replace `prefix'weight = `lo_val' ///
+                    if `prefix'weight < `lo_val' & !missing(`prefix'weight)
+            }
+            if `hi_val' < . {
+                count if `prefix'weight > `hi_val' & !missing(`prefix'weight)
+                local n_hi = r(N)
+                replace `prefix'weight = `hi_val' ///
+                    if `prefix'weight > `hi_val' & !missing(`prefix'weight)
+            }
             local n_truncated = `n_lo' + `n_hi'
-
-            replace `prefix'weight = `lo_val' ///
-                if `prefix'weight < `lo_val' & !missing(`prefix'weight)
-            replace `prefix'weight = `hi_val' ///
-                if `prefix'weight > `hi_val' & !missing(`prefix'weight)
         }
 
         display as text "  Trimmed `n_truncated' observations (`n_lo' low, `n_hi' high)"
@@ -1996,7 +2102,10 @@ program define iivw_weight, rclass sortpreserve
     if inlist("`wtype'", "iptw", "fiptiw") {
         return scalar ps_min = `ps_min'
         return scalar ps_max = `ps_max'
+        * n_ps_extreme counts PANEL ROWS; n_ps_extreme_id counts SUBJECTS,
+        * which is the unit the propensity model is fitted at (SOL-13).
         return scalar n_ps_extreme = `n_ps_extreme'
+        return scalar n_ps_extreme_id = `n_ps_extreme_id'
         return scalar ps_N = `__iivw_ps_N'
         return scalar ps_prevalence = `__iivw_p_treat'
         return local ps_var "`prefix'ps"

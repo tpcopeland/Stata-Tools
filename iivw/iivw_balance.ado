@@ -235,9 +235,26 @@ program define iivw_balance, rclass
     * subject's risk history, and a subject's terminal at-risk interval starts
     * at their last visit -- which is their last visit whether or not that visit
     * happened to receive a weight.
+    *
+    * It deliberately IGNORES if/in (SOL-11). The stored weights were produced
+    * by a visit model fitted on the whole sample; refitting that model on an
+    * if/in subset produces a DIFFERENT weight system, and the pre-fix command
+    * then reported the subset refit's target SMD next to summaries of the
+    * stored full-sample weights -- one report built from two weight systems,
+    * with nothing on screen saying so.
+    *
+    * The replay mode is now fixed and labelled: replay the STORED model on the
+    * rows that produced it, and let if/in restrict the REPORT only (`touse').
+    * That keeps every number on screen describing the weights the outcome model
+    * actually used, which is what a user asking "are my weights balanced in
+    * this subgroup" is asking. r(replay_mode), r(N) and r(N_replay) make the
+    * distinction readable, and the replay is verified against the stored weight
+    * column below rather than assumed.
     tempvar __iivw_rowset
-    marksample __iivw_rowset, novarlist
+    quietly gen byte `__iivw_rowset' = 1
     markout `__iivw_rowset' `panel_id' `panel_time', strok
+    quietly count if `__iivw_rowset'
+    local refit_rowset_N = r(N)
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -283,6 +300,27 @@ program define iivw_balance, rclass
     local weight_cv = `w_sd' / `w_mean'
     local ess = (`sum_w'^2) / `sum_w2'
     local ess_ratio = `ess' / `N'
+
+    * Cluster-level companion to the row-level ESS (SOL-13). The row ESS is a
+    * ROW-weight concentration measure: it answers how evenly influence is
+    * spread across panel rows. Inference here is clustered on the subject, so
+    * the quantity that governs the sandwich is how evenly influence is spread
+    * across SUBJECTS -- and the two can disagree sharply, because a subject
+    * with 40 visits contributes 40 rows and exactly one cluster.
+    tempvar __iivw_wid __iivw_wid2
+    quietly egen double `__iivw_wid' = total(`weight_var') if `touse', by(`panel_id')
+    quietly replace `__iivw_wid' = . if `__iivw_idtag' != 1
+    quietly summarize `__iivw_wid' if `__iivw_idtag' == 1, meanonly
+    local sum_wid = r(sum)
+    quietly gen double `__iivw_wid2' = `__iivw_wid'^2 if `__iivw_idtag' == 1
+    quietly summarize `__iivw_wid2' if `__iivw_idtag' == 1, meanonly
+    local sum_wid2 = r(sum)
+    local ess_cluster = .
+    local ess_cluster_ratio = .
+    if `sum_wid2' > 0 & `sum_wid2' < . & `sum_wid' < . {
+        local ess_cluster = (`sum_wid'^2) / `sum_wid2'
+        if `n_ids' > 0 local ess_cluster_ratio = `ess_cluster' / `n_ids'
+    }
 
     if (`weight_cv' < `cvcut') | (`ess_ratio' > `essratiocut') {
         local leverage "low"
@@ -436,6 +474,13 @@ program define iivw_balance, rclass
     local balance_max_tsmd = .
     local refit_N = .
     local refit_ncens = 0
+    * Initialized here for the same reason as the loop below: the return block
+    * reads them unconditionally, and a refit that errors early must not take
+    * the returns down with it.
+    local replay_max_reldif = .
+    local replay_scale = .
+    local replay_n = 0
+    local target_status "unknown"
 
     * Initialized BEFORE the captured block: the display reads these
     * unconditionally, and a refit that errors early would otherwise leave them
@@ -569,14 +614,25 @@ program define iivw_balance, rclass
         * these are the SEs reported in r(hr_unweighted). Clustering changes
         * neither the coefficients nor the baseline hazard, so the same fit still
         * serves for the weights and the person-time measure below.
+        * Each of the three refits below is convergence-gated (SOL-11). Only
+        * _rc was checked before, and stcox returns rc 0 when it stops at the
+        * iteration ceiling -- so a nonconverged replay produced an exp(-xb)
+        * that solves nothing, and the balance verdict was computed from it and
+        * displayed with no qualification at all.
         quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
             level(`level') vce(cluster `panel_id')
         local __iivw_fit_rc = _rc
+        if `__iivw_fit_rc' == 0 & e(converged) == 0 {
+            _iivw_require_converged, model("visit-model balance replay")
+        }
 
         tempvar __iivw_xbf __iivw_w __iivw_H __iivw_xbs
         quietly predict double `__iivw_xbf', xb
         if "`rep_stabcov'" != "" {
             quietly stcox `rep_stabcov' if `__iivw_coxok', `rep_efron'
+            if e(converged) == 0 {
+                _iivw_require_converged, model("stabilization balance replay")
+            }
             quietly predict double `__iivw_xbs', xb
             quietly gen double `__iivw_w' = exp(`__iivw_xbs' - `__iivw_xbf')
             * The person-time measure and the reported HRs must both come from
@@ -584,6 +640,9 @@ program define iivw_balance, rclass
             * active estimates again.
             quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
                 level(`level') vce(cluster `panel_id')
+            if e(converged) == 0 {
+                _iivw_require_converged, model("visit-model balance replay")
+            }
         }
         else {
             quietly gen double `__iivw_w' = exp(-`__iivw_xbf')
@@ -603,15 +662,105 @@ program define iivw_balance, rclass
         * this reason. The mean-1 normalization cancels in every ratio computed
         * below, so clipping the unnormalized refit at the normalized cutpoints
         * requires rescaling first -- do that, then clip.
-        if "`rep_truncvisit'" != "" & "`rep_tv_locut'" != "" {
-            quietly summarize `__iivw_w' if `__iivw_coxok' & !missing(`__iivw_w'), meanonly
+        *
+        * Each side is clipped only when its stored cutpoint is a real number.
+        * One-sided trimming (SOL-12: truncvisit(0 95)) stores the unused side
+        * as missing, and `w < .' is TRUE for every nonmissing value -- so an
+        * unguarded low clip would replace the entire weight column with the
+        * missing cutpoint, quietly, at rc 0.
+        local __iivw_tv_lo_ok = 0
+        local __iivw_tv_hi_ok = 0
+        if "`rep_tv_locut'" != "" {
+            capture confirm number `rep_tv_locut'
+            if _rc == 0 & `rep_tv_locut' < . local __iivw_tv_lo_ok = 1
+        }
+        if "`rep_tv_hicut'" != "" {
+            capture confirm number `rep_tv_hicut'
+            if _rc == 0 & `rep_tv_hicut' < . local __iivw_tv_hi_ok = 1
+        }
+        *
+        * The normalization base is the MODELED EVENT rows -- `!censrow' --
+        * not every row in the risk set. iivw_weight normalizes the IIW to mean
+        * 1 over the rows the Cox model scored, and a terminal at-risk interval
+        * is not a visit and was never in that base.
+        *
+        * Normalizing over all Cox rows here put the replay on a different
+        * scale from the stored weight (measured: mean ratio 0.807 on a 250-
+        * subject fixture). Without trimming that is invisible -- the scale
+        * cancels in every ratio the diagnostic computes -- but the stored
+        * cutpoints are absolute numbers on the STORED scale, so clipping a
+        * differently-scaled vector at them lands on the wrong quantile. The
+        * measured error was 5.9% at the extremes under truncvisit(5 95), a
+        * legal two-sided trim, and it predates SOL-12: r(replay_max_reldif)
+        * is simply the first check with an axis that could see it.
+        if "`rep_truncvisit'" != "" & ///
+            (`__iivw_tv_lo_ok' | `__iivw_tv_hi_ok') {
+            quietly summarize `__iivw_w' ///
+                if `__iivw_coxok' & !`__iivw_censrow' & !missing(`__iivw_w'), ///
+                meanonly
             if r(N) > 0 & r(mean) > 0 & r(mean) < . {
                 quietly replace `__iivw_w' = `__iivw_w' / r(mean)
             }
-            quietly replace `__iivw_w' = `rep_tv_locut' ///
-                if `__iivw_w' < `rep_tv_locut' & !missing(`__iivw_w')
-            quietly replace `__iivw_w' = `rep_tv_hicut' ///
-                if `__iivw_w' > `rep_tv_hicut' & !missing(`__iivw_w')
+            if `__iivw_tv_lo_ok' {
+                quietly replace `__iivw_w' = `rep_tv_locut' ///
+                    if `__iivw_w' < `rep_tv_locut' & !missing(`__iivw_w')
+            }
+            if `__iivw_tv_hi_ok' {
+                quietly replace `__iivw_w' = `rep_tv_hicut' ///
+                    if `__iivw_w' > `rep_tv_hicut' & !missing(`__iivw_w')
+            }
+        }
+
+        * ---- Verify the replay against the weight iivw_weight actually stored.
+        *
+        * Everything above RECONSTRUCTS the visit weight from the stored model
+        * specification. Nothing checked that the reconstruction agrees with the
+        * committed weight column, which is the one assumption the whole
+        * diagnostic rests on -- and it went unchecked straight through the
+        * SOL-01 normalization change (the audit's own "still unverified" list).
+        *
+        * Shape and scale are separated on purpose. Both vectors are put on a
+        * common mean over the SAME rows and compared elementwise, so
+        * replay_max_reldif answers "is this the same weight function"; the
+        * pre-normalization ratio is reported separately as replay_scale, so a
+        * normalization-convention mismatch is visible without being conflated
+        * with a specification mismatch.
+        *
+        * Comparison rows: observed visits only. A terminal at-risk row is
+        * created here by expand and carries a copy of its parent's stored
+        * weight, so including it would compare a row against a weight that was
+        * never computed for it.
+        local replay_max_reldif = .
+        local replay_scale = .
+        local replay_n = 0
+        capture confirm numeric variable `iw_var'
+        if _rc == 0 {
+            tempvar __iivw_cmp
+            quietly gen byte `__iivw_cmp' = `__iivw_coxok' & !`__iivw_censrow' & ///
+                !missing(`__iivw_w', `iw_var') & `iw_var' > 0
+            quietly count if `__iivw_cmp'
+            local replay_n = r(N)
+            if `replay_n' > 0 {
+                tempvar __iivw_wn __iivw_sn
+                quietly summarize `__iivw_w' if `__iivw_cmp', meanonly
+                local __iivw_wbar = r(mean)
+                quietly summarize `iw_var' if `__iivw_cmp', meanonly
+                local __iivw_sbar = r(mean)
+                if `__iivw_wbar' > 0 & `__iivw_wbar' < . & ///
+                    `__iivw_sbar' > 0 & `__iivw_sbar' < . {
+                    local replay_scale = `__iivw_wbar' / `__iivw_sbar'
+                    quietly gen double `__iivw_wn' = ///
+                        `__iivw_w' / `__iivw_wbar' if `__iivw_cmp'
+                    quietly gen double `__iivw_sn' = ///
+                        `iw_var' / `__iivw_sbar' if `__iivw_cmp'
+                    tempvar __iivw_rd
+                    quietly gen double `__iivw_rd' = ///
+                        abs(`__iivw_wn' - `__iivw_sn') / abs(`__iivw_sn') ///
+                        if `__iivw_cmp'
+                    quietly summarize `__iivw_rd', meanonly
+                    local replay_max_reldif = r(max)
+                }
+            }
         }
 
         * Record the visit-model HRs (informational; shown under agrefit).
@@ -702,10 +851,14 @@ program define iivw_balance, rclass
         foreach v of local balance_covars {
             local ++__iivw_bix
 
+            * `touse' -- not `__iivw_coxok' alone -- is what makes if/in restrict
+            * the REPORT while the model above stays fitted on the full stored
+            * rowset. Every summary below carries it, so the target side and the
+            * weighted side describe the same rows.
             tempvar __iivw_dHv __iivw_wv
             quietly gen double `__iivw_dHv' = `__iivw_tgt' * `v' ///
-                if `__iivw_coxok' & !missing(`v', `__iivw_tgt')
-            quietly summarize `__iivw_tgt' if `__iivw_coxok' & ///
+                if `__iivw_coxok' & `touse' & !missing(`v', `__iivw_tgt')
+            quietly summarize `__iivw_tgt' if `__iivw_coxok' & `touse' & ///
                 !missing(`v', `__iivw_tgt'), meanonly
             local __iivw_sdH = r(sum)
             quietly summarize `__iivw_dHv', meanonly
@@ -722,7 +875,7 @@ program define iivw_balance, rclass
                 tempvar __iivw_dHv2
                 quietly gen double `__iivw_dHv2' = ///
                     `__iivw_tgt' * (`v' - `__iivw_tmean')^2 ///
-                    if `__iivw_coxok' & !missing(`v', `__iivw_tgt')
+                    if `__iivw_coxok' & `touse' & !missing(`v', `__iivw_tgt')
                 quietly summarize `__iivw_dHv2', meanonly
                 if `__iivw_sdH' > 0 & r(sum) < . {
                     local __iivw_tsd = sqrt(r(sum) / `__iivw_sdH')
@@ -733,9 +886,10 @@ program define iivw_balance, rclass
             * IIW-weighted mean over the OBSERVED VISITS (events only -- the
             * terminal at-risk interval is not a visit and carries no visit).
             quietly gen double `__iivw_wv' = `__iivw_w' * `v' ///
-                if `__iivw_coxok' & !`__iivw_censrow' & !missing(`v', `__iivw_w')
-            quietly summarize `__iivw_w' if `__iivw_coxok' & !`__iivw_censrow' & ///
-                !missing(`v', `__iivw_w'), meanonly
+                if `__iivw_coxok' & `touse' & !`__iivw_censrow' & ///
+                !missing(`v', `__iivw_w')
+            quietly summarize `__iivw_w' if `__iivw_coxok' & `touse' & ///
+                !`__iivw_censrow' & !missing(`v', `__iivw_w'), meanonly
             local __iivw_sw = r(sum)
             quietly summarize `__iivw_wv', meanonly
             local __iivw_swv = r(sum)
@@ -812,13 +966,32 @@ program define iivw_balance, rclass
     * max |target SMD| <= balcut(), exceeds_rule otherwise. It is reported ONLY
     * when the diagnostic that supports it actually ran; a check with no evidence
     * behind it says "unknown", it does not default to a pass.
-    if `__iivw_refit_ok' & `balance_max_tsmd' < . {
+    *
+    * refit_ncens == 0 withdraws the verdict entirely (SOL-11). With no terminal
+    * at-risk interval the person-time target is built from the visit intervals
+    * alone, so it collapses toward the observed visits and |target SMD| is
+    * small almost regardless of the weights. The pre-fix command printed a
+    * paragraph saying exactly that -- and then printed within_rule underneath
+    * it. A check that cannot fail is not a check, and reporting its pass as a
+    * verdict is the rc=0-but-wrong case this audit finding is about.
+    local target_status "identified"
+    if !`__iivw_refit_ok' | `balance_max_tsmd' >= . {
+        local target_status "unavailable"
+    }
+    else if `refit_ncens' == 0 {
+        local target_status "not_identified"
+    }
+
+    if "`target_status'" == "identified" {
         if `balance_max_tsmd' <= `balcut' {
             local balance_flag "within_rule"
         }
         else {
             local balance_flag "exceeds_rule"
         }
+    }
+    else if "`target_status'" == "not_identified" {
+        local balance_flag "not_identified"
     }
 
     display as text ""
@@ -831,6 +1004,19 @@ program define iivw_balance, rclass
         as text cond("`component'" == "iiw", ///
         "  (visit-intensity weight)", "  (IIW x IPTW analysis weight)")
     display as text "Weight variable:  " as result "`weight_var'"
+    display as text "Replay mode:      " as result "stored" ///
+        as text "  (visit model replayed on all `refit_rowset_N' stored rows)"
+    if `refit_rowset_N' != `N' {
+        display as text "                  " ///
+            as text "if/in restricts the report to " as result `N' ///
+            as text " row(s); the weights themselves are unchanged"
+    }
+    if `replay_max_reldif' < . {
+        display as text "Replay check:     " ///
+            as text "max rel. deviation from the stored weight = " ///
+            as result %9.2e `replay_max_reldif' ///
+            as text " over " as result `replay_n' as text " visit row(s)"
+    }
     display as text "Observations:     " as result %9.0f `N'
     display as text "Subjects:         " as result %9.0f `n_ids'
     if "`weighttype'" == "fiptiw" & "`component'" == "final" {
@@ -843,9 +1029,17 @@ program define iivw_balance, rclass
     display as text "`__iivw_smcl_lb'bf:Leverage`__iivw_smcl_rb'"
     display as text "  Weight CV:       " as result %9.4f `weight_cv' ///
         as text "  (low if < " as result %5.3f `cvcut' as text ")"
-    display as text "  ESS/N:           " as result %9.4f `ess_ratio' ///
+    display as text "  Row ESS/N:       " as result %9.4f `ess_ratio' ///
         as text "  (low if > " as result %5.3f `essratiocut' as text ")"
-    display as text "  Verdict:         " as result "`leverage'"
+    if `ess_cluster_ratio' < . {
+        display as text "  Cluster ESS/n_id:" as result %9.4f `ess_cluster_ratio' ///
+            as text "  (subject-level concentration)"
+    }
+    display as text "  Verdict:         " as result "`leverage'" ///
+        as text "  (from the ROW measures above)"
+    display as text "  Row ESS is a row-weight concentration measure. Inference is"
+    display as text "  clustered on `panel_id', so read Cluster ESS/n_id beside it: a"
+    display as text "  subject with many visits is many rows and one cluster."
     display as text ""
     display as text "`__iivw_smcl_lb'bf:Composition shift (descriptive)`__iivw_smcl_rb'"
     display as text "  How far the weights moved the covariate composition of the observed"
@@ -897,16 +1091,19 @@ program define iivw_balance, rclass
         * within_rule would overstate what was actually checked.
         if `refit_ncens' == 0 {
             display as text ""
-            display as text "  note: no terminal at-risk interval was available" ///
+            display as error "  the person-time target is NOT identified here."
+            display as text "        No terminal at-risk interval was available" ///
                 " (endatlastvisit, or no"
             display as text "        censor()/maxfu() follow-up beyond the last" ///
-                " visit). The person-time"
-            display as text "        target then rests on the visit intervals" ///
-                " alone, so this check is"
-            display as text "        much weaker than it looks. Supply censor()" ///
-                " or maxfu() for a"
-            display as text "        target the weights can actually be tested" ///
-                " against."
+                " visit), so the target"
+            display as text "        rests on the visit intervals alone. It then" ///
+                " collapses toward the"
+            display as text "        observed visits and |target SMD| is small" ///
+                " almost regardless of"
+            display as text "        the weights, so no verdict is reported." ///
+                " Supply censor() or"
+            display as text "        maxfu() for a target the weights can" ///
+                " actually be tested against."
         }
     }
     else {
@@ -981,7 +1178,7 @@ program define iivw_balance, rclass
         }
         if `"`__iivw_clean_footnote'"' == "" {
             local __iivw_clean_footnote ///
-                "Modeled identifies visit-intensity model covariates. Shift is the weighted-minus-unweighted mean in unweighted SD units: it measures how far the weights moved the composition of the observed visits, and is descriptive only. The balance verdict comes from the residual coefficients of the IIW-weighted visit-model refit."
+                "Modeled identifies visit-intensity model covariates. Shift is the weighted-minus-unweighted mean in unweighted SD units: it measures how far the weights moved the composition of the observed visits, and is descriptive only. The balance verdict comes from Target SMD -- the IIW-weighted mean over observed visits against the person-time mean implied by the replayed visit model -- compared with balcut(). The visit model is replayed on all stored rows; if/in restricts this report only. Target status: `target_status'."
         }
 
         frame post `__iivw_export_table' ///
@@ -1160,6 +1357,9 @@ program define iivw_balance, rclass
     return scalar weight_cv = `weight_cv'
     return scalar ess = `ess'
     return scalar ess_ratio = `ess_ratio'
+    * Row-level (Kish, on panel rows) vs cluster-level concentration (SOL-13).
+    return scalar ess_cluster = `ess_cluster'
+    return scalar ess_cluster_ratio = `ess_cluster_ratio'
     * r(informative) is GONE. It gated a workflow decision on the good/poor
     * verdict that the composition shift produced, and that verdict was wrong in
     * the package's own known-truth scenario -- it reported Informative: 0 for a
@@ -1177,6 +1377,15 @@ program define iivw_balance, rclass
     return scalar refit_N = `refit_N'
     return scalar refit_n_censrows = `refit_ncens'
     return scalar refit_ok = `__iivw_refit_ok'
+    * r(N) counts the rows the REPORT describes (after if/in); r(N_replay)
+    * counts the rows the visit model was replayed on (the full stored rowset).
+    * They differ exactly when if/in was specified.
+    return scalar N_replay = `refit_rowset_N'
+    return scalar replay_max_reldif = `replay_max_reldif'
+    return scalar replay_scale = `replay_scale'
+    return scalar replay_n = `replay_n'
+    return local replay_mode "stored"
+    return local target_status "`target_status'"
 
     return local id "`panel_id'"
     return local time "`panel_time'"

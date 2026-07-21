@@ -111,6 +111,14 @@ program define iivw_diagnose, rclass
         }
         local _held_ests = 1
 
+        * Sample markers for the H3 identity check (SOL-07). e(sample) is
+        * readable only while the estimates are restored, and it is a marker
+        * variable, not a count -- so it has to be materialized per role inside
+        * the loop below and compared afterwards. A hand-posted `ereturn post'
+        * with no esample() marks nothing, which is the "cannot verify" state,
+        * not the "identical" state.
+        tempvar _es_unweighted _es_weighted _es_adjusted
+
         foreach role in unweighted weighted adjusted {
             local estname "``role''"
             capture quietly estimates restore `estname'
@@ -147,6 +155,14 @@ program define iivw_diagnose, rclass
             local clust_`role'   "`e(clustvar)'"
             local N_`role'       = e(N)
             local dfr_`role'     = e(df_r)
+
+            capture quietly generate byte `_es_`role'' = e(sample)
+            local _esrc_`role' = _rc
+            local _esn_`role' = 0
+            if `_esrc_`role'' == 0 {
+                quietly count if `_es_`role''
+                local _esn_`role' = r(N)
+            }
         }
 
         * =================================================================
@@ -182,6 +198,37 @@ program define iivw_diagnose, rclass
             }
         }
 
+        * -----------------------------------------------------------------
+        * H3b: the same PEOPLE, not merely the same count (SOL-07).
+        * -----------------------------------------------------------------
+        * The gate above never looked at the sample at all, and an earlier
+        * version that did compared e(N). Two disjoint 52-observation
+        * regressions have the same N and share no observation; the pre-fix
+        * build decomposed them and returned decomposable == 1. Equal counts
+        * are not equal samples, so compare the markers.
+        *
+        * sample_identical is three-valued on purpose: 1 identical, 0 provably
+        * different, missing when at least one role carries no usable marker
+        * (a hand-posted matrix, or estimates stored against data no longer in
+        * memory). Unverifiable is not the same as verified, and it must not
+        * be reported as either.
+        local _sample_avail = 1
+        foreach role in unweighted weighted adjusted {
+            if `_esrc_`role'' != 0 | `_esn_`role'' == 0 local _sample_avail = 0
+        }
+        local _sample_identical = .
+        if `_sample_avail' {
+            local _sample_identical = 1
+            foreach role in weighted adjusted {
+                quietly count if `_es_`role'' != `_es_unweighted'
+                if r(N) > 0 {
+                    local _sample_identical = 0
+                    local _incomparable ///
+                        "`_incomparable' sample(`role': `_esn_`role'' obs vs unweighted: `_esn_unweighted' obs, `r(N)' row(s) differ)"
+                }
+            }
+        }
+
         if `"`_incomparable'"' != "" & "`force'" == "" {
             display as error "the three estimates are not comparable, so their differences are not a decomposition"
             display as error ""
@@ -205,6 +252,45 @@ program define iivw_diagnose, rclass
             display as text "note: force specified with incomparable estimates. The gaps below are"
             display as text "  differences between models that do not estimate the same quantity, so"
             display as text "  they are NOT a sampling/artifact decomposition. Descriptive only."
+        }
+
+        * -----------------------------------------------------------------
+        * H3c: the decomposition needs a collapsible scale (SOL-07).
+        * -----------------------------------------------------------------
+        * b(weighted) - b(adjusted) is read as the movement caused by ADDING the
+        * adjustment. On a nonlinear link that subtraction also contains pure
+        * noncollapsibility: conditioning on a prognostic covariate changes the
+        * coefficient even when the covariate is independent of treatment and
+        * the true "artifact" is exactly zero. A randomized-logit probe with no
+        * confounding returned artifact share 1.0 -- the entire gap attributed
+        * to an artifact that does not exist.
+        *
+        * Only an identity-link/Gaussian fit is collapsible in the sense the
+        * decomposition assumes, so decomposable == 1 is confined to that case.
+        * This is a labelling change, not a refusal: the gaps are still computed
+        * and shown, but they are marked descriptive.
+        local _nonlinear_roles ""
+        foreach role in unweighted weighted adjusted {
+            local _fam = lower("`family_`role''")
+            local _lnk = lower("`link_`role''")
+            local _lin = 0
+            if "`_fam'" != "" | "`_lnk'" != "" {
+                if "`_fam'" == "gaussian" & "`_lnk'" == "identity" local _lin = 1
+            }
+            else if inlist("`cmd_`role''", "regress", "areg", "cnsreg", "rreg") {
+                local _lin = 1
+            }
+            else if inlist("`cmd_`role''", "mixed", "xtreg", "ivregress", "newey") {
+                local _lin = 1
+            }
+            if !`_lin' {
+                local _nonlinear_roles "`_nonlinear_roles' `role'(`cmd_`role'')"
+            }
+        }
+        local _noncollapsible ""
+        if "`_nonlinear_roles'" != "" {
+            local _noncollapsible ///
+                "identity-link collapsibility not established for:`_nonlinear_roles'"
         }
 
         * =================================================================
@@ -245,8 +331,8 @@ program define iivw_diagnose, rclass
         local sampling_gap = `b_unweighted' - `b_weighted'
         local artifact_gap = `b_weighted' - `b_adjusted'
         local total_gap    = `b_unweighted' - `b_adjusted'
-        local bounds_lower = min(`b_weighted', `b_adjusted')
-        local bounds_upper = max(`b_weighted', `b_adjusted')
+        local range_min = min(`b_weighted', `b_adjusted')
+        local range_max = max(`b_weighted', `b_adjusted')
 
         local shares_available = 0
         local share_note ""
@@ -360,14 +446,15 @@ program define iivw_diagnose, rclass
             display as text "model may over-correct. Treat the weighted and adjusted estimates as a"
             display as text "diagnostic range, not a point decomposition."
             display as text "Plausible diagnostic range: " ///
-                as result %9.4f `bounds_lower' as text " to " ///
-                as result %9.4f `bounds_upper'
+                as result %9.4f `range_min' as text " to " ///
+                as result %9.4f `range_max'
         }
         else if "`exogeneity'" == "unknown" & "`estimand'" == "marginal" {
             display as text ""
             display as text "Shares are descriptive because exogeneity of the measurement adjustment"
             display as text "has not been established."
         }
+
         else if "`exogeneity'" == "exogenous" & "`estimand'" == "marginal" {
             display as text ""
             display as text "note: exogeneity(exogenous) is your assertion, not a tested condition."
@@ -375,10 +462,23 @@ program define iivw_diagnose, rclass
             display as text "assumption; they are not a validated causal decomposition, and this"
             display as text "command does not verify that the adjustment is exogenous."
         }
-        else if "`exogeneity'" == "exogenous" & "`estimand'" == "marginal" {
+
+        * These two are independent of exogeneity()/estimand(), so they sit
+        * outside the chain above rather than extending it.
+        if `_sample_identical' == . {
             display as text ""
-            display as text "Under additive separability and exogenous measurement adjustment, shares"
-            display as text "summarize movement from sampling correction versus residual artifact."
+            display as text "note: the estimation sample could not be verified for at least one"
+            display as text "  estimate (no usable e(sample) marker), so this command cannot"
+            display as text "  confirm the three fits describe the same rows. Reported as"
+            display as text "  non-decomposable."
+        }
+        if "`_noncollapsible'" != "" {
+            display as text ""
+            display as text "note: `_noncollapsible'."
+            display as text "  On a nonlinear link, adding a prognostic covariate moves the"
+            display as text "  coefficient even when that covariate is independent of the exposure,"
+            display as text "  so the artifact gap contains noncollapsibility as well as any real"
+            display as text "  measurement artifact. Reported as non-decomposable."
         }
 
         if "`true'" != "" {
@@ -564,19 +664,19 @@ program define iivw_diagnose, rclass
                 (`"`_value_str'"') ("") ("")
 
             local _value_str ""
-            if `bounds_lower' < . {
-                local _value_str : display `_num_fmt' `bounds_lower'
+            if `range_min' < . {
+                local _value_str : display `_num_fmt' `range_min'
                 local _value_str = strtrim("`_value_str'")
             }
-            frame post `_diagnose_export' ("") ("Lower bound") ///
+            frame post `_diagnose_export' ("") ("Range min") ///
                 (`"`_value_str'"') ("") ("")
 
             local _value_str ""
-            if `bounds_upper' < . {
-                local _value_str : display `_num_fmt' `bounds_upper'
+            if `range_max' < . {
+                local _value_str : display `_num_fmt' `range_max'
                 local _value_str = strtrim("`_value_str'")
             }
-            frame post `_diagnose_export' ("") ("Upper bound") ///
+            frame post `_diagnose_export' ("") ("Range max") ///
                 (`"`_value_str'"') ("") ("")
 
             if "`true'" != "" {
@@ -671,9 +771,9 @@ program define iivw_diagnose, rclass
         matrix colnames `_bias' = value
     }
     matrix `_decomp' = (`sampling_gap' \ `artifact_gap' \ `total_gap' \ ///
-        `sampling_share' \ `artifact_share' \ `bounds_lower' \ `bounds_upper')
+        `sampling_share' \ `artifact_share' \ `range_min' \ `range_max')
     matrix rownames `_decomp' = sampling_gap artifact_gap total_gap ///
-        sampling_share artifact_share bounds_lower bounds_upper
+        sampling_share artifact_share range_min range_max
     matrix colnames `_decomp' = value
 
     if "`true'" != "" {
@@ -681,9 +781,19 @@ program define iivw_diagnose, rclass
     }
     return matrix decomp = `_decomp'
     return matrix estimates = `_estimates'
-    * Comparability and interval provenance. decomposable = 0 means the three
-    * estimates are not the same estimand and the gaps are descriptive only.
-    return scalar decomposable = `=1 - `_forced_incomparable''
+    * Comparability and interval provenance. decomposable = 0 means the gaps are
+    * descriptive only -- because the three estimates are not the same estimand
+    * (force), because they were not fitted on the same rows, because the sample
+    * could not be verified at all, or because the link is not collapsible.
+    local _decomposable = 1 - `_forced_incomparable'
+    if `_sample_identical' != 1        local _decomposable = 0
+    if "`_noncollapsible'" != ""       local _decomposable = 0
+    return scalar decomposable = `_decomposable'
+    return scalar sample_identical = `_sample_identical'
+    return scalar n_sample_unweighted = `_esn_unweighted'
+    return scalar n_sample_weighted   = `_esn_weighted'
+    return scalar n_sample_adjusted   = `_esn_adjusted'
+    return local noncollapsible "`_noncollapsible'"
     return local ci_dist_unweighted "`dist_unweighted'"
     return local ci_dist_weighted "`dist_weighted'"
     return local ci_dist_adjusted "`dist_adjusted'"

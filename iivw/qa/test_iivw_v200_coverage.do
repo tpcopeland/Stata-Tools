@@ -239,7 +239,7 @@ capture noisily {
     iivw_exogtest y, id(id) time(time) censor(cens)
     assert r(n_models) > 0
     assert r(holm_min_p) >= 0 & r(holm_min_p) <= 1
-    assert inlist(r(endogenous_flag), 0, 1)
+    assert inlist(r(history_association_flag), 0, 1)
 }
 if _rc == 0 {
     local ++pass_count
@@ -421,7 +421,11 @@ capture noisily {
     capture log close r11cap
 
     assert `r11_censrows' == 0
-    assert "`r11_flag'" != ""
+    * From the SOL-11 fix the verdict is WITHDRAWN, not merely qualified: with
+    * no terminal at-risk interval the target is not identified, so there is no
+    * within_rule/exceeds_rule to report. The old expectation ("a verdict, plus
+    * a warning paragraph") let a degenerate target still print as a pass.
+    assert "`r11_flag'" == "not_identified"
 
     tempname fh
     local r11_text ""
@@ -432,7 +436,7 @@ capture noisily {
         file read `fh' line
     }
     file close `fh'
-    assert strpos(`"`r11_text'"', "much weaker than it looks") > 0
+    assert strpos(`"`r11_text'"', "person-time target is NOT identified") > 0
 }
 if _rc == 0 {
     local ++pass_count
