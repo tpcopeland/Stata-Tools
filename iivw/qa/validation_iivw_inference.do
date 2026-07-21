@@ -80,6 +80,23 @@ if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
     exit 198
 }
 
+* ONE THREAD PER PROCESS. Stata-MP's within-command parallelism is a net LOSS
+* for this workload, and it is actively harmful once blocks run concurrently:
+* MP worker threads spin-wait, so N concurrent blocks x 16 threads oversubscribe
+* the box and burn CPU on contention rather than on fits. Measured on a 16-vCPU
+* host, 30 Cox fits on 10k rows, two matched reps under identical load:
+*
+*     processors=1   1.19s / 1.21s     processors=4    1.82s / 1.31s
+*     processors=2   1.63s / 1.25s     processors=16   2.64s / 1.55s
+*
+* Monotonic in both reps -- every core handed to a fit this small makes it
+* slower. An earlier un-sharded gate run left this unset and drove the host to
+* load 40 with 1.13M context switches/sec on 16 vCPUs. Parallelism for this
+* gate comes from running BLOCKS concurrently (see FROM/TO), never from threads.
+if c(MP) == 1 {
+    capture set processors 1
+}
+
 * registered constants (TOLERANCE_FRAMEWORK.md section 3)
 local COVERAGE_R     = 1000
 local COVERAGE_FLOOR = 0.92
@@ -381,6 +398,13 @@ program define _inf_engine, rclass
     * hours for iiw, i.e. ~68 hours for the family. Sharding by replication block
     * uses the machine in the dimension the problem is actually parallel in.
     *
+    * That ~68h figure is an OVERSTATEMENT of the real cost and should not be
+    * quoted as the serial baseline: it was measured with processors unset, so
+    * two family shards each spawned 16 spin-waiting MP threads on a 16-vCPU
+    * host (load 40, 1.13M context switches/sec). Most of that time was
+    * contention, not fitting. The driver now pins processors=1 -- see the note
+    * at the top of this file -- and blocks are launched by qa/run_coverage_gate.sh.
+    *
     * rowsout() writes a block's raw rows and returns WITHOUT a verdict.
     * rowsin() skips the loop and evaluates rows collected elsewhere.
     * The acceptance rule is applied exactly ONCE, to the union of all blocks --
@@ -399,12 +423,26 @@ program define _inf_engine, rclass
 
     tempname P
     tempfile rowsfile
+    local n_ok = 0
+    local n_fail = 0
+
+    * COMBINE PATH. rowsin() means the rows were already produced by block runs,
+    * so the simulation loop MUST be skipped. It previously was not: the loop ran
+    * the full 1..sims study, postclose'd it, and then discarded every row in
+    * favour of rowsin() -- making combine_<family> silently cost a second entire
+    * study (~a day) while reading as pure aggregation. Guarding the loop is what
+    * makes the block/combine split actually cheaper than the monolithic run.
+    if `"`rowsin'"' != "" {
+        use `"`rowsin'"', clear
+        quietly count
+        local n_ok = r(N)
+        local n_fail = `sims' - `n_ok'
+    }
+    else {
     postfile `P' int(sim arm) double(b_refit se_refit cov_refit ///
         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
         using "`rowsfile'", replace
 
-    local n_ok = 0
-    local n_fail = 0
     forvalues s = `from'/`to' {
         _inf_dgpseed  `master' `arm' `s'
         local dgpseed = `r(seed)'
@@ -439,12 +477,7 @@ program define _inf_engine, rclass
         if _rc local ++n_fail
     }
     postclose `P'
-
-    if `"`rowsin'"' != "" {
-        use `"`rowsin'"', clear
-    }
-    else {
-        use "`rowsfile'", clear
+    use "`rowsfile'", clear
     }
 
     * A block emits rows and stops. No verdict, and a sentinel that cannot be
@@ -645,10 +678,54 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
         display as error "  the blocks overlap; re-run with disjoint FROM/TO ranges"
         exit 459
     }
-    quietly summarize sim
-    if r(min) != 1 | r(max) != `SIMS' {
-        display as error "combine(`fam'): blocks span sim `=r(min)'-`=r(max)', expected 1-`SIMS'"
-        display as error "  at least one block is missing; the union is not the study"
+    * The union must TILE 1..SIMS, and that must be proved from the block
+    * RANGES, not from the pooled row values. A min/max check on sim is not a
+    * tiling proof: it accepts any missing INTERIOR block, because the absent
+    * replications then look exactly like failed draws. Measured -- deleting
+    * block 376-500 of 8 left min=1, max=1000 and produced a verdict over 875
+    * replications reported as sims=1000. A missing block is a structural fault
+    * and must refuse; a failed draw is legitimate and is counted separately.
+    tempname COV
+    matrix `COV' = J(1, `SIMS', 0)
+    local flen = strlen("`fam'") + 2
+    foreach b of local blocks {
+        local stem = subinstr("`b'", ".dta", "", 1)
+        local bf = real(substr("`stem'", `flen', 5))
+        local bt = real(substr("`stem'", `flen' + 6, 5))
+        if missing(`bf') | missing(`bt') {
+            display as error "combine(`fam'): cannot parse a block range from `b'"
+            display as error "  expected <family>_<FROM>_<TO>.dta with %05.0f fields"
+            exit 459
+        }
+        if `bf' < 1 | `bt' > `SIMS' | `bf' > `bt' {
+            display as error "combine(`fam'): block `b' spans `bf'-`bt', outside 1-`SIMS'"
+            exit 459
+        }
+        forvalues k = `bf'/`bt' {
+            matrix `COV'[1, `k'] = `COV'[1, `k'] + 1
+        }
+    }
+    local ngap = 0
+    local nover = 0
+    local firstgap = 0
+    forvalues k = 1/`SIMS' {
+        if `COV'[1, `k'] == 0 {
+            local ++ngap
+            if `firstgap' == 0 local firstgap = `k'
+        }
+        else if `COV'[1, `k'] > 1 {
+            local ++nover
+        }
+    }
+    if `ngap' > 0 {
+        display as error "combine(`fam'): `ngap' replication(s) covered by NO block" ///
+            " (first gap at sim `firstgap')"
+        display as error "  a missing block is not a failed draw; the union is not the study"
+        exit 459
+    }
+    if `nover' > 0 {
+        display as error "combine(`fam'): `nover' replication(s) covered by MORE THAN ONE block"
+        display as error "  re-run with disjoint FROM/TO ranges"
         exit 459
     }
     local ndrop = `SIMS' - `nrows'
