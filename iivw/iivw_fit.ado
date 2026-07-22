@@ -1,4 +1,4 @@
-*! iivw_fit Version 2.1.0  2026/07/21
+*! iivw_fit Version 2.2.0  2026/07/23
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -311,6 +311,19 @@ program define iivw_fit, eclass
             "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
         * A measured coverage shortfall must be visible at the point of use, not
         * only in a stored macro a user has to know to look for.
+        *
+        * WHY HERE AND NOT WHERE THE STATUS IS SET. This fires before the 999
+        * draws run, so a user learns the interval will under-cover BEFORE
+        * waiting out the bootstrap rather than after.
+        *
+        * KNOWN GAP, deliberate: a user who types vce(bootstrap, reps(999))
+        * explicitly with FIPTIW weights gets the same estimator and the same
+        * e(iivw_inference_status), but no console note -- this branch is only
+        * the no-vce() default. They are told by the help and by e(). Moving the
+        * note to the status block would cover them, but that block is only
+        * reached by a fit that succeeds, so it could not be exercised by the
+        * cheap empty-sample fixture the QA suite uses, and a 999-draw fixture
+        * would put minutes into every lane run.
         if "`weighttype'" == "fiptiw" {
             display as text ///
                 "  FIPTIW note: in the 2026-07-22 coverage study this interval" ///

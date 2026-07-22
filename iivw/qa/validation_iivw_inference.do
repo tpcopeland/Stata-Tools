@@ -76,10 +76,11 @@ if "`FROM'" == "" local FROM 0
 if "`TO'"   == "" local TO 0
 * NSUB is a DIAGNOSTIC passthrough only: 0 means "use the family's own default",
 * which is what every gate invocation gets. It exists so a sample-size study can
-* reuse this file's DGP rather than keeping a second, drifting copy of it. A
-* non-zero NSUB does NOT produce a gate result -- combine still requires the
-* preregistered SIMS, and nsub is not part of the provenance stamp, so diagnostic
-* blocks must be aggregated separately and never mixed into a gate pool.
+* reuse this file's DGP rather than keeping a second, drifting copy of it.
+* A non-zero NSUB can NEVER reach a gate verdict: the requested value is stamped
+* into every row as blk_nsub and combine refuses any pool where it is not 0.
+* That is enforced in code, not by operator discipline -- a diagnostic block
+* would otherwise agree with a gate pool on reps/sims/seed and tile correctly.
 if "`NSUB'" == "" local NSUB 0
 if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
     "combine_iiw", "combine_iptw", "combine_fiptiw") {
@@ -390,6 +391,16 @@ program define _inf_engine, rclass
     * FLOOR is the registered COVERAGE_FLOOR passed in: driver-scope locals are
     * NOT visible inside a program, so the constant must arrive as an option.
     *
+    * Capture the REQUESTED nsub before the family defaults overwrite it below
+    * (`nsub' is reassigned inside the loop). 0 means "family default", which is
+    * the only value a gate run may carry; anything else is a diagnostic run.
+    * Without this stamp a diagnostic block at nsub=1200 would agree with a gate
+    * pool on reps/sims/seed, tile correctly, and be aggregated into the gate's
+    * coverage number -- the same silent-contamination class the reps/sims/seed
+    * stamp exists to stop, arriving through the door the nsub passthrough
+    * opened.
+    local nsub_requested = `nsub'
+    *
     * BLOCK SHARDING (from/to, rowsout, rowsin)
     * -----------------------------------------
     * The 1000 outer replications are mutually independent: the seed ledger
@@ -459,7 +470,7 @@ program define _inf_engine, rclass
     * blk_seed is double, not long: a seed above 2^31 would post as MISSING in a
     * long, and the combine check would then refuse with "produced at
     * blk_seed=." rather than naming the real seed. double is exact to 2^53.
-    postfile `P' int(sim arm) long(blk_reps blk_sims) double(blk_seed) ///
+    postfile `P' int(sim arm) long(blk_reps blk_sims blk_nsub) double(blk_seed) ///
         double(b_refit se_refit cov_refit ///
         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
         using "`rowsfile'", replace
@@ -489,7 +500,7 @@ program define _inf_engine, rclass
                 display as error "unknown family `family'"
                 error 198
             }
-            post `P' (`s') (`arm') (`reps') (`sims') (`master') ///
+            post `P' (`s') (`arm') (`reps') (`sims') (`nsub_requested') (`master') ///
                 (`r(b_refit)') (`r(se_refit)') (`r(cov_refit)') ///
                 (`r(b_fix)') (`r(se_fix)') (`r(cov_fix)') ///
                 (`r(b_fwb)') (`r(se_fwb)') (`r(cov_fwb)') (`r(cov_naive)') ///
@@ -695,7 +706,7 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
     * would label it with whatever REPS/SEED this invocation was handed.
     * Measured before this check existed: one fabricated pool certified as both
     * "reps=999" and "reps=10". Refuse rather than mislabel.
-    foreach v in blk_reps blk_sims blk_seed {
+    foreach v in blk_reps blk_sims blk_seed blk_nsub {
         capture confirm variable `v'
         if _rc {
             display as error "combine(`fam'): block rows carry no `v' stamp"
@@ -703,7 +714,10 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
             exit 459
         }
     }
-    local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED'
+    * blk_nsub must be 0: a gate cell is defined by the family's own default
+    * sample size. A diagnostic block run at another nsub agrees with a gate pool
+    * on reps/sims/seed and tiles correctly, so nothing else here would catch it.
+    local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED' blk_nsub 0
     while "`stamps'" != "" {
         gettoken v stamps : stamps
         gettoken want stamps : stamps

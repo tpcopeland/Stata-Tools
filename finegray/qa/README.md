@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.2.0): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`, `finegray_gof`).
+Quality assurance for the **finegray** package (v1.2.0): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
 This suite is built on four assurance layers, applied in increasing order of authority:
 
@@ -44,8 +44,6 @@ Two things about that number are worth stating, because both have gone wrong her
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (100 datasets, arms A/B/C/D/X, plus manifest/tolerance guards) | 102 | 102 | 0 | 0 |
 | `test_finegray_nuisance.do` | **`nuisance` (FG 1999 eq. 7-8 psi) contract** — R-free: materiality, default-unchanged, both refusal gates with positive controls, `e(vce_meat)`, cluster path, `sum(psi)==0` invariant, finite-sample composition, beta invariance, post-estimation non-propagation, the Mata-level LT guard, and the no-competing-events reduction to Cox | 12 | 12 | 0 | 0 |
 | `crossval_nuisance.do` | **`nuisance` parity vs the FG eq. (7)-(8) oracle** (5 fixtures: hand-checkable, tie-free, 5-way tied events, 3 censoring strata, PBC n=416/p=5). Checks **variances and covariances** — psi's effect is concentrated off-diagonal (up to 19.9% on PBC vs ~1% on the diagonals), and a covariance-only psi defect passes every diagonal assertion | 6 | 6 | 0 | 0 |
-| `test_finegray_gof.do` | **`finegray_gof` contract** (Li/Scheike/Zhang 2015) — R-free: the `r()` surface, the absence of `r(chi2)`/`r(df)` with a populated-`r()` control, `seed()` reproducibility and seed-invariance of the observed supremum, `nsim()` proven live, the `1/nsim` display floor with a negative control, all six refusal gates each with its own positive control, and state hygiene including the global `_finegray_gof_*` matrix namespace on both the success and error paths. Factor variables and interactions are covered on both the columns-present and rebuild paths, including G18: an `fvset base` change *after* the fit must move neither the labels nor the numbers, and G19 testing the shared `_finegray_fv_design` helper directly | 19 | 19 | 0 | 0 |
-| `crossval_gof.do` | **`finegray_gof` parity vs the Li/Scheike/Zhang R oracle** (3 fixtures, one with tied event times). Compares the observed process and a fixed-multiplier contraction `V0'W` at 1e-10 — `obs` alone is blind to eq. (17)'s terms 2 and 3 — plus the command's own suprema, including `sup_overall`, the single number in the package that can see the `{I^-1_jj}^(1/2)` standardizing factor. Also asserts that `finegray`'s beta solves the oracle's score equation, which `cmprsk::crr`'s does not to the same precision | 6 | 6 | 0 | 0 |
 | **Total** | | **609** | **609** | **0** | **0** |
 
 Observed, not computed: `RESULT: run_all tests=29 pass=29 fail=0 skip=0` from the 2026-07-21 isolated `run_all.sh full` lane, with the 609 summed from that same lane's per-suite sentinels. See `run_all_status.txt`.
@@ -97,49 +95,6 @@ The scale check uses an **IQR-implied** SD and prints the plain-SD ratio beside 
 - **Part 2 — the trade, priced.** The fully-joint fix is not free, and that is why it is not the default. It consults a stratum-specific denominator `A_W(X_i−)` in every joint cell — exactly the quantity **Z23** shows goes to zero under refinement. So the choice is bias-variance/**positivity**: `JOINT` is unbiased here but more variable than `MARGINAL` (observed mean analytic SE ratio ≈ 1.11 at K = 2), and as `W` is refined its denominator hits the Z23 hard failure `r(459)` while the pooling `MARGINAL` product stays feasible. The positivity ladder observes this directly — at K = 80 the fully-joint fit dies with the genuine Z23 message ("*consulted joint-stratum denominator cell(s) are zero*") on a dataset where `MARGINAL` fits without complaint. The shipped factorized default is that trade, made deliberately: a small *observed* bias in this constructed sensitivity scenario when `L` and `C` share an unsplit dependence (not a general theoretical bound — the quantity measured here is the bias in the tested DGP), in exchange for a weight that stays defined as strata refine.
 
 Like its two sibling gates, this is run on demand (smoke settings emit `smoke=1` and a failing sentinel, which `run_all.sh`/the runner treat as non-gating).
-
-### The two `finegray_gof` gates — size and power
-
-`validation_finegray_gof_calibration.do` and `validation_finegray_gof_power.do` are a pair, and neither is sufficient alone: a test can be perfectly sized and still detect nothing, so size was never the whole claim. Both fit with `finegray` and test with `finegray_gof` — through the shipped commands, not through Mata directly — so the numbers belong to what users run.
-
-| Suite | Question | Published target | Cost |
-|---|---|---|---|
-| `validation_finegray_gof_calibration.do` | Does the test hold its size under the null? | Li/Scheike/Zhang (2015) Tables 1 and 4 | 12 cells × 5,000 reps × nsim 1,000 |
-| `validation_finegray_gof_power.do` | Does it have power under the two alternatives the paper studies? | **Own frozen baseline** on the named DGP (reading A); Tables 2 and 3 reported `UNRESOLVED`, not asserted | 12 cells × 5,000 reps × nsim 1,000 |
-| `_gof_power_dgp_variants.do` | Which reading of the paper's alternative DGP generated Tables 2 and 3? | Closed-form generator identities; three named readings | 3 readings, R = 1,000 × nsim 500 (~3 min) |
-
-**Why the power gate carries two alternatives rather than one.** They differ only in the *shape* of the time-varying effect, and that difference is the paper's argument. Under Table 2's linear departure (`β(t) = β + θt`) a correctly specified time-interaction model beats the omnibus test, 0.9985 to 0.9590 at n = 300 / 15% censoring. Under Table 3's change point the ordering reverses, 0.9125 to 0.9715. The case for an omnibus test is precisely that it does not require the analyst to have guessed the form, so a suite reproducing only Table 2 would evidence the case where the test is second best and omit the case that justifies it.
-
-**What the power gate does not claim.** Only the "Proposed" column is asserted. The three rival columns (`t`, `t²`, `log(t)`) come from refitting Fine-Gray with a time-varying interaction — a different estimator this package does not expose — so reproducing them would be a second implementation effort whose failures would be indistinguishable from failures of the test under study. The ordering claim above is quoted in `finegray_gof.sthlp` from the paper and is **not** verified here.
-
-**One DGP detail is an interpretation, not a transcription.** For Table 3 the paper gives `β(t)`, `λ*₁₀(t) = 1`, `β₁ = 1`, `β₂ = 0.2` and `t₀ = 0.5`, and says the data come from model (4), but it does not restate the cause-2 distribution or the cause-1 probability for that table. Both are carried over from the Table 2 paragraph (p.204): `P(cause 1) = 0.66`, cause 2 exponential with rate `exp(αZ)`, `α = −0.5`. If a cell misses at the full R, that assumption is the first thing to re-examine — ahead of the estimator.
-
-**The published cells are not reproducible, and the suite no longer asserts them.** The gate ran at R = 5,000 / nsim = 1,000 and put **all twelve cells above** the published values, z = +3.9 to +18.3. That was investigated rather than tuned away.
-
-Running the same DGP through the authors' own `crskdiag` in both builds (n = 100, 400 reps, nsim = 500, `minor_included = 0`) locates the disagreement:
-
-| implementation | 15% cens | 30% cens |
-|---|---|---|
-| `crskdiag` ORIG — defective `Ĝ_c` | 0.6325 | 0.4675 |
-| `crskdiag` FIXED — corrected `Ĝ_c` | 0.6325 | 0.4700 |
-| `finegray` (reading A) | 0.6170 | 0.4530 |
-| **paper, Table 2** | **0.5560** | **0.3920** |
-
-Reproducer: `_take_action/finegray/R/11_power_orig_vs_fixed.R` (400 reps, nsim = 500, `minor_included = 0`, seed0 = 20260722; build paths and `sessionInfo()` recorded in its output). An earlier version of this table quoted slightly different values from a script that **did not exist**; it was re-measured on 2026-07-22 and the conclusion survived, but cite the script, not a pasted table.
-
-The two builds agree with *each other* (z = 0.00 and −0.07), so the censoring-KM defect does not cost power here; `finegray` agrees with both (z = −0.54 and −0.58). This is **two codebases, two Table-2 cells, one DGP reading** — not "three independent implementations", which was an overstatement (ORIG and FIXED are the same package in two builds) and is withdrawn.
-
-**The decisive argument is arithmetic.** The paper's *null* paragraph defines `p₁ = F₁(∞|Z=0) = 0.66`; the *alternative* paragraph fixes both "the probability of cause 1 at 0.66" and `γ = 2`, but `γ = 2` *fixes* `F₁(∞|Z=0) = 0.3297`. Under the paper's own definition those are mutually inconsistent, so no reading can satisfy both. Three named readings were tested and none reproduces the table — see `_gof_power_dgp_variants.do`, which also shows that reading B cannot construct the paper's censoring cells at all, and that Table 3 is *reading-invariant* (`F₁(∞|Z) = 1`), so fixing dgp 1 would not fix dgp 2.
-
-**The strongest evidence is the contrast, and it needs no external software:** where the paper is explicit (null paragraph, Tables 1 and 4) the suite reproduces it in **12/12 cells**; where it is ambiguous (alternative paragraphs, Tables 2 and 3) it misses in **12/12 cells, all one direction**.
-
-**So the suite asserts the structural relations and a bracket** — each cell at or above the published value by no more than 0.15 — and *reports* each cell's z without gating on it. The bracket encodes what the cross-implementation evidence supports (observed maximum offset +0.103) while still failing if power collapses toward the type-I level or saturates at 1. Asserting the published cells outright would be a gate that fails on correct code, the same error recorded in `FINDINGS.md` §13.3 for β-parity against `cmprsk::crr`.
-
-**A caution worth carrying to the calibration gate.** This harness was described as "proven at R = 60" before the full run. It was not: at R = 40–60 the cell SE is ~0.06 and the widened band absorbed a systematic +0.02–0.10 offset that was present in every cell. A reduced run that *passes* is weak evidence. The calibration suite carries the same "proven at R = 60" claim and has never been checked against a full run either.
-
-**A reduced run deliberately emits no `RESULT:` sentinel**, so it cannot be recorded as a pass — the runner treats a missing sentinel as a failure, which fails closed. Override the replication count with `GOF_POW_REPS` and the bootstrap size with `GOF_POW_NSIM`; the full gate sets neither.
-
-This gate runs under the `gates` lane (on demand, hours not minutes), separately from the `full` lane whose counts appear in the Headline results above; its last recorded green run was 2026-07-15.
 
 ### Why the tie and optimizer suites exist
 
@@ -230,11 +185,11 @@ install.packages("fastcmprsk")
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_documentation_examples.do`, `test_finegray_gof.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_documentation_examples.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
-| `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do`, `crossval_gof.do` |
+| `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do` |
 | `full` | `core` + `python` |
-| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`, `validation_finegray_gof_calibration.do`, `validation_finegray_gof_power.do`, `_gof_power_dgp_variants.do` |
+| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do` |
 | Standalone measurement | `benchmark_finegray_zzf.do` (uses `_benchmark_finegray_zzf_cell.do`; intentionally not a `run_all.do` lane) |
 
 ## Coverage map

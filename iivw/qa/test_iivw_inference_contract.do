@@ -510,12 +510,17 @@ capture noisily {
     set seed 4
     quietly iivw_fit y treat x, timespec(linear) nolog replace
 
-    * the default flipped: bare weighted call == the refit bootstrap candidate.
+    * the default flipped: bare weighted call == the 999-draw refit bootstrap.
     assert "`e(iivw_vce)'" == "bootstrap"
     assert "`e(iivw_refitweights)'" == "1"
     assert e(iivw_bs_reps_requested) == 999
     assert e(iivw_bs_reps_completed) == 999
-    assert "`e(iivw_inference_status)'" == "candidate"
+    * Re-derived 2026-07-22, NOT relaxed. This fixture uses wtype(fiptiw), and
+    * the coverage study measured FIPTIW at 0.914 -- below the preregistered
+    * 0.92 floor -- so this path is no longer "candidate" (evidence pending) but
+    * "undercovers-at-studied-settings" (evidence in, and it fell short).
+    * qa/coverage_results/RESULT_2026-07-22.md.
+    assert "`e(iivw_inference_status)'" == "undercovers-at-studied-settings"
     assert "`e(iivw_ci_type)'" == "wald-normal"
     assert e(iivw_vce_locked) == 1
 }
@@ -553,10 +558,10 @@ else {
     local failed_tests "`failed_tests' I13"
 }
 
-**# I14 - inference_status distinguishes candidate / low-reps / fixed paths
+**# I14 - inference_status names each path, and never says a bare 'cleared'
 
 local ++test_count
-display as text "I14: e(iivw_inference_status) never says 'cleared' and names each path"
+display as text "I14: e(iivw_inference_status) names each path; 'cleared' is never bare"
 capture noisily {
     _inf_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
@@ -572,12 +577,22 @@ capture noisily {
     quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
     assert "`e(iivw_inference_status)'" == "uncleared-fixedweights-analytic"
 
-    * No path this command can produce is ever stamped "cleared": that word is
-    * reserved for a release in which the coverage+mutation gates actually pass.
+    * Re-derived 2026-07-22. The old assertion was `!= "cleared"`, justified by
+    * "no coverage study has been run". One has now been run, and IIW/IPTW meet
+    * the preregistered rule -- so an absolute ban on the word is no longer the
+    * right contract.
+    *
+    * What replaces it is the qualifier rule: coverage was established at ONE
+    * cell per family, so the status may say `cleared-at-studied-settings` but
+    * must NEVER degrade to a bare `cleared`, which would claim coverage at
+    * every n, link and specification. This assertion fails if anyone later
+    * shortens the string -- which is the actual risk being guarded.
+    assert "`e(iivw_inference_status)'" != "cleared"
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(20)) nolog replace
     assert "`e(iivw_inference_status)'" != "cleared"
 }
 if _rc == 0 {
-    display as result "  PASS: I14 - inference_status names each path, never 'cleared'"
+    display as result "  PASS: I14 - inference_status names each path, no bare 'cleared'"
     local ++pass_count
 }
 else {
@@ -658,7 +673,7 @@ else {
 **# I17 - the default message must not claim release clearance
 
 local ++test_count
-display as text "I17: the default bootstrap message says candidate, never cleared"
+display as text "I17: the default bootstrap message never claims release clearance"
 capture noisily {
     _inf_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
@@ -675,20 +690,27 @@ capture noisily {
     tempname fh
     file open `fh' using "`msglog'", read text
     local cleared_hits = 0
-    local candidate_hits = 0
+    local default_hits = 0
     file read `fh' line
     while r(eof) == 0 {
         if strpos(lower(`"`line'"'), "cleared default") {
             local ++cleared_hits
         }
-        if strpos(lower(`"`line'"'), "candidate default") {
-            local ++candidate_hits
+        * Re-derived 2026-07-22. This used to require the literal phrase
+        * "candidate default". That word was accurate only while no coverage
+        * evidence existed; the study has since run, and the status is now
+        * weight-type specific, so the console no longer calls the default
+        * "candidate". What the message must still do is announce that a
+        * default was TAKEN -- silence there is the real defect, because a user
+        * who did not choose a variance must be told which one they got.
+        if strpos(lower(`"`line'"'), "using the default") {
+            local ++default_hits
         }
         file read `fh' line
     }
     file close `fh'
     assert `cleared_hits' == 0
-    assert `candidate_hits' == 1
+    assert `default_hits' == 1
 }
 if _rc == 0 {
     display as result "  PASS: I17 - default message does not overclaim clearance"
@@ -698,6 +720,57 @@ else {
     display as error "  FAIL: I17 - default message claimed release clearance (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' I17"
+}
+
+**# I17b - a FIPTIW default fit must SAY that its interval under-covers
+*
+* The 2026-07-22 coverage study measured FIPTIW at 0.914 against a nominal
+* 0.95. A measured shortfall recorded only in e() is a shortfall most users
+* never see: nobody inspects e(iivw_inference_status) unless they already
+* suspect a problem. It has to be visible where the default is taken.
+*
+* The negative control matters as much as the positive one. If this note were
+* printed for every weight type it would be noise, and it would be wrong --
+* IIW and IPTW met the rule. So the IIW arm asserts the note is ABSENT.
+
+local ++test_count
+display as text "I17b: a FIPTIW default fit warns about coverage; an IIW one does not"
+capture noisily {
+    foreach wt in fiptiw iivw {
+        _inf_panel
+        if "`wt'" == "fiptiw" {
+            quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
+                treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
+        }
+        else {
+            quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
+        }
+        tempfile wlog
+        log using "`wlog'", text replace name(_iivw_wt_msg)
+        capture noisily iivw_fit y treat x if 0, timespec(linear) nolog replace
+        log close _iivw_wt_msg
+
+        tempname fh2
+        file open `fh2' using "`wlog'", read text
+        local warn_hits = 0
+        file read `fh2' line
+        while r(eof) == 0 {
+            if strpos(lower(`"`line'"'), "fiptiw note") local ++warn_hits
+            file read `fh2' line
+        }
+        file close `fh2'
+        if "`wt'" == "fiptiw" assert `warn_hits' == 1
+        if "`wt'" == "iivw"   assert `warn_hits' == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: I17b - the coverage warning is FIPTIW-specific"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I17b - FIPTIW coverage warning contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I17b"
 }
 
 **# I18 - the refit bootstrap resamples the VISIT PANEL, not the outcome sample

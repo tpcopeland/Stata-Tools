@@ -26,11 +26,11 @@ variable's CURRENT fvset setting, so
     <post-estimation command>   // fvexpand -> 1.grp 2.grp 3b.grp
 
 keeps the same NUMBER of non-base terms while changing WHICH ones.  Observed
-2026-07-21 in finegray_gof and finegray_phtest: with the design columns still
-in memory the table mislabelled level 2 and 3 coefficients as levels 1 and 2;
-with them dropped, the rebuild fed the level-1/2 indicators against e(b) for
-levels 2/3 and every statistic changed (finegray_gof's OVERALL went 8.6996 ->
-14.4044).  Both at rc 0.  finegray_predict and finegray_cif were already
+2026-07-21 in finegray_phtest: with the design columns still in memory the
+table mislabelled level 2 and 3 coefficients as levels 1 and 2; with them
+dropped, the rebuild fed the level-1/2 indicators against e(b) for levels 2/3
+and every statistic changed (correlations -0.2348/-0.2062/0.1931 ->
+-0.2300/0.0315/-0.2124).  Both at rc 0.  finegray_predict and finegray_cif were already
 immune because they read e(fvsemantic); this helper is how the rest of the
 package joins them.
 

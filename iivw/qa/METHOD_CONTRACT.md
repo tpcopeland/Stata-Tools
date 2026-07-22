@@ -1,7 +1,7 @@
 # `iivw` — Method Contract
 
 **Status:** Phase 0 gate artifact. **Not a release approval.**
-**Written:** 2026-07-14 · **Updated:** 2026-07-21 · **Package version inspected:** 2.0.1
+**Written:** 2026-07-14 · **Updated:** 2026-07-23 · **Package version inspected:** 2.2.0
 **Governing plan:** the `iivw` finalization plan, held in the development repository.
 
 This file is the single place where every supported calculation is mapped to **the source that grounds
@@ -17,10 +17,13 @@ written from recall.
 
 ## 0. Reliability status in one line
 
-**`iivw` 2.0.1 computes externally checked point estimates and defaults to a refit bootstrap that
-propagates weight-estimation uncertainty, but its interval coverage remains a candidate claim.** The
-full preregistered coverage run has not executed, so no `iivw` interval or p-value is release-cleared;
-`e(iivw_inference_status)` says `candidate`, never `cleared`.
+**`iivw` 2.2.0 computes externally checked point estimates and defaults to a refit bootstrap that
+propagates weight-estimation uncertainty. Its interval coverage has now been measured, and the answer
+depends on the weight type:** IIW 0.939 and IPTW 0.954 meet the preregistered rule
+(`cleared-at-studied-settings`); **FIPTIW covers 0.914 and does not** — its interval runs about 14% too
+narrow, while its point estimator is unaffected (`undercovers-at-studied-settings`). Coverage is
+established at one correctly specified cell per family at one sample size, so the status never degrades
+to a bare `cleared`. Record: `coverage_results/RESULT_2026-07-22.md`.
 
 ---
 
@@ -127,8 +130,8 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | **What the code does** | **Since 2.0.0 the WEIGHTED default is the 999-draw refit subject bootstrap** (Phase 3B); `vce(fixed)` is the explicit weights-known cluster-robust sandwich (`vce(cluster id)`). A fixed-weight bootstrap (`vce(bootstrap, … fixedweights)`) also holds the weights fixed. Unweighted fits keep the cluster sandwich (no nuisance weights to propagate). |
 | **What B&L do** | **p.10–11.** The asymptotic variance `D⁻¹VD⁻¹` residualises the outcome score against the **visit-model score** before squaring: `V̂ = (1/n)Σ_i[Û_i − ĤÂ⁻¹∫(Z_i(t) − Z̄(t;γ̂))dM̂_i(t)]^⊗2`. In the authors' own words (p.11): **"We account for estimation of γ₀ by including the second term on right-hand side."** A plain fixed-weight sandwich is the **first term only** — it drops the `ĤÂ⁻¹(...)` correction entirely. |
 | **What Coulombe does** | **PDF p.86, verbatim:** the asymptotic variance is computed "with the components of variance due to the weights **incorporated into the sandwich estimator using theory on two-step estimators (Newey and McFadden [1994])**." |
-| **Status** | ⚠️ **IIVW-B02 coverage gate remains open.** The weighted default now refits the nuisance models and propagates their estimation uncertainty; `vce(fixed)` and `fixedweights` are explicitly labelled weights-known alternatives that neither source paper endorses as the general variance. The remaining blocker is empirical coverage of the candidate refit-bootstrap interval, not a hidden fixed-weight default. |
-| **Documentation** | ✅ The shipped help states that the fixed-weight sandwich omits the nuisance-estimation correction and that the direction is not universal; under the registered correctly specified weight model it is conservative (over-wide). The console and `e(iivw_inference_status)` call the default `candidate`, never `cleared`. |
+| **Status** | ⚠️ **IIVW-B02 coverage gate RUN 2026-07-22; split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule; **FIPTIW 0.914 did not** (0.92 floor). The IPTW arm also supplies B02's own separator: the fixed-weight SE runs 1.31x the empirical SD against the refit bootstrap's 1.02x, the over-coverage direction the framework predicted from the B&L projection. The open item is no longer "no coverage evidence" but the FIPTIW interval specifically, where three independent variance estimators agree with each other and all fall ~14% short of the empirical SD. |
+| **Documentation** | ✅ The shipped help states that the fixed-weight sandwich omits the nuisance-estimation correction and that the direction is not universal; under the registered correctly specified weight model it is conservative (over-wide). `iivw_fit.sthlp` now carries an *Inference status and coverage evidence* section giving the measured numbers per weight type, and a weighted FIPTIW fit prints its coverage shortfall at the point of use. |
 | **Consequence** | Fixed-weight R/Stata SE parity proves only that **both programs computed the same incomplete variance.** It is not evidence of valid inference. |
 | **Contract** | The **subject bootstrap that refits all nuisance models** is the default inferential path under `vce()`. Fixed-weight survives only behind `vce(fixed)` or `fixedweights`; the refit path remains `candidate` until the release coverage gate passes. |
 

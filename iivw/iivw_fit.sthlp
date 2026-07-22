@@ -772,18 +772,21 @@ that produced it, is {cmd:qa/coverage_results/RESULT_2026-07-22.md}.
 {synoptset 34 tabbed}{...}
 {synopthdr:status}
 {synoptline}
-{synopt:{cmd:cleared-at-studied-settings}}IIW or IPTW weights, refit bootstrap at
-999 draws. Measured coverage 0.939 (IIW) and 0.954 (IPTW).{p_end}
-{synopt:{cmd:undercovers-at-studied-settings}}FIPTIW weights, refit bootstrap at
-999 draws. Measured coverage 0.914 -- see below.{p_end}
-{synopt:{cmd:uncleared-low-reps}}fewer than 999 draws were requested.{p_end}
-{synopt:{cmd:uncleared-failed-reps}}draws failed and {opt allowfailedreps} was
-specified.{p_end}
-{synopt:{cmd:uncleared-fixedweights-bootstrap}}weights held fixed across draws.{p_end}
-{synopt:{cmd:uncleared-fixedweights-analytic}}analytic sandwich; weights treated
-as known.{p_end}
-{synopt:{cmd:not-applicable-unweighted}}no nuisance weights were estimated.{p_end}
+{synopt:{cmd:cleared-at-studied-settings}}IIW or IPTW; met the rule{p_end}
+{synopt:{cmd:undercovers-at-studied-settings}}FIPTIW; did not{p_end}
+{synopt:{cmd:uncleared-low-reps}}fewer than 999 draws{p_end}
+{synopt:{cmd:uncleared-failed-reps}}draws failed, {opt allowfailedreps}{p_end}
+{synopt:{cmd:uncleared-fixedweights-bootstrap}}weights fixed across draws{p_end}
+{synopt:{cmd:uncleared-fixedweights-analytic}}analytic sandwich{p_end}
+{synopt:{cmd:not-applicable-unweighted}}no weights estimated{p_end}
 {synoptline}
+
+{pstd}
+The two measured tiers apply only to the 999-draw refit bootstrap, which is the
+default for a weighted fit. Measured coverage was 0.939 for IIW, 0.954 for IPTW,
+and 0.914 for FIPTIW. The four {cmd:uncleared-*} tiers carry no coverage
+evidence: either the run departed from the studied configuration, or it used a
+weights-known variance that omits the nuisance-estimation correction entirely.
 
 {pstd}
 {bf:"At studied settings" is load-bearing.} The study covered one correctly
@@ -794,8 +797,8 @@ misspecified visit model, a different sample size, or a non-identity link. A
 {marker fiptiwcoverage}{...}
 {pstd}
 {bf:The FIPTIW shortfall.} For FIPTIW the interval covered 0.914, with a 95%
-Wilson interval of [0.895, 0.930] -- below the 0.92 floor, and excluding 0.95.
-Two things matter for how you read that:
+Wilson interval of [0.895, 0.930] -- below the 0.92 floor, and excluding
+0.95. Two things matter for how you read that:
 
 {phang2}
 1. {bf:The point estimator is not implicated.} Bias was +0.017 against a Monte
@@ -816,6 +819,14 @@ with each other to within 0.5% and all three fall equally short. A resampler bug
 could not produce that agreement. The same machinery is demonstrably working for
 IPTW, where refitting correctly pulls the SE from 1.31 times the empirical SD
 down to 1.02 times it.
+
+{pstd}
+A weighted FIPTIW fit that takes the default variance prints this shortfall
+before the draws run. A fit that requests {cmd:vce(bootstrap, reps(999))}
+{it:explicitly} uses the same estimator and carries the same
+{cmd:e(iivw_inference_status)}, but prints no such note -- the console message
+belongs to the no-{cmd:vce()} default path. Check
+{cmd:e(iivw_inference_status)} when you name the variance yourself.
 
 {pstd}
 {bf:What to do about it.} Treat a FIPTIW interval as anticonservative: it is

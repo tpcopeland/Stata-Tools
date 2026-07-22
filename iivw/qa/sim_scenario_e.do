@@ -358,12 +358,43 @@ display _n as text "Scenario E robustness diagnostic"
 display as text "  Mean artifact share: " as result %8.4f `mean_share'
 display as text "  Share in [0,1]:      " as result %6.1f `pct_in_range' "%"
 
+quietly summarize artifact_share if estimator == "FIPTIW + test count" & ///
+    estimand == "marginal", detail
+local med_share = r(p50)
+
 local s_pct   = string(`pct_in_range', "%5.1f")
 local s_share = string(`mean_share', "%6.3f")
+local s_med   = string(`med_share', "%6.3f")
 
-*artifact_share is a proportion: every replication must report it inside [0,1].
-local ok = (`pct_in_range' == 100)
-_sim_assert `ok', msg("Scenario E: artifact_share within [0,1] in every rep (`s_pct'%)")
+* RE-DERIVED 2026-07-23. The assertion here used to be
+*     "artifact_share is a proportion: every rep must report it inside [0,1]"
+* and it FAILED at 42.0% -- identically on the pre-change build a841920, so it
+* was never a regression. It had simply never run: the sim/full lanes had not
+* been executed, only the quick lane.
+*
+* The old assertion was WRONG, not unlucky. artifact_share is
+*     (b_weighted - b_adjusted) / (b_unweighted - b_adjusted),
+* a ratio of two SIGNED differences -- not a proportion. Nothing constrains it
+* to [0,1]: the numerator may exceed the denominator or oppose it in sign.
+* iivw_diagnose knows this and labels such a result "sign-inconsistent" rather
+* than presenting it as a decomposition.
+*
+* Worse, this scenario is CONSTRUCTED so the artifact dominates, i.e. so the
+* true share sits at ~1 -- exactly ON the boundary the old assertion policed.
+* An estimand on a boundary puts about half its sampling distribution across
+* it. Measured: mean 1.0009, 42% inside. Demanding 100% containment demanded
+* that noise never cross a boundary its own estimand sits on, which correct
+* code cannot satisfy. Widening it to "most reps" would have been fitting the
+* test to the observed run; the property itself had to go.
+*
+* What replaces it is a property this DGP genuinely implies: the artifact is
+* dominant by construction, so the share should CONCENTRATE near 1. The median
+* is used rather than the mean because a ratio whose denominator can approach
+* zero is heavy-tailed. The band is set from the DGP's design intent -- below
+* 0.5 the diagnostic would be attributing most of the gap to sampling, above
+* 1.5 it would be overshooting by half -- and not from the observed 1.0009.
+local ok = !missing(`med_share') & inrange(`med_share', 0.5, 1.5)
+_sim_assert `ok', msg("Scenario E: artifact share concentrates near its designed value of 1 (median=`s_med' in [0.5,1.5]; `s_pct'% inside [0,1], which is NOT required)")
 
 *The diagnostic must actually flag the heavy artifact this DGP injects.
 local ok = !missing(`mean_share') & `mean_share' > `min_share_mean'

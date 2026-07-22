@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.0  21jul2026}
+{* *! version 2.2.0  23jul2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -216,10 +216,21 @@ package is not a time-varying treatment MSM implementation.{p_end}
 near-certain treatment assignments create extreme weights and unstable
 estimates.{p_end}
 
-{phang2}(e) Built-in standard errors treat the weights as fixed. A plain {cmd:bootstrap()}
-in {help iivw_fit:iivw_fit} also holds the weights fixed; add {opt refitweights} there to
-re-estimate the {cmd:iivw_weight} models inside every replicate so the reported
-interval also propagates weight-estimation uncertainty.{p_end}
+{phang2}(e) A weighted {help iivw_fit:iivw_fit} defaults to a 999-draw subject-level
+bootstrap that {bf:refits} the {cmd:iivw_weight} models inside every replicate, so the
+reported interval propagates weight-estimation uncertainty. {cmd:vce(fixed)} and
+{cmd:vce(bootstrap, ... fixedweights)} hold the weights fixed and omit that term.
+The older {opt bootstrap(#)} and {opt refitweights} spellings still run, as
+deprecated shims that print a note pointing at the equivalent {opt vce()}; since
+2.0.0 {opt refitweights} requests what a weighted fit already does by default.{p_end}
+
+{phang2}(f) That default interval's coverage was measured on 2026-07-22 (1000
+datasets x 999 draws per weight family). It met the preregistered rule for IIW
+(0.939) and IPTW (0.954), and {bf:did not} for FIPTIW (0.914, against a 0.92
+floor): the FIPTIW point estimate is unaffected, but its interval is roughly 14%
+too narrow. Coverage was established at one correctly specified scenario per
+family at one sample size, so it is not a claim about every sample size, link, or
+specification. See {help iivw_fit##inference:iivw_fit, Inference status}.{p_end}
 
 {pstd}
 {opt censor()} supplies the end of observation time and nothing more: it bounds
@@ -441,7 +452,7 @@ observation times. R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.1.0, 2026-07-21{p_end}
+{pstd}Version 2.2.0, 2026-07-23{p_end}
 
 
 {title:Also see}

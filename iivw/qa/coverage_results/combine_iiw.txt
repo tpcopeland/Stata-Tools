@@ -1,0 +1,1341 @@
+
+  ___  ____  ____  ____  ____ ®
+ /__    /   ____/   /   ____/      17.0
+___/   /   /___/   /   /___/       MP—Parallel Edition
+
+ Statistics and Data Science       Copyright 1985-2021 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-STATA-PC        https://www.stata.com
+                                   979-696-4600        stata@stata.com
+
+Stata license: Single-user 16-core  perpetual
+Serial number: 501706305188
+  Licensed to: Timothy Copeland
+               Karolinska Institutet
+
+Notes:
+      1. Stata is running in batch mode.
+      2. Unicode is supported; see help unicode_advice.
+      3. More than 2 billion observations are allowed; see help obs_advice.
+      4. Maximum number of variables is set to 5,000 but can be increased;
+          see help set_maxvar.
+
+. do validation_iivw_inference.do combine_iiw 1000 999 20260715 
+
+. clear all
+
+. version 16.0
+
+. set varabbrev off
+
+. 
+. * validation_iivw_inference.do - Phase 3C corrected-variance COVERAGE driver
+. * ===========================================================================
+> ==
+. * WHAT THIS IS, AND WHAT IT IS NOT
+. * --------------------------------
+. * This is the release gate for iivw's inference claim (METHOD_ORACLE_MAP #11,
+. * IIVW-B02). It runs a nested known-truth coverage simulation: for each gener
+> ated
+. * dataset it forms the reported normal/Wald interval three ways -- the refit
+. * bootstrap (candidate release method), the fixed analytic sandwich, and the
+. * fixed-weight bootstrap -- and asks whether the 95% interval covers the trut
+> h.
+. *
+. * The RELEASE run is >= COVERAGE_R (1000) outer replications at the productio
+> n
+. * inner replicate count, per family. That is a nested simulation and takes DA
+> YS,
+. * not hours (plan Phase 3C). It is NEVER part of quick/full/sim. This file is
+>  the
+. * on-demand `inference' runner mode; a reduced `smoke' mode exercises the
+. * plumbing and MUST emit a non-gate / failing sentinel so a small run can nev
+> er
+. * be mistaken for the gate.
+. *
+. * THREE INDEPENDENTLY SPECIFIED DGP FAMILIES (plan Phase 3C)
+. *   iiw    IIW random-slope. Z drives both a subject slope and the visit
+. *          intensity; target = the marginal time slope. Informative visiting
+. *          oversamples steep subjects, so the naive slope is biased and IIW m
+> ust
+. *          undo it. (This is the family the existing benchmark_iivw_coverage.
+> do
+. *          proved out; this driver generalises it.)
+. *   iptw   Stabilized ATE IPTW, one row per subject; target = beta_A. The
+. *          Gate-2A oracle (validation_iivw_iptw_oracle.do) supplies the
+. *          independent weight construction; here it is the coverage target.
+. *   fiptiw Coulombe-based (Appendix A), full C_i risk window, true effect 1.
+. *          Integrated from the Gate-2B recovery DGP once it clears review.
+. *
+. * ACCEPTANCE (TOLERANCE_FRAMEWORK.md Class C -- preregistered, not tunable):
+. *   refit coverage 95% Wilson interval CONTAINS 0.95, and no point coverage <
+>  0.92.
+. *   Discriminator is NOT hard-coded undercoverage. In the strong-dependence c
+> ell
+. *   the fixed method must separate in the predicted direction (currently
+. *   OVER-wide under correct specification), or the gate reports that coverage
+. *   does not separate and the demonstrable difference is the fixed/refit SE r
+> atio.
+. *
+. * Usage (from iivw/qa):
+. *   stata-mp -b do validation_iivw_inference.do MODE [SIMS] [REPS] [SEED] [FR
+> OM] [TO]
+. *
+. *   BLOCK SHARDING (recommended for a gate run)
+. *     The 1000 replications are independent -- the seed ledger derives both
+. *     seeds for replication s from (master, arm, s) and nothing carries betwe
+> en
+. *     them -- so they can be split across processes and recombined exactly.
+. *     Verified: replications 1-6 run as one block and as blocks 1-3 + 4-6 agr
+> ee
+. *     to a worst reldif of 9.8e-17 across all 12 posted quantities.
+. *
+. *       # eight blocks of 125, run concurrently
+. *       for f in 1 126 251 376 501 626 751 876; do
+. *         t=$((f+124))
+. *         stata-mp -b do validation_iivw_inference.do iiw 1000 999 20260715 $
+> f $t &
+. *       done; wait
+. *       # then ONE verdict over the union
+. *       stata-mp -b do validation_iivw_inference.do combine_iiw 1000 999 2026
+> 0715
+. *
+. *     A block emits rows and never a verdict. combine_<family> proves the blo
+> cks
+. *     TILE 1..SIMS exactly -- refusing on overlap or on a missing block -- an
+> d
+. *     then applies the preregistered acceptance once. Sharding by family alon
+> e
+. *     leaves a 16-core box mostly idle: Stata-MP parallelises within a comman
+> d,
+. *     and these fits are far too small to benefit.
+. *     MODE  smoke  (default) small NON-GATE plumbing run, prints a failing se
+> ntinel
+. *           iiw    IIW random-slope coverage cell (gate arithmetic)
+. *           iptw   stabilized ATE IPTW coverage cell (gate arithmetic)
+. *           release  all cleared families at COVERAGE_R (guards runtime; see 
+> notes)
+. *     SIMS  outer replications  (smoke default 30; gate default COVERAGE_R=10
+> 00)
+. *     REPS  inner bootstrap draws (smoke default 40; release default >= 999)
+. *     SEED  master seed          (default 20260715)
+. * ===========================================================================
+> ==
+. 
+. args MODE SIMS REPS SEED FROM TO
+
+. if "`MODE'" == "" local MODE smoke
+
+. if "`FROM'" == "" local FROM 0
+
+. if "`TO'"   == "" local TO 0
+
+. if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
+>     "combine_iiw", "combine_iptw", "combine_fiptiw") {
+.     display as error "MODE must be smoke, iiw, iptw, fiptiw, or release (got:
+>  `MODE')"
+.     exit 198
+. }
+
+. 
+. * ONE THREAD PER PROCESS. Stata-MP's within-command parallelism is a net LOSS
+. * for this workload, and it is actively harmful once blocks run concurrently:
+. * MP worker threads spin-wait, so N concurrent blocks x 16 threads oversubscr
+> ibe
+. * the box and burn CPU on contention rather than on fits. Measured on a 16-vC
+> PU
+. * host, 30 Cox fits on 10k rows, two matched reps under identical load:
+. *
+. *     processors=1   1.19s / 1.21s     processors=4    1.82s / 1.31s
+. *     processors=2   1.63s / 1.25s     processors=16   2.64s / 1.55s
+. *
+. * Monotonic in both reps -- every core handed to a fit this small makes it
+. * slower. An earlier un-sharded gate run left this unset and drove the host t
+> o
+. * load 40 with 1.13M context switches/sec on 16 vCPUs. Parallelism for this
+. * gate comes from running BLOCKS concurrently (see FROM/TO), never from threa
+> ds.
+. if c(MP) == 1 {
+.     capture set processors 1
+. }
+
+. 
+. * registered constants (TOLERANCE_FRAMEWORK.md section 3)
+. local COVERAGE_R     = 1000
+
+. local COVERAGE_FLOOR = 0.92
+
+. local MCSE_K         = 3
+
+. 
+. if "`SEED'" == "" local SEED 20260715
+
+. if "`MODE'" == "smoke" {
+.     if "`SIMS'" == "" local SIMS 30
+.     if "`REPS'" == "" local REPS 40
+. }
+
+. else {
+.     if "`SIMS'" == "" local SIMS `COVERAGE_R'
+.     if "`REPS'" == "" local REPS 999
+. }
+
+. 
+. local qa_dir "`c(pwd)'"
+
+. local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
+
+. if "`basename'" != "qa" {
+.     display as error "validation_iivw_inference.do must be run from iivw/qa"
+.     exit 198
+. }
+
+. do "`qa_dir'/_iivw_qa_common.do"
+
+. * _iivw_qa_common.do — shared QA scaffold for iivw
+. *
+. * Source this from a suite, then call the bootstrap:
+. *
+. *     do "`c(pwd)'/_iivw_qa_common.do"
+. *     iivw_qa_bootstrap
+. *
+. * WHY THIS EXISTS
+. * ---------------
+. * 36 of the 40 iivw suites `net install' the package, and several
+. * uninstall/replace tabtools. Run against the default sysdirs, that mutates t
+> he
+. * USER's real ado tree: a 2026-07 audit run left the tracker pointing iivw at
+. * /tmp and removed tabtools outright, and both had to be restored by hand.
+. *
+. * run_all.do sandboxes PLUS/PERSONAL for the whole run, but that protects onl
+> y
+. * suites it launches in-process. A suite run standalone -- or a suite that
+. * spawns a nested `stata-mp' -- starts from the user's real sysdirs again,
+. * because a child process does not inherit Stata's `sysdir set'. So the sandb
+> ox
+. * has to be available at suite level too. That is what this file provides.
+. *
+. * The sandbox lives under c(tmpdir) and is unique per process, so two suites 
+> can
+. * run concurrently without colliding on a shared PLUS (which is what produces
+. * the r(603) "file ... could not be opened" failures during parallel installs
+> ).
+. 
+. * iivw_qa_sandbox -- sysdir sandbox + path resolution, no install.
+. *
+. * This is the piece EVERY suite needs, including the many that already have
+. * their own bespoke `net install' lines. It is rclass so a suite can take the
+. * resolved directories from r() instead of re-deriving them:
+. *
+. *     do "`c(pwd)'/_iivw_qa_common.do"
+. *     iivw_qa_sandbox
+. *     local pkg_dir  "`r(pkg_dir)'"
+. *     local repo_dir "`r(repo_dir)'"
+. capture program drop iivw_qa_sandbox
+
+. program define iivw_qa_sandbox, rclass
+  1.     version 16.0
+  2.     syntax [, PKGdir(string)]
+  3. 
+.     * Resolve the package directory from the caller's cwd unless told otherwi
+> se.
+.     * Strip the known "/qa" suffix by LENGTH -- never with first-occurrence
+.     * subinstr(), which mangles any path whose ancestors contain "qa" (a run 
+> from
+.     * /tmp/qa-audit-42/iivw/qa derived a nonexistent /tmp-audit-42/iivw).
+.     if "`pkgdir'" == "" {
+  4.         local here "`c(pwd)'"
+  5.         if substr("`here'", -3, 3) == "/qa" {
+  6.             local pkgdir = substr("`here'", 1, strlen("`here'") - 3)
+  7.         }
+  8.         else {
+  9.             display as error "iivw_qa_sandbox: run from the package's qa/ 
+> directory,"
+ 10.             display as error "  or pass pkgdir()"
+ 11.             exit 601
+ 12.         }
+ 13.     }
+ 14.     capture confirm file "`pkgdir'/iivw.pkg"
+ 15.     if _rc {
+ 16.         display as error "iivw_qa_sandbox: no iivw.pkg under `pkgdir'"
+ 17.         exit 601
+ 18.     }
+ 19.     * Same length-based rule one level up: a checkout under ~/iivw-work/ii
+> vw
+.     * would lose the wrong component to subinstr(...,"/iivw","",1).
+.     local repodir = substr("`pkgdir'", 1, strlen("`pkgdir'") - strlen("/iivw"
+> ))
+ 20. 
+.     * Sandbox the ado tree for this process.  Idempotent: a suite launched by
+.     * run_all (which already sandboxed) simply gets a nested sandbox, and a
+.     * standalone suite gets the protection it would otherwise not have.
+.     tempfile _stub
+ 21.     local sandbox "`_stub'_sysdir"
+ 22.     capture mkdir "`sandbox'"
+ 23.     capture mkdir "`sandbox'/plus"
+ 24.     capture mkdir "`sandbox'/personal"
+ 25.     capture confirm file "`sandbox'/plus"
+ 26.     if _rc {
+ 27.         display as error "iivw_qa_sandbox: could not create sysdir sandbox
+>  `sandbox'"
+ 28.         exit 603
+ 29.     }
+ 30.     sysdir set PLUS     "`sandbox'/plus"
+ 31.     sysdir set PERSONAL "`sandbox'/personal"
+ 32. 
+.     display as text "iivw QA sandbox: `sandbox'  (user's PLUS/PERSONAL untouc
+> hed)"
+ 33. 
+.     return local pkg_dir  "`pkgdir'"
+ 34.     return local repo_dir "`repodir'"
+ 35.     return local sandbox  "`sandbox'"
+ 36. end
+
+. 
+. capture program drop iivw_qa_bootstrap
+
+. program define iivw_qa_bootstrap, rclass
+  1.     version 16.0
+  2.     syntax [, PKGdir(string) NOInstall]
+  3. 
+.     if "`pkgdir'" == "" iivw_qa_sandbox
+  4.     else                iivw_qa_sandbox, pkgdir("`pkgdir'")
+  5.     local pkgdir  "`r(pkg_dir)'"
+  6.     local repodir "`r(repo_dir)'"
+  7.     local sandbox "`r(sandbox)'"
+  8. 
+.     if "`noinstall'" == "" {
+  9.         capture ado uninstall iivw
+ 10.         quietly net install iivw, from("`pkgdir'") replace
+ 11.         * Prove the install actually resolves before any test trusts it.
+.         capture which iivw_weight
+ 12.         if _rc {
+ 13.             display as error "iivw_qa_bootstrap: iivw_weight not found aft
+> er net install"
+ 14.             exit 111
+ 15.         }
+ 16.     }
+ 17. 
+.     return local pkg_dir  "`pkgdir'"
+ 18.     return local repo_dir "`repodir'"
+ 19.     return local sandbox  "`sandbox'"
+ 20. end
+
+. 
+. * ---------------------------------------------------------------------------
+> --
+. * SELECTOR AND SUMMARY CONTRACTS (Q5, Q9)
+. * ---------------------------------------------------------------------------
+> --
+. * Every selectable suite took `args run_only' and then guarded each case with
+. *   if `run_only' == 0 | `run_only' == 7 { ... }
+. * so `do test_iivw_exogtest.do 999' executed NOTHING, ended with fail_count==
+> 0,
+. * printed "ALL TESTS PASSED" and exited 0. A typo in a selector was therefore
+. * indistinguishable from a green suite. And seven suites printed a prose succ
+> ess
+. * line instead of the RESULT: sentinel qa/README.md documents, so the parser
+. * could read "4/4 passed" off a suite it had not actually verified.
+. *
+. * iivw_qa_selector validates the selector up front; iivw_qa_summary emits ONE
+. * sentinel shape on both the pass and the fail path, and refuses to call a ru
+> n
+. * green when no case ran.
+. 
+. capture program drop iivw_qa_selector
+
+. program define iivw_qa_selector, rclass
+  1.     version 16.0
+  2.     args sel
+  3.     if `"`sel'"' == "" {
+  4.         return local run_only = 0
+  5.         exit
+  6.     }
+  7.     capture confirm integer number `sel'
+  8.     if _rc {
+  9.         display as error "run_only must be a non-negative integer (got: `s
+> el')"
+ 10.         exit 198
+ 11.     }
+ 12.     if `sel' < 0 {
+ 13.         display as error "run_only must be a non-negative integer (got: `s
+> el')"
+ 14.         exit 198
+ 15.     }
+ 16.     return local run_only = `sel'
+ 17. end
+
+. 
+. capture program drop iivw_qa_summary
+
+. program define iivw_qa_summary
+  1.     version 16.0
+  2.     syntax , NAme(string) Tests(integer) Pass(integer) Fail(integer) ///
+>         [RUNonly(string) FAILEDtests(string)]
+  3. 
+.     if `"`runonly'"' == "" local runonly = 0
+  4.     local executed = `pass' + `fail'
+  5.     local skip     = `tests' - `executed'
+  6. 
+.     display as text ""
+  7.     display as result "`name': `pass'/`tests' passed, `fail' failed, `skip
+> ' skipped"
+  8. 
+.     * Reconciliation. A suite whose counters do not add up is not a suite who
+> se
+.     * result can be trusted, whichever way the arithmetic fell.
+.     if `skip' < 0 {
+  9.         display as error "`name': counter corruption -- pass+fail (`execut
+> ed') exceeds tests (`tests')"
+ 10.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 11.         capture log close _all
+ 12.         exit 198
+ 13.     }
+ 14. 
+.     * Zero executed cases is a selector error, never a pass.
+.     if `executed' == 0 {
+ 15.         display as error "`name': no test executed (run_only = `runonly')"
+ 16.         display as error "  valid selectors are 0 (all) or 1-`tests'"
+ 17.         display "RESULT: `name' tests=`tests' pass=0 fail=0 skip=`skip'"
+ 18.         capture log close _all
+ 19.         exit 198
+ 20.     }
+ 21. 
+.     * A specific selector must select exactly one case.
+.     if `runonly' != 0 & `executed' != 1 {
+ 22.         display as error "`name': selector `runonly' executed `executed' c
+> ases, expected 1"
+ 23.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 24.         capture log close _all
+ 25.         exit 198
+ 26.     }
+ 27. 
+.     if `fail' > 0 {
+ 28.         if `"`failedtests'"' != "" {
+ 29.             display as error "FAILED TESTS: `failedtests'"
+ 30.         }
+ 31.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 32.         capture log close _all
+ 33.         exit 1
+ 34.     }
+ 35. 
+.     display as result "ALL EXECUTED TESTS PASSED"
+ 36.     display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip=`sk
+> ip'"
+ 37.     * The sentinel is emitted BEFORE this, so it lands in the suite's own 
+> log as
+.     * well as the batch log. `log close _all' does not touch Stata's -b log.
+.     capture log close _all
+ 38. end
+
+. 
+. * iivw_qa_sign_contract -- stamp a signature onto a HAND-BUILT weight contrac
+> t.
+. *
+. * Several suites fabricate a weighting contract directly -- they write
+. * `_iivw_weight' by hand and set the _dta characteristics -- so that a
+. * diagnostic can be checked against a weight vector whose answer is known on
+. * paper. That is a legitimate and valuable oracle: it is the only way to test
+. * iivw_balance's arithmetic independently of the model that usually produces 
+> the
+. * weights.
+. *
+. * From 2.0.0 the stale-weight guard FAILS CLOSED: a contract with no signatur
+> e
+. * is an error, not a skipped check. (It used to be "if a signature is stored,
+. * verify it", which meant erasing the signature disarmed the guard entirely -
+> -
+. * one edit and every consumer accepted whatever the data happened to contain.
+> )
+. *
+. * A hand-built contract therefore has to be signed like a real one. This call
+> s
+. * the package's own signature routine, which is exactly what iivw_weight does
+>  at
+. * its commit point -- so the fixture ends up in the state a real weighting ru
+> n
+. * would have left it in, rather than in a state the package cannot produce.
+. *
+. * This does NOT weaken the guard: test_iivw_stale_state.do still asserts that
+. * erasing or tampering with the signature is caught. It just lets the fixture
+> s
+. * start from a contract that is internally consistent.
+. capture program drop iivw_qa_sign_contract
+
+. program define iivw_qa_sign_contract
+  1.     version 16.0
+  2.     quietly _iivw_weight_signature
+  3.     char _dta[_iivw_wsig] "`r(signature)'"
+  4. end
+
+. 
+end of do-file
+
+. iivw_qa_sandbox
+iivw QA sandbox: /tmp/St684157.000001_sysdir  (user's PLUS/PERSONAL untouched)
+
+. local pkg_dir "`r(pkg_dir)'"
+
+. capture ado uninstall iivw
+
+. quietly net install iivw, from("`pkg_dir'") replace
+
+. capture which iivw_weight
+
+. if _rc {
+.     display as error "iivw_weight not found after net install"
+.     exit 111
+. }
+
+. 
+. * ===========================================================================
+> ==
+. * SEED LEDGER (plan Phase 3C)
+. * ---------------------------------------------------------------------------
+> --
+. * The DGP seed and the shared bootstrap seed are derived SEPARATELY from the
+. * master seed, an arm id, and the outer replication id. The candidate id
+. * (refit/fixed/fixedwb) is deliberately NOT in the bootstrap seed: paired
+. * candidates on the same dataset must resample identically so the comparison 
+> is
+. * apples-to-apples. A fixture below proves identical seeds + canonical order
+. * reproduce identical draws.
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgpseed
+
+. program define _inf_dgpseed, rclass
+  1.     args master arm rep
+  2.     return local seed = `master' + `arm'*1000000 + `rep'
+  3. end
+
+. capture program drop _inf_bootseed
+
+. program define _inf_bootseed, rclass
+  1.     args master arm rep
+  2.     return local seed = `master' + `arm'*1000000 + 500000 + `rep'
+  3. end
+
+. 
+. * ===========================================================================
+> ==
+. * DGP FAMILY: iiw random-slope   (target = marginal slope b[months], truth B1
+> )
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgp_iiw
+
+. program define _inf_dgp_iiw
+  1.     version 16.0
+  2.     syntax , seed(integer) [B1(real 0.5) A0(real 10) DELTA(real 0.6) ///
+>         GAMMA(real 1.0) R0(real 1.5) TAU(real 10) NSUB(integer 250) MAXSLOT(i
+> nteger 80)]
+  3.     clear
+  4.     set seed `seed'
+  5.     set obs `nsub'
+  6.     gen long id = _n
+  7.     gen double Z = runiform(-1, 1)
+  8.     gen double s_i = `b1' + `delta'*Z
+  9.     gen double a_i = `a0' + 1.0*Z
+ 10.     gen double rate_i = `r0'*exp(`gamma'*Z)
+ 11.     expand `maxslot'
+ 12.     bysort id: gen int k = _n
+ 13.     gen double gap = -ln(runiform())/rate_i
+ 14.     bysort id (k): gen double vtime = sum(gap)
+ 15.     quietly keep if vtime <= `tau'
+ 16.     gen double months = vtime
+ 17.     sort id months
+ 18.     bysort id: gen int nv = _N
+ 19.     quietly drop if nv < 2
+ 20.     drop nv
+ 21.     gen double fu_end = `tau'
+ 22.     gen double y = a_i + s_i*months + rnormal(0, 1)
+ 23. end
+
+. 
+. * one dataset -> a result row for the iiw family
+. capture program drop _inf_run_iiw
+
+. program define _inf_run_iiw, rclass
+  1.     version 16.0
+  2.     syntax , dgpseed(integer) bootseed(integer) reps(integer) b1(real) ///
+>         [GAMMA(real 1.0) DELTA(real 0.6) NSUB(integer 250)]
+  3.     _inf_dgp_iiw, seed(`dgpseed') b1(`b1') gamma(`gamma') delta(`delta') n
+> sub(`nsub')
+  4.     quietly count
+  5.     return scalar nrow = r(N)
+  6.     quietly levelsof id, local(_ids)
+  7.     return scalar nsub = `: word count `_ids''
+  8.     * baseline(event), NOT the entry default. _inf_dgp_iiw generates a pur
+> e
+.     * exponential-gap Poisson visit process: a subject's first visit is the
+.     * first EVENT of that process, stochastic and informative exactly like
+.     * every later visit. There is no recruitment visit here (contrast
+.     * _inf_dgp_fiptiw, which appends a real t=0 entry row and correctly asks
+.     * for baseline(entry) below).
+.     *
+.     * Taking the entry default assigned that genuine monitoring event a
+.     * hard-coded weight of 1, which biases the marginal slope by roughly
+.     * -0.015 -- an ASYMPTOTIC offset, measured flat across nsub 250->2000 whi
+> le
+.     * the sampling SD falls like 1/sqrt(n). Predicted coverage of a
+.     * correctly-sized 95% CI therefore DEGRADES with sample size: 0.902 at
+.     * n=250, 0.866 at 500, 0.793 at 1000, 0.617 at 2000. The gate would have
+.     * failed COVERAGE_FLOOR=0.92 at its own n on target bias alone, and the
+.     * failure would have been read as a verdict on the variance method.
+.     *
+.     * Attributed, not guessed (400 sims, nsub=1000): true weights on every ro
+> w
+.     * give bias -0.0006 (0.7 MCSE); true weights with only the first visit
+.     * forced to 1 give -0.0169 (22.0 MCSE), reproducing the package result of
+.     * -0.0173. The convention is the whole effect. With baseline(event) the
+.     * residual slope bias is +0.002..+0.003 and predicted coverage is ~0.948,
+.     * stable in n.
+.     quietly iivw_weight, id(id) time(months) visit_cov(Z) censor(fu_end) ///
+>         baseline(event) nolog
+  9. 
+.     local zc = invnormal(0.975)
+ 10.     * refit bootstrap (candidate)
+.     quietly iivw_fit y, timespec(linear) vce(bootstrap, reps(`reps') seed(`bo
+> otseed')) nolog replace
+ 11.     return scalar b_refit  = _b[months]
+ 12.     return scalar se_refit = _se[months]
+ 13.     return scalar cov_refit = (`b1' >= _b[months]-`zc'*_se[months] & `b1' 
+> <= _b[months]+`zc'*_se[months])
+ 14.     * fixed analytic sandwich (same weights)
+.     quietly iivw_fit y, timespec(linear) vce(fixed) nolog replace
+ 15.     return scalar b_fix  = _b[months]
+ 16.     return scalar se_fix = _se[months]
+ 17.     return scalar cov_fix = (`b1' >= _b[months]-`zc'*_se[months] & `b1' <=
+>  _b[months]+`zc'*_se[months])
+ 18.     * fixed-weight bootstrap (SAME bootseed -> identical draws to the refi
+> t)
+.     quietly iivw_fit y, timespec(linear) vce(bootstrap, reps(`reps') seed(`bo
+> otseed') fixedweights) nolog replace
+ 19.     return scalar b_fwb  = _b[months]
+ 20.     return scalar se_fwb = _se[months]
+ 21.     return scalar cov_fwb = (`b1' >= _b[months]-`zc'*_se[months] & `b1' <=
+>  _b[months]+`zc'*_se[months])
+ 22.     * naive unweighted, to confirm the DGP bites
+.     quietly glm y months, vce(cluster id)
+ 23.     return scalar cov_naive = (`b1' >= _b[months]-`zc'*_se[months] & `b1' 
+> <= _b[months]+`zc'*_se[months])
+ 24. end
+
+. 
+. * ===========================================================================
+> ==
+. * DGP FAMILY: iptw stabilized ATE   (target = b[A], truth BA), one row/subjec
+> t
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgp_iptw
+
+. program define _inf_dgp_iptw
+  1.     version 16.0
+  2.     syntax , seed(integer) [BA(real 1.5) B0(real 1) BL(real 0.7) ///
+>         A0(real 0.3) A1(real 0.8) A2(real -0.5) NSUB(integer 400)]
+  3.     clear
+  4.     set seed `seed'
+  5.     set obs `nsub'
+  6.     gen long id = _n
+  7.     gen double L1 = rnormal()
+  8.     gen double L2 = rnormal()
+  9.     gen byte A = runiform() < invlogit(`a0' + `a1'*L1 + `a2'*L2)
+ 10.     gen double y = `b0' + `ba'*A + `bl'*L1 - 0.4*L2 + rnormal()
+ 11.     gen double t0 = 0
+ 12. end
+
+. 
+. capture program drop _inf_run_iptw
+
+. program define _inf_run_iptw, rclass
+  1.     version 16.0
+  2.     syntax , dgpseed(integer) bootseed(integer) reps(integer) ba(real) [NS
+> UB(integer 400)]
+  3.     _inf_dgp_iptw, seed(`dgpseed') ba(`ba') nsub(`nsub')
+  4.     quietly count
+  5.     return scalar nrow = r(N)
+  6.     return scalar nsub = r(N)
+  7.     quietly iivw_weight, id(id) time(t0) treat(A) treat_cov(L1 L2) wtype(i
+> ptw) nolog
+  8. 
+.     local zc = invnormal(0.975)
+  9.     * refit bootstrap (refits the treatment/propensity model per draw)
+.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(`bo
+> otseed')) nolog replace
+ 10.     return scalar b_refit  = _b[A]
+ 11.     return scalar se_refit = _se[A]
+ 12.     return scalar cov_refit = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`
+> zc'*_se[A])
+ 13.     quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
+ 14.     return scalar b_fix  = _b[A]
+ 15.     return scalar se_fix = _se[A]
+ 16.     return scalar cov_fix = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`zc
+> '*_se[A])
+ 17.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(
+> `bootseed') fixedweights) nolog replace
+ 18.     return scalar b_fwb  = _b[A]
+ 19.     return scalar se_fwb = _se[A]
+ 20.     return scalar cov_fwb = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`zc
+> '*_se[A])
+ 21.     quietly glm y A, vce(cluster id)
+ 22.     return scalar cov_naive = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`
+> zc'*_se[A])
+ 23. end
+
+. 
+. * ===========================================================================
+> ==
+. * DGP FAMILY: fiptiw Coulombe-based   (target = b[A], truth 1), full C_i wind
+> ow
+. * ---------------------------------------------------------------------------
+> --
+. * Identical to the Gate-2B recovery DGP (validation_iivw_fiptiw_recovery.do),
+>  the
+. * package-representable Coulombe Appendix-A adaptation with the subject-const
+> ant
+. * Z. Carrier entry row at t=0 (y=. -> out of the outcome EE) keeps zero-event
+. * subjects in the risk set. Strong-dependence arm (g1=0.6,g2=0.3) by default 
+> so
+. * the informative monitoring + confounding both bite and the naive comparator
+. * misses. Kept in sync with the Gate-2B suite by construction.
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgp_fiptiw
+
+. program define _inf_dgp_fiptiw
+  1.     version 16.0
+  2.     syntax , seed(integer) [G1(real 0.6) G2(real 0.3) ALPHA(real 3) NSUB(i
+> nteger 300)]
+  3.     clear
+  4.     set seed `seed'
+  5.     set obs `nsub'
+  6.     gen long id = _n
+  7.     gen double K1 = rnormal(1,1)
+  8.     gen byte   K2 = runiform() < 0.55
+  9.     gen double K3 = rnormal(0,1)
+ 10.     gen byte   A  = runiform() < invlogit(0.5 + 0.8*K1 + 0.05*K2 - K3)
+ 11.     gen double Z  = cond(A==1, rnormal(2,1), rnormal(4,2))
+ 12.     gen double EZ = cond(A==1, 2, 4)
+ 13.     gen double phi = rnormal(0, 0.2)
+ 14.     gen double eta = rgamma(100, 0.01)
+ 15.     gen double C   = runiform(1, 2)
+ 16.     gen double lam = eta * exp(`g1'*A + `g2'*Z)
+ 17.     tempfile base
+ 18.     quietly save `base'
+ 19.     quietly expand 150
+ 20.     bysort id: gen int k = _n
+ 21.     gen double gap = -ln(runiform()) / lam
+ 22.     bysort id (k): gen double t = sum(gap)
+ 23.     bysort id (k): egen double _tmax = max(t)
+ 24.     quietly count if _tmax < C
+ 25.     if r(N) > 0 {
+ 26.         display as error "fiptiw DGP: visit process truncated before C for
+>  `r(N)' subjects"
+ 27.         exit 459
+ 28.     }
+ 29.     quietly drop if t > C
+ 30.     gen double y = `alpha' + 1*A + 3*(Z - EZ) + 0.4*K1 + 0.05*K2 - 0.6*K3 
+> ///
+>         + rnormal(phi, 0.1)
+ 31.     gen byte entry = 0
+ 32.     drop k gap _tmax
+ 33.     tempfile visits
+ 34.     quietly save `visits'
+ 35.     quietly use `base', clear
+ 36.     gen double t = 0
+ 37.     gen double y = .
+ 38.     gen byte entry = 1
+ 39.     quietly append using `visits'
+ 40.     sort id t
+ 41. end
+
+. 
+. capture program drop _inf_run_fiptiw
+
+. program define _inf_run_fiptiw, rclass
+  1.     version 16.0
+  2.     syntax , dgpseed(integer) bootseed(integer) reps(integer) [TRUTH(real 
+> 1) NSUB(integer 300)]
+  3.     _inf_dgp_fiptiw, seed(`dgpseed') nsub(`nsub')
+  4.     quietly count
+  5.     return scalar nrow = r(N)
+  6.     quietly levelsof id, local(_ids)
+  7.     return scalar nsub = `: word count `_ids''
+  8.     quietly iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) visit
+> _cov(Z) ///
+>         wtype(fiptiw) censor(C) baseline(entry) nolog
+  9. 
+.     local zc = invnormal(0.975)
+ 10.     * refit bootstrap (refits the visit + treatment models per draw)
+.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(`bo
+> otseed')) nolog replace
+ 11.     return scalar b_refit  = _b[A]
+ 12.     return scalar se_refit = _se[A]
+ 13.     return scalar cov_refit = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _
+> b[A]+`zc'*_se[A])
+ 14.     quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
+ 15.     return scalar b_fix  = _b[A]
+ 16.     return scalar se_fix = _se[A]
+ 17.     return scalar cov_fix = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _b[
+> A]+`zc'*_se[A])
+ 18.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(
+> `bootseed') fixedweights) nolog replace
+ 19.     return scalar b_fwb  = _b[A]
+ 20.     return scalar se_fwb = _se[A]
+ 21.     return scalar cov_fwb = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _b[
+> A]+`zc'*_se[A])
+ 22.     * naive: unweighted outcome events, misses under confounding + monitor
+> ing
+.     quietly glm y A if entry==0, vce(cluster id)
+ 23.     return scalar cov_naive = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _
+> b[A]+`zc'*_se[A])
+ 24. end
+
+. 
+. * ===========================================================================
+> ==
+. * COVERAGE ENGINE: run SIMS datasets of one family, post rows, aggregate
+. * ===========================================================================
+> ==
+. capture program drop _inf_engine
+
+. program define _inf_engine, rclass
+  1.     version 16.0
+  2.     syntax , family(string) arm(integer) sims(integer) reps(integer) ///
+>         master(integer) truth(real) [GAMMA(real 1.0) DELTA(real 0.6) NSUB(int
+> eger 0) ///
+>         FLOOR(real 0.92) FROM(integer 0) TO(integer 0) ///
+>         ROWSOUT(string) ROWSIN(string)]
+  3.     * FLOOR is the registered COVERAGE_FLOOR passed in: driver-scope local
+> s are
+.     * NOT visible inside a program, so the constant must arrive as an option.
+.     *
+.     * BLOCK SHARDING (from/to, rowsout, rowsin)
+.     * -----------------------------------------
+.     * The 1000 outer replications are mutually independent: the seed ledger
+.     * derives BOTH seeds for replication s from (master, arm, s) alone, and n
+> o
+.     * state carries from one replication to the next. Replication 700 therefo
+> re
+.     * produces byte-identical output whether it is the 700th iteration of a
+.     * monolithic loop or the 5th of a block covering 696-820. Block sharding 
+> is
+.     * equivalent BY CONSTRUCTION here, not merely in practice.
+.     *
+.     * That matters because the gate was sharded by FAMILY -- three units of w
+> ork
+.     * on a 16-core box -- while Stata-MP's within-command parallelism is clos
+> e to
+.     * useless on fits this small (250 subjects). Measured: 44 replications in
+>  3
+.     * hours for iiw, i.e. ~68 hours for the family. Sharding by replication b
+> lock
+.     * uses the machine in the dimension the problem is actually parallel in.
+.     *
+.     * That ~68h figure is an OVERSTATEMENT of the real cost and should not be
+.     * quoted as the serial baseline: it was measured with processors unset, s
+> o
+.     * two family shards each spawned 16 spin-waiting MP threads on a 16-vCPU
+.     * host (load 40, 1.13M context switches/sec). Most of that time was
+.     * contention, not fitting. The driver now pins processors=1 -- see the no
+> te
+.     * at the top of this file -- and blocks are launched by qa/run_coverage_g
+> ate.sh.
+.     *
+.     * rowsout() writes a block's raw rows and returns WITHOUT a verdict.
+.     * rowsin() skips the loop and evaluates rows collected elsewhere.
+.     * The acceptance rule is applied exactly ONCE, to the union of all blocks
+>  --
+.     * never per block. A per-block PASS/FAIL would be multiple testing on the
+.     * preregistered band, and would let a reader cherry-pick a green block.
+.     if `from' == 0 local from 1
+  4.     if `to' == 0 local to `sims'
+  5.     if `from' < 1 | `to' > `sims' | `from' > `to' {
+  6.         display as error "engine(`family'): block range `from'-`to' is not
+>  inside 1-`sims'"
+  7.         exit 198
+  8.     }
+  9.     if `"`rowsout'"' != "" & `"`rowsin'"' != "" {
+ 10.         display as error "engine(`family'): rowsout() and rowsin() are mut
+> ually exclusive"
+ 11.         exit 198
+ 12.     }
+ 13. 
+.     tempname P
+ 14.     tempfile rowsfile
+ 15.     local n_ok = 0
+ 16.     local n_fail = 0
+ 17. 
+.     * COMBINE PATH. rowsin() means the rows were already produced by block ru
+> ns,
+.     * so the simulation loop MUST be skipped. It previously was not: the loop
+>  ran
+.     * the full 1..sims study, postclose'd it, and then discarded every row in
+.     * favour of rowsin() -- making combine_<family> silently cost a second en
+> tire
+.     * study (~a day) while reading as pure aggregation. Guarding the loop is 
+> what
+.     * makes the block/combine split actually cheaper than the monolithic run.
+.     if `"`rowsin'"' != "" {
+ 18.         use `"`rowsin'"', clear
+ 19.         quietly count
+ 20.         local n_ok = r(N)
+ 21.         local n_fail = `sims' - `n_ok'
+ 22.     }
+ 23.     else {
+ 24.     * PROVENANCE STAMP. Every row records the (reps, sims, seed) it was pr
+> oduced
+.     * under. Without this the verdict line's "reps=" is a free-text label cop
+> ied
+.     * from the command argument and never checked against the rows -- measure
+> d:
+.     * one fabricated pool combined to "gate=PASS sims=1000 reps=999" and
+.     * "gate=PASS sims=1000 reps=10" with byte-identical coverage. That is
+.     * reachable, not hypothetical: run_coverage_gate.sh skips a block whose .
+> dta
+.     * is already in the pool, and the pool filename encodes only family and
+.     * range -- so a REPS=10 plumbing pilot (which the runbook describes doing
+> )
+.     * leaves files named exactly what the REPS=999 run wants. combine would t
+> hen
+.     * certify pilot rows as the release gate. Stamped here, verified in combi
+> ne.
+.     * blk_seed is double, not long: a seed above 2^31 would post as MISSING i
+> n a
+.     * long, and the combine check would then refuse with "produced at
+.     * blk_seed=." rather than naming the real seed. double is exact to 2^53.
+.     postfile `P' int(sim arm) long(blk_reps blk_sims) double(blk_seed) ///
+>         double(b_refit se_refit cov_refit ///
+>         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
+>         using "`rowsfile'", replace
+ 25. 
+.     forvalues s = `from'/`to' {
+ 26.         _inf_dgpseed  `master' `arm' `s'
+ 27.         local dgpseed = `r(seed)'
+ 28.         _inf_bootseed `master' `arm' `s'
+ 29.         local bootseed = `r(seed)'
+ 30.         capture noisily {
+ 31.             if "`family'" == "iiw" {
+ 32.                 if `nsub' == 0 local nsub 250
+ 33.                 _inf_run_iiw, dgpseed(`dgpseed') bootseed(`bootseed') reps
+> (`reps') ///
+>                     b1(`truth') gamma(`gamma') delta(`delta') nsub(`nsub')
+ 34.             }
+ 35.             else if "`family'" == "iptw" {
+ 36.                 if `nsub' == 0 local nsub 400
+ 37.                 _inf_run_iptw, dgpseed(`dgpseed') bootseed(`bootseed') rep
+> s(`reps') ///
+>                     ba(`truth') nsub(`nsub')
+ 38.             }
+ 39.             else if "`family'" == "fiptiw" {
+ 40.                 if `nsub' == 0 local nsub 300
+ 41.                 _inf_run_fiptiw, dgpseed(`dgpseed') bootseed(`bootseed') r
+> eps(`reps') ///
+>                     truth(`truth') nsub(`nsub')
+ 42.             }
+ 43.             else {
+ 44.                 display as error "unknown family `family'"
+ 45.                 error 198
+ 46.             }
+ 47.             post `P' (`s') (`arm') (`reps') (`sims') (`master') ///
+>                 (`r(b_refit)') (`r(se_refit)') (`r(cov_refit)') ///
+>                 (`r(b_fix)') (`r(se_fix)') (`r(cov_fix)') ///
+>                 (`r(b_fwb)') (`r(se_fwb)') (`r(cov_fwb)') (`r(cov_naive)') //
+> /
+>                 (`r(nrow)') (`r(nsub)')
+ 48.             local ++n_ok
+ 49.         }
+ 50.         if _rc local ++n_fail
+ 51.     }
+ 52.     postclose `P'
+ 53.     use "`rowsfile'", clear
+ 54.     }
+ 55. 
+.     * A block emits rows and stops. No verdict, and a sentinel that cannot be
+.     * mistaken for one.
+.     if `"`rowsout'"' != "" {
+ 56.         quietly save `"`rowsout'"', replace
+ 57.         quietly count
+ 58.         display as text "engine(`family'): block `from'-`to' wrote " r(N) 
+> ///
+>             " row(s) to `rowsout' (`n_fail' failed draw(s))"
+ 59.         display as error "BLOCK-ONLY: no gate verdict is computed for a bl
+> ock"
+ 60.         return scalar gate_ok = 0
+ 61.         return scalar block_rows = r(N)
+ 62.         exit 0
+ 63.     }
+ 64. 
+.     * --- aggregation integrity: no missing/duplicate (arm, sim) keys ---
+.     quietly count
+ 65.     local N = r(N)
+ 66.     if `N' == 0 {
+ 67.         display as error "engine(`family'): every replication failed"
+ 68.         return scalar gate_ok = 0
+ 69.         exit 459
+ 70.     }
+ 71.     tempvar dup
+ 72.     quietly bysort arm sim: gen byte `dup' = _N
+ 73.     quietly count if `dup' > 1
+ 74.     if r(N) > 0 {
+ 75.         display as error "engine(`family'): duplicate (arm,sim) keys -- ag
+> gregation corrupt"
+ 76.         return scalar gate_ok = 0
+ 77.         exit 459
+ 78.     }
+ 79.     quietly summarize sim
+ 80.     local span = r(max) - r(min) + 1
+ 81.     if `N' < `span' {
+ 82.         display as text "note: engine(`family'): `=`span'-`N'' of `span' r
+> eplications dropped (failed draws)"
+ 83.     }
+ 84. 
+.     local zc = invnormal(0.975)
+ 85.     quietly summarize b_refit
+ 86.     local mb = r(mean)
+ 87.     local sdb = r(sd)
+ 88.     local bias = `mb' - `truth'
+ 89.     local mcse_bias = `sdb'/sqrt(`N')
+ 90.     quietly summarize se_refit, detail
+ 91.     local mse_refit = r(mean)
+ 92.     local mdse_refit = r(p50)
+ 93.     quietly summarize se_fix
+ 94.     local mse_fix = r(mean)
+ 95.     quietly summarize cov_refit
+ 96.     local cov_refit = r(mean)
+ 97.     quietly summarize cov_fix
+ 98.     local cov_fix = r(mean)
+ 99.     quietly summarize cov_fwb
+100.     local cov_fwb = r(mean)
+101.     quietly summarize cov_naive
+102.     local cov_naive = r(mean)
+103. 
+.     * fixed/refit SE ratio with Monte-Carlo uncertainty (paired, per replicat
+> ion)
+.     tempvar ratio
+104.     quietly gen double `ratio' = se_fix/se_refit
+105.     quietly summarize `ratio'
+106.     local se_ratio = r(mean)
+107.     local se_ratio_mcse = r(sd)/sqrt(`N')
+108. 
+.     * Wilson intervals for refit and fixed coverage
+.     local pr = `cov_refit'
+109.     local wr_c = (`pr' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+110.     local wr_h = `zc'/(1+`zc'^2/`N')*sqrt(`pr'*(1-`pr')/`N' + `zc'^2/(4*`N
+> '^2))
+111.     local wr_lo = `wr_c'-`wr_h'
+112.     local wr_hi = `wr_c'+`wr_h'
+113.     local pf = `cov_fix'
+114.     local wf_c = (`pf' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+115.     local wf_h = `zc'/(1+`zc'^2/`N')*sqrt(`pf'*(1-`pf')/`N' + `zc'^2/(4*`N
+> '^2))
+116.     local wf_lo = `wf_c'-`wf_h'
+117.     local wf_hi = `wf_c'+`wf_h'
+118. 
+.     quietly summarize nsub, meanonly
+119.     local mnsub = r(mean)
+120.     quietly summarize nrow, meanonly
+121.     local mnrow = r(mean)
+122. 
+.     display as text "{hline 74}"
+123.     display as result "  FAMILY=`family' arm=`arm' truth=" %6.3f `truth' /
+> //
+>         "  N usable=`N'/`sims' (fail=`n_fail')  ~subj=" %5.0f `mnsub' " rows=
+> " %6.0f `mnrow'
+124.     display as text "{hline 74}"
+125.     display as text "  naive coverage      = " %5.3f `cov_naive' "   (DGP 
+> bites if << 0.95)"
+126.     display as text "  REFIT  bias=" %8.5f `bias' " (MCSE " %7.5f `mcse_bi
+> as' ")  empSD=" %7.5f `sdb'
+127.     display as text "         mean SE=" %7.5f `mse_refit' "  median SE=" %
+> 7.5f `mdse_refit'
+128.     display as result "         coverage=" %5.3f `cov_refit' "  Wilson[" %
+> 5.3f `wr_lo' "," %5.3f `wr_hi' "]"
+129.     display as text "  FIXED  mean SE=" %7.5f `mse_fix' "  coverage=" %5.3
+> f `cov_fix' ///
+>         "  Wilson[" %5.3f `wf_lo' "," %5.3f `wf_hi' "]"
+130.     display as text "  FIXEDWB coverage=" %5.3f `cov_fwb' "  (fixed-weight
+>  bootstrap)"
+131.     display as text "  fixed/refit SE ratio = " %6.4f `se_ratio' " (MC " %
+> 6.4f `se_ratio_mcse' ")"
+132. 
+.     * acceptance: refit Wilson contains 0.95 and refit point >= floor
+.     local refit_gate = (`wr_lo' <= 0.95 & `wr_hi' >= 0.95 & `cov_refit' >= `f
+> loor')
+133.     * separator: fixed over-covers (Wilson excludes 0.95 from above) OR SE
+>  ratio > 1
+.     local fixed_over = (`wf_lo' > 0.95)
+134.     local se_sep     = (`se_ratio' - 2*`se_ratio_mcse' > 1)
+135.     display as text "  refit gate (Wilson contains 0.95 && >= floor) : " /
+> //
+>         as result cond(`refit_gate', "PASS", "FAIL")
+136.     display as text "  B02 separator (fixed over-covers OR SE ratio>1)    
+>   : " ///
+>         as result cond(`fixed_over' | `se_sep', "shown", "not shown at this c
+> ell")
+137. 
+.     return scalar gate_ok = `refit_gate'
+138.     return scalar sep_ok  = (`fixed_over' | `se_sep')
+139.     return scalar cov_refit = `cov_refit'
+140.     return scalar cov_fix = `cov_fix'
+141.     return scalar N = `N'
+142. end
+
+. 
+. * ===========================================================================
+> ==
+. * DRIVER
+. * ===========================================================================
+> ==
+. display as text "{hline 74}"
+--------------------------------------------------------------------------
+
+. display as result "validation_iivw_inference  MODE=`MODE'  SIMS=`SIMS' REPS=`
+> REPS' SEED=`SEED'"
+validation_iivw_inference  MODE=combine_iiw  SIMS=1000 REPS=999 SEED=20260715
+
+. display as text "{hline 74}"
+--------------------------------------------------------------------------
+
+. 
+. if "`MODE'" == "smoke" {
+.     * NON-GATE plumbing run. Exercises all three families cheaply and ALWAYS
+.     * exits non-zero with a sentinel that says it is not the gate, so a smoke
+>  run
+.     * can never be read as clearance (plan Phase 3C).
+.     _inf_engine, family(iiw)    arm(1) sims(`SIMS') reps(`REPS') master(`SEED
+> ') truth(0.5) floor(`COVERAGE_FLOOR')
+.     _inf_engine, family(iptw)   arm(2) sims(`SIMS') reps(`REPS') master(`SEED
+> ') truth(1.5) floor(`COVERAGE_FLOOR')
+.     _inf_engine, family(fiptiw) arm(3) sims(`SIMS') reps(`REPS') master(`SEED
+> ') truth(1)   floor(`COVERAGE_FLOOR') nsub(300)
+.     display as text "{hline 74}"
+.     display as error "RESULT: validation_iivw_inference INFERENCE-SMOKE non-g
+> ate (SIMS=`SIMS' < COVERAGE_R=`COVERAGE_R')"
+.     display as error "  a smoke run exercises the plumbing only; it is NOT th
+> e release gate"
+.     exit 1
+. }
+
+. else if inlist("`MODE'", "iiw", "iptw", "fiptiw") & `FROM' > 0 & `TO' > 0 {
+.     * BLOCK RUN. Emits rows for replications FROM..TO and no verdict. The gat
+> e
+.     * is applied later, once, by combine_<family> over the union of all block
+> s.
+.     if `SIMS' < `COVERAGE_R' {
+.         display as error "a gate block still requires SIMS >= COVERAGE_R (`CO
+> VERAGE_R')"
+.         display as error "  SIMS is the size of the WHOLE study; FROM/TO sele
+> ct this block's slice"
+.         exit 198
+.     }
+.     if "`MODE'" == "iiw"    local truth 0.5
+.     if "`MODE'" == "iptw"   local truth 1.5
+.     if "`MODE'" == "fiptiw" local truth 1
+.     if "`MODE'" == "iiw"    local arm 1
+.     if "`MODE'" == "iptw"   local arm 2
+.     if "`MODE'" == "fiptiw" local arm 3
+.     local blockdir "`c(pwd)'/_inf_blocks"
+.     capture mkdir "`blockdir'"
+.     local tag = string(`FROM', "%05.0f") + "_" + string(`TO', "%05.0f")
+.     _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
+>         master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') ///
+>         from(`FROM') to(`TO') rowsout("`blockdir'/`MODE'_`tag'.dta")
+.     display as text "{hline 74}"
+.     display as error "RESULT: validation_iivw_inference `MODE' BLOCK `FROM'-`
+> TO' non-gate"
+.     display as error "  a block is not the gate; run combine_`MODE' over all 
+> blocks"
+.     exit 1
+. }
+
+. else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
+.     * COMBINE. Load every block for the family, prove the blocks TILE 1..SIMS
+.     * exactly, then apply the preregistered acceptance once to the union.
+.     local fam = subinstr("`MODE'", "combine_", "", 1)
+.     if `SIMS' < `COVERAGE_R' {
+.         display as error "combine requires SIMS >= COVERAGE_R (`COVERAGE_R')"
+.         exit 198
+.     }
+.     if "`fam'" == "iiw"    local truth 0.5
+.     if "`fam'" == "iptw"   local truth 1.5
+.     if "`fam'" == "fiptiw" local truth 1
+.     if "`fam'" == "iiw"    local arm 1
+.     if "`fam'" == "iptw"   local arm 2
+.     if "`fam'" == "fiptiw" local arm 3
+. 
+.     local blockdir "`c(pwd)'/_inf_blocks"
+.     local blocks : dir "`blockdir'" files "`fam'_*.dta"
+.     local nblk : word count `blocks'
+.     if `nblk' == 0 {
+.         display as error "combine(`fam'): no block files in `blockdir'"
+.         exit 601
+.     }
+.     tempfile allrows
+.     local first = 1
+.     foreach b of local blocks {
+  2.         quietly use "`blockdir'/`b'", clear
+  3.         if `first' == 0 quietly append using "`allrows'"
+  4.         quietly save "`allrows'", replace
+  5.         local first = 0
+  6.     }
+.     quietly use "`allrows'", clear
+. 
+.     * PROVENANCE PROOF. The tiling proof below shows the blocks cover 1..SIMS
+> ;
+.     * it cannot show they were produced under the SAME configuration, because
+>  a
+.     * block filename carries only family and range. Two blocks run at differe
+> nt
+.     * REPS, different SIMS, or different master seeds tile perfectly and comb
+> ine
+.     * silently into one number that describes no study -- and the verdict lin
+> e
+.     * would label it with whatever REPS/SEED this invocation was handed.
+.     * Measured before this check existed: one fabricated pool certified as bo
+> th
+.     * "reps=999" and "reps=10". Refuse rather than mislabel.
+.     foreach v in blk_reps blk_sims blk_seed {
+  2.         capture confirm variable `v'
+  3.         if _rc {
+  4.             display as error "combine(`fam'): block rows carry no `v' stam
+> p"
+  5.             display as error "  these blocks predate the provenance stamp;
+>  re-run them"
+  6.             exit 459
+  7.         }
+  8.     }
+.     local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED'
+.     while "`stamps'" != "" {
+  2.         gettoken v stamps : stamps
+  3.         gettoken want stamps : stamps
+  4.         quietly summarize `v'
+  5.         if r(min) != r(max) {
+  6.             display as error "combine(`fam'): blocks disagree on `v' (`=r(
+> min)' .. `=r(max)')"
+  7.             display as error "  the union mixes configurations; it is not 
+> one study"
+  8.             exit 459
+  9.         }
+ 10.         if r(min) != `want' {
+ 11.             display as error "combine(`fam'): blocks were produced at `v'=
+> `=r(min)'," ///
+>                 " but this combine was invoked with `want'"
+ 12.             display as error "  the verdict would carry a label the rows d
+> o not support"
+ 13.             exit 459
+ 14.         }
+ 15.     }
+. 
+.     * TILING PROOF. A block that never ran, or ran twice, must not be
+.     * aggregated silently -- that is how a coverage number gets computed over
+.     * a subset and reported as the whole study.
+.     quietly count
+.     local nrows = r(N)
+.     tempvar dupk
+.     quietly bysort arm sim: gen byte `dupk' = _N
+.     quietly count if `dupk' > 1
+.     if r(N) > 0 {
+.         display as error "combine(`fam'): duplicate (arm,sim) keys across blo
+> cks"
+.         display as error "  the blocks overlap; re-run with disjoint FROM/TO 
+> ranges"
+.         exit 459
+.     }
+.     * The union must TILE 1..SIMS, and that must be proved from the block
+.     * RANGES, not from the pooled row values. A min/max check on sim is not a
+.     * tiling proof: it accepts any missing INTERIOR block, because the absent
+.     * replications then look exactly like failed draws. Measured -- deleting
+.     * block 376-500 of 8 left min=1, max=1000 and produced a verdict over 875
+.     * replications reported as sims=1000. A missing block is a structural fau
+> lt
+.     * and must refuse; a failed draw is legitimate and is counted separately.
+.     tempname COV
+.     matrix `COV' = J(1, `SIMS', 0)
+.     local flen = strlen("`fam'") + 2
+.     foreach b of local blocks {
+  2.         local stem = subinstr("`b'", ".dta", "", 1)
+  3.         local bf = real(substr("`stem'", `flen', 5))
+  4.         local bt = real(substr("`stem'", `flen' + 6, 5))
+  5.         if missing(`bf') | missing(`bt') {
+  6.             display as error "combine(`fam'): cannot parse a block range f
+> rom `b'"
+  7.             display as error "  expected <family>_<FROM>_<TO>.dta with %05
+> .0f fields"
+  8.             exit 459
+  9.         }
+ 10.         if `bf' < 1 | `bt' > `SIMS' | `bf' > `bt' {
+ 11.             display as error "combine(`fam'): block `b' spans `bf'-`bt', o
+> utside 1-`SIMS'"
+ 12.             exit 459
+ 13.         }
+ 14.         forvalues k = `bf'/`bt' {
+ 15.             matrix `COV'[1, `k'] = `COV'[1, `k'] + 1
+ 16.         }
+ 17.     }
+.     local ngap = 0
+.     local nover = 0
+.     local firstgap = 0
+.     forvalues k = 1/`SIMS' {
+  2.         if `COV'[1, `k'] == 0 {
+  3.             local ++ngap
+  4.             if `firstgap' == 0 local firstgap = `k'
+  5.         }
+  6.         else if `COV'[1, `k'] > 1 {
+  7.             local ++nover
+  8.         }
+  9.     }
+.     if `ngap' > 0 {
+.         display as error "combine(`fam'): `ngap' replication(s) covered by NO
+>  block" ///
+>             " (first gap at sim `firstgap')"
+.         display as error "  a missing block is not a failed draw; the union i
+> s not the study"
+.         exit 459
+.     }
+.     if `nover' > 0 {
+.         display as error "combine(`fam'): `nover' replication(s) covered by M
+> ORE THAN ONE block"
+.         display as error "  re-run with disjoint FROM/TO ranges"
+.         exit 459
+.     }
+.     local ndrop = `SIMS' - `nrows'
+.     display as text "combine(`fam'): `nblk' block(s), `nrows' of `SIMS' repli
+> cations" ///
+>         " (`ndrop' failed draw(s))"
+combine(iiw): 20 block(s), 1000 of 1000 replications (0 failed draw(s))
+. 
+.     _inf_engine, family(`fam') arm(`arm') sims(`SIMS') reps(`REPS') ///
+>         master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') rowsin("`allrow
+> s'")
+--------------------------------------------------------------------------
+  FAMILY=iiw arm=1 truth= 0.500  N usable=1000/1000 (fail=0)  ~subj=  249 rows=
+>   4403
+--------------------------------------------------------------------------
+  naive coverage      = 0.000   (DGP bites if << 0.95)
+  REFIT  bias= 0.00094 (MCSE 0.00088)  empSD=0.02787
+         mean SE=0.02785  median SE=0.02784
+         coverage=0.939  Wilson[0.922,0.952]
+  FIXED  mean SE=0.02849  coverage=0.946  Wilson[0.930,0.958]
+  FIXEDWB coverage=0.943  (fixed-weight bootstrap)
+  fixed/refit SE ratio = 1.0234 (MC 0.0009)
+  refit gate (Wilson contains 0.95 && >= floor) : PASS
+  B02 separator (fixed over-covers OR SE ratio>1)      : shown
+.     local gate = `r(gate_ok)'
+.     display as text "{hline 74}"
+--------------------------------------------------------------------------
+.     if `gate' {
+.         display as result "RESULT: validation_iivw_inference `fam' gate=PASS 
+> sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+RESULT: validation_iivw_inference iiw gate=PASS sims=1000 reps=999 cov_refit=0.
+> 939
+.         exit 0
+
+end of do-file

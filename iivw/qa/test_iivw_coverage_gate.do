@@ -67,6 +67,16 @@ if "`basename'" != "qa" {
 do "`qa_dir'/_iivw_qa_common.do"
 iivw_qa_sandbox
 local pkg_dir  "`r(pkg_dir)'"
+* This suite drives combine through a shelled-out Stata that sandboxes and
+* installs for itself, so it never calls an iivw command in THIS process. The
+* uninstall/install below is therefore belt-and-braces rather than load-bearing
+* -- but a suite that silently depends on whatever build happens to be on the
+* adopath is exactly the shadowing failure the lane checks for, and the cost of
+* being explicit is one line.
+ado dir
+capture ado uninstall iivw
+quietly net install iivw, from("`pkg_dir'") replace
+discard
 
 local test_count = 0
 local pass_count = 0
@@ -82,7 +92,7 @@ capture program drop _cg_block
 program define _cg_block
     version 16.0
     syntax , dir(string) from(integer) to(integer) ///
-        reps(integer) sims(integer) seed(integer) [STAMPED(integer 1)]
+        reps(integer) sims(integer) seed(integer) [STAMPED(integer 1) NSUB(integer 0)]
     quietly {
         clear
         local n = `to' - `from' + 1
@@ -90,9 +100,10 @@ program define _cg_block
         gen int sim = `from' + _n - 1
         gen int arm = 1
         if `stamped' {
-            gen long blk_reps = `reps'
-            gen long blk_sims = `sims'
-            gen long blk_seed = `seed'
+            gen long   blk_reps = `reps'
+            gen long   blk_sims = `sims'
+            gen long   blk_nsub = `nsub'
+            gen double blk_seed = `seed'
         }
         * Values are placeholders. Coverage is set to a fixed 0.94 pattern so
         * the arithmetic is deterministic and no arm depends on a random draw.
@@ -436,6 +447,44 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' G8"
     display "FAIL G8: combine appears to have re-run the simulation"
+}
+
+* ===========================================================================
+* G9 - a DIAGNOSTIC block (non-default nsub) must never reach a gate verdict.
+*
+* validation_iivw_inference.do accepts an NSUB passthrough so a sample-size
+* study can reuse the gate's own DGP instead of keeping a second, drifting
+* copy. That passthrough opened a new door into the same contamination class
+* G5-G7 close: a block run at nsub=1200 agrees with a gate pool on reps, sims
+* AND seed, and its range tiles correctly, so every other check here passes it.
+* The requested nsub is therefore stamped too, and a gate cell is defined as
+* nsub=0 (the family's own default).
+* ===========================================================================
+local ++test_count
+capture noisily {
+    quietly shell rm -rf "`root'/blocks"
+    quietly shell mkdir -p "`root'/blocks"
+    forvalues f = 1(50)1000 {
+        local t = `f' + 49
+        _cg_block, dir("`root'/blocks") from(`f') to(`t') ///
+            reps(999) sims(1000) seed(20260715) nsub(1200)
+    }
+    _cg_combine, pkgdir("`pkg_dir'") root("`root'") ///
+        combreps(999) combsims(1000) combseed(20260715)
+    local lg "`r(logfile)'"
+    _cg_grep, logfile("`lg'") pattern("blocks were produced at blk_nsub=1200")
+    assert r(found) == 1
+    _cg_grep, logfile("`lg'") pattern("RESULT: validation_iivw_inference iiw gate=")
+    assert r(found) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS G9: a diagnostic non-default-nsub pool cannot reach a verdict"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' G9"
+    display "FAIL G9: a diagnostic nsub pool was accepted as a gate cell"
 }
 
 quietly shell rm -rf "`root'"

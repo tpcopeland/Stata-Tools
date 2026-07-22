@@ -1,4 +1,4 @@
-*! _iivw_check_weighted Version 2.1.0  2026/07/21
+*! _iivw_check_weighted Version 2.2.0  2026/07/23
 *! Verify the stored weights still describe the data in memory before fitting
 *! Author: Timothy P Copeland, Karolinska Institutet
 

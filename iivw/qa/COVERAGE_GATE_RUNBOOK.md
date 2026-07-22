@@ -194,8 +194,9 @@ suite runs in **~1.3 s** and shells out to a real `combine_iiw` per arm.
 | G6 | a pool mixing two configurations refuses |
 | G7 | a mismatched master seed refuses |
 | G8 | combine aggregates without re-running the study |
+| G9 | a diagnostic run at a non-default `nsub` cannot reach a gate verdict |
 
-Scored **4/8 against the pre-fix build, 8/8 after** — G4–G7 are the new
+Scored **4/8 against the pre-fix build, 9/9 after** — G4–G7 are the new
 provenance defect. G1/G2/G3/G8 pass on both builds by design: they are the
 regression coverage this section previously listed as missing, not evidence for
 the 2026-07-22 change. Their teeth were shown separately with surgical mutants:

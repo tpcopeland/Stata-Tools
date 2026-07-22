@@ -97,7 +97,7 @@ The load-bearing oracle is **saturated stabilization**. Set `stabcov()` equal to
 
 What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by construction and survives the bootstrap replay; a stabilization numerator outside the outcome design is **refused** before the outcome is fitted; the ambiguous `truncate()` is gone and each component trims separately, keeps its raw column, reports its own cutpoints, and is the weight `iivw_balance` actually describes.
 
-`test_iivw_inference_contract.do` covers what the reported standard error actually is (Phase 3). Its load-bearing find: an incomplete bootstrap used to be silent — a measured probe asked for 40 replicates, 6 failed, and the command printed an SE built from 34 draws with nothing in the output or `e()` to say so; that is now `r(430)`, with `allowfailedreps` as the explicit acknowledgment. It also pins the `vce()` contract that replaces the ambiguous `bootstrap()`/`refitweights` spelling: `vce(bootstrap, reps(#) [seed(#)])` is the candidate refit bootstrap, `vce(bootstrap, reps(#) fixedweights)` holds the weights fixed, and `vce(fixed)` is the analytic sandwich — each mapping to exactly one `e(iivw_vce)`, with malformed, doubled, and degenerate replicate specifications refused. It also checks that the console calls the default `candidate`, never `cleared`. What it does *not* show is nominal coverage: the full preregistered coverage simulation remains a separate release-only gate.
+`test_iivw_inference_contract.do` covers what the reported standard error actually is (Phase 3). Its load-bearing find: an incomplete bootstrap used to be silent — a measured probe asked for 40 replicates, 6 failed, and the command printed an SE built from 34 draws with nothing in the output or `e()` to say so; that is now `r(430)`, with `allowfailedreps` as the explicit acknowledgment. It also pins the `vce()` contract that replaces the ambiguous `bootstrap()`/`refitweights` spelling: `vce(bootstrap, reps(#) [seed(#)])` is the refit bootstrap, `vce(bootstrap, reps(#) fixedweights)` holds the weights fixed, and `vce(fixed)` is the analytic sandwich — each mapping to exactly one `e(iivw_vce)`, with malformed, doubled, and degenerate replicate specifications refused. It also checks that the console announces the default it took and never claims release clearance, and (I17b) that a FIPTIW fit warns about its measured coverage shortfall while an IIW fit does not. What it does *not* show is nominal coverage: that is the separate release-only gate, run 2026-07-22 — see `coverage_results/RESULT_2026-07-22.md`.
 
 ### Functional and regression tests
 
@@ -164,6 +164,22 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   intercept, so `z -> z + c` leaves the fit unchanged but rescales every
   weight; the old pooled normalization could not undo that because it is a
   change in a ratio. Scores 3/10 against the pre-fix code.
+- `test_iivw_coverage_gate.do` — the aggregation contract of the SOL-04 coverage
+  gate, which is where a wrong coverage number gets manufactured at `rc=0`.
+  Nine arms, ~1.5 s, **4/8 pre-fix → 9/9 post-fix**. Every arm fabricates a
+  block pool rather than simulating one: the contract is about which rows are
+  present and what they claim about themselves, not about their values, so
+  fabricated rows exercise it exactly and cost seconds instead of days. G1–G2
+  prove `combine` refuses a missing *interior* block and overlapping blocks;
+  G4–G7 prove it refuses a pool whose replication count, study size, or seed
+  disagrees with the verdict it would print — the defect found 2026-07-22, where
+  one pool certified as both `reps=999` and `reps=10` with identical coverage.
+  G9 closes a door the `nsub` diagnostic passthrough opened: a sample-size study block agrees with a gate pool on reps, sims *and* seed and tiles correctly, so the requested `nsub` is stamped too and a gate cell is defined as `nsub=0`. G3 is the positive control (without it, every refusal arm would pass on a
+  `combine` that refused everything), and G8 bounds the run so a regression that
+  makes `combine` re-run the study fails instead of hanging. G1/G2/G3/G8 pass on
+  both builds by design — they are regression cover for defects fixed on
+  2026-07-21, and their teeth were shown with surgical mutants rather than
+  assumed.
 - `test_iivw_failclosed.do` — Gate 4/5 probes for audit findings SOL-05, SOL-07,
   SOL-08, SOL-11, SOL-12, SOL-13 and SOL-17. **Pre-fix score 1/11, post-fix
   16/16** (same file, both runs), and the single pre-fix pass was S5b, the

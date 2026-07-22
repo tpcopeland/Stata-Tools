@@ -1,6 +1,5 @@
 {smcl}
 {vieweralsosee "finegray" "help finegray"}{...}
-{vieweralsosee "finegray_gof" "help finegray_gof"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
@@ -51,8 +50,8 @@ over time. The command reports, per covariate, the residual-time
 calibration exists for that statistic under the subdistribution-hazards
 model. Treat a correlation far from zero as a flag for follow-up, not as an
 accept/reject test; see {it:Statistical scope}
-below. For a calibrated test of the same assumption, with p-values, see
-{helpb finegray_gof}.
+below. No calibrated omnibus test of this assumption ships with the
+package; to make a formal claim, fit the time-interaction model directly.
 
 {pstd}
 {bf:Left truncation (delayed entry).} The weighted risk sets underlying the
@@ -126,14 +125,9 @@ original defect -- an unstated reference distribution -- in a form that merely
 looks rigorous.
 
 {pstd}
-No omnibus test is implemented {it:by this command}. One is available elsewhere
-in the package: {helpb finegray_gof} implements the
-cumulative-sums-of-residuals tests of Li, Scheike and Zhang (2015), whose
-p-values come from a multiplier bootstrap rather than from an asserted
-reference distribution, and which therefore reports an overall proportionality
-test that {cmd:finegray_phtest} cannot. Prefer it when a formal claim is
-needed. It covers right censoring only, so under delayed entry, {opt strata()},
-or {opt cluster()} it refuses and this diagnostic remains the available
+No omnibus test is implemented {it:by this command}, and none ships elsewhere
+in the package. When a formal claim is needed, fit the time-interaction model
+directly and test its interaction terms. This diagnostic remains the available
 instrument. Zhou et al. (2013) give a score test on modified Schoenfeld
 residuals that is {bf:not} implemented here. PSHREG (Kohl et al. 2015), the
 closest reference implementation for this model, likewise reports only
@@ -293,9 +287,7 @@ estimator. This command reports the residual-time correlation as a descriptive
 diagnostic only; it computes no marginal or omnibus test statistic, so no null
 calibration is claimed. Zhou et al. (2013), Li et al. (2015) and Kohl
 et al. (2015) are cited to document the state of formal testing for this
-model. Of these, Li et al. (2015) {it:is} implemented in the package, by
-{helpb finegray_gof} rather than by this command; Zhou et al. (2013) and Kohl
-et al. (2015) are not implemented.
+model. None of them is implemented in this package.
 
 
 {marker author}{...}

@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.1.0** | 2026-07-21
+**Version 2.2.0** | 2026-07-23
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -323,7 +323,19 @@ Start with a subject-matter model that is smaller than the full dataset dictiona
 
 Unweighted fits and weighted `model(mixed)` fits do **not** inherit the refit-bootstrap default; they keep the analytic sandwich unless a `vce()` is named. (`model(mixed)` under weights is experimental — interpret only its fixed-effect structure.) The legacy `bootstrap(#)` and `refitweights` options still work but are deprecated shims that print a note pointing to the equivalent `vce()`.
 
-**Inference status is `candidate`, not release-cleared.** The default now *computes* the weight-estimation-corrected variance both source papers derive — the pre-flip behavior silently held the weights fixed, which neither paper endorses. But that variance has **not** yet been confirmed by a preregistered coverage simulation, so `e(iivw_inference_status)` reads `candidate` for the default and `uncleared-*` for every weights-known or low-replicate path; it is never `cleared`. Until a coverage gate closes, treat interval coverage as provisional and cite `iivw` for the **weighting**. Each fit also records `e(iivw_ci_type)` (`wald-normal`) and `e(iivw_vce_locked)`.
+**Inference status now depends on the weight type.** The preregistered coverage study was run on 2026-07-22 (1000 datasets × 999 draws per family; acceptance rule in [`qa/TOLERANCE_FRAMEWORK.md`](qa/TOLERANCE_FRAMEWORK.md); full record in [`qa/coverage_results/RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md)). It did not return the same answer for all three weight families:
+
+| Weights | Measured coverage | 95% Wilson | `e(iivw_inference_status)` |
+|---|---|---|---|
+| IIW | 0.939 | [0.922, 0.952] | `cleared-at-studied-settings` |
+| IPTW | 0.954 | [0.939, 0.965] | `cleared-at-studied-settings` |
+| **FIPTIW** | **0.914** | [0.895, 0.930] | `undercovers-at-studied-settings` |
+
+"At studied settings" is load-bearing: one correctly specified scenario per family at one sample size. It is not a claim about a misspecified visit model, a different *n*, or a non-identity link.
+
+**The FIPTIW interval is anticonservative.** Its *point estimator* is not implicated — bias was +0.017 against a Monte Carlo SE of 0.039, under half an MCSE. The *interval* is roughly 14% too narrow (mean SE 1.062 against an empirical SD of 1.239), which is what drags coverage to 0.914. This is not a bug in the resampler: the refit bootstrap, the fixed-weight bootstrap, and the analytic sandwich — which does no resampling at all — agree within 0.5% of each other and all three fall equally short. If a conclusion turns on whether a FIPTIW interval excludes a value, it is less secure than the nominal 95% implies. See [Standard errors and inference](#standard-errors-and-inference) and `help iivw_fit##inference`.
+
+Each fit also records `e(iivw_ci_type)` (`wald-normal`) and `e(iivw_vce_locked)`.
 
 ## Assumptions and Limits
 
@@ -337,13 +349,13 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 | Treatment is binary and time-invariant within subject | Current IPTW/FIPTIW implementation is not for treatment switching |
 | Positivity/overlap is plausible | Subjects with near-certain treatment or visits create extreme weights |
 | Outcome model includes the scientific predictors of interest | Weights correct sampling/visit imbalance; they do not choose the outcome model |
-| **Inference is not release-cleared** — status `candidate`; see [Standard errors and inference](#standard-errors-and-inference) | A weighted `model(gee)` fit now defaults to the refit bootstrap that propagates weight-estimation uncertainty — the variance Bůžková & Lumley (2007, §3.3) and Coulombe et al. (2021) derive, and a change from the pre-flip silent fixed-weight default. That default is correct in construction, but its coverage has **not** yet been confirmed by a preregistered simulation, so treat the interval as provisional. `vce(fixed)` (or the legacy `bootstrap(0)`) is the weights-known sandwich, which omits the weight-estimation term and is stamped `uncleared-fixedweights-analytic` |
+| **FIPTIW intervals under-cover** — status `undercovers-at-studied-settings`; see [Standard errors and inference](#standard-errors-and-inference) | The 2026-07-22 coverage study measured 0.914 for FIPTIW against a nominal 0.95 — the interval is ~14% too narrow. IIW (0.939) and IPTW (0.954) met the preregistered rule and are stamped `cleared-at-studied-settings`. FIPTIW *point estimates* are unaffected (bias under half an MCSE). `vce(fixed)` (or the legacy `bootstrap(0)`) is the weights-known sandwich, which omits the weight-estimation term and is stamped `uncleared-fixedweights-analytic` |
 
 `censor()` supplies each subject's **end of observation time** — it bounds the visit model's risk set and is **not** a censoring model. `iivw` estimates no model for why follow-up ended and computes no censoring weight, so these weights identify the marginal parameter only under **conditional noninformative censoring**: end of follow-up independent of the outcome given the modeled covariates. The package neither tests that assumption nor offers an option that relaxes it, and multiplying in a separately estimated censoring weight does not retroactively satisfy the monitoring model's derivation (Tompkins et al. 2025, §4.2, measure the resulting sensitivity). Informative dropout, and treatment decisions that change over follow-up, each need a different estimator — not a different option here.
 
 ### Reliability status (2026-07-15)
 
-**`iivw` 2.0.1 computes point estimates and weights that are externally verified, and a default variance that is the weight-estimation-corrected refit bootstrap both source papers derive — but whose coverage is not yet release-cleared.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`qa/METHOD_CONTRACT.md`](qa/METHOD_CONTRACT.md).
+**`iivw` 2.2.0 computes point estimates and weights that are externally verified, and a default variance whose coverage has now been measured — cleared at the studied settings for IIW and IPTW, and measured as under-covering for FIPTIW.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`qa/METHOD_CONTRACT.md`](qa/METHOD_CONTRACT.md).
 
 **What is verified:**
 
@@ -358,7 +370,8 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 
 | Open item | Consequence |
 |---|---|
-| **Coverage of the default refit bootstrap is unconfirmed** | The default now *computes* the weight-estimation-corrected variance both papers derive, so it is no longer the wrong variance — but no preregistered coverage simulation has yet confirmed the interval covers at its nominal rate. `e(iivw_inference_status)` reads `candidate`, never `cleared`. The weights-known `vce(fixed)`/`bootstrap(0)` path omits the weight-estimation term by construction and is stamped `uncleared-fixedweights-analytic` |
+| **FIPTIW interval coverage falls short of nominal** | Measured 0.914 [0.895, 0.930] against a 0.92 floor on 2026-07-22. The point estimator is unaffected; the interval is ~14% too narrow, and three independent variance estimators agree on that shortfall, so it is not a resampler bug. IIW and IPTW passed the same rule. The weights-known `vce(fixed)`/`bootstrap(0)` path omits the weight-estimation term by construction and remains stamped `uncleared-fixedweights-analytic` |
+| **Coverage is established at one cell per family only** | One correctly specified scenario, one sample size, identity link. Misspecified visit models, other sample sizes, and non-identity links are unstudied, so `cleared-at-studied-settings` must not be read as `cleared` |
 | **`iivw_diagnose` shares and weighted `model(mixed)`** | Package-original / not a valid weighted random-effects estimator. Descriptive only; not validated methods |
 
 **Fixed in 2.0.0 — the estimator defects.** Each returned `rc 0` and a plausible number. Each now has a regression test that fails against the code that shipped them.
@@ -381,7 +394,7 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 | A row with no weight is an error unless you acknowledge it | A silently complete-case analysis — and, where the loss is differential by arm, a silently different estimand |
 
 
-Until the coverage gate closes, cite `iivw` for **weighting** and treat its intervals as provisional (`candidate`) rather than release-grade.
+For IIW and IPTW, intervals are supported by measured coverage at the studied settings. For FIPTIW, cite `iivw` for the **weighting** and treat the interval as anticonservative until the shortfall is understood.
 
 ## Worked Examples
 
@@ -563,7 +576,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 - **Coefficients** (default GEE with gaussian family) are the change in the outcome per one-unit change in the predictor, averaged over the population.
 - **Treatment effect**: The coefficient on the treatment variable is the weighted treatment contrast.  A causal interpretation additionally requires a correctly specified visit model, a correctly specified propensity model for IPTW/FIPTIW, no unmeasured confounding, and a treatment assignment mechanism appropriate for the chosen weight type.
-- **Standard errors.** A weighted `model(gee)` fit defaults to the refit bootstrap, which re-estimates the weights inside each subject-level replicate and so accounts for weight-estimation uncertainty; its interval is `candidate` — correct in construction, not yet coverage-cleared. `vce(fixed)` returns the analytic cluster-robust sandwich with the weights held known (clustered at `cluster()` when specified, otherwise at the subject ID stored by `iivw_weight`); unweighted fits use that analytic sandwich. See [Standard errors and inference](#standard-errors-and-inference).
+- **Standard errors.** A weighted `model(gee)` fit defaults to the refit bootstrap, which re-estimates the weights inside each subject-level replicate and so accounts for weight-estimation uncertainty; coverage was measured on 2026-07-22 and met the preregistered rule for IIW and IPTW but not for FIPTIW, whose interval runs ~14% narrow. `vce(fixed)` returns the analytic cluster-robust sandwich with the weights held known (clustered at `cluster()` when specified, otherwise at the subject ID stored by `iivw_weight`); unweighted fits use that analytic sandwich. See [Standard errors and inference](#standard-errors-and-inference).
 - **Few clusters**: analytic cluster-robust SEs are anti-conservative when the number of clusters (subjects) is modest, and weighting concentrates influence on a few subjects, which worsens the effective-cluster count.  `iivw_fit` prints a note when fewer than 40 clusters contribute to an analytic-SE fit (`vce(fixed)` or unweighted); prefer a bootstrap `vce()` in that regime.
 - **GEE vs mixed with weights**: `model(gee)` is the defensible primary weighted estimator — it is the marginal estimating equation that IIW theory identifies.  `model(mixed)` applies IIVW weights through a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated (Rabe-Hesketh & Skrondal 2006).  For a weighted mixed fit, interpret the fixed-effect (mean) structure only; `iivw_fit` prints a note to this effect.
 - **Post-estimation**: All standard Stata post-estimation commands work after `iivw_fit` (`predict`, `lincom`, `test`, `margins`).
@@ -615,7 +628,7 @@ Before showing results, check:
 
 The package ships with functional, validation, simulation, reporting-export, install-smoke, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
 
-**What the suite actually establishes.** A green run demonstrates implementation breadth and known-truth recovery, but not yet release-cleared interval coverage. Naming the gates precisely, because a green count does not distinguish them:
+**What the suite actually establishes.** A green run demonstrates implementation breadth and known-truth recovery. Interval coverage is now measured rather than assumed, and the answer differs by weight type. Naming the gates precisely, because a green count does not distinguish them:
 
 | Gate | Status |
 |---|---|
@@ -625,9 +638,10 @@ The package ships with functional, validation, simulation, reporting-export, ins
 | **Stabilized ATE IPTW vs. an independent implementation** | ✅ **now closed (Gate 2A).** Base-R `glm` IPTW oracle, plus a hand-computed saturated fixture exact to `1e-8` and a mean-one identity check |
 | **FIPTIW known-truth recovery with mechanism discrimination** (Coulombe Appendix A) | ✅ **now closed (Gate 2B).** In the arm where treatment drives both the visit schedule and the outcome, only FIPTIW recovers the truth; naive, IIW-only, and IPTW-only each miss |
 | **Treatment present in the FIPTIW visit model** (Coulombe eq. 3.12) | ✅ **now detectable.** Removing `treat()` from the visit-intensity model turns `test_iivw_phase2_contract` red |
-| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **harness built and piloted; release run pending.** `validation_iivw_inference.do` runs the paired refit-vs-fixed coverage comparison, but the multi-day ≥1000-replicate simulation against the preregistered gate has not been run, so the default's coverage stays `candidate` |
+| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **run 2026-07-22; split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule; **FIPTIW 0.914 did not**. 1000 datasets × 999 draws per family, 0 failed draws. Record: [`qa/coverage_results/RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md) |
+| **Aggregation integrity of the coverage gate itself** | ✅ **closed 2026-07-22.** `test_iivw_coverage_gate.do` proves `combine` refuses a missing interior block, overlapping blocks, and — after a defect found the same day — any pool whose replication count, study size, or seed disagrees with the verdict it would print |
 
-Three pre-registered false-green mutations are recorded in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md). **Two now turn a named gate red** — flipping the IIW exponent breaks `validation_iivw_fiptiw_recovery`, and dropping `treat()` from the visit model breaks `test_iivw_phase2_contract`. The third (holding the weights fixed) needs the coverage discriminator and is pending with the release run above.
+Three pre-registered false-green mutations are recorded in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md). **All three now turn a gate red** — flipping the IIW exponent breaks `validation_iivw_fiptiw_recovery`, dropping `treat()` from the visit model breaks `test_iivw_phase2_contract`, and the third (holding the weights fixed) is now discriminated by the coverage run: for IPTW the fixed-weight SE runs 1.31× the empirical SD against the refit bootstrap's 1.02×, exactly the over-coverage direction the tolerance framework preregistered.
 
 Oracle strength, tolerances, and the disposition of every existing suite are documented in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md), [`qa/TOLERANCE_FRAMEWORK.md`](qa/TOLERANCE_FRAMEWORK.md), and [`qa/CROSSVAL_MODULE_MAP.md`](qa/CROSSVAL_MODULE_MAP.md).
 
@@ -696,6 +710,28 @@ Three defects from the 2026-07-21 independent audit, all of the `rc=0`-but-wrong
 **Compatibility.** Weighted point estimates, standard errors and `refitweights` intervals will differ from 2.0.1 on the same data. That is the fix, not a regression: the previous defaults were not reproducible under a harmless recoding of a visit covariate. Analyses that need the old numbers should record 2.0.1 explicitly.
 
 **Still open.** SOL-04 through SOL-17 from the same audit are unaddressed. In particular the 999-replicate coverage study has not been run, so the default inference remains uncleared (`e(iivw_inference_status)` still never reports `cleared`).
+
+### v2.2.0 (2026-07-23)
+
+**The SOL-04 coverage study was run, and its result is now carried by the command.**
+
+1000 simulated datasets × 999 bootstrap draws per weight family, 60/60 blocks, **0 failed draws**, under the acceptance rule preregistered in [`qa/TOLERANCE_FRAMEWORK.md`](qa/TOLERANCE_FRAMEWORK.md). Full record with the manifest digest of the build that produced it: [`qa/coverage_results/RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md).
+
+| Weights | Coverage | 95% Wilson | Verdict |
+|---|---|---|---|
+| IIW | 0.939 | [0.922, 0.952] | meets the rule |
+| IPTW | 0.954 | [0.939, 0.965] | meets the rule |
+| **FIPTIW** | **0.914** | [0.895, 0.930] | **does not** — below the 0.92 floor |
+
+**Breaking change to a returned result.** `e(iivw_inference_status)` no longer returns `candidate` for the 999-draw refit default. It now returns `cleared-at-studied-settings` for IIW and IPTW, and `undercovers-at-studied-settings` for FIPTIW. A script testing `== "candidate"` will silently stop matching.
+
+**The FIPTIW finding, stated precisely.** The point estimator is not implicated: bias was +0.017 against a Monte Carlo SE of 0.039, under half an MCSE. The interval is roughly 14% too narrow — mean SE 1.062 against an empirical SD of 1.239 — which is what produces 0.914 instead of 0.95. This is **not a bug in the resampler**: the refit bootstrap, the fixed-weight bootstrap and the analytic sandwich (which does no resampling) agree within 0.5% of each other and all three fall equally short. A weighted FIPTIW fit with no `vce()` now prints this at the point of use rather than only recording it in `e()`.
+
+**"At studied settings" is not a synonym for "cleared".** One correctly specified scenario per family, one sample size, identity link. Misspecification, other sample sizes and other links are unstudied.
+
+**Also fixed: the coverage gate could certify the wrong study.** `combine` compared its `reps=`/`sims=`/seed labels against nothing, so a pool produced by a small pilot run could be reported under the release run's label — measured, one pool certified as both `reps=999` and `reps=10` with identical coverage. Block rows now carry a `(reps, sims, seed)` stamp that `combine` verifies, and pools are segregated by configuration on disk. Locked by the new `qa/test_iivw_coverage_gate.do` (8 arms; 4/8 against the pre-fix build).
+
+**Still open.** Independent review (Gate 6) has not happened for any of this. The FIPTIW shortfall's dependence on sample size was under study when this was written.
 
 ### v2.1.0 (2026-07-21)
 
