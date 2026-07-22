@@ -283,3 +283,80 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 #
 # verdict:     PASS -- Gate L4 closed. Type I error reproduces Li/Scheike/Zhang
 #              (2015) Tables 1 and 4 at R=5000 in all twelve cells.
+
+# =============================================================================
+# FRESH GATES RUN -- 2026-07-22
+# =============================================================================
+# This section SUPERSEDES the "receipt_kind: numeric-equivalence transfer" note
+# in the header for the 2026-07-22 tree.  The lane was not transferred this
+# time; it was run end to end in an isolated scratch copy carrying _data/ and
+# tabtools/ alongside the package, with qa/*.log and run_all_status.txt cleared
+# first, so no concurrent lane could write into the same qa/ directory.
+#
+# lane:        gates
+# result:      RESULT: run_all tests=6 pass=6 fail=0 skip=0
+#
+#   validation_finegray_zzf_recovery        tests=8  pass=8  fail=0  smoke=0
+#   validation_finegray_zzf_coverage        tests=1  pass=1  fail=0  smoke=0
+#   validation_finegray_zzf_factorization   tests=10 pass=10 fail=0  smoke=0
+#   validation_finegray_gof_calibration     tests=13 pass=13 fail=0
+#   validation_finegray_gof_power           tests=13 pass=13 fail=0
+#   _gof_power_dgp_variants                 tests=16 pass=16 fail=0  skip=0
+#
+# The full lane was run separately in the same isolated tree:
+# lane:        full
+# result:      RESULT: run_all tests=29 pass=29 fail=0 skip=0
+#
+# --- What changed in this run, and why it is not a quiet refresh -------------
+#
+# The gates lane FAILED on its first execution today:
+#     RESULT: run_all tests=6 pass=5 fail=1
+#     FAILED: _gof_power_dgp_variants.do -- exited 0 but SKIPPED 2 check(s)
+# every individual suite having reported fail=0.  Recorded here because a
+# receipt that shows only the eventual green hides the defect that made it red.
+#
+# Cause: the two reading-B power cells were counted as pass AND skip.  run_all
+# fails any suite reporting skip>0, and correctly so -- that rule exists for a
+# MISSING EXTERNAL DEPENDENCY, an oracle that did not run and therefore proves
+# nothing.  Reading B's cells are the opposite: gate V2 has already ASSERTED
+# that B admits no valid tau (its improper F1 leaves ~50% of subjects unfailing,
+# flooring the censoring rate near 0.50), so V3 arriving there is a confirmed
+# prediction.  The fix classifies them as passes and adds two branches that fail
+# closed in BOTH directions -- A or C going unconstructible, and B BECOMING
+# constructible -- neither of which was checked before.
+#
+# --- Power-gate baseline: frozen, and now genuinely gated -------------------
+#
+# The 12 baseline cells were recorded under GOF_POW_REGEN=1 at R=5000/nsim=1000
+# and pasted into validation_finegray_gof_power.do.  They have now reproduced
+# EXACTLY (diff 0.0000, all 12) in three independent runs: the regen run, a
+# verification run, and this gates lane.  That also rules out the Stata
+# sort-tie ordering dependence that can otherwise make a seeded run
+# irreproducible -- which was not guaranteed a priori and had to be measured.
+#
+# The comparison tolerance was corrected in the same pass.  It had been
+# max(0.03, 4*sqrt(2p(1-p)/neff)) -- a MONTE CARLO tolerance, modelling two
+# INDEPENDENT runs.  Each cell sets a fixed seed, so a re-run draws the same
+# samples and there is no between-run variance for such a tolerance to absorb.
+# It never bound below 0.03, roughly 150x the 0.0002 granularity of a 5,000-rep
+# proportion, and would have passed a 2-percentage-point regression in silence.
+# Now 0.004, and the gate prints the OBSERVED diff rather than the tolerance
+# alone -- without that, an exact reproduction is indistinguishable in the log
+# from a cell drifting just inside the bound.
+#
+# MUTATION PROOF (the tightening is not cosmetic).  With base_1_100_15 shifted
+# 0.6158 -> 0.6258 (+0.0100) and nothing else changed:
+#     power .6158 has moved from the frozen baseline .6258 by 0.0100
+#     (tolerance .004).
+#     FAIL: cell dgp 1 n=100 cens 0.15 (rc=9)
+#     RESULT: validation_finegray_gof_power tests=13 pass=12 fail=1
+# Exactly one cell fails -- the mutated one -- so the gate discriminates rather
+# than rejecting globally.  That same cell's tolerance under the OLD rule was
+# logged at 0.0389, so this shift cleared it with room to spare: the mutation
+# sits in the dead band the previous gate was blind to.
+#
+# verdict:     PASS -- gates and full lanes both green on a fresh isolated run.
+#              NOT reviewed: every suite above was written, run, and judged by
+#              the same agent that wrote the code under test, including the
+#              tolerance and skip-classification changes recorded here.
+#              /reviewer has not run.  Do not read this receipt as sign-off.

@@ -29,6 +29,7 @@ program define finegray_cif, rclass sortpreserve
     set varabbrev off
     local _preserved = 0
     local _held = 0
+    local _bh_stashed = 0
     local _side_rc = 0
     local _fgrebuilt ""
 
@@ -495,6 +496,18 @@ program define finegray_cif, rclass sortpreserve
         tempname _esth
         _estimates hold `_esth', restore
         local _held = 1
+        * Each refit below calls finegray again and overwrites the single slot in
+        * the Mata baseline cache, bumping its seq past the one the held
+        * e(bh_seq) names.  _estimates hold protects e(), but the cache is a
+        * Mata global and is invisible to it.  Without this snapshot, a later
+        * `finegray_predict, cif' on new data (estimation sample dropped) finds
+        * a seq mismatch, cannot rebuild, and errors r(459) -- measured
+        * 2026-07-22: after bootstrap(25) the cache seq was 27 while e(bh_seq)
+        * was 2.  The bootstrap SE reads e(basehaz) on each refit, never this
+        * cache, so restoring it cannot affect the SE.  Same defect and same
+        * fix as finegray_predict.ado.
+        mata: _finegray_bh_stash()
+        local _bh_stashed = 1
 
         preserve
         local _preserved = 1
@@ -550,6 +563,12 @@ program define finegray_cif, rclass sortpreserve
         local _preserved = 0
         _estimates unhold `_esth'
         local _held = 0
+        * Restore the fit's own baseline curve to the cache so a later predict on
+        * new data resolves against e(bh_seq) instead of the last resample's
+        * curve.  Before the `exit 498' below on purpose: a bootstrap that fell
+        * short of _minboot must still leave the user's fit usable.
+        mata: _finegray_bh_unstash()
+        local _bh_stashed = 0
 
         if `_bok' < `_minboot' {
             display as error "bootstrap failed: only `_bok' of `bootstrap' replications succeeded"
@@ -692,6 +711,24 @@ program define finegray_cif, rclass sortpreserve
     local rc = _rc
     if `_preserved' capture restore
     if `_held' capture _estimates unhold `_esth'
+    * A bootstrap that errored mid-loop leaves the cache snapshotted; restore it
+    * so the fit's baseline stays resolvable (falls back to prior behaviour if it
+    * too fails -- no worse than not stashing).
+    if `_bh_stashed' {
+        capture mata: _finegray_bh_unstash()
+        * Saved on the very next line: the first `display' below would otherwise
+        * reset _rc to 0 and the message would report rc = 0.
+        local _unstash_rc = _rc
+        * Captured on purpose: this runs in the cleanup zone, where raising a new
+        * error would mask the one that brought us here.  But it must not fail
+        * SILENTLY -- the cache stays snapshotted, and the next command that
+        * needs the fit's baseline hits a stale or missing one with no clue why.
+        if `_unstash_rc' {
+            display as error "note: the baseline-hazard cache could not be restored"
+            display as error "(mata: _finegray_bh_unstash failed, rc = `_unstash_rc'); re-run"
+            display as error "{bf:finegray} before further post-estimation"
+        }
+    }
     * Drop only the _fg_* columns this command rebuilt (see the rebuild block):
     * finegray_cif is read-only and must not leave design columns behind.  After
     * any restore above these are back in the data, so the drop is unconditional.

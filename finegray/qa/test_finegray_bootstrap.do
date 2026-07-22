@@ -265,6 +265,70 @@ else {
     local ++fail_count
 }
 
+**# 7. FG-H14: a bootstrap must not poison the Mata baseline cache
+*
+* The baseline cache is a SINGLE SLOT: one Mata matrix `_finegray_bh_cache'
+* plus one sequence scalar `_finegray_bh_seq'.  Every finegray fit overwrites
+* the slot and bumps the seq, and post-estimation resolves the baseline only
+* when e(bh_seq) still equals the cache's current seq.  A bootstrap refits B
+* times, so afterwards the cache holds the LAST resample's curve while the
+* restored e(bh_seq) names the original fit.
+*
+* `_estimates hold' does NOT cover this: it protects e(), and the cache is a
+* Mata global invisible to it.  The failure is fail-closed rather than silent
+* -- the seq increases monotonically, so a stale cache can never be mistaken
+* for a matching one -- but it strands the user at r(459) on a later predict
+* against new data, with the estimation sample gone and no way to rebuild.
+*
+* Measured 2026-07-22 on 1.2.0: after `finegray_cif, bootstrap(25)' the cache
+* seq was 27 while e(bh_seq) was 2.  finegray_predict carried the stash fix;
+* finegray_cif ran the same refit loop without it.  Both directions are tested
+* below, because a test that only covered cif would let the predict fix -- the
+* older of the two, and until now untested -- regress unnoticed.
+foreach _cmd in cif predict {
+    local ++test_count
+    capture noisily {
+        _mk_hypoxia_boot
+        quietly finegray ifp tumsize, compete(status) cause(1) nolog
+        local _seq_fit = e(bh_seq)
+
+        if "`_cmd'" == "cif" ///
+            quietly finegray_cif, attime(1 5) ci bootstrap(25) seed(7) nograph
+        else ///
+            quietly finegray_predict _cb_`_cmd', cif ci bootstrap(25) seed(7)
+
+        * Read the cache's live seq straight out of Mata.  Asserting on
+        * e(bh_seq) alone would pass vacuously: _estimates hold restores it
+        * correctly even when the cache underneath has moved.
+        mata: st_local("_seq_cache", strofreal(_finegray_bh_seq))
+        assert `_seq_cache' == `_seq_fit'
+
+        * Drop the estimation data so the rebuild fallback cannot rescue the
+        * lookup.  Without this the test passes on BROKEN code -- finegray
+        * rebuilds the baseline from e(sample) and never touches the cache.
+        quietly {
+            drop _all
+            set obs 5
+            gen double ifp = 20
+            gen double tumsize = 5
+            gen double newt = 2
+        }
+        quietly finegray_predict _p_`_cmd', cif timevar(newt)
+        * A resolved baseline must also be a USABLE one: r(459) is the failure
+        * this guards, but an all-missing column would be the quieter one.
+        quietly count if missing(_p_`_cmd')
+        assert r(N) == 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: `_cmd' bootstrap preserves the baseline cache"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: `_cmd' bootstrap poisons the baseline cache (rc=`=_rc')"
+        local ++fail_count
+    }
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_bootstrap tests=`test_count' pass=`pass_count' fail=`fail_count'"
