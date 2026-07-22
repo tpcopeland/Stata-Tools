@@ -70,10 +70,17 @@ set varabbrev off
 *     SEED  master seed          (default 20260715)
 * =============================================================================
 
-args MODE SIMS REPS SEED FROM TO
+args MODE SIMS REPS SEED FROM TO NSUB
 if "`MODE'" == "" local MODE smoke
 if "`FROM'" == "" local FROM 0
 if "`TO'"   == "" local TO 0
+* NSUB is a DIAGNOSTIC passthrough only: 0 means "use the family's own default",
+* which is what every gate invocation gets. It exists so a sample-size study can
+* reuse this file's DGP rather than keeping a second, drifting copy of it. A
+* non-zero NSUB does NOT produce a gate result -- combine still requires the
+* preregistered SIMS, and nsub is not part of the provenance stamp, so diagnostic
+* blocks must be aggregated separately and never mixed into a gate pool.
+if "`NSUB'" == "" local NSUB 0
 if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
     "combine_iiw", "combine_iptw", "combine_fiptiw") {
     display as error "MODE must be smoke, iiw, iptw, fiptiw, or release (got: `MODE')"
@@ -641,7 +648,7 @@ else if inlist("`MODE'", "iiw", "iptw", "fiptiw") & `FROM' > 0 & `TO' > 0 {
     capture mkdir "`blockdir'"
     local tag = string(`FROM', "%05.0f") + "_" + string(`TO', "%05.0f")
     _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
-        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') ///
+        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') nsub(`NSUB') ///
         from(`FROM') to(`TO') rowsout("`blockdir'/`MODE'_`tag'.dta")
     display as text "{hline 74}"
     display as error "RESULT: validation_iivw_inference `MODE' BLOCK `FROM'-`TO' non-gate"

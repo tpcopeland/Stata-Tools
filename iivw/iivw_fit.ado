@@ -305,10 +305,20 @@ program define iivw_fit, eclass
         local bootstrap 999
         local refitweights "refitweights"
         display as text ///
-            "note: weighted fit with no vce(); using the candidate default" ///
+            "note: weighted fit with no vce(); using the default" ///
             " vce(bootstrap, reps(999)) [refit]"
         display as text ///
             "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
+        * A measured coverage shortfall must be visible at the point of use, not
+        * only in a stored macro a user has to know to look for.
+        if "`weighttype'" == "fiptiw" {
+            display as text ///
+                "  FIPTIW note: in the 2026-07-22 coverage study this interval" ///
+                " covered 0.914, not 0.95"
+            display as text ///
+                "    (point estimate unbiased; interval ~14% too narrow)." ///
+                " See {help iivw_fit##inference:inference status}."
+        }
     }
 
     * =========================================================================
@@ -2004,6 +2014,26 @@ program define iivw_fit, eclass
         }
         else if `bootstrap' < 999 {
             local iivw_infstatus "uncleared-low-reps"
+        }
+        else if inlist("`weighttype'", "iivw", "iptw") {
+            * Coverage measured 2026-07-22, 1000 sims x 999 draws, preregistered
+            * rule in qa/TOLERANCE_FRAMEWORK.md sec 3 (Wilson must contain 0.95,
+            * floor 0.92). IIW 0.939 [0.922,0.952]; IPTW 0.954 [0.939,0.965].
+            * Record: qa/coverage_results/RESULT_2026-07-22.md.
+            * "studied settings" is load-bearing: ONE correct-specification cell
+            * per family at one sample size. It is not a claim about every n,
+            * every link, or a misspecified visit model.
+            local iivw_infstatus "cleared-at-studied-settings"
+        }
+        else if "`weighttype'" == "fiptiw" {
+            * Same run, same rule: FIPTIW coverage 0.914 [0.895,0.930] -- below
+            * the 0.92 floor and the Wilson interval excludes 0.95.
+            * The POINT ESTIMATOR is fine (bias +0.017 against MCSE 0.039). The
+            * INTERVAL is ~14% too narrow: mean SE 1.062 vs empirical SD 1.239.
+            * Not a resampler defect -- the refit bootstrap, the fixed-weight
+            * bootstrap and the analytic sandwich agree within 0.5% of each
+            * other and all three fall equally short.
+            local iivw_infstatus "undercovers-at-studied-settings"
         }
         else {
             local iivw_infstatus "candidate"

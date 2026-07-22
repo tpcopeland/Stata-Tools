@@ -753,6 +753,80 @@ cluster sandwich as its default, since it estimates no nuisance weights. See
 the Options section).
 
 
+{marker inference}{...}
+{title:Inference status and coverage evidence}
+
+{pstd}
+{cmd:e(iivw_inference_status)} records which evidence tier this run's interval
+belongs to. Until 2026-07-22 no value was ever {cmd:cleared}, because no coverage
+study had been run. One has now been run, and the status is no longer the same
+for every weight type.
+
+{pstd}
+The study: 1000 simulated datasets per weight family, 999 bootstrap draws each,
+under the acceptance rule preregistered in {cmd:qa/TOLERANCE_FRAMEWORK.md}
+(the 95% Wilson interval for empirical coverage must contain 0.95, with no point
+coverage below 0.92). The full record, including the manifest digest of the build
+that produced it, is {cmd:qa/coverage_results/RESULT_2026-07-22.md}.
+
+{synoptset 34 tabbed}{...}
+{synopthdr:status}
+{synoptline}
+{synopt:{cmd:cleared-at-studied-settings}}IIW or IPTW weights, refit bootstrap at
+999 draws. Measured coverage 0.939 (IIW) and 0.954 (IPTW).{p_end}
+{synopt:{cmd:undercovers-at-studied-settings}}FIPTIW weights, refit bootstrap at
+999 draws. Measured coverage 0.914 -- see below.{p_end}
+{synopt:{cmd:uncleared-low-reps}}fewer than 999 draws were requested.{p_end}
+{synopt:{cmd:uncleared-failed-reps}}draws failed and {opt allowfailedreps} was
+specified.{p_end}
+{synopt:{cmd:uncleared-fixedweights-bootstrap}}weights held fixed across draws.{p_end}
+{synopt:{cmd:uncleared-fixedweights-analytic}}analytic sandwich; weights treated
+as known.{p_end}
+{synopt:{cmd:not-applicable-unweighted}}no nuisance weights were estimated.{p_end}
+{synoptline}
+
+{pstd}
+{bf:"At studied settings" is load-bearing.} The study covered one correctly
+specified scenario per family at one sample size. It says nothing about a
+misspecified visit model, a different sample size, or a non-identity link. A
+{cmd:cleared-at-studied-settings} interval is evidence, not a guarantee.
+
+{marker fiptiwcoverage}{...}
+{pstd}
+{bf:The FIPTIW shortfall.} For FIPTIW the interval covered 0.914, with a 95%
+Wilson interval of [0.895, 0.930] -- below the 0.92 floor, and excluding 0.95.
+Two things matter for how you read that:
+
+{phang2}
+1. {bf:The point estimator is not implicated.} Bias was +0.017 against a Monte
+Carlo standard error of 0.039 -- under half an MCSE, i.e. indistinguishable from
+zero. FIPTIW point estimates are not biased by this finding.
+
+{phang2}
+2. {bf:The interval is too narrow, by roughly 14%.} The mean estimated standard
+error was 1.062 where the empirical standard deviation of the estimates was
+1.239. A confidence interval built from an SE that is 14% too small covers about
+0.91 rather than 0.95, which is what was observed.
+
+{pstd}
+This is {bf:not} a defect in the bootstrap code. Three variance estimators that
+share almost no implementation -- the refit bootstrap, the fixed-weight
+bootstrap, and the analytic sandwich, which does no resampling at all -- agree
+with each other to within 0.5% and all three fall equally short. A resampler bug
+could not produce that agreement. The same machinery is demonstrably working for
+IPTW, where refitting correctly pulls the SE from 1.31 times the empirical SD
+down to 1.02 times it.
+
+{pstd}
+{bf:What to do about it.} Treat a FIPTIW interval as anticonservative: it is
+narrower than the sampling variability of the estimator warrants at the studied
+settings. If your analysis turns on whether a FIPTIW confidence interval excludes
+a value, that conclusion is less secure than the nominal 95% suggests. Reporting
+the point estimate with an explicitly wider or sensitivity-based interval is the
+conservative course. Whether the shortfall shrinks at larger sample sizes was
+still under study when this help file was written; do not assume it does.
+
+
 {marker troubleshooting}{...}
 {title:Troubleshooting}
 
@@ -1060,7 +1134,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_vce_seed)}}resampling seed, when set via {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
-{synopt:{cmd:e(iivw_inference_status)}}inference-clearance status; never {cmd:cleared}{p_end}
+{synopt:{cmd:e(iivw_inference_status)}}inference-evidence tier; see {help iivw_fit##inference:Inference status}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}confidence-interval type ({cmd:wald-normal}){p_end}
 {synopt:{cmd:e(iivw_vce_seed_explicit)}}1 if a seed was set via {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(iivw_rng)}}RNG type used, when bootstrapped{p_end}
