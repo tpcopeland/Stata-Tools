@@ -82,15 +82,22 @@ three shared-machine nights. That is materially less than the "another overnight
 run per dimension" first estimate, because diagnostic cells do not need
 `COVERAGE_R = 1000`.
 
-## Two constraints on executing this
+## The constraint on executing this
 
-1. **P3 and P4 require changing `validation_iivw_inference.do`** — the release
-   gate file — to expose new DGP knobs and a logit arm. Every previous change to
-   that file's aggregation path introduced a defect that later had to be found
-   (twice). It should not be extended further until the current changes have had
-   independent review.
-2. **Only P1 and P2 need no new knobs** and can run against the file as it
-   stands.
+**P2 through P5 all require changing `validation_iivw_inference.do`** — the
+release gate file. Each runner hard-codes its visit model (`visit_cov(Z)` at
+`:224` and `:359`), so even P2's misspecification arm needs a knob; the DGP's
+propensity coefficients are likewise fixed, and the outcome families are all
+Gaussian.
+
+*(An earlier draft of this file claimed P2 needed no new knobs. That was wrong —
+the runner hard-codes `visit_cov(Z)`. Corrected 2026-07-23.)*
+
+**Only P1 (sample size) runs against the file as it stands**, because `nsub` is
+the one knob that has been exposed — and exposing it is precisely what reopened
+the pool-contamination hole that `blk_nsub` now closes. Every previous change to
+this file introduced a defect that had to be found later, twice. It should not
+be extended further until the current changes have had independent review.
 
 ## The rule that still applies
 

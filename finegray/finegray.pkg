@@ -10,11 +10,8 @@ d forward-backward scan algorithm that avoids data expansion
 d entirely. Supports delayed entry with Zhang-Zhang-Fine Weight 1,
 d censoring and entry strata, factor variables, robust/clustered
 d SEs, CIF prediction, and Schoenfeld residuals. Post-estimation
-d goodness of fit is available two ways: an approximate
-d proportional subdistribution hazards diagnostic, and
-d cumulative-residual tests of proportionality, functional form
-d and the link function with multiplier-bootstrap p-values
-d (Li, Scheike and Zhang 2015).
+d includes an approximate proportional subdistribution hazards
+d diagnostic.
 d
 d KW: competing risks
 d KW: Fine-Gray
@@ -24,7 +21,7 @@ d KW: survival analysis
 d
 d Requires: Stata version 16
 d
-d Distribution-Date: 20260721
+d Distribution-Date: 20260723
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d Support: timothy.copeland@ki.se

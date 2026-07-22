@@ -1,0 +1,11 @@
+family       R     cov           Wilson     empSD    meanSE   ratio      bias     MCSE  gate
+----------------------------------------------------------------------------------------------------
+iiw       1000   0.939 [ 0.922, 0.952]   0.02787   0.02785  0.9994   0.00094  0.00088  PASS   tiles1..1000=True
+iptw      1000   0.954 [ 0.939, 0.965]   0.12147   0.12395  1.0204  -0.00048  0.00384  PASS   tiles1..1000=True
+fiptiw    1000   0.914 [ 0.895, 0.930]   1.23911   1.06195  0.8570   0.01707  0.03918  FAIL   tiles1..1000=True
+----------------------------------------------------------------------------------------------------
+Cross-check vs the three other variance estimators (fiptiw):
+  se_refit  mean= 1.06195  mean/empSD= 0.8570
+  se_fwb    mean= 1.05724  mean/empSD= 0.8532
+  se_fix    mean= 1.05927  mean/empSD= 0.8549
+  z=err/se_refit : SD=1.1556  kurtosis= 3.145  skew=-0.0047
