@@ -1,11 +1,12 @@
 {smcl}
-{* *! version 1.9.11  18jul2026}{...}
+{* *! version 1.10.0  22jul2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
 {viewerjumpto "Options" "tabtools##options"}{...}
 {viewerjumpto "Persistent defaults" "tabtools##defaults"}{...}
+{viewerjumpto "Themes" "tabtools##themes"}{...}
 {viewerjumpto "Examples" "tabtools##examples"}{...}
 {viewerjumpto "Stored results" "tabtools##stored"}{...}
 {viewerjumpto "Author" "tabtools##author"}{...}
@@ -202,7 +203,7 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synopt:{cmd:font} {it:name}}set the default font family{p_end}
 {synopt:{cmd:fontsize} {it:#}}font size in points; integer between 6 and 72{p_end}
 {synopt:{cmd:borderstyle} {it:name}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmd:theme} {it:name}}set the default formatting theme{p_end}
+{synopt:{cmd:theme} {it:name}}set the default formatting theme; see {it:Themes} below{p_end}
 {synopt:{cmd:digits} {it:#}}decimal digits for numeric output; integer between 0 and 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
@@ -336,6 +337,41 @@ only read when you run {cmd:tabtools use} or source it from your own
 {phang2}{cmd:. tabtools set clear}{p_end}
 
 
+{marker themes}{...}
+{title:Themes}
+
+{pstd}
+Every {cmd:tabtools} command that formats output accepts {opt theme(name)}. This
+is the canonical list of accepted names and what each one resolves to; the
+per-command help files refer here rather than restating it.{p_end}
+
+{synoptset 12 tabbed}{...}
+{synopthdr:theme}
+{synoptline}
+{synopt:{cmd:lancet}}Arial 9pt, academic borders{p_end}
+{synopt:{cmd:nejm}}Arial 9pt, academic borders, zebra striping{p_end}
+{synopt:{cmd:bmj}}Arial 10pt, academic borders{p_end}
+{synopt:{cmd:apa}}Times New Roman 12pt, academic borders{p_end}
+{synopt:{cmd:jama}}Arial 10pt, academic borders{p_end}
+{synopt:{cmd:plos}}Arial 10pt, thin borders{p_end}
+{synopt:{cmd:nature}}Arial 7pt, academic borders{p_end}
+{synopt:{cmd:cell}}Arial 8pt, academic borders{p_end}
+{synopt:{cmd:annals}}Arial 10pt, academic borders{p_end}
+{synopt:{cmd:custom}}reads the font, size, border, and color set by {cmd:tabtools set}{p_end}
+{synoptline}
+{p2colreset}{...}
+
+{pstd}
+No preset applies header shading by default; request it with {opt headershade}
+or {opt headercolor()}. Explicit formatting options always override the
+theme. {cmd:tabtools set theme} accepts the nine named themes; {cmd:custom} is selected
+implicitly when you set an individual font, size, border, or color.{p_end}
+
+{pstd}
+Publishers may restyle accepted tables during production, so treat these as
+built-in Excel presets rather than exact house templates.{p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 
@@ -443,6 +479,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.9.11{p_end}
+{pstd}{bf:Version} 1.10.0{p_end}
 
 {hline}

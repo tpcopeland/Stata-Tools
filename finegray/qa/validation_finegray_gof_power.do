@@ -281,18 +281,18 @@ local pub_2_300_30 = 0.8025
 * nothing; that is the failure mode this block exists to make visible.
 *
 * Recorded 2026-07-22 from the run logged in run_status_gates.txt.
-local base_1_50_15  = .
-local base_1_50_30  = .
-local base_1_100_15 = .
-local base_1_100_30 = .
-local base_1_300_15 = .
-local base_1_300_30 = .
-local base_2_50_15  = .
-local base_2_50_30  = .
-local base_2_100_15 = .
-local base_2_100_30 = .
-local base_2_300_15 = .
-local base_2_300_30 = .
+local base_1_50_15  = 0.3518
+local base_1_50_30  = 0.2724
+local base_1_100_15 = 0.6158
+local base_1_100_30 = 0.4738
+local base_1_300_15 = 0.9790
+local base_1_300_30 = 0.9088
+local base_2_50_15  = 0.3776
+local base_2_50_30  = 0.2668
+local base_2_100_15 = 0.6454
+local base_2_100_30 = 0.4660
+local base_2_300_15 = 0.9852
+local base_2_300_30 = 0.9054
 
 if "$GOF_POW_REGEN" == "" global GOF_POW_REGEN : environment GOF_POW_REGEN
 local regen = ("$GOF_POW_REGEN" == "1")
@@ -513,16 +513,39 @@ forvalues dg = 1/2 {
                     display as error "    Re-run with GOF_POW_REGEN=1 to record one."
                     exit 9
                 }
-                local se_bd = sqrt(2 * `base' * (1 - `base') / `neff')
-                local tol_b = max(0.03, 4 * `se_bd')
-                if abs(`pw' - `base') > `tol_b' {
+                * TOLERANCE IS NOT A MONTE CARLO TOLERANCE.  Every cell sets a
+                * fixed seed (see `set seed' above), so a re-run draws the SAME
+                * samples as the run that froze the baseline: there is no
+                * between-run sampling variance for a tolerance to absorb.  The
+                * earlier form here, max(0.03, 4*sqrt(2p(1-p)/neff)), modelled
+                * two INDEPENDENT runs and so never bound below 0.03 -- 150x the
+                * 0.0002 granularity of a 5,000-rep proportion.  It would have
+                * passed a real 2-percentage-point regression in silence.
+                * Measured 2026-07-22: all 12 cells reproduce EXACTLY (diff =
+                * 0.0000), confirming the computation is deterministic and free
+                * of the sort-tie ordering dependence that can otherwise make a
+                * seeded Stata run irreproducible.
+                *
+                * 0.004 = 20 flipped replications out of 5,000.  It is slack
+                * only for floating-point jitter tipping a p-value across alpha
+                * on a different CPU or Stata build; it is not slack for a
+                * changed estimator.  If this ever trips, the correct response
+                * is to find out what moved -- not to widen it.
+                local tol_b = 0.004
+                local diff  = abs(`pw' - `base')
+                if `diff' > `tol_b' {
                     display as error "    power `pw' has moved from the frozen"
-                    display as error "    baseline `base' by more than `tol_b'."
+                    display as error "    baseline `base' by " %6.4f `diff' ///
+                        " (tolerance `tol_b')."
                     display as error "    This is a REGRESSION on the named DGP"
                     display as error "    (reading A), independent of the paper."
                     exit 9
                 }
-                display as text "    baseline `base' ok (|diff| <= " %6.4f `tol_b' ")"
+                * Print the OBSERVED diff, not just the tolerance.  Printing the
+                * tolerance alone cannot distinguish an exact reproduction from
+                * a cell drifting just inside the bound.
+                display as text "    baseline `base' ok (diff " %6.4f `diff' ///
+                    ", tol " %5.3f `tol_b' ")"
             }
             if _rc == 0 {
                 local ++pass_count

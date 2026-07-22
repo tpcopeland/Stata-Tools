@@ -18,7 +18,7 @@ Markdown export
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{it:fweight}],
+{p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{cmd:[fweight=}{it:exp}{cmd:]}],
 [{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt coch:ran} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt level(#)} {opt dig:its(#)}
@@ -78,7 +78,10 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
-{pstd}{cmd:crosstab} supports {it:fweight}s only. When you request {opt or},
+{pstd}{cmd:crosstab} supports {help weight:fweight}s only, written in the standard
+form {cmd:[fweight=}{it:exp}{cmd:]}, where {it:exp} is a variable or expression
+giving the integer frequency each observation represents (for example
+{cmd:[fweight=count]}). When you request {opt or},
 {opt rr}, or {opt rd}, the command internally recodes the first observed level
 of {it:rowvar} and {it:colvar} to 0 and the second observed level to 1 before
 calling Stata's {helpb cc} or {helpb cs}. The reported measures therefore
@@ -239,7 +242,7 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {synopt:{cmd:r(rr)}}risk ratio (2x2){p_end}
 {synopt:{cmd:r(rd)}}risk difference (2x2){p_end}
 {synopt:{cmd:r(p_trend)}}trend p-value (Spearman or Cochran-Armitage){p_end}
-{synopt:{cmd:r(chi2_trend)}}Cochran-Armitage trend chi-squared statistic (1 df{p_end}
+{synopt:{cmd:r(chi2_trend)}}Cochran-Armitage trend chi-squared statistic (1 df){p_end}
 {synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic (when {opt cochran} is used){p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}

@@ -1,4 +1,4 @@
-*! psdash_support Version 1.4.1  2026/07/07
+*! psdash_support Version 1.5.0  2026/07/22
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -643,7 +643,7 @@ program define psdash_support, rclass
                     (kdensity `psvar' if `touse' & `treatment' == 0, ///
                         lcolor(cranberry) lwidth(medthick)), ///
                     legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
-                    xtitle("Propensity Score") ytitle("Density") ///
+                    xscale(range(0 1)) xtitle("Propensity Score") ytitle("Density") ///
                     title(`"`title'"') ///
                     `xlines' ///
                     name(`name', replace) ///
@@ -819,21 +819,25 @@ program define psdash_support, rclass
         local trim_lower = `threshold'
         local trim_upper = 1 - `threshold'
 
+        tempvar _psd_min_gps
+        local _first_gps : word 1 of `_mg_group_psvars'
+        quietly gen double `_psd_min_gps' = `_first_gps' if `touse'
+        foreach _gps of local _mg_group_psvars {
+            quietly replace `_psd_min_gps' = min(`_psd_min_gps', `_gps') if `touse'
+        }
         quietly {
-            count if (`obs_ps' < `trim_lower' | `obs_ps' > `trim_upper') & `touse'
+            count if `_psd_min_gps' < `trim_lower' & `touse'
             local n_trimmed = r(N)
             local pct_trimmed = 100 * `n_trimmed' / `N'
         }
     }
 
     * RB-11: reject a multi-group trim that empties the sample or eliminates a
-    * group before generating an indicator or reporting success. (Trimming still
-    * operates on the observed-arm PS scalar; the full-vector trim redesign is
-    * the deferred RB-02 point 4.)
+    * group before generating an indicator or reporting success. Multi-group
+    * threshold trimming requires every GPS component to meet the floor.
     if `has_trimming' {
         tempvar _psd_retain_mg
-        quietly gen byte `_psd_retain_mg' = ///
-            (`obs_ps' >= `trim_lower' & `obs_ps' <= `trim_upper') & `touse'
+        quietly gen byte `_psd_retain_mg' = (`_psd_min_gps' >= `trim_lower') & `touse'
         quietly count if `_psd_retain_mg'
         if r(N) == 0 {
             display as error "trimming removed every observation (`=string(`pct_trimmed',"%4.1f")'% excluded)"
@@ -857,9 +861,8 @@ program define psdash_support, rclass
         }
 
         if `has_trimming' {
-            quietly gen byte `generate' = ///
-                (`obs_ps' >= `trim_lower' & `obs_ps' <= `trim_upper') if `touse'
-            label variable `generate' "In trimmed support [`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+            quietly gen byte `generate' = (`_psd_min_gps' >= `trim_lower') if `touse'
+            label variable `generate' "All GPS components >= `=string(`trim_lower', "%5.3f")'"
         }
         else {
             quietly gen byte `generate' = ///
@@ -1042,7 +1045,7 @@ program define psdash_support, rclass
 
                 noisily twoway `plot_cmd', ///
                     legend(order(`legend_order') rows(1) position(6)) ///
-                    xtitle("Propensity Score") ytitle("Density") ///
+                    xscale(range(0 1)) xtitle("Propensity Score") ytitle("Density") ///
                     title(`"`title'"') ///
                     `xlines' ///
                     name(`name', replace) ///
@@ -1110,6 +1113,7 @@ program define psdash_support, rclass
                 return scalar trim_upper = `trim_upper'
                 return scalar n_trimmed = `n_trimmed'
                 return scalar pct_trimmed = `pct_trimmed'
+                return scalar N_remaining = `N' - `n_trimmed'
                 if "`crump'" != "" {
                     return scalar crump_alpha = `crump_alpha'
                 }
@@ -1156,6 +1160,7 @@ program define psdash_support, rclass
                 return scalar trim_upper = `trim_upper'
                 return scalar n_trimmed = `n_trimmed'
                 return scalar pct_trimmed = `pct_trimmed'
+                return scalar N_remaining = `N' - `n_trimmed'
             }
             return scalar n_ps_boundary = `n_ps_boundary'
             return scalar n_ps_near_boundary = `n_ps_near'

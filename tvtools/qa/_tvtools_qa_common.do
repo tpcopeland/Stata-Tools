@@ -338,11 +338,20 @@ program define _validate_tvexpose_output, rclass
 end
 
 * _verify_ptime_conserved: person-time conservation check.
+*
+* Rows are closed [start, stop] intervals, so a row spans stop-start+1 days
+* and a one-day row spans 1, not 0. The helper used bare subtraction, which
+* is the open-interval length: it scored [100,100] as zero person-time and
+* made every known answer in the suite one day short per row. Callers that
+* genuinely want an elapsed clock (a difference between two instants rather
+* than a count of covered days) pass -elapsed-.
 capture program drop _verify_ptime_conserved
 program define _verify_ptime_conserved, rclass
-    syntax, start(varname) stop(varname) expected_ptime(real) [tolerance(real 0.001)]
+    syntax, start(varname) stop(varname) expected_ptime(real) ///
+        [tolerance(real 0.001) ELAPSED]
     tempvar dur
-    gen double `dur' = `stop' - `start'
+    if "`elapsed'" != "" gen double `dur' = `stop' - `start'
+    else                 gen double `dur' = `stop' - `start' + 1
     quietly sum `dur'
     local actual = r(sum)
     local pct_diff = abs(`actual' - `expected_ptime') / `expected_ptime'
@@ -352,13 +361,26 @@ program define _verify_ptime_conserved, rclass
 end
 
 * _verify_no_overlap: count overlapping intervals within id.
+*
+* Two closed intervals overlap when the later one starts on or before the
+* running maximum stop already seen for that person. The helper used
+* `start < stop[_n-1]`, which is wrong twice over: the strict `<` misses
+* equality overlaps ([1,5] and [5,8] share day 5 but scored 0), and reading
+* only the immediate predecessor misses rows nested inside an earlier, longer
+* interval ([1,100], [2,3], [50,60] scored 1 instead of 2).
+*
+* This is deliberately an independent implementation rather than a call to
+* the package's _tvtools_interval_union: an oracle that runs the code under
+* test is a mirror, not a check.
 capture program drop _verify_no_overlap
 program define _verify_no_overlap, rclass
     syntax, id(varname) start(varname) stop(varname)
     sort `id' `start' `stop'
-    tempvar prev_stop overlap
-    by `id': gen double `prev_stop' = `stop'[_n-1] if _n > 1
-    by `id': gen byte `overlap' = (`start' < `prev_stop') if _n > 1
+    tempvar runmax prev_max overlap
+    by `id': gen double `runmax' = `stop' if _n == 1
+    by `id': replace `runmax' = max(`runmax'[_n-1], `stop') if _n > 1
+    by `id': gen double `prev_max' = `runmax'[_n-1] if _n > 1
+    gen byte `overlap' = (`start' <= `prev_max') if !missing(`prev_max')
     quietly count if `overlap' == 1
     return scalar n_overlaps = r(N)
 end

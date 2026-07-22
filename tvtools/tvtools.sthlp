@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.2  19jul2026}{...}
+{* *! version 1.8.0  22jul2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -70,7 +70,7 @@ workflow from data preparation through weighting and estimation.
 {synopt:{helpb tvexpose}}Create time-varying exposure variables for survival analysis{p_end}
 {synopt:{helpb tvmerge}}Merge multiple time-varying exposure datasets{p_end}
 {synopt:{helpb tvevent}}Integrate events and competing risks into time-varying datasets{p_end}
-{synopt:{helpb tvage}}Add time-varying age to stset data{p_end}
+{synopt:{helpb tvage}}Expand one-row-per-person follow-up into age bands{p_end}
 {synopt:{helpb tvband}}Split intervals along one date-derived axis{p_end}
 {synopt:{helpb tvsplit}}Multi-timescale (Lexis) splitting on several axes at once{p_end}
 {synopt:{helpb tvpanel}}Build a fixed-width, entry-anchored person-period panel for MSMs{p_end}
@@ -188,30 +188,83 @@ not authorize malformed-input deletion.
 {title:Examples}
 
 {pstd}
-{bf:Create time-varying exposure from prescription data}
-
-{phang2}{cmd:. tvexpose using rx_episodes.dta, id(id) start(rx_start) stop(rx_stop)} ///{p_end}
-{phang3}{cmd:exposure(drug) reference(0) entry(study_entry) exit(study_exit)}{p_end}
+Every example below is self-contained: it builds its own data and needs no
+external file. Run them in order in a scratch session.
 
 {pstd}
-{bf:Merge two exposure variables}
+{bf:Browse the suite}
 
-{phang2}{cmd:. tvmerge drug_a.dta drug_b.dta, id(id) start(start_a start_b) stop(stop_a stop_b) exposure(drug_a drug_b)}{p_end}
+{phang2}{cmd:. tvtools}{p_end}
+{phang2}{cmd:. tvtools, detail}{p_end}
+{phang2}{cmd:. tvtools, category(prep)}{p_end}
+{phang2}{cmd:. tvtools, category(weight)}{p_end}
 
 {pstd}
-{bf:Add events and competing risks}
+{bf:Create time-varying exposure from prescription episodes}
 
-{phang2}{cmd:. tvevent using intervals.dta, id(id) date(event_date) compete(death_date)}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input id rx_start rx_stop drug}{p_end}
+{phang2}{cmd:. 1 21930 21990 1}{p_end}
+{phang2}{cmd:. 1 22050 22100 1}{p_end}
+{phang2}{cmd:. 2 21950 22000 1}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. tempfile rx}{p_end}
+{phang2}{cmd:. save "`rx'"}{p_end}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input id study_entry study_exit}{p_end}
+{phang2}{cmd:. 1 21915 22280}{p_end}
+{phang2}{cmd:. 2 21915 22280}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. format study_entry study_exit %td}{p_end}
+
+{phang2}{cmd:. tvexpose using "`rx'", id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:generate(tv_drug) keepdates}{p_end}
+
+{pstd}
+The output carries the bounds under the names given in {opt start()} and
+{opt stop()}. See {help tvexpose##naming:the output naming contract}.
 
 {pstd}
 {bf:Diagnose the constructed dataset}
 
-{phang2}{cmd:. tvdiagnose, id(id) start(start) stop(stop) coverage gaps entry(study_entry) exit(study_exit)}{p_end}
+{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:coverage gaps entry(study_entry) exit(study_exit)}{p_end}
+
+{pstd}
+{bf:Add an event and a competing risk}
+
+{phang2}{cmd:. tempfile intervals}{p_end}
+{phang2}{cmd:. save "`intervals'"}{p_end}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input id event_date death_date}{p_end}
+{phang2}{cmd:. 1 22120 .}{p_end}
+{phang2}{cmd:. 2 . 22200}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. format event_date death_date %td}{p_end}
+
+{phang2}{cmd:. tvevent using "`intervals'", id(id) date(event_date) ///}{p_end}
+{phang3}{cmd:compete(death_date) startvar(rx_start) stopvar(rx_stop)}{p_end}
+
+{pstd}
+{bf:Convert to Stata survival time and fit a model}
+
+{phang2}{cmd:. generate double start0 = rx_start - 1}{p_end}
+{phang2}{cmd:. stset rx_stop, id(id) failure(_failure == 1) time0(start0)}{p_end}
 
 {pstd}
 {bf:Calculate IPTW weights}
 
-{phang2}{cmd:. tvweight tv_drug, covariates(age sex comorbidity)}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set obs 200}{p_end}
+{phang2}{cmd:. set seed 12345}{p_end}
+{phang2}{cmd:. generate id = _n}{p_end}
+{phang2}{cmd:. generate age = 40 + int(runiform() * 40)}{p_end}
+{phang2}{cmd:. generate sex = runiform() < 0.5}{p_end}
+{phang2}{cmd:. generate tv_drug = runiform() < invlogit(-2 + 0.03 * age + 0.4 * sex)}{p_end}
+{phang2}{cmd:. tvweight tv_drug, covariates(age sex)}{p_end}
 
 {marker remarks}{...}
 {title:Remarks}

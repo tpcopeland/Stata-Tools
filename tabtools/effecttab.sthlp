@@ -163,12 +163,13 @@ wrap{p_end}
 {opt level(#)} sets or verifies confidence-level provenance. With a collected
 result, the active collection's stored level is used and an explicit value must
 match it. Not every Stata version records the level in the collection: Stata 17
-does, Stata 19 does not. When it is absent, {cmd:effecttab} uses {opt level()}
-if you supply one and otherwise falls back to the current {helpb set level},
-reporting a note; no conflict check is possible in that case, so supply
-{opt level()} if the collected models did not use the current default. Matrix
-input has no interval metadata, so it uses 95 unless {opt level()} is
-supplied. The resolved level labels intervals in headers and methods text, is
+does, Stata 19 does not. When it is absent, {cmd:effecttab} requires
+{opt level()} and exits with error 198 otherwise. It does {it:not} fall back to
+the current {helpb set level}: that is the session setting at render time,
+whereas the intervals were computed when the models ran, so assuming it can
+label real 90% bounds as a 95% CI. State the level the collected models were
+fit at. Matrix input has no interval metadata, so it uses 95 unless
+{opt level()} is supplied. The resolved level labels intervals in headers and methods text, is
 returned in {cmd:r(ci_level)}, and is stored on display and eplot frames; it
 affects no computed quantity.{p_end}
 

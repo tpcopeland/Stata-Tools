@@ -13,7 +13,8 @@ local quick_suites test_package_runner_contract ///
     test_tvevent test_tvexpose test_tvmerge ///
     test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
     test_options test_integration test_edge_cases test_verbose ///
-    test_frames_input test_default_naming test_package_state
+    test_frames_input test_default_naming test_package_state ///
+    test_help_examples
 
 local core_only_suites test_regressions test_tvm_point_engine ///
     validation_phase0_semantics validation_contracts ///
@@ -51,6 +52,7 @@ local manifest_suites test_package_runner_contract ///
     test_tvmerge test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
     test_options test_integration test_edge_cases test_verbose ///
     test_frames_input test_default_naming test_package_state ///
+    test_help_examples ///
     test_regressions test_tvm_point_engine validation_phase0_semantics ///
     validation_contracts validation_audit_tvexpose validation_audit_tvmerge ///
     validation_audit_tvevent validation_audit_tvpanel ///
@@ -74,6 +76,7 @@ local manifest_counts 11 ///
     21 13 43 19 15 ///
     87 22 15 22 ///
     7 5 21 ///
+    9 ///
     165 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
@@ -86,13 +89,13 @@ local manifest_counts 11 ///
     9 5 7 ///
     3 3 ///
     2 4 ///
-    4 10
+    4 11
 
 * Only external-oracle suites may report a dependency-absence skip, and only
 * when the standalone external lane is requested. Full/release override these
 * flags and require zero skips.
 local manifest_allow_skips ""
-forvalues i = 1/53 {
+forvalues i = 1/54 {
     local manifest_allow_skips "`manifest_allow_skips' 0"
 }
 local manifest_allow_skips "`manifest_allow_skips' 1 1 1 0 0 0"

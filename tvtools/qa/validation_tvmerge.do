@@ -65,7 +65,7 @@ save "${DATA_DIR}/tvmerge_ds1_fullyear.dta", replace
 clear
 input long id double(start2 stop2) byte exp2
     1 21915 22097 1
-    1 22097 22281 2
+    1 22098 22281 2
 end
 format %td start2 stop2
 label data "Dataset 2: Two intervals (Jan-Jun = exp2=1, Jul-Dec = exp2=2)"
@@ -257,15 +257,15 @@ capture {
 
     * Overlap is Mar 1 - Jun 30 (ds1 ends Jun 30, ds2 starts Mar 1)
     * Calculate overlap duration
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
 
-    * Mar 1 (21975) to Jun 30 (22097) = 122 days
-    local expected_dur = 22097 - 21975
+    * Closed [21975, 22097] spans stop-start+1 = 123 days.
+    local expected_dur = 22097 - 21975 + 1
     assert abs(r(sum) - `expected_dur') < 1
 }
 if _rc == 0 {
-    display as result "  PASS: Merged duration equals intersection (122 days)"
+    display as result "  PASS: Merged duration equals intersection (123 days)"
     local ++pass_count
 }
 else {
@@ -323,7 +323,7 @@ capture {
     * ds2 total was 100 cumulative over 182 days
     * Intersection is exactly ds2 range (Jan-Jun)
 
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
     local overlap_dur = r(sum)
 
@@ -479,14 +479,14 @@ capture {
         id(id) start(s1 s2 s3) stop(e1 e2 e3) ///
         exposure(x1 x2 x3)
 
-    * Jun 1 (22067) to Sep 30 (22189) = 122 days
-    gen dur = stop - start
+    * Closed [22067, 22189] spans stop-start+1 = 123 days.
+    gen dur = stop - start + 1
     quietly sum dur
-    local expected = 22189 - 22067
+    local expected = 22189 - 22067 + 1
     assert abs(r(sum) - `expected') < 1
 }
 if _rc == 0 {
-    display as result "  PASS: Three-way merge duration correct (122 days)"
+    display as result "  PASS: Three-way merge duration correct (123 days)"
     local ++pass_count
 }
 else {
@@ -563,10 +563,10 @@ if `quiet' == 0 {
     display as text "{hline 70}"
 }
 
-* Invariant 1: Date Ordering (start < stop for all rows)
+* Invariant 1: Date Ordering (start <= stop for all rows)
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Invariant 1: Date Ordering (start < stop)"
+    display as text _n "Invariant 1: Date Ordering (start <= stop)"
 }
 
 capture {
@@ -578,7 +578,7 @@ capture {
     assert r(N) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: All rows have start < stop"
+    display as result "  PASS: All rows have start <= stop"
     local ++pass_count
 }
 else {
@@ -1722,8 +1722,10 @@ capture {
         exposure(exp1 exp2) generate(drug1 drug2) ///
         startname(period_start) stopname(period_end)
 
-    * Invariant 1: Date ordering (start < stop)
-    quietly count if period_end <= period_start
+    * Invariant 1: Date ordering. Under the closed [start, stop] contract a
+    * one-day row has start == stop and is legal; the old `<=` invariant
+    * declared exactly those legitimate rows invalid.
+    quietly count if period_end < period_start
     assert r(N) == 0
 
     * Invariant 2: No overlapping intervals per ID
@@ -1763,12 +1765,12 @@ capture {
         exposure(exp1 exp2)
 
     * Calculate total person-time
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
     local total_pt = r(sum)
 
-    * Should equal the full year (366 days for 2020)
-    assert abs(`total_pt' - 366) < 2
+    * Closed [21915, 22281] spans 22281-21915+1 = 367 covered days.
+    assert abs(`total_pt' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conserved in merge"
@@ -1906,7 +1908,7 @@ capture {
     assert r(n_overlaps) == 0
 
     * Total duration should match original overlap
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
     local total = r(sum)
     * Both datasets cover roughly 150 days (Jan-May), overlap should be similar
@@ -2120,7 +2122,7 @@ capture {
         exposure(exp1 exp2)
 
     * Calculate merged duration
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
     local merged_dur = r(sum)
 
@@ -2153,7 +2155,7 @@ capture {
         exposure(x1 x2 x3)
 
     * Calculate merged duration
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
     local merged_dur = r(sum)
 
@@ -2296,8 +2298,9 @@ capture {
 
     * Should produce exactly 1 row
     assert _N == 1
-    gen dur = stop - start
-    assert dur == 60
+    * Closed [22000, 22060] spans 61 days, not 60.
+    gen dur = stop - start + 1
+    assert dur == 61
 }
 if _rc == 0 {
     display as result "  PASS: Identical intervals merged correctly"
@@ -2337,10 +2340,10 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2)
 
-    * Output should be the smaller interval (30 days)
-    gen dur = stop - start
+    * Output is the smaller interval: closed [22030, 22060] = 31 days.
+    gen dur = stop - start + 1
     quietly sum dur
-    assert r(sum) == 30
+    assert r(sum) == 31
 }
 if _rc == 0 {
     display as result "  PASS: Containment intervals handled correctly"
@@ -2372,7 +2375,7 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2)
 
-    gen dur = stop - start
+    gen dur = stop - start + 1
     quietly sum dur
     local out_dur = r(sum)
 

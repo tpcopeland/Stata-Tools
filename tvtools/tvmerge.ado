@@ -1,4 +1,4 @@
-*! tvmerge Version 1.7.2  2026/07/19
+*! tvmerge Version 1.8.0  2026/07/22
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -731,7 +731,15 @@ program define tvmerge, rclass
         * Process first dataset as base
         local first_ds: word 1 of `datasets'
         use "`first_ds'", clear
-        
+
+        * Record which exposure() names exist in dataset 1, scanned BEFORE any
+        * rename so the raw names are still in place (auto-suffixing and
+        * generate() both rewrite them further down).
+        foreach _possible_exp in `exposures_raw' {
+            capture confirm variable `_possible_exp'
+            if _rc == 0 local _exp_seen : list _exp_seen | _possible_exp
+        }
+
         * CRITICAL FIX: Ensure all new variables use double type
         capture confirm variable `id'
         if _rc != 0 {
@@ -1020,6 +1028,15 @@ program define tvmerge, rclass
                 }
             }
             local exp_k_list : list uniq exp_k_list
+
+            * Accumulate the union of exposures actually discovered across all
+            * sources, so a name present in NO source can be caught after the
+            * scan. tvmerge accepts more exposure() names than datasets (a
+            * source may contribute an extra exposure column), but it used to
+            * tolerate a name found nowhere: exposure(a b c) over two datasets
+            * returned rc=0, warned only that `b' was ignored in dataset 1, and
+            * emitted `a c' -- a typo silently changed the output exposure set.
+            local _exp_seen : list _exp_seen | exp_k_list
 
             if "`exp_k_list'" == "" {
                 noisily di as error "No exposure variables found in `ds_k'"
@@ -1609,6 +1626,20 @@ program define tvmerge, rclass
             if "`exp_k_cont_list'" != "" {
                 local merged_continuous_exps "`merged_continuous_exps' `exp_k_cont_list'"
             }
+        }
+
+        * Validate that every exposure() name was found in at least one dataset.
+        * Mirrors the keep() rule below. tvmerge deliberately accepts more
+        * exposure() names than datasets so a source can contribute an extra
+        * exposure column, but a name found in NO source is a typo: it used to
+        * pass at rc=0 with only a "ignored in dataset 1" note, silently
+        * emitting a different exposure set than the one requested.
+        local _exp_want : list uniq exposures_raw
+        local _exp_missing : list _exp_want - _exp_seen
+        if "`_exp_missing'" != "" {
+            noisily di as error "exposure() variable(s) not found in any dataset:`_exp_missing'"
+            noisily di as error "Every exposure() name must exist in at least one of the `numds' source datasets."
+            exit 111
         }
 
         * Validate that all keep() variables were found in at least one dataset

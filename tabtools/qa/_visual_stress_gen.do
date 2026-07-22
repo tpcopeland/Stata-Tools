@@ -239,6 +239,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define sexp 0 "Low" 1 "Medium" 2 "High", replace
     label values exposure sexp
     tempfile rate1

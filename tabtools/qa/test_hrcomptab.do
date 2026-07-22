@@ -30,6 +30,8 @@ gen double _Y = cond(_n == 1, 1000, 1100)
 gen double _Rate = _D / _Y
 gen double _Lower = _Rate * 0.80
 gen double _Upper = _Rate * 1.20
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_exp2 0 "None" 1 "Current", replace
 label values exposure _hrc_exp2
 save "`rate11'.dta", replace
@@ -42,6 +44,8 @@ gen double _Y = cond(_n == 1, 900, 950)
 gen double _Rate = _D / _Y
 gen double _Lower = _Rate * 0.80
 gen double _Upper = _Rate * 1.20
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_exp2b 0 "None" 1 "Current", replace
 label values exposure _hrc_exp2b
 save "`rate12'.dta", replace
@@ -54,6 +58,8 @@ gen double _Y = cond(_n == 1, 1000, cond(_n == 2, 300, 400))
 gen double _Rate = _D / _Y
 gen double _Lower = _Rate * 0.80
 gen double _Upper = _Rate * 1.20
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_exp3 0 "None" 1 "Low" 2 "High", replace
 label values exposure _hrc_exp3
 save "`rate21'.dta", replace
@@ -66,6 +72,8 @@ gen double _Y = cond(_n == 1, 900, cond(_n == 2, 250, 350))
 gen double _Rate = _D / _Y
 gen double _Lower = _Rate * 0.80
 gen double _Upper = _Rate * 1.20
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_exp3b 0 "None" 1 "Low" 2 "High", replace
 label values exposure _hrc_exp3b
 save "`rate22'.dta", replace
@@ -568,6 +576,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _hrc_exp 0 "None" 1 "Current", replace
     label values exposure _hrc_exp
     tempfile hrc_rate

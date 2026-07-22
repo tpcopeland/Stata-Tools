@@ -1,4 +1,4 @@
-*! tvsplit Version 1.7.2  2026/07/19
+*! tvsplit Version 1.8.0  2026/07/22
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -62,18 +62,15 @@ program define tvsplit, rclass
             exit 109
         }
     }
-    foreach v in `start' `stop' {
-        local fmt : format `v'
-        if substr("`fmt'", 1, 3) == "%tc" | substr("`fmt'", 1, 3) == "%tC" {
-            display as error "Variable '`v'' has datetime format (`fmt'); tvsplit requires daily dates"
-            exit 120
-        }
-    }
     quietly count if missing(`id') | missing(`start') | missing(`stop')
     if r(N) > 0 {
         display as error "`r(N)' observation(s) have missing id/start/stop"
         exit 416
     }
+
+    * --- Daily-date contract: non-datetime, whole days, start <= stop ----
+    _tvtools_check_dates, cmd(tvsplit) dates(`start' `stop') ///
+        startvar(`start') stopvar(`stop')
 
     * --- Parse each requested axis spec ----------------------------------
     local axisnames ""
@@ -190,6 +187,8 @@ program define tvsplit, rclass
             display as error "`r(N)' observation(s) have missing origin '`origin''"
             exit 416
         }
+        * Origins share the whole-daily-date contract with the bounds.
+        _tvtools_check_dates, cmd(tvsplit) dates(`origin')
     }
 
     * --- Reject duplicate output names -----------------------------------

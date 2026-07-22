@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.9.11  2026/07/18
+*! _tabtools_common Version 1.10.0  2026/07/22
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,6 +26,8 @@ PROGRAMS INCLUDED:
     _tabtools_strip_outer_quotes - Remove one balanced outer quote layer
     _tabtools_format_p          - Apply the package p-value display policy
     _tabtools_frame_put         - Store output in a named frame with optional replace
+    _tabtools_frame_preflight   - Validate a frame spec without mutating anything
+    _tabtools_resolve_ci_level  - Resolve the CI level to label intervals with
     _tabtools_helpers_ready     - Verify the helper bundle is fully loaded
     _tabtools_require_helpers   - Exit with package reinstall message if helpers are incomplete
 USAGE:
@@ -164,7 +166,7 @@ program _tabtools_build_col_letters
             local _letter = char(`_r' + 65) + "`_letter'"
             local _n = floor((`_n' - 1) / 26)
         }
-        local col_letters "`col_letters' `_letter'"
+        local col_letters `"`col_letters' `_letter'"'
     }
 
     c_local result "`=strtrim("`col_letters'")'"
@@ -220,7 +222,7 @@ capture program drop _tabtools_detect_vartype
 program _tabtools_detect_vartype
     version 16.0
     syntax varlist(min=1 max=1) [if] [in]
-    local varname "`varlist'"
+    local varname `"`varlist'"'
 
     marksample touse, novarlist
 
@@ -511,7 +513,7 @@ program _tabtools_resolve_format
     if "`theme'" == "" & "$TABTOOLS_THEME" != "" local theme "$TABTOOLS_THEME"
     if "`theme'" != "" {
         _tabtools_apply_theme "`theme'"
-        local _font "`_theme_font'"
+        local _font `"`_theme_font'"'
         local _fontsize `_theme_fontsize'
         if "`borderstyle'" == "" local borderstyle "`_theme_border'"
         if "`_theme_headershade'" == "1" & "`headershade'" == "" local headershade "headershade"
@@ -609,9 +611,9 @@ program _tabtools_resolve_stat_format, rclass
         NINTEGERfmt(string)]
     if "`nintegerfmt'" == "" local nintegerfmt "%12.0fc"
     _tabtools_classify_stat `stat'
-    local class "`r(class)'"
+    local class `"`r(class)'"'
     if "`class'" == "integer" {
-        local fmt "`nintegerfmt'"
+        local fmt `"`nintegerfmt'"'
     }
     else if "`class'" == "percent" {
         local fmt "%21.`pctdigits'f"
@@ -677,6 +679,64 @@ program _tabtools_collect_ci_level, rclass
     if `rc' exit `rc'
     return scalar found = !missing(`_level')
     return scalar level = `_level'
+end
+
+* =============================================================================
+* _tabtools_resolve_ci_level: decide the confidence level to LABEL intervals with
+* =============================================================================
+* Single source of truth for regtab and effecttab, which previously carried
+* byte-identical copies of this decision and could drift apart.
+*
+* Rules, in order:
+*   1. collection records the level  -> use it; a conflicting level() is an error
+*   2. no provenance, level() given  -> use level()
+*   3. no provenance, no level()     -> ERROR
+*
+* Case 3 used to fall back to c(level), the CURRENT session setting. That is
+* unknowable-by-inference: the intervals were computed when the models ran, so a
+* collection built at 90% and rendered after `set level 95' kept its 90% bounds
+* while being labeled "95% CI" and returning r(ci_level)=95. The old code only
+* emitted a `note:', which any caller's `quietly' would swallow entirely.
+* Refusing is the only safe answer; the level is not recoverable from session
+* state and a mislabeled interval is worse than a stopped command.
+*
+* Usage: _tabtools_resolve_ci_level `level'      // -1 when level() not given
+*        local _ci_level = r(level)
+
+capture program drop _tabtools_resolve_ci_level
+program define _tabtools_resolve_ci_level, rclass
+    version 17.0
+    args level_opt
+
+    if "`level_opt'" == "" local level_opt = -1
+
+    _tabtools_collect_ci_level
+    local _found = r(found)
+    local _stored = r(level)
+
+    if `_found' {
+        local _lvl = `_stored'
+        if `level_opt' != -1 {
+            if abs(`level_opt' - `_stored') > 1e-8 {
+                display as error "level(`level_opt') conflicts with the active collection's `_stored'% intervals"
+                exit 198
+            }
+            local _lvl = `level_opt'
+        }
+    }
+    else if `level_opt' != -1 {
+        local _lvl = `level_opt'
+    }
+    else {
+        display as error "this Stata version does not record confidence-level provenance in the collection"
+        display as error "specify level(#) to state the level the collected models were fit at"
+        display as error "the current {bf:set level} (`c(level)') is deliberately NOT assumed: the intervals"
+        display as error "were computed when the models ran and may use a different level"
+        exit 198
+    }
+
+    return scalar level = `_lvl'
+    return scalar found = `_found'
 end
 
 * =============================================================================
@@ -783,7 +843,7 @@ program _tabtools_helpers_ready
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_require_helpers"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_require_helpers"
     }
 
     foreach _prog of local required {
@@ -826,6 +886,64 @@ end
 *
 * Usage: _tabtools_frame_put `"`frame'"'
 *        local frame "`_frame_name'"
+
+* =============================================================================
+* _tabtools_frame_preflight: validate a frame specification WITHOUT mutating
+* =============================================================================
+* Parses and fully validates a frame spec (name plus optional ", replace") but
+* creates, drops, and renames nothing. This lets a command that writes more than
+* one frame validate every destination before it commits any of them, so a bad
+* second destination cannot leave a half-written first one behind.
+*
+* Usage: _tabtools_frame_preflight `"`spec'"' "plotframe()"
+*        local nm = r(name)
+*        local rp = r(replace)
+*
+* Returns: r(name)    parsed frame name
+*          r(replace) 1 if the replace sub-option was given, else 0
+*          r(exists)  1 if a frame of that name exists right now, else 0
+
+capture program drop _tabtools_frame_preflight
+program _tabtools_frame_preflight, rclass
+    version 16.0
+    args frame_spec label
+
+    if `"`label'"' == "" local label "frame()"
+
+    gettoken _pfl_name _pfl_opts : frame_spec, parse(",")
+    local _pfl_name = strtrim(`"`_pfl_name'"')
+    local _pfl_opts : subinstr local _pfl_opts "," "", all
+    local _pfl_opts = strtrim(lower(`"`_pfl_opts'"'))
+
+    if "`_pfl_opts'" != "" & "`_pfl_opts'" != "replace" {
+        display as error "`label': unknown sub-option `_pfl_opts'"
+        exit 198
+    }
+
+    capture confirm name `_pfl_name'
+    if _rc {
+        display as error "`label': invalid frame name `_pfl_name'"
+        exit 198
+    }
+
+    local _pfl_repl = ("`_pfl_opts'" == "replace")
+
+    capture confirm frame `_pfl_name'
+    local _pfl_exists = (_rc == 0)
+
+    if `_pfl_exists' & !`_pfl_repl' {
+        display as error "frame `_pfl_name' already exists; use `label' with the replace sub-option"
+        exit 110
+    }
+    if `_pfl_exists' & `_pfl_repl' & "`_pfl_name'" == "`c(frame)'" {
+        display as error "`label': cannot replace the current frame (`_pfl_name')"
+        exit 198
+    }
+
+    return local name "`_pfl_name'"
+    return scalar replace = `_pfl_repl'
+    return scalar exists = `_pfl_exists'
+end
 
 capture program drop _tabtools_frame_put
 program _tabtools_frame_put

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  07jul2026}{...}
+{* *! version 1.5.0  22jul2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -35,50 +35,56 @@ via {opt psv:ars()}:
 {pstd}
 where {it:subcommand} is one of:
 
-{synoptset 14}{...}
-{synopt:{opt overlap}}PS density/histogram by treatment group{p_end}
-{synopt:{opt balance}}SMD and variance ratio balance table with Love plot{p_end}
-{synopt:{opt weights}}Weight distribution, ESS, extreme weights{p_end}
-{synopt:{opt support}}Common support assessment and trimming{p_end}
-{synopt:{opt combined}}All diagnostics in a combined dashboard{p_end}
-{synopt:{opt detect}}Report auto-detection results without running diagnostics{p_end}
+{p2colset 5 20 22 2}{...}
+{p2col:{cmd:overlap}}PS density/histogram by treatment group{p_end}
+{p2col:{cmd:balance}}SMD and variance-ratio table with Love plot{p_end}
+{p2col:{cmd:weights}}Weight distribution, ESS, and extremes{p_end}
+{p2col:{cmd:support}}Common-support assessment and trimming{p_end}
+{p2col:{cmd:combined}}Combined diagnostic dashboard{p_end}
+{p2col:{cmd:detect}}Auto-detection report without diagnostics{p_end}
+{p2colreset}{...}
 
 {pstd}
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected
-from {cmd:e()}. The inverse-probability estimators {cmd:teffects ipw}, {cmd:ipwra}, and {cmd:aipw}
-are supported; {cmd:teffects psmatch} is a matching estimator that exposes no propensity-score
-prediction, so it is rejected with an explicit error rather than diagnosed as if it were IPW.
-Diagnostics are computed on the estimation sample {cmd:e(sample)}: observations the fitted
-estimator excluded (by {cmd:if}/{cmd:in} or missing covariates) are dropped from every panel, and
-{cmd:r(n_estimation)}/{cmd:r(n_excluded)} report the counts. After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the
-estimand are read from the tmle contract state. After {cmd:ltmle}, use
-{cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled
-subcommands require explicit variables. After {cmd:msm_weight}, {cmd:psdash combined}
-reads the treatment propensity {cmd:_msm_ps}, the treatment weight, and the
-id/period structure from the msm contract for the same longitudinal
-diagnostic. After {cmd:tte_weight} with {opt save_ps}, {cmd:psdash combined} reads the saved
-switch/treatment propensity, IP weight, and trial/period structure from the
-tte contract. After {cmd:iivw_weight} with {opt treat()} and {opt treat_cov()}, treatment,
-propensity-score, treatment-covariate, and treatment-weight variables are read
-from the iivw dataset contract. After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected
-but {it:psvar} must be supplied explicitly. In that setting, {cmd:psdash overlap ps} and
-{cmd:psdash overlap treatment ps} are both valid; the one-argument form treats the
-argument as the propensity score variable and uses the treatment from
-{cmd:e(depvar)}. After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K
-predicted probabilities (one per treatment level, ordered by level value).
+from {cmd:e()}. The inverse-probability estimators {cmd:teffects ipw}, {cmd:ipwra}, and {cmd:aipw} are
+supported; {cmd:teffects psmatch} is a matching estimator that exposes no
+propensity-score prediction, so it is rejected with an explicit error rather
+than diagnosed as if it were IPW. Diagnostics are computed on the estimation
+sample {cmd:e(sample)}: observations the fitted estimator excluded (by {cmd:if}/{cmd:in} or
+missing covariates) are dropped from every panel, and
+{cmd:r(n_estimation)}/{cmd:r(n_excluded)} report the counts. After cross-sectional {cmd:tmle},
+{it:treatment}, {cmd:_tmle_ps}, covariates, and the estimand are read from the tmle
+contract state. After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal
+period-by-period diagnostics; pooled subcommands require explicit
+variables. After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity
+{cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm
+contract for the same longitudinal diagnostic. After {cmd:tte_weight} with {opt save_ps},
+{cmd:psdash combined} reads the saved switch/treatment propensity, IP weight, and
+trial/period structure from the tte contract. After {cmd:iivw_weight} with {opt treat()}
+and {opt treat_cov()}, treatment, propensity-score, treatment-covariate, and
+treatment-weight variables are read from the iivw dataset contract. After
+{cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied
+explicitly. In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
+are both valid; the one-argument form treats the argument as the propensity
+score variable and uses the treatment from {cmd:e(depvar)}. After {cmd:mlogit} with a
+multi-valued treatment, supply {opt psv:ars()} with K predicted probabilities (one
+per treatment level, ordered by level value).
 
 {pstd}
-{bf:Producer-contract verification.} Before trusting a detected iivw/msm/tte/tmle/ltmle
-contract, {cmd:psdash} calls the producing package's own validity guard, which re-derives
-the producer's fingerprint and rejects stale, edited, or unsigned state. If the guard
-rejects, {cmd:psdash} fails closed with the producer's diagnostic rather than diagnosing
-weights that no longer describe the data. A detected integration is therefore available
-only when the producing package is installed so its guard can run: {cmd:iivw} and
-{cmd:msm} are released alongside {cmd:psdash}, while {cmd:tmle}, {cmd:ltmle}, and
-{cmd:tte} are development-only producers -- when one is not installed, {cmd:psdash}
-refuses its contract with an explicit error rather than presenting diagnostics for an
-unverifiable analysis. Supplying {it:treatment} and {it:psvar} explicitly (manual mode)
-always works and involves no producer guard.
+{bf:Producer-contract verification.} Before trusting a detected
+iivw/msm/tte/tmle/ltmle contract, {cmd:psdash} calls the producing package's own
+validity guard, which re-derives the producer's fingerprint and rejects stale,
+edited, or unsigned state. If the guard rejects, {cmd:psdash} fails closed with the
+producer's diagnostic rather than diagnosing weights that no longer describe
+the data. It then enforces the accepted contract-version range recorded in
+{cmd:_psdash_contract_info}; a missing, malformed, or unsupported version also fails
+closed. A detected integration is therefore available only when the producing
+package is installed so its guard can run: {cmd:iivw} and {cmd:msm} are released alongside
+{cmd:psdash}, while {cmd:tmle}, {cmd:ltmle}, and {cmd:tte} are development-only producers -- when one
+is not installed, {cmd:psdash} refuses its contract with an explicit error rather
+than presenting diagnostics for an unverifiable analysis. Supplying {it:treatment}
+and {it:psvar} explicitly (manual mode) always works and involves no producer
+guard.
 
 
 {marker subcommands}{...}
@@ -285,8 +291,8 @@ unnecessary; a redundant {cmd:name(g, replace)} is accepted and the trailing
 {opt bins(#)} sets the number of histogram bins and must be positive. Default is 30.
 
 {phang}
-{opt bwidth(#)} sets the bandwidth for kernel density estimation. If not specified,
-Stata's default bandwidth is used.
+{opt bwidth(#)} sets a strictly positive bandwidth for kernel density estimation. If
+not specified, Stata's default bandwidth is used.
 
 {phang}
 {opt nograph} suppresses the graph and shows only the summary table.
@@ -353,7 +359,9 @@ built from the weighted empirical CDF in each group) are stored; their maxima
 are returned in {cmd:r(max_ks_raw)} and {cmd:r(max_ks_adj)}.
 
 {phang}
-{opt xlsx(filename)} exports the balance table to an Excel file.
+{opt xlsx(filename)} exports the complete balance table to an Excel file. Metric
+cells remain numeric; raw and adjusted SMD, variance-ratio, and KS columns are
+included when available, with formatted headers and readable column widths.
 
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Balance"}.
@@ -366,10 +374,11 @@ are returned in {cmd:r(max_ks_raw)} and {cmd:r(max_ks_adj)}.
 (Austin 2009). Variance ratios between 0.5 and 2.0 are acceptable (adjust with
 {opt vrbounds()}); values outside this range indicate scale imbalances that SMD
 alone can miss. The variance ratio is reported but not flagged for two-level
-covariates, where it adds nothing beyond the SMD. KS statistics above 0.1
-suggest meaningful distributional differences beyond what means capture. SMDs
-are standardized by the {it:unweighted} pooled standard deviation so that raw and
-adjusted columns are directly comparable (Austin and Stuart 2015).
+covariates, where it adds nothing beyond the SMD. KS statistics are
+informational: larger values indicate greater distributional separation, but
+there is no universal verdict threshold. SMDs are standardized by the
+{it:unweighted} pooled standard deviation so that raw and adjusted columns are
+directly comparable (Austin and Stuart 2015).
 
 {dlgtab:weights options}
 
@@ -445,9 +454,10 @@ minimum, so the reported alpha is not pinned to a 1% step. Restricted to binary
 treatment; for multi-group treatments, use {opt threshold()} instead.
 
 {phang}
-{opt threshold(#)} specifies a manual PS trimming threshold. Observations with PS <
-threshold or PS > 1-threshold are considered outside support. Must be strictly
-between 0 and 0.5.
+{opt threshold(#)} specifies a manual trimming threshold. For binary treatment,
+observations with PS < threshold or PS > 1-threshold are excluded. For multiple
+treatments, a unit is retained only if every GPS component satisfies
+{it:e_j(X)} >= threshold. Must be strictly between 0 and 0.5.
 
 {phang}
 {opt qtrim(#)} bases the reported common-support region on within-group percentiles
@@ -460,20 +470,20 @@ must be strictly between 0 and 50. Binary treatment only.
 {phang}
 {opt gpsfloor(#)} sets the practical-positivity floor for the multi-group
 generalized-positivity diagnostic. For K treatments each unit has a full GPS
-vector {it:e_1(X), ..., e_K(X)}; positivity requires {it:min_j e_j(X)} to be
-bounded away from zero (Li and Li 2019, Assumption 2), i.e. every unit must have
-a non-negligible probability of receiving {it:each} arm — not merely the arm it
+vector {it:e_1(X), ..., e_K(X)}; positivity requires {it:min_j e_j(X)} to be bounded
+away from zero (Li and Li 2019, Assumption 2), i.e. every unit must have a
+non-negligible probability of receiving {it:each} arm — not merely the arm it
 received. A unit with {it:min_j e_j(X)} below {it:#} is flagged as a positivity
-violation and forces a non-PASS verdict. {it:#} must be strictly between 0 and 1;
-default is 0.01. Applies to multi-group treatments only.
+violation and forces a non-PASS verdict. {it:#} must be strictly between 0 and
+1; default is 0.01. Applies to multi-group treatments only.
 
 {pmore}
 This replaces the previous multi-group rule, which reduced each unit to the
 probability of its {it:observed} arm and intersected binary min-max ranges — a
 scalarization that could report "Good" while an unreceived arm had essentially
 zero probability. The observed-arm overlap range is still shown, labelled as
-informational. There is no universal positivity threshold (McCaffrey et al. 2013);
-report {cmd:r(min_gps)} and tune {opt gpsfloor()} to the design.
+informational. There is no universal positivity threshold (McCaffrey et
+al. 2013); report {cmd:r(min_gps)} and tune {opt gpsfloor()} to the design.
 
 {phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
@@ -622,15 +632,15 @@ what {cmd:psdash} reads and how it routes. Run {cmd:psdash detect} (or
 
 {synoptset 12 tabbed}{...}
 {p2col 5 18 22 2: Source}{space 2}Reads{space 16}Routes to{p_end}
-{synopt:{cmd:teffects}}treatment, PS, covariates, weight, estimand from {cmd:e()}{space 2}cross-sectional panels{p_end}
-{synopt:{cmd:tmle}}treatment, {cmd:_tmle_ps}, covariates, estimand (contract){space 2}cross-sectional panels{p_end}
-{synopt:{cmd:ltmle}}id/period, per-period PS and weights (contract){space 2}longitudinal diagnostics{p_end}
-{synopt:{cmd:msm}}{cmd:_msm_ps}, {cmd:_msm_tw_weight}, id/period (metadata){space 2}longitudinal diagnostics{p_end}
-{synopt:{cmd:tte}}saved switch/treatment PS, IP weight, trial/period (metadata){space 2}longitudinal diagnostics{p_end}
-{synopt:{cmd:iivw}}{cmd:_iivw_ps}, treatment covariates, {cmd:_iivw_tw} (metadata){space 2}cross-sectional panels{p_end}
+{synopt:{cmd:teffects}}{cmd:e()} treatment/PS/covariates/weight; cross-sectional{p_end}
+{synopt:{cmd:tmle}}contract treatment/PS/covariates; cross-sectional{p_end}
+{synopt:{cmd:ltmle}}contract id/period/PS/weights; longitudinal{p_end}
+{synopt:{cmd:msm}}contract id/period/PS/weights; longitudinal{p_end}
+{synopt:{cmd:tte}}contract trial/period/PS/weight; longitudinal{p_end}
+{synopt:{cmd:iivw}}contract PS/covariates/treatment weight; cross-sectional{p_end}
 {synopt:{cmd:logit}/{cmd:probit}}treatment and covariates from {cmd:e()}; PS user-supplied{space 2}binary panels{p_end}
-{synopt:{cmd:mlogit}}treatment and covariates from {cmd:e()}; GPS via {opt psvars()}{space 2}multi-group panels{p_end}
-{synopt:{cmd:manual}}treatment and PS supplied as arguments; options for the rest{space 2}binary or multi-group panels{p_end}
+{synopt:{cmd:mlogit}}{cmd:e()} treatment/covariates; {opt psvars()}; multi-group{p_end}
+{synopt:{cmd:manual}}argument treatment/PS; binary or multi-group{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -671,8 +681,9 @@ satisfactory. {cmd:psdash combined} runs steps 2-5 in a single command.
 
 {pstd}
 {bf:Reading the status lines:} {cmd:PASS} or {cmd:Adequate} means no diagnostic
-crossed the package's default warning threshold. A warning does not make the
-analysis invalid by itself; it identifies the next check to make. Poor overlap
+crossed the package's default warning threshold. A warning does not prove the
+analysis invalid by itself; it identifies the next check to make and forces the
+combined machine-readable verdict to {cmd:FAIL}. Poor overlap
 usually calls for tighter eligibility criteria or trimming. Large SMDs point to
 model revision or additional covariates. Low ESS or extreme weights point to
 stabilization, trimming, truncation, or a different estimand.
@@ -803,9 +814,9 @@ Each subcommand stores results in {cmd:r()}.
 {pstd}
 {bf:Multi-group note:} For binary (0/1) treatment, stored results use binary group
 names such as {cmd:r(N_treated)} and {cmd:r(N_control)}. For multi-group treatment runs,
-per-group results use the naming convention {cmd:r(N_group_{it:<level>})}, {cmd:r(ess_group_{it:<level>})}, etc. Additionally, {cmd:r(K)}
-returns the number of groups, {cmd:r(levels)} lists the treatment values, and
-{cmd:r(reference)} identifies the reference group.
+per-group results use the naming convention {cmd:r(N_group_{it:<level>})}, {cmd:r(ess_group_{it:<level>})},
+etc. Additionally, {cmd:r(K)} returns the number of groups, {cmd:r(levels)} lists the
+treatment values, and {cmd:r(reference)} identifies the reference group.
 
 {pstd}
 {bf:Estimation-sample note:} After {cmd:teffects}, every subcommand restricts its
@@ -830,13 +841,13 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(overlap_upper)}}upper bound of overlap region{p_end}
 {synopt:{cmd:r(n_outside)}}observations outside overlap{p_end}
 {synopt:{cmd:r(pct_outside)}}percentage outside overlap{p_end}
-{synopt:{cmd:r(auc)}}C-statistic (AUC) for PS model (omitted if {cmd:roctab} fails){p_end}
+{synopt:{cmd:r(auc)}}PS-model C-statistic, when available{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
-{synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
+{synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand ({cmd:ate}, {cmd:att}, or {cmd:atc}){p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
 
@@ -848,15 +859,15 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(N_treated)}}treated observations{p_end}
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(max_smd_raw)}}maximum |SMD| before adjustment{p_end}
-{synopt:{cmd:r(max_smd_adj)}}maximum |SMD| after adjustment (set when {opt wvar} is provided or auto-generated; unset with {opt nowvar} or matched weighting){p_end}
+{synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD|, when weighted{p_end}
 {synopt:{cmd:r(max_vr_raw)}}variance ratio with largest deviation from 1{p_end}
-{synopt:{cmd:r(max_vr_adj)}}adjusted variance ratio with largest deviation from 1{p_end}
+{synopt:{cmd:r(max_vr_adj)}}most deviant adjusted variance ratio{p_end}
 {synopt:{cmd:r(max_ks_raw)}}maximum KS statistic (raw){p_end}
 {synopt:{cmd:r(max_ks_adj)}}maximum weighted KS statistic (set when weighted){p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates exceeding SMD threshold{p_end}
-{synopt:{cmd:r(n_vr_imbalanced)}}covariates with VR outside bounds (excludes binary covariates){p_end}
+{synopt:{cmd:r(n_vr_imbalanced)}}nonbinary covariates outside VR bounds{p_end}
 {synopt:{cmd:r(n_binary_vr)}}binary covariates excluded from the VR count{p_end}
-{synopt:{cmd:r(vr_na_vars)}}names of binary covariates excluded from the VR count{p_end}
+{synopt:{cmd:r(vr_na_vars)}}binary covariates excluded from VR{p_end}
 {synopt:{cmd:r(threshold)}}threshold used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
@@ -865,18 +876,18 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(varlist)}}covariates assessed{p_end}
-{synopt:{cmd:r(wvar)}}weight variable, or {cmd:auto-generated} for temporary weights{p_end}
+{synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}balance-statistics matrix; rows are covariates{p_end}
-{synopt:{cmd:r(smd)}}covariate-by-SMD matrix (unadjusted and, when weighted, adjusted; per-contrast for multi-group); also saved to {opt smdmatrix()}{p_end}
+{synopt:{cmd:r(smd)}}raw/adjusted covariate-by-SMD matrix{p_end}
 
 {pstd}
 For binary treatments, the balance matrix columns are: {cmd:Mean_T}, {cmd:Mean_C}, {cmd:SMD_Raw},
 {cmd:VR_Raw}, {cmd:KS_Raw}, {cmd:Mean_T_Adj}, {cmd:Mean_C_Adj}, {cmd:SMD_Adj},
 {cmd:VR_Adj}, {cmd:KS_Adj}. Adjusted columns contain missing values if no
-weights are applied. {cmd:KS_Adj} is reserved for future use.
+weights are applied. {cmd:KS_Adj} is the weighted empirical-CDF KS statistic.
 
 {pstd}
 For multi-group treatments, {cmd:r(balance)} contains one five-column block for
@@ -903,7 +914,7 @@ include the compared treatment levels.
 {synopt:{cmd:r(ess_control)}}ESS for control group{p_end}
 {synopt:{cmd:r(ess_pct_treated)}}ESS % for treated group{p_end}
 {synopt:{cmd:r(ess_pct_control)}}ESS % for control group{p_end}
-{synopt:{cmd:r(n_extreme)}}weights above the upper extreme cutoff (see {opt extreme()}){p_end}
+{synopt:{cmd:r(n_extreme)}}weights above upper extreme cutoff{p_end}
 {synopt:{cmd:r(pct_extreme)}}percentage of extreme weights{p_end}
 {synopt:{cmd:r(max_ratio)}}maximum-to-mean weight ratio (scale-free){p_end}
 {synopt:{cmd:r(extreme_hi)}, {cmd:r(extreme_vhi)}}extreme-weight cutoffs used{p_end}
@@ -915,7 +926,7 @@ include the compared treatment levels.
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
-{synopt:{cmd:r(wvar)}}weight variable name, or {cmd:auto-generated} for temporary weights{p_end}
+{synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
@@ -936,7 +947,7 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(lower_bound)}}lower bound of common support{p_end}
 {synopt:{cmd:r(upper_bound)}}upper bound of common support{p_end}
-{synopt:{cmd:r(qtrim)}}quantile percentage used for support bounds (if {opt qtrim()}){p_end}
+{synopt:{cmd:r(qtrim)}}support-bound quantile percentage{p_end}
 {synopt:{cmd:r(n_outside)}}observations outside support{p_end}
 {synopt:{cmd:r(pct_outside)}}percentage outside support{p_end}
 {synopt:{cmd:r(n_outside_treated)}}treated outside support{p_end}
@@ -945,18 +956,19 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(trim_upper)}}trimming upper bound (if trimming){p_end}
 {synopt:{cmd:r(n_trimmed)}}observations trimmed (if trimming){p_end}
 {synopt:{cmd:r(pct_trimmed)}}percentage trimmed (if trimming){p_end}
+{synopt:{cmd:r(N_remaining)}}observations retained after trimming{p_end}
 {synopt:{cmd:r(crump_alpha)}}Crump optimal alpha (if {opt crump}){p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
-{synopt:{cmd:r(min_gps)}}minimum {it:min_j e_j(X)} over units (multi-group generalized positivity){p_end}
+{synopt:{cmd:r(min_gps)}}sample minimum of {it:min_j e_j(X)}{p_end}
 {synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
-{synopt:{cmd:r(pct_gps_violate)}}percentage of units below the GPS positivity floor (multi-group){p_end}
+{synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor{p_end}
 {synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
-{synopt:{cmd:r(min_gps_group_{it:<level>})}}minimum {it:e_j(X)} for arm {it:<level>} over all units (multi-group){p_end}
+{synopt:{cmd:r(min_gps_group_{it:<level>})}}minimum arm-{it:j} GPS over units{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
-{synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
+{synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
 
@@ -982,41 +994,49 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synoptset 30 tabbed}{...}
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
-{synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
+{synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
-{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, {cmd:"ltmle"}, {cmd:"iivw"}, {cmd:"msm"}, or {cmd:"tte"}){p_end}
-{synopt:{cmd:r(wvar)}}weight variable name for combined diagnostics or longitudinal (ltmle/msm/tte) diagnostics{p_end}
+{synopt:{cmd:r(source)}}detection source{p_end}
+{synopt:{cmd:r(wvar)}}diagnostic weight variable{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component, when applicable{p_end}
-{synopt:{cmd:r(period)}}period variable for longitudinal (ltmle/msm/tte) diagnostics{p_end}
-{synopt:{cmd:r(periods)}}period values included in longitudinal (ltmle/msm/tte) diagnostics{p_end}
-{synopt:{cmd:r(id)}}ID variable for longitudinal (ltmle/msm/tte) diagnostics, when available{p_end}
+{synopt:{cmd:r(period)}}longitudinal period variable{p_end}
+{synopt:{cmd:r(periods)}}included longitudinal period values{p_end}
+{synopt:{cmd:r(id)}}longitudinal ID variable, when available{p_end}
 {synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
 {synopt:{cmd:r(method)}}LTMLE method metadata, when available{p_end}
-{synopt:{cmd:r(contract_version)}}LTMLE contract version metadata, when available{p_end}
+{synopt:{cmd:r(contract_version)}}producer contract version metadata, when available{p_end}
 {synopt:{cmd:r(levels)}}multi-group treatment levels, if applicable{p_end}
 {synopt:{cmd:r(reference)}}multi-group reference level, if applicable{p_end}
-{synopt:{cmd:r(verdict)}}overall verdict, {cmd:"PASS"} or {cmd:"CAUTION"}{p_end}
-{synopt:{cmd:r(warnings)}}space-separated list of flagged panels{p_end}
+{synopt:{cmd:r(verdict)}}overall verdict, {cmd:"PASS"} or {cmd:"FAIL"}{p_end}
+{synopt:{cmd:r(warnings)}}machine-readable findings with panel labels{p_end}
 {synopt:{cmd:r(report)}}report workbook path, when {opt report()} is used{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(n_warnings)}}number of flagged panels{p_end}
 {synopt:{cmd:r(overlapmax)}, {cmd:r(essmin)}, {cmd:r(imbalmax)}}verdict thresholds used{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups, if applicable{p_end}
-{synopt:{cmd:r(N)}}observations in the LTMLE diagnostic sample{p_end}
+{synopt:{cmd:r(N_requested)}}requested cross-sectional observations{p_end}
+{synopt:{cmd:r(N_analysis)}}common panel-analysis observations{p_end}
+{synopt:{cmd:r(n_common_excluded)}}observations excluded from all panels{p_end}
+{synopt:{cmd:r(N)}}observations in the longitudinal diagnostic sample{p_end}
+{synopt:{cmd:r(N_input)}, {cmd:r(N_complete)}, {cmd:r(n_excluded)}}longitudinal sample ledger{p_end}
+{synopt:{cmd:r(n_missing_treatment)}, {cmd:r(n_missing_period)}, {cmd:r(n_missing_ps)}, {cmd:r(n_missing_weight)}}longitudinal input missingness ledger{p_end}
 {synopt:{cmd:r(longitudinal)}}1 for longitudinal (ltmle/msm/tte) diagnostics{p_end}
-{synopt:{cmd:r(N_periods)}}number of periods for longitudinal (ltmle/msm/tte) diagnostics{p_end}
-{synopt:{cmd:r(max_pct_outside)}}maximum period-specific percentage outside overlap, LTMLE only{p_end}
-{synopt:{cmd:r(mean_wt)}, {cmd:r(sd_wt)}}mean and SD of LTMLE contract weights{p_end}
-{synopt:{cmd:r(min_wt)}, {cmd:r(max_wt)}}minimum and maximum LTMLE contract weights{p_end}
-{synopt:{cmd:r(cv)}}coefficient of variation of LTMLE contract weights{p_end}
-{synopt:{cmd:r(ess)}, {cmd:r(ess_pct)}}effective sample size and ESS percentage for LTMLE contract weights{p_end}
-{synopt:{cmd:r(p1)}, {cmd:r(p5)}, {cmd:r(p50)}, {cmd:r(p95)}, {cmd:r(p99)}}selected LTMLE contract-weight percentiles{p_end}
-{synopt:{cmd:r(n_extreme)}, {cmd:r(pct_extreme)}}count and percentage of LTMLE contract weights above 10{p_end}
+{synopt:{cmd:r(N_periods)}}number of longitudinal periods{p_end}
+{synopt:{cmd:r(max_pct_outside)}}maximum period-specific percentage outside overlap{p_end}
+{synopt:{cmd:r(mean_wt)}, {cmd:r(sd_wt)}}mean and SD of producer contract weights{p_end}
+{synopt:{cmd:r(min_wt)}, {cmd:r(max_wt)}}minimum and maximum producer contract weights{p_end}
+{synopt:{cmd:r(cv)}}contract-weight coefficient of variation{p_end}
+{synopt:{cmd:r(ess)}, {cmd:r(ess_pct)}}overall effective sample size and percentage{p_end}
+{synopt:{cmd:r(min_period_ess_pct)}}minimum period-specific ESS percentage{p_end}
+{synopt:{cmd:r(min_period_arm_ess_pct)}}minimum treatment-arm ESS percentage over periods{p_end}
+{synopt:{cmd:r(n_single_arm_periods)}, {cmd:r(n_estimable_periods)}}period estimability ledger{p_end}
+{synopt:{cmd:r(p1)}, {cmd:r(p5)}, {cmd:r(p50)}, {cmd:r(p95)}, {cmd:r(p99)}}selected contract-weight percentiles{p_end}
+{synopt:{cmd:r(n_extreme)}, {cmd:r(pct_extreme)}}count and percentage of contract weights above 10{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
-{synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table, LTMLE only{p_end}
-{synopt:{cmd:r(weights_by_period)}}period-specific contract-weight table, LTMLE only{p_end}
+{synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table{p_end}
+{synopt:{cmd:r(weights_by_period)}}period weight and arm-ESS table{p_end}
 
 {dlgtab:detect}
 
@@ -1071,10 +1091,10 @@ Li, F., & Li, F. (2019). Propensity score weighting for causal inference with
 multiple treatments. {it:Annals of Applied Statistics}, 13(4), 2389-2415.
 
 {phang}
-McCaffrey, D. F., Griffin, B. A., Almirall, D., Slaughter, M. E., Ramchand, R., &
-Burgette, L. F. (2013). A tutorial on propensity score estimation for multiple
-treatments using generalized boosted models. {it:Statistics in Medicine}, 32(19),
-3388-3414.
+McCaffrey, D. F., Griffin, B. A., Almirall, D., Slaughter, M. E., Ramchand,
+R., & Burgette, L. F. (2013). A tutorial on propensity score estimation for
+multiple treatments using generalized boosted models. {it:Statistics in Medicine},
+32(19), 3388-3414.
 
 
 {title:Also see}

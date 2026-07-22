@@ -28,6 +28,19 @@ local output_dir "`qa_dir'/output"
 if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 
+* Standard targeted local install. Without it this suite ran the helper from
+* source but resolved every PUBLIC command from whatever adopath happened to be
+* present, so under an empty isolated PLUS/PERSONAL it scored 3/8 with five
+* r(199) failures -- and against a stale install it would have silently tested
+* the wrong code.
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
+capture which regtab
+if _rc {
+    display as error "bootstrap failed: regtab not discoverable after net install"
+    exit 111
+}
+
 run "`pkg_dir'/_tabtools_common.ado"
 
 **# Test 1: key present (estimation collection) -> found, level read
@@ -81,22 +94,60 @@ program _tabtools_collect_ci_level, rclass
     return scalar level = .
 end
 
-**# Test 4: regtab falls back to c(level) instead of dying
+**# Test 4: regtab REFUSES to guess when provenance is absent and level() is not given
+* This used to assert the opposite -- that falling back to c(level) was correct.
+* It is not: c(level) is the CURRENT session setting, while the intervals were
+* computed when the models ran. The two can differ, and the old behavior labeled
+* real 90% bounds as "95% CI" and returned r(ci_level)=95 at rc=0.
 set level 95
 sysuse auto, clear
 collect clear
 collect: regress price mpg weight
 collect: regress price mpg weight foreign
+capture frame drop _ci_fb1
 capture noisily regtab, frame(_ci_fb1) models("M1 \ M2")
 local rc = _rc
-if `rc' == 0 & abs(`=r(ci_level)' - 95) < 1e-8 {
-    display as result "  PASS: regtab falls back to c(level)=95 with no provenance"
+local _made = 0
+capture confirm frame _ci_fb1
+if _rc == 0 local _made = 1
+if `rc' == 198 & `_made' == 0 {
+    display as result "  PASS: regtab refuses to infer the level, and writes no frame"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: regtab fallback (rc=`rc' ci_level=`=r(ci_level)')"
+    display as error "  FAIL: regtab should refuse without provenance (rc=`rc' frame_created=`_made')"
     local ++fail_count
 }
+
+**# Test 4b: ADVERSARY -- 90% bounds must never be labeled with a later set level
+* Build the collection at 90%, then move the session to 95% before rendering.
+* With real provenance the 90 must win. This is the exact mislabeling the old
+* fallback produced whenever provenance was missing.
+run "`pkg_dir'/_tabtools_common.ado"
+sysuse auto, clear
+set level 90
+collect clear
+collect: regress price mpg weight
+set level 95
+capture frame drop _ci_adv
+capture noisily regtab, frame(_ci_adv)
+local rc = _rc
+if `rc' == 0 & abs(`=r(ci_level)' - 90) < 1e-8 {
+    display as result "  PASS: 90% collection keeps its 90% label after set level 95"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session level leaked into the label (rc=`rc' ci_level=`=r(ci_level)')"
+    local ++fail_count
+}
+set level 95
+
+* restore the no-provenance stub for the remaining fallback-path tests
+capture program drop _tabtools_collect_ci_level
+program _tabtools_collect_ci_level, rclass
+    return scalar found = 0
+    return scalar level = .
+end
 
 **# Test 5: regtab honours explicit level() with no provenance (no false conflict)
 collect clear
@@ -112,18 +163,22 @@ else {
     local ++fail_count
 }
 
-**# Test 6: fallback tracks set level rather than hardcoding 95
+**# Test 6: the refusal does NOT depend on what set level happens to be
+* Previously this asserted the fallback tracked `set level 99'. Tracking the
+* session setting was the defect, so the requirement is now the opposite: the
+* refusal must fire identically whatever c(level) is.
 set level 99
 collect clear
 collect: regress price mpg weight
+capture frame drop _ci_fb3
 capture noisily regtab, frame(_ci_fb3)
 local rc = _rc
-if `rc' == 0 & abs(`=r(ci_level)' - 99) < 1e-8 {
-    display as result "  PASS: regtab fallback tracks set level 99"
+if `rc' == 198 {
+    display as result "  PASS: regtab refuses at set level 99 too (no session inference)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: regtab fallback at set level 99 (rc=`rc' ci_level=`=r(ci_level)')"
+    display as error "  FAIL: regtab should refuse regardless of set level (rc=`rc' ci_level=`=r(ci_level)')"
     local ++fail_count
 }
 set level 95
@@ -133,14 +188,28 @@ set level 95
 webuse cattaneo2, clear
 collect clear
 collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+capture frame drop _ci_fb4
 capture noisily effecttab, frame(_ci_fb4)
 local rc = _rc
-if `rc' == 0 & abs(`=r(ci_level)' - 95) < 1e-8 {
-    display as result "  PASS: effecttab falls back to c(level)=95 with no provenance"
+if `rc' == 198 {
+    display as result "  PASS: effecttab refuses to infer the level (shares the helper)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: effecttab fallback (rc=`rc' ci_level=`=r(ci_level)')"
+    display as error "  FAIL: effecttab should refuse without provenance (rc=`rc' ci_level=`=r(ci_level)')"
+    local ++fail_count
+}
+
+**# Test 7b: effecttab still honours an explicit level() with no provenance
+capture frame drop _ci_fb4b
+capture noisily effecttab, frame(_ci_fb4b) level(90)
+local rc = _rc
+if `rc' == 0 & abs(`=r(ci_level)' - 90) < 1e-8 {
+    display as result "  PASS: effecttab honours level(90) when provenance is unavailable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: effecttab level() with no provenance (rc=`rc' ci_level=`=r(ci_level)')"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 1.9.11  2026/07/18
+*! _tabtools_csv_write Version 1.10.0  2026/07/22
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -27,7 +27,7 @@ program define _tabtools_csv_write
         local _visible_opts ""
         if `"`labelvar'"' != "" local _visible_opts "labelvar(`labelvar')"
         _tabtools_visible_vars, `_visible_opts'
-        local _vars "`_tabtools_visible_vars'"
+        local _vars `"`_tabtools_visible_vars'"'
 
         export delimited `_vars' using `"`using'"', replace novarnames
     }

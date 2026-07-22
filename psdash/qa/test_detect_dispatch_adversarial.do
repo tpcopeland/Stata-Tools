@@ -399,11 +399,15 @@ capture noisily {
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
         "{cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected") > 0
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
-        "{it:psvar} must be supplied explicitly.") > 0
+        "{it:psvar} must be supplied") > 0
+    assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
+        "explicitly. In that setting") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "After `mlogit` (multi-group)") > 0
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
-        "After {cmd:mlogit} with a multi-valued treatment") > 0
+        "After {cmd:mlogit} with a") > 0
+    assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
+        "multi-valued treatment") > 0
 }
 _dd_result "T19" `=_rc'
 

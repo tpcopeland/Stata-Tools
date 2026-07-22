@@ -3,6 +3,7 @@
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvdiagnose##syntax"}{...}
 {viewerjumpto "Description" "tvdiagnose##description"}{...}
 {viewerjumpto "Options" "tvdiagnose##options"}{...}
@@ -159,12 +160,13 @@ required for {opt summarize}; numeric or string variables may color
 
 {phang}
 {opt threshold(#)} specifies the gap threshold in days. Gaps exceeding
-this threshold are flagged in the output. Default is 30 days.
+this threshold are flagged in the output. Default is 30 days. Must be
+nonnegative.
 
 {phang}
 {opt max:ids(#)} caps the number of persons drawn in the {opt swimlane} plot
 (default 50). When the data has more persons, the first {it:#} (by grouped id)
-are shown and a note is displayed.
+are shown and a note is displayed. Must be a positive integer.
 
 {phang}
 {opt verbose} displays individual IDs and dates in diagnostic output. Without

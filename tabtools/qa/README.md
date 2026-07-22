@@ -147,7 +147,7 @@ a bare token appearing in another command's test does not count. This is
 stricter than a package-wide name scan (which trivially reports 100%).
 
 - **Command coverage:** 16/16 (100%) — every public command has a test file.
-- **Testable option coverage: 433/433 (100%)** — every testable public option of every
+- **Testable option coverage: 434/434 (100%)** — every testable public option of every
   command is passed in a real invocation and accepted.
 
 `test_option_coverage.do` is the dedicated driver; `tools/option_coverage.py`
@@ -156,23 +156,23 @@ surface, scans `test_*.do`/`validation_*.do` for invocations, reports gaps).
 
 | Command | Options | Testable | Exercised | Coverage |
 |---------|--------:|---------:|----------:|---------:|
-| `table1_tc` | 52 | 51 | 51 | 100% |
-| `desctab` | 33 | 32 | 32 | 100% |
-| `crosstab` | 31 | 30 | 30 | 100% |
-| `corrtab` | 23 | 22 | 22 | 100% |
-| `regtab` | 44 | 43 | 43 | 100% |
-| `effecttab` | 33 | 32 | 32 | 100% |
-| `survtab` | 32 | 31 | 31 | 100% |
-| `stratetab` | 30 | 29 | 29 | 100% |
-| `hrcomptab` | 25 | 24 | 24 | 100% |
-| `comptab` | 28 | 27 | 27 | 100% |
-| `diagtab` | 25 | 24 | 24 | 100% |
-| `puttab` | 18 | 17 | 17 | 100% |
-| `stacktab` | 17 | 17 | 17 | 100% |
-| `simtab` | 45 | 44 | 44 | 100% |
-| `tabtools` | 10 | 10 | 10 | 100% |
-| `tabtools_tips` | 1 | 0 | 0 | 100% |
-| **Total** | **447** | **433** | **433** | **100%** |
+| `table1_tc` | 52 | 51 | 51 | 100.0% |
+| `desctab` | 33 | 32 | 32 | 100.0% |
+| `crosstab` | 31 | 30 | 30 | 100.0% |
+| `corrtab` | 23 | 22 | 22 | 100.0% |
+| `regtab` | 44 | 43 | 43 | 100.0% |
+| `effecttab` | 34 | 33 | 33 | 100.0% |
+| `survtab` | 32 | 31 | 31 | 100.0% |
+| `stratetab` | 30 | 29 | 29 | 100.0% |
+| `hrcomptab` | 25 | 24 | 24 | 100.0% |
+| `comptab` | 28 | 27 | 27 | 100.0% |
+| `diagtab` | 25 | 24 | 24 | 100.0% |
+| `puttab` | 18 | 17 | 17 | 100.0% |
+| `stacktab` | 17 | 17 | 17 | 100.0% |
+| `simtab` | 45 | 44 | 44 | 100.0% |
+| `tabtools` | 10 | 10 | 10 | 100.0% |
+| `tabtools_tips` | 1 | 0 | 0 | 100.0% |
+| **Total** | **448** | **434** | **434** | **100%** |
 
 **Excluded by design — `open` (14 commands).** It opens the workbook in the OS default application (`shell xdg-open`/`open`/`start`) and cannot be driven deterministically in batch, so it is not a testable coverage target. `tabtools_tips` exposes only `open`, so it has no testable surface.
 

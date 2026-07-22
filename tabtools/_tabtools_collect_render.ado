@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 1.9.11  2026/07/18
+*! _tabtools_collect_render Version 1.10.0  2026/07/22
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -267,7 +267,7 @@ program define _tt_collect_dim_locals, rclass
     }
     local levels = strtrim("`_ordered_levels' `_total_levels'")
 
-    local dimlabel "`dim'"
+    local dimlabel `"`dim'"'
     local k = 0
     capture quietly collect label list `dim'
     if _rc == 0 {

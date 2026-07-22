@@ -1,4 +1,4 @@
-*! tvevent Version 1.7.2  2026/07/19
+*! tvevent Version 1.8.0  2026/07/22
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -996,8 +996,26 @@ program define tvevent, rclass
                 replace `date' = floor(`date')
                 gen int _event_type = 1
 
-                * Remove duplicate id-date combinations (same event on same date)
-                duplicates drop `id' `date', force
+                * Same-person/same-day event multiplicity is rejected, not
+                * dropped. The daily axis carries at most one event flag per
+                * person-day, so two recurring events recorded on one day
+                * cannot both be represented. Force-dropping them reported
+                * "Found N event variables" and then silently returned fewer
+                * events than the master documented -- a lost outcome at
+                * rc=0. The caller must resolve the multiplicity explicitly.
+                tempvar _dup_ev
+                quietly duplicates tag `id' `date', gen(`_dup_ev')
+                quietly count if `_dup_ev' > 0
+                if r(N) > 0 {
+                    local n_dup_ev = r(N)
+                    quietly levelsof `id' if `_dup_ev' > 0, local(_dup_ev_ids) clean
+                    noisily display as error "`n_dup_ev' recurring event row(s) share a person-day with another event"
+                    noisily display as error "The daily time axis records at most one event per person per day."
+                    noisily display as error "Affected id(s): `_dup_ev_ids'"
+                    noisily display as error "Collapse the same-day events to one, or move them to distinct days."
+                    exit 459
+                }
+                drop `_dup_ev'
 
                 * Sort by id and date for proper processing
                 sort `id' `date'
@@ -1040,7 +1058,23 @@ program define tvevent, rclass
                 rename _eff_date `date'
                 rename _eff_type _event_type
                 keep `id' `date' _event_type
-                duplicates drop `id' `date', force
+                * Rows that agree on id, date, and resolved type carry no
+                * extra information and collapse safely. Rows that agree on
+                * (id, date) but disagree on type are a genuine ambiguity:
+                * force-dropping them let row order pick the event type.
+                duplicates drop `id' `date' _event_type, force
+                tempvar _dup_ty
+                quietly duplicates tag `id' `date', gen(`_dup_ty')
+                quietly count if `_dup_ty' > 0
+                if r(N) > 0 {
+                    local n_dup_ty = r(N)
+                    quietly levelsof `id' if `_dup_ty' > 0, local(_dup_ty_ids) clean
+                    noisily display as error "`n_dup_ty' record(s) give one person conflicting event types on the same day"
+                    noisily display as error "Affected id(s): `_dup_ty_ids'"
+                    noisily display as error "Resolve the competing-risk type for those person-days before calling tvevent."
+                    exit 459
+                }
+                drop `_dup_ty'
                 quietly count
                 local n_event_rows = r(N)
                 save `events', replace
@@ -1487,20 +1521,55 @@ program define tvevent, rclass
         **# 7. APPLY TYPE-SPECIFIC LOGIC
         
         if "`type'" == "single" {
-            bysort `id' (`stopvar'): gen long _event_rank = sum(`generate' > 0)
+            * The first event is defined by its DATE, not by row position.
+            * The previous rule ranked rows (sum of generate>0 in sort order)
+            * and kept only rank 1. When a person legitimately has several
+            * rows sharing one (id, start, stop) -- the per-stratum rows that
+            * tvexpose, split produces -- those rows describe one event seen
+            * in different strata of the same person-time, not a sequence of
+            * events. Ranking rows kept the failure on whichever tied row
+            * happened to sort first, so reversing two otherwise identical
+            * input rows moved the failure to a different stratum at rc=0.
+            tempvar ev_date
+            gen double `ev_date' = `stopvar' if `generate' > 0
+            bysort `id': egen double _first_fail = min(`ev_date')
 
-            tempvar censor_time
-            gen double `censor_time' = `stopvar' if `generate' > 0 & _event_rank == 1
-            bysort `id': egen double _first_fail = min(`censor_time')
+            * Events after the first are censored; ties on the first date are
+            * all retained, because they are the same event.
+            replace `generate' = 0 if `generate' > 0 & ///
+                !missing(_first_fail) & `stopvar' > _first_fail
 
-            * Under [start, stop] inclusive convention, post-event intervals have
-            * start > event_date. Keep the first event row itself (which may
-            * have start == _first_fail for single-day intervals).
+            * An event belongs to exactly one person-time cell. Rows sharing
+            * (id, start, stop) are one cell observed in several strata, so
+            * they all keep the flag. Flagged rows drawn from two DIFFERENT
+            * cells mean the input intervals overlap, and which cell the
+            * event fell in is then genuinely ambiguous: refuse rather than
+            * let row order decide, and never double-count one event.
+            tempvar cellkey celltag ncells
+            quietly egen long `cellkey' = group(`startvar' `stopvar') ///
+                if `generate' > 0
+            quietly bysort `id' `cellkey': generate byte `celltag' = ///
+                (_n == 1) & `generate' > 0
+            quietly bysort `id': egen long `ncells' = total(`celltag')
+            quietly count if `ncells' > 1
+            if r(N) > 0 {
+                quietly levelsof `id' if `ncells' > 1, local(_amb_ids) clean
+                noisily display as error "Ambiguous event placement: overlapping intervals both contain the first event"
+                noisily display as error "Affected id(s): `_amb_ids'"
+                noisily display as error "Under the closed [start, stop] contract an interval that ends on day d"
+                noisily display as error "and one that begins on day d share day d. Abutting intervals must begin"
+                noisily display as error "on prior_stop + 1. Correct the intervals, or use type(recurring)."
+                exit 459
+            }
+            drop `cellkey' `celltag' `ncells'
+
+            * Under [start, stop] inclusive convention, post-event intervals
+            * have start > event_date. Keep every row carrying the first
+            * event (which may have start == _first_fail for one-day rows).
             drop if !missing(_first_fail) & `startvar' >= _first_fail ///
-                & !(`generate' > 0 & _event_rank == 1)
-            replace `generate' = 0 if _event_rank > 1
+                & !(`generate' > 0)
 
-            drop _event_rank `censor_time' _first_fail
+            drop `ev_date' _first_fail
             noisily di as txt "Single event type: Censored person-time after first event."
         }
         else {

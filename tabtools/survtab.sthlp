@@ -100,7 +100,21 @@ up to that horizon and should not be read as a lifetime mean survival measure.{p
 
 {pstd}With {opt rmst()}, {opt difference}, and a {opt by()} of exactly two
 groups, the between-group RMST difference is reported with a confidence
-interval and a two-sided Wald p-value. Because the two groups are disjoint, the
+interval and a two-sided Wald p-value.{p_end}
+
+{pstd}{bf:Direction of the contrast.} The difference is
+{bf:group 1 minus group 2}, where group 1 and group 2 are the first and second
+{opt by()} groups as displayed. Groups are ordered by the ascending
+{it:numeric} value of the {opt by()} variable, not by value-label text, so a
+value label cannot silently reverse the sign. The column header names the two
+groups explicitly (for example {cmd:Difference (Placebo - Active)}), the same
+direction is stated in {cmd:r(methods)}, and the group identities are returned
+in {cmd:r(group_}{it:#}{cmd:_value)} and {cmd:r(group_}{it:#}{cmd:_label)} so
+every per-group scalar can be mapped back to the group it came from. A positive
+difference therefore means group 1 has the larger restricted mean survival. To
+reverse the reported direction, recode the {opt by()} variable.{p_end}
+
+{pstd}Because the two groups are disjoint, the
 variance of the difference is the sum of the group-specific Greenwood RMST
 variances; the CI and p-value are returned as {cmd:r(rmst_diff_se)},
 {cmd:r(rmst_diff_lb)}, {cmd:r(rmst_diff_ub)}, and {cmd:r(rmst_diff_p)}. The RMST
@@ -248,10 +262,14 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level used for survival intervals{p_end}
 {synopt:{cmd:r(logrank_p)}}log-rank test p-value (when {cmd:by()} specified){p_end}
 {synopt:{cmd:r(logrank_chi2)}}log-rank test chi-squared statistic{p_end}
+{synopt:{cmd:r(by_var)}}name of the {opt by()} variable (when {opt by()}){p_end}
+{synopt:{cmd:r(n_groups)}}number of {opt by()} groups (when {opt by()}){p_end}
+{synopt:{cmd:r(group_{it:#}_value)}}value of the {opt by()} variable for group {it:#}{p_end}
+{synopt:{cmd:r(group_{it:#}_label)}}value label for group {it:#}{p_end}
 {synopt:{cmd:r(median_{it:#})}}median survival for group {it:#} (when {cmd:median}){p_end}
 {synopt:{cmd:r(events_{it:#})}}event count for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(atrisk_{it:#})}}group denominator for group {it:#} (when {cmd:events}){p_end}
-{synopt:{cmd:r(rmst_diff)}}two-group RMST difference{p_end}
+{synopt:{cmd:r(rmst_diff)}}two-group RMST difference, group 1 minus group 2{p_end}
 {synopt:{cmd:r(rmst_diff_se)}}standard error of the RMST difference{p_end}
 {synopt:{cmd:r(rmst_diff_lb)}}lower CI bound of the RMST difference{p_end}
 {synopt:{cmd:r(rmst_diff_ub)}}upper CI bound of the RMST difference{p_end}

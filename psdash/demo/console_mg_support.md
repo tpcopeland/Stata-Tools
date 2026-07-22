@@ -53,14 +53,14 @@ Manual Threshold Trimming
 -------------------------------------------------------
 Threshold:                 0.1000
 Trim region:           [0.100, 0.900]
-Observations trimmed:          30 ( 2.50%)
-Remaining sample:            1170
+Observations trimmed:         410 (34.17%)
+Remaining sample:             790
 -------------------------------------------------------
 
 Support indicator generated: mg_support
 Warning: >10% of observations outside observed-arm PS overlap.
 
-Support: Trimmed ( 2.5% excluded)
+Support: Trimmed (34.2% excluded)
 ```
 
 ```stata
@@ -75,16 +75,15 @@ Support: Trimmed ( 2.5% excluded)
 | column percentage |
 +-------------------+
 
-In trimmed |
-   support |
-   [0.100, |          Treatment arm
-    0.900] |   Placebo   Low dose  High dose |     Total
+   All GPS |
+components |          Treatment arm
+  >= 0.100 |   Placebo   Low dose  High dose |     Total
 -----------+---------------------------------+----------
-         0 |        30          0          0 |        30
-           |     19.48       0.00       0.00 |      2.50
+         0 |        30         97        283 |       410
+           |     19.48      30.22      39.03 |     34.17
 -----------+---------------------------------+----------
-         1 |       124        321        725 |     1,170
-           |     80.52     100.00     100.00 |     97.50
+         1 |       124        224        442 |       790
+           |     80.52      69.78      60.97 |     65.83
 -----------+---------------------------------+----------
      Total |       154        321        725 |     1,200
            |    100.00     100.00     100.00 |    100.00

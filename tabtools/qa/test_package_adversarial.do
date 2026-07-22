@@ -433,7 +433,7 @@ capture noisily {
     assert _rc == 198
     cf _all using "`strat_user_before'"
 
-    local badbase "`c(tmpdir)'/tabtools_adv_bad_`c(pid)'"
+    local badbase "`c(tmpdir)'/`c(pid)'_tabtools_adv_bad_`c(pid)'"
     preserve
         clear
         input byte bogus
@@ -1131,6 +1131,8 @@ program define _make_exportfail_strate
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exportfail_exp 0 "Low" 1 "Medium" 2 "High", replace
     label values exposure exportfail_exp
     save "`basename'.dta", replace

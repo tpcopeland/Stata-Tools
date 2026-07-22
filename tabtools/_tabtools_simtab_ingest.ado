@@ -1,4 +1,4 @@
-*! _tabtools_simtab_ingest Version 1.9.11  2026/07/18
+*! _tabtools_simtab_ingest Version 1.10.0  2026/07/22
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -56,8 +56,8 @@ program define _tabtools_simtab_ingest, rclass
     * ----- standardized finalizer -----
     local _has_by  = `r(has_by)'
     local _has_emd = `r(has_emd)'
-    local _by_header  "`r(by_header)'"
-    local _est_header "`r(est_header)'"
+    local _by_header  `"`r(by_header)'"'
+    local _est_header `"`r(est_header)'"'
 
     * ensure all standardized columns exist
     foreach v in n truev m_mean m_bias m_pctbias m_empse m_meanse m_relerr ///
@@ -229,9 +229,9 @@ program _tabtools_simtab_ingest_summary, rclass
         confirm variable `_col'
         tempvar _std
         quietly gen double `_std' = `_col'
-        local _std_`_tok' "`_std'"
-        local _mapped "`_mapped' `_tok'"
-        local _measure_keep "`_measure_keep' `_std'"
+        local _std_`_tok' `"`_std'"'
+        local _mapped `"`_mapped' `_tok'"'
+        local _measure_keep `"`_measure_keep' `_std'"'
     }
 
     keep `_byord' `_bylab' `_estord' `_estlab' `_emdord' `_emdlab' `_measure_keep'
@@ -241,7 +241,7 @@ program _tabtools_simtab_ingest_summary, rclass
     rename `_estlab' estlab
     rename `_emdord' emdord
     rename `_emdlab' emdlab
-    local _rename_queue "`_measure_keep'"
+    local _rename_queue `"`_measure_keep'"'
     foreach _pair of local measures {
         gettoken _stdvar _rename_queue : _rename_queue
         local _eq = strpos("`_pair'", "=")
@@ -250,8 +250,8 @@ program _tabtools_simtab_ingest_summary, rclass
         else rename `_stdvar' m_`_tok'
     }
 
-    local _by_header "`byvar'"
-    local _est_header "`estimatorvar'"
+    local _by_header `"`byvar'"'
+    local _est_header `"`estimatorvar'"'
     return scalar has_by = `_has_by'
     return scalar has_emd = `_has_emd'
     return local by_header "`_by_header'"
@@ -290,7 +290,7 @@ program _tabtools_simtab_ingest_simsum, rclass
 
     * value columns = estimate* not ending in _mcse
     quietly ds estimate*
-    local _allest "`r(varlist)'"
+    local _allest `"`r(varlist)'"'
     local _valcols ""
     local _mcsecols ""
     foreach v of local _allest {
@@ -304,9 +304,9 @@ program _tabtools_simtab_ingest_simsum, rclass
 
     * by columns = anything that is not perfmeas* or estimate*
     quietly ds perfmeas* estimate*
-    local _known "`r(varlist)'"
+    local _known `"`r(varlist)'"'
     quietly ds
-    local _allvars "`r(varlist)'"
+    local _allvars `"`r(varlist)'"'
     local _bycols : list _allvars - _known
     local _nby_cols : word count `_bycols'
     if `_nby_cols' > 1 {
@@ -314,7 +314,7 @@ program _tabtools_simtab_ingest_simsum, rclass
         exit 459
     }
     local _has_by = (`_nby_cols' == 1)
-    local _byvar "`_bycols'"
+    local _byvar `"`_bycols'"'
 
     * code -> token map
     local _codes  "bsims bias pctbias mean empse mse rmse modelse relerror cover power"
@@ -358,21 +358,21 @@ program _tabtools_simtab_ingest_simsum, rclass
         }
         if `_dup' > 1 local _mlab_`_vc' `"`_mlab_`_vc'' [`_vc']"'
     }
-    local _ordered_valcols "`_valcols'"
+    local _ordered_valcols `"`_valcols'"'
     if "`order'" == "sort" {
         local _ordered_valcols ""
-        local _remaining "`_valcols'"
+        local _remaining `"`_valcols'"'
         while `"`_remaining'"' != "" {
             local _best ""
             local _best_label ""
             foreach _vc of local _remaining {
                 local _candidate = lower(`"`_mlab_`_vc''"')
                 if `"`_best'"' == "" | `"`_candidate'"' < `"`_best_label'"' {
-                    local _best "`_vc'"
+                    local _best `"`_vc'"'
                     local _best_label `"`_candidate'"'
                 }
             }
-            local _ordered_valcols "`_ordered_valcols' `_best'"
+            local _ordered_valcols `"`_ordered_valcols' `_best'"'
             local _remaining : list _remaining - _best
         }
     }
@@ -392,7 +392,7 @@ program _tabtools_simtab_ingest_simsum, rclass
                 quietly summarize `_obs' if `_bytag' == `_bl', meanonly
                 local _bidx = r(min)
                 local _bylab = `_bylabtmp'[`_bidx']
-                local _bycond "`_bytag' == `_bl'"
+                local _bycond `"`_bytag' == `_bl'"'
             }
 
             * gather mapped measures for this method x by cell
@@ -468,7 +468,7 @@ program _tabtools_simtab_ingest_siman, rclass
     foreach v in _perfmeascode perfmeascode {
         capture confirm variable `v'
         if !_rc {
-            local _codevar "`v'"
+            local _codevar `"`v'"'
             continue, break
         }
     }
@@ -607,11 +607,11 @@ program _tabtools_simtab_ingest_siman, rclass
                 quietly replace `_mv' = estimate if `_codevar' == "`_code'"
                 if `_has_se' quietly replace `_mcv' = se if `_codevar' == "`_code'"
             }
-            local _measure_vars "`_measure_vars' `_mv'"
-            local _measure_tokens "`_measure_tokens' `_tok'"
+            local _measure_vars `"`_measure_vars' `_mv'"'
+            local _measure_tokens `"`_measure_tokens' `_tok'"'
             if !inlist("`_tok'", "meanse", "relerr") {
-                local _mc_vars "`_mc_vars' `_mcv'"
-                local _mc_tokens "`_mc_tokens' `_tok'"
+                local _mc_vars `"`_mc_vars' `_mcv'"'
+                local _mc_tokens `"`_mc_tokens' `_tok'"'
             }
         }
     }
@@ -644,7 +644,7 @@ program _tabtools_simtab_ingest_siman, rclass
 
     local _by_header "DGM"
     if "`_dgm'" != "" local _by_header "DGM (`_dgm')"
-    local _est_header "`_method'"
+    local _est_header `"`_method'"'
     return scalar has_by = `_has_by'
     return scalar has_emd = `_has_emd'
     return local by_header "`_by_header'"

@@ -1,4 +1,4 @@
-*! desctab Version 1.9.11  2026/07/18
+*! desctab Version 1.10.0  2026/07/22
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -107,12 +107,12 @@ program define desctab, rclass
     }
     _tabtools_validate_sheet "`sheet'" "sheet()"
 
-    local _requested_headershade "`headershade'"
-    local _requested_zebra "`zebra'"
+    local _requested_headershade `"`headershade'"'
+    local _requested_zebra `"`zebra'"'
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
         headershade(`headershade') zebra(`zebra')
-    local headershade "`_requested_headershade'"
-    local zebra "`_requested_zebra'"
+    local headershade `"`_requested_headershade'"'
+    local zebra `"`_requested_zebra'"'
 
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
@@ -126,9 +126,9 @@ program define desctab, rclass
     }
 
     quietly collect layout
-    local _rowspec "`s(rows)'"
-    local _colspec "`s(columns)'"
-    local _tabspec "`s(tables)'"
+    local _rowspec `"`s(rows)'"'
+    local _colspec `"`s(columns)'"'
+    local _tabspec `"`s(tables)'"'
     local _ktables = real("`s(k_tables)'")
     if `_ktables' > 1 {
         display as error "desctab supports one table at a time"
@@ -137,8 +137,8 @@ program define desctab, rclass
     }
 
     _desctab_parse_layout `"`_rowspec'"' `"`_colspec'"'
-    local rowdim "`r(rowdim)'"
-    local coldim "`r(coldim)'"
+    local rowdim `"`r(rowdim)'"'
+    local coldim `"`r(coldim)'"'
     if "`rowdim'" == "" {
         display as error "No active table-shaped collect found"
         display as error "Run collect: table ... before desctab"
@@ -148,12 +148,12 @@ program define desctab, rclass
     quietly collect label list result
     local stats_available ""
     forvalues _i = 1/`=real("`s(k)'")' {
-        local stats_available "`stats_available' `s(level`_i')'"
+        local stats_available `"`stats_available' `s(level`_i')'"'
     }
     local stats_available = strtrim("`stats_available'")
     if "`stats_available'" == "" {
         collect levelsof result
-        local stats_available "`s(levels)'"
+        local stats_available `"`s(levels)'"'
         local stats_available : subinstr local stats_available "N" "", word all
         local stats_available = strtrim("`stats_available'")
     }
@@ -168,7 +168,7 @@ program define desctab, rclass
     if `"`compose_mode'"' != "" {
         _desctab_resolve_compose, compose("`compose'") stats("`stats_available'")
         local compose_resolved `"`r(compose)'"'
-        local required_stats "`r(required)'"
+        local required_stats `"`r(required)'"'
         local is_custom = `r(custom)'
     }
     else {
@@ -193,7 +193,7 @@ program define desctab, rclass
                 exit 459
             }
         }
-        local stats_layout "`required_stats'"
+        local stats_layout `"`required_stats'"'
     }
     else if "`statorder'" != "" {
         local stats_layout ""
@@ -209,7 +209,7 @@ program define desctab, rclass
         local stats_layout = strtrim("`stats_layout'")
     }
     else {
-        local stats_layout "`stats_available'"
+        local stats_layout `"`stats_available'"'
     }
 
     if "`stats_layout'" == "" {
@@ -221,7 +221,7 @@ program define desctab, rclass
     local _source_vars ""
     capture collect levelsof var
     if !_rc {
-        local _source_vars "`s(levels)'"
+        local _source_vars `"`s(levels)'"'
         local _source_vars : subinstr local _source_vars "_hide" "", word all
         local _source_vars = strtrim("`_source_vars'")
     }
@@ -255,8 +255,8 @@ program define desctab, rclass
     foreach _stat of local stats_layout {
         _tabtools_resolve_stat_format `_stat', digits(`digits') ///
             pctdigits(`pctdigits') nintegerfmt("`nintegerfmt'")
-        local fmt_`_stat' "`r(fmt)'"
-        local class_`_stat' "`r(class)'"
+        local fmt_`_stat' `"`r(fmt)'"'
+        local class_`_stat' `"`r(class)'"'
         if inlist("`_stat'", "sum", "sum_w", "total") & !`_sum_integer' {
             local fmt_`_stat' "%21.`digits'f"
             local class_`_stat' "continuous"
@@ -344,7 +344,7 @@ program define desctab, rclass
     local data_vars ""
     foreach _v of local _allvars {
         if !inlist("`_v'", "A", "_tt_row_key", "_tt_row_total", "_tt_row_missing") {
-            local data_vars "`data_vars' `_v'"
+            local data_vars `"`data_vars' `_v'"'
         }
     }
     local data_vars = strtrim("`data_vars'")
@@ -378,7 +378,7 @@ program define desctab, rclass
         local data_vars ""
         foreach _v of local _allvars {
             if !inlist("`_v'", "A", "_tt_row_key", "_tt_row_total", "_tt_row_missing") {
-                local data_vars "`data_vars' `_v'"
+                local data_vars `"`data_vars' `_v'"'
             }
         }
         local data_vars = strtrim("`data_vars'")
@@ -428,8 +428,8 @@ program define desctab, rclass
             local ++_j
             local _sidx = mod(`_j' - 1, `n_stats') + 1
             local _stat : word `_sidx' of `stats_layout'
-            local _fmt "`fmt_`_stat''"
-            local _class "`class_`_stat''"
+            local _fmt `"`fmt_`_stat''"'
+            local _class `"`class_`_stat''"'
             local _scale = 1
             local _add_pctsign = inlist("`_class'", "percent", "proportion")
             if "`_class'" == "proportion" & "`pctscale'" == "0to100" {
@@ -454,7 +454,7 @@ program define desctab, rclass
                     local _hraw = subinstr(strtrim(`_v'[`_r']), ",", "", .)
                     local _hnum = real("`_hraw'")
                     if `_hnum' < . & `_hnum' < `highlight' {
-                        local highlight_rows "`highlight_rows' `_r'"
+                        local highlight_rows `"`highlight_rows' `_r'"'
                     }
                 }
             }
@@ -561,7 +561,7 @@ program define desctab, rclass
                     local _raw_`_stat' = strtrim(`_v'[`_r'])
                     local _scale = 1
                     local _sign ""
-                    local _fmt "`fmt_`_stat''"
+                    local _fmt `"`fmt_`_stat''"'
                     if inlist("`_stat'", "mean", "prop", "propc", "propr", "percent", "fvpercent") {
                         if inlist("`_stat'", "mean", "prop", "propc", "propr") & "`pctscale'" == "0to100" {
                             local _scale = 100
@@ -595,7 +595,7 @@ program define desctab, rclass
                     if !_rc {
                         local _hnum = real("`_hraw'")
                         if `_hnum' < . & `_hnum' < `highlight' {
-                            local highlight_rows "`highlight_rows' `_r'"
+                            local highlight_rows `"`highlight_rows' `_r'"'
                         }
                     }
                 }
@@ -838,7 +838,7 @@ program define desctab, rclass
 
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
-        local frame "`_frame_name'"
+        local frame `"`_frame_name'"'
         return local frame "`frame'"
     }
 
@@ -910,8 +910,8 @@ program define desctab, rclass
                     local _cols_per_group = `n_display_cols' / `n_groups'
                     forvalues _g = 1/`=`n_groups' - 1' {
                         local _next_g = `_g' + 1
-                        local _curr_label "`_glabel_`_g''"
-                        local _next_label "`_glabel_`_next_g''"
+                        local _curr_label `"`_glabel_`_g''"'
+                        local _next_label `"`_glabel_`_next_g''"'
                         local _draw = (`_cols_per_group' > 1) ///
                             | ("`_next_label'" == "Total") ///
                             | ("`_curr_label'" == "Total")
@@ -1005,19 +1005,19 @@ program define _desctab_parse_layout, rclass
     foreach _tok in `=subinstr("`rowspec'", "#", " ", .)' {
         local _dim = regexr("`_tok'", "\[.*", "")
         if "`_dim'" != "" & "`_dim'" != "result" & "`rowdim'" == "" {
-            local rowdim "`_dim'"
+            local rowdim `"`_dim'"'
         }
         else if "`_dim'" != "" & "`_dim'" != "result" & "`rowdim'" != "" {
-            local rowdim "`rowdim'#`_dim'"
+            local rowdim `"`rowdim'#`_dim'"'
         }
     }
     foreach _tok in `=subinstr("`colspec'", "#", " ", .)' {
         local _dim = regexr("`_tok'", "\[.*", "")
         if "`_dim'" != "" & "`_dim'" != "result" & "`coldim'" == "" {
-            local coldim "`_dim'"
+            local coldim `"`_dim'"'
         }
         else if "`_dim'" != "" & "`_dim'" != "result" & "`coldim'" != "" {
-            local coldim "`coldim'#`_dim'"
+            local coldim `"`coldim'#`_dim'"'
         }
     }
     return local rowdim "`rowdim'"
@@ -1066,13 +1066,13 @@ program define _desctab_resolve_compose, rclass
     }
 
     _desctab_pick_stat, candidates("count frequency fvfrequency") stats("`stats'")
-    local count_stat "`r(stat)'"
+    local count_stat `"`r(stat)'"'
     _desctab_pick_stat, candidates("sum total sum_w") stats("`stats'")
-    local sum_stat "`r(stat)'"
+    local sum_stat `"`r(stat)'"'
     _desctab_pick_stat, candidates("percent fvpercent prop propc propr mean") stats("`stats'")
-    local pct_stat "`r(stat)'"
+    local pct_stat `"`r(stat)'"'
     _desctab_pick_stat, candidates("p50 median") stats("`stats'")
-    local median_stat "`r(stat)'"
+    local median_stat `"`r(stat)'"'
     if "`count_stat'" == "" local count_stat "count"
     if "`sum_stat'" == "" local sum_stat "sum"
     if "`pct_stat'" == "" local pct_stat "percent"
@@ -1083,10 +1083,10 @@ program define _desctab_resolve_compose, rclass
         local mode "events_n_pct"
     }
     else if "`mode'" == "events_n" {
-        local required "`sum_stat' `count_stat'"
+        local required `"`sum_stat' `count_stat'"'
     }
     else if "`mode'" == "n_pct" {
-        local required "`count_stat' `pct_stat'"
+        local required `"`count_stat' `pct_stat'"'
         if "`pct_stat'" != "percent" & "`pct_stat'" != "" {
             local required : subinstr local required "`pct_stat'" "percent", all
             local mode "n_pct"
@@ -1122,7 +1122,7 @@ program define _desctab_resolve_compose, rclass
         local work `"`clean_compose'"'
         while regexm(`"`work'"', "\{([A-Za-z0-9_]+)\}") {
             local _ph = regexs(1)
-            local required "`required' `_ph'"
+            local required `"`required' `_ph'"'
             local work : subinstr local work "{`_ph'}" "", all
         }
         local required : list uniq required
@@ -1202,7 +1202,7 @@ capture program drop _desctab_format_local
 program define _desctab_format_local, rclass
     version 17.0
     syntax , VALUE(string asis) FORMAT(string) [SCALE(real 1) PCTSIGN]
-    local clean "`value'"
+    local clean `"`value'"'
     local clean : subinstr local clean `"""' "", all
     local clean = subinstr(strtrim("`clean'"), ",", "", .)
     if `"`clean'"' == "" {

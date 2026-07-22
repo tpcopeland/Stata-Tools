@@ -1019,7 +1019,7 @@ display as text _newline "=== test_tabtools_v1015 ==="
 * The reshape pipeline reserves N_*, m_*, _column* columns. A by-variable named
 * N_age (or any blacklisted name) must produce error 498 with a message that
 * points at the help file.
-local _d_log "`c(tmpdir)'/_t1tc_by_reserved.log"
+local _d_log "`c(tmpdir)'/`c(pid)'__t1tc_by_reserved.log"
 capture erase "`_d_log'"
 local ++test_count
 capture noisily {
@@ -1143,7 +1143,7 @@ else {
 * and prints the rendered output to the log. Asserting on the rendered
 * form (post-SMCL) catches markup that compiles but renders blank — the
 * failure mode visual inspection would catch.
-local _g_log "`c(tmpdir)'/_t1tc_help_render.log"
+local _g_log "`c(tmpdir)'/`c(pid)'__t1tc_help_render.log"
 capture erase "`_g_log'"
 local ++test_count
 capture noisily {
@@ -1863,9 +1863,9 @@ sysuse auto, clear
 
 * --- U1.2: varlist with Excel export ---
 local ++n_total
-capture noisily table1_tc price mpg weight, by(foreign) excel("output/test_u1.xlsx") title("U1 Test")
+capture noisily table1_tc price mpg weight, by(foreign) excel("`output_dir'/test_u1.xlsx") title("U1 Test")
 if _rc == 0 {
-    capture confirm file "output/test_u1.xlsx"
+    capture confirm file "`output_dir'/test_u1.xlsx"
     if _rc == 0 {
         display as result "PASS: U1.2 — varlist syntax with Excel export"
         local ++pass_count
@@ -1889,11 +1889,11 @@ sysuse auto, clear
 * --- O2.1: SMD with Excel export (visual check) ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat) ///
-    smd excel("output/test_o2_smd.xlsx") title("O2 SMD Formatting Test")
+    smd excel("`output_dir'/test_o2_smd.xlsx") title("O2 SMD Formatting Test")
 if _rc == 0 {
-    capture confirm file "output/test_o2_smd.xlsx"
+    capture confirm file "`output_dir'/test_o2_smd.xlsx"
     if _rc == 0 {
-        display as result "PASS: O2.1 — SMD with Excel export (check output/test_o2_smd.xlsx for orange highlight)"
+        display as result "PASS: O2.1 — SMD with Excel export (check `output_dir'/test_o2_smd.xlsx for orange highlight)"
         local ++pass_count
     }
     else {
@@ -2016,7 +2016,7 @@ local ++n_total
 capture noisily {
     sysuse auto, clear
     table1_tc price mpg weight, by(foreign) smd smdthreshold(0.2) ///
-        excel("output/test_o2_smdthresh.xlsx") title("SMD Threshold Test")
+        excel("`output_dir'/test_o2_smdthresh.xlsx") title("SMD Threshold Test")
 }
 if _rc == 0 {
     display as result "  PASS: O2.1 — smdthreshold(0.2) accepted"
@@ -2032,7 +2032,7 @@ local ++n_total
 capture noisily {
     sysuse auto, clear
     table1_tc price mpg weight, by(foreign) smd ///
-        excel("output/test_o2_smddefault.xlsx") title("SMD Default Test")
+        excel("`output_dir'/test_o2_smddefault.xlsx") title("SMD Default Test")
 }
 if _rc == 0 {
     display as result "  PASS: O2.2 — default smdthreshold works"
@@ -2135,7 +2135,7 @@ capture noisily {
     sysuse auto, clear
     * Many variables = long Dapa string = taller row 2
     table1_tc price mpg weight headroom trunk length turn displacement gear_ratio, ///
-        by(foreign) excel("output/test_o3_height.xlsx") ///
+        by(foreign) excel("`output_dir'/test_o3_height.xlsx") ///
         title("Row Height Auto-Calc Test")
 }
 if _rc == 0 {
@@ -2818,20 +2818,23 @@ else {
 
 **# 7. table1_tc percent + continuous Excel header no duplication (I1 regression)
 
-**## 7a. Header row contains "Mean (SD)" exactly once when percent is specified
+**## 7a. Header mean/SD descriptor appears once AND tracks the active notation
+* Original intent: the descriptor must not be duplicated in the percent header.
+* Extended for I09: the caption used to be hardcoded "Mean (SD)" while the
+* DEFAULT notation renders 58.3+/-13.4, so the column caption contradicted every
+* cell beneath it. The caption is now derived from sdleft()/sdright(), so this
+* checks both that it appears exactly once and that it follows the options.
 capture noisily {
+    * ---- explicit parenthesis notation must render "Mean (SD)" exactly once ----
     sysuse auto, clear
     local i1_xlsx "`output_dir'/_rev1013_i1_percent.xlsx"
     capture erase "`i1_xlsx'"
     table1_tc, vars(price contn \ rep78 cat \ foreign bin) by(foreign) percent ///
-        xlsx("`i1_xlsx'") sheet("I1Test")
+        sdleft(" (") sdright(")") xlsx("`i1_xlsx'") sheet("I1Test")
 
-    * Read back the xlsx; check the header description row (row 2) for duplication
     clear
     import excel using "`i1_xlsx'", sheet("I1Test") allstring clear
-    * Row 2 of the xlsx = observation 2 after import; column B has the header text
     local header_desc = B[2]
-    * Count "Mean (SD)" within this single cell — should appear exactly once
     local count = 0
     local sstr "`header_desc'"
     while strpos("`sstr'", "Mean (SD)") > 0 {
@@ -2840,13 +2843,35 @@ capture noisily {
         local sstr = substr("`sstr'", `p' + 9, .)
     }
     assert `count' == 1
+
+    * ---- default notation must NOT claim "Mean (SD)" ----
+    * The default sdleft is the plus/minus sign, so the caption must differ from
+    * the parenthesised form while still naming the mean exactly once.
+    sysuse auto, clear
+    local i1b_xlsx "`output_dir'/_rev1013_i1b_percent.xlsx"
+    capture erase "`i1b_xlsx'"
+    table1_tc, vars(price contn \ rep78 cat \ foreign bin) by(foreign) percent ///
+        xlsx("`i1b_xlsx'") sheet("I1bTest")
+    clear
+    import excel using "`i1b_xlsx'", sheet("I1bTest") allstring clear
+    local header_def = B[2]
+    assert strpos("`header_def'", "Mean (SD)") == 0
+    local dcount = 0
+    local dstr "`header_def'"
+    while strpos("`dstr'", "Mean") > 0 {
+        local dcount = `dcount' + 1
+        local dp = strpos("`dstr'", "Mean")
+        local dstr = substr("`dstr'", `dp' + 4, .)
+    }
+    assert `dcount' == 1
+    capture erase "`i1b_xlsx'"
 }
 if _rc == 0 {
-    display as result "  PASS [7a]: table1_tc percent header has Mean (SD) exactly once"
+    display as result "  PASS [7a]: table1_tc percent header names the mean once and tracks sdleft()/sdright()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [7a]: table1_tc percent header duplicated Mean (SD) (rc=`=_rc')"
+    display as error "  FAIL [7a]: table1_tc percent header notation/duplication (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_rev1013_i1_percent.xlsx"
@@ -3100,7 +3125,7 @@ else {
 capture noisily {
     sysuse auto, clear
     gen byte _trt = foreign
-    local _mdhdr "`c(tmpdir)'/_t1tc_mdhdr.md"
+    local _mdhdr "`c(tmpdir)'/`c(pid)'__t1tc_mdhdr.md"
     capture erase "`_mdhdr'"
     table1_tc, by(_trt) smd vars(price contn %9.1f \ mpg contn %9.1f) ///
         title("Header regression") markdown("`_mdhdr'") clear

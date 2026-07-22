@@ -1,4 +1,4 @@
-*! crosstab Version 1.9.11  2026/07/18
+*! crosstab Version 1.10.0  2026/07/22
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -205,7 +205,7 @@ capture noisily {
             else local _rlbl "`_rlv'"
         }
         if "`_rlbl'" == "" local _rlbl "`_rlv'"
-        local rlabel_`r' "`_rlbl'"
+        local rlabel_`r' `"`_rlbl'"'
     }
     forvalues c = 1/`n_cols' {
         local _clv : word `c' of `col_levels'
@@ -218,7 +218,7 @@ capture noisily {
             else local _clbl "`_clv'"
         }
         if "`_clbl'" == "" local _clbl "`_clv'"
-        local clabel_`c' "`_clbl'"
+        local clabel_`c' `"`_clbl'"'
     }
 
     * Variable labels
@@ -411,10 +411,10 @@ capture noisily {
     * Row 2: Column headers
     local row = `row' + 1
     qui set obs `row'
-    qui replace c1 = "`_rowlabel'" in `row'
+    qui replace c1 = `"`_rowlabel'"' in `row'
     forvalues c = 1/`n_cols' {
         local _col = `c' + 1
-        qui replace c`_col' = "`clabel_`c''" in `row'
+        qui replace c`_col' = `"`clabel_`c''"' in `row'
     }
     qui replace c`out_ncols' = "Total" in `row'
 
@@ -422,7 +422,7 @@ capture noisily {
     forvalues r = 1/`n_rows' {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "`rlabel_`r''" in `row'
+        qui replace c1 = `"`rlabel_`r''"' in `row'
         local _row_total = `_rowsum'[`r', 1]
         forvalues c = 1/`n_cols' {
             local _col = `c' + 1
@@ -472,11 +472,11 @@ capture noisily {
     local _trend_row = 0
     local _p_str = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))
     if "`_test_name'" == "Fisher's exact test" {
-        qui replace c1 = "`_test_name': p = `_p_str'" in `row'
+        qui replace c1 = `"`_test_name': p = `_p_str'"' in `row'
     }
     else {
         local _chi2_str = string(`_chi2', "%6.2f")
-        qui replace c1 = "`_test_name': chi2 = `_chi2_str', p = `_p_str'" in `row'
+        qui replace c1 = `"`_test_name': chi2 = `_chi2_str', p = `_p_str'"' in `row'
     }
 
     * Association measure row
@@ -501,7 +501,7 @@ capture noisily {
         local _trend_row = `row'
         local _pt_str = cond(`_p_trend' < 0.001, "<0.001", string(`_p_trend', "%5.3f"))
         local _trend_lbl = cond("`cochran'" != "", "P for trend (Cochran-Armitage)", "P for trend")
-        qui replace c1 = "`_trend_lbl' = `_pt_str'" in `row'
+        qui replace c1 = `"`_trend_lbl' = `_pt_str'"' in `row'
     }
 
     local num_rows = _N
@@ -551,7 +551,7 @@ capture noisily {
 **# Frame Output
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
-        local frame "`_frame_name'"
+        local frame `"`_frame_name'"'
         frame `frame': char _dta[tabtools_ci_level] "`level'"
         frame `frame': char _dta[tabtools_source] "crosstab"
     }

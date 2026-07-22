@@ -1,5 +1,6 @@
 {smcl}
 {vieweralsosee "[D] merge" "help merge"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvmerge##syntax"}{...}
 {viewerjumpto "Description" "tvmerge##description"}{...}
 {viewerjumpto "Options" "tvmerge##options"}{...}
@@ -157,7 +158,18 @@ in the same order as the datasets in the command line.
 
 {phang}
 {opt exposure(namelist)} specifies the exposure variables for all datasets,
-listed in the same order as the datasets in the command line.
+listed in the same order as the datasets in the command line. The first
+{it:k} names are positional: name {it:j} is read from dataset {it:j}.
+
+{pmore}
+More names than datasets is allowed, so a source may contribute an extra
+exposure column beyond its positional one (this is how {opt continuous()} is
+applied to a non-positional exposure). Non-positional names are read from
+datasets 2 onward; an extra name that also exists in dataset 1 is ignored
+there, with a note. Every name in {opt exposure()} must, however, exist in at
+least one source dataset -- a name found nowhere is a typo and exits with
+{cmd:r(111)}, rather than silently producing output whose exposure set differs
+from the one requested.
 
 {pstd}
 Within each positional source, the variables assigned to {opt id()},
@@ -252,7 +264,7 @@ the .dta extension. Use with {opt replace} to overwrite an existing file.
 {phang}
 {opt frameout(name)} places the merged result into a new frame named {it:name}
 and leaves the data in the current frame unchanged, enabling a disk-free
-pipeline ({cmd:tvexpose}{c -(} {cmd:tvmerge}{c -(} {cmd:tvevent}). Combine with
+pipeline ({cmd:tvexpose} -> {cmd:tvmerge} -> {cmd:tvevent}). Combine with
 {cmd:frames()} to also read the inputs from frames. The frame name is returned
 in {cmd:r(frameout)}. If the frame already exists, specify {cmd:replace}.
 

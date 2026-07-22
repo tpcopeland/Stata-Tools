@@ -1,6 +1,7 @@
 {smcl}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvdiagnose" "help tvdiagnose"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvweight##syntax"}{...}
 {viewerjumpto "Description" "tvweight##description"}{...}
 {viewerjumpto "Options" "tvweight##options"}{...}
@@ -128,13 +129,60 @@ outcome. Stata factor-variable notation, including interactions such as
 default is {cmd:iptw}.
 
 {phang}
-{opt wtype(type)} selects the weight estimand. {cmd:iptw} (the default) gives inverse
-probability of treatment weights. {cmd:ato} gives overlap (ATO) weights, which
-target the population with the most overlap and are robust to extreme
-propensity scores; with a logistic propensity model they balance covariate
-means exactly. {cmd:matching} gives matching weights, which mimic a 1:1 matched
-sample. {cmd:ato} and {cmd:matching} are alternatives to {opt truncate()} under poor
-overlap. {opt stabilized} applies only to {cmd:iptw}.
+{opt wtype(type)} selects the weight, and with it the
+{bf:target population}. The three options do not estimate the same
+quantity; choosing between them is
+a choice of estimand, not a tuning decision. {opt stabilized} applies only to
+{cmd:iptw}.
+
+{pmore}
+{cmd:iptw} (the default) gives inverse probability of treatment weights,
+{cmd:1/P(A=a|X)}. Applied at a single time point these target the
+{bf:average treatment effect in the whole cohort} (ATE). When the per-row
+weights are
+accumulated over follow-up with {opt cumulative}, and used to fit a marginal
+structural model, the target becomes the
+{bf:effect of a sustained treatment regime on the whole cohort} -- the MSM
+estimand of Robins, Hernan & Brumback
+(2000). Both rely on positivity holding across the whole covariate space.
+
+{pmore}
+{cmd:ato} gives overlap weights. The tilting function is {cmd:e(X)(1-e(X))}
+for binary exposure, so the target is the {bf:overlap population}: subjects
+weighted up in proportion to how genuinely uncertain their treatment
+assignment was. With a logistic propensity model these balance covariate means
+exactly, and they have the smallest asymptotic variance among balancing
+weights (Li, Morgan & Zaslavsky 2018). The estimand is defined by the data's
+overlap region, so it changes if the covariate set changes.
+
+{pmore}
+{cmd:matching} gives matching weights. For binary exposure the weight is
+{cmd:min(e, 1-e)/P(observed arm)}, the weighting analogue of 1:1 pair matching
+without replacement (Li & Greene 2013); the target is the
+{bf:matched-pair population}. For three or more arms the generalization is
+{cmd:min_k(e_k)/P(observed arm)}, where {cmd:e_k} is the generalized
+propensity score for arm {it:k} (Yoshida et al. 2017); the target is the
+{bf:empirical-equipoise population}, the subjects for whom every arm was a
+realistic option. This is not the ATE and not the ATT, and it shifts when the
+number of arms compared changes.
+
+{pmore}
+{bf:Positivity with more than two arms.} Multi-arm {cmd:ato} and
+{cmd:matching} require {it:joint} positivity: every subject must have nonzero
+probability of {it:every} arm. Weak overlap in a single arm shrinks the
+matching numerator for the whole sample, not only for subjects in that arm, so
+the effective sample size can collapse even when each pairwise contrast looks
+well supported.
+
+{pmore}
+{bf:Truncation is a different kind of intervention.} {opt truncate()} is a
+bias-variance trade against extreme weights; it does not repair
+non-positivity, and the truncated estimator no longer targets the untruncated
+population (Austin & Stuart 2015). {cmd:ato} and {cmd:matching} instead change
+the target population explicitly and report a quantity that is well defined
+under weak overlap. Reaching for one in place of the other is therefore not a
+substitution of equivalents: truncation perturbs an estimand, while the
+overlap and matching weights answer a different question.
 
 {phang}
 {opt stabilized} requests stabilized weights. Stabilized weights multiply
@@ -150,8 +198,10 @@ unstabilized weights, leading to more efficient estimates.
 {phang}
 {opt truncate(# #)} truncates weights at the specified lower and upper
 percentiles. For example, {cmd:truncate(1 99)} truncates at the 1st and 99th
-percentiles. Both percentiles must be strictly between 0 and 100. Truncation
-reduces the influence of extreme weights but may introduce some bias.
+percentiles. Both percentiles must be strictly between 0 and 100, and the
+lower percentile must be strictly less than the upper. The exposure variable
+must be numeric. Truncation reduces the influence of extreme weights but may
+introduce some bias.
 
 {phang}
 {opt cumulative} additionally generates a within-person cumulative product of
@@ -206,7 +256,7 @@ model. Defaults to the treatment-model covariates ({opt covariates()} plus any
 (default: {cmd:ipcw}).
 
 {phang}
-{opt combgenerate(name)} names the combined IPTW{c -(}IPCW weight variable
+{opt combgenerate(name)} names the combined IPTW x IPCW weight variable
 (default: the treatment-weight name with an {cmd:_ipcw} suffix).
 
 {dlgtab:Model Options}
@@ -257,8 +307,8 @@ is restored. {opt estreplace} requires {opt estname()}.
 {phang}
 {opt balance} reports the standardized mean difference (SMD) of each covariate
 between exposure groups, both before and after weighting, and returns them in
-{cmd:r(balance)}. SMD is the standard balance check for weighted analyses
-(Austin 2009, 2011). The denominator is the unweighted pooled standard
+{cmd:r(balance)}. The standardized difference is the standard balance check
+for weighted analyses (Austin 2009; Austin 2011; Austin & Stuart 2015). The denominator is the unweighted pooled standard
 deviation, so the before and after columns share a common scale. For
 categorical exposures the maximum absolute SMD across non-reference levels is
 reported per covariate. Factor variables and interactions are expanded into
@@ -421,7 +471,7 @@ fixed-width MSM grid.
 {synopt:{cmd:r(cumgenerate)}}name of cumulative weight variable (if cumulative){p_end}
 {synopt:{cmd:r(ipcw)}}name of the censoring indicator variable (if ipcw){p_end}
 {synopt:{cmd:r(censgenerate)}}name of the cumulative censoring weight (if ipcw){p_end}
-{synopt:{cmd:r(combgenerate)}}name of the combined IPTW{c -(}IPCW weight (if ipcw){p_end}
+{synopt:{cmd:r(combgenerate)}}name of the combined IPTW x IPCW weight (if ipcw){p_end}
 {synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
 {synopt:{cmd:r(balance_terms)}}factor-expanded terms indexing {cmd:r(balance)} (if balance){p_end}
 
@@ -575,26 +625,45 @@ of the fitted models; they do not prove these identifying assumptions.
 
 {pstd}
 Robins JM, Hernan MA, Brumback B. Marginal structural models and causal
-inference in epidemiology. Epidemiology. 2000;11(5):550-560.
+inference in epidemiology. Epidemiology. 2000;11(5):550-560,
+doi:10.1097/00001648-200009000-00011.
 
 {pstd}
 Cole SR, Hernan MA. Constructing inverse probability weights for marginal
-structural models. American Journal of Epidemiology. 2008;168(6):656-664.
+structural models. American Journal of Epidemiology. 2008;168(6):656-664,
+doi:10.1093/aje/kwn164.
 
 {pstd}
 Austin PC, Stuart EA. Moving towards best practice when using inverse
 probability of treatment weighting (IPTW) using the propensity score to
 estimate causal treatment effects in observational studies. Statistics in
-Medicine. 2015;34(28):3661-3679.
+Medicine. 2015;34(28):3661-3679. doi:10.1002/sim.6607.
 
 {pstd}
 Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score
 weighting. Journal of the American Statistical
-Association. 2018;113(521):390-400.
+Association. 2018;113(521):390-400. doi:10.1080/01621459.2016.1260466.
 
 {pstd}
 Li L, Greene T. A weighting analogue to pair matching in propensity score
-analysis. International Journal of Biostatistics. 2013;9(2):215-234.
+analysis. International Journal of Biostatistics. 2013;9(2):215-234,
+doi:10.1515/ijb-2012-0030.
+
+{pstd}
+Yoshida K, Hernandez-Diaz S, Solomon DH, Jackson JW, Gagne JJ, Glynn RJ,
+Franklin JM. Matching weights to simultaneously compare three treatment
+groups: comparison to three-way matching. Epidemiology,
+2017;28(3):387-395, doi:10.1097/EDE.0000000000000627.
+
+{pstd}
+Austin PC. Balance diagnostics for comparing the distribution of baseline
+covariates between treatment groups in propensity-score matched samples,
+Statistics in Medicine. 2009;28(25):3083-3107, doi:10.1002/sim.3697.
+
+{pstd}
+Austin PC. An introduction to propensity score methods for reducing the
+effects of confounding in observational studies. Multivariate Behavioral
+Research. 2011;46(3):399-424. doi:10.1080/00273171.2011.568786.
 
 
 {marker alsosee}{...}

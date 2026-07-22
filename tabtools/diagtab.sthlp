@@ -97,8 +97,22 @@ in {cmd:r(cutoffs)}. When {opt cutoffs()} is used, the single-cutoff scalars suc
 theorem. Useful when the study sample prevalence differs from the target
 population. Specify a proportion strictly between 0 and 1.{p_end}
 
+{phang2}{bf:Interval method.} The adjusted predictive values are not binomial
+proportions of an observed denominator, so neither {opt exact} nor {opt wilson}
+applies to them. Their intervals are {bf:symmetric delta-method} intervals that
+propagate sensitivity and specificity uncertainty at the supplied prevalence and
+are truncated to [0,1]. Consequently the adjusted PPV/NPV bounds are identical
+under {opt exact} and {opt wilson}, while sensitivity and specificity bounds
+differ; {cmd:r(methods)} states both methods separately. The prevalence is
+treated as {bf:known without error}, so the intervals do not reflect any
+uncertainty in it, and truncation at 0 or 1 can make a bound conservative near
+the boundary.{p_end}
+
 {phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of
-Wilson score. May not be combined with {opt wilson}.{p_end}
+Wilson score for the directly estimated binomial proportions (sensitivity,
+specificity, accuracy, and unadjusted predictive values). May not be combined
+with {opt wilson}. See {opt prevalence()} for how adjusted predictive values
+are handled.{p_end}
 
 {phang}{opt wilson} use Wilson score confidence intervals (this is the
 default). May not be combined with {opt exact}.{p_end}

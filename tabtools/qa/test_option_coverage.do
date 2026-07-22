@@ -21,7 +21,7 @@ log using "test_option_coverage.log", replace text name(_optcov)
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local out "`c(tmpdir)'/tabtools_optcov"
+local out "`c(tmpdir)'/`c(pid)'_tabtools_optcov"
 capture mkdir "`out'"
 
 * markdown()/csv() (non-append) deliberately refuse to overwrite an existing
@@ -339,6 +339,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define oc_exp 0 "None" 1 "Current", replace
     label values exposure oc_exp
     tempfile r1
@@ -429,6 +431,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define oc_sexp 0 "Low" 1 "Med" 2 "High", replace
     label values exposure oc_sexp
     tempfile sr1

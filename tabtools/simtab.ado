@@ -1,4 +1,4 @@
-*! simtab Version 1.9.11  2026/07/18
+*! simtab Version 1.10.0  2026/07/22
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,6 +36,8 @@ program define simtab, rclass
     local _ret_methods ""
     local _ret_metrics ""
     local _ret_ncells .
+    local _ret_ninput .
+    local _ret_ndropped_se .
     local _ret_nby .
     local _ret_nest .
     local _ret_nemd .
@@ -149,6 +151,38 @@ program define simtab, rclass
         }
         if "`mdappend'" != "" & !`_has_md' {
             display as error "mdappend requires markdown()"
+            exit 198
+        }
+
+        * ----- frame destinations: validate BOTH before either is created -----
+        * simtab is the only command that writes two frames: frame() takes the
+        * rendered string table and plotframe() takes the numeric companion.
+        * They are built at different points in the pipeline (plotframe before
+        * string formatting, frame after), so validating each one immediately
+        * before its own write allowed a bad SECOND destination to land after the
+        * FIRST had already committed. Two concrete failures followed:
+        *   - Aliasing. frame(X, replace) plus plotframe(X) built the numeric
+        *     companion, then dropped and overwrote it with the string table, and
+        *     still exited rc=0 returning r(frame)==r(plotframe)==X. The numeric
+        *     columns were gone; `confirm variable mean' in X returned 111.
+        *   - Ordered collision. plotframe(A, replace) plus frame(B) where B
+        *     already existed replaced A and only then failed 110 on B, so a
+        *     command that errored had already destroyed the user's frame A.
+        * Preflighting both here — before any output work — fixes both: every
+        * destination is validated before any of them is committed.
+        local _frame_name_pre ""
+        local _pframe_name_pre ""
+        if `_has_frame' {
+            _tabtools_frame_preflight `"`frame'"' "frame()"
+            local _frame_name_pre `"`r(name)'"'
+        }
+        if `_has_pframe' {
+            _tabtools_frame_preflight `"`plotframe'"' "plotframe()"
+            local _pframe_name_pre `"`r(name)'"'
+        }
+        if `_has_frame' & `_has_pframe' & "`_frame_name_pre'" == "`_pframe_name_pre'" {
+            display as error "frame() and plotframe() must name different frames (both requested `_frame_name_pre')"
+            display as error "frame() receives the rendered table; plotframe() receives the numeric companion"
             exit 198
         }
 
@@ -280,12 +314,12 @@ program define simtab, rclass
             _tabtools_simtab_ingest, source("`_from'") byvar(`byvar') ///
                 estimatorvar(`estimatorvar') estimandvar(`estimandvar') ///
                 measures(`measures') order(`order')
-            local _source   "`r(source)'"
+            local _source   `"`r(source)'"'
             local _has_by   = `r(has_by)'
             local _has_emd  = `r(has_emd)'
-            local _avail    "`r(measures)'"
-            local _bylab_hdr "`r(by_header)'"
-            local _estlab_hdr "`r(est_header)'"
+            local _avail    `"`r(measures)'"'
+            local _bylab_hdr `"`r(by_header)'"'
+            local _estlab_hdr `"`r(est_header)'"'
             * default metrics in ingest = available display tokens, in canonical order
             if "`disp_metrics'" == "" {
                 local disp_metrics ""
@@ -349,28 +383,55 @@ program define simtab, rclass
             local _need_pow  = `: list posof "power" in disp_metrics'
 
             * ----- resolve true() literal vs varname -----
-            local _truenum = real("`true'")
+            * Try a STRICT numeric parse first. The old test was "does it
+            * contain an alphabetic character", which classified every
+            * scientific-notation literal as a variable name: true(1e-3) reached
+            * `confirm variable 1e-3' and died with r(198) even though
+            * true(#|varname) documents numeric input. real() accepts 1e-3,
+            * 1E-3, 1.5e2, -0.5, +1 and .5, and returns missing for anything a
+            * Stata variable name could be, so it separates the two cleanly.
+            local _true_raw = strtrim(`"`true'"')
+            local _truenum = real("`_true_raw'")
             local _true_isvar = 0
-            if regexm(`"`true'"', "[a-zA-Z_]") {
-                local _true_isvar = 1
-            }
-            if `_true_isvar' {
-                confirm variable `true'
-                local _truevar "`true'"
-            }
-            else {
-                if "`_truenum'" == "." {
+            if missing(`_truenum') {
+                capture confirm name `_true_raw'
+                if _rc {
                     display as error "true() must be a number or a variable name"
                     exit 198
                 }
+                local _true_isvar = 1
+                confirm variable `_true_raw'
+                local _truevar `"`_true_raw'"'
             }
 
             * ----- mark usable rows -----
             marksample touse, novarlist
-            markout `touse' `estimator' `estimate' `se', strok
+            markout `touse' `estimator' `estimate', strok
             if `_true_isvar' markout `touse' `_truevar'
             if `_has_by'  markout `touse' `by', strok
             if `_has_emd' markout `touse' `estimand', strok
+
+            * A replication with a missing se() is treated as an INCOMPLETE
+            * replication and is excluded from every metric, not just the ones
+            * that need an SE. That keeps one analysis sample per cell so all
+            * measures in a row share a denominator -- but it also means
+            * metrics(mean n) reports the mean of the SE-complete subset. That
+            * was previously silent: with estimates 1, 100, 3 and SEs 1, ., 1 it
+            * returned mean 2 and n 2 with no indication that an estimate had
+            * been dropped. Count the exclusions, say so, and return both
+            * denominators so the analysis sample is always recoverable.
+            quietly count if `touse'
+            local _n_pre_se = r(N)
+            quietly count if `touse' & missing(`se')
+            local _n_missing_se = r(N)
+            markout `touse' `se', strok
+            if `_n_missing_se' > 0 {
+                display as text "note: `_n_missing_se' of `_n_pre_se' replication(s) dropped for missing se(); a replication without an SE is treated as incomplete and is excluded from ALL metrics"
+                display as text "      see r(N_input) and r(n_dropped_se); supply complete se() values to include them"
+            }
+
+            local _ret_ninput = `_n_pre_se'
+            local _ret_ndropped_se = `_n_missing_se'
             quietly count if `touse'
             if r(N) == 0 {
                 display as error "no usable observations after applying if/in and dropping missing required values"
@@ -432,24 +493,30 @@ program define simtab, rclass
             tempvar _seq
             quietly gen long `_seq' = _n
 
+            * The ord/label pairs are scratch columns built on the CALLER's data,
+            * so both halves must be tempvars: a legal user variable named
+            * bylab, estlab or emdlab collided with the fixed name and killed
+            * the command with r(110) before any output. They are renamed to
+            * their public names immediately after the collapse below, which is
+            * the point at which the dataset holds only these columns.
             * by
-            tempvar byord
-            quietly gen str244 bylab = ""
+            tempvar byord bylab_t
+            quietly gen str244 `bylab_t' = ""
             if `_has_by' {
-                _simtab_levels `by' `byord' bylab `_seq' "`order'"
+                _simtab_levels `by' `byord' `bylab_t' `_seq' "`order'"
             }
             else {
                 quietly gen byte `byord' = 1
             }
             * estimator
-            tempvar estord
-            quietly gen str244 estlab = ""
-            _simtab_levels `estimator' `estord' estlab `_seq' "`order'"
+            tempvar estord estlab_t
+            quietly gen str244 `estlab_t' = ""
+            _simtab_levels `estimator' `estord' `estlab_t' `_seq' "`order'"
             * estimand
-            tempvar emdord
-            quietly gen str244 emdlab = ""
+            tempvar emdord emdlab_t
+            quietly gen str244 `emdlab_t' = ""
             if `_has_emd' {
-                _simtab_levels `estimand' `emdord' emdlab `_seq' "`order'"
+                _simtab_levels `estimand' `emdord' `emdlab_t' `_seq' "`order'"
             }
             else {
                 quietly gen byte `emdord' = 1
@@ -522,11 +589,14 @@ program define simtab, rclass
                 (mean) m_mean=`estimate' m_meanse=`se' ///
                 truev=`truev' m_coverage=`covered' m_power=`rejected' m_mse=`sqdev' ///
                 (sd) m_empse=`estimate' _sd_sqdev=`sqdev', ///
-                by(`byord' bylab `estord' estlab `emdord' emdlab)
+                by(`byord' `bylab_t' `estord' `estlab_t' `emdord' `emdlab_t')
 
             rename `byord' byord
             rename `estord' estord
             rename `emdord' emdord
+            rename `bylab_t' bylab
+            rename `estlab_t' estlab
+            rename `emdlab_t' emdlab
 
             * ----- derived metrics -----
             quietly gen double m_bias    = m_mean - truev
@@ -647,7 +717,7 @@ program define simtab, rclass
         if `_has_pframe' {
             _simtab_plotframe, spec(`"`plotframe'"') nemd(`_Nemd') level(`level') ///
                 alpha(`alpha') nsim(`nsim') metrics(`"`disp_metrics'"') source(`_source')
-            local _pframe_name "`r(plotframe)'"
+            local _pframe_name `"`r(plotframe)'"'
         }
 
         * =====================================================================
@@ -695,7 +765,7 @@ program define simtab, rclass
             if inlist("`tok'", "pctbias", "relerr", "coverage", "power") local _dec `pctdigits'
             if inlist("`tok'", "n", "nonconv") local _dec 0
 
-            local metriclbl`_mi' "`_lbl'"
+            local metriclbl`_mi' `"`_lbl'"'
             capture confirm variable `_vv'
             if _rc {
                 * metric value not present (ingest gap) -> blank column
@@ -720,15 +790,15 @@ program define simtab, rclass
         * Analysis is complete before optional rendering/file side effects.
         * Stash the core payload now so failed exports still leave useful r().
         local _ret_mode    = cond(`_ingest', "ingest", "compute")
-        local _ret_source  "`_source'"
+        local _ret_source  `"`_source'"'
         local _ret_ncells  = `_Ncells_actual'
         local _ret_nby     = `_Nby'
         local _ret_nest    = `_Nest'
         local _ret_nemd    = `_Nemd'
-        local _ret_metrics "`disp_metrics'"
+        local _ret_metrics `"`disp_metrics'"'
         local _ret_level   = `level'
         local _ret_alpha   = `alpha'
-        local _ret_pframe  "`_pframe_name'"
+        local _ret_pframe  `"`_pframe_name'"'
         local _ret_sheet   `"`sheet'"'
         if !`_ingest' {
             local _ret_nmin = `_nmin'
@@ -748,7 +818,7 @@ program define simtab, rclass
 
         local _fvars ""
         forvalues j = 1/`_D' {
-            local _fvars "`_fvars' f`j'"
+            local _fvars `"`_fvars' f`j'"'
         }
 
         * =====================================================================
@@ -780,11 +850,11 @@ program define simtab, rclass
             * ----- frame (full table, incl. footnote row) -----
             if `_has_frame' {
                 _tabtools_frame_put `"`frame'"'
-                local _frame_out "`_frame_name'"
+                local _frame_out `"`_frame_name'"'
                 frame `_frame_out': char _dta[tabtools_source] "simtab"
                 frame `_frame_out': char _dta[tabtools_kind] "rendered_table"
                 frame `_frame_out': char _dta[tabtools_metrics] "`disp_metrics'"
-                local _ret_frame "`_frame_out'"
+                local _ret_frame `"`_frame_out'"'
             }
             * ----- console display -----
             * drop the footnote row first: in `list, table' a long footnote in
@@ -849,7 +919,7 @@ program define simtab, rclass
                     if `_w' > 28 local _w = 28
                 }
                 quietly drop `_len'
-                local _xlsx_widths "`_xlsx_widths' `_w'"
+                local _xlsx_widths `"`_xlsx_widths' `_w'"'
             }
 
             * ----- border codes -----
@@ -977,6 +1047,8 @@ program define simtab, rclass
         return scalar n_estimators = `_ret_nest'
         return scalar n_by = `_ret_nby'
         return scalar N_cells = `_ret_ncells'
+        capture return scalar N_input = `_ret_ninput'
+        capture return scalar n_dropped_se = `_ret_ndropped_se'
         return scalar level = `_ret_level'
         return scalar alpha = `_ret_alpha'
         if "`_ret_mode'" == "compute" {

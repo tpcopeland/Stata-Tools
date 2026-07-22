@@ -231,7 +231,7 @@ _rc_result "multigroup_weights_contract" `=_rc'
 capture noisily {
     _rc_multigroup_data
     psdash support arm gps0, psvars(gps0 gps1 gps2) reference(1) ///
-        threshold(.20) generate(mg_support)
+        threshold(.09) generate(mg_support)
     assert r(K) == 3
     assert "`r(levels)'" == "0 1 2"
     assert "`r(reference)'" == "1"
@@ -241,7 +241,7 @@ capture noisily {
     confirm scalar r(trim_lower)
     confirm scalar r(trim_upper)
     local mg_label : variable label mg_support
-    assert strpos("`mg_label'", "In trimmed support") == 1
+    assert strpos("`mg_label'", "All GPS components") == 1
     capture confirm scalar r(N_treated)
     assert _rc != 0
 }

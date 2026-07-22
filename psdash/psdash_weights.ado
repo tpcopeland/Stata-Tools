@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.4.1  2026/07/07
+*! psdash_weights Version 1.5.0  2026/07/22
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! puttab Version 1.9.11  2026/07/18
+*! puttab Version 1.10.0  2026/07/22
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -262,7 +262,7 @@ program define puttab, rclass
         local _ret_rows    = `_total_rows'
         local _ret_cols    = `K'
         local _ret_data    = `_ndatarows'
-        local _ret_source  "`_src'"
+        local _ret_source  `"`_src'"'
         local _return_ready = 1
 
         * ----- optional CSV mirror of the assembled table -----

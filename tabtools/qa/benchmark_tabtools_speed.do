@@ -35,7 +35,8 @@ local default_budget = cond(inlist("`strict'", "1", "true", "yes", "strict"), 60
 
 local result_file "`output_dir'/benchmark_tabtools_speed.tsv"
 tempname benchfh worktag
-local work_dir "`c(tmpdir)'/tabtools_bench_`worktag'"
+* c(pid): see run_all.do -- tempname alone collides across concurrent lanes
+local work_dir "`c(tmpdir)'/`c(pid)'_tabtools_bench_`worktag'"
 capture mkdir "`work_dir'"
 
 file open `benchfh' using "`result_file'", write replace text

@@ -1,4 +1,4 @@
-*! tabtools Version 1.9.11  2026/07/18
+*! tabtools Version 1.10.0  2026/07/22
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -134,29 +134,27 @@ program define tabtools, rclass
             return local action "cleared"
         }
         else if "`setkey'" == "font" {
+            if "`setval'" == "" {
+                display as error "tabtools set font requires a value (e.g., tabtools set font Calibri)"
+                exit 198
+            }
+            * Materialize the active named theme into explicit custom settings
+            * only AFTER the new value has been validated. Doing it first meant a
+            * rejected value still switched theme from (say) lancet to custom and
+            * populated the font/size/border globals -- the command exited 198
+            * having already changed persistent session state.
             if `_named_theme_active' {
                 _tabtools_apply_theme "$TABTOOLS_THEME"
                 global TABTOOLS_FONT "`_theme_font'"
                 global TABTOOLS_FONTSIZE `_theme_fontsize'
                 global TABTOOLS_BORDER "`_theme_border'"
                 global TABTOOLS_THEME "custom"
-            }
-            if "`setval'" == "" {
-                display as error "tabtools set font requires a value (e.g., tabtools set font Calibri)"
-                exit 198
             }
             global TABTOOLS_FONT "`setval'"
             display as text "tabtools: default font set to " as result "`setval'"
             return local font "`setval'"
         }
         else if "`setkey'" == "fontsize" {
-            if `_named_theme_active' {
-                _tabtools_apply_theme "$TABTOOLS_THEME"
-                global TABTOOLS_FONT "`_theme_font'"
-                global TABTOOLS_FONTSIZE `_theme_fontsize'
-                global TABTOOLS_BORDER "`_theme_border'"
-                global TABTOOLS_THEME "custom"
-            }
             if "`setval'" == "" {
                 display as error "tabtools set fontsize requires a value (e.g., tabtools set fontsize 11)"
                 exit 198
@@ -170,11 +168,11 @@ program define tabtools, rclass
                 display as error "fontsize must be between 6 and 72"
                 exit 198
             }
-            global TABTOOLS_FONTSIZE `setval'
-            display as text "tabtools: default font size set to " as result "`setval'"
-            return scalar fontsize = `setval'
-        }
-        else if "`setkey'" == "borderstyle" {
+            * Materialize the active named theme into explicit custom settings
+            * only AFTER the new value has been validated. Doing it first meant a
+            * rejected value still switched theme from (say) lancet to custom and
+            * populated the font/size/border globals -- the command exited 198
+            * having already changed persistent session state.
             if `_named_theme_active' {
                 _tabtools_apply_theme "$TABTOOLS_THEME"
                 global TABTOOLS_FONT "`_theme_font'"
@@ -182,9 +180,26 @@ program define tabtools, rclass
                 global TABTOOLS_BORDER "`_theme_border'"
                 global TABTOOLS_THEME "custom"
             }
+            global TABTOOLS_FONTSIZE `setval'
+            display as text "tabtools: default font size set to " as result "`setval'"
+            return scalar fontsize = `setval'
+        }
+        else if "`setkey'" == "borderstyle" {
             if !inlist("`setval'", "default", "thin", "medium", "academic") {
                 display as error "borderstyle must be: default, thin, medium, or academic"
                 exit 198
+            }
+            * Materialize the active named theme into explicit custom settings
+            * only AFTER the new value has been validated. Doing it first meant a
+            * rejected value still switched theme from (say) lancet to custom and
+            * populated the font/size/border globals -- the command exited 198
+            * having already changed persistent session state.
+            if `_named_theme_active' {
+                _tabtools_apply_theme "$TABTOOLS_THEME"
+                global TABTOOLS_FONT "`_theme_font'"
+                global TABTOOLS_FONTSIZE `_theme_fontsize'
+                global TABTOOLS_BORDER "`_theme_border'"
+                global TABTOOLS_THEME "custom"
             }
             global TABTOOLS_BORDER "`setval'"
             display as text "tabtools: default border style set to " as result "`setval'"
@@ -333,9 +348,9 @@ program define tabtools, rclass
         }
 
         _tabtools_resolve_format
-        local _eff_font "`_font'"
-        local _eff_fontsize "`_fontsize'"
-        local _eff_border "`borderstyle'"
+        local _eff_font `"`_font'"'
+        local _eff_fontsize `"`_fontsize'"'
+        local _eff_border `"`borderstyle'"'
         local _eff_headercolor "$TABTOOLS_HEADERCOLOR"
         local _eff_zebracolor "$TABTOOLS_ZEBRACOLOR"
         if "$TABTOOLS_THEME" != "" & "$TABTOOLS_THEME" != "custom" {
@@ -486,34 +501,34 @@ program define tabtools, rclass
 
         // Build selected list based on category
         if "`category'" == "descriptive" {
-            local selected_cmds "`cmd_descriptive'"
+            local selected_cmds `"`cmd_descriptive'"'
         }
         else if "`category'" == "models" {
-            local selected_cmds "`cmd_models'"
+            local selected_cmds `"`cmd_models'"'
         }
         else if "`category'" == "rates" {
-            local selected_cmds "`cmd_rates'"
+            local selected_cmds `"`cmd_rates'"'
         }
         else if "`category'" == "survival" {
-            local selected_cmds "`cmd_survival'"
+            local selected_cmds `"`cmd_survival'"'
         }
         else if "`category'" == "diagnostics" {
-            local selected_cmds "`cmd_diagnostics'"
+            local selected_cmds `"`cmd_diagnostics'"'
         }
         else if "`category'" == "composite" {
-            local selected_cmds "`cmd_composite'"
+            local selected_cmds `"`cmd_composite'"'
         }
         else if "`category'" == "export" {
-            local selected_cmds "`cmd_export'"
+            local selected_cmds `"`cmd_export'"'
         }
         else if "`category'" == "simulation" {
-            local selected_cmds "`cmd_simulation'"
+            local selected_cmds `"`cmd_simulation'"'
         }
         else if "`category'" == "general" {
-            local selected_cmds "`cmd_general'"
+            local selected_cmds `"`cmd_general'"'
         }
         else {
-            local selected_cmds "`cmd_descriptive' `cmd_models' `cmd_rates' `cmd_survival' `cmd_diagnostics' `cmd_composite' `cmd_export' `cmd_simulation' `cmd_general'"
+            local selected_cmds `"`cmd_descriptive' `cmd_models' `cmd_rates' `cmd_survival' `cmd_diagnostics' `cmd_composite' `cmd_export' `cmd_simulation' `cmd_general'"'
         }
 
         // Count commands

@@ -112,8 +112,8 @@ else {
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 1.2: Event at boundary between intervals"
-    display as text "  Intervals: [21915, 22100] + [22100, 22280]"
-    display as text "  Event at: 22100 (boundary)"
+    display as text "  Intervals: [21915, 22100] + [22101, 22280]"
+    display as text "  Event at: 22100 (last day of first interval)"
     display as text "  Expected: 1 event at end of first interval"
 }
 
@@ -126,11 +126,14 @@ capture {
     format %td study_entry study_exit event_dt
     save "${DATA_DIR}/_val_cohort_2.dta", replace
 
-    * Create using (two intervals, boundary at 22100)
+    * Create using (two abutting intervals; under the closed [start, stop]
+    * contract the second must begin on prior_stop + 1. The old fixture
+    * started it on 22100, which shares that day with the first interval and
+    * is therefore an overlap, not abutment.)
     clear
     input long id double(start stop) byte exposure
         1  21915  22100  0
-        1  22100  22280  1
+        1  22101  22280  1
     end
     format %td start stop
     save "${DATA_DIR}/_val_intervals_2.dta", replace
@@ -194,15 +197,17 @@ capture {
     format %td study_entry study_exit event_dt
     save "${DATA_DIR}/_val_cohort_3.dta", replace
 
-    * Create using with boundary points matching events
+    * Create using with boundary points matching events. Abutting intervals
+    * begin on prior_stop + 1: sharing the boundary day is an overlap under
+    * the closed [start, stop] contract, not abutment.
     clear
     input long id double(start stop) byte exposure
         1  21915  22100  0
-        1  22100  22280  1
+        1  22101  22280  1
         2  21915  22200  0
-        2  22200  22280  1
+        2  22201  22280  1
         3  21915  22180  0
-        3  22180  22280  1
+        3  22181  22280  1
     end
     format %td start stop
     save "${DATA_DIR}/_val_intervals_3.dta", replace
@@ -321,7 +326,7 @@ if `quiet' == 0 {
 }
 
 * Test 3.1: Person-time conservation with no events
-* Known answer: 365 days preserved exactly
+* Known answer: 366 days (closed interval) preserved exactly
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 3.1: Person-time with no events"
@@ -353,13 +358,14 @@ capture {
         startvar(start) stopvar(stop) ///
         type(single) generate(outcome)
 
-    * Calculate person-time
-    gen ptime = stop - start
+    * Calculate person-time. Closed [start, stop] rows span stop-start+1
+    * days, so the full 2020 window [21915, 22280] is 366 days, not 365.
+    gen ptime = stop - start + 1
     quietly sum ptime
     local total_ptime = r(sum)
 
-    * Known answer: 365 days
-    assert abs(`total_ptime' - 365) < 0.001
+    * Known answer: 366 days (leap year, inclusive)
+    assert abs(`total_ptime' - 366) < 0.001
 }
 if _rc == 0 {
     local ++pass_count
@@ -367,7 +373,7 @@ if _rc == 0 {
         display "[OK] 3.1"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: Person-time preserved (365 days)"
+        display as result "  PASS: Person-time preserved (366 days)"
     }
 }
 else {
@@ -382,12 +388,12 @@ else {
 }
 
 * Test 3.2: Person-time with event (censored at event)
-* Known answer: 185 days (from Jan 1 to Jul 4)
+* Known answer: 186 days (Jan 1 to Jul 4 inclusive)
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 3.2: Person-time censored at event"
     display as text "  Event at day 185 (22100)"
-    display as text "  Expected: 185 days person-time"
+    display as text "  Expected: 186 days person-time"
 }
 
 capture {
@@ -414,13 +420,14 @@ capture {
         startvar(start) stopvar(stop) ///
         type(single) generate(outcome)
 
-    * Calculate person-time
-    gen ptime = stop - start
+    * Calculate person-time. Closed rows span stop-start+1, so censoring at
+    * 22100 leaves [21915, 22100] = 186 covered days, not 185.
+    gen ptime = stop - start + 1
     quietly sum ptime
     local total_ptime = r(sum)
 
-    * Known answer: 185 days (21915 to 22100)
-    assert abs(`total_ptime' - 185) < 0.001
+    * Known answer: 186 days (21915 to 22100 inclusive)
+    assert abs(`total_ptime' - 186) < 0.001
 }
 if _rc == 0 {
     local ++pass_count
@@ -428,7 +435,7 @@ if _rc == 0 {
         display "[OK] 3.2"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: Person-time correctly censored (185 days)"
+        display as result "  PASS: Person-time correctly censored (186 days)"
     }
 }
 else {
@@ -489,10 +496,13 @@ else {
     }
 }
 
-* Test 4.2: start < stop for all intervals
+* Test 4.2: start <= stop for all intervals
+* Under the closed [start, stop] contract a one-day row has start == stop and
+* is legal. The old assertion demanded start < stop, which rejects exactly
+* those legitimate rows.
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 4.2: All intervals have start < stop"
+    display as text _n "Test 4.2: All intervals have start <= stop"
 }
 
 capture {
@@ -502,8 +512,8 @@ capture {
         startvar(start) stopvar(stop) ///
         type(single) generate(outcome)
 
-    * Verify start < stop
-    quietly count if start >= stop
+    * Verify start <= stop (one-day rows, start == stop, are legal)
+    quietly count if start > stop
     assert r(N) == 0
 }
 if _rc == 0 {
@@ -512,7 +522,7 @@ if _rc == 0 {
         display "[OK] 4.2"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: All intervals have start < stop"
+        display as result "  PASS: All intervals have start <= stop"
     }
 }
 else {
@@ -539,9 +549,11 @@ capture {
         startvar(start) stopvar(stop) ///
         type(single) generate(outcome)
 
-    * Check for gaps (where start[n] != stop[n-1])
+    * Check for gaps. Under the closed [start, stop] contract, consecutive
+    * rows are contiguous when start[n] == stop[n-1] + 1; the old check
+    * demanded start[n] == stop[n-1], which is an overlap, not contiguity.
     sort id start
-    by id: gen gap = (start != stop[_n-1]) if _n > 1
+    by id: gen gap = (start != stop[_n-1] + 1) if _n > 1
     quietly count if gap == 1
     assert r(N) == 0
 }
@@ -593,10 +605,13 @@ capture {
     tempfile cohort
     save `cohort'
 
+    * Abutting intervals begin on prior_stop + 1. Reusing day 22100 as both
+    * a stop and the next start is an overlap, which put the event date in
+    * two intervals at once.
     clear
     input long id double(start stop) byte exposure
         1  21915  22100  0
-        1  22100  22280  1
+        1  22101  22280  1
     end
     format %td start stop
     tempfile intervals
@@ -755,7 +770,7 @@ capture {
         exposure(hrt_type) reference(0) ///
         generate(tv_hrt)
 
-    * Known answer: 365 days of exposure
+    * Known answer: 366 days (closed interval) of exposure
     * Note: tvexpose output uses variable names from start()/stop() options
     gen ptime = rx_stop - rx_start
     quietly sum ptime if tv_hrt == 1
@@ -884,9 +899,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         duration(1) continuousunit(years) reference(0) generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test1_1") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test1_1") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test1_1.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test1_1.dta", clear
 
     * The person has 365 days of exposure
     * With duration(1) continuousunit(years), threshold is at 1 year
@@ -936,9 +951,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         duration(1) continuousunit(years) reference(0) generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test1_2") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test1_2") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test1_2.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test1_2.dta", clear
 
     * 364 days < 365 threshold, so max category should be 1 (<1 year)
     quietly summarize tv_exp
@@ -985,9 +1000,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         duration(1) continuousunit(months) reference(0) generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test1_3") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test1_3") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test1_3.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test1_3.dta", clear
 
     * 31 days > 30 threshold, crossing at day 31 = Jan 31 (within period)
     * Split: [Jan 1-Jan 30] cat 1, [Jan 31-Jan 31] cat 2
@@ -1033,9 +1048,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         duration(1) continuousunit(years) bytype reference(0) generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test1_4") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test1_4") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test1_4.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test1_4.dta", clear
 
     * With bytype, duration variable is named duration_<type>
     * Check that we have a duration variable
@@ -1099,9 +1114,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         duration(1 2) continuousunit(years) reference(0) generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test1_5") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test1_5") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test1_5.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test1_5.dta", clear
 
     * ~912 days clearly exceeds both thresholds (365 and ~731)
     * Should reach category 3 (2+ years)
@@ -1159,9 +1174,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         dose generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test2_1") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test2_1") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test2_1.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test2_1.dta", clear
 
     * Both prescriptions should contribute dose
     * Total dose from both prescriptions = 10 * 91 + 10 * 90 = 910 + 900 = 1810
@@ -1221,9 +1236,9 @@ capture {
     tvexpose using `exposure', id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(study_entry) exit(study_exit) ///
         dose generate(tv_exp) ///
-        saveas("`c(tmpdir)'/bugfix_test2_2") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/bugfix_test2_2") replace
 
-    quietly use "`c(tmpdir)'/bugfix_test2_2.dta", clear
+    quietly use "$TVTOOLS_QA_RUN_DIR/bugfix_test2_2.dta", clear
 
     * Cumulative dose at end should reflect both prescriptions
     * Both prescriptions contribute, so max cumulative > single prescription

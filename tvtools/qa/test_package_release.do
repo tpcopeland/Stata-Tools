@@ -287,6 +287,132 @@ else {
     local failed_tests "`failed_tests' docs_surface"
 }
 
+**# 7b. Every shipped .sthlp RENDERS cleanly through Stata's SMCL interpreter
+*
+* Every other help-file check in this package -- here and in test_regressions --
+* reads the .sthlp SOURCE and asks "are the right words present, in order?".
+* The user does not live on that axis. A directive left open across a source
+* newline keeps every word present and in order, passes all of those checks,
+* and prints literal markup to the Viewer.
+*
+* This package has already shipped that defect: the clarity audit's M03 found
+* four valid-but-wrong {c -(} separators that rendered as literal braces, and
+* the 1.8.0 remediation itself introduced two more (a {bf:...} split across a
+* newline in tvexpose.sthlp and another in tvweight.sthlp) which the package's
+* own 59-suite green lane did not catch. Only an external renderer did.
+*
+* `type <file>, smcl` pushes the file through Stata's own SMCL interpreter, so
+* this is the real oracle rather than a brace-counting proxy for it, and it
+* needs nothing outside Stata -- required, because a released package's QA
+* must be self-contained and cannot call development tooling.
+
+capture program drop _tvtools_sthlp_render
+program define _tvtools_sthlp_render, rclass
+    version 16.0
+    syntax anything(name=files id="help files")
+
+    * Tolerate a quoted list. `anything' keeps the surrounding quotes, which
+    * would make the whole space-separated list read as a single filename --
+    * the check would then report "file not found" and fail closed rather than
+    * rendering anything. Failing closed is correct, but it is not the check.
+    local files = subinstr(`"`files'"', char(34), "", .)
+
+    local nbad 0
+    local badfiles ""
+
+    foreach f of local files {
+        capture confirm file "`f'"
+        if _rc {
+            display as error "  render: file not found: `f'"
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+
+        tempfile rlog
+        * Pause the suite's log, render into a private named log, resume.
+        capture log off
+        log using "`rlog'", replace text name(_tvrender)
+        type "`f'", smcl
+        log close _tvrender
+        capture log on
+
+        local hits 0
+        local nlines 0
+        tempname fh
+        file open `fh' using "`rlog'", read text
+        file read `fh' line
+        while r(eof) == 0 {
+            local ++nlines
+            if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") {
+                * Park the braces on control chars first: the SMCL escapes
+                * {c -(} and {c )-} themselves contain braces, so substituting
+                * them in place corrupts each other -- and skipping the escape
+                * lets display render the markup away, so the offending line
+                * would print as if it were fine.
+                local shown = subinstr(`"`line'"',  "{",     char(1), .)
+                local shown = subinstr(`"`shown'"', "}",     char(2), .)
+                local shown = subinstr(`"`shown'"', char(1), "{c -(}", .)
+                local shown = subinstr(`"`shown'"', char(2), "{c )-}", .)
+                display as error "  literal SMCL in `f': `shown'"
+                local ++hits
+            }
+            file read `fh' line
+        }
+        file close `fh'
+
+        * An oracle that did not run must never read as clean.
+        if `nlines' == 0 {
+            display as error "  render produced no output for `f' -- FAILING"
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+        if `hits' > 0 {
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+        }
+    }
+
+    return scalar nbad = `nbad'
+    return local badfiles "`badfiles'"
+end
+
+local ++test_count
+capture noisily {
+    local sthlps : dir "`pkg_dir'" files "*.sthlp"
+    local paths ""
+    foreach s of local sthlps {
+        local paths "`paths' `pkg_dir'/`s'"
+    }
+    * All ten shipped help files must render, and there must BE ten.
+    local n_sthlp : word count `sthlps'
+    assert `n_sthlp' == 10
+    _tvtools_sthlp_render `paths'
+    assert r(nbad) == 0
+
+    * Positive control: the checker must be able to FAIL. A render oracle that
+    * only ever returns 0 is indistinguishable from one that does not run, and
+    * this defect class is precisely the one a green suite cannot see.
+    tempname bfh
+    local broken "$TVTOOLS_QA_RUN_DIR/_render_probe.sthlp"
+    file open `bfh' using "`broken'", write replace text
+    file write `bfh' "{smcl}" _n
+    file write `bfh' "{title:Render probe}" _n _n
+    file write `bfh' "{pstd}" _n
+    file write `bfh' "A directive split across a source newline: {bf:broken" _n
+    file write `bfh' "directive} renders as literal markup." _n
+    file close `bfh'
+    _tvtools_sthlp_render `broken'
+    assert r(nbad) == 1
+    capture erase "`broken'"
+}
+if _rc == 0 local ++pass_count
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' sthlp_render"
+}
+
 **# 8. Dialog files load through Stata and expose the command contracts
 
 local ++test_count

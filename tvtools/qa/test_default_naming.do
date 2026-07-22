@@ -33,7 +33,7 @@ program define _make_fixtures
     gen study_entry = mdy(1,1,2020)
     gen study_exit  = mdy(12,31,2020)
     format %td study_entry study_exit
-    save "`c(tmpdir)'/_tvdn_cohort.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort.dta", replace
     clear
     set obs 1
     gen `idvar' = 1
@@ -41,15 +41,15 @@ program define _make_fixtures
     gen double stop  = mdy(5,31,2020)
     gen int `expvar' = 1
     format %td start stop
-    save "`c(tmpdir)'/_tvdn_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_exp.dta", replace
 end
 
 * ===== TEST 1: omitted generate() derives tv_<exposure> + r(genvar) =====
 local ++test_count
 capture {
     _make_fixtures drug id
-    use "`c(tmpdir)'/_tvdn_cohort.dta", clear
-    tvexpose using "`c(tmpdir)'/_tvdn_exp.dta", id(id) start(start) stop(stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvdn_exp.dta", id(id) start(start) stop(stop) ///
         exposure(drug) reference(0) entry(study_entry) exit(study_exit)
     assert "`r(genvar)'" == "tv_drug"
     confirm variable tv_drug
@@ -69,8 +69,8 @@ else {
 * ===== TEST 2: explicit generate() still wins (regression) =====
 local ++test_count
 capture {
-    use "`c(tmpdir)'/_tvdn_cohort.dta", clear
-    tvexpose using "`c(tmpdir)'/_tvdn_exp.dta", id(id) start(start) stop(stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvdn_exp.dta", id(id) start(start) stop(stop) ///
         exposure(drug) reference(0) entry(study_entry) exit(study_exit) generate(myexp)
     assert "`r(genvar)'" == "myexp"
     confirm variable myexp
@@ -97,7 +97,7 @@ capture {
     gen study_entry = mdy(1,1,2020)
     gen study_exit  = mdy(12,31,2020)
     format %td study_entry study_exit
-    save "`c(tmpdir)'/_tvdn_cohort2.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort2.dta", replace
     clear
     set obs 1
     gen tv_drug = 1
@@ -105,9 +105,9 @@ capture {
     gen double stop  = mdy(5,31,2020)
     gen int drug = 1
     format %td start stop
-    save "`c(tmpdir)'/_tvdn_exp2.dta", replace
-    use "`c(tmpdir)'/_tvdn_cohort2.dta", clear
-    tvexpose using "`c(tmpdir)'/_tvdn_exp2.dta", id(tv_drug) start(start) stop(stop) ///
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_exp2.dta", replace
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort2.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvdn_exp2.dta", id(tv_drug) start(start) stop(stop) ///
         exposure(drug) reference(0) entry(study_entry) exit(study_exit)
     assert "`r(genvar)'" == "tv_exposure"
     confirm variable tv_exposure
@@ -134,7 +134,7 @@ capture {
     gen study_entry = mdy(1,1,2020)
     gen study_exit  = mdy(12,31,2020)
     format %td study_entry study_exit
-    save "`c(tmpdir)'/_tvdn_cohort3.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort3.dta", replace
     clear
     set obs 1
     gen id = 1
@@ -142,9 +142,9 @@ capture {
     gen double stop  = mdy(5,31,2020)
     gen int `longexp' = 1
     format %td start stop
-    save "`c(tmpdir)'/_tvdn_exp3.dta", replace
-    use "`c(tmpdir)'/_tvdn_cohort3.dta", clear
-    tvexpose using "`c(tmpdir)'/_tvdn_exp3.dta", id(id) start(start) stop(stop) ///
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_exp3.dta", replace
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_cohort3.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvdn_exp3.dta", id(id) start(start) stop(stop) ///
         exposure(`longexp') reference(0) entry(study_entry) exit(study_exit)
     assert "`r(genvar)'" == "tv_exposure"
     confirm variable tv_exposure
@@ -169,7 +169,7 @@ capture {
     gen study_entry = mdy(1,1,2020)
     gen study_exit  = mdy(12,31,2020)
     format %td study_entry study_exit
-    save "`c(tmpdir)'/_tvdn_coh.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvdn_coh.dta", replace
     foreach v in drugA drugB {
         clear
         set obs 1
@@ -178,23 +178,23 @@ capture {
         gen double stop  = mdy(5,31,2020)
         gen int `v' = 1
         format %td start stop
-        save "`c(tmpdir)'/_tvdn_`v'.dta", replace
+        save "$TVTOOLS_QA_RUN_DIR/_tvdn_`v'.dta", replace
     }
-    use "`c(tmpdir)'/_tvdn_coh.dta", clear
-    tvexpose using "`c(tmpdir)'/_tvdn_drugA.dta", id(id) start(start) stop(stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_coh.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvdn_drugA.dta", id(id) start(start) stop(stop) ///
         exposure(drugA) reference(0) entry(study_entry) exit(study_exit) ///
-        saveas("`c(tmpdir)'/_tvdn_outA.dta") replace
-    use "`c(tmpdir)'/_tvdn_coh.dta", clear
-    tvexpose using "`c(tmpdir)'/_tvdn_drugB.dta", id(id) start(start) stop(stop) ///
+        saveas("$TVTOOLS_QA_RUN_DIR/_tvdn_outA.dta") replace
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_coh.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvdn_drugB.dta", id(id) start(start) stop(stop) ///
         exposure(drugB) reference(0) entry(study_entry) exit(study_exit) ///
-        saveas("`c(tmpdir)'/_tvdn_outB.dta") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/_tvdn_outB.dta") replace
     * No rename needed: derived names are distinct (tv_drugA/tv_drugB), so the
     * exposure() list does not collide and tvmerge keeps the original names
     * (contrast the auto-suffix path forced by the old shared tv_exposure name).
-    tvmerge "`c(tmpdir)'/_tvdn_outA.dta" "`c(tmpdir)'/_tvdn_outB.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_tvdn_outA.dta" "$TVTOOLS_QA_RUN_DIR/_tvdn_outB.dta", ///
         id(id) start(start start) stop(stop stop) ///
-        exposure(tv_drugA tv_drugB) saveas("`c(tmpdir)'/_tvdn_merged.dta") replace
-    use "`c(tmpdir)'/_tvdn_merged.dta", clear
+        exposure(tv_drugA tv_drugB) saveas("$TVTOOLS_QA_RUN_DIR/_tvdn_merged.dta") replace
+    use "$TVTOOLS_QA_RUN_DIR/_tvdn_merged.dta", clear
     confirm variable tv_drugA
     confirm variable tv_drugB
 }

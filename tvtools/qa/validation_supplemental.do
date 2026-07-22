@@ -30,7 +30,10 @@ display as result "tvtools QA: supplemental correctness -- $S_DATE $S_TIME"
 **# ===== merged from validation_tvtools.do L19471-20306: cross-command math validation + return-value completeness =====
 
 capture noisily {
-local DATA_DIR "data"
+* Fixture scratch space is the per-run private copy, never the tracked
+* source tree: writing through a relative "data" path mutated qa/data/ and
+* collided with any concurrent run.
+local DATA_DIR "$DATA_DIR"
 
 * SECTION 3: TVWEIGHT MATHEMATICAL VALIDATION
 
@@ -896,7 +899,7 @@ drop s_*
 save `inv_intervals', replace
 
 * Compute person-time before tvevent
-quietly gen double pt = stop - start
+quietly gen double pt = stop - start + 1
 quietly summarize pt
 local ptime_before = r(sum)
 
@@ -921,7 +924,7 @@ tvevent using `inv_intervals', id(id) date(event_date) ///
 * Test 16.1: Person-time within expected range after merge
 local ++test_count
 capture {
-    quietly gen double pt = stop - start
+    quietly gen double pt = stop - start + 1
     quietly summarize pt
     local ptime_after = r(sum)
     * Person-time may differ if tvevent truncates at event dates
@@ -1088,7 +1091,7 @@ local ++test_count
 capture {
     * Total person-time: each person has Jan1-Dec31 = 365 days
     * Two persons = 730 days
-    quietly gen double pt = stop - start
+    quietly gen double pt = stop - start + 1
     quietly summarize pt
     local merged_pt = r(sum)
     assert `merged_pt' >= 725 & `merged_pt' <= 735

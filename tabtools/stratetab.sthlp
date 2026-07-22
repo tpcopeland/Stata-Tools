@@ -41,7 +41,8 @@
 outcomes as column groups and exposure variables as rows. The completed table
 is displayed in the Results window and can also be exported to Excel, saved as
 CSV, or stored in a Stata frame. Each outcome spans three columns: Events,
-Person-Years, and Rate (95% CI).
+Person-Years, and Rate with its confidence interval at the resolved level
+(95% by default, shown in the header as, for example, "Rate (95% CI)").
 
 {pstd}
 The command reads multiple .dta files produced by {helpb strate}, organized by
@@ -118,7 +119,8 @@ person-years. Must be between 0 and 10. Default is 0.
 
 {phang}
 {opt unitlabel(string)} specifies the unit label for the rate column header. Default
-is "1,000", producing "Per 1,000 PY (95% CI)". Keep {opt unitlabel()} synchronized
+is "1,000", producing "Per 1,000 PY (95% CI)" at the default level; the
+interval label tracks the resolved level. Keep {opt unitlabel()} synchronized
 with {opt ratescale()} so the displayed label matches the scaled rate values.
 
 {phang}
@@ -133,14 +135,19 @@ when strate was run with {cmd:per(1)}.
 {phang}
 {opt level(#)} verifies confidence-level provenance in the saved
 {cmd:strate, output()} files. When their interval variable labels identify a
-level, all files must agree and an explicit {opt level()} must match. Specify
-{opt level()} when every source lacks that metadata. Mixed known/unknown or
-conflicting levels are rejected. The resolved level is shown in headers,
-returned in {cmd:r(ci_level)}, and stored on a requested frame.
+level, all files must agree and an explicit {opt level()} must match. The
+option is {it:required} whenever any source lacks that metadata --
+including when every source lacks it -- and {cmd:stratetab} exits with error
+459 otherwise rather than assuming 95%. Mixed known/unknown or conflicting
+levels are rejected. The resolved level is shown in headers, returned in
+{cmd:r(ci_level)}, and stored on a requested frame.
 
 {phang2}{opt rateratio} adds an incidence rate ratio (IRR) column per outcome. Reference
-group is the first exposure group (displays "Ref."). 95% CI computed via
-log-normal method.{p_end}
+group is the first exposure group (displays "Ref."). The returned
+{cmd:r(ratios)} matrix has one row per non-reference exposure category and one
+column per outcome. The interval is computed
+by the log-normal method at the resolved level, the same level used for the
+rate intervals and returned in {cmd:r(ci_level)}.{p_end}
 
 {phang2}{opt ratio:digits(#)} decimal places for rate ratios (default 2).{p_end}
 
@@ -286,7 +293,7 @@ number of exposure groups (total files / outcomes).
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(rates)}}numeric incidence-rate matrix{p_end}
-{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (cols = outcomes{p_end}
+{synopt:{cmd:r(ratios)}}incidence rate ratio matrix; see {it:Options}{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}

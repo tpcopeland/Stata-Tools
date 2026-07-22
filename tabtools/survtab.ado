@@ -1,4 +1,4 @@
-*! survtab Version 1.9.11  2026/07/18
+*! survtab Version 1.10.0  2026/07/22
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -21,7 +21,7 @@ SYNTAX:
     times:      REQUIRED. Timepoints for KM estimates (e.g., 1 3 5)
     by:         Group comparison variable with log-rank test
     rmst:       Restricted mean survival time truncated at specified time
-    median:     Include median survival with CI (auto-on when by() used)
+    median:     Include median survival with CI (opt-in; never auto-enabled)
     riskset:    Number-at-risk rows at each timepoint
     reverse:    Cumulative incidence (1 - S(t)) instead of survival
     difference: Between-group difference column with CI
@@ -238,7 +238,8 @@ capture noisily {
         else {
             local _glabel "Overall"
         }
-        local glabel_`g' "`_glabel'"
+        local glabel_`g' `"`_glabel'"'
+        local glevel_`g' `"`_glv'"'
         if "`st_id'" != "" {
             tempvar _gn_tag
             qui egen byte `_gn_tag' = tag(`st_id') if `groupvar' == `_glv' & _st
@@ -487,13 +488,16 @@ capture noisily {
     qui replace c1 = "" in `row'
     forvalues g = 1/`n_groups' {
         local col = 1 + `g'
-        qui replace c`col' = "`glabel_`g'' (N=`gn_`g'')" in `row'
+        qui replace c`col' = `"`glabel_`g'' (N=`gn_`g'')"' in `row'
     }
     local _diff_col = 0
     local _p_col = 0
     if "`difference'" != "" & `n_groups' == 2 {
         local _diff_col = `n_groups' + 2
-        qui replace c`_diff_col' = "Difference" in `row'
+        * Name the direction in the header. The contrast is group 1 minus group
+        * 2 -- the first and second by() columns as displayed -- and a bare
+        * "Difference" left a sign-sensitive published number ambiguous.
+        qui replace c`_diff_col' = `"Difference (`glabel_1' - `glabel_2')"' in `row'
     }
     if `has_by' {
         local _p_col = `ncols'
@@ -549,7 +553,7 @@ capture noisily {
     local row = `row' + 1
     qui set obs `row'
     local _prob_label = cond("`reverse'" != "", "Cumulative incidence", "Survival probability")
-    qui replace c1 = "`_prob_label'" in `row'
+    qui replace c1 = `"`_prob_label'"' in `row'
 
     * Survival probability rows at each timepoint
     forvalues t = 1/`n_times' {
@@ -677,7 +681,7 @@ capture noisily {
 
         * Write p-value in the p column on the first data row (row 3)
         if `_p_col' > 0 {
-            qui replace c`_p_col' = "`_lr_p_str'" in 3
+            qui replace c`_p_col' = `"`_lr_p_str'"' in 3
         }
     }
 
@@ -704,7 +708,7 @@ capture noisily {
 
             local curr_n = _N
             qui set obs `=`curr_n'+1'
-            qui replace c1 = "`_ar_label'" in `=`curr_n'+1'
+            qui replace c1 = `"`_ar_label'"' in `=`curr_n'+1'
 
             local _ar_c = 1
             local _ar_vals = strtrim(`"`_ar_vals'"')
@@ -712,7 +716,7 @@ capture noisily {
                 gettoken _ar_v _ar_vals : _ar_vals
                 local _ar_c = `_ar_c' + 1
                 if `_ar_c' <= `ncols' {
-                    qui replace c`_ar_c' = "`_ar_v'" in `=`curr_n'+1'
+                    qui replace c`_ar_c' = `"`_ar_v'"' in `=`curr_n'+1'
                 }
             }
         }
@@ -739,11 +743,11 @@ capture noisily {
     local _rnames ""
     forvalues t = 1/`n_times' {
         local _time : word `t' of `times'
-        local _rnames "`_rnames' t`_time'"
+        local _rnames `"`_rnames' t`_time'"'
     }
     local _cnames ""
     forvalues g = 1/`n_groups' {
-        local _cnames "`_cnames' `glabel_`g''"
+        local _cnames `"`_cnames' `glabel_`g''"'
     }
     capture matrix rownames `_rtable' = `_rnames'
     capture matrix colnames `_rtable' = `_cnames'
@@ -792,7 +796,7 @@ capture noisily {
 **# Frame Output
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
-        local frame "`_frame_name'"
+        local frame `"`_frame_name'"'
         frame `frame': char _dta[tabtools_ci_level] "`level'"
         frame `frame': char _dta[tabtools_source] "survtab"
     }
@@ -814,6 +818,17 @@ capture noisily {
     if `has_by' {
         return scalar logrank_p = `logrank_p'
         return scalar logrank_chi2 = `logrank_chi2'
+    }
+    * Group identity. Without this the per-group scalars (rmst_1, median_2, ...)
+    * could not be mapped back to the by() values they came from, which matters
+    * because the RMST contrast below is sign-sensitive publication output.
+    if `has_by' {
+        return local by_var "`groupvar'"
+        return scalar n_groups = `n_groups'
+        forvalues g = 1/`n_groups' {
+            capture return local group_`g'_value `"`glevel_`g''"'
+            capture return local group_`g'_label `"`glabel_`g''"'
+        }
     }
     if `has_rmst' {
         forvalues g = 1/`n_groups' {
@@ -849,7 +864,7 @@ capture noisily {
         local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
         local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `level'% confidence intervals based on the Greenwood variance formula."
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
-            local _methods "`_methods' The between-group RMST difference is reported with a `level'% confidence interval and two-sided Wald p-value based on the independent-group variance."
+            local _methods `"`_methods' The between-group RMST difference is reported as `glabel_1' minus `glabel_2' (the first minus the second by() group in ascending order of `groupvar'), with a `level'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
         }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."

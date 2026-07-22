@@ -62,6 +62,8 @@ gen double _Y = .
 gen double _Rate = .
 gen double _Lower = .
 gen double _Upper = .
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 
 replace _D = 25 in 1
 replace _D = 18 in 2
@@ -90,6 +92,8 @@ gen double _Y = .
 gen double _Rate = .
 gen double _Lower = .
 gen double _Upper = .
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 
 replace _D = 12 in 1
 replace _D = 8 in 2
@@ -334,6 +338,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _val_exp 0 "Low" 1 "Med" 2 "High"
         label values exposure _val_exp
         save "`output_dir'/_val_strate_o1.dta", replace
@@ -346,6 +352,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _val_exp 0 "Low" 1 "Med" 2 "High", replace
         label values exposure _val_exp
         save "`output_dir'/_val_strate_o2.dta", replace
@@ -413,6 +421,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _val_exp_rr 0 "Low" 1 "Med" 2 "High"
         label values exposure _val_exp_rr
         save "`output_dir'/_val_strate_rr_ref.dta", replace
@@ -425,6 +435,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _val_exp_rr 0 "Low" 1 "Med" 2 "High", replace
         label values exposure _val_exp_rr
         save "`output_dir'/_val_strate_rr_exp.dta", replace
@@ -504,6 +516,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _val_exp_z 0 "Low" 1 "Med" 2 "High"
         label values exposure _val_exp_z
         save "`output_dir'/_val_strate_z_ref.dta", replace
@@ -516,6 +530,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _val_exp_z 0 "Low" 1 "Med" 2 "High", replace
         label values exposure _val_exp_z
         save "`output_dir'/_val_strate_z_exp.dta", replace

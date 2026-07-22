@@ -669,9 +669,17 @@ capture noisily {
         ds c*
         local _allcols `r(varlist)'
         foreach _v of local _allcols {
-            if `_v'[2] == "Difference" local _diff_col = subinstr("`_v'", "c", "", 1)
+            * The header now names the direction explicitly, e.g.
+            * "Difference (Placebo - Active)" (finding I06), so match the prefix.
+            if strpos(`_v'[2], "Difference") == 1 local _diff_col = subinstr("`_v'", "c", "", 1)
         }
         assert `_diff_col' > 0
+        * I06: the header must NAME the contrast direction, not just say
+        * "Difference". A bare label left a sign-sensitive published number
+        * ambiguous. The value labels for drug are 1/2/3, so with by(drug)
+        * restricted to two groups the header carries both group labels.
+        assert strpos(c`_diff_col'[2], "(") > 0
+        assert strpos(c`_diff_col'[2], "-") > 0
         * Find the RMST row and verify it has a difference value
         local _found 0
         forvalues r = 3/`=_N' {

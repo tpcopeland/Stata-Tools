@@ -1,4 +1,4 @@
-*! stratetab Version 1.9.11  2026/07/18
+*! stratetab Version 1.10.0  2026/07/22
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -39,7 +39,7 @@ program define stratetab, rclass
 	local _userdata_saved 0
 
 tempfile _userdata_outer
-local _userdata_path "`_userdata_outer'"
+local _userdata_path `"`_userdata_outer'"'
 
 capture noisily {
 
@@ -332,29 +332,34 @@ forvalues e = 1/`n_exposures' {
 		local catvar ""
 		foreach v of local allvars {
 			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
+				local catvar `"`v'"'
 				continue, break
 			}
 		}
 		
+		* These scratch columns are built on the SOURCE FILE's data, so they
+		* must be tempvars. A strate file whose grouping variable is legally
+		* named catvar_str, or that already carries the scaled rate columns,
+		* collided with the old fixed names and died with r(110).
+		tempvar catvar_str _Rate_scaled _Lower_scaled _Upper_scaled
 		* Convert categorical to string if needed
 		cap confirm string var `catvar'
 		if _rc {
 			* Check if variable has a value label before decoding
 			local vallabel : value label `catvar'
 			if "`vallabel'" != "" {
-				decode `catvar', gen(catvar_str)
+				decode `catvar', gen(`catvar_str')
 			}
 			else {
 				* No value label - convert to string directly
-				gen catvar_str = string(`catvar')
+				gen `catvar_str' = string(`catvar')
 			}
 			}
 			else {
-				gen catvar_str = `catvar'
+				gen `catvar_str' = `catvar'
 			}
-			replace catvar_str = strtrim(catvar_str)
-			qui count if catvar_str == ""
+			replace `catvar_str' = strtrim(`catvar_str')
+			qui count if `catvar_str' == ""
 			if r(N) > 0 {
 				noi di as err "Blank category labels are not allowed in `file'.dta"
 				restore
@@ -362,7 +367,7 @@ forvalues e = 1/`n_exposures' {
 			}
 			tempvar _dup_cat _obs_id
 			gen long `_obs_id' = _n
-			qui bysort catvar_str: gen byte `_dup_cat' = (_N > 1)
+			qui bysort `catvar_str': gen byte `_dup_cat' = (_N > 1)
 			sort `_obs_id'
 			qui count if `_dup_cat'
 			if r(N) > 0 {
@@ -373,20 +378,20 @@ forvalues e = 1/`n_exposures' {
 			}
 			
 			* Scale and format rate
-			gen double _Rate_scaled = _Rate * `ratescale'
-			gen double _Lower_scaled = _Lower * `ratescale'
-			gen double _Upper_scaled = _Upper * `ratescale'
+			gen double `_Rate_scaled' = _Rate * `ratescale'
+			gen double `_Lower_scaled' = _Lower * `ratescale'
+			gen double `_Upper_scaled' = _Upper * `ratescale'
 			
 			* Store and validate canonical categories for this exposure
 			if `o' == 1 {
 				local ncat_e`e' = _N
 				forvalues i = 1/`=_N' {
-					local cat_e`e'_`i' = catvar_str[`i']
+					local cat_e`e'_`i' = `catvar_str'[`i']
 					local D_o`o'_e`e'_`i' = _D[`i']
 					local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
-					local Rate_o`o'_e`e'_`i' = _Rate_scaled[`i']
-					local Lower_o`o'_e`e'_`i' = _Lower_scaled[`i']
-					local Upper_o`o'_e`e'_`i' = _Upper_scaled[`i']
+					local Rate_o`o'_e`e'_`i' = `_Rate_scaled'[`i']
+					local Lower_o`o'_e`e'_`i' = `_Lower_scaled'[`i']
+					local Upper_o`o'_e`e'_`i' = `_Upper_scaled'[`i']
 				}
 			}
 			else {
@@ -401,7 +406,7 @@ forvalues e = 1/`n_exposures' {
 					local _match_row = 0
 					local _match_count = 0
 					forvalues _j = 1/`=_N' {
-						local _current_cat = catvar_str[`_j']
+						local _current_cat = `catvar_str'[`_j']
 						if `"`_current_cat'"' == `"`_target_cat'"' {
 							local _match_row = `_j'
 							local _match_count = `_match_count' + 1
@@ -415,9 +420,9 @@ forvalues e = 1/`n_exposures' {
 					}
 					local D_o`o'_e`e'_`i' = _D[`_match_row']
 					local Y_o`o'_e`e'_`i' = _Y[`_match_row'] / `pyscale'
-					local Rate_o`o'_e`e'_`i' = _Rate_scaled[`_match_row']
-					local Lower_o`o'_e`e'_`i' = _Lower_scaled[`_match_row']
-					local Upper_o`o'_e`e'_`i' = _Upper_scaled[`_match_row']
+					local Rate_o`o'_e`e'_`i' = `_Rate_scaled'[`_match_row']
+					local Lower_o`o'_e`e'_`i' = `_Lower_scaled'[`_match_row']
+					local Upper_o`o'_e`e'_`i' = `_Upper_scaled'[`_match_row']
 				}
 			}
 			
@@ -425,10 +430,23 @@ forvalues e = 1/`n_exposures' {
 	}
 }
 
-if `_ci_provenance_seen' & `_ci_unknown_seen' & `level' == -1 {
-	noi di as err "some strate source files lack confidence-level provenance; specify level() explicitly"
+* Any source file without recoverable provenance requires an explicit level().
+* This previously only fired when SOME files had provenance and others did not;
+* when NO file carried it the code fell through to a silent `= 95', so intervals
+* computed at another level were labeled "95% CI" and returned r(ci_level)=95.
+* strate records the level in the _Lower/_Upper variable labels, so an absent
+* label means the level is genuinely unknown and must be supplied, not guessed.
+if `_ci_unknown_seen' & `level' == -1 {
+	if `_ci_provenance_seen' {
+		noi di as err "some strate source files lack confidence-level provenance; specify level() explicitly"
+	}
+	else {
+		noi di as err "strate source file(s) carry no confidence-level provenance in the _Lower/_Upper labels"
+		noi di as err "specify level() explicitly; the level is not recoverable and 95% is not assumed"
+	}
 	exit 459
 }
+if `level' != -1 & missing(`_ci_level') local _ci_level = `level'
 if missing(`_ci_level') local _ci_level = 95
 local _ci_alpha = (100 - `_ci_level') / 200
 local _ci_z = invnormal(1 - `_ci_alpha')
@@ -493,7 +511,7 @@ quietly set obs `new'
 quietly replace c1 = "Exposure" in `new'
 local col = 2
 forvalues o = 1/`outcomes' {
-	quietly replace c`col' = "`outlab`o''" in `new'
+	quietly replace c`col' = `"`outlab`o''"' in `new'
 	local col = `col' + `_cols_per_outcome'
 }
 
@@ -520,7 +538,7 @@ forvalues e = 1/`n_exposures' {
 	* Exposure header row
 	local new = _N + 1
 	quietly set obs `new'
-	quietly replace c1 = "`explab`e''" in `new'
+	quietly replace c1 = `"`explab`e''"' in `new'
 	
 	* Category rows (indented)
 	forvalues i = 1/`ncat_e`e'' {
@@ -537,7 +555,7 @@ forvalues e = 1/`n_exposures' {
 			else {
 				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%11.`eventdigits'fc")
 			}
-			quietly replace c`col' = "`ev_fmt'" in `new'
+			quietly replace c`col' = `"`ev_fmt'"' in `new'
 			local col = `col' + 1
 
 			* Person-years
@@ -547,14 +565,14 @@ forvalues e = 1/`n_exposures' {
 			else {
 				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%11.`pydigits'fc")
 			}
-			quietly replace c`col' = "`py_fmt'" in `new'
+			quietly replace c`col' = `"`py_fmt'"' in `new'
 			local col = `col' + 1
 
 			* Rate (95% CI)
 			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
 				" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
 				"-" + strtrim(string(round(`Upper_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ")"
-			quietly replace c`col' = "`rt_fmt'" in `new'
+			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1
 
 			* Rate Ratio (IRR) if requested
@@ -569,7 +587,7 @@ forvalues e = 1/`n_exposures' {
 					local irr_fmt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ///
 						" (" + strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ///
 						"-" + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ")"
-					quietly replace c`col' = "`irr_fmt'" in `new'
+					quietly replace c`col' = `"`irr_fmt'"' in `new'
 				}
 				local col = `col' + 1
 			}
@@ -584,7 +602,7 @@ gen `exp_row' = (c2 == "" & c1 != "" & c1 != "Exposure" & _n > 3)
 local exp_rows ""
 forvalues r = 4/`lastrow' {
 	if `exp_row'[`r'] == 1 {
-		local exp_rows "`exp_rows' `r'"
+		local exp_rows `"`exp_rows' `r'"'
 	}
 }
 drop `exp_row'
@@ -624,7 +642,7 @@ noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
 * Frame output
 if `"`frame'"' != "" {
 	_tabtools_frame_put `"`frame'"'
-	local frame "`_frame_name'"
+	local frame `"`_frame_name'"'
 	frame `frame': char _dta[tabtools_source] "stratetab"
 	frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
 	frame `frame': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
@@ -659,17 +677,17 @@ forvalues e = 1/`n_exposures' {
 						local _rname = "e`e'_`_rname'"
 						local _rname = substr("`_rname'", 1, 32)
 					}
-					local _base_rname "`_rname'"
+					local _base_rname `"`_rname'"'
 					local _rname_i = 1
 					while strpos(" `_used_rnames' ", " `_rname' ") {
 						local ++_rname_i
 						local _suffix "_`_rname_i'"
 						local _stem_len = 32 - strlen("`_suffix'")
 						local _rname = substr("`_base_rname'", 1, `_stem_len')
-						local _rname "`_rname'`_suffix'"
+						local _rname `"`_rname'`_suffix'"'
 					}
-					local _used_rnames "`_used_rnames' `_rname'"
-					local _rnames "`_rnames' `_rname'"
+					local _used_rnames `"`_used_rnames' `_rname'"'
+					local _rnames `"`_rnames' `_rname'"'
 				}
 				}
 		local _cnames ""
@@ -679,7 +697,7 @@ forvalues e = 1/`n_exposures' {
 			local _cname = subinstr("`_cname'", ",", "", .)
 			local _cname = substr("`_cname'", 1, 32)
 			if "`_cname'" == "" local _cname "outcome`o'"
-			local _cnames "`_cnames' `_cname'"
+			local _cnames `"`_cnames' `_cname'"'
 		}
 		capture matrix rownames `_rrates' = `_rnames'
 		capture matrix colnames `_rrates' = `_cnames'
@@ -710,17 +728,17 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 							local _rname = "e`e'_`_rname'"
 							local _rname = substr("`_rname'", 1, 32)
 						}
-						local _base_rname "`_rname'"
+						local _base_rname `"`_rname'"'
 						local _rname_i = 1
 						while strpos(" `_used_rnames' ", " `_rname' ") {
 							local ++_rname_i
 							local _suffix "_`_rname_i'"
 							local _stem_len = 32 - strlen("`_suffix'")
 							local _rname = substr("`_base_rname'", 1, `_stem_len')
-							local _rname "`_rname'`_suffix'"
+							local _rname `"`_rname'`_suffix'"'
 						}
-						local _used_rnames "`_used_rnames' `_rname'"
-						local _rnames "`_rnames' `_rname'"
+						local _used_rnames `"`_used_rnames' `_rname'"'
+						local _rnames `"`_rnames' `_rname'"'
 					}
 				}
 			local _cnames ""
@@ -730,7 +748,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				local _cname = subinstr("`_cname'", ",", "", .)
 				local _cname = substr("`_cname'", 1, 32)
 				if "`_cname'" == "" local _cname "outcome`o'"
-				local _cnames "`_cnames' `_cname'"
+				local _cnames `"`_cnames' `_cname'"'
 			}
 			capture matrix rownames `_rratios' = `_rnames'
 			capture matrix colnames `_rratios' = `_cnames'
@@ -785,7 +803,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				local _hdr = c`_data_col'[3]
 				local _hdrlen = strlen("`_hdr'")
 				local _cw = max(8, `_hdrlen' + 2)
-				local _xlsx_widths "`_xlsx_widths' `_cw'"
+				local _xlsx_widths `"`_xlsx_widths' `_cw'"'
 			}
 			capture {
 				local _hborder_code = 1

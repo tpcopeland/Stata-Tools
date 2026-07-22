@@ -1129,7 +1129,9 @@ capture {
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
         "{cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected") > 0
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
-        "{it:psvar} must be supplied explicitly.") > 0
+        "{it:psvar} must be supplied") > 0
+    assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///
+        "explicitly. In that setting") > 0
 }
 _test_result `=_rc'
 

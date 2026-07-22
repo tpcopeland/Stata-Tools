@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.7.2  2026/07/19
+*! tvdiagnose Version 1.8.0  2026/07/22
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -96,6 +96,11 @@ program define tvdiagnose, rclass
         exit 459
     }
 
+    * --- Daily-date contract: reject %tc/%tC and non-whole daily bounds --
+    * The reversed-bound gate above keeps its own 459 code, so the shared
+    * validator is called for the format and whole-day rules only.
+    _tvtools_check_dates, cmd(tvdiagnose) dates(`start' `stop')
+
     if "`coverage'" != "" {
         if "`entry'" == "" | "`exit'" == "" {
             display as error "coverage requires entry() and exit() options"
@@ -118,6 +123,7 @@ program define tvdiagnose, rclass
             display as error "`r(N)' observation(s) have exit < entry"
             exit 459
         }
+        _tvtools_check_dates, cmd(tvdiagnose) dates(`entry' `exit')
     }
 
     if "`summarize'" != "" & "`exposure'" == "" {

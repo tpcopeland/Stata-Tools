@@ -1,4 +1,4 @@
-*! _tabtools_visible_vars Version 1.9.11  2026/07/18
+*! _tabtools_visible_vars Version 1.10.0  2026/07/22
 *! Resolve visible table variables for CSV and Markdown exports
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -29,13 +29,13 @@ program define _tabtools_visible_vars
         }
 
         if `"`_cvars'"' != "" {
-            local _vars "`_vars' `_cvars'"
+            local _vars `"`_vars' `_cvars'"'
         }
         else {
             foreach _v of local _allvars {
                 if regexm("`_v'", "(_length|_max)$") continue
                 if regexm("`_v'", "^ref[0-9]+$") continue
-                local _vars "`_vars' `_v'"
+                local _vars `"`_vars' `_v'"'
             }
         }
 

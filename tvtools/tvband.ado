@@ -1,4 +1,4 @@
-*! tvband Version 1.7.2  2026/07/19
+*! tvband Version 1.8.0  2026/07/22
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -73,17 +73,7 @@ program define tvband, rclass
             exit 109
         }
     }
-    foreach v in `start' `stop' `origin' {
-        local fmt : format `v'
-        if substr("`fmt'", 1, 3) == "%tc" | substr("`fmt'", 1, 3) == "%tC" {
-            display as error "Variable '`v'' has datetime format (`fmt')."
-            display as error "tvband requires daily date variables."
-            display as error "Convert with: gen daily_`v' = dofc(`v')"
-            exit 120
-        }
-    }
-
-    * --- No missing id or interval/origin dates --------------------------
+    * --- No missing id ---------------------------------------------------
     * (F05: reject missing IDs like tvsplit/tvexpose, rather than emitting
     *  rows for a phantom missing-ID person)
     quietly count if missing(`id')
@@ -91,18 +81,10 @@ program define tvband, rclass
         display as error "`r(N)' observation(s) have missing `id'"
         exit 416
     }
-    quietly count if missing(`start') | missing(`stop')
-    if r(N) > 0 {
-        display as error "`r(N)' observation(s) have missing `start' or `stop'"
-        exit 416
-    }
-    if "`origin'" != "" {
-        quietly count if missing(`origin')
-        if r(N) > 0 {
-            display as error "`r(N)' observation(s) have missing `origin'"
-            exit 416
-        }
-    }
+
+    * --- Daily-date contract: non-datetime, nonmissing, whole, ordered ---
+    _tvtools_check_dates, cmd(tvband) dates(`start' `stop' `origin') ///
+        startvar(`start') stopvar(`stop')
 
     * --- Default output names by axis type --------------------------------
     if "`generate'" == "" {

@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.9.11  2026/07/18
+*! hrcomptab Version 1.10.0  2026/07/22
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,7 @@ program define hrcomptab, rclass
     local _userdata_saved 0
 
     tempfile _userdata_outer
-    local _userdata_path "`_userdata_outer'"
+    local _userdata_path `"`_userdata_outer'"'
 
     capture noisily {
 
@@ -95,7 +95,7 @@ program define hrcomptab, rclass
         }
         if "`forest'" != "" & `"`_eplotframe_name'"' == "" {
             tempname _forest_eplotframe
-            local _eplotframe_name "`_forest_eplotframe'"
+            local _eplotframe_name `"`_forest_eplotframe'"'
             local _eplotframe_replace 1
             local _eplotframe_temporary 1
         }
@@ -195,18 +195,18 @@ program define hrcomptab, rclass
             if `"`_rate_lab_trim'"' == "" continue
 
             if !strmatch(`"`_rate_lab'"', "   *") & `"`_rate_c2'"' == "" {
-                local section_rows "`section_rows' `_r'"
+                local section_rows `"`section_rows' `_r'"'
                 local _seen_ref = 0
                 continue
             }
 
             if strmatch(`"`_rate_lab'"', "   *") {
                 if !`_seen_ref' {
-                    local ref_rows "`ref_rows' `_r'"
+                    local ref_rows `"`ref_rows' `_r'"'
                     local _seen_ref = 1
                 }
                 else {
-                    local nonref_rows "`nonref_rows' `_r'"
+                    local nonref_rows `"`nonref_rows' `_r'"'
                 }
             }
         }
@@ -338,7 +338,7 @@ program define hrcomptab, rclass
 	        * touching the current frame. All subsequent reads use only snapshots.
 	        tempname _rate_snapshot
 	        frame copy `_rateframe_original' `_rate_snapshot'
-	        local rateframe "`_rate_snapshot'"
+	        local rateframe `"`_rate_snapshot'"'
 	        local modelframes ""
 	        forvalues _f = 1/`n_frames' {
 	            tempname _model_snapshot_`_f'
@@ -616,7 +616,7 @@ program define hrcomptab, rclass
 	                    display as error "outcomemap() maps more than one rate outcome to the same model block"
 	                    exit 198
 	                }
-	                local _used_model_indices "`_used_model_indices' `_matched_index'"
+	                local _used_model_indices `"`_used_model_indices' `_matched_index'"'
 	                local _model_map_`_f'_`_o' = `_matched_index'
 	                if `_f' == 1 {
 	                    local _output_model_id_`_o' `"`_mid_`_matched_index''"'
@@ -675,7 +675,7 @@ program define hrcomptab, rclass
                                     display as error "rownames() patterns must select each model-frame row at most once"
                                     exit 198
                                 }
-                                local expanded`_f' "`expanded`_f'' `_row'"
+                                local expanded`_f' `"`expanded`_f'' `_row'"'
                                 local _matched = 1
                             }
                         }
@@ -741,9 +741,9 @@ program define hrcomptab, rclass
             foreach _rr of local _spec_rows {
 	                local ++_selected_total
 	                local ++_map_i
-	                local _map_frame`_map_i' "`_fname'"
+	                local _map_frame`_map_i' `"`_fname'"'
 	                local _map_f`_map_i' = `_f'
-	                local _map_source`_map_i' "`_source_original_`_f''"
+	                local _map_source`_map_i' `"`_source_original_`_f''"'
 	                local _map_row`_map_i' = `_rr' + 3
             }
         }
@@ -757,7 +757,7 @@ program define hrcomptab, rclass
 	        local _eplot_build_name ""
 	        if `"`_eplotframe_name'"' != "" {
 	            tempname _eplot_build
-	            local _eplot_build_name "`_eplot_build'"
+	            local _eplot_build_name `"`_eplot_build'"'
 	            frame create `_eplot_build_name' str244 label double estimate double ll double ul ///
 	                double pvalue int model str244 model_label str24 rowtype str244 section ///
 	                long source_row str32 source_frame
@@ -817,9 +817,9 @@ program define hrcomptab, rclass
                 }
 
 	                local ++_next_model_ep
-	                local _mfname_ep "`_map_frame`_next_model_ep''"
+	                local _mfname_ep `"`_map_frame`_next_model_ep''"'
 	                local _mfindex_ep = `_map_f`_next_model_ep''
-	                local _mfsource_ep "`_map_source`_next_model_ep''"
+	                local _mfsource_ep `"`_map_source`_next_model_ep''"'
 	                local _src_row_ep = `_map_row`_next_model_ep'' - 3
                 local _src_ep ""
                 capture frame `_mfname_ep': local _src_ep : char _dta[tabtools_eplotframe]
@@ -964,7 +964,7 @@ program define hrcomptab, rclass
             }
 
 	            local ++_next_model
-	            local _mfname "`_map_frame`_next_model''"
+	            local _mfname `"`_map_frame`_next_model''"'
 	            local _mfindex = `_map_f`_next_model''
 	            local _mrow = `_map_row`_next_model''
 
@@ -1010,7 +1010,7 @@ program define hrcomptab, rclass
         }
 
         local lastrow = _N
-        local exp_rows "`section_rows'"
+        local exp_rows `"`section_rows'"'
 
         * Console display
         noisily _tabtools_console_display `ncols' `"`_out_title'"', datastart(4) headerstart(2)
@@ -1054,7 +1054,7 @@ program define hrcomptab, rclass
 	        local _display_build_name ""
 	        if `"`_displayframe_name'"' != "" {
 	            tempname _display_build
-	            local _display_build_name "`_display_build'"
+	            local _display_build_name `"`_display_build'"'
 	            frame put *, into(`_display_build_name')
 	            frame `_display_build_name': char _dta[tabtools_source] "hrcomptab"
 	            frame `_display_build_name': char _dta[tabtools_ci_level] "`_ci_level'"
@@ -1068,7 +1068,7 @@ program define hrcomptab, rclass
 	                frame `_display_build_name': char _dta[tabtools_outcome_id_`_o'] `"`_rate_outcome_id_`_o''"'
 	                frame `_display_build_name': char _dta[tabtools_effect_scale_`_o'] "HR"
 	            }
-	            local frame "`_displayframe_name'"
+	            local frame `"`_displayframe_name'"'
 	        }
 	        if `"$TABTOOLS_QA_HRC_STAGE_FAIL"' == "1" error 459
 

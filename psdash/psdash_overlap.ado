@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.4.1  2026/07/07
+*! psdash_overlap Version 1.5.0  2026/07/22
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -74,7 +74,7 @@ program define psdash_overlap, rclass
         [COVariates(varlist numeric) ///
          bins(integer 30) ///
          HISTogram ///
-         BWIDth(real 0) ///
+         BWIDth(string) ///
          NOGraph ///
          SAVing(string) ///
          SCHeme(string) ///
@@ -91,6 +91,13 @@ program define psdash_overlap, rclass
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
     if "`sheet'" == "" local sheet "Overlap"
+    if "`bwidth'" != "" {
+        capture confirm number `bwidth'
+        if _rc | real("`bwidth'") <= 0 {
+            display as error "bwidth() must be a positive number"
+            exit 198
+        }
+    }
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto
@@ -358,7 +365,7 @@ program define psdash_overlap, rclass
                 else {
                     * Density plot version (default)
                     local bw_opt ""
-                    if `bwidth' > 0 {
+                    if "`bwidth'" != "" {
                         local bw_opt "bwidth(`bwidth')"
                     }
 
@@ -629,7 +636,7 @@ program define psdash_overlap, rclass
                 else {
                     * Density plot version (default)
                     local bw_opt ""
-                    if `bwidth' > 0 {
+                    if "`bwidth'" != "" {
                         local bw_opt "bwidth(`bwidth')"
                     }
 

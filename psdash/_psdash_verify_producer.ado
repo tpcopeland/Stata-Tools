@@ -1,4 +1,4 @@
-*! _psdash_verify_producer Version 1.4.0  2026/07/19
+*! _psdash_verify_producer Version 1.5.0  2026/07/22
 *! Call a producer package's own validity/signature guard before trusting its
 *! post-estimation contract; fail closed on stale, unsigned, or unverifiable state
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -52,6 +52,33 @@ program define _psdash_verify_producer
             capture noisily `guardcmd'
             exit _rc
         }
+
+        _psdash_contract_info `source'
+        local _version_field "`r(version_field)'"
+        local _min_version "`r(min_version)'"
+        local _max_version "`r(max_version)'"
+        local _found_version ""
+        if inlist("`source'", "tmle", "ltmle") {
+            local _found_version "`e(contract_version)'"
+        }
+        if "`_found_version'" == "" {
+            local _found_version : char _dta[`_version_field']
+        }
+        local _found_num = real("`_found_version'")
+        if "`_found_version'" == "" | missing(`_found_num') | ///
+                `_found_num' < real("`_min_version'") | ///
+                `_found_num' > real("`_max_version'") {
+            local _found_label "`_found_version'"
+            if "`_found_label'" == "" local _found_label "<missing>"
+            display as error "unsupported `source' analysis contract"
+            display as error "  this psdash release supports `source' contract versions `_min_version' to `_max_version';"
+            display as error "  found `_found_label'."
+            display as error "  Update psdash or specify treatment and propensity-score variables explicitly."
+            exit 459
+        }
+        * _psdash_contract_info is r-class; do not leak its implementation
+        * metadata through the caller's return surface.
+        return clear
     }
     local rc = _rc
     set varabbrev `_vao'

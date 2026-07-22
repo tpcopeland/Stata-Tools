@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.4.0  2026/07/01
+*! _psdash_ltmle_diagnostics Version 1.5.0  2026/07/22
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -39,6 +39,17 @@ program define _psdash_ltmle_diagnostics, rclass
             confirm variable `id'
         }
 
+        quietly count if `samplevar'
+        local N_input = r(N)
+        quietly count if `samplevar' & missing(`treatment')
+        local n_missing_treatment = r(N)
+        quietly count if `samplevar' & missing(`period')
+        local n_missing_period = r(N)
+        quietly count if `samplevar' & missing(`psvar')
+        local n_missing_ps = r(N)
+        quietly count if `samplevar' & missing(`wvar')
+        local n_missing_weight = r(N)
+
         markout `samplevar' `treatment' `period' `psvar' `wvar'
 
         quietly count if `samplevar'
@@ -47,6 +58,7 @@ program define _psdash_ltmle_diagnostics, rclass
             exit 2000
         }
         local N = r(N)
+        local n_excluded = `N_input' - `N'
 
         capture assert inlist(`treatment', 0, 1) if `samplevar'
         if _rc {
@@ -60,16 +72,18 @@ program define _psdash_ltmle_diagnostics, rclass
             exit 198
         }
 
-        * RB-10 (L2): negative inverse-probability weights are invalid and must be
+        * Nonpositive inverse-probability weights are invalid and must be
         * rejected before any summary statistic is computed. A negative weight is
         * not a small diagnostic quirk -- it indicates a corrupted weighting
         * artifact, and the old code summarised it into a positive ESS at rc=0.
+        quietly count if `samplevar' & `wvar' <= 0
+        local _n_nonpositive_wt = r(N)
         quietly count if `samplevar' & `wvar' < 0
         local _n_neg_wt = r(N)
-        if `_n_neg_wt' > 0 {
-            display as error "`source' weights must be nonnegative"
-            display as error "  `_n_neg_wt' observation(s) have a negative longitudinal weight;"
-            display as error "  negative inverse-probability weights indicate a corrupted weighting artifact."
+        if `_n_nonpositive_wt' > 0 {
+            display as error "`source' weights must be strictly positive"
+            display as error "  `_n_nonpositive_wt' observation(s) have a zero or negative longitudinal weight;"
+            display as error "  nonpositive inverse-probability weights indicate a corrupted weighting artifact."
             display as error "  Re-run the producer ({cmd:`source'}) to regenerate valid weights."
             exit 198
         }
@@ -92,8 +106,9 @@ program define _psdash_ltmle_diagnostics, rclass
             mean_control min_treated max_treated min_control max_control ///
             overlap_lower overlap_upper pct_outside
 
-        matrix `wtperiod' = J(`n_periods', 7, .)
-        matrix colnames `wtperiod' = N mean sd p95 p99 max ess_pct
+        matrix `wtperiod' = J(`n_periods', 9, .)
+        matrix colnames `wtperiod' = N mean sd p95 p99 max ess_pct ///
+            ess_treated_pct ess_control_pct
 
         tempvar wt_sq
         quietly gen double `wt_sq' = `wvar'^2 if `samplevar'
@@ -108,6 +123,7 @@ program define _psdash_ltmle_diagnostics, rclass
         local n_single_arm = 0
         local n_estimable = 0
         local min_period_ess = .
+        local min_period_arm_ess = .
         local i = 0
         foreach p of local period_values {
             local ++i
@@ -198,6 +214,29 @@ program define _psdash_ltmle_diagnostics, rclass
                 if `ess_pct' < `min_period_ess' local min_period_ess = `ess_pct'
             }
 
+            local ess_treated_pct = .
+            local ess_control_pct = .
+            foreach a in 0 1 {
+                quietly summarize `wvar' if `samplevar' & `period' == `p' & ///
+                    `treatment' == `a', meanonly
+                local arm_sum_wt = r(sum)
+                local arm_N = r(N)
+                quietly summarize `wt_sq' if `samplevar' & `period' == `p' & ///
+                    `treatment' == `a', meanonly
+                local arm_sum_wt_sq = r(sum)
+                local arm_ess_pct = .
+                if `arm_sum_wt_sq' > 0 & `arm_N' > 0 {
+                    local arm_ess = (`arm_sum_wt'^2) / `arm_sum_wt_sq'
+                    local arm_ess_pct = 100 * `arm_ess' / `arm_N'
+                    if missing(`min_period_arm_ess') | ///
+                            `arm_ess_pct' < `min_period_arm_ess' {
+                        local min_period_arm_ess = `arm_ess_pct'
+                    }
+                }
+                if `a' == 1 local ess_treated_pct = `arm_ess_pct'
+                else local ess_control_pct = `arm_ess_pct'
+            }
+
             matrix `wtperiod'[`i', 1] = `p_N'
             matrix `wtperiod'[`i', 2] = `wt_mean'
             matrix `wtperiod'[`i', 3] = `wt_sd'
@@ -205,6 +244,8 @@ program define _psdash_ltmle_diagnostics, rclass
             matrix `wtperiod'[`i', 5] = `wt_p99'
             matrix `wtperiod'[`i', 6] = `wt_max'
             matrix `wtperiod'[`i', 7] = `ess_pct'
+            matrix `wtperiod'[`i', 8] = `ess_treated_pct'
+            matrix `wtperiod'[`i', 9] = `ess_control_pct'
         }
         matrix rownames `overlap' = `rownames'
         matrix rownames `wtperiod' = `rownames'
@@ -252,6 +293,10 @@ program define _psdash_ltmle_diagnostics, rclass
             display as text "Regime:        " as result "`regime'"
         }
         display as text "Obs:           " as result %10.0fc `N'
+        if `n_excluded' > 0 {
+            display as text "Input rows:    " as result %10.0fc `N_input' ///
+                as text " (" as result `n_excluded' as text " incomplete excluded)"
+        }
         display as text "Periods:       " as result %10.0fc `n_periods'
 
         display as text _n "{hline 91}"
@@ -278,12 +323,13 @@ program define _psdash_ltmle_diagnostics, rclass
         }
         display as text "{hline 91}"
 
-        display as text _n "{hline 82}"
+        display as text _n "{hline 104}"
         display as text "Contract Weight Distribution by Period"
-        display as text "{hline 82}"
+        display as text "{hline 104}"
         display as text %10s "Period" %9s "N" %11s "Mean" %11s "SD" ///
-            %11s "P95" %11s "P99" %11s "Max" %9s "ESS%"
-        display as text "{hline 82}"
+            %11s "P95" %11s "P99" %11s "Max" %9s "ESS%" ///
+            %10s "ESS% T" %10s "ESS% C"
+        display as text "{hline 104}"
         local i = 0
         foreach p of local period_values {
             local ++i
@@ -294,11 +340,14 @@ program define _psdash_ltmle_diagnostics, rclass
             local wt_p99 = `wtperiod'[`i', 5]
             local wt_max = `wtperiod'[`i', 6]
             local ess_pct_p = `wtperiod'[`i', 7]
+            local ess_treated_pct_p = `wtperiod'[`i', 8]
+            local ess_control_pct_p = `wtperiod'[`i', 9]
             display as result %10.0g `p' %9.0fc `p_N' %11.4f `wt_mean' ///
                 %11.4f `wt_sd' %11.4f `wt_p95' %11.4f `wt_p99' ///
-                %11.4f `wt_max' %9.2f `ess_pct_p'
+                %11.4f `wt_max' %9.2f `ess_pct_p' ///
+                %10.2f `ess_treated_pct_p' %10.2f `ess_control_pct_p'
         }
-        display as text "{hline 82}"
+        display as text "{hline 104}"
 
         display as text _n "{hline 55}"
         display as text "Overall Contract Weight Summary"
@@ -325,6 +374,11 @@ program define _psdash_ltmle_diagnostics, rclass
         * so the "0% outside / perfect support" illusion (L1) can no longer pass.
         local _pf ""
         local _pfn = 0
+        if `n_excluded' > 0 {
+            display as error "Warning: `n_excluded' incomplete input row(s) excluded from longitudinal diagnostics."
+            local _pf `"`_pf' | `n_excluded' incomplete input row(s) excluded"'
+            local ++_pfn
+        }
         if `n_single_arm' > 0 {
             display as error "Warning: `n_single_arm' period(s) have only one treatment arm (overlap not estimable)."
             local _pf `"`_pf' | `n_single_arm' single-arm period(s) (overlap not estimable)"'
@@ -343,6 +397,11 @@ program define _psdash_ltmle_diagnostics, rclass
         if `min_period_ess' < 50 & `min_period_ess' < . {
             display as error "Warning: minimum per-period ESS is `=string(`min_period_ess',"%4.1f")'% (period collapse)."
             local _pf `"`_pf' | min per-period ESS `=string(`min_period_ess',"%4.1f")'% < 50%"'
+            local ++_pfn
+        }
+        if `min_period_arm_ess' < 50 & `min_period_arm_ess' < . {
+            display as error "Warning: minimum period-by-arm ESS is `=string(`min_period_arm_ess',"%4.1f")'% (arm collapse)."
+            local _pf `"`_pf' | min period-arm ESS `=string(`min_period_arm_ess',"%4.1f")'% < 50%"'
             local ++_pfn
         }
         if `n_extreme' > 0 {
@@ -369,6 +428,13 @@ program define _psdash_ltmle_diagnostics, rclass
 
         return clear
         return scalar N = `N'
+        return scalar N_input = `N_input'
+        return scalar N_complete = `N'
+        return scalar n_excluded = `n_excluded'
+        return scalar n_missing_treatment = `n_missing_treatment'
+        return scalar n_missing_period = `n_missing_period'
+        return scalar n_missing_ps = `n_missing_ps'
+        return scalar n_missing_weight = `n_missing_weight'
         return scalar N_periods = `n_periods'
         return scalar max_pct_outside = `max_pct_outside'
         return scalar mean_wt = `mean_wt'
@@ -393,8 +459,10 @@ program define _psdash_ltmle_diagnostics, rclass
         return scalar n_single_arm_periods = `n_single_arm'
         return scalar n_estimable_periods = `n_estimable'
         return scalar min_period_ess_pct = `min_period_ess'
+        return scalar min_period_arm_ess_pct = `min_period_arm_ess'
         return scalar n_ps_boundary = `n_ps_boundary'
         return scalar n_neg_wt = `_n_neg_wt'
+        return scalar n_nonpositive_wt = `_n_nonpositive_wt'
         return local periods "`period_values'"
         return local treatment "`treatment'"
         return local psvar "`psvar'"

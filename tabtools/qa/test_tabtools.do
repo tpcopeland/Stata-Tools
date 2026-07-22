@@ -669,8 +669,8 @@ local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
 tempname install_id
 local install_tag = subinstr("`install_id'", "__", "", .)
-local plus_dir "`c(tmpdir)'/tabtools_v161_plus_`install_tag'"
-local personal_dir "`c(tmpdir)'/tabtools_v161_personal_`install_tag'"
+local plus_dir "`c(tmpdir)'/`c(pid)'_tabtools_v161_plus_`install_tag'"
+local personal_dir "`c(tmpdir)'/`c(pid)'_tabtools_v161_personal_`install_tag'"
 capture mkdir "`plus_dir'"
 capture mkdir "`personal_dir'"
 sysdir set PLUS "`plus_dir'"

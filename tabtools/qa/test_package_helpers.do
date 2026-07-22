@@ -144,7 +144,7 @@ else {
 
 * Test: _tabtools_validate_path rejects apostrophes
 capture noisily {
-    capture _tabtools_validate_path "output/O'Brien.xlsx" "test"
+    capture _tabtools_validate_path "`output_dir'/O'Brien.xlsx" "test"
     assert _rc == 198
 }
 if _rc == 0 {
@@ -1860,6 +1860,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.75
     gen double _Upper = _Rate * 1.25
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _wx_exp2 0 "No HRT" 1 "Any HRT", replace
     label values exposure _wx_exp2
     save "`_wx_rate1'.dta", replace
@@ -1872,6 +1874,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.70
     gen double _Upper = _Rate * 1.30
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _wx_exp4 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
     label values exposure _wx_exp4
     save "`_wx_rate2'.dta", replace
@@ -2063,6 +2067,8 @@ program define _make_console_strate
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _console_exp 0 "None" 1 "Current", replace
     label values exposure _console_exp
     save "`basename'.dta", replace
@@ -2409,6 +2415,8 @@ generate double _Y = 100 * _n
 generate double _Rate = _D / _Y
 generate double _Lower = _Rate * 0.8
 generate double _Upper = _Rate * 1.2
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 save "`output_dir'/_color_strate.dta", replace
 
 capture erase "`output_dir'/_color_stratetab.xlsx"
@@ -2536,6 +2544,8 @@ program define _contract_make_rate
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.8
     gen double _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define contract_exp 0 "None" 1 "Current", replace
     label values exposure contract_exp
     save "`basename'.dta", replace
@@ -3496,6 +3506,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _md_exp 0 "None" 1 "Current", replace
     label values exposure _md_exp
     save "`_md_rate'.dta", replace
@@ -3584,6 +3596,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * .8
     gen double _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _md_exp 0 "None" 1 "Current", replace
     label values exposure _md_exp
     save "`_md_rate_only'.dta", replace
@@ -4732,6 +4746,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define _xl_exp 0 "Low" 1 "Med" 2 "High"
         label values exposure _xl_exp
         save "`output_dir'/_xl_strate_o1.dta", replace

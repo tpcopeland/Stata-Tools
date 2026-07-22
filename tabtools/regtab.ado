@@ -1,4 +1,4 @@
-*! regtab Version 1.9.11  2026/07/18
+*! regtab Version 1.10.0  2026/07/22
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -176,19 +176,19 @@ if `highpdp' == -1 local highpdp = 2
 
 		* Stage both frame sinks under temporary names. Caller-visible targets are
 		* swapped only after every requested file export has succeeded.
-		local _displayframe_target "`_displayframe_name'"
-		local _eplotframe_target "`_eplotframe_name'"
+		local _displayframe_target `"`_displayframe_name'"'
+		local _eplotframe_target `"`_eplotframe_name'"'
 		local _displayframe_build ""
 		local _eplotframe_build ""
 		if `"`_displayframe_target'"' != "" {
 			tempname _displayframe_tmp
-			local _displayframe_build "`_displayframe_tmp'"
+			local _displayframe_build `"`_displayframe_tmp'"'
 			local frame "`_displayframe_build', replace"
 		}
 		if `"`_eplotframe_target'"' != "" {
 			tempname _eplotframe_tmp
-			local _eplotframe_build "`_eplotframe_tmp'"
-			local _eplotframe_name "`_eplotframe_build'"
+			local _eplotframe_build `"`_eplotframe_tmp'"'
+			local _eplotframe_name `"`_eplotframe_build'"'
 			local _eplotframe_replace 1
 		}
 
@@ -240,8 +240,8 @@ if `"`markdown'"' != "" {
 
 * Auto-detect coefficient label from model type
 if "`coef'" == "" {
-	local _ecmd2 "`e(cmd2)'"
-	local _ecmd "`e(cmd)'"
+	local _ecmd2 `"`e(cmd2)'"'
+	local _ecmd `"`e(cmd)'"'
 	if "`_ecmd2'" != "" local _ecmd "`_ecmd2'"
 	if inlist("`_ecmd'", "logit", "logistic", "melogit", "meoprobit", "ologit") {
 		local coef "OR"
@@ -348,26 +348,12 @@ quietly{
 		noisily display as error "Hint: {bf:collect clear} then {bf:collect: regress y x1 x2}"
 		exit 119
 	}
-	_tabtools_collect_ci_level
+	* Shared with effecttab: see _tabtools_resolve_ci_level in _tabtools_common.
+	* When the collection carries no level provenance and level() was not given,
+	* this ERRORS rather than guessing from the current c(level).
+	noisily _tabtools_resolve_ci_level `level'
+	local _ci_level = r(level)
 	local _ci_found = r(found)
-	local _stored_ci_level = r(level)
-	if `_ci_found' {
-		local _ci_level = `_stored_ci_level'
-		if `level' != -1 {
-			if abs(`level' - `_stored_ci_level') > 1e-8 {
-				noisily display as error "level(`level') conflicts with the active collection's `_stored_ci_level'% intervals"
-				exit 198
-			}
-			local _ci_level = `level'
-		}
-	}
-	else if `level' != -1 {
-		local _ci_level = `level'
-	}
-	else {
-		local _ci_level = c(level)
-		noisily display as text "note: this Stata version does not record confidence-level provenance in the collection; labeling intervals as `_ci_level'% from the current {bf:set level}. Specify {bf:level()} if the collected models used a different level."
-	}
 
     * Validation: Check xlsx if specified
     if `_has_xlsx' {
@@ -400,7 +386,7 @@ quietly{
     local _meta_models = 0
     local _model_headers_mixed = 0
     local _all_auto_noint = 1
-    local _coef_label_return "`coef'"
+    local _coef_label_return `"`coef'"'
     local _has_multieq_estimator = 0
     capture {
         collect layout (cmdset) (result[cmd cmdline depvar])
@@ -565,7 +551,7 @@ quietly{
             }
 
             if `m' == 1 {
-                local _shared_coef "`model_coef_`m''"
+                local _shared_coef `"`model_coef_`m''"'
             }
             else if "`model_coef_`m''" != "`_shared_coef'" {
                 local _model_headers_mixed = 1
@@ -591,8 +577,8 @@ quietly{
                 local _coef_label_return "mixed"
             }
             else {
-                local coef "`_shared_coef'"
-                local _coef_label_return "`coef'"
+                local coef `"`_shared_coef'"'
+                local _coef_label_return `"`coef'"'
             }
         }
         if !`_user_noint_spec' & "`keepintercept'" == "" & `_all_auto_noint' {
@@ -755,7 +741,15 @@ quietly{
                             }
                         }
 
-                        * Compute QIC from deviance + rank (GEE models)
+                        * Compute QIC_u from deviance + rank (GEE models).
+                        * NOTE: this is Pan (2001) QIC_u, the fixed-penalty
+                        * approximation, NOT QIC. Pan's QIC penalty is
+                        * 2*trace(Omega*Sigma); QIC_u replaces that trace with
+                        * the rank. Consequence: valid only for comparing models
+                        * that share a working correlation structure, never for
+                        * SELECTING one. The return keeps the name r(qic_#) for
+                        * backward compatibility; regtab.sthlp states which
+                        * criterion it actually is.
                         local stat_qic_`m' = .
                         if `stat_deviance_`m'' != . & `stat_rank_`m'' != . {
                             local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
@@ -936,7 +930,7 @@ quietly{
             if `_meta_models' > 0 {
                 forvalues m = 1/`_meta_models' {
                     if `model_icc_undef_`m'' {
-                        local _icc_skip_list "`_icc_skip_list' `m'"
+                        local _icc_skip_list `"`_icc_skip_list' `m'"'
                     }
                 }
             }
@@ -1137,13 +1131,13 @@ quietly{
         * Store label for each grouping variable
         forvalues _lev = 1/`_n_re_levels' {
             local _gvar : word `_lev' of `re_groupvars'
-            local re_groupvar_`_lev' "`_gvar'"
+            local re_groupvar_`_lev' `"`_gvar'"'
             if "`_path_so_far'" == "" local _path_so_far "`_gvar'"
             else local _path_so_far "`_path_so_far'>`_gvar'"
-            local re_grouppath_`_lev' "`_path_so_far'"
+            local re_grouppath_`_lev' `"`_path_so_far'"'
             local _glbl : variable label `_gvar'
             if "`_glbl'" == "" local _glbl "`_gvar'"
-            local re_grouplbl_`_lev' "`_glbl'"
+            local re_grouplbl_`_lev' `"`_glbl'"'
         }
 
         * Detect duplicate labels: if two levels share a label, fall back to
@@ -1161,14 +1155,14 @@ quietly{
             * Second pass: apply fallback for flagged levels
             forvalues _lev = 1/`_n_re_levels' {
                 if `_lbl_is_dup_`_lev'' {
-                    local re_grouplbl_`_lev' "`re_groupvar_`_lev''"
+                    local re_grouplbl_`_lev' `"`re_groupvar_`_lev''"'
                 }
             }
         }
 
         * Backward compat: single-level vars from first grouping variable
         local re_groupvar : word 1 of `re_groupvars'
-        local re_grouplbl "`re_grouplbl_1'"
+        local re_grouplbl `"`re_grouplbl_1'"'
 
         * Get random effects variables
         capture local re_vars = e(revars)
@@ -1194,7 +1188,7 @@ quietly{
                     local re_vars_`_lev' = ""
                     forvalues _d = 1/`_dim' {
                         local _rv : word `_re_pos' of `re_vars'
-                        local re_vars_`_lev' "`re_vars_`_lev'' `_rv'"
+                        local re_vars_`_lev' `"`re_vars_`_lev'' `_rv'"'
                         local _re_pos = `_re_pos' + 1
                     }
                     local re_vars_`_lev' = strtrim("`re_vars_`_lev''")
@@ -1202,7 +1196,7 @@ quietly{
             }
             else {
                 * Fallback: assign all revars to level 1 when e(redim) unavailable
-                local re_vars_1 "`re_vars'"
+                local re_vars_1 `"`re_vars'"'
                 forvalues _lev = 2/`_n_re_levels' {
                     local re_vars_`_lev' ""
                 }
@@ -1224,7 +1218,7 @@ quietly{
                     capture {
                         local _fvlbl : label (`_fvvar') `_fvval'
                         if "`_fvlbl'" != "" & "`_fvlbl'" != "`_fvval'" {
-                            local _fvlabel_cmds "`_fvlabel_cmds' `_fvval'.`_fvvar'=`_fvlbl'"
+                            local _fvlabel_cmds `"`_fvlabel_cmds' `_fvval'.`_fvvar'=`_fvlbl'"'
                         }
                     }
                 }
@@ -1263,7 +1257,7 @@ quietly{
                         local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvvar'"'
                         local _fvrow_parent_lab_`_fvrow_parent_n' `"`_fvplbl'"'
                     }
-                    local _fvlbl "`_fvval'"
+                    local _fvlbl `"`_fvval'"'
                     capture local _fvlbl : label (`_fvvar') `_fvval'
                     if `"`_fvlbl'"' == "" local _fvlbl "`_fvval'"
                     local ++_fvrow_label_n
@@ -1436,8 +1430,8 @@ if `_is_multilevel' {
         drop if _q_is_header
         drop _q_is_header
         forvalues _lev = 1/`_n_re_levels' {
-            local _gvar "`re_groupvar_`_lev''"
-            local _gpath "`re_grouppath_`_lev''"
+            local _gvar `"`re_groupvar_`_lev''"'
+            local _gpath `"`re_grouppath_`_lev''"'
             if "`_gpath'" != "`_gvar'" {
                 replace A = subinstr(A, "[`_gpath']", "[`_gvar']", .) ///
                     if _n > 2 & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
@@ -1464,9 +1458,9 @@ if `_is_multilevel' {
         * The FE equation is always group 1; RE levels follow in order
         local _fe_grp = 1
         forvalues _lev = 1/`_n_re_levels' {
-            local _gvar "`re_groupvar_`_lev''"
+            local _gvar `"`re_groupvar_`_lev''"'
             local _target_grp = `_fe_grp' + `_lev'
-            replace _parent_header = "`_gvar'" if _hdr_grp == `_target_grp'
+            replace _parent_header = `"`_gvar'"' if _hdr_grp == `_target_grp'
         }
         * Residual group is after all RE levels — leave as-is (handled below)
         drop _hdr_grp
@@ -1567,20 +1561,20 @@ if "`re_transform'" != "none" & "`nore'" == "" {
     replace _is_re_intercept = strpos(A, "var(_cons") > 0 if _n > 2
     if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
         forvalues _lev = 1/`_n_re_levels' {
-            local _gvar "`re_groupvar_`_lev''"
-            local _gpath "`re_grouppath_`_lev''"
-            local _glbl "`re_grouplbl_`_lev''"
-            replace _re_group_label = "`_glbl'" if A == "var(_cons[`_gvar'])"
+            local _gvar `"`re_groupvar_`_lev''"'
+            local _gpath `"`re_grouppath_`_lev''"'
+            local _glbl `"`re_grouplbl_`_lev''"'
+            replace _re_group_label = `"`_glbl'"' if A == "var(_cons[`_gvar'])"
             if "`_gpath'" != "`_gvar'" {
-                replace _re_group_label = "`_glbl'" if A == "var(_cons[`_gpath'])"
+                replace _re_group_label = `"`_glbl'"' if A == "var(_cons[`_gpath'])"
             }
-            replace _re_group_label = "`_glbl'" ///
+            replace _re_group_label = `"`_glbl'"' ///
                 if _is_re_intercept == 1 & _re_group_label == "" ///
                 & (strpos(A, "[`_gvar']") > 0 | strpos(A, ">`_gvar']") > 0)
         }
     }
     if "`re_grouplbl'" != "" {
-        replace _re_group_label = "`re_grouplbl'" if _re_group_label == "" & A == "var(_cons)"
+        replace _re_group_label = `"`re_grouplbl'"' if _re_group_label == "" & A == "var(_cons)"
     }
 }
 
@@ -1591,8 +1585,8 @@ if "`relabel'" != "" {
         * --- Per-level relabeling (bracket notation) ---
         * Handles multi-level mixed (flattened) and melogit/mepoisson (native)
         forvalues _lev = 1/`_n_re_levels' {
-            local _gvar "`re_groupvar_`_lev''"
-            local _glbl "`re_grouplbl_`_lev''"
+            local _gvar `"`re_groupvar_`_lev''"'
+            local _glbl `"`re_grouplbl_`_lev''"'
 
             * Random intercept: var(_cons[groupvar]) -> "Variance: GroupLabel (Intercept)"
             replace A = "Variance: `_glbl' (Intercept)" if A == "var(_cons[`_gvar'])"
@@ -1600,7 +1594,7 @@ if "`relabel'" != "" {
             * Random slopes: var(varname[groupvar]) -> "Variance: GroupLabel (VarLabel)"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
-                    local slope_lbl "`lbl_`revar''"
+                    local slope_lbl `"`lbl_`revar''"'
                     replace A = "Variance: `_glbl' (`slope_lbl')" if A == "var(`revar'[`_gvar'])"
                 }
             }
@@ -1619,9 +1613,9 @@ if "`relabel'" != "" {
                     local cov_v2 = subinstr("`cov_v2'", ",", "", 1)
                     local cov_v1 = strtrim("`cov_v1'")
                     local cov_v2 = strtrim("`cov_v2'")
-                    local cov_lbl1 "`lbl_`cov_v1''"
+                    local cov_lbl1 `"`lbl_`cov_v1''"'
                     if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
-                    local cov_lbl2 "`lbl_`cov_v2''"
+                    local cov_lbl2 `"`lbl_`cov_v2''"'
                     if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
                     replace A = "Covariance: `_glbl' (`cov_lbl1', `cov_lbl2')" in `row'
                 }
@@ -1629,11 +1623,11 @@ if "`relabel'" != "" {
             }
 
             * Standard deviations with brackets
-            replace A = "`_glbl' SD (Intercept)" if A == "sd(_cons[`_gvar'])"
+            replace A = `"`_glbl' SD (Intercept)"' if A == "sd(_cons[`_gvar'])"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
-                    local slope_lbl "`lbl_`revar''"
-                    replace A = "`_glbl' SD (`slope_lbl')" if A == "sd(`revar'[`_gvar'])"
+                    local slope_lbl `"`lbl_`revar''"'
+                    replace A = `"`_glbl' SD (`slope_lbl')"' if A == "sd(`revar'[`_gvar'])"
                 }
             }
         }
@@ -1643,7 +1637,7 @@ if "`relabel'" != "" {
 
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
-                local slope_lbl "`lbl_`revar''"
+                local slope_lbl `"`lbl_`revar''"'
                 replace A = "Variance: `re_grouplbl' (`slope_lbl')" if A == "var(`revar')"
             }
         }
@@ -1661,9 +1655,9 @@ if "`relabel'" != "" {
                 local cov_v2 = subinstr("`cov_v2'", ",", "", 1)
                 local cov_v1 = strtrim("`cov_v1'")
                 local cov_v2 = strtrim("`cov_v2'")
-                local cov_lbl1 "`lbl_`cov_v1''"
+                local cov_lbl1 `"`lbl_`cov_v1''"'
                 if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
-                local cov_lbl2 "`lbl_`cov_v2''"
+                local cov_lbl2 `"`lbl_`cov_v2''"'
                 if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
                 replace A = "Covariance: `re_grouplbl' (`cov_lbl1', `cov_lbl2')" in `row'
             }
@@ -1674,18 +1668,18 @@ if "`relabel'" != "" {
         replace A = "Residual Variance" if A == "var(e)"
 
         * Standard deviations without brackets (single-level)
-        replace A = "`re_grouplbl' SD (Intercept)" if A == "sd(_cons)"
+        replace A = `"`re_grouplbl' SD (Intercept)"' if A == "sd(_cons)"
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
-                local slope_lbl "`lbl_`revar''"
-                replace A = "`re_grouplbl' SD (`slope_lbl')" if A == "sd(`revar')"
+                local slope_lbl `"`lbl_`revar''"'
+                replace A = `"`re_grouplbl' SD (`slope_lbl')"' if A == "sd(`revar')"
             }
         }
         replace A = "Residual SD" if A == "sd(e)"
 
         * Log-scale parameters (raw coefficient names: lns1_1_1, lns2_1_1, ...)
         forvalues _lev = 1/`_n_re_levels' {
-            local _glbl "`re_grouplbl_`_lev''"
+            local _glbl `"`re_grouplbl_`_lev''"'
             replace A = subinstr(A, "lns`_lev'_1_1", "`_glbl' Log SD (Intercept)", .)
         }
         replace A = subinstr(A, "lnsig_e", "Residual Log SD", .)
@@ -1803,7 +1797,7 @@ if !`_user_coef_spec' & "`cdisc'" == "" & `_meta_models' > 0 {
     local _hdr_m = 0
     forvalues _hdr_col = 1(3)`n' {
         local _hdr_m = `_hdr_m' + 1
-        replace c`_hdr_col' = "`model_coef_`_hdr_m''" if _n == 2
+        replace c`_hdr_col' = `"`model_coef_`_hdr_m''"' if _n == 2
     }
 }
 
@@ -1955,7 +1949,7 @@ replace c`i' = subinstr(c`i', ",", "", .) if _n >= 3
 destring c`i', gen(double c`i'z) force
 * Reference categories are identified from collect's factor-level key, not
 * from a numerical 0/1 value that may be a legitimate coefficient.
-replace c`i' = "`refcat'" if _is_base_level & c`=`i'+1' == "" & _n >= 3
+replace c`i' = `"`refcat'"' if _is_base_level & c`=`i'+1' == "" & _n >= 3
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -2207,7 +2201,7 @@ if `n_models' > 0 {
         }
         if `_row_has_data' {
             local _mat_nrows = `_mat_nrows' + 1
-            local _keep_obs "`_keep_obs' `_obs'"
+            local _keep_obs `"`_keep_obs' `_obs'"'
         }
     }
 }
@@ -2238,7 +2232,7 @@ if `_mat_nrows' > 0 {
         local _rname = subinstr("`_rname'", ":", "", .)
         local _rname = substr("`_rname'", 1, 32)
         if "`_rname'" == "" local _rname "row`_mr'"
-        local _rnames "`_rnames' `_rname'"
+        local _rnames `"`_rnames' `_rname'"'
     }
     capture matrix rownames `_rtable' = `_rnames'
 }
@@ -2268,7 +2262,7 @@ if `add_stats' == 1 {
             local curr_n = _N
             set obs `=`curr_n'+1'
             local _n_label = cond(`_any_N_sub', "Subjects", "Observations")
-            replace A = "`_n_label'" in `=`curr_n'+1'
+            replace A = `"`_n_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if `stat_N_`m'' != . {
                     local col = (`m' - 1) * 3 + 1
@@ -2315,7 +2309,7 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "`_aic_label'" in `=`curr_n'+1'
+            replace A = `"`_aic_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if "`_aic_label'" == "AIC" {
                     if `stat_aic_`m'' != . {
@@ -2438,7 +2432,7 @@ if `add_stats' == 1 {
 
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "`r2_label'" in `=`curr_n'+1'
+            replace A = `"`r2_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 local _r2val = .
                 if `stat_r2_`m'' != . local _r2val = `stat_r2_`m''
@@ -2488,7 +2482,7 @@ if `"`addrow'"' != "" {
 
         local curr_n = _N
         set obs `=`curr_n'+1'
-        replace A = "`_ar_label'" in `=`curr_n'+1'
+        replace A = `"`_ar_label'"' in `=`curr_n'+1'
 
         * Positionally assign values to model estimate columns
         local _ar_m = 0
@@ -2498,7 +2492,7 @@ if `"`addrow'"' != "" {
             local _ar_m = `_ar_m' + 1
             local col = (`_ar_m' - 1) * 3 + 1
             if `col' <= `n' {
-                replace c`col' = "`_ar_v'" in `=`curr_n'+1'
+                replace c`col' = `"`_ar_v'"' in `=`curr_n'+1'
             }
         }
         local addrow_rows = "`addrow_rows' `=`curr_n'+1'"
@@ -2540,13 +2534,13 @@ if "`compact'" != "" {
         * Update column header to combined label
         local _hdr_est = c`m'[2]
         local _hdr_ci = c`_ci_col'[2]
-        qui replace c`m' = "`_hdr_est' `_hdr_ci'" in 2
+        qui replace c`m' = `"`_hdr_est' `_hdr_ci'"' in 2
     }
 
     * Drop CI columns (c2, c5, c8, ...)
     local _drop_cols ""
     forvalues m = 2(3)`n' {
-        local _drop_cols "`_drop_cols' c`m'"
+        local _drop_cols `"`_drop_cols' c`m'"'
     }
     drop `_drop_cols'
 
@@ -2574,12 +2568,12 @@ if !`_show_pvalues' {
     local _drop_cols ""
     if "`compact'" != "" {
         forvalues m = 2(2)`n' {
-            local _drop_cols "`_drop_cols' c`m'"
+            local _drop_cols `"`_drop_cols' c`m'"'
         }
     }
     else {
         forvalues m = 3(3)`n' {
-            local _drop_cols "`_drop_cols' c`m'"
+            local _drop_cols `"`_drop_cols' c`m'"'
         }
     }
     if "`_drop_cols'" != "" drop `_drop_cols'
@@ -2642,7 +2636,7 @@ else if "`coef'" == "Coef." {
     local _methods_model "linear regression"
 }
 else {
-    local _methods_coef "`coef'"
+    local _methods_coef `"`coef'"'
     local _methods_model "regression"
 }
 if `n_models' > 1 local _methods_multi " across `n_models' models"
@@ -2777,7 +2771,7 @@ levelsof ref`i', local(ref`i'_levels)
 }
 local ref_rows ""
 forvalues i = 1(`_cols_per_model')`last'{
-local ref_rows "`ref_rows' `ref`i'_levels'"
+local ref_rows `"`ref_rows' `ref`i'_levels'"'
 }
 local ref_rows: list uniq ref_rows
 
@@ -2813,7 +2807,7 @@ if `"`markdown'"' != "" {
 * Store output in frame if requested
 	if `"`frame'"' != "" {
 		_tabtools_frame_put `"`frame'"'
-		local frame "`_frame_name'"
+		local frame `"`_frame_name'"'
 		frame `frame': char _dta[tabtools_source] "regtab"
 		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
 		frame `frame': char _dta[tabtools_n_models] "`n_models'"
@@ -2865,7 +2859,7 @@ local _n_bp_entries 0
 if `has_boldp' | `has_highlight' {
 	forvalues _m = 1/`n_models' {
 		forvalues _dr = 4/`num_rows' {
-			local _pstr "`_bp_m`_m'_r`_dr''"
+			local _pstr `"`_bp_m`_m'_r`_dr''"'
 			if substr("`_pstr'", 1, 1) == "<" {
 				local _bp_m`_m'_r`_dr'_num = 0
 			}
@@ -3091,7 +3085,7 @@ if `"`_displayframe_build'"' != "" {
 	if !_rc frame drop `_displayframe_target'
 	frame rename `_displayframe_build' `_displayframe_target'
 	local _displayframe_build ""
-	local frame "`_displayframe_target'"
+	local frame `"`_displayframe_target'"'
 	return local frame "`_displayframe_target'"
 }
 }

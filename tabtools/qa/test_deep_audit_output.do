@@ -15,7 +15,7 @@ local fail_count = 0
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local outdir "`c(tmpdir)'/tabtools_deep_audit"
+local outdir "`c(tmpdir)'/`c(pid)'_tabtools_deep_audit"
 capture mkdir "`outdir'"
 
 capture ado uninstall tabtools

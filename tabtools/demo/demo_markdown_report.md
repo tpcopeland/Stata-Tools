@@ -1,6 +1,6 @@
 ### Table 1. Baseline Characteristics
 
-| No. (Column %) or Mean (SD) | N=8,934 | N=6,066 | p-value |
+| No. (Column %) or Mean±SD | N=8,934 | N=6,066 | p-value |
 | --- | --- | --- | --- |
 | Age at cohort entry (years) | 58.3±13.4 | 58.5±13.3 | 0.24 |
 | Female sex | 5,351 (60) | 3,621 (60) | 0.80 |

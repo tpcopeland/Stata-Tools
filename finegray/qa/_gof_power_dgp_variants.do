@@ -447,9 +447,40 @@ foreach rd in A B C {
         * flag instead, and reconcile the counters at the end.
         local skipped = 0
         capture noisily {
+            * NOT A SKIP.  An unconstructible cell here is a CONFIRMED
+            * PREDICTION, not an unrun check.  V2 has already asserted which
+            * readings admit a tau: B does not (its improper F1 leaves ~50% of
+            * subjects unfailing, so the censoring rate floors near 0.50 and the
+            * paper's 15%/30% cells are unreachable at ANY tau), while A and C
+            * do.  V3 arriving at the same place is evidence, so it is scored as
+            * a pass and skip_count is NOT incremented.
+            *
+            * This distinction is not cosmetic.  run_all.do fails any suite
+            * reporting skip>0, because its skip rule exists for a MISSING
+            * DEPENDENCY -- an oracle that did not run and therefore proves
+            * nothing.  Reporting these cells as skips conflated the two and
+            * turned a designed, asserted result into a red lane.
+            *
+            * The two branches below are new and fail closed in BOTH directions:
+            * a reading that stops being constructible when V2 says it must be,
+            * and B becoming constructible when V2 says it cannot.  Previously
+            * neither was checked -- any reading going unconstructible was
+            * silently absorbed as a skip.
             if `reach_`rd'_`crlab'' == 0 {
-                display as error "  SKIP power for `rd' at `cr': cell not constructible"
+                if "`rd'" != "B" {
+                    display as error "  `rd' at `cr' is NOT constructible, but V2"
+                    display as error "  asserts it must be.  The readings have moved."
+                    exit 9
+                }
+                display as text "  `rd' at `cr': not constructible, exactly as V2" ///
+                    " asserts -- confirmed, not skipped"
                 local skipped = 1
+            }
+            else if "`rd'" == "B" {
+                display as error "  B at `cr' IS constructible, contradicting V2's"
+                display as error "  assertion that its censoring floor makes the"
+                display as error "  paper's cells unreachable.  Re-derive the floor."
+                exit 9
             }
             if !`skipped' {
             local tau = `tau_`rd'_`crlab''
@@ -510,7 +541,14 @@ foreach rd in A B C {
         }
         if _rc == 0 {
             local ++pass_count
-            if `skipped' local ++skip_count
+            * skip_count is deliberately NOT incremented for an unconstructible
+            * cell -- see the note above.  Note plainly: after that change NO
+            * path in this file increments skip_count, so the sentinel's skip=
+            * field is a constant 0.  It is emitted anyway, as an affirmative
+            * statement that nothing went unrun rather than as a live counter.
+            * This suite has no external-oracle dependency to skip; if one is
+            * ever added, increment skip_count THERE so run_all's dependency
+            * rule can fail the lane as designed.
         }
         else {
             local ++fail_count

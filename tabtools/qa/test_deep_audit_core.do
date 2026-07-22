@@ -15,7 +15,7 @@ local fail_count = 0
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local output_dir "`c(tmpdir)'/tabtools_deep_audit"
+local output_dir "`c(tmpdir)'/`c(pid)'_tabtools_deep_audit"
 capture mkdir "`output_dir'"
 local workbook_tool "`qa_dir'/tools/make_deep_audit_workbook.py"
 

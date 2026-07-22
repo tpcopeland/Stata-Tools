@@ -672,6 +672,8 @@ else {
 
 * =====================================================================
 **# T3: from(simsum) -- capture-guarded against live simsum
+*   As with T4: run_all installs simsum into the sandbox on the full/release
+*   lanes, where TABTOOLS_QA_REQUIRE_ORACLES makes an absent oracle a failure.
 * =====================================================================
 capture which simsum
 if _rc {
@@ -716,9 +718,12 @@ else {
 
 * =====================================================================
 **# T4: from(siman) -- capture-guarded; reproduces siman analyse values
-*   Requires siman (UCL) plus its sencode/labelsof dependencies. Under the
-*   run_all harness (temp PLUS adopath) these are hidden, so this SKIPs;
-*   a direct run against the real adopath exercises the live adapter.
+*   Requires siman (UCL) plus its sencode/labelsof dependencies. run_all.do
+*   INSTALLS all three into the disposable sandbox for the full and release
+*   lanes and sets TABTOOLS_QA_REQUIRE_ORACLES=1, so on those lanes a missing
+*   oracle is a FAILURE, not a skip -- an embedded skip would have hidden a
+*   broken adapter behind a green run. The skip branch below applies only to a
+*   direct standalone run where the oracle genuinely is not installed.
 * =====================================================================
 local _siman_ok = 1
 foreach _dep in siman sencode labelsof {
@@ -1009,6 +1014,201 @@ else {
     local ++fail_count
 }
 capture erase "`r3'"
+
+* =====================================================================
+
+* `program drop _all' runs earlier in this file (line ~863), so the shared
+* fixture is gone by here. Redefine a self-contained one for the blocks below.
+capture program drop _simtab_make_data
+program define _simtab_make_data
+    syntax , [Reps(integer 80) Estimands(integer 1)]
+    clear
+    local cells = `reps' * 2 * 3 * `estimands'
+    set obs `cells'
+    set seed 20260607
+    gen long sim = mod(_n-1, `reps') + 1
+    gen byte sc = mod(floor((_n-1)/(`reps'*3)), 2) + 1
+    gen byte estid = mod(floor((_n-1)/`reps'), 3) + 1
+    gen byte emd = floor((_n-1)/(`reps'*3*2)) + 1
+    label define sclbl 1 "A" 2 "B", replace
+    label values sc sclbl
+    label define estlbl 1 "Unweighted" 2 "IIW" 3 "IIW+log", replace
+    label values estid estlbl
+    label define emdlbl 1 "Marginal" 2 "Contrast", replace
+    label values emd emdlbl
+    gen double truev = cond(emd==1, 0.10, 0.50)
+    gen double est = truev + rnormal(cond(estid==1, 0.05, 0), 0.04)
+    gen double se = 0.04 + runiform()*0.004
+    gen double lo = est - 1.96*se
+    gen double hi = est + 1.96*se
+    gen byte covered = (lo <= truev & truev <= hi)
+    gen double pval = 2*(1 - normal(abs((est-0)/se)))
+    gen byte rej = (pval < 0.05)
+end
+
+**# I02: legal user variables must not collide with internal scratch columns
+* simtab builds its ord/label scratch columns on the CALLER's data. bylab,
+* estlab and emdlab used to be fixed names, so a user variable of that name
+* made `gen str244 bylab' fail with r(110) before any output.
+foreach _hostile in bylab estlab emdlab {
+    capture noisily {
+        _simtab_make_data, reps(40) estimands(1)
+        keep if emd == 1
+        quietly gen byte `_hostile' = 1
+        capture frame drop _i02_fr
+        simtab estid, estimate(est) se(se) true(truev) frame(_i02_fr)
+        assert r(N_cells) == 3
+    }
+    if _rc == 0 {
+        display as result "  PASS: I02 simtab tolerates a user variable named `_hostile'"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: I02 simtab collided with user variable `_hostile' (rc=`=_rc')"
+        local ++fail_count
+    }
+    capture frame drop _i02_fr
+}
+
+**# I02b: 32-character input names are handled
+* Stata's limit is 32 for variable names; prefix+name locals can exceed the
+* 31-char macro-name limit, so exercise the boundary explicitly.
+capture noisily {
+    _simtab_make_data, reps(40) estimands(1)
+    keep if emd == 1
+    quietly gen byte abcdefghij0123456789012345678901 = 1
+    capture frame drop _i02b_fr
+    simtab estid, estimate(est) se(se) true(truev) frame(_i02b_fr)
+    assert r(N_cells) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: I02b simtab tolerates a 32-character input variable name"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I02b 32-character input name (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _i02b_fr
+
+**# I03: true() accepts numeric literals including scientific notation
+* The old parser called anything containing an alphabetic character a variable
+* name, so the exponent in 1e-3 sent it to `confirm variable 1e-3' -> r(198).
+foreach _lit in 1e-3 1E-3 0.001 -0.5 .5 1.5e2 {
+    capture noisily {
+        _simtab_make_data, reps(40) estimands(1)
+        keep if emd == 1
+        capture frame drop _i03_fr
+        simtab estid, estimate(est) se(se) true(`_lit') frame(_i03_fr)
+    }
+    if _rc == 0 {
+        display as result "  PASS: I03 simtab true(`_lit') accepted as a number"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: I03 simtab true(`_lit') rejected (rc=`=_rc')"
+        local ++fail_count
+    }
+    capture frame drop _i03_fr
+}
+
+**# I03b: a genuinely invalid true() is still rejected
+* Positive control: without this, I03 would also pass if true() accepted
+* everything unconditionally.
+capture noisily {
+    _simtab_make_data, reps(40) estimands(1)
+    keep if emd == 1
+    capture frame drop _i03b_fr
+    capture simtab estid, estimate(est) se(se) true(1e-3x) frame(_i03b_fr)
+    assert _rc == 198
+    capture simtab estid, estimate(est) se(se) true(no_such_variable) frame(_i03b_fr)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: I03b invalid true() values are still rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I03b invalid true() no longer rejected (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _i03b_fr
+
+**# C01: frame() and plotframe() destination safety
+**## C01a: an aliased frame()/plotframe() is rejected before anything is created
+capture noisily {
+    _simtab_make_data, reps(40) estimands(1)
+    keep if emd == 1
+    capture frame drop _c01_same
+    capture simtab estid, estimate(est) se(se) true(truev) ///
+        frame(_c01_same, replace) plotframe(_c01_same)
+    assert _rc == 198
+    * nothing may be left behind
+    capture confirm frame _c01_same
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: C01a aliased frame()/plotframe() rejected, no frame created"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C01a alias not rejected cleanly (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _c01_same
+
+**## C01b: a later frame() error must not have already replaced the plot frame
+capture noisily {
+    _simtab_make_data, reps(40) estimands(1)
+    keep if emd == 1
+    capture frame drop _c01_pf
+    capture frame drop _c01_fr
+    frame create _c01_pf
+    frame _c01_pf: set obs 1
+    frame _c01_pf: gen sentinel = 42
+    frame create _c01_fr
+    frame _c01_fr: set obs 1
+    frame _c01_fr: gen other = 1
+    * frame(_c01_fr) has no replace and _c01_fr exists -> must fail 110
+    capture simtab estid, estimate(est) se(se) true(truev) ///
+        plotframe(_c01_pf, replace) frame(_c01_fr)
+    assert _rc == 110
+    * and the user's pre-existing plot frame must be untouched
+    frame _c01_pf: confirm variable sentinel
+}
+if _rc == 0 {
+    display as result "  PASS: C01b failed frame() left the pre-existing plot frame intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C01b plot frame was mutated before the frame() error (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _c01_pf
+capture frame drop _c01_fr
+
+**## C01c: distinct destinations still work (positive control)
+capture noisily {
+    _simtab_make_data, reps(40) estimands(1)
+    keep if emd == 1
+    capture frame drop _c01_okfr
+    capture frame drop _c01_okpf
+    simtab estid, estimate(est) se(se) true(truev) ///
+        frame(_c01_okfr) plotframe(_c01_okpf)
+    frame _c01_okpf: confirm variable mean
+    frame _c01_okfr: confirm variable c1
+    assert "`r(frame)'" != "`r(plotframe)'"
+}
+if _rc == 0 {
+    display as result "  PASS: C01c distinct frame()/plotframe() both written correctly"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C01c distinct destinations regressed (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _c01_okfr
+capture frame drop _c01_okpf
 
 * =====================================================================
 

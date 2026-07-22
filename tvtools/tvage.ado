@@ -1,4 +1,4 @@
-*! tvage Version 1.7.2  2026/07/19
+*! tvage Version 1.8.0  2026/07/22
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -85,16 +85,11 @@ program define tvage, rclass
         }
     }
 
-    * Validate date variables are not datetime (%tc/%tC)
-    foreach v in `dobvar' `entryvar' `exitvar' {
-        local fmt : format `v'
-        if substr("`fmt'", 1, 3) == "%tc" | substr("`fmt'", 1, 3) == "%tC" {
-            display as error "Variable '`v'' has datetime format (`fmt')."
-            display as error "tvage requires daily date variables."
-            display as error "Convert with: gen daily_`v' = dofc(`v')"
-            exit 120
-        }
-    }
+    * Validate the daily-date contract: numeric, non-datetime, finite,
+    * nonmissing, whole days, and entry <= exit. Centralized so every public
+    * command enforces the same rule before any calculation.
+    _tvtools_check_dates, cmd(tvage) dates(`dobvar' `entryvar' `exitvar') ///
+        startvar(`entryvar') stopvar(`exitvar')
 
     * Set default variable names
     if "`generate'" == "" local generate "age_tv"
@@ -135,14 +130,6 @@ program define tvage, rclass
     quietly count if missing(`idvar')
     if r(N) > 0 {
         display as error r(N) " observation(s) have missing `idvar'"
-        exit 416
-    }
-
-    * Validate no missing dates
-    quietly count if missing(`dobvar') | missing(`entryvar') | missing(`exitvar')
-    if r(N) > 0 {
-        display as error r(N) " observation(s) have missing dates in " ///
-            "`dobvar', `entryvar', or `exitvar'"
         exit 416
     }
 

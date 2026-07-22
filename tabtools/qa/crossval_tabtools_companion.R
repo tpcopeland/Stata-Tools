@@ -1,6 +1,7 @@
 # crossval_tabtools_companion.R
 # Companion R script for tabtools cross-validation
-# Run this first, then run crossval_tabtools.do in Stata
+# Invoked automatically by crossval_tabtools.do via `shell Rscript'; it does not
+# need to be run by hand. Running it standalone is supported for debugging.
 #
 # Independently computes all manual statistical formulas used in tabtools:
 #   1. Correlation p-values (t-approximation)

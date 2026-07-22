@@ -1,4 +1,4 @@
-*! stacktab Version 1.9.11  2026/07/18
+*! stacktab Version 1.10.0  2026/07/22
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -90,7 +90,7 @@ program define stacktab, rclass
             }
         }
         if `"`csv'"' != "" & !strmatch(lower(`"`csv'"'), "*.csv") {
-            display as error "csv() must have .csv extension"
+            display as error "csv() must have a .csv extension"
             exit 198
         }
         if `"`csv'"' != "" _tabtools_validate_path `"`csv'"' "csv()"
@@ -211,7 +211,7 @@ program define stacktab, rclass
                 local col_e `"`r(last)'"'
             }
             if `"`bcol'"' != "" & `"`brow'"' != "" {
-                local cellrange "`col_s'`row_lo':`col_e'`row_hi'"
+                local cellrange `"`col_s'`row_lo':`col_e'`row_hi'"'
             }
 
             * Import block from source workbook
@@ -365,7 +365,7 @@ program define stacktab, rclass
             local _section_N = r(N)
             forvalues sr = 1/`_section_N' {
                 if `section_marker'[`sr'] == 1 {
-                    local section_rows "`section_rows' `sr'"
+                    local section_rows `"`section_rows' `sr'"'
                 }
             }
             local section_rows = strtrim("`section_rows'")
@@ -469,7 +469,7 @@ program define stacktab, rclass
                 if `_w' < 10 local _w = 10
                 if `_w' > 24 local _w = 24
             }
-            local width_values "`width_values' `_w'"
+            local width_values `"`width_values' `_w'"'
             drop `_xlen'
         }
         local width_values = strtrim("`width_values'")
@@ -547,6 +547,18 @@ program define stacktab, rclass
                 display as error `"file `markdown' already exists; specify mdappend or choose a new markdown() file"'
                 exit 602
             }
+        }
+
+        * The style()/borders() grammars are consumed at the very END of this
+        * command, by _stacktab_apply_style. Validate them HERE, while nothing
+        * has been written yet: a malformed specification used to surface as
+        * r(3499) after the frame, CSV, Markdown and workbook had all committed.
+        local _st_styleopt ""
+        if `"`style'"' != "" local _st_styleopt `"style(`style')"'
+        local _st_bordersopt ""
+        if `"`borders'"' != "" local _st_bordersopt `"borders(`borders')"'
+        if `"`style'"' != "" | `"`borders'"' != "" {
+            _stacktab_validate_style, `_st_styleopt' `_st_bordersopt'
         }
 
         * ================================================================
@@ -641,7 +653,7 @@ program define stacktab, rclass
         local _ret_note_row = `note_row'
         local _ret_sheet `"`sheet'"'
         local _ret_book `"`using'"'
-        local _ret_layout "`layout'"
+        local _ret_layout `"`layout'"'
         local _ret_frame `"`frame_name'"'
         local _ret_csv `"`csv'"'
     }
@@ -1001,6 +1013,130 @@ end
 * ============================================================================
 * HELPER: Apply style() spec via mata-xl
 * ============================================================================
+* =============================================================================
+* _stacktab_validate_style: check the style()/borders() grammars, mutate nothing
+* =============================================================================
+* stacktab commits its frame, CSV, Markdown and workbook outputs and only then
+* calls _stacktab_apply_style, which is where a malformed style() first became
+* an error. style(colwidth(A nope)) therefore returned r(3499) with all four
+* destinations already written -- including a partly formatted worksheet -- so a
+* failed command could destroy valid prior outputs via the replace options.
+*
+* This program validates the same grammar _stacktab_apply_style consumes, but
+* creates and changes nothing, so stacktab can reject a bad specification before
+* the first write. It is deliberately called from the same preflight block as
+* the frame/Markdown checks.
+*
+* Grammar:
+*   style()   titlerowheight(#)  noterowheight(#)  colwidth(COL W [\ COL W ...])
+*   borders() outer(all)  top(row 1)  bottom(last)  bottom(row #)
+
+capture program drop _stacktab_validate_style
+program define _stacktab_validate_style
+    version 16.0
+    syntax , [STYLE(string asis) BORDERS(string asis)]
+
+    local style : subinstr local style `"""' "", all
+    local borders : subinstr local borders `"""' "", all
+
+    * ----- numeric row-height keys -----
+    foreach key in titlerowheight noterowheight {
+        local klen = strlen("`key'") + 1
+        local pos = strpos(lower(`"`style'"'), "`key'(")
+        if `pos' > 0 {
+            local tail = substr(`"`style'"', `pos' + `klen', .)
+            local endp = strpos(`"`tail'"', ")")
+            if `endp' == 0 {
+                display as error "style(): `key'() is missing its closing parenthesis"
+                exit 198
+            }
+            local val = strtrim(substr(`"`tail'"', 1, `endp' - 1))
+            local num = real(`"`val'"')
+            if missing(`num') | `num' <= 0 {
+                display as error "style(): `key'() requires a positive number; got `val'"
+                exit 198
+            }
+        }
+    }
+
+    * ----- colwidth(COL WIDTH [\ COL WIDTH ...]) -----
+    local cw_pos = strpos(lower(`"`style'"'), "colwidth(")
+    if `cw_pos' > 0 {
+        local cw_tail = substr(`"`style'"', `cw_pos' + 9, .)
+        local cw_end = strpos(`"`cw_tail'"', ")")
+        if `cw_end' == 0 {
+            display as error "style(): colwidth() is missing its closing parenthesis"
+            exit 198
+        }
+        local cw_spec = substr(`"`cw_tail'"', 1, `cw_end' - 1)
+        if strtrim(`"`cw_spec'"') == "" {
+            display as error "style(): colwidth() is empty"
+            exit 198
+        }
+        local cw_remain `"`cw_spec'"'
+        while `"`cw_remain'"' != "" {
+            local cw_sep = strpos(`"`cw_remain'"', char(92))
+            if `cw_sep' > 0 {
+                local cw_piece = strtrim(substr(`"`cw_remain'"', 1, `cw_sep' - 1))
+                local cw_remain = strtrim(substr(`"`cw_remain'"', `cw_sep' + 1, .))
+            }
+            else {
+                local cw_piece = strtrim(`"`cw_remain'"')
+                local cw_remain ""
+            }
+            if `"`cw_piece'"' == "" continue
+
+            local cw_col : word 1 of `cw_piece'
+            local cw_width : word 2 of `cw_piece'
+            local cw_extra : word 3 of `cw_piece'
+            if `"`cw_width'"' == "" {
+                display as error `"style(): colwidth() entry "`cw_piece'" needs a column and a width"'
+                exit 198
+            }
+            if `"`cw_extra'"' != "" {
+                display as error `"style(): colwidth() entry "`cw_piece'" has more than a column and a width"'
+                exit 198
+            }
+            local wnum = real(`"`cw_width'"')
+            if missing(`wnum') | `wnum' <= 0 {
+                display as error "style(): colwidth() width must be a positive number; got `cw_width'"
+                exit 198
+            }
+            capture _stacktab_resolve_col `"`cw_col'"'
+            local _res_rc = _rc
+            local resolved `"`r(name)'"'
+            local cw_index = real(subinstr(`"`resolved'"', "_xcol", "", 1))
+            if `_res_rc' | missing(`cw_index') | `cw_index' < 1 {
+                display as error "style(): colwidth() column `cw_col' is not a valid column reference"
+                exit 198
+            }
+        }
+    }
+
+    * ----- borders(): every token must be one this command acts on -----
+    * _stacktab_apply_style matches border tokens with strpos, so an
+    * unrecognised token was previously accepted and silently ignored.
+    if strtrim(`"`borders'"') != "" {
+        local _b = lower(strtrim(`"`borders'"'))
+        local _b : subinstr local _b "outer(all)" "", all
+        local _b : subinstr local _b "top(row 1)" "", all
+        local _b : subinstr local _b "bottom(last)" "", all
+        local _guard = 0
+        while regexm(`"`_b'"', "bottom\(row [0-9]+\)") & `_guard' < 100 {
+            local _b = regexr(`"`_b'"', "bottom\(row [0-9]+\)", "")
+            local ++_guard
+        }
+        local _b : subinstr local _b "," " ", all
+        local _b = strtrim(`"`_b'"')
+        if `"`_b'"' != "" {
+            display as error `"borders(): unrecognised token(s): `_b'"'
+            display as error "recognised: outer(all), top(row 1), bottom(last), bottom(row #)"
+            exit 198
+        }
+    }
+end
+
+
 capture program drop _stacktab_apply_style
 program define _stacktab_apply_style
     version 16.0
@@ -1159,8 +1295,6 @@ end
 version 16.0
 capture mata: mata drop _stacktab_xlsx_write_mata()
 capture mata: mata drop _stacktab_cur_strmat()
-capture mata: mata drop _stacktab_xlsx_bounds_mata()
-capture mata: mata drop _stacktab_bounds()
 capture mata: mata drop _stacktab_xlsx_put_text_mata()
 
 mata:
@@ -1240,82 +1374,6 @@ string matrix _stacktab_cur_strmat(string scalar varlist)
     }
 
     return(out)
-}
-
-void _stacktab_xlsx_bounds_mata(
-    string scalar filepath,
-    string scalar sheet,
-    real scalar maxrows,
-    real scalar maxcols,
-    real scalar proberows,
-    real scalar probecols)
-{
-    class xl scalar b
-    string rowvector sheets
-    string matrix raw
-    real rowvector bounds
-    real scalar i, found, rowcap, colcap, lastrow, lastcol
-    real scalar nextrowcap, nextcolcap
-
-    b = xl()
-    b.load_book(filepath)
-    sheets = b.get_sheets()
-    found = 0
-    for (i = 1; i <= length(sheets); i++) {
-        if (sheets[i] == sheet) {
-            found = 1
-            break
-        }
-    }
-    if (!found) {
-        b.close_book()
-        errprintf("sheet %s not found in %s\n", sheet, filepath)
-        _error(111)
-    }
-
-    b.set_sheet(sheet)
-    rowcap = min((maxrows, max((1, proberows))))
-    colcap = min((maxcols, max((1, probecols))))
-    while (1) {
-        raw = b.get_string((1, rowcap), (1, colcap))
-        bounds = _stacktab_bounds(raw)
-        lastrow = bounds[1]
-        lastcol = bounds[2]
-
-        nextrowcap = rowcap
-        nextcolcap = colcap
-        if (lastrow == rowcap & rowcap < maxrows) {
-            nextrowcap = min((maxrows, max((rowcap + 1, rowcap * 2))))
-        }
-        if (lastcol == colcap & colcap < maxcols) {
-            nextcolcap = min((maxcols, max((colcap + 1, colcap * 2))))
-        }
-        if (nextrowcap == rowcap & nextcolcap == colcap) break
-        rowcap = nextrowcap
-        colcap = nextcolcap
-    }
-    b.close_book()
-
-    st_numscalar("r(_stacktab_lastrow)", lastrow)
-    st_numscalar("r(_stacktab_lastcol)", lastcol)
-}
-
-real rowvector _stacktab_bounds(string matrix raw)
-{
-    real scalar i, j, lastrow, lastcol
-
-    lastrow = 0
-    lastcol = 0
-    for (i = 1; i <= rows(raw); i++) {
-        for (j = 1; j <= cols(raw); j++) {
-            if (strtrim(raw[i, j]) != "") {
-                if (i > lastrow) lastrow = i
-                if (j > lastcol) lastcol = j
-            }
-        }
-    }
-
-    return((lastrow, lastcol))
 }
 
 void _stacktab_xlsx_put_text_mata(

@@ -1,4 +1,4 @@
-*! table1_tc Version 1.9.11  2026/07/18 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.10.0  2026/07/22 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -39,9 +39,9 @@ program define table1_tc, rclass
         [Format(string)]        /// Default format for continuous normal/skewed variables
         [PERCFormat(string)]    /// Default format for categorical/binary variables
         [NFormat(string)]       /// Format for counts (n and N); default is %12.0fc
-        [iqrmiddle(string asis)] /// Symbol between Q1 and Q3; default is "-"
-        [sdleft(string asis)]   /// Symbol before SD; default is " ("
-        [sdright(string asis)]  /// Symbol after SD; default is ")"
+        [iqrmiddle(string asis)] /// Symbol between Q1 and Q3; default is ", "
+        [sdleft(string asis)]   /// Symbol before SD; default is "+/-"
+        [sdright(string asis)]  /// Symbol after SD; default is "" (none)
         [gsdleft(string asis)]  /// Symbol before GSD; default is " (×/"
         [gsdright(string asis)] /// Symbol after GSD; default is ")"
         [percent]               /// Report categorical vars just as % (no N)
@@ -56,7 +56,7 @@ program define table1_tc, rclass
         [title(string)]         /// Table title
         [clear]                 /// Keep resulting table in memory
         [percent_n]             /// Display as % (n) rather than n (%)
-        [percsign(string asis)] /// Percent sign; default is "%"
+        [percsign(string asis)] /// Percent sign; default is "" (none)
         [SPACElowpercent]       /// Report e.g. ( 3%) rather than (3%) (no-space is default)
         [extraspace]            /// Helps alignment in DOCX with non-monospaced fonts
         [slashN]                /// Report n/N instead of n
@@ -330,7 +330,7 @@ program define table1_tc, rclass
     
     // Handle row percentage display for categorical variables
     if "`catrowperc'" != "" {
-        local percentage2 "`percentage'"
+        local percentage2 `"`percentage'"'
         local percentage2 "column `percentage'"  // Column percentage label
         
         // Format footnote based on options
@@ -572,7 +572,7 @@ program define table1_tc, rclass
         use "`_wtc_crude_table'", clear
         capture replace sort1 = sort1 + 1 if sort1 >= 2
 
-        local _wtc_merge_levels "`_group_levels'"
+        local _wtc_merge_levels `"`_group_levels'"'
         if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
 
         foreach lv of local _wtc_merge_levels {
@@ -630,7 +630,7 @@ program define table1_tc, rclass
         // mutating any user label of the same arbitrary name.
         if "`vallab'"=="" {
             tempname _t1tc_vallab
-            local vallab "`_t1tc_vallab'"
+            local vallab `"`_t1tc_vallab'"'
         }
         label define `vallab' `_total_code' `"Total"', modify  // Add "Total" label for sentinel
         local levels "`levels' `_total_code'"  // Add sentinel to levels list
@@ -804,7 +804,7 @@ program define table1_tc, rclass
                 local _wtc_suffixes "`_wtc_suffixes' T"
             }
             else {
-                local _wtc_suffixes "`_wtc_suffixes' `lv'"
+                local _wtc_suffixes `"`_wtc_suffixes' `lv'"'
             }
         }
 
@@ -819,7 +819,7 @@ program define table1_tc, rclass
                 local _wtc_lab : label `vallab' `sfx'
             }
             else {
-                local _wtc_lab "`by' = `sfx'"
+                local _wtc_lab `"`by' = `sfx'"'
             }
 
             * Rename weighted group column and set label
@@ -933,16 +933,16 @@ program define table1_tc, rclass
                 tempvar _hp_var
                 replace `_hcol' = subinstr(`_hcol', "N=", "", .)
                 gen double `_hp_var' = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
-                local hperc_scratch "`hperc_scratch' `_hp_var'"
-                local hperc_scratch_for_`_hcol' "`_hp_var'"
+                local hperc_scratch `"`hperc_scratch' `_hp_var'"'
+                local hperc_scratch_for_`_hcol' `"`_hp_var'"'
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" {
-                    local hperc_cr_scratch "`hperc_cr_scratch' `_hp_var'"
+                    local hperc_cr_scratch `"`hperc_cr_scratch' `_hp_var'"'
                 }
                 else if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" {
-                    local hperc_wt_scratch "`hperc_wt_scratch' `_hp_var'"
+                    local hperc_wt_scratch `"`hperc_wt_scratch' `_hp_var'"'
                 }
                 else {
-                    local hperc_main_scratch "`hperc_main_scratch' `_hp_var'"
+                    local hperc_main_scratch `"`hperc_main_scratch' `_hp_var'"'
                 }
             }
 
@@ -965,23 +965,23 @@ program define table1_tc, rclass
                 else egen `hperc_wtden' = rowtotal(`hperc_wt_scratch') if inlist(_n, 2)
             }
             else if "`by'" == "" {
-                local _tot_scratch "`hperc_scratch_for_Total'"
+                local _tot_scratch `"`hperc_scratch_for_Total'"'
                 if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
                 else egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
             }
             else {
                 local _by_t "`by'_T"
-                local _tot_scratch "`hperc_scratch_for_`_by_t''"
+                local _tot_scratch `"`hperc_scratch_for_`_by_t''"'
                 if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
                 else egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
             }
 
             // Add percentage of total to each sample-size label.
             foreach _hcol of local hperc_cols {
-                local _hden "`hperc_den'"
+                local _hden `"`hperc_den'"'
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
-                local _hp_var "`hperc_scratch_for_`_hcol''"
+                local _hp_var `"`hperc_scratch_for_`_hcol''"'
                 replace `_hcol' = `_hcol' + " " + "(" + ///
                     string(round(`_hp_var' / `_hden', 0.001) * 100, "%9.1f") + ///
                     `percsign' + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
@@ -1050,9 +1050,18 @@ program define table1_tc, rclass
         
         /* Clean up the iqrmiddle value for display */
         local iqrmiddle_clean = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
+
+        /* Describe the mean/SD cell using the ACTIVE sdleft()/sdright()
+           notation. The header used to be hardcoded "Mean (SD)" while the
+           default notation renders 58.3+/-13.4, so the column caption
+           contradicted every cell beneath it. Defaults give "Mean+/-SD";
+           sdleft(" (") sdright(")") gives "Mean (SD)". */
+        local sdleft_clean = substr(`"`sdleft'"', 2, length(`"`sdleft'"') - 2)
+        local sdright_clean = substr(`"`sdright'"', 2, length(`"`sdright'"') - 2)
+        local meansd_label `"Mean`sdleft_clean'SD`sdright_clean'"'
         
         if `_resolved_has_contn' {
-            local cont_parts = "Mean (SD)"
+            local cont_parts `"`meansd_label'"'
             local cont_count = 1
         }
         
@@ -1102,7 +1111,7 @@ program define table1_tc, rclass
         }
         
         /* Apply header description */
-        replace factor = "`header_parts'" if _n == 2
+        replace factor = `"`header_parts'"' if _n == 2
     }
     local _descriptor_row_text `"`header_parts'"'
 
@@ -1127,7 +1136,7 @@ program define table1_tc, rclass
             local ycont "`meanSD', `gmeanSD', and median (Q1, Q3)"
         }
         else if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
-            local ycont "`meanSD' or `gmeanSD'"
+            local ycont `"`meanSD' or `gmeanSD'"'
         }
         else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
             local ycont "`meanSD' or median (Q1, Q3)"
@@ -1136,10 +1145,10 @@ program define table1_tc, rclass
             local ycont "`gmeanSD' or median (Q1, Q3)"
         }
         else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" != "1" {
-            local ycont "`meanSD'"
+            local ycont `"`meanSD'"'
         }
         else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
-            local ycont "`gmeanSD'"
+            local ycont `"`gmeanSD'"'
         }
         else if "`ycontn'" != "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
             local ycont "median (Q1, Q3)"
@@ -1150,10 +1159,10 @@ program define table1_tc, rclass
             local ymix "`ycont' for continuous measures, and `percfootnote' for categorical measures"
         }
         else if "`ycont'" != "" & "`ycatbin'" =="" {
-            local ymix "`ycont'"
+            local ymix `"`ycont'"'
         }
         else if "`ycont'" == "" & "`ycatbin'" !="" {
-            local ymix "`percfootnote'"
+            local ymix `"`percfootnote'"'
         }
         
         /* Add separate note for binary measures with row percentages */
@@ -1208,7 +1217,7 @@ program define table1_tc, rclass
             }
 
             local _methods "Baseline characteristics were compared between groups defined by `_bylab'."
-            local _methods "`_methods' `Dapa'"
+            local _methods `"`_methods' `Dapa'"'
             if "`_test_list'" != "" {
                 local _methods "`_methods' P-values were calculated using `_test_list'."
             }
@@ -1300,7 +1309,7 @@ program define table1_tc, rclass
                     local _rname = subinstr("`_rname'", ",", "", .)
                     local _rname = substr("`_rname'", 1, 32)
                     if "`_rname'" == "" local _rname "row`_rt_r'"
-                    local _rt_rnames "`_rt_rnames' `_rname'"
+                    local _rt_rnames `"`_rt_rnames' `_rname'"'
                 }
             }
             local _rt_cnames ""
@@ -1388,7 +1397,7 @@ program define table1_tc, rclass
 				
 				if `_resolved_has_contn' | `_resolved_has_contln' | `_resolved_has_conts' {
 					if `_resolved_has_contn' {
-						local header_parts = "Mean (SD)"
+						local header_parts `"`meansd_label'"'
 						local part_count = 1
 					}
 					if `_resolved_has_contln' {
@@ -1447,7 +1456,7 @@ program define table1_tc, rclass
 			}
 			
 			/* Set header description in the table */
-			replace factor = "`header_parts'" if _n == 2
+			replace factor = `"`header_parts'"' if _n == 2
 
 	            /* Export to Excel — exclude internal columns */
 	            local _had_p_raw = 0
@@ -1520,12 +1529,12 @@ program define table1_tc, rclass
 				local _data_cols ""
 				if `has_wtcompare' {
 					foreach var of varlist Cr_* Wt_* {
-						local _data_cols "`_data_cols' `var'"
+						local _data_cols `"`_data_cols' `var'"'
 					}
 				}
 				else {
 					foreach var of varlist `by'_* {
-						local _data_cols "`_data_cols' `var'"
+						local _data_cols `"`_data_cols' `var'"'
 					}
 				}
 			}
@@ -1927,7 +1936,7 @@ program define table1_tc, rclass
 **#  Store output in frame if requested (I5)
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
-        local frame "`_frame_name'"
+        local frame `"`_frame_name'"'
         return local frame "`frame'"
     }
 

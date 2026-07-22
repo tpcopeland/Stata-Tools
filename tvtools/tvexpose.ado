@@ -1,4 +1,4 @@
-*! tvexpose Version 1.7.2  2026/07/19
+*! tvexpose Version 1.8.0  2026/07/22
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -118,6 +118,10 @@ program define tvexpose, rclass
     set varabbrev off
     local _frameout_snap_taken = 0    // init before block for error-path restore
     local _caller_snapshot_ready = 0
+    local _combo_n = 0                // combine() allocated-code count
+    local _combo_map ""               // combine() code -> composition map
+    local _bt_n = 0                   // bytype derived-variable count
+    local _bt_map ""                  // bytype value -> variable map
 
     capture noisily {
 
@@ -431,7 +435,50 @@ program define tvexpose, rclass
         }
         local skip_main_var = 0
     }
-    
+
+    **# Output namespace preflight
+    * Resolve every name the command will commit BEFORE any data are mutated,
+    * and reject collisions here rather than discovering them at commit time.
+    *
+    * The final block renames the structural bounds back to the caller's
+    * option names with a captured rename whose return code was never
+    * inspected. start(rx_start) together with generate(rx_start) therefore
+    * returned rc=0 having committed a dataset whose start bound was still
+    * called "start" while "rx_start" held the exposure: a wrong schema with
+    * no error. Resolving the full output name set up front makes that
+    * unrepresentable, and the commit renames below are now checked.
+    local _out_names "`id' `start'"
+    if "`stop'" != ""     local _out_names "`_out_names' `stop'"
+    if `skip_main_var' == 0 local _out_names "`_out_names' `generate'"
+    if "`combine'" != ""  local _out_names "`_out_names' `combine'"
+    if "`keepvars'" != "" local _out_names "`_out_names' `keepvars'"
+    if "`keepdates'" != "" local _out_names "`_out_names' study_entry study_exit"
+
+    local _out_dups : list dups _out_names
+    if "`_out_dups'" != "" {
+        noisily display as error "Output name collision: `_out_dups'"
+        noisily display as error "id(), start(), stop(), generate(), combine(), keepvars(), and the"
+        noisily display as error "kept study dates must all resolve to distinct output names."
+        noisily display as error "No output was committed."
+        exit 198
+    }
+
+    * The command builds its output under the reserved working names id,
+    * start, stop, study_entry, and study_exit before renaming back. A
+    * requested output name that equals a reserved name it is not entitled
+    * to would be destroyed by that machinery, so reject it here.
+    local _reserved "study_entry study_exit"
+    local _claimed "`generate' `combine' `keepvars'"
+    if "`keepdates'" != "" local _claimed ""
+    foreach _nm of local _claimed {
+        local _is_reserved : list _nm in _reserved
+        if `_is_reserved' {
+            noisily display as error "'`_nm'' is a reserved working name in tvexpose output"
+            noisily display as error "Rename the variable, or specify keepdates to retain the study dates."
+            exit 198
+        }
+    }
+
     * Set default reference label if not specified
     if "`referencelabel'" == "" local referencelabel "Unexposed"
     
@@ -1280,11 +1327,31 @@ program define tvexpose, rclass
         local iter = `iter' + 1
     }
 
-    * Report completion status
+    * Report completion status.
+    *
+    * Reaching the cap is not by itself a failure: the loop may have converged
+    * on the final iteration. What must never happen is returning a plausible
+    * partial dataset. So on cap exhaustion the postcondition is checked
+    * explicitly -- no remaining same-value pair within merge() days -- and a
+    * genuine violation is a transactional error, not a warning the caller can
+    * miss. The caller's data is restored by the snapshot taken at entry.
     if `iter' >= `max_merge_iter' {
-        noisily display as error "Warning: merge iteration limit (`max_merge_iter') reached"
-        noisily display as text "         Some periods may not have been fully merged"
-        noisily display as text "         Consider increasing merge() parameter or simplifying exposure data"
+        quietly gen double __merge_left = 0
+        quietly by id (exp_start exp_stop): replace __merge_left = 1 if ///
+            (exp_start[_n+1] - exp_stop <= `merge') & ///
+            !missing(exp_start[_n+1]) & ///
+            (exp_value == exp_value[_n+1]) & ///
+            (_n < _N) & id == id[_n+1]
+        quietly count if __merge_left == 1
+        local n_merge_left = r(N)
+        quietly drop __merge_left
+        if `n_merge_left' > 0 {
+            noisily display as error "Merge did not converge: `n_merge_left' mergeable period pair(s) remain after `max_merge_iter' iterations"
+            noisily display as error "The requested merge postcondition is not satisfied, so no output was committed."
+            noisily display as error "Simplify the exposure data or reduce merge()/grace() and rerun."
+            exit 498
+        }
+        noisily display as text "  Merge reached the iteration limit but the postcondition holds"
     }
     else if `iter' > `progress_interval' {
         noisily display as text "  Merge completed after `iter' iterations"
@@ -1352,9 +1419,20 @@ program define tvexpose, rclass
         if r(N) == 0 local done = 1
     }
 
-    * Report if many iterations were needed
+    * As with the merge loop, hitting the cap is only a failure if the
+    * postcondition is actually violated. `contained' already holds the
+    * current pass's marks, so it is the postcondition: any row still marked
+    * means a contained period survived, and a partial result must not be
+    * returned as if it were complete.
     if `iter' >= `max_contain_iter' {
-        noisily display as error "Warning: containment check iteration limit reached"
+        quietly count if contained == 1
+        local n_contained_left = r(N)
+        if `n_contained_left' > 0 {
+            noisily display as error "Containment resolution did not converge: `n_contained_left' contained period(s) remain after `max_contain_iter' iterations"
+            noisily display as error "The requested containment postcondition is not satisfied, so no output was committed."
+            exit 498
+        }
+        noisily display as text "  Containment check reached the iteration limit but the postcondition holds"
     }
     else if `iter' > `progress_interval' {
         noisily display as text "  Containment check completed after `iter' iterations"
@@ -1558,8 +1636,16 @@ program define tvexpose, rclass
         * Merge boundaries for same person
         joinby id using `all_boundaries'
 
-        * Keep only boundaries that fall strictly within period
-        quietly keep if boundary > exp_start & boundary < exp_stop
+        * Keep boundaries that open a new segment inside this period.
+        * Under the closed [start, stop] contract a cut at b yields
+        * [start, b-1] and [b, stop], so b is admissible when
+        * start < b <= stop. The old `b < stop` rule silently dropped the
+        * case b == stop, which is exactly a shared inclusive boundary
+        * (one episode ending on the day the next begins): the first
+        * episode was left unsplit and the two sources stayed misaligned,
+        * so combine() saw an unresolved overlap and coverage
+        * double-counted the shared day.
+        quietly keep if boundary > exp_start & boundary <= exp_stop
 
         * If no splits needed, restore original
         quietly count
@@ -1623,6 +1709,56 @@ program define tvexpose, rclass
     * was ever exposed to, even if those exposure periods get eliminated during overlap
     * resolution. Save this information now before overlaps are resolved.
     if "`bytype'" != "" {
+        **# bytype output-name preflight
+        * Derived names are {stub}{suffix} and {stub}labels_{suffix}, where
+        * suffix comes from the formatted exposure value. The early stub check
+        * assumed a one-character suffix, so a perfectly valid category such as
+        * 123456789 combined with a documented 24-character stub only failed
+        * deep inside variable creation with a bare "invalid varname" (r(198)).
+        * Every derived name is now built from the actual values and validated
+        * for legality, length, and uniqueness BEFORE anything is created.
+        preserve
+        quietly keep if exp_value != `reference'
+        quietly levelsof exp_value, local(_bt_vals)
+        restore
+
+        local _bt_names ""
+        local _bt_map ""
+        local _bt_n = 0
+        foreach _bt_v of local _bt_vals {
+            local _bt_sfx = subinstr("`_bt_v'", "-", "neg", .)
+            local _bt_sfx = subinstr("`_bt_sfx'", ".", "p", .)
+            local _bt_var "`stub_name'`_bt_sfx'"
+            local _bt_lbl "`stub_name'labels_`_bt_sfx'"
+
+            capture confirm name `_bt_var'
+            if _rc {
+                noisily display as error "bytype: exposure value `_bt_v' yields the illegal variable name '`_bt_var''"
+                noisily display as error "Recode that exposure value, or supply a different generate() stub."
+                noisily display as error "No output was committed."
+                exit 198
+            }
+            if strlen("`_bt_var'") > 32 | strlen("`_bt_lbl'") > 32 {
+                noisily display as error "bytype: exposure value `_bt_v' yields a name longer than 32 characters"
+                noisily display as error "  variable: `_bt_var' (`=strlen("`_bt_var'")' chars); value label: `_bt_lbl' (`=strlen("`_bt_lbl'")' chars)"
+                noisily display as error "Shorten the generate() stub to at most `=32 - strlen("labels_`_bt_sfx'")' characters, or recode the exposure value."
+                noisily display as error "No output was committed."
+                exit 198
+            }
+            local _bt_dup : list _bt_var in _bt_names
+            if `_bt_dup' {
+                noisily display as error "bytype: exposure value `_bt_v' collides on the derived name '`_bt_var''"
+                noisily display as error "Two exposure values sanitize to the same variable name. Recode them."
+                noisily display as error "No output was committed."
+                exit 198
+            }
+            local _bt_names "`_bt_names' `_bt_var'"
+            local ++_bt_n
+            local _bt_map `"`_bt_map' `_bt_v'=`_bt_var'"'
+        }
+        local _bt_names = strtrim("`_bt_names'")
+        local _bt_map = strtrim(`"`_bt_map'"')
+
         preserve
         keep id exp_value
         quietly keep if exp_value != `reference'
@@ -1632,7 +1768,7 @@ program define tvexpose, rclass
         tempfile all_person_exp_types
         quietly save `all_person_exp_types', replace
         restore
-        
+
         * Save first exposure start date per person per type before overlap resolution
         * This ensures evertreated bytype can find the correct first exposure date
         * even if overlap resolution eliminates some exposure periods entirely
@@ -1646,51 +1782,108 @@ program define tvexpose, rclass
     }
     
     if "`exp_type'" != "dose" & "`combine'" != "" {
-        * COMBINE OVERLAPPING: After split, merge overlapping segments and assign combined values
-        * The split block above has already created non-overlapping sub-periods
-        * Segments that were in overlap regions now have multiple rows (one per exposure)
-        * Encode overlaps as val1*100 + val2
-
-        * Validate exposure values won't collide with encoding scheme
-        quietly summarize exp_value
-        if r(max) >= 100 {
-            noisily display as error "combine() cannot be used when exposure values >= 100"
-            noisily display as error "The encoding scheme (val1*100 + val2) produces ambiguous values"
-            noisily display as error "when either value is >= 100. Maximum exposure value: " r(max)
-            noisily display as error "Consider recoding exposure values to smaller integers before using combine()"
-            exit 198
-        }
+        * COMBINE OVERLAPPING: after the split block above, each sub-period in
+        * an overlap region carries one row per simultaneously active exposure.
+        * Collapse every sub-period to one row and give each distinct
+        * simultaneous state its own code.
+        *
+        * The previous scheme encoded a pair arithmetically as val1*100 + val2.
+        * That map is not injective over the value domain the command accepts:
+        * the pair (-1, 2) encoded to -98, which is also a legal single
+        * exposure code, and any pair (0, v) encoded to v itself. Both cases
+        * returned rc=0 with two analytically distinct states sharing one
+        * value. Codes are now allocated from a block that starts strictly
+        * above every observed original value, so an original code and a
+        * combination code can never coincide, and the composition of each
+        * allocated code is recorded in a value label and in r(combine_map).
 
         sort id exp_start exp_stop exp_value
 
-        * Count how many exposure values exist for each sub-period
+        * The same exposure recorded twice across one sub-period is a single
+        * state, not a two-way overlap.
+        quietly by id exp_start exp_stop exp_value: keep if _n == 1
         quietly by id exp_start exp_stop: gen double __n_vals = _N
 
-        * Validate: combine() only supports 2-way overlaps
-        quietly summarize __n_vals
-        if r(max) > 2 {
-            noisily display as error "combine() does not support 3+ overlapping exposure types"
-            noisily display as error "Found periods with `=r(max)' simultaneous exposures"
-            noisily display as error "Consider using split or priority() instead"
-            drop __n_vals
+        * Canonical, order-independent composition key per sub-period. The
+        * by-group is sorted on exp_value, so the key does not depend on the
+        * order the source episodes happened to arrive in.
+        quietly gen str244 __combo_key = ""
+        quietly by id exp_start exp_stop (exp_value): replace __combo_key = ///
+            cond(_n == 1, strofreal(exp_value, "%18.0g"), ///
+                 __combo_key[_n-1] + " + " + strofreal(exp_value, "%18.0g"))
+        quietly by id exp_start exp_stop (exp_value): replace __combo_key = __combo_key[_N]
+
+        * A truncated key would make two different states share a code, which
+        * is the exact defect this allocator exists to prevent.
+        quietly count if strlen(__combo_key) >= 244
+        if r(N) > 0 {
+            noisily display as error "combine(): a sub-period has too many simultaneous exposures to encode"
+            noisily display as error "Reduce the number of overlapping exposure types, or use split instead."
+            drop __n_vals __combo_key
             exit 198
         }
 
-        * For non-overlapping segments (1 value), combined = exp_value
-        quietly gen double `combine' = exp_value if __n_vals == 1
+        * Allocate combination codes strictly above every original value.
+        quietly summarize exp_value, meanonly
+        local _combo_base = floor(r(max)) + 1
 
-        * For overlapping segments (2 values), compute combined value
-        * Sort ensures smaller value * 100 + larger value
-        quietly by id exp_start exp_stop (exp_value): ///
-            replace `combine' = exp_value[1] * 100 + exp_value[2] if __n_vals == 2
+        quietly generate double `combine' = exp_value if __n_vals == 1
+        tempvar _combo_grp
+        quietly egen double `_combo_grp' = group(__combo_key) if __n_vals > 1
+        quietly replace `combine' = `_combo_base' + `_combo_grp' - 1 if __n_vals > 1
+
+        * Record the allocated code -> composition map for labels and returns.
+        local _combo_n = 0
+        local _combo_map ""
+        preserve
+        quietly keep if __n_vals > 1
+        if _N > 0 {
+            quietly bysort `combine' (__combo_key): keep if _n == 1
+            sort `combine'
+            forvalues _ci = 1/`=_N' {
+                local ++_combo_n
+                local _combo_code`_combo_n' = `combine'[`_ci']
+                local _combo_text`_combo_n' = __combo_key[`_ci']
+                local _combo_map `"`_combo_map' `_combo_code`_combo_n''="`_combo_text`_combo_n''""'
+            }
+        }
+        restore
+        local _combo_map = strtrim(`"`_combo_map'"')
+
+        * Give the combine() variable its own label so the allocated codes are
+        * readable without consulting r(combine_map).
+        if `_combo_n' > 0 {
+            _tvtools_new_vallabel, base(_tvcombo_`=substr("`combine'", 1, 20)')
+            local _combo_lbl "`r(name)'"
+            quietly levelsof `combine' if __n_vals == 1, local(_combo_singles)
+            local _combo_lbl_defined = 0
+            foreach _cv of local _combo_singles {
+                if `_combo_lbl_defined' label define `_combo_lbl' `_cv' "`_cv'", add
+                else {
+                    label define `_combo_lbl' `_cv' "`_cv'", replace
+                    local _combo_lbl_defined = 1
+                }
+            }
+            forvalues _ci = 1/`_combo_n' {
+                if `_combo_lbl_defined' ///
+                    label define `_combo_lbl' `_combo_code`_ci'' `"`_combo_text`_ci''"', add
+                else {
+                    label define `_combo_lbl' `_combo_code`_ci'' `"`_combo_text`_ci''"', replace
+                    local _combo_lbl_defined = 1
+                }
+            }
+            label values `combine' `_combo_lbl'
+        }
+        label variable `combine' "Combined exposure state"
 
         * Update exp_value for overlap segments to the combined value
         quietly replace exp_value = `combine' if __n_vals > 1
 
         * Keep only one row per sub-period (collapse overlapping rows)
+        sort id exp_start exp_stop exp_value
         quietly by id exp_start exp_stop: keep if _n == 1
 
-        drop __n_vals
+        drop __n_vals __combo_key
     }
   
     **# Check for overlapping exposures and warn if no strategy specified
@@ -4183,9 +4376,21 @@ program define tvexpose, rclass
             local _tv_lbl_name "_tvlbl_`_short_gen'"
             quietly levelsof exp_value, local(all_vals)
             label define `_tv_lbl_name' `reference' "`referencelabel'", replace
+            * Codes allocated by combine() are labelled with the composition
+            * they stand for, not with the bare allocated number.
             foreach val of local all_vals {
                 if `val' != `reference' {
-                    label define `_tv_lbl_name' `val' "`val'", add
+                    local _val_is_combo = 0
+                    local _val_combo_text ""
+                    forvalues _ci = 1/`_combo_n' {
+                        if `val' == `_combo_code`_ci'' {
+                            local _val_is_combo = 1
+                            local _val_combo_text `"`_combo_text`_ci''"'
+                        }
+                    }
+                    if `_val_is_combo' ///
+                        label define `_tv_lbl_name' `val' `"`_val_combo_text'"', add
+                    else label define `_tv_lbl_name' `val' "`val'", add
                 }
             }
             label values exp_value `_tv_lbl_name'
@@ -4504,19 +4709,21 @@ program define tvexpose, rclass
         
         tempfile _check_temp
         quietly save `_check_temp'
-        * Calculate coverage metrics per person
-        quietly generate double period_days = stop - start + 1
-        quietly by id: egen double total_covered = total(period_days)
+        * Coverage is the interval UNION clipped to the study window, never
+        * the sum of row lengths. Summing rows double-counts the days that
+        * split output deliberately represents more than once, which is how
+        * this report came to claim 105% coverage of a window the data cover
+        * exactly. Gaps come from the same engine, so the two figures can no
+        * longer disagree, and nesting no longer reads as a fresh segment.
+        _tvtools_interval_union, id(id) start(start) stop(stop) ///
+            cliplow(study_entry) cliphigh(study_exit) ///
+            uniondays(total_covered) ngaps(n_gaps)
+
+        sort id start stop
         quietly by id: generate double expected_days = study_exit[1] - study_entry[1] + 1
         quietly generate double pct_covered = 100 * total_covered / expected_days
-        
         quietly by id: egen double n_periods = count(id)
-        
-        * Calculate number of gaps
-        quietly by id (start): gen double __gap_ind = (start > stop[_n-1] + 1) if _n > 1 & id == id[_n-1]
-        quietly by id: egen double n_gaps = total(__gap_ind)
-        drop __gap_ind
-        
+
         * Keep one row per person for display
         quietly by id: keep if _n == 1
         
@@ -4551,14 +4758,19 @@ program define tvexpose, rclass
         
         tempfile _gaps_temp
         quietly save `_gaps_temp'
-        sort id start
-        * Identify gaps between consecutive periods
-        quietly by id (start): gen double __gap_ind2 = (start > stop[_n-1] + 1) if _n > 1 & id == id[_n-1]
-        quietly by id: gen gap_start = stop[_n-1] + 1 if __gap_ind2 == 1 & id == id[_n-1]
-        quietly by id: gen gap_end = start - 1 if __gap_ind2 == 1
+        sort id start stop
+        * A gap opens against the running maximum stop seen so far, not
+        * against the immediate predecessor. With nested or split rows the
+        * predecessor can end long before an earlier row does, so the old
+        * rule invented gaps inside days that were in fact covered.
+        quietly by id (start stop): gen double __rmax = stop if _n == 1
+        quietly by id (start stop): replace __rmax = max(__rmax[_n-1], stop) if _n > 1
+        quietly by id (start stop): gen double __prevmax = __rmax[_n-1] if _n > 1
+        quietly gen gap_start = __prevmax + 1 if !missing(__prevmax) & start > __prevmax + 1
+        quietly gen gap_end = start - 1 if !missing(gap_start)
         quietly gen gap_days = gap_end - gap_start + 1 if !missing(gap_start)
-        
-        drop __gap_ind2
+
+        drop __rmax __prevmax
         quietly drop if gap_days <= 0
         quietly keep if !missing(gap_start) 
         
@@ -4722,11 +4934,30 @@ program define tvexpose, rclass
                 local collapse_by_vars "`generate'"
             }
             
-            quietly collapse (sum) cat_time = period_length (count) n_periods = period_length, ///
-                by(`collapse_by_vars')
+            * Category time is the UNION of that category's own intervals per
+            * person, so a category whose rows overlap each other is not
+            * counted twice. The denominator is the study-window person-time.
+            tempvar _catgrp _catdays
+            quietly egen long `_catgrp' = group(id `collapse_by_vars')
+            _tvtools_interval_union, id(`_catgrp') start(start) stop(stop) ///
+                uniondays(`_catdays')
+            sort `_catgrp'
+            quietly by `_catgrp': keep if _n == 1
+
+            quietly collapse (sum) cat_time = `_catdays', by(`collapse_by_vars')
             quietly gen double cat_pct = cond(`total_time' > 0, 100 * cat_time / `total_time', .)
             noisily list `collapse_by_vars' cat_time cat_pct, noobs separator(0)
-            
+
+            * Overlapping categories are multi-membership by construction, so
+            * say so rather than presenting shares that look mutually
+            * exclusive but sum past 100.
+            quietly summarize cat_time, meanonly
+            local _cat_total = r(sum)
+            if `total_time' > 0 & `_cat_total' > `total_time' + 1e-6 {
+                noisily display as text "  Note: categories overlap in time, so a day can belong to more"
+                noisily display as text "  than one category. Shares are multi-membership and sum above 100%."
+            }
+
             quietly use `_summarize_temp', clear
         }
     }
@@ -4742,15 +4973,27 @@ program define tvexpose, rclass
         tempfile _validate_temp
         quietly save `_validate_temp'
         
+        * Covered days use the same clipped union engine as check, so the
+        * validation dataset and the coverage report cannot disagree.
+        _tvtools_interval_union, id(id) start(start) stop(stop) ///
+            cliplow(study_entry) cliphigh(study_exit) ///
+            uniondays(total_covered)
+
+        sort id start stop
         quietly generate double period_days = stop - start + 1
-        quietly by id: egen double total_covered = total(period_days)
         quietly by id: generate double expected_days = study_exit[1] - study_entry[1] + 1
         quietly generate double pct_covered = 100 * total_covered / expected_days
-        
-        * Calculate exposed time
+
+        * Exposed time is the union of the exposed rows only.
         quietly gen double __exposed_val = (`generate' != `reference')
-        quietly generate double exp_days = period_days * __exposed_val
-        quietly by id: egen double total_exposed_days = total(exp_days)
+        tempvar _expgrp
+        quietly egen long `_expgrp' = group(id __exposed_val)
+        _tvtools_interval_union, id(`_expgrp') start(start) stop(stop) ///
+            uniondays(__exp_union_days)
+        sort id start stop
+        quietly gen double exp_days = cond(__exposed_val, __exp_union_days, 0)
+        quietly by id: egen double total_exposed_days = max(exp_days)
+        drop __exp_union_days
         quietly by id: egen double n_periods = count(id)
         
         * Calculate number of transitions
@@ -4758,11 +5001,14 @@ program define tvexpose, rclass
         quietly by id: egen double n_transitions = total(__trans_ind)
         drop __trans_ind
         
-        * Calculate gaps
-        quietly by id: gen double __gap_val = (start > stop[_n-1] + 1) if _n > 1 & id == id[_n-1]
+        * Gaps use the running maximum stop, matching check and gaps above.
+        quietly by id (start stop): gen double __rmaxv = stop if _n == 1
+        quietly by id (start stop): replace __rmaxv = max(__rmaxv[_n-1], stop) if _n > 1
+        quietly by id (start stop): gen double __gap_val = ///
+            (start > __rmaxv[_n-1] + 1) if _n > 1
         quietly by id: egen double any_gaps = max(__gap_val)
         quietly by id: egen double n_gaps = total(__gap_val)
-        drop __gap_val
+        drop __gap_val __rmaxv
         
         * First and last exposure dates
         quietly by id: egen double __first_exp_val = min(start) if __exposed_val
@@ -5032,20 +5278,38 @@ program define tvexpose, rclass
     }
     
     sort id start stop
-    * Rename id back to original name if different
+    * Commit the structural names. A failed rename here means the committed
+    * schema does not match the one the caller asked for, so it is an error,
+    * not something to swallow. The preflight above should already have
+    * rejected every reachable collision; this gate exists so that a case it
+    * does not anticipate fails loudly instead of shipping a wrong schema.
     if "`id'" != "id" {
         capture quietly rename id `id'
         local _id_rename_rc = _rc
+        if `_id_rename_rc' {
+            noisily display as error "Could not name the id variable '`id'' in the output (rc=`_id_rename_rc')"
+            noisily display as error "No output was committed."
+            exit 198
+        }
     }
 
-    * Rename start/stop back to original names if different
     if "`start'" != "start" {
         capture quietly rename start `start'
         local _start_rename_rc = _rc
+        if `_start_rename_rc' {
+            noisily display as error "Could not name the start bound '`start'' in the output (rc=`_start_rename_rc')"
+            noisily display as error "No output was committed."
+            exit 198
+        }
     }
     if "`stop'" != "" & "`stop'" != "stop" {
         capture quietly rename stop `stop'
         local _stop_rename_rc = _rc
+        if `_stop_rename_rc' {
+            noisily display as error "Could not name the stop bound '`stop'' in the output (rc=`_stop_rename_rc')"
+            noisily display as error "No output was committed."
+            exit 198
+        }
     }
     capture quietly label data "`using'"
     local _label_data_rc = _rc
@@ -5109,6 +5373,18 @@ program define tvexpose, rclass
     * and downstream tvmerge/tvevent steps can read the chosen output name.
     if `skip_main_var' == 0  return local genvar "`generate'"
     else                     return local genvar "`stub_name'"
+
+    * combine() allocates codes for simultaneous exposure states. Report the
+    * allocated code -> composition map so a caller never has to reconstruct
+    * it from the value label.
+    return scalar n_combined_states = `_combo_n'
+    return local combine_map `"`_combo_map'"'
+
+    * bytype derives one variable per exposure value. Report the
+    * value -> variable map so a caller never has to reconstruct the
+    * suffix-sanitization rule.
+    return scalar n_bytype_vars = `_bt_n'
+    return local bytype_map `"`_bt_map'"'
 
     * Note: overlap_ids already available via return local, no global needed
 

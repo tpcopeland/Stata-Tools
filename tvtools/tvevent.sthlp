@@ -3,6 +3,7 @@
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvevent##syntax"}{...}
 {viewerjumpto "Description" "tvevent##description"}{...}
 {viewerjumpto "Options" "tvevent##options"}{...}
@@ -211,6 +212,26 @@ survival models.
 event as terminal. Drops all follow-up time after the first
 event. {break}{bf:recurring}: Allows multiple events per person. Splits intervals as
 needed but retains all follow-up time. {break}
+{break}{bf:Event placement and duplicate intervals.} With {bf:single}, the first
+event is identified by its {bf:date}, not by row position. Rows that share the
+same {cmd:(id, start, stop)} describe one person-time cell observed in several
+strata -- for instance the per-stratum rows {cmd:tvexpose, split} produces --
+so they all carry the event and the result does not depend on the order the
+rows arrived in. If the first event date is instead contained in two
+{it:different} intervals, those intervals overlap and the event's placement is
+genuinely ambiguous; {cmd:tvevent} exits with {cmd:r(459)} rather than letting
+row order decide or counting one event twice. Under the closed
+{cmd:[start, stop]} contract an interval ending on day {it:d} and one
+beginning on day {it:d} share that day: abutting intervals must begin on
+{cmd:prior_stop + 1}.
+{break}{bf:Same-day event multiplicity.} The daily time axis records at most
+one event per person per day. With {bf:recurring}, two event dates falling on
+the same person-day are rejected with {cmd:r(459)} and the affected ids, never
+silently collapsed. With {bf:single}, records agreeing on {cmd:(id, date)} but
+disagreeing on the resolved competing-risk type are likewise rejected. Ties on
+the same date otherwise resolve deterministically in
+option order: {opt date()} first, then each {opt compete()} variable in the
+order given. {break}
 {break}{bf:Important:} For {cmd:type(recurring)}, event dates must be in {bf:wide format} with the
 variable name specified in {cmd:date()} serving as a stubname. For example, if you
 specify {cmd:date(hosp)}, the command expects variables {cmd:hosp1}, {cmd:hosp2}, {cmd:hosp3}, etc. in

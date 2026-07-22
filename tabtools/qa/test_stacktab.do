@@ -672,8 +672,8 @@ capture frame drop occupied_frame
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
-    local rgwb "`c(tmpdir)'/stacktab_md_regress.xlsx"
-    local rgmd "`c(tmpdir)'/stacktab_md_regress.md"
+    local rgwb "`c(tmpdir)'/`c(pid)'_stacktab_md_regress.xlsx"
+    local rgmd "`c(tmpdir)'/`c(pid)'_stacktab_md_regress.md"
     capture erase "`rgwb'"
     capture erase "`rgmd'"
     clear

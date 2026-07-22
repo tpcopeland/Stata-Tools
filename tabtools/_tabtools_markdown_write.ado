@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 1.9.11  2026/07/18
+*! _tabtools_markdown_write Version 1.10.0  2026/07/22
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -52,7 +52,7 @@ program define _tabtools_markdown_write, rclass
         local _visible_opts ""
         if `"`labelvar'"' != "" local _visible_opts "labelvar(`labelvar')"
         _tabtools_visible_vars, `_visible_opts'
-        local _vars "`_tabtools_visible_vars'"
+        local _vars `"`_tabtools_visible_vars'"'
         local _k : word count `_vars'
         if `_k' == 0 {
             noisily display as error "No output columns available for Markdown export"

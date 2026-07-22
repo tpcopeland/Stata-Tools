@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.9.11** | 2026-07-18
+**Version 1.10.0** | 2026-07-22
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -190,12 +190,11 @@ Excerpt from the generated Markdown report:
 ```markdown
 ### Table 1. Baseline Characteristics
 
-| No. (Column %) or Mean (SD) | N=8,934 | N=6,066 | p-value |
+| No. (Column %) or Mean±SD | N=8,934 | N=6,066 | p-value |
 | --- | --- | --- | --- |
-| Age at cohort entry (years) | 58.3 (13.4) | 58.5 (13.3) | 0.24 |
-| Female sex | 5,351 (59.9%) | 3,621 (59.7%) | 0.80 |
-| Diabetes | 4,107 (46.0%) | 2,818 (46.5%) | 0.56 |
-| Hypertension | 4,112 (46.0%) | 2,935 (48.4%) | 0.005 |
+| Age at cohort entry (years) | 58.3±13.4 | 58.5±13.3 | 0.24 |
+| Female sex | 5,351 (60) | 3,621 (60) | 0.80 |
+| Diabetes | 4,107 (46) | 2,818 (46) | 0.56 |
 ```
 
 ### Simulation performance tables (`simtab`)
@@ -440,6 +439,7 @@ See [`qa/README.md`](qa/README.md) for suite membership, external tools, and res
 
 ## Version History
 
+- **1.10.0** (2026-07-22): Release-audit remediation. **Behavior changes that can stop code that previously ran:** (1) `regtab` and `effecttab` now require `level()` and exit `r(198)` when the active collection records no confidence-level provenance — they no longer fall back to the current `set level`, which is the session setting at render time and could label real 90% bounds as a 95% CI; (2) `stratetab` now requires `level()` and exits `r(459)` when *no* source file carries a level in its `_Lower`/`_Upper` labels, instead of silently assuming 95%; (3) `stacktab` validates the complete `style()` and `borders()` grammars **before** writing anything, so a malformed value now errors with `r(198)` and zero destinations created rather than `r(3499)` after the frame, CSV, Markdown and worksheet had all committed — unrecognized `borders()` tokens and non-numeric row heights are now rejected rather than silently ignored; (4) `simtab` rejects `frame()` and `plotframe()` naming the same frame, which previously destroyed the numeric companion and still returned `rc=0`; (5) `corrtab` now requires `csv()` to end in `.csv`, matching `puttab`/`simtab`/`stacktab`. **Fixes:** embedded double quotes are preserved end-to-end into frames, CSV, Markdown and Excel across `regtab`, `effecttab`, `crosstab`, `survtab`, `stratetab`, `desctab`, `stacktab` and `table1_tc` (labels such as `He said "yes"` were truncated to `He said`); a failed `tabtools set` no longer mutates theme/font globals before validating; `simtab` accepts scientific-notation `true(1e-3)` and tolerates user variables named `bylab`/`estlab`/`emdlab`; `stratetab` tolerates a source variable named `catvar_str`; a failed `frame()` no longer destroys a previously written `plotframe()`. **Disclosure corrections:** `diagtab, prevalence()` now states that adjusted predictive-value intervals are symmetric delta-method intervals at a prevalence assumed known without error, not Clopper-Pearson/Wilson; `survtab` names the RMST contrast direction (group 1 minus group 2) in the column header, `r(methods)` and the help, and returns group identities; `regtab`'s GEE criterion is documented as Pan's **QIC_u**, not QIC, with its restriction to models sharing a working correlation structure; `simtab` reports and returns both analysis denominators when replications are dropped for a missing `se()`. Documentation, demo and QA hygiene: canonical journal-theme table with a drift gate, corrected `crosstab` weight syntax, three repaired stored-result sentences, regenerated option-coverage counts, a session-safe eplot demo, and a QA runner that fails on skipped suites.
 - **1.9.11** (2026-07-18): `diagtab` now honors `level()` for likelihood-ratio (LR+/LR−), diagnostic-odds-ratio, and prevalence-adjusted PPV/NPV confidence intervals. These intervals previously used a hardcoded 95% z-multiplier regardless of the requested level, so at `level(90)` or `level(99)` the printed `(##% CI)` header and `r(ci_level)` disagreed with the actual 95% bounds; proportion and AUC intervals were already correct. Also harmonizes the `pdp()`/`highpdp()` accepted range to 1–10 across all commands (`survtab` and `table1_tc` previously accepted a degenerate `pdp(0)`), adds a `refcat()` option to `effecttab` for the reference-row label (matching `regtab`), and documents that `csv()` exports data columns only (titles and footnotes appear in Excel and Markdown output).
 - **1.9.10** (2026-07-17): Rejects active-but-empty collections consistently in `regtab` and `effecttab`. After `collect clear`, both commands now stop with `r(119)` and preserve `varabbrev` instead of falling through to unrelated downstream errors. QA also hardens repository-root discovery when the scratch parent itself contains `tabtools`, preventing false missing-demo failures in isolated release runs.
 - **1.9.9** (2026-07-16): Restores `regtab` and `effecttab` on Stata 19. Both commands read the confidence level from an undocumented `ci-level` key that `collect save` writes on Stata 17 but omits entirely on Stata 19, and the missing key aborted the whole command with `r(459)` ("the active collection does not contain usable confidence-level provenance") before any table was produced — with no option combination available to work around it. The level is now treated as optional provenance: when the collection does not record it, the interval label falls back to `level()` if specified and otherwise to the current `set level`, with a note. Interval labels are the only thing this value ever fed; no computed result changes. When the collection does record the level, behaviour — including the `level()` conflict guard — is unchanged.

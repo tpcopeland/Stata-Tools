@@ -1,4 +1,4 @@
-*! comptab Version 1.9.11  2026/07/18
+*! comptab Version 1.10.0  2026/07/22
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -215,7 +215,7 @@ program define comptab, rclass
     }
     if "`forest'" != "" & `"`_eplotframe_name'"' == "" {
         tempname _forest_eplotframe
-        local _eplotframe_name "`_forest_eplotframe'"
+        local _eplotframe_name `"`_forest_eplotframe'"'
         local _eplotframe_replace 1
         local _eplotframe_temporary 1
     }
@@ -339,24 +339,24 @@ program define comptab, rclass
 	    }
 	    local framelist : list clean framelist
 
-	    local _displayframe_target "`_displayframe_name'"
+	    local _displayframe_target `"`_displayframe_name'"'
 	    local _eplotframe_target ""
 	    local _displayframe_build ""
 	    local _eplotframe_build ""
 	    if `"`_displayframe_target'"' != "" {
 	        tempname _displayframe_tmp
-	        local _displayframe_build "`_displayframe_tmp'"
+	        local _displayframe_build `"`_displayframe_tmp'"'
 	        local frame "`_displayframe_build', replace"
 	    }
 	    if `"`_eplotframe_name'"' != "" {
 	        if `_eplotframe_temporary' {
-	            local _eplotframe_build "`_eplotframe_name'"
+	            local _eplotframe_build `"`_eplotframe_name'"'
 	        }
 	        else {
-	            local _eplotframe_target "`_eplotframe_name'"
+	            local _eplotframe_target `"`_eplotframe_name'"'
 	            tempname _eplotframe_tmp
-	            local _eplotframe_build "`_eplotframe_tmp'"
-	            local _eplotframe_name "`_eplotframe_build'"
+	            local _eplotframe_build `"`_eplotframe_tmp'"'
+	            local _eplotframe_name `"`_eplotframe_build'"'
 	            local _eplotframe_replace 1
 	        }
 	    }
@@ -410,7 +410,7 @@ program define comptab, rclass
                         local _cell_lower = lower(`"`_cell_text'"')
                         local _pat_lower = lower(`"`_pat'"')
                         if strmatch(`"`_cell_lower'"', `"*`_pat_lower'*"') {
-                            local expanded`f' "`expanded`f'' `_row'"
+                            local expanded`f' `"`expanded`f'' `_row'"'
                             local _matched = 1
                         }
                     }
@@ -885,7 +885,7 @@ program define comptab, rclass
         * Insert section header row if sections specified
         if `has_sections' {
             local _cum_data_row = `_cum_data_row' + 1
-            local _section_rows "`_section_rows' `_cum_data_row'"
+            local _section_rows `"`_section_rows' `_cum_data_row'"'
 
             use `_build', clear
             local _nobs = _N + 1
@@ -936,13 +936,13 @@ program define comptab, rclass
             * Update column header to combined label
             local _hdr_est = c`m'[2]
             local _hdr_ci = c`_ci_col'[2]
-            qui replace c`m' = "`_hdr_est' `_hdr_ci'" in 2
+            qui replace c`m' = `"`_hdr_est' `_hdr_ci'"' in 2
         }
 
         * Drop CI columns (c2, c5, c8, ...)
         local _drop_cols ""
         forvalues m = 2(3)`ncols' {
-            local _drop_cols "`_drop_cols' c`m'"
+            local _drop_cols `"`_drop_cols' c`m'"'
         }
         drop `_drop_cols'
 
@@ -1017,7 +1017,7 @@ program define comptab, rclass
     forvalues i = 1(`n_cols_per_model')`n' {
         gen _ref`i' = _n if c`i' == "Reference" & _n >= 4
         levelsof _ref`i', local(_ref`i'_lvls)
-        local ref_rows "`ref_rows' `_ref`i'_lvls'"
+        local ref_rows `"`ref_rows' `_ref`i'_lvls'"'
         drop _ref`i'
     }
     local ref_rows : list uniq ref_rows
@@ -1138,7 +1138,7 @@ program define comptab, rclass
     * =====================================================================
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
-        local frame "`_frame_name'"
+        local frame `"`_frame_name'"'
 	        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
 	            frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"
         }
@@ -1197,15 +1197,15 @@ program define comptab, rclass
     local _xlsx_widths "1 `factor_length'"
     if `_compact_output' {
         forvalues i = 3(2)`=`num_cols'-1' {
-            local _xlsx_widths "`_xlsx_widths' `est_width'"
-            local _xlsx_widths "`_xlsx_widths' `p_width'"
+            local _xlsx_widths `"`_xlsx_widths' `est_width'"'
+            local _xlsx_widths `"`_xlsx_widths' `p_width'"'
         }
     }
     else {
         forvalues i = 3(3)`=`num_cols'-2' {
-            local _xlsx_widths "`_xlsx_widths' `est_width'"
-            local _xlsx_widths "`_xlsx_widths' `ci_width'"
-            local _xlsx_widths "`_xlsx_widths' `p_width'"
+            local _xlsx_widths `"`_xlsx_widths' `est_width'"'
+            local _xlsx_widths `"`_xlsx_widths' `ci_width'"'
+            local _xlsx_widths `"`_xlsx_widths' `p_width'"'
         }
     }
 

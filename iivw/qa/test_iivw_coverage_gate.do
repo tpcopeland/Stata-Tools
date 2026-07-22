@@ -142,7 +142,13 @@ program define _cg_combine, rclass
     * caller has already written blocks into `root'/blocks
     quietly shell mkdir -p "`root'/iivw/qa/_inf_blocks"
     quietly shell cp -f "`root'/blocks/"*.dta "`root'/iivw/qa/_inf_blocks/"
-    quietly shell cd "`root'/iivw/qa" && stata-mp -b do validation_iivw_inference.do ///
+    * HARD TIMEOUT. Without it, a regression that lets combine re-run the
+    * simulation makes this suite HANG for days rather than fail -- a hanging
+    * test is worse than a missing one, because a lane that never returns gets
+    * killed and read as infrastructure trouble. timeout turns that regression
+    * into a missing RESULT line, which every arm below already treats as a
+    * failure. 180s is ~1600x the measured aggregation cost (0.07-0.11s).
+    quietly shell cd "`root'/iivw/qa" && timeout 180 stata-mp -b do validation_iivw_inference.do ///
         combine_iiw `combsims' `combreps' `combseed' > /dev/null 2>&1
     return local logfile "`root'/iivw/qa/validation_iivw_inference.log"
 end

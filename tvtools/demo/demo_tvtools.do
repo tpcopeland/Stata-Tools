@@ -1,15 +1,18 @@
-/*  demo_tvtools.do - Generate documentation output for tvtools
+/*  demo_tvtools.do - Generate documentation output for tvtools (v1.8.0)
 
-    Produces:
-      5. Covariate-balance love plot               -> .png
-      6. Exposure swimlane                         -> .png
+    Graph assets produced:
+      1. Covariate-balance love plot               -> balance_loveplot.png
+      2. Exposure swimlane                         -> swimlane_plot.png
 
-    Highlights the v1.5.0 / v1.6.0 additions:
+    The demo walks the whole suite end to end:
       - frames-first output: tvexpose/tvmerge frameout(); whole pipeline in memory
       - returned output-name macros (r(genvar), r(startname), r(generate))
       - IPCW censoring weights + combined MSM weight + positivity diagnostic
       - recurrent-event PWP/AG formatting (enum stratum + gap-time clock)
       - harmonized option names (tvage id/dob/entry/exit; tvevent start/stop)
+
+    Graph styling: the demo saves and restores c(scheme) but never sets one,
+    so the plots render in whatever scheme the caller selected beforehand.
 */
 
 version 16.0

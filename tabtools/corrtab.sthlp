@@ -107,7 +107,8 @@ variables. The pairwise observation count matrix is stored in
 {it:Detailed option contracts}{p_end}
 
 {phang}
-{opt csv(filename)} also export the output dataset as CSV. The CSV holds the table's data columns only; the
+{opt csv(filename)} also export the output dataset as CSV. {it:filename} must
+end in {cmd:.csv}, matching the rest of the suite. The CSV holds the table's data columns only; the
 title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
 
 {phang}

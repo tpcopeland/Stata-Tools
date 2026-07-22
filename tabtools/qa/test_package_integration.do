@@ -453,9 +453,9 @@ sysuse auto, clear
 * --- O1.1: lancet theme ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
-    excel("output/test_o1_lancet.xlsx") title("Lancet Theme") theme(lancet)
+    excel("`output_dir'/test_o1_lancet.xlsx") title("Lancet Theme") theme(lancet)
 if _rc == 0 {
-    capture confirm file "output/test_o1_lancet.xlsx"
+    capture confirm file "`output_dir'/test_o1_lancet.xlsx"
     if _rc == 0 {
         display as result "PASS: O1.1 — lancet theme"
         local ++pass_count
@@ -475,7 +475,7 @@ sysuse auto, clear
 * --- O1.2: nejm theme ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
-    excel("output/test_o1_nejm.xlsx") title("NEJM Theme") theme(nejm)
+    excel("`output_dir'/test_o1_nejm.xlsx") title("NEJM Theme") theme(nejm)
 if _rc == 0 {
     display as result "PASS: O1.2 — nejm theme"
     local ++pass_count
@@ -490,7 +490,7 @@ sysuse auto, clear
 * --- O1.3: apa theme ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
-    excel("output/test_o1_apa.xlsx") title("APA Theme") theme(apa)
+    excel("`output_dir'/test_o1_apa.xlsx") title("APA Theme") theme(apa)
 if _rc == 0 {
     display as result "PASS: O1.3 — apa theme"
     local ++pass_count
@@ -520,7 +520,7 @@ sysuse auto, clear
 local ++n_total
 collect clear
 collect: regress price mpg weight
-capture noisily regtab, xlsx("output/test_o1_regtab.xlsx") sheet("Lancet") ///
+capture noisily regtab, xlsx("`output_dir'/test_o1_regtab.xlsx") sheet("Lancet") ///
     title("Lancet Regression") theme(lancet)
 if _rc == 0 {
     display as result "PASS: O1.5 — theme in regtab"
@@ -546,7 +546,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_o1_regtab_v150.xlsx") sheet("Test")
+    regtab, xlsx("`output_dir'/test_o1_regtab_v150.xlsx") sheet("Test")
     * If we get here, the command ran (console output visible in log)
 }
 if _rc == 0 {
@@ -564,7 +564,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_o1_effecttab_v150.xlsx") sheet("Test")
+    effecttab, xlsx("`output_dir'/test_o1_effecttab_v150.xlsx") sheet("Test")
 }
 if _rc == 0 {
     display as result "  PASS: O1.2 — effecttab runs with console output"
@@ -588,7 +588,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: logit foreign mpg weight
-    regtab, xlsx("output/test_i2_methods.xlsx") sheet("Methods")
+    regtab, xlsx("`output_dir'/test_i2_methods.xlsx") sheet("Methods")
     assert `"`r(methods)'"' != ""
     * Should mention "Odds ratios" for logit
     assert strpos(`"`r(methods)'"', "Odds ratios") > 0
@@ -608,7 +608,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_i2_eff_methods.xlsx") sheet("Methods")
+    effecttab, xlsx("`output_dir'/test_i2_eff_methods.xlsx") sheet("Methods")
     assert `"`r(methods)'"' != ""
 }
 if _rc == 0 {
@@ -627,7 +627,7 @@ capture noisily {
     stset studytime, failure(died)
     collect clear
     collect: stcox age drug
-    regtab, xlsx("output/test_i2_cox.xlsx") sheet("Cox")
+    regtab, xlsx("`output_dir'/test_i2_cox.xlsx") sheet("Cox")
     assert strpos(`"`r(methods)'"', "Hazard ratios") > 0
 }
 if _rc == 0 {
@@ -652,7 +652,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_o4_colors.xlsx") sheet("Colors") ///
+    regtab, xlsx("`output_dir'/test_o4_colors.xlsx") sheet("Colors") ///
         headercolor("200 200 255") zebracolor("240 240 255") zebra
 }
 if _rc == 0 {
@@ -669,7 +669,7 @@ local ++n_total
 capture noisily {
     sysuse auto, clear
     table1_tc price mpg, by(foreign) ///
-        excel("output/test_o4_t1colors.xlsx") zebra headershade ///
+        excel("`output_dir'/test_o4_t1colors.xlsx") zebra headershade ///
         headercolor("255 200 200") zebracolor("255 240 240")
 }
 if _rc == 0 {
@@ -693,15 +693,15 @@ else {
 local ++n_total
 capture noisily {
     sysuse auto, clear
-    capture erase "output/test_f2_t1.csv"
+    capture erase "`output_dir'/test_f2_t1.csv"
     table1_tc price mpg weight, by(foreign) ///
-        excel("output/test_f2_t1.xlsx") csv("output/test_f2_t1.csv")
-    confirm file "output/test_f2_t1.csv"
-    _tt_file_has using "output/test_f2_t1.csv", needle("title")
+        excel("`output_dir'/test_f2_t1.xlsx") csv("`output_dir'/test_f2_t1.csv")
+    confirm file "`output_dir'/test_f2_t1.csv"
+    _tt_file_has using "`output_dir'/test_f2_t1.csv", needle("title")
     assert r(found) == 0
-    _tt_file_has using "output/test_f2_t1.csv", needle("factor")
+    _tt_file_has using "`output_dir'/test_f2_t1.csv", needle("factor")
     assert r(found) == 0
-    _tt_file_has using "output/test_f2_t1.csv", needle("pvalue")
+    _tt_file_has using "`output_dir'/test_f2_t1.csv", needle("pvalue")
     assert r(found) == 0
 }
 if _rc == 0 {
@@ -715,17 +715,17 @@ else {
 
 * --- F2.2: regtab csv export ---
 local ++n_total
-capture erase "output/test_f2_reg.csv"
+capture erase "`output_dir'/test_f2_reg.csv"
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_f2_reg.xlsx") sheet("Reg") ///
-        csv("output/test_f2_reg.csv")
-    confirm file "output/test_f2_reg.csv"
-    _tt_file_has using "output/test_f2_reg.csv", needle("ref1")
+    regtab, xlsx("`output_dir'/test_f2_reg.xlsx") sheet("Reg") ///
+        csv("`output_dir'/test_f2_reg.csv")
+    confirm file "`output_dir'/test_f2_reg.csv"
+    _tt_file_has using "`output_dir'/test_f2_reg.csv", needle("ref1")
     assert r(found) == 0
-    _tt_file_has using "output/test_f2_reg.csv", needle("c1")
+    _tt_file_has using "`output_dir'/test_f2_reg.csv", needle("c1")
     assert r(found) == 0
 }
 if _rc == 0 {
@@ -739,18 +739,18 @@ else {
 
 * --- F2.3: regtab markdown does not expose internal c* header names ---
 local ++n_total
-capture erase "output/test_f2_reg.md"
+capture erase "`output_dir'/test_f2_reg.md"
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, markdown("output/test_f2_reg.md")
-    confirm file "output/test_f2_reg.md"
-    _tt_file_has using "output/test_f2_reg.md", needle("| A |")
+    regtab, markdown("`output_dir'/test_f2_reg.md")
+    confirm file "`output_dir'/test_f2_reg.md"
+    _tt_file_has using "`output_dir'/test_f2_reg.md", needle("| A |")
     assert r(found) == 0
-    _tt_file_has using "output/test_f2_reg.md", needle(" c2 ")
+    _tt_file_has using "`output_dir'/test_f2_reg.md", needle(" c2 ")
     assert r(found) == 0
-    _tt_file_has using "output/test_f2_reg.md", needle(" c3 ")
+    _tt_file_has using "`output_dir'/test_f2_reg.md", needle(" c3 ")
     assert r(found) == 0
 }
 if _rc == 0 {
@@ -764,7 +764,7 @@ else {
 
 * --- F2.4: comptab markdown preserves the visible subheader row ---
 local ++n_total
-capture erase "output/test_f2_comptab.md"
+capture erase "`output_dir'/test_f2_comptab.md"
 capture noisily {
     sysuse auto, clear
     collect clear
@@ -776,13 +776,13 @@ capture noisily {
     capture frame drop _f2_cmp_b
     regtab, frame(_f2_cmp_b, replace)
     comptab _f2_cmp_a _f2_cmp_b, rows(1 \ 1) ///
-        markdown("output/test_f2_comptab.md")
-    confirm file "output/test_f2_comptab.md"
-    _tt_file_has using "output/test_f2_comptab.md", needle("Coef.")
+        markdown("`output_dir'/test_f2_comptab.md")
+    confirm file "`output_dir'/test_f2_comptab.md"
+    _tt_file_has using "`output_dir'/test_f2_comptab.md", needle("Coef.")
     assert r(found) == 1
-    _tt_file_has using "output/test_f2_comptab.md", needle(" c2 ")
+    _tt_file_has using "`output_dir'/test_f2_comptab.md", needle(" c2 ")
     assert r(found) == 0
-    _tt_file_has using "output/test_f2_comptab.md", needle(" c3 ")
+    _tt_file_has using "`output_dir'/test_f2_comptab.md", needle(" c3 ")
     assert r(found) == 0
 }
 local _test_rc = _rc
@@ -807,8 +807,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_ret_regtab.xlsx") sheet("MySheet")
-    assert `"`r(xlsx)'"' == "output/test_ret_regtab.xlsx"
+    regtab, xlsx("`output_dir'/test_ret_regtab.xlsx") sheet("MySheet")
+    assert `"`r(xlsx)'"' == "`output_dir'/test_ret_regtab.xlsx"
     assert `"`r(sheet)'"' == "MySheet"
 }
 if _rc == 0 {
@@ -826,8 +826,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_ret_effecttab.xlsx") sheet("Effects")
-    assert `"`r(xlsx)'"' == "output/test_ret_effecttab.xlsx"
+    effecttab, xlsx("`output_dir'/test_ret_effecttab.xlsx") sheet("Effects")
+    assert `"`r(xlsx)'"' == "`output_dir'/test_ret_effecttab.xlsx"
     assert `"`r(sheet)'"' == "Effects"
 }
 if _rc == 0 {
@@ -867,7 +867,7 @@ capture noisily {
     set varabbrev on
     sysuse auto, clear
     * Intentional error: no collect table
-    capture regtab, xlsx("output/test_va2.xlsx") sheet("Test")
+    capture regtab, xlsx("`output_dir'/test_va2.xlsx") sheet("Test")
     assert c(varabbrev) == "on"
 }
 if _rc == 0 {
@@ -926,8 +926,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_v160_theme_regtab.xlsx") sheet("Test")
-    confirm file "output/test_v160_theme_regtab.xlsx"
+    regtab, xlsx("`output_dir'/test_v160_theme_regtab.xlsx") sheet("Test")
+    confirm file "`output_dir'/test_v160_theme_regtab.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: 2.5.3 — persistent theme applies to regtab"
@@ -1578,10 +1578,10 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    capture erase "output/test_v170_addrow.xlsx"
-    effecttab, xlsx("output/test_v170_addrow.xlsx") sheet("Test") ///
+    capture erase "`output_dir'/test_v170_addrow.xlsx"
+    effecttab, xlsx("`output_dir'/test_v170_addrow.xlsx") sheet("Test") ///
         addrow("P interaction" 0.034)
-    confirm file "output/test_v170_addrow.xlsx"
+    confirm file "`output_dir'/test_v170_addrow.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: I3.4 — effecttab addrow with Excel export"
@@ -1763,10 +1763,10 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/test_v170_combo3.xlsx"
-    regtab, xlsx("output/test_v170_combo3.xlsx") sheet("Test") ///
+    capture erase "`output_dir'/test_v170_combo3.xlsx"
+    regtab, xlsx("`output_dir'/test_v170_combo3.xlsx") sheet("Test") ///
         compact addrow("P trend" 0.034)
-    confirm file "output/test_v170_combo3.xlsx"
+    confirm file "`output_dir'/test_v170_combo3.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: COMBO.3 — compact + addrow + Excel export"
@@ -1783,10 +1783,10 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/test_v170_combo4.xlsx"
-    regtab, xlsx("output/test_v170_combo4.xlsx") sheet("Test") ///
+    capture erase "`output_dir'/test_v170_combo4.xlsx"
+    regtab, xlsx("`output_dir'/test_v170_combo4.xlsx") sheet("Test") ///
         compact boldp(0.05) pdp(4) highpdp(2)
-    confirm file "output/test_v170_combo4.xlsx"
+    confirm file "`output_dir'/test_v170_combo4.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: COMBO.4 — pdp + boldp + compact + Excel"
@@ -2461,15 +2461,15 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/_rr_regtab.xlsx"
-    regtab, xlsx("output/_rr_regtab.xlsx") sheet("Test") title("Regression Results")
-    confirm file "output/_rr_regtab.xlsx"
+    capture erase "`output_dir'/_rr_regtab.xlsx"
+    regtab, xlsx("`output_dir'/_rr_regtab.xlsx") sheet("Test") title("Regression Results")
+    confirm file "`output_dir'/_rr_regtab.xlsx"
 }
 if _rc == 0 {
     * Validate Excel content — title cell, header row, structure
     if `has_checker' {
-        shell python3 "`checker'" "output/_rr_regtab.xlsx" --sheet "Test" --cell-contains A1 "Regression Results" --min-rows 5 --min-cols 3 --has-pattern p-values --has-borders --result-file "output/_rr_r1_1.txt" --quiet
-        file open _fh using "output/_rr_r1_1.txt", read text
+        shell python3 "`checker'" "`output_dir'/_rr_regtab.xlsx" --sheet "Test" --cell-contains A1 "Regression Results" --min-rows 5 --min-cols 3 --has-pattern p-values --has-borders --result-file "`output_dir'/_rr_r1_1.txt" --quiet
+        file open _fh using "`output_dir'/_rr_r1_1.txt", read text
         file read _fh _line
         file close _fh
         if "`_line'" == "PASS" {
@@ -2480,11 +2480,11 @@ if _rc == 0 {
             display as error "  FAIL: R1.1 - regtab Excel content checks failed"
             local ++fail_count
         }
-        capture erase "output/_rr_r1_1.txt"
+        capture erase "`output_dir'/_rr_r1_1.txt"
     }
     else {
         preserve
-        import excel "output/_rr_regtab.xlsx", sheet("Test") clear allstring
+        import excel "`output_dir'/_rr_regtab.xlsx", sheet("Test") clear allstring
         assert A[1] == "Regression Results"
         assert _N >= 5
         quietly ds
@@ -2548,9 +2548,9 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/_rr_regtab_match.xlsx"
+    capture erase "`output_dir'/_rr_regtab_match.xlsx"
     capture frame drop _rr_r13
-    regtab, xlsx("output/_rr_regtab_match.xlsx") sheet("Test") frame(_rr_r13)
+    regtab, xlsx("`output_dir'/_rr_regtab_match.xlsx") sheet("Test") frame(_rr_r13)
     * Get the first data row estimate from the frame
     frame _rr_r13 {
         local frame_est = c1[4]
@@ -2559,15 +2559,15 @@ capture noisily {
     * Verify the same values appear in Excel (row 4 = Excel row 5 due to title)
     * Cell B5 should contain the estimate, cell D5 should contain the p-value
     if `has_checker' {
-        shell python3 "`checker'" "output/_rr_regtab_match.xlsx" --sheet "Test" --cell-not-empty B5 D5 --result-file "output/_rr_r1_3.txt" --quiet
-        file open _fh using "output/_rr_r1_3.txt", read text
+        shell python3 "`checker'" "`output_dir'/_rr_regtab_match.xlsx" --sheet "Test" --cell-not-empty B5 D5 --result-file "`output_dir'/_rr_r1_3.txt" --quiet
+        file open _fh using "`output_dir'/_rr_r1_3.txt", read text
         file read _fh _line
         file close _fh
         assert "`_line'" == "PASS"
     }
     else {
         preserve
-        import excel "output/_rr_regtab_match.xlsx", sheet("Test") clear allstring
+        import excel "`output_dir'/_rr_regtab_match.xlsx", sheet("Test") clear allstring
         assert strtrim(B[5]) != ""
         assert strtrim(D[5]) != ""
         restore
@@ -2582,7 +2582,7 @@ else {
     local ++fail_count
 }
 capture frame drop _rr_r13
-capture erase "output/_rr_r1_3.txt"
+capture erase "`output_dir'/_rr_r1_3.txt"
 
 * --- R1.4: effecttab Excel content inspection ---
 local ++n_total
@@ -2590,19 +2590,19 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    capture erase "output/_rr_effecttab.xlsx"
-    effecttab, xlsx("output/_rr_effecttab.xlsx") sheet("Test") title("Treatment Effects")
-    confirm file "output/_rr_effecttab.xlsx"
+    capture erase "`output_dir'/_rr_effecttab.xlsx"
+    effecttab, xlsx("`output_dir'/_rr_effecttab.xlsx") sheet("Test") title("Treatment Effects")
+    confirm file "`output_dir'/_rr_effecttab.xlsx"
     if `has_checker' {
-        shell python3 "`checker'" "output/_rr_effecttab.xlsx" --sheet "Test" --cell-contains A1 "Treatment Effects" --min-rows 3 --min-cols 3 --has-borders --result-file "output/_rr_r1_4.txt" --quiet
-        file open _fh using "output/_rr_r1_4.txt", read text
+        shell python3 "`checker'" "`output_dir'/_rr_effecttab.xlsx" --sheet "Test" --cell-contains A1 "Treatment Effects" --min-rows 3 --min-cols 3 --has-borders --result-file "`output_dir'/_rr_r1_4.txt" --quiet
+        file open _fh using "`output_dir'/_rr_r1_4.txt", read text
         file read _fh _line
         file close _fh
         assert "`_line'" == "PASS"
     }
     else {
         preserve
-        import excel "output/_rr_effecttab.xlsx", sheet("Test") clear allstring
+        import excel "`output_dir'/_rr_effecttab.xlsx", sheet("Test") clear allstring
         assert A[1] == "Treatment Effects"
         assert _N >= 3
         quietly ds
@@ -2619,27 +2619,27 @@ else {
     display as error "  FAIL: R1.4 - effecttab Excel content failed (rc=`=_rc')"
     local ++fail_count
 }
-capture erase "output/_rr_r1_4.txt"
+capture erase "`output_dir'/_rr_r1_4.txt"
 
 * --- R1.5: survtab Excel content inspection ---
 local ++n_total
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    capture erase "output/_rr_survtab.xlsx"
-    survtab, times(10 20 30) by(drug) xlsx("output/_rr_survtab.xlsx") ///
+    capture erase "`output_dir'/_rr_survtab.xlsx"
+    survtab, times(10 20 30) by(drug) xlsx("`output_dir'/_rr_survtab.xlsx") ///
         sheet("Test") title("Survival Estimates")
-    confirm file "output/_rr_survtab.xlsx"
+    confirm file "`output_dir'/_rr_survtab.xlsx"
     if `has_checker' {
-        shell python3 "`checker'" "output/_rr_survtab.xlsx" --sheet "Test" --cell-contains A1 "Survival Estimates" --min-rows 4 --min-cols 2 --has-borders --has-pattern percentages --result-file "output/_rr_r1_5.txt" --quiet
-        file open _fh using "output/_rr_r1_5.txt", read text
+        shell python3 "`checker'" "`output_dir'/_rr_survtab.xlsx" --sheet "Test" --cell-contains A1 "Survival Estimates" --min-rows 4 --min-cols 2 --has-borders --has-pattern percentages --result-file "`output_dir'/_rr_r1_5.txt" --quiet
+        file open _fh using "`output_dir'/_rr_r1_5.txt", read text
         file read _fh _line
         file close _fh
         assert "`_line'" == "PASS"
     }
     else {
         preserve
-        import excel "output/_rr_survtab.xlsx", sheet("Test") clear allstring
+        import excel "`output_dir'/_rr_survtab.xlsx", sheet("Test") clear allstring
         assert A[1] == "Survival Estimates"
         assert _N >= 4
         quietly ds
@@ -2656,7 +2656,7 @@ else {
     display as error "  FAIL: R1.5 - survtab Excel content failed (rc=`=_rc')"
     local ++fail_count
 }
-capture erase "output/_rr_r1_5.txt"
+capture erase "`output_dir'/_rr_r1_5.txt"
 
 * =========================================================================
 **# R2: pdp/highpdp value formatting for effecttab and survtab
@@ -2883,9 +2883,9 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    capture erase "output/_rr_effecttab_pdp.xlsx"
+    capture erase "`output_dir'/_rr_effecttab_pdp.xlsx"
     capture frame drop _rr_r25
-    effecttab, xlsx("output/_rr_effecttab_pdp.xlsx") sheet("Test") ///
+    effecttab, xlsx("`output_dir'/_rr_effecttab_pdp.xlsx") sheet("Test") ///
         frame(_rr_r25) pdp(4) highpdp(2)
     * Get p-value from frame (first data row p in c3)
     frame _rr_r25 {
@@ -2903,15 +2903,15 @@ capture noisily {
     * For effecttab: row 1=title, rows 2-3=headers, row 4=group label, row 5=data
     * P-value is in column E (col 5) for single model
     if `has_checker' {
-        shell python3 "`checker'" "output/_rr_effecttab_pdp.xlsx" --sheet "Test" --cell-not-empty E5 --result-file "output/_rr_r2_5.txt" --quiet
-        file open _fh using "output/_rr_r2_5.txt", read text
+        shell python3 "`checker'" "`output_dir'/_rr_effecttab_pdp.xlsx" --sheet "Test" --cell-not-empty E5 --result-file "`output_dir'/_rr_r2_5.txt" --quiet
+        file open _fh using "`output_dir'/_rr_r2_5.txt", read text
         file read _fh _line
         file close _fh
         assert "`_line'" == "PASS"
     }
     else {
         preserve
-        import excel "output/_rr_effecttab_pdp.xlsx", sheet("Test") clear allstring
+        import excel "`output_dir'/_rr_effecttab_pdp.xlsx", sheet("Test") clear allstring
         assert strtrim(E[5]) != ""
         restore
     }
@@ -2925,7 +2925,7 @@ else {
     local ++fail_count
 }
 capture frame drop _rr_r25
-capture erase "output/_rr_r2_5.txt"
+capture erase "`output_dir'/_rr_r2_5.txt"
 
 * =========================================================================
 **# R4: Persistent boldp application in Excel
@@ -2937,9 +2937,9 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/_rr_boldp_regtab.xlsx"
+    capture erase "`output_dir'/_rr_boldp_regtab.xlsx"
     capture frame drop _rr_r41
-    regtab, xlsx("output/_rr_boldp_regtab.xlsx") sheet("Test") ///
+    regtab, xlsx("`output_dir'/_rr_boldp_regtab.xlsx") sheet("Test") ///
         boldp(0.05) frame(_rr_r41)
     * Find which rows have significant p-values
     frame _rr_r41 {
@@ -2965,14 +2965,14 @@ capture noisily {
     * Now check that those rows have bold formatting in Excel
     if "`bold_rows'" != "" {
         if `has_checker' {
-            shell python3 "`checker'" "output/_rr_boldp_regtab.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "output/_rr_r4_1.txt" --quiet
-            file open _fh using "output/_rr_r4_1.txt", read text
+            shell python3 "`checker'" "`output_dir'/_rr_boldp_regtab.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "`output_dir'/_rr_r4_1.txt" --quiet
+            file open _fh using "`output_dir'/_rr_r4_1.txt", read text
             file read _fh _line
             file close _fh
             assert "`_line'" == "PASS"
         }
         else {
-            confirm file "output/_rr_boldp_regtab.xlsx"
+            confirm file "`output_dir'/_rr_boldp_regtab.xlsx"
         }
     }
     else {
@@ -2990,7 +2990,7 @@ else {
     local ++fail_count
 }
 capture frame drop _rr_r41
-capture erase "output/_rr_r4_1.txt"
+capture erase "`output_dir'/_rr_r4_1.txt"
 
 * --- R4.2: persistent boldp via tabtools set applies bold in Excel ---
 local ++n_total
@@ -3000,10 +3000,10 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/_rr_boldp_persist.xlsx"
+    capture erase "`output_dir'/_rr_boldp_persist.xlsx"
     capture frame drop _rr_r42
     * No boldp() option — should pick up persistent setting
-    regtab, xlsx("output/_rr_boldp_persist.xlsx") sheet("Test") frame(_rr_r42)
+    regtab, xlsx("`output_dir'/_rr_boldp_persist.xlsx") sheet("Test") frame(_rr_r42)
     * Find significant rows
     frame _rr_r42 {
         local bold_rows ""
@@ -3026,14 +3026,14 @@ capture noisily {
     }
     if "`bold_rows'" != "" {
         if `has_checker' {
-            shell python3 "`checker'" "output/_rr_boldp_persist.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "output/_rr_r4_2.txt" --quiet
-            file open _fh using "output/_rr_r4_2.txt", read text
+            shell python3 "`checker'" "`output_dir'/_rr_boldp_persist.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "`output_dir'/_rr_r4_2.txt" --quiet
+            file open _fh using "`output_dir'/_rr_r4_2.txt", read text
             file read _fh _line
             file close _fh
             assert "`_line'" == "PASS"
         }
         else {
-            confirm file "output/_rr_boldp_persist.xlsx"
+            confirm file "`output_dir'/_rr_boldp_persist.xlsx"
         }
     }
     else {
@@ -3050,7 +3050,7 @@ else {
     local ++fail_count
 }
 capture frame drop _rr_r42
-capture erase "output/_rr_r4_2.txt"
+capture erase "`output_dir'/_rr_r4_2.txt"
 tabtools set clear
 
 * --- R4.3: effecttab boldp produces bold in Excel ---
@@ -3059,9 +3059,9 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    capture erase "output/_rr_boldp_effecttab.xlsx"
+    capture erase "`output_dir'/_rr_boldp_effecttab.xlsx"
     capture frame drop _rr_r43
-    effecttab, xlsx("output/_rr_boldp_effecttab.xlsx") sheet("Test") ///
+    effecttab, xlsx("`output_dir'/_rr_boldp_effecttab.xlsx") sheet("Test") ///
         boldp(0.10) frame(_rr_r43)
     * Find significant p-value rows
     frame _rr_r43 {
@@ -3087,15 +3087,15 @@ capture noisily {
     if "`bold_rows'" != "" {
         if `has_checker' {
             foreach _br of local bold_rows {
-                shell python3 "`checker'" "output/_rr_boldp_effecttab.xlsx" --sheet "Test" --bold-row `_br' --result-file "output/_rr_r4_3.txt" --quiet
-                file open _fh using "output/_rr_r4_3.txt", read text
+                shell python3 "`checker'" "`output_dir'/_rr_boldp_effecttab.xlsx" --sheet "Test" --bold-row `_br' --result-file "`output_dir'/_rr_r4_3.txt" --quiet
+                file open _fh using "`output_dir'/_rr_r4_3.txt", read text
                 file read _fh _line
                 file close _fh
                 assert "`_line'" == "PASS"
             }
         }
         else {
-            confirm file "output/_rr_boldp_effecttab.xlsx"
+            confirm file "`output_dir'/_rr_boldp_effecttab.xlsx"
         }
     }
     else {
@@ -3113,7 +3113,7 @@ else {
     local ++fail_count
 }
 capture frame drop _rr_r43
-capture erase "output/_rr_r4_3.txt"
+capture erase "`output_dir'/_rr_r4_3.txt"
 
 * --- R4.4: no boldp means no bold p-value cells (control test) ---
 local ++n_total
@@ -3122,8 +3122,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/_rr_noboldp.xlsx"
-    regtab, xlsx("output/_rr_noboldp.xlsx") sheet("Test")
+    capture erase "`output_dir'/_rr_noboldp.xlsx"
+    regtab, xlsx("`output_dir'/_rr_noboldp.xlsx") sheet("Test")
     * Row 1 (title) and rows 2-3 (headers) are bold by design
     * Data rows (5+) should NOT have bold p-values
     * check_xlsx --bold-row checks if ANY cell in row is bold
@@ -3131,15 +3131,15 @@ capture noisily {
     * But row labels may be bold... so instead check that the file was created
     * and has structure — the bold-row test for R4.1/R4.2 is the positive test
     if `has_checker' {
-        shell python3 "`checker'" "output/_rr_noboldp.xlsx" --sheet "Test" --min-rows 5 --has-borders --result-file "output/_rr_r4_4.txt" --quiet
-        file open _fh using "output/_rr_r4_4.txt", read text
+        shell python3 "`checker'" "`output_dir'/_rr_noboldp.xlsx" --sheet "Test" --min-rows 5 --has-borders --result-file "`output_dir'/_rr_r4_4.txt" --quiet
+        file open _fh using "`output_dir'/_rr_r4_4.txt", read text
         file read _fh _line
         file close _fh
         assert "`_line'" == "PASS"
     }
     else {
         preserve
-        import excel "output/_rr_noboldp.xlsx", sheet("Test") clear allstring
+        import excel "`output_dir'/_rr_noboldp.xlsx", sheet("Test") clear allstring
         assert _N >= 5
         restore
     }
@@ -3152,7 +3152,7 @@ else {
     display as error "  FAIL: R4.4 - regtab without boldp failed (rc=`=_rc')"
     local ++fail_count
 }
-capture erase "output/_rr_r4_4.txt"
+capture erase "`output_dir'/_rr_r4_4.txt"
 
 * --- R4.5: persistent boldp + pdp combination in Excel ---
 local ++n_total
@@ -3162,9 +3162,9 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/_rr_boldp_pdp.xlsx"
+    capture erase "`output_dir'/_rr_boldp_pdp.xlsx"
     capture frame drop _rr_r45
-    regtab, xlsx("output/_rr_boldp_pdp.xlsx") sheet("Test") ///
+    regtab, xlsx("`output_dir'/_rr_boldp_pdp.xlsx") sheet("Test") ///
         pdp(4) highpdp(2) frame(_rr_r45)
     * Verify both: pdp formatting in frame AND bold in Excel
     frame _rr_r45 {
@@ -3204,14 +3204,14 @@ capture noisily {
     }
     if "`bold_rows'" != "" {
         if `has_checker' {
-            shell python3 "`checker'" "output/_rr_boldp_pdp.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "output/_rr_r4_5.txt" --quiet
-            file open _fh using "output/_rr_r4_5.txt", read text
+            shell python3 "`checker'" "`output_dir'/_rr_boldp_pdp.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "`output_dir'/_rr_r4_5.txt" --quiet
+            file open _fh using "`output_dir'/_rr_r4_5.txt", read text
             file read _fh _line
             file close _fh
             assert "`_line'" == "PASS"
         }
         else {
-            confirm file "output/_rr_boldp_pdp.xlsx"
+            confirm file "`output_dir'/_rr_boldp_pdp.xlsx"
         }
     }
 }
@@ -3225,7 +3225,7 @@ else {
     local ++fail_count
 }
 capture frame drop _rr_r45
-capture erase "output/_rr_r4_5.txt"
+capture erase "`output_dir'/_rr_r4_5.txt"
 tabtools set clear
 
 * =========================================================================
@@ -3411,6 +3411,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _eb_exp 0 "None" 1 "Current", replace
     label values exposure _eb_exp
     save "`rate1'.dta", replace
@@ -3616,6 +3618,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _ef_exp 0 "None" 1 "Current", replace
     label values exposure _ef_exp
     save "`rate1'.dta", replace

@@ -1,4 +1,4 @@
-*! _psdash_export_kv Version 1.4.0  2026/07/01
+*! _psdash_export_kv Version 1.5.0  2026/07/22
 *! Write a two-column (Metric, Value) summary sheet to an Excel workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -10,7 +10,6 @@ program define _psdash_export_kv
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
-    local _preserved = 0
     capture noisily {
         syntax , XLSX(string) SHEET(string) Keys(string asis) Vals(string asis) ///
             [TItle(string)]
@@ -22,28 +21,36 @@ program define _psdash_export_kv
             exit 498
         }
 
-        preserve
-        local _preserved = 1
-        quietly {
-            clear
-            set obs `=`nk' + 2'
-            gen str244 A = ""
-            gen str244 B = ""
-            replace A = `"`title'"' in 1
-            replace A = "Metric" in 2
-            replace B = "Value" in 2
-            forvalues i = 1/`nk' {
-                local k : word `i' of `keys'
-                local v : word `i' of `vals'
-                local row = `i' + 2
-                replace A = `"`k'"' in `row'
-                replace B = `"`v'"' in `row'
-            }
-            export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+        putexcel set "`xlsx'", sheet("`sheet'", replace) modify
+        putexcel A1 = (`"`title'"'), bold
+        putexcel A1:B1, merge
+        putexcel A2 = ("Metric") B2 = ("Value"), bold border(bottom)
+        forvalues i = 1/`nk' {
+            local k : word `i' of `keys'
+            local v : word `i' of `vals'
+            local row = `i' + 2
+            putexcel A`row' = (`"`k'"')
+            capture confirm number `v'
+            if !_rc putexcel B`row' = (`v'), nformat(number)
+            else putexcel B`row' = (`"`v'"')
+        }
+
+        tempname xlbook
+        mata: `xlbook' = xl()
+        mata: `xlbook'.load_book(`"`xlsx'"')
+        mata: `xlbook'.set_sheet(`"`sheet'"')
+        mata: `xlbook'.set_column_width(1, 1, 32)
+        mata: `xlbook'.set_column_width(2, 2, 28)
+        mata: `xlbook'.close_book()
+        capture mata: mata drop `xlbook'
+
+        capture confirm file "`xlsx'"
+        if _rc {
+            display as error "Excel export was not created: `xlsx'"
+            exit 601
         }
     }
     local rc = _rc
-    if `_preserved' capture restore
     set varabbrev `_vao'
     if `rc' exit `rc'
 end

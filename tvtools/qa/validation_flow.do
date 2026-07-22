@@ -198,16 +198,16 @@ capture noisily {
     save "`fb3'"
 
     tvmerge "`fa3'" "`fb3'", id(id) start(start start) stop(stop stop) ///
-        exposure(expa expb) saveas(`c(tmpdir)'/noflow.dta) replace
+        exposure(expa expb) saveas($TVTOOLS_QA_RUN_DIR/noflow.dta) replace
     tvmerge "`fa3'" "`fb3'", id(id) start(start start) stop(stop stop) ///
-        exposure(expa expb) flow saveas(`c(tmpdir)'/withflow.dta) replace
+        exposure(expa expb) flow saveas($TVTOOLS_QA_RUN_DIR/withflow.dta) replace
 
-    use "`c(tmpdir)'/noflow.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/noflow.dta", clear
     quietly ds
     sort `r(varlist)'
     datasignature
     local s1 "`r(datasignature)'"
-    use "`c(tmpdir)'/withflow.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/withflow.dta", clear
     quietly ds
     sort `r(varlist)'
     datasignature

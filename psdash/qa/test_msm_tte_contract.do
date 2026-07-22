@@ -13,11 +13,9 @@
 *     REJECTED, whether or not the producer is installed.
 *   - psdash never mutates the caller's varabbrev setting on any path.
 *
-* NOTE: a real end-to-end positive control (run the producer, accept, tamper,
-* reject) is provided for iivw in test_iivw_contract.do. msm is released and a
-* real msm_prepare/msm_weight positive control is worthwhile future work; tte is
-* a development-only producer (RB-15), so a released psdash cannot install it and
-* correctly refuses its unverifiable metadata.
+* Real end-to-end positive controls for every available producer are in
+* test_real_producer_integrations.do. This file isolates the negative contract
+* cases and explicit-argument escape hatch.
 *
 * Fail-on-old: against shipped psdash 1.4.1 the fabricated contracts below were
 * ACCEPTED (source=msm/tte, r0). Every reject assertion here fails on old.

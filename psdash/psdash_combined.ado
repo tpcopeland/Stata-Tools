@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.4.1  2026/07/07
+*! psdash_combined Version 1.5.0  2026/07/22
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -80,6 +80,8 @@ program define psdash_combined, rclass
     local saving `"`r(value)'"'
 
     mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
+    quietly count if `touse'
+    local N_requested = r(N)
 
     * Pass reference and psvars to detect if specified
     local ref_opt ""
@@ -204,12 +206,16 @@ program define psdash_combined, rclass
     else {
         markout `touse' `treatment' `psvar'
     }
+    if "`covariates'" != "" markout `touse' `covariates'
+    if "`wvar'" != "" markout `touse' `wvar'
 
     quietly count if `touse'
     if r(N) == 0 {
         display as error "no observations"
         exit 2000
     }
+    local N_analysis = r(N)
+    local N_common_excluded = `N_requested' - `N_analysis'
 
     * Set defaults
     if "`title'" == "" local title "Propensity Score Diagnostics Dashboard"
@@ -291,7 +297,7 @@ program define psdash_combined, rclass
     * OVERLAP PANEL
     if "`nooverlap'" == "" {
         display as text _n "{bf:=== OVERLAP DIAGNOSTICS ===}"
-        psdash_overlap `treatment' `psvar' `if' `in', ///
+        psdash_overlap `treatment' `psvar' if `touse', ///
             name(psdash_c_overlap) `scheme_opt' ///
             title("PS Overlap") estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_overlap'
@@ -319,7 +325,7 @@ program define psdash_combined, rclass
         display as text _n "{bf:=== BALANCE DIAGNOSTICS ===}"
         local wvar_opt ""
         if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
-        psdash_balance `treatment' `psvar' `if' `in', ///
+        psdash_balance `treatment' `psvar' if `touse', ///
             covariates(`covariates') `wvar_opt' ///
             threshold(`threshold') loveplot ///
             name(psdash_c_balance) `scheme_opt' ///
@@ -352,7 +358,7 @@ program define psdash_combined, rclass
         display as text _n "{bf:=== WEIGHT DIAGNOSTICS ===}"
         local wvar_opt ""
         if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
-        psdash_weights `treatment' `psvar' `if' `in', ///
+        psdash_weights `treatment' `psvar' if `touse', ///
             `wvar_opt' graph ///
             name(psdash_c_weights) `scheme_opt' estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_weights'
@@ -378,7 +384,7 @@ program define psdash_combined, rclass
     * SUPPORT PANEL
     if "`nosupport'" == "" {
         display as text _n "{bf:=== COMMON SUPPORT ASSESSMENT ===}"
-        psdash_support `treatment' `psvar' `if' `in', ///
+        psdash_support `treatment' `psvar' if `touse', ///
             name(psdash_c_support) `scheme_opt' ///
             title("Common Support") estimand(`estimand') ///
             `ref_subcmd_opt' `psvars_subcmd_opt' `rep_support'
@@ -497,6 +503,9 @@ program define psdash_combined, rclass
     return local wvar "`wvar'"
     return local estimand "`estimand'"
     return local source "`source'"
+    return scalar N_requested = `N_requested'
+    return scalar N_analysis = `N_analysis'
+    return scalar n_common_excluded = `N_common_excluded'
     * RB-05 estimation-sample exclusion ledger (teffects only)
     if "`n_excluded'" != "" {
         return scalar n_excluded = `n_excluded'

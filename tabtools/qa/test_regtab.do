@@ -2734,7 +2734,7 @@ local failures = 0
 
 
 tempname out_dir
-local out_dir "`c(tmpdir)'/_regtab_v1015"
+local out_dir "`c(tmpdir)'/`c(pid)'__regtab_v1015"
 capture mkdir "`out_dir'"
 
 display as text _newline "=== test_regtab_v1015 ==="
@@ -3621,12 +3621,12 @@ set varabbrev off
 local ++n_total
 collect clear
 collect: regress price mpg weight i.foreign
-capture noisily regtab, xlsx("output/test_o3_stars.xlsx") sheet("Stars") ///
+capture noisily regtab, xlsx("`output_dir'/test_o3_stars.xlsx") sheet("Stars") ///
     title("O3 Stars Test") stars
 if _rc == 0 {
-    capture confirm file "output/test_o3_stars.xlsx"
+    capture confirm file "`output_dir'/test_o3_stars.xlsx"
     if _rc == 0 {
-        display as result "PASS: O3.1 — stars option (check output/test_o3_stars.xlsx)"
+        display as result "PASS: O3.1 — stars option (check `output_dir'/test_o3_stars.xlsx)"
         local ++pass_count
     }
     else {
@@ -3645,7 +3645,7 @@ sysuse auto, clear
 local ++n_total
 collect clear
 collect: regress price mpg weight
-capture noisily regtab, xlsx("output/test_o3b.xlsx") sheet("Test") stars
+capture noisily regtab, xlsx("`output_dir'/test_o3b.xlsx") sheet("Test") stars
 if _rc == 0 {
     local _stars_ret = "`r(stars)'"
     if "`_stars_ret'" == "stars" {
@@ -3717,7 +3717,7 @@ local ++n_total
 collect clear
 collect: regress price mpg weight
 collect: regress price mpg weight foreign
-capture noisily regtab, xlsx("output/test_i1.xlsx") sheet("Test") ///
+capture noisily regtab, xlsx("`output_dir'/test_i1.xlsx") sheet("Test") ///
     models(Model 1 \ Model 2)
 if _rc == 0 {
     if r(N_models) == 2 {
@@ -3740,7 +3740,7 @@ sysuse auto, clear
 local ++n_total
 collect clear
 collect: logistic foreign price mpg
-capture noisily regtab, xlsx("output/test_i1b.xlsx") sheet("Test")
+capture noisily regtab, xlsx("`output_dir'/test_i1b.xlsx") sheet("Test")
 if _rc == 0 {
     if "`r(coef_label)'" == "OR" {
         display as result "PASS: I1.2 — r(coef_label) = OR for logistic"
@@ -3770,7 +3770,7 @@ capture noisily {
     collect clear
     collect: regress price mpg weight
     local true_r2 = e(r2)
-    regtab, xlsx("output/test_f6_r2.xlsx") sheet("R2") stats(n r2)
+    regtab, xlsx("`output_dir'/test_f6_r2.xlsx") sheet("R2") stats(n r2)
 }
 if _rc == 0 {
     display as result "  PASS: F6.1 — R² in stats(n r2) for OLS"
@@ -3787,7 +3787,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: logit foreign mpg weight
-    regtab, xlsx("output/test_f6_pseudor2.xlsx") sheet("PseudoR2") stats(n r2)
+    regtab, xlsx("`output_dir'/test_f6_pseudor2.xlsx") sheet("PseudoR2") stats(n r2)
 }
 if _rc == 0 {
     display as result "  PASS: F6.2 — Pseudo-R² in stats(n r2) for logit"
@@ -3811,7 +3811,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: logit foreign mpg weight
-    regtab, xlsx("output/test_u4_noint.xlsx") sheet("AutoNoInt")
+    regtab, xlsx("`output_dir'/test_u4_noint.xlsx") sheet("AutoNoInt")
     * r(coef_label) should be OR, and noint should be auto-applied
     assert "`r(coef_label)'" == "OR"
 }
@@ -3830,7 +3830,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: logit foreign mpg weight
-    regtab, xlsx("output/test_u4_keepint.xlsx") sheet("KeepInt") keepintercept
+    regtab, xlsx("`output_dir'/test_u4_keepint.xlsx") sheet("KeepInt") keepintercept
 }
 if _rc == 0 {
     display as result "  PASS: U4.2 — keepintercept option accepted"
@@ -3847,7 +3847,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_u4_ols.xlsx") sheet("OLS")
+    regtab, xlsx("`output_dir'/test_u4_ols.xlsx") sheet("OLS")
     assert "`r(coef_label)'" == "Coef."
 }
 if _rc == 0 {
@@ -3869,7 +3869,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight i.foreign
-    regtab, xlsx("output/test_o5_stars.xlsx") sheet("Stars") ///
+    regtab, xlsx("`output_dir'/test_o5_stars.xlsx") sheet("Stars") ///
         stars starslevels(0.10 0.05 0.01)
 }
 if _rc == 0 {
@@ -3887,7 +3887,7 @@ capture {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_o5_bad.xlsx") sheet("Bad") ///
+    regtab, xlsx("`output_dir'/test_o5_bad.xlsx") sheet("Bad") ///
         stars starslevels(0.10 0.05)
 }
 if _rc == 198 {
@@ -3912,7 +3912,7 @@ capture noisily {
     collect clear
     collect: regress price mpg weight
     capture frame drop myreg
-    regtab, xlsx("output/test_v160_frame_regtab.xlsx") sheet("Test") frame(myreg)
+    regtab, xlsx("`output_dir'/test_v160_frame_regtab.xlsx") sheet("Test") frame(myreg)
     assert r(frame) == "myreg"
     frame myreg: describe
     frame myreg: assert _N > 0
@@ -3939,7 +3939,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_v160_rtable.xlsx") sheet("Test")
+    regtab, xlsx("`output_dir'/test_v160_rtable.xlsx") sheet("Test")
     matrix list r(table)
     local nrows = rowsof(r(table))
     assert `nrows' > 0
@@ -3980,8 +3980,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
- regtab, xlsx("output/test_v160_display.xlsx") sheet("Test")
-    confirm file "output/test_v160_display.xlsx"
+ regtab, xlsx("`output_dir'/test_v160_display.xlsx") sheet("Test")
+    confirm file "`output_dir'/test_v160_display.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: 3.1.2 — regtab display + xlsx() works"
@@ -4025,8 +4025,8 @@ capture noisily {
     collect clear
     collect: regress price mpg weight i.foreign
     capture frame drop keeptest
-    capture erase "output/test_v160_keep.xlsx"
-    regtab, xlsx("output/test_v160_keep.xlsx") sheet("Test") keep(mpg weight) frame(keeptest)
+    capture erase "`output_dir'/test_v160_keep.xlsx"
+    regtab, xlsx("`output_dir'/test_v160_keep.xlsx") sheet("Test") keep(mpg weight) frame(keeptest)
     * Frame should have fewer rows than full model
     frame keeptest: assert _N < 10
     frame keeptest: assert _N >= 3
@@ -4048,7 +4048,7 @@ capture noisily {
     collect clear
     collect: regress price mpg weight i.foreign
     capture frame drop droptest
-    regtab, xlsx("output/test_v160_drop.xlsx") sheet("Test") drop(_cons) frame(droptest)
+    regtab, xlsx("`output_dir'/test_v160_drop.xlsx") sheet("Test") drop(_cons) frame(droptest)
     * Frame should not contain _cons
     frame droptest {
         gen byte _has_cons = A == "_cons"
@@ -4072,7 +4072,7 @@ capture {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_v160_keepdrop.xlsx") sheet("Test") keep(mpg) drop(weight)
+    regtab, xlsx("`output_dir'/test_v160_keepdrop.xlsx") sheet("Test") keep(mpg) drop(weight)
 }
 if _rc != 0 {
     display as result "  PASS: 3.4.3 — keep + drop correctly rejected"
@@ -4094,7 +4094,7 @@ capture noisily {
     collect: regress price mpg weight
     collect: regress price mpg weight i.foreign
     capture frame drop multi
-    regtab, xlsx("output/test_v160_multi.xlsx") sheet("Test") ///
+    regtab, xlsx("`output_dir'/test_v160_multi.xlsx") sheet("Test") ///
  models("Model 1 \ Model 2") frame(multi)
     assert r(N_models) == 2
     matrix list r(table)
@@ -4224,9 +4224,9 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "output/test_v170_compact.xlsx"
-    regtab, xlsx("output/test_v170_compact.xlsx") sheet("Test") compact
-    confirm file "output/test_v170_compact.xlsx"
+    capture erase "`output_dir'/test_v170_compact.xlsx"
+    regtab, xlsx("`output_dir'/test_v170_compact.xlsx") sheet("Test") compact
+    confirm file "`output_dir'/test_v170_compact.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: F4.4 — compact mode Excel export succeeds"

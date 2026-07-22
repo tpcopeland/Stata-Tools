@@ -1,7 +1,28 @@
-*! tvweight Version 1.7.2  2026/07/19
+*! tvweight Version 1.8.0  2026/07/22
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
+*!
+*! Estimands and sources (one target population per wtype()):
+*!   wtype(iptw)     ATE at a point in time; the sustained-regime MSM estimand
+*!                   when weights are accumulated over follow-up.
+*!                   Robins, Hernan & Brumback, Epidemiology 2000;11(5):550-560.
+*!                   doi:10.1097/00001648-200009000-00011
+*!   wtype(ato)      Overlap population; tilt e(X)(1-e(X)), and the multi-group
+*!                   generalization h(x) = 1/sum_k(1/e_k).
+*!                   Li, Morgan & Zaslavsky, JASA 2018;113(521):390-400.
+*!                   doi:10.1080/01621459.2016.1260466
+*!   wtype(matching) Binary: matched-pair population, min(e,1-e)/P(observed).
+*!                   Li & Greene, Int J Biostat 2013;9(2):215-234.
+*!                   doi:10.1515/ijb-2012-0030
+*!                   Multi-arm: empirical-equipoise population,
+*!                   min_k(e_k)/P(observed).
+*!                   Yoshida et al., Epidemiology 2017;28(3):387-395.
+*!                   doi:10.1097/EDE.0000000000000627
+*!   truncate()      A bias-variance intervention, NOT an estimand-preserving
+*!                   repair for non-positivity.
+*!                   Austin & Stuart, Stat Med 2015;34(28):3661-3679.
+*!                   doi:10.1002/sim.6607
 
 /*
 Basic syntax:

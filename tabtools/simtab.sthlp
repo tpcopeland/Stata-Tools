@@ -109,7 +109,7 @@ table-grade measures itself from replication-level data.{p_end}
 {synopt:{opt plotf:rame(name[, replace])}}store the numeric companion frame{p_end}
 {synopt:{opt ti:tle(string)}}table title{p_end}
 {synopt:{opt foot:note(string)}}table footnote{p_end}
-{synopt:{opt the:me(name)}}journal theme (lancet, nejm, bmj, ...){p_end}
+{synopt:{opt the:me(name)}}journal theme; see {helpb tabtools##themes:tabtools} for the accepted names{p_end}
 {synopt:{opt border:style(name)}}default, thin, medium, academic{p_end}
 {synopt:{opt headerc:olor(c)}}header fill color{p_end}
 {synopt:{opt zebrac:olor(c)}}zebra stripe color{p_end}
@@ -222,7 +222,9 @@ columns only; the title and footnote, if set, are not written (they are included
 {opt sim(varname)} replication identifier (enables duplicate check){p_end}
 
 {phang}
-{opt the:me(name)} journal theme (lancet, nejm, bmj, ...){p_end}
+{opt the:me(name)} applies a journal-style formatting theme. Accepted
+names: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature},
+{cmd:cell}, {cmd:annals}, {cmd:custom}.{p_end}
 
 {phang}
 {opt ti:tle(string)} table title{p_end}
@@ -254,6 +256,18 @@ estimator x estimand x scenario. {cmd:simtab} computes the table-grade measures
 below, plus cheap closed-form Monte Carlo standard errors used to flag
 off-nominal coverage, and renders the table. A leading {it:estimator} variable,
 {opt estimate()}, {opt se()}, and {opt true()} are required.{p_end}
+
+{pstd}{bf:Analysis sample.} A replication whose {opt se()} is missing is treated
+as an {bf:incomplete replication} and is excluded from {bf:every} metric, not
+only those that need a standard error. This keeps one analysis sample per cell,
+so all measures in a row share a denominator and are mutually comparable. It
+does mean that a point-estimate-only request such as {cmd:metrics(mean n)} still
+reports the mean over the SE-complete subset: with estimates 1, 100, 3 and
+standard errors 1, ., 1 the reported mean is 2 and {cmd:n} is 2, not the mean of
+all three estimates. {cmd:simtab} prints a note whenever replications are
+dropped this way and returns both denominators, {cmd:r(N_input)} and
+{cmd:r(n_dropped_se)}, so the analysis sample is always recoverable. Supply
+complete {opt se()} values if you want every replication included.{p_end}
 
 {pstd}The leading {it:estimator} variable and the variables supplied to
 {opt by()} and {opt estimand()} may be numeric (with or without value labels)
@@ -391,6 +405,8 @@ posted simulation results.{p_end}
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(N_cells)}}number of by x estimator x estimand cells{p_end}
+{synopt:{cmd:r(N_input)}}replications passing if/in and all non-SE requirements{p_end}
+{synopt:{cmd:r(n_dropped_se)}}replications excluded for a missing {opt se()}{p_end}
 {synopt:{cmd:r(n_by)}}number of by groups{p_end}
 {synopt:{cmd:r(n_estimators)}}number of estimator levels{p_end}
 {synopt:{cmd:r(n_estimands)}}number of estimand levels{p_end}

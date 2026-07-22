@@ -248,6 +248,232 @@ else {
     local failed_tests "`failed_tests' dev_refs"
 }
 
+**## Advertised Stata version matrix matches the version statements in the code
+* I14 (partial). The package advertises Stata 16 for five commands and 17+ for
+* the rest. Executing lanes on Stata 16 and 19 needs those installations and is
+* NOT done here -- see the ledger. What IS checkable on any host is that the
+* advertised matrix agrees with each command's own `version' statement, and
+* that no version-16 command reaches a helper declaring a higher version (which
+* would break on 16 regardless of what the .ado header claims).
+capture noisily {
+    local v16_commands "tabtools tabtools_tips table1_tc stacktab simtab"
+    local all_commands "tabtools tabtools_tips table1_tc desctab regtab effecttab comptab hrcomptab survtab crosstab corrtab diagtab stratetab puttab stacktab simtab"
+
+    local matrix_bad = 0
+    foreach c of local all_commands {
+        local want = 17
+        local is16 : list posof "`c'" in v16_commands
+        if `is16' > 0 local want = 16
+
+        tempname _vfh
+        tempfile _vout
+        shell grep -m1 -oE 'version 1[0-9]+' "`pkg_dir'/`c'.ado" > "`_vout'" 2>/dev/null
+        file open `_vfh' using "`_vout'", read text
+        file read `_vfh' _vline
+        file close `_vfh'
+        local got = real(subinstr("`_vline'", "version ", "", 1))
+        if `got' != `want' {
+            display as error "  version matrix: `c'.ado declares `got', docs advertise `want'"
+            local ++matrix_bad
+        }
+    }
+    assert `matrix_bad' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: advertised version matrix matches the ado version statements"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: advertised Stata version matrix disagrees with the code (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' version_matrix"
+}
+
+**## Baseline manifest gate labels match what this suite actually recomputes
+* I10 regression gate. Fifteen rows were advertised as golden baselines, but
+* only three are regenerated from the current commands and digest-compared
+* (T3/T4/T5 below); the other twelve are only checked for a stored summary that
+* says PASS, so a stale summary stayed green forever. The manifest now carries
+* a `gate' column -- `regenerated' or `stored-only' -- and this check keeps it
+* honest: every row claiming `regenerated' must correspond to a summary file
+* this suite actually compares, and vice versa. Adding or removing an active
+* comparison without relabelling the manifest fails here.
+capture noisily {
+    local active_scenarios "crosstab_2x2_chi2 regtab_single_model table1_tc_autodetect"
+
+    * every active comparison must be reachable from this file.
+    * NOTE: summary_dir is not defined until the baseline section far below, so
+    * this gate builds the path from pkg_dir directly.
+    foreach sc of local active_scenarios {
+        confirm file "`pkg_dir'/qa/baseline/summaries/`sc'.tsv"
+    }
+
+    tempname _mfh
+    file open `_mfh' using "`pkg_dir'/qa/baseline/baseline_manifest.tsv", read text
+    file read `_mfh' _mline
+    * header: locate the scenario and gate columns by name
+    local _hdr `"`_mline'"'
+    local _sc_col = 0
+    local _gate_col = 0
+    local _k = 0
+    while `"`_hdr'"' != "" {
+        gettoken _tok _hdr : _hdr, parse("`=char(9)'")
+        if `"`_tok'"' == "`=char(9)'" continue
+        local ++_k
+        if `"`_tok'"' == "scenario" local _sc_col = `_k'
+        if `"`_tok'"' == "gate"     local _gate_col = `_k'
+    }
+    assert `_sc_col' > 0 & `_gate_col' > 0
+
+    local _n_regen = 0
+    local _mismatch = 0
+    file read `_mfh' _mline
+    while r(eof) == 0 {
+        if strtrim(`"`_mline'"') != "" {
+            local _row `"`_mline'"'
+            local _k = 0
+            local _sc ""
+            local _gate ""
+            while `"`_row'"' != "" {
+                gettoken _tok _row : _row, parse("`=char(9)'")
+                if `"`_tok'"' == "`=char(9)'" continue
+                local ++_k
+                if `_k' == `_sc_col'   local _sc `"`_tok'"'
+                if `_k' == `_gate_col' local _gate `"`_tok'"'
+            }
+            local _is_active : list posof "`_sc'" in active_scenarios
+            if `_is_active' > 0 {
+                local ++_n_regen
+                if "`_gate'" != "regenerated" {
+                    display as error "  manifest: `_sc' is actively compared but labelled `_gate'"
+                    local ++_mismatch
+                }
+            }
+            else if "`_gate'" == "regenerated" {
+                display as error "  manifest: `_sc' claims gate=regenerated but nothing recomputes it"
+                local ++_mismatch
+            }
+        }
+        file read `_mfh' _mline
+    }
+    file close `_mfh'
+
+    local _n_active : list sizeof active_scenarios
+    assert `_n_regen' == `_n_active'
+    assert `_mismatch' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: baseline manifest gate labels match actual coverage"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: baseline manifest overstates its golden gates (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' baseline_manifest_labels"
+}
+
+**## Documented journal themes match the presets the code defines
+* M02 regression gate. The theme table is defined once in _tabtools_apply_theme
+* and restated in prose by tabtools.sthlp, comptab.sthlp and table1_tc.sthlp.
+* Those copies had drifted (nejm documented 10pt vs 9pt in code, cell 10pt vs
+* 8pt, annals claimed zebra striping it does not apply) because prose is not
+* executable. The checker re-derives the table from the ado source each run and
+* fails on any documented value that disagrees.
+capture noisily {
+    if "`python_cmd'" == "" {
+        display as error "  python3 unavailable; cannot verify theme documentation"
+        exit 601
+    }
+    local theme_checker "`qa_dir'/tools/check_theme_docs.py"
+    confirm file "`theme_checker'"
+    local theme_status "`output_dir'/_theme_doc_status.txt"
+    capture erase "`theme_status'"
+    shell `python_cmd' "`theme_checker'" "`pkg_dir'" --result-file "`theme_status'"
+    confirm file "`theme_status'"
+    tempname _thh
+    file open `_thh' using "`theme_status'", read text
+    file read `_thh' _thline
+    file close `_thh'
+    capture erase "`theme_status'"
+    assert strtrim("`_thline'") == "PASS"
+}
+if _rc == 0 {
+    display as result "  PASS: journal theme documentation matches the code"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: journal theme documentation has drifted (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' theme_doc_drift"
+}
+
+**## QA export targets resolve through output_dir, never a literal relative path
+* C05 regression gate. Every suite defines
+*     local output_dir "`qa_dir'/output"
+*     if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
+* and must route every export through it. An export target written as a bare
+* quoted relative directory silently depends on the git-ignored source-tree
+* qa/output directory: it passes in a dirty working copy and fails (rc=16106,
+* cannot write file) in a clean tracked-files-only checkout under the runner
+* lane, where output_dir points at a disposable tmp directory and qa/output is
+* never created.
+*
+* The scan covers every qa/*.do INCLUDING this file, so the gate cannot be
+* weakened by relocating a violation into it. That is why neither the forbidden
+* literal nor a bare example of it appears anywhere in this file: the search
+* pattern is assembled from char(34) at runtime, and the positive control writes
+* its probe line the same way.
+capture noisily {
+    * Assemble the forbidden form at runtime: a double quote immediately
+    * followed by the relative directory name. Kept out of the source text so
+    * this file does not match its own scan.
+    local dq = char(34)
+    local rel_dir "output"
+    local lit_pat "[`dq']`rel_dir'/"
+
+    local literal_target_files = 0
+    tempfile _lit_out
+    tempname _lith
+    local qa_do : dir "`pkg_dir'/qa" files "*.do"
+    foreach f of local qa_do {
+        shell grep -cE '`lit_pat'' "`pkg_dir'/qa/`f'" > "`_lit_out'" 2>/dev/null
+        file open `_lith' using "`_lit_out'", read text
+        file read `_lith' _litline
+        file close `_lith'
+        if real("`_litline'") > 0 {
+            display as error "  LITERAL OUTPUT TARGET: qa/`f' (`_litline' line(s))"
+            local ++literal_target_files
+        }
+    }
+
+    * Positive control: the scan must actually flag the forbidden form, and must
+    * NOT flag the compliant one. Without both halves a broken grep or quoting
+    * change would leave the gate vacuously green.
+    tempfile _lit_ctrl
+    tempname _ctrlh
+    file open `_ctrlh' using "`_lit_ctrl'", write text replace
+    file write `_ctrlh' `"regtab, xlsx(`dq'`rel_dir'/ctrl.xlsx`dq')"' _n
+    file write `_ctrlh' `"regtab, xlsx(`dq'`=char(96)'output_dir'/ok.xlsx`dq')"' _n
+    file close `_ctrlh'
+    shell grep -cE '`lit_pat'' "`_lit_ctrl'" > "`_lit_out'" 2>/dev/null
+    file open `_lith' using "`_lit_out'", read text
+    file read `_lith' _ctrlline
+    file close `_lith'
+    * Exactly one of the two probe lines must match: the violating one.
+    assert real("`_ctrlline'") == 1
+
+    assert `literal_target_files' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: QA export targets all resolve through output_dir"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: QA suites contain literal relative output/ targets (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' qa_literal_output_targets"
+}
+
 **## Dev-path gate discrimination — forbidden tokens flagged everywhere
 * Locks in the release contract: shipped files and QA tooling are both
 * self-contained. Without this guard, a future scan-pattern edit could
@@ -1117,9 +1343,16 @@ if "`repo_root'" == "`pkg_dir'" {
 }
 local tracked_demo_dir "`pkg_dir'/demo"
 local old_pwd "`c(pwd)'"
+* The staging path must be unique PER PROCESS. `tempname' is deterministic
+* within a session -- every run yields __000031 at the same point -- so this
+* resolved to the identical /tmp/tabtools_demo_release_000031 for every lane.
+* Two concurrent release lanes therefore staged the demo into the SAME
+* directory and clobbered each other, and the comparison below then ran against
+* a half-written tree and failed with a spurious workbook-inventory mismatch.
+* c(pid) makes the path unique per Stata process.
 tempname _demo_stage_id
 local _demo_stage_tag = subinstr("`_demo_stage_id'", "__", "", .)
-local demo_stage_root "`c(tmpdir)'/tabtools_demo_release_`_demo_stage_tag'"
+local demo_stage_root "`c(tmpdir)'/`c(pid)'_tabtools_demo_release_`_demo_stage_tag'"
 local demo_stage_pkg "`demo_stage_root'/tabtools"
 local demo_dir "`demo_stage_pkg'/demo"
 local demo_compare "`qa_dir'/tools/compare_demo_tree.py"
@@ -1253,6 +1486,20 @@ else {
         tempname democmpfh
         file open `democmpfh' using "`demo_compare_status'", read text
         file read `democmpfh' demo_compare_line
+        * Surface WHY the comparison failed. The status file's later lines carry
+        * the specific mismatch (which workbook, which Markdown line, which PNG
+        * geometry); without echoing them a failure here says only "rc=9" and
+        * the staging tree is deleted before anyone can look at it.
+        if strpos(`"`demo_compare_line'"', "PASS 15 workbooks") != 1 {
+            display as error `"  demo comparison status: `demo_compare_line'"'
+            local _dcl = 0
+            file read `democmpfh' demo_compare_detail
+            while r(eof) == 0 & `_dcl' < 12 {
+                display as error `"    `demo_compare_detail'"'
+                local ++_dcl
+                file read `democmpfh' demo_compare_detail
+            }
+        }
         file close `democmpfh'
         assert strpos(`"`demo_compare_line'"', "PASS 15 workbooks") == 1
     }

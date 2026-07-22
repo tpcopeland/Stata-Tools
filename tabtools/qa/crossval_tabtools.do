@@ -1,7 +1,8 @@
 * crossval_tabtools.do - Cross-validation of tabtools manual calculations against R
 * Generated: 2026-04-01
 *
-* Companion: crossval_tabtools_companion.R (run first)
+* Companion: crossval_tabtools_companion.R -- this do-file launches it itself
+* via `shell Rscript' (see below); no manual R step is required.
 * Validates all statistical formulas computed manually in tabtools .ado files
 * (i.e., not delegated to built-in Stata commands)
 *
@@ -78,7 +79,8 @@ local failed_tests ""
 
 tempname _cv_r_id
 local _cv_r_tag = subinstr("`_cv_r_id'", "__", "", .)
-local _cv_r_root "`c(tmpdir)'/tabtools_crossval_r_`_cv_r_tag'"
+* c(pid): see run_all.do -- tempname alone collides across concurrent lanes
+local _cv_r_root "`c(tmpdir)'/`c(pid)'_tabtools_crossval_r_`_cv_r_tag'"
 local _cv_r_data "`_cv_r_root'/data"
 local _cv_r_log "`_cv_r_root'/R.log"
 local _cv_r_status "`_cv_r_root'/status.txt"
@@ -1417,6 +1419,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.8
     gen double _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     save "`rate_ref'.dta", replace
 
     replace _D = 75

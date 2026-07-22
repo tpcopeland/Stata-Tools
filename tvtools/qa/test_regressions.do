@@ -1026,8 +1026,8 @@ capture {
     save "`dm2'"
 
     tvmerge "`dm1'" "`dm2'", id(id) start(start start) stop(stop stop) ///
-        exposure(tv_exposure tv_exposure) saveas(`c(tmpdir)'/_dupexp.dta) replace
-    use "`c(tmpdir)'/_dupexp.dta", clear
+        exposure(tv_exposure tv_exposure) saveas($TVTOOLS_QA_RUN_DIR/_dupexp.dta) replace
+    use "$TVTOOLS_QA_RUN_DIR/_dupexp.dta", clear
     confirm variable tv_exposure_1
     confirm variable tv_exposure_2
 }

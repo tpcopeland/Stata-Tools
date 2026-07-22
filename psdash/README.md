@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.4.1** | 2026-07-10
+**Version 1.5.0** | 2026-07-22
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `iivw_weight`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
 
@@ -8,7 +8,18 @@ This package exists because PS diagnostics in Stata are scattered across `tebala
 
 Balance reporting is deliberately richer than the `tebalance summarize` default. `psdash balance` computes raw and weighted standardized mean differences, variance ratios, Kolmogorov-Smirnov statistics, and a Love plot sorted by absolute SMD, with configurable thresholds and Excel export. When a PS is available, it auto-generates IPTW weights for the requested `estimand()` (default ATE) and displays adjusted columns alongside raw columns, so the user sees immediately how much weighting resolves any imbalance — with `nowvar` to suppress weighting and `wvar()` to supply a pre-computed weight variable. Factor and interaction notation (`i.var`, `c.var`, `##`) is expanded into the fitted design columns — one indicator per non-base level, one product per interaction cell — whether supplied through `covariates()` or auto-detected from a fitted `logit`/`probit`/`mlogit`/`teffects` model. Balance is assessed on those design columns rather than on the underlying integer category codes, so categorical and joint-distribution imbalance is not hidden.
 
-The weights subcommand is the complement. `psdash weights` reports mean, SD, range, percentiles, effective sample size, and extreme-weight counts, with on-the-fly `trim(#)`, `truncate(#)`, and `stabilize` modifications exposed through `generate(name)` so the modified weights are kept as a new variable rather than overwriting the original. `psdash support` assesses common-support regions via manual PS thresholds or the Crump et al. (2009) optimal-trimming rule and can write an `in_support` indicator for downstream analyses. All subcommands store results in `r()` and the dashboard output lines use clear status labels plus a "Consider:" action line when follow-up is warranted.
+The weights subcommand is the complement. `psdash weights` reports mean, SD, range, percentiles, effective sample size, and extreme-weight counts, with on-the-fly `trim(#)`, `truncate(#)`, and `stabilize` modifications exposed through `generate(name)` so the modified weights are kept as a new variable rather than overwriting the original. `psdash support` assesses binary common support via manual thresholds or the Crump et al. (2009) optimal-trimming rule. For multiple treatments, `threshold()` retains a unit only when every component of its generalized propensity-score vector meets the requested practical-positivity floor. All subcommands store results in `r()` and the dashboard output lines use clear status labels plus a "Consider:" action line when follow-up is warranted.
+
+## Quick Start
+
+```stata
+sysuse auto, clear
+logit foreign mpg weight length
+predict double ps, pr
+psdash combined foreign ps, covariates(mpg weight length)
+```
+
+The combined command uses one complete-case analysis sample for every requested panel and returns `r(N_requested)`, `r(N_analysis)`, and `r(n_common_excluded)`.
 
 ## Installation
 
@@ -21,6 +32,10 @@ net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 capture ado uninstall psdash
 net install psdash, from("/path/to/psdash") replace
 ```
+
+## Requirements
+
+`psdash` requires Stata 16 or later. Core manual, `teffects`, `logit`, `probit`, and `mlogit` workflows have no community-contributed dependency. Automatic producer integration requires the corresponding producer package to be installed so its validity guard can run.
 
 ## How It Works
 
@@ -38,7 +53,7 @@ net install psdash, from("/path/to/psdash") replace
 
 ### Producer-contract verification and availability
 
-Automatic detection reads the analysis contract that the producing command stamped into the dataset (or `e()`). Those characteristics prove nothing on their own — they can be left behind after rows are dropped, a covariate is edited, or a weight column is overwritten. Before trusting a detected contract, `psdash` calls the producing package's **own validity guard** (`_iivw_check_weighted`, `_msm_check_weighted`, `_tte_get_weight_state`, `_tmle_get_context`, `_ltmle_get_context`), which re-derives the producer's fingerprint and rejects stale or unsigned state. If the guard rejects, `psdash` fails closed with the producer's own diagnostic rather than diagnosing weights that no longer describe the data.
+Automatic detection reads the analysis contract that the producing command stamped into the dataset (or `e()`). Those characteristics prove nothing on their own — they can be left behind after rows are dropped, a covariate is edited, or a weight column is overwritten. Before trusting a detected contract, `psdash` calls the producing package's **own validity guard** (`_iivw_check_weighted`, `_msm_check_weighted`, `_tte_get_weight_state`, `_tmle_get_context`, `_ltmle_get_context`), which re-derives the producer's fingerprint and rejects stale or unsigned state. It then checks the stamped contract version against the machine-readable compatibility matrix in `_psdash_contract_info.ado`. Missing, malformed, future, and otherwise unsupported versions fail closed with an explicit compatibility error.
 
 Consequently, a detected integration is only available when the **producing package is installed** so its guard can run:
 
@@ -107,7 +122,7 @@ Most users can start with `psdash combined`. It runs the four diagnostic panels 
 | Are the covariates balanced after adjustment? | `psdash balance` | Maximum absolute SMD above `threshold()`; variance ratios outside 0.5 to 2.0; large KS statistics |
 | Are a few observations dominating the weighted analysis? | `psdash weights` | Low ESS, high coefficient of variation, weights above 10 or 20 |
 | Which observations are inside the usable support region? | `psdash support` | Number outside empirical common support and number trimmed by `crump` or `threshold()` |
-| Do I need the full dashboard in one step? | `psdash combined` | Overall PASS/CAUTION plus the panel named in the warning |
+| Do I need the full dashboard in one step? | `psdash combined` | Overall PASS/FAIL plus every finding and its panel |
 
 ## Reading the Output
 
@@ -259,12 +274,12 @@ Each subcommand stores results in `r()`. Technical users can use these values in
 | `overlap` | `r(N)`, `r(overlap_lower)`, `r(overlap_upper)`, `r(n_outside)`, `r(pct_outside)`, `r(auc)`, `r(treatment)`, `r(psvar)`, `r(source)` | none |
 | `balance` | `r(max_smd_raw)`, `r(max_smd_adj)`, `r(max_vr_raw)`, `r(max_vr_adj)`, `r(max_ks_raw)`, `r(n_imbalanced)`, `r(threshold)`, `r(wvar)`, `r(source)` | `r(balance)`, `r(smd)` |
 | `weights` | `r(mean_wt)`, `r(sd_wt)`, `r(cv)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(p1)`, `r(p99)`, `r(wvar)`, `r(source)`, `r(iivwcomponent)`, `r(generate)` | none |
-| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)`, `r(source)`; with `compare`: `r(*_pre)`/`r(*_post)` | none |
-| `combined` | Inherits subcommand results via `return add`; also stores `r(verdict)`, `r(n_warnings)`, `r(warnings)`, `r(overlapmax)`, `r(essmin)`, `r(imbalmax)`, `r(report)`, `r(treatment)`, `r(psvar)`, `r(wvar)`, `r(estimand)`, `r(source)`, `r(iivwcomponent)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
+| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(N_remaining)`, `r(crump_alpha)`, `r(source)`; with `compare`: `r(*_pre)`/`r(*_post)` | none |
+| `combined` | Inherits subcommand results via `return add`; also stores `r(verdict)`, `r(n_warnings)`, `r(warnings)`, `r(N_requested)`, `r(N_analysis)`, `r(n_common_excluded)`, `r(overlapmax)`, `r(essmin)`, `r(imbalmax)`, `r(report)`, and source/estimand metadata | inherited when balance runs |
 | `detect` | `r(source)`, `r(treatment)`, `r(psvar)`, `r(covariates)`, `r(wvar)`, `r(estimand)`, `r(n_covariates)`, `r(multigroup)`, `r(longitudinal)`, `r(K)`, `r(levels)`, `r(reference)` | none |
-| `combined` after `ltmle` | Stores LTMLE metadata (`r(longitudinal)`, `r(period)`, `r(periods)`, `r(id)`, `r(wvar)`, `r(method)`, `r(contract_version)`), weight diagnostics (`r(mean_wt)`, `r(ess)`, `r(ess_pct)`, percentiles), and `r(max_pct_outside)` | `r(overlap_by_period)`, `r(weights_by_period)` |
+| `combined` after `ltmle`/`msm`/`tte` | Stores producer metadata, input/complete/exclusion and missingness counts, overall and minimum period/period-arm ESS, weight diagnostics, and period overlap findings | `r(overlap_by_period)`, `r(weights_by_period)` |
 
-For binary treatments, `r(balance)` has one row per covariate and columns for raw and adjusted means, SMDs, variance ratios, and KS statistics. For multi-group treatments, `r(balance)` has one five-column block per non-reference group, plus adjusted blocks when weights are applied; column names include the compared treatment levels.
+For binary treatments, `r(balance)` has one row per covariate and columns for raw and adjusted means, SMDs, variance ratios, and KS statistics. For multi-group treatments, `r(balance)` has one five-column block per non-reference group, plus adjusted blocks when weights are applied; column names include the compared treatment levels. Excel exports preserve those metrics as numeric cells, include raw and adjusted KS columns, and apply header formatting and readable column widths.
 
 Example:
 
@@ -319,6 +334,7 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 
 ## Version History
 
+- **v1.5.0** (22 Jul 2026): Release-readiness hardening. Producer auto-detection now calls the producer's validity guard and enforces a centralized contract-version matrix; unsupported, stale, unsigned, or unavailable producer state fails closed. Multi-arm threshold trimming now uses the full generalized propensity-score vector, combined dashboards use one complete-case sample and return its attrition ledger, and longitudinal diagnostics reject nonpositive weights while reporting period-by-arm ESS and missingness. Excel exports now contain typed numeric cells and complete raw/adjusted balance metrics. Added focused regression, contract, return-surface, Excel-fidelity, and external-reference QA; refreshed documentation, provenance records, and demo artifacts.
 - **v1.4.1** (07 Jul 2026): Usability and transparency fixes. `estimand(atc)` with a multi-valued treatment (K>2 groups) now prints a one-time note explaining that ATC is not uniquely defined for K>2 and that generalized ATE weights are used (unchanged behavior); the help recommends `estimand(att)` with `reference()` for a group-targeted estimand. `name()` and `saving()` now accept a redundant `twoway`-style trailing `replace` suboption (e.g. `saving(f.png, replace)`), ignoring it with a note instead of failing with a cryptic error. The combined-command help now documents that inherited per-panel `r()` results with shared names reflect the last-run panel (support).
 - **v1.4.0** (01 Jul 2026): Methodological hardening. `balance` now computes a genuine **weighted Kolmogorov-Smirnov** statistic from the weighted empirical CDF (the `KS_Adj` column, previously reserved but unfilled), returned in `r(max_ks_adj)`. Variance ratios are no longer flagged for **binary covariates** (where the VR is determined by the SMD); such covariates are footnoted and excluded from the VR count, and the VR bounds are configurable via `vrbounds()`. `weights` adds configurable extreme-weight cutoffs (`extreme()`) and a scale-free max/mean ratio (`r(max_ratio)`), and warns when `stabilize` is applied to user-supplied (possibly already-stabilized) weights. `support` adds quantile-based common support (`qtrim()`) as a robust alternative to the optimistic min-max overlap, and the Crump optimal alpha is refined from a 0.01 to a 0.001 grid.
 - **v1.3.0** (14 Jun 2026): Forward-looking enhancements. New `psdash detect` subcommand and `combined, dryrun` report auto-detection without running panels. `combined` now returns a machine-readable verdict (`r(verdict)`, `r(n_warnings)`, `r(warnings)`) with configurable thresholds (`overlapmax()`, `essmin()`, `imbalmax()`), and a one-call publication workbook via `report()`. `balance` adds a multi-strategy Love-plot overlay (`strategies()`), per-covariate distributional balance plots (`distribution()`), and a `table1_tc`/`puttab`-ready SMD matrix (`smdmatrix()`/`r(smd)`). `support` adds a pre/post-trimming comparison (`compare`). `overlap`, `weights`, and `support` gain Excel export parity (`xlsx()`/`sheet()`). Added a Detection-sources reference table to the help file.

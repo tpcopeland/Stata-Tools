@@ -197,12 +197,14 @@ wrap{p_end}
 uses the level stored in the active collection, and an explicit value must
 match that stored level or the command fails before writing output. Not every
 Stata version records the level in the collection: Stata 17 does, Stata 19 does
-not. When it is absent, {cmd:regtab} uses {opt level()} if you supply one and
-otherwise falls back to the current {helpb set level}, reporting a note; no
-conflict check is possible in that case, so supply {opt level()} if the
-collected models did not use the current default. The resolved level labels
-intervals in headers and methods text, is returned in {cmd:r(ci_level)}, and is
-stored on display and eplot frames; it affects no computed quantity.{p_end}
+not. When it is absent, {cmd:regtab} requires {opt level()} and exits with
+error 198 otherwise. It does {it:not} fall back to the current
+{helpb set level}: that is the session setting at render time, whereas the
+intervals were computed when the models ran, so assuming it can label real 90%
+bounds as a 95% CI. State the level the collected models were fit at. The
+resolved level labels intervals in headers and methods text, is returned in
+{cmd:r(ci_level)}, and is stored on display and eplot frames; it affects no
+computed quantity.{p_end}
 
 {phang}
 {opt markdown(filename)} export the table as GitHub-Flavored Markdown{p_end}
@@ -309,6 +311,14 @@ auto-detected per collected model: {cmd:logit}/{cmd:logistic} {it:->} OR,
 {it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg} {it:->} TR/AF,
 {cmd:regress}/{cmd:mixed} {it:->} Coef. Coefficient-scale fits are exponentiated
 for display when the auto header implies a ratio scale.{p_end}
+{p 4 8 2}- {cmd:glm} (including the GEE backend) is resolved from its
+{opt family()} and {opt link()} rather than the command name: {cmd:family(binomial)}
+or {cmd:family(bernoulli)} with the default or
+{cmd:link(logit)} {it:->} OR, and {cmd:family(poisson)} with the default or
+{cmd:link(log)} {it:->} IRR. Both are exponentiated for display and drop the
+intercept row. Any other family/link combination is left on the coefficient
+scale with the {cmd:Coef.} header; supply {opt coef()} to label it
+yourself.{p_end}
 {p 4 8 2}- {opt relabel}: relabels random effects using variable labels and explicit
 parameter types. For single-level models {cmd:var(_cons)} becomes
 {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes
@@ -471,7 +481,7 @@ threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(qic_}{it:#}{cmd:)}}QIC for model #, when available{p_end}
 {synopt:{cmd:r(icc_}{it:#}{cmd:)}}ICC for model #, when available{p_end}
 {synopt:{cmd:r(ll_}{it:#}{cmd:)}}log-likelihood for model {it:#} (when {cmd:stats(ll)}){p_end}
-{synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model # (when stats(n){p_end}
+{synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model {it:#} (when {cmd:stats(n)}){p_end}
 {synopt:{cmd:r(groups_}{it:#}{cmd:)}}number of groups for model {it:#} (when {cmd:stats(groups)}){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
@@ -500,10 +510,40 @@ colons replaced by underscores or stripped, then truncated to 32 characters.{p_e
 carry the full-precision values; the corresponding rows in the displayed table
 and {cmd:r(table)} are rounded for presentation. Only the scalars for the
 statistics actually requested in {opt stats()} (and available for the model
-family) are posted. {cmd:AIC}, {cmd:BIC}, and {cmd:QIC} are recomputed from the
-log-likelihood, parameter count, and N (matching {cmd:estat ic}) rather than
-read from {cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an
-incomparable per-observation or deviance scale.{p_end}
+family) are posted.{p_end}
+
+{pstd}
+{cmd:AIC} and {cmd:BIC} are recomputed from the log-likelihood, parameter count,
+and N as {cmd:AIC = -2*ll + 2*k} and {cmd:BIC = -2*ll + k*ln(N)}, matching
+{helpb estat ic}, rather than read from {cmd:e(aic)}/{cmd:e(bic)}, which
+{cmd:glm}/GEE backends store on an incomparable per-observation or
+deviance scale.{p_end}
+
+{pstd}
+{cmd:QIC} is {it:not} a likelihood criterion and does not come from
+{helpb estat ic}. GEE fits a quasi-likelihood, so no log-likelihood is
+available; {cmd:regtab} computes {cmd:deviance + 2*k}, where {cmd:k} is the rank
+of the coefficient vector. Values are on a different scale from AIC and BIC and
+must not be compared with them.{p_end}
+
+{pstd}
+{bf:Which criterion this is.} {cmd:deviance + 2*k} is Pan's {bf:QICu}, the
+fixed-penalty approximation to QIC, {it:not} QIC itself. Pan's QIC is
+{cmd:-2Q(b,I) + 2*trace(Omega*Sigma)}, whose penalty is a trace of the
+independence-model information times the robust sandwich variance; {cmd:QICu}
+replaces that trace with {cmd:k}, and that difference carries a real
+restriction: {bf:QICu compares only models sharing a working correlation structure}, which
+means models must share the working correlation matrix and the quasi-likelihood
+form and differ only in the mean specification. QICu must {it:not} be used to choose
+a working correlation structure; that is precisely the job the trace penalty
+does and this approximation drops. The stored result is named {cmd:r(qic_}{it:#}{cmd:)} for
+backward compatibility; read it as QICu.{p_end}
+
+{pstd}
+See Pan W (2001), Akaike's information criterion in generalized estimating
+equations, {it:Biometrics} 57:120-125; and Cui J (2007),
+QIC program and model selection in GEE analyses, {it:Stata Journal}
+7(2):209-220.{p_end}
 
 {marker seealso}{...}
 {title:Also see}

@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.4.1  2026/07/07
+*! psdash_balance Version 1.5.0  2026/07/22
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -862,79 +862,12 @@ program define psdash_balance, rclass
     * EXPORT TO EXCEL (binary)
     if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
-            quietly {
-                preserve
-
-                clear
-                set obs `=`nvars' + 3'
-
-                gen str80 A = ""
-                gen str20 B = ""
-                gen str20 C = ""
-                gen str20 D = ""
-                gen str20 E = ""
-                gen str20 F = ""
-                gen str20 G = ""
-                gen str20 H = ""
-                gen str20 I = ""
-
-                replace A = `"`title'"' in 1
-
-                replace A = "Covariate" in 2
-                replace B = "Mean (Treated)" in 2
-                replace C = "Mean (Control)" in 2
-                if `has_adj' {
-                    replace D = "SMD (Raw)" in 2
-                    replace E = "VR (Raw)" in 2
-                    replace F = "Mean (T, Adj)" in 2
-                    replace G = "Mean (C, Adj)" in 2
-                    replace H = "SMD (Adj)" in 2
-                    replace I = "VR (Adj)" in 2
-                }
-                else if "`matched'" != "" {
-                    replace D = "SMD (Matched)" in 2
-                    replace E = "VR" in 2
-                }
-                else {
-                    replace D = "SMD (Raw)" in 2
-                    replace E = "VR" in 2
-                }
-
-                local vr_fmt_xl "%6.2f"
-                local i = 1
-                foreach var of local varlist {
-                    local row = `i' + 2
-                    replace A = "`: word `i' of `_cov_labels''" in `row'
-                    replace B = string(`balance_mat'[`i', 1], "`format'") in `row'
-                    replace C = string(`balance_mat'[`i', 2], "`format'") in `row'
-                    replace D = string(`balance_mat'[`i', 3], "`format'") in `row'
-                    replace E = string(`balance_mat'[`i', 4], "`vr_fmt_xl'") in `row'
-                    if `has_adj' {
-                        replace F = string(`balance_mat'[`i', 6], "`format'") in `row'
-                        replace G = string(`balance_mat'[`i', 7], "`format'") in `row'
-                        replace H = string(`balance_mat'[`i', 8], "`format'") in `row'
-                        replace I = string(`balance_mat'[`i', 9], "`vr_fmt_xl'") in `row'
-                    }
-                    local i = `i' + 1
-                }
-
-                local sumrow = `nvars' + 3
-                replace A = "Max |SMD|" in `sumrow'
-                replace D = string(`max_smd_raw', "`format'") in `sumrow'
-                if `has_adj' {
-                    replace H = string(`max_smd_adj', "`format'") in `sumrow'
-                }
-
-                if !`has_adj' {
-                    drop F G H I
-                }
-
-                noisily export excel using "`xlsx'", sheet("`sheet'") sheetreplace
-
-                restore
-
-                noisily display as text _n "Balance table exported to: " as result "`xlsx'"
-            }
+            local _adjopt ""
+            if `has_adj' local _adjopt "hasadj"
+            _psdash_export_balance, xlsx("`xlsx'") sheet("`sheet'") ///
+                title(`"`title'"') matrix(`balance_mat') ///
+                labels(`_cov_labels') `_adjopt'
+            noisily display as text _n "Balance table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
         if `xlsx_rc' {
@@ -1390,99 +1323,13 @@ program define psdash_balance, rclass
     * EXPORT TO EXCEL (multi-group)
     if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
-            quietly {
-                preserve
-
-                * Determine number of data columns
-                local xl_ncols = 1  // covariate name
-                foreach clev of local contrasts {
-                    local xl_ncols = `xl_ncols' + 3  // SMD, VR, KS per contrast
-                }
-                if `has_adj' {
-                    foreach clev of local contrasts {
-                        local xl_ncols = `xl_ncols' + 2  // SMD_adj, VR_adj
-                    }
-                }
-
-                clear
-                set obs `=`nvars' + 3'
-
-                * Generate string columns dynamically
-                gen str80 col_1 = ""
-                local max_xl_col = `xl_ncols'
-                forvalues c = 2/`max_xl_col' {
-                    gen str20 col_`c' = ""
-                }
-
-                replace col_1 = `"`title'"' in 1
-
-                * Header row
-                replace col_1 = "Covariate" in 2
-                local c = 1
-                foreach clev of local contrasts {
-                    local c = `c' + 1
-                    replace col_`c' = "SMD `clev'v`mg_reference'" in 2
-                    local c = `c' + 1
-                    replace col_`c' = "VR `clev'v`mg_reference'" in 2
-                    local c = `c' + 1
-                    replace col_`c' = "KS `clev'v`mg_reference'" in 2
-                }
-                if `has_adj' {
-                    foreach clev of local contrasts {
-                        local c = `c' + 1
-                        replace col_`c' = "SMD Adj `clev'v`mg_reference'" in 2
-                        local c = `c' + 1
-                        replace col_`c' = "VR Adj `clev'v`mg_reference'" in 2
-                    }
-                }
-
-                * Data rows
-                local vr_fmt_xl "%6.2f"
-                local i = 1
-                foreach var of local varlist {
-                    local row = `i' + 2
-                    replace col_1 = "`: word `i' of `_cov_labels''" in `row'
-                    local c = 1
-                    local cnum = 0
-                    foreach clev of local contrasts {
-                        local cnum = `cnum' + 1
-                        local col_smd = (`cnum' - 1) * 5 + 3
-                        local col_vr = (`cnum' - 1) * 5 + 4
-                        local col_ks = (`cnum' - 1) * 5 + 5
-                        local c = `c' + 1
-                        replace col_`c' = string(`balance_mat'[`i', `col_smd'], "`format'") in `row'
-                        local c = `c' + 1
-                        replace col_`c' = string(`balance_mat'[`i', `col_vr'], "`vr_fmt_xl'") in `row'
-                        local c = `c' + 1
-                        replace col_`c' = string(`balance_mat'[`i', `col_ks'], "`ks_fmt'") in `row'
-                    }
-                    if `has_adj' {
-                        local cnum = 0
-                        foreach clev of local contrasts {
-                            local cnum = `cnum' + 1
-                            local adj_smd = `ncols_raw' + (`cnum' - 1) * 5 + 3
-                            local adj_vr = `ncols_raw' + (`cnum' - 1) * 5 + 4
-                            local c = `c' + 1
-                            replace col_`c' = string(`balance_mat'[`i', `adj_smd'], "`format'") in `row'
-                            local c = `c' + 1
-                            replace col_`c' = string(`balance_mat'[`i', `adj_vr'], "`vr_fmt_xl'") in `row'
-                        }
-                    }
-                    local i = `i' + 1
-                }
-
-                * Summary row
-                local sumrow = `nvars' + 3
-                replace col_1 = "Max |SMD|" in `sumrow'
-                local c = 2
-                replace col_`c' = string(`max_smd_raw', "`format'") in `sumrow'
-
-                noisily export excel using "`xlsx'", sheet("`sheet'") sheetreplace
-
-                restore
-
-                noisily display as text _n "Balance table exported to: " as result "`xlsx'"
-            }
+            local _adjopt ""
+            if `has_adj' local _adjopt "hasadj"
+            _psdash_export_balance, xlsx("`xlsx'") sheet("`sheet'") ///
+                title(`"`title'"') matrix(`balance_mat') ///
+                labels(`_cov_labels') contrasts(`contrasts') ///
+                reference(`mg_reference') `_adjopt'
+            noisily display as text _n "Balance table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
         if `xlsx_rc' {

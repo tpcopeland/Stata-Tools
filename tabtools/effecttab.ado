@@ -1,4 +1,4 @@
-*! effecttab Version 1.9.11  2026/07/18
+*! effecttab Version 1.10.0  2026/07/22
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -168,19 +168,19 @@ program define effecttab, rclass
 						exit 110
 					}
 				}
-				local _displayframe_target "`_displayframe_name'"
-				local _eplotframe_target "`_eplotframe_name'"
+				local _displayframe_target `"`_displayframe_name'"'
+				local _eplotframe_target `"`_eplotframe_name'"'
 				local _displayframe_build ""
 				local _eplotframe_build ""
 				if `"`_displayframe_target'"' != "" {
 					tempname _displayframe_tmp
-					local _displayframe_build "`_displayframe_tmp'"
+					local _displayframe_build `"`_displayframe_tmp'"'
 					local frame "`_displayframe_build', replace"
 				}
 				if `"`_eplotframe_target'"' != "" {
 					tempname _eplotframe_tmp
-					local _eplotframe_build "`_eplotframe_tmp'"
-					local _eplotframe_name "`_eplotframe_build'"
+					local _eplotframe_build `"`_eplotframe_tmp'"'
+					local _eplotframe_name `"`_eplotframe_build'"'
 					local _eplotframe_replace 1
 				}
 
@@ -235,26 +235,12 @@ quietly {
 		local _ci_level = cond(`level' == -1, 95, `level')
 	}
 	else {
-		_tabtools_collect_ci_level
+		* Shared with regtab: see _tabtools_resolve_ci_level in _tabtools_common.
+		* When the collection carries no level provenance and level() was not
+		* given, this ERRORS rather than guessing from the current c(level).
+		noisily _tabtools_resolve_ci_level `level'
+		local _ci_level = r(level)
 		local _ci_found = r(found)
-		local _stored_ci_level = r(level)
-		if `_ci_found' {
-			local _ci_level = `_stored_ci_level'
-			if `level' != -1 {
-				if abs(`level' - `_stored_ci_level') > 1e-8 {
-					noisily display as error "level(`level') conflicts with the active collection's `_stored_ci_level'% intervals"
-					exit 198
-				}
-				local _ci_level = `level'
-			}
-		}
-		else if `level' != -1 {
-			local _ci_level = `level'
-		}
-		else {
-			local _ci_level = c(level)
-			noisily display as text "note: this Stata version does not record confidence-level provenance in the collection; labeling intervals as `_ci_level'% from the current {bf:set level}. Specify {bf:level()} if the collected models used a different level."
-		}
 	}
 
 	* Check xlsx if specified
@@ -376,7 +362,7 @@ quietly {
 		}
 
 		forvalues _m = 1/`_collect_models' {
-			local _cmd "`collect_cmd_`_m''"
+			local _cmd `"`collect_cmd_`_m''"'
 			local _cmdline `"`collect_cmdline_`_m''"'
 			local _kind ""
 
@@ -421,7 +407,7 @@ quietly {
 			local type "margins"
 		}
 		else {
-			local type "`_collect_kind'"
+			local type `"`_collect_kind'"'
 		}
 	}
 	else if !`_from_matrix' {
@@ -459,7 +445,7 @@ quietly {
 	* Always capture treatment variable info for teffects (needed for row filtering)
 	* The clean option controls label relabeling; filtering is always applied
 	if "`type'" == "teffects" {
-		local tvar "`_teffects_tvar'"
+		local tvar `"`_teffects_tvar'"'
 		if "`tvar'" == "" local tvar "`e(tvar)'"
 
 		if "`clean'" != "" & `"`tlabels'"' != "" {
@@ -540,12 +526,12 @@ quietly {
 		* Add ATE comparison rows: r{lev}vs{base}.{tvar}
 		foreach lev of local tlevels {
 			if "`lev'" != "`base'" {
-				local _colname_filter "`_colname_filter' r`lev'vs`base'.`tvar'"
+				local _colname_filter `"`_colname_filter' r`lev'vs`base'.`tvar'"'
 			}
 		}
 		* Add POmean rows: {lev}.{tvar}
 		foreach lev of local tlevels {
-			local _colname_filter "`_colname_filter' `lev'.`tvar'"
+			local _colname_filter `"`_colname_filter' `lev'.`tvar'"'
 		}
 	}
 
@@ -678,7 +664,7 @@ quietly {
 		qui replace A = "" in 1
 		* Row 2: headers
 		qui replace A = "" in 2
-		qui replace c1 = "`effect'" in 2
+		qui replace c1 = `"`effect'"' in 2
 		qui replace c2 = "(`_ci_level'% CI)" in 2
 		qui replace c3 = "p" in 2
 		* Data rows
@@ -687,7 +673,7 @@ quietly {
 				local _obs = `_fr' + 2
 			local _rn : word `_fr' of `_rnames'
 			local _rn = subinstr("`_rn'", "_", " ", .)
-			qui replace A = "`_rn'" in `_obs'
+			qui replace A = `"`_rn'"' in `_obs'
 				local _est = `from'[`_fr', 1]
 				local _cilo = `from'[`_fr', 2]
 				local _cihi = `from'[`_fr', 3]
@@ -887,7 +873,7 @@ quietly {
 		}
 		if `_row_has_data' {
 			local _mat_nrows = `_mat_nrows' + 1
-			local _keep_obs "`_keep_obs' `_obs'"
+			local _keep_obs `"`_keep_obs' `_obs'"'
 		}
 	}
 	tempname _rtable
@@ -924,7 +910,7 @@ quietly {
 			local _rname = subinstr("`_rname'", ",", "", .)
 			local _rname = substr("`_rname'", 1, 32)
 			if "`_rname'" == "" local _rname "row`_mr'"
-			local _rnames "`_rnames' `_rname'"
+			local _rnames `"`_rnames' `_rname'"'
 		}
 		capture matrix rownames `_rtable' = `_rnames'
 	}
@@ -942,7 +928,7 @@ quietly {
 			* Matrix input has no structural base-level metadata, so a numeric zero
 			* can never be reinterpreted as a reference category.
 			if !`_from_matrix' {
-				replace c`i' = "`refcat'" if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
+				replace c`i' = `"`refcat'"' if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
 					& strtrim(c`=`i'+1') == "" & _n >= 3
 			}
 		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "`refcat'"
@@ -1120,7 +1106,7 @@ quietly {
 
 			local curr_n = _N
 			set obs `=`curr_n'+1'
-			replace A = "`_ar_label'" in `=`curr_n'+1'
+			replace A = `"`_ar_label'"' in `=`curr_n'+1'
 
 			local _ar_m = 0
 			local _ar_vals = strtrim(`"`_ar_vals'"')
@@ -1129,7 +1115,7 @@ quietly {
 				local _ar_m = `_ar_m' + 1
 				local col = (`_ar_m' - 1) * 3 + 1
 				if `col' <= `n' {
-					replace c`col' = "`_ar_v'" in `=`curr_n'+1'
+					replace c`col' = `"`_ar_v'"' in `=`curr_n'+1'
 				}
 			}
 		}
@@ -1156,7 +1142,7 @@ quietly {
 	forvalues i = 1(3)`last' {
 		gen ref`i' = _n if c`i' == "`refcat'"
 		levelsof ref`i', local(ref`i'_levels)
-		local ref_rows "`ref_rows' `ref`i'_levels'"
+		local ref_rows `"`ref_rows' `ref`i'_levels'"'
 		drop ref`i'
 	}
 	local ref_rows: list uniq ref_rows
@@ -1318,7 +1304,7 @@ quietly {
 	* Store output in frame if requested
 	if `"`frame'"' != "" {
 		_tabtools_frame_put `"`frame'"'
-		local frame "`_frame_name'"
+		local frame `"`_frame_name'"'
 		frame `frame': char _dta[tabtools_source] "effecttab"
 		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
 		frame `frame': char _dta[tabtools_n_models] "`_n_models'"
@@ -1559,7 +1545,7 @@ quietly {
 			if !_rc frame drop `_displayframe_target'
 			frame rename `_displayframe_build' `_displayframe_target'
 			local _displayframe_build ""
-			local frame "`_displayframe_target'"
+			local frame `"`_displayframe_target'"'
 			return local frame "`_displayframe_target'"
 		}
 	}

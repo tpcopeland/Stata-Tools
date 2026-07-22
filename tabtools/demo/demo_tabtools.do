@@ -1257,6 +1257,8 @@ input str20 drug_class _D _Y double(_Rate _Lower _Upper)
 "SSRI"   178 28100 0.00633 0.00545 0.00734
 "SNRI"   161 22300 0.00722 0.00616 0.00844
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 save "`pkg_dir'/_strate_cv_m.dta", replace
 
 clear
@@ -1264,6 +1266,8 @@ input str20 drug_class _D _Y double(_Rate _Lower _Upper)
 "SSRI"    52 28100 0.00185 0.00139 0.00243
 "SNRI"    58 22300 0.00260 0.00199 0.00337
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 save "`pkg_dir'/_strate_sh_m.dta", replace
 
 * Stratum 2: Female patients (SSRI vs SNRI -- same row categories)
@@ -1272,6 +1276,8 @@ input str20 drug_class _D _Y double(_Rate _Lower _Upper)
 "SSRI"   134 24380 0.00550 0.00462 0.00652
 "SNRI"   128 19520 0.00656 0.00549 0.00781
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 save "`pkg_dir'/_strate_cv_f.dta", replace
 
 clear
@@ -1279,6 +1285,8 @@ input str20 drug_class _D _Y double(_Rate _Lower _Upper)
 "SSRI"    35 24380 0.00144 0.00100 0.00200
 "SNRI"    36 19520 0.00184 0.00129 0.00256
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 save "`pkg_dir'/_strate_sh_f.dta", replace
 restore
 
@@ -1458,6 +1466,8 @@ input byte exposure double(_D _Y _Rate _Lower _Upper)
 0 42 5200 0.00808 0.00610 0.01069
 1 31 4980 0.00622 0.00436 0.00887
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_bin 0 "No HRT" 1 "Any HRT", replace
 label values exposure _hrc_bin
 save "`rate11'.dta", replace
@@ -1467,6 +1477,8 @@ input byte exposure double(_D _Y _Rate _Lower _Upper)
 0 19 5310 0.00358 0.00228 0.00563
 1 12 5040 0.00238 0.00135 0.00419
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_bin2 0 "No HRT" 1 "Any HRT", replace
 label values exposure _hrc_bin2
 save "`rate12'.dta", replace
@@ -1476,6 +1488,8 @@ input byte exposure double(_D _Y _Rate _Lower _Upper)
 0 88 5150 0.01709 0.01384 0.02110
 1 67 4895 0.01369 0.01062 0.01763
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_bin3 0 "No HRT" 1 "Any HRT", replace
 label values exposure _hrc_bin3
 save "`rate13'.dta", replace
@@ -1488,6 +1502,8 @@ input byte exposure double(_D _Y _Rate _Lower _Upper)
 2 9 1510 0.00596 0.00310 0.01145
 3 6 1710 0.00351 0.00158 0.00781
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_dose 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
 label values exposure _hrc_dose
 save "`rate21'.dta", replace
@@ -1499,6 +1515,8 @@ input byte exposure double(_D _Y _Rate _Lower _Upper)
 2 3 1535 0.00195 0.00063 0.00603
 3 2 1700 0.00118 0.00029 0.00471
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_dose2 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
 label values exposure _hrc_dose2
 save "`rate22'.dta", replace
@@ -1510,6 +1528,8 @@ input byte exposure double(_D _Y _Rate _Lower _Upper)
 2 21 1495 0.01405 0.00917 0.02154
 3 15 1660 0.00904 0.00545 0.01499
 end
+label variable _Lower "Lower 95% confidence limit"
+label variable _Upper "Upper 95% confidence limit"
 label define _hrc_dose3 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
 label values exposure _hrc_dose3
 save "`rate23'.dta", replace

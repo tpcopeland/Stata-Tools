@@ -486,7 +486,7 @@ else {
 local ++test_count
 capture noisily {
     _os_multigroup_known
-    psdash support treat, psvars(p2 p4 p7) reference(7) threshold(.25) ///
+    psdash support treat, psvars(p2 p4 p7) reference(7) threshold(.09) ///
         generate(mg_support) nograph
     assert r(K) == 3
     assert "`r(reference)'" == "7"
@@ -496,17 +496,17 @@ capture noisily {
     assert r(n_outside_group_2) == 1
     assert r(n_outside_group_4) == 1
     assert r(n_outside_group_7) == 1
-    assert r(n_trimmed) == 2
+    assert r(n_trimmed) == 0
     assert mg_support == 1 in 1
-    assert mg_support == 0 in 2
+    assert mg_support == 1 in 2
     assert mg_support == 1 in 3
-    assert mg_support == 0 in 4
+    assert mg_support == 1 in 4
     assert mg_support == 1 in 5
     assert mg_support == 1 in 6
 }
 local rc = _rc
 if `rc' == 0 {
-    display as result "PASS: T20 support uses observed group GPS for threshold indicator"
+    display as result "PASS: T20 support uses full GPS vector for threshold indicator"
     local ++pass_count
 }
 else {

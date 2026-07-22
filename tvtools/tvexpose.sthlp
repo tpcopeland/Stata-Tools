@@ -2,6 +2,7 @@
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvexpose##syntax"}{...}
 {viewerjumpto "Description" "tvexpose##description"}{...}
 {viewerjumpto "Required options" "tvexpose##required_options"}{...}
@@ -144,10 +145,28 @@ quantity, and survival-time contracts used by the package, see
 {help tvtools##contracts:data contracts}.
 
 {pstd}
-{bf:Important}: {cmd:tvexpose} modifies the data in memory and changes the sort order
-to id-start-stop. It writes the structural interval variables {cmd:start} and
-{cmd:stop}, replacing any same-named variables already in memory. Always
-preserve your data or work with copies.
+{bf:Important}: {cmd:tvexpose} modifies the data in memory and changes the sort
+order to id-start-stop. Always preserve your data or work with copies.
+
+{marker naming}{...}
+{pstd}
+{bf:Output naming contract.} The output carries the interval bounds under the
+names you gave in {opt start()} and {opt stop()}, and the person identifier
+under the name you gave in {opt id()}. The command builds its result internally
+using the working names {cmd:id}, {cmd:start}, {cmd:stop}, {cmd:study_entry},
+and {cmd:study_exit}, then renames the bounds back before committing, so any
+same-named variables already in memory are replaced.
+
+{pstd}
+The complete output name set is resolved and checked {it:before} any data are
+mutated: {opt id()}, {opt start()}, {opt stop()}, {opt generate()},
+{opt combine()}, every variable in {opt keepvars()}, and -- with
+{opt keepdates} -- {cmd:study_entry} and {cmd:study_exit}. If two of these
+resolve to the same name, or a requested name collides with a reserved working
+name it is not entitled to, {cmd:tvexpose} exits with {cmd:r(198)} and commits
+nothing. For example {cmd:start(rx_start) generate(rx_start)} is rejected,
+because the start bound and the exposure variable cannot both be called
+{cmd:rx_start}.
 
 
 {marker required_options}{...}
@@ -247,6 +266,15 @@ instead of a single variable. Each variable name appends the sanitized
 exposure {it:value} (for example {cmd:5}, {cmd:10}, {cmd:2p5} for 2.5,
 {cmd:neg1} for -1), not a sequential 1, 2, .... Useful when different exposure
 types have independent effects.
+
+{pmore}
+Every derived name -- both {it:stub}{it:suffix} and the value label
+{it:stub}{cmd:labels_}{it:suffix} -- is built from the actual exposure values
+and checked for legality, 32-character length, and uniqueness {it:before} any
+variable is created. A stub and value combination that cannot produce a legal
+name exits with {cmd:r(198)} naming the offending value, and commits nothing. The
+resulting value-to-variable mapping is returned in {cmd:r(bytype_map)} as
+{it:value}{cmd:=}{it:varname} pairs, with the count in {cmd:r(n_bytype_vars)}.
 
 {phang}
 {opt recency(numlist)} creates categories based on time since last exposure. {cmd:recencyunit(days|years)}
@@ -349,9 +377,33 @@ separate rows for each combination. Used when overlapping exposures have
 independent effects.
 
 {phang}
-{opt combine(newvar)} creates an additional variable containing a combined
-exposure indicator when periods overlap. The new variable shows simultaneous
-exposure to multiple types.
+{opt combine(newvar)} creates an additional variable recording the exposure
+state on every output sub-period, including a distinct state for each set of
+simultaneously active exposures.
+
+{pmore}
+Sub-periods covered by a single exposure keep that exposure's own code, while
+sub-periods covered by two or more exposures at once receive a
+{bf:newly allocated} code, drawn from a block beginning strictly above every
+exposure value present in the data, so an allocated code can never coincide
+with an original one. Each allocated code carries a value label naming the
+exposures it stands for, for example {cmd:"1 + 2"}. The full mapping is
+returned in
+{cmd:r(combine_map)} as {it:code}{cmd:="}{it:composition}{cmd:"} pairs, and the
+number of allocated states in {cmd:r(n_combined_states)}.
+
+{pmore}
+There is no limit on the number of simultaneous exposures a sub-period may
+carry, and no restriction on the sign or magnitude of the exposure values, so
+{cmd:combine()} errors only if a sub-period has so many simultaneous exposures
+that its composition label would not fit.
+
+{pmore}
+Earlier versions encoded a two-way overlap arithmetically as
+{cmd:value1*100 + value2}. That map was not one-to-one over the accepted value
+domain -- the pair {cmd:(-1, 2)} encoded to {cmd:-98}, which is also a valid
+single-exposure code, and any pair {cmd:(0, v)} encoded to {cmd:v} -- so two
+analytically distinct states could share one value. The allocator replaces it.
 
 
 {marker lag_washout}{...}
@@ -428,7 +480,7 @@ exposure".
 {phang}
 {opt frameout(name)} places the time-varying result into a new frame named
 {it:name} and leaves the data in the current frame unchanged. This enables a
-disk-free pipeline ({cmd:tvexpose}{c -(} {cmd:tvmerge}{c -(} {cmd:tvevent}) in
+disk-free pipeline ({cmd:tvexpose} -> {cmd:tvmerge} -> {cmd:tvevent}) in
 which intermediate datasets are held in memory as frames rather than saved to
 and reloaded from disk. The result is staged before the named frame is replaced; a
 failed run leaves both the current data and any existing target unchanged. The frame
@@ -455,6 +507,13 @@ dataset. By default these are dropped to save space.
 {opt check} displays diagnostic information about exposure coverage for each
 person, including number of periods, total exposed time, and gaps.
 
+{pmore}
+Covered days are the {bf:interval union} of a person's rows, clipped to the
+study window: a day covered by any number of episodes counts once. Coverage
+therefore never exceeds 100%, including on {opt split} output, where rows
+deliberately overlap. Gaps are measured against the running maximum stop seen
+so far, so an episode nested inside a longer one does not read as a gap.
+
 {phang}
 {opt gaps} identifies and lists persons with gaps in exposure coverage, showing
 the location and duration of gaps.
@@ -466,6 +525,14 @@ multiple exposures occur simultaneously.
 {phang}
 {opt summarize} displays summary statistics for the time-varying exposure
 distribution, including frequencies of each category and person-time totals.
+
+{pmore}
+Category time is the interval union of that category's own rows, and the
+denominator is study-window person-time. When categories overlap in time --
+which is exactly what {opt split} produces -- a day belongs to more than one
+category, so the shares are {bf:multi-membership} and can sum above 100%, and
+{cmd:tvexpose} prints an explicit note when that happens. The shares are not
+mutually exclusive proportions and must not be read as such.
 
 {phang}
 {opt validate} creates a separate validation dataset ({cmd:tv_validation.dta}) containing
@@ -655,6 +722,8 @@ months). To report years on that grid, specify
 {synopt:{cmd:r(n_unresolved_overlaps)}}conflicting rows; zero on success{p_end}
 {synopt:{cmd:r(window_min)}}minimum {cmd:window()} offset, if used{p_end}
 {synopt:{cmd:r(window_max)}}maximum {cmd:window()} offset, if used{p_end}
+{synopt:{cmd:r(n_combined_states)}}simultaneous states allocated by {opt combine()}{p_end}
+{synopt:{cmd:r(n_bytype_vars)}}variables derived by {opt bytype}{p_end}
 
 {p2col 5 28 32 2: Macros}{p_end}
 {synopt:{cmd:r(genvar)}}generated exposure variable or stub{p_end}
@@ -662,6 +731,8 @@ months). To report years on that grid, specify
 {synopt:{cmd:r(overlap_ids)}}IDs with initially detected class conflicts{p_end}
 {synopt:{cmd:r(recency_unit)}}normalized recency unit, if used{p_end}
 {synopt:{cmd:r(recency_cutdays)}}recency cutpoints converted to days{p_end}
+{synopt:{cmd:r(combine_map)}}{opt combine()} code=composition pairs{p_end}
+{synopt:{cmd:r(bytype_map)}}{opt bytype} value=varname pairs{p_end}
 
 {p2col 5 28 32 2: Matrices}{p_end}
 {synopt:{cmd:r(flow)}}persons/records attrition table{p_end}

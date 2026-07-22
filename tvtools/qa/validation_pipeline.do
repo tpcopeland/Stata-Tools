@@ -102,7 +102,7 @@ capture {
     assert r(N) == 1
 
     * Verify total person-time (post-event time removed)
-    gen double pt = stop - start
+    gen double pt = stop - start + 1
     quietly sum pt
     local total_pt = r(sum)
     * PT = day 0 to day 300 = 300 days (not 365, since post-event removed)
@@ -191,7 +191,7 @@ capture {
 
     * Verify person-time conservation
     * Allow tolerance of 3 days for interval boundary handling (floor/ceil)
-    gen double pt = stop - start
+    gen double pt = stop - start + 1
     quietly sum pt
     local total_pt = r(sum)
     assert abs(`total_pt' - 365) <= 3
@@ -550,7 +550,7 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit)
 
     * Calculate actual total person-time
-    gen double actual_pt = stop - start
+    gen double actual_pt = stop - start + 1
     quietly sum actual_pt
     local actual_total = r(sum)
 
@@ -592,7 +592,7 @@ capture {
     end
     format %td start stop
 
-    gen double orig_pt = stop - start
+    gen double orig_pt = stop - start + 1
     quietly sum orig_pt
     local orig_total = r(sum)
 
@@ -610,12 +610,12 @@ capture {
         type(single) generate(outcome)
 
     * Should only have person-time up to event
-    gen double final_pt = stop - start
+    gen double final_pt = stop - start + 1
     quietly sum final_pt
     local final_total = r(sum)
 
-    * Person-time should be ~40 (event at day 40 censors rest)
-    assert abs(`final_total' - 40) < 1
+    * Event at 21955 censors the rest; closed [21915, 21955] = 41 days.
+    assert abs(`final_total' - 41) < 1
 }
 if _rc == 0 {
     local ++pass_count
@@ -833,11 +833,13 @@ if `quiet' == 0 {
 }
 
 capture {
-    * Two consecutive intervals
+    * Two consecutive intervals. Under the closed [start, stop] contract the
+    * second begins on prior_stop + 1; sharing day 21965 would make them
+    * overlap, so the event date would sit in both.
     clear
     input long id double(start stop)
         1  21915  21965
-        1  21965  22015
+        1  21966  22015
     end
     format %td start stop
     save "${DATA_DIR}/_val_boundary_event.dta", replace

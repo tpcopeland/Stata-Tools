@@ -449,7 +449,10 @@ program define _inf_engine, rclass
     * range -- so a REPS=10 plumbing pilot (which the runbook describes doing)
     * leaves files named exactly what the REPS=999 run wants. combine would then
     * certify pilot rows as the release gate. Stamped here, verified in combine.
-    postfile `P' int(sim arm) long(blk_reps blk_sims blk_seed) ///
+    * blk_seed is double, not long: a seed above 2^31 would post as MISSING in a
+    * long, and the combine check would then refuse with "produced at
+    * blk_seed=." rather than naming the real seed. double is exact to 2^53.
+    postfile `P' int(sim arm) long(blk_reps blk_sims) double(blk_seed) ///
         double(b_refit se_refit cov_refit ///
         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
         using "`rowsfile'", replace

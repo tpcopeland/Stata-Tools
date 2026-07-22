@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.9.11  2026/07/18
+*! _tabtools_table1_fast_collect Version 1.10.0  2026/07/22
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -121,7 +121,7 @@ program define _tabtools_table1_fast_collect, rclass
                 exit `_fw_rc'
             }
             markout `touse' `_fw_materialized'
-            local fwvar "`_fw_materialized'"
+            local fwvar `"`_fw_materialized'"'
         }
         local include_missing = "`missing'" == "missing"
         local suppress_p = `has_wt' | "`nopvalue'" == "nopvalue"
@@ -148,7 +148,7 @@ program define _tabtools_table1_fast_collect, rclass
             }
         }
 
-        local output_levels "`group_levels'"
+        local output_levels `"`group_levels'"'
         if `include_total' local output_levels "`output_levels' `totalcode'"
         local ngout : word count `output_levels'
         local gidx = 0
@@ -184,7 +184,7 @@ program define _tabtools_table1_fast_collect, rclass
 
                 if "`vartype'" == "" | "`vartype'" == "auto" {
                     _tabtools_detect_vartype `varname' if `touse'
-                    local vartype "`result'"
+                    local vartype `"`result'"'
                 }
                 if !inlist("`vartype'", "contn", "contln", "conts", "cat", "cate", "bin", "bine") {
                     display as error "-`varname' `vartype'- not allowed in vars() option"
@@ -193,23 +193,23 @@ program define _tabtools_table1_fast_collect, rclass
                 }
 
                 local ++nvars
-                local var_`nvars' "`varname'"
-                local processed_varlist "`processed_varlist' `varname'"
-                local type_`nvars' "`vartype'"
-                local fmt1_`nvars' "`varformat'"
-                local fmt2_`nvars' "`varformat2'"
+                local var_`nvars' `"`varname'"'
+                local processed_varlist `"`processed_varlist' `varname'"'
+                local type_`nvars' `"`vartype'"'
+                local fmt1_`nvars' `"`varformat'"'
+                local fmt2_`nvars' `"`varformat2'"'
                 local datafmt_`nvars' : format `varname'
                 local varlab : variable label `varname'
                 if `"`varlab'"' == "" local varlab "`varname'"
                 local varlab_`nvars' `"`varlab'"'
 
-                local workvar "`varname'"
+                local workvar `"`varname'"'
                 if inlist("`vartype'", "cat", "cate") {
                     capture confirm numeric variable `varname'
                     if _rc {
                         tempvar _catwork
                         quietly encode `varname', gen(`_catwork')
-                        local workvar "`_catwork'"
+                        local workvar `"`_catwork'"'
                     }
                 }
                 else {
@@ -242,9 +242,9 @@ program define _tabtools_table1_fast_collect, rclass
                     }
                 }
 
-                local work_`nvars' "`workvar'"
-                local workvars "`workvars' `workvar'"
-                local typelist "`typelist' `vartype'"
+                local work_`nvars' `"`workvar'"'
+                local workvars `"`workvars' `workvar'"'
+                local typelist `"`typelist' `vartype'"'
 
                 if inlist("`vartype'", "cat", "cate") {
                     local any_cat 1
@@ -253,7 +253,7 @@ program define _tabtools_table1_fast_collect, rclass
                         quietly count if `touse' & `by' < . & `workvar' >= .
                         if r(N) > 0 local _clevels "`_clevels' ."
                     }
-                    local cat_levels_`nvars' "`_clevels'"
+                    local cat_levels_`nvars' `"`_clevels'"'
                     local cat_nlevels_`nvars' : word count `cat_levels_`nvars''
                     local cat_start_`nvars' = `cat_offset' + 1
                     local cat_offset = `cat_offset' + `cat_nlevels_`nvars'' * `ngout'
@@ -314,14 +314,14 @@ program define _tabtools_table1_fast_collect, rclass
             local nglevels 0
             local nvlevels 0
 
-            local v "`work_`i''"
-            local typ "`type_`i''"
-            local orig "`var_`i''"
-            local testvar "`v'"
+            local v `"`work_`i''"'
+            local typ `"`type_`i''"'
+            local orig `"`var_`i''"'
+            local testvar `"`v'"'
             if "`typ'" == "contln" {
                 tempvar _lnv
                 quietly gen double `_lnv' = log(`v') if `touse' & `by' < . & `v' > 0
-                local testvar "`_lnv'"
+                local testvar `"`_lnv'"'
             }
 
             if inlist("`typ'", "contn", "contln", "conts") {
@@ -662,10 +662,10 @@ program define _tabtools_table1_fast_collect, rclass
         }
 
         forvalues i = 1/`nvars' {
-            local typ "`type_`i''"
+            local typ `"`type_`i''"'
             local varlab `"`varlab_`i''"'
-            local fmt1 "`fmt1_`i''"
-            local fmt2 "`fmt2_`i''"
+            local fmt1 `"`fmt1_`i''"'
+            local fmt2 `"`fmt2_`i''"'
             if "`fmt1'" == "" {
                 if "`format'" == "" local fmt1 "`datafmt_`i''"
                 else local fmt1 "`format'"
@@ -692,8 +692,8 @@ program define _tabtools_table1_fast_collect, rclass
                 quietly replace sort1 = `sortorder' in `row'
                 if `p`i'' < . quietly replace p = `p`i'' in `row'
                 if `smd`i'' < . quietly replace smd_val = `smd`i'' in `row'
-                if "`test'" == "test" & "`test`i''" != "" quietly replace test = "`test`i''" in `row'
-                if "`statistic'" == "statistic" & "`statistic`i''" != "" quietly replace statistic = "`statistic`i''" in `row'
+                if "`test'" == "test" & "`test`i''" != "" quietly replace test = `"`test`i''"' in `row'
+                if "`statistic'" == "statistic" & "`statistic`i''" != "" quietly replace statistic = `"`statistic`i''"' in `row'
 
                 foreach _lv of local output_levels {
                     local _gi = `gidx_`_lv''
@@ -734,8 +734,8 @@ program define _tabtools_table1_fast_collect, rclass
                 quietly replace sort1 = `sortorder' in `row'
                 if `p`i'' < . quietly replace p = `p`i'' in `row'
                 if `smd`i'' < . quietly replace smd_val = `smd`i'' in `row'
-                if "`test'" == "test" & "`test`i''" != "" quietly replace test = "`test`i''" in `row'
-                if "`statistic'" == "statistic" & "`statistic`i''" != "" quietly replace statistic = "`statistic`i''" in `row'
+                if "`test'" == "test" & "`test`i''" != "" quietly replace test = `"`test`i''"' in `row'
+                if "`statistic'" == "statistic" & "`statistic`i''" != "" quietly replace statistic = `"`statistic`i''"' in `row'
 
                 foreach _lv of local output_levels {
                     local _gi = `gidx_`_lv''
@@ -755,7 +755,7 @@ program define _tabtools_table1_fast_collect, rclass
                     }
                     if `_den' <= 0 | `_den' >= . local _pct = .
                     else local _pct = 100 * `_num' / `_den'
-                    local _pfmt "`fmt1'"
+                    local _pfmt `"`fmt1'"'
                     if "`fmt1_`i''" == "" {
                         if "`percformat'" != "" local _pfmt "`percformat'"
                         else if `_den' < 100 local _pfmt "%3.0f"
@@ -772,11 +772,11 @@ program define _tabtools_table1_fast_collect, rclass
                     local _nstr = string(`_cnt', "`nformat'")
                     if "`slashN'" == "slashN" local _nstr = "`_nstr'" + "/" + string(`_grpN', "`nformat'")
                     if "`percent_n'" == "" & "`percent'" == "" {
-                        local _cola "`_nstr'"
+                        local _cola `"`_nstr'"'
                         local _colb "(`_perc')"
                     }
                     else {
-                        local _cola "`_perc'"
+                        local _cola `"`_perc'"'
                         local _colb ""
                     }
                     if "`percent_n'" == "percent_n" & "`percent'" == "" local _colb "(`_nstr')"
@@ -799,8 +799,8 @@ program define _tabtools_table1_fast_collect, rclass
                 quietly replace sort2 = 1 in `top'
                 if `p`i'' < . quietly replace p = `p`i'' in `top'
                 if `smd`i'' < . quietly replace smd_val = `smd`i'' in `top'
-                if "`test'" == "test" & "`test`i''" != "" quietly replace test = "`test`i''" in `top'
-                if "`statistic'" == "statistic" & "`statistic`i''" != "" quietly replace statistic = "`statistic`i''" in `top'
+                if "`test'" == "test" & "`test`i''" != "" quietly replace test = `"`test`i''"' in `top'
+                if "`statistic'" == "statistic" & "`statistic`i''" != "" quietly replace statistic = `"`statistic`i''"' in `top'
 
                 foreach _lv of local output_levels {
                     local _gi = `gidx_`_lv''
@@ -841,7 +841,7 @@ program define _tabtools_table1_fast_collect, rclass
                         }
                         if `_den' <= 0 | `_den' >= . local _pct = .
                         else local _pct = 100 * `_num' / `_den'
-                        local _pfmt "`fmt1'"
+                        local _pfmt `"`fmt1'"'
                         if "`fmt1_`i''" == "" {
                             if "`percformat'" != "" local _pfmt "`percformat'"
                             else if `_den' < 100 local _pfmt "%3.0f"
@@ -864,11 +864,11 @@ program define _tabtools_table1_fast_collect, rclass
                             else local _nstr = "`_nstr'" + "/" + string(`_den', "`nformat'")
                         }
                         if "`percent_n'" == "" & "`percent'" == "" {
-                            local _cola "`_nstr'"
+                            local _cola `"`_nstr'"'
                             local _colb "(`_perc')"
                         }
                         else {
-                            local _cola "`_perc'"
+                            local _cola `"`_perc'"'
                             local _colb ""
                         }
                         if "`percent_n'" == "percent_n" & "`percent'" == "" local _colb "(`_nstr')"

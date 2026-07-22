@@ -82,7 +82,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme; see {helpb tabtools##themes:tabtools}{p_end}
 {synopt:{opt open}}open the workbook after export{p_end}
 {synopt:{opt csv(string)}}also export the display table as CSV{p_end}
 {synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}

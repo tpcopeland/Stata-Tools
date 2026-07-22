@@ -1937,7 +1937,11 @@ else {
 
 * TEST 21: Person-time conservation with combine (overlapping exposures)
 * 1 person. Drug 1 Jan1-Jun30, Drug 2 Apr1-Sep30.
-* combine(combo): overlapping period gets combined value = 1*100+2 = 102
+* combine(combo): the overlap gets a code allocated strictly above every
+* original exposure value, whose composition is reported in r(combine_map)
+* and in the value label. The old scheme encoded 1*100+2 = 102, which is not
+* injective: (-1, 2) also encoded to -98, a legitimate single-exposure code,
+* and (0, v) encoded to v. Assert the composition, never a fixed number.
 * Person-time must still be 366.
 
 display "TEST 21: Person-time conservation - combine"
@@ -1970,8 +1974,12 @@ capture noisily tvexpose using `exp21', ///
     entry(study_entry) exit(study_exit) ///
     combine(combo) generate(exp_val)
 
-if _rc != 0 {
-    display as error "  FAIL [21.run]: error `=_rc'"
+local t21_rc = _rc
+local t21_map `"`r(combine_map)'"'
+local t21_nstates = r(n_combined_states)
+
+if `t21_rc' != 0 {
+    display as error "  FAIL [21.run]: error `t21_rc'"
     local test21_pass = 0
 }
 else {
@@ -1987,15 +1995,35 @@ else {
         local test21_pass = 0
     }
 
-    * Combined value should exist
+    * Combined state must exist, be reported, and be disjoint from every
+    * original exposure code.
     capture confirm variable combo
     if _rc == 0 {
-        quietly count if combo == 102
-        if r(N) >= 1 {
-            display as result "  PASS [21.combo]: combined value 102 exists"
+        if `t21_nstates' == 1 & strpos(`"`t21_map'"', "1 + 2") > 0 {
+            display as result `"  PASS [21.combo]: one combined state, map=`t21_map'"'
         }
         else {
-            display as error "  FAIL [21.combo]: no combo=102 rows"
+            display as error `"  FAIL [21.combo]: n_combined_states=`t21_nstates', map=`t21_map'"'
+            local test21_pass = 0
+        }
+
+        * The allocated code must not collide with any original code (1 or 2).
+        local t21_code = real(substr(`"`t21_map'"', 1, strpos(`"`t21_map'"', "=") - 1))
+        if `t21_code' > 2 & `t21_code' < . {
+            quietly count if combo == `t21_code'
+            local t21_ncombo = r(N)
+            quietly count if exp_val == 1 & combo == `t21_code'
+            local t21_bad = r(N)
+            if `t21_ncombo' >= 1 & `t21_bad' == 0 {
+                display as result "  PASS [21.disjoint]: code `t21_code' is above every original value"
+            }
+            else {
+                display as error "  FAIL [21.disjoint]: code `t21_code' collides with an original code"
+                local test21_pass = 0
+            }
+        }
+        else {
+            display as error "  FAIL [21.disjoint]: allocated code `t21_code' is not above max original value 2"
             local test21_pass = 0
         }
     }
@@ -2591,7 +2619,7 @@ else {
 * combine(combo): combined value = 1*100 + 2 = 102
 * Expected rows: Drug 1 only, Drug 1+2 combined, Drug 2 only, reference
 
-display "TEST 28: combine() encoding: 1*100+2=102"
+display "TEST 28: combine() allocates a disjoint code for the simultaneous state"
 local test28_pass = 1
 
 tempfile cohort28 exp28
@@ -2621,24 +2649,29 @@ capture noisily tvexpose using `exp28', ///
     entry(study_entry) exit(study_exit) ///
     combine(combo) generate(exp_val)
 
-if _rc != 0 {
-    display as error "  FAIL [28.run]: error `=_rc'"
+local t28_rc = _rc
+local t28_map `"`r(combine_map)'"'
+local t28_nstates = r(n_combined_states)
+
+if `t28_rc' != 0 {
+    display as error "  FAIL [28.run]: error `t28_rc'"
     local test28_pass = 0
 }
 else {
     sort id start
 
-    * Check combo variable has value 102 (encoding 1*100+2)
+    * The simultaneous state gets one allocated code, reported with its
+    * composition. Assert the composition and disjointness, not a literal.
     capture confirm variable combo
+    local t28_code = .
     if _rc == 0 {
-        quietly count if combo == 102
-        if r(N) >= 1 {
-            display as result "  PASS [28.val]: combo=102 (1*100+2) exists"
+        if `t28_nstates' == 1 & strpos(`"`t28_map'"', "1 + 2") > 0 {
+            display as result `"  PASS [28.val]: combined state map=`t28_map'"'
+            local t28_code = real(substr(`"`t28_map'"', 1, strpos(`"`t28_map'"', "=") - 1))
         }
         else {
-            * List actual combo values for debugging
             quietly levelsof combo, local(vals)
-            display as error "  FAIL [28.val]: no combo=102. Values: `vals'"
+            display as error `"  FAIL [28.val]: n_states=`t28_nstates', map=`t28_map', values: `vals'"'
             local test28_pass = 0
         }
     }
@@ -2647,17 +2680,26 @@ else {
         local test28_pass = 0
     }
 
-    * Combo=102 covers the actual overlap period [Apr1,Jun30]
-    * Drug 1 [Jan1,Jun30] and Drug 2 [Apr1,Sep30] overlap from Apr1 to Jun30
-    quietly su start if combo == 102
-    local combo_start = r(mean)
-    quietly su stop if combo == 102
-    local combo_stop = r(mean)
-    if `combo_start' == mdy(4,1,2020) & `combo_stop' == mdy(6,30,2020) {
-        display as result "  PASS [28.dates]: combo=102 period is [Apr1,Jun30]"
+    * The allocated code must be disjoint from every original exposure code.
+    if `t28_code' > 2 & `t28_code' < . {
+        display as result "  PASS [28.disjoint]: code `t28_code' exceeds max original value 2"
     }
     else {
-        display as error "  FAIL [28.dates]: combo=102 period start=`=string(`combo_start',"%td")', stop=`=string(`combo_stop',"%td")'"
+        display as error "  FAIL [28.disjoint]: allocated code `t28_code' collides with an original code"
+        local test28_pass = 0
+    }
+
+    * The combined period covers the actual overlap [Apr1,Jun30]:
+    * Drug 1 [Jan1,Jun30] and Drug 2 [Apr1,Sep30] overlap Apr1 to Jun30.
+    quietly su start if combo == `t28_code'
+    local combo_start = r(mean)
+    quietly su stop if combo == `t28_code'
+    local combo_stop = r(mean)
+    if `combo_start' == mdy(4,1,2020) & `combo_stop' == mdy(6,30,2020) {
+        display as result "  PASS [28.dates]: combined period is [Apr1,Jun30]"
+    }
+    else {
+        display as error "  FAIL [28.dates]: combined period start=`=string(`combo_start',"%td")', stop=`=string(`combo_stop',"%td")'"
         local test28_pass = 0
     }
 

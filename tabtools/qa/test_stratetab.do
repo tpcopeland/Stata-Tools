@@ -56,6 +56,8 @@ program define _review_strate_file
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.8
     gen double _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     save "`basename'.dta", replace
 end
 
@@ -74,6 +76,8 @@ program define _make_issue_strate
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define issue_exp 0 "Low" 1 "Medium" 2 "High", replace
     label values exposure issue_exp
     save "`basename'.dta", replace
@@ -273,6 +277,8 @@ else {
 	    gen double _Rate = _D / _Y
 	    gen double _Lower = _Rate * 0.8
 	    gen double _Upper = _Rate * 1.2
+	    label variable _Lower "Lower 95% confidence limit"
+	    label variable _Upper "Upper 95% confidence limit"
 	    save "`many1'.dta", replace
 	
 	    clear
@@ -324,6 +330,8 @@ else {
 		    gen double _Rate = _D / _Y
 		    gen double _Lower = _Rate * 0.8
 		    gen double _Upper = _Rate * 1.2
+		    label variable _Lower "Lower 95% confidence limit"
+		    label variable _Upper "Upper 95% confidence limit"
 		    save "`long1'.dta", replace
 
 		    replace _D = cond(_n == 1, 75, 60)
@@ -384,6 +392,8 @@ capture noisily {
     "Apple"   30  800  37  26  53
     "Mango"   20  500  40  25  62
     end
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     save "`output_dir'/strate_order_test_o1_e1.dta", replace
 
     clear
@@ -392,6 +402,8 @@ capture noisily {
     "Apple"   10  800  12  6  23
     "Mango"    8  500  16  8  31
     end
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     save "`output_dir'/strate_order_test_o2_e1.dta", replace
 
     clear
@@ -435,6 +447,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_lbl 0 "Never" 1 "Former" 2 "Current"
     label values exposure exp_lbl
     save "`output_dir'/_strate_o1e1.dta", replace
@@ -447,6 +461,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_lbl 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_lbl
     save "`output_dir'/_strate_o2e1.dta", replace
@@ -459,6 +475,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_lbl 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_lbl
     save "`output_dir'/_strate_o3e1.dta", replace
@@ -471,6 +489,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define dur_lbl 1 "Never" 2 "<1 year" 3 "1-5 years" 4 ">5 years"
     label values duration_cat dur_lbl
     save "`output_dir'/_strate_o1e2.dta", replace
@@ -483,6 +503,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define dur_lbl 1 "Never" 2 "<1 year" 3 "1-5 years" 4 ">5 years", replace
     label values duration_cat dur_lbl
     save "`output_dir'/_strate_o2e2.dta", replace
@@ -495,6 +517,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define dur_lbl 1 "Never" 2 "<1 year" 3 "1-5 years" 4 ">5 years", replace
     label values duration_cat dur_lbl
     save "`output_dir'/_strate_o3e2.dta", replace
@@ -710,12 +734,14 @@ capture noisily {
     replace _Lower = 40 in 2
     replace _Lower = 30 in 3
     gen _Upper = .
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     replace _Upper = 200 in 1
     replace _Upper = 180 in 2
     replace _Upper = 250 in 3
-    save "output/_strate_test", replace
+    save "`output_dir'/_strate_test", replace
     restore
-    stratetab, using("output/_strate_test") xlsx("output/test_f7_theme.xlsx") ///
+    stratetab, using("`output_dir'/_strate_test") xlsx("`output_dir'/test_f7_theme.xlsx") ///
         outcomes(1) title("Theme Test") theme(lancet)
 }
 if _rc == 0 {
@@ -744,6 +770,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_cov 0 "Never" 1 "Former" 2 "Current"
     label values exposure exp_cov
     save "`output_dir'/_cov_strate_o1e1.dta", replace
@@ -756,6 +784,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_cov 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_cov
     save "`output_dir'/_cov_strate_o2e1.dta", replace
@@ -768,6 +798,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_cov 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_cov
     save "`output_dir'/_cov_strate_o1e2.dta", replace
@@ -780,6 +812,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_cov 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_cov
     save "`output_dir'/_cov_strate_o2e2.dta", replace
@@ -792,6 +826,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define exp_cov 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_cov
     save "`output_dir'/_cov_strate_o1e2_rev.dta", replace
@@ -977,6 +1013,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define exp_cov_rr 0 "Never" 1 "Former" 2 "Current"
         label values exposure exp_cov_rr
         save "`output_dir'/_cov_strate_rr_ref.dta", replace
@@ -989,6 +1027,8 @@ capture noisily {
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
+        label variable _Lower "Lower 95% confidence limit"
+        label variable _Upper "Upper 95% confidence limit"
         label define exp_cov_rr 0 "Never" 1 "Former" 2 "Current", replace
         label values exposure exp_cov_rr
         save "`output_dir'/_cov_strate_rr_rev.dta", replace
@@ -1355,6 +1395,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _st_exp 0 "Unexposed" 1 "Exposed", replace
     label values exposure _st_exp
     tempfile st_rate
@@ -1411,6 +1453,8 @@ capture noisily {
     gen double _Rate = _D / _Y
     gen double _Lower = _Rate * 0.80
     gen double _Upper = _Rate * 1.20
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _c1_exp 0 "Unexposed" 1 "Exposed", replace
     label values exposure _c1_exp
     tempfile c1_rate
@@ -1452,6 +1496,8 @@ capture {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.5
     gen _Upper = _Rate * 1.5
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     gen group = mod(_n, 2) + 1
 
     save "`output_dir'/_regfix_strate_data.dta", replace
@@ -1477,6 +1523,8 @@ capture {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.5
     gen _Upper = _Rate * 1.5
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     gen group = mod(_n, 2) + 1
     save "`output_dir'/_regfix_strate_data2.dta", replace
 
@@ -1501,6 +1549,8 @@ capture {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.5
     gen _Upper = _Rate * 1.5
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     gen group = mod(_n, 2) + 1
     save "`output_dir'/_regfix_strate_data3.dta", replace
 
@@ -1532,6 +1582,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define issue_exp 0 "Low" 1 "Medium" 2 "High"
     label values exposure issue_exp
     save "`rate1'.dta", replace
@@ -1562,6 +1614,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define issue_exp2 0 "Low" 1 "Medium" 2 "High"
     label values exposure issue_exp2
     save "`rate1'.dta", replace
@@ -1595,6 +1649,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define issue_exp3 0 "Low" 1 "Medium" 2 "High"
     label values exposure issue_exp3
     save "`rate1'.dta", replace
@@ -1628,6 +1684,8 @@ capture noisily {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.8
     gen _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define issue_exp4 0 "Low" 1 "Medium" 2 "High"
     label values exposure issue_exp4
     save "`rate1'.dta", replace
@@ -1779,6 +1837,8 @@ quietly {
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
     label define _v103_lbl 0 "Never" 1 "Former" 2 "Current"
     label values exposure _v103_lbl
     save "`output_dir'/_v103_strate1.dta", replace
@@ -1808,6 +1868,94 @@ capture erase "`output_dir'/_v103_strate2.dta"
 capture erase "`output_dir'/_v103_stratetab.xlsx"
 
 
+
+**# C02: confidence-level provenance is required, never assumed to be 95%
+* Real `strate, output()' always labels _Lower/_Upper as "Lower <lvl>%
+* confidence limit", so a file without that label has an unknown level. The
+* command used to fall through to a silent `= 95', labeling intervals computed
+* at some other level as "95% CI" and returning r(ci_level)=95 at rc=0.
+* Every fixture above now carries the labels real strate writes; these three
+* checks cover the stripped-label case that fixture change would otherwise hide.
+capture program drop _make_unlabeled_strate
+program define _make_unlabeled_strate
+    syntax , BASENAME(string)
+    clear
+    set obs 3
+    gen exposure = _n - 1
+    gen _D = cond(_n == 1, 10, cond(_n == 2, 20, 30))
+    gen _Y = cond(_n == 1, 1000, cond(_n == 2, 1100, 1200))
+    gen _Rate = _D / _Y
+    gen _Lower = _Rate * 0.8
+    gen _Upper = _Rate * 1.2
+    * deliberately NO variable labels on _Lower/_Upper: provenance is
+    * unrecoverable here, which is exactly what C02a must detect. Do not "fix"
+    * this fixture by labelling it -- that would silently disarm the test.
+    label define unlab_exp 0 "Low" 1 "Medium" 2 "High", replace
+    label values exposure unlab_exp
+    save "`basename'.dta", replace
+end
+
+**## C02a: all sources lacking provenance and no level() is refused
+capture noisily {
+    local _nolvl "`output_dir'/_c02_nolabel"
+    _make_unlabeled_strate, basename("`_nolvl'")
+    capture stratetab, using("`_nolvl'") outcomes(1)
+    assert _rc == 459
+}
+if _rc == 0 {
+    display as result "  PASS: C02a stratetab refuses unknown provenance without level()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C02a stratetab should refuse unknown provenance (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' C02a"
+}
+
+**## C02b: the same input WITH an explicit level() succeeds and reports it
+capture noisily {
+    local _nolvl "`output_dir'/_c02_nolabel"
+    capture frame drop _c02_lvl
+    stratetab, using("`_nolvl'") outcomes(1) level(90) frame(_c02_lvl)
+    assert abs(`=r(ci_level)' - 90) < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: C02b explicit level(90) is honoured and returned"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C02b explicit level() with unknown provenance (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' C02b"
+}
+capture frame drop _c02_lvl
+
+**## C02c: a LABELLED source still resolves its own level with no level() given
+* Positive control: without this, C02a would also pass if stratetab simply
+* refused every input.
+capture noisily {
+    local _lbl "`output_dir'/_c02_labeled"
+    _make_unlabeled_strate, basename("`_lbl'")
+    use "`_lbl'.dta", clear
+    label variable _Lower "Lower 90% confidence limit"
+    label variable _Upper "Upper 90% confidence limit"
+    save "`_lbl'.dta", replace
+    capture frame drop _c02_prov
+    stratetab, using("`_lbl'") outcomes(1) frame(_c02_prov)
+    assert abs(`=r(ci_level)' - 90) < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: C02c labelled source resolves its own 90% level"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C02c provenance-bearing source (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' C02c"
+}
+capture frame drop _c02_prov
+capture erase "`output_dir'/_c02_nolabel.dta"
+capture erase "`output_dir'/_c02_labeled.dta"
 
 
 **# Summary

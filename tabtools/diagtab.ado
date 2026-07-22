@@ -1,4 +1,4 @@
-*! diagtab Version 1.9.11  2026/07/18
+*! diagtab Version 1.10.0  2026/07/22
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -319,7 +319,7 @@ capture noisily {
             local _cv_fmt = strtrim("`_cv_fmt'")
             local _cv_tag = subinstr("`_cv_fmt'", "-", "m", .)
             local _cv_tag = subinstr("`_cv_tag'", ".", "p", .)
-            local _rnames "`_rnames' cut_`_cv_tag'"
+            local _rnames `"`_rnames' cut_`_cv_tag'"'
         }
         matrix rownames `_cutmat' = `_rnames'
         return matrix cutoff_table = `_cutmat'
@@ -361,7 +361,7 @@ capture noisily {
             local _cv_fmt : display %9.0g `_cv'
             local _cv_fmt = strtrim("`_cv_fmt'")
             qui replace c1 = "Cutoff >= `_cv_fmt'" in `row'
-            local _section_rows "`_section_rows' `row'"
+            local _section_rows `"`_section_rows' `row'"'
 
             * Measure rows (indented)
             foreach _m in Se Sp PPV NPV Acc {
@@ -788,7 +788,7 @@ capture noisily {
 
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
-        local frame "`_frame_name'"
+        local frame `"`_frame_name'"'
         frame `frame': char _dta[tabtools_ci_level] "`level'"
         frame `frame': char _dta[tabtools_source] "diagtab"
     }
@@ -802,13 +802,25 @@ capture noisily {
 
     local _ci_method = cond("`exact'" != "", "Clopper-Pearson exact", "Wilson score")
     local _methods "Diagnostic accuracy was assessed against the gold standard (`goldvar')."
-    local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported."
+    * With prevalence(), the predictive values are NOT binomial proportions of an
+    * observed denominator: they are Bayes-transformed from Se/Sp at a fixed
+    * external prevalence, and their intervals are symmetric delta-method
+    * intervals. Reporting them under the exact/Wilson heading overstated the
+    * method -- at prevalence() the exact and Wilson PPV bounds come out
+    * identical precisely because neither is used for that quantity.
+    if `prevalence' > 0 & `prevalence' < 1 {
+        local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported for the directly estimated binomial proportions (sensitivity, specificity, and accuracy)."
+        local _methods "`_methods' Predictive values were adjusted to an external prevalence of `prevalence' by Bayes' theorem; their `level'% confidence intervals are symmetric delta-method intervals propagating sensitivity and specificity uncertainty at that fixed prevalence, truncated to the unit interval. The external prevalence is treated as known without error, so these intervals do not reflect uncertainty in it."
+    }
+    else {
+        local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported."
+    }
     local _footnote_display `"`footnote'"'
     if `_has_undefined' {
         local _undefined_note "Undefined estimates are shown as --."
-        local _methods "`_methods' `_undefined_note'"
+        local _methods `"`_methods' `_undefined_note'"'
         if `"`_footnote_display'"' == "" {
-            local _footnote_display "`_undefined_note'"
+            local _footnote_display `"`_undefined_note'"'
         }
         else if strpos(`"`_footnote_display'"', "Undefined estimates") == 0 {
             local _footnote_display `"`_footnote_display'; `_undefined_note'"'

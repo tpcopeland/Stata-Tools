@@ -2,6 +2,7 @@
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvage##syntax"}{...}
 {viewerjumpto "Description" "tvage##description"}{...}
 {viewerjumpto "Options" "tvage##options"}{...}
@@ -77,8 +78,10 @@ covariates by {opt id()}, or save the covariates before running {cmd:tvage}.
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the person identifier variable. (Legacy
-synonym: {opt idvar()}.)
+{opt id(varname)} specifies the person identifier variable. It must be
+{bf:numeric}; string identifiers are not accepted. Convert one first with
+{cmd:egen long newid = group(stringid)} or {helpb encode}. {cmd:tvage}
+requires exactly one row per person. (Legacy synonym: {opt idvar()}.)
 
 {phang}
 {opt dob(varname)} specifies the date of birth variable (Stata date format). (Legacy
@@ -114,12 +117,13 @@ is {cmd:age_stop}.
 {phang}
 {opt groupwidth(#)} specifies the width of age groups in years. For example,
 {cmd:groupwidth(5)} creates 5-year age groups (40-44, 45-49, etc.). Default is 1
-(single-year continuous ages with no labels).
+(single-year continuous ages with no labels). Must be between 1 and 50.
 
 {phang}
 {opt minage(#)} left-truncates follow-up at the exact anniversary on which the
 person reaches this age. Earlier person-time is removed; a person whose exit is
-before that boundary contributes no output rows. Default is 0.
+before that boundary contributes no output rows. Default is 0. Must not exceed
+{opt maxage()}.
 
 {phang}
 {opt maxage(#)} right-truncates follow-up at the day before the exact

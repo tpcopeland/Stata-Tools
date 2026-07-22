@@ -4,6 +4,7 @@
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvband##syntax"}{...}
 {viewerjumpto "Description" "tvband##description"}{...}
 {viewerjumpto "Options" "tvband##options"}{...}
@@ -87,7 +88,9 @@ the output merges with {helpb tvexpose} and {helpb tvmerge} output and feeds
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the person identifier.
+{opt id(varname)} specifies the person identifier. It must be {bf:numeric}; string
+identifiers are not accepted. Convert one first with {helpb encode} or
+{cmd:egen long newid = group(stringid)}.
 
 {phang}
 {opt start(varname)} and {opt stop(varname)} specify the interval to split. Both must be

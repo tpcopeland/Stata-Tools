@@ -129,7 +129,7 @@ else {
 local ++test_count
 capture noisily {
     tempname _tips_rate_tag
-    local _tips_rate_base "`c(tmpdir)'/tabtools_tips_rate_`_tips_rate_tag'"
+    local _tips_rate_base "`c(tmpdir)'/`c(pid)'_tabtools_tips_rate_`_tips_rate_tag'"
     webuse diet, clear
     quietly stset dox, failure(fail) origin(time dob) enter(time doe) ///
         scale(365.25) id(id)
@@ -184,7 +184,7 @@ else {
 local ++test_count
 capture noisily {
     tempname _tips_recipe_tag
-    local _tips_recipe_dir "`c(tmpdir)'/tabtools_tips_recipes_`_tips_recipe_tag'"
+    local _tips_recipe_dir "`c(tmpdir)'/`c(pid)'_tabtools_tips_recipes_`_tips_recipe_tag'"
     capture mkdir "`_tips_recipe_dir'"
     tempfile _tips_recipe_result
     shell python3 "`qa_dir'/tools/run_help_recipes.py" ///

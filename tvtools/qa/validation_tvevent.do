@@ -40,7 +40,7 @@ program define _verify_ptime_conserved, rclass
     syntax, start(varname) stop(varname) expected_ptime(real) [tolerance(real 0.001)]
 
     tempvar dur
-    gen double `dur' = `stop' - `start'
+    gen double `dur' = `stop' - `start' + 1
     quietly sum `dur'
     local actual = r(sum)
     local pct_diff = abs(`actual' - `expected_ptime') / `expected_ptime'
@@ -275,7 +275,7 @@ if `quiet' == 0 {
 capture {
     * Calculate pre-tvevent total duration
     use "${DATA_DIR}/intervals_fullyear.dta", clear
-    gen double dur = stop - start
+    gen double dur = stop - start + 1
     quietly sum dur
     local pre_total = r(sum)
 
@@ -285,7 +285,7 @@ capture {
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
     * After tvevent: calculate total duration (should match input)
-    gen double dur = stop - start
+    gen double dur = stop - start + 1
     quietly sum dur
     local post_total = r(sum)
 
@@ -1103,7 +1103,7 @@ capture {
         startvar(start) stopvar(stop) type(recurring) generate(hospitalized)
 
     * Total follow-up should be preserved (approximately 366 days)
-    gen double dur = stop - start
+    gen double dur = stop - start + 1
     quietly sum dur
     assert r(sum) >= 300
 }
@@ -2106,14 +2106,18 @@ format %td event_dt
 label data "Event before study period (should be ignored)"
 save "${DATA_DIR}/events_before_study.dta", replace
 
-* Create intervals already pre-split (multiple intervals per person)
+* Create intervals already pre-split (multiple intervals per person).
+* Consecutive closed [start, stop] rows begin on prior_stop + 1. The old
+* fixture reused the boundary day as both a stop and the next start, which
+* is an overlap: two intervals then contained the same event date and the
+* event's placement was decided by row order.
 clear
 input long id double(start stop) byte tv_exp
     1 21915 21946 1
-    1 21946 22006 2
-    1 22006 22097 1
-    1 22097 22189 2
-    1 22189 22281 1
+    1 21947 22006 2
+    1 22007 22097 1
+    1 22098 22189 2
+    1 22190 22281 1
 end
 format %td start stop
 label data "Pre-split intervals with alternating exposure"
@@ -2600,9 +2604,12 @@ capture {
     keep id study_entry study_exit
     expand 3
     bysort id: gen interval = _n
+    * Consecutive closed [start, stop] intervals begin on prior_stop + 1.
+    * Starting interval 2 on study_entry+100 (the stop of interval 1) makes
+    * the two share that day, so an event landing on it lies in both.
     gen double start = study_entry if interval == 1
-    replace start = study_entry + 100 if interval == 2
-    replace start = study_entry + 200 if interval == 3
+    replace start = study_entry + 101 if interval == 2
+    replace start = study_entry + 201 if interval == 3
     gen double stop = study_entry + 100 if interval == 1
     replace stop = study_entry + 200 if interval == 2
     replace stop = study_exit if interval == 3
@@ -2663,8 +2670,10 @@ capture {
     keep id study_entry study_exit
     expand 2
     bysort id: gen interval = _n
+    * Interval 2 begins on prior_stop + 1; sharing study_entry+183 would put
+    * an event landing on that day inside both intervals.
     gen double start = study_entry if interval == 1
-    replace start = study_entry + 183 if interval == 2
+    replace start = study_entry + 184 if interval == 2
     gen double stop = study_entry + 183 if interval == 1
     replace stop = study_exit if interval == 2
     gen byte tv_exp = interval - 1
@@ -2705,7 +2714,7 @@ capture {
     * Calculate expected person-time from INTERVAL data before tvevent splits it
     * tv_large_val.dta has the intervals (start/stop), cohort has the events
     use "${DATA_DIR}/tv_large_val.dta", clear
-    gen double pre_ptime = stop - start
+    gen double pre_ptime = stop - start + 1
     quietly sum pre_ptime
     local expected_total = r(sum)
 
@@ -2715,7 +2724,7 @@ capture {
         startvar(start) stopvar(stop) compete(death_dt) ///
         type(single) generate(outcome)
 
-    gen double ptime = stop - start
+    gen double ptime = stop - start + 1
     quietly sum ptime
     local actual_total = r(sum)
 
@@ -2748,8 +2757,45 @@ capture {
         startvar(start) stopvar(stop) compete(death_dt) ///
         type(single) generate(outcome)
 
-    * Set up survival data
-    stset stop, id(id) failure(outcome==1) enter(start) scale(365.25)
+    * Convert closed [start, stop] rows to Stata survival time. Stata records
+    * are open on the left and closed on the right, so each row's lower bound
+    * loses one day and is passed row-specifically via time0(). The old recipe
+    * used enter(start), which is the known-wrong conversion: it shifts every
+    * row's risk time by a day and is only ever safe for a single entry into a
+    * guaranteed contiguous history. See help tvtools##contracts.
+    generate double start0 = start - 1
+    stset stop, id(id) failure(outcome==1) time0(start0) exit(time .)
+
+    * Assert the conversion itself, not merely that a model ran.
+    * _t0 must be the row's start-1 and _t its stop, for every row in the
+    * analysis sample.
+    quietly count if _st == 1 & _t0 != start - 1
+    assert r(N) == 0
+    quietly count if _st == 1 & _t != stop
+    assert r(N) == 0
+
+    * Total risk time must equal the closed-row person-time exactly.
+    quietly generate double _rowdays = stop - start + 1 if _st == 1
+    quietly summarize _rowdays, meanonly
+    local closed_ptime = r(sum)
+    quietly generate double _risk = _t - _t0 if _st == 1
+    quietly summarize _risk, meanonly
+    assert abs(r(sum) - `closed_ptime') < 1e-6
+
+    * Every failure must sit exactly on the flagged row's stop date, which is
+    * the event date: tvevent ends the event row on the day the event occurs.
+    quietly count if _d == 1 & _t != stop
+    assert r(N) == 0
+    quietly count if _d == 1 & outcome != 1
+    assert r(N) == 0
+
+    * Failure count must equal the flagged-event count.
+    quietly count if outcome == 1
+    local n_flagged = r(N)
+    quietly count if _d == 1
+    assert r(N) == `n_flagged'
+
+    drop _rowdays _risk
 
     * Run Cox model
     stcox tv_exp

@@ -1466,8 +1466,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_v160_digits4.xlsx") sheet("Test") digits(4)
-    confirm file "output/test_v160_digits4.xlsx"
+    effecttab, xlsx("`output_dir'/test_v160_digits4.xlsx") sheet("Test") digits(4)
+    confirm file "`output_dir'/test_v160_digits4.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: 2.1.1 — effecttab digits(4) accepted"
@@ -1484,8 +1484,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_v160_digits0.xlsx") sheet("Test") digits(0)
-    confirm file "output/test_v160_digits0.xlsx"
+    effecttab, xlsx("`output_dir'/test_v160_digits0.xlsx") sheet("Test") digits(0)
+    confirm file "`output_dir'/test_v160_digits0.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: 2.1.2 — effecttab digits(0) accepted"
@@ -1502,7 +1502,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    capture effecttab, xlsx("output/test_v160_digits7.xlsx") sheet("Test") digits(7)
+    capture effecttab, xlsx("`output_dir'/test_v160_digits7.xlsx") sheet("Test") digits(7)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -1527,7 +1527,7 @@ capture noisily {
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
     capture frame drop myeff
-    effecttab, xlsx("output/test_v160_frame_effecttab.xlsx") sheet("Test") frame(myeff)
+    effecttab, xlsx("`output_dir'/test_v160_frame_effecttab.xlsx") sheet("Test") frame(myeff)
     assert r(frame) == "myeff"
     frame myeff: describe
     frame myeff: assert _N > 0
@@ -1572,8 +1572,8 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
- effecttab, xlsx("output/test_v160_effecttab_display.xlsx") sheet("Test")
-    confirm file "output/test_v160_effecttab_display.xlsx"
+ effecttab, xlsx("`output_dir'/test_v160_effecttab_display.xlsx") sheet("Test")
+    confirm file "`output_dir'/test_v160_effecttab_display.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: 3.2.2 — effecttab display + xlsx() works"

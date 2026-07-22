@@ -25,7 +25,7 @@ local fail = 0
 local total = 0
 
 tempname outstem
-local outdir "`c(tmpdir)'/desctab_`outstem'"
+local outdir "`c(tmpdir)'/`c(pid)'_desctab_`outstem'"
 capture mkdir "`outdir'"
 
 display as text "test_desctab"
@@ -1268,7 +1268,7 @@ capture noisily {
     collect clear
     collect: table rep78, statistic(mean price)
     return clear
-    capture desctab, xlsx("`c(tmpdir)'/__missing_tabtools_dir__/bad.xlsx") sheet("S")
+    capture desctab, xlsx("`c(tmpdir)'/`c(pid)'___missing_tabtools_dir__/bad.xlsx") sheet("S")
     local _xrc = _rc
     assert `_xrc' != 0
     assert r(N_rows) > 0

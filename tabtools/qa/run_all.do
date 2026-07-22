@@ -28,9 +28,14 @@ local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
 tempname install_id
 local install_tag = subinstr("`install_id'", "__", "", .)
-local plus_dir "`c(tmpdir)'/tabtools_plus_`install_tag'"
-local personal_dir "`c(tmpdir)'/tabtools_personal_`install_tag'"
-local run_output_dir "`c(tmpdir)'/tabtools_qa_output_`install_tag'"
+* Include c(pid): `tempname' is deterministic within a session, so these
+* resolved to identical paths for every lane and TWO CONCURRENT RUNS SHARED
+* THEIR "disposable" PLUS/PERSONAL trees and output directory -- each
+* uninstalling and reinstalling the package under the other. The whole point of
+* the sandbox is isolation, so the path must be unique per process.
+local plus_dir "`c(tmpdir)'/`c(pid)'_tabtools_plus_`install_tag'"
+local personal_dir "`c(tmpdir)'/`c(pid)'_tabtools_personal_`install_tag'"
+local run_output_dir "`c(tmpdir)'/`c(pid)'_tabtools_qa_output_`install_tag'"
 
 capture mkdir "`plus_dir'"
 capture mkdir "`personal_dir'"
@@ -169,8 +174,14 @@ if _rc == 0 {
                 if "`skip_reason'" == "" {
                     local skip_reason "listed in _skip.txt"
                 }
-                local skip_key = subinstr("`skip_name'", ".", "_", .)
-                local skip_reason_`skip_key' `"`skip_reason'"'
+                * Index the reason by POSITION, not by a name derived from the
+                * filename. "skip_reason_" plus a mangled filename exceeds
+                * Stata's 31-character local-name limit for any name longer than
+                * 19 characters (test_tabtools_tips.do -> 33 chars), which made
+                * the whole runner die with r(198) "invalid name" as soon as a
+                * realistic filename was listed in _skip.txt.
+                local skip_idx : list sizeof skip_names
+                local skip_reason_`skip_idx' `"`skip_reason'"'
             }
         }
         file read `skipfh' line
@@ -202,10 +213,11 @@ foreach f of local all_files {
     local in_skip : list f in skip_names
     if `in_skip' {
         local ++n_skip
-        local skip_key = subinstr("`f'", ".", "_", .)
+        local skipped_files "`skipped_files' `f'"
+        local skip_pos : list posof "`f'" in skip_names
         display _newline
         display as text "=== Skipping: `f' ==="
-        display as text "  Reason: `skip_reason_`skip_key''"
+        display as text "  Reason: `skip_reason_`skip_pos''"
         continue
     }
 
@@ -230,16 +242,28 @@ foreach f of local all_files {
 
 display _newline
 display as result "=== Suite Summary: `n_pass'/`n_run' passed, `n_fail' failed, `n_skip' skipped, `n_discovered' discovered ==="
-if `n_skip' > 0 {
-    display as text "Skipped files came from _skip.txt."
-}
 
 local suite_rc = 0
 if `n_fail' > 0 {
     display as error "Failed files:`failed_files'"
     local suite_rc = 1
 }
-else {
+
+* A SKIP IS NOT A PASS. The verdict used to depend on n_fail alone, so adding a
+* file to _skip.txt removed it from the suite while the run still printed
+* "ALL DISCOVERED QA FILES PASSED" and exited 0 -- a gate that can be disarmed
+* by editing a text file is not a gate. The curated full and release lanes now
+* fail on any skip; quick remains advisory.
+if `n_skip' > 0 {
+    display as text "Skipped files came from _skip.txt:`skipped_files'"
+    if inlist("`lane'", "full", "release") {
+        display as error "`n_skip' file(s) were skipped; the `lane' lane requires every discovered file to run"
+        display as error "remove the _skip.txt entries, or use the quick lane if a skip is intended"
+        local suite_rc = 1
+    }
+}
+
+if `suite_rc' == 0 {
     display as result "ALL DISCOVERED QA FILES PASSED"
 }
 

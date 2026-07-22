@@ -75,6 +75,22 @@ Multiply by 60 blocks / `WORKERS` for a wall-clock estimate. Rough expectation
 is **single-digit hours**, versus ~2.5 days for the old un-sharded run — but
 report the measured number, not this sentence.
 
+> **A pilot at a smaller `REPS` used to poison the real run** (found and fixed
+> 2026-07-22). `run` skips any block whose `.dta` is already in the pool, and a
+> block filename encodes only family and range — so a `REPS=10` pilot left 20
+> files named exactly what the `REPS=999` run wanted. The real run skipped all
+> of them and `combine` certified pilot rows as the release gate, printing
+> `reps=999`. Measured: one pool combined to `gate=PASS sims=1000 reps=999`
+> *and* `gate=PASS sims=1000 reps=10`, byte-identical coverage.
+>
+> Two changes make that unreachable. Pools are now segregated by configuration
+> (`$BASE/blockpool/r<REPS>_s<SEED>`), so a pilot and the real run never share
+> files; and every block row carries a `(reps, sims, seed)` stamp that
+> `combine` verifies is constant across the union **and** equal to its own
+> arguments, refusing at `r(459)` otherwise. Pilot freely — it can no longer
+> contaminate the gate. Blocks produced before this change carry no stamp and
+> are refused rather than assumed; re-run them.
+
 ### Run
 
 ```bash
@@ -130,8 +146,13 @@ RESULT: validation_iivw_inference iiw gate=PASS sims=1000 reps=999 cov_refit=0.9
   - *"N replication(s) covered by NO block"* — a block never ran. Re-run
     `./run_coverage_gate.sh run` to fill the gap, then combine again.
   - *"covered by MORE THAN ONE block"* / *"duplicate (arm,sim) keys"* — the
-    pool has overlapping ranges. Inspect `$BASE/blockpool`; do not delete files
-    at random.
+    pool has overlapping ranges. Inspect the pool directory; do not delete
+    files at random.
+  - *"blocks were produced at blk_reps=N, but this combine was invoked with M"*
+    / *"blocks disagree on blk_reps"* / *"block rows carry no blk_reps stamp"* —
+    the pool was not produced by one configuration, or predates the provenance
+    stamp. Do not "fix" this by re-invoking combine with the other number: that
+    is precisely the mislabelling the check exists to stop. Re-run the blocks.
 - `failed draw(s)` > 0 is legitimate (a replication that errored) and is
   distinct from a missing block. A large count is worth reporting, not hiding.
 - A `gate=FAIL` is a **result**, not a problem to be fixed. Report it with
@@ -155,13 +176,44 @@ Verified by direct test, not inspection:
 | Overlapping block refuses | duplicated a block → `r(459)` |
 | Concurrent `net install` is safe | `iivw_qa_sandbox` sets a per-process `PLUS` |
 
+### Added 2026-07-22 — permanent regression coverage
+
+`qa/test_iivw_coverage_gate.do` now covers the aggregation machinery, which is
+where a wrong coverage number gets manufactured at `rc=0`. Every arm fabricates
+a block pool rather than simulating one — the contract is about which rows are
+present and what they claim about themselves, not their values — so the whole
+suite runs in **~1.3 s** and shells out to a real `combine_iiw` per arm.
+
+| Arm | Asserts |
+|---|---|
+| G1 | a missing **interior** block refuses; no verdict |
+| G2 | overlapping blocks refuse; no verdict |
+| G3 | a complete consistent pool **reaches** the acceptance rule (positive control) |
+| G4 | unstamped (pre-2026-07-22) blocks refuse |
+| G5 | a `reps=10` pilot pool cannot be certified as `reps=999` |
+| G6 | a pool mixing two configurations refuses |
+| G7 | a mismatched master seed refuses |
+| G8 | combine aggregates without re-running the study |
+
+Scored **4/8 against the pre-fix build, 8/8 after** — G4–G7 are the new
+provenance defect. G1/G2/G3/G8 pass on both builds by design: they are the
+regression coverage this section previously listed as missing, not evidence for
+the 2026-07-22 change. Their teeth were shown separately with surgical mutants:
+reverting the tiling proof to the old min/max check fails **G1 and only G1**;
+removing the `rowsin()` loop guard leaves combine still running after **120 s**
+against 0.07 s for the fixed build, and produces no verdict.
+
+G3 asserts a verdict is *produced*, not that it is PASS-on-real-data — the rows
+are fabricated. Only the real release run says anything about the estimator.
+
 ## Open items — not done
 
-- **No QA regression test** covers the two defects fixed on 2026-07-21 (combine
-  re-running the full study; missing-interior-block accepted). They were
-  verified interactively only. `/qa` should add permanent coverage.
-- The two fixes to `validation_iivw_inference.do` have **not been through
-  `/reviewer`**. Per the mandatory chain they are "implemented, not reviewed".
+- The fixes to `validation_iivw_inference.do` have **not been through
+  `/reviewer`** — the 2026-07-21 pair, and the 2026-07-22 provenance stamp.
+  Per the mandatory chain they are "implemented, not reviewed".
+- **The gate itself has never been run.** SOL-04 is untouched; no coverage
+  number exists for any family.
 - Full-`REPS` runtime is unmeasured (see §2).
-- `run_coverage_gate.sh` is new and untested at `WORKERS=22`; it was exercised
-  at `WORKERS=8`.
+- `run_coverage_gate.sh` is untested at `WORKERS=22`; it was exercised at
+  `WORKERS=8`, and the pool-path change of 2026-07-22 has not been exercised by
+  a real multi-block run at all.

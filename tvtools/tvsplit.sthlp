@@ -4,6 +4,7 @@
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
+{vieweralsosee "tvtools" "help tvtools"}{...}
 {viewerjumpto "Syntax" "tvsplit##syntax"}{...}
 {viewerjumpto "Description" "tvsplit##description"}{...}
 {viewerjumpto "Options" "tvsplit##options"}{...}
@@ -75,7 +76,9 @@ For splitting on a single axis (and for {opt saveas()} convenience), see
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the person identifier.
+{opt id(varname)} specifies the person identifier. It must be {bf:numeric}; string
+identifiers are not accepted. Convert one first with {helpb encode} or
+{cmd:egen long newid = group(stringid)}.
 
 {phang}
 {opt start(varname)} and {opt stop(varname)} specify the intervals to split. They are
@@ -95,9 +98,10 @@ and {cmd:max(#)} (drop age bands outside these bounds), and
 
 {phang}
 {opt cal:endar}{cmd:(} [{cmd:,} {it:suboptions}]{cmd:)} splits on calendar period at
-1 January boundaries. Suboptions: {cmd:width(#)} (years, default 1),
-{cmd:anchor(#)} (first calendar year of the grid, default = earliest year in the
-data), and {cmd:generate(name)} (band variable, default {cmd:calband}).
+1 January boundaries. Suboptions: {cmd:width(#)} (positive whole years,
+default 1), {cmd:anchor(#)} (first calendar year of the grid, default =
+earliest year in the data), and {cmd:generate(name)} (band variable, default
+{cmd:calband}).
 
 {phang}
 {opt elap:sed}{cmd:(}{it:refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the reference-date

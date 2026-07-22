@@ -1,4 +1,4 @@
-*! corrtab Version 1.9.11  2026/07/18
+*! corrtab Version 1.10.0  2026/07/22
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -55,7 +55,17 @@ program define corrtab, rclass
             }
             _tabtools_validate_path "`xlsx'" "xlsx()"
         }
-        if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+        if "`csv'" != "" {
+            * Suite-wide contract: csv() must name a .csv file. corrtab
+            * validated only the path, so corrtab ... csv("out.txt") succeeded
+            * and wrote the file while the identical puttab/simtab/stacktab call
+            * returned r(198).
+            if !strmatch(lower(`"`csv'"'), "*.csv") {
+                noisily display as error "csv() must have a .csv extension"
+                exit 198
+            }
+            _tabtools_validate_path "`csv'" "csv()"
+        }
         if "`mdappend'" != "" & `"`markdown'"' == "" {
             noisily display as error "mdappend requires markdown()"
             exit 198
@@ -207,7 +217,7 @@ program define corrtab, rclass
                 }
                 local ++_fn_count
                 if `_fn_count' > 1 local _star_note "`_star_note', "
-                local _star_note "`_star_note'`_smark' p<`_sl'"
+                local _star_note `"`_star_note'`_smark' p<`_sl'"'
             }
         }
 
@@ -249,7 +259,7 @@ program define corrtab, rclass
                 if `_show' {
                     if `i' == `j' {
                         if `_nmat'[`i', `i'] > 0 & !missing(`_corr'[`i', `i']) {
-                            quietly replace c`_col' = "`_diag_str'" in `row'
+                            quietly replace c`_col' = `"`_diag_str'"' in `row'
                         }
                     }
                     else {
@@ -268,9 +278,9 @@ program define corrtab, rclass
                                 local _sl : word `s' of `star'
                                 if `_p' < `_sl' local _stars_str "`_stars_str'*"
                             }
-                            local _rstr "`_rstr'`_stars_str'"
+                            local _rstr `"`_rstr'`_stars_str'"'
                         }
-                        quietly replace c`_col' = "`_rstr'" in `row'
+                        quietly replace c`_col' = `"`_rstr'"' in `row'
                     }
                 }
             }
@@ -313,7 +323,7 @@ program define corrtab, rclass
 
         if `"`frame'"' != "" {
             _tabtools_frame_put `"`frame'"'
-            local frame "`_frame_name'"
+            local frame `"`_frame_name'"'
         }
 
         return matrix C = `_corr'

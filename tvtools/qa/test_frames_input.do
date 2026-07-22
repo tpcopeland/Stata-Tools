@@ -61,14 +61,14 @@ capture noisily {
 
     * File-based merge
     tvmerge "`fa'" "`fb'", id(id) start(start start) stop(stop stop) ///
-        exposure(expa expb) saveas(`c(tmpdir)'/m_files.dta) replace
+        exposure(expa expb) saveas($TVTOOLS_QA_RUN_DIR/m_files.dta) replace
     * Frame-based merge
     tvmerge, frames(frA frB) id(id) start(start start) stop(stop stop) ///
-        exposure(expa expb) saveas(`c(tmpdir)'/m_frames.dta) replace
+        exposure(expa expb) saveas($TVTOOLS_QA_RUN_DIR/m_frames.dta) replace
 
-    _sig "`c(tmpdir)'/m_files.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/m_files.dta"
     local s1 "`r(sig)'"
-    _sig "`c(tmpdir)'/m_frames.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/m_frames.dta"
     local s2 "`r(sig)'"
     assert "`s1'" == "`s2'" & "`s1'" != ""
 }
@@ -106,8 +106,8 @@ capture noisily {
 
     tvmerge "`fc'" "`fd'", id(id) start(start start) stop(stop stop) ///
         exposure(tv_exposure tv_exposure) ///
-        saveas(`c(tmpdir)'/m_suffix.dta) replace
-    use "`c(tmpdir)'/m_suffix.dta", clear
+        saveas($TVTOOLS_QA_RUN_DIR/m_suffix.dta) replace
+    use "$TVTOOLS_QA_RUN_DIR/m_suffix.dta", clear
     confirm variable tv_exposure_1
     confirm variable tv_exposure_2
 }
@@ -148,15 +148,15 @@ capture noisily {
 
     use "`ev'", clear
     tvevent using "`ivl'", id(id) date(eventdate) replace
-    save "`c(tmpdir)'/e_file.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/e_file.dta", replace
 
     use "`ev'", clear
     tvevent, frame(frIvl) id(id) date(eventdate) replace
-    save "`c(tmpdir)'/e_frame.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/e_frame.dta", replace
 
-    _sig "`c(tmpdir)'/e_file.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/e_file.dta"
     local s1 "`r(sig)'"
-    _sig "`c(tmpdir)'/e_frame.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/e_frame.dta"
     local s2 "`r(sig)'"
     assert "`s1'" == "`s2'" & "`s1'" != ""
 }
@@ -201,16 +201,16 @@ capture noisily {
     use "`persons'", clear
     tvpanel using "`epi'", id(id) entry(entry) exit(exit) exposure(eclass) ///
         reference(0) width(91)
-    save "`c(tmpdir)'/p_file.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/p_file.dta", replace
 
     use "`persons'", clear
     tvpanel, frame(frEpi) id(id) entry(entry) exit(exit) exposure(eclass) ///
         reference(0) width(91)
-    save "`c(tmpdir)'/p_frame.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/p_frame.dta", replace
 
-    _sig "`c(tmpdir)'/p_file.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/p_file.dta"
     local s1 "`r(sig)'"
-    _sig "`c(tmpdir)'/p_frame.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/p_frame.dta"
     local s2 "`r(sig)'"
     assert "`s1'" == "`s2'" & "`s1'" != ""
 }
@@ -301,7 +301,7 @@ capture noisily {
     use "`cohort'", clear
     tvexpose using "`epis'", id(id) start(estart) stop(estop) exposure(ex) ///
         reference(0) entry(study_entry) exit(study_exit) generate(tv_ex) ///
-        saveas("`c(tmpdir)'/x_saveas.dta") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/x_saveas.dta") replace
 
     * frameout: caller data must be untouched, frame must hold the result
     use "`cohort'", clear
@@ -311,10 +311,10 @@ capture noisily {
         frameout(fx_out)
     assert "`r(frameout)'" == "fx_out"
     datasignature confirm           // caller data unchanged
-    frame fx_out: save "`c(tmpdir)'/x_frame.dta", replace
-    _sig "`c(tmpdir)'/x_saveas.dta"
+    frame fx_out: save "$TVTOOLS_QA_RUN_DIR/x_frame.dta", replace
+    _sig "$TVTOOLS_QA_RUN_DIR/x_saveas.dta"
     local s1 "`r(sig)'"
-    _sig "`c(tmpdir)'/x_frame.dta"
+    _sig "$TVTOOLS_QA_RUN_DIR/x_frame.dta"
     local s2 "`r(sig)'"
     assert "`s1'" == "`s2'" & "`s1'" != ""
 }
