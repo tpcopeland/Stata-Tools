@@ -1,4 +1,4 @@
-*! iivw_fit Version 2.2.0  2026/07/23
+*! iivw_fit Version 2.2.1  2026/07/23
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -47,6 +47,21 @@ program define iivw_fit, eclass
     local __iivw_bk_temps ""
     local __iivw_nonconv = 0
 
+    * Snapshot the prior fit contract as part of the same transaction.  Delaying
+    * the commit protects it from model/variance failures; this snapshot also
+    * protects it from a rare failure during the characteristic writes
+    * themselves, after an earlier characteristic has already changed.
+    local __iivw_fit_chars ///
+        _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
+        _iivw_time_cat_vars _iivw_time_basecat _iivw_fit_nonconverged
+    local __iivw_nfit_chars : word count `__iivw_fit_chars'
+    forvalues __iivw_i = 1/`__iivw_nfit_chars' {
+        local ch : word `__iivw_i' of `__iivw_fit_chars'
+        local __iivw_oldchar`__iivw_i' : char _dta[`ch']
+    }
+
     capture noisily {
 
     * =========================================================================
@@ -84,7 +99,7 @@ program define iivw_fit, eclass
     if "`timespec'" == "" local timespec "linear"
 
     * bootstrap() default is an out-of-band SENTINEL so three states stay
-    * distinct: option omitted (sentinel) triggers the cleared refit-bootstrap
+    * distinct: option omitted (sentinel) triggers the 999-draw refit-bootstrap
     * default; an explicit bootstrap(0) is the legacy "no bootstrap, use the
     * fixed sandwich" spelling; and an explicit negative like bootstrap(-1) is an
     * INVALID value that must still error at the >= 0 check below. The sentinel is
@@ -171,11 +186,12 @@ program define iivw_fit, eclass
     * =========================================================================
     * VARIANCE CONTRACT: vce()
     * =========================================================================
-    * The reliability-cleared inferential path is a subject-level bootstrap that
-    * REFITS every nuisance model inside each draw, so the interval reflects the
-    * uncertainty in estimating the weights and not just the outcome-model
-    * uncertainty with the weights frozen. That is the variance Buzkova & Lumley
-    * (2007) and Coulombe, Moodie & Platt (2021) actually derive.
+    * The primary inferential path is a subject-level bootstrap that REFITS every
+    * nuisance model inside each draw, so the interval reflects uncertainty in
+    * estimating the weights and not just outcome-model uncertainty with the
+    * weights frozen. It is a practical way to propagate the nuisance-model
+    * variation that Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021)
+    * derive analytically; the papers do not derive this bootstrap itself.
     *
     * vce() is the contract for choosing it. The legacy bootstrap()/refitweights
     * spellings are retained as deprecated shims (they still work, with a note)
@@ -309,29 +325,28 @@ program define iivw_fit, eclass
             " vce(bootstrap, reps(999)) [refit]"
         display as text ///
             "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
-        * A measured coverage shortfall must be visible at the point of use, not
-        * only in a stored macro a user has to know to look for.
-        *
-        * WHY HERE AND NOT WHERE THE STATUS IS SET. This fires before the 999
-        * draws run, so a user learns the interval will under-cover BEFORE
-        * waiting out the bootstrap rather than after.
-        *
-        * KNOWN GAP, deliberate: a user who types vce(bootstrap, reps(999))
-        * explicitly with FIPTIW weights gets the same estimator and the same
-        * e(iivw_inference_status), but no console note -- this branch is only
-        * the no-vce() default. They are told by the help and by e(). Moving the
-        * note to the status block would cover them, but that block is only
-        * reached by a fit that succeeds, so it could not be exercised by the
-        * cheap empty-sample fixture the QA suite uses, and a 999-draw fixture
-        * would put minutes into every lane run.
-        if "`weighttype'" == "fiptiw" {
-            display as text ///
-                "  FIPTIW note: in the 2026-07-22 coverage study this interval" ///
-                " covered 0.914, not 0.95"
-            display as text ///
-                "    (point estimate unbiased; interval ~14% too narrow)." ///
-                " See {help iivw_fit##inference:inference status}."
-        }
+    }
+
+    * A measured coverage shortfall must be visible at the point of use, not
+    * only in a stored macro a user has to know to inspect.  The studied
+    * 999-draw refit interval under-covered, and the fixed-weight bootstrap and
+    * analytic sandwich had essentially the same SE in that cell; choosing one
+    * of them did not repair the problem.  Warn for EVERY FIPTIW variance path,
+    * while keeping the measured tier in e() specific to the studied refit
+    * configuration.  Fire before marksample and before any draws, so the user
+    * sees it before waiting and the contract is testable with an empty sample.
+    if "`weighttype'" == "fiptiw" {
+        display as text ///
+            "  FIPTIW note: the 2026-07-22 study's 999-draw refit interval" ///
+            " covered 0.914, not 0.95"
+        display as text ///
+            "    (point estimate unbiased; interval ~14% too narrow). The" ///
+            " fixed-weight"
+        display as text ///
+            "    bootstrap and analytic sandwich were equally too narrow in" ///
+            " that cell."
+        display as text ///
+            "    See {help iivw_fit##inference:inference status}."
     }
 
     * =========================================================================
@@ -1804,53 +1819,6 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
-    * COMMIT: STORE METADATA
-    * =========================================================================
-    * The outcome model converged (or the user explicitly accepted a
-    * nonconverged one) and every generated variable exists. Only now is the
-    * prior fit contract cleared and rewritten.
-
-    * _iivw_nonconverged is the WEIGHT stage's stamp and is deliberately NOT in
-    * this clear-list. It records that a nuisance model (visit-intensity,
-    * stabilization, or treatment) was accepted nonconverged, and that taint
-    * survives any number of later outcome fits -- the weights are still the bad
-    * ones. Clearing it here would have laundered it: a converged iivw_fit after
-    * a nonconverged iivw_weight would erase the only record that the weights
-    * are untrustworthy. The outcome model gets its own stamp instead.
-    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
-        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
-        _iivw_time_cat_vars _iivw_time_basecat _iivw_fit_nonconverged {
-        char _dta[`ch'] ""
-    }
-
-    char _dta[_iivw_fitted] "1"
-    * Stamp a deliberately-accepted nonconverged fit so the downstream
-    * diagnostics can refuse it rather than treating it as a clean fit.
-    if `__iivw_nonconv' {
-        char _dta[_iivw_fit_nonconverged] "1"
-    }
-    char _dta[_iivw_model] "`model'"
-    char _dta[_iivw_timespec] "`timespec'"
-    char _dta[_iivw_cluster] "`cluster'"
-    char _dta[_iivw_time_vars] "`time_vars'"
-    if "`timespec'" == "categorical" {
-        char _dta[_iivw_time_cat_vars] "`time_cat_vars_created'"
-        char _dta[_iivw_time_basecat] "`time_basecat_used'"
-    }
-    if "`interaction'" != "" {
-        char _dta[_iivw_interaction] "`interaction'"
-        char _dta[_iivw_ix_vars] "`ix_vars'"
-    }
-    if "`categorical'" != "" {
-        char _dta[_iivw_categorical] "`categorical'"
-        char _dta[_iivw_cat_vars] "`cat_vars_created'"
-        if "`basecat'" != "" {
-            char _dta[_iivw_basecat] "`basecat'"
-        }
-    }
-
-    * =========================================================================
     * DISPLAY SUMMARY
     * =========================================================================
 
@@ -2043,9 +2011,10 @@ program define iivw_fit, eclass
             * the 0.92 floor and the Wilson interval excludes 0.95.
             * The POINT ESTIMATOR is fine (bias +0.017 against MCSE 0.039). The
             * INTERVAL is ~14% too narrow: mean SE 1.062 vs empirical SD 1.239.
-            * Not a resampler defect -- the refit bootstrap, the fixed-weight
-            * bootstrap and the analytic sandwich agree within 0.5% of each
-            * other and all three fall equally short.
+            * The refit bootstrap, fixed-weight bootstrap and analytic sandwich
+            * agree within 0.5% and all fall short.  That rules out selecting a
+            * weights-known alternative as a repair; it does not, by agreement
+            * alone, prove that every possible resampling defect is absent.
             local iivw_infstatus "undercovers-at-studied-settings"
         }
         else {
@@ -2088,6 +2057,56 @@ program define iivw_fit, eclass
         ereturn local iivw_cat_vars "`cat_vars_created'"
     }
 
+    * =========================================================================
+    * COMMIT: STORE METADATA
+    * =========================================================================
+    * This is deliberately the last stage in the captured block.  The
+    * outcome model, display, inference-provenance posts, and variance lock have
+    * all succeeded.  A previous version committed before the variance lock; a
+    * lock failure then rolled generated variables back while leaving
+    * _iivw_fitted and the new specification behind, so a failed fit
+    * masqueraded as the current valid fit.
+
+    * _iivw_nonconverged is the WEIGHT stage's stamp and is deliberately NOT in
+    * this clear-list. It records that a nuisance model (visit-intensity,
+    * stabilization, or treatment) was accepted nonconverged, and that taint
+    * survives any number of later outcome fits -- the weights are still the bad
+    * ones. Clearing it here would have laundered it: a converged iivw_fit after
+    * a nonconverged iivw_weight would erase the only record that the weights
+    * are untrustworthy. The outcome model gets its own stamp instead.
+    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
+        _iivw_time_cat_vars _iivw_time_basecat _iivw_fit_nonconverged {
+        char _dta[`ch'] ""
+    }
+
+    char _dta[_iivw_fitted] "1"
+    * Stamp a deliberately-accepted nonconverged fit so the downstream
+    * diagnostics can refuse it rather than treating it as a clean fit.
+    if `__iivw_nonconv' {
+        char _dta[_iivw_fit_nonconverged] "1"
+    }
+    char _dta[_iivw_model] "`model'"
+    char _dta[_iivw_timespec] "`timespec'"
+    char _dta[_iivw_cluster] "`cluster'"
+    char _dta[_iivw_time_vars] "`time_vars'"
+    if "`timespec'" == "categorical" {
+        char _dta[_iivw_time_cat_vars] "`time_cat_vars_created'"
+        char _dta[_iivw_time_basecat] "`time_basecat_used'"
+    }
+    if "`interaction'" != "" {
+        char _dta[_iivw_interaction] "`interaction'"
+        char _dta[_iivw_ix_vars] "`ix_vars'"
+    }
+    if "`categorical'" != "" {
+        char _dta[_iivw_categorical] "`categorical'"
+        char _dta[_iivw_cat_vars] "`cat_vars_created'"
+        if "`basecat'" != "" {
+            char _dta[_iivw_basecat] "`basecat'"
+        }
+    }
+
     }
     local rc = _rc
     * Roll the name transaction back: drop every variable this call created,
@@ -2095,9 +2114,17 @@ program define iivw_fit, eclass
     * contract is written only at the commit point, so it was never touched and
     * still describes the restored variables.
     if `rc' != 0 {
+        local __iivw_rollback_failed ""
+        forvalues __iivw_i = 1/`__iivw_nfit_chars' {
+            local ch : word `__iivw_i' of `__iivw_fit_chars'
+            capture char _dta[`ch'] `"`__iivw_oldchar`__iivw_i''"'
+            if _rc local __iivw_rollback_failed ///
+                "`__iivw_rollback_failed' `ch'(metadata not restored)"
+        }
         foreach v of local __iivw_created_vars {
             capture drop `v'
-            local __iivw_drop_rc = _rc
+            if _rc local __iivw_rollback_failed ///
+                "`__iivw_rollback_failed' `v'(not dropped)"
         }
         local __iivw_bi = 0
         foreach g of local __iivw_bk_names {
@@ -2105,6 +2132,18 @@ program define iivw_fit, eclass
             local __iivw_bt : word `__iivw_bi' of `__iivw_bk_temps'
             capture drop `g'
             capture rename `__iivw_bt' `g'
+            if _rc local __iivw_rollback_failed ///
+                "`__iivw_rollback_failed' `g'(not restored)"
+        }
+        if "`__iivw_rollback_failed'" != "" {
+            display as error ""
+            display as error ///
+                "iivw_fit: ROLLBACK FAILED -- the data in memory is not intact"
+            display as error "  could not restore:`__iivw_rollback_failed'"
+            display as error ""
+            display as error "  Do not analyze this dataset. Reload it from disk."
+            display as error ///
+                "  (The command's own failure, reported above, is the return code.)"
         }
     }
     set varabbrev `__iivw_old_varabbrev'

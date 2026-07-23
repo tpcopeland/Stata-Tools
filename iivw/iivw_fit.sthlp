@@ -182,7 +182,10 @@ binomial, log for poisson). Override when you need a non-canonical link (e.g.,
 includes the time variable as a single linear term. {cmd:quadratic} adds time and
 time-squared. {cmd:cubic} adds time, time-squared, and time-cubed. {cmd:ns(#)} uses a
 natural cubic spline with {it:#} degrees of freedom, which allows flexible
-nonlinear trends while remaining stable at the boundaries. {cmd:categorical} expands
+nonlinear trends while remaining stable at the boundaries. Here {it:#} is the
+number of basis variables, not the number of interior knots: {cmd:ns(3)} places
+two interior knots at the time tertiles, matching Coulombe et al.'s working time
+spline. {cmd:categorical} expands
 the stored time variable into one indicator per non-reference time
 category. {cmd:none} excludes time from the model entirely.
 
@@ -303,14 +306,14 @@ state is stored in {cmd:e(iivw_rngstate_start)} so the run is still replayable.
 only; {cmd:vce(fixed)} is the analytic cluster-robust sandwich. Both treat the
 estimated weights as {bf:known} -- they {bf:omit the nuisance-estimation correction}
 that both source papers put inside the sandwich. That correction can
-make the interval either narrower or wider; under a correctly specified weight
-model the fixed sandwich is in fact {bf:conservative (over-wide)}, because the
-Buzkova-Lumley variance residualises the outcome score against the visit-model
-score before squaring and that projection is orthogonal for an MLE nuisance
-model. Naming one of these explicitly is the acknowledgment that the SE omits the
-correction; the disclosure note still prints. {cmd:e(iivw_vce)} records which of
-the three was used, and an unweighted fit keeps the cluster sandwich (no nuisance
-weights to propagate).
+make the interval either narrower or wider. The Buzkova-Lumley correction is a
+score residualization in their specific IIW model, but that does not establish a
+universal direction for the package's combined visit and treatment nuisance
+models. Do not assume the fixed sandwich is conservative. Naming one of these
+explicitly is the acknowledgment that the SE omits the correction; the
+disclosure note still prints. {cmd:e(iivw_vce)} records which of the three was
+used, and an unweighted fit keeps the cluster sandwich (no nuisance weights to
+propagate).
 
 {phang}
 {opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates. {cmd:bootstrap(0)}
@@ -331,9 +334,9 @@ that both source papers put inside the sandwich: Buzkova & Lumley
 (2007) add a correction for having estimated the visit-model coefficients, and
 Coulombe, Moodie & Platt (2021) build the FIPTIW variance as a two-step
 (Newey-McFadden) sandwich for the same reason. Omitting it does not have a fixed
-direction -- under a correctly specified weight model the fixed sandwich is
-conservative (over-wide), not anti-conservative. Use the default refit bootstrap
-(or {opt refitweights}) to propagate weight-estimation uncertainty.
+direction across the package's supported weight types; do not read the fixed
+sandwich as automatically conservative. Use the default refit bootstrap (or
+{opt refitweights}) to propagate weight-estimation uncertainty.
 
 {phang}
 {opt refitweights} re-estimates the IIW/IPTW/FIPTIW weights from scratch inside
@@ -746,9 +749,10 @@ consistent even under misspecification of the within-subject correlation
 structure, but it treats the IIW/IPTW weights as if they were known rather than
 estimated, and so omits the weight-estimation term that both Buzkova & Lumley
 (2007) and Coulombe, Moodie & Platt (2021) carry in their sandwich. Omitting that
-term does not have a fixed sign -- under a correctly specified weight model the
-fixed sandwich is conservative (over-wide). An {bf:unweighted} fit keeps the
-cluster sandwich as its default, since it estimates no nuisance weights. See
+term does not have a universal direction across the package's supported visit
+and treatment nuisance models; do not assume the fixed sandwich is conservative. An
+{bf:unweighted} fit keeps the cluster sandwich as its default, since it
+estimates no nuisance weights. See
 {opt vce()} (and the legacy {opt bootstrap()}/{opt refitweights}) in
 the Options section).
 
@@ -784,9 +788,11 @@ that produced it, is {cmd:qa/coverage_results/RESULT_2026-07-22.md}.
 {pstd}
 The two measured tiers apply only to the 999-draw refit bootstrap, which is the
 default for a weighted fit. Measured coverage was 0.939 for IIW, 0.954 for IPTW,
-and 0.914 for FIPTIW. The four {cmd:uncleared-*} tiers carry no coverage
-evidence: either the run departed from the studied configuration, or it used a
-weights-known variance that omits the nuisance-estimation correction entirely.
+and 0.914 for FIPTIW. The four {cmd:uncleared-*} tiers do not inherit the
+primary refit-bootstrap clearance: either the run departed from the studied
+configuration, or it used a weights-known variance that omits the
+nuisance-estimation correction. In the studied FIPTIW cell, the weights-known
+SEs were also essentially identical to the too-small refit SE.
 
 {pstd}
 {bf:"At studied settings" is load-bearing.} The study covered one correctly
@@ -812,30 +818,47 @@ error was 1.062 where the empirical standard deviation of the estimates was
 0.91 rather than 0.95, which is what was observed.
 
 {pstd}
-This is {bf:not} a defect in the bootstrap code. Three variance estimators that
-share almost no implementation -- the refit bootstrap, the fixed-weight
-bootstrap, and the analytic sandwich, which does no resampling at all -- agree
-with each other to within 0.5% and all three fall equally short. A resampler bug
-could not produce that agreement. The same machinery is demonstrably working for
-IPTW, where refitting correctly pulls the SE from 1.31 times the empirical SD
-down to 1.02 times it.
+The agreement among three variance estimators narrows the mechanism but does not,
+by itself, prove that every possible resampling defect is absent. The refit
+bootstrap, the fixed-weight bootstrap, and the analytic sandwich, which does no
+resampling, agree to within 0.5% and all three fall equally short. Separate
+contract tests verify that the refit bootstrap resamples whole subjects, rebuilds
+the full weight-model frame, and refits the nuisance models. Together, that
+evidence shows that substituting either weights-known method does not repair the
+FIPTIW interval. The same refit machinery is calibrated in the studied IPTW cell,
+where refitting moves the SE from 1.31 times the empirical SD to 1.02 times it.
 
 {pstd}
-A weighted FIPTIW fit that takes the default variance prints this shortfall
-before the draws run. A fit that requests {cmd:vce(bootstrap, reps(999))}
-{it:explicitly} uses the same estimator and carries the same
-{cmd:e(iivw_inference_status)}, but prints no such note -- the console message
-belongs to the no-{cmd:vce()} default path. Check
-{cmd:e(iivw_inference_status)} when you name the variance yourself.
+{bf:Sample-size diagnostic.} A prespecified follow-up repeated the same FIPTIW
+DGP and 999-draw refit procedure at larger sample sizes (200 outer datasets per
+cell). Coverage was 0.950 at {cmd:n=600} and 0.960 at {cmd:n=1200}; mean SE divided
+by empirical SD was 1.006 and 0.952, and the standardized-statistic SD was 1.021
+and 1.003. Together with 0.914, 0.857, and 1.156 at {cmd:n=300}, that pattern
+supports a finite-sample calibration problem in this DGP rather than a variance
+deficit that persists as sample size grows. The larger-n cells are diagnostics,
+not release gates: they have only 200 outer replications, cover one identity-link
+DGP, and do not establish {cmd:n=600} or any other universal safe cutoff. The
+record is {cmd:qa/coverage_results/FIPTIW_NSCALE_2026-07-23.md}.
+
+{pstd}
+Every weighted FIPTIW fit prints this shortfall before estimation or bootstrap
+draws begin. That includes explicit {cmd:vce(bootstrap, reps(999))},
+{cmd:vce(bootstrap, ... fixedweights)}, and {cmd:vce(fixed)} paths: in the
+studied cell the two weights-known alternatives were equally too narrow, so
+selecting one does not make the finding disappear. The stored
+{cmd:e(iivw_inference_status)} still distinguishes the studied refit tier from
+uncleared low-replicate, failed-replicate, and weights-known paths.
 
 {pstd}
 {bf:What to do about it.} Treat a FIPTIW interval as anticonservative: it is
 narrower than the sampling variability of the estimator warrants at the studied
 settings. If your analysis turns on whether a FIPTIW confidence interval excludes
-a value, that conclusion is less secure than the nominal 95% suggests. Reporting
-the point estimate with an explicitly wider or sensitivity-based interval is the
-conservative course. Whether the shortfall shrinks at larger sample sizes was
-still under study when this help file was written; do not assume it does.
+a value, that conclusion is less secure than the nominal 95% suggests. Do not
+repair the interval by multiplying its SE by an ad hoc factor. Report the point
+estimate and nominal interval with this limitation, add design-appropriate
+sensitivity analyses, and use an alternative inferential method if the interval
+is decision-critical. The shortfall shrank in the package's larger-n diagnostic
+cells, but do not translate that one-DGP result into a sample-size threshold.
 
 
 {marker troubleshooting}{...}

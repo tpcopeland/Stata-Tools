@@ -130,6 +130,7 @@ capture noisily {
     local prepared = r(prepared)
     local weighted = r(weighted)
     local fitted = r(fitted)
+    local id "`r(id)'"
     local period "`r(period)'"
     local treatment "`r(treatment)'"
     local outcome "`r(outcome)'"
@@ -144,6 +145,7 @@ capture noisily {
     assert `prepared' == 1
     assert `weighted' == 0
     assert `fitted' == 0
+    assert "`id'" == "id"
     assert "`period'" == "period"
     assert "`treatment'" == "treatment"
     assert "`outcome'" == "outcome"

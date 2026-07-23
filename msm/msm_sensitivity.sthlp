@@ -75,11 +75,10 @@ shift the confidence interval to include the null. This is always smaller than
 or equal to the point estimate E-value.{p_end}
 
 {pstd}
-Rules of thumb:
-
-{phang2}E-value < 2: a relatively weak confounder could explain the result.{p_end}
-{phang2}E-value 2-3: a moderately strong confounder would be needed.{p_end}
-{phang2}E-value > 3: a strong confounder would be needed.{p_end}
+There is no universal threshold for a small, moderate, or large E-value; interpret
+both values by comparing them with treatment-confounder and
+outcome-confounder associations observed for measured covariates, together
+with subject-matter judgments about plausible unmeasured confounding.
 
 {pstd}
 If the CI E-value is 1, the confidence interval already includes the null,

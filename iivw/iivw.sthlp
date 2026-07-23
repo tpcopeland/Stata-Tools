@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.2.0  23jul2026}
+{* *! version 2.2.1  23jul2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -219,8 +219,8 @@ estimates.{p_end}
 {phang2}(e) A weighted {help iivw_fit:iivw_fit} defaults to a 999-draw subject-level
 bootstrap that {bf:refits} the {cmd:iivw_weight} models inside every replicate, so the
 reported interval propagates weight-estimation uncertainty. {cmd:vce(fixed)} and
-{cmd:vce(bootstrap, ... fixedweights)} hold the weights fixed and omit that term.
-The older {opt bootstrap(#)} and {opt refitweights} spellings still run, as
+{cmd:vce(bootstrap, ... fixedweights)} hold the weights fixed and omit that
+term; the older {opt bootstrap(#)} and {opt refitweights} spellings still run, as
 deprecated shims that print a note pointing at the equivalent {opt vce()}; since
 2.0.0 {opt refitweights} requests what a weighted fit already does by default.{p_end}
 
@@ -452,7 +452,7 @@ observation times. R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.2.0, 2026-07-23{p_end}
+{pstd}Version 2.2.1, 2026-07-23{p_end}
 
 
 {title:Also see}

@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.2.3** | 2026-07-10
+**Version 1.2.4** | 2026-07-23
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -12,7 +12,7 @@ Use `msm` when your data have all of these features:
 
 - **Longitudinal panel structure** — repeated observations per individual over time.
 - **Time-varying treatment** — treatment status can change between periods.
-- **Time-varying confounders affected by past treatment** — the classic "treatment-confounder feedback" problem. A confounder like biomarker level may be affected by prior treatment and also predict future treatment. Standard regression adjustment cannot handle this without bias; IPTW solves it by reweighting.
+- **Time-varying confounders affected by past treatment** — the classic "treatment-confounder feedback" problem. A confounder like biomarker level may be affected by prior treatment and also predict future treatment. Standard regression adjustment can be biased here; IPTW can identify the specified marginal effect when sequential exchangeability, positivity, consistency, and the treatment, censoring, and marginal outcome models are adequately specified.
 - **Binary treatment and outcome indicators** (0/1). Linear and Cox models are also supported for estimation, but the full prediction workflow requires a binary outcome with a pooled logistic model.
 
 If your treatment is assigned at a single point in time (not time-varying), consider Stata's built-in `teffects ipw` instead.
@@ -230,7 +230,7 @@ An absolute SMD below 0.1 after weighting is the usual working threshold, but it
 
 ### E-value
 
-The E-value is the minimum strength of association (risk ratio scale) that an unmeasured confounder would need with both treatment and outcome to fully explain away the observed effect. An E-value of 1 means the confidence interval already includes the null. E-values above 2-3 indicate the result is moderately to strongly robust to unmeasured confounding.
+The E-value is the minimum strength of association (risk ratio scale) that an unmeasured confounder would need with both treatment and outcome to fully explain away the observed effect. An E-value of 1 for the CI limit means the confidence interval already includes the null. VanderWeele and Ding do not define universal weak/moderate/strong cutoffs: compare the point and CI-limit E-values with associations for measured covariates and judge whether confounding of that joint strength is substantively plausible.
 
 ## Current Scope and Limits
 
@@ -244,7 +244,7 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 
 ## QA
 
-The package ships a comprehensive QA lane in `qa/`: 30 Stata test and validation suites plus two cross-language suites (`crossval_msm`, `crossval_external_models`) that check the weight, fit, prediction, diagnostic, sensitivity, and export surfaces against hand calculations, known-truth data-generating processes (parameter recovery), and independent R/Python reference implementations. Run the whole lane from a fresh working copy:
+The package ships a comprehensive QA lane in `qa/`: 34 Stata test and validation suites plus two cross-language suites (`crossval_msm`, `crossval_external_models`) that check the weight, fit, prediction, diagnostic, sensitivity, and export surfaces against hand calculations, known-truth data-generating processes (parameter recovery), and independent R/Python reference implementations. Run the whole lane from a fresh working copy:
 
 ```stata
 cd qa
@@ -434,6 +434,7 @@ The flagship `msm` command always returns its version and command inventory. The
 
 ## Version History
 
+- **1.2.4** (2026-07-23): Reliability and interpretation. `msm_report` now propagates failures from Excel numeric-cell conversion instead of allowing a later formatting pass to announce a partially written workbook as successful. `msm_sensitivity` no longer assigns unsupported weak/moderate/strong categories to fixed E-value ranges; its output and documentation now follow VanderWeele and Ding's contextual interpretation. The README also states the identification assumptions behind IPTW and reports the current 34-suite Stata QA surface accurately.
 - **1.2.3** (2026-07-04): Diagnostics. When `msm_weight`'s treatment denominator model degenerates because treatment is time-invariant within person — a single-point-in-time (baseline) treatment held constant across the panel, which makes `A_t` perfectly predicted by its own lag — the hard-fail now names the real cause and points to the documented alternative (`msm` targets time-varying treatment; for baseline treatment use `teffects ipw`) instead of a bare model-failure code. The refusal behavior (`fitfailure(error)` default) is unchanged. No change to any weight, fit, or prediction value.
 - **1.2.2** (2026-07-02): Bug fixes. `msm_sensitivity, confounding_strength()` now corrects protective effects (RR < 1) toward the null by multiplying by the bias factor, per VanderWeele & Ding (2017) — previously it divided unconditionally, which strengthened protective effects and made the "explained away" conclusion unreachable; it also now rejects confounder RR inputs below 1. `period_spec(ns(2))` now uses the same natural-spline basis formula as ns(3+) (the old single-internal-knot special case was not linear beyond the boundary knot, distorting extrapolated predictions). Titles containing quotes survive intact to Excel title cells and graph titles across `msm_table`, `msm_report`, `msm_diagtab`, and `msm_plot`. The weight-model specs printed by `msm_weight` now show the lagged-treatment term (the fitted models were always correct; the display omitted it). SMD helper reports missing instead of 0 when both groups have zero variance but different means. Re-running `msm_prepare` now also clears the stale `_msm_vce`/`_msm_strata` metadata.
 - **1.2.1** (2026-06-25): QA — added `qa/validation_msm_recovery.do`, a known-truth parameter-recovery suite for the marginal structural log-OR estimated by `msm_fit`. The truth is the always/never marginal contrast computed by forward-simulating the data-generating process at large N (oracle fit in `msm_fit`'s own working model); IPTW-MSM recovers it within 0.05 while an unweighted pooled logit misses by 0.36–0.50. No functional change to any command.

@@ -1,4 +1,4 @@
-*! msm_report Version 1.2.3  2026/07/02
+*! msm_report Version 1.2.4  2026/07/23
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -513,8 +513,12 @@ program define msm_report, rclass
                 mata: _msm_xl.close_book()
             }
             if _rc {
+                local saved_rc = _rc
                 capture mata: _msm_xl.close_book()
                 capture mata: mata drop _msm_xl
+                restore
+                local _restore_needed = 0
+                exit `saved_rc'
             }
             capture mata: mata drop _msm_xl
 
@@ -720,8 +724,12 @@ program define msm_report, rclass
                     mata: _msm_xl.close_book()
                 }
                 if _rc {
+                    local saved_rc = _rc
                     capture mata: _msm_xl.close_book()
                     capture mata: mata drop _msm_xl
+                    restore
+                    local _restore_needed = 0
+                    exit `saved_rc'
                 }
                 capture mata: mata drop _msm_xl
 

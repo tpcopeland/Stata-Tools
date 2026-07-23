@@ -10,10 +10,11 @@ set varabbrev off
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
-* iivw's weighted default is the candidate 999-draw refit bootstrap, which
-* propagates weight-estimation uncertainty. Its coverage gate is still pending,
-* so e(iivw_inference_status) deliberately never calls it cleared. vce(fixed)
-* and the fixedweights bootstrap remain explicit weights-known alternatives.
+* iivw's weighted default is the 999-draw refit bootstrap, which propagates
+* weight-estimation uncertainty. The 2026-07-22 coverage gate cleared IIW/IPTW
+* only at the studied settings and found FIPTIW undercoverage, so the stored
+* status is weight-specific and never a bare `cleared'. vce(fixed) and the
+* fixedweights bootstrap remain explicit weights-known alternatives.
 *
 * THE DEFECT THIS SUITE EXISTS FOR
 * --------------------------------
@@ -722,49 +723,60 @@ else {
     local failed_tests "`failed_tests' I17"
 }
 
-**# I17b - a FIPTIW default fit must SAY that its interval under-covers
+**# I17b - every FIPTIW variance path must SAY that inference under-covers
 *
 * The 2026-07-22 coverage study measured FIPTIW at 0.914 against a nominal
 * 0.95. A measured shortfall recorded only in e() is a shortfall most users
 * never see: nobody inspects e(iivw_inference_status) unless they already
-* suspect a problem. It has to be visible where the default is taken.
+* suspect a problem. The refit, fixed-weight bootstrap and analytic sandwich
+* were all equally too narrow in the studied FIPTIW cell, so selecting a
+* weights-known alternative must not silence the finding.
 *
 * The negative control matters as much as the positive one. If this note were
 * printed for every weight type it would be noise, and it would be wrong --
 * IIW and IPTW met the rule. So the IIW arm asserts the note is ABSENT.
 
 local ++test_count
-display as text "I17b: a FIPTIW default fit warns about coverage; an IIW one does not"
+display as text "I17b: every FIPTIW variance path warns; the IIW paths do not"
 capture noisily {
     foreach wt in fiptiw iivw {
-        _inf_panel
-        if "`wt'" == "fiptiw" {
-            quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
-                treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
-        }
-        else {
-            quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
-        }
-        tempfile wlog
-        log using "`wlog'", text replace name(_iivw_wt_msg)
-        capture noisily iivw_fit y treat x if 0, timespec(linear) nolog replace
-        log close _iivw_wt_msg
+        foreach mode in default explicit fixed fixedbootstrap {
+            _inf_panel
+            if "`wt'" == "fiptiw" {
+                quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
+                    treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
+            }
+            else {
+                quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
+            }
+            local vceopt ""
+            if "`mode'" == "explicit" local vceopt "vce(bootstrap, reps(999))"
+            if "`mode'" == "fixed" local vceopt "vce(fixed)"
+            if "`mode'" == "fixedbootstrap" ///
+                local vceopt "vce(bootstrap, reps(999) fixedweights)"
 
-        tempname fh2
-        file open `fh2' using "`wlog'", read text
-        local warn_hits = 0
-        file read `fh2' line
-        while r(eof) == 0 {
-            if strpos(lower(`"`line'"'), "fiptiw note") local ++warn_hits
+            tempfile wlog
+            log using "`wlog'", text replace name(_iivw_wt_msg)
+            capture noisily iivw_fit y treat x if 0, timespec(linear) ///
+                `vceopt' nolog replace
+            log close _iivw_wt_msg
+
+            tempname fh2
+            file open `fh2' using "`wlog'", read text
+            local warn_hits = 0
             file read `fh2' line
+            while r(eof) == 0 {
+                if strpos(lower(`"`line'"'), "fiptiw note") local ++warn_hits
+                file read `fh2' line
+            }
+            file close `fh2'
+            if "`wt'" == "fiptiw" assert `warn_hits' == 1
+            if "`wt'" == "iivw"   assert `warn_hits' == 0
         }
-        file close `fh2'
-        if "`wt'" == "fiptiw" assert `warn_hits' == 1
-        if "`wt'" == "iivw"   assert `warn_hits' == 0
     }
 }
 if _rc == 0 {
-    display as result "  PASS: I17b - the coverage warning is FIPTIW-specific"
+    display as result "  PASS: I17b - warning covers all FIPTIW variance paths only"
     local ++pass_count
 }
 else {

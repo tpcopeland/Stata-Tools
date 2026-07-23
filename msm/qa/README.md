@@ -42,7 +42,13 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `test_msm_state_guards.do` | Pipeline precondition guards and invalidation |
 | `test_msm_state_identity.do` | Artifact UUID, signature, metadata, order, and lifecycle identity |
 | `test_msm_independent_review.do` | Independent-review regressions for transactions, serialization, ownership, and intermittent missingness |
+| `test_msm_phase2.do` | Phase-2 prediction, plotting, reporting, and protocol regressions |
 | `test_msm_phase3.do` | Treatment-history, positivity-policy, repair metadata, and longitudinal balance regressions |
+| `test_msm_phase4.do` | Phase-4 diagnostics, help, export, and portability regressions |
+| `test_msm_phase5.do` | Phase-5 state, error-path, and replacement regressions |
+| `test_msm_phase6.do` | Phase-6 release-surface and transaction regressions |
+| `test_package_release.do` | Package metadata, version, distribution, install, and public-command contracts |
+| `test_demo_contract.do` | Shipped demo workflow and generated-artifact contract |
 | `test_msm_psdash_contract.do` | Propensity-score dashboard interoperability contract |
 | `test_export_surface.do` | Export surfaces and package-root artifact hygiene |
 | `test_msm_diagtab.do` | Accumulated diagnostics and Excel export |
@@ -82,6 +88,16 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | All commands — per-command option paths | `test_msm.do` (functional), `test_msm_options.do` (options SECTION A–M) |
 | `msm_protocol`, `msm_sensitivity` | `test_export_surface.do`, `validation_msm_sensitivity.do` |
 | Shared artifact/transaction layer | `test_msm_state_identity.do`, `test_msm_independent_review.do`, `test_msm_abbrev_reload.do` |
+
+## Lane membership
+
+| Lane | Suites |
+|------|--------|
+| `quick` | 27 curated functional, regression, package, demo, export, and adversarial suites listed under Functional and regression suites |
+| `validations` | 7 `validation_*.do` suites listed under Validation suites |
+| `core` | All 34 Stata-side suites (`quick` + `validations`) |
+| `crossval` | `crossval_msm.do`, `crossval_external_models.do` |
+| `full` | All 36 suites (`core` + `crossval`); default release gate |
 
 ## Supporting files
 

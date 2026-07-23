@@ -1,4 +1,4 @@
-*! msm_fit Version 1.2.3  2026/07/02
+*! msm_fit Version 1.2.4  2026/07/23
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())

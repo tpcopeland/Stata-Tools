@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 2.2.0  2026/07/23
+*! _iivw_export_table Version 2.2.1  2026/07/23
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -454,14 +454,17 @@ program define _iivw_open_workbook
 
     if "`c(os)'" == "Windows" {
         capture winexec cmd.exe /c start "" `"`__iivw_file'"'
+        local __iivw_open_rc = _rc
     }
     else if "`c(os)'" == "MacOSX" {
         capture shell open `"`__iivw_file'"' >/dev/null 2>&1 &
+        local __iivw_open_rc = _rc
     }
     else {
         capture shell xdg-open `"`__iivw_file'"' >/dev/null 2>&1 &
+        local __iivw_open_rc = _rc
     }
-    if _rc {
+    if `__iivw_open_rc' {
         display as text ///
             "note: Excel file was written but Stata could not start a process to open it"
     }

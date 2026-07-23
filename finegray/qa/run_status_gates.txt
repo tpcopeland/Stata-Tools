@@ -1,6 +1,16 @@
 # finegray delayed-entry (ZZF) gate receipt
 # committed evidence for FG-04.  Explains why the ~7h gates lane is not re-run
 # for this tree and why the historical gate results still apply to it.
+#
+# RETIRED ENTRIES (2026-07-23): the GOF gate blocks further down --
+# validation_finegray_gof_power.do, validation_finegray_gof_calibration.do, and
+# _gof_power_dgp_variants.do -- record runs of the finegray_gof module, which was
+# REMOVED from the package in commit 15c74b7.  Those files no longer exist and
+# the `gates' lane no longer includes them (run_all.do gates_files is now only the
+# three ZZF gates named below).  Their dated blocks are kept as historical record
+# of past runs, NOT as current gate evidence; do not read them as describing a
+# shipped command.  The ZZF gate transfer receipt below is unaffected and remains
+# the receipt README.md cites.
 
 lane:            gates (recovery + coverage + factorization)
 receipt_kind:    numeric-equivalence transfer (not a fresh Monte-Carlo run)

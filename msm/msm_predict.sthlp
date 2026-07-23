@@ -243,7 +243,7 @@ datasets fitted by older versions.{p_end}
 {synopt:{cmd:r(predictions)}}estimates and intervals by strategy{p_end}
 
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(rd_#)}}risk difference at time #, when requested{p_end}
+{synopt:{cmd:rd_#}}{cmd:r()} scalar: risk difference at time #, when requested{p_end}
 {synopt:{cmd:r(n_times)}}number of time points requested{p_end}
 {synopt:{cmd:r(n_ref)}}number of individuals in the reference population{p_end}
 {synopt:{cmd:r(samples)}}number of MC draws used{p_end}

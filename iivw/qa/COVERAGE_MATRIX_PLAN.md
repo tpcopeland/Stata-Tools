@@ -26,7 +26,7 @@ diagnostic row below**, which is why the costs are not simply 30 CPU-h each.
 
 Ordered by what would change a release decision, not by matrix tidiness.
 
-### P1 — Does the FIPTIW shortfall shrink with n? *(running 2026-07-23)*
+### P1 — Does the FIPTIW shortfall shrink with n? *(completed 2026-07-23)*
 
 The only question whose answer changes how FIPTIW must be *documented*. If the
 deficit is finite-sample it is a small-sample caveat; if it persists, the
@@ -35,6 +35,13 @@ statement.
 
 `fiptiw` at n = 600 and n = 1200, R = 200 each. **~36 CPU-h.**
 n = 300 (R = 1000) is already in hand as the third point.
+
+Observed refit coverage was 0.914, 0.950, and 0.960 at n = 300, 600,
+and 1200, respectively; mean SE / empirical SD was 0.857, 1.006, and
+0.952. The larger-n cells therefore support a finite-sample calibration
+problem in this DGP rather than a persistent asymptotic variance failure. They
+do not establish a universal sample-size cutoff. Full record:
+`coverage_results/FIPTIW_NSCALE_2026-07-23.md`.
 
 ### P2 — Misspecified visit model, all three families
 

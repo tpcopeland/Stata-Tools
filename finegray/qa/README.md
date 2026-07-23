@@ -11,7 +11,7 @@ This suite is built on four assurance layers, applied in increasing order of aut
 
 ## Headline results
 
-The latest isolated `full` lane passed **29/29 suites and 609/609 checks on 2026-07-21**, with no failures and no skips, plus the shell-level `fg02_failclosed` gate. Smoke gate runs are never counted as passes. The receipt is `run_all_status.txt`.
+The latest isolated `full` lane passed **27/27 suites and 586/586 checks on 2026-07-23**, with no failures and no skips, plus the shell-level `fg02_failclosed` gate. Smoke gate runs are never counted as passes. The receipt is `run_all_status.txt`.
 
 Two things about that number are worth stating, because both have gone wrong here before. It comes from **one** run — the per-suite counts are summed within a single lane, not carried across runs, which is what made the previous `600*` figure arithmetic rather than evidence. And it was produced by **`run_all.sh`**, not by `run_all.do`: only the shell wrapper writes `run_all_status.txt` and runs `fg02_failclosed`, which manipulates `PATH` and so cannot live in the `.do` runner. A `run_all.do` lane is a lane with that gate missing and no receipt written.
 
@@ -23,7 +23,7 @@ Two things about that number are worth stating, because both have gone wrong her
 | `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary, ZZF entry-time at-risk count, intentional stcrreg LT non-parity) | 6 | 6 | 0 | 0 |
 | `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `test_finegray_variance.do` | **variance and clustering** (cluster degeneracy, finite-sample adjustment, `e(rank)`/`e(N_clust)`, `stcrreg` SE parity, `norobust` contract) | 6 | 6 | 0 | 0 |
-| `test_finegray_bootstrap.do` | **bootstrap and refit integrity** (`if`/`in` stripped from the refit line, replication floor, `seed()` guard, validate-then-mutate) | 6 | 6 | 0 | 0 |
+| `test_finegray_bootstrap.do` | **bootstrap and refit integrity** (`if`/`in` stripped from the refit line, replication floor, `seed()` guard, validate-then-mutate) | 8 | 8 | 0 | 0 |
 | `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, equivalent numeric factor tokens and truncated long names in `at()`, tampered `_fg_*` columns, `finegray_cif` rebuild of dropped `_fg_*` columns + curated refusal, `finegray_phtest` data preservation on error, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 22 | 22 | 0 | 0 |
 | `test_finegray_fvgrammar.do` | **factor grammar + missing-value scoring** (FG-05: `ibn.`/`bn.` base-none terms fit with legal `_fg_` names and full postestimation incl. dropped-column rebuild; FG-01: a missing underlying factor/continuous covariate scores as *missing*, never the fitted base category, across `xb`/CIF/interactions; unseen nonmissing level still errors `r(459)`) | 8 | 8 | 0 | 0 |
 | `test_finegray_fg03_diagnostic.do` | **phtest diagnostic-only** (FG-03: `r(phtest)` is `[correlation, events]`, no chi2/df/p in the matrix or the console; no-variation guard still fires `r(459)`) | 3 | 3 | 0 | 0 |
@@ -44,9 +44,9 @@ Two things about that number are worth stating, because both have gone wrong her
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (100 datasets, arms A/B/C/D/X, plus manifest/tolerance guards) | 102 | 102 | 0 | 0 |
 | `test_finegray_nuisance.do` | **`nuisance` (FG 1999 eq. 7-8 psi) contract** — R-free: materiality, default-unchanged, both refusal gates with positive controls, `e(vce_meat)`, cluster path, `sum(psi)==0` invariant, finite-sample composition, beta invariance, post-estimation non-propagation, the Mata-level LT guard, and the no-competing-events reduction to Cox | 12 | 12 | 0 | 0 |
 | `crossval_nuisance.do` | **`nuisance` parity vs the FG eq. (7)-(8) oracle** (5 fixtures: hand-checkable, tie-free, 5-way tied events, 3 censoring strata, PBC n=416/p=5). Checks **variances and covariances** — psi's effect is concentrated off-diagonal (up to 19.9% on PBC vs ~1% on the diagonals), and a covariance-only psi defect passes every diagonal assertion | 6 | 6 | 0 | 0 |
-| **Total** | | **609** | **609** | **0** | **0** |
+| **Total** | | **586** | **586** | **0** | **0** |
 
-Observed, not computed: `RESULT: run_all tests=29 pass=29 fail=0 skip=0` from the 2026-07-21 isolated `run_all.sh full` lane, with the 609 summed from that same lane's per-suite sentinels. See `run_all_status.txt`.
+Observed, not computed: `RESULT: run_all tests=27 pass=27 fail=0 skip=0` from the 2026-07-23 isolated `run_all.sh full` lane, with the 586 summed from that same lane's per-suite sentinels. See `run_all_status.txt`.
 
 A shell-level negative gate, `test_finegray_fg02_failclosed.sh`, is run by `run_all.sh` at the end of the `python` and `full` lanes (it manipulates `PATH`, so it cannot live in the `.do` runner): it puts a failing `Rscript` first on `PATH` with a complete stale oracle cache present and asserts the ZZF crossval fails **closed** (`r(9)`, no passing `RESULT:` line) rather than consuming the stale cache — the FG-02 fail-open regression.
 

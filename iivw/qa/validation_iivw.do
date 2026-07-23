@@ -1062,11 +1062,14 @@ if `run_only' == 0 | `run_only' == 25 {
 }
 
 * =============================================================================
-* V26: ns(3) interior knot at median (50th percentile)
+* V26: ns(3) has two interior knots at the tertiles and the exact RCS basis
 * =============================================================================
-* ns(3) → 1 interior knot at the 50th percentile. The knot position
-* determines where the second nonlinear basis changes slope. We verify
-* by checking that the internal knot = median of time.
+* ns(3) means three BASIS variables: one linear plus two nonlinear restricted-
+* cubic-spline columns.  It therefore has two interior knots, at 1/3 and 2/3 of
+* the observed time distribution.  The old test claimed one median knot but
+* asserted only that three variables existed and tns1 was linear -- a source-
+* comment false green.  This fixture has known boundaries 0/24 and known
+* tertile knots 6/18, so calculate both nonlinear columns independently.
 local ++test_count
 if `run_only' == 0 | `run_only' == 26 {
     capture noisily {
@@ -1090,13 +1093,32 @@ if `run_only' == 0 | `run_only' == 26 {
         quietly summarize tns1_diff
         assert r(max) < 1e-10
         drop tns1_diff
+
+        quietly _pctile months, percentiles(33.33333333333333 66.66666666666667)
+        local k1 = r(r1)
+        local k2 = r(r2)
+        assert abs(`k1' - 6) < 1e-12
+        assert abs(`k2' - 18) < 1e-12
+
+        gen double expected2 = ///
+            (max(0, months - 0)^3 - max(0, months - 24)^3) / 24 - ///
+            (max(0, months - 18)^3 - max(0, months - 24)^3) / 6
+        gen double expected3 = ///
+            (max(0, months - 6)^3 - max(0, months - 24)^3) / 18 - ///
+            (max(0, months - 18)^3 - max(0, months - 24)^3) / 6
+        gen double tns2_diff = abs(_iivw_tns2 - expected2)
+        gen double tns3_diff = abs(_iivw_tns3 - expected3)
+        quietly summarize tns2_diff, meanonly
+        assert r(max) < 1e-10
+        quietly summarize tns3_diff, meanonly
+        assert r(max) < 1e-10
     }
     if _rc == 0 {
-        display as result "  PASS: V26 - ns(3) linear basis and 3 variables"
+        display as result "  PASS: V26 - ns(3) tertile knots and exact RCS basis"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: V26 - ns(3) knots (error `=_rc')"
+        display as error "  FAIL: V26 - ns(3) tertile-knot basis (error `=_rc')"
         local ++fail_count
     }
 }

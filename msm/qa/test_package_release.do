@@ -183,6 +183,40 @@ else {
     local failed_tests "`failed_tests' R5"
 }
 
+* =========================================================================
+* R6: ancillary example data is retrievable through the documented net get
+* workflow. net install deliberately installs command/help files only.
+* =========================================================================
+local ++test_count
+tempfile netget_anchor
+local netget_dir "`netget_anchor'_dir"
+local original_pwd "`c(pwd)'"
+capture mkdir "`netget_dir'"
+capture noisily {
+    cd "`netget_dir'"
+    net get msm, from("`pkg_dir'") replace
+    confirm file msm_example.dta
+    use msm_example.dta, clear
+    assert _N == 4586
+    isid id period
+    confirm variable treatment outcome biomarker comorbidity age sex
+}
+local netget_rc = _rc
+capture cd "`original_pwd'"
+clear
+capture erase "`netget_dir'/msm_example.dta"
+capture rmdir "`netget_dir'"
+capture assert `netget_rc' == 0
+if _rc == 0 {
+    display as result "PASS R6: net get retrieves usable ancillary example data"
+    local ++pass_count
+}
+else {
+    display as error "FAIL R6: ancillary example data retrieval (rc=`netget_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R6"
+}
+
 * -------------------------------------------------------------------------
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"

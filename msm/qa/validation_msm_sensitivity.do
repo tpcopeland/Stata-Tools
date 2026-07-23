@@ -71,9 +71,21 @@ display as text ""
 local ++test_count
 capture noisily {
     _setup_example_logistic
-    msm_sensitivity, evalue
+    tempfile interpretation_stub
+    local interpretation_log "`interpretation_stub'.log"
+    capture log close sensinterp
+    quietly log using "`interpretation_log'", text replace name(sensinterp)
+    noisily msm_sensitivity, evalue
+    local got_effect = r(effect)
+    local got_evalue = r(evalue_point)
+    local got_cumulative_incidence = r(cumulative_incidence)
+    local got_rare_threshold = r(rare_threshold)
+    local got_approximation "`r(approximation)'"
+    local got_effect_label "`r(effect_label)'"
+    local got_rr_scale "`r(rr_scale)'"
+    capture log close sensinterp
 
-    local rr = r(effect)
+    local rr = `got_effect'
     if `rr' < 1 {
         local rr_use = 1 / `rr'
     }
@@ -82,13 +94,38 @@ capture noisily {
     }
     local expected_evalue = `rr_use' + sqrt(`rr_use' * (`rr_use' - 1))
 
-    assert r(evalue_point) > 1
-    assert abs(r(evalue_point) - `expected_evalue') < 1e-6
+    assert `got_evalue' > 1
+    assert abs(`got_evalue' - `expected_evalue') < 1e-6
     * Rarity is now the subject-level cumulative incidence by end of follow-up
     * (audit A12), not the old pooled person-period outcome mean.
-    assert r(cumulative_incidence) <= r(rare_threshold)
-    assert "`r(approximation)'" == "rare-outcome"
-    assert "`r(effect_label)'" == "OR"
+    assert `got_cumulative_incidence' <= `got_rare_threshold'
+    assert "`got_approximation'" == "rare-outcome"
+    assert "`got_effect_label'" == "OR"
+    assert "`got_rr_scale'" == "OR used directly (rare-outcome: RR~OR)"
+
+    * VanderWeele & Ding explicitly decline to define universal E-value
+    * cutoffs. The command must direct users to context, not label fixed ranges
+    * weak/moderate/strong.
+    tempname interpretation_fh
+    local found_context 0
+    local found_cutoff 0
+    file open `interpretation_fh' using "`interpretation_log'", read text
+    file read `interpretation_fh' interpretation_line
+    while r(eof) == 0 {
+        local interpretation_lc = lower(`"`macval(interpretation_line)'"')
+        if strpos(`"`interpretation_lc'"', "no universal e-value cutoff") {
+            local found_context 1
+        }
+        if strpos(`"`interpretation_lc'"', "weak unmeasured confounder") | ///
+            strpos(`"`interpretation_lc'"', "moderately strong unmeasured confounder") | ///
+            strpos(`"`interpretation_lc'"', "a strong unmeasured confounder") {
+            local found_cutoff 1
+        }
+        file read `interpretation_fh' interpretation_line
+    }
+    file close `interpretation_fh'
+    assert `found_context' == 1
+    assert `found_cutoff' == 0
 }
 if _rc == 0 {
     display as result "  PASS S1: rare logistic default E-value"

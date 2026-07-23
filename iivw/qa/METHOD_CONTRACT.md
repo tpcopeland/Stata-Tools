@@ -21,9 +21,12 @@ written from recall.
 propagates weight-estimation uncertainty. Its interval coverage has now been measured, and the answer
 depends on the weight type:** IIW 0.939 and IPTW 0.954 meet the preregistered rule
 (`cleared-at-studied-settings`); **FIPTIW covers 0.914 and does not** — its interval runs about 14% too
-narrow, while its point estimator is unaffected (`undercovers-at-studied-settings`). Coverage is
-established at one correctly specified cell per family at one sample size, so the status never degrades
-to a bare `cleared`. Record: `coverage_results/RESULT_2026-07-22.md`.
+narrow at `n=300`, while its point estimator is unaffected (`undercovers-at-studied-settings`). A
+prespecified FIPTIW sample-size diagnostic returned 0.950 coverage at `n=600` and 0.960 at `n=1200`
+(200 outer datasets per cell), supporting a finite-sample limitation in this DGP but not a universal
+cutoff. Coverage clearance remains established at one gate cell per family, so the status never degrades
+to a bare `cleared`. Records: `coverage_results/RESULT_2026-07-22.md` and
+`coverage_results/FIPTIW_NSCALE_2026-07-23.md`.
 
 ---
 
@@ -100,7 +103,7 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | **Estimand** | **ATE.** §12.3 p.154: the causal difference `E[Y^{a=1}] − E[Y^{a=0}]`, fitted as a weighted `E[Y\|A] = θ₀ + θ₁A`. **Technical Point 12.2 (p.155) proves** the IP-weighted mean equals the counterfactual mean `E[Y^a]`. |
 | **Weight** | `SW^A = f(A)/f(A\|L)`; per arm (p.153, verbatim): "`Pr[A=1]/f(A\|L)` for the treated and `Pr[A=0]/f(A\|L)` for the untreated". |
 | **Code** | `iivw_weight.ado:1155-1158` — `tw = p_treat/ps` if `treat==1`; `tw = (1-p_treat)/(1-ps)` if `treat==0`. `ps` from `logit treat treat_cov` on one row per subject (`:1066`); `p_treat` = subject-level marginal prevalence on that logit's own `e(sample)` (`:1080`). |
-| **Status** | ✅ **Grounded and correct** — exact match to the source, including the numerator rule (§2). Estimand grounded and **proved** in-source. ⚠️ **Not yet independently oracled**: no crossval verifies stabilized ATE IPTW against an independent implementation on one-row-per-subject data (Phase 2 owes this). |
+| **Status** | ✅ **Grounded and correct** — exact match to the source, including the numerator rule (§2). Estimand grounded and **proved** in-source. The stabilized ATE weight has both a hand-computed saturated oracle and an independent base-R `glm` construction in `validation_iivw_iptw_oracle.do` / `crossval_iivw_iptw_oracle.R`. |
 | **Boundary** | The **ATT** needs a *different* numerator (`p = Pr[A=1\|L]`, *What If* Technical Point 4.1, flagged in the p.153 margin). `iivw` does not implement it. **Do not broaden to ATT/ATC/multi-arm/time-varying** — this source does not cover them. |
 
 ### 3.4 FIPTIW — the product weight
@@ -111,8 +114,8 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | **Weight** | Product of the inverse monitoring intensity and the IPTW: `e_i(t;ω)/φ_i(t;γ_V)`, eq. (3.14) PDF p.85–86. Tompkins eq. (5) p.6 restates it as the plain product IPTW × IIW. |
 | **Code** | `iivw_weight.ado:1172` — `gen double weight = iw * tw`. ✅ matches. |
 | **⚠ Treatment MUST be in the visit-intensity model** | **Coulombe eq. (3.12), PDF p.85: `φ_i(t;γ_V) = exp(γ₁ᵀZ_i(t) + γ₂ I_i(t))`** — the treatment `I_i(t)` is *inside* the monitoring-intensity model. |
-| **Status** | ❌ **DEFECT (plan blocker #5).** `iivw_weight` builds the denominator from `visit_cov()` + generated lags and **never adds `treat()`**. Several shipped examples and recovery scenarios omit treatment from `visit_cov()`, so **they cannot detect this.** Phase 2 must add it by construction. |
-| **Also undocumented** | Coulombe's spline intercept default is **2 knots at the tertiles of `t`** (p.85) — `iivw_fit`'s `timespec(ns(#))` does not mention this default. |
+| **Status** | ✅ **FIXED.** `iivw_weight` adds `treat()` to the FIPTIW visit denominator by construction, deduplicates it, stores the choice, and replays it inside every refit bootstrap draw. `experimentalnotreatvisit` is an explicit unsupported opt-out. |
+| **Working time spline** | Coulombe uses **2 interior knots at the tertiles of `t`** (p.85). In `iivw_fit`, `timespec(ns(3))` means three basis variables (one linear plus two nonlinear) and places those two interior knots at the tertiles. This mapping is now explicit in the help/README and has a known-answer basis check in `validation_iivw.do` V26. |
 
 ### 3.5 Outcome estimating equation
 
@@ -130,10 +133,10 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | **What the code does** | **Since 2.0.0 the WEIGHTED default is the 999-draw refit subject bootstrap** (Phase 3B); `vce(fixed)` is the explicit weights-known cluster-robust sandwich (`vce(cluster id)`). A fixed-weight bootstrap (`vce(bootstrap, … fixedweights)`) also holds the weights fixed. Unweighted fits keep the cluster sandwich (no nuisance weights to propagate). |
 | **What B&L do** | **p.10–11.** The asymptotic variance `D⁻¹VD⁻¹` residualises the outcome score against the **visit-model score** before squaring: `V̂ = (1/n)Σ_i[Û_i − ĤÂ⁻¹∫(Z_i(t) − Z̄(t;γ̂))dM̂_i(t)]^⊗2`. In the authors' own words (p.11): **"We account for estimation of γ₀ by including the second term on right-hand side."** A plain fixed-weight sandwich is the **first term only** — it drops the `ĤÂ⁻¹(...)` correction entirely. |
 | **What Coulombe does** | **PDF p.86, verbatim:** the asymptotic variance is computed "with the components of variance due to the weights **incorporated into the sandwich estimator using theory on two-step estimators (Newey and McFadden [1994])**." |
-| **Status** | ⚠️ **IIVW-B02 coverage gate RUN 2026-07-22; split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule; **FIPTIW 0.914 did not** (0.92 floor). The IPTW arm also supplies B02's own separator: the fixed-weight SE runs 1.31x the empirical SD against the refit bootstrap's 1.02x, the over-coverage direction the framework predicted from the B&L projection. The open item is no longer "no coverage evidence" but the FIPTIW interval specifically, where three independent variance estimators agree with each other and all fall ~14% short of the empirical SD. |
-| **Documentation** | ✅ The shipped help states that the fixed-weight sandwich omits the nuisance-estimation correction and that the direction is not universal; under the registered correctly specified weight model it is conservative (over-wide). `iivw_fit.sthlp` now carries an *Inference status and coverage evidence* section giving the measured numbers per weight type, and a weighted FIPTIW fit prints its coverage shortfall at the point of use. |
+| **Status** | ⚠️ **IIVW-B02 coverage gate RUN 2026-07-22; split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule; **FIPTIW 0.914 did not at `n=300`** (0.92 floor). The IPTW arm also supplies B02's own separator: the fixed-weight SE runs 1.31x the empirical SD against the refit bootstrap's 1.02x, the over-coverage direction the framework predicted from the B&L projection. In the FIPTIW gate cell, three distinct variance estimators agree and all fall ~14% short of the empirical SD; that shows that selecting a weights-known alternative is not a repair, not that agreement alone proves every possible resampling defect absent. The P1 follow-up returned coverage 0.950 at `n=600` and 0.960 at `n=1200`, with standardized-statistic SD 1.021 and 1.003, supporting a finite-sample calibration problem in this DGP rather than a persistent asymptotic deficit. Those `R=200` cells are diagnostics, not new gates or a sample-size cutoff. |
+| **Documentation** | ✅ The shipped help states that the fixed-weight sandwich omits the nuisance-estimation correction and that its direction is not universal across the supported weight types. `iivw_fit.sthlp` carries an *Inference status and coverage evidence* section giving the measured numbers per weight type, and every FIPTIW variance path prints the shortfall because all three variance estimators were equally too narrow in the studied cell. |
 | **Consequence** | Fixed-weight R/Stata SE parity proves only that **both programs computed the same incomplete variance.** It is not evidence of valid inference. |
-| **Contract** | The **subject bootstrap that refits all nuisance models** is the default inferential path under `vce()`. Fixed-weight survives only behind `vce(fixed)` or `fixedweights`; the refit path remains `candidate` until the release coverage gate passes. |
+| **Contract** | The **subject bootstrap that refits all nuisance models** is the default inferential path under `vce()`. Fixed-weight survives only behind `vce(fixed)` or `fixedweights`. At 999 draws, IIW/IPTW are stamped `cleared-at-studied-settings`; FIPTIW is stamped `undercovers-at-studied-settings`; lower-replicate paths remain uncleared. |
 
 ### 3.7 Balance target (`iivw_balance`)
 
@@ -141,9 +144,9 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 |---|---|
 | **The identity being checked** | `E[Σ_visits w_ij g(Z_ij)] = E[∫ ξ_i(t) g(Z_i(t)) dΛ₀(t)]` — the IIW-weighted visit mean equals the mean over **at-risk person-time, in `dΛ₀` units**. `iivw_balance.ado:383-393` states this correctly and it is the right null for the **unstabilized** weight `w = exp(−γᵀZ)`. |
 | **Code — observed side** | ✅ Correct. `iivw_balance.ado:575-588` forms `exp(xb_stab − xb_full)` when `stabcov()` is present, `exp(-xb_full)` otherwise. |
-| **Code — target side** | ❌ **DEFECT (plan blocker #7).** The at-risk target is weighted by **`dΛ₀` alone** (`:604-615`, `predict, basechazard`), with **no `h(X)` factor**. |
+| **Code — target side** | ✅ The at-risk target is weighted by **`h(X)dΛ₀`** when `stabcov()` is present and by `dΛ₀` otherwise. The target mean and target variance use the same measure. |
 | **Why that is wrong** | With a stabilized weight `w = h(X)exp(−γᵀZ)`, the identity becomes `E[Σ w g] = E[∫ ξ h(X) g dΛ₀]`. The target must be weighted by **`h(X)dΛ₀`**. The present formula is correct **only** when the numerator is constant (or happens to cancel for the tested moment). |
-| **Status** | ❌ Defect. The observed weight is stabilized; the target it is compared against is not. Phase 4 fixes the target to `h(X)dΛ₀` for both target means **and** target variances. |
+| **Status** | ✅ **FIXED.** The saturated-stabilization identity (`stabcov()` equals the full visit model ⇒ weight 1 ⇒ target SMD 0) is pinned in `test_iivw_phase2_contract.do`. |
 | **Credit where due** | The command already **refuses to issue a verdict** when the nuisance model did not converge (`:739-749`), with an excellent comment: *"'good' here would be the most dangerous output the command can produce."* That instinct is right and must be extended to the stabilized case until the target is fixed. |
 
 ### 3.8 Truncation (`truncate()`)
@@ -151,9 +154,9 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | Item | Value |
 |---|---|
 | **Sources** | **Tompkins §4.4, p.12–13:** the 95th-percentile trimming recommendation, and the finding that trimming helps **only for IPTW-side extremes** — it did **not** repair visit-model misspecification. **Cole & Hernán, §Weight truncation:** truncation is a **bias–variance tradeoff**, explored by *progressively* truncating; "one can see the **growing bias** as the weights are progressively truncated." |
-| **Code** | `iivw_weight.ado:1205-1219` — `_pctile` on the **final product**, then clips it. |
-| **Status** | ❌ **DEFECT (plan blocker #8).** A generic final-product clip is applied **after** both components are formed, so it (a) cannot report *which* component moved, (b) has no unambiguous statistical target, and (c) leaves `iivw_balance` describing the **untruncated** IIW rather than the analysis weight. |
-| **Contract** | **The default supported analysis is untruncated IIW.** Truncation becomes component-specific (treatment / visit / final), is reported over a progression, always carries the bias warning, and is **never** described as a remedy for misspecification. |
+| **Code** | `truncvisit()`, `trunctreat()`, and `truncfinal()` clip the visit component, treatment component, or final product separately; each stores its realized cutpoints/count and preserves the corresponding raw component. |
+| **Status** | ✅ **FIXED.** `iivw_balance` defaults to the visit component and replays its stored trim; `component(final)` describes the analysis product without calling treatment-weight variation a visit-model defect. |
+| **Contract** | **The default supported analysis is untruncated.** Truncation is component-specific, reported as a sensitivity analysis, always carries the bias warning, and is **never** described as a remedy for misspecification. |
 
 ### 3.9 `iivw_exogtest`
 
@@ -203,9 +206,9 @@ damage hides. `S` = supported · `L` = legacy · `X` = experimental/quarantined 
 |---|---|---|
 | `model(gee)` `family` `link` `id` `time` `level` | **S** | Core (§3.5). |
 | `cluster` | **S-restricted** | Subject level only. A higher-level cluster design needs its own resampling/nuisance theory and must error until validated. |
-| `bootstrap` `refitweights` | **D** | The only corrective inferential path, and it is defective (`lagvars()` replay, state corruption). §3.6. |
+| `bootstrap` `refitweights` | **S-restricted** | The nuisance-refitting subject bootstrap is the primary inferential path. Replay and state defects are fixed and regression-pinned; coverage status remains weight-specific (§3.6). |
 | `categorical` `basecat` `interaction` `timebasecat` | **S** | Outcome-design construction. **Load-bearing for §2:** the stabilization check must map `stabcov()` against the design *after* these expand. |
-| **`timespec`** | **S** | **Previously unclassified.** This is Coulombe's spline intercept `α(t)`. His default is **2 knots at the tertiles of `t`** (PDF p.85) — `iivw` does not document that default. |
+| **`timespec`** | **S** | This is the working time trend. Coulombe's two interior tertile knots (PDF p.85) map to `timespec(ns(3))`; the help states that `#` counts basis variables, and V26 checks the exact basis. |
 | `unweighted` | **S** | The naive comparator. Essential to the recovery grid — it is the estimator that must *miss* when the DGP bites. |
 | `allownonconverged` | **X** | As above. |
 | `experimentalmixed` `mixedopts` | **X** | Not a valid weighted random-effects estimator (§3.10). **`mixedopts` shares the same variance-ownership contract as `geeopts` below** — it is validated by the same token-aware guard. |
@@ -227,11 +230,10 @@ Two options need naming because they are the sharp edges:
 
 `unweighted` `weighted` `adjusted` `estimand` `true` **X** · `level` `log` + styling **C**.
 
-> **Net:** of the 109 options, ~60 are cosmetic export/styling and carry no statistical content. Of the
-> remainder, this pass found **five statistically load-bearing options that no prior artifact
-> classified**: `efron`, `allownonconverged` (×2), `timespec`, `geeopts`, and `force`. **`geeopts` is the
-> serious one** — it can silently change the variance estimator, which is the exact quantity the release
-> blocker is about.
+> **Net:** of the 109 options, ~60 are cosmetic export/styling and carry no statistical content. The
+> statistically load-bearing surfaces (`efron`, `allownonconverged`, `timespec`, `geeopts`/`mixedopts`,
+> `force`, and the variance selectors) now have explicit contracts. Pass-through variance tokens are
+> rejected before estimation and the posted covariance is independently locked after fitting.
 
 ---
 
@@ -250,8 +252,8 @@ Two options need naming because they are the sharp edges:
 
 ## 5. Free, exact oracles this contract hands to QA
 
-Four checks that need **no external software**, are **hand-verifiable**, are **sourced**, and are **not in
-`iivw`'s QA today**. Cheapest correctness evidence available:
+Four checks that need **no external software**, are **hand-verifiable**, and are **sourced**. All four now
+have executable QA; they remain listed here because they are the cheapest correctness oracles:
 
 1. **`Z ⊆ X` ⇒ stabilized IIW ≡ unweighted.** B&L p.8: when the visit covariates are a subset of the
    stabilization covariates, the stabilized weight "equals one for all individuals at all times" under
@@ -277,7 +279,7 @@ Four checks that need **no external software**, are **hand-verifiable**, are **s
 | ID | Defect | Source that proves it | Plan blocker |
 |---|---|---|---|
 | **IIVW-B01** | Risk set truncated at last visit | B&L p.7 `ξ_i(t)=I(C_i>t)`; IrregLong `addcensoredrows()` | ✅ **FIXED in 2.0.0** |
-| **IIVW-B02** | Default variance treats estimated weights as known | B&L p.10–11; Coulombe PDF p.86 | #1 — **default now flipped (2.0.0), coverage gate still pending.** Phase 3B changed the WEIGHTED-GEE default: a bare weighted `iivw_fit` now selects the 999-draw subject bootstrap that refits every nuisance model, and `vce(fixed)` (the old default) is an explicit weights-known opt-in. `vce(bootstrap)` defaults to 999; fewer draws stamp `uncleared-low-reps`. RNG provenance (`e(iivw_rng)`, `e(iivw_rngstate_start)`), the CI type (`e(iivw_ci_type)=wald-normal`) and `e(iivw_inference_status)` are recorded; the refit default is stamped **`candidate`, NEVER `cleared`** — that word waits on the coverage+mutation gates. **The ≥1000×999 coverage simulation (`validation_iivw_inference.do`) has still not been run against the preregistered gate**, so the inference *claim* is not cleared even though the honest default now propagates weight-estimation uncertainty. Tests: `test_iivw_inference_contract` I12–I16 |
+| **IIVW-B02** | Default variance treated estimated weights as known | B&L p.10–11; Coulombe PDF p.86 | **PARTLY CLOSED, weight-specific evidence recorded.** Since 2.0.0, weighted GEE defaults to a 999-draw subject bootstrap that refits every nuisance model; `vce(fixed)` is the explicit weights-known opt-in. The 2026-07-22 preregistered 1000×999 coverage run measured IIW 0.939 and IPTW 0.954 (both pass), but FIPTIW 0.914 at `n=300` (fails the 0.92 floor). The P1 diagnostic then measured FIPTIW 0.950 at `n=600` and 0.960 at `n=1200` (`R=200` each), supporting a finite-sample limitation in that DGP but no universal cutoff. Status therefore remains `cleared-at-studied-settings` for IIW/IPTW and `undercovers-at-studied-settings` for FIPTIW. RNG provenance, Wald CI type, replicate accounting, warning text, and the VCE lock are regression-pinned in `test_iivw_inference_contract.do`. |
 | **IIVW-B03** | FIPTIW attributed to Tompkins, not Coulombe | Tompkins p.2, p.6 | ✅ fixed at backfill |
 | **IIVW-B04** | `stabcov()` not checked against the outcome design | B&L p.7, p.10; Cole & Hernán App. 1 | #4 — **FIXED 2.0.0** (Phase 2). `iivw_fit` maps `stabcov()` onto the expanded outcome design and errors before estimating if the numerator is not a function of it. `e(iivw_stabilization_validated)`, `e(iivw_stab_terms)`. Test: `test_iivw_phase2_contract` T8–T9; `validation_iivw_recovery_extended` S2a/S2b |
 | **IIVW-B05** | Treatment absent from the FIPTIW visit model | Coulombe eq. 3.12 | #5 — **FIXED 2.0.0** (Phase 2). `treat()` enters the visit-intensity denominator by construction, deduplicated, shown in the fitted spec, recorded on the contract and replayed. `experimentalnotreatvisit` is the labelled opt-out. Test: `test_iivw_phase2_contract` T1–T4; `test_iivw_literature_invariants` T2 |

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  04jul2026}{...}
+{* *! version 1.2.4  23jul2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -81,11 +81,13 @@ affected by past treatment and predictive of future treatment {hline 1} the
 classic "treatment-confounder feedback" problem.
 
 {pstd}
-Standard regression adjustment (including fixed-effects and random-effects
-models) cannot handle this structure without introducing bias. IPTW solves
-the problem by creating a pseudo-population where treatment is independent of
-measured confounders, allowing a simple weighted outcome model to estimate the
-causal effect.
+Standard regression adjustment for time-varying confounders affected by past
+treatment can block mediated effects or induce collider bias. Under
+consistency, sequential exchangeability, positivity, and adequate specification
+of the treatment, censoring, and marginal outcome models, IPTW creates a
+weighted pseudo-population in which treatment is independent of measured
+confounder history, allowing the weighted outcome model to identify the
+specified marginal causal effect.
 
 {pstd}
 The package covers the full analysis pipeline:

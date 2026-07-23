@@ -1,59 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-07-21T15:33:05Z
+date:        2026-07-22T23:46:15Z
 verdict:     PASS
 pkg_tree:    not-a-git-repo (unknown)
 head_commit: unknown
 stata_bin:   stata-mp
 R_version:   4.6.1
-
-pkg_tree:    ~/Stata-Tools/finegray (run from an isolated scratch copy per CLAUDE.md,
-             which is why the auto-filled pkg_tree/head_commit above read 'unknown')
-src_commit:  UNCOMMITTED at run time. The tested tree is the working tree of
-             ~/Stata-Tools/finegray as of 2026-07-21T15:33Z, comprising the
-             2026-07-21 review fixes, the graph/saving work, and the power
-             harness. It is committed immediately after this run; see the
-             finegray commit dated 2026-07-21 whose message names this receipt.
-             NOTE the deliberate difference from this file's previous revision:
-             that one recorded a commit hash for a run that predated the commit,
-             which is how it came to name a tree nobody could check out. A
-             receipt states what was true AT RUN TIME.
-src_dirty:   yes - by construction. Stata-Tools HEAD at run time was b2ba557
-             (an unrelated iivw commit from a concurrent session); no finegray
-             file in this run comes from it.
-totals:      29 suites, 613 checks, 0 failed, 0 skipped
-gate:        fg02_failclosed PASS (shell-level; run by run_all.sh, NOT by run_all.do)
-contention:  this lane shared the machine with another session's long-running
-             iivw Monte Carlo (2 stata-mp for ~2h) plus an iivw quick lane, which
-             is why it took ~1h wall clock rather than the usual ~20min. Results
-             are unaffected: the lane ran from its own scratch {_data,tabtools,
-             finegray} copy, so there was no shared-path or net-install collision
-             -- only CPU contention.
-note:        supersedes the 2026-07-21T00:27Z receipt (29 suites, 609 checks).
-             The +4 checks are test_finegray_gof G20 (the nsim floor display)
-             and G21-G23 (graph/saving: the RNG-ordering contract, the refusals,
-             and the saved-dataset shape plus state hygiene).
-             NOT covered by this lane: the two gates-lane Monte Carlos
-             (validation_finegray_gof_calibration.do and the new
-             validation_finegray_gof_power.do). Both are unrun at gate size.
-
-tree_delta:  the committed tree is NOT byte-identical to the tree this lane ran,
-             and here is exactly how, because "close enough" is how a receipt
-             stops being evidence. `diff -rq' between the two reports FOUR
-             differences and no others:
-               finegray/README.md      documentation
-               finegray/qa/README.md   documentation
-               finegray/qa/run_all.do  +19 comment lines, +1 gates_files entry
-               finegray/qa/validation_finegray_gof_power.do   NEW, gates lane only
-             No .ado, .sthlp, .pkg or executed test file differs, so the shipped
-             code this lane exercised is the shipped code being committed.
-             run_all.do IS loaded by every lane, so its edit was not taken on
-             trust either: the quick/core/python/full file lists were compared
-             and are byte-identical, and `run_all.sh quick' was then re-run on
-             the committed tree -- 16 suites, 16 pass, 0 fail, 0 skip -- which
-             proves the edited runner parses and still selects the same suites.
-             The power suite is in the `gates' lane, which `full' does not run.
 
 per-suite RESULT trail (as echoed by each suite):
 RESULT: test_finegray tests=136 pass=136 fail=0
@@ -62,7 +15,7 @@ RESULT: test_finegray_v120 tests=4 pass=4 fail=0
 RESULT: test_finegray_ties tests=6 pass=6 fail=0
 RESULT: test_finegray_optimizer tests=10 pass=10 fail=0
 RESULT: test_finegray_variance tests=6 pass=6 fail=0
-RESULT: test_finegray_bootstrap tests=6 pass=6 fail=0
+RESULT: test_finegray_bootstrap tests=8 pass=8 fail=0
 RESULT: test_finegray_postest tests=22 pass=22 fail=0
 RESULT: test_finegray_zzf tests=27 pass=27 fail=0
 RESULT: test_finegray_fvgrammar tests=8 pass=8 fail=0
@@ -70,7 +23,6 @@ RESULT: test_finegray_fg03_diagnostic tests=3 pass=3 fail=0
 RESULT: test_finegray_fg06_vce tests=3 pass=3 fail=0
 RESULT: test_finegray_fg07_options tests=6 pass=6 fail=0
 RESULT: test_finegray_nuisance tests=12 pass=12 fail=0
-RESULT: test_finegray_gof tests=23 pass=23 fail=0
 RESULT: test_documentation_examples tests=7 pass=7 fail=0
 RESULT: validation_finegray tests=45 pass=45 fail=0
 RESULT: validation_finegray_recovery tests=4 pass=4 fail=0
@@ -86,5 +38,24 @@ RESULT: crossval_finegray tests=55 pass=55 fail=0 skip=0
 RESULT: PASS (all 55 tests passed)
 RESULT: crossval_finegray_zzf tests=102 pass=102 fail=0
 RESULT: crossval_nuisance tests=6 pass=6 fail=0
-RESULT: crossval_gof tests=6 pass=6 fail=0
-RESULT: run_all tests=29 pass=29 fail=0 skip=0
+RESULT: run_all tests=27 pass=27 fail=0 skip=0
+
+# ----------------------------------------------------------------------------
+# Provenance (2026-07-23)
+# ----------------------------------------------------------------------------
+# pkg_tree/head_commit read 'unknown' because the lane was run from an isolated
+# scratch copy of ~/Stata-Tools/finegray (with a sibling tabtools/), per the
+# CLAUDE.md lane-isolation rule; the scratch copy is not a git repo, so the
+# auto-filled fields cannot resolve. The tested tree is the working tree of
+# ~/Stata-Tools/finegray as of 2026-07-23, comprising the finegray_gof removal
+# (commit 15c74b7) plus the 2026-07-23 documentation-drift fixes that follow it:
+# the .pkg description prose, five orphaned README changelog bullets, the
+# Distribution-Date/badge dates, and this receipt's own counts. No .ado, .sthlp
+# semantic, or QA-do file changed in that follow-up -- documentation and receipt
+# text only. It is committed immediately after this run.
+#
+# The suite count dropped 29 -> 27 and the check total 609 -> 586 relative to
+# the previous receipt because the two finegray_gof QA suites
+# (test_finegray_gof, crossval_gof) were removed with the module. The only
+# per-suite delta among the surviving suites is test_finegray_bootstrap
+# (6 -> 8 checks, from the bootstrap suite added in commit eec9556).

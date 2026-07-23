@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 2.2.0  2026/07/23
+*! iivw_exogtest Version 2.2.1  2026/07/23
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1125,9 +1125,11 @@ program define iivw_exogtest, rclass sortpreserve
     if `rc' != 0 {
         * Roll the name transaction back: drop the lag variables this call
         * created, then rename the user's prior copies into place.
+        local __iivw_rollback_failed ""
         foreach v of local __iivw_created_vars {
             capture drop `v'
-            local __iivw_drop_rc = _rc
+            if _rc local __iivw_rollback_failed ///
+                "`__iivw_rollback_failed' `v'(not dropped)"
         }
         local __iivw_bi = 0
         foreach g of local __iivw_bk_names {
@@ -1135,6 +1137,18 @@ program define iivw_exogtest, rclass sortpreserve
             local __iivw_bt : word `__iivw_bi' of `__iivw_bk_temps'
             capture drop `g'
             capture rename `__iivw_bt' `g'
+            if _rc local __iivw_rollback_failed ///
+                "`__iivw_rollback_failed' `g'(not restored)"
+        }
+        if "`__iivw_rollback_failed'" != "" {
+            display as error ""
+            display as error ///
+                "iivw_exogtest: ROLLBACK FAILED -- the data in memory is not intact"
+            display as error "  could not restore:`__iivw_rollback_failed'"
+            display as error ""
+            display as error "  Do not analyze this dataset. Reload it from disk."
+            display as error ///
+                "  (The command's own failure, reported above, is the return code.)"
         }
     }
     set varabbrev `__iivw_old_varabbrev'

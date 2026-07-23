@@ -447,6 +447,81 @@ else {
     local failed_tests "`failed_tests' T8"
 }
 
+**# T9: a late fit failure must not commit new fit metadata
+*
+* The variance lock runs after the outcome model and deliberately fails when
+* the posted covariance does not match the method iivw selected.  That is a
+* late failure: all design variables already exist and the model converged.
+* A failed call must nevertheless leave the previous fit contract byte-for-byte
+* intact.  Otherwise _iivw_fitted says the failed specification succeeded while
+* the name transaction has already rolled its generated variables back.
+
+local ++test_count
+capture noisily {
+    _iivw_state_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(L1) censor(fu_end) nolog
+
+    * Establish a valid prior fit whose metadata the failed rerun must preserve.
+    quietly iivw_fit y treat L1, timespec(linear) vce(fixed) nolog replace
+    _iivw_state_snap
+    local before "`r(blob)'"
+
+    * Shadow glm with a deterministic eclass test double that converges and
+    * posts a usable coefficient surface, but advertises the wrong VCE.  This
+    * reaches iivw_fit's final variance lock and forces its r(459) error after
+    * every earlier fit step has succeeded.
+    generate byte _iivw_mock_es = 0
+    capture program drop glm
+    program define glm, eclass
+        version 16.0
+        syntax varlist(numeric min=1) [if] [in] [pweight] [, *]
+        marksample touse
+        quietly replace _iivw_mock_es = `touse'
+        gettoken depvar covars : varlist
+
+        local k : word count `covars'
+        local ++k
+        tempname b V
+        matrix `b' = J(1, `k', 0)
+        matrix `V' = I(`k') * 0.01
+        local cnames "`covars' _cons"
+        matrix colnames `b' = `cnames'
+        matrix colnames `V' = `cnames'
+        matrix rownames `V' = `cnames'
+
+        ereturn post `b' `V', esample(_iivw_mock_es)
+        quietly count if `touse'
+        ereturn scalar N = r(N)
+        ereturn scalar converged = 1
+        ereturn local cmd "glm"
+        ereturn local depvar "`depvar'"
+        ereturn local family "Gaussian"
+        ereturn local link "identity"
+        ereturn local vce "robust"
+        ereturn local clustvar ""
+    end
+
+    capture noisily iivw_fit y treat L1, timespec(none) vce(fixed) nolog replace
+    local fit_rc = _rc
+    capture program drop glm
+    capture drop _iivw_mock_es
+    assert `fit_rc' == 459
+
+    _iivw_state_snap
+    assert "`r(blob)'" == "`before'"
+}
+local rc = _rc
+capture program drop glm
+if `rc' == 0 {
+    display as result "  PASS: T9 - a late fit failure preserves the prior fit contract"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T9 - late fit failure preserves prior metadata (error `rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T9"
+}
+
 **# Summary
 
 display as result "iivw state-contract results: `pass_count'/`test_count' passed, `fail_count' failed"

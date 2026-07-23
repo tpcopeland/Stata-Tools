@@ -178,6 +178,48 @@ else {
     set varabbrev off
 }
 
+* --- OUTADV5: msm_report propagates numeric-cell writer failures ---
+* Regression: the Summary and Coefficients numeric-conversion blocks used to
+* close their xl() objects but swallow the original helper rc. A later styling
+* block could then succeed and make a partially written workbook look valid.
+capture program drop _msm_xlsx_put_number
+program define _msm_xlsx_put_number, nclass
+    version 16.0
+    exit 459
+end
+
+local ++test_count
+capture noisily {
+    _outadv_setup_pipeline
+    set varabbrev on
+    local k_before = c(k)
+    tempfile poisoned_report
+    local poisoned_xlsx "`poisoned_report'.xlsx"
+
+    capture noisily msm_report, export("`poisoned_xlsx'") ///
+        format(excel) eform replace
+    local report_rc = _rc
+
+    assert `report_rc' == 459
+    assert c(varabbrev) == "on"
+    assert c(k) == `k_before'
+    _outadv_assert_pipeline_intact
+    set varabbrev off
+    capture erase "`poisoned_xlsx'"
+}
+local outadv5_rc = _rc
+capture program drop _msm_xlsx_put_number
+if `outadv5_rc' == 0 {
+    display as result "PASS OUTADV5: msm_report propagates numeric writer rc"
+    local ++pass_count
+}
+else {
+    display as error "FAIL OUTADV5: msm_report swallowed numeric writer rc (rc=`outadv5_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' OUTADV5"
+    set varabbrev off
+}
+
 display as text ""
 display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'

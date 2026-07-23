@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.2.3  2026/07/02
+*! msm_sensitivity Version 1.2.4  2026/07/23
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -300,23 +300,18 @@ program define msm_sensitivity, rclass
             display as text "  RR-scale input:          " ///
                 as result "`rr_scale_label'"
             display as text ""
+            display as text "  No universal E-value cutoff applies."
+            display as text "  Interpret both values against measured-confounder"
+            display as text "  associations and substantive plausibility."
 
             if `evalue_ci' <= 1 {
                 display as text "  The `level'% CI includes the null."
                 display as text "  No unmeasured confounding is needed to explain"
                 display as text "  the observed association at the `level'% level."
             }
-            else if `evalue_point' < 2 {
-                display as text "  A relatively weak unmeasured confounder"
-                display as text "  could explain the observed effect."
-            }
-            else if `evalue_point' < 3 {
-                display as text "  A moderately strong unmeasured confounder"
-                display as text "  would be needed to explain the observed effect."
-            }
             else {
-                display as text "  A strong unmeasured confounder would be needed"
-                display as text "  to explain the observed effect."
+                display as text "  The CI-limit E-value is the robustness measure"
+                display as text "  for moving the interval to the null."
             }
 
             return scalar evalue_point = `evalue_point'

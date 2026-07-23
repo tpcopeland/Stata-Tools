@@ -1948,10 +1948,10 @@ else {
 local ++test_count
 capture noisily {
     msm
-    assert "`r(version)'" == "1.2.3"
+    assert "`r(version)'" == "1.2.4"
 }
 if _rc == 0 {
-    display as result "  PASS D1: msm version is 1.2.3"
+    display as result "  PASS D1: msm version is 1.2.4"
     local ++pass_count
 }
 else {
