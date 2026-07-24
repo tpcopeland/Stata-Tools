@@ -326,7 +326,14 @@ Start with a subject-matter model that is smaller than the full dataset dictiona
 
 For an asymmetric interval, the displayed `P(z)` is still the two-sided normal test based on coefficient/SE; it is deliberately labelled because it is not obtained by inverting the percentile, basic, or BCa interval.
 
-The closest R packages do not supply a universally accepted IIW/FIPTIW interval. `IrregLong::iiwgee()` exposes the ordinary GEE sandwich after estimating the intensity weights. `CIMEHR` and `smoothedIPW` instead resample subjects, refit all stages, and report percentile bootstrap intervals. `iivw` implements that full-refit percentile route, but its availability is not treated as evidence of calibration: it covered 0.924 in the studied FIPTIW cell and still failed the fixed gate.
+**Bottom line: other R packages do not have a secret, generally valid IIVW/FIPTIW variance solution.** Their choices are useful comparators, but none establishes calibration for every IIVW estimator or design:
+
+- [`IrregLong::iiwgee()`](https://search.r-project.org/CRAN/refmans/IrregLong/html/iiwgee.html) exposes the ordinary fitted `geeglm` object, so its reported outcome-model inference is effectively fixed-weight GEE inference.
+- [CIMEHR's IIRR estimator](https://stat.ethz.ch/CRAN/web/packages/CIMEHR/CIMEHR.pdf) returns no analytic SE. Its optional bootstrap resamples subjects, refits every stage, and reports percentile intervals.
+- [`smoothedIPW`](https://cran.r-universe.dev/smoothedIPW/smoothedIPW.pdf) likewise resamples individuals, reruns the IPW estimator, and reports percentile intervals.
+- R's generic [`boot::boot.ci()`](https://stat.ethz.ch/R-manual/R-devel/library/boot/html/boot.ci.html) offers normal, basic, studentized, percentile, and BCa intervals. That menu is generic machinery, not evidence that any one interval is calibrated for a particular IIVW estimator.
+
+`iivw` implements the comparable full-refit percentile route, but availability is not treated as validation.
 
 Unweighted fits and IIW/IPTW weighted `model(mixed)` fits do **not** inherit the GEE refit-bootstrap default; they keep the analytic sandwich unless a `vce()` is named. Bare FIPTIW remains point-only under either outcome model. (`model(mixed)` under weights is experimental — interpret only its fixed-effect structure.) The legacy `bootstrap(#)` and `refitweights` options still work but are deprecated shims that print a note pointing to the equivalent `vce()`.
 
@@ -340,7 +347,23 @@ Unweighted fits and IIW/IPTW weighted `model(mixed)` fits do **not** inherit the
 
 "At studied settings" is load-bearing: one correctly specified scenario per family at one sample size. It is not a claim about a misspecified visit model, a different *n*, or a non-identity link.
 
-**No tested FIPTIW interval passed at the studied `n=300` setting.** The *point estimator* is not implicated — bias was +0.017 against a Monte Carlo SE of 0.039, under half an MCSE. Coverage was 0.914 for Wald, 0.924 for percentile, 0.896 for basic, 0.914 for bias-corrected, and 0.895 for BCa. The percentile improvement still missed the fixed gate. The refit bootstrap, fixed-weight bootstrap, and analytic sandwich agree within 0.5% on the SE; separate contract tests verify whole-subject resampling, the full weight-model frame, nuisance refitting, and delete-one-subject BCa acceleration. A prespecified larger-sample diagnostic found Wald coverage 0.950 at `n=600` and 0.960 at `n=1200` (200 outer datasets each), supporting a finite-sample problem in that DGP but not a universal safe cutoff.
+**No tested FIPTIW interval passed at the studied `n=300` setting.** The experiment used 1,000 simulated datasets and 999 full-refit bootstrap draws per dataset:
+
+| Interval | Coverage | 95% Wilson interval |
+|---|---:|---:|
+| Wald | 0.914 | [0.895, 0.930] |
+| Percentile | 0.924 | [0.906, 0.939] |
+| Basic | 0.896 | [0.876, 0.913] |
+| Bias-corrected | 0.914 | [0.895, 0.930] |
+| BCa | 0.895 | [0.874, 0.913] |
+
+The prespecified gate required point coverage of at least 0.92 and a 95% Wilson interval containing 0.95. None passed. Percentile was best, but its Wilson interval still excludes 0.95.
+
+The *point estimator* itself was fine: bias was +0.017 with Monte Carlo SE 0.039, under half an MCSE. The failure was interval calibration. The mean estimated SE was 1.062 versus an empirical SD of 1.239, so the estimated SEs were about 14% too small.
+
+The refit bootstrap, fixed-weight bootstrap, and analytic sandwich agree within 0.5% on the SE; separate contract tests verify whole-subject resampling, the full weight-model frame, nuisance refitting, and delete-one-subject BCa acceleration. The prespecified positivity-stress run was conditional on finding a base-cell winner. Because no interval passed, that stress run was not launched. Studentized intervals were not pursued: they require a variance estimate inside every bootstrap replicate, while the less costly higher-order BCa candidate already failed decisively.
+
+A prespecified larger-sample diagnostic found Wald coverage 0.950 at `n=600` and 0.960 at `n=1200` (200 outer datasets each), supporting a finite-sample problem in that DGP but not a universal safe cutoff.
 
 The package therefore follows a point-only default for FIPTIW. It prints coefficients only, launches no hidden bootstrap, stores missing endpoints in `e(iivw_ci)`, and does not post `e(V)`, so replay and inference-dependent postestimation cannot manufacture nominal intervals. It sets `e(properties)="b"`, `e(iivw_interval_available)=0`, and stamps `e(iivw_vce)="none"` plus `e(iivw_inference_status)="point-only-no-valid-interval"`. Replay is coefficient-only. `e(iivw_underlying_vce)` records the covariance route validated internally before suppression. Full comparison: [`qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md`](qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md).
 

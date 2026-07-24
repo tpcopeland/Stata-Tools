@@ -231,10 +231,21 @@ deprecated shims that print a note pointing at the equivalent {opt vce()}.{p_end
 Wald interval met the preregistered rule for IIW (0.939) and IPTW (0.954),
 whereas for FIPTIW at {cmd:n=300}, Wald (0.914), percentile (0.924), basic
 (0.896), bias-corrected (0.914), and BCa (0.895) all missed the same fixed
-rule; the FIPTIW point estimate is unaffected, and explicit nominal inference remains
-available with a warning. Coverage was studied in one correctly specified
-identity-link scenario, not every sample size, link, or specification. See
+rule. The FIPTIW point estimator itself was fine: bias was +0.017 with a Monte
+Carlo SE of 0.039. The estimated SE was about 14% too small, however: 1.062
+against an empirical SD of 1.239. Explicit nominal inference remains available
+with a warning. Coverage was studied in one correctly specified identity-link
+scenario, not every sample size, link, or specification. See
 {help iivw_fit##inference:iivw_fit, Inference status}.{p_end}
+
+{phang2}(g) Comparable R software does not supply a hidden, generally
+valid solution. {cmd:IrregLong} exposes ordinary fixed-weight GEE
+inference; {cmd:CIMEHR} and {cmd:smoothedIPW} use subject-level full-refit
+percentile
+bootstraps; and {cmd:boot::boot.ci()} supplies generic transformations without
+estimator-specific calibration. The FIPTIW comparison, direct software links,
+full Wilson table, and follow-up decisions are documented in
+{help iivw_fit##fiptiwcoverage:iivw_fit, FIPTIW coverage evidence}.{p_end}
 
 {pstd}
 {opt censor()} supplies the end of observation time and nothing more: it bounds

@@ -866,9 +866,48 @@ misspecified visit model, a different sample size, or a non-identity link. A
 
 {marker fiptiwcoverage}{...}
 {pstd}
-{bf:The FIPTIW shortfall.} For FIPTIW the Wald interval covered 0.914, with a 95%
-Wilson interval of [0.895, 0.930] -- below the 0.92 floor, and excluding
-0.95. Two things matter for how you read that:
+{bf:What comparable R software does.} Other R packages do not provide a
+secret, generally valid IIVW/FIPTIW variance solution. Their choices are useful
+comparators, not proof of calibration:
+
+{phang2}
+{browse "https://search.r-project.org/CRAN/refmans/IrregLong/html/iiwgee.html":IrregLong iiwgee()}
+exposes the ordinary fitted {cmd:geeglm} object, so its reported outcome-model
+inference is effectively fixed-weight GEE inference.
+
+{phang2}
+{browse "https://stat.ethz.ch/CRAN/web/packages/CIMEHR/CIMEHR.pdf":CIMEHR's IIRR estimator}
+returns no analytic SE. Its optional bootstrap resamples subjects, refits
+every stage, and reports percentile intervals.
+
+{phang2}
+{browse "https://cran.r-universe.dev/smoothedIPW/smoothedIPW.pdf":smoothedIPW}
+likewise resamples individuals, reruns the IPW estimator, and reports
+percentile intervals.
+
+{phang2}
+{browse "https://stat.ethz.ch/R-manual/R-devel/library/boot/html/boot.ci.html":R boot::boot.ci()}
+offers normal, basic, studentized, percentile, and BCa intervals. That menu is
+generic machinery; it does not establish calibration for a particular IIVW
+estimator.
+
+{pstd}
+{bf:The FIPTIW shortfall.} The {cmd:n=300} experiment used 1000 simulated
+datasets and 999 full-refit bootstrap draws per dataset:
+
+{p2colset 5 24 26 2}{...}
+{p2col:{bf:Interval}}{bf:Coverage    95% Wilson interval}{p_end}
+{p2col:{cmd:Wald}}0.914       [0.895, 0.930]{p_end}
+{p2col:{cmd:Percentile}}0.924       [0.906, 0.939]{p_end}
+{p2col:{cmd:Basic}}0.896       [0.876, 0.913]{p_end}
+{p2col:{cmd:Bias-corrected}}0.914       [0.895, 0.930]{p_end}
+{p2col:{cmd:BCa}}0.895       [0.874, 0.913]{p_end}
+{p2colreset}{...}
+
+{pstd}
+The prespecified gate required point coverage of at least 0.92 and a 95% Wilson
+interval containing 0.95. None passed. Percentile was best, but its Wilson
+interval still excludes 0.95. Two things matter for how you read that:
 
 {phang2}
 1. {bf:The point estimator is not implicated.} Bias was +0.017 against a Monte
@@ -882,16 +921,20 @@ error was 1.062 where the empirical standard deviation of the estimates was
 0.91 rather than 0.95, which is what was observed.
 
 {pstd}
-Changing the interval transformation did not solve the problem. Percentile
-coverage was 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895, so
-the percentile improvement was real but still missed the fixed gate. The
-refit bootstrap, fixed-weight bootstrap, and analytic sandwich also agree to
-within 0.5% on the SE and all fall short. Separate contract tests verify that
-the refit bootstrap resamples whole subjects, rebuilds the full weight-model
-frame, refits the nuisance models, and computes BCa acceleration over
-delete-one subjects. Together, that evidence shows that substituting a
+The refit bootstrap, fixed-weight bootstrap, and analytic sandwich also agree
+to within 0.5% on the SE and all fall short. Separate contract tests verify
+that the refit bootstrap resamples whole subjects, rebuilds the full
+weight-model frame, refits the nuisance models, and computes BCa acceleration
+over delete-one subjects. Together, that evidence shows that substituting a
 weights-known variance or another common bootstrap transformation does not
 repair the FIPTIW interval.
+
+{pstd}
+The prespecified positivity-stress run was conditional on finding a
+base-cell winner. Because no interval passed, that stress run was not
+launched. Studentized intervals were not pursued: they require a variance
+estimate inside every bootstrap replicate, while the less costly higher-order
+BCa candidate already failed decisively.
 
 {pstd}
 {bf:Sample-size diagnostic.} A prespecified follow-up repeated the same FIPTIW
