@@ -34,6 +34,9 @@ set varabbrev off
 *      The real run would skip all of them and certify pilot rows as the
 *      release gate. Fixed 2026-07-22 by stamping (reps, sims, seed) into
 *      every block row and verifying them in combine.
+*   4. The new propensity-overlap stress parameter opened the same contamination
+*      door: a PSCALE=1.5 block has the same family/range filename as PSCALE=1.
+*      Fixed by stamping PSCALE in every row and segregating runner pools.
 *
 * Defects 1 and 2 were verified interactively only; the runbook recorded that
 * as an open item. This file is that coverage.
@@ -92,7 +95,8 @@ capture program drop _cg_block
 program define _cg_block
     version 16.0
     syntax , dir(string) from(integer) to(integer) ///
-        reps(integer) sims(integer) seed(integer) [STAMPED(integer 1) NSUB(integer 0)]
+        reps(integer) sims(integer) seed(integer) ///
+        [STAMPED(integer 1) NSUB(integer 0) PSCALE(real 1)]
     quietly {
         clear
         local n = `to' - `from' + 1
@@ -104,12 +108,29 @@ program define _cg_block
             gen long   blk_sims = `sims'
             gen long   blk_nsub = `nsub'
             gen double blk_seed = `seed'
+            gen double blk_pscale = `pscale'
         }
         * Values are placeholders. Coverage is set to a fixed 0.94 pattern so
         * the arithmetic is deterministic and no arm depends on a random draw.
         gen double b_refit   = 0.5
         gen double se_refit  = 0.05
         gen byte   cov_refit = mod(_n, 100) > 6
+        gen double ci_wald_lo = 0.4
+        gen double ci_wald_hi = 0.6
+        gen double ci_pct_lo = 0.4
+        gen double ci_pct_hi = 0.6
+        gen byte   cov_pct = cov_refit
+        gen double ci_basic_lo = 0.4
+        gen double ci_basic_hi = 0.6
+        gen byte   cov_basic = cov_refit
+        gen double ci_bc_lo = 0.4
+        gen double ci_bc_hi = 0.6
+        gen byte   cov_bc = cov_refit
+        gen double ci_bca_lo = 0.4
+        gen double ci_bca_hi = 0.6
+        gen byte   cov_bca = cov_refit
+        gen double z0_refit = 0
+        gen double accel_refit = 0
         gen double b_fix   = 0.5
         gen double se_fix  = 0.0515
         gen byte   cov_fix = mod(_n, 100) > 5
@@ -132,7 +153,7 @@ capture program drop _cg_combine
 program define _cg_combine, rclass
     version 16.0
     syntax , pkgdir(string) root(string) combreps(integer) combsims(integer) ///
-        combseed(integer)
+        combseed(integer) [COMBPSCALE(real 1)]
     quietly {
         * Clean ONLY the package copy. `root'/blocks holds the fabricated pool
         * the caller just wrote; wiping `root' wholesale destroys it, every
@@ -160,7 +181,7 @@ program define _cg_combine, rclass
     * into a missing RESULT line, which every arm below already treats as a
     * failure. 180s is ~1600x the measured aggregation cost (0.07-0.11s).
     quietly shell cd "`root'/iivw/qa" && timeout 180 stata-mp -b do validation_iivw_inference.do ///
-        combine_iiw `combsims' `combreps' `combseed' > /dev/null 2>&1
+        combine_iiw `combsims' `combreps' `combseed' 0 0 0 `combpscale' > /dev/null 2>&1
     return local logfile "`root'/iivw/qa/validation_iivw_inference.log"
 end
 
@@ -485,6 +506,38 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' G9"
     display "FAIL G9: a diagnostic nsub pool was accepted as a gate cell"
+}
+
+* ===========================================================================
+* G10 - propensity-stress blocks cannot be combined under the base-cell label.
+*       Without the blk_pscale stamp, the ranges and every older provenance
+*       field agree and combine would certify a different overlap regime.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    quietly shell rm -rf "`root'/blocks"
+    quietly shell mkdir -p "`root'/blocks"
+    forvalues f = 1(50)1000 {
+        local t = `f' + 49
+        _cg_block, dir("`root'/blocks") from(`f') to(`t') ///
+            reps(999) sims(1000) seed(20260715) pscale(1.5)
+    }
+    _cg_combine, pkgdir("`pkg_dir'") root("`root'") ///
+        combreps(999) combsims(1000) combseed(20260715) combpscale(1)
+    local lg "`r(logfile)'"
+    _cg_grep, logfile("`lg'") pattern("blocks were produced at blk_pscale=1.5")
+    assert r(found) == 1
+    _cg_grep, logfile("`lg'") pattern("RESULT: validation_iivw_inference iiw gate=")
+    assert r(found) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS G10: positivity-stress rows cannot be certified as the base cell"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' G10"
+    display "FAIL G10: a PSCALE=1.5 pool was accepted under the PSCALE=1 label"
 }
 
 quietly shell rm -rf "`root'"

@@ -29,6 +29,7 @@
 #   SIMS      whole-study size      (default: 1000)  -- NOT the block size
 #   REPS      inner bootstrap draws (default: 999)
 #   SEED      master seed           (default: 20260715)
+#   PSCALE    FIPTIW propensity-slope multiplier (default: 1)
 #   FAMILIES  families to run       (default: "iiw fiptiw iptw")
 # =============================================================================
 set -uo pipefail
@@ -40,6 +41,7 @@ BLOCK="${BLOCK:-50}"
 SIMS="${SIMS:-1000}"
 REPS="${REPS:-999}"
 SEED="${SEED:-20260715}"
+PSCALE="${PSCALE:-1}"
 # Longest-pole first: iiw and fiptiw refit far more per draw than iptw, so
 # starting them first minimises total wall-clock (LPT scheduling).
 FAMILIES="${FAMILIES:-iiw fiptiw iptw}"
@@ -51,7 +53,7 @@ WORK="$BASE/work"
 # skip-if-present test -- the real run would then skip every block and combine
 # would certify pilot rows. The do-file refuses such a union outright (it stamps
 # and verifies provenance per row); this keeps the two from ever meeting.
-POOL="$BASE/blockpool/r${REPS}_s${SEED}"
+POOL="$BASE/blockpool/r${REPS}_s${SEED}_p${PSCALE}"
 COMBINE="$BASE/combine"
 LOGS="$BASE/logs"
 
@@ -130,7 +132,7 @@ run_one() {
     [ -d "$d" ] || { echo "FAIL  $tag (no work tree -- run prep)"; return 1; }
 
     ( cd "$d" && stata-mp -b do validation_iivw_inference.do \
-        "$fam" "$SIMS" "$REPS" "$SEED" "$f" "$t" ) >/dev/null 2>&1
+        "$fam" "$SIMS" "$REPS" "$SEED" "$f" "$t" 0 "$PSCALE" ) >/dev/null 2>&1
 
     # stata-mp -b ALWAYS exits 0 -- the exit status is not a verdict. The real
     # artifact is the rows file; the RESULT line is the corroborating check.
@@ -145,7 +147,7 @@ run_one() {
     return 1
 }
 export -f run_one blocktag
-export WORK POOL LOGS SIMS REPS SEED
+export WORK POOL LOGS SIMS REPS SEED PSCALE
 
 cmd_run() {
     mkdir -p "$POOL" "$LOGS"
@@ -191,7 +193,7 @@ cmd_combine() {
     for fam in $FAMILIES; do
         echo "--- combine_$fam ---"
         ( cd "$d" && stata-mp -b do validation_iivw_inference.do \
-            "combine_$fam" "$SIMS" "$REPS" "$SEED" ) >/dev/null 2>&1
+            "combine_$fam" "$SIMS" "$REPS" "$SEED" 0 0 0 "$PSCALE" ) >/dev/null 2>&1
         cp -f "$d/validation_iivw_inference.log" "$LOGS/combine_$fam.log" 2>/dev/null
         # Exit status is meaningless in batch mode; read the RESULT line.
         line=$(grep -E "^RESULT: validation_iivw_inference $fam gate=" \

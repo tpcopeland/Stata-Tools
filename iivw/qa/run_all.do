@@ -147,6 +147,7 @@ else {
         test_iivw_v200_phase3b ///
         test_iivw_v200_coverage ///
         test_iivw_v200_qagate ///
+        test_iivw_interval_contract ///
         test_iivw_failclosed ///
         test_iivw_coverage_gate ///
         test_help_examples ///

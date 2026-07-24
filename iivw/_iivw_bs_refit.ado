@@ -1,4 +1,4 @@
-*! _iivw_bs_refit Version 2.2.1  2026/07/23
+*! _iivw_bs_refit Version 2.3.0  2026/07/23
 *! Bootstrap wrapper for iivw_fit, refitweights: recomputes IIW/IPTW/FIPTIW
 *! weights from scratch on each resampled panel before refitting the outcome
 *! model, so the bootstrap propagates weight-estimation uncertainty.
@@ -9,6 +9,7 @@ program define _iivw_bs_refit, eclass
     version 16.0
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
+    local __iivw_data_preserved = 0
 
     * ---------------------------------------------------------------------
     * Snapshot the ENTIRE _iivw_ characteristic namespace.
@@ -98,6 +99,21 @@ program define _iivw_bs_refit, eclass
     if "`outcometouse'" != "" {
         quietly replace `touse' = 0 if `outcometouse' == 0 | missing(`outcometouse')
     }
+
+    * bootstrap physically replaces the data with a resampled panel before it
+    * calls this helper. jackknife does not: for BCa acceleration it leaves the
+    * full panel in memory and passes an if marker that excludes one subject.
+    * iivw_weight intentionally takes no if qualifier, so merely carrying that
+    * marker into the outcome equation would refit the nuisance models on the
+    * FULL panel -- a fixed-weight jackknife silently labelled as full-refit.
+    *
+    * Restrict the data to the prefix's actual frame before rebuilding any
+    * weights. preserve/restore keeps the caller's panel intact and, after the
+    * fit, restores frame_touse with zeroes on the deleted subject so e(sample)
+    * still tells jackknife which cluster was omitted.
+    preserve
+    local __iivw_data_preserved = 1
+    quietly keep if `frame_touse'
 
     * Same pass-through guard as iivw_fit (IIVW-B08): no variance/resampling
     * token in geeopts()/mixedopts() may reach the inner glm inside a draw.
@@ -286,10 +302,44 @@ program define _iivw_bs_refit, eclass
     * user-facing e(N) from the observed outcome fit, so the reported N stays
     * the number of outcome rows and does not become the panel row count.
     * ---------------------------------------------------------------------
+    quietly count if `frame_touse'
+    local _iivw_bs_frame_N = r(N)
     ereturn repost, esample(`frame_touse')
+    * Stata's BCa jackknife must compare each delete-one fit against this
+    * resampling-frame count, not glm's smaller outcome-row e(N). iivw_fit
+    * supplies n(e(iivw_bs_frame_N)) to jackknife for that documented count
+    * contract. Ordinary bootstrap draws ignore the scalar.
+    ereturn scalar iivw_bs_frame_N = `_iivw_bs_frame_N'
 
     }
     local rc = _rc
+
+    * Undo the jackknife-only physical restriction (and the replicate's fresh
+    * weight columns) on both success and failure. A restore failure is itself
+    * state corruption: surface it if no earlier error exists, and never hide it
+    * behind the primary return code.
+    if `__iivw_data_preserved' {
+        capture noisily restore
+        local __iivw_restore_rc = _rc
+        if `__iivw_restore_rc' {
+            display as error "_iivw_bs_refit could not restore the resampling frame"
+            if `rc' == 0 local rc = `__iivw_restore_rc'
+        }
+        else if `rc' == 0 {
+            * restore reinstates the caller's panel but invalidates the
+            * e(sample) binding posted while the physically restricted copy was
+            * in memory. Repost against the restored marker: in an ordinary
+            * bootstrap it marks the whole resampled panel; in a jackknife call
+            * it retains zeroes for the omitted subject.
+            capture noisily ereturn repost, esample(`frame_touse')
+            local __iivw_repost_rc = _rc
+            if `__iivw_repost_rc' {
+                display as error ///
+                    "_iivw_bs_refit could not repost the restored resampling frame"
+                local rc = `__iivw_repost_rc'
+            }
+        }
+    }
 
     * ---------------------------------------------------------------------
     * Restore the snapshotted weighting contract. Runs on success and on error.

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.2.1  23jul2026}
+{* *! version 2.3.0  23jul2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -179,7 +179,9 @@ treatment-weight component.{p_end}
 {p2col:Treatment effect changes over time}
 Use {cmd:iivw_fit, interaction(treatment)} after weighting. Interpret the
 interaction on the chosen time scale and use Stata post-estimation commands
-for contrasts at clinically meaningful times.{p_end}
+for contrasts at clinically meaningful times. For FIPTIW, inference from
+{cmd:lincom} or {cmd:margins} requires explicitly requested nominal inference
+because the bare fit is point-only.{p_end}
 {p2col:Sampling bias versus repeated-measurement artifact}
 Fit unweighted, weighted, and measurement-adjusted models; run
 {cmd:iivw_balance} and {cmd:iivw_exogtest}; then summarize the
@@ -216,21 +218,23 @@ package is not a time-varying treatment MSM implementation.{p_end}
 near-certain treatment assignments create extreme weights and unstable
 estimates.{p_end}
 
-{phang2}(e) A weighted {help iivw_fit:iivw_fit} defaults to a 999-draw subject-level
-bootstrap that {bf:refits} the {cmd:iivw_weight} models inside every replicate, so the
-reported interval propagates weight-estimation uncertainty. {cmd:vce(fixed)} and
+{phang2}(e) A weighted IIW/IPTW {help iivw_fit:iivw_fit} defaults to a 999-draw
+subject-level bootstrap that {bf:refits} the {cmd:iivw_weight} models inside
+every replicate, so the reported interval propagates weight-estimation
+uncertainty. A bare FIPTIW fit is point-only because no studied interval passed
+the prespecified coverage gate. {cmd:vce(fixed)} and
 {cmd:vce(bootstrap, ... fixedweights)} hold the weights fixed and omit that
 term; the older {opt bootstrap(#)} and {opt refitweights} spellings still run, as
-deprecated shims that print a note pointing at the equivalent {opt vce()}; since
-2.0.0 {opt refitweights} requests what a weighted fit already does by default.{p_end}
+deprecated shims that print a note pointing at the equivalent {opt vce()}.{p_end}
 
-{phang2}(f) That default interval's coverage was measured on 2026-07-22 (1000
-datasets x 999 draws per weight family). It met the preregistered rule for IIW
-(0.939) and IPTW (0.954), and {bf:did not} for FIPTIW (0.914, against a 0.92
-floor): the FIPTIW point estimate is unaffected, but its interval is roughly 14%
-too narrow. Coverage was established at one correctly specified scenario per
-family at one sample size, so it is not a claim about every sample size, link, or
-specification. See {help iivw_fit##inference:iivw_fit, Inference status}.{p_end}
+{phang2}(f) Coverage was measured with 1000 datasets x 999 draws. The refit
+Wald interval met the preregistered rule for IIW (0.939) and IPTW (0.954),
+whereas for FIPTIW at {cmd:n=300}, Wald (0.914), percentile (0.924), basic
+(0.896), bias-corrected (0.914), and BCa (0.895) all missed the same fixed
+rule; the FIPTIW point estimate is unaffected, and explicit nominal inference remains
+available with a warning. Coverage was studied in one correctly specified
+identity-link scenario, not every sample size, link, or specification. See
+{help iivw_fit##inference:iivw_fit, Inference status}.{p_end}
 
 {pstd}
 {opt censor()} supplies the end of observation time and nothing more: it bounds
@@ -452,7 +456,7 @@ observation times. R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.2.1, 2026-07-23{p_end}
+{pstd}Version 2.3.0, 2026-07-23{p_end}
 
 
 {title:Also see}

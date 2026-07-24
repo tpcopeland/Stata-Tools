@@ -87,7 +87,10 @@ into an artifact gap. Those subtractions mean nothing unless all three
 estimates are of the same coefficient, of the same outcome, on the same scale,
 at the same cluster level. The command therefore checks {cmd:e(depvar)},
 {cmd:e(cmd)}, {cmd:e(family)}/{cmd:e(link)} and {cmd:e(clustvar)} across the
-three roles and exits with an error if they disagree. Presence of the named
+three roles and exits with an error if they disagree. For an {cmd:iivw_fit}
+result, the estimator comparison uses its preserved
+{cmd:e(iivw_underlying_cmd)} so a wrapped {cmd:glm} remains comparable with an
+otherwise identical direct {cmd:glm} fit. Presence of the named
 coefficient in all three models is {it:not} sufficient: three regressions of
 three different outcomes all contain {cmd:mpg}, and differencing their
 {cmd:mpg} coefficients produces a precise-looking decomposition of nothing.

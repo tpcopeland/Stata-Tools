@@ -178,7 +178,7 @@ iivw_weight, ///
     treat(tx) ///
     treat_cov(age female edss0 sdmt0 dur naive) ///
     stabcov(tx) ///
-    truncate(1 99) efron replace nolog
+    truncfinal(1 99) efron replace nolog
 
 display as text "FIPTIW effective sample size: " as result %9.1f r(ess) ///
     as text " of " as result %9.0f r(N)
@@ -198,9 +198,12 @@ iivw_balance, nolog ///
 display as text "Balance export: " as result "xlsx() sheet Balance"
 
 * # Step 5: weighted and artifact-adjusted outcome models
+* These stored models feed interval-bearing diagnostic tables below, so the
+* FIPTIW fits explicitly request the nominal weights-known sandwich. A bare
+* FIPTIW call is point-only.
 iivw_fit sdmt tx years tx_years relapse ///
     age female edss0 dur naive sdmt0, ///
-    model(gee) timespec(none) replace nolog
+    model(gee) timespec(none) vce(fixed) replace nolog
 estimates store M_fiptiw
 
 gen double log_testno = log(testno + 1)
@@ -208,7 +211,7 @@ label variable log_testno "log(test number + 1)"
 
 iivw_fit sdmt tx years tx_years relapse ///
     age female edss0 dur naive sdmt0 log_testno, ///
-    model(gee) timespec(none) replace nolog
+    model(gee) timespec(none) vce(fixed) replace nolog
 estimates store M_adjusted
 
 * # Step 6: exogeneity check and diagnostic decomposition
@@ -250,12 +253,12 @@ iivw_weight, ///
     treat(tx) ///
     treat_cov(age female edss0 sdmt0 dur naive) ///
     stabcov(tx) ///
-    truncate(1 99) efron replace nolog
+    truncfinal(1 99) efron replace nolog
 
 collect clear
 iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
     model(gee) timespec(categorical) timebasecat(1) ///
-    categorical(tx) interaction(tx) replace nolog collect
+    categorical(tx) interaction(tx) vce(fixed) replace nolog collect
 
 local cat_time "`e(iivw_time_cat_vars)'"
 local cat_ix "`e(iivw_ix_vars)'"
@@ -320,10 +323,10 @@ collect: iivw_fit sdmt tx years tx_years relapse ///
     unweighted id(id) time(years) timespec(none) replace nolog
 collect: iivw_fit sdmt tx years tx_years relapse ///
     age female edss0 dur naive sdmt0, ///
-    model(gee) timespec(none) replace nolog
+    model(gee) timespec(none) vce(fixed) replace nolog
 collect: iivw_fit sdmt tx years tx_years relapse ///
     age female edss0 dur naive sdmt0 log_testno, ///
-    model(gee) timespec(none) replace nolog
+    model(gee) timespec(none) vce(fixed) replace nolog
 
 regtab, xlsx("`xlsx'") sheet("Diagnostic") ///
     models("Unweighted \ FIPTIW \ FIPTIW + log(test+1)") ///
@@ -360,12 +363,12 @@ iivw_weight, ///
     treat(tx) ///
     treat_cov(age female edss0 sdmt0 dur naive) ///
     stabcov(tx) ///
-    truncate(1 99) efron replace nolog
+    truncfinal(1 99) efron replace nolog
 
 collect clear
 iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
     model(gee) timespec(categorical) timebasecat(1) ///
-    categorical(tx) interaction(tx) replace nolog collect
+    categorical(tx) interaction(tx) vce(fixed) replace nolog collect
 
 regtab, xlsx("`xlsx'") sheet("Visit waves") ///
     title("Treatment by visit wave") ///

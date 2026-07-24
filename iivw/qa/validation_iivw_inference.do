@@ -11,6 +11,11 @@ set varabbrev off
 * dataset it forms the reported normal/Wald interval three ways -- the refit
 * bootstrap (candidate release method), the fixed analytic sandwich, and the
 * fixed-weight bootstrap -- and asks whether the 95% interval covers the truth.
+* For every refit draw set it also evaluates the percentile, reverse-percentile
+* (basic), and bias-corrected intervals. For FIPTIW it additionally requests
+* BCa, which reuses those draws but estimates acceleration by leave-one-subject-
+* out jackknife. The first three are interval transformations with no additional
+* bootstrap fits; BCa adds the jackknife refits.
 *
 * The RELEASE run is >= COVERAGE_R (1000) outer replications at the production
 * inner replicate count, per family. That is a nested simulation and takes DAYS,
@@ -39,7 +44,7 @@ set varabbrev off
 *   does not separate and the demonstrable difference is the fixed/refit SE ratio.
 *
 * Usage (from iivw/qa):
-*   stata-mp -b do validation_iivw_inference.do MODE [SIMS] [REPS] [SEED] [FROM] [TO]
+*   stata-mp -b do validation_iivw_inference.do MODE [SIMS] [REPS] [SEED] [FROM] [TO] [NSUB] [PSCALE]
 *
 *   BLOCK SHARDING (recommended for a gate run)
 *     The 1000 replications are independent -- the seed ledger derives both
@@ -68,9 +73,12 @@ set varabbrev off
 *     SIMS  outer replications  (smoke default 30; gate default COVERAGE_R=1000)
 *     REPS  inner bootstrap draws (smoke default 40; release default >= 999)
 *     SEED  master seed          (default 20260715)
+*   PSCALE multiplies the FIPTIW propensity-model slopes while leaving its
+*          intercept fixed. PSCALE=1 is the registered base cell; PSCALE=1.5 is
+*          the preregistered positivity-stress cell for interval selection.
 * =============================================================================
 
-args MODE SIMS REPS SEED FROM TO NSUB
+args MODE SIMS REPS SEED FROM TO NSUB PSCALE
 if "`MODE'" == "" local MODE smoke
 if "`FROM'" == "" local FROM 0
 if "`TO'"   == "" local TO 0
@@ -82,6 +90,11 @@ if "`TO'"   == "" local TO 0
 * That is enforced in code, not by operator discipline -- a diagnostic block
 * would otherwise agree with a gate pool on reps/sims/seed and tile correctly.
 if "`NSUB'" == "" local NSUB 0
+if "`PSCALE'" == "" local PSCALE 1
+if `PSCALE' <= 0 {
+    display as error "PSCALE must be positive"
+    exit 198
+}
 if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
     "combine_iiw", "combine_iptw", "combine_fiptiw") {
     display as error "MODE must be smoke, iiw, iptw, fiptiw, or release (got: `MODE')"
@@ -229,7 +242,36 @@ program define _inf_run_iiw, rclass
     quietly iivw_fit y, timespec(linear) vce(bootstrap, reps(`reps') seed(`bootseed')) nolog replace
     return scalar b_refit  = _b[months]
     return scalar se_refit = _se[months]
-    return scalar cov_refit = (`b1' >= _b[months]-`zc'*_se[months] & `b1' <= _b[months]+`zc'*_se[months])
+    local ci_wald_lo = _b[months]-`zc'*_se[months]
+    local ci_wald_hi = _b[months]+`zc'*_se[months]
+    tempname CI_PCT CI_BC Z0
+    matrix `CI_PCT' = e(ci_percentile)
+    matrix `CI_BC'  = e(ci_bc)
+    matrix `Z0'     = e(z0)
+    local j = colnumb(e(b), "months")
+    local ci_pct_lo = el(`CI_PCT', 1, `j')
+    local ci_pct_hi = el(`CI_PCT', 2, `j')
+    local ci_basic_lo = 2*_b[months] - `ci_pct_hi'
+    local ci_basic_hi = 2*_b[months] - `ci_pct_lo'
+    local ci_bc_lo = el(`CI_BC', 1, `j')
+    local ci_bc_hi = el(`CI_BC', 2, `j')
+    return scalar ci_wald_lo = `ci_wald_lo'
+    return scalar ci_wald_hi = `ci_wald_hi'
+    return scalar ci_pct_lo = `ci_pct_lo'
+    return scalar ci_pct_hi = `ci_pct_hi'
+    return scalar ci_basic_lo = `ci_basic_lo'
+    return scalar ci_basic_hi = `ci_basic_hi'
+    return scalar ci_bc_lo = `ci_bc_lo'
+    return scalar ci_bc_hi = `ci_bc_hi'
+    return scalar cov_refit = (`b1' >= `ci_wald_lo' & `b1' <= `ci_wald_hi')
+    return scalar cov_pct = (`b1' >= `ci_pct_lo' & `b1' <= `ci_pct_hi')
+    return scalar cov_basic = (`b1' >= `ci_basic_lo' & `b1' <= `ci_basic_hi')
+    return scalar cov_bc = (`b1' >= `ci_bc_lo' & `b1' <= `ci_bc_hi')
+    return scalar z0_refit = el(`Z0', 1, `j')
+    return scalar ci_bca_lo = .
+    return scalar ci_bca_hi = .
+    return scalar cov_bca = .
+    return scalar accel_refit = .
     * fixed analytic sandwich (same weights)
     quietly iivw_fit y, timespec(linear) vce(fixed) nolog replace
     return scalar b_fix  = _b[months]
@@ -279,7 +321,36 @@ program define _inf_run_iptw, rclass
     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(`bootseed')) nolog replace
     return scalar b_refit  = _b[A]
     return scalar se_refit = _se[A]
-    return scalar cov_refit = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`zc'*_se[A])
+    local ci_wald_lo = _b[A]-`zc'*_se[A]
+    local ci_wald_hi = _b[A]+`zc'*_se[A]
+    tempname CI_PCT CI_BC Z0
+    matrix `CI_PCT' = e(ci_percentile)
+    matrix `CI_BC'  = e(ci_bc)
+    matrix `Z0'     = e(z0)
+    local j = colnumb(e(b), "A")
+    local ci_pct_lo = el(`CI_PCT', 1, `j')
+    local ci_pct_hi = el(`CI_PCT', 2, `j')
+    local ci_basic_lo = 2*_b[A] - `ci_pct_hi'
+    local ci_basic_hi = 2*_b[A] - `ci_pct_lo'
+    local ci_bc_lo = el(`CI_BC', 1, `j')
+    local ci_bc_hi = el(`CI_BC', 2, `j')
+    return scalar ci_wald_lo = `ci_wald_lo'
+    return scalar ci_wald_hi = `ci_wald_hi'
+    return scalar ci_pct_lo = `ci_pct_lo'
+    return scalar ci_pct_hi = `ci_pct_hi'
+    return scalar ci_basic_lo = `ci_basic_lo'
+    return scalar ci_basic_hi = `ci_basic_hi'
+    return scalar ci_bc_lo = `ci_bc_lo'
+    return scalar ci_bc_hi = `ci_bc_hi'
+    return scalar cov_refit = (`ba' >= `ci_wald_lo' & `ba' <= `ci_wald_hi')
+    return scalar cov_pct = (`ba' >= `ci_pct_lo' & `ba' <= `ci_pct_hi')
+    return scalar cov_basic = (`ba' >= `ci_basic_lo' & `ba' <= `ci_basic_hi')
+    return scalar cov_bc = (`ba' >= `ci_bc_lo' & `ba' <= `ci_bc_hi')
+    return scalar z0_refit = el(`Z0', 1, `j')
+    return scalar ci_bca_lo = .
+    return scalar ci_bca_hi = .
+    return scalar cov_bca = .
+    return scalar accel_refit = .
     quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
     return scalar b_fix  = _b[A]
     return scalar se_fix = _se[A]
@@ -305,7 +376,8 @@ end
 capture program drop _inf_dgp_fiptiw
 program define _inf_dgp_fiptiw
     version 16.0
-    syntax , seed(integer) [G1(real 0.6) G2(real 0.3) ALPHA(real 3) NSUB(integer 300)]
+    syntax , seed(integer) [G1(real 0.6) G2(real 0.3) ALPHA(real 3) ///
+        NSUB(integer 300) PSCALE(real 1)]
     clear
     set seed `seed'
     set obs `nsub'
@@ -313,7 +385,11 @@ program define _inf_dgp_fiptiw
     gen double K1 = rnormal(1,1)
     gen byte   K2 = runiform() < 0.55
     gen double K3 = rnormal(0,1)
-    gen byte   A  = runiform() < invlogit(0.5 + 0.8*K1 + 0.05*K2 - K3)
+    * PSCALE changes overlap through a declared DGP parameter. The registered
+    * stress cell multiplies the slopes by 1.5 and leaves the intercept at 0.5,
+    * so it strengthens confounding and creates more extreme propensities.
+    gen byte   A  = runiform() < ///
+        invlogit(0.5 + `pscale'*(0.8*K1 + 0.05*K2 - K3))
     gen double Z  = cond(A==1, rnormal(2,1), rnormal(4,2))
     gen double EZ = cond(A==1, 2, 4)
     gen double phi = rnormal(0, 0.2)
@@ -350,8 +426,9 @@ end
 capture program drop _inf_run_fiptiw
 program define _inf_run_fiptiw, rclass
     version 16.0
-    syntax , dgpseed(integer) bootseed(integer) reps(integer) [TRUTH(real 1) NSUB(integer 300)]
-    _inf_dgp_fiptiw, seed(`dgpseed') nsub(`nsub')
+    syntax , dgpseed(integer) bootseed(integer) reps(integer) ///
+        [TRUTH(real 1) NSUB(integer 300) PSCALE(real 1)]
+    _inf_dgp_fiptiw, seed(`dgpseed') nsub(`nsub') pscale(`pscale')
     quietly count
     return scalar nrow = r(N)
     quietly levelsof id, local(_ids)
@@ -361,10 +438,58 @@ program define _inf_run_fiptiw, rclass
 
     local zc = invnormal(0.975)
     * refit bootstrap (refits the visit + treatment models per draw)
-    quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(`bootseed')) nolog replace
+    quietly iivw_fit y A, timespec(none) ///
+        vce(bootstrap, reps(`reps') seed(`bootseed')) citype(bca) nolog replace
     return scalar b_refit  = _b[A]
     return scalar se_refit = _se[A]
-    return scalar cov_refit = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _b[A]+`zc'*_se[A])
+    local ci_wald_lo = _b[A]-`zc'*_se[A]
+    local ci_wald_hi = _b[A]+`zc'*_se[A]
+    return scalar ci_wald_lo = `ci_wald_lo'
+    return scalar ci_wald_hi = `ci_wald_hi'
+    return scalar cov_refit = ///
+        (`truth' >= `ci_wald_lo' & `truth' <= `ci_wald_hi')
+
+    * Stata's bootstrap prefix computes these quantiles from the same full-refit
+    * subject draws used for e(V). The basic interval reflects the percentile
+    * endpoints around the observed point estimate:
+    *   [2*b - q_(1-alpha/2), 2*b - q_(alpha/2)].
+    tempname CI_PCT CI_BC CI_BCA Z0 ACCEL
+    matrix `CI_PCT' = e(ci_percentile)
+    matrix `CI_BC'  = e(ci_bc)
+    matrix `CI_BCA' = e(ci_bca)
+    matrix `Z0'     = e(z0)
+    matrix `ACCEL'  = e(accel)
+    local j = colnumb(e(b), "A")
+    if missing(`j') | `j' < 1 {
+        display as error "FIPTIW interval study: A absent from bootstrap results"
+        error 459
+    }
+    local ci_pct_lo = el(`CI_PCT', 1, `j')
+    local ci_pct_hi = el(`CI_PCT', 2, `j')
+    local ci_basic_lo = 2*_b[A] - `ci_pct_hi'
+    local ci_basic_hi = 2*_b[A] - `ci_pct_lo'
+    local ci_bc_lo = el(`CI_BC', 1, `j')
+    local ci_bc_hi = el(`CI_BC', 2, `j')
+    local ci_bca_lo = el(`CI_BCA', 1, `j')
+    local ci_bca_hi = el(`CI_BCA', 2, `j')
+    return scalar ci_pct_lo = `ci_pct_lo'
+    return scalar ci_pct_hi = `ci_pct_hi'
+    return scalar ci_basic_lo = `ci_basic_lo'
+    return scalar ci_basic_hi = `ci_basic_hi'
+    return scalar ci_bc_lo = `ci_bc_lo'
+    return scalar ci_bc_hi = `ci_bc_hi'
+    return scalar ci_bca_lo = `ci_bca_lo'
+    return scalar ci_bca_hi = `ci_bca_hi'
+    return scalar cov_pct = ///
+        (`truth' >= `ci_pct_lo' & `truth' <= `ci_pct_hi')
+    return scalar cov_basic = ///
+        (`truth' >= `ci_basic_lo' & `truth' <= `ci_basic_hi')
+    return scalar cov_bc = ///
+        (`truth' >= `ci_bc_lo' & `truth' <= `ci_bc_hi')
+    return scalar cov_bca = ///
+        (`truth' >= `ci_bca_lo' & `truth' <= `ci_bca_hi')
+    return scalar z0_refit = el(`Z0', 1, `j')
+    return scalar accel_refit = el(`ACCEL', 1, `j')
     quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
     return scalar b_fix  = _b[A]
     return scalar se_fix = _se[A]
@@ -385,7 +510,8 @@ capture program drop _inf_engine
 program define _inf_engine, rclass
     version 16.0
     syntax , family(string) arm(integer) sims(integer) reps(integer) ///
-        master(integer) truth(real) [GAMMA(real 1.0) DELTA(real 0.6) NSUB(integer 0) ///
+        master(integer) truth(real) [GAMMA(real 1.0) DELTA(real 0.6) ///
+        NSUB(integer 0) PSCALE(real 1) ///
         FLOOR(real 0.92) FROM(integer 0) TO(integer 0) ///
         ROWSOUT(string) ROWSIN(string)]
     * FLOOR is the registered COVERAGE_FLOOR passed in: driver-scope locals are
@@ -457,7 +583,7 @@ program define _inf_engine, rclass
         local n_fail = `sims' - `n_ok'
     }
     else {
-    * PROVENANCE STAMP. Every row records the (reps, sims, seed) it was produced
+    * PROVENANCE STAMP. Every row records the (reps, sims, seed, pscale) it was produced
     * under. Without this the verdict line's "reps=" is a free-text label copied
     * from the command argument and never checked against the rows -- measured:
     * one fabricated pool combined to "gate=PASS sims=1000 reps=999" and
@@ -470,8 +596,12 @@ program define _inf_engine, rclass
     * blk_seed is double, not long: a seed above 2^31 would post as MISSING in a
     * long, and the combine check would then refuse with "produced at
     * blk_seed=." rather than naming the real seed. double is exact to 2^53.
-    postfile `P' int(sim arm) long(blk_reps blk_sims blk_nsub) double(blk_seed) ///
+    postfile `P' int(sim arm) long(blk_reps blk_sims blk_nsub) ///
+        double(blk_seed blk_pscale) ///
         double(b_refit se_refit cov_refit ///
+        ci_wald_lo ci_wald_hi ci_pct_lo ci_pct_hi cov_pct ///
+        ci_basic_lo ci_basic_hi cov_basic ci_bc_lo ci_bc_hi cov_bc ///
+        ci_bca_lo ci_bca_hi cov_bca z0_refit accel_refit ///
         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
         using "`rowsfile'", replace
 
@@ -494,14 +624,21 @@ program define _inf_engine, rclass
             else if "`family'" == "fiptiw" {
                 if `nsub' == 0 local nsub 300
                 _inf_run_fiptiw, dgpseed(`dgpseed') bootseed(`bootseed') reps(`reps') ///
-                    truth(`truth') nsub(`nsub')
+                    truth(`truth') nsub(`nsub') pscale(`pscale')
             }
             else {
                 display as error "unknown family `family'"
                 error 198
             }
-            post `P' (`s') (`arm') (`reps') (`sims') (`nsub_requested') (`master') ///
+            post `P' (`s') (`arm') (`reps') (`sims') (`nsub_requested') ///
+                (`master') (`pscale') ///
                 (`r(b_refit)') (`r(se_refit)') (`r(cov_refit)') ///
+                (`r(ci_wald_lo)') (`r(ci_wald_hi)') ///
+                (`r(ci_pct_lo)') (`r(ci_pct_hi)') (`r(cov_pct)') ///
+                (`r(ci_basic_lo)') (`r(ci_basic_hi)') (`r(cov_basic)') ///
+                (`r(ci_bc_lo)') (`r(ci_bc_hi)') (`r(cov_bc)') ///
+                (`r(ci_bca_lo)') (`r(ci_bca_hi)') (`r(cov_bca)') ///
+                (`r(z0_refit)') (`r(accel_refit)') ///
                 (`r(b_fix)') (`r(se_fix)') (`r(cov_fix)') ///
                 (`r(b_fwb)') (`r(se_fwb)') (`r(cov_fwb)') (`r(cov_naive)') ///
                 (`r(nrow)') (`r(nsub)')
@@ -561,12 +698,81 @@ program define _inf_engine, rclass
     local mse_fix = r(mean)
     quietly summarize cov_refit
     local cov_refit = r(mean)
+    quietly summarize cov_pct
+    local cov_pct = r(mean)
+    quietly summarize cov_basic
+    local cov_basic = r(mean)
+    quietly summarize cov_bc
+    local cov_bc = r(mean)
+    quietly summarize cov_bca
+    local cov_bca = r(mean)
     quietly summarize cov_fix
     local cov_fix = r(mean)
     quietly summarize cov_fwb
     local cov_fwb = r(mean)
     quietly summarize cov_naive
     local cov_naive = r(mean)
+
+    * Shape diagnostics distinguish an interval that repairs coverage by moving
+    * the endpoints in the needed direction from one that merely inflates both
+    * tails. "Below" means the truth fell below the lower endpoint; "above"
+    * means it fell above the upper endpoint.
+    tempvar len_wald len_pct len_basic len_bc len_bca ///
+        below_wald above_wald below_pct above_pct ///
+        below_basic above_basic below_bc above_bc below_bca above_bca
+    quietly gen double `len_wald' = ci_wald_hi - ci_wald_lo
+    quietly gen double `len_pct' = ci_pct_hi - ci_pct_lo
+    quietly gen double `len_basic' = ci_basic_hi - ci_basic_lo
+    quietly gen double `len_bc' = ci_bc_hi - ci_bc_lo
+    quietly gen double `len_bca' = ci_bca_hi - ci_bca_lo
+    quietly gen byte `below_wald' = (`truth' < ci_wald_lo)
+    quietly gen byte `above_wald' = (`truth' > ci_wald_hi)
+    quietly gen byte `below_pct' = (`truth' < ci_pct_lo)
+    quietly gen byte `above_pct' = (`truth' > ci_pct_hi)
+    quietly gen byte `below_basic' = (`truth' < ci_basic_lo)
+    quietly gen byte `above_basic' = (`truth' > ci_basic_hi)
+    quietly gen byte `below_bc' = (`truth' < ci_bc_lo)
+    quietly gen byte `above_bc' = (`truth' > ci_bc_hi)
+    quietly gen byte `below_bca' = (`truth' < ci_bca_lo) if ci_bca_lo < .
+    quietly gen byte `above_bca' = (`truth' > ci_bca_hi) if ci_bca_hi < .
+    quietly summarize `len_wald'
+    local meanlen_wald = r(mean)
+    quietly summarize `below_wald'
+    local below_wald = r(mean)
+    quietly summarize `above_wald'
+    local above_wald = r(mean)
+    quietly summarize `len_pct'
+    local meanlen_pct = r(mean)
+    quietly summarize `below_pct'
+    local below_pct = r(mean)
+    quietly summarize `above_pct'
+    local above_pct = r(mean)
+    quietly summarize `len_basic'
+    local meanlen_basic = r(mean)
+    quietly summarize `below_basic'
+    local below_basic = r(mean)
+    quietly summarize `above_basic'
+    local above_basic = r(mean)
+    quietly summarize `len_bc'
+    local meanlen_bc = r(mean)
+    quietly summarize `below_bc'
+    local below_bc = r(mean)
+    quietly summarize `above_bc'
+    local above_bc = r(mean)
+    quietly summarize `len_bca'
+    local meanlen_bca = r(mean)
+    quietly summarize `below_bca'
+    local below_bca = r(mean)
+    quietly summarize `above_bca'
+    local above_bca = r(mean)
+    quietly summarize z0_refit, detail
+    local z0_mean = r(mean)
+    local z0_p50 = r(p50)
+    local z0_p95 = r(p95)
+    quietly summarize accel_refit, detail
+    local accel_mean = r(mean)
+    local accel_p50 = r(p50)
+    local accel_p95 = r(p95)
 
     * fixed/refit SE ratio with Monte-Carlo uncertainty (paired, per replication)
     tempvar ratio
@@ -581,6 +787,26 @@ program define _inf_engine, rclass
     local wr_h = `zc'/(1+`zc'^2/`N')*sqrt(`pr'*(1-`pr')/`N' + `zc'^2/(4*`N'^2))
     local wr_lo = `wr_c'-`wr_h'
     local wr_hi = `wr_c'+`wr_h'
+    local pp = `cov_pct'
+    local wp_c = (`pp' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+    local wp_h = `zc'/(1+`zc'^2/`N')*sqrt(`pp'*(1-`pp')/`N' + `zc'^2/(4*`N'^2))
+    local wp_lo = `wp_c'-`wp_h'
+    local wp_hi = `wp_c'+`wp_h'
+    local pb = `cov_basic'
+    local wb_c = (`pb' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+    local wb_h = `zc'/(1+`zc'^2/`N')*sqrt(`pb'*(1-`pb')/`N' + `zc'^2/(4*`N'^2))
+    local wb_lo = `wb_c'-`wb_h'
+    local wb_hi = `wb_c'+`wb_h'
+    local pbc = `cov_bc'
+    local wbc_c = (`pbc' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+    local wbc_h = `zc'/(1+`zc'^2/`N')*sqrt(`pbc'*(1-`pbc')/`N' + `zc'^2/(4*`N'^2))
+    local wbc_lo = `wbc_c'-`wbc_h'
+    local wbc_hi = `wbc_c'+`wbc_h'
+    local pbca = `cov_bca'
+    local wbca_c = (`pbca' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+    local wbca_h = `zc'/(1+`zc'^2/`N')*sqrt(`pbca'*(1-`pbca')/`N' + `zc'^2/(4*`N'^2))
+    local wbca_lo = `wbca_c'-`wbca_h'
+    local wbca_hi = `wbca_c'+`wbca_h'
     local pf = `cov_fix'
     local wf_c = (`pf' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
     local wf_h = `zc'/(1+`zc'^2/`N')*sqrt(`pf'*(1-`pf')/`N' + `zc'^2/(4*`N'^2))
@@ -594,12 +820,36 @@ program define _inf_engine, rclass
 
     display as text "{hline 74}"
     display as result "  FAMILY=`family' arm=`arm' truth=" %6.3f `truth' ///
-        "  N usable=`N'/`sims' (fail=`n_fail')  ~subj=" %5.0f `mnsub' " rows=" %6.0f `mnrow'
+        "  N usable=`N'/`sims' (fail=`n_fail')  ~subj=" %5.0f `mnsub' ///
+        " rows=" %6.0f `mnrow' "  pscale=" %4.2f `pscale'
     display as text "{hline 74}"
     display as text "  naive coverage      = " %5.3f `cov_naive' "   (DGP bites if << 0.95)"
     display as text "  REFIT  bias=" %8.5f `bias' " (MCSE " %7.5f `mcse_bias' ")  empSD=" %7.5f `sdb'
     display as text "         mean SE=" %7.5f `mse_refit' "  median SE=" %7.5f `mdse_refit'
-    display as result "         coverage=" %5.3f `cov_refit' "  Wilson[" %5.3f `wr_lo' "," %5.3f `wr_hi' "]"
+    display as result "         Wald coverage=" %5.3f `cov_refit' ///
+        "  Wilson[" %5.3f `wr_lo' "," %5.3f `wr_hi' "]"
+    display as result "         PCTL coverage=" %5.3f `cov_pct' ///
+        "  Wilson[" %5.3f `wp_lo' "," %5.3f `wp_hi' "]"
+    display as result "         BASIC coverage=" %5.3f `cov_basic' ///
+        " Wilson[" %5.3f `wb_lo' "," %5.3f `wb_hi' "]"
+    display as text "         BC coverage=" %5.3f `cov_bc' ///
+        "    Wilson[" %5.3f `wbc_lo' "," %5.3f `wbc_hi' "]"
+    display as result "         BCa coverage=" %5.3f `cov_bca' ///
+        "   Wilson[" %5.3f `wbca_lo' "," %5.3f `wbca_hi' "]"
+    display as text "         mean lengths: Wald=" %7.4f `meanlen_wald' ///
+        " PCTL=" %7.4f `meanlen_pct' " BASIC=" %7.4f `meanlen_basic' ///
+        " BC=" %7.4f `meanlen_bc' " BCa=" %7.4f `meanlen_bca'
+    display as text "         misses below/above truth:" ///
+        " Wald=" %5.3f `below_wald' "/" %5.3f `above_wald' ///
+        " PCTL=" %5.3f `below_pct' "/" %5.3f `above_pct'
+    display as text "                                   " ///
+        " BASIC=" %5.3f `below_basic' "/" %5.3f `above_basic' ///
+        " BC=" %5.3f `below_bc' "/" %5.3f `above_bc' ///
+        " BCa=" %5.3f `below_bca' "/" %5.3f `above_bca'
+    display as text "         bias-correction z0: mean=" %7.4f `z0_mean' ///
+        " median=" %7.4f `z0_p50' " p95=" %7.4f `z0_p95'
+    display as text "         acceleration a: mean=" %7.4f `accel_mean' ///
+        " median=" %7.4f `accel_p50' " p95=" %7.4f `accel_p95'
     display as text "  FIXED  mean SE=" %7.5f `mse_fix' "  coverage=" %5.3f `cov_fix' ///
         "  Wilson[" %5.3f `wf_lo' "," %5.3f `wf_hi' "]"
     display as text "  FIXEDWB coverage=" %5.3f `cov_fwb' "  (fixed-weight bootstrap)"
@@ -607,17 +857,58 @@ program define _inf_engine, rclass
 
     * acceptance: refit Wilson contains 0.95 and refit point >= floor
     local refit_gate = (`wr_lo' <= 0.95 & `wr_hi' >= 0.95 & `cov_refit' >= `floor')
+    local pct_gate = (`wp_lo' <= 0.95 & `wp_hi' >= 0.95 & `cov_pct' >= `floor')
+    local basic_gate = (`wb_lo' <= 0.95 & `wb_hi' >= 0.95 & `cov_basic' >= `floor')
+    local bc_gate = (`wbc_lo' <= 0.95 & `wbc_hi' >= 0.95 & `cov_bc' >= `floor')
+    local bca_gate = (`wbca_lo' <= 0.95 & `wbca_hi' >= 0.95 & `cov_bca' >= `floor')
     * separator: fixed over-covers (Wilson excludes 0.95 from above) OR SE ratio > 1
     local fixed_over = (`wf_lo' > 0.95)
     local se_sep     = (`se_ratio' - 2*`se_ratio_mcse' > 1)
     display as text "  refit gate (Wilson contains 0.95 && >= floor) : " ///
         as result cond(`refit_gate', "PASS", "FAIL")
+    display as text "  percentile gate                                  : " ///
+        as result cond(`pct_gate', "PASS", "FAIL")
+    display as text "  basic gate                                       : " ///
+        as result cond(`basic_gate', "PASS", "FAIL")
+    display as text "  bias-corrected gate                              : " ///
+        as result cond(`bc_gate', "PASS", "FAIL")
+    display as text "  BCa gate                                         : " ///
+        as result cond(`bca_gate', "PASS", "FAIL")
     display as text "  B02 separator (fixed over-covers OR SE ratio>1)      : " ///
         as result cond(`fixed_over' | `se_sep', "shown", "not shown at this cell")
 
     return scalar gate_ok = `refit_gate'
+    return scalar gate_pct = `pct_gate'
+    return scalar gate_basic = `basic_gate'
+    return scalar gate_bc = `bc_gate'
+    return scalar gate_bca = `bca_gate'
     return scalar sep_ok  = (`fixed_over' | `se_sep')
     return scalar cov_refit = `cov_refit'
+    return scalar cov_pct = `cov_pct'
+    return scalar cov_basic = `cov_basic'
+    return scalar cov_bc = `cov_bc'
+    return scalar cov_bca = `cov_bca'
+    return scalar meanlen_wald = `meanlen_wald'
+    return scalar meanlen_pct = `meanlen_pct'
+    return scalar meanlen_basic = `meanlen_basic'
+    return scalar meanlen_bc = `meanlen_bc'
+    return scalar meanlen_bca = `meanlen_bca'
+    return scalar below_wald = `below_wald'
+    return scalar above_wald = `above_wald'
+    return scalar below_pct = `below_pct'
+    return scalar above_pct = `above_pct'
+    return scalar below_basic = `below_basic'
+    return scalar above_basic = `above_basic'
+    return scalar below_bc = `below_bc'
+    return scalar above_bc = `above_bc'
+    return scalar below_bca = `below_bca'
+    return scalar above_bca = `above_bca'
+    return scalar z0_mean = `z0_mean'
+    return scalar z0_p50 = `z0_p50'
+    return scalar z0_p95 = `z0_p95'
+    return scalar accel_mean = `accel_mean'
+    return scalar accel_p50 = `accel_p50'
+    return scalar accel_p95 = `accel_p95'
     return scalar cov_fix = `cov_fix'
     return scalar N = `N'
 end
@@ -635,7 +926,8 @@ if "`MODE'" == "smoke" {
     * can never be read as clearance (plan Phase 3C).
     _inf_engine, family(iiw)    arm(1) sims(`SIMS') reps(`REPS') master(`SEED') truth(0.5) floor(`COVERAGE_FLOOR')
     _inf_engine, family(iptw)   arm(2) sims(`SIMS') reps(`REPS') master(`SEED') truth(1.5) floor(`COVERAGE_FLOOR')
-    _inf_engine, family(fiptiw) arm(3) sims(`SIMS') reps(`REPS') master(`SEED') truth(1)   floor(`COVERAGE_FLOOR') nsub(300)
+    _inf_engine, family(fiptiw) arm(3) sims(`SIMS') reps(`REPS') master(`SEED') ///
+        truth(1) floor(`COVERAGE_FLOOR') nsub(300) pscale(`PSCALE')
     display as text "{hline 74}"
     display as error "RESULT: validation_iivw_inference INFERENCE-SMOKE non-gate (SIMS=`SIMS' < COVERAGE_R=`COVERAGE_R')"
     display as error "  a smoke run exercises the plumbing only; it is NOT the release gate"
@@ -660,6 +952,7 @@ else if inlist("`MODE'", "iiw", "iptw", "fiptiw") & `FROM' > 0 & `TO' > 0 {
     local tag = string(`FROM', "%05.0f") + "_" + string(`TO', "%05.0f")
     _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
         master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') nsub(`NSUB') ///
+        pscale(`PSCALE') ///
         from(`FROM') to(`TO') rowsout("`blockdir'/`MODE'_`tag'.dta")
     display as text "{hline 74}"
     display as error "RESULT: validation_iivw_inference `MODE' BLOCK `FROM'-`TO' non-gate"
@@ -706,7 +999,7 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
     * would label it with whatever REPS/SEED this invocation was handed.
     * Measured before this check existed: one fabricated pool certified as both
     * "reps=999" and "reps=10". Refuse rather than mislabel.
-    foreach v in blk_reps blk_sims blk_seed blk_nsub {
+    foreach v in blk_reps blk_sims blk_seed blk_nsub blk_pscale {
         capture confirm variable `v'
         if _rc {
             display as error "combine(`fam'): block rows carry no `v' stamp"
@@ -717,7 +1010,8 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
     * blk_nsub must be 0: a gate cell is defined by the family's own default
     * sample size. A diagnostic block run at another nsub agrees with a gate pool
     * on reps/sims/seed and tiles correctly, so nothing else here would catch it.
-    local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED' blk_nsub 0
+    local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED' ///
+        blk_nsub 0 blk_pscale `PSCALE'
     while "`stamps'" != "" {
         gettoken v stamps : stamps
         gettoken want stamps : stamps
@@ -803,14 +1097,21 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
         " (`ndrop' failed draw(s))"
 
     _inf_engine, family(`fam') arm(`arm') sims(`SIMS') reps(`REPS') ///
-        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') rowsin("`allrows'")
+        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') ///
+        pscale(`PSCALE') rowsin("`allrows'")
     local gate = `r(gate_ok)'
     display as text "{hline 74}"
     if `gate' {
-        display as result "RESULT: validation_iivw_inference `fam' gate=PASS sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+        display as result "RESULT: validation_iivw_inference `fam' gate=PASS" ///
+            " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov_refit)' ///
+            " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)' ///
+            " cov_bca=" %5.3f `r(cov_bca)'
         exit 0
     }
-    display as error "RESULT: validation_iivw_inference `fam' gate=FAIL sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+    display as error "RESULT: validation_iivw_inference `fam' gate=FAIL" ///
+        " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov_refit)' ///
+        " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)' ///
+        " cov_bca=" %5.3f `r(cov_bca)'
     exit 9
 }
 else if inlist("`MODE'", "iiw", "iptw", "fiptiw") {
@@ -835,14 +1136,21 @@ else if inlist("`MODE'", "iiw", "iptw", "fiptiw") {
     if "`MODE'" == "iiw"    local arm 1
     if "`MODE'" == "iptw"   local arm 2
     if "`MODE'" == "fiptiw" local arm 3
-    _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR')
+    _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
+        master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') pscale(`PSCALE')
     local gate = `r(gate_ok)'
     display as text "{hline 74}"
     if `gate' {
-        display as result "RESULT: validation_iivw_inference `MODE' gate=PASS sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+        display as result "RESULT: validation_iivw_inference `MODE' gate=PASS" ///
+            " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov_refit)' ///
+            " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)' ///
+            " cov_bca=" %5.3f `r(cov_bca)'
     }
     else {
-        display as error "RESULT: validation_iivw_inference `MODE' gate=FAIL sims=`SIMS' reps=`REPS' cov_refit=" %5.3f `r(cov_refit)'
+        display as error "RESULT: validation_iivw_inference `MODE' gate=FAIL" ///
+            " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov_refit)' ///
+            " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)' ///
+            " cov_bca=" %5.3f `r(cov_bca)'
         exit 1
     }
 }

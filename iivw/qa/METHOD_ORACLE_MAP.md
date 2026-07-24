@@ -1,7 +1,7 @@
 # `iivw` — Method → Oracle Map
 
 **Phase 0 gate artifact.** Companion to `METHOD_CONTRACT.md`, which owns the *method*; this file owns
-the *proof*. Written 2026-07-14 against package version 2.0.0.
+the *proof*. Written 2026-07-14; updated 2026-07-23 against package version 2.3.0.
 
 **The rule this file enforces:** every supported formula must have an oracle that is **independent of the
 implementation**. A test that recomputes the package's own formula and compares it to itself proves
@@ -62,19 +62,17 @@ nothing. Oracle strength, best first:
 | 8 | Treatment in the FIPTIW visit model | Coulombe **eq. 3.12** — assert `treat` appears in the fitted visit-model spec | **1** | ✅ **CLOSED (2.0.0, Phase 2)** — `test_iivw_phase2_contract` T1–T4 asserts the fitted design, the dedup, the contract field, the labelled opt-out, and that the refit bootstrap replays it. `test_iivw_literature_invariants` T2 adds the converse: a numerator that does *not* match the full FIPTIW design must **not** collapse to 1, so the identity cannot pass vacuously if `treat()` is ever dropped again |
 | 9 | Outcome GEE (B&L eq. 11) | Stata `glm [pw], vce(cluster id)` ≡ independence GEE; cross-check vs R `geeglm` | 3 | ✅ `crossval_iivw_external` (geeglm arms) |
 | 10 | Known-truth recovery | **Coulombe §3.3 DGP, PDF p.87–88 — true effect = 1**, `C_i ~ U(τ/2,τ)` | 2 | ✅ **CLOSED for the point estimate (Gate 2B, 2026-07-15)** — `validation_iivw_fiptiw_recovery.do` on the package-representable Coulombe-based Appendix-A DGP, FULL `C_i` risk window (`censor()`+`baseline(entry)`, never `endatlastvisit`). FIPTIW bias shrinks with n (n=250→500) across 50 seeds; preregistered comparator ordering isolates each mechanism (IIW-only's confounding-blindness in the null-monitoring arm, IPTW-only's monitoring-blindness in the strong arm). The legacy-design recovery arms remain in the sensitivity lane |
-| 11 | **Corrected variance** | Coverage simulation ≥1,000 reps; **and** a fixed-weight arm that demonstrably **fails** a scenario the corrected method passes | 2 | ⚠️ **RUN 2026-07-22; SPLIT RESULT.** 1000×999 per family, 60/60 blocks, 0 failed draws. IIW 0.939 [0.922,0.952] and IPTW 0.954 [0.939,0.965] meet the preregistered rule; **FIPTIW 0.914 [0.895,0.930] does not** — below the 0.92 floor. The second requirement is also satisfied: for IPTW the fixed-weight arm runs 1.31× the empirical SD against the refit bootstrap's 1.02×, the preregistered over-coverage direction. Status is now weight-type specific (`cleared-at-studied-settings` / `undercovers-at-studied-settings`), never a bare `cleared`. Record: `coverage_results/RESULT_2026-07-22.md` |
+| 11 | **Corrected variance / honest absence of one** | Coverage simulation ≥1,000 reps; **and** a fixed-weight arm that demonstrably **fails** a scenario the corrected method passes | 2 | ⚠️ **WEIGHT-TYPE-SPECIFIC RESULT.** IIW 0.939 [0.922,0.952] and IPTW 0.954 [0.939,0.965] meet the preregistered rule at 1000×999. IPTW also supplies the separator: fixed-weight SE/empirical SD 1.31 versus refit 1.02. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and corrected BCa 0.895 all failed the same rule. Bare FIPTIW is therefore point-only and posts no `e(V)`; explicit intervals remain nominal and uncleared. Records: `coverage_results/RESULT_2026-07-22.md` and `coverage_results/FIPTIW_INTERVALS_2026-07-23.md` |
 | 12 | Balance target (unstabilized) | Hand-computed `∫ξ(t)g(Z(t))dΛ₀(t)` on a 2-subject fixture | **1** | ⚠️ assert directly |
 | 13 | Balance target (**stabilized**) | **The saturated-stabilization identity.** Set `stabcov()` = the full visit model. B&L p.8: the stabilized weight is then **identically 1** — it reweights nothing — so every target SMD must be **0 by algebra**, with no Monte Carlo error and no external implementation. Tier-1: hand-checkable and deterministic | **1** | ✅ **CLOSED** — `test_iivw_phase2_contract` T5–T7. Old code reported max \|TSMD\| = **0.3321411** for a weight vector of all ones. T5 establishes the weight really is 1 (so T6 is not vacuous); T7 pins the unstabilized path bit-for-bit unchanged |
 | 14 | Holm adjustment (`iivw_exogtest`) | Hand-computed p-value vectors incl. ties, skipped groups, 1-vs-many groups | **1** | ⚠️ verify coverage |
 
-**Score (updated 2026-07-15, Gate 2 closure): of 14 supported calculations, the point-estimator surface
-is now covered** — #1, #2, #3, #4, #5, #6, #8, #9, #10, #13 have adequate oracles; #7/#12/#14 are the
-remaining tier-1 asserts to grow. **Oracle #11 (corrected-variance coverage) has now been executed, and
-it did not come back uniformly green: FIPTIW covers 0.914, below the preregistered 0.92 floor, while IIW
-and IPTW meet the rule.** The blocker is therefore no longer "no evidence" but a specific, measured
-shortfall in the FIPTIW interval — the point estimator is unaffected. The status macro is weight-type
-specific so no run misrepresents itself, and the qualifier `-at-studied-settings` is mandatory because
-coverage is established at one cell per family, not across n, link, or specification.
+**Score (updated 2026-07-23): of 14 supported calculations, the point-estimator surface is covered** —
+#1, #2, #3, #4, #5, #6, #8, #9, #10, #13 have adequate oracles; #7/#12/#14 remain tier-1 asserts to
+grow. **Oracle #11 has been executed and resolved honestly rather than uniformly:** IIW/IPTW retain
+their qualified refit-bootstrap clearance, while five FIPTIW intervals failed. The FIPTIW point
+estimator is unaffected; the default now returns coefficients only and refuses to manufacture a
+generally valid 95% claim. The `-at-studied-settings` qualifier remains mandatory for IIW/IPTW.
 
 ---
 
@@ -89,8 +87,9 @@ independent gate fail**. A mutation that everything survives means the suite is 
 | **M2** | **Hold weights fixed inside the bootstrap** (or fail to reconstruct lag sources within a draw) | `test_iivw_replay` exact observed-vs-replay weights; the Phase-3 coverage gate (fixed-weight must undercover) |
 | **M3** | **Omit treatment from the FIPTIW visit model** (or allow an outcome-invalid stabilizer) | The Coulombe eq.-3.12 spec assertion (#8); the stabilization-validity error path (#2/#5) |
 
-M3 is now closed by the Phase-2 design and validation checks. The replay half of M2 is closed by the
-identity-draw oracle; the coverage half remains open until the preregistered release simulation runs.
+M3 is closed by the Phase-2 design and validation checks. M2 is also closed: the identity-draw oracle
+pins nuisance replay, the 1000×999 experiment distinguishes fixed from refit inference in IPTW, and
+the FIPTIW follow-up shows that neither route supplies a calibrated interval in its base cell.
 
 ### M2 status after Phase 1 — half closed, and only half
 
@@ -109,8 +108,10 @@ was (`visit_cov()` receiving precomputed `*_lag1` columns instead of `lagvars()`
 sources). A defect *inside* `iivw_weight` itself would cancel on both sides and pass. That is what the
 IrregLong parity arm (#1) is for, and the two are not substitutes.
 
-**The coverage half of M2 is still open.** The release harness exists, but the multi-day gate has not
-run. M3 is closed: treatment-in-visit and stabilization-validity mutations are exercised directly by
+**The coverage half of M2 is closed.** The release experiment ran with 1,000 outer datasets and 999
+draws per family. IPTW provides the prespecified fixed-versus-refit discriminator. The FIPTIW
+follow-up compared Wald, percentile, basic, bias-corrected, and corrected full-refit BCa and found no
+winner, which is why its default is point-only. M3 remains closed by
 `test_iivw_phase2_contract` and `test_iivw_literature_invariants`.
 
 ---
@@ -132,7 +133,7 @@ Every existing suite, marked **retain** / **rewrite** / **legacy-only** / **remo
 | `crossval_fiptiw.R` + its Stata arm | Builds **observed-event-only** risk sets and the Stata arm requests `endatlastvisit`. This is **legacy parity**, not the recommended full-risk-set FIPTIW estimator. Its tolerances are smoke-test grade: **one comparison requires only correlation > 0.75**, one treatment-effect check allows **absolute bias < 0.25**. |
 | `crossval_iivw_external.do` — Dietox FIPTIW arm | Same shared legacy construction. |
 | Most of `validation_iivw_recovery_extended.do` / `_extended2.do` | Explicitly request `endatlastvisit baseline(event)` — **1.x semantics**, not the 2.0.0 contract. |
-| `sim_scenario_d.do`, `sim_scenario_e.do`, `sim_scenarios_abc.do` | Call ordinary `iivw_fit`, so their intervals use the **fixed-weight** sandwich; QA mode is **50 reps**; the comments say tolerances were **set from observed QA-mode runs** (fitting the gate to the result); they use `endatlastvisit baseline(event)`, generic `truncate(1 99)`, and FIPTIW visit models that **omit treatment**. **Useful DGP scaffolds — but their coverage columns cannot clear the variance method.** |
+| `sim_scenario_d.do`, `sim_scenario_e.do`, `sim_scenarios_abc.do` | Their interval calls now request `vce(fixed)` explicitly, but QA mode is **50 reps** and comments say tolerances were **set from observed QA-mode runs** (fitting the gate to the result). They retain legacy `endatlastvisit baseline(event)` designs. **Useful DGP scaffolds — but their coverage columns cannot clear the variance method.** |
 
 ### 🟡 Rewrite (documented non-recovery counted as green)
 

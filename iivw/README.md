@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.2.1** | 2026-07-23
+**Version 2.3.0** | 2026-07-23
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -30,7 +30,7 @@ iivw_balance
 iivw_fit outcome baseline_risk, timespec(linear) vce(fixed) nolog
 ```
 
-This creates visit-intensity weights, checks whether they reproduce the at-risk population, and fits the weighted longitudinal outcome model. `vce(fixed)` is used here so the quick start returns in seconds — it is the analytic weights-known sandwich. For a real analysis, omit it: a weighted fit then defaults to `vce(bootstrap, reps(999))`, a subject-level bootstrap that re-estimates the weights inside every replicate so the interval reflects weight-estimation uncertainty. See [Standard errors and inference](#standard-errors-and-inference).
+This creates visit-intensity weights, checks whether they reproduce the at-risk population, and fits the weighted longitudinal outcome model. `vce(fixed)` is used here so the quick start returns in seconds — it is the analytic weights-known sandwich. For this IIW analysis, omitting it selects `vce(bootstrap, reps(999))`, a subject-level bootstrap that re-estimates the weights inside every replicate so the interval reflects weight-estimation uncertainty. Bare FIPTIW fits are point-only in 2.3.0. See [Standard errors and inference](#standard-errors-and-inference).
 
 In this example the mean `baseline_risk` over the *observed visits* is 0.65, because sicker patients come back more often — but over the *at-risk person-time* it is 0.20. The weights close that gap: the weighted mean is 0.17, a target SMD of 0.01, and `iivw_balance` reports `within_rule`. That gap is the bias `iivw` exists to remove.
 
@@ -60,7 +60,7 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 | `nobaseevent` | **Delete it** — `baseline(entry)` is now the default | Modeling the first visit as a recurrent event lets its own covariates predict its own occurrence. The old default was the circular one. |
 | *(relied on the old default)* | `baseline(event)`, explicitly | Same reason, stated from the other side. Stata's `syntax` cannot tell an explicit `baseevent` from an omitted option, so the old name is rejected rather than quietly misread. |
 | *(no end-of-follow-up option)* | One of `censor()`, `maxfu()`, `endatlastvisit` is **required** for IIW/FIPTIW | Without an observation window the intensity model cannot distinguish a subject who stopped being observed from one who simply had no more visits. `endatlastvisit` reproduces 1.x exactly, and attenuated the visit-intensity coefficient by ~26% in a known-truth check — it is rarely what a registry or EHR cohort looks like. |
-| A weighted `model(gee)` fit with no `vce()` | Now defaults to `vce(bootstrap, reps(999))` — the refit bootstrap. Pass `vce(fixed)` for the old fast weights-known sandwich | The silent 1.x default held the estimated weights fixed, a variance neither source paper endorses. The default now propagates weight-estimation uncertainty. `bootstrap(#)` and `refitweights` still work as deprecated shims that steer to the equivalent `vce()`. See [Standard errors and inference](#standard-errors-and-inference). |
+| An IIW/IPTW `model(gee)` fit with no `vce()` | Now defaults to `vce(bootstrap, reps(999))` — the refit bootstrap. Bare FIPTIW fits became point-only in 2.3.0 after no interval candidate passed its coverage gate. | The silent 1.x default held the estimated weights fixed, a variance neither source paper endorses. IIW/IPTW now propagate weight-estimation uncertainty; FIPTIW does not print nominal inference by default. `bootstrap(#)` and `refitweights` still work as deprecated shims. See [Standard errors and inference](#standard-errors-and-inference). |
 | `iivw_fit ..., model(mixed)` with weights | Add `experimentalmixed` | The IIW weights enter `mixed` as a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated even though they are printed. Use `model(gee)` for the primary weighted analysis. |
 | Time-varying `treat_cov()` | Build the baseline value yourself | The propensity model is fitted on one row per subject. A time-varying covariate silently entered as whatever value landed on the earliest retained row — not a baseline value. |
 | `r(informative)`, `r(hr_weighted)` | **Gone** | Both encoded a verdict that was wrong in the package's own known-truth scenario. Read `r(leverage)` and `r(balance_flag)` together instead. See [Diagnostic Decision Guide](#diagnostic-decision-guide). |
@@ -180,7 +180,7 @@ iivw_fit current_score treated age sex baseline_score, ///
     timespec(ns(3)) interaction(treated) replace nolog
 ```
 
-Interpret the interaction terms as a sensitivity description unless the time scale and functional form were prespecified. For a single clinically interpretable contrast at a time point, use Stata post-estimation tools such as `margins` or `lincom` after `iivw_fit`.
+Interpret the interaction terms as a sensitivity description unless the time scale and functional form were prespecified. For a single clinically interpretable contrast at a time point, use Stata post-estimation tools such as `margins` or `lincom` after an interval-producing `iivw_fit`. A bare FIPTIW fit is point-only; request nominal inference explicitly before asking post-estimation to calculate an interval.
 
 ### Sampling bias versus measurement artifact
 
@@ -316,12 +316,19 @@ Start with a subject-matter model that is smaller than the full dataset dictiona
 
 | `vce()` | What it computes | `e(iivw_vce)` |
 |---|---|---|
-| *(omitted, weighted `model(gee)`)* | **Default.** A 999-draw subject-level bootstrap that re-estimates the IIW/IPTW/FIPTIW weights inside every replicate, so the interval propagates weight-estimation uncertainty. It is a practical estimator of the full sampling variability that Bůžková & Lumley (2007, §3.3) and Coulombe et al. (2021) derive analytically; the papers do not derive this bootstrap itself. | `bootstrap` |
+| *(omitted, IIW/IPTW `model(gee)`)* | **Default for IIW/IPTW.** A 999-draw subject-level bootstrap that re-estimates the weights inside every replicate, so the interval propagates weight-estimation uncertainty. It is a practical estimator of the full sampling variability that Bůžková & Lumley (2007, §3.3) and Coulombe et al. (2021) derive analytically; the papers do not derive this bootstrap itself. | `bootstrap` |
+| *(omitted, FIPTIW)* | **Point-only default.** No bootstrap is launched; coefficients are printed without SEs, confidence intervals, or p-values because no candidate interval passed the prespecified `n=300` coverage gate. | `none` |
 | `vce(bootstrap, reps(#) [seed(#)])` | The same refit bootstrap with an explicit replicate count and seed. Fewer than 999 reps is allowed but stamped `uncleared-low-reps`; fewer than 2 is rejected (a bootstrap variance is undefined from one draw). | `bootstrap` |
 | `vce(bootstrap, reps(#) fixedweights)` | A bootstrap that resamples for the outcome model but holds the estimated weights fixed. | `bootstrap-fixedweights` |
 | `vce(fixed)` | The analytic cluster-robust sandwich with the estimated weights treated as **known** — fast, but it omits the uncertainty from estimating the weights. Equivalent to the legacy `bootstrap(0)`. | `fixed` |
 
-Unweighted fits and weighted `model(mixed)` fits do **not** inherit the refit-bootstrap default; they keep the analytic sandwich unless a `vce()` is named. (`model(mixed)` under weights is experimental — interpret only its fixed-effect structure.) The legacy `bootstrap(#)` and `refitweights` options still work but are deprecated shims that print a note pointing to the equivalent `vce()`.
+`citype()` selects `none`, `wald`, `percentile`, `basic`, or `bca`. Percentile, basic, and BCa use the same full-refit draws; BCa additionally uses a delete-one-subject jackknife for acceleration. An explicit FIPTIW `vce()` retains nominal Wald inference, and an explicit `citype()` requests the named nominal interval; every such path warns that it is empirically uncleared. `citype(none)` cannot be combined with a variance option.
+
+For an asymmetric interval, the displayed `P(z)` is still the two-sided normal test based on coefficient/SE; it is deliberately labelled because it is not obtained by inverting the percentile, basic, or BCa interval.
+
+The closest R packages do not supply a universally accepted IIW/FIPTIW interval. `IrregLong::iiwgee()` exposes the ordinary GEE sandwich after estimating the intensity weights. `CIMEHR` and `smoothedIPW` instead resample subjects, refit all stages, and report percentile bootstrap intervals. `iivw` implements that full-refit percentile route, but its availability is not treated as evidence of calibration: it covered 0.924 in the studied FIPTIW cell and still failed the fixed gate.
+
+Unweighted fits and IIW/IPTW weighted `model(mixed)` fits do **not** inherit the GEE refit-bootstrap default; they keep the analytic sandwich unless a `vce()` is named. Bare FIPTIW remains point-only under either outcome model. (`model(mixed)` under weights is experimental — interpret only its fixed-effect structure.) The legacy `bootstrap(#)` and `refitweights` options still work but are deprecated shims that print a note pointing to the equivalent `vce()`.
 
 **Inference status now depends on the weight type.** The preregistered coverage study was run on 2026-07-22 (1000 datasets × 999 draws per family; acceptance rule in [`qa/TOLERANCE_FRAMEWORK.md`](qa/TOLERANCE_FRAMEWORK.md); full record in [`qa/coverage_results/RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md)). It did not return the same answer for all three weight families:
 
@@ -329,13 +336,15 @@ Unweighted fits and weighted `model(mixed)` fits do **not** inherit the refit-bo
 |---|---|---|---|
 | IIW | 0.939 | [0.922, 0.952] | `cleared-at-studied-settings` |
 | IPTW | 0.954 | [0.939, 0.965] | `cleared-at-studied-settings` |
-| **FIPTIW** | **0.914** | [0.895, 0.930] | `undercovers-at-studied-settings` |
+| **FIPTIW Wald** | **0.914** | [0.895, 0.930] | explicit only; uncleared |
 
 "At studied settings" is load-bearing: one correctly specified scenario per family at one sample size. It is not a claim about a misspecified visit model, a different *n*, or a non-identity link.
 
-**The FIPTIW interval is anticonservative at the studied `n=300` setting.** Its *point estimator* is not implicated — bias was +0.017 against a Monte Carlo SE of 0.039, under half an MCSE. The *interval* is roughly 14% too narrow (mean SE 1.062 against an empirical SD of 1.239), which is what drags coverage to 0.914. The refit bootstrap, fixed-weight bootstrap, and analytic sandwich agree within 0.5% and all three fall short; separate contract tests verify that the refit path resamples whole subjects and rebuilds/refits the nuisance models. That evidence shows that substituting a weights-known method does not repair the interval, but agreement alone is not proof that every possible resampling defect is absent. A prespecified larger-sample diagnostic found coverage 0.950 at `n=600` and 0.960 at `n=1200` (200 outer datasets each), with standardized-statistic SDs 1.021 and 1.003. This supports a finite-sample problem in that DGP, not a universal safe cutoff; the larger-n cells are diagnostic, not release gates. If a conclusion turns on whether a FIPTIW interval excludes a value, it is less secure than the nominal 95% implies. See [the diagnostic record](qa/coverage_results/FIPTIW_NSCALE_2026-07-23.md), [Standard errors and inference](#standard-errors-and-inference), and `help iivw_fit##inference`.
+**No tested FIPTIW interval passed at the studied `n=300` setting.** The *point estimator* is not implicated — bias was +0.017 against a Monte Carlo SE of 0.039, under half an MCSE. Coverage was 0.914 for Wald, 0.924 for percentile, 0.896 for basic, 0.914 for bias-corrected, and 0.895 for BCa. The percentile improvement still missed the fixed gate. The refit bootstrap, fixed-weight bootstrap, and analytic sandwich agree within 0.5% on the SE; separate contract tests verify whole-subject resampling, the full weight-model frame, nuisance refitting, and delete-one-subject BCa acceleration. A prespecified larger-sample diagnostic found Wald coverage 0.950 at `n=600` and 0.960 at `n=1200` (200 outer datasets each), supporting a finite-sample problem in that DGP but not a universal safe cutoff.
 
-Each fit also records `e(iivw_ci_type)` (`wald-normal`) and `e(iivw_vce_locked)`.
+The package therefore follows a point-only default for FIPTIW. It prints coefficients only, launches no hidden bootstrap, stores missing endpoints in `e(iivw_ci)`, and does not post `e(V)`, so replay and inference-dependent postestimation cannot manufacture nominal intervals. It sets `e(properties)="b"`, `e(iivw_interval_available)=0`, and stamps `e(iivw_vce)="none"` plus `e(iivw_inference_status)="point-only-no-valid-interval"`. Replay is coefficient-only. `e(iivw_underlying_vce)` records the covariance route validated internally before suppression. Full comparison: [`qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md`](qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md).
+
+Each fit also records `e(iivw_ci_type)`, the selected endpoints in `e(iivw_ci)`, `e(iivw_interval_available)`, and `e(iivw_vce_locked)`.
 
 ## Assumptions and Limits
 
@@ -349,13 +358,13 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 | Treatment is binary and time-invariant within subject | Current IPTW/FIPTIW implementation is not for treatment switching |
 | Positivity/overlap is plausible | Subjects with near-certain treatment or visits create extreme weights |
 | Outcome model includes the scientific predictors of interest | Weights correct sampling/visit imbalance; they do not choose the outcome model |
-| **FIPTIW intervals under-cover at the studied `n=300` cell** — status `undercovers-at-studied-settings`; see [Standard errors and inference](#standard-errors-and-inference) | The 2026-07-22 coverage study measured 0.914 for FIPTIW against a nominal 0.95 — the interval is ~14% too narrow. IIW (0.939) and IPTW (0.954) met the preregistered rule and are stamped `cleared-at-studied-settings`. FIPTIW *point estimates* are unaffected (bias under half an MCSE). `vce(fixed)` (or the legacy `bootstrap(0)`) is the weights-known sandwich and is stamped `uncleared-fixedweights-analytic`; it had essentially the same too-small SE in the studied FIPTIW cell and is not a remedy. Follow-up diagnostics at `n=600` and `n=1200` gave 0.950 and 0.960 coverage, supporting a finite-sample limitation in this DGP but no universal cutoff. |
+| **No studied FIPTIW interval passed at `n=300`** — default status `point-only-no-valid-interval`; see [Standard errors and inference](#standard-errors-and-inference) | Wald, percentile, basic, bias-corrected, and BCa were judged by the same prespecified rule; none passed. FIPTIW *point estimates* are unaffected (bias under half an MCSE). The bare command therefore returns coefficients only. Explicit nominal inference remains available with a warning. |
 
 `censor()` supplies each subject's **end of observation time** — it bounds the visit model's risk set and is **not** a censoring model. `iivw` estimates no model for why follow-up ended and computes no censoring weight, so these weights identify the marginal parameter only under **conditional noninformative censoring**: end of follow-up independent of the outcome given the modeled covariates. The package neither tests that assumption nor offers an option that relaxes it, and multiplying in a separately estimated censoring weight does not retroactively satisfy the monitoring model's derivation (Tompkins et al. 2025, §4.2, measure the resulting sensitivity). Informative dropout, and treatment decisions that change over follow-up, each need a different estimator — not a different option here.
 
 ### Reliability status (2026-07-23)
 
-**`iivw` 2.2.1 computes point estimates and weights that are externally verified, and a default variance whose coverage has now been measured — cleared at the studied settings for IIW and IPTW, and measured as under-covering for FIPTIW.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`qa/METHOD_CONTRACT.md`](qa/METHOD_CONTRACT.md).
+**`iivw` 2.3.0 computes point estimates and weights that are externally verified, retains the studied refit-bootstrap default for IIW and IPTW, and defaults FIPTIW to point-only because no tested interval passed its prespecified coverage gate.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`qa/METHOD_CONTRACT.md`](qa/METHOD_CONTRACT.md).
 
 **What is verified:**
 
@@ -370,7 +379,7 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 
 | Open item | Consequence |
 |---|---|
-| **FIPTIW interval coverage falls short of nominal** | Measured 0.914 [0.895, 0.930] against a 0.92 floor on 2026-07-22. The point estimator is unaffected; the interval is ~14% too narrow, and three variance estimators agree on that shortfall. Separate contract tests verify whole-subject resampling and nuisance refitting; the combined evidence shows that a weights-known alternative does not repair the interval, not that agreement alone proves every possible resampling defect absent. IIW and IPTW passed the same rule. The weights-known `vce(fixed)`/`bootstrap(0)` path omits the weight-estimation term by construction and remains stamped `uncleared-fixedweights-analytic` |
+| **No studied FIPTIW interval passed** | Wald, percentile, basic, bias-corrected, and BCa were compared at `n=300` under one fixed rule; none passed. The point estimator is unaffected. Bare FIPTIW is therefore point-only, while explicit interval requests are nominal and empirically uncleared. IIW and IPTW passed their studied refit-bootstrap cells. |
 | **Coverage clearance is established at one gate cell per family only** | One correctly specified scenario and identity link per family. The FIPTIW sample-size diagnostics add `n=600` and `n=1200` at only 200 outer replications each; they explain the `n=300` shortfall but are not new release gates. Misspecified visit models, other DGPs, and non-identity links remain unstudied, so `cleared-at-studied-settings` must not be read as `cleared` |
 | **`iivw_diagnose` shares and weighted `model(mixed)`** | Package-original / not a valid weighted random-effects estimator. Descriptive only; not validated methods |
 
@@ -394,7 +403,7 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 | A row with no weight is an error unless you acknowledge it | A silently complete-case analysis — and, where the loss is differential by arm, a silently different estimand |
 
 
-For IIW and IPTW, intervals are supported by measured coverage at the studied settings. For FIPTIW, cite `iivw` for the **weighting** and treat the interval as anticonservative until the shortfall is understood.
+For IIW and IPTW, intervals are supported by measured coverage at the studied settings. For FIPTIW, cite `iivw` for the **weighting** and report the bare result as point-only; any explicitly requested interval is nominal and empirically uncleared.
 
 ## Worked Examples
 
@@ -497,14 +506,16 @@ Generated coefficient names stay short and predictable, such as `_iivw_tcat_1` a
 
 ### 7. Standard errors
 
-A weighted `model(gee)` fit selects its variance through `vce()` (see [Standard errors and inference](#standard-errors-and-inference) for the full contract). With no `vce()`, it defaults to a 999-draw refit bootstrap that propagates weight-estimation uncertainty:
+An IIW/IPTW `model(gee)` fit selects its variance through `vce()` (see [Standard errors and inference](#standard-errors-and-inference) for the full contract). With no `vce()`, it defaults to a 999-draw refit bootstrap that propagates weight-estimation uncertainty:
 
 ```stata
-* Default for a weighted fit: refit bootstrap, weight uncertainty propagated
+* Default for an IIW/IPTW weighted fit: refit bootstrap
 iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog replace
 ```
 
 Each replicate is a subject-level (cluster) bootstrap: it resamples whole subjects from the **visit panel**, refits the Andersen-Gill visit-intensity model (and, for FIPTIW/IPTW, the treatment propensity model) on the resampled panel using the specification stored by `iivw_weight`, then refits the outcome model with the fresh weights on that draw's outcome-eligible rows. The point estimates are identical to the weights-known fit; only the standard errors change. Set the replicate count and seed explicitly with `vce(bootstrap, reps(#) seed(#))`; fewer than 999 reps is allowed but stamped `uncleared-low-reps`.
+
+For FIPTIW, the bare call prints coefficients only. Request `vce()` for nominal Wald inference or select `citype(percentile|basic|bca)` explicitly for a bootstrap interval; the command warns that no candidate passed the studied coverage gate.
 
 The resampling frame is deliberately the visit panel and not the outcome sample. A visit whose outcome (or outcome covariate) is missing, or which falls outside an `if`/`in` restriction on the outcome analysis, is still an event in the monitoring process and still belongs to the model each replicate re-estimates; dropping it before the refit would bootstrap a different estimator than the one being reported. The outcome equation is restricted separately, so `e(N)` and `e(sample)` remain the outcome sample throughout. A replicate whose outcome model fails to converge is a failed draw, not a completed one — `allownonconverged` does not change that inside a bootstrap.
 
@@ -526,6 +537,8 @@ collect clear
 iivw_fit edss treated edss_bl, model(gee) nolog replace collect
 regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
 ```
+
+For FIPTIW, `collect` requires an explicit nominal inference choice, such as `vce(fixed)`. A bare FIPTIW fit is point-only and refuses collection so the underlying model's suppressed nominal standard errors cannot leak into the table.
 
 `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose` can also export their diagnostic tables directly, without requiring `tabtools`:
 
@@ -576,10 +589,10 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 - **Coefficients** (default GEE with gaussian family) are the change in the outcome per one-unit change in the predictor, averaged over the population.
 - **Treatment effect**: The coefficient on the treatment variable is the weighted treatment contrast.  A causal interpretation additionally requires a correctly specified visit model, a correctly specified propensity model for IPTW/FIPTIW, no unmeasured confounding, and a treatment assignment mechanism appropriate for the chosen weight type.
-- **Standard errors.** A weighted `model(gee)` fit defaults to the refit bootstrap, which re-estimates the weights inside each subject-level replicate and so accounts for weight-estimation uncertainty; coverage was measured on 2026-07-22 and met the preregistered rule for IIW and IPTW but not for FIPTIW at `n=300`, whose interval runs ~14% narrow. Follow-up FIPTIW diagnostics at `n=600` and `n=1200` returned 0.950 and 0.960 coverage, supporting a finite-sample limitation in that DGP without establishing a sample-size cutoff. `vce(fixed)` returns the analytic cluster-robust sandwich with the weights held known (clustered at `cluster()` when specified, otherwise at the subject ID stored by `iivw_weight`); unweighted fits use that analytic sandwich. See [Standard errors and inference](#standard-errors-and-inference).
+- **Standard errors.** IIW/IPTW `model(gee)` fits default to the refit bootstrap, which re-estimates the weights inside each subject-level replicate and met the studied coverage rule. A bare FIPTIW fit reports no SE, interval, or p-value because Wald, percentile, basic, bias-corrected, and BCa all missed the `n=300` gate. Explicit nominal inference remains available with a warning. `vce(fixed)` returns the analytic cluster-robust sandwich with the weights held known; unweighted fits use that analytic sandwich. See [Standard errors and inference](#standard-errors-and-inference).
 - **Few clusters**: analytic cluster-robust SEs are anti-conservative when the number of clusters (subjects) is modest, and weighting concentrates influence on a few subjects, which worsens the effective-cluster count.  `iivw_fit` prints a note when fewer than 40 clusters contribute to an analytic-SE fit (`vce(fixed)` or unweighted); prefer a bootstrap `vce()` in that regime.
 - **GEE vs mixed with weights**: `model(gee)` is the defensible primary weighted estimator — it is the marginal estimating equation that IIW theory identifies.  `model(mixed)` applies IIVW weights through a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated (Rabe-Hesketh & Skrondal 2006).  For a weighted mixed fit, interpret the fixed-effect (mean) structure only; `iivw_fit` prints a note to this effect.
-- **Post-estimation**: All standard Stata post-estimation commands work after `iivw_fit` (`predict`, `lincom`, `test`, `margins`).
+- **Post-estimation**: After an interval-producing fit, the usual Stata commands work (`predict`, `lincom`, `test`, `margins`). `estimates replay` preserves the selected percentile/basic/BCa coefficient endpoints instead of reverting to Wald limits. Derived contrasts from `lincom`, `test`, and `margins` still use `e(V)` and therefore use their ordinary Wald/delta-method inference. A point-only FIPTIW fit retains coefficients in `e(b)` but deliberately posts no `e(V)`; standard prediction and inference-dependent postestimation are unavailable until an interval method is explicitly requested.
 
 ## What to Report
 
@@ -592,6 +605,7 @@ For technical reports and papers, include enough detail for readers to assess th
 - weight diagnostics: mean, min, max, selected percentiles, and effective sample size
 - `iivw_balance` leverage, composition shift, and the balance flag (with its target SMD)
 - outcome model family/link, time specification, clustering level, and whether SEs were sandwich or bootstrap
+- for FIPTIW, whether the result was point-only; if nominal inference was explicitly requested, name `citype()` and report that it did not pass the package's studied coverage gate
 - unweighted, weighted, and measurement-adjusted estimates for the marginal/reference time-slope coefficient when using the diagnostic workflow
 - the `iivw_exogtest` specification and whether lagged outcome or disease-activity variables predicted visit timing
 - the `iivw_diagnose` sampling/artifact gaps or endogenous diagnostic range
@@ -609,7 +623,7 @@ For technical reports and papers, include enough detail for readers to assess th
 - `lagvars()` is useful when a time-varying variable should enter the visit model using its previous-visit value rather than its current-visit value.
 - `iivw_exogtest` is a falsification diagnostic, not proof that visit or testing is exogenous.
 - `iivw_diagnose` is intended for the marginal/reference-arm time slope, not for assigning artifact shares to treatment x time contrasts.
-- A weighted `model(gee)` fit defaults to `vce(bootstrap, reps(999))`, the refit bootstrap that propagates weight-estimation uncertainty; `vce(fixed)` (equivalently the legacy `bootstrap(0)`) holds the weights fixed and returns the analytic sandwich. The legacy `bootstrap(#)` and `refitweights` spellings remain as deprecated shims.
+- IIW/IPTW `model(gee)` fits default to `vce(bootstrap, reps(999))`; bare FIPTIW fits are point-only. `vce(fixed)` (equivalently the legacy `bootstrap(0)`) holds the weights fixed and returns the analytic sandwich. The legacy `bootstrap(#)` and `refitweights` spellings remain as deprecated shims.
 - `efron` in `iivw_weight` uses the Efron tie-handling method in the Cox model (matches R's `coxph()` default; Breslow remains the Stata default).
 
 ## Reproducible Analysis Checklist
@@ -638,7 +652,7 @@ The package ships with functional, validation, simulation, reporting-export, ins
 | **Stabilized ATE IPTW vs. an independent implementation** | ✅ **now closed (Gate 2A).** Base-R `glm` IPTW oracle, plus a hand-computed saturated fixture exact to `1e-8` and a mean-one identity check |
 | **FIPTIW known-truth recovery with mechanism discrimination** (Coulombe Appendix A) | ✅ **now closed (Gate 2B).** In the arm where treatment drives both the visit schedule and the outcome, only FIPTIW recovers the truth; naive, IIW-only, and IPTW-only each miss |
 | **Treatment present in the FIPTIW visit model** (Coulombe eq. 3.12) | ✅ **now detectable.** Removing `treat()` from the visit-intensity model turns `test_iivw_phase2_contract` red |
-| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **run 2026-07-22; split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule; **FIPTIW 0.914 did not** at `n=300`. 1000 datasets × 999 draws per family, 0 failed draws. A prespecified FIPTIW sample-size diagnostic then returned 0.950 at `n=600` and 0.960 at `n=1200` (200 outer datasets each), supporting a finite-sample limitation but not a universal cutoff. Records: [`RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md), [`FIPTIW_NSCALE_2026-07-23.md`](qa/coverage_results/FIPTIW_NSCALE_2026-07-23.md) |
+| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895 all missed the same gate, so the default is point-only. Records: [`RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md), [`FIPTIW_INTERVALS_2026-07-23.md`](qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md), [`FIPTIW_NSCALE_2026-07-23.md`](qa/coverage_results/FIPTIW_NSCALE_2026-07-23.md) |
 | **Aggregation integrity of the coverage gate itself** | ✅ **closed 2026-07-22.** `test_iivw_coverage_gate.do` proves `combine` refuses a missing interior block, overlapping blocks, and — after a defect found the same day — any pool whose replication count, study size, or seed disagrees with the verdict it would print |
 
 Three pre-registered false-green mutations are recorded in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md). **All three now turn a gate red** — flipping the IIW exponent breaks `validation_iivw_fiptiw_recovery`, dropping `treat()` from the visit model breaks `test_iivw_phase2_contract`, and the third (holding the weights fixed) is now discriminated by the coverage run: for IPTW the fixed-weight SE runs 1.31× the empirical SD against the refit bootstrap's 1.02×, exactly the over-coverage direction the tolerance framework preregistered.
@@ -691,12 +705,23 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 ## References
 
 - Buzkova P, Lumley T. Longitudinal data analysis for generalized linear models with follow-up dependent on outcome-related variables. *Canadian Journal of Statistics*. 2007;35(4):485-500. doi:10.1002/cjs.5550350402.
+- Coulombe J, Moodie EEM, Platt RW. Weighted regression analysis to correct for informative monitoring times and confounders in longitudinal studies. *Biometrics*. 2021;77(1):162-174. doi:10.1111/biom.13285.
+- DiCiccio TJ, Efron B. Bootstrap confidence intervals. *Statistical Science*. 1996;11(3):189-228. doi:10.1214/ss/1032280214.
 - Lin H, Scharfstein DO, Rosenheck RA. Analysis of longitudinal data with irregular, outcome-dependent follow-up. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*. 2004;66(3):791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 - Pullenayegum EM. Multiple outputation for the analysis of longitudinal data subject to irregular observation. *Statistics in Medicine*. 2016;35(11):1800-1818. doi:10.1002/sim.6829.
 - Rabe-Hesketh S, Skrondal A. Multilevel modelling of complex survey data. *Journal of the Royal Statistical Society: Series A (Statistics in Society)*. 2006;169(4):805-827. doi:10.1111/j.1467-985X.2006.00426.x.
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Version History
+
+### v2.3.0 (2026-07-23)
+
+- Added full-refit percentile, basic, and BCa confidence intervals through `citype()`, with the selected endpoints in `e(iivw_ci)` and candidate percentile/basic matrices retained for audit.
+- Compared Wald, percentile, basic, bias-corrected, and BCa intervals in 1,000 `n=300` FIPTIW datasets with 999 full-refit subject bootstrap draws each, using one rule fixed before candidate results were inspected. None passed.
+- Changed bare FIPTIW inference to point-only: no hidden bootstrap, no displayed standard errors, confidence intervals, or p-values, and `e(iivw_inference_status)="point-only-no-valid-interval"`. Explicit nominal inference remains available with a warning.
+- Added a documented two-sample BCa jackknife contract: the refit wrapper posts the weight-frame row count, and Stata's jackknife validates that count while deleting whole subjects. The helper now also reposts its panel `e(sample)` after restoring the caller's data; without that second repost, a correct point estimate returned an empty sample marker at `rc=0`.
+- Made `iivw_fit` own result replay so percentile, basic, and BCa fits retain their selected endpoints instead of silently reverting to the underlying Wald table; prediction and ordinary postestimation remain delegated to the fitted `glm`/`mixed` result.
+- Added an independent Python audit of raw coverage blocks and regression tests for selected endpoints, fixed-weight BCa, manual delete-one-subject acceleration, and the point-only display surface.
 
 ### v2.2.1 (2026-07-23)
 

@@ -1,4 +1,4 @@
-*! iivw_fit Version 2.2.1  2026/07/23
+*! iivw_fit Version 2.3.0  2026/07/23
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -22,7 +22,9 @@ Options:
   basecat(#)          - Reference category for categorical (default: lowest)
   timebasecat(#)      - Reference category for categorical time (default: lowest)
   cluster(varname)    - Cluster variable (default: id from metadata)
-  bootstrap(#)        - Bootstrap replicates (0 = sandwich SE only)
+  vce(string)         - fixed or bootstrap variance contract
+  bootstrap(#)        - Legacy bootstrap spelling
+  citype(string)      - none, wald, percentile, basic, or bca
   level(#)            - Confidence level (default: 95)
   nolog               - Suppress iteration log
   geeopts(string)     - Additional options passed to glm
@@ -33,6 +35,13 @@ See help iivw_fit for complete documentation
 
 program define iivw_fit, eclass
     version 16.0
+    if replay() {
+        if "`e(cmd)'" != "iivw_fit" {
+            error 301
+        }
+        _iivw_fit_replay `0'
+        exit
+    }
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
     local __iivw_smcl_lb = char(123)
@@ -81,6 +90,7 @@ program define iivw_fit, eclass
          ID(varname) TIME(varname) ///
          VCE(string asis) ///
          BOOTstrap(integer -999999) REFITweights ALLOWFAILEDReps ///
+         CIType(string) ///
          Level(cilevel) noLOG ///
          REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
@@ -181,6 +191,33 @@ program define iivw_fit, eclass
         local weighttype "unweighted"
         local weight_var ""
         local prefix "_iivw_"
+    }
+
+    * The interval choice is needed before the variance default is resolved.
+    * FIPTIW has no calibrated 95% interval in the n=300 experiment, so a bare
+    * fit means point-only. An explicit variance option is already a request for
+    * inference and retains the historical Wald transformation, with the
+    * empirical warning below; an explicit citype() selects another nominal
+    * interval. Other estimators retain their measured Wald/default contract.
+    local _citype_explicit = (strtrim("`citype'") != "")
+    local _inference_explicit = ///
+        (`"`vce'"' != "" | `_boot_explicit' | "`refitweights'" != "")
+    local citype = lower(strtrim("`citype'"))
+    if "`citype'" == "" {
+        if "`weighttype'" == "fiptiw" & "`unweighted'" == "" & ///
+                !`_inference_explicit' local citype "none"
+        else local citype "wald"
+    }
+    if !inlist("`citype'", "none", "wald", "percentile", "basic", "bca") {
+        display as error "citype() must be none, wald, percentile, basic, or bca"
+        error 198
+    }
+    if "`citype'" == "none" & `_inference_explicit' {
+        display as error "citype(none) cannot be combined with a variance option"
+        display as error "  omit vce()/bootstrap()/refitweights for point estimates only"
+        display as error "  or explicitly request citype(wald), citype(percentile),"
+        display as error "  citype(basic), or citype(bca) for nominal inference"
+        error 198
     }
 
     * =========================================================================
@@ -301,12 +338,14 @@ program define iivw_fit, eclass
     }
     else if "`weighttype'" != "unweighted" & "`model'" == "gee" & `_boot_explicit' == 0 {
         * ---------------------------------------------------------------------
-        * THE CANDIDATE DEFAULT (IIVW-B02): a WEIGHTED model(gee) fit with no vce()
-        * and no legacy spelling gets the 999-draw subject bootstrap that REFITS
-        * every nuisance model inside each draw. Treating the estimated weights as
-        * known (vce(fixed)) omits the weight-estimation term that both source
-        * papers put inside the sandwich (B&L p.10-11; Coulombe PDF p.86), so it
-        * is now an explicit opt-in, not the silent default it used to be.
+        * DEFAULT INFERENCE (IIVW-B02): IIW/IPTW model(gee) fits with no vce()
+        * get the 999-draw subject bootstrap that REFITS every nuisance model
+        * inside each draw. Bare FIPTIW falls through the same branch with
+        * citype(none), but launches no bootstrap and returns point estimates
+        * only because no tested interval passed its gate. Treating estimated
+        * weights as known (vce(fixed)) omits the weight-estimation term that
+        * both source papers put inside the sandwich (B&L p.10-11; Coulombe
+        * PDF p.86), so it is an explicit opt-in, not a silent default.
         * model(mixed) is deliberately excluded: the weighted random-effects path
         * is experimental and never inherits the candidate default (it keeps the
         * analytic sandwich unless a variance is named explicitly).
@@ -318,35 +357,94 @@ program define iivw_fit, eclass
         * analytic cluster sandwich -- they estimate no nuisance weights, so
         * there is nothing to propagate.
         * ---------------------------------------------------------------------
-        local bootstrap 999
-        local refitweights "refitweights"
-        display as text ///
-            "note: weighted fit with no vce(); using the default" ///
-            " vce(bootstrap, reps(999)) [refit]"
-        display as text ///
-            "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
+        if "`citype'" == "none" {
+            local bootstrap 0
+            local refitweights ""
+            if "`weighttype'" == "fiptiw" {
+                display as text ///
+                    "note: FIPTIW point-only default; no interval method passed" ///
+                    " the n=300 coverage gate"
+            }
+            else {
+                display as text ///
+                    "note: citype(none); fitting point estimates only"
+            }
+            display as text ///
+                "  no unreported bootstrap will be launched"
+        }
+        else {
+            local bootstrap 999
+            local refitweights "refitweights"
+            display as text ///
+                "note: weighted fit with no vce(); using the default" ///
+                " vce(bootstrap, reps(999)) [refit]"
+            display as text ///
+                "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
+        }
     }
 
-    * A measured coverage shortfall must be visible at the point of use, not
-    * only in a stored macro a user has to know to inspect.  The studied
-    * 999-draw refit interval under-covered, and the fixed-weight bootstrap and
-    * analytic sandwich had essentially the same SE in that cell; choosing one
-    * of them did not repair the problem.  Warn for EVERY FIPTIW variance path,
-    * while keeping the measured tier in e() specific to the studied refit
-    * configuration.  Fire before marksample and before any draws, so the user
-    * sees it before waiting and the contract is testable with an empty sample.
-    if "`weighttype'" == "fiptiw" {
+    * The variance method and interval transformation are separate choices.
+    * Stata's bootstrap prefix already computes percentile limits from the full
+    * set of replicate estimates; the former implementation discarded those
+    * limits and always reconstructed b +/- z*SE. citype() makes the selected
+    * interval explicit without repeating any bootstrap fits.
+    if inlist("`citype'", "percentile", "basic", "bca") & `bootstrap' == 0 {
+        display as error "citype(`citype') requires bootstrap draws"
+        display as error "  specify vce(bootstrap, reps(#) [seed(#)])"
+        error 198
+    }
+    local bca_opt ""
+    local bca_refit_opt ""
+    if "`citype'" == "bca" {
+        * The refit wrapper deliberately posts the weight-model FRAME as
+        * e(sample), while its e(N) remains the number of outcome rows used by
+        * glm.  A delete-one subject therefore removes one more frame row (the
+        * carrier entry row) than e(N) falls.  jackknife's default count check
+        * interprets that deliberate two-sample contract as a failed replicate
+        * and silently posts every delete-one estimate as missing.  BCa's
+        * acceleration uses only the delete-one coefficient estimates. The
+        * helper therefore posts its actual frame count, and n() tells
+        * jackknife which documented sample-size contract to check.
+        local bca_opt "bca jackknifeopts(double)"
+        local bca_refit_opt ///
+            "bca jackknifeopts(n(e(iivw_bs_frame_N)) double)"
+    }
+
+    * The point-only decision or explicit nominal-inference warning must be
+    * visible at the point of use, not only in a stored macro. Fire before
+    * marksample and before any draws, so the user sees it before waiting and
+    * the contract remains testable with an empty sample.
+    if "`weighttype'" == "fiptiw" & "`unweighted'" == "" & "`citype'" == "none" {
+        if `_citype_explicit' {
+            display as text ///
+                "  FIPTIW inference: citype(none); returning point estimates only."
+        }
+        else {
+            display as text ///
+                "  FIPTIW inference: returning point estimates only."
+        }
         display as text ///
-            "  FIPTIW note: the 2026-07-22 study's 999-draw refit interval" ///
-            " covered 0.914, not 0.95"
+            "    Wald, percentile, basic, bias-corrected, and BCa intervals" ///
+            " all missed"
         display as text ///
-            "    (point estimate unbiased; interval ~14% too narrow). The" ///
-            " fixed-weight"
+            "    the prespecified n=300 coverage gate; no generally valid 95%" ///
+            " interval"
         display as text ///
-            "    bootstrap and analytic sandwich were equally too narrow in" ///
-            " that cell."
+            "    is claimed. Specify vce() or citype(wald|percentile|basic|bca)" ///
+            " only"
         display as text ///
-            "    See {help iivw_fit##inference:inference status}."
+            "    to request a nominal, empirically uncleared interval. See" ///
+            " {help iivw_fit##inference:inference status}."
+    }
+    else if "`weighttype'" == "fiptiw" & "`unweighted'" == "" {
+        display as text ///
+            "  FIPTIW warning: citype(`citype') is a nominal, empirically" ///
+            " uncleared interval."
+        display as text ///
+            "    No candidate passed the prespecified n=300 coverage gate;" ///
+            " point estimates"
+        display as text ///
+            "    are the default. See {help iivw_fit##inference:inference status}."
     }
 
     * =========================================================================
@@ -631,6 +729,12 @@ program define iivw_fit, eclass
             display as error "  the collect: prefix is not applied to bootstrap fits"
             error 198
         }
+        if "`citype'" == "none" {
+            display as error "collect is not supported with citype(none)"
+            display as error "  collect: would expose the underlying model's nominal inference"
+            display as error "  explicitly select citype() before requesting collect"
+            error 198
+        }
     }
 
     * Validate time spec
@@ -752,7 +856,14 @@ program define iivw_fit, eclass
         if "`link'" != "" {
             display as text "Link:             " as result "`link'"
         }
-        display as text "Estimation:       " as result "GLM with clustered robust SEs"
+        if "`citype'" == "none" {
+            display as text "Estimation:       " as result ///
+                "GLM point estimate (inference not reported)"
+        }
+        else {
+            display as text "Estimation:       " as result ///
+                "GLM with clustered robust SEs"
+        }
     }
     if "`unweighted'" != "" {
         display as text "Weight var:       " as result "(none, unweighted)"
@@ -770,6 +881,17 @@ program define iivw_fit, eclass
         else if "`unweighted'" == "" {
             display as text "Bootstrap weights:" as result " held fixed"
         }
+    }
+    local ci_display "Wald/normal"
+    if "`citype'" == "none" local ci_display "none (point estimate only)"
+    if "`citype'" == "percentile" local ci_display "percentile bootstrap"
+    if "`citype'" == "basic" local ci_display "basic bootstrap"
+    if "`citype'" == "bca" local ci_display "BCa bootstrap"
+    if "`citype'" == "none" {
+        display as text "Interval:         " as result "`ci_display'"
+    }
+    else {
+        display as text "Interval:         " as result "`ci_display' (`level'%)"
     }
     display as text ""
 
@@ -1528,6 +1650,8 @@ program define iivw_fit, eclass
         local iivw_rngstate_start "`c(rngstate)'"
         local iivw_seed_explicit = ("`vce_seed'" != "")
     }
+    local _bs_prefix ""
+    if `bootstrap' > 0 & "`citype'" != "wald" local _bs_prefix "quietly"
 
     if "`model'" == "gee" {
 
@@ -1548,7 +1672,7 @@ program define iivw_fit, eclass
 
         if `bootstrap' > 0 & "`refitweights'" != "" {
             tempvar bsid
-            bootstrap, reps(`bootstrap') cluster(`cluster') ///
+            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
@@ -1571,7 +1695,8 @@ program define iivw_fit, eclass
         else if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
-            bootstrap, reps(`bootstrap') cluster(`cluster') level(`level') nodots: ///
+            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
+                level(`level') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(gee) ///
                 family(`family') link(`link') `log_opt' ///
@@ -1580,7 +1705,10 @@ program define iivw_fit, eclass
         else {
             local _collect_prefix ""
             if "`collect'" != "" local _collect_prefix "collect:"
-            `_collect_prefix' glm `depvar' `all_covars' `wt_clause' if `touse', ///
+            local _fit_prefix ""
+            if "`citype'" == "none" local _fit_prefix "quietly"
+            `_fit_prefix' `_collect_prefix' glm ///
+                `depvar' `all_covars' `wt_clause' if `touse', ///
                 `glm_family' `glm_link' ///
                 vce(cluster `cluster') level(`level') `log_opt' `geeopts'
         }
@@ -1648,7 +1776,7 @@ program define iivw_fit, eclass
 
         if `bootstrap' > 0 & "`refitweights'" != "" {
             tempvar bsid
-            bootstrap, reps(`bootstrap') cluster(`cluster') ///
+            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
@@ -1682,7 +1810,7 @@ program define iivw_fit, eclass
             * clinic one random-effect group. Hand the helper both ids and let it
             * form group(bsid, panel_id), the resampled subject.
             tempvar bsid
-            bootstrap, reps(`bootstrap') cluster(`cluster') ///
+            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(mixed) ///
@@ -1690,7 +1818,9 @@ program define iivw_fit, eclass
                 mixedopts(`mixedopts')
         }
         else {
-            mixed `depvar' `all_covars' `wt_clause' if `touse' ///
+            local _fit_prefix ""
+            if "`citype'" == "none" local _fit_prefix "quietly"
+            `_fit_prefix' mixed `depvar' `all_covars' `wt_clause' if `touse' ///
                 || `panel_id':, vce(cluster `cluster') level(`level') ///
                 `log_opt' `mixedopts'
         }
@@ -1767,13 +1897,66 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
+    * INTERVAL MATRICES
+    * =========================================================================
+    * e(iivw_ci) is the interval actually selected for display. The matrix keeps
+    * the exact equation/column stripes of e(b), so consumers can match terms by
+    * name rather than position. Percentile and basic use the SAME bootstrap
+    * draws as e(V); basic reflects the percentile endpoints around e(b).
+    tempname iivw_ci_selected iivw_ci_percentile iivw_ci_basic iivw_ci_bca
+    matrix `iivw_ci_selected' = e(b) \ e(b)
+    matrix rownames `iivw_ci_selected' = ll ul
+    local iivw_k = colsof(e(b))
+    local iivw_z = invnormal((100+`level')/200)
+
+    if `bootstrap' > 0 {
+        matrix `iivw_ci_percentile' = e(ci_percentile)
+        matrix `iivw_ci_basic' = e(b) \ e(b)
+        matrix rownames `iivw_ci_basic' = ll ul
+        forvalues j = 1/`iivw_k' {
+            matrix `iivw_ci_basic'[1,`j'] = ///
+                2*el(e(b),1,`j') - el(`iivw_ci_percentile',2,`j')
+            matrix `iivw_ci_basic'[2,`j'] = ///
+                2*el(e(b),1,`j') - el(`iivw_ci_percentile',1,`j')
+        }
+        if "`citype'" == "bca" {
+            matrix `iivw_ci_bca' = e(ci_bca)
+        }
+    }
+
+    forvalues j = 1/`iivw_k' {
+        if "`citype'" == "none" {
+            matrix `iivw_ci_selected'[1,`j'] = .
+            matrix `iivw_ci_selected'[2,`j'] = .
+        }
+        else if "`citype'" == "wald" {
+            local _ci_b = el(e(b),1,`j')
+            local _ci_se = sqrt(el(e(V),`j',`j'))
+            matrix `iivw_ci_selected'[1,`j'] = `_ci_b' - `iivw_z'*`_ci_se'
+            matrix `iivw_ci_selected'[2,`j'] = `_ci_b' + `iivw_z'*`_ci_se'
+        }
+        else if "`citype'" == "percentile" {
+            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_percentile',1,`j')
+            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_percentile',2,`j')
+        }
+        else if "`citype'" == "basic" {
+            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_basic',1,`j')
+            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_basic',2,`j')
+        }
+        else if "`citype'" == "bca" {
+            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_bca',1,`j')
+            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_bca',2,`j')
+        }
+    }
+
+    * =========================================================================
     * FEW-CLUSTER INFERENCE WARNING
     * =========================================================================
     * Cluster-robust (sandwich) SEs are anti-conservative when the number of
     * clusters is modest, and IIVW weighting concentrates influence on a few
     * subjects, which worsens the effective-cluster count. Only relevant for the
     * analytic-SE path (bootstrap() already resamples clusters).
-    if `bootstrap' == 0 {
+    if `bootstrap' == 0 & "`citype'" != "none" {
         tempvar _iivw_cltag
         quietly egen byte `_iivw_cltag' = tag(`cluster') if `touse'
         quietly count if `_iivw_cltag' == 1
@@ -1782,8 +1965,8 @@ program define iivw_fit, eclass
         if `n_clusters' < 40 {
             display as text ""
             display as text "note: `n_clusters' clusters (`cluster'); cluster-robust SEs can be"
-            display as text "  anti-conservative with few clusters. Consider bootstrap(#) for"
-            display as text "  inference (add refitweights to also propagate weight uncertainty)."
+            display as text "  anti-conservative with few clusters. Consider"
+            display as text "  vce(bootstrap, reps(#)) to propagate weight uncertainty."
         }
     }
 
@@ -1799,7 +1982,8 @@ program define iivw_fit, eclass
     * This is stated where the user reads the SE, not only in the help file. It
     * is the single most consequential thing about the output and it was
     * previously invisible.
-    if "`unweighted'" == "" & (`bootstrap' == 0 | "`refitweights'" == "") {
+    if "`citype'" != "none" & "`unweighted'" == "" & ///
+        (`bootstrap' == 0 | "`refitweights'" == "") {
         display as text ""
         display as text "{hline 70}"
         if `bootstrap' == 0 {
@@ -1814,7 +1998,7 @@ program define iivw_fit, eclass
         display as text "  derived by Buzkova & Lumley (2007) or by Coulombe et al. (2021)."
         display as text ""
         display as text "  For inference that propagates weight-estimation uncertainty:"
-        display as text "    iivw_fit ..., bootstrap(#) refitweights"
+        display as text "    iivw_fit ..., vce(bootstrap, reps(#))"
         display as text "{hline 70}"
     }
 
@@ -1831,11 +2015,19 @@ program define iivw_fit, eclass
         display as text "`wtype_display'-weighted effects:"
     }
     display as text ""
-    display as text _col(4) "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
-        _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
-        _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
-        _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
-        _col(65) "`__iivw_smcl_lb'ralign 6:P`__iivw_smcl_rb'"
+    if "`citype'" == "none" {
+        display as text _col(4) ///
+            "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
+            _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'"
+    }
+    else {
+        display as text _col(4) ///
+            "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
+            _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
+            _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
+            _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
+            _col(65) "`__iivw_smcl_lb'ralign 6:P(z)`__iivw_smcl_rb'"
+    }
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     * Build list with intercept first when present
@@ -1853,6 +2045,8 @@ program define iivw_fit, eclass
         capture local se_val = _se[`pred']
         local se_rc = _rc
         local coef_rc = max(`b_rc', `se_rc')
+        local ci_col = colnumb(e(b), "`pred'")
+        if missing(`ci_col') | `ci_col' < 1 local coef_rc = 111
 
         * Use variable label if available, else variable name (or "Intercept"
         * for the model constant, which is not a real variable).
@@ -1867,11 +2061,17 @@ program define iivw_fit, eclass
             local vlab = substr(`"`vlab'"', 1, 16) + ".."
         }
 
-        if `coef_rc' == 0 & `se_val' > 0 & `se_val' < . {
+        if "`citype'" == "none" & `coef_rc' == 0 & ///
+                `se_val' > 0 & `se_val' < . {
+            display as text _col(4) ///
+                "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
+                as result _col(24) %10.4f `b_val'
+        }
+        else if `coef_rc' == 0 & `se_val' > 0 & `se_val' < . {
             local z_val = `b_val' / `se_val'
             local p_val = 2 * normal(-abs(`z_val'))
-            local ci_lo = `b_val' - invnormal((100+`level')/200) * `se_val'
-            local ci_hi = `b_val' + invnormal((100+`level')/200) * `se_val'
+            local ci_lo = el(`iivw_ci_selected', 1, `ci_col')
+            local ci_hi = el(`iivw_ci_selected', 2, `ci_col')
 
             * Format p-value
             if `p_val' < 0.001 {
@@ -1899,6 +2099,60 @@ program define iivw_fit, eclass
 
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
+    * -------------------------------------------------------------------------
+    * POST-FIT VARIANCE LOCK (IIVW-B08 defense in depth)
+    * -------------------------------------------------------------------------
+    * Validate the underlying fitted covariance before a point-only result
+    * deliberately removes it from e(). A pre-call string scan of
+    * geeopts()/mixedopts() is not evidence that the variance the package
+    * believes it computed is the variance actually posted.
+    local iivw_underlying_vce ""
+    if `bootstrap' > 0 & "`refitweights'" != "" {
+        local iivw_underlying_vce "bootstrap"
+    }
+    else if `bootstrap' > 0 {
+        local iivw_underlying_vce "bootstrap-fixedweights"
+    }
+    else {
+        local iivw_underlying_vce "fixed"
+    }
+
+    local _obs_vce      "`e(vce)'"
+    local _obs_clustvar "`e(clustvar)'"
+    local iivw_underlying_cmd "`e(cmd)'"
+    local iivw_vce_locked 0
+    if "`model'" == "gee" {
+        if `bootstrap' > 0 {
+            if "`_obs_vce'" == "bootstrap" local iivw_vce_locked 1
+        }
+        else if "`_obs_vce'" == "cluster" & "`_obs_clustvar'" == "`cluster'" {
+            local iivw_vce_locked 1
+        }
+        if `iivw_vce_locked' == 0 {
+            display as error "variance lock failed: the posted covariance does not"
+            display as error "  match the package-selected underlying method"
+            display as error "  (`iivw_underlying_vce')"
+            display as error "  observed e(vce)=`_obs_vce', e(clustvar)=`_obs_clustvar'"
+            display as error "  a geeopts()/mixedopts() token may have altered the VCE"
+            error 459
+        }
+    }
+
+    * Point-only means e(b), e(N), and e(sample), but no e(V). Merely hiding the
+    * initial glm table would leave estimates replay and lincom able to recover
+    * nominal inference. ereturn post without a covariance removes that route
+    * cleanly; e(properties)="b" makes ereturn display coefficient-only and
+    * inference-dependent postestimation refuses with r(321).
+    if "`citype'" == "none" {
+        tempname __iivw_b_pointonly
+        matrix `__iivw_b_pointonly' = e(b)
+        local __iivw_N_pointonly = e(N)
+        ereturn post `__iivw_b_pointonly', esample(`touse') ///
+            obs(`__iivw_N_pointonly') depname(`depvar')
+        ereturn local cmd "iivw_fit"
+        ereturn local properties "b"
+    }
+
     * Store eclass metadata
     ereturn local iivw_cmd "iivw_fit"
     ereturn local iivw_model "`model'"
@@ -1915,50 +2169,17 @@ program define iivw_fit, eclass
     * resampling unit, whether the nuisance models were refit inside the draws,
     * the replicate accounting, and the weight contract the whole thing rests on.
     *
-    * e(iivw_vce) is the load-bearing one. "fixed" means the weights were treated
-    * as KNOWN: the SE omits the uncertainty in estimating them, which is not the
-    * variance either source paper derives. A reader who cannot tell "fixed" from
-    * "bootstrap" from the output cannot tell whether the interval means anything.
-    if `bootstrap' > 0 & "`refitweights'" != "" {
-        ereturn local iivw_vce "bootstrap"
-    }
-    else if `bootstrap' > 0 {
-        ereturn local iivw_vce "bootstrap-fixedweights"
-    }
-    else {
-        ereturn local iivw_vce "fixed"
-    }
+    * e(iivw_vce) is the reported inference contract. Point-only fits stamp
+    * "none"; e(iivw_underlying_vce) separately records the covariance that the
+    * underlying model had to compute before iivw_fit suppresses it. For an
+    * interval fit, "fixed" means the weights were treated as KNOWN: the SE omits
+    * uncertainty in estimating them, which is not the variance either source
+    * paper derives.
+    ereturn local iivw_underlying_vce "`iivw_underlying_vce'"
+    ereturn local iivw_underlying_cmd "`iivw_underlying_cmd'"
+    if "`citype'" == "none" ereturn local iivw_vce "none"
+    else ereturn local iivw_vce "`iivw_underlying_vce'"
 
-    * -------------------------------------------------------------------------
-    * POST-FIT VARIANCE LOCK (IIVW-B08 defense in depth)
-    * -------------------------------------------------------------------------
-    * A pre-call string scan of geeopts()/mixedopts() is not evidence that the
-    * variance the package believes it computed is the variance actually posted.
-    * Read it back from e() and confirm: a bootstrap fit must post e(vce)
-    * "bootstrap"; a fixed GEE fit must post e(vce) "cluster" on the package's
-    * own cluster variable. If a pass-through token reached glm and changed the
-    * VCE, that shows up here as a mismatch and the fit errors rather than
-    * reporting a variance under a method label it does not match. Only model(gee)
-    * -- the cleared surface -- is locked strictly; model(mixed) is experimental
-    * and never carries the cleared claim, so it is recorded unlocked.
-    local _obs_vce      "`e(vce)'"
-    local _obs_clustvar "`e(clustvar)'"
-    local iivw_vce_locked 0
-    if "`model'" == "gee" {
-        if `bootstrap' > 0 {
-            if "`_obs_vce'" == "bootstrap" local iivw_vce_locked 1
-        }
-        else if "`_obs_vce'" == "cluster" & "`_obs_clustvar'" == "`cluster'" {
-            local iivw_vce_locked 1
-        }
-        if `iivw_vce_locked' == 0 {
-            display as error "variance lock failed: the posted covariance does not"
-            display as error "  match the package-selected method (`e(iivw_vce)')"
-            display as error "  observed e(vce)=`_obs_vce', e(clustvar)=`_obs_clustvar'"
-            display as error "  a geeopts()/mixedopts() token may have altered the VCE"
-            error 459
-        }
-    }
     ereturn scalar iivw_vce_locked = `iivw_vce_locked'
 
     ereturn local iivw_resample_unit = cond(`bootstrap' > 0, "`cluster'", "")
@@ -1969,24 +2190,42 @@ program define iivw_fit, eclass
         cond(`bs_reps_fail' > 0 & "`allowfailedreps'" != "", "1", "0")
     ereturn local iivw_vce_seed "`vce_seed'"
 
-    * The printed interval is the normal/Wald interval from the reported
-    * covariance (b +/- z * se), the same convention the coefficient table and
-    * the coverage driver use. Percentile/basic/BC/BCa are separate methods and
-    * are NOT what "bootstrap" prints here; naming it stops that ambiguity.
-    ereturn local iivw_ci_type "wald-normal"
+    * Selected and candidate interval surfaces. e(iivw_ci) is always the one
+    * printed above. The percentile/basic matrices are additionally retained
+    * after a bootstrap so an analysis can audit the choice without rerunning
+    * the expensive nuisance-model refits.
+    local iivw_ci_type "`citype'"
+    if "`citype'" == "wald" local iivw_ci_type "wald-normal"
+    ereturn local iivw_ci_type "`iivw_ci_type'"
+    ereturn matrix iivw_ci = `iivw_ci_selected'
+    ereturn scalar iivw_interval_available = ("`citype'" != "none")
+    ereturn scalar iivw_ci_explicit = `_citype_explicit'
+    if `bootstrap' > 0 {
+        ereturn matrix iivw_ci_percentile = `iivw_ci_percentile'
+        ereturn matrix iivw_ci_basic = `iivw_ci_basic'
+        if "`citype'" == "bca" {
+            ereturn matrix iivw_ci_bca = `iivw_ci_bca'
+        }
+    }
 
     * RNG provenance: enough to replay a run made without an explicit seed().
     ereturn local iivw_rng "`iivw_rng'"
     ereturn local iivw_rngstate_start "`iivw_rngstate_start'"
     ereturn local iivw_vce_seed_explicit = cond(`bootstrap' > 0, "`iivw_seed_explicit'", "")
 
-    * Inference status: which trust tier this run's variance belongs to. NEVER
-    * "cleared" here -- that word is reserved for a release in which the coverage
-    * AND mutation gates have actually passed, and this command cannot know that.
-    * The refit-999 default is a "candidate"; everything else is explicitly
-    * stamped uncleared so a reader can never mistake it for the release method.
+    * Inference status: whether an interval was reported and which evidence tier
+    * it belongs to. Point-only must be named before the variance branches.
+    * "Cleared" stays qualified by the exact studied settings.
     local iivw_infstatus ""
-    if "`unweighted'" != "" {
+    if "`citype'" == "none" {
+        if "`weighttype'" == "fiptiw" & "`unweighted'" == "" {
+            local iivw_infstatus "point-only-no-valid-interval"
+        }
+        else {
+            local iivw_infstatus "point-only-requested"
+        }
+    }
+    else if "`unweighted'" != "" {
         local iivw_infstatus "not-applicable-unweighted"
     }
     else if `bootstrap' > 0 & "`refitweights'" != "" {
@@ -2007,15 +2246,7 @@ program define iivw_fit, eclass
             local iivw_infstatus "cleared-at-studied-settings"
         }
         else if "`weighttype'" == "fiptiw" {
-            * Same run, same rule: FIPTIW coverage 0.914 [0.895,0.930] -- below
-            * the 0.92 floor and the Wilson interval excludes 0.95.
-            * The POINT ESTIMATOR is fine (bias +0.017 against MCSE 0.039). The
-            * INTERVAL is ~14% too narrow: mean SE 1.062 vs empirical SD 1.239.
-            * The refit bootstrap, fixed-weight bootstrap and analytic sandwich
-            * agree within 0.5% and all fall short.  That rules out selecting a
-            * weights-known alternative as a repair; it does not, by agreement
-            * alone, prove that every possible resampling defect is absent.
-            local iivw_infstatus "undercovers-at-studied-settings"
+            local iivw_infstatus "uncleared-fiptiw-`citype'"
         }
         else {
             local iivw_infstatus "candidate"
@@ -2107,6 +2338,13 @@ program define iivw_fit, eclass
         }
     }
 
+    * Own replay only after the complete result and dataset contract have been
+    * committed. Leaving e(cmd) as glm/mixed makes estimates replay silently
+    * replace percentile/basic endpoints with the underlying Wald interval.
+    * e(predict) remains the underlying model's prediction program for
+    * interval-producing fits; point-only ereturn post deliberately removed it.
+    ereturn local cmd "iivw_fit"
+
     }
     local rc = _rc
     * Roll the name transaction back: drop every variable this call created,
@@ -2148,4 +2386,90 @@ program define iivw_fit, eclass
     }
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
+end
+
+capture program drop _iivw_fit_replay
+program define _iivw_fit_replay
+    version 16.0
+    syntax [, Level(cilevel)]
+
+    local citype "`e(iivw_ci_type)'"
+    local interval_available = e(iivw_interval_available)
+
+    * Coefficient-only results have no e(V), and ereturn display respects
+    * e(properties)="b". Wald results can likewise use Stata's generic display.
+    if !`interval_available' | "`citype'" == "wald-normal" {
+        ereturn display `0'
+        exit
+    }
+
+    * Asymmetric endpoints were computed at estimation time. The stored
+    * replicate distribution is not available to reconstruct another level, so
+    * never accept a replay option that would relabel frozen limits.
+    if "`level'" != "" & `level' != e(level) {
+        display as error ///
+            "level() cannot be changed when replaying a stored `citype' interval"
+        display as error "  refit the model with level(`level')"
+        error 198
+    }
+    local level = e(level)
+
+    tempname B V C
+    matrix `B' = e(b)
+    matrix `V' = e(V)
+    matrix `C' = e(iivw_ci)
+    local names : colnames `B'
+    local k = colsof(`B')
+    local __iivw_smcl_lb = char(123)
+    local __iivw_smcl_rb = char(125)
+
+    display as text ""
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
+    display as text "iivw_fit replay -- `citype' interval"
+    display as text ""
+    display as text _col(4) ///
+        "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
+        _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
+        _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
+        _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
+        _col(65) "`__iivw_smcl_lb'ralign 6:P(z)`__iivw_smcl_rb'"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
+
+    forvalues j = 1/`k' {
+        local term : word `j' of `names'
+        local vlab "`term'"
+        if "`term'" == "_cons" local vlab "Intercept"
+        if strlen(`"`vlab'"') > 18 {
+            local vlab = substr(`"`vlab'"', 1, 16) + ".."
+        }
+
+        local b = el(`B', 1, `j')
+        local se = sqrt(el(`V', `j', `j'))
+        local lo = el(`C', 1, `j')
+        local hi = el(`C', 2, `j')
+        if `b' < . & `se' > 0 & `se' < . & `lo' < . & `hi' < . {
+            local p = 2 * normal(-abs(`b'/`se'))
+            if `p' < 0.001 {
+                local p_fmt "<0.001"
+            }
+            else {
+                local p_fmt : display %6.3f `p'
+                local p_fmt = strtrim("`p_fmt'")
+            }
+            display as text _col(4) ///
+                "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
+                as result _col(24) %10.4f `b' ///
+                _col(36) %9.4f `se' ///
+                _col(47) %7.4f `lo' as text "," ///
+                as result %7.4f `hi' ///
+                as text _col(65) ///
+                "`__iivw_smcl_lb'ralign 6:`p_fmt'`__iivw_smcl_rb'"
+        }
+        else {
+            display as text _col(4) ///
+                "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
+                _col(24) "`__iivw_smcl_lb'ralign 41:(omitted)`__iivw_smcl_rb'"
+        }
+    }
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 end

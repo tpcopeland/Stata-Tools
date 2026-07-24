@@ -22,12 +22,14 @@ set varabbrev off
 *
 * RUNTIME, AND WHY vce(fixed) APPEARS BELOW
 * -----------------------------------------
-* A weighted iivw_fit with no vce() takes the documented default, which is
+* An IIW/IPTW iivw_fit with no vce() takes the documented default, which is
 * vce(bootstrap, reps(999)) [refit] -- 999 refits of the weight models per
-* call. H2 runs that default VERBATIM, once, so the documented default path is
-* genuinely exercised end to end. Every later arm appends vce(fixed) to keep
+* call. H2 runs that IIW default VERBATIM, once, so the documented bootstrap
+* path is genuinely exercised end to end. A bare FIPTIW fit is point-only;
+* its later examples append vce(fixed) when they explicitly need nominal
+* inference. Every later bootstrap-eligible arm also uses vce(fixed) to keep
 * the suite inside a QA runtime budget rather than a simulation one; measured,
-* the verbatim default is >12 minutes for a single call on this fixture.
+* the verbatim IIW default is >12 minutes for a single call on this fixture.
 *
 * That substitution is safe for what this suite is FOR. SOL-14 is about the
 * option surface a user copies -- the removed truncate(), the uncreated

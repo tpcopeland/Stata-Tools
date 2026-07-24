@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 2.2.1  2026/07/23
+*! iivw_diagnose Version 2.3.0  2026/07/23
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -114,8 +114,8 @@ program define iivw_diagnose, rclass
         * Sample markers for the H3 identity check (SOL-07). e(sample) is
         * readable only while the estimates are restored, and it is a marker
         * variable, not a count -- so it has to be materialized per role inside
-        * the loop below and compared afterwards. A hand-posted `ereturn post'
-        * with no esample() marks nothing, which is the "cannot verify" state,
+        * the loop below and compared afterwards. Hand-posted estimation results
+        * with no esample() mark nothing, which is the "cannot verify" state,
         * not the "identical" state.
         tempvar _es_unweighted _es_weighted _es_adjusted
 
@@ -149,6 +149,15 @@ program define iivw_diagnose, rclass
             * this is the only moment they are readable.
             local depvar_`role'  "`e(depvar)'"
             local cmd_`role'     "`e(cmd)'"
+            * iivw_fit owns replay from 2.3.0 onward, so e(cmd) names the
+            * wrapper rather than the estimator whose scale is being compared.
+            * Normalize only that documented wrapper to its preserved command;
+            * all other estimators continue to be compared by e(cmd) itself.
+            if "`cmd_`role''" == "iivw_fit" & ///
+                "`e(iivw_cmd)'" == "iivw_fit" & ///
+                "`e(iivw_underlying_cmd)'" != "" {
+                local cmd_`role' "`e(iivw_underlying_cmd)'"
+            }
             local cmd2_`role'    "`e(cmd2)'"
             local family_`role'  "`e(family)'"
             local link_`role'    "`e(link)'"
@@ -156,11 +165,18 @@ program define iivw_diagnose, rclass
             local N_`role'       = e(N)
             local dfr_`role'     = e(df_r)
 
-            capture quietly generate byte `_es_`role'' = e(sample)
+            local _esvar "`_es_unweighted'"
+            if "`role'" == "weighted" {
+                local _esvar "`_es_weighted'"
+            }
+            else if "`role'" == "adjusted" {
+                local _esvar "`_es_adjusted'"
+            }
+            capture quietly generate byte `_esvar' = e(sample)
             local _esrc_`role' = _rc
             local _esn_`role' = 0
             if `_esrc_`role'' == 0 {
-                quietly count if `_es_`role''
+                quietly count if `_esvar'
                 local _esn_`role' = r(N)
             }
         }
@@ -245,7 +261,11 @@ program define iivw_diagnose, rclass
         if `_sample_avail' {
             local _sample_identical = 1
             foreach role in weighted adjusted {
-                quietly count if `_es_`role'' != `_es_unweighted'
+                local _esvar "`_es_weighted'"
+                if "`role'" == "adjusted" {
+                    local _esvar "`_es_adjusted'"
+                }
+                quietly count if `_esvar' != `_es_unweighted'
                 if r(N) > 0 {
                     local _sample_identical = 0
                     local _incomparable ///

@@ -10,11 +10,13 @@ set varabbrev off
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
-* iivw's weighted default is the 999-draw refit bootstrap, which propagates
-* weight-estimation uncertainty. The 2026-07-22 coverage gate cleared IIW/IPTW
-* only at the studied settings and found FIPTIW undercoverage, so the stored
-* status is weight-specific and never a bare `cleared'. vce(fixed) and the
-* fixedweights bootstrap remain explicit weights-known alternatives.
+* iivw's IIW/IPTW weighted default is the 999-draw refit bootstrap, which
+* propagates weight-estimation uncertainty. The 2026-07-22 coverage gate
+* cleared those two families only at the studied settings. No tested FIPTIW
+* interval passed its follow-up gate, so a bare FIPTIW fit is point-only;
+* explicit vce()/citype() requests remain nominal and visibly uncleared.
+* vce(fixed) and the fixedweights bootstrap remain explicit weights-known
+* alternatives.
 *
 * THE DEFECT THIS SUITE EXISTS FOR
 * --------------------------------
@@ -47,9 +49,9 @@ set varabbrev off
 *
 * WHAT THIS SUITE DOES NOT SHOW
 * ----------------------------
-* Nothing here says the candidate default has nominal coverage. The full
-* preregistered coverage simulation has not run. This suite proves the variance
-* selection, replay, failure, provenance, and disclosure contracts only.
+* Nothing here establishes nominal coverage. That evidence comes from the
+* separate 1000x999 coverage records. This suite proves the variance selection,
+* point-only, replay, failure, provenance, and disclosure contracts only.
 
 local qa_dir "`c(pwd)'"
 local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
@@ -202,6 +204,7 @@ capture noisily {
     * explicit vce(fixed) request, not the bare-call default.
     quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
     assert "`e(iivw_vce)'" == "fixed"
+    assert "`e(iivw_underlying_vce)'" == "fixed"
     assert e(iivw_bs_reps_requested) == 0
 
     * Bootstrap that does NOT refit the weights: still treats them as known. This
@@ -381,6 +384,7 @@ capture noisily {
     * vce(fixed): the analytic sandwich, weights treated as known.
     quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
     assert "`e(iivw_vce)'" == "fixed"
+    assert "`e(iivw_underlying_vce)'" == "fixed"
     assert e(iivw_bs_reps_requested) == 0
 
     * vce(bootstrap, reps(#)): the refit bootstrap -- the recommended method.
@@ -498,41 +502,68 @@ else {
     local failed_tests "`failed_tests' I11"
 }
 
-**# I12 - the implicit WEIGHTED default is an actual 999-draw refit bootstrap
-* (Phase 3B, IIVW-B02). This runs the real production default on a tiny fixture
-* -- a test-only replicate override would not prove the shipped default.
+**# I12 - the implicit FIPTIW default is point-only
 
 local ++test_count
-display as text "I12: weighted iivw_fit with no vce() runs the 999-draw refit bootstrap"
+display as text "I12: bare FIPTIW returns point estimates without hidden inference"
 capture noisily {
     _inf_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
         treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
-    set seed 4
     quietly iivw_fit y treat x, timespec(linear) nolog replace
 
-    * the default flipped: bare weighted call == the 999-draw refit bootstrap.
+    assert "`e(iivw_vce)'" == "none"
+    assert "`e(iivw_underlying_vce)'" == "fixed"
+    assert "`e(properties)'" == "b"
+    assert "`e(iivw_refitweights)'" == "0"
+    assert e(iivw_bs_reps_requested) == 0
+    assert e(iivw_bs_reps_completed) == 0
+    assert "`e(iivw_inference_status)'" == "point-only-no-valid-interval"
+    assert "`e(iivw_ci_type)'" == "none"
+    assert e(iivw_interval_available) == 0
+    assert e(iivw_ci_explicit) == 0
+    matrix C = e(iivw_ci)
+    assert matmissing(C)
+    capture confirm matrix e(V)
+    assert _rc != 0
+    assert e(iivw_vce_locked) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: I12 - bare FIPTIW is honestly point-only"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I12 - FIPTIW point-only default (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I12"
+}
+
+**# I12b - IIW retains the actual 999-draw refit default
+
+local ++test_count
+display as text "I12b: bare IIW still runs the production 999-draw refit bootstrap"
+capture noisily {
+    _inf_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
+    set seed 4
+    quietly iivw_fit y treat x, timespec(linear) nolog replace
     assert "`e(iivw_vce)'" == "bootstrap"
     assert "`e(iivw_refitweights)'" == "1"
     assert e(iivw_bs_reps_requested) == 999
     assert e(iivw_bs_reps_completed) == 999
-    * Re-derived 2026-07-22, NOT relaxed. This fixture uses wtype(fiptiw), and
-    * the coverage study measured FIPTIW at 0.914 -- below the preregistered
-    * 0.92 floor -- so this path is no longer "candidate" (evidence pending) but
-    * "undercovers-at-studied-settings" (evidence in, and it fell short).
-    * qa/coverage_results/RESULT_2026-07-22.md.
-    assert "`e(iivw_inference_status)'" == "undercovers-at-studied-settings"
+    assert "`e(iivw_inference_status)'" == "cleared-at-studied-settings"
     assert "`e(iivw_ci_type)'" == "wald-normal"
+    assert e(iivw_interval_available) == 1
     assert e(iivw_vce_locked) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: I12 - implicit weighted default IS the 999 refit bootstrap"
+    display as result "  PASS: I12b - IIW retains the 999-draw refit default"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: I12 - weighted default (error `=_rc')"
+    display as error "  FAIL: I12b - IIW weighted default (error `=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' I12"
+    local failed_tests "`failed_tests' I12b"
 }
 
 **# I13 - the implicit UNWEIGHTED default stays the analytic cluster sandwich
@@ -723,7 +754,7 @@ else {
     local failed_tests "`failed_tests' I17"
 }
 
-**# I17b - every FIPTIW variance path must SAY that inference under-covers
+**# I17b - bare FIPTIW says point-only; explicit inference says uncleared
 *
 * The 2026-07-22 coverage study measured FIPTIW at 0.914 against a nominal
 * 0.95. A measured shortfall recorded only in e() is a shortfall most users
@@ -737,7 +768,7 @@ else {
 * IIW and IPTW met the rule. So the IIW arm asserts the note is ABSENT.
 
 local ++test_count
-display as text "I17b: every FIPTIW variance path warns; the IIW paths do not"
+display as text "I17b: FIPTIW point-only/nominal warnings are visible; IIW is quiet"
 capture noisily {
     foreach wt in fiptiw iivw {
         foreach mode in default explicit fixed fixedbootstrap {
@@ -766,7 +797,10 @@ capture noisily {
             local warn_hits = 0
             file read `fh2' line
             while r(eof) == 0 {
-                if strpos(lower(`"`line'"'), "fiptiw note") local ++warn_hits
+                if strpos(lower(`"`line'"'), "fiptiw inference") | ///
+                        strpos(lower(`"`line'"'), "fiptiw warning") {
+                    local ++warn_hits
+                }
                 file read `fh2' line
             }
             file close `fh2'
@@ -776,7 +810,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: I17b - warning covers all FIPTIW variance paths only"
+    display as result "  PASS: I17b - FIPTIW point-only/nominal warning contract"
     local ++pass_count
 }
 else {
