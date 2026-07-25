@@ -409,14 +409,33 @@ from the prior run; it does not wildcard-drop every {cmd:_fg_*} variable in the
 dataset.
 
 {pstd}
-{bf:Note:} {cmd:finegray_predict} reconstructs factor-variable design columns on
-demand via {cmd:fvrevar}. This requires that the current data preserve the same
-factor-level support as the estimation sample.
+{bf:Two names for one term.} The coefficient table and {cmd:e(b)}/{cmd:e(V)}
+label a factor term by its design column ({cmd:_fg_grp_2}), because those are
+real variables that {cmd:matrix score}, {helpb lincom} and {helpb test} address
+by name. The post-estimation commands report the term you typed
+({cmd:2.grp}): {helpb finegray_phtest} labels its rows that way and
+{helpb finegray_cif} returns {cmd:r(profile_vars)} that way, so that the
+vocabulary you read back matches the one {cmd:at()} accepts. The two are the
+same terms in the same order -- {cmd:e(fvsemantic)} holds the fit-time
+expansion, whose non-base terms pair 1:1 and in order with
+{cmd:e(covariates)} -- so the {it:k}th coefficient and the {it:k}th
+post-estimation row always describe the same thing.
 
 {pstd}
-If a factor level is dropped or absent, prediction will fail with an error. The
-persistent {cmd:_fg_*} columns are retained for convenience but are not required
-for prediction when the factor support is intact.
+{bf:Note:} the post-estimation commands rebuild factor-variable design columns
+on demand from the expansion recorded at estimation ({cmd:e(fvsemantic)}),
+keyed to each level's {bf:value}. They do not re-run {cmd:fvrevar} against the
+data in memory, so neither a changed {cmd:fvset} base nor a shifted level
+support can silently re-pair a column with the wrong coefficient.
+
+{pstd}
+A fitted level that is {bf:absent} from the current data is therefore not an
+error: prediction succeeds for the rows that remain. What is refused is the
+opposite case -- an observation at a level the fit never saw has no
+coefficient, so {helpb finegray_predict} exits with {cmd:r(459)} naming the
+variable and the fitted levels rather than collapsing that row onto the base
+category. The persistent {cmd:_fg_*} columns are retained for convenience but
+are not required for prediction.
 
 {pstd}
 {bf:Interpretation:} A subdistribution hazard ratio (SHR) > 1 indicates that the

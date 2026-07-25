@@ -1,4 +1,4 @@
-*! iivw_balance Version 3.0.0  2026/07/25
+*! iivw_balance Version 3.1.0  2026/07/25
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -483,6 +483,10 @@ program define iivw_balance, rclass
     * under. Both are needed at the verdict; see the tie-method gate there.
     local __iivw_bal_mult = .
     local __iivw_bal_method ""
+    * At-risk intervals with no usable baseline-hazard increment. Initialized
+    * here because the verdict below reads it unconditionally and a refit that
+    * errors early must not take the gate down with it.
+    local __iivw_target_unusable = 0
 
     * Initialized BEFORE the captured block: the display reads these
     * unconditionally, and a refit that errors early would otherwise leave them
@@ -808,14 +812,30 @@ program define iivw_balance, rclass
         * time, which is exactly Lambda_0(0) for the default entry.
         quietly predict double `__iivw_H', basechazard
 
-        tempvar __iivw_orig __iivw_isknot __iivw_qt __iivw_Hstart __iivw_dH
+        tempvar __iivw_orig __iivw_isdup __iivw_isknot __iivw_qt
+        tempvar __iivw_Hstart __iivw_dH
         gen long `__iivw_orig' = _n
-        expand 2, gen(`__iivw_isknot')
-        * isknot == 0 rows ask "what is Lambda_0(start)?"; isknot == 1 rows are
-        * the fitted step function itself.
-        gen double `__iivw_qt' = cond(`__iivw_isknot', `__iivw_stop', `__iivw_start')
-        quietly replace `__iivw_isknot' = 0 if ///
-            `__iivw_isknot' & (missing(`__iivw_H') | !`__iivw_coxok')
+        * Two flags, not one. `isdup' marks the scratch copy created here and is
+        * the ONLY thing the drop below keys on; `isknot' marks a copy that can
+        * actually serve as a point on the fitted step function.
+        *
+        * These used to be the same variable: the copy was created as `isknot',
+        * and a copy with no fitted Lambda_0 (missing H, or a row screened out of
+        * the Cox sample) had `isknot' reset to 0 -- which also exempted it from
+        * `drop if isknot'. So every such copy SURVIVED, leaving the dataset with
+        * more rows than were stored. Measured on a fixture with a visit
+        * covariate missing for one subject in seven: 944 rows where 825 were
+        * stored, i.e. 119 rows silently duplicated. It did not corrupt any
+        * number today only because every consumer below filters on
+        * `__iivw_coxok' and the duplicated rows fail it -- but a row-count
+        * invariant that holds by luck downstream is not one to keep, and the
+        * weighted-mean summaries a few lines on do NOT require a usable dH.
+        expand 2, gen(`__iivw_isdup')
+        * isdup == 0 rows ask "what is Lambda_0(start)?"; isdup == 1 rows carry
+        * the fitted step function itself, at their own stop time.
+        gen double `__iivw_qt' = cond(`__iivw_isdup', `__iivw_stop', `__iivw_start')
+        gen byte `__iivw_isknot' = `__iivw_isdup' & ///
+            !missing(`__iivw_H') & `__iivw_coxok'
         * Sort knots BEFORE queries at an identical time: the intervals are
         * (start, stop], so a jump exactly at `start' belongs to the PREVIOUS
         * interval and must already be included in Lambda_0(start).
@@ -824,13 +844,34 @@ program define iivw_balance, rclass
         quietly replace `__iivw_Hstart' = `__iivw_Hstart'[_n-1] ///
             if missing(`__iivw_Hstart') & _n > 1
         quietly replace `__iivw_Hstart' = 0 if missing(`__iivw_Hstart')
-        quietly drop if `__iivw_isknot'
+        quietly drop if `__iivw_isdup'
         sort `__iivw_orig'
+        drop `__iivw_isdup' `__iivw_isknot' `__iivw_qt'
 
         gen double `__iivw_dH' = `__iivw_H' - `__iivw_Hstart' if `__iivw_coxok'
         quietly replace `__iivw_dH' = . if `__iivw_dH' < 0
         quietly count if `__iivw_coxok' & missing(`__iivw_dH')
         local __iivw_dH_bad = r(N)
+        * This count decides whether a verdict may be issued; it must not be
+        * measured and then dropped.
+        *
+        * An at-risk interval with no usable dLambda_0 -- a missing baseline
+        * hazard, or a negative increment blanked on the line above -- leaves the
+        * TARGET side of the comparison, because every target sum below is
+        * guarded on !missing(`__iivw_tgt'). The matching VISIT row does not
+        * leave the weighted side: those summaries require a weight and a
+        * covariate, not a person-time increment. So the two halves of the target
+        * SMD would be computed over different sets of intervals, and the gap
+        * between them would be read as imbalance.
+        *
+        * Through 3.0.0 this local was assigned here and never read again -- a
+        * guard that was written, measured, and wired to nothing. It measured 0 on
+        * every fixture probed (a missing-covariate panel and a heavily tied one),
+        * so it has no known trigger and this is insurance rather than a repair;
+        * that is exactly why it must fail closed rather than stay silent.
+        if `__iivw_dH_bad' > 0 {
+            local __iivw_target_unusable = `__iivw_dH_bad'
+        }
 
         * ---- The TARGET measure the observed visits are reweighted TO.
         *
@@ -1002,6 +1043,14 @@ program define iivw_balance, rclass
     else if `refit_ncens' == 0 {
         local target_status "not_identified"
     }
+    else if `__iivw_target_unusable' > 0 {
+        * Some at-risk interval carries no usable dLambda_0, so the target mean
+        * and the weighted mean are no longer measured over the same set of
+        * intervals (see the note where this is counted). The gap between them
+        * would then contain a row-set mismatch as well as any real imbalance,
+        * which is not a quantity this command may put a verdict on.
+        local target_status "target_incomplete"
+    }
     else if "`__iivw_bal_method'" == "efron" & ///
             `__iivw_bal_mult' < . & `__iivw_bal_mult' >= 2 {
         * ---------------------------------------------------------------
@@ -1060,6 +1109,16 @@ program define iivw_balance, rclass
     }
     else if "`target_status'" == "tie_method_efron" {
         local balance_flag "not_assessed"
+    }
+    else if "`target_status'" == "target_incomplete" {
+        local balance_flag "not_assessed"
+        display as error ""
+        display as error "warning: `__iivw_target_unusable' at-risk interval(s) have no usable baseline-hazard"
+        display as error "  increment, so the person-time target and the weighted mean are not"
+        display as error "  measured over the same intervals"
+        display as text ""
+        display as text "  No balance verdict is reported. r(balance_max_tsmd) is still returned,"
+        display as text "  and the leverage/ESS half of this command is unaffected."
     }
 
     display as text ""
@@ -1476,6 +1535,10 @@ program define iivw_balance, rclass
     return scalar refit_N = `refit_N'
     return scalar refit_n_censrows = `refit_ncens'
     return scalar refit_ok = `__iivw_refit_ok'
+    * Nonzero means the target and weighted means span different interval sets,
+    * which is what target_status == "target_incomplete" reports. Returned
+    * unconditionally so a caller can gate on it without parsing the status.
+    return scalar refit_n_target_unusable = `__iivw_target_unusable'
     * r(N) counts the rows the REPORT describes (after if/in); r(N_replay)
     * counts the rows the visit model was replayed on (the full stored rowset).
     * They differ exactly when if/in was specified.

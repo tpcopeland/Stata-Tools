@@ -139,16 +139,26 @@ capture noisily {
     * test_iivw_reporting_exports.do enforces that. All three help files used to
     * promise "a full thin grid -- an outer box plus interior horizontal and
     * vertical rules", which is a contract the package never honoured.
+    * Match each phrase against the whole file with newlines and tabs collapsed
+    * to single spaces, NOT line by line. A line-by-line search is coupled to
+    * the source wrapping: `document reflow' rewraps prose render-neutrally, so
+    * it can split either phrase across two lines -- which silently turns the
+    * required sentence into a failure and, worse, lets the forbidden promise
+    * back in undetected. Occurrences are counted by deletion length rather
+    * than a loop.
     foreach h in iivw_balance iivw_diagnose iivw_exogtest {
-        preserve
-        quietly import delimited using "`pkg_dir'/`h'.sthlp", ///
-            delimiter(tab) varnames(nonames) stringcols(_all) clear
-        quietly count if strpos(v1, "interior horizontal") > 0 & ///
-            strpos(v1, "and vertical rules") > 0
-        assert r(N) == 0
-        quietly count if strpos(v1, "not separated by interior horizontal rules") > 0
-        assert r(N) == 1
-        restore
+        local q3_file "`pkg_dir'/`h'.sthlp"
+        mata: _q3t = stritrim(subinstr( ///
+            invtokens(cat(st_local("q3_file"))', " "), char(9), " "))
+        mata: _q3bad  = "interior horizontal and vertical rules"
+        mata: _q3good = "not separated by interior horizontal rules"
+        mata: st_local("q3_nbad", strofreal( ///
+            (strlen(_q3t) - strlen(subinstr(_q3t, _q3bad, "", .))) / strlen(_q3bad)))
+        mata: st_local("q3_ngood", strofreal( ///
+            (strlen(_q3t) - strlen(subinstr(_q3t, _q3good, "", .))) / strlen(_q3good)))
+        mata: mata drop _q3t _q3bad _q3good
+        assert `q3_nbad'  == 0
+        assert `q3_ngood' == 1
     }
 }
 if _rc == 0 {

@@ -113,10 +113,12 @@ numerical precision.
 
 {pstd}
 {cmd:finegray} must have been run before using {cmd:finegray_predict}. For
-models fit with factor variables or interactions, the current data must
-preserve the same factor-level support as the estimation sample. If a factor
-level has been dropped (e.g., by {cmd:drop if}), prediction will fail with an
-informative error.
+models fit with factor variables or interactions, the design columns are
+rebuilt from the fit-time expansion by level value, so a fitted level that is
+{bf:absent} from the current data (e.g. after {cmd:drop if}) is not an error --
+prediction succeeds for the rows that remain. An observation at a level the fit
+never saw is refused with {cmd:r(459)}; see
+{help finegray_predict##fvalign:Factor-variable alignment} below.
 
 {pstd}
 {bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
@@ -267,6 +269,7 @@ results and {cmd:e(sample)} are preserved.
 {opt level(#)} sets the confidence level for {opt ci}; the default is
 {cmd:c(level)}, which is initially 95 and can be changed by {helpb set level}.
 
+{marker fvalign}{...}
 {pstd}
 {bf:Note on factor variables:} Factor-variable predictions are rebuilt from the
 expansion recorded at estimation ({cmd:e(fvsemantic)}) and are aligned to the

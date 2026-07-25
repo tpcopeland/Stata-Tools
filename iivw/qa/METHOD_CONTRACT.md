@@ -159,6 +159,49 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | **Status** | ✅ **FIXED.** `iivw_balance` defaults to the visit component and replays its stored trim; `component(final)` describes the analysis product without calling treatment-weight variation a visit-model defect. |
 | **Contract** | **The default supported analysis is untruncated.** Truncation is component-specific, reported as a sensitivity analysis, always carries the bias warning, and is **never** described as a remedy for misspecification. |
 
+#### 3.8a Trimming unit rule (3.1.0)
+
+> **The percentile is taken over the distribution of the estimated weight, at the unit where that weight is estimated and varies.**
+
+This rule is a **derivation, not a citation.** No held source addresses the case this package is in — a
+subject-constant weight replicated across panel rows — and **Tompkins §4.4 is silent on the unit**
+(re-read in the PDF 2026-07-25: it says only "trimming weights to the pth percentile", and Table 2
+reports "the proportion of the estimated weights larger than 5, 10, and 20"; neither distinguishes a
+row distribution from a subject one, and their irregular-visit DGP makes the two differ). What the
+trimming literature *does* agree on is the object, and it splits exactly on whether the weight varies
+within the unit:
+
+| Source | Weight trimmed | Unit in that paper |
+|---|---|---|
+| **Lee, Lessler & Stuart 2011**, PLOS ONE 6(3):e18174 (held, open access) | point-treatment PS weight | subject — "N = 500 observations", and it equates the words directly: "persons, roughly 12 observations" |
+| **Crump, Hotz, Imbens & Mitnik 2009**, Biometrika 96(1):187–199 (not held) | point-treatment PS | discards **units** by propensity score |
+| **Stürmer et al.** (not held) | point-treatment PS | percentiles of the treated/untreated PS **distributions** ⇒ subjects |
+| **Cole & Hernán 2008** (held, no PDF) | MSM weight — a **time-varying cumulative product** | person-time **record** |
+
+Consequences for the three options, which is why they deliberately differ:
+
+| Option | Weight | Varies within subject? | Unit | Returns |
+|---|---|---|---|---|
+| `trunctreat()` | IPTW | **No** — `treat()` is *required* subject-constant (guard at `iivw_weight.ado:607`) and the logit is fitted on one row per subject | **subject** | `r(n_trunc_treat_id)`, `r(trunc_treat_unit)` = `subject`; `r(n_trunc_treat)` stays the row count |
+| `truncvisit()` | IIW `exp(-γᵀZ(t))` | **Yes** — `Z` is time-varying | **row** | no unit macro; a row percentile is correct here |
+| `truncfinal()` | IIW × IPTW | **Yes** (inherits the IIW's variation) | **row** | no unit macro |
+
+**Why this was a defect and not a preference.** Through 3.0.0 `trunctreat()` used a row percentile, so
+the trim was a function of visit density rather than of the weights. Measured with the propensity model
+and every weight held identical, `trunctreat(1 95)`: a subject with 200 of 278 rows produced a realized
+upper cut of 16.2837 — its own weight — and was left untouched, while at 2 visits the same weight was
+clipped to 1.8548. The no-op case is the one where the extreme subject dominates the analysis, and the
+command printed "trunctreat() bounds their influence" through it. Reproducing a pre-3.1.0 analysis is
+**not supported**: the resolved unit travels on the contract as `_iivw_tt_unit` (and is part of the
+weight signature), and `iivw_fit ..., refitweights` **refuses** a contract that lacks it rather than
+rebuilding the draws at a different unit from the point estimate — the IIVW-B09 / tie-method remedy.
+
+**Pinned in both directions**, because a one-sided invariant makes the wrong generalization free: a
+later "make every trim subject-level" change would otherwise pass the suite.
+`qa/test_iivw_v310_regressions.do` T3/T4 pin `trunctreat()` invariant to visit count and carrying the
+subject unit; **T8** pins `truncvisit()` still responding to the row distribution; T7 pins the replay
+refusal. 8/8 on 3.1.0, **0/8 on 3.0.0** (all rc=9, observed).
+
 ### 3.9 `iivw_exogtest`
 
 | Item | Value |
@@ -288,7 +331,7 @@ have executable QA; they remain listed here because they are the cheapest correc
 | **IIVW-B04** | `stabcov()` not checked against the outcome design | B&L p.7, p.10; Cole & Hernán App. 1 | #4 — **FIXED 2.0.0** (Phase 2). `iivw_fit` maps `stabcov()` onto the expanded outcome design and errors before estimating if the numerator is not a function of it. `e(iivw_stabilization_validated)`, `e(iivw_stab_terms)`. Test: `test_iivw_phase2_contract` T8–T9; `validation_iivw_recovery_extended` S2a/S2b |
 | **IIVW-B05** | Treatment absent from the FIPTIW visit model | Coulombe eq. 3.12 | #5 — **FIXED 2.0.0** (Phase 2). `treat()` enters the visit-intensity denominator by construction, deduplicated, shown in the fitted spec, recorded on the contract and replayed. `experimentalnotreatvisit` is the labelled opt-out. Test: `test_iivw_phase2_contract` T1–T4; `test_iivw_literature_invariants` T2 |
 | **IIVW-B06** | Stabilized balance target omits `h(X)` | derived from B&L eq. 6 + the balance identity | #7 — **FIXED 2.0.0** (Phase 2). The target is `h(X)dΛ₀` under `stabcov()` and reduces exactly to `dΛ₀` without it. Pinned by the **saturated-stabilization identity** (B&L p.8): `stabcov()` = the full visit model ⇒ weight ≡ 1 ⇒ every TSMD = 0. Old code: **0.3321411**. Test: `test_iivw_phase2_contract` T5–T7 |
-| **IIVW-B07** | `truncate()` clips the final product only | Tompkins §4.4; Cole & Hernán §Weight truncation | #8 — **FIXED 2.0.0** (Phase 2). `trunctreat()` / `truncvisit()` / `truncfinal()`, each with its own count and realized cutpoints, the untrimmed component preserved, and `iivw_balance` describing the analysis weight. `truncate()` is now `r(198)`. Supported default is untruncated. Test: `test_iivw_phase2_contract` T10–T15 |
+| **IIVW-B07** | `truncate()` clips the final product only | Tompkins §4.4; Cole & Hernán §Weight truncation | #8 — **FIXED 2.0.0** (Phase 2). `trunctreat()` / `truncvisit()` / `truncfinal()`, each with its own count and realized cutpoints, the untrimmed component preserved, and `iivw_balance` describing the analysis weight. `truncate()` is now `r(198)`. Supported default is untruncated. Test: `test_iivw_phase2_contract` T10–T15. **Reopened and re-fixed in 3.1.0 on the UNIT axis:** `trunctreat()` took its cutpoints from a ROW percentile of a weight that is subject-constant by construction (the propensity model is fitted on one row per subject and merged `m:1`), so the trim was a function of visit density rather than of the weights. Measured with the propensity model and every weight held identical, `trunctreat(1 95)`: subject 1 at 200 visits (72% of rows) gave a realized upper cut of 16.2837 — its own weight — and was left untouched, while at 2 visits the same weight was clipped to 1.8548. The no-op case is the one where the extreme subject dominates, and `iivw_weight` printed "trunctreat() bounds their influence" through it. Cutpoints now come from the subject-level distribution; `r(n_trunc_treat_id)` and `r(trunc_treat_unit)` added. `truncvisit()`/`truncfinal()` remain row-level by design. **Tompkins §4.4 does not state the unit** (re-read in the PDF 2026-07-25), so the fix is grounded on the estimation unit, not on the paper. Test: `test_iivw_v310_regressions` T3–T4 (6/6 on 3.1.0, 0/6 on 3.0.0) |
 | **IIVW-B08** | **Uncontrolled variance-option surface in `geeopts()`/`mixedopts()`** — pass-through tokens appended raw to the inner `glm`/`mixed` | Found at the Gate-0 review, 2026-07-14. Not in the finalization plan | **FIXED (2.0.0, Phase 3B).** Two-layer guard: (1) `_iivw_check_passthru.ado` rejects `vce()`/`robust`(abbrevs)/`cluster()`(abbrevs) in either pass-through option before every GEE/mixed call site incl. the bootstrap helpers; (2) a post-fit lock re-reads `e(vce)`/`e(clustvar)` and errors unless the posted covariance matches the package-selected method, recording `e(iivw_vce_locked)`. The original "silent override" wording was imprecise — the token actually errors at `glm` — but the surface is now owned deterministically. Test: `test_iivw_inference_contract` I16 |
 
 ### State-contract defects — closed by Phase 1 (2026-07-14)

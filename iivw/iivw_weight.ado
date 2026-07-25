@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.0.0  2026/07/25
+*! iivw_weight Version 3.1.0  2026/07/25
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -339,11 +339,35 @@ program define iivw_weight, rclass sortpreserve
         }
 
         * A first visit at exactly time 0 spans a zero-length interval, so
-        * stset excludes it from the visit-intensity risk sets. The row still
-        * gets the conventional baseline weight of 1; only the intensity model
-        * loses it as an event. Say so rather than leaving the exclusion
-        * buried in the stset table. (Under baseline(entry) those rows are
-        * dropped by design, so no note is needed.)
+        * stset excludes it from the visit-intensity risk sets: it contributes
+        * nothing to the partial likelihood and so nothing to gamma-hat. Say so
+        * rather than leaving the exclusion buried in the stset table. (Under
+        * baseline(entry) those rows are dropped by design, so no note is
+        * needed.)
+        *
+        * What the note must NOT say is that the row "keeps the conventional
+        * weight of 1". It does not, and it should not. Under baseline(event)
+        * the row is a declared monitoring event, and the IIW weight
+        * exp(-gamma'Z) is a function of the row's COVARIATES, not of its
+        * membership of the estimation sample -- so `predict, xb' yields a
+        * well-defined linear predictor for it and the row is weighted like any
+        * other visit. Measured on a 120-subject fixture with z driving the
+        * intensity: 0 of 120 time-0 first visits carried weight 1; they ranged
+        * 0.572 to 1.757. The zero-length interval is an artifact of the
+        * (start, stop] counting-process parameterization, not a statement that
+        * the visit was unobserved.
+        *
+        * The weight of exactly 1 is the study-ENTRY convention, and it belongs
+        * to rows that were never declared monitoring events: every first visit
+        * under baseline(entry), and a first visit under baseline(event) whose
+        * covariates are missing so no weight could be fitted at all (:1318).
+        * Both of those are assigned AFTER the mean-1 normalization; this row is
+        * inside it, because it is a fitted weight.
+        *
+        * Through 3.0.0 the note and iivw_weight.sthlp both promised the 1 while
+        * the code fitted a weight, and qa/test_iivw_v192_regressions.do T6
+        * asserted the FITTED behaviour -- so the suite pinned the code and the
+        * two user-facing surfaces contradicted it. The code was right.
         if !`exclude_base' {
             tempvar _first_t0
             quietly bysort `id' (`time'): gen byte `_first_t0' = ///
@@ -352,8 +376,10 @@ program define iivw_weight, rclass sortpreserve
             if r(N) > 0 {
                 display as text "note: " as result r(N) as text ///
                     " subjects have their first visit at time 0"
-                display as text "  these baseline rows span no risk time and are excluded from the"
-                display as text "  visit-intensity model; they keep the conventional weight of 1"
+                display as text "  these baseline rows span no risk time, so they contribute no event"
+                display as text "  to the visit-intensity model. They are still observed visits and"
+                display as text "  still carry a fitted weight exp(-xb) from their own covariates;"
+                display as text "  only rows with no fitted weight take the study-entry weight of 1."
             }
             drop `_first_t0'
         }
@@ -1577,6 +1603,44 @@ program define iivw_weight, rclass sortpreserve
                 local __iivw_created_vars "`__iivw_created_vars' `prefix'tw_raw"
                 label variable `prefix'tw_raw "IPT weight (untrimmed)"
 
+                * The percentile is taken over SUBJECTS, one row each -- not over
+                * panel rows.
+                *
+                * The IPT weight is estimated once per subject (the logit is
+                * fitted on each subject's earliest retained row) and merged m:1
+                * onto the panel, so it is subject-CONSTANT by construction. A
+                * row-level percentile therefore weights each subject by their
+                * visit count, and the trim stops being a function of the weights
+                * it claims to trim. Measured on 40 subjects whose propensity
+                * model and weights were held identical, trunctreat(1 95):
+                *
+                *   subject 1's visits   raw IPT weight   realized upper cut
+                *   200                        16.2837              16.2837
+                *   2                          16.2837               1.8548
+                *
+                * At 200 visits that one subject owns 72% of the rows, so the
+                * row-level 95th percentile lands INSIDE their own block and the
+                * clip leaves them untouched; at 2 visits the same weight is cut
+                * 8.8-fold. The failure direction is the damaging one: the trim
+                * silently no-ops exactly when the extreme subject dominates the
+                * analysis, which is the case the option exists for -- and the
+                * command prints "trunctreat() bounds their influence" while
+                * bounding nothing.
+                *
+                * The subject is the unit the propensity model, the weight, and
+                * the positivity violation all live at. This is the same ruling
+                * SOL-13 already made for the extreme-PS REPORT a few lines
+                * above ("counted in SUBJECTS, not rows"); it was never carried
+                * across to the trim. Tompkins et al. (2025) sec. 4.4 recommend
+                * the 95th percentile but do not state the unit, so this is
+                * grounded on the estimation unit, not on their text.
+                *
+                * truncvisit() and truncfinal() are deliberately NOT changed: the
+                * IIW weight varies row by row within a subject, so there the row
+                * is the correct unit and a row percentile is the right statistic.
+                tempvar __iivw_ttag
+                egen byte `__iivw_ttag' = tag(`id') if !missing(`prefix'tw)
+
                 * Ask _pctile only for the endpoints that are interior: it
                 * rejects 0 and 100 outright (r 198). An omitted side leaves its
                 * cutpoint missing, and every comparison below is guarded on
@@ -1585,7 +1649,7 @@ program define iivw_weight, rclass sortpreserve
                 local __iivw_pcts ""
                 if `tt_lo' > 0   local __iivw_pcts "`tt_lo'"
                 if `tt_hi' < 100 local __iivw_pcts "`__iivw_pcts' `tt_hi'"
-                _pctile `prefix'tw if !missing(`prefix'tw), ///
+                _pctile `prefix'tw if `__iivw_ttag' == 1, ///
                     percentiles(`__iivw_pcts')
                 local __iivw_tt_locut = .
                 local __iivw_tt_hicut = .
@@ -1599,22 +1663,36 @@ program define iivw_weight, rclass sortpreserve
                 else {
                     local __iivw_tt_hicut = r(r1)
                 }
+                * Rows moved (the analysis unit) and subjects moved (the unit the
+                * cutpoint is now taken at) are both counted: a row count alone
+                * cannot say how many subjects were bounded, which is the
+                * quantity the sensitivity analysis is about.
                 local __iivw_tt_nlo = 0
                 local __iivw_tt_nhi = 0
+                local __iivw_tt_nlo_id = 0
+                local __iivw_tt_nhi_id = 0
                 if `__iivw_tt_locut' < . {
                     count if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
                     local __iivw_tt_nlo = r(N)
+                    count if `__iivw_ttag' == 1 & ///
+                        `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
+                    local __iivw_tt_nlo_id = r(N)
                     replace `prefix'tw = `__iivw_tt_locut' ///
                         if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
                 }
                 if `__iivw_tt_hicut' < . {
                     count if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
                     local __iivw_tt_nhi = r(N)
+                    count if `__iivw_ttag' == 1 & ///
+                        `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
+                    local __iivw_tt_nhi_id = r(N)
                     replace `prefix'tw = `__iivw_tt_hicut' ///
                         if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
                 }
+                drop `__iivw_ttag'
             }
             local __iivw_tt_n = `__iivw_tt_nlo' + `__iivw_tt_nhi'
+            local __iivw_tt_n_id = `__iivw_tt_nlo_id' + `__iivw_tt_nhi_id'
             * Describe only the side(s) actually trimmed (SOL-12). With a
             * one-sided request the old wording claimed a clip at the 0th or
             * 100th percentile that never happened, and printed a bare "." as
@@ -1623,7 +1701,9 @@ program define iivw_weight, rclass sortpreserve
             if `tt_lo' == 0   local __iivw_tdesc "at the `tt_hi'th percentile (upper tail only)"
             if `tt_hi' == 100 local __iivw_tdesc "at the `tt_lo'th percentile (lower tail only)"
             display as text "Trimming the TREATMENT component `__iivw_tdesc'..."
-            display as text "  Trimmed `__iivw_tt_n' observations (`__iivw_tt_nlo' low, `__iivw_tt_nhi' high)"
+            display as text "  (percentiles over subjects: the IPT weight is estimated once per subject)"
+            display as text "  Trimmed `__iivw_tt_n_id' subject(s) (`__iivw_tt_nlo_id' low, `__iivw_tt_nhi_id' high)"
+            display as text "  `__iivw_tt_n' panel rows affected (`__iivw_tt_nlo' low, `__iivw_tt_nhi' high)"
             local __iivw_tcut ""
             if `__iivw_tt_locut' < . local __iivw_tcut "lower `=string(`__iivw_tt_locut',"%9.0g")'"
             if `__iivw_tt_hicut' < . {
@@ -1977,6 +2057,18 @@ program define iivw_weight, rclass sortpreserve
         char _dta[_iivw_tt_locut] "`__iivw_tt_locut'"
         char _dta[_iivw_tt_hicut] "`__iivw_tt_hicut'"
         char _dta[_iivw_tw_raw_var] "`prefix'tw_raw"
+        * The UNIT the treat-trim percentiles were taken at, recorded because a
+        * refit bootstrap recomputes the trim per draw from the stored
+        * PERCENTILES, not from the stored cutpoints. Before 3.1.0 the unit was
+        * the panel row; from 3.1.0 it is the subject. A contract written by an
+        * older build therefore carries a row-level `_iivw_tw' column while a
+        * replay under this build would rebuild every draw at subject level --
+        * the draws and the point estimate would describe different estimators
+        * and the bootstrap variance would belong to neither. iivw_fit refuses
+        * that combination rather than mixing the two; see the replay guard
+        * there. Absent char == pre-3.1.0, which is why the guard tests for
+        * the value rather than for disagreement.
+        char _dta[_iivw_tt_unit] "subject"
     }
     char _dta[_iivw_efron]    "`efron_opt'"
     char _dta[_iivw_entry]    "`entry'"
@@ -2179,9 +2271,16 @@ program define iivw_weight, rclass sortpreserve
         return local iw_raw_var "`prefix'iw_raw"
     }
     if "`trunctreat'" != "" {
+        * n_trunc_treat stays the ROW count (the analysis unit, and the meaning
+        * it has always had). n_trunc_treat_id is the SUBJECT count, which is the
+        * unit the cutpoints are now taken at -- and the number that answers "how
+        * many subjects did this sensitivity analysis bound?". Reporting only
+        * rows cannot answer that on an unbalanced panel.
         return scalar n_trunc_treat = `__iivw_tt_n'
+        return scalar n_trunc_treat_id = `__iivw_tt_n_id'
         return scalar trunc_treat_lo = `__iivw_tt_locut'
         return scalar trunc_treat_hi = `__iivw_tt_hicut'
+        return local trunc_treat_unit "subject"
         return local tw_raw_var "`prefix'tw_raw"
     }
     return scalar nobaseevent = `exclude_base'

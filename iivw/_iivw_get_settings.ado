@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 3.0.0  2026/07/25
+*! _iivw_get_settings Version 3.1.0  2026/07/25
 *! The canonical weighting specification: the one place any consumer reads the
 *! contract that iivw_weight committed.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -54,6 +54,9 @@ program define _iivw_get_settings, rclass
     local tv_hicut   : char _dta[_iivw_tv_hicut]
     local tt_locut   : char _dta[_iivw_tt_locut]
     local tt_hicut   : char _dta[_iivw_tt_hicut]
+    * Unit the trunctreat() percentiles were taken at. Empty on a contract
+    * written before 3.1.0, which means row-level; "subject" from 3.1.0 on.
+    local tt_unit    : char _dta[_iivw_tt_unit]
     local iw_raw_var : char _dta[_iivw_iw_raw_var]
     local tw_raw_var : char _dta[_iivw_tw_raw_var]
     local efron      : char _dta[_iivw_efron]
@@ -103,6 +106,7 @@ program define _iivw_get_settings, rclass
     return local tv_hicut "`tv_hicut'"
     return local tt_locut "`tt_locut'"
     return local tt_hicut "`tt_hicut'"
+    return local tt_unit "`tt_unit'"
     return local iw_raw_var "`iw_raw_var'"
     return local tw_raw_var "`tw_raw_var'"
 

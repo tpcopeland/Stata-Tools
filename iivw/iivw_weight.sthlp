@@ -75,7 +75,7 @@
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
 {synopt:{opt efr:on}}Efron ties in the Cox visit model (the default){p_end}
-{synopt:{opt bre:slow}}Breslow ties in the Cox visit model (pre-3.0.0 default){p_end}
+{synopt:{opt bre:slow}}Breslow ties in the Cox visit model{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
 {synopt:{opt allowmissingw:eights}}accept rows that receive no weight (complete-case){p_end}
 {synopt:{opt base:line(entry|event)}}first visit: entry (default) or event{p_end}
@@ -152,10 +152,15 @@ weights, visit times must also be nonnegative: the visit-intensity counting
 process is at risk from time 0, so visits at negative times are rejected
 rather than silently excluded from the Cox model. Shift or rescale a centered
 time variable before weighting. A first visit at exactly time 0 is allowed; it
-spans no risk time, so it is excluded from the visit-intensity model and keeps
-the conventional baseline weight of exactly 1 (assigned after the rescaling, as
-described under {it:Mean-1 normalization}), and a note reports how many
-subjects are affected.
+spans no risk time, so it contributes no event to the visit-intensity model, and
+a note reports how many subjects are affected. Under {opt baseline(event)} such a
+row is still an observed visit and still receives a fitted weight
+{cmd:exp(-xb)} computed from its own covariates -- the zero-length interval
+costs it its contribution to the fit, not its weight. The study-entry weight of
+exactly 1 is reserved for rows that were never modeled as monitoring
+events: every first visit under {opt baseline(entry)}, and a first visit under
+{opt baseline(event)} for which no weight could be fitted at all. Only those are
+assigned after the rescaling described under {it:Mean-1 normalization}.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 
@@ -379,12 +384,11 @@ subject becomes at risk for the visit process at the first observed
 visit. This removes the circularity of conditioning the baseline visit on
 baseline covariates; when {opt lagvars()} is also used, the baseline measurement
 then legitimately predicts the {it:second} visit rather than itself. Subjects with
-only one visit are not an error: they contribute a baseline row (raw IIW weight 1,
-rescaled with the rest)
-and, given an end of follow-up, an at-risk interval running out to it. At
-least one subject must still have two or more visits, so the model has events
-to fit. Under {opt baseline(entry)}, {opt entry()} is ignored -- the first visit defines
-risk onset.
+only one visit are not an error: they contribute a baseline row (raw IIW
+weight 1, rescaled with the rest) and, given an end of follow-up, an at-risk
+interval running out to it. At least one subject must still have two or more
+visits, so the model has events to fit. Under {opt baseline(entry)}, {opt entry()} is
+ignored -- the first visit defines risk onset.
 
 {pmore}
 {opt baseline(event)} models every visit, including the baseline, as a recurrent
@@ -419,19 +423,56 @@ the specification that attenuates the visit-intensity coefficient.{p_end}
 
 {phang}
 {bf:The supported default analysis is untruncated.} Trimming is a labelled
-sensitivity analysis, never the primary result. It does not drop observations; it
-caps the influence of extreme weights, and it does so by changing what is
-being estimated.
+sensitivity analysis, never the primary result. It does not drop
+observations; it caps the influence of extreme weights, and it does so by
+changing what is being estimated.
 
 {phang}
-{opt trunctreat(# #)} winsorizes the {bf:IPTW component} at the given
-percentiles. This is the trim the sensitivity literature actually studies: Tompkins
-et al. (2025) report that trimming reduces bias when the extreme
-weights arise from the {it:treatment} model (near-violations of positivity). It
-is not free. Bounding an extreme propensity weight bounds the influence of
-the subjects least like their counterfactual arm, so it shifts the target away
+{opt trunctreat(# #)} winsorizes the {bf:IPTW component} at the given percentiles. This
+is the trim the sensitivity literature actually studies: Tompkins et
+al. (2025) report that trimming reduces bias when the extreme weights arise
+from the {it:treatment} model (near-violations of positivity). It is not
+free. Bounding an extreme propensity weight bounds the influence of the
+subjects least like their counterfactual arm, so it shifts the target away
 from the ATE toward the overlap population. Report it as a sensitivity
 analysis and say that you did.
+
+{pmore}
+{bf:The percentiles are taken over subjects, one row each} -- not over panel
+rows. The IPTW component is estimated once per subject and merged onto the
+panel, so it is constant within a subject by construction; a row percentile
+would weight each subject by their visit count and make the trim a function of
+visit density rather than of the weights it is trimming. Through version 3.0.0
+the cutpoints were row percentiles, and on an unbalanced panel that let the very
+subjects the option exists to bound escape it: a subject holding a large share
+of the rows pulls the row percentile inside their own block, so the clip left
+them untouched while the identical weight on a subject with few visits was cut
+several-fold. {cmd:r(n_trunc_treat_id)} reports how many subjects were bounded
+and {cmd:r(n_trunc_treat)} how many panel rows carry a clipped
+weight; {cmd:r(trunc_treat_unit)} records the unit. {opt truncvisit()} and
+{opt truncfinal()} are unaffected and remain row percentiles, because those
+weights genuinely vary from visit to visit within a subject.
+
+{pmore}
+The rule behind the split is that a trimming percentile belongs at the unit
+where the weight is estimated and varies. That is what the trimming literature
+does on both sides: Lee, Lessler and Stuart (2011) and Crump et al. (2009) trim
+a point-treatment propensity weight over subjects, while Cole and Hernan (2008)
+trim a time-varying marginal-structural weight over person-time
+records. Tompkins et al. (2025) recommend the 95th percentile but do not state the unit,
+so the assignment of each option to a unit is derived from the estimation unit
+rather than taken from any one paper.
+
+{pmore}
+{bf:Weights trimmed by version 3.0.0 or earlier cannot be replayed.} A refit
+bootstrap rebuilds the trim inside every replicate from the stored
+{it:percentiles}, so the unit in force at replay time has to be the unit the
+observed weights were built with. A contract written before 3.1.0 carries a
+row-level treatment weight, and rebuilding each draw at subject level would
+make the replicates and the point estimate describe different
+estimators. {helpb iivw_fit} therefore refuses that combination and asks you to recompute
+the weights; it does not silently mix the two. Reproducing a pre-3.1.0
+trimmed analysis is deliberately not supported.
 
 {phang}
 {opt truncvisit(# #)} winsorizes the {bf:IIW component}. Tompkins et al. (2025)
@@ -446,8 +487,8 @@ this option cannot be described as a remedy for misspecification.
 {phang}
 {opt truncfinal(# #)} winsorizes the {bf:final weight} after the components are
 multiplied. Under FIPTIW the final weight is IIW x IPTW, so a row clipped here
-could have been extreme through either factor, and this option cannot say which. Prefer
-{opt trunctreat()} or {opt truncvisit()} whenever you need to know.
+could have been extreme through either factor, and this option cannot say
+which. Prefer {opt trunctreat()} or {opt truncvisit()} whenever you need to know.
 
 {pmore}
 All three take percentiles strictly between 0 and 100, with the lower bound
@@ -526,8 +567,8 @@ loss is invisible in every number the command prints.
 A weight is missing when a row lacks an input the weight is built from: a
 visit-model covariate, a treatment-model covariate, or a lag source at a first
 visit that is modeled as an event. A missing {opt treat()} value is a different
-matter and is refused outright: a row with no exposure has no place in a contrast
-between exposure levels, and this option does not admit it.
+matter and is refused outright: a row with no exposure has no place in a
+contrast between exposure levels, and this option does not admit it.
 
 {phang2}
 When the option is used, the loss is reported and
@@ -537,13 +578,14 @@ returned: {cmd:r(n_missing_weight)}, {cmd:r(n_ids_missing_weight)}, and -- when
 
 {marker efron_ties}{...}
 {phang}
-{opt efron} selects the Efron method for handling tied event times in the
-Andersen-Gill Cox model, and {opt breslow} selects the Breslow method.
-{bf:Efron is the default as of version 3.0.0.} Neither option is needed for
-normal use: {opt efron} is accepted as an explicit no-op naming the default, so
-that do-files written against earlier versions keep running unchanged. Both
-options are allowed only for IIW or FIPTIW weights, since {opt wtype(iptw)}
-fits no Cox model, and they may not be combined.
+{opt efron} selects the Efron method for handling tied event times in
+the Andersen-Gill Cox model, and {opt breslow} selects the Breslow
+method. {bf:Efron is the default as of version 3.0.0.} Neither option
+is needed for normal use: {opt efron} is accepted as an explicit no-op
+naming the default, so that do-files written against earlier versions
+keep running unchanged. Both options are allowed only for IIW or FIPTIW
+weights, since {opt wtype(iptw)} fits no Cox model, and they may not be
+combined.
 
 {phang2}
 {bf:This default changed in 3.0.0 and it moves results.} Through 2.4.x the
@@ -581,13 +623,12 @@ the remedy is a finer {opt time()}, not a tie method.
 
 {phang2}
 {cmd:iivw_weight} measures the tie structure of every fit and returns it in
-{cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
-{cmd:r(n_modeled_events)}, so it can be checked without reading the log.
-A note is printed when {opt breslow} was requested {it:and} multiplicity reaches
-2 -- the point at which {opt time()} is a coarse grid rather than a continuous
-measurement. Under the default there is nothing to advise, so no note appears;
-and the note cannot appear on continuous visit times, whose multiplicity is
-exactly 1.
+{cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and {cmd:r(n_modeled_events)}, so it can be
+checked without reading the log. A note is printed when {opt breslow} was requested
+{it:and} multiplicity reaches 2 -- the point at which {opt time()} is a coarse grid
+rather than a continuous measurement. Under the default there is nothing to
+advise, so no note appears; and the note cannot appear on continuous visit
+times, whose multiplicity is exactly 1.
 
 
 {marker wtypes}{...}
@@ -735,13 +776,13 @@ fitted intensity on a scale where a single observation can dominate the risk
 set.{p_end}
 
 {pstd}
-{bf:Knots and reference levels are yours to fix.} If you build a spline basis
-with {helpb mkspline}, the knot locations are chosen from the data in memory. A
-bootstrap replicate resamples that data, but it reuses the {it:columns} you
-generated -- it does not recompute the knots. That is the intended
-behavior: the basis is part of the model specification, held fixed across replicates,
-exactly as the covariate list is. If you want knot-location uncertainty
-propagated as well, that is outside what this package estimates.
+{bf:Knots and reference levels are yours to fix.} If you build a spline basis with
+{helpb mkspline}, the knot locations are chosen from the data in memory. A bootstrap
+replicate resamples that data, but it reuses the {it:columns} you generated -- it
+does not recompute the knots. That is the intended behavior: the basis is part
+of the model specification, held fixed across replicates, exactly as the
+covariate list is. If you want knot-location uncertainty propagated as well,
+that is outside what this package estimates.
 
 {pstd}
 A {opt visit_cov()} list of generated columns is treated as a plain covariate
@@ -771,15 +812,14 @@ falsification check for this assumption, not a proof of it.
 {bf:Data requirements}
 
 {pstd}
-Data must be in long panel format with one row per subject-visit. By
-default each subject must have at least 2 visits for IIW and FIPTIW because
-the visit intensity model treats every visit as a recurrent event and so
-needs repeated visits. {opt baseline(entry)}, the default, relaxes this: the baseline
-visit is then treated as study entry, single-visit subjects are retained
-(raw IIW weight 1, rescaled with the rest), and only one subject need have two or
-more visits. IPTW-only
-analyses may use a single row per subject. The {opt id()} and {opt time()}
-combination must uniquely identify each row. The {opt treat()} variable must
+Data must be in long panel format with one row per subject-visit. By default
+each subject must have at least 2 visits for IIW and FIPTIW because the visit
+intensity model treats every visit as a recurrent event and so needs repeated
+visits. {opt baseline(entry)}, the default, relaxes this: the baseline visit is then
+treated as study entry, single-visit subjects are retained (raw IIW weight 1,
+rescaled with the rest), and only one subject need have two or more
+visits. IPTW-only analyses may use a single row per subject. The {opt id()} and
+{opt time()} combination must uniquely identify each row. The {opt treat()} variable must
 be observed for every row used in IPTW/FIPTIW, binary (0/1), and
 time-invariant within subjects.
 
@@ -871,11 +911,11 @@ different consequences. See {it:Sensitivity} above.
 {pstd}
 When computing IPTW or FIPTIW weights, propensity scores near 0 or 1 produce
 extreme weights because they appear in the denominator. {cmd:iivw_weight} displays a
-note if any observations have propensity scores below 0.01 or above 0.99. {opt trunctreat()}
-bounds their influence as a sensitivity analysis, at the cost
-of shifting the target toward the overlap population. Extreme propensity scores can
-indicate positivity violations (some covariate patterns always or never
-receive treatment).
+note if any observations have propensity scores below 0.01 or above
+0.99. {opt trunctreat()} bounds their influence as a sensitivity analysis, at the
+cost of shifting the target toward the overlap population. Extreme propensity
+scores can indicate positivity violations (some covariate patterns always or
+never receive treatment).
 
 {pstd}
 {bf:Effective sample size}
@@ -884,10 +924,10 @@ receive treatment).
 The effective sample size (ESS) measures how much information the weighted
 sample retains relative to an unweighted sample of the same size. It is
 calculated as (sum w)^2 / sum(w^2). An ESS much smaller than N indicates
-highly variable weights that may reduce statistical power. As a rule of
-thumb, an ESS below 50% of N warrants investigating model specification. Trimming
-will raise the ESS, but raising the ESS is not the same as fixing the
-model -- see {it:Sensitivity}.
+highly variable weights that may reduce statistical power. As a rule of thumb,
+an ESS below 50% of N warrants investigating model specification. Trimming
+will raise the ESS, but raising the ESS is not the same as fixing the model --
+see {it:Sensitivity}.
 
 {pstd}
 {bf:Weight mean}
@@ -919,15 +959,14 @@ figure beside the row one -- a subject with forty visits is forty rows and one
 cluster. If either is much below 1, look first at the visit model
 specification.{p_end}
 
-{phang2}3. {bf:Weight mean.} {bf:Do not use the IIW mean as a diagnostic.} The
-{cmd:iivw_weight} command normalizes the visit component to mean 1 by construction (see
+{phang2}3. {bf:Weight mean.} {bf:Do not use the IIW mean as a diagnostic.} The {cmd:iivw_weight}
+command normalizes the visit component to mean 1 by construction (see
 {it:Mean-1 normalization}), so "the mean is near 1" is arithmetic, not evidence,
 and it will read as reassuring on a badly misspecified visit model. The IPTW
-component is different: its mean-one property is a real
-model-specification check (Cole & Hernan 2008), and a stabilized treatment
-weight whose mean is far from 1 does indicate misspecification or a positivity
-problem. For the visit component, use {helpb iivw_balance} -- Target SMD is a
-diagnostic that can fail.{p_end}
+component is different: its mean-one property is a real model-specification
+check (Cole & Hernan 2008), and a stabilized treatment weight whose mean is
+far from 1 does indicate misspecification or a positivity problem. For the
+visit component, use {helpb iivw_balance} -- Target SMD is a diagnostic that can fail.{p_end}
 
 {phang2}4. {bf:Sensitivity to trimming.} Compare results with and without
 {opt trunctreat(0 95)} -- Tompkins et al. (2025, section 4.4) upper-95th rule,
@@ -1138,9 +1177,11 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:r(trunc_visit_lo)}}realized lower cutpoint of {opt truncvisit()}{p_end}
 {synopt:{cmd:r(trunc_visit_hi)}}realized upper cutpoint of {opt truncvisit()}{p_end}
 {synopt:{cmd:r(iw_raw_var)}}the untrimmed IIW component, if {opt truncvisit()}{p_end}
-{synopt:{cmd:r(n_trunc_treat)}}rows clipped by {opt trunctreat()}{p_end}
+{synopt:{cmd:r(n_trunc_treat)}}panel rows clipped by {opt trunctreat()}{p_end}
+{synopt:{cmd:r(n_trunc_treat_id)}}subjects clipped by {opt trunctreat()}{p_end}
 {synopt:{cmd:r(trunc_treat_lo)}}realized lower cutpoint of {opt trunctreat()}{p_end}
 {synopt:{cmd:r(trunc_treat_hi)}}realized upper cutpoint of {opt trunctreat()}{p_end}
+{synopt:{cmd:r(trunc_treat_unit)}}{cmd:subject} -- the unit the cutpoints are taken at{p_end}
 {synopt:{cmd:r(tw_raw_var)}}the untrimmed IPTW component, if {opt trunctreat()}{p_end}
 {synopt:{cmd:r(treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:r(nobaseevent)}}1 under {opt baseline(entry)}, 0 under {opt baseline(event)}{p_end}
@@ -1231,6 +1272,10 @@ studies. {it:Biometrics}
 Robins JM, Hernan MA, Brumback B. 2000. Marginal structural models and causal
 inference in epidemiology. {it:Epidemiology}
 11(5): 550-560. doi:10.1097/00001648-200009000-00011.
+
+{phang}
+Lee BK, Lessler J, Stuart EA. 2011. Weight trimming and propensity score
+weighting. {it:PLOS ONE} 6(3): e18174. doi:10.1371/journal.pone.0018174.
 
 {phang}
 Tompkins G, Dubin JA, Wallace M. 2025. On flexible inverse probability of

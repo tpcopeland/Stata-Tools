@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.0.0  2026/07/25
+*! iivw_fit Version 3.1.0  2026/07/25
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -158,6 +158,7 @@ program define iivw_fit, eclass
         local rep_stabcov  "`r(stabcov)'"
         local rep_truncvisit "`r(truncvisit)'"
         local rep_trunctreat "`r(trunctreat)'"
+        local rep_tt_unit    "`r(tt_unit)'"
         local rep_truncfinal "`r(truncfinal)'"
         local rep_efron    "`r(efron)'"
         local rep_entry    "`r(entry)'"
@@ -557,6 +558,48 @@ program define iivw_fit, eclass
             display as error "  covariates from the generated lag columns, so the replay cannot"
             display as error "  rebuild the lags inside each resampled subject"
             display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            error 198
+        }
+
+        * Same class of refusal for the trunctreat() UNIT. A refit bootstrap
+        * rebuilds the trim per draw from the stored PERCENTILES, so the unit in
+        * force at replay time has to be the unit the observed weights were built
+        * with. Through 3.0.0 the treat-trim percentiles were taken over panel
+        * rows; from 3.1.0 they are taken over subjects, because the IPT weight
+        * is estimated once per subject and is constant within one.
+        *
+        * A contract written by an older build therefore carries a row-level
+        * _iivw_tw column, while every draw here would be rebuilt at subject
+        * level. The draws and the point estimate would then describe different
+        * estimators and the reported variance would belong to neither -- at
+        * rc 0, with nothing on screen to say so, and with no existing check able
+        * to see it (iivw_balance's replay verification covers the IIW component
+        * only, so a treat-component mismatch is invisible to it).
+        *
+        * This is the same defect class as IIVW-B09 (refitweights not replaying
+        * lagvars) and the tie-method replay, and it takes the same remedy: the
+        * resolved setting travels on the contract and the replay refuses to
+        * proceed when it cannot honour it. Reproducing a pre-3.1.0 analysis is
+        * deliberately NOT supported, so the remedy is to recompute the weights
+        * rather than to replay the old unit.
+        if "`rep_trunctreat'" != "" & "`rep_tt_unit'" != "subject" {
+            display as error "refitweights cannot replay these trunctreat() weights"
+            display as error ""
+            display as error "  the stored weights were trimmed at percentiles of the PANEL ROW"
+            display as error "  distribution of the treatment weight (iivw 3.0.0 and earlier)"
+            display as error ""
+            display as text  "  From 3.1.0 trunctreat() takes its percentiles over SUBJECTS, because"
+            display as text  "  the treatment weight is estimated once per subject and is constant"
+            display as text  "  within one -- a row percentile made the trim a function of visit"
+            display as text  "  count rather than of the weights being trimmed."
+            display as text  ""
+            display as text  "  Each bootstrap replicate rebuilds the trim from the stored"
+            display as text  "  percentiles, so it would rebuild it at subject level while the"
+            display as text  "  weights in the data are row level. The resulting standard errors"
+            display as text  "  would describe neither weighting."
+            display as text  ""
+            display as text  "  Re-run iivw_weight to rebuild the weights under the current rule:"
+            display as text  "    iivw_weight, ... trunctreat(`rep_trunctreat') replace"
             error 198
         }
 

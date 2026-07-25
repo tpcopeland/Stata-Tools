@@ -22,6 +22,7 @@ Two things about that number are worth stating, because both have gone wrong her
 | `test_finegray_v120.do` | regression (v1.2.0: `finegray_phtest` omnibus test retired — `r(chi2)`/`r(df)`/`r(p)` no longer stored, no Global test row printed, no global row appended to `r(phtest)`; per-covariate surface is the diagnostic `[correlation, events]`) | 4 | 4 | 0 | 0 |
 | `test_finegray_reporting.do` | regression (v1.2.0: `finegray_cif` `r(profile_vars)` reports the fitted TERMS rather than the internal `_fg_*` design columns, for `i.` and interaction fits, paired 1:1 with `r(at)`; bootstrap SE present and non-negative at every grid point in both bootstrap paths) | 7 | 7 | 0 | 0 |
 | `test_finegray_determinism.do` | **repeat-call determinism** — the axis no other suite probes: identical calls must return bit-identical results. Covers the fit (`e(b)`/`e(V)`), `finegray_phtest` (all three `time()` transforms, and the separate ZZF/LT Mata branch), `finegray_predict` (`schoenfeld`/`cif`/`xb`), `finegray_cif`, post-estimation call-order independence, and an independent-route check that phtest's `rho` equals the unscaled Schoenfeld/time correlation | 10 | 10 | 0 | 0 |
+| `test_finegray_contracts.do` | contract regression: direct output-equivalence of the Mata weight-stratum mapping `_finegray_joint_setup` against the nested scan it replaced (60 randomized designs, incl. missing/negative/non-contiguous level codes, singleton strata and the 1x1 shape), plus a deliberately-wrong mapping the comparison must reject; the documented factor post-estimation contract in both directions (absent fitted level scores at rc 0 and identically to the full-data fit, unseen level refused `r(459)` with no partial output, no `fvrevar` call post-estimation); singleton- and 40-level censoring strata at the command level | 12 | 12 | 0 | 0 |
 | `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary, ZZF entry-time at-risk count, intentional stcrreg LT non-parity) | 6 | 6 | 0 | 0 |
 | `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `test_finegray_variance.do` | **variance and clustering** (cluster degeneracy, finite-sample adjustment, `e(rank)`/`e(N_clust)`, `stcrreg` SE parity, `norobust` contract) | 6 | 6 | 0 | 0 |
@@ -188,7 +189,7 @@ install.packages("fastcmprsk")
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_finegray_fvgrammar.do`, `test_finegray_fg03_diagnostic.do`, `test_finegray_fg06_vce.do`, `test_finegray_fg07_options.do`, `test_finegray_nuisance.do`, `test_finegray_determinism.do`, `test_finegray_reporting.do`, `test_documentation_examples.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_finegray_fvgrammar.do`, `test_finegray_fg03_diagnostic.do`, `test_finegray_fg06_vce.do`, `test_finegray_fg07_options.do`, `test_finegray_nuisance.do`, `test_finegray_determinism.do`, `test_finegray_reporting.do`, `test_finegray_contracts.do`, `test_documentation_examples.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do` |
 | `full` | `core` + `python` |
@@ -243,6 +244,8 @@ Keyed to the command surface. Every public command, option, and stored result is
 | Coefficients / LL / χ² / SEs vs `stcrreg` | V1–V6, V9–V10, V24b, C1–C10 |
 | Subdistribution-hazard / model invariants (SHR>0, scaling, reproducibility, convergence, explicit rank-deficiency rejection, separation, zero-event strata) | V7–V14, V37–V41 |
 | **Repeat-call determinism (bit equality)** — the fit and every post-estimation command | `test_finegray_determinism.do` DET-1..8 |
+| **Weight-stratum mapping, directly** — `_finegray_joint_setup` output vs the scan it replaced (no other suite references this function) | `test_finegray_contracts.do` JS-1..5 |
+| **Documented factor post-estimation contract** — absent fitted level vs unseen level | `test_finegray_contracts.do` FV-1..5 |
 
 ### `finegray_predict`
 

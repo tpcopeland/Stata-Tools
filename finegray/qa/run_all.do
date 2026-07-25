@@ -48,6 +48,7 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_fg06_vce.do test_finegray_fg07_options.do ///
     test_finegray_nuisance.do ///
     test_finegray_determinism.do test_finegray_reporting.do ///
+    test_finegray_contracts.do ///
     test_documentation_examples.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///

@@ -152,12 +152,11 @@ there is contaminated by the tie correction rather than measuring imbalance.
 Measured on a fixture whose stabilization is saturated, so the weight is
 identically 1 and every SMD must be zero by algebra: a Breslow contract gives
 max |target SMD| = 0.0000000 and the verdict {cmd:within_rule}, while an Efron
-contract on the same data gives 0.1594933 -- above the {opt balcut()} default
-of 0.10, and so would have been reported as {cmd:exceeds_rule}. Since Efron
-became the default in 3.0.0, {cmd:iivw_balance} detects this case and
-{it:withholds the verdict} rather than issuing a false one:
-{cmd:r(target_status)} is {cmd:tie_method_efron} and {cmd:r(balance_flag)} is
-{cmd:not_assessed}. {cmd:r(balance_max_tsmd)} is still returned.
+contract on the same data gives 0.1594933 -- above the {opt balcut()} default of
+0.10, and so would have been reported as {cmd:exceeds_rule}. Since Efron became the
+default in 3.0.0, {cmd:iivw_balance} detects this case and {it:withholds the verdict}
+rather than issuing a false one: {cmd:r(target_status)} is {cmd:tie_method_efron} and
+{cmd:r(balance_flag)} is {cmd:not_assessed}. {cmd:r(balance_max_tsmd)} is still returned.
 
 {phang2}
 The gate keys on tie {it:multiplicity}, not merely on the method. Efron and
@@ -219,12 +218,12 @@ cell formatting. The allowed range is 0 through 6; the default is 4.
 
 {phang}
 {opt borderstyle(string)} selects the Excel border scheme and requires {opt xlsx()}. {cmd:thin}
-(the default) draws the tabtools house style: an outer frame, horizontal rules in the
-header band, and vertical separators after the label column and between column
-groups. Data rows are not separated by interior horizontal rules. {cmd:medium} draws
-the same layout with medium lines. {cmd:academic} uses a three-rule
-(top/header/bottom) layout with no vertical rules at all. {cmd:default} is an alias
-for {cmd:thin}.
+(the default) draws the tabtools house style: an outer frame, horizontal rules
+in the header band, and vertical separators after the label column and between
+column groups. Data rows are not separated by interior horizontal
+rules. {cmd:medium} draws the same layout with medium lines. {cmd:academic} uses a
+three-rule (top/header/bottom) layout with no vertical rules at all. {cmd:default}
+is an alias for {cmd:thin}.
 
 {phang}
 {opt headershade} shades the header rows. It is off by default so that output
@@ -421,7 +420,26 @@ the weight {cmd:iivw_weight} stored, up to the mean-1 scaling reported in
 {cmd:r(replay_scale)}; it should be at machine precision, and a nonzero value
 means the diagnostic is describing a weight vector the outcome model never
 used. {cmd:r(target_status)} is {cmd:not_identified} when no terminal at-risk
-interval exists, in which case no balance verdict is reported at all.
+interval exists, in which case no balance verdict is reported at all. It is
+{cmd:target_incomplete} when some at-risk interval carries no usable
+baseline-hazard increment: the person-time target and the weighted mean would
+then be measured over different sets of intervals, so the gap between them
+is not a balance statistic and the verdict is withheld, with
+{cmd:r(refit_n_target_unusable)} counting those intervals. That count is
+returned whether or not any were found.
+
+{pstd}
+{cmd:r(target_status)} takes five values. {cmd:identified} means the
+person-time target supports a verdict. {cmd:not_identified} means no terminal
+at-risk interval exists. {cmd:tie_method_efron} means the target SMD is a
+Breslow score residual evaluated at an Efron fit on tied data, as
+described under {it:Balance against the at-risk person-time target}
+above. {cmd:target_incomplete} is the unusable-increment case just
+described. {cmd:unavailable} means the supporting refit did not complete at
+all. {cmd:r(balance_flag)} likewise takes five: {cmd:within_rule} and
+{cmd:exceeds_rule} when a verdict was issued, {cmd:not_identified} and
+{cmd:not_assessed} when it was deliberately withheld, and {cmd:unknown}
+before any verdict could be formed.
 
 {pstd}
 {cmd:r(ess_ratio)} is a {bf:row-weight} concentration measure over panel
@@ -442,6 +460,7 @@ disagree sharply.
 {synopt:{cmd:r(refit_N)}}at-risk intervals used by the visit-model refit{p_end}
 {synopt:{cmd:r(refit_n_censrows)}}terminal at-risk intervals in the refit{p_end}
 {synopt:{cmd:r(refit_ok)}}1 if the refit that supports the verdict completed{p_end}
+{synopt:{cmd:r(refit_n_target_unusable)}}at-risk intervals with no usable baseline hazard{p_end}
 {synopt:{cmd:r(ess_cluster)}}subject-level effective sample size{p_end}
 {synopt:{cmd:r(ess_cluster_ratio)}}{cmd:r(ess_cluster)} divided by {cmd:r(n_ids)}{p_end}
 {synopt:{cmd:r(N_replay)}}rows the visit model was replayed on{p_end}
@@ -455,13 +474,13 @@ disagree sharply.
 {synopt:{cmd:r(weighttype)}}stored weight type{p_end}
 {synopt:{cmd:r(weight_var)}}stored weight variable{p_end}
 {synopt:{cmd:r(replay_mode)}}replay mode; always {cmd:stored}{p_end}
-{synopt:{cmd:r(target_status)}}{cmd:identified}, {cmd:not_identified}, or {cmd:unavailable}{p_end}
+{synopt:{cmd:r(target_status)}}balance-target status; 5 values{p_end}
 {synopt:{cmd:r(visit_covars)}}stored visit-model covariates{p_end}
 {synopt:{cmd:r(extra_covars)}}extra covariates supplied in {it:varlist}{p_end}
 {synopt:{cmd:r(balance_covars)}}all covariates in the displayed table{p_end}
 {synopt:{cmd:r(component)}}{cmd:iiw} or {cmd:final}; which weight was described{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
-{synopt:{cmd:r(balance_flag)}}{cmd:within_rule}, {cmd:exceeds_rule}, or {cmd:unknown}{p_end}
+{synopt:{cmd:r(balance_flag)}}balance verdict; 5 values{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}

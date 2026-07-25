@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 3.0.0** | 2026-07-25
+**Version 3.1.0** | 2026-07-25
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -733,10 +733,41 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Lin H, Scharfstein DO, Rosenheck RA. Analysis of longitudinal data with irregular, outcome-dependent follow-up. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*. 2004;66(3):791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 - Pullenayegum EM. Multiple outputation for the analysis of longitudinal data subject to irregular observation. *Statistics in Medicine*. 2016;35(11):1800-1818. doi:10.1002/sim.6829.
 - Rabe-Hesketh S, Skrondal A. Multilevel modelling of complex survey data. *Journal of the Royal Statistical Society: Series A (Statistics in Society)*. 2006;169(4):805-827. doi:10.1111/j.1467-985X.2006.00426.x.
+- Lee BK, Lessler J, Stuart EA. Weight trimming and propensity score weighting. *PLOS ONE*. 2011;6(3):e18174. doi:10.1371/journal.pone.0018174.
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 - Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods for tied survival times in Cox regression. *Biometrics*. 1997;53(3):1151-1156.
 
 ## Version History
+
+### v3.1.0 (2026-07-25)
+
+**`trunctreat()` now takes its percentiles over subjects, not panel rows. This moves results for anyone who used it on an unbalanced panel.**
+
+The IPTW component is estimated once per subject — the logit is fitted on each subject's earliest retained row — and merged onto the panel, so it is constant within a subject by construction. Taking the cutpoints from a row percentile therefore weighted each subject by their visit count, and the trim stopped being a function of the weights it was trimming.
+
+The failure direction was the damaging one. Measured on 40 subjects whose propensity model and weights were held identical, `trunctreat(1 95)`:
+
+| subject 1's visits | raw IPT weight | realized upper cutpoint | trimmed to |
+|---|---|---|---|
+| 200 | 16.2837 | 16.2837 | 16.2837 (untouched) |
+| 2 | 16.2837 | 1.8548 | 1.8548 (8.8x clip) |
+
+At 200 visits that subject holds 72% of the rows, so the row-level 95th percentile lands inside their own block and the clip leaves them alone — while the identical weight on a two-visit subject is cut 8.8-fold. The subject was an untreated case with a propensity of 0.9999, i.e. exactly the near-positivity violation the option exists to bound, and `iivw_weight` was printing "trunctreat() bounds their influence" while bounding nothing. After the fix both configurations give the same cutpoints (1.8548 / 0.4866) and clip the same two subjects.
+
+`truncvisit()` and `truncfinal()` are deliberately unchanged and remain row percentiles: those weights genuinely vary from visit to visit within a subject, so the row is the correct unit there. It is the same ruling SOL-13 already made for the extreme-propensity *report* ("counted in SUBJECTS, not rows"), which had never been carried across to the trim.
+
+The rule behind the split — **a trimming percentile belongs at the unit where the weight is estimated and varies** — is a derivation, and the package says so rather than attributing it to one paper. Tompkins et al. (2025, §4.4) recommend the 95th percentile but never state the unit (re-read in the PDF: "trimming weights to the pth percentile", and Table 2's "proportion of the estimated weights larger than 5, 10, and 20" — neither distinguishes a row distribution from a subject one). What the trimming literature agrees on is the object, and it splits exactly on whether the weight varies within the unit: Lee, Lessler & Stuart (2011) and Crump et al. (2009) trim a point-treatment propensity weight over **subjects**; Cole & Hernán (2008) trim a *time-varying* marginal-structural weight over person-time **records**. `iivw`'s IPTW is the former (`treat()` is required subject-constant and the logit is fitted on one row per subject); its IIW is the latter. Full derivation table in `qa/METHOD_CONTRACT.md` §3.8a.
+
+- `r(n_trunc_treat_id)` added: subjects clipped. `r(n_trunc_treat)` keeps its meaning (panel rows). `r(trunc_treat_unit)` records the unit as `subject`.
+- **Pre-3.1.0 trimmed weights cannot be replayed, by design.** A refit bootstrap rebuilds the trim inside each replicate from the stored *percentiles*, so a contract written before 3.1.0 carries a row-level treatment weight while every draw would be rebuilt at subject level — the replicates and the point estimate would describe different estimators and the reported SE would belong to neither, at `rc=0`, invisible to every existing check (`iivw_balance`'s replay verification covers the IIW component only). The resolved unit now travels on the contract as `_iivw_tt_unit` and is part of the weight signature, and `iivw_fit ..., refitweights` **errors** on a contract that lacks it, asking you to recompute the weights. This is the same remedy as IIVW-B09 and the tie-method replay. Reproducing a pre-3.1.0 trimmed analysis is deliberately unsupported.
+
+**Corrected the documented weight for a first visit at exactly time 0.** Under `baseline(event)` the runtime note and `iivw_weight.sthlp` both stated that such a row "keeps the conventional weight of 1". It does not, and it should not: the row is a declared monitoring event, and `exp(-xb)` is a function of its covariates rather than of its membership of the estimation sample, so it carries a fitted weight like any other visit. The zero-length `(0,0]` interval costs the row its contribution to the partial likelihood, not its weight. Measured on a 120-subject fixture with the covariate driving the intensity, 0 of 120 such rows carried weight 1; they ranged 0.572 to 1.757. `qa/test_iivw_v192_regressions.do` T6 had asserted the fitted behaviour since 2.0.0, so the suite pinned the code while both user-facing surfaces contradicted it. **No weights change — the note and the help text were wrong, not the code.** The study-entry weight of exactly 1 remains reserved for rows never modelled as monitoring events: every first visit under `baseline(entry)`, and a first visit under `baseline(event)` for which no weight could be fitted at all. (The v1.9.x entry below describes the older behaviour, which did overwrite with 1; it is left as written.)
+
+**`iivw_balance` no longer discards a guard it computes.** The count of at-risk intervals with no usable baseline-hazard increment was measured and never read. Such an interval leaves the *target* side of the target SMD, because every target sum is guarded on a non-missing person-time increment, while the matching visit row stays on the *weighted* side, which requires only a weight and a covariate — so the two halves would be measured over different sets of intervals and the gap read as imbalance. The count now drives `r(target_status) == "target_incomplete"`, withholds the verdict (`r(balance_flag) == "not_assessed"`), and is returned as `r(refit_n_target_unusable)`. It measured 0 on every fixture probed, so this is insurance with no known trigger rather than a repair.
+
+**`iivw_balance` row-count invariant repaired.** The baseline-hazard lookup created a scratch copy of every row flagged `isknot`, then reset that same flag to 0 for copies with no fitted hazard — which also exempted them from the drop, so they survived. Measured on a fixture with a visit covariate missing for one subject in seven: 944 rows where 825 were stored, 119 silently duplicated. Every consumer filters on the Cox-sample marker, so no returned number changed (verified bit-identical: max target SMD 0.0330504244, max shift 0.1668150340, ESS 696.160754), but the invariant no longer holds by luck.
+
+- `r(target_status)` and `r(balance_flag)` synopses now list every value they can take; `tie_method_efron` and `not_assessed` were shipped in 3.0.0 and documented only in prose.
 
 ### v3.0.0 (2026-07-25)
 

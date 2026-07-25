@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 3.0.0  2026/07/25
+*! _iivw_weight_signature Version 3.1.0  2026/07/25
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -154,7 +154,8 @@ program define _iivw_weight_signature, rclass
             _iivw_allowmissingweights _iivw_visit_covars ///
             _iivw_treat_in_visit ///
             _iivw_truncvisit _iivw_trunctreat _iivw_truncfinal ///
-            _iivw_tv_locut _iivw_tv_hicut _iivw_tt_locut _iivw_tt_hicut {
+            _iivw_tv_locut _iivw_tv_hicut _iivw_tt_locut _iivw_tt_hicut ///
+            _iivw_tt_unit {
             local __iivw_cv : char _dta[`__iivw_ch']
             local __iivw_specparts "`__iivw_specparts'~`__iivw_cv'"
         }
