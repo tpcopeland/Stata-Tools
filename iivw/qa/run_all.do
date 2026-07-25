@@ -127,6 +127,7 @@ else {
         validation_iivw_diagnostics_known_answers ///
         test_iivw_literature_invariants ///
         test_iivw_ties ///
+        test_iivw_tie_default ///
         validation_iivw_iptw_oracle ///
         validation_iivw_fiptiw_recovery ///
         test_iivw_v105_regressions ///

@@ -648,11 +648,24 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     * 1.2.0: determinism is now asserted on the full per-covariate matrix,
     * which is strictly stronger than the two retired scalars it replaces.
+    *
+    * 1.2.0: tolerance tightened from `< 1e-10' to EXACT equality.  This check
+    * was green throughout the phtest reproducibility defect, and the
+    * 1e-10 was half the reason -- the drift was 8e-16, six orders of magnitude
+    * BELOW the tolerance.  (The other half is this fixture: hypoxia is
+    * effectively tie-free, and ties are the mechanism, so the defect could not
+    * appear here at all.  That half cannot be fixed without breaking the R
+    * parity this file exists for, so the tied-fixture coverage lives in
+    * test_finegray_determinism.do instead -- which is in the `quick' lane,
+    * unlike this R-dependent suite.)
+    *
+    * "Deterministic" means identical, not close.  Any tolerance turns this
+    * assertion into a much weaker and different claim.
     finegray_phtest, time(rank)
     matrix _D1 = r(phtest)
     finegray_phtest, time(rank)
     matrix _D2 = r(phtest)
-    assert mreldif(_D1, _D2) < 1e-10
+    assert mreldif(_D1, _D2) == 0
 }
 if _rc == 0 {
     display as result "  PASS: P15 phtest deterministic (identical re-run)"

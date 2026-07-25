@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/07/21
+*! finegray_phtest Version 1.2.0  2026/07/25
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -189,7 +189,20 @@ program define finegray_phtest, rclass
     local _preserved = 1
     quietly keep if e(sample)
 
-    sort _t
+    * Sort on a TOTAL key, not a bare `sort _t'.  _t is heavily tied, Stata
+    * breaks sort ties with a seed that ADVANCES on every sort, and the Mata
+    * scan breaks its own ties by ROW INDEX (order((t, row_id), (1, 2)) in
+    * _finegray_schoenfeld) -- so the row order this command hands the engine
+    * IS the tiebreak.  With a bare `sort _t' two identical calls accumulate
+    * the risk sets in different floating-point orders and the reported
+    * correlations differ in their last digits; measured 8e-16 across six
+    * identical calls on a 1200-subject fixture with 248 rows at the modal
+    * event time.  finegray.ado:792 and finegray_predict.ado:700,777 already
+    * stamp a row id for exactly this reason; this command was the one that
+    * did not.  Guarded by test_finegray_determinism.do.
+    tempvar _ph_row0
+    quietly gen long `_ph_row0' = _n
+    sort _t `_ph_row0'
 
     * Combine byg variables if multiple
     local _byg_mata "`byg'"

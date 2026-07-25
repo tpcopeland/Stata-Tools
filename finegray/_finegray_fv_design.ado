@@ -1,4 +1,4 @@
-*! _finegray_fv_design Version 1.2.0  2026/07/21
+*! _finegray_fv_design Version 1.2.0  2026/07/25
 *! Resolve the fitted factor-variable design from the FIT-TIME expansion
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,6 +33,14 @@ and every statistic changed (correlations -0.2348/-0.2062/0.1931 ->
 -0.2300/0.0315/-0.2124).  Both at rc 0.  finegray_predict and finegray_cif were already
 immune because they read e(fvsemantic); this helper is how the rest of the
 package joins them.
+
+Immune in the DESIGN they compute, that is -- which is not the same as the
+vocabulary they REPORT.  finegray_cif reported e(covariates) in
+r(profile_vars) before this fix, so a user who fit `i.grp' and passed
+`at(grp=1)' got `_fg_grp_2 _fg_grp_3' back: internal column names they never
+typed, for a matrix they are told to read positionally.  Now taken from
+that command's own non-base term list.  When adding a consumer, check both
+axes -- what it computes from, and what it calls the result.
 
 The same reasoning covers a shifted level support -- fit on {1,2,3}, recode to
 {2,3,4} -- which is why r(expr#) keys each indicator to the level VALUE rather

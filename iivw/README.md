@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.4.0** | 2026-07-25
+**Version 3.0.0** | 2026-07-25
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -734,8 +734,36 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Pullenayegum EM. Multiple outputation for the analysis of longitudinal data subject to irregular observation. *Statistics in Medicine*. 2016;35(11):1800-1818. doi:10.1002/sim.6829.
 - Rabe-Hesketh S, Skrondal A. Multilevel modelling of complex survey data. *Journal of the Royal Statistical Society: Series A (Statistics in Society)*. 2006;169(4):805-827. doi:10.1111/j.1467-985X.2006.00426.x.
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
+- Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods for tied survival times in Cox regression. *Biometrics*. 1997;53(3):1151-1156.
 
 ## Version History
+
+### v3.0.0 (2026-07-25)
+
+**Breaking: Efron is now the default tie-handling method.** Every Andersen-Gill `stcox` fit in the package -- `iivw_weight`'s visit-intensity and stabilization models, and `iivw_exogtest`'s lagged-outcome models -- now uses Efron. Through 2.4.x they inherited `stcox`'s Breslow default.
+
+**This moves results on tied data.** Visit times recorded to the day, week or month are tied, which is the normal case in registry and clinic data, so most real analyses will not reproduce their 2.x numbers. The 2.4.0 measurement table below quantifies the size of the move. To reproduce a pre-3.0.0 analysis, add the new `breslow` option.
+
+Why the default changed, given that 2.4.0 deliberately declined to change it:
+
+- **The bias has a direction.** Breslow attenuates the fitted coefficient toward the null. Because the IIW weight is `exp(-xb)`, an attenuated coefficient compresses the weights toward 1 -- that is, toward *no correction applied*. A package whose job is to correct for informative observation should not fail in the direction of silently not correcting.
+- **The literature is not ambiguous.** Hertz-Picciotto and Rockhill (1997) report the same direction of bias, put Efron's bias under 2% at 25 subjects per group and under 1% at 50, find Breslow's confidence-interval tail probabilities asymmetric about the nominal level where Efron's are close to it, and conclude that although Breslow "is the default in many standard software packages, the Efron method for handling ties is to be preferred". The tail-probability finding is what makes this matter for `iivw_exogtest`, which reports p-values.
+- **Breslow could not reproduce the reference implementation.** R's `survival::coxph` defaults to Efron, so `IrregLong` -- the method author's own IIW implementation -- uses Efron. The package's own cross-validation suites (`crossval_iivw.do`, `crossval_irreglong.R`) always had to pass `efron` explicitly to match. A default that cannot reproduce the package's own oracle without an option is the wrong default.
+- **The 2.4.0 argument was about migration, not correctness.** That release shipped a runtime note instead of changing the default, on the grounds that a default change silently moves existing users' numbers. That is a real cost, and it is what a major version bump, a `breslow` escape hatch, and this changelog entry are for.
+
+Changes:
+
+- `breslow` added to `iivw_weight` and `iivw_exogtest`, selecting the pre-3.0.0 method. Like `efron`, it is rejected under `wtype(iptw)`, which fits no Cox model. The two options may not be combined.
+- `efron` is still accepted everywhere it used to be, now as an explicit no-op that names the default. Do-files written against 1.x and 2.x keep running unchanged rather than failing at `r(198)` on an option that no longer exists.
+- `iivw_balance` accepts `breslow` alongside `efron` and ignores both, with a note. It reports on weights someone else computed, so it replays the tie method stored on the weighting contract.
+- **Saved 2.x datasets keep replaying under Breslow.** The stored contract (`char _dta[_iivw_efron]`) records the *resolved* method rather than the option the user typed, and it records it in `stcox` form -- empty for Breslow. A consumer that splices that value into its own `stcox` therefore still gets Breslow on an old dataset. This encoding was deliberately not modernised, because re-reading an empty characteristic as "efron" would have silently replayed every saved 2.x dataset under a method that did not produce its weights.
+- **The bootstrap refit path now replays the tie method by name.** `iivw_fit, refitweights` reconstructs weights inside each replicate by calling `iivw_weight` again. Passing the empty stored token there would have meant "take the current default" -- Efron -- while the observed weights came from Breslow, producing an interval around a different estimator at `rc=0`. `iivw_fit` translates the empty token to an explicit `breslow`, and `_iivw_bs_refit` now *refuses to run* without an explicit method on any branch that fits a Cox model, rather than falling back to a default.
+- The runtime tie note added in 2.4.0 is inverted rather than removed: it now fires only when `breslow` was explicitly requested *and* multiplicity reaches 2. Under the default there is nothing to advise. `_iivw_tie_density` now requires a validated `method()` argument, so a caller that forgets it errors instead of silently taking the no-warning branch.
+- `r(tie_multiplicity)`, `r(n_event_times)` and `r(n_modeled_events)` are unchanged and are still returned regardless of the method in force.
+
+**Known limitation the flip exposes: `iivw_balance` withholds its target-SMD verdict under Efron ties.** The target SMD is the Cox score residual, which is zero by construction only at the coefficients that solve that score -- and the score it is zero at is Breslow's. On a fixture where the weight is identically 1, so every SMD must be zero by algebra, a Breslow contract gives max |target SMD| = 0.0000000 / `within_rule` while an Efron contract gives 0.1594933 / `exceeds_rule` -- a false imbalance flag, above the `balcut(0.10)` default, for weights that reweight nothing. Rather than issue that verdict, `iivw_balance` now sets `r(target_status)` to `tie_method_efron` and `r(balance_flag)` to `not_assessed`, still returning `r(balance_max_tsmd)`. The gate keys on tie multiplicity, so Efron on continuous visit times is unaffected, and the leverage/ESS diagnostics are unaffected in every case. Ruled out as the cause: the baseline hazard estimator -- substituting the Breslow baseline evaluated at the Efron coefficients moves Lambda_0 materially (mean 5.608 to 3.391) and leaves the target SMD identical to seven decimals, because the target is a ratio in which any rescaling of dLambda_0 cancels. An Efron-consistent score residual is the real fix and is not implemented.
+
+Note that Efron is the better default, not a repair. At the heaviest tying in the table below both methods are biased; if `r(tie_multiplicity)` is large, the remedy is a finer `time()`, not a tie method.
 
 ### v2.4.0 (2026-07-25)
 

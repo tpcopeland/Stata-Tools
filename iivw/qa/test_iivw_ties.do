@@ -12,8 +12,15 @@ set varabbrev off
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
-* stcox's default tie method is Breslow, and both iivw_weight and
-* iivw_exogtest inherit it. Breslow and Efron agree EXACTLY when no two events
+* UPDATED FOR 3.0.0: Efron is now the package default and `breslow' is the
+* opt-out, so every arm of this suite that must PRINT the note asks for
+* `breslow' explicitly. The note's firing rule inverted with the default; the
+* MEASUREMENT axis this suite owns did not change at all, which is why the
+* returns assertions below are untouched. The default axis itself is owned by
+* test_iivw_tie_default.do.
+*
+* Through 2.4.x, stcox's default tie method is Breslow, and both iivw_weight and
+* iivw_exogtest inherited it. Breslow and Efron agree EXACTLY when no two events
 * share a time, and diverge as tie MULTIPLICITY grows -- the mean number of
 * modeled events per distinct event time. Every IIW weight is exp(-xb) from
 * that fit, so the divergence does not stay in the visit model: it rescales the
@@ -228,23 +235,28 @@ if `run_only' == 0 | `run_only' == 1 {
     }
 }
 
-**# TEST 2: the note fires on tied data under the default
+**# TEST 2: the note fires on tied data when breslow was requested
+
+* Since 3.0.0 the default is Efron, so there is nothing to advise under it.
+* The note's job is inverted: it now fires only when the user explicitly chose
+* the attenuating method on data that attenuates.
 
 local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _tie_panel 4242 1
         log using "`tlog2'", replace text nomsg
-        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace
+        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace ///
+            breslow
         log close
         _tie_grep "`tlog2'" "`NOTE'"
         assert r(hits) == 1
-        _tie_grep "`tlog2'" "Add efron to use it."
+        _tie_grep "`tlog2'" "You asked for breslow"
         assert r(hits) == 1
     }
     if _rc == 0 {
         local ++pass_count
-        display as result "TEST 2 PASSED: tied data under the default prints the note once"
+        display as result "TEST 2 PASSED: tied data under breslow prints the note once"
     }
     else {
         local ++fail_count
@@ -260,12 +272,18 @@ if `run_only' == 0 | `run_only' == 2 {
 * fitted" passes tests 2, 5, 6 and 8 cleanly and fails only here. The equality
 * is exact, not approximate: with continuous times no two events share a value,
 * so n_event_times == n_modeled_events by construction.
+*
+* `breslow' is requested deliberately. Since 3.0.0 a bare call takes the Efron
+* default and is silent whatever the tie structure, so a bare call here would
+* be a control on the METHOD and would pass on any build. Asking for breslow
+* keeps this a control on the THRESHOLD, which is what it is for.
 local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _tie_panel 4242 0
         log using "`tlog3'", replace text nomsg
-        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace
+        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace ///
+            breslow
         log close
         _tie_grep "`tlog3'" "`NOTE'"
         assert r(hits) == 0
@@ -289,17 +307,19 @@ if `run_only' == 0 | `run_only' == 3 {
     }
 }
 
-**# TEST 4: efron suppresses the NOTE but not the MEASUREMENT
+**# TEST 4: the tie method changes the NOTE but never the MEASUREMENT
 
 * A measurement that only exists when it is printed cannot be audited. The
-* returns must be identical with and without efron, because tie structure is a
-* property of the data, not of the estimator option.
+* returns must be identical under both tie methods, because tie structure is a
+* property of the data, not of the estimator option. Since 3.0.0 the arm that
+* PRINTS is breslow and the silent arm is the default, so the two arms are
+* swapped relative to 2.4.x -- the invariant they assert is not.
 local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
         _tie_panel 4242 1
         quietly iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) ///
-            nolog replace
+            nolog replace breslow
         * PRESENCE FIRST -- without this the whole test passes vacuously on a
         * build that returns nothing: reldif(.,.) is 0 and `. == .' is TRUE, so
         * the three comparisons below would all succeed against two ABSENT
@@ -327,7 +347,7 @@ if `run_only' == 0 | `run_only' == 4 {
     }
     if _rc == 0 {
         local ++pass_count
-        display as result "TEST 4 PASSED: efron silences the note, the returns are unchanged"
+        display as result "TEST 4 PASSED: the note follows the method, the returns do not"
     }
     else {
         local ++fail_count
@@ -363,9 +383,12 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         * (a) continuous -- must agree
+        * `breslow' is now explicit on the Breslow arm: through 2.4.x the bare
+        * call WAS the Breslow arm, and leaving it bare here would compare the
+        * Efron default against itself and pass while proving nothing.
         _tie_panel 4242 0
         quietly iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) ///
-            nolog replace
+            nolog replace breslow
         _tie_gamma
         local g_b = r(g)
         capture drop _iivw_*
@@ -378,7 +401,7 @@ if `run_only' == 0 | `run_only' == 5 {
         * (b) tied -- must diverge materially
         _tie_panel 4242 1
         quietly iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) ///
-            nolog replace
+            nolog replace breslow
         _tie_gamma
         local h_b = r(g)
         capture drop _iivw_*
@@ -406,7 +429,8 @@ if `run_only' == 0 | `run_only' == 5 {
 
 **# TEST 6: iivw_exogtest carries the same contract
 
-* Same Andersen-Gill model, same Breslow default, same exposure. The note is
+* Same Andersen-Gill model, same Efron default since 3.0.0, same exposure.
+* The note is
 * emitted ONCE for the whole command rather than once per by() group, because
 * tie structure is a property of time() and not of a subgroup.
 local ++test_count
@@ -416,7 +440,7 @@ if `run_only' == 0 | `run_only' == 6 {
         gen byte arm = mod(id, 2)
 
         log using "`tlog6a'", replace text nomsg
-        iivw_exogtest y, id(id) time(t) maxfu(10) by(arm) replace nolog
+        iivw_exogtest y, id(id) time(t) maxfu(10) by(arm) replace nolog breslow
         log close
         _tie_grep "`tlog6a'" "`NOTE'"
         * ONE note, not one per group -- there are two arms here.
@@ -430,9 +454,9 @@ if `run_only' == 0 | `run_only' == 6 {
         assert reldif(r(tie_multiplicity), ///
             r(n_modeled_events)/r(n_event_times)) < 1e-12
 
-        * ... and efron silences it there too.
+        * ... and the default (efron) is silent there too.
         log using "`tlog6b'", replace text nomsg
-        iivw_exogtest y, id(id) time(t) maxfu(10) by(arm) replace nolog efron
+        iivw_exogtest y, id(id) time(t) maxfu(10) by(arm) replace nolog
         log close
         _tie_grep "`tlog6b'" "`NOTE'"
         assert r(hits) == 0
@@ -509,7 +533,8 @@ if `run_only' == 0 | `run_only' == 8 {
         sort id t
         log using "`tlog8a'", replace text nomsg
         quietly replace fu_end = 40
-        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace
+        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace ///
+            breslow
         log close
         _tie_grep "`tlog8a'" "`NOTE'"
         assert r(hits) == 0
@@ -528,7 +553,8 @@ if `run_only' == 0 | `run_only' == 8 {
         gen double fu_end = 12
         sort id t
         log using "`tlog8b'", replace text nomsg
-        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace
+        iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) nolog replace ///
+            breslow
         log close
         _tie_grep "`tlog8b'" "`NOTE'"
         assert r(hits) == 1

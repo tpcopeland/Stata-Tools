@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/07/20
+*! finegray_cif Version 1.2.0  2026/07/25
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -582,6 +582,14 @@ program define finegray_cif, rclass sortpreserve
         forvalues r = 1/`ngrid' {
             local _m = `BSUM'[`r',1]/`_bok'
             local _v = (`BSS'[`r',1] - `_bok'*`_m'^2)/(`_bok'-1)
+            * Clamp at 0.  This is the computational form of the variance, so
+            * replicates that agree to machine precision (a grid point before
+            * the first cause event, where every replication returns CIF = 0)
+            * leave a tiny NEGATIVE residual after the cancellation, and
+            * sqrt() of it is MISSING.  A missing SE then suppresses the
+            * confidence limits below, reporting "we cannot quantify this"
+            * where the truth is a bootstrap SD of exactly zero.
+            if `_v' < 0 local _v = 0
             matrix `OUT'[`r',2] = sqrt(`_v')
         }
     }
@@ -744,7 +752,29 @@ program define finegray_cif, rclass sortpreserve
         return matrix at = `zrow'
         return scalar level = `level'
         return scalar cause = e(cause)
-        return local profile_vars "`covs'"
+        * Report the profile in the vocabulary the USER typed.  e(covariates)
+        * holds the package-owned design columns (`_fg_grp_2'), which the user
+        * never wrote, need not have in their data, and cannot pass to at() --
+        * at() itself takes `grp=1', so reporting internal names made the input
+        * and output vocabularies disagree.  `_nbterms' is the fit-time
+        * expansion's non-base terms (`2.grp'), built above and already relied
+        * on for 1:1 alignment with e(covariates) by the rebuild loop.  Same
+        * defect class fixed in finegray_phtest on 2026-07-21; the sweep had
+        * stopped one command short.  Fall back to e(covariates) for non-factor
+        * fits (where the two are identical) and, defensively, whenever the
+        * counts disagree -- a short list silently mispairs with r(at).
+        * retokenize: `_nbterms' is built by appending, so it carries a leading
+        * space.  e(covariates) does not, and r(profile_vars) is a documented
+        * return that callers string-compare -- a stray space would make the
+        * factor and non-factor forms unequal for no reason a user could see.
+        local _pv : list retokenize _nbterms
+        local _pv_n : word count `_pv'
+        if `"`_pv'"' != "" & `_pv_n' == `p' {
+            return local profile_vars `"`_pv'"'
+        }
+        else {
+            return local profile_vars "`covs'"
+        }
         if `bootstrap' > 0 {
             return scalar bootstrap_requested = `bootstrap'
             return scalar bootstrap_success = `_bok'

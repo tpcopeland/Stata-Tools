@@ -1,4 +1,4 @@
-*! iivw_fit Version 2.4.0  2026/07/25
+*! iivw_fit Version 3.0.0  2026/07/25
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -620,7 +620,33 @@ program define iivw_fit, eclass
         * _iivw_baseevent stores exclude_base: 1 = baseline is study entry (the
         * 2.0.0 default), 0 = the legacy baseline-as-event contract, which the
         * replicates must opt back into explicitly.
-        local rep_efron_flag = cond("`rep_efron'" != "", "efron", "")
+        * The tie method must be replayed EXPLICITLY, in both directions.
+        * char _dta[_iivw_efron] is stored in stcox form -- "" for Breslow,
+        * "efron" for Efron -- which is what iivw_balance wants, because it
+        * splices the token straight into its own stcox and stcox's own default
+        * is Breslow. But this flag is forwarded to _iivw_bs_refit, which calls
+        * iivw_weight, whose default became EFRON in 3.0.0. Passing "" there
+        * would mean "take the default" and silently refit every bootstrap
+        * replicate under Efron while the observed weights the interval is
+        * supposed to cover came from Breslow -- an interval around a different
+        * estimator, at rc=0. So "" is translated to the explicit word here.
+        *
+        * This is the same class of defect as the dropped agrefit option: a
+        * fit-time setting that the refit path fails to thread. It only became
+        * reachable when the default moved, which is why the flip is a major
+        * version rather than a documentation change.
+        *
+        * iptw stores an empty method (it fits no Cox model), and _iivw_bs_refit
+        * does not forward the flag on its iptw branch -- forwarding `breslow'
+        * into an iptw iivw_weight would hard-error by design. Gate on the
+        * weight type here anyway so the two files do not have to agree by
+        * coincidence.
+        if inlist("`weighttype'", "iivw", "fiptiw") {
+            local rep_efron_flag = cond("`rep_efron'" != "", "efron", "breslow")
+        }
+        else {
+            local rep_efron_flag ""
+        }
         local rep_base_flag = cond("`rep_baseevent'" == "0", "baseline(event)", "baseline(entry)")
 
         * The replicates must rebuild the SAME risk set the observed weights were

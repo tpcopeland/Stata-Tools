@@ -1,4 +1,4 @@
-*! _iivw_bs_refit Version 2.4.0  2026/07/25
+*! _iivw_bs_refit Version 3.0.0  2026/07/25
 *! Bootstrap wrapper for iivw_fit, refitweights: recomputes IIW/IPTW/FIPTIW
 *! weights from scratch on each resampled panel before refitting the outcome
 *! model, so the bootstrap propagates weight-estimation uncertainty.
@@ -51,7 +51,7 @@ program define _iivw_bs_refit, eclass
         MODel(string) ///
         [PANELid(varname) OUTCOMETOUSE(varname) ///
          VISITcov(string) LAGvars(string) TREAT(string) TREATcov(string) ///
-         STABcov(string) EFRon BASEline(string) ///
+         STABcov(string) EFRon BREslow BASEline(string) ///
          TRUNCVisit(string) TRUNCTreat(string) TRUNCFinal(string) ///
          ENTRY(string) ///
          CENSor(string) MAXfu(string) ENDATLASTvisit ///
@@ -196,7 +196,57 @@ program define _iivw_bs_refit, eclass
     * reproduces it without being told. The OPT-OUT is what has to travel: a
     * replicate that silently re-added treatment while the observed pass omitted
     * it would bootstrap an estimator the user never ran.
-    local efron_opt = cond("`efron'" != "", "efron", "")
+    * ---------------------------------------------------------------------
+    * The tie method is resolved to an explicit NAME here, never left to
+    * iivw_weight's default. That default became Efron in 3.0.0, so forwarding
+    * an empty token would mean "whatever the current default is" rather than
+    * "the method these weights were built with" -- and for a dataset weighted
+    * before 3.0.0 those are different. The replicates would then refit under
+    * Efron while the observed weights came from Breslow, putting an interval
+    * around a different estimator than the point estimate, at rc=0.
+    *
+    * Two sources, in order:
+    *
+    *   1. An explicit `efron'/`breslow' from the caller. iivw_fit sends one,
+    *      having translated the stored stcox-form token itself.
+    *   2. Otherwise the STORED CONTRACT, which is the authoritative record of
+    *      what the observed weights actually used. char _dta[_iivw_efron] is
+    *      in stcox form, so "" means Breslow -- but only when a contract
+    *      exists at all, since an unset characteristic also reads as "".
+    *      _iivw_weighttype is the presence test: iivw_weight always writes it.
+    *
+    * Reading the contract rather than demanding the caller thread it is what
+    * makes this correct for every caller instead of only the one that
+    * remembered. An earlier revision of this fix hard-errored on a missing
+    * token; that is a fine guard for iivw_fit and a bad contract for the eight
+    * QA suites that legitimately drive this helper directly, and it would have
+    * pushed the burden of remembering back onto callers -- which is how the
+    * dropped-agrefit defect happened in the first place.
+    *
+    * The fallback to the package default is reached only when there is no
+    * contract in the data at all, i.e. no prior weights for the refit to be
+    * consistent with. iivw_fit cannot reach it: it refuses unweighted data.
+    * ---------------------------------------------------------------------
+    if "`efron'" != "" & "`breslow'" != "" {
+        display as error "_iivw_bs_refit: efron and breslow may not be combined"
+        error 198
+    }
+    if "`efron'" != "" {
+        local efron_opt "efron"
+    }
+    else if "`breslow'" != "" {
+        local efron_opt "breslow"
+    }
+    else {
+        local __iivw_have_contract : char _dta[_iivw_weighttype]
+        local __iivw_stored_tie    : char _dta[_iivw_efron]
+        if "`__iivw_have_contract'" != "" {
+            local efron_opt = cond("`__iivw_stored_tie'" == "", "breslow", "efron")
+        }
+        else {
+            local efron_opt "efron"
+        }
+    }
     local amw_opt = cond("`allowmissingweights'" != "", "allowmissingweights", "")
     local ntv_opt = ///
         cond("`experimentalnotreatvisit'" != "", "experimentalnotreatvisit", "")

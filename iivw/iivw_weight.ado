@@ -1,4 +1,4 @@
-*! iivw_weight Version 2.4.0  2026/07/25
+*! iivw_weight Version 3.0.0  2026/07/25
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -77,7 +77,7 @@ program define iivw_weight, rclass sortpreserve
          TRUNCTreat(numlist min=2 max=2) ///
          TRUNCFinal(numlist min=2 max=2) ///
          BASEline(string) ///
-         GENerate(name) REPLACE noLOG EFRon ///
+         GENerate(name) REPLACE noLOG EFRon BREslow ///
          ALLOWNONCONVerged ALLOWMISSINGWeights ///
          EXPERIMENTALNOTREATVISit]
 
@@ -91,8 +91,39 @@ program define iivw_weight, rclass sortpreserve
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
 
-    local efron_opt ""
-    if "`efron'" != "" local efron_opt "efron"
+    * -------------------------------------------------------------------------
+    * Tie handling. Efron is the DEFAULT as of 3.0.0; through 2.4.x this
+    * inherited stcox's Breslow default. See _iivw_tie_density.ado for the
+    * measured divergence, the direction of the bias, and the literature.
+    *
+    * `efron_opt' holds the resolved method in STCOX form -- "" for Breslow,
+    * "efron" for Efron -- because it is spliced straight into stcox calls and
+    * also written to char _dta[_iivw_efron]. Keeping the stcox form on the
+    * characteristic is deliberate and load-bearing for BACK-COMPATIBILITY: a
+    * dataset weighted by 2.4.x stored "" for its Breslow fit, and every replay
+    * consumer splices that char into its own stcox, so an old weighted dataset
+    * keeps replaying under Breslow -- the method its weights actually came
+    * from. Had the default flip been encoded by re-reading the empty char as
+    * "efron", every saved 2.x dataset would have silently replayed under a
+    * method that did not produce its weights.
+    *
+    * The one place the stcox form is NOT safe is a replay that re-enters
+    * iivw_weight (the bootstrap refit), where "" now means "take the default"
+    * = Efron rather than Breslow. Those call sites pass an explicit
+    * `breslow'/`efron' token instead; see iivw_fit.ado's rep_efron_flag and
+    * _iivw_bs_refit.ado.
+    *
+    * `efron' remains accepted, and is now a no-op that names the default. It is
+    * kept so that do-files written against 1.x/2.x keep running unchanged
+    * rather than dying at r(198) on an option that no longer exists.
+    * -------------------------------------------------------------------------
+    if "`efron'" != "" & "`breslow'" != "" {
+        display as error "efron and breslow may not be combined"
+        display as error "omit both for the default (efron), or name exactly one"
+        error 198
+    }
+    local efron_opt = cond("`breslow'" != "", "", "efron")
+    local tie_method = cond("`breslow'" != "", "breslow", "efron")
 
     * Baseline handling. Since 2.0.0 the first visit per subject is study ENTRY
     * (risk onset), not a modeled recurrent event: the old default let baseline
@@ -237,8 +268,9 @@ program define iivw_weight, rclass sortpreserve
             display as error "wtype(iptw) fits no visit intensity counting-process model"
             error 198
         }
-        if "`efron'" != "" {
-            display as error "efron is only allowed with IIW or FIPTIW weights"
+        if "`efron'" != "" | "`breslow'" != "" {
+            local __iivw_tieopt = cond("`efron'" != "", "efron", "breslow")
+            display as error "`__iivw_tieopt' is only allowed with IIW or FIPTIW weights"
             display as error "wtype(iptw) fits no Cox visit intensity model"
             error 198
         }
@@ -254,6 +286,15 @@ program define iivw_weight, rclass sortpreserve
             display as error "  so there is no risk set for an end of follow-up to extend"
             error 198
         }
+
+        * No Cox model is fitted under iptw, so no tie method is in force.
+        * Clear the resolved method rather than letting the package-wide default
+        * be stamped onto the contract: char _dta[_iivw_efron] is read back by
+        * every replay consumer, and recording "efron" here would assert that a
+        * visit-intensity fit happened when none did. Empty is the truthful
+        * value AND the one 2.4.x wrote for iptw, so no iptw contract changes.
+        local efron_opt ""
+        local tie_method ""
     }
 
     * =========================================================================
@@ -1073,8 +1114,12 @@ program define iivw_weight, rclass sortpreserve
             * the measured Breslow/Efron divergence and why the threshold is
             * set on multiplicity rather than on the share of tied events.
             *
-            * Only when the user did NOT ask for efron: having already chosen
-            * the method, there is nothing to tell them.
+            * The helper decides whether to speak, from method(): since 3.0.0
+            * it warns only when the user explicitly chose `breslow' on data
+            * where that attenuates. Passing the resolved method rather than a
+            * precomputed nonote flag keeps the firing rule in ONE place --
+            * the previous shape computed the condition here and the message
+            * there, which is how a gate gets inverted.
             *
             * `_cox_ok' & `_event' are the rows stcox will score as events;
             * `_stop' > `_start' excludes the zero-length intervals stset
@@ -1084,10 +1129,9 @@ program define iivw_weight, rclass sortpreserve
             * ---------------------------------------------------------------
             tempvar _tie_touse
             gen byte `_tie_touse' = (`_cox_ok' & `_stop' > `_start')
-            local __iivw_tie_note = cond("`efron_opt'" == "", "", "nonote")
             _iivw_tie_density, event(`_event') stop(`_stop') ///
                 touse(`_tie_touse') cmdname(visit-intensity) ///
-                `__iivw_tie_note'
+                method(`tie_method')
             local __iivw_tie_mult   = r(tie_multiplicity)
             local __iivw_tie_ntimes = r(n_event_times)
             local __iivw_tie_nev    = r(n_modeled_events)

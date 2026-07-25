@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 2.4.0  2026/07/25
+*! _iivw_get_settings Version 3.0.0  2026/07/25
 *! The canonical weighting specification: the one place any consumer reads the
 *! contract that iivw_weight committed.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -105,6 +105,21 @@ program define _iivw_get_settings, rclass
     return local tt_hicut "`tt_hicut'"
     return local iw_raw_var "`iw_raw_var'"
     return local tw_raw_var "`tw_raw_var'"
+
+    * The tie method, in STCOX form: "" = Breslow, "efron" = Efron. This is the
+    * resolved method the weights were actually fitted under, never the option
+    * the user typed, so it stays correct across the 3.0.0 default flip:
+    * a dataset weighted by 2.4.x under the old Breslow default stored "", and
+    * a consumer that splices "" into its own stcox still gets Breslow. That
+    * back-compatibility is the reason the encoding was NOT changed to a
+    * self-describing word when the default moved.
+    *
+    * The trap it leaves behind: "" is only safe for a consumer whose callee
+    * defaults to Breslow, i.e. stcox itself (iivw_balance's refit). A consumer
+    * that re-enters iivw_weight -- whose default is now Efron -- must translate
+    * "" to an explicit `breslow' first, or the replay silently changes method.
+    * iivw_fit does that translation before calling _iivw_bs_refit, and
+    * _iivw_bs_refit refuses to run without an explicit token.
     return local efron "`efron'"
     return local entry "`entry'"
 

@@ -74,7 +74,8 @@
 {synopt:{opt gen:erate(name)}}prefix for weight variables (default: {cmd:_iivw_}){p_end}
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
-{synopt:{opt efr:on}}use Efron method for tied visit times in Cox model{p_end}
+{synopt:{opt efr:on}}Efron ties in the Cox visit model (the default){p_end}
+{synopt:{opt bre:slow}}Breslow ties in the Cox visit model (pre-3.0.0 default){p_end}
 {synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
 {synopt:{opt allowmissingw:eights}}accept rows that receive no weight (complete-case){p_end}
 {synopt:{opt base:line(entry|event)}}first visit: entry (default) or event{p_end}
@@ -206,7 +207,8 @@ risk.
 {pmore}
 For {cmd:wtype(iptw)}, {opt visit_cov()} is optional. The visit model is skipped entirely,
 and any {opt visit_cov()} variables are ignored with a note. Other visit-model-only
-options, including {opt stabcov()}, {opt lagvars()}, {opt entry()}, {opt efron}, {opt baseline()},
+options, including {opt stabcov()}, {opt lagvars()}, {opt entry()}, {opt efron},
+{opt breslow}, {opt baseline()},
 and the end-of-follow-up specification, are
 not allowed with {cmd:wtype(iptw)} because no visit intensity model is fit.
 
@@ -535,12 +537,22 @@ returned: {cmd:r(n_missing_weight)}, {cmd:r(n_ids_missing_weight)}, and -- when
 
 {marker efron_ties}{...}
 {phang}
-{opt efron} uses the Efron method for handling tied event times in the Andersen-Gill
-Cox model. The default is Breslow. Efron is more accurate when there are many
-tied visit times, which is common in clinic data where visits are recorded at
-monthly or quarterly granularity. This option also matches R's {cmd:coxph()}
-default, which is useful when cross-validating results against R. This option
-is allowed only for IIW or FIPTIW weights.
+{opt efron} selects the Efron method for handling tied event times in the
+Andersen-Gill Cox model, and {opt breslow} selects the Breslow method.
+{bf:Efron is the default as of version 3.0.0.} Neither option is needed for
+normal use: {opt efron} is accepted as an explicit no-op naming the default, so
+that do-files written against earlier versions keep running unchanged. Both
+options are allowed only for IIW or FIPTIW weights, since {opt wtype(iptw)}
+fits no Cox model, and they may not be combined.
+
+{phang2}
+{bf:This default changed in 3.0.0 and it moves results.} Through 2.4.x the
+package inherited {help stcox}'s Breslow default. On data with tied visit times
+-- the normal case in registry and clinic data, where visits are recorded to the
+day, week or month -- Breslow and Efron give materially different weights, so an
+analysis re-run under 3.0.0 will not reproduce a 2.x analysis unless
+{opt breslow} is typed. Specify {opt breslow} to reproduce a pre-3.0.0 result,
+or to match another package that uses Breslow.
 
 {phang2}
 The two methods agree exactly when no two visits share a time, and diverge as
@@ -552,15 +564,30 @@ onto a grid produced a multiplicity of 126 events per distinct time and fitted
 coefficients of 0.41 under Breslow against 0.62 under Efron.
 
 {phang2}
-{cmd:iivw_weight} therefore measures the tie structure of every fit and prints a
-note when multiplicity reaches 2 -- the point at which {opt time()} is a coarse
-grid rather than a continuous measurement. The note does not appear when
-{opt efron} was requested, and it cannot appear on continuous visit times, whose
-multiplicity is exactly 1. The measurement is returned regardless, in
+The direction of that error is why the default moved. Breslow attenuates the
+fitted coefficient {it:toward the null}, and since the weight is
+{cmd:exp(-xb)}, an attenuated coefficient compresses the weights toward 1 --
+that is, toward {it:no correction applied}. Hertz-Picciotto and Rockhill (1997)
+report the same direction and find Efron's bias under 2% even at 25 subjects
+per group, concluding that although Breslow is the default in many standard
+packages, Efron "is to be preferred". Efron is also what R's {cmd:coxph()} uses
+by default, and therefore what the {cmd:IrregLong} package uses, so it is the
+setting that reproduces the reference implementation of this method.
+
+{phang2}
+Note that Efron is the better default, not a repair: at the heaviest tying in
+the check above, both methods are biased. If {cmd:r(tie_multiplicity)} is large,
+the remedy is a finer {opt time()}, not a tie method.
+
+{phang2}
+{cmd:iivw_weight} measures the tie structure of every fit and returns it in
 {cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
-{cmd:r(n_modeled_events)}, so it can be checked without reading the log. The
-default is not changed by this: Breslow remains in force unless {opt efron} is
-typed.
+{cmd:r(n_modeled_events)}, so it can be checked without reading the log.
+A note is printed when {opt breslow} was requested {it:and} multiplicity reaches
+2 -- the point at which {opt time()} is a coarse grid rather than a continuous
+measurement. Under the default there is nothing to advise, so no note appears;
+and the note cannot appear on continuous visit times, whose multiplicity is
+exactly 1.
 
 
 {marker wtypes}{...}
@@ -1062,14 +1089,15 @@ weight variability without changing the target estimand.
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) stabcov(treated) replace censor(fu_end) nolog}{p_end}
 
 {pstd}
-{bf:Example 7: Efron tie handling}
+{bf:Example 7: Reproducing a pre-3.0.0 result}
 
 {pstd}
-When visit times are rounded (e.g., monthly), many subjects may share
-the same visit time. The Efron method handles these ties more accurately
-than the default Breslow method.
+Efron tie handling is the default, so the rounded visit times common in
+registry data need no option. Specify {opt breslow} only to reproduce an
+analysis run under version 2.4.x or earlier, which inherited
+{help stcox}'s Breslow default.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) efron replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) breslow replace censor(fu_end) nolog}{p_end}
 
 
 {marker results}{...}
@@ -1181,6 +1209,11 @@ Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
 models with follow-up dependent on outcome-related
 variables. {it:Canadian Journal of Statistics}
 35(4): 485-500. doi:10.1002/cjs.5550350402.
+
+{phang}
+Hertz-Picciotto I, Rockhill B. 1997. Validity and efficiency of approximation
+methods for tied survival times in Cox regression. {it:Biometrics}
+53(3): 1151-1156.
 
 {phang}
 Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with

@@ -281,9 +281,16 @@ else {
 local ++test_count
 display as text "T6: a weight identically 1 has zero TSMD (the B06 oracle)"
 capture noisily {
+    * `breslow' is explicit here because the oracle below is a BRESLOW score
+    * identity. The target SMD is the Cox score residual -- observed covariate
+    * mean among visits minus its risk-set expectation -- which is zero by
+    * construction only at the coefficients that solve that score. An Efron fit
+    * solves a different score at tied event times, so the residual is not zero
+    * there and the "0 by algebra" claim below simply does not apply. The Efron
+    * arm is asserted separately, immediately after.
     _p2_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x z) stabcov(x z) ///
-        censor(fu_end) nolog
+        censor(fu_end) nolog breslow
     quietly iivw_balance
 
     local mt = r(balance_max_tsmd)
@@ -299,6 +306,33 @@ capture noisily {
     * does not reweight anything. It was not a balance defect. It was the wrong
     * target, and it made a correctly stabilized IIW look broken.
     assert `mt' < `TOL_TSMD'
+
+    * ---- The Efron arm. Same fixture, same identically-1 weight, and the
+    * residual is NOT zero -- measured at 0.1594933, which is above the
+    * balcut(0.10) default and would have been reported as exceeds_rule: a
+    * false imbalance verdict for weights that reweight nothing. 3.0.0 gates
+    * the verdict instead of issuing it. Asserted here so the gate cannot be
+    * removed without this failing, and so the contaminated number itself stays
+    * on the record rather than being quietly hidden.
+    _p2_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x z) stabcov(x z) ///
+        censor(fu_end) nolog
+    quietly summarize _iivw_iw
+    assert r(sd) < `TOL_EXACT'
+    quietly iivw_balance
+    local mt_efr = r(balance_max_tsmd)
+    local st_efr = "`r(target_status)'"
+    local fl_efr = "`r(balance_flag)'"
+    display as text "    Efron arm: max |TSMD| = " %10.7f `mt_efr' ///
+        "  status=`st_efr'  flag=`fl_efr'"
+    * The number is still returned...
+    assert `mt_efr' < .
+    * ...the identity genuinely fails there, so the gate is not masking a
+    * no-op...
+    assert `mt_efr' > `TOL_TSMD'
+    * ...and NO verdict is issued from it.
+    assert "`st_efr'" == "tie_method_efron"
+    assert "`fl_efr'" == "not_assessed"
 }
 if _rc == 0 {
     display as result "  PASS: T6 - saturated stabilization balances exactly"
@@ -319,8 +353,13 @@ capture noisily {
     * must therefore reduce to the old one EXACTLY -- if it does not, the fix
     * changed a path it had no business changing, and every unstabilized balance
     * number the package has ever reported just moved.
+    * `breslow' explicit: the literal below was MEASURED on a Breslow fit, and
+    * the point of the test is that the Phase-2 target change did not move it.
+    * Letting this arm drift to the 3.0.0 Efron default would re-pin the
+    * literal to a different estimator and destroy the regression it guards.
     _p2_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) nolog
+    quietly iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) ///
+        nolog breslow
     quietly iivw_balance
     local mt_unstab = r(balance_max_tsmd)
     display as text "    unstabilized max |TSMD| = " %10.7f `mt_unstab'
@@ -530,13 +569,18 @@ else {
 local ++test_count
 display as text "T13: balance reports on the trimmed weight the outcome model used"
 capture noisily {
+    * Both arms on `breslow'. This test compares two target SMDs against each
+    * other and asserts a DIRECTION, which needs the statistic to be a valid
+    * score residual on both sides; under Efron it is contaminated by the tie
+    * correction and 3.0.0 refuses to issue a verdict from it at all.
     _p2_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) nolog
+    quietly iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) ///
+        nolog breslow
     quietly iivw_balance
     local tsmd_untrimmed = r(balance_max_tsmd)
 
     quietly iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) ///
-        truncvisit(5 95) replace nolog
+        truncvisit(5 95) replace nolog breslow
     quietly iivw_balance
     local tsmd_trimmed = r(balance_max_tsmd)
 

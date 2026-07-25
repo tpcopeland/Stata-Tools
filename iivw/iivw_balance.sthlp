@@ -44,6 +44,7 @@
 {syntab:Supplementary AG refit}
 {synopt:{opt agr:efit}}also show the refit hazard ratios{p_end}
 {synopt:{opt efr:on}}ignored; the refit replays the stored tie method{p_end}
+{synopt:{opt bre:slow}}ignored; the refit replays the stored tie method{p_end}
 {synopt:{opt nolog}}suppress Cox iteration logs in AG refits{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
@@ -136,9 +137,45 @@ on -- so {opt agrefit} only controls the display. Covariates that have no
 usable variation or fail to fit are skipped with
 a note and a nonzero row-specific return code.
 
+{marker tiegate}{...}
 {phang}
-{opt efr:on} uses Efron's method for tied event times in the supplementary Cox
-models.
+{bf:The target SMD is not reported as a verdict under Efron ties.} The target
+SMD is the Cox {it:score residual} -- the observed covariate mean among visits
+minus its expectation over the risk set -- and it is zero by construction only
+at the coefficients that solve that score equation. The score equation it is
+zero at is {bf:Breslow's}. An {opt breslow}-fitted visit model therefore gives
+an exactly zero target SMD when the weights reweight nothing, but an
+{opt efron} fit solves a different score at tied event times, so the residual
+there is contaminated by the tie correction rather than measuring imbalance.
+
+{phang2}
+Measured on a fixture whose stabilization is saturated, so the weight is
+identically 1 and every SMD must be zero by algebra: a Breslow contract gives
+max |target SMD| = 0.0000000 and the verdict {cmd:within_rule}, while an Efron
+contract on the same data gives 0.1594933 -- above the {opt balcut()} default
+of 0.10, and so would have been reported as {cmd:exceeds_rule}. Since Efron
+became the default in 3.0.0, {cmd:iivw_balance} detects this case and
+{it:withholds the verdict} rather than issuing a false one:
+{cmd:r(target_status)} is {cmd:tie_method_efron} and {cmd:r(balance_flag)} is
+{cmd:not_assessed}. {cmd:r(balance_max_tsmd)} is still returned.
+
+{phang2}
+The gate keys on tie {it:multiplicity}, not merely on the method. Efron and
+Breslow coincide exactly when no two events share a time, so an Efron contract
+on continuous visit times still receives a full verdict. The leverage and
+effective-sample-size diagnostics are unaffected in every case -- neither
+depends on the score identity. To obtain a target-SMD verdict on tied data,
+rebuild the weights with {helpb iivw_weight:iivw_weight, breslow}, or use a
+finer {opt time()} so that visit times are not tied. An Efron-consistent score
+residual is not yet implemented.
+
+{phang}
+{opt efr:on} and {opt bre:slow} are both accepted and both {it:ignored}. This
+command reports on weights that {helpb iivw_weight} already computed, so the
+only defensible tie method is the one those weights came from: the
+visit-model refit replays the method stored on the weighting contract. A note
+records the ignore. Specifying a tie method here would let the refit describe
+the weights with a model that did not produce them.
 
 {phang}
 {opt nolog} suppresses iteration logs in the supplementary Cox models.

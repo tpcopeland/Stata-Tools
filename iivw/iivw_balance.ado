@@ -1,4 +1,4 @@
-*! iivw_balance Version 2.4.0  2026/07/25
+*! iivw_balance Version 3.0.0  2026/07/25
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -25,6 +25,7 @@ Options:
   level(#)         - confidence level for the refit HR intervals
   nolog            - suppress the Cox iteration log in the refit
   efron            - ignored; the refit replays the stored tie method
+  breslow          - ignored; the refit replays the stored tie method
 
 See help iivw_balance for complete documentation
 */
@@ -50,7 +51,7 @@ program define iivw_balance, rclass
     syntax [varlist(default=none numeric)] [if] [in] , ///
         [cvcut(real 0.10) essratiocut(real 0.95) ///
          COMPonent(string) BALcut(real 0.10) ///
-         AGRefit Level(cilevel) noLOG EFRon ///
+         AGRefit Level(cilevel) noLOG EFRon BREslow ///
          XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) ///
@@ -145,9 +146,6 @@ program define iivw_balance, rclass
 
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
-
-    local efron_opt ""
-    if "`efron'" != "" local efron_opt "efron"
 
     _iivw_check_weighted
     _iivw_get_settings
@@ -481,6 +479,10 @@ program define iivw_balance, rclass
     local replay_scale = .
     local replay_n = 0
     local target_status "unknown"
+    * Tie multiplicity of the replayed AG fit, and the method it was fitted
+    * under. Both are needed at the verdict; see the tie-method gate there.
+    local __iivw_bal_mult = .
+    local __iivw_bal_method ""
 
     * Initialized BEFORE the captured block: the display reads these
     * unconditionally, and a refit that errors early would otherwise leave them
@@ -491,8 +493,17 @@ program define iivw_balance, rclass
         local __iivw_wmean_`i' = .
     }
 
-    if "`efron'" != "" {
-        display as text "note: efron is ignored by iivw_balance; the visit-model refit replays the"
+    * Both tie options are accepted and both are ignored, deliberately. This
+    * command REPORTS on weights someone else already computed, so the only
+    * defensible tie method is the one those weights came from -- which is read
+    * from the stored contract (`rep_efron', spliced into the refit's stcox
+    * below). Honouring a tie option here would let a user describe the weights
+    * with a model that did not produce them. Accepting-and-ignoring rather
+    * than rejecting keeps a pasted option list from erroring, and the note
+    * makes the ignore visible rather than silent.
+    if "`efron'" != "" | "`breslow'" != "" {
+        local __iivw_tieopt = cond("`efron'" != "", "efron", "breslow")
+        display as text "note: `__iivw_tieopt' is ignored by iivw_balance; the visit-model refit replays the"
         display as text "  tie method stored by iivw_weight, so that it reproduces the model that"
         display as text "  actually produced the weights."
     }
@@ -604,6 +615,16 @@ program define iivw_balance, rclass
 
         quietly stset `__iivw_stop', enter(time `__iivw_start') ///
             failure(`__iivw_event') id(`panel_id') exit(time .)
+
+        * Tie structure of the replayed risk set. Measured here, consumed at
+        * the verdict below, where it decides whether the target SMD is a
+        * statistic this command is entitled to issue a verdict from. `nonote'
+        * because the advisory belongs to iivw_weight, beside the fit it is
+        * about -- not to a downstream report on weights already computed.
+        local __iivw_bal_method = cond("`rep_efron'" != "", "efron", "breslow")
+        _iivw_tie_density, event(`__iivw_event') stop(`__iivw_stop') ///
+            touse(`__iivw_coxok') method(`__iivw_bal_method') nonote
+        local __iivw_bal_mult = r(tie_multiplicity)
 
         * ---- Reproduce the stored visit model. Stored tie method, so exp(-xb)
         * on the visit rows reproduces the stored IIW exactly (up to the mean-1
@@ -981,6 +1002,50 @@ program define iivw_balance, rclass
     else if `refit_ncens' == 0 {
         local target_status "not_identified"
     }
+    else if "`__iivw_bal_method'" == "efron" & ///
+            `__iivw_bal_mult' < . & `__iivw_bal_mult' >= 2 {
+        * ---------------------------------------------------------------
+        * THE TARGET SMD IS A BRESLOW SCORE RESIDUAL.
+        *
+        * The target compares the observed weighted covariate mean against
+        * the mean implied by the replayed visit model over at-risk
+        * person-time. That comparison is exactly the Cox SCORE equation --
+        * observed covariate sum among events minus its risk-set expectation
+        * -- so it is zero BY CONSTRUCTION at the fitted coefficients, and
+        * that is what makes it a balance statistic rather than an arbitrary
+        * contrast. But the score equation it is zero at is BRESLOW's. An
+        * Efron fit solves a different one, because Efron modifies the risk
+        * set at tied event times, so the Breslow residual evaluated at
+        * Efron's beta-hat is not zero and the nonzero part is the tie
+        * correction, not imbalance.
+        *
+        * MEASURED, on the saturated-stabilization fixture where the weight
+        * is identically 1 and every SMD must therefore be zero by algebra
+        * (test_iivw_phase2_contract.do T6): under a Breslow contract
+        * max |TSMD| = 0.0000000 and the verdict is within_rule; under an
+        * Efron contract the SAME weight gives 0.1594933 and the verdict is
+        * exceeds_rule -- a false imbalance flag, above the balcut(0.10)
+        * default, for weights that reweight nothing.
+        *
+        * Ruled out as the cause: the baseline hazard estimator. Substituting
+        * the Breslow baseline evaluated at Efron's coefficients (a null model
+        * with the linear predictor as an offset) changes Lambda_0 materially
+        * -- mean 5.608 to 3.391 on that fixture -- and leaves max |TSMD| at
+        * 0.1594933 to seven decimals, because the target is a ratio in which
+        * any rescaling of dLambda_0 cancels.
+        *
+        * So this refuses to issue a verdict rather than issuing a wrong one.
+        * r(balance_max_tsmd) is still returned, and the leverage/ESS half of
+        * this command is unaffected -- neither depends on the score identity.
+        * The gate keys on MULTIPLICITY, not merely on the method: Efron and
+        * Breslow coincide exactly when no two events share a time, so an
+        * Efron contract on continuous visit times still gets a full verdict.
+        *
+        * The real fix is an Efron-consistent score residual, which is a
+        * separate piece of estimator work and is not attempted here.
+        * ---------------------------------------------------------------
+        local target_status "tie_method_efron"
+    }
 
     if "`target_status'" == "identified" {
         if `balance_max_tsmd' <= `balcut' {
@@ -992,6 +1057,9 @@ program define iivw_balance, rclass
     }
     else if "`target_status'" == "not_identified" {
         local balance_flag "not_identified"
+    }
+    else if "`target_status'" == "tie_method_efron" {
+        local balance_flag "not_assessed"
     }
 
     display as text ""
@@ -1104,6 +1172,37 @@ program define iivw_balance, rclass
                 " Supply censor() or"
             display as text "        maxfu() for a target the weights can" ///
                 " actually be tested against."
+        }
+
+        * The tie-method gate. See the long note at the target_status
+        * assignment for the measurement and for what was ruled out.
+        if "`target_status'" == "tie_method_efron" {
+            display as text ""
+            display as error "  no balance verdict: the target SMD is not valid under Efron ties here."
+            display as text "        The target SMD is the Cox SCORE residual --" ///
+                " the observed covariate"
+            display as text "        mean among visits minus its risk-set" ///
+                " expectation -- and it is zero"
+            display as text "        by construction only at the coefficients" ///
+                " that SOLVE that score."
+            display as text "        These weights were fitted with " as result "efron" ///
+                as text ", which solves a different"
+            display as text "        score equation at tied event times, and" ///
+                " this fit is heavily tied"
+            display as text "        (" as result %6.1f `__iivw_bal_mult' as text ///
+                " events per distinct event time). The residual"
+            display as text "        below is therefore contaminated by the tie" ///
+                " correction and is not"
+            display as text "        an imbalance measure, so no verdict is" ///
+                " reported from it."
+            display as text ""
+            display as text "        The leverage/ESS diagnostics above are" ///
+                " unaffected -- neither"
+            display as text "        depends on the score identity. For a" ///
+                " target-SMD verdict, rebuild"
+            display as text "        the weights with " as result "iivw_weight, breslow" ///
+                as text ", or use a finer time()"
+            display as text "        so that visit times are not tied."
         }
     }
     else {

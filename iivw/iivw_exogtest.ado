@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 2.4.0  2026/07/25
+*! iivw_exogtest Version 3.0.0  2026/07/25
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -21,7 +21,9 @@ Options:
   entry(varname)     - Subject-specific study entry time
   generate(name)     - Prefix for generated lag variables
   replace            - Overwrite generated lag variables
-  efron              - Use Efron ties in stcox
+  efron              - Efron ties in stcox (the default since 3.0.0; accepted
+                       as an explicit no-op so 2.x do-files keep running)
+  breslow            - Breslow ties in stcox (the pre-3.0.0 default)
   nolog              - Suppress Cox iteration log
   level(#)           - Confidence level for displayed HR intervals
   xlsx()             - Export diagnostic table to a styled Excel sheet
@@ -56,7 +58,7 @@ program define iivw_exogtest, rclass sortpreserve
         ID(varname) TIME(varname numeric) ///
         [ADJust(varlist numeric) BY(varname) BYSTart ENTry(varname numeric) ///
          CENSor(varname numeric) MAXfu(numlist max=1) ENDATLASTvisit ///
-         GENerate(name) REPLACE EFRon noLOG Level(cilevel) ///
+         GENerate(name) REPLACE EFRon BREslow noLOG Level(cilevel) ///
          XLSX(string asis) SHEET(string asis) ///
          TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) OPEN ///
@@ -180,8 +182,20 @@ program define iivw_exogtest, rclass sortpreserve
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
 
-    local efron_opt ""
-    if "`efron'" != "" local efron_opt "efron"
+    * Tie handling. Efron is the DEFAULT as of 3.0.0, matching iivw_weight --
+    * these two commands must agree, because a user who reads iivw_exogtest as
+    * a check on the visit model that iivw_weight fits is entitled to assume
+    * both fit the SAME model. `efron_opt' is the stcox-form token ("" or
+    * "efron"); `tie_method' is the explicit name the advisory keys on. `efron'
+    * stays accepted as a no-op naming the default, so 2.x do-files still run.
+    * See _iivw_tie_density.ado for the measurement and the literature.
+    if "`efron'" != "" & "`breslow'" != "" {
+        display as error "efron and breslow may not be combined"
+        display as error "omit both for the default (efron), or name exactly one"
+        error 198
+    }
+    local efron_opt = cond("`breslow'" != "", "", "efron")
+    local tie_method = cond("`breslow'" != "", "breslow", "efron")
 
     local alpha = (100 - `level') / 100
     local zcrit = invnormal((100 + `level') / 200)
@@ -528,20 +542,23 @@ program define iivw_exogtest, rclass sortpreserve
     * -------------------------------------------------------------------------
     * Tie density of the models about to be fitted.
     *
-    * This command fits the same Andersen-Gill Cox model as iivw_weight, and
-    * inherits the same Breslow default, so it carries the same exposure: the
-    * lagged-outcome coefficients -- and therefore every p-value in the table
-    * below -- move with the tie method. See _iivw_tie_density.ado for the
-    * measured divergence.
+    * This command fits the same Andersen-Gill Cox model as iivw_weight and
+    * takes the same tie-method default (Efron since 3.0.0), so it carries the
+    * same exposure: the lagged-outcome coefficients -- and therefore every
+    * p-value in the table below -- move with the tie method. The p-values are
+    * the specific reason this command must not be left on Breslow by default:
+    * Hertz-Picciotto & Rockhill (1997) find Breslow's tail probabilities are
+    * ASYMMETRIC about the nominal level while Efron's sit close to it, and a
+    * tail probability is exactly what this table reports. See
+    * _iivw_tie_density.ado for the measured divergence.
     *
     * Computed ONCE over the whole usable set rather than inside the by()
     * loop: the tie structure is a property of time(), not of a subgroup, and
     * one note per group would be noise. `__iivw_usable' already enforces
     * `stop' > `start', so zero-length intervals are excluded here too.
     * -------------------------------------------------------------------------
-    local __iivw_tie_note = cond("`efron_opt'" == "", "", "nonote")
     _iivw_tie_density, event(`__iivw_event') stop(`__iivw_stop') ///
-        touse(`__iivw_usable') cmdname(exogeneity) `__iivw_tie_note'
+        touse(`__iivw_usable') cmdname(exogeneity) method(`tie_method')
     local __iivw_tie_mult   = r(tie_multiplicity)
     local __iivw_tie_ntimes = r(n_event_times)
     local __iivw_tie_nev    = r(n_modeled_events)

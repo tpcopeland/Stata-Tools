@@ -52,7 +52,8 @@
 {synopt:{opt replace}}overwrite lag variables and worksheet{p_end}
 
 {syntab:Estimation}
-{synopt:{opt efr:on}}use Efron method for tied event times in {cmd:stcox}{p_end}
+{synopt:{opt efr:on}}Efron ties in {cmd:stcox} (the default){p_end}
+{synopt:{opt bre:slow}}Breslow ties in {cmd:stcox} (pre-3.0.0 default){p_end}
 {synopt:{opt nolog}}suppress Cox iteration log{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
@@ -181,24 +182,36 @@ and an existing worksheet of the same name is left untouched.
 {dlgtab:Estimation}
 
 {phang}
-{opt efron} uses the Efron method for tied event times in {cmd:stcox}. The
-default is Breslow, which is {cmd:stcox}'s own default. Efron is more accurate
-when many visits share a time, which is common in clinic data recorded at
-monthly or quarterly granularity, and it matches R's {cmd:coxph()} default. Use
-the same tie method here that you gave {helpb iivw_weight}, or the test
+{opt efron} selects the Efron method for tied event times in {cmd:stcox} and
+{opt breslow} selects the Breslow method. {bf:Efron is the default as of version}
+{bf:3.0.0}; through 2.4.x this command inherited {cmd:stcox}'s own Breslow
+default, so a test re-run under 3.0.0 will not reproduce a 2.x p-value on tied
+data unless {opt breslow} is typed. {opt efron} is accepted as an explicit
+no-op naming the default, so earlier do-files keep running. The two may not be
+combined.
+
+{phang2}
+{bf:Use the same tie method here that you gave} {helpb iivw_weight}, or the test
 describes a different visit-intensity model than the one that produced the
-weights.
+weights. Since both commands default to Efron, that happens automatically unless
+you override one of them.
 
 {phang2}
 The two methods agree exactly when no two visits share a time and diverge as
 tie {it:multiplicity} grows -- the mean number of modeled events per distinct
 event time. The lagged-outcome coefficients, and therefore every p-value in the
-table, move with that choice. {cmd:iivw_exogtest} measures the tie structure
-once for the whole command and prints a note when multiplicity reaches 2; the
-note does not appear when {opt efron} was requested, and it cannot appear on
-continuous visit times, whose multiplicity is exactly 1. The measurement is
-returned regardless, in {cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
-{cmd:r(n_modeled_events)}. See
+table, move with that choice. The p-values are the specific reason the default
+moved: Hertz-Picciotto and Rockhill (1997) find the tail probabilities under
+Breslow are asymmetric about the nominal level while Efron's sit close to it,
+and a tail probability is what this table reports.
+
+{phang2}
+{cmd:iivw_exogtest} measures the tie structure once for the whole command and
+returns it in {cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
+{cmd:r(n_modeled_events)}. A note is printed when {opt breslow} was requested
+{it:and} multiplicity reaches 2. Under the default there is nothing to advise,
+so no note appears; and the note cannot appear on continuous visit times, whose
+multiplicity is exactly 1. See
 {helpb iivw_weight##efron_ties:iivw_weight} for the measured size of the
 divergence.
 
@@ -504,6 +517,11 @@ Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
 models with follow-up dependent on outcome-related
 variables. {it:Canadian Journal of Statistics}
 35(4): 485-500. doi:10.1002/cjs.5550350402.
+
+{phang}
+Hertz-Picciotto I, Rockhill B. 1997. Validity and efficiency of approximation
+methods for tied survival times in Cox regression. {it:Biometrics}
+53(3): 1151-1156.
 
 {phang}
 Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with

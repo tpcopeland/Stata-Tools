@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/07/21
+*! finegray_predict Version 1.2.0  2026/07/25
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -615,8 +615,26 @@ program define finegray_predict, rclass sortpreserve
                 if `_bok' < `bootstrap' {
                     display as text "(note: `=`bootstrap'-`_bok'' of `bootstrap' bootstrap replications failed and were skipped)"
                 }
-                quietly replace `se_cif' = ///
-                    sqrt((`_bss' - `_bsum'^2/`_bok')/(`_bok'-1)) if `touse'
+                * Clamp the variance at 0 BEFORE the sqrt.  This is the
+                * computational form, so replicates that agree to machine
+                * precision (an evaluation time before the first cause event,
+                * where every replication returns CIF = 0) leave a tiny
+                * NEGATIVE residual after the cancellation, and sqrt() of it is
+                * MISSING -- reporting "we cannot quantify this" where the
+                * truth is a bootstrap SD of exactly zero.
+                *
+                * cond(v < 0, 0, v), NOT max(0, v).  Stata's max() IGNORES
+                * missing, so max(0, .) is 0: a replication that genuinely
+                * produced a missing CIF would be laundered into an SE of
+                * exactly zero and then into a zero-width confidence interval,
+                * which is the fabricated-certainty defect this command fixed
+                * in v1.1.0.  `. < 0' is FALSE (missing sorts above every
+                * number), so cond() passes missing through untouched.
+                tempvar _bvar
+                quietly gen double `_bvar' = ///
+                    (`_bss' - `_bsum'^2/`_bok')/(`_bok'-1) if `touse'
+                quietly replace `_bvar' = 0 if `_bvar' < 0 & `touse'
+                quietly replace `se_cif' = sqrt(`_bvar') if `touse'
             }
             else {
                 * Combine multiple strata variables into a single group

@@ -81,6 +81,21 @@ scaled residual series and the chosen function of event time. That correlation
 is the entire reported quantity: it is a descriptive diagnostic, not a test.
 
 {pstd}
+{bf:The scaling does not change the reported correlation.} The diagonal element
+is a single positive constant per covariate, and a correlation is invariant to
+multiplication by a positive constant, so {it:rho} is numerically identical to
+the correlation of the {bf:unscaled} Schoenfeld residual with the same function
+of time. This is worth stating plainly for two reasons. First, it means the
+reported diagnostic does not depend on the Grambsch-Therneau transformation at
+all -- that reference grounds the {it:Cox} model, and its applicability to the
+subdistribution hazard has not been established here, but nothing this command
+reports rests on it. Second, it means a full (off-diagonal) scaling would
+{it:not} be a cosmetic upgrade: mixing covariates through the whole inverse
+information would change every correlation, so it is a different diagnostic and
+would need its own justification. The scaling is applied because {opt detail}
+displays the residuals themselves, where the units do matter.
+
+{pstd}
 Earlier releases squared and rescaled this correlation into {cmd:n*rho^2} and
 referred it to a one-degree-of-freedom chi-squared, printing a
 {cmd:Prob>chi2}. That statistic has no published null calibration under the
