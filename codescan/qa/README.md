@@ -100,6 +100,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_v300_critical.do` | functional | 62 | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
 | `test_codescan_v2_no_scoring.do` | functional | 5 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
 | `test_codescan_v203_hardening.do` | functional | 15 | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
+| `test_codescan_v410.do` | functional | 12 | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
 | `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
 | `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
 | `test_codescan_describe_adversarial.do` | functional | 10 | `codescan_describe` hostile inputs |
@@ -184,6 +185,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_codescan_v208` | ✓ | ✓ | ✓ |
 | `test_codescan_v2_no_scoring` | ✓ | ✓ | ✓ |
 | `test_codescan_v203_hardening` | ✓ | ✓ | ✓ |
+| `test_codescan_v410` | ✓ | ✓ | ✓ |
 | `test_codescan_v300_critical` | ✓ | ✓ | ✓ |
 | `test_codescan_perf_equiv` | ✓ | ✓ | ✓ |
 | `validation_codescan` | ✓ | ✓ | ✓ |

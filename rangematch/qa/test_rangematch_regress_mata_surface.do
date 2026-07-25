@@ -41,22 +41,57 @@ assert "`has_count_unique'" == "0"
 display as result "PASS: dead Mata functions removed"
 
 **# T3: Live Mata functions are present and callable
+* The whole exported surface, not a sample of it. This listed 7 of the 23
+* exported functions and omitted the entire overlap backend, the sweep
+* preparer, the option-grammar scanner, the .dta-name resolver, the
+* value-label resolver, and all four binary searches -- so a name dropped from
+* the `mata drop' preamble, or a function deleted outright, was caught only if
+* it happened to be one of the seven. Every function defined in
+* _rangematch_mata.ado belongs here; add the name when you add the function.
 local ++test_count
-mata: st_local("has_build_pairs", strofreal(findexternal("_rm_build_pairs()") != NULL))
-assert "`has_build_pairs'" == "1"
-mata: st_local("has_sweep", strofreal(findexternal("_rm_build_pairs_sweep()") != NULL))
-assert "`has_sweep'" == "1"
-mata: st_local("has_materialize", strofreal(findexternal("_rm_materialize()") != NULL))
-assert "`has_materialize'" == "1"
-mata: st_local("has_distance", strofreal(findexternal("_rm_generate_distance()") != NULL))
-assert "`has_distance'" == "1"
-mata: st_local("has_key_block", strofreal(findexternal("_rm_key_block_uobs()") != NULL))
-assert "`has_key_block'" == "1"
-mata: st_local("has_match_stats", strofreal(findexternal("_rm_compute_match_stats()") != NULL))
-assert "`has_match_stats'" == "1"
-mata: st_local("has_post_results", strofreal(findexternal("_rm_post_pair_results()") != NULL))
-assert "`has_post_results'" == "1"
-display as result "PASS: live Mata functions present"
+local mata_surface ///
+    _rm_mata_version _rm_blank_quoted _rm_first_empty_opt _rm_dta_name ///
+    _rm_prepare_sweep_master _rm_pctile _rm_compute_match_stats ///
+    _rm_post_pair_results _rm_build_pairs _rm_build_pairs_sweep ///
+    _rm_build_pairs_overlap _rm_interval_nonempty _rm_overlap_count_group ///
+    _rm_overlap_emit_group _rm_bsearch_left _rm_bsearch_right ///
+    _rm_bsearch_first_gt _rm_bsearch_last_lt _rm_key_block_uobs ///
+    _rm_store_indexed _rm_vl_same _rm_vl_candidate _rm_vl_resolve ///
+    _rm_materialize _rm_fill_using_only _rm_generate_distance _rm_copy_output
+local missing_fn ""
+foreach fn of local mata_surface {
+    mata: st_local("has_fn", strofreal(findexternal("`fn'()") != NULL))
+    if "`has_fn'" != "1" local missing_fn "`missing_fn' `fn'"
+}
+if "`missing_fn'" != "" {
+    display as error "missing Mata functions:`missing_fn'"
+}
+assert "`missing_fn'" == ""
+
+* And the list itself must stay complete: every `mata drop' entry in the
+* preamble is a function this file claims to export, so the two must agree.
+* Without this, a new function added to the .ado and to the drop list but not
+* to `mata_surface' above leaves the loop asserting nothing about it.
+tempname mfh
+local declared ""
+file open `mfh' using "`pkg_dir'/_rangematch_mata.ado", read text
+file read `mfh' mline
+while r(eof) == 0 {
+    if strpos(`"`mline'"', "capture mata: mata drop ") == 1 {
+        local fn = subinstr(`"`mline'"', "capture mata: mata drop ", "", 1)
+        local fn = subinstr("`fn'", "()", "", .)
+        local fn = strtrim("`fn'")
+        local declared "`declared' `fn'"
+    }
+    file read `mfh' mline
+}
+file close `mfh'
+local not_listed : list declared - mata_surface
+if "`not_listed'" != "" {
+    display as error "dropped-but-unasserted Mata functions:`not_listed'"
+}
+assert "`not_listed'" == ""
+display as result "PASS: all live Mata functions present and asserted"
 
 **# T4: Full range join still works after cleanup
 local ++test_count

@@ -1,4 +1,4 @@
-*! rangematch Version 1.4.1  2026/07/18
+*! rangematch Version 1.5.0  2026/07/25
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -94,7 +94,7 @@ program define _rangematch_display_stats
             _col(44) as result %12.3fc `p90'
         display as text "    p99 matches/master row" ///
             _col(44) as result %12.3fc `p99'
-        display as text "    Master groups with no using keys" ///
+        display as text "    Master groups with no using rows" ///
             _col(44) as result %12.0fc `nemptygroups'
         display as text "    Master groups considered" ///
             _col(44) as result %12.0fc `nmastergroups'
@@ -646,7 +646,7 @@ program define _rangematch_run_backend, sclass
             SHOWProgress(real) STATSmode(real) ASSERTMatch(real) ///
             ASSERTUsing(real) KEEPMASTER(real) KEEPUSING(real) ///
             MAXPairs(real) CLOSEDCode(real) TOLerance(real) ///
-            NEARESTCode(real) TIESCode(real) TIMing(real) ///
+            NEARESTCode(real) TIESCode(real) ///
             OVERLAPMode(real) MIVar(name) UIVar(name)
 
         capture frame drop __rm_out
@@ -814,7 +814,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.4.1"
+    local _rm_required_mata_version "1.5.0"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1770,7 +1770,7 @@ program define rangematch, rclass
         keepmaster(`keep_unmatched_master') keepusing(`keep_unmatched_using') ///
         maxpairs(`maxpairs') closedcode(`closed_code') ///
         tolerance(`tolerance') nearestcode(`nearest_code') ///
-        tiescode(`ties_code') timing(`_rm_timing') ///
+        tiescode(`ties_code') ///
         overlapmode(`overlap_mode') mivar(`_rm_mi') uivar(`_rm_ui')
 
     if `_rm_timing' {

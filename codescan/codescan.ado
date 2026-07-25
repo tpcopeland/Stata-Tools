@@ -1,4 +1,4 @@
-*! codescan Version 4.0.1  2026/07/18
+*! codescan Version 4.1.0  2026/07/25
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -16,12 +16,12 @@ DESCRIPTION:
 SYNTAX:
     codescan varlist [if] [in], define(string asis) | codefile(string)
         [ID(varname) DATE(varname) REFDate(varname)
-         LOOKBack(string) LOOKForward(integer) INCLusive
+         LOOKBack(string) LOOKForward(#) INCLusive
          EARLIESTdate LATESTdate COUNTdate COUNTRows ALLDates
          LABel(string asis) COLLapse MERge MODe(string) REPlace NOIsily
          DETail ALLSlots NODots TOSTRing PREserve FRAME(name) COOCcurrence
          NOCase GENerate(string)
-         UNMatched(name) MATCHed_code(name) LEVel(integer) GRaph
+         UNMatched(name) MATCHed_code(name) LEVel(#) GRaph
          EXPort(filename [, replace]) SAVE(filename [, replace])
          SAVing(filename [, replace]) FORmat(string) COUNTMode]
 
@@ -62,7 +62,8 @@ STORED RESULTS:
     r(mode_count)     - 1 if countmode specified, 0 otherwise
     r(detail_allslots) - 1 if detail counted every matching slot, 0 if it
                         attributed each row to its first matching variable
-                        (if detail specified)
+                        (if detail specified). Always 1 under countmode, which
+                        counts every slot whether or not allslots was given.
     r(summary)        - Matrix, one row per condition, columns:
                         count          legacy: total_hits under countmode,
                                        positive_units otherwise
@@ -99,12 +100,12 @@ program define codescan, rclass
     * =========================================================================
     syntax varlist [if] [in] , [DEFine(string asis) CODEFile(string) ///
         ID(varname) DATE(varname) REFDate(varname) ///
-        LOOKBack(string) LOOKForward(integer -1) INCLusive ///
+        LOOKBack(string) LOOKForward(string) INCLusive ///
         EARLIESTdate LATESTdate COUNTdate COUNTRows ALLDates ///
         LABel(string asis) COLLapse MERge MODe(string) REPlace NOIsily ///
         DETail ALLSlots NODots TOSTRing PREserve FRAME(name) COOCcurrence ///
         NOCase GENerate(string) ///
-        UNMatched(name) MATCHed_code(name) LEVel(integer 0) ///
+        UNMatched(name) MATCHed_code(name) LEVel(string) ///
         GRaph EXPort(string asis) SAVE(string asis) SAVing(string asis) ///
         FORmat(string) COUNTMode]
 
@@ -223,6 +224,15 @@ program define codescan, rclass
             local _lookback_`_lbi' = `_lb_val'
         }
         local _lookback_primary = `_lookback_1'
+        * A window repeated in lookback() adds a second r(sensitivity) column
+        * carrying the same numbers under the same column name — a matrix a
+        * caller cannot index by name and a table a reader cannot interpret.
+        local _lb_dups : list dups lookback
+        if `"`_lb_dups'"' != "" {
+            display as error "lookback() contains repeated window(s): `_lb_dups'"
+            display as error "  each window must appear once"
+            exit 198
+        }
         if `n_lookback_windows' > 1 {
             * Multi-window mode requires collapse
             if "`collapse'" == "" & "`merge'" == "" {
@@ -232,12 +242,28 @@ program define codescan, rclass
         }
     }
 
-    * Time window validation
-    local has_lookfwd  = (`lookforward' != -1)
-
-    if `has_lookfwd' & `lookforward' < 0 {
-        display as error "lookforward() must be a non-negative integer"
-        exit 198
+    * Time window validation.
+    *
+    * lookforward() is parsed as a string, not as `integer -1', because a
+    * numeric default IS a value the user can type: with `integer -1' an
+    * explicit lookforward(-1) is indistinguishable from "not specified", so it
+    * silently applied NO time window at all and returned rc=0 with the full
+    * cohort — and the range guard below could never fire, because has_lookfwd
+    * was 0 on exactly the input it existed to reject. Parsing the string keeps
+    * "specified" and "value" independent, so every out-of-range value errors.
+    local has_lookfwd = (`"`lookforward'"' != "")
+    local _lookfwd = -1
+    if `has_lookfwd' {
+        capture confirm integer number `lookforward'
+        if _rc {
+            display as error "lookforward() must be a non-negative integer"
+            exit 198
+        }
+        local _lookfwd = `lookforward'
+        if `_lookfwd' < 0 {
+            display as error "lookforward() must be a non-negative integer"
+            exit 198
+        }
     }
 
     if (`has_lookback' | `has_lookfwd') & ("`date'" == "" | "`refdate'" == "") {
@@ -255,9 +281,20 @@ program define codescan, rclass
         exit 198
     }
 
-    * Level validation
-    if `level' != 0 {
-        if `level' < 1 | `level' > 10 {
+    * Level validation. Parsed as a string for the same reason as
+    * lookforward(): with `integer 0' an explicit level(0) read as "not
+    * specified" and was silently ignored, even though 0 is outside the
+    * documented 1-10 range and should be rejected.
+    local has_level = (`"`level'"' != "")
+    local _level = 0
+    if `has_level' {
+        capture confirm integer number `level'
+        if _rc {
+            display as error "level() must be an integer between 1 and 10"
+            exit 198
+        }
+        local _level = `level'
+        if `_level' < 1 | `_level' > 10 {
             display as error "level() must be between 1 and 10"
             exit 198
         }
@@ -277,7 +314,9 @@ program define codescan, rclass
         local _export_replace = r(replace)
         local _exp_ext = lower(substr(`"`_export_fn'"', -4, .))
         local _exp_ext5 = lower(substr(`"`_export_fn'"', -5, .))
-        if "`_exp_ext'" != ".csv" & "`_exp_ext'" != ".xlsx" & "`_exp_ext5'" != ".xlsx" {
+        * _exp_ext is a 4-character tail, so testing it against the 5-character
+        * ".xlsx" can never be true; _exp_ext5 is the test that does that work.
+        if "`_exp_ext'" != ".csv" & "`_exp_ext5'" != ".xlsx" {
             display as error "export() must be a .csv or .xlsx file"
             exit 198
         }
@@ -349,6 +388,15 @@ program define codescan, rclass
         }
     }
 
+    * unmatched()/matched_code() are row-level outputs, and collapse keeps only
+    * the variables named in its own expression — so both are built and then
+    * discarded, leaving the caller with neither the variable they asked for nor
+    * any signal that it went away. The help says so; say it at run time too.
+    if "`collapse'" != "" & ("`unmatched'" != "" | "`matched_code'" != "") {
+        display as text "(note: unmatched()/matched_code() are row-level and are not retained after collapse;" ///
+            " use merge to keep them)"
+    }
+
     * countrows requires collapse or merge
     if "`countrows'" != "" {
         if "`collapse'" == "" & "`merge'" == "" {
@@ -395,7 +443,7 @@ program define codescan, rclass
     if `has_lookback' & `_lookback_primary' == 0 & "`inclusive'" == "" & !`has_lookfwd' {
         display as text "(note: lookback(0) without inclusive excludes refdate, yielding an empty window)"
     }
-    if `has_lookfwd' & `lookforward' == 0 & "`inclusive'" == "" & !`has_lookback' {
+    if `has_lookfwd' & `_lookfwd' == 0 & "`inclusive'" == "" & !`has_lookback' {
         display as text "(note: lookforward(0) without inclusive excludes refdate, yielding an empty window)"
     }
 
@@ -572,15 +620,41 @@ program define codescan, rclass
     * =========================================================================
     * LEVEL() — truncate patterns to N characters (C4)
     * =========================================================================
-    if `level' > 0 & "`mode'" == "prefix" {
+    if `has_level' & "`mode'" == "prefix" {
         forvalues i = 1/`n_conditions' {
             local _pat_arg `"`macval(def_pattern_`i')'"'
             local _pat_arg = subinstr(`"`macval(_pat_arg)'"', `"""', char(1), .)
             local _pat_arg = subinstr(`"`macval(_pat_arg)'"', "(", char(4), .)
             local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ")", char(2), .)
             local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ",", char(3), .)
-            _codescan_apply_level, pattern(`macval(_pat_arg)') level(`level')
+            _codescan_apply_level, pattern(`macval(_pat_arg)') level(`_level')
             local def_pattern_`i' `"`r(pattern)'"'
+        }
+    }
+
+    * =========================================================================
+    * NODOTS + PREFIX: REJECT A PROVABLY DEAD PATTERN
+    * =========================================================================
+    * nodots strips every period from the data before matching, and prefix mode
+    * compares literal characters — so a prefix containing "." cannot match any
+    * value, ever. The result is a silent zero cohort carrying only the generic
+    * "matched 0 observations" note, which reads like a real (empty) finding.
+    * Every other provably dead pattern in this package errors up front
+    * (unclosed "[", empty alternation branch, zero-width assertion); this one
+    * is the same class and gets the same treatment. Checked AFTER level(),
+    * because level() truncation can itself remove the offending period.
+    * mode(regex) is untouched: there "." is the any-character metacharacter.
+    if "`mode'" == "prefix" & "`nodots'" != "" {
+        forvalues i = 1/`n_conditions' {
+            foreach _nd_kind in pattern excl {
+                local _nd_val `"`def_`_nd_kind'_`i''"'
+                if strpos(`"`macval(_nd_val)'"', ".") > 0 {
+                    local _nd_lbl = cond("`_nd_kind'" == "excl", "exclusion", "pattern")
+                    display as error "`_defsrc': `_nd_lbl' for `def_name_`i'' contains a period but nodots strips periods from the data"
+                    display as error "  a prefix with a period can never match a stripped value; write it undotted (E110, not E11.0)"
+                    exit 198
+                }
+            }
         }
     }
 
@@ -859,7 +933,7 @@ program define codescan, rclass
     if `has_lookback' & `has_lookfwd' {
         * Both: [refdate - lookback, refdate + lookforward] — always inclusive
         quietly replace `touse' = 0 if `date' < `refdate' - `_lookback_primary'
-        quietly replace `touse' = 0 if `date' > `refdate' + `lookforward'
+        quietly replace `touse' = 0 if `date' > `refdate' + `_lookfwd'
     }
     else if `has_lookback' {
         * Lookback only
@@ -873,7 +947,7 @@ program define codescan, rclass
     }
     else if `has_lookfwd' {
         * Lookforward only
-        quietly replace `touse' = 0 if `date' > `refdate' + `lookforward'
+        quietly replace `touse' = 0 if `date' > `refdate' + `_lookfwd'
         if `include_ref' {
             quietly replace `touse' = 0 if `date' < `refdate'
         }
@@ -883,10 +957,9 @@ program define codescan, rclass
     }
 
     quietly count if `touse'
-    if r(N) == 0 {
-        display as error "no observations"
-        error 2000
-    }
+    * error 2000 prints "no observations" itself; a display before it showed the
+    * user the same line twice.
+    if r(N) == 0 error 2000
     local N = r(N)
 
     * =========================================================================
@@ -970,10 +1043,26 @@ program define codescan, rclass
             local _mata_excl_`i' `"`def_excl_`i''"'
         }
 
-        * P1: Create matched_code before Mata call so Mata can populate it
+        * P1: Create matched_code before Mata call so Mata can populate it.
+        *
+        * Width tracks the WIDEST scan column, floored at the documented str244.
+        * A fixed str244 silently truncated any longer code on the way in — the
+        * Mata scanner writes through st_sview(), which clips to the variable's
+        * declared width and reports nothing, so a str300 scan column returned a
+        * 244-character stub at rc=0. Capped at str2045, the fixed-string limit;
+        * strL scan columns are already rejected up front.
         if "`matched_code'" != "" {
             if "`replace'" != "" capture drop `matched_code'
-            gen str244 `matched_code' = ""
+            local _mc_width = 244
+            foreach _mcv of local scan_varlist {
+                local _mct : type `_mcv'
+                if substr("`_mct'", 1, 3) == "str" {
+                    local _mcw = real(substr("`_mct'", 4, .))
+                    if !missing(`_mcw') & `_mcw' > `_mc_width' local _mc_width = `_mcw'
+                }
+            }
+            if `_mc_width' > 2045 local _mc_width = 2045
+            gen str`_mc_width' `matched_code' = ""
             local _mata_matched_code "`matched_code'"
         }
 
@@ -1086,7 +1175,7 @@ program define codescan, rclass
                 replace `_stouse_`_wi'' = 0 if missing(`date') | missing(`refdate')
                 if `has_lookfwd' {
                     replace `_stouse_`_wi'' = 0 if `date' < `refdate' - `_lb_wi'
-                    replace `_stouse_`_wi'' = 0 if `date' > `refdate' + `lookforward'
+                    replace `_stouse_`_wi'' = 0 if `date' > `refdate' + `_lookfwd'
                 }
                 else {
                     replace `_stouse_`_wi'' = 0 if `date' < `refdate' - `_lb_wi'
@@ -1514,7 +1603,7 @@ program define codescan, rclass
         as text " `_unit_lbl'"
 
     if `has_lookback' & `has_lookfwd' {
-        display as text "Window: `_lookback_primary' days before to `lookforward' days after `refdate' (inclusive)"
+        display as text "Window: `_lookback_primary' days before to `_lookfwd' days after `refdate' (inclusive)"
     }
     else if `has_lookback' {
         local incl_txt = cond(`include_ref', " (inclusive)", "")
@@ -1522,7 +1611,7 @@ program define codescan, rclass
     }
     else if `has_lookfwd' {
         local incl_txt = cond(`include_ref', " (inclusive)", "")
-        display as text "Window: `lookforward' days after `refdate'`incl_txt'"
+        display as text "Window: `_lookfwd' days after `refdate'`incl_txt'"
     }
 
     display as text ""
@@ -1740,11 +1829,15 @@ program define codescan, rclass
             display as text "  (row-level contributions; the summary above is" ///
                 " patient-level)"
         }
-        if "`allslots'" != "" {
+        if "`allslots'" != "" | "`countmode'" != "" {
             display as text "  (every matching slot counted; a row with the same" ///
                 " condition in two variables adds to both)"
+            if "`allslots'" == "" {
+                display as text "  (countmode always counts every slot, so" ///
+                    " allslots would change nothing here)"
+            }
         }
-        else if "`countmode'" == "" {
+        else {
             * I5: name the attribution rule where the numbers are read, not only
             * in the help. Reordering varlist moves rows between columns here
             * while leaving the cohort untouched.
@@ -1847,7 +1940,18 @@ program define codescan, rclass
     if "`nocase'" != ""                return local nocase "nocase"
     * I5: r(varcounts) means different things under the two attribution rules,
     * and the matrix itself cannot say which produced it.
-    if "`detail'" != ""                return scalar detail_allslots = ("`allslots'" != "")
+    *
+    * countmode counts every slot whether or not allslots was typed: the
+    * first-slot early exit in _codescan_mata_scan is gated on !is_count, so
+    * under countmode it never fires and varcounts tallies every matching slot.
+    * Returning ("allslots" != "") therefore reported first-slot attribution for
+    * a matrix built by the all-slots rule — proven identical to the explicit
+    * allslots run — so a caller that read 0 and summed a row to recover the
+    * matched-unit count got the slot total instead. Report the rule that
+    * actually produced the matrix.
+    if "`detail'" != "" {
+        return scalar detail_allslots = ("`allslots'" != "" | "`countmode'" != "")
+    }
     if "`generate'" != ""              return local generate "`generate'"
     if `"`define'"' != ""              return local define `"`define'"'
     if "`_orig_codefile'" != ""         return local codefile "`_orig_codefile'"
@@ -1859,7 +1963,7 @@ program define codescan, rclass
     else if `has_lookback' {
         return local lookback "`lookback'"
     }
-    if `has_lookfwd'                   return scalar lookforward = `lookforward'
+    if `has_lookfwd'                   return scalar lookforward = `_lookfwd'
     if `has_lookback' | `has_lookfwd'  return local refdate "`refdate'"
     if `has_lookback' | `has_lookfwd'  return scalar n_excluded_missingdate = `_n_excl_missdate'
     if "`frame'" != ""                 return local frame "`frame'"

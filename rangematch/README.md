@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.4.1, 18jul2026
+Version 1.5.0, 25jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -215,7 +215,7 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `frame(name)` | Write output to named frame and leave current data unchanged. Existing target frames require `replace`. |
 | `replace` | Allow replacement of an existing target frame; valid only with `frame()`. |
 | `saving(filename[, replace])` | Save output to a dataset on disk instead of replacing the current data. Cannot be combined with `frame()`, `dryrun`, or `count`. |
-| `stats` | Display match-density diagnostics, including p50/p90/p99 matches per master row, and post match-density stored results. Core count results are posted even without `stats`. |
+| `stats` | Display the match-density table (matched/unmatched master rows, unmatched using rows, max/mean/p50/p90/p99 matches per master row, master by-groups with no using rows, master by-groups considered) and post match-density stored results. Percentiles use Stata's own sample-percentile definition, so they reproduce `_pctile` and `summarize, detail` on the per-master match counts. Core count results are posted even without `stats`. |
 | `closed(both|left|right|none)` | Control endpoint closure: `both` = `[lo,hi]`, `left` = `[lo,hi)`, `right` = `(lo,hi]`, `none` = `(lo,hi)`. |
 | `tolerance(#)` | Apply a nonnegative boundary-comparison tolerance for floating-point keys; default is `0`. |
 | `missing(wildcard|drop|error)` | Symmetric policy for master variable bounds, the master `keyvar` where it is a matching input (scalar offsets or `nearest()`), and using keys/bounds. `wildcard` (default) treats missing bounds as open-ended while a missing using point key or master matching key never matches; `drop` removes offending rows; `error` aborts. Literal `.` positional bounds are unaffected. If `drop` empties either side, counterpart rows still follow `unmatched()` and the post-policy count for that side is zero. Post-policy counts are in `r(N_master)`/`r(N_using)` and pre-policy missing counts in `r(N_missing_bounds)`/`r(N_master_key_missing)`/`r(N_using_missing)`. On `missing(error)` the counts appear in the error message, not in `r()`. |
@@ -257,7 +257,7 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `r(p50_matches)` | p50 matches per master observation |
 | `r(p90_matches)` | p90 matches per master observation |
 | `r(p99_matches)` | p99 matches per master observation |
-| `r(N_empty_groups)` | By-groups with no using observations |
+| `r(N_empty_groups)` | Master by-groups holding no using row at all, in both match modes. A group whose using rows exist but cannot match (missing point key, or inverted/degenerate interval) is not empty; see `r(N_using_missing)` / `r(N_using_inverted)` |
 | `r(N_master_groups)` | Master by-groups considered |
 
 | Macro | Description |
@@ -428,6 +428,25 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.5.0 (2026-07-25)
+
+- `r(p90_matches)` and `r(p99_matches)` now use Stata's own sample-percentile
+  definition, matching `_pctile` and `summarize, detail` on the per-master match
+  counts. They previously used nearest rank while `r(p50_matches)` and
+  `r(median_matches)` already used Stata's rule, so one reported percentile
+  family carried two different definitions and neither was documented. On
+  per-master counts of 1..10 the reported p90 was 9 where Stata gives 9.5.
+- `r(N_empty_groups)` now means the same thing in point and interval-overlap
+  mode: a master by-group holding no using row at all. Point mode had counted a
+  group whose using rows all had a missing key as empty, contradicting the
+  documented "by-groups with no using observations" and disagreeing with overlap
+  mode, which called the equivalent all-inverted group non-empty. The density
+  table label is now `Master groups with no using rows`.
+- Documented the percentile definition and the `N_empty_groups` rule, and
+  corrected the `stats` description, which listed four quantities the
+  match-density table does not display.
+- Removed an unused `timing()` parameter from the internal backend dispatcher.
 
 ### 1.4.1 (2026-07-18)
 

@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.0.1  2026/07/18
+*! codescan_describe Version 4.1.0  2026/07/25
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -352,16 +352,36 @@ void _codescan_describe_tabulate()
     for (i = 1; i <= n_unique; i++) {
         freqs[i] = asarray(freq_map, keys[i])
     }
-    real colvector sort_idx
-    sort_idx = order(-freqs, 1)
+    // ── DETERMINISTIC ORDER ──
+    // asarray_keys() returns keys in hash order, not insertion or sort order,
+    // and order() imposes no tiebreak of its own. Ordering on frequency alone
+    // therefore hands back a DIFFERENT permutation on every run of the same
+    // command over the same data whenever two codes tie — which moves the
+    // console table, the rownames and cumul_pct column of r(top_codes), and
+    // (via the chapter block below) the row order, rule names, and collision
+    // suffixes of the save() draft codefile. With ties straddling the top-N
+    // cutoff the reported SET of codes changes too, not just its order.
+    //
+    // Fix: sort the keys alphabetically first, then order on (-frequency,
+    // alphabetical rank). The second key is 1..n and therefore distinct, so the
+    // comparison is a strict total order and no tie is ever left for the sort
+    // algorithm to resolve. Repeating the frequency column as its own tiebreak
+    // would NOT work — a duplicated key breaks nothing.
+    real colvector alpha, sort_idx
+    string colvector skeys
+    real colvector sfreqs
+    alpha   = order(keys, 1)
+    skeys   = keys[alpha]
+    sfreqs  = freqs[alpha]
+    sort_idx = order((-sfreqs, (1::n_unique)), (1, 2))
 
     // Return top-N codes via locals
     show = (top_n < n_unique ? top_n : n_unique)
     st_local("_desc_show", strofreal(show))
     for (i = 1; i <= show; i++) {
         si = sort_idx[i]
-        st_local("_desc_code_" + strofreal(i), keys[si])
-        st_local("_desc_freq_" + strofreal(i), strofreal(freqs[si]))
+        st_local("_desc_code_" + strofreal(i), skeys[si])
+        st_local("_desc_freq_" + strofreal(i), strofreal(sfreqs[si]))
     }
 
     // Chapter summary: group by first character
@@ -380,20 +400,27 @@ void _codescan_describe_tabulate()
     n_chapters = rows(ch_keys)
     st_local("_desc_n_chapters", strofreal(n_chapters))
 
-    // Sort chapters by entries descending
-    real colvector ch_entries
+    // Sort chapters by entries descending, alphabetical within a tie. Same
+    // hash-order hazard as the code list above, and it reaches further: the
+    // chapter order fixes the row order — and therefore the chapter_X rule
+    // names and their _i collision suffixes — of the save() draft codefile.
+    real colvector ch_entries, ch_alpha, ch_sort
+    string colvector sch_keys
+    real colvector sch_entries
     ch_entries = J(n_chapters, 1, 0)
     for (i = 1; i <= n_chapters; i++) {
         cv = asarray(ch_map, ch_keys[i])
         ch_entries[i] = cv[2]
     }
-    real colvector ch_sort
-    ch_sort = order(-ch_entries, 1)
+    ch_alpha    = order(ch_keys, 1)
+    sch_keys    = ch_keys[ch_alpha]
+    sch_entries = ch_entries[ch_alpha]
+    ch_sort     = order((-sch_entries, (1::n_chapters)), (1, 2))
 
     for (i = 1; i <= n_chapters; i++) {
         ci = ch_sort[i]
-        cv = asarray(ch_map, ch_keys[ci])
-        st_local("_desc_ch_" + strofreal(i), ch_keys[ci])
+        cv = asarray(ch_map, sch_keys[ci])
+        st_local("_desc_ch_" + strofreal(i), sch_keys[ci])
         st_local("_desc_ch_codes_" + strofreal(i), strofreal(cv[1]))
         st_local("_desc_ch_entries_" + strofreal(i), strofreal(cv[2]))
     }

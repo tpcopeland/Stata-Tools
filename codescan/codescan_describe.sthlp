@@ -269,6 +269,13 @@ In {cmd:r(top_codes)} the row names are the code values and the columns are
 row names are the leading characters and the columns are {cmd:codes} and
 {cmd:entries}.
 
+{pstd}
+Both matrices, the displayed tables, and the {cmd:save()} draft codefile are
+ordered by descending count with ties broken {bf:alphabetically} by code (or by
+leading character), so repeated runs over the same data return byte-identical
+results. Because the order is fixed, {cmd:top()} always reports the same set of
+codes even when frequencies tie at the cutoff.
+
 
 {marker author}{...}
 {title:Author}

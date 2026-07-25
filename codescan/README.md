@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 4.0.1** | 2026-07-18
+**Version 4.1.0** | 2026-07-25
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data. `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -481,6 +481,18 @@ The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `c
 The per-suite file index, test counts, lane membership, and the coverage map live in `qa/README.md` and are not duplicated here. A hand-maintained copy of those counts sat in this file and went stale silently — it read 26 suites and 680 assertions while the full lane ran 723. The authoritative counts are the `RESULT: ... tests=N` sentinels each suite prints, aggregated by `run_all.do`.
 
 ## Version History
+
+### 4.1.0 (2026-07-25)
+
+- **`codescan_describe` results are now reproducible.** The top-code and chapter tables were ordered on frequency alone, over keys arriving in hash order, so two runs of the same command on the same data could return different orderings — moving the console tables, the row names and `cumul_pct` column of `r(top_codes)`, `r(chapters)`, and the row order (and therefore the generated `chapter_*` rule names) of the `save()` draft codefile. With ties straddling the `top()` cutoff the reported *set* of codes could change too. Ties now break alphabetically, giving a strict total order.
+- **`r(detail_allslots)` now reports the rule that actually built `r(varcounts)`.** Under `countmode` the first-slot early exit never fires, so `detail` always counted every matching slot — but the scalar still returned 0, which the help defines as first-slot attribution. A caller that read 0 and summed a row to recover the matched-unit count got the slot total instead. `countmode detail` now returns 1 and prints the all-slots attribution note it previously omitted.
+- **`lookforward(-1)` is rejected instead of silently ignored.** `lookforward()` used `-1` as its "unspecified" sentinel, so an explicit `lookforward(-1)` read as *not specified*: no time window was applied at all, `rc` was 0, and `r(lookforward)`/`r(refdate)` were absent — and the range guard could never fire, because it was gated on the very flag the sentinel had cleared. `lookforward()` is now parsed as a string, so non-integer and negative values error.
+- **`level(0)` is rejected instead of silently ignored** — the same sentinel problem, and `0` is outside the documented 1–10 range.
+- **A dotted prefix pattern with `nodots` is rejected.** `nodots` strips periods from the data before matching, so a `mode(prefix)` pattern containing `.` could never match and returned a silent zero cohort. Inclusion and `~` exclusion prefixes are both checked, after `level()` truncation. `mode(regex)` is untouched — there `.` is a metacharacter.
+- **`matched_code()` no longer truncates long codes.** The variable was a fixed `str244`, so a code from a wider scan column was clipped to 244 characters with no warning. It is now as wide as the widest scanned variable (floor `str244`, cap `str2045`).
+- **Repeated `lookback()` windows are rejected** — `lookback(30 30)` produced two identically named `r(sensitivity)` columns.
+- **A note is printed when `unmatched()`/`matched_code()` are requested with `collapse`**, which discards them. Previously documented but silent at run time.
+- `error 2000` no longer prints "no observations" twice, and a dead export-extension comparison was removed.
 
 ### 4.0.1 (2026-07-18)
 

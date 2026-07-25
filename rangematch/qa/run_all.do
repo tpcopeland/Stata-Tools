@@ -66,6 +66,7 @@ local suites ///
     test_rangematch_abbrev.do ///
     test_rangematch_adversarial.do ///
     test_rangematch_return_contract.do ///
+    test_rangematch_stats_semantics.do ///
     test_rangematch_display_contract.do ///
     test_rangematch_routing_contract.do ///
     test_rangematch_backend_equivalence.do ///

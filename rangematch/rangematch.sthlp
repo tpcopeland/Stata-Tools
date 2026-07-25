@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  18jul2026}{...}
+{* *! version 1.5.0  25jul2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -410,15 +410,31 @@ inside {opt saving()} to overwrite an existing file. {opt saving()} may not be
 combined with {opt frame()}, {opt dryrun}, or {opt count}.
 
 {phang}
-{opt stats} displays match-density diagnostics, including master observations,
-using observations, matched pairs, unmatched rows, matched master observations,
-unmatched master observations, unmatched using observations, maximum matches
-per master observation, mean matches per master observation, p50, p90, and p99
-matches per master observation, and groups with no using observations. Stored
-match-density results are computed and posted only when {opt stats} is
-specified; core count results are posted on successful runs without
-{opt stats}. With {opt by()}, {cmd:rangematch} warns when more than half of
-master by-groups have no using rows when {opt stats} is specified.
+{opt stats} displays a match-density table: matched master rows, unmatched
+master rows, unmatched using rows, maximum matches per master row, mean matches
+per master row, p50, p90, and p99 matches per master row, master by-groups with
+no using rows, and master by-groups considered. (Master and using observation
+counts are shown by {opt verbose}; the output-row counts appear in the result
+table on every run.) Stored match-density results are computed and posted only
+when {opt stats} is specified; core count results are posted on successful runs
+without {opt stats}. With {opt by()}, {cmd:rangematch} warns when more than half
+of master by-groups have no using rows when {opt stats} is specified.
+
+{pmore}
+The reported percentiles use Stata's own sample-percentile definition, so
+{cmd:r(p50_matches)}, {cmd:r(p90_matches)}, and {cmd:r(p99_matches)} reproduce
+{helpb pctile:_pctile} and {helpb summarize:summarize, detail} computed on the
+per-master match counts. {cmd:r(median_matches)} and {cmd:r(p50_matches)} are
+the same number.
+
+{pmore}
+{cmd:r(N_empty_groups)} counts master by-groups that hold no using row at all,
+identically in point and interval-overlap mode. A group whose using rows exist
+but cannot match -- a missing point {it:keyvar} in point mode, an inverted or
+degenerate interval in overlap mode -- is {it:not} an empty group; those rows are
+reported separately by {cmd:r(N_using_missing)} and
+{cmd:r(N_using_inverted)}. The diagnostic exists to catch mismatched
+{opt by()} coding, which is a different fault from unusable using values.
 
 {phang}
 By default, {cmd:rangematch} sorts output by original master row and original
@@ -769,7 +785,7 @@ posted only when {opt stats} is specified.
 {synopt:{cmd:r(p50_matches)}}p50 matches per master observation{p_end}
 {synopt:{cmd:r(p90_matches)}}p90 matches per master observation{p_end}
 {synopt:{cmd:r(p99_matches)}}p99 matches per master observation{p_end}
-{synopt:{cmd:r(N_empty_groups)}}by-groups with no using observations{p_end}
+{synopt:{cmd:r(N_empty_groups)}}master by-groups holding no using rows{p_end}
 {synopt:{cmd:r(N_master_groups)}}master by-groups considered{p_end}
 
 {p2col 5 22 26 2: Macros}{p_end}
@@ -813,7 +829,7 @@ posted only when {opt stats} is specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.1, 18jul2026{p_end}
+{pstd}Version 1.5.0, 25jul2026{p_end}
 
 
 {title:Also see}

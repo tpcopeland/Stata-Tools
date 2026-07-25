@@ -88,6 +88,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_missing_option_extra.do` | Extended missing-policy interactions |
 | `test_rangematch_adversarial.do` | Parser failures, cleanup, varabbrev, collisions, internal-name regressions |
 | `test_rangematch_return_contract.do` | Stored-result scalars and locals across output modes |
+| `test_rangematch_stats_semantics.do` | What the match-density diagnostics *mean*: percentiles reproduce Stata's own `_pctile` definition (fixtures chosen where nearest rank diverges), and `r(N_empty_groups)` counts groups holding no using row identically in point and overlap mode |
 | `test_rangematch_routing_contract.do` | `frame()`, `saving()`, `dryrun`, and `count` routing contracts |
 | `test_rangematch_display_contract.do` | Display-only and count/dryrun display contracts |
 | `test_rangematch_backend_equivalence.do` | Binary/sweep/overlap backend equivalence checks |

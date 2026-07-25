@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.4.1  2026/07/18
+*! _rangematch_mata Version 1.5.0  2026/07/25
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -11,6 +11,7 @@ capture mata: mata drop _rm_overlap_count_group()
 capture mata: mata drop _rm_overlap_emit_group()
 capture mata: mata drop _rm_interval_nonempty()
 capture mata: mata drop _rm_prepare_sweep_master()
+capture mata: mata drop _rm_pctile()
 capture mata: mata drop _rm_compute_match_stats()
 capture mata: mata drop _rm_post_pair_results()
 capture mata: mata drop _rm_mata_version()
@@ -36,7 +37,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.4.1")
+    return("1.5.0")
 }
 
 // ============================================================================
@@ -232,18 +233,66 @@ void _rm_prepare_sweep_master(
     st_local("_rm_sweep_mode", strofreal(sweep_mode))
 }
 
+// Sample percentile under Stata's own definition ([D] pctile), so every
+// reported percentile agrees with `_pctile' and `summarize, detail' run on the
+// same per-master match counts.
+//
+// For sorted x[1..n] and percentile p = pnum/pden:
+//     j = trunc(n * pnum / pden)
+//     n*pnum/pden integral -> (x[j] + x[j+1]) / 2
+//     otherwise            -> x[j+1]
+//
+// pnum/pden are passed as INTEGERS so the integrality test is exact. This
+// matters twice over. First, `.90 * n' in binary floating point cannot be
+// trusted to land on the integer it mathematically is. Second, and the reason
+// this function exists: p50 was computed with the interpolated rule above while
+// p90/p99 used nearest rank, `sorted[ceil(.90*n)]'. On per-master counts of
+// 1..10 that reported p50=5.5 (Stata agrees) alongside p90=9 where Stata gives
+// 9.5 -- one command reporting a three-member percentile family under two
+// different definitions, with neither documented. Do not reintroduce a
+// nearest-rank shortcut for one member of the family.
+real scalar _rm_pctile(
+    real colvector sorted_x,
+    real scalar n,
+    real scalar pnum,
+    real scalar pden
+)
+{
+    real scalar num, j
+
+    if (n <= 0) return(0)
+    num = n * pnum
+    j = trunc(num / pden)
+    if (mod(num, pden) == 0) {
+        if (j < 1) return(sorted_x[1])
+        if (j >= n) return(sorted_x[n])
+        return((sorted_x[j] + sorted_x[j + 1]) / 2)
+    }
+    if (j + 1 > n) return(sorted_x[n])
+    return(sorted_x[j + 1])
+}
+
+// gpresent_map[g] is nonzero when by-group g holds at least one using ROW, which
+// is what r(N_empty_groups) is documented to measure ("by-groups with no using
+// observations"). It is deliberately NOT the group map the binary search uses:
+// the point backends drop missing-key using rows before building that one, so
+// passing it here counted a group whose using rows all had missing keys as
+// empty -- while the overlap backend, which builds its map from every using row,
+// called the same shape non-empty. The diagnostic meant two different things in
+// the two match modes. Presence is a property of the data; whether a row can
+// ever match is reported separately by r(N_using_missing)/r(N_using_inverted).
 real rowvector _rm_compute_match_stats(
     real colvector match_counts,
     real scalar nm,
     real scalar max_gid,
-    real colvector gstart_map,
+    real colvector gpresent_map,
     real matrix M,
     real scalar compute_stats
 )
 {
     real colvector sorted_counts, seen_master
     real scalar max_matches, mean_matches, median_matches, p50_matches
-    real scalar p90_matches, p99_matches, p90_pos, p99_pos
+    real scalar p90_matches, p99_matches
     real scalar n_empty_groups, n_master_groups, i, gid_i
 
     if (compute_stats) {
@@ -251,18 +300,10 @@ real rowvector _rm_compute_match_stats(
         mean_matches = (nm > 0 ? mean(match_counts) : 0)
         if (nm > 0) {
             sorted_counts = sort(match_counts, 1)
-            if (mod(nm, 2) == 1) {
-                median_matches = sorted_counts[(nm + 1) / 2]
-            }
-            else {
-                median_matches = (sorted_counts[nm / 2] +
-                    sorted_counts[(nm / 2) + 1]) / 2
-            }
+            median_matches = _rm_pctile(sorted_counts, nm, 1, 2)
             p50_matches = median_matches
-            p90_pos = ceil(.90 * nm)
-            p99_pos = ceil(.99 * nm)
-            p90_matches = sorted_counts[p90_pos]
-            p99_matches = sorted_counts[p99_pos]
+            p90_matches = _rm_pctile(sorted_counts, nm, 9, 10)
+            p99_matches = _rm_pctile(sorted_counts, nm, 99, 100)
         }
         else {
             median_matches = 0
@@ -280,7 +321,8 @@ real rowvector _rm_compute_match_stats(
                     if (seen_master[gid_i] == 0) {
                         seen_master[gid_i] = 1
                         n_master_groups++
-                        if (gid_i > rows(gstart_map) | gstart_map[gid_i] == 0) {
+                        if (gid_i > rows(gpresent_map) |
+                                gpresent_map[gid_i] == 0) {
                             n_empty_groups++
                         }
                     }
@@ -352,7 +394,7 @@ void _rm_build_pairs_sweep(
     string scalar oldframe
     real matrix M, U, Usorted
     real colvector mi, ui, perm, ukeys, uobs, ugid, match_counts
-    real colvector gstart_map, gend_map
+    real colvector gstart_map, gend_map, gpresent_map, ugid_all
     real colvector matched_using
     real rowvector match_stats
     real scalar nm, nu, i, pos, n_pairs, nmatch, outcap, needed
@@ -380,6 +422,10 @@ void _rm_build_pairs_sweep(
     U = st_data(., .)
     nu = rows(U)
     nu_all = nu
+    // Group codes of every using row, captured BEFORE the missing-key filter
+    // below, so r(N_empty_groups) can report group presence rather than group
+    // searchability. See _rm_compute_match_stats().
+    ugid_all = (nu_all > 0 ? U[., 1] : J(0, 1, .))
     matched_using = (track_using ? J(nu_all, 1, 0) : J(0, 1, 0))
 
     if (nu > 0) {
@@ -402,8 +448,10 @@ void _rm_build_pairs_sweep(
         uobs  = J(0, 1, .)
     }
 
+    // max_gid spans the UNFILTERED using rows: a group present only in
+    // dropped-key rows must still get a gpresent_map slot.
     max_gid = (nm > 0 ? max(M[., 1]) : 0)
-    if (nu > 0) max_gid = max((max_gid, max(ugid)))
+    if (nu_all > 0) max_gid = max((max_gid, max(ugid_all)))
     max_gid = (max_gid < . ? trunc(max_gid) : 0)
     if (max_gid > 0) {
         gstart_map = J(max_gid, 1, 0)
@@ -415,10 +463,16 @@ void _rm_build_pairs_sweep(
                 gend_map[gid_i] = u
             }
         }
+        gpresent_map = J(max_gid, 1, 0)
+        for (u = 1; u <= nu_all; u++) {
+            gid_i = trunc(ugid_all[u])
+            if (gid_i >= 1 & gid_i <= max_gid) gpresent_map[gid_i] = 1
+        }
     }
     else {
         gstart_map = J(0, 1, 0)
         gend_map = J(0, 1, 0)
+        gpresent_map = J(0, 1, 0)
     }
 
     right_sweep = (sweep_mode == 2)
@@ -607,7 +661,7 @@ void _rm_build_pairs_sweep(
     }
 
     match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
-        gstart_map, M, compute_stats)
+        gpresent_map, M, compute_stats)
 
     if (!dryrun) {
         st_framecurrent(out_frame)
@@ -650,7 +704,7 @@ void _rm_build_pairs(
     string scalar oldframe
     real matrix M, U, Usorted
     real colvector mi, ui, perm, ukeys, uobs, ugid, match_counts
-    real colvector gstart_map, gend_map
+    real colvector gstart_map, gend_map, gpresent_map, ugid_all
     real colvector selected, allties, matched_using
     real rowvector match_stats
     real scalar nm, nu, nu_all, i, lo, hi, jlo, jhi, kk, n_pairs
@@ -677,6 +731,10 @@ void _rm_build_pairs(
     U = st_data(., .)
     nu = rows(U)
     nu_all = nu
+    // Group codes of every using row, captured BEFORE the missing-key filter
+    // below, so r(N_empty_groups) can report group presence rather than group
+    // searchability. See _rm_compute_match_stats().
+    ugid_all = (nu_all > 0 ? U[., 1] : J(0, 1, .))
     matched_using = (track_using ? J(nu_all, 1, 0) : J(0, 1, 0))
 
     // Drop using rows with missing key
@@ -712,8 +770,10 @@ void _rm_build_pairs(
         uobs  = J(0, 1, .)
     }
 
+    // max_gid spans the UNFILTERED using rows: a group present only in
+    // dropped-key rows must still get a gpresent_map slot.
     max_gid = (nm > 0 ? max(M[., 1]) : 0)
-    if (nu > 0) max_gid = max((max_gid, max(ugid)))
+    if (nu_all > 0) max_gid = max((max_gid, max(ugid_all)))
     max_gid = (max_gid < . ? trunc(max_gid) : 0)
     if (max_gid > 0) {
         gstart_map = J(max_gid, 1, 0)
@@ -725,10 +785,16 @@ void _rm_build_pairs(
                 gend_map[gid_i] = u
             }
         }
+        gpresent_map = J(max_gid, 1, 0)
+        for (u = 1; u <= nu_all; u++) {
+            gid_i = trunc(ugid_all[u])
+            if (gid_i >= 1 & gid_i <= max_gid) gpresent_map[gid_i] = 1
+        }
     }
     else {
         gstart_map = J(0, 1, 0)
         gend_map = J(0, 1, 0)
+        gpresent_map = J(0, 1, 0)
     }
 
     // Pre-allocate with doubling strategy
@@ -1011,7 +1077,7 @@ void _rm_build_pairs(
     }
 
     match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
-        gstart_map, M, compute_stats)
+        gpresent_map, M, compute_stats)
 
     if (!dryrun) {
         st_framecurrent(out_frame)
@@ -1357,10 +1423,13 @@ void _rm_build_pairs_overlap(
     // invalid master row still reports zero matches.
     //
     // gstart_map/gend_map above are deliberately NOT rebuilt from the compacted
-    // rows. _rm_compute_match_stats() reads them to decide whether a master's
-    // group had any using rows at all, which is a property of the data, not of
-    // interval validity: a group holding only inverted using rows is not an
-    // empty group.
+    // rows. _rm_compute_match_stats() reads gstart_map as its gpresent_map, to
+    // decide whether a master's group had any using rows at all -- a property of
+    // the data, not of interval validity: a group holding only inverted using
+    // rows is not an empty group. Overlap mode never drops a using row before
+    // this point (a missing bound becomes +/-inf), so gstart_map here already IS
+    // the presence map; the point backends must build a separate one because
+    // they filter missing-key rows out first.
     nvu = 0
     for (u = 1; u <= nu; u++) {
         if (uvalid[u]) nvu++

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.0.1  18jul2026}{...}
+{* *! version 4.1.0  25jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -383,10 +383,12 @@ value such as {cmd:lookback(365)} scans one window. A
 numlist such as {cmd:lookback(90 365 1825)} or {cmd:lookback(30(30)90)} performs a
 multi-window sensitivity analysis and returns {cmd:r(sensitivity)} together with
 its denominators in {cmd:r(sensitivity_n)}. Multi-window use
-requires {cmd:collapse} or {cmd:merge}.
+requires {cmd:collapse} or {cmd:merge}. Each window must be distinct: a repeated
+value would add a second {cmd:r(sensitivity)} column under a duplicate column
+name, so it is rejected.
 
 {phang}
-{opt lookforward(#)} limits matches to observations within a forward window
+{opt lookforward(#)} takes a non-negative integer and limits matches to observations within a forward window
 relative to {cmd:refdate}. The argument must be a nonnegative integer.
 
 {phang}
@@ -455,10 +457,10 @@ without it an existing file is never overwritten.
 {cmd:r(varcounts)}. Counts reflect effective matches after exclusions.
 
 {pmore}
-By default the table is {bf:order-dependent}. Binary matching stops examining a
-condition once it has matched an observation, so each row is counted once per
-condition and attributed to the {bf:first} matching variable in {varlist}
-order. If an observation carries the same condition in {cmd:dx1} and {cmd:dx2}, the
+Without {cmd:countmode} the table is {bf:order-dependent}. Binary matching stops
+examining a condition once it has matched an observation, so each row is counted
+once per condition and attributed to the {bf:first} matching variable in
+{varlist} order. If an observation carries the same condition in {cmd:dx1} and {cmd:dx2}, the
 match is credited to {cmd:dx1} alone; scanning {cmd:dx2 dx1} instead credits
 {cmd:dx2}. The cohort, the prevalence, and {cmd:r(summary)} are identical either
 way -- only the attribution moves. Row totals therefore equal the number of
@@ -470,8 +472,14 @@ condition in two variables adds one to each. The table then does not depend on
 {varlist} order and its row totals equal the slot-hit totals reported by
 {cmd:countmode}. The indicator variables stay 0/1 -- {cmd:allslots} changes only
 the {cmd:detail} tally, never the cohort. It requires {cmd:detail} and is
-redundant with {cmd:countmode}, which already counts every slot. The scalar
-{cmd:r(detail_allslots)} records which rule produced {cmd:r(varcounts)}.
+redundant with {cmd:countmode}, which already counts every slot.
+
+{pmore}
+{cmd:countmode} therefore applies the all-slots rule whether or not
+{cmd:allslots} was typed, and the scalar {cmd:r(detail_allslots)} -- which
+records which rule produced {cmd:r(varcounts)} -- is {cmd:1} on that path. Read
+the scalar, not the option: under {cmd:countmode} the row totals of
+{cmd:r(varcounts)} are slot totals, not unit counts.
 
 {phang}
 {opt cooccurrence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
@@ -493,10 +501,14 @@ from the flag, so {cmd:count if `name' == 1} counts genuine non-matches and
 {cmd:count if !missing(`name')} reproduces {cmd:r(N)} at the row level.
 
 {phang}
-{opt matched_code(name)} creates a row-level {cmd:str244} variable containing the first
+{opt matched_code(name)} creates a row-level string variable containing the first
 code value that survived inclusion and exclusion checks for any condition. It
-is empty when nothing matched. Like {cmd:unmatched()}, it is not retained after
-{cmd:collapse}.
+is empty when nothing matched. The variable is {cmd:str244}, or as wide as the
+widest scanned variable when that exceeds 244 characters (capped at
+{cmd:str2045}), so a long code is never truncated on the way in. Like
+{cmd:unmatched()}, it is not retained after {cmd:collapse} -- {cmd:codescan}
+prints a note when you ask for it on that path -- but it is retained under
+{cmd:merge}.
 
 {phang}
 {opt graph} draws a horizontal bar chart of condition prevalence.
@@ -531,8 +543,9 @@ pipe-separated prefixes and is usually faster on large datasets.
 {phang}
 {opt level(#)} truncates each {it:inclusion} prefix to {it:#} characters before
 scanning; {it:exclusion} patterns (those after {cmd:~}) are matched at full
-precision. This gives level-{it:#} matching with full-precision exclusions. It is
-meaningful only in {cmd:mode(prefix)} and must be between 1 and 10.
+precision. This gives level-{it:#} matching with full-precision exclusions. It
+is meaningful only in {cmd:mode(prefix)} and must be an integer between 1 and
+10; {cmd:level(0)} is rejected rather than ignored.
 
 {phang}
 {opt nocase} makes matching case-insensitive. Prefix mode uses unicode case
@@ -544,8 +557,11 @@ pattern, so escapes such as {cmd:\d} retain their meaning.
 data are unchanged. Patterns are matched against the {it:undotted} form of the
 data, so write them without dots: in {cmd:mode(prefix)} a pattern that contains
 a period (for example {cmd:"E11.0"}) can never match a stripped value like
-{cmd:E110} and is almost always a mistake. (In {cmd:mode(regex)} a {cmd:.} is
-the regex "any character" metacharacter and is left untouched.)
+{cmd:E110}, so {cmd:codescan} rejects it rather than returning a silent zero
+cohort. The same check applies to {cmd:~} exclusion prefixes, and it runs after
+{cmd:level()} truncation, so a period that {cmd:level()} cuts away is not an
+error. (In {cmd:mode(regex)} a {cmd:.} is the regex "any character"
+metacharacter and is left untouched.)
 
 {phang}
 {opt tostring} converts numeric variables in {varlist} to temporary strings for scanning,
@@ -921,6 +937,13 @@ left in memory on exit; it is empty after {cmd:preserve} or {cmd:frame()},
 because nothing was left behind. {cmd:r(n_excluded_missingdate)} is returned
 only when a window was requested, and counts the rows dropped for a missing
 {cmd:date()} or {cmd:refdate()}.
+
+{pstd}
+{cmd:r(detail_allslots)} says which attribution rule built {cmd:r(varcounts)} --
+{cmd:1} for the all-slots rule, {cmd:0} for first-slot attribution. It is {cmd:1}
+whenever {cmd:allslots} was given {bf:and} whenever {cmd:countmode} was given,
+because {cmd:countmode} counts every slot on its own. Under the all-slots rule
+the row totals of {cmd:r(varcounts)} are slot totals, not unit counts.
 
 {pstd}
 {cmd:r(summary)} has one row per condition, named for the condition, and four
