@@ -185,15 +185,39 @@ substitution of equivalents: truncation perturbs an estimand, while the
 overlap and matching weights answer a different question.
 
 {phang}
-{opt stabilized} requests stabilized weights. Stabilized weights multiply
-the standard IPTW by the marginal probability of treatment:
+{opt stabilized} requests stabilized weights. Stabilized weights replace the
+constant numerator of the IPTW with a modeled probability of the observed
+treatment:
 
 {p 12 12 2}
-SW = P(A=a) / P(A=a|X)
+SW = P(A=a | numerator model) / P(A=a|X)
+
+{pmore}
+Without {opt id()} and {opt time()} the numerator is the marginal probability
+P(A=a) and the formula reduces to SW = P(A=a)/P(A=a|X).
+
+{pmore}
+In panel mode ({opt id()} and {opt time()} both specified) the denominator
+conditions on time fixed effects {cmd:i.}{it:time}, so the numerator is fitted
+as a model of the exposure on {cmd:i.}{it:time} alone. The numerator carries
+the same follow-up-time term as the denominator and omits only the
+time-varying confounders the weighting exists to adjust for (Cole & Hernan
+2008). A pooled marginal constant would leave the weight unstabilized with
+respect to time: still consistent, but with a badly inflated variance, and
+the mean-near-1 diagnostic would no longer discriminate. {cmd:r(numerator_model)}
+reports which numerator was used. The marginal-numerator behaviour of
+{cmd:tvtools} 1.8.0 and earlier is not recoverable through an option; it was
+a defect, not a supported alternative.
+
+{pmore}
+Because the numerator conditions on time, the marginal structural model fitted
+with these weights must include the same time term.
 
 {pmore}
 Stabilized weights have mean closer to 1 and generally smaller variance than
-unstabilized weights, leading to more efficient estimates.
+unstabilized weights, leading to more efficient estimates. A mean near 1 is a
+necessary diagnostic, not proof that the causal assumptions hold
+(Cole & Hernan 2008).
 
 {phang}
 {opt truncate(# #)} truncates weights at the specified lower and upper
@@ -223,7 +247,11 @@ weights within person, which {opt cumulative} provides. See
 {phang}
 {opt ipcw(varname)} supplies a per-interval censoring indicator (1 if the person is
 censored at the end of this interval, 0 if they remain under observation) and
-turns on inverse-probability-of-censoring weighting. A pooled logistic
+turns on inverse-probability-of-censoring weighting. Every row of the
+estimation sample must hold exactly 0 or 1; any other value stops with error
+198. Through {cmd:tvtools} 1.8.0 only the minimum and maximum were checked, so
+an indicator carrying interior values ran to completion with the censoring
+model silently reading every nonzero value as censored. A pooled logistic
 censoring model is fit; the cumulative censoring weight is the inverse
 cumulative probability of remaining uncensored, and a combined weight equal to
 the cumulative IPTW times the cumulative IPCW is produced. This completes the
@@ -314,6 +342,16 @@ categorical exposures the maximum absolute SMD across non-reference levels is
 reported per covariate. Factor variables and interactions are expanded into
 their estimable nonbase columns; {cmd:r(balance_terms)} maps those columns to
 the rows of {cmd:r(balance)}.
+
+{pmore}
+The weighted column is computed with the {it:analysis} weight -- the weight the
+outcome model is actually fitted with. That is {opt combgenerate()} when
+{opt ipcw()} is specified, otherwise {opt cumgenerate()} when {opt cumulative}
+is specified, otherwise {opt generate()}. Reporting balance for a per-period
+intermediate while the analysis runs on the combined or cumulative weight
+would describe a pseudo-population the user never fits. {cmd:r(balance_weight)}
+names the weight used. Through {cmd:tvtools} 1.8.0 this column always used
+{opt generate()}.
 
 {phang}
 {opt loveplot} produces a love plot of the SMDs (unweighted vs
@@ -474,6 +512,8 @@ fixed-width MSM grid.
 {synopt:{cmd:r(combgenerate)}}name of the combined IPTW x IPCW weight (if ipcw){p_end}
 {synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
 {synopt:{cmd:r(balance_terms)}}factor-expanded terms indexing {cmd:r(balance)} (if balance){p_end}
+{synopt:{cmd:r(balance_weight)}}analysis weight used for the SMD column{p_end}
+{synopt:{cmd:r(numerator_model)}}stabilized-weight numerator model{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}unweighted/weighted SMD matrix{p_end}

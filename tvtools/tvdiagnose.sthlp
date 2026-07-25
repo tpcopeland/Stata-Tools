@@ -235,6 +235,7 @@ detects it. The uncovered 21--24 January span is a four-day gap.
 {synopt:{cmd:r(total_person_time)}}global union person-time in days{p_end}
 {synopt:{cmd:r(raw_interval_person_time)}}sum of inclusive row lengths{p_end}
 {synopt:{cmd:r(overlap_excess_person_time)}}raw days minus union days{p_end}
+{synopt:{cmd:r(n_crossexposure_overlap_days)}}double-counted person-days{p_end}
 {synopt:{cmd:r(n_exposure_levels)}}rows in {cmd:r(exposure_summary)}{p_end}
 {synopt:{cmd:r(graph_requested)}}1 if {opt swimlane} was requested{p_end}
 {synopt:{cmd:r(graph_created)}}1 if the swimlane graph was created{p_end}

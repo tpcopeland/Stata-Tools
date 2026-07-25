@@ -1,4 +1,4 @@
-*! tvweight Version 1.8.0  2026/07/22
+*! tvweight Version 1.9.0  2026/07/25
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -407,10 +407,16 @@ program define tvweight, rclass sortpreserve
     * The censoring indicator must be coded 0/1 within the estimation sample
     * (checked after marksample so if/in and markout restrictions apply)
     if `do_ipcw' {
-        quietly summarize `ipcw' if `touse'
-        if !inlist(r(min), 0, 1) | !inlist(r(max), 0, 1) {
+        * Screen every row, not just the extremes. Testing inlist() on r(min)
+        * and r(max) alone admits any interior value, so a 0/.5/1 indicator
+        * passed the gate and logit then silently read .5 as "censored".
+        quietly count if !inlist(`ipcw', 0, 1) & `touse'
+        local n_bad_cens = r(N)
+        if `n_bad_cens' > 0 {
             display as error "ipcw() censoring indicator must be coded 0/1 " ///
                 "(1 = censored at end of this interval, 0 = remained under observation)"
+            display as error `n_bad_cens' ///
+                " observation(s) in the estimation sample hold another value"
             exit 198
         }
     }
@@ -716,29 +722,98 @@ program define tvweight, rclass sortpreserve
     * STABILIZED WEIGHTS (optional)
     * =========================================================================
 
+    * The stabilized numerator must carry the same follow-up-time term as the
+    * denominator and drop only the time-varying confounders the weighting
+    * exists to adjust for (Cole & Hernan 2008, Table 3 spec 1 and p.660:
+    * "the numerator ... chase[s] the denominator but stop[s] short ... when it
+    * comes to the set of time-varying confounders"). In panel mode the
+    * denominator conditions on i.time, so a pooled marginal constant leaves
+    * the weight unstabilized with respect to time: still consistent, but with
+    * a badly inflated variance and a mean-near-1 diagnostic that no longer
+    * discriminates.
+    local numerator_model "marginal"
     if "`stabilized'" != "" {
         display as text "Calculating stabilized weights..."
 
-        quietly {
+        tempvar _num_p
+        local _num_model_failed = 0
+        if `panel_mode' {
+            local numerator_model "i.`time'"
+            display as text "  Numerator model: `exposure' on i.`time'"
             if "`model'" == "logit" {
-                * Marginal probability of treatment
-                sum `exposure' if `touse'
-                local marg_prob = r(mean)
-
-                * Stabilized weight = marginal prob / PS for treated
-                * Stabilized weight = (1 - marginal prob) / (1 - PS) for untreated
-                replace `generate' = `marg_prob' / `ps' if `exposure' != `ref_level' & `touse'
-                replace `generate' = (1 - `marg_prob') / (1 - `ps') if `exposure' == `ref_level' & `touse'
+                capture quietly logit `exposure' i.`time' if `touse', nolog
+                if _rc local _num_model_failed = 1
+                else quietly predict double `_num_p' if `touse', pr
             }
             else {
-                * For multinomial: multiply by marginal probability of each level
-                levelsof `exposure' if `touse', local(levels)
-                foreach lev of local levels {
-                    count if `exposure' == `lev' & `touse'
-                    local n_lev = r(N)
-                    local marg_prob_lev = `n_lev' / `n_obs'
-                    replace `generate' = `generate' * `marg_prob_lev' if `exposure' == `lev' & `touse'
+                capture quietly mlogit `exposure' i.`time' if `touse', ///
+                    baseoutcome(`ref_level') nolog
+                if _rc local _num_model_failed = 1
+                else {
+                    quietly gen double `_num_p' = .
+                    quietly levelsof `exposure' if `touse', local(_numlevels)
+                    foreach lev of local _numlevels {
+                        tempvar _num_k
+                        quietly predict double `_num_k' if `touse', ///
+                            pr outcome(`lev')
+                        quietly replace `_num_p' = `_num_k' ///
+                            if `exposure' == `lev' & `touse'
+                        drop `_num_k'
+                    }
                 }
+            }
+            if `_num_model_failed' {
+                display as error ///
+                    "stabilized numerator model (`exposure' on i.`time') failed to converge"
+                display as error ///
+                    "collapse sparse time levels, or drop stabilized to use unstabilized weights"
+                exit 498
+            }
+        }
+        else {
+            * No panel structure: the denominator conditions on no time term,
+            * so the marginal treatment probability is the matching numerator.
+            quietly {
+                if "`model'" == "logit" {
+                    summarize `exposure' if `touse', meanonly
+                    gen double `_num_p' = r(mean) if `touse'
+                }
+                else {
+                    gen double `_num_p' = .
+                    levelsof `exposure' if `touse', local(_numlevels)
+                    foreach lev of local _numlevels {
+                        count if `exposure' == `lev' & `touse'
+                        replace `_num_p' = r(N) / `n_obs' ///
+                            if `exposure' == `lev' & `touse'
+                    }
+                }
+            }
+        }
+
+        * A numerator model can drop rows under perfect prediction even when it
+        * exits rc=0; never turn those missing values into plausible weights.
+        quietly count if ///
+            (missing(`_num_p') | `_num_p' < 0 | `_num_p' > 1) & `touse'
+        local n_num_boundary = r(N)
+        if `n_num_boundary' > 0 {
+            display as error `n_num_boundary' ///
+                " observation(s) have missing or out-of-range stabilized-numerator probabilities"
+            display as error "the numerator model is not usable for these rows"
+            exit 498
+        }
+
+        quietly {
+            if "`model'" == "logit" {
+                * `_num_p' is P(A=1|numerator model)
+                replace `generate' = `_num_p' / `ps' ///
+                    if `exposure' != `ref_level' & `touse'
+                replace `generate' = (1 - `_num_p') / (1 - `ps') ///
+                    if `exposure' == `ref_level' & `touse'
+            }
+            else {
+                * `_num_p' is already P(A=observed|numerator model), and the
+                * unstabilized multinomial weight is 1/P(A=observed|X)
+                replace `generate' = `_num_p' / `ps' if `touse'
             }
         }
     }
@@ -905,11 +980,40 @@ program define tvweight, rclass sortpreserve
 
         * Per-interval censoring weight; stabilized numerator = marginal P(uncens)
         tempvar cw
+        if "`stabilized'" != "" & `panel_mode' {
+            * Same Cole & Hernan numerator rule as the treatment weight: the
+            * censoring numerator carries the denominator's follow-up-time term
+            * and omits only the time-varying covariates.
+            tempvar _num_pc
+            display as text "  Censoring numerator model: `ipcw' on i.`time'"
+            capture quietly logit `ipcw' i.`time' if `touse', nolog
+            if _rc {
+                display as error ///
+                    "stabilized censoring numerator model (`ipcw' on i.`time') failed to converge"
+                display as error ///
+                    "collapse sparse time levels, or drop stabilized"
+                exit 498
+            }
+            quietly predict double `_num_pc' if `touse', pr
+            quietly count if ///
+                (missing(`_num_pc') | `_num_pc' < 0 | `_num_pc' > 1) & `touse'
+            local n_numc_boundary = r(N)
+            if `n_numc_boundary' > 0 {
+                display as error `n_numc_boundary' ///
+                    " observation(s) have missing or out-of-range censoring-numerator probabilities"
+                exit 498
+            }
+        }
         quietly {
             if "`stabilized'" != "" {
-                summarize `ipcw' if `touse', meanonly
-                local marg_uncens = 1 - r(mean)
-                gen double `cw' = `marg_uncens' / `puncens' if `touse'
+                if `panel_mode' {
+                    gen double `cw' = (1 - `_num_pc') / `puncens' if `touse'
+                }
+                else {
+                    summarize `ipcw' if `touse', meanonly
+                    local marg_uncens = 1 - r(mean)
+                    gen double `cw' = `marg_uncens' / `puncens' if `touse'
+                }
             }
             else {
                 gen double `cw' = 1 / `puncens' if `touse'
@@ -1081,8 +1185,14 @@ program define tvweight, rclass sortpreserve
 
     * Weight concentration: share of total weight mass in the top 1% of rows,
     * using the final analysis weight (combined when ipcw, else the IPTW).
+    * The analysis weight is the weight the user actually fits the outcome
+    * model with: the combined weight when censoring is modeled, otherwise the
+    * cumulative MSM weight when one was built, otherwise the per-row weight.
+    * Every weighted diagnostic below (concentration and covariate balance)
+    * must describe that weight, not a per-period intermediate.
     local _awt "`generate'"
     if `do_ipcw' local _awt "`combgenerate'"
+    else if "`cumulative'" != "" local _awt "`cumgenerate'"
     tempvar _weight_row_order
     quietly generate long `_weight_row_order' = _n
     preserve
@@ -1216,9 +1326,9 @@ program define tvweight, rclass sortpreserve
                 local denom = sqrt((`vt' + `vc')/2)
                 if `denom' > 0 & !missing(`denom') {
                     matrix `_balmat'[`r',1] = (`mt' - `mc')/`denom'
-                    quietly sum `v' [aw=`generate'] if `exposure' != `ref_level' & `touse'
+                    quietly sum `v' [aw=`_awt'] if `exposure' != `ref_level' & `touse'
                     local wmt = r(mean)
-                    quietly sum `v' [aw=`generate'] if `exposure' == `ref_level' & `touse'
+                    quietly sum `v' [aw=`_awt'] if `exposure' == `ref_level' & `touse'
                     local wmc = r(mean)
                     matrix `_balmat'[`r',2] = (`wmt' - `wmc')/`denom'
                 }
@@ -1228,7 +1338,7 @@ program define tvweight, rclass sortpreserve
                 quietly sum `v' if `exposure' == `ref_level' & `touse'
                 local mc = r(mean)
                 local vc = r(Var)
-                quietly sum `v' [aw=`generate'] if `exposure' == `ref_level' & `touse'
+                quietly sum `v' [aw=`_awt'] if `exposure' == `ref_level' & `touse'
                 local wmc = r(mean)
                 local maxu = 0
                 local maxw = 0
@@ -1241,7 +1351,7 @@ program define tvweight, rclass sortpreserve
                     if `denom' > 0 & !missing(`denom') {
                         local su = abs((`mt' - `mc')/`denom')
                         if `su' > `maxu' local maxu = `su'
-                        quietly sum `v' [aw=`generate'] if `exposure' == `lev' & `touse'
+                        quietly sum `v' [aw=`_awt'] if `exposure' == `lev' & `touse'
                         local wmt = r(mean)
                         local sw = abs((`wmt' - `wmc')/`denom')
                         if `sw' > `maxw' local maxw = `sw'
@@ -1257,6 +1367,8 @@ program define tvweight, rclass sortpreserve
         display as text ""
         display as text "{hline 70}"
         display as text "Covariate balance (standardized mean differences)"
+        display as text "Weighted column uses the analysis weight: " ///
+            as result "`_awt'"
         if "`model'" != "logit" {
             display as text "(categorical exposure: max |SMD| vs reference level)"
         }
@@ -1305,8 +1417,11 @@ program define tvweight, rclass sortpreserve
             * tvweight already printed its own balance table above, so the
             * psdash call is run quietly: it contributes the love plot (graphs
             * render regardless of quietly) without echoing a redundant table.
+            * The plot must use the same analysis weight as the table above --
+            * passing the per-row weight here would draw a figure that
+            * contradicts the numbers tvweight just printed.
             capture quietly psdash balance `exposure' if `touse', ///
-                covariates(`bal_covars') wvar(`generate') loveplot ///
+                covariates(`bal_covars') wvar(`_awt') loveplot ///
                 title("Covariate balance") name(tvw_loveplot)
             local _lprc = _rc
             if `_lprc' ///
@@ -1413,6 +1528,10 @@ program define tvweight, rclass sortpreserve
     }
     if "`balance'" != "" {
         return local balance_terms "`bal_terms'"
+        return local balance_weight "`_awt'"
+    }
+    if "`stabilized'" != "" {
+        return local numerator_model "`numerator_model'"
     }
     if "`cumulative'" != "" {
         return local cumgenerate "`cumgenerate'"

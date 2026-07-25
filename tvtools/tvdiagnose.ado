@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.8.0  2026/07/22
+*! tvdiagnose Version 1.9.0  2026/07/25
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -163,6 +163,7 @@ program define tvdiagnose, rclass
     local total_person_time = 0
     local raw_interval_person_time = 0
     local overlap_excess_person_time = 0
+    local n_crossexposure_overlap_days = 0
     local n_exposure_levels = 0
     local graph_requested = ("`swimlane'" != "")
     local graph_created = 0
@@ -484,6 +485,19 @@ program define tvdiagnose, rclass
             by(`_exposure_group')
         quietly gen double `_percent' = ///
             100 * `_person_days' / `total_person_time'
+
+        * Per-level person-days are the interval union within id x exposure,
+        * but the denominator is the union within id alone. When two exposure
+        * levels cover the same day for the same person, that day is counted
+        * once per level and the percent column sums above 100. Surfacing that
+        * excess is the whole job of a diagnostic command, so report it rather
+        * than printing an incoherent table.
+        quietly summarize `_person_days', meanonly
+        local _sum_level_days = r(sum)
+        local n_crossexposure_overlap_days = ///
+            `_sum_level_days' - `total_person_time'
+        if `n_crossexposure_overlap_days' < 0 ///
+            local n_crossexposure_overlap_days = 0
         rename `_exposure_group' exposure_level
         rename `_raw_days' raw_days
         rename `_person_days' person_days
@@ -506,6 +520,15 @@ program define tvdiagnose, rclass
             %12.0fc `raw_interval_person_time' " days"
         display as text "Union person-time: " as result ///
             %12.0fc `total_person_time' " days"
+        if `n_crossexposure_overlap_days' > 0 {
+            display as text ""
+            display as error "Warning: exposure levels overlap in time for the same person."
+            display as text "  " as result %12.0fc `n_crossexposure_overlap_days' ///
+                as text " person-day(s) are counted under more than one level, so the"
+            display as text "  percent column sums above 100%. Resolve the overlaps " ///
+                "(see {help tvexpose} priority()"
+            display as text "  or {help tvmerge}) before treating these shares as an exposure distribution."
+        }
 
         restore
         local _preserved = 0
@@ -674,6 +697,7 @@ program define tvdiagnose, rclass
     return scalar total_person_time = `total_person_time'
     return scalar raw_interval_person_time = `raw_interval_person_time'
     return scalar overlap_excess_person_time = `overlap_excess_person_time'
+    return scalar n_crossexposure_overlap_days = `n_crossexposure_overlap_days'
     return scalar n_exposure_levels = `n_exposure_levels'
     return scalar graph_requested = `graph_requested'
     return scalar graph_created = `graph_created'
