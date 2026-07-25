@@ -192,11 +192,16 @@ not a mildly optimistic model, it is a fitted intensity conditioned on the
 outcome of the very event being modelled.
 
 {pmore}
-{bf:The terminal interval carries an assumption.} A lagged predictor is held
-at its last observed value from the final visit to the end of follow-up
-(last-observation-carried-forward). Over a long terminal interval that is a
-substantive assumption about a value nobody measured, not a technicality. Keep
-it in view when {opt censor()} extends well past the last visit.
+{bf:The terminal interval carries an assumption.} Any time-varying predictor --
+lagged or not -- is held at its last observed value from the final visit to the
+end of follow-up (last-observation-carried-forward). Over a long terminal
+interval that is a substantive assumption about a value nobody measured, not a
+technicality. Keep it in view when {opt censor()} extends well past the last
+visit. The reference R implementation, {cmd:IrregLong}, instead leaves an
+unlagged covariate missing on that interval, which makes {cmd:coxph} drop the
+censoring row and reinstates the truncated risk set this construction exists to
+correct; {cmd:iivw_weight} carries the value forward so the subject stays at
+risk.
 
 {pmore}
 For {cmd:wtype(iptw)}, {opt visit_cov()} is optional. The visit model is skipped entirely,

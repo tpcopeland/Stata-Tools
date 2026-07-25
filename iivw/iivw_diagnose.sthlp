@@ -86,8 +86,14 @@ b(unweighted) - b(weighted) into a sampling gap and b(weighted) - b(adjusted)
 into an artifact gap. Those subtractions mean nothing unless all three
 estimates are of the same coefficient, of the same outcome, on the same scale,
 at the same cluster level. The command therefore checks {cmd:e(depvar)},
-{cmd:e(cmd)}, {cmd:e(family)}/{cmd:e(link)} and {cmd:e(clustvar)} across the
-three roles and exits with an error if they disagree. For an {cmd:iivw_fit}
+{cmd:e(cmd)}, the reported family and link, and {cmd:e(clustvar)} across the
+three roles and exits with an error if they disagree. The family and link are
+read from {cmd:e(varfunct)}/{cmd:e(linkt)} when the estimator sets them and
+from {cmd:e(family)}/{cmd:e(link)} otherwise: {cmd:glm} -- and therefore
+{cmd:iivw_fit}'s {cmd:model(gee)} path -- leaves {cmd:e(family)} empty and
+stores an internal program name rather than the link name in {cmd:e(link)}, so
+reading only that pair could not tell a Gaussian fit from a Gamma one at the
+same link. For an {cmd:iivw_fit}
 result, the estimator comparison uses its preserved
 {cmd:e(iivw_underlying_cmd)} so a wrapped {cmd:glm} remains comparable with an
 otherwise identical direct {cmd:glm} fit. Presence of the named
@@ -429,6 +435,19 @@ Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
 models with follow-up dependent on outcome-related
 variables. {it:Canadian Journal of Statistics}
 35(4): 485-500. doi:10.1002/cjs.5550350402.
+
+{phang}
+Greenland S, Robins JM, Pearl J. 1999. Confounding and collapsibility in causal
+inference. {it:Statistical Science} 14(1): 29-46. doi:10.1214/ss/1009211805 --
+{it:the source for the nonlinear-link restriction on} {cmd:r(decomposable)}. In
+Section 5.1, Table 2 gives a population with {bf:no} confounding of the odds
+ratio in which the odds ratio is nonetheless not collapsible: conditioning on a
+covariate moves it from 2.25 to 2.67. That movement is what the artifact gap
+would otherwise absorb, which is why a non-identity link is reported
+non-decomposable rather than corrected. The paper also establishes that
+confounding and noncollapsibility are logically independent -- either can occur
+without the other -- so covariate balance does not rescue the decomposition on
+a nonlinear link.
 
 
 {marker author}{...}

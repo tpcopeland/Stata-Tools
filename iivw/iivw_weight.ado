@@ -1,4 +1,4 @@
-*! iivw_weight Version 2.3.0  2026/07/23
+*! iivw_weight Version 2.3.1  2026/07/25
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -985,7 +985,9 @@ program define iivw_weight, rclass sortpreserve
             * differ: IrregLong leaves it missing, which makes coxph drop the
             * censoring row and quietly reintroduces the omission this whole
             * construction exists to fix. Carrying it forward keeps the subject
-            * in the risk set. The help file states this.
+            * in the risk set. Stated in iivw_weight.sthlp, Options ->
+            * "Visit model (required for IIW/FIPTIW)" -> the terminal-interval
+            * note, which also names this divergence from IrregLong.
             * ---------------------------------------------------------------
             if "`__iivw_cens_mode'" != "lastvisit" {
                 tempvar _cens_t _lastrow _newrow

@@ -197,7 +197,15 @@ capture noisily {
 
     iivw_diagnose days, unweighted(M_unweighted) weighted(M_fiptiw) ///
         adjusted(M_adjusted) estimand(marginal) exogeneity(unknown)
-    assert r(decomposable) < .
+
+    * `r(decomposable) < .' is not an assertion about this workflow -- it is
+    * true at 0 and at 1, so it could not see that all three fits here are
+    * iivw_fit model(gee), i.e. Gaussian identity link, and were nonetheless
+    * being reported as a nonlinear-link comparison. This sequence ran the
+    * defect for as long as it existed and passed every time. Assert the value.
+    assert r(decomposable) == 1
+    assert "`r(noncollapsible)'" == ""
+    assert r(sample_identical) == 1
 }
 if _rc == 0 {
     local ++pass_count

@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 2.3.0  2026/07/23
+*! iivw_diagnose Version 2.3.1  2026/07/25
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -159,8 +159,43 @@ program define iivw_diagnose, rclass
                 local cmd_`role' "`e(iivw_underlying_cmd)'"
             }
             local cmd2_`role'    "`e(cmd2)'"
+
+            * The family and link the estimator actually reports.
+            *
+            * -glm- does NOT set e(family), and e(link) is not the link NAME:
+            * it holds the internal link PROGRAM ("glim_l01" for identity,
+            * "glim_l02" for logit, "glim_l03" for log). The human-readable
+            * pair lives in e(varfunct) ("Gaussian") and e(linkt) ("Identity").
+            *
+            * Reading e(family)/e(link) therefore described every glm-based fit
+            * as an unknown family on a link named "glim_l01" -- which broke
+            * both consumers of these macros, in opposite directions:
+            *
+            *   - the collapsibility gate below could never match "gaussian" +
+            *     "identity", so a Gaussian identity-link fit was reported
+            *     non-decomposable with the note "identity-link collapsibility
+            *     not established". That is iivw_fit's own model(gee) default
+            *     and the ONE case the decomposition is valid for, so the gate
+            *     was inverted for the package's primary workflow (README
+            *     "Diagnostic workflow" and demo/demo_iivw.do both feed
+            *     iivw_fit estimates straight into iivw_diagnose). Feeding the
+            *     same three fits through plain -regress- returned
+            *     decomposable == 1, because that path falls through to the
+            *     e(cmd) list further down.
+            *
+            *   - the comparability gate (H3) compared two empty e(family)
+            *     strings, so a change of FAMILY at an unchanged link was
+            *     invisible: gaussian/identity against gamma/identity was
+            *     decomposed at rc 0 and reported a 100% artifact share.
+            *
+            * e(varfunct)/e(linkt) are verified to survive iivw_fit's repost on
+            * every path, including under the bootstrap prefix; -mixed- and
+            * -regress- set none of the four, so they still fall through to the
+            * e(cmd) list.
             local family_`role'  "`e(family)'"
             local link_`role'    "`e(link)'"
+            if "`e(varfunct)'" != "" local family_`role' "`e(varfunct)'"
+            if "`e(linkt)'"    != "" local link_`role'   "`e(linkt)'"
             local clust_`role'   "`e(clustvar)'"
             local N_`role'       = e(N)
             local dfr_`role'     = e(df_r)
@@ -197,20 +232,48 @@ program define iivw_diagnose, rclass
         * estimate. force() exists for a deliberately descriptive comparison and
         * says so in the output; it does not make the decomposition valid.
         * =================================================================
-        local _incomparable ""
+        * Findings are accumulated as NUMBERED locals, not as one space-
+        * separated macro. The display loop below reads them back one finding
+        * per line; `foreach _m of local _incomparable' splits on WHITESPACE, so
+        * every phrase here -- each of which contains spaces -- was shattered
+        * into one "mismatch:" line per word:
+        *
+        *     mismatch: outcome(adjusted:
+        *     mismatch: price
+        *     mismatch: vs
+        *     mismatch: unweighted:
+        *     mismatch: mpg)
+        *
+        * That was invisible for as long as the only branch anyone triggered in
+        * QA was the family/link one, whose message used to be the single word
+        * "family/link(adjusted)". Naming the two scales there (which the fix
+        * above does, and which the sibling branches already did) is what made
+        * the shattering reproducible.
+        local _n_incomp = 0
         foreach role in weighted adjusted {
             if "`depvar_`role''" != "`depvar_unweighted'" {
-                local _incomparable "`_incomparable' outcome(`role': `depvar_`role'' vs unweighted: `depvar_unweighted')"
+                local ++_n_incomp
+                local _incomp_`_n_incomp' ///
+                    "outcome(`role': `depvar_`role'' vs unweighted: `depvar_unweighted')"
             }
             if "`cmd_`role''" != "`cmd_unweighted'" {
-                local _incomparable "`_incomparable' estimator(`role': `cmd_`role'' vs unweighted: `cmd_unweighted')"
+                local ++_n_incomp
+                local _incomp_`_n_incomp' ///
+                    "estimator(`role': `cmd_`role'' vs unweighted: `cmd_unweighted')"
             }
             if "`family_`role''" != "`family_unweighted'" | ///
                 "`link_`role''" != "`link_unweighted'" {
-                local _incomparable "`_incomparable' family/link(`role')"
+                * Name the two scales, like every sibling check here. A bare
+                * "family/link(adjusted)" cannot be acted on, and this branch
+                * now fires on family changes that were previously invisible.
+                local ++_n_incomp
+                local _incomp_`_n_incomp' ///
+                    "family/link(`role': `family_`role''/`link_`role'' vs unweighted: `family_unweighted'/`link_unweighted')"
             }
             if "`clust_`role''" != "`clust_unweighted'" {
-                local _incomparable "`_incomparable' cluster(`role': `clust_`role'' vs unweighted: `clust_unweighted')"
+                local ++_n_incomp
+                local _incomp_`_n_incomp' ///
+                    "cluster(`role': `clust_`role'' vs unweighted: `clust_unweighted')"
             }
         }
 
@@ -268,17 +331,18 @@ program define iivw_diagnose, rclass
                 quietly count if `_esvar' != `_es_unweighted'
                 if r(N) > 0 {
                     local _sample_identical = 0
-                    local _incomparable ///
-                        "`_incomparable' sample(`role': `_esn_`role'' obs vs unweighted: `_esn_unweighted' obs, `r(N)' row(s) differ)"
+                    local ++_n_incomp
+                    local _incomp_`_n_incomp' ///
+                        "sample(`role': `_esn_`role'' obs vs unweighted: `_esn_unweighted' obs, `r(N)' row(s) differ)"
                 }
             }
         }
 
-        if `"`_incomparable'"' != "" & "`force'" == "" {
+        if `_n_incomp' > 0 & "`force'" == "" {
             display as error "the three estimates are not comparable, so their differences are not a decomposition"
             display as error ""
-            foreach _m of local _incomparable {
-                display as error "  mismatch: `_m'"
+            forvalues _i = 1/`_n_incomp' {
+                display as error "  mismatch: `_incomp_`_i''"
             }
             display as error ""
             display as error "  iivw_diagnose splits b(unweighted) - b(weighted) into a sampling gap and"
@@ -292,7 +356,7 @@ program define iivw_diagnose, rclass
             error 198
         }
         local _forced_incomparable = 0
-        if `"`_incomparable'"' != "" & "`force'" != "" {
+        if `_n_incomp' > 0 & "`force'" != "" {
             local _forced_incomparable = 1
             display as text "note: force specified with incomparable estimates. The gaps below are"
             display as text "  differences between models that do not estimate the same quantity, so"
@@ -319,7 +383,16 @@ program define iivw_diagnose, rclass
             local _fam = lower("`family_`role''")
             local _lnk = lower("`link_`role''")
             local _lin = 0
-            if "`_fam'" != "" | "`_lnk'" != "" {
+            * Only a COMPLETE named family/link pair decides this outright. The
+            * guard used to be `!= "" | != ""', so a fit that reported one half
+            * of the pair was routed here and then failed the "gaussian" +
+            * "identity" test -- and, being an else-if chain, it also blocked
+            * the e(cmd) fallbacks below from ever running. That is what let a
+            * single uninformative string (glm's e(link) = "glim_l01") decide
+            * the scale of an identity-link Gaussian fit. An incomplete pair now
+            * falls through to the estimator list, which is the surface that
+            * knows about -regress- and -mixed-.
+            if "`_fam'" != "" & "`_lnk'" != "" {
                 if "`_fam'" == "gaussian" & "`_lnk'" == "identity" local _lin = 1
             }
             else if inlist("`cmd_`role''", "regress", "areg", "cnsreg", "rreg") {

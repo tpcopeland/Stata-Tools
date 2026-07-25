@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.3.0** | 2026-07-23
+**Version 2.3.1** | 2026-07-25
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -736,6 +736,17 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Version History
+
+### v2.3.1 (2026-07-25)
+
+Fixes to the `iivw_diagnose` scale gate. Both defects had the same cause: the command read `e(family)` and `e(link)`, which `glm` does not populate the way that code assumed — it leaves `e(family)` empty and stores an internal program name (`glim_l01`) rather than the link name in `e(link)`. The readable pair is `e(varfunct)`/`e(linkt)`. Because `iivw_fit`'s `model(gee)` path is `glm`, the package's own estimator was the one most affected.
+
+- `r(decomposable)` is now 1 for an identity-link Gaussian trio fitted with `iivw_fit`. Previously every such analysis was reported non-decomposable with the note "identity-link collapsibility not established" — a false statement about a fit that is identity-link Gaussian, and the only case the decomposition is valid for. The same three models fitted with plain `regress` returned 1, because that path is decided by an estimator-name list rather than by the family/link pair. This is the workflow in this README's "Diagnostic workflow" section, in `iivw.sthlp` Example 3, and in `demo/demo_iivw.do`.
+- A change of **family** between roles at an unchanged link is now refused. Gaussian/identity against Gamma/identity was previously decomposed at `rc=0` and reported a 100% artifact share, because the guard compared two empty `e(family)` strings. A change of link was already caught and still is.
+- The incomparability report now prints one line per finding. Every phrase it emits contains spaces and the display loop split on whitespace, so a single finding was printed as one line per word. This was masked for as long as the only branch QA triggered was the family/link one, whose message used to be a single word.
+- The mismatch report names both scales (`family/link(adjusted: Gamma/Identity vs unweighted: Gaussian/Identity)`) instead of only the offending role.
+- Documented the source for the nonlinear-link restriction. `r(decomposable) = 0` on a non-identity link rests on the odds ratio being noncollapsible even when nothing is confounded, and that claim carried **no citation anywhere in the package**. It is now attributed to Greenland, Robins & Pearl (1999), *Statistical Science* 14(1):29-46, whose Section 5.1 Table 2 exhibits a population with no confounding of the odds ratio in which conditioning still moves it from 2.25 to 2.67. The same paper establishes that confounding and noncollapsibility are logically independent, which is why the gate keys on the scale rather than on covariate balance.
+- QA: five cases added to `qa/test_iivw_diagnose.do` covering the collapsibility axis. Three fail on the 2.3.0 build; one is the declared positive control that a nonlinear trio stays non-decomposable; the fifth is a published known answer built from Greenland, Robins & Pearl Table 2 — crude odds ratio 2.25, adjusted 8/3, true confounding exactly zero — so the movement the gate refuses to decompose is verifiably pure noncollapsibility. `qa/test_help_examples.do` H4 ran this defect on every pass and asserted only `r(decomposable) < .`, which is true at 0 and at 1; it now asserts the value.
 
 ### v2.3.0 (2026-07-23)
 

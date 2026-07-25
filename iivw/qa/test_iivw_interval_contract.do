@@ -26,6 +26,8 @@ set varabbrev off
 *   T13 point-only and explicit nominal-inference options cannot be confused
 *   T14 replay preserves asymmetric endpoints and postestimation
 *   T15 dropping/reloading iivw_fit cannot collide with its replay helper
+*   T16 the percentile/basic audit copies are correct when citype(wald) selects
+*       neither of them
 
 local qa_dir "`c(pwd)'"
 local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
@@ -612,6 +614,65 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' T15"
     display as error "FAIL T15: iivw_fit reload collided with replay helper"
+}
+
+**# T16 - audit copies are correct when NEITHER candidate is selected
+
+* The percentile/basic matrices are retained after any bootstrap, independent of
+* citype, so an analysis can audit the choice without paying for a second set of
+* nuisance-model refits (iivw_fit.ado INTERVAL MATRICES / ereturn block). Under
+* citype(wald) the selected interval is neither candidate, which is the one path
+* nothing else exercises: e(iivw_ci_percentile) had zero references anywhere in
+* qa/ before this case. A wiring error -- a stale tempname, the selected
+* interval posted into both slots, or the two copies transposed -- would return
+* plausible 2 x k matrices at rc=0 and go unnoticed.
+local ++test_count
+capture noisily {
+    _v230_data
+    quietly iivw_fit y A, timespec(none) ///
+        vce(bootstrap, reps(99) seed(23012)) citype(wald) nolog replace
+    matrix W  = e(iivw_ci)
+    matrix P  = e(iivw_ci_percentile)
+    matrix B  = e(iivw_ci_basic)
+    matrix BP = e(ci_percentile)
+    local j = colnumb(e(b), "A")
+    assert "`e(iivw_ci_type)'" == "wald-normal"
+
+    * both copies keep e(b)'s shape
+    assert rowsof(P) == 2 & colsof(P) == colsof(e(b))
+    assert rowsof(B) == 2 & colsof(B) == colsof(e(b))
+
+    * the percentile copy IS the full-refit percentile interval
+    assert mreldif(P, BP) < 1e-12
+
+    * ...and neither copy is a copy of the selected Wald interval. Without these
+    * two the case passes vacuously if both slots ever hold e(iivw_ci).
+    assert mreldif(P, W) > 1e-8
+    assert mreldif(B, W) > 1e-8
+
+    * the basic copy is the percentile copy reflected about e(b)
+    assert reldif(B[1,`j'], 2*_b[A] - P[2,`j']) < 1e-12
+    assert reldif(B[2,`j'], 2*_b[A] - P[1,`j']) < 1e-12
+
+    * usable endpoints: present, ordered, and bracketing the point estimate
+    assert !missing(P[1,`j']) & !missing(P[2,`j'])
+    assert !missing(B[1,`j']) & !missing(B[2,`j'])
+    assert P[1,`j'] < P[2,`j']
+    assert B[1,`j'] < B[2,`j']
+    assert P[1,`j'] <= _b[A] & _b[A] <= P[2,`j']
+
+    * BCa is NOT retained unless it was requested
+    capture confirm matrix e(iivw_ci_bca)
+    assert _rc != 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS T16: audit copies are correct under citype(wald)"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' T16"
+    display as error "FAIL T16: unselected candidate interval audit copies"
 }
 
 iivw_qa_summary, name(test_iivw_interval_contract) tests(`test_count') ///

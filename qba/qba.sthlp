@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  19jun2026}{...}
+{* *! version 1.0.1  10jul2026}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -253,6 +253,6 @@ biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-06-19{p_end}
+{pstd}Version 1.0.1, 2026-07-10{p_end}
 
 {hline}

@@ -84,7 +84,7 @@ local ++test_count
 capture noisily {
     _assert_file_contains "`pkg_dir'/qba.ado" "Version 1.0.1  2026/06/19"
     _assert_file_contains "`pkg_dir'/qba_plot.ado" "Version 1.0.1  2026/06/19"
-    _assert_file_contains "`pkg_dir'/qba.sthlp" "version 1.0.1  19jun2026"
+    _assert_file_contains "`pkg_dir'/qba.sthlp" "version 1.0.1  10jul2026"
     * House standard: only the flagship qba.sthlp carries a version line;
     * sub-command help files must not (see CLAUDE.md version-consistency rule).
     * (Stata's shell does not propagate grep's exit code to _rc, so assert on
@@ -100,12 +100,12 @@ capture noisily {
     file read _gfh _gline
     file close _gfh
     assert real("`_gline'") > 0
-    shell grep -Fc "2026-06-19" "`pkg_dir'/README.md" > "`_grep_cnt'"
+    shell grep -Fc "2026-07-10" "`pkg_dir'/README.md" > "`_grep_cnt'"
     file open _gfh using "`_grep_cnt'", read text
     file read _gfh _gline
     file close _gfh
     assert real("`_gline'") > 0
-    _assert_file_contains "`pkg_dir'/qba.pkg" "Distribution-Date: 20260619"
+    _assert_file_contains "`pkg_dir'/qba.pkg" "Distribution-Date: 20260710"
     _assert_file_contains "`pkg_dir'/qba.pkg" "Author: Timothy P Copeland, Karolinska Institutet"
 
     foreach f in qba.ado qba.sthlp qba_misclass.ado qba_misclass.sthlp ///
