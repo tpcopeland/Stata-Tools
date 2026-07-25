@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 2.3.1  2026/07/25
+*! iivw_exogtest Version 2.4.0  2026/07/25
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -524,6 +524,27 @@ program define iivw_exogtest, rclass sortpreserve
         display as text "By variable:      " as result "`__iivw_by_shown'"
     }
     display as text "Alpha:            " as result %5.3f `alpha'
+
+    * -------------------------------------------------------------------------
+    * Tie density of the models about to be fitted.
+    *
+    * This command fits the same Andersen-Gill Cox model as iivw_weight, and
+    * inherits the same Breslow default, so it carries the same exposure: the
+    * lagged-outcome coefficients -- and therefore every p-value in the table
+    * below -- move with the tie method. See _iivw_tie_density.ado for the
+    * measured divergence.
+    *
+    * Computed ONCE over the whole usable set rather than inside the by()
+    * loop: the tie structure is a property of time(), not of a subgroup, and
+    * one note per group would be noise. `__iivw_usable' already enforces
+    * `stop' > `start', so zero-length intervals are excluded here too.
+    * -------------------------------------------------------------------------
+    local __iivw_tie_note = cond("`efron_opt'" == "", "", "nonote")
+    _iivw_tie_density, event(`__iivw_event') stop(`__iivw_stop') ///
+        touse(`__iivw_usable') cmdname(exogeneity) `__iivw_tie_note'
+    local __iivw_tie_mult   = r(tie_multiplicity)
+    local __iivw_tie_ntimes = r(n_event_times)
+    local __iivw_tie_nev    = r(n_modeled_events)
 
     local group_index = 0
     foreach g of local group_levels {
@@ -1171,6 +1192,13 @@ program define iivw_exogtest, rclass sortpreserve
         return scalar n_tests = `__iivw_m'
         return scalar alpha = `alpha'
         return scalar history_association_flag = `history_association_flag'
+
+        * Tie density of the fitted exogeneity models. Returned, not just
+        * displayed, so the tie contract is assertable without parsing output.
+        * Exactly 1 when no two modeled events share a time.
+        return scalar tie_multiplicity = `__iivw_tie_mult'
+        return scalar n_event_times = `__iivw_tie_ntimes'
+        return scalar n_modeled_events = `__iivw_tie_nev'
         return local id "`id'"
         return local time "`time'"
         return local testvars "`varlist'"

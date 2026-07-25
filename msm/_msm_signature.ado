@@ -1,4 +1,4 @@
-*! _msm_signature Version 1.2.4  2026/07/23
+*! _msm_signature Version 1.3.0  2026/07/25
 *! Compute a stage input signature over the variables a stage consumed
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

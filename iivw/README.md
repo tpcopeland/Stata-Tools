@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.3.1** | 2026-07-25
+**Version 2.4.0** | 2026-07-25
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -736,6 +736,29 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Version History
+
+### v2.4.0 (2026-07-25)
+
+Tie handling in the Andersen-Gill visit-intensity model is now reported at runtime. `stcox`'s default tie method is Breslow, and both `iivw_weight` and `iivw_exogtest` inherited it. Breslow and Efron agree exactly when no two events share a time and diverge as tie multiplicity grows -- and every IIW weight is `exp(-xb)` from that fit, so the divergence rescales the whole weighted analysis. Nothing in the package said so at runtime; the user had to read a help-file paragraph and self-diagnose.
+
+Measured on a known-truth DGP (true gamma = 0.8, 300 subjects, 25 replications), rounding visit times onto a grid of width g:
+
+| g | events per distinct event time | gamma, Breslow | gamma, Efron | relative gap |
+|---|---|---|---|---|
+| (none) | 1.00 | 0.7687 | 0.7687 | 0.0% |
+| 0.10 | 20.00 | 0.7069 | 0.7580 | 6.7% |
+| 0.25 | 45.47 | 0.6348 | 0.7412 | 14.4% |
+| 0.50 | 79.28 | 0.5385 | 0.7011 | 23.2% |
+| 1.00 | 126.48 | 0.4051 | 0.6151 | 34.1% |
+| 2.00 | 180.29 | 0.2421 | 0.4565 | 47.0% |
+
+- `iivw_weight` and `iivw_exogtest` now emit a note when tie multiplicity reaches 2 -- when each distinct event time carries two or more events on average, which means `time()` is a coarse grid rather than a continuous measurement. The note reports the measured multiplicity, names Breslow as the method in force, and points at `efron`. It does not fire when `efron` was requested, and it cannot fire on continuous times, whose multiplicity is exactly 1.00. Inside a refit bootstrap the whole `iivw_weight` call is wrapped in `quietly`, so it prints once and not once per draw.
+- The trigger is **tie multiplicity**, not the share of events that are tied. The share saturates at 100% under the mildest rounding (g = 0.10 above, where the gap is still only 6.7%), so it cannot distinguish a harmless grid from a ruinous one. Multiplicity is monotone in the gap and equals 1.00 exactly on continuous data.
+- New returns on both commands: `r(tie_multiplicity)`, `r(n_event_times)`, `r(n_modeled_events)`. Returned rather than only displayed so the contract is assertable without parsing output.
+- **The default is unchanged.** Breslow remains what `stcox` and this package use when `efron` is absent. Flipping it would silently move every existing analysis. What is new is that the package now tells you when the choice matters for your data.
+- New helper `_iivw_tie_density.ado`, shared by both commands so the measurement and the threshold cannot drift apart.
+- `iivw_exogtest`'s `efron` documentation now carries the same guidance as `iivw_weight`'s; it previously had a single sentence with none of the context.
+- QA: `qa/test_iivw_ties.do`, 8 cases. The tie-density measurement, the threshold boundary, the `efron` suppression, the continuous-data negative control, the returns on both commands, and the bootstrap-quietness of the note.
 
 ### v2.3.1 (2026-07-25)
 

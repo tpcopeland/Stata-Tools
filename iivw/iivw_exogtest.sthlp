@@ -181,7 +181,26 @@ and an existing worksheet of the same name is left untouched.
 {dlgtab:Estimation}
 
 {phang}
-{opt efron} uses the Efron method for tied event times in {cmd:stcox}.
+{opt efron} uses the Efron method for tied event times in {cmd:stcox}. The
+default is Breslow, which is {cmd:stcox}'s own default. Efron is more accurate
+when many visits share a time, which is common in clinic data recorded at
+monthly or quarterly granularity, and it matches R's {cmd:coxph()} default. Use
+the same tie method here that you gave {helpb iivw_weight}, or the test
+describes a different visit-intensity model than the one that produced the
+weights.
+
+{phang2}
+The two methods agree exactly when no two visits share a time and diverge as
+tie {it:multiplicity} grows -- the mean number of modeled events per distinct
+event time. The lagged-outcome coefficients, and therefore every p-value in the
+table, move with that choice. {cmd:iivw_exogtest} measures the tie structure
+once for the whole command and prints a note when multiplicity reaches 2; the
+note does not appear when {opt efron} was requested, and it cannot appear on
+continuous visit times, whose multiplicity is exactly 1. The measurement is
+returned regardless, in {cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
+{cmd:r(n_modeled_events)}. See
+{helpb iivw_weight##efron_ties:iivw_weight} for the measured size of the
+divergence.
 
 {phang}
 {opt nolog} suppresses the Cox iteration log.
@@ -378,6 +397,9 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(n_unknown)}}groups fitted but not interpretable{p_end}
 {synopt:{cmd:r(n_tests)}}groups in the Holm family{p_end}
 {synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
+{synopt:{cmd:r(tie_multiplicity)}}modeled events per distinct event time (1 if untied){p_end}
+{synopt:{cmd:r(n_event_times)}}distinct event times in the exogeneity models{p_end}
+{synopt:{cmd:r(n_modeled_events)}}modeled events in the exogeneity models{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}

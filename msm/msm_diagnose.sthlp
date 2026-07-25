@@ -147,12 +147,17 @@ balance summary reports how many covariates are balanced versus imbalanced.
 
 {phang}
 {opt positivity(#)} sets the operational positivity floor. A period whose
-smallest estimated probability of the observed treatment ({cmd:ps_min} in
+smallest estimated probability of the observed treatment ({cmd:obs_min} in
 {cmd:r(support)}) falls below this value is flagged: such probabilities produce
 extreme inverse-probability weights that a marginal treated/untreated count by
-period cannot detect (Cole & Hernan 2008). The default is {cmd:0.01} and the
-value must lie strictly between {cmd:0} and {cmd:0.5}. The count of breaching
-periods is returned in {cmd:r(n_positivity_violations)}.
+period cannot detect (Cole & Hernan 2008). The observed-treatment probability is
+P(A=1) on treated rows and 1-P(A=1) on untreated rows, so the floor catches both
+tails of the propensity distribution; the {cmd:ps_min} column, which bounds
+P(A=1) only, is not used for this test. The default is {cmd:0.01} and the value
+must lie strictly between {cmd:0} and {cmd:0.5}. The count of breaching periods
+is returned in {cmd:r(n_positivity_violations)}, and the smallest
+observed-treatment probability anywhere in the risk set is returned in
+{cmd:r(min_obs_probability)}.
 
 {phang}
 {opt accumulate(name)} appends one summary row for the current weighted panel
@@ -254,7 +259,8 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 {synopt:{cmd:r(n_extreme)}}number of observations with extreme weights (above P99){p_end}
 {synopt:{cmd:r(n_unavailable)}}covariates whose weighted SMD could not be computed{p_end}
 {synopt:{cmd:r(positivity_threshold)}}operational positivity floor used{p_end}
-{synopt:{cmd:r(n_positivity_violations)}}periods whose {cmd:ps_min} falls below the floor{p_end}
+{synopt:{cmd:r(n_positivity_violations)}}periods whose {cmd:obs_min} falls below the floor{p_end}
+{synopt:{cmd:r(min_obs_probability)}}smallest estimated P(observed treatment) in the risk set{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(treatment_balance)}}primary period/history-specific treatment balance{p_end}
@@ -276,13 +282,33 @@ index follows the order supplied to {cmd:balance_covariates()}.
 censoring weight: prior periods retain their uncensoring factors and the
 current period uses the stabilized probability of the observed censoring
 status. {cmd:r(support)} has columns {cmd:period}, {cmd:N}, {cmd:treated},
-{cmd:untreated}, {cmd:ps_min}, {cmd:ps_max}, {cmd:common_lo}, {cmd:common_hi},
-{cmd:n_outside}, and {cmd:ess}.
+{cmd:untreated}, {cmd:ps_min}, {cmd:ps_max}, {cmd:obs_min}, {cmd:common_lo},
+{cmd:common_hi}, {cmd:n_outside}, and {cmd:ess}.
+
+{pstd}
+{cmd:ps_min} and {cmd:ps_max} bound the estimated P(A=1) in the period.
+{cmd:obs_min} is the smallest estimated probability of the treatment each
+subject was actually observed to take -- P(A=1) on treated rows and 1-P(A=1) on
+untreated rows -- and it is the column the {opt positivity(#)} floor is applied
+to. The two answer different questions: a period in which everyone is
+comfortably untreated has a small {cmd:ps_min} and no positivity problem, while
+a period in which untreated rows sit at P(A=1) near 1 has a large {cmd:ps_min}
+and a severe one. Only {cmd:obs_min} tracks the inverse-probability weight the
+estimator receives. A period containing a risk-set row for which no usable
+treatment probability could be fitted reports {cmd:obs_min} as exactly
+{cmd:0}: estimable probabilities are strictly inside (0,1), so {cmd:0} is an
+unambiguous "no usable probability" sentinel and it trips the floor. That state
+is reachable only under the explicit {cmd:probpolicy(clip)} opt-in in
+{helpb msm_weight}; the default {cmd:probpolicy(error)} refuses earlier.
 
 {pstd}
 The backward-compatible {cmd:r(balance)} has columns {cmd:raw_smd},
 {cmd:weighted_smd}, and {cmd:pct_change}; it pools person-period rows and is
-therefore secondary.
+therefore secondary. Like every other summary this command reports, it is
+computed on the risk set (rows flagged by {cmd:_msm_decision_risk}). Post-event
+and post-censor rows carry the last cumulative weight forward and are never
+seen by the outcome model, so including them could report large residual
+imbalance for a correctly weighted analysis.
 
 {pstd}
 When {opt accumulate(name)} is specified, {cmd:msm_diagnose} also appends one summary row

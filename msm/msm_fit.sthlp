@@ -315,9 +315,21 @@ specified.
 {p2col 5 25 29 2: Scalars}{p_end}
 {synopt:{cmd:e(msm_inf_df)}}t-inference residual df (linear; . for z){p_end}
 {synopt:{cmd:e(msm_n_clusters)}}number of independent clusters in the fit{p_end}
+{synopt:{cmd:e(msm_n_dropped)}}intended risk-set rows the estimator dropped{p_end}
 
 {p2col 5 25 29 2: Matrices}{p_end}
 {synopt:{cmd:e(effects)}}primary-effect estimate and interval{p_end}
+
+{pstd}
+{cmd:e(msm_n_clusters)} counts distinct cluster values among the rows the
+estimator actually kept, not among the rows {cmd:msm_fit} intended to supply.
+The two differ whenever the estimator drops rows of its own accord -- a missing
+{opt out:come_cov()} or {opt tvc:ov()} value, a collinear term, a nonpositive
+weight. {cmd:e(msm_n_dropped)} reports how many intended person-period rows were
+lost that way; it is {cmd:0} when the fitted and intended samples coincide, and
+{cmd:msm_fit} prints a note naming the counts whenever it is not. A
+{cmd:model(cox)} fit refuses outright rather than fitting a subset, so
+{cmd:e(msm_n_dropped)} is always {cmd:0} there.
 
 {pstd}
 {cmd:e(effects)} is a 1 x 4 matrix with columns {cmd:estimate},

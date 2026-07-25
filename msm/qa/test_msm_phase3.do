@@ -274,7 +274,11 @@ capture noisily {
     assert abs(Bt[3, 4]) > 5
     assert sign(Bt[1, 4]) != sign(Bt[2, 4])
     assert rowsof(S) == 2
-    assert colsof(S) == 10
+    * 11 columns since 1.3.0: obs_min was inserted after ps_max. Assert the
+    * names, not just the count, so a future reordering cannot pass silently.
+    assert colsof(S) == 11
+    local scols : colnames S
+    assert "`scols'" == "period N treated untreated ps_min ps_max obs_min common_lo common_hi n_outside ess"
     assert S[1, 2] == 800 & S[2, 2] == 800
     assert S[1, 3] + S[1, 4] == S[1, 2]
     assert S[2, 3] + S[2, 4] == S[2, 2]

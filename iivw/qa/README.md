@@ -115,6 +115,7 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 - `test_iivw_psdash_contract.do`
 - `test_iivw_release_adversarial.do` — release surface: version/date sync, `.pkg` completeness, dev-path leaks, artifact hygiene, isolated install smoke, and the worked examples from every help file. Also gates **SMCL render integrity**: no help-file line may leave a `{...}` directive open across a newline. `iivw_weight.sthlp` shipped exactly that defect in v2.0.0 (`{it:Mean-1` / `normalization}` split across lines 565-566), which renders the markup literally in the Viewer; every existing content check passed it because all the words were still present, in order. The date sync derives the expected distribution date from `iivw.pkg`, **not** from the `iivw.ado` header date — a doc-only render fix legitimately advances the former while every `.ado` is untouched.
 - `test_iivw_literature_invariants.do` — asserts the identities the source papers state, not the ones the code happens to satisfy: `Z ⊆ X` ⇒ stabilized IIW ≡ 1 (B&L p.8), and the stabilized-IPTW mean-one property.
+- `test_iivw_ties.do` — the tie-density axis of the Andersen-Gill visit model. `stcox` defaults to Breslow and both `iivw_weight` and `iivw_exogtest` inherit it; Breslow and Efron agree exactly when no two events share a time and diverge as tie *multiplicity* grows, and every IIW weight is `exp(-xb)` from that fit. Asserts the measurement is arithmetic over the modeled events (entry rows and terminal censoring rows are not events), that the note fires at multiplicity 2 and not below, that `efron` silences the note without silencing the measurement, that `iivw_exogtest` emits it once rather than once per `by()` group, and that a refit bootstrap emits it zero times. T3 and T8(a) are the declared positive controls: continuous times give multiplicity exactly 1 and must stay silent, which is what stops the lazy fix "always warn". Scores **8/8 on 2.4.0 and 2/8 on 2.3.1**; T5 and T7 pass on both by design and are labelled guards, not evidence.
 - `test_iivw_reporting_exports.do`
 - `test_iivw_v200_qagate.do` — the QA harness's own gates: a bad case selector must error rather than silently run nothing, and a suite that executed zero cases must not be reported green.
 - `test_iivw_v105_regressions.do`
@@ -253,10 +254,10 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 | Command | Functional coverage | Validation / parity | Cross-command coverage |
 |---|---|---|---|
 | `iivw` | `test_iivw.do`, release adversarial | version and distribution checks | installed-user smoke |
-| `iivw_weight` | core, expanded, validation guards, adversarial, version regressions | recovery suites and both cross-validation suites | fit, balance, psdash, diagnostic workflow |
+| `iivw_weight` | core, expanded, validation guards, adversarial, version regressions, tie density | recovery suites and both cross-validation suites | fit, balance, psdash, diagnostic workflow |
 | `iivw_balance` | command, reporting exports, adversarial/version regressions | known-answer balance checks | weighting and diagnostic workflow |
 | `iivw_fit` | core, unweighted, adversarial, performance, version regressions | recovery suites and external R parity | fixed/refit-weight bootstrap and psdash workflow |
-| `iivw_exogtest` | command, adversarial, reporting exports | diagnostic known answers | diagnostic workflow |
+| `iivw_exogtest` | command, adversarial, reporting exports, tie density | diagnostic known answers | diagnostic workflow |
 | `iivw_diagnose` | command, reporting exports, version regressions | diagnostic known answers | unweighted/weighted/adjusted workflow |
 
 ## Lane membership

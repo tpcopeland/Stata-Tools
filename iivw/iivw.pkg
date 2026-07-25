@@ -44,4 +44,5 @@ f _iivw_reserve_names.ado
 f _iivw_repost_outcome_n.ado
 f _iivw_require_converged.ado
 f _iivw_require_draw_converged.ado
+f _iivw_tie_density.ado
 f _iivw_weight_signature.ado

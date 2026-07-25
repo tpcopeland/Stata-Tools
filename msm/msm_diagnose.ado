@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.2.4  2026/07/23
+*! msm_diagnose Version 1.3.0  2026/07/25
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -30,7 +30,16 @@ program define msm_diagnose, rclass
     set varabbrev off
     set more off
 
+    * The longitudinal balance block below uses bysort over each individual's
+    * history, which leaves the caller's observations in id/period order. Capture
+    * the incoming order now and restore it on every exit path (audit A06). Every
+    * other sorting command in the suite already does this; msm_diagnose was the
+    * one that silently handed the caller back a re-sorted dataset.
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     syntax [, BALance_covariates(varlist numeric) BY_period THReshold(real 0.1) ///
               ACCUMulate(name) CONTrast(string) OUTcome(string) ///
@@ -218,12 +227,23 @@ program define msm_diagnose, rclass
         * baseline decision. Balance is therefore assessed within period and
         * prior-treatment stratum; a pooled person-period SMD can cancel
         * opposite imbalances and is retained only as a secondary summary.
-        tempvar _hist _tb_use _diag_w2
+        tempvar _hist _tb_use _diag_w2 _p_obs
         quietly summarize `period', meanonly
         local _min_period = r(min)
-        bysort `id' (`period'): gen double `_hist' = `treatment'[_n-1]
-        replace `_hist' = -1 if `period' == `_min_period'
-        gen double `_diag_w2' = _msm_weight^2
+        quietly bysort `id' (`period'): gen double `_hist' = `treatment'[_n-1]
+        quietly replace `_hist' = -1 if `period' == `_min_period'
+        quietly gen double `_diag_w2' = _msm_weight^2
+
+        * Estimated probability of the OBSERVED treatment decision (audit A25).
+        * The support columns ps_min/ps_max report the range of P(A=1); that is
+        * NOT the quantity that governs weight stability. An untreated row whose
+        * P(A=1) is near 1 has an observed-decision probability near 0 and
+        * generates an extreme weight, while leaving ps_min untouched. Cole &
+        * Hernan (2008) define the positivity failure on the probability of the
+        * decision the subject actually made, so the floor is applied to this.
+        quietly gen double `_p_obs' = cond(`treatment' == 1, ///
+            _msm_treat_den_raw, 1 - _msm_treat_den_raw) ///
+            if _msm_decision_risk & !missing(`treatment')
 
         tempname _tbal _trow _support _srow
         local _numer_covars : char _dta[_msm_numer_covars]
@@ -235,7 +255,7 @@ program define msm_diagnose, rclass
                 local _cov_idx = 0
                 foreach _x of local balance_covariates {
                     local ++_cov_idx
-                    gen byte `_tb_use' = _msm_decision_risk & ///
+                    quietly gen byte `_tb_use' = _msm_decision_risk & ///
                         `period' == `_p' & `_hist' == `_h' & ///
                         !missing(`treatment')
                     _msm_smd `_x', treatment(`treatment') touse(`_tb_use')
@@ -300,14 +320,33 @@ program define msm_diagnose, rclass
                 `period' == `_p', meanonly
             local _sw2 = r(sum)
             local _pess = cond(`_sw2' > 0, `_sw'^2 / `_sw2', .)
+            * Smallest estimated probability of the observed treatment decision
+            * in this period -- the quantity the positivity floor is defined on.
+            *
+            * A decision-risk row with no usable raw probability is the most
+            * extreme support failure there is, and summarize would simply skip
+            * it, letting the period read as unviolated on the strength of its
+            * remaining rows. Report obs_min as an exact 0 instead: estimable
+            * probabilities are strictly inside (0,1), so 0 is an unambiguous
+            * "no usable probability here" sentinel and it trips the floor. This
+            * is reachable only under the explicit probpolicy(clip) opt-in;
+            * probpolicy(error) refuses in msm_weight before this point.
+            quietly count if _msm_decision_risk & `period' == `_p' & ///
+                !missing(`treatment') & missing(_msm_treat_den_raw)
+            local _n_unusable = r(N)
+            quietly summarize `_p_obs' if _msm_decision_risk & ///
+                `period' == `_p', meanonly
+            local _obsmin = r(min)
+            if r(N) == 0 local _obsmin = .
+            if `_n_unusable' > 0 local _obsmin = 0
             matrix `_srow' = (`_p', `_N', `_Nt', `_Nu', `_psmin', `_psmax', ///
-                `_common_lo', `_common_hi', `_nout', `_pess')
+                `_obsmin', `_common_lo', `_common_hi', `_nout', `_pess')
             matrix `_support' = nullmat(`_support') \ `_srow'
         }
         matrix colnames `_tbal' = period history covariate raw_smd ///
             weighted_smd n_treated n_untreated ess target
         matrix colnames `_support' = period N treated untreated ps_min ps_max ///
-            common_lo common_hi n_outside ess
+            obs_min common_lo common_hi n_outside ess
         capture matrix drop _msm_tbal_matrix
         capture matrix drop _msm_support_matrix
         matrix _msm_tbal_matrix = `_tbal'
@@ -315,29 +354,51 @@ program define msm_diagnose, rclass
         return matrix treatment_balance = `_tbal'
         return matrix support = `_support'
 
-        * Operational positivity (audit A25): flag periods whose smallest estimated
-        * probability of the observed treatment (support ps_min, column 5) falls
-        * below the positivity() floor -- the cells that generate the extreme
-        * weights a marginal by-period support count cannot see (Cole & Hernan
-        * 2008). Returned as a count plus the periods, not just displayed.
+        * Operational positivity (audit A25): flag periods whose smallest
+        * estimated probability of the OBSERVED treatment (support obs_min,
+        * column 7) falls below the positivity() floor -- the cells that generate
+        * the extreme weights a marginal by-period support count cannot see (Cole
+        * & Hernan 2008). Returned as a count plus the periods, not just
+        * displayed.
+        *
+        * This deliberately does NOT read ps_min (column 5). ps_min is the
+        * smallest P(A=1) in the period, which answers a different question: it
+        * fires on a well-supported period in which everyone is comfortably
+        * untreated, and stays silent on a period in which untreated rows sit at
+        * P(A=1) -> 1 and carry observed-decision probabilities near zero. Only
+        * the observed-decision probability tracks the weight the estimator
+        * actually receives.
+        *
         * Read the persisted copy (_msm_support_matrix); `return matrix support'
         * above MOVES the `_support' tempname, so it no longer exists here.
+        quietly summarize `_p_obs' if _msm_decision_risk, meanonly
+        local _min_obs_overall = cond(r(N) == 0, ., r(min))
+        quietly count if _msm_decision_risk & !missing(`treatment') & ///
+            missing(_msm_treat_den_raw)
+        if r(N) > 0 local _min_obs_overall = 0
+
         local _n_pos_viol = 0
         local _pos_viol_periods ""
+        local _pos_viol_min = .
         forvalues _r = 1/`=rowsof(_msm_support_matrix)' {
             local _p_r  = _msm_support_matrix[`_r', 1]
-            local _psmn = _msm_support_matrix[`_r', 5]
-            if !missing(`_psmn') & `_psmn' < `positivity' {
+            local _obmn = _msm_support_matrix[`_r', 7]
+            if !missing(`_obmn') & `_obmn' < `positivity' {
                 local ++_n_pos_viol
                 local _pos_viol_periods "`_pos_viol_periods' `_p_r'"
+                if missing(`_pos_viol_min') | `_obmn' < `_pos_viol_min' ///
+                    local _pos_viol_min = `_obmn'
             }
         }
         local _pos_viol_periods = strtrim("`_pos_viol_periods'")
         return scalar positivity_threshold = `positivity'
         return scalar n_positivity_violations = `_n_pos_viol'
+        return scalar min_obs_probability = `_min_obs_overall'
         if `_n_pos_viol' > 0 {
             display as error "  WARNING: `_n_pos_viol' period(s) breach the operational positivity floor (min P(observed treatment) < `positivity')"
             display as text "    Affected periods: `_pos_viol_periods'"
+            display as text "    Smallest observed-decision probability among them: " ///
+                as result %9.6f `_pos_viol_min'
             display as text "    Estimated probabilities this close to 0 produce extreme weights; consider truncation (an explicit, named choice) or a richer treatment model."
         }
 
@@ -359,21 +420,21 @@ program define msm_diagnose, rclass
             if _rc == 0 {
                 tempname _cbal _crow
                 tempvar _cuncens _cprior _cdiag_w
-                gen double `_cuncens' = ///
+                quietly gen double `_cuncens' = ///
                     (1 - _msm_cens_num_p) / (1 - _msm_cens_den_p) ///
                     if _msm_decision_risk
-                gen double `_cprior' = _msm_cw_weight / `_cuncens' ///
-                    if _msm_decision_risk & `_cuncens' > 0
-                gen double `_cdiag_w' = `_cprior' * `_cuncens' ///
+                quietly gen double `_cprior' = _msm_cw_weight / `_cuncens' ///
+                    if _msm_decision_risk & `_cuncens' > 0 & !missing(`_cuncens')
+                quietly gen double `_cdiag_w' = `_cprior' * `_cuncens' ///
                     if _msm_decision_risk & `censor' == 0
-                replace `_cdiag_w' = `_cprior' * ///
+                quietly replace `_cdiag_w' = `_cprior' * ///
                     (_msm_cens_num_p / _msm_cens_den_p) ///
                     if _msm_decision_risk & `censor' == 1
                 foreach _p of local _diag_periods {
                     local _ccov_idx = 0
                     foreach _x of local balance_covariates {
                         local ++_ccov_idx
-                        gen byte `_tb_use' = _msm_decision_risk & ///
+                        quietly gen byte `_tb_use' = _msm_decision_risk & ///
                             `period' == `_p' & !missing(`censor')
                         _msm_smd `_x', treatment(`censor') touse(`_tb_use')
                         local _craw = `_msm_smd_value'
@@ -385,7 +446,7 @@ program define msm_diagnose, rclass
                         quietly count if `_tb_use' & `censor' == 0
                         local _nuc = r(N)
                         tempvar _cw2
-                        gen double `_cw2' = `_cdiag_w'^2 if `_tb_use'
+                        quietly gen double `_cw2' = `_cdiag_w'^2 if `_tb_use'
                         quietly summarize `_cdiag_w' if `_tb_use', meanonly
                         local _csw = r(sum)
                         quietly summarize `_cw2' if `_tb_use', meanonly
@@ -408,8 +469,15 @@ program define msm_diagnose, rclass
             }
         }
 
+        * The pooled summary is computed on the risk set, like every other
+        * summary in this command (audit A11). Post-event and post-censor rows
+        * carry the last cumulative weight forward and are never seen by the
+        * estimator; letting them into the pooled SMD meant appending
+        * analytically irrelevant follow-up could change the reported balance.
+        tempvar _pool_use
+        quietly gen byte `_pool_use' = _msm_decision_risk
         display as text ""
-        display as text "{bf:Secondary pooled person-period balance (backward compatibility)}"
+        display as text "{bf:Secondary pooled person-period balance (risk set, backward compatibility)}"
         display as text ""
         display as text %20s "Covariate" "  " ///
             %12s "Unweighted" "  " %12s "Weighted" "  " %8s "Change"
@@ -428,11 +496,12 @@ program define msm_diagnose, rclass
             local ++cov_idx
 
             * Unweighted SMD
-            _msm_smd `var', treatment(`treatment')
+            _msm_smd `var', treatment(`treatment') touse(`_pool_use')
             local smd_uw = `_msm_smd_value'
 
             * Weighted SMD
-            _msm_smd `var', treatment(`treatment') weight(_msm_weight)
+            _msm_smd `var', treatment(`treatment') weight(_msm_weight) ///
+                touse(`_pool_use')
             local smd_w = `_msm_smd_value'
 
             * Percent change is undefined when the unweighted SMD is ~0: leave it
@@ -561,6 +630,11 @@ program define msm_diagnose, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    * Restore the caller's observation order on success and on every error path.
+    capture _msm_restore_order `_msm_orig_order'
+    local _order_rc = _rc
+    if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
     set varabbrev `_varabbrev'
     set more `_more'

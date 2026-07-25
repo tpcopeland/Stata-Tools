@@ -1,4 +1,4 @@
-*! msm_protocol Version 1.2.4  2026/07/23
+*! msm_protocol Version 1.3.0  2026/07/25
 *! MSM study protocol specification
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -1,4 +1,4 @@
-*! iivw_weight Version 2.3.1  2026/07/25
+*! iivw_weight Version 2.4.0  2026/07/25
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -923,6 +923,12 @@ program define iivw_weight, rclass sortpreserve
         local __iivw_stab_N = 0
         local __iivw_n_cens_rows = 0
         local __iivw_visit_hold_ok = 0
+        * Initialized before the captured block: the return block reads them
+        * unconditionally, and a visit model that errors early must not take
+        * the returns down with it.
+        local __iivw_tie_mult   = .
+        local __iivw_tie_ntimes = 0
+        local __iivw_tie_nev    = 0
         capture _estimates hold `__iivw_visit_est', nullok
         if _rc == 0 {
             local __iivw_visit_hold_ok = 1
@@ -1060,6 +1066,32 @@ program define iivw_weight, rclass sortpreserve
             * exit(time .) allows multiple events per subject
             stset `_stop', enter(time `_start') failure(`_event') ///
                 id(`id') exit(time .)
+
+            * ---------------------------------------------------------------
+            * Tie density, measured before the fit so the advice reaches the
+            * user beside the model it is about. See _iivw_tie_density.ado for
+            * the measured Breslow/Efron divergence and why the threshold is
+            * set on multiplicity rather than on the share of tied events.
+            *
+            * Only when the user did NOT ask for efron: having already chosen
+            * the method, there is nothing to tell them.
+            *
+            * `_cox_ok' & `_event' are the rows stcox will score as events;
+            * `_stop' > `_start' excludes the zero-length intervals stset
+            * drops. Under a refit bootstrap the whole iivw_weight call is
+            * wrapped in `quietly', which suppresses the callee's `noisily',
+            * so this cannot print once per draw.
+            * ---------------------------------------------------------------
+            tempvar _tie_touse
+            gen byte `_tie_touse' = (`_cox_ok' & `_stop' > `_start')
+            local __iivw_tie_note = cond("`efron_opt'" == "", "", "nonote")
+            _iivw_tie_density, event(`_event') stop(`_stop') ///
+                touse(`_tie_touse') cmdname(visit-intensity) ///
+                `__iivw_tie_note'
+            local __iivw_tie_mult   = r(tie_multiplicity)
+            local __iivw_tie_ntimes = r(n_event_times)
+            local __iivw_tie_nev    = r(n_modeled_events)
+            drop `_tie_touse'
 
             stcox `visit_covars' if `_cox_ok', `log_opt' `efron_opt'
             local __iivw_visit_converged = e(converged)
@@ -2130,6 +2162,16 @@ program define iivw_weight, rclass sortpreserve
         return scalar visit_N = `__iivw_visit_N'
         return scalar visit_N_sub = `__iivw_visit_Nsub'
         return scalar stab_N = `__iivw_stab_N'
+
+        * Tie density of the fitted visit-intensity model. Returned, not just
+        * displayed, so the tie contract is assertable without parsing output
+        * and so a caller can gate on it. tie_multiplicity is exactly 1 when no
+        * two modeled events share a time; the note fires at the threshold
+        * defined once in _iivw_tie_density.ado.
+        return scalar tie_multiplicity = `__iivw_tie_mult'
+        return scalar n_event_times = `__iivw_tie_ntimes'
+        return scalar n_modeled_events = `__iivw_tie_nev'
+
         return matrix visit_b = `__iivw_bmat'
     }
     if inlist("`wtype'", "iptw", "fiptiw") {

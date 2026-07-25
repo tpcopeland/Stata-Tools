@@ -1,4 +1,4 @@
-*! _msm_tbl_bal Version 1.2.4  2026/07/23
+*! _msm_tbl_bal Version 1.3.0  2026/07/25
 *! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_bal, nclass
     version 16.0

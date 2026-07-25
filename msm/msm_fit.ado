@@ -1,4 +1,4 @@
-*! msm_fit Version 1.2.4  2026/07/23
+*! msm_fit Version 1.3.0  2026/07/25
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -395,28 +395,18 @@ program define msm_fit, eclass
             exit 198
         }
     }
-    * Count independent clusters among fitted rows.
+    * Resolve the clustering variable for the post-fit cluster count. The count
+    * itself is deferred until after estimation: the estimator can drop rows the
+    * intended sample contains (a missing outcome_cov, a collinear stratum), and
+    * a count taken here would describe a sample the VCE never saw.
     local _clustvar "`id'"
     if "`vce_type'" == "cluster" local _clustvar "`vce_cluster'"
     if "`vce_type'" == "robust" local _clustvar ""
-    if "`_clustvar'" != "" {
-        * Count distinct cluster values among fitted rows. The naive
-        * `bysort clustvar: gen (_n==1) if _esample' undercounts when a cluster's
-        * first sorted row is outside the fit sample (the tag lands on a dropped
-        * row). Sorting the estimation-sample rows together first
-        * (`bysort _esample clustvar') guarantees the tagged row is in-sample,
-        * so the count is correct (audit A21). A plain `sort`-based tag is used
-        * rather than egen tag(), whose internal sort perturbs the sort-tie state
-        * and breaks msm_predict's cross-run reproducibility (test_msm_expanded F5).
-        tempvar _ctag
-        quietly bysort `_esample' `_clustvar' : gen byte `_ctag' = (`_esample' & _n == 1)
-        quietly count if `_ctag'
-        local _n_indep_clusters = r(N)
-    }
-    else {
-        quietly count if `_esample'
-        local _n_indep_clusters = r(N)
-    }
+
+    * Intended estimation-sample size, for the fitted-vs-intended reconciliation
+    * after the model runs.
+    quietly count if `_esample'
+    local _n_intended_rows = r(N)
 
     * The VCE-metadata steps above sort the data (by id, cluster, ...), and a
     * sort with ties leaves the rows in a sort-tie-state-dependent order. If the
@@ -834,6 +824,58 @@ program define msm_fit, eclass
     gen byte _msm_esample = e(sample)
     label variable _msm_esample "In estimation sample"
 
+    * =========================================================================
+    * RECONCILE THE FITTED SAMPLE WITH THE INTENDED ONE
+    *
+    * The estimator can drop rows the risk-set marker retained -- a missing
+    * outcome_cov(), a collinear stratum, a nonpositive weight. The Cox branch
+    * already refuses a silent subset because a dropped row there means the time
+    * scale is wrong. For glm/regress a smaller complete-case sample is a
+    * legitimate analysis, but it must be VISIBLE and the stored metadata must
+    * describe the sample the VCE actually used, not the one that was requested.
+    * The old code counted clusters from the intended sample before estimating,
+    * so e(msm_n_clusters) reported 400 while Stata's own header said 360.
+    * =========================================================================
+
+    quietly count if _msm_esample
+    local _n_fitted_rows = r(N)
+    local _n_dropped_rows = `_n_intended_rows' - `_n_fitted_rows'
+
+    * Count independent clusters among the rows the estimator actually kept. The
+    * naive `bysort clustvar: gen (_n==1) if _msm_esample' undercounts when a
+    * cluster's first sorted row is outside the fit sample (the tag lands on a
+    * dropped row). Sorting the estimation-sample rows together first
+    * (`bysort _msm_esample clustvar') guarantees the tagged row is in-sample, so
+    * the count is correct (audit A21). A plain `sort`-based tag is used rather
+    * than egen tag(), whose internal sort perturbs the sort-tie state and breaks
+    * msm_predict's cross-run reproducibility (test_msm_expanded F5).
+    if "`_clustvar'" != "" {
+        tempvar _ctag
+        quietly bysort _msm_esample `_clustvar' : gen byte `_ctag' = ///
+            (_msm_esample & _n == 1)
+        quietly count if `_ctag'
+        local _n_indep_clusters = r(N)
+        drop `_ctag'
+    }
+    else {
+        local _n_indep_clusters = `_n_fitted_rows'
+    }
+
+    * The cluster tag above sorts the data; restore the deterministic incoming
+    * order so downstream stages and the caller see the order msm_fit was given.
+    quietly sort `_msm_orig_order'
+
+    if `_n_dropped_rows' > 0 {
+        display as text ""
+        display as text "Note: the estimator dropped " as result `_n_dropped_rows' ///
+            as text " of " as result `_n_intended_rows' as text ///
+            " intended person-period row(s)."
+        display as text "      Usually missing outcome_cov()/tvcov() values or a collinear term."
+        display as text "      Fitted rows: " as result `_n_fitted_rows' ///
+            as text "; independent clusters: " as result `_n_indep_clusters' as text "."
+        display as text "      See {cmd:e(msm_n_dropped)} and {cmd:e(msm_n_clusters)}."
+    }
+
     * Refitting invalidates predictions and sensitivity results: they were
     * computed from the coefficients this fit just replaced (audit A03).
     _msm_invalidate, from(fit)
@@ -1030,8 +1072,11 @@ program define msm_fit, eclass
     ereturn local msm_vce "`vce_type'"
     ereturn local msm_cluster "`vce_cluster'"
     ereturn local msm_strata "`strata'"
-    * Number of independent clusters used for the robust/clustered VCE (audit A21).
+    * Number of independent clusters used for the robust/clustered VCE (audit
+    * A21), counted on the rows the estimator kept, and the number of intended
+    * rows it dropped (0 when the fitted and intended samples coincide).
     ereturn scalar msm_n_clusters = `_n_indep_clusters'
+    ereturn scalar msm_n_dropped = `_n_dropped_rows'
 
     * Build e(effects) matrix for effecttab integration
     tempname _msm_b _msm_V _msm_effects

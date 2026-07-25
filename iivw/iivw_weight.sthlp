@@ -533,6 +533,7 @@ returned: {cmd:r(n_missing_weight)}, {cmd:r(n_ids_missing_weight)}, and -- when
 {opt treat()} is present -- {cmd:r(n_lost_treated)},
 {cmd:r(n_lost_untreated)} and the two corresponding percentages. Report them.
 
+{marker efron_ties}{...}
 {phang}
 {opt efron} uses the Efron method for handling tied event times in the Andersen-Gill
 Cox model. The default is Breslow. Efron is more accurate when there are many
@@ -540,6 +541,26 @@ tied visit times, which is common in clinic data where visits are recorded at
 monthly or quarterly granularity. This option also matches R's {cmd:coxph()}
 default, which is useful when cross-validating results against R. This option
 is allowed only for IIW or FIPTIW weights.
+
+{phang2}
+The two methods agree exactly when no two visits share a time, and diverge as
+tie {it:multiplicity} grows -- the mean number of modeled events per distinct
+event time. Because the weights are {cmd:exp(-xb)} from this model, the
+divergence is not confined to the visit model: it rescales the whole weighted
+analysis. On a known-truth check (true coefficient 0.8), rounding visit times
+onto a grid produced a multiplicity of 126 events per distinct time and fitted
+coefficients of 0.41 under Breslow against 0.62 under Efron.
+
+{phang2}
+{cmd:iivw_weight} therefore measures the tie structure of every fit and prints a
+note when multiplicity reaches 2 -- the point at which {opt time()} is a coarse
+grid rather than a continuous measurement. The note does not appear when
+{opt efron} was requested, and it cannot appear on continuous visit times, whose
+multiplicity is exactly 1. The measurement is returned regardless, in
+{cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
+{cmd:r(n_modeled_events)}, so it can be checked without reading the log. The
+default is not changed by this: Breslow remains in force unless {opt efron} is
+typed.
 
 
 {marker wtypes}{...}
@@ -1102,6 +1123,9 @@ than the default Breslow method.
 {synopt:{cmd:r(visit_N)}}intervals in the visit-intensity risk set{p_end}
 {synopt:{cmd:r(visit_N_sub)}}subjects in the visit-intensity risk set{p_end}
 {synopt:{cmd:r(stab_N)}}intervals in the stabilization (numerator) model{p_end}
+{synopt:{cmd:r(tie_multiplicity)}}modeled events per distinct event time (1 if untied){p_end}
+{synopt:{cmd:r(n_event_times)}}distinct event times in the visit-intensity model{p_end}
+{synopt:{cmd:r(n_modeled_events)}}modeled events in the visit-intensity model{p_end}
 {synopt:{cmd:r(ps_N)}}subjects in the propensity model (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(ps_prevalence)}}treatment prevalence in the propensity model's sample{p_end}
 {synopt:{cmd:r(ps_min)}}minimum treatment propensity score (IPTW/FIPTIW){p_end}

@@ -1945,13 +1945,66 @@ else {
 * =============================================================================
 
 * --- D1: Version consistency ---
+*
+* Derived, not pinned. A hardcoded literal here has to be edited on every bump
+* and therefore proves only that someone edited it. What actually needs
+* guarding is the `local version' literal inside msm.ado drifting away from the
+* shipped metadata -- the most-relapsed defect class in this repo. So read the
+* version out of the flagship help file and the .ado headers, and require the
+* dispatcher's r(version) to agree with both.
 local ++test_count
 capture noisily {
+    local _qa_dir "`c(pwd)'"
+    local _pkg_dir "`_qa_dir'/.."
+
+    * Flagship .sthlp header: {* *! version X.Y.Z  DDmonYYYY}{...}
+    tempname _vfh
+    local _sthlp_version ""
+    file open `_vfh' using "`_pkg_dir'/msm.sthlp", read text
+    file read `_vfh' _vline
+    while r(eof) == 0 & "`_sthlp_version'" == "" {
+        if regexm(`"`_vline'"', "\*! *version +([0-9]+\.[0-9]+\.[0-9]+)") {
+            local _sthlp_version = regexs(1)
+        }
+        file read `_vfh' _vline
+    }
+    file close `_vfh'
+    assert "`_sthlp_version'" != ""
+
+    * The dispatcher reports the same version it ships under.
     msm
-    assert "`r(version)'" == "1.2.4"
+    assert "`r(version)'" == "`_sthlp_version'"
+
+    * Every shipped .ado header agrees, including the helpers.
+    local _adofiles : dir "`_pkg_dir'" files "*.ado"
+    local _n_ado = 0
+    foreach _f of local _adofiles {
+        local ++_n_ado
+        file open `_vfh' using "`_pkg_dir'/`_f'", read text
+        file read `_vfh' _vline
+        file close `_vfh'
+        assert regexm(`"`_vline'"', "Version +([0-9]+\.[0-9]+\.[0-9]+)")
+        assert regexs(1) == "`_sthlp_version'"
+    }
+    assert `_n_ado' > 40
+
+    * The .pkg carries a Distribution-Date in the shipped format.
+    local _pkgdate ""
+    file open `_vfh' using "`_pkg_dir'/msm.pkg", read text
+    file read `_vfh' _vline
+    while r(eof) == 0 & "`_pkgdate'" == "" {
+        * regexm() has no interval quantifier -- "{8}" silently never matches
+        * (ustrregexm() does support it). Spell the eight digits out.
+        if regexm(`"`_vline'"', "Distribution-Date: *([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])") {
+            local _pkgdate = regexs(1)
+        }
+        file read `_vfh' _vline
+    }
+    file close `_vfh'
+    assert "`_pkgdate'" != ""
 }
 if _rc == 0 {
-    display as result "  PASS D1: msm version is 1.2.4"
+    display as result "  PASS D1: msm version is consistent across .sthlp, .ado headers, and r(version)"
     local ++pass_count
 }
 else {

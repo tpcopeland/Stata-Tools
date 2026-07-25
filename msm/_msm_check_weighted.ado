@@ -1,4 +1,4 @@
-*! _msm_check_weighted Version 1.2.4  2026/07/23
+*! _msm_check_weighted Version 1.3.0  2026/07/25
 *! Require a complete, current weighting artifact
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -25,6 +25,7 @@ suite=test_msm_psdash_contract rc=0
 suite=test_export_surface rc=0
 suite=test_msm_diagtab rc=0
 suite=test_msm_output_adversarial rc=0
+suite=test_msm_diagnostic_contracts rc=0
 suite=test_msm_abbrev_reload rc=0
 suite=validation_msm rc=0
 suite=validation_msm_known_answers rc=0
@@ -35,5 +36,5 @@ suite=validation_msm_dgp_recovery rc=0
 suite=validation_msm_phase3_recovery rc=0
 suite=crossval_msm rc=0
 suite=crossval_external_models rc=0
-suites=36 passed=36 failed=0
+suites=37 passed=37 failed=0
 failed_suites=

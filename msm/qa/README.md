@@ -53,6 +53,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `test_export_surface.do` | Export surfaces and package-root artifact hygiene |
 | `test_msm_diagtab.do` | Accumulated diagnostics and Excel export |
 | `test_msm_output_adversarial.do` | Output failure restoration and hostile workbook paths |
+| `test_msm_diagnostic_contracts.do` | 1.3.0 regressions: positivity floor measured on P(observed treatment), risk-set pooled balance, `msm_diagnose` order restoration and console hygiene, and fit metadata (`e(msm_n_clusters)`, `e(msm_n_dropped)`) describing the sample the estimator kept |
 | `test_msm_abbrev_reload.do` | Option abbreviations, program reload, and session settings |
 
 ### Validation suites
