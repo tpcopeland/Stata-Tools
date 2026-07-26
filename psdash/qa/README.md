@@ -39,7 +39,7 @@ The `quick` lane runs:
 - `test_multigroup_detect.do`, `test_multigroup_overlap_support.do`, `test_multigroup_balance_weights.do`, `test_multigroup_psvars_regression.do`
 - `test_adversarial.do`, `test_detect_dispatch_adversarial.do`, `test_binary_balance_weights_adversarial.do`, `test_overlap_support_multigroup_adversarial.do`
 - `test_v130_features.do`, `test_v140_features.do`, `test_v141_features.do`
-- `test_rb01_verdict.do`, `test_rb02_gps_positivity.do`, `test_rb03_factor_expansion.do`, `test_rb0405_teffects_sample.do`, `test_rb06_estimand.do`, `test_rb08_vr_count.do`, `test_rb09_weight_thresholds.do`, `test_rb10_longitudinal.do`, `test_rb11_trim_guard.do`
+- `test_rb01_verdict.do`, `test_rb02_gps_positivity.do`, `test_rb03_factor_expansion.do`, `test_rb0405_teffects_sample.do`, `test_rb06_estimand.do`, `test_rb08_vr_count.do`, `test_rb09_weight_thresholds.do`, `test_rb10_longitudinal.do`, `test_rb11_trim_guard.do`, `test_rb12_kimi_audit.do`
 - `test_remaining_audit_regressions.do`, `test_excel_fidelity.do`, `test_return_surface_remaining.do`
 
 The `external` lane runs `crossval_psdash.do`, `crossval_python_psdash.do`, and `crossval_external_references.do`.

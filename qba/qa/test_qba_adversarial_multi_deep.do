@@ -24,8 +24,21 @@ local orig_varabbrev "`c(varabbrev)'"
 tempfile plus_stub personal_stub
 local plusdir "`plus_stub'_dir"
 local personaldir "`personal_stub'_dir"
-mkdir "`plusdir'"
-mkdir "`personaldir'"
+* A Stata process that aborted before its cleanup leaves this exact
+* tempfile-derived name behind, and tempfile names are keyed to the PID, which
+* the OS recycles. A bare mkdir onto an existing directory is r(693) -- a
+* spurious failure in a later, unrelated run. Clear the stale leftover: the
+* name is this process's own tempfile, so nothing else can own it.
+capture mkdir "`plusdir'"
+if _rc {
+    capture shell rm -rf "`plusdir'"
+    mkdir "`plusdir'"
+}
+capture mkdir "`personaldir'"
+if _rc {
+    capture shell rm -rf "`personaldir'"
+    mkdir "`personaldir'"
+}
 sysdir set PLUS "`plusdir'"
 sysdir set PERSONAL "`personaldir'"
 

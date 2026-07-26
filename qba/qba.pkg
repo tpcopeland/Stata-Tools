@@ -7,7 +7,7 @@ d Supports multi-bias analysis and visualization.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260710
+d Distribution-Date: 20260726
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -38,6 +38,7 @@ f _qba_detect_contract.ado
 f _qba_parse_saving.ado
 f _qba_mc_summary.ado
 f _qba_draw_checked.ado
+f _qba_evalue_scale.ado
 f _qba_flag_misclass_pair.ado
 f _qba_plot_validate_cells.ado
 f _qba_plot_tornado.ado

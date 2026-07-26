@@ -1,4 +1,4 @@
-*! psdash_support Version 1.5.0  2026/07/22
+*! psdash_support Version 1.6.0  2026/07/26
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -51,13 +51,17 @@ STORED RESULTS (multi-group):
     r(N)                    - Total observations
     r(K)                    - Number of treatment groups
     r(N_group_<lev>)        - Per-group observation count
-    r(lower_bound)          - Lower bound of common support
-    r(upper_bound)          - Upper bound of common support
-    r(n_outside)            - Total observations outside support
-    r(pct_outside)          - Percentage outside support
+    r(lower_bound)          - Lower bound of observed-arm PS overlap
+    r(upper_bound)          - Upper bound of observed-arm PS overlap
+    r(n_outside)            - Total observations outside observed-arm overlap
+    r(pct_outside)          - Percentage outside observed-arm overlap
     r(n_outside_group_<lev>)- Per-group outside counts
-    r(trim_lower)           - Trimming lower bound (if threshold)
-    r(trim_upper)           - Trimming upper bound (if threshold)
+    r(min_gps)              - Smallest min_j e_j(X) over all units
+    r(min_gps_group_<lev>)  - Smallest e_<lev>(X) over all units
+    r(n_gps_violate)        - Units with min_j e_j(X) < gpsfloor()
+    r(pct_gps_violate)      - Percentage of units below the GPS floor
+    r(gps_floor)            - GPS positivity floor used
+    r(trim_lower)           - Trimming floor on every GPS component (if threshold)
     r(n_trimmed)            - Observations trimmed (if threshold)
     r(pct_trimmed)          - Percentage trimmed (if threshold)
     r(treatment)            - Treatment variable name
@@ -814,17 +818,21 @@ program define psdash_support, rclass
     local pct_trimmed = 0
     local has_trimming = 0
 
+    * min_j e_j(X) is the multi-arm support quantity for BOTH the trimmed and the
+    * untrimmed indicator (RB-12), so build it unconditionally rather than only
+    * inside the trimming branch.
+    tempvar _psd_min_gps
+    local _first_gps : word 1 of `_mg_group_psvars'
+    quietly gen double `_psd_min_gps' = `_first_gps' if `touse'
+    foreach _gps of local _mg_group_psvars {
+        quietly replace `_psd_min_gps' = min(`_psd_min_gps', `_gps') if `touse'
+    }
+
     if `threshold' != -1 {
         local has_trimming = 1
         local trim_lower = `threshold'
         local trim_upper = 1 - `threshold'
 
-        tempvar _psd_min_gps
-        local _first_gps : word 1 of `_mg_group_psvars'
-        quietly gen double `_psd_min_gps' = `_first_gps' if `touse'
-        foreach _gps of local _mg_group_psvars {
-            quietly replace `_psd_min_gps' = min(`_psd_min_gps', `_gps') if `touse'
-        }
         quietly {
             count if `_psd_min_gps' < `trim_lower' & `touse'
             local n_trimmed = r(N)
@@ -841,7 +849,7 @@ program define psdash_support, rclass
         quietly count if `_psd_retain_mg'
         if r(N) == 0 {
             display as error "trimming removed every observation (`=string(`pct_trimmed',"%4.1f")'% excluded)"
-            display as error "  no analysis sample remains after trimming to [`=string(`trim_lower',"%5.3f")', `=string(`trim_upper',"%5.3f")']."
+            display as error "  no unit has every GPS component >= `=string(`trim_lower',"%5.3f")'."
             exit 459
         }
         foreach lev of local levels {
@@ -865,9 +873,15 @@ program define psdash_support, rclass
             label variable `generate' "All GPS components >= `=string(`trim_lower', "%5.3f")'"
         }
         else {
-            quietly gen byte `generate' = ///
-                (`obs_ps' >= `lower_bound' & `obs_ps' <= `upper_bound') if `touse'
-            label variable `generate' "In common support [`=string(`lower_bound', "%5.3f")', `=string(`upper_bound', "%5.3f")']"
+            * RB-12: the untrimmed multi-group indicator used to materialize the
+            * observed-arm min-max rule that the panel two screens below labels
+            * "informational only; NOT a valid multi-arm common-support rule" --
+            * so generate() handed the user a variable built from the rule the
+            * command disowns, marking GPS-positivity violators as in-support.
+            * Use the panel's own primary diagnostic instead: every component of
+            * the GPS vector at or above gpsfloor() (Li & Li 2019, Assumption 2).
+            quietly gen byte `generate' = (`_psd_min_gps' >= `gpsfloor') if `touse'
+            label variable `generate' "All GPS components >= `=string(`gpsfloor', "%5.3f")'"
         }
     }
 
@@ -959,8 +973,11 @@ program define psdash_support, rclass
         display as text "Manual Threshold Trimming"
         display as text "{hline 55}"
         display as text "Threshold:             " as result %10.4f `threshold'
-        display as text "Trim region:           " ///
-            as result "[`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+        * RB-12: multi-group trimming applies a LOWER floor to every GPS
+        * component (min_j e_j >= t); there is no upper cut, so displaying a
+        * two-sided "[t, 1-t]" region described a rule the code never applies.
+        display as text "Trim floor:            " ///
+            as result "`=string(`trim_lower', "%5.3f")'" as text " (every GPS component)"
         display as text "Observations trimmed:  " ///
             as result %10.0f `n_trimmed' as text " (" as result %5.2f `pct_trimmed' as text "%)"
         display as text "Remaining sample:      " as result %10.0f `=`N' - `n_trimmed''
@@ -1025,7 +1042,8 @@ program define psdash_support, rclass
                 * Build xline options
                 local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(dash))"
                 if `has_trimming' {
-                    local xlines "`xlines' xline(`trim_lower' `trim_upper', lcolor(red) lpattern(shortdash))"
+                    * RB-12: one-sided floor only; no upper cut to draw.
+                    local xlines "`xlines' xline(`trim_lower', lcolor(red) lpattern(shortdash))"
                 }
 
                 local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
@@ -1071,11 +1089,13 @@ program define psdash_support, rclass
                 local _xk `"`_xk' "N (group `lev')" "Min PS (group `lev')" "Max PS (group `lev')" "Outside (group `lev')""'
                 local _xv `"`_xv' "`n_group_`lev''" "`=string(`min_ps_`lev'',"%6.4f")'" "`=string(`max_ps_`lev'',"%6.4f")'" "`n_outside_`lev''""'
             }
-            local _xk `"`_xk' "Lower bound" "Upper bound" "Outside support (N)" "Outside support (%)""'
+            local _xk `"`_xk' "Min GPS (worst unit)" "GPS floor" "Below GPS floor (N)" "Below GPS floor (%)""'
+            local _xv `"`_xv' "`=string(`min_gps',"%6.4f")'" "`=string(`gpsfloor',"%6.4f")'" "`n_gps_violate'" "`=string(`pct_gps_violate',"%5.2f")'""'
+            local _xk `"`_xk' "Observed-arm overlap lower" "Observed-arm overlap upper" "Outside observed-arm overlap (N)" "Outside observed-arm overlap (%)""'
             local _xv `"`_xv' "`=string(`lower_bound',"%6.4f")'" "`=string(`upper_bound',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
             if `has_trimming' {
-                local _xk `"`_xk' "Trim lower" "Trim upper" "Trimmed (N)" "Trimmed (%)" "Remaining N""'
-                local _xv `"`_xv' "`=string(`trim_lower',"%6.4f")'" "`=string(`trim_upper',"%6.4f")'" "`n_trimmed'" "`=string(`pct_trimmed',"%5.2f")'" "`=`N'-`n_trimmed''""'
+                local _xk `"`_xk' "Trim floor (every GPS component)" "Trimmed (N)" "Trimmed (%)" "Remaining N""'
+                local _xv `"`_xv' "`=string(`trim_lower',"%6.4f")'" "`n_trimmed'" "`=string(`pct_trimmed',"%5.2f")'" "`=`N'-`n_trimmed''""'
             }
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
                 title("`title'") keys(`_xk') vals(`_xv')
@@ -1156,8 +1176,11 @@ program define psdash_support, rclass
             return scalar pct_gps_violate = `pct_gps_violate'
             return scalar gps_floor = `gpsfloor'
             if `has_trimming' {
+                * RB-12: multi-group trimming is a one-sided floor on every GPS
+                * component. There is no upper cut, so r(trim_upper) (= 1 -
+                * threshold) described a bound the code never applied and is not
+                * returned here. r(trim_lower) is that floor.
                 return scalar trim_lower = `trim_lower'
-                return scalar trim_upper = `trim_upper'
                 return scalar n_trimmed = `n_trimmed'
                 return scalar pct_trimmed = `pct_trimmed'
                 return scalar N_remaining = `N' - `n_trimmed'

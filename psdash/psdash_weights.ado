@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.5.0  2026/07/22
+*! psdash_weights Version 1.6.0  2026/07/26
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -424,6 +424,24 @@ program define psdash_weights, rclass
     }
     if "`stabilize'" != "" & (`trim' != 0 | `truncate' != 0) {
         display as error "cannot combine stabilize with trim() or truncate()"
+        exit 198
+    }
+    * RB-12: stabilize multiplies each arm's weights by that arm's marginal
+    * treatment probability -- the ATE stabilization sw = P(A=a)/P(A=a|X), which
+    * is defined only on the 1/PS scale. ATT and ATC weights are odds ratios with
+    * a constant weight of 1 in the target arm; no stabilization of this form
+    * exists for them. The old code applied the ATE formula regardless and printed
+    * its cautionary note ONLY for user-supplied weights, so auto-generated
+    * ATT/ATC weights were silently rescaled at rc=0. Refuse when the estimand is
+    * known not to be ATE; keep the note when the supplied weights' scale is
+    * unknown.
+    if "`stabilize'" != "" & "`wvar_auto'" == "1" ///
+        & inlist("`estimand'", "att", "atc") {
+        display as error "stabilize is not defined for estimand(`estimand') weights"
+        display as error "  stabilize rescales unstabilized 1/PS (ATE) weights by the marginal"
+        display as error "  P(treatment); `estimand' weights are already normalized to 1 in the"
+        display as error "  target arm, so that formula does not apply."
+        display as error "  use estimand(ate) with stabilize, or trim()/truncate() for `estimand'."
         exit 198
     }
 
@@ -872,6 +890,18 @@ program define psdash_weights, rclass
     }
     if "`stabilize'" != "" & (`trim' != 0 | `truncate' != 0) {
         display as error "cannot combine stabilize with trim() or truncate()"
+        exit 198
+    }
+    * RB-12 (multi-group): see the binary branch. Multi-arm ATT weights are
+    * e_ref(X)/e_own(X) with weight 1 in the reference arm, so the per-arm
+    * marginal rescaling stabilize applies is an ATE-only operation here too.
+    if "`stabilize'" != "" & "`wvar_auto'" == "1" ///
+        & inlist("`estimand'", "att", "atc") {
+        display as error "stabilize is not defined for estimand(`estimand') weights"
+        display as error "  stabilize rescales unstabilized 1/GPS (ATE) weights by the marginal"
+        display as error "  P(A=a); `estimand' weights are already normalized to 1 in the target"
+        display as error "  arm, so that formula does not apply."
+        display as error "  use estimand(ate) with stabilize, or trim()/truncate() for `estimand'."
         exit 198
     }
 

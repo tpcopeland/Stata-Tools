@@ -1,4 +1,4 @@
-*! _msm_natural_spline Version 1.3.0  2026/07/25
+*! _msm_natural_spline Version 1.4.0  2026/07/26
 *! Generate natural spline basis variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -75,10 +75,10 @@ program define _msm_natural_spline
             quietly levelsof `x' if `touse', local(_xlev)
             local _n_distinct : word count `_xlev'
             if `df' > `_n_distinct' - 1 {
-                display as error "period_spec(ns(`df')) needs at least " ///
-                    `=`df'+1' " distinct periods in the fit sample, but only " ///
+                display as error "a natural spline with ns(`df') needs at least " ///
+                    `=`df'+1' " distinct `x' values in the fit sample, but only " ///
                     "`_n_distinct' are supported"
-                display as error "Reduce df or use a lower-order period_spec()."
+                display as error "Reduce df or use a lower-order period spec."
                 exit 198
             }
             local _kprev = `knot0'

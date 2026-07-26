@@ -32,39 +32,39 @@
 {synoptline}
 {syntab:Plot type (choose exactly one)}
 {synopt:{opt tor:nado}}tornado sensitivity plot{p_end}
-{synopt:{opt dist:ribution}}histogram and kernel density of Monte Carlo results{p_end}
+{synopt:{opt dist:ribution}}Monte Carlo histogram/density{p_end}
 {synopt:{opt tip:ping}}tipping point heatmap{p_end}
 
 {syntab:Data (tornado and tipping)}
 {synopt:{opt a(#)} {opt b(#)} {opt c(#)} {opt d(#)}}2x2 table cells{p_end}
 {synopt:{opt ty:pe(exposure|outcome)}}misclassification type; default {cmd:exposure}{p_end}
-{synopt:{opt mea:sure(OR|RR|coefficient)}}estimate to plot; {cmd:coefficient} is for distribution plots only{p_end}
+{synopt:{opt mea:sure(OR|RR|coefficient)}}estimate to plot{p_end}
 
 {syntab:Parameters to sweep}
-{synopt:{opt param1(name)} {opt range1(# #)}}first parameter and sweep range (required for tornado/tipping){p_end}
-{synopt:{opt param2(name)} {opt range2(# #)}}second parameter and sweep range (required for tipping){p_end}
+{synopt:{opt param1(name)} {opt range1(# #)}}first parameter and range{p_end}
+{synopt:{opt param2(name)} {opt range2(# #)}}second parameter and range{p_end}
 {synopt:{opt param3(name)} {opt range3(# #)}}third parameter (tornado only){p_end}
-{synopt:{opt steps(#)}}grid steps per parameter; default {cmd:20}; minimum {cmd:2}{p_end}
+{synopt:{opt steps(#)}}grid steps; default {cmd:20}{p_end}
 
 {syntab:Baseline values (for non-swept parameters)}
 {synopt:{opt base_se(#)}}baseline sensitivity; default {cmd:0.9}{p_end}
 {synopt:{opt base_sp(#)}}baseline specificity; default {cmd:0.9}{p_end}
-{synopt:{opt base_sela(#)}}baseline selection prob, exposed cases; default {cmd:1}{p_end}
-{synopt:{opt base_selb(#)}}baseline selection prob, unexposed cases; default {cmd:1}{p_end}
-{synopt:{opt base_selc(#)}}baseline selection prob, exposed non-cases; default {cmd:1}{p_end}
-{synopt:{opt base_seld(#)}}baseline selection prob, unexposed non-cases; default {cmd:1}{p_end}
-{synopt:{opt base_p1(#)}}baseline P(confounder | exposed); default {cmd:0.3}{p_end}
-{synopt:{opt base_p0(#)}}baseline P(confounder | unexposed); default {cmd:0.1}{p_end}
-{synopt:{opt base_rrcd(#)}}baseline confounder-disease RR; default {cmd:2}{p_end}
-{synopt:{opt base_rrud(#)}}baseline confounder-disease RR using Greenland parameterization{p_end}
+{synopt:{opt base_sela(#)}}baseline sel prob, exp cases{p_end}
+{synopt:{opt base_selb(#)}}baseline sel prob, unexp cases{p_end}
+{synopt:{opt base_selc(#)}}baseline sel prob, exp non-cases{p_end}
+{synopt:{opt base_seld(#)}}baseline sel prob, unexp non-cases{p_end}
+{synopt:{opt base_p1(#)}}baseline P(U | exposed){p_end}
+{synopt:{opt base_p0(#)}}baseline P(U | unexposed){p_end}
+{synopt:{opt base_rrcd(#)}}baseline confounder-disease RR{p_end}
+{synopt:{opt base_rrud(#)}}baseline RR, Greenland form{p_end}
 
 {syntab:Distribution plot}
-{synopt:{opt us:ing(filename)}}Monte Carlo dataset from a {cmd:saving()} option{p_end}
-{synopt:{opt obs:erved(#)}}observed measure value (required for distribution plot){p_end}
-{synopt:{opt nu:ll(#)}}null value for reference line; defaults to {cmd:1} for OR/RR and {cmd:0} for coefficients{p_end}
+{synopt:{opt us:ing(filename)}}Monte Carlo dataset to read{p_end}
+{synopt:{opt obs:erved(#)}}observed measure value{p_end}
+{synopt:{opt nu:ll(#)}}null value for the reference line{p_end}
 
 {syntab:Graph options}
-{synopt:{opt sch:eme(name)}}graph scheme; default is the current Stata scheme{p_end}
+{synopt:{opt sch:eme(name)}}graph scheme; default is current{p_end}
 {synopt:{opt ti:tle(string)}}custom graph title{p_end}
 {synopt:{opt sa:ving(filename)}}export graph to file{p_end}
 {synopt:{opt name(name)}}assign name to graph window{p_end}
@@ -315,7 +315,7 @@ parameters are held at their baseline values ({opt base_p1()},
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(n_missing)}}number of infeasible or undefined grid points (tornado/tipping){p_end}
+{synopt:{cmd:r(n_missing)}}infeasible or undefined grid points{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(plot_type)}}plot type ({cmd:tornado}, {cmd:distribution}, or {cmd:tipping}){p_end}

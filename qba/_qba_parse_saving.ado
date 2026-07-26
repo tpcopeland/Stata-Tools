@@ -1,4 +1,4 @@
-*! _qba_parse_saving Version 1.0.1  2026/06/19
+*! _qba_parse_saving Version 1.1.0  2026/07/26
 *! Internal helper: parse qba saving(filename[, replace]) specifications
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

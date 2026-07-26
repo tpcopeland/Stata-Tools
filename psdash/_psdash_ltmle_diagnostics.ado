@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.5.0  2026/07/22
+*! _psdash_ltmle_diagnostics Version 1.6.0  2026/07/26
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -127,7 +127,13 @@ program define _psdash_ltmle_diagnostics, rclass
         local i = 0
         foreach p of local period_values {
             local ++i
-            local rownames "`rownames' p`i'"
+            * RB-12: name the rows by the PERIOD VALUE, not by position. The old
+            * `p1 p2 ...` sequence forced every consumer to join r(periods) by
+            * position, and read as period 1, 2, ... even when the data start at
+            * period 0 or skip values. strtoname() keeps the row name legal for
+            * negative or non-integer period values.
+            local _rowname = strtoname("p`p'")
+            local rownames "`rownames' `_rowname'"
 
             quietly count if `samplevar' & `period' == `p'
             local p_N = r(N)

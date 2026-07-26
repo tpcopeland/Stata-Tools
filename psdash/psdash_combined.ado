@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.5.0  2026/07/22
+*! psdash_combined Version 1.6.0  2026/07/26
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -54,7 +54,17 @@ program define psdash_combined, rclass
          TItle(string) ///
          ESTImand(string) ///
          REFerence(string) ///
+         GPSFLOOR(real 0.01) ///
          PSVars(varlist numeric)]
+
+    * RB-12: the multi-arm practical-positivity floor is now used by BOTH the
+    * overlap and support panels, so the dashboard has to be able to set it;
+    * previously it was reachable only by calling psdash support directly.
+    if `gpsfloor' <= 0 | `gpsfloor' >= 1 {
+        display as error "gpsfloor() must be strictly between 0 and 1"
+        exit 198
+    }
+    local gpsfloor_subcmd_opt "gpsfloor(`gpsfloor')"
 
     * Validate verdict-threshold options (U2)
     if `overlapmax' < 0 | `overlapmax' > 100 {
@@ -300,7 +310,7 @@ program define psdash_combined, rclass
         psdash_overlap `treatment' `psvar' if `touse', ///
             name(psdash_c_overlap) `scheme_opt' ///
             title("PS Overlap") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_overlap'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `rep_overlap'
         local graph_list "`graph_list' psdash_c_overlap"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -387,7 +397,7 @@ program define psdash_combined, rclass
         psdash_support `treatment' `psvar' if `touse', ///
             name(psdash_c_support) `scheme_opt' ///
             title("Common Support") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_support'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `rep_support'
         local graph_list "`graph_list' psdash_c_support"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'

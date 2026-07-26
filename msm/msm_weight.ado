@@ -1,4 +1,4 @@
-*! msm_weight Version 1.3.0  2026/07/25
+*! msm_weight Version 1.4.0  2026/07/26
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -24,6 +24,8 @@ Options:
   treat_n_cov(varlist)   - Covariates for treatment numerator model (stabilized)
   censor_d_cov(varlist)  - Covariates for censoring denominator model
   censor_n_cov(varlist)  - Covariates for censoring numerator model
+  period_d_spec(spec)    - Time basis in the denominator models (default linear)
+  period_n_spec(spec)    - Time basis in the numerator models (default none)
   truncate(# [#])        - Truncate at percentiles (e.g., truncate(1) or truncate(1 99))
   preview                - Resolve and display model specs without fitting
   fitfailure(policy)     - Model-failure policy: error (default) or marginal
@@ -60,6 +62,7 @@ program define msm_weight, rclass
     syntax , [TREAT_d_cov(varlist numeric) ///
          TREAT_n_cov(varlist numeric) ///
          CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
+         PERIOD_d_spec(string) PERIOD_n_spec(string) ///
          TRUncate(numlist min=1 max=2) ///
          FITFailure(string) PROBpolicy(string) CLIP(real -1) ///
          PREVIEW REPLACE noLOG]
@@ -176,6 +179,38 @@ program define msm_weight, rclass
         }
     }
 
+    * ---------------------------------------------------------------------
+    * Time basis for the weighting logits.
+    *
+    * Hernan, Brumback & Robins (2000) p.564: "The weight estimates were robust
+    * with respect to the method used to estimate the time-dependent baseline
+    * logit alpha_0(k) in the logistic models for zidovudine and censoring,
+    * provided that sufficient flexibility was allowed." Their own models used
+    * natural cubic splines in MONTH with five knots, in the numerator and the
+    * denominator alike. A linear-only time term is the case that sentence warns
+    * about, so the basis is an explicit, resolvable option on both sides.
+    *
+    * The defaults reproduce the pre-1.4.0 models exactly: a linear period term
+    * in the denominators, none in the numerators.
+    * ---------------------------------------------------------------------
+    if "`period_d_spec'" == "" local period_d_spec "linear"
+    if "`period_n_spec'" == "" local period_n_spec "none"
+    foreach _side in d n {
+        local period_`_side'_spec = lower(strtrim("`period_`_side'_spec'"))
+        local _spec "`period_`_side'_spec'"
+        if regexm("`_spec'", "^ns\(([0-9]+)\)$") {
+            if `=regexs(1)' < 1 {
+                display as error "period_`_side'_spec(ns(#)) requires # >= 1"
+                exit 198
+            }
+        }
+        else if !inlist("`_spec'", "none", "linear", "quadratic", "cubic") {
+            display as error ///
+                "period_`_side'_spec() must be none, linear, quadratic, cubic, or ns(#)"
+            exit 198
+        }
+    }
+
     * IPCW requested but no censor variable?
     if "`censor_d_cov'" != "" & "`censor'" == "" {
         display as error "censor_d_cov() specified but no censoring variable was mapped in msm_prepare"
@@ -222,27 +257,36 @@ program define msm_weight, rclass
         }
     }
 
-    local treat_d_spec_later "`treatment' ~ lagged `treatment' `treat_d_cov' `period'"
+    * Display tokens for the time basis. linear keeps the bare period name so
+    * the default spec prints exactly as it did before the option existed.
+    local _d_time_lbl ""
+    if "`period_d_spec'" == "linear"    local _d_time_lbl " `period'"
+    else if "`period_d_spec'" != "none" local _d_time_lbl " `period'(`period_d_spec')"
+    local _n_time_lbl ""
+    if "`period_n_spec'" == "linear"    local _n_time_lbl " `period'"
+    else if "`period_n_spec'" != "none" local _n_time_lbl " `period'(`period_n_spec')"
+
+    local treat_d_spec_later "`treatment' ~ lagged `treatment' `treat_d_cov'`_d_time_lbl'"
     local treat_d_spec_first "`treatment' ~ `treat_d_cov'"
     local treat_n_label "`treat_n_cov'"
     if "`treat_n_cov'" != "" {
-        local treat_n_spec_later "`treatment' ~ lagged `treatment' `treat_n_cov'"
+        local treat_n_spec_later "`treatment' ~ lagged `treatment' `treat_n_cov'`_n_time_lbl'"
         local treat_n_spec_first "`treatment' ~ `treat_n_cov'"
     }
     else {
         local treat_n_label "(intercept + lagged treatment only)"
-        local treat_n_spec_later "`treatment' ~ lagged `treatment'"
+        local treat_n_spec_later "`treatment' ~ lagged `treatment'`_n_time_lbl'"
         local treat_n_spec_first "`treatment' ~ (intercept)"
     }
     local censor_n_label "`censor_n_cov'"
     if "`censor_d_cov'" != "" {
-        local censor_d_spec "`censor' ~ `treatment' `censor_d_cov' `period'"
+        local censor_d_spec "`censor' ~ `treatment' `censor_d_cov'`_d_time_lbl'"
         if "`censor_n_cov'" != "" {
-            local censor_n_spec "`censor' ~ `treatment' `censor_n_cov'"
+            local censor_n_spec "`censor' ~ `treatment' `censor_n_cov'`_n_time_lbl'"
         }
         else {
             local censor_n_label "(intercept + current treatment only)"
-            local censor_n_spec "`censor' ~ `treatment'"
+            local censor_n_spec "`censor' ~ `treatment'`_n_time_lbl'"
         }
     }
 
@@ -287,6 +331,8 @@ program define msm_weight, rclass
         display as text "Censoring models: " as result "(not requested)"
     }
     display as text "Stabilized:       " as result "Yes"
+    display as text "Period basis:     " as result ///
+        "denominator `period_d_spec', numerator `period_n_spec'"
     if "`fitfailure'" == "error" {
         display as text "Model failure:    " as result "Hard fail (default)"
     }
@@ -319,6 +365,8 @@ program define msm_weight, rclass
         return local treat_n_cov "`treat_n_cov'"
         return local censor_d_cov "`censor_d_cov'"
         return local censor_n_cov "`censor_n_cov'"
+        return local period_d_spec "`period_d_spec'"
+        return local period_n_spec "`period_n_spec'"
         return local truncate "`truncate'"
         return local fitfailure_policy "`fitfailure'"
         return local probability_policy "`probpolicy'"
@@ -445,6 +493,7 @@ program define msm_weight, rclass
             treatment(`treatment') outcome(`outcome') ///
             censor(`censor') ///
             d_cov(`treat_d_cov') n_cov(`treat_n_cov') ///
+            d_spec(`period_d_spec') n_spec(`period_n_spec') ///
             fitfailure(`fitfailure') probpolicy(`probpolicy') clip(`clip') `log_opt'
 
         local n_fitfail_fallback = r(n_fitfail_fallback)
@@ -465,6 +514,7 @@ program define msm_weight, rclass
                 treatment(`treatment') censor(`censor') ///
                 outcome(`outcome') ///
                 d_cov(`censor_d_cov') n_cov(`censor_n_cov') ///
+                d_spec(`period_d_spec') n_spec(`period_n_spec') ///
                 fitfailure(`fitfailure') probpolicy(`probpolicy') clip(`clip') `log_opt'
 
             local n_fitfail_fallback = `n_fitfail_fallback' + r(n_fitfail_fallback)
@@ -700,6 +750,8 @@ program define msm_weight, rclass
         * needed by psdash. The verifier signs these fields below.
         char _dta[_msm_treat_d_cov] "`treat_d_cov'"
         char _dta[_msm_censor_d_cov] "`censor_d_cov'"
+        char _dta[_msm_period_d_spec] "`period_d_spec'"
+        char _dta[_msm_period_n_spec] "`period_n_spec'"
         char _dta[_msm_weight_truncate] "`truncate'"
         char _dta[_msm_weight_fitfailure] "`fitfailure'"
         char _dta[_msm_probability_policy] "`probpolicy'"
@@ -709,7 +761,7 @@ program define msm_weight, rclass
         else char _dta[_msm_probability_clip] ""
         char _dta[_msm_probability_models] "`probability_models'"
         char _dta[_msm_wt_spec] ///
-            "td=`treat_d_cov'|tn=`treat_n_cov'|cd=`censor_d_cov'|cn=`censor_n_cov'|tr=`truncate'|ff=`fitfailure'|pp=`probpolicy'|clip=`clip'"
+            "td=`treat_d_cov'|tn=`treat_n_cov'|cd=`censor_d_cov'|cn=`censor_n_cov'|pd=`period_d_spec'|pn=`period_n_spec'|tr=`truncate'|ff=`fitfailure'|pp=`probpolicy'|clip=`clip'"
 
         * psdash contract: treatment propensity score, treatment-only weight,
         * estimand, and contract version so {cmd:psdash combined} can auto-detect
@@ -801,6 +853,8 @@ program define msm_weight, rclass
         return local treat_n_cov "`treat_n_cov'"
         return local censor_d_cov "`censor_d_cov'"
         return local censor_n_cov "`censor_n_cov'"
+        return local period_d_spec "`period_d_spec'"
+        return local period_n_spec "`period_n_spec'"
         return local truncate "`truncate'"
 
         restore, not
@@ -925,7 +979,8 @@ program define _msm_weight_treatment, rclass
     syntax , id(varname) period(varname) ///
         treatment(varname) outcome(varname) ///
         [censor(varname)] ///
-        d_cov(varlist) [n_cov(varlist) fitfailure(string) ///
+        d_cov(varlist) [n_cov(varlist) d_spec(string) n_spec(string) ///
+        fitfailure(string) ///
         probpolicy(string) clip(real -1) nolog]
 
     local log_opt ""
@@ -935,6 +990,8 @@ program define _msm_weight_treatment, rclass
     local n_fitfail_fallback = 0
     local n_probability_repairs = 0
     local fitfailure_models ""
+    if "`d_spec'" == "" local d_spec "linear"
+    if "`n_spec'" == "" local n_spec "none"
 
     local probpolicy = lower(strtrim("`probpolicy'"))
     if "`probpolicy'" == "" local probpolicy "error"
@@ -972,17 +1029,42 @@ program define _msm_weight_treatment, rclass
         * First period has no lag - handle separately
 
         * ---------------------------------------------------------------
+        * Time basis for the time-dependent intercept alpha_0(k).
+        * Knots are placed on the treatment decision risk set, which is the
+        * sample both models are fit on. The first-period models are excluded
+        * from the basis by construction: msm_weight requires a shared baseline
+        * period, so those rows carry a single period value and any time term
+        * would be collinear with the intercept.
+        * ---------------------------------------------------------------
+        local _d_time_created ""
+        local _n_time_created ""
+        noisily _msm_period_basis `period', spec(`d_spec') prefix(__msm_ptd) ///
+            touse(`_at_risk')
+        local _d_time "`_msm_period_basis_vars'"
+        local _d_time_created "`_msm_period_basis_created'"
+        noisily _msm_period_basis `period', spec(`n_spec') prefix(__msm_ptn) ///
+            touse(`_at_risk')
+        local _n_time "`_msm_period_basis_vars'"
+        local _n_time_created "`_msm_period_basis_created'"
+
+        * Display tokens, so an empty basis prints no dangling separator.
+        local _d_time_disp ""
+        if "`_d_time'" != "" local _d_time_disp " `_d_time'"
+        local _n_time_disp ""
+        if "`_n_time'" != "" local _n_time_disp " `_n_time'"
+
+        * ---------------------------------------------------------------
         * DENOMINATOR MODEL: P(A_t | A_{t-1}, L_t, V)
         * Full model with all time-varying and baseline covariates
         * ---------------------------------------------------------------
         tempvar _denom_pr _denom_complete _denom_drop
         gen byte `_denom_complete' = `_at_risk' & !`_first_obs' & ///
             !missing(`treatment') & !missing(`_lag_treat')
-        foreach _v of varlist `d_cov' `period' {
+        foreach _v of varlist `d_cov' `_d_time' {
             replace `_denom_complete' = 0 if missing(`_v')
         }
 
-        noisily display as text "  Denominator model: `treatment' ~ lagged `treatment' `d_cov' `period'"
+        noisily display as text "  Denominator model: `treatment' ~ lagged `treatment' `d_cov'`_d_time_disp'"
         quietly count if `_denom_complete'
         local _n_denom_complete = r(N)
         if `_n_denom_complete' == 0 {
@@ -995,7 +1077,7 @@ program define _msm_weight_treatment, rclass
             * can name the real cause instead of a bare model-failure code.
             quietly count if `_denom_complete' & `treatment' != `_lag_treat'
             local _treat_time_invariant = (r(N) == 0)
-            capture logit `treatment' `_lag_treat' `d_cov' `period' ///
+            capture logit `treatment' `_lag_treat' `d_cov' `_d_time' ///
                 if `_denom_complete', `log_opt'
             local _fit_rc = _rc
             if `_fit_rc' != 0 {
@@ -1156,21 +1238,21 @@ program define _msm_weight_treatment, rclass
         tempvar _numer_pr _numer_complete _numer_drop
         gen byte `_numer_complete' = `_at_risk' & !`_first_obs' & ///
             !missing(`treatment') & !missing(`_lag_treat')
-        if "`n_cov'" != "" {
-            foreach _v of varlist `n_cov' {
+        if "`n_cov'`_n_time'" != "" {
+            foreach _v of varlist `n_cov' `_n_time' {
                 replace `_numer_complete' = 0 if missing(`_v')
             }
         }
 
         if "`n_cov'" != "" {
-            noisily display as text "  Numerator model:   `treatment' ~ lagged `treatment' `n_cov'"
+            noisily display as text "  Numerator model:   `treatment' ~ lagged `treatment' `n_cov'`_n_time_disp'"
             quietly count if `_numer_complete'
             local _n_numer_complete = r(N)
             if `_n_numer_complete' == 0 {
                 gen double `_numer_pr' = .
             }
             else {
-                capture logit `treatment' `_lag_treat' `n_cov' ///
+                capture logit `treatment' `_lag_treat' `n_cov' `_n_time' ///
                     if `_numer_complete', `log_opt'
                 local _fit_rc = _rc
                 if `_fit_rc' != 0 {
@@ -1217,14 +1299,14 @@ program define _msm_weight_treatment, rclass
             }
         }
         else {
-            noisily display as text "  Numerator model:   `treatment' ~ lagged `treatment'"
+            noisily display as text "  Numerator model:   `treatment' ~ lagged `treatment'`_n_time_disp'"
             quietly count if `_numer_complete'
             local _n_numer_complete = r(N)
             if `_n_numer_complete' == 0 {
                 gen double `_numer_pr' = .
             }
             else {
-                capture logit `treatment' `_lag_treat' ///
+                capture logit `treatment' `_lag_treat' `_n_time' ///
                     if `_numer_complete', `log_opt'
                 local _fit_rc = _rc
                 if `_fit_rc' != 0 {
@@ -1511,9 +1593,14 @@ program define _msm_weight_treatment, rclass
         gen double _msm_tw_weight = exp(`_cum_log_tw')
         replace _msm_tw_weight = . if `_cum_miss_tw'
 
-        * Clean up
+        * Clean up. The period-basis columns are internal to the weight models;
+        * only the columns this run generated are dropped (never the caller's
+        * period variable, which a linear basis reuses in place).
         drop `_at_risk' `_lag_treat' `_first_obs' `_denom_pr' `_numer_pr' `_tw_t' ///
             `_miss_tw' `_log_tw' `_cum_log_tw' `_cum_miss_tw'
+        if "`_d_time_created'`_n_time_created'" != "" {
+            drop `_d_time_created' `_n_time_created'
+        }
     }
 
     } /* end capture noisily */
@@ -1543,7 +1630,8 @@ program define _msm_weight_censor, rclass
 
     syntax , id(varname) period(varname) ///
         treatment(varname) censor(varname) outcome(varname) ///
-        d_cov(varlist) [n_cov(varlist) fitfailure(string) ///
+        d_cov(varlist) [n_cov(varlist) d_spec(string) n_spec(string) ///
+        fitfailure(string) ///
         probpolicy(string) clip(real -1) nolog]
 
     local log_opt ""
@@ -1553,6 +1641,8 @@ program define _msm_weight_censor, rclass
     local n_fitfail_fallback = 0
     local n_probability_repairs = 0
     local fitfailure_models ""
+    if "`d_spec'" == "" local d_spec "linear"
+    if "`n_spec'" == "" local n_spec "none"
 
     local probpolicy = lower(strtrim("`probpolicy'"))
     if "`probpolicy'" == "" local probpolicy "error"
@@ -1570,6 +1660,25 @@ program define _msm_weight_censor, rclass
         drop `_cum_out' `_cum_cens'
 
         * ---------------------------------------------------------------
+        * Time basis for the time-dependent intercept alpha_0(k), placed on the
+        * censoring risk set (Hernan, Brumback & Robins 2000, p.564).
+        * ---------------------------------------------------------------
+        local _d_time_created ""
+        local _n_time_created ""
+        noisily _msm_period_basis `period', spec(`d_spec') prefix(__msm_pcd) ///
+            touse(`_at_risk')
+        local _d_time "`_msm_period_basis_vars'"
+        local _d_time_created "`_msm_period_basis_created'"
+        noisily _msm_period_basis `period', spec(`n_spec') prefix(__msm_pcn) ///
+            touse(`_at_risk')
+        local _n_time "`_msm_period_basis_vars'"
+        local _n_time_created "`_msm_period_basis_created'"
+        local _d_time_disp ""
+        if "`_d_time'" != "" local _d_time_disp " `_d_time'"
+        local _n_time_disp ""
+        if "`_n_time'" != "" local _n_time_disp " `_n_time'"
+
+        * ---------------------------------------------------------------
         * DENOMINATOR MODEL: P(C_t = 0 | L_t, A_t)
         * We model P(uncensored) so weight = P_num(uncens) / P_den(uncens)
         *
@@ -1585,18 +1694,18 @@ program define _msm_weight_censor, rclass
         tempvar _denom_pr _denom_complete _denom_drop
         gen byte `_denom_complete' = `_at_risk' & ///
             !missing(`censor')
-        foreach _v of varlist `treatment' `d_cov' `period' {
+        foreach _v of varlist `treatment' `d_cov' `_d_time' {
             replace `_denom_complete' = 0 if missing(`_v')
         }
 
-        noisily display as text "  Denominator model: `censor' ~ `treatment' `d_cov' `period'"
+        noisily display as text "  Denominator model: `censor' ~ `treatment' `d_cov'`_d_time_disp'"
         quietly count if `_denom_complete'
         local _n_denom_complete = r(N)
         if `_n_denom_complete' == 0 {
             gen double `_denom_pr' = .
         }
         else {
-            capture logit `censor' `treatment' `d_cov' `period' ///
+            capture logit `censor' `treatment' `d_cov' `_d_time' ///
                 if `_denom_complete', `log_opt'
             local _fit_rc = _rc
             if `_fit_rc' != 0 {
@@ -1676,21 +1785,21 @@ program define _msm_weight_censor, rclass
         tempvar _numer_pr _numer_complete _numer_drop
         gen byte `_numer_complete' = `_at_risk' & ///
             !missing(`censor') & !missing(`treatment')
-        if "`n_cov'" != "" {
-            foreach _v of varlist `n_cov' {
+        if "`n_cov'`_n_time'" != "" {
+            foreach _v of varlist `n_cov' `_n_time' {
                 replace `_numer_complete' = 0 if missing(`_v')
             }
         }
 
         if "`n_cov'" != "" {
-            noisily display as text "  Numerator model:   `censor' ~ `treatment' `n_cov'"
+            noisily display as text "  Numerator model:   `censor' ~ `treatment' `n_cov'`_n_time_disp'"
             quietly count if `_numer_complete'
             local _n_numer_complete = r(N)
             if `_n_numer_complete' == 0 {
                 gen double `_numer_pr' = .
             }
             else {
-                capture logit `censor' `treatment' `n_cov' ///
+                capture logit `censor' `treatment' `n_cov' `_n_time' ///
                     if `_numer_complete', `log_opt'
                 local _fit_rc = _rc
                 if `_fit_rc' != 0 {
@@ -1737,14 +1846,14 @@ program define _msm_weight_censor, rclass
             }
         }
         else {
-            noisily display as text "  Numerator model:   `censor' ~ `treatment'"
+            noisily display as text "  Numerator model:   `censor' ~ `treatment'`_n_time_disp'"
             quietly count if `_numer_complete'
             local _n_numer_complete = r(N)
             if `_n_numer_complete' == 0 {
                 gen double `_numer_pr' = .
             }
             else {
-                capture logit `censor' `treatment' ///
+                capture logit `censor' `treatment' `_n_time' ///
                     if `_numer_complete', `log_opt'
                 local _fit_rc = _rc
                 if `_fit_rc' != 0 {
@@ -1891,6 +2000,9 @@ program define _msm_weight_censor, rclass
         drop `_at_risk' `_denom_pr' `_numer_pr' `_cw_t' `_miss_cw' ///
             `_log_cw' `_cum_log_cw' `_cum_miss_cw' `_denom_complete' ///
             `_denom_drop' `_numer_complete' `_numer_drop'
+        if "`_d_time_created'`_n_time_created'" != "" {
+            drop `_d_time_created' `_n_time_created'
+        }
     }
 
     } /* end capture noisily */

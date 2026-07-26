@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.5.0  2026/07/22
+*! _psdash_balance_binary Version 1.6.0  2026/07/26
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -41,9 +41,28 @@ program define _psdash_balance_binary, rclass
         matrix colnames `balance_mat' = "Mean_T" "Mean_C" "SMD_Raw" "VR_Raw" "KS_Raw" "Mean_T_Adj" "Mean_C_Adj" "SMD_Adj" "VR_Adj" "KS_Adj"
         local rownames ""
 
+        * RB-12: the panel sample marks out treatment/PS/weights but NOT the
+        * covariates, so each covariate's SMD/VR/KS is computed on its own
+        * available cases. Rows of one table can therefore rest on different N.
+        * That is left as-is (marking out covariates would silently change the
+        * diagnosed sample), but the incomplete covariates are counted and named
+        * so the caller can footnote them instead of presenting the table as if
+        * every row shared one N.
+        local n_cov_incomplete = 0
+        local cov_miss_vars ""
+        local n_cov_min = `n_treated' + `n_control'
+
         local i = 1
         foreach var of local varlist {
             local rownames `"`rownames' `: word `i' of `labels''"'
+
+            quietly count if missing(`var')
+            if r(N) > 0 {
+                local ++n_cov_incomplete
+                local cov_miss_vars `"`cov_miss_vars' `: word `i' of `labels''"'
+                local _n_this = `n_treated' + `n_control' - r(N)
+                if `_n_this' < `n_cov_min' local n_cov_min = `_n_this'
+            }
 
             * Flag binary/indicator covariates: VR carries no information beyond
             * the SMD for a two-level covariate, so it is excluded from the VR
@@ -103,6 +122,14 @@ program define _psdash_balance_binary, rclass
                 local mean_c_adj = r(mean)
                 local var_c_adj = r(Var)
 
+                * RB-12: `sd_pooled' is the UNWEIGHTED pooled SD, deliberately
+                * reused for the adjusted column so raw and adjusted share a
+                * scale (the cobalt (R) default). This is NOT Austin & Stuart
+                * (2015): their section 4.1.1 replaces EACH sample estimate with
+                * its weighted equivalent, so their weighted SMD divides by a
+                * weighted variance. The help used to cite them for this choice,
+                * which had the attribution backwards. Keep the convention; do
+                * not re-cite Austin & Stuart for it.
                 if `sd_pooled' > 0 {
                     local smd_adj = (`mean_t_adj' - `mean_c_adj') / `sd_pooled'
                 }
@@ -259,6 +286,10 @@ program define _psdash_balance_binary, rclass
         return scalar n_vr_imbalanced_adj = `n_vr_imbalanced_adj'
         return scalar n_binary_vr = `n_binary_vr'
         return local vr_na_vars = strtrim("`vr_na_vars'")
+        * RB-12: per-covariate completeness of the balance table
+        return scalar n_cov_incomplete = `n_cov_incomplete'
+        return scalar n_cov_min = `n_cov_min'
+        return local cov_miss_vars = strtrim(`"`cov_miss_vars'"')
         return matrix balance = `balance_mat'
     }
     local rc = _rc

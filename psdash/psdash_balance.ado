@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.5.0  2026/07/22
+*! psdash_balance Version 1.6.0  2026/07/26
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -404,6 +404,11 @@ program define psdash_balance, rclass
     local n_vr_imbalanced_adj = r(n_vr_imbalanced_adj)
     local n_binary_vr = r(n_binary_vr)
     local vr_na_vars "`r(vr_na_vars)'"
+    * RB-12: covariates are not marked out of the panel sample, so a covariate
+    * with missing values is summarized on fewer observations than the panel N.
+    local n_cov_incomplete = r(n_cov_incomplete)
+    local n_cov_min = r(n_cov_min)
+    local cov_miss_vars `"`r(cov_miss_vars)'"'
 
     * DISPLAY OUTPUT (binary)
     if "`matched'" != "" {
@@ -571,6 +576,14 @@ program define psdash_balance, rclass
         display as text "Note: variance ratio is not a meaningful balance diagnostic for" ///
             " binary covariate(s): `vr_na_vars'"
         display as text "      (VR for a two-level covariate is determined by the SMD; excluded from the VR count)."
+    }
+    * RB-12: rows computed on different N are not comparable at face value; say so
+    * rather than presenting one table as if every row shared the panel N.
+    if `n_cov_incomplete' > 0 {
+        display as text "Note: `n_cov_incomplete' covariate(s) have missing values in this sample:" ///
+            `" `cov_miss_vars'"'
+        display as text "      Their rows use available cases (as few as `n_cov_min' of `N' obs), so row Ns differ."
+        display as text "      Use {cmd:psdash combined} or an {cmd:if} clause for one complete-case sample."
     }
 
     * Verdict (RB-01: SMD *and* VR imbalance are findings; ANY finding forces an
@@ -989,6 +1002,10 @@ program define psdash_balance, rclass
     local max_ks_adj = r(max_ks_adj)
     local n_binary_vr = r(n_binary_vr)
     local vr_na_vars "`r(vr_na_vars)'"
+    * RB-12: per-covariate completeness (see the binary branch)
+    local n_cov_incomplete = r(n_cov_incomplete)
+    local n_cov_min = r(n_cov_min)
+    local cov_miss_vars `"`r(cov_miss_vars)'"'
     local n_imbalanced = r(n_imbalanced)
     local n_vr_imbalanced = r(n_vr_imbalanced)
     * RB-08: the engine now returns the worst VR on each scale and the underlying
@@ -1176,6 +1193,13 @@ program define psdash_balance, rclass
     if "`vr_na_vars'" != "" {
         display as text "Note: variance ratio is not a meaningful balance diagnostic for" ///
             " binary covariate(s): `vr_na_vars'"
+    }
+    * RB-12: see the binary branch.
+    if `n_cov_incomplete' > 0 {
+        display as text "Note: `n_cov_incomplete' covariate(s) have missing values in this sample:" ///
+            `" `cov_miss_vars'"'
+        display as text "      Their rows use available cases (as few as `n_cov_min' of `N' obs), so row Ns differ."
+        display as text "      Use {cmd:psdash combined} or an {cmd:if} clause for one complete-case sample."
     }
 
     * Verdict (RB-01: SMD *and* VR imbalance are findings; ANY finding forces an
@@ -1372,6 +1396,10 @@ program define psdash_balance, rclass
             return scalar n_ps_boundary = `n_ps_boundary'
             return scalar n_ps_near_boundary = `n_ps_near'
             if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"
+            * RB-12: per-covariate completeness of the balance table
+            return scalar n_cov_incomplete = `n_cov_incomplete'
+            return scalar n_cov_min = `n_cov_min'
+            if `n_cov_incomplete' > 0 return local cov_miss_vars `"`cov_miss_vars'"'
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"
@@ -1420,6 +1448,10 @@ program define psdash_balance, rclass
             if `has_adj' return scalar max_ks_adj = `max_ks_adj'
             return scalar threshold = `threshold'
             if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"
+            * RB-12: per-covariate completeness of the balance table
+            return scalar n_cov_incomplete = `n_cov_incomplete'
+            return scalar n_cov_min = `n_cov_min'
+            if `n_cov_incomplete' > 0 return local cov_miss_vars `"`cov_miss_vars'"'
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"

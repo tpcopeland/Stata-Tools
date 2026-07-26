@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.5.0  2026/07/22
+*! _psdash_detect Version 1.6.0  2026/07/26
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -151,9 +151,43 @@ program define _psdash_detect
                 c_local _psd_psvar "`arg_psvar'"
             }
             else if "`psvars'" != "" {
-                * User provided psvars() even for binary; use first
-                gettoken _first_psv _rest_psv : psvars
-                c_local _psd_psvar "`_first_psv'"
+                * RB-12: psvars() follows the documented multi-group convention --
+                * one variable per treatment level, ordered ascending. For a binary
+                * 0/1 treatment that makes the FIRST element P(A=0|X) and the SECOND
+                * P(A=1|X). Every binary formula in this package treats the PS slot
+                * as P(A=1|X), so taking the first element silently inverted the
+                * weights and every diagnostic derived from them, at rc=0. Map by
+                * level and run the same sum-to-1 / [0,1] validation the multi-group
+                * branch gets.
+                local _n_psv : word count `psvars'
+                local _sv_cond "1"
+                if "`samplevar'" != "" local _sv_cond "`samplevar'"
+                if `_n_psv' == 1 {
+                    * A lone variable is the ordinary binary propensity score
+                    * P(A=1|X); there is no level ordering to honour.
+                    quietly count if `_sv_cond' & !missing(`psvars') ///
+                        & (`psvars' < 0 | `psvars' > 1)
+                    if r(N) > 0 {
+                        display as error "propensity scores must be in [0,1]"
+                        exit 198
+                    }
+                    c_local _psd_psvar "`psvars'"
+                }
+                else if `_n_psv' == 2 {
+                    local _sample_opt ""
+                    if "`samplevar'" != "" local _sample_opt "samplevar(`samplevar')"
+                    _psdash_validate_psvars `psvars', levels(`_trt_levels') ///
+                        k(2) `_sample_opt'
+                    c_local _psd_ps_0 "`r(ps_0)'"
+                    c_local _psd_ps_1 "`r(ps_1)'"
+                    c_local _psd_psvar "`r(ps_1)'"
+                }
+                else {
+                    display as error "psvars() takes 1 or 2 variables for a binary 0/1 treatment"
+                    display as error "  with 2, order them by treatment level: P(A=0|X) then P(A=1|X)"
+                    display as error "  psvars provided: `_n_psv'"
+                    exit 198
+                }
             }
             c_local _psd_psvar_auto "0"
         }

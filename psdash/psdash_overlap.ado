@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.5.0  2026/07/22
+*! psdash_overlap Version 1.6.0  2026/07/26
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -85,7 +85,15 @@ program define psdash_overlap, rclass
          sheet(string) ///
          ESTImand(string) ///
          REFerence(string) ///
+         GPSFLOOR(real 0.01) ///
          PSVars(varlist numeric)]
+
+    * Validate gpsfloor() (multi-arm practical positivity floor on min_j e_j(X));
+    * mirrors psdash support so the two panels are configured the same way.
+    if `gpsfloor' <= 0 | `gpsfloor' >= 1 {
+        display as error "gpsfloor() must be strictly between 0 and 1"
+        exit 198
+    }
 
     if "`xlsx'" != "" {
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
@@ -470,7 +478,7 @@ program define psdash_overlap, rclass
     }
     _psdash_support_stats, treatment(`treatment') samplevar(`touse') ///
         obsps(`obs_ps') levels(`levels') grouppsvars(`_mg_group_psvars') ///
-        multigroup(`multigroup') n(`N')
+        multigroup(`multigroup') n(`N') gpsfloor(`gpsfloor')
     foreach lev of local levels {
         local n_group_`lev' = r(n_group_`lev')
         local mean_ps_`lev' = r(mean_ps_`lev')
@@ -478,11 +486,21 @@ program define psdash_overlap, rclass
         local max_ps_`lev' = r(max_ps_`lev')
         local sd_ps_`lev' = r(sd_ps_`lev')
         local n_outside_`lev' = r(n_outside_`lev')
+        local min_gps_`lev' = r(min_gps_`lev')
     }
     local overlap_lower = r(overlap_lower)
     local overlap_upper = r(overlap_upper)
     local n_outside = r(n_outside)
     local pct_outside = r(pct_outside)
+    * RB-12: full-vector GPS positivity. The engine has always computed these,
+    * but this panel discarded them and judged multi-arm overlap on the
+    * observed-arm min-max rule alone -- so a unit with a healthy observed-arm
+    * probability and a near-zero probability of an UNRECEIVED arm produced a
+    * "Good" verdict on exactly the failure Li & Li (2019) Assumption 2 and
+    * McCaffrey et al. (2013) exist to catch. Same diagnostic as psdash support.
+    local min_gps = r(min_gps)
+    local n_gps_violate = r(n_gps_violate)
+    local pct_gps_violate = r(pct_gps_violate)
 
     * AUC: skip for K > 2 (roctab is binary-only)
     local auc = .
@@ -549,13 +567,32 @@ program define psdash_overlap, rclass
     display as text "{hline `hline_width'}"
     display ""
 
-    * Common support summary
+    * Generalized-propensity-score positivity (full vector) — the valid
+    * multi-arm common-support diagnostic (Li & Li 2019, Assumption 2;
+    * McCaffrey et al. 2013). Evaluates every e_j(X), not the observed-arm
+    * scalar, so a near-zero probability of an UNRECEIVED arm is visible.
     display as text "{hline 55}"
-    display as text "Common Support Region"
+    display as text "Generalized Positivity (full GPS vector)"
+    display as text "{hline 55}"
+    display as text "Min GPS (worst unit): " as result %12.4f `min_gps'
+    display as text "Floor:               " as result %12.4f `gpsfloor'
+    display as text "Below floor:         " ///
+        as result %12.0f `n_gps_violate' as text " (" as result %5.2f `pct_gps_violate' as text "%)"
+    foreach lev of local levels {
+        display as text "  min e(`lbl_`lev''): " as result %12.4f `min_gps_`lev''
+    }
+    display as text "{hline 55}"
+    display ""
+
+    * Observed-arm PS overlap (informational only; NOT a valid multi-arm
+    * common-support rule — it intersects arm-specific ranges of the observed-
+    * arm score. Same caveat psdash support prints for this table.)
+    display as text "{hline 55}"
+    display as text "Observed-arm PS Overlap (informational)"
     display as text "{hline 55}"
     display as text "Lower bound:           " as result %10.4f `overlap_lower'
     display as text "Upper bound:           " as result %10.4f `overlap_upper'
-    display as text "Outside support:       " ///
+    display as text "Outside overlap:       " ///
         as result %10.0f `n_outside' as text " (" as result %5.2f `pct_outside' as text "%)"
     foreach lev of local levels {
         display as text "  `lbl_`lev'' outside: " as result %10.0f `n_outside_`lev''
@@ -566,9 +603,16 @@ program define psdash_overlap, rclass
     * finding list; ANY finding forces a non-Good verdict + r(warnings).)
     local _pf ""
     local _pfn = 0
+    * PRIMARY multi-arm finding: full-vector GPS positivity violation (RB-12).
+    if `n_gps_violate' > 0 {
+        display as error "Warning: `n_gps_violate' observation(s) violate GPS positivity" ///
+            _n "  (probability of some treatment < `=string(`gpsfloor',"%4.3f")'; min GPS = `=string(`min_gps',"%5.4f")')."
+        local _pf `"`_pf' | `n_gps_violate' unit(s) below GPS positivity floor `=string(`gpsfloor',"%4.3f")' (min GPS `=string(`min_gps',"%5.4f")')"'
+        local ++_pfn
+    }
     if `pct_outside' > 10 {
-        display as error "Warning: >10% of observations outside common support region."
-        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
+        display as error "Warning: >10% of observations outside observed-arm PS overlap."
+        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside observed-arm PS overlap"'
         local ++_pfn
     }
     local _pf = strtrim("`_pf'")
@@ -679,7 +723,9 @@ program define psdash_overlap, rclass
                 local _xk `"`_xk' "N (group `lev')" "Mean PS (group `lev')" "Min PS (group `lev')" "Max PS (group `lev')""'
                 local _xv `"`_xv' "`n_group_`lev''" "`=string(`mean_ps_`lev'',"%6.4f")'" "`=string(`min_ps_`lev'',"%6.4f")'" "`=string(`max_ps_`lev'',"%6.4f")'""'
             }
-            local _xk `"`_xk' "Overlap lower" "Overlap upper" "Outside support (N)" "Outside support (%)""'
+            local _xk `"`_xk' "Min GPS (worst unit)" "GPS floor" "Below GPS floor (N)" "Below GPS floor (%)""'
+            local _xv `"`_xv' "`=string(`min_gps',"%6.4f")'" "`=string(`gpsfloor',"%6.4f")'" "`n_gps_violate'" "`=string(`pct_gps_violate',"%5.2f")'""'
+            local _xk `"`_xk' "Observed-arm overlap lower" "Observed-arm overlap upper" "Outside observed-arm overlap (N)" "Outside observed-arm overlap (%)""'
             local _xv `"`_xv' "`=string(`overlap_lower',"%6.4f")'" "`=string(`overlap_upper',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
                 title("`title'") keys(`_xk') vals(`_xv')
@@ -731,11 +777,17 @@ program define psdash_overlap, rclass
                 return scalar mean_ps_group_`lev' = `mean_ps_`lev''
                 return scalar min_ps_group_`lev' = `min_ps_`lev''
                 return scalar max_ps_group_`lev' = `max_ps_`lev''
+                return scalar min_gps_group_`lev' = `min_gps_`lev''
             }
             return scalar overlap_lower = `overlap_lower'
             return scalar overlap_upper = `overlap_upper'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
+            * RB-12: full-vector GPS positivity, same keys as psdash support
+            return scalar min_gps = `min_gps'
+            return scalar n_gps_violate = `n_gps_violate'
+            return scalar pct_gps_violate = `pct_gps_violate'
+            return scalar gps_floor = `gpsfloor'
             return scalar n_ps_boundary = `n_ps_boundary'
             return scalar n_ps_near_boundary = `n_ps_near'
             return local treatment "`treatment'"

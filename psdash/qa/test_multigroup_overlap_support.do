@@ -217,10 +217,12 @@ local n_tests = `n_tests' + 1
 capture noisily {
     psdash_support treat ps0, nograph threshold(0.1) psvars(ps0 ps1 ps2)
     confirm scalar r(trim_lower)
-    confirm scalar r(trim_upper)
     confirm scalar r(n_trimmed)
     assert r(trim_lower) == 0.1
-    assert float(r(trim_upper)) == float(0.9)
+    * RB-12: multi-group trimming is a one-sided floor on every GPS component;
+    * r(trim_upper) described an upper cut the code never applied and is gone.
+    capture confirm scalar r(trim_upper)
+    assert _rc != 0
 }
 if _rc == 0 {
     display as result "PASS: T7 support threshold with multi-group"

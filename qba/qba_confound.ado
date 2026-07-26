@@ -1,19 +1,35 @@
-*! qba_confound Version 1.0.1  2026/06/19
+*! qba_confound Version 1.1.0  2026/07/26
 *! Unmeasured confounding bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
-Corrects an observed measure of association (OR, RR) for a single
-binary unmeasured confounder using the Schneeweiss (2006) or
+Corrects an observed ratio measure of association (OR, RR, HR, IRR) for a
+single binary unmeasured confounder using the Schneeweiss (2006) or
 Greenland (1996) approach. Optionally computes E-values.
 
-For ratio measures (OR, RR): corrected = observed / bias_factor
+For ratio measures: corrected = observed / bias_factor
 For linear coefficients (from_model with linear models):
   corrected = observed - (p1 - p0) * confounder_effect
 
 Simple mode: fixed confounding parameters.
+
 Probabilistic mode (reps()): Monte Carlo draws from distributions.
+Percentiles of the resulting bias-adjusted measures form a SYSTEMATIC-ERROR
+simulation interval (Fox, MacLehose & Lash 2023): they propagate uncertainty
+in the confounding parameters only, and are not corrected confidence
+intervals. No total-error arm is offered: the authors' confounding pipeline
+builds it from a Mantel-Haenszel stratified table, which this bias-factor
+correction does not construct.
+
+E-values follow VanderWeele & Ding (2017). Their Table 1 formula takes a
+RISK ratio. Table 2 gives the conversions for other measures, and
+commonoutcome selects them:
+  measure(OR), outcome >15%  ->  RR ~ sqrt(OR)
+  measure(HR), outcome >15%  ->  RR ~ (1-0.5^sqrt(HR)) / (1-0.5^sqrt(1/HR))
+  measure(RR) / measure(IRR) ->  inserted directly at any prevalence
+Without commonoutcome an OR or HR is inserted directly, which Table 2
+permits only for a rare (<15%) outcome.
 
 References:
   Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
@@ -22,6 +38,12 @@ References:
     unmeasured confounders. Pharmacoepidemiol Drug Saf. 2006;15:291-303.
   VanderWeele TJ, Ding P. Sensitivity Analysis in Observational
     Research: Introducing the E-Value. Ann Intern Med. 2017;167:268-274.
+    (Table 1 risk-ratio formula; Table 2 measure conversions; Table 3
+    contextual interpretation)
+  Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic
+    quantitative bias analysis for misclassified binary variables and
+    binary unmeasured confounders. Int J Epidemiol. 2023;52(5):1624-1633.
+    (systematic- vs total-error simulation intervals)
 */
 
 capture program drop qba_confound
@@ -41,7 +63,7 @@ program define qba_confound, rclass
 	        dist_p1(string) dist_p0(string) dist_rr(string) ///
 	        dist_confeffect(string) ///
 	        Seed(integer -1) Level(cilevel) ///
-	        EVAlue CI_bound(real -999) ///
+	        EVAlue CI_bound(real -999) COMmonoutcome ///
 	        from_model COEF(string) ///
 	        SAving(string asis)]
 
@@ -51,6 +73,10 @@ program define qba_confound, rclass
 	    }
 	    if `ci_bound' != -999 & "`evalue'" == "" {
 	        display as error "ci_bound() requires evalue"
+	        exit 198
+	    }
+	    if "`commonoutcome'" != "" & "`evalue'" == "" {
+	        display as error "commonoutcome requires evalue"
 	        exit 198
 	    }
 	    if `reps' == 0 {
@@ -298,8 +324,11 @@ program define qba_confound, rclass
     * Defaults
     if "`measure'" == "" local measure "RR"
     local measure = strupper("`measure'")
-    if !inlist("`measure'", "OR", "RR") {
-        display as error "measure() must be OR or RR"
+    * HR and IRR are corrected identically to RR by the bias factor; they are
+    * accepted as distinct labels because the E-value conversion in
+    * VanderWeele & Ding Table 2 differs by measure.
+    if !inlist("`measure'", "OR", "RR", "HR", "IRR") {
+        display as error "measure() must be OR, RR, HR, or IRR"
         exit 198
     }
     if `is_linear' local measure "coefficient"
@@ -398,15 +427,36 @@ program define qba_confound, rclass
     if "`evalue'" != "" {
         if `is_linear' {
             display as text ""
-            display as text "{bf:Note:} E-value requires a ratio measure (OR or RR)."
+            display as text "{bf:Note:} E-value requires a ratio measure (OR, RR, HR, or IRR)."
             display as text "The estimate from `ecmd' is a linear coefficient."
             display as text "E-value computation is skipped for linear models."
             display as text ""
             local evalue ""
         }
         else {
-            * Use OR as approximate RR (conservative, VanderWeele 2017)
+            * VanderWeele & Ding (2017) Table 1 takes a RISK ratio. Table 2
+            * fixes the conversion for the other ratio measures: for a common
+            * outcome an OR enters as sqrt(OR) and an HR through the
+            * (1-0.5^sqrt(HR))/(1-0.5^sqrt(1/HR)) approximation; a rate ratio
+            * enters directly. Without commonoutcome the estimate is inserted
+            * directly, which Table 2 licenses only for a rare (<15%) outcome.
+            local eval_conv "none"
+            if "`commonoutcome'" != "" {
+                if "`measure'" == "OR" {
+                    local eval_conv "sqrtor"
+                }
+                else if "`measure'" == "HR" {
+                    local eval_conv "hrcommon"
+                }
+            }
             local rr_for_eval = `estimate'
+            if "`eval_conv'" == "sqrtor" {
+                local rr_for_eval = sqrt(`estimate')
+            }
+            else if "`eval_conv'" == "hrcommon" {
+                local rr_for_eval = ///
+                    (1 - 0.5^sqrt(`estimate')) / (1 - 0.5^sqrt(1/`estimate'))
+            }
 
             * E-value for point estimate
             if `rr_for_eval' >= 1 {
@@ -417,38 +467,41 @@ program define qba_confound, rclass
                 local eval_point = `rr_inv' + sqrt(`rr_inv' * (`rr_inv' - 1))
             }
 
-            * E-value for CI bound
+            * E-value for CI bound. The null-crossing test is on the ORIGINAL
+            * scale; both conversions are monotone and map 1 to 1, so the
+            * direction of the limit relative to the null is unchanged.
             local eval_ci = .
+            local ci_use = .
             if `ci_bound' != -999 {
 	                if missing(`ci_bound') | `ci_bound' <= 0 {
 	                    display as error "ci_bound() must be > 0"
 	                    exit 198
 	                }
-                if (`estimate' >= 1 & `ci_bound' <= 1) | (`estimate' < 1 & `ci_bound' >= 1) {
-                    * CI crosses null
-                    local eval_ci = 1
-                }
-                else {
-                    local rr_ci = `ci_bound'
-                    if `rr_ci' < 1 {
-                        local rr_ci = 1 / `rr_ci'
-                    }
-                    local eval_ci = `rr_ci' + sqrt(`rr_ci' * (`rr_ci' - 1))
-                }
+                local ci_use = `ci_bound'
             }
             else if `has_est_ci' {
-                * Use CI from model or estimator contract
+                * Use the limit nearest the null (Table 1)
                 if `estimate' >= 1 {
                     local ci_use = `est_lo'
                 }
                 else {
                     local ci_use = `est_hi'
                 }
+            }
+            if `ci_use' < . {
                 if (`estimate' >= 1 & `ci_use' <= 1) | (`estimate' < 1 & `ci_use' >= 1) {
+                    * Limit includes the null
                     local eval_ci = 1
                 }
                 else {
                     local rr_ci = `ci_use'
+                    if "`eval_conv'" == "sqrtor" {
+                        local rr_ci = sqrt(`ci_use')
+                    }
+                    else if "`eval_conv'" == "hrcommon" {
+                        local rr_ci = ///
+                            (1 - 0.5^sqrt(`ci_use')) / (1 - 0.5^sqrt(1/`ci_use'))
+                    }
                     if `rr_ci' < 1 {
                         local rr_ci = 1 / `rr_ci'
                     }
@@ -541,20 +594,17 @@ program define qba_confound, rclass
         if "`evalue'" != "" {
             display as text ""
             display as text "{bf:E-value (VanderWeele & Ding 2017)}"
+            _qba_evalue_scale, measure(`measure') conv(`eval_conv') ///
+                rrused(`rr_for_eval') common(`commonoutcome')
             display as text "  E-value (point):  " as result %9.4f `eval_point'
             if `eval_ci' < . {
                 display as text "  E-value (CI):     " as result %9.4f `eval_ci'
             }
             display as text ""
-            if `eval_point' < 2 {
-                display as text "  A relatively weak confounder could explain the effect."
-            }
-            else if `eval_point' < 3 {
-                display as text "  A moderately strong confounder would be needed."
-            }
-            else {
-                display as text "  A strong confounder would be needed."
-            }
+            display as text "  Interpret against the confounder-treatment and"
+            display as text "  confounder-outcome associations that are plausible here;"
+            display as text "  the E-values of the measured covariates are the natural"
+            display as text "  comparison (VanderWeele & Ding 2017, Table 3)."
         }
 
         * Store results
@@ -589,6 +639,8 @@ program define qba_confound, rclass
             if `eval_ci' < . {
                 return scalar evalue_ci = `eval_ci'
             }
+            return scalar evalue_rr = `rr_for_eval'
+            return local evalue_conv "`eval_conv'"
         }
         if `has_est_ci' {
             return scalar ci_lower = `est_lo'
@@ -611,7 +663,9 @@ program define qba_confound, rclass
             exit 198
         }
         if `reps' < 100 {
-            display as error "reps() should be at least 100 for stable results"
+            display as error "reps() must be at least 100"
+            display as error ///
+                "100 is a floor, not a stability guarantee; Fox, MacLehose & Lash (2023) use 10^5-10^6 replications"
             exit 198
         }
 
@@ -733,12 +787,16 @@ program define qba_confound, rclass
         display as text "  Median:   " as result %9.4f `mc_median'
         display as text "  Mean:     " as result %9.4f `mc_mean'
         display as text "  SD:       " as result %9.4f `mc_sd'
-        display as text "  `level'% CI:  " as result %9.4f `mc_lo' ///
+        display as text "  `level'% simulation interval: " as result %9.4f `mc_lo' ///
             as text " - " as result %9.4f `mc_hi'
+        display as text "  (systematic error only: percentiles over bias-parameter draws,"
+        display as text "   not a corrected confidence interval)"
 
         if "`evalue'" != "" {
             display as text ""
             display as text "{bf:E-value (VanderWeele & Ding 2017)}"
+            _qba_evalue_scale, measure(`measure') conv(`eval_conv') ///
+                rrused(`rr_for_eval') common(`commonoutcome')
             display as text "  E-value (point):  " as result %9.4f `eval_point'
             if `eval_ci' < . {
                 display as text "  E-value (CI):     " as result %9.4f `eval_ci'
@@ -757,6 +815,7 @@ program define qba_confound, rclass
         return scalar n_draw_invalid = `n_draw_invalid'
         return local measure "`measure'"
         return local method "probabilistic"
+        return local interval "systematic-error simulation interval"
         if `contract_flag' {
             if `se_treat' < . return scalar se = `se_treat'
             return local source "`contract_source'"
@@ -773,6 +832,8 @@ program define qba_confound, rclass
 	            if `eval_ci' < . {
 	                return scalar evalue_ci = `eval_ci'
 	            }
+	            return scalar evalue_rr = `rr_for_eval'
+	            return local evalue_conv "`eval_conv'"
 	        }
 	        if `save_rc' {
 	            display as error "saving() failed; analytical results are posted in r()"

@@ -1,4 +1,4 @@
-*! _qba_distributions Version 1.0.1  2026/06/19
+*! _qba_distributions Version 1.1.0  2026/07/26
 *! Internal helper: random draws from distributions for probabilistic QBA
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -14,8 +14,15 @@ Supported distributions:
   logit-normal mean sd
   constant value
 
+Every distribution is drawn by inverse CDF from a uniform variate. The
+u() option supplies that variate instead of generating it, which is what
+lets a caller induce dependence between two bias parameters by feeding
+correlated uniforms (Gaussian copula; Fox, MacLehose & Lash 2023 draw
+case and non-case sensitivities this way).
+
 Usage:
   _qba_draw_one, dist("trapezoidal 0.7 0.8 0.9 1.0") gen(varname) n(#)
+  _qba_draw_one, dist("beta 50.6 14.3") gen(varname) n(#) u(uvarname)
   _qba_parse_dist, dist("trapezoidal 0.7 0.8 0.9 1.0")
 */
 
@@ -142,12 +149,16 @@ program define _qba_draw_one
     set varabbrev off
     capture noisily {
 
-    syntax , DIst(string) GEN(name) N(integer)
+    syntax , DIst(string) GEN(name) N(integer) [U(varname numeric)]
 
     _qba_parse_dist, dist("`dist'")
     local dtype "`r(dtype)'"
     local params "`r(params)'"
 
+    * When u() is supplied every distribution is inverted from that variate,
+    * so correlated uniforms carry their dependence through to the parameter.
+    * Without u() the original direct-generator calls are kept verbatim: they
+    * define the seeded RNG stream that existing known-answer QA pins.
     if "`dtype'" == "constant" {
         local val : word 1 of `params'
         quietly gen double `gen' = `val' in 1/`n'
@@ -155,17 +166,32 @@ program define _qba_draw_one
     else if "`dtype'" == "uniform" {
         local lo : word 1 of `params'
         local hi : word 2 of `params'
-        quietly gen double `gen' = `lo' + (`hi' - `lo') * runiform() in 1/`n'
+        if "`u'" != "" {
+            quietly gen double `gen' = `lo' + (`hi' - `lo') * `u' in 1/`n'
+        }
+        else {
+            quietly gen double `gen' = `lo' + (`hi' - `lo') * runiform() in 1/`n'
+        }
     }
     else if "`dtype'" == "beta" {
         local a : word 1 of `params'
         local b : word 2 of `params'
-        quietly gen double `gen' = rbeta(`a', `b') in 1/`n'
+        if "`u'" != "" {
+            quietly gen double `gen' = invibeta(`a', `b', `u') in 1/`n'
+        }
+        else {
+            quietly gen double `gen' = rbeta(`a', `b') in 1/`n'
+        }
     }
     else if "`dtype'" == "logit-normal" {
         local mu : word 1 of `params'
         local sd : word 2 of `params'
-        quietly gen double `gen' = invlogit(`mu' + `sd' * rnormal()) in 1/`n'
+        if "`u'" != "" {
+            quietly gen double `gen' = invlogit(`mu' + `sd' * invnormal(`u')) in 1/`n'
+        }
+        else {
+            quietly gen double `gen' = invlogit(`mu' + `sd' * rnormal()) in 1/`n'
+        }
     }
     else if "`dtype'" == "triangular" {
         local lo : word 1 of `params'
@@ -177,12 +203,17 @@ program define _qba_draw_one
         }
         else {
             local fc = (`mode' - `lo') / `range'
-            tempvar u
-            quietly gen double `u' = runiform() in 1/`n'
-            quietly gen double `gen' = `lo' + sqrt(`u' * `range' * (`mode' - `lo')) ///
-                if `u' <= `fc' in 1/`n'
-            quietly replace `gen' = `hi' - sqrt((1 - `u') * `range' * (`hi' - `mode')) ///
-                if `u' > `fc' in 1/`n'
+            if "`u'" != "" {
+                local uvar "`u'"
+            }
+            else {
+                tempvar uvar
+                quietly gen double `uvar' = runiform() in 1/`n'
+            }
+            quietly gen double `gen' = `lo' + sqrt(`uvar' * `range' * (`mode' - `lo')) ///
+                if `uvar' <= `fc' in 1/`n'
+            quietly replace `gen' = `hi' - sqrt((1 - `uvar') * `range' * (`hi' - `mode')) ///
+                if `uvar' > `fc' in 1/`n'
         }
     }
     else if "`dtype'" == "trapezoidal" {
@@ -200,18 +231,23 @@ program define _qba_draw_one
         local h = 2 / (`d' + `c' - `a' - `b')
         local area1 = 0.5 * (`b' - `a') * `h'
         local area2 = (`c' - `b') * `h'
-        tempvar u
-        quietly gen double `u' = runiform() in 1/`n'
+        if "`u'" != "" {
+            local uvar "`u'"
+        }
+        else {
+            tempvar uvar
+            quietly gen double `uvar' = runiform() in 1/`n'
+        }
         quietly gen double `gen' = . in 1/`n'
         * Region 1: rising edge [a, b]
-        quietly replace `gen' = `a' + sqrt(`u' * (`b' - `a') * (`d' + `c' - `a' - `b')) ///
-            if `u' <= `area1' in 1/`n'
+        quietly replace `gen' = `a' + sqrt(`uvar' * (`b' - `a') * (`d' + `c' - `a' - `b')) ///
+            if `uvar' <= `area1' in 1/`n'
         * Region 2: flat top [b, c]
-        quietly replace `gen' = `b' + (`u' - `area1') * (`d' + `c' - `a' - `b') / 2 ///
-            if `u' > `area1' & `u' <= (`area1' + `area2') in 1/`n'
+        quietly replace `gen' = `b' + (`uvar' - `area1') * (`d' + `c' - `a' - `b') / 2 ///
+            if `uvar' > `area1' & `uvar' <= (`area1' + `area2') in 1/`n'
         * Region 3: falling edge [c, d]
-        quietly replace `gen' = `d' - sqrt((1 - `u') * (`d' - `c') * (`d' + `c' - `a' - `b')) ///
-            if `u' > (`area1' + `area2') in 1/`n'
+        quietly replace `gen' = `d' - sqrt((1 - `uvar') * (`d' - `c') * (`d' + `c' - `a' - `b')) ///
+            if `uvar' > (`area1' + `area2') in 1/`n'
         }
     }
 

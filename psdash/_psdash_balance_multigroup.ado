@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.5.0  2026/07/22
+*! _psdash_balance_multigroup Version 1.6.0  2026/07/26
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -66,9 +66,26 @@ program define _psdash_balance_multigroup, rclass
         matrix colnames `balance_mat' = `colnames'
         local rownames ""
 
+        * RB-12: see the binary helper. Covariates are not marked out of the panel
+        * sample, so rows can rest on different N; count and name the incomplete
+        * ones so the caller can footnote them.
+        local n_cov_incomplete = 0
+        local cov_miss_vars ""
+        quietly count
+        local _n_panel = r(N)
+        local n_cov_min = `_n_panel'
+
         local i = 1
         foreach var of local varlist {
             local rownames `"`rownames' `: word `i' of `labels''"'
+
+            quietly count if missing(`var')
+            if r(N) > 0 {
+                local ++n_cov_incomplete
+                local cov_miss_vars `"`cov_miss_vars' `: word `i' of `labels''"'
+                local _n_this = `_n_panel' - r(N)
+                if `_n_this' < `n_cov_min' local n_cov_min = `_n_this'
+            }
 
             * Flag binary/indicator covariates (VR uninformative; see binary helper)
             quietly summarize `var'
@@ -131,6 +148,9 @@ program define _psdash_balance_multigroup, rclass
                     quietly summarize `var' [aw=`wvar'] if `treatment' == `reference'
                     local mean_ref_adj = r(mean)
 
+                    * RB-12: unweighted pooled SD reused for the adjusted column
+                    * (cobalt convention), NOT the Austin & Stuart (2015) 4.1.1
+                    * weighted variance. See the binary helper for the full note.
                     if `sd_pooled' > 0 {
                         local smd_adj = (`mean_a_adj' - `mean_ref_adj') / `sd_pooled'
                     }
@@ -328,6 +348,10 @@ program define _psdash_balance_multigroup, rclass
         return scalar n_binary_vr = `n_binary_vr'
         return local vr_na_vars = strtrim("`vr_na_vars'")
         return local contrasts "`contrasts'"
+        * RB-12: per-covariate completeness of the balance table
+        return scalar n_cov_incomplete = `n_cov_incomplete'
+        return scalar n_cov_min = `n_cov_min'
+        return local cov_miss_vars = strtrim(`"`cov_miss_vars'"')
         return matrix balance = `balance_mat'
     }
     local rc = _rc

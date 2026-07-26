@@ -39,20 +39,20 @@
 {synopt:{opt sela(#)}}selection probability for exposed cases{p_end}
 {synopt:{opt selb(#)}}selection probability for unexposed cases{p_end}
 {synopt:{opt selc(#)}}selection probability for exposed non-cases{p_end}
-{synopt:{opt seld(#)}}selection probability for unexposed non-cases{p_end}
+{synopt:{opt seld(#)}}selection prob, unexposed non-cases{p_end}
 
 {syntab:Measure}
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
 
 {syntab:Probabilistic}
-{synopt:{opt reps(#)}}Monte Carlo replications (minimum 100; enables probabilistic mode){p_end}
-{synopt:{opt dist_sela(distribution)}}distribution for sela; default constant at {cmd:sela()}{p_end}
-{synopt:{opt dist_selb(distribution)}}distribution for selb; default constant at {cmd:selb()}{p_end}
-{synopt:{opt dist_selc(distribution)}}distribution for selc; default constant at {cmd:selc()}{p_end}
-{synopt:{opt dist_seld(distribution)}}distribution for seld; default constant at {cmd:seld()}{p_end}
+{synopt:{opt reps(#)}}Monte Carlo replications; minimum 100{p_end}
+{synopt:{opt dist_sela(distribution)}}sela distribution; default constant{p_end}
+{synopt:{opt dist_selb(distribution)}}selb distribution; default constant{p_end}
+{synopt:{opt dist_selc(distribution)}}selc distribution; default constant{p_end}
+{synopt:{opt dist_seld(distribution)}}seld distribution; default constant{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}confidence level for percentile interval; default {cmd:95}{p_end}
-{synopt:{opt sa:ving(filename, ...)}}save Monte Carlo dataset for use with {helpb qba_plot}{p_end}
+{synopt:{opt level(#)}}simulation-interval level; default {cmd:95}{p_end}
+{synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
 
@@ -117,9 +117,11 @@ ratio.
 {dlgtab:Probabilistic}
 
 {phang}
-{opt reps(#)} specifies the number of Monte Carlo replications. Minimum is
-100; typical values are 5,000 to 50,000. Specifying {opt reps()} activates
-probabilistic mode.
+{opt reps(#)} specifies the number of Monte Carlo replications. The minimum
+accepted is 100, which is a floor rather than a stability guarantee: Fox,
+MacLehose, and Lash (2023) repeat the process "hundreds of thousands" of
+times, and their worked examples use 10^5 to 10^6 replications. Specifying
+{opt reps()} activates probabilistic mode.
 
 {phang}
 {opt dist_sela(distribution)} through {opt dist_seld(distribution)} specify distributions
@@ -224,14 +226,15 @@ uncertainty is strongly recommended.
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower bound of percentile confidence interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper bound of percentile confidence interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(measure)}}measure of association ({cmd:OR} or {cmd:RR}){p_end}
 {synopt:{cmd:r(method)}}{cmd:simple} or {cmd:probabilistic}{p_end}
+{synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are{p_end}
 
 
 {title:References}

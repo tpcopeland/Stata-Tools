@@ -115,6 +115,20 @@ censoring SMDs are not folded into the treatment table.{p_end}
 {phang2}{bf:SMD < 0.1:} The standard threshold for acceptable balance. SMDs
 above 0.1 after weighting suggest residual confounding for that variable.{p_end}
 
+{phang2}{bf:How the SMD is standardized:} SMD = (mean1 - mean0) /
+sqrt((var1 + var0) / 2). The weighted SMD substitutes weighted means
+{it:and} weighted variances, per Austin and Stuart (2015, section 4.1.1): "each
+sample estimate can be replaced by its weighted equivalent". The
+denominator of the weighted SMD is therefore the pooled SD of the
+pseudo-population, not of the crude sample. Consequence: {cmd:raw_smd} and
+{cmd:weighted_smd} are each standardized on their own sample's scale, so the
+pair is not a single series rescaled by a common constant, and a weighted SMD
+can move because the weights changed the spread rather than the location. The
+alternative convention -- one common unweighted denominator for both columns,
+used by default in the R package {cmd:cobalt} -- is not what this command
+reports. Read {cmd:pct_change} as a direction, and judge the weighted column
+against the threshold on its own terms.{p_end}
+
 {phang2}{bf:Secondary pooled % change:} A large negative change means weighting improved
 balance. A positive change means weighting made balance worse for that
 covariate, which warrants investigation.{p_end}
@@ -286,8 +300,8 @@ status. {cmd:r(support)} has columns {cmd:period}, {cmd:N}, {cmd:treated},
 {cmd:common_hi}, {cmd:n_outside}, and {cmd:ess}.
 
 {pstd}
-{cmd:ps_min} and {cmd:ps_max} bound the estimated P(A=1) in the period.
-{cmd:obs_min} is the smallest estimated probability of the treatment each
+{cmd:ps_min} and {cmd:ps_max} bound the estimated P(A=1) in the period. {cmd:obs_min}
+is the smallest estimated probability of the treatment each
 subject was actually observed to take -- P(A=1) on treated rows and 1-P(A=1) on
 untreated rows -- and it is the column the {opt positivity(#)} floor is applied
 to. The two answer different questions: a period in which everyone is
@@ -323,6 +337,13 @@ to the named frame (see the {help msm_diagnose##options:Options}); this is a sid
 Adenyo D, Guertin JR, Candas B, Sirois C, Talbot D. 2024. Evaluation and
 comparison of covariate balance metrics in studies with time-dependent
 confounding. {it:Statistics in Medicine}. doi:10.1002/sim.10188.{p_end}
+
+{phang}
+Austin PC, Stuart EA. 2015. Moving towards best practice when using inverse
+probability of treatment weighting (IPTW) using the propensity score to
+estimate causal treatment effects in observational studies. {it:Statistics in Medicine}
+34(28): 3661-3679. doi:10.1002/sim.6607. Grounds the weighted standardized
+mean difference and its denominator convention.{p_end}
 
 
 {marker author}{...}

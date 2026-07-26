@@ -1,4 +1,4 @@
-*! msm Version 1.3.0  2026/07/25
+*! msm Version 1.4.0  2026/07/26
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -34,7 +34,7 @@ program define msm, rclass
         exit 198
     }
 
-    local version "1.3.0"
+    local version "1.4.0"
 
     * Canonical public-command manifest (audit A32): the single source that
     * drives the list mode, r(commands), and release QA. All twelve subcommands

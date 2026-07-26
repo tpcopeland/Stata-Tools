@@ -33,6 +33,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `test_msm_expanded.do` | Expanded command options and pipeline combinations |
 | `test_msm_status.do` | Flagship controller and pipeline-state reporting |
 | `test_msm_weight_ergonomics.do` | Weight defaults, preview, truncation, and returned specifications |
+| `test_msm_period_basis.do` | 1.4.0 time basis: `period_d_spec()`/`period_n_spec()` parity against hand-refits of all four weighting logits, default no-regression gate, spec validation and spline-support refusal, state persistence, and recovery of a non-monotone treatment process |
 | `test_msm_fit_guidance.do` | Outcome-model guidance and unsupported model paths |
 | `test_msm_cox_state.do` | Cox estimation and caller `stset` restoration |
 | `test_msm_continuous_exposure.do` | Continuous/time-varying exposure contracts and effect labeling |
@@ -94,11 +95,11 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 
 | Lane | Suites |
 |------|--------|
-| `quick` | 27 curated functional, regression, package, demo, export, and adversarial suites listed under Functional and regression suites |
+| `quick` | 28 curated functional, regression, package, demo, export, and adversarial suites listed under Functional and regression suites |
 | `validations` | 7 `validation_*.do` suites listed under Validation suites |
-| `core` | All 34 Stata-side suites (`quick` + `validations`) |
+| `core` | All 35 Stata-side suites (`quick` + `validations`) |
 | `crossval` | `crossval_msm.do`, `crossval_external_models.do` |
-| `full` | All 36 suites (`core` + `crossval`); default release gate |
+| `full` | All 37 suites (`core` + `crossval`); default release gate |
 
 ## Supporting files
 

@@ -239,7 +239,9 @@ capture noisily {
     confirm scalar r(n_outside_group_1)
     confirm scalar r(n_outside_group_2)
     confirm scalar r(trim_lower)
-    confirm scalar r(trim_upper)
+    * RB-12: no r(trim_upper) for multi-group -- the trim is a one-sided GPS floor
+    capture confirm scalar r(trim_upper)
+    assert _rc != 0
     local mg_label : variable label mg_support
     assert strpos("`mg_label'", "All GPS components") == 1
     capture confirm scalar r(N_treated)

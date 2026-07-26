@@ -1,4 +1,4 @@
-*! psdash_detect Version 1.5.0  2026/07/22
+*! psdash_detect Version 1.6.0  2026/07/26
 *! Report propensity-score auto-detection without running diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

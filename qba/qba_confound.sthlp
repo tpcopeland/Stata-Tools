@@ -32,32 +32,33 @@
 {synoptline}
 {syntab:Estimate source}
 {synopt:{opt est:imate(#)}}observed OR or RR to correct{p_end}
-{synopt:{opt from_model}}extract estimate from the last estimation command{p_end}
-{synopt:{opt coef(coefname)}}coefficient to use when multiple predictors are present{p_end}
+{synopt:{opt from_model}}take the estimate from {cmd:e(b)}{p_end}
+{synopt:{opt coef(coefname)}}which coefficient to correct{p_end}
 
 {syntab:Confounding parameters}
 {synopt:{opt p1(#)}}P(confounder = 1 | exposed); range [0, 1]{p_end}
 {synopt:{opt p0(#)}}P(confounder = 1 | unexposed); range [0, 1]{p_end}
-{synopt:{opt rrcd(#)}}RR for confounder-disease association (Schneeweiss formula){p_end}
-{synopt:{opt rrud(#)}}RR for confounder-disease association (Greenland formula){p_end}
-{synopt:{opt conf:effect(#)}}signed additive confounder effect for linear {cmd:from_model}{p_end}
+{synopt:{opt rrcd(#)}}confounder-disease RR (Schneeweiss){p_end}
+{synopt:{opt rrud(#)}}confounder-disease RR (Greenland){p_end}
+{synopt:{opt conf:effect(#)}}additive confounder effect (linear only){p_end}
 
 {syntab:E-value}
 {synopt:{opt eva:lue}}compute E-value (VanderWeele & Ding 2017){p_end}
-{synopt:{opt ci_bound(#)}}CI bound for E-value when not using {cmd:from_model}{p_end}
+{synopt:{opt ci_bound(#)}}CI bound for the E-value{p_end}
+{synopt:{opt com:monoutcome}}outcome is common (>15%){p_end}
 
 {syntab:Options}
-{synopt:{opt mea:sure(OR|RR)}}measure type; default inferred from {cmd:from_model} or {cmd:RR}{p_end}
+{synopt:{opt mea:sure(OR|RR|HR|IRR)}}measure type; default {cmd:RR}{p_end}
 
 {syntab:Probabilistic}
-{synopt:{opt reps(#)}}Monte Carlo replications (minimum 100; enables probabilistic mode){p_end}
-{synopt:{opt dist_p1(distribution)}}distribution for p1; default constant at {cmd:p1()}{p_end}
-{synopt:{opt dist_p0(distribution)}}distribution for p0; default constant at {cmd:p0()}{p_end}
-{synopt:{opt dist_rr(distribution)}}distribution for the confounder-disease RR; default constant{p_end}
-{synopt:{opt dist_confeffect(distribution)}}distribution for additive confounder effects in linear models{p_end}
+{synopt:{opt reps(#)}}Monte Carlo replications; minimum 100{p_end}
+{synopt:{opt dist_p1(distribution)}}p1 distribution; default constant{p_end}
+{synopt:{opt dist_p0(distribution)}}p0 distribution; default constant{p_end}
+{synopt:{opt dist_rr(distribution)}}confounder-disease RR distribution{p_end}
+{synopt:{opt dist_confeffect(distribution)}}confounder-effect distribution{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
 {synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
-{synopt:{opt sa:ving(filename, ...)}}save Monte Carlo dataset for use with {helpb qba_plot}{p_end}
+{synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
 
@@ -102,6 +103,30 @@ unmeasured confounder would need to have with both the treatment and the
 outcome, conditional on measured covariates, to fully explain away the
 observed effect. Larger E-values indicate greater robustness to unmeasured
 confounding.
+
+{pstd}
+The E-value formula in VanderWeele and Ding (2017) Table 1 takes a {bf:risk}
+ratio. Their Table 2 states what must happen first for the other ratio
+measures, and {opt commonoutcome} selects it:
+
+{p2colset 9 34 36 2}{...}
+{p2col:{cmd:measure(RR)}, {cmd:measure(IRR)}}inserted directly at any outcome prevalence{p_end}
+{p2col:{cmd:measure(OR)} + {opt commonoutcome}}RR is approximated by sqrt(OR){p_end}
+{p2col:{cmd:measure(HR)} + {opt commonoutcome}}RR is approximated by (1-0.5^sqrt(HR)) / (1-0.5^sqrt(1/HR)){p_end}
+{p2col:{cmd:measure(OR)}/{cmd:measure(HR)} alone}inserted directly; valid only for a rare outcome{p_end}
+{p2colreset}{...}
+
+{pstd}
+The scale actually used is printed above the E-value, and the converted risk
+ratio is returned in {cmd:r(evalue_rr)}, so an E-value is never silently a
+rare-outcome approximation applied to a common-outcome estimate.
+
+{pstd}
+{opt measure(HR)} and {opt measure(IRR)} are corrected by the same bias factor
+as {cmd:RR}; they exist as separate labels because the E-value conversion
+differs. Note that {opt from_model} auto-detection still reports {cmd:RR} for
+{cmd:stcox}, {cmd:streg}, {cmd:stcrreg}, and the count models -- specify
+{opt measure(HR)} explicitly when you want the hazard-ratio conversion.
 
 
 {marker options}{...}
@@ -181,6 +206,15 @@ using {opt from_model}. This should be the CI bound closest to the null
 (e.g., the lower bound of the CI when the point estimate is > 1). Must be
 > 0.
 
+{phang}
+{opt commonoutcome} declares that the outcome is common (more than about 15%
+by the end of follow-up) and applies the corresponding VanderWeele and Ding
+Table 2 conversion before the E-value formula: sqrt(OR) for {opt measure(OR)},
+and (1-0.5^sqrt(HR)) / (1-0.5^sqrt(1/HR)) for {opt measure(HR)}. The same
+conversion is applied to the confidence limit. For {opt measure(RR)} and
+{opt measure(IRR)} no conversion is required, and the option reports that it
+had no effect. It requires {opt evalue}.
+
 {dlgtab:Options}
 
 {phang}
@@ -193,8 +227,11 @@ explicit {opt measure(RR)}. When {opt estimate()} is used, the default is
 {dlgtab:Probabilistic}
 
 {phang}
-{opt reps(#)} specifies the number of Monte Carlo replications. Minimum is
-100. Specifying {opt reps()} activates probabilistic mode, which requires
+{opt reps(#)} specifies the number of Monte Carlo replications. The minimum
+accepted is 100, which is a floor rather than a stability guarantee: Fox,
+MacLehose, and Lash (2023) repeat the process "hundreds of thousands" of
+times, and their worked examples use 10^5 to 10^6 replications. Specifying
+{opt reps()} activates probabilistic mode, which requires
 confounding parameters ({opt p1()}, {opt p0()}, and {opt rrcd()} or
 {opt rrud()} for ratio measures, or {opt confeffect()} for linear models).
 
@@ -235,8 +272,13 @@ option name that matches your external data or expert terminology.
 would need to be associated with both the exposure and the outcome by a risk
 ratio of at least 3.0 each (above and beyond measured covariates) to explain
 away the observed effect. Weaker confounding could not fully account for the
-result. E-values below 2 suggest relatively low robustness; values above 3
-suggest strong robustness.
+result. VanderWeele and Ding (2017) Table 3 is explicit that there is no
+universal threshold: an E-value is interpreted against the
+confounder-treatment and confounder-outcome associations that are plausible in
+the setting at hand, and the natural comparison is the E-value each
+{it:measured} covariate would produce had it been omitted. Two- and three-fold
+associations are discussed there as examples, not as cut-points, so no
+robustness grade is printed.
 
 {pstd}
 {bf:E-value for the CI bound.} The E-value for the CI bound closest to the
@@ -245,10 +287,11 @@ shift the CI to include the null? This is the more conservative assessment.
 
 {pstd}
 {bf:E-values and the rare-outcome assumption.} VanderWeele and Ding (2017)
-derive the E-value on the risk-ratio scale. When this command is applied to an
-odds ratio, the E-value is a conservative approximation that works best when
-the outcome is rare (less than about 15% prevalence) and can be
-anti-conservative otherwise.
+derive the E-value on the risk-ratio scale. Applying it directly to an odds or
+hazard ratio is licensed by their Table 2 only when the outcome is rare (less
+than about 15% by end of follow-up); for a common outcome the direct E-value is
+too large, i.e. it overstates robustness. Specify {opt commonoutcome} to apply
+the Table 2 conversion instead. The scale used is printed with the E-value.
 
 {pstd}
 {bf:Linear models.} When {opt from_model} detects a linear model (e.g., {cmd:regress}), the
@@ -284,6 +327,17 @@ correction. If a future or custom TMLE contract posts a ratio-scale measure,
 {bf:Example 3: Correction with E-value}
 
 {phang2}{cmd:. qba_confound, estimate(1.5) measure(OR) p1(.4) p0(.2) rrcd(2.0) evalue ci_bound(1.1)}{p_end}
+
+{pstd}
+The same estimate when the outcome is common, so the odds ratio must enter the
+E-value formula as sqrt(OR):
+
+{phang2}{cmd:. qba_confound, estimate(1.5) measure(OR) evalue ci_bound(1.1) commonoutcome}{p_end}
+
+{pstd}
+A hazard ratio with a common outcome:
+
+{phang2}{cmd:. qba_confound, estimate(1.5) measure(HR) evalue ci_bound(1.1) commonoutcome}{p_end}
 
 {pstd}
 {bf:Example 4: From estimation results}
@@ -337,9 +391,9 @@ effect:
 {synoptset 22 tabbed}{...}
 {p2col 5 22 26 2: Scalars (simple mode)}{p_end}
 {synopt:{cmd:r(observed)}}observed measure of association{p_end}
-{synopt:{cmd:r(corrected)}}corrected measure of association (when correction is performed){p_end}
+{synopt:{cmd:r(corrected)}}corrected measure, when corrected{p_end}
 {synopt:{cmd:r(bias_factor)}}bias factor (ratio measures only){p_end}
-{synopt:{cmd:r(ratio)}}corrected / observed (ratio measures only, when both are defined){p_end}
+{synopt:{cmd:r(ratio)}}corrected / observed (ratio measures){p_end}
 {synopt:{cmd:r(p1)}}confounder prevalence among exposed{p_end}
 {synopt:{cmd:r(p0)}}confounder prevalence among unexposed{p_end}
 {synopt:{cmd:r(rrcd)}}confounder-disease RR (when {opt rrcd()} specified){p_end}
@@ -347,27 +401,31 @@ effect:
 {synopt:{cmd:r(confeffect)}}additive confounder effect (linear models){p_end}
 {synopt:{cmd:r(evalue)}}E-value for point estimate (when {opt evalue} specified){p_end}
 {synopt:{cmd:r(evalue_ci)}}E-value for CI bound (when available){p_end}
+{synopt:{cmd:r(evalue_rr)}}risk ratio the E-value formula was applied to{p_end}
 {synopt:{cmd:r(ci_lower)}}lower CI bound ({opt from_model} or active estimator contract){p_end}
 {synopt:{cmd:r(ci_upper)}}upper CI bound ({opt from_model} or active estimator contract){p_end}
-{synopt:{cmd:r(se)}}standard error from {opt from_model} or active estimator contract, when available{p_end}
+{synopt:{cmd:r(se)}}standard error of the source estimate{p_end}
 
 {p2col 5 22 26 2: Scalars (probabilistic mode)}{p_end}
 {synopt:{cmd:r(observed)}}observed measure of association{p_end}
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower bound of percentile confidence interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper bound of percentile confidence interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
 {synopt:{cmd:r(n_draw_invalid)}}number of draws with out-of-support parameters{p_end}
 {synopt:{cmd:r(evalue)}}E-value for point estimate (when {opt evalue} specified){p_end}
 {synopt:{cmd:r(evalue_ci)}}E-value for CI bound (when available){p_end}
-{synopt:{cmd:r(se)}}standard error from {opt from_model} or active estimator contract, when available{p_end}
+{synopt:{cmd:r(evalue_rr)}}risk ratio the E-value formula was applied to{p_end}
+{synopt:{cmd:r(se)}}standard error of the source estimate{p_end}
 
 {p2col 5 22 26 2: Macros}{p_end}
-{synopt:{cmd:r(measure)}}measure or estimand ({cmd:OR}, {cmd:RR}, or {cmd:coefficient}){p_end}
+{synopt:{cmd:r(measure)}}measure or estimand ({cmd:OR}, {cmd:RR}, {cmd:HR}, {cmd:IRR}, or {cmd:coefficient}){p_end}
 {synopt:{cmd:r(method)}}{cmd:simple} or {cmd:probabilistic}{p_end}
+{synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are (probabilistic only){p_end}
+{synopt:{cmd:r(evalue_conv)}}E-value scale conversion: {cmd:none}, {cmd:sqrtor}, or {cmd:hrcommon}{p_end}
 {synopt:{cmd:r(correction_type)}}{cmd:subtractive} (linear models only){p_end}
 {synopt:{cmd:r(source)}}active estimator source ({cmd:tmle} or {cmd:ltmle}), when used{p_end}
 {synopt:{cmd:r(cmd)}}active estimator command, when a contract is used{p_end}
@@ -394,6 +452,12 @@ research: introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274.
 {phang}
 Greenland S. Basic methods for sensitivity analysis of
 biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
+
+
+{phang}
+Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative
+bias analysis for misclassified binary variables and binary unmeasured
+confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633.
 
 
 {title:Author}

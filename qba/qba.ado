@@ -1,4 +1,4 @@
-*! qba Version 1.0.1  2026/06/19
+*! qba Version 1.1.0  2026/07/26
 *! Quantitative Bias Analysis toolkit for epidemiologic data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -19,8 +19,30 @@ program define qba, rclass
 
     syntax [, Version]
 
+    * Read the version from this file's own *! header so the displayed and
+    * returned version cannot drift from it on a bump.
+    local _pkgver ""
+    local _pkgdate ""
+    capture findfile qba.ado
+    if _rc == 0 {
+        tempname _fh
+        capture file open `_fh' using "`r(fn)'", read text
+        if _rc == 0 {
+            file read `_fh' _line
+            file close `_fh'
+            if regexm(`"`_line'"', "Version ([0-9]+\.[0-9]+\.[0-9]+) +([0-9/-]+)") {
+                local _pkgver = regexs(1)
+                local _pkgdate = subinstr(regexs(2), "/", "-", .)
+            }
+        }
+    }
+    if "`_pkgver'" == "" {
+        display as error "could not read the package version from qba.ado; reinstall qba"
+        exit 111
+    }
+
     display as text "{bf:qba} - Quantitative Bias Analysis for Epidemiologic Data"
-	    display as text "Version 1.0.1 (2026-06-19)"
+	    display as text "Version `_pkgver' (`_pkgdate')"
     display as text "{bf:Available commands:}"
     display as text "  {bf:{help qba_misclass}} - Misclassification bias analysis"
     display as text "      Corrects 2x2 tables for exposure or outcome"
@@ -42,7 +64,7 @@ program define qba, rclass
     display as text "Based on: Lash TL, Fox MP, Fink AK. Applying Quantitative"
     display as text "Bias Analysis to Epidemiologic Data. 2nd ed. Springer; 2021."
 
-	    return local version "1.0.1"
+	    return local version "`_pkgver'"
     return local commands "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 
     }

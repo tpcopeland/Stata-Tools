@@ -46,11 +46,15 @@ end
 local ++test_count
 capture noisily {
     qba
-    assert "`r(version)'" == "1.0.1"
+    * Well-formed semver, not a literal: currency is enforced by
+    * test_qba_plot_release_deep.do (R2) and the dev CLI version check.
+    assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
     assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 
     qba, version
-    assert "`r(version)'" == "1.0.1"
+    * Well-formed semver, not a literal: currency is enforced by
+    * test_qba_plot_release_deep.do (R2) and the dev CLI version check.
+    assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
     assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 }
 if _rc == 0 {

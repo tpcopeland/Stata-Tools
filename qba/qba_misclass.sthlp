@@ -41,21 +41,27 @@
 
 {syntab:Misclassification type}
 {synopt:{opt ty:pe(exposure|outcome)}}what is misclassified; default {cmd:exposure}{p_end}
-{synopt:{opt secb(#)}}sensitivity for second group (enables differential mode){p_end}
-{synopt:{opt spcb(#)}}specificity for second group (enables differential mode){p_end}
+{synopt:{opt secb(#)}}Se, second stratum; enables differential{p_end}
+{synopt:{opt spcb(#)}}Sp, second stratum; enables differential{p_end}
 
 {syntab:Measure}
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
 
+{syntab:Study design}
+{synopt:{opt fcas:e(#)}}case sampling fraction; default {cmd:1}{p_end}
+{synopt:{opt fctr:l(#)}}non-case sampling fraction; default {cmd:1}{p_end}
+
 {syntab:Probabilistic}
-{synopt:{opt reps(#)}}Monte Carlo replications (minimum 100; enables probabilistic mode){p_end}
-{synopt:{opt dist_se(distribution)}}distribution for sensitivity; default constant at {cmd:seca()}{p_end}
-{synopt:{opt dist_sp(distribution)}}distribution for specificity; default constant at {cmd:spca()}{p_end}
-{synopt:{opt dist_se1(distribution)}}distribution for Se in group B (differential only); default constant at {cmd:secb()}{p_end}
-{synopt:{opt dist_sp1(distribution)}}distribution for Sp in group B (differential only); default constant at {cmd:spcb()}{p_end}
+{synopt:{opt reps(#)}}Monte Carlo replications; minimum 100{p_end}
+{synopt:{opt dist_se(distribution)}}Se distribution; default constant{p_end}
+{synopt:{opt dist_sp(distribution)}}Sp distribution; default constant{p_end}
+{synopt:{opt dist_se1(distribution)}}Se distribution, second stratum{p_end}
+{synopt:{opt dist_sp1(distribution)}}Sp distribution, second stratum{p_end}
+{synopt:{opt corr(#)}}Se/Sp correlation across strata{p_end}
+{synopt:{opt to:talerror}}also report total-error intervals{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}confidence level for percentile interval; default {cmd:95}{p_end}
-{synopt:{opt sa:ving(filename, ...)}}save Monte Carlo dataset for use with {helpb qba_plot}{p_end}
+{synopt:{opt level(#)}}simulation-interval level; default {cmd:95}{p_end}
+{synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
 
@@ -92,16 +98,48 @@ where M1 = a + b (row total for cases). The remaining cells are derived from
 the row totals. This formula requires Se + Sp > 1 for identifiability.
 
 {pstd}
-Simple mode warns when any corrected cell is negative, indicating the bias
-parameters are incompatible with the observed data. In that case corrected
-cells are displayed, but the corrected measure and ratio are reported as
-missing rather than as an impossible negative effect measure.
+Simple mode warns when any corrected cell is not strictly positive, indicating
+the bias parameters are incompatible with the observed data. In that case
+corrected cells are displayed, but the corrected measure and ratio are reported
+as missing rather than as an impossible effect measure. Zero is treated the
+same as negative: the worked example in Fox, MacLehose, and Lash (2023)
+discards simulations with negative {it:or zero} bias-adjusted cells, and
+probabilistic mode applies the same rule.
 
 {pstd}
 {bf:Probabilistic mode} ({opt reps(#)}): Draws Se and Sp values from
 specified distributions at each replicate, computes the corrected table,
 and returns the distribution of corrected estimates. Replicates producing
-negative corrected cells or undefined measures are excluded.
+nonpositive corrected cells or undefined measures are excluded.
+
+{pstd}
+The reported percentile interval is a
+{bf:systematic-error simulation interval}: it propagates uncertainty in the
+bias parameters and nothing else. It is not a corrected confidence interval,
+and it does {it:not} widen for sampling variability -- with a large table and
+tight bias-parameter distributions it can be narrower than the conventional
+confidence interval.
+
+{pstd}
+{bf:Total error} ({opt totalerror}): adds the two further uncertainty sources
+of the revised summary-level algorithm in Fox, MacLehose, and Lash (2023) and
+reports the resulting total-error simulation interval:
+
+{p 8 12 2}
+1. the classified-variable prevalence in each stratum is drawn
+Beta({it:adjusted cell}, {it:complement}), converted to predictive values, and
+the observed cells are reallocated by binomial draws; then
+
+{p 8 12 2}
+2. the log measure from those reallocated cells is perturbed by
+{it:z} * SE, where SE is the standard error of the log measure computed on the
+reallocated cells.
+
+{pstd}
+A random-error-only arm (the observed measure perturbed by its own log
+standard error) is reported alongside, so the three interval widths are
+directly comparable. {opt totalerror} requires whole-number cell counts, all
+four greater than zero, because step 1 reallocates counts.
 
 
 {marker options}{...}
@@ -144,12 +182,34 @@ their sum must exceed 1.
 corrected table. Default is {cmd:OR} (odds ratio). Use {cmd:RR} for risk
 ratio.
 
+{dlgtab:Study design}
+
+{phang}
+{opt fcase(#)} and {opt fctrl(#)} give the fraction of source-population cases
+and of source-population non-cases that were sampled, and apply to
+{opt type(outcome)} only. Outcome misclassification must be corrected on the
+source-population table, so the case row is divided by {opt fcase()} and the
+non-case row by {opt fctrl()} before the correction. Each must be in
+(0, 1]; both default to {cmd:1} (a census or full cohort). Exposure
+misclassification
+is corrected within outcome strata and needs no such adjustment, so specifying
+either option with {opt type(exposure)} is an error.
+
+{phang}
+Without these options {opt type(outcome)} assumes the observed table
+{it:is} the source-population table. Applying it to case-control data with
+{opt fcase()} and {opt fctrl()} left at their defaults gives a wrong answer
+with no warning, because the sampled non-case row understates the
+source-population non-case row.
+
 {dlgtab:Probabilistic}
 
 {phang}
-{opt reps(#)} specifies the number of Monte Carlo replications. Minimum is
-100; typical values are 5,000 to 50,000. Specifying {opt reps()} activates
-probabilistic mode.
+{opt reps(#)} specifies the number of Monte Carlo replications. The minimum
+accepted is 100, which is a floor rather than a stability guarantee: Fox,
+MacLehose, and Lash (2023) repeat the process "hundreds of thousands" of
+times, and their worked summary-level examples use 10^5 to 10^6
+replications. Specifying {opt reps()} activates probabilistic mode.
 
 {phang}
 {opt dist_se(distribution)} and {opt dist_sp(distribution)} specify the
@@ -166,17 +226,44 @@ misclassification. These require differential mode (i.e., {opt secb()} or
 {opt spcb()} are used.
 
 {phang}
+{opt corr(#)} induces a correlation between the case-stratum and
+non-case-stratum bias parameters, in [-1, 1]; the default {cmd:0} draws them
+independently. Se and Sp are correlated separately (Se with Se, Sp with
+Sp); they are never correlated with each other. Dependence is imposed by a
+Gaussian
+copula, so each marginal distribution is exactly the one requested in
+{opt dist_se()}, {opt dist_sp()}, {opt dist_se1()}, and {opt dist_sp1()}; only
+the joint behaviour changes. The author reference code for Fox, MacLehose, and
+Lash (2023) uses 0.80 in its examples. {opt corr()} requires differential
+mode: nondifferential misclassification has one Se and one Sp, so there is no
+second
+parameter to correlate with. Note that the realized Pearson correlation of the
+drawn parameters is at or slightly below {opt corr(#)}, and falls further the
+more skewed the marginal is -- an inherent property of the Gaussian copula, not
+an error.
+
+{phang}
+{opt totalerror} additionally reports a total-error simulation interval and a
+random-error-only interval; see
+{help qba_misclass##description:Description}. It requires whole-number cell
+counts, all four greater than zero.
+
+{phang}
 {opt seed(#)} sets the random number seed for reproducibility.
 
 {phang}
-{opt level(#)} specifies the confidence level for the percentile interval. Default
-is {cmd:95}.
+{opt level(#)} specifies the level for the percentile simulation
+interval. Default is {cmd:95}.
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset to a Stata
 file. The saved dataset contains Se/Sp draws, corrected cell counts, and
-corrected measures. This file can be used with {cmd:qba_plot, distribution}
-for visualization.
+corrected measures, and with {opt totalerror} also the reallocated cells and
+the reclassification, total-error, and random-error measures. It has one row
+per {it:requested} replication: invalid replications are retained as rows with
+missing corrected measures, not dropped, so the row count always equals
+{opt reps()}. This file can be used with {cmd:qba_plot, distribution} for
+visualization.
 
 
 {marker remarks}{...}
@@ -204,10 +291,27 @@ distribution is appropriate. Beta shape parameters represent the strength of
 prior information; they need not be literal validation counts.
 
 {pstd}
-{bf:Negative corrected cells.} When fixed bias parameters produce negative
-corrected cells, the corrected OR or RR is reported as missing. The corrected
-cells are still displayed so you can see how the bias parameters failed for
-the observed table.
+{bf:Nonpositive corrected cells.} When fixed bias parameters produce a
+corrected cell that is negative or zero, the corrected OR or RR is reported as
+missing. The corrected cells are still displayed so you can see how the bias
+parameters failed for the observed table.
+
+{pstd}
+{bf:What the interval is.} Fox, MacLehose, and Lash (2023) distinguish a
+{it:systematic-error} simulation interval -- percentiles of estimates obtained
+by drawing bias parameters -- from a {it:total-error} simulation interval,
+which also carries conventional random error. The default output here is the
+former. Report it as a simulation interval, not as a corrected confidence
+interval, and use {opt totalerror} when you want an interval that is
+comparable in kind to a confidence interval.
+
+{pstd}
+{bf:Case-control outcome misclassification.} Correcting outcome
+misclassification in a case-control study requires the case and control
+sampling fractions; supply them with {opt fcase()} and {opt fctrl()}. Exposure
+misclassification in a case-control study needs no such adjustment, because it
+is corrected within the case and non-case rows, which are each complete as
+sampled.
 
 
 {marker examples}{...}
@@ -255,6 +359,39 @@ distributions are natural:
 
 {phang2}{cmd:. qba_plot, distribution using(mc_results) observed(2.15)}{p_end}
 
+{pstd}
+{bf:Example 7: Total-error simulation interval}
+
+{pstd}
+Report the systematic-error, random-error, and total-error intervals side by
+side:
+
+{phang2}{cmd:. qba_misclass, a(215) b(1449) c(668) d(4296) seca(.78) spca(.99) measure(RR)} ///{p_end}
+{phang3}{cmd:reps(100000) dist_se("beta 50.6 14.3") dist_sp("beta 70 1")} ///{p_end}
+{phang3}{cmd:totalerror seed(12345)}{p_end}
+
+{pstd}
+{bf:Example 8: Correlated Se and Sp across strata}
+
+{pstd}
+Sensitivity in cases and in non-cases are rarely independent; correlate them
+at 0.80 while keeping the requested Beta marginals:
+
+{phang2}{cmd:. qba_misclass, a(215) b(1449) c(668) d(4296) seca(.78) spca(.99) secb(.75) spcb(.98)} ///{p_end}
+{phang3}{cmd:measure(RR) reps(100000) dist_se("beta 50.6 14.3") dist_sp("beta 70 1")} ///{p_end}
+{phang3}{cmd:dist_se1("beta 45 15") dist_sp1("beta 70 1") corr(0.80) seed(12345)}{p_end}
+
+{pstd}
+{bf:Example 9: Outcome misclassification in a case-control study}
+
+{pstd}
+All cases and a 10% sample of non-cases were selected, so the non-case row is
+inflated back to the source population before the correction:
+
+{phang2}{cmd:. qba_misclass, a(387) b(1642) c(685) d(3365) type(outcome) measure(OR)} ///{p_end}
+{phang3}{cmd:seca(.92) spca(.98) fcase(1) fctrl(.1)} ///{p_end}
+{phang3}{cmd:reps(100000) dist_se("beta 35 3") dist_sp("uniform .96 1") totalerror seed(12345)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -265,7 +402,7 @@ distributions are natural:
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars (simple mode)}{p_end}
 {synopt:{cmd:r(observed)}}observed measure of association{p_end}
-{synopt:{cmd:r(corrected)}}corrected measure of association; missing when corrected cells are infeasible{p_end}
+{synopt:{cmd:r(corrected)}}corrected measure; missing when infeasible{p_end}
 {synopt:{cmd:r(ratio)}}corrected / observed (when both are defined){p_end}
 {synopt:{cmd:r(a)}}observed cell a{p_end}
 {synopt:{cmd:r(b)}}observed cell b{p_end}
@@ -285,15 +422,36 @@ distributions are natural:
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower bound of percentile confidence interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper bound of percentile confidence interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
+{synopt:{cmd:r(corr)}}Se/Sp correlation, when {opt corr()} is nonzero{p_end}
+
+{p2col 5 20 24 2: Scalars ({opt totalerror} only)}{p_end}
+{synopt:{cmd:r(te_median)}}median total-error measure{p_end}
+{synopt:{cmd:r(te_mean)}}mean total-error measure{p_end}
+{synopt:{cmd:r(te_sd)}}standard deviation of total-error measures{p_end}
+{synopt:{cmd:r(te_lower)}}lower limit of the total-error simulation interval{p_end}
+{synopt:{cmd:r(te_upper)}}upper limit of the total-error simulation interval{p_end}
+{synopt:{cmd:r(n_valid_te)}}number of valid total-error replications{p_end}
+{synopt:{cmd:r(re_median)}}median random-error-only measure{p_end}
+{synopt:{cmd:r(re_lower)}}lower limit of the random-error-only interval{p_end}
+{synopt:{cmd:r(re_upper)}}upper limit of the random-error-only interval{p_end}
+
+{p2col 5 20 24 2: Scalars ({opt fcase()} or {opt fctrl()} only)}{p_end}
+{synopt:{cmd:r(fcase)}}case sampling fraction{p_end}
+{synopt:{cmd:r(fctrl)}}non-case sampling fraction{p_end}
+{synopt:{cmd:r(adj_a)}}source-population cell a{p_end}
+{synopt:{cmd:r(adj_b)}}source-population cell b{p_end}
+{synopt:{cmd:r(adj_c)}}source-population cell c{p_end}
+{synopt:{cmd:r(adj_d)}}source-population cell d{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(type)}}misclassification type ({cmd:exposure} or {cmd:outcome}){p_end}
 {synopt:{cmd:r(measure)}}measure of association ({cmd:OR} or {cmd:RR}){p_end}
 {synopt:{cmd:r(method)}}{cmd:simple} or {cmd:probabilistic}{p_end}
+{synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are (probabilistic only){p_end}
 {synopt:{cmd:r(dist_se)}}Se distribution specification (probabilistic only){p_end}
 {synopt:{cmd:r(dist_sp)}}Sp distribution specification (probabilistic only){p_end}
 
@@ -308,6 +466,11 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity
 analyses of misclassified binary
 variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376.
+
+{phang}
+Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative
+bias analysis for misclassified binary variables and binary unmeasured
+confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633.
 
 
 {title:Author}

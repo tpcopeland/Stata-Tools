@@ -219,3 +219,55 @@ program define _assert_file_contains
     args path pattern
     _qba_qa_assert_file_contains using "`path'", pattern(`"`pattern'"')
 end
+
+* Read the package's own version and release-date metadata.
+*
+* Version assertions must compare the shipped files against EACH OTHER, never
+* against a literal: a hardcoded "1.0.1" in qa/ passes only until the next bump
+* and then fails for the wrong reason. That drift has already been found twice
+* in this package's QA. Callers get every spelling of the date the package
+* uses, so a cross-file sync check needs no literals at all.
+capture program drop _qba_qa_pkg_meta
+program define _qba_qa_pkg_meta, rclass
+    version 16.0
+    syntax , PKGdir(string)
+
+    tempname fh
+    local line ""
+    file open `fh' using "`pkgdir'/qba.ado", read text
+    file read `fh' line
+    file close `fh'
+    if !regexm(`"`line'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)  ([0-9]+)/([0-9]+)/([0-9]+)") {
+        display as error "could not parse Version/date from the qba.ado header"
+        exit 9
+    }
+    local ver = regexs(1)
+    local yy = regexs(2)
+    local mm = regexs(3)
+    local dd = regexs(4)
+
+    local pkgdate ""
+    file open `fh' using "`pkgdir'/qba.pkg", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if regexm(`"`line'"', "Distribution-Date: ([0-9]+)") {
+            local pkgdate = regexs(1)
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    if "`pkgdate'" == "" {
+        display as error "could not parse Distribution-Date from qba.pkg"
+        exit 9
+    }
+
+    local monnames "jan feb mar apr may jun jul aug sep oct nov dec"
+    local mnum = real("`mm'")
+    local mon : word `mnum' of `monnames'
+
+    return local version  "`ver'"
+    return local ado_date "`yy'/`mm'/`dd'"
+    return local pkg_date "`pkgdate'"
+    return local iso_date "`yy'-`mm'-`dd'"
+    return local sthlp_date "`dd'`mon'`yy'"
+end

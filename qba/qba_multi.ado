@@ -1,4 +1,4 @@
-*! qba_multi Version 1.0.1  2026/06/19
+*! qba_multi Version 1.1.0  2026/07/26
 *! Multi-bias analysis combining misclassification, selection, and confounding
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -17,9 +17,19 @@ Confounding is a measure-level correction (divides the final measure
 by the bias factor) and is always applied after cell-level corrections
 (misclassification, selection), regardless of position in order().
 
+Percentiles of the chained bias-adjusted measures form a SYSTEMATIC-ERROR
+simulation interval (Fox, MacLehose & Lash 2023): they propagate uncertainty
+in the bias parameters only, and are not corrected confidence intervals.
+There is no total-error arm for the chain; qba_misclass, totalerror covers
+the single-bias misclassification case the reference code specifies.
+
 References:
   Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
     Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 12.
+  Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic
+    quantitative bias analysis for misclassified binary variables and
+    binary unmeasured confounders. Int J Epidemiol. 2023;52(5):1624-1633.
+    (systematic- vs total-error simulation intervals; correlated Se/Sp draws)
 */
 
 capture program drop qba_multi
@@ -36,7 +46,7 @@ program define qba_multi, rclass
          SEca(real -1) SPca(real -1) SEcb(real -1) SPcb(real -1) ///
          MCtype(string) ///
          dist_se(string) dist_sp(string) ///
-         dist_se1(string) dist_sp1(string) ///
+         dist_se1(string) dist_sp1(string) CORR(real 0) ///
          SELa(real -1) SELb(real -1) SELc(real -1) SELd(real -1) ///
          dist_sela(string) dist_selb(string) ///
          dist_selc(string) dist_seld(string) ///
@@ -79,7 +89,13 @@ program define qba_multi, rclass
         exit 2000
     }
     if `reps' < 100 {
-        display as error "reps() should be at least 100"
+        display as error "reps() must be at least 100"
+        display as error ///
+            "100 is a floor, not a stability guarantee; Fox, MacLehose & Lash (2023) use 10^5-10^6 replications"
+        exit 198
+    }
+    if missing(`corr') | `corr' < -1 | `corr' > 1 {
+        display as error "corr() must be in [-1, 1]"
         exit 198
     }
 
@@ -134,6 +150,13 @@ program define qba_multi, rclass
 	        display as error "dist_se1()/dist_sp1() requires secb() or spcb()"
 	        exit 198
     }
+	    * corr() correlates the case-stratum and non-case-stratum bias
+	    * parameters, so it needs two strata to correlate.
+	    if `corr' != 0 & !(`secb' != -1 | `spcb' != -1) {
+	        display as error ///
+	            "corr() requires secb() or spcb() to enable differential misclassification"
+	        exit 198
+	    }
 	    if (`sela' != -1 | `selb' != -1 | `selc' != -1 | `seld' != -1) & ///
 	       !(`sela' != -1 & `selb' != -1 & `selc' != -1 & `seld' != -1) {
 	        display as error "selection bias requires all of sela() selb() selc() seld()"
@@ -318,19 +341,39 @@ program define qba_multi, rclass
         if `do_misclass' {
             if "`dist_se'" == "" local dist_se "constant `seca'"
             if "`dist_sp'" == "" local dist_sp "constant `spca'"
+            * Gaussian copula for correlated Se/Sp across strata; see
+            * qba_misclass for the same construction.
+            if `corr' != 0 {
+                gen double _z_a = rnormal()
+                gen double _u_se0 = normal(_z_a)
+                gen double _u_se1 = normal(`corr' * _z_a + ///
+                    sqrt(1 - `corr' * `corr') * rnormal())
+                gen double _z_b = rnormal()
+                gen double _u_sp0 = normal(_z_b)
+                gen double _u_sp1 = normal(`corr' * _z_b + ///
+                    sqrt(1 - `corr' * `corr') * rnormal())
+                drop _z_a _z_b
+                local u_se0 "u(_u_se0)"
+                local u_sp0 "u(_u_sp0)"
+                local u_se1 "u(_u_se1)"
+                local u_sp1 "u(_u_sp1)"
+            }
             _qba_draw_checked, dist(`"`dist_se'"') gen(_mc_se0) n(`reps') ///
-                invalid(_draw_invalid) lower(0) upper(1) loweropen
+                invalid(_draw_invalid) lower(0) upper(1) loweropen `u_se0'
             _qba_draw_checked, dist(`"`dist_sp'"') gen(_mc_sp0) n(`reps') ///
-                invalid(_draw_invalid) lower(0) upper(1) loweropen
+                invalid(_draw_invalid) lower(0) upper(1) loweropen `u_sp0'
             _qba_flag_misclass_pair, se(_mc_se0) sp(_mc_sp0) invalid(_draw_invalid)
             if `mc_differential' {
                 if "`dist_se1'" == "" local dist_se1 "constant `secb'"
                 if "`dist_sp1'" == "" local dist_sp1 "constant `spcb'"
                 _qba_draw_checked, dist(`"`dist_se1'"') gen(_mc_se1) n(`reps') ///
-                    invalid(_draw_invalid) lower(0) upper(1) loweropen
+                    invalid(_draw_invalid) lower(0) upper(1) loweropen `u_se1'
                 _qba_draw_checked, dist(`"`dist_sp1'"') gen(_mc_sp1) n(`reps') ///
-                    invalid(_draw_invalid) lower(0) upper(1) loweropen
+                    invalid(_draw_invalid) lower(0) upper(1) loweropen `u_sp1'
                 _qba_flag_misclass_pair, se(_mc_se1) sp(_mc_sp1) invalid(_draw_invalid)
+            }
+            if `corr' != 0 {
+                drop _u_se0 _u_sp0 _u_se1 _u_sp1
             }
         }
 
@@ -444,7 +487,17 @@ program define qba_multi, rclass
 
         * Drop invalid
         replace _result = . if _draw_invalid == 1
-        replace _result = . if _wa < 0 | _wb < 0 | _wc < 0 | _wd < 0
+        if `do_misclass' {
+            * Misclassification is corrected by matrix inversion, where a zero
+            * adjusted cell is as incompatible with the observed data as a
+            * negative one; the reference worked example discards both. Without
+            * misclassification the cells are only rescaled, so an observed
+            * zero cell is a sparse table, not an impossible one.
+            replace _result = . if _wa <= 0 | _wb <= 0 | _wc <= 0 | _wd <= 0
+        }
+        else {
+            replace _result = . if _wa < 0 | _wb < 0 | _wc < 0 | _wd < 0
+        }
         replace _result = . if _result <= 0 | _result >= .
 
         count if _result < .
@@ -533,8 +586,14 @@ program define qba_multi, rclass
     display as text "  Median:   " as result %9.4f `mc_median'
     display as text "  Mean:     " as result %9.4f `mc_mean'
     display as text "  SD:       " as result %9.4f `mc_sd'
-    display as text "  `level'% CI:  " as result %9.4f `mc_lo' ///
+    display as text "  `level'% simulation interval: " as result %9.4f `mc_lo' ///
         as text " - " as result %9.4f `mc_hi'
+    display as text "  (systematic error only: percentiles over bias-parameter draws,"
+    display as text "   not a corrected confidence interval)"
+    if `corr' != 0 {
+        display as text "  Se and Sp correlated across strata: rho = " ///
+            as result %6.3f `corr'
+    }
 
     * Store results
     if "`measure'" == "OR" {
@@ -552,8 +611,12 @@ program define qba_multi, rclass
     return scalar n_valid = `n_valid'
     return scalar n_draw_invalid = `n_draw_invalid'
 	    return scalar n_biases = `n_biases'
+	    if `corr' != 0 {
+	        return scalar corr = `corr'
+	    }
 	    return local measure "`measure'"
 	    return local method "multi-bias"
+	    return local interval "systematic-error simulation interval"
 	    return local order "`order'"
 	    if `save_rc' {
 	        display as error "saving() failed; analytical results are posted in r()"

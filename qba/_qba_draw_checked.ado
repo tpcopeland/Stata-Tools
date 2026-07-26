@@ -1,4 +1,4 @@
-*! _qba_draw_checked Version 1.0.1  2026/06/19
+*! _qba_draw_checked Version 1.1.0  2026/07/26
 *! Internal helper: draw a distribution and flag out-of-support values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,10 +11,16 @@ program define _qba_draw_checked, rclass
     capture noisily {
 
         syntax , DIst(string) GEN(name) N(integer) INVALID(name) ///
-            [LOWER(string) UPPER(string) LOWEROPEN UPPEROPEN]
+            [LOWER(string) UPPER(string) LOWEROPEN UPPEROPEN ///
+            U(varname numeric)]
 
         _qba_require_distributions
-        _qba_draw_one, dist(`"`dist'"') gen(`gen') n(`n')
+        if "`u'" != "" {
+            _qba_draw_one, dist(`"`dist'"') gen(`gen') n(`n') u(`u')
+        }
+        else {
+            _qba_draw_one, dist(`"`dist'"') gen(`gen') n(`n')
+        }
 
         capture confirm variable `invalid'
         if _rc {

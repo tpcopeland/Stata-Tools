@@ -68,7 +68,10 @@ else {
 local ++test_count
 	capture noisily {
 	    qba
-	    assert "`r(version)'" == "1.0.1"
+	    * A well-formed semantic version, not a literal that goes stale on
+	    * every bump. Cross-file currency is checked in
+	    * test_qba_plot_release_deep.do (R2) and by the dev CLI version check.
+	    assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
 	    assert "`r(commands)'" != ""
 	}
 if _rc == 0 {

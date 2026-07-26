@@ -1,4 +1,4 @@
-*! _psdash_expand_fv Version 1.5.0  2026/07/22
+*! _psdash_expand_fv Version 1.6.0  2026/07/26
 *! Expand factor-variable / interaction covariate terms into design-column labels
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

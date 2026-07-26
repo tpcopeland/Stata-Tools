@@ -1,8 +1,10 @@
 # qba -- Quantitative Bias Analysis for Stata
 
-**Version 1.0.1** | 2026-07-10
+**Version 1.1.0** | 2026-07-26
 
-Quantitative bias analysis toolkit for epidemiologic data, implementing the methods in Lash, Fox, and Fink's *Applying Quantitative Bias Analysis to Epidemiologic Data* (2nd ed., Springer 2021). Corrects point estimates and confidence intervals for the three major sources of systematic error that survive conventional multivariable adjustment: exposure or outcome misclassification (`qba_misclass`), selection bias from differential participation (`qba_selection`), and unmeasured confounding (`qba_confound`). A multi-bias chain (`qba_multi`) applies all three corrections inside one Monte Carlo simulation, and `qba_plot` provides tornado, Monte Carlo distribution, and tipping-point visualizations.
+Quantitative bias analysis toolkit for epidemiologic data, implementing the methods in Lash, Fox, and Fink's *Applying Quantitative Bias Analysis to Epidemiologic Data* (2nd ed., Springer 2021). Corrects point estimates for the three major sources of systematic error that survive conventional multivariable adjustment, and quantifies the resulting uncertainty as a **simulation interval**: exposure or outcome misclassification (`qba_misclass`), selection bias from differential participation (`qba_selection`), and unmeasured confounding (`qba_confound`). A multi-bias chain (`qba_multi`) applies all three corrections inside one Monte Carlo simulation, and `qba_plot` provides tornado, Monte Carlo distribution, and tipping-point visualizations.
+
+Following Fox, MacLehose, and Lash (2023), the intervals from drawing bias parameters are reported as **systematic-error simulation intervals**, not as corrected confidence intervals: they propagate uncertainty in the bias parameters and nothing else. `qba_misclass, totalerror` additionally reports a **total-error simulation interval**, which carries conventional random error as well, alongside a random-error-only arm for comparison.
 
 ## Requirements
 
@@ -25,7 +27,7 @@ net install qba, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/
 qba
 ```
 
-This displays the package version and lists all available commands. You should see version 1.0.1 and five commands (`qba_misclass`, `qba_selection`, `qba_confound`, `qba_multi`, `qba_plot`).
+This displays the package version and lists all available commands. You should see version 1.1.0 and five commands (`qba_misclass`, `qba_selection`, `qba_confound`, `qba_multi`, `qba_plot`).
 
 ### Uninstall
 
@@ -37,7 +39,7 @@ ado uninstall qba
 
 | Command | Description |
 |---------|-------------|
-| `qba` | Package overview and available commands |
+| `qba` | Package overview and available commands; the `version` option is accepted as a lightweight version check |
 | `qba_misclass` | Misclassification bias analysis for 2x2 tables |
 | `qba_selection` | Selection bias analysis for 2x2 tables |
 | `qba_confound` | Unmeasured confounding analysis with E-values |
@@ -208,12 +210,15 @@ All commands are `rclass` and store results in `r()`. See individual help files 
 | `r(corrected)` | Corrected measure of association | all (when correction is performed) |
 | `r(ratio)` | Corrected / observed | misclass, selection, confound |
 | `r(bias_factor)` | Bias factor | selection (SBF), confound (BF) |
-| `r(measure)` | Measure type (`OR`, `RR`, or `coefficient`) | all |
+| `r(measure)` | Measure type (`OR`, `RR`, `HR`, `IRR`, or `coefficient`) | all |
+| `r(version)` | Package version | `qba` |
+| `r(commands)` | Space-separated list of the package's commands | `qba` |
 | `r(method)` | `simple`, `probabilistic`, or `multi-bias` | all |
 | `r(type)` | Misclassification type | misclass |
 | `r(corrected_a)` through `r(corrected_d)` | Corrected cell counts | misclass, selection |
 | `r(evalue)` | E-value for point estimate | confound (when `evalue` specified) |
 | `r(evalue_ci)` | E-value for CI bound | confound (when available) |
+| `r(evalue_rr)` / `r(evalue_conv)` | Risk ratio the E-value formula used, and which VanderWeele-Ding Table 2 conversion produced it | confound (when `evalue` specified) |
 | `r(se)` | Standard error for model/contract-derived source estimate | confound (`from_model` or active contract) |
 | `r(correction_type)` | `subtractive` for linear models | confound |
 
@@ -224,19 +229,27 @@ All commands are `rclass` and store results in `r()`. See individual help files 
 | `r(corrected)` | Median corrected measure | all |
 | `r(mean)` | Mean of Monte Carlo distribution | all |
 | `r(sd)` | Standard deviation | all |
-| `r(ci_lower)` / `r(ci_upper)` | Percentile CI bounds | all |
+| `r(ci_lower)` / `r(ci_upper)` | Systematic-error simulation interval limits | all |
+| `r(interval)` | What `r(ci_lower)`/`r(ci_upper)` are | all |
 | `r(reps)` | Number of replications requested | all |
 | `r(n_valid)` | Valid (non-missing) replications | all |
 | `r(n_draw_invalid)` | Draws with out-of-support parameters | confound, multi |
 | `r(n_biases)` | Number of bias types corrected | multi |
 | `r(order)` | Correction order used | multi |
+| `r(corr)` | Se/Sp correlation across strata (when `corr()` is nonzero) | misclass, multi |
+| `r(te_median)`, `r(te_mean)`, `r(te_sd)`, `r(te_lower)`, `r(te_upper)`, `r(n_valid_te)` | Total-error arm | misclass (`totalerror`) |
+| `r(re_median)`, `r(re_lower)`, `r(re_upper)` | Random-error-only arm | misclass (`totalerror`) |
+| `r(fcase)`, `r(fctrl)`, `r(adj_a)`-`r(adj_d)` | Case-control sampling fractions and the source-population table | misclass (`fcase()`/`fctrl()`) |
 
 ## Key Features
 
-- **Simple and probabilistic modes**: Fixed-parameter analysis for single-bias commands; Monte Carlo simulation for full uncertainty propagation
+- **Simple and probabilistic modes**: Fixed-parameter analysis for single-bias commands; Monte Carlo simulation for bias-parameter uncertainty propagation
+- **Systematic-, total-, and random-error intervals**: `qba_misclass, totalerror` implements the revised summary-level algorithm of Fox, MacLehose, and Lash (2023) -- predictive-value/binomial reclassification plus a random-error draw -- and reports the three interval widths side by side
+- **Correlated bias parameters**: `corr()` correlates Se across strata and Sp across strata through a Gaussian copula, leaving each requested marginal distribution exactly intact
+- **Case-control outcome misclassification**: `fcase()` and `fctrl()` inflate the sampled table to the source population before correcting, as the method requires
 - **Six distribution families**: Trapezoidal, triangular, uniform, Beta, logit-normal, and constant
 - **Multi-bias chaining**: Combine misclassification, selection, and confounding corrections in one simulation following Lash/Fox/Fink (2021) Chapter 12
-- **E-values**: Compute the minimum confounding strength needed to explain away an observed effect (VanderWeele & Ding 2017); OR-based E-values are best interpreted under a rare-outcome approximation
+- **E-values**: Compute the minimum confounding strength needed to explain away an observed effect (VanderWeele & Ding 2017), with the Table 2 conversions for common outcomes -- `commonoutcome` applies sqrt(OR) for an odds ratio and the (1-0.5^sqrt(HR))/(1-0.5^sqrt(1/HR)) approximation for a hazard ratio; the scale used is always printed
 - **Model integration**: `qba_confound` reads directly from Stata estimation results (`from_model`) with auto-detection of measure type and support for linear and log-scale models
 - **TMLE/LTMLE integration**: `qba_confound` reads active contracts left by optional `tmle` and `ltmle` commands for post-estimation unmeasured-confounding sensitivity checks
 - **Three visualization types**: Tornado sensitivity plots, Monte Carlo distribution plots, and tipping point heatmaps
@@ -274,6 +287,19 @@ The suite covers the active release surface, known-answer validations, cross-val
 
 ## Version History
 
+**Version 1.1.0** (26 July 2026)
+
+Aligns the package with Fox, MacLehose, and Lash (2023) and VanderWeele and Ding (2017) Table 2.
+
+- Monte Carlo percentile intervals are now labelled **systematic-error simulation intervals** in output, help files, and README, and `r(interval)` records what `r(ci_lower)`/`r(ci_upper)` are. `r(ci_lower)`/`r(ci_upper)` keep their names for backward compatibility. Previously they were presented as corrected confidence intervals, which overstated what a bias-parameter-only simulation delivers.
+- New `qba_misclass, totalerror`: implements the revised summary-level algorithm (Beta prevalence draw, PPV/NPV conversion, binomial reallocation of the observed cells, then a normal perturbation on the log scale using the bias-adjusted standard error) and reports total-error and random-error-only intervals next to the systematic-error one. Verified against the author reference R code.
+- New `corr()` on `qba_misclass` and `qba_multi`: correlates the two strata's sensitivities and, separately, their specificities via a Gaussian copula, preserving each requested marginal exactly.
+- New `fcase()` and `fctrl()` on `qba_misclass`: case and control sampling fractions for outcome misclassification in a case-control study. Previously `type(outcome)` silently applied the cohort correction to case-control data.
+- `qba_confound`: `measure()` now accepts `HR` and `IRR`, and the new `commonoutcome` option applies the VanderWeele-Ding Table 2 conversion before the E-value formula. The E-value scale is printed, and `r(evalue_rr)`/`r(evalue_conv)` record it. The hard-coded weak/moderate/strong robustness grade has been replaced with the contextual guidance of their Table 3, which the grade had no basis in.
+- Simple-mode `qba_misclass` now treats a corrected cell of exactly zero as incompatible with the observed data, matching the probabilistic arm and the reference worked example. Previously it could report a corrected odds ratio of exactly 0.
+- The `reps()` floor message no longer describes 100 replications as sufficient for stable results; help files now cite the 10^5-10^6 scale used in the source.
+- Documented that a saved Monte Carlo dataset retains invalid replications as rows with missing measures.
+
 **Version 1.0.1** (19 June 2026)
 
 Documentation polish for explicit selection-distribution and stored-result help tokens, helper lint cleanup, and package metadata refresh.
@@ -296,4 +322,5 @@ MIT License
 - VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Ann Intern Med*. 2017;167(4):268-274.
 - Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured confounders. *Pharmacoepidemiol Drug Saf*. 2006;15(5):291-303.
 - Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity analyses of misclassified binary variables. *Int J Epidemiol*. 2005;34(6):1370-1376.
+- Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative bias analysis for misclassified binary variables and binary unmeasured confounders. *Int J Epidemiol*. 2023;52(5):1624-1633.
 - Greenland S. Basic methods for sensitivity analysis of biases. *Int J Epidemiol*. 1996;25(6):1107-1116.

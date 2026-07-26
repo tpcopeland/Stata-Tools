@@ -123,6 +123,19 @@ Robins (2000) use this as a simplifying assumption and note that alternative
 specifications are possible.
 
 {pstd}
+{bf:Timing convention.} The default structural model regresses the period-{it:t}
+outcome on the period-{it:t} treatment, following the package's within-period
+ordering L_t {c -> } A_t {c -> } C_t {c -> } Y_t. The marginal structural model
+printed by Hernan, Brumback and Robins (2000, p. 563) instead regresses D({it:t})
+on A({it:t}-1): in their zidovudine analysis the treatment decision of the
+{it:preceding} month is the exposure of interest. If you are replicating that
+design, add {cmd:history(lag1)}, which puts the lagged treatment term in the
+model; note that the current-treatment term remains, so the fit reports both
+effects rather than substituting one for the other. The choice is a convention,
+not a correctness question -- but the two conventions answer different questions,
+and a coefficient reported under one should not be read as the other.
+
+{pstd}
 No carryover is an {bf:assumption, not a result}, and {cmd:msm_fit} cannot test it. If
 prior treatment affects the current outcome beyond current treatment -- a
 cumulative dose effect, a duration effect, a lagged effect, a wash-out period --
@@ -322,8 +335,9 @@ specified.
 
 {pstd}
 {cmd:e(msm_n_clusters)} counts distinct cluster values among the rows the
-estimator actually kept, not among the rows {cmd:msm_fit} intended to supply.
-The two differ whenever the estimator drops rows of its own accord -- a missing
+estimator actually kept, not among the rows {cmd:msm_fit} intended to
+supply. The two differ whenever the estimator drops rows of its own accord --
+a missing
 {opt out:come_cov()} or {opt tvc:ov()} value, a collinear term, a nonpositive
 weight. {cmd:e(msm_n_dropped)} reports how many intended person-period rows were
 lost that way; it is {cmd:0} when the fitted and intended samples coincide, and

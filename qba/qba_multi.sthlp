@@ -40,35 +40,36 @@
 
 {syntab:Misclassification (requires both seca and spca)}
 {synopt:{opt seca(#)}}sensitivity of classification; (0, 1]{p_end}
-{synopt:{opt spca(#)}}specificity of classification; (0, 1]; Se + Sp > 1{p_end}
-{synopt:{opt secb(#)}}sensitivity for second group (enables differential mode){p_end}
-{synopt:{opt spcb(#)}}specificity for second group (enables differential mode){p_end}
+{synopt:{opt spca(#)}}specificity; (0, 1]; Se + Sp > 1{p_end}
+{synopt:{opt secb(#)}}Se, second stratum; enables differential{p_end}
+{synopt:{opt spcb(#)}}Sp, second stratum; enables differential{p_end}
 {synopt:{opt mc:type(exposure|outcome)}}misclassification type; default {cmd:exposure}{p_end}
-{synopt:{opt dist_se(distribution)}}distribution for Se; default constant at {cmd:seca()}{p_end}
-{synopt:{opt dist_sp(distribution)}}distribution for Sp; default constant at {cmd:spca()}{p_end}
-{synopt:{opt dist_se1(distribution)}}distribution for Se group B (differential only){p_end}
-{synopt:{opt dist_sp1(distribution)}}distribution for Sp group B (differential only){p_end}
+{synopt:{opt dist_se(distribution)}}Se distribution; default constant{p_end}
+{synopt:{opt dist_sp(distribution)}}Sp distribution; default constant{p_end}
+{synopt:{opt dist_se1(distribution)}}Se distribution, second stratum{p_end}
+{synopt:{opt dist_sp1(distribution)}}Sp distribution, second stratum{p_end}
+{synopt:{opt corr(#)}}Se/Sp correlation across strata{p_end}
 
 {syntab:Selection bias (requires all four sel options)}
 {synopt:{opt sela(#)} {opt selb(#)}}selection probabilities for cases; (0, 1]{p_end}
-{synopt:{opt selc(#)} {opt seld(#)}}selection probabilities for non-cases; (0, 1]{p_end}
-{synopt:{opt dist_sela(distribution)}}distribution for sela; default constant at {cmd:sela()}{p_end}
-{synopt:{opt dist_selb(distribution)}}distribution for selb; default constant at {cmd:selb()}{p_end}
-{synopt:{opt dist_selc(distribution)}}distribution for selc; default constant at {cmd:selc()}{p_end}
-{synopt:{opt dist_seld(distribution)}}distribution for seld; default constant at {cmd:seld()}{p_end}
+{synopt:{opt selc(#)} {opt seld(#)}}selection probs, non-cases{p_end}
+{synopt:{opt dist_sela(distribution)}}sela distribution; default constant{p_end}
+{synopt:{opt dist_selb(distribution)}}selb distribution; default constant{p_end}
+{synopt:{opt dist_selc(distribution)}}selc distribution; default constant{p_end}
+{synopt:{opt dist_seld(distribution)}}seld distribution; default constant{p_end}
 
 {syntab:Unmeasured confounding (requires p1, p0, and rrcd or rrud)}
 {synopt:{opt p1(#)}}P(confounder = 1 | exposed); [0, 1]{p_end}
 {synopt:{opt p0(#)}}P(confounder = 1 | unexposed); [0, 1]{p_end}
 {synopt:{opt rrcd(#)}}confounder-disease RR (Schneeweiss); > 0{p_end}
-{synopt:{opt rrud(#)}}confounder-disease RR (Greenland); > 0; cannot combine with {opt rrcd()}{p_end}
+{synopt:{opt rrud(#)}}confounder-disease RR (Greenland); > 0{p_end}
 {synopt:{opt dist_p1(distribution)}}through {opt dist_rr()} distributions{p_end}
 
 {syntab:Control}
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
-{synopt:{opt or:der(string)}}cell-level correction order; default {cmd:misclass selection}{p_end}
+{synopt:{opt or:der(string)}}cell-level correction order{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}confidence level for percentile interval; default {cmd:95}{p_end}
+{synopt:{opt level(#)}}simulation-interval level; default {cmd:95}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -100,6 +101,24 @@ Misclassification and selection are cell-level corrections (they modify the
 computed measure of association by the bias factor) and is always applied
 after the cell-level corrections, regardless of the {opt order()} setting.
 
+{pstd}
+The reported percentile interval is a
+{bf:systematic-error simulation interval}: it propagates uncertainty in the
+bias parameters and nothing else. It is not a corrected confidence interval,
+and it does {it:not} widen for sampling variability. Fox, MacLehose, and Lash
+(2023) reserve the term {it:total-error} simulation interval for an interval
+that also carries conventional random error; {cmd:qba_multi} does not offer
+one, because the authors build the total-error arm for a single bias at a
+time, and {helpb qba_misclass##description:qba_misclass, totalerror} provides
+it for misclassification alone.
+
+{pstd}
+When misclassification is active, a replicate whose bias-adjusted cells are
+not all strictly positive is discarded, matching the reference worked example
+(negative {it:and} zero cells are impossible under matrix inversion). Without
+misclassification the cells are only rescaled, so an observed zero cell is a
+sparse table rather than an impossible one and is not discarded.
+
 
 {marker options}{...}
 {title:Options}
@@ -111,9 +130,12 @@ after the cell-level corrections, regardless of the {opt order()} setting.
 observed 2x2 table. All values must be non-negative.
 
 {phang}
-{opt reps(#)} specifies the number of Monte Carlo replications. Minimum is
-100. Unlike the single-bias commands, {cmd:qba_multi} always operates in
-probabilistic mode.
+{opt reps(#)} specifies the number of Monte Carlo replications. The minimum
+accepted is 100, which is a floor rather than a stability guarantee: Fox,
+MacLehose, and Lash (2023) repeat the process "hundreds of thousands" of times,
+and their worked summary-level examples use 10^5 to 10^6 replications. Unlike
+the single-bias commands, {cmd:qba_multi} always operates in probabilistic
+mode.
 
 {dlgtab:Misclassification}
 
@@ -141,6 +163,13 @@ and {opt spca()} are used. See {helpb qba} for distribution syntax.
 {opt dist_se1(distribution)} and {opt dist_sp1(distribution)} specify
 distributions for the second group in differential mode. If omitted,
 constants at {opt secb()} and {opt spcb()} are used.
+
+{phang}
+{opt corr(#)} induces a correlation in [-1, 1] between the two strata's bias
+parameters (Se with Se, Sp with Sp; never Se with Sp). The default {cmd:0}
+draws them independently. Dependence is imposed by a Gaussian copula, so each
+marginal distribution is exactly the one requested. {opt corr()} requires
+differential mode. See {helpb qba_misclass} for the full discussion.
 
 {dlgtab:Selection bias}
 
@@ -264,8 +293,8 @@ replicates are invalid, suggesting the distributions may be too wide.
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower bound of percentile confidence interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper bound of percentile confidence interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
 {synopt:{cmd:r(n_draw_invalid)}}number of draws with out-of-support parameters{p_end}
@@ -274,6 +303,8 @@ replicates are invalid, suggesting the distributions may be too wide.
 {p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:r(measure)}}measure of association ({cmd:OR} or {cmd:RR}){p_end}
 {synopt:{cmd:r(method)}}{cmd:multi-bias}{p_end}
+{synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are{p_end}
+{synopt:{cmd:r(corr)}}Se/Sp correlation, when {opt corr()} is nonzero{p_end}
 {synopt:{cmd:r(order)}}cell-level correction order used{p_end}
 
 
@@ -282,6 +313,12 @@ replicates are invalid, suggesting the distributions may be too wide.
 {phang}
 Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 {it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapter 12.
+
+
+{phang}
+Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative
+bias analysis for misclassified binary variables and binary unmeasured
+confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633.
 
 
 {title:Author}

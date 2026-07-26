@@ -1,4 +1,4 @@
-*! qba_selection Version 1.0.1  2026/06/19
+*! qba_selection Version 1.1.0  2026/07/26
 *! Selection bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -13,13 +13,23 @@ Table layout:
   Non-cases     c          d
 
 Simple mode: fixed selection probabilities correct the table.
+
 Probabilistic mode (reps()): Monte Carlo draws from distributions.
+Percentiles of the resulting bias-adjusted measures form a SYSTEMATIC-ERROR
+simulation interval (Fox, MacLehose & Lash 2023): they propagate uncertainty
+in the selection probabilities only, and are not corrected confidence
+intervals. There is no total-error arm here -- the reference code specifies
+that pipeline for misclassification and confounding, not selection bias.
 
 References:
   Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
     Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 7.
   Greenland S. Basic methods for sensitivity analysis of biases.
     Int J Epidemiol. 1996;25(6):1107-1116.
+  Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic
+    quantitative bias analysis for misclassified binary variables and
+    binary unmeasured confounders. Int J Epidemiol. 2023;52(5):1624-1633.
+    (systematic- vs total-error simulation intervals)
 */
 
 capture program drop qba_selection
@@ -236,7 +246,9 @@ program define qba_selection, rclass
 	    * PROBABILISTIC BIAS ANALYSIS
     else {
         if `reps' < 100 {
-            display as error "reps() should be at least 100 for stable results"
+            display as error "reps() must be at least 100"
+            display as error ///
+                "100 is a floor, not a stability guarantee; Fox, MacLehose & Lash (2023) use 10^5-10^6 replications"
             exit 198
         }
 
@@ -357,8 +369,10 @@ program define qba_selection, rclass
         display as text "  Median:   " as result %9.4f `mc_median'
         display as text "  Mean:     " as result %9.4f `mc_mean'
         display as text "  SD:       " as result %9.4f `mc_sd'
-        display as text "  `level'% CI:  " as result %9.4f `mc_lo' ///
+        display as text "  `level'% simulation interval: " as result %9.4f `mc_lo' ///
             as text " - " as result %9.4f `mc_hi'
+        display as text "  (systematic error only: percentiles over bias-parameter draws,"
+        display as text "   not a corrected confidence interval)"
 
         * Store results
         if "`measure'" == "OR" {
@@ -376,6 +390,7 @@ program define qba_selection, rclass
 	        return scalar n_valid = `n_valid'
 	        return local measure "`measure'"
 	        return local method "probabilistic"
+	        return local interval "systematic-error simulation interval"
 	        if `save_rc' {
 	            display as error "saving() failed; analytical results are posted in r()"
 	            exit `save_rc'

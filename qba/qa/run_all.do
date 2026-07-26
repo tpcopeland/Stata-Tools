@@ -18,6 +18,7 @@ local skip = 0
 
 * Active suite.
 foreach f in test_qba test_qba_v110 test_qba_v111 test_qba_v112 ///
+    test_qba_fml2023 ///
     test_qba_contract_detect ///
     test_qba_qa_common_bootstrap test_qba_qa_assert_helpers ///
     test_qba_qa_text_assertions test_qba_qa_manifest_sync ///
@@ -36,7 +37,7 @@ foreach f in test_qba test_qba_v110 test_qba_v111 test_qba_v112 ///
     validation_qba_known_confound validation_qba_known_multi ///
     validation_qba_known_plot ///
     test_qba_docs test_qba_plot_release_deep ///
-    crossval_python_qba crossval_external_qba ///
+    crossval_python_qba crossval_external_qba crossval_fml_totalerror ///
     test_qba_adversarial_misclass test_qba_adversarial_misclass_deep ///
     test_qba_adversarial_selection_confound test_qba_adversarial_selection_deep ///
     test_qba_adversarial_confound_deep ///

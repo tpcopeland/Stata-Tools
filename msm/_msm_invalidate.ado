@@ -1,4 +1,4 @@
-*! _msm_invalidate Version 1.3.0  2026/07/25
+*! _msm_invalidate Version 1.4.0  2026/07/26
 *! Invalidate MSM pipeline artifacts downstream of a replaced stage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -168,6 +168,7 @@ program define _msm_invalidate
                 _msm_weight_sig _msm_weight_sigvars _msm_wt_spec ///
                 _msm_treat_d_cov _msm_treat_n_cov _msm_censor_d_cov ///
                 _msm_censor_n_cov _msm_numer_covars _msm_historymsm ///
+                _msm_period_d_spec _msm_period_n_spec ///
                 _msm_weight_truncate _msm_weight_fitfailure ///
                 _msm_probability_policy _msm_probability_clip ///
                 _msm_probability_models ///

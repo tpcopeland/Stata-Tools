@@ -25,7 +25,8 @@ capture noisily {
     }
     foreach f in qba.sthlp qba_misclass.sthlp qba_selection.sthlp ///
         qba_confound.sthlp qba_multi.sthlp qba_plot.sthlp ///
-        _qba_distributions.ado _qba_detect_contract.ado {
+        _qba_distributions.ado _qba_detect_contract.ado ///
+        _qba_evalue_scale.ado {
         findfile `f'
         confirm file "`r(fn)'"
 	    }

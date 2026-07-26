@@ -11,6 +11,7 @@
 {viewerjumpto "Interpreting the output" "msm_weight##interpreting"}{...}
 {viewerjumpto "Examples" "msm_weight##examples"}{...}
 {viewerjumpto "Stored results" "msm_weight##results"}{...}
+{viewerjumpto "References" "msm_weight##references"}{...}
 {viewerjumpto "Author" "msm_weight##author"}{...}
 
 {title:Title}
@@ -37,6 +38,10 @@
 {syntab:Censoring weight models}
 {synopt:{opt cen:sor_d_cov(varlist)}}covariates for the censoring denominator model{p_end}
 {synopt:{opt cen:sor_n_cov(varlist)}}covariates for the censoring numerator model{p_end}
+
+{syntab:Model time basis}
+{synopt:{opt period_d_spec(spec)}}denominator time basis{p_end}
+{synopt:{opt period_n_spec(spec)}}numerator time basis{p_end}
 
 {syntab:Weight processing}
 {synopt:{opt tru:ncate(numlist)}}truncation percentiles (e.g., {cmd:1} or {cmd:1 99}){p_end}
@@ -110,12 +115,17 @@ For each person-period, {cmd:msm_weight} fits two logistic regression models:
 
 {phang2}{bf:Denominator model:} P(A_t = 1 | A_{c -(}t-1{c )-}, L_t, V, period){p_end}
 {phang2}{space 4}Predicts treatment from the full set of confounders, lagged
-treatment, and period. This is the "full" model.{p_end}
+treatment, and a function of period. This is the "full" model.{p_end}
 
 {phang2}{bf:Numerator model:} P(A_t = 1 | A_{c -(}t-1{c )-}, V){p_end}
 {phang2}{space 4}Predicts treatment from baseline covariates only (or just
 lagged treatment if no numerator covariates are specified). This is the
 "stabilizing" model that reduces weight variability.{p_end}
+
+{pstd}
+The period term in each model represents the time-dependent intercept of the
+weighting logit. Its functional form is set by {opt period_d_spec()} and
+{opt period_n_spec()}; see {help msm_weight##timebasis:the time basis} below.
 
 {pstd}
 The period-specific stabilized weight for treated observations is
@@ -132,7 +142,26 @@ the pattern was common.
 
 {pstd}
 The first period is handled with a simpler model (no lagged treatment)
-because there is no treatment history at baseline.
+because there is no treatment history at baseline. It also carries no period
+term: {cmd:msm_weight} requires a shared baseline period, so every first-period
+row has the same period value and a time term would be collinear with the
+intercept.
+
+{pstd}
+{bf:What the censoring model conditions on.} The censoring models are
+{cmd:C_t ~ A_t + L_t + period} (denominator) and {cmd:C_t ~ A_t} plus any
+{cmd:censor_n_cov()} (numerator). They condition on {bf:current} treatment
+{cmd:A_t}, not only on treatment history through {cmd:t-1} as the printed
+sw-dagger formula in Hernan, Brumback and Robins (2000) does. This is
+deliberate and follows from the package's within-period ordering
+L_t {c -> } A_t {c -> } C_t {c -> } Y_t, in which the period's treatment
+decision precedes the censoring decision and is therefore part of the history
+available to it. Because {cmd:A_t} appears in the numerator and the denominator
+alike, it does not enter the weight as a conditioning covariate that the
+structural model must carry; the numerator contract below applies to
+{cmd:censor_n_cov()} only. Under a data-generating process in which censoring
+depends on the current treatment decision, omitting {cmd:A_t} would leave that
+dependence unmodeled.
 
 
 {marker options}{...}
@@ -176,6 +205,34 @@ numerator model (stabilization). If omitted, the censoring numerator model
 uses only current treatment status and an intercept. Requires
 {cmd:censor_d_cov()} to be specified. The same baseline-fixed and outcome-model
 requirements apply as for {cmd:treat_n_cov()}.
+
+{dlgtab:Model time basis}
+
+{phang}
+{opt period_d_spec(spec)} sets the functional form of the period term in the
+{bf:denominator} models (treatment and censoring). {it:spec} is one of
+{cmd:none}, {cmd:linear} (the default), {cmd:quadratic}, {cmd:cubic}, or
+{cmd:ns(#)} for a natural cubic spline with {it:#} degrees of freedom. Spline
+knots are placed at quantiles of period on the decision risk set -- rows not
+yet past an outcome (or, for the censoring models, past an outcome or a
+censoring event).
+
+{phang}
+{opt period_n_spec(spec)} sets the same basis for the {bf:numerator}
+models. It accepts the same {it:spec} values and defaults to {cmd:none},
+which reproduces the numerator models used before this option existed.
+
+{phang2}
+Type both option names in full. They share the {cmd:period} prefix, and Stata
+resolves an ambiguous option abbreviation to the first matching option rather
+than reporting an error, so {cmd:period(ns(4))} silently sets the
+{it:denominator} basis.
+
+{phang2}
+The defaults ({cmd:period_d_spec(linear) period_n_spec(none)}) reproduce
+earlier {cmd:msm_weight} weights byte for byte. Neither option affects the
+first-period models, which have no period variation, and neither affects
+{helpb msm_fit}'s own {cmd:period_spec()} for the outcome model.
 
 {dlgtab:Weight processing}
 
@@ -230,6 +287,47 @@ exits with an error.
 {phang}
 {opt nolog} suppresses the iteration log from the logistic models. Recommended for
 production scripts.
+
+
+{marker timebasis}{...}
+{title:The time basis of the weighting models}
+
+{pstd}
+Each weighting logit has a time-dependent intercept: the baseline probability
+of treatment (or of censoring) generally changes over follow-up. Hernan,
+Brumback and Robins (2000, p. 564) are explicit that this intercept
+{bf:cannot} be estimated as a separate free parameter per period -- there is
+not enough information in one period -- and that it should instead be modelled
+as a smooth function of time so that periods borrow strength from one
+another. Their own analysis used natural cubic splines with five knots, and
+they report
+(p. 564) that the weights were robust to how the intercept was estimated
+"provided that sufficient flexibility was allowed."
+
+{pstd}
+{cmd:period_d_spec()} and {cmd:period_n_spec()} are that flexibility. The
+default {cmd:period_d_spec(linear)} forces the log-odds of treatment to move
+monotonically and at a constant rate across follow-up, which is exactly the
+case the sentence above warns about; a non-monotone or plateauing treatment
+process is misspecified by it. If the weight mean drifts from 1, the effective
+sample size is low, or {helpb msm_diagnose} shows period-specific imbalance
+that the pooled summary hides, refit with a more flexible basis:
+
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) period_d_spec(ns(4)) period_n_spec(ns(4)) nolog}{p_end}
+
+{pstd}
+Setting the same basis in the numerator, as the paper's own models do, keeps
+the stabilizing model's time trend aligned with the denominator's. Period is
+the index of the weight product, not a covariate the structural model must
+carry, so a period term in the numerator does not trigger the numerator
+contract below; it is the {cmd:treat_n_cov()} and {cmd:censor_n_cov()}
+variables that {helpb msm_fit} requires in the outcome model.
+
+{pstd}
+A spline basis needs support: {cmd:ns(#)} requires at least {it:#}+1 distinct
+periods on the fitted risk set and refuses with error 198 otherwise, rather
+than returning a collinear basis.
 
 
 {marker numerator}{...}
@@ -321,6 +419,14 @@ investigated and are willing to accept a marginal probability substitute:{p_end}
 {phang2}{cmd:. matrix list r(probability_repairs)}{p_end}
 
 {pstd}
+{bf:Flexible time basis in both weighting models.} Follows the spline
+specification of Hernan, Brumback and Robins (2000):{p_end}
+
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) period_d_spec(ns(4)) period_n_spec(ns(4))}{p_end}
+{phang2}{cmd:    truncate(1 99) nolog}{p_end}
+
+{pstd}
 {bf:Re-running weights after adjusting truncation:}{p_end}
 
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
@@ -375,14 +481,16 @@ are meaningful after fitting.
 {synopt:{cmd:r(treat_n_cov)}}treatment numerator covariates{p_end}
 {synopt:{cmd:r(censor_d_cov)}}censoring denominator covariates{p_end}
 {synopt:{cmd:r(censor_n_cov)}}censoring numerator covariates{p_end}
+{synopt:{cmd:r(period_d_spec)}}resolved denominator time basis{p_end}
+{synopt:{cmd:r(period_n_spec)}}resolved numerator time basis{p_end}
 {synopt:{cmd:r(truncate)}}resolved truncation percentiles{p_end}
 
 {pstd}
 For scripted specification checks, the most useful preview results are
 {cmd:r(preview)}, {cmd:r(treat_d_cov)}, {cmd:r(treat_d_cov_source)},
 {cmd:r(treat_n_cov)}, {cmd:r(censor_d_cov)}, {cmd:r(censor_n_cov)},
-{cmd:r(truncate)}, {cmd:r(fitfailure_policy)}, and
-{cmd:r(probability_policy)}.
+{cmd:r(period_d_spec)}, {cmd:r(period_n_spec)}, {cmd:r(truncate)},
+{cmd:r(fitfailure_policy)}, and {cmd:r(probability_policy)}.
 
 {pstd}
 For scripted post-fit checks, the most useful diagnostics are
@@ -407,6 +515,26 @@ weights are centered near 1.{p_end}
 
 {phang2}{cmd:r(ess)} is the fastest check for whether extreme weights have
 substantially reduced usable information.{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{pstd}
+Hernan MA, Brumback B, Robins JM. 2000. Marginal structural models to estimate
+the causal effect of zidovudine on the survival of HIV-positive men. {it:Epidemiology}
+11(5): 561-570. Grounds the stabilized IPTW/IPCW construction, the
+within-period censor-first timing, the numerator contract, and the smooth
+time-dependent intercept (p. 564).
+
+{pstd}
+Robins JM, Hernan MA, Brumback B. 2000. Marginal structural models and causal
+inference in epidemiology. {it:Epidemiology} 11(5): 550-560.
+
+{pstd}
+Cole SR, Hernan MA. 2008. Constructing inverse probability weights for
+marginal structural models. {it:American Journal of Epidemiology} 168(6): 656-664. Grounds
+the probability-support policy and repair disclosure.
 
 
 {marker author}{...}

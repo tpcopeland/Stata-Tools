@@ -82,36 +82,51 @@ else {
 **# R2: release metadata, version/date sync, and package file list
 local ++test_count
 capture noisily {
-    _assert_file_contains "`pkg_dir'/qba.ado" "Version 1.0.1  2026/06/19"
-    _assert_file_contains "`pkg_dir'/qba_plot.ado" "Version 1.0.1  2026/06/19"
-    _assert_file_contains "`pkg_dir'/qba.sthlp" "version 1.0.1  10jul2026"
+    * Every version/date expectation is DERIVED from the package's own
+    * flagship files, so this test checks that the version-carrying files agree
+    * with each other. Literals here went stale on the 1.0.1 and 1.1.0 bumps
+    * and failed for the wrong reason both times.
+    _qba_qa_pkg_meta, pkgdir("`pkg_dir'")
+    local ver `"`r(version)'"'
+    local ado_date `"`r(ado_date)'"'
+    local pkg_date `"`r(pkg_date)'"'
+    local iso_date `"`r(iso_date)'"'
+    local sthlp_date `"`r(sthlp_date)'"'
+
+    _assert_file_contains "`pkg_dir'/qba.ado" "Version `ver'  `ado_date'"
+    _assert_file_contains "`pkg_dir'/qba_plot.ado" "Version `ver'  `ado_date'"
+    _assert_file_contains "`pkg_dir'/qba.sthlp" "version `ver'  `sthlp_date'"
+    * House convention: the flagship .ado header date and the .pkg
+    * Distribution-Date are the same day.
+    assert "`pkg_date'" == subinstr("`iso_date'", "-", "", .)
     * House standard: only the flagship qba.sthlp carries a version line;
     * sub-command help files must not (see CLAUDE.md version-consistency rule).
     * (Stata's shell does not propagate grep's exit code to _rc, so assert on
     * file content via the helper rather than on _rc after a shell grep.)
-    _assert_text_file_not_contains "`pkg_dir'/qba_plot.sthlp" "version 1.0.1"
-    _assert_text_file_not_contains "`pkg_dir'/qba_plot.sthlp" "Version 1.0.1"
+    _assert_text_file_not_contains "`pkg_dir'/qba_plot.sthlp" "version `ver'"
+    _assert_text_file_not_contains "`pkg_dir'/qba_plot.sthlp" "Version `ver'"
     * README is prose with markdown code fences; reading it line-by-line into a
     * macro is fragile (unbalanced backticks). Grep the count into a temp file
     * and read the integer -- Stata's shell does not propagate grep's exit code.
     tempfile _grep_cnt
-    shell grep -Fc "Version 1.0.1" "`pkg_dir'/README.md" > "`_grep_cnt'"
+    shell grep -Fc "Version `ver'" "`pkg_dir'/README.md" > "`_grep_cnt'"
     file open _gfh using "`_grep_cnt'", read text
     file read _gfh _gline
     file close _gfh
     assert real("`_gline'") > 0
-    shell grep -Fc "2026-07-10" "`pkg_dir'/README.md" > "`_grep_cnt'"
+    shell grep -Fc "`iso_date'" "`pkg_dir'/README.md" > "`_grep_cnt'"
     file open _gfh using "`_grep_cnt'", read text
     file read _gfh _gline
     file close _gfh
     assert real("`_gline'") > 0
-    _assert_file_contains "`pkg_dir'/qba.pkg" "Distribution-Date: 20260710"
+    _assert_file_contains "`pkg_dir'/qba.pkg" "Distribution-Date: `pkg_date'"
     _assert_file_contains "`pkg_dir'/qba.pkg" "Author: Timothy P Copeland, Karolinska Institutet"
 
     foreach f in qba.ado qba.sthlp qba_misclass.ado qba_misclass.sthlp ///
         qba_selection.ado qba_selection.sthlp qba_confound.ado ///
         qba_confound.sthlp qba_multi.ado qba_multi.sthlp ///
-        qba_plot.ado qba_plot.sthlp _qba_distributions.ado {
+        qba_plot.ado qba_plot.sthlp _qba_distributions.ado ///
+        _qba_evalue_scale.ado {
         _assert_file_contains "`pkg_dir'/qba.pkg" "f `f'"
     }
 

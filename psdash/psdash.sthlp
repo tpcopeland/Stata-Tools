@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.0  22jul2026}{...}
+{* *! version 1.6.0  26jul2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -97,7 +97,7 @@ guard.
 [{cmd:,} {opt cov:ariates(varlist)} {opt hist:ogram} {opt bins(#)}
 {opt bwid:th(#)} {opt nog:raph} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt ti:tle(string)} {opt name(string)}
-{opt xlsx(filename)} {opt sheet(string)}
+{opt xlsx(filename)} {opt sheet(string)} {opt gpsfloor(#)}
 {opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:balance}
@@ -142,7 +142,7 @@ guard.
 {opt overlap:max(#)} {opt ess:min(#)} {opt imbal:max(#)}
 {opt noo:verlap} {opt nob:alance} {opt now:eights} {opt nos:upport} {opt dry:run}
 {opt rep:ort(filename)} {opt sav:ing(filename)} {opt sch:eme(schemename)} {opt ti:tle(string)}
-{opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
+{opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)} {opt gpsfloor(#)}]
 
 {dlgtab:detect}
 
@@ -238,6 +238,15 @@ accepted. Auto-generated after {cmd:teffects} with a multi-valued treatment. For
 binary 0/1 treatment, the standard single {it:psvar} positional argument is
 sufficient.
 
+{pmore}
+For a binary 0/1 treatment {opt psvars()} also accepts one or two variables. Two
+variables follow the same ascending-level convention — P(A=0|X) first, then
+P(A=1|X) — and are validated for range and sum-to-1 before the second is used as
+the propensity score; a single variable is taken as P(A=1|X) directly. More than
+two is an error. Passing the two variables in the wrong order is a violation of
+the documented convention that no check can detect, because a reversed pair
+still lies in [0,1] and still sums to 1.
+
 {pstd}
 Multi-group treatment values must be nonnegative integers because per-group
 stored results use the observed level values in result names, such as
@@ -304,6 +313,15 @@ not specified, Stata's default bandwidth is used.
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Overlap"}.
 
+{phang}
+{opt gpsfloor(#)} sets the practical-positivity floor for the multi-group
+generalized-positivity block, exactly as in {cmd:psdash support}. For a
+multi-valued treatment, {cmd:psdash overlap} evaluates the full GPS vector of
+every unit and flags any unit with {it:min_j e_j(X)} < {it:#}, in addition to
+reporting the observed-arm PS overlap range, which is informational only. {it:#}
+must be strictly between 0 and 1; default is 0.01. Applies to multi-group
+treatments only.
+
 {dlgtab:balance options}
 
 {phang}
@@ -323,6 +341,16 @@ and carries no additional information; such covariates are listed in a footnote.
 {phang}
 {opt nowvar} suppresses automatic weight generation from the propensity
 score. {opt noweights} is an alias for {opt nowvar}.
+
+{pstd}
+{bf:Covariate missingness:} {cmd:psdash balance} restricts the panel to complete
+cases on the treatment, propensity score, and weight variable, but not on the
+covariates themselves, so a covariate with missing values is summarized on its
+own available cases and rows of one table can rest on different N. Any such
+covariate is named in a footnote and counted in {cmd:r(n_cov_incomplete)}, with
+the smallest per-covariate N in {cmd:r(n_cov_min)}. Use {cmd:psdash combined},
+which enforces one complete-case sample across every panel, or an explicit
+{cmd:if} restriction, when every row must share one N.
 
 {phang}
 {opt loveplot} generates a Love plot showing SMDs for each covariate.
@@ -376,9 +404,21 @@ included when available, with formatted headers and readable column widths.
 alone can miss. The variance ratio is reported but not flagged for two-level
 covariates, where it adds nothing beyond the SMD. KS statistics are
 informational: larger values indicate greater distributional separation, but
-there is no universal verdict threshold. SMDs are standardized by the
-{it:unweighted} pooled standard deviation so that raw and adjusted columns are
-directly comparable (Austin and Stuart 2015).
+there is no universal verdict threshold.
+
+{pstd}
+{bf:SMD denominator.} {cmd:psdash} standardizes both the raw and the adjusted SMD
+by the same {it:unweighted} pooled standard deviation, so the two columns share a
+scale and are directly comparable — including across the several weighting schemes
+of {opt strategies()}. This is the {cmd:cobalt} (R) default convention. It is
+{it:not} the formulation in Austin and Stuart (2015), whose section 4.1.1 replaces
+{it:each} sample estimate by its weighted equivalent, so that the weighted SMD's
+denominator is a weighted variance as well. The two agree when weights are equal
+and otherwise differ: under the Austin-Stuart form the adjusted SMD can move
+because the weights changed the covariate's {it:spread} rather than its location,
+which the common-scale form attributes entirely to the means. Read
+{cmd:r(max_smd_adj)} as "mean shift on the raw sample's scale", not as an
+Austin-Stuart weighted standardized difference.
 
 {dlgtab:weights options}
 
@@ -390,18 +430,28 @@ directly comparable (Austin and Stuart 2015).
 
 {phang}
 {opt stabilize} creates stabilized weights by multiplying by the marginal
-probability of treatment. This is correct only when the input weights are
+probability of treatment, {it:sw} = P(A=a)/P(A=a|X). This is the ATE
+stabilization and it is defined only when the input weights are
 {it:unstabilized} inverse-probability weights (the 1/PS scale, as auto-generated
-from a propensity score). When weights are supplied with {opt wvar()}, a note is
-printed because the marginal-probability rescaling assumes that scale.
+from a propensity score under {opt estimand(ate)}). ATT and ATC weights are odds
+ratios normalized to 1 in the target arm, so no stabilization of this form
+applies to them: {opt stabilize} with {opt estimand(att)} or {opt estimand(atc)}
+and auto-generated weights is rejected. When weights are supplied with
+{opt wvar()} their scale is unknown to {cmd:psdash}, so a note is printed
+instead.
 
 {phang}
 {opt extreme(# #)} sets the two extreme-weight cutoffs (lower and upper) used in
-the extreme-weight count and warnings. Defaults are {cmd:10 20}. These cutoffs
+the extreme-weight count and warnings. Defaults are {cmd:10 20}. The lower
+cutoff drives {cmd:r(n_extreme)} and its warning; the upper drives
+{cmd:r(n_very_extreme)} and the maximum-weight warning. These cutoffs
 are {it:absolute} and therefore scale-dependent: the defaults suit stabilized
 weights (centred near 1), whereas unstabilized ATE weights (1/PS) routinely run
 larger, so raise the cutoffs accordingly. The scale-free maximum-to-mean weight
-ratio is always reported and returned in {cmd:r(max_ratio)}.
+ratio is always reported and returned in {cmd:r(max_ratio)}; a ratio of 20 or
+more is flagged as a finding, meaning one observation carries at least twenty
+times the mean weight and dominates any weighted estimate. That dominance
+threshold is fixed and is not affected by {opt extreme()}.
 
 {phang}
 {opt generate(name)} specifies the variable name for modified weights. Required with
@@ -455,9 +505,11 @@ treatment; for multi-group treatments, use {opt threshold()} instead.
 
 {phang}
 {opt threshold(#)} specifies a manual trimming threshold. For binary treatment,
-observations with PS < threshold or PS > 1-threshold are excluded. For multiple
-treatments, a unit is retained only if every GPS component satisfies
-{it:e_j(X)} >= threshold. Must be strictly between 0 and 0.5.
+observations with PS < threshold or PS > 1-threshold are excluded, and both
+{cmd:r(trim_lower)} and {cmd:r(trim_upper)} are returned. For multiple
+treatments the rule is one-sided — a unit is retained only if every GPS
+component satisfies {it:e_j(X)} >= threshold — so only {cmd:r(trim_lower)}, the
+floor, is returned. Must be strictly between 0 and 0.5.
 
 {phang}
 {opt qtrim(#)} bases the reported common-support region on within-group percentiles
@@ -488,8 +540,11 @@ al. 2013); report {cmd:r(min_gps)} and tune {opt gpsfloor()} to the design.
 {phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
 observations within the support region. With {opt crump} or {opt threshold()},
-the indicator marks the trimmed region; otherwise it marks the empirical common
-support interval.
+the indicator marks the trimmed region. Without trimming, binary treatment marks
+the empirical common-support interval of the propensity score, and multi-group
+treatment marks {it:min_j e_j(X)} >= {opt gpsfloor()} — the panel's own primary
+diagnostic, not the observed-arm overlap range, which the output labels
+informational and which is not a valid multi-arm support rule.
 
 {phang}
 {opt replace} allows overwriting an existing variable specified in
@@ -542,6 +597,14 @@ the weight panel is flagged. Default is 50.
 {phang}
 {opt imbalmax(#)} sets the maximum number of imbalanced covariates tolerated
 before the balance panel is flagged. Default is 0.
+
+{phang}
+{opt gpsfloor(#)} sets the multi-group practical-positivity floor and is passed
+to both the overlap and support panels, which each evaluate the full GPS vector.
+{it:#} must be strictly between 0 and 1; default is 0.01. A unit below the floor
+is a finding in both panels, so it contributes twice to
+{cmd:r(n_warnings)}; the panel labels in {cmd:r(warnings)} identify the source.
+Applies to multi-group treatments only.
 
 {phang}
 {opt dryrun} reports the auto-detection result (treatment, PS, covariates,
@@ -844,12 +907,25 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(auc)}}PS-model C-statistic, when available{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
+{synopt:{cmd:r(min_gps)}}sample minimum of {it:min_j e_j(X)} (multi-group){p_end}
+{synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
+{synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor (multi-group){p_end}
+{synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
+{synopt:{cmd:r(min_gps_group_{it:<level>})}}minimum arm-{it:j} GPS over units (multi-group){p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand ({cmd:ate}, {cmd:att}, or {cmd:atc}){p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
+
+{pstd}
+For a multi-valued treatment, {cmd:psdash overlap} reports the same full-vector
+generalized-positivity block as {cmd:psdash support} and raises a finding when any
+unit falls below {opt gpsfloor()}. The observed-arm overlap bounds
+({cmd:r(overlap_lower)}, {cmd:r(overlap_upper)}, {cmd:r(pct_outside)}) intersect
+arm-specific ranges of the observed-arm score and are informational only; they
+are not a valid multi-arm common-support rule.
 
 {dlgtab:balance}
 
@@ -868,6 +944,8 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(n_vr_imbalanced)}}nonbinary covariates outside VR bounds{p_end}
 {synopt:{cmd:r(n_binary_vr)}}binary covariates excluded from the VR count{p_end}
 {synopt:{cmd:r(vr_na_vars)}}binary covariates excluded from VR{p_end}
+{synopt:{cmd:r(n_cov_incomplete)}}covariates with missing values in the panel sample{p_end}
+{synopt:{cmd:r(n_cov_min)}}smallest per-covariate N behind any table row{p_end}
 {synopt:{cmd:r(threshold)}}threshold used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
@@ -877,6 +955,7 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(varlist)}}covariates assessed{p_end}
 {synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
+{synopt:{cmd:r(cov_miss_vars)}}covariates with missing values, when any{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
@@ -914,7 +993,8 @@ include the compared treatment levels.
 {synopt:{cmd:r(ess_control)}}ESS for control group{p_end}
 {synopt:{cmd:r(ess_pct_treated)}}ESS % for treated group{p_end}
 {synopt:{cmd:r(ess_pct_control)}}ESS % for control group{p_end}
-{synopt:{cmd:r(n_extreme)}}weights above upper extreme cutoff{p_end}
+{synopt:{cmd:r(n_extreme)}}weights above the lower extreme cutoff{p_end}
+{synopt:{cmd:r(n_very_extreme)}}weights above the upper extreme cutoff{p_end}
 {synopt:{cmd:r(pct_extreme)}}percentage of extreme weights{p_end}
 {synopt:{cmd:r(max_ratio)}}maximum-to-mean weight ratio (scale-free){p_end}
 {synopt:{cmd:r(extreme_hi)}, {cmd:r(extreme_vhi)}}extreme-weight cutoffs used{p_end}
@@ -952,8 +1032,8 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(pct_outside)}}percentage outside support{p_end}
 {synopt:{cmd:r(n_outside_treated)}}treated outside support{p_end}
 {synopt:{cmd:r(n_outside_control)}}control outside support{p_end}
-{synopt:{cmd:r(trim_lower)}}trimming lower bound (if trimming){p_end}
-{synopt:{cmd:r(trim_upper)}}trimming upper bound (if trimming){p_end}
+{synopt:{cmd:r(trim_lower)}}trimming lower bound / multi-group GPS floor (if trimming){p_end}
+{synopt:{cmd:r(trim_upper)}}trimming upper bound (binary only; if trimming){p_end}
 {synopt:{cmd:r(n_trimmed)}}observations trimmed (if trimming){p_end}
 {synopt:{cmd:r(pct_trimmed)}}percentage trimmed (if trimming){p_end}
 {synopt:{cmd:r(N_remaining)}}observations retained after trimming{p_end}
@@ -1012,7 +1092,7 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(report)}}report workbook path, when {opt report()} is used{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
-{synopt:{cmd:r(n_warnings)}}number of flagged panels{p_end}
+{synopt:{cmd:r(n_warnings)}}total findings across panels{p_end}
 {synopt:{cmd:r(overlapmax)}, {cmd:r(essmin)}, {cmd:r(imbalmax)}}verdict thresholds used{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups, if applicable{p_end}
 {synopt:{cmd:r(N_requested)}}requested cross-sectional observations{p_end}
@@ -1037,6 +1117,12 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table{p_end}
 {synopt:{cmd:r(weights_by_period)}}period weight and arm-ESS table{p_end}
+
+{pstd}
+Rows of both matrices are named for the period {it:value} they describe
+({cmd:p0}, {cmd:p1}, ... for periods 0, 1, ...), in the same order as
+{cmd:r(periods)}, so a consumer can address a period by name rather than by
+position.
 
 {dlgtab:detect}
 
