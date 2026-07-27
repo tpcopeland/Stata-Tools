@@ -415,23 +415,9 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 - `tabtools_tips` or `help tabtools_tips` for compact option patterns and longer end-to-end recipes
 - `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, `help diagtab`, `help puttab`, `help stacktab`, and `help simtab` for command-specific syntax
 
-## Reproducibility and QA
+## QA
 
-The canonical full lane installs its required simulation-oracle dependencies into a disposable Stata ado tree, regenerates the R cross-validation fixtures in a temporary directory, stages demo regeneration outside the checkout, and removes per-run output on exit:
-
-```bash
-cd tabtools/qa
-stata-mp -b do run_all.do full
-```
-
-Run the release lane to include the performance benchmark, and use the package-local cleanup target for interrupted runs:
-
-```bash
-stata-mp -b do run_all.do release
-bash clean_artifacts.sh
-```
-
-See [`qa/README.md`](qa/README.md) for suite membership, external tools, and result interpretation.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## License
 

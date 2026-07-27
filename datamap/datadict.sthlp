@@ -430,12 +430,12 @@ Write separate dictionaries to a documentation directory with a custom suffix:{p
 
 {pstd}
 Document a subset of variables, add detailed columns, and save structured
-metadata for QA checks:{p_end}
+metadata for downstream quality checks:{p_end}
 
 {phang2}{cmd:. datadict age sex bmi, single(analysis/cohort) ///}{p_end}
 {phang2}{cmd:     output(docs/cohort_dictionary.md) ///}{p_end}
 {phang2}{cmd:     detail missing stats datasignature exclude(patient_id) ///}{p_end}
-{phang2}{cmd:     saving(qa/cohort_dictionary_meta.dta, replace)}{p_end}
+{phang2}{cmd:     saving(checks/cohort_dictionary_meta.dta, replace)}{p_end}
 
 {pstd}
 Use a line-delimited manifest when paths are long or contain spaces:{p_end}

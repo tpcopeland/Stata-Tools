@@ -1,4 +1,4 @@
-*! datamvp Version 1.6.1  2026/07/15
+*! datamvp Version 1.6.2  2026/07/27
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features

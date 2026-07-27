@@ -117,24 +117,7 @@ Risk-table counts honor delayed entry through `_t0` when data are `stset` with `
 
 ## QA
 
-Run the full package QA from the package directory:
-
-```stata
-cd qa
-do run_all.do
-```
-
-The current standard suite includes `test_kmplot.do` for functional and regression coverage and `validation_kmplot.do` for numerical validation against Stata survival commands and hand-computed invariants.
-
-The QA directory contains 115 tests across 2 QA files and covers all one public command.
-
-- `test_kmplot.do` - 86 tests for functional, option, state-restoration, export/save, and regression coverage
-- `validation_kmplot.do` - 29 tests for numerical validation and survival-analysis invariants
-
-| QA file | Tests | Purpose |
-|---------|-------|---------|
-| `test_kmplot.do` | 86 | Functional, option, state-restoration, export/save, and regression coverage |
-| `validation_kmplot.do` | 29 | Numerical validation and survival-analysis invariants |
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 

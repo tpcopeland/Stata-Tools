@@ -5,6 +5,25 @@ curated `run_all.do` runner. It covers all public commands, the weighting and
 diagnostic workflow, state preservation, installed-user behavior, numerical
 recovery, reporting exports, and independent R parity.
 
+## What the suite actually establishes
+
+A green run demonstrates implementation breadth and known-truth recovery. Interval coverage is measured rather than assumed, and the answer differs by weight type. Naming the gates precisely, because a green count does not distinguish them:
+
+| Gate | Status |
+|---|---|
+| IIW weights + visit-model coefficient vs `IrregLong` 0.4.1, **exact**, with censoring rows and rebuilt lags | ✅ passes — the strongest evidence the package has |
+| Outcome GEE vs R `geepack::geeglm` (Gaussian, logit, Poisson) | ✅ passes |
+| Functional / error-path / state coverage across all six commands | ✅ passes |
+| **Stabilized ATE IPTW vs an independent implementation** | ✅ **closed (Gate 2A).** Base-R `glm` IPTW oracle, plus a hand-computed saturated fixture exact to `1e-8` and a mean-one identity check |
+| **FIPTIW known-truth recovery with mechanism discrimination** (Coulombe Appendix A) | ✅ **closed (Gate 2B).** In the arm where treatment drives both the visit schedule and the outcome, only FIPTIW recovers the truth; naive, IIW-only, and IPTW-only each miss |
+| **Treatment present in the FIPTIW visit model** (Coulombe eq. 3.12) | ✅ **detectable.** Removing `treat()` from the visit-intensity model turns `test_iivw_phase2_contract` red |
+| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895 all missed the same gate, so the default is point-only. Records: [`RESULT_2026-07-22.md`](coverage_results/RESULT_2026-07-22.md), [`FIPTIW_INTERVALS_2026-07-23.md`](coverage_results/FIPTIW_INTERVALS_2026-07-23.md), [`FIPTIW_NSCALE_2026-07-23.md`](coverage_results/FIPTIW_NSCALE_2026-07-23.md) |
+| **Aggregation integrity of the coverage gate itself** | ✅ **closed 2026-07-22.** `test_iivw_coverage_gate.do` proves `combine` refuses a missing interior block, overlapping blocks, and — after a defect found the same day — any pool whose replication count, study size, or seed disagrees with the verdict it would print |
+
+Three pre-registered false-green mutations are recorded in [`METHOD_ORACLE_MAP.md`](METHOD_ORACLE_MAP.md). **All three turn a gate red** — flipping the IIW exponent breaks `validation_iivw_fiptiw_recovery`, dropping `treat()` from the visit model breaks `test_iivw_phase2_contract`, and the third (holding the weights fixed) is discriminated by the coverage run: for IPTW the fixed-weight SE runs 1.31× the empirical SD against the refit bootstrap's 1.02×, exactly the over-coverage direction the tolerance framework preregistered.
+
+Oracle strength, tolerances, and the disposition of every suite are documented in [`METHOD_ORACLE_MAP.md`](METHOD_ORACLE_MAP.md), [`TOLERANCE_FRAMEWORK.md`](TOLERANCE_FRAMEWORK.md), and [`CROSSVAL_MODULE_MAP.md`](CROSSVAL_MODULE_MAP.md).
+
 ## How to run
 
 From the package QA directory:

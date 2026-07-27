@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.6.1** | 2026-07-15
+**Version 1.6.2** | 2026-07-27
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -539,25 +539,11 @@ combined output or the single in-memory dataset.
 
 ## QA
 
-Run the full Stata QA suite from the package root:
-
-```bash
-cd qa
-stata-mp -b do run_all.do
-```
-
-The suite covers all four public commands with 17 QA files: 15 functional test
-files, 2 validation files, and no cross-validation suite (the package is a
-deterministic documentation and QC tool, so known-answer validations are the
-appropriate oracle).
-
-- `test_datacheck.do`, `test_datadict_v14.do`, and `test_datamap*.do`
-- `test_datamvp.do` and `test_datamvp_labels.do`
-- `validation_datamap.do` and `validation_datamvp.do`
-- `qa/README.md` has the complete file index, coverage map, and lane contract.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Changelog
 
+- **1.6.2** (2026-07-27): Documentation hygiene: QA reporting removed from the shipped help files. Package QA is documented in `qa/README.md`; the help files no longer cite `qa/` paths, test suites, or parity records, which an installed user does not receive from `net install`. No command behavior, option, stored result, or documented default changed.
 ### 1.6.1 (2026-07-15)
 
 Further reduced peak memory for exact distinct counts. When `uniqcap(0)` (or an internal panel/event/strata unit count) requests an exact cardinality, `_datamap_nuniq` now reads the column through a Mata view instead of a full copy, so no full-length column copy is allocated before the sort. Measured on a 20M-row double column: peak RSS 997MB → 845MB (one column copy eliminated), with the same counts and no speed change. No user-visible output changes.

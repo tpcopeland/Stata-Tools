@@ -256,34 +256,9 @@ All commands are `rclass` and store results in `r()`. See individual help files 
 - **Differential misclassification**: Separate Se/Sp by disease or exposure stratum
 - **Subtractive correction**: Linear model coefficients are corrected subtractively rather than by ratio
 
-## Validation
+## QA
 
-Run the QA suite from `qba/qa/`:
-
-```stata
-cd qba/qa
-do run_all.do
-```
-
-The suite covers the active release surface, known-answer validations, cross-validations, and adversarial regressions:
-
-- **test_qba.do** -- Functional tests for all commands and current option semantics
-- **test_qba_v110.do**, **test_qba_v111.do**, **test_qba_v112.do** -- Regression suites locking in correctness and robustness fixes from successive deep-review rounds
-- **validation_qba.do** -- Known-answer validation for analytical commands and distribution helpers
-- **validation_qba_boundaries.do** -- Boundary-value and multi-bias invariant validation
-- **validation_qba_known_misclass.do** -- Focused hand-computed misclassification oracles
-- **validation_qba_known_selection.do** -- Focused hand-computed selection-bias oracles
-- **validation_qba_known_confound.do** -- Focused hand-computed confounding and from-model oracles
-- **validation_qba_known_multi.do** -- Focused hand-computed multi-bias chain oracles
-- **validation_qba_known_plot.do** -- Exact known-answer checks for plot grids and returned plot contracts
-- **test_qba_docs.do** -- Documentation-contract tests and package surface checks
-- **test_qba_plot_release_deep.do** -- Release-surface and installed-user plotting checks
-- **crossval_python_qba.do** -- Python oracle cross-validation for formula parity
-- **crossval_external_qba.do** -- External R/episensr cross-validation checks
-- **test_qba_adversarial_misclass.do** / **test_qba_adversarial_misclass_deep.do** -- Misclassification/helper adversarial tests
-- **test_qba_adversarial_selection_confound.do** / **test_qba_adversarial_selection_deep.do** -- Selection and confounding adversarial tests
-- **test_qba_adversarial_confound_deep.do** -- Additional from-model and confounding adversarial tests
-- **test_qba_adversarial_multi_plot.do** / **test_qba_adversarial_multi_deep.do** -- Multi-bias and plotting adversarial tests
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 

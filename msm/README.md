@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.0** | 2026-07-26
+**Version 1.4.1** | 2026-07-27
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -248,14 +248,7 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 
 ## QA
 
-The package ships a comprehensive QA lane in `qa/`: 35 Stata test and validation suites plus two cross-language suites (`crossval_msm`, `crossval_external_models`) that check the weight, fit, prediction, diagnostic, sensitivity, and export surfaces against hand calculations, known-truth data-generating processes (parameter recovery), and independent R/Python reference implementations. Run the whole lane from a fresh working copy:
-
-```stata
-cd qa
-do run_all.do full     // quick | core | validations | crossval | full
-```
-
-The runner sandboxes its install directories, writes a durable `run_all_status.txt`, and exits nonzero on any failed suite. Estimator correctness is anchored by known-truth recovery (`validation_msm_dgp_recovery`, `validation_msm_phase3_recovery`) rather than by tests that only mirror the implementation.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Demo
 
@@ -439,6 +432,7 @@ The flagship `msm` command always returns its version and command inventory. The
 
 ## Version History
 
+- **1.4.1** (2026-07-27): Documentation hygiene: QA reporting removed from the shipped help files. Package QA is documented in `qa/README.md`; the help files no longer cite `qa/` paths, test suites, or parity records, which an installed user does not receive from `net install`. No command behavior, option, stored result, or documented default changed.
 - **1.4.0** (2026-07-26): `msm_weight` gains `period_d_spec()` and `period_n_spec()`, which set the functional form of the time-dependent intercept in the weighting logits: `none`, `linear`, `quadratic`, `cubic`, or `ns(#)` for a natural cubic spline. Hernán, Brumback and Robins (2000, p. 564) state that this intercept cannot be estimated as a free parameter per period and should be modelled as a smooth function of time — their own analysis used natural cubic splines with five knots — and report that the weights were robust to the method used "provided that sufficient flexibility was allowed". Before this release the denominators carried a linear period term and the numerators carried none, with no way to change either; a non-monotone treatment process was misspecified with no diagnostic that would say so. The defaults (`period_d_spec(linear) period_n_spec(none)`) reproduce prior weights exactly, so no existing analysis changes. The resolved specs are returned in `r(period_d_spec)`/`r(period_n_spec)` and recorded in the weighting contract. Documentation: `msm_weight.sthlp` now states that the censoring models condition on current `A_t` by design and why; `msm_fit.sthlp` documents the concurrent-versus-lagged timing convention and points to `history(lag1)`; `msm_diagnose.sthlp` documents that the weighted SMD uses weighted variances in its denominator, per Austin and Stuart (2015).
 - **1.3.0** (2026-07-25): Correctness fixes to the diagnostic and fit-metadata surfaces. **(1)** `msm_diagnose`'s `positivity()` floor is now applied to the estimated probability of the *observed* treatment, reported in the new `obs_min` column of `r(support)`. It previously tested `ps_min`, the smallest estimated P(A=1) in the period, which answers a different question: on a panel whose propensities ran 0.45–0.99, `positivity(0.10)` reported zero violations while every period contained untreated rows whose observed-decision probability was ~0.015 — a 6x breach, with a maximum weight of 19 and an ESS of 32%. The old test both missed the upper propensity tail entirely and could fire on a well-supported period in which everyone was comfortably untreated. `r(min_obs_probability)` is new. **(2)** The secondary pooled SMD in `r(balance)` is now computed on the risk set, like every other summary the command reports. Post-event and post-censor rows carry the last cumulative weight forward and are never seen by the outcome model; including them reported a weighted SMD of 0.28 ("imbalanced") on a panel whose correctly weighted risk-set SMD was -0.002. **(3)** `msm_diagnose` now restores the caller's observation order on every exit path, as the other seven sorting commands in the suite already did. **(4)** `msm_fit` counts `e(msm_n_clusters)` on the rows the estimator actually kept rather than the rows it intended to supply — it previously reported 400 clusters where Stata's own header said 360 — adds `e(msm_n_dropped)`, and prints a note when the estimator drops intended risk-set rows. `model(cox)` continues to refuse a shrunken sample outright. No change to any weight, coefficient, or prediction value.
 - **1.2.4** (2026-07-23): Reliability and interpretation. `msm_report` now propagates failures from Excel numeric-cell conversion instead of allowing a later formatting pass to announce a partially written workbook as successful. `msm_sensitivity` no longer assigns unsupported weak/moderate/strong categories to fixed E-value ranges; its output and documentation now follow VanderWeele and Ding's contextual interpretation. The README also states the identification assumptions behind IPTW and reports the current 34-suite Stata QA surface accurately.

@@ -1,4 +1,4 @@
-*! _msm_mat_clear Version 1.4.0  2026/07/26
+*! _msm_mat_clear Version 1.4.1  2026/07/27
 *! Remove a serialized matrix artifact from dataset characteristics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

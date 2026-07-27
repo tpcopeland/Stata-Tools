@@ -382,18 +382,9 @@ rangematch entry exit using episodes.dta, by(id) overlap(rx_start rx_stop) unmat
 
 which never materializes the full Cartesian product of cohort windows and episodes.
 
-## Quality Assurance
+## QA
 
-Run the full release gate from `rangematch/qa`:
-
-```bash
-stata-mp -b do run_all.do
-```
-
-The curated `quick` lane runs every functional, regression, installed-user,
-documentation, and release-surface suite. The default `full` lane adds all
-hand-computable validation suites. See [`qa/README.md`](qa/README.md) for the
-complete file index, coverage map, and lane membership.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Benchmark
 

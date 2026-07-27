@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 3.1.0** | 2026-07-25
+**Version 3.1.1** | 2026-07-27
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -661,38 +661,9 @@ Before showing results, check:
 - the unweighted and weighted models use the same outcome, predictors, time specification, and clustering level unless a difference is explicitly justified
 - documentation of the final analysis includes the weight type, visit model, treatment model, truncation rule, tie method, outcome model, and diagnostic decisions
 
-## Validation
+## QA
 
-The package ships with functional, validation, simulation, reporting-export, install-smoke, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
-
-**What the suite actually establishes.** A green run demonstrates implementation breadth and known-truth recovery. Interval coverage is now measured rather than assumed, and the answer differs by weight type. Naming the gates precisely, because a green count does not distinguish them:
-
-| Gate | Status |
-|---|---|
-| IIW weights + visit-model coefficient vs. `IrregLong` 0.4.1, **exact**, with censoring rows and rebuilt lags | ✅ passes — the strongest evidence the package has |
-| Outcome GEE vs. R `geepack::geeglm` (Gaussian, logit, Poisson) | ✅ passes |
-| Functional / error-path / state coverage across all six commands | ✅ passes |
-| **Stabilized ATE IPTW vs. an independent implementation** | ✅ **now closed (Gate 2A).** Base-R `glm` IPTW oracle, plus a hand-computed saturated fixture exact to `1e-8` and a mean-one identity check |
-| **FIPTIW known-truth recovery with mechanism discrimination** (Coulombe Appendix A) | ✅ **now closed (Gate 2B).** In the arm where treatment drives both the visit schedule and the outcome, only FIPTIW recovers the truth; naive, IIW-only, and IPTW-only each miss |
-| **Treatment present in the FIPTIW visit model** (Coulombe eq. 3.12) | ✅ **now detectable.** Removing `treat()` from the visit-intensity model turns `test_iivw_phase2_contract` red |
-| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895 all missed the same gate, so the default is point-only. Records: [`RESULT_2026-07-22.md`](qa/coverage_results/RESULT_2026-07-22.md), [`FIPTIW_INTERVALS_2026-07-23.md`](qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md), [`FIPTIW_NSCALE_2026-07-23.md`](qa/coverage_results/FIPTIW_NSCALE_2026-07-23.md) |
-| **Aggregation integrity of the coverage gate itself** | ✅ **closed 2026-07-22.** `test_iivw_coverage_gate.do` proves `combine` refuses a missing interior block, overlapping blocks, and — after a defect found the same day — any pool whose replication count, study size, or seed disagrees with the verdict it would print |
-
-Three pre-registered false-green mutations are recorded in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md). **All three now turn a gate red** — flipping the IIW exponent breaks `validation_iivw_fiptiw_recovery`, dropping `treat()` from the visit model breaks `test_iivw_phase2_contract`, and the third (holding the weights fixed) is now discriminated by the coverage run: for IPTW the fixed-weight SE runs 1.31× the empirical SD against the refit bootstrap's 1.02×, exactly the over-coverage direction the tolerance framework preregistered.
-
-Oracle strength, tolerances, and the disposition of every existing suite are documented in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md), [`qa/TOLERANCE_FRAMEWORK.md`](qa/TOLERANCE_FRAMEWORK.md), and [`qa/CROSSVAL_MODULE_MAP.md`](qa/CROSSVAL_MODULE_MAP.md).
-
-Run the fast release gate from the package QA directory:
-
-```bash
-cd iivw/qa && stata-mp -b do run_all.do quick
-```
-
-Run the full release gate, including simulation and R cross-validation lanes:
-
-```bash
-cd iivw/qa && stata-mp -b do run_all.do
-```
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Demo
 
@@ -738,6 +709,10 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods for tied survival times in Cox regression. *Biometrics*. 1997;53(3):1151-1156.
 
 ## Version History
+
+### v3.1.1 (2026-07-27)
+
+Documentation hygiene: QA reporting removed from the shipped help files. Package QA is documented in `qa/README.md`; the help files no longer cite `qa/` paths, test suites, or parity records, which an installed user does not receive from `net install`. No command behavior, option, stored result, or documented default changed.
 
 ### v3.1.0 (2026-07-25)
 

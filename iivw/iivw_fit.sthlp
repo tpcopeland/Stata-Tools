@@ -827,13 +827,11 @@ contract. {cmd:e(iivw_interval_available)} separately records whether
 
 {pstd}
 The original study used 1000 simulated datasets per weight family and 999
-bootstrap draws each under the rule in {cmd:qa/TOLERANCE_FRAMEWORK.md}: the 95%
+bootstrap draws each under a prespecified rule: the 95%
 Wilson interval for empirical coverage must contain 0.95, with no point coverage
 below 0.92. IIW and IPTW passed. The FIPTIW follow-up then compared Wald,
 percentile, basic, bias-corrected, and BCa intervals at the same {cmd:n=300}
-cell and the same fixed rule. The records are
-{cmd:qa/coverage_results/RESULT_2026-07-22.md} and
-{cmd:qa/coverage_results/FIPTIW_INTERVALS_2026-07-23.md}.
+cell and the same fixed rule.
 
 {synoptset 34 tabbed}{...}
 {synopthdr:status}
@@ -945,8 +943,7 @@ and 1.003. Together with 0.914, 0.857, and 1.156 at {cmd:n=300}, that pattern
 supports a finite-sample calibration problem in this DGP rather than a variance
 deficit that persists as sample size grows. The larger-n cells are diagnostics,
 not release gates: they have only 200 outer replications, cover one identity-link
-DGP, and do not establish {cmd:n=600} or any other universal safe cutoff. The
-record is {cmd:qa/coverage_results/FIPTIW_NSCALE_2026-07-23.md}.
+DGP, and do not establish {cmd:n=600} or any other universal safe cutoff.
 
 {pstd}
 A bare weighted FIPTIW fit therefore returns coefficients only. It suppresses

@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.6.1  2026/07/15
+*! _datamap_classify Version 1.6.2  2026/07/27
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 

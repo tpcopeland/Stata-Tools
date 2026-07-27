@@ -443,15 +443,7 @@ Includes the `logdoc` conversion results above, plus:
 
 ## QA
 
-Run the full suite from `logdoc/qa`:
-
-```bash
-stata-mp -b do run_all.do
-```
-
-The suite contains 7 QA files: 6 functional/regression files and 1 validation
-file. See [`qa/README.md`](qa/README.md) for the file index, coverage map, and
-the focused version-regression suites.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  30jun2026}{...}
+{* *! version 1.2.1  27jul2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -252,9 +252,9 @@ ordinary continuous regressors, not {cmd:i.foreign} and its interaction. After a
 flattened model, {cmd:fvgen, margins} rebuilds the estimator command with the
 original {cmd:i.}/{cmd:c.} specification and reruns it quietly. This lets
 {helpb margins} use the estimator's own factor-variable metadata, including
-base levels in {cmd:at()}. The QA suite checks both margins estimates and their
-variance matrices across linear, GLM, binary, count, censored, ordered,
-multinomial, panel, and survey estimators. Use
+base levels in {cmd:at()}. Both the margins estimates and their variance
+matrices reproduce the unflattened fit for linear, GLM, binary, count,
+censored, ordered, multinomial, panel, and survey estimators. Use
 {cmd:fvgen, margins store(name)} to store a margins-ready
 clone while restoring the active flattened result for clean
 {help tabtools:regtab} or other table export. The active model must have been
@@ -386,7 +386,7 @@ The margins-ready estimation result is also marked internally as an
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-06-30{p_end}
+{pstd}Version 1.2.1, 2026-07-27{p_end}
 
 
 {title:Also see}

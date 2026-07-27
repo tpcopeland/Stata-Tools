@@ -1,4 +1,4 @@
-*! msm_report Version 1.4.0  2026/07/26
+*! msm_report Version 1.4.1  2026/07/27
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

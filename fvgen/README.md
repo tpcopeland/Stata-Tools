@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-**Version 1.2.0** | 2026-07-14
+**Version 1.2.1** | 2026-07-27
 
 Flatten factor-variable interactions into labeled main-effect and product variables for friendlier regression export.
 
@@ -283,21 +283,9 @@ With `drop`, `fvgen` instead returns `r(k_dropped)` (number of variables dropped
 
 With `margins`, `fvgen` returns `r(margins)` (`active` or `stored`) and, when `store(name)` is used, `r(stored)`. The margins-ready estimates carry internal markers for the flattened and native command lines.
 
-## Testing
+## QA
 
-The `qa/` directory holds the test suite, run with `stata-mp -b do run_all.do`
-(lanes: `quick`, `core`, `full`):
-
-- `test_fvgen.do` — 17 functional tests (surface, returns, naming, labels, options, missing, `if`/`in`, squared self-interaction, `ibn.` all-levels, weight-aware centering, `vsref()` reference labels, long-varname resolution, 80-char label truncation, unlabeled-factor `var=level` fallback)
-- `test_ref.do` — 6 tests (`ref()` per-factor reference levels, equivalence to native `ibN.`, by quoted value-label string)
-- `test_simple.do` — 5 tests (`simple()` per-group slopes, equivalence to native main+interaction, `simple()`+`center` combined)
-- `test_provenance.do` — 7 tests (provenance characteristics + strict `fvgen, drop` teardown)
-- `test_errors.do` — 11 tests (failure paths 198/110/2000, `ref()`/`simple()`/`vsref()` errors, omit operator `o.`, `varabbrev` restoration)
-- `test_margins.do` — 10 tests (`fvgen, margins` equivalence to native margins estimates and VCE across `regress`, `glm`, `qreg`, `rreg`, `logit`/`logistic`, `probit`, `cloglog`, `poisson`, `nbreg`, `tobit`, `ologit`/`oprobit`, `mlogit`, `xtreg`, and `svy`; `store()` contracts, unsupported `center` refusal, drop and failed-generation provenance cleanup)
-- `validation_fvgen.do` — 5 validations (hand-computed values + exact equivalence to native `##`)
-- `test_package_release.do` — 4 tests (install smoke, autoload, documented examples)
-
-See `qa/README.md` for the full coverage map and lane membership.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Requirements
 
@@ -305,6 +293,7 @@ See `qa/README.md` for the full coverage map and lane membership.
 
 ## Version
 
+- **Version 1.2.1** (27 July 2026): Documentation hygiene: QA reporting removed from the shipped help files. Package QA is documented in `qa/README.md`; the help files no longer cite `qa/` paths, test suites, or parity records, which an installed user does not receive from `net install`. No command behavior, option, stored result, or documented default changed.
 - **Version 1.2.0** (30 June 2026): Add `fvgen, margins` for margins-ready native factor-variable estimator clones after flattened models, plus `store(name)` to preserve the active flattened estimate for table export.
 - **Version 1.1.0** (27 June 2026): Add `vsref(string)` — append the reference (base) level to categorical main-effect labels via an `@`-placeholder template (e.g. `vsref("(vs. @)")` → *Foreign (vs. Domestic)*).
 - **Version 1.0.0** (21 June 2026): Initial release

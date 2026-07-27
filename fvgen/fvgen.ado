@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.0  2026/06/30
+*! fvgen Version 1.2.1  2026/07/27
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -476,9 +476,7 @@ File options reject quotes, shell metacharacters, and control characters inside 
 
 ## QA
 
-The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `core`, and `full` lanes.
-
-The per-suite file index, test counts, lane membership, and the coverage map live in `qa/README.md` and are not duplicated here. A hand-maintained copy of those counts sat in this file and went stale silently — it read 26 suites and 680 assertions while the full lane ran 723. The authoritative counts are the `RESULT: ... tests=N` sentinels each suite prints, aggregated by `run_all.do`.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 

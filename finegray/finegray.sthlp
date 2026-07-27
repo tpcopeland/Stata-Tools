@@ -255,12 +255,12 @@ score contribution treating the censoring survivor G as known; {it:psi} is the
 additional contribution from having {bf:estimated} G by Kaplan-Meier. With
 {opt nuisance}, {cmd:finegray}'s variance reproduces {cmd:cmprsk::crr} — whose
 Fortran variance routine is by R. J. Gray, the paper's second author — to
-approximately 1e-7 relative on the package's parity fixtures.
+approximately 1e-7 relative.
 
 {pmore}
 The correction is not always conservative: {it:eta} and {it:psi} are
 correlated, so the nuisance-adjusted variance can be larger or smaller than
-the default. Measured across the parity fixtures in {cmd:qa/data/}, it ranges
+the default. In practice it ranges
 from {bf:-1.3% to +1.4%} on the variance scale ({bf:-0.6% to +0.7%} on
 standard errors). It is therefore not safe to assume the default is the
 "conservative" choice. The effect on covariances is larger than on variances,
@@ -563,10 +563,10 @@ coefficients; conditioning it in both reproduces the stratified
 Zhang-Zhang-Fine weight, which removes that bias at the cost of somewhat larger
 standard errors. Should the fully-joint fit cross the positivity boundary and
 stop with {cmd:r(459)}, fall back to coarser groupings: the pooled or one-sided
-weight remains estimable, and in the constructed sensitivity scenario the
-package tests (see {cmd:qa/README.md}) its bias under a shared entry-censoring
+weight remains estimable, and in a constructed sensitivity scenario its bias
+under a shared entry-censoring
 dependence was small -- the trade the factorized default makes on purpose. This
-is the observed bias in that tested scenario, not a general theoretical bound.
+is the observed bias in that one scenario, not a general theoretical bound.
 
 {pstd}
 {bf:Support boundary, and a breaking change.} Under delayed entry the weight A is
@@ -708,7 +708,7 @@ validated against three independent implementations: Stata's {cmd:stcrreg},
 R's {cmd:cmprsk::crr}, and R's {cmd:fastcmprsk::fastCrr}.
 
 {pstd}
-The cross-validation suite covers coefficients, standard errors,
+The comparison covers coefficients, standard errors,
 log-likelihoods, cumulative incidence functions, baseline hazards, stratified
 censoring, and post-estimation predictions (xb, CIF, and Schoenfeld residuals)
 across real and simulated datasets.
@@ -731,9 +731,8 @@ Against {cmd:stcrreg}, coefficients match within 1e-4 across the tested
 no-delayed-entry configurations, including multiple covariate combinations,
 both causes, factor variables, and cluster SEs. Under delayed entry,
 {cmd:stcrreg} targets the censoring-only weight and parity is neither expected
-nor a validation target; the ZZF branch is instead checked against direct
-estimating-equation oracles, independent R implementations, and Monte Carlo
-recovery and coverage gates.
+nor meaningful; the ZZF branch is instead checked against direct
+estimating-equation calculations and independent R implementations.
 
 {pstd}
 The {opt strata()} option is cross-validated against

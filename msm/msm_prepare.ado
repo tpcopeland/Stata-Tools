@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.4.0  2026/07/26
+*! msm_prepare Version 1.4.1  2026/07/27
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

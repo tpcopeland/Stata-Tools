@@ -1,4 +1,4 @@
-*! _msm_time_invariant_hint Version 1.4.0  2026/07/26
+*! _msm_time_invariant_hint Version 1.4.1  2026/07/27
 *! Diagnostic hint for time-invariant (baseline) treatment in msm_weight
 *! Author: Timothy P Copeland, Karolinska Institutet
 

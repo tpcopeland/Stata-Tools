@@ -231,9 +231,7 @@ do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
 
 ## QA
 
-The manifest [`qa/_tvtools_qa_manifest.do`](qa/_tvtools_qa_manifest.do) is the complete source of truth for lane membership, expected assertion counts, and skip policy. Run `cd tvtools/qa && stata-mp -b do run_all.do release` for functional, state, known-answer, external-oracle, optional-integration, and installed-user release checks with zero permitted skips.
-
-The core known-answer inventory explicitly includes `validation_dgp_known_answers.do`, `validation_dgp_known_answers2.do`, and `validation_tvexpose_statetime.do`, alongside the command-specific `validation_*`, audit-regression, boundary, flow, pipeline, and supplemental suites. External QA comprises `crossval_tvsplit_lexis.do`, `crossval_tvweight_ipcw.do`, `crossval_tvevent_recurring.do`, the `rangematch` drift guard, and optional-package integration. The release lane adds install, shipped-file, help/README, dialog, menu-idempotence, and rerunnable-demo checks. See [`qa/README.md`](qa/README.md) for the exact commands and fixture policy.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 

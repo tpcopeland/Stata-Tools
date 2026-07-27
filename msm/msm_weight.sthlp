@@ -506,7 +506,7 @@ decoded by {cmd:r(probability_models)}. A row is returned for every observed
 decision cell, including cells with zero repairs.
 
 {pstd}
-For routine QA thresholds, scripts commonly inspect {cmd:r(mean_weight)},
+For routine quality thresholds, scripts commonly inspect {cmd:r(mean_weight)},
 {cmd:r(sd_weight)}, {cmd:r(min_weight)}, {cmd:r(max_weight)}, and
 {cmd:r(p99_weight)} before proceeding to {helpb msm_diagnose}.
 

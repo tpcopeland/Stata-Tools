@@ -361,7 +361,7 @@ steps need structured diagnostics rather than console text.
 {phang2}{cmd:. datacheck, gatesonly checks("qc_checks.dta") violations("qc_violations.dta", replace)}{p_end}
 
 {pstd}Compare a refreshed dataset against a saved profile without halting:{p_end}
-{phang2}{cmd:. datacheck, compare("qa/baseline_profile.dta") warn}{p_end}
+{phang2}{cmd:. datacheck, compare("checks/baseline_profile.dta") warn}{p_end}
 
 {pstd}Show only flagged variables and mask rare cells before sharing a log:{p_end}
 {phang2}{cmd:. datacheck, rare(5) mincell(5) maskrare show(flagged)}{p_end}
