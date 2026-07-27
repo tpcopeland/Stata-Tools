@@ -867,62 +867,90 @@ else {
 }
 
 * T6: generated profile works after a fresh Stata process restart
-capture noisily {
-    tabtools set clear
-    tabtools set theme custom, font("Times New Roman") fontsize(11) ///
-        headercolor("200 220 240") zebracolor("245 245 245") ///
-        borderstyle(academic) permanent
-    tabtools set digits 3, permanent
-    tabtools set boldp 0.025, permanent
-    confirm file "`default_profile'"
-
-    capture erase "`reader_marker'"
-    capture erase "`reader_log'"
-
-    mata:
-    fh = fopen(st_local("reader_do"), "w")
-    fput(fh, "clear all")
-    fput(fh, "set more off")
-    fput(fh, "set varabbrev off")
-    fput(fh, sprintf(`"sysdir set PLUS "%s""', st_local("plus_dir")))
-    fput(fh, sprintf(`"sysdir set PERSONAL "%s""', st_local("personal_dir")))
-    fput(fh, "discard")
-    fput(fh, "tabtools use")
-    fput(fh, `"assert "$TABTOOLS_THEME" == "custom""')
-    fput(fh, `"assert "$TABTOOLS_FONT" == "Times New Roman""')
-    fput(fh, `"assert "$TABTOOLS_FONTSIZE" == "11""')
-    fput(fh, `"assert "$TABTOOLS_HEADERCOLOR" == "200 220 240""')
-    fput(fh, `"assert "$TABTOOLS_ZEBRACOLOR" == "245 245 245""')
-    fput(fh, `"assert "$TABTOOLS_BORDER" == "academic""')
-    fput(fh, `"assert "$TABTOOLS_DIGITS" == "3""')
-    fput(fh, `"assert "$TABTOOLS_BOLDP" == "0.025""')
-    fput(fh, sprintf(`"file open m using "%s", write text replace"', st_local("reader_marker")))
-    fput(fh, `"file write m "loaded" _n"')
-    fput(fh, "file close m")
-    fput(fh, "exit")
-    fclose(fh)
-    end
-
-    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
-    * not even exist -- so the rc displayed here was always 0 and told the
-    * reader nothing. Everything after && runs only on exit 0, so the sentinel
-    * file IS the exit status. The two confirm lines below were already the real
-    * checks. See _devkit/automation/scan_shell_rc.py.
-    tempfile _child_ok
-    capture erase "`_child_ok'"
-    shell ( cd "`output_dir'" && stata-mp -b do "tabtools_v161_reader.do" ) && touch "`_child_ok'"
-    capture confirm file "`_child_ok'"
-    local _child_exit0 = (_rc == 0)
-    confirm file "`reader_log'"
-    confirm file "`reader_marker'"
-    display as text "  child process exited 0: `_child_exit0'"
+* A release orchestrator that must never overlap Stata processes can run the
+* two-phase restart helper first and pass its unique result file through this
+* environment variable. With no handoff, preserve the standalone child-process
+* behavior used by ordinary invocations of this test file.
+local _profile_restart_result : environment TABTOOLS_QA_PROFILE_RESTART_RESULT
+local _t6_rc 0
+if `"`_profile_restart_result'"' != "" {
+    capture noisily {
+        confirm file `"`_profile_restart_result'"'
+        tempname _profile_result_fh
+        local _profile_result_green 0
+        file open `_profile_result_fh' using `"`_profile_restart_result'"', read text
+        file read `_profile_result_fh' _profile_result_line
+        while r(eof) == 0 {
+            if strpos(`"`_profile_result_line'"', ///
+                "RESULT: tabtools_profile_restart tests=1 pass=1 fail=0") > 0 {
+                local _profile_result_green 1
+            }
+            file read `_profile_result_fh' _profile_result_line
+        }
+        file close `_profile_result_fh'
+        assert `_profile_result_green' == 1
+    }
+    local _t6_rc = _rc
 }
-if _rc == 0 {
+else {
+    capture noisily {
+        tabtools set clear
+        tabtools set theme custom, font("Times New Roman") fontsize(11) ///
+            headercolor("200 220 240") zebracolor("245 245 245") ///
+            borderstyle(academic) permanent
+        tabtools set digits 3, permanent
+        tabtools set boldp 0.025, permanent
+        confirm file "`default_profile'"
+
+        capture erase "`reader_marker'"
+        capture erase "`reader_log'"
+
+        mata:
+        fh = fopen(st_local("reader_do"), "w")
+        fput(fh, "clear all")
+        fput(fh, "set more off")
+        fput(fh, "set varabbrev off")
+        fput(fh, sprintf(`"sysdir set PLUS "%s""', st_local("plus_dir")))
+        fput(fh, sprintf(`"sysdir set PERSONAL "%s""', st_local("personal_dir")))
+        fput(fh, "discard")
+        fput(fh, "tabtools use")
+        fput(fh, `"assert "$TABTOOLS_THEME" == "custom""')
+        fput(fh, `"assert "$TABTOOLS_FONT" == "Times New Roman""')
+        fput(fh, `"assert "$TABTOOLS_FONTSIZE" == "11""')
+        fput(fh, `"assert "$TABTOOLS_HEADERCOLOR" == "200 220 240""')
+        fput(fh, `"assert "$TABTOOLS_ZEBRACOLOR" == "245 245 245""')
+        fput(fh, `"assert "$TABTOOLS_BORDER" == "academic""')
+        fput(fh, `"assert "$TABTOOLS_DIGITS" == "3""')
+        fput(fh, `"assert "$TABTOOLS_BOLDP" == "0.025""')
+        fput(fh, sprintf(`"file open m using "%s", write text replace"', st_local("reader_marker")))
+        fput(fh, `"file write m "loaded" _n"')
+        fput(fh, "file close m")
+        fput(fh, "exit")
+        fclose(fh)
+        end
+
+        * Stata shell never sets _rc -- it reports 0 for a child that failed or does
+        * not even exist -- so the rc displayed here was always 0 and told the
+        * reader nothing. Everything after && runs only on exit 0, so the sentinel
+        * file IS the exit status. The two confirm lines below were already the real
+        * checks. See _devkit/automation/scan_shell_rc.py.
+        tempfile _child_ok
+        capture erase "`_child_ok'"
+        shell ( cd "`output_dir'" && stata-mp -b do "tabtools_v161_reader.do" ) && touch "`_child_ok'"
+        capture confirm file "`_child_ok'"
+        local _child_exit0 = (_rc == 0)
+        confirm file "`reader_log'"
+        confirm file "`reader_marker'"
+        display as text "  child process exited 0: `_child_exit0'"
+    }
+    local _t6_rc = _rc
+}
+if `_t6_rc' == 0 {
     _v161_pass "T6: default profile survives fresh Stata process"
     local ++pass_count
 }
 else {
-    _v161_fail "T6: default profile survives fresh Stata process" `=_rc'
+    _v161_fail "T6: default profile survives fresh Stata process" `_t6_rc'
     local ++fail_count
     local failed_tests "`failed_tests' T6"
 }

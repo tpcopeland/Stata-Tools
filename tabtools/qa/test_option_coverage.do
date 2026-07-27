@@ -298,7 +298,7 @@ else {
 
 * =====================================================================
 **# comptab: boldp, compact, csv, highlight, labelwidth, mdappend, relabel,
-**#          separator, theme, zebracolor   (needs regtab source frames)
+**#          separator, theme, zebra, zebracolor   (needs regtab source frames)
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -308,7 +308,8 @@ capture noisily {
     collect: regress price foreign mpg weight
     capture frame drop oc_cf
     regtab, frame(oc_cf) noint models("Model A" \ "Model B")
-    comptab oc_cf, rows(1 2) csv("`out'/comptab.csv") theme(apa) zebracolor("240 245 250") ///
+    comptab oc_cf, rows(1 2) csv("`out'/comptab.csv") theme(apa) zebra ///
+        zebracolor("240 245 250") ///
         labelwidth(20) relabel(1 "Relabeled foreign") separator(1) ///
         highlight(0.05) boldp(0.05) compact frame(oc_cmp1, replace)
     confirm file "`out'/comptab.csv"

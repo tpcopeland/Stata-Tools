@@ -14,9 +14,8 @@
 * p-value, so the R comparison is a coding-consistency check of that correlation
 * on tie-free, well-conditioned simulated data (P12), not a test-calibration
 * claim; hypoxia (heavy ties + a near-zero censoring weight) is checked only for
-* functional validity, with
-* its residuals validated bit-for-bit against stcrreg in
-* crossval_predict_stcrreg.do.
+* functional validity, with its residuals compared against stcrreg within the
+* registered numerical tolerances in crossval_predict_stcrreg.do.
 
 clear all
 set varabbrev off
@@ -204,18 +203,18 @@ else {
 * ============================================================
 
 * P3: finegray_phtest on hypoxia is functionally sound (all time transforms).
-* Why no cmprsk chi2 parity on hypoxia: this dataset has a large cluster of
+* Why no cmprsk correlation parity on hypoxia: this dataset has a large cluster of
 * tied cause events (dftime=.003) AND a near-zero censoring weight (finegray
 * notes "G(t) truncated to 1e-10 for 1 observation").  At tied event times
 * finegray and cmprsk partition the per-event Schoenfeld residual by different
 * (both valid) conventions, and the truncated G amplifies any tiny weight
 * difference enormously (dividing competing-event weights by ~1e-10), so the
-* per-EVENT residuals — and the correlation-based chi2 built from them — are
-* implementation-dependent here.  finegray's hypoxia residuals are validated
-* bit-for-bit against Stata's own stcrreg in crossval_predict_stcrreg.do; the
-* authoritative cmprsk chi2 parity is asserted on tie-free, well-conditioned
-* simulated data below (P12 rank/log/identity), where finegray matches cmprsk
-* exactly.  Here we confirm the hypoxia phtest returns valid statistics.
+* per-EVENT residuals and correlations built from them are
+* implementation-dependent here.  finegray's hypoxia residuals are compared
+* against Stata's own stcrreg within the registered numerical tolerances in
+* crossval_predict_stcrreg.do; the
+* tie-free, well-conditioned coding-consistency check is below (P12
+* rank/log/identity). Here we confirm the hypoxia diagnostic is well defined.
 local ++test_count
 capture noisily {
     _setup_hypoxia
@@ -280,8 +279,8 @@ else {
     local ++fail_count
 }
 
-* (Hypoxia chi2-vs-cmprsk parity intentionally omitted — see P3 note. The
-* authoritative cmprsk PH-test chi2 parity is on tie-free simulated data, P12.)
+* (Hypoxia residual-correlation parity is intentionally omitted; see P3.
+* The tie-free coding-consistency comparison is P12.)
 
 }
 else {
@@ -460,7 +459,7 @@ capture noisily {
     merge 1:1 id using `r_sch_sim', nogen
     gen double d_x1 = abs(sch_sim - r_sch_x1)
     gen double d_x2 = abs(sch_sim_2 - r_sch_x2)
-    * Tie-free, well-conditioned data + common beta -> bit-exact agreement.
+    * Tie-free, well-conditioned data + common beta: require <1e-4 agreement.
     foreach v in d_x1 d_x2 {
         quietly summ `v', meanonly
         display as text "  sim `v': max=" %10.8f r(max) " mean=" %10.8f r(mean)
@@ -493,15 +492,14 @@ else {
 * WHAT THIS DOES AND DOES NOT ESTABLISH (read before trusting it).  This is a
 * CODING-CONSISTENCY check, not a statistical validation.  finegray_phtest is a
 * DIAGNOSTIC (FG-03): it reports only the residual-time correlation, with no
-* chi2 and no p-value, because no published null calibration exists for the
-* marginal n*rho^2 statistic under the subdistribution model.  cmprsk ships no
-* PH test either, so the R side simply recomputes the SAME correlation from the
+* chi2 and no p-value, because no null calibration for this simple marginal
+* statistic is implemented or established here. cmprsk ships no PH test
+* either, so the R side simply recomputes the SAME correlation from the
 * Schoenfeld residuals independently checked in P11.  Agreement therefore shows
 * the two implementations compute the same descriptive quantity; it says nothing
 * about a reference distribution, and none is claimed.  A genuinely independent
 * PH-test oracle would need Zhou et al. (2013) or Li et al. (2015); neither is
-* implemented.  r_phtest.csv still carries R's vestigial chi2/p columns; they
-* are deliberately NOT compared here.
+* implemented. r_phtest.csv therefore carries only rho and the event count.
 foreach tf in rank log identity {
     local ++test_count
     capture noisily {
@@ -589,10 +587,9 @@ else {
     local ++fail_count
 }
 
-* P14: predict schoenfeld + manual correlation == phtest correlation
-* Pearson r is scale-invariant, so unscaled Schoenfeld residuals give the same
-* residual-time correlation as phtest's scaled version.  FG-03: phtest reports
-* the correlation (column 1), not chi2, so this checks correlation-vs-correlation.
+* P14: predict schoenfeld + manual correlation == phtest correlation.
+* Both routes use raw Schoenfeld residuals. FG-03 reports the correlation
+* (column 1), so this checks correlation-vs-correlation.
 local ++test_count
 local p14_pass = 1
 capture noisily {

@@ -1,4 +1,4 @@
-*! desctab Version 1.10.0  2026/07/22
+*! desctab Version 1.10.1  2026/07/27
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -316,12 +316,13 @@ program define desctab, rclass
     if "`coldim'" != "" {
         capture _tabtools_collect_render, type(desctab) rowdim(`rowdim') ///
             coldim(`coldim') results(`stats_layout')
+        local _collect_render_rc = _rc
     }
     else {
         capture _tabtools_collect_render, type(desctab) rowdim(`rowdim') ///
             results(`stats_layout')
+        local _collect_render_rc = _rc
     }
-    local _collect_render_rc = _rc
     if `_collect_render_rc' {
         restore
         local _preserved 0

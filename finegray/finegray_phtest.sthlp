@@ -29,7 +29,7 @@
 {synopthdr}
 {synoptline}
 {synopt:{opt time(function)}}time function: {cmd:rank} (default), {cmd:log}, or {cmd:identity}{p_end}
-{synopt:{opt det:ail}}display scaled Schoenfeld residuals{p_end}
+{synopt:{opt det:ail}}display raw Schoenfeld residuals{p_end}
 {synoptline}
 
 
@@ -39,19 +39,18 @@
 {pstd}
 {cmd:finegray_phtest} provides an approximate diagnostic for the proportional
 subdistribution hazards (PSH) assumption after {helpb finegray}. It computes
-diagonal-scaled Schoenfeld residuals at cause-event times and correlates each
+raw Schoenfeld residuals at cause-event times and correlates each
 residual series with a function of time.
 
 {pstd}
 Time patterns in the residuals suggest that a covariate's effect may change
 over time. The command reports, per covariate, the residual-time
 {it:correlation} only: it deliberately reports
-{bf:no chi-squared statistic and no p-value}, because no published null
-calibration exists for that statistic under the subdistribution-hazards
-model. Treat a correlation far from zero as a flag for follow-up, not as an
-accept/reject test; see {it:Statistical scope}
-below. No calibrated omnibus test of this assumption ships with the
-package; to make a formal claim, fit the time-interaction model directly.
+{bf:no chi-squared statistic and no p-value}, because no null calibration is
+implemented or established here for this simple correlation. Treat a
+correlation far from zero as a flag for follow-up, not as an accept/reject
+test; see {it:Statistical scope} below. Formal cumulative-residual and score
+tests exist in the literature, but none ships with this package.
 
 {pstd}
 {bf:Left truncation (delayed entry).} The weighted risk sets underlying the
@@ -74,85 +73,44 @@ have the fitted score property, so the diagnostic is meaningless and
 with a larger {opt iterate()} or a different specification.
 
 {pstd}
-{bf:Statistical scope.} For each covariate, the command multiplies its raw
-Schoenfeld residual by the corresponding diagonal element of the inverse
-observed-information matrix, then reports the correlation {it:rho} between that
-scaled residual series and the chosen function of event time. That correlation
-is the entire reported quantity: it is a descriptive diagnostic, not a test.
-
-{pstd}
-{bf:The scaling does not change the reported correlation.} The diagonal element
-is a single positive constant per covariate, and a correlation is invariant to
-multiplication by a positive constant, so {it:rho} is numerically identical to
-the correlation of the {bf:unscaled} Schoenfeld residual with the same function
-of time. This is worth stating plainly for two reasons. First, it means the
-reported diagnostic does not depend on the Grambsch-Therneau transformation at
-all -- that reference grounds the {it:Cox} model, and its applicability to the
-subdistribution hazard has not been established here, but nothing this command
-reports rests on it. Second, it means a full (off-diagonal) scaling would
-{it:not} be a cosmetic upgrade: mixing covariates through the whole inverse
-information would change every correlation, so it is a different diagnostic and
-would need its own justification. The scaling is applied because {opt detail}
-displays the residuals themselves, where the units do matter.
+{bf:Statistical scope.} For each covariate, the command reports the correlation
+{it:rho} between its raw Fine-Gray Schoenfeld residual series and the chosen
+function of event time. That correlation is the entire reported quantity: it is
+a descriptive diagnostic, not a test. {opt detail} displays those same raw
+residuals.
 
 {pstd}
 Earlier releases squared and rescaled this correlation into {cmd:n*rho^2} and
 referred it to a one-degree-of-freedom chi-squared, printing a
-{cmd:Prob>chi2}. That statistic has no published null calibration under the
-proportional
-{it:subdistribution} hazards model -- the construction is inspired by
-weighted-residual diagnostics for the {it:Cox} model but does not implement the
-Grambsch-Therneau transformation, and the Cox reference distribution does not
-transfer (see {help finegray_phtest##global:Global test}). The chi-squared and
-p-value are therefore {bf:no longer reported}. Use the correlation, the residual
-pattern, and its sensitivity across {opt time()} choices as diagnostic
-evidence; for a formal claim, fit the time-interaction model directly or use a
-published
-subdistribution PH test.
+{cmd:Prob>chi2}. That reference distribution was not established for this
+statistic under the proportional {it:subdistribution} hazards model. The
+chi-squared and p-value are therefore {bf:no longer reported}. Use the
+correlation, the residual pattern, and sensitivity across {opt time()} choices
+as descriptive evidence; use a published subdistribution-PH method for formal
+inference.
 
 {marker global}{...}
 {pstd}
 {bf:Global test.} {cmd:finegray_phtest} reports {bf:no omnibus test}, and has not
 since version 1.2.0. Earlier versions printed a {it:Global test} row holding the
 sum of the per-covariate 1-df statistics, referred to a chi-squared with {it:p}
-degrees of freedom. That reference distribution is correct only if the
-components are independent. Scaled Schoenfeld residuals are correlated whenever
-the covariates are, so the sum is not chi-squared({it:p}): the printed
-probability had no stated null distribution and its error ran in an unknown
-direction. It was removed rather than relabeled.
-
-{pstd}
-The apparent repair does not transfer to this estimator. Grambsch and Therneau
-(1994) build a joint statistic for the {it:Cox} model whose null covariance is
-the Cox information -- an identity that holds because the Cox score is a
-martingale integral. {cmd:finegray}'s score is IPCW-weighted with an {it:estimated}
-censoring distribution, so its true variance is a sandwich, and in principle
-carries an additional term for having estimated that distribution (Fine and Gray
-1999, eq. 7-8; Bellach et al. 2019, sec. 3.3, "this additional variability
-cannot be ignored"). That is why {cmd:finegray} defaults to a sandwich
-({opt vce(robust)}) rather than the inverse information. Note that the shipped
-default is the {it:fixed-weight} sandwich ({cmd:e(lt_vce)} =
-{cmd:fixed_weight_sandwich}), which does {bf:not} add that extra nuisance term
-either -- see {help finegray##options:finegray}, Scope of the sandwich
-estimator, for its magnitude and for coefficient-bootstrap inference. Reusing
-the information as a null covariance here would restate the
-original defect -- an unstated reference distribution -- in a form that merely
-looks rigorous.
+degrees of freedom without estimating the joint covariance among components. The
+printed probability therefore had no established null distribution. It was
+removed rather than relabeled.
 
 {pstd}
 No omnibus test is implemented {it:by this command}, and none ships elsewhere
-in the package. When a formal claim is needed, fit the time-interaction model
-directly and test its interaction terms. This diagnostic remains the available
-instrument. Zhou et al. (2013) give a score test on modified Schoenfeld
-residuals that is {bf:not} implemented here. PSHREG (Kohl et al. 2015), the
-closest reference implementation for this model, likewise reports only
-per-covariate correlation tests and residual plots.
+in the package. Li, Scheike and Zhang (2015) give cumulative-residual processes
+with simulated null distributions, and Zhou et al. (2013) give a score test; neither
+method is implemented here. {cmd:finegray} also does not fit
+time-varying coefficient effects, so formal follow-up requires software that
+implements one of those published PSH methods.
 
 {pstd}
 The diagnostic is only defined where it can be computed. If every cause event
 occurs at a single time, the time function is constant and no correlation
 exists: {cmd:finegray_phtest} exits with {cmd:r(459)} rather than reporting a blank
-row. The same applies to any individual term whose scaled residuals do
+row. The same applies to any individual term whose raw residuals do
 not vary across cause-event times.
 
 {pstd}
@@ -179,12 +137,12 @@ loading a new dataset.
 
 {phang}
 {opt time(function)} specifies the time function used in the correlation
-test. {cmd:rank} (the default) uses the rank of event times. {cmd:log} uses
+diagnostic. {cmd:rank} (the default) uses the rank of event times. {cmd:log} uses
 log(time). {cmd:identity} uses raw event times. The rank transformation is
 less sensitive to extreme event times and is the default screening choice.
 
 {phang}
-{opt detail} displays the first 20 rows of the scaled Schoenfeld residual matrix.
+{opt detail} displays the first 20 rows of the raw Schoenfeld residual matrix.
 
 
 {marker examples}{...}
@@ -227,6 +185,7 @@ less sensitive to extreme event times and is the default screening choice.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(time)}}time function used{p_end}
+{synopt:{cmd:r(residual_scale)}}{cmd:raw}{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
@@ -234,7 +193,7 @@ less sensitive to extreme event times and is the default screening choice.
 
 {pstd}
 {bf:Diagnostic-only surface.} {cmd:r(phtest)} holds one row per covariate with
-columns {cmd:correlation} (the scaled-Schoenfeld/time correlation) and
+columns {cmd:correlation} (the raw-Schoenfeld/time correlation) and
 {cmd:events} (the number of cause-event times used). It does {bf:not} carry
 {cmd:chi2}, {cmd:df}, or a p-value: those are not reported (see
 {it:Statistical scope}). The omnibus scalars {cmd:r(chi2)}, {cmd:r(df)} and
@@ -253,24 +212,6 @@ competing risk. {it:JASA} 1999; 94(446): 496-509.
 {pstd}{browse "https://doi.org/10.1080/01621459.1999.10474144":doi:10.1080/01621459.1999.10474144}{p_end}
 
 {pstd}
-Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
-weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
-
-{pstd}{browse "https://doi.org/10.1093/biomet/81.3.515":doi:10.1093/biomet/81.3.515}{p_end}
-
-{pstd}
-Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
-weighted residuals [correction]. {it:Biometrika} 1995; 82(3): 668.
-
-{pstd}{browse "https://doi.org/10.1093/biomet/82.3.668":doi:10.1093/biomet/82.3.668}{p_end}
-
-{pstd}
-Bellach A, Kosorok MR, Ruschendorf L, Fine JP. Weighted NPMLE for the
-subdistribution of a competing risk. {it:JASA} 2019; 114(525): 259-270.
-
-{pstd}{browse "https://doi.org/10.1080/01621459.2017.1401540":doi:10.1080/01621459.2017.1401540}{p_end}
-
-{pstd}
 Zhou B, Fine J, Laird G. Goodness-of-fit test for proportional subdistribution
 hazards model. {it:Statistics in Medicine} 2013; 32(22): 3804-3811.
 
@@ -284,25 +225,12 @@ with cumulative sums of residuals. {it:Lifetime Data Analysis} 2015; 21(2): 197-
 {pstd}{browse "https://doi.org/10.1007/s10985-014-9313-9":doi:10.1007/s10985-014-9313-9}{p_end}
 
 {pstd}
-Kohl M, Plischke M, Leffondre K, Heinze G. PSHREG: a SAS macro for
-proportional and nonproportional subdistribution hazards
-regression. {it:Computer Methods and Programs in Biomedicine} 2015; 118(2): 218-233.
-
-{pstd}{browse "https://doi.org/10.1016/j.cmpb.2014.11.009":doi:10.1016/j.cmpb.2014.11.009}{p_end}
-
-{pstd}
 Fine and Gray (1999) support Schoenfeld-type residual plots for the
-subdistribution model, and (eq. 7-8) ground the estimated-censoring variance
-term that, with Bellach et al. (2019, sec. 3.3), rules out the inverse
-information as a null covariance for a joint test here. Grambsch and Therneau
-(1994, corrected 1995) concern the Cox model and are cited only as inspiration
-for time-transformed weighted-residual diagnostics; their joint test is
-{bf:not} implemented, and their null covariance does not transfer to this
-estimator. This command reports the residual-time correlation as a descriptive
+subdistribution model. This command reports the residual-time correlation as a descriptive
 diagnostic only; it computes no marginal or omnibus test statistic, so no null
-calibration is claimed. Zhou et al. (2013), Li et al. (2015) and Kohl
-et al. (2015) are cited to document the state of formal testing for this
-model. None of them is implemented in this package.
+calibration is claimed. Zhou et al. (2013) and Li et al. (2015) are cited to
+document formal testing methods for this model. Neither is implemented in this
+package.
 
 
 {marker author}{...}

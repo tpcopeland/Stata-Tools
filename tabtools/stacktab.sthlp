@@ -87,7 +87,8 @@ one composite sheet with {cmd:stacktab}.
 
 {phang}
 {opt csv(filename)} export the composed table to CSV. The CSV holds the table's data columns only; the
-title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
+title and footnote, if set, are not written (they are included in Excel
+output written with {cmd:using} and in {opt markdown()} output){p_end}
 
 {phang}
 {opt dis:play} list the composed table in the Results window before writing{p_end}
@@ -233,17 +234,20 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {title:Stored results}
 
 {synoptset 22}{...}
+{p2col 5 22 26 2: Scalars}{p_end}
 {synopt:{cmd:r(blocks_loaded)}}number of blocks imported{p_end}
 {synopt:{cmd:r(rows_written)}}rows written by the current call{p_end}
 {synopt:{cmd:r(rows_out)}}last worksheet row written{p_end}
 {synopt:{cmd:r(cols_out)}}columns in the composed table{p_end}
 {synopt:{cmd:r(append_start)}}first row of the appended table body{p_end}
 {synopt:{cmd:r(note_row)}}Excel row of the note/footnote, when specified{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+
+{p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:r(layout)}}layout used: {cmd:vstack} or {cmd:hstack}{p_end}
 {synopt:{cmd:r(sheet)}}output sheet name{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(book)}}workbook path{p_end}
 {synopt:{cmd:r(table_start)}}top-left Excel cell of the composed table, usually {cmd:B2}{p_end}
 {synopt:{cmd:r(title_cell)}}title cell, when {opt title()} is specified{p_end}

@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/07/25
+*! finegray_cif Version 1.2.0  2026/07/27
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -468,18 +468,25 @@ program define finegray_cif, rclass sortpreserve
     * BOOTSTRAP STANDARD ERRORS (optional; exact, includes censoring weights)
     * =====================================================================
     if `bootstrap' > 0 {
-        local _fgid `"`_dta[st_id]'"'
         * e(refitcmd), not e(cmdline): the refit runs on data already restricted
         * to e(sample) and then resampled, so the user's `if'/`in' qualifier is
         * meaningless there.  Replaying `in 101/200' against a 100-row resample
         * selected no rows and failed every replication (rc 498, 0/B).
         local _fgcmd `"`e(refitcmd)'"'
         local _fgclust `"`e(clustvar)'"'
-        * A string id() cannot store _n; when it is non-numeric, give each
-        * resampled row a fresh unique numeric id instead.
-        capture confirm numeric variable `_fgid'
-        local _idnum = (_rc == 0)
-        if !`_idnum' tempvar _bsid
+        tempvar _bsid _bsclust
+        * Repeated draws of the same original cluster must be distinct
+        * bootstrap clusters. idcluster() supplies that draw identity; keep
+        * e(refitcmd) unchanged and rewrite only the private bootstrap replay.
+        local _fgbscmd `"`_fgcmd'"'
+        if `"`_fgclust'"' != "" {
+            local _fgbscmd : subinstr local _fgcmd ///
+                "cluster(`_fgclust')" "cluster(`_bsclust')", all
+            if `"`_fgbscmd'"' == `"`_fgcmd'"' {
+                display as error "internal bootstrap error: cluster() is absent from e(refitcmd)"
+                exit 498
+            }
+        }
         tempname Gmat
         matrix `Gmat' = J(`ngrid', 1, 0)
         local r 0
@@ -529,22 +536,22 @@ program define finegray_cif, rclass sortpreserve
                 use `"`_bdata'"', clear
                 * Resample whole clusters as units when the fit declared
                 * cluster(); otherwise resample subjects.
-                if `"`_fgclust'"' != "" bsample, cluster(`_fgclust')
-                else bsample
-                * Each resampled draw must be a distinct subject for
-                * finegray's within-id reduction.
-                if `_idnum' replace `_fgid' = _n
-                else {
-                    gen long `_bsid' = _n
-                    char _dta[st_id] "`_bsid'"
+                if `"`_fgclust'"' != "" {
+                    bsample, cluster(`_fgclust') idcluster(`_bsclust')
                 }
+                else bsample
+                * e(sample) contains one reduced record per subject. Give every
+                * copied row a fresh survival id without overwriting a user
+                * variable that may also appear in the model or weight strata.
+                gen long `_bsid' = _n
+                char _dta[st_id] "`_bsid'"
                 * basehaz on the REFIT, not in e(refitcmd): _finegray_boot_cif
                 * reads the replication's baseline out of e(basehaz), so the
                 * matrix must exist inside the replication even though the user's
                 * own fit no longer posts it by default.  Appending the option
                 * here keeps e(refitcmd) itself unchanged, which QA asserts
                 * reproduces e(b) exactly.
-                capture `_fgcmd' basehaz
+                capture `_fgbscmd' basehaz
                 if _rc continue
                 if e(converged) != 1 continue
                 * A resample can lose a factor level, so the refit posts a

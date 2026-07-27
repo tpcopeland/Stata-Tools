@@ -217,6 +217,10 @@ or RGB triplet{p_end}
 {pstd}{cmd:corrtab} stores the following in {cmd:r()}:{p_end}
 
 {synoptset 15 tabbed}{...}
+{p2col 5 15 19 2: Scalars}{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(C)}}correlation matrix{p_end}
 {synopt:{cmd:r(P)}}p-value matrix{p_end}
@@ -227,8 +231,6 @@ or RGB triplet{p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 
 {marker alsosee}{...}

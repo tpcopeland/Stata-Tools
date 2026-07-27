@@ -3,7 +3,7 @@
 * Fine-Gray estimator stcrreg (the gold-standard reference). stcrreg ships with
 * Stata, so this suite has no external dependency and never skips.
 *
-* Equivalence (verified bit-exact on the hypoxia data):
+* Agreement (verified within the registered numerical tolerances below):
 *   finegray_predict xb          == stcrreg predict, xb
 *   exp(finegray_predict xb)     == stcrreg predict        (relative subhazard)
 *   finegray_predict cif @ z=0   == stcrreg predict, basecif      (baseline CIF)
@@ -19,9 +19,9 @@
 *
 * Known convention difference (asserted, not ignored):
 *   Schoenfeld residuals at TIED cause-event times are split differently
-*   between finegray and stcrreg. Per-observation values match exactly at
-*   untied event times; within each tied event-time the group SUM matches
-*   exactly. Both invariants are tested below.
+*   between finegray and stcrreg. Per-observation values agree to <1e-5 at
+*   untied event times; within each tied event-time the group SUM agrees to
+*   <1e-5. Both invariants are tested below.
 
 clear all
 set varabbrev off
@@ -123,7 +123,7 @@ merge 1:1 stnum using "`sout_A'", nogen
 * per-event-time multiplicity (for tied-time Schoenfeld handling)
 bysort _t: gen long _nt = _N
 
-**# A1: linear predictor xb == stcrreg predict, xb (bit-exact)
+**# A1: linear predictor xb agrees with stcrreg predict, xb to <1e-6
 local ++test_count
 capture noisily {
     gen double d_xb = fg_xb - xb_s
@@ -180,7 +180,7 @@ else {
     local failed_tests "`failed_tests' A3"
 }
 
-**# A4: Schoenfeld residuals exact at untied cause-event times (all 3 covariates)
+**# A4: Schoenfeld residuals agree at untied event times (all 3 covariates)
 local ++test_count
 capture noisily {
     gen double d_su1 = fg_sch   - sch_s1 if !missing(fg_sch) & _nt == 1
@@ -384,7 +384,7 @@ finegray_predict fgB_xb, xb
 finegray_predict fgB_cif, cif
 merge 1:1 stnum using "`sout_B'", nogen
 
-**# B1: xb exact vs stcrreg (cause 2)
+**# B1: xb agrees with stcrreg to <1e-6 (cause 2)
 local ++test_count
 capture noisily {
     gen double dB_xb = fgB_xb - xbB_s

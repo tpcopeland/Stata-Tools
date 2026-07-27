@@ -6,7 +6,7 @@
 *
 *   git archive <gated-commit> finegray | tar -x -C /tmp/gated
 *   stata-mp -b do gates_transfer_proof.do /tmp/gated/finegray GATED
-*   stata-mp -b do gates_transfer_proof.do ~/Stata-Tools/finegray CURRENT
+*   stata-mp -b do gates_transfer_proof.do /path/to/current/finegray CURRENT
 *
 * WHY THIS FILE EXISTS
 * --------------------

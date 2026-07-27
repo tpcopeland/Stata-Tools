@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  25jul2026}{...}
+{* *! version 1.2.0  27jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -113,10 +113,6 @@ that avoids data expansion. Their published decomposition covers
 right-censored data without ties; tie handling and delayed entry are package
 extensions described below.
 
-{pstd}
-See {it:Performance} under {help finegray##remarks:Remarks} for benchmarks.
-
-
 {marker options}{...}
 {title:Options}
 
@@ -159,7 +155,7 @@ quietly does nothing is indistinguishable from one that worked.
 {pmore}
 Each variable must be constant within subject on multi-record data, and
 missing values are excluded from the estimation sample. The joint (censoring x
-entry) weight strata are subject to a hard support boundary: at most {bf:100}
+entry) weight cells are subject to a hard support boundary: at most {bf:100}
 observed joint strata, each holding at least {bf:20} estimation-sample
 subjects. Exceeding either boundary is {cmd:r(459)}; groups are never silently
 pooled. See {help finegray##lt:Left truncation} for why the boundary applies to {opt strata()} as well
@@ -168,14 +164,13 @@ once entry is delayed.
 {pmore}
 {bf:Neither boundary is overridable}, and both apply to delayed-entry fits
 only; a fit without delayed entry is unaffected by either. Both are
-{it:package conventions}, not values derived from the underlying theory: under delayed entry
-the censoring survivor G and the entry distribution H are each estimated
-{it:within} a joint stratum, so the 100-stratum ceiling bounds how finely the
-sample may be partitioned before those per-stratum product limits are estimated
-from too little data, and the 20-subject floor bounds the smallest partition that
-is allowed to carry its own G and H. Choosing to refuse rather than to pool or
-drop is the deliberate part; the two numbers themselves are conservative
-round figures. Note in particular that the 20-subject floor is a {it:size} check
+{it:package conventions}, not values derived from the underlying theory. G is
+estimated within {opt strata()} groups and H within {opt truncstrata()}
+groups, then the components are evaluated together for each observed
+cross-classified cell. The ceiling and floor limit how finely that configured
+weight may be cross-classified before cell support becomes too sparse. Choosing
+to refuse rather than to pool or drop is deliberate; the two numbers themselves
+are conservative round figures. Note in particular that the 20-subject floor is a {it:size} check
 only -- it bounds how many subjects a stratum holds, not whether A stays away
 from zero where the weight scan divides by it, which is checked separately (see
 the paragraph below).
@@ -197,7 +192,9 @@ of {it:g} cluster-score outer products whose totals sum to zero at the solution,
 its rank is at most {it:g}-1. {cmd:finegray} therefore requires more clusters than
 coefficients and errors out otherwise, rather than reporting standard errors
 that the g-inverse invented for directions the variance matrix cannot see. The
-number of clusters is reported in the header and stored in {cmd:e(N_clust)}.
+number of clusters is reported in the header and stored in {cmd:e(N_clust)}, and
+{opt cluster()} is not allowed with {opt norobust}: the former requests a
+cluster-robust sandwich and the latter requests inverse-information variance.
 
 {phang}
 {opt noadjust} suppresses the finite-sample adjustment applied to the robust
@@ -220,18 +217,10 @@ inspected and compared; use the default sandwich variance to report
 results. {cmd:finegray} prints a warning whenever {opt norobust} is used.
 
 {pmore}
-{bf:Under delayed entry the defect is measured, severe, and grows with the truncation fraction.} The
-truncation weights are themselves estimated, and the information matrix does
-not carry their uncertainty. In this package's coverage study (1,000
-replications per arm against a known truth, nominal 95%), {opt norobust} intervals
-covered 89% at 37% truncation and 85% at 69% truncation, and the model-based
-standard errors ran up to 38% below the true sampling variability; the default
-sandwich covered 94-96% in every arm. This settles a genuine disagreement in
-the literature — Geskus (2011, p.44) argues no sandwich is needed under left
-truncation, while Bellach et al. (2020, sec. 5) report exactly this
-truncation-dependent undercoverage. On this estimator,
-{bf:the measurement agrees with Bellach.} Do not use {opt norobust} for inference on
-left-truncated data.
+{bf:Under delayed entry, inverse information also omits weight-estimation uncertainty.} Bellach
+et al. (2020, sec. 5)
+document truncation-dependent undercoverage from fixed-weight/information
+arguments. Do not use {opt norobust} for inference on left-truncated data.
 
 {pmore}
 {bf:Scope of the sandwich estimator.} The default sandwich is a
@@ -253,19 +242,14 @@ Fine (2011, Appendix B), which this package does not implement.
 sum_i (eta_i + psi_i)^2 rather than sum_i eta_i^2. The {it:eta} term is the
 score contribution treating the censoring survivor G as known; {it:psi} is the
 additional contribution from having {bf:estimated} G by Kaplan-Meier. With
-{opt nuisance}, {cmd:finegray}'s variance reproduces {cmd:cmprsk::crr} — whose
-Fortran variance routine is by R. J. Gray, the paper's second author — to
-approximately 1e-7 relative.
+{opt nuisance}, {cmd:finegray}'s variance targets the same right-censoring
+nuisance-adjusted sandwich as {cmd:cmprsk::crr}.
 
 {pmore}
 The correction is not always conservative: {it:eta} and {it:psi} are
 correlated, so the nuisance-adjusted variance can be larger or smaller than
-the default. In practice it ranges
-from {bf:-1.3% to +1.4%} on the variance scale ({bf:-0.6% to +0.7%} on
-standard errors). It is therefore not safe to assume the default is the
-"conservative" choice. The effect on covariances is larger than on variances,
-so a multi-coefficient {helpb test} or {helpb lincom} moves more than the
-individual standard errors do.
+the default. It is therefore not safe to assume the default is the
+"conservative" choice.
 
 {pmore}
 {opt nuisance} requires the sandwich, so it is not allowed with
@@ -284,14 +268,13 @@ errors reported from earlier releases. When it is specified,
 
 {pmore}
 {bf:It does not propagate to post-estimation.} {helpb finegray_cif} and
-{helpb finegray_predict} build their interval estimates from the
-cumulative-incidence influence function of Fine and Gray (1999, sec. 5), which
-is a different derivation with its own nuisance term — not the coefficient
-{it:psi} added here. Their standard errors are therefore {bf:identical} after a
-{opt nuisance} fit and after a default fit, by design: adding the coefficient
-{it:psi} to a CIF influence function would be wrong, not conservative. If you
-need nuisance-adjusted CIF intervals, use the bootstrap options on those
-commands.
+{helpb finegray_predict} use a fixed-weight analytic CIF influence function. The
+full CIF influence function includes the coefficient-path {it:psi} contribution
+and a separate weight-estimation contribution for the baseline/CIF path. The
+analytic postestimation path includes neither contribution and remains
+fixed-weight, so its standard errors are identical after a {opt nuisance} fit
+and after a default fit. Use those commands' bootstrap options when CIF
+intervals should include weight re-estimation.
 
 {pmore}
 {bf:Bootstrap coefficient inference.} The {opt bootstrap()} options of
@@ -540,8 +523,9 @@ right-censoring path. {cmd:e(lt_weight)} reports {cmd:right_censoring} there, an
 
 {pstd}
 {bf:Which weights are valid for your data.} Pooled weights (no {opt strata()} or
-{opt truncstrata()}) assume that entry and censoring do not depend on the model
-covariates. When entry depends on an observed discrete group, name it in
+{opt truncstrata()}) assume that the entry and censoring mechanisms do not vary
+with model covariates in ways that require conditioning. When entry depends on
+an observed discrete group, name it in
 {opt truncstrata()}; when censoring does, name it in {opt strata()}. Observed
 combinations form the joint denominator strata. Continuous covariate-dependent
 entry is {bf:not supported}; the command cannot infer or reject that dependence
@@ -553,25 +537,30 @@ subdistribution hazard and the CIF is generally unavailable after a competing
 event.
 
 {pstd}
-{bf:When entry and censoring share a common driver.} The factorized weight
-A(t-) = G(t-)H(t-) treats the entry and censoring mechanisms as independent
-within a joint weight stratum. If one observed factor drives {it:both} -- an
-enrolment wave or site that shifts entry timing and follow-up intensity together
--- name it in {bf:both} {opt strata()} and {opt truncstrata()}. Conditioning it
-in only one grouping does {it:not} remove the shared dependence and can bias the
-coefficients; conditioning it in both reproduces the stratified
-Zhang-Zhang-Fine weight, which removes that bias at the cost of somewhat larger
-standard errors. Should the fully-joint fit cross the positivity boundary and
-stop with {cmd:r(459)}, fall back to coarser groupings: the pooled or one-sided
-weight remains estimable, and in a constructed sensitivity scenario its bias
-under a shared entry-censoring
-dependence was small -- the trade the factorized default makes on purpose. This
-is the observed bias in that one scenario, not a general theoretical bound.
+{bf:When the groupings differ.} The published same-group product-limit result
+does not require entry and censoring to be independent. The package's
+{cmd:zzf1_factorized} extension is a different claim: because it estimates G
+without conditioning on {opt truncstrata()} and H without conditioning on
+{opt strata()}, it requires factor-specific separability. Within each observed
+censoring stratum, the censoring law must be homogeneous across levels of
+{opt truncstrata()} that are not also in {opt strata()}; within each entry
+stratum, the entry law must be homogeneous across levels of {opt strata()} that
+are not also in {opt truncstrata()}. A useful sufficient structure is that entry
+and censoring are independent conditional on the joint cell, G depends only on
+{opt strata()}, and H depends only on {opt truncstrata()}.
+
+{pstd}
+If one observed factor drives {it:both} mechanisms -- for example, a site or
+enrolment wave -- name it in {bf:both} options. Matching groupings use the
+published stratified construction. If that specification fails the positivity
+boundary, coarsen only when a coarser mechanism model is scientifically
+defensible. Pooled or one-sided fits may be useful sensitivity analyses, but
+their numerical feasibility does not make them valid replacements.
 
 {pstd}
 {bf:Support boundary, and a breaking change.} Under delayed entry the weight A is
-estimated {it:per joint weight stratum}, so every level of {opt strata()} is also a
-weight stratum even when {opt truncstrata()} is not specified. At most 100 joint
+evaluated {it:per observed joint weight cell}, so every level of {opt strata()}
+participates in a weight cell even when {opt truncstrata()} is not specified. At most 100 joint
 strata are supported, each with at least 20 estimation-sample subjects; beyond
 that {cmd:finegray} stops with {cmd:r(459)} rather than pooling groups behind your
 back. {bf:A delayed-entry model with many {opt strata()} levels may stop with {cmd:r(459)}.} The
@@ -580,40 +569,21 @@ to remain bit-identical. If you hit this boundary, reduce the number of
 censoring strata.
 
 {pstd}
-{bf:Standard errors under delayed entry.} Use the default (sandwich) variance. The
-literature genuinely disagrees here — Geskus (2011, p.44) argues that no
-sandwich is needed under left truncation, because a subject's weight is 1 at
-its own event time, while Bellach et al. (2020, sec. 5) report that the
-fixed-weight/inverse-information variance is biased and undercovers,
-increasingly so as the truncation fraction rises. {cmd:finegray} settled the
-question by measuring it (1,000 replications per arm against a known truth,
-nominal 95% coverage):
-
-{p2colset 9 34 36 2}{...}
-{p2col:{it:truncation fraction}}{it:norobust}{space 6}{it:default (sandwich)}{p_end}
-{p2col:0% (no delayed entry)}0.95{space 12}0.95{p_end}
-{p2col:37%}0.89{space 12}0.95{p_end}
-{p2col:69%}0.85{space 12}0.95{p_end}
-{p2colreset}{...}
-
-{pstd}
-On this estimator the measurement agrees with Bellach: the model-based
-standard errors ran up to 38% below the true sampling variability, and the
-failure worsened with truncation. The default sandwich covered 94-96% in every
-arm tested, including 69% truncation and stratified entry. {cmd:e(lt_vce)} records
-which variance a fit actually used ({cmd:fixed_weight_sandwich} or {cmd:model_based}), and {opt norobust}
-prints this warning at run time. {opt cluster()} fits use the cluster-robust form of
-the same sandwich.
+{bf:Standard errors under delayed entry.} Use the default sandwich variance. The
+inverse information does not carry the variability of the weighted
+pseudo-score, and Bellach et al. (2020, sec. 5) document worsening
+undercoverage with truncation. {cmd:e(lt_vce)} records which variance a fit
+used ({cmd:fixed_weight_sandwich} or {cmd:model_based}); {opt norobust} prints a
+warning at run time, and {opt cluster()} uses the cluster-robust form of the
+sandwich.
 
 {pstd}
 {bf:What the sandwich does not do.} It treats the estimated weights as fixed — it
 does not propagate the uncertainty in estimating G and H, so {cmd:e(lt_vce)} is
 reported as {cmd:fixed_weight_sandwich}, not as the Fine and Gray (1999, eq. 7-8)
 nuisance-adjusted variance. Zhang, Zhang and Fine (2011, Appendix B) give a
-two-part variance whose second and third terms account for that uncertainty, and
-it is not implemented here. The coverage study above is the evidence that the
-fixed-weight sandwich is nevertheless adequate across the supported range. For
-{it:coefficient} standard errors that propagate weight-estimation uncertainty,
+variance with additional terms for that uncertainty, and it is not implemented
+here. For {it:coefficient} standard errors that propagate weight-estimation uncertainty,
 bootstrap the whole fit (see {it:Bootstrap coefficient inference} under
 {help finegray##options:Options}); the {opt bootstrap()} options of
 {helpb finegray_cif} and {helpb finegray_predict} give CIF/prediction standard
@@ -634,10 +604,9 @@ reported as warnings and the fit proceeds.
 
 {pstd}
 {bf:Proportional hazards diagnostic:} Use {cmd:finegray_phtest} after estimation
-for an approximate diagnostic of the proportional subdistribution hazards
-assumption. It uses diagonal-scaled Schoenfeld residuals and simple
-residual-time correlations; neither its per-variable statistics nor their sum
-is the formal Grambsch-Therneau joint test. See {helpb finegray_phtest}.
+for an exploratory diagnostic of the proportional subdistribution hazards
+assumption. It uses raw Schoenfeld residuals and simple residual-time
+correlations, with no test statistic or p-value. See {helpb finegray_phtest}.
 
 {pstd}
 Both {cmd:finegray_phtest} and {cmd:finegray_predict, schoenfeld} require the
@@ -689,8 +658,11 @@ require to reconstruct the estimation risk sets. It persists like the
 {pmore}
 Covariates that change within subject are not supported and produce an error. In
 particular, internal time-varying covariates do not retain the model's
-direct CIF interpretation after a competing event. See {helpb stcox} for a
-cause-specific model with time-varying covariates.
+direct CIF interpretation after a competing event. Deterministic effects of
+baseline covariates that vary with analysis time are defined by Fine and Gray
+(1999), but this implementation does not fit them. See {helpb stcox} for a
+cause-specific model when internal time-varying covariates are scientifically
+appropriate.
 
 {pstd}
 {bf:Margins:} {cmd:margins} is supported after {cmd:finegray} for the linear
@@ -702,160 +674,23 @@ estimation uses generated design columns rather than native Stata factor
 notation.
 
 {pstd}
-{bf:Cross-validation against other implementations:} On ordinary
-right-censored data without delayed entry, {cmd:finegray} is systematically
-validated against three independent implementations: Stata's {cmd:stcrreg},
-R's {cmd:cmprsk::crr}, and R's {cmd:fastcmprsk::fastCrr}.
+{bf:Compatibility with other implementations.} Without delayed entry,
+{cmd:finegray} uses the ordinary Fine-Gray risk set and variance conventions
+described above. {helpb finegray_predict} maps its baseline CIF, linear
+predictor, cumulative subhazard, and Schoenfeld residuals to the corresponding
+{helpb stcrreg} quantities. At tied cause-event times the commands may assign
+individual Schoenfeld residuals differently, while preserving each event-time
+sum. Under delayed entry, {cmd:stcrreg} uses a censoring-only weight, so parity
+is neither expected nor a validity criterion.
 
 {pstd}
-The comparison covers coefficients, standard errors,
-log-likelihoods, cumulative incidence functions, baseline hazards, stratified
-censoring, and post-estimation predictions (xb, CIF, and Schoenfeld residuals)
-across real and simulated datasets.
-
-{pstd}
-On that no-delayed-entry branch, point estimates (coefficients) and log
-pseudo-likelihoods are numerically identical across all four implementations.
-
-{pstd}
-Against {cmd:cmprsk::crr}, coefficients match to 6 decimal places, robust SEs
-match to 3 decimal places, model-based SEs match to 6 decimal places, and CIF
-predictions match to 6 decimal places.
-
-{pstd}
-Against {cmd:fastcmprsk::fastCrr}, coefficients and log-likelihoods match to 6
-decimal places, and the baseline cumulative hazard matches to 8 decimal places.
-
-{pstd}
-Against {cmd:stcrreg}, coefficients match within 1e-4 across the tested
-no-delayed-entry configurations, including multiple covariate combinations,
-both causes, factor variables, and cluster SEs. Under delayed entry,
-{cmd:stcrreg} targets the censoring-only weight and parity is neither expected
-nor meaningful; the ZZF branch is instead checked against direct
-estimating-equation calculations and independent R implementations.
-
-{pstd}
-The {opt strata()} option is cross-validated against
-{cmd:crr(..., cengroup=)}. Coefficients and log pseudo-likelihood agree to
-numerical precision, CIFs agree within 1e-5, and robust SEs agree within
-0.1%. Each retained competing-event subject is weighted by the censoring
-survival from that subject's own stratum.
-
-{pstd}
-{bf:Technical note on standard errors:} Coefficients agree closely across
-implementations; standard errors are where they diverge, because the
-implementations do not all estimate the same variance.
-
-{pstd}
-{cmd:finegray}'s default sandwich treats the estimated censoring weights as fixed
-and applies the same finite-sample adjustment as {helpb stcrreg} ({it:N}/({it:N}-1), or {it:g}/({it:g}-1)
-under {opt cluster()}). Standard errors agree with {cmd:stcrreg} to within 1e-3 in
-relative terms. Versions through 1.1.0 omitted the finite-sample adjustment,
-so they reproduced {cmd:stcrreg}'s {cmd:noadjust} variance while presenting it as the
-default; {opt noadjust} now reproduces those earlier numbers exactly.
-
-{pstd}
-{cmd:cmprsk::crr} computes a sandwich that additionally propagates the uncertainty
-in the estimated censoring distribution G(t). Coefficients match {cmd:finegray} to 8
-decimal places, but its standard errors are larger by roughly 0.2% in relative
-terms because {cmd:finegray}'s default is the fixed-weight sandwich and omits that
-nuisance term. To obtain coefficient standard errors that account for
-censoring-weight estimation, bootstrap the whole fit (see
-{it:Bootstrap coefficient inference} under {help finegray##options:Options}). The
-{opt bootstrap()} options of {helpb finegray_cif} and {helpb finegray_predict}
-resample for CIF/prediction standard errors, not coefficient ones.
-
-{pstd}
-{cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse observed
-information matrix, matching to 6 decimal places. Neither is valid for
-inference, and neither is a like-for-like replacement for the sandwich
-standard errors {cmd:stcrreg} reports.
-
-{pstd}
-{cmd:fastcmprsk::fastCrr} uses bootstrap SEs (B=200), a fundamentally different
-variance estimator; wider divergence (up to ~50%) is expected.
-
-{pstd}
-{bf:Post-estimation predictions vs {help stcrreg}:} Without delayed entry, the
-{helpb finegray_predict} outputs are cross-validated against {cmd:stcrreg}'s
-native predictions and agree to numerical precision.
-
-{pstd}
-{opt xb} equals {cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF (covariates
-at 0) equals {cmd:predict, basecif}; and the fitted cumulative subhazard equals
-H0(t) = -ln(1 - {cmd:basecif}) at each distinct event time. When the fit
-requests {opt basehaz}, this curve is also posted in {cmd:e(basehaz)}.
-
-{pstd}
-The per-observation {opt cif} is the covariate-adjusted CIF 1 -
-exp(-H0(t)*exp(z'beta)).
-
-{pstd}
-{cmd:stcrreg} produces this quantity through {cmd:stcurve, cif at()} rather than
-{cmd:predict} (its {cmd:predict} offers only the baseline {cmd:basecif} and the
-relative subhazard), and {cmd:finegray_predict, cif} reproduces it to numerical
-precision.
-
-{pstd}
-{opt schoenfeld} residuals match {cmd:stcrreg}'s {cmd:predict, schoenfeld}
-exactly at untied cause-event times.
-
-{pstd}
-At a {bf:tied} cause-event time the two implementations partition the residual
-among the simultaneous events differently, so an individual residual at a tied
-time can differ; the {bf:sum} of the residuals within each event time -- and
-hence the overall score -- is identical.
-
-{pstd}
-See {helpb finegray_predict} for the per-prediction detail.
-
-{pstd}
-{bf:Performance:} For fixed covariate dimension and a bounded number of weight
-strata, the forward-backward scan is linear in n. Per Newton-Raphson iteration,
-the score work is O(np) and the full information-matrix work is O(np^2),
-compared with event-time data expansion in {cmd:stcrreg}, where D is the number
-of unique event times. The figures below are {bf:illustrative} timings on one
-machine (simulated competing-risks data, 3 covariates, Stata/MP; absolute
-seconds are machine-dependent and will differ on your hardware). Regenerate
-comparable numbers on your own machine with {bf:demo/benchmark_large.do}, which
-reports the median of three timed runs after a warm-up and captures the run
-environment; the reproducible, portable quantity is the {it:speedup ratio}, not
-the absolute seconds.
-
-{col 10}{bf:N}{col 24}{bf:finegray}{col 40}{bf:stcrreg}{col 56}{bf:Speedup}
-{col 10}{hline 52}
-{col 10}500{col 24}0.04s{col 40}1.5s{col 56}~40x
-{col 10}1,000{col 24}0.06s{col 40}3.9s{col 56}~65x
-{col 10}2,000{col 24}0.14s{col 40}15.9s{col 56}~115x
-{col 10}5,000{col 24}0.27s{col 40}96.8s{col 56}~355x
-{col 10}10,000{col 24}0.58s{col 40}378.7s{col 56}~650x
-
-{pstd}
-The speedup grows with sample size because {cmd:stcrreg} expands the dataset by
-the number of unique event times; the ratios above are approximate and rounded.
-
-{pstd}
-Runtime is linear in N. {bf:Illustrative} CPU time on one machine (Stata/MP, 2
-covariates, delayed entry, one truncation stratum), doubling N each row; absolute
-seconds are machine-dependent, but the near-2x per-doubling ratio (linear
-scaling) is the portable observation:
-
-{col 10}{bf:N}{col 26}{bf:CPU}{col 40}{bf:vs previous}
-{col 10}{hline 40}
-{col 10}25,000{col 26}2.0s
-{col 10}50,000{col 26}4.0s{col 40}~2.0x
-{col 10}100,000{col 26}8.3s{col 40}~2.1x
-{col 10}200,000{col 26}17.5s{col 40}~2.1x
-
-{pstd}
-{bf:Why {opt basehaz} is not the default:} {cmd:e(basehaz)} carries one row per
-distinct cause-event time, so it has roughly N/2 rows. Creating a Stata matrix
-that tall is O(rows^2) -- Stata builds one dimension name per row, and the cost
-is per name, not per element -- which at N = 200,000 cost 38 seconds on its own,
-more than the entire model fit. Requesting {opt basehaz} restores the matrix and
-pays that cost. Nothing else needs it: {helpb finegray_cif} and
-{helpb finegray_predict} rebuild the same curve in Mata, and
-{cmd:predict, basecshazard} returns the baseline as a variable, which is O(N).
+{bf:Performance.} For fixed covariate dimension and a bounded number of weight
+strata, each forward-backward score scan is O(np) and the information scan is
+O(np^2); the command does not expand data over event times. Posting
+{cmd:e(basehaz)} is opt-in because constructing a Stata matrix with one row per
+cause-event time has superlinear naming overhead. The baseline remains
+available through the Mata cache/rebuild path and through
+{cmd:predict, basecshazard} without that matrix.
 
 {pstd}
 {bf:Limitations:} The {cmd:by:} prefix is not supported because {cmd:finegray}
@@ -910,18 +745,6 @@ risks data. {it:Journal of Computational and Graphical Statistics}
 {pstd}{browse "https://doi.org/10.1080/10618600.2020.1841650":doi:10.1080/10618600.2020.1841650}{p_end}
 
 {pstd}
-Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
-weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
-
-{pstd}{browse "https://doi.org/10.1093/biomet/81.3.515":doi:10.1093/biomet/81.3.515}{p_end}
-
-{pstd}
-Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
-weighted residuals [correction]. {it:Biometrika} 1995; 82(3): 668.
-
-{pstd}{browse "https://doi.org/10.1093/biomet/82.3.668":doi:10.1093/biomet/82.3.668}{p_end}
-
-{pstd}
 Fine and Gray (1999) ground the model, right-censoring risk sets, variance
 structure, and Schoenfeld-type residual plots. Zhang et al. (2011) ground
 left-truncated Weight 1 in its published b/S form; Geskus (2011) grounds the
@@ -930,9 +753,7 @@ their continuous-time equivalence. Bellach et al. (2019) ground the
 estimated-weight variance term and the limitation for internal time-varying
 covariates. Kawaguchi et al. (2021) ground only the right-censoring, no-ties
 scan decomposition, not this package's tie, left-truncation, or variance
-extensions. Grambsch and Therneau (1994, corrected 1995) concern the Cox model
-and are cited only for diagnostic inspiration; see {helpb finegray_phtest} for
-the package diagnostic's limitations.
+extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 
 
 {marker examples}{...}
@@ -991,12 +812,6 @@ the package diagnostic's limitations.
 {bf:Interaction: factor x continuous (full factorial)}
 
 {phang2}{cmd:. finegray i.pelnode##c.ifp tumsize, compete(status) cause(1)}{p_end}
-
-{pstd}
-{bf:Interaction: factor x factor}
-
-{phang2}{cmd:. gen byte ifp_grp = (ifp > 10)}{p_end}
-{phang2}{cmd:. finegray i.pelnode##i.ifp_grp tumsize, compete(status) cause(1)}{p_end}
 
 {pstd}
 {bf:Margins (adjusted predictions)}
@@ -1098,8 +913,9 @@ O(N), use {cmd:predict, basecshazard} -- the same idiom {helpb stcrreg} uses.
 {pstd}
 The baseline CIF (the analogue of {cmd:stcrreg}'s {cmd:basecif}) is 1 -
 exp(-{it:cumhazard}); an individual's CIF rescales the hazard by
-exp(z'beta). {helpb finegray_predict} uses this matrix to compute the {cmd:cif}
-prediction.
+exp(z'beta). {helpb finegray_predict} resolves the fitted baseline from the
+opt-in matrix, the fit-specific Mata cache, or a rebuild from unchanged
+estimation data.
 
 {pstd}
 {cmd:finegray} also records dataset characteristics
@@ -1129,7 +945,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-07-25{p_end}
+{pstd}Version 1.2.0, 2026-07-27{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

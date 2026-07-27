@@ -637,6 +637,12 @@ capture noisily {
     assert r(rmst_diff) < .
     assert r(rmst_1) < .
     assert r(rmst_2) < .
+    assert "`r(by_var)'" == "drug"
+    assert r(n_groups) == 2
+    assert "`r(group_1_value)'" == "1"
+    assert "`r(group_1_label)'" == "Placebo"
+    assert "`r(group_2_value)'" == "2"
+    assert "`r(group_2_label)'" == "Other"
     local diff = r(rmst_diff)
     local r1 = r(rmst_1)
     local r2 = r(rmst_2)
@@ -649,6 +655,32 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL [1a]: survtab RMST diff (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## 1a2. String by() identities return original values, not encode() codes
+* Fail-on-old: survtab returned its internal tempvar as r(by_var) and returned
+* encoded integers rather than the original string group values.
+capture noisily {
+    sysuse cancer, clear
+    keep if inlist(drug, 1, 2)
+    gen str12 arm = cond(drug == 1, "Zulu arm", "Alpha arm")
+    stset studytime, failure(died)
+    survtab, times(10 20) by(arm) rmst(20) difference
+    assert "`r(by_var)'" == "arm"
+    assert r(n_groups) == 2
+    assert "`r(group_1_value)'" == "Alpha arm"
+    assert "`r(group_1_label)'" == "Alpha arm"
+    assert "`r(group_2_value)'" == "Zulu arm"
+    assert "`r(group_2_label)'" == "Zulu arm"
+    assert strpos(`"`r(methods)'"', "ascending order of arm") > 0
+}
+if _rc == 0 {
+    display as result "  PASS [1a2]: survtab string group identities preserve original values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL [1a2]: survtab string group identity contract (rc=`=_rc')"
     local ++fail_count
 }
 

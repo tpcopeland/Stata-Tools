@@ -41,6 +41,7 @@ local skip_file "`qa_dir'/_skip.txt"
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
 local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
+    test_finegray_release120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///
@@ -70,12 +71,10 @@ local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.
 *                                         Passed 2026-07-15 on the equation-7
 *                                         stratified-weight correction.
 *   validation_finegray_zzf_factorization.do
-*                                         Factorization sensitivity: what the
-*                                         product weight A=G*H costs when L and C
-*                                         share a dependence that does not split
-*                                         across strata()/truncstrata(), and why
-*                                         the fully-joint alternative is a
-*                                         positivity/variance (Z23) choice
+*                                         Mechanism-conditioning sensitivity:
+*                                         omitted shared drivers versus matching-
+*                                         group conditioning and its support/
+*                                         variance cost
 *                                         (100 reps x n=100,000 x 5 fits + a
 *                                         positivity ladder, ~2h)
 local gates_files validation_finegray_zzf_recovery.do ///

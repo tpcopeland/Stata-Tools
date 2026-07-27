@@ -1,4 +1,4 @@
-*! _tabtools_simtab_ingest Version 1.10.0  2026/07/22
+*! _tabtools_simtab_ingest Version 1.10.1  2026/07/27
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -418,7 +418,7 @@ program _tabtools_simtab_ingest_simsum, rclass
                 }
             }
 
-            post `_pf' (`_bl') ("`_bylab'") (`_estord') ("`_mlab'") ///
+            post `_pf' (`_bl') (`"`_bylab'"') (`_estord') (`"`_mlab'"') ///
                 (`_v_n') (`_v_m_mean') (`_v_m_bias') (`_v_m_pctbias') (`_v_m_empse') ///
                 (`_v_m_meanse') (`_v_m_relerr') (`_v_m_mse') (`_v_m_rmse') ///
                 (`_v_m_coverage') (`_v_m_power') ///

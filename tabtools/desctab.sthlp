@@ -239,6 +239,8 @@ statistics afterward{p_end}
 {p2col 5 18 22 2: Scalars}{p_end}
 {synopt:{cmd:r(N_cells)}}non-empty body cells written{p_end}
 {synopt:{cmd:r(N_rows)}}rows in the display table, excluding the title row{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(version)}}command version{p_end}
@@ -250,8 +252,6 @@ statistics afterward{p_end}
 {synopt:{cmd:r(sheet)}}sheet name, if exported{p_end}
 {synopt:{cmd:r(frame)}}frame name, if {opt frame()} was specified{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}short methods sentence{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}

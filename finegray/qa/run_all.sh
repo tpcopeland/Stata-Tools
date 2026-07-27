@@ -11,7 +11,18 @@ stata_bin="${STATA_BIN:-stata-mp}"
 qa_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$qa_dir"
 
-rm -f run_all.log
+case "$lane" in
+    quick|core|python|full|gates) ;;
+    *)
+        echo "usage: ./run_all.sh [quick|core|python|full|gates]" >&2
+        exit 2
+        ;;
+esac
+
+# Never leave an earlier PASS receipt behind when the current run dies before
+# it can publish a final verdict.  The lane is validated above so the
+# lane-pinned target cannot escape qa/.
+rm -f run_all.log run_all_status.txt "run_status_${lane}.txt"
 "$stata_bin" -b do run_all.do "$lane" >/dev/null 2>&1
 stata_rc=$?
 
@@ -44,6 +55,38 @@ if (( tests > 0 && tests == pass + fail && fail == 0 && skip == 0 )); then
     verdict="PASS"
 else
     verdict="FAIL"
+fi
+
+# FG-02 fail-closed gate.  The python and full lanes run the ZZF R crossval,
+# which leaves a complete oracle cache in qa/data.  With that cache present, run
+# the shell-level negative test that a broken/missing Rscript makes the suite
+# fail CLOSED (no stale-cache false green).  It is a .sh (it manipulates PATH),
+# so it cannot live in run_all.do.  This gate must run BEFORE the receipt is
+# written so a failure cannot leave a falsely green committed artifact.
+fg02_status="not-applicable"
+if [[ "$lane" == "python" || "$lane" == "full" ]]; then
+    if [[ ! -f test_finegray_fg02_failclosed.sh ]]; then
+        fg02_status="FAIL (gate script missing)"
+        verdict="FAIL"
+        echo "fg02_failclosed: $fg02_status" >&2
+    else
+        fg02_output="$(STATA_BIN="$stata_bin" ./test_finegray_fg02_failclosed.sh 2>&1)"
+        fg02_rc=$?
+        mapfile -t fg02_results < <(
+            printf '%s\n' "$fg02_output" |
+                grep -E '^RESULT: test_finegray_fg02_failclosed tests=1 pass=1 fail=0$' ||
+                true
+        )
+        if (( fg02_rc == 0 && ${#fg02_results[@]} == 1 )); then
+            fg02_status="PASS"
+            echo "fg02_failclosed: PASS"
+        else
+            fg02_status="FAIL (rc=$fg02_rc, passing sentinels=${#fg02_results[@]})"
+            verdict="FAIL"
+            printf '%s\n' "$fg02_output" >&2
+            echo "fg02_failclosed: $fg02_status" >&2
+        fi
+    fi
 fi
 
 # Committed, non-log receipt of the run.  run_all.log is gitignored (*.log) and
@@ -83,6 +126,7 @@ r_version="$(Rscript -e 'cat(as.character(getRversion()))' 2>/dev/null || echo "
     echo "head_commit: $head_commit"
     echo "stata_bin:   $stata_bin"
     echo "R_version:   $r_version"
+    echo "fg02_gate:   $fg02_status"
     echo
     echo "per-suite RESULT trail (as echoed by each suite):"
     grep -E '^RESULT: ' run_all.log || echo "(no RESULT lines found)"
@@ -94,20 +138,6 @@ r_version="$(Rscript -e 'cat(as.character(getRversion()))' 2>/dev/null || echo "
 # run_all_status.txt always mirrors the most recent run.  Commit whichever
 # lane receipt you want to record as evidence.
 cp -f run_all_status.txt "run_status_${lane}.txt"
-
-# FG-02 fail-closed gate.  The python and full lanes run the ZZF R crossval,
-# which leaves a complete oracle cache in qa/data.  With that cache present, run
-# the shell-level negative test that a broken/missing Rscript makes the suite
-# fail CLOSED (no stale-cache false green).  It is a .sh (it manipulates PATH),
-# so it cannot live in run_all.do; fold its verdict in here.
-if [[ "$lane" == "python" || "$lane" == "full" ]] && [[ -f test_finegray_fg02_failclosed.sh ]]; then
-    if STATA_BIN="$stata_bin" ./test_finegray_fg02_failclosed.sh >/dev/null 2>&1; then
-        echo "fg02_failclosed: PASS"
-    else
-        echo "fg02_failclosed: FAIL (R-oracle fail-open regression)" >&2
-        verdict="FAIL"
-    fi
-fi
 
 if [[ "$verdict" == "PASS" ]]; then
     echo "$result"

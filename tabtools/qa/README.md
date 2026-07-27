@@ -14,6 +14,8 @@ stata-mp -b do run_all.do benchmark  # benchmark only
 
 Every file is independently runnable from `qa/`: `stata-mp -b do test_regtab.do`. Each file installs the package itself (`net install ... from(<pkg_dir>)`), so single-file runs touch your real PLUS; `run_all.do` instead sandboxes PLUS/PERSONAL in `c(tmpdir)` and restores them afterwards. The full and release lanes install `simsum`, `siman`, `sencode`, and `labelsof` into that disposable tree and fail if a required oracle is unavailable. `crossval_tabtools.do` runs the R companion fresh in a temporary directory and verifies all four regenerated fixtures before using them.
 
+Two restart/fresh-session contracts normally launch child Stata processes: the disk-backed profile restart in `test_tabtools.do` and the 21 help recipes in `test_tabtools_tips.do`. When a run must keep exactly one Stata process alive at a time, execute `tools/run_profile_restart.py` and `tools/run_help_recipes.py` first; both drivers run their Stata jobs strictly serially. Pass their result-file paths to the parent lane through `TABTOOLS_QA_PROFILE_RESTART_RESULT` and `TABTOOLS_QA_TIPS_RECIPES_RESULT`. The tests read and validate those handoffs instead of starting child processes.
+
 The runner directs generated QA outputs to a per-run temporary directory. To remove ignored debris left by independent file runs:
 
 ```bash
@@ -37,7 +39,8 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 - `test_*` — functional/regression tests. `validation_*` — known-answer and
   invariant checks (hand-computable oracles). `crossval_*` — comparison
-  against R. `benchmark_*` — speed guardrails (release lane only).
+  against external R/Python implementations. `benchmark_*` — speed guardrails
+  (release lane only).
 - Files count tests with `test_count`/`pass_count`/`fail_count` locals and end
   with a machine-parseable sentinel: `RESULT: <name> tests=N pass=N fail=N`.
   A failing file exits nonzero.
@@ -47,7 +50,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 - Several tests load Stata example data via `webuse` (network access
   required). `test_package_integration.do` additionally requires the sibling
   `eplot` package at `../../eplot` and exits 601 without it.
-  Excel-content assertions need `python3` with `openpyxl` (`tools/check_xlsx.py`); `Rscript` is mandatory for `crossval_tabtools.do`. A full/release lane has zero acceptable hidden oracle skips.
+  Excel-content assertions need `python3` with `openpyxl` (`tools/check_xlsx.py`);
+  `crossval_tabtools.do` requires `Rscript` plus Python with `numpy` and
+  `statsmodels`. A full/release lane has zero acceptable hidden oracle skips.
 
 ## File index
 
@@ -65,13 +70,13 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `test_stratetab.do` | stratetab | strate-file workflows, multi-outcome/exposure scaffolds, rateratio, console/frame modes without xlsx(), sheet validation, row-order regression, error handling, varabbrev restore |
 | `test_diagtab.do` | diagtab | Se/Sp/PPV/NPV/AUC, cutoff sweeps, prevalence adjustment, degenerate 2x2 markers, single-cutoff zebra layout |
 | `test_comptab.do` | comptab | Composite tables from regtab/effecttab frames, varabbrev restore on error |
-| `test_ci_level_provenance.do` | regtab, effecttab, `_tabtools_collect_ci_level` | CI-level provenance: key present/absent/non-default, regtab+effecttab fallback to `level()` then `c(level)`, conflict guard still fires. Guards the Stata 19 `r(459)` breakage (`collect save` omits the undocumented `ci-level` key) |
+| `test_ci_level_provenance.do` | regtab, effecttab, `_tabtools_collect_ci_level` | CI-level provenance: key present/absent/non-default, explicit `level()` fallback only when provenance is absent, refusal without either source, and conflict guard. Guards the Stata 19 `r(459)` breakage (`collect save` omits the undocumented `ci-level` key) |
 | `test_hrcomptab.do` | hrcomptab | stratetab scaffold + regtab model frames, rownames() patterns, reflabel() override + r(rateframe), xlsx success message |
 | `test_puttab.do` | puttab | Dataset/frame/matrix sources, styling options, markdown-only mode |
 | `test_stacktab.do` | stacktab | Workbook block assembly (vstack/hstack, columnmerge), frame replacement guard |
 | `test_simtab.do` | simtab | Compute mode (bias/empse/coverage + MC SEs), numeric/string cell identities and empty-string exclusion, nosign/sedigits options + r(n_reps_min/max), ingest mode (simsum/siman/summary) incl. byvar/estimandvar overrides, styling (uses `tools/check_xlsx.py`) |
-| `test_tabtools.do` | tabtools (controller) | Command listing/categories, set/get/clear round-trips, detail re-load, disk-backed profiles (sandboxes PERSONAL for the profile section), r(version) vs header |
-| `test_tabtools_tips.do` | tabtools_tips | Index display, README Quick Start execution, numerical incidence-rate contract, and all 21 help recipes in separate fresh Stata processes |
+| `test_tabtools.do` | tabtools (controller) | Command listing/categories, set/get/clear round-trips, detail re-load, disk-backed profiles (sandboxes PERSONAL and supports a serial external restart-result handoff), r(version) vs header |
+| `test_tabtools_tips.do` | tabtools_tips | Index display, README Quick Start execution, numerical incidence-rate contract, and all 21 help recipes in separate fresh Stata processes (strictly serial external handoff supported) |
 
 ### Package-level tests (genuinely multi-command)
 
@@ -105,14 +110,14 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | File | Purpose |
 |------|---------|
-| `crossval_tabtools.do` | Runs `crossval_tabtools_companion.R` fresh, compares all four regenerated fixtures with tracked data, bridges CV1–17 to public command frames/returns, and includes command-backed CV18–20 (diagtab/crosstab/stratetab) plus **CV21–23** verifying `regtab` model-fit statistics against `estat ic`, `estat icc`, and the xtgee QIC oracle |
+| `crossval_tabtools.do` | Runs `crossval_tabtools_companion.R` fresh, compares all four regenerated fixtures with tracked data, bridges CV1–17 to public command frames/returns, and includes command-backed CV18–20 (diagtab/crosstab/stratetab) plus **CV21–23** verifying `regtab` model-fit statistics against `estat ic`, `estat icc`, and an independent statsmodels fixed-scale GEE QICu oracle; CV23 compares within-data model differences, checks the rendered label and AIC/QICu deduplication, and rejects estimated model-specific dispersion |
 | `benchmark_tabtools_speed.do` | Speed guardrails (release/benchmark lanes only) |
 
 ### Support
 
 | Path | Contents |
 |------|----------|
-| `tools/` | Excel/Markdown/render checkers, semantic demo-tree and crossval-fixture comparators, `run_help_recipes.py` (21 fresh Stata processes), `style_engine_compare.py`, and `option_coverage.py` |
+| `tools/` | Excel/Markdown/render checkers, semantic demo-tree and crossval-fixture comparators, `run_profile_restart.py` (two-phase serial profile restart), `run_help_recipes.py` (21 fresh Stata processes, run serially), `style_engine_compare.py`, and `option_coverage.py` |
 | `data/` | Tracked crossval fixture CSVs (R reference results) |
 | `baseline/` | Tracked golden-output digest TSVs + `baseline_manifest.tsv` (consumed by `test_package_release.do`) |
 | `output/` | Generated artifacts (gitignored) |

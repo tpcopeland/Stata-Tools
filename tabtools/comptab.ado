@@ -1,4 +1,4 @@
-*! comptab Version 1.10.0  2026/07/22
+*! comptab Version 1.10.1  2026/07/27
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -892,7 +892,8 @@ program define comptab, rclass
             qui set obs `_nobs'
             qui replace A = `"`seclabel`f''"' in `_nobs'
             forvalues _ci = 1/`ncols' {
-                capture qui replace c`_ci' = "" in `_nobs'
+                capture confirm variable c`_ci'
+                if !_rc qui replace c`_ci' = "" in `_nobs'
             }
             qui save `_build', replace
         }

@@ -1,4 +1,4 @@
-*! diagtab Version 1.10.0  2026/07/22
+*! diagtab Version 1.10.1  2026/07/27
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,7 +1,7 @@
 * validation_finegray_zzf_factorization.do
 * ===========================================================================
-* SENSITIVITY ANALYSIS: what does the factorized weight cost when its own
-* assumption is violated, and why is it the shipped default anyway?
+* SENSITIVITY ANALYSIS: what happens when an observed driver of BOTH entry and
+* censoring is omitted from one or both mechanism-stratification options?
 *
 * finegray's delayed-entry weight is the stabilized Zhang-Zhang-Fine Weight 1,
 * computed in Geskus's product form
@@ -14,42 +14,31 @@
 * truncstrata(), and MULTIPLIES their cells -- the "factorized cross-
 * classification" the README and finegray.sthlp document as a package extension.
 *
-* THE ASSUMPTION THAT PRODUCT BUYS, verbatim from ZZF (2011) sec. 3.2, the
-* paragraph after eq. (6): the nonparametric weight is valid only when
+* ZZF (2011) sec. 3.2 states that the nonparametric weight is valid only when
 *
 *     P(L <= t <= C | L <= X, Z) = P(L <= t <= C | L <= X),
 *
-* i.e. the truncation-censoring probability does not depend on the covariate,
-* and -- for the PRODUCT form specifically -- the joint factors:
-*
-*     P(L <= t <= C | cell) = P(L <= t | cell) * P(C >= t | cell) = H * G.
-*
-* That second step is an INDEPENDENCE assumption: within a weight cell, the
-* entry mechanism L and the censoring mechanism C must be conditionally
-* independent.  ZZF sec. 5 (the BMT example) is the paper's own negative
-* control for the FIRST half ("the truncation time is associated with the
-* covariate ... the nonparametric weight is not appropriate").  This file is
-* the negative control for the SECOND half: a shared driver of BOTH L and C
-* that no single grouping can absorb -- "a dependence that does not split
-* across the two groupings."
+* i.e. the observation probability must not retain covariate dependence after
+* the configured conditioning. Geskus Remark 1 explicitly says the published
+* same-group product-limit representation holds irrespective of the L-C
+* relationship; independence is needed only for separate marginal
+* interpretations of G and H. This file therefore does NOT test whether the
+* Geskus product "factorizes." It tests omitted mechanism conditioning in the
+* package's split-group extension: W must enter every option for whose mechanism
+* it matters.
 *
 * ---------------------------------------------------------------------------
 * WHAT REVIEWERS ASK FOR, AND WHY THIS ANSWERS IT
 *
-* A referee who sees a factorized G*H weight will ask: what happens when the
-* factorization is false?  Two things could be true and only a simulation
-* separates them:
-*   (i)  the product form is fragile and the bias is large, or
-*   (ii) the product form is a deliberate bias-variance/positivity trade whose
-*        cost is bounded and whose benefit (feasibility) is real.
-* This file measures both the bias (Part 1) and the price the "fully-joint"
-* alternative pays to avoid it (Part 2), so the choice is documented, not
-* asserted.  The motivation for the trade is the package's own Z23 finding:
-* the fully-joint stratified denominators are exactly what go to zero under
-* refinement (see qa/README.md "The hard positivity failure (Z23)").
+* A reviewer can ask whether putting W in only one mechanism option is enough
+* when W drives both mechanisms. Part 1 answers that DGP-specific question.
+* Part 2 measures the support cost of conditioning both mechanisms on an
+* increasingly fine W. Numerical feasibility is not evidence that an omitted-W
+* specification is valid; coarsening is defensible only when the coarser
+* mechanism model is scientifically credible.
 *
 * ===========================================================================
-* PART 1 -- BIAS UNDER A FACTORIZATION VIOLATION
+* PART 1 -- BIAS FROM OMITTED MECHANISM CONDITIONING
 *
 * DGP.  ZZF sec. 4.1 cause-1 subdistribution, true log-SHR b = (0.5, -0.5)
 * EXACTLY (identical event process to validation_finegray_zzf_recovery.do and
@@ -90,49 +79,47 @@
 *   SPLIT_H   truncstrata(W)             condition W in H only; G pooled over W.
 *                                        BIASED.
 *
-* SPLIT_G and SPLIT_H are the literal content of "a dependence that does not
-* split across the two groupings": putting W in one grouping alone does not
-* fix it (and, as it happens, biases in OPPOSITE directions -- reported below,
-* not preregistered as a signed claim).  Only JOINT, which conditions both
-* factors on W simultaneously, recovers.
+* SPLIT_G and SPLIT_H omit W from one mechanism that depends on W. Only JOINT
+* conditions both configured mechanism estimators on W.
 *
 * A FIFTH ARM IS THE CONTROL:
 *   NULL      MARGINAL fit on a depend-OFF dataset (W generated identically and
 *             still correlated with x1, but NOT driving C or L; entry
-*             homogeneous).  MARGINAL must RECOVER here.  This proves the bias
-*             in the other arms is the C-L dependence, not the mere existence
+*             homogeneous). MARGINAL must RECOVER here. This shows the bias in
+*             the other arms comes from omitting a W-dependent mechanism, not
+*             the mere existence
 *             of W or of delayed entry, and not a coding artifact -- the same
-*             estimator that is biased with the dependence is clean without it.
+*             estimator that is biased when it omits a W-dependent mechanism is
+*             clean when neither mechanism depends on W.
 *
 * ---------------------------------------------------------------------------
 * [FAC-PREREG]  Written before the gated replications were run.  These are the
 * theory claims (ZZF sec. 3.2 and sec. 3.4), not this Monte Carlo's output:
 *
 *   1. JOINT recovers b1 AND b2 within +/- PASS_Z MC SE.  Conditioning the
-*      common cause W in both factors restores the product identity within
-*      each W-cell (C |= L | W by construction).
+*      common cause W in both mechanism strata removes the omitted-W problem.
 *   2. MARGINAL, SPLIT_G and SPLIT_H are each biased on b1 beyond NEG_Z MC SE.
-*      A weight whose factorization is false is an inconsistent weight, and an
-*      inconsistent weight biases the weighted estimating equation.
+*      Each fit omits W from at least one mechanism that depends on W.
 *   3. NULL (MARGINAL with the dependence switched off) recovers.  Necessary to
-*      attribute (2) to the dependence rather than to the estimator or the DGP.
+*      attribute (2) to omitted mechanism conditioning rather than to the
+*      existence of W, delayed entry, or the estimator.
 *
 * The SIGNS of the SPLIT arms are RECORDED as a measured result, not
 * preregistered: a directional claim I cannot derive from a source I have read
 * is not gated (the same discipline validation_finegray_zzf_recovery.do applies
 * to arm D).  The gate asserts magnitude (biased / recovered); the opposite-
 * sign signature is displayed and asserted only as "the two SPLIT arms disagree
-* in sign," which is the model-free statement of the factorization failure.
+* in sign," a DGP-specific empirical contrast rather than a theorem.
 *
 * ===========================================================================
-* PART 2 -- THE FULLY-JOINT ALTERNATIVE IS A POSITIVITY/VARIANCE CHOICE
+* PART 2 -- SUPPORT COST OF CONDITIONING BOTH MECHANISMS
 *
-* Part 1 shows JOINT is the unbiased option here.  Part 2 shows why it is not
-* the DEFAULT.  The fully-joint (matching-groups eq. 7) weight consults a
+* Part 1 shows JOINT is the correctly conditioned option in this DGP. The
+* fully-joint (matching-groups eq. 7) weight consults a
 * stratum-specific denominator A_W(X_i-) in every observed joint cell, and that
-* is precisely the quantity Z23 shows goes to zero under refinement.  So the
-* choice between the factorized product and the fully-joint stratification is a
-* bias-variance/POSITIVITY trade:
+* is precisely the quantity Z23 shows goes to zero under refinement. This
+* section measures variance and positivity costs without treating a
+* misspecified coarser fit as a valid fallback:
 *
 *   * VARIANCE: with the dependence coarse (few W-levels), JOINT is unbiased but
 *     more variable than MARGINAL -- it estimates a separate denominator per
@@ -140,13 +127,12 @@
 *   * POSITIVITY: as W is refined, each cell's entry distribution H_W is
 *     estimated from fewer subjects, so a consulted A_W(X_i-) hits exactly zero
 *     -- the Z23 hard failure r(459).  The MARGINAL product weight, pooling
-*     across W, stays feasible (biased, but it fits).  The fully-joint weight
-*     simply stops existing.
+*     across W, can stay feasible while remaining misspecified. The fully-joint
+*     weight simply stops existing.
 *
-* That is the trade the shipped factorized default makes on purpose: accept a
-* bounded bias when L and C share an unsplit dependence, in exchange for a
-* weight that stays defined as strata refine.  Z23 is the reason the trade is
-* not free.
+* This is a support warning, not a license to accept a "bounded" bias: the gate
+* establishes no general bias bound and cannot turn a misspecified coarser
+* weight into a valid replacement.
 *
 * ---------------------------------------------------------------------------
 * COST.  Part 1 is ~REPS x N x 5 fits; Part 2 adds a small variance loop and a
@@ -363,7 +349,7 @@ local fail_count = 0
 local test_count = 0
 
 display as text _newline "{hline 82}"
-display as text "PART 1 -- bias under a factorization violation (N = `N', REPS = `REPS')"
+display as text "PART 1 -- bias from omitted mechanism conditioning (N = `N', REPS = `REPS')"
 display as text "{hline 82}"
 display as text %-9s "arm" %-4s "coef" %6s "reps" %9s "mean" %10s "bias" ///
     %10s "MCSE" %8s "z" "  required   verdict"
@@ -437,10 +423,10 @@ else {
 }
 
 * ===========================================================================
-* PART 2 -- fully-joint vs factorized: the positivity/variance trade
+* PART 2 -- support and variance cost of conditioning both mechanisms
 * ===========================================================================
 display as text _newline "{hline 82}"
-display as text "PART 2 -- the fully-joint alternative is a positivity/variance choice"
+display as text "PART 2 -- support and variance cost of matching-group conditioning"
 display as text "{hline 82}"
 
 * --- 2a. VARIANCE.  Coarse dependence (K=2): JOINT is unbiased (Part 1) but
@@ -509,7 +495,7 @@ else {
 }
 
 * --- 2b. POSITIVITY.  Refine W on a fixed n and watch the fully-joint weight's
-* denominator go to zero (Z23) while the factorized product stays feasible.
+* denominator go to zero (Z23) while the pooled product stays feasible.
 * Deterministic single dataset per K.  klevels are kept <= 100 and cell sizes
 * large, so the r(459) that fires is the Z23 ZERO-DENOMINATOR guard, not the
 * coarse >100-strata or <20-subject support guards (both of which are separately
@@ -571,12 +557,12 @@ foreach K in 4 20 40 80 {
 local ++test_count
 if `wall_K' > 0 {
     display as result _newline "  => at K = `wall_K' the fully-joint weight hits the Z23 positivity"
-    display as result "     failure (r(459), zero joint-stratum denominators) while the factorized"
-    display as result "     MARGINAL product still fits.  That is the trade: PASS"
+    display as result "     failure (r(459), zero joint-stratum denominators) while the pooled"
+    display as result "     MARGINAL product still fits. Support contrast observed: PASS"
 }
 else {
     display as error _newline "  => did not observe a K where JOINT fails on Z23 while MARGINAL fits."
-    display as error "     The positivity trade is unproven in this run: FAIL"
+    display as error "     The planned support contrast is unobserved in this run: FAIL"
     local ++fail_count
 }
 
@@ -588,19 +574,18 @@ local pass_count = `test_count' - `fail_count'
 local smoke = !`FULL'
 
 if `fail_count' == 0 & `FULL' {
-    display as result "FACTORIZATION SENSITIVITY: PASS (`test_count' checks, 0 failures)."
-    display as result "  JOINT (fully-joint, W in both factors) recovers the truth; MARGINAL and the"
-    display as result "  two SPLIT arms are biased (SPLIT arms oppositely) -- the factorization"
-    display as result "  violation is real and quantified.  The fully-joint fix costs variance and,"
-    display as result "  under refinement, feasibility (Z23 r(459)).  The shipped factorized default"
-    display as result "  is that bias-variance/positivity trade, made deliberately."
+    display as result "MECHANISM-CONDITIONING SENSITIVITY: PASS (`test_count' checks, 0 failures)."
+    display as result "  JOINT (W in both mechanism strata) recovers the truth; MARGINAL and the"
+    display as result "  two SPLIT arms omit W from at least one W-dependent mechanism and are biased."
+    display as result "  Matching-group conditioning costs variance and, under refinement, feasibility"
+    display as result "  (Z23 r(459)); this does not validate a misspecified coarser fallback."
 }
 else if `fail_count' == 0 & !`FULL' {
     display as error "Green SHAPE at SMOKE settings (N=`N', REPS=`REPS') -- NOT a gate."
     display as error "  Rerun at N >= 100000, REPS >= 100 to close this sensitivity gate."
 }
 else {
-    display as error "FACTORIZATION SENSITIVITY: FAIL (`fail_count' of `test_count' checks)."
+    display as error "MECHANISM-CONDITIONING SENSITIVITY: FAIL (`fail_count' of `test_count' checks)."
 }
 
 display as text "RESULT: validation_finegray_zzf_factorization tests=`test_count' pass=`pass_count' fail=`fail_count' smoke=`smoke'"

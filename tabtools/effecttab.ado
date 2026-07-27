@@ -1,4 +1,4 @@
-*! effecttab Version 1.10.0  2026/07/22
+*! effecttab Version 1.10.1  2026/07/27
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -307,8 +307,13 @@ quietly {
 	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 	_tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
-	* Set defaults
-	if `"`sep'"' == "" local sep ", "
+		* syntax, string asis preserves the user's balanced outer quote layer.
+		* Remove that one layer before forwarding the delimiter to collect.
+		if `"`sep'"' != "" {
+			_tabtools_strip_outer_quotes, text(`"`sep'"')
+			local sep `"`r(text)'"'
+		}
+		if `"`sep'"' == "" local sep ", "
 	if "`type'" == "" local type "auto"
 
 	* Validate type option
@@ -487,9 +492,8 @@ quietly {
 					levelsof `tvar', local(tlevels)
 				}
 			}
-			capture {
-				local tvarlabel : variable label `tvar'
-			}
+			capture local tvarlabel : variable label `tvar'
+			if _rc local tvarlabel ""
 			if "`tvarlabel'" == "" local tvarlabel "`tvar'"
 			* Capitalize and clean variable label for display
 			local tvarlabel = upper(substr("`tvarlabel'", 1, 1)) + substr("`tvarlabel'", 2, .)
@@ -505,8 +509,11 @@ quietly {
 	collect label levels result _r_b "`effect'", modify
 	collect label levels result _r_ci "`_ci_level'% CI", modify
 	collect label levels result _r_p "p-value", modify
-	collect style cell result[_r_b], warn nformat(%`=`digits'+2'.`digits'fc) halign(center) valign(center)
-	collect style cell result[_r_ci], warn nformat(%`=`digits'+3'.`digits'fc) sformat("(%s)") ///
+		* Internal rendering deliberately avoids the comma-grouped fc format.
+		* Otherwise sep(",") is indistinguishable from thousands separators and
+		* silently corrupts the numeric CI bounds posted to eplotframe().
+		collect style cell result[_r_b], warn nformat(%`=`digits'+2'.`digits'f) halign(center) valign(center)
+		collect style cell result[_r_ci], warn nformat(%`=`digits'+3'.`digits'f) sformat("(%s)") ///
 	        cidelimiter("`sep'") halign(center) valign(center)
 	collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(center)
 	collect style column, dups(center)
@@ -857,19 +864,31 @@ quietly {
 	forvalues _obs = 3/`=_N' {
 		local _row_has_data = 0
 		forvalues _ci = 1(3)`last' {
-			capture {
-				local _cell = strtrim(c`_ci'[`_obs'])
-				local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
-				local _pcell = strtrim(c`=`_ci'+2'[`_obs'])
-				local _numval = real("`_cell'")
-				local _pnum = real("`_pcell'")
-						if `_numval' < . {
-							if `_from_matrix' | !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
+				capture confirm variable c`_ci'
+				local _has_est_cell = (_rc == 0)
+				capture confirm variable c`=`_ci'+1'
+				local _has_ci_cell = (_rc == 0)
+				capture confirm variable c`=`_ci'+2'
+				local _has_p_cell = (_rc == 0)
+				if `_has_est_cell' {
+					local _cell = strtrim(c`_ci'[`_obs'])
+					local _cicell ""
+					if `_has_ci_cell' local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+					local _numval = real("`_cell'")
+					local _is_refcell = 0
+					if !`_from_matrix' & `_numval' == 0 & ///
+						(`"`_cicell'"' == "" | strpos(lower(`"`_cicell'"'), "base") > 0) {
+						local _is_refcell = 1
+					}
+					if `_numval' < . & !`_is_refcell' {
 						local _row_has_data = 1
 					}
 				}
-				if `_pnum' < . local _row_has_data = 1
-			}
+				if `_has_p_cell' {
+					local _pcell = strtrim(c`=`_ci'+2'[`_obs'])
+					local _pnum = real("`_pcell'")
+					if `_pnum' < . local _row_has_data = 1
+				}
 		}
 		if `_row_has_data' {
 			local _mat_nrows = `_mat_nrows' + 1
@@ -885,23 +904,32 @@ quietly {
 			local _mr = `_mr' + 1
 			local _mc = 0
 			forvalues _ci = 1(3)`last' {
-				local _mc = `_mc' + 1
-				capture {
-					local _cell = strtrim(c`_ci'[`_obs'])
-					local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
-					local _numval = real("`_cell'")
-					if `_numval' < . {
-						if `_from_matrix' | !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
+					local _mc = `_mc' + 1
+					capture confirm variable c`_ci'
+					local _has_est_cell = (_rc == 0)
+					capture confirm variable c`=`_ci'+1'
+					local _has_ci_cell = (_rc == 0)
+					if `_has_est_cell' {
+						local _cell = strtrim(c`_ci'[`_obs'])
+						local _cicell ""
+						if `_has_ci_cell' local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+						local _numval = real("`_cell'")
+						local _is_refcell = 0
+						if !`_from_matrix' & `_numval' == 0 & ///
+							(`"`_cicell'"' == "" | strpos(lower(`"`_cicell'"'), "base") > 0) {
+							local _is_refcell = 1
+						}
+						if `_numval' < . & !`_is_refcell' {
 							matrix `_rtable'[`_mr', `_mc'] = `_numval'
 						}
 					}
-				}
-				local _mc = `_mc' + 1
-				local _pcol = `_ci' + 2
-				capture {
-					local _cell = strtrim(c`_pcol'[`_obs'])
-					local _numval = real("`_cell'")
-					if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
+					local _mc = `_mc' + 1
+					local _pcol = `_ci' + 2
+					capture confirm variable c`_pcol'
+					if !_rc {
+						local _cell = strtrim(c`_pcol'[`_obs'])
+						local _numval = real("`_cell'")
+						if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
 				}
 			}
 			local _rname = A[`_obs']
@@ -925,18 +953,19 @@ quietly {
 			replace _eplot_est`_model_ix' = c`i'z ///
 				if _n >= 3 & c`i'z < . & missing(_eplot_est`_model_ix')
 			tostring c`i'z, replace force format(`coef_fmt')
-			* Matrix input has no structural base-level metadata, so a numeric zero
-			* can never be reinterpreted as a reference category.
-			if !`_from_matrix' {
-				replace c`i' = `"`refcat'"' if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
-					& strtrim(c`=`i'+1') == "" & _n >= 3
-			}
-		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "`refcat'"
+				* Matrix input has no structural base-level metadata, so a numeric zero
+				* can never be reinterpreted as a reference category.
+				if !`_from_matrix' {
+					replace c`i' = `"`refcat'"' if real(c`i'z) == 0 ///
+						& (strtrim(c`=`i'+1') == "" | ///
+						strpos(lower(strtrim(c`=`i'+1')), "base") > 0) & _n >= 3
+				}
+		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != `"`refcat'"'
 		* Clear CI and p-value for Reference rows
-			replace c`=`i'+1' = "" if c`i' == "`refcat'" & _n >= 3
+			replace c`=`i'+1' = "" if c`i' == `"`refcat'"' & _n >= 3
 			capture confirm variable c`=`i'+2'
-			if _rc == 0 replace c`=`i'+2' = "" if c`i' == "`refcat'" & _n >= 3
-			replace _eplot_est`_model_ix' = . if c`i' == "`refcat'" & _n >= 3
+			if _rc == 0 replace c`=`i'+2' = "" if c`i' == `"`refcat'"' & _n >= 3
+			replace _eplot_est`_model_ix' = . if c`i' == `"`refcat'"' & _n >= 3
 			drop c`i'z
 		capture confirm variable c`=`i'+1'
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -1063,7 +1092,7 @@ quietly {
 							(`_ep_p') (`_ep_m') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ("") ///
 							(`_ep_source_row') ("")
 					}
-				}
+			}
 				}
 			frame `_eplotframe_name': char _dta[tabtools_source] "effecttab"
 			frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level'"
@@ -1140,7 +1169,7 @@ quietly {
 	* Track Reference rows for merged cell formatting (after title row added)
 	local ref_rows ""
 	forvalues i = 1(3)`last' {
-		gen ref`i' = _n if c`i' == "`refcat'"
+		gen ref`i' = _n if c`i' == `"`refcat'"'
 		levelsof ref`i', local(ref`i'_levels)
 		local ref_rows `"`ref_rows' `ref`i'_levels'"'
 		drop ref`i'
@@ -1510,7 +1539,7 @@ quietly {
 	* Console confirmation (O1)
 	if `_has_xlsx' {
 		* QA-only hook to exercise the final missing-workbook guard.
-		local _qa_erase_xlsx "$TABTOOLS_QA_EFFECTTAB_ERASE_XLSX"
+		local _qa_erase_xlsx "$TABTOOLS_QA_EFF_ERASE_XLSX"
 		if `"`_qa_erase_xlsx'"' == `"`xlsx'"' {
 			capture erase "`xlsx'"
 		}

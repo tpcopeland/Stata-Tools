@@ -105,6 +105,7 @@ def main() -> None:
     )
     parser.add_argument("--snapshot", type=Path)
     parser.add_argument("--verify", type=Path)
+    parser.add_argument("--status-file", type=Path)
     args = parser.parse_args()
     if args.snapshot and args.verify:
         parser.error("choose only one of --snapshot or --verify")
@@ -114,6 +115,9 @@ def main() -> None:
         verify(args.path, args.verify)
     else:
         build(args.path, args.mode)
+    if args.status_file:
+        args.status_file.parent.mkdir(parents=True, exist_ok=True)
+        args.status_file.write_text("PASS\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

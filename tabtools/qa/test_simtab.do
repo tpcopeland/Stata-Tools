@@ -84,6 +84,8 @@ capture noisily {
     assert r(n_estimators) == 3
     assert r(n_by) == 1
     assert r(N_cells) == 3
+    assert r(N_input) == 480
+    assert r(n_dropped_se) == 0
 }
 if _rc == 0 {
     display as result "  PASS T1: single estimand no by"
@@ -92,6 +94,35 @@ if _rc == 0 {
 else {
     display as error "  FAIL T1 (rc=`=_rc')"
     local ++fail_count
+}
+
+* =====================================================================
+**# T1b: analysis-sample denominators expose missing-SE exclusions
+* =====================================================================
+capture noisily {
+    clear
+    input byte estid double est double se double truev
+    1   1   1   0
+    1 100   .   0
+    1   3   1   0
+    end
+    capture frame drop ft1b
+    simtab estid, estimate(est) se(se) true(truev) metrics(mean n) ///
+        minreps(2) plotframe(ft1b, replace) display
+    assert r(N_input) == 3
+    assert r(n_dropped_se) == 1
+    frame ft1b: assert n[1] == 2
+    frame ft1b: assert mean[1] == 2
+    capture frame drop ft1b
+}
+if _rc == 0 {
+    display as result "  PASS T1b: missing-SE exclusions are counted and reflected in metrics"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T1b: missing-SE denominator contract (rc=`=_rc')"
+    local ++fail_count
+    capture frame drop ft1b
 }
 
 * =====================================================================
@@ -711,6 +742,42 @@ else {
         local ++fail_count
     }
 }
+
+**# T3b: quoted simsum method labels round-trip
+* Fail-on-old: the simsum adapter posted arbitrary variable labels through
+* plain quotes, truncating at an embedded double quote while returning rc=0.
+capture noisily {
+    clear
+    input str12 perfmeascode double estimate0
+    "bsims"    100
+    "bias"     0.01
+    "pctbias"  2
+    "mean"     0.51
+    "empse"    0.12
+    "mse"      0.0144
+    "rmse"     0.12
+    "modelse"  0.11
+    "relerror" -8.333333
+    "cover"    95
+    "power"    80
+    end
+    label variable estimate0 `"Method "quoted""'
+    capture frame drop _simsum_quote
+    simtab, from(simsum) plotframe(_simsum_quote, replace)
+    frame _simsum_quote {
+        count if estimator_label == `"Method "quoted""'
+        assert r(N) == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS T3b: quoted simsum method labels round-trip"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T3b: quoted simsum method label was corrupted (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _simsum_quote
 
 * =====================================================================
 **# T4: from(siman) -- capture-guarded; reproduces siman analyse values

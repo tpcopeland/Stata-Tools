@@ -1953,6 +1953,48 @@ capture frame drop _c02_prov
 capture erase "`output_dir'/_c02_nolabel.dta"
 capture erase "`output_dir'/_c02_labeled.dta"
 
+**# Regression: quoted outcome, exposure, and source-category labels
+* Fail-on-old: v1.10.0 expanded these parsed strings inside plain quotes,
+* returned rc=0, and silently truncated every label at its embedded quote.
+capture noisily {
+    tempfile _quoted_rate
+    clear
+    set obs 2
+    generate str40 category = cond(_n == 1, `"Low "risk""', `"High "risk""')
+    generate double _D = cond(_n == 1, 10, 20)
+    generate double _Y = cond(_n == 1, 1000, 2000)
+    generate double _Rate = _D / _Y
+    generate double _Lower = _Rate * 0.8
+    generate double _Upper = _Rate * 1.2
+    label variable _Lower "Lower 95% confidence limit"
+    label variable _Upper "Upper 95% confidence limit"
+    save "`_quoted_rate'.dta", replace
+
+    local _outcome `"Outcome "quoted""'
+    local _exposure `"Exposure "quoted""'
+    capture frame drop _quoted_strate
+    stratetab, using("`_quoted_rate'") outcomes(1) ///
+        outlabels(`"`_outcome'"') explabels(`"`_exposure'"') ///
+        frame(_quoted_strate, replace)
+    frame _quoted_strate {
+        count if c2 == `"`_outcome'"'
+        assert r(N) == 1
+        count if c1 == `"`_exposure'"'
+        assert r(N) == 1
+        count if c1 == `"   Low "risk""'
+        assert r(N) == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: stratetab quoted labels round-trip without truncation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: stratetab quoted-label round-trip (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _quoted_strate
+
 
 **# Summary
 local test_count = `pass_count' + `fail_count'

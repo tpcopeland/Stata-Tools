@@ -1,4 +1,4 @@
-*! stratetab Version 1.10.0  2026/07/22
+*! stratetab Version 1.10.1  2026/07/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -168,17 +168,17 @@ if "`rateratio'" != "" & `n_exposures' < 2 {
 }
 
 * Parse outcome labels
-if "`outlabels'" != "" {
-	local outlabels = subinstr("`outlabels'", " \ ", "\", .)
-	local outlabels = subinstr("`outlabels'", "\  ", "\", .)
-	local outlabels = subinstr("`outlabels'", "  \", "\", .)
+if `"`outlabels'"' != "" {
+	local outlabels = subinstr(`"`outlabels'"', " \ ", "\", .)
+	local outlabels = subinstr(`"`outlabels'"', "\  ", "\", .)
+	local outlabels = subinstr(`"`outlabels'"', "  \", "\", .)
 	tokenize `"`outlabels'"', parse("\")
 	local n_outlabs = 0
 	forvalues i = 1/100 {
 		local j = (`i'-1)*2 + 1
-		if "``j''" == "" continue, break
+		if `"``j''"' == "" continue, break
 		local n_outlabs = `n_outlabs' + 1
-		local outlab`i' = strtrim("``j''")
+		local outlab`i' = strtrim(`"``j''"')
 	}
 	if `n_outlabs' != `outcomes' {
 		di as err "Number of outcome labels (`n_outlabs') must match outcomes (`outcomes')"
@@ -232,17 +232,17 @@ forvalues i = 1/`outcomes' {
 }
 
 * Parse exposure labels
-if "`explabels'" != "" {
-	local explabels = subinstr("`explabels'", " \ ", "\", .)
-	local explabels = subinstr("`explabels'", "\  ", "\", .)
-	local explabels = subinstr("`explabels'", "  \", "\", .)
+if `"`explabels'"' != "" {
+	local explabels = subinstr(`"`explabels'"', " \ ", "\", .)
+	local explabels = subinstr(`"`explabels'"', "\  ", "\", .)
+	local explabels = subinstr(`"`explabels'"', "  \", "\", .)
 	tokenize `"`explabels'"', parse("\")
 	local n_explabs = 0
 	forvalues i = 1/100 {
 		local j = (`i'-1)*2 + 1
-		if "``j''" == "" continue, break
+		if `"``j''"' == "" continue, break
 		local n_explabs = `n_explabs' + 1
-		local explab`i' = strtrim("``j''")
+		local explab`i' = strtrim(`"``j''"')
 	}
 	if `n_explabs' != `n_exposures' {
 		di as err "Number of exposure labels (`n_explabs') must match number of exposure groups (`n_exposures')"
@@ -544,7 +544,7 @@ forvalues e = 1/`n_exposures' {
 	forvalues i = 1/`ncat_e`e'' {
 		local new = _N + 1
 		quietly set obs `new'
-		quietly replace c1 = "   `cat_e`e'_`i''" in `new'
+			quietly replace c1 = `"   `cat_e`e'_`i''"' in `new'
 		
 		local col = 2
 		forvalues o = 1/`outcomes' {
@@ -670,9 +670,10 @@ forvalues e = 1/`n_exposures' {
 				forvalues o = 1/`outcomes' {
 				capture matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
-				local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
-				local _rname = substr("`_rname'", 1, 32)
-				if "`_rname'" == "" local _rname "row`_rr'"
+				local _rname = subinstr(`"`cat_e`e'_`i''"', " ", "_", .)
+				local _rname = subinstr(`"`_rname'"', char(34), "_", .)
+				local _rname = substr(`"`_rname'"', 1, 32)
+				if `"`_rname'"' == "" local _rname "row`_rr'"
 					if `n_exposures' > 1 {
 						local _rname = "e`e'_`_rname'"
 						local _rname = substr("`_rname'", 1, 32)
@@ -693,10 +694,11 @@ forvalues e = 1/`n_exposures' {
 		local _cnames ""
 		forvalues o = 1/`outcomes' {
 			local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
-			local _cname = subinstr("`_cname'", ".", "_", .)
-			local _cname = subinstr("`_cname'", ",", "", .)
-			local _cname = substr("`_cname'", 1, 32)
-			if "`_cname'" == "" local _cname "outcome`o'"
+			local _cname = subinstr(`"`_cname'"', char(34), "_", .)
+			local _cname = subinstr(`"`_cname'"', ".", "_", .)
+			local _cname = subinstr(`"`_cname'"', ",", "", .)
+			local _cname = substr(`"`_cname'"', 1, 32)
+			if `"`_cname'"' == "" local _cname "outcome`o'"
 			local _cnames `"`_cnames' `_cname'"'
 		}
 		capture matrix rownames `_rrates' = `_rnames'
@@ -721,9 +723,10 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				forvalues o = 1/`outcomes' {
 					capture matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
-					local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
-					local _rname = substr("`_rname'", 1, 32)
-					if "`_rname'" == "" local _rname "row`_rr'"
+					local _rname = subinstr(`"`cat_e`e'_`i''"', " ", "_", .)
+					local _rname = subinstr(`"`_rname'"', char(34), "_", .)
+					local _rname = substr(`"`_rname'"', 1, 32)
+					if `"`_rname'"' == "" local _rname "row`_rr'"
 						if `n_exposures' > 2 {
 							local _rname = "e`e'_`_rname'"
 							local _rname = substr("`_rname'", 1, 32)
@@ -744,10 +747,11 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 			local _cnames ""
 			forvalues o = 1/`outcomes' {
 				local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
-				local _cname = subinstr("`_cname'", ".", "_", .)
-				local _cname = subinstr("`_cname'", ",", "", .)
-				local _cname = substr("`_cname'", 1, 32)
-				if "`_cname'" == "" local _cname "outcome`o'"
+				local _cname = subinstr(`"`_cname'"', char(34), "_", .)
+				local _cname = subinstr(`"`_cname'"', ".", "_", .)
+				local _cname = subinstr(`"`_cname'"', ",", "", .)
+				local _cname = substr(`"`_cname'"', 1, 32)
+				if `"`_cname'"' == "" local _cname "outcome`o'"
 				local _cnames `"`_cnames' `_cname'"'
 			}
 			capture matrix rownames `_rratios' = `_rnames'

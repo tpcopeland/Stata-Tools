@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/07/20
+*! finegray Version 1.2.0  2026/07/27
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -58,6 +58,17 @@ program define finegray, eclass sortpreserve
         display as error "noadjust is not allowed with norobust"
         display as error "the finite-sample adjustment applies to the robust " ///
             "(sandwich) variance only"
+        exit 198
+    }
+
+    * cluster() requests a cluster-robust sandwich while norobust requests the
+    * model-based inverse information. Accepting both used the clustered
+    * sandwich in the engine but posted and displayed parts of the norobust
+    * contract, yielding a contradictory rc=0 result.
+    if "`cluster'" != "" & "`robust'" == "norobust" {
+        display as error "cluster() is not allowed with norobust"
+        display as error "cluster() requests a cluster-robust sandwich variance; " ///
+            "norobust requests the model-based inverse information"
         exit 198
     }
 
@@ -166,9 +177,10 @@ program define finegray, eclass sortpreserve
     * (start,stop] intervals / stsplit).  When covariates are constant within
     * subject this is purely a data-shape issue: reduce each subject to a
     * single risk-set unit (earliest entry, latest exit, final status) and let
-    * the engine's left-truncation handle the rest.  Genuinely time-varying
-    * covariates are NOT supported (the subdistribution hazard is undefined
-    * with internal time-varying covariates; cf. stcrreg has no tvc()).
+    * the engine's left-truncation handle the rest. This implementation does
+    * not support time-varying covariates or time-varying coefficient effects.
+    * Internal time-varying covariates generally lack the model's direct CIF
+    * interpretation after a competing event.
     local _fg_id `"`_dta[st_id]'"'
     local _fg_nrecords = `N'
 
@@ -215,9 +227,9 @@ program define finegray, eclass sortpreserve
             if _rc {
                 display as error "finegray requires covariates constant within id()"
                 display as error "covariate `_cv' varies within subject"
-                display as error "the subdistribution hazard model is not defined with"
-                display as error "time-varying covariates; use {help stcox} for a"
-                display as error "cause-specific model with time-varying covariates"
+                display as error "this implementation does not support time-varying covariates"
+                display as error "for internal time-varying covariates, consider a cause-specific"
+                display as error "model with {help stcox}; see {help finegray##lt:finegray}"
                 exit 198
             }
         }
@@ -708,8 +720,8 @@ program define finegray, eclass sortpreserve
         }
 
         * Truncation strata: the entry distribution H is estimated within these
-        * groups.  Empty => one group => H == 1 => the combined weight A collapses
-        * to G and the no-delayed-entry path is bit-identical to previous releases.
+        * groups. Empty means one pooled H group; H == 1 only when there is no
+        * delayed entry, so the no-delayed-entry path remains bit-identical.
         local _tg_mata ""
         if "`truncstrata'" != "" {
             tempvar _tg_grp
@@ -768,8 +780,8 @@ program define finegray, eclass sortpreserve
                 }
                 else {
                     display as error "the weight strata are the observed levels of strata()"
-                    display as error "under delayed entry the entry distribution is estimated"
-                    display as error "within each censoring stratum, so strata() alone bounds it"
+                    display as error "under delayed entry G is stratum-specific, H is pooled,"
+                    display as error "and A is evaluated separately for every strata() level"
                 }
                 display as error "this limit applies to delayed-entry fits only"
                 display as error "use coarser grouping variables"
@@ -933,10 +945,11 @@ program define finegray, eclass sortpreserve
     *                       unspecified): G is estimated within strata(), H
     *                       within truncstrata(), and the components multiply.
     *                       This is a package extension, NOT attributed to Zhang
-    *                       et al.; it is valid only when entry and censoring are
-    *                       independent within each joint cell.  It is named apart
-    *                       from zzf1_stratified because its validity conditions
-    *                       differ, so a consumer can branch on it.
+    *                       et al.; it requires factor-specific separability:
+    *                       G may not vary across omitted truncation groups and H
+    *                       may not vary across omitted censoring groups. It is
+    *                       named apart from zzf1_stratified because its validity
+    *                       conditions differ, so a consumer can branch on it.
     * "Same grouping" compares the sorted variable lists: order does not change
     * the partition egen group() forms, so a re-ordered strata() is still ZZF.
     * _fg_njgrp is defined only on the delayed-entry branch, so every reference
@@ -1158,13 +1171,14 @@ program define finegray, eclass sortpreserve
     * groupings the weight is the package's factorized A=G*H extension, not the
     * ZZF stratified construction.  The help file documents this, but the fit
     * itself otherwise reports only e(lt_weight)=zzf1_factorized; say at fit time
-    * that the estimator differs from ZZF and under what condition it is valid.
+    * that the estimator differs from ZZF and what extra structure it requires.
     if `_fg_factorized' {
         display as text ""
         display as text "note: the censoring weight G and entry weight H use different groupings,"
         display as text "so finegray uses the factorized A=G*H extension -- a package extension,"
-        display as text "valid only when entry and censoring are independent within each joint"
-        display as text "cell. See Left truncation in {help finegray}. e(lt_weight)=zzf1_factorized."
+        display as text "requiring the censoring mechanism to be homogeneous across omitted entry"
+        display as text "groups and vice versa. See Left truncation in {help finegray}."
+        display as text "e(lt_weight)=zzf1_factorized."
     }
 
     if "`shr'" == "noshr" {

@@ -2,17 +2,17 @@
 #
 # crossval_predict_phtest_r.R
 # R-side cross-validation for finegray_predict (xb, cif, schoenfeld)
-# and finegray_phtest (PH test via Schoenfeld-time correlation)
+# and finegray_phtest (descriptive Schoenfeld-time correlation)
 #
 # Usage: Rscript crossval_predict_phtest_r.R <input.csv> <output_dir> [beta]
 #
 #   beta (optional): comma-separated coefficient vector, in the covariate
 #   column order of <input.csv>.  When supplied, the Schoenfeld residuals
-#   (and therefore the PH test) are computed at THESE coefficients instead of
+#   (and therefore the PH diagnostic) are computed at THESE coefficients instead of
 #   crr's own fitted beta.  This isolates the residual/risk-set algorithm from
 #   tiny optimizer-to-optimizer beta differences, which are otherwise amplified
 #   through exp(z'beta) on wide-range covariates (e.g. ifp in [0,76]) and inflate
-#   the chi2 comparison.  xb and cif outputs always use crr's own fitted beta,
+#   the correlation comparison. xb and cif outputs always use crr's own fitted beta,
 #   so the coefficient agreement is still cross-checked downstream.
 #
 # Input CSV columns: id, time, status, <covariates>
@@ -22,7 +22,7 @@
 #   r_xb.csv         - id, r_xb
 #   r_cif.csv        - id, r_cif
 #   r_schoenfeld.csv - time, <cov1>, ..., <covp>, event_id
-#   r_phtest.csv     - variable, time_func, rho, chi2, p_value, n_events
+#   r_phtest.csv     - variable, time_func, rho, n_events
 #
 # Requires: cmprsk (>= 2.2)
 
@@ -169,28 +169,19 @@ write.csv(as.data.frame(sch_mat),
           file.path(output_dir, "r_schoenfeld.csv"), row.names = FALSE)
 
 # =====================================================================
-# 4. PH test: correlation of Schoenfeld residuals with time
-#    Pearson correlation is scale-invariant, so unscaled residuals
-#    give the same rho and chi2 as Grambsch-Therneau scaled residuals.
-#    chi2 = N * rho^2, per covariate.
+# 4. PH diagnostic: correlation of raw Schoenfeld residuals with time
 #
-#    ORACLE SCOPE.  cmprsk ships no PH test, so this script computes
-#    N*rho^2 itself -- by the SAME rule as the .ado.  The independent
-#    content of the comparison is therefore crr's beta and the Schoenfeld
-#    residuals built from it (section 3 / test P11), not the statistic.
+#    ORACLE SCOPE. cmprsk ships no PH test, so this script recomputes the
+#    descriptive correlation by the same rule as the .ado. The independent
+#    content of the comparison is crr's beta and the Schoenfeld residuals built
+#    from it (section 3 / test P11), not a null calibration.
 #
-#    Before 1.2.0 this script also emitted a "GLOBAL" row that summed the
-#    per-covariate chi2 and referred the total to chi2(p) -- reproducing
-#    finegray_phtest's own rule exactly.  That made the global comparison a
-#    MIRROR ORACLE: both sides shared the identical wrong semantics, so the
-#    check passed while the statistic was wrong on its face (the components
-#    are correlated, so the sum is not chi2(p)).  The omnibus was retired in
-#    finegray 1.2.0 and the GLOBAL row is removed here.  Do not re-add it:
-#    an oracle that recomputes the code's own rule tests nothing.  As of the
-#    diagnostic-only change (FG-03), finegray_phtest reports the residual-time
-#    CORRELATION only (no chi2/p); the Stata side compares that correlation to
-#    the `rho' column this script writes -- a coding-consistency check, not a
-#    test-calibration claim.
+#    Before 1.2.0 this script also emitted per-variable chi2/p columns and a
+#    "GLOBAL" row that summed those components and referred the total to
+#    chi2(p), reproducing finegray_phtest's own rule exactly. That was a mirror
+#    oracle, not independent calibration. The inferential columns and omnibus
+#    are retired: the Stata side compares only the `rho' column written here,
+#    which is a coding-consistency check rather than a test-calibration claim.
 # =====================================================================
 phtest_rows <- list()
 for (tf_name in c("rank", "log", "identity")) {
@@ -204,14 +195,12 @@ for (tf_name in c("rank", "log", "identity")) {
         nv <- sum(valid)
         if (nv >= 3) {
             rho <- cor(r_k[valid], tf[valid])
-            chi2 <- nv * rho^2
-            pval <- pchisq(chi2, 1, lower.tail = FALSE)
             phtest_rows[[length(phtest_rows) + 1]] <- data.frame(
                 variable = cov_cols[k], time_func = tf_name,
-                rho = rho, chi2 = chi2, p_value = pval, n_events = nv,
+                rho = rho, n_events = nv,
                 stringsAsFactors = FALSE)
-            cat(sprintf("  PH[%s,%s]: rho=%.6f chi2=%.4f p=%.4f\n",
-                        cov_cols[k], tf_name, rho, chi2, pval))
+            cat(sprintf("  PH[%s,%s]: rho=%.6f n=%d\n",
+                        cov_cols[k], tf_name, rho, nv))
         }
     }
 }

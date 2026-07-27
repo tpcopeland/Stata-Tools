@@ -40,9 +40,10 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 
 {pstd}{cmd:diagtab} computes diagnostic accuracy measures from a 2x2 classification
 table: sensitivity, specificity, PPV, NPV, accuracy, likelihood ratios,
-diagnostic odds ratio, and optionally AUC. Confidence intervals use Wilson
-score (default) or Clopper-Pearson exact method at {opt level()} (default
-{cmd:c(level)}). If {opt cutoff()}, {opt cutoffs()}, and
+diagnostic odds ratio, and optionally AUC. Directly estimated binomial
+proportions use Wilson score (default) or Clopper-Pearson exact intervals at
+{opt level()} (default {cmd:c(level)}); other measures use the methods documented
+below. If {opt cutoff()}, {opt cutoffs()}, and
 {opt optimal} are all omitted, {it:test_var} must already be coded 0/1. The completed
 table is displayed in the Results window and may also be exported to Excel,
 CSV, or Markdown, or stored in a Stata frame.{p_end}
@@ -270,6 +271,8 @@ results are returned in {cmd:r(cutoff_table)}.{p_end}
 {synopt:{cmd:r(auc_lb)}}AUC lower CI bound{p_end}
 {synopt:{cmd:r(auc_ub)}}AUC upper CI bound{p_end}
 {synopt:{cmd:r(optimal_cutoff)}}optimal cutoff (Youden's J; single-cutoff mode){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(cutoff_table)}}cutoff analysis results (when {cmd:cutoffs()} specified){p_end}
@@ -280,8 +283,6 @@ results are returned in {cmd:r(cutoff_table)}.{p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
 
 {marker alsosee}{title:Also see}

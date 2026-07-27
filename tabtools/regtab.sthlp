@@ -253,7 +253,9 @@ models{p_end}
 
 {phang}
 {opt stats(string)} model-fit statistics row: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc},
-{cmd:ll}, {cmd:groups}, {cmd:r2} (see Remarks){p_end}
+{cmd:ll}, {cmd:groups}, {cmd:r2}. The {cmd:qic} API name displays Pan's
+fixed-penalty approximation as {cmd:QICu} for {cmd:xtgee} fits whose
+dispersion is fixed at 1 (see Remarks).{p_end}
 
 {phang}
 {opt title(string)} title written to {cmd:A1}, merged across the table; blank if omitted{p_end}
@@ -362,17 +364,24 @@ are drawn around the table and model blocks. Column widths and row heights are
 adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes Excel and Markdown output through the shared tabtools
 Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
-{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QIC,
+{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QICu,
 log-likelihood, and groups are extracted per model from the {helpb collect} framework
 and placed in each model's column. If extraction fails, statistics fall back
 to the last model's {cmd:e()} values in the first column only. For GEE models
 ({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full
-maximum likelihood; when {cmd:aic} is requested, {cmd:regtab} automatically computes and
-displays QIC (deviance + 2p) instead. QIC can also be requested directly via
-{cmd:stats(qic)}. ICC is computed per model from variance components in the
-collected results when that variance decomposition is defined. For model
-families without a closed-form level-1 variance, ICC is left blank rather than
-guessed. If the primary collection path cannot recover supported ICC
+maximum likelihood. When dispersion is fixed at 1, a requested {cmd:aic} therefore
+falls back to QICu ({cmd:deviance + 2p}); QICu can also be requested directly via
+{cmd:stats(qic)}. Standard binomial and Poisson GEE fits use this fixed scale, and
+continuous fits may request it explicitly with {cmd:scale(1)}. If {cmd:e(phi)}
+is estimated or otherwise differs from 1, {cmd:regtab} leaves QICu unavailable
+rather than divide each candidate model by a different scale. The {cmd:qic}
+option and {cmd:r(qic_}{it:#}{cmd:)} names are retained for backward
+compatibility. ICC is computed per model from variance components in the
+collected results when that variance decomposition is defined. Latent-response
+ICC uses the link-specific level-1 variance
+(logit: {cmd:pi^2/3}; probit: 1; complementary log-log: {cmd:pi^2/6}). For
+model families without a defined level-1 variance, ICC is left blank rather
+than guessed. If the primary collection path cannot recover supported ICC
 components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
 {marker examples}{title:Examples}
@@ -478,18 +487,18 @@ threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level carried by the collected intervals{p_end}
 {synopt:{cmd:r(aic_}{it:#}{cmd:)}}Akaike information criterion for model {it:#} (when {cmd:stats(aic)}){p_end}
 {synopt:{cmd:r(bic_}{it:#}{cmd:)}}Bayesian information criterion for model {it:#} (when {cmd:stats(bic)}){p_end}
-{synopt:{cmd:r(qic_}{it:#}{cmd:)}}QIC for model #, when available{p_end}
+{synopt:{cmd:r(qic_}{it:#}{cmd:)}}QICu for fixed-scale {cmd:xtgee} model {it:#}, when available{p_end}
 {synopt:{cmd:r(icc_}{it:#}{cmd:)}}ICC for model #, when available{p_end}
 {synopt:{cmd:r(ll_}{it:#}{cmd:)}}log-likelihood for model {it:#} (when {cmd:stats(ll)}){p_end}
 {synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model {it:#} (when {cmd:stats(n)}){p_end}
 {synopt:{cmd:r(groups_}{it:#}{cmd:)}}number of groups for model {it:#} (when {cmd:stats(groups)}){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(coef_label)}}shared or mixed coefficient label{p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}
@@ -520,11 +529,14 @@ and N as {cmd:AIC = -2*ll + 2*k} and {cmd:BIC = -2*ll + k*ln(N)}, matching
 deviance scale.{p_end}
 
 {pstd}
-{cmd:QIC} is {it:not} a likelihood criterion and does not come from
+{cmd:QICu} is {it:not} a likelihood criterion and does not come from
 {helpb estat ic}. GEE fits a quasi-likelihood, so no log-likelihood is
-available; {cmd:regtab} computes {cmd:deviance + 2*k}, where {cmd:k} is the rank
-of the coefficient vector. Values are on a different scale from AIC and BIC and
-must not be compared with them.{p_end}
+available. For an {cmd:xtgee} fit with {cmd:e(phi)=1}, {cmd:regtab} reports
+{cmd:deviance + 2*k}, where {cmd:k} is the rank of the coefficient vector. This
+is a deviance-scale representation of QICu; it can differ from another
+implementation's absolute QICu by a data-only additive constant, while
+within-data model differences agree. Values are on a different scale from AIC
+and BIC and must not be compared with them.{p_end}
 
 {pstd}
 {bf:Which criterion this is.} {cmd:deviance + 2*k} is Pan's {bf:QICu}, the
@@ -532,12 +544,26 @@ fixed-penalty approximation to QIC, {it:not} QIC itself. Pan's QIC is
 {cmd:-2Q(b,I) + 2*trace(Omega*Sigma)}, whose penalty is a trace of the
 independence-model information times the robust sandwich variance; {cmd:QICu}
 replaces that trace with {cmd:k}, and that difference carries a real
-restriction: {bf:QICu compares only models sharing a working correlation structure}, which
-means models must share the working correlation matrix and the quasi-likelihood
-form and differ only in the mean specification. QICu must {it:not} be used to choose
-a working correlation structure; that is precisely the job the trace penalty
-does and this approximation drops. The stored result is named {cmd:r(qic_}{it:#}{cmd:)} for
-backward compatibility; read it as QICu.{p_end}
+restriction: {bf:QICu} compares only models sharing a working correlation structure. Candidates
+must use the same outcome observations, weights,
+family, link, clustering, and working correlation and differ only in the mean
+specification. QICu must {it:not} be used to choose a working correlation
+structure; that is precisely the job the trace penalty does and this
+approximation drops.{p_end}
+
+{pstd}
+{bf:Dispersion boundary.} When dispersion is unknown, Pan's definition uses
+one common scale estimate for every candidate model (typically from the
+largest mean model). Dividing each model's quasi-likelihood by its own
+{cmd:e(phi)} would make the comparison invalid. Because {cmd:regtab} formats an
+existing collection and cannot prove that a common external scale was used, it
+computes QICu only when each candidate's stored scale is 1. This includes
+standard binomial and Poisson GEE fits and continuous fits estimated with
+{cmd:scale(1)}. Otherwise it prints a note and leaves the QICu row and
+{cmd:r(qic_}{it:#}{cmd:)} absent. Use a dedicated QIC implementation with one
+explicit common scale for estimated-dispersion comparisons. The stored result
+keeps the name {cmd:r(qic_}{it:#}{cmd:)} for backward compatibility; read it as
+QICu.{p_end}
 
 {pstd}
 See Pan W (2001), Akaike's information criterion in generalized estimating

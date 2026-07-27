@@ -196,9 +196,10 @@ to 10{p_end}
 {helpb regtab}. Unlike {cmd:regtab}, which identifies reference rows from the structural base-level key of
 the underlying model, {cmd:effecttab} reads {cmd:teffects}/{cmd:margins} output that carries no such key and
 therefore flags a reference row heuristically: a point estimate that displays as exactly {cmd:0} at the current
-{opt digits()} together with an empty confidence interval. A genuine effect that rounds to {cmd:0.00} with a
-missing CI would be labeled with this string; such cases are rare in {cmd:teffects}/{cmd:margins} output but
-can be avoided by increasing {opt digits()}{p_end}
+{opt digits()} together with either an empty confidence interval or a confidence-interval cell that {cmd:collect}
+marks as {cmd:base}. A genuine effect that rounds to {cmd:0.00} with a missing CI would be labeled with this
+string; such cases are rare in {cmd:teffects}/{cmd:margins} output but can be avoided by increasing
+{opt digits()}{p_end}
 
 {phang}
 {opt sep(string asis)} delimiter between CI endpoints. Default is {cmd:", "}{p_end}
@@ -358,13 +359,13 @@ to align compatible sources and rejects ambiguous or conflicting metadata.{p_end
 {synopt:{cmd:r(N_rows)}}number of rows in output table{p_end}
 {synopt:{cmd:r(N_cols)}}number of columns in output table{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level used for the displayed intervals{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(type)}}detected or specified result type{p_end}
 {synopt:{cmd:r(effect_label)}}effect column label{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}

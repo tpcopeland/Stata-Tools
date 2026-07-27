@@ -5,8 +5,8 @@
 * Before this release, finegray_phtest summed the per-covariate 1-df statistics and
 * referred the total to chi2(p), returning it in r(chi2)/r(df)/r(p) and printing
 * it as "Global test | chi2 df Prob>chi2".  The sum is chi2(p) only if the
-* components are independent; scaled Schoenfeld residuals are correlated
-* whenever the covariates are, so the printed probability had no stated
+* components are independent; the covariate-specific residual summaries are
+* generally correlated, so the printed probability had no stated
 * reference distribution.  It was removed rather than relabeled.
 *
 * These tests FAIL on the pre-retirement code by construction: on the old code
@@ -142,7 +142,7 @@ else {
 }
 
 **# 4. The retired sum is not silently relocated into r(phtest)
-* r(phtest) must stay p x 3 -- no appended global row.
+* r(phtest) must stay p x 2 -- no appended global row.
 local ++test_count
 capture noisily {
     _mk_ph_120

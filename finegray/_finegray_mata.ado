@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/07/21
+*! _finegray_mata Version 1.2.0  2026/07/27
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -286,12 +286,13 @@ real colvector _finegray_G_minus(
    Stabilized Zhang-Zhang-Fine Weight 1 is  w_i(t) = A(t-) / A(X_i-)  with
 
        A(t) = b(t) / S(t-)                  ZZF (2011) eq. (5)   [canonical]
-            = P(L < t) * G(t-)              since b(t) = P(L<t) S(t-) G(t-)
             = H(t-) * G(t-)                 Geskus (2011) eq. (11)
 
-   so H estimates P(L < t): the probability of having ENTERED by t.  Gate
-   Z-ties established that the two forms agree to machine precision on every
-   tie-collision class, which is what authorizes the G*H product form here.
+   The product-limit identity holds without requiring L and C to be independent.
+   Under independence, H and G additionally admit separate marginal-probability
+   interpretations (H as P(L < t)); otherwise they remain the two product-limit
+   factors of A. Gate Z-ties established that the two computational forms agree
+   to machine precision on every tie-collision class.
 
    The product form is not merely convenient -- it is what makes the no-LT
    path BIT-IDENTICAL.  With no delayed entry every l_j = 0, so for any t > 0
@@ -450,9 +451,9 @@ real matrix _finegray_H_at_times(
    strata (strata()) and u the truncation strata (truncstrata()).
 
    G is estimated within censoring strata and H within truncation strata; a
-   subject's weight uses its own cell of each.  jc/ju map each joint level to
-   its censoring and truncation level.  When truncstrata() is absent there is a
-   single truncation level with H == 1 and this returns exactly _finegray_G_at_times. */
+   subject's weight uses its own cell of each. jc/ju map each joint level to
+   its censoring and truncation level. When truncstrata() is absent there is a
+   single pooled H level; H == 1 only when there is no delayed entry. */
 /* Cross-classified weight strata.  A subject's weight stratum is the pair
    (censoring stratum, truncation stratum) = (strata(), truncstrata()).  Only
    OBSERVED combinations become levels, so the joint count is <= nc*nu and is
@@ -463,8 +464,8 @@ real matrix _finegray_H_at_times(
      jc    nj x 1  censoring-stratum index of each joint level  (column of Gt)
      ju    nj x 1  truncation-stratum index of each joint level (column of Ht)
 
-   With no truncstrata() there is one truncation level, so jidx/jc reduce to the
-   censoring-stratum index and ju is all 1s -- the pre-ZZF behaviour exactly. */
+   With no truncstrata() there is one pooled truncation level, so jidx/jc reduce
+   to the censoring-stratum index and ju is all 1s. */
 void _finegray_joint_setup(
     real colvector byg_id,
     real colvector tg_id,
@@ -1889,12 +1890,9 @@ real matrix _finegray_score_residuals(
    eta_i (above) is the score's i.i.d. contribution treating the censoring
    survivor G as KNOWN.  psi_i is the SECOND term: the contribution from
    having ESTIMATED G by Kaplan-Meier.  The full sandwich meat is
-   sum_i (eta_i + psi_i)^{(x)2}; using eta alone understates or overstates
-   the variance by about a percent (measured: -1.28% to +1.42% across the
-   qa/data/ parity fixtures; the covariances move more than the variances).
-   The range is printed by qa/crossval_nuisance_r.R -- do not quote it from
-   memory, and do not confuse it with crskdiag's psi effect, which is a
-   different and defective quantity.  See FG 1999 sec. 4, pp.500-501.
+   sum_i (eta_i + psi_i)^{(x)2}; using eta alone may understate or overstate
+   the variance because eta and psi are correlated. See FG 1999 sec. 4,
+   pp.500-501.
 
        psi_i = integral_0^{X_i} { q_g(u) / Y_g(u) } dMc_i(u)
              = 1{eps_i = 0} q_g(X_i)/Y_g(X_i)
@@ -2123,6 +2121,25 @@ real matrix _finegray_psi_residuals(
     return(psi)
 }
 
+/* Sum score/influence rows by cluster in deterministic cluster/row order.
+   The former implementation called selectindex() over all N rows once for
+   each of G clusters, making clustered inference O(N*G).  Sorting once and
+   using panelsum() makes the aggregation O(N log N) while preserving original
+   row order within each cluster (and therefore deterministic floating-point
+   accumulation). */
+real matrix _finegray_cluster_sums(
+    real matrix X,
+    real colvector clust_id)
+{
+    real colvector row_id, ord
+    real matrix pinfo
+
+    row_id = (1::rows(clust_id))
+    ord = order((clust_id, row_id), (1, 2))
+    pinfo = panelsetup(clust_id[ord], 1)
+    return(panelsum(X[ord, .], pinfo))
+}
+
 /* Robust (sandwich) variance estimator with left truncation support */
 real matrix _finegray_robust_var(
     real colvector t,
@@ -2141,8 +2158,7 @@ real matrix _finegray_robust_var(
     real colvector tg_id,
     | real scalar nuisance)
 {
-    real scalar n, p, i, use_cluster
-    real colvector clev, sel
+    real scalar n, p, use_cluster
     real matrix scores, meat, clust_scores
 
     if (args() < 15) nuisance = 0
@@ -2165,12 +2181,7 @@ real matrix _finegray_robust_var(
 
     use_cluster = (clust_var != "" & rows(clust_id) == n)
     if (use_cluster) {
-        clev = uniqrows(clust_id)
-        clust_scores = J(rows(clev), p, 0)
-        for (i = 1; i <= rows(clev); i++) {
-            sel = selectindex(clust_id :== clev[i])
-            clust_scores[i, .] = colsum(scores[sel, .])
-        }
+        clust_scores = _finegray_cluster_sums(scores, clust_id)
         meat = clust_scores' * clust_scores
     }
     else {
@@ -2526,7 +2537,8 @@ real matrix _finegray_schoenfeld_zzf(
 
 /* Schoenfeld residuals at each cause-event time (with left truncation).
    Returns n_fail x (p+1) matrix: [time, resid_1, ..., resid_p]
-   Optionally scales by diag(info_inv) for Grambsch-Therneau test. */
+   An internal legacy switch can apply a per-column diagonal rescaling; public
+   callers request raw residuals. */
 real matrix _finegray_schoenfeld(
     real colvector t,
     real colvector delta,
@@ -2644,7 +2656,7 @@ real matrix _finegray_schoenfeld(
         i = j
     }
 
-    /* Grambsch-Therneau scaling: multiply by diag(V) */
+    /* Legacy internal diagonal rescaling; no public caller requests it. */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
@@ -2697,7 +2709,7 @@ void _finegray_schoenfeld_compute(
         byg_id = J(rows(t), 1, 1)
     }
     /* truncstrata(): the entry-distribution H is estimated within these groups.
-       Absent => a single group => H == 1 => A == G => pre-ZZF behaviour. */
+       Absent => a single pooled H group; H == 1 only without delayed entry. */
     if (tg_str != "") {
         tg_id = st_data(., tg_str)
     }
@@ -3124,8 +3136,10 @@ real matrix _finegray_cif_core_zzf(
     real colvector row_id, G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector gidx, Gminus, jc, ju, score_vec, riskn
     real colvector Tm, dLm, obsm, cumL, Aevent, Ccomp
-    real colvector own, sub, q, psi, cle, clt0, hi, lo, Ccs, clev, sel
+    real colvector own, sub, q, psi, cle, clt0, hi, lo, Ccs
+    real colvector clust_ord, clust_sum
     real matrix info_mat, info_inv, scores, PSIb, Aden, zbarm, Rm, Rcs, out
+    real matrix clust_info
     real matrix risk1, bwd1
     real rowvector risk0, bwd0, coreS1, zbar, zstar, bvec
     real scalar n, p, ng, M, ev, i, j, k, idx, ep, g, cur_time, coreS0
@@ -3266,6 +3280,11 @@ real matrix _finegray_cif_core_zzf(
         clt0[idx] = mp
     }
 
+    if (has_clust) {
+        clust_ord = order((clust_id, row_id), (1, 2))
+        clust_info = panelsetup(clust_id[clust_ord], 1)
+    }
+
     ne = rows(E)
     out = J(ne, 2, 0)
     for (e = 1; e <= ne; e++) {
@@ -3303,12 +3322,8 @@ real matrix _finegray_cif_core_zzf(
         psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
 
         if (has_clust) {
-            clev = uniqrows(clust_id)
-            V = 0
-            for (k = 1; k <= rows(clev); k++) {
-                sel = selectindex(clust_id :== clev[k])
-                V = V + colsum(psi[sel]) ^ 2
-            }
+            clust_sum = panelsum(psi[clust_ord], clust_info)
+            V = colsum(clust_sum :^ 2)
         }
         else V = colsum(psi :^ 2)
         out[e, 1] = cif
@@ -3335,10 +3350,10 @@ real matrix _finegray_cif_core(
     real colvector row_id
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector Tm, S0m, obsm, cum_invS0, own, sub, q, psi, score_vec
-    real colvector clev, sel, levels, gidx, Gminus, jc, ju
+    real colvector levels, gidx, Gminus, jc, ju, clust_ord, clust_sum
     real colvector cle, clt0, Acs, invS0, invS0sq, hi, lo
     real matrix info_mat, info_inv, scores, PSIb, zbarm, out, Gt, Gm
-    real matrix bwd_s1_raw, Bcs, GmInvS0sq
+    real matrix bwd_s1_raw, Bcs, GmInvS0sq, clust_info
     real rowvector risk_S1, bwd_s0_raw, zstar, bvec, S1_t, Bmstar
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
@@ -3488,6 +3503,11 @@ real matrix _finegray_cif_core(
         clt0[idx] = mp
     }
 
+    if (has_clust) {
+        clust_ord = order((clust_id, row_id), (1, 2))
+        clust_info = panelsetup(clust_id[clust_ord], 1)
+    }
+
     ne = rows(E)
     out = J(ne, 2, 0)
     for (e = 1; e <= ne; e++) {
@@ -3523,12 +3543,8 @@ real matrix _finegray_cif_core(
         psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
 
         if (has_clust) {
-            clev = uniqrows(clust_id)
-            V = 0
-            for (k = 1; k <= rows(clev); k++) {
-                sel = selectindex(clust_id :== clev[k])
-                V = V + colsum(psi[sel]) ^ 2
-            }
+            clust_sum = panelsum(psi[clust_ord], clust_info)
+            V = colsum(clust_sum :^ 2)
         }
         else V = colsum(psi :^ 2)
 

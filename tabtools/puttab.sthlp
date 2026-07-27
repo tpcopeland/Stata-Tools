@@ -122,7 +122,8 @@ and matrices in memory are left unchanged.{p_end}
 
 {phang}
 {opt csv(filename)} also write the assembled table to a CSV file. The CSV holds the table's data columns
-only; the title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
+only; the title and footnote, if set, are not written (they are included in Excel
+output written with {cmd:using} and in {opt markdown()} output){p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for numeric columns; default 2, range 0-6; also respects
@@ -223,13 +224,13 @@ or RGB triplet{p_end}
 {synopt:{cmd:r(n_rows)}}rows in the assembled table (title + header + data + footnote){p_end}
 {synopt:{cmd:r(n_cols)}}content columns, excluding the layout spacer column A{p_end}
 {synopt:{cmd:r(n_datarows)}}number of data rows (excluding title, header, footnote){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}source type: {cmd:data}, {cmd:frame}, or {cmd:matrix}{p_end}
 {synopt:{cmd:r(sheet)}}sheet name, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(file)}}Excel filename, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(csv)}}CSV filename (if written){p_end}
 

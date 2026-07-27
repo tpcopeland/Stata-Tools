@@ -799,8 +799,8 @@ local tol = 1e-4
 * V30: no omnibus statistic is stored (1.2.0)
 * This test formerly asserted r(chi2) == sum of the per-variable chi2 -- i.e.
 * it ENSHRINED the defect that 1.2.0 removes.  Summing 1-df components and
-* referring the total to chi2(p) is valid only under independence, which
-* scaled Schoenfeld residuals violate whenever the covariates are correlated.
+* referring the total to chi2(p) is valid only under independence, while the
+* covariate-specific residual summaries are generally correlated.
 * The invariant now is that no such statistic is offered at all.
 local ++test_count
 capture noisily {
@@ -885,14 +885,13 @@ else {
     local ++fail_count
 }
 
-* V34: Different time functions produce different chi2 values
+* V34: Different time functions produce different correlations
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
-    * 1.2.0: compare the per-covariate chi2 column rather than the retired
-    * omnibus scalar.  Summing was never needed here -- the claim is that the
-    * time transform moves the statistics, and column 1 shows that per row.
+    * 1.2.0: compare the per-covariate correlation column. The claim is that
+    * the time transform moves this diagnostic, and column 1 shows that per row.
     finegray_phtest, time(rank)
     matrix _R = r(phtest)
     finegray_phtest, time(log)
@@ -907,7 +906,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: V34 time functions produce different chi2"
+    display as result "  PASS: V34 time functions produce different correlations"
     local ++pass_count
 }
 else {

@@ -182,16 +182,30 @@ else {
 }
 
 local ++test_count
+local _tips_external_result : environment TABTOOLS_QA_TIPS_RECIPES_RESULT
+local _tips_recipe_owned 0
 capture noisily {
-    tempname _tips_recipe_tag
-    local _tips_recipe_dir "`c(tmpdir)'/`c(pid)'_tabtools_tips_recipes_`_tips_recipe_tag'"
-    capture mkdir "`_tips_recipe_dir'"
-    tempfile _tips_recipe_result
-    shell python3 "`qa_dir'/tools/run_help_recipes.py" ///
-        --help-file "`pkg_dir'/tabtools_tips.sthlp" ///
-        --package-dir "`pkg_dir'" ///
-        --output-dir "`_tips_recipe_dir'" > "`_tips_recipe_result'"
-    assert _rc == 0
+    if `"`_tips_external_result'"' != "" {
+        local _tips_recipe_result `"`_tips_external_result'"'
+        confirm file `"`_tips_recipe_result'"'
+    }
+    else {
+        local _tips_recipe_owned 1
+        tempname _tips_recipe_tag
+        local _tips_recipe_dir "`c(tmpdir)'/`c(pid)'_tabtools_tips_recipes_`_tips_recipe_tag'"
+        capture mkdir "`_tips_recipe_dir'"
+        local _tips_mkdir_rc = _rc
+        if `_tips_mkdir_rc' {
+            display as error "could not create help-recipe output directory"
+            exit `_tips_mkdir_rc'
+        }
+        tempfile _tips_recipe_result
+        shell python3 "`qa_dir'/tools/run_help_recipes.py" ///
+            --help-file "`pkg_dir'/tabtools_tips.sthlp" ///
+            --package-dir "`pkg_dir'" ///
+            --output-dir "`_tips_recipe_dir'" > "`_tips_recipe_result'"
+        assert _rc == 0
+    }
 
     tempname _tips_recipe_fh
     local _tips_recipe_green 0
@@ -206,7 +220,7 @@ capture noisily {
     }
     file close `_tips_recipe_fh'
     assert `_tips_recipe_green' == 1
-    capture shell rm -rf "`_tips_recipe_dir'"
+    if `_tips_recipe_owned' capture shell rm -rf "`_tips_recipe_dir'"
 }
 if _rc == 0 {
     display as result "  PASS: all 21 help recipes run in independent Stata processes"
@@ -216,7 +230,7 @@ else {
     display as error "  FAIL: fresh-process help recipes (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' all_help_recipes"
-    capture shell rm -rf "`_tips_recipe_dir'"
+    if `_tips_recipe_owned' capture shell rm -rf "`_tips_recipe_dir'"
 }
 
 display as text ""

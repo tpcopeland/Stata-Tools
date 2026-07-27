@@ -46,8 +46,8 @@ capture noisily {
     * status. See _devkit/automation/scan_shell_rc.py.
     tempfile dense_verify_ok
     capture erase "`dense_verify_ok'"
-    shell ( python3 "`workbook_tool'" "`dense'" dense --verify "`dense_sig'" ) ///
-        && touch "`dense_verify_ok'"
+    quietly shell python3 "`workbook_tool'" "`dense'" dense ///
+        --verify "`dense_sig'" --status-file "`dense_verify_ok'"
     confirm file "`dense_verify_ok'"
     preserve
     import excel "`dense'", sheet(Target) cellrange(A20001:C20007) ///
@@ -90,7 +90,8 @@ foreach mode in sparse far-right formatted-tail numeric {
     * confirm leaves _rc 0 when present / 601 when not, which the existing
     * assert reads unchanged. See _devkit/automation/scan_shell_rc.py.
     capture erase "`verify_ok'"
-    shell ( python3 "`workbook_tool'" "`wb'" `mode' --verify "`sig'" ) && touch "`verify_ok'"
+    quietly shell python3 "`workbook_tool'" "`wb'" `mode' ///
+        --verify "`sig'" --status-file "`verify_ok'"
     capture confirm file "`verify_ok'"
     local hash_`key'_rc = _rc
 }
@@ -714,7 +715,7 @@ capture noisily simtab, from(summary) estimatorvar(estimator) ///
 local duplicate_cell_rc = _rc
 capture noisily assert `duplicate_cell_rc' == 459
 if _rc == 0 {
-    display as result "  PASS M08: duplicate standardized cells fail r(459)"
+    display as result "  PASS M08: duplicate standardized cells are rejected with r(459)"
     local ++pass_count
 }
 else {

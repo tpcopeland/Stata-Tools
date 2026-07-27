@@ -159,7 +159,8 @@ require the original {cmd:stset} estimation data — specifically {cmd:_t},
 will exit with an informative error if the estimation context is not present.
 
 {pstd}
-{bf:Relationship to {help stcrreg} predictions:} {cmd:finegray_predict}
+{bf:Relationship to {help stcrreg} predictions:} On fits without delayed entry,
+{cmd:finegray_predict}
 reproduces the post-estimation predictions of Stata's native Fine-Gray
 estimator {helpb stcrreg}. {opt xb} is numerically identical to
 {cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF (all covariates set to 0)
@@ -218,8 +219,8 @@ model with {it:p} covariates, {it:p} variables are created: {it:newvar}
 contains residuals for the first covariate, and {it:newvar}{cmd:_2} through
 {it:newvar}{cmd:_}{it:p} contain residuals for the remaining
 covariates. Residuals are set to missing for observations that are not
-cause-of-interest events. {opt timevar()} has no effect when {opt schoenfeld}
-is specified; residuals are always computed at the original event times. The
+cause-of-interest events. {opt timevar()} is not allowed with {opt schoenfeld}
+and is rejected with {cmd:r(198)}; residuals are computed at the original event times. The
 residuals match
 {helpb stcrreg}'s {cmd:predict, schoenfeld} exactly at untied event times; at a
 tied event time the per-event split follows {cmd:finegray}'s own convention but

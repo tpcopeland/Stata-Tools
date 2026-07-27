@@ -130,11 +130,11 @@ if _rc == 0 {
 	capture noisily {
 	    local final_missing "/tmp/test_from_matrix_final_missing.xlsx"
 	    capture erase "`final_missing'"
-	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX "`final_missing'"
+	    global TABTOOLS_QA_EFF_ERASE_XLSX "`final_missing'"
 	    capture noisily effecttab, from(mymat) xlsx("`final_missing'") sheet("Missing") ///
 	        title("Final Missing Guard") effect("OR")
 	    local got_rc = _rc
-	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX
+	    global TABTOOLS_QA_EFF_ERASE_XLSX
 	    capture confirm file "`final_missing'"
 	    assert `got_rc' == 601
 	    assert _rc == 601
@@ -144,7 +144,7 @@ if _rc == 0 {
 	    local ++pass_count
 	}
 	else {
-	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX
+	    global TABTOOLS_QA_EFF_ERASE_XLSX
 	    display as error "FAIL: T2c — final missing workbook guard did not return rc=601 (rc=`=_rc')"
 	    local ++fail_count
 	}
@@ -1001,8 +1001,10 @@ capture {
     preserve
     import excel "/tmp/iptw_fix_test.xlsx", sheet("IPTW") clear
     * Check that "Mother's age" does not appear in column B
-    gen byte _has_ps = regexm(B, "Mother") | regexm(B, "prenatal") | regexm(B, "married") | regexm(B, "first baby") | regexm(B, "Intercept")
-    summarize _has_ps, meanonly
+    tempvar has_ps
+    gen byte `has_ps' = regexm(B, "Mother") | regexm(B, "prenatal") | ///
+        regexm(B, "married") | regexm(B, "first baby") | regexm(B, "Intercept")
+    summarize `has_ps', meanonly
     restore
 }
 if _rc == 0 & r(max) == 0 {
@@ -2189,6 +2191,90 @@ else {
     display as error "FAIL: refcat — effecttab refcat() option (rc=`=_rc')"
     local ++fail_count
 }
+
+**# Regression: refcat() preserves embedded double quotes
+* Fail-on-old: v1.10.0 assigned the compound-quoted label, then compared it
+* downstream with plain quotes. The command returned rc=0 but rewrote the
+* reference row as 0.00 and omitted it from the graph-ready frame.
+capture noisily {
+    local _quoted_ref `"Base "quoted" level"'
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect clear
+    collect: margins, dydx(mbsmoke)
+    capture frame drop _ef_refcat_quotes
+    capture frame drop _ef_refcat_quotes_plot
+    effecttab, effect("AME") refcat(`"`_quoted_ref'"') ///
+        frame(_ef_refcat_quotes, replace) ///
+        eplotframe(_ef_refcat_quotes_plot, replace)
+    tempname _quoted_table
+    matrix `_quoted_table' = r(table)
+    assert rowsof(`_quoted_table') == 1
+    frame _ef_refcat_quotes {
+        count if c1 == `"`_quoted_ref'"'
+        assert r(N) == 1
+    }
+    frame _ef_refcat_quotes_plot {
+        count if rowtype == "reference" & missing(estimate)
+        assert r(N) == 1
+    }
+}
+if _rc == 0 {
+    display as result "PASS: refcat — embedded double quotes survive display and graph frames"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: refcat — embedded double quotes were corrupted (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _ef_refcat_quotes
+capture frame drop _ef_refcat_quotes_plot
+
+**# Regression: sep(",") preserves large numeric CI bounds
+* Fail-on-old: string asis left an outer quote layer on sep(), while comma-
+* grouped collect formats made the separator ambiguous. Display and eplotframe
+* could silently contain malformed or missing bounds at rc=0.
+capture noisily {
+    clear
+    set seed 5501
+    set obs 600
+    gen double x = rnormal()
+    gen double y = 5000 + 2000 * x + rnormal(0, 500)
+    quietly regress y x
+    collect clear
+    collect: margins, dydx(x)
+    tempname _sep_m
+    matrix `_sep_m' = r(table)
+    local _expected_ll = `_sep_m'[5, 1]
+    local _expected_ul = `_sep_m'[6, 1]
+    capture frame drop _ef_sep_display
+    capture frame drop _ef_sep_plot
+    effecttab, sep(",") frame(_ef_sep_display, replace) ///
+        eplotframe(_ef_sep_plot, replace)
+    frame _ef_sep_display {
+        count if strpos(c2, `"""') > 0
+        assert r(N) == 0
+    }
+    frame _ef_sep_plot {
+        summarize ll if rowtype == "effect", meanonly
+        local _actual_ll = r(mean)
+        summarize ul if rowtype == "effect", meanonly
+        local _actual_ul = r(mean)
+    }
+    assert abs(`_actual_ll' - `_expected_ll') < 1e-8
+    assert abs(`_actual_ul' - `_expected_ul') < 1e-8
+}
+if _rc == 0 {
+    display as result "PASS: sep — comma delimiter preserves large CI bounds"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: sep — comma delimiter corrupted large CI bounds (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _ef_sep_display
+capture frame drop _ef_sep_plot
 
 
 

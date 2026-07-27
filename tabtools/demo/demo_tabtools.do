@@ -877,18 +877,21 @@ regtab, xlsx("`xlsx_regtab'") sheet("Poisson") ///
     title("Table 5b. Poisson Regression -- Incidence Rate Ratios") ///
     coef("IRR") noint stats(n aic) models("Poisson")
 
-**# Sheet 18: GEE with QIC -- Population-averaged model with QIC statistic
-* Demonstrates: xtgee, stats(aic) auto-fallback to QIC, multi-model comparison
+**# Sheet 18: GEE with QICu -- Population-averaged model with QICu statistic
+* Demonstrates: fixed-scale binomial xtgee, stats(aic) auto-fallback to QICu,
+* and a valid same-sample/same-correlation mean-model comparison
 preserve
-webuse nlswork, clear
+webuse union, clear
 xtset idcode year
 collect clear
-collect: xtgee ln_wage age tenure, family(gaussian) link(identity) corr(exchangeable)
-collect: xtgee ln_wage age tenure i.race, family(gaussian) link(identity) corr(exchangeable)
+collect: xtgee union age grade not_smsa south, ///
+    family(binomial) link(logit) corr(exchangeable)
+collect: xtgee union age grade not_smsa south black, ///
+    family(binomial) link(logit) corr(exchangeable)
 
-regtab, xlsx("`xlsx_regtab'") sheet("GEE QIC") ///
-    title("Table 5c. GEE Models -- QIC for Model Comparison") ///
-    noint stats(n aic groups) models("Exchangeable" \ "Adjusted")
+regtab, xlsx("`xlsx_regtab'") sheet("GEE QICu") ///
+    title("Table 5c. GEE Models -- QICu for Model Comparison") ///
+    noint stats(n aic groups) models("Base mean model" \ "Adjusted mean model")
 restore
 
 **# Sheet 19: Regtab Advanced -- Conditional formatting and label features
@@ -1829,8 +1832,19 @@ display as result "  `pkg_dir'/console_output.md"
 display as result "  `markdown_report'"
 foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
     capture confirm file "`xlsx_`_f''"
-    if _rc == 0 display as result "  `xlsx_`_f''"
+    if _rc {
+        display as error "Expected demo artifact not found: `xlsx_`_f''"
+        exit 601
+    }
+    display as result "  `xlsx_`_f''"
 }
+
+* Append a machine-readable success sentinel only after every demo command,
+* conversion, and artifact assertion has completed. This lets automated log
+* review distinguish a successful demo from an unclassified transcript.
+log using "`console_log'", append text name(demo) nomsg
+display "RESULT: demo_tabtools tests=1 pass=1 fail=0"
+log close demo
 
 }
 local _demo_success "1"

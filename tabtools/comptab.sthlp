@@ -339,6 +339,8 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {synopt:{cmd:r(N_models)}}number of models (from source frames){p_end}
 {synopt:{cmd:r(N_frames)}}number of source frames{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level shared by all source frames{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel file path (if exported){p_end}
@@ -346,8 +348,6 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
 
 

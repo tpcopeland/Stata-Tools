@@ -1,4 +1,4 @@
-*! table1_tc Version 1.10.0  2026/07/22 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.10.1  2026/07/27 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -570,7 +570,8 @@ program define table1_tc, rclass
 
         preserve
         use "`_wtc_crude_table'", clear
-        capture replace sort1 = sort1 + 1 if sort1 >= 2
+        capture confirm variable sort1
+        if !_rc replace sort1 = sort1 + 1 if sort1 >= 2
 
         local _wtc_merge_levels `"`_group_levels'"'
         if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
@@ -622,7 +623,7 @@ program define table1_tc, rclass
     if !`has_smd' capture drop smd_val
 
     /* Restore value labels if available */
-    capture do "`labels'"
+    if "`vallab'" != "" quietly do "`labels'"
     
     /* Set up total column label */
     if "`total'" != "" {
@@ -682,8 +683,10 @@ program define table1_tc, rclass
                 qui set obs `_new'
                 qui replace factor = "  Missing" in `_new'
                 qui replace factor_sep = factor_sep[`_obs'] in `_new'
-                capture replace sort1 = sort1[`_obs'] in `_new'
-                capture replace sort2 = 9999 in `_new'
+                capture confirm variable sort1
+                if !_rc replace sort1 = sort1[`_obs'] in `_new'
+                capture confirm variable sort2
+                if !_rc replace sort2 = 9999 in `_new'
                 foreach _lv of local levels {
                     local _mval = m_`_lv'[`_obs']
                     if !missing(`_mval') & `_mval' > 0 {
@@ -749,7 +752,10 @@ program define table1_tc, rclass
     qui desc, varlist
     foreach var of varlist `r(varlist)' {
         // Add variable label as header for each column
-        if "`var'" != "level" capture replace `var'="`: var lab `var''" in `newN'
+        if "`var'" != "level" {
+            capture confirm string variable `var'
+            if !_rc replace `var'="`: var lab `var''" in `newN'
+        }
     }
     qui replace sort1=0 in `newN'  // Set sort order to ensure header is first
 
@@ -760,12 +766,12 @@ program define table1_tc, rclass
     * Preserve raw numeric p-values for boldp/highlight formatting. Use tempvars
     * so a user column literally named _p_raw/_smd_raw can never be clobbered.
     tempvar p_raw smd_raw
-    capture drop `p_raw'
-    capture gen double `p_raw' = p
+    capture confirm variable p
+    if !_rc gen double `p_raw' = p
     capture drop p  // Drop raw p-value variable
     * Preserve raw SMD values for conditional formatting (O2)
-    capture drop `smd_raw'
-    capture gen double `smd_raw' = abs(smd_val)
+    capture confirm variable smd_val
+    if !_rc gen double `smd_raw' = abs(smd_val)
     capture drop smd_val  // Drop raw SMD values
     
     /* Left-justify strings except p-value */
@@ -848,8 +854,10 @@ program define table1_tc, rclass
 
         * Update header row values to match new labels
         foreach sfx of local _wtc_suffixes {
-            capture replace Cr_`sfx' = "`: var lab Cr_`sfx''" if _n == 1
-            capture replace Wt_`sfx' = "`: var lab Wt_`sfx''" if _n == 1
+            capture confirm string variable Cr_`sfx'
+            if !_rc replace Cr_`sfx' = "`: var lab Cr_`sfx''" if _n == 1
+            capture confirm string variable Wt_`sfx'
+            if !_rc replace Wt_`sfx' = "`: var lab Wt_`sfx''" if _n == 1
         }
     }
 
@@ -880,7 +888,6 @@ program define table1_tc, rclass
 
     /* Format N and missing counts */
     format `nformat' N_* m_*  // Apply count format to N and m columns
-    capture su cat_not_top_row  // Check if categorical variables exist
     cap drop cat_not_top_row  // Remove helper variable
     qui replace factor = "" if factor == "N"  // Clean up factor labels
     qui replace factor = " " if factor == "Factor "  // Clean up header
@@ -1291,17 +1298,13 @@ program define table1_tc, rclass
                     local _rt_c = 0
                     if `_has_praw' {
                         local _rt_c = `_rt_c' + 1
-                        capture {
-                            local _pval = `p_raw'[`_obs']
-                            if `_pval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
-                        }
+                        local _pval = `p_raw'[`_obs']
+                        if `_pval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
                     }
                     if `_has_smdraw' {
                         local _rt_c = `_rt_c' + 1
-                        capture {
-                            local _sval = `smd_raw'[`_obs']
-                            if `_sval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
-                        }
+                        local _sval = `smd_raw'[`_obs']
+                        if `_sval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
                     }
                     * Clean variable name for row label
                     local _rname = subinstr("`_fval'", ".", "_", .)
@@ -1345,8 +1348,11 @@ program define table1_tc, rclass
             replace title = `"`title'"' if _n == 1  // Set title text
             
             /* Add p-value header */
-            capture replace pvalue = "p-value" if _n == 2  // Label p-value column
-            capture replace pvalue = "" if _n == 3  // Clear row 3
+            capture confirm string variable pvalue
+            if !_rc {
+                replace pvalue = "p-value" if _n == 2  // Label p-value column
+                replace pvalue = "" if _n == 3  // Clear row 3
+            }
 			
 			/* Create column format headers based on variable types */
 			local header_parts = ""

@@ -381,11 +381,11 @@ capture noisily {
     assert `_d2' < 1e-6
 }
 if _rc == 0 {
-    display as result "  PASS: DET-9 phtest rho == unscaled Schoenfeld/time rho"
+    display as result "  PASS: DET-9 phtest rho == raw-Schoenfeld/time rho"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: DET-9 phtest vs unscaled residual correlation (rc=`=_rc')"
+    display as error "  FAIL: DET-9 phtest vs raw-residual correlation (rc=`=_rc')"
     local ++fail_count
 }
 

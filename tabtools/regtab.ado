@@ -1,4 +1,4 @@
-*! regtab Version 1.10.0  2026/07/22
+*! regtab Version 1.10.1  2026/07/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -22,7 +22,8 @@ SYNTAX:
 	        - n: Number of observations
 	        - aic: Akaike Information Criterion
 	        - bic: Bayesian Information Criterion
-	        - qic: Quasi-likelihood Information Criterion (for GEE/xtgee models)
+	        - qic: QICu, Pan's fixed-penalty QIC approximation
+	          (xtgee models with dispersion fixed at 1)
 	        - icc: Intraclass Correlation Coefficient (for mixed models)
 	        - ll: Log-likelihood
 	        - groups: Number of groups (for mixed models)
@@ -83,7 +84,7 @@ local _user_coef_spec = ("`coef'" != "")
 local _user_noint_spec = ("`nointercept'" != "")
 
 * Default reference category label
-if "`refcat'" == "" local refcat "Reference"
+if `"`refcat'"' == "" local refcat "Reference"
 local _has_xlsx = "`xlsx'" != ""
 if `_has_xlsx' & "`sheet'" == "" local sheet "Regression"
 if !`_has_xlsx' & "`sheet'" == "" local sheet "Regression"
@@ -378,6 +379,10 @@ quietly{
         exit 198
     }
 
+	if `"`sep'"' != "" {
+	    _tabtools_strip_outer_quotes, text(`"`sep'"')
+	    local sep `"`r(text)'"'
+	}
 	if `"`sep'"' == "" local sep ", "      // Default CI delimiter
 
     * =========================================================================
@@ -428,9 +433,10 @@ quietly{
         local nointercept ""
     }
 
+    local _re_family_seen ""
+    local _any_gee 0
     if `_meta_models' > 0 {
         local _shared_coef ""
-        local _re_family_seen ""
         local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
             local _cmdline_lc `"`model_cmdline_`m''"'
@@ -453,10 +459,20 @@ quietly{
             local model_eform_`m' 0
             local model_auto_noint_`m' 0
             local model_re_family_`m' "none"
+            local model_is_gee_`m' 0
             * model_icc_undef = 1 means ICC is undefined for this model family
             * (count-data mixed models: mepoisson, menbreg). Set in the
             * inlist branches below so the ICC code path can skip per-model.
             local model_icc_undef_`m' 0
+            * Latent response variance used when the model has no estimated
+            * level-1 residual variance. Missing means that a residual variance
+            * must be recovered from the collected results/e(b), not guessed.
+            local model_icc_resid_`m' = .
+
+            if "`_cmdword'" == "xtgee" | "`model_cmd_`m''" == "xtgee" {
+                local model_is_gee_`m' 1
+                local _any_gee 1
+            }
 
             if inlist("`_cmdword'", "logit", "ologit") {
                 local model_coef_`m' "OR"
@@ -475,6 +491,7 @@ quietly{
                 local model_eform_`m' = !`_has_or'
                 local model_auto_noint_`m' 1
                 local model_re_family_`m' "mor"
+                local model_icc_resid_`m' = c(pi)^2/3
             }
             else if inlist("`_cmdword'", "poisson", "nbreg", "mepoisson", "menbreg") {
                 local model_coef_`m' "IRR"
@@ -518,9 +535,56 @@ quietly{
                 local model_null_`m' 1
                 local model_auto_noint_`m' 1
                 local model_re_family_`m' "mhr"
+                if "`_cmdword'" == "mecloglog" {
+                    local model_icc_resid_`m' = c(pi)^2/6
+                }
+                else local model_icc_undef_`m' 1
             }
             else if "`_cmdword'" == "mixed" {
                 local model_re_family_`m' "variance"
+            }
+            else if inlist("`_cmdword'", "meglm", "meintreg", "menl", ///
+                "meologit", "meoprobit", "meprobit", "meqrlogit", ///
+                "meqrpoisson", "metobit") {
+                * These mixed estimators report variance-scale random-effect
+                * parameters. Classifying them explicitly prevents a MOR/MHR
+                * transform from one model being silently applied to their
+                * random-effect rows in a combined collection.
+                local model_re_family_`m' "variance"
+                if inlist("`_cmdword'", "meologit", "meqrlogit") {
+                    local model_icc_resid_`m' = c(pi)^2/3
+                }
+                else if inlist("`_cmdword'", "meoprobit", "meprobit") {
+                    local model_icc_resid_`m' = 1
+                }
+                else if "`_cmdword'" == "meqrpoisson" {
+                    local model_icc_undef_`m' 1
+                }
+                else if "`_cmdword'" == "meglm" {
+                    local _meglm_family ""
+                    local _meglm_link ""
+                    if regexm(`"`_optstr'"', "family\(([a-z0-9_]+)") {
+                        local _meglm_family = lower(regexs(1))
+                    }
+                    if regexm(`"`_optstr'"', "link\(([a-z0-9_]+)") {
+                        local _meglm_link = lower(regexs(1))
+                    }
+                    if inlist("`_meglm_family'", "bernoulli", "binomial") {
+                        if inlist("`_meglm_link'", "", "logit") {
+                            local model_icc_resid_`m' = c(pi)^2/3
+                        }
+                        else if "`_meglm_link'" == "probit" {
+                            local model_icc_resid_`m' = 1
+                        }
+                        else if "`_meglm_link'" == "cloglog" {
+                            local model_icc_resid_`m' = c(pi)^2/6
+                        }
+                        else local model_icc_undef_`m' 1
+                    }
+                    else if !inlist("`_meglm_family'", "", "gaussian", "normal") {
+                        local model_icc_undef_`m' 1
+                    }
+                }
             }
             else if "`_cmdword'" == "glm" {
                 local _glm_family ""
@@ -645,6 +709,7 @@ quietly{
         * The collect framework stores e() scalars per cmdset.
         * Extract via temporary layout + export + import cycle.
         local n_stat_models = 0
+        local _qicu_scale_unavailable ""
 
         * Build list of result levels needed
         * Note: N is always collected when BIC is requested — BIC requires N
@@ -662,6 +727,7 @@ quietly{
         }
         if `want_qic' | `want_aic' {
             local result_levels "`result_levels' deviance"
+            if `_any_gee' local result_levels "`result_levels' phi"
         }
         if `want_groups' local result_levels "`result_levels' N_g"
         if `want_r2' local result_levels "`result_levels' r2 r2_p r2_a"
@@ -700,6 +766,7 @@ quietly{
                     local stat_col_bic ""
                     local stat_col_rank ""
                     local stat_col_deviance ""
+                    local stat_col_phi ""
                     local stat_col_N_g ""
                     local stat_col_r2 ""
                     local stat_col_r2_p ""
@@ -716,6 +783,7 @@ quietly{
                         if "`hdr'" == "bic" local stat_col_bic "`v'"
                         if "`hdr'" == "rank" local stat_col_rank "`v'"
                         if "`hdr'" == "deviance" local stat_col_deviance "`v'"
+                        if "`hdr'" == "phi" local stat_col_phi "`v'"
                         if "`hdr'" == "N_g" local stat_col_N_g "`v'"
                         if "`hdr'" == "r2" local stat_col_r2 "`v'"
                         if "`hdr'" == "r2_p" local stat_col_r2_p "`v'"
@@ -728,7 +796,7 @@ quietly{
                         local r = `m' + 1
 
                         * Extract each result level
-                        foreach sname in N N_sub ll aic bic rank deviance N_g r2 r2_p r2_a {
+                        foreach sname in N N_sub ll aic bic rank deviance phi N_g r2 r2_p r2_a {
                             if "`sname'" == "N_g" local lname "groups"
                             else local lname "`sname'"
                             local stat_`lname'_`m' = .
@@ -741,18 +809,34 @@ quietly{
                             }
                         }
 
-                        * Compute QIC_u from deviance + rank (GEE models).
+                        * Compute QIC_u from deviance + rank only for xtgee
+                        * models whose dispersion is fixed at phi=1.
                         * NOTE: this is Pan (2001) QIC_u, the fixed-penalty
                         * approximation, NOT QIC. Pan's QIC penalty is
                         * 2*trace(Omega*Sigma); QIC_u replaces that trace with
-                        * the rank. Consequence: valid only for comparing models
-                        * that share a working correlation structure, never for
-                        * SELECTING one. The return keeps the name r(qic_#) for
-                        * backward compatibility; regtab.sthlp states which
-                        * criterion it actually is.
+                        * the rank. Pan's unknown-dispersion case requires one
+                        * common phi across all candidate models; dividing each
+                        * model by its own e(phi) would silently invalidate the
+                        * comparison. The fixed-phi boundary is therefore
+                        * deliberate and conservative.
                         local stat_qic_`m' = .
-                        if `stat_deviance_`m'' != . & `stat_rank_`m'' != . {
-                            local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
+                        local _this_is_gee = 0
+                        if `m' <= `_meta_models' {
+                            local _this_is_gee = `model_is_gee_`m''
+                        }
+                        if `_this_is_gee' {
+                            * xtgee is quasi-likelihood based: never retain a
+                            * backend e(aic)/e(bic) on an incompatible scale.
+                            local stat_aic_`m' = .
+                            local stat_bic_`m' = .
+                            if `stat_phi_`m'' != . & abs(`stat_phi_`m'' - 1) <= 1e-10 & ///
+                                `stat_deviance_`m'' != . & `stat_rank_`m'' != . {
+                                local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
+                            }
+                            else if (`want_qic' | `want_aic') {
+                                local _qicu_scale_unavailable ///
+                                    `"`_qicu_scale_unavailable' `m'"'
+                            }
                         }
 
                         * AIC = -2*ll + 2*k. Always recompute from ll + rank when
@@ -760,14 +844,15 @@ quietly{
                         * backend) stores e(aic) as AIC/N (per observation), ~N times
                         * too small. The formula matches estat ic for every ML/GLM
                         * estimator and keeps glm and mixed models on one scale.
-                        if `stat_ll_`m'' != . & `stat_rank_`m'' != . {
+                        if !`_this_is_gee' & `stat_ll_`m'' != . & `stat_rank_`m'' != . {
                             local stat_aic_`m' = -2 * `stat_ll_`m'' + 2 * `stat_rank_`m''
                         }
 
                         * BIC = -2*ll + k*ln(N), likewise recomputed from ll + rank + N.
                         * glm's e(bic) uses a deviance-based convention that is not
                         * comparable to the likelihood BIC mixed models report.
-                        if `stat_ll_`m'' != . & `stat_rank_`m'' != . & `stat_N_`m'' != . {
+                        if !`_this_is_gee' & `stat_ll_`m'' != . & ///
+                            `stat_rank_`m'' != . & `stat_N_`m'' != . {
                             local stat_bic_`m' = -2 * `stat_ll_`m'' + `stat_rank_`m'' * ln(`stat_N_`m'')
                         }
 
@@ -794,11 +879,9 @@ quietly{
                 local _grp = .
                 capture local _grp = e(N_g)
                 if `_grp' == . {
-                    capture {
-                        tempname ng_mat
-                        matrix `ng_mat' = e(N_g)
-                        local _grp = `ng_mat'[1,1]
-                    }
+                    tempname ng_mat
+                    capture matrix `ng_mat' = e(N_g)
+                    if !_rc local _grp = `ng_mat'[1,1]
                 }
                 if `_grp' == . capture local _grp = e(N_clust)
                 if `_grp' != . {
@@ -819,26 +902,25 @@ quietly{
             local stat_r2_1 = .
             local stat_r2_p_1 = .
             local stat_r2_a_1 = .
+            local stat_phi_1 = .
 
             capture local stat_N_1 = e(N)
-            capture {
-                local _nsub = e(N_sub)
-                if `_nsub' != . {
-                    local stat_N_1 = `_nsub'
-                    local _any_N_sub = 1
-                }
+            if _rc local stat_N_1 = .
+            local _nsub = .
+            capture local _nsub = e(N_sub)
+            if !_rc & `_nsub' != . {
+                local stat_N_1 = `_nsub'
+                local _any_N_sub = 1
             }
             capture local stat_ll_1 = e(ll)
+            if _rc local stat_ll_1 = .
 
-            capture {
-                local stat_groups_1 = e(N_g)
-            }
+            capture local stat_groups_1 = e(N_g)
+            if _rc local stat_groups_1 = .
             if `stat_groups_1' == . {
-                capture {
-                    tempname ng_mat
-                    matrix `ng_mat' = e(N_g)
-                    local stat_groups_1 = `ng_mat'[1,1]
-                }
+                tempname ng_mat
+                capture matrix `ng_mat' = e(N_g)
+                if !_rc local stat_groups_1 = `ng_mat'[1,1]
             }
             if `stat_groups_1' == . {
                 capture local stat_groups_1 = e(N_clust)
@@ -877,16 +959,37 @@ quietly{
                 }
             }
 
-            * QIC for GEE models: deviance + 2*rank
+            * QICu fallback is available only for an active xtgee model with
+            * dispersion fixed at one. Estimated/unknown dispersion requires
+            * a user-supplied common scale across candidate models, which this
+            * collection-only formatter cannot establish safely.
+            local _active_cmd ""
+            local _active_cmd2 ""
+            capture local _active_cmd = lower(e(cmd))
+            if _rc local _active_cmd ""
+            capture local _active_cmd2 = lower(e(cmd2))
+            if _rc local _active_cmd2 ""
+            local _active_is_gee = ///
+                inlist("`_active_cmd'", "xtgee") | inlist("`_active_cmd2'", "xtgee")
+            capture local stat_phi_1 = e(phi)
+            if _rc local stat_phi_1 = .
             local _deviance = .
             capture local _deviance = e(deviance)
-            if `_deviance' != . {
+            if `_active_is_gee' {
+                local stat_aic_1 = .
+                local stat_bic_1 = .
+            }
+            if `_active_is_gee' & `stat_phi_1' != . & ///
+                abs(`stat_phi_1' - 1) <= 1e-10 & `_deviance' != . {
                 if `stat_k_1' == . {
                     capture local stat_k_1 = e(rank)
                 }
                 if `stat_k_1' != . {
                     local stat_qic_1 = `_deviance' + 2 * `stat_k_1'
                 }
+            }
+            else if `_active_is_gee' & (`want_qic' | `want_aic') {
+                local _qicu_scale_unavailable "1"
             }
 
             * Flag as single-model fallback. For multi-model collections this
@@ -900,6 +1003,15 @@ quietly{
                 noisily display as text "Note: per-model stats extraction failed; falling back to active e() for model 1 only"
                 noisily display as text "      remaining model columns will be blank for stats() rows"
             }
+        }
+
+        if "`_qicu_scale_unavailable'" != "" {
+            local _qicu_scale_unavailable : list uniq _qicu_scale_unavailable
+            local _qicu_scale_unavailable = strtrim("`_qicu_scale_unavailable'")
+            noisily display as text ///
+                "Note: QICu unavailable for GEE model(s) `_qicu_scale_unavailable': dispersion is not fixed at 1"
+            noisily display as text ///
+                "      use xtgee, scale(1), or compute all candidates externally with one common scale"
         }
 
         * ICC: extract variance components per model from collection
@@ -1010,8 +1122,16 @@ quietly{
                             local stat_icc_`m' = `val_re' / (`val_re' + `val_resid')
                         }
                         else if "`val_re'" != "" & "`val_resid'" == "" {
-                            * Binary outcome (melogit): use pi^2/3 for level-1 variance
-                            local stat_icc_`m' = `val_re' / (`val_re' + c(pi)^2/3)
+                            * Latent-response models have link-specific
+                            * level-1 variances. Never default an unknown model
+                            * to the logistic pi^2/3 denominator.
+                            local _icc_resid = .
+                            if `m' <= `_meta_models' {
+                                local _icc_resid = `model_icc_resid_`m''
+                            }
+                            if `_icc_resid' != . {
+                                local stat_icc_`m' = `val_re' / (`val_re' + `_icc_resid')
+                            }
                         }
                     }
                 }
@@ -1053,8 +1173,9 @@ quietly{
                 local var_re = 0
                 local var_re_found = 0
                 local var_resid = ""
-                capture {
-                    matrix `temp_b' = e(b)
+                capture matrix `temp_b' = e(b)
+                local _have_icc_b = (_rc == 0)
+                if `_have_icc_b' {
                     local colnames : colfullnames `temp_b'
                     local col = 1
                     foreach colname of local colnames {
@@ -1080,8 +1201,16 @@ quietly{
                     local stat_icc_`n_stat_models' = `var_re' / (`var_re' + `var_resid')
                 }
                 else if `var_re_found' {
-                    * Binary outcome (melogit): use pi^2/3 for level-1 variance
-                    local stat_icc_`n_stat_models' = `var_re' / (`var_re' + c(pi)^2/3)
+                    * Use the model-specific latent response variance (logit,
+                    * probit, or cloglog); missing means unsupported, not pi^2/3.
+                    local _icc_resid = .
+                    if `n_stat_models' <= `_meta_models' {
+                        local _icc_resid = `model_icc_resid_`n_stat_models''
+                    }
+                    if `_icc_resid' != . {
+                        local stat_icc_`n_stat_models' = ///
+                            `var_re' / (`var_re' + `_icc_resid')
+                    }
                 }
                 local n_icc_models = `n_stat_models'
             }
@@ -1093,21 +1222,30 @@ quietly{
     * =========================================================================
     * melogit -> Median Odds Ratio (MOR)
     * mestreg / mecloglog -> Median Hazard Ratio (MHR)
-    * Note: melogit stores e(cmd)="meglm", mestreg stores e(cmd)="gsem"
-    * The original command name is in e(cmd2)
-    * For multi-model tables, e(cmd2) reflects the last model only.
-    * RE rows only exist for mixed-effects models, so if the last model
-    * is melogit/mestreg, MOR/MHR applies to its RE rows. Mixing
-    * different mixed-effects model types (e.g., mixed + melogit) in one
-    * table is not supported for MOR/MHR — use separate tables instead.
+    * Note: melogit stores e(cmd)="meglm", mestreg stores e(cmd)="gsem".
+    * For multi-model collections, use the per-model command metadata parsed
+    * above; ambient e(cmd2) belongs only to the last model and makes the
+    * transformation order-dependent when a nonmixed model comes last.
+    * Different mixed-effects families are rejected above unless RE rows are
+    * suppressed, so the single non-none family applies to every RE row.
     local re_transform = "none"
     local model_cmd2 = ""
-    capture local model_cmd2 = e(cmd2)
-    if "`model_cmd2'" == "melogit" {
+    if "`_re_family_seen'" == "mor" {
         local re_transform = "mor"
     }
-    else if inlist("`model_cmd2'", "mecloglog", "mestreg") {
+    else if "`_re_family_seen'" == "mhr" {
         local re_transform = "mhr"
+    }
+    else if "`_re_family_seen'" == "" {
+        * Fallback for collection layouts without usable command metadata.
+        capture local model_cmd2 = e(cmd2)
+        if _rc local model_cmd2 ""
+        if "`model_cmd2'" == "melogit" {
+            local re_transform = "mor"
+        }
+        else if inlist("`model_cmd2'", "mecloglog", "mestreg") {
+            local re_transform = "mhr"
+        }
     }
 
     * =========================================================================
@@ -1215,8 +1353,9 @@ quietly{
                     local _fvvar = regexs(2)
                     * Remove interaction prefix if present (e.g., c.var#1.var2)
                     if strpos("`_fvvar'", "#") > 0 continue
-                    capture {
-                        local _fvlbl : label (`_fvvar') `_fvval'
+                    local _fvlbl ""
+                    capture local _fvlbl : label (`_fvvar') `_fvval'
+                    if !_rc {
                         if "`_fvlbl'" != "" & "`_fvlbl'" != "`_fvval'" {
                             local _fvlabel_cmds `"`_fvlabel_cmds' `_fvval'.`_fvvar'=`_fvlbl'"'
                         }
@@ -1970,7 +2109,7 @@ replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
 * Other random effects: same decimal places as fixed effects
 replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
     if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
-replace c`i' = c`i'_fmt if c`i'_fmt != "" & c`i' != "`refcat'" & _n >= 3
+replace c`i' = c`i'_fmt if c`i'_fmt != "" & c`i' != `"`refcat'"' & _n >= 3
 drop c`i'z c`i'_fmt
 capture confirm variable c`=`i'+1'
 if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -2047,7 +2186,7 @@ forvalues i = 2(3)`=`last'+1' {
 if "`dimnonsig'" != "" {
     gen byte _is_refrow = 0
     forvalues _ri = 1(3)`last' {
-        replace _is_refrow = 1 if c`_ri' == "`refcat'" & _n >= 3
+        replace _is_refrow = 1 if c`_ri' == `"`refcat'"' & _n >= 3
     }
     gen byte _is_cathead = (_ci_seen == 0 & !_is_refrow & _n >= 3)
     forvalues _ri = 1(3)`last' {
@@ -2088,11 +2227,11 @@ gen str20 c`i'_orig = c`i'
 	if _rc gen double _eplot_p`_model_ix' = .
 	replace _eplot_p`_model_ix' = c`i'z if _n >= 3 & c`i'z < .
 	capture confirm variable _eplot_est`_model_ix'
-	if !_rc replace _eplot_est`_model_ix' = . if strtrim(c`=`i'-2') == "`refcat'" & _n >= 3
+	if !_rc replace _eplot_est`_model_ix' = . if strtrim(c`=`i'-2') == `"`refcat'"' & _n >= 3
 	capture confirm variable _eplot_ll`_model_ix'
-	if !_rc replace _eplot_ll`_model_ix' = . if strtrim(c`=`i'-2') == "`refcat'" & _n >= 3
+	if !_rc replace _eplot_ll`_model_ix' = . if strtrim(c`=`i'-2') == `"`refcat'"' & _n >= 3
 	capture confirm variable _eplot_ul`_model_ix'
-	if !_rc replace _eplot_ul`_model_ix' = . if strtrim(c`=`i'-2') == "`refcat'" & _n >= 3
+	if !_rc replace _eplot_ul`_model_ix' = . if strtrim(c`=`i'-2') == `"`refcat'"' & _n >= 3
 gen str20 c`i'_fmt = ""
 * Handle genuinely missing p-values (e.g., omitted variables, base categories)
 * If original string was "." or empty or converted to missing, leave blank
@@ -2189,13 +2328,11 @@ if `n_models' > 0 {
     forvalues _obs = 3/`=_N' {
         local _row_has_data = 0
         forvalues _ci = 1(3)`last' {
-            capture {
-                local _coefval = _coefnum`_ci'[`_obs']
-                local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
-                if `_coefval' < . {
-                    if strtrim(c`_ci'[`_obs']) != "`refcat'" {
-                        local _row_has_data = 1
-                    }
+            local _coefval = _coefnum`_ci'[`_obs']
+            local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+            if `_coefval' < . {
+                if strtrim(c`_ci'[`_obs']) != `"`refcat'"' {
+                    local _row_has_data = 1
                 }
             }
         }
@@ -2215,13 +2352,11 @@ if `_mat_nrows' > 0 {
         local _mc = 0
         forvalues _ci = 1(3)`last' {
             local _mc = `_mc' + 1
-            capture {
-                local _coefval = _coefnum`_ci'[`_obs']
-                local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
-                if `_coefval' < . {
-                    if strtrim(c`_ci'[`_obs']) != "`refcat'" {
-                        matrix `_rtable'[`_mr', `_mc'] = `_coefval'
-                    }
+            local _coefval = _coefnum`_ci'[`_obs']
+            local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+            if `_coefval' < . {
+                if strtrim(c`_ci'[`_obs']) != `"`refcat'"' {
+                    matrix `_rtable'[`_mr', `_mc'] = `_coefval'
                 }
             }
         }
@@ -2293,7 +2428,9 @@ if `add_stats' == 1 {
         }
     }
 
-    * Add AIC row (falls back to QIC for GEE models where AIC is undefined)
+    * Add AIC row (falls back to QICu for fixed-scale GEE models where AIC is
+    * undefined). Track that fallback so stats(aic qic) cannot append QICu twice.
+    local _qicu_rendered_by_aic 0
     if `want_aic' == 1 {
         local has_val = 0
         local _aic_label "AIC"
@@ -2304,7 +2441,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if `stat_qic_`m'' != . local has_val = 1
             }
-            if `has_val' local _aic_label "QIC"
+            if `has_val' local _aic_label "QICu"
         }
         if `has_val' {
             local curr_n = _N
@@ -2325,11 +2462,12 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            if "`_aic_label'" == "QICu" local _qicu_rendered_by_aic 1
         }
     }
 
-    * Add QIC row (explicit request — for GEE/xtgee models)
-    if `want_qic' == 1 {
+    * Add QICu row (explicit stats(qic) request — for GEE/xtgee models)
+    if `want_qic' == 1 & !`_qicu_rendered_by_aic' {
         local has_val = 0
         forvalues m = 1/`use_models' {
             if `stat_qic_`m'' != . local has_val = 1
@@ -2337,7 +2475,7 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "QIC" in `=`curr_n'+1'
+            replace A = "QICu" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if `stat_qic_`m'' != . {
                     local col = (`m' - 1) * 3 + 1
@@ -2710,7 +2848,7 @@ egen c`i'_max = max(c`i'_length)
 * should stay visually tight.
 local est_max = 0
 forvalues i = 1(`_cols_per_model')`last' {
-    sum c`i'_length if _n >= 3 & c`i' != "`refcat'", meanonly
+    sum c`i'_length if _n >= 3 & c`i' != `"`refcat'"', meanonly
     if r(N) > 0 & `r(max)' > `est_max' local est_max = `r(max)'
 }
 local ci_max = 0
@@ -2765,7 +2903,7 @@ if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 drop A_length factor_length c*_max c*_length
 
 forvalues i = 1(`_cols_per_model')`last'{
-gen ref`i' = _n if c`i' == "`refcat'"
+gen ref`i' = _n if c`i' == `"`refcat'"'
 order ref`i', after(c`i')
 levelsof ref`i', local(ref`i'_levels)
 }

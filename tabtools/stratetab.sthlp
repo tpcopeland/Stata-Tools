@@ -290,6 +290,8 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(N_exposures)}}number of exposure groups{p_end}
 {synopt:{cmd:r(N_outcomes)}}number of outcomes{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level carried by the source intervals{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(rates)}}numeric incidence-rate matrix{p_end}
@@ -301,8 +303,6 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(outcome_ids)}}backslash-separated machine-readable outcome identities{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph with rate and CI provenance{p_end}
 
 

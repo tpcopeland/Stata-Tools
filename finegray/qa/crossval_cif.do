@@ -1,6 +1,6 @@
 * crossval_cif.do
 * Cross-validation of the finegray cumulative-incidence machinery:
-*   (1) CIF POINT estimates vs riskRegression::predictRisk (should be bit-exact)
+*   (1) CIF point estimates vs riskRegression::predictRisk (tolerance <1e-4)
 *   (2) CIF standard errors vs a same-dataset subject bootstrap (the only
 *       available oracle; no standard tool exposes a Fine-Gray CIF SE)
 * SKIP-safe when R or riskRegression is unavailable.

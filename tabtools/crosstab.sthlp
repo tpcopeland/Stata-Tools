@@ -18,7 +18,7 @@ Markdown export
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{cmd:[fweight=}{it:exp}{cmd:]}],
+{p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] {cmd:[fweight=}{it:exp}{cmd:]},
 [{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt coch:ran} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt level(#)} {opt dig:its(#)}
@@ -244,6 +244,8 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {synopt:{cmd:r(p_trend)}}trend p-value (Spearman or Cochran-Armitage){p_end}
 {synopt:{cmd:r(chi2_trend)}}Cochran-Armitage trend chi-squared statistic (1 df){p_end}
 {synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic (when {opt cochran} is used){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}frequency matrix{p_end}
@@ -255,8 +257,6 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {marker alsosee}{title:Also see}
 

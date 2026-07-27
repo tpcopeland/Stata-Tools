@@ -104,12 +104,14 @@ interval and a two-sided Wald p-value.{p_end}
 
 {pstd}{bf:Direction of the contrast.} The difference is
 {bf:group 1 minus group 2}, where group 1 and group 2 are the first and second
-{opt by()} groups as displayed. Groups are ordered by the ascending
-{it:numeric} value of the {opt by()} variable, not by value-label text, so a
-value label cannot silently reverse the sign. The column header names the two
-groups explicitly (for example {cmd:Difference (Placebo - Active)}), the same
-direction is stated in {cmd:r(methods)}, and the group identities are returned
-in {cmd:r(group_}{it:#}{cmd:_value)} and {cmd:r(group_}{it:#}{cmd:_label)} so
+{opt by()} groups as displayed. Numeric groups are ordered by the ascending
+numeric value of the {opt by()} variable, not by value-label text; string
+groups are ordered lexically by their string values. The column header names
+the two groups explicitly (for example {cmd:Difference (Placebo - Active)}),
+the same direction is stated in {cmd:r(methods)}, and the original {opt by()}
+variable name is returned in {cmd:r(by_var)}, with original group values and
+display labels in {cmd:r(group_}{it:#}{cmd:_value)} and
+{cmd:r(group_}{it:#}{cmd:_label)}, so
 every per-group scalar can be mapped back to the group it came from. A positive
 difference therefore means group 1 has the larger restricted mean survival. To
 reverse the reported direction, recode the {opt by()} variable.{p_end}
@@ -262,10 +264,7 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level used for survival intervals{p_end}
 {synopt:{cmd:r(logrank_p)}}log-rank test p-value (when {cmd:by()} specified){p_end}
 {synopt:{cmd:r(logrank_chi2)}}log-rank test chi-squared statistic{p_end}
-{synopt:{cmd:r(by_var)}}name of the {opt by()} variable (when {opt by()}){p_end}
 {synopt:{cmd:r(n_groups)}}number of {opt by()} groups (when {opt by()}){p_end}
-{synopt:{cmd:r(group_{it:#}_value)}}value of the {opt by()} variable for group {it:#}{p_end}
-{synopt:{cmd:r(group_{it:#}_label)}}value label for group {it:#}{p_end}
 {synopt:{cmd:r(median_{it:#})}}median survival for group {it:#} (when {cmd:median}){p_end}
 {synopt:{cmd:r(events_{it:#})}}event count for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(atrisk_{it:#})}}group denominator for group {it:#} (when {cmd:events}){p_end}
@@ -278,16 +277,24 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(rmst_se_{it:#})}}standard error of RMST for group {it:#}{p_end}
 {synopt:{cmd:r(rmst_lb_{it:#})}}lower CI bound of RMST for group {it:#}{p_end}
 {synopt:{cmd:r(rmst_ub_{it:#})}}upper CI bound of RMST for group {it:#}{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
+{synopt:{cmd:r(by_var)}}name of the {opt by()} variable (when {opt by()}){p_end}
+{synopt:{cmd:r(group_)}}dynamic group-identity family; see the two entries below{p_end}
+{synopt:{cmd:r(group_{it:#}_value)}}value of the {opt by()} variable for group {it:#}{p_end}
+{synopt:{cmd:r(group_{it:#}_label)}}value label for group {it:#}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
+
+{pstd}The dynamic {cmd:r(group_)} family is instantiated as
+{cmd:r(group_}{it:#}{cmd:_value)} and {cmd:r(group_}{it:#}{cmd:_label)} for
+each returned group.{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}survival estimates at each timepoint by group{p_end}

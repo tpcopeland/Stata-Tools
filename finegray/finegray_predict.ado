@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/07/25
+*! finegray_predict Version 1.2.0  2026/07/27
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -518,7 +518,6 @@ program define finegray_predict, rclass sortpreserve
                 * Exact SE via subject bootstrap; resample in a separate frame
                 * so the eval data (and accumulators) stay intact, and hold the
                 * user's e() across the refits.
-                local _fgid `"`_dta[st_id]'"'
                 * e(refitcmd), not e(cmdline): the refit runs on data already
                 * restricted to e(sample) and then resampled, so the user's
                 * `if'/`in' qualifier is meaningless there.  Replaying
@@ -527,11 +526,19 @@ program define finegray_predict, rclass sortpreserve
                 local _fgcmd `"`e(refitcmd)'"'
                 local _fgclust `"`e(clustvar)'"'
                 local _fgcovs `"`e(covariates)'"'
-                * A string id() cannot store _n; when it is non-numeric, give
-                * each resampled row a fresh unique numeric id instead.
-                capture confirm numeric variable `_fgid'
-                local _idnum = (_rc == 0)
-                if !`_idnum' tempvar _bsid
+                tempvar _bsid _bsclust
+                * Repeated draws of the same original cluster need a fresh
+                * bootstrap-cluster identity. Rewrite only the private replay;
+                * e(refitcmd) remains expressed in the user's variable names.
+                local _fgbscmd `"`_fgcmd'"'
+                if `"`_fgclust'"' != "" {
+                    local _fgbscmd : subinstr local _fgcmd ///
+                        "cluster(`_fgclust')" "cluster(`_bsclust')", all
+                    if `"`_fgbscmd'"' == `"`_fgcmd'"' {
+                        display as error "internal bootstrap error: cluster() is absent from e(refitcmd)"
+                        exit 498
+                    }
+                }
                 tempvar _bsum _bss
                 quietly gen double `_bsum' = 0 if `touse'
                 quietly gen double `_bss' = 0 if `touse'
@@ -568,22 +575,21 @@ program define finegray_predict, rclass sortpreserve
                         quietly use `"`_bdata'"', clear
                         * Resample whole clusters as units when the fit
                         * declared cluster(); otherwise resample subjects.
-                        if `"`_fgclust'"' != "" bsample, cluster(`_fgclust')
-                        else bsample
-                        * Each resampled draw must be a distinct subject for
-                        * finegray's within-id reduction.
-                        if `_idnum' quietly replace `_fgid' = _n
-                        else {
-                            quietly gen long `_bsid' = _n
-                            char _dta[st_id] "`_bsid'"
+                        if `"`_fgclust'"' != "" {
+                            bsample, cluster(`_fgclust') idcluster(`_bsclust')
                         }
+                        else bsample
+                        * e(sample) has one reduced record per subject. Use a
+                        * fresh survival id without overwriting any user variable.
+                        quietly gen long `_bsid' = _n
+                        char _dta[st_id] "`_bsid'"
                         * basehaz on the REFIT (not in e(refitcmd), which QA
                         * asserts reproduces e(b)): _finegray_boot_cif_obs runs
                         * AFTER this frame is left, when the resampled estimation
                         * data is gone, so it cannot rebuild the baseline in Mata
                         * -- it reads e(basehaz), which must therefore exist for
                         * the replication.
-                        capture `_fgcmd' basehaz
+                        capture `_fgbscmd' basehaz
                         local _reprc = _rc
                         if !`_reprc' & e(converged) != 1 local _reprc = 498
                         * A resample can lose a factor level, so the refit

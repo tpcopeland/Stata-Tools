@@ -8,6 +8,7 @@ local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
 if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
+local xlsx_checker "`qa_dir'/tools/check_xlsx.py"
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
@@ -428,28 +429,23 @@ local ++test_count
 capture noisily {
     quietly tabtools set clear
     local xlsx "`output_dir'/test_hrcomptab_apa.xlsx"
-    local styles "`output_dir'/test_hrcomptab_apa_styles.xml"
     capture erase "`xlsx'"
-    capture erase "`styles'"
 	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
 	        rows(1 \ 3/4) ///
 	        outcomemap("Outcome 1" \ "Outcome 2") ///
         xlsx("`xlsx'") sheet("APA") theme(apa)
     confirm file "`xlsx'"
-    shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
-    confirm file "`styles'"
-    * the Stata shell always leaves _rc 0 (see iivw/qa/test_iivw_v200_qagate.do,
-    * T1), so assert _rc == 0 after a grep asserted only that the preceding
-    * confirm file had succeeded -- the theme was never actually checked, and
-    * an unzip that wrote nothing would still pass. Everything after && runs
-    * only on exit 0, so the sentinel file IS the grep result.
     tempfile style_ok
     capture erase "`style_ok'"
-    shell ( grep -q 'Times New Roman' "`styles'" ) && touch "`style_ok'"
+    quietly shell python3 "`xlsx_checker'" "`xlsx'" --sheet "APA" ///
+        --font "Times New Roman" --fontsize 12 ///
+        --result-file "`style_ok'" --quiet
     confirm file "`style_ok'"
-    capture erase "`style_ok'"
-    shell ( grep -q 'sz val=\"12\"' "`styles'" ) && touch "`style_ok'"
-    confirm file "`style_ok'"
+    tempname _apa_style_fh
+    file open `_apa_style_fh' using "`style_ok'", read text
+    file read `_apa_style_fh' _apa_style_result
+    file close `_apa_style_fh'
+    assert `"`_apa_style_result'"' == "PASS"
 }
 if _rc == 0 {
     display as result "  PASS: hrcomptab theme(apa) reaches workbook styles"
@@ -469,23 +465,23 @@ capture noisily {
     quietly tabtools set font "Courier New"
     quietly tabtools set fontsize 13
     local xlsx "`output_dir'/test_hrcomptab_defaults.xlsx"
-    local styles "`output_dir'/test_hrcomptab_defaults_styles.xml"
     capture erase "`xlsx'"
-    capture erase "`styles'"
 	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
 	        rows(1 \ 3/4) ///
 	        outcomemap("Outcome 1" \ "Outcome 2") ///
         excel("`xlsx'") sheet("Defaults")
     confirm file "`xlsx'"
-    shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
-    confirm file "`styles'"
     tempfile style_ok
     capture erase "`style_ok'"
-    shell ( grep -q 'Courier New' "`styles'" ) && touch "`style_ok'"
+    quietly shell python3 "`xlsx_checker'" "`xlsx'" --sheet "Defaults" ///
+        --font "Courier New" --fontsize 13 ///
+        --result-file "`style_ok'" --quiet
     confirm file "`style_ok'"
-    capture erase "`style_ok'"
-    shell ( grep -q 'sz val=\"13\"' "`styles'" ) && touch "`style_ok'"
-    confirm file "`style_ok'"
+    tempname _default_style_fh
+    file open `_default_style_fh' using "`style_ok'", read text
+    file read `_default_style_fh' _default_style_result
+    file close `_default_style_fh'
+    assert `"`_default_style_result'"' == "PASS"
     quietly tabtools set clear
 }
 if _rc == 0 {

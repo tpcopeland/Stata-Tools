@@ -35,9 +35,9 @@
 *  CV21. regtab r(aic_#)/r(bic_#) == estat ic            — regtab.ado
 *        (regress, logit, poisson, mixed)
 *  CV22. regtab r(icc_#) == estat icc r(icc2)            — regtab.ado
-*        (mixed linear, melogit binary)
-*  CV23. regtab r(qic_#) == e(deviance)+2*e(rank)        — regtab.ado
-*        (xtgee; AIC->QIC fallback under stats(aic))
+*        (mixed linear, melogit logistic, meprobit probit)
+*  CV23. regtab QICu differences == statsmodels GEE      — regtab.ado
+*        (fixed phi=1; AIC fallback, dedupe, scale guard)
 
 clear all
 set more off
@@ -1519,9 +1519,9 @@ else {
 **## CV22: regtab ICC matches estat icc (end-to-end command oracle)
 * regtab derives the ICC from the random-intercept and residual variance
 * components: linear ICC = var(_cons)/(var(_cons)+var(e)); binary (melogit)
-* ICC = var(_cons)/(var(_cons)+pi^2/3). This oracle confirms the full-precision
-* r(icc_1) return equals estat icc's r(icc2) for two-level linear and logistic
-* mixed models.
+* ICC = var(_cons)/(var(_cons)+pi^2/3); binary (meprobit) uses latent
+* residual variance 1. These oracles confirm the full-precision r(icc_1)
+* return equals estat icc's r(icc2).
 local ++test_count
 capture noisily {
     * CV22a: mixed linear ICC
@@ -1557,11 +1557,20 @@ capture noisily {
     regtab, stats(icc) frame(_cv22b, replace)
     assert reldif(r(icc_1), `_e_icc') < 1e-7
 
+    * CV22c: meprobit binary ICC (latent residual variance 1, not pi^2/3)
+    collect clear
+    collect: meprobit _y _x || _grp:
+    quietly estat icc
+    local _e_icc = r(icc2)
+    regtab, stats(icc) frame(_cv22c, replace)
+    assert reldif(r(icc_1), `_e_icc') < 1e-7
+
     capture frame drop _cv22a
     capture frame drop _cv22b
+    capture frame drop _cv22c
 }
 if _rc == 0 {
-    display as result "  PASS: CV22 regtab ICC matches estat icc (mixed/melogit)"
+    display as result "  PASS: CV22 regtab ICC matches estat icc (mixed/melogit/meprobit)"
     local ++pass_count
 }
 else {
@@ -1570,44 +1579,93 @@ else {
     local failed_tests "`failed_tests' CV22"
 }
 
-**## CV23: regtab QIC matches deviance + 2*rank (GEE oracle)
-* AIC is undefined for GEE/xtgee (quasi-likelihood, not full ML), so regtab
-* reports QIC = deviance + 2*k. This oracle confirms r(qic_1) equals
-* e(deviance)+2*e(rank) computed directly from the fitted xtgee model, and that
-* under stats(aic) a GEE model falls back to QIC (r(aic_1) absent, r(qic_1) set).
+**## CV23: regtab fixed-scale QICu matches an external statsmodels oracle
+* Absolute QICu values can differ by a data-only additive constant across
+* implementations, so the independent oracle compares the QICu difference
+* between two same-data mean models. The test also verifies the stats(aic)
+* fallback, stats(aic qic) deduplication, and rejection of model-specific
+* estimated dispersion.
 local ++test_count
 capture noisily {
     clear
     set seed 555111
-    set obs 80
+    set obs 100
     gen long _id = _n
-    gen double _a = rnormal()
-    expand 6
+    gen double _u = 0.7 * rnormal()
+    expand 5
     bysort _id: gen int _t = _n
-    gen double _y = 1 + 0.4 * _a + 0.2 * _t + rnormal()
+    gen double _x = rnormal()
+    gen double _z = rnormal()
+    gen double _eta = -0.6 + 0.55 * _x + 0.12 * _t + 0.35 * _z + _u
+    gen byte _y = runiform() < invlogit(_eta)
+
+    local _cv23_input "`_cv_r_root'/qicu_input.csv"
+    local _cv23_output "`_cv_r_root'/qicu_statsmodels.csv"
+    local _cv23_log "`_cv_r_root'/qicu_statsmodels.log"
+    export delimited _id _y _x _t _z using "`_cv23_input'", replace
+    capture noisily shell python3 "`qa_dir'/tools/crossval_qicu.py" ///
+        "`_cv23_input'" "`_cv23_output'" > "`_cv23_log'" 2>&1
+    confirm file "`_cv23_output'"
+    preserve
+    import delimited "`_cv23_output'", stringcols(2) clear
+    forvalues _i = 1/`=_N' {
+        local _metric = metric[`_i']
+        local _py_`_metric' = real(value[`_i'])
+    }
+    restore
+
     xtset _id _t
     collect clear
-    collect: xtgee _y _a _t, family(gaussian) link(identity) corr(exchangeable)
-    local _ref_qic = e(deviance) + 2 * e(rank)
-    regtab, stats(qic) frame(_cv23a, replace)
-    assert reldif(r(qic_1), `_ref_qic') < 1e-8
-
-    * stats(aic) on a GEE model: AIC undefined -> QIC fallback
-    collect clear
-    collect: xtgee _y _a _t, family(gaussian) link(identity) corr(exchangeable)
-    regtab, stats(aic) frame(_cv23b, replace)
+    collect: xtgee _y _x _t, family(binomial) link(logit) corr(exchangeable)
+    collect: xtgee _y _x _t _z, family(binomial) link(logit) corr(exchangeable)
+    assert abs(e(phi) - 1) < 1e-12
+    regtab, stats(aic qic) frame(_cv23a, replace)
+    local _stata_qicu_1 = r(qic_1)
+    local _stata_qicu_2 = r(qic_2)
     assert missing(r(aic_1))
-    assert reldif(r(qic_1), `_ref_qic') < 1e-8
+    assert missing(r(aic_2))
+    assert abs((`_stata_qicu_1' - `_stata_qicu_2') - `_py_qicu_delta') < 0.05
+    assert abs((`_stata_qicu_1' - `_py_qicu_1') - ///
+        (`_stata_qicu_2' - `_py_qicu_2')) < 0.05
+    frame _cv23a: count if A == "QICu"
+    assert r(N) == 1
+    frame _cv23a: count if A == "QIC"
+    assert r(N) == 0
+
+    * Estimated Gaussian scale is not comparable model by model and must not
+    * produce either a mislabeled AIC or a QICu value.
+    gen double _g = 1 + 0.4 * _x + 0.2 * _t + _u + rnormal(0, 2)
+    collect clear
+    collect: xtgee _g _x _t, family(gaussian) link(identity) corr(exchangeable)
+    assert abs(e(phi) - 1) > 0.1
+    regtab, stats(aic qic) frame(_cv23b, replace)
+    assert missing(r(aic_1))
+    assert missing(r(qic_1))
+    frame _cv23b: count if A == "QICu"
+    assert r(N) == 0
+    frame _cv23b: count if A == "AIC"
+    assert r(N) == 0
+
+    * An explicit common fixed scale restores the deviance-scale QICu path.
+    collect clear
+    collect: xtgee _g _x _t, family(gaussian) link(identity) ///
+        corr(exchangeable) scale(1)
+    local _fixed_ref = e(deviance) + 2 * e(rank)
+    regtab, stats(qic) frame(_cv23c, replace)
+    assert reldif(r(qic_1), `_fixed_ref') < 1e-8
+    frame _cv23c: count if A == "QICu"
+    assert r(N) == 1
 
     capture frame drop _cv23a
     capture frame drop _cv23b
+    capture frame drop _cv23c
 }
 if _rc == 0 {
-    display as result "  PASS: CV23 regtab QIC matches deviance+2*rank (xtgee, AIC->QIC fallback)"
+    display as result "  PASS: CV23 fixed-scale QICu matches statsmodels; scale guard/dedupe hold"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: CV23 regtab QIC vs deviance+2*rank"
+    display as error "  FAIL: CV23 fixed-scale QICu external parity/scale guard/dedupe"
     local ++fail_count
     local failed_tests "`failed_tests' CV23"
 }

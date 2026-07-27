@@ -1,4 +1,4 @@
-*! survtab Version 1.10.0  2026/07/22
+*! survtab Version 1.10.1  2026/07/27
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -190,6 +190,7 @@ capture noisily {
     local n_groups 1
     local group_levels ""
     local has_by = "`by'" != ""
+    local _by_is_string 0
     tempvar groupvar
     if `has_by' {
         capture confirm numeric variable `by'
@@ -197,6 +198,7 @@ capture noisily {
             qui clonevar `groupvar' = `by'
         }
         else {
+            local _by_is_string 1
             qui encode `by', gen(`groupvar')
         }
         qui levelsof `groupvar' if _st, local(group_levels)
@@ -234,12 +236,15 @@ capture noisily {
         local _glv : word `g' of `group_levels'
         if `has_by' {
             local _glabel : label (`groupvar') `_glv'
+            if `_by_is_string' local _gvalue `"`_glabel'"'
+            else local _gvalue `"`_glv'"'
         }
         else {
             local _glabel "Overall"
+            local _gvalue "1"
         }
         local glabel_`g' `"`_glabel'"'
-        local glevel_`g' `"`_glv'"'
+        local glevel_`g' `"`_gvalue'"'
         if "`st_id'" != "" {
             tempvar _gn_tag
             qui egen byte `_gn_tag' = tag(`st_id') if `groupvar' == `_glv' & _st
@@ -823,7 +828,7 @@ capture noisily {
     * could not be mapped back to the by() values they came from, which matters
     * because the RMST contrast below is sign-sensitive publication output.
     if `has_by' {
-        return local by_var "`groupvar'"
+        return local by_var "`by'"
         return scalar n_groups = `n_groups'
         forvalues g = 1/`n_groups' {
             capture return local group_`g'_value `"`glevel_`g''"'
@@ -864,7 +869,7 @@ capture noisily {
         local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
         local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `level'% confidence intervals based on the Greenwood variance formula."
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
-            local _methods `"`_methods' The between-group RMST difference is reported as `glabel_1' minus `glabel_2' (the first minus the second by() group in ascending order of `groupvar'), with a `level'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
+            local _methods `"`_methods' The between-group RMST difference is reported as `glabel_1' minus `glabel_2' (the first minus the second by() group in ascending order of `by'), with a `level'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
         }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."

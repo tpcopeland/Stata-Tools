@@ -33,9 +33,9 @@ pkg="$work/finegray"
 # can make the suite pass is silently consuming it.  If the source tree has no
 # cache, synthesize a minimal-but-schema-valid one is out of scope: require it.
 if [[ ! -f "$pkg/qa/data/zzf_xv_oracle_beta.csv" || ! -f "$pkg/qa/data/zzf_xv_manifest.csv" ]]; then
-    echo "SKIP: no stale oracle cache in $pkg/qa/data to attempt to consume" >&2
+    echo "FAIL: no stale oracle cache in $pkg/qa/data to attempt to consume" >&2
     echo "      (run the real ZZF crossval once to populate it, then re-run this gate)" >&2
-    exit 0
+    exit 1
 fi
 
 # Fake Rscript first on PATH: prints a marker, never touches data/, exits 97.

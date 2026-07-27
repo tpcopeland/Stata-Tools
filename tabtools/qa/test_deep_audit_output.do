@@ -387,7 +387,7 @@ capture noisily {
     assert `valid_p' < .
 }
 if _rc == 0 {
-    display as result "  PASS M17: requested trend tests either return a statistic or fail"
+    display as result "  PASS M17: requested trend tests either return a statistic or are rejected"
     local ++pass_count
 }
 else {

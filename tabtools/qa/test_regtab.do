@@ -1203,6 +1203,94 @@ else {
 }
 capture frame drop _rt_mix
 
+**# Test L2: MOR is invariant to a trailing nonmixed model
+* Fail-on-old: v1.10.0 used ambient e(cmd2), so melogit followed by logit
+* left the random-intercept variance untransformed while returning rc=0.
+capture noisily {
+    clear
+    set seed 90210
+    set obs 800
+    gen int group = ceil(_n / 40)
+    gen double x = rnormal()
+    gen double _u0 = rnormal()
+    bysort group: gen double u = _u0[1] * 0.8
+    gen double p = invlogit(-0.8 + 0.5 * x + u)
+    gen byte y = runiform() < p
+
+    collect clear
+    collect: melogit y x || group:
+    tempname _mor_b
+    matrix `_mor_b' = e(b)
+    local _var_re = .
+    local _j = 0
+    local _cn : colfullnames `_mor_b'
+    foreach _c of local _cn {
+        local ++_j
+        if regexm(`"`_c'"', "^/var\(_cons") local _var_re = `_mor_b'[1, `_j']
+    }
+    assert !missing(`_var_re')
+    local _expected_mor = exp(sqrt(2 * `_var_re') * invnormal(0.75))
+
+    collect: logit y x
+    capture frame drop _rt_mor_order
+    regtab, frame(_rt_mor_order, replace)
+    frame _rt_mor_order {
+        count if strpos(A, "Median Odds Ratio") > 0
+        assert r(N) == 1
+        gen long _row_index = _n
+        summarize _row_index if strpos(A, "Median Odds Ratio") > 0, meanonly
+        local _mor_row = r(min)
+        local _actual_mor = real(c1[`_mor_row'])
+    }
+    assert abs(`_actual_mor' - round(`_expected_mor', 0.01)) < 0.02
+}
+local test_count = `test_count' + 1
+if _rc == 0 {
+    display as result "  PASS: Test L2 - MOR is invariant to mixed/nonmixed model ordering"
+    local pass_count = `pass_count' + 1
+}
+else {
+    display as error "  FAIL: Test L2 - trailing nonmixed model corrupted MOR (rc=`=_rc')"
+    local fail_count = `fail_count' + 1
+}
+capture frame drop _rt_mor_order
+
+**# Test L3: incompatible mixed-family RE transforms are rejected
+* Fail-on-old: melogit was classified as MOR while meprobit was left as
+* "none", so the single global MOR transform silently converted meprobit's
+* latent-scale random-intercept variance and still returned rc=0.
+capture noisily {
+    clear
+    set seed 90211
+    set obs 800
+    gen int group = ceil(_n / 40)
+    gen double x = rnormal()
+    gen double _u0 = rnormal()
+    bysort group: gen double u = _u0[1] * 0.8
+    gen double p = invlogit(-0.8 + 0.5 * x + u)
+    gen byte y = runiform() < p
+
+    collect clear
+    collect: melogit y x || group:
+    collect: meprobit y x || group:
+    capture frame drop _rt_mixed_re
+    capture noisily regtab, frame(_rt_mixed_re, replace)
+    local _mixed_re_rc = _rc
+    assert `_mixed_re_rc' == 198
+    capture confirm frame _rt_mixed_re
+    assert _rc != 0
+}
+local test_count = `test_count' + 1
+if _rc == 0 {
+    display as result "  PASS: Test L3 - incompatible mixed-family RE transforms rejected"
+    local pass_count = `pass_count' + 1
+}
+else {
+    display as error "  FAIL: Test L3 - mixed-family RE corruption not blocked (rc=`=_rc')"
+    local fail_count = `fail_count' + 1
+}
+capture frame drop _rt_mixed_re
+
 **# Test M: invalid pdp()/highpdp() are rejected
 
 capture {
@@ -4264,6 +4352,39 @@ else {
 }
 capture frame drop _o5_1
 
+* --- O5.1b: embedded double quotes round-trip through refcat() ---
+local ++n_total
+capture noisily {
+    local _quoted_ref `"Base "quoted" level"'
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight i.foreign
+    capture frame drop _o5_1b
+    capture frame drop _o5_1b_plot
+    regtab, frame(_o5_1b, replace) eplotframe(_o5_1b_plot, replace) ///
+        refcat(`"`_quoted_ref'"')
+    frame _o5_1b {
+        count if c1 == `"`_quoted_ref'"'
+        assert r(N) == 1
+        count if c1 == `"`_quoted_ref'"' & !missing(ref1)
+        assert r(N) == 1
+    }
+    frame _o5_1b_plot {
+        count if rowtype == "reference" & missing(estimate)
+        assert r(N) == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: O5.1b — embedded double quotes survive display and graph frames"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: O5.1b — embedded double quotes were corrupted (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _o5_1b
+capture frame drop _o5_1b_plot
+
 * --- O5.2: default refcat is "Reference" ---
 local ++n_total
 capture noisily {
@@ -4883,7 +5004,7 @@ else {
 }
 
 **# v1.8.4: per-model model-fit statistic returns (r(aic_#) etc.)
-* regtab now exposes its computed AIC/BIC/QIC/ICC/LL/N/groups as full-precision
+* regtab now exposes its computed AIC/BIC/QICu/ICC/LL/N/groups as full-precision
 * r() scalars. Assert they exist when requested, carry the expected magnitudes,
 * and are ABSENT when not requested (only the deeper estat-equality check lives
 * in qa/crossval_tabtools.do CV21-23).
