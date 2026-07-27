@@ -107,18 +107,20 @@ quietly net install consort, from("`pkg_dir'")
 * =============================================================================
 * CHECK PYTHON AVAILABILITY
 * =============================================================================
+* Stata shell never sets _rc -- it reports 0 for a child that failed or does not
+* even exist -- so every probe below could not fire and python_available was
+* unconditionally 1. The save tests therefore assumed matplotlib without ever
+* checking for it, and on a host without it they failed instead of skipping.
+* Everything after && runs only on exit 0, so the sentinel file IS the exit
+* status. Probing the import alone is enough: it fails if the interpreter is
+* missing too. See _devkit/automation/scan_shell_rc.py.
 local python_available = 0
-capture shell python --version
-if _rc == 0 {
-    capture shell python -c "import matplotlib"
-    if _rc == 0 {
-        local python_available = 1
-    }
-}
-if `python_available' == 0 {
-    capture shell python3 --version
-    if _rc == 0 {
-        capture shell python3 -c "import matplotlib"
+tempfile mpl_ok
+foreach _py in python python3 {
+    if `python_available' == 0 {
+        capture erase "`mpl_ok'"
+        shell ( `_py' -c "import matplotlib" ) > /dev/null 2>&1 && touch "`mpl_ok'"
+        capture confirm file "`mpl_ok'"
         if _rc == 0 {
             local python_available = 1
         }

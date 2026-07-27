@@ -438,10 +438,18 @@ capture noisily {
     confirm file "`xlsx'"
     shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
     confirm file "`styles'"
-    shell grep -q 'Times New Roman' "`styles'"
-    assert _rc == 0
-    shell grep -q 'sz val=\"12\"' "`styles'"
-    assert _rc == 0
+    * the Stata shell always leaves _rc 0 (see iivw/qa/test_iivw_v200_qagate.do,
+    * T1), so assert _rc == 0 after a grep asserted only that the preceding
+    * confirm file had succeeded -- the theme was never actually checked, and
+    * an unzip that wrote nothing would still pass. Everything after && runs
+    * only on exit 0, so the sentinel file IS the grep result.
+    tempfile style_ok
+    capture erase "`style_ok'"
+    shell ( grep -q 'Times New Roman' "`styles'" ) && touch "`style_ok'"
+    confirm file "`style_ok'"
+    capture erase "`style_ok'"
+    shell ( grep -q 'sz val=\"12\"' "`styles'" ) && touch "`style_ok'"
+    confirm file "`style_ok'"
 }
 if _rc == 0 {
     display as result "  PASS: hrcomptab theme(apa) reaches workbook styles"
@@ -471,10 +479,13 @@ capture noisily {
     confirm file "`xlsx'"
     shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
     confirm file "`styles'"
-    shell grep -q 'Courier New' "`styles'"
-    assert _rc == 0
-    shell grep -q 'sz val=\"13\"' "`styles'"
-    assert _rc == 0
+    tempfile style_ok
+    capture erase "`style_ok'"
+    shell ( grep -q 'Courier New' "`styles'" ) && touch "`style_ok'"
+    confirm file "`style_ok'"
+    capture erase "`style_ok'"
+    shell ( grep -q 'sz val=\"13\"' "`styles'" ) && touch "`style_ok'"
+    confirm file "`style_ok'"
     quietly tabtools set clear
 }
 if _rc == 0 {

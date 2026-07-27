@@ -26,15 +26,11 @@ local checker "`tools_dir'/check_xlsx.py"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
-local python_cmd ""
-capture noisily shell python3 --version
-if _rc == 0 {
-    local python_cmd "python3"
-}
-else {
-    capture noisily shell python --version
-    if _rc == 0 local python_cmd "python"
-}
+* the Stata shell never sets _rc, so the python3 probe here and its python
+* fallback could not fire and python_cmd was always python3. python3 is a
+* required QA dependency, so it is named directly rather than
+* pretend-detected. See _devkit/automation/scan_shell_rc.py.
+local python_cmd "python3"
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
@@ -907,11 +903,19 @@ capture noisily {
     fclose(fh)
     end
 
-    capture shell cd "`output_dir'" && stata-mp -b do "tabtools_v161_reader.do"
-    local _shell_rc = _rc
+    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
+    * not even exist -- so the rc displayed here was always 0 and told the
+    * reader nothing. Everything after && runs only on exit 0, so the sentinel
+    * file IS the exit status. The two confirm lines below were already the real
+    * checks. See _devkit/automation/scan_shell_rc.py.
+    tempfile _child_ok
+    capture erase "`_child_ok'"
+    shell ( cd "`output_dir'" && stata-mp -b do "tabtools_v161_reader.do" ) && touch "`_child_ok'"
+    capture confirm file "`_child_ok'"
+    local _child_exit0 = (_rc == 0)
     confirm file "`reader_log'"
     confirm file "`reader_marker'"
-    display as text "  child shell rc: `_shell_rc'"
+    display as text "  child process exited 0: `_child_exit0'"
 }
 if _rc == 0 {
     _v161_pass "T6: default profile survives fresh Stata process"

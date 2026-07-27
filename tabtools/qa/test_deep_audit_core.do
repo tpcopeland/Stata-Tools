@@ -40,7 +40,15 @@ capture noisily {
     stacktab using "`dense'", blocks(sheet(Source) rows(1/2) cols(A-B)) ///
         sheet(Target) append
     assert r(append_start) == 20006
-    shell python3 "`workbook_tool'" "`dense'" dense --verify "`dense_sig'"
+    * This --verify verdict was discarded entirely: no rc read, no confirm, no
+    * assert, so the dense-workbook hash check was a no-op that could not fail.
+    * Everything after && runs only on exit 0, so the sentinel file IS the exit
+    * status. See _devkit/automation/scan_shell_rc.py.
+    tempfile dense_verify_ok
+    capture erase "`dense_verify_ok'"
+    shell ( python3 "`workbook_tool'" "`dense'" dense --verify "`dense_sig'" ) ///
+        && touch "`dense_verify_ok'"
+    confirm file "`dense_verify_ok'"
     preserve
     import excel "`dense'", sheet(Target) cellrange(A20001:C20007) ///
         allstring clear
@@ -62,6 +70,7 @@ else {
 }
 
 local ++test_count
+tempfile verify_ok
 foreach mode in sparse far-right formatted-tail numeric {
     local key = subinstr("`mode'", "-", "_", .)
     local wb "`output_dir'/`mode'.xlsx"
@@ -74,7 +83,15 @@ foreach mode in sparse far-right formatted-tail numeric {
         blocks(sheet(Source) rows(1/2) cols(A-B)) sheet(Target) append
     local rc_`key' = _rc
     local start_`key' = cond(_rc == 0, r(append_start), .)
-    capture noisily shell python3 "`workbook_tool'" "`wb'" `mode' --verify "`sig'"
+    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
+    * not even exist -- so hash_<key>_rc was always 0 and the assert below could
+    * not fail: the workbook hash was never actually verified. Everything after
+    * && runs only on exit 0, so the sentinel file IS the exit status, and
+    * confirm leaves _rc 0 when present / 601 when not, which the existing
+    * assert reads unchanged. See _devkit/automation/scan_shell_rc.py.
+    capture erase "`verify_ok'"
+    shell ( python3 "`workbook_tool'" "`wb'" `mode' --verify "`sig'" ) && touch "`verify_ok'"
+    capture confirm file "`verify_ok'"
     local hash_`key'_rc = _rc
 }
 capture noisily {

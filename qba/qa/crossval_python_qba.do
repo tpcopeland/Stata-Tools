@@ -49,7 +49,14 @@ end
 
 * Python is an optional external oracle. If it is absent, skip this file
 * without failing the Stata-only QA suite.
-capture noisily shell python3 --version
+* Stata shell never sets _rc -- it reports 0 for a child that failed or does
+* not even exist -- so this guard could not fire. Everything after && runs
+* only on exit 0, so the sentinel file IS the exit status. See
+* _devkit/automation/scan_shell_rc.py.
+tempfile py_ok
+capture erase "`py_ok'"
+shell ( python3 --version ) > /dev/null 2>&1 && touch "`py_ok'"
+capture confirm file "`py_ok'"
 if _rc {
     display as text "SKIP: python3 not available; Python cross-validation not run"
     capture ado uninstall qba
@@ -138,7 +145,14 @@ file write `fh' "    writer.writerow(['name', 'value'])" _n
 file write `fh' "    writer.writerows(rows)" _n
 file close `fh'
 
-capture noisily shell python3 "`pyscript'" "`pycsv'"
+* Stata shell never sets _rc -- it reports 0 for a child that failed or does
+* not even exist -- so this guard could not fire. Everything after && runs
+* only on exit 0, so the sentinel file IS the exit status. See
+* _devkit/automation/scan_shell_rc.py.
+tempfile oracle_ok
+capture erase "`oracle_ok'"
+shell ( python3 "`pyscript'" "`pycsv'" ) && touch "`oracle_ok'"
+capture confirm file "`oracle_ok'"
 if _rc {
     display as error "Python cross-validation oracle failed (error `=_rc')"
     exit 1

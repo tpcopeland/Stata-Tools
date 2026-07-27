@@ -36,7 +36,14 @@ if `install_rc' {
     exit `install_rc'
 }
 
-capture shell python3 --version
+* Stata shell never sets _rc -- it reports 0 for a child that failed or does
+* not even exist -- so this guard could not fire. Everything after && runs
+* only on exit 0, so the sentinel file IS the exit status. See
+* _devkit/automation/scan_shell_rc.py.
+tempfile py_ok
+capture erase "`py_ok'"
+shell ( python3 --version ) > /dev/null 2>&1 && touch "`py_ok'"
+capture confirm file "`py_ok'"
 if _rc {
     display as text "SKIP (dependency): python3 not available"
     capture ado uninstall psdash

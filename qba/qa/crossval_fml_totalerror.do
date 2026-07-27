@@ -91,7 +91,14 @@ program define _qba_crossval_fml_main
     * The oracle needs base R only -- no contributed packages -- so an
     * available Rscript is sufficient. A missing Rscript is a real gap, not a
     * skip: install R rather than weakening this suite.
-    capture noisily shell Rscript --version
+    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
+    * not even exist -- so this guard could not fire. Everything after && runs
+    * only on exit 0, so the sentinel file IS the exit status. See
+    * _devkit/automation/scan_shell_rc.py.
+    tempfile r_ok
+    capture erase "`r_ok'"
+    shell ( Rscript --version ) > /dev/null 2>&1 && touch "`r_ok'"
+    capture confirm file "`r_ok'"
     if _rc {
         display as error "Rscript is not available; install R to run this cross-validation"
         exit 1
@@ -101,7 +108,14 @@ program define _qba_crossval_fml_main
     quietly net install qba, from("`pkg_dir'") replace
 
     tempfile oracle_csv oracle_dta
-    capture noisily shell Rscript "`oracle_script'" "`oracle_csv'" `seed' `sims'
+    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
+    * not even exist -- so this guard could not fire. Everything after && runs
+    * only on exit 0, so the sentinel file IS the exit status. See
+    * _devkit/automation/scan_shell_rc.py.
+    tempfile oracle_ok
+    capture erase "`oracle_ok'"
+    shell ( Rscript "`oracle_script'" "`oracle_csv'" `seed' `sims' ) && touch "`oracle_ok'"
+    capture confirm file "`oracle_ok'"
     if _rc {
         display as error "author-reference oracle failed (error `=_rc')"
         exit 1

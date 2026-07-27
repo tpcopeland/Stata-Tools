@@ -50,8 +50,16 @@ if _rc == 0 local has_filelist = 1
 capture which fs
 if _rc == 0 local has_fs = 1
 
-* Check R/haven for SAS file creation
-capture shell Rscript -e "suppressWarnings(library(haven))" 2>/dev/null
+* Check R/haven for SAS file creation.
+* Stata shell never sets _rc -- it reports 0 for a child that failed or does not
+* even exist -- so this probe could not fire and has_r was unconditionally 1,
+* claiming R/haven was present on every host. Everything after && runs only on
+* exit 0, so the sentinel file IS the exit status. See
+* _devkit/automation/scan_shell_rc.py.
+tempfile haven_ok
+capture erase "`haven_ok'"
+shell ( Rscript -e "suppressWarnings(library(haven))" ) > /dev/null 2>&1 && touch "`haven_ok'"
+capture confirm file "`haven_ok'"
 if _rc == 0 local has_r = 1
 
 local has_deps = (`has_filelist' & `has_fs')

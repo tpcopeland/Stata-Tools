@@ -26,15 +26,11 @@ local checker "`tools_dir'/check_xlsx.py"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
-local python_cmd ""
-capture noisily shell python3 --version
-if _rc == 0 {
-    local python_cmd "python3"
-}
-else {
-    capture noisily shell python --version
-    if _rc == 0 local python_cmd "python"
-}
+* the Stata shell never sets _rc, so the python3 probe here and its python
+* fallback could not fire and python_cmd was always python3. python3 is a
+* required QA dependency, so it is named directly rather than
+* pretend-detected. See _devkit/automation/scan_shell_rc.py.
+local python_cmd "python3"
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
@@ -636,18 +632,11 @@ if _rc {
     exit 601
 }
 
-local python_cmd ""
-capture noisily shell python3 --version
-if _rc == 0 local python_cmd "python3"
-else {
-    capture noisily shell python --version
-    if _rc == 0 local python_cmd "python"
-}
-if "`python_cmd'" == "" {
-    display as error "FAIL: python/openpyxl render checker runtime not available"
-    exit 601
-}
-
+* the Stata shell never sets _rc, so the python3 probe here and its python
+* fallback could not fire and python_cmd was always python3. python3 is a
+* required QA dependency, so it is named directly rather than
+* pretend-detected. See _devkit/automation/scan_shell_rc.py.
+local python_cmd "python3"
 local skip_count = 0
 local failed_tests ""
 

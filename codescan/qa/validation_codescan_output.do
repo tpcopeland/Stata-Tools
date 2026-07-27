@@ -49,7 +49,14 @@ program define _read_check_status, rclass
     return local status "`status'"
 end
 
-capture shell python3 -c "import openpyxl"
+* Stata shell never sets _rc -- it reports 0 for a child that failed or does not
+* even exist -- so this guard could not fire and a missing openpyxl surfaced
+* later as an unrelated error. Everything after && runs only on exit 0, so the
+* sentinel file IS the exit status. See _devkit/automation/scan_shell_rc.py.
+tempfile openpyxl_ok
+capture erase "`openpyxl_ok'"
+shell ( python3 -c "import openpyxl" ) > /dev/null 2>&1 && touch "`openpyxl_ok'"
+capture confirm file "`openpyxl_ok'"
 if _rc {
     display as error "python3 with openpyxl is required for validation_codescan_output.do"
     exit 499
