@@ -16,7 +16,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
 * Isolated install of the local copy
-capture do "`qa_dir'/_psdash_bootstrap.do"
+do "`qa_dir'/_psdash_bootstrap.do"
 
 global N_PASS = 0
 global N_FAIL = 0
@@ -191,6 +191,7 @@ _t "DOC1_help_options" `=_rc'
 
 **# Summary
 display as text _n "=== v1.4.0 FEATURE TESTS: $N_PASS passed, $N_FAIL failed ==="
+display as text "RESULT: test_v140_features tests=`=$N_PASS + $N_FAIL' pass=$N_PASS fail=$N_FAIL skip=0"
 capture _psdash_qa_cleanup
 capture log close _all
 if $N_FAIL > 0 {

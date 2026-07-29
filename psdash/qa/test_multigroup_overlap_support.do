@@ -459,6 +459,7 @@ display as text "Total:  " as result `n_tests'
 display as text "Passed: " as result `n_passed'
 display as text "Failed: " as result `n_failed'
 display as text "{hline 60}"
+display as text "RESULT: test_multigroup_overlap_support tests=`n_tests' pass=`n_passed' fail=`n_failed' skip=0"
 
 if `n_failed' > 0 {
     display as error "`n_failed' test(s) FAILED"

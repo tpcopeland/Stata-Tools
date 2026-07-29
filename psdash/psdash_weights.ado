@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.6.0  2026/07/26
+*! psdash_weights Version 1.6.1  2026/07/29
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -311,7 +311,7 @@ program define psdash_weights, rclass
     local n_ps_boundary = 0
     local n_ps_near = 0
     if "`psvar'" != "" & "`multigroup'" == "0" {
-        _psdash_pscheck `psvar' if `touse'
+        _psdash_pscheck `psvar' if `touse', nowarn
         local n_ps_boundary = r(n_ps_boundary)
         local n_ps_near = r(n_ps_near)
     }
@@ -669,13 +669,19 @@ program define psdash_weights, rclass
         local _pf `"`_pf' | max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20"'
         local ++_pfn
     }
-    * Exact PS-boundary observations yield undefined weights and are silently
-    * dropped from this panel's N (B6); surface them as a finding.
+    * Exact PS boundaries violate strict positivity. Whether the observed
+    * estimand-specific weight is undefined depends on treatment assignment;
+    * n_wt_undefined/n_wt_dropped record that narrower failure separately.
     if "`n_ps_boundary'" != "" {
         if `n_ps_boundary' > 0 {
-            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary have undefined weights."
-            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary obs (undefined weight)"'
+            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity."
+            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
             local ++_pfn
+        }
+    }
+    if "`n_ps_near'" != "" {
+        if `n_ps_near' > 0 {
+            display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
         }
     }
     * RB-09: user-supplied weights that were missing (and therefore dropped) are

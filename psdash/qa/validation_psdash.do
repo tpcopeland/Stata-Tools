@@ -1186,6 +1186,7 @@ display "VALIDATION SUMMARY"
 display "Tests run:    " `test_count'
 display "Passed:       " `pass_count'
 display "Failed:       " `fail_count'
+display "RESULT: validation_psdash tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"

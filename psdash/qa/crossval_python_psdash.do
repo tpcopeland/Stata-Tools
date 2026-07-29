@@ -42,7 +42,7 @@ if `install_rc' {
 * _devkit/automation/scan_shell_rc.py.
 tempfile py_ok
 capture erase "`py_ok'"
-shell ( python3 --version ) > /dev/null 2>&1 && touch "`py_ok'"
+shell python3 --version > /dev/null 2>&1 && touch "`py_ok'"
 capture confirm file "`py_ok'"
 if _rc {
     display as text "SKIP (dependency): python3 not available"
@@ -141,7 +141,7 @@ if `py_setup_rc' != 0 {
     exit 9
 }
 
-* PY1: balance matrix matches Python sample-variance/SMD/KS formulas
+* PY1: balance matrix matches independently evaluated variance/SMD/KS formulas
 capture noisily {
     _cvpy_data
     psdash balance treated ps, covariates(x1 x2) wvar(wt)
@@ -155,6 +155,8 @@ capture noisily {
     assert abs(B[1,6] - `py_x1_mean_t_adj') < 1e-10
     assert abs(B[1,7] - `py_x1_mean_c_adj') < 1e-10
     assert abs(B[1,8] - `py_x1_smd_adj') < 1e-10
+    assert abs(B[1,9] - `py_x1_vr_adj') < 1e-10
+    assert abs(B[1,10] - `py_x1_ks_adj') < 1e-10
 
     assert abs(B[2,1] - `py_x2_mean_t') < 1e-10
     assert abs(B[2,2] - `py_x2_mean_c') < 1e-10
@@ -164,6 +166,8 @@ capture noisily {
     assert abs(B[2,6] - `py_x2_mean_t_adj') < 1e-10
     assert abs(B[2,7] - `py_x2_mean_c_adj') < 1e-10
     assert abs(B[2,8] - `py_x2_smd_adj') < 1e-10
+    assert abs(B[2,9] - `py_x2_vr_adj') < 1e-10
+    assert abs(B[2,10] - `py_x2_ks_adj') < 1e-10
 
     assert abs(r(max_smd_raw) - `py_balance_max_smd_raw') < 1e-10
     assert abs(r(max_smd_adj) - `py_balance_max_smd_adj') < 1e-10
@@ -287,6 +291,7 @@ display "PYTHON CROSS-VALIDATION SUMMARY"
 display "Tests run:    " $cvpy_n
 display "Passed:       " $cvpy_pass
 display "Failed:       " $cvpy_fail
+display "RESULT: crossval_python_psdash tests=$cvpy_n pass=$cvpy_pass fail=$cvpy_fail skip=0"
 
 if $cvpy_fail > 0 {
     display as error "SOME TESTS FAILED"

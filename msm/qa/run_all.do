@@ -2,44 +2,11 @@
 *
 * Master runner for the msm QA surface.
 *
-* Default scope: full Stata and cross-language QA in this package
-*   - test_msm.do            (core functional, T1)
-*   - test_msm_table.do      (msm_table workbook export, T2)
-*   - test_msm_options.do    (per-command option-path coverage, T3)
-*   - test_msm_expanded.do
-*   - test_msm_status.do
-*   - test_msm_weight_ergonomics.do
-*   - test_msm_period_basis.do
-*   - test_msm_fit_guidance.do
-*   - test_msm_cox_state.do
-*   - test_msm_continuous_exposure.do
-*   - test_msm_weight_failures.do
-*   - test_msm_weight_adversarial.do
-*   - test_msm_prepare_validate_adversarial.do
-*   - test_msm_state_guards.do
-*   - test_msm_state_identity.do
-*   - test_msm_independent_review.do
-*   - test_msm_phase3.do
-*   - test_msm_phase2.do
-*   - test_msm_phase4.do
-*   - test_msm_phase5.do
-*   - test_msm_psdash_contract.do
-*   - test_export_surface.do
-*   - test_msm_diagtab.do
-*   - test_msm_output_adversarial.do
-*   - test_msm_diagnostic_contracts.do
-*   - test_msm_abbrev_reload.do
-*   - validation_msm.do
-*   - validation_msm_known_answers.do
-*   - validation_msm_expanded.do
-*   - validation_msm_sensitivity.do
-*   - validation_msm_recovery.do      (known-truth marginal log-OR recovery)
-*   - validation_msm_dgp_recovery.do  (broad known-truth DGP recovery battery)
-*   - validation_msm_phase3_recovery.do (treatment-history regime recovery)
-*
-* Optional cross-language scope:
-*   - crossval_msm.do
-*   - crossval_external_models.do
+* Curated scope (see qa/README.md for the named inventory):
+*   - quick:       29 functional/regression suites
+*   - validations:  7 known-answer/recovery suites
+*   - crossval:     2 R/Python parity suites
+*   - full:        all 38 suites (default)
 *
 * Usage:
 *   stata-mp -b do run_all.do              // full release gate (default)

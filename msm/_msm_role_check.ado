@@ -1,4 +1,4 @@
-*! _msm_role_check Version 1.4.1  2026/07/27
+*! _msm_role_check Version 1.4.2  2026/07/28
 *! Central structural-role validator for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

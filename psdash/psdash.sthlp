@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  26jul2026}{...}
+{* *! version 1.6.1  29jul2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -58,10 +58,10 @@ contract state. After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal
 period-by-period diagnostics; pooled subcommands require explicit
 variables. After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity
 {cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm
-contract for the same longitudinal diagnostic. After {cmd:tte_weight} with {opt save_ps},
+contract for the same longitudinal diagnostic. After {cmd:tte_weight} with {cmd:save_ps},
 {cmd:psdash combined} reads the saved switch/treatment propensity, IP weight, and
-trial/period structure from the tte contract. After {cmd:iivw_weight} with {opt treat()}
-and {opt treat_cov()}, treatment, propensity-score, treatment-covariate, and
+trial/period structure from the tte contract. After {cmd:iivw_weight} with {cmd:treat()}
+and {cmd:treat_cov()}, treatment, propensity-score, treatment-covariate, and
 treatment-weight variables are read from the iivw dataset contract. After
 {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied
 explicitly. In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
@@ -89,6 +89,12 @@ guard.
 
 {marker subcommands}{...}
 {title:Subcommand syntax}
+
+{pstd}
+Detailed topics: {helpb psdash_overlap:overlap},
+{helpb psdash_balance:balance}, {helpb psdash_weights:weights},
+{helpb psdash_support:support}, {helpb psdash_combined:combined}, and
+{helpb psdash_detect:detect}.
 
 {dlgtab:overlap}
 
@@ -171,7 +177,7 @@ always override by providing explicit arguments.
 For most analyses, start with {cmd:psdash combined}. It runs overlap, balance,
 weight, and support diagnostics together. Then rerun the individual panel
 named in any warning message when you need a graph, export, or modified
-weights. After {cmd:ltmle}, {cmd:msm_weight}, or {cmd:tte_weight} (with {opt save_ps}),
+weights. After {cmd:ltmle}, {cmd:msm_weight}, or {cmd:tte_weight} (with {cmd:save_ps}),
 {cmd:psdash combined} switches to longitudinal diagnostics: per-period PS overlap
 plus contract-weight summaries.
 
@@ -208,16 +214,16 @@ that use weights. If omitted and a propensity score is available, weights are
 auto-generated based on the {opt estimand()} option.
 
 {phang}
-{opt estimand(string)} specifies the target estimand for auto-generated weights. {opt ate}
+{opt estimand(string)} specifies the target estimand for auto-generated weights. {cmd:ate}
 (default) generates standard IPTW weights: {cmd:1/ps} for treated and {cmd:1/(1-ps)} for
-control. {opt att} generates ATT weights: {cmd:1} for treated and {cmd:ps/(1-ps)} for
-control. {opt atc} generates ATC weights: {cmd:(1-ps)/ps} for treated and {cmd:1} for
+control. {cmd:att} generates ATT weights: {cmd:1} for treated and {cmd:ps/(1-ps)} for
+control. {cmd:atc} generates ATC weights: {cmd:(1-ps)/ps} for treated and {cmd:1} for
 control. For a binary treatment these formulas apply to {it:any} two level values,
 not only 0/1: the {opt reference()} arm (default: the smaller level) is the control
 and the other arm is the treated, so recoding the levels leaves the weights
 unchanged. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
 specified by the user; if {opt estimand()} is given explicitly, it is always
-respected regardless of {cmd:e(stat)}. {opt atc} is rejected with an error for a
+respected regardless of {cmd:e(stat)}. {cmd:atc} is rejected with an error for a
 multi-valued treatment (K>2) — see the {it:Multi-group ATC note} below.
 
 {pstd}
@@ -305,6 +311,13 @@ not specified, Stata's default bandwidth is used.
 
 {phang}
 {opt nograph} suppresses the graph and shows only the summary table.
+
+{pstd}
+For a multi-valued treatment, the overlap graph has one panel for each GPS
+component {it:e_j(X)}. Within panel {it:j}, that same component is plotted for
+every observed treatment group. This is the component-by-assignment diagnostic
+recommended by McCaffrey et al. (2013); plotting only each group's own-arm score
+would compare different quantities.
 
 {phang}
 {opt xlsx(filename)} exports the overlap summary statistics to an Excel file
@@ -419,6 +432,19 @@ because the weights changed the covariate's {it:spread} rather than its location
 which the common-scale form attributes entirely to the means. Read
 {cmd:r(max_smd_adj)} as "mean shift on the raw sample's scale", not as an
 Austin-Stuart weighted standardized difference.
+
+{pstd}
+{bf:Variance definitions.} For a two-level covariate with values {it:a} and
+{it:b}, {cmd:psdash} uses the population variance
+{it:(b-a)^2 p(1-p)} in each group, including the weighted proportion {it:p_w}
+for adjusted diagnostics. It does not use the finite-sample
+{it:n/(n-1)} inflation returned by {cmd:summarize}. For a continuous covariate,
+raw variance is the ordinary sample variance and adjusted variance is the
+scale-invariant unbiased weighted variance
+{it:[sum(w)/(sum(w)^2-sum(w^2))] sum(w(x-xbar_w)^2)}. The latter, rather than
+Stata's normalized {cmd:aweight} variance, defines {cmd:VR_Adj}. Rescaling every
+weight by a constant therefore leaves every adjusted balance statistic
+unchanged.
 
 {dlgtab:weights options}
 
@@ -599,12 +625,12 @@ the weight panel is flagged. Default is 50.
 before the balance panel is flagged. Default is 0.
 
 {phang}
-{opt gpsfloor(#)} sets the multi-group practical-positivity floor and is passed
-to both the overlap and support panels, which each evaluate the full GPS vector.
-{it:#} must be strictly between 0 and 1; default is 0.01. A unit below the floor
-is a finding in both panels, so it contributes twice to
-{cmd:r(n_warnings)}; the panel labels in {cmd:r(warnings)} identify the source.
-Applies to multi-group treatments only.
+{opt gpsfloor(#)} sets the multi-group practical-positivity floor and is passed to
+both the overlap and support panels, which each evaluate the full GPS vector. {it:#}
+must be strictly between 0 and 1; default is 0.01. A unit below the floor is a
+finding in both panels, so it contributes twice to {cmd:r(n_warnings)}; the panel
+labels in {cmd:r(warnings)} identify the source. Applies to multi-group treatments
+only.
 
 {phang}
 {opt dryrun} reports the auto-detection result (treatment, PS, covariates,
@@ -664,7 +690,7 @@ per-period overlap panel.
 {phang2}
 5. {bf:After tte_weight ..., save_ps}: the trial arm, the saved switch/treatment
 propensity, the IP weight, and the trial/period structure are auto-detected from
-tte dataset metadata. Run {cmd:psdash combined}. The {opt save_ps} option is
+tte dataset metadata. Run {cmd:psdash combined}. The {cmd:save_ps} option is
 required so the propensity score survives in the dataset.
 
 {phang2}
@@ -710,7 +736,7 @@ what {cmd:psdash} reads and how it routes. Run {cmd:psdash detect} (or
 {bf:Default behavior of {cmd:balance}:} When a PS variable is available, {cmd:psdash balance} auto-generates IPTW weights
 for the requested {opt estimand()} and displays {it:adjusted} columns (SMD Adj, VR Adj)
 alongside the raw columns. Pass {opt nowvar} to show raw balance only, or {opt wvar()} to
-supply a pre-computed weight variable. The {opt estimand()} option (default {opt ate})
+supply a pre-computed weight variable. The {opt estimand()} option (default {cmd:ate})
 controls which IPTW formula is used; after {cmd:teffects} it is auto-detected from
 {cmd:e(stat)} when not specified explicitly.
 
@@ -911,13 +937,16 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
 {synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor (multi-group){p_end}
 {synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
-{synopt:{cmd:r(min_gps_group_{it:<level>})}}minimum arm-{it:j} GPS over units (multi-group){p_end}
+{synopt:{cmd:r(min_gps_group_*)}}minimum arm-{it:j} GPS over units (multi-group){p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand ({cmd:ate}, {cmd:att}, or {cmd:atc}){p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
+
+{p2col 5 30 34 2: Matrices}{p_end}
+{synopt:{cmd:r(gps_means)}}mean GPS by observed group and component{p_end}
 
 {pstd}
 For a multi-valued treatment, {cmd:psdash overlap} reports the same full-vector
@@ -1032,7 +1061,7 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(pct_outside)}}percentage outside support{p_end}
 {synopt:{cmd:r(n_outside_treated)}}treated outside support{p_end}
 {synopt:{cmd:r(n_outside_control)}}control outside support{p_end}
-{synopt:{cmd:r(trim_lower)}}trimming lower bound / multi-group GPS floor (if trimming){p_end}
+{synopt:{cmd:r(trim_lower)}}lower trimming bound or GPS floor{p_end}
 {synopt:{cmd:r(trim_upper)}}trimming upper bound (binary only; if trimming){p_end}
 {synopt:{cmd:r(n_trimmed)}}observations trimmed (if trimming){p_end}
 {synopt:{cmd:r(pct_trimmed)}}percentage trimmed (if trimming){p_end}
@@ -1044,13 +1073,16 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
 {synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor{p_end}
 {synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
-{synopt:{cmd:r(min_gps_group_{it:<level>})}}minimum arm-{it:j} GPS over units{p_end}
+{synopt:{cmd:r(min_gps_group_*)}}minimum arm-{it:j} GPS over units{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
+
+{p2col 5 30 34 2: Matrices}{p_end}
+{synopt:{cmd:r(gps_means)}}mean GPS by observed group and component{p_end}
 
 {pstd}
 With {opt compare} (and active trimming) the support command also returns
@@ -1182,12 +1214,19 @@ R., & Burgette, L. F. (2013). A tutorial on propensity score estimation for
 multiple treatments using generalized boosted models. {it:Statistics in Medicine},
 32(19), 3388-3414.
 
+{phang}
+Greifer, N. (2026). {it:cobalt: Covariate balance tables and plots}. R package
+documentation. {browse "https://ngreifer.github.io/cobalt/":https://ngreifer.github.io/cobalt/}.
+
 
 {title:Also see}
 
 {psee}
 {space 2}Help: {manhelp teffects TE}, {manhelp logit R}, {manhelp mlogit R},
-{manhelp tebalance TE}, {help tebalance##summarize:tebalance summarize}, {manhelp teoverlap TE}
+{manhelp tebalance TE}, {help tebalance##summarize:tebalance summarize},
+{manhelp teoverlap TE}, {helpb psdash_overlap}, {helpb psdash_balance},
+{helpb psdash_weights}, {helpb psdash_support}, {helpb psdash_combined},
+{helpb psdash_detect}
 {p_end}
 
 {hline}

@@ -25,6 +25,29 @@ def weighted_mean(values: list[float], weights: list[float]) -> float:
     return sum(x * w for x, w in zip(values, weights)) / sum(weights)
 
 
+def weighted_variance(values: list[float], weights: list[float]) -> float:
+    """Scale-invariant unbiased weighted variance used by cobalt/psdash."""
+    m = weighted_mean(values, weights)
+    sum_w = sum(weights)
+    sum_w2 = sum(w * w for w in weights)
+    return sum_w * sum(w * (x - m) ** 2 for x, w in zip(values, weights)) / (
+        sum_w * sum_w - sum_w2
+    )
+
+
+def two_level_variance(values: list[float], value_min: float, value_max: float) -> float:
+    """Population variance (b-a)^2 p(1-p) for a two-level covariate."""
+    p = (mean(values) - value_min) / (value_max - value_min)
+    return (value_max - value_min) ** 2 * p * (1.0 - p)
+
+
+def weighted_two_level_variance(
+    values: list[float], weights: list[float], value_min: float, value_max: float
+) -> float:
+    p = (weighted_mean(values, weights) - value_min) / (value_max - value_min)
+    return (value_max - value_min) ** 2 * p * (1.0 - p)
+
+
 def ks_2sample(t_values: list[float], c_values: list[float]) -> float:
     points = sorted(set(t_values + c_values))
     n_t = len(t_values)
@@ -37,6 +60,23 @@ def ks_2sample(t_values: list[float], c_values: list[float]) -> float:
     return max_diff
 
 
+def weighted_ks_2sample(
+    t_values: list[float],
+    c_values: list[float],
+    t_weights: list[float],
+    c_weights: list[float],
+) -> float:
+    points = sorted(set(t_values + c_values))
+    sum_t = sum(t_weights)
+    sum_c = sum(c_weights)
+    max_diff = 0.0
+    for point in points:
+        ft = sum(w for x, w in zip(t_values, t_weights) if x <= point) / sum_t
+        fc = sum(w for x, w in zip(c_values, c_weights) if x <= point) / sum_c
+        max_diff = max(max_diff, abs(ft - fc))
+    return max_diff
+
+
 def balance_metrics(values: list[float], weights: list[float]) -> dict[str, float]:
     t_values = [x for x, treat in zip(values, TREAT) if treat == 1]
     c_values = [x for x, treat in zip(values, TREAT) if treat == 0]
@@ -45,14 +85,30 @@ def balance_metrics(values: list[float], weights: list[float]) -> dict[str, floa
 
     mean_t = mean(t_values)
     mean_c = mean(c_values)
-    var_t = sample_variance(t_values)
-    var_c = sample_variance(c_values)
+    unique_values = sorted(set(values))
+    is_two_level = len(unique_values) == 2
+    if is_two_level:
+        var_t = two_level_variance(t_values, unique_values[0], unique_values[1])
+        var_c = two_level_variance(c_values, unique_values[0], unique_values[1])
+    else:
+        var_t = sample_variance(t_values)
+        var_c = sample_variance(c_values)
     pooled_sd = math.sqrt((var_t + var_c) / 2.0)
     smd_raw = (mean_t - mean_c) / pooled_sd
 
     mean_t_adj = weighted_mean(t_values, t_weights)
     mean_c_adj = weighted_mean(c_values, c_weights)
     smd_adj = (mean_t_adj - mean_c_adj) / pooled_sd
+    if is_two_level:
+        var_t_adj = weighted_two_level_variance(
+            t_values, t_weights, unique_values[0], unique_values[1]
+        )
+        var_c_adj = weighted_two_level_variance(
+            c_values, c_weights, unique_values[0], unique_values[1]
+        )
+    else:
+        var_t_adj = weighted_variance(t_values, t_weights)
+        var_c_adj = weighted_variance(c_values, c_weights)
 
     return {
         "mean_t": mean_t,
@@ -63,6 +119,8 @@ def balance_metrics(values: list[float], weights: list[float]) -> dict[str, floa
         "mean_t_adj": mean_t_adj,
         "mean_c_adj": mean_c_adj,
         "smd_adj": smd_adj,
+        "vr_adj": var_t_adj / var_c_adj,
+        "ks_adj": weighted_ks_2sample(t_values, c_values, t_weights, c_weights),
     }
 
 

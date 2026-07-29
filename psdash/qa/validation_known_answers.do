@@ -110,10 +110,10 @@ capture noisily {
     assert abs(B[1,7] - 3) < 1e-10
     assert abs(B[1,8] - 1) < 1e-10
 
-    * x2: means 1/3 and 2/3; sample variances both 1/3.
+    * x2: means 1/3 and 2/3; Bernoulli variances both 2/9.
     assert abs(B[2,1] - (1/3)) < 1e-10
     assert abs(B[2,2] - (2/3)) < 1e-10
-    assert abs(B[2,3] - (-1/sqrt(3))) < 1e-10
+    assert abs(B[2,3] - (-1/sqrt(2))) < 1e-10
     assert abs(B[2,4] - 1) < 1e-10
     assert abs(B[2,5] - (1/3)) < 1e-10
 
@@ -122,7 +122,7 @@ capture noisily {
     assert abs(B[2,7] - (2/3)) < 1e-10
     assert abs(B[2,8]) < 1e-10
 
-    assert abs(r(max_smd_raw) - (1/sqrt(3))) < 1e-10
+    assert abs(r(max_smd_raw) - (1/sqrt(2))) < 1e-10
     assert abs(r(max_smd_adj) - 1) < 1e-10
     assert r(n_imbalanced) == 1
 }
@@ -447,6 +447,7 @@ display "KNOWN-ANSWER VALIDATION SUMMARY"
 display "Tests run:    " $vka_n
 display "Passed:       " $vka_pass
 display "Failed:       " $vka_fail
+display "RESULT: validation_known_answers tests=$vka_n pass=$vka_pass fail=$vka_fail skip=0"
 
 if $vka_fail > 0 {
     display as error "SOME TESTS FAILED"

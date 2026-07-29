@@ -1508,6 +1508,7 @@ display as text "Total tests: " as result `test_count'
 display as text "Passed:      " as result `pass_count'
 display as text "Failed:      " as result `fail_count'
 display as text "============================================"
+display as text "RESULT: test_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     _psdash_qa_cleanup

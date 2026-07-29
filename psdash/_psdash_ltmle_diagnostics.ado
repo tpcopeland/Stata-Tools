@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.6.0  2026/07/26
+*! _psdash_ltmle_diagnostics Version 1.6.1  2026/07/29
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -205,12 +205,11 @@ program define _psdash_ltmle_diagnostics, rclass
             local wt_p95 = r(p95)
             local wt_p99 = r(p99)
             local wt_max = r(max)
+            local sum_wt = r(sum)
             if missing(`max_weight_p99') | `wt_p99' > `max_weight_p99' {
                 local max_weight_p99 = `wt_p99'
             }
 
-            quietly summarize `wvar' if `samplevar' & `period' == `p', meanonly
-            local sum_wt = r(sum)
             quietly summarize `wt_sq' if `samplevar' & `period' == `p', meanonly
             local sum_wt_sq = r(sum)
             local ess_pct = .
@@ -416,8 +415,8 @@ program define _psdash_ltmle_diagnostics, rclass
             local ++_pfn
         }
         if `n_ps_boundary' > 0 {
-            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary (undefined weight)."
-            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary obs (undefined weight)"'
+            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity."
+            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
             local ++_pfn
         }
         local _pf = strtrim("`_pf'")

@@ -8,7 +8,7 @@ stata-mp -b do finegray/demo/demo_finegray.do
 
 The demo prefers the `tc_schemes` graph scheme (`plotplainblind`), a sibling Stata-Tools package. If `tc_schemes/` is not present in the checkout it falls back to `s2color`; only the graph cosmetics differ and the numeric demo is unaffected.
 
-The demo installs the local package and demonstrates the complete public workflow:
+The demo loads the local package and demonstrates the complete public workflow:
 
 - Core estimation, factor variables, `censvalue()`, reporting controls, stratified censoring, cluster-robust inference, and model-based inference
 - Default `xb`, CIF, fixed-horizon CIF confidence intervals, cluster-bootstrap intervals, compatible-new-data scoring, and Schoenfeld residuals

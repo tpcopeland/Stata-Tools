@@ -1,5 +1,5 @@
 * validation_finegray_lt_se.do
-* Oracles for robust/influence-function SEs under LEFT TRUNCATION (delayed
+* Validation of robust/influence-function SEs under LEFT TRUNCATION (delayed
 * entry), the case fixed in v1.1.1: the per-subject score residuals must
 * restrict each subject's at-risk contribution to its own risk window
 * [t0_i, T_i].
@@ -8,17 +8,17 @@
 * the total score, which is ~0 at the converged betahat. Before the fix the
 * column sums on delayed-entry data were O(10); after it they are O(1e-13).
 *
-* Oracle 2 (independent mechanism): delete-one jackknife of the coefficients
-* on a seeded delayed-entry DGP. The influence-function (robust) SE is
-* consistent for the same asymptotic variance but computed by entirely
-* different code; it sits slightly below the jackknife because the censoring
-* weights G(t) are treated as known (same behaviour validated for t0=0 in
-* validation_finegray_cif_se.do).
+* Sensitivity check 2 (independent mechanism): delete-one jackknife of the
+* coefficients on a seeded delayed-entry DGP.  It is an independent full-refit
+* route, but not an exact oracle for the shipped fixed-weight sandwich: every
+* delete-one refit re-estimates G and H, while the analytic variance treats them
+* as fixed.  The seeded ratio is therefore a regression envelope, not equality
+* to a theoretically identical variance.
 *
-* Oracle 3 (independent mechanism): delete-one jackknife of the CIF point
-* estimate at a fixed horizon/profile on the same delayed-entry fit,
-* validating the influence-function CIF SE (finegray_cif) under left
-* truncation.
+* Sensitivity check 3: the analogous delete-one jackknife of the CIF point
+* estimate at a fixed horizon/profile.  It probes gross scaling errors in the
+* analytic CIF SE under truncation; it does not supply the omitted G/H
+* influence terms.
 clear all
 set varabbrev off
 version 16.0
@@ -27,7 +27,7 @@ capture log close _all
 log using "validation_finegray_lt_se.log", replace name(_lts)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -59,6 +59,7 @@ replace status = 2 if d & status == 0
 gen double t0v = runiform()*0.4*t
 stset t, failure(d) enter(t0v) id(id)
 quietly finegray x1 x2, compete(status) cause(1) nolog
+assert e(converged) == 1
 matrix Vr = e(V)
 scalar se1 = sqrt(Vr[1,1])
 scalar se2 = sqrt(Vr[2,2])
@@ -125,7 +126,9 @@ foreach i of local ids {
         drop if id == `i'
         stset t, failure(d) enter(t0v) id(id)
         capture finegray x1 x2, compete(status) cause(1) nolog
-        if _rc == 0 {
+        local jk_rc = _rc
+        if `jk_rc' == 0 & e(converged) != 1 local jk_rc = 430
+        if `jk_rc' == 0 {
             scalar njk = njk + 1
             scalar s1 = s1 + _b[x1]
             scalar q1 = q1 + _b[x1]^2
@@ -156,11 +159,11 @@ capture noisily {
     assert se2/jse2 > `lo' & se2/jse2 < `hi'
 }
 if _rc == 0 {
-    display as result "  PASS: LT robust coefficient SEs match jackknife"
+    display as result "  PASS: LT coefficient SEs stay within the jackknife sensitivity envelope"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: LT robust coefficient SEs match jackknife (rc=`=_rc')"
+    display as error "  FAIL: LT coefficient SE jackknife sensitivity (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -173,11 +176,11 @@ capture noisily {
     assert cifse/jcse > `lo' & cifse/jcse < `hi'
 }
 if _rc == 0 {
-    display as result "  PASS: LT influence-function CIF SE matches jackknife"
+    display as result "  PASS: LT CIF SE stays within the jackknife sensitivity envelope"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: LT influence-function CIF SE matches jackknife (rc=`=_rc')"
+    display as error "  FAIL: LT CIF SE jackknife sensitivity (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -192,6 +195,7 @@ quietly use `base', clear
 quietly stset t, failure(d) enter(t0v) id(id)
 quietly finegray x1 x2, compete(status) cause(1) ///
     strata(x2) truncstrata(x2) nolog
+assert e(converged) == 1
 matrix Vrs = e(V)
 scalar se1s = sqrt(Vrs[1,1])
 scalar se2s = sqrt(Vrs[2,2])
@@ -244,7 +248,9 @@ foreach i of local ids {
         stset t, failure(d) enter(t0v) id(id)
         capture finegray x1 x2, compete(status) cause(1) ///
             strata(x2) truncstrata(x2) nolog
-        if _rc == 0 {
+        local jk_rc = _rc
+        if `jk_rc' == 0 & e(converged) != 1 local jk_rc = 430
+        if `jk_rc' == 0 {
             scalar njks = njks + 1
             scalar ss1 = ss1 + _b[x1]
             scalar qs1 = qs1 + _b[x1]^2
@@ -272,11 +278,11 @@ capture noisily {
     assert cifses/jcses > `lo' & cifses/jcses < `hi'
 }
 if _rc == 0 {
-    display as result "  PASS: stratified ZZF coefficient and CIF SEs match jackknife"
+    display as result "  PASS: stratified ZZF SEs stay within the jackknife sensitivity envelope"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: stratified ZZF SEs match jackknife (rc=`=_rc')"
+    display as error "  FAIL: stratified ZZF SE jackknife sensitivity (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -292,6 +298,7 @@ quietly gen byte cg = (x1 > 0)
 quietly stset t, failure(d) enter(t0v) id(id)
 quietly finegray x1 x2, compete(status) cause(1) ///
     strata(cg) truncstrata(x2) nolog
+assert e(converged) == 1
 
 local ++test_count
 capture noisily {

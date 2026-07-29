@@ -1,5 +1,5 @@
-* crossval_psdash.do — Cross-validation suite for psdash
-* Tests peculiar but valid setups using known-answer synthetic datasets.
+* validation_extended_known_answers.do — extended known-answer suite for psdash
+* Tests peculiar but valid setups using synthetic datasets.
 * All key quantities are computed by hand before calling psdash and
 * asserted to match within tolerance.
 * Version 1.1.9  2026/04/27
@@ -267,10 +267,8 @@ display _n "--- CV Dataset D: Binary covariate VR hand-calculation (N=200) ---"
 * CV11: Binary VR matches hand calculation
 capture noisily {
     * Hand calculations
-    quietly summarize x2 if treated == 1
-    local var_t = r(Var)
-    quietly summarize x2 if treated == 0
-    local var_c = r(Var)
+    local var_t = 0.6 * (1 - 0.6)
+    local var_c = 0.3 * (1 - 0.3)
     local vr_hand = `var_t' / `var_c'
     local sd_pooled = sqrt((`var_t' + `var_c') / 2)
     quietly summarize x2 if treated == 1
@@ -668,7 +666,7 @@ capture noisily {
 }
 _cv_result "K27: n_ps_boundary=2 for 2 obs with PS=0 or 1" `=_rc'
 
-* CV27B: balance reports boundary PS before auto-weight markout drops rows
+* CV27B: balance rejects undefined auto-weights rather than dropping boundary rows
 quietly {
     clear
     set obs 8
@@ -679,13 +677,11 @@ quietly {
     gen double x = _n
 }
 capture noisily {
-    psdash balance treated ps, covariates(x)
-    assert r(n_ps_boundary) == 2
-    assert r(N) == 6
-    assert r(N_treated) == 3
-    assert r(N_control) == 3
+    capture noisily psdash balance treated ps, covariates(x)
+    assert _rc == 459
+    assert _N == 8
 }
-_cv_result "K27B: balance counts PS boundary before auto-weight markout" `=_rc'
+_cv_result "K27B: balance rejects undefined boundary auto-weights" `=_rc'
 
 * CV28: n_ps_near_boundary correctly counts PS < 0.01 or > 0.99 (excluding 0 and 1)
 quietly {
@@ -927,10 +923,11 @@ capture drop _psdash_ps _psdash_wt
 graph close _all
 
 display ""
-display "CROSS-VALIDATION SUMMARY"
+display "EXTENDED KNOWN-ANSWER VALIDATION SUMMARY"
 display "Tests run:    " $cv_n
 display "Passed:       " $cv_pass
 display "Failed:       " $cv_fail
+display "RESULT: validation_extended_known_answers tests=$cv_n pass=$cv_pass fail=$cv_fail skip=0"
 
 if $cv_fail > 0 {
     display as error "SOME TESTS FAILED"

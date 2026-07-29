@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  27jul2026}{...}
+{* *! version 1.4.2  28jul2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -88,6 +88,12 @@ of the treatment, censoring, and marginal outcome models, IPTW creates a
 weighted pseudo-population in which treatment is independent of measured
 confounder history, allowing the weighted outcome model to identify the
 specified marginal causal effect.
+
+{pstd}
+The command automatically adds only the immediately prior treatment to the
+weight models. Sequential exchangeability may require richer measured
+treatment and covariate histories; analysts must construct and supply the
+relevant lagged, cumulative, or trajectory summaries to {helpb msm_weight}.
 
 {pstd}
 The package covers the full analysis pipeline:

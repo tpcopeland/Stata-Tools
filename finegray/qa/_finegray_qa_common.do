@@ -9,7 +9,7 @@ program define _finegray_qa_bootstrap, rclass
     version 16.0
 
     local qa_dir "`c(pwd)'"
-    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
     capture confirm file "`pkg_dir'/finegray.pkg"
     if _rc {
         display as error "run_all.do must be run from the finegray/qa directory"

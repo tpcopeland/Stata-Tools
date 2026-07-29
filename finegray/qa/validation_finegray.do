@@ -217,7 +217,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     matrix b = e(b)
     forvalues i = 1/3 {
-        assert exp(b[1,`i']) > 0
+        assert !missing(b[1,`i']) & exp(b[1,`i']) > 0
     }
 }
 if _rc == 0 {
@@ -471,9 +471,10 @@ capture noisily {
     matrix bh = e(basehaz)
     local nr = rowsof(bh)
     local ok = 1
-    assert bh[1, 2] > 0
+    assert bh[1, 2] > 0 & bh[1, 2] < .
     forvalues i = 2/`nr' {
         local prev = `i' - 1
+        assert bh[`i', 2] < .
         if bh[`i', 2] < bh[`prev', 2] - 1e-12 {
             local ok = 0
         }
@@ -529,7 +530,7 @@ capture noisily {
         }
     }
     forvalues i = 1/3 {
-        assert V_robust[`i',`i'] > 0
+        assert V_robust[`i',`i'] > 0 & V_robust[`i',`i'] < .
     }
 }
 if _rc == 0 {
@@ -607,7 +608,7 @@ capture noisily {
         }
     }
     forvalues i = 1/3 {
-        assert V_nr[`i',`i'] > 0
+        assert V_nr[`i',`i'] > 0 & V_nr[`i',`i'] < .
     }
 }
 if _rc == 0 {
@@ -900,6 +901,7 @@ capture noisily {
     matrix _I = r(phtest)
     * All three should differ (on real data with non-trivial time distribution)
     forvalues v = 1/3 {
+        assert !missing(_R[`v',1], _L[`v',1], _I[`v',1])
         assert abs(_R[`v',1] - _L[`v',1]) > 1e-6
         assert abs(_R[`v',1] - _I[`v',1]) > 1e-6
         assert abs(_L[`v',1] - _I[`v',1]) > 1e-6
@@ -1077,7 +1079,7 @@ capture noisily {
     * SEs should be positive
     matrix V = e(V)
     forvalues j = 1/`p' {
-        assert V[`j',`j'] > 0
+        assert V[`j',`j'] > 0 & V[`j',`j'] < .
     }
     cap drop _fg_*
 }

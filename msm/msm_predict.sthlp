@@ -46,7 +46,7 @@
 {synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Extrapolation}
-{synopt:{opt extra:polate}}allow predictions beyond observed follow-up{p_end}
+{synopt:{opt extra:polate}}allow predictions beyond fitted period support{p_end}
 {synoptline}
 
 
@@ -63,7 +63,7 @@ pooled logistic MSM from {helpb msm_fit}.
 The command computes cumulative incidence (risk) or survival at each requested
 time point for each strategy, averaging over the reference population at
 baseline. Confidence intervals are computed via Monte Carlo simulation from
-the estimated coefficient distribution using Cholesky decomposition.
+the estimated coefficient distribution using a symmetrized eigendecomposition.
 
 {pstd}
 When {opt difference} is specified with {cmd:strategy(both)}, the command also
@@ -112,15 +112,22 @@ Any {cmd:outcome_cov()} variables from {helpb msm_fit} are held at each
 individual's actual baseline values during prediction. They must therefore be
 time-fixed within person.
 
+{pstd}
+The Monte Carlo intervals propagate the fitted outcome model's coefficient
+covariance only. They condition on the estimated weights, the selected
+reference population, and the specified treatment, censoring, and outcome
+models; they do not include weight-model or model-selection uncertainty.
+
 
 {marker options}{...}
 {title:Options}
 
 {phang}
 {opth times(numlist)} specifies the time periods at which to predict
-counterfactual outcomes. Required. Values must be non-negative integers
-corresponding to period values in the data. By default they must also lie
-within the observed follow-up range; use {opt extrapolate} to override.
+counterfactual outcomes. Required. Values must be integers on the same scale
+as the mapped period variable; signed periods are allowed. By default values
+must lie within the minimum and maximum periods retained by the fitted risk
+set; use {opt extrapolate} to override.
 
 {phang}
 {opt stra:tegy(string)} specifies which treatment strategy to predict. {cmd:always}
@@ -132,8 +139,8 @@ computes predictions under always-treated, {cmd:never} under never-treated, and 
 never-treated) at each time point with MC confidence intervals. It is intended
 for {cmd:strategy(both)}. With {cmd:strategy(always)} or
 {cmd:strategy(never)}, no risk difference can be computed; the prediction
-matrix may include empty difference columns and no {cmd:r(rd_#)} scalars are
-returned.
+matrix contains only that strategy's estimate and interval columns, and no
+{cmd:r(rd_#)} scalars are returned.
 
 {phang}
 {opt type(string)} specifies the output scale. {cmd:cum_inc} (default)
@@ -154,10 +161,10 @@ and returns the starting state so you can reproduce the results later.
 {opt level(#)} specifies the confidence level. The default is the current {cmd:c(level)}, usually 95.
 
 {phang}
-{opt extra:polate} allows prediction at time points beyond the maximum
-observed period. By default, out-of-range values in {opt times()} produce an
-error. Use this only when extrapolation beyond the observed data support is
-intentional.
+{opt extra:polate} allows prediction outside the minimum and maximum periods
+retained by the fitted risk set. By default, out-of-support values in
+{opt times()} produce an error. Use this only when extrapolation beyond the
+fitted data support is intentional.
 
 
 {marker limits}{...}
@@ -189,8 +196,9 @@ vary within person. Current {cmd:msm_fit} versions reject time-varying
 datasets fitted by older versions.{p_end}
 
 {phang}
-{bf:Prediction horizon defaults to observed data.} Out-of-range
-{opt times()} values require {opt extrapolate}.{p_end}
+{bf:Prediction horizon defaults to the fitted risk set.} Values below
+{cmd:r(min_support)} or above {cmd:r(max_support)} require
+{opt extrapolate}.{p_end}
 
 
 {marker examples}{...}

@@ -148,6 +148,17 @@ row has the same period value and a time term would be collinear with the
 intercept.
 
 {pstd}
+{bf:History specification is the analyst's responsibility.} The automatically
+generated treatment-history state is first-order: {cmd:msm_weight} adds only
+{cmd:A_(t-1)}. General longitudinal exchangeability is stated in terms of the
+relevant measured treatment and covariate histories, not merely one lag. If
+earlier treatment, lagged covariates, cumulative exposure, trajectories, or
+other history summaries predict the current decision, create those variables
+before {helpb msm_prepare} and include them in {opt treat_d_cov()} (and in
+{opt censor_d_cov()} where relevant). The automatic lag is a convenience, not
+a claim that a first-order Markov model is adequate for every application.
+
+{pstd}
 {bf:What the censoring model conditions on.} The censoring models are
 {cmd:C_t ~ A_t + L_t + period} (denominator) and {cmd:C_t ~ A_t} plus any
 {cmd:censor_n_cov()} (numerator). They condition on {bf:current} treatment

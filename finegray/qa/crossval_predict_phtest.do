@@ -42,7 +42,10 @@ local qadir "`pkgroot'/qa"
 * nothing lands in (or churns) the tracked qa/ tree, and so a failed/absent R
 * run cannot silently validate against a stale committed copy (matches
 * crossval_cif.do, which already uses c(tmpdir)).
-local datadir "`c(tmpdir)'/finegray_xv_pp"
+* Run-unique output directory.  The R companion writes four fixed basenames;
+* uniqueness prevents a failed invocation from consuming a prior run's CSVs.
+tempfile _cv_anchor
+local datadir "`_cv_anchor'_dir"
 capture mkdir "`datadir'"
 
 capture log close _all
@@ -77,6 +80,7 @@ end
 
 _setup_hypoxia
 finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+assert e(converged) == 1
 local N_fail_hyp = e(N_fail)
 
 * finegray's coefficients (covariate order = CSV covariate order) to pass to R
@@ -138,7 +142,8 @@ capture noisily {
     tempfile r_xb
     save `r_xb'
     use `stata_pred_hyp', clear
-    merge 1:1 id using `r_xb', nogen
+    merge 1:1 id using `r_xb', assert(match) nogen
+    assert !missing(xb_hat, r_xb)
     gen double xb_diff = abs(xb_hat - r_xb)
     quietly summ xb_diff, meanonly
     local max_xb = r(max)
@@ -174,7 +179,8 @@ capture noisily {
     tempfile r_cif
     save `r_cif'
     use `stata_pred_hyp', clear
-    merge 1:1 id using `r_cif', nogen
+    merge 1:1 id using `r_cif', assert(match) nogen
+    assert !missing(cif_hat, r_cif)
     gen double cif_diff = abs(cif_hat - r_cif)
     quietly summ cif_diff, meanonly
     local max_cif = r(max)
@@ -219,6 +225,7 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
     foreach tf in rank log identity {
         finegray_phtest, time(`tf')
         * 1.2.0: the omnibus scalars are retired; assert the per-covariate
@@ -313,6 +320,7 @@ replace status = 1 if d == 1 & runiform() > 0.35
 replace status = 2 if d == 1 & status == 0
 stset t, failure(d) id(id)
 finegray x1 x2, compete(status) cause(1) nolog
+assert e(converged) == 1
 local N_fail_sim = e(N_fail)
 
 * finegray's coefficients for the common-beta Schoenfeld/PH comparison in R
@@ -371,7 +379,8 @@ capture noisily {
     tempfile r_xb_sim
     save `r_xb_sim'
     use `stata_pred_sim', clear
-    merge 1:1 id using `r_xb_sim', nogen
+    merge 1:1 id using `r_xb_sim', assert(match) nogen
+    assert !missing(xb_sim, r_xb)
     gen double xb_diff = abs(xb_sim - r_xb)
     quietly summ xb_diff, meanonly
     display as text "  sim max |xb_diff| = " %10.8f r(max)
@@ -400,7 +409,8 @@ capture noisily {
     tempfile r_cif_sim
     save `r_cif_sim'
     use `stata_pred_sim', clear
-    merge 1:1 id using `r_cif_sim', nogen
+    merge 1:1 id using `r_cif_sim', assert(match) nogen
+    assert !missing(cif_sim, r_cif)
     gen double cif_diff = abs(cif_sim - r_cif)
     quietly summ cif_diff, meanonly
     display as text "  sim max |CIF_diff| = " %10.8f r(max)
@@ -441,6 +451,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
     finegray x1 x2, compete(status) cause(1) nolog
+    assert e(converged) == 1
     finegray_predict sch_sim, schoenfeld
     * Keep cause events
     preserve
@@ -456,7 +467,8 @@ capture noisily {
     tempfile r_sch_sim
     save `r_sch_sim'
     use `stata_sch_sim', clear
-    merge 1:1 id using `r_sch_sim', nogen
+    merge 1:1 id using `r_sch_sim', assert(match) nogen
+    assert !missing(sch_sim, sch_sim_2, r_sch_x1, r_sch_x2)
     gen double d_x1 = abs(sch_sim - r_sch_x1)
     gen double d_x2 = abs(sch_sim_2 - r_sch_x2)
     * Tie-free, well-conditioned data + common beta: require <1e-4 agreement.
@@ -512,6 +524,9 @@ foreach tf in rank log identity {
         local _vnames x1 x2
         preserve
         import delimited using "`datadir'/r_phtest.csv", clear
+        isid variable time_func
+        assert _N == 6
+        assert !missing(rho, n_events)
         * The GLOBAL row must no longer exist in the oracle output.
         quietly count if variable == "GLOBAL"
         assert r(N) == 0
@@ -562,6 +577,7 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
+    assert e(converged) == 1
     finegray_predict xb_ic, xb
     finegray_predict cif_ic, cif
     * Compute CIF manually from xb + basehaz
@@ -595,6 +611,7 @@ local p14_pass = 1
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
     finegray_predict sch_ic, schoenfeld
     * Run phtest for reference
     finegray_phtest, time(rank)
@@ -643,6 +660,7 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
     * 1.2.0: determinism is now asserted on the full per-covariate matrix,
     * which is strictly stronger than the two retired scalars it replaces.
     *
@@ -682,6 +700,13 @@ display as text "Total:   " as result `test_count'
 display as text "Passed:  " as result `pass_count'
 display as text "Failed:  " as result `fail_count'
 display as text "Skipped: " as result `skip_count'
+
+foreach f in pp_hypoxia_input.csv pp_sim_input.csv ///
+    r_xb.csv r_cif.csv r_schoenfeld.csv r_phtest.csv ///
+    r_xb_hyp.csv r_cif_hyp.csv r_schoenfeld_hyp.csv r_phtest_hyp.csv {
+    capture erase "`datadir'/`f'"
+}
+capture rmdir "`datadir'"
 
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"

@@ -82,6 +82,16 @@ capture noisily {
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), "{cmd:r(max_smd_adj)}") > 0
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), "{cmd:r(n_ps_near_boundary)}") > 0
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), "{cmd:r(levels)}") > 0
+    local help_topics psdash_balance psdash_combined psdash_detect ///
+        psdash_overlap psdash_support psdash_weights
+    foreach topic of local help_topics {
+        confirm file "`pkg_dir'/`topic'.sthlp"
+        assert strpos(fileread("`pkg_dir'/`topic'.sthlp"), "{title:Options}") > 0
+        assert strpos(fileread("`pkg_dir'/`topic'.sthlp"), ///
+            "{title:Stored results}") > 0
+        assert strpos(fileread("`pkg_dir'/psdash.pkg"), ///
+            "f `topic'.sthlp") > 0
+    }
 }
 _doc_result "D2" `=_rc'
 
@@ -120,6 +130,10 @@ local ++test_count
 display as text _n "--- D3: Stata can resolve installed help ---"
 capture noisily {
     help psdash
+    foreach topic in psdash_balance psdash_combined psdash_detect ///
+        psdash_overlap psdash_support psdash_weights {
+        help `topic'
+    }
 }
 _doc_result "D3" `=_rc'
 

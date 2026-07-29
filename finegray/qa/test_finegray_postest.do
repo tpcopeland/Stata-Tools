@@ -32,7 +32,7 @@ capture log close _all
 log using "test_finegray_postest.log", replace name(_pe)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -247,7 +247,7 @@ capture noisily {
     * and it must still be a valid cumulative hazard: nondecreasing, nonnegative
     local prev = -1
     forvalues r = 1/`nrow' {
-        assert bh[`r',2] >= 0
+        assert bh[`r',2] >= 0 & bh[`r',2] < .
         assert bh[`r',2] >= `prev'
         local prev = bh[`r',2]
     }
@@ -528,7 +528,8 @@ capture noisily {
 
     * a cumulative hazard: nonnegative and nondecreasing in time
     quietly summarize bch
-    assert r(min) >= 0
+    assert r(N) > 0
+    assert r(min) >= 0 & r(min) < .
     sort _t
     quietly gen double _lag = bch[_n-1]
     * guard the missings: an obs outside the predict sample has bch = ., and
@@ -613,7 +614,7 @@ capture noisily {
     capture noisily finegray_predict double cif_new, cif timevar(t5)
     assert _rc == 0
     assert !missing(cif_new[1])
-    assert cif_new[1] > 0
+    assert cif_new[1] > 0 & cif_new[1] < 1
     assert reldif(cif_new[1], `truth') < 1e-7
     display as text "  new-data CIF = " %9.7f cif_new[1] ///
         " reproduces the in-sample value " %9.7f `truth'

@@ -292,8 +292,10 @@ foreach arm of local expected_arms {
         if "`arm'" == "C" local weightopts "strata(z1) truncstrata(z1)"
         if "`arm'" == "X" local weightopts "strata(cgroup) truncstrata(tgroup)"
         capture quietly finegray z1 z2, compete(status) cause(1) `weightopts'
-        if _rc {
-            display as error "  FAIL: arm `arm' rep `r' -- finegray exited rc = `=_rc'"
+        local fit_rc = _rc
+        if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+        if `fit_rc' {
+            display as error "  FAIL: arm `arm' rep `r' -- finegray fit rc = `fit_rc'"
             local ++test_count
             local ++fail_count
             continue

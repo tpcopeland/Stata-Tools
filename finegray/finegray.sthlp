@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  27jul2026}{...}
+{* *! version 1.2.1  28jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -207,28 +207,32 @@ allowed with {opt norobust}, which has no such adjustment.
 matrix instead of the default Huber/White/sandwich estimator.
 
 {pmore}
-{bf:These standard errors are not valid for inference.} The Fine-Gray objective is
-a pseudo-likelihood: the inverse-probability-of-censoring weights make
-subjects' contributions dependent, so the inverse information matrix does not
-estimate the sampling variance of the coefficients. Model-based standard
-errors are generally too small, and their confidence intervals do not have
-nominal coverage. {opt norobust} exists so that the naive likelihood variance can be
+{bf:These standard errors are not generally valid for Fine-Gray inference.} The
+weighted Fine-Gray estimating equation is a pseudo-likelihood score, so the
+ordinary likelihood information identity need not hold: inverse information
+omits the empirical score variability and any estimated-weight contribution. It
+can coincide with a likelihood variance in special limiting cases, but
+model-based standard errors are generally too small in the competing-risk
+settings targeted here, and their confidence intervals need not have nominal
+coverage. {opt norobust} exists so that the naive likelihood variance can be
 inspected and compared; use the default sandwich variance to report
 results. {cmd:finegray} prints a warning whenever {opt norobust} is used.
 
 {pmore}
 {bf:Under delayed entry, inverse information also omits weight-estimation uncertainty.} Bellach
-et al. (2020, sec. 5)
-document truncation-dependent undercoverage from fixed-weight/information
-arguments. Do not use {opt norobust} for inference on left-truncated data.
+et al. (2020, sec. 5) document truncation-dependent undercoverage of
+inverse-information inference. Do not use {opt norobust} for inference on
+left-truncated data.
 
 {pmore}
 {bf:Scope of the sandwich estimator.} The default sandwich is a
 {it:fixed-weight} sandwich: it treats the estimated inverse-probability-of-
 censoring weights as fixed and does not propagate the uncertainty in the
 estimated censoring distribution G(t) (nor, under delayed entry, the entry
-distribution H(t)). This is the same variance {helpb stcrreg} reports, and
-coefficients are unaffected — only the standard errors are. {cmd:e(lt_vce)}
+distribution H(t)). Under right censoring this is the same variance convention
+{helpb stcrreg} reports. Under delayed entry the commands use different weights, so
+neither estimates nor standard errors are numerically comparable. Coefficients
+are unaffected by the variance option — only their standard errors change. {cmd:e(lt_vce)}
 records the delayed-entry variance actually computed as
 {cmd:fixed_weight_sandwich} (or {cmd:model_based} under {opt norobust}), and
 {cmd:e(vce_meat)} records which sandwich meat was used on any fit. Under right
@@ -945,7 +949,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-07-27{p_end}
+{pstd}Version 1.2.1, 2026-07-28{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

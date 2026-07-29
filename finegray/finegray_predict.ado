@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/07/27
+*! finegray_predict Version 1.2.1  2026/07/28
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -515,7 +515,7 @@ program define finegray_predict, rclass sortpreserve
             tempvar se_cif
             quietly gen double `se_cif' = .
             if `bootstrap' > 0 {
-                * Exact SE via subject bootstrap; resample in a separate frame
+                * Full-refit subject-bootstrap SE; resample in a separate frame
                 * so the eval data (and accumulators) stay intact, and hold the
                 * user's e() across the refits.
                 * e(refitcmd), not e(cmdline): the refit runs on data already
@@ -562,9 +562,10 @@ program define finegray_predict, rclass sortpreserve
                 * slot in the Mata baseline cache, bumping its seq past the one the
                 * held e(bh_seq) names.  Without this, a later `predict, cif' on new
                 * data (estimation sample dropped) finds a seq mismatch and errors
-                * r(459).  Snapshot the cache now, restore it after the loop; the
-                * bootstrap SE reads e(basehaz) on each refit, never this cache, so
-                * this cannot affect the SE.
+                * r(459).  Snapshot the cache now and restore it after the loop.
+                * Each replication reads its own sequence-keyed cache entry before
+                * the next refit overwrites it, so the final restore cannot affect
+                * the bootstrap SE.
                 mata: _finegray_bh_stash()
                 local _bh_stashed = 1
                 if "`seed'" != "" set seed `seed'
@@ -583,13 +584,11 @@ program define finegray_predict, rclass sortpreserve
                         * fresh survival id without overwriting any user variable.
                         quietly gen long `_bsid' = _n
                         char _dta[st_id] "`_bsid'"
-                        * basehaz on the REFIT (not in e(refitcmd), which QA
-                        * asserts reproduces e(b)): _finegray_boot_cif_obs runs
-                        * AFTER this frame is left, when the resampled estimation
-                        * data is gone, so it cannot rebuild the baseline in Mata
-                        * -- it reads e(basehaz), which must therefore exist for
-                        * the replication.
-                        capture `_fgbscmd' basehaz
+                        * finegray always leaves this refit's baseline in the
+                        * sequence-keyed Mata cache.  Do NOT append basehaz:
+                        * posting the K-row e(basehaz) matrix is O(K^2), repeated
+                        * once per replication.
+                        capture `_fgbscmd'
                         local _reprc = _rc
                         if !`_reprc' & e(converged) != 1 local _reprc = 498
                         * A resample can lose a factor level, so the refit
@@ -597,10 +596,12 @@ program define finegray_predict, rclass sortpreserve
                         * the stored design; skip the replication.
                         if !`_reprc' & `"`e(covariates)'"' != `"`_fgcovs'"' ///
                             local _reprc = 459
+                        if !`_reprc' local _fg_repseq `"`e(bh_seq)'"'
                     }
                     if `_reprc' continue
                     quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
-                        "`tvar'", "`touse'", "`_bsum'", "`_bss'")
+                        "`tvar'", "`touse'", "`_bsum'", "`_bss'", ///
+                        strtoreal("`_fg_repseq'"))
                     local ++_bok
                 }
                 frame drop `_bf'

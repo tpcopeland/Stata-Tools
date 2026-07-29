@@ -1,6 +1,7 @@
 * test_refactor_display_contracts.do
 * Display-demo contract for psdash README/demo de-duplication
 * Usage: cd psdash/qa && stata-mp -b do test_refactor_display_contracts.do
+* qa-hygiene: no-package-code (documentation and artifact assertions only)
 
 clear all
 version 16.0

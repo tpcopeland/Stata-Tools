@@ -45,13 +45,21 @@ cov_cols <- setdiff(names(df), c("id", "time", "status"))
 Z <- as.matrix(df[, cov_cols, drop = FALSE])
 n <- nrow(df)
 p <- ncol(Z)
+if (n == 0L || p == 0L || anyDuplicated(df$id) ||
+    any(!is.finite(df$time)) || any(!is.finite(df$status)) ||
+    any(!is.finite(Z))) {
+    stop("input must have unique ids and finite time/status/covariate values")
+}
 
 cat(sprintf("Data: n=%d, p=%d, covariates: %s\n",
             n, p, paste(cov_cols, collapse = ", ")))
 
 # Fit Fine-Gray model via cmprsk::crr
 fit <- crr(df$time, df$status, cov1 = Z, failcode = 1, cencode = 0)
-if (!fit$converged) cat("WARNING: crr did not converge\n")
+if (!isTRUE(fit$converged)) stop("crr did not converge")
+if (length(fit$coef) != p || any(!is.finite(fit$coef))) {
+    stop("crr returned an incomplete or nonfinite coefficient vector")
+}
 for (j in seq_len(p)) {
     cat(sprintf("  coef[%s] = %.8f\n", cov_cols[j], fit$coef[j]))
 }
@@ -60,6 +68,7 @@ for (j in seq_len(p)) {
 # 1. Linear predictor: xb = Z %*% beta
 # =====================================================================
 xb <- as.vector(Z %*% fit$coef)
+if (any(!is.finite(xb))) stop("linear-predictor reference is nonfinite")
 write.csv(data.frame(id = df$id, r_xb = xb),
           file.path(output_dir, "r_xb.csv"), row.names = FALSE)
 cat(sprintf("  xb range: [%.6f, %.6f]\n", min(xb), max(xb)))
@@ -78,6 +87,7 @@ for (i in seq_len(n)) {
         cif_values[i] <- pred[max(idx), i + 1]
     }
 }
+if (any(!is.finite(cif_values))) stop("CIF reference is nonfinite")
 write.csv(data.frame(id = df$id, r_cif = cif_values),
           file.path(output_dir, "r_cif.csv"), row.names = FALSE)
 cat(sprintf("  CIF range: [%.6f, %.6f]\n", min(cif_values), max(cif_values)))
@@ -117,7 +127,7 @@ compute_G <- function(time, status) {
 
 G <- compute_G(df$time, df$status)
 if (!is.null(beta_override)) {
-    if (length(beta_override) != p)
+    if (length(beta_override) != p || any(!is.finite(beta_override)))
         stop(sprintf("beta override length %d != p %d", length(beta_override), p))
     beta <- beta_override
     cat(sprintf("  Schoenfeld/PH computed at supplied beta: %s\n",
@@ -165,6 +175,7 @@ for (jj in seq_len(n_events)) {
     sch_mat[jj, p + 2] <- df$id[j]
 }
 
+if (any(!is.finite(sch_mat))) stop("Schoenfeld reference is nonfinite")
 write.csv(as.data.frame(sch_mat),
           file.path(output_dir, "r_schoenfeld.csv"), row.names = FALSE)
 
@@ -205,6 +216,12 @@ for (tf_name in c("rank", "log", "identity")) {
     }
 }
 phtest_df <- do.call(rbind, phtest_rows)
+if (is.null(phtest_df) || nrow(phtest_df) != 3L * p ||
+    anyDuplicated(phtest_df[c("variable", "time_func")]) ||
+    any(!is.finite(phtest_df$rho)) ||
+    any(!is.finite(phtest_df$n_events))) {
+    stop("PH-diagnostic reference is incomplete, duplicated, or nonfinite")
+}
 write.csv(phtest_df, file.path(output_dir, "r_phtest.csv"),
           row.names = FALSE)
 

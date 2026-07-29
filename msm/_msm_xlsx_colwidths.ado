@@ -1,4 +1,4 @@
-*! _msm_xlsx_colwidths Version 1.4.1  2026/07/27
+*! _msm_xlsx_colwidths Version 1.4.2  2026/07/28
 *! Apply Excel column widths to an open xl() workbook object
 *! Author: Timothy P Copeland, Karolinska Institutet
 

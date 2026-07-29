@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.6.0  2026/07/26
+*! psdash_overlap Version 1.6.1  2026/07/29
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -222,8 +222,9 @@ program define psdash_overlap, rclass
         exit 198
     }
 
-    * Positivity warnings
-    _psdash_pscheck `psvar' if `touse'
+    * Count boundary/near-boundary scores here; the panel below owns display
+    * and the machine-readable warning surface.
+    _psdash_pscheck `psvar' if `touse', nowarn
     local n_ps_boundary = r(n_ps_boundary)
     local n_ps_near = r(n_ps_near)
 
@@ -305,6 +306,15 @@ program define psdash_overlap, rclass
     * finding; ANY finding forces a non-Good verdict and enters r(warnings).)
     local _pf ""
     local _pfn = 0
+    if `n_ps_boundary' > 0 {
+        display as error "Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1."
+        display as error "  Exact boundaries violate strict positivity."
+        local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
+        local ++_pfn
+    }
+    if `n_ps_near' > 0 {
+        display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
+    }
     if `pct_outside' > 10 {
         display as error "Warning: >10% of observations outside common support region."
         local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
@@ -455,12 +465,6 @@ program define psdash_overlap, rclass
         quietly replace `obs_ps' = `lev_ps' if `treatment' == `lev' & `touse'
     }
 
-    * Positivity warnings are based on the probability of each observation's
-    * observed treatment group.
-    _psdash_pscheck `obs_ps' if `touse', advice({cmd:psdash support, threshold(0.05)})
-    local n_ps_boundary = r(n_ps_boundary)
-    local n_ps_near = r(n_ps_near)
-
     * Set defaults
     if "`title'" == "" local title "Propensity Score Overlap"
     if "`name'" == "" local name "psdash_overlap"
@@ -501,6 +505,10 @@ program define psdash_overlap, rclass
     local min_gps = r(min_gps)
     local n_gps_violate = r(n_gps_violate)
     local pct_gps_violate = r(pct_gps_violate)
+    local n_ps_boundary = r(n_ps_boundary)
+    local n_ps_near = r(n_ps_near)
+    tempname gps_means
+    matrix `gps_means' = r(gps_means)
 
     * AUC: skip for K > 2 (roctab is binary-only)
     local auc = .
@@ -515,55 +523,32 @@ program define psdash_overlap, rclass
     }
     display ""
 
-    * PS distribution by group — dynamic columns
+    * Like-for-like GPS summary: every column is one fixed e_j(X), evaluated
+    * within every observed treatment group (McCaffrey et al. 2013).
     local col_width = 13
-    local hline_width = 20 + `K' * `col_width'
+    local hline_width = 30 + `K' * `col_width'
     display as text "{hline `hline_width'}"
-    display as text "Propensity Score Distribution"
-    display as text "{hline `hline_width'}"
-
-    * Header row
-    display as text %20s "" _c
-    foreach lev of local levels {
-        display as text %`col_width's "`lbl_`lev''" _c
-    }
-    display ""
+    display as text "Mean GPS by Observed Treatment Group"
     display as text "{hline `hline_width'}"
 
-    * N row
-    display as text %20s "N" _c
+    display as text %20s "Observed group" %10s "N" _c
     foreach lev of local levels {
-        display as result %`col_width'.0fc `n_group_`lev'' _c
+        display as text %`col_width's "e(`lbl_`lev'')" _c
     }
     display ""
+    display as text "{hline `hline_width'}"
 
-    * Mean row
-    display as text %20s "Mean" _c
-    foreach lev of local levels {
-        display as result %`col_width'.4f `mean_ps_`lev'' _c
+    local ridx = 0
+    foreach observed_level of local levels {
+        local ++ridx
+        display as text %20s "`lbl_`observed_level''" ///
+            as result %10.0fc `n_group_`observed_level'' _c
+        forvalues cidx = 1/`K' {
+            display as result %`col_width'.4f ///
+                `gps_means'[`ridx', `cidx'] _c
+        }
+        display ""
     }
-    display ""
-
-    * SD row
-    display as text %20s "SD" _c
-    foreach lev of local levels {
-        display as result %`col_width'.4f `sd_ps_`lev'' _c
-    }
-    display ""
-
-    * Min row
-    display as text %20s "Min" _c
-    foreach lev of local levels {
-        display as result %`col_width'.4f `min_ps_`lev'' _c
-    }
-    display ""
-
-    * Max row
-    display as text %20s "Max" _c
-    foreach lev of local levels {
-        display as result %`col_width'.4f `max_ps_`lev'' _c
-    }
-    display ""
     display as text "{hline `hline_width'}"
     display ""
 
@@ -610,10 +595,8 @@ program define psdash_overlap, rclass
         local _pf `"`_pf' | `n_gps_violate' unit(s) below GPS positivity floor `=string(`gpsfloor',"%4.3f")' (min GPS `=string(`min_gps',"%5.4f")')"'
         local ++_pfn
     }
-    if `pct_outside' > 10 {
-        display as error "Warning: >10% of observations outside observed-arm PS overlap."
-        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside observed-arm PS overlap"'
-        local ++_pfn
+    if `n_ps_near' > 0 & `n_gps_violate' == 0 {
+        display as text "Note: `n_ps_near' unit(s) have a GPS component < 0.01 or > 0.99."
     }
     local _pf = strtrim("`_pf'")
     if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
@@ -623,91 +606,36 @@ program define psdash_overlap, rclass
     * Verdict (WARNING on ANY finding)
     if `_pfn' > 0 {
         display as text _n "Overlap: " as error "WARNING" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
+            as text " (" as result %4.1f `pct_gps_violate' as text "% below GPS floor; " ///
             as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
     }
     else {
-        display as text _n "Overlap: " as result "Good" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+        display as text _n "Overlap: " as result "No GPS-floor violation" ///
+            as text " (" as result %4.1f `pct_gps_violate' as text "% below " ///
+            as result %5.3f `gpsfloor' as text ")"
     }
 
     * GRAPH
     if "`nograph'" == "" {
-        capture noisily {
-            quietly {
-                * Prepend scheme to graphoptions if specified
-                if "`scheme'" != "" {
-                    local graphoptions `"scheme(`scheme') `graphoptions'"'
-                }
-
-                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
-                local plot_cmd ""
-                local legend_order ""
-                local gnum = 0
-
-                if "`histogram'" != "" {
-                    * Histogram version — compute bin width
-                    local ps_global_min = 1
-                    local ps_global_max = 0
-                    foreach lev of local levels {
-                        if `min_ps_`lev'' < `ps_global_min' local ps_global_min = `min_ps_`lev''
-                        if `max_ps_`lev'' > `ps_global_max' local ps_global_max = `max_ps_`lev''
-                    }
-                    local ps_range = `ps_global_max' - `ps_global_min'
-                    if `ps_range' <= 0 local ps_range = 1
-                    local bw_hist = `ps_range' / `bins'
-                    if `bw_hist' <= 0 local bw_hist = 0.05
-
-                    foreach lev of local levels {
-                        local gnum = `gnum' + 1
-                        local col : word `gnum' of `color_list'
-                        if "`col'" == "" local col "gs`gnum'"
-                        local lab "`lbl_`lev''"
-                        local lev_ps "`group_ps_`lev''"
-                        local plot_cmd `"`plot_cmd' (histogram `lev_ps' if `touse' & `treatment' == `lev', frequency fcolor(`col'%50) lcolor(`col') width(`bw_hist'))"'
-                        local legend_order `"`legend_order' `gnum' "`lab'""'
-                    }
-
-                    noisily twoway `plot_cmd', ///
-                        legend(order(`legend_order') rows(1) position(6)) ///
-                        xtitle("Propensity Score") ytitle("Frequency") ///
-                        title(`"`title'"') ///
-                        xline(`overlap_lower' `overlap_upper', lcolor(gs8) lpattern(dash)) ///
-                        name(`name', replace) ///
-                        `graphoptions'
-                }
-                else {
-                    * Density plot version (default)
-                    local bw_opt ""
-                    if "`bwidth'" != "" {
-                        local bw_opt "bwidth(`bwidth')"
-                    }
-
-                    foreach lev of local levels {
-                        local gnum = `gnum' + 1
-                        local col : word `gnum' of `color_list'
-                        if "`col'" == "" local col "gs`gnum'"
-                        local lab "`lbl_`lev''"
-                        local lev_ps "`group_ps_`lev''"
-                        local plot_cmd `"`plot_cmd' (kdensity `lev_ps' if `touse' & `treatment' == `lev', lcolor(`col') lwidth(medthick) `bw_opt')"'
-                        local legend_order `"`legend_order' `gnum' "`lab'""'
-                    }
-
-                    noisily twoway `plot_cmd', ///
-                        legend(order(`legend_order') rows(1) position(6)) ///
-                        xtitle("Propensity Score") ytitle("Density") ///
-                        title(`"`title'"') ///
-                        xline(`overlap_lower' `overlap_upper', lcolor(gs8) lpattern(dash)) ///
-                        name(`name', replace) ///
-                        `graphoptions'
-                }
-
-                if "`saving'" != "" {
-                    _psdash_graph_export, saving("`saving'")
-                }
-            }
+        local _hist_opt ""
+        if "`histogram'" != "" local _hist_opt "histogram"
+        local _bwidth_opt ""
+        if "`bwidth'" != "" local _bwidth_opt "bwidth(`bwidth')"
+        local _saving_opt ""
+        if `"`saving'"' != "" local _saving_opt `"saving(`"`saving'"')"'
+        local _scheme_opt ""
+        if "`scheme'" != "" local _scheme_opt "scheme(`scheme')"
+        local _graphoptions_opt ""
+        if `"`graphoptions'"' != "" {
+            local _graphoptions_opt `"graphoptions(`"`graphoptions'"')"'
         }
+
+        capture noisily _psdash_mgps_graph, treatment(`treatment') ///
+            samplevar(`touse') psvars(`_mg_group_psvars') levels(`levels') ///
+            name(`name') gpsfloor(`gpsfloor') bins(`bins') ///
+            title(`"`title'"') `_hist_opt' `_bwidth_opt' `_saving_opt' ///
+            `_scheme_opt' `_graphoptions_opt'
         local graph_rc = _rc
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'
@@ -722,6 +650,16 @@ program define psdash_overlap, rclass
             foreach lev of local levels {
                 local _xk `"`_xk' "N (group `lev')" "Mean PS (group `lev')" "Min PS (group `lev')" "Max PS (group `lev')""'
                 local _xv `"`_xv' "`n_group_`lev''" "`=string(`mean_ps_`lev'',"%6.4f")'" "`=string(`min_ps_`lev'',"%6.4f")'" "`=string(`max_ps_`lev'',"%6.4f")'""'
+            }
+            local _ridx = 0
+            foreach observed_level of local levels {
+                local ++_ridx
+                local _cidx = 0
+                foreach score_level of local levels {
+                    local ++_cidx
+                    local _xk `"`_xk' "Mean e(`score_level') | observed group `observed_level'""'
+                    local _xv `"`_xv' "`=string(`gps_means'[`_ridx',`_cidx'],"%6.4f")'""'
+                }
             }
             local _xk `"`_xk' "Min GPS (worst unit)" "GPS floor" "Below GPS floor (N)" "Below GPS floor (%)""'
             local _xv `"`_xv' "`=string(`min_gps',"%6.4f")'" "`=string(`gpsfloor',"%6.4f")'" "`n_gps_violate'" "`=string(`pct_gps_violate',"%5.2f")'""'
@@ -796,6 +734,7 @@ program define psdash_overlap, rclass
             return local reference "`reference_grp'"
             return local estimand "`estimand'"
             return local source "`source'"
+            return matrix gps_means = `gps_means'
         }
         * RB-01 unified findings surface (both modes)
         if "`_overlap_nfind'" == "" local _overlap_nfind = 0

@@ -39,7 +39,7 @@ capture log close _all
 log using "crossval_nuisance.log", replace name(_xvnuis)
 
 local qadir "`c(pwd)'"
-local pkg_dir = subinstr("`qadir'", "/qa", "", 1)
+local pkg_dir = regexr("`qadir'", "/qa$", "")
 local datadir "`qadir'/data"
 capture confirm file "`pkg_dir'/finegray.pkg"
 if _rc {
@@ -118,9 +118,9 @@ capture noisily {
     assert r(N) == 0
     * the fixture set must actually exercise ties and strata
     quietly summarize n_ties_ev
-    assert r(max) >= 5
+    assert r(N) == 11 & r(max) >= 5 & r(max) < .
     quietly summarize n_cengroup
-    assert r(max) >= 3
+    assert r(N) == 11 & r(max) >= 3 & r(max) < .
 
     * the covariance reference must exist, cover every p>=2 fixture, and be
     * able to discriminate psi -- otherwise the off-diagonal assertions in
@@ -192,9 +192,11 @@ foreach f in f1 f2 f4 f5 pbc {
 
         quietly finegray `zv', compete(eps) cause(1) censvalue(0) `stopt' ///
             robust noadjust nolog
+        assert e(converged) == 1
         matrix VE = e(V)
         quietly finegray `zv', compete(eps) cause(1) censvalue(0) `stopt' ///
             robust noadjust nuisance nolog
+        assert e(converged) == 1
         matrix VN = e(V)
 
         forvalues r = 1/`nref' {

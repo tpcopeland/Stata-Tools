@@ -19,7 +19,7 @@ capture log close _all
 log using "test_finegray_variance.log", replace name(_tvar)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -264,7 +264,7 @@ capture noisily {
 
     quietly finegray_predict xb_cl, xb
     quietly summarize xb_cl
-    assert r(N) > 0 & r(sd) > 0
+    assert r(N) > 1 & r(sd) > 0 & r(sd) < .
 }
 if _rc == 0 {
     display as result "  PASS: clustered fit supports the postestimation surface"

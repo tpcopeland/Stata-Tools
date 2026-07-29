@@ -55,8 +55,12 @@ CIF(t | z) = 1 - exp( -H0(t) * exp(z'b) ),
 where H0(t) is the fitted baseline cumulative subdistribution hazard. The
 command uses {cmd:e(basehaz)} when that opt-in matrix exists and otherwise
 resolves the fit-specific cached or rebuilt baseline. By default it plots the
-CIF over the event-time grid; with {opt attime()} it instead reports the CIF at
-specific horizons (for example the 5-year cumulative incidence).
+CIF as a right-continuous step function over the event-time grid. The plotted
+curve and confidence band begin at the exact (0,0) boundary, and the plot region
+is anchored at zero on the analysis-time axis. This display-only origin is not
+added to {cmd:r(table)} or {opt saving()} output. With {opt attime()} the command
+instead reports the CIF at specific horizons (for example the 5-year cumulative
+incidence).
 
 {pstd}
 {cmd:finegray_cif} is the {helpb finegray} analogue of {helpb stcurve}{cmd:, cif}

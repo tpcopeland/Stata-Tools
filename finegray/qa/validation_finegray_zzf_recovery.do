@@ -71,7 +71,7 @@ capture log close _all
 log using "validation_finegray_zzf_recovery.log", replace name(_zzf)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture confirm file "`pkg_dir'/finegray.pkg"
 if _rc {
     display as error "run this from the finegray/qa directory"
@@ -214,8 +214,9 @@ end
 _zzf_gen, n(2000) seed(`SEED0') trunc(bygroup)
 quietly stset t, failure(anyev == 1) id(id) enter(time t0)
 capture noisily finegray z1 z2, compete(status) cause(1) truncstrata(z1)
-local has_ts = (_rc == 0)
 local probe_rc = _rc
+if `probe_rc' == 0 & e(converged) != 1 local probe_rc = 430
+local has_ts = (`probe_rc' == 0)
 
 if `has_ts' {
     local MODE "GREEN"
@@ -244,6 +245,7 @@ forvalues r = 1/`REPS' {
     quietly stset t, failure(anyev == 1) id(id)
     capture quietly finegray z1 z2, compete(status) cause(1)
     local fit_rc = _rc
+    if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
     if `fit_rc' == 0 post _pf ("A") (`r') (_b[z1]) (_b[z2])
     else {
         display as error "  FITFAIL arm A rep `r': rc=`fit_rc'"
@@ -255,6 +257,7 @@ forvalues r = 1/`REPS' {
     quietly stset t, failure(anyev == 1) id(id) enter(time t0)
     capture quietly finegray z1 z2, compete(status) cause(1)
     local fit_rc = _rc
+    if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
     if `fit_rc' == 0 post _pf ("B") (`r') (_b[z1]) (_b[z2])
     else {
         display as error "  FITFAIL arm B rep `r': rc=`fit_rc'"
@@ -268,6 +271,7 @@ forvalues r = 1/`REPS' {
     if `has_ts' {
         capture quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1)
         local fit_rc = _rc
+        if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
         if `fit_rc' == 0 post _pf ("C") (`r') (_b[z1]) (_b[z2])
         else {
             display as error "  FITFAIL arm C rep `r': rc=`fit_rc'"
@@ -277,6 +281,7 @@ forvalues r = 1/`REPS' {
 
     capture quietly finegray z1 z2, compete(status) cause(1)
     local fit_rc = _rc
+    if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
     if `fit_rc' == 0 post _pf ("D") (`r') (_b[z1]) (_b[z2])
     else {
         display as error "  FITFAIL arm D rep `r': rc=`fit_rc'"

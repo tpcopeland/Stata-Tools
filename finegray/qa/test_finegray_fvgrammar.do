@@ -21,7 +21,7 @@ capture log close _all
 log using "test_finegray_fvgrammar.log", replace name(_fvg)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 

@@ -112,13 +112,14 @@ stset dftime, failure(dfcens == 1) id(stnum)
 * matrix must be posted.  It is opt-in because building a Stata matrix with one
 * row per event time is O(rows^2); predict, basecshazard is the O(N) route.
 finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
+assert e(converged) == 1
 matrix frt = r(table)
 
 finegray_predict fg_xb, xb
 finegray_predict fg_cif, cif
 finegray_predict fg_sch, schoenfeld     // fg_sch, fg_sch_2, fg_sch_3
 
-merge 1:1 stnum using "`sout_A'", nogen
+merge 1:1 stnum using "`sout_A'", assert(match) nogen
 
 * per-event-time multiplicity (for tied-time Schoenfeld handling)
 bysort _t: gen long _nt = _N
@@ -379,10 +380,11 @@ _finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens == 1) id(stnum)
 finegray ifp pelnode, compete(status) cause(2) nolog
+assert e(converged) == 1
 matrix frtB = r(table)
 finegray_predict fgB_xb, xb
 finegray_predict fgB_cif, cif
-merge 1:1 stnum using "`sout_B'", nogen
+merge 1:1 stnum using "`sout_B'", assert(match) nogen
 
 **# B1: xb agrees with stcrreg to <1e-6 (cause 2)
 local ++test_count
@@ -463,6 +465,7 @@ _finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens == 1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+assert e(converged) == 1
 gen double t3 = 3
 finegray_predict cifC_fg, cif timevar(t3)
 keep stnum cifC_fg
@@ -481,7 +484,7 @@ predict bcifC_s, basecif
 quietly summarize bcifC_s if _t <= 3
 scalar F0_3 = r(max)
 keep stnum xbC_s
-merge 1:1 stnum using "`fout_C'", nogen
+merge 1:1 stnum using "`fout_C'", assert(match) nogen
 
 **# C1: finegray CIF(t=3) == 1 - (1 - F0)^exp(xb)  (CORRECT basecif mapping)
 local ++test_count
@@ -511,7 +514,7 @@ capture noisily {
     gen double dC_bad = cifC_fg - cifC_wrong
     _mad dC_bad
     display as text "    issue#1 CIF vs F0^exp(xb) (wrong) max|diff| = " %12.3e r(mad)
-    assert r(mad) > 0.05
+    assert r(mad) > 0.05 & r(mad) < .
 }
 if _rc == 0 {
     display as result "  PASS: C2 CIF is not the wrong F0^exp(xb) mapping"

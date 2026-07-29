@@ -1,4 +1,4 @@
-*! msm_plot Version 1.4.1  2026/07/27
+*! msm_plot Version 1.4.2  2026/07/28
 *! Visualization for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -40,7 +40,7 @@ program define msm_plot, rclass
 
     syntax , TYPe(string) ///
         [COVariates(varlist numeric) THReshold(real 0.1) ///
-         TIMEs(numlist sort integer >=0) SAMPles(integer 50) SEED(integer -1) ///
+         TIMEs(numlist sort integer) SAMPles(integer 50) SEED(integer -1) ///
          N_sample(integer 50) ///
          TITle(string) SAVing(string) REPLACE]
 
@@ -76,9 +76,15 @@ program define msm_plot, rclass
 
         if `"`title'"' == "" local title "IP Weight Distribution by Treatment Group"
 
-        twoway (kdensity _msm_weight if `treatment' == 0, ///
+        tempvar _plot_use
+        quietly gen byte `_plot_use' = _msm_decision_risk & ///
+            !missing(`treatment', _msm_weight)
+        quietly count if `_plot_use'
+        local _n_risk = r(N)
+
+        twoway (kdensity _msm_weight if `_plot_use' & `treatment' == 0, ///
                 lcolor(navy) lwidth(medthick)) ///
-               (kdensity _msm_weight if `treatment' == 1, ///
+               (kdensity _msm_weight if `_plot_use' & `treatment' == 1, ///
                 lcolor(cranberry) lwidth(medthick) lpattern(dash)), ///
             legend(order(1 "Untreated" 2 "Treated") ///
                 pos(6)) ///
@@ -93,28 +99,67 @@ program define msm_plot, rclass
     else if "`type'" == "balance" {
         _msm_check_weighted
 
+        local _covariates_explicit = ("`covariates'" != "")
+        local _numer_covars : char _dta[_msm_numer_covars]
         if "`covariates'" == "" {
             local covariates "`_msm_covariates' `_msm_bl_covs'"
             local covariates = strtrim("`covariates'")
+            local _balance_targets ""
+            foreach _var of local covariates {
+                local _is_numerator : list _var in _numer_covars
+                if !`_is_numerator' {
+                    local _balance_targets "`_balance_targets' `_var'"
+                }
+            }
+            local covariates = strtrim("`_balance_targets'")
         }
         if "`covariates'" == "" {
-            display as error "no covariates specified for balance plot"
+            display as error "no denominator-only balance targets are available"
+            display as error "Specify covariates() explicitly to plot numerator covariates."
             exit 198
         }
 
-        if `"`title'"' == "" local title "Covariate Balance (Love Plot)"
+        if `_covariates_explicit' & "`_numer_covars'" != "" {
+            local _requested_nontargets ""
+            foreach _var of local covariates {
+                local _is_numerator : list _var in _numer_covars
+                if `_is_numerator' {
+                    local _requested_nontargets "`_requested_nontargets' `_var'"
+                }
+            }
+            local _requested_nontargets = strtrim("`_requested_nontargets'")
+            if "`_requested_nontargets'" != "" {
+                display as text "Note: numerator covariates are not balance targets: `_requested_nontargets'"
+            }
+        }
+
+        if `"`title'"' == "" {
+            local title "Secondary Pooled Covariate Balance (Love Plot)"
+        }
 
         local n_covs : word count `covariates'
+        tempvar _plot_use
+        quietly gen byte `_plot_use' = _msm_decision_risk & ///
+            !missing(`treatment')
+        quietly count if `_plot_use'
+        local _n_risk = r(N)
+        tempname _plot_balance
+        matrix `_plot_balance' = J(`n_covs', 2, .)
 
         * Compute SMDs on original data (no preserve needed)
         local i = 0
         foreach var of local covariates {
             local ++i
-            _msm_smd `var', treatment(`treatment')
+            _msm_smd `var', treatment(`treatment') touse(`_plot_use')
             local uw_`i' = `_msm_smd_value'
-            _msm_smd `var', treatment(`treatment') weight(_msm_weight)
+            _msm_smd `var', treatment(`treatment') weight(_msm_weight) ///
+                touse(`_plot_use')
             local w_`i' = `_msm_smd_value'
+            matrix `_plot_balance'[`i', 1] = `uw_`i''
+            matrix `_plot_balance'[`i', 2] = `w_`i''
         }
+        matrix colnames `_plot_balance' = raw_smd weighted_smd
+        matrix rownames `_plot_balance' = `covariates'
 
         * Build plotting dataset
         preserve
@@ -133,8 +178,8 @@ program define msm_plot, rclass
             local abbrev_var = abbrev("`var'", 20)
             quietly {
                 replace covariate = "`abbrev_var'" in `i'
-                replace smd_uw = abs(`uw_`i'') in `i'
-                replace smd_w = abs(`w_`i'') in `i'
+                replace smd_uw = abs(`_plot_balance'[`i', 1]) in `i'
+                replace smd_w = abs(`_plot_balance'[`i', 2]) in `i'
             }
         }
 
@@ -151,7 +196,6 @@ program define msm_plot, rclass
                (scatter plot_order smd_w, msymbol(Sh) mcolor(cranberry) msize(medium)), ///
             xline(`threshold', lcolor(gs10) lpattern(dash)) ///
             ylabel(`ylabels', angle(0) labsize(small)) ///
-            xlabel(0(0.1)0.5) ///
             legend(order(1 "Unweighted" 2 "Weighted") pos(6)) ///
             xtitle("Absolute Standardized Mean Difference") ///
             ytitle("") ///
@@ -333,6 +377,12 @@ program define msm_plot, rclass
     }
 
     return local plot_type "`type'"
+    if inlist("`type'", "weights", "balance") {
+        return scalar n_risk = `_n_risk'
+    }
+    if "`type'" == "balance" {
+        return matrix balance = `_plot_balance'
+    }
 
     } /* end capture noisily */
     local _rc = _rc

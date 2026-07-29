@@ -1,5 +1,5 @@
 * test_finegray_contracts.do
-* Two internal contracts nothing else in the suite probes, plus strata edges.
+* Internal contracts nothing else in the suite probes, plus strata edges.
 *
 * TWO AXES, and neither was probed before.
 *
@@ -43,6 +43,11 @@
 *    in the suite had a singleton stratum.  The >=20-subject floor does not
 *    apply here: it is enforced on DELAYED-ENTRY fits only (finegray.ado:783),
 *    so a right-censoring fit may legitimately carry one.
+*
+* 4. FAIL-CLOSED POST-ESTIMATION INVERSION.  invsym() returns a generalized
+*    inverse for a rank-deficient matrix, so checking only for missing output
+*    silently accepts an unidentified direction.  PI-1 supplies both a valid
+*    positive control and a singular negative control.
 
 clear all
 set varabbrev off
@@ -52,7 +57,7 @@ capture log close _all
 log using "test_finegray_contracts.log", replace name(_fg121)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -412,6 +417,27 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: ST-2 many-strata fit (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 4. PI: post-estimation information inversion fails closed
+local ++test_count
+capture noisily {
+    mata: st_matrix("_fg_pi_ok", _finegray_information_inverse(I(2), "QA"))
+    matrix _PI = _fg_pi_ok
+    assert _PI[1,1] == 1 & _PI[1,2] == 0
+    assert _PI[2,1] == 0 & _PI[2,2] == 1
+    capture mata: _finegray_information_inverse((1, 1 \ 1, 1), "QA")
+    local _pi_rc = _rc
+    display as text "  PI-1 singular information inverse rc = `_pi_rc' (expected 459)"
+    assert `_pi_rc' == 459
+}
+if _rc == 0 {
+    display as result "  PASS: PI-1 post-estimation inverse rejects rank deficiency"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: PI-1 post-estimation inverse fail-closed contract (rc=`=_rc')"
     local ++fail_count
 }
 

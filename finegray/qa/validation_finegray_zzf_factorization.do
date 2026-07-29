@@ -148,7 +148,7 @@ capture log close _all
 log using "validation_finegray_zzf_factorization.log", replace name(_zzffac)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture confirm file "`pkg_dir'/finegray.pkg"
 if _rc {
     display as error "run this from the finegray/qa directory"
@@ -268,8 +268,10 @@ end
 _zzffac_gen, n(2000) seed(`SEED0') depend(on) klevels(2)
 quietly stset t, failure(anyev == 1) id(id) enter(time t0)
 capture noisily finegray x1 x2, compete(status) cause(1) strata(W) truncstrata(W)
-if _rc {
-    display as error "JOINT fit (strata()+truncstrata()) unavailable: rc = `=_rc'"
+local probe_rc = _rc
+if `probe_rc' == 0 & e(converged) != 1 local probe_rc = 430
+if `probe_rc' {
+    display as error "JOINT fit (strata()+truncstrata()) unavailable: rc = `probe_rc'"
     display as error "this suite requires the ZZF stratified weight; check the install"
     * Use macros, not literal counts: the runner reads the log as data, and a
     * SKIPPED branch is still ECHOED.  A literal `tests=1 pass=0 fail=1' echo
@@ -313,8 +315,10 @@ forvalues r = 1/`REPS' {
             if "`a'" == "SPLIT_G"  local opt "strata(W)"
             if "`a'" == "SPLIT_H"  local opt "truncstrata(W)"
             capture quietly finegray x1 x2, compete(status) cause(1) `opt'
-            if _rc {
-                display as error "  FITFAIL `a' rep `r': rc=`=_rc'"
+            local fit_rc = _rc
+            if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+            if `fit_rc' {
+                display as error "  FITFAIL `a' rep `r': rc=`fit_rc'"
                 post `pf' ("`a'") (`r') (.) (.) (.) (`tf')
             }
             else post `pf' ("`a'") (`r') (_b[x1]) (_b[x2]) (_se[x1]) (`tf')
@@ -331,7 +335,9 @@ forvalues r = 1/`REPS' {
         local tf = r(truncfrac)
         quietly stset t, failure(anyev == 1) id(id) enter(time t0)
         capture quietly finegray x1 x2, compete(status) cause(1)
-        if _rc post `pf' ("NULL") (`r') (.) (.) (.) (`tf')
+        local fit_rc = _rc
+        if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+        if `fit_rc' post `pf' ("NULL") (`r') (.) (.) (.) (`tf')
         else   post `pf' ("NULL") (`r') (_b[x1]) (_b[x2]) (_se[x1]) (`tf')
     }
 
@@ -442,7 +448,9 @@ forvalues r = 1/`VREPS' {
     if _rc continue
     quietly stset t, failure(anyev == 1) id(id) enter(time t0)
     capture quietly finegray x1 x2, compete(status) cause(1)
-    if _rc {
+    local fit_rc = _rc
+    if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+    if `fit_rc' {
         local bm = .
         local sm = .
     }
@@ -451,7 +459,9 @@ forvalues r = 1/`VREPS' {
         local sm = _se[x1]
     }
     capture quietly finegray x1 x2, compete(status) cause(1) strata(W) truncstrata(W)
-    if _rc {
+    local fit_rc = _rc
+    if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+    if `fit_rc' {
         local bj = .
         local sj = .
     }
@@ -486,11 +496,11 @@ display as text "    empirical SD(b1):      MARGINAL " %7.5f `sd_m' ///
     "   JOINT " %7.5f `sd_j' "   ratio " %5.2f `sdratio'
 
 local ++test_count
-local var_ok = (`seratio' > 1.0 & `nv' >= 2)
+local var_ok = (`seratio' > 1.0 & `nv' == `VREPS')
 if `var_ok' ///
-    display as result "  => JOINT is more variable than MARGINAL (SE ratio > 1): PASS"
+    display as result "  => JOINT is more variable than MARGINAL and all `VREPS' pairs converged: PASS"
 else {
-    display as error "  => expected JOINT SE ratio > 1 (the variance cost of not pooling): FAIL"
+    display as error "  => expected JOINT SE ratio > 1 with all `VREPS' paired fits: FAIL"
     local ++fail_count
 }
 
@@ -513,6 +523,7 @@ display as text _newline "  positivity ladder (n = `POSN', entrymul = 1.6, one d
 display as text "    K    trunc%   MARGINAL rc   JOINT rc"
 
 local wall_K = 0          /* first K at which JOINT fails but MARGINAL fits */
+local ladder_n = 0
 foreach K in 4 20 40 80 {
     capture _zzffac_gen, n(`POSN') seed(778001) depend(on) klevels(`K') ///
         entrymul(1.6) over(40) cwslope(1.1) lwslope(0.9)
@@ -520,10 +531,12 @@ foreach K in 4 20 40 80 {
         display as error "    K=`K': gen rc=`=_rc' (skipped)"
         continue
     }
+    local ++ladder_n
     local tf = r(truncfrac)
     quietly stset t, failure(anyev == 1) id(id) enter(time t0)
     capture quietly finegray x1 x2, compete(status) cause(1)
     local rcm = _rc
+    if `rcm' == 0 & e(converged) != 1 local rcm = 430
 
     * JOINT fit into its OWN log so the Z23 message can be read back as data.
     tempfile jlog
@@ -531,6 +544,7 @@ foreach K in 4 20 40 80 {
     log using "`jlog'", replace name(_fgjoint) text
     capture noisily finegray x1 x2, compete(status) cause(1) strata(W) truncstrata(W)
     local rcj = _rc
+    if `rcj' == 0 & e(converged) != 1 local rcj = 430
     capture log close _fgjoint
 
     local zmsg = 0
@@ -555,13 +569,15 @@ foreach K in 4 20 40 80 {
 }
 
 local ++test_count
-if `wall_K' > 0 {
+if `wall_K' > 0 & `ladder_n' == 4 {
     display as result _newline "  => at K = `wall_K' the fully-joint weight hits the Z23 positivity"
     display as result "     failure (r(459), zero joint-stratum denominators) while the pooled"
     display as result "     MARGINAL product still fits. Support contrast observed: PASS"
 }
 else {
     display as error _newline "  => did not observe a K where JOINT fails on Z23 while MARGINAL fits."
+    if `ladder_n' < 4 ///
+        display as error "     Only `ladder_n' of 4 planned ladder datasets were generated."
     display as error "     The planned support contrast is unobserved in this run: FAIL"
     local ++fail_count
 }

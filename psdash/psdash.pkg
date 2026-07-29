@@ -10,7 +10,7 @@ d propensity scores.
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d
-d Distribution-Date: 20260726
+d Distribution-Date: 20260729
 d License: MIT
 d
 d Requires: Stata version 16.0 or higher
@@ -20,9 +20,16 @@ d   common support, overlap, causal inference, diagnostics
 d
 f psdash.ado
 f psdash.sthlp
+f psdash_balance.sthlp
+f psdash_combined.sthlp
+f psdash_detect.sthlp
+f psdash_overlap.sthlp
+f psdash_support.sthlp
+f psdash_weights.sthlp
 f _psdash_balance_binary.ado
 f _psdash_balance_multigroup.ado
 f _psdash_contract_info.ado
+f _psdash_crump_alpha.ado
 f _psdash_detect.ado
 f _psdash_expand_fv.ado
 f _psdash_export_balance.ado
@@ -30,6 +37,7 @@ f _psdash_export_kv.ado
 f _psdash_graph_export.ado
 f _psdash_ltmle_diagnostics.ado
 f _psdash_manual_detect.ado
+f _psdash_mgps_graph.ado
 f _psdash_mgps_map.ado
 f _psdash_pscheck.ado
 f _psdash_support_stats.ado

@@ -89,14 +89,17 @@ The choice of outcome model determines what follow-on commands are available:
 
 {p2colset 5 25 27 2}{...}
 {p2col:{cmd:model(logistic)}}Pooled logistic regression via GLM with binomial
-family. This is the most common MSM for binary outcomes in person-period
-data. It approximates a discrete-time survival model when the outcome is rare
-within each period. This is the only model type that supports {helpb msm_predict}
-for counterfactual standardization.{p_end}
+family. In terminal-event person-period data it models the discrete-time
+conditional event probability. Its treatment odds ratio approximates a hazard
+ratio only when the interval event probability is small. This is the only
+model type that supports {helpb msm_predict} for counterfactual
+standardization.{p_end}
 
 {p2col:{cmd:model(linear)}}Weighted linear probability model for the prepared
-binary outcome. Use when an identity-scale risk difference is the
-target. {helpb msm_predict} is not available for linear models.{p_end}
+binary period outcome. Its treatment coefficient is an identity-scale
+difference in the period-specific outcome probability under the specified
+working MSM; it is not a standardized cumulative-incidence risk difference. {helpb msm_predict}
+is not available for linear models.{p_end}
 
 {p2col:{cmd:model(cox)}}Weighted Cox proportional hazards. Use when the target
 estimand is a weighted hazard ratio. Period terms are not added as covariates

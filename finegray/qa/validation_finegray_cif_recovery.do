@@ -26,7 +26,7 @@ local TOL  = 0.012
 local TOLT = 0.020
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -61,6 +61,7 @@ capture noisily {
     _fg_cif_dgp, n(120000) p(0.4) b(0.5) seed(301)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     quietly finegray_cif, at(z1=0) attime(0.5 1 2 3)
     matrix _T = r(table)
     local maxerr = 0
@@ -89,6 +90,7 @@ capture noisily {
     _fg_cif_dgp, n(120000) p(0.4) b(0.5) seed(302)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     quietly finegray_cif, at(z1=1) attime(1 2 3)
     matrix _T = r(table)
     local maxerr = 0
@@ -117,6 +119,7 @@ capture noisily {
     _fg_cif_dgp, n(120000) p(0.4) b(0.5) seed(303)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     quietly finegray_cif, at(z1=0) attime(5)
     matrix _T = r(table)
     * F1(5;0) = 0.4*(1-e^-5) = 0.39730; asserting against the analytic value
@@ -141,6 +144,7 @@ capture noisily {
     _fg_cif_dgp, n(60000) p(0.4) b(0.5) seed(304)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     quietly finegray_cif, at(z1=0) attime(0.25 0.5 1 1.5 2 3 4)
     matrix _T = r(table)
     local nr = rowsof(_T)
@@ -168,6 +172,7 @@ capture noisily {
     _fg_cif_dgp, n(120000) p(0.6) b(0.4) seed(305)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     quietly finegray_cif, at(z1=0) attime(0.5 1 2)
     matrix _T = r(table)
     local maxerr = 0

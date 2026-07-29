@@ -11,7 +11,9 @@
 * file broadens coverage across outcome models, estimands, and weight machinery:
 *
 *   LINEAR PROBABILITY MODEL (model(linear), _b[treatment]) -- the documented
-*   LPM for the prepared BINARY outcome; _b[a] is the marginal risk difference:
+*   LPM for the prepared BINARY period outcome. In the one-period scenarios
+*   _b[a] is a marginal risk difference; in the multi-period survival scenario
+*   it is the additive period-hazard projection:
 *     D1 positive RD, point treatment, moderate confounding   [analytic truth]
 *     D2 negative RD, point treatment, strong confounding     [analytic truth]
 *     D3 null RD = 0, point treatment                         [exact 0]
@@ -321,7 +323,7 @@ program define _stable_oracle, rclass
     return scalar spread = abs(`ta' - `tb')
 end
 
-**# LINEAR PROBABILITY MODEL scenarios (binary outcome; marginal risk difference)
+**# LINEAR PROBABILITY MODEL scenarios (binary period-outcome contrasts)
 *
 * Q10.  These scenarios previously mapped a dummy binary outcome through
 * msm_prepare and then ran `replace outcome = ycont`, smuggling a continuous
@@ -334,9 +336,11 @@ end
 *
 * Rewritten per the audit's own Q10 fix -- "use binary outcomes for the
 * documented linear probability model".  With correct IP treatment weights the
-* pseudo-population has a independent of L, so the LPM coefficient on a is the
-* marginal RISK DIFFERENCE, and the truth is computed analytically from the
-* known DGP by Monte-Carlo integration over L (never from another estimator).
+* pseudo-population has a independent of L. For the one-period scenarios below,
+* the LPM coefficient on a is the marginal risk difference, and the truth is
+* computed analytically from the known DGP by Monte-Carlo integration over L
+* (never from another estimator). D4 separately targets the additive
+* period-hazard projection defined by its forward-simulation oracle.
 
 * --- D1: positive marginal RD, point treatment, moderate confounding ---
 local ++test_count

@@ -6,7 +6,7 @@
 * version-pinned suites that predated the history collapse
 * (v110 + v111 + v112 + v114); their section banners are preserved below.
 *
-*   - multiple-record-per-subject reduction (parity, TVC error, gap error)
+*   - multiple-record-per-subject reduction (parity, TVC error, gap/overlap errors)
 *   - finegray_cif (curve / attime table / saving / guards) and its graph
 *     polish: single-row legend default, twoway/legend() passthrough,
 *     title()/xtitle() override, single-curve and nograph paths
@@ -29,7 +29,7 @@ capture log close _all
 log using "test_finegray_v110.log", replace name(_t110)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -122,6 +122,23 @@ capture {
     replace ifp = ifp + iv
     capture finegray ifp tumsize pelnode, compete(status) cause(1)
     assert _rc == 198
+
+    * Preserve the absolute 1e-9 constancy contract at large covariate scales.
+    * A relative comparison would wrongly accept the 0.01 within-id change.
+    clear
+    input long id double(start stop x) byte status
+    1 0 2 1000000000.00 0
+    1 2 4 1000000000.01 1
+    2 0 3 0 2
+    3 0 4 1 1
+    4 0 5 0 0
+    5 0 6 1 2
+    6 0 7 0 1
+    end
+    generate byte anyevent = status > 0
+    stset stop, failure(anyevent == 1) enter(time start) id(id)
+    capture finegray x, compete(status) cause(1) nolog
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: TVC rejected (rc 198)"
@@ -151,6 +168,66 @@ else {
     local ++fail_count
 }
 
+**# 3b. An overlap plus an equal-sized gap must not cancel -> error 198
+*
+* The former aggregate check compared total interval length with the overall
+* subject span.  One unit of overlap and one unit of uncovered follow-up then
+* canceled exactly, so invalid records were reduced to one continuous interval
+* at rc 0.  Check adjacent boundaries instead.
+local ++test_count
+capture {
+    clear
+    input long id double(start stop x) byte status
+    1 0 2 0 0
+    1 1 3 0 0
+    1 4 5 0 0
+    2 0 2.5 1 1
+    3 0 3.5 1 2
+    4 0 4.5 0 0
+    5 0 5.5 1 1
+    6 0 6.5 0 2
+    7 0 7.5 1 0
+    8 0 8.5 0 1
+    end
+    generate byte anyevent = status > 0
+    stset stop, failure(anyevent == 1) enter(time start) id(id)
+    replace _t0 = 1 if id == 1 & _t == 3
+    replace _t0 = 4 if id == 1 & _t == 5
+    capture finegray x, compete(status) cause(1) nolog
+    assert _rc == 198
+
+    * The adjacency tolerance is absolute.  At a large time origin, reldif()
+    * makes a genuine 0.01 boundary error look like 1e-11.  Pair an overlap
+    * with an equal gap so the former aggregate-length check also cancels.
+    clear
+    input long id double(start stop x) byte status
+    1 1000000000.00 1000000002.00 0 0
+    1 1000000001.99 1000000003.00 0 0
+    1 1000000003.01 1000000004.00 0 1
+    2 1000000000.00 1000000002.50 1 1
+    3 1000000000.00 1000000003.50 1 2
+    4 1000000000.00 1000000004.50 0 0
+    5 1000000000.00 1000000005.50 1 1
+    6 1000000000.00 1000000006.50 0 2
+    7 1000000000.00 1000000007.50 1 0
+    8 1000000000.00 1000000008.50 0 1
+    end
+    generate byte anyevent = status > 0
+    stset stop, failure(anyevent == 1) enter(time start) id(id)
+    replace _t0 = 1000000001.99 if id == 1 & _t == 1000000003
+    replace _t0 = 1000000003.01 if id == 1 & _t == 1000000004
+    capture finegray x, compete(status) cause(1) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: offsetting interval gap and overlap rejected (rc 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: offsetting interval gap and overlap rejected"
+    local ++fail_count
+}
+
 **# ---------------------------------------------------------------
 **# 4. finegray_cif: fixed-horizon table
 **# ---------------------------------------------------------------
@@ -166,9 +243,10 @@ capture noisily {
     * cif in (0,1), lci <= cif <= uci, increasing time
     forvalues r = 1/3 {
         assert T[`r',2] > 0 & T[`r',2] < 1
+        assert !missing(T[`r',3], T[`r',4], T[`r',5])
         assert T[`r',4] <= T[`r',2] + 1e-9
         assert T[`r',2] <= T[`r',5] + 1e-9
-        assert T[`r',3] > 0
+        assert T[`r',3] > 0 & T[`r',3] < .
     }
     assert r(cause) == 1
     assert r(level) == 95
@@ -197,6 +275,11 @@ capture noisily {
         capture confirm variable `v'
         assert _rc == 0
     }
+    assert !missing(time, cif, se)
+    * At the pre-incidence point CIF=SE=0 and the log-log interval is
+    * mathematically undefined, so both limits are intentionally missing.
+    assert (cif == 0 & se == 0 & missing(lci) & missing(uci)) | ///
+        (!missing(lci, uci) & lci <= cif & cif <= uci)
     assert cif[1] >= 0 & cif[_N] <= 1
     restore
 }
@@ -335,7 +418,7 @@ capture noisily {
     assert mreldif(e(b), b0) < 1e-12
     forvalues r = 1/3 {
         assert reldif(A[`r',2], B[`r',2]) < 1e-10
-        assert B[`r',3] > 0
+        assert B[`r',3] > 0 & B[`r',3] < .
         assert B[`r',4] <= B[`r',2] + 1e-9
         assert B[`r',2] <= B[`r',5] + 1e-9
     }
@@ -403,8 +486,9 @@ capture noisily {
     assert rowsof(T) == 5
     assert T[1,1] == 1 & T[5,1] == 8
     * CIF is nondecreasing over the time grid
-    forvalues r = 2/5 {
-        assert T[`r',2] >= T[`=`r'-1',2] - 1e-9
+    forvalues r = 1/5 {
+        assert T[`r',2] >= 0 & T[`r',2] <= 1
+        if `r' > 1 assert T[`r',2] >= T[`=`r'-1',2] - 1e-9
     }
     * r(profile_vars) lists model covariates in r(at) column order
     assert "`r(profile_vars)'" == "ifp tumsize pelnode"
@@ -479,6 +563,8 @@ capture noisily {
     finegray_cif, attime(5) ci level(90)
     matrix C90 = r(table)
     assert r(level) == 90
+    mata: assert(!hasmissing(st_matrix("C90")))
+    mata: assert(!hasmissing(st_matrix("C95")))
     assert reldif(C90[1,2], C95[1,2]) < 1e-12
     assert reldif(C90[1,3], C95[1,3]) < 1e-12
     assert C90[1,4] >= C95[1,4] - 1e-9
@@ -683,6 +769,61 @@ else {
     local ++fail_count
 }
 
+**# 25. Default graph starts at the exact origin and uses step geometry
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    finegray ifp tumsize pelnode, compete(status) cause(1)
+    tempfile graphsave
+    finegray_cif, ci saving("`graphsave'", replace)
+    assert _rc == 0
+    matrix T = r(table)
+    local ntable = rowsof(T)
+
+    * Inspect the graph command that actually ran, not only source text.
+    gs_graphinfo Graph
+    local graphcmd `"`r(command)'"'
+    assert strpos(`"`graphcmd'"', "connect(stairstep)") > 0
+    assert strpos(`"`graphcmd'"', "xscale(range(0 .))") > 0
+    assert strpos(`"`graphcmd'"', "plotregion(margin(zero))") > 0
+
+    * The live graph serset must contain one exact (0,0) CIF origin.  Its two
+    * band variables must also close to zero there.
+    preserve
+    serset use, clear
+    confirm numeric variable time
+    confirm numeric variable cif
+    count if time == 0 & cif == 0
+    assert r(N) == 1
+    ds time cif, not
+    local bandvars "`r(varlist)'"
+    assert `: word count `bandvars'' == 2
+    foreach v of local bandvars {
+        assert `v' == 0 if time == 0
+    }
+    restore
+
+    * The synthetic display origin is graph-only: it must not alter r(table)
+    * or leak into saving().
+    preserve
+    use "`graphsave'", clear
+    assert _N == `ntable'
+    count if time == 0
+    assert r(N) == 0
+    ds
+    assert `: word count `r(varlist)'' == 5
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: CIF graph starts at zero with step geometry"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CIF graph starts at zero with step geometry (rc=`=_rc')"
+    local ++fail_count
+}
+
 
 **# ==================================================================
 **# Section from test_finegray_v111.do
@@ -848,7 +989,7 @@ capture noisily {
     * point CIF unchanged; bootstrap SE close to the analytic SE (the refits
     * would roughly triple it if they treated kept records as late entries)
     assert reldif(A[1,2], B[1,2]) < 1e-10
-    assert B[1,3] > 0
+    assert B[1,3] > 0 & B[1,3] < .
     assert abs(B[1,3]/A[1,3] - 1) < 0.35
     quietly count if e(sample)
     assert r(N) == Nfit
@@ -986,7 +1127,7 @@ capture noisily {
     scalar _an_se  = A[1, 3]
     quietly finegray_cif, attime(5) ci bootstrap(60) seed(20260710)
     matrix B = r(table)
-    assert r(bootstrap_success) > 1
+    assert r(bootstrap_success) > 1 & r(bootstrap_success) < .
     * The point estimate is the full-sample fit either way.
     assert reldif(B[1, 2], _an_cif) < 1e-8
     * Bootstrap SE is independent of the ng>1 prefix-sum path but must land in
@@ -1021,7 +1162,8 @@ capture noisily {
     * finegray_cif bootstrap used to die with r(109) (replace strvar = _n)
     quietly finegray_cif, attime(2 5) ci bootstrap(30) seed(1)
     matrix Bstr = r(table)
-    assert Bstr[1,3] > 0 & Bstr[2,3] > 0
+    assert Bstr[1,3] > 0 & Bstr[1,3] < .
+    assert Bstr[2,3] > 0 & Bstr[2,3] < .
     * finegray_predict bootstrap likewise
     quietly finegray_predict cstr, cif ci bootstrap(30) seed(1)
     quietly count if !missing(cstr)
@@ -1105,7 +1247,7 @@ capture noisily {
     matrix Ts = r(table)
     scalar se_s = Ts[1,3]
 
-    assert se_c > 0 & se_s > 0
+    assert se_c > 0 & se_c < . & se_s > 0 & se_s < .
     * observed ratio ~2.3; old subject-resampling code would give ~1.0
     assert se_c / se_s > 1.5
 
@@ -1120,6 +1262,7 @@ capture noisily {
     quietly finegray_predict ps, cif ci bootstrap(150) seed(5)
     gen double ws = ps_uci - ps_lci
     quietly summarize ws, meanonly
+    assert wcm < . & r(N) > 0 & r(mean) > 0 & r(mean) < .
     assert wcm / r(mean) > 1.3
 }
 if _rc == 0 {
@@ -1551,7 +1694,7 @@ capture noisily {
     quietly finegray i.grp x, compete(ev) cause(1) nolog
     finegray_cif, attime(1) ci bootstrap(40) seed(7) nograph
     assert r(bootstrap_requested) == 40
-    assert r(bootstrap_failed) > 0
+    assert r(bootstrap_failed) > 0 & r(bootstrap_failed) < .
     assert r(bootstrap_success) >= 25
     assert r(bootstrap_success) + r(bootstrap_failed) == 40
     matrix _T114 = r(table)
@@ -1652,4 +1795,3 @@ if `fail_count' > 0 {
 }
 display as result "ALL TESTS PASSED"
 log close _t110
-

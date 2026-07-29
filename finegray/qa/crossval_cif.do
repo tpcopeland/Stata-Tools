@@ -1,8 +1,10 @@
 * crossval_cif.do
 * Cross-validation of the finegray cumulative-incidence machinery:
 *   (1) CIF point estimates vs riskRegression::predictRisk (tolerance <1e-4)
-*   (2) CIF standard errors vs a same-dataset subject bootstrap (the only
-*       available oracle; no standard tool exposes a Fine-Gray CIF SE)
+*   (2) analytic CIF standard errors vs a same-dataset full-refit subject
+*       bootstrap.  This is a sensitivity check, not an exact oracle: the
+*       bootstrap re-estimates weights that the fixed-weight analytic SE treats
+*       as fixed.  No standard tool exposes the matching analytic quantity.
 * SKIP-safe when R or riskRegression is unavailable.
 clear all
 set varabbrev off
@@ -12,7 +14,7 @@ capture log close _all
 log using "crossval_cif.log", replace name(_cvcif)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -51,15 +53,14 @@ if "`Rscript'" == "" {
 * and a stale _cv_out.csv from a previous run was consumed as if it were this
 * run's -- a fixed path, gated only on existence, with no pre-delete.  A per-run
 * prefix isolates the files; the output is pre-deleted before the R call and
-* required to reappear before it is trusted.  Key = start time packed to digits
-* plus a random draw, so two runs starting in the same second still differ.
-* (c(pid) would be ideal but is undefined in this Stata build.)
-local _cvkey = subinstr("$S_TIME", ":", "", .) + string(runiformint(100000, 999999))
-local _cvpx = "_cv_`_cvkey'_"
-local _cv_in  "`c(tmpdir)'/`_cvpx'in.csv"
-local _cv_nd  "`c(tmpdir)'/`_cvpx'nd.csv"
-local _cv_tm  "`c(tmpdir)'/`_cvpx'tm.csv"
-local _cv_out "`c(tmpdir)'/`_cvpx'out.csv"
+* required to reappear before it is trusted.  tempfile supplies a session-
+* unique path, including when deterministic seeds or concurrent runs coincide.
+tempfile _cv_anchor
+local _cvpx "`_cv_anchor'_"
+local _cv_in  "`_cvpx'in.csv"
+local _cv_nd  "`_cvpx'nd.csv"
+local _cv_tm  "`_cvpx'tm.csv"
+local _cv_out "`_cvpx'out.csv"
 
 **# ------------------------------------------------------------------
 **# Fit on hypoxia and export for R
@@ -68,6 +69,7 @@ _finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens==1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1)
+assert e(converged) == 1
 
 * Export estimation data (R needs time/status + covariates)
 preserve
@@ -124,6 +126,8 @@ if `have_r' {
 
     preserve
     import delimited using "`_cv_out'", clear case(preserve)
+    isid profile time
+    assert _N == 6
     * profile 1 rows then profile 2 rows, each times 2 5 8
     local maxdiff = 0
     forvalues r = 1/3 {
@@ -158,6 +162,7 @@ _finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens==1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
+assert e(converged) == 1
 quietly summarize ifp if e(sample), meanonly
 scalar mi = r(mean)
 quietly summarize tumsize if e(sample), meanonly
@@ -172,7 +177,8 @@ scalar a8 = A[3,3]
 
 _finegray_use_hypoxia
 gen byte status = failtype
-save "`c(tmpdir)'/_cv_boot", replace
+tempfile _cv_boot
+save "`_cv_boot'", replace
 
 program define _cifpt, rclass
     args tt
@@ -201,7 +207,7 @@ scalar nb=0
 local reps 400
 forvalues b=1/`reps' {
     quietly {
-        use "`c(tmpdir)'/_cv_boot", clear
+        use "`_cv_boot'", clear
         bsample
         gen long _nid = _n
         stset dftime, failure(dfcens==1) id(_nid)
@@ -210,7 +216,9 @@ forvalues b=1/`reps' {
         * _cifpt errors, every replication is discarded, and nb stays 0 -- which
         * surfaces as a MISSING bootstrap SE, not as a failed fit.
         capture finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
-        if _rc==0 {
+        local fit_rc = _rc
+        if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+        if `fit_rc' == 0 {
             scalar nb=nb+1
             _cifpt 2
             scalar s2=s2+r(cif)
@@ -232,7 +240,8 @@ display as text "bootstrap SE: " bse2 " " bse5 " " bse8
 
 * The analytic SE treats censoring weights as known; allow it to run up to
 * ~15% below bootstrap, and not materially above it.
-local okse = 1
+local okse = (nb == `reps')
+display as text "successful bootstrap refits: " nb " of `reps'"
 foreach pair in "`=a2'/`=bse2'" "`=a5'/`=bse5'" "`=a8'/`=bse8'" {
     local an : word 1 of `=subinstr("`pair'","/"," ",.)'
     local bo : word 2 of `=subinstr("`pair'","/"," ",.)'
@@ -251,6 +260,9 @@ else {
 
 **# Summary
 display as text _newline "RESULT: crossval_cif tests=`=`pass'+`fail'+`skip'' pass=`pass' fail=`fail' skip=`skip'"
+foreach f in "`_cv_in'" "`_cv_nd'" "`_cv_tm'" "`_cv_out'" {
+    capture erase "`f'"
+}
 if `fail' > 0 {
     display as error "SOME CROSSVAL CHECKS FAILED"
     log close _cvcif

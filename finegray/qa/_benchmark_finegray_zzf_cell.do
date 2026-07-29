@@ -140,8 +140,10 @@ use "`fixture'", clear
 if _N > 3000 quietly keep in 1/3000
 quietly stset t, failure(anyev == 1) id(id) enter(time t0)
 capture quietly finegray z1 z2, compete(status) cause(1)
-if _rc {
-    display as error "warm-up fit failed (rc=`=_rc'); the timed fit would pay Mata compilation"
+local warm_rc = _rc
+if `warm_rc' == 0 & e(converged) != 1 local warm_rc = 430
+if `warm_rc' {
+    display as error "warm-up fit failed (rc=`warm_rc'); the timed fit would pay Mata compilation"
     exit 459
 }
 
@@ -167,6 +169,10 @@ else {
     quietly finegray z1 z2, compete(status) cause(1) truncstrata(wg)
 }
 timer off 1
+if e(converged) != 1 {
+    display as error "timed fit did not converge"
+    exit 430
+}
 quietly timer list 1
 local wall = r(t1)
 

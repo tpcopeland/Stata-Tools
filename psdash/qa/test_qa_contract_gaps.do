@@ -185,6 +185,10 @@ capture noisily {
         local n_result "`n_group_'`lev'"
         assert r(`n_result') == 2
     }
+    assert abs(r(min_gps_group_0) - .30) < 1e-10
+    assert abs(r(min_gps_group_1) - .30) < 1e-10
+    assert abs(r(min_gps_group_2) - .30) < 1e-10
+    assert abs(r(pct_gps_violate)) < 1e-10
     local mean_result "`mean_ps_group_'0"
     assert abs(r(`mean_result') - .35) < 1e-10
     local mean_result "`mean_ps_group_'1"

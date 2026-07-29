@@ -72,6 +72,7 @@ _boot_result bootstrap_cleanup_restores_session `=_rc'
 display as text _n "=== QA bootstrap contract summary: " ///
     as result $PSDASH_BOOT_PASS_COUNT as text " passed, " ///
     as error $PSDASH_BOOT_FAIL_COUNT as text " failed ==="
+display as text "RESULT: test_refactor_qa_bootstrap_contract tests=`test_count' pass=$PSDASH_BOOT_PASS_COUNT fail=$PSDASH_BOOT_FAIL_COUNT skip=0"
 
 capture log close _all
 

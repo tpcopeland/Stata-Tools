@@ -31,7 +31,7 @@ local fail_count = 0
 local TOL = 0.035
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -69,6 +69,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0) < `TOL'
 }
 if _rc == 0 {
@@ -92,10 +93,13 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     local b_fg = _b[z1]
     quietly stset time, failure(status==1) id(id)
     quietly stcox z1
     local b_cox = _b[z1]
+    assert e(converged) == 1
+    assert `b_cox' < .
     assert abs(`b_fg' - 1.0) < `TOL'
     assert abs(`b_cox' - 1.0) > 0.05
 }
@@ -120,6 +124,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.6) < `TOL'
 }
 if _rc == 0 {
@@ -145,6 +150,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1 z2 z3, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert abs(_b[z2] - (-0.4)) < `TOL'
     assert abs(_b[z3] - 0.3) < `TOL'
@@ -171,6 +177,7 @@ capture noisily {
     gen long clid = ceil(id/3)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1) cluster(clid)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert "`e(vce)'" == "cluster"
 }
@@ -195,6 +202,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1) norobust
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert "`e(vce)'" == "oim"
 }
@@ -221,6 +229,7 @@ capture noisily {
     gen byte status9 = cond(status==0, 9, status)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status9) cause(1) censvalue(9)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert e(censvalue) == 9
 }
@@ -247,6 +256,7 @@ capture noisily {
     gen byte status2 = cond(status==1, 2, cond(status==2, 1, 0))
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status2) cause(2)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert e(cause) == 2
 }
@@ -271,6 +281,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray i.grp, compete(status) cause(1)
+    assert e(converged) == 1
     matrix _bb = e(b)
     assert abs(_bb[1,1] - 0.6) < `TOL'
 }
@@ -298,6 +309,7 @@ capture noisily {
     quietly count if status == 0
     local pcens = r(N)/_N
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
 }
 if _rc == 0 {
@@ -321,6 +333,7 @@ capture noisily {
     _fg_events, p(0.6)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
 }
 if _rc == 0 {
@@ -344,6 +357,7 @@ capture noisily {
     _fg_events, p(0.2)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
 }
 if _rc == 0 {
@@ -368,6 +382,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray i.grp##c.z1, compete(status) cause(1)
+    assert e(converged) == 1
     * Column order after fvexpand: 1.grp, z1, 1.grp#c.z1
     matrix _bb = e(b)
     assert abs(_bb[1,1] - 0.5) < `TOL'
@@ -395,6 +410,7 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1) level(90)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert e(level) == 90
 }
@@ -419,12 +435,14 @@ capture noisily {
     _fg_events, p(0.4)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     local b_single = _b[z1]
     * Split each subject into contiguous intervals; only the interval holding
     * the failure keeps a nonzero event code (consistent with stset _d).
     quietly stsplit part, at(0.5 1 1.5 2 3)
     quietly gen byte fgstatus = cond(_d==1, status, 0)
     quietly finegray z1, compete(fgstatus) cause(1)
+    assert e(converged) == 1
     local b_multi = _b[z1]
     assert abs(`b_multi' - 0.5) < `TOL'
     assert reldif(`b_multi', `b_single') < 1e-4

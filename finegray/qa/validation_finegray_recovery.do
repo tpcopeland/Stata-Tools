@@ -28,7 +28,7 @@ local fail_count = 0
 local TOL = 0.03
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -62,12 +62,15 @@ capture noisily {
     _gen_fg_dgp, n(50000) p(0.4) b1(0.5) seed(101)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     local b_fg = _b[z1]
     * Naive cause-specific Cox (competing events censored) targets a different
     * estimand and must miss the true subdistribution log-SHR.
     quietly stset time, failure(status==1) id(id)
     quietly stcox z1
     local b_cox = _b[z1]
+    assert e(converged) == 1
+    assert `b_cox' < .
     assert abs(`b_fg' - 0.5) < `TOL'
     assert abs(`b_cox' - 0.5) > 0.04
 }
@@ -87,6 +90,7 @@ capture noisily {
     _gen_fg_dgp, n(50000) p(0.4) b1(-0.7) seed(101)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - (-0.7)) < `TOL'
 }
 if _rc == 0 {
@@ -105,6 +109,7 @@ capture noisily {
     _gen_fg_dgp, n(60000) p(0.4) b1(0.5) b2(-0.4) seed(707)
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1 z2, compete(status) cause(1)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.5) < `TOL'
     assert abs(_b[z2] - (-0.4)) < `TOL'
 }
@@ -130,6 +135,7 @@ capture noisily {
     quietly replace anyevent = status > 0
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray z1, compete(status) cause(1) strata(grp)
+    assert e(converged) == 1
     assert abs(_b[z1] - 0.6) < `TOL'
 }
 if _rc == 0 {

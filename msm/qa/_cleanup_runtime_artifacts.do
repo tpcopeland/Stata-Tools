@@ -8,6 +8,7 @@ local qa_dir "`c(pwd)'"
 foreach f in ///
     _cleanup_runtime_artifacts.log ///
     run_all_runner.log ///
+    test_demo_contract.log ///
     test_export_surface.log ///
     test_msm.log ///
     test_msm_abbrev_reload.log ///
@@ -27,10 +28,18 @@ foreach f in ///
     test_msm_prepare_validate_adversarial.log ///
     test_msm_output_adversarial.log ///
     test_msm_expanded.log ///
+    test_msm_options.log ///
+    test_msm_phase2.log ///
+    test_msm_phase3.log ///
+    test_msm_phase4.log ///
+    test_msm_phase5.log ///
+    test_msm_phase6.log ///
+    test_package_release.log ///
     validation_msm.log ///
     validation_msm_known_answers.log ///
     validation_msm_expanded.log ///
     validation_msm_dgp_recovery.log ///
+    validation_msm_phase3_recovery.log ///
     validation_msm_recovery.log ///
     validation_msm_sensitivity.log ///
     crossval_external_models.log ///

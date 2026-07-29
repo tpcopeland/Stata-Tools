@@ -60,8 +60,8 @@ for (ds in datasets) {
     # Fit cause 1
     fit <- crr(sub$time, sub$status, cov1 = Z, failcode = 1, cencode = 0)
 
-    if (!fit$converged) {
-        cat(sprintf("  WARNING: crr did not converge for dataset %s\n", ds))
+    if (!isTRUE(fit$converged)) {
+        stop(sprintf("crr did not converge for dataset %s", ds))
     }
 
     # Coefficients
@@ -120,8 +120,8 @@ for (ds in datasets) {
                           failcode = 1, cencode = 0,
                           cengroup = strata_vec)
 
-        if (!fit_strata$converged) {
-            cat(sprintf("  WARNING: crr+cengroup did not converge for %s\n", ds))
+        if (!isTRUE(fit_strata$converged)) {
+            stop(sprintf("crr+cengroup did not converge for %s", ds))
         }
 
         # Coefficients
@@ -193,6 +193,12 @@ for (ds in datasets) {
                         var.control = varianceControl(B = 200,
                                                       useMultipleCores = FALSE),
                         returnDataFrame = TRUE)
+    if (any(!is.finite(fit_fast$coef)) ||
+        any(!is.finite(fit_fast$var)) ||
+        !is.finite(fit_fast$logLik) ||
+        !is.finite(fit_fast$logLik.null)) {
+        stop(sprintf("fastCrr returned nonfinite results for dataset %s", ds))
+    }
 
     # Coefficients
     for (j in seq_along(cov_cols)) {
@@ -245,6 +251,12 @@ for (ds in datasets) {
     }
 }
 
+if (any(!is.finite(results$value))) {
+    stop("reference output contains nonfinite values")
+}
+if (anyDuplicated(results[c("dataset", "quantity", "variable")])) {
+    stop("reference output contains duplicate dataset/quantity/variable keys")
+}
 write.csv(results, output_file, row.names = FALSE)
 cat(sprintf("\ncrossval_finegray_r.R: wrote %d rows to %s\n",
             nrow(results), output_file))

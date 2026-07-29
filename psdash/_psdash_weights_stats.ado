@@ -1,4 +1,4 @@
-*! _psdash_weights_stats Version 1.6.0  2026/07/26
+*! _psdash_weights_stats Version 1.6.1  2026/07/29
 *! IPTW weight summary and ESS statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -29,13 +29,12 @@ program define _psdash_weights_stats, rclass
             local p90 = r(p90)
             local p95 = r(p95)
             local p99 = r(p99)
+            local sum_wt = r(sum)
             local cv = `sd_wt' / `mean_wt'
 
             tempvar wt_sq
             gen double `wt_sq' = `wvar'^2 if `samplevar'
 
-            summarize `wvar' if `samplevar'
-            local sum_wt = r(sum)
             summarize `wt_sq' if `samplevar'
             local sum_wt_sq = r(sum)
             local ess = (`sum_wt'^2) / `sum_wt_sq'
@@ -48,6 +47,7 @@ program define _psdash_weights_stats, rclass
                 local min_wt_t = r(min)
                 local max_wt_t = r(max)
                 local n_treated = r(N)
+                local sum_wt_t = r(sum)
 
                 summarize `wvar' if `samplevar' & `treatment' == 0, detail
                 local mean_wt_c = r(mean)
@@ -55,16 +55,13 @@ program define _psdash_weights_stats, rclass
                 local min_wt_c = r(min)
                 local max_wt_c = r(max)
                 local n_control = r(N)
+                local sum_wt_c = r(sum)
 
-                summarize `wvar' if `samplevar' & `treatment' == 1
-                local sum_wt_t = r(sum)
                 summarize `wt_sq' if `samplevar' & `treatment' == 1
                 local sum_wt_sq_t = r(sum)
                 local ess_t = (`sum_wt_t'^2) / `sum_wt_sq_t'
                 local ess_pct_t = 100 * `ess_t' / `n_treated'
 
-                summarize `wvar' if `samplevar' & `treatment' == 0
-                local sum_wt_c = r(sum)
                 summarize `wt_sq' if `samplevar' & `treatment' == 0
                 local sum_wt_sq_c = r(sum)
                 local ess_c = (`sum_wt_c'^2) / `sum_wt_sq_c'
@@ -78,9 +75,8 @@ program define _psdash_weights_stats, rclass
                     local min_wt_`lev' = r(min)
                     local max_wt_`lev' = r(max)
                     local n_group_`lev' = r(N)
-
-                    summarize `wvar' if `samplevar' & `treatment' == `lev'
                     local sum_wt_`lev' = r(sum)
+
                     summarize `wt_sq' if `samplevar' & `treatment' == `lev'
                     local sum_wtsq_`lev' = r(sum)
                     local ess_`lev' = (`sum_wt_`lev''^2) / `sum_wtsq_`lev''

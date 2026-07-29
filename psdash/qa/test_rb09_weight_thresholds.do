@@ -34,7 +34,7 @@ set more off
 capture log close _all
 log using "test_rb09_weight_thresholds.log", replace nomsg
 
-capture do "`c(pwd)'/_psdash_bootstrap.do"
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 global N_PASS = 0
 global N_FAIL = 0

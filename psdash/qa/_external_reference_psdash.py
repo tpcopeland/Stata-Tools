@@ -31,6 +31,15 @@ def weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
     return float(np.sum(values * weights) / np.sum(weights))
 
 
+def balance_variance(values: np.ndarray, all_values: np.ndarray) -> float:
+    """Austin/cobalt variance: p(1-p) for two-level covariates, sample otherwise."""
+    levels = np.unique(all_values.astype(float))
+    if len(levels) == 2:
+        p = (float(np.mean(values)) - levels[0]) / (levels[1] - levels[0])
+        return float((levels[1] - levels[0]) ** 2 * p * (1.0 - p))
+    return sample_var(values)
+
+
 def ess(weights: np.ndarray) -> float:
     return float(np.sum(weights) ** 2 / np.sum(weights**2))
 
@@ -152,8 +161,8 @@ def binary_reference(
 
         mean_t = float(np.mean(t_values))
         mean_c = float(np.mean(c_values))
-        var_t = sample_var(t_values)
-        var_c = sample_var(c_values)
+        var_t = balance_variance(t_values, values)
+        var_c = balance_variance(c_values, values)
         pooled_sd = math.sqrt((var_t + var_c) / 2.0)
         if pooled_sd > 0:
             smd_raw = (mean_t - mean_c) / pooled_sd
@@ -275,7 +284,7 @@ def multigroup_reference(
         ref_values = values[ref_mask]
         ref_weights = weights[ref_mask]
         mean_ref = float(np.mean(ref_values))
-        var_ref = sample_var(ref_values)
+        var_ref = balance_variance(ref_values, values)
         mean_ref_adj = weighted_mean(ref_values, ref_weights)
         cov_imbalanced = False
 
@@ -286,7 +295,7 @@ def multigroup_reference(
             lev_values = values[mask]
             lev_weights = weights[mask]
             mean_lev = float(np.mean(lev_values))
-            var_lev = sample_var(lev_values)
+            var_lev = balance_variance(lev_values, values)
             pooled_sd = math.sqrt((var_lev + var_ref) / 2.0)
             smd_raw = (mean_lev - mean_ref) / pooled_sd if pooled_sd > 0 else 0.0
             mean_lev_adj = weighted_mean(lev_values, lev_weights)

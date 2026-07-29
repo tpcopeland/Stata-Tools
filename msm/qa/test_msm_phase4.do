@@ -149,6 +149,11 @@ capture noisily {
     assert r(min_support) == -2
     assert r(max_support) == 1
 
+    * The plotting wrapper must accept the same signed external period scale.
+    msm_plot, type(survival) times(-1 0 1) seed(9) samples(20)
+    assert "`r(plot_type)'" == "survival"
+    capture graph drop _all
+
     * Cox stores the external origin as a characteristic
     msm_fit, model(cox) vce(cluster id) nolog
     assert "`: char _dta[_msm_cox_origin]'" == "-2"

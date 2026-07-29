@@ -68,7 +68,8 @@ designed to help assess a specific aspect of the analysis.
 separately for treated and untreated observations. Requires {helpb msm_weight}
 to have been run. Use this to visually assess weight overlap and identify
 extreme values. Well-behaved weights produce roughly symmetric, overlapping
-distributions centered near 1.
+distributions centered near 1. Only treatment-decision risk-set rows are
+plotted; post-event and post-censor carry-forward rows are excluded.
 
 {phang}
 {bf:balance} {hline 2} Love plot showing absolute standardized mean differences
@@ -76,7 +77,10 @@ distributions centered near 1.
 appears as a row with two markers: one for the unweighted SMD and one for the
 weighted SMD. A vertical dashed line marks the {opt threshold()} value
 (default 0.1). Ideally, all weighted markers should fall to the left of the
-threshold line.
+threshold line. The markers use the same treatment-decision risk set and SMD
+definitions as {helpb msm_diagnose}; post-risk rows are excluded. This is a
+secondary pooled summary: use {cmd:msm_diagnose}'s period/history table as the
+primary longitudinal balance assessment.
 
 {phang}
 {bf:survival} {hline 2} Counterfactual cumulative incidence curves with
@@ -111,7 +115,10 @@ universal or nearly absent, which indicates positivity concerns.
 
 {phang}
 {opth cov:ariates(varlist)} specifies which covariates to include in the Love
-plot. Defaults to all covariates from {helpb msm_prepare}.
+plot. By default the plot includes denominator-only balance targets from
+{helpb msm_prepare} and excludes stabilized-numerator covariates, whose
+distribution the numerator intentionally retains. An explicit
+{opt covariates()} request is literal and may include those non-targets.
 
 {phang}
 {opt thr:eshold(#)} sets the position of the vertical reference line on the
@@ -121,12 +128,14 @@ Love plot. Default is 0.1.
 
 {phang}
 {opth times(numlist)} specifies time periods for the survival/cumulative
-incidence curves. Required when {cmd:type(survival)} is specified.
+incidence curves. Signed integer periods are allowed. Required when
+{cmd:type(survival)} is specified.
 
 {phang}
 {opt samp:les(#)} specifies MC draws for the confidence bands. Default is
-50 (lower than the {helpb msm_predict} default because plotting needs fewer
-draws for smooth bands).
+50 for a faster graphical preview. Increase this value when stable percentile
+endpoints matter; the bands otherwise have the same conditional interpretation
+as those from {helpb msm_predict}.
 
 {phang}
 {opt seed(#)} sets the random seed for the internal {helpb msm_predict} call.
@@ -191,8 +200,19 @@ are provided for each plot type.
 {cmd:msm_plot} stores the following in {cmd:r()}:
 
 {synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(balance)}}raw and weighted SMDs for balance plots{p_end}
+
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(n_risk)}}decision-risk rows for weight/balance plots{p_end}
+
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(plot_type)}}plot type produced{p_end}
+
+{pstd}
+For a balance plot, {cmd:r(balance)} contains signed SMDs even though the
+graph displays their absolute values.  {cmd:r(n_risk)} counts decision-risk
+rows before covariate-specific missing values are excluded.
 
 
 {marker author}{...}

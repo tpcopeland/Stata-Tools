@@ -14,7 +14,8 @@ local fail = 0
 local skip = 0
 
 local suites_quick test_psdash.do validation_psdash.do validation_known_answers.do ///
-    validation_multigroup_longitudinal.do ///
+    validation_multigroup_longitudinal.do validation_method_contracts.do ///
+    validation_extended_known_answers.do ///
     test_refactor_qa_bootstrap_contract.do test_refactor_install_autoload.do ///
     test_refactor_doc_contract.do test_refactor_display_contracts.do ///
     test_refactor_option_abbrev_contract.do ///
@@ -41,7 +42,7 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_real_producer_integrations.do ///
     test_excel_fidelity.do test_return_surface_remaining.do
 
-local suites_external crossval_psdash.do crossval_python_psdash.do ///
+local suites_external crossval_python_psdash.do crossval_cobalt.do ///
     crossval_external_references.do
 
 if "`mode'" == "quick" local suite_files "`suites_quick'"
@@ -69,5 +70,7 @@ foreach f of local suite_files {
 
 display ""
 display as text "=== QA Summary: `pass' passed, `fail' failed, `skip' skipped ==="
+local total = `pass' + `fail' + `skip'
+display as text "RESULT: run_all tests=`total' pass=`pass' fail=`fail' skip=`skip'"
 if `fail' > 0 exit 1
 if `skip' > 0 exit 77

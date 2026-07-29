@@ -48,7 +48,7 @@ log using "test_finegray_optimizer.log", replace name(_opt)
 local qa_dir "`c(pwd)'"
 do "`qa_dir'/_finegray_qa_common.do"
 
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -183,6 +183,7 @@ capture noisily {
     display as text "  e(ll_0) = " %18.10f `ll0_loose'
 
     * beta genuinely moved off zero ...
+    assert `b_loose' < . & `ll_loose' < . & `ll0_loose' < .
     assert abs(`b_loose') > 1e-6
     * ... so the likelihood at beta cannot equal the likelihood at 0
     assert `ll_loose' != `ll0_loose'

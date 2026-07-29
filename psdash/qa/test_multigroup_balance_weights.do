@@ -497,6 +497,8 @@ display as text ""
 display as text "{hline 50}"
 display as text "Multi-Group Balance + Weights: " as result "`n_passed'/`n_tests' tests passed"
 display as text "{hline 50}"
+local n_failed = `n_tests' - `n_passed'
+display as text "RESULT: test_multigroup_balance_weights tests=`n_tests' pass=`n_passed' fail=`n_failed' skip=0"
 
 if `n_passed' < `n_tests' {
     _psdash_qa_cleanup

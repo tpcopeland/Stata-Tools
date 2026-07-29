@@ -1,4 +1,4 @@
-*! _msm_contract Version 1.4.1  2026/07/27
+*! _msm_contract Version 1.4.2  2026/07/28
 *! Build the canonical metadata contract for an MSM pipeline stage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

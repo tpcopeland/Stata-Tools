@@ -54,7 +54,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `test_export_surface.do` | Export surfaces and package-root artifact hygiene |
 | `test_msm_diagtab.do` | Accumulated diagnostics and Excel export |
 | `test_msm_output_adversarial.do` | Output failure restoration and hostile workbook paths |
-| `test_msm_diagnostic_contracts.do` | 1.3.0 regressions: positivity floor measured on P(observed treatment), risk-set pooled balance, `msm_diagnose` order restoration and console hygiene, and fit metadata (`e(msm_n_clusters)`, `e(msm_n_dropped)`) describing the sample the estimator kept |
+| `test_msm_diagnostic_contracts.do` | Diagnostic regressions: positivity on P(observed treatment), risk-set summaries and plots, exact continuous/binary SMD known answers, state/order hygiene, and fitted-sample metadata |
 | `test_msm_abbrev_reload.do` | Option abbreviations, program reload, and session settings |
 
 ### Validation suites
@@ -95,11 +95,11 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 
 | Lane | Suites |
 |------|--------|
-| `quick` | 28 curated functional, regression, package, demo, export, and adversarial suites listed under Functional and regression suites |
+| `quick` | 29 curated functional, regression, package, demo, export, and adversarial suites listed under Functional and regression suites |
 | `validations` | 7 `validation_*.do` suites listed under Validation suites |
-| `core` | All 35 Stata-side suites (`quick` + `validations`) |
+| `core` | All 36 Stata-side suites (`quick` + `validations`) |
 | `crossval` | `crossval_msm.do`, `crossval_external_models.do` |
-| `full` | All 37 suites (`core` + `crossval`); default release gate |
+| `full` | All 38 suites (`core` + `crossval`); default release gate |
 
 ## Supporting files
 

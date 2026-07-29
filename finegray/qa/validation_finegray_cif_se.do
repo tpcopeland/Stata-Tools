@@ -1,6 +1,6 @@
 * validation_finegray_cif_se.do
-* Closed-form (deterministic) oracle for the finegray_cif / finegray_predict
-* analytic CIF standard error.
+* Deterministic regression and sensitivity checks for the finegray_cif /
+* finegray_predict analytic CIF standard error.
 *
 * finegray reports an influence-function (sandwich) SE for the cumulative
 * incidence:  SE = sqrt(sum_i psi_i^2),  psi_i = factor*(q_i + PSIb_i*g'),
@@ -10,16 +10,14 @@
 * riskRegression/cmprsk expose no Fine-Gray CIF SE, so there is no external
 * analytic reference.
 *
-* This suite supplies the deterministic oracle the bootstrap cannot: the
-* delete-one JACKKNIFE variance,  jvar = (n-1)/n * sum_i (F_(-i) - Fbar)^2,
-* which is consistent for the same asymptotic variance as the influence-
-* function estimator but is computed by an entirely independent mechanism
-* (refitting on leave-one-subject-out samples — it never touches the SE Mata
-* code).  Because removing one subject perturbs the censoring KM only
-* infinitesimally, the jackknife matches the G-known analytic SE far more
-* tightly than the bootstrap does: the analytic SE sits a hair (~1-2%) BELOW
-* the jackknife (the known-censoring assumption), and never materially above
-* it.  The DGP is seeded, so every number here is reproducible.
+* The delete-one JACKKNIFE variance,
+* jvar = (n-1)/n * sum_i (F_(-i) - Fbar)^2, is computed by an independent
+* full-refit mechanism that never touches the analytic-SE Mata code.  It is not
+* an exact oracle for the shipped fixed-weight influence function: each refit
+* re-estimates the censoring weights, whereas the analytic SE treats G as
+* fixed.  The seeded ratio is therefore a reproducible sensitivity envelope
+* that catches gross scaling/path errors, not proof of equality to the same
+* asymptotic variance.
 clear all
 set varabbrev off
 version 16.0
@@ -28,7 +26,7 @@ capture log close _all
 log using "validation_finegray_cif_se.log", replace name(_cse)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -62,6 +60,7 @@ replace status = 1 if d==1 & runiform() > 0.4
 replace status = 2 if d==1 & status==0
 stset t, failure(d) id(id)
 finegray x1 x2, compete(status) cause(1) nolog
+assert e(converged) == 1
 
 * Two covariate profiles and three horizons
 local times "0.5 1 2"
@@ -98,7 +97,9 @@ foreach i of local ids {
         drop if id == `i'
         stset t, failure(d) id(id)
         capture finegray x1 x2, compete(status) cause(1) nolog
-        if _rc == 0 {
+        local jk_rc = _rc
+        if `jk_rc' == 0 & e(converged) != 1 local jk_rc = 430
+        if `jk_rc' == 0 {
             scalar njk = njk + 1
             finegray_cif, at(x1=0 x2=0) attime(`times')
             matrix JA = r(table)
@@ -115,11 +116,23 @@ foreach i of local ids {
 }
 restore
 
+* A survivor-only jackknife is a different statistic and can hide systematic
+* nonconvergence.  Every planned delete-one fit must contribute.
+local ++test_count
+if njk == 150 {
+    display as result "  PASS: all 150 delete-one fits converged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: only " njk " of 150 delete-one fits converged"
+    local ++fail_count
+}
+
 local hlabel1 "0.5"
 local hlabel2 "1"
 local hlabel3 "2"
 
-* Profile A: tests 1-3
+* Profile A: tests 2-4
 forvalues k = 1/3 {
     local ++test_count
     scalar mA = sa`k'/njk
@@ -131,7 +144,7 @@ forvalues k = 1/3 {
         "  jackknife SE=" %8.5f jseA "  ratio=" %6.3f ratA
     capture assert anseA > 0 & jseA > 0 & ratA >= `lo' & ratA <= `hi'
     if _rc == 0 {
-        display as result "  PASS: CIF SE matches jackknife oracle (profile A, t=`hlabel`k'')"
+        display as result "  PASS: CIF SE stays within jackknife sensitivity envelope (profile A, t=`hlabel`k'')"
         local ++pass_count
     }
     else {
@@ -140,7 +153,7 @@ forvalues k = 1/3 {
     }
 }
 
-* Profile B: tests 4-6
+* Profile B: tests 5-7
 forvalues k = 1/3 {
     local ++test_count
     scalar mB = sb`k'/njk
@@ -152,7 +165,7 @@ forvalues k = 1/3 {
         "  jackknife SE=" %8.5f jseB "  ratio=" %6.3f ratB
     capture assert anseB > 0 & jseB > 0 & ratB >= `lo' & ratB <= `hi'
     if _rc == 0 {
-        display as result "  PASS: CIF SE matches jackknife oracle (profile B, t=`hlabel`k'')"
+        display as result "  PASS: CIF SE stays within jackknife sensitivity envelope (profile B, t=`hlabel`k'')"
         local ++pass_count
     }
     else {
@@ -162,7 +175,7 @@ forvalues k = 1/3 {
 }
 
 **# ---------------------------------------------------------------
-**# 7. finegray_cif and finegray_predict report the SAME analytic SE
+**# 8. finegray_cif and finegray_predict report the SAME analytic SE
 **#    at a common profile/time (the SE is one routine; both surfaces
 **#    must agree exactly).
 **# ---------------------------------------------------------------
@@ -173,6 +186,7 @@ capture noisily {
     * Post-estimation commands correctly reject that state (r(459)), so refit
     * on the full sample before comparing the two SE surfaces.
     quietly finegray x1 x2, compete(status) cause(1) nolog
+    assert e(converged) == 1
 
     * Use observation 1's covariate profile (the estimation data must stay in
     * memory: the influence-function SE is built from e(sample)).

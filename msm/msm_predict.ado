@@ -1,4 +1,4 @@
-*! msm_predict Version 1.4.1  2026/07/27
+*! msm_predict Version 1.4.2  2026/07/28
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -10,7 +10,7 @@ Basic syntax:
 Description:
   Generates counterfactual predictions under always-treated and
   never-treated strategies. Uses Monte Carlo simulation from the
-  coefficient distribution (Cholesky decomposition) for CIs.
+  coefficient distribution (symmetrized eigendecomposition) for CIs.
 
   For pooled logistic models: computes individual-level discrete-time
   survival via G-formula standardization, then averages across the
@@ -24,7 +24,7 @@ Options:
   seed(#)             - Random seed
   level(#)            - Confidence level (default: 95)
   difference          - Compute treatment contrast (risk difference)
-  extrapolate         - Allow predictions beyond observed follow-up
+  extrapolate         - Allow predictions beyond fitted period support
 
 See help msm_predict for complete documentation
 */

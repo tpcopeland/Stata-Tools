@@ -1,4 +1,4 @@
-*! _psdash_validate_levels Version 1.6.0  2026/07/26
+*! _psdash_validate_levels Version 1.6.1  2026/07/29
 *! Validate multi-group treatment levels for psdash result-name contracts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

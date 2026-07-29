@@ -126,8 +126,12 @@ pair is not a single series rescaled by a common constant, and a weighted SMD
 can move because the weights changed the spread rather than the location. The
 alternative convention -- one common unweighted denominator for both columns,
 used by default in the R package {cmd:cobalt} -- is not what this command
-reports. Read {cmd:pct_change} as a direction, and judge the weighted column
-against the threshold on its own terms.{p_end}
+reports. For a continuous covariate, the weighted variance is the exact
+reliability-weight estimator
+sum(w)/[sum(w)^2-sum(w^2)] times sum[w(x-xbar_w)^2]. For a dichotomous
+covariate, the denominator uses the weighted prevalence term p_w(1-p_w). Read
+{cmd:pct_change} as a direction, and judge the weighted column against the
+threshold on its own terms.{p_end}
 
 {phang2}{bf:Secondary pooled % change:} A large negative change means weighting improved
 balance. A positive change means weighting made balance worse for that

@@ -23,7 +23,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
 * Isolated install of the local copy
-capture do "`qa_dir'/_psdash_bootstrap.do"
+do "`qa_dir'/_psdash_bootstrap.do"
 
 global N_PASS = 0
 global N_FAIL = 0

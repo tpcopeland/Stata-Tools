@@ -48,7 +48,7 @@ log using "test_finegray_ties.log", replace name(_ties)
 local qa_dir "`c(pwd)'"
 do "`qa_dir'/_finegray_qa_common.do"
 
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 

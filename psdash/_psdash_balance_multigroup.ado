@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.6.0  2026/07/26
+*! _psdash_balance_multigroup Version 1.6.1  2026/07/29
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -75,6 +75,11 @@ program define _psdash_balance_multigroup, rclass
         local _n_panel = r(N)
         local n_cov_min = `_n_panel'
 
+        if `has_adj' {
+            tempvar _wt_sq_all
+            quietly gen double `_wt_sq_all' = `wvar'^2
+        }
+
         local i = 1
         foreach var of local varlist {
             local rownames `"`rownames' `: word `i' of `labels''"'
@@ -93,10 +98,65 @@ program define _psdash_balance_multigroup, rclass
             local _vmax = r(max)
             quietly count if `var' != `_vmin' & `var' != `_vmax' & !missing(`var')
             local _isbin_`i' = (r(N) == 0 & `_vmin' != `_vmax')
+            local _vrange = `_vmax' - `_vmin'
 
             quietly summarize `var' if `treatment' == `reference'
+            local _n_ref_var = r(N)
             local mean_ref = r(mean)
             local var_ref = r(Var)
+
+            if `_isbin_`i'' & !missing(`mean_ref') {
+                local _p_ref = (`mean_ref' - `_vmin') / `_vrange'
+                local var_ref = (`_vrange'^2) * `_p_ref' * (1 - `_p_ref')
+            }
+
+            if `has_adj' {
+                quietly summarize `var' [aw=`wvar'] if `treatment' == `reference'
+                local _n_ref_adj = r(N)
+                local _wt_ref = r(sum_w)
+                local mean_ref_adj = r(mean)
+                local _awvar_ref = r(Var)
+                local var_ref_adj = .
+
+                if `_isbin_`i'' {
+                    if !missing(`mean_ref_adj') {
+                        local _p_ref_adj = (`mean_ref_adj' - `_vmin') / `_vrange'
+                        local var_ref_adj = ///
+                            (`_vrange'^2) * `_p_ref_adj' * (1 - `_p_ref_adj')
+                    }
+                }
+                else {
+                    quietly summarize `_wt_sq_all' ///
+                        if `treatment' == `reference' & !missing(`var'), meanonly
+                    local _wt2_ref = r(sum)
+                    if `_n_ref_adj' > 1 & `_wt_ref'^2 > `_wt2_ref' & ///
+                            !missing(`_awvar_ref') {
+                        local var_ref_adj = `_awvar_ref' * ///
+                            ((`_n_ref_adj' - 1) / `_n_ref_adj') * ///
+                            (`_wt_ref'^2 / (`_wt_ref'^2 - `_wt2_ref'))
+                    }
+                }
+            }
+
+            * All pairwise KS contrasts share this covariate order and reference
+            * empirical CDF. Build each once instead of re-sorting and rebuilding
+            * the reference distribution for every treatment contrast.
+            sort `var'
+            tempvar _last _cfref_raw
+            quietly by `var': gen byte `_last' = (_n == _N)
+            if `_n_ref_var' > 0 {
+                quietly gen double `_cfref_raw' = ///
+                    sum(cond(`treatment' == `reference' & !missing(`var'), 1, 0)) / ///
+                    `_n_ref_var'
+            }
+            if `has_adj' {
+                tempvar _cfref_adj
+                if `_wt_ref' > 0 {
+                    quietly gen double `_cfref_adj' = ///
+                        sum(cond(`treatment' == `reference' & !missing(`var'), ///
+                        `wvar', 0)) / `_wt_ref'
+                }
+            }
 
             local cnum = 0
             foreach clev of local contrasts {
@@ -104,8 +164,14 @@ program define _psdash_balance_multigroup, rclass
                 local col_base = (`cnum' - 1) * 5
 
                 quietly summarize `var' if `treatment' == `clev'
+                local _n_a_var = r(N)
                 local mean_a = r(mean)
                 local var_a = r(Var)
+
+                if `_isbin_`i'' & !missing(`mean_a') {
+                    local _p_a = (`mean_a' - `_vmin') / `_vrange'
+                    local var_a = (`_vrange'^2) * `_p_a' * (1 - `_p_a')
+                }
 
                 local sd_pooled = sqrt((`var_a' + `var_ref') / 2)
                 if `sd_pooled' > 0 {
@@ -125,12 +191,18 @@ program define _psdash_balance_multigroup, rclass
                     local vr_raw = .
                 }
 
-                capture quietly ksmirnov `var' if `treatment' == `clev' | `treatment' == `reference', by(`treatment')
-                if _rc == 0 {
-                    local ks_raw = r(D)
-                }
-                else {
-                    local ks_raw = .
+                local ks_raw = .
+                if `_n_a_var' > 0 & `_n_ref_var' > 0 {
+                    tempvar _cfa_raw _ksd_raw
+                    quietly gen double `_cfa_raw' = ///
+                        sum(cond(`treatment' == `clev' & !missing(`var'), 1, 0)) / ///
+                        `_n_a_var'
+                    quietly gen double `_ksd_raw' = ///
+                        abs(`_cfa_raw' - `_cfref_raw') ///
+                        if `_last' & !missing(`var')
+                    quietly summarize `_ksd_raw', meanonly
+                    if r(N) > 0 local ks_raw = r(max)
+                    drop `_cfa_raw' `_ksd_raw'
                 }
 
                 matrix `balance_mat'[`i', `col_base' + 1] = `mean_a'
@@ -143,10 +215,30 @@ program define _psdash_balance_multigroup, rclass
                     local adj_base = `ncols_raw' + (`cnum' - 1) * 5
 
                     quietly summarize `var' [aw=`wvar'] if `treatment' == `clev'
+                    local _n_a_adj = r(N)
+                    local _wt_a = r(sum_w)
                     local mean_a_adj = r(mean)
+                    local _awvar_a = r(Var)
 
-                    quietly summarize `var' [aw=`wvar'] if `treatment' == `reference'
-                    local mean_ref_adj = r(mean)
+                    local var_a_adj = .
+                    if `_isbin_`i'' {
+                        if !missing(`mean_a_adj') {
+                            local _p_a_adj = (`mean_a_adj' - `_vmin') / `_vrange'
+                            local var_a_adj = ///
+                                (`_vrange'^2) * `_p_a_adj' * (1 - `_p_a_adj')
+                        }
+                    }
+                    else {
+                        quietly summarize `_wt_sq_all' ///
+                            if `treatment' == `clev' & !missing(`var'), meanonly
+                        local _wt2_a = r(sum)
+                        if `_n_a_adj' > 1 & `_wt_a'^2 > `_wt2_a' & ///
+                                !missing(`_awvar_a') {
+                            local var_a_adj = `_awvar_a' * ///
+                                ((`_n_a_adj' - 1) / `_n_a_adj') * ///
+                                (`_wt_a'^2 / (`_wt_a'^2 - `_wt2_a'))
+                        }
+                    }
 
                     * RB-12: unweighted pooled SD reused for the adjusted column
                     * (cobalt convention), NOT the Austin & Stuart (2015) 4.1.1
@@ -161,11 +253,6 @@ program define _psdash_balance_multigroup, rclass
                         local smd_adj = 0
                     }
 
-                    quietly summarize `var' [aw=`wvar'] if `treatment' == `clev'
-                    local var_a_adj = r(Var)
-                    quietly summarize `var' [aw=`wvar'] if `treatment' == `reference'
-                    local var_ref_adj = r(Var)
-
                     if `var_a_adj' > 0 & `var_ref_adj' > 0 {
                         local vr_adj = `var_a_adj' / `var_ref_adj'
                     }
@@ -175,23 +262,15 @@ program define _psdash_balance_multigroup, rclass
 
                     * Weighted Kolmogorov-Smirnov (contrast group vs reference)
                     local ks_adj = .
-                    quietly summarize `wvar' if `treatment' == `clev' & !missing(`var')
-                    local _wt_a = r(sum)
-                    quietly summarize `wvar' if `treatment' == `reference' & !missing(`var')
-                    local _wt_r = r(sum)
-                    if `_wt_a' > 0 & `_wt_r' > 0 {
-                        tempvar _cfa _cfr _last _ksd
-                        sort `var'
+                    if `_wt_a' > 0 & `_wt_ref' > 0 {
+                        tempvar _cfa _ksd
                         quietly gen double `_cfa' = ///
                             sum(cond(`treatment' == `clev' & !missing(`var'), `wvar', 0)) / `_wt_a'
-                        quietly gen double `_cfr' = ///
-                            sum(cond(`treatment' == `reference' & !missing(`var'), `wvar', 0)) / `_wt_r'
-                        quietly by `var': gen byte `_last' = (_n == _N)
                         quietly gen double `_ksd' = ///
-                            abs(`_cfa' - `_cfr') if `_last' & !missing(`var')
-                        quietly summarize `_ksd'
+                            abs(`_cfa' - `_cfref_adj') if `_last' & !missing(`var')
+                        quietly summarize `_ksd', meanonly
                         if r(N) > 0 local ks_adj = r(max)
-                        drop `_cfa' `_cfr' `_last' `_ksd'
+                        drop `_cfa' `_ksd'
                     }
 
                     matrix `balance_mat'[`i', `adj_base' + 1] = `mean_a_adj'
@@ -201,6 +280,11 @@ program define _psdash_balance_multigroup, rclass
                     matrix `balance_mat'[`i', `adj_base' + 5] = `ks_adj'
                 }
             }
+            if `_n_ref_var' > 0 drop `_cfref_raw'
+            if `has_adj' {
+                if `_wt_ref' > 0 drop `_cfref_adj'
+            }
+            drop `_last'
 
             local i = `i' + 1
         }

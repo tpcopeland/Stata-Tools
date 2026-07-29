@@ -147,6 +147,7 @@ _autoload_result direct_combined_autoloads `=_rc'
 display as text _n "=== Installed-user autoload summary: " ///
     as result $PSDASH_AUTOLOAD_PASS_COUNT as text " passed, " ///
     as error $PSDASH_AUTOLOAD_FAIL_COUNT as text " failed ==="
+display as text "RESULT: test_refactor_install_autoload tests=`test_count' pass=$PSDASH_AUTOLOAD_PASS_COUNT fail=$PSDASH_AUTOLOAD_FAIL_COUNT skip=0"
 
 _psdash_qa_cleanup
 capture log close _all

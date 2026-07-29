@@ -225,6 +225,7 @@ _gf_result "combined_graph_failure_returns" `=_rc'
 display as text _n "=== Refactor graph/export failure summary: " ///
     as result $GF_PASS_COUNT as text " passed, " ///
     as error $GF_FAIL_COUNT as text " failed ==="
+display as text "RESULT: test_refactor_graph_export_failures tests=`=$GF_PASS_COUNT + $GF_FAIL_COUNT' pass=$GF_PASS_COUNT fail=$GF_FAIL_COUNT skip=0"
 
 capture ado uninstall psdash
 sysdir set PLUS "`_qa_plus_orig'"

@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.6.0  2026/07/26
+*! _psdash_balance_binary Version 1.6.1  2026/07/29
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -52,6 +52,11 @@ program define _psdash_balance_binary, rclass
         local cov_miss_vars ""
         local n_cov_min = `n_treated' + `n_control'
 
+        if `has_adj' {
+            tempvar _wt_sq_all
+            quietly gen double `_wt_sq_all' = `wvar'^2
+        }
+
         local i = 1
         foreach var of local varlist {
             local rownames `"`rownames' `: word `i' of `labels''"'
@@ -72,14 +77,32 @@ program define _psdash_balance_binary, rclass
             local _vmax = r(max)
             quietly count if `var' != `_vmin' & `var' != `_vmax' & !missing(`var')
             local _isbin_`i' = (r(N) == 0 & `_vmin' != `_vmax')
+            local _vrange = `_vmax' - `_vmin'
 
             quietly summarize `var' if `treatment' == 1
+            local _n_t_var = r(N)
             local mean_t = r(mean)
             local var_t = r(Var)
 
             quietly summarize `var' if `treatment' == 0
+            local _n_c_var = r(N)
             local mean_c = r(mean)
             local var_c = r(Var)
+
+            * A two-level covariate has population variance
+            * (b-a)^2 p(1-p), not the n/(n-1)-inflated sample variance
+            * returned by summarize. This is Austin's binary-covariate SMD
+            * and cobalt's binary variance contract.
+            if `_isbin_`i'' {
+                if !missing(`mean_t') {
+                    local _p_t = (`mean_t' - `_vmin') / `_vrange'
+                    local var_t = (`_vrange'^2) * `_p_t' * (1 - `_p_t')
+                }
+                if !missing(`mean_c') {
+                    local _p_c = (`mean_c' - `_vmin') / `_vrange'
+                    local var_c = (`_vrange'^2) * `_p_c' * (1 - `_p_c')
+                }
+            }
 
             local sd_pooled = sqrt((`var_t' + `var_c') / 2)
             if `sd_pooled' > 0 {
@@ -104,23 +127,77 @@ program define _psdash_balance_binary, rclass
             matrix `balance_mat'[`i', 3] = `smd_raw'
             matrix `balance_mat'[`i', 4] = `vr_raw'
 
-            capture quietly ksmirnov `var', by(`treatment')
-            if _rc == 0 {
-                local ks_raw = r(D)
-            }
-            else {
-                local ks_raw = .
+            * Sort once per covariate and compute the raw and weighted empirical
+            * CDFs directly. ksmirnov would sort the same data again, while the
+            * adjusted statistic needs this order in any case.
+            sort `var'
+            tempvar _last _cft_raw _cfc_raw _ksd_raw
+            quietly by `var': gen byte `_last' = (_n == _N)
+            local ks_raw = .
+            if `_n_t_var' > 0 & `_n_c_var' > 0 {
+                quietly gen double `_cft_raw' = ///
+                    sum(cond(`treatment' == 1 & !missing(`var'), 1, 0)) / `_n_t_var'
+                quietly gen double `_cfc_raw' = ///
+                    sum(cond(`treatment' == 0 & !missing(`var'), 1, 0)) / `_n_c_var'
+                quietly gen double `_ksd_raw' = ///
+                    abs(`_cft_raw' - `_cfc_raw') if `_last' & !missing(`var')
+                quietly summarize `_ksd_raw', meanonly
+                if r(N) > 0 local ks_raw = r(max)
+                drop `_cft_raw' `_cfc_raw' `_ksd_raw'
             }
             matrix `balance_mat'[`i', 5] = `ks_raw'
 
             if `has_adj' {
                 quietly summarize `var' [aw=`wvar'] if `treatment' == 1
+                local _n_t_adj = r(N)
+                local _wt_t = r(sum_w)
                 local mean_t_adj = r(mean)
-                local var_t_adj = r(Var)
+                local _awvar_t = r(Var)
 
                 quietly summarize `var' [aw=`wvar'] if `treatment' == 0
+                local _n_c_adj = r(N)
+                local _wt_c = r(sum_w)
                 local mean_c_adj = r(mean)
-                local var_c_adj = r(Var)
+                local _awvar_c = r(Var)
+
+                local var_t_adj = .
+                local var_c_adj = .
+                if `_isbin_`i'' {
+                    if !missing(`mean_t_adj') {
+                        local _p_t_adj = (`mean_t_adj' - `_vmin') / `_vrange'
+                        local var_t_adj = ///
+                            (`_vrange'^2) * `_p_t_adj' * (1 - `_p_t_adj')
+                    }
+                    if !missing(`mean_c_adj') {
+                        local _p_c_adj = (`mean_c_adj' - `_vmin') / `_vrange'
+                        local var_c_adj = ///
+                            (`_vrange'^2) * `_p_c_adj' * (1 - `_p_c_adj')
+                    }
+                }
+                else {
+                    quietly summarize `_wt_sq_all' ///
+                        if `treatment' == 1 & !missing(`var'), meanonly
+                    local _wt2_t = r(sum)
+                    quietly summarize `_wt_sq_all' ///
+                        if `treatment' == 0 & !missing(`var'), meanonly
+                    local _wt2_c = r(sum)
+
+                    * summarize [aw=] normalizes weights to N. Undo that
+                    * normalization and apply the scale-invariant unbiased
+                    * denominator sum(w)^2-sum(w^2).
+                    if `_n_t_adj' > 1 & `_wt_t'^2 > `_wt2_t' & ///
+                            !missing(`_awvar_t') {
+                        local var_t_adj = `_awvar_t' * ///
+                            ((`_n_t_adj' - 1) / `_n_t_adj') * ///
+                            (`_wt_t'^2 / (`_wt_t'^2 - `_wt2_t'))
+                    }
+                    if `_n_c_adj' > 1 & `_wt_c'^2 > `_wt2_c' & ///
+                            !missing(`_awvar_c') {
+                        local var_c_adj = `_awvar_c' * ///
+                            ((`_n_c_adj' - 1) / `_n_c_adj') * ///
+                            (`_wt_c'^2 / (`_wt_c'^2 - `_wt2_c'))
+                    }
+                }
 
                 * RB-12: `sd_pooled' is the UNWEIGHTED pooled SD, deliberately
                 * reused for the adjusted column so raw and adjusted share a
@@ -154,28 +231,23 @@ program define _psdash_balance_binary, rclass
 
                 * Weighted Kolmogorov-Smirnov: sup_x |F1(x) - F0(x)| using the
                 * weighted empirical CDF in each group. ksmirnov takes no weights,
-                * so the weighted ECDF is built directly.
+                * so the weighted ECDF is built in the order already used above.
                 local ks_adj = .
-                quietly summarize `wvar' if `treatment' == 1 & !missing(`var')
-                local _wt_t = r(sum)
-                quietly summarize `wvar' if `treatment' == 0 & !missing(`var')
-                local _wt_c = r(sum)
                 if `_wt_t' > 0 & `_wt_c' > 0 {
-                    tempvar _cft _cfc _last _ksd
-                    sort `var'
+                    tempvar _cft _cfc _ksd
                     quietly gen double `_cft' = ///
                         sum(cond(`treatment' == 1 & !missing(`var'), `wvar', 0)) / `_wt_t'
                     quietly gen double `_cfc' = ///
                         sum(cond(`treatment' == 0 & !missing(`var'), `wvar', 0)) / `_wt_c'
-                    quietly by `var': gen byte `_last' = (_n == _N)
                     quietly gen double `_ksd' = ///
                         abs(`_cft' - `_cfc') if `_last' & !missing(`var')
-                    quietly summarize `_ksd'
+                    quietly summarize `_ksd', meanonly
                     if r(N) > 0 local ks_adj = r(max)
-                    drop `_cft' `_cfc' `_last' `_ksd'
+                    drop `_cft' `_cfc' `_ksd'
                 }
                 matrix `balance_mat'[`i', 10] = `ks_adj'
             }
+            drop `_last'
 
             local i = `i' + 1
         }

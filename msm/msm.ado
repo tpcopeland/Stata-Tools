@@ -1,4 +1,4 @@
-*! msm Version 1.4.1  2026/07/27
+*! msm Version 1.4.2  2026/07/28
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -34,7 +34,21 @@ program define msm, rclass
         exit 198
     }
 
-    local version "1.4.0"
+    * Read the package version from this ado's canonical header so display and
+    * r(version) cannot drift from the shipped source during a version bump.
+    local version "unknown"
+    capture findfile msm.ado
+    if !_rc {
+        tempname _fh
+        capture file open `_fh' using "`r(fn)'", read text
+        if !_rc {
+            file read `_fh' _header_line
+            file close `_fh'
+            if regexm("`_header_line'", "Version ([0-9.]+)") {
+                local version = regexs(1)
+            }
+        }
+    }
 
     * Canonical public-command manifest (audit A32): the single source that
     * drives the list mode, r(commands), and release QA. All twelve subcommands
@@ -363,7 +377,7 @@ program define _msm_overview_detail
         display as text ""
         display as result "  msm_predict" as text "     Counterfactual predictions under always-"
         display as text "                treated vs never-treated strategies."
-        display as text "                Monte Carlo CIs via Cholesky decomposition."
+        display as text "                Monte Carlo CIs via symmetrized eigendecomposition."
         display as text ""
 
         display as text "{bf:Diagnostics & Reporting}"

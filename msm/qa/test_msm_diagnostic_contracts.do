@@ -364,33 +364,27 @@ capture noisily {
     assert `_npostrisk' > 400
 
     * Oracle, weighted SMD on the risk set, built by explicit arithmetic rather
-    * than by re-running the helper the command uses.
-    tempvar wn dev2
-    quietly count if _msm_decision_risk & treat == 1
-    local n1 = r(N)
-    quietly count if _msm_decision_risk & treat == 0
-    local n0 = r(N)
+    * than by re-running the helper the command uses. L is binary, so Austin &
+    * Stuart's dichotomous-covariate formula uses weighted prevalences and
+    * p(1-p), not a sample-variance finite-N correction.
+    tempvar wL
+    quietly gen double `wL' = _msm_weight * L
     foreach g in 1 0 {
         quietly summarize _msm_weight if _msm_decision_risk & treat == `g', meanonly
         local sw = r(sum)
-        local ng = r(N)
-        quietly gen double `wn' = _msm_weight * `ng' / `sw' ///
-            if _msm_decision_risk & treat == `g'
-        quietly summarize L [aw=`wn'] if _msm_decision_risk & treat == `g', meanonly
-        local m`g' = r(mean)
-        quietly gen double `dev2' = `wn' * (L - `m`g'')^2 ///
-            if _msm_decision_risk & treat == `g'
-        quietly summarize `dev2', meanonly
-        local v`g' = r(sum) / (`ng' - 1)
-        drop `wn' `dev2'
+        quietly summarize `wL' if _msm_decision_risk & treat == `g', meanonly
+        local m`g' = r(sum) / `sw'
+        local v`g' = `m`g'' * (1 - `m`g'')
     }
     local _oracle_riskset = (`m1' - `m0') / sqrt((`v1' + `v0') / 2)
 
     * What the all-rows rule would have produced.
     foreach g in 1 0 {
-        quietly summarize L [aw=_msm_weight] if treat == `g'
-        local am`g' = r(mean)
-        local av`g' = r(Var)
+        quietly summarize _msm_weight if treat == `g', meanonly
+        local asw = r(sum)
+        quietly summarize `wL' if treat == `g', meanonly
+        local am`g' = r(sum) / `asw'
+        local av`g' = `am`g'' * (1 - `am`g'')
     }
     local _all_rows = (`am1' - `am0') / sqrt((`av1' + `av0') / 2)
 
@@ -407,12 +401,12 @@ capture noisily {
     assert abs(`_all_rows') > 0.1
 
     * The unweighted column follows the same sample.
-    quietly summarize L if _msm_decision_risk & treat == 1
+    quietly summarize L if _msm_decision_risk & treat == 1, meanonly
     local um1 = r(mean)
-    local uv1 = r(Var)
-    quietly summarize L if _msm_decision_risk & treat == 0
+    local uv1 = `um1' * (1 - `um1')
+    quietly summarize L if _msm_decision_risk & treat == 0, meanonly
     local um0 = r(mean)
-    local uv0 = r(Var)
+    local uv0 = `um0' * (1 - `um0')
     assert reldif(B[1, 1], (`um1' - `um0') / sqrt((`uv1' + `uv0') / 2)) < 1e-8
 }
 if _rc == 0 {
@@ -623,6 +617,186 @@ else {
     display as error "  FAIL DC8: previously unreferenced returns (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' DC8"
+}
+
+**# DC9: SMDs implement the cited continuous and binary formulas exactly
+
+* Stata's summarize [aw=] variance is not Austin & Stuart's
+* reliability-weight variance. With unequal weights the two can differ
+* materially, especially inside small period/history cells. The binary
+* diagnostic has its own prevalence-based denominator and must not inherit a
+* sample-variance correction.
+local ++test_count
+capture noisily {
+    clear
+    input byte treat double x double w
+        0 0 100
+        0 1   1
+        0 2   1
+        1 3   1
+        1 4   1
+        1 5 100
+    end
+
+    tempvar wx w2 dev2
+    quietly gen double `wx' = w * x
+    quietly gen double `w2' = w^2
+    foreach g in 1 0 {
+        quietly summarize w if treat == `g', meanonly
+        local sw`g' = r(sum)
+        quietly summarize `wx' if treat == `g', meanonly
+        local cm`g' = r(sum) / `sw`g''
+        quietly summarize `w2' if treat == `g', meanonly
+        local sw2`g' = r(sum)
+    }
+    quietly gen double `dev2' = cond(treat == 1, ///
+        w * (x - `cm1')^2, w * (x - `cm0')^2)
+    foreach g in 1 0 {
+        quietly summarize `dev2' if treat == `g', meanonly
+        local cv`g' = `sw`g'' / (`sw`g''^2 - `sw2`g'') * r(sum)
+    }
+    local _continuous_oracle = (`cm1' - `cm0') / ///
+        sqrt((`cv1' + `cv0') / 2)
+
+    _msm_smd x, treatment(treat) weight(w)
+    local _continuous_got = `_msm_smd_value'
+    assert reldif(`_continuous_got', `_continuous_oracle') < 1e-12
+
+    * The fixture is discriminating: Stata's normalized-aweight variance gives
+    * a very different answer, so copying the implementation would not pass.
+    quietly summarize x [aw=w] if treat == 1
+    local _av1 = r(Var)
+    local _am1 = r(mean)
+    quietly summarize x [aw=w] if treat == 0
+    local _av0 = r(Var)
+    local _am0 = r(mean)
+    local _aweight_smd = (`_am1' - `_am0') / sqrt((`_av1' + `_av0') / 2)
+    assert abs(`_continuous_got' - `_aweight_smd') > 1
+
+    clear
+    input byte treat byte x double w
+        0 0 1
+        0 0 1
+        0 0 1
+        0 1 9
+        1 0 9
+        1 1 1
+        1 1 1
+        1 1 1
+    end
+
+    * Weighted prevalences are 0.25 and 0.75 in the treated and untreated
+    * groups, respectively.
+    local _binary_oracle = (0.25 - 0.75) / ///
+        sqrt((0.25 * 0.75 + 0.75 * 0.25) / 2)
+    _msm_smd x, treatment(treat) weight(w)
+    local _binary_got = `_msm_smd_value'
+    assert reldif(`_binary_got', `_binary_oracle') < 1e-12
+    assert abs(`_binary_got' + 1) > 0.1
+}
+if _rc == 0 {
+    display as result "  PASS DC9: continuous and binary SMD formulas match independent oracles"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL DC9: exact Austin-Stuart SMD formulas (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' DC9"
+}
+
+**# DC10: Love-plot values use the decision risk set
+
+* msm_diagnose already excludes post-event and post-censor carry-forward rows.
+* The Love plot must use the same analysis sample and expose the plotted values
+* so this can be checked without trying to compare unstable .gph binaries.
+local ++test_count
+capture noisily {
+    _dc_carryforward_panel
+    msm_prepare, id(id) period(period) treatment(treat) outcome(out) ///
+        censor(censored) baseline_covariates(L)
+    msm_weight, treat_d_cov(L) censor_d_cov(L) nolog
+
+    tempvar wL
+    quietly gen double `wL' = _msm_weight * L
+    foreach g in 1 0 {
+        quietly summarize _msm_weight if _msm_decision_risk & ///
+            treat == `g', meanonly
+        local psw`g' = r(sum)
+        quietly summarize `wL' if _msm_decision_risk & treat == `g', meanonly
+        local ppm`g' = r(sum) / `psw`g''
+        local ppv`g' = `ppm`g'' * (1 - `ppm`g'')
+
+        quietly summarize L if _msm_decision_risk & treat == `g', meanonly
+        local pum`g' = r(mean)
+        local puv`g' = `pum`g'' * (1 - `pum`g'')
+
+        quietly summarize _msm_weight if treat == `g', meanonly
+        local asw`g' = r(sum)
+        quietly summarize `wL' if treat == `g', meanonly
+        local apm`g' = r(sum) / `asw`g''
+        local apv`g' = `apm`g'' * (1 - `apm`g'')
+    }
+    local _plot_raw = (`pum1' - `pum0') / sqrt((`puv1' + `puv0') / 2)
+    local _plot_weighted = (`ppm1' - `ppm0') / sqrt((`ppv1' + `ppv0') / 2)
+    local _all_weighted = (`apm1' - `apm0') / sqrt((`apv1' + `apv0') / 2)
+    quietly count if _msm_decision_risk & !missing(treat)
+    local _nrisk = r(N)
+
+    msm_plot, type(balance) covariates(L)
+    matrix PB = r(balance)
+    assert rowsof(PB) == 1
+    assert colsof(PB) == 2
+    assert reldif(PB[1, 1], `_plot_raw') < 1e-8
+    assert reldif(PB[1, 2], `_plot_weighted') < 1e-8
+    assert r(n_risk) == `_nrisk'
+    assert abs(`_all_weighted' - `_plot_weighted') > 0.2
+    capture graph drop _all
+}
+if _rc == 0 {
+    display as result "  PASS DC10: Love plot excludes post-risk carry-forward rows"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL DC10: Love-plot analysis sample (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' DC10"
+}
+
+**# DC11: the default Love plot contains balance targets, not numerator covariates
+
+* Stabilized-numerator covariates are deliberately retained in the target
+* distribution. Treating them as if weighting were supposed to balance them
+* can make a valid stabilized analysis look diagnostically unsuccessful.
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+        censor(censored) covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+
+    * Default: denominator-only targets.
+    msm_plot, type(balance)
+    matrix DB = r(balance)
+    local _default_rows : rownames DB
+    assert "`_default_rows'" == "biomarker comorbidity"
+
+    * Explicit requests remain literal, including numerator covariates.
+    msm_plot, type(balance) covariates(age sex)
+    matrix EB = r(balance)
+    local _explicit_rows : rownames EB
+    assert "`_explicit_rows'" == "age sex"
+    capture graph drop _all
+}
+if _rc == 0 {
+    display as result "  PASS DC11: default Love plot contains only balance targets"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL DC11: Love-plot target selection (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' DC11"
 }
 
 **# Summary

@@ -1,6 +1,6 @@
 * crossval_finegray.do - Cross-validation suite for finegray package
 * Tests: systematic vs stcrreg, strata, robust/cluster SEs, CIF, DGP, benchmarks
-* Package: finegray v1.2.0
+* Package: finegray v1.2.1
 
 clear all
 set more off
@@ -27,7 +27,10 @@ local qadir "`pkgroot'/qa"
 * nothing lands in (or churns) the tracked qa/ tree, and so a failed/absent R
 * run cannot silently validate against a stale committed copy (matches
 * crossval_cif.do, which already uses c(tmpdir)).
-local datadir "`c(tmpdir)'/finegray_xv_main"
+* Run-unique output directory.  A fixed directory let an old R CSV survive a
+* failed Rscript call and satisfy the later file-exists check.
+tempfile _cv_anchor
+local datadir "`_cv_anchor'_dir"
 capture mkdir "`datadir'"
 
 capture log close _all
@@ -57,6 +60,18 @@ program define _setup_hypoxia
     stset dftime, failure(dfcens==1) id(stnum)
 end
 
+* finegray follows stcrreg's public convention of posting the last iterate with
+* rc=0 when it does not converge.  Every fit in this cross-validation file is
+* expected to converge, so make that condition part of every comparison rather
+* than allowing a partial estimate to count as parity.
+program define _finegray_xv
+    finegray `0'
+    assert e(converged) == 1
+    assert e(ll) < . & e(ll_0) < .
+    mata: assert(!hasmissing(st_matrix("e(b)")))
+    mata: assert(!hasmissing(st_matrix("e(V)")))
+end
+
 local tol = 1e-4
 
 * {smcl}
@@ -71,7 +86,7 @@ capture noisily {
     stcrreg ifp tumsize, compete(status == 2)
     matrix b_ref = e(b)
     restore
-    finegray ifp tumsize, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog
     matrix b_fg = e(b)
     assert abs(b_fg[1,1] - b_ref[1,1]) < `tol'
     assert abs(b_fg[1,2] - b_ref[1,2]) < `tol'
@@ -94,7 +109,7 @@ capture noisily {
     stcrreg ifp, compete(status == 1)
     local b_ref = e(b)[1,1]
     restore
-    finegray ifp, compete(status) cause(2) nolog
+    _finegray_xv ifp, compete(status) cause(2) nolog
     local b_fg = e(b)[1,1]
     assert abs(`b_fg' - `b_ref') < `tol'
 }
@@ -116,7 +131,7 @@ capture noisily {
     stcrreg ifp tumsize pelnode, compete(status == 1)
     matrix b_ref = e(b)
     restore
-    finegray ifp tumsize pelnode, compete(status) cause(2) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(2) nolog
     matrix b_fg = e(b)
     forvalues i = 1/3 {
         assert abs(b_fg[1,`i'] - b_ref[1,`i']) < `tol'
@@ -140,7 +155,7 @@ capture noisily {
     stcrreg tumsize, compete(status == 2)
     local b_ref = e(b)[1,1]
     restore
-    finegray tumsize, compete(status) cause(1) nolog
+    _finegray_xv tumsize, compete(status) cause(1) nolog
     local b_fg = e(b)[1,1]
     assert abs(`b_fg' - `b_ref') < `tol'
 }
@@ -162,7 +177,7 @@ capture noisily {
     stcrreg ifp pelnode, compete(status == 1)
     matrix b_ref = e(b)
     restore
-    finegray ifp pelnode, compete(status) cause(2) nolog
+    _finegray_xv ifp pelnode, compete(status) cause(2) nolog
     matrix b_fg = e(b)
     assert abs(b_fg[1,1] - b_ref[1,1]) < `tol'
     assert abs(b_fg[1,2] - b_ref[1,2]) < `tol'
@@ -190,7 +205,7 @@ capture noisily {
     stcrreg ifp tumsize pelnode, compete(status == 2)
     matrix V_ref = e(V)
     restore
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     matrix V_fg = e(V)
     forvalues i = 1/3 {
         local se_ref = sqrt(V_ref[`i',`i'])
@@ -219,7 +234,7 @@ capture noisily {
     stcrreg ifp, compete(status == 1)
     local se_ref = sqrt(e(V)[1,1])
     restore
-    finegray ifp, compete(status) cause(2) nolog
+    _finegray_xv ifp, compete(status) cause(2) nolog
     local se_fg = sqrt(e(V)[1,1])
     local rel_diff = abs(`se_fg' - `se_ref') / `se_ref'
     display as text "  SE cause 2: fg=" %8.5f `se_fg' " ref=" %8.5f `se_ref' ///
@@ -247,7 +262,7 @@ capture noisily {
     stcrreg ifp tumsize pelnode, compete(status == 2)
     local ll_ref = e(ll)
     restore
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     local ll_fg = e(ll)
     local rel_diff = abs(`ll_fg' - `ll_ref') / abs(`ll_ref')
     assert `rel_diff' < 0.001
@@ -265,7 +280,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     assert e(ll) > e(ll_0)
 }
 if _rc == 0 {
@@ -289,7 +304,7 @@ capture noisily {
     stcrreg ifp tumsize, compete(status == 2)
     matrix V_ref = e(V)
     restore
-    finegray ifp tumsize, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog
     matrix V_fg = e(V)
     forvalues i = 1/2 {
         local se_ref = sqrt(V_ref[`i',`i'])
@@ -315,9 +330,9 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog
     matrix b_nostrata = e(b)
-    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
     matrix b_strata = e(b)
     * Coefficients should be similar but not identical
     local diff1 = abs(b_strata[1,1] - b_nostrata[1,1])
@@ -341,7 +356,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
     finegray_predict cif_strata, cif
     summ cif_strata, meanonly
     assert r(min) >= 0 & r(max) <= 1
@@ -363,7 +378,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     finegray_predict xb_hat, xb
     finegray_predict cif_hat, cif
     matrix bh = e(basehaz)
@@ -377,7 +392,7 @@ capture noisily {
     * CIF depends on both xb and _t, so correlation with xb alone is moderate
     spearman xb_hat cif_hat
     display as text "  xb-CIF Spearman rho = " %6.4f r(rho)
-    assert r(rho) > 0.5
+    assert r(rho) > 0.5 & r(rho) < .
     drop xb_hat cif_hat
 }
 if _rc == 0 {
@@ -413,7 +428,7 @@ capture noisily {
     replace status = 1 if d == 1 & runiform() > 0.3
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
-    finegray x1 x2, compete(status) cause(1) nolog
+    _finegray_xv x1 x2, compete(status) cause(1) nolog
     * Coefficients should have correct signs
     assert e(b)[1,1] > 0
     assert e(b)[1,2] < 0
@@ -446,7 +461,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     * finegray
     stset t, failure(d) id(id)
-    finegray x1, compete(status) cause(1) nolog
+    _finegray_xv x1, compete(status) cause(1) nolog
     local b_fg = e(b)[1,1]
     * stcrreg
     stset t, failure(status==1) id(id)
@@ -470,7 +485,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     gen double t_zero = 0
     finegray_predict cif_zero, cif timevar(t_zero)
     summ cif_zero, meanonly
@@ -490,7 +505,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     gen double t_early = 2
     gen double t_late = 10
     finegray_predict cif_early, cif timevar(t_early)
@@ -498,7 +513,7 @@ capture noisily {
     * CIF at later time should be >= CIF at earlier time
     gen double diff = cif_late - cif_early
     summ diff, meanonly
-    assert r(min) >= -1e-10
+    assert r(N) > 0 & r(min) >= -1e-10 & r(min) < .
     drop t_early t_late cif_early cif_late diff
 }
 if _rc == 0 {
@@ -514,13 +529,13 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_predict xb_hat, xb
     gen double t_fixed = 5
     finegray_predict cif_hat, cif timevar(t_fixed)
     * Rank correlation between xb and CIF should be positive
     spearman xb_hat cif_hat
-    assert r(rho) > 0.9
+    assert r(rho) > 0.9 & r(rho) < .
     drop xb_hat t_fixed cif_hat
 }
 if _rc == 0 {
@@ -554,7 +569,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     * finegray
     stset t, failure(d) id(id)
-    finegray x1, compete(status) cause(1) nolog
+    _finegray_xv x1, compete(status) cause(1) nolog
     local b_fg = e(b)[1,1]
     * stcrreg
     stset t, failure(status==1) id(id)
@@ -604,11 +619,12 @@ capture noisily {
     replace status = 1 if d == 1 & runiform() > 0.4
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
-    finegray x1, compete(status) cause(1) nolog
+    _finegray_xv x1, compete(status) cause(1) nolog
     local se_model = sqrt(e(V)[1,1])
-    finegray x1, compete(status) cause(1) nolog cluster(clid)
+    _finegray_xv x1, compete(status) cause(1) nolog cluster(clid)
     local se_cluster = sqrt(e(V)[1,1])
-    assert `se_cluster' > 0
+    assert `se_model' > 0 & `se_model' < .
+    assert `se_cluster' > 0 & `se_cluster' < .
     display as text "  model SE=" %8.5f `se_model' " cluster SE=" %8.5f `se_cluster' ///
         " ratio=" %6.3f `se_cluster'/`se_model'
     * the contrast the test is named for: clustering inflates the SE here
@@ -659,7 +675,7 @@ capture noisily {
     stset t, failure(d) id(id)
     timer clear 1
     timer on 1
-    finegray x1 x2 x3, compete(status) cause(1) nolog
+    _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
     timer off 1
     quietly timer list 1
     local t_fg = r(t1)
@@ -700,7 +716,7 @@ foreach n_obs in 2000 5000 {
         stset t, failure(d) id(id)
         timer clear 1
         timer on 1
-        finegray x1 x2 x3, compete(status) cause(1) nolog
+        _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
         timer off 1
         quietly timer list 1
         local t_fg = r(t1)
@@ -725,7 +741,7 @@ capture noisily {
     stset t, failure(d) id(id)
     timer clear 1
     timer on 1
-    finegray x1 x2 x3, compete(status) cause(1) nolog
+    _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
     timer off 1
     quietly timer list 1
     local t_fg = r(t1)
@@ -749,7 +765,7 @@ capture noisily {
     stset t, failure(d) id(id)
     timer clear 1
     timer on 1
-    finegray x1 x2 x3, compete(status) cause(1) nolog
+    _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
     timer off 1
     quietly timer list 1
     local t_fg = r(t1)
@@ -789,7 +805,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     * finegray norobust
     stset t, failure(d) id(id)
-    finegray x1 x2, compete(status) cause(1) nolog norobust
+    _finegray_xv x1 x2, compete(status) cause(1) nolog norobust
     matrix V_fg = e(V)
     matrix b_fg = e(b)
     * stcrreg
@@ -842,7 +858,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     * finegray with factor
     stset t, failure(d) id(id)
-    finegray i.grp x1, compete(status) cause(1) nolog
+    _finegray_xv i.grp x1, compete(status) cause(1) nolog
     matrix b_fg = e(b)
     * stcrreg with manual indicators (drop factor-created vars first)
     capture drop grp_1
@@ -876,10 +892,10 @@ capture noisily {
     * Sort deterministically to make in predictable
     sort stnum
     local N_half = int(_N / 2)
-    finegray ifp tumsize pelnode if _n <= `N_half', compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode if _n <= `N_half', compete(status) cause(1) nolog
     matrix b_if = e(b)
     local N_if = e(N)
-    finegray ifp tumsize pelnode in 1/`N_half', compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode in 1/`N_half', compete(status) cause(1) nolog
     matrix b_in = e(b)
     local N_in = e(N)
     * Same observations — coefficients should match within float precision
@@ -919,9 +935,9 @@ capture noisily {
     replace status = 2 if d == 1 & status == 5
     * finegray with censvalue(5)
     stset t, failure(d) id(id)
-    finegray x1, compete(status) cause(1) censvalue(5) nolog
+    _finegray_xv x1, compete(status) cause(1) censvalue(5) nolog
     local b_fg = e(b)[1,1]
-    assert e(N_cens) > 0
+    assert e(N_cens) > 0 & e(N_cens) < .
     * stcrreg (standard setup)
     stset t, failure(status==1) id(id)
     stcrreg x1, compete(status == 2)
@@ -960,7 +976,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
     * Multiple strata variables (auto-combined)
-    finegray x1, compete(status) cause(1) nolog strata(site arm)
+    _finegray_xv x1, compete(status) cause(1) nolog strata(site arm)
     assert e(converged) == 1
     local b_multi = e(b)[1,1]
     finegray_predict cif_multi, cif
@@ -968,7 +984,7 @@ capture noisily {
     assert r(min) >= 0 & r(max) <= 1
     * Compare against manual egen group
     egen int strata_combo = group(site arm)
-    finegray x1, compete(status) cause(1) nolog strata(strata_combo)
+    _finegray_xv x1, compete(status) cause(1) nolog strata(strata_combo)
     local b_manual = e(b)[1,1]
     assert abs(`b_multi' - `b_manual') < 1e-8
     drop cif_multi strata_combo
@@ -1007,7 +1023,7 @@ capture noisily {
     replace status = 1 if d == 1 & runiform() > 0.3
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
-    finegray x1, compete(status) cause(1) nolog
+    _finegray_xv x1, compete(status) cause(1) nolog
     finegray_phtest
     * FG-03: finegray_phtest is a diagnostic and reports the residual-time
     * CORRELATION only (column 1), no p-value.  "Detection" is therefore checked
@@ -1017,6 +1033,7 @@ capture noisily {
     * package makes no calibration claim -- which keeps this test's power to catch
     * a diagnostic that goes blind to a real violation.
     matrix _Pv = r(phtest)
+    assert !missing(_Pv[1,1], _Pv[1,2])
     local _events = _Pv[1, 2]
     local _floor = invnormal(0.95) / sqrt(`_events')
     display as text "  PH violation diagnostic: correlation=" %8.4f _Pv[1,1] ///
@@ -1053,7 +1070,7 @@ capture noisily {
     replace status = 1 if d == 1 & runiform() > 0.35
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
-    finegray x1, compete(status) cause(1) nolog
+    _finegray_xv x1, compete(status) cause(1) nolog
     finegray_phtest
     * FG-03: diagnostic surface [correlation, events]; no p-value.  The weak /
     * no-violation counterpart to C31: the residual-time correlation must stay
@@ -1097,7 +1114,7 @@ capture noisily {
     restore
     _setup_hypoxia
     * Run finegray first to identify estimation sample
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
     * Save Stata results for comparison
     matrix b_stata = e(b)
     matrix V_stata = e(V)
@@ -1126,7 +1143,7 @@ capture noisily {
     * which is exactly the discrepancy C52 saw against its 0.1% tolerance. That
     * is a difference in the reported estimand, not in the estimator, so the
     * oracle must be compared against the same quantity it computes.
-    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode) noadjust
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog strata(pelnode) noadjust
     matrix b_strata_stata = e(b)
     matrix V_strata_stata = e(V)
     local ll_strata_stata = e(ll)
@@ -1148,8 +1165,10 @@ if _rc != 0 {
     local r_available = 0
 }
 
-* Call R (unstratified)
+* Call R (unstratified).  Pre-delete even in the run-unique directory so the
+* fail-closed contract is explicit and independently regression-testable.
 if `r_available' {
+    capture erase "`datadir'/finegray_r_output.csv"
     capture noisily {
         shell Rscript "`qadir'/crossval_finegray_r.R" ///
             "`datadir'/finegray_r_input.csv" ///
@@ -1165,6 +1184,7 @@ if `r_available' {
 * Call R (stratified)
 local r_strata_available = 0
 if `r_available' {
+    capture erase "`datadir'/finegray_r_strata_output.csv"
     capture noisily {
         shell Rscript "`qadir'/crossval_finegray_r.R" ///
             "`datadir'/finegray_r_strata.csv" ///
@@ -1185,6 +1205,7 @@ if `r_available' {
     import delimited using ///
         "`datadir'/finegray_r_output.csv", ///
         clear
+    isid dataset quantity variable
 
     * C33: Coefficients vs cmprsk::crr
     local ++test_count
@@ -1260,7 +1281,7 @@ if `r_available' {
     local t35_pass = 1
     restore
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog norobust
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog norobust
     matrix V_nr = e(V)
     preserve
     import delimited using ///
@@ -1328,7 +1349,7 @@ if `r_available' {
     local t37_ncmp = 0
     restore
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     * CIF at z=0: 1 - exp(-H0(t))
     matrix bh = e(basehaz)
     local nr_bh = rowsof(bh)
@@ -1362,8 +1383,8 @@ if `r_available' {
             local t37_pass = 0
         }
     }
-    if `t37_ncmp' == 0 {
-        display as error "  FAIL: C37 compared 0 time points (R cif_ref missing)"
+    if `t37_ncmp' != 3 {
+        display as error "  FAIL: C37 compared `t37_ncmp' of 3 planned time points"
         local t37_pass = 0
     }
     if `t37_pass' {
@@ -1393,14 +1414,14 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     * Fit with fvrevar-based ##
-    finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
+    _finegray_xv i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
     matrix b_fv = e(b)
     local ll_fv = e(ll)
     cap drop _fg_*
     * Fit with manual indicators and interaction
     gen byte pel_1 = (pelnode == 1)
     gen double pel_1_ifp = pel_1 * ifp
-    finegray pel_1 ifp pel_1_ifp tumsize, compete(status) cause(1) nolog
+    _finegray_xv pel_1 ifp pel_1_ifp tumsize, compete(status) cause(1) nolog
     matrix b_man = e(b)
     local ll_man = e(ll)
     * Must produce identical results
@@ -1425,7 +1446,7 @@ capture noisily {
     _setup_hypoxia
     gen byte ifp_grp = (ifp > 10)
     * Fit with fvrevar
-    finegray i.pelnode##i.ifp_grp tumsize, compete(status) cause(1) nolog
+    _finegray_xv i.pelnode##i.ifp_grp tumsize, compete(status) cause(1) nolog
     matrix b_fv = e(b)
     local ll_fv = e(ll)
     cap drop _fg_*
@@ -1433,7 +1454,7 @@ capture noisily {
     gen byte pel_1 = (pelnode == 1)
     gen byte ifpg_1 = (ifp_grp == 1)
     gen byte pel_1_ifpg_1 = pel_1 * ifpg_1
-    finegray pel_1 ifpg_1 pel_1_ifpg_1 tumsize, compete(status) cause(1) nolog
+    _finegray_xv pel_1 ifpg_1 pel_1_ifpg_1 tumsize, compete(status) cause(1) nolog
     matrix b_man = e(b)
     local ll_man = e(ll)
     assert abs(`ll_fv' - `ll_man') < 1e-6
@@ -1459,7 +1480,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog basehaz
+    _finegray_xv i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog basehaz
     * CIF via finegray_predict
     finegray_predict cif_auto, cif
     * CIF via manual: 1 - exp(-H0(t) * exp(xb))
@@ -1509,7 +1530,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
 
-    finegray x1, compete(status) cause(1) nolog cluster(clid)
+    _finegray_xv x1, compete(status) cause(1) nolog cluster(clid)
     local b_fg = e(b)[1,1]
     local se_fg = sqrt(e(V)[1,1])
 
@@ -1556,7 +1577,7 @@ capture noisily {
     replace status = 2 if d == 1 & status == 0
     stset t, failure(d) id(id)
 
-    finegray x1 x2, compete(status) cause(1) nolog cluster(clid)
+    _finegray_xv x1 x2, compete(status) cause(1) nolog cluster(clid)
     matrix b_fg = e(b)
     matrix V_fg = e(V)
 
@@ -1612,7 +1633,7 @@ capture noisily {
     drop if t_enter >= t
     stset t, failure(d) id(id) enter(time t_enter)
 
-    finegray x1, compete(status) cause(1) nolog
+    _finegray_xv x1, compete(status) cause(1) nolog
     local b_fg = e(b)[1,1]
     local se_fg = sqrt(e(V)[1,1])
 
@@ -1650,7 +1671,7 @@ capture noisily {
     preserve
     quietly replace t_enter = 0
     stset t, failure(d) id(id) enter(time t_enter)
-    quietly finegray x1, compete(status) cause(1) nolog
+    quietly _finegray_xv x1, compete(status) cause(1) nolog
     local b_fg0 = e(b)[1,1]
     stset t, failure(status==1) id(id) enter(time t_enter)
     quietly stcrreg x1, compete(status == 2)
@@ -1692,7 +1713,7 @@ capture noisily {
     drop if t_enter >= t
     stset t, failure(d) id(id) enter(time t_enter)
 
-    finegray x1 x2, compete(status) cause(1) nolog
+    _finegray_xv x1 x2, compete(status) cause(1) nolog
     matrix b_fg = e(b)
     matrix V_fg = e(V)
 
@@ -1722,7 +1743,7 @@ capture noisily {
     preserve
     quietly replace t_enter = 0
     stset t, failure(d) id(id) enter(time t_enter)
-    quietly finegray x1 x2, compete(status) cause(1) nolog
+    quietly _finegray_xv x1 x2, compete(status) cause(1) nolog
     matrix b_fg0 = e(b)
     stset t, failure(status==1) id(id) enter(time t_enter)
     quietly stcrreg x1 x2, compete(status == 2)
@@ -1768,7 +1789,7 @@ if `r_available' {
 if `fastcmprsk_available' {
     * Reload Stata results (same model as Section 18)
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
+    _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix b_stata = e(b)
     matrix V_stata = e(V)
     local ll_stata = e(ll)
@@ -1864,6 +1885,7 @@ if `fastcmprsk_available' {
     * C48: CIF at z=0 vs fastcmprsk::fastCrr
     local ++test_count
     local t48_pass = 1
+    local t48_ncmp = 0
     foreach tt in 2 5 10 {
         quietly {
             summ value if dataset == "hypoxia" & quantity == "fastcmprsk_cif_ref" ///
@@ -1883,12 +1905,17 @@ if `fastcmprsk_available' {
         }
         local s_cif = 1 - exp(-`H0_tt')
         local adiff = abs(`s_cif' - `r_cif')
+        local ++t48_ncmp
         display as text "  CIF(t=`tt',z=0): Stata=" %8.6f `s_cif' ///
             " fastCrr=" %8.6f `r_cif' " diff=" %8.6f `adiff'
         if `adiff' >= 0.01 {
             display as error "  FAIL [C48.t`tt']: diff `adiff' >= 0.01"
             local t48_pass = 0
         }
+    }
+    if `t48_ncmp' != 3 {
+        display as error "  FAIL: C48 compared `t48_ncmp' of 3 planned time points"
+        local t48_pass = 0
     }
     if `t48_pass' {
         display as result "  PASS: C48 CIF at z=0 vs fastcmprsk::fastCrr (< 0.01)"
@@ -2000,6 +2027,7 @@ if `r_strata_available' {
     import delimited using ///
         "`datadir'/finegray_r_strata_output.csv", ///
         clear
+    isid dataset quantity variable
 
     * C51: Strata coefficients vs crr cengroup
     * This is a regression gate for group-specific IPCW numerators: using one
@@ -2100,10 +2128,11 @@ if `r_strata_available' {
     * C54: Strata CIF at z=0 vs crr cengroup
     local ++test_count
     local t54_pass = 1
+    local t54_ncmp = 0
     * Get Stata baseline hazard for CIF calculation
     restore
     _setup_hypoxia
-    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode) basehaz
+    _finegray_xv ifp tumsize, compete(status) cause(1) nolog strata(pelnode) basehaz
     matrix bh_strata = e(basehaz)
     local nr_bh_s = rowsof(bh_strata)
     preserve
@@ -2129,12 +2158,17 @@ if `r_strata_available' {
         }
         local s_cif = 1 - exp(-`H0_tt')
         local adiff = abs(`s_cif' - `r_cif')
+        local ++t54_ncmp
         display as text "  strata CIF(t=`tt',z=0): Stata=" %8.6f `s_cif' ///
             " R(cengroup)=" %8.6f `r_cif' " diff=" %8.6f `adiff'
         if `adiff' >= 1e-5 {
             display as error "  FAIL [C54.t`tt']: diff `adiff' >= 1e-5"
             local t54_pass = 0
         }
+    }
+    if `t54_ncmp' != 3 {
+        display as error "  FAIL: C54 compared `t54_ncmp' of 3 planned time points"
+        local t54_pass = 0
     }
     if `t54_pass' {
         display as result ///
@@ -2158,18 +2192,24 @@ if `r_strata_available' {
         * Unstratified coef (from the same dataset, no cengroup)
         quietly summ value if dataset == "hypoxia_strata" & ///
             quantity == "coef" & variable == "ifp", meanonly
+        assert r(N) == 1
         local r_nostrata_coef = r(mean)
         * Stratified coef
         quietly summ value if dataset == "hypoxia_strata" & ///
             quantity == "strata_coef" & variable == "ifp", meanonly
+        assert r(N) == 1
         local r_strata_coef = r(mean)
         * They should be similar but not identical (different censoring model)
         local coef_diff = abs(`r_strata_coef' - `r_nostrata_coef')
         display as text "  R coef[ifp]: no-strata=" %10.6f `r_nostrata_coef' ///
             " strata=" %10.6f `r_strata_coef' " diff=" %8.6f `coef_diff'
         * Both should be non-zero
+        assert `r_strata_coef' < . & `r_nostrata_coef' < .
         assert `r_strata_coef' != 0
         assert `r_nostrata_coef' != 0
+        * The check is named for an active cengroup contrast.  Nonzero
+        * coefficients alone would also pass if cengroup were silently ignored.
+        assert `coef_diff' > 1e-8 & `coef_diff' < .
     }
     if _rc == 0 {
         display as result ///
@@ -2204,6 +2244,12 @@ display as text "Failed:  " as result `fail_count'
 display as text "Skipped: " as result `skip_count'
 display as text _dup(60) "="
 display as text "RESULT: crossval_finegray tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+
+foreach f in finegray_r_input.csv finegray_r_output.csv ///
+    finegray_r_strata.csv finegray_r_strata_output.csv {
+    capture erase "`datadir'/`f'"
+}
+capture rmdir "`datadir'"
 
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"

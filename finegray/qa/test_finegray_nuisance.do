@@ -35,7 +35,7 @@ capture log close _all
 log using "test_finegray_nuisance.log", replace name(_tnuis)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture confirm file "`pkg_dir'/finegray.pkg"
 if _rc {
     display as error "test_finegray_nuisance.do must run from finegray/qa"
@@ -163,6 +163,7 @@ capture noisily {
     quietly finegray Z, compete(eps) cause(1) censvalue(0) robust noadjust nuisance nolog
     local v_psi = _se[Z]^2
     * f1: oracle says psi INCREASES the variance, by ~0.20%
+    assert `v_eta' < . & `v_psi' < .
     assert `v_psi' > `v_eta'
     _reldif `v_psi' `v_eta'
     assert r(rd) > 1e-3
@@ -172,6 +173,7 @@ capture noisily {
     local w_eta = _se[Z]^2
     quietly finegray Z, compete(eps) cause(1) censvalue(0) strata(cg) robust noadjust nuisance nolog
     local w_psi = _se[Z]^2
+    assert `w_eta' < . & `w_psi' < .
     _reldif `w_psi' `w_eta'
     assert r(rd) > 1e-6
 }

@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/07/27
+*! _finegray_mata Version 1.2.1  2026/07/28
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -499,13 +499,11 @@ void _finegray_joint_setup(
        when byg_id/tg_id carry missing values (uniqrows sorts those last, and
        Mata's comparisons order missing above every number consistently).
 
-       SCOPE, so the next reader does not over-credit this.  It does NOT make a
-       many-strata fit fast: that same n = 20,000 / 200-strata fit takes ~18 s
-       either way, because _finegray_loglik and _finegray_score_info rebuild the
-       whole beta-INDEPENDENT weight design -- this setup, _finegray_A_at_times
-       and _finegray_G_minus -- on every likelihood and score evaluation, ~2.2 s
-       per Newton iteration at 200 strata against 0.18 s at 2.  Hoisting that out
-       of the Newton loop is the fix that matters and is not done here. */
+       SCOPE, so the next reader does not over-credit this helper in isolation.
+       Through 1.2.0 the likelihood and score rebuilt the whole beta-independent
+       weight design on every optimizer evaluation.  _finegray_engine now
+       prepares that design once and passes it through the Newton/line-search
+       calls; standalone Mata callers still use the self-contained fallback. */
     jidx = J(n, 1, .)
     for (i = 1; i <= n; i++) {
         lo = 1
@@ -562,11 +560,13 @@ real scalar _finegray_use_pooled_stabilizer(
     real colvector byg_id,
     real colvector tg_id)
 {
-    real colvector gidx, jc, ju
-
     if (sum(t0 :> 0) == 0) return(0)
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    return(rows(jc) > 1)
+    /* More than one observed joint pair exists exactly when either component
+       differs from its first value.  The former implementation built the full
+       subject-to-joint-stratum mapping merely to answer this yes/no question,
+       then the selected CIF/Schoenfeld core built the mapping again. */
+    return(sum(byg_id :!= byg_id[1]) > 0 |
+        sum(tg_id :!= tg_id[1]) > 0)
 }
 
 /* Pooled A(t-) = G_pool(t-) H_pool(t-), evaluated on target_t.  Bellach et
@@ -584,16 +584,62 @@ real colvector _finegray_A_pool_at_times(
     real matrix Gpt, Hpt
 
     one = J(rows(t), 1, 1)
-    /* quiet=1 is mandatory, not cosmetic.  This runs inside _finegray_loglik,
-       _finegray_score and the Hessian, i.e. once per Newton iteration and once
-       per step halving, so a note here reprints the same fit-time fact dozens
-       of times.  The pooled A floor is separately surfaced -- and escalated to
-       r(459) when a consulted cell is zero -- by _finegray_positivity_check,
-       and the censoring KM's own truncation is reported once by the engine. */
+    /* quiet=1 is mandatory, not cosmetic.  The engine prepares this object once
+       for all optimizer evaluations, while standalone likelihood/score callers
+       may still build it on entry.  A helper-level note would therefore repeat
+       a fit-time fact unpredictably.  The pooled A floor is separately surfaced
+       -- and escalated to r(459) when a consulted cell is zero -- by
+       _finegray_positivity_check, and the censoring KM's own truncation is
+       reported once by the engine. */
     Gp = _finegray_km_censor(t, delta, censval, event_type, one, t0, 1)
     Gpt = _finegray_G_at_times(t, Gp, one, target_t)
     Hpt = _finegray_H_at_times(t, t0, one, target_t)
     return(Gpt[., 1] :* Hpt[., 1])
+}
+
+/* Build the beta-INDEPENDENT weight design once.
+
+   The optimizer evaluates the score, likelihood, and step-halving candidates
+   repeatedly at different beta values, but none of the objects below depends
+   on beta.  Rebuilding them inside every evaluation made a 20,000-observation,
+   200-stratum fit spend about 2.2 seconds per Newton iteration on identical
+   work.  The engine now prepares this bundle once and passes it into the hot
+   likelihood/score paths and downstream residual, baseline-hazard, and
+   diagnostic calculations.  Standalone callers retain their self-contained
+   fallback and build the same bundle on entry.
+
+     use_pooled  whether ZZF equation 7's pooled stabilizer is active
+     gidx       subject -> observed joint weight-stratum index
+     Gminus     A_g(X_i-) for each subject
+     A          A_g(t_i-) for every observation time and joint stratum
+     Apool      pooled A(t_i-) (ones when the pooled branch is inactive) */
+void _finegray_prepare_weight_design(
+    real colvector t,
+    real colvector delta,
+    real scalar censval,
+    real colvector event_type,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id,
+    real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix A,
+    real colvector Apool)
+{
+    real colvector jc, ju
+
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    A = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, A)
+    use_pooled = (sum(t0 :> 0) > 0 & rows(jc) > 1)
+    if (use_pooled) {
+        Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+    }
+    else {
+        Apool = J(rows(t), 1, 1)
+    }
 }
 
 /* Combined-weight diagnostics, computed ONCE after convergence.
@@ -666,29 +712,38 @@ real scalar _finegray_positivity_check(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden,
+    real colvector Apool)
 {
     real scalar n, nj, i, j, k, g, npos, ep, cur_time, last_cause
-    real colvector is_cause, is_compete, gidx, jc, ju, flagged, Apool
+    real colvector is_cause, is_compete, flagged
     real colvector row_id, ord, entry_ord, riskn
-    real matrix Aden
     string scalar badstr
 
     n = rows(t)
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    nj = rows(jc)
+    /* The engine already needs this beta-independent bundle for optimization.
+       Accept it here so the pre-fit guard does not build the same N-by-strata
+       matrix and pooled stabilizer twice.  Standalone callers remain
+       self-contained. */
+    if (args() < 14) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, use_pooled, gidx, Gminus, Aden, Apool)
+    }
+    nj = cols(Aden)
 
     /* Under the equation-7 pooled-stabilizer form, every genuinely at-risk
        subject is divided by its group's A_g(t-), not just retained
        competing-event subjects by A_g(X_i-).  Check exactly those consulted
        denominator cells.  Inactive groups are deliberately ignored: 0/A_g
        never enters the scan. */
-    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
-        Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-        Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+    if (use_pooled) {
         row_id = (1::n)
         ord = order((t, row_id), (1, 2))
         entry_ord = order((t0, row_id), (1, 2))
@@ -749,9 +804,6 @@ real scalar _finegray_positivity_check(
     }
 
     /* A_g(X_i-) in subject i's OWN joint group: the weight's denominator. */
-    Aden = _finegray_G_minus(gidx,
-        _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t))
-
     /* EXACTLY zero, not "below A_FLOOR".  Those are different failures and must
        stay different, or one silently eats the other:
 
@@ -770,7 +822,7 @@ real scalar _finegray_positivity_check(
     flagged = J(nj, 1, 0)
     for (i = 1; i <= n; i++) {
         if (!is_compete[i]) continue
-        if (Aden[i] > 0) continue
+        if (Gminus[i] > 0) continue
         npos++
         flagged[gidx[i]] = 1
     }
@@ -795,12 +847,16 @@ void _finegray_weight_diag_zzf(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden,
+    real colvector Apool)
 {
     real scalar A_FLOOR, WT_CEIL, n, nj, K, i, j, k, g, ep, cur_time
-    real scalar minprob, maxwt, nprobwarn, nwtwarn, a, w, p
-    real colvector is_cause, is_compete, gidx, jc, ju, row_id, ord, entry_ord
-    real colvector et, Pev, Pmax, Aden, riskn, flagged
+    real scalar minprob, maxwt, nprobwarn, nwtwarn, a, w, p, _use
+    real colvector is_cause, is_compete, row_id, ord, entry_ord
+    real colvector et, erow, Pev, Pmax, riskn, flagged
     real matrix Aev, active
     string scalar warnstr
 
@@ -809,17 +865,26 @@ void _finegray_weight_diag_zzf(
     n = rows(t)
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    nj = rows(jc)
+    if (args() < 13) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, _use, gidx, Gminus, Aden, Apool)
+    }
+    nj = cols(Aden)
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
 
-    et = J(0, 1, .)
+    et = erow = J(0, 1, .)
     for (i = 1; i <= n; i++) {
         if (!is_cause[ord[i]]) continue
-        if (rows(et) == 0) et = t[ord[i]]
-        else if (t[ord[i]] != et[rows(et)]) et = et \ t[ord[i]]
+        if (rows(et) == 0) {
+            et = t[ord[i]]
+            erow = ord[i]
+        }
+        else if (t[ord[i]] != et[rows(et)]) {
+            et = et \ t[ord[i]]
+            erow = erow \ ord[i]
+        }
     }
     K = rows(et)
     if (K == 0) {
@@ -832,10 +897,8 @@ void _finegray_weight_diag_zzf(
         return
     }
 
-    Aev = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, et)
-    Pev = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, et)
-    Aden = _finegray_G_minus(gidx,
-        _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t))
+    Aev = Aden[erow, .]
+    Pev = Apool[erow]
     active = J(K, nj, 0)
     riskn = J(nj, 1, 0)
     ep = 1
@@ -910,7 +973,7 @@ void _finegray_weight_diag_zzf(
         }
         if (!is_compete[j] | k > K) continue
         g = gidx[j]
-        a = Aden[j]
+        a = Gminus[j]
         if (a < minprob) minprob = a
         if (a < A_FLOOR) {
             nprobwarn++
@@ -947,18 +1010,28 @@ void _finegray_weight_diag(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden,
+    real colvector Apool)
 {
     real scalar A_FLOOR, WT_CEIL
     real scalar n, nj, K, i, k, g, r, minprob, maxwt, nprobwarn, nwtwarn, w, a
-    real colvector is_cause, is_compete, gidx, jc, ju, et, Aden, flagged
+    real colvector is_cause, is_compete, et, erow, flagged
     real colvector ord, row_id, cmin
     real matrix Aev, SUF
     string scalar warnstr
 
-    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+    if (args() < 14) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, use_pooled, gidx, Gminus, Aden, Apool)
+    }
+
+    if (use_pooled) {
         _finegray_weight_diag_zzf(t, delta, cause, censval, event_type,
-            G, byg_id, t0, tg_id)
+            G, byg_id, t0, tg_id, gidx, Gminus, Aden, Apool)
         return
     }
 
@@ -969,13 +1042,12 @@ void _finegray_weight_diag(
     is_cause   = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    nj = rows(jc)
+    nj = cols(Aden)
 
     /* Cause-event times, ascending and unique. */
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
-    et = J(0, 1, .)
+    et = erow = J(0, 1, .)
     for (i = 1; i <= n; i++) {
         r = ord[i]
         if (!is_cause[r]) continue
@@ -984,9 +1056,13 @@ void _finegray_weight_diag(
            first event and aborts with 3301.  Keep the bound test separate. */
         if (rows(et) == 0) {
             et = t[r]
+            erow = r
             continue
         }
-        if (t[r] != et[rows(et)]) et = et \ t[r]
+        if (t[r] != et[rows(et)]) {
+            et = et \ t[r]
+            erow = erow \ r
+        }
     }
     K = rows(et)
 
@@ -1007,9 +1083,7 @@ void _finegray_weight_diag(
     }
 
     /* A at the cause-event times (K x nj) and each subject's own denominator. */
-    Aev  = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, et)
-    Aden = _finegray_G_minus(gidx, _finegray_A_at_times(t, G, byg_id, t0, tg_id,
-                                                        jc, ju, t))
+    Aev = Aden[erow, .]
 
     /* cmin[g] = the EARLIEST competing exit in stratum g (missing if g holds no
        competing-event subject at all).  A numerator cell A_g(t_k) is consulted by
@@ -1076,7 +1150,7 @@ void _finegray_weight_diag(
         if (k > K) continue
 
         g = gidx[r]
-        a = Aden[r]
+        a = Gminus[r]
         if (a >= .) continue
 
         if (a < minprob) minprob = a
@@ -1129,13 +1203,16 @@ real scalar _finegray_loglik_zzf_strat(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden,
+    real colvector Apool)
 {
     real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector gidx, Gminus, jc, ju, Apool, riskn
+    real colvector riskn
     real scalar n, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, ll
     real rowvector risk0, bwd0
-    real matrix Aden
 
     n = rows(t)
     eta = Z * beta
@@ -1145,11 +1222,7 @@ real scalar _finegray_loglik_zzf_strat(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Aden)
-    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+    ng = cols(Aden)
 
     risk0 = J(1, ng, 0)
     /* Activity is combinatorial, not numerical.  Entry and exit traverse
@@ -1220,13 +1293,17 @@ void _finegray_score_info_zzf_strat(
     real colvector score,
     real matrix info,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden,
+    real colvector Apool)
 {
     real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector gidx, Gminus, jc, ju, Apool, riskn
-    real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew
+    real colvector riskn
+    real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, _use
     real rowvector risk0, bwd0, coreS1, zbar
-    real matrix risk1, bwd1, risk2, bwd2, coreS2, Aden
+    real matrix risk1, bwd1, risk2, bwd2, coreS2
 
     n = rows(t)
     p = cols(Z)
@@ -1237,11 +1314,11 @@ void _finegray_score_info_zzf_strat(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Aden)
-    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+    if (args() < 17) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, _use, gidx, Gminus, Aden, Apool)
+    }
+    ng = cols(Aden)
 
     risk0 = J(1, ng, 0)
     riskn = J(ng, 1, 0)
@@ -1330,14 +1407,19 @@ real matrix _finegray_scores_zzf_strat(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden,
+    real colvector Apool)
 {
     real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector gidx, Gminus, jc, ju, Apool, entry_rinv, exit_rinv, exit_cinv
+    real colvector entry_rinv, exit_rinv, exit_cinv
     real colvector riskn
     real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, run_cinv
+    real scalar _use
     real rowvector risk0, bwd0, coreS1, zbar, run_cz
-    real matrix risk1, bwd1, Aden, scores, run_rz, entry_rz, exit_rz, exit_cz
+    real matrix risk1, bwd1, scores, run_rz, entry_rz, exit_rz, exit_cz
     real rowvector run_rinv
 
     n = rows(t)
@@ -1349,11 +1431,11 @@ real matrix _finegray_scores_zzf_strat(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Aden)
-    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+    if (args() < 15) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, _use, gidx, Gminus, Aden, Apool)
+    }
+    ng = cols(Aden)
 
     risk0 = J(1, ng, 0)
     riskn = J(ng, 1, 0)
@@ -1475,19 +1557,28 @@ real scalar _finegray_loglik(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool)
 {
     real colvector row_id
     real scalar n, p, i, j, k, ll, idx, cur_time, g, ng
     real scalar risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx, Gminus, jc, ju
     real rowvector raw_bwd
-    real matrix Gt
 
-    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+    if (args() < 16) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    }
+
+    if (use_pooled) {
         return(_finegray_loglik_zzf_strat(t, delta, cause, censval,
-            event_type, Z, beta, G, byg_id, t0, tg_id))
+            event_type, Z, beta, G, byg_id, t0, tg_id, gidx, Gminus, Gt,
+            Apool))
     }
 
     n = rows(t)
@@ -1507,13 +1598,9 @@ real scalar _finegray_loglik(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    levels = uniqrows(byg_id)
-    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
-       delayed entry H == 1 and this is bit-identical to the former G-only path. */
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Gt)
+    /* ZZF: Gt is A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no delayed
+       entry H == 1 and this is bit-identical to the former G-only path. */
+    ng = cols(Gt)
 
     /* Incremental risk-set tracking */
     risk_S0 = 0
@@ -1584,19 +1671,29 @@ void _finegray_score_info(
     real colvector score,
     real matrix info,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool)
 {
     real colvector row_id
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx, Gminus, jc, ju
-    real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2, Gt
+    real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
-    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+    if (args() < 18) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    }
+
+    if (use_pooled) {
         _finegray_score_info_zzf_strat(t, delta, cause, censval,
-            event_type, Z, beta, G, byg_id, score, info, t0, tg_id)
+            event_type, Z, beta, G, byg_id, score, info, t0, tg_id,
+            gidx, Gminus, Gt, Apool)
         return
     }
 
@@ -1617,13 +1714,9 @@ void _finegray_score_info(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    levels = uniqrows(byg_id)
-    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
-       delayed entry H == 1 and this is bit-identical to the former G-only path. */
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Gt)
+    /* ZZF: Gt is A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no delayed
+       entry H == 1 and this is bit-identical to the former G-only path. */
+    ng = cols(Gt)
 
     /* Incremental risk-set sums */
     risk_S0 = 0
@@ -1726,21 +1819,32 @@ real matrix _finegray_score_residuals(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool)
 {
     real colvector row_id
     real scalar n, p, i, j, k, idx, running_invS0
     real scalar S0_t, cur_time, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector cum_invS0, cum_ginvS0, entry_invS0, levels, gidx, Gminus, jc, ju
-    real matrix scores, cum_zbars, cum_gzbars, entry_zbars, Gt
+    real colvector cum_invS0, cum_ginvS0, entry_invS0
+    real matrix scores, cum_zbars, cum_gzbars, entry_zbars
     real matrix bwd_s1_raw, running_gzbars
     real rowvector bwd_s0_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
     real rowvector running_ginvS0, total_ginvS0, total_gzbars
 
-    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+    if (args() < 16) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    }
+
+    if (use_pooled) {
         return(_finegray_scores_zzf_strat(t, delta, cause,
-            censval, event_type, Z, beta, G, byg_id, t0, tg_id))
+            censval, event_type, Z, beta, G, byg_id, t0, tg_id, gidx,
+            Gminus, Gt, Apool))
     }
 
     n = rows(t)
@@ -1760,13 +1864,9 @@ real matrix _finegray_score_residuals(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    levels = uniqrows(byg_id)
-    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
-       delayed entry H == 1 and this is bit-identical to the former G-only path. */
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Gt)
+    /* ZZF: Gt is A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no delayed
+       entry H == 1 and this is bit-identical to the former G-only path. */
+    ng = cols(Gt)
 
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
@@ -2156,7 +2256,12 @@ real matrix _finegray_robust_var(
     real colvector clust_id,
     real colvector t0,
     real colvector tg_id,
-    | real scalar nuisance)
+    | real scalar nuisance,
+    real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool)
 {
     real scalar n, p, use_cluster
     real matrix scores, meat, clust_scores
@@ -2166,8 +2271,15 @@ real matrix _finegray_robust_var(
     n = rows(t)
     p = cols(Z)
 
-    scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0, tg_id)
+    if (args() < 20) {
+        scores = _finegray_score_residuals(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, t0, tg_id)
+    }
+    else {
+        scores = _finegray_score_residuals(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx,
+            Gminus, Gt, Apool)
+    }
 
     /* FG (1999) eq. (7)-(8): add the influence contribution from having
        ESTIMATED G.  The caller guarantees right censoring only -- the psi
@@ -2205,14 +2317,17 @@ real matrix _finegray_basehaz_zzf(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real colvector gidx,
+    real colvector Gminus,
+    real matrix Aden)
 {
     real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector gidx, Gminus, jc, ju, riskn
-    real scalar n, i, j, k, idx, cur_time, ep, g, ng, coreS0
+    real colvector riskn, _Apool
+    real scalar n, i, j, k, idx, cur_time, ep, g, ng, coreS0, _use
     real scalar cum_bh, ev_idx, n_events, has_cause
     real rowvector risk0, bwd0
-    real matrix Aden, result
+    real matrix result
 
     n = rows(t)
     eta = Z * beta
@@ -2222,10 +2337,11 @@ real matrix _finegray_basehaz_zzf(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Aden)
+    if (args() < 14) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, _use, gidx, Gminus, Aden, _Apool)
+    }
+    ng = cols(Aden)
 
     risk0 = J(1, ng, 0)
     riskn = J(ng, 1, 0)
@@ -2303,19 +2419,28 @@ real matrix _finegray_basehazard(
     real colvector G,
     real colvector byg_id,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool)
 {
     real colvector row_id
     real scalar n, p, i, j, k, idx, cum_bh, g, ng
     real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep, has_cause
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx, Gminus, jc, ju
     real rowvector bwd_s0_raw
-    real matrix result, Gt
+    real matrix result
 
-    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+    if (args() < 16) {
+        _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+            byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    }
+
+    if (use_pooled) {
         return(_finegray_basehaz_zzf(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, t0, tg_id))
+            Z, beta, G, byg_id, t0, tg_id, gidx, Gminus, Gt))
     }
 
     n = rows(t)
@@ -2335,13 +2460,9 @@ real matrix _finegray_basehazard(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    levels = uniqrows(byg_id)
-    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
-       delayed entry H == 1 and this is bit-identical to the former G-only path. */
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Gt)
+    /* ZZF: Gt is A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no delayed
+       entry H == 1 and this is bit-identical to the former G-only path. */
+    ng = cols(Gt)
 
     risk_S0 = 0
     ep = 1
@@ -2422,6 +2543,35 @@ real matrix _finegray_basehazard(
     return(result)
 }
 
+/* Invert a post-estimation information matrix without silently changing the
+   estimand.  Mata's invsym() returns a generalized inverse for a rank-deficient
+   matrix, so checking only for missing output accepts an unidentified direction
+   at rc 0.  Earlier post-estimation code also attempted a 1e-6 ridge only when
+   invsym() returned missing; that branch did not catch rank deficiency and, if
+   reached, substituted an arbitrary variance.  Estimation itself rejects the
+   same condition, and every dependent post-estimation path must fail closed. */
+real matrix _finegray_information_inverse(
+    real matrix info_mat,
+    string scalar context)
+{
+    real scalar p
+    real matrix info_inv
+
+    p = rows(info_mat)
+    if (p == 0 | cols(info_mat) != p | hasmissing(info_mat) |
+        rank(info_mat) < p) {
+        errprintf("finegray: %s information matrix is not full rank\n", context)
+        exit(error(459))
+    }
+    info_inv = invsym(info_mat)
+    if (hasmissing(info_inv)) {
+        errprintf("finegray: %s information matrix could not be inverted\n",
+            context)
+        exit(error(498))
+    }
+    return(info_inv)
+}
+
 /* Canonical stratified ZZF Schoenfeld contributions. */
 real matrix _finegray_schoenfeld_zzf(
     real colvector t,
@@ -2438,8 +2588,9 @@ real matrix _finegray_schoenfeld_zzf(
     real colvector tg_id)
 {
     real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector gidx, Gminus, jc, ju, Apool, score_vec, riskn
+    real colvector gidx, Gminus, Apool, score_vec, riskn
     real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, ev
+    real scalar use_pooled
     real rowvector risk0, bwd0, coreS1, zbar
     real matrix risk1, bwd1, Aden, result, info_mat, info_inv
 
@@ -2452,11 +2603,9 @@ real matrix _finegray_schoenfeld_zzf(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Aden)
-    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+        byg_id, t0, tg_id, use_pooled, gidx, Gminus, Aden, Apool)
+    ng = cols(Aden)
 
     risk0 = J(1, ng, 0)
     riskn = J(ng, 1, 0)
@@ -2525,9 +2674,10 @@ real matrix _finegray_schoenfeld_zzf(
     }
     if (do_scale & ev > 0) {
         _finegray_score_info_zzf_strat(t, delta, cause, censval,
-            event_type, Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
-        info_inv = invsym(info_mat)
-        if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
+            event_type, Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
+            gidx, Gminus, Aden, Apool)
+        info_inv = _finegray_information_inverse(info_mat,
+            "Schoenfeld-residual")
         for (k = 1; k <= p; k++) {
             result[., k + 1] = result[., k + 1] * info_inv[k, k]
         }
@@ -2554,10 +2704,10 @@ real matrix _finegray_schoenfeld(
     real colvector tg_id)
 {
     real scalar n, p, i, j, k, idx, S0_total, cur_time
-    real scalar ev_idx, n_events, risk_S0, ep, g, ng
+    real scalar ev_idx, n_events, risk_S0, ep, g, ng, use_pooled
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord, score_vec
-    real colvector row_id, levels, gidx, Gminus, jc, ju
-    real matrix result, info_mat, risk_S1_mat, bwd_s1_raw, Gt
+    real colvector row_id, gidx, Gminus, Apool
+    real matrix result, info_mat, bwd_s1_raw, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
     if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
@@ -2583,13 +2733,11 @@ real matrix _finegray_schoenfeld(
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
-    levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Gt)
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+        byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    ng = cols(Gt)
 
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
@@ -2659,12 +2807,11 @@ real matrix _finegray_schoenfeld(
     /* Legacy internal diagonal rescaling; no public caller requests it. */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
+            Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
+            use_pooled, gidx, Gminus, Gt, Apool)
         real matrix info_inv
-        info_inv = invsym(info_mat)
-        if (missing(info_inv[1,1])) {
-            info_inv = invsym(info_mat + 1e-6 * I(p))
-        }
+        info_inv = _finegray_information_inverse(info_mat,
+            "Schoenfeld-residual")
         for (k = 1; k <= p; k++) {
             result[., k+1] = result[., k+1] * info_inv[k, k]
         }
@@ -2789,12 +2936,13 @@ void _finegray_engine(
     real scalar nuisance)
 {
     real colvector t, delta, event_type, G, byg_id, t0, tg_id
-    real matrix Z, V, bh
+    real matrix Z, V, bh, weight_A
     real colvector beta, beta_new, score_vec, step, clust_id
+    real colvector weight_gidx, weight_Gminus, weight_Apool
     real matrix info_mat, info_inv
     real scalar n, p, ll, ll_new, ll_0, converged, iter
     real scalar step_scale, halving, max_halvings, chi2, df_m
-    real scalar decrement, accepted, n_clust, rank_V, npos
+    real scalar decrement, accepted, n_clust, rank_V, npos, weight_pooled
     string rowvector vars
 
     /* Read data */
@@ -2825,12 +2973,20 @@ void _finegray_engine(
     /* Compute censoring distribution */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
 
-    /* Positivity BEFORE the fit.  A(t) is a function of the data alone -- it does
-       not depend on beta -- so a degenerate weight is knowable before a single
-       Newton step, and reporting it as "convergence not achieved" 200 iterations
-       later is a diagnosis of the wrong thing. */
+    /* The weight design is a function of the data, never of beta.  Prepare one
+       copy for both the pre-fit positivity guard and every Newton/line-search
+       evaluation instead of constructing the same N-by-strata arrays twice
+       before optimization and then again inside each optimizer call. */
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G, byg_id,
+        t0, tg_id, weight_pooled, weight_gidx, weight_Gminus, weight_A,
+        weight_Apool)
+
+    /* Positivity BEFORE the fit.  A degenerate weight is knowable before a
+       single Newton step; reporting it as nonconvergence 200 iterations later
+       diagnoses the wrong mechanism. */
     npos = _finegray_positivity_check(t, delta, cause, censval, event_type,
-        G, byg_id, t0, tg_id)
+        G, byg_id, t0, tg_id, weight_pooled, weight_gidx, weight_Gminus,
+        weight_A, weight_Apool)
     if (npos > 0) {
         errprintf("finegray: positivity violation in the delayed-entry weights\n")
         errprintf("  %g consulted joint-stratum denominator cell(s) are zero\n", npos)
@@ -2849,7 +3005,8 @@ void _finegray_engine(
        identifiable intercept, so this is the beta=0 null, not a constant-only
        fit. */
     ll_0 = _finegray_loglik(t, delta, cause, censval, event_type, Z,
-        J(p, 1, 0), G, byg_id, t0, tg_id)
+        J(p, 1, 0), G, byg_id, t0, tg_id, weight_pooled, weight_gidx,
+        weight_Gminus, weight_A, weight_Apool)
     if (ll_0 >= .) {
         errprintf("finegray: the null log pseudo-likelihood is not finite\n")
         exit(error(430))
@@ -2866,7 +3023,9 @@ void _finegray_engine(
     for (iter = 1; iter <= max_iter; iter++) {
         /* Score and information */
         _finegray_score_info(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
+            Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
+            weight_pooled, weight_gidx, weight_Gminus, weight_A,
+            weight_Apool)
 
         if (hasmissing(info_mat) | hasmissing(score_vec)) {
             errprintf("finegray: the score or information matrix is not ")
@@ -2912,7 +3071,9 @@ void _finegray_engine(
         for (halving = 1; halving <= max_halvings; halving++) {
             beta_new = beta + step_scale * step
             ll_new = _finegray_loglik(t, delta, cause, censval,
-                event_type, Z, beta_new, G, byg_id, t0, tg_id)
+                event_type, Z, beta_new, G, byg_id, t0, tg_id,
+                weight_pooled, weight_gidx, weight_Gminus, weight_A,
+                weight_Apool)
 
             /* Mata returns exp(overflow) as missing, and (. > x) is TRUE, so a
                bare `ll_new > ll' would accept a missing likelihood as an
@@ -2958,7 +3119,8 @@ void _finegray_engine(
        there would post a stale value (with tolerance(1) it posted e(ll) ==
        e(ll_0) exactly while beta was nonzero). */
     ll = _finegray_loglik(t, delta, cause, censval, event_type, Z, beta, G,
-        byg_id, t0, tg_id)
+        byg_id, t0, tg_id, weight_pooled, weight_gidx, weight_Gminus,
+        weight_A, weight_Apool)
     if (ll >= .) {
         errprintf("finegray: the log pseudo-likelihood is not finite at the ")
         errprintf("solution\n")
@@ -2967,7 +3129,8 @@ void _finegray_engine(
 
     /* Final information for variance */
     _finegray_score_info(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
+        Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id, weight_pooled,
+        weight_gidx, weight_Gminus, weight_A, weight_Apool)
     if (hasmissing(info_mat)) {
         errprintf("finegray: the information matrix is not finite at the ")
         errprintf("solution\n")
@@ -3021,7 +3184,8 @@ void _finegray_engine(
         }
         V = _finegray_robust_var(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0, tg_id,
-            nuisance)
+            nuisance, weight_pooled, weight_gidx, weight_Gminus, weight_A,
+            weight_Apool)
 
         /* Finite-sample adjustment, on by default and suppressed by noadjust.
            This is StataCorp's stcrreg contract exactly: g/(g-1) when clustered,
@@ -3043,14 +3207,15 @@ void _finegray_engine(
         exit(error(430))
     }
 
-    /* Compute the baseline hazard ALWAYS -- the scan is linear -- and cache it in
-       MATA, which is free.  What is not free is handing its K ~ n/2 rows to Stata
-       as a matrix: that is O(K^2) and was the package's whole superlinearity (see
+    /* Compute the baseline hazard ALWAYS -- the scan and Mata cache copy are
+       linear.  What is expensive is handing its K ~ n/2 rows to Stata as a
+       matrix: that is O(K^2) and was the package's whole superlinearity (see
        the note above _finegray_bh_rebuild), so the Stata matrix stays opt-in.
        Postestimation reads the cache, which is what lets `predict, cif' work on
        NEW data after the estimation sample has been dropped. */
     bh = _finegray_basehazard(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0, tg_id)
+        Z, beta, G, byg_id, t0, tg_id, weight_pooled, weight_gidx,
+        weight_Gminus, weight_A, weight_Apool)
     _finegray_bh_store(bh)
 
     /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
@@ -3064,7 +3229,8 @@ void _finegray_engine(
 
     /* Combined-weight sensitivity diagnostics (the e() weight contract). */
     _finegray_weight_diag(t, delta, cause, censval, event_type,
-        G, byg_id, t0, tg_id)
+        G, byg_id, t0, tg_id, weight_pooled, weight_gidx, weight_Gminus,
+        weight_A, weight_Apool)
 
     /* Post results to Stata matrices */
     st_matrix("_finegray_b", beta')
@@ -3104,7 +3270,8 @@ void _finegray_engine(
    influence-function (sandwich) variance treating the IPCW censoring weights as
    known; it is accurate under light-to-moderate censoring but mildly
    anti-conservative under heavy censoring, where the bootstrap option of
-   finegray_cif / finegray_predict gives the exact band.
+   finegray_cif / finegray_predict incorporates refit and weight-estimation
+   variation.
 
    Core routine: given the estimation design (Z, t, t0, delta, event_type, beta,
    byg_id, clust_id) and a k x (1+p) matrix of evaluation points E (col 1 = time,
@@ -3134,32 +3301,34 @@ real matrix _finegray_cif_core_zzf(
     real matrix E)
 {
     real colvector row_id, G, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector gidx, Gminus, jc, ju, score_vec, riskn
-    real colvector Tm, dLm, obsm, cumL, Aevent, Ccomp
+    real colvector gidx, Gminus, Apool, score_vec, riskn
+    real colvector Tm, dLm, obsm, cumL, Aevent, Ccomp, mstars
     real colvector own, sub, q, psi, cle, clt0, hi, lo, Ccs
     real colvector clust_ord, clust_sum
     real matrix info_mat, info_inv, scores, PSIb, Aden, zbarm, Rm, Rcs, out
+    real matrix bvecCS
     real matrix clust_info
     real matrix risk1, bwd1
     real rowvector risk0, bwd0, coreS1, zbar, zstar, bvec
     real scalar n, p, ng, M, ev, i, j, k, idx, ep, g, cur_time, coreS0
     real scalar ii, mp, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
+    real scalar use_pooled
 
     n = rows(Z)
     p = cols(Z)
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Aden)
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+        byg_id, t0, tg_id, use_pooled, gidx, Gminus, Aden, Apool)
+    ng = cols(Aden)
 
     _finegray_score_info_zzf_strat(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
-    info_inv = invsym(info_mat)
-    if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
+        Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id, gidx,
+        Gminus, Aden, Apool)
+    info_inv = _finegray_information_inverse(info_mat, "CIF")
     scores = _finegray_scores_zzf_strat(t, delta, cause, censval,
-        event_type, Z, beta, G, byg_id, t0, tg_id)
+        event_type, Z, beta, G, byg_id, t0, tg_id, gidx, Gminus, Aden,
+        Apool)
     PSIb = scores * info_inv
 
     eta = Z * beta
@@ -3253,6 +3422,10 @@ real matrix _finegray_cif_core_zzf(
     }
 
     cumL = runningsum(dLm)
+    bvecCS = J(M, p, 0)
+    for (j = 1; j <= p; j++) {
+        bvecCS[., j] = runningsum(zbarm[., j] :* dLm)
+    }
     Ccs = 0 \ runningsum(Ccomp)
     Rcs = J(M + 1, ng, 0)
     for (g = 1; g <= ng; g++) {
@@ -3286,19 +3459,21 @@ real matrix _finegray_cif_core_zzf(
     }
 
     ne = rows(E)
+    /* Return the last cause-event index at/before every evaluation time.
+       This avoids a full Tm scan for every requested horizon. */
+    mstars = _finegray_step_core((Tm, (1::M)), E[., 1])
     out = J(ne, 2, 0)
     for (e = 1; e <= ne; e++) {
         tstar = E[e, 1]
         zstar = E[e, (2..p + 1)]
-        mstar = colsum(Tm :<= tstar)
+        mstar = mstars[e]
         if (mstar == 0) {
             out[e, 1] = 0
             out[e, 2] = 0
             continue
         }
         L0 = cumL[mstar]
-        bvec = -colsum(zbarm[(1..mstar), .] :*
-            (dLm[(1..mstar)] * J(1, p, 1)))
+        bvec = -bvecCS[mstar, .]
         rstar = exp(zstar * beta)
         cif = 1 - exp(-L0 * rstar)
         factor = rstar * exp(-L0 * rstar)
@@ -3350,14 +3525,15 @@ real matrix _finegray_cif_core(
     real colvector row_id
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector Tm, S0m, obsm, cum_invS0, own, sub, q, psi, score_vec
-    real colvector levels, gidx, Gminus, jc, ju, clust_ord, clust_sum
+    real colvector mstars
+    real colvector gidx, Gminus, Apool, clust_ord, clust_sum
     real colvector cle, clt0, Acs, invS0, invS0sq, hi, lo
     real matrix info_mat, info_inv, scores, PSIb, zbarm, out, Gt, Gm
-    real matrix bwd_s1_raw, Bcs, GmInvS0sq, clust_info
+    real matrix bwd_s1_raw, Bcs, GmInvS0sq, clust_info, bvecCS
     real rowvector risk_S1, bwd_s0_raw, zstar, bvec, S1_t, Bmstar
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
-    real scalar mp, ii, g, ng
+    real scalar mp, ii, g, ng, use_pooled
 
     if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
         return(_finegray_cif_core_zzf(Z, t, t0, delta, event_type, beta,
@@ -3369,21 +3545,20 @@ real matrix _finegray_cif_core(
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
-    levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
-    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    ng = rows(jc)
-    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, Gt)
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+        byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    ng = cols(Gt)
 
     _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
-        byg_id, score_vec, info_mat, t0, tg_id)
-    info_inv = invsym(info_mat)
-    if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
+        byg_id, score_vec, info_mat, t0, tg_id, use_pooled, gidx,
+        Gminus, Gt, Apool)
+    info_inv = _finegray_information_inverse(info_mat, "CIF")
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0, tg_id)
+        Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
+        Apool)
     PSIb = scores * info_inv
 
     eta = Z * beta
@@ -3468,7 +3643,8 @@ real matrix _finegray_cif_core(
        events AT t0_i as excluded, matching the engine's (t0, t] risk sets.
        cle/clt0 (counts of cause events at/below each observation's exit/entry)
        are eval-point independent, so they are built once via two-pointer merges
-       over the ascending Tm array. This makes the whole variance O(n log n). */
+       over the ascending Tm array.  Preprocessing is O(n log n); after that,
+       each requested horizon needs one O(n) influence-function assembly. */
     invS0     = 1 :/ S0m
     invS0sq   = 1 :/ (S0m :^ 2)
     GmInvS0sq = Gm :/ ((S0m :^ 2) * J(1, ng, 1))
@@ -3479,6 +3655,10 @@ real matrix _finegray_cif_core(
     Bcs = J(M + 1, ng, 0)
     for (g = 1; g <= ng; g++) {
         Bcs[|2, g \ M + 1, g|] = runningsum(GmInvS0sq[., g])
+    }
+    bvecCS = J(M, p, 0)
+    for (j = 1; j <= p; j++) {
+        bvecCS[., j] = runningsum(zbarm[., j] :* invS0)
     }
 
     cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
@@ -3509,17 +3689,19 @@ real matrix _finegray_cif_core(
     }
 
     ne = rows(E)
+    /* Binary lookup replaces an O(M) cause-time scan at every horizon. */
+    mstars = _finegray_step_core((Tm, (1::M)), E[., 1])
     out = J(ne, 2, 0)
     for (e = 1; e <= ne; e++) {
         tstar = E[e, 1]
         zstar = E[e, (2..p + 1)]
-        mstar = colsum(Tm :<= tstar)
+        mstar = mstars[e]
         if (mstar == 0) {
             out[e, 1] = 0; out[e, 2] = 0
             continue
         }
         L0 = cum_invS0[mstar]
-        bvec = -colsum(zbarm[(1..mstar), .] :/ S0m[(1..mstar)])
+        bvec = -bvecCS[mstar, .]
         rstar = exp(zstar * beta)
         cif = 1 - exp(-L0 * rstar)
         factor = rstar * exp(-L0 * rstar)
@@ -3645,38 +3827,38 @@ void _finegray_cif_predict(
 }
 
 /* Bootstrap helper: CIF at a grid of times for one covariate profile, from the
-   currently posted e(b)/e(basehaz). Returns an ng x 1 matrix. Used by
-   finegray_cif's bootstrap band (one call per replication). */
-void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar omat)
+   current refit's e(b) and fit-keyed Mata baseline cache.  The baseline remains
+   in Mata: asking every refit to post e(basehaz) would recreate a K-row Stata
+   matrix at O(K^2) cost.  Step lookup is binary-search O(ng*log K), not the
+   former nested O(ng*K) scan. Returns an ng x 1 matrix. */
+void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar omat,
+    real scalar seq)
 {
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
     real rowvector zr
-    real colvector beta, gg, cif
-    real matrix bh
-    real scalar p, ng, i, k, nb, xb, h, ti
+    real colvector beta, gg, cif, H0
+    real scalar p, k, xb
+
+    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+        rows(_finegray_bh_cache) == 0) {
+        errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
+        exit(error(459))
+    }
     zr = st_matrix(zmat)
     beta = st_matrix("e(b)")'
     p = rows(beta)
     xb = 0
     for (k = 1; k <= p; k++) xb = xb + zr[k] * beta[k]
-    bh = st_matrix("e(basehaz)")
-    nb = rows(bh)
     gg = st_matrix(gmat)
-    ng = rows(gg)
-    cif = J(ng, 1, 0)
-    for (i = 1; i <= ng; i++) {
-        ti = gg[i]
-        h = 0
-        for (k = 1; k <= nb; k++) {
-            if (bh[k, 1] <= ti) h = bh[k, 2]
-            else break
-        }
-        cif[i] = 1 - exp(-h * exp(xb))
-    }
+    H0 = _finegray_step_core(_finegray_bh_cache, gg)
+    cif = 1 :- exp(-H0 :* exp(xb))
     st_matrix(omat, cif)
 }
 
 /* Bootstrap helper: per-observation CIF at each eval observation's own time
-   (tvar) from the currently posted e(b)/e(basehaz), accumulated into the
+   (tvar) from the current refit's e(b) and fit-keyed Mata baseline cache,
+   accumulated into the
    running sum (sumv) and sum-of-squares (ssv) variables. Used by
    finegray_predict's bootstrap CI (one call per replication). */
 void _finegray_boot_cif_obs(
@@ -3684,30 +3866,27 @@ void _finegray_boot_cif_obs(
     string scalar tvar,
     string scalar touse,
     string scalar sumv,
-    string scalar ssv)
+    string scalar ssv,
+    real scalar seq)
 {
-    real matrix Z, bh
-    real colvector beta, tt, xb, cif, sumc, ssc, tousev, sel
-    real scalar nb, n, i, k, h, ti
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
+    real matrix Z
+    real colvector beta, tt, xb, cif, sumc, ssc, tousev, sel, H0
+
+    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+        rows(_finegray_bh_cache) == 0) {
+        errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
+        exit(error(459))
+    }
     beta = st_matrix("e(b)")'
-    bh = st_matrix("e(basehaz)")
-    nb = rows(bh)
     tousev = st_data(., touse)
     sel = selectindex(tousev :!= 0)
     Z = st_data(sel, tokens(zvars))
     tt = st_data(sel, tvar)
-    n = rows(Z)
     xb = Z * beta
-    cif = J(n, 1, 0)
-    for (i = 1; i <= n; i++) {
-        ti = tt[i]
-        h = 0
-        for (k = 1; k <= nb; k++) {
-            if (bh[k, 1] <= ti) h = bh[k, 2]
-            else break
-        }
-        cif[i] = 1 - exp(-h * exp(xb[i]))
-    }
+    H0 = _finegray_step_core(_finegray_bh_cache, tt)
+    cif = 1 :- exp(-H0 :* exp(xb))
     sumc = st_data(sel, sumv)
     ssc = st_data(sel, ssv)
     st_store(sel, sumv, sumc :+ cif)
@@ -3734,9 +3913,9 @@ void _finegray_boot_cif_obs(
    the fit read them in its own sorted order, so tied contributions accumulate in a
    different rounding order.  Both paths are individually deterministic and 1 ulp is
    far below any reported precision, so this is a reproducibility footnote, not a
-   bug -- but it is why a CIF can change in its last bit depending on whether the
-   Mata cache was warm (a bootstrap in the same session bumps the seq and forces the
-   rebuild).  To get the fit-time curve exactly, fit with basehaz: e(basehaz) is
+   bug -- but it is why a CIF can change in its last bit if another fit in the
+   same session replaces the cache and forces a rebuild.  To get the fit-time
+   curve exactly, fit with basehaz: e(basehaz) is
    read directly and no rebuild happens.
    ------------------------------------------------------------------------ */
 real matrix _finegray_bh_rebuild(
@@ -3772,11 +3951,11 @@ real matrix _finegray_bh_rebuild(
 }
 
 /* ------------------------------------------------------------------------
-   The baseline cache: the curve kept in MATA, where it is free.
+   The baseline cache: the curve kept in Mata without Stata's naming overhead.
 
    A Stata matrix costs O(K^2) to create because of its dimension-name stripe.
-   A MATA matrix has no stripe -- it is just numbers -- so holding the same K x 2
-   curve in Mata costs nothing.  That is the whole trick: the baseline lives in
+   A Mata matrix has no stripe -- it is just numbers -- so holding the same K x 2
+   curve costs O(K) time and memory.  That is the whole trick: the baseline lives in
    Mata across commands, and only becomes a Stata matrix if the user asks for
    e(basehaz).
 
@@ -3824,11 +4003,12 @@ void _finegray_bh_have(real scalar seq, string scalar lname)
    cache belongs to the LAST resample while the restored e(bh_seq) still names the
    ORIGINAL fit.  A subsequent `predict, cif' on NEW data then finds a seq
    mismatch, tries to rebuild from an estimation sample the user has since
-   dropped, and errors r(459).  The bootstrap SE itself is unaffected -- it reads
-   e(basehaz) on each refit, never this cache -- so stashing the cache before the
-   loop and restoring it after leaves the fit's baseline resolvable afterward at
-   zero cost to the SE.  Copying externals is O(K); it does NOT build a Stata
-   matrix (that would reintroduce the O(K^2) cost the cache exists to avoid). */
+   dropped, and errors r(459).  Each bootstrap replication consumes its own
+   sequence-keyed cache entry before the next refit overwrites it.  Stashing the
+   held fit's entry before the loop and restoring it afterward therefore leaves
+   that fit resolvable without changing any replication result.  Copying the
+   external is O(K); it does NOT build a Stata matrix (which would reintroduce
+   the O(K^2) cost the cache exists to avoid). */
 void _finegray_bh_stash()
 {
     external real matrix _finegray_bh_cache, _finegray_bh_cache_stash

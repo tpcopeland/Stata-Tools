@@ -1,4 +1,4 @@
-*! _msm_own Version 1.4.1  2026/07/27
+*! _msm_own Version 1.4.2  2026/07/28
 *! Ownership registry for MSM-generated variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

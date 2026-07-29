@@ -1,4 +1,4 @@
-*! _psdash_pscheck Version 1.6.0  2026/07/26
+*! _psdash_pscheck Version 1.6.1  2026/07/29
 *! Validate propensity score ranges and positivity warnings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -39,19 +39,23 @@ program define _psdash_pscheck, rclass
 
         local n_ps_boundary = 0
         local n_ps_near = 0
+        if "`warnvar'" == "" {
+            local warnvar : word 1 of `varlist'
+        }
+        quietly count if (`warnvar' == 0 | `warnvar' == 1) & `samplevar'
+        local n_ps_boundary = r(N)
+        quietly count if (`warnvar' < 0.01 | `warnvar' > 0.99) & `samplevar' ///
+            & `warnvar' != 0 & `warnvar' != 1
+        local n_ps_near = r(N)
+
+        * nowarn suppresses display only; counts remain available to callers
+        * that assemble their own machine-readable finding surfaces.
         if "`nowarn'" == "" {
-            if "`warnvar'" == "" {
-                local warnvar : word 1 of `varlist'
-            }
-            quietly count if (`warnvar' == 0 | `warnvar' == 1) & `samplevar'
-            local n_ps_boundary = r(N)
             if `n_ps_boundary' > 0 {
                 display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
-                display as error "  IPTW weights are undefined at these values"
+                display as error "  exact boundaries violate strict positivity"
+                display as error "  some treatment/estimand-specific IP weights may be undefined"
             }
-            quietly count if (`warnvar' < 0.01 | `warnvar' > 0.99) & `samplevar' ///
-                & `warnvar' != 0 & `warnvar' != 1
-            local n_ps_near = r(N)
             if `n_ps_near' > 0 {
                 if `"`nearmessage'"' == "" {
                     local nearmessage "consider {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"

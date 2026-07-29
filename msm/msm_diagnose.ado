@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.4.1  2026/07/27
+*! msm_diagnose Version 1.4.2  2026/07/28
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -252,33 +252,33 @@ program define msm_diagnose, rclass
             quietly levelsof `_hist' if _msm_decision_risk & ///
                 `period' == `_p' & !missing(`_hist'), local(_histories)
             foreach _h of local _histories {
+                quietly gen byte `_tb_use' = _msm_decision_risk & ///
+                    `period' == `_p' & `_hist' == `_h' & ///
+                    !missing(`treatment')
+                quietly count if `_tb_use' & `treatment' == 1
+                local _nt = r(N)
+                quietly count if `_tb_use' & `treatment' == 0
+                local _nu = r(N)
+                quietly summarize _msm_weight if `_tb_use', meanonly
+                local _sw = r(sum)
+                quietly summarize `_diag_w2' if `_tb_use', meanonly
+                local _sw2 = r(sum)
+                local _row_ess = cond(`_sw2' > 0, `_sw'^2 / `_sw2', .)
                 local _cov_idx = 0
                 foreach _x of local balance_covariates {
                     local ++_cov_idx
-                    quietly gen byte `_tb_use' = _msm_decision_risk & ///
-                        `period' == `_p' & `_hist' == `_h' & ///
-                        !missing(`treatment')
                     _msm_smd `_x', treatment(`treatment') touse(`_tb_use')
                     local _raw_smd = `_msm_smd_value'
                     _msm_smd `_x', treatment(`treatment') ///
                         weight(_msm_weight) touse(`_tb_use')
                     local _weighted_smd = `_msm_smd_value'
-                    quietly count if `_tb_use' & `treatment' == 1
-                    local _nt = r(N)
-                    quietly count if `_tb_use' & `treatment' == 0
-                    local _nu = r(N)
-                    quietly summarize _msm_weight if `_tb_use', meanonly
-                    local _sw = r(sum)
-                    quietly summarize `_diag_w2' if `_tb_use', meanonly
-                    local _sw2 = r(sum)
-                    local _row_ess = cond(`_sw2' > 0, `_sw'^2 / `_sw2', .)
                     local _target = 1
                     if `: list _x in _numer_covars' local _target = 0
                     matrix `_trow' = (`_p', `_h', `_cov_idx', `_raw_smd', ///
                         `_weighted_smd', `_nt', `_nu', `_row_ess', `_target')
                     matrix `_tbal' = nullmat(`_tbal') \ `_trow'
-                    drop `_tb_use'
                 }
+                drop `_tb_use'
             }
 
             quietly count if _msm_decision_risk & `period' == `_p' & ///
@@ -419,7 +419,7 @@ program define msm_diagnose, rclass
             capture confirm variable _msm_cw_weight
             if _rc == 0 {
                 tempname _cbal _crow
-                tempvar _cuncens _cprior _cdiag_w
+                tempvar _cuncens _cprior _cdiag_w _cw2
                 quietly gen double `_cuncens' = ///
                     (1 - _msm_cens_num_p) / (1 - _msm_cens_den_p) ///
                     if _msm_decision_risk
@@ -430,34 +430,33 @@ program define msm_diagnose, rclass
                 quietly replace `_cdiag_w' = `_cprior' * ///
                     (_msm_cens_num_p / _msm_cens_den_p) ///
                     if _msm_decision_risk & `censor' == 1
+                quietly gen double `_cw2' = `_cdiag_w'^2 ///
+                    if _msm_decision_risk
                 foreach _p of local _diag_periods {
+                    quietly gen byte `_tb_use' = _msm_decision_risk & ///
+                        `period' == `_p' & !missing(`censor')
+                    quietly count if `_tb_use' & `censor' == 1
+                    local _nc = r(N)
+                    quietly count if `_tb_use' & `censor' == 0
+                    local _nuc = r(N)
+                    quietly summarize `_cdiag_w' if `_tb_use', meanonly
+                    local _csw = r(sum)
+                    quietly summarize `_cw2' if `_tb_use', meanonly
+                    local _csw2 = r(sum)
+                    local _cess = cond(`_csw2' > 0, `_csw'^2 / `_csw2', .)
                     local _ccov_idx = 0
                     foreach _x of local balance_covariates {
                         local ++_ccov_idx
-                        quietly gen byte `_tb_use' = _msm_decision_risk & ///
-                            `period' == `_p' & !missing(`censor')
                         _msm_smd `_x', treatment(`censor') touse(`_tb_use')
                         local _craw = `_msm_smd_value'
                         _msm_smd `_x', treatment(`censor') ///
                             weight(`_cdiag_w') touse(`_tb_use')
                         local _cweighted = `_msm_smd_value'
-                        quietly count if `_tb_use' & `censor' == 1
-                        local _nc = r(N)
-                        quietly count if `_tb_use' & `censor' == 0
-                        local _nuc = r(N)
-                        tempvar _cw2
-                        quietly gen double `_cw2' = `_cdiag_w'^2 if `_tb_use'
-                        quietly summarize `_cdiag_w' if `_tb_use', meanonly
-                        local _csw = r(sum)
-                        quietly summarize `_cw2' if `_tb_use', meanonly
-                        local _csw2 = r(sum)
-                        local _cess = cond(`_csw2' > 0, `_csw'^2 / `_csw2', .)
-                        drop `_cw2'
                         matrix `_crow' = (`_p', `_ccov_idx', `_craw', ///
                             `_cweighted', `_nc', `_nuc', `_cess')
                         matrix `_cbal' = nullmat(`_cbal') \ `_crow'
-                        drop `_tb_use'
                     }
+                    drop `_tb_use'
                 }
                 matrix colnames `_cbal' = period covariate raw_smd ///
                     weighted_smd n_censored n_uncensored ess

@@ -166,22 +166,72 @@ capture noisily {
     _binary_bw_primary
 
     foreach v in x z {
+        quietly summarize `v'
+        local value_min = r(min)
+        local value_max = r(max)
+        quietly levelsof `v', local(value_levels)
+        local is_two_level = (`: word count `value_levels'' == 2)
+
         quietly summarize `v' if treat == 1
         local mean_t_`v' = r(mean)
         local var_t_`v' = r(Var)
         quietly summarize `v' if treat == 0
         local mean_c_`v' = r(mean)
         local var_c_`v' = r(Var)
+
+        if `is_two_level' {
+            local p_t = (`mean_t_`v'' - `value_min') / ///
+                (`value_max' - `value_min')
+            local p_c = (`mean_c_`v'' - `value_min') / ///
+                (`value_max' - `value_min')
+            local var_t_`v' = (`value_max' - `value_min')^2 * ///
+                `p_t' * (1 - `p_t')
+            local var_c_`v' = (`value_max' - `value_min')^2 * ///
+                `p_c' * (1 - `p_c')
+        }
         local smd_`v' = (`mean_t_`v'' - `mean_c_`v'') / ///
             sqrt((`var_t_`v'' + `var_c_`v'') / 2)
         local vr_`v' = `var_t_`v'' / `var_c_`v''
 
         quietly summarize `v' [aw=wt] if treat == 1
         local mean_t_w_`v' = r(mean)
-        local var_t_w_`v' = r(Var)
         quietly summarize `v' [aw=wt] if treat == 0
         local mean_c_w_`v' = r(mean)
-        local var_c_w_`v' = r(Var)
+
+        if `is_two_level' {
+            local p_t_w = (`mean_t_w_`v'' - `value_min') / ///
+                (`value_max' - `value_min')
+            local p_c_w = (`mean_c_w_`v'' - `value_min') / ///
+                (`value_max' - `value_min')
+            local var_t_w_`v' = (`value_max' - `value_min')^2 * ///
+                `p_t_w' * (1 - `p_t_w')
+            local var_c_w_`v' = (`value_max' - `value_min')^2 * ///
+                `p_c_w' * (1 - `p_c_w')
+        }
+        else {
+            tempvar wt2 ss_t ss_c
+            quietly generate double `wt2' = wt^2
+            quietly generate double `ss_t' = ///
+                wt * (`v' - `mean_t_w_`v'')^2 if treat == 1
+            quietly generate double `ss_c' = ///
+                wt * (`v' - `mean_c_w_`v'')^2 if treat == 0
+            quietly summarize wt if treat == 1
+            local sw_t = r(sum)
+            quietly summarize `wt2' if treat == 1
+            local sw2_t = r(sum)
+            quietly summarize `ss_t', meanonly
+            local sse_t = r(sum)
+            quietly summarize wt if treat == 0
+            local sw_c = r(sum)
+            quietly summarize `wt2' if treat == 0
+            local sw2_c = r(sum)
+            quietly summarize `ss_c', meanonly
+            local sse_c = r(sum)
+            local var_t_w_`v' = ///
+                `sw_t' / (`sw_t'^2 - `sw2_t') * `sse_t'
+            local var_c_w_`v' = ///
+                `sw_c' / (`sw_c'^2 - `sw2_c') * `sse_c'
+        }
         local smd_w_`v' = (`mean_t_w_`v'' - `mean_c_w_`v'') / ///
             sqrt((`var_t_`v'' + `var_c_`v'') / 2)
         local vr_w_`v' = `var_t_w_`v'' / `var_c_w_`v''

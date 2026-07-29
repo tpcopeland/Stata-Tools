@@ -26,7 +26,7 @@ capture log close _all
 log using "test_finegray_reporting.log", replace name(_fgrep)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -177,7 +177,7 @@ capture noisily {
     quietly finegray x1 x2, compete(ev) cause(1) nolog
     quietly finegray_cif, at(x1=0 x2=1) attime(1 2 5 9) ci bootstrap(25) seed(4242)
     matrix _B121 = r(table)
-    assert r(bootstrap_success) >= 25
+    assert r(bootstrap_success) == 25
     local _nr = rowsof(_B121)
     forvalues i = 1/`_nr' {
         local _t = _B121[`i', 1]
@@ -220,7 +220,7 @@ capture noisily {
         assert `_s' > 0 & `_s' < 1
         assert !missing(`_l') & !missing(`_u')
         assert `_l' < `_c' & `_c' < `_u'
-        assert `_l' > 0 & `_u' < 1
+        assert `_l' > 0 & `_l' < . & `_u' > 0 & `_u' < 1
         display as text "    cif=" %9.7f `_c' " se=" %9.7f `_s' ///
             " ci=[" %9.7f `_l' ", " %9.7f `_u' "]"
     }

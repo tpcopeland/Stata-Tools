@@ -1,4 +1,4 @@
-*! _psdash_support_stats Version 1.6.0  2026/07/26
+*! _psdash_support_stats Version 1.6.1  2026/07/29
 *! Common support bounds and outside-count statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -94,7 +94,30 @@ program define _psdash_support_stats, rclass
                 exit 498
             }
 
+            tempname gps_means
             quietly {
+                * McCaffrey et al. (2013) assess multi-treatment overlap by
+                * evaluating each e_j(X) for every unit and comparing that same
+                * component across observed treatment groups. tabstat computes
+                * the full K-by-K mean table in one grouped pass.
+                matrix `gps_means' = J(`n_levels', `n_levels', .)
+                tabstat `grouppsvars' if `samplevar', ///
+                    by(`treatment') statistics(mean) save
+                forvalues ridx = 1/`n_levels' {
+                    forvalues cidx = 1/`n_levels' {
+                        matrix `gps_means'[`ridx', `cidx'] = ///
+                            r(Stat`ridx')[1, `cidx']
+                    }
+                }
+                local gps_rownames ""
+                local gps_colnames ""
+                foreach lev of local levels {
+                    local gps_rownames "`gps_rownames' group_`lev'"
+                    local gps_colnames "`gps_colnames' e_`lev'"
+                }
+                matrix rownames `gps_means' = `gps_rownames'
+                matrix colnames `gps_means' = `gps_colnames'
+
                 local idx = 1
                 foreach lev of local levels {
                     local lev_ps : word `idx' of `grouppsvars'
@@ -134,13 +157,19 @@ program define _psdash_support_stats, rclass
                 * with a healthy observed-arm probability but a near-zero
                 * probability of some OTHER arm is a positivity violation the old
                 * observed-arm min-max rule could not see (audit probe M1).
-                tempvar _min_gps
+                tempvar _min_gps _max_gps
                 egen double `_min_gps' = rowmin(`grouppsvars') if `samplevar'
+                egen double `_max_gps' = rowmax(`grouppsvars') if `samplevar'
                 summarize `_min_gps' if `samplevar'
                 local min_gps = r(min)
                 count if `_min_gps' < `gpsfloor' & `samplevar'
                 local n_gps_violate = r(N)
                 local pct_gps_violate = 100 * `n_gps_violate' / `n'
+                count if (`_min_gps' == 0 | `_max_gps' == 1) & `samplevar'
+                local n_ps_boundary = r(N)
+                count if (`_min_gps' < 0.01 | `_max_gps' > 0.99) & ///
+                    `_min_gps' != 0 & `_max_gps' != 1 & `samplevar'
+                local n_ps_near = r(N)
 
                 * Componentwise floor: min of each e_j over ALL in-sample units
                 * (McCaffrey: e_j for every unit, regardless of received arm).
@@ -173,6 +202,9 @@ program define _psdash_support_stats, rclass
             return scalar n_gps_violate = `n_gps_violate'
             return scalar pct_gps_violate = `pct_gps_violate'
             return scalar gps_floor = `gpsfloor'
+            return scalar n_ps_boundary = `n_ps_boundary'
+            return scalar n_ps_near = `n_ps_near'
+            return matrix gps_means = `gps_means'
         }
     }
     local rc = _rc

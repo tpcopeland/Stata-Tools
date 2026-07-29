@@ -914,14 +914,163 @@ mata: _z27_scan(st_local("_z27log"), st_local("_needle"))
 * first-stratum-wins (13) or last-stratum-wins (14) -- both of which would
 * still print exactly one line and pass a count-only test.
 local _z27_N = e(N)
+local _z27_conv = e(converged)
 
-if `_n_note' == 1 & `_n_obs_note' == 57 & `_z27_N' == 4000 {
+if `_n_note' == 1 & `_n_obs_note' == 57 & `_z27_N' == 4000 & `_z27_conv' == 1 {
     local ++pass_count
     display as result "  PASS: Z27 G-truncation note printed once per fit, aggregated over strata (13+13+17+14=57)"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z27 expected 1 note reporting 57 obs on a 4000-obs fit; got `_n_note' note(s), n=`_n_obs_note', e(N)=`_z27_N'"
+    display as error "  FAIL: Z27 expected 1 note reporting 57 obs on a converged 4000-obs fit; got `_n_note' note(s), n=`_n_obs_note', e(N)=`_z27_N', converged=`_z27_conv'"
+}
+
+* ---------------------------------------------------------------------------
+* Z28: the optimizer's prepared weight design is numerically identical to the
+* standalone fallback that rebuilds it on entry.  This guards the performance
+* refactor that hoists beta-independent A/Gminus/group objects out of every
+* Newton and step-halving evaluation.
+* ---------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    tempvar _zes
+    quietly generate byte `_zes' = e(sample)
+    mata {
+        es = selectindex(st_data(., st_local("_zes")) :!= 0)
+        tt = st_data(es, "_t")
+        dd = st_data(es, "_d")
+        et = st_data(es, "status")
+        ZZ = st_data(es, ("z1", "z2"))
+        bg = st_data(es, "g4")
+        ee = st_data(es, "_t0")
+        tg = st_data(es, "z1")
+        GG = _finegray_km_censor(tt, dd, 0, et, bg, ee)
+        bb = st_matrix("e(b)")'
+
+        pooled = .
+        gi = gm = AP = J(0, 1, .)
+        AA = J(0, 0, .)
+        _finegray_prepare_weight_design(tt, dd, 0, et, GG, bg, ee, tg,
+            pooled, gi, gm, AA, AP)
+        if (pooled != 1) exit(error(9))
+        pos_fallback = _finegray_positivity_check(tt, dd, 1, 0, et, GG,
+            bg, ee, tg)
+        pos_prepared = _finegray_positivity_check(tt, dd, 1, 0, et, GG,
+            bg, ee, tg, pooled, gi, gm, AA, AP)
+        if (pos_fallback != pos_prepared) exit(error(9))
+
+        B = (bb, bb :+ (0.05 \ -0.03))
+        worst = 0
+        for (q = 1; q <= cols(B); q++) {
+            bq = B[., q]
+            s_fallback = s_prepared = J(0, 1, .)
+            i_fallback = i_prepared = J(0, 0, .)
+            ll_fallback = _finegray_loglik(tt, dd, 1, 0, et, ZZ, bq,
+                GG, bg, ee, tg)
+            ll_prepared = _finegray_loglik(tt, dd, 1, 0, et, ZZ, bq,
+                GG, bg, ee, tg, pooled, gi, gm, AA, AP)
+            _finegray_score_info(tt, dd, 1, 0, et, ZZ, bq, GG, bg,
+                s_fallback, i_fallback, ee, tg)
+            _finegray_score_info(tt, dd, 1, 0, et, ZZ, bq, GG, bg,
+                s_prepared, i_prepared, ee, tg, pooled, gi, gm, AA, AP)
+            sr_fallback = _finegray_score_residuals(tt, dd, 1, 0, et, ZZ,
+                bq, GG, bg, ee, tg)
+            sr_prepared = _finegray_score_residuals(tt, dd, 1, 0, et, ZZ,
+                bq, GG, bg, ee, tg, pooled, gi, gm, AA, AP)
+            bh_fallback = _finegray_basehazard(tt, dd, 1, 0, et, ZZ, bq,
+                GG, bg, ee, tg)
+            bh_prepared = _finegray_basehazard(tt, dd, 1, 0, et, ZZ, bq,
+                GG, bg, ee, tg, pooled, gi, gm, AA, AP)
+            worst = max((worst, reldif(ll_fallback, ll_prepared),
+                mreldif(s_fallback, s_prepared),
+                mreldif(i_fallback, i_prepared),
+                mreldif(sr_fallback, sr_prepared),
+                mreldif(bh_fallback, bh_prepared)))
+        }
+        _finegray_weight_diag(tt, dd, 1, 0, et, GG, bg, ee, tg)
+        wd_fallback = (st_matrix("_finegray_nwstrata"),
+            st_matrix("_finegray_minprob"), st_matrix("_finegray_maxwt"),
+            st_matrix("_finegray_nprobwarn"), st_matrix("_finegray_nwtwarn"))
+        ws_fallback = st_local("_fg_warnstrata")
+        _finegray_weight_diag(tt, dd, 1, 0, et, GG, bg, ee, tg, pooled,
+            gi, gm, AA, AP)
+        wd_prepared = (st_matrix("_finegray_nwstrata"),
+            st_matrix("_finegray_minprob"), st_matrix("_finegray_maxwt"),
+            st_matrix("_finegray_nprobwarn"), st_matrix("_finegray_nwtwarn"))
+        ws_prepared = st_local("_fg_warnstrata")
+        worst = max((worst, mreldif(wd_fallback, wd_prepared)))
+        if (ws_fallback != ws_prepared) exit(error(9))
+
+        /* Exercise the ordinary (non-pooled) branch separately.  The same
+           observations with entry reset to zero retain the censoring strata
+           but switch off the equation-7 pooled stabilizer. */
+        ee0 = J(rows(ee), 1, 0)
+        tg0 = J(rows(ee), 1, 1)
+        GG0 = _finegray_km_censor(tt, dd, 0, et, bg, ee0)
+        pooled0 = .
+        gi0 = gm0 = AP0 = J(0, 1, .)
+        AA0 = J(0, 0, .)
+        _finegray_prepare_weight_design(tt, dd, 0, et, GG0, bg, ee0, tg0,
+            pooled0, gi0, gm0, AA0, AP0)
+        if (pooled0 != 0) exit(error(9))
+        pos_fallback = _finegray_positivity_check(tt, dd, 1, 0, et, GG0,
+            bg, ee0, tg0)
+        pos_prepared = _finegray_positivity_check(tt, dd, 1, 0, et, GG0,
+            bg, ee0, tg0, pooled0, gi0, gm0, AA0, AP0)
+        if (pos_fallback != pos_prepared) exit(error(9))
+        for (q = 1; q <= cols(B); q++) {
+            bq = B[., q]
+            s_fallback = s_prepared = J(0, 1, .)
+            i_fallback = i_prepared = J(0, 0, .)
+            ll_fallback = _finegray_loglik(tt, dd, 1, 0, et, ZZ, bq,
+                GG0, bg, ee0, tg0)
+            ll_prepared = _finegray_loglik(tt, dd, 1, 0, et, ZZ, bq,
+                GG0, bg, ee0, tg0, pooled0, gi0, gm0, AA0, AP0)
+            _finegray_score_info(tt, dd, 1, 0, et, ZZ, bq, GG0, bg,
+                s_fallback, i_fallback, ee0, tg0)
+            _finegray_score_info(tt, dd, 1, 0, et, ZZ, bq, GG0, bg,
+                s_prepared, i_prepared, ee0, tg0, pooled0, gi0, gm0, AA0,
+                AP0)
+            sr_fallback = _finegray_score_residuals(tt, dd, 1, 0, et, ZZ,
+                bq, GG0, bg, ee0, tg0)
+            sr_prepared = _finegray_score_residuals(tt, dd, 1, 0, et, ZZ,
+                bq, GG0, bg, ee0, tg0, pooled0, gi0, gm0, AA0, AP0)
+            bh_fallback = _finegray_basehazard(tt, dd, 1, 0, et, ZZ, bq,
+                GG0, bg, ee0, tg0)
+            bh_prepared = _finegray_basehazard(tt, dd, 1, 0, et, ZZ, bq,
+                GG0, bg, ee0, tg0, pooled0, gi0, gm0, AA0, AP0)
+            worst = max((worst, reldif(ll_fallback, ll_prepared),
+                mreldif(s_fallback, s_prepared),
+                mreldif(i_fallback, i_prepared),
+                mreldif(sr_fallback, sr_prepared),
+                mreldif(bh_fallback, bh_prepared)))
+        }
+        _finegray_weight_diag(tt, dd, 1, 0, et, GG0, bg, ee0, tg0)
+        wd_fallback = (st_matrix("_finegray_nwstrata"),
+            st_matrix("_finegray_minprob"), st_matrix("_finegray_maxwt"),
+            st_matrix("_finegray_nprobwarn"), st_matrix("_finegray_nwtwarn"))
+        ws_fallback = st_local("_fg_warnstrata")
+        _finegray_weight_diag(tt, dd, 1, 0, et, GG0, bg, ee0, tg0, pooled0,
+            gi0, gm0, AA0, AP0)
+        wd_prepared = (st_matrix("_finegray_nwstrata"),
+            st_matrix("_finegray_minprob"), st_matrix("_finegray_maxwt"),
+            st_matrix("_finegray_nprobwarn"), st_matrix("_finegray_nwtwarn"))
+        ws_prepared = st_local("_fg_warnstrata")
+        worst = max((worst, mreldif(wd_fallback, wd_prepared)))
+        if (ws_fallback != ws_prepared) exit(error(9))
+        st_numscalar("_z28_worst", worst)
+    }
+    display as text "  prepared/fallback worst relative difference = " ///
+        %10.3e scalar(_z28_worst)
+    assert scalar(_z28_worst) < 1e-14
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z28 cached and self-contained weight paths agree in both branches"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z28 prepared-weight equivalence (rc=`=_rc')"
 }
 
 * ===========================================================================

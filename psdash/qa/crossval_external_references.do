@@ -43,7 +43,7 @@ if `install_rc' {
 * _devkit/automation/scan_shell_rc.py.
 tempfile py_ok
 capture erase "`py_ok'"
-shell ( python3 --version ) > /dev/null 2>&1 && touch "`py_ok'"
+shell python3 --version > /dev/null 2>&1 && touch "`py_ok'"
 capture confirm file "`py_ok'"
 if _rc {
     display as text "SKIP (dependency): python3 not available"
@@ -319,6 +319,7 @@ display "EXTERNAL REFERENCE CROSS-VALIDATION SUMMARY"
 display "Tests run:    " $ext_n
 display "Passed:       " $ext_pass
 display "Failed:       " $ext_fail
+display "RESULT: crossval_external_references tests=$ext_n pass=$ext_pass fail=$ext_fail skip=0"
 
 if $ext_fail > 0 {
     display as error "SOME TESTS FAILED"

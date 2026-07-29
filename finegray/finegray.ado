@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/07/27
+*! finegray Version 1.2.1  2026/07/28
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -219,12 +219,19 @@ program define finegray, eclass sortpreserve
             if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `cluster'"
         }
 
-        tempvar _fg_sd
+        * Put selected records first once.  The former `egen sd(), by(id)'
+        * loop re-ran grouped aggregation (and its sort machinery) for every
+        * covariate.  Direct comparison with the first selected record has the
+        * same O(N*p) information requirement without p grouped egen passes;
+        * this ordering is also the one needed by the interval check below.
+        quietly gsort `_fg_id' -`touse' _t0 _t `_fg_row0'
+        tempvar _fg_vary
         foreach _cv of local _fg_checkvars {
-            capture drop `_fg_sd'
-            quietly egen double `_fg_sd' = sd(`_cv') if `touse', by(`_fg_id')
-            capture assert (abs(`_fg_sd') < 1e-9 | `_fg_sd' >= .) if `touse'
-            if _rc {
+            capture drop `_fg_vary'
+            quietly by `_fg_id': gen byte `_fg_vary' = ///
+                (`touse' & abs(`_cv' - `_cv'[1]) >= 1e-9)
+            quietly count if `_fg_vary'
+            if r(N) > 0 {
                 display as error "finegray requires covariates constant within id()"
                 display as error "covariate `_cv' varies within subject"
                 display as error "this implementation does not support time-varying covariates"
@@ -235,21 +242,27 @@ program define finegray, eclass sortpreserve
         }
 
         * --- gap / overlap check: intervals must be contiguous within id ---
-        * Covered follow-up time per subject must equal max(_t) - min(_t0).
-        tempvar _fg_len _fg_maxt _fg_mint0
-        quietly egen double `_fg_len' = total(cond(`touse', _t - _t0, 0)), ///
-            by(`_fg_id')
-        quietly egen double `_fg_maxt' = max(cond(`touse', _t, .)), by(`_fg_id')
-        quietly egen double `_fg_mint0' = min(cond(`touse', _t0, .)), by(`_fg_id')
-        capture assert reldif(`_fg_len', `_fg_maxt' - `_fg_mint0') < 1e-7 ///
-            if `touse' & (`_fg_maxt' - `_fg_mint0') > 0
-        if _rc {
+        * Check every adjacent boundary.  Comparing total covered time with the
+        * overall span is insufficient: an overlap and an equal-sized gap cancel
+        * arithmetically, after which the reduction silently invents continuous
+        * follow-up across the gap.  Put selected records first, order them by
+        * start/stop time with a total row-order key, and compare each start with
+        * the preceding stop.  This one grouped pass also supplies the subject's
+        * earliest entry time used below, replacing three egen passes.
+        tempvar _fg_seq _fg_badspan _fg_mint0
+        quietly by `_fg_id': gen long `_fg_seq' = sum(`touse')
+        quietly by `_fg_id': gen byte `_fg_badspan' = ///
+            (`touse' & `_fg_seq' > 1 & ///
+            abs(_t0 - _t[_n - 1]) >= 1e-9)
+        quietly count if `_fg_badspan'
+        if r(N) > 0 {
             display as error "finegray: subject records have gaps or overlaps"
             display as error "each subject's intervals must be contiguous"
             display as error "(no gaps or overlapping time spans); collapse to one"
             display as error "record per subject before fitting"
             exit 198
         }
+        quietly by `_fg_id': gen double `_fg_mint0' = _t0[1] if `touse'
 
         * --- claim the entry-time name, but do not write it yet ---
         * Post-estimation (finegray_cif, finegray_predict ci/schoenfeld,
@@ -1188,17 +1201,17 @@ program define finegray, eclass sortpreserve
         ereturn display, eform(SHR) level(`level')
     }
 
-    * The Fine-Gray objective is a PSEUDO-likelihood: the IPCW risk sets make
-    * subjects' contributions dependent, so the inverse information is not the
-    * sampling variance of beta-hat.  norobust is a diagnostic, not an
-    * inference option -- say so every time it is used.
+    * The Fine-Gray objective is a PSEUDO-likelihood: its weighted score need not
+    * obey the ordinary likelihood information identity, so inverse information
+    * does not generally estimate the sampling variance of beta-hat.  norobust
+    * is a diagnostic, not a routine inference option -- say so every time.
     if "`robust'" == "norobust" {
         display as text ""
         display as error "Warning: norobust reports model-based (inverse-information) standard errors."
-        display as error "The Fine-Gray subdistribution likelihood is a pseudo-likelihood -- the"
-        display as error "inverse-probability-of-censoring weights make subjects' contributions"
-        display as error "dependent -- so the information matrix does not estimate the sampling"
-        display as error "variance of the coefficients.  These standard errors are generally too"
+        display as error "The Fine-Gray weighted score is a pseudo-likelihood score, so the ordinary"
+        display as error "likelihood information identity need not hold.  Inverse information omits"
+        display as error "the empirical score variability and any estimated-weight contribution."
+        display as error "These standard errors are generally too"
         display as error "small and their confidence intervals do not have nominal coverage."
         display as error "Use the default robust (sandwich) variance for inference; norobust is"
         display as error "provided for comparison with the naive likelihood only."

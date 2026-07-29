@@ -262,6 +262,7 @@ _rc_result "multigroup_combined_suppressed_contract" `=_rc'
 display as text _n "=== Refactor return-contract summary: " ///
     as result $RC_PASS_COUNT as text " passed, " ///
     as error $RC_FAIL_COUNT as text " failed ==="
+display as text "RESULT: test_refactor_return_contracts tests=`=$RC_PASS_COUNT + $RC_FAIL_COUNT' pass=$RC_PASS_COUNT fail=$RC_FAIL_COUNT skip=0"
 
 capture ado uninstall psdash
 sysdir set PLUS "`_qa_plus_orig'"

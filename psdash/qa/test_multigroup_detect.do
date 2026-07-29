@@ -428,6 +428,7 @@ display as text "Tests run:    " as result %4.0f $n_test_count
 display as text "Passed:       " as result %4.0f $n_pass_count
 display as text "Failed:       " as result %4.0f $n_fail_count
 display as text "{hline 70}"
+display as text "RESULT: test_multigroup_detect tests=$n_test_count pass=$n_pass_count fail=$n_fail_count skip=0"
 
 if $n_fail_count > 0 {
     display as error "SOME TESTS FAILED"

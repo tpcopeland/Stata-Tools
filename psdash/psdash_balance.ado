@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.6.0  2026/07/26
+*! psdash_balance Version 1.6.1  2026/07/29
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -256,9 +256,26 @@ program define psdash_balance, rclass
     local n_ps_boundary = 0
     local n_ps_near = 0
     if "`psvar'" != "" {
-        _psdash_pscheck `psvar' if `touse'
+        _psdash_pscheck `psvar' if `touse', nowarn
         local n_ps_boundary = r(n_ps_boundary)
         local n_ps_near = r(n_ps_near)
+    }
+
+    * Auto-generated inverse-probability weights are undefined for the
+    * treatment/PS boundary combinations excluded by the formulas above.
+    * Reject rather than silently mark those rows out and diagnose a different
+    * sample.
+    if "`wvar_auto'" == "1" {
+        quietly count if `touse' & missing(`wvar') & ///
+            (`psvar' == 0 | `psvar' == 1)
+        local n_wt_undefined = r(N)
+        if `n_wt_undefined' > 0 {
+            display as error "`n_wt_undefined' observation(s) have an undefined propensity-based weight"
+            display as error "  because the propensity score is at an exact 0 or 1 boundary."
+            display as error "  Trim the boundary observations or supply valid weights explicitly;"
+            display as error "  balance diagnostics cannot silently change the analysis sample."
+            exit 459
+        }
     }
 
     if "`wvar'" != "" markout `touse' `wvar'
@@ -597,6 +614,14 @@ program define psdash_balance, rclass
     }
     local _pf ""
     local _pfn = 0
+    if `n_ps_boundary' > 0 {
+        display as error "Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1."
+        local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary observation(s)"'
+        local ++_pfn
+    }
+    if `n_ps_near' > 0 {
+        display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
+    }
     if `n_imbalanced' > 0 {
         local _pf `"`_pf' | `n_imbalanced' of `nvars' covariate(s) exceed the SMD threshold"'
         local ++_pfn

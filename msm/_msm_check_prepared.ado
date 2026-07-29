@@ -1,4 +1,4 @@
-*! _msm_check_prepared Version 1.4.1  2026/07/27
+*! _msm_check_prepared Version 1.4.2  2026/07/28
 *! Require a complete, current preparation artifact
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

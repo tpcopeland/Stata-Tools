@@ -1,4 +1,4 @@
-*! psdash_support Version 1.6.0  2026/07/26
+*! psdash_support Version 1.6.1  2026/07/29
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -228,8 +228,9 @@ program define psdash_support, rclass
         exit 2001
     }
 
-    * Positivity warnings
-    _psdash_pscheck `psvar' if `touse'
+    * Count boundary/near-boundary scores here; the verdict block below owns
+    * display and machine-readable findings.
+    _psdash_pscheck `psvar' if `touse', nowarn
     local n_ps_boundary = r(n_ps_boundary)
     local n_ps_near = r(n_ps_near)
 
@@ -300,60 +301,12 @@ program define psdash_support, rclass
         * Crump et al. (2009) optimal trimming rule:
         * Find alpha that satisfies 1/(alpha*(1-alpha)) = 2*E[1/(e*(1-e))]
         * where expectation is over observations with alpha <= e <= 1-alpha
-        * Grid search over alpha in [0.01, 0.49]
-
+        * The helper sorts once and uses cumulative sums plus binary searches for
+        * every retained interval. This preserves the original coarse/refined
+        * grid while avoiding roughly 70 full-data summarize passes.
         quietly {
-            tempvar inv_var_ps
-            gen double `inv_var_ps' = 1 / (`psvar' * (1 - `psvar')) if `touse'
-
-            local best_alpha = 0
-            local best_diff = .
-
-            * Coarse grid over [0.01, 0.49] at 0.01, then refine to 0.001 around
-            * the coarse minimum so the reported alpha is not pinned to a 1% step.
-            forvalues a_int = 1/49 {
-                local alpha = `a_int' / 100
-
-                * LHS: 1 / (alpha * (1 - alpha))
-                local lhs = 1 / (`alpha' * (1 - `alpha'))
-
-                * RHS: 2 * E[1/(e*(1-e))] for e in [alpha, 1-alpha]
-                local upper_a = 1 - `alpha'
-                summarize `inv_var_ps' if `psvar' >= `alpha' & `psvar' <= `upper_a' & `touse'
-                if r(N) > 0 {
-                    local rhs = 2 * r(mean)
-
-                    local diff = abs(`lhs' - `rhs')
-                    if `diff' < `best_diff' {
-                        local best_diff = `diff'
-                        local best_alpha = `alpha'
-                    }
-                }
-            }
-
-            if `best_alpha' > 0 {
-                local _lo = round(100 * (`best_alpha' - 0.01))
-                local _hi = round(100 * (`best_alpha' + 0.01))
-                if `_lo' < 1 local _lo = 1
-                if `_hi' > 49 local _hi = 49
-                forvalues a_int = `=`_lo'*10'/`=`_hi'*10' {
-                    local alpha = `a_int' / 1000
-                    if `alpha' <= 0 | `alpha' >= 0.5 continue
-                    local lhs = 1 / (`alpha' * (1 - `alpha'))
-                    local upper_a = 1 - `alpha'
-                    summarize `inv_var_ps' if `psvar' >= `alpha' & `psvar' <= `upper_a' & `touse'
-                    if r(N) > 0 {
-                        local rhs = 2 * r(mean)
-                        local diff = abs(`lhs' - `rhs')
-                        if `diff' < `best_diff' {
-                            local best_diff = `diff'
-                            local best_alpha = `alpha'
-                        }
-                    }
-                }
-            }
-
-            drop `inv_var_ps'
+            _psdash_crump_alpha `psvar' if `touse'
+            local best_alpha = r(alpha)
 
             if `best_alpha' > 0 {
                 local crump_alpha = `best_alpha'
@@ -510,6 +463,15 @@ program define psdash_support, rclass
     * finding; ANY finding forces a non-Good verdict and enters r(warnings).)
     local _pf ""
     local _pfn = 0
+    if `n_ps_boundary' > 0 {
+        display as error "Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1."
+        display as error "  Exact boundaries violate strict positivity."
+        local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
+        local ++_pfn
+    }
+    if `n_ps_near' > 0 {
+        display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
+    }
     if `pct_outside' > 10 {
         display as error "Warning: >10% of observations outside common support."
         local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
@@ -735,12 +697,6 @@ program define psdash_support, rclass
         quietly replace `obs_ps' = `lev_ps' if `treatment' == `lev' & `touse'
     }
 
-    * Positivity warnings are based on the probability of each observation's
-    * observed treatment group.
-    _psdash_pscheck `obs_ps' if `touse', advice({cmd:psdash support, threshold(0.05)})
-    local n_ps_boundary = r(n_ps_boundary)
-    local n_ps_near = r(n_ps_near)
-
     if "`crump'" != "" & `threshold' != -1 {
         display as error "cannot specify both crump and threshold()"
         exit 198
@@ -810,6 +766,10 @@ program define psdash_support, rclass
     local min_gps = r(min_gps)
     local n_gps_violate = r(n_gps_violate)
     local pct_gps_violate = r(pct_gps_violate)
+    local n_ps_boundary = r(n_ps_boundary)
+    local n_ps_near = r(n_ps_near)
+    tempname gps_means
+    matrix `gps_means' = r(gps_means)
 
     * THRESHOLD TRIMMING (multi-group)
     local trim_lower = 0
@@ -896,41 +856,32 @@ program define psdash_support, rclass
     }
     display ""
 
-    * PS range by group — dynamic columns
+    * Like-for-like GPS summary: every column is one fixed e_j(X), evaluated
+    * within every observed treatment group (McCaffrey et al. 2013).
     local col_width = 13
-    local hline_width = 20 + `K' * `col_width'
+    local hline_width = 30 + `K' * `col_width'
     display as text "{hline `hline_width'}"
-    display as text "Propensity Score Range"
-    display as text "{hline `hline_width'}"
-
-    * Header row
-    display as text %20s "" _c
-    foreach lev of local levels {
-        display as text %`col_width's "`lbl_`lev''" _c
-    }
-    display ""
+    display as text "Mean GPS by Observed Treatment Group"
     display as text "{hline `hline_width'}"
 
-    * N row
-    display as text %20s "N" _c
+    display as text %20s "Observed group" %10s "N" _c
     foreach lev of local levels {
-        display as result %`col_width'.0fc `n_group_`lev'' _c
+        display as text %`col_width's "e(`lbl_`lev'')" _c
     }
     display ""
+    display as text "{hline `hline_width'}"
 
-    * Min PS row
-    display as text %20s "Min PS" _c
-    foreach lev of local levels {
-        display as result %`col_width'.4f `min_ps_`lev'' _c
+    local ridx = 0
+    foreach observed_level of local levels {
+        local ++ridx
+        display as text %20s "`lbl_`observed_level''" ///
+            as result %10.0fc `n_group_`observed_level'' _c
+        forvalues cidx = 1/`K' {
+            display as result %`col_width'.4f ///
+                `gps_means'[`ridx', `cidx'] _c
+        }
+        display ""
     }
-    display ""
-
-    * Max PS row
-    display as text %20s "Max PS" _c
-    foreach lev of local levels {
-        display as result %`col_width'.4f `max_ps_`lev'' _c
-    }
-    display ""
     display as text "{hline `hline_width'}"
     display ""
 
@@ -953,7 +904,7 @@ program define psdash_support, rclass
 
     * Observed-arm PS overlap (informational only; NOT a valid multi-arm
     * common-support rule — it intersects arm-specific ranges of the observed-
-    * arm score. Retained for the observed-arm indicator/trimming path.)
+    * arm score. Retained only as a backward-compatible descriptive return.)
     display as text "{hline 55}"
     display as text "Observed-arm PS Overlap (informational)"
     display as text "{hline 55}"
@@ -1001,15 +952,8 @@ program define psdash_support, rclass
         local _pf `"`_pf' | `n_gps_violate' unit(s) below GPS positivity floor `=string(`gpsfloor',"%4.3f")' (min GPS `=string(`min_gps',"%5.4f")')"'
         local ++_pfn
     }
-    if `pct_outside' > 10 {
-        display as error "Warning: >10% of observations outside observed-arm PS overlap."
-        local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside observed-arm PS overlap"'
-        local ++_pfn
-    }
-    if `upper_bound' <= `lower_bound' {
-        display as error "Warning: No observed-arm PS overlap region (upper <= lower bound)."
-        local _pf `"`_pf' | no observed-arm PS overlap region (upper <= lower)"'
-        local ++_pfn
+    if `n_ps_near' > 0 & `n_gps_violate' == 0 {
+        display as text "Note: `n_ps_near' unit(s) have a GPS component < 0.01 or > 0.99."
     }
     local _pf = strtrim("`_pf'")
     if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
@@ -1027,53 +971,27 @@ program define psdash_support, rclass
         display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
     }
     else {
-        display as text _n "Support: " as result "Good" ///
-            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+        display as text _n "Support: " as result "No GPS-floor violation" ///
+            as text " (" as result %4.1f `pct_gps_violate' as text "% below " ///
+            as result %5.3f `gpsfloor' as text ")"
     }
 
     * GRAPH
     if "`nograph'" == "" {
-        capture noisily {
-            quietly {
-                if "`scheme'" != "" {
-                    local graphoptions `"scheme(`scheme') `graphoptions'"'
-                }
-
-                * Build xline options
-                local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(dash))"
-                if `has_trimming' {
-                    * RB-12: one-sided floor only; no upper cut to draw.
-                    local xlines "`xlines' xline(`trim_lower', lcolor(red) lpattern(shortdash))"
-                }
-
-                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
-                local plot_cmd ""
-                local legend_order ""
-                local gnum = 0
-
-                foreach lev of local levels {
-                    local gnum = `gnum' + 1
-                    local col : word `gnum' of `color_list'
-                    if "`col'" == "" local col "gs`gnum'"
-                    local lab "`lbl_`lev''"
-                    local lev_ps "`group_ps_`lev''"
-                    local plot_cmd `"`plot_cmd' (kdensity `lev_ps' if `touse' & `treatment' == `lev', lcolor(`col') lwidth(medthick))"'
-                    local legend_order `"`legend_order' `gnum' "`lab'""'
-                }
-
-                noisily twoway `plot_cmd', ///
-                    legend(order(`legend_order') rows(1) position(6)) ///
-                    xscale(range(0 1)) xtitle("Propensity Score") ytitle("Density") ///
-                    title(`"`title'"') ///
-                    `xlines' ///
-                    name(`name', replace) ///
-                    `graphoptions'
-
-                if "`saving'" != "" {
-                    _psdash_graph_export, saving("`saving'")
-                }
-            }
+        local _saving_opt ""
+        if `"`saving'"' != "" local _saving_opt `"saving(`"`saving'"')"'
+        local _scheme_opt ""
+        if "`scheme'" != "" local _scheme_opt "scheme(`scheme')"
+        local _graphoptions_opt ""
+        if `"`graphoptions'"' != "" {
+            local _graphoptions_opt `"graphoptions(`"`graphoptions'"')"'
         }
+        local _graph_floor = cond(`has_trimming', `trim_lower', `gpsfloor')
+
+        capture noisily _psdash_mgps_graph, treatment(`treatment') ///
+            samplevar(`touse') psvars(`_mg_group_psvars') levels(`levels') ///
+            name(`name') gpsfloor(`_graph_floor') ///
+            title(`"`title'"') `_saving_opt' `_scheme_opt' `_graphoptions_opt'
         local graph_rc = _rc
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'
@@ -1088,6 +1006,16 @@ program define psdash_support, rclass
             foreach lev of local levels {
                 local _xk `"`_xk' "N (group `lev')" "Min PS (group `lev')" "Max PS (group `lev')" "Outside (group `lev')""'
                 local _xv `"`_xv' "`n_group_`lev''" "`=string(`min_ps_`lev'',"%6.4f")'" "`=string(`max_ps_`lev'',"%6.4f")'" "`n_outside_`lev''""'
+            }
+            local _ridx = 0
+            foreach observed_level of local levels {
+                local ++_ridx
+                local _cidx = 0
+                foreach score_level of local levels {
+                    local ++_cidx
+                    local _xk `"`_xk' "Mean e(`score_level') | observed group `observed_level'""'
+                    local _xv `"`_xv' "`=string(`gps_means'[`_ridx',`_cidx'],"%6.4f")'""'
+                }
             }
             local _xk `"`_xk' "Min GPS (worst unit)" "GPS floor" "Below GPS floor (N)" "Below GPS floor (%)""'
             local _xv `"`_xv' "`=string(`min_gps',"%6.4f")'" "`=string(`gpsfloor',"%6.4f")'" "`n_gps_violate'" "`=string(`pct_gps_violate',"%5.2f")'""'
@@ -1193,6 +1121,7 @@ program define psdash_support, rclass
             return local reference "`reference_grp'"
             return local estimand "`estimand'"
             return local source "`source'"
+            return matrix gps_means = `gps_means'
         }
         * RB-01 unified findings surface (both modes)
         if "`_support_nfind'" == "" local _support_nfind = 0

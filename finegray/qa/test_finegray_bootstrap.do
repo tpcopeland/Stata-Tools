@@ -13,6 +13,8 @@
 *            that could reject the fit; the cleanup zone then dropped it while a
 *            prior fit's e() still referenced it.
 *   FG-M08a  seed() without bootstrap() was silently ignored.
+*   FG-P01   each bootstrap refit posted a K-row e(basehaz) matrix at O(K^2)
+*            cost, then stepped it with an O(N*K) nested scan.
 clear all
 set varabbrev off
 version 16.0
@@ -21,7 +23,7 @@ capture log close _all
 log using "test_finegray_bootstrap.log", replace name(_tboot)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall finegray
 quietly net install finegray, from("`pkg_dir'") replace
 
@@ -182,6 +184,7 @@ capture noisily {
     * whatever we passed.  The gap must be far larger than the 1e-12 tolerance.
     finegray_cif, attime(5) ci bootstrap(25) seed(1234) nograph
     matrix T3 = r(table)
+    assert !missing(T1[1,3], T3[1,3])
     assert reldif(T1[1,3], T3[1,3]) > 1e-6
 }
 if _rc == 0 {
@@ -327,6 +330,69 @@ foreach _cmd in cif predict {
         display as error "  FAIL: `_cmd' bootstrap poisons the baseline cache (rc=`=_rc')"
         local ++fail_count
     }
+}
+
+**# 8. FG-P01: bootstrap CIF helpers consume the keyed Mata cache, not e(basehaz)
+local ++test_count
+capture noisily {
+    _mk_hypoxia_boot
+    quietly finegray ifp tumsize, compete(status) cause(1) nolog
+
+    * The ordinary fit deliberately did not request basehaz.  A bootstrap refit
+    * must stay on this path; materialising the K-row matrix B times restores the
+    * quadratic naming overhead that the cache was introduced to remove.
+    capture confirm matrix e(basehaz)
+    assert _rc != 0
+
+    quietly summarize ifp if e(sample), meanonly
+    local a_ifp = r(mean)
+    quietly summarize tumsize if e(sample), meanonly
+    local a_tum = r(mean)
+    tempname Z G C
+    matrix `Z' = (`a_ifp', `a_tum')
+    matrix `G' = (1 \ 5)
+    local _seq `"`e(bh_seq)'"'
+    capture mata: _finegray_boot_cif("`Z'", "`G'", "`C'", ///
+        strtoreal("`_seq'") + 1)
+    assert _rc == 459
+    mata: _finegray_boot_cif("`Z'", "`G'", "`C'", strtoreal("`_seq'"))
+
+    quietly finegray_cif, attime(1 5) ///
+        at(ifp=`a_ifp' tumsize=`a_tum') nograph
+    matrix _ct = r(table)
+    assert !missing(`C'[1,1], `C'[2,1], _ct[1,2], _ct[2,2])
+    assert reldif(`C'[1,1], _ct[1,2]) < 1e-12
+    assert reldif(`C'[2,1], _ct[2,2]) < 1e-12
+
+    * The observation helper uses the same cache and binary-search step lookup.
+    tempvar es t5 bsum bss
+    quietly generate byte `es' = e(sample)
+    quietly generate double `t5' = 5 if `es'
+    quietly generate double `bsum' = 0 if `es'
+    quietly generate double `bss' = 0 if `es'
+    capture mata: _finegray_boot_cif_obs("ifp tumsize", "`t5'", "`es'", ///
+        "`bsum'", "`bss'", strtoreal("`_seq'") + 1)
+    assert _rc == 459
+    mata: _finegray_boot_cif_obs("ifp tumsize", "`t5'", "`es'", ///
+        "`bsum'", "`bss'", strtoreal("`_seq'"))
+    quietly finegray_predict double _p_cache, cif timevar(`t5')
+    tempvar d1 d2
+    quietly generate double `d1' = reldif(`bsum', _p_cache) if `es'
+    quietly generate double `d2' = reldif(`bss', _p_cache^2) if `es'
+    quietly summarize `d1', meanonly
+    display as text "  cache-helper max CIF reldif = " %10.3e r(max)
+    assert r(max) < 1e-12
+    quietly summarize `d2', meanonly
+    display as text "  cache-helper max CIF^2 reldif = " %10.3e r(max)
+    assert r(max) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: bootstrap helpers use the keyed Mata baseline cache"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: bootstrap helpers require e(basehaz) (rc=`=_rc')"
+    local ++fail_count
 }
 
 **# Summary

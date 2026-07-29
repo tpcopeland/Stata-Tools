@@ -72,6 +72,7 @@ _pc_result "unsupported_contract_versions_rejected" `=_rc'
 foreach source in iivw msm tte tmle ltmle {
     capture _psdash_contract_info `source'
     if _rc {
+        global pc_test_count = $pc_test_count + 1
         global pc_skip_count = $pc_skip_count + 1
         display as text "SKIP: `source' matrix row unavailable"
         continue
@@ -79,6 +80,7 @@ foreach source in iivw msm tte tmle ltmle {
     local guard "`r(guard)'"
     capture which `guard'
     if _rc {
+        global pc_test_count = $pc_test_count + 1
         global pc_skip_count = $pc_skip_count + 1
         display as text "SKIP: `source' guard not installed (`guard')"
     }

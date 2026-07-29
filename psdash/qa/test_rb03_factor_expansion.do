@@ -31,7 +31,7 @@ log using "test_rb03_factor_expansion.log", replace nomsg
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture do "`qa_dir'/_psdash_bootstrap.do"
+do "`qa_dir'/_psdash_bootstrap.do"
 
 global N_PASS = 0
 global N_FAIL = 0
@@ -211,10 +211,10 @@ capture noisily {
     gen byte ind = (cat2 == 1)
     quietly summarize ind if trt == 1
     local mt = r(mean)
-    local vt = r(Var)
+    local vt = `mt' * (1 - `mt')
     quietly summarize ind if trt == 0
     local mc = r(mean)
-    local vc = r(Var)
+    local vc = `mc' * (1 - `mc')
     local sd_pool = sqrt((`vt' + `vc') / 2)
     local smd_hand = abs((`mt' - `mc') / `sd_pool')
     drop ind

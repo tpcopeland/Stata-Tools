@@ -1635,7 +1635,7 @@ capture noisily {
     local badscheme "plot"
     local badscheme "`badscheme'plainblind"
     foreach qf in test_psdash validation_psdash validation_known_answers ///
-        crossval_psdash crossval_python_psdash run_all {
+        validation_extended_known_answers crossval_python_psdash run_all {
         assert strpos(fileread("`pkg_dir'/qa/`qf'.do"), "`badscheme'") == 0
     }
 }
@@ -1683,6 +1683,7 @@ display as text "Tests run:    " as result %4.0f $n_test_count
 display as text "Passed:       " as result %4.0f $n_pass_count
 display as text "Failed:       " as result %4.0f $n_fail_count
 display as text "{hline 70}"
+display as text "RESULT: test_psdash tests=$n_test_count pass=$n_pass_count fail=$n_fail_count skip=0"
 
 if $n_fail_count > 0 {
     display as error "SOME TESTS FAILED"

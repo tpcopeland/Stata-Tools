@@ -33,8 +33,8 @@ program define _rpi_record
     }
 end
 
+local ++tests
 if fileexists("`repo_dir'/iivw/iivw.pkg") {
-    local ++tests
     capture noisily {
         quietly net install iivw, from("`repo_dir'/iivw") replace
         clear
@@ -68,8 +68,8 @@ else {
     display as text "SKIP: iivw producer directory unavailable"
 }
 
+local ++tests
 if fileexists("`repo_dir'/msm/msm.pkg") & fileexists("`repo_dir'/msm/msm_example.dta") {
-    local ++tests
     capture noisily {
         quietly net install msm, from("`repo_dir'/msm") replace
         use "`repo_dir'/msm/msm_example.dta", clear
@@ -88,9 +88,9 @@ else {
     display as text "SKIP: msm producer fixture unavailable"
 }
 
+local ++tests
 if fileexists("`repo_dir'/tte/tte.pkg") & ///
         fileexists("`repo_dir'/_data/tte/tte_example.dta") {
-    local ++tests
     capture noisily {
         quietly net install tte, from("`repo_dir'/tte") replace
         use "`repo_dir'/_data/tte/tte_example.dta", clear
@@ -111,8 +111,8 @@ else {
     display as text "SKIP: tte development producer unavailable"
 }
 
+local ++tests
 if fileexists("`repo_dir'/tmle/tmle.pkg") {
-    local ++tests
     capture noisily {
         quietly net install tmle, from("`repo_dir'/tmle") replace
         clear
@@ -135,8 +135,8 @@ else {
     display as text "SKIP: tmle development producer unavailable"
 }
 
+local ++tests
 if fileexists("`repo_dir'/ltmle/ltmle.pkg") {
-    local ++tests
     capture noisily {
         quietly net install ltmle, from("`repo_dir'/ltmle") replace
         clear
@@ -169,11 +169,11 @@ display as text _n "RESULT: test_real_producer_integrations tests=`tests' pass=$
 if $PSDASH_RPI_FAIL > 0 {
     display as error "Failed tests:`failed'"
     _psdash_qa_cleanup
+    macro drop PSDASH_RPI_PASS PSDASH_RPI_FAIL
     capture log close _all
     exit 9
 }
 
 _psdash_qa_cleanup
-global PSDASH_RPI_PASS
-global PSDASH_RPI_FAIL
+macro drop PSDASH_RPI_PASS PSDASH_RPI_FAIL
 capture log close _all

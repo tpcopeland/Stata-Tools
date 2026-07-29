@@ -159,7 +159,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     assert "`e(cmd)'" == "finegray"
     assert e(converged) == 1
-    assert e(N) > 0
+    assert e(N) > 0 & e(N) < .
 }
 if _rc == 0 {
     display as result "  PASS: T5 basic 3-covariate model"
@@ -192,7 +192,7 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize, compete(status) cause(2) nolog
     assert e(cause) == 2
-    assert e(N_fail) > 0
+    assert e(N_fail) > 0 & e(N_fail) < .
 }
 if _rc == 0 {
     display as result "  PASS: T7 cause(2)"
@@ -619,14 +619,14 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
-    assert e(N) > 0
-    assert e(N) > 0
-    assert e(N_fail) > 0
-    assert e(N_compete) > 0
-    assert e(N_cens) > 0
+    assert e(N) > 0 & e(N) < .
+    assert e(rank) == 3
+    assert e(N_fail) > 0 & e(N_fail) < .
+    assert e(N_compete) > 0 & e(N_compete) < .
+    assert e(N_cens) > 0 & e(N_cens) < .
     assert e(ll) < 0
     assert e(ll_0) < 0
-    assert e(chi2) > 0
+    assert e(chi2) > 0 & e(chi2) < .
     assert e(p) >= 0 & e(p) <= 1
     assert e(df_m) == 3
     assert e(converged) == 1
@@ -1188,7 +1188,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status9) cause(1) censvalue(9) nolog
     assert e(converged) == 1
     assert e(censvalue) == 9
-    assert e(N_cens) > 0
+    assert e(N_cens) > 0 & e(N_cens) < .
     * Coefficients should match the standard coding
     matrix b_recode = e(b)
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
@@ -2392,7 +2392,7 @@ capture noisily {
     _setup_hypoxia
     capture noisily finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
     assert _rc == 0
-    assert e(N) > 0
+    assert e(N) > 0 & e(N) < .
     assert e(converged) == 0
 
     capture finegray_cif, attime(5)

@@ -1,4 +1,4 @@
-*! _msm_tbl_pred Version 1.4.1  2026/07/27
+*! _msm_tbl_pred Version 1.4.2  2026/07/28
 *! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_pred, nclass
     version 16.0

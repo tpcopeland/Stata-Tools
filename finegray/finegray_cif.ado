@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/07/27
+*! finegray_cif Version 1.2.1  2026/07/28
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -13,7 +13,8 @@ Description:
   covariate profile, with optional pointwise confidence band (an analogue of
   stcurve, cif that can also plot the CI).
 
-  Default            plots the CIF curve over the event-time grid.
+  Default            plots a step-function CIF from the exact origin over the
+                     event-time grid.
   attime(numlist)    reports a table of CIF (and CI) at the listed horizons.
   at(var=# ...)      sets the covariate profile (default: estimation-sample means).
   ci                 adds influence-function confidence limits (cloglog scale).
@@ -465,7 +466,7 @@ program define finegray_cif, rclass sortpreserve
         "`OUT'", "`_t0var'")
 
     * =====================================================================
-    * BOOTSTRAP STANDARD ERRORS (optional; exact, includes censoring weights)
+    * BOOTSTRAP STANDARD ERRORS (optional; refits censoring/entry weights)
     * =====================================================================
     if `bootstrap' > 0 {
         * e(refitcmd), not e(cmdline): the refit runs on data already restricted
@@ -510,9 +511,10 @@ program define finegray_cif, rclass sortpreserve
         * `finegray_predict, cif' on new data (estimation sample dropped) finds
         * a seq mismatch, cannot rebuild, and errors r(459) -- measured
         * 2026-07-22: after bootstrap(25) the cache seq was 27 while e(bh_seq)
-        * was 2.  The bootstrap SE reads e(basehaz) on each refit, never this
-        * cache, so restoring it cannot affect the SE.  Same defect and same
-        * fix as finegray_predict.ado.
+        * was 2.  Each replication reads its own sequence-keyed cache entry
+        * before the next refit overwrites it; restoring the held fit's cache
+        * afterward cannot affect the bootstrap SE. Same defect and same fix as
+        * finegray_predict.ado.
         mata: _finegray_bh_stash()
         local _bh_stashed = 1
 
@@ -545,20 +547,19 @@ program define finegray_cif, rclass sortpreserve
                 * variable that may also appear in the model or weight strata.
                 gen long `_bsid' = _n
                 char _dta[st_id] "`_bsid'"
-                * basehaz on the REFIT, not in e(refitcmd): _finegray_boot_cif
-                * reads the replication's baseline out of e(basehaz), so the
-                * matrix must exist inside the replication even though the user's
-                * own fit no longer posts it by default.  Appending the option
-                * here keeps e(refitcmd) itself unchanged, which QA asserts
-                * reproduces e(b) exactly.
-                capture `_fgbscmd' basehaz
+                * The refit always caches its baseline in Mata.  Do NOT append
+                * basehaz here: posting the K-row e(basehaz) matrix is O(K^2) and
+                * repeating it B times can dominate the bootstrap.
+                capture `_fgbscmd'
                 if _rc continue
                 if e(converged) != 1 continue
                 * A resample can lose a factor level, so the refit posts a
                 * shorter e(b) whose columns no longer align with the stored
                 * profile; using it would silently mispair coefficients.
                 if `"`e(covariates)'"' != `"`covs'"' continue
-                mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'")
+                local _fg_repseq `"`e(bh_seq)'"'
+                mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'", ///
+                    strtoreal("`_fg_repseq'"))
                 forvalues r = 1/`ngrid' {
                     matrix `BSUM'[`r',1] = `BSUM'[`r',1] + `bcif'[`r',1]
                     matrix `BSS'[`r',1]  = `BSS'[`r',1] + `bcif'[`r',1]^2
@@ -679,21 +680,70 @@ program define finegray_cif, rclass sortpreserve
             svmat double `R', names(col)
         }
         if "`mode'" == "curve" & "`graph'" != "nograph" {
-            * Default legend is a single row; because repeated legend()
-            * options merge, anything in `options' (e.g. legend(off),
-            * legend(rows(2)), legend(pos(6))) overrides these defaults.
-            if "`ci'" != "" {
-                capture noisily twoway (rarea lci uci time, color(%30) lwidth(none)) ///
-                    (line cif time, lwidth(medthick)), ///
-                    ytitle("Cumulative incidence") xtitle("Analysis time") ///
-                    legend(order(2 "CIF" 1 "`level'% CI") rows(1)) `options'
-            }
-            else {
-                capture noisily twoway (line cif time, lwidth(medthick)), ///
-                    ytitle("Cumulative incidence") xtitle("Analysis time") ///
-                    legend(rows(1)) `options'
+            * A cumulative incidence curve is a right-continuous step function.
+            * The analytical grid begins at the first baseline event time, so
+            * add the known (0,0) boundary only to the live graph dataset.  The
+            * display-only row and band variables are removed before saving(),
+            * leaving r(table) and the exported numeric estimates unchanged.
+            tempvar _graph_origin _graph_lci _graph_uci
+            local _graph_origin_made = 0
+            local _graph_lci_made = 0
+            local _graph_uci_made = 0
+            local _graph_origin_added = 0
+            capture noisily {
+                quietly {
+                    gen byte `_graph_origin' = 0
+                    local _graph_origin_made = 1
+                    gen double `_graph_lci' = lci
+                    local _graph_lci_made = 1
+                    gen double `_graph_uci' = uci
+                    local _graph_uci_made = 1
+                    summarize time, meanonly
+                }
+                if r(min) > 0 {
+                    local _graph_newobs = _N + 1
+                    quietly set obs `_graph_newobs'
+                    quietly replace `_graph_origin' = 1 in `_graph_newobs'
+                    local _graph_origin_added = 1
+                    quietly replace time = 0 in `_graph_newobs'
+                    quietly replace cif = 0 in `_graph_newobs'
+                }
+                * The complementary-log-log interval is undefined at a boundary
+                * CIF, but its graphical band has the exact zero-width limit.
+                quietly replace `_graph_lci' = cif ///
+                    if missing(`_graph_lci') & inlist(cif, 0, 1)
+                quietly replace `_graph_uci' = cif ///
+                    if missing(`_graph_uci') & inlist(cif, 0, 1)
+                quietly sort time
+
+                * Default legend is a single row; because repeated legend()
+                * options merge, anything in `options' (e.g. legend(off),
+                * legend(rows(2)), legend(pos(6))) overrides these defaults.
+                if "`ci'" != "" {
+                    twoway ///
+                        (rarea `_graph_lci' `_graph_uci' time, ///
+                            color(%30) lwidth(none) connect(stairstep)) ///
+                        (line cif time, lwidth(medthick) connect(stairstep)), ///
+                        ytitle("Cumulative incidence") ///
+                        xtitle("Analysis time") ///
+                        legend(order(2 "CIF" 1 "`level'% CI") rows(1)) ///
+                        xscale(range(0 .)) plotregion(margin(zero)) `options'
+                }
+                else {
+                    twoway ///
+                        (line cif time, lwidth(medthick) connect(stairstep)), ///
+                        ytitle("Cumulative incidence") ///
+                        xtitle("Analysis time") legend(rows(1)) ///
+                        xscale(range(0 .)) plotregion(margin(zero)) `options'
+                }
             }
             local _graph_rc = _rc
+            * Cleanup is required even after a graph-side failure so saving()
+            * still receives only the documented five analytical variables.
+            if `_graph_origin_added' quietly drop if `_graph_origin' == 1
+            if `_graph_origin_made' drop `_graph_origin'
+            if `_graph_lci_made' drop `_graph_lci'
+            if `_graph_uci_made' drop `_graph_uci'
             if `_graph_rc' {
                 if !`_side_rc' local _side_rc = `_graph_rc'
                 display as error "failed to draw cumulative-incidence graph"
