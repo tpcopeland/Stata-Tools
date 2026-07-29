@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.4.2  2026/07/28
+*! msm_sensitivity Version 1.4.3  2026/07/29
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

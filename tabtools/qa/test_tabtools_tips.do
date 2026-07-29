@@ -128,8 +128,14 @@ else {
 
 local ++test_count
 capture noisily {
-    tempname _tips_rate_tag
-    local _tips_rate_base "`c(tmpdir)'/`c(pid)'_tabtools_tips_rate_`_tips_rate_tag'"
+    tempfile _tips_rate_token
+    local _tips_rate_dir "`_tips_rate_token'_tabtools_tips_rate"
+    capture mkdir "`_tips_rate_dir'"
+    local _tips_rate_mkdir_rc = _rc
+    if `_tips_rate_mkdir_rc' exit `_tips_rate_mkdir_rc'
+    * Keep the basename itself extensionless: strate decides whether to append
+    * .dta from the final path component.
+    local _tips_rate_base "`_tips_rate_dir'/rates"
     webuse diet, clear
     quietly stset dox, failure(fail) origin(time dob) enter(time doe) ///
         scale(365.25) id(id)
@@ -167,18 +173,19 @@ capture noisily {
     assert abs(real(regexs(2)) - `_tips_lo0') < 0.05
     assert abs(real(regexs(3)) - `_tips_hi0') < 0.05
     capture frame drop _tips_rate_recipe
-    capture erase "`_tips_rate_base'.dta"
 }
-if _rc == 0 {
+local _tips_rate_rc = _rc
+capture frame drop _tips_rate_recipe
+capture shell rm -rf "`_tips_rate_dir'"
+local _tips_rate_cleanup_rc = _rc
+if `_tips_rate_rc' == 0 & `_tips_rate_cleanup_rc' == 0 {
     display as result "  PASS: incidence-rate recipe preserves rate, CI, person-years, and units"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: incidence-rate recipe numerical contract (error `=_rc')"
+    display as error "  FAIL: incidence-rate recipe numerical contract (error `_tips_rate_rc'; cleanup `_tips_rate_cleanup_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' incidence_recipe"
-    capture frame drop _tips_rate_recipe
-    capture erase "`_tips_rate_base'.dta"
 }
 
 local ++test_count
@@ -191,8 +198,8 @@ capture noisily {
     }
     else {
         local _tips_recipe_owned 1
-        tempname _tips_recipe_tag
-        local _tips_recipe_dir "`c(tmpdir)'/`c(pid)'_tabtools_tips_recipes_`_tips_recipe_tag'"
+        tempfile _tips_recipe_token
+        local _tips_recipe_dir "`_tips_recipe_token'_tabtools_tips_recipes"
         capture mkdir "`_tips_recipe_dir'"
         local _tips_mkdir_rc = _rc
         if `_tips_mkdir_rc' {

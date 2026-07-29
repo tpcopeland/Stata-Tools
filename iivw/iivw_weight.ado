@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.1.1  2026/07/27
+*! iivw_weight Version 3.1.2  2026/07/29
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -618,29 +618,6 @@ program define iivw_weight, rclass sortpreserve
             error 198
         }
 
-        * Disallow partially-missing treatment within subject
-        tempvar _treat_anymiss _treat_anynonmiss
-        quietly bysort `id': egen byte `_treat_anymiss' = max(missing(`treat'))
-        quietly bysort `id': egen byte `_treat_anynonmiss' = max(!missing(`treat'))
-        quietly count if `_treat_anymiss' & `_treat_anynonmiss'
-        if r(N) > 0 {
-            display as error "treat() has partially missing values within subjects"
-            display as error "ensure treat() is either fully observed or fully missing within each id()"
-            error 198
-        }
-        drop `_treat_anymiss' `_treat_anynonmiss'
-
-        * Check treatment is time-invariant within subject
-        tempvar _treat_sd
-        quietly bysort `id': egen double `_treat_sd' = sd(`treat')
-        quietly summarize `_treat_sd'
-        if r(N) > 0 & r(max) > 0 {
-            display as error "treat() must be time-invariant within subjects"
-            display as error "for time-varying treatments, consider marginal structural models (MSMs)"
-            error 198
-        }
-        drop `_treat_sd'
-
         * Check both treatment groups present
         quietly count if `treat' == 1
         local n_treat = r(N)
@@ -887,6 +864,7 @@ program define iivw_weight, rclass sortpreserve
     if inlist("`wtype'", "iptw", "fiptiw") {
         tempvar __iivw_wmn __iivw_wmx
         local __iivw_tvary ""
+        local __iivw_treat_vary = 0
         foreach __iivw_v in `treat' `treat_cov' {
             capture drop `__iivw_wmn'
             capture drop `__iivw_wmx'
@@ -894,10 +872,22 @@ program define iivw_weight, rclass sortpreserve
             quietly bysort `id': egen double `__iivw_wmx' = max(`__iivw_v')
             quietly count if `__iivw_wmn' != `__iivw_wmx' & ///
                 !missing(`__iivw_wmn', `__iivw_wmx')
-            if r(N) > 0 local __iivw_tvary "`__iivw_tvary' `__iivw_v'"
+            if r(N) > 0 {
+                if "`__iivw_v'" == "`treat'" {
+                    local __iivw_treat_vary = 1
+                }
+                else {
+                    local __iivw_tvary "`__iivw_tvary' `__iivw_v'"
+                }
+            }
         }
         capture drop `__iivw_wmn'
         capture drop `__iivw_wmx'
+        if `__iivw_treat_vary' {
+            display as error "treat() must be time-invariant within subjects"
+            display as error "for time-varying treatments, consider marginal structural models (MSMs)"
+            error 198
+        }
         if "`__iivw_tvary'" != "" {
             display as error "treatment-model variables vary within subject:`__iivw_tvary'"
             display as error ""
@@ -1972,7 +1962,7 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_weighttype] "`wtype'"
     char _dta[_iivw_weight_var] "`prefix'weight"
     char _dta[_iivw_prefix] "`prefix'"
-    char _dta[_iivw_contract_version] "2"
+    char _dta[_iivw_contract_version] "3"
     if inlist("`wtype'", "iivw", "fiptiw") {
         char _dta[_iivw_iw_var] "`prefix'iw"
         char _dta[_iivw_visit_covars] "`visit_covars'"
@@ -2331,7 +2321,7 @@ program define iivw_weight, rclass sortpreserve
         return local treat_covars "`treat_covars'"
         return local ps_estimand "ate"
     }
-    return local contract_version "2"
+    return local contract_version "3"
 
     }
     local rc = _rc

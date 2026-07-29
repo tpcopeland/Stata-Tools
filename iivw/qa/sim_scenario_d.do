@@ -18,7 +18,7 @@ confounded by conf_ti and u_i, informative visit process, true treatment
 effect = 0.5, artifact = coef * log(min(test_n, 6) + 1).
 
 Usage:
-  do iivw/qa/sim_scenario_d.do              QA gate (fewer reps)
+  do iivw/qa/sim_scenario_d.do              sensitivity lane (fewer reps)
   do iivw/qa/sim_scenario_d.do manuscript   Full 1000 replications
 */
 **#Globals
@@ -49,14 +49,16 @@ local artifact_sd   = 0.5
 local artifact_cap  = 6
 local min_success   = floor(0.80 * `n_sims')
 
-*Gate tolerances, set from an observed qa-mode run (50 reps, N=200), not guessed:
+*Post-hoc regression envelopes, set from an observed qa-mode run (50 reps,
+*N=200). They detect implementation drift; they are not independent validation
+*thresholds:
 *   Unweighted           bias 0.495  coverage 0.38
 *   IIW                  bias 0.427  coverage 0.48
 *   FIPTIW               bias 0.107  coverage 0.96
 *   FIPTIW + test count  bias 0.131  coverage 0.98
 *MC SE of each mean is sd_beta/sqrt(reps) ~ 0.02-0.03, so FIPTIW's ~0.11 residual
 *under the heterogeneous saturating artifact is systematic, not noise. Bounded
-*recovery gate, as in sim_scenarios_abc.do. IIW alone is not gated on recovery:
+*sensitivity check, as in sim_scenarios_abc.do. IIW alone is not gated on recovery:
 *it does not target the treatment confounding induced by latent u_i.
 local min_naive_bias  = 0.20
 local max_fiptiw_bias = 0.20

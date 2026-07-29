@@ -9,6 +9,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "test_msm_cox_state.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
@@ -128,7 +131,10 @@ else {
 
 local qa_status = cond(`fail_count' > 0, "FAIL", "PASS")
 display as text ""
-display as text "RESULT: test_msm_cox_state tests=`test_count' pass=`pass_count' fail=`fail_count' status=`qa_status'"
+do "`qa_dir'/_record_qa_result.do" test_msm_cox_state ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_cox_state tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0 status=`qa_status'"
+capture log close _all
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"
     exit 9

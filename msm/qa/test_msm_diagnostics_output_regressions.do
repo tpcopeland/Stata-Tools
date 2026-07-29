@@ -1,5 +1,5 @@
-* test_msm_phase5.do
-* Phase 5 regressions: sensitivity / diagnostics / output.
+* test_msm_diagnostics_output_regressions.do
+* Sensitivity, diagnostics, and output regressions.
 *
 * Findings covered (audit 2026-07-12):
 *   A26  SMD threshold must be finite/nonnegative; a missing weighted SMD is
@@ -20,7 +20,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "test_msm_phase5.log", replace text nomsg
+log using "test_msm_diagnostics_output_regressions.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -170,7 +170,7 @@ capture noisily {
     * writing to a nonexistent directory must FAIL, not silently succeed.
     * Old code: `capture file close' reset _rc to 0, so `exit _rc' returned 0.
     capture msm_report, format(csv) export("`c(tmpdir)'/no_such_dir_msm/rep.csv")
-    assert _rc != 0
+    assert _rc == 603
 
     * positive control: a valid path exports and rc 0
     tempfile good
@@ -180,7 +180,7 @@ capture noisily {
     assert _rc == 0
 }
 if _rc == 0 {
-    display as result "PASS A30: report write failure surfaces instead of being swallowed"
+    display as result "PASS A30: report write error is surfaced instead of swallowed"
     local ++pass_count
 }
 else {
@@ -452,6 +452,8 @@ else {
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
 }
-display as text "RESULT: test_msm_phase5 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_diagnostics_output_regressions ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_diagnostics_output_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

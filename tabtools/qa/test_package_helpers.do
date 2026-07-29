@@ -2831,18 +2831,26 @@ capture noisily {
     assert _rc == 119
     assert "`c(varabbrev)'" == "on"
 
-    tempfile missing_rate
- capture stratetab, using("`missing_rate'") outcomes(1)
+    * A bare tempfile stem can collide with a stale stem.dta created by a
+    * helper in the same Stata process. Use the lane-owned output directory
+    * and prove the negative fixture is absent before exercising the error.
+    local missing_rate "`output_dir'/__missing_rate_varabbrev"
+    capture erase "`missing_rate'.dta"
+    capture confirm file "`missing_rate'.dta"
     assert _rc == 601
+    capture stratetab, using("`missing_rate'") outcomes(1)
+    local missing_rate_rc = _rc
+    assert `missing_rate_rc' == 601
     assert "`c(varabbrev)'" == "on"
-    set varabbrev off
 }
-if _rc == 0 {
+local varabbrev_rc = _rc
+set varabbrev off
+if `varabbrev_rc' == 0 {
     display as result "  PASS: representative success/error paths restore varabbrev"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: varabbrev restoration contracts (rc=`=_rc')"
+    display as error "  FAIL: varabbrev restoration contracts (rc=`varabbrev_rc')"
     local ++fail_count
 }
 
@@ -3630,7 +3638,10 @@ capture confirm file "`checker'"
 if _rc != 0 local checker ""
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
-    display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
+    display as error "FAIL: required vendored qa/tools/check_xlsx.py is missing"
+    local ++n_total
+    local ++fail_count
+    display as text "Running Stata-native diagnostics for additional evidence"
     * Run Stata-native fallback: generate xlsx from core commands, validate with import excel
     local _native_pass = 0
     local _native_fail = 0
@@ -5000,7 +5011,7 @@ foreach f of local xl_dta {
 } // end if `has_checker'
 
 if !`has_checker' {
-    display as text "NOTE: check_xlsx.py not available — used Stata-native Excel validation"
+    display as error "check_xlsx.py was unavailable; native diagnostics do not replace the style oracle"
 }
 
 * =========================================================================

@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.4.2  2026/07/28
+*! msm_prepare Version 1.4.3  2026/07/29
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -57,6 +57,18 @@ program define msm_prepare, rclass
         predictors(`covariates' `baseline_covariates') ///
         covariates(`covariates') baseline(`baseline_covariates')
 
+    * Check for observations before value-range summaries. On an empty
+    * dataset r(max) is missing, and Stata treats missing as greater than every
+    * finite number; testing r(max) > 0 first therefore emitted the misleading
+    * "period must be integer-valued" error instead of the no-observations
+    * contract.
+    quietly count
+    if r(N) == 0 {
+        display as error "no observations"
+        exit 2000
+    }
+    local N = r(N)
+
     * =========================================================================
     * VARIABLE VALIDATION
     * =========================================================================
@@ -102,14 +114,6 @@ program define msm_prepare, rclass
     * =========================================================================
     * DATA STRUCTURE VALIDATION
     * =========================================================================
-
-    * Check for observations
-    quietly count
-    if r(N) == 0 {
-        display as error "no observations"
-        exit 2000
-    }
-    local N = r(N)
 
     * -------------------------------------------------------------------------
     * Missing structural keys (audit A08)

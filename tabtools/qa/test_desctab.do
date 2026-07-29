@@ -1,20 +1,16 @@
 * test_desctab.do - focused QA for desctab
-* Run from tabtools/qa or tabtools/qa/desctab.
+* Run from tabtools/qa.
 
 clear all
 version 17.0
 set more off
+set varabbrev off
 
-local _cwd "`c(pwd)'"
-if regexm("`_cwd'", "/qa/desctab$") {
-    local pkg_root = regexr("`_cwd'", "/qa/desctab$", "")
-}
-else if regexm("`_cwd'", "/qa$") {
-    local pkg_root = regexr("`_cwd'", "/qa$", "")
-}
-else {
-    local pkg_root "`_cwd'"
-}
+capture log close _desctab
+log using "test_desctab.log", replace text name(_desctab)
+
+local qa_dir "`c(pwd)'"
+local pkg_root = subinstr("`qa_dir'", "/qa", "", 1)
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_root'") replace
@@ -24,8 +20,8 @@ local pass = 0
 local fail = 0
 local total = 0
 
-tempname outstem
-local outdir "`c(tmpdir)'/`c(pid)'_desctab_`outstem'"
+tempfile outtoken
+local outdir "`outtoken'_desctab"
 capture mkdir "`outdir'"
 
 display as text "test_desctab"
@@ -47,10 +43,12 @@ else {
     display as error "  FAIL: active collect required"
     local ++fail
 }
+set varabbrev off
 
 **# T2 events_n_pct literal cell
 local ++total
 capture noisily {
+    set varabbrev on
     sysuse auto, clear
     collect clear
     collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
@@ -74,6 +72,7 @@ else {
     display as error "  FAIL: events_n_pct literal cell"
     local ++fail
 }
+set varabbrev off
 
 **# T3 per-stat formats in wide row x column layout
 local ++total
@@ -1268,7 +1267,7 @@ capture noisily {
     collect clear
     collect: table rep78, statistic(mean price)
     return clear
-    capture desctab, xlsx("`c(tmpdir)'/`c(pid)'___missing_tabtools_dir__/bad.xlsx") sheet("S")
+    capture desctab, xlsx("`outdir'/missing/bad.xlsx") sheet("S")
     local _xrc = _rc
     assert `_xrc' != 0
     assert r(N_rows) > 0
@@ -1287,7 +1286,12 @@ display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
     display as error "SOME TESTS FAILED"
     display "RESULT: test_desctab tests=`total' pass=`pass' fail=`fail'"
+    log close _desctab
     exit 1
 }
 display as result "ALL TESTS PASSED"
 display "RESULT: test_desctab tests=`total' pass=`pass' fail=`fail'"
+log close _desctab
+capture shell rm -rf "`outdir'"
+local cleanup_rc = _rc
+if `cleanup_rc' exit `cleanup_rc'

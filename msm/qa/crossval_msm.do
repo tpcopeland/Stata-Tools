@@ -3,7 +3,7 @@
 * 
 * Workflow:
 *   1. Generate shared DGP datasets (Stata -> CSV)
-*   2. Run msm on DGP1 (time-varying) and DGP2 (point-treatment)
+*   2. Run msm on DGP1 (time-varying) and DGP2 (one-period binary outcome)
 *   3. Run R cross-validation (reads same CSV, exports results)
 *   4. Run Python cross-validation (reads same CSV, exports results)
 *   5. Compare Stata teffects ipw on DGP2
@@ -79,16 +79,16 @@ display "STEP 2: Running msm on DGP1..."
 
 use "`data_dir'/dgp1_panel.dta", clear
 
-msm_prepare, id(id) period(period) treatment(treatment) ///
+quietly msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) covariates(L) baseline_covariates(V)
 
-msm_weight, treat_d_cov(L V) treat_n_cov(V) nolog
+quietly msm_weight, treat_d_cov(L V) treat_n_cov(V) nolog
 
 local stata_w_mean = r(mean_weight)
 local stata_w_sd = r(sd_weight)
 local stata_ess = r(ess)
 
-msm_fit, model(logistic) outcome_cov(V) period_spec(linear) nolog
+quietly msm_fit, model(logistic) outcome_cov(V) period_spec(linear) nolog
 
 local stata_b = _b[treatment]
 local stata_se = _se[treatment]
@@ -124,41 +124,36 @@ restore
 * ============================================================
 * STEP 2b: Run msm on DGP2 (point-treatment)
 * ============================================================
-display "STEP 2b: Running msm-style manual IPTW on DGP2..."
+display "STEP 2b: Running msm on DGP2..."
 
 use "`data_dir'/dgp2_point.dta", clear
 
-* For point-treatment, compute IPTW manually (msm is panel-based)
-* Propensity score
-quietly logit treatment X1 X2, nolog
-predict double ps_stata, pr
+quietly summarize true_rd, meanonly
+local true_pt_ate = r(mean)
 
-* Stabilized weights
-quietly summarize treatment
-local p_treat = r(mean)
+quietly msm_prepare, id(id) period(period) treatment(treatment) ///
+    outcome(outcome) baseline_covariates(X1 X2)
+quietly msm_weight, treat_d_cov(X1 X2) nolog
 
-gen double sw_stata = .
-replace sw_stata = `p_treat' / ps_stata if treatment == 1
-replace sw_stata = (1 - `p_treat') / (1 - ps_stata) if treatment == 0
-
-quietly summarize sw_stata
+quietly summarize _msm_weight
 local stata_pt_w_mean = r(mean)
 local stata_pt_w_sd = r(sd)
 
-* Weighted regression
-regress Y treatment [pw=sw_stata], vce(robust)
+quietly msm_fit, model(linear) period_spec(none) vce(robust) nolog
 local stata_pt_ate = _b[treatment]
 local stata_pt_se = _se[treatment]
 
-display "  Manual IPTW results (DGP2, point-treatment):"
+display "  msm results (DGP2, one-period binary outcome):"
 display "    Weight mean: " %9.4f `stata_pt_w_mean'
 display "    Weight SD:   " %9.4f `stata_pt_w_sd'
-display "    ATE:         " %9.4f `stata_pt_ate'
+display "    Risk diff.:  " %9.4f `stata_pt_ate'
 display "    SE:          " %9.4f `stata_pt_se'
+display "    True RD:     " %9.4f `true_pt_ate'
 
-* Export individual weights
+* Export the package-produced propensity score and stabilized weight.
 preserve
-    keep id ps_stata sw_stata
+    keep id _msm_ps _msm_weight
+    rename (_msm_ps _msm_weight) (ps_stata sw_stata)
     export delimited using "`results_dir'/stata_weights_dgp2.csv", replace
 restore
 
@@ -167,7 +162,7 @@ restore
 * ============================================================
 display "STEP 3: Running teffects ipw on DGP2..."
 
-teffects ipw (Y) (treatment X1 X2), ate nolog
+teffects ipw (outcome) (treatment X1 X2), ate nolog
 local teffects_ate = r(table)[1,1]
 local teffects_se = r(table)[2,1]
 
@@ -181,12 +176,17 @@ display "    SE:  " %9.4f `teffects_se'
 display "STEP 4: Running R cross-validation..."
 
 capture erase "`results_dir'/r_results.csv"
-shell Rscript "`work_qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
+capture noisily shell Rscript "`work_qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
+local r_shell_rc = _rc
 capture confirm file "`results_dir'/r_results.csv"
-if _rc {
+local r_file_rc = _rc
+mata: st_numscalar("r_r_complete", ///
+    any(strpos(cat(st_local("results_dir") + "/r_output.log"), ///
+    "=== R CROSS-VALIDATION COMPLETE ===") :> 0))
+if `r_shell_rc' | `r_file_rc' | r_r_complete != 1 {
     display as error "R cross-validation did not produce r_results.csv"
     display as error "See `results_dir'/r_output.log"
-    exit 601
+    exit 459
 }
 display "  R script completed. See `results_dir'/r_output.log"
 
@@ -196,12 +196,17 @@ display "  R script completed. See `results_dir'/r_output.log"
 display "STEP 5: Running Python cross-validation..."
 
 capture erase "`results_dir'/py_results.csv"
-shell python3 "`work_qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
+capture noisily shell python3 "`work_qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
+local py_shell_rc = _rc
 capture confirm file "`results_dir'/py_results.csv"
-if _rc {
+local py_file_rc = _rc
+mata: st_numscalar("r_py_complete", ///
+    any(strpos(cat(st_local("results_dir") + "/py_output.log"), ///
+    "=== PYTHON CROSS-VALIDATION COMPLETE ===") :> 0))
+if `py_shell_rc' | `py_file_rc' | r_py_complete != 1 {
     display as error "Python cross-validation did not produce py_results.csv"
     display as error "See `results_dir'/py_output.log"
-    exit 601
+    exit 459
 }
 display "  Python script completed. See `results_dir'/py_output.log"
 
@@ -213,53 +218,97 @@ display "STEP 6: CROSS-VALIDATION COMPARISONS"
 * --- 6A: Load R results ---
 preserve
     import delimited using "`results_dir'/r_results.csv", clear varnames(1)
+    confirm variable method weight_mean weight_sd coef se or_hr
+    assert _N == 4
+    isid method
+    foreach m in r_manual_iptw r_ipwtm r_naive r_point_treatment {
+        quietly count if method == "`m'"
+        assert r(N) == 1
+    }
+    assert !missing(weight_mean, weight_sd, coef, se) ///
+        if inlist(method, "r_manual_iptw", "r_ipwtm", "r_point_treatment")
+    assert weight_mean > 0 & weight_sd >= 0 & se > 0 ///
+        if inlist(method, "r_manual_iptw", "r_ipwtm", "r_point_treatment")
     display "R results:"
     list method weight_mean weight_sd coef se or_hr, noobs separator(0)
 
     * Extract R manual IPTW results
-    local r_b = coef[1]
-    local r_se = se[1]
-    local r_w_mean = weight_mean[1]
-    local r_w_sd = weight_sd[1]
+    quietly summarize coef if method == "r_manual_iptw", meanonly
+    local r_b = r(mean)
+    quietly summarize se if method == "r_manual_iptw", meanonly
+    local r_se = r(mean)
+    quietly summarize weight_mean if method == "r_manual_iptw", meanonly
+    local r_w_mean = r(mean)
+    quietly summarize weight_sd if method == "r_manual_iptw", meanonly
+    local r_w_sd = r(mean)
 
     * Extract R point-treatment results
-    local r_pt_ate = coef[4]
-    local r_pt_se = se[4]
-    local r_pt_w_mean = weight_mean[4]
+    quietly summarize coef if method == "r_point_treatment", meanonly
+    local r_pt_ate = r(mean)
+    quietly summarize se if method == "r_point_treatment", meanonly
+    local r_pt_se = r(mean)
+    quietly summarize weight_mean if method == "r_point_treatment", meanonly
+    local r_pt_w_mean = r(mean)
+
+    * Independent package smoke result: this must not be a silently swallowed NA.
+    quietly summarize coef if method == "r_ipwtm", meanonly
+    local r_ipwtm_b = r(mean)
+    quietly summarize se if method == "r_ipwtm", meanonly
+    local r_ipwtm_se = r(mean)
+    quietly summarize weight_mean if method == "r_ipwtm", meanonly
+    local r_ipwtm_w_mean = r(mean)
 restore
 
 * --- 6B: Load Python results ---
 preserve
     import delimited using "`results_dir'/py_results.csv", clear varnames(1)
+    confirm variable method weight_mean weight_sd coef se or_hr
+    assert _N == 3
+    isid method
+    foreach m in py_manual_iptw py_naive py_point_treatment {
+        quietly count if method == "`m'"
+        assert r(N) == 1
+    }
+    assert !missing(weight_mean, weight_sd, coef, se) ///
+        if inlist(method, "py_manual_iptw", "py_point_treatment")
+    assert weight_mean > 0 & weight_sd >= 0 & se > 0 ///
+        if inlist(method, "py_manual_iptw", "py_point_treatment")
     display "Python results:"
     list method weight_mean weight_sd coef se or_hr, noobs separator(0)
 
     * Extract Python IPTW results
-    local py_b = coef[1]
-    local py_se = se[1]
-    local py_w_mean = weight_mean[1]
-    local py_w_sd = weight_sd[1]
+    quietly summarize coef if method == "py_manual_iptw", meanonly
+    local py_b = r(mean)
+    quietly summarize se if method == "py_manual_iptw", meanonly
+    local py_se = r(mean)
+    quietly summarize weight_mean if method == "py_manual_iptw", meanonly
+    local py_w_mean = r(mean)
+    quietly summarize weight_sd if method == "py_manual_iptw", meanonly
+    local py_w_sd = r(mean)
 
     * Extract Python point-treatment results
-    local py_pt_ate = coef[3]
-    local py_pt_se = se[3]
-    local py_pt_w_mean = weight_mean[3]
+    quietly summarize coef if method == "py_point_treatment", meanonly
+    local py_pt_ate = r(mean)
+    quietly summarize se if method == "py_point_treatment", meanonly
+    local py_pt_se = r(mean)
+    quietly summarize weight_mean if method == "py_point_treatment", meanonly
+    local py_pt_w_mean = r(mean)
 restore
 
 * ============================================================
 * COMPARISON TABLE
 * ============================================================
-display "DGP1: TIME-VARYING TREATMENT (truth: log-OR = -0.3567)"
+display "DGP1: TIME-VARYING TREATMENT (conditional DGP coefficient = -0.3567)"
 display "  Source            Weight Mean  Weight SD   Log-OR     SE"
 display "  ------            -----------  ---------   ------     --"
 display "  Stata msm        " %9.4f `stata_w_mean' "   " %8.4f `stata_w_sd' "   " %8.4f `stata_b' "  " %7.4f `stata_se'
 display "  R (manual IPTW)  " %9.4f `r_w_mean' "   " %8.4f `r_w_sd' "   " %8.4f `r_b' "  " %7.4f `r_se'
 display "  Python (manual)  " %9.4f `py_w_mean' "   " %8.4f `py_w_sd' "   " %8.4f `py_b' "  " %7.4f `py_se'
 
-display "DGP2: POINT TREATMENT (truth: ATE = 2.000)"
-display "  Source            Weight Mean  ATE        SE"
-display "  ------            -----------  ----       --"
-display "  Stata IPTW       " %9.4f `stata_pt_w_mean' "    " %8.4f `stata_pt_ate' "  " %7.4f `stata_pt_se'
+display "DGP2: ONE-PERIOD BINARY OUTCOME (sample-average true RD = " %7.4f `true_pt_ate' ")"
+display "  Source            Weight Mean  Risk diff. SE"
+display "  ------            -----------  ---------- --"
+display "  Stata msm        " %9.4f `stata_pt_w_mean' "    " %8.4f `stata_pt_ate' "  " %7.4f `stata_pt_se'
 display "  teffects ipw     " "    N/A" "    " %8.4f `teffects_ate' "  " %7.4f `teffects_se'
 display "  R IPTW           " %9.4f `r_pt_w_mean' "    " %8.4f `r_pt_ate' "  " %7.4f `r_pt_se'
 display "  Python IPTW      " %9.4f `py_pt_w_mean' "    " %8.4f `py_pt_ate' "  " %7.4f `py_pt_se'
@@ -275,10 +324,10 @@ local ++test_count
 capture {
     local diff = abs(`stata_w_mean' - `r_w_mean')
     display "  C1: Stata vs R weight mean diff = " %7.4f `diff'
-    assert `diff' < 0.05
+    assert `diff' < 0.0001
 }
 if _rc == 0 {
-    display as result "  PASS C1: Stata vs R weight means agree (diff < 0.05)"
+    display as result "  PASS C1: Stata vs R weight means agree (diff < 1e-4)"
     local ++pass_count
 }
 else {
@@ -292,10 +341,10 @@ local ++test_count
 capture {
     local diff = abs(`stata_w_mean' - `py_w_mean')
     display "  C2: Stata vs Python weight mean diff = " %7.4f `diff'
-    assert `diff' < 0.05
+    assert `diff' < 0.0001
 }
 if _rc == 0 {
-    display as result "  PASS C2: Stata vs Python weight means agree (diff < 0.05)"
+    display as result "  PASS C2: Stata vs Python weight means agree (diff < 1e-4)"
     local ++pass_count
 }
 else {
@@ -309,10 +358,10 @@ local ++test_count
 capture {
     local diff = abs(`stata_b' - `r_b')
     display "  C3: Stata vs R log-OR diff = " %7.4f `diff'
-    assert `diff' < 0.10
+    assert `diff' < 0.001
 }
 if _rc == 0 {
-    display as result "  PASS C3: Stata vs R treatment effects agree (diff < 0.10)"
+    display as result "  PASS C3: Stata vs R treatment effects agree (diff < 1e-3)"
     local ++pass_count
 }
 else {
@@ -326,10 +375,10 @@ local ++test_count
 capture {
     local diff = abs(`stata_b' - `py_b')
     display "  C4: Stata vs Python log-OR diff = " %7.4f `diff'
-    assert `diff' < 0.10
+    assert `diff' < 0.001
 }
 if _rc == 0 {
-    display as result "  PASS C4: Stata vs Python treatment effects agree (diff < 0.10)"
+    display as result "  PASS C4: Stata vs Python treatment effects agree (diff < 1e-3)"
     local ++pass_count
 }
 else {
@@ -343,10 +392,10 @@ local ++test_count
 capture {
     local diff = abs(`r_b' - `py_b')
     display "  C5: R vs Python log-OR diff = " %7.4f `diff'
-    assert `diff' < 0.05
+    assert `diff' < 0.001
 }
 if _rc == 0 {
-    display as result "  PASS C5: R vs Python treatment effects agree (diff < 0.05)"
+    display as result "  PASS C5: R vs Python treatment effects agree (diff < 1e-3)"
     local ++pass_count
 }
 else {
@@ -417,34 +466,34 @@ else {
     local failed_tests "`failed_tests' C8"
 }
 
-* --- Test C9: Stata vs teffects ATE agreement (DGP2) ---
+* --- Test C9: msm vs teffects risk-difference agreement (DGP2) ---
 local ++test_count
 capture {
     local diff = abs(`stata_pt_ate' - `teffects_ate')
-    display "  C9: Stata manual IPTW vs teffects ATE diff = " %7.4f `diff'
-    assert `diff' < 0.20
+    display "  C9: Stata msm vs teffects RD diff = " %7.4f `diff'
+    assert `diff' < 0.02
 }
 if _rc == 0 {
-    display as result "  PASS C9: Manual IPTW vs teffects agree (diff < 0.20)"
+    display as result "  PASS C9: msm vs teffects agree (diff < 0.02)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C9: Manual IPTW vs teffects disagree"
+    display as error "  FAIL C9: msm vs teffects disagree"
     local ++fail_count
     local failed_tests "`failed_tests' C9"
 }
 
-* --- Test C10: Stata vs R vs Python ATE agreement (DGP2) ---
+* --- Test C10: Stata msm vs R vs Python risk-difference agreement (DGP2) ---
 local ++test_count
 capture {
     local diff_sr = abs(`stata_pt_ate' - `r_pt_ate')
     local diff_sp = abs(`stata_pt_ate' - `py_pt_ate')
     local diff_rp = abs(`r_pt_ate' - `py_pt_ate')
     display "  C10: Stata-R = " %6.4f `diff_sr' ", Stata-Py = " %6.4f `diff_sp' ", R-Py = " %6.4f `diff_rp'
-    assert `diff_sr' < 0.10 & `diff_sp' < 0.10 & `diff_rp' < 0.05
+    assert `diff_sr' < 0.001 & `diff_sp' < 0.001 & `diff_rp' < 0.001
 }
 if _rc == 0 {
-    display as result "  PASS C10: All three point-treatment ATEs agree"
+    display as result "  PASS C10: msm/R/Python point-treatment risk differences agree"
     local ++pass_count
 }
 else {
@@ -453,20 +502,20 @@ else {
     local failed_tests "`failed_tests' C10"
 }
 
-* --- Test C11: All point-treatment ATEs near true value of 2.0 ---
+* --- Test C11: all point-treatment estimates recover the sample-average RD ---
 local ++test_count
 capture {
-    assert abs(`stata_pt_ate' - 2.0) < 0.50
-    assert abs(`teffects_ate' - 2.0) < 0.50
-    assert abs(`r_pt_ate' - 2.0) < 0.50
-    assert abs(`py_pt_ate' - 2.0) < 0.50
+    assert abs(`stata_pt_ate' - `true_pt_ate') < 0.04
+    assert abs(`teffects_ate' - `true_pt_ate') < 0.04
+    assert abs(`r_pt_ate' - `true_pt_ate') < 0.04
+    assert abs(`py_pt_ate' - `true_pt_ate') < 0.04
 }
 if _rc == 0 {
-    display as result "  PASS C11: All point-treatment ATEs within 0.50 of truth (2.0)"
+    display as result "  PASS C11: all point-treatment estimates recover the sample-average RD"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C11: Some point-treatment ATE too far from 2.0"
+    display as error "  FAIL C11: a point-treatment estimate misses the known RD"
     local ++fail_count
     local failed_tests "`failed_tests' C11"
 }
@@ -562,39 +611,56 @@ else {
     local failed_tests "`failed_tests' C13"
 }
 
-* --- Test C14: Individual-level PS correlation DGP2 (Stata vs R vs Python) ---
+* --- Test C14: complete row-level PS and weight parity on DGP2 ---
 local ++test_count
 capture {
     preserve
         import delimited using "`results_dir'/stata_weights_dgp2.csv", clear varnames(1)
+        isid id
+        local _n_stata2 = _N
         tempfile stata_pt
         save `stata_pt'
 
         import delimited using "`results_dir'/r_weights_dgp2.csv", clear varnames(1)
+        isid id
+        local _n_r2 = _N
         tempfile r_pt
         save `r_pt'
 
         import delimited using "`results_dir'/py_weights_dgp2.csv", clear varnames(1)
-        merge 1:1 id using `r_pt', nogenerate
-        merge 1:1 id using `stata_pt', nogenerate
+        isid id
+        local _n_py2 = _N
+        merge 1:1 id using `r_pt'
+        assert _merge == 3
+        drop _merge
+        merge 1:1 id using `stata_pt'
+        assert _merge == 3
+        drop _merge
+        assert _N == `_n_stata2' & _N == `_n_r2' & _N == `_n_py2'
 
-        correlate ps_stata r_ps py_ps
-        local corr_sr_ps = r(rho)
-        * Just check any pair > 0.999 (identical PS models)
-        correlate ps_stata r_ps
-        local corr1 = r(rho)
-        correlate ps_stata py_ps
-        local corr2 = r(rho)
-        display "  C14: PS correlation Stata-R = " %8.6f `corr1' ", Stata-Py = " %8.6f `corr2'
-        assert `corr1' > 0.999 & `corr2' > 0.999
+        foreach pair in ps_r ps_py sw_r sw_py {
+            gen double diff_`pair' = .
+        }
+        replace diff_ps_r  = abs(ps_stata - r_ps)
+        replace diff_ps_py = abs(ps_stata - py_ps)
+        replace diff_sw_r  = abs(sw_stata - r_sw)
+        replace diff_sw_py = abs(sw_stata - py_sw)
+        foreach d in ps_r ps_py sw_r sw_py {
+            quietly summarize diff_`d', meanonly
+            local max_`d' = r(max)
+            assert r(max) < 0.0001
+        }
+        display "  C14 max |diff|: PS R=" %9.6f `max_ps_r' ///
+            " Py=" %9.6f `max_ps_py' " ; SW R=" %9.6f `max_sw_r' ///
+            " Py=" %9.6f `max_sw_py' " (n=" _N ")"
     restore
 }
 if _rc == 0 {
-    display as result "  PASS C14: Propensity score correlations > 0.999"
+    display as result "  PASS C14: DGP2 PS/weights agree row-level after complete merges"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C14: Propensity score correlations too low"
+    display as error "  FAIL C14: DGP2 merge completeness or PS/weight parity failed"
     local ++fail_count
     local failed_tests "`failed_tests' C14"
 }
@@ -676,6 +742,25 @@ else {
     local failed_tests "`failed_tests' C16"
 }
 
+* --- Test C17: the independent R ipw::ipwtm backend really ran ---
+* ipwtm and msm use different longitudinal specification conventions here, so
+* this is an execution/finite-output guard rather than a false equality claim.
+local ++test_count
+capture {
+    assert !missing(`r_ipwtm_b', `r_ipwtm_se', `r_ipwtm_w_mean')
+    assert `r_ipwtm_se' > 0
+    assert `r_ipwtm_w_mean' > 0
+}
+if _rc == 0 {
+    display as result "  PASS C17: ipw::ipwtm produced finite weights and inference"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL C17: ipw::ipwtm was missing or non-finite"
+    local ++fail_count
+    local failed_tests "`failed_tests' C17"
+}
+
 * ============================================================
 * Summary
 * ============================================================
@@ -695,7 +780,9 @@ else {
 
 local cv_status = cond(`fail_count' > 0, "FAIL", "PASS")
 display ""
-display "RESULT: CROSSVAL tests=`test_count' pass=`pass_count' fail=`fail_count' status=`cv_status'"
+do "`qa_dir'/_record_qa_result.do" crossval_msm ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: crossval_msm tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0 status=`cv_status'"
 
 * ============================================================
 * Save summary results table
@@ -731,32 +818,32 @@ preserve
     replace se = `py_se' in 3
     replace metric = "log-OR" in 3
 
-    replace source = "stata_iptw" in 4
+    replace source = "stata_msm" in 4
     replace dgp = "DGP2" in 4
     replace weight_mean = `stata_pt_w_mean' in 4
     replace coef = `stata_pt_ate' in 4
     replace se = `stata_pt_se' in 4
-    replace metric = "ATE" in 4
+    replace metric = "RD" in 4
 
     replace source = "teffects" in 5
     replace dgp = "DGP2" in 5
     replace coef = `teffects_ate' in 5
     replace se = `teffects_se' in 5
-    replace metric = "ATE" in 5
+    replace metric = "RD" in 5
 
     replace source = "R_iptw" in 6
     replace dgp = "DGP2" in 6
     replace weight_mean = `r_pt_w_mean' in 6
     replace coef = `r_pt_ate' in 6
     replace se = `r_pt_se' in 6
-    replace metric = "ATE" in 6
+    replace metric = "RD" in 6
 
     replace source = "Python_iptw" in 7
     replace dgp = "DGP2" in 7
     replace weight_mean = `py_pt_w_mean' in 7
     replace coef = `py_pt_ate' in 7
     replace se = `py_pt_se' in 7
-    replace metric = "ATE" in 7
+    replace metric = "RD" in 7
 
     replace source = "true_cf" in 8
     replace dgp = "DGP3" in 8

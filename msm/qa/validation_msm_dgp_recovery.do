@@ -47,6 +47,7 @@
 *     D16 stronger treatment confounding still recovers marginal log-OR
 *     D18 A10: stabilized numerator covariates must enter the outcome model
 *     D19 A10: time-varying numerator covariates have no unsafe opt-out
+*     D20 multi-seed point-RD recovery with MCSE-calibrated acceptance
 *
 *   SCOPE BOUNDARY (documented known answer, not a bug):
 *     D17 time-invariant (baseline) treatment across a panel is out of scope
@@ -1039,15 +1040,70 @@ else {
     local failed_tests "`failed_tests' D19"
 }
 
+* --- D20: replicated recovery across independent observed-data seeds --------
+* A single lucky simulation can hide bias. Run the actual package on three
+* independent samples and scale each acceptance bound to its reported SE; then
+* check the mean error against the SE of the three-estimate mean.
+local ++test_count
+capture noisily {
+    _pt_truth_rd, effect(0.8) confy(1.0) inty(-0.7) seedval(999120)
+    local truth = r(rd)
+    local sum_est = 0
+    local sum_var = 0
+    local n_seed = 0
+
+    foreach obs_seed in 72020 82020 92020 {
+        _pt_gen, n(60000) effect(0.8) confa(0.9) confy(1.0) ///
+            inta(-0.1) inty(-0.7) seedval(`obs_seed')
+        msm_prepare, id(id) period(period) treatment(a) outcome(outcome) ///
+            covariates(L)
+        msm_weight, treat_d_cov(L) nolog
+        msm_fit, model(linear) period_spec(none) nolog
+        local est = _b[a]
+        local se = _se[a]
+        local zerr = abs(`est' - `truth') / `se'
+        display as text "  D20 seed `obs_seed': est=" %8.5f `est' ///
+            " truth=" %8.5f `truth' " SE=" %8.5f `se' ///
+            " |error|/SE=" %6.3f `zerr'
+        assert !missing(`est', `se') & `se' > 0
+        assert `zerr' < 4
+        local sum_est = `sum_est' + `est'
+        local sum_var = `sum_var' + `se'^2
+        local ++n_seed
+    }
+
+    local mean_est = `sum_est' / `n_seed'
+    local mean_se = sqrt(`sum_var') / `n_seed'
+    local mean_z = abs(`mean_est' - `truth') / `mean_se'
+    display as text "  D20 mean: est=" %8.5f `mean_est' ///
+        " truth=" %8.5f `truth' " MCSE=" %8.5f `mean_se' ///
+        " |error|/MCSE=" %6.3f `mean_z'
+    assert `n_seed' == 3
+    assert `mean_z' < 4
+}
+if _rc == 0 {
+    display as result "  PASS D20: multi-seed recovery is within MCSE-calibrated bounds"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D20 (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D20"
+}
+
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED:`failed_tests'"
-    display "RESULT: validation_msm_dgp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    do "`qa_dir'/_record_qa_result.do" validation_msm_dgp_recovery ///
+        `test_count' `pass_count' `fail_count' 0
+    display "RESULT: validation_msm_dgp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
     capture log close
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: validation_msm_dgp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" validation_msm_dgp_recovery ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: validation_msm_dgp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close

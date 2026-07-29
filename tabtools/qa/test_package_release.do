@@ -1313,6 +1313,118 @@ else {
 * tabtools_tips), so its version-consistency check no longer applies.
 
 
+**# Rendered help-file gate
+
+* Render every shipped help file through Stata's SMCL interpreter. Source-text
+* greps cannot detect directives split across source lines, because those
+* defects appear only after Viewer rendering.
+capture program drop _qa_sthlp_render
+program define _qa_sthlp_render, rclass
+    version 16.0
+    syntax anything(name=files id="help files")
+
+    local files = subinstr(`"`files'"', char(34), "", .)
+    local nbad 0
+    local badfiles ""
+
+    foreach f of local files {
+        capture confirm file "`f'"
+        if _rc {
+            display as error "  render: file not found: `f'"
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+
+        tempfile rlog
+        capture log off
+        local log_off_rc = _rc
+        if `log_off_rc' {
+            display as error "  render: could not suspend the caller log"
+            exit `log_off_rc'
+        }
+        log using "`rlog'", replace text name(_qarender)
+        type "`f'", smcl
+        log close _qarender
+        capture log on
+        local log_on_rc = _rc
+        if `log_on_rc' {
+            display as error "  render: could not resume the caller log"
+            exit `log_on_rc'
+        }
+
+        local hits 0
+        local nlines 0
+        tempname fh
+        file open `fh' using "`rlog'", read text
+        file read `fh' line
+        while r(eof) == 0 {
+            local ++nlines
+            if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") {
+                local shown = subinstr(`"`line'"',  "{",     char(1), .)
+                local shown = subinstr(`"`shown'"', "}",     char(2), .)
+                local shown = subinstr(`"`shown'"', char(1), "{c -(}", .)
+                local shown = subinstr(`"`shown'"', char(2), "{c )-}", .)
+                display as error "  literal SMCL: `shown'"
+                local ++hits
+            }
+            file read `fh' line
+        }
+        file close `fh'
+
+        if `nlines' == 0 {
+            display as error "  render produced no output for `f' -- FAILING"
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+        if `hits' > 0 {
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+        }
+    }
+
+    return scalar nbad = `nbad'
+    return local badfiles "`badfiles'"
+end
+
+capture noisily {
+    local sthlps : dir "`pkg_dir'" files "*.sthlp"
+    local n_sthlps : word count `sthlps'
+    assert `n_sthlps' > 0
+    local paths ""
+    foreach s of local sthlps {
+        local paths "`paths' `pkg_dir'/`s'"
+    }
+    _qa_sthlp_render `paths'
+    assert r(nbad) == 0
+
+    * Positive control: prove the oracle catches a directive split across a
+    * source newline instead of returning zero regardless of input.
+    tempname bfh
+    local broken "`output_dir'/_render_probe.sthlp"
+    file open `bfh' using "`broken'", write replace text
+    file write `bfh' "{smcl}" _n
+    file write `bfh' "{title:Render probe}" _n _n
+    file write `bfh' "{pstd}" _n
+    file write `bfh' "A directive split across a source newline: {bf:broken" _n
+    file write `bfh' "directive} renders as literal markup." _n
+    file close `bfh'
+    _qa_sthlp_render `broken'
+    assert r(nbad) == 1
+}
+local render_rc = _rc
+capture erase "`broken'"
+if `render_rc' == 0 {
+    display as result "  PASS: all shipped .sthlp files render cleanly and the positive control is detected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: rendered .sthlp gate (rc=`render_rc')"
+    local ++fail_count
+}
+
+
 
 **# Migrated: demo artifacts regenerate
 
@@ -1328,23 +1440,18 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 * Strip only the terminal package directory. A scratch parent may itself
 * contain "tabtools" (for example /tmp/tabtools-audit-*/tabtools).
-local repo_root = regexr("`pkg_dir'", "/tabtools$", "")
-if "`repo_root'" == "`pkg_dir'" {
+local repo_dir = regexr("`pkg_dir'", "/tabtools$", "")
+if "`repo_dir'" == "`pkg_dir'" {
     display as error "could not derive the repository root from `pkg_dir'"
     exit 198
 }
 local tracked_demo_dir "`pkg_dir'/demo"
 local old_pwd "`c(pwd)'"
-* The staging path must be unique PER PROCESS. `tempname' is deterministic
-* within a session -- every run yields __000031 at the same point -- so this
-* resolved to the identical /tmp/tabtools_demo_release_000031 for every lane.
-* Two concurrent release lanes therefore staged the demo into the SAME
-* directory and clobbered each other, and the comparison below then ran against
-* a half-written tree and failed with a spurious workbook-inventory mismatch.
-* c(pid) makes the path unique per Stata process.
-tempname _demo_stage_id
-local _demo_stage_tag = subinstr("`_demo_stage_id'", "__", "", .)
-local demo_stage_root "`c(tmpdir)'/`c(pid)'_tabtools_demo_release_`_demo_stage_tag'"
+* Derive the staging directory from a process-unique tempfile path. tempname
+* alone is deterministic across sessions, while c(pid) is undefined in Stata
+* 16/17 and silently collapses to an empty string in a quoted path.
+tempfile _demo_stage_token
+local demo_stage_root "`_demo_stage_token'_tabtools_demo_release"
 local demo_stage_pkg "`demo_stage_root'/tabtools"
 local demo_dir "`demo_stage_pkg'/demo"
 local demo_compare "`qa_dir'/tools/compare_demo_tree.py"
@@ -1352,11 +1459,11 @@ local demo_compare "`qa_dir'/tools/compare_demo_tree.py"
 local skip_count = 0
 local failed_tests ""
 
-capture confirm file "`repo_root'/_data/cohort.dta"
+capture confirm file "`repo_dir'/_data/cohort.dta"
 local has_data = (_rc == 0)
-capture confirm file "`repo_root'/tc_schemes/stata.toc"
+capture confirm file "`repo_dir'/tc_schemes/stata.toc"
 local has_scheme = (_rc == 0)
-capture confirm file "`repo_root'/logdoc/stata.toc"
+capture confirm file "`repo_dir'/logdoc/stata.toc"
 local has_logdoc = (_rc == 0)
 
 if !`has_data' | !`has_scheme' | !`has_logdoc' {
@@ -1370,9 +1477,9 @@ else {
         shell mkdir -p "`demo_stage_pkg'"
         shell rsync -a --exclude 'qa/output/' --exclude '*.log' --exclude '*.smcl' ///
             "`pkg_dir'/" "`demo_stage_pkg'/"
-        shell ln -s "`repo_root'/_data" "`demo_stage_root'/_data"
-        shell ln -s "`repo_root'/tc_schemes" "`demo_stage_root'/tc_schemes"
-        shell ln -s "`repo_root'/logdoc" "`demo_stage_root'/logdoc"
+        shell ln -s "`repo_dir'/_data" "`demo_stage_root'/_data"
+        shell ln -s "`repo_dir'/tc_schemes" "`demo_stage_root'/tc_schemes"
+        shell ln -s "`repo_dir'/logdoc" "`demo_stage_root'/logdoc"
         confirm file "`demo_dir'/demo_tabtools.do"
         confirm file "`demo_stage_root'/_data/cohort.dta"
         confirm file "`demo_stage_root'/tc_schemes/stata.toc"
@@ -1508,8 +1615,8 @@ else {
     **# eplot integration demo runs and regenerates both forest PNGs
     * Guards the documented table-to-forest-plot workflow (regtab/comptab
     * eplotframe() -> eplot) against silent API drift. Requires the eplot
-    * sibling package; skip (recorded) when it is absent from the tree.
-    capture confirm file "`repo_root'/eplot/eplot.pkg"
+    * sibling package; its absence is a recorded release-gate failure.
+    capture confirm file "`repo_dir'/eplot/eplot.pkg"
     local has_eplot = (_rc == 0)
     if !`has_eplot' {
         display as error "  SKIP: eplot demo (eplot sibling package not present in tree)"
@@ -1519,7 +1626,7 @@ else {
     else {
         capture noisily {
             capture shell rm -f "`demo_stage_root'/eplot"
-            shell ln -s "`repo_root'/eplot" "`demo_stage_root'/eplot"
+            shell ln -s "`repo_dir'/eplot" "`demo_stage_root'/eplot"
             confirm file "`demo_stage_root'/eplot/eplot.pkg"
             * The eplot demo derives all paths from c(pwd) = repo root and writes
             * its PNGs to tabtools/demo/ under that root.
@@ -1730,10 +1837,10 @@ else {
 
 
 **# Summary
-local test_count = `pass_count' + `fail_count'
+local test_count = `pass_count' + `fail_count' + `skip_count'
 display ""
-display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
-if `fail_count' > 0 {
+display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed, `skip_count' skipped"
+if `fail_count' > 0 | `skip_count' > 0 {
     display as error "SOME TESTS FAILED"
     display "RESULT: test_package_release tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
     log close _pkgrel

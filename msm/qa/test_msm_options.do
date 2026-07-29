@@ -12,6 +12,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "test_msm_options.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
@@ -354,7 +357,7 @@ capture {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS C4: IPCW without censor variable fails"
+    display as result "  PASS C4: IPCW without censor variable is rejected"
     local ++pass_count
 }
 else {
@@ -982,7 +985,8 @@ local ++test_count
 capture {
     _setup_pipeline, nolog
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
-    local xlsx_file "/tmp/_test_msm_report.xlsx"
+    tempfile report_xlsx_anchor
+    local xlsx_file "`report_xlsx_anchor'.xlsx"
     capture erase "`xlsx_file'"
     msm_report, export("`xlsx_file'") format(excel) eform replace
     confirm file "`xlsx_file'"
@@ -1055,7 +1059,8 @@ else {
 * --- H5: msm_report custom decimals ---
 local ++test_count
 capture {
-    local csv_file "/tmp/_test_msm_dec.csv"
+    tempfile report_csv_anchor
+    local csv_file "`report_csv_anchor'.csv"
     capture erase "`csv_file'"
     msm_report, export("`csv_file'") format(csv) decimals(2) eform replace
     confirm file "`csv_file'"
@@ -1076,7 +1081,8 @@ else {
 * --- I1: msm_protocol CSV export ---
 local ++test_count
 capture {
-    local csv_file "/tmp/_test_protocol.csv"
+    tempfile protocol_csv_anchor
+    local csv_file "`protocol_csv_anchor'.csv"
     capture erase "`csv_file'"
     msm_protocol, ///
         population("Adults age 18+") treatment("Drug A vs placebo") ///
@@ -1100,7 +1106,8 @@ else {
 * --- I2: msm_protocol Excel export ---
 local ++test_count
 capture {
-    local xlsx_file "/tmp/_test_protocol.xlsx"
+    tempfile protocol_xlsx_anchor
+    local xlsx_file "`protocol_xlsx_anchor'.xlsx"
     capture erase "`xlsx_file'"
     msm_protocol, ///
         population("Adults") treatment("Statin vs none") ///
@@ -1124,7 +1131,8 @@ else {
 * --- I3: msm_protocol LaTeX export ---
 local ++test_count
 capture {
-    local tex_file "/tmp/_test_protocol.tex"
+    tempfile protocol_tex_anchor
+    local tex_file "`protocol_tex_anchor'.tex"
     capture erase "`tex_file'"
     msm_protocol, ///
         population("HIV+ adults") treatment("ART vs no ART") ///
@@ -1635,7 +1643,7 @@ capture {
 
     * msm_table should now fail (no results available)
     capture msm_table, xlsx("`qa_dir'/test_stale.xlsx") replace
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS M5: msm_table rejects stale data after re-prepare"
@@ -1928,7 +1936,7 @@ capture {
     capture matrix drop _msm_fit_b
     capture matrix drop _msm_fit_V
     capture _msm_check_fitted
-    assert _rc != 0
+    assert _rc == 459
 }
 if _rc == 0 {
     display as result "  PASS M14: _msm_check_fitted catches missing matrices"
@@ -2203,7 +2211,7 @@ capture noisily {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(cov1)
     capture msm_validate, strict
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS R1: strict promotes check 6 (small period) to error"
@@ -2225,7 +2233,7 @@ capture noisily {
         covariates(biomarker comorbidity) ///
         baseline_covariates(age sex)
     capture msm_validate, strict
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS R2: strict promotes check 7 (zero-variation cov) to error"
@@ -2243,7 +2251,7 @@ capture noisily {
     _setup_pipeline, nolog
     msm_fit, model(logistic) outcome_cov(age sex) nolog
     capture msm_predict, times(12) samples(10)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS R3: msm_predict rejects extrapolation beyond max period"
@@ -2456,7 +2464,7 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS R11: msm_validate hard errors fail without strict"
+    display as result "  PASS R11: msm_validate reports hard errors without strict"
     local ++pass_count
 }
 else {
@@ -2520,7 +2528,10 @@ else {
 
 * Summary
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_msm_options tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_options ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: test_msm_options tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+capture log close _all
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     display as error "Failed:`failed_tests'"

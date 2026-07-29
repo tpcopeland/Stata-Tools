@@ -11,6 +11,9 @@ local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 local data_dir "`qa_dir'/data"
 
+capture log close _all
+log using "validation_msm.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 do "`qa_dir'/_msm_qa_common.do"
 
@@ -1629,7 +1632,7 @@ capture {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS 8.1: validate fails without prepare"
+    display as result "  PASS 8.1: validate is rejected without prepare"
     local ++pass_count
 }
 else {
@@ -1646,7 +1649,7 @@ capture {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS 8.2: weight fails without prepare"
+    display as result "  PASS 8.2: weight is rejected without prepare"
     local ++pass_count
 }
 else {
@@ -1664,7 +1667,7 @@ capture {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS 8.3: fit fails without weight"
+    display as result "  PASS 8.3: fit is rejected without weight"
     local ++pass_count
 }
 else {
@@ -1684,7 +1687,7 @@ capture {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS 8.4: predict fails without fit"
+    display as result "  PASS 8.4: predict is rejected without fit"
     local ++pass_count
 }
 else {
@@ -1774,7 +1777,7 @@ capture {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS 8.8: diagnose fails without weights"
+    display as result "  PASS 8.8: diagnose is rejected without weights"
     local ++pass_count
 }
 else {
@@ -3163,7 +3166,7 @@ capture noisily {
 
     * With strict: warnings become errors
     capture msm_validate, strict
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS 12.1: strict escalates check 6 warning to error"
@@ -3192,7 +3195,7 @@ capture noisily {
 
     * With strict: fails
     capture msm_validate, strict
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS 12.2: strict escalates check 7 (zero-variation) to error"
@@ -3222,7 +3225,7 @@ capture noisily {
 
     * Beyond max period should fail
     capture msm_predict, times(20) samples(10)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS 12.3: msm_predict rejects extrapolation beyond max period"
@@ -3337,8 +3340,11 @@ quietly timer list 99
 * Summary
 display as text ""
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed, `skip_count' skipped"
+do "`qa_dir'/_record_qa_result.do" validation_msm ///
+    `test_count' `pass_count' `fail_count' `skip_count'
 display as text "RESULT: validation_msm tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
 
+capture log close _all
 if `fail_count' > 0 {
     display as error "SOME VALIDATIONS FAILED"
     display as error "Failed:`failed_tests'"

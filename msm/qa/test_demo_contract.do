@@ -32,6 +32,17 @@ program define _dc_grep, rclass
     return scalar hit = r_hit
 end
 
+capture program drop _dc_assert_pass
+program define _dc_assert_pass
+    version 16.0
+    syntax using/
+    tempname fh
+    file open `fh' using "`using'", read text
+    file read `fh' line
+    file close `fh'
+    assert strtrim(`"`line'"') == "PASS"
+end
+
 * =========================================================================
 * DC1: demo .do is deterministic, portable, data-derived, and runs IPCW.
 * =========================================================================
@@ -64,7 +75,7 @@ else {
 }
 
 * =========================================================================
-* DC2: committed demo artifacts exist and are non-empty.
+* DC2: committed demo artifacts exist and have their documented structure.
 * =========================================================================
 local ++test_count
 capture noisily {
@@ -75,9 +86,41 @@ capture noisily {
         quietly checksum "`demo_dir'/`a'"
         assert r(filelen) > 0
     }
+
+    local xlsx_checker "`qa_dir'/tools/check_xlsx.py"
+    local png_checker "`qa_dir'/tools/check_png.py"
+    capture confirm file "`xlsx_checker'"
+    assert _rc == 0
+    capture confirm file "`png_checker'"
+    assert _rc == 0
+
+    tempfile artifact_status
+    shell python3 "`xlsx_checker'" "`demo_dir'/msm_protocol.xlsx" ///
+        --sheet-order Protocol --sheet Protocol --exact-cols 2 --min-rows 8 ///
+        --header-exact 1 component description ///
+        --result-file "`artifact_status'" --quiet
+    _dc_assert_pass using "`artifact_status'"
+
+    shell python3 "`xlsx_checker'" "`demo_dir'/msm_report.xlsx" ///
+        --sheet-order Summary Coefficients --sheet Summary ///
+        --cell A1 "MSM Analysis Summary" --min-rows 10 --min-cols 2 ///
+        --result-file "`artifact_status'" --quiet
+    _dc_assert_pass using "`artifact_status'"
+
+    shell python3 "`xlsx_checker'" "`demo_dir'/msm_tables.xlsx" ///
+        --sheet-order Coefficients Predictions Balance Weights Sensitivity ///
+        --sheet Coefficients --cell A2 Variable --min-rows 5 --min-cols 4 ///
+        --result-file "`artifact_status'" --quiet
+    _dc_assert_pass using "`artifact_status'"
+
+    foreach img in survival_plot.png weight_plot.png balance_plot.png {
+        shell python3 "`png_checker'" "`demo_dir'/`img'" ///
+            --width 1200 --height 800 --result-file "`artifact_status'"
+        _dc_assert_pass using "`artifact_status'"
+    }
 }
 if _rc == 0 {
-    display as result "PASS DC2: demo artifacts exist and are non-empty"
+    display as result "PASS DC2: demo workbooks and PNGs have the expected structure"
     local ++pass_count
 }
 else {
@@ -122,6 +165,8 @@ else {
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
 }
-display as text "RESULT: test_demo_contract tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_demo_contract ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_demo_contract tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

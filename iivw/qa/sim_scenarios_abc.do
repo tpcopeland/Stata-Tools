@@ -23,7 +23,7 @@ protocol-driven visits with no u_i dependence; artifact adds
 1.5 * log(test_n + 1) to each measurement.
 
 Usage:
-  do iivw/qa/sim_scenarios_abc.do              QA gate (fewer reps)
+  do iivw/qa/sim_scenarios_abc.do              sensitivity lane (fewer reps)
   do iivw/qa/sim_scenarios_abc.do manuscript   Full 1000 replications
   do iivw/qa/sim_scenarios_abc.do A            Single scenario, QA mode
 */
@@ -57,7 +57,9 @@ local max_visits   = 15
 local artifact_mag = 1.5
 local min_success  = floor(0.80 * `n_sims')
 
-*Gate tolerances, set from observed qa-mode runs (50 reps, N=200), not guessed:
+*Post-hoc regression envelopes, set from observed qa-mode runs (50 reps,
+*N=200). They detect implementation drift; they are not independent validation
+*thresholds:
 *                    A       B       C
 *   Unweighted   0.340   0.481   0.439   (coverage 0.52 / 0.18 / 0.34)
 *   IIW          0.304   0.477   0.382
@@ -65,7 +67,7 @@ local min_success  = floor(0.80 * `n_sims')
 *   FIPTIW+test      -   0.105   0.083
 *The Monte Carlo SE of each mean is sd_beta/sqrt(reps) ~ 0.02, so FIPTIW's
 *residual under an artifact (B, C) is a systematic 4-5 SE effect, not noise.
-*These are therefore BOUNDED recovery gates: the naive estimator must miss, the
+*These are therefore BOUNDED sensitivity checks: the naive estimator must miss, the
 *weighted estimator must remove most of that bias, and the confirmed residual
 *must stay inside the envelope. IIW alone is deliberately NOT gated on recovery:
 *it targets visit-process bias, not the treatment confounding induced by latent

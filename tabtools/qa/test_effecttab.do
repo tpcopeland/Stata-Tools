@@ -86,9 +86,9 @@ else {
 * Test 2: from() matrix with Excel export
 * ============================================================
 capture noisily {
-    effecttab, from(mymat) xlsx("/tmp/test_from_matrix.xlsx") sheet("Matrix") ///
+    effecttab, from(mymat) xlsx("`output_dir'/test_from_matrix.xlsx") sheet("Matrix") ///
         title("Matrix Results") effect("OR") digits(2)
-    confirm file "/tmp/test_from_matrix.xlsx"
+    confirm file "`output_dir'/test_from_matrix.xlsx"
 }
 if _rc == 0 {
     display as result "PASS: T2 — from() matrix Excel export works"
@@ -128,7 +128,7 @@ if _rc == 0 {
 
 	**# Test 2c: final missing workbook guard returns rc=601
 	capture noisily {
-	    local final_missing "/tmp/test_from_matrix_final_missing.xlsx"
+	    local final_missing "`output_dir'/test_from_matrix_final_missing.xlsx"
 	    capture erase "`final_missing'"
 	    global TABTOOLS_QA_EFF_ERASE_XLSX "`final_missing'"
 	    capture noisily effecttab, from(mymat) xlsx("`final_missing'") sheet("Missing") ///
@@ -378,10 +378,10 @@ capture noisily {
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
     capture frame drop _eff_csv
-    capture erase "/tmp/test_iptw.csv"
-    effecttab, csv("/tmp/test_iptw.csv") title("IPTW CSV") effect("ATE") clean ///
+    capture erase "`output_dir'/test_iptw.csv"
+    effecttab, csv("`output_dir'/test_iptw.csv") title("IPTW CSV") effect("ATE") clean ///
         frame(_eff_csv, replace)
-    confirm file "/tmp/test_iptw.csv"
+    confirm file "`output_dir'/test_iptw.csv"
     assert r(frame) == "_eff_csv"
     frame _eff_csv {
         local _csv_found = 0
@@ -403,7 +403,7 @@ capture noisily {
     * import with varnames(nonames): column k -> vk in display order
     * (v1 = label/A, v2 = estimate/c1, v4 = p-value/c3).
     preserve
-    import delimited "/tmp/test_iptw.csv", clear varnames(nonames)
+    import delimited "`output_dir'/test_iptw.csv", clear varnames(nonames)
     local _csv_match = 0
     forvalues _r = 1/`=_N' {
         local _lbl = strtrim(v1[`_r'])
@@ -478,10 +478,10 @@ capture noisily {
     webuse cattaneo2, clear
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, xlsx("/tmp/test_iptw_footnote.xlsx") sheet("Foot") ///
+    effecttab, xlsx("`output_dir'/test_iptw_footnote.xlsx") sheet("Foot") ///
         title("IPTW Effect") ///
         footnote("Source: Cattaneo 2010") effect("ATE")
-    confirm file "/tmp/test_iptw_footnote.xlsx"
+    confirm file "`output_dir'/test_iptw_footnote.xlsx"
 }
 if _rc == 0 {
     display as result "PASS: T11 — footnote with IPTW works"
@@ -499,9 +499,9 @@ capture noisily {
     webuse cattaneo2, clear
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, xlsx("/tmp/test_iptw_theme.xlsx") sheet("Lancet") ///
+    effecttab, xlsx("`output_dir'/test_iptw_theme.xlsx") sheet("Lancet") ///
         title("IPTW Lancet") effect("ATE") theme(lancet)
-    confirm file "/tmp/test_iptw_theme.xlsx"
+    confirm file "`output_dir'/test_iptw_theme.xlsx"
 }
 if _rc == 0 {
     display as result "PASS: T12 — theme with IPTW works"
@@ -519,9 +519,9 @@ capture noisily {
     webuse cattaneo2, clear
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, xlsx("/tmp/test_iptw_boldp.xlsx") sheet("Bold") ///
+    effecttab, xlsx("`output_dir'/test_iptw_boldp.xlsx") sheet("Bold") ///
         title("IPTW Bold") effect("ATE") boldp(0.05) highlight(0.01)
-    confirm file "/tmp/test_iptw_boldp.xlsx"
+    confirm file "`output_dir'/test_iptw_boldp.xlsx"
 }
 if _rc == 0 {
     display as result "PASS: T13 — boldp + highlight with IPTW works"
@@ -967,7 +967,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, xlsx("/tmp/iptw_fix_test.xlsx") sheet("IPTW") title("IPTW Fixed") effect("ATE")
+effecttab, xlsx("`output_dir'/iptw_fix_test.xlsx") sheet("IPTW") title("IPTW Fixed") effect("ATE")
 local _nrows = r(N_rows)
 if `_nrows' <= 8 {
     display as result "PASS: T9 — IPTW Excel export filtered (`_nrows' rows)"
@@ -999,7 +999,7 @@ else {
 * ============================================================
 capture {
     preserve
-    import excel "/tmp/iptw_fix_test.xlsx", sheet("IPTW") clear
+    import excel "`output_dir'/iptw_fix_test.xlsx", sheet("IPTW") clear
     * Check that "Mother's age" does not appear in column B
     tempvar has_ps
     gen byte `has_ps' = regexm(B, "Mother") | regexm(B, "prenatal") | ///
@@ -1404,7 +1404,7 @@ else {
 capture noisily {
     collect clear
     capture effecttab, xlsx("`output_dir'/_test_error.xlsx") sheet("Error")
-    assert _rc != 0
+    assert _rc == 119
 }
 if _rc == 0 {
     display as result "  PASS: effecttab - error on no collect"
@@ -1421,7 +1421,7 @@ capture noisily {
     collect clear
     collect: teffects ipw (outcome_bin) (treatment age), ate
     capture effecttab, xlsx("`output_dir'/_test_error.xls") sheet("Error")
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: effecttab - error on .xls extension"

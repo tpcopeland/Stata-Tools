@@ -12,7 +12,7 @@ stata-mp -b do run_all.do release    # full + benchmark
 stata-mp -b do run_all.do benchmark  # benchmark only
 ```
 
-Every file is independently runnable from `qa/`: `stata-mp -b do test_regtab.do`. Each file installs the package itself (`net install ... from(<pkg_dir>)`), so single-file runs touch your real PLUS; `run_all.do` instead sandboxes PLUS/PERSONAL in `c(tmpdir)` and restores them afterwards. The full and release lanes install `simsum`, `siman`, `sencode`, and `labelsof` into that disposable tree and fail if a required oracle is unavailable. `crossval_tabtools.do` runs the R companion fresh in a temporary directory and verifies all four regenerated fixtures before using them.
+Every file is independently runnable from `qa/`: `stata-mp -b do test_regtab.do`. Each file installs the package itself (`net install ... from(<pkg_dir>)`), so single-file runs touch your real PLUS; `run_all.do` instead sandboxes PLUS/PERSONAL in `c(tmpdir)` and restores them afterwards. The runner sets `processors 1`, uses per-process temporary paths, and emits its own `RESULT:` sentinel. The full and release lanes install `simsum`, `siman`, `sencode`, and `labelsof` into that disposable tree and fail if a required oracle is unavailable. `crossval_tabtools.do` runs the R companion fresh in a temporary directory and verifies all four regenerated fixtures before using them.
 
 Two restart/fresh-session contracts normally launch child Stata processes: the disk-backed profile restart in `test_tabtools.do` and the 21 help recipes in `test_tabtools_tips.do`. When a run must keep exactly one Stata process alive at a time, execute `tools/run_profile_restart.py` and `tools/run_help_recipes.py` first; both drivers run their Stata jobs strictly serially. Pass their result-file paths to the parent lane through `TABTOOLS_QA_PROFILE_RESTART_RESULT` and `TABTOOLS_QA_TIPS_RECIPES_RESULT`. The tests read and validate those handoffs instead of starting child processes.
 
@@ -22,7 +22,7 @@ The runner directs generated QA outputs to a per-run temporary directory. To rem
 bash clean_artifacts.sh
 ```
 
-Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
+Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any skip fails the `full` and `release` lanes; only `quick` treats the list as advisory.
 
 ## Lane membership
 
@@ -44,15 +44,11 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 - Files count tests with `test_count`/`pass_count`/`fail_count` locals and end
   with a machine-parseable sentinel: `RESULT: <name> tests=N pass=N fail=N`.
   A failing file exits nonzero.
+- `test_package_release.do` renders every shipped `.sthlp` through Stata's SMCL interpreter and includes a deliberately broken positive control, so a no-op render oracle cannot pass.
 - Sections inside consolidated files are marked `**# Migrated: <origin>` and
   keep their original assertions; Stata bookmarks (`**#`) give code folding.
-- Under `run_all.do`, generated artifacts go to a disposable directory under `c(tmpdir)`; independent file runs use gitignored `output/`. `data/` holds tracked crossval fixtures. `baseline/` holds tracked golden-output digests (TSV) used by `test_package_release.do`.
-- Several tests load Stata example data via `webuse` (network access
-  required). `test_package_integration.do` additionally requires the sibling
-  `eplot` package at `../../eplot` and exits 601 without it.
-  Excel-content assertions need `python3` with `openpyxl` (`tools/check_xlsx.py`);
-  `crossval_tabtools.do` requires `Rscript` plus Python with `numpy` and
-  `statsmodels`. A full/release lane has zero acceptable hidden oracle skips.
+- Under `run_all.do`, generated artifacts go to a disposable directory under `c(tmpdir)`; independent file runs use gitignored `output/`. `data/` holds tracked crossval fixtures. `baseline/` holds tracked semantic summaries; the manifest distinguishes regenerated gates from stored-only historical references.
+- Several tests load Stata example data via `webuse` (network access required). `test_package_integration.do` additionally requires the sibling `eplot` package at `../../eplot` and exits 601 without it. Excel-content assertions require the vendored `tools/check_xlsx.py` and `python3` with `openpyxl`; a missing checker is a failure even when a Stata-native diagnostic can still run. `crossval_tabtools.do` requires `Rscript` plus Python with `numpy` and `statsmodels`. A full/release lane has zero acceptable hidden oracle skips.
 
 ## File index
 
@@ -60,7 +56,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | File | Covers | Notes |
 |------|--------|-------|
-| `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, edge cases (all-missing, single obs/group, long labels), dots progress option, pdp()/highpdp() 1-10 bound (1.9.11), v1.0.13–v1.5 regressions |
+| `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, semantic edge contracts (all-missing row, one observation/group, long labels), dots progress option, pdp()/highpdp() 1-10 bound (1.9.11), v1.0.13–v1.5 regressions |
 | `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns (r(version) parsed live from the .ado header) |
 | `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions |
 | `test_corrtab.do` | corrtab | Pearson/Spearman, stars, shapes, pairwise-N p-value regression |
@@ -88,7 +84,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `test_package_hardening.do` | Hostile edge-case sweep across the shared export surface: extreme table shapes (single column/row, no title, title wider than table, sheet-reshape stale-cell clearing → B2 geometry), pathological cell content round-trip (pipes/commas/quotes/leading-`=`/negatives through md/csv/xlsx), locale (`set dp comma` must not corrupt numeric export), and re-run / session-state safety (varabbrev + data + frame restoration) |
 | `test_deep_audit_core.do` | Critical destructive/silent-corruption regressions plus Table 1 and simtab sample/cell identity contracts: Excel used ranges, frame alias/current-source transactions, semantic metadata, GLM scales, fweight/sample handling, and adversarial failures |
 | `test_deep_audit_output.do` | Output/provenance regressions: CI levels, near-one p-values, zero effects, reserved labels, maximum precision, atomic sinks, trend errors, Markdown, medians, empty templates, and quotation preservation |
-| `test_package_release.do` | Release gates: required artifacts, canonical metadata, manifest/install contracts, help versions, staged demo regeneration compared semantically with all 15 tracked workbooks, the eplot integration demo (runs `demo_tabtools_eplot.do` and regenerates both forest PNGs; skips-with-record when the `eplot` sibling is absent), and golden-output digests vs `baseline/summaries/`; tracked demo assets are never rewritten by ordinary QA |
+| `test_package_release.do` | Release gates: required artifacts, canonical metadata, manifest/install contracts, help versions, rendered-SMCL checks with a positive control, staged demo regeneration compared semantically with all 15 tracked workbooks, the required eplot integration demo (runs `demo_tabtools_eplot.do` and regenerates both forest PNGs), and regenerated golden-output digests vs `baseline/summaries/`; tracked demo assets are never rewritten by ordinary QA |
 | `test_option_coverage.do` | Drives per-command OPTION coverage to 100% of the testable surface: every public option of every command is passed in a real invocation and accepted (see [Option coverage](#option-coverage)). Excludes `open` (GUI launch). |
 
 ### Validation (known answers, oracles, invariants)
@@ -110,7 +106,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | File | Purpose |
 |------|---------|
-| `crossval_tabtools.do` | Runs `crossval_tabtools_companion.R` fresh, compares all four regenerated fixtures with tracked data, bridges CV1–17 to public command frames/returns, and includes command-backed CV18–20 (diagtab/crosstab/stratetab) plus **CV21–23** verifying `regtab` model-fit statistics against `estat ic`, `estat icc`, and an independent statsmodels fixed-scale GEE QICu oracle; CV23 compares within-data model differences, checks the rendered label and AIC/QICu deduplication, and rejects estimated model-specific dispersion |
+| `crossval_tabtools.do` | Runs `crossval_tabtools_companion.R` fresh, compares all four regenerated fixtures with tracked data, uses exact `qnorm(0.975)`/`invnormal(0.975)` interval quantiles, bridges CV1–17 to public command frames/returns, and includes command-backed CV18–20 (diagtab/crosstab/stratetab) plus **CV21–23** verifying `regtab` model-fit statistics against `estat ic`, `estat icc`, and an independent statsmodels fixed-scale GEE QICu oracle; CV19 filters nonpositive fweights before explicit expansion, and CV23 compares within-data model differences, checks the rendered label and AIC/QICu deduplication, and rejects estimated model-specific dispersion |
 | `benchmark_tabtools_speed.do` | Speed guardrails (release/benchmark lanes only) |
 
 ### Support
@@ -120,6 +116,10 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `tools/` | Excel/Markdown/render checkers, semantic demo-tree and crossval-fixture comparators, `run_profile_restart.py` (two-phase serial profile restart), `run_help_recipes.py` (21 fresh Stata processes, run serially), `style_engine_compare.py`, and `option_coverage.py` |
 | `data/` | Tracked crossval fixture CSVs (R reference results) |
 | `baseline/` | Tracked golden-output digest TSVs + `baseline_manifest.tsv` (consumed by `test_package_release.do`) |
+| `CROSSVAL_MODULE_MAP.md` | Package-to-oracle mapping for CV1–CV23 |
+| `TOLERANCE_FRAMEWORK.md` | Numerical and display-tolerance policy |
+| `fixtures_manifest.md` | Fixture ownership, regeneration, and consumer map |
+| `_visual_stress_gen.do` | Manual disposable workbook generator; not a release-lane test |
 | `output/` | Generated artifacts (gitignored) |
 | `clean_artifacts.sh` | Deletes only ignored runtime artifacts from the package/QA roots and disposable `output/` contents |
 

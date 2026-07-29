@@ -15,7 +15,8 @@ local fail_count = 0
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local outdir "`c(tmpdir)'/`c(pid)'_tabtools_deep_audit"
+tempfile output_token
+local outdir "`output_token'_tabtools_deep_audit"
 capture mkdir "`outdir'"
 
 capture ado uninstall tabtools
@@ -525,5 +526,10 @@ set level 95
 display as text ""
 display "RESULT: test_deep_audit_output tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _deepoutput
+if `fail_count' == 0 {
+    capture shell rm -rf "`outdir'"
+    local cleanup_rc = _rc
+    if `cleanup_rc' exit `cleanup_rc'
+}
 if `fail_count' > 0 exit 9
 exit, clear

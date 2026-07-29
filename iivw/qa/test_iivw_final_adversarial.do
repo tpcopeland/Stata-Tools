@@ -440,22 +440,25 @@ if `run_only' == 0 | `run_only' == 10 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(extreme_cov) nolog
 
         * Weights should be finite (no Inf/NaN from exp(-huge_xb))
-        quietly count if missing(_iivw_weight)
-        local n_miss = r(N)
+        quietly count if missing(_iivw_weight) | _iivw_weight <= 0
+        assert r(N) == 0
         quietly count if _iivw_weight > 1e15 & !missing(_iivw_weight)
         local n_huge = r(N)
 
-        * At minimum: no crashes, weights created
         confirm variable _iivw_weight
-        assert r(N) >= 0
+        quietly summarize _iivw_weight, meanonly
+        assert r(N) == _N
+        assert r(min) > 0 & r(max) < .
+        display as text "  Untruncated weights above 1e15: " `n_huge'
 
         * Truncation should tame extreme weights
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(extreme_cov) ///
             truncfinal(5 95) replace nolog
-        quietly summarize _iivw_weight
-        * After truncation, max weight should be finite and bounded
-        assert r(max) < .
-        assert r(min) > 0 | r(min) == .
+        quietly count if missing(_iivw_weight) | _iivw_weight <= 0
+        assert r(N) == 0
+        quietly summarize _iivw_weight, meanonly
+        assert r(N) == _N
+        assert r(min) > 0 & r(max) < .
     }
     if _rc == 0 {
         display as result "  PASS: T10 - extreme xb weights handled"

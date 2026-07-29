@@ -747,13 +747,14 @@ if `run_only' == 0 | `run_only' == 7 {
 }
 
 * =============================================================================
-* XV8: FIPTIW product property holds and weights correlated with R
+* XV8: Legacy observed-event FIPTIW components match R row by row
 * =============================================================================
 *
-* The Tompkins R code uses STABILIZED IIW (marginal/conditional intensity
-* ratio), while iivw_weight's default is UNSTABILIZED (exp(-xb)).
-* To match R's stabilized approach, we use stabcov().
-* We verify: (a) product property holds, (b) weights are reasonable.
+* This companion fixture uses endatlastvisit, so it establishes parity for the
+* legacy observed-event construction, not the recommended full-risk-window
+* estimator. Compare the separately exported IIW, IPTW, and product components.
+* A correlation-only gate was removed: multiplying every reference by 100
+* leaves correlation at 1.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 8 {
@@ -763,56 +764,77 @@ if `run_only' == 0 | `run_only' == 8 {
         rename d treated
         rename wt wt_cov
         rename z z_cov
-        rename fiptiw_weight r_fiptiw
+        rename iiw_unstab r_iivw_raw
+        rename iptw_weight r_iptw
+        rename fiptiw_weight_baseevent r_fiptiw_raw
 
-        * FIPTIW with stabilized IIW (matching Tompkins' approach)
-        * Numerator model: treated only; Denominator: treated + wt_cov + z_cov
+        * Treatment is present by construction, as required for FIPTIW.
         iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(treated wt_cov z_cov) ///
-            stabcov(treated) ///
             treat(treated) treat_cov(w) nolog
 
-        * Verify product property: FIPTIW = IIW * IPTW
+        * Match the package's mean-one normalization over modeled events.
+        quietly summarize r_iivw_raw, meanonly
+        gen double r_iivw = r_iivw_raw / r(mean)
+        gen double r_fiptiw = r_iivw * r_iptw
+
+        gen double iivw_diff = abs(_iivw_iw - r_iivw)
+        gen double iptw_diff = abs(_iivw_tw - r_iptw)
+        gen double fiptiw_diff = abs(_iivw_weight - r_fiptiw)
         gen double product_diff = abs(_iivw_weight - _iivw_iw * _iivw_tw)
-        quietly summarize product_diff
-        assert r(max) < 1e-10
 
-        * Correlation with R's FIPTIW
-        correlate _iivw_weight r_fiptiw
-        local rho = r(rho)
-        display as text "  FIPTIW product property: verified (max diff < 1e-10)"
-        display as text "  Correlation(Stata FIPTIW, R FIPTIW): " %6.4f `rho'
+        quietly summarize iivw_diff, meanonly
+        local max_iivw = r(max)
+        quietly summarize iptw_diff, meanonly
+        local max_iptw = r(max)
+        quietly summarize fiptiw_diff, meanonly
+        local max_fiptiw = r(max)
+        quietly summarize product_diff, meanonly
+        local max_product = r(max)
 
-        * Tolerance: correlation > 0.75 (same DGP, cross-sectional logit)
-        assert `rho' > 0.75
+        display as text "  max |IIW - R|:      " %12.9f `max_iivw'
+        display as text "  max |IPTW - R|:     " %12.9f `max_iptw'
+        display as text "  max |FIPTIW - R|:   " %12.9f `max_fiptiw'
+        display as text "  max |W - IIW*IPTW|: " %12.9f `max_product'
+
+        assert `max_iivw' < 0.01
+        assert `max_iptw' < 0.01
+        * On this deterministic rounded-time fixture, Stata/R Cox predictions
+        * differ by at most 0.00876 in the IIW component; propagation through
+        * IPTW gives 0.01063. The 0.012 product bound is measured, narrow, and
+        * still rejects the calibrated scale mutation below by orders of
+        * magnitude.
+        assert `max_fiptiw' < 0.012
+        assert `max_product' < 1e-10
+
+        * Mutation calibration for the retired correlation oracle.
+        quietly correlate _iivw_weight r_fiptiw
+        local rho_unscaled = r(rho)
+        gen double r_fiptiw_scaled = 100 * r_fiptiw
+        quietly correlate _iivw_weight r_fiptiw_scaled
+        assert abs(r(rho) - `rho_unscaled') < 1e-12
+        gen double scaled_diff = abs(_iivw_weight - r_fiptiw_scaled)
+        quietly summarize scaled_diff, meanonly
+        assert r(max) > 0.01
     }
     if _rc == 0 {
-        display as result "  PASS: XV8 - FIPTIW product holds, correlated with R (r > 0.75)"
+        display as result "  PASS: XV8 - legacy FIPTIW components match R row by row"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: XV8 - FIPTIW comparison (error `=_rc')"
+        display as error "  FAIL: XV8 - legacy FIPTIW component parity (error `=_rc')"
         local ++fail_count
     }
 }
 
 * =============================================================================
-* XV9: FIPTIW inferential coverage of the true treatment effect (reference draw)
+* XV9: 90% fixed-weight CI transformation matches R geepack
 * =============================================================================
 *
-* True beta1 = 0.5. This is ONE fixed simulated draw, so the FIPTIW point
-* estimate carries sampling error (SE ~= 0.26 here) and legitimately lands away
-* from 0.5 even when the estimator is unbiased: iivw reproduces the independent
-* R geepack estimate on this draw to 3 decimals (XV10 asserts that parity), so
-* the ~0.80 point value is the correct answer for this dataset, not a defect.
-* A hard point-bias bound on a single estimated draw is therefore NOT a valid
-* test -- it false-fails on sampling noise (see _shared: a fixed tolerance on an
-* estimated quantity false-reds). Point recovery IN EXPECTATION is gated
-* rigorously and multi-draw in validation_iivw_fiptiw_recovery.do
-* (|bias| < 3*MCSE across replications). The valid single-draw check here is
-* INFERENTIAL: the 95% Wald CI for the FIPTIW effect must cover the truth 0.5.
-* The vce(fixed) SE treats the weights as known, so this CI is if anything too
-* NARROW -- a conservative (stricter) coverage gate, not a lenient one.
+* One simulated draw cannot test nominal coverage. It can test whether iivw
+* propagates level() and transforms the independently reproduced coefficient
+* and robust SE into the same Wald endpoints. Population coverage is assessed
+* only by the multi-draw coverage suites.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 9 {
@@ -824,37 +846,39 @@ if `run_only' == 0 | `run_only' == 9 {
         rename z z_cov
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
-            visit_cov(wt_cov z_cov) ///
+            visit_cov(treated wt_cov z_cov) ///
             treat(treated) treat_cov(w) nolog
 
-        * Unweighted GEE (reported only: one draw cannot rank two estimators by
-        * bias, so this is context, not a gate)
-        quietly glm y treated time, vce(cluster id) nolog
-        local b_unwt = _b[treated]
+        iivw_fit y treated, vce(fixed) timespec(linear) level(90) nolog
+        local s_b = _b[treated]
+        local s_se = _se[treated]
+        local z90 = invnormal(0.95)
+        local s_lo = `s_b' - `z90' * `s_se'
+        local s_hi = `s_b' + `z90' * `s_se'
 
-        * FIPTIW-weighted GEE
-        iivw_fit y treated, vce(fixed) timespec(linear) nolog
-        local b_fiptiw = _b[treated]
-        local se_fiptiw = _se[treated]
+        preserve
+        import delimited "`qa_dir'/fiptiw_outcome_geeglm.csv", clear
+        local r_b = d[1]
+        local r_se = se_d[1]
+        restore
+        local r_lo = `r_b' - `z90' * `r_se'
+        local r_hi = `r_b' + `z90' * `r_se'
 
-        * 95% Wald CI for the FIPTIW treatment effect
-        local ci_lo = `b_fiptiw' - invnormal(0.975)*`se_fiptiw'
-        local ci_hi = `b_fiptiw' + invnormal(0.975)*`se_fiptiw'
+        display as text "  Stata 90% CI: [" %9.6f `s_lo' ", " %9.6f `s_hi' "]"
+        display as text "  R 90% CI:     [" %9.6f `r_lo' ", " %9.6f `r_hi' "]"
 
-        display as text "  True beta1 = 0.5"
-        display as text "  Unweighted (reported): " %8.4f `b_unwt'
-        display as text "  FIPTIW: " %8.4f `b_fiptiw' "  SE = " %7.4f `se_fiptiw'
-        display as text "  95% CI = [" %7.4f `ci_lo' ", " %7.4f `ci_hi' "]  (must cover 0.5)"
-
-        * The estimator's 95% CI must cover the true effect on this reference draw.
-        assert `ci_lo' < 0.5 & 0.5 < `ci_hi'
+        assert e(level) == 90
+        assert abs(`s_b' - `r_b') < 0.001
+        assert abs(`s_se' - `r_se') / `r_se' < 0.05
+        assert abs(`s_lo' - `r_lo') < 0.02
+        assert abs(`s_hi' - `r_hi') < 0.02
     }
     if _rc == 0 {
-        display as result "  PASS: XV9 - FIPTIW 95% CI covers the true effect (0.5)"
+        display as result "  PASS: XV9 - level(90) CI endpoints match R geepack"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: XV9 - treatment effect coverage (error `=_rc')"
+        display as error "  FAIL: XV9 - level(90) CI parity (error `=_rc')"
         local ++fail_count
     }
 }

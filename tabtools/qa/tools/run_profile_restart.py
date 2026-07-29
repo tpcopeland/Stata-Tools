@@ -56,6 +56,7 @@ def main() -> int:
 
     phase1.write_text(
         f"""clear all
+set processors 1
 set more off
 set varabbrev off
 version 17.0
@@ -79,6 +80,7 @@ exit 0
 
     phase2.write_text(
         f"""clear all
+set processors 1
 set more off
 set varabbrev off
 version 17.0

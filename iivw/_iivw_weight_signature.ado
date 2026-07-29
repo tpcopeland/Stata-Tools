@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 3.1.1  2026/07/27
+*! _iivw_weight_signature Version 3.1.2  2026/07/29
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -38,14 +38,16 @@
 * principle collide. It is built to catch accident (an edit, a drop, a merge, a
 * re-weight), not to withstand an adversary.
 *
-* It is deliberately built ONLY from sums, so it is invariant to row order: a
-* harmless `sort' or `gsort' between weighting and fitting must not trip it.
-* For each bound column v the parts are sum(v), sum(v^2), sum(v*k), sum(v*t)
-* and the missing count, where k = group(id). The CROSS terms are what bind
-* each value to the row it belongs to -- without them, permuting a column
+* It is deliberately built from sums evaluated in canonical key/time order, so
+* a harmless `sort' or `gsort' between weighting and fitting must not trip it.
+* Canonical ordering is load-bearing even for sums: floating-point reduction in
+* arbitrary row order can differ by one bit, which an exact %21x fingerprint
+* would mistake for a data edit. For each bound column v the parts are sum(v),
+* sum(v^2), sum(v*k), sum(v*t), and the missing count, where k = group(id).
+* The CROSS terms bind each value to its row -- without them, permuting a column
 * against the key would leave sum(v) and sum(v^2) unchanged and pass.
 
-program define _iivw_weight_signature, rclass
+program define _iivw_weight_signature, rclass sortpreserve
     version 16.0
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
@@ -95,6 +97,7 @@ program define _iivw_weight_signature, rclass
     * ---------------------------------------------------------------------
     tempvar k
     quietly egen long `k' = group(`s_id')
+    quietly sort `k' `s_time'
 
     local __iivw_n = _N
 
@@ -113,9 +116,22 @@ program define _iivw_weight_signature, rclass
     * %10.0g would round away the very edits it is meant to detect.
     local __iivw_parts "`__iivw_n'|`__iivw_nid'|`__iivw_nidmiss'"
 
+    * Scan consecutive numeric columns together. In the usual case every
+    * bound column exists, so Mata copies the key/time vectors once and scans
+    * the entire list. Flushing a segment before a GONE marker preserves the
+    * contract's exact column order when a bound variable has been removed.
+    local __iivw_segment ""
     foreach __iivw_v of local __iivw_bind {
         capture confirm numeric variable `__iivw_v'
         if _rc {
+            if "`__iivw_segment'" != "" {
+                mata: _iivw_weight_signature_vars( ///
+                    "`__iivw_segment'", "`k'", "`s_time'")
+                local __iivw_parts ///
+                    "`__iivw_parts'`__iivw_mata_parts'"
+                local __iivw_segment ""
+            }
+
             * A bound column that is gone, or has become non-numeric, is itself
             * a broken contract. Record it as such rather than skipping it: a
             * skipped column is a column whose edits stop being detected.
@@ -123,21 +139,12 @@ program define _iivw_weight_signature, rclass
             continue
         }
 
-        tempvar v2 vk vt
-        quietly generate double `v2' = `__iivw_v' * `__iivw_v'
-        quietly generate double `vk' = `__iivw_v' * `k'
-        quietly generate double `vt' = `__iivw_v' * `s_time'
-
-        local __iivw_parts "`__iivw_parts'|`__iivw_v':"
-        foreach __iivw_c in `__iivw_v' `v2' `vk' `vt' {
-            quietly summarize `__iivw_c', meanonly
-            local __iivw_sum = cond(r(N) == 0, 0, r(sum))
-            local __iivw_parts "`__iivw_parts'`=string(`__iivw_sum', "%21x")',"
-        }
-        quietly count if missing(`__iivw_v')
-        local __iivw_parts "`__iivw_parts'`r(N)'"
-
-        drop `v2' `vk' `vt'
+        local __iivw_segment "`__iivw_segment' `__iivw_v'"
+    }
+    if "`__iivw_segment'" != "" {
+        mata: _iivw_weight_signature_vars( ///
+            "`__iivw_segment'", "`k'", "`s_time'")
+        local __iivw_parts "`__iivw_parts'`__iivw_mata_parts'"
     }
 
     * ---------------------------------------------------------------------
@@ -169,4 +176,48 @@ program define _iivw_weight_signature, rclass
     local rc = _rc
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
+end
+
+capture mata: mata drop _iivw_weight_signature_vars()
+mata:
+void _iivw_weight_signature_vars(
+    string scalar bind,
+    string scalar kname,
+    string scalar tname)
+{
+    string rowvector vars
+    string scalar parts
+    real colvector k, t, kk, tt, v, vv
+    real scalar j
+    real scalar s1, s2, sk, st, nmiss
+
+    vars = tokens(bind)
+    parts = ""
+    st_view(k, ., kname)
+    st_view(t, ., tname)
+    kk = editmissing(k, 0)
+    tt = editmissing(t, 0)
+
+    for (j = 1; j <= cols(vars); j++) {
+        st_view(v, ., vars[j])
+
+        // quadcross() performs the four numeric reductions without
+        // materializing v^2, v*k, or v*time in Stata. Replacing missings by
+        // zero reproduces summarize's exclusion rule for each cross-product.
+        nmiss = colsum(missing(v))
+        vv = editmissing(v, 0)
+        s1 = quadcolsum(vv)
+        s2 = quadcross(vv, vv)
+        sk = quadcross(vv, kk)
+        st = quadcross(vv, tt)
+
+        parts = parts + "|" + vars[j] + ":" +
+            strtrim(strofreal(s1, "%21x")) + "," +
+            strtrim(strofreal(s2, "%21x")) + "," +
+            strtrim(strofreal(sk, "%21x")) + "," +
+            strtrim(strofreal(st, "%21x")) + "," +
+            strofreal(nmiss)
+    }
+    st_local("__iivw_mata_parts", parts)
+}
 end

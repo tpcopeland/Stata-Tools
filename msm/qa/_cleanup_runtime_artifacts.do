@@ -5,57 +5,21 @@ version 16.0
 
 local qa_dir "`c(pwd)'"
 
-foreach f in ///
-    _cleanup_runtime_artifacts.log ///
-    run_all_runner.log ///
-    test_demo_contract.log ///
-    test_export_surface.log ///
-    test_msm.log ///
-    test_msm_abbrev_reload.log ///
-    test_msm_continuous_exposure.log ///
-    test_msm_cox_state.log ///
-    test_msm_diagtab.log ///
-    test_msm_independent_review.log ///
-    test_msm_psdash_contract.log ///
-    test_msm_state_guards.log ///
-    test_msm_state_identity.log ///
-    test_msm_status.log ///
-    test_msm_weight_ergonomics.log ///
-    test_msm_fit_guidance.log ///
-    test_msm_cox_state.log ///
-    test_msm_weight_failures.log ///
-    test_msm_weight_adversarial.log ///
-    test_msm_prepare_validate_adversarial.log ///
-    test_msm_output_adversarial.log ///
-    test_msm_expanded.log ///
-    test_msm_options.log ///
-    test_msm_phase2.log ///
-    test_msm_phase3.log ///
-    test_msm_phase4.log ///
-    test_msm_phase5.log ///
-    test_msm_phase6.log ///
-    test_package_release.log ///
-    validation_msm.log ///
-    validation_msm_known_answers.log ///
-    validation_msm_expanded.log ///
-    validation_msm_dgp_recovery.log ///
-    validation_msm_phase3_recovery.log ///
-    validation_msm_recovery.log ///
-    validation_msm_sensitivity.log ///
-    crossval_external_models.log ///
-    crossval_msm.log {
-    capture erase "`qa_dir'/`f'"
+* Concern-based globs keep cleanup synchronized when a suite is added or
+* renamed. They are deliberately scoped to this qa/ directory.
+foreach pattern in "test_*.log" "validation_*.log" "crossval_*.log" "msm_*.log" {
+    local logs : dir "`qa_dir'" files "`pattern'"
+    foreach f of local logs {
+        capture erase "`qa_dir'/`f'"
+    }
 }
+capture erase "`qa_dir'/_cleanup_runtime_artifacts.log"
+capture erase "`qa_dir'/run_all_runner.log"
 
 * Deliberately do not erase run_all.log or the compatibility
 * run_all_validations.log here. In batch mode Stata opens that file before this
 * do-file starts; erasing it unlinks the only log that survives child suites'
 * `log close _all` calls (audit finding N06).
-
-local orphan_logs : dir "`qa_dir'" files "msm_*.log"
-foreach f of local orphan_logs {
-    capture erase "`qa_dir'/`f'"
-}
 
 foreach f in ///
     crossval_data/dgp1_panel.csv ///

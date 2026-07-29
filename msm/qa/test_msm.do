@@ -12,6 +12,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "test_msm.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
@@ -158,7 +161,7 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: validate fails without prepare"
+    display as result "  PASS: validate is rejected without prepare"
     local ++pass_count
 }
 else {
@@ -284,7 +287,7 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: weight fails without prepare"
+    display as result "  PASS: weight is rejected without prepare"
     local ++pass_count
 }
 else {
@@ -452,9 +455,11 @@ else {
     local failed_tests "`failed_tests' T11.1"
 }
 
+tempfile report_csv_anchor
+local report_csv "`report_csv_anchor'.csv"
 local ++test_count
 capture noisily {
-    capture msm_report, export("/tmp/_test_report.csv") format(csv) eform replace
+    capture msm_report, export("`report_csv'") format(csv) eform replace
     assert _rc == 0
 }
 if _rc == 0 {
@@ -466,7 +471,7 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' T11.2"
 }
-capture erase "/tmp/_test_report.csv"
+capture erase "`report_csv'"
 
 * --- TEST 12: msm_protocol ---
 
@@ -690,7 +695,10 @@ else {
 
 * Summary
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_msm tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: test_msm tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+capture log close _all
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     display as error "Failed:`failed_tests'"

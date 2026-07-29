@@ -22,11 +22,19 @@ quietly log using "test_tvm_overlap_drift_guard.log", replace nomsg
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap
 local pkg_dir "`r(pkg_dir)'"                 // .../tvtools
-local stata_tools = substr("`pkg_dir'", 1, strrpos("`pkg_dir'", "/") - 1)
-local rm_dir "`stata_tools'/rangematch"
+local repo_dir = substr("`pkg_dir'", 1, strrpos("`pkg_dir'", "/") - 1)
+local rm_dir "`repo_dir'/rangematch"
+
+local test_count = 0
+local pass_count = 0
+local fail_count = 0
+local failed_tests ""
+
 capture confirm file "`rm_dir'/rangematch.ado"
 if _rc {
     display as error "rangematch package not found at `rm_dir'; cannot run drift guard"
+    display "RESULT: test_tvm_overlap_drift_guard tests=4 pass=0 fail=4"
+    capture log close _all
     exit 601
 }
 capture ado uninstall rangematch
@@ -37,10 +45,6 @@ quietly net install rangematch, from("`rm_dir'") replace
 findfile _tvmerge_mata.ado
 run "`r(fn)'"
 
-local test_count = 0
-local pass_count = 0
-local fail_count = 0
-local failed_tests ""
 tempfile MAS USG ORACLE TVMOUT RMOUT
 
 * ---------------------------------------------------------------------------

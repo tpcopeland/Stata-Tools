@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.2  28jul2026}{...}
+{* *! version 1.4.3  29jul2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}

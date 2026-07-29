@@ -373,6 +373,12 @@ equivalent.
 {pstd}
 After fitting, {cmd:msm_weight} reports a weight summary. Key diagnostics:
 
+{pstd}
+All weight-distribution summaries, truncation counts, and ESS diagnostics use
+the decision-risk rows marked by {cmd:_msm_decision_risk}. Post-event or
+post-censor rows that merely carry the last cumulative weight forward are
+excluded.
+
 {phang2}{bf:Mean {c ~} 1.0:} Stabilized weights should have a mean close to
 1. A mean far from 1 suggests the numerator or denominator model may be
 misspecified.{p_end}
@@ -458,15 +464,15 @@ Scalars are available only after fitting. They are not returned by
 
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2: Scalars}{p_end}
-{synopt:{cmd:r(mean_weight)}}mean of the final combined weight{p_end}
-{synopt:{cmd:r(sd_weight)}}standard deviation of the final weight{p_end}
-{synopt:{cmd:r(min_weight)}}minimum weight{p_end}
-{synopt:{cmd:r(max_weight)}}maximum weight{p_end}
-{synopt:{cmd:r(p1_weight)}}1st percentile weight{p_end}
-{synopt:{cmd:r(median_weight)}}median weight{p_end}
-{synopt:{cmd:r(p99_weight)}}99th percentile weight{p_end}
-{synopt:{cmd:r(ess)}}effective sample size{p_end}
-{synopt:{cmd:r(n_truncated)}}number of observations truncated{p_end}
+{synopt:{cmd:r(mean_weight)}}mean of the final combined weight on decision-risk rows{p_end}
+{synopt:{cmd:r(sd_weight)}}standard deviation of the final weight on decision-risk rows{p_end}
+{synopt:{cmd:r(min_weight)}}minimum weight on decision-risk rows{p_end}
+{synopt:{cmd:r(max_weight)}}maximum weight on decision-risk rows{p_end}
+{synopt:{cmd:r(p1_weight)}}1st percentile weight on decision-risk rows{p_end}
+{synopt:{cmd:r(median_weight)}}median weight on decision-risk rows{p_end}
+{synopt:{cmd:r(p99_weight)}}99th percentile weight on decision-risk rows{p_end}
+{synopt:{cmd:r(ess)}}effective sample size on decision-risk rows{p_end}
+{synopt:{cmd:r(n_truncated)}}number of decision-risk rows truncated{p_end}
 {synopt:{cmd:r(n_fitfail_fallback)}}number of model-level marginal fallback events{p_end}
 {synopt:{cmd:r(fitfailure_fallback)}}1 if any fallback was used, 0 otherwise{p_end}
 {synopt:{cmd:r(n_probability_repairs)}}total missing, low, and high probability repairs{p_end}

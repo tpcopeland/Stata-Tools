@@ -9,6 +9,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "test_msm_weight_adversarial.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local tol = 1e-8
@@ -494,7 +497,8 @@ capture noisily {
     * censor carry-forward rows no longer distort them.  This panel keeps all 5
     * periods per id, so it HAS post-risk rows and these aggregates moved.  The
     * new values are independently established by WADV6 above (percentile oracle
-    * over _msm_decision_risk) and by test_msm_phase2.do's A11 invariance test
+    * over _msm_decision_risk) and by
+    * test_msm_risk_process_regressions.do's A11 invariance test
     * (appended post-risk rows leave every at-risk result bit-for-bit identical),
     * NOT because the suite went green.  Scope check: every _msm_tw_weight value
     * below is unchanged to 16 digits -- A11 touched only the truncation/ESS
@@ -535,7 +539,10 @@ display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'
 display as text "Passed:    " as result `pass_count'
 display as text "Failed:    " as result `fail_count'
-display as text "RESULT: test_msm_weight_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_weight_adversarial ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_weight_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+capture log close _all
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     display as text "{hline 72}"

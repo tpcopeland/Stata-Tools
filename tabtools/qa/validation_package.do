@@ -407,9 +407,8 @@ if `has_check_xlsx' {
     }
 }
 else {
-    display as text "  SKIP: V10.5 - font propagation (check_xlsx.py unavailable)"
-    local ++pass_count
-    local --test_count
+    display as error "  FAIL: V10.5 - font propagation (required check_xlsx.py unavailable)"
+    local ++fail_count
 }
 
 tabtools set clear
@@ -884,7 +883,10 @@ capture confirm file "`checker'"
 if _rc != 0 local checker ""
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
-    display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
+    display as error "FAIL: required vendored qa/tools/check_xlsx.py is missing"
+    local ++n_total
+    local ++fail_count
+    display as text "Running Stata-native diagnostics for additional evidence"
 
     * Stata-native fallback: generate xlsx, verify title cells with import excel
     local ++n_total

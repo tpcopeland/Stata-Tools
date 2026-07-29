@@ -311,7 +311,7 @@ capture noisily {
     * nsim < per-cell reps must error
     capture simtab estid, estimate(est) se(se) true(truev) by(sc) ///
         coverage(covered) nsim(10) metrics(n nonconv) display
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS T6: non-convergence reporting"
@@ -624,9 +624,9 @@ else {
 capture noisily {
     _simtab_fixture, reps(400)
     capture simtab method, from(summary) estimate(estimate) se(se) true(0.5) display
-    assert _rc != 0
+    assert _rc == 198
     capture simtab, from(bogus) display
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS T2: ingest error paths"
@@ -1185,7 +1185,7 @@ capture noisily {
     capture simtab estid, estimate(est) se(se) true(1e-3x) frame(_i03b_fr)
     assert _rc == 198
     capture simtab estid, estimate(est) se(se) true(no_such_variable) frame(_i03b_fr)
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS: I03b invalid true() values are still rejected"

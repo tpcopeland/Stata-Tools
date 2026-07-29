@@ -120,17 +120,17 @@ winner, which is why its default is point-only. M3 remains closed by
 
 Every existing suite, marked **retain** / **rewrite** / **legacy-only** / **remove false oracle**.
 
-### 🔴 Remove false oracle
+### ✅ Resolved false oracle
 
-| Suite | Why |
+| Suite | Resolution |
 |---|---|
-| `validation_iivw_recovery_extended.do` **scenario S2** | **Encodes an assumption violation as success.** Its own comment (lines 136–140) says it stabilizes by a baseline `S` that is "**NOT in the outcome**" model — the exact violation of B&L's `h(X)` rule (`METHOD_CONTRACT.md` §2) — then asserts recovery (`abs(s2_est-0.5) < 0.03`) as validation. It passes only because `S` was drawn independent of `Z` and of the outcome; correlate `S` with either and it biases. **Do not loosen the tolerance — the tolerance is not the problem, the claim is.** **Rewrite as a negative-path test:** once Phase 2 enforces the numerator rule, `stabcov(S)` with `S` outside the outcome design must **error**, and S2 asserts that error. |
+| `validation_iivw_recovery_extended.do` **scenarios S2a/S2b** | The former recovery claim with `stabcov(S)` absent from the outcome design was removed. S2a now asserts that the invalid numerator errors; S2b adds `S` to the outcome design and checks the valid stabilized fit. The suite remains in the named `legacy` lane because its other scenarios retain 1.x risk-set semantics. |
 
 ### 🟡 Legacy-only — move to a named legacy/sensitivity lane, do not count as estimator validation
 
 | Suite / arm | Why |
 |---|---|
-| `crossval_fiptiw.R` + its Stata arm | Builds **observed-event-only** risk sets and the Stata arm requests `endatlastvisit`. This is **legacy parity**, not the recommended full-risk-set FIPTIW estimator. Its tolerances are smoke-test grade: **one comparison requires only correlation > 0.75**, one treatment-effect check allows **absolute bias < 0.25**. |
+| `crossval_fiptiw.R` + its Stata arm | Builds **observed-event-only** risk sets and the Stata arm requests `endatlastvisit`. This is **legacy parity**, not the recommended full-risk-set FIPTIW estimator. The former correlation-only and single-draw coverage oracles were removed: XV8 now compares IIW, IPTW, final FIPTIW, and the product identity separately; XV9 checks 90% endpoint/`level()` parity against `geepack`. |
 | `crossval_iivw_external.do` — Dietox FIPTIW arm | Same shared legacy construction. |
 | Most of `validation_iivw_recovery_extended.do` / `_extended2.do` | Explicitly request `endatlastvisit baseline(event)` — **1.x semantics**, not the 2.0.0 contract. |
 | `sim_scenario_d.do`, `sim_scenario_e.do`, `sim_scenarios_abc.do` | Their interval calls now request `vce(fixed)` explicitly, but QA mode is **50 reps** and comments say tolerances were **set from observed QA-mode runs** (fitting the gate to the result). They retain legacy `endatlastvisit baseline(event)` designs. **Useful DGP scaffolds — but their coverage columns cannot clear the variance method.** |

@@ -55,7 +55,9 @@ capture noisily {
     gen byte treat = runiform() < 0.5
 
     quietly summarize Y
-    local truth = r(mean)                     // ~0.40 by construction
+    local sample_mean = r(mean)
+    local truth = 0.40                        // exact E[Y] from the DGP
+    assert abs(`sample_mean' - `truth') < 0.005
 
     * naive complete-case mean among the uncensored
     quietly summarize Y if cens == 0

@@ -13,6 +13,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
+capture log close _all
+log using "validation_msm_expanded.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 do "`qa_dir'/_msm_qa_common.do"
 
@@ -1253,8 +1256,11 @@ else {
 }
 
 display ""
-display "RESULT: VALIDATION tests=`test_count' pass=`pass_count' fail=`fail_count' status=" cond(`fail_count' > 0, "FAIL", "PASS")
+do "`qa_dir'/_record_qa_result.do" validation_msm_expanded ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: validation_msm_expanded tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0 status=" cond(`fail_count' > 0, "FAIL", "PASS")
 
+capture log close _all
 if `fail_count' > 0 {
     exit 1
 }

@@ -1,5 +1,5 @@
-* test_msm_phase4.do
-* Phase 4 regressions: fit / prediction / inference.
+* test_msm_fit_prediction_regressions.do
+* Fit, prediction, and inference regressions.
 *
 * Findings covered (audit 2026-07-12):
 *   A14  difference under type(survival) is a survival difference (sign/label)
@@ -21,7 +21,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "test_msm_phase4.log", replace text nomsg
+log using "test_msm_fit_prediction_regressions.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -359,6 +359,8 @@ else {
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
 }
-display as text "RESULT: test_msm_phase4 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_fit_prediction_regressions ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_fit_prediction_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

@@ -61,6 +61,7 @@ def main() -> int:
         }
     )
     out.to_csv(os.path.join(results_dir, "external_py_results.csv"), index=False)
+    print("EXTERNAL_REFERENCE_PY_COMPLETE")
     return 0
 
 

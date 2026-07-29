@@ -3,9 +3,9 @@
 * Exports to CSV so R and Python can analyze the same data
 *
 * DGP 1: Time-varying treatment + confounder feedback (N=2000, T=8)
-*   True causal log-OR = ln(0.70) = -0.357
-* DGP 2: Point-treatment (N=3000) for teffects comparison
-*   True ATE = 2.0
+*   Conditional outcome-model coefficient = ln(0.70) = -0.357
+* DGP 2: One-period binary-outcome panel for msm/teffects/R/Python comparison
+*   Known sample-average causal risk difference
 
 version 16.0
 set more off
@@ -83,7 +83,7 @@ by id: gen byte lag_treatment = treatment[_n-1]
 display "  Observations: " _N
 display "  Individuals:  " `N1'
 display "  Periods:      " `T1'
-display "  True log-OR:  " %7.4f `true_logor' " (OR = 0.70)"
+display "  Conditional log-OR coefficient: " %7.4f `true_logor' " (OR = 0.70)"
 tabulate treatment outcome
 
 * Save Stata format
@@ -95,21 +95,21 @@ display "  Saved: dgp1_panel.dta and dgp1_panel.csv"
 display ""
 
 * =========================================================================
-* DGP 2: Point-treatment for teffects comparison
+* DGP 2: One-period binary outcome for msm/teffects/R/Python comparison
 *
 *   X1 ~ Normal(0, 1), X2 ~ Bernoulli(0.4)
 *   A ~ Bernoulli(expit(-0.5 + 0.6*X1 + 0.4*X2))
-*   Y = 5 + 2.0*A + 1.5*X1 + 1.0*X2 + N(0, 2)
-*
-*   True ATE = 2.0 (exactly)
+*   Y^a ~ Bernoulli(expit(-0.7 + 0.8*a + 1.0*X1 + 0.6*X2))
+*   Truth is the sample mean of P(Y^1=1|X)-P(Y^0=1|X).
 * =========================================================================
-display "DGP 2: Point-treatment (N=3000)"
+display "DGP 2: One-period binary outcome (N=15000)"
 
 clear
 set seed 12345
-set obs 3000
+set obs 15000
 
 gen long id = _n
+gen int period = 0
 gen double X1 = rnormal(0, 1)
 gen byte X2 = (runiform() < 0.4)
 
@@ -117,11 +117,16 @@ gen byte X2 = (runiform() < 0.4)
 gen double ps_true = invlogit(-0.5 + 0.6*X1 + 0.4*X2)
 gen byte treatment = (runiform() < ps_true)
 
-* Outcome (linear, ATE = 2.0 exactly)
-gen double Y = 5 + 2.0*treatment + 1.5*X1 + 1.0*X2 + rnormal(0, 2)
+* Binary outcome. The sample-average causal risk difference is known exactly
+* from the two counterfactual probabilities on these generated covariates.
+gen double p_y1 = invlogit(-0.7 + 0.8 + 1.0*X1 + 0.6*X2)
+gen double p_y0 = invlogit(-0.7       + 1.0*X1 + 0.6*X2)
+gen double true_rd = p_y1 - p_y0
+gen byte outcome = runiform() < cond(treatment, p_y1, p_y0)
 
 display "  Observations: " _N
-display "  True ATE:     2.000"
+quietly summarize true_rd, meanonly
+display "  Sample-average true risk difference: " %8.5f r(mean)
 tabulate treatment
 
 save "`data_dir'/dgp2_point.dta", replace

@@ -1,4 +1,4 @@
-* validation_msm_phase3_recovery.do
+* validation_msm_history_recovery.do
 * Known-truth recovery for a prediction-compatible treatment-history MSM.
 
 version 16.0
@@ -7,7 +7,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "validation_msm_phase3_recovery.log", replace text nomsg
+log using "validation_msm_history_recovery.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -89,6 +89,8 @@ else {
     local failed_tests "`failed_tests' H1"
 }
 
-display as text "RESULT: validation_msm_phase3_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" validation_msm_history_recovery ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: validation_msm_history_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

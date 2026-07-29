@@ -23,14 +23,14 @@ R 4.6.1 · `survival` 3.8.6 · `IrregLong` 0.4.1 · `geepack` 1.3.13 · `ipw` 1.
 | **Does NOT prove** | Anything about **variance** (IrregLong's SEs are not the corrected ones either). Anything about **IPTW/FIPTIW**. Anything about the **outcome model**. |
 | **Disposition** | **RETAIN and extend.** This is the shape every other arm should copy. |
 
-### 🔴 `crossval_fiptiw` — legacy parity, mislabelled
+### 🟡 `crossval_fiptiw` — explicitly labelled legacy parity
 
 | | |
 |---|---|
 | **Module** | hand-rolled R (`survival` + `geepack`) on `fiptiw_simdata.csv` |
-| **Proves** | That Stata and R agree **on the 1.x construction**. |
-| **Does NOT prove** | The **recommended** estimator. Both sides build **observed-event-only risk sets**, and the Stata arm requests **`endatlastvisit`** — i.e. both reproduce defect **IIVW-B01**, which 2.0.0 exists to fix. **Two programs agreeing on the same wrong construction is not evidence.** Worse, the tolerances are smoke-test grade: **one comparison requires only `correlation > 0.75`**, one treatment-effect check allows **`|bias| < 0.25`** — bounds loose enough to pass with **treatment missing from the visit model** (defect IIVW-B05), which is exactly what the Stata arm does. |
-| **Disposition** | **LEGACY-ONLY lane.** Do not count as FIPTIW validation. **Phase 2 owes a new full-at-risk-window FIPTIW parity arm** with Class-P tolerances (`TOLERANCE_FRAMEWORK.md`) and **treatment in the visit model per Coulombe eq. 3.12**. |
+| **Proves** | Stata and R agree on the **1.x observed-event construction**. XV8 separately compares normalized IIW, stabilized IPTW, final FIPTIW, and the product identity; XV9 checks a 90% fixed-weight CI transformation and stored `level()` against `geepack`. Treatment is present in the visit model. |
+| **Does NOT prove** | The **recommended full-risk-window estimator** or repeated-sampling coverage. Both sides build observed-event-only risk sets and the Stata arm requests `endatlastvisit`. A single deterministic draw can establish software parity, not bias or coverage. |
+| **Disposition** | **LEGACY evidence only.** Retain because it detects component and outcome-engine drift, but do not count it as validation of the recommended censoring-risk-set construction. |
 
 ### 🟡 `crossval_iivw_external` — mixed
 
@@ -40,34 +40,18 @@ R 4.6.1 · `survival` 3.8.6 · `IrregLong` 0.4.1 · `geepack` 1.3.13 · `ipw` 1.
 | **Dietox FIPTIW** | 🔴 **Legacy-only** — same shared `endatlastvisit` construction as above. |
 | **Bladder / phenobarb** | 🟢 Retain — visit-model and entry-time parity fixtures. |
 | **Lalonde** | 🟡 Propensity/balance fixture. Useful, but see the gap below. |
-| **Does NOT prove** | The **variance** (all fixed-weight — see `METHOD_CONTRACT.md` §3.6), and the **stabilized ATE IPTW** (no arm does this). |
+| **Does NOT prove** | Corrected variance (the external outcome comparisons are fixed-weight) or the recommended full-risk-window FIPTIW construction. |
 
 ---
 
-## 2. The gap Phase 2 must close
+## 2. Phase-2 IPTW gap — closed
 
-**`iivw`'s stabilized binary ATE IPTW — the weight at `iivw_weight.ado:1155-1158` — has NO external
-oracle.** It is now *grounded* (*What If* §12.3, Technical Point 12.2) but never *checked* against an
-independent implementation.
-
-**The tool is already installed: `ipw` 1.3.0** (`ipw::ipwpoint`), plus `cobalt` 4.6.3 for balance.
-There is no "library not available" excuse here.
-
-**New arm — `crossval_iivw_iptw`:**
-
-1. Export **one** analysis-ready, **one-row-per-subject** dataset for both languages.
-2. R: `ipwpoint(exposure = treat, family = "binomial", link = "logit", numerator = ~1, denominator = ~treat_cov, data = d)` — `numerator = ~1` is precisely the marginal `Pr[A=1]` numerator (`METHOD_CONTRACT.md` §2), so this compares like with like.
-3. Compare, **separately** (never as one aggregate number):
-   - the propensity scores `Pr[A=1|L]`, row by row;
-   - the **numerator** `Pr[A=1]` (a scalar — this is the piece no current test touches);
-   - the final stabilized weights, row by row;
-   - the weighted ATE `θ̂₁` from the saturated `Y ~ A` model.
-4. Tolerances: **Class P** (`TOL_PARITY_COEF = 1e-6` on weights and PS; `TOL_PARITY_OUTCOME = 1e-5` on `θ̂₁`).
-5. **The companion script must compute the reference, never hardcode it.**
-
-> Cross-check with a **tier-1** oracle in the same suite so the R arm is not the only witness: the
-> **saturated-model equivalence** invariant (*What If* §12.3 p.154 — stabilized ≡ unstabilized `θ̂₁` when
-> the outcome model is `Y ~ A` alone) needs no R at all.
+`validation_iivw_iptw_oracle.do` now supplies the package-local exact,
+hand-computed stabilized-ATE fixture and the mean-one/saturated identities.
+`crossval_iivw_external.do` compares the same treatment-model components and
+outcome target against fresh `ipw::ipwpoint`/`cobalt` references. The full
+runner regenerates those references and refuses a missing completion sentinel,
+so stale CSVs cannot close the gate.
 
 ---
 
@@ -89,6 +73,7 @@ There is no "library not available" excuse here.
 | `quick` | **none** — R lanes explicitly skipped. *(This is why the 43/43 quick PASS proves so little.)* |
 | `core` | none |
 | `external` | `crossval_iivw_irreglong`, `crossval_iivw_external`, **`crossval_iivw_iptw` (new)**, `crossval_iivw_fiptiw` (new, full-risk-set) |
-| `full` | core + external + moderate simulations |
+| `full` | core + freshly regenerated external parity |
 | `benchmark` | the ≥1,000-rep coverage gate (`TOLERANCE_FRAMEWORK.md` Class C) |
-| *legacy* | `crossval_fiptiw` (1.x parity), the `endatlastvisit` arms — **run, reported, never counted as estimator validation** |
+| `legacy` | legacy recovery scenarios; the `crossval_fiptiw` arms are explicitly labelled legacy within the mixed full cross-validation file |
+| `sensitivity` (`sim` alias) | post-hoc scenario envelopes, reported separately from validation |

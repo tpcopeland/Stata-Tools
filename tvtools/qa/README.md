@@ -42,9 +42,37 @@ The `skip=` field may be omitted when zero. Only external-oracle suites may repo
 
 Core has no undeclared dependency on sibling Stata packages. `test_tvm_overlap_drift_guard.do` and `test_package_optional_integration.do` live in the external lane because they intentionally exercise `rangematch` and `psdash`.
 
+## Coverage map
+
+| Surface | Functional, option, and state contracts | Known-answer validation | Independent oracle or cross-validation |
+|---|---|---|---|
+| `tvage` | `test_tvage.do`, `test_default_naming.do`, `test_extended_missing.do` | `validation_tvage.do`, DGP and boundary suites | `crossval_tvtools.do` |
+| `tvband` | `test_tvband.do`, `test_default_naming.do`, `test_extended_missing.do` | `validation_tvband.do`, DGP and boundary suites | Hand-enumerated boundaries in the validation suites |
+| `tvsplit` | `test_tvsplit.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvsplit.do`, `validation_audit_tvsplit.do`, DGP suites | `crossval_tvsplit_lexis.do` |
+| `tvevent` | `test_tvevent.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvevent.do`, `validation_audit_tvevent.do`, DGP suites | `crossval_tvevent_recurring.do` |
+| `tvexpose` | `test_tvexpose.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvexpose.do`, `validation_tvexpose_statetime.do`, `validation_audit_tvexpose.do`, DGP suites | `crossval_tvexpose_expand.do` |
+| `tvmerge` | `test_tvmerge.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvmerge.do`, `validation_audit_tvmerge.do`, DGP suites | `crossval_tvmerge_mata.do`, `test_tvm_overlap_drift_guard.do` |
+| `tvpanel` | `test_tvpanel.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvpanel.do`, `validation_audit_tvpanel.do`, DGP suites | Hand-enumerated panel rows in the validation suites |
+| `tvweight` | `test_tvweight.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvweight.do`, balance and recovery suites, `validation_audit_tvweight.do` | `crossval_tvweight_ipcw.do`, `crossval_tvtools.do` |
+| `tvdiagnose` | `test_tvdiagnose.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvdiagnose.do`, `validation_audit_tvdiagnose.do` | `crossval_tvtools.do` |
+| Dispatcher and workflows | `test_tvtools.do`, `test_integration.do`, flow, pipeline, frame, naming, verbose, edge, regression, and state suites | `validation_known_answers.do`, DGP, boundary, pipeline, and supplemental suites | Cross-command checks in `crossval_tvtools.do` |
+| Distribution surface | Runner, fixtures, help examples, optional integration, and release suites | Manifest-pinned result counts and fixture checksums | Installed-user, SMCL render, dialog, menu, and demo checks |
+
+## Lane membership
+
+| Manifest group | `quick` | `core` | `external` | `full` | `release` | `meta` |
+|---|---:|---:|---:|---:|---:|---:|
+| `quick_suites` | yes | yes | no | yes | yes | no |
+| `core_only_suites` | no | yes | no | yes | yes | no |
+| `external_suites` | no | no | yes | yes | yes | no |
+| `test_package_release.do` | no | no | no | no | yes | no |
+| `test_package_runner_contract.do` | through `quick_suites` | through `quick_suites` | no | through `quick_suites` | through `quick_suites` | yes |
+
+The executable filename membership and pinned assertion counts live only in `_tvtools_qa_manifest.do`; this avoids a second runner list that can drift. The suite index below is the human-readable inventory.
+
 ## Suite index
 
-Functional and release-contract suites: `test_default_naming.do`, `test_dialogs_gui.do`, `test_edge_cases.do`, `test_frames_input.do`, `test_integration.do`, `test_options.do`, `test_package_fixtures.do`, `test_package_optional_integration.do`, `test_package_release.do`, `test_package_runner_contract.do`, `test_package_state.do`, `test_regressions.do`, `test_regressions_1_9_0.do`, `test_tvage.do`, `test_tvband.do`, `test_tvdiagnose.do`, `test_tvevent.do`, `test_tvexpose.do`, `test_tvm_overlap_drift_guard.do`, `test_tvm_point_engine.do`, `test_tvmerge.do`, `test_tvpanel.do`, `test_tvsplit.do`, `test_tvtools.do`, `test_tvweight.do`, and `test_verbose.do`.
+Functional and release-contract suites: `test_default_naming.do`, `test_dialogs_gui.do`, `test_edge_cases.do`, `test_extended_missing.do`, `test_frames_input.do`, `test_help_examples.do`, `test_integration.do`, `test_options.do`, `test_package_fixtures.do`, `test_package_optional_integration.do`, `test_package_release.do`, `test_package_runner_contract.do`, `test_package_state.do`, `test_regressions.do`, `test_regressions_1_9_0.do`, `test_tvage.do`, `test_tvband.do`, `test_tvdiagnose.do`, `test_tvevent.do`, `test_tvexpose.do`, `test_tvm_overlap_drift_guard.do`, `test_tvm_point_engine.do`, `test_tvmerge.do`, `test_tvpanel.do`, `test_tvsplit.do`, `test_tvtools.do`, `test_tvweight.do`, and `test_verbose.do`.
 
 Known-answer and simulation suites: `validation_audit_tvdiagnose.do`, `validation_audit_tvevent.do`, `validation_audit_tvexpose.do`, `validation_audit_tvmerge.do`, `validation_audit_tvpanel.do`, `validation_audit_tvsplit.do`, `validation_audit_tvweight.do`, `validation_boundary.do`, `validation_contracts.do`, `validation_dgp_known_answers.do`, `validation_dgp_known_answers2.do`, `validation_flow.do`, `validation_known_answers.do`, `validation_phase0_semantics.do`, `validation_pipeline.do`, `validation_supplemental.do`, `validation_tvage.do`, `validation_tvband.do`, `validation_tvdiagnose.do`, `validation_tvevent.do`, `validation_tvexpose.do`, `validation_tvexpose_statetime.do`, `validation_tvmerge.do`, `validation_tvpanel.do`, `validation_tvsplit.do`, `validation_tvweight.do`, `validation_tvweight_balance.do`, `validation_tvweight_msm_recovery.do`, and `validation_tvweight_recovery.do`.
 

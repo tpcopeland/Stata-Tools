@@ -39,38 +39,43 @@ local failed_tests ""
 
 display as text "External model cross-validation staging directory: " as result "`work_root'"
 
-shell Rscript "`work_qa_dir'/crossval_external_models.R" generate "`data_dir'" > "`results_dir'/external_generate_r.log" 2>&1
+capture noisily shell Rscript "`work_qa_dir'/crossval_external_models.R" generate "`data_dir'" > "`results_dir'/external_generate_r.log" 2>&1
+local _gen_shell_rc = _rc
 capture confirm file "`data_dir'/external_health_lpm.csv"
 local _gen_lpm_rc = _rc
 capture confirm file "`data_dir'/external_pbcseq_cox.csv"
 local _gen_cox_rc = _rc
-if `_gen_lpm_rc' | `_gen_cox_rc' {
+mata: st_numscalar("r_external_generate_complete", ///
+    any(strpos(cat(st_local("results_dir") + "/external_generate_r.log"), ///
+    "EXTERNAL_GENERATE_COMPLETE") :> 0))
+if `_gen_shell_rc' | `_gen_lpm_rc' | `_gen_cox_rc' | ///
+        r_external_generate_complete != 1 {
     display as error "External data generation failed. See `results_dir'/external_generate_r.log"
     exit 601
 }
 
 import delimited using "`data_dir'/external_health_lpm.csv", clear varnames(1)
 
-msm_prepare, id(id) period(period) treatment(treatment) ///
+quietly msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) baseline_covariates(iq)
-msm_weight, treat_d_cov(iq) nolog
+quietly msm_weight, treat_d_cov(iq) nolog
 
-msm_fit, model(linear) outcome_cov(iq) period_spec(none) ///
+quietly msm_fit, model(linear) outcome_cov(iq) period_spec(none) ///
     vce(robust) nolog
 local stata_lpm_robust_b = _b[treatment]
 local stata_lpm_robust_se = _se[treatment]
 
-msm_fit, model(linear) outcome_cov(iq) period_spec(none) ///
+quietly msm_fit, model(linear) outcome_cov(iq) period_spec(none) ///
     vce(cluster iqgrp) nolog
 local stata_lpm_cluster_b = _b[treatment]
 local stata_lpm_cluster_se = _se[treatment]
 
-msm_fit, model(logistic) outcome_cov(iq) period_spec(none) ///
+quietly msm_fit, model(logistic) outcome_cov(iq) period_spec(none) ///
     vce(robust) nolog
 local stata_logit_robust_b = _b[treatment]
 local stata_logit_robust_se = _se[treatment]
 
-msm_fit, model(logistic) outcome_cov(iq) period_spec(none) ///
+quietly msm_fit, model(logistic) outcome_cov(iq) period_spec(none) ///
     vce(cluster iqgrp) nolog
 local stata_logit_cluster_b = _b[treatment]
 local stata_logit_cluster_se = _se[treatment]
@@ -83,7 +88,7 @@ restore
 
 import delimited using "`data_dir'/external_pbcseq_cox.csv", clear varnames(1)
 
-msm_prepare, id(id) period(period) treatment(treatment) ///
+quietly msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) baseline_covariates(age_dec female stage_bl)
 * Uniform weights: this suite compares msm_fit's OUTCOME model against R and
 * Python on identical data, so the weighting must contribute nothing. The
@@ -93,13 +98,13 @@ gen double _msm_weight = 1
 label variable _msm_weight "External validation uniform weight"
 _msm_qa_register_weights
 
-msm_fit, model(cox) outcome_cov(age_dec female) vce(cluster id) nolog
+quietly msm_fit, model(cox) outcome_cov(age_dec female) vce(cluster id) nolog
 
 local stata_cox_cluster_b = _b[treatment]
 local stata_cox_cluster_se = _se[treatment]
 local stata_cox_cluster_hr = exp(`stata_cox_cluster_b')
 
-msm_fit, model(cox) outcome_cov(age_dec) strata(stage_bl) ///
+quietly msm_fit, model(cox) outcome_cov(age_dec) strata(stage_bl) ///
     vce(cluster id) nolog
 
 local stata_cox_strata_b = _b[treatment]
@@ -150,24 +155,39 @@ preserve
     export delimited using "`results_dir'/external_stata_results.csv", replace
 restore
 
-shell Rscript "`work_qa_dir'/crossval_external_models.R" reference "`results_dir'" > "`results_dir'/external_reference_r.log" 2>&1
+capture noisily shell Rscript "`work_qa_dir'/crossval_external_models.R" reference "`results_dir'" > "`results_dir'/external_reference_r.log" 2>&1
+local _ref_r_shell_rc = _rc
 capture confirm file "`results_dir'/external_r_results.csv"
-if _rc {
+local _ref_r_file_rc = _rc
+mata: st_numscalar("r_external_r_complete", ///
+    any(strpos(cat(st_local("results_dir") + "/external_reference_r.log"), ///
+    "EXTERNAL_REFERENCE_R_COMPLETE") :> 0))
+if `_ref_r_shell_rc' | `_ref_r_file_rc' | r_external_r_complete != 1 {
     display as error "External R reference failed. See `results_dir'/external_reference_r.log"
     exit 601
 }
 
-shell python3 "`work_qa_dir'/crossval_external_models.py" "`results_dir'" > "`results_dir'/external_reference_py.log" 2>&1
+capture noisily shell python3 "`work_qa_dir'/crossval_external_models.py" "`results_dir'" > "`results_dir'/external_reference_py.log" 2>&1
+local _ref_py_shell_rc = _rc
 capture confirm file "`results_dir'/external_py_results.csv"
-if _rc {
+local _ref_py_file_rc = _rc
+mata: st_numscalar("r_external_py_complete", ///
+    any(strpos(cat(st_local("results_dir") + "/external_reference_py.log"), ///
+    "EXTERNAL_REFERENCE_PY_COMPLETE") :> 0))
+if `_ref_py_shell_rc' | `_ref_py_file_rc' | r_external_py_complete != 1 {
     display as error "External Python reference failed. See `results_dir'/external_reference_py.log"
     exit 601
 }
 
 preserve
     import delimited using "`results_dir'/external_r_results.csv", clear varnames(1)
+    confirm variable model source coef se or_hr
+    assert _N == 6
+    isid model
     foreach m in lpm_robust lpm_cluster logit_robust logit_cluster ///
         cox_cluster cox_strata_cluster {
+        quietly count if model == "`m'"
+        assert r(N) == 1
         quietly summarize coef if model == "`m'", meanonly
         local r_`m'_b = r(mean)
         quietly summarize se if model == "`m'", meanonly
@@ -177,7 +197,12 @@ restore
 
 preserve
     import delimited using "`results_dir'/external_py_results.csv", clear varnames(1)
+    confirm variable model source coef se or_hr
+    assert _N == 4
+    isid model
     foreach m in lpm_robust lpm_cluster logit_robust logit_cluster {
+        quietly count if model == "`m'"
+        assert r(N) == 1
         quietly summarize coef if model == "`m'", meanonly
         local py_`m'_b = r(mean)
         quietly summarize se if model == "`m'", meanonly
@@ -347,7 +372,9 @@ display as text ""
 display as text "External cross-validation tests run: " as result `test_count'
 display as text "Passed: " as result `pass_count'
 display as text "Failed: " as result `fail_count'
-display as text "RESULT: crossval_external_models tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" crossval_external_models ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: crossval_external_models tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 
 capture log close external
 

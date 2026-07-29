@@ -15,8 +15,6 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import os
 import pathlib
-import warnings
-warnings.filterwarnings("ignore")
 
 print("=== PYTHON CROSS-VALIDATION FOR MSM PACKAGE ===")
 print(f"numpy: {np.__version__}, pandas: {pd.__version__}, statsmodels: {sm.__version__}")
@@ -99,8 +97,12 @@ dgp1['log_w'] = np.where(dgp1['at_risk'] & dgp1['w_t'].notna(), np.log(dgp1['w_t
 dgp1['cum_log_w'] = dgp1.groupby('id')['log_w'].cumsum()
 dgp1['py_weight'] = np.exp(dgp1['cum_log_w'])
 
-py_weight_mean = dgp1['py_weight'].mean()
-py_weight_sd = dgp1['py_weight'].std()
+# msm_weight reports diagnostics on the decision-risk rows, and msm_fit fits
+# the structural model on those same rows. Retain post-event carry-forward rows
+# only in the row-level export used to verify cumulative-weight parity.
+dgp1_risk = dgp1.loc[dgp1['at_risk']].copy()
+py_weight_mean = dgp1_risk['py_weight'].mean()
+py_weight_sd = dgp1_risk['py_weight'].std()
 print(f"  Weight mean: {py_weight_mean:.4f}")
 print(f"  Weight SD:   {py_weight_sd:.4f}")
 
@@ -108,11 +110,11 @@ print(f"  Weight SD:   {py_weight_sd:.4f}")
 # Use statsmodels GLM with frequency weights
 # For IPTW, we use the weights as frequency weights in GLM
 fit_py = smf.glm("outcome ~ treatment + V + period",
-                  data=dgp1,
+                  data=dgp1_risk,
                   family=sm.families.Binomial(),
-                  freq_weights=dgp1['py_weight'].values).fit(
+                  freq_weights=dgp1_risk['py_weight'].values).fit(
                       cov_type='cluster',
-                      cov_kwds={'groups': dgp1['id'].values})
+                      cov_kwds={'groups': dgp1_risk['id'].values})
 
 b_py = fit_py.params['treatment']
 se_py = fit_py.bse['treatment']
@@ -121,7 +123,7 @@ print(f"  Treatment OR:     {np.exp(b_py):.4f}")
 
 # Naive estimate
 fit_naive = smf.glm("outcome ~ treatment + L + V + period",
-                     data=dgp1,
+                     data=dgp1_risk,
                      family=sm.families.Binomial()).fit()
 b_naive = fit_naive.params['treatment']
 se_naive = fit_naive.bse['treatment']
@@ -156,13 +158,13 @@ py_pt_weight_sd = dgp2['sw'].std()
 print(f"  Weight mean: {py_pt_weight_mean:.4f}")
 print(f"  Weight SD:   {py_pt_weight_sd:.4f}")
 
-# Weighted regression for ATE
-fit_pt = smf.wls("Y ~ treatment", data=dgp2, weights=dgp2['sw']).fit(
+# Weighted linear-probability model for the marginal risk difference
+fit_pt = smf.wls("outcome ~ treatment", data=dgp2, weights=dgp2['sw']).fit(
     cov_type='HC1')
 b_pt = fit_pt.params['treatment']
 se_pt = fit_pt.bse['treatment']
 print(f"  ATE:  {b_pt:.4f} (SE: {se_pt:.4f})")
-print(f"  True: 2.000")
+print(f"  Sample-average true RD: {dgp2['true_rd'].mean():.4f}")
 
 # =========================================================================
 # Export results

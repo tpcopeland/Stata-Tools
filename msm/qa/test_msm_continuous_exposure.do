@@ -16,6 +16,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "test_msm_continuous_exposure.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
@@ -321,7 +324,7 @@ capture noisily {
     capture msm_fit, model(cox) exposure(cum_trt) tvcov(cum_comp) ///
         outcome_cov(age sex) vce(cluster id) nolog
     local fit_rc = _rc
-    assert `fit_rc' != 0
+    assert `fit_rc' == 111
 
     * The refusal commits no fitted state.
     assert "`: char _dta[_msm_fitted]'" == ""
@@ -343,7 +346,10 @@ else {
 
 local qa_status = cond(`fail_count' > 0, "FAIL", "PASS")
 display as text ""
-display as text "RESULT: continuous exposure tests=`test_count' pass=`pass_count' fail=`fail_count' status=`qa_status'"
+do "`qa_dir'/_record_qa_result.do" test_msm_continuous_exposure ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_continuous_exposure tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0 status=`qa_status'"
+capture log close _all
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"
     exit 9

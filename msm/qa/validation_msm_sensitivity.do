@@ -329,7 +329,9 @@ display as text "Tests run: `test_count'"
 display as result "Passed:   `pass_count'"
 display as error  "Failed:   `fail_count'"
 
-display as text "RESULT: validation_msm_sensitivity tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" validation_msm_sensitivity ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: validation_msm_sensitivity tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

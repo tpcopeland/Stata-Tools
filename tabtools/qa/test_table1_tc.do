@@ -724,7 +724,7 @@ set varabbrev off
 
 **# Migrated: legacy suite: robustness edge cases
 
-* Test: two observations (one per group) in table1_tc — graceful handling
+* Test: two observations (one per group) return the documented table shape
 capture noisily {
     clear
     set obs 2
@@ -732,23 +732,44 @@ capture noisily {
     gen byte g = _n - 1
     label variable y "Outcome"
     table1_tc, by(g) vars(y contn)
+    tempname T_single
+    matrix `T_single' = r(table)
+    assert rowsof(`T_single') == 1
+    assert colsof(`T_single') == 1
+    assert missing(`T_single'[1, 1])
+    assert "`r(varlist)'" == "y"
 }
-* Accept either success or graceful error (no crash)
-display as result "  PASS: edge case - single obs per group in table1_tc (handled rc=`=_rc')"
-local ++pass_count
-local --test_count
+if _rc == 0 {
+    display as result "  PASS: edge case - single obs per group returns one missing p-value"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: edge case - single obs per group contract (error `=_rc')"
+    local ++fail_count
+}
 
-* Test: all-missing variable in table1_tc vars()
+* Test: all-missing variable is retained and does not corrupt the next row
 capture noisily {
     sysuse auto, clear
     gen double miss_var = .
     label variable miss_var "All Missing"
     table1_tc, by(foreign) vars(miss_var contn \ price contn)
+    tempname T_missing
+    matrix `T_missing' = r(table)
+    assert rowsof(`T_missing') == 2
+    assert colsof(`T_missing') == 1
+    assert missing(`T_missing'[1, 1])
+    assert !missing(`T_missing'[2, 1])
+    assert "`r(varlist)'" == "miss_var price"
 }
-* Accept graceful handling (error or success, not crash)
-display as result "  PASS: edge case - all-missing variable in table1_tc vars() (handled rc=`=_rc')"
-local ++pass_count
-local --test_count
+if _rc == 0 {
+    display as result "  PASS: edge case - all-missing row retained without corrupting price"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: edge case - all-missing variable contract (error `=_rc')"
+    local ++fail_count
+}
 
 * Test: long variable label (>80 chars) in table1_tc
 capture noisily {
@@ -1015,7 +1036,8 @@ display as text _newline "=== test_tabtools_v1015 ==="
 * The reshape pipeline reserves N_*, m_*, _column* columns. A by-variable named
 * N_age (or any blacklisted name) must produce error 498 with a message that
 * points at the help file.
-local _d_log "`c(tmpdir)'/`c(pid)'__t1tc_by_reserved.log"
+tempfile _d_log_token
+local _d_log "`_d_log_token'_t1tc_by_reserved.log"
 capture erase "`_d_log'"
 local ++test_count
 capture noisily {
@@ -1036,6 +1058,7 @@ capture log close _v1015_D
 if `rc_D_outer' == 0 & `rc_D' == 498 {
     display as result "  PASS: Test D (by(N_age) raised rc=498 with documented message)"
     local ++pass_count
+    capture erase "`_d_log'"
 }
 else {
     display as error "  FAIL: Test D (outer rc=`rc_D_outer'; inner rc=`rc_D')"
@@ -1139,7 +1162,8 @@ else {
 * and prints the rendered output to the log. Asserting on the rendered
 * form (post-SMCL) catches markup that compiles but renders blank — the
 * failure mode visual inspection would catch.
-local _g_log "`c(tmpdir)'/`c(pid)'__t1tc_help_render.log"
+tempfile _g_log_token
+local _g_log "`_g_log_token'_t1tc_help_render.log"
 capture erase "`_g_log'"
 local ++test_count
 capture noisily {
@@ -1160,6 +1184,7 @@ capture log close _v1015_G_t1tc
 if `rc_G' == 0 {
     display as result "  PASS: Test G (help table1_tc renders Reserved by() section in viewer)"
     local ++pass_count
+    capture erase "`_g_log'"
 }
 else {
     display as error "  FAIL: Test G (rc=`rc_G'; see `_g_log')"
@@ -3112,7 +3137,8 @@ else {
 capture noisily {
     sysuse auto, clear
     gen byte _trt = foreign
-    local _mdhdr "`c(tmpdir)'/`c(pid)'__t1tc_mdhdr.md"
+    tempfile _mdhdr_token
+    local _mdhdr "`_mdhdr_token'_t1tc_mdhdr.md"
     capture erase "`_mdhdr'"
     table1_tc, by(_trt) smd vars(price contn %9.1f \ mpg contn %9.1f) ///
         title("Header regression") markdown("`_mdhdr'") clear

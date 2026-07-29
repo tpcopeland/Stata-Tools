@@ -13,15 +13,15 @@
 clear all
 set more off
 set varabbrev off
-* No `version` pin: the desctab setup uses `collect: table ..., statistic()`,
-* which requires Stata 17+; pinning version 16 would select the legacy table.
+version 17.0
 
 capture log close _optcov
 log using "test_option_coverage.log", replace text name(_optcov)
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local out "`c(tmpdir)'/`c(pid)'_tabtools_optcov"
+tempfile outtoken
+local out "`outtoken'_tabtools_optcov"
 capture mkdir "`out'"
 
 * markdown()/csv() (non-append) deliberately refuse to overwrite an existing
@@ -468,3 +468,6 @@ if `fail_count' > 0 {
 display as result "ALL OPTION-COVERAGE TESTS PASSED"
 display "RESULT: test_option_coverage tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _optcov
+capture shell rm -rf "`out'"
+local cleanup_rc = _rc
+if `cleanup_rc' exit `cleanup_rc'

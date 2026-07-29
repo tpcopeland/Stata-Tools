@@ -1,4 +1,4 @@
-*! msm_predict Version 1.4.2  2026/07/28
+*! msm_predict Version 1.4.3  2026/07/29
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

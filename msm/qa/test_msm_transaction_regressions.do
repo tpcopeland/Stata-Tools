@@ -1,7 +1,7 @@
-* test_msm_independent_review.do
+* test_msm_transaction_regressions.do
 *
-* Independent-review regressions for the 2026-07-17 audit remediation.
-* These probes target false-green paths found while reviewing A01-A06 and A10.
+* Transaction, serialization, ownership, and intermittent-missingness
+* regressions originating in the 2026-07-17 audit remediation.
 
 version 16.0
 clear all
@@ -9,7 +9,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "test_msm_independent_review.log", replace text nomsg
+log using "test_msm_transaction_regressions.log", replace text nomsg
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -22,7 +22,7 @@ local failed_tests ""
 
 display as text ""
 display as text "{hline 72}"
-display as result "msm independent-review regressions"
+display as result "msm transaction and ownership regressions"
 display as text "{hline 72}"
 
 * --- IR1: clear all must not make a UUID repeat in the same process ----------
@@ -138,7 +138,7 @@ capture noisily {
 
     capture msm_fit, model(logistic) exposure(constant_exposure) nolog
     local bad_rc = _rc
-    assert `bad_rc' != 0
+    assert `bad_rc' == 111
 
     capture confirm variable _msm_period_sq
     assert _rc != 0
@@ -529,7 +529,9 @@ else {
 * --- Summary ------------------------------------------------------------------
 local qa_status = cond(`fail_count' > 0, "FAIL", "PASS")
 display as text ""
-display as text "RESULT: test_msm_independent_review tests=`test_count' pass=`pass_count' fail=`fail_count' status=`qa_status'"
+do "`qa_dir'/_record_qa_result.do" test_msm_transaction_regressions ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_transaction_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0 status=`qa_status'"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
 }

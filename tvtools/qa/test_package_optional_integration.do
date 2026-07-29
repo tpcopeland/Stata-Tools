@@ -11,8 +11,8 @@ quietly log using "test_package_optional_integration.log", replace nomsg
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap
 local pkg_dir "`r(pkg_dir)'"
-local tools_dir = substr("`pkg_dir'", 1, strrpos("`pkg_dir'", "/") - 1)
-local psdash_dir "`tools_dir'/psdash"
+local repo_dir = substr("`pkg_dir'", 1, strrpos("`pkg_dir'", "/") - 1)
+local psdash_dir "`repo_dir'/psdash"
 
 local test_count = 0
 local pass_count = 0

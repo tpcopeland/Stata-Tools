@@ -41,6 +41,7 @@ if (mode == "generate") {
     pbc$stage_bl <- ave(pbc$stage, pbc$id, FUN = function(x) x[1])
     pbc <- pbc[, c("id", "period", "treatment", "outcome", "age_dec", "female", "stage_bl")]
     write.csv(pbc, file.path(target_dir, "external_pbcseq_cox.csv"), row.names = FALSE)
+    cat("EXTERNAL_GENERATE_COMPLETE\n")
 } else if (mode == "reference") {
     suppressPackageStartupMessages(library(sandwich))
     suppressPackageStartupMessages(library(survival))
@@ -95,6 +96,7 @@ if (mode == "generate") {
                   exp(cox_b), exp(cox_strata_b))
     )
     write.csv(results, file.path(target_dir, "external_r_results.csv"), row.names = FALSE)
+    cat("EXTERNAL_REFERENCE_R_COMPLETE\n")
 } else {
     stop("unknown mode: ", mode)
 }

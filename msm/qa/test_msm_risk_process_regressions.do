@@ -1,5 +1,5 @@
-* test_msm_phase2.do
-* Phase 2 regressions: the person-period / risk-process contract.
+* test_msm_risk_process_regressions.do
+* Person-period and risk-process contract regressions.
 *
 * Findings covered (audit 2026-07-12):
 *   A07  central structural-role validator (roles disjoint; predictors not roles)
@@ -21,7 +21,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "test_msm_phase2.log", replace text nomsg
+log using "test_msm_risk_process_regressions.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -239,7 +239,27 @@ capture noisily {
     append using `post'
     sort id period
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) censor(cens) covariates(L)
+
+    * Capture the user-facing ESS line. Before the fix it reported "(of _N)",
+    * even though ESS excludes the appended post-risk rows; the computation
+    * stayed invariant while its displayed denominator silently changed.
+    tempfile ess_display
+    quietly log using "`ess_display'", text replace name(esscap)
     msm_weight, treat_d_cov(L) truncate(1 99) nolog
+    quietly log close esscap
+
+    tempname essfh
+    local ess_text ""
+    file open `essfh' using "`ess_display'", read text
+    file read `essfh' ess_line
+    while r(eof) == 0 {
+        local ess_text `"`ess_text' `macval(ess_line)'"'
+        file read `essfh' ess_line
+    }
+    file close `essfh'
+    assert strpos(`"`ess_text'"', "Effective sample size:") > 0
+    assert strpos(`"`ess_text'"', "(decision-risk rows only)") > 0
+
     msm_fit, model(logistic) vce(cluster id) nolog
     scalar b_post   = _b[treat]
     msm_diagnose
@@ -380,6 +400,8 @@ display as text ""
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
 }
-display as text "RESULT: test_msm_phase2 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_risk_process_regressions ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_risk_process_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

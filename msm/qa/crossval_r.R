@@ -90,13 +90,22 @@ dgp1$log_w <- ifelse(dgp1$at_risk & !is.na(dgp1$w_t), log(dgp1$w_t), 0)
 dgp1$cum_log_w <- ave(dgp1$log_w, dgp1$id, FUN = cumsum)
 dgp1$manual_weight <- exp(dgp1$cum_log_w)
 
-r_weight_mean_manual <- mean(dgp1$manual_weight, na.rm = TRUE)
-r_weight_sd_manual <- sd(dgp1$manual_weight, na.rm = TRUE)
+# msm_weight reports diagnostics on the decision-risk rows, and msm_fit fits
+# the structural model on those same rows. Post-event carry-forward rows remain
+# in the row-level export so cumulative-weight parity can still be checked, but
+# they are not analytical observations in the summary or outcome model.
+dgp1_risk <- dgp1[dgp1$at_risk, ]
+r_weight_mean_manual <- mean(dgp1_risk$manual_weight)
+r_weight_sd_manual <- sd(dgp1_risk$manual_weight)
 cat("    Weight mean: ", round(r_weight_mean_manual, 4), "\n")
 cat("    Weight SD:   ", round(r_weight_sd_manual, 4), "\n")
 
 # Weighted GLM (pooled logistic) — manual weights
-dgp1_design_manual <- svydesign(ids = ~id, weights = ~manual_weight, data = dgp1)
+dgp1_design_manual <- svydesign(
+    ids = ~id,
+    weights = ~manual_weight,
+    data = dgp1_risk
+)
 fit_manual <- svyglm(outcome ~ treatment + V + period,
                       design = dgp1_design_manual,
                       family = quasibinomial(link = "logit"))
@@ -114,50 +123,45 @@ cat("\n  Method 2: ipwtm package\n")
 # Numerator: treatment ~ lag_treatment + V
 # Note: ipwtm uses timevar for period, handles first-period separately
 
-tryCatch({
-    # ipwtm computes the weights directly
-    ipw_result <- ipwtm(
-        exposure = treatment,
-        family = "binomial",
-        link = "logit",
-        numerator = ~ V,
-        denominator = ~ L + V,
-        id = id,
-        timevar = period,
-        type = "first",
-        data = dgp1
-    )
+# ipwtm is an advertised independent backend. Do not turn its failure into an
+# NA row that the Stata gate can overlook: any package error must abort R.
+ipw_result <- ipwtm(
+    exposure = treatment,
+    family = "binomial",
+    link = "logit",
+    numerator = ~ V,
+    denominator = ~ L + V,
+    id = id,
+    timevar = period,
+    type = "first",
+    data = dgp1
+)
+dgp1$ipw_weight <- ipw_result$ipw.weights
+stopifnot(
+    length(dgp1$ipw_weight) == nrow(dgp1),
+    all(is.finite(dgp1$ipw_weight)),
+    all(dgp1$ipw_weight > 0)
+)
 
-    dgp1$ipw_weight <- ipw_result$ipw.weights
+r_weight_mean_ipw <- mean(dgp1$ipw_weight)
+r_weight_sd_ipw <- sd(dgp1$ipw_weight)
+cat("    Weight mean: ", round(r_weight_mean_ipw, 4), "\n")
+cat("    Weight SD:   ", round(r_weight_sd_ipw, 4), "\n")
 
-    r_weight_mean_ipw <- mean(dgp1$ipw_weight, na.rm = TRUE)
-    r_weight_sd_ipw <- sd(dgp1$ipw_weight, na.rm = TRUE)
-    cat("    Weight mean: ", round(r_weight_mean_ipw, 4), "\n")
-    cat("    Weight SD:   ", round(r_weight_sd_ipw, 4), "\n")
-
-    # Weighted GLM with ipwtm weights
-    dgp1_design_ipw <- svydesign(ids = ~id, weights = ~ipw_weight, data = dgp1)
-    fit_ipw <- svyglm(outcome ~ treatment + V + period,
-                       design = dgp1_design_ipw,
-                       family = quasibinomial(link = "logit"))
-
-    b_ipw <- coef(fit_ipw)["treatment"]
-    se_ipw <- sqrt(vcov(fit_ipw)["treatment", "treatment"])
-    cat("    Treatment log-OR: ", round(b_ipw, 4), " (SE:", round(se_ipw, 4), ")\n")
-    cat("    Treatment OR:     ", round(exp(b_ipw), 4), "\n")
-}, error = function(e) {
-    cat("    ipwtm failed:", e$message, "\n")
-    cat("    Using manual weights only\n")
-    b_ipw <<- NA_real_
-    se_ipw <<- NA_real_
-    r_weight_mean_ipw <<- NA_real_
-    r_weight_sd_ipw <<- NA_real_
-})
+dgp1_design_ipw <- svydesign(ids = ~id, weights = ~ipw_weight, data = dgp1)
+fit_ipw <- svyglm(outcome ~ treatment + V + period,
+                   design = dgp1_design_ipw,
+                   family = quasibinomial(link = "logit"))
+b_ipw <- coef(fit_ipw)["treatment"]
+se_ipw <- sqrt(vcov(fit_ipw)["treatment", "treatment"])
+stopifnot(is.finite(b_ipw), is.finite(se_ipw), se_ipw > 0)
+cat("    Treatment log-OR: ", round(b_ipw, 4), " (SE:", round(se_ipw, 4), ")\n")
+cat("    Treatment OR:     ", round(exp(b_ipw), 4), "\n")
 
 # --- Method 3: Naive (biased) estimate for comparison ---
 cat("\n  Method 3: Naive GLM (biased reference)\n")
 fit_naive <- glm(outcome ~ treatment + L + V + period,
-                 data = dgp1,
+                 data = dgp1_risk,
                  family = binomial(link = "logit"))
 b_naive <- coef(fit_naive)["treatment"]
 se_naive <- summary(fit_naive)$coefficients["treatment", "Std. Error"]
@@ -188,13 +192,13 @@ r_pt_weight_sd <- sd(dgp2$sw)
 cat("  Weight mean: ", round(r_pt_weight_mean, 4), "\n")
 cat("  Weight SD:   ", round(r_pt_weight_sd, 4), "\n")
 
-# Weighted regression for ATE
+# Weighted linear-probability model for the marginal risk difference
 dgp2_design <- svydesign(ids = ~1, weights = ~sw, data = dgp2)
-fit_pt <- svyglm(Y ~ treatment, design = dgp2_design)
+fit_pt <- svyglm(outcome ~ treatment, design = dgp2_design)
 b_pt <- coef(fit_pt)["treatment"]
 se_pt <- sqrt(vcov(fit_pt)["treatment", "treatment"])
 cat("  ATE:    ", round(b_pt, 4), " (SE:", round(se_pt, 4), ")\n")
-cat("  True:   2.000\n")
+cat("  Sample-average true RD:", round(mean(dgp2$true_rd), 4), "\n")
 
 # =========================================================================
 # Export all results
@@ -204,20 +208,25 @@ cat("\n\nExporting results...\n")
 results <- data.frame(
     method = c("r_manual_iptw", "r_ipwtm", "r_naive", "r_point_treatment"),
     weight_mean = c(r_weight_mean_manual,
-                    ifelse(exists("r_weight_mean_ipw"), r_weight_mean_ipw, NA),
+                    r_weight_mean_ipw,
                     NA,
                     r_pt_weight_mean),
     weight_sd = c(r_weight_sd_manual,
-                  ifelse(exists("r_weight_sd_ipw"), r_weight_sd_ipw, NA),
+                  r_weight_sd_ipw,
                   NA,
                   r_pt_weight_sd),
-    coef = c(b_manual, ifelse(is.na(b_ipw), NA, b_ipw), b_naive, b_pt),
-    se = c(se_manual, ifelse(is.na(se_ipw), NA, se_ipw), se_naive, se_pt),
-    or_hr = c(exp(b_manual), ifelse(is.na(b_ipw), NA, exp(b_ipw)), exp(b_naive), NA),
+    coef = c(b_manual, b_ipw, b_naive, b_pt),
+    se = c(se_manual, se_ipw, se_naive, se_pt),
+    or_hr = c(exp(b_manual), exp(b_ipw), exp(b_naive), NA),
     stringsAsFactors = FALSE
 )
 
-write.csv(results, file.path(results_dir, "r_results.csv"), row.names = FALSE)
+write.csv(
+    results,
+    file.path(results_dir, "r_results.csv"),
+    row.names = FALSE,
+    na = ""
+)
 cat("  Saved: r_results.csv\n")
 
 # Export individual-level weights for DGP1 (for weight comparison)
@@ -228,7 +237,12 @@ weight_export <- data.frame(
     r_denom_pr = dgp1$denom_pr,
     r_numer_pr = dgp1$numer_pr
 )
-write.csv(weight_export, file.path(results_dir, "r_weights_dgp1.csv"), row.names = FALSE)
+write.csv(
+    weight_export,
+    file.path(results_dir, "r_weights_dgp1.csv"),
+    row.names = FALSE,
+    na = ""
+)
 cat("  Saved: r_weights_dgp1.csv\n")
 
 # Export individual-level weights for DGP2
@@ -237,7 +251,12 @@ pt_export <- data.frame(
     r_ps = dgp2$ps,
     r_sw = dgp2$sw
 )
-write.csv(pt_export, file.path(results_dir, "r_weights_dgp2.csv"), row.names = FALSE)
+write.csv(
+    pt_export,
+    file.path(results_dir, "r_weights_dgp2.csv"),
+    row.names = FALSE,
+    na = ""
+)
 cat("  Saved: r_weights_dgp2.csv\n")
 
 cat("\n=== R CROSS-VALIDATION COMPLETE ===\n")

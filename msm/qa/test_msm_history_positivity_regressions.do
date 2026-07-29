@@ -1,5 +1,5 @@
-* test_msm_phase3.do
-* Phase 3 regressions: history MSMs, positivity policy, and longitudinal balance.
+* test_msm_history_positivity_regressions.do
+* History MSM, positivity-policy, and longitudinal-balance regressions.
 
 version 16.0
 clear all
@@ -7,7 +7,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "test_msm_phase3.log", replace text nomsg
+log using "test_msm_history_positivity_regressions.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -192,7 +192,7 @@ capture noisily {
     assert "`: char _dta[_msm_weighted]'" == ""
 }
 if _rc == 0 {
-    display as result "PASS P3.2: structural support failure is an error by default"
+    display as result "PASS P3.2: structural non-support is rejected by default"
     local ++pass_count
 }
 else {
@@ -437,6 +437,8 @@ else {
     local failed_tests "`failed_tests' P3.7"
 }
 
-display as text "RESULT: test_msm_phase3 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_history_positivity_regressions ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_history_positivity_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

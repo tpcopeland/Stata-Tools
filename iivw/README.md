@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 3.1.1** | 2026-07-27
+**Version 3.1.2** | 2026-07-29
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -709,6 +709,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods for tied survival times in Cox regression. *Biometrics*. 1997;53(3):1151-1156.
 
 ## Version History
+
+### v3.1.2 (2026-07-29)
+
+`iivw_fit` now stores `e(level)` consistently for fixed-weight and bootstrap fits, so the confidence level used to construct `e(iivw_ci)` is auditable and replay-safe. The weighting contract signature uses a vectorized Mata scan instead of generating three dataset-sized scratch variables per bound column; on the one-million-row, 13-column regression fixture this reduced the measured signature time from 1.61 to 0.92 seconds while preserving sort invariance and mutation detection. Redundant treatment-constancy data passes were removed without changing the documented error codes.
+
+The first-visit documentation now distinguishes `baseline(entry)` (assigned IIW 1 after modeled-event normalization) from `baseline(event)` (keeps fitted `exp(-xb)`, including at time 0). QA now compares IIW, IPTW, and FIPTIW components row by row against R, checks `level(90)` endpoints instead of claiming coverage from one draw, and separates supported core/full validation from legacy and post-hoc sensitivity lanes.
 
 ### v3.1.1 (2026-07-27)
 

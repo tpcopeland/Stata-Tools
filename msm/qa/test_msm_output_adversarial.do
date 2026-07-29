@@ -8,6 +8,11 @@ set varabbrev off
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
+tempfile missing_anchor
+local missing_dir "`missing_anchor'_missing"
+
+capture log close _all
+log using "test_msm_output_adversarial.log", replace text nomsg
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
@@ -76,16 +81,16 @@ capture noisily {
         causal_contrast("Risk difference") ///
         weight_spec("Stabilized IPTW") ///
         analysis("Pooled logistic MSM") ///
-        export("/tmp/msm_missing_dir/protocol.xlsx") format(excel) replace
+        export("`missing_dir'/protocol.xlsx") format(excel) replace
     local protocol_rc = _rc
 
-    assert `protocol_rc' != 0
+    assert `protocol_rc' == 603
     assert c(varabbrev) == "on"
     _outadv_assert_pipeline_intact
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS OUTADV1: msm_protocol failed export restores dataset"
+    display as result "PASS OUTADV1: msm_protocol export-error path restores dataset"
     local ++pass_count
 }
 else {
@@ -102,18 +107,18 @@ capture noisily {
     set varabbrev on
     local k_before = c(k)
 
-    capture msm_report, export("/tmp/msm_missing_dir/report.xlsx") ///
+    capture msm_report, export("`missing_dir'/report.xlsx") ///
         format(excel) eform replace
     local report_rc = _rc
 
-    assert `report_rc' != 0
+    assert `report_rc' == 603
     assert c(varabbrev) == "on"
     assert c(k) == `k_before'
     _outadv_assert_pipeline_intact
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS OUTADV2: msm_report failed export restores dataset"
+    display as result "PASS OUTADV2: msm_report export-error path restores dataset"
     local ++pass_count
 }
 else {
@@ -130,16 +135,16 @@ capture noisily {
     set varabbrev on
 
     capture msm_plot, type(balance) covariates(biomarker comorbidity age sex) ///
-        saving("/tmp/msm_missing_dir/balance.gph") replace
+        saving("`missing_dir'/balance.gph") replace
     local plot_rc = _rc
 
-    assert `plot_rc' != 0
+    assert `plot_rc' == 603
     assert c(varabbrev) == "on"
     _outadv_assert_pipeline_intact
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS OUTADV3: msm_plot failed save restores dataset"
+    display as result "PASS OUTADV3: msm_plot save-error path restores dataset"
     local ++pass_count
 }
 else {
@@ -155,10 +160,10 @@ capture noisily {
     _outadv_setup_pipeline
     set varabbrev on
 
-    capture msm_table, xlsx("/tmp/msm_missing_dir/table.xlsx") all replace
+    capture msm_table, xlsx("`missing_dir'/table.xlsx") all replace
     local table_rc = _rc
 
-    assert `table_rc' != 0
+    assert `table_rc' == 603
     assert c(varabbrev) == "on"
     _outadv_assert_pipeline_intact
     assert "`: char _dta[_msm_pred_saved]'" == "1"
@@ -168,7 +173,7 @@ capture noisily {
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS OUTADV4: msm_table failed export restores dataset"
+    display as result "PASS OUTADV4: msm_table export-error path restores dataset"
     local ++pass_count
 }
 else {
@@ -225,11 +230,15 @@ display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'
 display as text "Passed:    " as result `pass_count'
 display as text "Failed:    " as result `fail_count'
-display as text "RESULT: test_msm_output_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_output_adversarial ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_output_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     display as text "{hline 72}"
+    capture log close _all
     exit 459
 }
 display as result "All msm output adversarial tests passed"
 display as text "{hline 72}"
+capture log close _all

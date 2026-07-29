@@ -90,14 +90,14 @@ capture noisily {
     assert "`: char _dta[_iivw_treat]'" == "treated"
     assert "`: char _dta[_iivw_treat_covars]'" == "age sex bl_edss bl_sdmt"
     assert "`: char _dta[_iivw_ps_estimand]'" == "ate"
-    assert "`: char _dta[_iivw_contract_version]'" == "2"
+    assert "`: char _dta[_iivw_contract_version]'" == "3"
 
     assert "`r(ps_var)'" == "_iivw_ps"
     assert "`r(tw_var)'" == "_iivw_tw"
     assert "`r(iw_var)'" == "_iivw_iw"
     assert "`r(treat_covars)'" == "age sex bl_edss bl_sdmt"
     assert "`r(ps_estimand)'" == "ate"
-    assert "`r(contract_version)'" == "2"
+    assert "`r(contract_version)'" == "3"
     assert r(ps_min) >= 0
     assert r(ps_max) <= 1
     assert r(n_ps_extreme) >= 0
@@ -108,7 +108,7 @@ capture noisily {
     assert "`r(iw_var)'" == "_iivw_iw"
     assert "`r(treat_covars)'" == "age sex bl_edss bl_sdmt"
     assert "`r(ps_estimand)'" == "ate"
-    assert "`r(contract_version)'" == "2"
+    assert "`r(contract_version)'" == "3"
 }
 local rc = _rc
 if `rc' == 0 {
@@ -147,7 +147,7 @@ capture noisily {
     assert "`: char _dta[_iivw_treat]'" == ""
     assert "`: char _dta[_iivw_treat_covars]'" == ""
     assert "`: char _dta[_iivw_ps_estimand]'" == ""
-    assert "`: char _dta[_iivw_contract_version]'" == "2"
+    assert "`: char _dta[_iivw_contract_version]'" == "3"
 }
 local rc = _rc
 if `rc' == 0 {

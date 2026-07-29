@@ -144,7 +144,7 @@ capture noisily {
     char _dta[_msm_fit_b_r]
     char _dta[_msm_fit_b_c]
     capture _msm_check_fitted
-    assert _rc != 0
+    assert _rc == 459
 }
 if _rc == 0 {
     display as result "PASS: S2 reloaded dataset carries its own fit; a stripped one is refused"
@@ -178,7 +178,7 @@ capture noisily {
 
     capture _msm_check_fitted
     local partial_rc = _rc
-    assert `partial_rc' != 0
+    assert `partial_rc' == 459
 }
 if _rc == 0 {
     display as result "PASS: S3 partial fit artifact (missing V) rejected"
@@ -202,7 +202,7 @@ capture noisily {
 
     capture msm_report
     local edited_rc = _rc
-    assert `edited_rc' != 0
+    assert `edited_rc' == 459
 }
 if _rc == 0 {
     display as result "PASS: S4 edited treatment invalidates downstream reporting"
@@ -225,7 +225,7 @@ capture noisily {
 
     capture msm_report
     local dropped_rc = _rc
-    assert `dropped_rc' != 0
+    assert `dropped_rc' == 459
 }
 if _rc == 0 {
     display as result "PASS: S5 dropped rows invalidate downstream reporting"
@@ -303,14 +303,14 @@ capture noisily {
     gen byte const_exp = 1
     capture msm_fit, model(logistic) exposure(const_exp) nolog
     local badfit_rc = _rc
-    assert `badfit_rc' != 0
+    assert `badfit_rc' == 111
 
     * The failure must leave no fitted state behind.
     local fitted_flag : char _dta[_msm_fitted]
     assert "`fitted_flag'" != "1"
 }
 if _rc == 0 {
-    display as result "PASS: S8 failed fit commits no fitted state"
+    display as result "PASS: S8 fit-error path commits no fitted state"
     local ++pass_count
 }
 else {
@@ -331,12 +331,12 @@ capture noisily {
     * Force a LATE failure. A nonexistent covariate is useless here: it fails at
     * syntax parse, before msm_weight.ado:255-263 drops the prior weights, so the
     * bug path is never entered. An all-missing covariate parses as a varname and
-    * fails inside the numerator model (~line 742), i.e. after the destructive
+    * fails under the strict missing-probability policy, after the destructive
     * drop and after _msm_ps has already been created.
     gen double allmiss_cov = .
     capture msm_weight, treat_d_cov(v) treat_n_cov(allmiss_cov) replace nolog
     local failrc = _rc
-    assert `failrc' != 0
+    assert `failrc' == 459
 
     * The prior complete weighting stage must survive intact.
     capture confirm variable _msm_weight
@@ -345,7 +345,7 @@ capture noisily {
     assert reldif(r(mean), `w_before') < 1e-12
 }
 if _rc == 0 {
-    display as result "PASS: S9 failed reweight preserves prior valid weights"
+    display as result "PASS: S9 reweight-error path preserves prior valid weights"
     local ++pass_count
 }
 else {
@@ -361,12 +361,12 @@ capture noisily {
 
     * The failure must land AFTER _msm_ps is created (msm_weight.ado:736),
     * or the partial-intermediate path is never entered. An all-missing
-    * treat_n_cov() is no good: it trips an upfront sample check and exits
-    * rc 2000 before _msm_ps exists (verified 2026-07-17). The censor models
-    * run at ~1188, comfortably after _msm_ps, so break one of those instead.
+    * The censor models run after the treatment propensity score is created,
+    * so breaking one exercises rollback of a genuinely partial transaction.
     gen double allmiss_cov = .
     capture msm_weight, treat_d_cov(v) censor_d_cov(allmiss_cov) nolog
-    assert _rc != 0
+    local failrc = _rc
+    assert `failrc' == 459
 
     * No half-built artifact may remain from the aborted run.
     capture confirm variable _msm_ps
@@ -374,7 +374,7 @@ capture noisily {
     assert `ps_left' == 0
 }
 if _rc == 0 {
-    display as result "PASS: S10 failed weight leaves no partial intermediates"
+    display as result "PASS: S10 weight-error path leaves no partial intermediates"
     local ++pass_count
 }
 else {
@@ -502,7 +502,9 @@ display as text "  tests:  `test_count'"
 display as text "  passed: `pass_count'"
 display as text "  failed: `fail_count'"
 
-display as text "RESULT: test_msm_state_identity tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_state_identity ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_state_identity tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 
 capture log close
 

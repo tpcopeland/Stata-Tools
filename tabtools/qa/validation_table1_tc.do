@@ -771,7 +771,10 @@ capture confirm file "`checker'"
 if _rc != 0 local checker ""
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
-    display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
+    display as error "FAIL: required vendored qa/tools/check_xlsx.py is missing"
+    local ++n_total
+    local ++fail_count
+    display as text "Running Stata-native diagnostics for additional evidence"
 
     * Stata-native fallback: generate xlsx, verify title cells with import excel
     local ++n_total

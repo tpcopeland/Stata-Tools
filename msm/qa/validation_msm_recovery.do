@@ -239,10 +239,14 @@ else {
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    display "RESULT: validation_msm_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    do "`qa_dir'/_record_qa_result.do" validation_msm_recovery ///
+        `test_count' `pass_count' `fail_count' 0
+    display "RESULT: validation_msm_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
     capture log close
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: validation_msm_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" validation_msm_recovery ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: validation_msm_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close

@@ -72,15 +72,16 @@ local pass_count = 0
 local fail_count = 0
 local note_count = 0
 local failed_tests ""
+local z95 = invnormal(0.975)
 
 * ============================================================
 **# Setup: Fresh R benchmark generation
 * ============================================================
 
-tempname _cv_r_id
-local _cv_r_tag = subinstr("`_cv_r_id'", "__", "", .)
-* c(pid): see run_all.do -- tempname alone collides across concurrent lanes
-local _cv_r_root "`c(tmpdir)'/`c(pid)'_tabtools_crossval_r_`_cv_r_tag'"
+* Derive the directory from a process-unique tempfile path; c(pid) is
+* undefined in supported Stata releases.
+tempfile _cv_r_token
+local _cv_r_root "`_cv_r_token'_tabtools_crossval_r"
 local _cv_r_data "`_cv_r_root'/data"
 local _cv_r_log "`_cv_r_root'/R.log"
 local _cv_r_status "`_cv_r_root'/status.txt"
@@ -296,8 +297,8 @@ capture noisily {
     local LRp = `Se' / (1 - `Sp')
 
     local _se_ln_lrp = sqrt(1/`TP' - 1/(`TP'+`FN') + 1/`FP' - 1/(`FP'+`TN'))
-    local LRp_lo = exp(ln(`LRp') - 1.96 * `_se_ln_lrp')
-    local LRp_hi = exp(ln(`LRp') + 1.96 * `_se_ln_lrp')
+    local LRp_lo = exp(ln(`LRp') - `z95' * `_se_ln_lrp')
+    local LRp_hi = exp(ln(`LRp') + `z95' * `_se_ln_lrp')
 
     local r_lo `r_diag_LRp_lo'
     local r_hi `r_diag_LRp_hi'
@@ -329,8 +330,8 @@ capture noisily {
     local LRn = (1 - `Se') / `Sp'
 
     local _se_ln_lrn = sqrt(1/`FN' - 1/(`TP'+`FN') + 1/`TN' - 1/(`FP'+`TN'))
-    local LRn_lo = exp(ln(`LRn') - 1.96 * `_se_ln_lrn')
-    local LRn_hi = exp(ln(`LRn') + 1.96 * `_se_ln_lrn')
+    local LRn_lo = exp(ln(`LRn') - `z95' * `_se_ln_lrn')
+    local LRn_hi = exp(ln(`LRn') + `z95' * `_se_ln_lrn')
 
     local r_lo `r_diag_LRn_lo'
     local r_hi `r_diag_LRn_hi'
@@ -358,8 +359,8 @@ capture noisily {
     local DOR = (`TP' * `TN') / (`FP' * `FN')
 
     local _se_ln_dor = sqrt(1/`TP' + 1/`FP' + 1/`FN' + 1/`TN')
-    local DOR_lo = exp(ln(`DOR') - 1.96 * `_se_ln_dor')
-    local DOR_hi = exp(ln(`DOR') + 1.96 * `_se_ln_dor')
+    local DOR_lo = exp(ln(`DOR') - `z95' * `_se_ln_dor')
+    local DOR_hi = exp(ln(`DOR') + `z95' * `_se_ln_dor')
 
     local r_lo `r_diag_DOR_lo'
     local r_hi `r_diag_DOR_hi'
@@ -403,8 +404,8 @@ capture noisily {
 
     * Also check LR CIs for this table
     local _se_ln_lrp = sqrt(1/`TP' - 1/(`TP'+`FN') + 1/`FP' - 1/(`FP'+`TN'))
-    local LRp_lo = exp(ln(`LRp') - 1.96 * `_se_ln_lrp')
-    local LRp_hi = exp(ln(`LRp') + 1.96 * `_se_ln_lrp')
+    local LRp_lo = exp(ln(`LRp') - `z95' * `_se_ln_lrp')
+    local LRp_hi = exp(ln(`LRp') + `z95' * `_se_ln_lrp')
     assert abs(`LRp_lo' - `r_diag2_LRp_lo') < 1e-4
     assert abs(`LRp_hi' - `r_diag2_LRp_hi') < 1e-4
 }
@@ -809,8 +810,8 @@ capture noisily {
     local rate_exp = `d_exp' / `py_exp' * `pyscale'
     local irr = `rate_exp' / `rate_ref'
     local _se_ln = sqrt(1/`d_exp' + 1/`d_ref')
-    local irr_lo = exp(ln(`irr') - 1.96 * `_se_ln')
-    local irr_hi = exp(ln(`irr') + 1.96 * `_se_ln')
+    local irr_lo = exp(ln(`irr') - `z95' * `_se_ln')
+    local irr_hi = exp(ln(`irr') + `z95' * `_se_ln')
 
     assert abs(`irr' - `r_irr') < 1e-8
     assert abs(`irr_lo' - `r_irr_lo') < 1e-6
@@ -840,8 +841,8 @@ capture noisily {
     local rate_exp = `d_exp' / `py_exp' * `pyscale'
     local irr = `rate_exp' / `rate_ref'
     local _se_ln = sqrt(1/`d_exp' + 1/`d_ref')
-    local irr_lo = exp(ln(`irr') - 1.96 * `_se_ln')
-    local irr_hi = exp(ln(`irr') + 1.96 * `_se_ln')
+    local irr_lo = exp(ln(`irr') - `z95' * `_se_ln')
+    local irr_hi = exp(ln(`irr') + `z95' * `_se_ln')
 
     assert abs(`irr' - `r_irr2') < 1e-8
     assert abs(`irr_lo' - `r_irr2_lo') < 1e-6
@@ -869,8 +870,8 @@ capture noisily {
     local s2 = 0.71
     local diff_pct = (`s1' - `s2') * 100
     local se_diff = sqrt(`se1'^2 + `se2'^2) * 100
-    local lo = `diff_pct' - 1.96 * `se_diff'
-    local hi = `diff_pct' + 1.96 * `se_diff'
+    local lo = `diff_pct' - `z95' * `se_diff'
+    local hi = `diff_pct' + `z95' * `se_diff'
 
     assert abs(`diff_pct' - `r_surv_diff_pct') < 1e-8
     assert abs(`se_diff' - `r_surv_se_diff') < 1e-6
@@ -1371,7 +1372,7 @@ else {
     local failed_tests "`failed_tests' CV18"
 }
 
-**## CV19: crosstab fweight trend equals explicit expansion
+**## CV19: crosstab fweight trend tests equal a filtered explicit expansion
 local ++test_count
 capture noisily {
     clear
@@ -1382,23 +1383,34 @@ capture noisily {
     1 1 10
     0 2 10
     1 2 20
+    1 0 0
     end
 
     crosstab outcome dose [fw=wt], trend
     local weighted_p = r(p_trend)
+    crosstab outcome dose [fw=wt], cochran
+    local weighted_ca = r(chi2_trend)
 
     preserve
+    * expand retains nonpositive rows as single observations. Filter them
+    * explicitly so the oracle matches Stata's fweight sample definition.
+    drop if missing(wt) | wt <= 0
     expand wt
     crosstab outcome dose, trend
     local expanded_p = r(p_trend)
+    crosstab outcome dose, cochran
+    local expanded_ca = r(chi2_trend)
     restore
 
     assert !missing(`weighted_p')
     assert !missing(`expanded_p')
     assert abs(`weighted_p' - `expanded_p') < 1e-12
+    assert !missing(`weighted_ca')
+    assert !missing(`expanded_ca')
+    assert abs(`weighted_ca' - `expanded_ca') < 1e-10
 }
 if _rc == 0 {
-    display as result "  PASS: CV19 crosstab weighted trend matches expansion"
+    display as result "  PASS: CV19 crosstab weighted trend tests match filtered expansion"
     local ++pass_count
 }
 else {

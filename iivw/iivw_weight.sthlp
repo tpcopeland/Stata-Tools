@@ -646,16 +646,14 @@ covariates predict rare visits receive higher weights (they are
 under-represented).
 
 {pstd}
-Formally, the IIW weight for each observation is exp(-xb), where xb is the
-linear predictor from the Cox model. The first observation per subject is
-assigned a raw weight of 1, because there is no prior inter-visit interval from
-which to estimate an intensity; the baseline visit is a recruitment visit,
-observed with probability 1. (This is the convention used by the reference R
-implementation, {cmd:IrregLong}, under its {cmd:first=TRUE} argument.) Note that
-the fitted weights are rescaled to mean 1 over the modelled events {it:before}
-that 1 is assigned, so the reported first-visit weight is exactly 1 -- see
-{it:Mean-1 normalization} below. It is the same for every subject and carries
-no covariate information, which is what the convention is for.
+For modeled visit events, the raw IIW is exp(-xb), where xb is the Cox-model
+linear predictor. Under the default {opt baseline(entry)}, the first row marks
+study entry rather than a monitoring event and is assigned weight 1 after the
+modeled-event weights are normalized. This matches the reference R
+implementation, {cmd:IrregLong}, with {cmd:first=TRUE}. Under
+{opt baseline(event)}, the first row is itself a modeled visit event and keeps
+its fitted exp(-xb) value; it is not generally 1, including when its recorded
+time is 0. See {it:Mean-1 normalization} below.
 
 {pstd}
 {bf:IPTW (inverse probability of treatment weighting)}
@@ -816,8 +814,8 @@ Data must be in long panel format with one row per subject-visit. By default
 each subject must have at least 2 visits for IIW and FIPTIW because the visit
 intensity model treats every visit as a recurrent event and so needs repeated
 visits. {opt baseline(entry)}, the default, relaxes this: the baseline visit is then
-treated as study entry, single-visit subjects are retained (raw IIW weight 1,
-rescaled with the rest), and only one subject need have two or more
+treated as study entry, single-visit subjects are retained and assigned IIW
+weight 1 after the modeled-event normalization, and only one subject need have two or more
 visits. IPTW-only analyses may use a single row per subject. The {opt id()} and
 {opt time()} combination must uniquely identify each row. The {opt treat()} variable must
 be observed for every row used in IPTW/FIPTIW, binary (0/1), and

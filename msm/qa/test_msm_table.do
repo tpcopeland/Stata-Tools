@@ -11,6 +11,18 @@ set varabbrev off
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
+tempfile table_anchor
+local work_dir "`table_anchor'_dir"
+capture mkdir "`work_dir'"
+local all_xlsx    "`work_dir'/all.xlsx"
+local coef_xlsx   "`work_dir'/coefficients.xlsx"
+local pred_xlsx   "`work_dir'/predictions.xlsx"
+local bal_xlsx    "`work_dir'/balance.xlsx"
+local sens_xlsx   "`work_dir'/sensitivity.xlsx"
+local custom_xlsx "`work_dir'/custom.xlsx"
+
+capture log close _all
+log using "test_msm_table.log", replace text nomsg
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
@@ -50,16 +62,16 @@ msm_sensitivity, evalue
 * --- Table Test 1: All tables with eform ---
 local ++test_count
 
-capture erase "/tmp/test_msm_all.xlsx"
-capture noisily msm_table, xlsx("/tmp/test_msm_all.xlsx") all eform replace
+capture erase "`all_xlsx'"
+capture noisily msm_table, xlsx("`all_xlsx'") all eform replace
 
 if _rc == 0 {
-    capture confirm file "/tmp/test_msm_all.xlsx"
+    capture confirm file "`all_xlsx'"
     if _rc == 0 {
         local _all_sheets_ok 1
         preserve
         foreach _sheet in Coefficients Predictions Balance Weights Sensitivity {
-            capture import excel "/tmp/test_msm_all.xlsx", sheet("`_sheet'") clear
+            capture import excel "`all_xlsx'", sheet("`_sheet'") clear
             if _rc local _all_sheets_ok 0
         }
         restore
@@ -89,8 +101,8 @@ else {
 * --- Table Test 2: Coefficients only ---
 local ++test_count
 
-capture erase "/tmp/test_msm_coef.xlsx"
-capture noisily msm_table, xlsx("/tmp/test_msm_coef.xlsx") coefficients eform replace
+capture erase "`coef_xlsx'"
+capture noisily msm_table, xlsx("`coef_xlsx'") coefficients eform replace
 
 if _rc == 0 {
     display as result "  PASS: coefficients table exported"
@@ -105,8 +117,8 @@ else {
 * --- Table Test 3: Predictions only ---
 local ++test_count
 
-capture erase "/tmp/test_msm_pred.xlsx"
-capture noisily msm_table, xlsx("/tmp/test_msm_pred.xlsx") predictions replace
+capture erase "`pred_xlsx'"
+capture noisily msm_table, xlsx("`pred_xlsx'") predictions replace
 
 if _rc == 0 {
     display as result "  PASS: predictions table exported"
@@ -121,8 +133,8 @@ else {
 * --- Table Test 4: Balance and weights ---
 local ++test_count
 
-capture erase "/tmp/test_msm_bal.xlsx"
-capture noisily msm_table, xlsx("/tmp/test_msm_bal.xlsx") balance weights replace
+capture erase "`bal_xlsx'"
+capture noisily msm_table, xlsx("`bal_xlsx'") balance weights replace
 
 if _rc == 0 {
     display as result "  PASS: balance + weights exported"
@@ -137,8 +149,8 @@ else {
 * --- Table Test 5: Sensitivity only ---
 local ++test_count
 
-capture erase "/tmp/test_msm_sens.xlsx"
-capture noisily msm_table, xlsx("/tmp/test_msm_sens.xlsx") sensitivity replace
+capture erase "`sens_xlsx'"
+capture noisily msm_table, xlsx("`sens_xlsx'") sensitivity replace
 
 if _rc == 0 {
     display as result "  PASS: sensitivity table exported"
@@ -154,7 +166,7 @@ else {
 local ++test_count
 
 preserve
-import excel "/tmp/test_msm_coef.xlsx", sheet("Coefficients") clear
+import excel "`coef_xlsx'", sheet("Coefficients") clear
 * Row 1 = title, Row 2 = headers, Row 3+ = data
 local _expected_or = exp(_msm_fit_b[1, 1])
 * Check that row 3 reflects the fitted treatment effect, not row indices
@@ -175,7 +187,7 @@ restore
 local ++test_count
 
 preserve
-import excel "/tmp/test_msm_pred.xlsx", sheet("Predictions") clear
+import excel "`pred_xlsx'", sheet("Predictions") clear
 * Row 4 = first data row (title + group header + column header)
 * Should have period values
 capture assert A[4] != ""
@@ -194,7 +206,7 @@ restore
 local ++test_count
 
 preserve
-import excel "/tmp/test_msm_bal.xlsx", sheet("Balance") clear
+import excel "`bal_xlsx'", sheet("Balance") clear
 * Row 3+ = data, should have covariate names
 capture assert A[3] != "" & B[3] != ""
 if _rc == 0 {
@@ -211,7 +223,7 @@ restore
 * --- Table Test 9: Error - no .xlsx extension ---
 local ++test_count
 
-capture noisily msm_table, xlsx("/tmp/test.csv") replace
+capture noisily msm_table, xlsx("`work_dir'/test.csv") replace
 if _rc == 198 {
     display as result "  PASS: rejected non-xlsx extension"
     local ++pass_count
@@ -225,7 +237,7 @@ else {
 * --- Table Test 10: Error - file exists without replace ---
 local ++test_count
 
-capture noisily msm_table, xlsx("/tmp/test_msm_all.xlsx") all eform
+capture noisily msm_table, xlsx("`all_xlsx'") all eform
 if _rc == 602 {
     display as result "  PASS: rejected existing file without replace"
     local ++pass_count
@@ -239,8 +251,8 @@ else {
 * --- Table Test 11: Custom formatting options ---
 local ++test_count
 
-capture erase "/tmp/test_msm_custom.xlsx"
-capture noisily msm_table, xlsx("/tmp/test_msm_custom.xlsx") coefficients ///
+capture erase "`custom_xlsx'"
+capture noisily msm_table, xlsx("`custom_xlsx'") coefficients ///
     eform decimals(2) title("Table 1: Treatment Effects") replace
 
 if _rc == 0 {
@@ -290,12 +302,13 @@ else {
 }
 
 * T2 cleanup
-capture erase "/tmp/test_msm_all.xlsx"
-capture erase "/tmp/test_msm_coef.xlsx"
-capture erase "/tmp/test_msm_pred.xlsx"
-capture erase "/tmp/test_msm_bal.xlsx"
-capture erase "/tmp/test_msm_sens.xlsx"
-capture erase "/tmp/test_msm_custom.xlsx"
+capture erase "`all_xlsx'"
+capture erase "`coef_xlsx'"
+capture erase "`pred_xlsx'"
+capture erase "`bal_xlsx'"
+capture erase "`sens_xlsx'"
+capture erase "`custom_xlsx'"
+capture rmdir "`work_dir'"
 
 * =============================================================================
 * T3: OPTION PATH COVERAGE
@@ -304,12 +317,16 @@ capture erase "/tmp/test_msm_custom.xlsx"
 
 * Summary
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_msm_table tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_table ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: test_msm_table tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     display as error "Failed:`failed_tests'"
+    capture log close _all
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+capture log close _all

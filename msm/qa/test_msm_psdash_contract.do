@@ -122,7 +122,9 @@ display as text _n "=== msm psdash-contract summary: " ///
 
 capture log close _all
 
-display as text "RESULT: test_msm_psdash_contract tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_psdash_contract ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_psdash_contract tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 9

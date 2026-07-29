@@ -1,4 +1,4 @@
-*! msm_weight Version 1.4.2  2026/07/28
+*! msm_weight Version 1.4.3  2026/07/29
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -334,16 +334,16 @@ program define msm_weight, rclass
     display as text "Period basis:     " as result ///
         "denominator `period_d_spec', numerator `period_n_spec'"
     if "`fitfailure'" == "error" {
-        display as text "Model failure:    " as result "Hard fail (default)"
+        display as text "Model-fit policy: " as result "Stop (default)"
     }
     else {
-        display as text "Model failure:    " as result "Marginal fallback (explicit)"
+        display as text "Model-fit policy: " as result "Marginal fallback (explicit)"
     }
     if "`probpolicy'" == "error" {
-        display as text "Probability support:" as result " Hard fail (default; no repair)"
+        display as text "Probability policy:" as result " Reject (default; no repair)"
     }
     else {
-        display as text "Probability support:" as result ///
+        display as text "Probability policy:" as result ///
             " Clip to [`clip', `=1-`clip''] (explicit)"
     }
     if "`truncate'" != "" {
@@ -790,7 +790,7 @@ program define msm_weight, rclass
         display as text "  P99:      " as result %9.4f `w_p99'
         display as text ""
         display as text "Effective sample size: " as result %9.1f `ess' ///
-            as text " (of " as result _N as text ")"
+            as text " (decision-risk rows only)"
 
         * Check mean ~1 for stabilized weights
         if abs(`w_mean' - 1) > 0.1 {

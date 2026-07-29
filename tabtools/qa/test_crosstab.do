@@ -3,6 +3,7 @@
 clear all
 set more off
 set varabbrev off
+version 16.0
 
 capture log close _crosstab
 log using "test_crosstab.log", replace text name(_crosstab)
@@ -566,7 +567,7 @@ capture noisily {
     end
 
     capture crosstab outcome exposure [iw=freq]
-    assert _rc != 0
+    assert _rc == 101
 }
 if _rc == 0 {
     display as result "  PASS: crosstab rejects conflicting or unsupported inputs"

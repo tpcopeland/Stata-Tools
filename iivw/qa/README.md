@@ -30,12 +30,15 @@ From the package QA directory:
 
 ```bash
 cd iivw/qa
-stata-mp -b do run_all.do quick   # Stata functional, validation, and release gate
-stata-mp -b do run_all.do         # full gate, including simulations and R parity
-stata-mp -b do run_all.do sim     # simulation scenarios A-E only
+stata-mp -b do run_all.do quick        # fast contract/release smoke
+stata-mp -b do run_all.do core         # all supported Stata gates
+stata-mp -b do run_all.do              # core plus fresh R parity
+stata-mp -b do run_all.do legacy       # legacy estimator constructions
+stata-mp -b do run_all.do sensitivity  # post-hoc simulation envelopes
 ```
 
-`run_all.do` uses explicit lane lists and exits nonzero when any suite fails.
+`sim` remains a backward-compatible alias for `sensitivity`. `run_all.do` uses
+explicit lane lists and exits nonzero inside Stata when any suite fails.
 Every `test_*.do`, `validation_*.do`, and `crossval_*.do` file is independently
 runnable from this directory. Individual suites perform a targeted local
 reinstall so an older SSC/GitHub copy cannot shadow the package under review.
@@ -55,9 +58,11 @@ are missing fails loudly; it does not silently skip.
 
 | Lane | Needs | Notes |
 |------|-------|-------|
-| `quick` | Stata 16+, Python 3 with `openpyxl` | The reporting-export suites open the generated workbooks and inspect cells and styling, so `openpyxl` is a **quick-lane** requirement, not a full-lane one. |
-| `sim` | Stata 16+ | Long-form simulation gates (Scenarios A–E). |
-| `full` | everything above, plus R with `IrregLong`, `geepack`, `survival`, `nlme`, `ipw`, `cobalt` | `full` regenerates the reference CSVs from the R scripts before comparing. `ipw` and `cobalt` are needed by `crossval_iivw_external_refs.R`; they were once missing from the runner's dependency message, and the external lane false-greened against stale CSVs as a result. |
+| `quick` | Stata 16+, Python 3 with `openpyxl` | Fast contract/release subset; reporting-export checks inspect workbook cells and styling. |
+| `core` | same as `quick` | All supported Stata functional, invariant, recovery, and release gates. |
+| `full` | `core`, plus R with `IrregLong`, `geepack`, `survival`, `nlme`, `ipw`, `cobalt` | Regenerates R references before comparing. `ipw` and `cobalt` are required by the external oracle. |
+| `legacy` | Stata 16+ | Historical risk-set/recovery constructions, reported but not counted as supported-estimator validation. |
+| `sensitivity` (`sim`) | Stata 16+ | Post-hoc simulation envelopes (Scenarios A–E), kept outside validation lanes. |
 
 The `full` lane refuses to continue if either R script fails, rather than
 comparing against whatever CSVs happen to be on disk. It detects the failure
@@ -71,12 +76,13 @@ status (`_rc` is 0 even when the command is missing).
 - `validation_*.do` files use known answers, invariants, and simulated
   parameter-recovery oracles.
 - `crossval_*.do` files compare against independently computed R results.
-- `sim_*.do` files are long-form simulation gates selected by the `sim` and
-  `full` lanes.
+- `sim_*.do` files are long-form sensitivity/regression envelopes selected by
+  the `sensitivity` lane (`sim` alias), not by `full`.
 - Test files emit a `RESULT: <name> tests=N pass=N fail=N skip=N` sentinel on
   **both** the pass and the fail path, and exit nonzero on failure. The shared
-  `iivw_qa_summary` in `_iivw_qa_common.do` is the single place that writes it;
-  suites do not hand-roll their own success banner.
+  `iivw_qa_summary` in `_iivw_qa_common.do` is preferred. Older suites may
+  calculate their own summary, but the arithmetic, nonzero failure exit, and
+  machine-readable sentinel remain mandatory.
 - Selectable suites take an optional case selector (`stata-mp -b do suite.do 7`).
   An invalid selector is an **error**, not a silent no-op: `iivw_qa_selector`
   rejects a non-integer or negative value, and `iivw_qa_summary` refuses to call
@@ -246,9 +252,10 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 - `sim_scenarios_abc.do`, `sim_scenario_d.do`, `sim_scenario_e.do` — simulation
   scenarios for visit-process, treatment, and measurement-artifact behavior.
   Each emits the standard `RESULT: <name> tests=N pass=N fail=N` sentinel and
-  exits 1 on failure. Tolerances are set from observed runs, not guessed, and
-  recorded in each file's header table.
-  - A/B/C and D are **bounded recovery gates**: the unweighted GEE must miss the
+  exits 1 on failure. Their tolerances are post-hoc regression envelopes fitted
+  to observed QA-mode runs, so these suites detect implementation drift but do
+  not independently validate an estimator.
+  - A/B/C and D are **bounded sensitivity scenarios**: the unweighted GEE must miss the
     truth, FIPTIW must remove >60% of that bias and land inside a confirmed
     residual envelope, and FIPTIW's coverage must beat the naive estimator's.
     IIW alone is *not* gated on recovery — it targets the visit process, not the
@@ -262,7 +269,8 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 
 ### Support
 
-- `run_all.do` — curated `quick`, `full`, and `sim` lane runner.
+- `run_all.do` — curated `quick`, `core`, `full`, `legacy`, and `sensitivity`
+  lane runner (`sim` aliases `sensitivity`).
 - `crossval_irreglong.R`, `crossval_fiptiw.R`, and
   `crossval_iivw_external_refs.R` — independent R reference generators.
 - `tools/check_iivw_xlsx.py` and `tools/check_iivw_style.py` — workbook content
@@ -285,8 +293,10 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 
 | Lane | Suites |
 |---|---|
-| `quick` | All functional and validation files listed above, excluding R cross-validation and simulation scripts |
-| `full` | `quick` plus the three simulation scripts and both `crossval_*.do` suites; R reference generators run first |
-| `sim` | `sim_scenarios_abc.do`, `sim_scenario_d.do`, `sim_scenario_e.do` |
+| `quick` | Fast contract, recovery, documentation, and release subset |
+| `core` | All supported Stata functional, invariant, recovery, and release suites |
+| `full` | `core` plus both `crossval_*.do` suites; R reference generators run first |
+| `legacy` | `validation_iivw_recovery_extended.do`, `validation_iivw_recovery_extended2.do` |
+| `sensitivity` (`sim`) | `sim_scenarios_abc.do`, `sim_scenario_d.do`, `sim_scenario_e.do` |
 
 `validation_iivw_inference.do` is outside all standard lanes by design and is listed in `_skip.txt`; its release mode is invoked explicitly when the multi-day inference gate is authorized.

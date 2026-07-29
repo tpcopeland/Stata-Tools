@@ -2817,8 +2817,8 @@ local failures = 0
 **# Migrated from test_regtab_v1015.do
 
 
-tempname out_dir
-local out_dir "`c(tmpdir)'/`c(pid)'__regtab_v1015"
+tempfile out_token
+local out_dir "`out_token'_regtab_v1015"
 capture mkdir "`out_dir'"
 
 display as text _newline "=== test_regtab_v1015 ==="
@@ -5181,3 +5181,6 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_regtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _regtab
+capture shell rm -rf "`out_dir'"
+local cleanup_rc = _rc
+if `cleanup_rc' exit `cleanup_rc'

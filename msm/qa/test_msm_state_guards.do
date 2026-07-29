@@ -9,6 +9,9 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "test_msm_state_guards.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 do "`qa_dir'/_msm_qa_common.do"
 
@@ -151,7 +154,7 @@ capture noisily {
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS SG3: msm_validate errors fail without strict"
+    display as result "PASS SG3: msm_validate reports hard errors without strict"
     local ++pass_count
 }
 else {
@@ -236,7 +239,7 @@ capture noisily {
     local fit_rc = _rc
     set maxiter `old_maxiter'
 
-    assert `fit_rc' != 0
+    assert `fit_rc' == 430
     assert "`: char _dta[_msm_fitted]'" == ""
     capture confirm variable _msm_esample
     assert _rc != 0
@@ -306,7 +309,10 @@ else {
 display as text "State-guard tests run: " as result `test_count'
 display as text "Passed: " as result `pass_count'
 display as text "Failed: " as result `fail_count'
-display as text "RESULT: test_msm_state_guards tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_state_guards ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_state_guards tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+capture log close _all
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 459

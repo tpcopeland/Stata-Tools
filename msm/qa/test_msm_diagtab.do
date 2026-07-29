@@ -11,6 +11,9 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 local tools_dir "`qa_dir'/tools"
 
+capture log close _all
+log using "test_msm_diagtab.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
@@ -390,5 +393,8 @@ capture erase "`work_dir'/missing.xlsx"
 capture erase "`work_dir'/nclass.xlsx"
 capture erase "`opt_xlsx'"
 
-display as text "RESULT: test_msm_diagtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_diagtab ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_diagtab tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+capture log close _all
 if `fail_count' > 0 exit 1

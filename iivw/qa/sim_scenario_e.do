@@ -17,7 +17,7 @@ artifact is no longer separable from the outcome trajectory. This stresses
 the additive sampling/artifact decomposition used by iivw_diagnose.
 
 Usage:
-  do iivw/qa/sim_scenario_e.do              QA gate (fewer reps)
+  do iivw/qa/sim_scenario_e.do              sensitivity lane (fewer reps)
   do iivw/qa/sim_scenario_e.do manuscript   Full 1000 replications
 */
 **# Globals

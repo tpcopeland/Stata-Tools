@@ -15,7 +15,8 @@ local fail_count = 0
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local output_dir "`c(tmpdir)'/`c(pid)'_tabtools_deep_audit"
+tempfile output_token
+local output_dir "`output_token'_tabtools_deep_audit"
 capture mkdir "`output_dir'"
 local workbook_tool "`qa_dir'/tools/make_deep_audit_workbook.py"
 
@@ -809,5 +810,10 @@ capture frame drop sim_hostile_plot
 capture frame drop collision_sink
 capture frame drop late_failure_sink
 
+if `fail_count' == 0 {
+    capture shell rm -rf "`output_dir'"
+    local cleanup_rc = _rc
+    if `cleanup_rc' exit `cleanup_rc'
+}
 if `fail_count' > 0 exit 9
 exit 0

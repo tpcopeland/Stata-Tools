@@ -1,5 +1,9 @@
 *! test_comptab.do - Focused QA for comptab
 
+clear all
+set varabbrev off
+version 17.0
+
 capture log close _comptab
 log using "test_comptab.log", replace text name(_comptab)
 

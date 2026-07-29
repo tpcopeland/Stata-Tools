@@ -7,8 +7,12 @@ version 16.0
 * Works whether invoked from package root or from qa/ directly:
 *   stata-mp -b do iivw/qa/run_all.do   (from Stata-Tools root)
 *   stata-mp -b do run_all.do           (from iivw/qa/)
-*   stata-mp -b do run_all.do quick     (skip R cross-validation lanes)
-*   stata-mp -b do run_all.do sim       (run simulation gates: Scenarios A-E)
+*   stata-mp -b do run_all.do quick     (fast contract/release smoke)
+*   stata-mp -b do run_all.do core      (all supported Stata gates)
+*   stata-mp -b do run_all.do full      (core plus fresh R parity)
+*   stata-mp -b do run_all.do legacy    (legacy estimator constructions)
+*   stata-mp -b do run_all.do sensitivity (post-hoc simulation envelopes)
+*   stata-mp -b do run_all.do sim       (backward-compatible sensitivity alias)
 *
 * READING THE RESULT (important)
 * ------------------------------
@@ -23,8 +27,10 @@ version 16.0
 
 args mode
 if "`mode'" == "" local mode "full"
-if !inlist("`mode'", "full", "quick", "sim") {
-    display as error "mode must be full, quick, or sim"
+if !inlist("`mode'", "full", "core", "quick", "legacy", ///
+    "sensitivity", "sim") {
+    display as error ///
+        "mode must be quick, core, full, legacy, sensitivity, or sim"
     exit 198
 }
 
@@ -61,7 +67,7 @@ cd "`qa_dir'"
 * -----------------------------------------------------------------------------
 * SYSDIR SANDBOX
 * -----------------------------------------------------------------------------
-* 36 of the 40 suites `net install' iivw, and several uninstall/replace tabtools.
+* Most suites `net install' iivw, and several uninstall/replace tabtools.
 * Run against the default sysdirs, that mutates the user's real ado tree: an
 * audit run left the tracker pointing iivw at /tmp and removed tabtools outright.
 * Redirect PLUS and PERSONAL into a scratch tree for the whole run and restore
@@ -88,74 +94,120 @@ ado dir
 capture ado uninstall iivw
 
 * -----------------------------------------------------------------------------
-* CURATED SUITE LIST
+* CURATED SUITE LISTS
 * -----------------------------------------------------------------------------
-if "`mode'" == "sim" {
-    local suites sim_scenarios_abc sim_scenario_d sim_scenario_e
+* quick is a strict subset of core, and core is a strict subset of full.
+* Legacy constructions and post-hoc simulation envelopes are deliberately
+* outside full so they cannot inflate the supported-estimator gate.
+local quick_suites ///
+    test_iivw ///
+    test_iivw_expanded ///
+    test_iivw_replay ///
+    test_iivw_state_contract ///
+    test_iivw_stale_state ///
+    test_iivw_ownership ///
+    test_iivw_sample_contract ///
+    test_iivw_phase2_contract ///
+    test_iivw_inference_contract ///
+    test_iivw_balance ///
+    test_iivw_performance ///
+    test_iivw_weight_validation_guards ///
+    test_iivw_psdash_contract ///
+    test_iivw_fit_adversarial ///
+    test_iivw_fit_unweighted ///
+    test_iivw_exogtest ///
+    test_iivw_diagnose ///
+    test_iivw_reporting_exports ///
+    test_iivw_literature_invariants ///
+    validation_iivw_iptw_oracle ///
+    validation_iivw_fiptiw_recovery ///
+    test_iivw_interval_contract ///
+    test_iivw_failclosed ///
+    test_help_examples ///
+    test_iivw_final_adversarial ///
+    test_iivw_release_adversarial
+
+local core_suites ///
+    test_iivw ///
+    test_iivw_expanded ///
+    test_iivw_replay ///
+    test_iivw_state_contract ///
+    test_iivw_stale_state ///
+    test_iivw_ownership ///
+    test_iivw_sample_contract ///
+    test_iivw_phase2_contract ///
+    test_iivw_inference_contract ///
+    test_iivw_invariance ///
+    test_iivw_bs_frame_contract ///
+    validation_iivw_recovery ///
+    validation_iivw ///
+    validation_iivw_expanded ///
+    validation_iivw_known_answers ///
+    test_iivw_balance ///
+    test_iivw_performance ///
+    test_iivw_weight_validation_guards ///
+    test_iivw_weight_adversarial ///
+    test_iivw_psdash_contract ///
+    test_iivw_fit_adversarial ///
+    test_iivw_fit_unweighted ///
+    test_iivw_exogtest ///
+    test_iivw_diagnose ///
+    test_iivw_reporting_exports ///
+    test_iivw_diagnostic_workflow ///
+    test_iivw_exogtest_adversarial ///
+    validation_iivw_diagnostics_known_answers ///
+    test_iivw_literature_invariants ///
+    test_iivw_ties ///
+    test_iivw_tie_default ///
+    validation_iivw_iptw_oracle ///
+    validation_iivw_fiptiw_recovery ///
+    test_iivw_v105_regressions ///
+    test_iivw_v106_regressions ///
+    test_iivw_v123_regressions ///
+    test_iivw_v130_regressions ///
+    test_iivw_v131_regressions ///
+    test_iivw_v180_regressions ///
+    test_iivw_v190_regressions ///
+    test_iivw_v191_regressions ///
+    test_iivw_v192_regressions ///
+    test_iivw_v193_regressions ///
+    test_iivw_v194_regressions ///
+    test_iivw_v196_regressions ///
+    test_iivw_v200_phase0 ///
+    test_iivw_v200_phase1 ///
+    test_iivw_v200_phase2 ///
+    test_iivw_v200_phase3 ///
+    test_iivw_v200_phase3b ///
+    test_iivw_v200_coverage ///
+    test_iivw_v200_qagate ///
+    test_iivw_v310_regressions ///
+    test_iivw_interval_contract ///
+    test_iivw_failclosed ///
+    test_iivw_coverage_gate ///
+    test_help_examples ///
+    test_iivw_final_adversarial ///
+    test_iivw_release_adversarial
+
+local legacy_suites ///
+    validation_iivw_recovery_extended ///
+    validation_iivw_recovery_extended2
+
+local sensitivity_suites ///
+    sim_scenarios_abc ///
+    sim_scenario_d ///
+    sim_scenario_e
+
+if "`mode'" == "quick" {
+    local suites `quick_suites'
+}
+else if inlist("`mode'", "sensitivity", "sim") {
+    local suites `sensitivity_suites'
+}
+else if "`mode'" == "legacy" {
+    local suites `legacy_suites'
 }
 else {
-    local suites          ///
-        test_iivw         ///
-        test_iivw_expanded ///
-        test_iivw_replay ///
-        test_iivw_state_contract ///
-        test_iivw_stale_state ///
-        test_iivw_ownership ///
-        test_iivw_sample_contract ///
-        test_iivw_phase2_contract ///
-        test_iivw_inference_contract ///
-        test_iivw_invariance ///
-        test_iivw_bs_frame_contract ///
-        validation_iivw_recovery ///
-        validation_iivw_recovery_extended ///
-        validation_iivw_recovery_extended2 ///
-        validation_iivw    ///
-        validation_iivw_expanded ///
-        validation_iivw_known_answers ///
-        test_iivw_balance ///
-        test_iivw_performance ///
-        test_iivw_weight_validation_guards ///
-        test_iivw_weight_adversarial ///
-        test_iivw_psdash_contract ///
-        test_iivw_fit_adversarial ///
-        test_iivw_fit_unweighted ///
-        test_iivw_exogtest ///
-        test_iivw_diagnose ///
-        test_iivw_reporting_exports ///
-        test_iivw_diagnostic_workflow ///
-        test_iivw_exogtest_adversarial ///
-        validation_iivw_diagnostics_known_answers ///
-        test_iivw_literature_invariants ///
-        test_iivw_ties ///
-        test_iivw_tie_default ///
-        validation_iivw_iptw_oracle ///
-        validation_iivw_fiptiw_recovery ///
-        test_iivw_v105_regressions ///
-        test_iivw_v106_regressions ///
-        test_iivw_v123_regressions ///
-        test_iivw_v130_regressions ///
-        test_iivw_v131_regressions ///
-        test_iivw_v180_regressions ///
-        test_iivw_v190_regressions ///
-        test_iivw_v191_regressions ///
-        test_iivw_v192_regressions ///
-        test_iivw_v193_regressions ///
-        test_iivw_v194_regressions ///
-        test_iivw_v196_regressions ///
-        test_iivw_v200_phase0 ///
-        test_iivw_v200_phase1 ///
-        test_iivw_v200_phase2 ///
-        test_iivw_v200_phase3 ///
-        test_iivw_v200_phase3b ///
-        test_iivw_v200_coverage ///
-        test_iivw_v200_qagate ///
-        test_iivw_v310_regressions ///
-        test_iivw_interval_contract ///
-        test_iivw_failclosed ///
-        test_iivw_coverage_gate ///
-        test_help_examples ///
-        test_iivw_final_adversarial ///
-        test_iivw_release_adversarial
+    local suites `core_suites'
 }
 
 if "`mode'" == "full" {
@@ -194,12 +246,7 @@ if "`mode'" == "full" {
         capture erase "`qa_dir'/`rsrc'.ok"
     }
 
-    local suites `suites' ///
-        sim_scenarios_abc ///
-        sim_scenario_d ///
-        sim_scenario_e ///
-        crossval_iivw ///
-        crossval_iivw_external
+    local suites `suites' crossval_iivw crossval_iivw_external
 }
 
 * -----------------------------------------------------------------------------
@@ -262,7 +309,11 @@ if `suite_fail' > 0 {
     display as error "Failed suites:`failed_suites'"
 }
 if "`mode'" == "quick" {
-    display as text "Note: quick mode skipped R cross-validation lanes"
+    display as text "Note: quick is the fast contract/release subset of core"
+}
+if inlist("`mode'", "sensitivity", "sim") {
+    display as text ///
+        "Note: sensitivity results are post-hoc regression envelopes, not validation gates"
 }
 
 * The shell exit code is unusable (always 0). Write the verdict where a caller
@@ -277,7 +328,10 @@ if "`failed_suites'" != "" {
 }
 file close _runall
 
-display as text "RUNALL: status=`status' suites=`n_suites' pass=`suite_pass' fail=`suite_fail'"
+display as text ///
+    "RESULT: run_all tests=`n_suites' pass=`suite_pass' fail=`suite_fail' skip=0"
+display as text ///
+    "RUNALL: status=`status' suites=`n_suites' pass=`suite_pass' fail=`suite_fail'"
 
 if `suite_fail' > 0 {
     exit 1

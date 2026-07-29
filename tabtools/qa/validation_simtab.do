@@ -3,6 +3,7 @@
 clear all
 set more off
 set varabbrev off
+version 16.0
 
 capture log close _simtabval
 log using "validation_simtab.log", replace text name(_simtabval)

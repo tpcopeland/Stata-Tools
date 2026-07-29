@@ -12,6 +12,9 @@
 * Individual files can be skipped via _skip.txt ("file.do | reason" lines).
 
 clear all
+set processors 1
+set varabbrev off
+version 16.0
 
 args lane
 local lane = lower(strtrim("`lane'"))
@@ -26,16 +29,12 @@ local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local skip_file "`qa_dir'/_skip.txt"
 local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
-tempname install_id
-local install_tag = subinstr("`install_id'", "__", "", .)
-* Include c(pid): `tempname' is deterministic within a session, so these
-* resolved to identical paths for every lane and TWO CONCURRENT RUNS SHARED
-* THEIR "disposable" PLUS/PERSONAL trees and output directory -- each
-* uninstalling and reinstalling the package under the other. The whole point of
-* the sandbox is isolation, so the path must be unique per process.
-local plus_dir "`c(tmpdir)'/`c(pid)'_tabtools_plus_`install_tag'"
-local personal_dir "`c(tmpdir)'/`c(pid)'_tabtools_personal_`install_tag'"
-local run_output_dir "`c(tmpdir)'/`c(pid)'_tabtools_qa_output_`install_tag'"
+* tempfile paths are process-unique in Stata 16/17. c(pid) is undefined in
+* those versions and silently expands to empty inside a quoted path.
+tempfile run_token
+local plus_dir "`run_token'_tabtools_plus"
+local personal_dir "`run_token'_tabtools_personal"
+local run_output_dir "`run_token'_tabtools_qa_output"
 
 capture mkdir "`plus_dir'"
 capture mkdir "`personal_dir'"
@@ -237,7 +236,6 @@ foreach f of local all_files {
         local failed_files "`failed_files' `f'"
         display as error "  FAILED: `f' (rc=`=_rc')"
     }
-    capture shell rm -f /tmp/St${c(pid)}*.dta
 }
 
 display _newline
@@ -275,4 +273,7 @@ sysdir set PERSONAL "`orig_personal'"
 discard
 capture shell rm -rf "`plus_dir'" "`personal_dir'" "`run_output_dir'"
 
+* Keep the canonical runner name literal so external launchers parse this
+* aggregate verdict instead of mistaking a green final child for a green lane.
+display "RESULT: run_all tests=`n_discovered' pass=`n_pass' fail=`n_fail' skip=`n_skip'"
 if `suite_rc' > 0 exit `suite_rc'

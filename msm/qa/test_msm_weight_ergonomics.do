@@ -112,10 +112,17 @@ capture noisily {
     assert "`weight_var'" == ""
 
     foreach pat in "treatment denom" "treatment numer" biomarker ///
-        comorbidity age sex {
+        comorbidity age sex "model-fit policy" "stop (default)" ///
+        "probability policy" "reject (default; no repair)" {
         quietly _file_contains_ci using "`preview_log'", pattern("`pat'")
         assert r(found) == 1
     }
+
+    * A successful preview used to print "Hard fail (default)" twice as a
+    * policy label. Generic log auditors correctly treated that as failure
+    * evidence, making an all-passed run look falsely green.
+    quietly _file_contains_ci using "`preview_log'", pattern("hard fail")
+    assert r(found) == 0
 }
 if _rc == 0 {
     display as result "  PASS WERG2: preview shows resolved models without creating weights"
@@ -201,7 +208,9 @@ display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'
 display as text "Passed:    " as result `pass_count'
 display as text "Failed:    " as result `fail_count'
-display as text "RESULT: test_msm_weight_ergonomics tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_weight_ergonomics ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_weight_ergonomics tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     display as text "{hline 72}"

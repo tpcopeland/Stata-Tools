@@ -27,6 +27,7 @@ output_dir <- if (length(args) >= 1) args[[1]] else "data"
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 results <- list()
+z_95 <- qnorm(0.975)
 
 # ============================================================
 # SECTION 1: Correlation p-values (t-approximation)
@@ -111,18 +112,18 @@ cat(sprintf("  Acc=%.6f, LR+=%.6f, LR-=%.6f, DOR=%.6f, J=%.6f\n", Acc, LRp, LRn,
 
 # LR+ CI (log method)
 se_ln_lrp <- sqrt(1/TP - 1/(TP+FN) + 1/FP - 1/(FP+TN))
-LRp_lo <- exp(log(LRp) - 1.96 * se_ln_lrp)
-LRp_hi <- exp(log(LRp) + 1.96 * se_ln_lrp)
+LRp_lo <- exp(log(LRp) - z_95 * se_ln_lrp)
+LRp_hi <- exp(log(LRp) + z_95 * se_ln_lrp)
 
 # LR- CI (log method)
 se_ln_lrn <- sqrt(1/FN - 1/(TP+FN) + 1/TN - 1/(FP+TN))
-LRn_lo <- exp(log(LRn) - 1.96 * se_ln_lrn)
-LRn_hi <- exp(log(LRn) + 1.96 * se_ln_lrn)
+LRn_lo <- exp(log(LRn) - z_95 * se_ln_lrn)
+LRn_hi <- exp(log(LRn) + z_95 * se_ln_lrn)
 
 # DOR CI (Woolf's method)
 se_ln_dor <- sqrt(1/TP + 1/FP + 1/FN + 1/TN)
-DOR_lo <- exp(log(DOR) - 1.96 * se_ln_dor)
-DOR_hi <- exp(log(DOR) + 1.96 * se_ln_dor)
+DOR_lo <- exp(log(DOR) - z_95 * se_ln_dor)
+DOR_hi <- exp(log(DOR) + z_95 * se_ln_dor)
 
 results$diag_LRp_lo <- LRp_lo
 results$diag_LRp_hi <- LRp_hi
@@ -153,14 +154,14 @@ results$diag2_DOR <- (TP2 * TN2) / (FP2 * FN2)
 results$diag2_J <- results$diag2_Se + results$diag2_Sp - 1
 
 se_ln_lrp2 <- sqrt(1/TP2 - 1/(TP2+FN2) + 1/FP2 - 1/(FP2+TN2))
-results$diag2_LRp_lo <- exp(log(results$diag2_LRp) - 1.96 * se_ln_lrp2)
-results$diag2_LRp_hi <- exp(log(results$diag2_LRp) + 1.96 * se_ln_lrp2)
+results$diag2_LRp_lo <- exp(log(results$diag2_LRp) - z_95 * se_ln_lrp2)
+results$diag2_LRp_hi <- exp(log(results$diag2_LRp) + z_95 * se_ln_lrp2)
 se_ln_lrn2 <- sqrt(1/FN2 - 1/(TP2+FN2) + 1/TN2 - 1/(FP2+TN2))
-results$diag2_LRn_lo <- exp(log(results$diag2_LRn) - 1.96 * se_ln_lrn2)
-results$diag2_LRn_hi <- exp(log(results$diag2_LRn) + 1.96 * se_ln_lrn2)
+results$diag2_LRn_lo <- exp(log(results$diag2_LRn) - z_95 * se_ln_lrn2)
+results$diag2_LRn_hi <- exp(log(results$diag2_LRn) + z_95 * se_ln_lrn2)
 se_ln_dor2 <- sqrt(1/TP2 + 1/FP2 + 1/FN2 + 1/TN2)
-results$diag2_DOR_lo <- exp(log(results$diag2_DOR) - 1.96 * se_ln_dor2)
-results$diag2_DOR_hi <- exp(log(results$diag2_DOR) + 1.96 * se_ln_dor2)
+results$diag2_DOR_lo <- exp(log(results$diag2_DOR) - z_95 * se_ln_dor2)
+results$diag2_DOR_hi <- exp(log(results$diag2_DOR) + z_95 * se_ln_dor2)
 
 cat(sprintf("  Table 2: Se=%.6f, Sp=%.6f, DOR=%.6f\n",
     results$diag2_Se, results$diag2_Sp, results$diag2_DOR))
@@ -435,7 +436,7 @@ cat(sprintf("  MOR CI from var (%.1f, %.1f): (%.6f, %.6f)\n",
 # ============================================================
 # IRR = rate_exp / rate_ref
 # SE(ln(IRR)) = sqrt(1/d_exp + 1/d_ref)
-# CI = exp(ln(IRR) +/- 1.96 * SE)
+# CI = exp(ln(IRR) +/- qnorm(0.975) * SE)
 
 cat("\nSection 10: IRR\n")
 
@@ -447,8 +448,8 @@ rate_ref <- d_ref / py_ref * pyscale
 rate_exp <- d_exp / py_exp * pyscale
 irr <- rate_exp / rate_ref
 se_ln_irr <- sqrt(1/d_exp + 1/d_ref)
-irr_lo <- exp(log(irr) - 1.96 * se_ln_irr)
-irr_hi <- exp(log(irr) + 1.96 * se_ln_irr)
+irr_lo <- exp(log(irr) - z_95 * se_ln_irr)
+irr_hi <- exp(log(irr) + z_95 * se_ln_irr)
 
 results$irr <- irr
 results$irr_lo <- irr_lo
@@ -469,8 +470,8 @@ rate_ref2 <- d_ref2 / py_ref2 * pyscale
 rate_exp2 <- d_exp2 / py_exp2 * pyscale
 irr2 <- rate_exp2 / rate_ref2
 se_ln_irr2 <- sqrt(1/d_exp2 + 1/d_ref2)
-irr2_lo <- exp(log(irr2) - 1.96 * se_ln_irr2)
-irr2_hi <- exp(log(irr2) + 1.96 * se_ln_irr2)
+irr2_lo <- exp(log(irr2) - z_95 * se_ln_irr2)
+irr2_hi <- exp(log(irr2) + z_95 * se_ln_irr2)
 
 results$irr2 <- irr2
 results$irr2_lo <- irr2_lo
@@ -491,8 +492,8 @@ s1_surv <- 0.82
 s2_surv <- 0.71
 diff_pct <- (s1_surv - s2_surv) * 100
 se_diff <- sqrt(se1^2 + se2^2) * 100
-diff_lo <- diff_pct - 1.96 * se_diff
-diff_hi <- diff_pct + 1.96 * se_diff
+diff_lo <- diff_pct - z_95 * se_diff
+diff_hi <- diff_pct + z_95 * se_diff
 
 results$surv_diff_pct <- diff_pct
 results$surv_se_diff <- se_diff

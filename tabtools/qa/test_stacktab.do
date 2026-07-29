@@ -370,7 +370,7 @@ capture noisily {
         blocks(sheet(DoesNotExist) rows(1/3) cols(A-C)) ///
         sheet("MissingSheet") ///
         sheetreplace
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: missing source sheet returns nonzero rc"
@@ -402,7 +402,7 @@ capture noisily {
         blocks(sheet(DoesNotExist) rows(1/3) cols(A-C)) ///
         sheet("PreserveFail") ///
         sheetreplace
-    assert _rc != 0
+    assert _rc == 601
     assert _N == 3
     assert marker[3] == "three"
     assert c(varabbrev) == "on"
@@ -521,7 +521,7 @@ capture noisily {
         sheet("BadMerge3") ///
         columnmerge(B+Z as "HR") ///
         sheetreplace
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS: malformed columnmerge() rules are rejected cleanly"
@@ -672,8 +672,9 @@ capture frame drop occupied_frame
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
-    local rgwb "`c(tmpdir)'/`c(pid)'_stacktab_md_regress.xlsx"
-    local rgmd "`c(tmpdir)'/`c(pid)'_stacktab_md_regress.md"
+    tempfile rgbase
+    local rgwb "`rgbase'.xlsx"
+    local rgmd "`rgbase'.md"
     capture erase "`rgwb'"
     capture erase "`rgmd'"
     clear
@@ -697,6 +698,10 @@ if _rc == 0 {
 else {
     display as error "  FAIL: stacktab markdown() quoted-path regression (rc=`=_rc')"
     local ++fail_count
+}
+if `fail_count' == 0 {
+    capture erase "`rgwb'"
+    capture erase "`rgmd'"
 }
 
 
@@ -761,7 +766,7 @@ capture noisily {
     capture stacktab using "`wbmix'", ///
         blocks(sheet(Tall3) rows(1/3) cols(A-C) \ sheet(Narrow2) rows(1/2) cols(A-B)) ///
         sheet("HMix") layout(hstack) sheetreplace
-    assert _rc != 0
+    assert _rc == 459
 }
 if _rc == 0 {
     display as result "  PASS: hstack rejects unequal-row blocks"

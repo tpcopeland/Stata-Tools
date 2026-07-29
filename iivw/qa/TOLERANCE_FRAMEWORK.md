@@ -86,9 +86,12 @@ tie-handling — so **not** Class E.
 | Outcome coefficients vs. R `geeglm` | `reldif < 1e-5` |
 | Interval counts / risk-set membership | **exact equality** |
 
-> **Banned:** the current FIPTIW arm's `correlation > 0.75` and `absolute bias < 0.25`. Those are not
-> parity tolerances — they are smoke tests wearing a parity label, and they would pass a materially wrong
-> weight. Any comparison that cannot meet Class P is **not a parity test** and may not be counted as one.
+> **Banned:** correlation-only or single-draw bias bounds such as the retired
+> FIPTIW arm's `correlation > 0.75` and `absolute bias < 0.25`. Those are not
+> parity tolerances — they are smoke tests wearing a parity label, and they
+> would pass a materially wrong weight. XV8 now compares each weight component
+> row by row; XV9 checks deterministic CI transformation parity. Any comparison
+> that cannot meet a stated parity class may not be counted as one.
 
 ### Class M — Monte Carlo recovery
 
@@ -155,9 +158,10 @@ PASS  iff  |mean(θ̂) − θ_true|  <  k · MCSE(bias)        with k = 3
 
 ## 2. What a tolerance may never do
 
-- **Absorb a known defect.** If a bound is loose enough to pass a construction the contract calls wrong,
-  it is not a tolerance — it is a cover-up. (Current example: the FIPTIW `correlation > 0.75` arm passes
-  with treatment **missing from the visit model**.)
+- **Absorb a known defect.** If a bound is loose enough to pass a construction
+  the contract calls wrong, it is not a tolerance — it is a cover-up. (The
+  retired FIPTIW `correlation > 0.75` arm passed with treatment missing from the
+  visit model; the current arm includes treatment and compares components.)
 - **Be set from the observed run.** See the header.
 - **Hide behind `assert` without a printed value.** Every numeric assertion prints the compared values and
   the bound, so a reader can see the margin. A test that passes by 0.0001 and a test that passes by 10×

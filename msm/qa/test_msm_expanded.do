@@ -15,6 +15,9 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
+capture log close _all
+log using "test_msm_expanded.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
@@ -268,7 +271,7 @@ capture noisily {
     assert _rc == 110
 }
 if _rc == 0 {
-    display as result "  PASS C2: msm_weight errors without replace"
+    display as result "  PASS C2: msm_weight is rejected without replace"
     local ++pass_count
 }
 else {
@@ -1020,11 +1023,14 @@ capture noisily {
     tempname r1
     matrix `r1' = r(predictions)
 
-    * Re-run pipeline and predict with same seed
-    _setup_pipeline, nolog fit
+    * Repeat against the identical fitted state. Re-fitting first is not a
+    * seed reproducibility test: cluster-robust V can differ at machine
+    * precision, and a finite Monte Carlo sample then legitimately changes.
     msm_predict, times(1 3) samples(20) seed(42)
     tempname r2
     matrix `r2' = r(predictions)
+    assert "`r(seed_source)'" == "seed()"
+    assert "`r(seed)'" == "42"
 
     * Point estimates and Monte Carlo CI columns should match exactly
     assert rowsof(`r1') == rowsof(`r2')
@@ -1426,10 +1432,10 @@ capture noisily {
     _setup_pipeline, nolog
     * Don't run msm_fit
     capture msm_plot, type(survival) times(1 3)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS H8: msm_plot survival without fit error"
+    display as result "  PASS H8: msm_plot survival is rejected without fit"
     local ++pass_count
 }
 else {
@@ -1994,10 +2000,16 @@ local ++test_count
 capture noisily {
     clear
     set obs 0
+    gen long id = .
+    gen int period = .
+    gen byte treatment = .
+    gen byte outcome = .
     capture msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome)
-    * Should fail because no obs or vars don't exist
-    assert _rc != 0
+    local empty_rc = _rc
+    * The variables exist, so this reaches msm_prepare's no-observations guard
+    * instead of passing early on an unrelated r(111).
+    assert `empty_rc' == 2000
 }
 if _rc == 0 {
     display as result "  PASS L1: empty dataset error"
@@ -2364,8 +2376,11 @@ else {
 }
 
 display ""
-display "RESULT: TEST tests=`test_count' pass=`pass_count' fail=`fail_count' status=" cond(`fail_count' > 0, "FAIL", "PASS")
+do "`qa_dir'/_record_qa_result.do" test_msm_expanded ///
+    `test_count' `pass_count' `fail_count' 0
+display "RESULT: test_msm_expanded tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0 status=" cond(`fail_count' > 0, "FAIL", "PASS")
 
+capture log close _all
 if `fail_count' > 0 {
     exit 1
 }

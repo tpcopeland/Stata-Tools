@@ -1,5 +1,9 @@
 *! test_hrcomptab.do - Focused QA for hrcomptab
 
+clear all
+set varabbrev off
+version 17.0
+
 capture log close _hrcomptab
 log using "test_hrcomptab.log", replace text name(_hrcomptab)
 

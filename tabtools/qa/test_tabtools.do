@@ -663,10 +663,9 @@ else {
 * dirs for this section so the user's real profile is never touched.
 local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
-tempname install_id
-local install_tag = subinstr("`install_id'", "__", "", .)
-local plus_dir "`c(tmpdir)'/`c(pid)'_tabtools_v161_plus_`install_tag'"
-local personal_dir "`c(tmpdir)'/`c(pid)'_tabtools_v161_personal_`install_tag'"
+tempfile install_token
+local plus_dir "`install_token'_tabtools_v161_plus"
+local personal_dir "`install_token'_tabtools_v161_personal"
 capture mkdir "`plus_dir'"
 capture mkdir "`personal_dir'"
 sysdir set PLUS "`plus_dir'"
@@ -908,6 +907,7 @@ else {
         mata:
         fh = fopen(st_local("reader_do"), "w")
         fput(fh, "clear all")
+        fput(fh, "set processors 1")
         fput(fh, "set more off")
         fput(fh, "set varabbrev off")
         fput(fh, sprintf(`"sysdir set PLUS "%s""', st_local("plus_dir")))
@@ -936,7 +936,8 @@ else {
         * checks. See _devkit/automation/scan_shell_rc.py.
         tempfile _child_ok
         capture erase "`_child_ok'"
-        shell ( cd "`output_dir'" && stata-mp -b do "tabtools_v161_reader.do" ) && touch "`_child_ok'"
+        * Explicit /bin/sh keeps && portable when the user's login shell is fish.
+        shell /bin/sh -c "cd `output_dir' && stata-mp -b do tabtools_v161_reader.do && touch `_child_ok'"
         capture confirm file "`_child_ok'"
         local _child_exit0 = (_rc == 0)
         confirm file "`reader_log'"

@@ -3,6 +3,7 @@
 clear all
 set more off
 set varabbrev off
+version 16.0
 
 capture log close _puttab
 log using "test_puttab.log", replace text name(_puttab)

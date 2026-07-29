@@ -146,6 +146,75 @@ else {
     local failed_tests "`failed_tests' P2"
 }
 
+**# P3: the weight-contract signature scales without N-length scratch columns
+
+local ++test_count
+local orig_processors = c(processors)
+capture noisily {
+    clear
+    set obs 1000000
+    gen long id = ceil(_n / 5)
+    gen byte t = mod(_n - 1, 5)
+    forvalues j = 1/10 {
+        gen double x`j' = mod(_n + `j', 17)
+    }
+    gen double iw = mod(_n, 11) + 1
+    gen double w = iw
+
+    char _dta[_iivw_id] "id"
+    char _dta[_iivw_time] "t"
+    char _dta[_iivw_weight_var] "w"
+    char _dta[_iivw_iw_var] "iw"
+    char _dta[_iivw_visit_cov_raw] "x1 x2 x3 x4 x5 x6 x7 x8 x9 x10"
+    char _dta[_iivw_weighttype] "iivw"
+    char _dta[_iivw_contract_version] "3"
+
+    set processors 1
+    timer clear 3
+    timer on 3
+    capture noisily _iivw_weight_signature
+    local sig_rc = _rc
+    timer off 3
+    set processors `orig_processors'
+    if `sig_rc' exit `sig_rc'
+
+    local sig_before "`r(signature)'"
+    quietly timer list 3
+    local elapsed = r(t3)
+
+    * A harmless row permutation must leave the signature byte-identical. The
+    * stale-state suite repeats this with general floating-point covariates; this
+    * large integer fixture keeps the performance assertion reproducible.
+    set seed 20260729
+    gen double order_key = runiform()
+    sort order_key
+    drop order_key
+    quietly _iivw_weight_signature
+    assert "`r(signature)'" == "`sig_before'"
+
+    * A bound-column edit must still trip the signature after the optimization.
+    replace x7 = x7 + 1 in 500000
+    quietly _iivw_weight_signature
+    assert "`r(signature)'" != "`sig_before'"
+
+    * The pre-optimization implementation took 1.61 seconds on this machine
+    * because it generated three million-row scratch variables per bound column.
+    * The 1.25-second gate retains margin above the optimized measured runtime.
+    display as text "  P3 signature seconds (1M rows, 13 columns): " %8.3f `elapsed'
+    assert `elapsed' < 1.25
+}
+local p3_rc = _rc
+capture set processors `orig_processors'
+if `p3_rc' == 0 {
+    display as result "  PASS: P3 - signature scaling, invariance, and edit detection"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: P3 - signature scaling/contract (error `p3_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' P3"
+}
+
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {

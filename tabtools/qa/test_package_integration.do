@@ -2444,7 +2444,10 @@ capture confirm file "`checker'"
 if _rc != 0 local checker ""
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
-    display as text "NOTE: check_xlsx.py not found in qa/tools — using Stata-native fallbacks where possible"
+    display as error "FAIL: required vendored qa/tools/check_xlsx.py is missing"
+    local ++n_total
+    local ++fail_count
+    display as text "Running Stata-native diagnostics for additional evidence"
 }
 
 * =========================================================================
@@ -2978,7 +2981,7 @@ capture noisily {
 }
 if _rc == 0 {
     if `has_checker' display as result "  PASS: R4.1 - regtab boldp(0.05) applies bold to significant p-value rows"
-    else display as result "  PASS: R4.1 - regtab boldp(0.05) produced significant rows; Excel style check skipped"
+    else display as text "  DIAGNOSTIC: R4.1 data path worked; required Excel style oracle was unavailable"
     local ++pass_count
 }
 else {
@@ -3038,7 +3041,7 @@ capture noisily {
 }
 if _rc == 0 {
     if `has_checker' display as result "  PASS: R4.2 - persistent boldp via tabtools set produces bold in Excel"
-    else display as result "  PASS: R4.2 - persistent boldp identified significant rows; Excel style check skipped"
+    else display as text "  DIAGNOSTIC: R4.2 data path worked; required Excel style oracle was unavailable"
     local ++pass_count
 }
 else {
@@ -3101,7 +3104,7 @@ capture noisily {
 }
 if _rc == 0 {
     if `has_checker' display as result "  PASS: R4.3 - effecttab boldp(0.10) applies bold in Excel"
-    else display as result "  PASS: R4.3 - effecttab boldp(0.10) produced significant rows; Excel style check skipped"
+    else display as text "  DIAGNOSTIC: R4.3 data path worked; required Excel style oracle was unavailable"
     local ++pass_count
 }
 else {
@@ -3213,7 +3216,7 @@ capture noisily {
 }
 if _rc == 0 {
     if `has_checker' display as result "  PASS: R4.5 - persistent boldp + pdp(4)/highpdp(2) both work in Excel"
-    else display as result "  PASS: R4.5 - persistent boldp + pdp/highpdp logic passed; Excel style check skipped"
+    else display as text "  DIAGNOSTIC: R4.5 data path worked; required Excel style oracle was unavailable"
     local ++pass_count
 }
 else {
@@ -3230,8 +3233,8 @@ tabtools set clear
 
 * The eplot bridge QA requires the sibling eplot package from the same
 * local sibling-package checkout. Hard requirement: fail with 601 when absent.
-local tools_root = regexr("`pkg_dir'", "/tabtools$", "")
-local eplot_dir "`tools_root'/eplot"
+local repo_dir = regexr("`pkg_dir'", "/tabtools$", "")
+local eplot_dir "`repo_dir'/eplot"
 capture confirm file "`eplot_dir'/eplot.ado"
 if _rc {
     display as error "Sibling eplot package not found at `eplot_dir' (required for eplot bridge QA)"

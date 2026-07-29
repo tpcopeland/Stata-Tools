@@ -152,14 +152,15 @@ These characteristics travel with the dataset when you {cmd:save} and
 {marker data_requirements}{...}
 {title:Data requirements}
 
-{phang2}1. One row per individual per time period.{p_end}
-{phang2}2. {cmd:period()} is integer-valued (no gaps expected but
+{phang2}1. The dataset contains at least one observation.{p_end}
+{phang2}2. One row per individual per time period.{p_end}
+{phang2}3. {cmd:period()} is integer-valued (no gaps expected but
 {helpb msm_validate} will check).{p_end}
-{phang2}3. {cmd:treatment()} and {cmd:outcome()} are coded 0/1.{p_end}
-{phang2}4. {cmd:censor()}, if used, is coded 0/1.{p_end}
-{phang2}5. All individuals share a common first period.{p_end}
-{phang2}6. {cmd:baseline_covariates()} are constant within person.{p_end}
-{phang2}7. All specified variables must be numeric.{p_end}
+{phang2}4. {cmd:treatment()} and {cmd:outcome()} are coded 0/1.{p_end}
+{phang2}5. {cmd:censor()}, if used, is coded 0/1.{p_end}
+{phang2}6. All individuals share a common first period.{p_end}
+{phang2}7. {cmd:baseline_covariates()} are constant within person.{p_end}
+{phang2}8. All specified variables must be numeric.{p_end}
 
 
 {marker examples}{...}

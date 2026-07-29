@@ -429,7 +429,8 @@ capture noisily {
     assert _rc == 198
     cf _all using "`strat_user_before'"
 
-    local badbase "`c(tmpdir)'/`c(pid)'_tabtools_adv_bad_`c(pid)'"
+    tempfile badbase_token
+    local badbase "`badbase_token'_tabtools_adv_bad"
     preserve
         clear
         input byte bogus

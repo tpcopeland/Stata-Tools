@@ -1318,6 +1318,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations in the outcome equation{p_end}
+{synopt:{cmd:e(level)}}confidence level used to construct {cmd:e(iivw_ci)}{p_end}
 {synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} was validated against the outcome design{p_end}
 {synopt:{cmd:e(iivw_vce_locked)}}1 if the underlying VCE passed the variance lock{p_end}
 {synopt:{cmd:e(iivw_bs_reps_requested)}}bootstrap replicates requested{p_end}

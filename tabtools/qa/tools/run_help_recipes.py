@@ -78,6 +78,7 @@ def build_do(number: int, package_dir: Path, commands: list[str]) -> str:
     body = "\n".join(commands)
     return f"""* Generated from tabtools_tips.sthlp recipe {number}
 clear all
+set processors 1
 set more off
 set varabbrev off
 version 17.0

@@ -20,6 +20,9 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+capture log close _all
+log using "validation_msm_known_answers.log", replace text nomsg
+
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local test_count = 0
@@ -857,7 +860,10 @@ display as text "Tests run: `test_count'"
 display as result "Passed:   `pass_count'"
 display as error  "Failed:   `fail_count'"
 
-display as text "RESULT: validation_msm_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" validation_msm_known_answers ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: validation_msm_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+capture log close _all
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

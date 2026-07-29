@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.1.1  2026/07/27
+*! iivw_fit Version 3.1.2  2026/07/29
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -2223,6 +2223,12 @@ program define iivw_fit, eclass
     }
 
     * Store eclass metadata
+    * glm does not reliably retain e(level), even though level() controls its
+    * displayed interval. Post it ourselves for every inference route so replay
+    * and downstream audit code can identify the level used to build
+    * e(iivw_ci). Bootstrap happened to retain it already; fixed-weight GEE did
+    * not, which made the same public option expose different e() contracts.
+    ereturn scalar level = `level'
     ereturn local iivw_cmd "iivw_fit"
     ereturn local iivw_model "`model'"
     ereturn local iivw_weighttype "`weighttype'"

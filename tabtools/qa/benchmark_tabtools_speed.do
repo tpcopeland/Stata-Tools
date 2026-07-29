@@ -34,9 +34,9 @@ local strict = lower(strtrim("`strict'"))
 local default_budget = cond(inlist("`strict'", "1", "true", "yes", "strict"), 60, 300)
 
 local result_file "`output_dir'/benchmark_tabtools_speed.tsv"
-tempname benchfh worktag
-* c(pid): see run_all.do -- tempname alone collides across concurrent lanes
-local work_dir "`c(tmpdir)'/`c(pid)'_tabtools_bench_`worktag'"
+tempname benchfh
+tempfile worktoken
+local work_dir "`worktoken'_tabtools_bench"
 capture mkdir "`work_dir'"
 
 file open `benchfh' using "`result_file'", write replace text
@@ -333,11 +333,13 @@ display as result "Benchmark QA: `pass_count'/`test_count' passed, `fail_count' 
 display as text "Benchmark results: `result_file'"
 if `fail_count' > 0 {
     display as error "SOME BENCHMARKS FAILED"
+    display "RESULT: benchmark_tabtools_speed tests=`test_count' pass=`pass_count' fail=`fail_count'"
     log close _bench_speed
     capture shell rm -rf "`work_dir'"
     exit 1
 }
 
 display as result "ALL BENCHMARKS PASSED"
+display "RESULT: benchmark_tabtools_speed tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _bench_speed
 capture shell rm -rf "`work_dir'"

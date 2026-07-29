@@ -1,5 +1,5 @@
-* test_msm_phase6.do
-* Phase 6 regressions: documentation & release surface.
+* test_msm_release_option_regressions.do
+* Documentation, release-surface, and option-combination regressions.
 *
 * Findings covered (audit 2026-07-12):
 *   A32  one canonical public-command manifest lists all 12 subcommands
@@ -16,7 +16,7 @@ set more off
 set varabbrev off
 
 capture log close _all
-log using "test_msm_phase6.log", replace text nomsg
+log using "test_msm_release_option_regressions.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -145,6 +145,8 @@ else {
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
 }
-display as text "RESULT: test_msm_phase6 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+do "`qa_dir'/_record_qa_result.do" test_msm_release_option_regressions ///
+    `test_count' `pass_count' `fail_count' 0
+display as text "RESULT: test_msm_release_option_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 capture log close _all
 if `fail_count' > 0 exit 1

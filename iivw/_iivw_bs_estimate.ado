@@ -1,4 +1,4 @@
-*! _iivw_bs_estimate Version 3.1.1  2026/07/27
+*! _iivw_bs_estimate Version 3.1.2  2026/07/29
 *! Bootstrap wrapper for iivw_fit: applies pweights inside the estimation
 *! call so Stata's bootstrap prefix does not strip them.
 *! Author: Timothy P Copeland, Karolinska Institutet
