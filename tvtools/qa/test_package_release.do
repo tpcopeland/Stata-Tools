@@ -385,9 +385,41 @@ capture noisily {
     foreach s of local sthlps {
         local paths "`paths' `pkg_dir'/`s'"
     }
-    * All ten shipped help files must render, and there must BE ten.
+    * Every shipped help file must render, and the set must be exactly the
+    * one tvtools.pkg declares. A hardcoded count went stale the moment a
+    * help file was added -- and a stale count fails loudly for the wrong
+    * reason, which is only marginally better than a directory listing that
+    * would pass while a .sthlp shipped undeclared, or a declared one was
+    * missing from the directory.
+    * Read the .pkg in Mata. Pulling it through a Stata macro re-expands the
+    * quotes and backticks in its own text -- tvtools.pkg carries a menu block
+    * full of them -- and the parser ends up reading its own macro expansion
+    * rather than the file. That failed here with r(198) before this note.
+    mata {
+        _pkgL = cat("`pkg_dir'/tvtools.pkg")
+        _decl = ""
+        for (_i = 1; _i <= rows(_pkgL); _i++) {
+            _t = strtrim(_pkgL[_i])
+            if (substr(_t, 1, 2) == "f ") {
+                _f = strtrim(substr(_t, 3, .))
+                if (substr(_f, -6, 6) == ".sthlp") _decl = _decl + " " + _f
+            }
+        }
+        st_local("declared", strtrim(_decl))
+    }
+    local declared : list sort declared
+    local present : list sort sthlps
+    local only_dir : list present - declared
+    local only_pkg : list declared - present
+    if "`only_dir'" != "" {
+        display as error "  .sthlp in the package directory but not in tvtools.pkg:`only_dir'"
+    }
+    if "`only_pkg'" != "" {
+        display as error "  .sthlp declared in tvtools.pkg but not present:`only_pkg'"
+    }
+    assert "`only_dir'" == "" & "`only_pkg'" == ""
     local n_sthlp : word count `sthlps'
-    assert `n_sthlp' == 10
+    assert `n_sthlp' > 0
     _tvtools_sthlp_render `paths'
     assert r(nbad) == 0
 

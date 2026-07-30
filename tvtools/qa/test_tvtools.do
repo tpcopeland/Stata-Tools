@@ -54,7 +54,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(prep)
-    assert r(n_commands) == 7
+    assert r(n_commands) == 8
     local cmds "`r(commands)'"
     assert strpos("`cmds'", "tvexpose") > 0
     assert strpos("`cmds'", "tvmerge") > 0
@@ -116,7 +116,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(all)
-    assert r(n_commands) == 9
+    assert r(n_commands) == 10
     assert strpos("`r(commands)'", "tvpanel") > 0
     assert strpos("`r(commands)'", "tvband") > 0
     assert strpos("`r(commands)'", "tvsplit") > 0
@@ -152,7 +152,7 @@ local ++test_count
 capture noisily {
     tvtools, list
     assert "`r(commands)'" != ""
-    assert r(n_commands) == 9
+    assert r(n_commands) == 10
 }
 if _rc == 0 {
     display as result "  PASS: list option works"
@@ -184,7 +184,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, list category(prep)
-    assert r(n_commands) == 7
+    assert r(n_commands) == 8
 }
 if _rc == 0 {
     display as result "  PASS: list + category(prep) combination works"
@@ -216,7 +216,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(PREP)
-    assert r(n_commands) == 7
+    assert r(n_commands) == 8
 }
 if _rc == 0 {
     display as result "  PASS: Case-insensitive category(PREP) works"

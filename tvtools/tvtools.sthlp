@@ -1,5 +1,6 @@
 {smcl}
-{* *! version 1.9.1  30jul2026}{...}
+{* *! version 1.10.0  30jul2026}{...}
+{vieweralsosee "tvpipe" "help tvpipe"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -67,6 +68,7 @@ workflow from data preparation through weighting and estimation.
 {bf:Data Preparation}
 
 {synoptset 16}{...}
+{synopt:{helpb tvpipe}}Build a committed interval frame from a cohort and its sources{p_end}
 {synopt:{helpb tvexpose}}Create time-varying exposure variables for survival analysis{p_end}
 {synopt:{helpb tvmerge}}Merge multiple time-varying exposure datasets{p_end}
 {synopt:{helpb tvevent}}Integrate events and competing risks into time-varying datasets{p_end}
@@ -90,15 +92,34 @@ workflow from data preparation through weighting and estimation.
 {title:Typical Workflow}
 
 {pstd}
-A typical time-varying exposure analysis follows these steps:
+{bf:The recommended path.} {helpb tvpipe} performs the construction steps as
+one validated, transactional call and leaves every scientific decision to you:
 
-{p 4 8 2}1. {bf:Create exposure data}: Use {helpb tvexpose} to transform exposure records into
+{p 4 8 2}1. {bf:Plan}: {cmd:tvpipe, ... dryrun} validates the cohort, the
+sources, the names, and the destination, and changes nothing{p_end}
+{p 4 8 2}2. {bf:Build}: the same call without {opt dryrun} commits the interval
+frame, optionally with events and a provenance manifest{p_end}
+{p 4 8 2}3. {bf:Diagnose}: {helpb tvdiagnose} verifies the constructed data{p_end}
+{p 4 8 2}4. {bf:Compute weights}: {helpb tvweight} for IPTW estimation{p_end}
+{p 4 8 2}5. {bf:Estimate effects}: {cmd:stset} plus Cox regression or another
+model on the weighted data{p_end}
+
+{pstd}
+{bf:The primitives, used directly.} Every construction step remains available
+on its own, which is what an advanced exposure definition, a bespoke overlap
+policy, or a non-standard alignment needs:
+
+{p 4 8 2}1. {bf:Create exposure data}: {helpb tvexpose} transforms exposure records into
 time-varying format{p_end}
-{p 4 8 2}2. {bf:Merge exposures}: Use {helpb tvmerge} to combine multiple exposure sources{p_end}
-{p 4 8 2}3. {bf:Add events}: Use {helpb tvevent} to integrate outcomes and competing risks{p_end}
-{p 4 8 2}4. {bf:Diagnose}: Use {helpb tvdiagnose} to verify data structure{p_end}
-{p 4 8 2}5. {bf:Compute weights}: Use {helpb tvweight} for IPTW estimation{p_end}
-{p 4 8 2}6. {bf:Estimate effects}: Use Cox regression or other models with weighted data{p_end}
+{p 4 8 2}2. {bf:Merge exposures}: {helpb tvmerge} combines multiple exposure sources{p_end}
+{p 4 8 2}3. {bf:Add events}: {helpb tvevent} integrates outcomes and competing risks{p_end}
+{p 4 8 2}4. {bf:Diagnose}, {bf:weight}, and {bf:estimate} as above{p_end}
+
+{pstd}
+{cmd:tvpipe} calls the same shared engines these commands call, so the two
+paths produce the same result; the difference is that {cmd:tvpipe} validates
+the whole plan before it starts and commits its destinations as one
+transaction.
 
 
 {marker contracts}{...}
@@ -198,6 +219,37 @@ external file. Run them in order in a scratch session.
 {phang2}{cmd:. tvtools, detail}{p_end}
 {phang2}{cmd:. tvtools, category(prep)}{p_end}
 {phang2}{cmd:. tvtools, category(weight)}{p_end}
+
+{pstd}
+{bf:Build the whole interval frame in one call}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input id rx_start rx_stop drug}{p_end}
+{phang2}{cmd:. 1 21930 21990 1}{p_end}
+{phang2}{cmd:. 1 22050 22100 1}{p_end}
+{phang2}{cmd:. 2 21950 22000 1}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. tempfile pipe_rx}{p_end}
+{phang2}{cmd:. save "`pipe_rx'"}{p_end}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input id study_entry study_exit}{p_end}
+{phang2}{cmd:. 1 21915 22280}{p_end}
+{phang2}{cmd:. 2 21915 22280}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. format study_entry study_exit %td}{p_end}
+
+{phang2}{cmd:. tvpipe, sourceusing("`pipe_rx'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///}{p_end}
+{phang3}{cmd:generate(tv_drug) frameout(analysis) replace dryrun}{p_end}
+
+{phang2}{cmd:. tvpipe, sourceusing("`pipe_rx'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///}{p_end}
+{phang3}{cmd:generate(tv_drug) frameout(analysis) replace}{p_end}
+
+{pstd}
+See {helpb tvpipe} for the specification-frame form, the event stage, the
+coverage policies, and the provenance manifest.
 
 {pstd}
 {bf:Create time-varying exposure from prescription episodes}

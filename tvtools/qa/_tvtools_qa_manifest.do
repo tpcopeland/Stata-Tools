@@ -19,8 +19,14 @@ local quick_suites test_package_runner_contract ///
 local core_only_suites test_regressions test_regressions_1_9_0 ///
     test_tvweight_cumprod ///
     test_tvmerge_frame_native ///
+    test_tvmerge_idname ///
     test_tvevent_segments ///
     test_tvexpose_fastpath ///
+    test_tvpipe_dryrun ///
+    test_tvpipe_build ///
+    test_tvpipe_commit ///
+    test_program_limits ///
+    test_tvexpose_diagnostics ///
     test_tvm_point_engine ///
     validation_phase0_semantics validation_contracts ///
     validation_audit_tvexpose validation_audit_tvmerge ///
@@ -61,8 +67,11 @@ local manifest_suites test_package_runner_contract ///
     test_regressions test_regressions_1_9_0 ///
     test_tvweight_cumprod ///
     test_tvmerge_frame_native ///
+    test_tvmerge_idname ///
     test_tvevent_segments ///
-    test_tvexpose_fastpath ///
+    test_tvexpose_fastpath test_tvpipe_dryrun ///
+    test_tvpipe_build test_tvpipe_commit ///
+    test_program_limits test_tvexpose_diagnostics ///
     test_tvm_point_engine validation_phase0_semantics ///
     validation_contracts validation_audit_tvexpose validation_audit_tvmerge ///
     validation_audit_tvevent validation_audit_tvpanel ///
@@ -86,8 +95,8 @@ local manifest_counts 11 ///
     21 13 43 19 15 ///
     87 22 15 10 22 ///
     7 5 21 ///
-    9 ///
-    165 21 29 17 20 52 4 7 ///
+    10 ///
+    165 21 29 17 14 20 52 75 48 32 70 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///
@@ -105,7 +114,7 @@ local manifest_counts 11 ///
 * when the standalone external lane is requested. Full/release override these
 * flags and require zero skips.
 local manifest_allow_skips ""
-forvalues i = 1/60 {
+forvalues i = 1/66 {
     local manifest_allow_skips "`manifest_allow_skips' 0"
 }
 local manifest_allow_skips "`manifest_allow_skips' 1 1 1 0 0 0"

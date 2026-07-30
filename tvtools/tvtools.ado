@@ -1,4 +1,4 @@
-*! tvtools Version 1.9.1  2026/07/30
+*! tvtools Version 1.10.0  2026/07/30
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -43,7 +43,7 @@ program define tvtools, rclass
     }
 
     // Define commands by category
-    local cmd_prep "tvexpose tvmerge tvevent tvage tvband tvsplit tvpanel"
+    local cmd_prep "tvpipe tvexpose tvmerge tvevent tvage tvband tvsplit tvpanel"
     local cmd_diag "tvdiagnose"
     local cmd_weight "tvweight"
 
@@ -88,6 +88,7 @@ program define tvtools, rclass
         // Default: organized view
         if inlist("`category'", "all", "prep") {
             display as text "{bf:Data Preparation}"
+            display as result "  tvpipe     " as text "- Build a committed interval frame end to end"
             display as result "  tvexpose   " as text "- Create time-varying exposure variables"
             display as result "  tvmerge    " as text "- Merge multiple time-varying datasets"
             display as result "  tvevent    " as text "- Integrate events and competing risks"
@@ -156,6 +157,11 @@ program define _tvtools_detail
     if inlist("`category'", "all", "prep") {
         display as text "{bf:Data Preparation}"
         display as text "  {hline 60}"
+        display as result "  tvpipe" as text "       Build a committed, analysis-ready interval frame"
+        display as text "               from a cohort and one or more longitudinal"
+        display as text "               sources. Coordinates tvexpose, tvmerge, and"
+        display as text "               tvevent; the recommended front door."
+        display as text ""
         display as result "  tvexpose" as text "     Create time-varying exposure variables for"
         display as text "               survival analysis. Transforms exposure records"
         display as text "               into episode format compatible with stset."

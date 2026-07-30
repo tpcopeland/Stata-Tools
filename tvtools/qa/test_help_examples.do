@@ -39,14 +39,14 @@ quietly cd "$TVTOOLS_QA_RUN_DIR/helpex"
 local ++test_count
 capture noisily {
     tvtools
-    assert r(n_commands) == 9
+    assert r(n_commands) == 10
     local _all "`r(commands)'"
 
     tvtools, detail
-    assert r(n_commands) == 9
+    assert r(n_commands) == 10
 
     tvtools, category(prep)
-    assert r(n_commands) == 7
+    assert r(n_commands) == 8
 
     tvtools, category(diag)
     assert r(n_commands) == 1
@@ -446,6 +446,127 @@ else {
     display as error "  FAIL [H9]: merge/containment postconditions (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' H9"
+}
+
+**# H10: the tvpipe help examples, verbatim
+
+local ++test_count
+capture noisily {
+    clear
+    input long id str9(entry_s exit_s) byte female double ev_s
+    1 "01jan2020" "31dec2020" 1 22000
+    2 "01jan2020" "31dec2020" 0 .
+    end
+    generate double study_entry = date(entry_s, "DMY")
+    generate double study_exit = date(exit_s, "DMY")
+    generate double event_date = ev_s
+    format study_entry study_exit event_date %td
+    drop entry_s exit_s ev_s
+    tempfile cohort episodes
+    quietly save `cohort'
+    clear
+    input long id str9(start_s stop_s) byte rx_class
+    1 "05jan2020" "20feb2020" 1
+    1 "01mar2020" "15apr2020" 2
+    2 "10jun2020" "31jul2020" 1
+    end
+    generate double rx_start = date(start_s, "DMY")
+    generate double rx_stop = date(stop_s, "DMY")
+    drop start_s stop_s
+    quietly save `episodes'
+
+    * 1. dry run
+    use `cohort', clear
+    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+        start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
+        generate(tv_drug) frameout(analysis) dryrun
+    assert r(dryrun) == 1
+    capture confirm frame analysis
+    assert _rc != 0
+
+    * 2. the corresponding committed run
+    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+        start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
+        generate(tv_drug) referencelabel("Unexposed") keepvars(female) ///
+        frameout(analysis) replace
+    assert r(dryrun) == 0
+    assert r(N_periods) > 0
+
+    * 3. two sources through a specification frame
+    use `cohort', clear
+    tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///
+        exposure(rx_class) reference(0) entry(study_entry) exit(study_exit) ///
+        generate(tv_alt) frameout(alt_frame) replace
+    frame alt_frame: rename (rx_start rx_stop) (start stop)
+    capture frame drop rx_frame
+    frame create rx_frame
+    frame rx_frame: use `episodes', clear
+    capture frame drop pipe_spec
+    frame create pipe_spec
+    frame pipe_spec {
+        input str32 source_name str12 source_kind str32 source_frame strL source_file ///
+            str32 start_var str32 stop_var strL input_vars strL output_vars double reference
+        "drug" "episodes"  "rx_frame"  "" "rx_start" "rx_stop" "rx_class" "tv_drug" 0
+        "alt"  "intervals" "alt_frame" "" "start"    "stop"    "tv_alt"   "tv_alt2" .
+        end
+    }
+    frame pipe_spec: char _dta[tvpipe_spec_version] "1"
+    use `cohort', clear
+    tvpipe, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
+        frameout(analysis) manifestframe(provenance) replace
+    frame provenance: list stage source_name n_input n_output, noobs
+
+    * 4. an advanced exposure definition as a ready interval source
+    use `cohort', clear
+    tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///
+        exposure(rx_class) reference(0) entry(study_entry) exit(study_exit) ///
+        generate(tv_drug) grace(30) layer frameout(drug_frame) replace
+
+    * 5. a single event, taken from the master
+    use `cohort', clear
+    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+        start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
+        generate(tv_drug) frameout(analysis) replace ///
+        eventdate(event_date) eventgenerate(_failure) timegen(_elapsed)
+    assert r(event_stage) == 1
+
+    * 6. the documented handoff, from the single-event result above
+    local idv "`r(idvar)'"
+    local sv "`r(startvar)'"
+    local ev "`r(stopvar)'"
+    local fv "`r(eventvar)'"
+    frame change analysis
+    tvdiagnose, id(`idv') start(`sv') stop(`ev') entry(study_entry) exit(study_exit) all
+    stset `ev', id(`idv') failure(`fv' == 1) time0(`sv')
+    frame change default
+
+    * 7. recurring events from a separate frame
+    capture frame drop ev_frame
+    frame create ev_frame
+    frame ev_frame {
+        input long id double ev1 double ev2
+        1 22000 22200
+        2 22100 .
+        end
+    }
+    use `cohort', clear
+    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+        start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
+        generate(tv_drug) frameout(analysis) replace ///
+        eventframe(ev_frame) eventdate(ev) eventtype(recurring) enum(_enum) gaptime
+    assert r(enumvar) == "_enum"
+    foreach f in analysis provenance alt_frame drug_frame pipe_spec ev_frame rx_frame {
+        capture frame drop `f'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS [H10]: tvpipe help examples run verbatim after installation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL [H10]: tvpipe help examples (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' H10"
 }
 
 quietly cd "`_origdir'"

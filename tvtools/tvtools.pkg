@@ -33,8 +33,9 @@ d     capture window menu append item "Time-varying exposures" "Merge TV dataset
 d     capture window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
 d     capture window menu refresh
 d
-d All ten public commands and their individual help files are linked from
-d {cmd:help tvtools}.
+d All eleven public commands and their individual help files are linked from
+d {cmd:help tvtools}. {cmd:tvpipe} is the recommended front door for building a
+d committed, analysis-ready interval frame in one validated call.
 d
 f tvtools.ado
 f tvexpose.ado
@@ -42,6 +43,7 @@ f tvexpose.dlg
 f tvexpose.sthlp
 f _tvexpose_eligible.ado
 f _tvexpose_fast_build.ado
+f _tvexpose_diagnostics.ado
 f _tvexpose_frame_commit.ado
 f _tvexpose_mata.ado
 f tvmerge.ado
@@ -71,3 +73,15 @@ f tvsplit.sthlp
 f _tvband_split.ado
 f tvpanel.ado
 f tvpanel.sthlp
+f tvpipe.ado
+f tvpipe.sthlp
+f _tvpipe_normalize_spec.ado
+f _tvpipe_preflight.ado
+f _tvpipe_load_source.ado
+f _tvpipe_carry_meta.ado
+f _tvpipe_build_source.ado
+f _tvpipe_combine.ado
+f _tvpipe_event.ado
+f _tvpipe_finalize.ado
+f _tvpipe_manifest.ado
+f _tvpipe_commit.ado

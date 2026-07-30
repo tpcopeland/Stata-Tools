@@ -47,7 +47,7 @@ if `"`demo_dir'"' == "" {
 
 tempfile cohort episodes_antidep episodes_benzo events recur panel ///
     caller_love_graph caller_swim_graph
-tempname f_antidep f_benzo f_merged demo_balance ///
+tempname f_antidep f_benzo f_merged f_pipe f_prov demo_balance ///
     demo_love_graph demo_swim_graph
 local demo_had_love_graph = 0
 local demo_had_swim_graph = 0
@@ -120,6 +120,7 @@ label values drug drug_lbl
 drop p_exposed seq duration
 keep id rx_start rx_stop drug
 save "`episodes_antidep'", replace
+
 
 * Benzodiazepine exposure episodes (binary)
 use "`cohort'", clear
@@ -232,6 +233,52 @@ noisily tvevent, frame(`f_merged') id(id) ///
     date(cv_event_date) compete(death_date) generate(outcome)
 noisily display "event indicator: " as result "`r(generate)'" ///
     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
+
+
+* ## Step 5: the same construction as one tvpipe call
+* tvpipe coordinates the same engines Steps 1-4 used, validates the whole plan
+* before touching anything, and commits its destinations as one transaction.
+*
+* These synthetic episodes overlap within person, which tvpipe refuses on
+* purpose: choosing an overlap-resolution rule is a scientific decision, not a
+* default. The documented remedy is the route taken here -- resolve the
+* overlaps explicitly with tvexpose, then declare that frame as a ready
+* interval source. The specification frame is built with `replace' rather than
+* `input' because `input' does not expand macros in its data lines.
+capture frame drop tvpipe_spec
+frame create tvpipe_spec
+frame tvpipe_spec {
+    quietly set obs 1
+    quietly generate str32 source_name  = "antidep"
+    quietly generate str12 source_kind  = "intervals"
+    quietly generate str32 source_frame = "`f_antidep'"
+    quietly generate strL  source_file  = ""
+    quietly generate str32 start_var    = "rx_start"
+    quietly generate str32 stop_var     = "rx_stop"
+    quietly generate strL  input_vars   = "`gA'"
+    quietly generate strL  output_vars  = "tv_antidep"
+    quietly generate double reference   = .
+}
+frame tvpipe_spec: char _dta[tvpipe_spec_version] "1"
+
+use "`cohort'", clear
+noisily tvpipe, specframe(tvpipe_spec) ///
+    id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
+    eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
+    eventgenerate(outcome) ///
+    frameout(`f_pipe') manifestframe(`f_prov') replace dryrun
+
+use "`cohort'", clear
+noisily tvpipe, specframe(tvpipe_spec) ///
+    id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
+    eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
+    eventgenerate(outcome) ///
+    frameout(`f_pipe') manifestframe(`f_prov') replace
+noisily display "committed periods: " as result r(N_periods) ///
+    "   signature: " as result "`r(datasignature)'"
+noisily matrix list r(stage_counts)
+noisily frame `f_prov': list stage source_name n_input n_output n_persons, noobs
+capture frame drop tvpipe_spec
 
 
 **# Marginal structural model weighting with IPCW
@@ -389,7 +436,8 @@ if `demo_had_swim_graph' {
 }
 capture matrix drop `demo_balance'
 capture frame change `demo_frame'
-foreach frame_name in `f_antidep' `f_benzo' `f_merged' {
+capture frame drop tvpipe_spec
+foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' {
     capture frame drop `frame_name'
 }
 if `demo_preserved' capture restore

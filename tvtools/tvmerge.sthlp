@@ -52,6 +52,7 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {syntab:Output naming}
 {synopt:{opt gen:erate(namelist)}}new names for exposure variables (one per dataset){p_end}
 {synopt:{opt pre:fix(string)}}prefix for all exposure variable names{p_end}
+{synopt:{opt idname(string)}}name for output person identifier (default: id){p_end}
 {synopt:{opt startname(string)}}name for output start date variable (default: start){p_end}
 {synopt:{opt stopname(string)}}name for output stop date variable (default: stop){p_end}
 {synopt:{opt dateformat(fmt)}}output date format{p_end}
@@ -240,6 +241,19 @@ a distinct {opt generate()} name up front.
 example, exposures {cmd:drug_class} and {cmd:benzo} with {cmd:prefix(exp_)} become
 {cmd:exp_drug_class} and {cmd:exp_benzo}. This option is mutually exclusive with
 {opt generate()}.
+
+{phang}
+{opt idname(string)} specifies the name for the person identifier in the output
+dataset. Default is "id".
+
+{phang}
+{cmd:tvmerge} renames {opt id()} to {cmd:id} for its internal work, and the
+default preserves that as the committed output name. Specify the same name as
+{opt id()} to carry the caller's own key through, so the result feeds
+{helpb tvevent}, {helpb tvdiagnose}, {helpb tvweight}, or a second
+{cmd:tvmerge} without an intervening {cmd:rename}. The name must be a legal
+Stata name and must differ from {opt startname()}, {opt stopname()}, every
+exposure output name, and every {opt keep()} output name.
 
 {phang}
 {opt startname(string)} specifies the name for the start date variable in the output
@@ -524,6 +538,7 @@ numbers.
 {synopt:{cmd:r(cumulative_vars)}}cumulative-history variable names{p_end}
 {synopt:{cmd:r(continuous_vars)}}legacy {cmd:continuous()} aliases (totals){p_end}
 {synopt:{cmd:r(categorical_vars)}}names of categorical exposure variables{p_end}
+{synopt:{cmd:r(idname)}}name of person identifier in output{p_end}
 {synopt:{cmd:r(startname)}}name of start date variable in output{p_end}
 {synopt:{cmd:r(stopname)}}name of stop date variable in output{p_end}
 {synopt:{cmd:r(dateformat)}}date format applied to output{p_end}

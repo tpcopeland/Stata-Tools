@@ -1,4 +1,4 @@
-*! tvmerge Version 1.9.1  2026/07/30
+*! tvmerge Version 1.10.0  2026/07/30
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -29,6 +29,11 @@ Output and naming options:
   keep(varlist)      - Additional variables to keep from source datasets (note: suffixed with _ds#)
   startname(string)  - Name for start date variable in output (default: start)
   stopname(string)   - Name for stop date variable in output (default: stop)
+  idname(string)     - Name for the person identifier in output (default: id)
+                       Passing the same name as id() carries the caller's own
+                       key through, so the result chains into tvevent,
+                       tvdiagnose, tvweight, or another tvmerge without an
+                       intervening rename.
   dateformat(fmt)    - Stata date format for output variables (default: %tdCCYY/NN/DD)
 
 Diagnostic and validation options:
@@ -100,6 +105,7 @@ program define tvmerge, rclass
          PREfix(string) ///
          STARTname(string) ///
          STOPname(string) ///
+         IDName(string) ///
          DATEformat(string) ///
          SAVeas(string) ///
          FRAMEOut(name) ///
@@ -184,7 +190,7 @@ program define tvmerge, rclass
     
     * Validate variable name lengths (Stata allows up to 32 characters)
     * Check single-value options
-    foreach opt in id startname stopname prefix {
+    foreach opt in id startname stopname idname prefix {
         if "``opt''" != "" {
             local len = strlen("``opt''")
             if `len' > 32 {
@@ -276,12 +282,39 @@ program define tvmerge, rclass
         local stopname "stop"
     }
     
-    * Verify startname and stopname are different
+    * Validate idname, the output name for the person identifier.
+    *
+    * tvmerge renames the caller's id() variable to the literal name `id' for
+    * its internal work and, before 1.9.1, committed it under that name. So a
+    * cohort keyed on pid came back keyed on id, and every command downstream
+    * -- tvevent, tvdiagnose, tvweight, another tvmerge -- needed a rename
+    * inserted between the two calls. tvexpose has always restored its id(),
+    * start(), and stop() names on the way out; this closes the gap.
+    *
+    * The default stays `id' rather than becoming id(), because the released
+    * output name is part of the contract every existing script was written
+    * against. idname(`id') is the one-token opt-in.
+    if "`idname'" != "" {
+        capture confirm name `idname'
+        if _rc != 0 {
+            di as error "idname() contains invalid Stata name: `idname'"
+            exit 198
+        }
+    }
+    else {
+        local idname "id"
+    }
+
+    * Verify the three structural output names are different
     if "`startname'" == "`stopname'" {
         di as error "startname() and stopname() must be different variable names"
         exit 198
     }
-    
+    if "`idname'" == "`startname'" | "`idname'" == "`stopname'" {
+        di as error "idname() must differ from startname() and stopname()"
+        exit 198
+    }
+
     * Validate dateformat option if specified
     if "`dateformat'" == "" {
         local dateformat "%tdCCYY/NN/DD"
@@ -340,7 +373,20 @@ program define tvmerge, rclass
         di as error "Please choose a different name for the output stop variable"
         exit 198
     }
-    
+    * `id' is itself the internal working name, so it is in reserved_names and
+    * has to be exempted here: it is the released output name and the default.
+    * The rename that applies idname() is the last statement before the result
+    * is committed, so no internal consumer sees the new name.
+    local idname_conflict = 0
+    if "`idname'" != "id" {
+        local idname_conflict: list idname in reserved_names
+    }
+    if `idname_conflict' {
+        di as error "idname(`idname') conflicts with internal variable name"
+        di as error "Please choose a different name for the output ID variable"
+        exit 198
+    }
+
     * Check for duplicate exposure variable names in the specification
     * Skip this check when generate() is provided, since generate() renames the variables
     local exposures_raw "`exposure'"
@@ -469,7 +515,7 @@ program define tvmerge, rclass
                     di as error "keep() output name '`keep_output'' conflicts with an internal variable"
                     exit 198
                 }
-                local keep_structural_outputs "id `startname' `stopname'"
+                local keep_structural_outputs "id `idname' `startname' `stopname'"
                 local keep_structural_collision : list keep_output in keep_structural_outputs
                 if `keep_structural_collision' {
                     di as error "keep() output name '`keep_output'' conflicts with an output ID or bound"
@@ -485,7 +531,7 @@ program define tvmerge, rclass
         exit 198
     }
 
-    local protected_output_names "id `id' `startname' `stopname' `keep_output_names'"
+    local protected_output_names "id `idname' `id' `startname' `stopname' `keep_output_names'"
     local protected_output_names : list uniq protected_output_names
 
     foreach out_name of local final_name_candidates {
@@ -1749,11 +1795,31 @@ program define tvmerge, rclass
             local n_input_overlaps = `n_input_overlaps' + `n_overlaps_ds`ds_index''
         }
 
+        * Commit the output name for the person identifier.
+        *
+        * Everything above this line works on the literal name `id', which is
+        * what the merge renamed the caller's id() to on the way in. This is
+        * the last point at which that is still true, so it is where the
+        * public name is applied -- the same shape tvexpose uses. A failed
+        * rename means the committed schema is not the one the caller asked
+        * for, so it is an error rather than something to swallow; every
+        * reachable collision was rejected during the preflight above.
+        if "`idname'" != "id" {
+            capture quietly rename id `idname'
+            local _idname_rc = _rc
+            if `_idname_rc' {
+                noisily display as error ///
+                    "Could not name the id variable '`idname'' in the output (rc=`_idname_rc')"
+                noisily display as error "No output was committed."
+                exit 198
+            }
+        }
+
         * Sort final dataset
         if _N > 0 {
-            sort id `startname' `stopname'
+            sort `idname' `startname' `stopname'
         }
-        
+
         * Apply date format to start and stop
         format `startname' `stopname' `dateformat'
 
@@ -1778,12 +1844,12 @@ program define tvmerge, rclass
 
         * Count unique persons
         if _N > 0 {
-            egen long _tag = tag(id)
+            egen long _tag = tag(`idname')
             quietly count if _tag == 1
             local n_persons = r(N)
 
             * Calculate average and max periods per person
-            by id: generate long _nper = _N
+            by `idname': generate long _nper = _N
             quietly summarize _nper if _tag == 1, meanonly
             local avg_periods = r(mean)
             local max_periods = r(max)
@@ -1804,9 +1870,9 @@ program define tvmerge, rclass
             * Compare each start with the running maximum prior stop. Immediate-
             * predecessor logic falsely reports gaps after a nested short row.
             tempvar _coverage_max
-            bysort id (`startname' `stopname'): generate double `_coverage_max' = `stopname'
-            by id: replace `_coverage_max' = max(`_coverage_max'[_n-1], `stopname') if _n > 1
-            by id: generate double _gap = `startname' - `_coverage_max'[_n-1] if _n > 1
+            bysort `idname' (`startname' `stopname'): generate double `_coverage_max' = `stopname'
+            by `idname': replace `_coverage_max' = max(`_coverage_max'[_n-1], `stopname') if _n > 1
+            by `idname': generate double _gap = `startname' - `_coverage_max'[_n-1] if _n > 1
             
             * Store count of gaps > 1 day for display
             quietly count if _gap > 1 & !missing(_gap)
@@ -1834,19 +1900,19 @@ program define tvmerge, rclass
             * vector (numeric, string, labelled, and missing values alike).
             tempvar _diag_obs _diag_gid _diag_pattern
             quietly generate long `_diag_obs' = _n
-            quietly egen long `_diag_gid' = group(id)
+            quietly egen long `_diag_gid' = group(`idname')
             quietly egen long `_diag_pattern' = group(`final_exps'), missing
 
             tempfile _diag_master_lookup _diag_using_lookup _diag_pairs
             preserve
-                keep `_diag_obs' `_diag_pattern' id `startname' `stopname'
-                rename (`_diag_obs' `_diag_pattern' id `startname' `stopname') ///
+                keep `_diag_obs' `_diag_pattern' `idname' `startname' `stopname'
+                rename (`_diag_obs' `_diag_pattern' `idname' `startname' `stopname') ///
                     (__tvm_mi __tvm_mpattern __tvm_mid __tvm_mstart __tvm_mstop)
                 quietly save `_diag_master_lookup', replace
             restore
             preserve
-                keep `_diag_obs' `_diag_pattern' id `startname' `stopname'
-                rename (`_diag_obs' `_diag_pattern' id `startname' `stopname') ///
+                keep `_diag_obs' `_diag_pattern' `idname' `startname' `stopname'
+                rename (`_diag_obs' `_diag_pattern' `idname' `startname' `stopname') ///
                     (__tvm_ui __tvm_upattern __tvm_uid __tvm_ustart __tvm_ustop)
                 quietly save `_diag_using_lookup', replace
             restore
@@ -1887,8 +1953,8 @@ program define tvmerge, rclass
                 if `n_overlaps' > 0 {
                     tempfile overlap_data
                     rename (__tvm_uid __tvm_ustart __tvm_ustop) ///
-                        (id `startname' `stopname')
-                    keep id `startname' `stopname'
+                        (`idname' `startname' `stopname')
+                    keep `idname' `startname' `stopname'
                     quietly save `overlap_data', replace
                 }
             restore
@@ -1914,15 +1980,15 @@ program define tvmerge, rclass
 
         if _N > 0 {
             * Count and store unique persons
-            egen long _tag = tag(id)
+            egen long _tag = tag(`idname')
             quietly count if _tag == 1
             return scalar N_persons = r(N)
             local _flow_pout = r(N)
             drop _tag
 
             * Calculate and store periods per person statistics
-            by id: generate long _per_max = _N
-            by id: generate byte _first = (_n == 1)
+            by `idname': generate long _per_max = _N
+            by `idname': generate byte _first = (_n == 1)
             quietly summarize _per_max if _first == 1, meanonly
             return scalar mean_periods = r(mean)
             return scalar max_periods = r(max)
@@ -1969,6 +2035,7 @@ program define tvmerge, rclass
         * documents r(datasets) as "list of datasets merged".
         return local datasets "`datasets'"
         return local exposure_vars "`final_exps'"
+        return local idname "`idname'"
         return local startname "`startname'"
         return local stopname "`stopname'"
         return local dateformat "`dateformat'"
@@ -2066,7 +2133,7 @@ program define tvmerge, rclass
             di as error "Found `n_gaps' gaps in coverage (>1 day gaps)"
             if "`verbose'" != "" {
                 quietly use `gaps_data', clear
-                noisily list id `startname' `stopname' _gap if _gap > 1 & !missing(_gap), sep(20)
+                noisily list `idname' `startname' `stopname' _gap if _gap > 1 & !missing(_gap), sep(20)
                 quietly use `current', clear
             }
             else {
@@ -2089,7 +2156,7 @@ program define tvmerge, rclass
             di as error "Found `n_overlaps' unexpected overlapping periods (same interval, same exposures)"
             if "`verbose'" != "" {
                 quietly use `overlap_data', clear
-                noisily list id `startname' `stopname', sep(20)
+                noisily list `idname' `startname' `stopname', sep(20)
                 quietly use `current', clear
             }
             else {
