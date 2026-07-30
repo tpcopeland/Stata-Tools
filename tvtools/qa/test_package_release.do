@@ -42,7 +42,7 @@ end
 local ++test_count
 capture noisily {
     foreach command in tvtools tvage tvband tvsplit tvpanel tvexpose tvmerge ///
-        tvevent tvweight tvdiagnose {
+        tvevent tvweight tvdiagnose tvpipe {
         findfile `command'.ado
         assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1
         findfile `command'.sthlp
@@ -61,6 +61,16 @@ local ++test_count
 capture noisily {
     foreach helper in _tvband_split _tvexpose_mata ///
         _tvmerge_mata _tvtools_new_vallabel {
+        findfile `helper'.ado
+        assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1
+    }
+    * Every tvpipe helper is a separate autoloaded file, so each one resolves
+    * or the command dies at its first call on a fresh install. They are named
+    * individually rather than globbed: a glob over the install dir would pass
+    * by finding nothing if the .pkg ever stopped shipping them.
+    foreach helper in _tvpipe_build_source _tvpipe_carry_meta _tvpipe_combine ///
+        _tvpipe_commit _tvpipe_event _tvpipe_finalize _tvpipe_load_source ///
+        _tvpipe_manifest _tvpipe_normalize_spec _tvpipe_preflight {
         findfile `helper'.ado
         assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1
     }
@@ -641,6 +651,73 @@ if _rc == 0 local ++pass_count
 else {
     local ++fail_count
     local failed_tests "`failed_tests' demo_twice"
+}
+
+**# Shipped help files declare each marker and each section title once
+*
+* Regression for 1.10.1. tvpipe.sthlp shipped its whole body twice: Options,
+* Specification frame, Dry run, Output, Stored results, Provenance, and
+* Examples each appeared in two copies that had drifted apart. Every existing
+* doc check passed it -- the words were present and in order, the render
+* carried no literal directive, and the examples all ran -- because every one
+* of them probes whether required content is THERE. None asks whether it is
+* there exactly once, which is the axis a duplicated body lives on.
+*
+* A repeated {marker} is the sharper half: Stata resolves a {...:jump} to the
+* first definition, so the second copy of every section is unreachable and a
+* reader who jumps to "Stored results" may land in the stale copy. A repeated
+* {title:} catches the same duplication when the block carries no marker.
+
+local ++test_count
+capture noisily {
+    local _dup_report ""
+    local _sthlp_files : dir "`pkg_dir'" files "*.sthlp"
+    foreach _f of local _sthlp_files {
+        tempname _fh
+        file open `_fh' using "`pkg_dir'/`_f'", read text
+        local _markers ""
+        local _titles ""
+        file read `_fh' _line
+        while r(eof) == 0 {
+            if regexm(`"`_line'"', "\{marker ([a-zA-Z0-9_]+)\}") {
+                local _markers "`_markers' `=regexs(1)'"
+            }
+            if regexm(`"`_line'"', "^\{title:([^}]+)\}") {
+                local _titles `"`_titles' "`=regexs(1)'""'
+            }
+            file read `_fh' _line
+        }
+        file close `_fh'
+
+        * The names are reported as plain text. Writing them back as
+        * {marker:...}/{title:...} would hand display a live SMCL directive:
+        * {title:X} is real markup, so it renders instead of printing and the
+        * failure message silently loses the half it was meant to name.
+        local _dupm : list dups _markers
+        if "`_dupm'" != "" {
+            local _dup_report "`_dup_report' `_f' marker(s)=[`_dupm']"
+        }
+        * Titles are compared as a whitespace-free token list so that two
+        * identically-named sections collide even though their text may wrap
+        * differently.
+        local _tt ""
+        foreach _t of local _titles {
+            local _tt "`_tt' `=subinstr("`_t'", " ", "_", .)'"
+        }
+        local _dupt : list dups _tt
+        if "`_dupt'" != "" {
+            local _dup_report "`_dup_report' `_f' title(s)=[`_dupt']"
+        }
+    }
+    if "`_dup_report'" != "" {
+        display as error "duplicated help sections:`_dup_report'"
+    }
+    assert "`_dup_report'" == ""
+}
+if _rc == 0 local ++pass_count
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' sthlp_section_uniqueness"
 }
 
 capture cd "`qa_dir'"

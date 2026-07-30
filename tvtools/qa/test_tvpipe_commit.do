@@ -27,7 +27,7 @@
 *!      active e(), sort order, and c(varabbrev) across success and failure.
 *!
 *! Axes probed:
-*!   E1-E11b  the event stage against the frozen tvevent sequence
+*!   E1-E12c  the event stage against the frozen tvevent sequence
 *!   P1-P6    manifest content, order, and the provenance characteristics
 *!   T1-T8    destination ownership, replace, commit, and rollback
 *!   S1-S6    session state after success and after failure
@@ -603,6 +603,66 @@ local ok = (`e11b_ok_rc' == 0 & `e11b_rc' == 198 & `e11b_none')
 _tvc_check `ok' ///
     "E11b an output name that would overwrite the event date is refused" ///
     "control_rc=`e11b_ok_rc' rc=`e11b_rc' destination_absent=`e11b_none'"
+
+* E12: eventlabel() reaches the committed event variable.
+*
+* Regression for 1.10.1. tvevent declares eventlabel() `string asis' and
+* splices the value straight into `label define <name> <eventlabel>, modify',
+* so it needs the bare `value "Label"' pair grammar. _tvpipe_event used to
+* re-wrap the value in compound quotes -- correct for a plain `string'
+* destination, fatal for an asis one -- and every eventlabel() value tvpipe
+* was given failed with r(198). The option was unusable from the day it
+* shipped, so an rc check alone is the whole regression; the label text is
+* asserted too because a value that arrives quoted but non-fatal would apply
+* the wrong text at rc=0.
+*
+* E12a is the rc, E12b the applied text, E12c the multi-word case: a label
+* containing a space is what a compound-quote defect mangles first, and it is
+* also the form a user is most likely to type.
+local ++test_count
+use "tc_cohort.dta", clear
+capture tvpipe, `SRC' `BASE' frameout(tc_e12) replace ///
+    eventusing("tc_ev.dta") eventdate(evdate) eventgenerate(fail) ///
+    eventlabel(1 "Dead")
+local e12_rc = _rc
+local e12_txt ""
+if `e12_rc' == 0 {
+    frame change tc_e12
+    local _vl : value label fail
+    if "`_vl'" != "" local e12_txt : label `_vl' 1
+    frame change default
+}
+local ok = (`e12_rc' == 0)
+_tvc_check `ok' "E12a eventlabel() does not fail the event stage" ///
+    "rc=`e12_rc'"
+
+local ++test_count
+local ok = (`"`e12_txt'"' == "Dead")
+_tvc_check `ok' "E12b eventlabel() text reaches the committed event variable" ///
+    "text=<`e12_txt'>"
+
+local ++test_count
+use "tc_cohort.dta", clear
+capture tvpipe, `SRC' `BASE' frameout(tc_e12c) replace ///
+    eventusing("tc_ev.dta") eventdate(evdate) eventgenerate(fail) ///
+    eventlabel(0 "Still at risk" 1 "Died of any cause")
+local e12c_rc = _rc
+local e12c_t1 ""
+local e12c_t0 ""
+if `e12c_rc' == 0 {
+    frame change tc_e12c
+    local _vl : value label fail
+    if "`_vl'" != "" {
+        local e12c_t1 : label `_vl' 1
+        local e12c_t0 : label `_vl' 0
+    }
+    frame change default
+}
+local ok = (`e12c_rc' == 0 & `"`e12c_t1'"' == "Died of any cause" & ///
+    `"`e12c_t0'"' == "Still at risk")
+_tvc_check `ok' ///
+    "E12c multi-word eventlabel() pairs survive the hop into tvevent" ///
+    "rc=`e12c_rc' one=<`e12c_t1'> zero=<`e12c_t0'>"
 
 **# ---------------------------------------------------------------------
 **# P. Provenance

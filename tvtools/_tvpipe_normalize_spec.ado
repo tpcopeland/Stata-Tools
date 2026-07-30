@@ -1,4 +1,4 @@
-*! _tvpipe_normalize_spec Version 1.10.0  2026/07/30
+*! _tvpipe_normalize_spec Version 1.10.1  2026/07/30
 *! Normalise either tvpipe input form into one internal plan frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

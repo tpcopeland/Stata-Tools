@@ -1,4 +1,4 @@
-*! _tvpipe_carry_meta Version 1.10.0  2026/07/30
+*! _tvpipe_carry_meta Version 1.10.1  2026/07/30
 *! Carry display format, labels, value labels, and characteristics between frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -96,7 +96,7 @@ local manifest_counts 11 ///
     87 22 15 10 22 ///
     7 5 21 ///
     10 ///
-    165 21 29 17 14 20 52 75 48 32 70 15 4 7 ///
+    165 21 29 17 14 20 52 75 48 35 70 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///
@@ -108,7 +108,7 @@ local manifest_counts 11 ///
     9 5 7 ///
     3 3 ///
     2 4 ///
-    4 11
+    4 12
 
 * Only external-oracle suites may report a dependency-absence skip, and only
 * when the standalone external lane is requested. Full/release override these

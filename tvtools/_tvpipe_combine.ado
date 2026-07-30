@@ -1,4 +1,4 @@
-*! _tvpipe_combine Version 1.10.0  2026/07/30
+*! _tvpipe_combine Version 1.10.1  2026/07/30
 *! Align tvpipe's normalised source frames into one accumulated interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

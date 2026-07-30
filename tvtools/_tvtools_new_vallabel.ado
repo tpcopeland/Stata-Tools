@@ -1,4 +1,4 @@
-*! _tvtools_new_vallabel Version 1.10.0  2026/07/30
+*! _tvtools_new_vallabel Version 1.10.1  2026/07/30
 *! Find a collision-safe persistent value-label name
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

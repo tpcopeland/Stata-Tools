@@ -1,4 +1,4 @@
-*! _tvpipe_finalize Version 1.10.0  2026/07/30
+*! _tvpipe_finalize Version 1.10.1  2026/07/30
 *! Attach master payload and impose tvpipe's committed schema on the result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

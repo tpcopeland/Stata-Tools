@@ -1,4 +1,4 @@
-*! _tvpipe_event Version 1.10.0  2026/07/30
+*! _tvpipe_event Version 1.10.1  2026/07/30
 *! Run tvpipe's optional event stage through the shared tvevent engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -76,7 +76,14 @@ program define _tvpipe_event, rclass
     if "`ratevars'"  != "" local _eopts `"`_eopts' rate(`ratevars')"'
     if "`totalvars'" != "" local _eopts `"`_eopts' total(`totalvars')"'
     if "`cumvars'"   != "" local _eopts `"`_eopts' cumulative(`cumvars')"'
-    if `"`eventlabel'"' != "" local _eopts `"`_eopts' eventlabel(`"`eventlabel'"')"'
+    * eventlabel() is forwarded UNWRAPPED, unlike every other option here.
+    * tvevent declares it `string asis' and splices the value straight into
+    * `label define <name> <eventlabel>, modify', so it must arrive as the
+    * bare `value "Label"' pair grammar the user typed. Re-wrapping it in
+    * compound quotes -- correct for a plain `string' destination -- makes
+    * `asis' hand tvevent one quoted string instead of a pair, and every
+    * eventlabel() value fails with r(198).
+    if `"`eventlabel'"' != "" local _eopts `"`_eopts' eventlabel(`eventlabel')"'
 
     frame change `outframe'
     capture noisily quietly tvevent, frame(`accframe') id(`id') ///

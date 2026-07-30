@@ -1,4 +1,4 @@
-*! _tvpipe_manifest Version 1.10.0  2026/07/30
+*! _tvpipe_manifest Version 1.10.1  2026/07/30
 *! Build tvpipe's deterministic per-stage provenance manifest
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
