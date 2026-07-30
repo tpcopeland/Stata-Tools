@@ -1,4 +1,4 @@
-*! tvexpose Version 1.9.0  2026/07/25
+*! tvexpose Version 1.9.1  2026/07/30
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -135,6 +135,18 @@ program define tvexpose, rclass
     else {
         noisily display as error "_tvexpose_mata.ado not found; reinstall tvtools"
         exit 111
+    }
+
+    * The categorical fast path lives in two helpers that Stata auto-loads by
+    * filename. Confirm both resolve here rather than at the dispatch site: a
+    * partial installation otherwise surfaces as "command _tvexpose_fast_build
+    * is unrecognized", r(199), which names neither the package nor the fix.
+    foreach _tvx_helper in _tvexpose_eligible _tvexpose_fast_build {
+        capture findfile `_tvx_helper'.ado
+        if _rc {
+            noisily display as error "`_tvx_helper'.ado not found; reinstall tvtools"
+            exit 111
+        }
     }
 
     syntax using/ , ///
@@ -700,7 +712,63 @@ program define tvexpose, rclass
             local grace_default = `grace'
         }
     }
-    
+
+    **# Fast-path eligibility: the option-only half
+    * The categorical fast path is deliberately narrow. Every refusal that can
+    * be decided from options alone is decided HERE -- before the using file is
+    * opened and before any caller data are touched -- so an ineligible call
+    * enters the unchanged legacy path having paid nothing for the attempt.
+    * The remaining half of the predicate needs the source data and is
+    * evaluated once, in memory, after the shared clipping below.
+    *
+    * Each option is tested by its own parsed value. Nothing here inspects the
+    * raw command line, because a string VALUE can contain an option NAME.
+    local _tvx_flags ""
+    if "`pointtime'" != ""        local _tvx_flags "`_tvx_flags' pointtime"
+    if "`evertreated'" != ""      local _tvx_flags "`_tvx_flags' evertreated"
+    if "`currentformer'" != ""    local _tvx_flags "`_tvx_flags' currentformer"
+    if "`duration'" != ""         local _tvx_flags "`_tvx_flags' duration"
+    if "`dose'" != ""             local _tvx_flags "`_tvx_flags' dose"
+    if "`dosecuts'" != ""         local _tvx_flags "`_tvx_flags' dosecuts"
+    if "`continuousunit'" != ""   local _tvx_flags "`_tvx_flags' continuousunit"
+    if "`expandunit'" != ""       local _tvx_flags "`_tvx_flags' expandunit"
+    if "`bytype'" != ""           local _tvx_flags "`_tvx_flags' bytype"
+    if "`recency'" != ""          local _tvx_flags "`_tvx_flags' recency"
+    if "`recencyunit'" != ""      local _tvx_flags "`_tvx_flags' recencyunit"
+    if "`grace'" != ""            local _tvx_flags "`_tvx_flags' grace"
+    if "`window'" != ""           local _tvx_flags "`_tvx_flags' window"
+    if "`switching'" != ""        local _tvx_flags "`_tvx_flags' switching"
+    if "`switchingdetail'" != ""  local _tvx_flags "`_tvx_flags' switchingdetail"
+    if "`statetime'" != ""        local _tvx_flags "`_tvx_flags' statetime"
+    if "`priority'" != ""         local _tvx_flags "`_tvx_flags' priority"
+    if "`split'" != ""            local _tvx_flags "`_tvx_flags' split"
+    if "`layer'" != ""            local _tvx_flags "`_tvx_flags' layer"
+    if "`combine'" != ""          local _tvx_flags "`_tvx_flags' combine"
+    if "`keepvars'" != ""         local _tvx_flags "`_tvx_flags' keepvars"
+    if "`check'" != ""            local _tvx_flags "`_tvx_flags' check"
+    if "`gaps'" != ""             local _tvx_flags "`_tvx_flags' gaps"
+    if "`overlaps'" != ""         local _tvx_flags "`_tvx_flags' overlaps"
+    if "`summarize'" != ""        local _tvx_flags "`_tvx_flags' summarize"
+    if "`validate'" != ""         local _tvx_flags "`_tvx_flags' validate"
+    if "`flow'" != ""             local _tvx_flags "`_tvx_flags' flow"
+    if "`dropinvalid'" != ""      local _tvx_flags "`_tvx_flags' dropinvalid"
+    if "`verbose'" != ""          local _tvx_flags "`_tvx_flags' verbose"
+    if "`saveas'" != ""           local _tvx_flags "`_tvx_flags' saveas"
+    local _tvx_hasstop = ("`stop'" != "")
+    local _tvx_graceon = ("`grace'" != "")
+
+    _tvexpose_eligible, exptype("`exp_type'") hasstop(`_tvx_hasstop') ///
+        flags("`_tvx_flags'") mergedays(`merge') lagdays(`lag') ///
+        washoutdays(`washout') fillgapdays(`fillgaps') ///
+        carryforwarddays(`carryforward') graceon(`_tvx_graceon') ///
+        reference("`reference'")
+    * Copy the verdict out of r() immediately: any following command replaces
+    * it. r(reason) is the helper's diagnostic surface and is consumed by
+    * qa/test_tvexpose_fastpath.do, not here -- every option that produces a
+    * reason is itself an option that makes the call ineligible, so there is
+    * no path on which tvexpose could usefully display one.
+    local _tvx_fast = r(eligible)
+
     * Early validation: verify using dataset exists and contains required variables
     preserve
     quietly {
@@ -1240,10 +1308,56 @@ program define tvexpose, rclass
     quietly count
     local exp_cleaned_n = r(N)
 
+    **# Fast-path eligibility: the data half
+    * Read-only, evaluated once, on the source that is already in memory. The
+    * file is not re-read for this check and nothing is mutated by it, so a
+    * refusal here falls straight through to the legacy construction below,
+    * which consumes exactly this same in-memory data.
+    *
+    * The overlap test is a single adjacent-row comparison because the data
+    * are sorted by (id, start, stop, value) at this point. That ordering makes
+    * one comparison sufficient for EVERY overlap geometry the plan names:
+    * same-class and different-class overlap, nesting, an exact duplicate, and
+    * a shared endpoint all put the next row's start at or before this row's
+    * stop.
+    if `_tvx_fast' & `exp_cleaned_n' > 0 {
+        tempvar _tvx_nonint _tvx_isref _tvx_ovl
+        quietly generate byte `_tvx_nonint' = ///
+            missing(exp_value) | exp_value != floor(exp_value)
+        quietly generate byte `_tvx_isref' = (exp_value == `reference')
+        quietly by id: generate byte `_tvx_ovl' = ///
+            (_n < _N) & (exp_start[_n+1] <= exp_stop)
+        quietly count if `_tvx_nonint'
+        local _tvx_n_nonint = r(N)
+        quietly count if `_tvx_isref'
+        local _tvx_n_isref = r(N)
+        quietly count if `_tvx_ovl'
+        local _tvx_n_ovl = r(N)
+        drop `_tvx_nonint' `_tvx_isref' `_tvx_ovl'
+
+        if `_tvx_n_nonint' > 0 {
+            local _tvx_fast = 0    // non-integer source category code
+        }
+        else if `_tvx_n_isref' > 0 {
+            local _tvx_fast = 0    // reference-coded source episode
+        }
+        else if `_tvx_n_ovl' > 0 {
+            local _tvx_fast = 0    // within-person episode overlap
+        }
+    }
+
     **# EXPOSURE PERIOD PROCESSING
 
+    * The legacy construction below is guarded in place rather than reindented,
+    * so the fast-path change reads as an added branch instead of a rewrite of
+    * 1,200 lines it does not touch. It is guarded in THREE pieces, not one:
+    * wrapping the whole span in a single `if' block exceeds Stata's limit on
+    * the size of one compiled block and the command then fails to load at all
+    * with r(1000), "system limit exceeded", on every call.
+    *
+    * Guard 1 of 3: episode cleaning and overlap resolution.
     * Skip exposure processing if no valid exposures remain
-    if `exp_cleaned_n' > 0 {
+    if `exp_cleaned_n' > 0 & `_tvx_fast' == 0 {
 
     **# Step 1: Merge close periods of same exposure type
     * Rationale: Small gaps between same exposure type likely represent same episode
@@ -2124,13 +2238,19 @@ program define tvexpose, rclass
     quietly save `exp_cleaned', replace
     } // End of if `exp_cleaned_n' > 0 block for exposure processing
 
+    * Guard 2 of 3: the reload before construction. The fast path never
+    * re-reads exp_cleaned -- the identical data are already in memory, and
+    * that round trip is one of the sixteen this phase removes -- but it does
+    * emit the same note, from its own branch below.
     * Check if any exposures exist in the dataset
-    quietly use `exp_cleaned', clear
-    quietly count
-    if r(N) == 0 {
-        * No exposures after filtering - this is valid (all time will be reference)
-        noisily display as text "Note: No valid exposure periods found after filtering"
-        noisily display as text "      All person-time will be assigned reference category"
+    if `_tvx_fast' == 0 {
+        quietly use `exp_cleaned', clear
+        quietly count
+        if r(N) == 0 {
+            * No exposures after filtering - this is valid (all time will be reference)
+            noisily display as text "Note: No valid exposure periods found after filtering"
+            noisily display as text "      All person-time will be assigned reference category"
+        }
     }
 
     * ===========================================================================
@@ -2159,8 +2279,14 @@ program define tvexpose, rclass
     *
     * Together, these ensure: sum(period_days) = study_exit - study_entry + 1
     * ===========================================================================
+    * Guard 3a of 3: gap-period construction. Steps 3 and 4-7 are guarded
+    * SEPARATELY, and every block below is kept as flat as it already was,
+    * because tvexpose is close enough to Stata's limit on program block
+    * structure that wrapping this whole span in one `if' -- or adding a few
+    * nested `if' blocks inside the fast branch -- makes the command fail to
+    * load at all with r(1000), "system limit exceeded", on every call.
     **# Step 3: Create gap periods (reference category for unexposed time)
-    {
+    if `_tvx_fast' == 0 {
     quietly use `exp_cleaned', clear
     sort id exp_start
     
@@ -2274,6 +2400,8 @@ program define tvexpose, rclass
     }
     * End of gap period creation
     
+    * Guard 3b of 3: baseline, post-exposure, and the combining append.
+    if `_tvx_fast' == 0 {
     **# Step 4: Identify earliest exposure per person
     * Used to create baseline period (pre-first exposure)
     * When there are no exposures, earliest will be empty and Step 5 handles it
@@ -2464,7 +2592,38 @@ program define tvexpose, rclass
     
     * Final sort for processing
     sort id exp_start exp_stop exp_value
-    
+
+    } // end of guard 3b: legacy Steps 4-7
+
+    **# Fast categorical construction
+    * Same output, built in one in-memory pass instead of four constructed
+    * tempfiles, an append, and two m:1 re-merges of the master windows.
+    * Written with single-statement `if's rather than braced blocks: see the
+    * guard 3a note above for why extra nested blocks are not free here.
+    if `_tvx_fast' & `exp_cleaned_n' == 0 ///
+        noisily display as text "Note: No valid exposure periods found after filtering"
+    if `_tvx_fast' & `exp_cleaned_n' == 0 ///
+        noisily display as text "      All person-time will be assigned reference category"
+
+    * `_tvx_source_order' is a tvexpose tempvar, so its name begins with __.
+    * It must not survive into the appended person rows, where it would be
+    * missing for every one of them.
+    if `_tvx_fast' capture drop `_tvx_source_order'
+
+    if `_tvx_fast' ///
+        _tvexpose_fast_build, reference(`reference') masterfile("`master_dates'")
+
+    * The released path re-applies the study-date labels after its closing m:1
+    * refresh of the master windows. The append-based build inherits whatever
+    * the earlier merge attached, so re-apply them here to reach the same
+    * observable metadata by either route.
+    if `_tvx_fast' & "`study_entry_varlab'" != "" ///
+        label variable study_entry "`study_entry_varlab'"
+    if `_tvx_fast' & "`study_exit_varlab'" != "" ///
+        label variable study_exit "`study_exit_varlab'"
+
+    if `_tvx_fast' sort id exp_start exp_stop exp_value
+
     * Cache original exposure status before transformations
     * Store binary exposed/unexposed status for later summary calculations
     * Needed because exposure value changes with type transformations below

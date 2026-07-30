@@ -1,4 +1,4 @@
-*! tvevent Version 1.9.0  2026/07/25
+*! tvevent Version 1.9.1  2026/07/30
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -43,6 +43,7 @@ program define tvevent, rclass
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _te_master_frame _te_using_frame _te_output_frame
+    tempname _te_event_frame _te_nseg_frame
     local _caller_snap_taken = 0
     local _caller_zero_var_obs = 0
     local _caller_snapshot_ready = 0
@@ -1175,25 +1176,24 @@ program define tvevent, rclass
             exit 110
         }
 
-        * Save interval data for later
-        tempfile intervals
-        save `intervals'
-
         **# 3. IDENTIFY SPLIT POINTS
 
-        * intervals tempfile already has the using data loaded
+        * Bound rows are the DISTINCT (id, start, stop) coordinates. Section
+        * 10.2 keeps the bound row and the original payload row separate:
+        * identical coordinates carrying different payloads are one coordinate
+        * for split discovery and remain distinct rows in the output.
         preserve
         keep `id' `startvar' `stopvar'
         duplicates drop
-        tempfile splits
 
-        if `n_event_rows' == 0 {
-            use `events', clear
-            keep `id' `date'
-            save `splits', replace
-            local n_splits = 0
-        }
-        else {
+        * Declared before the branch so Section 4 can reference them whether or
+        * not any event row survived normalization.
+        tempvar te_iobs te_gid te_eobs
+        tempvar te_segn te_nseg te_k te_prev te_dup
+        tempvar te_sstart te_sstop
+        local n_splits = 0
+
+        if `n_event_rows' > 0 {
 
         * Split points are events strictly inside [start, stop): date >= start &
         * date < stop. Identify them with the shared half-open point-in-interval
@@ -1208,8 +1208,14 @@ program define tvevent, rclass
             noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
             exit 111
         }
-        tempvar te_iobs te_gid te_eobs
-        gen long `te_iobs' = _n
+        * The bound index is the coordinate's GROUP number, not its row number.
+        * egen group() numbers 1..G in ascending key order regardless of row
+        * order or multiplicity, so Section 4 can regenerate exactly the same
+        * index on the payload table without holding, copying, or joining
+        * against a bound frame at all. Double, not long: the engine emits both
+        * index columns as doubles and Section 4 links the pair frame back to
+        * these on value.
+        quietly egen double `te_iobs' = group(`id' `startvar' `stopvar')
         tempfile __te_ivl
         save `__te_ivl'
 
@@ -1229,45 +1235,52 @@ program define tvevent, rclass
 
         * using point work frame: gid date obs (events indexed by `te_eobs')
         use `events', clear
-        gen long `te_eobs' = _n
-        tempfile __te_eidx
-        save `__te_eidx'
+        gen double `te_eobs' = _n
+        * Event index frame: the (id, date) each matched pair refers to. The
+        * released caller recovered this by reloading a tempfile and merging;
+        * holding it in a frame removes that round trip.
+        frame put `id' `date' `te_eobs', into(`_te_event_frame')
         merge m:1 `id' using `__te_xw', keep(match) nogenerate
         frame put `te_gid' `date' `te_eobs', into(`_te_using_frame')
         frame `_te_using_frame': order `te_gid' `date' `te_eobs'
 
         frame create `_te_output_frame'
         _tvmerge_point_pairs `_te_master_frame' `_te_using_frame' `_te_output_frame'
-        tempfile __te_pairs
-        frame `_te_output_frame': save `__te_pairs'
         frame drop `_te_master_frame'
         frame drop `_te_using_frame'
-        frame drop `_te_output_frame'
 
-        * Distinct matched events -> their (id, date) split points.
-        use `__te_pairs', clear
-        keep __tvm_ui
-        rename __tvm_ui `te_eobs'
-        if _N > 0 {
-            duplicates drop
-            merge m:1 `te_eobs' using `__te_eidx', keep(match) nogenerate ///
-                keepusing(`id' `date')
-        }
-        else {
-            merge 1:1 `te_eobs' using `__te_eidx', keep(match) nogenerate ///
-                keepusing(`id' `date')
-        }
-        keep `id' `date'
-        if _N > 0 {
-            duplicates drop `id' `date', force
-        }
-        save `splits', replace
+        * The pair frame carries BOTH indexes: __tvm_mi is the bound-row index
+        * and __tvm_ui the event-row index, both emitted as the obs column's
+        * VALUE, not as a row position. The released caller kept only __tvm_ui;
+        * Section 10.2 keeps both and builds segments straight from them.
+        frame `_te_output_frame' {
+            quietly count
+            if r(N) > 0 {
+                rename __tvm_mi `te_iobs'
+                rename __tvm_ui `te_eobs'
+                capture drop `_te_event_frame'
+                quietly frlink m:1 `te_eobs', frame(`_te_event_frame')
+                * new = old form even though both sources are user names: a
+                * user column may legally be called __x, and the bare form
+                * would skip it silently at rc=0.
+                quietly frget `id' = `id', from(`_te_event_frame')
+                quietly frget `date' = `date', from(`_te_event_frame')
+                drop `_te_event_frame' `te_eobs'
 
-        count
-        local n_splits = r(N)
+                * n_splits is the number of DISTINCT (id, date) split points --
+                * exactly what the released code counted after deduplicating
+                * its splits file. It drives the progress message and the
+                * branch below, so it is preserved verbatim.
+                tempvar te_spgrp
+                quietly egen long `te_spgrp' = group(`id' `date')
+                quietly summarize `te_spgrp', meanonly
+                local n_splits = r(max)
+                drop `te_spgrp'
+            }
+        }
         }
         restore
-        
+
         **# 4. EXECUTE SPLITS
         * intervals data is still in memory
 
@@ -1278,118 +1291,87 @@ program define tvevent, rclass
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
 
-            * Join with split points - creates row per (interval, split_date) combination
-            joinby `id' using `splits', unmatched(master)
-            drop _merge
+            * Build one row per (bound row, segment) directly from the pair
+            * index, then map segments back onto payload rows by coordinate.
+            * This replaces joinby(`id') + reshape wide + expand + merge. No
+            * wide `date'# stubs are created, so the number of split points one
+            * interval may carry is no longer bounded by a variable budget.
+            frame `_te_output_frame' {
+                * Section 10.2 item 7: deduplicate split dates WITHIN a bound
+                * row, not across a person and not by whole event record. An
+                * event matching one coordinate twice splits it once.
+                quietly duplicates drop `te_iobs' `date', force
+                sort `te_iobs' `date'
+                by `te_iobs': gen long `te_k'    = _n
+                by `te_iobs': gen long `te_nseg' = _N + 1
+                by `te_iobs': gen double `te_prev' = `date'[_n - 1]
 
-            * Mark valid splits (date falls at start or strictly within this interval)
-            * Under [start, stop] inclusive convention, events at start need splitting too
-            gen byte _valid_split = (`date' >= `startvar' & `date' < `stopvar') & !missing(`date')
+                * Section 5.1: [start,d1], [d1+1,d2], ..., [dj+1,stop].
+                *
+                * The two OUTER bounds are left missing on purpose. Segment 1
+                * begins at the coordinate's own start and the trailing segment
+                * ends at its own stop, and every payload row already carries
+                * exactly those values -- it shares the coordinate. Emitting
+                * them as missing, and letting the payload-side replace skip
+                * missings, is what lets this frame hold no coordinate columns
+                * at all, so no bound frame has to be built, copied, or joined
+                * against. Fetching those two bounds instead cost 0.18 s of a
+                * 0.41 s stage, because the link's target was the full
+                * coordinate table rather than the split coordinates.
+                gen long `te_segn' = `te_k'
+                gen double `te_sstart' = cond(`te_k' == 1, ., `te_prev' + 1)
+                gen double `te_sstop'  = `date'
 
-            * For intervals with multiple split points, we need to:
-            * 1. Collect all split points for each original interval
-            * 2. Create sequential non-overlapping segments
+                * The trailing segment [dj+1, stop] owns no split date, so it is
+                * materialised by duplicating the last split row and rewriting
+                * its bounds. The two copies are identical at that instant, so
+                * the rewritten one is picked by position within (bound row, k)
+                * rather than by assuming where expand places a copy.
+                quietly expand 2 if `te_k' == `te_nseg' - 1
+                bysort `te_iobs' `te_k': gen byte `te_dup' = _n
+                quietly replace `te_segn'   = `te_nseg'  if `te_dup' == 2
+                quietly replace `te_sstart' = `date' + 1 if `te_dup' == 2
+                quietly replace `te_sstop'  = . if `te_dup' == 2
 
-            * Count valid splits per original interval
-            bysort _orig_interval_id: egen long _n_splits_this = total(_valid_split)
-
-            * Separate intervals that need splitting from those that don't
-            tempfile no_splits needs_splits
-            preserve
-            keep if _n_splits_this == 0
-            drop `date' _valid_split _n_splits_this
-            * Remove duplicate rows created by joinby for intervals with no valid splits
-            if _N > 0 {
-                duplicates drop
+                keep `te_iobs' `te_segn' `te_nseg' `te_sstart' `te_sstop'
+                frame put `te_iobs' `te_nseg', into(`_te_nseg_frame')
+                drop `te_nseg'
             }
-            save `no_splits'
-            restore
+            frame `_te_nseg_frame': quietly duplicates drop
 
-            * Process intervals that need splitting
-            keep if _n_splits_this > 0 & _valid_split == 1
-
-            * For each original interval, number the split points in order
-            bysort _orig_interval_id (`date'): gen long _split_rank = _n
-            bysort _orig_interval_id: gen long _total_splits = _N
-
-            * Reshape wide: one row per original interval with all split dates
-            * First, save the split dates
-            tempfile split_dates
-            keep _orig_interval_id `date' _split_rank
-            reshape wide `date', i(_orig_interval_id) j(_split_rank)
-            save `split_dates'
-
-            * Go back to get one row per original interval with all its data
-            use `intervals', clear
-            gen long _orig_interval_id = _n
-            gen double _orig_dur = `stopvar' - `startvar' + 1
-
-            * Merge in split dates
-            merge 1:1 _orig_interval_id using `split_dates', keep(match) nogen
-
-            * Count splits (number of date1, date2, ... variables from reshape)
-            local max_splits = 0
-            local _i = 1
-            while 1 {
-                capture confirm variable `date'`_i'
-                if _rc continue, break
-                local max_splits = `_i'
-                local _i = `_i' + 1
-            }
-
-            * Calculate how many segments each interval needs
-            gen long _n_segments = 0
-            forvalues i = 1/`max_splits' {
-                capture confirm variable `date'`i'
-                if _rc == 0 {
-                    replace _n_segments = _n_segments + 1 if !missing(`date'`i')
-                }
-            }
-            replace _n_segments = _n_segments + 1  // splits + 1 = segments
-
-            * Expand to create one row per segment
-            expand _n_segments
-            bysort _orig_interval_id: gen long _seg_num = _n
-
-            * Set segment boundaries using [start, stop] inclusive convention
-            * Segment 1: [original_start, split1]
-            * Segment 2: [split1 + 1, split2]
-            * ...
-            * Segment N: [split(N-1) + 1, original_stop]
+            * Map payload rows onto their bound row, expand to the segment
+            * count, and read the segment bounds back. An unsplit coordinate
+            * expands to one row and matches no segment, so its bounds are
+            * left untouched.
             *
-            * Under [start, stop] inclusive intervals, person-time = stop - start + 1.
-            * Consecutive segments [S, D] and [D+1, E] do not overlap because
-            * the first covers days S..D and the second covers days D+1..E.
-
-            tempvar new_start new_stop
-            gen double `new_start' = `startvar'
-            gen double `new_stop' = `stopvar'
-
-            * For each segment, set the correct boundaries
-            forvalues i = 1/`max_splits' {
-                capture confirm variable `date'`i'
-                if _rc == 0 {
-                    * Segment i ends at split point i (if it exists)
-                    replace `new_stop' = `date'`i' if _seg_num == `i' & !missing(`date'`i')
-                    * Segment i+1 starts at split point i + 1 ([start,stop] inclusive convention)
-                    replace `new_start' = `date'`i' + 1 if _seg_num == `i' + 1 & !missing(`date'`i')
-                }
-            }
-
-            replace `startvar' = `new_start'
-            replace `stopvar' = `new_stop'
-
-            * Clean up temporary variables
-            drop `new_start' `new_stop' _n_segments _seg_num
-            forvalues i = 1/`max_splits' {
-                capture drop `date'`i'
-            }
-
-            save `needs_splits'
-
-            * Combine intervals that didn't need splitting with those that did
-            use `no_splits', clear
-            append using `needs_splits'
+            * The coordinate index is regenerated, not joined in: egen
+            * group() is a function of the key alone, so the number a payload
+            * row gets here is the number its coordinate got in Section 3.
+            * Both frames linked below hold ONLY the coordinates that split, so
+            * their cost tracks the split count, not the table size. Linking
+            * the payload table to a full bound frame instead measured 1.60x
+            * the released time where one interval in ten carried an event.
+            *
+            * Explicit new = old form throughout. The bare `frget varlist' form
+            * SILENTLY SKIPS a source variable whose name begins with `__',
+            * which every tempvar does: it prints "variable not copied from
+            * linked frame" and still returns rc=0, so the next line fails on a
+            * variable that was never created.
+            quietly egen double `te_iobs' = group(`id' `startvar' `stopvar')
+            quietly frlink m:1 `te_iobs', frame(`_te_nseg_frame')
+            quietly frget `te_nseg' = `te_nseg', from(`_te_nseg_frame')
+            quietly replace `te_nseg' = 1 if missing(`te_nseg')
+            drop `_te_nseg_frame'
+            frame drop `_te_nseg_frame'
+            quietly expand `te_nseg'
+            bysort _orig_interval_id: gen long `te_segn' = _n
+            quietly frlink m:1 `te_iobs' `te_segn', frame(`_te_output_frame')
+            quietly frget `te_sstart' = `te_sstart', from(`_te_output_frame')
+            quietly frget `te_sstop' = `te_sstop', from(`_te_output_frame')
+            drop `_te_output_frame'
+            quietly replace `startvar' = `te_sstart' if !missing(`te_sstart')
+            quietly replace `stopvar'  = `te_sstop'  if !missing(`te_sstop')
+            drop `te_iobs' `te_nseg' `te_segn' `te_sstart' `te_sstop'
 
             sort `id' `startvar' `stopvar'
             * Full-row dedup only: keying on (id, start, stop) with force
@@ -1397,6 +1379,16 @@ program define tvevent, rclass
             * differ on payload (e.g. per-stratum rows from tvexpose split).
             duplicates drop
         }
+        * Release the builder's frames on the success path, outside the
+        * `n_splits' branch so a call whose events matched but split nothing
+        * still frees them. Best-effort: a frame that was never created is not
+        * an error here, and the error-cleanup zone at the end of the command
+        * retries every one of them.
+        capture frame drop `_te_event_frame'
+        local _te_drop_rc = _rc
+        capture frame drop `_te_output_frame'
+        local _te_drop_rc = _rc
+
 
         * Interval totals are the only algebra adjusted by a split. Rates and
         * row-start cumulative histories are invariant across the new rows.
@@ -1737,6 +1729,10 @@ program define tvevent, rclass
     capture frame drop `_te_using_frame'
     local _te_cleanup_rc = _rc
     capture frame drop `_te_output_frame'
+    local _te_cleanup_rc = _rc
+    capture frame drop `_te_event_frame'
+    local _te_cleanup_rc = _rc
+    capture frame drop `_te_nseg_frame'
     local _te_cleanup_rc = _rc
 
     if `rc' & `_caller_snapshot_ready' {

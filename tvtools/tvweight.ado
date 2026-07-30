@@ -1,4 +1,4 @@
-*! tvweight Version 1.9.0  2026/07/25
+*! tvweight Version 1.9.1  2026/07/30
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -187,6 +187,20 @@ program define tvweight, rclass sortpreserve
 
     if "`cumulative'" != "" & "`cumgenerate'" == "" {
         local cumgenerate "`generate'_cum"
+    }
+
+    * Both cumulative and ipcw() build their running products with
+    * _tvweight_cumprod. Confirm it resolves now, before any model is fitted or
+    * any output variable is created: a partial or stale installation that
+    * carries this tvweight.ado without its helper would otherwise fail deep in
+    * the run with a bare r(199) "command _tvweight_cumprod is unrecognized".
+    if "`cumulative'" != "" | `do_ipcw' {
+        capture findfile _tvweight_cumprod.ado
+        if _rc {
+            display as error ///
+                "_tvweight_cumprod.ado not found; reinstall tvtools"
+            exit 111
+        }
     }
 
     * Resolve the underlying variables named by factor-variable expressions.
@@ -870,25 +884,14 @@ program define tvweight, rclass sortpreserve
     if "`cumulative'" != "" {
         display as text ""
         display as text "Computing within-person cumulative product weights..."
-        quietly {
-            tempvar _origorder
-            gen long `_origorder' = _n
-            * Chain the product across touse==1 rows only. Indexing the
-            * physically previous row (_n-1) would silently restart the
-            * product whenever a row is excluded by markout (e.g. one missing
-            * covariate among several periods), losing all prior history.
-            preserve
-            keep if `touse'
-            sort `id' `time' `_origorder'
-            by `id': gen double `cumgenerate' = `generate' if _n == 1
-            by `id': replace `cumgenerate' = `cumgenerate'[_n-1] * `generate' if _n > 1
-            keep `_origorder' `cumgenerate'
-            tempfile _cumvals
-            save `_cumvals'
-            restore
-            merge 1:1 `_origorder' using `_cumvals', nogenerate
-            drop `_origorder'
-        }
+        * The product chains touse==1 rows only. Indexing the physically
+        * previous row (_n-1) would silently restart the product whenever a
+        * row is excluded by markout (e.g. one missing covariate among several
+        * periods), losing all prior history. _tvweight_cumprod builds the
+        * product in place, in (id, time, original row) order, with no
+        * tempfile, no preserve/restore, and no merge.
+        _tvweight_cumprod `generate' if `touse', ///
+            id(`id') time(`time') generate(`cumgenerate')
         label variable `cumgenerate' "Cumulative `wtype' weight for `exposure'"
         quietly count if ///
             (missing(`cumgenerate') | `cumgenerate' <= 0) & `touse'
@@ -913,22 +916,18 @@ program define tvweight, rclass sortpreserve
         display as text ""
         display as text "Fitting censoring model and computing IPCW..."
 
-        * Cumulative treatment weight (within-person product of per-period IPTW),
-        * computed independently of the optional cumulative() output.
-        tempvar _cum_iptw _origorder2
-        quietly {
-            gen long `_origorder2' = _n
-            * Same touse==1-only chaining as the cumulative() block above.
-            preserve
-            keep if `touse'
-            sort `id' `time' `_origorder2'
-            by `id': gen double `_cum_iptw' = `generate' if _n == 1
-            by `id': replace `_cum_iptw' = `_cum_iptw'[_n-1] * `generate' if _n > 1
-            keep `_origorder2' `_cum_iptw'
-            tempfile _cumiptwvals
-            save `_cumiptwvals'
-            restore
-            merge 1:1 `_origorder2' using `_cumiptwvals', nogenerate
+        * Cumulative treatment weight (within-person product of per-period
+        * IPTW). When cumulative was also requested, cumgenerate() already
+        * holds that product: same input variable, same estimation sample,
+        * same (id, time, original row) order, and nothing between the two
+        * blocks modifies `generate'. Reuse it instead of building it twice.
+        if "`cumulative'" != "" {
+            local _cum_iptw "`cumgenerate'"
+        }
+        else {
+            tempvar _cum_iptw
+            _tvweight_cumprod `generate' if `touse', ///
+                id(`id') time(`time') generate(`_cum_iptw')
         }
 
         * Pooled logistic censoring model: P(censored at end of interval | past).
@@ -1028,21 +1027,12 @@ program define tvweight, rclass sortpreserve
         }
 
         * Cumulative IPCW = within-person running product of the period
-        * weights. Same touse==1-only chaining as _cum_iptw above.
+        * weights. Same touse==1-only chaining as the treatment product above.
+        _tvweight_cumprod `cw' if `touse', ///
+            id(`id') time(`time') generate(`censgenerate')
         quietly {
-            preserve
-            keep if `touse'
-            sort `id' `time' `_origorder2'
-            by `id': gen double `censgenerate' = `cw' if _n == 1
-            by `id': replace `censgenerate' = `censgenerate'[_n-1] * `cw' if _n > 1
-            keep `_origorder2' `censgenerate'
-            tempfile _censvals
-            save `_censvals'
-            restore
-            merge 1:1 `_origorder2' using `_censvals', nogenerate
             * Combined MSM weight = cumulative IPTW x cumulative IPCW
             gen double `combgenerate' = `_cum_iptw' * `censgenerate' if `touse'
-            drop `_origorder2'
             count if ///
                 (missing(`censgenerate') | `censgenerate' <= 0 | ///
                 missing(`combgenerate') | `combgenerate' <= 0) & `touse'
@@ -1552,9 +1542,10 @@ program define tvweight, rclass sortpreserve
     } // end capture noisily
     local rc = _rc
 
-    * A mid-block failure inside one of the cumulative/IPCW preserve/restore
-    * windows above would otherwise strand an open preserve; harmless no-op
+    * A mid-block failure inside the weight-concentration preserve/restore
+    * window above would otherwise strand an open preserve; harmless no-op
     * (capture swallows "nothing to restore") when no preserve is pending.
+    * The cumulative/IPCW products no longer open a preserve window at all.
     if `rc' {
         capture restore
     }

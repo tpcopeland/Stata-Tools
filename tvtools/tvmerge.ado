@@ -1,4 +1,4 @@
-*! tvmerge Version 1.9.0  2026/07/25
+*! tvmerge Version 1.9.1  2026/07/30
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -71,6 +71,12 @@ program define tvmerge, rclass
     local _tvm_work_master ""
     local _tvm_work_using ""
     local _tvm_work_out ""
+    * Source scratch frames. Declared before the captured block so the cleanup
+    * zone can drop them after any failure, including a Mata abort that leaves
+    * Stata sitting in one of them.
+    local _tvm_src_frames ""
+    local _tvm_src_live ""
+    local _tvm_union_frame ""
 
     capture noisily {
 
@@ -118,23 +124,28 @@ program define tvmerge, rclass
         exit 190
     }
 
-    * Frames input: materialize each named frame to a tempfile and feed the
-    * existing file-based pipeline unchanged. This removes the save/use/rename
-    * round-trip when inputs are already held in memory as frames.
+    * Frames input: confirm the named frames exist and record their names as the
+    * source labels. Nothing is read or copied here -- source acquisition
+    * happens once, below, after every source-independent option check has
+    * passed, so a malformed request cannot incur or be masked by input work.
+    *
+    * A frames() input is never written to disk. `datasets' therefore now holds
+    * frame names in this mode and file paths otherwise; `_tvm_input_mode'
+    * distinguishes them and every consumer branches on it.
+    local _tvm_input_mode "files"
     if "`frames'" != "" {
         if `"`datasets'"' != "" {
             di as error "specify either file paths or frames(), not both"
             exit 198
         }
+        local _tvm_input_mode "frames"
         foreach fr of local frames {
             capture confirm frame `fr'
             if _rc {
                 di as error "frame not found: `fr'"
                 exit 111
             }
-            tempfile _frfile
-            quietly frame `fr': save "`_frfile'", replace
-            local datasets "`datasets' `_frfile'"
+            local datasets "`datasets' `fr'"
         }
     }
 
@@ -643,53 +654,103 @@ program define tvmerge, rclass
     * All option, naming, and quantity checks above are source-independent.
     * Only after they pass do we touch the input files, so a malformed request
     * cannot be masked by (or incur) an unrelated file-access failure.
-    preserve
+    * SOURCE ACQUISITION. Each input is materialised exactly once, into its own
+    * scratch frame. The released code read every file three times -- once to
+    * validate, once for flow accounting, and once during the merge itself --
+    * and wrote every frames() input to a tempfile so it could be read back
+    * through the same file path. Both are gone: a file is opened once, and a
+    * frame input is copied in memory and never serialised.
+    *
+    * The caller's data is not touched here, so this pass needs no preserve.
     local validation_error = 0
     local error_msg ""
     local error_code = 0
 
+    local _tvm_src_frames ""
+    local _flow_rin = 0
+
     foreach ds in `datasets' {
-        * Try the supplied path first (including tempfile paths without .dta),
-        * then the conventional .dta suffix.
-        local ds_file "`ds'"
-        capture confirm file "`ds_file'"
-        if _rc != 0 {
-            if substr("`ds'", -4, .) != ".dta" {
-                local ds_file "`ds'.dta"
-                capture confirm file "`ds_file'"
-            }
-            if _rc != 0 {
+        tempname _srcf
+        capture frame create `_srcf'
+        * _rc must be copied out before any other command runs: `local' is a
+        * command and sets _rc = 0, so reading it after the messages above would
+        * always report success.
+        local _acqrc = _rc
+        if `_acqrc' {
+            local validation_error = 1
+            local error_msg "could not create a work frame for `ds'"
+            local error_code = `_acqrc'
+            continue, break
+        }
+        * Registered before it is populated: if the load below aborts, the
+        * cleanup zone still has to know the frame exists.
+        local _tvm_src_frames "`_tvm_src_frames' `_srcf'"
+        local _tvm_src_live "`_tvm_src_live' `_srcf'"
+
+        if "`_tvm_input_mode'" == "frames" {
+            * Read the user's frame without mutating it. A copy is taken rather
+            * than a reference because per-source preprocessing renames and
+            * drops variables, and a user-owned input frame is never mutated.
+            capture frame copy `ds' `_srcf', replace
+            local _acqrc = _rc
+            if `_acqrc' {
                 local validation_error = 1
-                local error_msg "Dataset file not found: `ds'"
-                local error_code = 601
+                local error_msg "could not read frame `ds'"
+                local error_code = `_acqrc'
                 continue, break
             }
         }
-        capture use "`ds_file'", clear
-        if _rc != 0 {
-            local validation_error = 1
-            local error_msg "`ds_file' is not a valid Stata dataset or cannot be read"
-            local error_code = 610
-            continue, break
+        else {
+            * Released path resolution, preserved exactly: the supplied path
+            * first (which is how a tempfile path with no .dta suffix resolves),
+            * then the conventional .dta suffix. r(601) not-found stays distinct
+            * from r(610) unreadable-dataset.
+            local ds_file "`ds'"
+            capture confirm file "`ds_file'"
+            if _rc != 0 {
+                if substr("`ds'", -4, .) != ".dta" {
+                    local ds_file "`ds'.dta"
+                    capture confirm file "`ds_file'"
+                }
+                if _rc != 0 {
+                    local validation_error = 1
+                    local error_msg "Dataset file not found: `ds'"
+                    local error_code = 601
+                    continue, break
+                }
+            }
+            capture frame `_srcf': use "`ds_file'", clear
+            if _rc != 0 {
+                local validation_error = 1
+                local error_msg "`ds_file' is not a valid Stata dataset or cannot be read"
+                local error_code = 610
+                continue, break
+            }
         }
+
         * strL IDs cannot be merge keys. Existence is checked here so flow
         * accounting below cannot fail with a cryptic use-varlist error.
-        capture confirm variable `id'
-        if _rc != 0 {
+        frame `_srcf' {
+            capture confirm variable `id'
+            local _idrc = _rc
+            local _tvm_idtype ""
+            if !`_idrc' local _tvm_idtype : type `id'
+            local _srcn = _N
+        }
+        if `_idrc' != 0 {
             local validation_error = 1
             local error_msg "id() variable `id' not found in `ds'"
             local error_code = 111
             continue, break
         }
-        local _tvm_idtype : type `id'
         if "`_tvm_idtype'" == "strL" {
             local validation_error = 1
             local error_msg "id() variable `id' is strL in `ds'; strL variables cannot be used as merge keys -- recast to str# first"
             local error_code = 109
             continue, break
         }
+        local _flow_rin = `_flow_rin' + `_srcn'
     }
-    restore
 
     if `validation_error' {
         di as error "`error_msg'"
@@ -698,39 +759,33 @@ program define tvmerge, rclass
 
     * Flow accounting is collected up front. It is returned on request and
     * mandatorily whenever dropinvalid or force removes input records/persons.
-    preserve
-        local _flow_rin = 0
-        tempfile _flow_ids
-        local _flow_first = 1
-        foreach ds in `datasets' {
-            local _dsf "`ds'"
-            capture confirm file "`_dsf'"
-            if _rc & substr("`ds'", -4, .) != ".dta" local _dsf "`ds'.dta"
-            quietly use `id' using "`_dsf'", clear
-            local _flow_rin = `_flow_rin' + _N
-            if `_flow_first' {
-                quietly save "`_flow_ids'", replace
-                local _flow_first = 0
-            }
-            else {
-                quietly append using "`_flow_ids'"
-                quietly save "`_flow_ids'", replace
-            }
-        }
-        quietly use "`_flow_ids'", clear
+    * persons in = the count of distinct ids over the union of all sources.
+    tempname _unionf
+    frame create `_unionf'
+    local _tvm_union_frame "`_unionf'"
+    _tvmerge_stack_ids `_tvm_src_frames', idvar(`id') into(`_unionf')
+    frame `_unionf' {
         tempvar _flow_t
-        quietly egen byte `_flow_t' = tag(`id') if !missing(`id')
+        quietly egen byte `_flow_t' = tag(id) if !missing(id)
         quietly count if `_flow_t' == 1
         local _flow_pin = r(N)
-    restore
-    
+    }
+    frame drop `_unionf'
+    local _tvm_union_frame ""
+
     **# MAIN PROCESSING
     quietly {
         
         **# LOAD AND PREPARE FIRST DATASET
         * Process first dataset as base
         local first_ds: word 1 of `datasets'
-        use "`first_ds'", clear
+        * Already in memory from source acquisition: copy the scratch frame over
+        * the working data instead of re-reading the input.
+        local _srcf1 : word 1 of `_tvm_src_frames'
+        frame copy `_srcf1' `c(frame)', replace
+        capture frame drop `_srcf1'
+        local _tvm_drc = _rc    // best-effort release; cleanup retries
+        local _tvm_src_live : list _tvm_src_live - _srcf1
 
         * Record which exposure() names exist in dataset 1, scanned BEFORE any
         * rename so the raw names are still in place (auto-suffixing and
@@ -1016,8 +1071,18 @@ program define tvmerge, rclass
                 noisily di as text "Note: Variable name '`start_k_varname'' or '`stop_k_varname'' matches internal temp name"
             }
 
-            * Now load the dataset
-            use "`ds_k'", clear
+            * Now load the dataset -- from its scratch frame, not from disk.
+            * The scratch frame is released as soon as its contents are in the
+            * working data: holding every source for the whole command would
+            * add its full footprint to peak memory for no benefit.
+            * `_tvm_src_frames' stays positionally stable so `word k of' keeps
+            * addressing source k; `_tvm_src_live' tracks what still needs
+            * dropping and is what the cleanup zone walks.
+            local _srcfk : word `k' of `_tvm_src_frames'
+            frame copy `_srcfk' `c(frame)', replace
+            capture frame drop `_srcfk'
+            local _tvm_drc = _rc    // best-effort release; cleanup retries
+            local _tvm_src_live : list _tvm_src_live - _srcfk
 
             * Check which exposure variables exist in this dataset
             local exp_k_list ""
@@ -1897,7 +1962,11 @@ program define tvmerge, rclass
         * Store number of merged datasets
         return scalar N_datasets = `numds'
         
-        * Store macro results
+        * Store macro results. With frames() input this returns the frame names
+        * the user supplied. Until 1.9.1 it returned the internal tempfile paths
+        * that frames() input was serialised through -- values that changed on
+        * every run and named nothing the caller could use, while the help file
+        * documents r(datasets) as "list of datasets merged".
         return local datasets "`datasets'"
         return local exposure_vars "`final_exps'"
         return local startname "`startname'"
@@ -2080,6 +2149,13 @@ program define tvmerge, rclass
     if "`_tvm_work_master'" != "" capture frame drop `_tvm_work_master'
     if "`_tvm_work_using'" != "" capture frame drop `_tvm_work_using'
     if "`_tvm_work_out'" != "" capture frame drop `_tvm_work_out'
+    * Source scratch frames and the ID-union frame. These are tempnamed, so a
+    * user-owned frame can never be dropped here -- including the frames the
+    * user named in frames(), which are only ever read.
+    if "`_tvm_union_frame'" != "" capture frame drop `_tvm_union_frame'
+    foreach _srcdrop of local _tvm_src_live {
+        capture frame drop `_srcdrop'
+    }
     local _tvm_drc = _rc
 
     * Restore the caller dataset after any failure. Work frames use tempnames and
