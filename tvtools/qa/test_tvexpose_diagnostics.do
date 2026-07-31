@@ -214,6 +214,7 @@ _tvd_check `ok' ///
 **# D12 saveas() without a .dta extension does not collide with the main output
 local ++test_count
 capture erase "vd_noext"
+capture erase "vd_noext.dta"
 capture erase "vd_noext_validation.dta"
 _tvd_base "validate saveas(vd_noext) replace"
 capture confirm file "vd_noext_validation.dta"
@@ -241,6 +242,7 @@ _tvd_check `ok' ///
 
 capture erase "tv_validation.dta"
 capture erase "vd_noext"
+capture erase "vd_noext.dta"
 capture erase "vd_noext_validation.dta"
 
 **# Summary
