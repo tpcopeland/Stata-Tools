@@ -1,4 +1,4 @@
-*! _tvpipe_preflight Version 1.10.1  2026/07/30
+*! _tvpipe_preflight Version 1.10.2  2026/07/31
 *! Read-only validation and plan counts shared by tvpipe's real and dry runs
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -489,8 +489,7 @@ program define _tvpipe_preflight, rclass
 
     capture frame change `_caller_frame'
     local _crc = _rc
-    capture set varabbrev `_orig_varabbrev'
-    if !`_crc' local _crc = _rc
+    set varabbrev `_orig_varabbrev'
     if !`rc' & `_crc' local rc = `_crc'
     if `rc' exit `rc'
 end
@@ -605,14 +604,56 @@ program define _tvpipe_check_event
         }
     }
     else {
-        * recurring: eventdate() names a contiguous wide stub.
+        * recurring: eventdate() names a contiguous wide stub, eventdate1 ..
+        * eventdateK.
+        *
+        * `ds `eventdate'*' alone is the wrong instrument and this preflight
+        * used to stop there: the glob matches EVERY variable sharing the
+        * prefix, so a companion column such as eventdate_note was nominated
+        * as an event date and the run died reporting a variable the caller
+        * never offered. tvevent -- the engine this stage delegates to --
+        * already filters the glob down to canonical `stub'# members and
+        * requires them to run 1..K (tvevent.ado, "For recurring events,
+        * detect the entire wide stub"). A preflight that rejects what the
+        * engine accepts is worse than no preflight, so the resolution below
+        * mirrors tvevent's rule for rule: numeric suffix only, canonical
+        * spelling only, positive index, no hole. Keep the two in step.
         quietly ds `eventdate'*
-        local _stub "`r(varlist)'"
-        if "`_stub'" == "" {
+        local _cand "`r(varlist)'"
+        local _sl = strlen("`eventdate'")
+        local _kmax = 0
+        foreach _v of local _cand {
+            local _sfx = substr("`_v'", `_sl' + 1, .)
+            if "`_sfx'" == "" continue
+            if !regexm("`_sfx'", "^[0-9]+$") continue
+            local _k = real("`_sfx'")
+            * `eventdate01' globs in and reads as index 1, which would then
+            * collide with a real `eventdate1'. tvevent refuses the
+            * non-canonical spelling rather than guessing which one was meant.
+            if `_k' < 1 | "`_v'" != "`eventdate'`_k'" {
+                frame change `_here'
+                noisily display as error ///
+                    "tvpipe: '`_v'' is not a canonical positive-numbered `eventdate'# variable"
+                exit 198
+            }
+            if `_k' > `_kmax' local _kmax = `_k'
+        }
+        if `_kmax' == 0 {
             frame change `_here'
             noisily display as error ///
                 "tvpipe: eventtype(recurring) needs a wide stub named `eventdate'#; none found"
             exit 111
+        }
+        local _stub ""
+        forvalues _k = 1/`_kmax' {
+            capture confirm variable `eventdate'`_k', exact
+            if _rc {
+                frame change `_here'
+                noisily display as error ///
+                    "tvpipe: the `eventdate'# stub is not contiguous; `eventdate'`_k' is missing"
+                exit 111
+            }
+            local _stub "`_stub' `eventdate'`_k'"
         }
         local _dates "`_stub'"
     }

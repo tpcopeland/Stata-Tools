@@ -378,6 +378,18 @@ assignment and definition, and characteristics, apart from the intentional
 carrying {opt dateformat()}.
 
 {pstd}
+Value labels created during the build are named by the engine that created
+them, not by {cmd:tvpipe}: a categorical source output built by
+{helpb tvexpose} carries {cmd:_tvlbl_}{it:varname}, and the event indicator
+built by {helpb tvevent} carries {it:varname}{cmd:_lbl}. The two conventions
+differ, and they are left alone deliberately. Each is the published output of
+a command with its own users, and renaming either here would make a
+{cmd:tvpipe} result differ from the same result built by calling those
+commands directly -- which is the one property this coordinator exists to
+preserve. Refer to a label through {cmd:r()} and the variable it is attached
+to rather than by spelling its name.
+
+{pstd}
 There is no {cmd:saveas()} option. After a successful run,
 {cmd:frame} {it:analysis}{cmd:: save} {it:filename} is explicit, and a failed
 file export cannot make an analytically successful build look like a failure.

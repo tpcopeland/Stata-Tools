@@ -1,4 +1,4 @@
-*! _tvpipe_load_source Version 1.10.1  2026/07/30
+*! _tvpipe_load_source Version 1.10.2  2026/07/31
 *! Copy one tvpipe source into a scratch frame under fixed internal names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

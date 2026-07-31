@@ -1,4 +1,4 @@
-*! _tvpipe_manifest Version 1.10.1  2026/07/30
+*! _tvpipe_manifest Version 1.10.2  2026/07/31
 *! Build tvpipe's deterministic per-stage provenance manifest
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -156,8 +156,7 @@ program define _tvpipe_manifest, rclass
 
     capture frame change `_caller_frame'
     local _crc = _rc
-    capture set varabbrev `_orig_varabbrev'
-    if !`_crc' local _crc = _rc
+    set varabbrev `_orig_varabbrev'
     if !`rc' & `_crc' local rc = `_crc'
     if `rc' exit `rc'
 end

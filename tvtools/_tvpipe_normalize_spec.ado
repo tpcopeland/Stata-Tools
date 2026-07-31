@@ -1,4 +1,4 @@
-*! _tvpipe_normalize_spec Version 1.10.1  2026/07/30
+*! _tvpipe_normalize_spec Version 1.10.2  2026/07/31
 *! Normalise either tvpipe input form into one internal plan frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -102,14 +102,30 @@ program define _tvpipe_normalize_spec, rclass
 
         * Schema version. An absent characteristic means version 1; an
         * unsupported nonempty one errors before a source is opened.
-        if "`_v'" != "" {
-            capture confirm integer number `_v'
-            local _vrc = _rc
-            if `_vrc' == 0 & `_v' == 1 local _vrc = 0
-            else local _vrc = 1
-            if `_vrc' {
+        *
+        * The characteristic is DATA, so the test may never place it where
+        * Stata would resolve it as a name. Stata's `&' does not short-circuit,
+        * which is what defeated the obvious form:
+        *
+        *     capture confirm integer number `_v'
+        *     if _rc == 0 & `_v' == 1 ...
+        *
+        * The numeric comparison is evaluated even when `confirm' has already
+        * failed, so a characteristic reading `two' is looked up as a VARIABLE
+        * -- r(111) "two not found" -- from the one line whose entire purpose
+        * is to report r(198) with the message below. Nesting the comparison
+        * inside the rc test fixes that case and still breaks on a two-token
+        * value, because `confirm integer number 1 2' accepts a LIST and
+        * `if 1 2 == 1' is then a syntax error.
+        *
+        * real() closes both: it cannot be read as a name, and it returns
+        * missing for anything non-numeric or multi-token. One evaluation,
+        * no second interpretation.
+        if `"`_v'"' != "" {
+            local _vnum = real(`"`_v'"')
+            if missing(`_vnum') | `_vnum' != 1 {
                 noisily display as error ///
-                    "specframe(`specframe') declares specification version '`_v''"
+                    `"specframe(`specframe') declares specification version '`_v''"'
                 noisily display as error ///
                     "this tvpipe supports version 1"
                 exit 198
@@ -303,8 +319,13 @@ program define _tvpipe_normalize_spec, rclass
             noisily display as error "`_where': stop_var is empty"
             exit 198
         }
-        _tvpipe_check_namelist, list(`"`sv'"') role(start_var) where("`_where'")
-        _tvpipe_check_namelist, list(`"`pv'"') role(stop_var) where("`_where'")
+        * The interval bounds are single columns, and `one' says so here rather
+        * than letting a two-token cell reach _tvpipe_load_source and surface as
+        * "option startvar(): too many names specified" -- an r(103) from an
+        * internal option, naming neither the offending row nor the column the
+        * caller has to edit.
+        _tvpipe_check_namelist, list(`"`sv'"') role(start_var) where("`_where'") one
+        _tvpipe_check_namelist, list(`"`pv'"') role(stop_var) where("`_where'") one
         _tvpipe_check_namelist, list(`"`iv'"') role(input_vars) where("`_where'")
         _tvpipe_check_namelist, list(`"`ov'"') role(output_vars) where("`_where'")
 
@@ -433,8 +454,7 @@ program define _tvpipe_normalize_spec, rclass
 
     capture frame change `_caller_frame'
     local _crc = _rc
-    capture set varabbrev `_orig_varabbrev'
-    if !`_crc' local _crc = _rc
+    set varabbrev `_orig_varabbrev'
     if !`rc' & `_crc' local rc = `_crc'
     if `rc' exit `rc'
 end
@@ -499,11 +519,18 @@ end
 capture program drop _tvpipe_check_namelist
 program define _tvpipe_check_namelist
     version 16.0
-    syntax , LIST(string) ROLE(string) WHERE(string)
+    syntax , LIST(string) ROLE(string) WHERE(string) [ONE]
 
     local _n : word count `list'
     if `_n' == 0 {
         noisily display as error "`where': `role' is empty"
+        exit 198
+    }
+    if "`one'" != "" & `_n' > 1 {
+        noisily display as error ///
+            "`where': `role' names `_n' variables; it takes exactly one"
+        noisily display as error ///
+            "an interval bound is a single column; map several payloads through input_vars"
         exit 198
     }
     foreach tok of local list {

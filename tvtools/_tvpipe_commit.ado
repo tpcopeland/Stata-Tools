@@ -1,4 +1,4 @@
-*! _tvpipe_commit Version 1.10.1  2026/07/30
+*! _tvpipe_commit Version 1.10.2  2026/07/31
 *! Commit tvpipe's result and optional manifest as one transaction
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -122,8 +122,12 @@ program define _tvpipe_commit, rclass
     * as an additional critical diagnostic without displacing the original
     * analytical error.
     if `rc' {
+        * _rbrc is seeded from the reposition rather than from 0. A rollback
+        * that cannot reach the caller's frame first is a rollback running
+        * under conditions it was not written for, and that belongs in the
+        * critical message below instead of being silently discarded.
         capture frame change `_caller_frame'
-        local _rbrc = 0
+        local _rbrc = _rc
         if `_fo_written' {
             if `_fo_backed' {
                 capture quietly frame copy `_bkfo' `frameout', replace
@@ -157,11 +161,12 @@ program define _tvpipe_commit, rclass
     capture frame change `_caller_frame'
     local _crc = _rc
     * Backups are dropped last, on both paths: on success they are no longer
-    * needed, and on failure they have already been copied back.
+    * needed, and on failure they have already been copied back. Their rcs are
+    * discarded on purpose -- a backup tempname that was never created is a
+    * routine `frame drop' failure and must not become this program's exit code.
     capture frame drop `_bkfo'
     capture frame drop `_bkmf'
-    capture set varabbrev `_orig_varabbrev'
-    if !`_crc' local _crc = _rc
+    set varabbrev `_orig_varabbrev'
     if !`rc' & `_crc' local rc = `_crc'
 
     return scalar rolled_back = `_rolled'

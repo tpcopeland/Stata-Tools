@@ -1,4 +1,4 @@
-*! tvpipe Version 1.10.1  2026/07/30
+*! tvpipe Version 1.10.2  2026/07/31
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -431,6 +431,18 @@ program define tvpipe, rclass
     local _quant "`rate_out' `total_out' `cum_out'"
     local exposure_out : list payload_vars - _quant
 
+    * Normalise the whitespace of every public name list ONCE, here, while the
+    * lists are still only classifications and before anything consumes them.
+    * Each was accumulated with `local x "`x' `new''", which leaves a leading
+    * space, and this used to be trimmed at the return surface instead -- after
+    * the manifest had already been built from the untrimmed locals. The two
+    * then disagreed about the same list: r(rate_vars) read `tv_dose' while the
+    * provenance record stored `rate( tv_dose)'. A provenance record whose whole
+    * job is exact reproduction may not be the one copy that is off by a space.
+    foreach _l in cum_out total_out rate_out exposure_out payload_vars source_names {
+        local `_l' = strtrim(stritrim("``_l''"))
+    }
+
     **# ---------------------------------------------------------------------
     **# Plan display
     **# ---------------------------------------------------------------------
@@ -689,8 +701,11 @@ program define tvpipe, rclass
     **# Returns
     **# ---------------------------------------------------------------------
     * Posted last, after every stage and the commit verification have
-    * succeeded. r(source_counts) is issued before r(stage_counts) so that the
-    * matrix each one moves is out of tvpipe's hands only after its final use.
+    * succeeded, so a run that failed anywhere leaves no partial return surface
+    * behind. `return matrix' MOVES its source, but the two matrices are
+    * separate tempnames with no use after this point, so the order they are
+    * issued in carries no constraint -- do not reintroduce one by reading it
+    * into the sequence below.
     if "`dryrun'" == "" {
         return matrix stage_counts = `_stagecounts'
     }
@@ -714,9 +729,6 @@ program define tvpipe, rclass
     return local coverage "`coverage'"
     return local frameout "`frameout'"
     if "`specframe'" != "" return local specframe "`specframe'"
-    foreach _l in cum_out total_out rate_out exposure_out payload_vars source_names {
-        local `_l' = strtrim(stritrim("``_l''"))
-    }
     return local cumulative_vars "`cum_out'"
     return local total_vars      "`total_out'"
     return local rate_vars       "`rate_out'"
@@ -749,9 +761,13 @@ program define tvpipe, rclass
         capture frame drop `_f'
     }
 
-    capture set varabbrev `_orig_varabbrev'
-    local _step_rc = _rc
-    if `_step_rc' & !`_cleanup_rc' local _cleanup_rc = `_step_rc'
+    * A bare restore, not `capture set varabbrev'. The value was read from
+    * c(varabbrev) at the top of this program, so setting it back cannot fail
+    * and the capture guarded nothing -- while hiding the restore from the
+    * varabbrev-restore lint, which is error severity and blocks the pre-push
+    * hook on every changed .ado. `capture' still belongs on the cleanup steps
+    * above, which genuinely can fail.
+    set varabbrev `_orig_varabbrev'
 
     if !`rc' & `_cleanup_rc' local rc = `_cleanup_rc'
     if `rc' exit `rc'
