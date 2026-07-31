@@ -42,7 +42,7 @@ end
 local ++test_count
 capture noisily {
     foreach command in tvtools tvage tvband tvsplit tvpanel tvexpose tvmerge ///
-        tvevent tvweight tvdiagnose tvpipe {
+        tvevent tvweight tvdiagnose tvbuild {
         findfile `command'.ado
         assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1
         findfile `command'.sthlp
@@ -64,13 +64,13 @@ capture noisily {
         findfile `helper'.ado
         assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1
     }
-    * Every tvpipe helper is a separate autoloaded file, so each one resolves
+    * Every tvbuild helper is a separate autoloaded file, so each one resolves
     * or the command dies at its first call on a fresh install. They are named
     * individually rather than globbed: a glob over the install dir would pass
     * by finding nothing if the .pkg ever stopped shipping them.
-    foreach helper in _tvpipe_build_source _tvpipe_carry_meta _tvpipe_combine ///
-        _tvpipe_commit _tvpipe_event _tvpipe_finalize _tvpipe_load_source ///
-        _tvpipe_manifest _tvpipe_normalize_spec _tvpipe_preflight {
+    foreach helper in _tvbuild_make_source _tvbuild_carry_meta _tvbuild_combine ///
+        _tvbuild_commit _tvbuild_event _tvbuild_finalize _tvbuild_load_source ///
+        _tvbuild_manifest _tvbuild_normalize_spec _tvbuild_preflight {
         findfile `helper'.ado
         assert strpos("`r(fn)'", "$TVTOOLS_QA_PLUS") == 1
     }
@@ -655,7 +655,7 @@ else {
 
 **# Shipped help files declare each marker and each section title once
 *
-* Regression for 1.10.1. tvpipe.sthlp shipped its whole body twice: Options,
+* Regression for 1.10.1. tvbuild.sthlp shipped its whole body twice: Options,
 * Specification frame, Dry run, Output, Stored results, Provenance, and
 * Examples each appeared in two copies that had drifted apart. Every existing
 * doc check passed it -- the words were present and in order, the render

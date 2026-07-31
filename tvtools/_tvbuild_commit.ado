@@ -1,5 +1,5 @@
-*! _tvpipe_commit Version 1.10.2  2026/07/31
-*! Commit tvpipe's result and optional manifest as one transaction
+*! _tvbuild_commit Version 1.11.0  2026/07/31
+*! Commit tvbuild's result and optional manifest as one transaction
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -25,8 +25,8 @@
 *   r(datasignature) signature recomputed on the committed output
 *   r(rolled_back)   1 when a failure triggered a rollback
 
-capture program drop _tvpipe_commit
-program define _tvpipe_commit, rclass
+capture program drop _tvbuild_commit
+program define _tvbuild_commit, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -85,9 +85,9 @@ program define _tvpipe_commit, rclass
     local _extra : list _present - schema
     local _missing : list schema - _present
     if `_n_committed' != `nrows' | "`_extra'`_missing'" != "" | ///
-       "`_sig2'" != "`signature'" | "`_pipechar'" != "tvpipe" {
+       "`_sig2'" != "`signature'" | "`_pipechar'" != "tvbuild" {
         noisily display as error ///
-            "tvpipe: the committed frame `frameout' does not match the verified result"
+            "tvbuild: the committed frame `frameout' does not match the verified result"
         if `_n_committed' != `nrows' ///
             noisily display as error ///
                 "  rows: `_n_committed' committed, `nrows' expected"
@@ -106,7 +106,7 @@ program define _tvpipe_commit, rclass
         frame change `_caller_frame'
         if `_n_man' == 0 {
             noisily display as error ///
-                "tvpipe: the committed manifest frame `manifestframe' is empty"
+                "tvbuild: the committed manifest frame `manifestframe' is empty"
             exit 459
         }
     }
@@ -152,7 +152,7 @@ program define _tvpipe_commit, rclass
         }
         if `_rbrc' {
             display as error ///
-                "tvpipe: CRITICAL -- rollback after the failure above did not complete (rc=`_rbrc')"
+                "tvbuild: CRITICAL -- rollback after the failure above did not complete (rc=`_rbrc')"
             display as error ///
                 "inspect frameout()/manifestframe() before using them"
         }

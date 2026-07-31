@@ -1,25 +1,25 @@
 {smcl}
-{* Help for tvpipe. The package version lives in tvtools.sthlp only.}{...}
+{* Help for tvbuild. The package version lives in tvtools.sthlp only.}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
 {vieweralsosee "tvdiagnose" "help tvdiagnose"}{...}
 {vieweralsosee "tvweight" "help tvweight"}{...}
 {vieweralsosee "tvtools" "help tvtools"}{...}
-{viewerjumpto "Syntax" "tvpipe##syntax"}{...}
-{viewerjumpto "Description" "tvpipe##description"}{...}
-{viewerjumpto "Options" "tvpipe##options"}{...}
-{viewerjumpto "Specification frame" "tvpipe##specframe"}{...}
-{viewerjumpto "Dry run" "tvpipe##dryrun"}{...}
-{viewerjumpto "Output" "tvpipe##output"}{...}
-{viewerjumpto "Provenance" "tvpipe##provenance"}{...}
-{viewerjumpto "Stored results" "tvpipe##results"}{...}
-{viewerjumpto "Examples" "tvpipe##examples"}{...}
+{viewerjumpto "Syntax" "tvbuild##syntax"}{...}
+{viewerjumpto "Description" "tvbuild##description"}{...}
+{viewerjumpto "Options" "tvbuild##options"}{...}
+{viewerjumpto "Specification frame" "tvbuild##specframe"}{...}
+{viewerjumpto "Dry run" "tvbuild##dryrun"}{...}
+{viewerjumpto "Output" "tvbuild##output"}{...}
+{viewerjumpto "Provenance" "tvbuild##provenance"}{...}
+{viewerjumpto "Stored results" "tvbuild##results"}{...}
+{viewerjumpto "Examples" "tvbuild##examples"}{...}
 
 {title:Title}
 
 {phang}
-{bf:tvpipe} {hline 2} Build a committed, analysis-ready interval frame from a
+{bf:tvbuild} {hline 2} Build a committed, analysis-ready interval frame from a
 cohort and one or more longitudinal sources
 
 
@@ -29,7 +29,7 @@ cohort and one or more longitudinal sources
 {pstd}Canonical multi-source form{p_end}
 
 {p 8 17 2}
-{cmd:tvpipe}{cmd:,}
+{cmd:tvbuild}{cmd:,}
 {opt spec:frame(name)}
 {opt id(varname)}
 {opt ent:ry(varname)}
@@ -40,7 +40,7 @@ cohort and one or more longitudinal sources
 {pstd}One-source categorical shortcut{p_end}
 
 {p 8 17 2}
-{cmd:tvpipe}{cmd:,}
+{cmd:tvbuild}{cmd:,}
 {c -(}{opt sourcef:rame(name)}{cmd:|}{opt sourceu:sing(filename)}{c )-}
 {opt id(varname)}
 {opt ent:ry(varname)}
@@ -113,30 +113,30 @@ cohort and one or more longitudinal sources
 {title:Description}
 
 {pstd}
-{cmd:tvpipe} turns a person-level cohort plus one or more longitudinal sources
+{cmd:tvbuild} turns a person-level cohort plus one or more longitudinal sources
 into a committed interval frame. It composes exposure construction, interval
 alignment, optional event integration, structural validation, and provenance.
 
 {pstd}
 The current frame is the person-level master, with one row per person. Select
 a different master idiomatically with the {cmd:frame} {it:name}{cmd::} prefix; there is no
-separate master-file parser. {opt frameout()} is required and {cmd:tvpipe} never replaces
+separate master-file parser. {opt frameout()} is required and {cmd:tvbuild} never replaces
 the master.
 
 {pstd}
-{cmd:tvpipe} automates record construction, not scientific decisions. It does {it:not}
+{cmd:tvbuild} automates record construction, not scientific decisions. It does {it:not}
 run {helpb tvdiagnose}, {helpb tvweight}, {helpb stset}, or an outcome model, and it does not choose
 an overlap-resolution rule, weighting specification, truncation threshold,
 time scale, estimand, or causal model. Those choices stay visible and
 scriptable.
 
 {pstd}
-{cmd:tvpipe} is a coordinator over the shared {helpb tvexpose},
+{cmd:tvbuild} is a coordinator over the shared {helpb tvexpose},
 {helpb tvmerge}, and {helpb tvevent} engines, not a fourth implementation of
 interval semantics. Raw categorical episodes are tiled by the shared
 {cmd:tvexpose} constructor, several sources are aligned by the shared
 {cmd:tvmerge} interval engine, and events are placed by the shared
-{cmd:tvevent} engine, so a {cmd:tvpipe} result is what the equivalent sequence
+{cmd:tvevent} engine, so a {cmd:tvbuild} result is what the equivalent sequence
 of primitive calls produces.
 
 {pstd}
@@ -153,9 +153,9 @@ every user-owned frame is left exactly as it was found.
 
 {phang}
 {opt specframe(name)} names a frame with one row per source, described under
-{it:{help tvpipe##specframe:Specification frame}} below. Observation order is
+{it:{help tvbuild##specframe:Specification frame}} below. Observation order is
 semantic: it fixes generated-variable order, merge order, deterministic row
-ties, displayed plan order, and manifest order. {cmd:tvpipe} never sorts it.
+ties, displayed plan order, and manifest order. {cmd:tvbuild} never sorts it.
 
 {phang}
 {opt specframe()} is mutually exclusive with every inline-source
@@ -170,7 +170,7 @@ ready-made interval source is declared through {opt specframe()}.
 {phang}
 {opt id(varname)} names the person identifier. It must exist under exactly
 this name in the master, in every source, and in any separate event input, and
-its storage class must agree everywhere; {cmd:tvpipe} never converts an
+its storage class must agree everywhere; {cmd:tvbuild} never converts an
 identifier. {cmd:strL} identifiers are refused.
 
 {phang}
@@ -214,7 +214,7 @@ output: neither is committed unless both verify.
 
 {phang}
 {opt dryrun} validates and prints the plan and changes nothing; see
-{it:{help tvpipe##dryrun:Dry run}} below.
+{it:{help tvbuild##dryrun:Dry run}} below.
 
 {phang}
 {opt replace} authorizes replacing an existing {opt frameout()} and, when
@@ -235,7 +235,7 @@ receive one full-window reference interval.
 If a raw source needs point-time carry-forward, grace, lag, washout, duration,
 dose, recency, overlap resolution, {cmd:bytype}, switching, state time,
 noninteger categories, or another advanced {helpb tvexpose} mode,
-{cmd:tvpipe} refuses during preflight and names the remedy: run
+{cmd:tvbuild} refuses during preflight and names the remedy: run
 {cmd:tvexpose} explicitly into a frame, then declare that frame as
 {cmd:source_kind=="intervals"}. It never silently chooses an engine or an
 overlap policy for you.
@@ -244,7 +244,7 @@ overlap policy for you.
 A ready {cmd:intervals} source must contain every master person, use whole
 nonmissing closed daily bounds inside that person's window, carry nonmissing
 values for every declared input variable, and satisfy the quantity metadata it
-declares. {cmd:tvpipe} does not clip or reinterpret an already-constructed
+declares. {cmd:tvbuild} does not clip or reinterpret an already-constructed
 source.
 
 {dlgtab:Coverage}
@@ -336,7 +336,7 @@ The specification version may be recorded as a dataset characteristic. An
 absent characteristic means version 1; an unsupported nonempty value is an
 error raised before any source is opened.
 
-{phang2}{cmd:. frame pipe_spec: char _dta[tvpipe_spec_version] "1"}{p_end}
+{phang2}{cmd:. frame pipe_spec: char _dta[tvbuild_spec_version] "1"}{p_end}
 
 
 {marker dryrun}{...}
@@ -379,12 +379,12 @@ carrying {opt dateformat()}.
 
 {pstd}
 Value labels created during the build are named by the engine that created
-them, not by {cmd:tvpipe}: a categorical source output built by
+them, not by {cmd:tvbuild}: a categorical source output built by
 {helpb tvexpose} carries {cmd:_tvlbl_}{it:varname}, and the event indicator
 built by {helpb tvevent} carries {it:varname}{cmd:_lbl}. The two conventions
 differ, and they are left alone deliberately. Each is the published output of
 a command with its own users, and renaming either here would make a
-{cmd:tvpipe} result differ from the same result built by calling those
+{cmd:tvbuild} result differ from the same result built by calling those
 commands directly -- which is the one property this coordinator exists to
 preserve. Refer to a label through {cmd:r()} and the variable it is attached
 to rather than by spelling its name.
@@ -399,7 +399,7 @@ file export cannot make an analytically successful build look like a failure.
 {title:Stored results}
 
 {pstd}
-{cmd:tvpipe} is {cmd:rclass}. It never forwards a helper's returns and never
+{cmd:tvbuild} is {cmd:rclass}. It never forwards a helper's returns and never
 claims a union of the {helpb tvexpose}, {helpb tvmerge}, or {helpb tvevent}
 result surfaces.
 
@@ -490,7 +490,7 @@ carries the untruncated mapping.
 After analytical success the committed frame carries informational
 characteristics{p_end}
 
-{p 8 8 2}{cmd:_dta[tvtools_pipeline]}{space 11}{cmd:tvpipe}{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_pipeline]}{space 11}{cmd:tvbuild}{p_end}
 {p 8 8 2}{cmd:_dta[tvtools_pipeline_schema]}{space 4}{cmd:1}{p_end}
 {p 8 8 2}{cmd:_dta[tvtools_pipeline_coverage]}{space 2}{cmd:strict} or {cmd:allow}{p_end}
 {p 8 8 2}{cmd:_dta[tvtools_pipeline_start]}{space 5}the {opt startname()} in force{p_end}
@@ -548,7 +548,7 @@ runnable after installation from any working directory.
 {pstd}{bf:1. Validate a one-source plan without changing anything}{p_end}
 
 {phang2}{cmd:. use `cohort', clear}{p_end}
-{phang2}{cmd:. tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) frameout(analysis) dryrun}{p_end}
 
@@ -556,7 +556,7 @@ runnable after installation from any working directory.
 {opt dryrun} builds the result and places it in {cmd:analysis}; the data in
 memory are untouched.{p_end}
 
-{phang2}{cmd:. tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) referencelabel("Unexposed") keepvars(female) ///}{p_end}
 {phang3}{cmd:frameout(analysis) replace}{p_end}
@@ -565,7 +565,7 @@ memory are untouched.{p_end}
 built explicitly with {helpb tvexpose} and declared as ready intervals. Note
 that the locators here are FRAME names: {cmd:input} does not expand macros in
 its data lines, so a tempfile path written as a macro reference would be stored
-literally, and {cmd:tvpipe} refuses a cell containing a backtick rather than
+literally, and {cmd:tvbuild} refuses a cell containing a backtick rather than
 letting it expand to something else later.{p_end}
 
 {phang2}{cmd:. capture frame drop rx_frame}{p_end}
@@ -585,9 +585,9 @@ letting it expand to something else later.{p_end}
 {phang3}{cmd:"alt"  "intervals" "alt_frame" "" "start"    "stop"    "tv_alt"   "tv_alt2" .}{p_end}
 {phang3}{cmd:end}{p_end}
 {phang2}{cmd:. {c )-}}{p_end}
-{phang2}{cmd:. frame pipe_spec: char _dta[tvpipe_spec_version] "1"}{p_end}
+{phang2}{cmd:. frame pipe_spec: char _dta[tvbuild_spec_version] "1"}{p_end}
 {phang2}{cmd:. use `cohort', clear}{p_end}
-{phang2}{cmd:. tvpipe, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:frameout(analysis) manifestframe(provenance) replace}{p_end}
 {phang2}{cmd:. frame provenance: list stage source_name n_input n_output, noobs}{p_end}
 
@@ -604,7 +604,7 @@ inside a configuration string.{p_end}
 {pstd}{bf:5. A single event, taken from the master}{p_end}
 
 {phang2}{cmd:. use `cohort', clear}{p_end}
-{phang2}{cmd:. tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) frameout(analysis) replace ///}{p_end}
 {phang3}{cmd:eventdate(event_date) eventgenerate(_failure) timegen(_elapsed)}{p_end}
@@ -620,13 +620,13 @@ inside a configuration string.{p_end}
 {phang3}{cmd:end}{p_end}
 {phang2}{cmd:. {c )-}}{p_end}
 {phang2}{cmd:. use `cohort', clear}{p_end}
-{phang2}{cmd:. tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) frameout(analysis) replace ///}{p_end}
 {phang3}{cmd:eventframe(ev_frame) eventdate(ev) eventtype(recurring) enum(_enum) gaptime}{p_end}
 
 {pstd}{bf:7. Hand off to diagnostics, weighting, and survival setup} using the
-names {cmd:tvpipe} returns rather than names typed twice. Copy the returns into
+names {cmd:tvbuild} returns rather than names typed twice. Copy the returns into
 locals first: each of these commands replaces {cmd:r()} with its own results.{p_end}
 
 {phang2}{cmd:. local idv "`r(idvar)'"}{p_end}
@@ -638,7 +638,7 @@ locals first: each of these commands replaces {cmd:r()} with its own results.{p_
 {phang2}{cmd:. stset `ev', id(`idv') failure(`fv' == 1) time0(`sv')}{p_end}
 
 {pstd}
-{cmd:tvpipe} automates record construction, not scientific
+{cmd:tvbuild} automates record construction, not scientific
 decisions. {opt coverage(allow)} is a visible choice that may restrict the
 person-time an analysis represents, and the manifest and data signature aid
 provenance but do not replace {helpb tvdiagnose} or saved analysis code.

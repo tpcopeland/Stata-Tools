@@ -1,5 +1,5 @@
-*! _tvpipe_build_source Version 1.10.2  2026/07/31
-*! Turn one tvpipe specification row into one normalised interval frame
+*! _tvbuild_make_source Version 1.11.0  2026/07/31
+*! Turn one tvbuild specification row into one normalised interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -13,8 +13,8 @@
 * hand-off when there is only one) never has to know which kind it came from.
 *
 * An `episodes' row is built by the SHARED Phase 3 constructor,
-* _tvexpose_fast_build, not by a private tiling written for tvpipe. That is the
-* whole point of Section 12.6: tvpipe is a coordinator, and a second
+* _tvexpose_fast_build, not by a private tiling written for tvbuild. That is the
+* whole point of Section 12.6: tvbuild is a coordinator, and a second
 * implementation of interval semantics inside it would be a second thing to
 * keep correct. The surrounding work -- clipping, the reference value label,
 * the output variable label -- mirrors tvexpose's own finalisation so that the
@@ -29,8 +29,8 @@
 *   r(N_out)      rows in the normalised frame
 *   r(N_persons)  distinct persons in the normalised frame
 
-capture program drop _tvpipe_build_source
-program define _tvpipe_build_source, rclass
+capture program drop _tvbuild_make_source
+program define _tvbuild_make_source, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -58,7 +58,7 @@ program define _tvpipe_build_source, rclass
     frame change `_caller_frame'
     local _where "source `index' (`_name')"
 
-    _tvpipe_load_source, srcframe(`_fr') workframe(`outframe') ///
+    _tvbuild_load_source, srcframe(`_fr') workframe(`outframe') ///
         xwalkframe(`xwalkframe') where("`_where'") ///
         id(`id') entry(`entry') exit(`exit') ///
         startvar(`_sv') stopvar(`_pv') payload(`_iv') ///
@@ -181,7 +181,7 @@ program define _tvpipe_build_source, rclass
 
     * Per-source coverage is NOT recomputed here. The preflight already
     * measured it on the validated source, and the exact interval union that
-    * _tvpipe_combine runs on the accumulated frame verifies the whole
+    * _tvbuild_combine runs on the accumulated frame verifies the whole
     * construction -- a gap or an overlap introduced by one source survives
     * into the aligned result, so a second per-source union costs a full sort
     * and several by-passes per source to re-prove what the next stage proves

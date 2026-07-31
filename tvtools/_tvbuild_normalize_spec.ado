@@ -1,9 +1,9 @@
-*! _tvpipe_normalize_spec Version 1.10.2  2026/07/31
-*! Normalise either tvpipe input form into one internal plan frame
+*! _tvbuild_normalize_spec Version 1.11.0  2026/07/31
+*! Normalise either tvbuild input form into one internal plan frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
-* tvpipe accepts two public input forms -- a one-source inline shortcut and a
+* tvbuild accepts two public input forms -- a one-source inline shortcut and a
 * canonical specframe() with one typed row per source -- and both must reach
 * the engines through exactly one internal representation. That representation
 * is the plan frame of Section 12.6 of the single-pass plan: one row per
@@ -34,8 +34,8 @@
 *   r(source_names)  logical source names in specification order
 *   r(output_vars)   every mapped output name in row/token order
 
-capture program drop _tvpipe_normalize_spec
-program define _tvpipe_normalize_spec, rclass
+capture program drop _tvbuild_normalize_spec
+program define _tvbuild_normalize_spec, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -94,7 +94,7 @@ program define _tvpipe_normalize_spec, rclass
         **# Canonical specification-frame form
 
         frame change `specframe'
-        local _v : char _dta[tvpipe_spec_version]
+        local _v : char _dta[tvbuild_spec_version]
         quietly ds
         local _cols "`r(varlist)'"
         local _nrows = _N
@@ -127,7 +127,7 @@ program define _tvpipe_normalize_spec, rclass
                 noisily display as error ///
                     `"specframe(`specframe') declares specification version '`_v''"'
                 noisily display as error ///
-                    "this tvpipe supports version 1"
+                    "this tvbuild supports version 1"
                 exit 198
             }
         }
@@ -218,7 +218,7 @@ program define _tvpipe_normalize_spec, rclass
             }
             frame change `_caller_frame'
 
-            _tvpipe_write_plan_row, planframe(`planframe') index(`i') ///
+            _tvbuild_write_plan_row, planframe(`planframe') index(`i') ///
                 sname(`"`_c_source_name'"') skind(`"`_c_source_kind'"') ///
                 sframe(`"`_c_source_frame'"') sfile(`"`_c_source_file'"') ///
                 svar(`"`_c_start_var'"') pvar(`"`_c_stop_var'"') ///
@@ -239,7 +239,7 @@ program define _tvpipe_normalize_spec, rclass
         local _sname "`sourcename'"
         if "`_sname'" == "" local _sname "`generate'"
 
-        _tvpipe_write_plan_row, planframe(`planframe') index(1) ///
+        _tvbuild_write_plan_row, planframe(`planframe') index(1) ///
             sname(`"`_sname'"') skind("episodes") ///
             sframe(`"`sourceframe'"') sfile(`"`sourceusing'"') ///
             svar(`"`start'"') pvar(`"`stop'"') ///
@@ -320,14 +320,14 @@ program define _tvpipe_normalize_spec, rclass
             exit 198
         }
         * The interval bounds are single columns, and `one' says so here rather
-        * than letting a two-token cell reach _tvpipe_load_source and surface as
+        * than letting a two-token cell reach _tvbuild_load_source and surface as
         * "option startvar(): too many names specified" -- an r(103) from an
         * internal option, naming neither the offending row nor the column the
         * caller has to edit.
-        _tvpipe_check_namelist, list(`"`sv'"') role(start_var) where("`_where'") one
-        _tvpipe_check_namelist, list(`"`pv'"') role(stop_var) where("`_where'") one
-        _tvpipe_check_namelist, list(`"`iv'"') role(input_vars) where("`_where'")
-        _tvpipe_check_namelist, list(`"`ov'"') role(output_vars) where("`_where'")
+        _tvbuild_check_namelist, list(`"`sv'"') role(start_var) where("`_where'") one
+        _tvbuild_check_namelist, list(`"`pv'"') role(stop_var) where("`_where'") one
+        _tvbuild_check_namelist, list(`"`iv'"') role(input_vars) where("`_where'")
+        _tvbuild_check_namelist, list(`"`ov'"') role(output_vars) where("`_where'")
 
         local _n_in : word count `iv'
         local _n_out : word count `ov'
@@ -366,7 +366,7 @@ program define _tvpipe_normalize_spec, rclass
 
         * quantity lists: legal names, subsets of input_vars, pairwise disjoint
         if "`rv'" != "" {
-            _tvpipe_check_namelist, list(`"`rv'"') role(rate_vars) where("`_where'")
+            _tvbuild_check_namelist, list(`"`rv'"') role(rate_vars) where("`_where'")
             local _notin : list rv - iv
             if "`_notin'" != "" {
                 noisily display as error ///
@@ -375,7 +375,7 @@ program define _tvpipe_normalize_spec, rclass
             }
         }
         if "`tv'" != "" {
-            _tvpipe_check_namelist, list(`"`tv'"') role(total_vars) where("`_where'")
+            _tvbuild_check_namelist, list(`"`tv'"') role(total_vars) where("`_where'")
             local _notin : list tv - iv
             if "`_notin'" != "" {
                 noisily display as error ///
@@ -384,7 +384,7 @@ program define _tvpipe_normalize_spec, rclass
             }
         }
         if "`cv'" != "" {
-            _tvpipe_check_namelist, list(`"`cv'"') role(cumulative_vars) where("`_where'")
+            _tvbuild_check_namelist, list(`"`cv'"') role(cumulative_vars) where("`_where'")
             local _notin : list cv - iv
             if "`_notin'" != "" {
                 noisily display as error ///
@@ -462,8 +462,8 @@ end
 
 * Append one normalised row. Both public input forms write through this one
 * path; see the header note on why that matters and what it hides.
-capture program drop _tvpipe_write_plan_row
-program define _tvpipe_write_plan_row
+capture program drop _tvbuild_write_plan_row
+program define _tvbuild_write_plan_row
     version 16.0
     syntax , PLANframe(name) INDEX(integer) ///
         [SNAME(string) SKIND(string) SFRAME(string) SFILE(string) ///
@@ -516,8 +516,8 @@ end
 * are all refused by construction rather than by a blacklist that has to stay
 * complete. A cell that could name a SET of variables could silently change
 * which column carries which algebra.
-capture program drop _tvpipe_check_namelist
-program define _tvpipe_check_namelist
+capture program drop _tvbuild_check_namelist
+program define _tvbuild_check_namelist
     version 16.0
     syntax , LIST(string) ROLE(string) WHERE(string) [ONE]
 

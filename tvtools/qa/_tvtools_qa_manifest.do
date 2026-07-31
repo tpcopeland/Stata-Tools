@@ -22,10 +22,10 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     test_tvmerge_idname ///
     test_tvevent_segments ///
     test_tvexpose_fastpath ///
-    test_tvpipe_dryrun ///
-    test_tvpipe_build ///
-    test_tvpipe_commit ///
-    test_tvpipe_regressions_1_10_2 ///
+    test_tvbuild_dryrun ///
+    test_tvbuild_construct ///
+    test_tvbuild_commit ///
+    test_tvbuild_regressions_1_10_2 ///
     test_program_limits ///
     test_tvexpose_diagnostics ///
     test_tvm_point_engine ///
@@ -70,9 +70,9 @@ local manifest_suites test_package_runner_contract ///
     test_tvmerge_frame_native ///
     test_tvmerge_idname ///
     test_tvevent_segments ///
-    test_tvexpose_fastpath test_tvpipe_dryrun ///
-    test_tvpipe_build test_tvpipe_commit ///
-    test_tvpipe_regressions_1_10_2 ///
+    test_tvexpose_fastpath test_tvbuild_dryrun ///
+    test_tvbuild_construct test_tvbuild_commit ///
+    test_tvbuild_regressions_1_10_2 ///
     test_program_limits test_tvexpose_diagnostics ///
     test_tvm_point_engine validation_phase0_semantics ///
     validation_contracts validation_audit_tvexpose validation_audit_tvmerge ///

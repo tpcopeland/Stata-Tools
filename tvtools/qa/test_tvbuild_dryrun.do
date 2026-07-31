@@ -1,15 +1,15 @@
-*! test_tvpipe_dryrun.do
-*! Phase 4A contract pins for tvpipe: parsing, normalization, preflight, dryrun.
+*! test_tvbuild_dryrun.do
+*! Phase 4A contract pins for tvbuild: parsing, normalization, preflight, dryrun.
 *!
-*! tvpipe is a coordinator over the tvexpose/tvmerge/tvevent engines. Phase 4A
+*! tvbuild is a coordinator over the tvexpose/tvmerge/tvevent engines. Phase 4A
 *! is everything that happens before the first kernel: the public syntax, the
 *! specification normalizer, the complete read-only preflight, the plan
 *! display, and the dryrun return surface. Construction, merge, events, and
 *! commit are Phase 4B/4C and are not exercised here.
 *!
-*! The three tvpipe-specific false greens this suite is written against:
+*! The three tvbuild-specific false greens this suite is written against:
 *!
-*!   1. "tvpipe never actually validated anything." A dry run that returns
+*!   1. "tvbuild never actually validated anything." A dry run that returns
 *!      rc=0 on a plan it never inspected looks exactly like a dry run that
 *!      inspected it. Every refusal group below (R*) is a case where a real
 *!      preflight must fail; a suite of only happy paths cannot tell the two
@@ -43,7 +43,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-quietly log using "test_tvpipe_dryrun.log", replace nomsg
+quietly log using "test_tvbuild_dryrun.log", replace nomsg
 
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap
@@ -53,7 +53,7 @@ global TVP_FAIL = 0
 global TVP_FAILED ""
 local test_count = 0
 
-display as result "tvtools QA: tvpipe dry run (Phase 4A) -- $S_DATE $S_TIME"
+display as result "tvtools QA: tvbuild dry run (Phase 4A) -- $S_DATE $S_TIME"
 
 capture program drop _tvp_check
 program define _tvp_check
@@ -276,7 +276,7 @@ local INLINE `"sourceusing("tp_epi.dta") start(a_start) stop(a_stop) exposure(dr
 **# ---------------------------------------------------------------------
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, `INLINE' `BASE'
+capture noisily tvbuild, `INLINE' `BASE'
 local rc = _rc
 local ok = (`rc' == 0)
 _tvp_check `ok' "P1 the inline file form dry-runs clean" "rc=`rc'"
@@ -293,7 +293,7 @@ matrix in_counts = r(source_counts)
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, sourceframe(epi_fr) start(a_start) stop(a_stop) ///
+capture noisily tvbuild, sourceframe(epi_fr) start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 local rc = _rc
 local ok = (`rc' == 0)
@@ -301,7 +301,7 @@ _tvp_check `ok' "P2 the inline frame form dry-runs clean" "rc=`rc'"
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, specframe(spec1) `BASE'
+capture noisily tvbuild, specframe(spec1) `BASE'
 local rc = _rc
 local sp_np      = r(N_persons)
 local sp_ns      = r(n_sources)
@@ -333,7 +333,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, specframe(spec2) `BASE'
+capture noisily tvbuild, specframe(spec2) `BASE'
 local rc = _rc
 local ok = (`rc' == 0 & r(n_sources) == 2 & ///
     "`r(payload_vars)'" == "tv_drug egfr_out" & ///
@@ -344,7 +344,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, specframe(spec3) `BASE'
+capture noisily tvbuild, specframe(spec3) `BASE'
 local rc = _rc
 local nf_ok = (`rc' == 0 & r(n_sources) == 3)
 _tvp_check `nf_ok' "P6 a three-source plan with a repeated locator dry-runs clean" ///
@@ -352,7 +352,7 @@ _tvp_check `nf_ok' "P6 a three-source plan with a repeated locator dry-runs clea
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
+capture noisily tvbuild, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
     frameout(analysis) keepvars(sex) startname(t0) stopname(t1) ///
     dateformat(%td) dropdates dryrun
 local rc = _rc
@@ -364,7 +364,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 use "tp_cohort_s.dta", clear
-capture noisily tvpipe, sourceusing("tp_epi_s.dta") start(a_start) stop(a_stop) ///
+capture noisily tvbuild, sourceusing("tp_epi_s.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) ///
     id(pid) entry(study_entry) exit(study_exit) frameout(analysis) dryrun
 local rc = _rc
@@ -380,7 +380,7 @@ program define _tvp_refuse, rclass
     version 16.0
     args expected label opts
     quietly use "tp_cohort.dta", clear
-    capture tvpipe, `opts'
+    capture tvbuild, `opts'
     return scalar rc = _rc
     return scalar ok = (_rc == `expected')
 end
@@ -416,9 +416,9 @@ local ++test_count
 _tvp_refusal 7 198 "an invalid dateformat() is refused" ///
     `"`INLINE' `BASE' dateformat(%tcnonsense)"'
 local ++test_count
-* startname() colliding with id(): a legal Stata name, refused by tvpipe's
+* startname() colliding with id(): a legal Stata name, refused by tvbuild's
 * output-name planner rather than by `syntax'. A syntactically illegal name
-* would be rejected by Stata's own parser and would test nothing of tvpipe's.
+* would be rejected by Stata's own parser and would test nothing of tvbuild's.
 _tvp_refusal 8 198 "a startname() colliding with id() is refused" ///
     `"`INLINE' `BASE' startname(pid)"'
 
@@ -452,17 +452,17 @@ _tvp_refusal 11 109 "a specframe column of the wrong storage class is refused" /
 
 capture frame drop spec_ver
 frame copy spec1 spec_ver
-frame spec_ver: char _dta[tvpipe_spec_version] "2"
+frame spec_ver: char _dta[tvbuild_spec_version] "2"
 local ++test_count
 _tvp_refusal 12 198 "an unsupported specification version is refused" ///
     `"specframe(spec_ver) `BASE'"'
 
 capture frame drop spec_v1
 frame copy spec1 spec_v1
-frame spec_v1: char _dta[tvpipe_spec_version] "1"
+frame spec_v1: char _dta[tvbuild_spec_version] "1"
 local ++test_count
 use "tp_cohort.dta", clear
-capture tvpipe, specframe(spec_v1) `BASE'
+capture tvbuild, specframe(spec_v1) `BASE'
 local rc = _rc
 local ok = (`rc' == 0)
 _tvp_check `ok' "R13 an explicit version-1 characteristic is accepted" "rc=`rc'"
@@ -532,7 +532,7 @@ program define _tvp_refuse_data, rclass
     version 16.0
     args cohort expected opts
     quietly use "`cohort'", clear
-    capture tvpipe, `opts'
+    capture tvbuild, `opts'
     return scalar rc = _rc
     return scalar ok = (_rc == `expected')
 end
@@ -540,7 +540,7 @@ end
 local ++test_count
 quietly use "tp_cohort.dta", clear
 quietly expand 2 in 1
-capture tvpipe, `INLINE' `BASE'
+capture tvbuild, `INLINE' `BASE'
 local rc = _rc
 local ok = (`rc' == 459)
 _tvp_check `ok' "R22 a duplicate master id is refused with r(459)" "rc=`rc'"
@@ -548,7 +548,7 @@ _tvp_check `ok' "R22 a duplicate master id is refused with r(459)" "rc=`rc'"
 local ++test_count
 quietly use "tp_cohort.dta", clear
 quietly replace study_entry = . in 2
-capture tvpipe, `INLINE' `BASE'
+capture tvbuild, `INLINE' `BASE'
 local rc = _rc
 local ok = (`rc' == 498)
 _tvp_check `ok' "R23 a missing master entry date is refused with r(498)" "rc=`rc'"
@@ -556,7 +556,7 @@ _tvp_check `ok' "R23 a missing master entry date is refused with r(498)" "rc=`rc
 local ++test_count
 quietly use "tp_cohort.dta", clear
 quietly generate strL pid_l = string(pid)
-capture tvpipe, sourceusing("tp_epi.dta") start(a_start) stop(a_stop) ///
+capture tvbuild, sourceusing("tp_epi.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) ///
     id(pid_l) entry(study_entry) exit(study_exit) frameout(analysis) dryrun
 local rc = _rc
@@ -632,7 +632,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 quietly use "tp_cohort.dta", clear
-capture tvpipe, specframe(spec_gap) `BASE' coverage(allow)
+capture tvbuild, specframe(spec_gap) `BASE' coverage(allow)
 local rc = _rc
 local gaps = r(n_gap_ids)
 local ok = (`rc' == 0 & "`r(coverage)'" == "allow")
@@ -655,7 +655,7 @@ _tvp_check `ok' ///
 **# ---------------------------------------------------------------------
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, `INLINE' `BASE'
+capture noisily tvbuild, `INLINE' `BASE'
 local ok = (r(event_stage) == 0)
 _tvp_check `ok' "E1 a plan with no eventdate() has no event stage" ///
     "event_stage=`=r(event_stage)'"
@@ -663,7 +663,7 @@ _tvp_check `ok' "E1 a plan with no eventdate() has no event stage" ///
 local ++test_count
 use "tp_evt.dta", clear
 quietly merge 1:1 pid using "tp_cohort.dta", nogenerate
-capture noisily tvpipe, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
+capture noisily tvbuild, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
     frameout(analysis) eventdate(evt_dt) compete(comp_dt) dryrun
 local rc = _rc
 local ok = (`rc' == 0 & r(event_stage) == 1 & "`r(eventvar)'" == "_failure")
@@ -672,7 +672,7 @@ _tvp_check `ok' "E2 event variables read from the master dry-run clean" ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, `INLINE' `BASE' eventframe(evt_fr) eventdate(evt_dt) ///
+capture noisily tvbuild, `INLINE' `BASE' eventframe(evt_fr) eventdate(evt_dt) ///
     eventgenerate(died) timegen(t_elapsed) timeunit(years)
 local rc = _rc
 local ok = (`rc' == 0 & "`r(eventvar)'" == "died" & "`r(timevar)'" == "t_elapsed")
@@ -681,7 +681,7 @@ _tvp_check `ok' "E3 a separate event frame dry-runs clean" ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, `INLINE' `BASE' eventusing("tp_evt.dta") eventdate(evt_dt)
+capture noisily tvbuild, `INLINE' `BASE' eventusing("tp_evt.dta") eventdate(evt_dt)
 local rc = _rc
 local ok = (`rc' == 0)
 _tvp_check `ok' "E4 a separate event file dry-runs clean" "rc=`rc'"
@@ -729,7 +729,7 @@ _tvp_refusal 44 110 "an existing frameout() without replace is r(110)" ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture tvpipe, `INLINE' `BASE' replace
+capture tvbuild, `INLINE' `BASE' replace
 local rc = _rc
 local ok = (`rc' == 0)
 _tvp_check `ok' "D5 replace authorizes an existing frameout()" "rc=`rc'"
@@ -742,7 +742,7 @@ _tvp_refusal 45 198 "a keepvar colliding with a source output is refused" ///
 local ++test_count
 use "tp_evt.dta", clear
 quietly merge 1:1 pid using "tp_cohort.dta", nogenerate
-capture tvpipe, sourceusing("tp_epi.dta") start(a_start) stop(a_stop) ///
+capture tvbuild, sourceusing("tp_epi.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(evt_dt) ///
     id(pid) entry(study_entry) exit(study_exit) frameout(analysis) ///
     eventdate(evt_dt) dryrun
@@ -756,7 +756,7 @@ _tvp_check `ok' ///
 **# ---------------------------------------------------------------------
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, `INLINE' `BASE'
+capture noisily tvbuild, `INLINE' `BASE'
 matrix c1 = r(source_counts)
 local ok = (c1[1,1] == 6 & c1[1,2] == 4 & c1[1,3] == 1)
 _tvp_check `ok' ///
@@ -765,7 +765,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, sourceusing("tp_epi_outside.dta") start(a_start) ///
+capture noisily tvbuild, sourceusing("tp_epi_outside.dta") start(a_start) ///
     stop(a_stop) exposure(drug) reference(0) generate(tv_drug) `BASE'
 matrix c2 = r(source_counts)
 local rc = _rc
@@ -776,7 +776,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, specframe(spec2) `BASE'
+capture noisily tvbuild, specframe(spec2) `BASE'
 matrix c3 = r(source_counts)
 local ok = (c3[1,5] == 1 & c3[2,5] == 2 & c3[1,6] == 2 & c3[2,6] == 2)
 _tvp_check `ok' ///
@@ -785,7 +785,7 @@ _tvp_check `ok' ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture noisily tvpipe, sourceframe(epi_fr) start(a_start) stop(a_stop) ///
+capture noisily tvbuild, sourceframe(epi_fr) start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 matrix c4 = r(source_counts)
 local ok = (c4[1,6] == 1)
@@ -810,7 +810,7 @@ local before_labels "`r(names)'"
 quietly regress study_exit study_entry
 local before_e "`e(cmd)' `=e(N)'"
 
-capture noisily tvpipe, `INLINE' `BASE'
+capture noisily tvbuild, `INLINE' `BASE'
 local rc = _rc
 
 local ++test_count
@@ -856,7 +856,7 @@ local ++test_count
 use "tp_cohort.dta", clear
 _tvp_framelist
 local before_frames "`r(frames)'"
-capture tvpipe, sourceusing("tp_epi_overlap.dta") start(a_start) stop(a_stop) ///
+capture tvbuild, sourceusing("tp_epi_overlap.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 local rc = _rc
 _tvp_framelist
@@ -870,7 +870,7 @@ local ++test_count
 use "tp_cohort.dta", clear
 _tvp_framelist
 local before_frames "`r(frames)'"
-capture tvpipe, sourceusing("tp_notadta.dta") start(a_start) stop(a_stop) ///
+capture tvbuild, sourceusing("tp_notadta.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 local rc = _rc
 _tvp_framelist
@@ -885,7 +885,7 @@ local ++test_count
 frame epi_fr: quietly datasignature
 local src_before "`r(datasignature)'"
 use "tp_cohort.dta", clear
-capture tvpipe, sourceframe(epi_fr) start(a_start) stop(a_stop) ///
+capture tvbuild, sourceframe(epi_fr) start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 frame epi_fr: quietly datasignature
 local src_after "`r(datasignature)'"
@@ -895,9 +895,9 @@ _tvp_check `ok' "S8 an input source frame is not modified" ///
 
 local ++test_count
 use "tp_cohort.dta", clear
-capture tvpipe, `INLINE' `BASE'
+capture tvbuild, `INLINE' `BASE'
 local rc1 = _rc
-capture tvpipe, `INLINE' `BASE'
+capture tvbuild, `INLINE' `BASE'
 local rc2 = _rc
 local ok = (`rc1' == 0 & `rc2' == 0)
 _tvp_check `ok' "S9 a repeated invocation succeeds" "rc1=`rc1' rc2=`rc2'"
@@ -908,14 +908,14 @@ local ++test_count
 quietly use "tp_epi.dta", clear
 quietly save "tp_epi_mut.dta", replace
 use "tp_cohort.dta", clear
-capture tvpipe, sourceusing("tp_epi_mut.dta") start(a_start) stop(a_stop) ///
+capture tvbuild, sourceusing("tp_epi_mut.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 local clean_rc = _rc
 quietly use "tp_epi_mut.dta", clear
 quietly replace a_stop = 400 in 1
 quietly save "tp_epi_mut.dta", replace
 use "tp_cohort.dta", clear
-capture tvpipe, sourceusing("tp_epi_mut.dta") start(a_start) stop(a_stop) ///
+capture tvbuild, sourceusing("tp_epi_mut.dta") start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) `BASE'
 local mut_rc = _rc
 local ok = (`clean_rc' == 0 & `mut_rc' == 459)
@@ -932,14 +932,14 @@ capture frame drop analysis
 use "tp_cohort.dta", clear
 _tvp_framelist
 local before_frames "`r(frames)'"
-capture tvpipe, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
+capture tvbuild, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
     frameout(analysis) dryrun
 local dry_rc = _rc
 capture confirm frame analysis
 local dry_no_dest = (_rc != 0)
 _tvp_framelist
 local after_dry "`r(frames)'"
-capture tvpipe, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
+capture tvbuild, `INLINE' id(pid) entry(study_entry) exit(study_exit) ///
     frameout(analysis)
 local real_rc = _rc
 capture confirm frame analysis
@@ -958,16 +958,16 @@ capture frame drop analysis
 local ++test_count
 discard
 local resolved = 1
-foreach h in tvpipe _tvpipe_normalize_spec _tvpipe_preflight ///
-    _tvpipe_load_source _tvpipe_carry_meta _tvpipe_build_source ///
-    _tvpipe_combine _tvpipe_event _tvpipe_finalize _tvpipe_manifest ///
-    _tvpipe_commit {
+foreach h in tvbuild _tvbuild_normalize_spec _tvbuild_preflight ///
+    _tvbuild_load_source _tvbuild_carry_meta _tvbuild_make_source ///
+    _tvbuild_combine _tvbuild_event _tvbuild_finalize _tvbuild_manifest ///
+    _tvbuild_commit {
     capture which `h'
     if _rc local resolved = 0
 }
 use "tp_cohort.dta", clear
 capture frame drop analysis
-capture tvpipe, `INLINE' `BASE'
+capture tvbuild, `INLINE' `BASE'
 local after_discard_rc = _rc
 local ok = (`resolved' & `after_discard_rc' == 0)
 _tvp_check `ok' ///
@@ -984,9 +984,9 @@ foreach f in tp_cohort tp_epi tp_epi_outside tp_epi_overlap tp_epi_ref ///
 **# Summary
 local pass_count = $TVP_PASS
 local fail_count = $TVP_FAIL
-display "RESULT: test_tvpipe_dryrun tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_tvbuild_dryrun tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _all
 if `fail_count' > 0 {
-    display as error "tvpipe dry-run failures:$TVP_FAILED"
+    display as error "tvbuild dry-run failures:$TVP_FAILED"
     exit 1
 }

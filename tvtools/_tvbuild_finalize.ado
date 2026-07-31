@@ -1,5 +1,5 @@
-*! _tvpipe_finalize Version 1.10.2  2026/07/31
-*! Attach master payload and impose tvpipe's committed schema on the result
+*! _tvbuild_finalize Version 1.11.0  2026/07/31
+*! Attach master payload and impose tvbuild's committed schema on the result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -27,8 +27,8 @@
 *   r(N_persons)     distinct persons in the finalised result
 *   r(datasignature) Stata data signature of the finalised result
 
-capture program drop _tvpipe_finalize
-program define _tvpipe_finalize, rclass
+capture program drop _tvbuild_finalize
+program define _tvbuild_finalize, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -74,11 +74,11 @@ program define _tvpipe_finalize, rclass
             if r(N) > 0 {
                 frame change `_caller_frame'
                 noisily display as error ///
-                    "tvpipe: `r(N)' result row(s) could not be matched back to a master window"
+                    "tvbuild: `r(N)' result row(s) could not be matched back to a master window"
                 exit 459
             }
         }
-        _tvpipe_carry_meta, srcframe(`xwalkframe') dstframe(`resframe') ///
+        _tvbuild_carry_meta, srcframe(`xwalkframe') dstframe(`resframe') ///
             vars(`_fetch')
         frame change `resframe'
     }
@@ -95,7 +95,7 @@ program define _tvpipe_finalize, rclass
     local _cur : type `id'
     if "`_cur'" != "`masteridtype'" quietly recast `masteridtype' `id'
     frame change `_caller_frame'
-    _tvpipe_carry_meta, srcframe(`xwalkframe') dstframe(`resframe') vars(`id')
+    _tvbuild_carry_meta, srcframe(`xwalkframe') dstframe(`resframe') vars(`id')
 
     **# Source payload metadata, one visit per normalised source
     * srcvars() carries one comma-separated group per source frame, because a
@@ -107,7 +107,7 @@ program define _tvpipe_finalize, rclass
         gettoken _sep _rest : _rest, parse(",")
         local _grp = strtrim(stritrim(`"`_grp'"'))
         if "`_grp'" != "" {
-            _tvpipe_carry_meta, srcframe(`_f') dstframe(`resframe') vars(`_grp')
+            _tvbuild_carry_meta, srcframe(`_f') dstframe(`resframe') vars(`_grp')
         }
     }
 
@@ -124,13 +124,13 @@ program define _tvpipe_finalize, rclass
     if "`_missing'" != "" {
         frame change `_caller_frame'
         noisily display as error ///
-            "tvpipe: the result is missing planned variable(s):`_missing'"
+            "tvbuild: the result is missing planned variable(s):`_missing'"
         exit 498
     }
     if "`_extra'" != "" {
         frame change `_caller_frame'
         noisily display as error ///
-            "tvpipe: the result carries variable(s) that are not part of the committed schema:`_extra'"
+            "tvbuild: the result carries variable(s) that are not part of the committed schema:`_extra'"
         noisily display as error ///
             "this is an internal error; no destination frame was created or changed"
         exit 498
@@ -140,13 +140,13 @@ program define _tvpipe_finalize, rclass
     quietly count if missing(`startname') | missing(`stopname')
     if r(N) > 0 {
         frame change `_caller_frame'
-        noisily display as error "tvpipe: `r(N)' result row(s) have a missing bound"
+        noisily display as error "tvbuild: `r(N)' result row(s) have a missing bound"
         exit 498
     }
     quietly count if `startname' > `stopname'
     if r(N) > 0 {
         frame change `_caller_frame'
-        noisily display as error "tvpipe: `r(N)' result row(s) have start after stop"
+        noisily display as error "tvbuild: `r(N)' result row(s) have start after stop"
         exit 498
     }
 
@@ -166,7 +166,7 @@ program define _tvpipe_finalize, rclass
         local _lost = `_n_master' - `_n_pers'
         frame change `_caller_frame'
         noisily display as error ///
-            "tvpipe: `_lost' master person(s) have no row in the result; nothing was committed"
+            "tvbuild: `_lost' master person(s) have no row in the result; nothing was committed"
         exit 2000
     }
 
@@ -176,7 +176,7 @@ program define _tvpipe_finalize, rclass
     frame change `resframe'
     if `"`_dtalab'"' != "" label data `"`_dtalab'"'
 
-    char _dta[tvtools_pipeline]           "tvpipe"
+    char _dta[tvtools_pipeline]           "tvbuild"
     char _dta[tvtools_pipeline_schema]    "1"
     char _dta[tvtools_pipeline_coverage]  "`coverage'"
     char _dta[tvtools_pipeline_start]     "`startname'"

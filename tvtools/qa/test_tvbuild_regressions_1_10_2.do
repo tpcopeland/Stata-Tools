@@ -1,5 +1,5 @@
-*! test_tvpipe_regressions_1_10_2.do
-*! Pins for the four tvpipe defects fixed at 1.10.2, plus the cleanup contract
+*! test_tvbuild_regressions_1_10_2.do
+*! Pins for the four tvbuild defects fixed at 1.10.2, plus the cleanup contract
 *! the varabbrev change touches.
 *!
 *! Measured against a pristine 1.10.1 tree before the fixes landed:
@@ -65,7 +65,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-quietly log using "test_tvpipe_regressions_1_10_2.log", replace nomsg
+quietly log using "test_tvbuild_regressions_1_10_2.log", replace nomsg
 
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap
@@ -75,7 +75,7 @@ global TVR_FAIL = 0
 global TVR_FAILED ""
 local test_count = 0
 
-display as result "tvtools QA: tvpipe 1.10.2 regressions -- $S_DATE $S_TIME"
+display as result "tvtools QA: tvbuild 1.10.2 regressions -- $S_DATE $S_TIME"
 
 capture program drop _tvr_check
 program define _tvr_check
@@ -156,9 +156,9 @@ program define _tvr_version, rclass
     version 16.0
     args value
     _tvr_spec1
-    frame trspec: char _dta[tvpipe_spec_version] `"`value'"'
+    frame trspec: char _dta[tvbuild_spec_version] `"`value'"'
     quietly use "tr_cohort.dta", clear
-    capture tvpipe, specframe(trspec) id(pid) entry(study_entry) ///
+    capture tvbuild, specframe(trspec) id(pid) entry(study_entry) ///
         exit(study_exit) frameout(trout) replace
     return scalar rc = _rc
 end
@@ -194,7 +194,7 @@ _tvr_check `ok' "V4 spec version 1 is accepted" "rc=`rc'"
 local ++test_count
 _tvr_spec1
 quietly use "tr_cohort.dta", clear
-capture tvpipe, specframe(trspec) `BASE'
+capture tvbuild, specframe(trspec) `BASE'
 local rc = _rc
 local ok = (`rc' == 0 & r(spec_version) == 1)
 _tvr_check `ok' "V5 an absent spec-version characteristic means version 1" ///
@@ -220,7 +220,7 @@ program define _tvr_recurring, rclass
     if "`extra'" == "hole"    quietly rename ev2 ev3
     if "`extra'" == "pad"     quietly rename ev2 ev02
     if "`extra'" == "none"    quietly drop ev1 ev2
-    capture tvpipe, specframe(trspec) id(pid) entry(study_entry) ///
+    capture tvbuild, specframe(trspec) id(pid) entry(study_entry) ///
         exit(study_exit) eventdate(ev) eventtype(recurring) ///
         eventgenerate(failed) frameout(trout) replace
     return scalar rc = _rc
@@ -298,7 +298,7 @@ frame trspec {
 }
 
 quietly use "tr_cohort.dta", clear
-capture noisily tvpipe, specframe(trspec) id(pid) entry(study_entry) ///
+capture noisily tvbuild, specframe(trspec) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(trout) manifestframe(trman) replace
 local qrc = _rc
 local r_rate "`r(rate_vars)'"
@@ -334,7 +334,7 @@ _tvr_check `ok' "Q3 r(payload_vars) and r(source_names) carry no leading space" 
 **# N: interval bounds are single columns, reported at the specification row
 **#
 **# 1.10.1 observed: r(103) "option startvar(): too many names specified",
-**# raised inside _tvpipe_load_source, naming neither the row nor the column.
+**# raised inside _tvbuild_load_source, naming neither the row nor the column.
 **# ---------------------------------------------------------------------
 capture program drop _tvr_arity
 program define _tvr_arity, rclass
@@ -343,7 +343,7 @@ program define _tvr_arity, rclass
     _tvr_spec1
     frame trspec: quietly replace `col' = "`value'"
     quietly use "tr_cohort.dta", clear
-    capture tvpipe, specframe(trspec) id(pid) entry(study_entry) ///
+    capture tvbuild, specframe(trspec) id(pid) entry(study_entry) ///
         exit(study_exit) frameout(trout) replace
     return scalar rc = _rc
 end
@@ -372,7 +372,7 @@ local ++test_count
 set varabbrev off
 _tvr_spec1
 quietly use "tr_cohort.dta", clear
-capture tvpipe, specframe(trspec) `BASE'
+capture tvbuild, specframe(trspec) `BASE'
 local rc = _rc
 local ok = (`rc' == 0 & "`c(varabbrev)'" == "off")
 _tvr_check `ok' "S1 varabbrev off is restored after a successful run" ///
@@ -382,7 +382,7 @@ local ++test_count
 set varabbrev on
 _tvr_spec1
 quietly use "tr_cohort.dta", clear
-capture tvpipe, specframe(trspec) `BASE'
+capture tvbuild, specframe(trspec) `BASE'
 local rc = _rc
 local ok = (`rc' == 0 & "`c(varabbrev)'" == "on")
 _tvr_check `ok' "S2 varabbrev on is restored after a successful run" ///
@@ -392,7 +392,7 @@ local ++test_count
 set varabbrev on
 _tvr_spec1
 quietly use "tr_cohort.dta", clear
-capture tvpipe, specframe(trspec) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(trspec) id(pid) entry(study_entry) ///
     exit(no_such_variable) frameout(trout) replace
 local rc = _rc
 local ok = (`rc' != 0 & "`c(varabbrev)'" == "on")
@@ -412,5 +412,5 @@ foreach f in tr_cohort tr_epi tr_lab {
 local pass_count = $TVR_PASS
 local fail_count = $TVR_FAIL
 if `fail_count' > 0 display as error "Failed:$TVR_FAILED"
-display "RESULT: test_tvpipe_regressions_1_10_2 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_tvbuild_regressions_1_10_2 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _all

@@ -1,10 +1,10 @@
-*! tvpipe Version 1.10.2  2026/07/31
+*! tvbuild Version 1.11.0  2026/07/31
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
-tvpipe is the front door for turning a person-level cohort plus one or more
+tvbuild is the front door for turning a person-level cohort plus one or more
 longitudinal sources into a committed interval frame. It composes exposure
 construction, interval alignment, optional event integration, structural
 validation, and provenance.
@@ -16,11 +16,11 @@ threshold, time scale, estimand, or causal model. Those stay visible and
 scriptable.
 
 Canonical multi-source form:
-  tvpipe, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
+  tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
       frameout(analysis) [options]
 
 One-source categorical shortcut:
-  tvpipe, {sourceframe(name)|sourceusing(filename)} id(id) ///
+  tvbuild, {sourceframe(name)|sourceusing(filename)} id(id) ///
       entry(study_entry) exit(study_exit) ///
       start(ep_start) stop(ep_stop) exposure(ep_class) reference(#) ///
       generate(tv_exposure) frameout(analysis) [options]
@@ -28,7 +28,7 @@ One-source categorical shortcut:
 The current frame is the person-level master. Select another one idiomatically
 with the `frame master:' prefix; there is no separate master-file parser.
 
-Architecture. tvpipe owns the public contract, the normalised plan, the
+Architecture. tvbuild owns the public contract, the normalised plan, the
 read-only preflight, the committed schema, the transaction, and the return
 surface. It owns none of the interval semantics: raw categorical episodes are
 tiled by the shared tvexpose constructor, several sources are aligned by the
@@ -37,8 +37,8 @@ engine. Every stage runs in a scratch frame, so the caller's data, the
 specification frame, and every input frame are read and never written.
 */
 
-capture program drop tvpipe
-program define tvpipe, rclass
+capture program drop tvbuild
+program define tvbuild, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -252,7 +252,7 @@ program define tvpipe, rclass
     foreach o in specframe sourceframe sourcename start stop exposure generate {
         if "``o''" != "" local _nsopts `"`_nsopts' `o'(``o'')"'
     }
-    _tvpipe_normalize_spec, planframe(`_plan') `_nsopts' ///
+    _tvbuild_normalize_spec, planframe(`_plan') `_nsopts' ///
         sourceusing(`"`sourceusing'"') reference(`reference') ///
         referencelabel(`"`referencelabel'"') label(`"`label'"')
 
@@ -312,13 +312,13 @@ program define tvpipe, rclass
     }
 
     * Count the planned schema before building anything. Propagating Stata's
-    * own no-room error is the contract; tvpipe never changes set maxvar.
+    * own no-room error is the contract; tvbuild never changes set maxvar.
     local _n_planned : word count `_out_names'
     if `_n_planned' > c(maxvar) {
         noisily display as error ///
             "the planned output has `_n_planned' variables; this Stata allows c(maxvar)=`c(maxvar)'"
         noisily display as error ///
-            "raise it yourself with -set maxvar-; tvpipe does not change your session limits"
+            "raise it yourself with -set maxvar-; tvbuild does not change your session limits"
         exit 901
     }
 
@@ -329,7 +329,7 @@ program define tvpipe, rclass
     foreach o in manifestframe specframe eventframe {
         if "``o''" != "" local _destopts "`_destopts' `o'(``o'')"
     }
-    _tvpipe_check_dest, frameout(`frameout') callerframe(`_caller_frame') ///
+    _tvbuild_check_dest, frameout(`frameout') callerframe(`_caller_frame') ///
         planframe(`_plan') `_destopts' `replace'
     local frameout_exists = r(frameout_exists)
     local manifest_exists = r(manifest_exists)
@@ -379,7 +379,7 @@ program define tvpipe, rclass
     foreach o in eventframe eventdate {
         if "``o''" != "" local _pfevopts "`_pfevopts' `o'(``o'')"
     }
-    _tvpipe_preflight, planframe(`_plan') masterframe(`_caller_frame') ///
+    _tvbuild_preflight, planframe(`_plan') masterframe(`_caller_frame') ///
         xwalkframe(`_xwalk') workframe(`_work') srcframes(`_srcframes') ///
         id(`id') entry(`entry') exit(`exit') keepvars(`keepvars') ///
         coverage(`coverage') `_pfevopts' ///
@@ -451,7 +451,7 @@ program define tvpipe, rclass
         if "``o''" != "" local _showopts "`_showopts' `o'(``o'')"
     }
     local _dropdates01 = ("`dropdates'" != "")
-    _tvpipe_show_plan, planframe(`_plan') ///
+    _tvbuild_show_plan, planframe(`_plan') ///
         id(`id') entry(`entry') exit(`exit') ///
         startname(`startname') stopname(`stopname') ///
         frameout(`frameout') coverage(`coverage') ///
@@ -529,7 +529,7 @@ program define tvpipe, rclass
             local _en "`_stub'e`i'"
             local _snames "`_snames' `_sn'"
             local _enames "`_enames' `_en'"
-            _tvpipe_build_source, planframe(`_plan') index(`i') ///
+            _tvbuild_make_source, planframe(`_plan') index(`i') ///
                 outframe(`_nfi') xwalkframe(`_xwalk') ///
                 id(`id') entry(`entry') exit(`exit') ///
                 startname(`_sn') stopname(`_en') ///
@@ -545,7 +545,7 @@ program define tvpipe, rclass
         **# Align them
         capture frame drop `_void'
         frame create `_void'
-        _tvpipe_combine, srcframes(`_normframes') outframe(`_acc') ///
+        _tvbuild_combine, srcframes(`_normframes') outframe(`_acc') ///
             voidframe(`_void') xwalkframe(`_xwalk') ///
             id(`id') entry(`entry') exit(`exit') ///
             startname(`startname') stopname(`stopname') ///
@@ -575,7 +575,7 @@ program define tvpipe, rclass
         local event_in = .
         local event_out = .
         if "`eventdate'" != "" {
-            _tvpipe_event, accframe(`_acc') evsrcframe(`event_frame') ///
+            _tvbuild_event, accframe(`_acc') evsrcframe(`event_frame') ///
                 outframe(`_evout') id(`id') eventdate(`eventdate') ///
                 startname(`startname') stopname(`stopname') ///
                 eventtype(`eventtype') eventgenerate(`eventgenerate') ///
@@ -590,7 +590,7 @@ program define tvpipe, rclass
         }
 
         **# Finalise into the committed schema
-        _tvpipe_finalize, resframe(`_resframe') xwalkframe(`_xwalk') ///
+        _tvbuild_finalize, resframe(`_resframe') xwalkframe(`_xwalk') ///
             masterframe(`_caller_frame') id(`id') entry(`entry') exit(`exit') ///
             startname(`startname') stopname(`stopname') ///
             dateformat(`dateformat') masteridtype(`masteridtype') ///
@@ -618,7 +618,7 @@ program define tvpipe, rclass
             if "`eventdate'" != "" {
                 local _evopts2 `"eventin(`event_in') eventout(`event_out') eventname(`eventgenerate') eventkind(`event_input')"'
             }
-            _tvpipe_manifest, manframe(`_man') planframe(`_plan') ///
+            _tvbuild_manifest, manframe(`_man') planframe(`_plan') ///
                 npersons(`N_persons') nmasterrows(`N_persons') ///
                 nout(`N_periods') noutpersons(`out_persons') ///
                 signature(`"`datasig'"') coverage(`coverage') ///
@@ -633,7 +633,7 @@ program define tvpipe, rclass
         local _cmopts ""
         if "`manifestframe'" != "" ///
             local _cmopts "manframe(`_man') manifestframe(`manifestframe')"
-        _tvpipe_commit, resframe(`_resframe') frameout(`frameout') ///
+        _tvbuild_commit, resframe(`_resframe') frameout(`frameout') ///
             schema(`_out_names') nrows(`N_periods') ///
             signature(`"`datasig'"') `_cmopts' ///
             frameoutexists(`frameout_exists') manifestexists(`manifest_exists')
@@ -688,7 +688,7 @@ program define tvpipe, rclass
         matrix rownames `_stagecounts' = `_stagenames'
 
         **# Success display
-        _tvpipe_show_result, frameout(`frameout') id(`id') ///
+        _tvbuild_show_result, frameout(`frameout') id(`id') ///
             npersons(`out_persons') nperiods(`N_periods') ///
             startname(`startname') stopname(`stopname') ///
             coverage(`coverage') payload(`payload_vars') ///
@@ -779,8 +779,8 @@ end
 * every scratch name. replace authorises replacing a destination; it never
 * makes an alias legal, because an alias is not a replacement -- it is the
 * command reading and writing the same object.
-capture program drop _tvpipe_check_dest
-program define _tvpipe_check_dest, rclass
+capture program drop _tvbuild_check_dest
+program define _tvbuild_check_dest, rclass
     version 16.0
     syntax , FRAMEOut(name) CALLERframe(name) PLANframe(name) ///
         [MANIFESTframe(name) SPECframe(name) EVENTFrame(name) REPlace]
@@ -850,8 +850,8 @@ end
 * The plan display. It reports what was validated and what would be built, and
 * its closing line states plainly whether anything changed -- a dry run whose
 * output could be mistaken for a completed build is worse than no dry run.
-capture program drop _tvpipe_show_plan
-program define _tvpipe_show_plan
+capture program drop _tvbuild_show_plan
+program define _tvbuild_show_plan
     version 16.0
     syntax , PLANframe(name) ID(name) ENTry(name) EXIt(name) ///
         STARTName(name) STOPName(name) FRAMEOut(name) COVerage(string) ///
@@ -863,10 +863,10 @@ program define _tvpipe_show_plan
 
     noisily display as text ""
     if "`dryrun'" != "" {
-        noisily display as text "{bf:tvpipe plan (dry run)}"
+        noisily display as text "{bf:tvbuild plan (dry run)}"
     }
     else {
-        noisily display as text "{bf:tvpipe plan}"
+        noisily display as text "{bf:tvbuild plan}"
     }
     noisily display as text "{hline 68}"
     noisily display as text "  master frame      : " as result "`_here'"
@@ -947,13 +947,13 @@ end
 
 
 * The success display. It reports what was committed and hands the user the
-* exact next commands, using the names tvpipe returns rather than the names the
+* exact next commands, using the names tvbuild returns rather than the names the
 * examples in the help file happen to use. It never executes them: the point of
 * keeping tvdiagnose, tvweight, and stset outside this command is that those
 * are scientific decisions, and a coordinator that ran them would be making
 * them on the user's behalf.
-capture program drop _tvpipe_show_result
-program define _tvpipe_show_result
+capture program drop _tvbuild_show_result
+program define _tvbuild_show_result
     version 16.0
     syntax , FRAMEOut(name) ID(name) NPERSons(integer) NPERIods(integer) ///
         STARTName(name) STOPName(name) COVerage(string) PAYload(string) ///
@@ -962,7 +962,7 @@ program define _tvpipe_show_result
         [EVENTVar(name) MANIFESTframe(name)]
 
     noisily display as text ""
-    noisily display as text "{bf:tvpipe result}"
+    noisily display as text "{bf:tvbuild result}"
     noisily display as text "{hline 68}"
     noisily display as text "  frameout()        : " as result "`frameout'"
     noisily display as text "  persons           : " as result %12.0fc `npersons'
@@ -990,7 +990,7 @@ program define _tvpipe_show_result
             as text "  (every master day is represented)"
     }
     noisily display as text "{hline 68}"
-    noisily display as text "  Next steps (not run by tvpipe):"
+    noisily display as text "  Next steps (not run by tvbuild):"
     noisily display as text "    . frame change `frameout'"
     * tvdiagnose's coverage report needs the study window, so the suggested
     * call names it when the window was retained and asks for the checks that

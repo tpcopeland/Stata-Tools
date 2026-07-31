@@ -1,10 +1,10 @@
-*! _tvpipe_preflight Version 1.10.2  2026/07/31
-*! Read-only validation and plan counts shared by tvpipe's real and dry runs
+*! _tvbuild_preflight Version 1.11.0  2026/07/31
+*! Read-only validation and plan counts shared by tvbuild's real and dry runs
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 * One preflight, two callers. dryrun is not a syntax-only approximation of a
-* real tvpipe run -- it executes this program, unchanged, and then stops. That
+* real tvbuild run -- it executes this program, unchanged, and then stops. That
 * is the only arrangement in which a clean dry run means anything: a separate
 * "quick check" path drifts from the real one, and the drift is invisible
 * until a plan that validated fails halfway through a commit.
@@ -29,8 +29,8 @@
 *   r(event_frame)    resolved event frame; empty when there is no event stage
 *   r(masteridtype)   storage type of the master identifier
 
-capture program drop _tvpipe_preflight
-program define _tvpipe_preflight, rclass
+capture program drop _tvbuild_preflight
+program define _tvbuild_preflight, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -54,14 +54,14 @@ program define _tvpipe_preflight, rclass
 
     if _N == 0 {
         frame change `_caller_frame'
-        noisily display as error "tvpipe: the master data have no observations"
+        noisily display as error "tvbuild: the master data have no observations"
         exit 2000
     }
     foreach v in `id' `entry' `exit' {
         capture confirm variable `v', exact
         if _rc {
             frame change `_caller_frame'
-            noisily display as error "tvpipe: variable '`v'' not found in the master data"
+            noisily display as error "tvbuild: variable '`v'' not found in the master data"
             exit 111
         }
     }
@@ -70,7 +70,7 @@ program define _tvpipe_preflight, rclass
     if "`_idtype'" == "strL" {
         frame change `_caller_frame'
         noisily display as error ///
-            "tvpipe: id(`id') is strL; tvtools requires a numeric or fixed-width string identifier"
+            "tvbuild: id(`id') is strL; tvtools requires a numeric or fixed-width string identifier"
         exit 109
     }
     quietly count if missing(`id')
@@ -93,22 +93,22 @@ program define _tvpipe_preflight, rclass
 
     if `_n_missid' > 0 {
         noisily display as error ///
-            "tvpipe: `_n_missid' master row(s) have a missing id(`id')"
+            "tvbuild: `_n_missid' master row(s) have a missing id(`id')"
         exit 498
     }
     if `_n_unique' != `_n_master_rows' {
         noisily display as error ///
-            "tvpipe: the master must have exactly one row per person; id(`id') has `_n_unique' distinct value(s) in `_n_master_rows' row(s)"
+            "tvbuild: the master must have exactly one row per person; id(`id') has `_n_unique' distinct value(s) in `_n_master_rows' row(s)"
         exit 459
     }
     if `_n_missdate' > 0 {
         noisily display as error ///
-            "tvpipe: `_n_missdate' master row(s) have a missing entry(`entry') or exit(`exit')"
+            "tvbuild: `_n_missdate' master row(s) have a missing entry(`entry') or exit(`exit')"
         exit 498
     }
 
     frame change `xwalkframe'
-    _tvtools_check_dates, cmd(tvpipe) dates(`entry' `exit') ///
+    _tvtools_check_dates, cmd(tvbuild) dates(`entry' `exit') ///
         startvar(`entry') stopvar(`exit')
     quietly generate long _tvp_gid = _n
     quietly compress _tvp_gid
@@ -215,7 +215,7 @@ program define _tvpipe_preflight, rclass
         frame change `_caller_frame'
         local _where "source `i' (`_name')"
 
-        _tvpipe_load_source, srcframe(`_fr') workframe(`workframe') ///
+        _tvbuild_load_source, srcframe(`_fr') workframe(`workframe') ///
             xwalkframe(`xwalkframe') where("`_where'") ///
             id(`id') entry(`entry') exit(`exit') ///
             startvar(`_sv') stopvar(`_pv') payload(`_iv') ///
@@ -227,7 +227,7 @@ program define _tvpipe_preflight, rclass
         frame change `workframe'
 
         * Dates. Every source, both kinds: whole, nonmissing, start <= stop.
-        _tvtools_check_dates, cmd(tvpipe) dates(_tvp_start _tvp_stop) ///
+        _tvtools_check_dates, cmd(tvbuild) dates(_tvp_start _tvp_stop) ///
             startvar(_tvp_start) stopvar(_tvp_stop)
 
         local _n_outside = 0
@@ -283,7 +283,7 @@ program define _tvpipe_preflight, rclass
                 noisily display as error ///
                     "`_where': `r(N)' retained row(s) are coded to reference(`_ref')"
                 noisily display as error ///
-                    "the reference category is what tvpipe fills the uncovered time with; it may not also be an episode"
+                    "the reference category is what tvbuild fills the uncovered time with; it may not also be an episode"
                 exit 459
             }
 
@@ -305,7 +305,7 @@ program define _tvpipe_preflight, rclass
                     noisily display as error ///
                         "`_where': `_n_ovl' clipped episode row(s) overlap another row for the same person"
                     noisily display as error ///
-                        "tvpipe will not choose an overlap-resolution rule for you"
+                        "tvbuild will not choose an overlap-resolution rule for you"
                     noisily display as error ///
                         `"run tvexpose explicitly with priority(), layer(), split(), or combine(), then declare that frame as source_kind == "intervals""'
                     exit 459
@@ -313,7 +313,7 @@ program define _tvpipe_preflight, rclass
             }
         }
         else {
-            local _engine "tvpipe_intervals"
+            local _engine "tvbuild_intervals"
 
             * A ready source is not clipped or reinterpreted, so a row outside
             * the person's window is an error rather than a count.
@@ -324,7 +324,7 @@ program define _tvpipe_preflight, rclass
                 noisily display as error ///
                     "`_where': `r(N)' interval row(s) lie outside their person's [entry, exit] window"
                 noisily display as error ///
-                    "tvpipe does not clip an already-constructed source; clip it before declaring it"
+                    "tvbuild does not clip an already-constructed source; clip it before declaring it"
                 exit 498
             }
             if `_n_unmatch' > 0 {
@@ -350,7 +350,7 @@ program define _tvpipe_preflight, rclass
             }
 
             * Quantity metadata must agree with what the row declared.
-            _tvpipe_check_quantity, srcframe(`_fr') where("`_where'") ///
+            _tvbuild_check_quantity, srcframe(`_fr') where("`_where'") ///
                 rate(`_rv') total(`_tv') cumulative(`_cv')
 
             * Every master person present at least once.
@@ -420,7 +420,7 @@ program define _tvpipe_preflight, rclass
         if "`eventframe'" != "" {
             capture confirm frame `eventframe'
             if _rc {
-                noisily display as error "tvpipe: eventframe(`eventframe') not found"
+                noisily display as error "tvbuild: eventframe(`eventframe') not found"
                 exit 111
             }
             local _event_input "frame"
@@ -435,7 +435,7 @@ program define _tvpipe_preflight, rclass
                 if _rc == 0 local _resolved `"`eventusing'.dta"'
             }
             if `"`_resolved'"' == "" {
-                noisily display as error "tvpipe: eventusing() file not found: `eventusing'"
+                noisily display as error "tvbuild: eventusing() file not found: `eventusing'"
                 exit 601
             }
             * A locator already loaded for a source role is reused, not read
@@ -457,7 +457,7 @@ program define _tvpipe_preflight, rclass
                 frame change `_caller_frame'
                 if `_userc' {
                     noisily display as error ///
-                        "tvpipe: eventusing() '`_resolved'' is not readable as a Stata dataset (rc=`_userc')"
+                        "tvbuild: eventusing() '`_resolved'' is not readable as a Stata dataset (rc=`_userc')"
                     exit 610
                 }
                 local ++_n_files
@@ -467,7 +467,7 @@ program define _tvpipe_preflight, rclass
             local _evframe "`_reuse'"
         }
 
-        _tvpipe_check_event, evframe(`_evframe') id(`id') ///
+        _tvbuild_check_event, evframe(`_evframe') id(`id') ///
             eventdate(`eventdate') eventtype(`eventtype') compete(`compete') ///
             masteridtype(`_idtype')
     }
@@ -495,7 +495,7 @@ program define _tvpipe_preflight, rclass
 end
 
 
-* Sources are copied into the scratch work frame by _tvpipe_load_source.ado.
+* Sources are copied into the scratch work frame by _tvbuild_load_source.ado.
 * It has its own file because the Phase 4B construction stage loads sources
 * through the same program, and a helper defined inside this file would be in
 * memory only after this file had already been run.
@@ -506,8 +506,8 @@ end
 * event engines read to decide whether a value is carried, apportioned, or
 * held at the row start; a declaration that disagrees with it would change the
 * arithmetic silently.
-capture program drop _tvpipe_check_quantity
-program define _tvpipe_check_quantity
+capture program drop _tvbuild_check_quantity
+program define _tvbuild_check_quantity
     version 16.0
     syntax , SRCframe(name) WHERE(string) ///
         [RATE(string) TOTAL(string) CUMulative(string)]
@@ -557,8 +557,8 @@ end
 * variables exist, and the identifier agrees with the master. Placement checks
 * -- which interval an event falls in, first-event truncation, same-day
 * precedence -- intrinsically need the constructed stage and run there.
-capture program drop _tvpipe_check_event
-program define _tvpipe_check_event
+capture program drop _tvbuild_check_event
+program define _tvbuild_check_event
     version 16.0
     syntax , EVFrame(name) ID(name) EVENTDate(name) MASTERIDtype(string) ///
         [EVENTType(string) COMpete(string)]
@@ -571,7 +571,7 @@ program define _tvpipe_check_event
     capture confirm variable `id', exact
     if _rc {
         frame change `_here'
-        noisily display as error "tvpipe: id(`id') not found in the event data"
+        noisily display as error "tvbuild: id(`id') not found in the event data"
         exit 111
     }
     local _t : type `id'
@@ -580,7 +580,7 @@ program define _tvpipe_check_event
     if `_ev_is_str' != `_ma_is_str' {
         frame change `_here'
         noisily display as error ///
-            "tvpipe: the event id is `_t' but the master id is `masteridtype'"
+            "tvbuild: the event id is `_t' but the master id is `masteridtype'"
         exit 106
     }
 
@@ -589,7 +589,7 @@ program define _tvpipe_check_event
         if _rc {
             frame change `_here'
             noisily display as error ///
-                "tvpipe: eventdate(`eventdate') not found in the event data"
+                "tvbuild: eventdate(`eventdate') not found in the event data"
             exit 111
         }
         local _dates "`eventdate' `compete'"
@@ -598,7 +598,7 @@ program define _tvpipe_check_event
             if _rc {
                 frame change `_here'
                 noisily display as error ///
-                    "tvpipe: compete() variable '`v'' not found in the event data"
+                    "tvbuild: compete() variable '`v'' not found in the event data"
                 exit 111
             }
         }
@@ -633,7 +633,7 @@ program define _tvpipe_check_event
             if `_k' < 1 | "`_v'" != "`eventdate'`_k'" {
                 frame change `_here'
                 noisily display as error ///
-                    "tvpipe: '`_v'' is not a canonical positive-numbered `eventdate'# variable"
+                    "tvbuild: '`_v'' is not a canonical positive-numbered `eventdate'# variable"
                 exit 198
             }
             if `_k' > `_kmax' local _kmax = `_k'
@@ -641,7 +641,7 @@ program define _tvpipe_check_event
         if `_kmax' == 0 {
             frame change `_here'
             noisily display as error ///
-                "tvpipe: eventtype(recurring) needs a wide stub named `eventdate'#; none found"
+                "tvbuild: eventtype(recurring) needs a wide stub named `eventdate'#; none found"
             exit 111
         }
         local _stub ""
@@ -650,7 +650,7 @@ program define _tvpipe_check_event
             if _rc {
                 frame change `_here'
                 noisily display as error ///
-                    "tvpipe: the `eventdate'# stub is not contiguous; `eventdate'`_k' is missing"
+                    "tvbuild: the `eventdate'# stub is not contiguous; `eventdate'`_k' is missing"
                 exit 111
             }
             local _stub "`_stub' `eventdate'`_k'"
@@ -666,21 +666,21 @@ program define _tvpipe_check_event
         if _rc {
             frame change `_here'
             noisily display as error ///
-                "tvpipe: event date '`v'' must be numeric (daily date)"
+                "tvbuild: event date '`v'' must be numeric (daily date)"
             exit 109
         }
         local _fmt : format `v'
         if substr("`_fmt'", 1, 3) == "%tc" | substr("`_fmt'", 1, 3) == "%tC" {
             frame change `_here'
             noisily display as error ///
-                "tvpipe: event date '`v'' has datetime format (`_fmt'); tvtools requires daily dates"
+                "tvbuild: event date '`v'' has datetime format (`_fmt'); tvtools requires daily dates"
             exit 120
         }
         quietly count if !missing(`v') & `v' != floor(`v')
         if r(N) > 0 {
             frame change `_here'
             noisily display as error ///
-                "tvpipe: `r(N)' event date(s) in '`v'' are not whole daily values"
+                "tvbuild: `r(N)' event date(s) in '`v'' are not whole daily values"
             exit 498
         }
     }

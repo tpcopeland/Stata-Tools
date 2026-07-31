@@ -235,19 +235,19 @@ noisily display "event indicator: " as result "`r(generate)'" ///
     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 
 
-* ## Step 5: the same construction as one tvpipe call
-* tvpipe coordinates the same engines Steps 1-4 used, validates the whole plan
+* ## Step 5: the same construction as one tvbuild call
+* tvbuild coordinates the same engines Steps 1-4 used, validates the whole plan
 * before touching anything, and commits its destinations as one transaction.
 *
-* These synthetic episodes overlap within person, which tvpipe refuses on
+* These synthetic episodes overlap within person, which tvbuild refuses on
 * purpose: choosing an overlap-resolution rule is a scientific decision, not a
 * default. The documented remedy is the route taken here -- resolve the
 * overlaps explicitly with tvexpose, then declare that frame as a ready
 * interval source. The specification frame is built with `replace' rather than
 * `input' because `input' does not expand macros in its data lines.
-capture frame drop tvpipe_spec
-frame create tvpipe_spec
-frame tvpipe_spec {
+capture frame drop tvbuild_spec
+frame create tvbuild_spec
+frame tvbuild_spec {
     quietly set obs 1
     quietly generate str32 source_name  = "antidep"
     quietly generate str12 source_kind  = "intervals"
@@ -259,17 +259,17 @@ frame tvpipe_spec {
     quietly generate strL  output_vars  = "tv_antidep"
     quietly generate double reference   = .
 }
-frame tvpipe_spec: char _dta[tvpipe_spec_version] "1"
+frame tvbuild_spec: char _dta[tvbuild_spec_version] "1"
 
 use "`cohort'", clear
-noisily tvpipe, specframe(tvpipe_spec) ///
+noisily tvbuild, specframe(tvbuild_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
     eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
     eventgenerate(outcome) ///
     frameout(`f_pipe') manifestframe(`f_prov') replace dryrun
 
 use "`cohort'", clear
-noisily tvpipe, specframe(tvpipe_spec) ///
+noisily tvbuild, specframe(tvbuild_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
     eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
     eventgenerate(outcome) ///
@@ -278,7 +278,7 @@ noisily display "committed periods: " as result r(N_periods) ///
     "   signature: " as result "`r(datasignature)'"
 noisily matrix list r(stage_counts)
 noisily frame `f_prov': list stage source_name n_input n_output n_persons, noobs
-capture frame drop tvpipe_spec
+capture frame drop tvbuild_spec
 
 
 **# Marginal structural model weighting with IPCW
@@ -436,7 +436,7 @@ if `demo_had_swim_graph' {
 }
 capture matrix drop `demo_balance'
 capture frame change `demo_frame'
-capture frame drop tvpipe_spec
+capture frame drop tvbuild_spec
 foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' {
     capture frame drop `frame_name'
 }

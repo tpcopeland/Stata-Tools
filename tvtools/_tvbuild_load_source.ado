@@ -1,5 +1,5 @@
-*! _tvpipe_load_source Version 1.10.2  2026/07/31
-*! Copy one tvpipe source into a scratch frame under fixed internal names
+*! _tvbuild_load_source Version 1.11.0  2026/07/31
+*! Copy one tvbuild source into a scratch frame under fixed internal names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -15,7 +15,7 @@
 *
 * Both the preflight and the Phase 4B construction stage load sources through
 * this program, which is why it has its own file: a program that lives inside
-* _tvpipe_preflight.ado is in memory only after that file has been run, so the
+* _tvbuild_preflight.ado is in memory only after that file has been run, so the
 * second caller would depend on the first having been invoked. It is listed in
 * tvtools.pkg and resolves by filename like every other helper.
 *
@@ -24,8 +24,8 @@
 *   r(N_persons)        distinct source persons before any restriction
 *   r(N_unmatched_ids)  distinct source persons absent from the master
 
-capture program drop _tvpipe_load_source
-program define _tvpipe_load_source, rclass
+capture program drop _tvbuild_load_source
+program define _tvbuild_load_source, rclass
     version 16.0
     syntax , SRCframe(name) WORKframe(name) XWALKframe(name) WHERE(string) ///
         ID(name) ENTry(name) EXIt(name) ///
@@ -57,7 +57,7 @@ program define _tvpipe_load_source, rclass
         noisily display as error ///
             "`where': the source id is `_t' but the master id is `masteridtype'"
         noisily display as error ///
-            "tvpipe never converts an identifier; make the two agree before calling"
+            "tvbuild never converts an identifier; make the two agree before calling"
         exit 106
     }
 

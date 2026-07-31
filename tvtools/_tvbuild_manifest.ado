@@ -1,5 +1,5 @@
-*! _tvpipe_manifest Version 1.10.2  2026/07/31
-*! Build tvpipe's deterministic per-stage provenance manifest
+*! _tvbuild_manifest Version 1.11.0  2026/07/31
+*! Build tvbuild's deterministic per-stage provenance manifest
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -20,8 +20,8 @@
 * Returns:
 *   r(n_stages)  rows written
 
-capture program drop _tvpipe_manifest
-program define _tvpipe_manifest, rclass
+capture program drop _tvbuild_manifest
+program define _tvbuild_manifest, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -73,8 +73,8 @@ program define _tvpipe_manifest, rclass
 
     **# master
     local ++_row
-    _tvpipe_manifest_put, manframe(`manframe') row(`_row') ///
-        stage(master) inputkind(internal) engine(tvpipe_master) ///
+    _tvbuild_manifest_put, manframe(`manframe') row(`_row') ///
+        stage(master) inputkind(internal) engine(tvbuild_master) ///
         ninput(`nmasterrows') noutput(`nmasterrows') npersons(`npersons') ///
         options("coverage(`coverage')") ///
         description("Person-level master validated and crosswalked")
@@ -110,7 +110,7 @@ program define _tvpipe_manifest, rclass
 
         local _srows : word `i' of `srcoutrows'
         local ++_row
-        _tvpipe_manifest_put, manframe(`manframe') row(`_row') ///
+        _tvbuild_manifest_put, manframe(`manframe') row(`_row') ///
             stage(source) sourceindex(`i') sourcename(`"`_nm'"') ///
             sourcekind(`_kd') inputkind(`_ik') locator(`"`_lo'"') ///
             inputvars(`"`_iv'"') outputvars(`"`_ov'"') ///
@@ -123,7 +123,7 @@ program define _tvpipe_manifest, rclass
     **# merge
     if `merged' {
         local ++_row
-        _tvpipe_manifest_put, manframe(`manframe') row(`_row') ///
+        _tvbuild_manifest_put, manframe(`manframe') row(`_row') ///
             stage(merge) inputkind(internal) engine(tvmerge_intervals) ///
             ninput(`mergein') noutput(`mergeout') npersons(`noutpersons') ///
             uncovered(`uncovereddays') options("coverage(`coverage')") ///
@@ -134,7 +134,7 @@ program define _tvpipe_manifest, rclass
     **# event
     if `eventstage' {
         local ++_row
-        _tvpipe_manifest_put, manframe(`manframe') row(`_row') ///
+        _tvbuild_manifest_put, manframe(`manframe') row(`_row') ///
             stage(event) inputkind(`eventkind') engine(tvevent_segments) ///
             ninput(`eventin') noutput(`eventout') npersons(`noutpersons') ///
             outputvars(`"`eventname'"') quantitymap(`"`qmap'"') ///
@@ -143,8 +143,8 @@ program define _tvpipe_manifest, rclass
 
     **# output
     local ++_row
-    _tvpipe_manifest_put, manframe(`manframe') row(`_row') ///
-        stage(output) inputkind(internal) engine(tvpipe_commit) ///
+    _tvbuild_manifest_put, manframe(`manframe') row(`_row') ///
+        stage(output) inputkind(internal) engine(tvbuild_commit) ///
         ninput(`nout') noutput(`nout') npersons(`noutpersons') ///
         signature(`"`signature'"') options("coverage(`coverage')") ///
         description("Finalised, signed, and committed result")
@@ -165,8 +165,8 @@ end
 * Write one manifest row. Everything arrives as an explicit option so a stage
 * that has no source index, no locator, or no signature leaves those cells
 * missing rather than inheriting the previous row's.
-capture program drop _tvpipe_manifest_put
-program define _tvpipe_manifest_put
+capture program drop _tvbuild_manifest_put
+program define _tvbuild_manifest_put
     version 16.0
     syntax , MANframe(name) ROW(integer) STAGE(string) ///
         [SOURCEIndex(string) SOURCEName(string) SOURCEKind(string) ///

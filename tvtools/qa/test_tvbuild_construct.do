@@ -1,16 +1,16 @@
-*! test_tvpipe_build.do
-*! Phase 4B contract pins for tvpipe: construction, alignment, coverage, schema.
+*! test_tvbuild_construct.do
+*! Phase 4B contract pins for tvbuild: construction, alignment, coverage, schema.
 *!
 *! Phase 4A stopped at the plan. This suite covers everything from the first
 *! construction kernel to the finalised scratch result: raw episodes tiled by
 *! the shared tvexpose constructor, ready interval sources normalised, one or
 *! more of them aligned by the shared tvmerge engine, the coverage policies,
 *! the master payload attached once, and the committed schema and metadata.
-*! Events, provenance, and the transaction are test_tvpipe_commit.do.
+*! Events, provenance, and the transaction are test_tvbuild_commit.do.
 *!
-*! The three tvpipe-specific false greens this suite is written against:
+*! The three tvbuild-specific false greens this suite is written against:
 *!
-*!   1. "tvpipe called only the legacy public wrappers, or never dispatched an
+*!   1. "tvbuild called only the legacy public wrappers, or never dispatched an
 *!      engine at all." Values alone cannot tell those apart from a correct
 *!      run. B1-B7 compare against the frozen primitive sequence -- tvexpose,
 *!      then tvmerge -- so an answer that is right for a different reason still
@@ -44,7 +44,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-quietly log using "test_tvpipe_build.log", replace nomsg
+quietly log using "test_tvbuild_construct.log", replace nomsg
 
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap
@@ -54,7 +54,7 @@ global TVB_FAIL = 0
 global TVB_FAILED ""
 local test_count = 0
 
-display as result "tvtools QA: tvpipe construction (Phase 4B) -- $S_DATE $S_TIME"
+display as result "tvtools QA: tvbuild construction (Phase 4B) -- $S_DATE $S_TIME"
 
 capture program drop _tvb_check
 program define _tvb_check
@@ -251,7 +251,7 @@ end
 **# ---------------------------------------------------------------------
 **# Result-frame probe guard
 **# ---------------------------------------------------------------------
-* Every probe of a frame tvpipe was supposed to create goes through this
+* Every probe of a frame tvbuild was supposed to create goes through this
 * first. `capture frame X { ... }' is NOT a guard, and the way it fails is
 * worse than no guard at all. Measured directly:
 *
@@ -264,7 +264,7 @@ end
 * `capture' swallows the frame-not-found error, the body then executes IN THE
 * CURRENT FRAME line by line and UNCAPTURED, and the closing brace is finally
 * read as a command and ends the do-file with r(199). So a defect that stops
-* tvpipe creating its frame does not merely abort the suite -- if the body
+* tvbuild creating its frame does not merely abort the suite -- if the body
 * happens to be legal against the caller's data it first computes an answer
 * from the wrong dataset at rc=0.
 *
@@ -336,7 +336,7 @@ frame tb_ox {
     quietly save "`b1oracle'", replace
 }
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_p1) replace
 local b1_rc = _rc
@@ -356,7 +356,7 @@ capture frame drop tb_src
 frame create tb_src
 frame tb_src: use "tb_epi.dta", clear
 use "tb_cohort.dta", clear
-capture tvpipe, sourceframe(tb_src) id(pid) entry(study_entry) ///
+capture tvbuild, sourceframe(tb_src) id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_p2) replace
 local b2_rc = _rc
@@ -374,7 +374,7 @@ _tvb_spec_new tb_spec1
 _tvb_spec_add, fr(tb_spec1) name(drugsrc) kind(episodes) sfile("tb_epi.dta") ///
     sv(a_start) pv(a_stop) iv(drug) ov(tv_drug) ref(0)
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec1) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec1) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p3) replace
 local b3_rc = _rc
 local b3_sig "`r(datasignature)'"
@@ -437,7 +437,7 @@ _tvb_spec_add, fr(tb_spec2) name(drugsrc) kind(episodes) sfile("tb_epi.dta") ///
 _tvb_spec_add, fr(tb_spec2) name(statinsrc) kind(episodes) sfile("tb_epi2.dta") ///
     sv(b_start) pv(b_stop) iv(statin) ov(tv_statin) ref(0)
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec2) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec2) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p5) replace
 local b5_rc = _rc
 frame copy tb_p5 tb_cmp, replace
@@ -458,7 +458,7 @@ _tvb_spec_add, fr(tb_spec3) name(s2) kind(episodes) sfile("tb_epi2.dta") ///
 _tvb_spec_add, fr(tb_spec3) name(s3) kind(episodes) sfile("tb_epi3.dta") ///
     sv(c_start) pv(c_stop) iv(anticoag) ov(tv_ac) ref(0)
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec3) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec3) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p6) replace
 local b6_rc = _rc
 local b6_ns = r(n_sources)
@@ -484,7 +484,7 @@ use "tb_cohort.dta", clear
 _tvb_spec_new tb_spec4
 _tvb_spec_add, fr(tb_spec4) name(renal) kind(intervals) sfile("tb_ready.dta") ///
     sv(start) pv(stop) iv(ckd) ov(ckd_stage)
-capture tvpipe, specframe(tb_spec4) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec4) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p7) replace
 local b7_rc = _rc
 local b7_n = r(N_periods)
@@ -501,7 +501,7 @@ _tvb_spec_add, fr(tb_spec5) name(drugsrc) kind(episodes) sfile("tb_epi.dta") ///
 _tvb_spec_add, fr(tb_spec5) name(renal) kind(intervals) sfile("tb_ready.dta") ///
     sv(start) pv(stop) iv(ckd) ov(ckd_stage)
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec5) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec5) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p8) replace
 local b8_rc = _rc
 local b8_miss = .
@@ -525,7 +525,7 @@ _tvb_spec_add, fr(tb_spec6) name(first) kind(intervals) sfile("tb_ready.dta") //
 _tvb_spec_add, fr(tb_spec6) name(second) kind(intervals) sfile("tb_ready.dta") ///
     sv(start) pv(stop) iv(egfr) ov(egfr_b) rv(egfr)
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec6) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec6) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p9) replace
 local b9_rc = _rc
 local b9_pay "`r(payload_vars)'"
@@ -569,7 +569,7 @@ _tvb_check `ok' ///
 * B11: a source person absent from the master is counted and ignored.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_p11) replace
 matrix tb_sc = r(source_counts)
@@ -590,7 +590,7 @@ _tvb_check `ok' ///
 * B12: the plan records the engine that actually ran.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec5) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec5) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p12) dryrun
 matrix tb_sc2 = r(source_counts)
 local b12_k1 = tb_sc2[1, 5]
@@ -627,7 +627,7 @@ frame tb_oadj {
     local b13_orows = r(N)
 }
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_adj.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_adj.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_p13) replace
 local b13_rc = _rc
@@ -660,7 +660,7 @@ frame tb_spec14 {
     quietly replace reference = 0
 }
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec14) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec14) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_p14)
 local b14_rc = _rc
 capture confirm frame tb_p14
@@ -688,7 +688,7 @@ foreach _ch in 36 34 {
         quietly replace reference = 0
     }
     use "tb_cohort.dta", clear
-    capture tvpipe, specframe(tb_spec15) id(pid) entry(study_entry) ///
+    capture tvbuild, specframe(tb_spec15) id(pid) entry(study_entry) ///
         exit(study_exit) frameout(tb_p15)
     local b15_rcs "`b15_rcs' `=_rc'"
 }
@@ -706,7 +706,7 @@ _tvb_spec_add, fr(tb_specq) name(renal) kind(intervals) sfile("tb_ready.dta") //
     sv(start) pv(stop) iv(ckd egfr dose cumdose) ///
     ov(ckd_stage egfr_r dose_t cum_h) rv(egfr) tv(dose) cv(cumdose)
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specq) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specq) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pq) replace
 local q_rc = _rc
 local q_rate "`r(rate_vars)'"
@@ -829,7 +829,7 @@ _tvb_spec_add, fr(tb_specg) name(gappy) kind(intervals) sfile("tb_gap.dta") ///
 local ++test_count
 capture frame drop tb_pc
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specg) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specg) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pc)
 local c1_rc = _rc
 capture confirm frame tb_pc
@@ -842,7 +842,7 @@ _tvb_check `ok' ///
 * C2: allow succeeds and reports the gap in r() and in the characteristic.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specg) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specg) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pc) coverage(allow)
 local c2_rc = _rc
 local c2_gap = r(n_gap_ids)
@@ -875,7 +875,7 @@ _tvb_spec_add, fr(tb_specm) name(short) kind(intervals) ///
     sfile("tb_missing_person.dta") sv(start) pv(stop) iv(ckd) ov(ckd_stage)
 capture frame drop tb_pc3
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specm) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specm) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pc3) coverage(allow)
 local c3_rc = _rc
 capture confirm frame tb_pc3
@@ -889,7 +889,7 @@ _tvb_check `ok' ///
 local ++test_count
 capture frame drop tb_pc4
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specg) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specg) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pc4)
 local c4_rc = _rc
 local ok = (`c4_rc' == 459)
@@ -899,7 +899,7 @@ _tvb_check `ok' "C4 coverage defaults to strict" "rc=`c4_rc'"
 * fills the window. This is the invariant the fast constructor is trusted for.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_pc5) replace
 local c5_rc = _rc
@@ -929,7 +929,7 @@ _tvb_spec_add, fr(tb_specd) name(dbl) kind(intervals) sfile("tb_double.dta") ///
     sv(start) pv(stop) iv(ckd) ov(ckd_stage)
 capture frame drop tb_pc6
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specd) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specd) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pc6) coverage(allow)
 local c6_rc = _rc
 local c6_days = r(uncovered_days)
@@ -942,7 +942,7 @@ _tvb_check `ok' ///
 **# M. Committed order, metadata categories, internal-name absence
 **# ---------------------------------------------------------------------
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specq) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specq) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pm) keepvars(sex bmi) replace
 local m_rc = _rc
 
@@ -1062,7 +1062,7 @@ _tvb_check `ok' "M6 output bounds are doubles with dateformat()" ///
 * M7: a non-default dateformat() reaches the committed bounds.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_pm7) dateformat(%tdDD/NN/CCYY) ///
     replace
@@ -1100,7 +1100,7 @@ _tvb_spec_add, fr(tb_specl) name(l1) kind(episodes) sfile("tb_lab1.dta") ///
 _tvb_spec_add, fr(tb_specl) name(l2) kind(episodes) sfile("tb_lab2.dta") ///
     sv(e_start) pv(e_stop) iv(lvl2) ov(lvl_b) ref(0) rlab("Ref B")
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specl) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specl) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_pm9) replace
 local m9_rc = _rc
 local m9_va ""
@@ -1129,7 +1129,7 @@ _tvb_check `ok' ///
 * M10: dropdates removes entry/exit and nothing else.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_pm10) dropdates replace
 local m10_rc = _rc
@@ -1149,13 +1149,13 @@ _tvb_check `ok' "M10 dropdates removes entry/exit and nothing else" ///
 * M11: a stray column in the finalised result is refused before any commit.
 * The schema check is the only thing standing between a leaked internal column
 * and a committed frame, and nothing about the VALUES would reveal it -- so it
-* is injected here rather than assumed. _tvpipe_carry_meta is shadowed by a
+* is injected here rather than assumed. _tvbuild_carry_meta is shadowed by a
 * stub that adds one column; a program in memory takes precedence over the
 * installed ado, and `discard' puts the real one back.
 local ++test_count
 capture frame drop tb_pm11
-capture program drop _tvpipe_carry_meta
-program define _tvpipe_carry_meta, rclass
+capture program drop _tvbuild_carry_meta
+program define _tvbuild_carry_meta, rclass
     version 16.0
     syntax , SRCframe(name) DSTframe(name) VARS(string) [SRCVars(string)]
     local _here "`c(frame)'"
@@ -1165,11 +1165,11 @@ program define _tvpipe_carry_meta, rclass
     return scalar n_vars = 0
 end
 use "tb_cohort.dta", clear
-capture tvpipe, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_pm11)
 local m11_rc = _rc
-capture program drop _tvpipe_carry_meta
+capture program drop _tvbuild_carry_meta
 discard
 capture confirm frame tb_pm11
 local m11_none = (_rc != 0)
@@ -1182,7 +1182,7 @@ _tvb_check `ok' ///
 **# S. Stage counts, source counts, and the real-run return surface
 **# ---------------------------------------------------------------------
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec2) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec2) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_ps) replace
 local s_rc = _rc
 matrix tb_stage = r(stage_counts)
@@ -1265,7 +1265,7 @@ frame tb_srcx {
     local x1_vbefore "`r(varlist)'"
 }
 use "tb_cohort.dta", clear
-capture tvpipe, sourceframe(tb_srcx) id(pid) entry(study_entry) ///
+capture tvbuild, sourceframe(tb_srcx) id(pid) entry(study_entry) ///
     exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
     reference(0) generate(tv_drug) frameout(tb_px1) replace
 local x1_rc = _rc
@@ -1280,14 +1280,14 @@ local ok = (`x1_rc' == 0 & "`x1_before'" == "`x1_after'" & ///
 _tvb_check `ok' "X1 a frame source is unchanged after a real run" ///
     "rc=`x1_rc' before=`x1_before' after=`x1_after'"
 
-* X2: tvpipe writes no file into the working directory. The engines it calls
-* use Stata tempfiles under c(tmpdir); this pins that tvpipe adds no artefact
+* X2: tvbuild writes no file into the working directory. The engines it calls
+* use Stata tempfiles under c(tmpdir); this pins that tvbuild adds no artefact
 * of its own where the user is working.
 local ++test_count
 local x2_before : dir "." files "*.dta"
 local x2_nb : word count `x2_before'
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_spec2) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec2) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_px2) replace
 local x2_rc = _rc
 local x2_after : dir "." files "*.dta"
@@ -1304,7 +1304,7 @@ local x3_before "`r(datasignature)'"
 local x3_frame_before "`c(frame)'"
 _tvb_framelist
 local x3_fl_before "`r(frames)'"
-capture tvpipe, specframe(tb_spec2) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_spec2) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_px3) replace
 local x3_rc = _rc
 quietly datasignature
@@ -1322,11 +1322,11 @@ _tvb_check `ok' ///
 * X4: two identical runs produce identical results.
 local ++test_count
 use "tb_cohort.dta", clear
-capture tvpipe, specframe(tb_specq) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specq) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_px4) keepvars(sex bmi) replace
 local x4_rc1 = _rc
 local x4_s1 "`r(datasignature)'"
-capture tvpipe, specframe(tb_specq) id(pid) entry(study_entry) ///
+capture tvbuild, specframe(tb_specq) id(pid) entry(study_entry) ///
     exit(study_exit) frameout(tb_px4) keepvars(sex bmi) replace
 local x4_rc2 = _rc
 local x4_s2 "`r(datasignature)'"
@@ -1343,9 +1343,9 @@ foreach f in tb_cohort tb_epi tb_epi2 tb_epi3 tb_ready tb_gap tb_lab1 tb_lab2 //
 **# Summary
 local pass_count = $TVB_PASS
 local fail_count = $TVB_FAIL
-display "RESULT: test_tvpipe_build tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_tvbuild_construct tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _all
 if `fail_count' > 0 {
-    display as error "tvpipe build failures:$TVB_FAILED"
+    display as error "tvbuild build failures:$TVB_FAILED"
     exit 1
 }

@@ -34,7 +34,7 @@ d     capture window menu append item "Time-varying exposures" "Add events to TV
 d     capture window menu refresh
 d
 d All eleven public commands and their individual help files are linked from
-d {cmd:help tvtools}. {cmd:tvpipe} is the recommended front door for building a
+d {cmd:help tvtools}. {cmd:tvbuild} is the recommended front door for building a
 d committed, analysis-ready interval frame in one validated call.
 d
 f tvtools.ado
@@ -73,15 +73,15 @@ f tvsplit.sthlp
 f _tvband_split.ado
 f tvpanel.ado
 f tvpanel.sthlp
-f tvpipe.ado
-f tvpipe.sthlp
-f _tvpipe_normalize_spec.ado
-f _tvpipe_preflight.ado
-f _tvpipe_load_source.ado
-f _tvpipe_carry_meta.ado
-f _tvpipe_build_source.ado
-f _tvpipe_combine.ado
-f _tvpipe_event.ado
-f _tvpipe_finalize.ado
-f _tvpipe_manifest.ado
-f _tvpipe_commit.ado
+f tvbuild.ado
+f tvbuild.sthlp
+f _tvbuild_normalize_spec.ado
+f _tvbuild_preflight.ado
+f _tvbuild_load_source.ado
+f _tvbuild_carry_meta.ado
+f _tvbuild_make_source.ado
+f _tvbuild_combine.ado
+f _tvbuild_event.ado
+f _tvbuild_finalize.ado
+f _tvbuild_manifest.ado
+f _tvbuild_commit.ado

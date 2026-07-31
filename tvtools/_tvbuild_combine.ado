@@ -1,5 +1,5 @@
-*! _tvpipe_combine Version 1.10.2  2026/07/31
-*! Align tvpipe's normalised source frames into one accumulated interval frame
+*! _tvbuild_combine Version 1.11.0  2026/07/31
+*! Align tvbuild's normalised source frames into one accumulated interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -13,7 +13,7 @@
 * engine snapshots whatever data the calling frame holds so that a failure can
 * put it back; called from the user's master it would write the master to a
 * tempfile on every run. Called from a frame with no variables and no
-* observations it writes nothing, which is what lets a tvpipe run stay free of
+* observations it writes nothing, which is what lets a tvbuild run stay free of
 * .dta round trips for the data it is actually building.
 *
 * The engine's own output key is asserted, not assumed. tvmerge committed its
@@ -34,8 +34,8 @@
 *   r(uncovered_days) inclusive uncovered person-days
 *   r(merged)         1 when the merge engine ran, 0 for the one-source bypass
 
-capture program drop _tvpipe_combine
-program define _tvpipe_combine, rclass
+capture program drop _tvbuild_combine
+program define _tvbuild_combine, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -90,12 +90,12 @@ program define _tvpipe_combine, rclass
         frame change `_caller_frame'
         if `_mrc' {
             noisily display as error ///
-                "tvpipe: the interval merge failed (rc=`_mrc'); no destination frame was created or changed"
+                "tvbuild: the interval merge failed (rc=`_mrc'); no destination frame was created or changed"
             exit `_mrc'
         }
         if "`_idname'" != "`id'" {
             noisily display as error ///
-                "tvpipe: the merge engine committed its key as '`_idname'' but id(`id') was requested"
+                "tvbuild: the merge engine committed its key as '`_idname'' but id(`id') was requested"
             noisily display as error ///
                 "this build of tvmerge does not honour idname(); reinstall the package"
             exit 459
@@ -115,7 +115,7 @@ program define _tvpipe_combine, rclass
     if `_orphans' > 0 {
         frame change `_caller_frame'
         noisily display as error ///
-            "tvpipe: `_orphans' constructed row(s) belong to a person who is not in the master"
+            "tvbuild: `_orphans' constructed row(s) belong to a person who is not in the master"
         exit 459
     }
 
@@ -179,12 +179,12 @@ program define _tvpipe_combine, rclass
 
     if `_n_out' == 0 {
         noisily display as error ///
-            "tvpipe: the construction produced no rows; nothing was committed"
+            "tvbuild: the construction produced no rows; nothing was committed"
         exit 2000
     }
     if `_gap_ids' > 0 & "`coverage'" == "strict" {
         noisily display as error ///
-            "tvpipe: `_gap_ids' person(s) have uncovered time (`_uncovered' day(s)) after alignment"
+            "tvbuild: `_gap_ids' person(s) have uncovered time (`_uncovered' day(s)) after alignment"
         noisily display as error ///
             "cover the gap in the sources, or accept it explicitly with coverage(allow)"
         exit 459

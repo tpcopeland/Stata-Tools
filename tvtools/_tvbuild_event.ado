@@ -1,5 +1,5 @@
-*! _tvpipe_event Version 1.10.2  2026/07/31
-*! Run tvpipe's optional event stage through the shared tvevent engine
+*! _tvbuild_event Version 1.11.0  2026/07/31
+*! Run tvbuild's optional event stage through the shared tvevent engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -7,7 +7,7 @@
 * contracts -- primary/competing precedence, same-day rules, first-event
 * truncation, recurring wide-stub validation, splitting, and the quantity
 * algebra applied across each split -- are the tvevent contracts exactly,
-* because they ARE tvevent. tvpipe supplies the interval frame, the mapped
+* because they ARE tvevent. tvbuild supplies the interval frame, the mapped
 * quantity output names, and nothing else.
 *
 * The event data are copied into a scratch frame first, so the frame the user
@@ -28,8 +28,8 @@
 *   r(N_events)   rows flagged with the primary event, when the engine reports it
 *   r(dropvars)   event input columns present in the output and owed a drop
 
-capture program drop _tvpipe_event
-program define _tvpipe_event, rclass
+capture program drop _tvbuild_event
+program define _tvbuild_event, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -94,7 +94,7 @@ program define _tvpipe_event, rclass
     frame change `_caller_frame'
     if `_erc' {
         noisily display as error ///
-            "tvpipe: the event stage failed (rc=`_erc'); no destination frame was created or changed"
+            "tvbuild: the event stage failed (rc=`_erc'); no destination frame was created or changed"
         exit `_erc'
     }
 
@@ -112,7 +112,7 @@ program define _tvpipe_event, rclass
     * The stub BASE name is on this list as well as the stub members. A
     * recurring run resolves each person's applicable event into a column named
     * after the stub itself, so eventdate(ev) with members ev1 ev2 leaves an
-    * `ev' behind that neither member name matches. tvpipe already protects the
+    * `ev' behind that neither member name matches. tvbuild already protects the
     * event-date name against every output name, so dropping it here cannot
     * take a payload with it.
     local _drop ""

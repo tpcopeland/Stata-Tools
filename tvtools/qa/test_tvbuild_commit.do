@@ -1,5 +1,5 @@
-*! test_tvpipe_commit.do
-*! Phase 4C contract pins for tvpipe: events, provenance, and the transaction.
+*! test_tvbuild_commit.do
+*! Phase 4C contract pins for tvbuild: events, provenance, and the transaction.
 *!
 *! Phase 4B ended at a finalised scratch result. This suite covers what turns
 *! that into something the user can see: the optional event stage, the output
@@ -38,7 +38,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-quietly log using "test_tvpipe_commit.log", replace nomsg
+quietly log using "test_tvbuild_commit.log", replace nomsg
 
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap
@@ -48,7 +48,7 @@ global TVC_FAIL = 0
 global TVC_FAILED ""
 local test_count = 0
 
-display as result "tvtools QA: tvpipe events and commit (Phase 4C) -- $S_DATE $S_TIME"
+display as result "tvtools QA: tvbuild events and commit (Phase 4C) -- $S_DATE $S_TIME"
 
 capture program drop _tvc_check
 program define _tvc_check
@@ -71,14 +71,14 @@ program define _tvc_framelist, rclass
     return local frames "`_fl'"
 end
 
-* Every probe of a frame tvpipe was supposed to create is preceded by this.
+* Every probe of a frame tvbuild was supposed to create is preceded by this.
 * Entering `frame X { ... }' for a frame that does not exist ends the do-file,
 * so one injected defect that stops the commit takes the whole suite down after
 * naming at most one failure. Wrapping the block in `capture' does not help and
 * makes it worse: `capture' swallows the frame-not-found error, the body then
 * runs IN THE CALLER'S FRAME uncaptured -- computing an answer from the wrong
 * dataset at rc=0 if it happens to be legal there -- and the closing brace is
-* finally read as a command, r(199). See the same note in test_tvpipe_build.do.
+* finally read as a command, r(199). See the same note in test_tvbuild_construct.do.
 capture program drop _tvc_ready
 program define _tvc_ready, rclass
     version 16.0
@@ -339,7 +339,7 @@ local SRC sourceusing("tc_epi.dta") start(a_start) stop(a_stop) ///
 * E1: no event stage means no event columns and event_stage == 0.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e1) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_e1) replace
 local e1_rc = _rc
 local e1_stage = r(event_stage)
 local e1_v ""
@@ -356,7 +356,7 @@ tempfile e2oracle
 _tvc_oracle, evfile("tc_ev.dta") saving("`e2oracle'") ///
     outvars(pid start stop tv_drug _failure)
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e2) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e2) replace ///
     eventusing("tc_ev.dta") eventdate(evdate)
 local e2_rc = _rc
 local e2_var "`r(eventvar)'"
@@ -407,7 +407,7 @@ capture frame drop tc_evfr
 frame create tc_evfr
 frame tc_evfr: use "tc_ev.dta", clear
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e4) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e4) replace ///
     eventframe(tc_evfr) eventdate(evdate)
 local e4_rc = _rc
 * The colon form aborts on a missing frame exactly as the brace form does; it
@@ -432,7 +432,7 @@ _tvc_check `ok' "E4 an event frame and an event file with the same data agree" /
 * E5: event variables in the master, with no separate event input.
 local ++test_count
 use "tc_cohort_ev.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e5) replace eventdate(evdate)
+capture tvbuild, `SRC' `BASE' frameout(tc_e5) replace eventdate(evdate)
 local e5_rc = _rc
 local e5_s ""
 _tvc_ready, fr(tc_e5)
@@ -451,7 +451,7 @@ tempfile e6oracle
 _tvc_oracle, evfile("tc_evc.dta") compete(compdate) saving("`e6oracle'") ///
     outvars(pid start stop tv_drug _failure)
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e6) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e6) replace ///
     eventusing("tc_evc.dta") eventdate(evdate) compete(compdate)
 local e6_rc = _rc
 _tvc_compare, frame(tc_e6) vars(pid start stop tv_drug _failure) ///
@@ -471,7 +471,7 @@ _tvc_oracle, evfile("tc_evr.dta") type(recurring) evdate(ev) ///
     extra(enum(_enum) gaptime gapstart(_g0) gapstop(_g1)) ///
     saving("`e7oracle'") outvars(pid start stop tv_drug _failure _enum _g0 _g1)
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e7) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e7) replace ///
     eventusing("tc_evr.dta") eventdate(ev) eventtype(recurring) ///
     enum(_enum) gaptime gapstart(_g0) gapstop(_g1)
 local e7_rc = _rc
@@ -487,7 +487,7 @@ _tvc_check `ok' "E7 recurring events with enum and gap time match tvevent" ///
 * E8: timegen()/timeunit() reach the result with the requested unit.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e8) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e8) replace ///
     eventusing("tc_ev.dta") eventdate(evdate) timegen(_elapsed) timeunit(days)
 local e8_rc = _rc
 local e8_tv "`r(timevar)'"
@@ -523,7 +523,7 @@ _tvc_spec_new tc_specq
 _tvc_spec_add, fr(tc_specq) name(rd) kind(intervals) sfile("tc_ready.dta") ///
     sv(start) pv(stop) iv(st dose) ov(state dose_t) tv(dose)
 use "tc_cohort.dta", clear
-capture tvpipe, specframe(tc_specq) `BASE' frameout(tc_e10) replace ///
+capture tvbuild, specframe(tc_specq) `BASE' frameout(tc_e10) replace ///
     eventusing("tc_evr.dta") eventdate(ev) eventtype(recurring)
 local e10_rc = _rc
 local e10_sum = .
@@ -562,7 +562,7 @@ _tvc_spec_new tc_specb
 _tvc_spec_add, fr(tc_specb) name(b) kind(intervals) sfile("tc_both.dta") ///
     sv(s) pv(e) iv(lvl) ov(state)
 use "tc_cohort.dta", clear
-capture tvpipe, specframe(tc_specb) `BASE' frameout(tc_e11) replace ///
+capture tvbuild, specframe(tc_specb) `BASE' frameout(tc_e11) replace ///
     eventusing("tc_both.dta") eventdate(evdate)
 local e11_rc = _rc
 local e11_v ""
@@ -587,14 +587,14 @@ _tvc_check `ok' ///
 * replace authorises replacing a destination, never an input role.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e11b) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e11b) replace ///
     eventusing("tc_ev.dta") eventdate(evdate) keepvars(sex)
 local e11b_ok_rc = _rc
 _tvc_spec_new tc_specz
 _tvc_spec_add, fr(tc_specz) name(z) kind(episodes) sfile("tc_epi.dta") ///
     sv(a_start) pv(a_stop) iv(drug) ov(evdate) ref(0)
 use "tc_cohort.dta", clear
-capture tvpipe, specframe(tc_specz) `BASE' frameout(tc_e11c) replace ///
+capture tvbuild, specframe(tc_specz) `BASE' frameout(tc_e11c) replace ///
     eventusing("tc_ev.dta") eventdate(evdate)
 local e11b_rc = _rc
 capture confirm frame tc_e11c
@@ -608,9 +608,9 @@ _tvc_check `ok' ///
 *
 * Regression for 1.10.1. tvevent declares eventlabel() `string asis' and
 * splices the value straight into `label define <name> <eventlabel>, modify',
-* so it needs the bare `value "Label"' pair grammar. _tvpipe_event used to
+* so it needs the bare `value "Label"' pair grammar. _tvbuild_event used to
 * re-wrap the value in compound quotes -- correct for a plain `string'
-* destination, fatal for an asis one -- and every eventlabel() value tvpipe
+* destination, fatal for an asis one -- and every eventlabel() value tvbuild
 * was given failed with r(198). The option was unusable from the day it
 * shipped, so an rc check alone is the whole regression; the label text is
 * asserted too because a value that arrives quoted but non-fatal would apply
@@ -621,7 +621,7 @@ _tvc_check `ok' ///
 * also the form a user is most likely to type.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e12) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e12) replace ///
     eventusing("tc_ev.dta") eventdate(evdate) eventgenerate(fail) ///
     eventlabel(1 "Dead")
 local e12_rc = _rc
@@ -643,7 +643,7 @@ _tvc_check `ok' "E12b eventlabel() text reaches the committed event variable" //
 
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_e12c) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_e12c) replace ///
     eventusing("tc_ev.dta") eventdate(evdate) eventgenerate(fail) ///
     eventlabel(0 "Still at risk" 1 "Died of any cause")
 local e12c_rc = _rc
@@ -668,7 +668,7 @@ _tvc_check `ok' ///
 **# P. Provenance
 **# ---------------------------------------------------------------------
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_p1) manifestframe(tc_man) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_p1) manifestframe(tc_man) replace ///
     eventusing("tc_ev.dta") eventdate(evdate)
 local p_rc = _rc
 local p_sig "`r(datasignature)'"
@@ -768,7 +768,7 @@ frame tc_p1 {
     local p5_k : char _dta[tvtools_pipeline_committed]
 }
 }
-local ok = ("`p5_p'" == "tvpipe" & "`p5_s'" == "1" & "`p5_c'" == "strict" & ///
+local ok = ("`p5_p'" == "tvbuild" & "`p5_s'" == "1" & "`p5_c'" == "strict" & ///
     "`p5_st'" == "start" & "`p5_sp'" == "stop" & "`p5_e'" == "_failure" & ///
     "`p5_k'" == "1")
 _tvc_check `ok' "P5 the provenance characteristics are complete" ///
@@ -807,7 +807,7 @@ frame tc_t1 {
 _tvc_fingerprint tc_t1
 local t1_before "`r(fingerprint)'"
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t1)
+capture tvbuild, `SRC' `BASE' frameout(tc_t1)
 local t1_rc = _rc
 _tvc_fingerprint tc_t1
 local t1_after "`r(fingerprint)'"
@@ -818,7 +818,7 @@ _tvc_check `ok' "T1 an existing destination without replace is refused intact" /
 * T2: with replace, the destination is replaced.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t1) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_t1) replace
 local t2_rc = _rc
 local t2_gone = .
 local t2_new = .
@@ -852,7 +852,7 @@ frame tc_t3man {
 _tvc_fingerprint tc_t3man
 local t3_before "`r(fingerprint)'"
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t3out) manifestframe(tc_t3man)
+capture tvbuild, `SRC' `BASE' frameout(tc_t3out) manifestframe(tc_t3man)
 local t3_rc = _rc
 capture confirm frame tc_t3out
 local t3_noout = (_rc != 0)
@@ -869,7 +869,7 @@ capture frame drop tc_srcfr
 frame create tc_srcfr
 frame tc_srcfr: use "tc_epi.dta", clear
 use "tc_cohort.dta", clear
-capture tvpipe, sourceframe(tc_srcfr) `BASE' start(a_start) stop(a_stop) ///
+capture tvbuild, sourceframe(tc_srcfr) `BASE' start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) frameout(tc_srcfr) replace
 local t4_rc = _rc
 local t4_intact = .
@@ -889,7 +889,7 @@ _tvc_check `ok' "T4 replace never makes an input/output alias legal" ///
 local ++test_count
 capture frame drop tc_t5
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t5) manifestframe(tc_t5man) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_t5) manifestframe(tc_t5man) replace
 _tvc_fingerprint tc_t5
 local t5_before "`r(fingerprint)'"
 * A source whose ready intervals leave a gap: refused under strict, after the
@@ -906,7 +906,7 @@ _tvc_spec_new tc_specg
 _tvc_spec_add, fr(tc_specg) name(g) kind(intervals) sfile("tc_gap.dta") ///
     sv(start) pv(stop) iv(st) ov(state)
 use "tc_cohort.dta", clear
-capture tvpipe, specframe(tc_specg) `BASE' frameout(tc_t5) replace
+capture tvbuild, specframe(tc_specg) `BASE' frameout(tc_t5) replace
 local t5_rc = _rc
 _tvc_fingerprint tc_t5
 local t5_after "`r(fingerprint)'"
@@ -927,7 +927,7 @@ local ++test_count
 capture frame drop tc_t6
 capture frame drop tc_t6man
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t6) manifestframe(tc_t6man) ///
+capture tvbuild, `SRC' `BASE' frameout(tc_t6) manifestframe(tc_t6man) ///
     replace dropdates
 local t6_setup = _rc
 _tvc_fingerprint tc_t6
@@ -935,8 +935,8 @@ local t6_before "`r(fingerprint)'"
 _tvc_fingerprint tc_t6man
 local t6_mbefore "`r(fingerprint)'"
 
-capture program drop _tvpipe_manifest
-program define _tvpipe_manifest, rclass
+capture program drop _tvbuild_manifest
+program define _tvbuild_manifest, rclass
     version 16.0
     syntax , MANframe(name) [*]
     capture frame drop `manframe'
@@ -945,9 +945,9 @@ program define _tvpipe_manifest, rclass
 end
 
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t6) manifestframe(tc_t6man) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_t6) manifestframe(tc_t6man) replace
 local t6_rc = _rc
-capture program drop _tvpipe_manifest
+capture program drop _tvbuild_manifest
 discard
 
 _tvc_fingerprint tc_t6
@@ -967,8 +967,8 @@ _tvc_check `ok' ///
 local ++test_count
 capture frame drop tc_t7
 capture frame drop tc_t7man
-capture program drop _tvpipe_manifest
-program define _tvpipe_manifest, rclass
+capture program drop _tvbuild_manifest
+program define _tvbuild_manifest, rclass
     version 16.0
     syntax , MANframe(name) [*]
     capture frame drop `manframe'
@@ -976,9 +976,9 @@ program define _tvpipe_manifest, rclass
     return scalar n_stages = 0
 end
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_t7) manifestframe(tc_t7man)
+capture tvbuild, `SRC' `BASE' frameout(tc_t7) manifestframe(tc_t7man)
 local t7_rc = _rc
-capture program drop _tvpipe_manifest
+capture program drop _tvbuild_manifest
 discard
 capture confirm frame tc_t7
 local t7_noout = (_rc != 0)
@@ -992,7 +992,7 @@ _tvc_check `ok' ///
 * T8: frameout() and manifestframe() may not be the same frame.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_same) manifestframe(tc_same) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_same) manifestframe(tc_same) replace
 local t8_rc = _rc
 capture confirm frame tc_same
 local t8_none = (_rc != 0)
@@ -1018,7 +1018,7 @@ local s1_frame "`c(frame)'"
 _tvc_framelist
 local s1_fl "`r(frames)'"
 local s1_va "`c(varabbrev)'"
-capture tvpipe, `SRC' `BASE' frameout(tc_s1) manifestframe(tc_s1man) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_s1) manifestframe(tc_s1man) replace
 local s1_rc = _rc
 quietly datasignature
 local s1_sig2 "`r(datasignature)'"
@@ -1042,7 +1042,7 @@ local s2_sig "`r(datasignature)'"
 local s2_sorted "`: sortedby'"
 _tvc_framelist
 local s2_fl "`r(frames)'"
-capture tvpipe, specframe(tc_specg) `BASE' frameout(tc_s2fail)
+capture tvbuild, specframe(tc_specg) `BASE' frameout(tc_s2fail)
 local s2_rc = _rc
 quietly datasignature
 local s2_sig2 "`r(datasignature)'"
@@ -1063,7 +1063,7 @@ label values sex tc_keep
 quietly label dir
 local s3_before "`r(names)'"
 local s3_before : list sort s3_before
-capture tvpipe, `SRC' `BASE' frameout(tc_s3) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_s3) replace
 local s3_rc = _rc
 quietly label dir
 local s3_after "`r(names)'"
@@ -1079,10 +1079,10 @@ use "tc_cohort.dta", clear
 quietly regress study_exit study_entry
 local s4_cmd "`e(cmd)'"
 local s4_n = e(N)
-capture tvpipe, `SRC' `BASE' frameout(tc_s4) replace
+capture tvbuild, `SRC' `BASE' frameout(tc_s4) replace
 local s4_rc = _rc
 local ok = (`s4_rc' == 0 & "`e(cmd)'" == "`s4_cmd'" & e(N) == `s4_n')
-_tvc_check `ok' "S4 an active e() survives a tvpipe run" ///
+_tvc_check `ok' "S4 an active e() survives a tvbuild run" ///
     "rc=`s4_rc' cmd=`e(cmd)' N=`=e(N)'"
 
 * S5: the source and event input frames are unchanged.
@@ -1098,7 +1098,7 @@ local s5_sb "`r(fingerprint)'"
 _tvc_fingerprint tc_s5ev
 local s5_eb "`r(fingerprint)'"
 use "tc_cohort.dta", clear
-capture tvpipe, sourceframe(tc_s5src) `BASE' start(a_start) stop(a_stop) ///
+capture tvbuild, sourceframe(tc_s5src) `BASE' start(a_start) stop(a_stop) ///
     exposure(drug) reference(0) generate(tv_drug) frameout(tc_s5) replace ///
     eventframe(tc_s5ev) eventdate(evdate)
 local s5_rc = _rc
@@ -1111,10 +1111,10 @@ _tvc_check `ok' "S5 the source and event input frames are read-only" ///
     "rc=`s5_rc' src_same=" + string(`"`s5_sb'"' == `"`s5_sa'"') + ///
     " ev_same=" + string(`"`s5_eb'"' == `"`s5_ea'"')
 
-* S6: no helper r() leaks into tvpipe's return surface.
+* S6: no helper r() leaks into tvbuild's return surface.
 local ++test_count
 use "tc_cohort.dta", clear
-capture tvpipe, `SRC' `BASE' frameout(tc_s6) replace ///
+capture tvbuild, `SRC' `BASE' frameout(tc_s6) replace ///
     eventusing("tc_ev.dta") eventdate(evdate)
 local s6_rc = _rc
 local s6_names "`: r(scalars)' `: r(macros)' `: r(matrices)'"
@@ -1126,7 +1126,7 @@ local s6_allowed dryrun spec_version n_sources N_persons event_stage ///
     specframe manifestframe source_counts stage_counts
 local s6_extra : list s6_names - s6_allowed
 local ok = (`s6_rc' == 0 & "`s6_extra'" == "")
-_tvc_check `ok' "S6 no helper result leaks into tvpipe's return surface" ///
+_tvc_check `ok' "S6 no helper result leaks into tvbuild's return surface" ///
     "unexpected=`s6_extra'"
 
 **# Cleanup
@@ -1138,9 +1138,9 @@ foreach f in tc_cohort tc_epi tc_ev tc_evc tc_evr tc_cohort_ev tc_ready ///
 **# Summary
 local pass_count = $TVC_PASS
 local fail_count = $TVC_FAIL
-display "RESULT: test_tvpipe_commit tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_tvbuild_commit tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _all
 if `fail_count' > 0 {
-    display as error "tvpipe commit failures:$TVC_FAILED"
+    display as error "tvbuild commit failures:$TVC_FAILED"
     exit 1
 }

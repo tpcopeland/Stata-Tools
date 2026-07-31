@@ -1,5 +1,5 @@
-* benchmark_tvpipe.do
-* Registered benchmark for the Section 12.15 tvpipe performance gate.
+* benchmark_tvbuild.do
+* Registered benchmark for the Section 12.15 tvbuild performance gate.
 *
 * Three implementations of the same construction, on byte-identical inputs:
 *
@@ -10,36 +10,36 @@
 *             tvexpose frameout() -> tvmerge frames() frameout() ->
 *             tvevent frame(). No .dta round trip between stages.
 *   nativev   `native' plus a benchmark-local replica of the POST-CONSTRUCTION
-*             validation tvpipe performs and `native' does not: the coverage
+*             validation tvbuild performs and `native' does not: the coverage
 *             decision, the master payload attach, the metadata re-assertion,
 *             the two-directional schema check, the structural invariants, the
 *             person-survival check, the provenance characteristics, the data
 *             signature, and the verified commit.
-*   tvpipe    one tvpipe call doing the same construction.
-*   tvpipedry the same tvpipe call with `dryrun': the preflight alone, for THIS
+*   tvbuild    one tvbuild call doing the same construction.
+*   tvbuilddry the same tvbuild call with `dryrun': the preflight alone, for THIS
 *             case rather than only for the one-source form.
 *
-* Section 12.15a is the registered gate. G1: tvpipe/legacy is REPORTED, never
-* gated -- tvpipe does a superset of legacy's work and no implementation makes
+* Section 12.15a is the registered gate. G1: tvbuild/legacy is REPORTED, never
+* gated -- tvbuild does a superset of legacy's work and no implementation makes
 * a superset finish first. G2 is the real gate, unchanged at 5% and 0.05 s but
 * re-based:
 *
-*     orchestration overhead = tvpipe - nativev - tvpipedry
+*     orchestration overhead = tvbuild - nativev - tvbuilddry
 *
 * `native' alone is the wrong base because it performs none of the validation;
 * subtracting only the dry run (as the first sweep did) charges the coverage,
 * schema, metadata, and signature work to orchestration. `nativev' supplies
-* that missing measurement and `tvpipedry' supplies the preflight for the same
+* that missing measurement and `tvbuilddry' supplies the preflight for the same
 * case, so each half of the validation is subtracted exactly once.
 *
 * THE REPLICA IS A THREAT TO THE GATE IT SERVES. A replica that omits work
-* makes tvpipe look worse; one that adds work makes it look better. It is
+* makes tvbuild look worse; one that adds work makes it look better. It is
 * therefore written to CALL the shipped helpers where they exist
-* (_tvpipe_carry_meta, _tvtools_interval_union) rather than to reimplement
-* them, and its remaining operations mirror _tvpipe_combine, _tvpipe_finalize,
-* and _tvpipe_commit line for line. Two deliberate departures, both disclosed:
+* (_tvbuild_carry_meta, _tvtools_interval_union) rather than to reimplement
+* them, and its remaining operations mirror _tvbuild_combine, _tvbuild_finalize,
+* and _tvbuild_commit line for line. Two deliberate departures, both disclosed:
 * the id->entry/exit crosswalk frame is built BEFORE the timer starts, because
-* tvpipe builds it in the preflight and `tvpipedry' already charges it once;
+* tvbuild builds it in the preflight and `tvbuilddry' already charges it once;
 * and the replica reads its committed schema off the result with one extra
 * `ds' instead of carrying it from a plan, which is a variable-list operation
 * whose cost does not scale with rows.
@@ -56,17 +56,17 @@
 *   evrec     one raw source, recurring event stub
 *   wide      one raw source, string payload and wide keepvars()
 *   manifest  one raw source plus the optional manifest commit
-*   dryrun    the preflight alone, tvpipe only
+*   dryrun    the preflight alone, tvbuild only
 *
 * Manually invoked; deliberately NOT part of any correctness lane and not in
 * qa/_tvtools_qa_manifest.do. It emits BENCH: lines, never a RESULT: line, and
 * never a timing assertion.
 *
 * Usage (one fresh Stata process per invocation, run serially):
-*   stata-mp -b do benchmark_tvpipe.do <case> <impl> <scale> <rep>
+*   stata-mp -b do benchmark_tvbuild.do <case> <impl> <scale> <rep>
 *     case   one|two|three|mixed|repeat|evmaster|evfile|evshared|evrec|
 *            wide|manifest|dryrun
-*     impl   legacy | native | nativev | tvpipe | tvpipedry
+*     impl   legacy | native | nativev | tvbuild | tvbuilddry
 *     scale  master persons to generate (default 20000)
 *     rep    repetition index (default 1)
 *
@@ -83,10 +83,10 @@
 *
 * Driver for a paired sweep (serial, fresh process per run; rep 0 discarded):
 *   for c in one two three mixed repeat evmaster evfile evshared evrec wide manifest; do
-*     for i in legacy native nativev tvpipe tvpipedry; do
+*     for i in legacy native nativev tvbuild tvbuilddry; do
 *       for r in $(seq 0 9); do
-*         /usr/bin/time -v stata-mp -b do benchmark_tvpipe.do $c $i 20000 $r
-*         grep '^BENCH:' benchmark_tvpipe.log
+*         /usr/bin/time -v stata-mp -b do benchmark_tvbuild.do $c $i 20000 $r
+*         grep '^BENCH:' benchmark_tvbuild.log
 *       done
 *     done
 *   done
@@ -99,7 +99,7 @@ set varabbrev off
 set linesize 244
 
 local case  = cond("`1'" == "", "one",    "`1'")
-local impl  = cond("`2'" == "", "tvpipe", "`2'")
+local impl  = cond("`2'" == "", "tvbuild", "`2'")
 local scale = cond("`3'" == "", 20000, real("`3'"))
 local rep   = cond("`4'" == "",     1, real("`4'"))
 
@@ -118,9 +118,9 @@ capture mkdir "`workdir'"
 * tvtools silently resolves the INSTALLED package for every arm and reports a
 * ratio of 1.00 with no error anywhere. Refuse rather than measure the wrong
 * tree.
-capture findfile tvpipe.ado
+capture findfile tvbuild.ado
 if _rc {
-    display as error "BENCHBAD: tvpipe.ado not found on the adopath"
+    display as error "BENCHBAD: tvbuild.ado not found on the adopath"
     exit 111
 }
 local _ado "`r(fn)'"
@@ -346,9 +346,9 @@ if "`impl'" == "legacy" {
 else if inlist("`impl'", "native", "nativev") {
     **# Equivalent frame-native primitive calls
     * The crosswalk of person -> study window is built OUTSIDE the timer for
-    * the nativev arm: tvpipe builds it in the preflight, which the tvpipedry
+    * the nativev arm: tvbuild builds it in the preflight, which the tvbuilddry
     * arm charges once. Building it here too would subtract it twice and
-    * flatter tvpipe.
+    * flatter tvbuild.
     if "`impl'" == "nativev" {
         capture frame drop vxw
         frame create vxw
@@ -436,7 +436,7 @@ else if inlist("`impl'", "native", "nativev") {
     }
 
     if "`impl'" == "nativev" {
-        **# --- Validation replica: _tvpipe_combine, coverage half ------------
+        **# --- Validation replica: _tvbuild_combine, coverage half ------------
         frame change `resf'
         quietly frlink m:1 pid, frame(vxw)
         quietly frget vent = ventry, from(vxw)
@@ -481,13 +481,13 @@ else if inlist("`impl'", "native", "nativev") {
         }
         sort pid start stop
 
-        **# --- Validation replica: _tvpipe_finalize -----------------------
+        **# --- Validation replica: _tvbuild_finalize -----------------------
         quietly frlink m:1 pid, frame(vxw)
         quietly frget ventry = ventry, from(vxw)
         quietly frget vexit  = vexit,  from(vxw)
         capture drop vxw
         quietly count if missing(ventry) | missing(vexit)
-        quietly _tvpipe_carry_meta, srcframe(vxw) dstframe(`resf') ///
+        quietly _tvbuild_carry_meta, srcframe(vxw) dstframe(`resf') ///
             vars(ventry vexit)
 
         quietly recast double start
@@ -496,18 +496,18 @@ else if inlist("`impl'", "native", "nativev") {
         format stop  %tdCCYY/NN/DD
         label variable start "Interval start"
         label variable stop  "Interval stop"
-        quietly _tvpipe_carry_meta, srcframe(vxw) dstframe(`resf') vars(pid)
+        quietly _tvbuild_carry_meta, srcframe(vxw) dstframe(`resf') vars(pid)
         * One carry_meta visit per normalised source, exactly as
-        * _tvpipe_finalize performs, sourced from the frame the payload
+        * _tvbuild_finalize performs, sourced from the frame the payload
         * actually came from.
         forvalues _k = 1/`nsrc' {
             local _pf : word `_k' of `vpayframes'
             local _pv : word `_k' of `vpayvars'
-            quietly _tvpipe_carry_meta, srcframe(`_pf') dstframe(`resf') ///
+            quietly _tvbuild_carry_meta, srcframe(`_pf') dstframe(`resf') ///
                 vars(`_pv')
         }
 
-        * One extra `ds' stands in for tvpipe's planned schema. It is a
+        * One extra `ds' stands in for tvbuild's planned schema. It is a
         * variable-list operation; its cost does not scale with rows.
         quietly ds
         local vschema "`r(varlist)'"
@@ -534,7 +534,7 @@ else if inlist("`impl'", "native", "nativev") {
             exit 111
         }
         if `"`_dtalab'"' != "" label data `"`_dtalab'"'
-        char _dta[tvtools_pipeline]           "tvpipe"
+        char _dta[tvtools_pipeline]           "tvbuild"
         char _dta[tvtools_pipeline_schema]    "1"
         char _dta[tvtools_pipeline_coverage]  "strict"
         char _dta[tvtools_pipeline_start]     "start"
@@ -545,7 +545,7 @@ else if inlist("`impl'", "native", "nativev") {
         quietly datasignature
         local vsig "`r(datasignature)'"
 
-        **# --- Validation replica: _tvpipe_commit -------------------------
+        **# --- Validation replica: _tvbuild_commit -------------------------
         quietly frame copy `resf' vcommit, replace
         frame change vcommit
         local _n_committed = _N
@@ -558,7 +558,7 @@ else if inlist("`impl'", "native", "nativev") {
         local vextra2   : list vpresent2 - vschema
         local vmissing2 : list vschema - vpresent2
         if `_n_committed' != `_n_out' | "`vextra2'`vmissing2'" != "" | ///
-           "`vsig2'" != "`vsig'" | "`vpipechar'" != "tvpipe" {
+           "`vsig2'" != "`vsig'" | "`vpipechar'" != "tvbuild" {
             display as error "BENCHBAD: nativev commit verification failed"
             exit 111
         }
@@ -567,7 +567,7 @@ else if inlist("`impl'", "native", "nativev") {
     timer off 1
 }
 else {
-    **# tvpipe
+    **# tvbuild
     * The specification frame is built before the timer starts. It describes
     * the work; building it is the user's, not the command's.
     if `nsrc' > 1 | "`case'" == "mixed" | "`case'" == "repeat" {
@@ -627,16 +627,16 @@ else {
     local _keep ""
     if "`keeplist'" != "" local _keep "keepvars(`keeplist')"
     local _dry ""
-    if "`case'" == "dryrun" | "`impl'" == "tvpipedry" local _dry "dryrun"
+    if "`case'" == "dryrun" | "`impl'" == "tvbuilddry" local _dry "dryrun"
 
     timer on 1
     use "`mf'", clear
     if `nsrc' > 1 | "`case'" == "mixed" | "`case'" == "repeat" {
-        quietly tvpipe, specframe(pspec) id(pid) entry(s_entry) exit(s_exit) ///
+        quietly tvbuild, specframe(pspec) id(pid) entry(s_entry) exit(s_exit) ///
             frameout(pout) replace `_ev' `_man' `_keep' `_dry'
     }
     else {
-        quietly tvpipe, sourceusing("`e1'") id(pid) entry(s_entry) ///
+        quietly tvbuild, sourceusing("`e1'") id(pid) entry(s_entry) ///
             exit(s_exit) start(a_start) stop(a_stop) exposure(a_cat) ///
             reference(0) generate(tv_1) frameout(pout) replace ///
             `_ev' `_man' `_keep' `_dry'

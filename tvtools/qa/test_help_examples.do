@@ -448,7 +448,7 @@ else {
     local failed_tests "`failed_tests' H9"
 }
 
-**# H10: the tvpipe help examples, verbatim
+**# H10: the tvbuild help examples, verbatim
 
 local ++test_count
 capture noisily {
@@ -477,7 +477,7 @@ capture noisily {
 
     * 1. dry run
     use `cohort', clear
-    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+    tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
         start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
         generate(tv_drug) frameout(analysis) dryrun
     assert r(dryrun) == 1
@@ -485,7 +485,7 @@ capture noisily {
     assert _rc != 0
 
     * 2. the corresponding committed run
-    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+    tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
         start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
         generate(tv_drug) referencelabel("Unexposed") keepvars(female) ///
         frameout(analysis) replace
@@ -510,9 +510,9 @@ capture noisily {
         "alt"  "intervals" "alt_frame" "" "start"    "stop"    "tv_alt"   "tv_alt2" .
         end
     }
-    frame pipe_spec: char _dta[tvpipe_spec_version] "1"
+    frame pipe_spec: char _dta[tvbuild_spec_version] "1"
     use `cohort', clear
-    tvpipe, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
+    tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
         frameout(analysis) manifestframe(provenance) replace
     frame provenance: list stage source_name n_input n_output, noobs
 
@@ -524,7 +524,7 @@ capture noisily {
 
     * 5. a single event, taken from the master
     use `cohort', clear
-    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+    tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
         start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
         generate(tv_drug) frameout(analysis) replace ///
         eventdate(event_date) eventgenerate(_failure) timegen(_elapsed)
@@ -550,7 +550,7 @@ capture noisily {
         end
     }
     use `cohort', clear
-    tvpipe, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+    tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
         start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
         generate(tv_drug) frameout(analysis) replace ///
         eventframe(ev_frame) eventdate(ev) eventtype(recurring) enum(_enum) gaptime
@@ -560,11 +560,11 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS [H10]: tvpipe help examples run verbatim after installation"
+    display as result "  PASS [H10]: tvbuild help examples run verbatim after installation"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [H10]: tvpipe help examples (error `=_rc')"
+    display as error "  FAIL [H10]: tvbuild help examples (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' H10"
 }

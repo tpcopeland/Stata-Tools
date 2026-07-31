@@ -1,4 +1,4 @@
-*! _tvpipe_carry_meta Version 1.10.2  2026/07/31
+*! _tvbuild_carry_meta Version 1.11.0  2026/07/31
 *! Carry display format, labels, value labels, and characteristics between frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -7,7 +7,7 @@
 * its own parity category (Section 5.4 of the single-pass plan). A frame copy,
 * an frget, a Mata store, and the merge engine each preserve a DIFFERENT subset
 * of storage type, display format, variable label, value-label assignment,
-* value-label definition, and variable characteristics. tvpipe therefore
+* value-label definition, and variable characteristics. tvbuild therefore
 * records what each normalised source declared and re-asserts it on the
 * finished result rather than trusting any one of those mechanisms.
 *
@@ -100,8 +100,8 @@ real scalar _tvp_vlabel_exists(string scalar frame, string scalar lab)
 end
 
 
-capture program drop _tvpipe_carry_meta
-program define _tvpipe_carry_meta, rclass
+capture program drop _tvbuild_carry_meta
+program define _tvbuild_carry_meta, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
@@ -116,7 +116,7 @@ program define _tvpipe_carry_meta, rclass
     local _ns : word count `srcvars'
     if `_nd' != `_ns' {
         noisily display as error ///
-            "_tvpipe_carry_meta: vars() has `_nd' name(s) and srcvars() has `_ns'"
+            "_tvbuild_carry_meta: vars() has `_nd' name(s) and srcvars() has `_ns'"
         exit 198
     }
 
@@ -133,7 +133,7 @@ program define _tvpipe_carry_meta, rclass
         if _rc {
             frame change `_caller_frame'
             noisily display as error ///
-                "_tvpipe_carry_meta: '`_sv'' not found in `srcframe'"
+                "_tvbuild_carry_meta: '`_sv'' not found in `srcframe'"
             exit 111
         }
         local _fmt : format `_sv'
@@ -150,7 +150,7 @@ program define _tvpipe_carry_meta, rclass
         if _rc {
             frame change `_caller_frame'
             noisily display as error ///
-                "_tvpipe_carry_meta: '`_dv'' not found in `dstframe'"
+                "_tvbuild_carry_meta: '`_dv'' not found in `dstframe'"
             exit 111
         }
         format `_dv' `_fmt'
