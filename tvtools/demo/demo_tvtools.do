@@ -1,8 +1,22 @@
 /*  demo_tvtools.do - Generate documentation output for tvtools (v1.11.0)
 
+    Console assets produced (.log -> .md via logdoc):
+      1. Frames-first primitive pipeline           -> console_pipeline.{log,md}
+      2. tvbuild, the same route as one call       -> console_tvbuild.{log,md}
+      3. MSM weighting: IPTW x IPCW + positivity   -> console_msm.{log,md}
+      4. Recurrent-event PWP / AG formatting       -> console_recurrent.{log,md}
+      5. Multi-group weighting + age bands         -> console_multigroup.{log,md}
+
     Graph assets produced:
       1. Covariate-balance love plot               -> balance_loveplot.png
       2. Exposure swimlane                         -> swimlane_plot.png
+
+    Every command in the suite is shown the same way: a heading, the call as
+    the user types it, and the command's own console report. tvbuild is one of
+    those sections rather than an appendix -- it is demonstrated on the same
+    cohort and the same raw episode files the primitive route consumes, in
+    both its one-source shortcut form and its multi-source specification form,
+    and the two routes are compared with cf.
 
     The demo walks the whole suite end to end:
       - frames-first output: tvexpose/tvmerge frameout(); whole pipeline in memory
@@ -50,7 +64,7 @@ if `"`demo_dir'"' == "" {
 tempfile cohort episodes_antidep episodes_benzo events recur panel ///
     primitive_out prim_cmp pipe_cmp caller_love_graph caller_swim_graph
 tempname f_antidep f_benzo f_merged f_pipe f_prov f_cmp demo_balance ///
-    demo_love_graph demo_swim_graph
+    demo_love_graph demo_swim_graph f_one f_oneprov
 local demo_had_love_graph = 0
 local demo_had_swim_graph = 0
 local demo_graph_snapshot_rc = 0
@@ -199,6 +213,8 @@ label var biomarker "Time-varying confounder"
 save "`panel'", replace
 
 **# Frames-first pipeline (no save/use round-trips)
+capture log close _all
+log using "`demo_dir'/console_pipeline.log", replace text name(pipe) nomsg
 
 * # tvtools: Frames-First Time-Varying Pipeline
 
@@ -243,22 +259,19 @@ noisily tvevent, frame(`f_merged') id(id) ///
 noisily display "event indicator: " as result "`r(generate)'" ///
     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 
-* Keep the four-call result so Step 5 can be checked against it rather than
-* merely described as equivalent.
+* Keep the four-call result so the tvbuild section can be checked against it
+* rather than merely described as equivalent.
 local prim_periods = c(N)
 quietly save "`primitive_out'", replace
+log close pipe
 
 
-* ## Step 5: all four steps above as one tvbuild call
-* tvbuild reads the same two raw episode files Steps 1-4 consumed and
-* coordinates the same tvexpose, tvmerge, and tvevent engines rather than
-* reimplementing interval semantics: it tiles each episode source, aligns them,
-* places the events, and commits the output frame and its provenance manifest
-* as a single transaction. The specification frame carries one row per source,
-* and its observation order is semantic -- it fixes generated-variable order,
-* merge order, displayed plan order, and manifest order. It is built with
-* `generate' rather than `input' because `input' stores a macro reference
-* literally instead of expanding it.
+**# tvbuild specification frame
+* Built with the log closed: it is input to tvbuild, not a demonstration of it.
+* One row per source. The observation order is semantic -- it fixes
+* generated-variable order, merge order, displayed plan order, and manifest
+* order. It is built with `generate' rather than `input' because `input' stores
+* a macro reference literally instead of expanding it.
 capture frame drop tvbuild_spec
 frame create tvbuild_spec
 frame tvbuild_spec {
@@ -279,7 +292,49 @@ frame tvbuild_spec {
 }
 frame tvbuild_spec: char _dta[tvbuild_spec_version] "1"
 
-* ### The plan, validated against the data, changing nothing
+
+**# tvbuild: the same construction as one call
+log using "`demo_dir'/console_tvbuild.log", replace text name(build) nomsg
+
+* # tvbuild: The Whole Route as One Call
+
+* ## The one-source shortcut
+* The smallest useful tvbuild call. It reads the raw dispensing extract as it
+* stands -- one row per dispensed episode, nothing coded to the unexposed
+* reference category -- tiles it against each person's follow-up window, and
+* commits a named analysis frame plus a provenance manifest as one transaction.
+* No specification frame, no intermediate save/use, and the caller's cohort in
+* memory is read and never written.
+use "`cohort'", clear
+noisily tvbuild, sourceusing("`episodes_antidep'") ///
+    id(id) entry(study_entry) exit(study_exit) ///
+    start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///
+    referencelabel("Unexposed") label("Antidepressant class") ///
+    generate(tv_drug) keepvars(age female) ///
+    frameout(`f_one') manifestframe(`f_oneprov') replace
+noisily display "committed frame rows: " as result r(N_periods) ///
+    as text "   persons: " as result r(N_persons) ///
+    as text "   bounds: " as result "`r(startvar)'/`r(stopvar)'" ///
+    as text "   exposure vars: " as result "`r(exposure_vars)'"
+
+* ## What the shortcut committed
+noisily frame `f_one': list id start stop tv_drug age female in 1/10, ///
+    noobs abbreviate(12)
+
+* ## Its provenance manifest
+noisily frame `f_oneprov': list stage source_name n_input n_output n_persons, ///
+    noobs
+
+* ## The multi-source specification: one row per source
+* tvbuild reads the same two raw episode files Steps 1-4 consumed and
+* coordinates the same tvexpose, tvmerge, and tvevent engines rather than
+* reimplementing interval semantics: it tiles each episode source, aligns them,
+* places the events, and commits the output frame and its provenance manifest
+* as a single transaction.
+noisily frame tvbuild_spec: list source_name source_kind start_var stop_var ///
+    input_vars output_vars reference, noobs abbreviate(14)
+
+* ## The plan, validated against the data, changing nothing
 * dryrun is not a syntax check: it runs the same parser, normalizer, name
 * planner, data validators, and destination preflight the real run uses.
 use "`cohort'", clear
@@ -289,7 +344,7 @@ noisily tvbuild, specframe(tvbuild_spec) ///
     eventgenerate(outcome) ///
     frameout(`f_pipe') manifestframe(`f_prov') replace dryrun
 
-* ### The committed run
+* ## The committed run
 use "`cohort'", clear
 noisily tvbuild, specframe(tvbuild_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
@@ -301,16 +356,18 @@ noisily display "committed periods: " as result r(N_periods) ///
     "   signature: " as result "`r(datasignature)'"
 noisily matrix list r(stage_counts)
 
-* ### Provenance manifest: one row per stage, in execution order
+* ## Provenance manifest: one row per stage, in execution order
 noisily frame `f_prov': list stage source_name n_input n_output n_persons, noobs
-capture frame drop tvbuild_spec
 
-* ### Same inputs, same engines, same records
+* ## Same inputs, same engines, same records
 * The four-call route and the single call are compared on the columns they
 * share, after an identical sort. cf is the right test here and datasignature
 * is not: tvbuild keeps the master's id storage type and commits its bounds as
 * doubles, so the two routes carry identical values under different storage
 * types, which datasignature folds into its checksum.
+* The keep/sort/save bookkeeping below is closed out of the log: it prepares
+* the comparison, it is not part of what tvbuild does.
+log close build
 local cmp_vars "id start stop `gA' `gB' outcome"
 
 use "`primitive_out'", clear
@@ -329,17 +386,18 @@ frame change `demo_frame'
 capture frame drop `f_cmp'
 
 use "`pipe_cmp'", clear
+log using "`demo_dir'/console_tvbuild.log", append text name(build) nomsg
 noisily cf _all using "`prim_cmp'", verbose
 local cmp_diffs = r(Nsum)
 assert `cmp_diffs' == 0
-noisily display "tvexpose x2 + tvmerge + tvevent: " as result `prim_periods' ///
-    as text " periods" _newline ///
-    "one tvbuild call:                " as result `pipe_periods' ///
-    as text " periods" _newline ///
-    "cf mismatching values:           " as result `cmp_diffs'
+noisily display "tvexpose x2 + tvmerge + tvevent: " as result `prim_periods' as text " periods"
+noisily display "one tvbuild call:                " as result `pipe_periods' as text " periods"
+noisily display "cf mismatching values:           " as result `cmp_diffs'
+log close build
 
 
 **# Marginal structural model weighting with IPCW
+log using "`demo_dir'/console_msm.log", replace text name(msm) nomsg
 
 * # MSM Weighting: IPTW x IPCW + Positivity
 
@@ -353,9 +411,11 @@ noisily tvweight treat, covariates(age female biomarker) ///
     stabilized generate(iptw) balance nolog
 noisily display "combined-weight ESS: " as result %6.1f r(ess_combined) ///
     "   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
+log close msm
 
 
 **# Recurrent-event PWP / AG formatting
+log using "`demo_dir'/console_recurrent.log", replace text name(rec) nomsg
 
 * # Recurrent Events: PWP / Andersen-Gill Formatting
 
@@ -381,9 +441,11 @@ noisily display "stratum var: " as result "`r(enum)'" ///
 * ## A few persons with repeated events
 noisily list id win_start win_stop hosp_ev stratum t0 t in 1/12, ///
     sepby(id) noobs abbreviate(12)
+log close rec
 
 
 **# Multi-group weighting + age bands
+log using "`demo_dir'/console_multigroup.log", replace text name(mg) nomsg
 
 * # Multi-Group Weighting and Age Bands
 
@@ -401,6 +463,7 @@ noisily tvweight tv_drug, covariates(age female) ///
 use "`cohort'", clear
 noisily tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///
     groupwidth(5) minage(40) maxage(80)
+log close mg
 
 
 **# Graphs
@@ -476,10 +539,50 @@ if _rc != 0 {
     exit 603
 }
 capture graph drop `demo_swim_graph'
+
+
+**# Convert the console logs to markdown with logdoc
+* logdoc is an optional companion package. When it is not on the adopath the
+* demo tries the sibling checkout next to tvtools before giving up; the .log
+* files are complete either way, only the .md rendering is skipped.
+capture which logdoc
+if _rc != 0 {
+    capture quietly net install logdoc, from("`demo_dir'/../../logdoc") replace
+    capture which logdoc
+}
+if _rc != 0 {
+    display as text "logdoc not available; console .log files written, .md skipped"
+}
+else {
+    local demo_logs "pipeline tvbuild msm recurrent multigroup"
+    local demo_titles `""tvtools: Frames-First Pipeline""'
+    local demo_titles `"`demo_titles' "tvbuild: The Whole Route as One Call""'
+    local demo_titles `"`demo_titles' "tvtools: MSM Weighting with IPCW""'
+    local demo_titles `"`demo_titles' "tvtools: Recurrent-Event Formatting""'
+    local demo_titles `"`demo_titles' "tvtools: Multi-Group Weighting and Age Bands""'
+    local demo_j = 0
+    foreach lg of local demo_logs {
+        local demo_j = `demo_j' + 1
+        local demo_title : word `demo_j' of `demo_titles'
+        logdoc using "`demo_dir'/console_`lg'.log", ///
+            output("`demo_dir'/console_`lg'.md") ///
+            format(md) title("`demo_title'") nodots replace quiet
+        capture confirm file "`demo_dir'/console_`lg'.md"
+        if _rc != 0 {
+            display as error "logdoc did not write console_`lg'.md"
+            exit 601
+        }
+    }
+}
 }
 local demo_rc = _rc
 
 * --- Unconditional cleanup and session restoration ---
+capture log close pipe
+capture log close build
+capture log close msm
+capture log close rec
+capture log close mg
 capture graph drop tvw_loveplot
 capture graph drop tvd_swimlane
 capture graph drop `demo_love_graph'
@@ -495,7 +598,8 @@ if `demo_had_swim_graph' {
 capture matrix drop `demo_balance'
 capture frame change `demo_frame'
 capture frame drop tvbuild_spec
-foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' `f_cmp' {
+foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' ///
+    `f_cmp' `f_one' `f_oneprov' {
     capture frame drop `frame_name'
 }
 if `demo_preserved' capture restore

@@ -88,7 +88,7 @@ program define tvtools, rclass
         // Default: organized view
         if inlist("`category'", "all", "prep") {
             display as text "{bf:Data Preparation}"
-            display as result "  tvbuild     " as text "- Build a committed interval frame end to end"
+            display as result "  tvbuild    " as text "- Build a committed interval frame end to end"
             display as result "  tvexpose   " as text "- Create time-varying exposure variables"
             display as result "  tvmerge    " as text "- Merge multiple time-varying datasets"
             display as result "  tvevent    " as text "- Integrate events and competing risks"
@@ -157,7 +157,7 @@ program define _tvtools_detail
     if inlist("`category'", "all", "prep") {
         display as text "{bf:Data Preparation}"
         display as text "  {hline 60}"
-        display as result "  tvbuild" as text "       Build a committed, analysis-ready interval frame"
+        display as result "  tvbuild" as text "      Build a committed, analysis-ready interval frame"
         display as text "               from a cohort and one or more longitudinal"
         display as text "               sources. Coordinates tvexpose, tvmerge, and"
         display as text "               tvevent; the recommended front door."
