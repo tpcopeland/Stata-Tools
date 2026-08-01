@@ -1,5 +1,6 @@
 {smcl}
 {* Help for tvbuild. The package version lives in tvtools.sthlp only.}{...}
+{vieweralsosee "tvspec" "help tvspec"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -103,7 +104,8 @@ cohort and one or more longitudinal sources
 {synopt:{opt gapsto:p(name)}}gap-time stop; default {cmd:_t}{p_end}
 
 {syntab:Transaction}
-{synopt:{opt manifest:frame(name)}}optional provenance manifest frame{p_end}
+{synopt:{opt manifest:frame(name)}}provenance manifest frame; default {it:frameout}{cmd:_manifest}{p_end}
+{synopt:{opt noman:ifest}}do not build a provenance manifest{p_end}
 {synopt:{opt dry:run}}validate and print the plan; change nothing{p_end}
 {synopt:{opt rep:lace}}authorize replacing an existing destination frame{p_end}
 {synoptline}
@@ -220,6 +222,32 @@ output: neither is committed unless both verify.
 {opt replace} authorizes replacing an existing {opt frameout()} and, when
 specified, an existing {opt manifestframe()}. It never authorizes an
 input/output alias or an output-name collision.
+
+{phang}
+{opt replace} authorizes replacing a destination you {it:named}. It does not
+authorize replacing a frame whose name {cmd:tvbuild} derived. If
+{opt manifestframe()} is omitted and a frame already sits at the derived name
+{it:frameout}{cmd:_manifest}, {cmd:tvbuild} exits with {cmd:r(198)} on both
+sides of {opt replace}, and names the two ways out: supply
+{opt manifestframe()} yourself, or specify {opt nomanifest}. The one exception
+is a frame {cmd:tvbuild} itself wrote there -- its own manifest from an earlier
+run, which it marks -- so a repeated call and a re-run after dropping only
+{opt frameout()} both work as expected.
+
+{phang}
+{opt manifestframe(name)} names the provenance manifest frame. When it is
+omitted, {cmd:tvbuild} builds one at {it:frameout}{cmd:_manifest}; the
+committed frame and its manifest are one transaction, so the record of what ran
+arrives with the result rather than only when it is asked for. A Stata name
+holds 32 characters and the suffix is 9 of them, so a {opt frameout()} longer
+than 23 characters cannot carry the derived name: that is {cmd:r(198)} naming
+the limit, never a truncated frame name.
+
+{phang}
+{opt nomanifest} builds no manifest and leaves {cmd:r(manifestframe)} empty. It
+reproduces the pre-1.12.0 behavior exactly: the committed {opt frameout()}
+frame is byte-identical with and without it. {opt nomanifest} may not be
+combined with {opt manifestframe()}.
 
 {dlgtab:Sources}
 
@@ -429,7 +457,7 @@ result surfaces.
 {synopt:{cmd:r(specframe)}}specification frame, when used{p_end}
 {synopt:{cmd:r(frameout)}}planned or committed output frame{p_end}
 {synopt:{cmd:r(coverage)}}{cmd:strict} or {cmd:allow}{p_end}
-{synopt:{cmd:r(manifestframe)}}manifest frame, when requested{p_end}
+{synopt:{cmd:r(manifestframe)}}manifest frame; empty only under {opt nomanifest}{p_end}
 {synopt:{cmd:r(eventvar)}}event indicator, when requested{p_end}
 {synopt:{cmd:r(timevar)}}elapsed-time variable, when requested{p_end}
 {synopt:{cmd:r(enumvar)}}recurrent-event stratum, when requested{p_end}
@@ -505,7 +533,7 @@ removing it, so {cmd:_dta[tvtools_pipeline_event]} is absent when no event
 stage ran.
 
 {pstd}
-{opt manifestframe()} adds one row per executed stage -- {cmd:master}, one per
+The provenance manifest adds one row per executed stage -- {cmd:master}, one per
 source, {cmd:merge} when applicable, {cmd:event} when applicable, and
 {cmd:output} -- carrying the stage index, the logical source name and kind, the
 input locator, the declared input and output variables, the quantity mapping,

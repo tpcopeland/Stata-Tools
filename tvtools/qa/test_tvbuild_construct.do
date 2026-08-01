@@ -1311,12 +1311,16 @@ quietly datasignature
 local x3_after "`r(datasignature)'"
 _tvb_framelist
 local x3_fl_after "`r(frames)'"
-local x3_expect "`x3_fl_before' tb_px3"
+* Both destinations, and only those two. Since 1.12.0 the manifest is built by
+* default, so a run with no manifestframe() commits frameout() AND its derived
+* manifest; naming both here keeps the check exact rather than loosening it,
+* and it still fails on any leaked scratch frame.
+local x3_expect "`x3_fl_before' tb_px3 tb_px3_manifest"
 local x3_expect : list sort x3_expect
 local ok = (`x3_rc' == 0 & "`x3_before'" == "`x3_after'" & ///
     "`c(frame)'" == "`x3_frame_before'" & "`x3_fl_after'" == "`x3_expect'")
 _tvb_check `ok' ///
-    "X3 the caller's data, current frame, and frame list gain only the destination" ///
+    "X3 the caller's data, current frame, and frame list gain only the two destinations" ///
     "rc=`x3_rc' sig=`x3_before'/`x3_after' frames=`x3_fl_after'"
 
 * X4: two identical runs produce identical results.

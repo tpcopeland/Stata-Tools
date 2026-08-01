@@ -39,14 +39,14 @@ quietly cd "$TVTOOLS_QA_RUN_DIR/helpex"
 local ++test_count
 capture noisily {
     tvtools
-    assert r(n_commands) == 10
+    assert r(n_commands) == 11
     local _all "`r(commands)'"
 
     tvtools, detail
-    assert r(n_commands) == 10
+    assert r(n_commands) == 11
 
     tvtools, category(prep)
-    assert r(n_commands) == 8
+    assert r(n_commands) == 9
 
     tvtools, category(diag)
     assert r(n_commands) == 1
@@ -555,7 +555,8 @@ capture noisily {
         generate(tv_drug) frameout(analysis) replace ///
         eventframe(ev_frame) eventdate(ev) eventtype(recurring) enum(_enum) gaptime
     assert r(enumvar) == "_enum"
-    foreach f in analysis provenance alt_frame drug_frame pipe_spec ev_frame rx_frame {
+    foreach f in analysis analysis_manifest provenance alt_frame drug_frame ///
+        pipe_spec ev_frame rx_frame {
         capture frame drop `f'
     }
 }
@@ -567,6 +568,67 @@ else {
     display as error "  FAIL [H10]: tvbuild help examples (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' H10"
+}
+
+
+* H11: tvspec help examples
+* The .sthlp examples name antidep.dta / benzo.dta, which no installed user has
+* either. What is executed here is the same three-line shape against this
+* suite's own fixtures, plus the two claims the help file makes about the
+* result: that tvspec list reports the sources in order, and that tvbuild
+* accepts the frame tvspec wrote.
+local ++test_count
+capture noisily {
+    capture frame drop study_spec
+    capture frame drop analysis
+    capture frame drop analysis_manifest
+    capture frame drop lab_intervals
+
+    tvspec create study_spec, replace
+    tvspec add study_spec, name(antidep) using(`"`episodes'"') ///
+        start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
+        generate(tv_drug) referencelabel("Unexposed") ///
+        label("Antidepressant class")
+    assert r(n_sources) == 1
+    assert "`r(source_name)'" == "antidep"
+
+    tvspec list study_spec
+    assert r(n_sources) == 1
+    assert "`r(source_names)'" == "antidep"
+
+    use `cohort', clear
+    tvbuild, specframe(study_spec) id(id) entry(study_entry) ///
+        exit(study_exit) frameout(analysis)
+    assert "`r(source_names)'" == "antidep"
+    assert "`r(exposure_vars)'" == "tv_drug"
+
+    * The documented intervals form, with the characteristic the rate()
+    * declaration is checked against.
+    capture frame drop lab_intervals
+    frame create lab_intervals
+    frame lab_intervals {
+        input long id double start double stop double egfr
+        1 20000 20500 60
+        2 20100 20600 70
+        end
+        char egfr[tvtools_quantity] "rate"
+    }
+    tvspec add study_spec, name(labs) frame(lab_intervals) start(start) ///
+        stop(stop) exposure(egfr) generate(tv_egfr) kind(intervals) rate(egfr)
+    assert r(n_sources) == 2
+
+    foreach f in study_spec analysis analysis_manifest lab_intervals {
+        capture frame drop `f'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS [H11]: tvspec help examples run after installation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL [H11]: tvspec help examples (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' H11"
 }
 
 quietly cd "`_origdir'"

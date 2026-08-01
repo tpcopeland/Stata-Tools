@@ -32,12 +32,12 @@ keep id win_start win_stop
 tempfile recint
 ```
 
-```stata
-save "`recint'"
-```
+<!-- * quietly: a bare save echoes the tempfile's PID-stamped /tmp path into the -->
 
-```
-file /tmp/St305843.00000d saved as .dta format
+<!-- * published console asset, which makes the .md differ on every machine and run. -->
+
+```stata
+quietly save "`recint'"
 ```
 
 ```stata

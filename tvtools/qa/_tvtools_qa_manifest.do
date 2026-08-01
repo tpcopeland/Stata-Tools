@@ -11,7 +11,7 @@
 local quick_suites test_package_runner_contract ///
     test_tvage test_tvband test_tvsplit ///
     test_tvevent test_tvexpose test_tvmerge ///
-    test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
+    test_tvpanel test_tvweight test_tvdiagnose test_tvtools test_tvtools_catalog ///
     test_options test_integration test_edge_cases test_extended_missing test_verbose ///
     test_frames_input test_default_naming test_package_state ///
     test_help_examples
@@ -25,6 +25,8 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     test_tvbuild_dryrun ///
     test_tvbuild_construct ///
     test_tvbuild_commit ///
+    test_tvbuild_manifest_default ///
+    test_tvspec ///
     test_tvbuild_regressions_1_10_2 ///
     test_program_limits ///
     test_tvexpose_diagnostics ///
@@ -62,6 +64,7 @@ local meta_suites test_package_runner_contract
 local manifest_suites test_package_runner_contract ///
     test_tvage test_tvband test_tvsplit test_tvevent test_tvexpose ///
     test_tvmerge test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
+    test_tvtools_catalog ///
     test_options test_integration test_edge_cases test_extended_missing test_verbose ///
     test_frames_input test_default_naming test_package_state ///
     test_help_examples ///
@@ -72,6 +75,8 @@ local manifest_suites test_package_runner_contract ///
     test_tvevent_segments ///
     test_tvexpose_fastpath test_tvbuild_dryrun ///
     test_tvbuild_construct test_tvbuild_commit ///
+    test_tvbuild_manifest_default ///
+    test_tvspec ///
     test_tvbuild_regressions_1_10_2 ///
     test_program_limits test_tvexpose_diagnostics ///
     test_tvm_point_engine validation_phase0_semantics ///
@@ -95,10 +100,11 @@ local manifest_suites test_package_runner_contract ///
 local manifest_counts 11 ///
     39 8 8 27 38 ///
     21 13 43 19 15 ///
+    15 ///
     87 22 15 10 22 ///
     7 5 21 ///
-    10 ///
-    165 21 29 17 14 20 52 75 48 35 18 70 15 4 7 ///
+    11 ///
+    165 21 29 17 14 20 52 75 48 35 25 22 18 72 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///
@@ -116,7 +122,7 @@ local manifest_counts 11 ///
 * when the standalone external lane is requested. Full/release override these
 * flags and require zero skips.
 local manifest_allow_skips ""
-forvalues i = 1/67 {
+forvalues i = 1/70 {
     local manifest_allow_skips "`manifest_allow_skips' 0"
 }
 local manifest_allow_skips "`manifest_allow_skips' 1 1 1 0 0 0"

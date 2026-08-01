@@ -447,10 +447,9 @@ local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test 5: All tvtools programs load without error}"
 
 local load_fails = 0
-// Drop subprograms that would cause "already defined" on reload
-foreach sub in _tvtools_detail {
-    capture program drop `sub'
-}
+// tvtools.ado used to define a _tvtools_detail subprogram that had to be
+// dropped before a reload. The catalog is rendered from one table inside
+// tvtools itself now, so there is no subprogram left to drop.
 foreach cmd in tvtools tvexpose tvmerge tvevent tvdiagnose ///
     tvage tvweight {
     capture program drop `cmd'

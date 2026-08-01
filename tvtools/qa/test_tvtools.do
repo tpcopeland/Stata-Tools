@@ -54,8 +54,9 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(prep)
-    assert r(n_commands) == 8
+    assert r(n_commands) == 9
     local cmds "`r(commands)'"
+    assert strpos("`cmds'", "tvspec") > 0
     assert strpos("`cmds'", "tvexpose") > 0
     assert strpos("`cmds'", "tvmerge") > 0
     assert strpos("`cmds'", "tvevent") > 0
@@ -65,11 +66,11 @@ capture noisily {
     assert strpos("`cmds'", "tvpanel") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: category(prep) returns 7 commands"
+    display as result "  PASS: category(prep) returns 9 commands"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: category(prep) returns 4 commands (error `=_rc')"
+    display as error "  FAIL: category(prep) returns 9 commands (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 1.2"
 }
@@ -116,17 +117,17 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(all)
-    assert r(n_commands) == 10
+    assert r(n_commands) == 11
     assert strpos("`r(commands)'", "tvpanel") > 0
     assert strpos("`r(commands)'", "tvband") > 0
     assert strpos("`r(commands)'", "tvsplit") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: category(all) returns 9 commands"
+    display as result "  PASS: category(all) returns 11 commands"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: category(all) returns 6 commands (error `=_rc')"
+    display as error "  FAIL: category(all) returns 11 commands (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 1.6"
 }
@@ -152,7 +153,7 @@ local ++test_count
 capture noisily {
     tvtools, list
     assert "`r(commands)'" != ""
-    assert r(n_commands) == 10
+    assert r(n_commands) == 11
 }
 if _rc == 0 {
     display as result "  PASS: list option works"
@@ -184,7 +185,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, list category(prep)
-    assert r(n_commands) == 8
+    assert r(n_commands) == 9
 }
 if _rc == 0 {
     display as result "  PASS: list + category(prep) combination works"
@@ -216,7 +217,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(PREP)
-    assert r(n_commands) == 8
+    assert r(n_commands) == 9
 }
 if _rc == 0 {
     display as result "  PASS: Case-insensitive category(PREP) works"

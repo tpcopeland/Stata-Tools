@@ -1,4 +1,4 @@
-*! _tvbuild_commit Version 1.11.0  2026/07/31
+*! _tvbuild_commit Version 1.12.0  2026/08/01
 *! Commit tvbuild's result and optional manifest as one transaction
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -103,10 +103,21 @@ program define _tvbuild_commit, rclass
     if `_do_manifest' {
         frame change `manifestframe'
         local _n_man = _N
+        local _manchar : char _dta[tvtools_manifest]
         frame change `_caller_frame'
         if `_n_man' == 0 {
             noisily display as error ///
                 "tvbuild: the committed manifest frame `manifestframe' is empty"
+            exit 459
+        }
+        * The mark travels with `frame copy'. Verified here for the same reason
+        * the output frame's tvtools_pipeline mark is: a later run reads it to
+        * decide whether a frame at a DERIVED name is tvbuild's to replace, so a
+        * commit that lost it would turn the next run's ownership check into a
+        * refusal the user cannot act on.
+        if "`_manchar'" != "tvbuild" {
+            noisily display as error ///
+                "tvbuild: the committed manifest frame `manifestframe' lost its provenance mark"
             exit 459
         }
     }

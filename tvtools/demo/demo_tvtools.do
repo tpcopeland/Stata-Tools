@@ -1,4 +1,4 @@
-/*  demo_tvtools.do - Generate documentation output for tvtools (v1.11.0)
+/*  demo_tvtools.do - Generate documentation output for tvtools (v1.12.0)
 
     Console assets produced (.log -> .md via logdoc):
       1. Frames-first primitive pipeline           -> console_pipeline.{log,md}
@@ -63,11 +63,30 @@ if `"`demo_dir'"' == "" {
 
 tempfile cohort episodes_antidep episodes_benzo events recur panel ///
     primitive_out prim_cmp pipe_cmp caller_love_graph caller_swim_graph
-tempname f_antidep f_benzo f_merged f_pipe f_prov f_cmp demo_balance ///
-    demo_love_graph demo_swim_graph f_one f_oneprov
+* f_cmp stays a tempname: it holds the comparison copy and never appears in any
+* published console asset. Every frame the demo does show the reader is a
+* readable literal instead, so the reports quote names a user could retype.
+tempname f_cmp demo_balance demo_love_graph demo_swim_graph
 local demo_had_love_graph = 0
 local demo_had_swim_graph = 0
 local demo_graph_snapshot_rc = 0
+
+* Literal frame names lose tempname's auto-drop, so the demo has to prove it
+* owns each one before it writes to it. The tvdemo_ prefix keeps the namespace
+* implausible for a caller to already hold, but implausible is not empty: if any
+* of them exists the demo refuses to start rather than replacing a frame it did
+* not create. demo_owns_frames gates the cleanup drop for exactly this case --
+* aborting on a clash and then dropping the caller's frames in cleanup would
+* destroy the data the check exists to protect.
+local demo_frames tvdemo_antidep tvdemo_benzo tvdemo_merged ///
+    tvdemo_full tvdemo_full_manifest ///
+    tvdemo_analysis tvdemo_analysis_manifest tvdemo_spec
+local demo_frame_clash ""
+foreach demo_fr of local demo_frames {
+    capture confirm frame `demo_fr'
+    if _rc == 0 local demo_frame_clash "`demo_frame_clash' `demo_fr'"
+}
+local demo_owns_frames = ("`demo_frame_clash'" == "")
 
 * The commands use stable public graph names. Preserve any caller graphs with
 * those names before the demo temporarily takes ownership of them.
@@ -96,6 +115,13 @@ capture noisily {
     if `demo_graph_snapshot_rc' {
         display as error "could not preserve caller graph state"
         exit `demo_graph_snapshot_rc'
+    }
+    if !`demo_owns_frames' {
+        display as error ///
+            "these frames already exist and the demo will not replace them:`demo_frame_clash'"
+        display as error ///
+            "drop or rename them, then re-run the demo"
+        exit 110
     }
     if `"`demo_dir'"' == "" {
         display as error "could not locate demo_tvtools.do; pass its directory as the first argument"
@@ -230,7 +256,7 @@ noisily tvexpose using "`episodes_antidep'", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    keepvars(age female) keepdates frameout(`f_antidep')
+    keepvars(age female) keepdates frameout(tvdemo_antidep)
 local gA = r(genvar)
 noisily display "antidepressant exposure variable: " as result "`gA'"
 
@@ -238,23 +264,23 @@ quietly tvexpose using "`episodes_benzo'", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(benzo_use) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    keepvars(age female) keepdates frameout(`f_benzo')
+    keepvars(age female) keepdates frameout(tvdemo_benzo)
 local gB = r(genvar)
 noisily display "benzodiazepine exposure variable: " as result "`gB'"
 
 * ## Step 2: tvdiagnose on the in-memory frame
-noisily frame `f_antidep': tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
+noisily frame tvdemo_antidep: tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
     entry(study_entry) exit(study_exit) coverage gaps
 
 * ## Step 3: tvmerge reads both frames, writes a merged frame
-noisily tvmerge, frames(`f_antidep' `f_benzo') id(id) ///
+noisily tvmerge, frames(tvdemo_antidep tvdemo_benzo) id(id) ///
     start(rx_start rx_start) stop(rx_stop rx_stop) ///
-    exposure(`gA' `gB') frameout(`f_merged')
+    exposure(`gA' `gB') frameout(tvdemo_merged)
 noisily display "merged interval vars: " as result "`r(startname)' / `r(stopname)'"
 
 * ## Step 4: tvevent reads the merged frame, adds the outcome in memory
 use "`events'", clear
-noisily tvevent, frame(`f_merged') id(id) ///
+noisily tvevent, frame(tvdemo_merged) id(id) ///
     date(cv_event_date) compete(death_date) generate(outcome)
 noisily display "event indicator: " as result "`r(generate)'" ///
     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
@@ -264,33 +290,6 @@ noisily display "event indicator: " as result "`r(generate)'" ///
 local prim_periods = c(N)
 quietly save "`primitive_out'", replace
 log close pipe
-
-
-**# tvbuild specification frame
-* Built with the log closed: it is input to tvbuild, not a demonstration of it.
-* One row per source. The observation order is semantic -- it fixes
-* generated-variable order, merge order, displayed plan order, and manifest
-* order. It is built with `generate' rather than `input' because `input' stores
-* a macro reference literally instead of expanding it.
-capture frame drop tvbuild_spec
-frame create tvbuild_spec
-frame tvbuild_spec {
-    quietly set obs 2
-    quietly generate str32 source_name     = cond(_n == 1, "antidep", "benzo")
-    quietly generate str12 source_kind     = "episodes"
-    quietly generate str32 source_frame    = ""
-    quietly generate strL  source_file     = cond(_n == 1, ///
-        "`episodes_antidep'", "`episodes_benzo'")
-    quietly generate str32 start_var       = "rx_start"
-    quietly generate str32 stop_var        = "rx_stop"
-    quietly generate strL  input_vars      = cond(_n == 1, "drug", "benzo_use")
-    quietly generate strL  output_vars     = cond(_n == 1, "`gA'", "`gB'")
-    quietly generate double reference      = 0
-    quietly generate strL  reference_label = cond(_n == 1, "Unexposed", "No benzo")
-    quietly generate strL  variable_label  = cond(_n == 1, ///
-        "Antidepressant class", "Benzodiazepine use")
-}
-frame tvbuild_spec: char _dta[tvbuild_spec_version] "1"
 
 
 **# tvbuild: the same construction as one call
@@ -305,59 +304,73 @@ log using "`demo_dir'/console_tvbuild.log", replace text name(build) nomsg
 * commits a named analysis frame plus a provenance manifest as one transaction.
 * No specification frame, no intermediate save/use, and the caller's cohort in
 * memory is read and never written.
+* manifestframe() is not given: since 1.12.0 tvbuild derives it from frameout(),
+* so the provenance record arrives with the result rather than only on request.
 use "`cohort'", clear
 noisily tvbuild, sourceusing("`episodes_antidep'") ///
     id(id) entry(study_entry) exit(study_exit) ///
     start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///
     referencelabel("Unexposed") label("Antidepressant class") ///
     generate(tv_drug) keepvars(age female) ///
-    frameout(`f_one') manifestframe(`f_oneprov') replace
+    frameout(tvdemo_analysis) replace
 noisily display "committed frame rows: " as result r(N_periods) ///
     as text "   persons: " as result r(N_persons) ///
     as text "   bounds: " as result "`r(startvar)'/`r(stopvar)'" ///
     as text "   exposure vars: " as result "`r(exposure_vars)'"
 
 * ## What the shortcut committed
-noisily frame `f_one': list id start stop tv_drug age female in 1/10, ///
+noisily frame tvdemo_analysis: list id start stop tv_drug age female in 1/10, ///
     noobs abbreviate(12)
 
 * ## Its provenance manifest
-noisily frame `f_oneprov': list stage source_name n_input n_output n_persons, ///
+noisily frame tvdemo_analysis_manifest: list stage source_name n_input n_output n_persons, ///
     noobs
 
-* ## The multi-source specification: one row per source
+* ## The multi-source specification: one tvspec call per source
+* Describing two sources used to take twelve generate statements across nine
+* typed columns, which is why this block used to be built with the log closed.
+* tvspec writes the same columns, so it can be shown where it belongs.
+noisily tvspec create tvdemo_spec, replace
+noisily tvspec add tvdemo_spec, name(antidep) using("`episodes_antidep'") ///
+    start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///
+    generate(`gA') referencelabel("Unexposed") label("Antidepressant class")
+noisily tvspec add tvdemo_spec, name(benzo) using("`episodes_benzo'") ///
+    start(rx_start) stop(rx_stop) exposure(benzo_use) reference(0) ///
+    generate(`gB') referencelabel("No benzo") label("Benzodiazepine use")
+
+* ## The specification tvbuild will read
+noisily tvspec list tvdemo_spec
+
 * tvbuild reads the same two raw episode files Steps 1-4 consumed and
 * coordinates the same tvexpose, tvmerge, and tvevent engines rather than
 * reimplementing interval semantics: it tiles each episode source, aligns them,
 * places the events, and commits the output frame and its provenance manifest
 * as a single transaction.
-noisily frame tvbuild_spec: list source_name source_kind start_var stop_var ///
-    input_vars output_vars reference, noobs abbreviate(14)
 
 * ## The plan, validated against the data, changing nothing
 * dryrun is not a syntax check: it runs the same parser, normalizer, name
 * planner, data validators, and destination preflight the real run uses.
 use "`cohort'", clear
-noisily tvbuild, specframe(tvbuild_spec) ///
+noisily tvbuild, specframe(tvdemo_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
     eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
     eventgenerate(outcome) ///
-    frameout(`f_pipe') manifestframe(`f_prov') replace dryrun
+    frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace dryrun
 
 * ## The committed run
 use "`cohort'", clear
-noisily tvbuild, specframe(tvbuild_spec) ///
+noisily tvbuild, specframe(tvdemo_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
     eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
     eventgenerate(outcome) ///
-    frameout(`f_pipe') manifestframe(`f_prov') replace
+    frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace
 local pipe_periods = r(N_periods)
 noisily display "committed periods: " as result r(N_periods) ///
     "   signature: " as result "`r(datasignature)'"
 noisily matrix list r(stage_counts)
 
 * ## Provenance manifest: one row per stage, in execution order
-noisily frame `f_prov': list stage source_name n_input n_output n_persons, noobs
+noisily frame tvdemo_full_manifest: list stage source_name n_input n_output n_persons, noobs
 
 * ## Same inputs, same engines, same records
 * The four-call route and the single call are compared on the columns they
@@ -376,7 +389,7 @@ order `cmp_vars'
 sort id start stop
 quietly save "`prim_cmp'", replace
 
-frame copy `f_pipe' `f_cmp', replace
+frame copy tvdemo_full `f_cmp', replace
 frame change `f_cmp'
 keep `cmp_vars'
 order `cmp_vars'
@@ -428,7 +441,9 @@ rename study_entry win_start
 rename study_exit win_stop
 keep id win_start win_stop
 tempfile recint
-save "`recint'"
+* quietly: a bare save echoes the tempfile's PID-stamped /tmp path into the
+* published console asset, which makes the .md differ on every machine and run.
+quietly save "`recint'"
 
 use "`recur'", clear
 keep id hosp1 hosp2 hosp3
@@ -597,10 +612,14 @@ if `demo_had_swim_graph' {
 }
 capture matrix drop `demo_balance'
 capture frame change `demo_frame'
-capture frame drop tvbuild_spec
-foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' ///
-    `f_cmp' `f_one' `f_oneprov' {
-    capture frame drop `frame_name'
+capture frame drop `f_cmp'
+* Drop the literal frames only when the pre-flight check proved the demo owned
+* them. On a clash the demo created none of them, and dropping them here would
+* destroy exactly the caller data the check refused to overwrite.
+if `demo_owns_frames' {
+    foreach frame_name of local demo_frames {
+        capture frame drop `frame_name'
+    }
 }
 if `demo_preserved' capture restore
 capture set more `demo_more'

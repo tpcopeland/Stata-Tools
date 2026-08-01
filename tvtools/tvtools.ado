@@ -1,4 +1,4 @@
-*! tvtools Version 1.11.0  2026/07/31
+*! tvtools Version 1.12.0  2026/08/01
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -42,27 +42,108 @@ program define tvtools, rclass
         exit 198
     }
 
-    // Define commands by category
-    local cmd_prep "tvbuild tvexpose tvmerge tvevent tvage tvband tvsplit tvpanel"
-    local cmd_diag "tvdiagnose"
+    **# -------------------------------------------------------------------
+    **# The command catalog: one table, three consumers
+    **# -------------------------------------------------------------------
+    * The category lists below are the ONLY place the command set is written
+    * down. r(commands), r(n_commands), the compact view, and the detail view
+    * are all derived from them, so a new command cannot appear in one place
+    * and be missed in another. This used to be three parallel copies -- the
+    * lists here, ten hand-padded display lines, and ten more in the detail
+    * subroutine -- and the copies drifted: tvbuild's compact and detail rows
+    * each carried one space more than every other row, hanging its dash a
+    * column to the right in a shipped release.
+    local cmd_prep   "tvbuild tvspec tvexpose tvmerge tvevent tvage tvband tvsplit tvpanel"
+    local cmd_diag   "tvdiagnose"
     local cmd_weight "tvweight"
 
+    * One short blurb per command for the compact view.
+    local d_tvbuild    "Build a committed interval frame end to end"
+    local d_tvspec     "Build a tvbuild specification frame"
+    local d_tvexpose   "Create time-varying exposure variables"
+    local d_tvmerge    "Merge multiple time-varying datasets"
+    local d_tvevent    "Integrate events and competing risks"
+    local d_tvage      "Expand person-level follow-up into age bands"
+    local d_tvband     "Split intervals on one date-derived axis"
+    local d_tvsplit    "Multi-timescale Lexis interval splitting"
+    local d_tvpanel    "Build fixed-width MSM panel grid"
+    local d_tvdiagnose "Diagnostic tools for TV datasets"
+    local d_tvweight   "Calculate IPTW weights"
+
+    * The long blurb for the detail view, pre-split one line per macro. The
+    * lines are stored rather than wrapped at run time because this output is
+    * console-only, and SMCL paragraph directives inside -display- behave
+    * differently in the console and the Viewer. The renderer stops at the
+    * first empty L_<cmd>_<k>, so a blurb is as long as it needs to be.
+    local L_tvbuild_1    "Build a committed, analysis-ready interval frame"
+    local L_tvbuild_2    "from a cohort and one or more longitudinal"
+    local L_tvbuild_3    "sources. Coordinates tvexpose, tvmerge, and"
+    local L_tvbuild_4    "tvevent; the recommended front door."
+
+    local L_tvspec_1     "Build the multi-source specification frame"
+    local L_tvspec_2     "tvbuild's specframe() consumes, one source per"
+    local L_tvspec_3     "-tvspec add- call, instead of by hand."
+
+    local L_tvexpose_1   "Create time-varying exposure variables for"
+    local L_tvexpose_2   "survival analysis. Transforms exposure records"
+    local L_tvexpose_3   "into episode format compatible with stset."
+
+    local L_tvmerge_1    "Merge multiple time-varying exposure datasets."
+    local L_tvmerge_2    "Handles overlapping time periods and validates"
+    local L_tvmerge_3    "data structure integrity."
+
+    local L_tvevent_1    "Integrate events and competing risks into"
+    local L_tvevent_2    "time-varying datasets. Supports multiple event"
+    local L_tvevent_3    "types and censoring."
+
+    local L_tvage_1      "Expand one-row-per-person follow-up into"
+    local L_tvage_2      "exact calendar-age bands."
+
+    local L_tvband_1     "Split follow-up intervals along one date-derived"
+    local L_tvband_2     "axis (age, calendar period, or elapsed time)."
+
+    local L_tvsplit_1    "Multi-timescale (Lexis) splitting on age,"
+    local L_tvsplit_2    "calendar, and time-since-entry simultaneously."
+
+    local L_tvpanel_1    "Build a fixed-width, entry-anchored panel grid"
+    local L_tvpanel_2    "for marginal structural models (feeds the msm"
+    local L_tvpanel_3    "package)."
+
+    local L_tvdiagnose_1 "Diagnostic tools for time-varying exposure"
+    local L_tvdiagnose_2 "datasets. Checks data structure, identifies"
+    local L_tvdiagnose_3 "gaps, and validates episode integrity."
+
+    local L_tvweight_1   "Calculate inverse probability of treatment"
+    local L_tvweight_2   "weights (IPTW) for time-varying confounding."
+
+    * Category headings, keyed by category token.
+    local h_prep   "Data Preparation"
+    local h_diag   "Diagnostics"
+    local h_weight "Weighting"
+
     // Build selected list based on category
-    if "`category'" == "prep" {
-        local selected_cmds "`cmd_prep'"
+    if "`category'" == "all" local shown "prep diag weight"
+    else local shown "`category'"
+
+    local selected_cmds ""
+    foreach g of local shown {
+        local selected_cmds "`selected_cmds' `cmd_`g''"
     }
-    else if "`category'" == "diag" {
-        local selected_cmds "`cmd_diag'"
-    }
-    else if "`category'" == "weight" {
-        local selected_cmds "`cmd_weight'"
-    }
-    else {
-        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight'"
-    }
+    local selected_cmds = strtrim(stritrim("`selected_cmds'"))
 
     // Count commands
     local n_commands: word count `selected_cmds'
+
+    * The name field is as wide as the longest name actually being shown, so
+    * there is no padding literal left to type wrongly. Both views measure the
+    * same list, so both columns move together when a command is added.
+    local w = 0
+    foreach c of local selected_cmds {
+        local l = strlen("`c'")
+        if `l' > `w' local w = `l'
+    }
+    local col_compact = `w' + 4
+    local col_detail  = `w' + 6
 
     // Display header
     display as text ""
@@ -74,7 +155,23 @@ program define tvtools, rclass
     // Display based on options
     if "`detail'" != "" {
         // Detailed view with descriptions
-        _tvtools_detail, category(`category')
+        foreach g of local shown {
+            display as text "{bf:`h_`g''}"
+            display as text "  {hline 60}"
+            foreach c of local cmd_`g' {
+                display as result "  `c'" _col(`col_detail') as text "`L_`c'_1'"
+                local k = 2
+                local more_lines = 1
+                while `more_lines' {
+                    if "`L_`c'_`k''" == "" local more_lines = 0
+                    else {
+                        display as text _col(`col_detail') "`L_`c'_`k''"
+                        local ++k
+                    }
+                }
+                display as text ""
+            }
+        }
     }
     else if "`list'" != "" {
         // Simple list view
@@ -86,28 +183,11 @@ program define tvtools, rclass
     }
     else {
         // Default: organized view
-        if inlist("`category'", "all", "prep") {
-            display as text "{bf:Data Preparation}"
-            display as result "  tvbuild    " as text "- Build a committed interval frame end to end"
-            display as result "  tvexpose   " as text "- Create time-varying exposure variables"
-            display as result "  tvmerge    " as text "- Merge multiple time-varying datasets"
-            display as result "  tvevent    " as text "- Integrate events and competing risks"
-            display as result "  tvage      " as text "- Expand person-level follow-up into age bands"
-            display as result "  tvband     " as text "- Split intervals on one date-derived axis"
-            display as result "  tvsplit    " as text "- Multi-timescale Lexis interval splitting"
-            display as result "  tvpanel    " as text "- Build fixed-width MSM panel grid"
-            display as text ""
-        }
-
-        if inlist("`category'", "all", "diag") {
-            display as text "{bf:Diagnostics}"
-            display as result "  tvdiagnose " as text "- Diagnostic tools for TV datasets"
-            display as text ""
-        }
-
-        if inlist("`category'", "all", "weight") {
-            display as text "{bf:Weighting}"
-            display as result "  tvweight   " as text "- Calculate IPTW weights"
+        foreach g of local shown {
+            display as text "{bf:`h_`g''}"
+            foreach c of local cmd_`g' {
+                display as result "  `c'" _col(`col_compact') as text "- `d_`c''"
+            }
             display as text ""
         }
 
@@ -145,64 +225,5 @@ program define tvtools, rclass
 
     if `rc' {
         exit `rc'
-    }
-end
-
-// Subroutine for detailed display
-capture program drop _tvtools_detail
-program define _tvtools_detail
-    version 16.0
-    syntax , Category(string)
-
-    if inlist("`category'", "all", "prep") {
-        display as text "{bf:Data Preparation}"
-        display as text "  {hline 60}"
-        display as result "  tvbuild" as text "      Build a committed, analysis-ready interval frame"
-        display as text "               from a cohort and one or more longitudinal"
-        display as text "               sources. Coordinates tvexpose, tvmerge, and"
-        display as text "               tvevent; the recommended front door."
-        display as text ""
-        display as result "  tvexpose" as text "     Create time-varying exposure variables for"
-        display as text "               survival analysis. Transforms exposure records"
-        display as text "               into episode format compatible with stset."
-        display as text ""
-        display as result "  tvmerge" as text "      Merge multiple time-varying exposure datasets."
-        display as text "               Handles overlapping time periods and validates"
-        display as text "               data structure integrity."
-        display as text ""
-        display as result "  tvevent" as text "      Integrate events and competing risks into"
-        display as text "               time-varying datasets. Supports multiple event"
-        display as text "               types and censoring."
-        display as text ""
-        display as result "  tvage" as text "        Expand one-row-per-person follow-up into"
-        display as text "               exact calendar-age bands."
-        display as text ""
-        display as result "  tvband" as text "       Split follow-up intervals along one date-derived"
-        display as text "               axis (age, calendar period, or elapsed time)."
-        display as text ""
-        display as result "  tvsplit" as text "      Multi-timescale (Lexis) splitting on age,"
-        display as text "               calendar, and time-since-entry simultaneously."
-        display as text ""
-        display as result "  tvpanel" as text "      Build a fixed-width, entry-anchored panel grid"
-        display as text "               for marginal structural models (feeds the msm"
-        display as text "               package)."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "diag") {
-        display as text "{bf:Diagnostics}"
-        display as text "  {hline 60}"
-        display as result "  tvdiagnose" as text "   Diagnostic tools for time-varying exposure"
-        display as text "               datasets. Checks data structure, identifies"
-        display as text "               gaps, and validates episode integrity."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "weight") {
-        display as text "{bf:Weighting}"
-        display as text "  {hline 60}"
-        display as result "  tvweight" as text "     Calculate inverse probability of treatment"
-        display as text "               weights (IPTW) for time-varying confounding."
-        display as text ""
     }
 end

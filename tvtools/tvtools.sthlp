@@ -1,6 +1,7 @@
 {smcl}
-{* *! version 1.11.0  31jul2026}{...}
+{* *! version 1.12.0  01aug2026}{...}
 {vieweralsosee "tvbuild" "help tvbuild"}{...}
+{vieweralsosee "tvspec" "help tvspec"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -69,6 +70,7 @@ workflow from data preparation through weighting and estimation.
 
 {synoptset 16}{...}
 {synopt:{helpb tvbuild}}Build a committed interval frame from a cohort and its sources{p_end}
+{synopt:{helpb tvspec}}Build the multi-source specification frame {cmd:tvbuild} consumes{p_end}
 {synopt:{helpb tvexpose}}Create time-varying exposure variables for survival analysis{p_end}
 {synopt:{helpb tvmerge}}Merge multiple time-varying exposure datasets{p_end}
 {synopt:{helpb tvevent}}Integrate events and competing risks into time-varying datasets{p_end}
@@ -95,13 +97,15 @@ workflow from data preparation through weighting and estimation.
 {bf:The recommended path.} {helpb tvbuild} performs the construction steps as
 one validated, transactional call and leaves every scientific decision to you:
 
-{p 4 8 2}1. {bf:Plan}: {cmd:tvbuild, ... dryrun} validates the cohort, the
+{p 4 8 2}1. {bf:Describe}: for more than one source, {helpb tvspec} writes the
+specification frame, one {cmd:tvspec add} call per source{p_end}
+{p 4 8 2}2. {bf:Plan}: {cmd:tvbuild, ... dryrun} validates the cohort, the
 sources, the names, and the destination, and changes nothing{p_end}
-{p 4 8 2}2. {bf:Build}: the same call without {opt dryrun} commits the interval
-frame, optionally with events and a provenance manifest{p_end}
-{p 4 8 2}3. {bf:Diagnose}: {helpb tvdiagnose} verifies the constructed data{p_end}
-{p 4 8 2}4. {bf:Compute weights}: {helpb tvweight} for IPTW estimation{p_end}
-{p 4 8 2}5. {bf:Estimate effects}: {cmd:stset} plus Cox regression or another
+{p 4 8 2}3. {bf:Build}: the same call without {opt dryrun} commits the interval
+frame and its provenance manifest, optionally with events{p_end}
+{p 4 8 2}4. {bf:Diagnose}: {helpb tvdiagnose} verifies the constructed data{p_end}
+{p 4 8 2}5. {bf:Compute weights}: {helpb tvweight} for IPTW estimation{p_end}
+{p 4 8 2}6. {bf:Estimate effects}: {cmd:stset} plus Cox regression or another
 model on the weighted data{p_end}
 
 {pstd}
@@ -246,6 +250,14 @@ external file. Run them in order in a scratch session.
 {phang2}{cmd:. tvbuild, sourceusing("`pipe_rx'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) frameout(analysis) replace}{p_end}
+
+{pstd}
+For more than one source, build the specification frame with {helpb tvspec}
+rather than by hand:
+
+{phang2}{cmd:. tvspec create study_spec, replace}{p_end}
+{phang2}{cmd:. tvspec add study_spec, name(drug) using("`pipe_rx'") start(rx_start) stop(rx_stop) exposure(drug) reference(0) generate(tv_drug)}{p_end}
+{phang2}{cmd:. tvbuild, specframe(study_spec) id(id) entry(study_entry) exit(study_exit) frameout(analysis)}{p_end}
 
 {pstd}
 See {helpb tvbuild} for the specification-frame form, the event stage, the

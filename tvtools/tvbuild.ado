@@ -1,4 +1,4 @@
-*! tvbuild Version 1.11.0  2026/07/31
+*! tvbuild Version 1.12.0  2026/08/01
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -71,7 +71,7 @@ program define tvbuild, rclass
          EVENTGenerate(name) EVENTLabel(string asis) ///
          TIMEGen(name) TIMEUnit(string) ///
          ENUM(name) GAPTime GAPSTArt(name) GAPSTOp(name) ///
-         MANIFESTframe(name) DRYrun REPlace]
+         MANIFESTframe(name) NOMANifest DRYrun REPlace]
 
     * The five asis options are parsed asis so a value containing spaces or
     * quotes survives the public parser exactly as typed. Strip that quoting
@@ -151,6 +151,43 @@ program define tvbuild, rclass
         noisily display as error ///
             "coverage() accepts strict or allow, not '`coverage''"
         exit 198
+    }
+
+    **# Manifest destination
+    * tvbuild's contract is that it commits the output frame and its provenance
+    * manifest as a single transaction, so the manifest is built by default and
+    * nomanifest opts out. The default is resolved ONCE, here, into the same
+    * `manifestframe' local the rest of the command already reads -- every
+    * downstream guard tests that local rather than what the user typed, so they
+    * need no change, and under nomanifest the local stays empty and reproduces
+    * the pre-1.12.0 path exactly.
+    *
+    * _man_derived records which way the name was chosen. It is not cosmetic:
+    * the ownership rules for a name the user typed and a name tvbuild invented
+    * are deliberately different, and _tvbuild_check_dest needs to tell them
+    * apart to apply the right one.
+    local _man_derived = 0
+    if "`nomanifest'" != "" & "`manifestframe'" != "" {
+        noisily display as error ///
+            "nomanifest and manifestframe() may not be combined"
+        exit 198
+    }
+    if "`nomanifest'" == "" & "`manifestframe'" == "" {
+        * A Stata name caps at 32 characters and the suffix is 9 of them. A
+        * destination that cannot be named exactly is an error, never a
+        * truncation: a silently shortened frame name is a write to a frame the
+        * user did not ask for and cannot predict.
+        local _fo_len = strlen("`frameout'")
+        if `_fo_len' > 23 {
+            noisily display as error ///
+                "frameout(`frameout') is `_fo_len' characters; the default manifest name" ///
+                " `frameout'_manifest would exceed Stata's 32-character limit"
+            noisily display as error ///
+                "specify manifestframe() with a shorter name, or nomanifest"
+            exit 198
+        }
+        local manifestframe "`frameout'_manifest"
+        local _man_derived = 1
     }
 
 
@@ -330,7 +367,7 @@ program define tvbuild, rclass
         if "``o''" != "" local _destopts "`_destopts' `o'(``o'')"
     }
     _tvbuild_check_dest, frameout(`frameout') callerframe(`_caller_frame') ///
-        planframe(`_plan') `_destopts' `replace'
+        planframe(`_plan') manderived(`_man_derived') `_destopts' `replace'
     local frameout_exists = r(frameout_exists)
     local manifest_exists = r(manifest_exists)
     **# ---------------------------------------------------------------------
@@ -779,11 +816,32 @@ end
 * every scratch name. replace authorises replacing a destination; it never
 * makes an alias legal, because an alias is not a replacement -- it is the
 * command reading and writing the same object.
+*
+* manderived extends that reasoning one step. replace authorises replacing a
+* destination the USER NAMED. It does not authorise clobbering a frame whose
+* name the command invented: a caller who never typed manifestframe() and
+* happens to own a frame called analysis_manifest must not lose it because they
+* typed replace for frameout().
+*
+* What it protects is the caller's frame, not the NAME. A derived name already
+* holding tvbuild's own manifest -- stamped char _dta[tvtools_manifest] by
+* _tvbuild_manifest -- is this command's prior output at a name this command
+* chose, and reusing it is the whole point of a repeatable call. Refusing that
+* too was tried and rejected: it makes the second identical run of any default
+* call exit 198, and it makes a frameout() name unusable ever again once its
+* manifest sibling has been left behind, which is the ordinary state after a
+* user drops the output frame alone. The narrow rule protects exactly the frame
+* the wide rule was written for and nothing else.
+*
+* Note the asymmetry with frameout(): reaching an unstamped derived name is an
+* error on BOTH sides of replace, because there is no typing of replace that
+* means "and also discard whatever is at the name you invented".
 capture program drop _tvbuild_check_dest
 program define _tvbuild_check_dest, rclass
     version 16.0
     syntax , FRAMEOut(name) CALLERframe(name) PLANframe(name) ///
-        [MANIFESTframe(name) SPECframe(name) EVENTFrame(name) REPlace]
+        [MANIFESTframe(name) SPECframe(name) EVENTFrame(name) ///
+         MANDERived(integer 0) REPlace]
 
     local _here "`c(frame)'"
 
@@ -808,6 +866,13 @@ program define _tvbuild_check_dest, rclass
         local _dest "``d''"
         local _clash : list _dest in _inputs
         if `_clash' {
+            if "`d'" == "manifestframe" & `manderived' {
+                noisily display as error ///
+                    "the default manifest frame `manifestframe' is also an input to this call"
+                noisily display as error ///
+                    "specify manifestframe() with a different name, or nomanifest"
+                exit 198
+            }
             noisily display as error ///
                 "`d'(``d'') is also an input to this call; choose a different destination"
             exit 198
@@ -828,13 +893,44 @@ program define _tvbuild_check_dest, rclass
         if _rc == 0 local _mf_exists = 1
     }
 
+    * Is the frame already at the derived name one tvbuild wrote? Read the mark
+    * _tvbuild_manifest stamps, not the column layout: a user frame that happens
+    * to share the schema is still a user frame.
+    local _mf_is_ours = 0
+    if `manderived' & `_mf_exists' {
+        frame change `manifestframe'
+        local _mfchar : char _dta[tvtools_manifest]
+        frame change `_here'
+        local _mf_is_ours = ("`_mfchar'" == "tvbuild")
+    }
+
+    * Checked before the replace branch, because this rule holds on both sides
+    * of it. An explicitly supplied manifestframe() never reaches here and falls
+    * through to the usual treatment below: exists without replace is r(110),
+    * exists with replace is an authorised overwrite.
+    if `manderived' & `_mf_exists' & !`_mf_is_ours' {
+        noisily display as error ///
+            "frame `manifestframe' already exists and is not a tvbuild manifest;" ///
+            " tvbuild derived that name from frameout()"
+        noisily display as error ///
+            "replace authorises replacing a destination you named, not one tvbuild invented"
+        noisily display as error ///
+            "specify manifestframe() with a different name, or nomanifest"
+        exit 198
+    }
+
     if "`replace'" == "" {
         if `_fo_exists' {
             noisily display as error ///
                 "frame `frameout' already exists; specify replace to overwrite it"
             exit 110
         }
-        if `_mf_exists' {
+        * A derived name holding tvbuild's own manifest is exempt. The user
+        * never named it, so there is nothing for them to have authorised; and
+        * frameout() -- the destination they DID name -- has already been
+        * cleared above. Refusing here would strand the frameout() name behind
+        * an orphaned manifest the user cannot see and did not ask for.
+        if `_mf_exists' & !(`manderived' & `_mf_is_ours') {
             noisily display as error ///
                 "frame `manifestframe' already exists; specify replace to overwrite it"
             exit 110

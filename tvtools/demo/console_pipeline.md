@@ -21,6 +21,7 @@ tvtools - Time-Varying Exposure Analysis Suite
 
 Data Preparation
   tvbuild    - Build a committed interval frame end to end
+  tvspec     - Build a tvbuild specification frame
   tvexpose   - Create time-varying exposure variables
   tvmerge    - Merge multiple time-varying datasets
   tvevent    - Integrate events and competing risks
@@ -36,7 +37,7 @@ Weighting
   tvweight   - Calculate IPTW weights
 
 ----------------------------------------------------------------------
-Total commands: 10
+Total commands: 11
 
 Help: help tvtools for workflow guide
       help <command> for individual command help
@@ -57,7 +58,7 @@ noisily tvexpose using "`episodes_antidep'",
 id(id) start(rx_start) stop(rx_stop)
 exposure(drug) reference(0)
 entry(study_entry) exit(study_exit)
-keepvars(age female) keepdates frameout(`f_antidep')
+keepvars(age female) keepdates frameout(tvdemo_antidep)
 ```
 
 ```
@@ -73,7 +74,7 @@ Exposure Operationalization: timevarying
     Unexposed person-time:        169,399
     Note: Baseline periods included (complete person-time coverage)
 --------------------------------------------------
-Result placed in frame: __000000
+Result placed in frame: tvdemo_antidep
 ```
 
 ```stata
@@ -93,7 +94,7 @@ quietly tvexpose using "`episodes_benzo'",
 id(id) start(rx_start) stop(rx_stop)
 exposure(benzo_use) reference(0)
 entry(study_entry) exit(study_exit)
-keepvars(age female) keepdates frameout(`f_benzo')
+keepvars(age female) keepdates frameout(tvdemo_benzo)
 ```
 
 ```stata
@@ -111,7 +112,7 @@ benzodiazepine exposure variable: tv_benzo_use
 ### Step 2: tvdiagnose on the in-memory frame
 
 ```stata
-noisily frame `f_antidep': tvdiagnose, id(id) start(rx_start) stop(rx_stop)
+noisily frame tvdemo_antidep: tvdiagnose, id(id) start(rx_start) stop(rx_stop)
 entry(study_entry) exit(study_exit) coverage gaps
 ```
 
@@ -148,9 +149,9 @@ Diagnostic Complete
 ### Step 3: tvmerge reads both frames, writes a merged frame
 
 ```stata
-noisily tvmerge, frames(`f_antidep' `f_benzo') id(id)
+noisily tvmerge, frames(tvdemo_antidep tvdemo_benzo) id(id)
 start(rx_start rx_start) stop(rx_stop rx_stop)
-exposure(`gA' `gB') frameout(`f_merged')
+exposure(`gA' `gB') frameout(tvdemo_merged)
 ```
 
 ```
@@ -160,7 +161,7 @@ Merged time-varying dataset successfully created
     Persons:            200
     Exposure variables:  tv_drug tv_benzo_use
 --------------------------------------------------
-Result placed in frame: __000002
+Result placed in frame: tvdemo_merged
 ```
 
 ```stata
@@ -178,7 +179,7 @@ use "`events'", clear
 ```
 
 ```stata
-noisily tvevent, frame(`f_merged') id(id)
+noisily tvevent, frame(tvdemo_merged) id(id)
 date(cv_event_date) compete(death_date) generate(outcome)
 ```
 

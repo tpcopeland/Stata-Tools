@@ -1,4 +1,4 @@
-*! _tvbuild_manifest Version 1.11.0  2026/07/31
+*! _tvbuild_manifest Version 1.12.0  2026/08/01
 *! Build tvbuild's deterministic per-stage provenance manifest
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -63,6 +63,14 @@ program define _tvbuild_manifest, rclass
         generate strL   data_signature  = ""
         generate strL   description     = ""
     }
+    * The mark that makes this frame identifiable as tvbuild's own manifest.
+    * It exists so that _tvbuild_check_dest can tell a manifest tvbuild wrote
+    * from a frame the caller happens to own at the same name: a name tvbuild
+    * DERIVED may be replaced when it holds tvbuild's own prior manifest, and
+    * may never be touched otherwise. Without the mark those two are
+    * indistinguishable and the safe rule has to refuse both, which makes every
+    * repeat run of the same call fail.
+    char _dta[tvtools_manifest] "tvbuild"
     frame change `_caller_frame'
 
     frame change `planframe'

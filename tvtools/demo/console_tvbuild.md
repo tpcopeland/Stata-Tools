@@ -18,6 +18,10 @@ title: "tvbuild: The Whole Route as One Call"
 
 <!-- * memory is read and never written. -->
 
+<!-- * manifestframe() is not given: since 1.12.0 tvbuild derives it from frameout(), -->
+
+<!-- * so the provenance record arrives with the result rather than only on request. -->
+
 ```stata
 use "`cohort'", clear
 ```
@@ -28,7 +32,7 @@ id(id) entry(study_entry) exit(study_exit)
 start(rx_start) stop(rx_stop) exposure(drug) reference(0)
 referencelabel("Unexposed") label("Antidepressant class")
 generate(tv_drug) keepvars(age female)
-frameout(`f_one') manifestframe(`f_oneprov') replace
+frameout(tvdemo_analysis) replace
 ```
 
 ```
@@ -42,7 +46,7 @@ tvbuild plan
   files loaded      : 1
 --------------------------------------------------------------------
   source 1          : tv_drug  (episodes, file)
-  locator           : /tmp/St305843.000003
+  locator           : /tmp/St424196.000003
   rows / persons    :          281 /      166
   rows outside win. :       17  (reported and ignored)
   mapping           : drug -> tv_drug
@@ -51,26 +55,26 @@ tvbuild plan
   master keepvars   : age female
   entry/exit        : retained
   event stage       : none
-  frameout()        : __000009  (create)
-  manifestframe()   : __00000A  (create)
+  frameout()        : tvdemo_analysis  (create)
+  manifestframe()   : tvdemo_analysis_manifest  (create)
 --------------------------------------------------------------------
 
 tvbuild result
 --------------------------------------------------------------------
-  frameout()        : __000009
+  frameout()        : tvdemo_analysis
   persons           :          200
   periods           :          589
   key / bounds      : id start stop
   study window      : study_entry study_exit
   output variables  : tv_drug
-  manifestframe()   : __00000A
+  manifestframe()   : tvdemo_analysis_manifest
   coverage          : strict  (every master day is represented)
 --------------------------------------------------------------------
   Next steps (not run by tvbuild):
 ```
 
 ```stata
-frame change __000009
+frame change tvdemo_analysis
 ```
 
 ```stata
@@ -95,7 +99,7 @@ committed frame rows: 589   persons: 200   bounds: start/stop   exposure vars: t
 ### What the shortcut committed
 
 ```stata
-noisily frame `f_one': list id start stop tv_drug age female in 1/10,
+noisily frame tvdemo_analysis: list id start stop tv_drug age female in 1/10,
 noobs abbreviate(12)
 ```
 
@@ -120,7 +124,7 @@ noobs abbreviate(12)
 ### Its provenance manifest
 
 ```stata
-noisily frame `f_oneprov': list stage source_name n_input n_output n_persons,
+noisily frame tvdemo_analysis_manifest: list stage source_name n_input n_output n_persons,
 noobs
 ```
 
@@ -134,7 +138,57 @@ noobs
   +---------------------------------------------------+
 ```
 
-### The multi-source specification: one row per source
+### The multi-source specification: one tvspec call per source
+
+<!-- * Describing two sources used to take twelve generate statements across nine -->
+
+<!-- * typed columns, which is why this block used to be built with the log closed. -->
+
+<!-- * tvspec writes the same columns, so it can be shown where it belongs. -->
+
+```stata
+noisily tvspec create tvdemo_spec, replace
+```
+
+```stata
+noisily tvspec add tvdemo_spec, name(antidep) using("`episodes_antidep'")
+start(rx_start) stop(rx_stop) exposure(drug) reference(0)
+generate(`gA') referencelabel("Unexposed") label("Antidepressant class")
+```
+
+```stata
+noisily tvspec add tvdemo_spec, name(benzo) using("`episodes_benzo'")
+start(rx_start) stop(rx_stop) exposure(benzo_use) reference(0)
+generate(`gB') referencelabel("No benzo") label("Benzodiazepine use")
+```
+
+### The specification tvbuild will read
+
+```stata
+noisily tvspec list tvdemo_spec
+```
+
+```
+tvbuild specification: tvdemo_spec
+--------------------------------------------------------------------
+  source 1          : antidep  (episodes, file)
+  locator           : /tmp/St424196.000003
+  interval bounds   : rx_start rx_stop
+  mapping           : drug -> tv_drug
+  reference         : 0
+  reference label   : Unexposed
+  variable label    : Antidepressant class
+--------------------------------------------------------------------
+  source 2          : benzo  (episodes, file)
+  locator           : /tmp/St424196.000004
+  interval bounds   : rx_start rx_stop
+  mapping           : benzo_use -> tv_benzo_use
+  reference         : 0
+  reference label   : No benzo
+  variable label    : Benzodiazepine use
+--------------------------------------------------------------------
+  Build it with: tvbuild, specframe(tvdemo_spec) id() entry() exit() frameout()
+```
 
 <!-- * tvbuild reads the same two raw episode files Steps 1-4 consumed and -->
 
@@ -145,20 +199,6 @@ noobs
 <!-- * places the events, and commits the output frame and its provenance manifest -->
 
 <!-- * as a single transaction. -->
-
-```stata
-noisily frame tvbuild_spec: list source_name source_kind start_var stop_var
-input_vars output_vars reference, noobs abbreviate(14)
-```
-
-```
-  +------------------------------------------------------------------------------------------+
-  | source_name   source_kind   start_var   stop_var   input_vars    output_vars   reference |
-  |------------------------------------------------------------------------------------------|
-  |     antidep      episodes    rx_start    rx_stop         drug        tv_drug           0 |
-  |       benzo      episodes    rx_start    rx_stop    benzo_use   tv_benzo_use           0 |
-  +------------------------------------------------------------------------------------------+
-```
 
 ### The plan, validated against the data, changing nothing
 
@@ -171,11 +211,11 @@ use "`cohort'", clear
 ```
 
 ```stata
-noisily tvbuild, specframe(tvbuild_spec)
+noisily tvbuild, specframe(tvdemo_spec)
 id(id) entry(study_entry) exit(study_exit) keepvars(age female)
 eventusing("`events'") eventdate(cv_event_date) compete(death_date)
 eventgenerate(outcome)
-frameout(`f_pipe') manifestframe(`f_prov') replace dryrun
+frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace dryrun
 ```
 
 ```
@@ -189,14 +229,14 @@ tvbuild plan (dry run)
   files loaded      : 3
 --------------------------------------------------------------------
   source 1          : antidep  (episodes, file)
-  locator           : /tmp/St305843.000003
+  locator           : /tmp/St424196.000003
   rows / persons    :          281 /      166
   rows outside win. :       17  (reported and ignored)
   mapping           : drug -> tv_drug
   engine            : tvexpose_categorical
 --------------------------------------------------------------------
   source 2          : benzo  (episodes, file)
-  locator           : /tmp/St305843.000004
+  locator           : /tmp/St424196.000004
   rows / persons    :          100 /       86
   mapping           : benzo_use -> tv_benzo_use
   engine            : tvexpose_categorical
@@ -204,8 +244,8 @@ tvbuild plan (dry run)
   master keepvars   : age female
   entry/exit        : retained
   event stage       : outcome  (event data from the file)
-  frameout()        : __000003  (create)
-  manifestframe()   : __000004  (create)
+  frameout()        : tvdemo_full  (create)
+  manifestframe()   : tvdemo_full_manifest  (create)
 --------------------------------------------------------------------
   Dry run: no frame, variable, value label, or file was created or changed.
 ```
@@ -217,11 +257,11 @@ use "`cohort'", clear
 ```
 
 ```stata
-noisily tvbuild, specframe(tvbuild_spec)
+noisily tvbuild, specframe(tvdemo_spec)
 id(id) entry(study_entry) exit(study_exit) keepvars(age female)
 eventusing("`events'") eventdate(cv_event_date) compete(death_date)
 eventgenerate(outcome)
-frameout(`f_pipe') manifestframe(`f_prov') replace
+frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace
 ```
 
 ```
@@ -235,14 +275,14 @@ tvbuild plan
   files loaded      : 3
 --------------------------------------------------------------------
   source 1          : antidep  (episodes, file)
-  locator           : /tmp/St305843.000003
+  locator           : /tmp/St424196.000003
   rows / persons    :          281 /      166
   rows outside win. :       17  (reported and ignored)
   mapping           : drug -> tv_drug
   engine            : tvexpose_categorical
 --------------------------------------------------------------------
   source 2          : benzo  (episodes, file)
-  locator           : /tmp/St305843.000004
+  locator           : /tmp/St424196.000004
   rows / persons    :          100 /       86
   mapping           : benzo_use -> tv_benzo_use
   engine            : tvexpose_categorical
@@ -250,27 +290,27 @@ tvbuild plan
   master keepvars   : age female
   entry/exit        : retained
   event stage       : outcome  (event data from the file)
-  frameout()        : __000003  (create)
-  manifestframe()   : __000004  (create)
+  frameout()        : tvdemo_full  (create)
+  manifestframe()   : tvdemo_full_manifest  (create)
 --------------------------------------------------------------------
 
 tvbuild result
 --------------------------------------------------------------------
-  frameout()        : __000003
+  frameout()        : tvdemo_full
   persons           :          200
   periods           :          764
   key / bounds      : id start stop
   study window      : study_entry study_exit
   output variables  : tv_drug tv_benzo_use
   event variable    : outcome
-  manifestframe()   : __000004
+  manifestframe()   : tvdemo_full_manifest
   coverage          : strict  (every master day is represented)
 --------------------------------------------------------------------
   Next steps (not run by tvbuild):
 ```
 
 ```stata
-frame change __000003
+frame change tvdemo_full
 ```
 
 ```stata
@@ -311,7 +351,7 @@ source2           100           398            86           200             0
 ### Provenance manifest: one row per stage, in execution order
 
 ```stata
-noisily frame `f_prov': list stage source_name n_input n_output n_persons, noobs
+noisily frame tvdemo_full_manifest: list stage source_name n_input n_output n_persons, noobs
 ```
 
 ```
