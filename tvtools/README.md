@@ -222,7 +222,7 @@ tvweight treated, covariates(age sex comorbidity) id(id) time(period) ///
 
 ## Demo Output
 
-`demo/demo_tvtools.do` builds a synthetic workflow and produces the checked-in balance and swimlane figures. `psdash` is optional for the love plot; the returned balance matrix remains available without it. From any working directory, pass the checked-out demo directory explicitly:
+`demo/demo_tvtools.do` builds a synthetic workflow and produces the checked-in balance and swimlane figures. It walks the suite end to end on one cohort: `tvexpose` into frames, `tvdiagnose`, `tvmerge`, and `tvevent` as four primitive calls, then the same construction as a single `tvbuild` call reading the same two raw episode files. The two routes are compared with `cf` on the columns they share and the demo aborts unless every value matches, so the equivalence is checked rather than asserted in prose. `psdash` is optional for the love plot; the returned balance matrix remains available without it. From any working directory, pass the checked-out demo directory explicitly:
 
 ```stata
 local demo_dir "/path/to/checked-out/tvtools/demo"

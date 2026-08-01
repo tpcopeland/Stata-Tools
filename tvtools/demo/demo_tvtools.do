@@ -1,4 +1,4 @@
-/*  demo_tvtools.do - Generate documentation output for tvtools (v1.8.0)
+/*  demo_tvtools.do - Generate documentation output for tvtools (v1.11.0)
 
     Graph assets produced:
       1. Covariate-balance love plot               -> balance_loveplot.png
@@ -7,6 +7,8 @@
     The demo walks the whole suite end to end:
       - frames-first output: tvexpose/tvmerge frameout(); whole pipeline in memory
       - returned output-name macros (r(genvar), r(startname), r(generate))
+      - the same construction as one tvbuild call, verified equal to the
+        primitive route with cf rather than asserted in prose
       - IPCW censoring weights + combined MSM weight + positivity diagnostic
       - recurrent-event PWP/AG formatting (enum stratum + gap-time clock)
       - harmonized option names (tvage id/dob/entry/exit; tvevent start/stop)
@@ -46,8 +48,8 @@ if `"`demo_dir'"' == "" {
 }
 
 tempfile cohort episodes_antidep episodes_benzo events recur panel ///
-    caller_love_graph caller_swim_graph
-tempname f_antidep f_benzo f_merged f_pipe f_prov demo_balance ///
+    primitive_out prim_cmp pipe_cmp caller_love_graph caller_swim_graph
+tempname f_antidep f_benzo f_merged f_pipe f_prov f_cmp demo_balance ///
     demo_love_graph demo_swim_graph
 local demo_had_love_graph = 0
 local demo_had_swim_graph = 0
@@ -104,12 +106,17 @@ gen int dob = mdy(month(study_entry), day(study_entry), ///
 format dob %tdCCYY/NN/DD
 save "`cohort'", replace
 
-* Antidepressant exposure episodes (3 categories: Unexposed / SSRI / SNRI)
+* Antidepressant exposure episodes (2 dispensed classes: SSRI / SNRI)
+* These are raw dispensing records, the shape a real extract has: one row per
+* dispensed episode, none of them coded to the unexposed reference category,
+* and never two overlapping records for the same person -- consecutive starts
+* are separated by at least one day. tvexpose and tvbuild both read this file
+* as it stands, so Steps 1-4 and Step 5 consume identical input.
 expand 1 + int(runiform() * 4)
 bysort id: gen int seq = _n
 bysort id: gen int duration = 60 + int(runiform() * 300)
 bysort id: gen int rx_start = study_entry if seq == 1
-bysort id: replace rx_start = rx_start[_n-1] + duration[_n-1] + int(runiform() * 60) if seq > 1
+bysort id: replace rx_start = rx_start[_n-1] + duration[_n-1] + 1 + int(runiform() * 60) if seq > 1
 gen int rx_stop = rx_start + duration
 format rx_start rx_stop %tdCCYY/NN/DD
 gen double p_exposed = invlogit(-1 + 0.02 * age + 0.3 * female)
@@ -117,6 +124,7 @@ gen byte drug = 0
 replace drug = 1 + int(runiform() * 2) if runiform() < p_exposed
 label define drug_lbl 0 "Unexposed" 1 "SSRI" 2 "SNRI"
 label values drug drug_lbl
+drop if drug == 0
 drop p_exposed seq duration
 keep id rx_start rx_stop drug
 save "`episodes_antidep'", replace
@@ -128,12 +136,13 @@ expand 1 + int(runiform() * 2)
 bysort id: gen int seq = _n
 bysort id: gen int duration = 30 + int(runiform() * 120)
 bysort id: gen int rx_start = study_entry + int(runiform() * 180) if seq == 1
-bysort id: replace rx_start = rx_start[_n-1] + duration[_n-1] + int(runiform() * 90) if seq > 1
+bysort id: replace rx_start = rx_start[_n-1] + duration[_n-1] + 1 + int(runiform() * 90) if seq > 1
 gen int rx_stop = rx_start + duration
 format rx_start rx_stop %tdCCYY/NN/DD
 gen byte benzo_use = runiform() < 0.35
 label define benzo_lbl 0 "No benzo" 1 "Benzo"
 label values benzo_use benzo_lbl
+drop if benzo_use == 0
 drop seq duration
 keep id rx_start rx_stop benzo_use
 save "`episodes_benzo'", replace
@@ -234,33 +243,45 @@ noisily tvevent, frame(`f_merged') id(id) ///
 noisily display "event indicator: " as result "`r(generate)'" ///
     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 
+* Keep the four-call result so Step 5 can be checked against it rather than
+* merely described as equivalent.
+local prim_periods = c(N)
+quietly save "`primitive_out'", replace
 
-* ## Step 5: the same construction as one tvbuild call
-* tvbuild coordinates the same engines Steps 1-4 used, validates the whole plan
-* before touching anything, and commits its destinations as one transaction.
-*
-* These synthetic episodes overlap within person, which tvbuild refuses on
-* purpose: choosing an overlap-resolution rule is a scientific decision, not a
-* default. The documented remedy is the route taken here -- resolve the
-* overlaps explicitly with tvexpose, then declare that frame as a ready
-* interval source. The specification frame is built with `replace' rather than
-* `input' because `input' does not expand macros in its data lines.
+
+* ## Step 5: all four steps above as one tvbuild call
+* tvbuild reads the same two raw episode files Steps 1-4 consumed and
+* coordinates the same tvexpose, tvmerge, and tvevent engines rather than
+* reimplementing interval semantics: it tiles each episode source, aligns them,
+* places the events, and commits the output frame and its provenance manifest
+* as a single transaction. The specification frame carries one row per source,
+* and its observation order is semantic -- it fixes generated-variable order,
+* merge order, displayed plan order, and manifest order. It is built with
+* `generate' rather than `input' because `input' stores a macro reference
+* literally instead of expanding it.
 capture frame drop tvbuild_spec
 frame create tvbuild_spec
 frame tvbuild_spec {
-    quietly set obs 1
-    quietly generate str32 source_name  = "antidep"
-    quietly generate str12 source_kind  = "intervals"
-    quietly generate str32 source_frame = "`f_antidep'"
-    quietly generate strL  source_file  = ""
-    quietly generate str32 start_var    = "rx_start"
-    quietly generate str32 stop_var     = "rx_stop"
-    quietly generate strL  input_vars   = "`gA'"
-    quietly generate strL  output_vars  = "tv_antidep"
-    quietly generate double reference   = .
+    quietly set obs 2
+    quietly generate str32 source_name     = cond(_n == 1, "antidep", "benzo")
+    quietly generate str12 source_kind     = "episodes"
+    quietly generate str32 source_frame    = ""
+    quietly generate strL  source_file     = cond(_n == 1, ///
+        "`episodes_antidep'", "`episodes_benzo'")
+    quietly generate str32 start_var       = "rx_start"
+    quietly generate str32 stop_var        = "rx_stop"
+    quietly generate strL  input_vars      = cond(_n == 1, "drug", "benzo_use")
+    quietly generate strL  output_vars     = cond(_n == 1, "`gA'", "`gB'")
+    quietly generate double reference      = 0
+    quietly generate strL  reference_label = cond(_n == 1, "Unexposed", "No benzo")
+    quietly generate strL  variable_label  = cond(_n == 1, ///
+        "Antidepressant class", "Benzodiazepine use")
 }
 frame tvbuild_spec: char _dta[tvbuild_spec_version] "1"
 
+* ### The plan, validated against the data, changing nothing
+* dryrun is not a syntax check: it runs the same parser, normalizer, name
+* planner, data validators, and destination preflight the real run uses.
 use "`cohort'", clear
 noisily tvbuild, specframe(tvbuild_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
@@ -268,17 +289,54 @@ noisily tvbuild, specframe(tvbuild_spec) ///
     eventgenerate(outcome) ///
     frameout(`f_pipe') manifestframe(`f_prov') replace dryrun
 
+* ### The committed run
 use "`cohort'", clear
 noisily tvbuild, specframe(tvbuild_spec) ///
     id(id) entry(study_entry) exit(study_exit) keepvars(age female) ///
     eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
     eventgenerate(outcome) ///
     frameout(`f_pipe') manifestframe(`f_prov') replace
+local pipe_periods = r(N_periods)
 noisily display "committed periods: " as result r(N_periods) ///
     "   signature: " as result "`r(datasignature)'"
 noisily matrix list r(stage_counts)
+
+* ### Provenance manifest: one row per stage, in execution order
 noisily frame `f_prov': list stage source_name n_input n_output n_persons, noobs
 capture frame drop tvbuild_spec
+
+* ### Same inputs, same engines, same records
+* The four-call route and the single call are compared on the columns they
+* share, after an identical sort. cf is the right test here and datasignature
+* is not: tvbuild keeps the master's id storage type and commits its bounds as
+* doubles, so the two routes carry identical values under different storage
+* types, which datasignature folds into its checksum.
+local cmp_vars "id start stop `gA' `gB' outcome"
+
+use "`primitive_out'", clear
+keep `cmp_vars'
+order `cmp_vars'
+sort id start stop
+quietly save "`prim_cmp'", replace
+
+frame copy `f_pipe' `f_cmp', replace
+frame change `f_cmp'
+keep `cmp_vars'
+order `cmp_vars'
+sort id start stop
+quietly save "`pipe_cmp'", replace
+frame change `demo_frame'
+capture frame drop `f_cmp'
+
+use "`pipe_cmp'", clear
+noisily cf _all using "`prim_cmp'", verbose
+local cmp_diffs = r(Nsum)
+assert `cmp_diffs' == 0
+noisily display "tvexpose x2 + tvmerge + tvevent: " as result `prim_periods' ///
+    as text " periods" _newline ///
+    "one tvbuild call:                " as result `pipe_periods' ///
+    as text " periods" _newline ///
+    "cf mismatching values:           " as result `cmp_diffs'
 
 
 **# Marginal structural model weighting with IPCW
@@ -437,7 +495,7 @@ if `demo_had_swim_graph' {
 capture matrix drop `demo_balance'
 capture frame change `demo_frame'
 capture frame drop tvbuild_spec
-foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' {
+foreach frame_name in `f_antidep' `f_benzo' `f_merged' `f_pipe' `f_prov' `f_cmp' {
     capture frame drop `frame_name'
 }
 if `demo_preserved' capture restore
