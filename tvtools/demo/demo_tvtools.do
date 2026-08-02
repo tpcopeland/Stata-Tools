@@ -1,4 +1,4 @@
-/*  demo_tvtools.do - Generate documentation output for tvtools (v1.12.0)
+/*  demo_tvtools.do - Generate documentation output for tvtools (v1.12.1)
 
     Console assets produced (.log -> .md via logdoc):
       1. Frames-first primitive pipeline           -> console_pipeline.{log,md}
@@ -61,8 +61,23 @@ if `"`demo_dir'"' == "" {
     }
 }
 
-tempfile cohort episodes_antidep episodes_benzo events recur panel ///
+tempfile cohort events recur panel ///
     primitive_out prim_cmp pipe_cmp caller_love_graph caller_swim_graph
+
+* The two raw episode extracts are NAMED files in the working directory rather
+* than tempfiles. tvbuild's plan display and tvspec list both echo the source
+* locator they were handed, and a tempfile's locator is a PID-stamped /tmp
+* path -- so with tempfiles the published console assets carried seven absolute
+* paths that differed on every machine and every run, and console_tvbuild.md
+* re-diffed on every regeneration for no semantic reason. A relative name is
+* echoed verbatim and is the same string everywhere.
+*
+* Named files lose tempfile's auto-erase, so they take the same discipline as
+* the literal frames below: refuse to start if one already exists, and erase
+* them in the unconditional cleanup, gated on having created them.
+local episodes_antidep "tvdemo_episodes_antidep.dta"
+local episodes_benzo   "tvdemo_episodes_benzo.dta"
+local demo_files "`episodes_antidep' `episodes_benzo'"
 * f_cmp stays a tempname: it holds the comparison copy and never appears in any
 * published console asset. Every frame the demo does show the reader is a
 * readable literal instead, so the reports quote names a user could retype.
@@ -87,6 +102,16 @@ foreach demo_fr of local demo_frames {
     if _rc == 0 local demo_frame_clash "`demo_frame_clash' `demo_fr'"
 }
 local demo_owns_frames = ("`demo_frame_clash'" == "")
+
+* Same rule for the two named extracts, for the same reason: the demo writes
+* into the caller's working directory, and silently overwriting a file already
+* sitting there is the disk equivalent of clobbering their frame.
+local demo_file_clash ""
+foreach demo_fl of local demo_files {
+    capture confirm file "`demo_fl'"
+    if _rc == 0 local demo_file_clash "`demo_file_clash' `demo_fl'"
+}
+local demo_owns_files = ("`demo_file_clash'" == "")
 
 * The commands use stable public graph names. Preserve any caller graphs with
 * those names before the demo temporarily takes ownership of them.
@@ -122,6 +147,13 @@ capture noisily {
         display as error ///
             "drop or rename them, then re-run the demo"
         exit 110
+    }
+    if !`demo_owns_files' {
+        display as error ///
+            "these files already exist in `c(pwd)' and the demo will not replace them:`demo_file_clash'"
+        display as error ///
+            "move or delete them, then re-run the demo"
+        exit 602
     }
     if `"`demo_dir'"' == "" {
         display as error "could not locate demo_tvtools.do; pass its directory as the first argument"
@@ -619,6 +651,13 @@ capture frame drop `f_cmp'
 if `demo_owns_frames' {
     foreach frame_name of local demo_frames {
         capture frame drop `frame_name'
+    }
+}
+* Same gate for the named extracts: on a clash the demo wrote neither of them,
+* and erasing here would delete the caller's file the check refused to replace.
+if `demo_owns_files' {
+    foreach file_name of local demo_files {
+        capture erase "`file_name'"
     }
 }
 if `demo_preserved' capture restore

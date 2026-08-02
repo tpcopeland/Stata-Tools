@@ -46,7 +46,7 @@ tvbuild plan
   files loaded      : 1
 --------------------------------------------------------------------
   source 1          : tv_drug  (episodes, file)
-  locator           : /tmp/St424196.000003
+  locator           : tvdemo_episodes_antidep.dta
   rows / persons    :          281 /      166
   rows outside win. :       17  (reported and ignored)
   mapping           : drug -> tv_drug
@@ -172,7 +172,7 @@ noisily tvspec list tvdemo_spec
 tvbuild specification: tvdemo_spec
 --------------------------------------------------------------------
   source 1          : antidep  (episodes, file)
-  locator           : /tmp/St424196.000003
+  locator           : tvdemo_episodes_antidep.dta
   interval bounds   : rx_start rx_stop
   mapping           : drug -> tv_drug
   reference         : 0
@@ -180,7 +180,7 @@ tvbuild specification: tvdemo_spec
   variable label    : Antidepressant class
 --------------------------------------------------------------------
   source 2          : benzo  (episodes, file)
-  locator           : /tmp/St424196.000004
+  locator           : tvdemo_episodes_benzo.dta
   interval bounds   : rx_start rx_stop
   mapping           : benzo_use -> tv_benzo_use
   reference         : 0
@@ -229,14 +229,14 @@ tvbuild plan (dry run)
   files loaded      : 3
 --------------------------------------------------------------------
   source 1          : antidep  (episodes, file)
-  locator           : /tmp/St424196.000003
+  locator           : tvdemo_episodes_antidep.dta
   rows / persons    :          281 /      166
   rows outside win. :       17  (reported and ignored)
   mapping           : drug -> tv_drug
   engine            : tvexpose_categorical
 --------------------------------------------------------------------
   source 2          : benzo  (episodes, file)
-  locator           : /tmp/St424196.000004
+  locator           : tvdemo_episodes_benzo.dta
   rows / persons    :          100 /       86
   mapping           : benzo_use -> tv_benzo_use
   engine            : tvexpose_categorical
@@ -275,14 +275,14 @@ tvbuild plan
   files loaded      : 3
 --------------------------------------------------------------------
   source 1          : antidep  (episodes, file)
-  locator           : /tmp/St424196.000003
+  locator           : tvdemo_episodes_antidep.dta
   rows / persons    :          281 /      166
   rows outside win. :       17  (reported and ignored)
   mapping           : drug -> tv_drug
   engine            : tvexpose_categorical
 --------------------------------------------------------------------
   source 2          : benzo  (episodes, file)
-  locator           : /tmp/St424196.000004
+  locator           : tvdemo_episodes_benzo.dta
   rows / persons    :          100 /       86
   mapping           : benzo_use -> tv_benzo_use
   engine            : tvexpose_categorical

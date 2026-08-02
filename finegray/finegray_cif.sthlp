@@ -101,11 +101,15 @@ term must be set through its internal {cmd:_fg_*} indicator names instead (see
 {phang}
 {opt attime(numlist)} requests a table of the CIF at the listed time horizons
 (for example {cmd:attime(1 5 10)}) instead of a plotted curve. Combine with
-{opt ci} to include confidence limits.
+{opt ci} to include confidence limits. May not be combined with
+{opt timepoints()}.
 
 {phang}
 {opt timepoints(numlist)} evaluates the curve at the specified times rather than
-at the distinct cause-event times of the fitted baseline.
+at the distinct cause-event times of the fitted baseline. May not be combined
+with {opt attime()}: both name the times the CIF is evaluated at, and
+{opt attime()} additionally selects table output over a plotted curve, so the
+combination is refused rather than resolved silently.
 
 {phang}
 {opt ci} adds pointwise confidence limits. The standard error of the CIF is an

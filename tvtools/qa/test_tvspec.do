@@ -504,6 +504,71 @@ local rc = _rc
 _tvs_check `=(`rc' == 198)' ///
     "L3 list on a frame without the schema is r(198)" "rc=`rc'"
 
+* L4: a frame that kept the schema STAMP but lost a column is r(198) naming the
+* column, not r(111) naming an internal one.
+*
+* The stamp and the columns are two different facts, and only the stamp was
+* checked in 1.12.0. A frame that had been stamped and then altered reached the
+* append and died at the first internal -replace- with "source_kind not found"
+* -- a Stata error about tvspec's own implementation, pointing the caller at a
+* column name they never typed and cannot act on.
+*
+* The read-back guard further down cannot cover this: it only fires when every
+* write SUCCEEDS and a value returns altered, so a missing column never reaches
+* it. rc alone is not the claim -- 111 and 198 are both nonzero, and the whole
+* defect was which one -- so this asserts the code exactly, and asserts that the
+* message names the missing column.
+_tvs_reset
+capture frame drop sp_partial
+quietly tvspec create sp_partial
+frame sp_partial: quietly drop source_kind reference_label
+local l4_log "`c(pwd)'/_tvs_l4.txt"
+capture erase "`l4_log'"
+* Widen linesize for the capture only. The message names every missing column,
+* so it is longer than the default width and the log wraps it -- and a wrap can
+* fall INSIDE a column name, which no amount of line-by-line searching can
+* reassemble. Restored immediately after, so the rest of the suite is unaffected.
+local l4_ls = c(linesize)
+set linesize 240
+quietly log using "`l4_log'", text name(tvsl4) replace
+capture noisily tvspec add sp_partial, name(antidep) frame(sp_src) ///
+    start(rx_start) stop(rx_stop) exposure(drug) generate(tv_drug) reference(0)
+local rc = _rc
+capture quietly log close tvsl4
+capture set linesize `l4_ls'
+* Read the rendered message back: the point of the fix is what the user is told.
+* Two flags accumulated INDEPENDENTLY across lines, not one test for both
+* tokens on the same line: the message is longer than the log's linesize and
+* wraps, so "missing column(s):" and the column name it names land on different
+* lines. Requiring them together made this assertion unsatisfiable -- it failed
+* against the fixed build for a reason that had nothing to do with the fix.
+local l4_saysmissing = 0
+local l4_sayscolumn = 0
+capture noisily {
+    tempname l4fh
+    file open `l4fh' using "`l4_log'", read text
+    file read `l4fh' l4line
+    while r(eof) == 0 {
+        if strpos(`"`l4line'"', "missing column") local l4_saysmissing = 1
+        if strpos(`"`l4line'"', "source_kind") local l4_sayscolumn = 1
+        file read `l4fh' l4line
+    }
+    file close `l4fh'
+}
+local l4_named = (`l4_saysmissing' & `l4_sayscolumn')
+capture erase "`l4_log'"
+local l4_rows = -1
+capture noisily {
+    local _here "`c(frame)'"
+    frame change sp_partial
+    local l4_rows = _N
+    frame change `_here'
+}
+_tvs_check `=(`rc' == 198 & `l4_named' & `l4_rows' == 0)' ///
+    "L4 a stamped frame missing a column is r(198) naming it, not r(111)" ///
+    "rc=`rc' saysmissing=`l4_saysmissing' sayscolumn=`l4_sayscolumn' rows=`l4_rows'"
+capture frame drop sp_partial
+
 
 **# ===== P: optional columns and the intervals kind =====
 

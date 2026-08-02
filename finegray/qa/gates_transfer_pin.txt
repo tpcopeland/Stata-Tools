@@ -1,0 +1,18 @@
+# finegray delayed-entry gate transfer pin
+#
+# The commit whose tree the three ZZF Monte Carlo gates were last actually RUN
+# against.  run_all.sh extracts this tree with `git archive' and diffs four
+# delayed-entry arms against the tree under test (qa/gates_transfer_proof.do).
+# Any change to the delayed-entry weight, score, or variance code perturbs those
+# numbers and fails the lane -- which is the point: run_status_gates.txt's own
+# invalidation rule fired four times between 2026-07-20 and 2026-08-02 and was
+# never honoured, because nothing checked it.
+#
+# CHANGE THIS PIN ONLY after actually re-running `./run_all.sh gates' (~7h) on
+# the new commit and appending the result to run_status_gates.txt.  Moving the
+# pin to silence a red transfer gate destroys the only evidence that the gates
+# still describe the shipped estimator.
+
+gated_commit: a519a93
+gated_note:   last finegray commit of 2026-07-15, after the factorization gate
+              was added in 8ee687a; the tree the three ZZF gates were run on.

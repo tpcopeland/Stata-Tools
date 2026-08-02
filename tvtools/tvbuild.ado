@@ -1,4 +1,4 @@
-*! tvbuild Version 1.12.0  2026/08/01
+*! tvbuild Version 1.12.1  2026/08/02
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -893,15 +893,37 @@ program define _tvbuild_check_dest, rclass
         if _rc == 0 local _mf_exists = 1
     }
 
-    * Is the frame already at the derived name one tvbuild wrote? Read the mark
-    * _tvbuild_manifest stamps, not the column layout: a user frame that happens
-    * to share the schema is still a user frame.
+    * Is the frame already at the derived name one tvbuild wrote? Two things
+    * must agree, and neither alone is enough.
+    *
+    * The mark _tvbuild_manifest stamps is the primary test: a user frame that
+    * happens to share the manifest's column layout is still a user frame, and
+    * refusing it is the point of the rule.
+    *
+    * But a characteristic is user-writable, so the mark by itself is a claim,
+    * not a proof. A frame carrying the mark while holding none of the manifest
+    * schema is a caller's frame wearing tvbuild's label, and the exemption
+    * exists to spare tvbuild's OWN prior output -- not anything so labelled.
+    * Requiring the schema too makes the exemption unreachable by a stray or
+    * copied characteristic.
+    *
+    * Both halves are pinned from opposite sides: R7 refuses the schema without
+    * the mark, R9 refuses the mark without the schema. Dropping either half
+    * turns one of those suites red.
     local _mf_is_ours = 0
     if `manderived' & `_mf_exists' {
         frame change `manifestframe'
         local _mfchar : char _dta[tvtools_manifest]
+        quietly ds
+        local _mfcols "`r(varlist)'"
         frame change `_here'
-        local _mf_is_ours = ("`_mfchar'" == "tvbuild")
+        local _mf_schema = 1
+        foreach _c in stage_index stage source_index input_locator ///
+            data_signature status {
+            local _has : list posof "`_c'" in _mfcols
+            if `_has' == 0 local _mf_schema = 0
+        }
+        local _mf_is_ours = ("`_mfchar'" == "tvbuild") & `_mf_schema'
     }
 
     * Checked before the replace branch, because this rule holds on both sides

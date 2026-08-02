@@ -46,7 +46,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [cstat_surv](https://github.com/tpcopeland/Stata-Tools/tree/main/cstat_surv) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--10-brightgreen) | Post-stcox Harrell's C-statistic with infinitesimal-jackknife SEs and confidence intervals |
-| [finegray](https://github.com/tpcopeland/Stata-Tools/tree/main/finegray) | ![version](https://img.shields.io/badge/version-1.2.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--28-brightgreen) | Fast Fine-Gray competing risks regression with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic |
+| [finegray](https://github.com/tpcopeland/Stata-Tools/tree/main/finegray) | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--02-brightgreen) | Fast Fine-Gray competing risks regression with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic |
 | [gcomp](https://github.com/tpcopeland/Stata-Tools/tree/main/gcomp) | ![version](https://img.shields.io/badge/version-1.4.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--19-brightgreen) | Parametric g-computation for mediation and time-varying confounding (includes gcomptab) |
 | [iivw](https://github.com/tpcopeland/Stata-Tools/tree/main/iivw) | ![version](https://img.shields.io/badge/version-3.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--29-brightgreen) | Inverse intensity/visit weighting for irregular longitudinal data (Stata 17+ for mixed models) |
 | [msm](https://github.com/tpcopeland/Stata-Tools/tree/main/msm) | ![version](https://img.shields.io/badge/version-1.4.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--29-brightgreen) | Marginal structural models for longitudinal causal analysis with IPTW, diagnostics, prediction, plots, and reports |
@@ -58,7 +58,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.5.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--19-brightgreen) | Swedish registry tools for Charlson scoring, migrations, and MS progression endpoints |
-| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.12.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--01-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
+| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.12.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--02-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
 
 ### Reporting & Visualization
 

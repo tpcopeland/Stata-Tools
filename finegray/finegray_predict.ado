@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.1  2026/07/28
+*! finegray_predict Version 1.2.0  2026/08/02
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -133,6 +133,35 @@ program define finegray_predict, rclass sortpreserve
         if _rc | real("`level'") <= 0 | real("`level'") >= 100 {
             display as error "level() must be a number between 0 and 100"
             exit 198
+        }
+    }
+
+    * ci derives two more variable names from newvarname by suffix, so the
+    * usable budget is 28 characters, not Stata's 32.  These names used to be
+    * confirmed only after the point CIF had been computed, and after every
+    * guard that could report a DIFFERENT failure first: `finegray_predict
+    * <29 chars> if <selects nothing>, cif ci' ended at r(2000) "no
+    * observations", never mentioning the name that could not have worked.  When
+    * it did surface it was a bare "..._lci invalid name", r(198), with the
+    * 28-character ceiling documented nowhere.
+    * Check before the work, and say which of the two things went wrong:
+    * `confirm new variable' returns 198 for a malformed or over-long name and
+    * 110 for a well-formed name that is already taken.
+    if "`ci'" != "" {
+        foreach _sfx in lci uci {
+            capture confirm new variable `varlist'_`_sfx'
+            if _rc == 110 {
+                display as error "variable `varlist'_`_sfx' already exists"
+                display as error "{bf:ci} creates `varlist'_lci and `varlist'_uci alongside `varlist'"
+                exit 110
+            }
+            else if _rc {
+                display as error "`varlist'_`_sfx' is not a valid variable name"
+                display as error "{bf:ci} appends _lci and _uci to the new variable name, so"
+                display as error "with {bf:ci} the name may be at most 28 characters"
+                display as error "(`varlist' is `=length("`varlist'")')"
+                exit 198
+            }
         }
     }
 
@@ -701,6 +730,34 @@ program define finegray_predict, rclass sortpreserve
         local byg_var "`e(strata)'"
         local p : word count `covariates'
 
+        * Pre-check every stub name BEFORE the residuals are computed.  This
+        * check used to sit after the Mata pass and the preserve/restore, so a
+        * name collision or an over-long stub cost the whole computation first.
+        * It also reported every failure as "already exists"; `confirm new
+        * variable' returns 110 for a taken name and 198 for one that is
+        * malformed or too long, and with p covariates the suffix _`p' eats up
+        * to 1 + length("`p'") of the 32-character budget.
+        if `p' > 1 {
+            local _pre_stub = "`varlist'"
+            forvalues _pv = 2/`p' {
+                local _pvname "`_pre_stub'_`_pv'"
+                capture confirm new variable `_pvname'
+                if _rc == 110 {
+                    display as error "variable `_pvname' already exists"
+                    display as error "{bf:schoenfeld} creates `_pre_stub'_2 ... `_pre_stub'_`p'"
+                    display as error "alongside `_pre_stub' (one per covariate)"
+                    exit 110
+                }
+                else if _rc {
+                    display as error "`_pvname' is not a valid variable name"
+                    display as error "{bf:schoenfeld} appends _2 ... _`p' to the new variable name,"
+                    display as error "so with `p' covariates the name may be at most"
+                    display as error "`=32 - 1 - length("`p'")' characters (`_pre_stub' is `=length("`_pre_stub'")')"
+                    exit 198
+                }
+            }
+        }
+
         * Load Mata engine
         capture mata: _finegray_mata_ok()
         * probe MATA, not a Stata program: `mata clear' drops Mata functions but
@@ -753,20 +810,8 @@ program define finegray_predict, rclass sortpreserve
 
         local n_fail = rowsof(`sch_mat')
 
-        * Pre-check all stub variable names before creating any
-        if `p' > 1 {
-            local _pre_stub = "`varlist'"
-            forvalues _pv = 2/`p' {
-                local _pvname "`_pre_stub'_`_pv'"
-                capture confirm new variable `_pvname'
-                if _rc {
-                    display as error "variable `_pvname' already exists"
-                    exit 110
-                }
-            }
-        }
-
-        * Create stub variables for all covariates
+        * Create stub variables for all covariates (names pre-checked above,
+        * before the residuals were computed)
         if "`typlist'" == "" local typlist "double"
         quietly gen `typlist' `varlist' = .
         local _created_vars "`varlist'"

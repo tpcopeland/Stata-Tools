@@ -370,3 +370,68 @@ verdict:         COVERED-BY-EQUIVALENCE (estimator core unchanged since last gat
 #              the same agent that wrote the code under test, including the
 #              tolerance and skip-classification changes recorded here.
 #              /reviewer has not run.  Do not read this receipt as sign-off.
+
+# ===========================================================================
+# 2026-08-02 RE-ESTABLISHMENT + the rule is now a GATE
+# ===========================================================================
+#
+# WHY THIS BLOCK EXISTS.  The invalidation rule stated above -- "any future
+# change to the delayed-entry weight, score, or variance Mata code invalidates
+# this transfer" -- fired FOUR times after the 2026-07-20 re-establishment and
+# was honoured none of those times:
+#
+#   commit    date        _finegray_mata.ado
+#   15c74b7   2026-07-23  -707   (GOF module removal)
+#   9e8ddd5   2026-07-25  +36    ("fix stabilized weights")
+#   41a20f3   2026-07-27  ~100
+#   36ddd61   2026-07-29  ~694   (weight-design-prepared-once rework)
+#
+# gates_transfer_proof.do existed, was well designed, and was in NO lane.  It
+# needed a manual `git archive' plus two separate Stata sessions, so nothing in
+# run_all.do or run_all.sh could have said the receipt had gone stale.  A rule
+# that only a human re-reading this file can enforce is not a rule.
+#
+# RESULT 2026-08-02 (gated a519a93 -> current working tree, after the FG-H15
+# baseline-rebuild fix): all 4 arms x 4 quantities IDENTICAL at 16 decimals,
+# matching the 2026-07-20 constants exactly.
+#
+#   lt06_1500|   0.0710693937199330|   0.0328802303226045|   0.0461851133439094|   0.0414784816061813
+#   lt06_4000|   0.0588622905820205|  -0.0392258369911564|   0.0268980395033793|   0.0267275889885915
+#   zzf_4000|   0.4095896943932678|  -0.4907406941048384|   0.0596863753272399|   0.0294086774366359
+#   zzf_fact|   0.5176794819866547|  -0.4928949500805593|   0.0607460557334499|   0.0303502734206076
+#
+# So the transfer held across all four unhonoured commits.  That is discipline
+# plus luck, not evidence -- nothing would have reported otherwise.
+#
+# WHAT CHANGED SO IT CANNOT HAPPEN AGAIN
+#   1. qa/gates_transfer_pin.txt pins the gated commit as DATA (a519a93).
+#   2. run_all.sh runs the two-tree diff on the `full' and `gates' lanes: it
+#      extracts the pinned tree with `git archive', fits the four arms on both
+#      trees in SEPARATE Stata processes, and fails the lane on any difference.
+#      Its verdict is written into run_all_status.txt as `transfer_gate:'.
+#   3. gates_transfer_proof.do now sandboxes PLUS/PERSONAL into a PID-unique
+#      tempdir and restores them on both the success and the error path.  Run as
+#      its own header previously documented, it uninstalled the user's finegray
+#      and left the GATED (old) tree installed in ~/ado/plus.
+#   4. test_run_all_wrapper.sh covers the new gate against a fake stata binary:
+#      drifted numbers, a proof run that never published, a truncated proof, and
+#      a missing proof script must each take the lane red.  Two empty outputs
+#      compare equal, so "the gate cannot fail" was a live possibility.
+#
+# A DEFECT FOUND IN THE GATE ITSELF, BEFORE IT WAS TRUSTED.  An "R|" row is ~110
+# characters and batch mode wraps the log at linesize 80.  The tag is part of
+# the row, so GATED (5 chars) and CURRENT (7 chars) wrapped at different columns
+# and the first wired-in run reported all four arms as CHANGED on a tree whose
+# estimator code was untouched.  gates_transfer_proof.do now sets linesize 200,
+# and run_all.sh independently rejects any row that is not arm + 4 fields.
+#
+# STILL NOT DONE, STATE IT IN ANY HANDOFF: the three ZZF Monte Carlo gates
+# themselves (~7h) have not been RUN since 2026-07-15.  What is re-established
+# here is the numeric-equivalence TRANSFER, not the gates.  The 2026-07-22
+# closing note also still applies: those suites were written, run, and judged by
+# the same agent that wrote the code under test.
+#
+# transfer_reestablished: 2026-08-02  (gated a519a93 -> current working tree)
+# proof:                  qa/gates_transfer_proof.do, wired into run_all.sh
+# pin:                    qa/gates_transfer_pin.txt
+# verdict:                COVERED-BY-EQUIVALENCE (re-verified, and now gated)

@@ -218,7 +218,10 @@ variable.
 model with {it:p} covariates, {it:p} variables are created: {it:newvar}
 contains residuals for the first covariate, and {it:newvar}{cmd:_2} through
 {it:newvar}{cmd:_}{it:p} contain residuals for the remaining
-covariates. Residuals are set to missing for observations that are not
+covariates. Because the suffix is part of the created name, {it:newvar} may be
+at most 30 characters for a model with 2-9 covariates (29 for 10-99); an
+over-long stub is refused with {cmd:r(198)} before any residual is
+computed. Residuals are set to missing for observations that are not
 cause-of-interest events. {opt timevar()} is not allowed with {opt schoenfeld}
 and is rejected with {cmd:r(198)}; residuals are computed at the original event times. The
 residuals match
@@ -237,7 +240,9 @@ predicted CIF at that horizon.
 {phang}
 {opt ci} (with {opt cif}) additionally generates {it:newvar}{cmd:_lci} and
 {it:newvar}{cmd:_uci}, the lower and upper confidence limits for each predicted
-CIF. Limits use an influence-function (sandwich) standard error and are formed
+CIF. The suffixes are part of the created names, so with {opt ci} the
+{it:newvar} may be at most 28 characters; an over-long name is refused with
+{cmd:r(198)} before any prediction is computed. Limits use an influence-function (sandwich) standard error and are formed
 on the complementary log-log scale so they remain inside (0,1). Because the
 influence functions require the original estimation data, {opt ci} restricts
 the prediction to the estimation sample ({cmd:e(sample)}) and needs {cmd:_t} in

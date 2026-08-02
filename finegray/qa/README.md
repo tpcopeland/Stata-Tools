@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.2.1): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
+Quality assurance for the **finegray** package (v1.2.0): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
 This suite is built on four complementary assurance layers. Suites are grouped
 by their primary purpose; no ordering is intended to rank one reference above
@@ -48,6 +48,7 @@ The latest completed historical `full` receipt remains the 2026-07-23 **27-suite
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
 | `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, cached/self-contained weight-path equivalence, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 28 | 28 | 0 | 0 |
+| `test_finegray_sthlp_render.do` | The **render** axis: every shipped `.sthlp` is put through Stata's own SMCL renderer (`translate ..., translator(smcl2txt)`) and checked for directives that survived into the output. Four other suites grep SMCL *source*, which a directive split across a source newline passes while printing as literal markup to the user. The file list comes from the package directory, not a hard-coded list, and the suite ends by rendering a deliberately broken help file to prove the check can fire |
 | `test_documentation_examples.do` | **runnable doc examples** — every README/help code block run verbatim (Quick Start, basic fit, `predict cif`, phtest, fit variants, cif/predict CI, `basehaz`/`basecshazard`) | 7 | 7 | 0 | 0 |
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (100 datasets, arms A/B/C/D/X, plus manifest/tolerance guards) | 102 | 102 | 0 | 0 |
 | `test_finegray_nuisance.do` | **`nuisance` (FG 1999 eq. 7-8 psi) contract** — R-free: materiality, default-unchanged, both refusal gates with positive controls, `e(vce_meat)`, cluster path, `sum(psi)==0` invariant, finite-sample composition, beta invariance, post-estimation non-propagation, the Mata-level LT guard, and the no-competing-events reduction to Cox | 12 | 12 | 0 | 0 |
@@ -127,7 +128,22 @@ stata-mp -b do run_all.do full       # direct Stata invocation; inspect RESULT i
 stata-mp -b do test_finegray.do
 ```
 
-Each suite prints a machine-parseable sentinel as its last line, e.g. `RESULT: validation_finegray tests=45 pass=45 fail=0`, and calls `exit 1` on any failure. On this installation the Stata batch binary can still return OS status 0 after an internal `r(1)`, so shell automation must not trust the Stata process code alone. `run_all.sh` requires exactly one numeric runner sentinel, verifies `tests = pass + fail`, `fail = 0`, and `skip = 0`, and propagates a reliable shell status. On `python` and `full`, it additionally requires exactly one evaluated `RESULT: test_finegray_fg02_failclosed tests=1 pass=1 fail=0` before writing a PASS receipt.
+### Running from a scratch copy — pass `--source-repo`
+
+The isolation practice is to run from a scratch **copy** of the package, so a concurrent lane cannot write into the same `qa/` directory. A copy is not a git checkout, which costs the wrapper two things it needs: the provenance stamp (`run_all_status.txt` recorded `pkg_tree: not-a-git-repo (unknown)` and `head_commit: unknown` on 2026-07-22, losing the one field that block exists to record) and the gated tree the delayed-entry transfer gate extracts. `--source-repo` supplies both, and the receipt additionally records whether the copy still matches the named repo:
+
+```bash
+SC=/tmp/fgqa && rm -rf $SC && mkdir -p $SC
+cp -r ~/Stata-Tools/finegray $SC/finegray
+cp -r ~/Stata-Tools/tabtools $SC/tabtools        # test_finegray.do needs ../tabtools
+rm -f $SC/finegray/qa/*.log $SC/finegray/qa/run_all_status.txt
+printf 'set processors 1\n' > $SC/finegray/qa/profile.do
+cd $SC/finegray/qa && ./run_all.sh full --source-repo ~/Stata-Tools
+```
+
+Without it the transfer gate reports `NOT-RUN` in the receipt rather than passing silently.
+
+Each suite prints a machine-parseable sentinel as its last line, e.g. `RESULT: validation_finegray tests=45 pass=45 fail=0`, and calls `exit 1` on any failure. On this installation the Stata batch binary can still return OS status 0 after an internal `r(1)`, so shell automation must not trust the Stata process code alone. `run_all.sh` requires exactly one numeric runner sentinel, verifies `tests = pass + fail`, `fail = 0`, and `skip = 0`, and propagates a reliable shell status. On `python` and `full`, it additionally requires exactly one evaluated `RESULT: test_finegray_fg02_failclosed tests=1 pass=1 fail=0` before writing a PASS receipt. Two further shell gates run the same way: `test_run_all_wrapper.sh` (every lane but `gates`) and, on `full`/`gates`, the delayed-entry **transfer gate** described below. All three write their verdict into the receipt, and any of them can take the lane red.
 
 ### Dependencies
 
@@ -154,14 +170,15 @@ install.packages("fastcmprsk")
 | File | Role |
 |------|------|
 | `run_all.do` | Curated Stata lane runner (`quick`, `core`, `python`, `full`, `gates`) |
-| `run_all.sh` | Shell/CI wrapper that converts the numeric runner sentinel into a reliable OS exit status, requires the exact FG-02 shell-gate sentinel on `python`/`full`, and writes receipts only after every applicable gate has a final verdict |
-| `test_run_all_wrapper.sh` | Standalone bounded shell regression for PASS/FAIL receipt ordering, missing or malformed FG-02 sentinels, and stale-receipt removal after an early Stata failure |
+| `run_all.sh` | Shell/CI wrapper that converts the numeric runner sentinel into a reliable OS exit status, runs the three shell gates (FG-02 fail-closed, the wrapper's own regression test, and the delayed-entry transfer gate), accepts `--source-repo PATH` so a scratch-copy run still stamps provenance, and writes receipts only after every applicable gate has a final verdict |
+| `test_run_all_wrapper.sh` | Bounded shell regression for the wrapper itself, run against a fake `stata` binary: PASS/FAIL receipt ordering, missing or malformed FG-02 sentinels, stale-receipt removal after an early Stata failure, the transfer gate going red on drifted / truncated / never-published proof runs, `--source-repo` provenance, and the wrapper-test gate's own fail-closed behaviour. Invoked automatically by `run_all.sh` on every lane but `gates` (`FINEGRAY_WRAPPER_TEST_ACTIVE` guards the re-entry) |
 | `test_finegray_fg02_failclosed.sh` | Standalone shell gate proving that a broken R oracle generator cannot consume a complete stale ZZF cache and report a pass |
 | `run_all_status.txt`, `run_status_full.txt`, `run_status_gates.txt` | Tracked machine-readable lane receipts; the first mirrors the latest run and the lane-pinned files preserve full/gates evidence separately |
 | `_finegray_qa_common.do` | Shared process-unique PLUS/PERSONAL sandbox bootstrap for the lane runner, plus the seeded fixture builders (`_finegray_qa_tied_data`, `_finegray_qa_entry_data`, `_finegray_qa_unident_data`) that the tie and optimizer suites are built on |
 | `benchmark_finegray_zzf.do` | Standalone preregistered scaling measurement for the delayed-entry scan; fits CPU-time and incremental-memory log–log slopes and is intentionally outside `run_all.do` |
 | `_benchmark_finegray_zzf_cell.do` | Fresh-process worker used by `benchmark_finegray_zzf.do` for one measured fit |
-| `gates_transfer_proof.do` | The reproducible half of `run_status_gates.txt`: fits the same seeded delayed-entry model on two trees and diffs the `R|` rows, so the claim "the estimator core is provably unchanged since the last gate run" has a generator rather than being asserted. Takes a tree and a tag (`stata-mp -b do gates_transfer_proof.do "<tree>" <TAG>`), so it is deliberately outside `run_all.do` — it is run once per tree being compared, not once per lane |
+| `gates_transfer_proof.do` | The reproducible half of `run_status_gates.txt`: fits the same seeded delayed-entry model on two trees and diffs the `R|` rows, so the claim "the estimator core is provably unchanged since the last gate run" has a generator rather than being asserted. Takes a tree and a tag (`stata-mp -b do gates_transfer_proof.do "<tree>" <TAG>`), so it is outside `run_all.do` — it is run once per tree, not once per lane. `run_all.sh` drives both runs on `full`/`gates`; it sandboxes PLUS/PERSONAL like every other suite (it used to install the **gated** tree straight into the live adopath and leave it there) |
+| `gates_transfer_pin.txt` | The commit the three ZZF Monte Carlo gates were last actually run against. `run_all.sh` extracts this tree and diffs four delayed-entry arms against the tree under test. Move the pin only after re-running `./run_all.sh gates` (~7h) — moving it to silence a red transfer gate destroys the only evidence the gates still describe the shipped estimator |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for everything the collapsed version history attributes to v1.1.0. Merged mechanically from the four version-pinned suites that predated the collapse (v110 + v111 + v112 + v114); section banners inside the file preserve their origin. Covers: the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record `stsplit`, `level()`) and `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths); post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), `finegray_cif, at()` factor-variable natural names; estimation-data signatures, stale-state invalidation, graph/save return gates, strict `saving()`/`at()` validation, all/partial bootstrap nonconvergence, restored estimates and `e(sample)`, helper `r()` isolation; factor-level bootstrap skips/counts, unspaced `saving(filename,replace)` parsing, and all-or-nothing prediction-variable cleanup |
 | `test_finegray_v120.do` | Version-pinned regression for the v1.2.0 `finegray_phtest` diagnostic-only return and display contract |
@@ -209,12 +226,12 @@ install.packages("fastcmprsk")
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_release120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_finegray_fvgrammar.do`, `test_finegray_fg03_diagnostic.do`, `test_finegray_fg06_vce.do`, `test_finegray_fg07_options.do`, `test_finegray_nuisance.do`, `test_finegray_determinism.do`, `test_finegray_reporting.do`, `test_finegray_contracts.do`, `test_documentation_examples.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_release120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_finegray_fvgrammar.do`, `test_finegray_fg03_diagnostic.do`, `test_finegray_fg06_vce.do`, `test_finegray_fg07_options.do`, `test_finegray_nuisance.do`, `test_finegray_determinism.do`, `test_finegray_reporting.do`, `test_finegray_contracts.do`, `test_finegray_sthlp_render.do`, `test_documentation_examples.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do`, `crossval_nuisance.do` |
 | `full` | `core` + `python` |
 | `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do` |
-| Standalone shell checks | `test_run_all_wrapper.sh`; `test_finegray_fg02_failclosed.sh` is also invoked automatically by `run_all.sh` after the `python` and `full` Stata lanes |
+| Shell gates (run by `run_all.sh`, not `run_all.do`) | `test_run_all_wrapper.sh` (all lanes but `gates`); `test_finegray_fg02_failclosed.sh` (`python`, `full`); the delayed-entry transfer gate driving `gates_transfer_proof.do` against `gates_transfer_pin.txt` (`full`, `gates`). Each is also runnable by hand |
 | Standalone measurement | `benchmark_finegray_zzf.do` (uses `_benchmark_finegray_zzf_cell.do`; intentionally not a `run_all.do` lane) |
 
 ## Coverage map

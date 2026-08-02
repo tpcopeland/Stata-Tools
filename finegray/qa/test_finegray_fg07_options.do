@@ -148,6 +148,118 @@ else {
     local ++fail_count
 }
 
+**# 7. cif attime() with timepoints() is rejected; each alone is accepted
+* CIF-1.  Both options name the times the CIF is evaluated at, and the grid
+* builder took attime() first, so the pair ran at rc 0 with timepoints() parsed,
+* dropped, and never mentioned: `finegray_cif, attime(4) timepoints(1 2 3)'
+* returned a one-row table at t = 4.  attime() also switches table mode on, so
+* there is no defensible winner to pick silently.
+local ++test_count
+capture noisily {
+    _mk_fg07
+    capture finegray_cif, attime(4) timepoints(1 2 3) nograph
+    display as text "  attime() + timepoints() rc = `=_rc' (pre-fix: 0, timepoints() dropped)"
+    assert _rc == 198
+
+    * positive controls: each option alone still works, and each still drives the
+    * grid it is supposed to.  Without these, an unrelated 198 would pass above.
+    capture noisily finegray_cif, attime(4) nograph
+    assert _rc == 0
+    matrix _c1a = r(table)
+    assert rowsof(_c1a) == 1
+    assert _c1a[1,1] == 4
+
+    capture noisily finegray_cif, timepoints(1 2 3) nograph
+    assert _rc == 0
+    matrix _c1b = r(table)
+    assert rowsof(_c1b) == 3
+    matrix drop _c1a _c1b
+}
+if _rc == 0 {
+    display as result "  PASS: FG07-7/CIF-1 attime() with timepoints() rejected; each alone honored"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG07-7/CIF-1 (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 8. M1: derived newvar names are checked BEFORE the work, and the two ways
+* they can fail are told apart.
+*
+* `ci' derives newvar_lci / newvar_uci, so its budget is 28 characters, not
+* Stata's 32; `schoenfeld' derives newvar_2 ... newvar_p, so its budget is 30
+* for a 2-9 covariate model.  Neither ceiling was documented.
+*
+* The ORDERING half is what fails on the pre-fix build, and it needs a probe
+* that separates "checked early" from "checked at all": rc 198 alone does not,
+* because the old code also ended at 198, just later.  So pair the over-long
+* name with an `if' that selects no observations.  Pre-fix reached the
+* no-observations guard first and exited 2000; the name only failed afterwards.
+* (The wasted work is the point CIF, not the bootstrap -- the old `confirm' sat
+* between them.)
+*
+* The MESSAGE half is the schoenfeld stub check, which returned 110 "variable
+* already exists" for every failure, including a name that was simply too long.
+* `confirm new variable' distinguishes them: 110 taken, 198 malformed.
+local ++test_count
+capture noisily {
+    _mk_fg07
+    * ordering: an empty `if' must NOT win over an unusable name
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdefg if id < 0, cif ci
+    display as text "  over-long ci newvar + empty if rc = `=_rc' (pre-fix: 2000)"
+    assert _rc == 198
+
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdefg, cif ci
+    display as text "  over-long ci newvar rc = `=_rc'"
+    assert _rc == 198
+    * nothing was created, including the point estimate
+    capture confirm variable abcdefghij_abcdefghij_abcdefg
+    assert _rc != 0
+
+    * positive control: 28 characters is the documented ceiling and is accepted
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdef, cif ci
+    assert _rc == 0
+    confirm variable abcdefghij_abcdefghij_abcdef
+    confirm variable abcdefghij_abcdefghij_abcdef_lci
+    confirm variable abcdefghij_abcdefghij_abcdef_uci
+
+    * a TAKEN suffix name is a different failure and must say so: 110, not 198
+    drop abcdefghij_abcdefghij_abcdef
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdef, cif ci
+    display as text "  existing _lci with a valid stub rc = `=_rc'"
+    assert _rc == 110
+
+    * schoenfeld: 2 covariates, so the stub carries a _2 suffix.  31 characters
+    * makes stub_2 33 and therefore invalid -- 198, not "already exists".
+    quietly finegray x c.x#c.x, compete(ev) cause(1) nolog
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdefghi, schoenfeld
+    display as text "  over-long schoenfeld stub rc = `=_rc' (pre-fix: 110)"
+    assert _rc == 198
+    capture confirm variable abcdefghij_abcdefghij_abcdefghi
+    assert _rc != 0
+
+    * positive control: 30 characters fits, and both stub variables appear
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdefgh, schoenfeld
+    assert _rc == 0
+    confirm variable abcdefghij_abcdefghij_abcdefgh
+    confirm variable abcdefghij_abcdefghij_abcdefgh_2
+
+    * and a genuinely taken stub name still reports 110
+    drop abcdefghij_abcdefghij_abcdefgh
+    capture noisily finegray_predict abcdefghij_abcdefghij_abcdefgh, schoenfeld
+    display as text "  existing schoenfeld _2 with a valid stub rc = `=_rc'"
+    assert _rc == 110
+}
+if _rc == 0 {
+    display as result "  PASS: FG07-8/M1 derived newvar names checked up front; 198 vs 110 distinguished"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG07-8/M1 (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_fg07_options tests=`test_count' pass=`pass_count' fail=`fail_count'"

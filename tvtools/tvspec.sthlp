@@ -97,14 +97,14 @@ is currently running in.
 
 {phang}
 {opt nam:e(name)} is the logical name of the source. It is required, must be a
-legal Stata name of at most 32 characters, and must be unique within the frame.
-It appears in {cmd:tvbuild}'s plan display, in the provenance manifest, and in
-{cmd:r(source_names)}.
+legal Stata name of at most 32 characters, and must be unique within the
+frame. It appears in {cmd:tvbuild}'s plan display, in the provenance manifest,
+and in {cmd:r(source_names)}.
 
 {phang}
-{opt fr:ame(name)} names a frame holding the source records.
-{opt us:ing(filename)} names a {cmd:.dta} file holding them. Exactly one of the
-two is required.
+{opt fr:ame(name)} names a frame holding the source records, and
+{opt us:ing(filename)} names a {cmd:.dta} file holding them. Exactly one of
+the two is required.
 
 {phang}
 {opt start(name)} and {opt stop(name)} are the columns in the source that hold
@@ -112,9 +112,9 @@ each record's interval bounds. Each is a single column name.
 
 {phang}
 {opt expos:ure(namelist)} names the input variable(s) to read from the source
-and {opt gen:erate(namelist)} names the output variable(s) to create from them.
-The two are mapped position by position and must name the same number of
-variables. An {cmd:episodes} source declares exactly one of each.
+and {opt gen:erate(namelist)} names the output variable(s) to create from
+them. The two are mapped position by position and must name the same number
+of variables. An {cmd:episodes} source declares exactly one of each.
 
 {phang}
 {opt ref:erence(#)} is the whole-number category that fills time not covered by
@@ -138,9 +138,9 @@ into the provenance manifest.
 {phang}
 {opt rate(namelist)}, {opt tot:al(namelist)}, and {opt cum:ulative(namelist)}
 declare which of the {opt exposure()} variables are quantities and how each is
-apportioned across split intervals. They apply to an {cmd:intervals} source;
-each must name variables that appear in {opt exposure()}, and the three lists
-must not overlap.
+apportioned across split intervals. They apply to an {cmd:intervals} source; each
+must name variables that appear in {opt exposure()}, and the three lists must
+not overlap.
 
 
 {marker remarks}{...}
@@ -155,7 +155,7 @@ which turns a data cell into macro indirection and usually reads as empty
 rather than as an error.
 
 {pstd}
-To pass a path held in a local macro, let the macro expand as usual:
+To pass a path held in a local macro, let the macro expand as usual, so that
 {cmd:tvspec add myspec, using("`episodes'") ...} stores the resolved path.
 
 

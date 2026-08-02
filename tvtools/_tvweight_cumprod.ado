@@ -1,4 +1,4 @@
-*! _tvweight_cumprod Version 1.12.0  2026/08/01
+*! _tvweight_cumprod Version 1.12.1  2026/08/02
 *! In-place within-person cumulative product of a per-period weight
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (creates generate(); returns nothing)

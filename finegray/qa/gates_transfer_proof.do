@@ -8,6 +8,13 @@
 *   stata-mp -b do gates_transfer_proof.do /tmp/gated/finegray GATED
 *   stata-mp -b do gates_transfer_proof.do /path/to/current/finegray CURRENT
 *
+* ./run_all.sh does all of this for you on the `full' and `gates' lanes -- see
+* the transfer-proof gate there and qa/gates_transfer_pin.txt for the gated
+* commit.  Run it by hand only when reproducing a receipt.  Each invocation
+* writes gt4_<TAG>.log in the current directory, so give the two runs different
+* working directories (or at least different tags); batch mode also writes
+* <dofile>.log into the cwd, which two concurrent runs would collide on.
+*
 * WHY THIS FILE EXISTS
 * --------------------
 * The 2026-07-18 receipt asserted the estimator core was unchanged since the
@@ -38,16 +45,40 @@ args tree tag
 clear all
 set varabbrev off
 version 16.0
+* An "R|" row is ~110 characters, and batch mode wraps the log at linesize 80
+* with a "> " continuation.  The tag is part of the row, so GATED (5 chars) and
+* CURRENT (7 chars) wrap at DIFFERENT columns -- byte-identical coefficients
+* then diff as four changed lines, and the transfer gate reports a delayed-entry
+* regression that does not exist.  Measured, not hypothesised: the first version
+* of the wired-in gate failed exactly this way on a tree whose estimator code was
+* untouched.
+set linesize 200
 capture log close _all
 log using "gt4_`tag'.log", replace name(_g4)
-* Uninstall first, matching every other suite in this package.  `net install,
-* replace' overwrites the copy in the SAME adopath slot, but a second copy in a
-* different slot (PLUS vs PERSONAL) still shadows the tree under test, and this
-* script's whole purpose is to compare two specific trees -- a shadowed one
-* would be diffed against itself without any error.
-capture ado uninstall finegray
-quietly net install finegray, from("`tree'") replace
+
+* ISOLATE THE ADOPATH.  This script installs a tree -- frequently an OLD tree
+* extracted with `git archive' -- and used to do so straight into the live
+* PLUS/PERSONAL directories with no restore.  Run it as its own header
+* documented and you uninstalled the user's finegray and left the gated copy
+* installed.  Every other suite here goes through _finegray_qa_bootstrap, which
+* sandboxes into a PID-unique tempdir; do the same, and restore on BOTH the
+* success and the error path.  tempfile paths carry Stata's process id, so two
+* concurrent sessions (which is how this script is meant to be run) cannot
+* collide.
+local _orig_plus "`c(sysdir_plus)'"
+local _orig_personal "`c(sysdir_personal)'"
+tempfile _install_anchor
+local _plus_dir "`_install_anchor'_plus"
+local _personal_dir "`_install_anchor'_personal"
+capture mkdir "`_plus_dir'"
+capture mkdir "`_personal_dir'"
+sysdir set PLUS "`_plus_dir'"
+sysdir set PERSONAL "`_personal_dir'"
 discard
+
+* The fixture builders are defined OUTSIDE the capture block below: `program
+* define' consumes lines until `end', which does not survive being nested in a
+* braced block.
 program define _mk_lt06
     syntax , n(integer)
     clear
@@ -87,6 +118,18 @@ program define _zzf_fix
     gen long id = _n
     quietly stset t, failure(anyev == 1) id(id) enter(time t0)
 end
+
+capture noisily {
+
+* Uninstall first, matching every other suite in this package.  `net install,
+* replace' overwrites the copy in the SAME adopath slot, but a second copy in a
+* different slot (PLUS vs PERSONAL) still shadows the tree under test, and this
+* script's whole purpose is to compare two specific trees -- a shadowed one
+* would be diffed against itself without any error.
+capture ado uninstall finegray
+quietly net install finegray, from("`tree'") replace
+discard
+
 _mk_lt06, n(1500)
 quietly finegray z1 z2, compete(ev) cause(1) nolog
 display as text "R|`tag'|lt06_1500|" %21.16f _b[z1] "|" %21.16f _b[z2] "|" %21.16f _se[z1] "|" %21.16f _se[z2]
@@ -99,4 +142,18 @@ display as text "R|`tag'|zzf_4000|" %21.16f _b[z1] "|" %21.16f _b[z2] "|" %21.16
 _zzf_fix, n(4000) seed(20260714)
 quietly finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
 display as text "R|`tag'|zzf_fact|" %21.16f _b[z1] "|" %21.16f _b[z2] "|" %21.16f _se[z1] "|" %21.16f _se[z2]
+
+}
+local _proof_rc = _rc
+
+capture ado uninstall finegray
+sysdir set PLUS "`_orig_plus'"
+sysdir set PERSONAL "`_orig_personal'"
+discard
+capture shell rm -rf "`_plus_dir'" "`_personal_dir'"
+
+* A machine-checkable completion sentinel: four "R|" rows printed but a nonzero
+* rc means the run died partway and the diff would compare a truncated log.
+display as text "R_STATUS|`tag'|rc=`_proof_rc'"
 capture log close _g4
+if `_proof_rc' exit `_proof_rc'

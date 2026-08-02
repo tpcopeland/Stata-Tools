@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.1  2026/07/28
+*! finegray_cif Version 1.2.0  2026/08/02
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -78,6 +78,20 @@ program define finegray_cif, rclass sortpreserve
     }
     if "`level'" != "" & "`ci'" == "" {
         display as error "level() requires the ci option"
+        exit 198
+    }
+    * FG-07 again: attime() and timepoints() are two ways of naming the same
+    * thing -- the times the CIF is evaluated at -- and the grid builder below
+    * takes attime() first, so the pair used to run at rc 0 with timepoints()
+    * parsed, dropped, and never mentioned.  `finegray_cif, attime(4)
+    * timepoints(1 2 3)' returned a one-row table at t = 4.  Neither is a
+    * modifier of the other (attime() also selects table mode over curve mode),
+    * so there is no defensible winner to pick silently.
+    if "`attime'" != "" & "`timepoints'" != "" {
+        display as error "attime() and timepoints() may not be combined"
+        display as error "both set the times the CIF is evaluated at: use {bf:attime()}"
+        display as error "for a table at specific times, {bf:timepoints()} for a curve"
+        display as error "evaluated on a grid you supply"
         exit 198
     }
 
@@ -388,6 +402,8 @@ program define finegray_cif, rclass sortpreserve
     * thinned grid straight from Mata instead: _finegray_bh_grid rebuilds the
     * baseline (one linear pass) and posts only the <= 401 grid times, so the
     * Stata matrix it does create is small enough for the quadratic to vanish.
+    * attime() and timepoints() are mutually exclusive (refused at parse time),
+    * so this order expresses a preference over nothing.
     if "`attime'" != "" {
         local grid "`attime'"
         local mode "table"

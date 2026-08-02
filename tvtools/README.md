@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.12.0** | 2026-08-01
+**Version 1.12.1** | 2026-08-02
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It supports exposure construction, interval alignment, event integration, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -240,6 +240,12 @@ do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.12.1** (2026-08-02): Two hardening fixes from an independent review of 1.12.0; no estimator, interval semantic, or computed value changed.
+
+  **The derived-manifest exemption now requires the schema as well as the mark.** 1.12.0 exempted a frame at the derived name from the never-overwrite rule when it carried `_dta[tvtools_manifest]` reading `tvbuild`. A characteristic is writable by any command or user, so the mark alone was a claim rather than a proof, and a frame carrying it while holding none of the manifest columns was silently replaced. `tvbuild` now requires both the characteristic and the manifest column schema; either one alone is refused on both sides of `replace`. The two halves are pinned from opposite sides in QA, so neither can be dropped silently.
+
+  **`tvspec add` names a damaged specification frame instead of failing on an internal column.** A frame that kept the `_dta[tvbuild_spec_version]` stamp but lost a column failed at the first internal write with a bare `r(111)` naming a column the caller never wrote — an error about `tvspec`'s implementation rather than about their frame. It is now `r(198)` naming every missing column and the way to rebuild it.
 
 - **1.12.0** (2026-08-01): Three usability changes; no estimator, interval semantic, or computed value changed.
 

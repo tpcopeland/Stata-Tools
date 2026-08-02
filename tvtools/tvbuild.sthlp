@@ -231,8 +231,17 @@ authorize replacing a frame whose name {cmd:tvbuild} derived. If
 sides of {opt replace}, and names the two ways out: supply
 {opt manifestframe()} yourself, or specify {opt nomanifest}. The one exception
 is a frame {cmd:tvbuild} itself wrote there -- its own manifest from an earlier
-run, which it marks -- so a repeated call and a re-run after dropping only
-{opt frameout()} both work as expected.
+run -- so a repeated call and a re-run after dropping only {opt frameout()}
+both work as expected.
+
+{phang}
+That exception is recognized by two things together, and neither alone
+qualifies a frame: the characteristic {cmd:_dta[tvtools_manifest]} reading
+{cmd:tvbuild}, {it:and} the manifest column schema. A frame carrying the
+manifest columns without the characteristic is a frame of yours that happens to
+share the layout; a frame carrying the characteristic without the columns is a
+frame of yours wearing the label, since a characteristic is something any
+command or user can set. Both are refused.
 
 {phang}
 {opt manifestframe(name)} names the provenance manifest frame. When it is

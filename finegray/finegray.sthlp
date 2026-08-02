@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1  28jul2026}{...}
+{* *! version 1.2.0  02aug2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -457,7 +457,11 @@ required by the post-estimation commands; see
 {phang2}
 {bf:3. Dataset characteristics} recording the fit for post-estimation use; see
 {help finegray##results:Stored results} for the full list. These travel with the
-dataset when you {cmd:save} it.
+dataset when you {cmd:save} it, but the estimation results themselves do
+not, so after {cmd:save} and {cmd:use} the post-estimation commands report
+{cmd:r(459)} because {cmd:e()} was not restored along with the data. Use
+{helpb estimates save} and {helpb estimates use} to carry a fit across
+sessions, or simply refit.
 
 {phang2}
 {bf:4. A reduced {cmd:e(sample)}} on multiple-record data -- one record per
@@ -467,9 +471,13 @@ reduced. See {help finegray##lt:Left truncation}.
 
 {pstd}
 Items 1 and 2 are ordinary variables: {cmd:describe}, {cmd:save} and
-{cmd:drop} all see them. Dropping them is supported -- {helpb finegray_predict}
-rebuilds design columns on demand -- but do not drop {cmd:_fg_entry} while
-post-estimation on a multiple-record fit is still needed.
+{cmd:drop} all see them. Dropping the {cmd:_fg_*} design columns is supported --
+{helpb finegray_predict}, {helpb finegray_cif} and {helpb finegray_phtest} all
+rebuild them on demand, from the factor expansion in force at fit time -- but do
+not drop {cmd:_fg_entry} while post-estimation on a multiple-record fit is still
+needed. Modifying a {cmd:_fg_*} column in place is a different matter: it is
+refused with {cmd:r(459)}, because the fitted coefficients no longer correspond
+to what the column holds.
 
 {marker lt}{...}
 {pstd}
@@ -949,7 +957,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.1, 2026-07-28{p_end}
+{pstd}Version 1.2.0, 2026-08-02{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

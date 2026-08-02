@@ -1,4 +1,4 @@
-*! tvspec Version 1.12.0  2026/08/01
+*! tvspec Version 1.12.1  2026/08/02
 *! Build a tvbuild specification frame one source at a time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -198,6 +198,32 @@ program define tvspec_add, rclass
             "frame `specframe' is not a tvbuild specification frame"
         noisily display as error ///
             "run -tvspec create `specframe'- first; tvspec add never creates one"
+        exit 198
+    }
+
+    * The characteristic says the frame was stamped once. It does not say the
+    * frame still has the columns to hold a row. A frame that kept the stamp and
+    * lost a column used to fail at the first -replace- below with a bare
+    * r(111) naming an internal column the caller never wrote -- an error about
+    * tvspec's implementation rather than about their frame. Name the missing
+    * columns instead, and say how to get them back.
+    *
+    * This is checked, not left to the read-back guard further down: that guard
+    * only fires when every write SUCCEEDS and a value comes back altered, so a
+    * missing column never reaches it.
+    local _missing ""
+    foreach _c in source_name source_kind source_frame source_file ///
+        start_var stop_var input_vars output_vars reference ///
+        rate_vars total_vars cumulative_vars reference_label ///
+        variable_label description {
+        local _has : list posof "`_c'" in _cols
+        if `_has' == 0 local _missing "`_missing' `_c'"
+    }
+    if "`_missing'" != "" {
+        noisily display as error ///
+            "frame `specframe' carries the specification stamp but is missing column(s):`_missing'"
+        noisily display as error ///
+            "rebuild it with -tvspec create `specframe', replace-"
         exit 198
     }
 

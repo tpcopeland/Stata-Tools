@@ -1,4 +1,4 @@
-*! _finegray_resolve_baseline Version 1.2.1  2026/07/28
+*! _finegray_resolve_baseline Version 1.2.0  2026/08/02
 *! Resolve the baseline cumulative subhazard for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (fills a caller-named H0 variable)
@@ -27,7 +27,10 @@
 *      PREVIOUS fit can never answer for this one.
 *   3. Rebuild it in Mata from the estimation data.  Exact, not approximate: it
 *      re-runs the fit's own _finegray_basehazard.  Only possible while the
-*      estimation sample is still in memory.
+*      estimation sample is still in memory -- and, because it is the only path
+*      that READS those data, the only path that verifies them
+*      (_finegray_check_data) and rebuilds dropped _fg_* design columns.  Paths 1
+*      and 2 must not do either: `predict, cif' on new data travels path 2.
 *
 * If none of the three is available -- the data are gone AND the cache was wiped
 * by `discard' or `mata clear' -- this errors.  It does not guess.
@@ -80,8 +83,83 @@ program define _finegray_resolve_baseline
                     exit 459
                 }
 
+                * ONLY this branch reads the estimation data, so this is the only
+                * branch that has to verify them.  Path 1 reads a posted matrix
+                * and path 2 a Mata cache keyed to e(bh_seq); both are immune to
+                * what the data now hold, and `predict, cif' on NEW data (the
+                * documented FG-B04 workflow) travels path 2 -- calling this any
+                * higher up would break it.
+                *
+                * Without the check, a _fg_* design column that is still present
+                * but no longer equals what the fit-time expansion implies is
+                * read here BY NAME and answers at rc 0: flipping _fg_pelnode_1
+                * moved the mean CIF from 0.2324819505 to 0.1150179144, and the
+                * mean baseline H0 from 0.2832285959 to 0.1256285380.  Warm-cache
+                * calls returned the right number for the same data, so the
+                * answer depended on session history.  finegray_cif and
+                * finegray_phtest already call this helper unconditionally.
+                _finegray_check_data
+
                 tempvar _es
                 quietly gen byte `_es' = e(sample)
+
+                * Which columns to hand the engine.  e(covariates) names the
+                * package-owned _fg_* design columns, and dropping those is a
+                * DOCUMENTED, supported operation (finegray.sthlp: "finegray_predict
+                * rebuilds design columns on demand") -- the score path does
+                * rebuild them, from e(fvsemantic); this path used to pass the
+                * stored names through unverified and died inside st_data() with a
+                * raw Mata traceback (r(3598)).  `estimates store' / refit /
+                * `estimates restore' is the ordinary workflow that triggers it,
+                * because the second fit drops the first fit's _fg_* columns.
+                *
+                * Rebuild by LEVEL VALUE from the fit-time expansion, never by
+                * re-running fvexpand against the current data -- see
+                * _finegray_fv_design's header for why the count check cannot
+                * catch that.  The rebuilt columns are tempvars over e(sample):
+                * this helper is read-only from the caller's point of view, so it
+                * must not materialise _fg_* names it would then have to clean up.
+                local _zvars "`e(covariates)'"
+                local _need_rebuild = 0
+                foreach _cv of local _zvars {
+                    capture confirm numeric variable `_cv'
+                    if _rc {
+                        local _need_rebuild = 1
+                        continue, break
+                    }
+                }
+                if `_need_rebuild' {
+                    if `"`e(fvvarlist)'"' == "" {
+                        display as error "covariate(s) from the fitted model are no longer in the data"
+                        display as error "the baseline cumulative subhazard is rebuilt from the"
+                        display as error "estimation data, which requires every covariate finegray"
+                        display as error "was fit on; restore them, refit {bf:finegray}, or refit"
+                        display as error "with {bf:basehaz} so the baseline survives in {bf:e(basehaz)}"
+                        exit 459
+                    }
+                    _finegray_fv_design, caller("this post-estimation command")
+                    * Copy the whole r() payload out BEFORE anything else touches r().
+                    local _fvk = r(k)
+                    forvalues _j = 1/`_fvk' {
+                        local _fvexpr`_j' `"`r(expr`_j')'"'
+                    }
+                    local _nz : word count `_zvars'
+                    if `_fvk' != `_nz' {
+                        display as error "reconstructed FV design does not match the fitted model"
+                        display as error "(`_fvk' non-base terms in e(fvsemantic), `_nz' in e(covariates))"
+                        exit 198
+                    }
+                    local _rbvars ""
+                    forvalues _j = 1/`_fvk' {
+                        tempvar _fgrb`_j'
+                        * Built only over e(sample): outside it a `(race == 2)'
+                        * indicator reads a missing race as 0 and quietly assigns
+                        * the base category.
+                        quietly gen double `_fgrb`_j'' = `_fvexpr`_j'' if `_es'
+                        local _rbvars "`_rbvars' `_fgrb`_j''"
+                    }
+                    local _zvars : list retokenize _rbvars
+                }
 
                 * Rebuild the weight design from the STORED specification, never
                 * from a variable left behind in the data: the fit's design must be
@@ -104,7 +182,7 @@ program define _finegray_resolve_baseline
 
                 if "`t0var'" == "" local t0var "_t0"
 
-                mata: _finegray_step_lookup_direct("`e(covariates)'", ///
+                mata: _finegray_step_lookup_direct("`_zvars'", ///
                     "`e(compete)'", `=e(cause)', `=e(censvalue)', ///
                     "`_byg_mata'", "`_tg_mata'", "`_es'", "`t0var'", ///
                     "`tvar'", "`h0'", "`touse'")

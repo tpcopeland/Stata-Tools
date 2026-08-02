@@ -597,6 +597,56 @@ _tvm_check `=(`rc' == 0 & "`r8_char'" == "tvbuild")' ///
     "R8 the committed manifest carries the tvtools_manifest mark" ///
     "rc=`rc' char=|`r8_char'|"
 
+* R9/R10: the converse of R7, and the half 1.12.0 did not have. R7 pins that the
+* SCHEMA without the MARK is refused. These pin that the MARK without the SCHEMA
+* is refused too -- because a characteristic is writable by anything, so a frame
+* carrying it is making a claim about itself that only the columns can support.
+*
+* In 1.12.0 the exemption tested the mark alone, so a user frame carrying a
+* stray or copied tvtools_manifest characteristic was silently replaced, with
+* rc=0 and no way to notice. Both of these fail against that build.
+*
+* Run on both sides of replace: the rule is checked before the replace branch,
+* so neither answer may depend on it.
+foreach r9_rep in "replace" "" {
+    local r9_lab = cond("`r9_rep'" == "", "without replace", "with replace")
+    local r9_tag = cond("`r9_rep'" == "", "R10", "R9")
+    _tvm_reset
+    * A caller's frame that is nothing like a manifest, wearing the mark.
+    capture noisily {
+        frame create mout_manifest
+        frame change mout_manifest
+        quietly set obs 4
+        quietly generate long userdata = _n
+        char _dta[tvtools_manifest] "tvbuild"
+        frame change default
+    }
+    local setup_rc = _rc
+    _tvm_master "`work'"
+    capture noisily tvbuild, sourceusing("`work'/tmb_source.dta") id(pid) ///
+        entry(study_entry) exit(study_exit) `INLINE' frameout(mout) `r9_rep'
+    local rc = _rc
+    * What SURVIVED is the claim, not just the return code: the caller's rows and
+    * their column must both still be there, and no destination may exist.
+    local r9_rows = -1
+    local r9_keeps = 0
+    capture noisily {
+        local _here "`c(frame)'"
+        frame change mout_manifest
+        local r9_rows = _N
+        capture confirm variable userdata
+        local r9_keeps = (_rc == 0)
+        frame change `_here'
+    }
+    _tvm_hasframe mout
+    local r9_out = r(yes)
+    _tvm_check ///
+        `=(`setup_rc' == 0 & `rc' == 198 & !`r9_out' & `r9_rows' == 4 & `r9_keeps')' ///
+        "`r9_tag' a marked frame without the manifest schema is refused `r9_lab'" ///
+        "setup_rc=`setup_rc' rc=`rc' frameout=`r9_out' rows=`r9_rows' keptvar=`r9_keeps'"
+}
+_tvm_reset
+
 
 **# ===== A: the derived name aliases an input =====
 

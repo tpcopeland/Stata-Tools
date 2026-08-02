@@ -13,6 +13,12 @@
 *   FG-H03  the estimation-data signature covered the raw variables but not the
 *           package-owned _fg_* design columns that post-estimation reads back.
 *           Flipping _fg_grp_2 moved the CIF from 0.18367237 to 0.18251435 at rc 0.
+*   FG-H15  the baseline REBUILD path passed e(covariates) to Mata by name,
+*           unverified. A tampered _fg_* column answered at rc 0 (mean CIF
+*           0.1150179144 against a truth of 0.2324819505) whenever the Mata
+*           cache happened to be cold, and a DROPPED one -- documented as
+*           supported -- died with a raw r(3598) traceback. `estimates store' /
+*           refit / `estimates restore' is the ordinary workflow that reaches it.
 *   FG-H11  a confidence limit that could not be computed was replaced by the
 *           POINT ESTIMATE -- a zero-width interval presented as a real one. And
 *           r(table) carried lci = uci = cif even when ci was never requested.
@@ -211,6 +217,247 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: FG-H03 dropped _fg_* rejected (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* FG-H15 (RB-1..7): the BASELINE REBUILD path
+* =============================================================================
+* Test 4b above is the shape qa/README.md warns about: right contract, right
+* name, wrong probes.  It drops _fg_* and then exercises `predict, xb' and
+* finegray_phtest -- the two statistics that do NOT go through
+* _finegray_resolve_baseline.  The two that do, `cif' and `basecshazard', were
+* absent, and in-session the Mata baseline cache is warm anyway, so adding them
+* naively would still have been green.  Every test below forces a cache miss
+* with `mata: mata clear' so the REBUILD branch is the one under test.
+*
+* Measured on the pre-fix build (webuse hypoxia, i.pelnode):
+*   tampered _fg_*, cold cache -> rc 0, mean CIF 0.1150179144 (truth 0.2324819505)
+*                              -> rc 0, mean H0  0.1256285380 (truth 0.2832285959)
+*   dropped  _fg_*, cold cache -> r(3598), a raw Mata traceback out of st_data()
+* The tamper case also depended on session history: warm cache gave the right
+* number for the same data.
+
+* RB-5: WARM-versus-COLD agreement with the design columns INTACT.  It says the
+* answer may not depend on whether the cache happens to be populated.  Unlike
+* RB-1..4 and RB-6 this one PASSES on the pre-fix build -- with the columns
+* present the rebuild read the right numbers, and the defect only surfaced once
+* they were tampered with or dropped.  It is here as the standing invariant the
+* other five are special cases of, and because it is what pins the tolerance
+* below to a measurement.
+*
+* The tolerance is 1e-12, not bit-equality, and that is a measured fact rather
+* than a hedge: paths 1 and 2 (posted e(basehaz), Mata cache) agree to the last
+* bit because they are the SAME numbers, but path 3 recomputes the curve and
+* lands one ULP away -- max |cif warm - cold| = 2.22e-16 over 600 observations
+* on this fixture, 140 of which differ in their last bit.  A rebuild that fed
+* the wrong columns is off by a factor of about two, so 1e-12 separates the two
+* cases by twelve orders of magnitude.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog
+    quietly finegray_predict double rb5_cif_warm, cif
+    quietly finegray_predict double rb5_bh_warm, basecshazard
+
+    mata: mata clear
+    quietly finegray_predict double rb5_cif_cold, cif
+    mata: mata clear
+    quietly finegray_predict double rb5_bh_cold, basecshazard
+
+    * a degenerate all-zero baseline would satisfy "equal" trivially
+    quietly summarize rb5_cif_warm, meanonly
+    display as text "  warm CIF mean = " %18.10f r(mean)
+    assert r(mean) > 0 & r(mean) < 1
+    quietly summarize rb5_bh_warm, meanonly
+    assert r(mean) > 0
+
+    gen double _rb5dc = abs(rb5_cif_warm - rb5_cif_cold)
+    gen double _rb5db = abs(rb5_bh_warm - rb5_bh_cold)
+    quietly summarize _rb5dc, meanonly
+    display as text "  max |cif warm - cold| = " %12.4e r(max)
+    assert r(max) < 1e-12
+    quietly summarize _rb5db, meanonly
+    display as text "  max |H0  warm - cold| = " %12.4e r(max)
+    assert r(max) < 1e-12
+    drop _rb5dc _rb5db
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H15/RB-5 cif and basecshazard agree warm vs cold"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H15/RB-5 warm/cold baseline disagreement (rc=`=_rc')"
+    local ++fail_count
+}
+
+* RB-1 / RB-2: a TAMPERED design column, read by name on the rebuild path, must
+* be refused -- not answered.  finegray_cif is the positive control: it already
+* called _finegray_check_data unconditionally and already refused.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog
+    quietly finegray_predict double rb1_truth, cif
+    quietly summarize rb1_truth, meanonly
+    local _rb1_truth = r(mean)
+
+    quietly replace _fg_grp_2 = 1 - _fg_grp_2
+
+    mata: mata clear
+    capture noisily finegray_predict double rb1_tamp, cif
+    display as text "  predict, cif after _fg_ tamper (cold) rc = `=_rc' (pre-fix: 0)"
+    assert _rc == 459
+
+    mata: mata clear
+    capture noisily finegray_predict double rb2_tamp, basecshazard
+    display as text "  predict, basecshazard after _fg_ tamper (cold) rc = `=_rc' (pre-fix: 0)"
+    assert _rc == 459
+
+    * positive control: the same tamper, same guard, in the command that already had it
+    mata: mata clear
+    capture finegray_cif, attime(3) nograph
+    assert _rc == 459
+
+    * and no half-built variable was left behind by the refusal
+    capture confirm variable rb1_tamp
+    assert _rc != 0
+    capture confirm variable rb2_tamp
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H15/RB-1,RB-2 tampered _fg_* refused on the rebuild path"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H15/RB-1,RB-2 tampered _fg_* answered or mis-refused (rc=`=_rc')"
+    local ++fail_count
+}
+
+* RB-3 / RB-4: a DROPPED design column must be rebuilt -- the documented
+* contract (finegray.sthlp: "Dropping them is supported -- finegray_predict
+* rebuilds design columns on demand") -- and must reproduce the warm answer
+* exactly.  rc 0 alone is not enough here: a rebuild that silently produced a
+* base-category indicator would also be rc 0.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog
+    quietly finegray_predict double rb3_warm, cif
+    quietly finegray_predict double rb4_warm, basecshazard
+
+    drop _fg_*
+    mata: mata clear
+    capture noisily finegray_predict double rb3_cold, cif
+    display as text "  predict, cif after drop _fg_* (cold) rc = `=_rc' (pre-fix: 3598)"
+    assert _rc == 0
+    mata: mata clear
+    capture noisily finegray_predict double rb4_cold, basecshazard
+    display as text "  predict, basecshazard after drop _fg_* (cold) rc = `=_rc' (pre-fix: 3598)"
+    assert _rc == 0
+
+    * Same 1e-12 as RB-5, and for the same measured reason: the rebuild
+    * recomputes the curve and lands within one ULP, while a rebuild fed the
+    * wrong columns is off by a factor of about two.
+    gen double _rb3d = abs(rb3_warm - rb3_cold)
+    gen double _rb4d = abs(rb4_warm - rb4_cold)
+    quietly summarize _rb3d, meanonly
+    display as text "  max |cif warm - rebuilt| = " %12.4e r(max)
+    assert r(max) < 1e-12
+    quietly summarize _rb4d, meanonly
+    display as text "  max |H0  warm - rebuilt| = " %12.4e r(max)
+    assert r(max) < 1e-12
+    drop _rb3d _rb4d
+
+    * the rebuild uses tempvars: it must not leave _fg_* behind in the caller's data
+    capture unab _leftover : _fg_*
+    assert _rc != 0
+    display as text "  rebuilt design columns are tempvars; no _fg_* leaked into the data"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H15/RB-3,RB-4 dropped _fg_* rebuilt and reproduce the warm answer"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H15/RB-3,RB-4 dropped _fg_* baseline rebuild (rc=`=_rc')"
+    local ++fail_count
+}
+
+* RB-6: the ORDINARY workflow that triggers RB-3 without anyone typing
+* `drop _fg_*' or `mata clear'.  A second finegray fit drops the first fit's
+* design columns by design and advances e(bh_seq), so after `estimates restore'
+* the e() in force names columns that are gone AND the cache holds a different
+* fit -- both halves of the rebuild branch at once.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog
+    quietly finegray_predict double rb6_truth, cif
+    quietly summarize rb6_truth, meanonly
+    local _rb6_truth = r(mean)
+    estimates store rb6_A
+
+    quietly finegray x, compete(ev) cause(1) nolog
+    estimates restore rb6_A
+
+    capture noisily finegray_predict double rb6_after, cif
+    display as text "  predict, cif after store/refit/restore rc = `=_rc' (pre-fix: 3598)"
+    assert _rc == 0
+    capture noisily finegray_predict double rb6_bh, basecshazard
+    assert _rc == 0
+
+    quietly summarize rb6_after, meanonly
+    display as text "  restored-fit CIF mean = " %18.10f r(mean) ///
+        " vs original " %18.10f `_rb6_truth'
+    assert reldif(r(mean), `_rb6_truth') < 1e-12
+    gen double _rb6d = abs(rb6_after - rb6_truth)
+    quietly summarize _rb6d, meanonly
+    display as text "  max |cif original - restored| = " %12.4e r(max)
+    assert r(max) < 1e-12
+    drop _rb6d
+
+    estimates drop rb6_A
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H15/RB-6 estimates store/refit/restore then predict, cif"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H15/RB-6 store/restore predict, cif (rc=`=_rc')"
+    local ++fail_count
+}
+
+* RB-7: NEGATIVE CONTROL.  The verification added to the rebuild branch must not
+* leak onto the cached path.  `predict, cif' with the estimation sample gone is
+* documented and travels path 2, so it must stay rc 0 -- if _finegray_check_data
+* were called any higher up this would become r(301)/r(459).  FG-B04 below pins
+* the VALUE; this pins that the guard did not move.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog
+    gen double rb7_t = 3
+    quietly finegray_predict double rb7_in, cif timevar(rb7_t)
+    local _rb7_truth = rb7_in[1]
+    local _rb7_grp   = grp[1]
+    local _rb7_x     = x[1]
+
+    drop _all
+    set obs 1
+    gen byte grp = `_rb7_grp'
+    gen double x = `_rb7_x'
+    gen double rb7_t = 3
+    capture noisily finegray_predict double rb7_new, cif timevar(rb7_t)
+    display as text "  predict, cif on new data (cached path) rc = `=_rc' (must stay 0)"
+    assert _rc == 0
+    assert reldif(rb7_new[1], `_rb7_truth') < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H15/RB-7 cached new-data path not regressed by the rebuild guard"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H15/RB-7 new-data predict, cif regressed (rc=`=_rc')"
     local ++fail_count
 }
 
