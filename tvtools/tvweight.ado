@@ -1,4 +1,4 @@
-*! tvweight Version 1.12.1  2026/08/02
+*! tvweight Version 1.13.0  2026/08/02
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -498,25 +498,25 @@ program define tvweight, rclass sortpreserve
         drop `_nobs_per_id' `_id_tag'
     }
 
-    display as text "{hline 70}"
-    display as text "{bf:IPTW Weight Calculation}"
-    display as text "{hline 70}"
     display as text ""
-    display as text "Exposure variable: " as result "`exposure'"
-    display as text "Number of levels:  " as result "`n_levels'"
-    display as text "Model type:        " as result "`model'"
-    display as text "Weight type:       " as result "`wtype'"
-    display as text "Covariates:        " as result "`covariates'"
+    display as text "{bf:IPTW Weight Calculation}"
+    _tvtools_rule, width(78)
+    _tvtools_row "exposure variable", value(`"`exposure'"')
+    _tvtools_row "number of levels", num(`n_levels')
+    _tvtools_row "model type", value(`"`model'"')
+    _tvtools_row "weight type", value(`"`wtype'"')
+    _tvtools_row "covariates", value(`"`covariates'"')
     if "`tvcovariates'" != "" {
-        display as text "TV Covariates:     " as result "`tvcovariates'"
+        _tvtools_row "time-varying covariates", value(`"`tvcovariates'"')
     }
-    display as text "Observations:      " as result "`n_obs'"
+    _tvtools_row "observations", num(`n_obs')
     if `panel_mode' {
-        display as text "Panel structure:   " as result "`n_clusters' clusters"
-        display as text "Obs per cluster:   " as result %4.1f `mean_obs' ///
-            " (range: `min_obs'-`max_obs')"
-        display as text "Time FE:           " as result "i.`time'"
+        _tvtools_row "panel structure", num(`n_clusters') note("clusters")
+        _tvtools_row "obs per cluster", num(`mean_obs') fmt(%14.1f) ///
+            note("(range `min_obs'-`max_obs')")
+        _tvtools_row "time fixed effects", value(`"i.`time'"')
     }
+    _tvtools_rule, width(78)
     display as text ""
 
     * Fit propensity score model
@@ -1078,9 +1078,8 @@ program define tvweight, rclass sortpreserve
     * =========================================================================
 
     display as text ""
-    display as text "{hline 70}"
-    display as text "Weight Diagnostics"
-    display as text "{hline 70}"
+    display as text "{bf:Weight Diagnostics}"
+    _tvtools_rule, width(78)
 
     * Weight summary statistics
     quietly sum `generate' if `touse', detail
@@ -1096,21 +1095,20 @@ program define tvweight, rclass sortpreserve
     local w_p95 = r(p95)
     local w_p99 = r(p99)
 
+    display as text "Weight distribution"
+    _tvtools_row "mean", num(`w_mean') fmt(%14.4f)
+    _tvtools_row "SD", num(`w_sd') fmt(%14.4f)
+    _tvtools_row "min", num(`w_min') fmt(%14.4f)
+    _tvtools_row "max", num(`w_max') fmt(%14.4f)
     display as text ""
-    display as text "Weight distribution:"
-    display as text "  Mean:     " as result %9.4f `w_mean'
-    display as text "  SD:       " as result %9.4f `w_sd'
-    display as text "  Min:      " as result %9.4f `w_min'
-    display as text "  Max:      " as result %9.4f `w_max'
-    display as text ""
-    display as text "Percentiles:"
-    display as text "  1%:       " as result %9.4f `w_p1'
-    display as text "  5%:       " as result %9.4f `w_p5'
-    display as text "  25%:      " as result %9.4f `w_p25'
-    display as text "  50%:      " as result %9.4f `w_p50'
-    display as text "  75%:      " as result %9.4f `w_p75'
-    display as text "  95%:      " as result %9.4f `w_p95'
-    display as text "  99%:      " as result %9.4f `w_p99'
+    display as text "Percentiles"
+    _tvtools_row "1%", num(`w_p1') fmt(%14.4f)
+    _tvtools_row "5%", num(`w_p5') fmt(%14.4f)
+    _tvtools_row "25%", num(`w_p25') fmt(%14.4f)
+    _tvtools_row "50%", num(`w_p50') fmt(%14.4f)
+    _tvtools_row "75%", num(`w_p75') fmt(%14.4f)
+    _tvtools_row "95%", num(`w_p95') fmt(%14.4f)
+    _tvtools_row "99%", num(`w_p99') fmt(%14.4f)
 
     * Effective sample size calculation
     quietly {
@@ -1129,9 +1127,9 @@ program define tvweight, rclass sortpreserve
     local ess_pct = 100 * `ess' / `n_obs'
 
     display as text ""
-    display as text "Effective sample size:"
-    display as text "  ESS:      " as result %9.1f `ess' as text " (of `n_obs' observations)"
-    display as text "  ESS %:    " as result %9.1f `ess_pct' "%"
+    display as text "Effective sample size"
+    _tvtools_row "ESS", num(`ess') fmt(%14.1f) note("(of `n_obs' observations)")
+    _tvtools_row "ESS as % of N", num(`ess_pct') fmt(%14.1f) note("%")
 
     * Combined (IPTW x IPCW) weight diagnostics
     if `do_ipcw' {
@@ -1199,11 +1197,11 @@ program define tvweight, rclass sortpreserve
     local top1_wt_share = 100 * `_wsum_top' / `_wsum_all'
 
     display as text ""
-    display as text "Positivity / overlap:"
-    display as text "  P(observed treatment) range: " ///
-        as result %6.4f `overlap_lo' as text " to " as result %6.4f `overlap_hi'
-    display as text "  Near-violations (P<0.05):    " ///
-        as result `n_nonoverlap' as text " (" as result %4.1f `pct_nonoverlap' as text "% of obs)"
+    display as text "Positivity / overlap"
+    _tvtools_row "P(observed treatment) range", ///
+        value("`=string(`overlap_lo', "%6.4f")' to `=string(`overlap_hi', "%6.4f")'")
+    _tvtools_row "near-violations (P<0.05)", num(`n_nonoverlap') ///
+        note("(`=string(`pct_nonoverlap', "%4.1f")'% of obs)")
     if "`model'" == "logit" {
         quietly summarize `ps' if `exposure' != `ref_level' & `touse'
         local ps_t_lo = r(min)
@@ -1211,24 +1209,25 @@ program define tvweight, rclass sortpreserve
         quietly summarize `ps' if `exposure' == `ref_level' & `touse'
         local ps_c_lo = r(min)
         local ps_c_hi = r(max)
-        display as text "  PS range, treated:           " ///
-            as result %6.4f `ps_t_lo' as text " to " as result %6.4f `ps_t_hi'
-        display as text "  PS range, reference:         " ///
-            as result %6.4f `ps_c_lo' as text " to " as result %6.4f `ps_c_hi'
+        _tvtools_row "PS range, treated", ///
+            value("`=string(`ps_t_lo', "%6.4f")' to `=string(`ps_t_hi', "%6.4f")'")
+        _tvtools_row "PS range, reference", ///
+            value("`=string(`ps_c_lo', "%6.4f")' to `=string(`ps_c_hi', "%6.4f")'")
     }
-    display as text "  Weight mass in top 1% of rows (`n_top1_rows' row(s)): " ///
-        as result %5.1f `top1_wt_share' "%"
+    _tvtools_row "weight mass, top 1% of rows", num(`top1_wt_share') ///
+        fmt(%14.1f) note("%  (`n_top1_rows' row(s))")
 
-    * Warning for extreme weights
+    * Warning for extreme weights. This is advice about the model, not a
+    * command failure, so it is not printed in the error colour.
     if `w_max' / `w_min' > 100 {
         display as text ""
-        display as error "Warning: Weight ratio (max/min) > 100. Consider truncation."
+        display as text ///
+            "  Warning: weight ratio (max/min) > 100. Consider truncation."
     }
 
     * Weight distribution by exposure group
     display as text ""
-    display as text "Weights by exposure group:"
-    display as text "{hline 50}"
+    display as text "Weights by exposure group"
 
     if "`model'" == "logit" {
         quietly sum `generate' if `exposure' == `ref_level' & `touse'
@@ -1241,24 +1240,25 @@ program define tvweight, rclass sortpreserve
         local mean1 = r(mean)
         local sd1 = r(sd)
 
-        display as text "  Reference (`exposure'=`ref_level'): N=" as result `n0' ///
-            as text ", Mean=" as result %7.3f `mean0' as text ", SD=" as result %7.3f `sd0'
-        display as text "  Exposed (`exposure'!=`ref_level'):  N=" as result `n1' ///
-            as text ", Mean=" as result %7.3f `mean1' as text ", SD=" as result %7.3f `sd1'
+        _tvtools_row "reference (`exposure'=`ref_level')", ///
+            value("N=`n0'  mean=`=string(`mean0', "%7.3f")'  SD=`=string(`sd0', "%7.3f")'")
+        _tvtools_row "exposed (`exposure'!=`ref_level')", ///
+            value("N=`n1'  mean=`=string(`mean1', "%7.3f")'  SD=`=string(`sd1', "%7.3f")'")
     }
     else {
-        levelsof `exposure' if `touse', local(levels)
+        * quietly: levelsof otherwise prints the raw level list above the table.
+        quietly levelsof `exposure' if `touse', local(levels)
         foreach lev of local levels {
             quietly sum `generate' if `exposure' == `lev' & `touse'
             local n_lev = r(N)
             local mean_lev = r(mean)
             local sd_lev = r(sd)
-            display as text "  Level `lev': N=" as result `n_lev' ///
-                as text ", Mean=" as result %7.3f `mean_lev' as text ", SD=" as result %7.3f `sd_lev'
+            _tvtools_row "level `lev'", ///
+                value("N=`n_lev'  mean=`=string(`mean_lev', "%7.3f")'  SD=`=string(`sd_lev', "%7.3f")'")
         }
     }
 
-    display as text "{hline 70}"
+    _tvtools_rule, width(78)
 
     * =========================================================================
     * COVARIATE BALANCE (optional)
@@ -1355,23 +1355,23 @@ program define tvweight, rclass sortpreserve
         matrix rownames `_balmat' = `bal_terms'
 
         display as text ""
-        display as text "{hline 70}"
-        display as text "Covariate balance (standardized mean differences)"
-        display as text "Weighted column uses the analysis weight: " ///
+        display as text "{bf:Covariate balance (standardized mean differences)}"
+        _tvtools_rule, width(78)
+        display as text "  Weighted column uses the analysis weight: " ///
             as result "`_awt'"
         if "`model'" != "logit" {
-            display as text "(categorical exposure: max |SMD| vs reference level)"
+            display as text ///
+                "  Categorical exposure: max |SMD| vs the reference level."
         }
-        display as text "{hline 70}"
-        display as text %-30s "Covariate" %14s "SMD (unwtd)" %14s "SMD (wtd)"
+        display as text "  " %-38s "Covariate" %18s "SMD (unwtd)" %18s "SMD (wtd)"
         local r = 0
         forvalues _j = 1/`n_bal' {
             local ++r
             local _term : word `_j' of `bal_terms'
-            display as text %-30s abbrev("`_term'", 30) ///
-                as result %14.4f `_balmat'[`r',1] %14.4f `_balmat'[`r',2]
+            display as text "  " %-38s abbrev("`_term'", 38) ///
+                as result %18.4f `_balmat'[`r',1] %18.4f `_balmat'[`r',2]
         }
-        display as text "{hline 70}"
+        _tvtools_rule, width(78)
     }
 
     * =========================================================================
@@ -1458,8 +1458,10 @@ program define tvweight, rclass sortpreserve
     }
 
     display as text ""
-    display as result "Weight variable `generate' created successfully."
-    display as text "{hline 70}"
+    _tvtools_rule, width(78)
+    display as text "  Weight variable " as result "`generate'" ///
+        as text " created."
+    _tvtools_rule, width(78)
 
     * =========================================================================
     * RETURN VALUES

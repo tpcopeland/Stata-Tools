@@ -1,4 +1,4 @@
-*! tvpanel Version 1.12.1  2026/08/02
+*! tvpanel Version 1.13.0  2026/08/02
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -569,14 +569,17 @@ program define tvpanel, rclass
     drop `idtag'
 
     if "`noisily'" != "" {
-        display as text _newline "Fixed-Grid Person-Period Panel"
-        display as text "{hline 50}"
-        display as text "Persons:              " as result `n_persons'
-        display as text "Periods (rows):       " as result `n_obs'
-        display as text "Interval width:       " as result `width' as text " days (anchored at entry)"
-        display as text "Active-class var:     " as result "`generate'"
-        if "`cumulative'" != "" display as text "Cumulative (`cumlower'):  " as result "`cumvars'"
-        display as text "{hline 50}"
+        display as text ""
+        display as text "{bf:tvpanel result}"
+        _tvtools_rule
+        _tvtools_row "persons", num(`n_persons')
+        _tvtools_row "periods (rows)", num(`n_obs')
+        _tvtools_row "interval width", num(`width') note("days (anchored at entry)")
+        _tvtools_row "active-class variable", value(`"`generate'"')
+        if "`cumulative'" != "" {
+            _tvtools_row "cumulative (`cumlower')", value(`"`cumvars'"')
+        }
+        _tvtools_rule
     }
 
     if "`saveas'" != "" restore

@@ -1,4 +1,4 @@
-*! tvtools Version 1.12.1  2026/08/02
+*! tvtools Version 1.13.0  2026/08/02
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -147,9 +147,8 @@ program define tvtools, rclass
 
     // Display header
     display as text ""
-    display as text "{hline 70}"
     display as result "tvtools" as text " - Time-Varying Exposure Analysis Suite"
-    display as text "{hline 70}"
+    _tvtools_rule
     display as text ""
 
     // Display based on options
@@ -157,7 +156,6 @@ program define tvtools, rclass
         // Detailed view with descriptions
         foreach g of local shown {
             display as text "{bf:`h_`g''}"
-            display as text "  {hline 60}"
             foreach c of local cmd_`g' {
                 display as result "  `c'" _col(`col_detail') as text "`L_`c'_1'"
                 local k = 2
@@ -191,11 +189,11 @@ program define tvtools, rclass
             display as text ""
         }
 
-        display as text "{hline 70}"
-        display as text "Total commands: " as result "`n_commands'"
-        display as text ""
-        display as text "Help: " as result "help tvtools" as text " for workflow guide"
-        display as text "      " as result "help <command>" as text " for individual command help"
+        _tvtools_rule
+        _tvtools_row "total commands", num(`n_commands')
+        _tvtools_row "workflow guide", value("help tvtools")
+        _tvtools_row "individual command help", value("help <command>")
+        _tvtools_rule
     }
 
     // Return results

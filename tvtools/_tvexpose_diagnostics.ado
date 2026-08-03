@@ -1,4 +1,4 @@
-*! _tvexpose_diagnostics Version 1.12.1  2026/08/02
+*! _tvexpose_diagnostics Version 1.13.0  2026/08/02
 *! Report-only tvexpose diagnostics: check, gaps, overlaps, summarize, validate
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: none (display and optional file output only)
@@ -49,10 +49,10 @@ program define _tvexpose_diagnostics
     
     **# Coverage diagnostics (check option)
     if "`check'" != "" {
-        noisily display as text "{hline 70}"
-        noisily display as text "Coverage Diagnostics"
-        noisily display as text "{hline 70}"
-        
+        noisily display as text ""
+        noisily display as text "{bf:Coverage Diagnostics}"
+        noisily _tvtools_rule, width(78)
+
         tempfile _check_temp
         quietly save `_check_temp'
         * Coverage is the interval UNION clipped to the study window, never
@@ -80,28 +80,34 @@ program define _tvexpose_diagnostics
 
         * Display summary statistics
         quietly sum pct_covered
-        noisily display as text "{hline 70}"
-        noisily display as text "Coverage Summary:"
-        noisily display as text "  Mean coverage: " as result %5.1f r(mean) "%"
-        noisily display as text "  Min coverage:  " as result %5.1f r(min) "%"
-        noisily display as text "  Max coverage:  " as result %5.1f r(max) "%"
-
+        local _cov_mean = r(mean)
+        local _cov_min  = r(min)
+        local _cov_max  = r(max)
         quietly count if pct_covered < 100
-        noisily display as text "  Persons with gaps: " as result r(N) " (" %4.1f 100*r(N)/_N "%)"
-        if "`verbose'" == "" & r(N) > 0 {
-            noisily display as text "  (specify verbose to list per-person details)"
+        local _cov_ngap = r(N)
+        local _cov_pgap = 100 * r(N) / _N
+
+        noisily display as text "Coverage Summary"
+        noisily _tvtools_row "mean coverage", num(`_cov_mean') fmt(%14.1f) note("%")
+        noisily _tvtools_row "min coverage", num(`_cov_min') fmt(%14.1f) note("%")
+        noisily _tvtools_row "max coverage", num(`_cov_max') fmt(%14.1f) note("%")
+        noisily _tvtools_row "persons with gaps", num(`_cov_ngap') ///
+            note("(`=string(`_cov_pgap', "%4.1f")'%)")
+        if "`verbose'" == "" & `_cov_ngap' > 0 {
+            noisily display as text ///
+                "  (specify verbose to list per-person details)"
         }
-        noisily display as text "{hline 70}"
-        
+        noisily _tvtools_rule, width(78)
+
         quietly use `_check_temp', clear
     }
     
     **# Gap analysis (gaps option)
     if "`gaps'" != "" {
         noisily display as text ""
-        noisily display as text "Gaps in Coverage"
-        noisily display as text "{hline 60}"
-        
+        noisily display as text "{bf:Gaps in Coverage}"
+        noisily _tvtools_rule, width(78)
+
         tempfile _gaps_temp
         quietly save `_gaps_temp'
         sort id start stop
@@ -128,19 +134,29 @@ program define _tvexpose_diagnostics
             }
 
             * Gap statistics
+            * r() is read into locals before the first display call: any
+            * intervening command can clear it, and a cleared r(max) would
+            * print as a missing value that still satisfies an assert.
+            local _gap_n = _N
             quietly sum gap_days, detail
+            local _gap_mean = r(mean)
+            local _gap_p50  = r(p50)
+            local _gap_max  = r(max)
             noisily display as text ""
-            noisily display as text "Gap Statistics:"
-            noisily display as text "  Total gaps: " as result _N
-            noisily display as text "  Mean gap: " as result %5.1f r(mean) " days"
-            noisily display as text "  Median gap: " as result %5.0f r(p50) " days"
-            noisily display as text "  Max gap: " as result %5.0f r(max) " days"
+            noisily display as text "Gap Statistics"
+            noisily _tvtools_row "total gaps", num(`_gap_n')
+            noisily _tvtools_row "mean gap", num(`_gap_mean') fmt(%14.1f) note("days")
+            noisily _tvtools_row "median gap", num(`_gap_p50') note("days")
+            noisily _tvtools_row "max gap", num(`_gap_max') note("days")
             if "`verbose'" == "" {
-                noisily display as text "  (specify verbose to list affected IDs and dates)"
+                noisily display as text ///
+                    "  (specify verbose to list affected IDs and dates)"
             }
+            noisily _tvtools_rule, width(78)
         }
         else {
-            noisily display as text "No gaps found in coverage"
+            noisily display as text "  No gaps found in coverage."
+            noisily _tvtools_rule, width(78)
         }
         quietly use `_gaps_temp', clear
     }
@@ -148,9 +164,9 @@ program define _tvexpose_diagnostics
     **# Overlap analysis (overlaps option)
     if "`overlaps'" != "" {
         noisily display as text ""
-        noisily display as text "Overlapping Periods"
-        noisily display as text "{hline 60}"
-        
+        noisily display as text "{bf:Overlapping Periods}"
+        noisily _tvtools_rule, width(78)
+
         tempfile _overlaps_temp
         quietly save `_overlaps_temp'
         sort id start stop
@@ -168,8 +184,8 @@ program define _tvexpose_diagnostics
             quietly count if __first_overlap == 1
             local n_ids = r(N)
             
-            noisily display as text "Total overlapping periods: " as result `total_overlaps'
-            noisily display as text "Number of IDs affected: " as result `n_ids'
+            noisily _tvtools_row "Total overlapping periods", num(`total_overlaps')
+            noisily _tvtools_row "number of IDs affected", num(`n_ids')
 
             if "`verbose'" != "" {
                 noisily display as text ""
@@ -207,11 +223,14 @@ program define _tvexpose_diagnostics
                 }
             }
             else {
-                noisily display as text "  (specify verbose to list affected IDs and dates)"
+                noisily display as text ///
+                    "  (specify verbose to list affected IDs and dates)"
             }
+            noisily _tvtools_rule, width(78)
         }
         else {
-            noisily display as text "No overlapping periods found"
+            noisily display as text "  No overlapping periods found."
+            noisily _tvtools_rule, width(78)
         }
         quietly use `_overlaps_temp', clear
     }
@@ -219,9 +238,9 @@ program define _tvexpose_diagnostics
     **# Exposure distribution summary (summarize option)
     if "`summarize'" != "" {
         noisily display as text ""
-        noisily display as text "Exposure Distribution"
-        noisily display as text "{hline 60}"
-        
+        noisily display as text "{bf:Exposure Distribution}"
+        noisily _tvtools_rule, width(78)
+
         * For categorical exposures, show distribution table
         * With bytype, tabulate the per-type variables; otherwise the single
         * output variable. (A bare `generate'* wildcard tabulated EVERY
@@ -243,25 +262,33 @@ program define _tvexpose_diagnostics
                 * When bytype is used with continuous, get list of bytype variables and show stats for each
                 quietly ds `stub_name'*
                 local bytype_varlist "`r(varlist)'"
-                noisily display as text "Continuous exposure (person-years) by type:"
+                noisily display as text "Continuous exposure (person-years) by type"
                 foreach bytype_var of local bytype_varlist {
                     quietly sum `bytype_var', detail
+                    local _cx_min  = r(min)
+                    local _cx_mean = r(mean)
+                    local _cx_p50  = r(p50)
+                    local _cx_max  = r(max)
                     noisily display as text ""
-                    noisily display as text "`bytype_var':"
-                    noisily display as text "  Min:    " as result %8.3f r(min)
-                    noisily display as text "  Mean:   " as result %8.3f r(mean)
-                    noisily display as text "  Median: " as result %8.3f r(p50)
-                    noisily display as text "  Max:    " as result %8.3f r(max)
+                    noisily display as text "  `bytype_var'"
+                    noisily _tvtools_row "min", num(`_cx_min') fmt(%14.3f) indent(4)
+                    noisily _tvtools_row "mean", num(`_cx_mean') fmt(%14.3f) indent(4)
+                    noisily _tvtools_row "median", num(`_cx_p50') fmt(%14.3f) indent(4)
+                    noisily _tvtools_row "max", num(`_cx_max') fmt(%14.3f) indent(4)
                 }
             }
             else {
                 * Without bytype, show stats for single variable
                 quietly sum `generate', detail
-                noisily display as text "Continuous exposure (person-years):"
-                noisily display as text "  Min:    " as result %8.3f r(min)
-                noisily display as text "  Mean:   " as result %8.3f r(mean)
-                noisily display as text "  Median: " as result %8.3f r(p50)
-                noisily display as text "  Max:    " as result %8.3f r(max)
+                local _cx_min  = r(min)
+                local _cx_mean = r(mean)
+                local _cx_p50  = r(p50)
+                local _cx_max  = r(max)
+                noisily display as text "Continuous exposure (person-years)"
+                noisily _tvtools_row "min", num(`_cx_min') fmt(%14.3f)
+                noisily _tvtools_row "mean", num(`_cx_mean') fmt(%14.3f)
+                noisily _tvtools_row "median", num(`_cx_p50') fmt(%14.3f)
+                noisily _tvtools_row "max", num(`_cx_max') fmt(%14.3f)
             }
         }
         
@@ -291,6 +318,14 @@ program define _tvexpose_diagnostics
 
             quietly collapse (sum) cat_time = `_catdays', by(`collapse_by_vars')
             quietly gen double cat_pct = cond(`total_time' > 0, 100 * cat_time / `total_time', .)
+            * Without an explicit format list prints the stored double, so a
+            * share arrives as 11.542579 next to a day count.
+            format cat_time %12.0fc
+            format cat_pct  %8.1f
+            label variable cat_time "person-days"
+            label variable cat_pct  "% of total"
+            noisily display as text ""
+            noisily display as text "Person-time by exposure"
             noisily list `collapse_by_vars' cat_time cat_pct, noobs separator(0)
 
             * Overlapping categories are multi-membership by construction, so

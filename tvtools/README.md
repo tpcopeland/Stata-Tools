@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.12.1** | 2026-08-02
+**Version 1.13.0** | 2026-08-02
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It supports exposure construction, interval alignment, event integration, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -240,6 +240,18 @@ do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.13.0** (2026-08-02): One console-report house style across the suite, plus five display defects found by reading the captured output of every command. No estimator, interval semantic, computed value, option, or stored result changed.
+
+  **Every report now uses one layout.** Label/value lines are rendered by a shared `_tvtools_row` helper, so the colon and the value column land in the same place in every command, numbers right-align in a fixed field with thousands separators, and strings left-align. Rules were previously drawn at four different widths — 50, 60, 68 and 70 — sometimes within a single command's output; there are now two, both drawn by `_tvtools_rule`: 68 for result reports, and 78 for the reports that embed Stata's own `logit`, `tabulate` and `summarize` tables, so the borrowed output no longer overhangs its own frame.
+
+  **Three commands leaked internal output into the console.** A bare `ds` in `tvevent` dumped the interval dataset's whole variable list above the report; an unquieted `levelsof` in `_tvband_split` printed the raw band cutpoints, which surfaced in both `tvband` and `tvsplit`; and an unquieted `levelsof` in `tvweight` printed the raw exposure level list above the by-group table. All three are now `quietly`.
+
+  **`tvweight` opened a block at one rule width and closed it at another.** The "Weights by exposure group" block opened with a 50-wide rule and closed with a 70-wide one, and the closing "weight variable created" line carried a trailing rule with no opening rule. Both are repaired by the shared helper.
+
+  **Percent columns printed raw stored doubles.** `tvdiagnose`'s person-time table and the equivalent table in `_tvexpose_diagnostics` listed shares as `11.542579` beside day counts, because neither table set a display format. Both now carry `%8.1f` on the percent column and `%12.0fc` on the day counts; the returned `r(exposure_summary)` matrix is unaffected, since `mkmat` reads the stored values.
+
+  **Informational lines printed in the error colour.** `tvmerge`'s duplicate-drop report, `tvdiagnose`'s exposure-overlap note, and `tvweight`'s weight-ratio advice were written with `display as error`, which colours them as failures. All three are reports about work that succeeded and are now `display as text`.
 
 - **1.12.1** (2026-08-02): Two hardening fixes from an independent review of 1.12.0; no estimator, interval semantic, or computed value changed.
 

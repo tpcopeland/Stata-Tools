@@ -1,4 +1,4 @@
-*! _tvband_split Version 1.12.1  2026/08/02
+*! _tvband_split Version 1.13.0  2026/08/02
 *! Shared single-axis interval splitter for tvband / tvsplit / tvage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -188,7 +188,9 @@ program define _tvband_split, rclass
         if length("`lblbase'") > 32 local lblbase = substr("`generate'", 1, 28) + "_lbl"
         _tvtools_new_vallabel, base(`lblbase')
         local lblname "`r(name)'"
-        levelsof `generate', local(_levs)
+        * quietly: levelsof otherwise dumps the raw band cutpoints into the
+        * caller's console, above whatever report the command is building.
+        quietly levelsof `generate', local(_levs)
         foreach lo of local _levs {
             local hi = `lo' + `width' - 1
             if `width' == 1  label define `lblname' `lo' "`lo'", add

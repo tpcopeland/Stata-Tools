@@ -1,4 +1,4 @@
-*! tvmerge Version 1.12.1  2026/08/02
+*! tvmerge Version 1.13.0  2026/08/02
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -2013,15 +2013,19 @@ program define tvmerge, rclass
             matrix `_flowmat'[2,3] = `_flow_rin' - `_flow_rout'
             matrix rownames `_flowmat' = persons records
             matrix colnames `_flowmat' = in out dropped
-            noisily display as text "{hline 60}"
-            noisily display as text "Pipeline flow (tvmerge)"
-            noisily display as text %-12s "" %10s "in" %10s "out" %10s "dropped"
-            noisily display as text %-12s "persons" %10.0f `_flow_pin' %10.0f `_flow_pout' ///
-                %10.0f `=`_flow_pin' - `_flow_pout''
-            noisily display as text %-12s "records" %10.0f `_flow_rin' %10.0f `_flow_rout' ///
-                %10.0f `=`_flow_rin' - `_flow_rout''
-            noisily display as text "(persons in = union of distinct ids across inputs)"
-            noisily display as text "{hline 60}"
+            noisily display as text ""
+            noisily display as text "{bf:tvmerge flow}"
+            noisily _tvtools_rule
+            noisily display as text "  " %-30s "" %12s "in" %12s "out" %12s "dropped"
+            noisily display as text "  " %-30s "persons" as result ///
+                %12.0fc `_flow_pin' %12.0fc `_flow_pout' ///
+                %12.0fc `=`_flow_pin' - `_flow_pout''
+            noisily display as text "  " %-30s "records" as result ///
+                %12.0fc `_flow_rin' %12.0fc `_flow_rout' ///
+                %12.0fc `=`_flow_rin' - `_flow_rout''
+            noisily _tvtools_rule
+            noisily display as text ///
+                "  Persons in = union of distinct ids across inputs."
             return matrix flow = `_flowmat'
         }
 
@@ -2107,77 +2111,83 @@ program define tvmerge, rclass
         }
     }
     
-    * Display duplicates info if any were dropped
+    * Display duplicates info if any were dropped. This is a report of work
+    * done, not a failure, so it is not printed in the error colour.
     if `n_dups' > 0 {
-        di as error "Dropped `n_dups' duplicate interval+exposure combinations"
+        noisily display as text ///
+            "Dropped `n_dups' duplicate interval+exposure combinations"
     }
     
     * Display coverage diagnostics if requested
     if "`check'" != "" {
-        di _newline
-        noisily display as text "{hline 50}"
-        noisily di as txt "Coverage Diagnostics:"
-        noisily di as txt "    Number of persons: `n_persons'"
-        noisily di as txt "    Average periods per person: `=round(`avg_periods',0.01)'"
-        noisily di as txt "    Max periods per person: `max_periods'"
-        noisily di as txt "    Total merged intervals: `=return(N)'"
-        noisily display as text "{hline 50}"
+        local _chk_n = return(N)
+        noisily display as text ""
+        noisily display as text "{bf:Coverage Diagnostics}"
+        noisily _tvtools_rule
+        noisily _tvtools_row "persons", num(`n_persons')
+        noisily _tvtools_row "average periods per person", num(`avg_periods') ///
+            fmt(%14.2f)
+        noisily _tvtools_row "max periods per person", num(`max_periods')
+        noisily _tvtools_row "total merged intervals", num(`_chk_n')
+        noisily _tvtools_rule
     }
-    
+
+
     * Display coverage validation if requested
     if "`validatecoverage'" != "" {
-        di _newline
-        noisily display as text "{hline 50}"
-        di as txt "{it:Validating coverage...}"
+        noisily display as text ""
+        noisily display as text "{bf:Validating coverage}"
+        noisily _tvtools_rule
         if `n_gaps' > 0 {
-            di as error "Found `n_gaps' gaps in coverage (>1 day gaps)"
+            noisily _tvtools_row "Found gaps in coverage (>1 day)", num(`n_gaps')
             if "`verbose'" != "" {
                 quietly use `gaps_data', clear
                 noisily list `idname' `startname' `stopname' _gap if _gap > 1 & !missing(_gap), sep(20)
                 quietly use `current', clear
             }
             else {
-                di as text "  (specify verbose to list affected IDs and dates)"
+                noisily display as text ///
+                    "  (specify verbose to list affected IDs and dates)"
             }
-            noisily display as text "{hline 50}"
         }
         else {
-            di as txt "No gaps >1 day found in coverage."
-            noisily display as text "{hline 50}"
+            noisily display as text "  No gaps >1 day found in coverage."
         }
+        noisily _tvtools_rule
     }
 
     * Display overlap validation if requested
     if "`validateoverlap'" != "" {
-        di _newline
-        noisily display as text "{hline 50}"
-        di as txt "{it:Validating overlaps...}"
+        noisily display as text ""
+        noisily display as text "{bf:Validating overlaps}"
+        noisily _tvtools_rule
         if `n_overlaps' > 0 {
-            di as error "Found `n_overlaps' unexpected overlapping periods (same interval, same exposures)"
+            noisily _tvtools_row ///
+                "Found unexpected overlapping periods", num(`n_overlaps') ///
+                note("(same interval, same exposures)")
             if "`verbose'" != "" {
                 quietly use `overlap_data', clear
                 noisily list `idname' `startname' `stopname', sep(20)
                 quietly use `current', clear
             }
             else {
-                di as text "  (specify verbose to list affected IDs and dates)"
+                noisily display as text ///
+                    "  (specify verbose to list affected IDs and dates)"
             }
-            noisily display as text "{hline 50}"
         }
         else {
-            di as txt "No unexpected overlaps found."
-            noisily display as text "{hline 50}"
+            noisily display as text "  No unexpected overlaps found."
         }
+        noisily _tvtools_rule
     }
-    
+
     * Display summary statistics if requested
     if "`summarize'" != "" {
-        di _newline
-        noisily display as text "{hline 50}"
-        di as txt "Summary Statistics:"
-        noisily summarize `startname' `stopname', detail format 
-        noisily display as text "{hline 50}"
-        di _newline
+        noisily display as text ""
+        noisily display as text "{bf:Summary Statistics}"
+        noisily _tvtools_rule, width(78)
+        noisily summarize `startname' `stopname', detail format
+        noisily _tvtools_rule, width(78)
     }
     
     * Store return values in local macros for proper display
@@ -2185,12 +2195,13 @@ program define tvmerge, rclass
     local npersons = return(N_persons)
     local exp_vars = return(exposure_vars)
     
-    di as result _newline "{bf:Merged time-varying dataset successfully created}"
-    noisily display as text "{hline 50}"
-    di as txt "    Observations: " as result %14.0fc `obs'
-    di as txt "    Persons: " as result %14.0fc `npersons'
-    di as txt "    Exposure variables: " as result "`exp_vars'"
-    noisily display as text "{hline 50}"
+    noisily display as text ""
+    noisily display as text "{bf:tvmerge result}"
+    noisily _tvtools_rule
+    noisily _tvtools_row "observations", num(`obs')
+    noisily _tvtools_row "persons", num(`npersons')
+    noisily _tvtools_row "exposure variables", ///
+        value("`=strtrim(stritrim("`exp_vars'"))'")
 
     * Frames-first output: copy the merged result into the named frame and reload
     * the caller's data so their working frame is untouched.
@@ -2201,9 +2212,10 @@ program define tvmerge, rclass
             quietly clear
             if `_caller_zero_var_obs' > 0 quietly set obs `_caller_zero_var_obs'
         }
-        noisily display as text "Result placed in frame: " as result "`frameout'"
-        return local frameout "`frameout'"
+        noisily _tvtools_row "result placed in frame", value(`"`frameout'"')
     }
+    noisily _tvtools_rule
+    if "`frameout'" != "" return local frameout "`frameout'"
 
     } // end capture noisily
     local rc = _rc

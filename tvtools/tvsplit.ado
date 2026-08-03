@@ -1,4 +1,4 @@
-*! tvsplit Version 1.12.1  2026/08/02
+*! tvsplit Version 1.13.0  2026/08/02
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -252,10 +252,14 @@ program define tvsplit, rclass
     local n_axes : word count `axisnames'
 
     if "`noisily'" != "" {
-        display as text "Number of axes:           " as result `n_axes'
-        display as text "Number of persons:        " as result `n_persons'
-        display as text "Total observations:       " as result `n_obs'
-        display as text "Band variables:           " as result "`genvars'"
+        display as text ""
+        display as text "{bf:tvsplit result}"
+        _tvtools_rule
+        _tvtools_row "axes", num(`n_axes')
+        _tvtools_row "persons", num(`n_persons')
+        _tvtools_row "observations", num(`n_obs')
+        _tvtools_row "band variables", value("`=strtrim("`genvars'")'")
+        _tvtools_rule
     }
 
     restore, not

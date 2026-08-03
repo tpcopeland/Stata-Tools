@@ -1,4 +1,4 @@
-*! tvevent Version 1.12.1  2026/08/02
+*! tvevent Version 1.13.0  2026/08/02
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -564,7 +564,9 @@ program define tvevent, rclass
         }
     }
 
-    ds
+    * quietly: a bare ds dumps the interval dataset's whole variable list into
+    * the caller's console before any report has started.
+    quietly ds
     local interval_schema "`r(varlist)'"
     foreach v of local keepvars {
         local keep_source_collision : list v in interval_schema
@@ -735,18 +737,16 @@ program define tvevent, rclass
         local v_multiple = 0
         local v_same_date = 0
 
-        noisily di _newline
-        noisily di as txt "{hline 50}"
-        noisily di as txt "{bf:Validation Diagnostics}"
-        noisily di as txt "{hline 50}"
+        noisily display as text ""
+        noisily display as text "{bf:Validation Diagnostics}"
+        noisily _tvtools_rule
 
         * An empty event dataset has nothing to validate; the reshape/egen
         * machinery below errors on 0 observations, so short-circuit here.
         * The empty-master path later still produces the all-censored output.
         if _N == 0 {
-            noisily di as txt "  Event dataset is empty: checks skipped"
-            noisily di as txt "{hline 50}"
-            noisily di ""
+            noisily display as text "  Event dataset is empty: checks skipped."
+            noisily _tvtools_rule
             return scalar v_outside_bounds = 0
             return scalar v_multiple_events = 0
             return scalar v_same_date_compete = 0
@@ -767,11 +767,13 @@ program define tvevent, rclass
             restore
 
             if `v_multiple' > 0 {
-                noisily di as txt "  Multiple events per person: " as result "`v_multiple' persons"
-                noisily di as txt "    (type(single) expects at most one event per person)"
+                noisily _tvtools_row "multiple events per person", ///
+                    num(`v_multiple') note("persons")
+                noisily display as text ///
+                    "    (type(single) expects at most one event per person)"
             }
             else {
-                noisily di as txt "  Multiple events per person: " as result "None (OK)"
+                noisily _tvtools_row "multiple events per person", value("none (OK)")
             }
         }
 
@@ -788,11 +790,13 @@ program define tvevent, rclass
             restore
 
             if `v_same_date' > 0 {
-                noisily di as txt "  Competing events on same date: " as result "`v_same_date' occurrences"
-                noisily di as txt "    (earliest event wins; ties resolved by variable order)"
+                noisily _tvtools_row "competing events on same date", ///
+                    num(`v_same_date') note("occurrences")
+                noisily display as text ///
+                    "    (earliest event wins; ties resolved by variable order)"
             }
             else {
-                noisily di as txt "  Competing events on same date: " as result "None (OK)"
+                noisily _tvtools_row "competing events on same date", value("none (OK)")
             }
         }
 
@@ -894,15 +898,16 @@ program define tvevent, rclass
         restore
 
         if `v_outside' > 0 {
-            noisily di as txt "  Events outside interval bounds: " as result "`v_outside' events"
-            noisily di as txt "    (these events will not be flagged in output)"
+            noisily _tvtools_row "events outside interval bounds", ///
+                num(`v_outside') note("events")
+            noisily display as text ///
+                "    (these events will not be flagged in output)"
         }
         else {
-            noisily di as txt "  Events outside interval bounds: " as result "None (OK)"
+            noisily _tvtools_row "events outside interval bounds", value("none (OK)")
         }
 
-        noisily di as txt "{hline 50}"
-        noisily di ""
+        noisily _tvtools_rule
 
         * Store validation results
         return scalar v_outside_bounds = `v_outside'
@@ -1643,21 +1648,23 @@ program define tvevent, rclass
         return scalar N_events = `n_failures'
     }
     
-    di _newline
-    di as txt "{hline 50}"
-    di as txt "Event integration complete"
-    di as txt "  Observations: " as result `n_total'
-    di as txt "  Events flagged (`generate'): " as result `n_failures'
-    di as txt "  Variable `generate' labels:"
-    
+    display as text ""
+    display as text "{bf:tvevent result}"
+    _tvtools_rule
+    _tvtools_row "observations", num(`n_total')
+    _tvtools_row "events flagged (`generate')", num(`n_failures')
+
     * Display active labels for clarity
     local lblname : value label `generate'
     quietly levelsof `generate', local(vals)
+    _tvtools_row "`generate' labels"
     foreach v of local vals {
         local l : label `lblname' `v'
-        di as txt "    `v' = `l'"
+        * indent(4) with pad(26) keeps the nested colon in the same column as
+        * the parent rows, which use indent(2) with the default pad(28).
+        _tvtools_row "`v'", value(`"`l'"') indent(4) pad(26)
     }
-    di as txt "{hline 50}"
+    _tvtools_rule
 
     * Flow is returned whenever requested or whenever dropinvalid authorizes
     * attrition. It remains a 2x3 interval-pipeline matrix for API stability.
@@ -1677,15 +1684,17 @@ program define tvevent, rclass
         matrix `_flowmat'[2,3] = `_flow_rin' - `n_total'
         matrix rownames `_flowmat' = persons records
         matrix colnames `_flowmat' = in out dropped
-        di as txt "{hline 60}"
-        di as txt "Pipeline flow (tvevent)"
-        di as txt %-12s "" %10s "in" %10s "out" %10s "dropped"
-        di as txt %-12s "persons" %10.0f `_flow_pin' %10.0f `_flow_pout' ///
-            %10.0f `=`_flow_pin' - `_flow_pout''
-        di as txt %-12s "records" %10.0f `_flow_rin' %10.0f `n_total' ///
-            %10.0f `=`_flow_rin' - `n_total''
-        di as txt "(records dropped < 0 indicates interval splitting at events)"
-        di as txt "{hline 60}"
+        display as text ""
+        display as text "{bf:tvevent flow}"
+        _tvtools_rule
+        display as text "  " %-30s "" %12s "in" %12s "out" %12s "dropped"
+        display as text "  " %-30s "persons" as result %12.0fc `_flow_pin' ///
+            %12.0fc `_flow_pout' %12.0fc `=`_flow_pin' - `_flow_pout''
+        display as text "  " %-30s "records" as result %12.0fc `_flow_rin' ///
+            %12.0fc `n_total' %12.0fc `=`_flow_rin' - `n_total''
+        _tvtools_rule
+        display as text ///
+            "  A negative records-dropped count is interval splitting at events."
         return matrix flow = `_flowmat'
     }
 

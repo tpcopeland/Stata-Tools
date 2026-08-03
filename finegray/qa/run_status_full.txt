@@ -1,12 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-08-02T11:10:30Z
+date:        2026-08-02T20:54:22Z
 verdict:     PASS
-pkg_tree:    52b00259c2726ab3e7ef79a87e3d2033d7237612 (uncommitted-changes-present)
-head_commit: 8eb3b330f293f35030ec55291b58aebbf08e7e58
+pkg_tree:    983035296d56a3550ec60669aaaa46a53adc4de6 (clean)
+head_commit: d4d5173e683a757d726db0e8b90f6f0df275a98f
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/5832a9ae-c27f-423c-a5ee-a14d6a2515aa/scratchpad/fgfinal/finegray [matches-source-repo (qa/ excluded)]
+run_tree:    /tmp/finegray-review.VPZLJa/finegray [matches-source-repo (qa/ excluded)]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS

@@ -1,4 +1,4 @@
-*! tvspec Version 1.12.1  2026/08/02
+*! tvspec Version 1.13.0  2026/08/02
 *! Build a tvbuild specification frame one source at a time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -401,10 +401,10 @@ program define tvspec_list, rclass
 
     noisily display as text ""
     noisily display as text "{bf:tvbuild specification: `specframe'}"
-    noisily display as text "{hline 68}"
+    noisily _tvtools_rule
     if `_nrows' == 0 {
         noisily display as text "  (no sources yet; add one with tvspec add)"
-        noisily display as text "{hline 68}"
+        noisily _tvtools_rule
         return scalar n_sources = 0
         return local source_names ""
         return local specframe "`specframe'"
@@ -439,38 +439,37 @@ program define tvspec_list, rclass
             local _lockind "file"
         }
 
-        noisily display as text "  source `i'          : " as result "`_nm'" ///
-            as text "  (`_kd', `_lockind')"
-        noisily display as text "  locator           : " as result `"`_loc'"'
-        noisily display as text "  interval bounds   : " as result "`_sv' `_pv'"
-        noisily display as text "  mapping           : " as result "`_iv'" ///
-            as text " -> " as result "`_ov'"
+        noisily _tvtools_row "source `i'", value(`"`_nm'"') note("(`_kd', `_lockind')")
+        noisily _tvtools_row "locator", value(`"`_loc'"')
+        noisily _tvtools_row "interval bounds", value(`"`_sv' `_pv'"')
+        noisily _tvtools_row "mapping", value(`"`_iv' -> `_ov'"')
         if !`_rmis' {
-            noisily display as text "  reference         : " as result `_rf'
+            noisily _tvtools_row "reference", num(`_rf') fmt(%14.0g)
         }
         if `"`_rl'"' != "" {
-            noisily display as text "  reference label   : " as result `"`_rl'"'
+            noisily _tvtools_row "reference label", value(`"`_rl'"')
         }
         if `"`_vl'"' != "" {
-            noisily display as text "  variable label    : " as result `"`_vl'"'
+            noisily _tvtools_row "variable label", value(`"`_vl'"')
         }
         if "`_rv'" != "" {
-            noisily display as text "  rate vars         : " as result "`_rv'"
+            noisily _tvtools_row "rate vars", value(`"`_rv'"')
         }
         if "`_tv'" != "" {
-            noisily display as text "  total vars        : " as result "`_tv'"
+            noisily _tvtools_row "total vars", value(`"`_tv'"')
         }
         if "`_cv'" != "" {
-            noisily display as text "  cumulative vars   : " as result "`_cv'"
+            noisily _tvtools_row "cumulative vars", value(`"`_cv'"')
         }
         if `"`_de'"' != "" {
-            noisily display as text "  description       : " as result `"`_de'"'
+            noisily _tvtools_row "description", value(`"`_de'"')
         }
-        noisily display as text "{hline 68}"
+        noisily _tvtools_rule
         local _names "`_names' `_nm'"
     }
 
-    noisily display as text "  Build it with: " as result ///
+    noisily display as text "  Build it with:"
+    noisily display as text "    . " as result ///
         "tvbuild, specframe(`specframe') id() entry() exit() frameout()"
 
     return scalar n_sources = `_nrows'

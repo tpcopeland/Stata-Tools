@@ -1,4 +1,4 @@
-*! tvage Version 1.12.1  2026/08/02
+*! tvage Version 1.13.0  2026/08/02
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -351,18 +351,19 @@ program define tvage, rclass
 
     * Display summary
     if "`noisily'" != "" {
-        display as text _newline "Time-Varying Age Summary"
-        display as text "{hline 50}"
-        display as text "Number of persons:        " as result `n_persons'
-        display as text "Total observations:       " as result `n_obs'
+        display as text ""
+        display as text "{bf:tvage result}"
+        _tvtools_rule
+        _tvtools_row "persons", num(`n_persons')
+        _tvtools_row "observations", num(`n_obs')
         if `groupwidth' == 1 {
-            display as text "Age grouping:             " as result "None (continuous)"
+            _tvtools_row "age grouping", value("none (continuous)")
         }
         else {
-            display as text "Age group width:          " as result `groupwidth' as text " years"
+            _tvtools_row "age group width", num(`groupwidth') note("years")
         }
-        display as text "Variables created:        " as result "`generate', `startgen', `stopgen'"
-        display as text "{hline 50}"
+        _tvtools_row "variables created", value(`"`generate' `startgen' `stopgen'"')
+        _tvtools_rule
     }
 
     * Keep changes if saveas not specified (commit to memory)

@@ -29,6 +29,7 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     test_tvspec ///
     test_tvbuild_regressions_1_10_2 ///
     test_program_limits ///
+    test_display_contract ///
     test_tvexpose_diagnostics ///
     test_tvm_point_engine ///
     validation_phase0_semantics validation_contracts ///
@@ -78,7 +79,7 @@ local manifest_suites test_package_runner_contract ///
     test_tvbuild_manifest_default ///
     test_tvspec ///
     test_tvbuild_regressions_1_10_2 ///
-    test_program_limits test_tvexpose_diagnostics ///
+    test_program_limits test_display_contract test_tvexpose_diagnostics ///
     test_tvm_point_engine validation_phase0_semantics ///
     validation_contracts validation_audit_tvexpose validation_audit_tvmerge ///
     validation_audit_tvevent validation_audit_tvpanel ///
@@ -104,7 +105,7 @@ local manifest_counts 11 ///
     87 22 15 10 22 ///
     7 5 21 ///
     11 ///
-    165 21 29 17 14 20 52 75 48 35 27 23 18 72 15 4 7 ///
+    165 21 29 17 14 20 52 75 48 35 27 23 18 76 8 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///
@@ -121,8 +122,15 @@ local manifest_counts 11 ///
 * Only external-oracle suites may report a dependency-absence skip, and only
 * when the standalone external lane is requested. Full/release override these
 * flags and require zero skips.
+* The leading run of no-skip flags is sized from manifest_suites rather than
+* from a literal, so adding a suite above cannot silently desynchronise the
+* three columns. The trailing six are the external-oracle suites plus the
+* release suite, in manifest_suites order.
 local manifest_allow_skips ""
-forvalues i = 1/70 {
+local _n_trailing = 6
+local _n_manifest : word count `manifest_suites'
+local _n_leading = `_n_manifest' - `_n_trailing'
+forvalues i = 1/`_n_leading' {
     local manifest_allow_skips "`manifest_allow_skips' 0"
 }
 local manifest_allow_skips "`manifest_allow_skips' 1 1 1 0 0 0"

@@ -56,6 +56,8 @@ f tvspec.sthlp
 f _tvtools_new_vallabel.ado
 f _tvtools_check_dates.ado
 f _tvtools_interval_union.ado
+f _tvtools_rule.ado
+f _tvtools_row.ado
 f tvevent.ado
 f tvevent.dlg
 f tvevent.sthlp

@@ -1,4 +1,4 @@
-*! tvexpose Version 1.12.1  2026/08/02
+*! tvexpose Version 1.13.0  2026/08/02
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -4883,39 +4883,48 @@ program define tvexpose, rclass
     
     * Display summary results
     noisily display as text ""
-    noisily display as text "{bf:Time-varying exposure dataset created}"
-    noisily display as text "{bf:Exposure Operationalization:} {it:`exp_type'}"
-    noisily display as text "{hline 50}"
-    noisily display as text "    Persons: " as result %14.0fc `N_persons'
-    noisily display as text "    Time-varying periods: " as result %14.0fc `N_periods'
-    noisily display as text "    Total person-time (days): " as result %14.0fc `total_time'
-    noisily display as text "    Exposed person-time: " as result %14.0fc `exposed_time' " (" %4.1f `pct_exposed' "%)"
-    noisily display as text "    Unexposed person-time: " as result %14.0fc `unexposed_time'
-    
+    local _pct_unexposed = 100 - `pct_exposed'
+    noisily display as text ""
+    noisily display as text "{bf:tvexpose result}"
+    noisily _tvtools_rule
+    noisily _tvtools_row "persons", num(`N_persons')
+    noisily _tvtools_row "time-varying periods", num(`N_periods')
+    noisily _tvtools_row "total person-time (days)", num(`total_time')
+    noisily _tvtools_row "exposed person-time", num(`exposed_time') ///
+        note("(`=string(`pct_exposed', "%4.1f")'%)")
+    noisily _tvtools_row "unexposed person-time", num(`unexposed_time') ///
+        note("(`=string(`_pct_unexposed', "%4.1f")'%)")
+    noisily _tvtools_row "operationalization", value(`"`exp_type'"')
+
     * Display applied options
     if `lag' > 0 {
-        noisily display as text "    Lag period: " as result `lag' " days"
+        noisily _tvtools_row "lag period", num(`lag') note("days")
     }
     if `washout' > 0 {
-        noisily display as text "    Washout period: " as result `washout' " days"
+        noisily _tvtools_row "washout period", num(`washout') note("days")
     }
     if "`grace'" != "" {
-        noisily display as text "    Grace period: " as result "`grace'"
+        noisily _tvtools_row "grace period", value(`"`grace'"')
     }
     if "`priority'" != "" {
-        noisily display as text "    Priority order: " as result "`priority'"
+        noisily _tvtools_row "priority order", value(`"`priority'"')
     }
     if "`window'" != "" {
-        noisily display as text "    Exposure window: " as result "`window'" " days"
+        noisily _tvtools_row "exposure window", value(`"`window'"') note("days")
     }
-    
-    noisily display as text "    {it:Note: Baseline periods included (complete person-time coverage)}"
-    
-    noisily display as text "{hline 50}"
-    
     if "`saveas'" != "" {
-        noisily display as text "Dataset saved as: " as result "`saveas'"
+        noisily _tvtools_row "saved as", value(`"`saveas'"')
     }
+    * frameout() is reported here rather than at the commit site further down:
+    * the destination is known from the option, and a lone frame line printed
+    * after the closing rule reads as though it belonged to no report.
+    if "`frameout'" != "" {
+        noisily _tvtools_row "result frame", value(`"`frameout'"')
+    }
+
+    noisily _tvtools_rule
+    noisily display as text ///
+        "  Baseline periods included (complete person-time coverage)."
     
     * Clean up any remaining temporary variables before final output
     quietly {
@@ -5155,7 +5164,6 @@ program define tvexpose, rclass
         _tvexpose_frame_commit, target(`frameout') `replace'
         if `_frameout_snap_taken' quietly use "`_tvx_caller_snap'", clear
         else quietly clear
-        noisily display as text "Result placed in frame: " as result "`frameout'"
         return local frameout "`frameout'"
     }
 
@@ -5221,15 +5229,17 @@ program define tvexpose, rclass
         matrix `_flowmat'[2,3] = `_flow_rin' - `N_periods'
         matrix rownames `_flowmat' = persons records
         matrix colnames `_flowmat' = in out dropped
-        display as text "{hline 60}"
-        display as text "Pipeline flow (tvexpose)"
-        display as text %-12s "" %10s "in" %10s "out" %10s "dropped"
-        display as text %-12s "persons" %10.0f `_flow_pin' %10.0f `N_persons' ///
-            %10.0f `=`_flow_pin' - `N_persons''
-        display as text %-12s "records" %10.0f `_flow_rin' %10.0f `N_periods' ///
-            %10.0f `=`_flow_rin' - `N_periods''
-        display as text "(records dropped < 0 indicates net interval expansion)"
-        display as text "{hline 60}"
+        display as text ""
+        display as text "{bf:tvexpose flow}"
+        _tvtools_rule
+        display as text "  " %-30s "" %12s "in" %12s "out" %12s "dropped"
+        display as text "  " %-30s "persons" as result %12.0fc `_flow_pin' ///
+            %12.0fc `N_persons' %12.0fc `=`_flow_pin' - `N_persons''
+        display as text "  " %-30s "records" as result %12.0fc `_flow_rin' ///
+            %12.0fc `N_periods' %12.0fc `=`_flow_rin' - `N_periods''
+        _tvtools_rule
+        display as text ///
+            "  A negative records-dropped count is net interval expansion."
         return matrix flow = `_flowmat'
     }
 

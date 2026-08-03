@@ -1,4 +1,4 @@
-*! tvband Version 1.12.1  2026/08/02
+*! tvband Version 1.13.0  2026/08/02
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -147,16 +147,22 @@ program define tvband, rclass
     if "`saveas'" != "" {
         if "`replace'" != "" save "`saveas'", replace
         else                 save "`saveas'"
-        if "`noisily'" != "" display as text "  Saved to: `saveas'.dta"
+        if "`noisily'" != "" local _band_saved "`saveas'.dta"
     }
 
     if "`noisily'" != "" {
-        display as text _newline "Time-Varying Band Summary"
-        display as text "Axis type:                " as result "`type'"
-        display as text "Band width:               " as result `width'
-        display as text "Number of persons:        " as result `n_persons'
-        display as text "Total observations:       " as result `n_obs'
-        display as text "Variables created:        " as result "`generate', `startout', `stopout'"
+        display as text ""
+        display as text "{bf:tvband result}"
+        _tvtools_rule
+        _tvtools_row "axis type", value(`"`type'"')
+        _tvtools_row "band width", num(`width') fmt(%14.0g)
+        _tvtools_row "persons", num(`n_persons')
+        _tvtools_row "observations", num(`n_obs')
+        _tvtools_row "variables created", value(`"`generate' `startout' `stopout'"')
+        if "`_band_saved'" != "" {
+            _tvtools_row "saved to", value(`"`_band_saved'"')
+        }
+        _tvtools_rule
     }
 
     * --- Commit modified data to memory unless saved ---------------------

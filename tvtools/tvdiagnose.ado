@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.12.1  2026/08/02
+*! tvdiagnose Version 1.13.0  2026/08/02
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -174,9 +174,9 @@ program define tvdiagnose, rclass
     local graph_name ""
     tempname exposure_summary
 
-    display as text "{hline 70}"
+    display as text ""
     display as text "{bf:Time-Varying Data Diagnostics}"
-    display as text "{hline 70}"
+    _tvtools_rule, width(78)
 
     * Basic data summary
     quietly count
@@ -190,10 +190,11 @@ program define tvdiagnose, rclass
     quietly count if `_id_tag'
     local n_persons = r(N)
 
-    display as text "Dataset summary:"
-    display as text "  Observations: " as result %12.0fc `n_obs'
-    display as text "  Persons: " as result %12.0fc `n_persons'
-    display as text "  Periods/person: " as result %8.1f `n_obs'/`n_persons'
+    display as text "Dataset summary"
+    _tvtools_row "observations", num(`n_obs')
+    _tvtools_row "persons", num(`n_persons')
+    _tvtools_row "periods per person", num(`=`n_obs'/`n_persons'') fmt(%14.1f)
+    _tvtools_rule, width(78)
 
     **************************************************************************
     * COVERAGE DIAGNOSTICS
@@ -201,9 +202,8 @@ program define tvdiagnose, rclass
     if "`coverage'" != "" {
         local coverage_run = 1
         display as text ""
-        display as text "{hline 70}"
         display as text "{bf:Coverage Diagnostics}"
-        display as text "{hline 70}"
+        _tvtools_rule, width(78)
 
         * Work on a copy to avoid modifying original data
         preserve
@@ -277,20 +277,21 @@ program define tvdiagnose, rclass
         quietly summarize `_ngap', meanonly
         local n_coverage_gaps = r(sum)
 
-        display as text "{hline 70}"
-        display as text "Coverage Summary:"
-        display as text "  Mean coverage: " as result %5.1f `mean_coverage' "%"
-        display as text "  Min coverage:  " as result %5.1f `min_coverage' "%"
-        display as text "  Max coverage:  " as result %5.1f `max_coverage' "%"
-
         quietly count if `_pctcov' < 100
         local n_with_gaps = r(N)
         local n_incomplete_coverage = `n_with_gaps'
-        display as text "  Persons with gaps: " as result `n_with_gaps' " (" %4.1f 100*`n_with_gaps'/_N "%)"
+        local _pct_with_gaps = 100 * `n_with_gaps' / _N
+
+        display as text "Coverage Summary"
+        _tvtools_row "mean coverage", num(`mean_coverage') fmt(%14.1f) note("%")
+        _tvtools_row "min coverage", num(`min_coverage') fmt(%14.1f) note("%")
+        _tvtools_row "max coverage", num(`max_coverage') fmt(%14.1f) note("%")
+        _tvtools_row "persons with gaps", num(`n_with_gaps') ///
+            note("(`=string(`_pct_with_gaps', "%4.1f")'%)")
         if "`verbose'" == "" & `n_with_gaps' > 0 {
             display as text "  (specify verbose to list per-person details)"
         }
-        display as text "{hline 70}"
+        _tvtools_rule, width(78)
 
         * Restore original data
         restore
@@ -303,9 +304,8 @@ program define tvdiagnose, rclass
     if "`gaps'" != "" {
         local gaps_run = 1
         display as text ""
-        display as text "{hline 70}"
         display as text "{bf:Gap Analysis}"
-        display as text "{hline 70}"
+        _tvtools_rule, width(78)
 
         preserve
         local _preserved = 1
@@ -346,11 +346,11 @@ program define tvdiagnose, rclass
             local n_gap_ids = r(N)
 
             display as text ""
-            display as text "Gap Statistics:"
-            display as text "  Total gaps: " as result `n_gaps'
-            display as text "  Mean gap: " as result %5.1f `mean_gap' " days"
-            display as text "  Median gap: " as result %5.0f `median_gap' " days"
-            display as text "  Max gap: " as result %5.0f `max_gap' " days"
+            display as text "Gap Statistics"
+            _tvtools_row "total gaps", num(`n_gaps')
+            _tvtools_row "mean gap", num(`mean_gap') fmt(%14.1f) note("days")
+            _tvtools_row "median gap", num(`median_gap') note("days")
+            _tvtools_row "max gap", num(`max_gap') note("days")
 
             * Flag large gaps
             quietly count if `_gd' > `threshold'
@@ -363,15 +363,17 @@ program define tvdiagnose, rclass
             local n_large_gap_ids = r(N)
             if `n_large_gaps' > 0 {
                 display as text ""
-                display as result "  Warning: " `n_large_gaps' " gaps exceed threshold of `threshold' days"
+                display as text "  Warning: " as result `n_large_gaps' ///
+                    as text " gaps exceed the threshold of `threshold' days."
             }
             if "`verbose'" == "" {
                 display as text "  (specify verbose to list affected IDs and dates)"
             }
-
+            _tvtools_rule, width(78)
         }
         else {
-            display as text "No gaps found in coverage"
+            display as text "  No gaps found in coverage."
+            _tvtools_rule, width(78)
         }
 
         restore
@@ -384,9 +386,8 @@ program define tvdiagnose, rclass
     if "`overlaps'" != "" {
         local overlaps_run = 1
         display as text ""
-        display as text "{hline 70}"
         display as text "{bf:Overlap Analysis}"
-        display as text "{hline 70}"
+        _tvtools_rule, width(78)
 
         preserve
         local _preserved = 1
@@ -411,8 +412,8 @@ program define tvdiagnose, rclass
             local n_ids_affected = r(N)
             local n_overlap_ids = `n_ids_affected'
 
-            display as text "Total overlapping periods: " as result `n_overlaps'
-            display as text "Number of IDs affected: " as result `n_ids_affected'
+            _tvtools_row "Total overlapping periods", num(`n_overlaps')
+            _tvtools_row "number of IDs affected", num(`n_ids_affected')
 
             if "`verbose'" != "" {
                 display as text ""
@@ -422,10 +423,11 @@ program define tvdiagnose, rclass
             else {
                 display as text "  (specify verbose to list affected IDs and dates)"
             }
-
+            _tvtools_rule, width(78)
         }
         else {
-            display as text "No overlapping periods found"
+            display as text "  No overlapping periods found."
+            _tvtools_rule, width(78)
         }
 
         restore
@@ -438,9 +440,8 @@ program define tvdiagnose, rclass
     if "`summarize'" != "" {
         local summarize_run = 1
         display as text ""
-        display as text "{hline 70}"
         display as text "{bf:Exposure Distribution}"
-        display as text "{hline 70}"
+        _tvtools_rule, width(78)
 
         * Display frequency table
         tab `exposure', missing
@@ -510,19 +511,27 @@ program define tvdiagnose, rclass
         matrix colnames `exposure_summary' = ///
             exposure raw_days person_days percent n_periods
 
+        * The stored doubles list as 11.542579 next to a day count unless the
+        * display formats are set here; mkmat above already took the raw
+        * values, so the returned matrix is unaffected.
+        format raw_days person_days %12.0fc
+        format percent %8.1f
+        label variable raw_days     "raw days"
+        label variable person_days  "person-days"
+        label variable percent      "% of total"
+        label variable n_periods    "periods"
+
         display as text ""
-        display as text "Person-time by exposure:"
+        display as text "Person-time by exposure"
         list exposure_level raw_days person_days percent n_periods, ///
             noobs separator(0)
 
         display as text ""
-        display as text "Raw interval-time: " as result ///
-            %12.0fc `raw_interval_person_time' " days"
-        display as text "Union person-time: " as result ///
-            %12.0fc `total_person_time' " days"
+        _tvtools_row "raw interval-time", num(`raw_interval_person_time') note("days")
+        _tvtools_row "union person-time", num(`total_person_time') note("days")
         if `n_crossexposure_overlap_days' > 0 {
             display as text ""
-            display as error "Warning: exposure levels overlap in time for the same person."
+            display as text "Warning: exposure levels overlap in time for the same person."
             display as text "  " as result %12.0fc `n_crossexposure_overlap_days' ///
                 as text " person-day(s) are counted under more than one level, so the"
             display as text "  percent column sums above 100%. Resolve the overlaps " ///
@@ -667,9 +676,8 @@ program define tvdiagnose, rclass
     * FINAL SUMMARY
     **************************************************************************
     display as text ""
-    display as text "{hline 70}"
     display as text "{bf:Diagnostic Complete}"
-    display as text "{hline 70}"
+    _tvtools_rule, width(78)
 
     * Return general results and exact report defaults.
     return scalar n_persons = `n_persons'

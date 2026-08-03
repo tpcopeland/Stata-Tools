@@ -1,4 +1,4 @@
-*! tvbuild Version 1.12.1  2026/08/02
+*! tvbuild Version 1.13.0  2026/08/02
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -986,13 +986,13 @@ program define _tvbuild_show_plan
     else {
         noisily display as text "{bf:tvbuild plan}"
     }
-    noisily display as text "{hline 68}"
-    noisily display as text "  master frame      : " as result "`_here'"
-    noisily display as text "  persons           : " as result %12.0fc `npersons'
-    noisily display as text "  id / entry / exit : " as result "`id' `entry' `exit'"
-    noisily display as text "  output bounds     : " as result "`startname' `stopname'"
-    noisily display as text "  coverage policy   : " as result "`coverage'"
-    noisily display as text "  files loaded      : " as result `nfiles'
+    noisily _tvtools_rule
+    noisily _tvtools_row "master frame", value(`"`_here'"')
+    noisily _tvtools_row "persons", num(`npersons')
+    noisily _tvtools_row "id / entry / exit", value(`"`id' `entry' `exit'"')
+    noisily _tvtools_row "output bounds", value(`"`startname' `stopname'"')
+    noisily _tvtools_row "coverage policy", value(`"`coverage'"')
+    noisily _tvtools_row "files loaded", num(`nfiles')
 
     frame change `planframe'
     local _n = _N
@@ -1010,53 +1010,48 @@ program define _tvbuild_show_plan
         local _nu  = N_unmatched_ids[`i']
         local _no  = N_outside_window[`i']
         frame change `_here'
-        noisily display as text "{hline 68}"
-        noisily display as text "  source `i'          : " as result "`_nm'" ///
-            as text "  (`_kd', `_ik')"
-        noisily display as text "  locator           : " as result "`_loc'"
-        noisily display as text "  rows / persons    : " as result ///
-            %12.0fc `_ni' as text " / " as result %8.0fc `_np'
+        noisily _tvtools_rule
+        noisily _tvtools_row "source `i'", value(`"`_nm'"') note("(`_kd', `_ik')")
+        noisily _tvtools_row "locator", value(`"`_loc'"')
+        noisily _tvtools_row "rows", num(`_ni')
+        noisily _tvtools_row "persons in source", num(`_np')
         if `_nu' > 0 {
-            noisily display as text "  ids not in master : " as result %8.0fc `_nu' ///
-                as text "  (reported and ignored)"
+            noisily _tvtools_row "ids not in master", num(`_nu') ///
+                note("(reported and ignored)")
         }
         if `_no' > 0 {
-            noisily display as text "  rows outside win. : " as result %8.0fc `_no' ///
-                as text "  (reported and ignored)"
+            noisily _tvtools_row "rows outside window", num(`_no') ///
+                note("(reported and ignored)")
         }
-        noisily display as text "  mapping           : " as result "`_iv'" ///
-            as text " -> " as result "`_ov'"
-        noisily display as text "  engine            : " as result "`_en'"
+        noisily _tvtools_row "mapping", value(`"`_iv' -> `_ov'"')
+        noisily _tvtools_row "engine", value(`"`_en'"')
         frame change `planframe'
     }
     frame change `_here'
 
-    noisily display as text "{hline 68}"
+    noisily _tvtools_rule
     if "`keepvars'" != "" {
-        noisily display as text "  master keepvars   : " as result "`keepvars'"
+        noisily _tvtools_row "master keepvars", value(`"`keepvars'"')
     }
     if `dropdates' {
-        noisily display as text "  entry/exit        : " as result "dropped (dropdates)"
+        noisily _tvtools_row "entry/exit", value("dropped (dropdates)")
     }
     else {
-        noisily display as text "  entry/exit        : " as result "retained"
+        noisily _tvtools_row "entry/exit", value("retained")
     }
     if "`eventinput'" == "none" {
-        noisily display as text "  event stage       : " as result "none"
+        noisily _tvtools_row "event stage", value("none")
     }
     else {
-        noisily display as text "  event stage       : " as result ///
-            "`eventgenerate'" as text "  (event data from the `eventinput')"
+        noisily _tvtools_row "event stage", value(`"`eventgenerate'"') note("(event data from the `eventinput')")
     }
     local _disp = cond(`frameoutexists', "replace existing", "create")
-    noisily display as text "  frameout()        : " as result "`frameout'" ///
-        as text "  (`_disp')"
+    noisily _tvtools_row "frameout()", value(`"`frameout'"') note("(`_disp')")
     if "`manifestframe'" != "" {
         local _mdisp = cond(`manifestexists', "replace existing", "create")
-        noisily display as text "  manifestframe()   : " as result ///
-            "`manifestframe'" as text "  (`_mdisp')"
+        noisily _tvtools_row "manifestframe()", value(`"`manifestframe'"') note("(`_mdisp')")
     }
-    noisily display as text "{hline 68}"
+    noisily _tvtools_rule
     if "`dryrun'" != "" {
         noisily display as text ///
             "  Dry run: no frame, variable, value label, or file was created or changed."
@@ -1081,33 +1076,28 @@ program define _tvbuild_show_result
 
     noisily display as text ""
     noisily display as text "{bf:tvbuild result}"
-    noisily display as text "{hline 68}"
-    noisily display as text "  frameout()        : " as result "`frameout'"
-    noisily display as text "  persons           : " as result %12.0fc `npersons'
-    noisily display as text "  periods           : " as result %12.0fc `nperiods'
-    noisily display as text "  key / bounds      : " as result ///
-        "`id' `startname' `stopname'"
+    noisily _tvtools_rule
+    noisily _tvtools_row "frameout()", value(`"`frameout'"')
+    noisily _tvtools_row "persons", num(`npersons')
+    noisily _tvtools_row "periods", num(`nperiods')
+    noisily _tvtools_row "key / bounds", value(`"`id' `startname' `stopname'"')
     if !`dropdates' {
-        noisily display as text "  study window      : " as result ///
-            "`entryvar' `exitvar'"
+        noisily _tvtools_row "study window", value(`"`entryvar' `exitvar'"')
     }
-    noisily display as text "  output variables  : " as result ///
-        "`=strtrim(stritrim("`payload'"))'"
+    noisily _tvtools_row "output variables", value("`=strtrim(stritrim("`payload'"))'")
     if "`eventvar'" != "" {
-        noisily display as text "  event variable    : " as result "`eventvar'"
+        noisily _tvtools_row "event variable", value(`"`eventvar'"')
     }
     if "`manifestframe'" != "" {
-        noisily display as text "  manifestframe()   : " as result "`manifestframe'"
+        noisily _tvtools_row "manifestframe()", value(`"`manifestframe'"')
     }
     if "`coverage'" == "allow" & `ngapids' > 0 {
-        noisily display as text "  coverage          : " as result ///
-            "allow" as text "  (`ngapids' person(s), `uncovered' uncovered day(s))"
+        noisily _tvtools_row "coverage", value("allow") note("(`ngapids' person(s), `uncovered' uncovered day(s))")
     }
     else {
-        noisily display as text "  coverage          : " as result "`coverage'" ///
-            as text "  (every master day is represented)"
+        noisily _tvtools_row "coverage", value(`"`coverage'"') note("(every master day is represented)")
     }
-    noisily display as text "{hline 68}"
+    noisily _tvtools_rule
     noisily display as text "  Next steps (not run by tvbuild):"
     noisily display as text "    . frame change `frameout'"
     * tvdiagnose's coverage report needs the study window, so the suggested
