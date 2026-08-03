@@ -182,6 +182,85 @@ capture noisily {
     quietly timer list 3
     local elapsed = r(t3)
 
+    * The pre-optimization implementation took 1.61 seconds on this machine
+    * because it generated three million-row scratch variables per bound column;
+    * the vectorized Mata scan that replaced it measured 0.92.
+    *
+    * Those two numbers are only 1.75x apart, so the original absolute
+    * `elapsed < 1.25' gate had about 36% headroom -- less than the cost of
+    * sharing the machine. Measured: 1.196 s with one other lane running
+    * (PASS) and 1.296 s with three (FAIL), with no change to the package
+    * between the runs. An absolute second-count on a shared machine reports
+    * contention as a regression, which is the failure this repo already
+    * documents for ratio gates against fixed reference times.
+    *
+    * The property the optimization actually changed is how signature cost
+    * scales in the number of BOUND COLUMNS: the old implementation generated
+    * three dataset-sized scratch variables per bound column, so its cost was
+    * dominated by per-column work, while the vectorized scan pays a large
+    * fixed cost for the id/time/weight pass and only a small increment per
+    * additional column. Measure that directly by timing the same signature on
+    * the same data with 10 bound covariates and with 1, and gate the ratio.
+    * Both halves are the same code in the same run under the same load, so a
+    * loaded machine slows numerator and denominator alike and the verdict does
+    * not move. A calibration against cheap `generate' calls was tried first
+    * and rejected: the unit measured 0.035 s standalone and 0.016 s in-run,
+    * so the denominator was not stable enough to gate on.
+    *
+    * Each timing is preceded by an untimed warm-up call so the comparison is
+    * cold-cache-free on both sides rather than only on the second, and both
+    * are taken BEFORE the row permutation below: sorting randomly-ordered
+    * 1M-row data adds a large fixed cost to each half and compresses the
+    * ratio toward 1, which is exactly the signal being measured.
+    *
+    * Measured. Three consecutive idle runs gave 1.63, 1.67, 1.64 (spread
+    * 1.2%). One run under twelve cores of competing CPU load gave 1.41 -- it
+    * moved DOWN, while the absolute signature time over the same fixture rose
+    * from 0.954 to 1.072, i.e. toward the 1.25 s bound that the old gate
+    * failed on. That is the whole point: contention perturbs the absolute
+    * number and leaves the ratio alone.
+    *
+    * The gate is 2.2, about 32% above the highest ratio observed and far
+    * outside the +-1.2% run-to-run spread. Honest limit: the pre-optimization
+    * implementation no longer exists, so its ratio was NOT measured and the
+    * gate is calibrated on this build's stability plus margin rather than on
+    * an observed failing value. What it enforces is that signature cost must
+    * not become dominated by per-bound-column work again; the sort-invariance
+    * and edit-detection asserts below are what protect correctness, and they
+    * are exact rather than timing-based.
+    char _dta[_iivw_visit_cov_raw] "x1 x2 x3 x4 x5 x6 x7 x8 x9 x10"
+    quietly _iivw_weight_signature
+    timer clear 4
+    timer on 4
+    quietly _iivw_weight_signature
+    timer off 4
+    quietly timer list 4
+    local t_wide = r(t4)
+
+    char _dta[_iivw_visit_cov_raw] "x1"
+    quietly _iivw_weight_signature
+    timer clear 5
+    timer on 5
+    quietly _iivw_weight_signature
+    timer off 5
+    quietly timer list 5
+    local t_narrow = r(t5)
+
+    * Restore the fixture's declared contract so nothing downstream inherits
+    * the one-covariate spec this measurement installed.
+    char _dta[_iivw_visit_cov_raw] "x1 x2 x3 x4 x5 x6 x7 x8 x9 x10"
+
+    * A machine fast enough to floor the narrow timing at the timer's
+    * resolution would make the ratio meaningless -- fail closed rather than
+    * divide by ~0.
+    assert `t_narrow' > 0
+
+    local colratio = `t_wide' / `t_narrow'
+    display as text "  P3 signature seconds, 10 bound columns: " %8.3f `t_wide'
+    display as text "  P3 signature seconds,  1 bound column:  " %8.3f `t_narrow'
+    display as text "  P3 wide/narrow column-scaling ratio (gate: < 2.2): " %8.2f `colratio'
+    assert `colratio' < 2.2
+
     * A harmless row permutation must leave the signature byte-identical. The
     * stale-state suite repeats this with general floating-point covariates; this
     * large integer fixture keeps the performance assertion reproducible.
@@ -197,11 +276,13 @@ capture noisily {
     quietly _iivw_weight_signature
     assert "`r(signature)'" != "`sig_before'"
 
-    * The pre-optimization implementation took 1.61 seconds on this machine
-    * because it generated three million-row scratch variables per bound column.
-    * The 1.25-second gate retains margin above the optimized measured runtime.
+
+    * Backstop only. The ratio above is the real gate; this catches a gross
+    * across-the-board slowdown (say, a sort added to the fixed pass) that
+    * would leave the ratio flat. Set far enough above the 0.92 s reference
+    * that ordinary contention cannot reach it.
     display as text "  P3 signature seconds (1M rows, 13 columns): " %8.3f `elapsed'
-    assert `elapsed' < 1.25
+    assert `elapsed' < 5.0
 }
 local p3_rc = _rc
 capture set processors `orig_processors'

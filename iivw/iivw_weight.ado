@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.1.2  2026/07/29
+*! iivw_weight Version 3.2.0  2026/08/03
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -20,7 +20,8 @@ Description:
 Options:
   id(varname)          - Subject identifier (required)
   time(varname)        - Visit time in continuous units (required)
-  visit_cov(varlist)   - Covariates for visit intensity model (required)
+  visit_cov(varlist)   - Covariates for visit intensity model
+                         (required unless lagvars() is supplied)
   treat(varname)       - Binary treatment for IPTW component
   treat_cov(varlist)   - Covariates for treatment model
   wtype(string)        - Weight type: iivw, iptw, or fiptiw (auto-detect)
@@ -31,7 +32,17 @@ Options:
                          contract)
   lagvars(varlist)     - Time-varying covariates to lag by one visit
   entry(varname)       - Study entry time per subject (default: 0)
-  truncate(# #)        - Percentile trimming bounds
+  censor(varname)      - Subject-specific end of observation time
+  maxfu(#)             - Common end of follow-up for every subject
+  endatlastvisit       - End each subject's risk window at their last visit
+                         (one of censor()/maxfu()/endatlastvisit is required
+                          for IIW and FIPTIW; new in 2.0.0)
+  baseline(string)     - entry (default) or event: whether the first visit is
+                         study entry or a modeled visit-intensity event
+  truncvisit(# #)      - Percentile trimming bounds for the IIW component
+  trunctreat(# #)      - Percentile trimming bounds for the IPTW component
+                         (percentiles taken over subjects, not panel rows)
+  truncfinal(# #)      - Percentile trimming bounds for the final weight
   generate(name)       - Prefix for weight variables (default: _iivw_)
   replace              - Overwrite existing weight variables
   nolog                - Suppress model iteration log
@@ -476,10 +487,15 @@ program define iivw_weight, rclass sortpreserve
             * A visit after the stated end of follow-up is a data error, not a
             * modeling choice: the subject was demonstrably still at risk.
             quietly summarize `time', meanonly
-            if r(max) > `maxfu' {
+            * Capture r(max) BEFORE the count: -count- resets r() and leaves
+            * only r(N), so reading r(max) after it printed a missing value and
+            * made the message read as though time() contained missing values --
+            * a different error the package raises separately.
+            local __iivw_tmax = r(max)
+            if `__iivw_tmax' > `maxfu' {
                 quietly count if `time' > `maxfu'
                 display as error "`=r(N)' visits occur after maxfu(`maxfu')"
-                display as error "  the maximum visit time is " %12.0g `=r(max)'
+                display as error "  the maximum visit time is " %12.0g `__iivw_tmax'
                 display as error "  use censor() for subject-specific follow-up"
                 error 198
             }

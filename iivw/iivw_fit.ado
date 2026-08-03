@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.1.2  2026/07/29
+*! iivw_fit Version 3.2.0  2026/08/03
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -515,6 +515,29 @@ program define iivw_fit, eclass
     if r(N) == 0 {
         display as error "no observations"
         error 2000
+    }
+
+    * A depvar with no variation in the estimation sample is a data pathology,
+    * and it must be diagnosed HERE rather than left to the fitting engine.
+    * glm's answer on a constant outcome depends on the processor count: at
+    * c(processors)=16 the IRLS start happens to be feasible and it returns a
+    * degenerate fit (rc 0, slope 0), while at `set processors 1' the same
+    * bit-identical weights produce r(1400) "initial values not feasible".
+    * CLAUDE.md directs putting `set processors 1' in a profile.do for parallel
+    * QA, so the documented practice was what made the return code flip and the
+    * suite non-deterministic. Neither outcome is useful to a user: there is no
+    * outcome variance to model either way. Fail closed with a named cause so
+    * the return code is a function of the data alone.
+    *
+    * summarize, meanonly does NOT set r(sd) -- it computes only N/mean/min/max
+    * -- so the min==max comparison is the correct constant test for this call.
+    quietly summarize `depvar' if `touse', meanonly
+    if r(N) > 0 & r(min) == r(max) {
+        display as error "`depvar' has no variation in the estimation sample"
+        display as error "  every retained observation takes the value " ///
+            `"`=strtrim(string(r(min), "%12.0g"))'"'
+        display as error "  a weighted outcome model needs outcome variance to fit"
+        error 198
     }
 
     * Validate model type

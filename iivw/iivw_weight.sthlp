@@ -810,13 +810,14 @@ falsification check for this assumption, not a proof of it.
 {bf:Data requirements}
 
 {pstd}
-Data must be in long panel format with one row per subject-visit. By default
-each subject must have at least 2 visits for IIW and FIPTIW because the visit
-intensity model treats every visit as a recurrent event and so needs repeated
-visits. {opt baseline(entry)}, the default, relaxes this: the baseline visit is then
-treated as study entry, single-visit subjects are retained and assigned IIW
-weight 1 after the modeled-event normalization, and only one subject need have two or more
-visits. IPTW-only analyses may use a single row per subject. The {opt id()} and
+Data must be in long panel format with one row per subject-visit. Under
+{opt baseline(entry)}, the default, the baseline visit is treated as study entry
+rather than as a modeled event: single-visit subjects are retained and assigned
+IIW weight 1 after the modeled-event normalization, and only one subject need
+have two or more visits so the visit-intensity model has events to fit. A
+per-subject minimum of 2 visits applies only under {opt baseline(event)}
+combined with {opt endatlastvisit}, where a single-visit subject spans no risk
+time. IPTW-only analyses may use a single row per subject. The {opt id()} and
 {opt time()} combination must uniquely identify each row. The {opt treat()} variable must
 be observed for every row used in IPTW/FIPTIW, binary (0/1), and
 time-invariant within subjects.
@@ -997,10 +998,17 @@ subject or exclude those subjects deliberately.{p_end}
 implementation is for fixed binary treatment; use a time-varying treatment/MSM
 approach for treatment switching. {p_end}
 
-{phang2}{bf:{cmd:requires at least 2 visits per subject}.} IIW and FIPTIW
-need repeated visits because the visit process is estimated from inter-visit
-intervals. Use repeated-visit data, or use {cmd:wtype(iptw)} when treatment
+{phang2}{bf:{cmd:requires at least 2 visits per subject}.} Raised only under
+{opt baseline(event)} together with {opt endatlastvisit}, where a single-visit
+subject spans no risk time and so contributes nothing to the visit model. Keep
+the default {opt baseline(entry)} and supply an end of follow-up with
+{opt censor()} or {opt maxfu()}: single-visit subjects are then retained with
+IIW weight 1 rather than rejected. Use {cmd:wtype(iptw)} when treatment
 weighting only is required.{p_end}
+
+{phang2}{bf:{cmd:baseline(entry) requires at least one subject with 2 or more visits}.} The visit-intensity model has no
+events to fit. This is a requirement on the dataset as a whole, not on each
+subject.{p_end}
 
 {phang2}{bf:Very large weights or very small ESS.} This usually indicates
 sparse overlap, an overly complex model, or unusual visit patterns. Inspect

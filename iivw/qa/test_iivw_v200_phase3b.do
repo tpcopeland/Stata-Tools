@@ -304,6 +304,12 @@ capture noisily {
         * a gate / non-gate sentinel, not the curated tests=/pass=/fail= shape the
         * aggregate parses. Excluded on the same basis as benchmark_*/sim_*.
         if "`s'" == "validation_iivw_inference.do" continue
+        * profile.do is Stata's own startup file, not a QA suite. CLAUDE.md
+        * directs placing one here (holding `set processors 1') to run lanes in
+        * parallel without the jobs contending for cores, so following the
+        * documented practice otherwise turns this gate -- and the whole lane --
+        * red for a file that is never parsed for results.
+        if "`s'" == "profile.do" continue
 
         preserve
         quietly import delimited using "`qa_dir'/`s'", delimiter(tab) ///

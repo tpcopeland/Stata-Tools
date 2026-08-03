@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 3.1.2** | 2026-07-29
+**Version 3.2.0** | 2026-08-03
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -30,9 +30,9 @@ iivw_balance
 iivw_fit outcome baseline_risk, timespec(linear) vce(fixed) nolog
 ```
 
-This creates visit-intensity weights, checks whether they reproduce the at-risk population, and fits the weighted longitudinal outcome model. `vce(fixed)` is used here so the quick start returns in seconds — it is the analytic weights-known sandwich. For this IIW analysis, omitting it selects `vce(bootstrap, reps(999))`, a subject-level bootstrap that re-estimates the weights inside every replicate so the interval reflects weight-estimation uncertainty. Bare FIPTIW fits are point-only in 2.3.0. See [Standard errors and inference](#standard-errors-and-inference).
+This creates visit-intensity weights, checks whether they reproduce the at-risk population, and fits the weighted longitudinal outcome model. `vce(fixed)` is used here so the quick start returns in seconds — it is the analytic weights-known sandwich. For this IIW analysis, omitting it selects `vce(bootstrap, reps(999))`, a subject-level bootstrap that re-estimates the weights inside every replicate so the interval reflects weight-estimation uncertainty. Bare FIPTIW fits are point-only. See [Standard errors and inference](#standard-errors-and-inference).
 
-In this example the mean `baseline_risk` over the *observed visits* is 0.65, because sicker patients come back more often — but over the *at-risk person-time* it is 0.20. The weights close that gap: the weighted mean is 0.17, a target SMD of 0.01, and `iivw_balance` reports `within_rule`. That gap is the bias `iivw` exists to remove.
+In this example the mean `baseline_risk` over the *observed visits* is 0.65, because sicker patients come back more often — but over the *at-risk person-time* it is 0.20. The weights close that gap: the weighted mean is 0.18, a target SMD of 0.01, and `iivw_balance` reports `within_rule`. That gap is the bias `iivw` exists to remove.
 
 `censor(censor_time)` is required (as is `maxfu()` or `endatlastvisit`): the visit-intensity model needs each subject's observation window, not merely the gaps between the visits you happened to see. See [Migrating to 2.0.0](#migrating-to-200).
 
@@ -263,7 +263,7 @@ By default, `iivw_weight` auto-detects the type: specifying `treat()` triggers F
 
 ## Data Contract
 
-`iivw_weight` expects long panel data: one row per subject-visit.  `id()` identifies the subject, and `time()` identifies visit time.  The `id()` and `time()` combination must be unique and nonmissing.  For IIW and FIPTIW, each subject needs at least two visits because the command estimates a visit-intensity model from inter-visit intervals.
+`iivw_weight` expects long panel data: one row per subject-visit.  `id()` identifies the subject, and `time()` identifies visit time.  The `id()` and `time()` combination must be unique and nonmissing.  Under `baseline(entry)` — the default — single-visit subjects are retained: the first visit is study entry rather than a modeled event, so such a subject contributes a baseline row carrying IIW weight 1 and, given an end of follow-up, an at-risk interval running out to it.  Only *one* subject in the data need have two or more visits, so the visit-intensity model has events to fit.  A per-subject two-visit minimum applies only under `baseline(event)` combined with `endatlastvisit`, where a single-visit subject spans no risk time at all.
 
 For IPTW and FIPTIW, `treat()` must be a binary 0/1 treatment indicator, observed on every row, and constant within subject.  Treatment-model covariates are supplied with `treat_cov()` and are not inferred from `visit_cov()`.  IPTW-only analyses can use one row per subject by specifying `wtype(iptw)`.
 
@@ -385,9 +385,11 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 
 `censor()` supplies each subject's **end of observation time** — it bounds the visit model's risk set and is **not** a censoring model. `iivw` estimates no model for why follow-up ended and computes no censoring weight, so these weights identify the marginal parameter only under **conditional noninformative censoring**: end of follow-up independent of the outcome given the modeled covariates. The package neither tests that assumption nor offers an option that relaxes it, and multiplying in a separately estimated censoring weight does not retroactively satisfy the monitoring model's derivation (Tompkins et al. 2025, §4.2, measure the resulting sensitivity). Informative dropout, and treatment decisions that change over follow-up, each need a different estimator — not a different option here.
 
-### Reliability status (2026-07-23)
+### Reliability status (3.2.0, 2026-08-03)
 
-**`iivw` 2.3.0 computes point estimates and weights that are externally verified, retains the studied refit-bootstrap default for IIW and IPTW, and defaults FIPTIW to point-only because no tested interval passed its prespecified coverage gate.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`qa/METHOD_CONTRACT.md`](qa/METHOD_CONTRACT.md).
+**`iivw` 3.2.0 computes point estimates and weights that are externally verified, retains the studied refit-bootstrap default for IIW and IPTW, and defaults FIPTIW to point-only because no tested interval passed its prespecified coverage gate.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`qa/METHOD_CONTRACT.md`](qa/METHOD_CONTRACT.md).
+
+**The interval-coverage evidence below was measured on 2.1.0, not on this build.** The 2026-07-22 coverage study is the sole source for the IIW and IPTW `cleared-at-studied-settings` labels, and `sha256sum -c qa/coverage_results/MANIFEST.txt` currently reports 36 of 85 entries changed — among them `iivw_fit.ado`, `iivw_weight.ado`, `_iivw_bs_estimate.ado`, and `_iivw_bs_refit.ado`, whose recorded hashes resolve to commit `6fe0c3e` (2.1.0, 2026-07-21). Since that run the package changed its tie default to Efron (3.0.0), moved `trunctreat()` percentiles from panel rows to subjects (3.1.0), and revised `e(level)` handling and interval storage (3.1.2). The 61-suite lane validates contracts, replay, and R parity on the current build; it does **not** re-measure interval coverage. Until the frozen design is rerun against a matching manifest and independently checked, treat the coverage numbers as evidence from a **predecessor build** rather than from the code you installed. Point estimates, weights, and external `IrregLong`/`ipw` parity are verified against the current build and are unaffected.
 
 **What is verified:**
 
@@ -603,7 +605,8 @@ After running `iivw_weight`, check these before fitting the outcome model:
 |---------|--------------|-----|
 | `treat() contains missing values` | Treatment is missing on one or more visit rows | Fill the baseline treatment consistently within subject, or exclude those subjects deliberately |
 | `treat() must be time-invariant` | Treatment changes over time | Do not use this IPTW/FIPTIW implementation; use a time-varying treatment/MSM approach |
-| `requires at least 2 visits per subject` | IIW/FIPTIW needs repeated visits | Use repeated-visit data, or use `wtype(iptw)` for treatment weighting only |
+| `baseline(entry) requires at least one subject with 2 or more visits` | The visit-intensity model has no events to fit | Supply data in which at least one subject has repeated visits, or use `wtype(iptw)` for treatment weighting only |
+| `requires at least 2 visits per subject` | Raised only under `baseline(event)` with `endatlastvisit`, where a single-visit subject spans no risk time | Keep the default `baseline(entry)`, and give an end of follow-up with `censor()` or `maxfu()` instead of `endatlastvisit`. Single-visit subjects are then retained rather than dropped |
 | Very large weights | Sparse overlap, overfit model, or unusual visit patterns | Inspect covariates, simplify the model, and compare against `trunctreat(1 99)` |
 | `variable ... already exists` | Re-running created-variable steps | Add `replace` if overwriting is intended |
 | `iivw_fit` says weights are missing | Dataset changed or weights were dropped after `iivw_weight` | Re-run `iivw_weight` immediately before `iivw_fit` |
@@ -709,6 +712,18 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods for tied survival times in Cox regression. *Biometrics*. 1997;53(3):1151-1156.
 
 ## Version History
+
+### v3.2.0 (2026-08-03)
+
+**`iivw_fit` now errors on an outcome with no variation in the estimation sample instead of handing it to `glm`.** The previous behavior was not deterministic: on a constant outcome `glm` returned `rc 0` with a degenerate fit at `c(processors)=16`, and `r(1400)` "initial values not feasible" at `set processors 1`, on bit-identical weights. The QA lane's verdict therefore depended on the processor count, and following the documented practice of putting `set processors 1` in a `profile.do` for parallel runs turned it red. `iivw_fit` now detects the constant outcome before fitting and exits `198` with a named cause, so the return code is a function of the data alone. Verified identical (`rc 198`) at one and at sixteen processors.
+
+`iivw_weight`'s `maxfu()` over-range error printed a missing value where it promised the maximum visit time: an intervening `count` cleared `r()` before `r(max)` was read, so the message read as though `time()` contained missing values — a different error the package raises separately. The maximum is now captured before the count.
+
+Documentation corrections. The two-visit-per-subject requirement was stated unconditionally in four places and is false under the default `baseline(entry)`, which retains single-visit subjects by design; it applies only under `baseline(event)` with `endatlastvisit`. Registry and EHR cohorts routinely contain many single-visit subjects, so the previous wording would have prescribed dropping exactly the subjects the weights exist to retain. The Reliability status section, previously pinned to 2.3.0 across two releases that each moved results, now names the shipped build and discloses that its interval-coverage evidence was measured on a predecessor build. The Quick Start weighted mean is 0.18, not 0.17. `iivw_weight.ado`'s header comment listed the removed `truncate()` option, omitted the three `trunc*()` replacements and the `censor()`/`maxfu()`/`endatlastvisit` trio, and marked `visit_cov()` unconditionally required.
+
+Shipped examples in `iivw_balance.sthlp` and `iivw_exogtest.sthlp` failed on the first line a user copied — `censor(fu_end)` against a setup that never created `fu_end` (`r(111)`), and no end-of-follow-up contract at all (`r(198)`). Both are the defects SOL-14 recorded as fixed; the fix had transcribed only three of six help files, so they regressed uncovered. `test_help_examples.do` now executes the Examples sections of all six help files and fails if a help file gains an Examples section without a transcription.
+
+QA gates. The signature performance gate compared an absolute wall clock against a reference only 1.35× below it, so CPU contention from a concurrent lane reported a regression that was not one; it is now a ratio against an in-run calibration and is load-proportional. The `RESULT:` sentinel gate now allowlists `profile.do`, which is Stata's startup file rather than a suite.
 
 ### v3.1.2 (2026-07-29)
 
@@ -964,7 +979,7 @@ Three defects from the 2026-07-21 independent audit, all of the `rc=0`-but-wrong
 - Each replicate rebuilds `lagvars()` from the **raw sources**, inside the resampled subject. Passing the precomputed `*_lag1` columns through as raw covariates gave the terminal censoring row the value from two visits back, and froze the lag construction at its observed-data value in every draw. On an **identity draw** — every subject resampled exactly once, so the draw *is* the observed panel and the weights must come back unchanged — that construction was off by **22%**. It is now exact to `1e-12`
 - The bootstrap restores the **whole** stored contract, discovered from the data rather than from a hand-maintained list. A list that is missing a field lets a *successful* refit blank it — and if the field is the signature, the staleness guard is disarmed by the same bug that made it necessary
 
-**Not yet release-cleared for inference.** See [Reliability status](#reliability-status-2026-07-23). The estimator defects above are fixed — treatment is in the FIPTIW visit-intensity model, `stabcov()` is validated against the outcome design, and the stabilized balance target carries `h(X)`. The default variance now propagates weight-estimation uncertainty via the refit bootstrap, but its coverage has not been confirmed by a preregistered simulation, so `e(iivw_inference_status)` stays `candidate`.
+**Not yet release-cleared for inference.** See [Reliability status](#reliability-status-320-2026-08-03). The estimator defects above are fixed — treatment is in the FIPTIW visit-intensity model, `stabcov()` is validated against the outcome design, and the stabilized balance target carries `h(X)`. The default variance now propagates weight-estimation uncertainty via the refit bootstrap, but its coverage has not been confirmed by a preregistered simulation, so `e(iivw_inference_status)` stays `candidate`.
 
 ### v1.9.7 (2026-07-13)
 

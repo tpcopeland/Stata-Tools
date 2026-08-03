@@ -355,6 +355,183 @@ else {
     display "FAIL H9: a shipped example passes a removed option"
 }
 
+**# H10 - iivw_balance.sthlp Examples section runs verbatim
+
+* WHY H10 AND H11 EXIST
+* ---------------------
+* SOL-14 was recorded as fixed, and it regressed. The fix transcribed only
+* iivw.sthlp, iivw_weight.sthlp and iivw_fit.sthlp; iivw_balance.sthlp and
+* iivw_exogtest.sthlp were left uncovered, and both carried forward the exact
+* two defects SOL-14 named. iivw_balance.sthlp passed censor(fu_end) against a
+* setup that never created fu_end (r(111)), and iivw_exogtest.sthlp supplied
+* none of censor()/maxfu()/endatlastvisit (r(198)). H9's source scan did not
+* catch either: it looks only for the removed truncate() spelling, so a help
+* file can fail on its first copied line and still pass this suite.
+*
+* The lane was 61/61 green with both broken. Transcribing the remaining three
+* help files is what closes the gap H9 alone cannot.
+local ++test_count
+capture noisily {
+    clear
+    set seed 240526
+    set obs 240
+    gen long id = ceil(_n/4)
+    bysort id: gen byte visit = _n
+    gen double months = 3 * (visit - 1) + runiform() * .05
+    replace months = 0 if visit == 1
+    gen double age = 35 + mod(id, 20)
+    gen byte female = mod(id, 2)
+    gen double severity = .04 * age + .25 * female + .12 * visit + rnormal()
+    gen byte relapse = runiform() < invlogit(-2 + .4 * severity)
+    gen double fu_end = 12
+
+    * The administrative end must cover every observed visit, or the risk
+    * window the example demonstrates is not the one the help describes.
+    quietly summarize months, meanonly
+    assert r(max) < 12
+
+    iivw_weight, id(id) time(months) visit_cov(age female) ///
+        lagvars(severity relapse) censor(fu_end) nolog
+    iivw_balance
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS H10: iivw_balance.sthlp example runs verbatim"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' H10"
+    display "FAIL H10: iivw_balance.sthlp example (error `=_rc')"
+}
+
+**# H11 - iivw_exogtest.sthlp Examples section runs verbatim
+
+local ++test_count
+capture noisily {
+    clear
+    set seed 240526
+    set obs 240
+    gen id = ceil(_n/4)
+    bysort id: gen visit = _n
+    gen treatment = mod(id,2)
+    gen age = 35 + mod(id,20)
+    gen female = mod(id,3)==0
+    bysort id: gen double sdmt = 45 - .15*age + 1.5*treatment + rnormal() if visit==1
+    bysort id: replace sdmt = sdmt[_n-1] + .3*treatment + rnormal() if visit>1
+    gen recent_relapse = runiform() < invlogit(-2 + .04*(50-sdmt))
+    bysort id (visit): gen double gap = 3 + .02*(50-sdmt[_n-1]) + runiform() if visit>1
+    bysort id (visit): replace gap = 0 if visit==1
+    bysort id (visit): gen double months = sum(gap)
+    gen double fu_end = 15
+
+    quietly summarize months, meanonly
+    assert r(max) < 15
+
+    iivw_exogtest sdmt recent_relapse, id(id) time(months) censor(fu_end) ///
+        adjust(age female) efron nolog
+    iivw_exogtest sdmt recent_relapse, id(id) time(months) censor(fu_end) ///
+        adjust(age female) by(treatment) replace efron nolog
+    iivw_exogtest sdmt, id(id) time(months) censor(fu_end) ///
+        generate(x_) replace nolog
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS H11: iivw_exogtest.sthlp example runs verbatim"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' H11"
+    display "FAIL H11: iivw_exogtest.sthlp example (error `=_rc')"
+}
+
+**# H12 - iivw_diagnose.sthlp Examples section runs verbatim
+
+local ++test_count
+capture noisily {
+    * Transcribed from iivw_diagnose.sthlp Examples 1-4. This help file drives
+    * iivw_diagnose from three STORED estimates rather than from the
+    * iivw_weight pipeline, so the setup is deliberately unlike H10/H11.
+    sysuse auto, clear
+    gen double visit_w = cond(foreign, 1.30, 0.85)
+    regress price mpg
+    estimates store M_unweighted
+    regress price mpg [pw=visit_w]
+    estimates store M_weighted
+    regress price mpg weight [pw=visit_w]
+    estimates store M_adjusted
+
+    iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
+        adjusted(M_adjusted) exogeneity(exogenous)
+    iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
+        adjusted(M_adjusted) exogeneity(endogenous)
+    iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
+        adjusted(M_adjusted) true(0) exogeneity(unknown)
+
+    * Example 4 exports. Send it to a scratch path rather than the qa/ tree:
+    * a generated .xlsx is an artifact and must not be left behind.
+    tempfile xlsxpath
+    iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
+        adjusted(M_adjusted) exogeneity(unknown) ///
+        xlsx("`xlsxpath'.xlsx") sheet(Diagnostics) replace
+    capture erase "`xlsxpath'.xlsx"
+    estimates drop M_unweighted M_weighted M_adjusted
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS H12: iivw_diagnose.sthlp example runs verbatim"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' H12"
+    display "FAIL H12: iivw_diagnose.sthlp example (error `=_rc')"
+}
+
+**# H13 - every help file with an Examples section is transcribed above
+
+* H10-H12 close today's gap; this stops the NEXT one. A new .sthlp, or a new
+* Examples section in an existing one, must be added to this suite rather than
+* inheriting a silent pass. The check is on the shipped file set, so adding a
+* help file without a transcription fails here.
+local ++test_count
+capture noisily {
+    local covered "iivw.sthlp iivw_weight.sthlp iivw_fit.sthlp"
+    local covered "`covered' iivw_balance.sthlp iivw_exogtest.sthlp"
+    local covered "`covered' iivw_diagnose.sthlp"
+    local helpfiles : dir "`pkg_dir'" files "*.sthlp"
+    local uncovered ""
+    foreach f of local helpfiles {
+        * Only files that actually invite copy/paste need a transcription.
+        tempname fh
+        local has_examples = 0
+        file open `fh' using "`pkg_dir'/`f'", read text
+        file read `fh' line
+        while r(eof) == 0 {
+            if strpos(`"`macval(line)'"', "{title:Examples}") > 0 {
+                local has_examples = 1
+            }
+            file read `fh' line
+        }
+        file close `fh'
+        if `has_examples' == 1 {
+            local hit : list posof "`f'" in covered
+            if `hit' == 0 local uncovered "`uncovered' `f'"
+        }
+    }
+    if "`uncovered'" != "" {
+        display as error "help files with Examples but no transcription:`uncovered'"
+    }
+    assert "`uncovered'" == ""
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS H13: every Examples section is transcribed in this suite"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' H13"
+    display "FAIL H13: an Examples section is untranscribed (error `=_rc')"
+}
+
 **# SUMMARY
 
 iivw_qa_summary, name(test_help_examples) tests(`test_count') ///

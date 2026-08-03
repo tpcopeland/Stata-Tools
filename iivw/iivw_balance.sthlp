@@ -389,6 +389,7 @@ unweighted visit-model hazard ratio was 1.523 and the IIW-weighted refit gave
 {phang2}{cmd:. gen byte female = mod(id, 2)}{p_end}
 {phang2}{cmd:. gen double severity = .04 * age + .25 * female + .12 * visit + rnormal()}{p_end}
 {phang2}{cmd:. gen byte relapse = runiform() < invlogit(-2 + .4 * severity)}{p_end}
+{phang2}{cmd:. gen double fu_end = 12}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(months) visit_cov(age female) lagvars(severity relapse) censor(fu_end) nolog}{p_end}
 
 {pstd}Check leverage and visit-model covariate balance.{p_end}

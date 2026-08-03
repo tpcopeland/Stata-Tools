@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 3.1.2  2026/07/29
+*! _iivw_weight_signature Version 3.2.0  2026/08/03
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.

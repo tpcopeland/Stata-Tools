@@ -371,22 +371,23 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {phang2}{cmd:. bysort id (visit): gen double gap = 3 + .02*(50-sdmt[_n-1]) + runiform() if visit>1}{p_end}
 {phang2}{cmd:. bysort id (visit): replace gap = 0 if visit==1}{p_end}
 {phang2}{cmd:. bysort id (visit): gen double months = sum(gap)}{p_end}
+{phang2}{cmd:. gen double fu_end = 15}{p_end}
 
 {pstd}Run a pooled diagnostic.{p_end}
 
-{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) efron nolog}{p_end}
+{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) censor(fu_end) adjust(age female) efron nolog}{p_end}
 
 {pstd}Run the diagnostic separately by treatment arm.{p_end}
 
-{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) by(treatment) replace efron nolog}{p_end}
+{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) censor(fu_end) adjust(age female) by(treatment) replace efron nolog}{p_end}
 
 {pstd}Export the by-arm diagnostic to an Excel worksheet.{p_end}
 
-{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) by(treatment) replace efron nolog xlsx(iivw_results.xlsx) sheet("Move 2 Exogeneity")}{p_end}
+{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) censor(fu_end) adjust(age female) by(treatment) replace efron nolog xlsx(iivw_results.xlsx) sheet("Move 2 Exogeneity")}{p_end}
 
 {pstd}Use a shorter generated-variable prefix.{p_end}
 
-{phang2}{cmd:. iivw_exogtest sdmt, id(id) time(months) generate(x_) replace nolog}{p_end}
+{phang2}{cmd:. iivw_exogtest sdmt, id(id) time(months) censor(fu_end) generate(x_) replace nolog}{p_end}
 
 
 {marker results}{...}
