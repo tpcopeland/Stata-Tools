@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/08/02
+*! finegray Version 1.2.0  2026/08/03
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -923,7 +923,10 @@ program define finegray, eclass sortpreserve
     * future fit option dropped from this list fails the test on its own.
     *
     * noshr and level() are deliberately absent: both are display-only and cannot
-    * move e(b).
+    * move e(b).  nuisance is absent for the same reason one level up: it changes
+    * only the sandwich meat in e(V), never e(b), and the bootstrap consumers of
+    * e(refitcmd) read only each replicate's e(b) -- replaying it would pay the
+    * psi-term cost once per replication for a variance nobody reads.
     local _refitcmd `"finegray `_orig_varlist', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
     if "`strata'" != ""          local _refitcmd `"`_refitcmd' strata(`strata')"'
     if "`truncstrata'" != ""     local _refitcmd `"`_refitcmd' truncstrata(`truncstrata')"'

@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/08/02
+*! finegray_phtest Version 1.2.0  2026/08/03
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -198,9 +198,10 @@ program define finegray_phtest, rclass
     * the risk sets in different floating-point orders and the reported
     * correlations differ in their last digits; measured 8e-16 across six
     * identical calls on a 1200-subject fixture with 248 rows at the modal
-    * event time.  finegray.ado:792 and finegray_predict.ado:700,777 already
-    * stamp a row id for exactly this reason; this command was the one that
-    * did not.  Guarded by test_finegray_determinism.do.
+    * event time.  finegray.ado (the pre-engine sort) and finegray_predict.ado
+    * (the schoenfeld compute and assignment sorts) already stamp a row id for
+    * exactly this reason; this command was the one that did not.  Guarded by
+    * test_finegray_determinism.do.
     tempvar _ph_row0
     quietly gen long `_ph_row0' = _n
     sort _t `_ph_row0'

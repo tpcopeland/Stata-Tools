@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/08/02
+*! finegray_predict Version 1.2.0  2026/08/03
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -190,10 +190,19 @@ program define finegray_predict, rclass sortpreserve
 
     * For CI, the influence-function variance needs the full estimation design,
     * so reconstruct covariates over e(sample) (a superset of touse); the CIF
-    * itself is still evaluated only at touse. Without ci the basis is touse
-    * (predictions, possibly on new data).
+    * itself is still evaluated only at touse.
+    * schoenfeld needs the same basis: the residuals are computed over the WHOLE
+    * estimation sample (if/in only masks the output -- see the blanking step at
+    * the end of that path), and the Mata scan reads the design columns for
+    * every e(sample) row.  A design built only over touse leaves missing values
+    * on the rows if/in excludes; each such row poisons the risk-set sums S0/S1
+    * from its entry onward, and every residual after that point came back
+    * MISSING at rc 0 -- `finegray_predict s if x<0, schoenfeld' on a factor fit
+    * returned an all-missing variable while the non-factor path was correct.
+    * Without ci/schoenfeld the basis is touse (predictions, possibly on new
+    * data).
     local _fvbasis "`touse'"
-    if "`ci'" != "" {
+    if "`ci'" != "" | "`schoenfeld'" != "" {
         tempvar _esamp
         quietly gen byte `_esamp' = e(sample)
         local _fvbasis "`_esamp'"

@@ -21,7 +21,7 @@ The latest completed historical `full` receipt remains the 2026-07-23 **27-suite
 
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
-| `test_finegray.do` | functional / regression | 136 | 136 | 0 | 0 |
+| `test_finegray.do` | functional / regression | 137 | 137 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0: CIF/predict/bootstrap surface + graph polish, multi-record post-estimation, adjacent gap/overlap rejection, LT SEs, stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, factor-level bootstrap skips, `saving()` parsing, prediction-variable cleanup) | 53 | 53 | 0 | 0 |
 | `test_finegray_v120.do` | regression (v1.2.0: `finegray_phtest` omnibus test retired — `r(chi2)`/`r(df)`/`r(p)` no longer stored, no Global test row printed, no global row appended to `r(phtest)`; per-covariate surface is the diagnostic `[correlation, events]`) | 4 | 4 | 0 | 0 |
 | `test_finegray_release120.do` | final 1.2.0 release regressions: rejects `cluster()` with `norobust`; gives repeated clustered-bootstrap draws fresh cluster identities in both CIF paths; records raw PH residual scaling; checks grouped cluster-score aggregation against a nested reference; and verifies cluster-label invariance in both analytic CIF cores | 7 | 7 | 0 | 0 |
@@ -317,7 +317,7 @@ Keyed to the command surface. Every public command, option, and stored result is
 
 ### 1. Functional / regression (347 checks across 19 suites)
 
-`test_finegray.do` (136) walks the full command surface in eleven sections: installation and helper auto-load, basic fits, every option individually and in combination, one test per documented error message, complete stored-result inventory, data preservation, and edge cases. `test_finegray_v110.do` (53) is a version-pinned regression suite that locks in the v1.1.0 CIF/predict/bootstrap surface and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths), together with the correctness, state-safety, return-gate, bootstrap-convergence, and adjacent-interval validation fixes accumulated since that release. The remaining 17 focused suites cover ties, optimizer and variance safety, bootstrap/refit integrity, post-estimation and factor grammar, delayed entry, nuisance inference, determinism, reporting, internal contracts, option guards, and runnable documentation.
+`test_finegray.do` (137) walks the full command surface in eleven sections: installation and helper auto-load, basic fits, every option individually and in combination, one test per documented error message, complete stored-result inventory, data preservation, and edge cases. `test_finegray_v110.do` (53) is a version-pinned regression suite that locks in the v1.1.0 CIF/predict/bootstrap surface and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths), together with the correctness, state-safety, return-gate, bootstrap-convergence, and adjacent-interval validation fixes accumulated since that release. The remaining 17 focused suites cover ties, optimizer and variance safety, bootstrap/refit integrity, post-estimation and factor grammar, delayed entry, nuisance inference, determinism, reporting, internal contracts, option guards, and runnable documentation.
 
 ### 2. Validation and deterministic checks (59 checks across three suites)
 

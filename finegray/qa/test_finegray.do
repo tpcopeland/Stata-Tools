@@ -2557,6 +2557,48 @@ else {
     local ++fail_count
 }
 
+* T118b: Schoenfeld if qualifier on a FACTOR-VARIABLE fit
+* T117/T118 cover if/in on plain-covariate fits only.  On a factor fit the
+* rebuilt design columns were generated only over touse, while the residuals
+* are computed over the whole e(sample); the excluded rows' missing design
+* values poisoned the risk-set sums and EVERY residual came back missing at
+* rc 0 (observed 2026-08-03: 0 nonmissing where 85 were owed).  The design
+* basis for schoenfeld is now e(sample), as it already was for ci.
+local ++test_count
+capture noisily {
+    _setup_hypoxia
+    finegray i.pelnode ifp, compete(status) cause(1) nolog
+    * Reference: unrestricted residuals on the same fit
+    finegray_predict schfv_all, schoenfeld
+    * Restricted call must return the SAME residuals inside the window ...
+    finegray_predict schfv_if if _n <= 50, schoenfeld
+    quietly count if schfv_if < .
+    local n_total = r(N)
+    quietly count if schfv_all < . & _n <= 50
+    local n_expect = r(N)
+    * ... and produce output at all (the pre-fix failure mode was 0 nonmissing)
+    assert `n_total' > 0
+    assert `n_total' == `n_expect'
+    quietly count if schfv_if < . & schfv_all < . & ///
+        abs(schfv_if - schfv_all) > 1e-12
+    assert r(N) == 0
+    quietly count if schfv_if_2 < . & schfv_all_2 < . & ///
+        abs(schfv_if_2 - schfv_all_2) > 1e-12
+    assert r(N) == 0
+    * nothing outside the window
+    quietly count if schfv_if < . & _n > 50
+    assert r(N) == 0
+    drop schfv_all schfv_all_2 schfv_if schfv_if_2
+}
+if _rc == 0 {
+    display as result "  PASS: T118b schoenfeld if qualifier on FV fit"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T118b schoenfeld if on FV fit (rc=`=_rc')"
+    local ++fail_count
+}
+
 * T119: User _fg_* variable survives repeated FV estimation
 local ++test_count
 capture noisily {
