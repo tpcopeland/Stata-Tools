@@ -696,6 +696,69 @@ else {
     local failed_tests "`failed_tests' T12"
 }
 
+**# T13: sheet() names with embedded quotes round-trip through the dispatch
+
+* Regression for the 3.2.1 quote-sentinel fix. Excel permits double quotes and
+* parentheses in worksheet names, and `A "B) C' is the measured old-code
+* failure: the embedded quote flipped quote parity in the plain-quoted
+* dispatch to _iivw_export_table, the ")" then terminated the sheet() option
+* early, and all three reporting commands died at r(198) "invalid 'and'" with
+* no workbook written (verified on 3.2.0, 2026-08-04). The assertion axis is
+* the workbook itself -- import excel, describe reads the stored worksheet
+* name back -- not just r(sheet), so a dispatch that silently renames the
+* sheet cannot pass.
+
+local ++test_count
+capture noisily {
+    local qsheet `"A "B) C"'
+
+    tempfile qbalstub
+    local qbalxlsx "`qbalstub'.xlsx"
+    capture erase "`qbalxlsx'"
+    _reporting_balance_panel
+    iivw_balance, xlsx("`qbalxlsx'") sheet(`"`qsheet'"') replace
+    assert `"`r(sheet)'"' == `"`qsheet'"'
+    quietly import excel using "`qbalxlsx'", describe
+    assert `"`r(worksheet_1)'"' == `"`qsheet'"'
+    import excel using "`qbalxlsx'", sheet(`"`qsheet'"') clear allstring
+    assert A[1] == "IIVW balance diagnostic"
+
+    tempfile qexogstub
+    local qexogxlsx "`qexogstub'.xlsx"
+    capture erase "`qexogxlsx'"
+    _reporting_exog_panel
+    iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
+        xlsx("`qexogxlsx'") sheet(`"`qsheet'"') replace
+    assert `"`r(sheet)'"' == `"`qsheet'"'
+    quietly import excel using "`qexogxlsx'", describe
+    assert `"`r(worksheet_1)'"' == `"`qsheet'"'
+
+    tempfile qdiagstub
+    local qdiagxlsx "`qdiagstub'.xlsx"
+    capture erase "`qdiagxlsx'"
+    _reporting_diag_known
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        exogeneity(endogenous) xlsx("`qdiagxlsx'") sheet(`"`qsheet'"') replace
+    assert `"`r(sheet)'"' == `"`qsheet'"'
+    quietly import excel using "`qdiagxlsx'", describe
+    assert `"`r(worksheet_1)'"' == `"`qsheet'"'
+
+    * A quoted xlsx() path stays refused, but by the writer's own named guard
+    * (unsafe path character) rather than by an option-parse mangle.
+    _reporting_balance_panel
+    capture noisily iivw_balance, xlsx(`"q "x".xlsx"') sheet(S) replace
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T13 - quoted sheet() names round-trip"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T13 - quoted sheet() names (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T13"
+}
+
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"

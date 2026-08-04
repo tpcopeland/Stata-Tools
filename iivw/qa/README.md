@@ -273,6 +273,8 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   lane runner (`sim` aliases `sensitivity`).
 - `crossval_irreglong.R`, `crossval_fiptiw.R`, and
   `crossval_iivw_external_refs.R` — independent R reference generators.
+- `crossval_iivw_iptw_oracle.R` — base-R `glm` stabilized-ATE IPTW oracle,
+  invoked by `validation_iivw_iptw_oracle.do` (Gate 2A tier-3 parity).
 - `tools/check_iivw_xlsx.py` and `tools/check_iivw_style.py` — workbook content
   and style validators.
 - The tracked CSV files are cross-validation inputs or generated reference

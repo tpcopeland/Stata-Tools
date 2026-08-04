@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 3.2.0  2026/08/03
+*! iivw_diagnose Version 3.2.1  2026/08/04
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -832,15 +832,24 @@ program define iivw_diagnose, rclass
             frame post `_diagnose_export' ///
                 ("") (`"`_clean_footnote'"') ("") ("") ("")
 
+            * The sentinel covers sheet() and xlsx() too, not only title()/
+            * footnote(): the writer decodes it for all four options, and an
+            * embedded double quote in a plain-quoted dispatch value can flip
+            * quote parity so a later ")" terminates the option early. See the
+            * note at iivw_balance's dispatch site for the measured failure.
             local _quote_sentinel = uchar(57344)
             local _dispatch_title = subinstr(`"`_clean_title'"', ///
                 char(34), `"`_quote_sentinel'"', .)
             local _dispatch_footnote = subinstr(`"`_clean_footnote'"', ///
                 char(34), `"`_quote_sentinel'"', .)
+            local _dispatch_sheet = subinstr(`"`_clean_sheet'"', ///
+                char(34), `"`_quote_sentinel'"', .)
+            local _dispatch_xlsx = subinstr(`"`_clean_xlsx'"', ///
+                char(34), `"`_quote_sentinel'"', .)
 
             local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final') layout(tabtools) valuespanfrom(`_valuespanfrom')"'
-            if `"`_clean_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_clean_xlsx'")"'
-            if `"`_clean_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_clean_sheet'")"'
+            if `"`_dispatch_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_dispatch_xlsx'")"'
+            if `"`_dispatch_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_dispatch_sheet'")"'
             if `"`_dispatch_title'"' != "" local _export_opts `"`_export_opts' title("`_dispatch_title'")"'
             if `"`_dispatch_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_dispatch_footnote'")"'
             if "`replace'" != "" local _export_opts `"`_export_opts' replace"'

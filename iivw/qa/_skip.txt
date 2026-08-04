@@ -1,1 +1,2 @@
 validation_iivw_inference.do | Multi-day release-only coverage gate; run explicitly in release mode
+benchmark_iivw_coverage.do | Reduced coverage-harness benchmark/pilot; not a release gate and in no standard lane

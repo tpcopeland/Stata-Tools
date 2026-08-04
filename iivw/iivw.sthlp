@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.2.0  03aug2026}
+{* *! version 3.2.1  04aug2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -467,7 +467,7 @@ observation times. R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 3.2.0, 2026-08-03{p_end}
+{pstd}Version 3.2.1, 2026-08-04{p_end}
 
 
 {title:Also see}

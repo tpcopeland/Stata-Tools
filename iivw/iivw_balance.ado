@@ -1,4 +1,4 @@
-*! iivw_balance Version 3.2.0  2026/08/03
+*! iivw_balance Version 3.2.1  2026/08/04
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1445,17 +1445,30 @@ program define iivw_balance, rclass
             }
         }
 
-        * Protect embedded quotes while the title and footnote cross the
-        * helper's syntax boundary; the writer decodes this private sentinel.
+        * Protect embedded quotes while these values cross the helper's syntax
+        * boundary; the writer decodes this private sentinel for all four
+        * options. sheet() and xlsx() need it as much as title()/footnote():
+        * a double quote in the value splits the plain-quoted dispatch into
+        * quoted and unquoted segments, and a later ")" in an unquoted segment
+        * terminates the option early -- measured: sheet(`"A "B) C"'), a legal
+        * Excel worksheet name, died at r(198) "invalid 'and'" with no workbook
+        * while the same text exported cleanly through title(). For xlsx() the
+        * sentinel does not make a quoted path legal (the writer rejects quote
+        * characters as unsafe); it makes the rejection arrive as the writer's
+        * own named error instead of a parse mangle.
         local __iivw_quote_sentinel = uchar(57344)
         local __iivw_dispatch_title = subinstr(`"`__iivw_clean_title'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
         local __iivw_dispatch_footnote = subinstr(`"`__iivw_clean_footnote'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_sheet = subinstr(`"`__iivw_clean_sheet'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_xlsx = subinstr(`"`__iivw_clean_xlsx'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
 
         local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals') layout(tabtools)"'
-        if `"`__iivw_clean_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_clean_xlsx'")"'
-        if `"`__iivw_clean_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_clean_sheet'")"'
+        if `"`__iivw_dispatch_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_dispatch_xlsx'")"'
+        if `"`__iivw_dispatch_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_dispatch_sheet'")"'
         if `"`__iivw_dispatch_title'"' != "" local __iivw_export_opts `"`__iivw_export_opts' title("`__iivw_dispatch_title'")"'
         if `"`__iivw_dispatch_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_dispatch_footnote'")"'
         if "`replace'" != "" local __iivw_export_opts `"`__iivw_export_opts' replace"'

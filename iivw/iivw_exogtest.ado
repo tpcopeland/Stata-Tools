@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 3.2.0  2026/08/03
+*! iivw_exogtest Version 3.2.1  2026/08/04
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1077,15 +1077,24 @@ program define iivw_exogtest, rclass sortpreserve
                 ("") (`"`__iivw_clean_foot'"') `__iivw_blank_cells'
         }
 
+        * The sentinel covers sheet() and xlsx() too, not only title()/
+        * footnote(): the writer decodes it for all four options, and an
+        * embedded double quote in a plain-quoted dispatch value can flip
+        * quote parity so a later ")" terminates the option early. See the
+        * note at iivw_balance's dispatch site for the measured failure.
         local __iivw_quote_sentinel = uchar(57344)
         local __iivw_dispatch_title = subinstr(`"`__iivw_clean_title'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
         local __iivw_dispatch_foot = subinstr(`"`__iivw_clean_foot'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_sheet = subinstr(`"`__iivw_clean_sheet'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_xlsx = subinstr(`"`__iivw_clean_xlsx'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
         local __iivw_exog_opts ///
-            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_clean_sheet'") title("`__iivw_dispatch_title'") footnote("`__iivw_dispatch_foot'") layout(tabtools)"'
-        if `"`__iivw_clean_xlsx'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' xlsx("`__iivw_clean_xlsx'")"'
+            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_dispatch_sheet'") title("`__iivw_dispatch_title'") footnote("`__iivw_dispatch_foot'") layout(tabtools)"'
+        if `"`__iivw_dispatch_xlsx'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' xlsx("`__iivw_dispatch_xlsx'")"'
         }
         if "`open'" != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' open"'

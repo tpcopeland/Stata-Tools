@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 3.2.0** | 2026-08-03
+**Version 3.2.1** | 2026-08-04
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -712,6 +712,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods for tied survival times in Cox regression. *Biometrics*. 1997;53(3):1151-1156.
 
 ## Version History
+
+### v3.2.1 (2026-08-04)
+
+**Worksheet names containing double quotes now round-trip through `xlsx()` export.** Excel permits `"` and `)` in worksheet names, but a quote in a `sheet()` value flipped quote parity where the three reporting commands (`iivw_balance`, `iivw_exogtest`, `iivw_diagnose`) hand the export to the internal writer, so a later `)` terminated the option early: `sheet("A "B) C")` died at `r(198)` with the unrelated message `invalid 'and'` and wrote nothing, while the identical text exported cleanly through `title()`. The writer already decoded a private quote sentinel for all four text options; only `title()`/`footnote()` encoded it. `sheet()` and `xlsx()` are now encoded the same way — quoted sheet names export verbatim, and a quoted `xlsx()` path is still refused, but by the writer's own named unsafe-path error instead of a parse mangle. Regression test `test_iivw_reporting_exports.do` T13 asserts the stored worksheet name read back from the workbook, not just `r(sheet)`.
+
+QA manifest hygiene: `benchmark_iivw_coverage.do`'s standing exclusion from all lanes is now recorded in `qa/_skip.txt` (it was documented only in prose), and `qa/README.md`'s file index gained the missing `crossval_iivw_iptw_oracle.R` entry.
 
 ### v3.2.0 (2026-08-03)
 
