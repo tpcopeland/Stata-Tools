@@ -1,7 +1,6 @@
-*! raincloud Version 1.0.0  2026/04/08
+*! raincloud Version 1.0.1  2026/08/05
 *! Raincloud plots: half-violin density + jittered scatter + box elements
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -20,6 +19,7 @@ program define raincloud, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     set varabbrev off
+    local _rng_state ""
 
     capture noisily {
 
@@ -92,6 +92,14 @@ program define raincloud, rclass
     }
     if `gap' <= 0 {
         display as error "gap() must be positive"
+        exit 198
+    }
+    if missing(`bandwidth') | `bandwidth' < 0 {
+        display as error "bandwidth() must be nonnegative"
+        exit 198
+    }
+    if missing(`seed') | `seed' < -1 {
+        display as error "seed() must be -1 or nonnegative"
         exit 198
     }
 

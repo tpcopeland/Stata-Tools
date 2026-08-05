@@ -669,8 +669,9 @@ capture {
     msm_weight, treat_d_cov(sex race age wt71) ///
         treat_n_cov(sex race) fitfailure(marginal) nolog
 
-    * died is observed only at the terminal row, so period is constant in the
-    * fitted sample. Do not request a structurally unestimable period effect.
+    * Every death is placed at the common terminal row in this tractable smoke
+    * fixture, so period quasi-completely separates the pre-terminal zeros and
+    * is not estimable. This block checks pipeline execution, not time-hazard fit.
     msm_fit, model(logistic) outcome_cov(sex race age wt71) ///
         period_spec(none) nolog
 

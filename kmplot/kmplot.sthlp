@@ -393,8 +393,8 @@ an entry time.{p_end}
 {synopt:{cmd:r(risktable)}}risk-table count matrix{p_end}
 
 {pstd}
-The p-value macros are stored only when the log-rank p-value was computed;
-{cmd:r(pvalue_at)} is then empty unless {opt pvalueat()} was specified.{p_end}
+The p-value macros are stored only after computing the log-rank p-value, and
+{cmd:r(pvalue_at)} is empty unless {opt pvalueat()} was specified.{p_end}
 
 {pstd}
 {cmd:r(export)} records the requested export path whenever {opt export()} was

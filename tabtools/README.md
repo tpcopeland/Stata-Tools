@@ -105,6 +105,19 @@ table1_tc price mpg weight rep78, by(foreign) smd test frame(table1, replace) xl
 
 `table1_tc` detects the supplied variables when `vars()` is omitted. Use `vars()` for explicit row types such as `contn`, `conts`, `cat`, `bin`, and their extended forms; `smd` requires `by()`, and `clear` is available when the rendered table should replace the data in memory.
 
+### Shared formatting profile
+
+Use the controller to inspect the suite, set a custom theme, and save it for reuse in another session:
+
+```stata
+tabtools, detail category(models)
+tabtools set theme custom, font(Arial) fontsize(10) borderstyle(thin) permanent profile("tabtools_project.do")
+tabtools use using "tabtools_project.do"
+tabtools get
+```
+
+Use `tabtools, list` for the compact catalog, or replace `category(models)` with another catalog category. The profile contains ordinary `tabtools set` commands and can be version controlled with a project.
+
 ### Descriptive `collect` table
 
 ```stata
@@ -373,6 +386,20 @@ tabtools_tips [, open]
 - `pdp()` and `highpdp()` control ordinary and small p-value display in commands that show p-values.
 - `keep()` and `drop()` are mutually exclusive in commands that offer both; `models()`, `coef()`, `relabel()`, `cutlabels()`, and `addrow()` provide command-specific selection or annotation.
 - `level()` controls confidence intervals only where the command accepts it. Collection and saved-rate commands reject conflicting or unavailable confidence-level metadata.
+
+### Suite controller, custom-theme, and profile options
+
+| Option | Applies to | Purpose |
+| --- | --- | --- |
+| `list` | `tabtools` display mode | Show the public command catalog as a simple list |
+| `detail` | `tabtools` display mode | Add command descriptions to the catalog |
+| `category(string)` | `tabtools` display mode | Filter the catalog by `descriptive`, `models`, `rates`, `survival`, `diagnostics`, `composite`, `export`, `simulation`, `general`, or `all` |
+| `font(string)` | `tabtools set theme custom` | Set the custom theme's font family |
+| `fontsize(#)` | `tabtools set theme custom` | Set the custom theme's font size in points; valid values are 6–72 |
+| `permanent` | `tabtools set` and `tabtools set clear` | Save the resulting defaults to a runnable profile on disk |
+| `profile(filename)` | `tabtools set` and `tabtools use` | Choose an alternate profile file instead of the default `tabtools_profile.do` in Stata's PERSONAL directory |
+
+The custom-theme form also accepts `headercolor()`, `zebracolor()`, and `borderstyle()`. Use these builder-style options with `tabtools set theme custom`; named themes can be selected directly with `tabtools set theme`.
 
 ## Stored Results
 

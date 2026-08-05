@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  05aug2026}{...}
 {vieweralsosee "[G-2] graph twoway line" "help line"}{...}
 {vieweralsosee "[R] lowess" "help lowess"}{...}
 {viewerjumpto "Syntax" "spaghetti##syntax"}{...}
@@ -37,11 +37,11 @@
 {synopt:{opt time(varname)}}time variable (numeric){p_end}
 
 {syntab:Grouping}
-{synopt:{opt by(varname)}}group variable for separate trajectories (max 8 levels){p_end}
-{synopt:{opt colorby(varname [, categorical])}}color trajectories by a variable{p_end}
+{synopt:{opt by(varname)}}group trajectories and means by group{p_end}
+{synopt:{opt color:by(varname [, categorical])}}color trajectories by a variable{p_end}
 
 {syntab:Mean overlay}
-{synopt:{opt mean(options)}}add group mean overlay; sub-options: {cmd:bold}, {cmd:ci}, {cmd:smooth(lowess|linear)}{p_end}
+{synopt:{opt mean(options)}}add a group mean overlay{p_end}
 
 {syntab:Subsetting}
 {synopt:{opt samp:le(#)}}randomly sample {it:#} individuals{p_end}
@@ -49,11 +49,11 @@
 {synopt:{opt high:light(conditions [bgopacity(#)])}}emphasize specific individuals{p_end}
 
 {syntab:Annotations}
-{synopt:{opt ref:line(# [, subopts])}}vertical reference line at time {it:#}; sub-options: {cmd:label("text")}, {cmd:style(pattern)}{p_end}
+{synopt:{opt ref:line(# [, subopts])}}vertical reference line at time {it:#}{p_end}
 
 {syntab:Styling}
 {synopt:{opt col:ors(colorlist)}}override default color palette{p_end}
-{synopt:{opt ind:ividual(options)}}individual line style; sub-options: {cmd:color()}, {cmd:opacity()}, {cmd:lwidth()}{p_end}
+{synopt:{opt ind:ividual(options)}}individual trajectory style{p_end}
 {synopt:{opt sch:eme(schemename)}}graph scheme (default: current Stata scheme){p_end}
 
 {syntab:Graph options}
@@ -65,7 +65,7 @@
 {synopt:{opt plotr:egion(options)}}plot region options{p_end}
 {synopt:{opt graphr:egion(options)}}graph region options{p_end}
 {synopt:{opt name(name)}}graph window name{p_end}
-{synopt:{opt sav:ing(filename)}}save graph to file{p_end}
+{synopt:{opt sav:ing(filename [, replace])}}save graph to file{p_end}
 
 {syntab:Export}
 {synopt:{opt exp:ort(filename [, replace])}}export graph (.png, .pdf, .svg, .eps){p_end}
@@ -120,7 +120,7 @@ and separate mean overlays are computed per group. Maximum 8 levels. Cannot be
 combined with {opt colorby()}.
 
 {phang}
-{opt colorby(varname [, categorical])} colors individual trajectories by a
+{opt color:by(varname [, categorical])} colors individual trajectories by a
 variable. By default, the variable is treated as continuous and split into
 quintiles. Specify {cmd:categorical} to use distinct levels directly. Cannot be
 combined with {opt by()} or {opt highlight()}. When combined with {opt mean()}, the mean overlay
@@ -143,14 +143,20 @@ polynomial smoothing; {cmd:linear} fits a linear regression. When combined with 
 the confidence band reflects the raw (unsmoothed) means; the smoothed line may
 extend beyond the band.
 
+{pstd}
+The mean line is {cmd:medthick} by default and {cmd:thick} when {cmd:bold} is
+specified.
+
 {dlgtab:Subsetting}
 
 {phang}
-{opt sample(#)} randomly selects {it:#} individuals to display. Useful for decluttering
-large panels. Use with {opt seed()} for reproducibility.
+{opt sample(#)} randomly selects {it:#} individuals to display and is useful for
+decluttering large panels. Use with {opt seed()} for reproducibility. Default is
+{cmd:0}, which means no sampling.
 
 {phang}
-{opt seed(#)} sets the random number seed for {opt sample()}.
+{opt seed(#)} sets the random-number seed for {opt sample()}; default is {cmd:-1},
+which uses the current random-number state.
 
 {phang}
 {opt highlight(conditions [bgopacity(#)])} emphasizes specific individuals with bold
@@ -196,6 +202,47 @@ settings also control the background appearance when {opt highlight()} is used.
 
 {phang}
 {opt sch:eme(schemename)} sets the graph scheme. Default: current Stata scheme.
+
+{dlgtab:Graph options}
+
+{phang}
+{opt ti:tle(string)} sets the graph title.
+
+{phang}
+{opt sub:title(string)} sets the graph subtitle.
+
+{phang}
+{opt note(string)} sets the graph note.
+
+{phang}
+{opt yti:tle(string)} sets the y-axis title and defaults to the outcome variable
+label, or the outcome variable name when no label exists.
+
+{phang}
+{opt xti:tle(string)} sets the x-axis title and defaults to the time variable
+label, or the time variable name when no label exists.
+
+{phang}
+{opt plotr:egion(options)} passes its contents to {cmd:twoway}'s plotregion()
+option.
+
+{phang}
+{opt graphr:egion(options)} passes its contents to {cmd:twoway}'s graphregion()
+option.
+
+{phang}
+{opt name(name)} names the graph window. Existing graphs with the same name are
+replaced by default.
+
+{phang}
+{opt sav:ing(filename [, replace])} saves the graph through {cmd:twoway}'s
+saving() option. Include {cmd:replace} to overwrite an existing file.
+
+{dlgtab:Export}
+
+{phang}
+{opt exp:ort(filename [, replace])} exports the graph to a supported file
+format and accepts {cmd:replace} to overwrite an existing file.
 
 
 {marker remarks}{...}
@@ -293,9 +340,8 @@ use a normal approximation: mean +/- invnormal(0.975) * SE.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-08{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.0.1, 2026-08-05{p_end}
 
 
 {title:Also see}

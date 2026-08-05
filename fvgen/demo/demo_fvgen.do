@@ -3,8 +3,9 @@
     The value proposition: native factor-variable notation makes table/export
     tools emit cryptic coefficient names and base/omitted "reference" rows;
     running the SAME regression on the variables fvgen materializes yields one
-    clean, self-labeled row per coefficient. Both sides are the identical model
-    (identical coefficients, SEs, R-squared) — only the row presentation differs.
+    clean, self-labeled row per coefficient. Full-rank designs reproduce the
+    same coefficient basis. With empty cells, Stata may omit different columns;
+    the fitted values and fit remain equivalent even when coefficients differ.
 
     Produces:
       1. export_comparison.md - before/after markdown coefficient tables
@@ -21,10 +22,15 @@ set linesize 120
 * --- Paths ---
 local pkg_dir "fvgen/demo"
 capture mkdir "`pkg_dir'"
+local mkdir_rc = _rc
+if !inlist(`mkdir_rc', 0, 693) exit `mkdir_rc'
 local out "`pkg_dir'/export_comparison.md"
 
 * --- Install package from local source (as an installed user would have it) ---
+ado dir fvgen
 capture ado uninstall fvgen
+local uninstall_rc = _rc
+if !inlist(`uninstall_rc', 0, 111) exit `uninstall_rc'
 quietly net install fvgen, from("`c(pwd)'/fvgen") replace
 
 **# Helper: append a markdown coefficient table from the active regression
@@ -54,6 +60,8 @@ program define _fvgen_md_table
             if regexm("`nm'", "^[0-9]*o\.(.+)$") local cleannm = regexs(1)
             local lab ""
             capture local lab : variable label `cleannm'
+            local label_rc = _rc
+            if `label_rc' local lab ""
             if `"`lab'"' == "" local lab "`nm'"
         }
         else {
@@ -82,7 +90,7 @@ label values rep78 rl
 capture file close mdout
 file open mdout using "`out'", write replace text
 file write mdout "# fvgen export comparison" _n _n
-file write mdout "Each pair below is the *same regression* — identical coefficients, standard errors, and R-squared. Native factor-variable notation makes export tools print cryptic coefficient names (`1.foreign#c.mpg`) and base/omitted reference rows; fvgen yields one clean, self-labeled row per coefficient, ready to drop straight into a manuscript table." _n _n
+file write mdout "Each pair below spans the same model space. Full-rank designs reproduce the same coefficients, standard errors, and fit. With empty cells or other exact collinearity, Stata may choose a different omitted-column basis, so individual coefficients can differ even though fitted values and fit agree. Native factor-variable notation makes export tools print cryptic coefficient names (`1.foreign#c.mpg`) and base/omitted reference rows; fvgen yields one clean, self-labeled row per coefficient, ready to drop straight into a manuscript table." _n _n
 
 **## Example 1: categorical x continuous
 file write mdout "## Example 1: `i.foreign##c.mpg`" _n _n
@@ -100,12 +108,25 @@ file write mdout "## Example 2: `i.foreign##i.rep78`" _n _n
 fvgen, drop          // tidy up the generated variables before the next model
 quietly regress price i.foreign##i.rep78
 matrix RT = r(table)
+tempvar native_hat flat_hat fit_delta
+quietly predict double `native_hat', xb
+local native_r2 = e(r2)
 _fvgen_md_table RT 0 "Before — regress price i.foreign##i.rep78"
 
 fvgen i.foreign##i.rep78, replace
 quietly regress price `r(allvars)'
 matrix RT = r(table)
+quietly predict double `flat_hat', xb
+local flat_r2 = e(r2)
+quietly gen double `fit_delta' = abs(`native_hat' - `flat_hat')
+quietly summarize `fit_delta', meanonly
+local max_fit_delta = r(max)
 _fvgen_md_table RT 1 "After — fvgen i.foreign##i.rep78; regress price r(allvars)"
+
+local native_r2_text : display %9.7f `native_r2'
+local flat_r2_text : display %9.7f `flat_r2'
+local max_fit_text : display %9.3e `max_fit_delta'
+file write mdout "This example has empty interaction cells, so the two equivalent fits use different omitted-column bases. Native R-squared: `=strtrim("`native_r2_text'")'; flattened R-squared: `=strtrim("`flat_r2_text'")'; maximum absolute fitted-value difference: `=strtrim("`max_fit_text'")'." _n _n
 
 file write mdout "_fvgen composes with the tabtools `regtab`/`table1_tc` export family and `esttab`/`collect`: the clean labels and the `fvgen_term`/`fvgen_role` provenance characteristics carry straight through to the rendered table._" _n
 file close mdout

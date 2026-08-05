@@ -195,7 +195,7 @@ string scalar _rm_qa_one_sentinel_issue(
 
 string scalar _rm_qa_sentinel_issues(string scalar logpath)
 {
-    real scalar fh, nfmt, nexact, nvalid, tests, pass, fail
+    real scalar fh, nfmt, nexact, nvalid, tests, pass, fail, skip
     string scalar line, cur, stem, name, issues, issue
 
     fh = fopen(logpath, "r")
@@ -225,9 +225,11 @@ string scalar _rm_qa_sentinel_issues(string scalar logpath)
             tests = strtoreal(ustrregexs(2))
             pass = strtoreal(ustrregexs(3))
             fail = strtoreal(ustrregexs(4))
+            skip = 0
+            if (ustrregexs(6) != "") skip = strtoreal(ustrregexs(6))
             if (name == stem) {
                 nexact++
-                if (tests > 0 & pass + fail == tests & fail == 0) nvalid++
+                if (tests > 0 & pass + fail + skip == tests & fail == 0) nvalid++
             }
         }
     }

@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.2** | 2026-08-05
+**Version 1.5.3** | 2026-08-05
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -8,12 +8,12 @@
 
 Install `setools`, open its command browser, and inspect the multiple-sclerosis commands:
 
-~~~stata
+```stata
 capture ado uninstall setools
 net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/setools") replace
 setools, detail category(ms)
 return list
-~~~
+```
 
 ## Requirements
 
@@ -25,10 +25,10 @@ The public commands have no external software dependency. `pira` additionally re
 
 Install or update the released package from Stata:
 
-~~~stata
+```stata
 capture ado uninstall setools
 net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/setools") replace
-~~~
+```
 
 ## Commands
 
@@ -67,42 +67,42 @@ net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 Use the dispatcher when you want a compact list or descriptions before choosing an analysis command.
 
-~~~stata
+```stata
 setools, list category(ms)
 return list
-~~~
+```
 
 ### 2. Score the Swedish Charlson Index
 
 The repository provides diagnosis-level example data at `_data/diagnoses.dta`. `cci_se` returns a patient-level score; `components` and `dates` add the component outputs.
 
-~~~stata
+```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear
 cci_se, id(id) icd(icd) date(visit_date) components dates noisily
 summarize charlson
-~~~
+```
 
 ### 3. Use custom CCI output names
 
 Choose a different score name or component prefix when the analysis dataset already uses the default names.
 
-~~~stata
+```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear
 cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) components prefix(ch_)
 tab ch_mi
-~~~
+```
 
 ### 4. Apply migration exclusions and censoring
 
 `migrations` accepts a separate wide migration file. The temporary destination keeps the downloaded file out of the working directory.
 
-~~~stata
+```stata
 local migfile "`c(tmpdir)'/migrations_wide.dta"
 copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/migrations_wide.dta" "`migfile'", replace
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
 migrations, migfile("`migfile'") startvar(study_entry) quietly
 return list
-~~~
+```
 
 The returned data contain `migration_out_dt` for the first permanent emigration after study start. By default, people excluded by the migration criteria have been dropped.
 
@@ -110,52 +110,52 @@ The returned data contain `migration_out_dt` for the first permanent emigration 
 
 This uses the repeated-visit example data and retains patients without an event so that `edss4_event` can be used downstream.
 
-~~~stata
+```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear
 sustainedss id edss edss_date, threshold(4) keepall eventvar(edss4_event)
 return list
-~~~
+```
 
 ### 6. Compute first confirmed disability progression
 
 `cdp` uses the diagnosis date to select a baseline and the default two-tier EDSS change rule, with a 180-day confirmation interval.
 
-~~~stata
+```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear
 cdp id edss edss_date, dxdate(dx_date) keepall eventvar(cdp_event)
 return list
-~~~
+```
 
 ### 7. Track all roving CDP events
 
 `roving allevents` changes the output to one row per confirmed event. The event number and baseline names can be supplied explicitly.
 
-~~~stata
+```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear
 cdp id edss edss_date, dxdate(dx_date) roving allevents eventnumvar(cdp_number) baseedssvar(cdp_baseline) quietly
-~~~
+```
 
 ### 8. Classify the first CDP as PIRA or RAW
 
 `pira` reads relapse events from a separate file. The default relapse window is 90 days before through 30 days after relapse onset.
 
-~~~stata
+```stata
 local relapsefile "`c(tmpdir)'/relapses_only.dta"
 copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses_only.dta" "`relapsefile'", replace
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear
 pira id edss edss_date, dxdate(dx_date) relapses("`relapsefile'") keepall eventvar(pira_event)
 gen str4 progression = cond(!missing(pira_date), "PIRA", cond(!missing(raw_date), "RAW", "None"))
 tab progression
-~~~
+```
 
 ### 9. Require an observed sustained confirmation
 
 Use `confirmvisit(window)` for a bounded observed confirmation instead of the default implied sustainment.
 
-~~~stata
+```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear
 sustainedss id edss edss_date, threshold(4) confirmvisit(window) confirmwindow(90) keepall generate(edss4_confirmed)
-~~~
+```
 
 ## Demo
 
@@ -165,23 +165,19 @@ From a repository checkout, [`demo/demo_setools.do`](demo/demo_setools.do) runs 
 
 ### setools
 
-~~~stata
+```stata
 setools [, list detail category(string)]
-~~~
+```
 
-| Option | Default | Effect |
-|--------|---------|--------|
-| `list` | Off | Display only command names for the selected category |
-| `detail` | Off | Display grouped command descriptions; mutually exclusive with `list` |
-| `category(string)` | `all` | Select `all`, `codes`, `migration`, or `ms` |
+The `setools` display options are summarized under [Key Options](#key-options).
 
 The default grouped display covers five public commands: `cci_se migrations sustainedss cdp pira`. The `codes` category contains `cci_se`, `migration` contains `migrations`, and `ms` contains `sustainedss cdp pira`.
 
 ### cci_se
 
-~~~stata
+```stata
 cci_se [if] [in], id(varname) icd(varlist) date(varname) [generate(name) components dates prefix(string) dateformat(string) indexdate(varname) lookback(integer) noisily]
-~~~
+```
 
 | Option | Default | Effect |
 |--------|---------|--------|
@@ -203,9 +199,9 @@ Numeric Stata dates require a `%td` format for `dateformat(stata)` and whole-num
 
 ### migrations
 
-~~~stata
+```stata
 migrations, migfile(filename) [idvar(varname) startvar(varname) minresidence(#) saveexclude(filename) savecensor(filename) replace verbose quietly keepimmigrants intype(codes) outtype(codes) flag]
-~~~
+```
 
 | Option | Default | Effect |
 |--------|---------|--------|
@@ -229,9 +225,9 @@ The default exclusion sequence identifies people who emigrated before study star
 
 ### sustainedss
 
-~~~stata
+```stata
 sustainedss idvar edssvar datevar [if] [in], threshold(#) [generate(name) confirmwindow(#) confirmvisit(mode) baselinethreshold(#) eventvar(name) exit(varname) keepall quietly]
-~~~
+```
 
 | Option | Default | Effect |
 |--------|---------|--------|
@@ -249,9 +245,9 @@ Without `confirmvisit()`, a candidate is accepted if no later observed EDSS is b
 
 ### cdp
 
-~~~stata
+```stata
 cdp idvar edssvar datevar [if] [in], dxdate(varname) [generate(name) confirmdays(#) baselinewindow(#) threetier confirmtype(type) eventvar(name) eventnumvar(name) baseedssvar(name) exit(varname) roving allevents keepall quietly]
-~~~
+```
 
 | Option | Default | Effect |
 |--------|---------|--------|
@@ -274,9 +270,9 @@ The first baseline is the first EDSS within `baselinewindow()` days of diagnosis
 
 ### pira
 
-~~~stata
+```stata
 pira idvar edssvar datevar [if] [in], dxdate(varname) relapses(filename) [relapseidvar(varname) relapsedatevar(varname) windowbefore(#) windowafter(#) generate(name) rawgenerate(name) confirmdays(#) baselinewindow(#) threetier confirmtype(type) rebaselinerelapse eventvar(name) exit(varname) keepall quietly]
-~~~
+```
 
 | Option | Default | Effect |
 |--------|---------|--------|
@@ -300,7 +296,15 @@ pira idvar edssvar datevar [if] [in], dxdate(varname) relapses(filename) [relaps
 
 The relapse file must contain one row per relapse event, a matching ID type, and a numeric whole-number `%td` date. `pira` classifies only the first confirmed CDP per person: outside every relapse window is PIRA, and inside any window is RAW. An event indicator from `eventvar()` marks PIRA only; RAW-only progressors receive 0.
 
-## Option Guidance
+## Key Options
+
+The package overview command accepts these display options:
+
+| Option | Default | Effect |
+|--------|---------|--------|
+| `list` | Off | Display only command names for the selected category |
+| `detail` | Off | Display grouped command descriptions; mutually exclusive with `list` |
+| `category(string)` | `all` | Select `all`, `codes`, `migration`, or `ms` |
 
 ### Date windows and registry coding
 
@@ -429,7 +433,7 @@ The row names of `r(flow)` identify cohort start, exclusion stages, total exclud
 - `cci_se` expects long diagnosis-level data and replaces memory with the patient-level result. Save the result before merging it into a separate analysis cohort.
 - `sustainedss`, `cdp`, and `pira` modify the data in memory and drop non-event patients by default; use `keepall` when the full input cohort or visit structure must be retained.
 - `cdp` and `pira` require a nonmissing, person-consistent diagnosis date; `pira` also requires matching ID types and valid relapse dates in its separate file.
-- Generated output names must be new. Drop or rename prior output variables before rerunning a command; `migrations` also reserves names beginning `_mig_` and `_neg_`, and `pira` reserves its documented internal prefixes.
+- Generated output names must be new. Drop or rename prior output variables before rerunning a command; `migrations` reserves names beginning `_mig_`, and `pira` reserves its documented internal prefixes.
 - Same-day migration semantics are explicit: immigration on study start counts as present at baseline, emigration on study start is not pre-start exclusion or post-start censoring, and post-start censoring uses strictly later emigration dates.
 - `pira` classifies only the first confirmed CDP per person, while `cdp` can return multiple events only with `roving allevents`.
 - An all-zero `cci_se` result when diagnosis codes are present triggers an informational warning; check separators and the diagnosis years before interpreting it as a genuinely healthy cohort.
@@ -449,6 +453,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.3** (2026-08-05): Corrected the `migrations` reserved-namespace documentation to match its `_mig_*` working-state contract.
 - **1.5.2** (2026-08-05): Restored the documented `q` minimum abbreviation for `migrations`' `quietly`, moved the `migrations` internal workspace fully into the reserved `_mig_*` namespace, and added an up-front refusal when master data already occupies that namespace.
 - **1.5.1** (2026-07-19): Fixed the no-candidate roving CDP path, long-format migration files whose first observed event is emigration, macOS path aliasing, and wide-format date-slot handling; added `migrations` `quietly` and clarified exit-censored results and same-day migration boundaries.
 - **1.5.0** (2026-07-13): Corrected Swedish CCI mappings, repaired roving CDP and event-level output contracts, hardened migration exclusions and exports, treated extended missings as missing, and clarified analytic versus returned migration counts.

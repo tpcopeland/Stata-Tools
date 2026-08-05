@@ -1,6 +1,6 @@
 # raincloud — Raincloud plots for distributional comparisons
 
-**Version 1.0.0** | 2026-07-10
+**Version 1.0.1** | 2026-08-05
 
 `raincloud` combines a kernel-density cloud, jittered observations, and a box-and-whisker summary in one graph. It is for Stata users comparing distribution shape, raw values, and robust summaries across one or more groups.
 
@@ -150,7 +150,7 @@ The command accepts exactly one numeric `varname`, optional `if`/`in` restrictio
 
 | Option | Purpose | Default |
 |--------|---------|---------|
-| `bandwidth(#)` | Use a positive bandwidth for `kdensity`; zero uses Stata's optimal selector | `0` |
+| `bandwidth(#)` | Use a nonnegative bandwidth for `kdensity`; `0` uses Stata's optimal selector | `0` |
 | `kernel(string)` | Select any kernel accepted by `kdensity` | `epanechnikov` |
 | `n(#)` | Set the number of density evaluation points; must be at least 10 | `200` |
 | `opacity(#)` | Set cloud fill opacity from 0 (transparent) to 100 (opaque) | `50` |
@@ -162,7 +162,7 @@ The command accepts exactly one numeric `varname`, optional `if`/`in` restrictio
 | Option | Purpose | Default |
 |--------|---------|---------|
 | `jitter(#)` | Set point-jitter intensity from 0 to 1 | `0.4` |
-| `seed(#)` | Set the seed used for jitter; nonnegative values make the plot reproducible | `-1` |
+| `seed(#)` | Set the jitter seed; `-1` uses the current state, nonnegative values make the plot reproducible | `-1` |
 | `pointsize(string)` | Set the marker size for the rain layer | `vsmall` |
 | `pointopts(string)` | Pass options to the rain layer's underlying `scatter` command | None |
 
@@ -199,8 +199,8 @@ The command accepts exactly one numeric `varname`, optional `if`/`in` restrictio
 | `saving(string)` | Save the graph to a file | None |
 | `plotregion(string)` | Pass plot-region options to the graph | Default |
 | `graphregion(string)` | Pass graph-region options to the graph | Default |
-| `xtitle(string)` | Set the x-axis title | Outcome label or name when horizontal |
-| `ytitle(string)` | Set the y-axis title | Group label when grouped |
+| `xtitle(string)` | Set the x-axis title | Outcome label/name when horizontal; group label/name when grouped vertical |
+| `ytitle(string)` | Set the y-axis title | Group label/name when grouped horizontal; outcome label/name when vertical |
 | `legend(string)` | Set legend options; grouped plots otherwise receive an automatic legend | Off for one group; automatic for multiple groups |
 | `*` | Pass any additional `twoway_options` to the graph command | As specified |
 
@@ -235,8 +235,8 @@ matrix list r(stats)
 - `over()` accepts numeric or string variables. Observations missing the outcome or grouping value are excluded from the plot and stored counts.
 - Groups with one observation or zero variance skip the cloud. A density estimate for a group with fewer than five observations may be unreliable.
 - The default palette has eight colors; if fewer colors than groups are supplied, the palette cycles from the beginning.
-- `opacity()` must be between 0 and 100, `jitter()` between 0 and 1, `n()` must be at least 10, and `cloudwidth()`, `boxwidth()`, and `gap()` must be positive.
-- Omit `seed()` to use the current random-number state; the jitter consumes that state. With `seed(#)`, the command saves and restores the caller's random-number state after drawing.
+- `bandwidth()` must be nonnegative, `opacity()` must be between 0 and 100, `jitter()` between 0 and 1, `n()` must be at least 10, and `cloudwidth()`, `boxwidth()`, and `gap()` must be positive.
+- Omit `seed()` to use the current random-number state; the jitter consumes that state. With `seed(#)`, the command saves and restores the caller's random-number state after drawing; `-1` is the only negative value allowed.
 - The command supports `fweight` and `aweight` expressions and preserves the data and `varabbrev` setting after execution.
 - For very large datasets, consider `norain` to avoid rendering many points or reduce `n()` to shorten density estimation.
 
@@ -244,8 +244,13 @@ matrix list r(stats)
 
 - Allen M, Poggiali D, Whitaker K, Marshall TR, Kievit RA. 2019. Raincloud plots: a multi-platform tool for robust data visualization. *Wellcome Open Research* 4:63. [doi:10.12688/wellcomeopenres.15191.1](https://doi.org/10.12688/wellcomeopenres.15191.1)
 
+## QA
+
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+
 ## Version History
 
+- **1.0.1** (2026-08-05): Corrected shipped help metadata, documented graph options, and validated bandwidth and seed boundaries
 - **1.0.0** (2026-07-10): Initial Stata-Tools release of `raincloud`
 
 ## Author

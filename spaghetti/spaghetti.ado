@@ -1,7 +1,6 @@
-*! spaghetti Version 1.0.0  2026/04/08
+*! spaghetti Version 1.0.1  2026/08/05
 *! Longitudinal trajectory visualization with group mean overlays
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Requires: Stata 16.0+
 

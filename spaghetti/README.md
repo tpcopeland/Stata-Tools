@@ -1,8 +1,8 @@
 # spaghetti — Longitudinal trajectory plots with mean overlays
 
-**Version 1.0.0** | 2026-07-10
+**Version 1.0.1** | 2026-08-05
 
-`spaghetti` draws individual-level trajectories for long-format repeated-measures data in a single Stata graph. It can separate trajectories by groups, color them by a second variable, and add mean lines, confidence bands, sampling, highlights, and graph export controls.
+`spaghetti` draws individual trajectories for long-format repeated-measures data in one Stata graph. It is for analysts who need to inspect change over time by group, add mean and confidence-band overlays, or declutter large panels with sampling and highlights.
 
 ## Quick Start
 
@@ -20,7 +20,6 @@ The graph shows one line per individual, colored by `race`, with a bold mean tra
 - Stata 16 or later
 - Long-format data with one row per individual-time observation
 - One numeric outcome variable and one numeric time variable; the identifier may be numeric or string
-- No external Stata packages or other software
 
 ## Installation
 
@@ -125,7 +124,7 @@ spaghetti varname [if] [in], id(varname) time(varname) ///
      refline(# [, label("text") style(pattern)]) ///
      export(filename [, replace]) colors(colorlist) ///
      individual(options) title(string) subtitle(string) note(string) ///
-     name(name) saving(filename) scheme(schemename) ///
+     name(name) saving(filename [, replace]) scheme(schemename) ///
      plotregion(options) graphregion(options) ///
      ytitle(string) xtitle(string) twoway_options]
 ```
@@ -172,8 +171,8 @@ spaghetti varname [if] [in], id(varname) time(varname) ///
 | `xtitle(string)` | The time variable label, or the time variable name when no label exists. |
 | `plotregion(options)` | Stata's default plot-region settings. Passed to `twoway`. |
 | `graphregion(options)` | Stata's default graph-region settings. Passed to `twoway`. |
-| `name(name)` | Off. Names the graph; an existing graph with that name is replaced unless the option already supplies `replace`. |
-| `saving(filename)` | Off. Saves the graph using Stata's `saving()` graph option. |
+| `name(name)` | Off. Names the graph; an existing graph with that name is replaced by default. |
+| `saving(filename [, replace])` | Off. Saves the graph using Stata's `saving()` graph option; add `replace` to overwrite an existing file. |
 | `export(filename [, replace])` | Off. Exports the displayed graph, for example to `.png`, `.pdf`, `.svg`, or `.eps`; add `replace` to overwrite an existing file. |
 
 Option names may be abbreviated according to the syntax; the full names above are used in examples.
@@ -208,6 +207,7 @@ Inspect the results with `return list` immediately after the command.
 
 ## Version History
 
+- **1.0.1** (2026-08-05): Expanded option documentation and corrected help metadata and rendering details
 - **1.0.0** (2026-07-10): Initial Stata-Tools release
 
 ## Author

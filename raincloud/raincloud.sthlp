@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  05aug2026}{...}
 {vieweralsosee "[R] kdensity" "help kdensity"}{...}
 {vieweralsosee "[G-2] graph twoway rarea" "help twoway rarea"}{...}
 {viewerjumpto "Syntax" "raincloud##syntax"}{...}
@@ -38,7 +38,7 @@
 {synopt:{opt noumb:rella}}synonym for {opt nobox}{p_end}
 
 {syntab:Cloud}
-{synopt:{opt bandw:idth(#)}}kernel density bandwidth; 0 = Stata optimal{p_end}
+{synopt:{opt bandw:idth(#)}}bandwidth; nonnegative; 0 = optimal{p_end}
 {synopt:{opt k:ernel(string)}}kernel function; default {cmd:epanechnikov}{p_end}
 {synopt:{opt n(#)}}number of density evaluation points; default {cmd:200}{p_end}
 {synopt:{opt opacity(#)}}fill opacity 0-100; default {cmd:50}{p_end}
@@ -47,7 +47,7 @@
 
 {syntab:Rain}
 {synopt:{opt j:itter(#)}}jitter intensity 0-1; default {cmd:0.4}{p_end}
-{synopt:{opt seed(#)}}random seed for reproducible jitter{p_end}
+{synopt:{opt seed(#)}}jitter seed; -1=current; nonnegative restores{p_end}
 {synopt:{opt points:ize(string)}}marker size; default {cmd:vsmall}{p_end}
 {synopt:{opt pointo:pts(string)}}pass-through options to {cmd:scatter}{p_end}
 
@@ -132,8 +132,8 @@ synonym.
 {dlgtab:Cloud}
 
 {phang}
-{opt bandwidth(#)} sets the kernel density bandwidth. The default value of 0
-uses Stata's optimal bandwidth selector.
+{opt bandwidth(#)} sets the kernel density bandwidth. The value must be
+nonnegative; the default value of 0 uses Stata's optimal bandwidth selector.
 
 {phang}
 {opt kernel(string)} specifies the kernel function. Default is
@@ -162,7 +162,9 @@ command for the cloud.
 to 1 (maximum). Default is 0.4.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducible jitter positioning.
+{opt seed(#)} sets the random number seed for reproducible jitter positioning. The
+default value of -1 uses the current random-number state; nonnegative seeds are
+restored after the graph is drawn. Other negative values are rejected.
 
 {phang}
 {opt pointsize(string)} controls the marker size. Default is {cmd:vsmall}. Any Stata
@@ -222,6 +224,48 @@ visual width of each cloud is {cmd:2 * cloudwidth()}.
 {opt colors(string)} specifies a custom color palette as a space-separated list of
 Stata color names. Colors cycle if fewer colors are given than groups. Default
 palette is {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}.
+
+{dlgtab:Graph}
+
+{phang}
+{opt scheme(string)} selects the graph scheme. The default is the current Stata
+graph scheme.
+
+{phang}
+{opt title(string)} adds a graph title.
+
+{phang}
+{opt subtitle(string)} adds a graph subtitle.
+
+{phang}
+{opt note(string)} adds a graph note.
+
+{phang}
+{opt name(string)} assigns a name to the graph.
+
+{phang}
+{opt saving(string)} saves the graph to a file.
+
+{phang}
+{opt plotregion(string)} passes plot-region options to the graph.
+
+{phang}
+{opt graphregion(string)} passes graph-region options to the graph.
+
+{phang}
+{opt xtitle(string)} sets the x-axis title. By default, the plotted variable
+label or name is used for horizontal plots; for grouped vertical plots, the
+grouping variable label or name is used.
+
+{phang}
+{opt ytitle(string)} sets the y-axis title. By default, the grouping variable
+label or name is used for grouped horizontal plots; the plotted variable label
+or name is used for vertical plots.
+
+{phang}
+{opt legend(string)} passes options to the graph legend. Multiple-group plots
+receive an automatic legend unless this option is specified; single-group plots
+have the legend turned off by default.
 
 
 {marker remarks}{...}
@@ -329,10 +373,8 @@ plots: a multi-platform tool for robust data visualization. {it:Wellcome Open}
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-08{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.0.1, 2026-08-05{p_end}
 
 
 {title:Also see}

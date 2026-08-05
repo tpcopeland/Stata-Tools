@@ -2,99 +2,91 @@
 
 **Version 1.13.0** | 2026-08-02
 
-`tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It provides a transactional build path, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
+`tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
 ## Quick Start
 
-This end-to-end example uses inline data and temporary files, so it runs after public installation from any working directory:
+This complete example creates its own cohort and episode data, so it runs after installation from any working directory.
 
-~~~stata
+```stata
 clear
-input long id str9(entry_s exit_s event_s) byte female
-1 "01jan2020" "31dec2020" "20jan2020" 1
-2 "01jan2020" "31dec2020" "" 0
+input long id study_entry study_exit
+1 21915 22280
+2 21915 22280
 end
-generate double study_entry = date(entry_s, "DMY")
-generate double study_exit = date(exit_s, "DMY")
-generate double event_date = date(event_s, "DMY")
-format study_entry study_exit event_date %td
-drop entry_s exit_s event_s
+format study_entry study_exit %td
 tempfile cohort episodes
 save `cohort'
 
 clear
-input long id str9(start_s stop_s) byte rx_class
-1 "05jan2020" "20feb2020" 1
-1 "01mar2020" "15apr2020" 2
-2 "10jun2020" "31jul2020" 1
+input long id rx_start rx_stop byte rx_class
+1 21919 21965 1
+1 22024 22069 2
+2 22100 22151 1
 end
-generate double rx_start = date(start_s, "DMY")
-generate double rx_stop = date(stop_s, "DMY")
-format rx_start rx_stop %td
-drop start_s stop_s
 save `episodes'
 
 use `cohort', clear
 tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
     start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
-    generate(tv_drug) frameout(analysis) eventdate(event_date) ///
-    eventgenerate(_failure) replace
+    generate(tv_drug) frameout(analysis) replace
 frame analysis: tvdiagnose, id(id) start(start) stop(stop) ///
-    entry(study_entry) exit(study_exit) exposure(tv_drug) all
+    entry(study_entry) exit(study_exit) all
 frame change analysis
+generate byte _failure = 0
 generate double analysis_t0 = start - 1
-stset stop, id(id) failure(_failure == 1) time0(analysis_t0)
-~~~
+stset stop, id(id) failure(_failure) time0(analysis_t0)
+```
 
-`tvbuild` leaves the person-level master unchanged, commits the interval result in frame `analysis`, and creates `analysis_manifest` unless `nomanifest` is specified. The subtraction of one day maps the package's closed [start, stop] intervals to Stata's open-left survival-time convention.
+`tvbuild` leaves the person-level master unchanged, commits the interval result in frame `analysis`, and creates `analysis_manifest` unless `nomanifest` is specified. The subtraction of one day maps the package’s closed `[start, stop]` intervals to Stata’s open-left survival-time convention.
 
 ## Requirements
 
 - Stata 16 or later.
 - No required community package.
-- Optional `psdash` for `tvweight, loveplot`; weighting, balance output, and the returned `r(balance)` matrix do not require it.
+- Optional `psdash` for `tvweight, loveplot`; weighting, balance output, and `r(balance)` do not require it.
 - Optional `msm` for downstream `msm_prepare` and `msm_weight` workflows after `tvpanel`.
 
 ## Installation
 
 Install the released package from Stata-Tools:
 
-~~~stata
+```stata
 capture ado uninstall tvtools
 net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools") replace
-~~~
+```
 
 Install optional integrations only when those workflows are needed:
 
-~~~stata
+```stata
 net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace
 net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
-~~~
+```
 
 The ancillary menu helper is available with `net get tvtools`; run `do tvtools_menu_setup.do` only if you want to add its Stata menu entry.
 
 ## Commands
 
-| Command | Purpose | Help |
-|---|---|---|
-| `tvtools` | List and categorize the suite. | `help tvtools` |
-| `tvbuild` | Build a committed interval frame from a cohort and one or more sources. | `help tvbuild` |
-| `tvspec` | Create and inspect the multi-source specification frame consumed by `tvbuild`. | `help tvspec` |
-| `tvexpose` | Convert raw episodes or point-time records into time-varying exposure intervals. | `help tvexpose` |
-| `tvmerge` | Align two or more interval datasets and combine their exposure quantities. | `help tvmerge` |
-| `tvevent` | Add single, competing, or recurrent events to interval data. | `help tvevent` |
-| `tvdiagnose` | Report coverage, gaps, overlaps, exposure summaries, and swimlanes. | `help tvdiagnose` |
-| `tvweight` | Estimate treatment and censoring weights and report balance and overlap diagnostics. | `help tvweight` |
-| `tvage` | Expand one row per person into exact calendar-age intervals. | `help tvage` |
-| `tvband` | Split existing intervals on one age, calendar, or elapsed-time axis. | `help tvband` |
-| `tvsplit` | Split existing intervals on several Lexis timescales at once. | `help tvsplit` |
-| `tvpanel` | Build a fixed-width, entry-anchored person-period grid for MSM work. | `help tvpanel` |
+| Command | Purpose |
+|---|---|
+| `tvtools` | List and categorize the suite |
+| `tvbuild` | Build a committed interval frame from a cohort and one or more sources |
+| `tvspec` | Create and inspect the multi-source specification frame consumed by `tvbuild` |
+| `tvexpose` | Convert raw episodes or point-time records into time-varying exposure intervals |
+| `tvmerge` | Align two or more interval datasets and combine exposure quantities |
+| `tvevent` | Add single, competing, or recurrent events to interval data |
+| `tvdiagnose` | Report coverage, gaps, overlaps, exposure summaries, and swimlanes |
+| `tvweight` | Estimate treatment and censoring weights and report balance and overlap diagnostics |
+| `tvage` | Expand one row per person into exact calendar-age intervals |
+| `tvband` | Split existing intervals on one age, calendar, or elapsed-time axis |
+| `tvsplit` | Split existing intervals on several Lexis timescales at once |
+| `tvpanel` | Build a fixed-width, entry-anchored person-period grid for MSM work |
 
 ## How It Works
 
 `tvbuild` is the recommended front door for a cohort plus one or more longitudinal sources: it normalizes a one-source shortcut or a typed `tvspec` frame, performs a read-only preflight, constructs intervals through the shared engines, optionally integrates events, and commits the destination frame and provenance manifest transactionally.
 
-The primitive workflow is `tvexpose` → `tvmerge` → `tvevent` → `tvdiagnose` and/or `tvweight`. The primitives remain the right choice when the exposure definition, overlap rule, quantity algebra, or alignment must remain visible as a separate analytical decision.
+The primitive workflow is `tvexpose` → `tvmerge` → `tvevent` → `tvdiagnose` and/or `tvweight`. Use the primitives when the exposure definition, overlap rule, quantity algebra, or alignment must remain visible as a separate analytical decision.
 
 Every interval in the construction commands is a closed, inclusive interval of integer Stata daily dates, `[start, stop]`. Abutting rows satisfy `next_start = prior_stop + 1`; a shared date is an overlap, not an abutment.
 
@@ -104,156 +96,242 @@ Every interval in the construction commands is a closed, inclusive interval of i
 
 | Need | Use | Result |
 |---|---|---|
-| One or several sources with a committed, auditable destination | `tvspec` + `tvbuild` | Named output frame, optional manifest, stage counts, and a verified signature. |
-| An advanced exposure rule or custom interval alignment | `tvexpose`, `tvmerge`, and `tvevent` | Explicit primitive stages that can be inspected or chained through frames. |
-| A uniform panel for time-varying treatment models | `tvpanel`, then `tvweight` | Entry-anchored periods, active class, and optional cumulative histories. |
-| Age, calendar, or follow-up timescale splitting | `tvage`, `tvband`, or `tvsplit` | Inclusive sub-intervals with exact calendar boundaries. |
+| One or several sources with a committed, auditable destination | `tvspec` + `tvbuild` | Named output frame, optional manifest, stage counts, and a verified signature |
+| An advanced exposure rule or custom interval alignment | `tvexpose`, `tvmerge`, and `tvevent` | Explicit primitive stages that can be inspected or chained through frames |
+| A uniform panel for time-varying treatment models | `tvpanel`, then `tvweight` | Entry-anchored periods, active class, and optional cumulative histories |
+| Age, calendar, or follow-up timescale splitting | `tvage`, `tvband`, or `tvsplit` | Inclusive sub-intervals with exact calendar boundaries |
 
 ## Worked Examples
 
-### 1. Plan before committing with tvbuild
+The setup block below creates reusable tempfiles for the examples. Run it once in the same Stata session before copying any one of the workflow blocks.
 
-With the `cohort` and `episodes` files from Quick Start, `dryrun` validates the plan and changes nothing; the second call commits the same plan to `analysis`:
+```stata
+clear
+input long id study_entry study_exit byte female
+1 21915 22280 1
+2 21915 22280 0
+3 21930 22280 1
+4 21930 22280 0
+end
+format study_entry study_exit %td
+tempfile cohort episodes episodes2 events recurrent
+save `cohort'
 
-~~~stata
-use cohort, clear
-tvbuild, sourceusing("episodes.dta") id(id) entry(study_entry) exit(study_exit) ///
+clear
+input long id rx_start rx_stop byte rx_class
+1 21919 21965 1
+1 22024 22069 2
+2 22000 22040 1
+3 21950 22030 2
+end
+save `episodes'
+
+clear
+input long id rx_start rx_stop byte rx_class
+1 21930 21990 1
+2 22050 22100 1
+3 21970 22010 1
+end
+save `episodes2'
+
+clear
+input long id event_date death_date
+1 22010  .
+2     . 22100
+3 22020  .
+4     .     .
+end
+save `events'
+
+clear
+input long id hosp1 hosp2
+1 22010 22100
+2 22050     .
+3 21980 22030
+4     .     .
+end
+save `recurrent'
+```
+
+### 1. Plan and commit with `tvbuild`
+
+`dryrun` validates the plan and changes nothing; the second call commits the same plan to a named frame and manifest.
+
+```stata
+use `cohort', clear
+tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
     start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
     generate(tv_drug) frameout(analysis) dryrun
-tvbuild, sourceusing("episodes.dta") id(id) entry(study_entry) exit(study_exit) ///
+tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
     start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
     generate(tv_drug) frameout(analysis) manifestframe(provenance) replace
 frame provenance: list stage source_name n_input n_output, noobs
-~~~
+```
 
-### 2. Describe multiple sources with tvspec
+### 2. Describe multiple sources with `tvspec`
 
-`tvspec` appends one typed row per source and preserves row order; `tvbuild` applies cross-source rules and performs the build:
+`tvspec` appends one typed row per source and preserves row order; `tvbuild` applies the cross-source rules and performs the build.
 
-~~~stata
+```stata
 tvspec create pipe_spec, replace
-tvspec add pipe_spec, name(drug) frame(rx_frame) start(rx_start) stop(rx_stop) ///
+tvspec add pipe_spec, name(drug) using(`"`episodes'"') start(rx_start) stop(rx_stop) ///
     exposure(rx_class) generate(tv_drug) reference(0)
-tvspec add pipe_spec, name(lab) frame(lab_frame) start(start) stop(stop) ///
-    exposure(lab_level) generate(tv_lab) kind(intervals)
-use cohort, clear
+tvspec add pipe_spec, name(second) using(`"`episodes2'"') start(rx_start) stop(rx_stop) ///
+    exposure(rx_class) generate(tv_second) reference(0)
+tvspec list pipe_spec
+use `cohort', clear
 tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
     frameout(analysis) manifestframe(provenance) replace
-~~~
-
-The first source is raw episodes and therefore needs a reference category; the second is already interval data and does not take `reference()`. `tvspec` validates the row being appended, while `tvbuild` validates the complete plan.
+```
 
 ### 3. Keep a primitive pipeline in frames
 
-`frameout()` leaves the current master untouched, and `frames()` lets `tvmerge` consume the named intermediate results without save/use round trips:
+`frameout()` leaves the caller’s data intact, and `frames()` lets `tvmerge` consume named intermediate results without save/use round trips.
 
-~~~stata
-use cohort, clear
-tvexpose using drug_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///
-    exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///
+```stata
+use `cohort', clear
+tvexpose using `"`episodes'"', id(id) start(rx_start) stop(rx_stop) ///
+    exposure(rx_class) reference(0) entry(study_entry) exit(study_exit) ///
     generate(tv_drug) frameout(f_drug) replace
-tvexpose using benzo_episodes.dta, id(id) start(bz_start) stop(bz_stop) ///
-    exposure(benzo_class) reference(0) entry(study_entry) exit(study_exit) ///
-    generate(tv_benzo) frameout(f_benzo) replace
-tvmerge, frames(f_drug f_benzo) id(id) start(rx_start bz_start) ///
-    stop(rx_stop bz_stop) exposure(tv_drug tv_benzo) frameout(f_merged) replace
-tvevent, frame(f_merged) id(id) date(event_date) start(start) stop(stop) ///
-    generate(_failure)
-~~~
-
-The event master remains in memory while `tvevent` reads the interval frame; its default event indicator is `_failure`.
+tvexpose using `"`episodes2'"', id(id) start(rx_start) stop(rx_stop) ///
+    exposure(rx_class) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_second) frameout(f_second) replace
+tvmerge, frames(f_drug f_second) id(id) start(rx_start rx_start) ///
+    stop(rx_stop rx_stop) exposure(tv_drug tv_second) frameout(f_merged) replace
+use `events', clear
+tvevent, frame(f_merged) id(id) date(event_date) compete(death_date) generate(_failure)
+```
 
 ### 4. Track dose history on a regular exposure scale
 
-In dose mode the `exposure()` variable is the dose amount, `reference()` defaults to zero, and the current row's dose is not included in its cumulative history:
+In dose mode, `exposure()` is the amount, `reference()` defaults to zero, and cumulative history is measured at the start of each output row.
 
-~~~stata
-use cohort, clear
-tvexpose using dose_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///
-    exposure(dose_mg) dose continuousunit(years) expandunit(months) ///
-    entry(study_entry) exit(study_exit) generate(cum_dose) keepdates
+```stata
+clear
+input long id study_entry study_exit
+1 21915 22280
+2 21915 22280
+3 21930 22280
+end
+tempfile dose_cohort dose_episodes
+save `dose_cohort'
+clear
+input long id rx_start rx_stop double dose_mg
+1 21920 21950 10
+1 21980 22020 20
+2 22000 22060 15
+3 21960 22030 5
+end
+save `dose_episodes'
+use `dose_cohort', clear
+tvexpose using `"`dose_episodes'"', id(id) start(rx_start) stop(rx_stop) ///
+    exposure(dose_mg) entry(study_entry) exit(study_exit) dose ///
+    generate(cum_dose) keepdates
 tvdiagnose, id(id) start(rx_start) stop(rx_stop) exposure(cum_dose) summarize
-~~~
+```
 
-Use `split` and `combine()` when simultaneous categorical exposures should remain separate and receive an explicit composition code instead of later exposure precedence.
+### 5. Format recurrent events
 
-### 5. Format recurrent events for total-time or gap-time models
+For a wide event stub such as `hosp1`, `hosp2`, and so on, `type(recurring)` creates the event-sequence stratum and `gaptime` adds a reset clock.
 
-For a recurring wide event stub such as `hosp1`, `hosp2`, and so on, use `eventtype(recurring)`; `enum()` creates the event-sequence stratum and `gaptime` adds a reset clock:
-
-~~~stata
-frame ev_frame: use recurrent_events.dta, clear
-use cohort, clear
-tvbuild, sourceusing("episodes.dta") id(id) entry(study_entry) exit(study_exit) ///
-    start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
-    generate(tv_drug) frameout(analysis) replace eventframe(ev_frame) ///
-    eventdate(hosp) eventtype(recurring) enum(_enum) gaptime
-~~~
+```stata
+use `recurrent', clear
+tempfile recurrent_events
+save `recurrent_events'
+use `cohort', clear
+keep id study_entry study_exit
+rename study_entry win_start
+rename study_exit win_stop
+tempfile recurrent_intervals
+save `recurrent_intervals'
+use `recurrent_events', clear
+tvevent using `recurrent_intervals', id(id) date(hosp) type(recurring) ///
+    generate(hosp_event) start(win_start) stop(win_stop) enum(stratum) ///
+    gaptime gapstart(t0) gapstop(t) timegen(tstop) timeunit(days)
+```
 
 ### 6. Build an MSM panel and estimate weights
 
-`tvpanel` emits every entry-anchored period, including reference periods, and `tvweight` can use its period index for a cumulative treatment model:
+`tvpanel` emits every entry-anchored period, including reference periods, and `tvweight` can use its period index for a stabilized treatment model.
 
-~~~stata
-tvpanel using episodes.dta, id(id) entry(study_entry) exit(study_exit) ///
-    exposure(drug_class) width(91) period(period) generate(tv_class) ///
-    keepvars(age sex comorbidity)
-tvweight tv_class, covariates(age sex comorbidity) id(id) time(period) ///
-    stabilized cumulative balance generate(iptw)
-~~~
+The synthetic exposure below covers the middle periods for every person, so the all-reference boundary periods are removed before fitting the illustrative treatment model; real analyses should retain only periods with support for the model they specify.
 
-Add `ipcw(censored)`, `censorcovariates()`, and `combgenerate()` when a 0/1 censoring indicator and a combined treatment-by-censoring weight are required.
+```stata
+clear
+set seed 20260805
+set obs 40
+generate long id = _n
+generate double study_entry = 21915 + floor(runiform() * 20)
+generate double study_exit = study_entry + 364
+generate double age = 45 + 10 * runiform()
+generate byte female = runiform() > .5
+generate byte rx_class = runiform() < invlogit(-.4 + .04 * (age - 50) + .4 * female)
+tempfile panel_cohort panel_episodes
+save `panel_cohort'
+keep id study_entry study_exit rx_class
+generate double rx_start = study_entry + 40
+generate double rx_stop = study_exit - 40
+save `panel_episodes'
+use `panel_cohort', clear
+tvpanel using `"`panel_episodes'"', id(id) entry(study_entry) exit(study_exit) ///
+    exposure(rx_class) start(rx_start) stop(rx_stop) width(91) ///
+    period(period) generate(tv_class) keepvars(age female) replace
+drop if period == 0 | period == 4
+tvweight tv_class, covariates(age female) id(id) time(period) ///
+    stabilized generate(iptw) nolog
+```
 
 ### 7. Split one interval on several time axes
 
-`tvsplit` accepts at least one axis and carries the other variables onto every resulting row:
+`tvsplit` accepts one or more axes and carries the other variables onto every resulting row.
 
-~~~stata
+```stata
+clear
+input long id double start stop dob entry
+1 21915 22280  -3653 21915
+2 21930 22280  1826 21930
+end
+format start stop dob entry %td
 tvsplit, id(id) start(start) stop(stop) ///
     age(dob, width(5) generate(ageband)) ///
     calendar(, width(1) anchor(2020) generate(calband)) ///
-    elapsed(study_entry, width(1) unit(year) generate(fuband))
-~~~
+    elapsed(entry, width(1) unit(year) generate(fuband))
+```
 
-For one axis with file output and restoration of the input data, use `tvband`; for one row per person and age-only output, use `tvage`.
+## Demo
 
-## Key Options
+Regenerate the checked-in figures and console assets by running [demo/demo_tvtools.do](demo/demo_tvtools.do) from a repository checkout; the demo script creates its own synthetic data and is not part of the `net install` payload.
 
-### Dates, identifiers, and intervals
+```stata
+local demo_dir "/path/to/checked-out/tvtools/demo"
+do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
+```
 
-Use numeric Stata daily dates for all interval bounds and event dates; fractional dates, missing required dates, and reversed bounds are rejected unless a command explicitly offers `dropinvalid`. Most interval commands require the same identifier name and storage type across master and sources, reject `strL` identifiers, and never silently recast IDs.
+![Covariate balance love plot](demo/balance_loveplot.png)
 
-The package's intervals are closed and inclusive, so duration is `stop - start + 1`. When declaring the result with `stset`, use `time0(start - 1)` to map each row to Stata's open-left convention.
-
-### Output and transactions
-
-`frameout()` stages a result in a named frame and leaves the current data untouched where that option is supported; `saveas()` writes a file and restores the caller's data for the commands that document that behavior. Without either option, the interval-building commands replace the current data.
-
-`replace` is required before an existing file or frame is overwritten. `tvbuild` requires `frameout()`, leaves all input frames untouched, and builds a manifest named `<frameout>_manifest` by default; use `manifestframe()` or `nomanifest` to control it.
-
-### Quantities and exposure definitions
-
-`rate()` variables remain rates when intervals are split; `total()` variables are apportioned by inclusive overlap days; and `cumulative()` variables are row-start histories carried unchanged. `continuous()` is a deprecated alias for `total()` in `tvmerge` and `tvevent`.
-
-In `tvexpose`, the default categorical output uses `reference()` for uncovered time, while `dose` mode defaults the reference to zero. `continuousunit()` accepts days, weeks, months, quarters, or years; `expandunit()` defaults to that unit when continuous exposure is requested and uses fixed average widths of 7, 30.4375, 91.3125, or 365.25 days anchored at each episode start.
+![Exposure swimlane plot](demo/swimlane_plot.png)
 
 ## Command Reference
 
-### tvtools
+### `tvtools`
 
-Syntax:
-
-~~~stata
+```stata
 tvtools [, list detail category(string)]
-~~~
+```
 
-`category()` defaults to `all` and accepts `all`, `prep`, `diag`, or `weight`. `list` prints command names; `detail` prints descriptions.
+`list` prints command names, `detail` prints descriptions, and `category()` filters to `all` (the default), `prep`, `diag`, or `weight`. It returns `r(commands)`, `r(n_commands)`, `r(version)`, and `r(categories)`.
 
-### tvspec
+#### Options
 
-Syntax:
+| Option | Purpose |
+|---|---|
+| `list` | Print command names only |
+| `detail` | Print command names with descriptions |
+| `category(string)` | Select `all` (default), `prep`, `diag`, or `weight` |
 
-~~~stata
+### `tvspec`
+
+```stata
 tvspec create framename [, replace]
 tvspec add framename, name(name) (frame(name) | using(filename)) ///
     start(name) stop(name) exposure(namelist) generate(namelist) ///
@@ -261,260 +339,130 @@ tvspec add framename, name(name) (frame(name) | using(filename)) ///
      label(string) description(string) rate(namelist) total(namelist) ///
      cumulative(namelist)]
 tvspec list framename
-~~~
+```
 
-`tvspec create` writes the empty typed schema; `tvspec add` defaults `kind(episodes)`, requires exactly one of `frame()` and `using()`, and maps `exposure()` to `generate()` positionally. Episode rows require `reference()`; interval rows use `kind(intervals)` and must not specify a reference. `rate()`, `total()`, and `cumulative()` are optional subsets of `exposure()`. `tvspec list` displays the rows without changing them.
+`create` writes the empty typed schema; `add` defaults `kind(episodes)`, requires exactly one of `frame()` and `using()`, and maps `exposure()` to `generate()` positionally. Episode rows require `reference()`; interval rows use `kind(intervals)` and must not specify a reference. `rate()`, `total()`, and `cumulative()` are optional subsets of `exposure()`.
 
-### tvbuild
+### `tvbuild`
 
-Syntax:
+```stata
+tvbuild, specframe(name) id(varname) entry(varname) exit(varname) frameout(name) [options]
+tvbuild, (sourceframe(name) | sourceusing(filename)) id(varname) entry(varname) exit(varname) ///
+    start(name) stop(name) exposure(name) reference(#) generate(name) frameout(name) [options]
+```
 
-~~~stata
-tvbuild, specframe(name) id(varname) entry(varname) exit(varname) ///
-    frameout(name) [options]
-tvbuild, (sourceframe(name) | sourceusing(filename)) id(varname) ///
-    entry(varname) exit(varname) start(name) stop(name) exposure(name) ///
-    reference(#) generate(name) frameout(name) [options]
-~~~
+Options are `sourcename()`, `referencelabel()`, `label()`, `startname()`, `stopname()`, `dateformat()`, `keepvars()`, `dropdates`, `coverage()`, `eventframe()`, `eventusing()`, `eventdate()`, `eventtype()`, `compete()`, `eventgenerate()`, `eventlabel()`, `timegen()`, `timeunit()`, `enum()`, `gaptime`, `gapstart()`, `gapstop()`, `manifestframe()`, `nomanifest`, `dryrun`, and `replace`. Defaults include `coverage(strict)`, `startname(start)`, `stopname(stop)`, `dateformat(%tdCCYY/NN/DD)`, `eventtype(single)`, `eventgenerate(_failure)`, `timeunit(days)`, and `<frameout>_manifest` for the manifest frame.
 
-The inline form requires exactly one source locator and describes one categorical episode source. The specification form takes all source rows from `specframe()`, which can mix `episodes` and ready-made `intervals` sources. The current frame is the one-row-per-person master; `frameout()` is required and the master is never replaced.
+### `tvexpose`
 
-| Option group | Options and defaults |
-|---|---|
-| Inline source | `sourcename()` defaults to `generate()`; `referencelabel()` and `label()` are optional. |
-| Output | `startname(start)`, `stopname(stop)`, and `dateformat(%tdCCYY/NN/DD)` default as shown; `keepvars()` carries master variables; `dropdates` omits entry and exit from output. |
-| Coverage | `coverage(strict)` is the default; `coverage(allow)` permits the configured permissive coverage policy. |
-| Events | `eventdate()` activates events; `eventframe()` and `eventusing()` are alternative event sources; `eventtype(single)`, `eventgenerate(_failure)`, and `timeunit(days)` default as shown. |
-| Recurring events | With `eventtype(recurring)`, `enum()` is the event-sequence stratum and `gaptime` adds `gapstart(_t0)` and `gapstop(_t)` by default; `compete()` is for single events. |
-| Transaction | `manifestframe()` defaults to `<frameout>_manifest`; `nomanifest` suppresses it; `dryrun` performs planning only; `replace` authorizes replacement of named destinations. |
-
-### tvexpose
-
-Syntax:
-
-~~~stata
+```stata
 tvexpose using filename, id(varname) start(varname) exposure(varname) ///
     [reference(#)] entry(varname) exit(varname) [options]
-~~~
+```
 
-The source is raw episodes unless `pointtime` is specified, in which case `stop()` is omitted and each record applies on its start date. Ordinary categorical definitions require `reference()`; `dose` mode treats `exposure()` as an amount and defaults the reference to zero.
+Options are `stop()`, `reference()`, `generate()`, `saveas()`, `frameout()`, `replace`, `merge()`, `evertreated`, `currentformer`, `duration()`, `dose`, `dosecuts()`, `continuousunit()`, `expandunit()`, `bytype`, `recency()`, `recencyunit()`, `grace()`, `lag()`, `washout()`, `pointtime`, `fillgaps()`, `carryforward()`, `keepvars()`, `check`, `gaps`, `overlaps`, `summarize`, `validate`, `priority()`, `split`, `layer`, `combine()`, `window()`, `switching`, `switchingdetail`, `statetime`, `keepdates`, `referencelabel()`, `label()`, `flow`, `dropinvalid`, and `verbose`. Categorical output is the default; `dose` defaults `reference(0)`, `grace(0)`, `merge(0)`, `lag(0)`, `washout(0)`, and a derived `tv_<exposure>` output name.
 
-| Option group | Options and defaults |
-|---|---|
-| Exposure definition | Basic categorical output is the default; `evertreated`, `currentformer`, `duration()`, `continuousunit()`, `expandunit()`, `bytype`, `recency()` with `recencyunit(days|years)`, `dose` with optional `dosecuts()` are alternatives or modifiers documented in the help. |
-| Data handling | `grace(0)` and `merge(0)` are the defaults; `fillgaps()`, `carryforward()`, and `dropinvalid` are optional. |
-| Overlaps | `layer` is the default later-exposure precedence rule; `priority()` changes precedence; `split` preserves overlapping strata; `combine()` adds a composition code. |
-| Timing | `lag(0)` and `washout(0)` are the defaults; `window(min max)` restricts each episode to inclusive offsets. |
-| History | `switching` creates `ever_switched`, `switchingdetail` creates `switching_pattern`, and `statetime` creates `state_time_years`. |
-| Output | `generate()` defaults to a derived `tv_<exposure>` name with a collision-safe fallback; `referencelabel(Unexposed)` is the default; `keepdates` retains master entry and exit; `saveas()` and `frameout()` are optional; `replace` authorizes overwriting. |
-| Diagnostics | `check`, `gaps`, `overlaps`, `summarize`, `validate`, `flow`, and `verbose` are report or validation options; `validate` is not combined with `bytype`. |
+### `tvmerge`
 
-### tvmerge
+```stata
+tvmerge [dataset1 dataset2 ...], id(varname) start(namelist) stop(namelist) exposure(namelist) [options]
+tvmerge, frames(namelist) id(varname) start(namelist) stop(namelist) exposure(namelist) [options]
+```
 
-Syntax:
+Options are `frames()`, `generate()`, `prefix()`, `startname()`, `stopname()`, `idname()`, `dateformat()`, `saveas()`, `frameout()`, `replace`, `keep()`, `continuous()`, `rate()`, `total()`, `cumulative()`, `dropinvalid`, `batch()`, `force`, `check`, `validatecoverage`, `validateoverlap`, `summarize`, `flow`, and `verbose`. `continuous()` is the deprecated alias for `total()`.
 
-~~~stata
-tvmerge [dataset1 dataset2 ...], id(varname) start(namelist) ///
-    stop(namelist) exposure(namelist) [options]
-tvmerge, frames(namelist) id(varname) start(namelist) ///
-    stop(namelist) exposure(namelist) [options]
-~~~
+### `tvevent`
 
-Use either positional files or `frames()`, not both. The inputs must already be interval data. `start()`, `stop()`, and `exposure()` list one variable per input in the same order.
-
-| Option group | Options and defaults |
-|---|---|
-| Quantity algebra | `rate()` preserves rates, `total()` apportions totals by inclusive overlap days, `cumulative()` carries row-start histories, and deprecated `continuous()` aliases `total()`. |
-| Naming | `generate()` supplies one output exposure name per dataset; `prefix()` supplies a common prefix; `idname(id)`, `startname(start)`, `stopname(stop)`, and `dateformat(%tdCCYY/NN/DD)` are defaults. |
-| Data management | `saveas()`, `frameout()`, `replace`, `keep()`, and `dropinvalid` control destinations, retained variables, and malformed rows. |
-| Diagnostics | `check`, `validatecoverage`, `validateoverlap`, `summarize`, `flow`, and `verbose` report structure and attrition. |
-| IDs and legacy options | By default ID sets must match; `force` keeps the intersection when they do not. `batch()` is deprecated and ignored. |
-
-### tvevent
-
-Syntax:
-
-~~~stata
+```stata
 tvevent [using filename], id(varname) date(name) [options]
 tvevent, frame(name) id(varname) date(name) [options]
-~~~
+```
 
-The current frame is the event master and the interval data come from `using` or `frame()`. `date()` is an event-date variable for single events or a contiguous wide stub such as `hosp1`, `hosp2` for recurring events.
+Options are `frame()`, `generate()`, `type()`, `keepvars()`, `continuous()`, `rate()`, `total()`, `cumulative()`, `timegen()`, `timeunit()`, `compete()`, `eventlabel()`, `startvar()`, `stopvar()`, `start()`, `stop()`, `enum()`, `gaptime`, `gapstart()`, `gapstop()`, `validate`, `flow`, `dropinvalid`, `verbose`, and `replace`. Defaults include `type(single)`, `generate(_failure)`, `timeunit(days)`, `start(start)`, `stop(stop)`, and `enum(_enum)` for recurring events.
 
-| Option group | Options and defaults |
-|---|---|
-| Events | `type(single)` and `generate(_failure)` are defaults; `compete()` supplies competing-event dates; `eventlabel()` customizes labels. |
-| Quantities | `rate()`, `total()`, `cumulative()`, and deprecated `continuous()` use the same interval algebra as `tvmerge`. |
-| Time | `timegen()` is optional; `timeunit(days)` is the default when it is used. |
-| Recurring events | `enum(_enum)` is the default stratum under `type(recurring)`; `gaptime` adds `gapstart(_t0)` and `gapstop(_t)` by default. |
-| Data and validation | `start(start)` and `stop(stop)` default to those names; `keepvars()`, `dropinvalid`, `replace`, `validate`, `flow`, and `verbose` are optional. |
+### `tvdiagnose`
 
-Events on an interval start or interior date are included in that interval; an event on the stop date is flagged without creating a later segment. A terminal single event removes later person-time, while recurring output provides the event sequence and optional gap-time clock.
-
-### tvdiagnose
-
-Syntax:
-
-~~~stata
+```stata
 tvdiagnose, id(varname) start(varname) stop(varname) [options]
-~~~
+```
 
-Specify at least one report option or `all`. `coverage` requires `entry()` and `exit()`; `summarize` requires `exposure()`; `swimlane` accepts numeric or string exposure values and leaves the data unchanged.
+Options are `exposure()`, `entry()`, `exit()`, `coverage`, `gaps`, `overlaps`, `summarize`, `all`, `swimlane`, `maxids()`, `threshold()`, and `verbose`. `threshold(30)` and `maxids(50)` are the defaults; `coverage` requires `entry()` and `exit()`, while `summarize` requires `exposure()`.
 
-| Option group | Options and defaults |
-|---|---|
-| Reports | `coverage`, `gaps`, `overlaps`, `summarize`, `all`, and `swimlane`. |
-| Inputs | `exposure()` is used by summary and swimlane; `entry()` and `exit()` are used by coverage. |
-| Display | `threshold(30)` flags gaps exceeding 30 days; `maxids(50)` limits swimlane persons; `verbose` prints IDs and dates. |
+### `tvweight`
 
-The swimlane graph is named `tvd_swimlane` when created. Coverage and summaries use interval unions, so overlap does not inflate global covered time; overlapping exposure categories can still have multi-membership shares.
-
-### tvweight
-
-Syntax:
-
-~~~stata
+```stata
 tvweight exposure [if] [in], covariates(varlist) [options]
-~~~
+```
 
-| Option group | Options and defaults |
-|---|---|
-| Weights | `generate(iptw)` and `wtype(iptw)` are defaults; alternatives are `wtype(ato)` and `wtype(matching)`; `stabilized` applies to IPTW; `truncate(lo hi)` uses strict percentile bounds between 0 and 100. |
-| MSM history | `cumulative` creates a within-person product; `cumgenerate()` names it and requires `id()` and `time()`. |
-| IPCW | `ipcw()` is a 0/1 censoring indicator and requires `id()` and `time()`; `censorcovariates()` selects the censoring model; `censgenerate(ipcw)` and `combgenerate(<weight>_ipcw)` are defaults. |
-| Model | `model(logit)` is the default for binary exposure; multinomial exposure levels use `mlogit` as needed; `tvcovariates()` requires `id()` and `time()`; `estname()` stores the propensity model and `estreplace` authorizes replacement. |
-| Diagnostics | `balance` returns standardized mean differences; `loveplot` delegates plotting to optional `psdash`; `histogram` draws a weight distribution. |
-| Output | `denominator()` also stores the observed-treatment propensity; `replace` permits replacing output variables; `nolog` suppresses model iteration output. |
+Options are `generate()`, `model()`, `stabilized`, `wtype()`, `truncate()`, `tvcovariates()`, `id()`, `time()`, `replace`, `denominator()`, `nolog`, `balance`, `loveplot`, `histogram`, `estname()`, `estreplace`, `cumulative`, `cumgenerate()`, `ipcw()`, `censorcovariates()`, `censgenerate()`, and `combgenerate()`. Defaults include `generate(iptw)`, `model(logit)`, `wtype(iptw)`, `cumgenerate(<weight>_cum)`, `censgenerate(ipcw)`, and `combgenerate(<weight>_ipcw)` when those modes are used.
 
-Truncation applies to the final combined weight when `ipcw()` is used. The command's diagnostics report effective sample size, overlap, extreme fitted probabilities, and weight concentration but do not establish causal assumptions.
+### `tvage`, `tvband`, `tvsplit`, and `tvpanel`
 
-### tvage
+`tvage` uses `id()`, `dob()`, `entry()`, `exit()`, `generate()`, `startgen()`, `stopgen()`, `groupwidth()`, `minage()`, `maxage()`, `saveas()`, `replace`, and `noisily`; legacy `idvar()`, `dobvar()`, `entryvar()`, and `exitvar()` aliases remain accepted. Defaults are `age_tv`, `age_start`, `age_stop`, `groupwidth(1)`, `minage(0)`, and `maxage(120)`.
 
-Syntax:
+`tvband` uses `id()`, `start()`, `stop()`, `type()`, `origin()`, `width()`, `min()`, `max()`, `unit()`, `anchor()`, `generate()`, `startgen()`, `stopgen()`, `saveas()`, `replace`, and `noisily`. `origin()` is required for age and elapsed axes and forbidden for calendar; `width(1)` and elapsed `unit(day)` are the defaults.
 
-~~~stata
-tvage, id(varname) dob(varname) entry(varname) exit(varname) [options]
-~~~
+`tvsplit` uses `id()`, `start()`, `stop()`, `age()`, `calendar()`, `elapsed()`, and `noisily`; its nested options are `width()`, `min()`, `max()`, `anchor()`, `unit()`, and `generate()`. At least one axis is required, and the default band variables are `ageband`, `calband`, and `fuband`.
 
-`generate(age_tv)`, `startgen(age_start)`, and `stopgen(age_stop)` are the defaults. `groupwidth(1)` creates single-year ages and accepts 1–50; `minage(0)` and `maxage(120)` left- and right-truncate at exact anniversaries. `saveas()` saves the result and restores the input; without it, the output replaces memory. The legacy aliases `idvar()`, `dobvar()`, `entryvar()`, and `exitvar()` remain accepted, one spelling per slot.
+`tvpanel` uses `frame()`, `reference()`, `width()`, `start()`, `stop()`, `period()`, `startgen()`, `stopgen()`, `generate()`, `cumulative()`, `prefix()`, `keepvars()`, `saveas()`, `replace`, `noisily`, `dropinvalid`, and `verbose`. Defaults are `reference(0)`, `width(91)`, `start(start)`, `stop(stop)`, `period(period)`, `startgen(start)`, `stopgen(stop)`, and `generate(tv_class)`.
 
-`tvage` requires one row per person, a numeric identifier, and nonmissing daily dates. Its output retains only the ID, age, start, and stop variables, so save or merge baseline covariates separately.
+## Key Options
 
-### tvband
+### Dates, identifiers, and intervals
 
-Syntax:
+Use numeric Stata daily dates for interval bounds and event dates; fractional dates, missing required dates, and reversed bounds are rejected unless a command explicitly offers `dropinvalid`. Most interval commands require the same identifier name and storage type across master and sources, reject `strL` identifiers, and never silently recast IDs.
 
-~~~stata
-tvband, id(varname) start(varname) stop(varname) type(age|calendar|elapsed) [options]
-~~~
+The package’s intervals are closed and inclusive, so duration is `stop - start + 1`. When declaring the result with `stset`, use `time0(start - 1)` to map each row to Stata’s open-left convention.
 
-`origin()` is required for age and elapsed axes and forbidden for calendar; `width(1)` is the default; elapsed `unit(day)` is the default; calendar `anchor()` defaults to the earliest year in the data. `min()` and `max()` filter lower band edges. `generate(ageband|calband|fuband)` defaults by axis, while `startgen()` and `stopgen()` default to overwriting the input bounds. `saveas()` restores the caller's data.
+### Output and transactions
 
-### tvsplit
+`frameout()` stages a result in a named frame and leaves the current data untouched where that option is supported; `saveas()` writes a file and restores the caller’s data for the commands that document that behavior. `replace` is required before an existing file or frame is overwritten.
 
-Syntax:
+`tvbuild` requires `frameout()`, leaves input frames untouched, and builds a manifest named `<frameout>_manifest` by default; use `manifestframe()` or `nomanifest` to control it. `dryrun` performs the full plan validation without committing destinations.
 
-~~~stata
-tvsplit, id(varname) start(varname) stop(varname) ///
-    [age(dobvar, width(#) min(#) max(#) generate(name)) ///
-     calendar(, width(#) anchor(#) generate(name)) ///
-     elapsed(refvar, width(#) unit(day|year) min(#) max(#) generate(name)) ///
-     noisily]
-~~~
+### Quantities and exposure definitions
 
-At least one axis is required. Age and calendar widths default to one year, elapsed width defaults to one unit, calendar anchor defaults to the earliest year, elapsed unit defaults to days, and the default band variables are `ageband`, `calband`, and `fuband`. `tvsplit` overwrites `start()` and `stop()` in memory and carries all other variables forward.
+`rate()` variables remain rates when intervals are split; `total()` variables are apportioned by inclusive overlap days; and `cumulative()` variables are row-start histories carried unchanged. `continuous()` is a deprecated alias for `total()` in `tvmerge` and `tvevent`.
 
-### tvpanel
-
-Syntax:
-
-~~~stata
-tvpanel [using filename], id(varname) entry(varname) exit(varname) ///
-    exposure(name) [options]
-~~~
-
-The current frame is the one-row-per-person master; episodes come from `using` or `frame()`. `width(91)`, `reference(0)`, `start(start)`, `stop(stop)`, `period(period)`, `startgen(start)`, `stopgen(stop)`, and `generate(tv_class)` are defaults. `cumulative(days|weeks|months|quarters|years)` adds per-class histories with an optional `prefix()`. `keepvars()` carries master variables; `dropinvalid` opts into removal of malformed rows; `saveas()` restores the master; `replace` authorizes file replacement.
-
-The grid is entry anchored, clips the last period at exit, and assigns the active class at each period start. Without `dropinvalid`, malformed master or episode rows stop the command and leave the master unchanged.
+In `tvexpose`, categorical output uses `reference()` for uncovered time, while `dose` mode defaults the reference to zero. `continuousunit()` accepts days, weeks, months, quarters, or years; `expandunit()` defaults to that unit when continuous exposure is requested and uses fixed average widths of 7, 30.4375, 91.3125, or 365.25 days anchored at each episode start.
 
 ## Stored Results
 
 Result names below are returned in `r()` after successful execution; option-dependent names are returned only when their option is used.
 
-### tvtools and tvspec
-
-- `tvtools` returns scalar `r(n_commands)` and local macros `r(commands)`, `r(categories)`, and `r(version)`.
-- `tvspec create` returns scalar `r(n_sources)` and macro `r(specframe)`; `tvspec add` returns scalar `r(n_sources)` and macros `r(source_name)` and `r(specframe)`; `tvspec list` returns scalar `r(n_sources)` and macros `r(source_names)` and `r(specframe)`.
-
-### tvbuild
-
-- Scalars: `r(dryrun)`, `r(spec_version)`, `r(n_sources)`, `r(N_persons)`, `r(event_stage)`, `r(dates_kept)`, and, after a committed run, `r(N_periods)`, `r(n_gap_ids)`, and `r(uncovered_days)`.
-- Macros: `r(idvar)`, `r(entryvar)`, `r(exitvar)`, `r(startvar)`, `r(stopvar)`, `r(source_names)`, `r(payload_vars)`, `r(exposure_vars)`, `r(rate_vars)`, `r(total_vars)`, `r(cumulative_vars)`, `r(specframe)`, `r(frameout)`, `r(coverage)`, `r(manifestframe)`, `r(eventvar)`, `r(timevar)`, `r(enumvar)`, `r(gapstartvar)`, `r(gapstopvar)`, and `r(datasignature)`.
-- Matrices: `r(source_counts)` and `r(stage_counts)`.
-
-### tvexpose
-
-- Scalars: `r(N_persons)`, `r(N_periods)`, `r(total_time)`, `r(exposed_time)`, `r(unexposed_time)`, `r(pct_exposed)`, `r(n_invalid_master)`, `r(n_invalid_master_id)`, `r(n_invalid_master_dates)`, `r(n_invalid_master_order)`, `r(n_invalid_exposure)`, `r(n_invalid_exposure_id)`, `r(n_invalid_exposure_dates)`, `r(n_invalid_exposure_order)`, `r(n_invalid_exposure_value)`, `r(n_unmatched_exposure)`, `r(n_outside_window)`, `r(n_lag_removed)`, `r(n_uncovered_days)`, `r(n_unresolved_overlaps)`, `r(window_min)`, `r(window_max)`, `r(n_combined_states)`, and `r(n_bytype_vars)` when applicable.
-- Macros: `r(genvar)`, `r(frameout)`, `r(overlap_ids)`, `r(recency_unit)`, `r(recency_cutdays)`, `r(combine_map)`, and `r(bytype_map)` when applicable.
-- Matrix: `r(flow)` when `flow` or `dropinvalid` supplies attrition accounting.
-
-### tvmerge
-
-- Scalars: `r(N)`, `r(N_persons)`, `r(mean_periods)`, `r(max_periods)`, `r(N_datasets)`, `r(n_rate)`, `r(n_total)`, `r(n_cumulative)`, `r(n_continuous)`, `r(n_categorical)`, `r(n_invalid)`, `r(n_invalid_id)`, `r(n_invalid_dates)`, `r(n_invalid_order)`, `r(n_invalid_exposure)`, `r(n_invalid_ds#)`, `r(n_input_overlaps)`, `r(n_input_overlaps_ds#)`, `r(n_gaps)`, `r(n_overlaps)`, and `r(n_duplicates_dropped)`.
-- Macros: `r(datasets)`, `r(exposure_vars)`, `r(rate_vars)`, `r(total_vars)`, `r(cumulative_vars)`, `r(continuous_vars)`, `r(categorical_vars)`, `r(idname)`, `r(startname)`, `r(stopname)`, `r(dateformat)`, `r(prefix)`, `r(generated_names)`, `r(output_file)`, and `r(frameout)`.
-- Matrix: `r(flow)` when requested.
-
-### tvevent
-
-- Scalars: `r(N)`, `r(N_events)`, `r(n_rate)`, `r(n_total)`, `r(n_cumulative)`, `r(n_continuous)`, `r(n_invalid)`, `r(n_invalid_master)`, `r(n_invalid_master_id)`, `r(n_invalid_master_dates)`, `r(n_invalid_intervals)`, `r(n_invalid_interval_id)`, `r(n_invalid_interval_dates)`, `r(n_invalid_interval_order)`, `r(n_invalid_quantity)`, `r(v_outside_bounds)`, `r(v_multiple_events)`, and `r(v_same_date_compete)`.
-- Macros: `r(generate)`, `r(startvar)`, `r(stopvar)`, `r(timegen)`, `r(enum)`, `r(gapstart)`, `r(gapstop)`, `r(rate_vars)`, `r(total_vars)`, `r(cumulative_vars)`, and `r(continuous_vars)`.
-- Matrix: `r(flow)` when requested.
-
-### tvdiagnose
-
-- Scalars: `r(n_persons)`, `r(n_observations)`, `r(coverage_run)`, `r(gaps_run)`, `r(overlaps_run)`, `r(summarize_run)`, `r(mean_coverage)`, `r(min_coverage)`, `r(max_coverage)`, `r(n_with_gaps)`, `r(n_incomplete_coverage)`, `r(n_coverage_gaps)`, `r(n_gaps)`, `r(n_gap_ids)`, `r(mean_gap)`, `r(median_gap)`, `r(max_gap)`, `r(n_large_gaps)`, `r(n_large_gap_ids)`, `r(n_overlaps)`, `r(n_overlap_ids)`, `r(n_ids_affected)`, `r(total_person_time)`, `r(raw_interval_person_time)`, `r(overlap_excess_person_time)`, `r(n_crossexposure_overlap_days)`, `r(n_exposure_levels)`, `r(graph_requested)`, `r(graph_created)`, `r(graph_rc)`, `r(graph_ids_total)`, `r(graph_ids_plotted)`, and `r(graph_truncated)`.
-- Macros: `r(id)`, `r(start)`, `r(stop)`, and `r(graph_name)` when a graph is created.
-- Matrix: `r(exposure_summary)` when `summarize` runs; its columns are exposure, raw_days, person_days, percent, and n_periods.
-
-### tvweight
-
-- Scalars: `r(N)`, `r(n_levels)`, `r(ess)`, `r(ess_pct)`, `r(w_mean)`, `r(w_sd)`, `r(w_min)`, `r(w_max)`, `r(w_p1)`, `r(w_p5)`, `r(w_p25)`, `r(w_p50)`, `r(w_p75)`, `r(w_p95)`, `r(w_p99)`, `r(n_truncated)`, `r(trunc_lo)`, `r(trunc_hi)`, `r(overlap_lo)`, `r(overlap_hi)`, `r(pct_nonoverlap)`, `r(n_nonoverlap)`, `r(top1_wt_share)`, `r(n_top1_rows)`, `r(n_ps_extreme)`, `r(n_ps_boundary)`, `r(n_cens_extreme)`, `r(n_cens_boundary)`, `r(histogram_created)`, `r(loveplot_created)`, `r(graph_created)`, and `r(ess_combined)` when applicable.
-- Macros: `r(exposure)`, `r(covariates)`, `r(model)`, `r(wtype)`, `r(generate)`, `r(stabilized)`, `r(denominator)`, `r(estname)`, `r(cumgenerate)`, `r(ipcw)`, `r(censgenerate)`, `r(combgenerate)`, `r(censorcovariates)`, `r(balance_terms)`, `r(balance_weight)`, and `r(numerator_model)`.
-- Matrix: `r(balance)` when `balance` runs.
-
-### tvage, tvband, tvsplit, and tvpanel
-
-- `tvage` returns scalars `r(n_persons)`, `r(n_observations)`, and `r(groupwidth)`, plus macros `r(varname)`, `r(startvar)`, and `r(stopvar)`.
-- `tvband` returns scalars `r(n_persons)`, `r(n_observations)`, and `r(width)`, plus macros `r(axistype)`, `r(varname)`, `r(startvar)`, and `r(stopvar)`.
-- `tvsplit` returns scalars `r(n_axes)`, `r(n_persons)`, and `r(n_observations)`, plus macros `r(agevar)`, `r(calvar)`, `r(fuvar)`, `r(startvar)`, and `r(stopvar)` when applicable.
-- `tvpanel` returns scalars `r(n_persons)`, `r(n_observations)`, `r(width)`, `r(n_invalid)`, `r(n_invalid_master)`, `r(n_invalid_master_id)`, `r(n_invalid_master_dates)`, `r(n_invalid_master_order)`, `r(n_invalid_episodes)`, `r(n_invalid_episode_id)`, `r(n_invalid_episode_dates)`, `r(n_invalid_episode_order)`, and `r(n_invalid_episode_exposure)`, plus macros `r(periodvar)`, `r(startvar)`, `r(stopvar)`, `r(classvar)`, and `r(cumvars)`.
+| Command | Stored results |
+|---|---|
+| `tvtools` | Scalar `r(n_commands)`; macros `r(commands)`, `r(version)`, and `r(categories)` |
+| `tvspec` | Scalars `n_sources`; macros `specframe`, `source_name` for `add`, and `source_names` for `list` |
+| `tvbuild` | Scalars `dryrun`, `spec_version`, `n_sources`, `N_persons`, `event_stage`, `dates_kept`, and committed-run `N_periods`, `n_gap_ids`, `uncovered_days`; macros `idvar`, `entryvar`, `exitvar`, `startvar`, `stopvar`, `source_names`, `payload_vars`, `exposure_vars`, `rate_vars`, `total_vars`, `cumulative_vars`, `specframe`, `frameout`, `coverage`, `manifestframe`, `eventvar`, `timevar`, `enumvar`, `gapstartvar`, `gapstopvar`, `datasignature`; matrices `source_counts`, `stage_counts` |
+| `tvexpose` | Scalars for persons, periods, total/exposed/unexposed time, invalid-input counts, window bounds, combined states, and by-type variables; macros `genvar`, `frameout`, `overlap_ids`, `recency_unit`, `recency_cutdays`, `combine_map`, `bytype_map`; matrix `flow` when requested |
+| `tvmerge` | Scalars for observations, persons, datasets, quantity counts, invalid rows, gaps, overlaps, and duplicates; macros for datasets, exposure/quantity variables, output names, and destinations; matrix `flow` when requested |
+| `tvevent` | Scalars `N`, `N_events`, quantity counts, invalid-input counts, and event validation counts; macros `generate`, `startvar`, `stopvar`, `timegen`, `enum`, `gapstart`, `gapstop`, and quantity variables; matrix `flow` when requested |
+| `tvdiagnose` | Scalars for each requested diagnostic, coverage/gap/overlap summaries, exposure levels, and graph status; macros `id`, `start`, `stop`, `graph_name`; matrix `exposure_summary` when `summarize` runs |
+| `tvweight` | Scalars for sample size, levels, ESS, weight distribution, overlap, positivity, truncation, and graph status; macros for model, weight, output, treatment/censoring, and balance settings; scalar `ess_combined` and matrix `balance` in the corresponding modes |
+| `tvage` | Scalars `n_persons`, `n_observations`, `groupwidth`; macros `varname`, `startvar`, `stopvar` |
+| `tvband` | Scalars `n_persons`, `n_observations`, `width`; macros `axistype`, `varname`, `startvar`, `stopvar` |
+| `tvsplit` | Scalars `n_axes`, `n_persons`, `n_observations`; macros `agevar`, `calvar`, `fuvar`, `startvar`, `stopvar` when applicable |
+| `tvpanel` | Scalars for persons, observations, width, and invalid-input counts; macros `periodvar`, `startvar`, `stopvar`, `classvar`, `cumvars` |
 
 ## Assumptions and Limits
 
 - Input dates are numeric, whole-number Stata daily dates; the suite does not interpret Stata datetime values as daily dates.
-- Identifiers are structural keys, not analytical covariates: source names and storage types must agree, and commands never pad, guess, or silently remap them.
-- `tvage`, `tvband`, and `tvsplit` require numeric identifiers; use `egen long newid = group(stringid)` or an equivalent deliberate mapping before calling them.
+- Identifiers are structural keys, so source names and storage types must agree and commands never pad, guess, or silently remap them.
+- `tvage`, `tvband`, and `tvsplit` require numeric identifiers; map string IDs deliberately before calling them.
 - `tvage` intentionally returns only the identifier and generated age interval variables; save or merge covariates separately.
 - `tvmerge` expects interval inputs, and `force` restricts mismatched-ID inputs to their intersection rather than inventing missing records.
 - `tvevent` treats single events as terminal and recurring event stubs as ordered `stub1` through `stubK` members; noncanonical or noncontiguous stubs are rejected.
 - `tvdiagnose` counts global coverage by interval union, but category summaries can have multi-membership when exposure levels overlap.
-- `tvbuild` coordinates construction and provenance but does not run `stset`, `tvdiagnose`, `tvweight`, an outcome model, an overlap-resolution choice, or a causal model.
-- Weighting output is model-based: causal interpretation requires consistency, conditional exchangeability, positivity, and an adequate treatment model; IPCW additionally requires an adequate censoring model and conditional independent censoring.
-- Fixed-width expansion and continuous exposure expansion can substantially increase row counts; month, quarter, and year bins in `tvexpose` use fixed average day widths anchored at each episode start, while age and year-unit axes use exact calendar anniversaries.
+- `tvbuild` coordinates construction and provenance but does not run `stset`, an outcome model, an overlap-resolution choice, or a causal model.
+- Weighting output is model-based; causal interpretation requires the relevant exchangeability, positivity, treatment-model, and censoring assumptions.
 - `tvweight, loveplot` requires optional `psdash`; without it, use `r(balance)` to build a plot with another graphing workflow.
 
-## Demo
+## References
 
-The named demo script [demo/demo_tvtools.do](demo/demo_tvtools.do) creates a synthetic cohort, demonstrates the primitive and `tvbuild` routes, exercises weighting and recurrent-event formatting, and exports the two checked-in PNG assets below. Run it from any working directory by passing the checked-out demo directory as its first argument:
-
-~~~stata
-local demo_dir "/path/to/checked-out/tvtools/demo"
-do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
-~~~
-
-![Covariate balance love plot](demo/balance_loveplot.png)
-
-![Exposure swimlane plot](demo/swimlane_plot.png)
+- Robins JM, Hernán MA, Brumback B. Marginal structural models and causal inference in epidemiology. *Epidemiology*. 2000;11(5):550–560.
+- Cole SR, Hernán MA. Constructing inverse probability weights for marginal structural models. *American Journal of Epidemiology*. 2008;168(6):656–664.
+- Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score weighting. *Journal of the American Statistical Association*. 2018;113(521):390–400.
 
 ## QA
 

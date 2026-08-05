@@ -35,11 +35,11 @@ program define _datamap_sthlp_render, rclass
         }
 
         tempfile render_log
-        capture log off
+        log off help_render
         log using "`render_log'", replace text name(_datamap_render)
         type "`f'", smcl
         log close _datamap_render
-        capture log on
+        log on help_render
 
         local hits = 0
         local nlines = 0

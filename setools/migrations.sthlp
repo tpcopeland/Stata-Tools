@@ -222,9 +222,9 @@ any registry-specific vocabulary. They are ignored for wide-format migration
 files.
 
 {pstd}
-Variable names beginning {cmd:_mig_} or {cmd:_neg_} are reserved for internal
-working state. The command rejects a master dataset that already contains such
-names before changing data.
+Variable names beginning {cmd:_mig_} are reserved for internal working state
+and the command rejects a master dataset that already contains such names
+before changing data. Generic names beginning {cmd:_neg_} are not reserved.
 
 
 {marker remarks}{...}

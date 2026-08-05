@@ -1,4 +1,4 @@
-*! cdp Version 1.5.2  2026/08/05
+*! cdp Version 1.5.3  2026/08/05
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
