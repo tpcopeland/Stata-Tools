@@ -2,11 +2,9 @@
 
 **Version 1.2.5** | 2026-07-10
 
-`eplot` creates forest plots and coefficient plots from four sources — variables in memory, active or stored estimation results, preassembled matrices, and graph-ready frames — under one command with one set of options.
+`eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
 ## Quick Start
-
-Run a regression and plot the coefficients in two lines:
 
 ```stata
 sysuse auto, clear
@@ -14,282 +12,303 @@ regress price mpg weight foreign
 eplot ., drop(_cons) cicap
 ```
 
-That's it. `eplot .` reads the active estimation results and draws a coefficient plot with capped confidence intervals.
+`eplot .` plots the active estimation results; `cicap` draws capped confidence intervals.
 
 ## Requirements
 
 - Stata 16 or later
-- No external package dependencies
+- No required external packages; the optional `tabtools` frame bridge requires `tabtools` when used
 
 ## Installation
+
+Install the released package from Stata-Tools:
 
 ```stata
 capture ado uninstall eplot
 net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace
 ```
 
+For a local Stata-Tools checkout, replace the URL with the package directory:
+
+```stata
+capture ado uninstall eplot
+net install eplot, from("/path/to/Stata-Tools/eplot") replace
+```
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `eplot` | Draw effect plots from data in memory, estimation results, matrices, or graph-ready frames |
+| `eplot` | Draw forest and coefficient plots from data, estimates, matrices, or frames |
 
 ## How It Works
 
-`eplot` detects its input mode automatically from the arguments you supply:
+`eplot` selects an input mode from the call and then applies a shared plotting vocabulary to the resulting effects and confidence limits.
 
-| Call | Mode | When to use |
-|------|------|-------------|
-| `eplot es lci uci, ...` | **Data** | Effect sizes already in variables (meta-analysis, imported results) |
-| `eplot .` or `eplot m1 m2, ...` | **Estimates** | Plot coefficients from a regression you just ran, or compare stored models |
-| `eplot, matrix(R) ...` | **Matrix** | Results assembled in a Stata matrix |
-| `eplot, frame(F) ...` | **Frame** | Results assembled in a graph-ready Stata frame, including tabtools `eplotframe()` output |
+| Calling convention | Mode | Use it when |
+|--------------------|------|-------------|
+| `eplot esvar lcivar ucivar [if] [in], ...` | Data | Point estimates and confidence limits are variables in the active dataset |
+| `eplot [namelist], ...` | Estimates | Plot active estimates with `eplot .` or compare stored models |
+| `eplot, matrix(matname) ...` | Matrix | Results are assembled in a Stata matrix |
+| `eplot, frame(framename) ...` | Frame | A graph-ready result table is stored in a Stata frame |
 
-Mode detection gives precedence to explicit `frame()` and `matrix()` calls, then to data mode when the first three tokens are numeric variables. In ambiguous cases, use `eplot .` to force estimates mode, `matrix()` to force matrix mode, or `frame()` to force frame mode explicitly.
+Mode detection checks explicit `matrix()` first, then `frame()`. With no namelist or with `.` it uses active estimation results; otherwise, three numeric variables in the first three positions select data mode, and estimate names select estimates mode. Use an explicit selector when a variable name and stored estimate name could be confused.
 
-## Feature Highlights
+Data mode uses the three variables as estimate, lower confidence limit, and upper confidence limit. Optional `type()` values identify headers, regular effects, pooled subgroup/overall effects, heterogeneity rows, and blank spacers. Matrix mode accepts either two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`), and row names supply plot labels when present.
 
-- **One command, four input modes** — data in memory, estimation results, matrices, and graph-ready frames share one option vocabulary
-- **Tabtools bridge** — plot frames emitted by `regtab`, `effecttab`, `comptab`, and `hrcomptab` through their `eplotframe()` options
-- **Journal style presets** — `style(lancet)`, `style(jama)`, `style(nejm)`, `style(bmj)` apply ready-made looks; override any individual element
-- **Multi-model comparison** — overlay stored estimates side by side with `modellabels()`, `offset()`, and `palette()`
-- **Values annotation** — add formatted effect text next to each marker with `values`; customize with `vformat()` and `stars`
-- **Significance coloring** — `sigcolors` draws significant and non-significant effects in contrasting colors
-- **Grouped and annotated layouts** — `groups()`, `headers()`, `gap()`, and `favors()` organize complex plots
-- **Meta-analysis support** — prediction intervals (`pi()`), heterogeneity statistics (`i2()`, `tau2()`, `qstat()`), weighted boxes, and diamond pooled effects
-- **Eform with auto-labeling** — `eform` exponentiates coefficients and sets the axis label automatically (Odds Ratio, Hazard Ratio, IRR)
+Frame mode requires numeric `estimate`, `ll`, and `ul` variables unless `estimate()`, `ll()`, and `ul()` override those names. It automatically uses string `label`, `rowtype` or `type`, numeric `weight` or `weights`, and numeric `pvalue` variables when they are present; `type()` and `rowtype()` are mutually exclusive. Frame mode reuses the data-mode plotting options, including groups, headers, pooled rows, weights, prediction intervals, and heterogeneity notes.
+
+The optional `tabtools` bridge lets `regtab`, `effecttab`, `comptab`, and `hrcomptab` produce companion frames for `eplot, frame()`. The repository demo documents that workflow and requires the sibling `tabtools` package.
 
 ## Worked Examples
 
-### 1. Coefficient plot with custom labels
+### 1. Data mode: forest plot from variables
 
-The fastest way to use `eplot` — run a regression, then plot the results immediately.
-
-```stata
-sysuse auto, clear
-regress price mpg weight foreign
-
-eplot ., drop(_cons) ///
-    coeflabels(mpg = "Miles per Gallon" ///
-               weight = "Vehicle Weight" ///
-               foreign = "Foreign Make") ///
-    cicap values
-```
-
-![Coefficient plot with values](demo/coef_values.png)
-
-### 2. Compare two stored models
-
-Multi-model estimates mode is useful when you want to compare a base model and an adjusted model side by side.
-
-```stata
-sysuse auto, clear
-
-quietly regress price mpg weight foreign
-estimates store base
-
-quietly regress price mpg weight length foreign headroom
-estimates store extended
-
-eplot base extended, drop(_cons) ///
-    modellabels("Base" "Extended") ///
-    coeflabels(mpg = "Miles per Gallon" ///
-               weight = "Vehicle Weight" ///
-               length = "Body Length" ///
-               headroom = "Headroom" ///
-               foreign = "Foreign Make") ///
-    cicap
-```
-
-![Multi-model comparison](demo/multi_model.png)
-
-### 3. Forest plot from data in memory
-
-Use data mode when you already have effect sizes and confidence limits in variables — for example, after a meta-analysis or when reading results from another system.
+Use data mode when point estimates and confidence limits already exist in the dataset.
 
 ```stata
 clear
-input str20 study es lci uci weight
-"Smith 2020"   -0.16  -0.36   0.03  15.2
-"Jones 2021"   -0.33  -0.54  -0.12  18.4
-"Brown 2022"   -0.09  -0.25   0.06  22.1
-"Wilson 2023"  -0.39  -0.65  -0.12  12.8
-"Overall"      -0.24  -0.34  -0.13   .
+input str20 study double es lci uci weight byte type
+"Study A"  -.16  -.36   .03  15.2  1
+"Study B"  -.33  -.54  -.12  18.4  1
+"Study C"  -.09  -.25   .06  22.1  1
+"Overall" -.24  -.34  -.13      .  5
 end
 
-gen byte type = cond(study == "Overall", 5, 1)
-
-eplot es lci uci, labels(study) weights(weight) type(type) ///
-    values effect("Mean Difference (95% CI)")
-```
-
-![Forest plot with values](demo/forest_values.png)
-
-### 4. Meta-analysis forest plot with heterogeneity
-
-Data mode supports prediction intervals and heterogeneity statistics for publication-ready meta-analysis plots.
-
-```stata
-clear
-input str20 study es lci uci weight byte type
-"Smith 2018"   -0.42  -0.78  -0.06  12.3  1
-"Jones 2019"   -0.31  -0.58  -0.04  16.8  1
-"Brown 2020"   -0.18  -0.41   0.05  21.5  1
-"Lee 2021"     -0.55  -0.93  -0.17  10.2  1
-"Garcia 2022"  -0.27  -0.49  -0.05  19.1  1
-"Patel 2023"   -0.09  -0.35   0.17  20.1  1
-"Overall"      -0.28  -0.41  -0.15   .    5
-end
-
-eplot es lci uci, labels(study) weights(weight) type(type) ///
-    values vformat(%4.2f) ///
-    i2("42.1") tau2("0.021") qstat("8.63, df=5, p=0.125") ///
+eplot es lci uci, labels(study) weights(weight) type(type) values ///
     effect("Mean Difference (95% CI)")
 ```
 
-![Meta-analysis with heterogeneity](demo/meta_heterogeneity.png)
+The type-5 row is drawn as a pooled diamond, while the study rows use weight-proportional boxes.
 
-### 5. Plot from a matrix
+### 2. Estimates mode: compare stored models
 
-Matrix mode is useful when the effect table is already assembled programmatically.
-
-```stata
-matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)
-matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"
-
-eplot, matrix(R) eform ///
-    effect("Odds Ratio") ///
-    values
-```
-
-![Matrix mode](demo/matrix_mode.png)
-
-### 6. Logistic regression with odds ratios
-
-After a logistic model, `eform` exponentiates coefficients to odds ratios and sets the axis label automatically. Factor variables are labeled using Stata's value labels.
+Store models in the order you want them shown, then supply their names and optional legend labels.
 
 ```stata
 sysuse auto, clear
-logit foreign mpg weight i.rep78
-eplot ., eform cicap values
+quietly regress price mpg weight foreign
+estimates store base
+quietly regress price mpg weight length headroom foreign
+estimates store extended
+
+eplot base extended, drop(_cons) ///
+    modellabels("Base" "Extended") cicap
 ```
 
-### 7. Grouped coefficients with significance coloring
+A single active model uses `eplot .`; multiple models share coefficient rows and receive separate legend entries.
 
-Layer options to organize and annotate complex plots. `groups()` adds section headers, `gap()` adds space between groups, `sigcolors` highlights statistical significance, and `stars` adds asterisks.
+### 3. Matrix mode: exponentiated effects with stars
+
+A two-column matrix is interpreted as `b` and `se`, so confidence limits and p-values can be computed.
+
+```stata
+matrix R = (0.20, 0.10 \ -0.10, 0.08 \ 0.30, 0.12)
+matrix rownames R = Treatment_A Treatment_B Treatment_C
+
+eplot, matrix(R) eform values stars ///
+    effect("Odds Ratio (95% CI)")
+```
+
+Use a three-column matrix when the second and third columns are already the lower and upper confidence limits.
+
+### 4. Frame mode: plot a graph-ready frame
+
+Frame mode can consume a custom frame directly and auto-detect its `pvalue` variable for `stars`.
+
+```stata
+clear
+input str12 label double estimate ll ul pvalue byte rowtype
+"Age"     1.12 1.04 1.20 0.004 1
+"Sex"     0.86 0.70 1.06 0.150 1
+"Overall" 1.03 0.97 1.10 0.320 5
+end
+frame put label estimate ll ul pvalue rowtype, into(effects)
+
+eplot, frame(effects) values stars rowtype(rowtype) ///
+    effect("Odds Ratio (95% CI)")
+frame drop effects
+```
+
+The active dataset is restored after the frame is copied and plotted.
+
+### 5. Estimates mode: eform, grouping, and style
+
+Use `eform` for log-scale model output; explicit labels and groups can be layered over a journal preset.
 
 ```stata
 sysuse auto, clear
-regress price mpg weight length turn foreign rep78
+logit foreign mpg weight length headroom trunk turn
 
-eplot ., noconstant ///
-    groups(mpg weight length turn = "Vehicle Characteristics" ///
-           foreign rep78 = "Other Factors") ///
-    gap(0.5) ///
-    stars values sigcolors
+eplot ., noconstant eform style(lancet) values ///
+    groups(mpg weight = "Efficiency and mass" ///
+           length headroom trunk turn = "Vehicle dimensions") ///
+    gap(.5)
 ```
 
-![Grouped coefficient plot](demo/grouped_coefplot.png)
+In estimates mode, `eform` sets the null line to 1 and suppresses `_cons` automatically.
 
-### 8. Journal style presets
+## Gallery
 
-Apply a journal-style preset, then override individual elements as needed.
+The tracked PNGs below are reproducible from a repository checkout. Run `demo/demo_eplot.do` to regenerate the eight core figures; run `demo/demo_tabtools_eplot.do` for the two `tabtools` bridge figures. The bridge demo also needs sibling `tabtools`, `tc_schemes`, `logdoc`, and the repository `_data/` fixtures.
 
-```stata
-sysuse auto, clear
-regress price mpg weight foreign
-eplot ., noconstant style(lancet)
-```
+| Output | Command focus |
+|--------|---------------|
+| ![Single-model coefficient plot with formatted estimates and capped confidence intervals](demo/coef_values.png) | `values` after a single regression |
+| ![Crude versus adjusted treatment-effect forest plot from comptab](demo/forest_comptab.png) | `comptab` forest bridge |
+| ![Adjusted odds-ratio forest plot from a regtab companion frame](demo/forest_regtab.png) | `regtab` to `eplot, frame()` |
+| ![Grouped meta-analysis forest plot with weighted boxes and pooled diamonds](demo/forest_values.png) | `type()`, `weights()`, and pooled rows |
+| ![Grouped odds-ratio coefficient plot with section headers](demo/grouped_coefplot.png) | `groups()` and `eform` |
+| ![Lancet-style coefficient plot with cranberry diamonds and capped intervals](demo/lancet_style.png) | `style(lancet)` |
+| ![Odds-ratio forest plot generated from a matrix](demo/matrix_mode.png) | `matrix()` and `eform` |
+| ![Meta-analysis forest plot with prediction intervals and heterogeneity note](demo/meta_heterogeneity.png) | `pi()`, `i2()`, `tau2()`, and `qstat()` |
+| ![Three-model coefficient comparison with separate legend colors](demo/multi_model.png) | `modellabels()` and `palette()` |
+| ![Coefficient plot with contrasting significant and non-significant colors](demo/sigcolors.png) | `sigcolors`, `sigcolor()`, and `insigncolor()` |
 
-![Lancet style](demo/lancet_style.png)
+## Key Options
 
-### 9. Significance coloring with custom colors
+Availability tags are `D` = data, `E` = estimates, `M` = matrix, and `F` = frame. Frame mode accepts the data-mode plotting options after its frame selector. Options not marked with a mode are accepted in all four modes; additional `twoway` graph options are passed through.
 
-```stata
-eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap
-```
+### Input and row structure
 
-![Significance colors](demo/sigcolors.png)
+| Option | Modes | Contract and default |
+|--------|-------|----------------------|
+| `matrix(matname)` | M | Selects a two- or three-column matrix |
+| `frame(framename)` | F | Selects a graph-ready frame |
+| `estimate(varname)`, `ll(varname)`, `ul(varname)` | F | Override frame variables; defaults are `estimate`, `ll`, and `ul` |
+| `labels(varname)` | D, F | String row labels; data mode defaults to `Row 1`, `Row 2`, and so on; frame mode auto-detects `label` |
+| `weights(varname)` | D, F | Numeric marker/box weights; frame mode auto-detects `weight`, then `weights` |
+| `type(varname)` | D, F | Row-role variable; omitted rows are regular effects |
+| `rowtype(varname)` | F | Frame synonym for `type()`; auto-detected when present |
+| `pvalue(varname)` | D, F | Numeric p-values for `stars` and `r(pvalues)`; frame mode auto-detects `pvalue` |
+| `pi(lci_var uci_var)` | D, F | Prediction-limit variables drawn as dashed whiskers behind confidence intervals |
 
-### 10. Forest plot from a tabtools table
+Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/excluded, 3 = subgroup pooled effect, 4 = heterogeneity row, 5 = overall pooled effect, and 6 = blank spacer. String values `header`, `missing`, `subgroup`, `hetinfo`, `overall`, and `blank` are also recognized.
 
-Frame mode reads the graph-ready companion frame that [`tabtools`](https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools) commands produce with `eplotframe()` — so a published regression table and its forest plot share one set of estimates. `regtab` writes the table and the frame together; `eplot` plots the frame.
+### Selection and labeling
 
-```stata
-collect clear
-quietly collect: logistic cv_event treated index_age female diabetes hypertension prior_cvd
-regtab, coef("OR") noint eplotframe(or_effects, replace)
+| Option | Modes | Contract and default |
+|--------|-------|----------------------|
+| `keep(coeflist)` | D, E, M, F | Keep only listed names; `*` and `?` wildcards are supported |
+| `drop(coeflist)` | D, E, M, F | Drop listed names; `*` and `?` wildcards are supported |
+| `rename(spec)` | E | Rename estimates for display before labels/groups are applied |
+| `noconstant` | D, E, M, F | Add `_cons` to the drop list |
+| `coeflabels(spec)` | D, E, M, F | Replace displayed coefficient/effect labels |
+| `groups(spec)` | D, E single, F | Insert bold group headers |
+| `headers(spec)` / `headings(spec)` | D, E single, F | Insert a header before a named effect; `headings()` is an alias |
+| `gap(#)` | D, E single, F | Extra group spacing; default is `0` |
 
-eplot, frame(or_effects) labels(label) rowtype(rowtype) ///
-    null(1) values stars vformat(%4.2f) ///
-    effect("Odds Ratio (95% CI)") ///
-    title("Predictors of cardiovascular events")
-```
+### Transform, reference lines, and intervals
 
-![Forest plot from a tabtools regtab table](demo/forest_regtab.png)
+| Option | Modes | Contract and default |
+|--------|-------|----------------------|
+| `eform` | D, E, M, F | Exponentiate estimates and limits; the null defaults to 1 instead of 0 |
+| `rescale(#)` | D, E, M, F | Multiply estimates and limits; default is `1` |
+| `xline(numlist[, line_options])` | D, E, M, F | Add reference lines; bare positions use a light dashed style |
+| `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation |
+| `null(#)` | D, E, M, F | Null line position; default is `0`, or `1` with `eform` |
+| `nonull` | D, E, M, F | Suppress the null line |
+| `level(#)` | E, M | Confidence level for constructed intervals; default is current `c(level)`, normally 95 |
+| `noci` | D, E, M, F | Suppress confidence-interval whiskers |
+| `cicap` | D, E, M, F | Use capped `rcap` intervals instead of `rspike` |
 
-`comptab` and `hrcomptab` go one step further: their `forest` option composes companion frames from several models and calls `eplot` for you, passing graph options through `eplotoptions()`.
+### Display, significance, and meta-analysis
 
-```stata
-comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
-    forest eplotoptions(null(1) title("Treatment effect: crude vs adjusted"))
-```
+| Option | Modes | Contract and default |
+|--------|-------|----------------------|
+| `dp(#)` | D, E, M, F | Decimal places for `values`; default is `2` |
+| `effect(string)` | D, E, M, F | Effect-axis title; data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
+| `values` | D, E single, M, F | Annotate rows with estimate and interval text; requires horizontal layout |
+| `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%5.2f`, or a format based on `dp()` |
+| `stars` | D, E single, M 2-column, F | Append p-value stars to `values`; requires `pvalue()` in data/frame mode |
+| `sigcolors` | D, E, M, F | Color effects by whether the interval excludes `null()` |
+| `sigcolor(color)` | D, E, M, F | Significant-effect color; default is `cranberry` |
+| `insigncolor(color)` | D, E, M, F | Non-significant-effect color; default is `gs10` |
+| `favors(left right)` | D, E, M, F | Add directional labels below a horizontal effect axis |
+| `i2(string)`, `tau2(string)`, `qstat(string)` | D, F | Add supplied heterogeneity text to the graph note; values are not computed |
+| `style(name)` | D, E, M, F | Presets: `forest`, `coef`, `lancet`, `jama`, `nejm`, and `bmj`; explicit options override preset defaults |
 
-![Model-comparison forest plot from comptab](demo/forest_comptab.png)
+### Layout and model comparison
 
-The shared demo `demo/demo_tabtools_eplot.do` (also shipped in `tabtools/demo/`) builds both plots end to end from the bundled clinical cohort.
+| Option | Modes | Contract and default |
+|--------|-------|----------------------|
+| `horizontal` / `vertical` | D, E, M, F | Horizontal is the default; vertical puts effects on the y-axis |
+| `sort` | D, E, M, F | Sort regular effects by estimate; data headers and pooled rows retain their roles |
+| `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last |
+| `modellabels(strlist)` | E | Legend labels in model order |
+| `offset(#)` | E | Vertical model spacing; default is `0.15` |
+| `palette(colorlist)` | E | Model colors; default is `navy cranberry forest_green dkorange purple teal maroon olive_teal` |
+| `legendopts(string)` | E | Additional legend options; default is `rows(1) pos(6) size(small)` |
 
-## Option Reference
+### Markers and graph options
 
-Options are organized by function. Not every option works in every mode — see `help eplot` for per-option mode availability.
-
-| Category | Options |
-|----------|---------|
-| **Data specification** | `labels()`, `weights()`, `type()` |
-| **Coefficient selection** | `keep()`, `drop()`, `rename()`, `noconstant` |
-| **Labeling** | `coeflabels()`, `groups()`, `headers()`, `gap()` |
-| **Transform** | `eform`, `rescale()` |
-| **Reference lines** | `null()`, `nonull`, `xline()`, `xlabel()` |
-| **Confidence intervals** | `level()`, `noci`, `cicap` |
-| **Display** | `dp()`, `effect()`, `values`, `vformat()`, `stars`, `sigcolors`, `sigcolor()`, `insigncolor()`, `style()`, `favors()` |
-| **Prediction/heterogeneity** | `pi()`, `i2()`, `tau2()`, `qstat()` |
-| **Layout** | `horizontal`, `vertical`, `sort`, `order()` |
-| **Multi-model** | `modellabels()`, `offset()`, `palette()`, `legendopts()` |
-| **Markers** | `mcolor()`, `msymbol()`, `msize()`, `boxscale()`, `nobox`, `nodiamonds`, `cicolor()`, `ciwidth()` |
-| **Graph** | `title()`, `subtitle()`, `note()`, `name()`, `saving()`, `scheme()`, `plotregion()`, `graphregion()`, `aspect()`, plus any `twoway` option |
+| Option | Modes | Contract and default |
+|--------|-------|----------------------|
+| `mcolor(color)` | D, E, M, F | Marker color; default is `navy` outside multi-model estimates |
+| `msymbol(symbol)` | D, E, M, F | Marker symbol; default is `O` |
+| `msize(size)` | D, E, M, F | Marker size; default is `medium`, or `medsmall` for multi-model estimates |
+| `boxscale(#)` | D, F | Weighted-box scaling; default is `100` percent |
+| `nobox` | D, F | Replace weight-proportional squares with standard markers |
+| `nodiamonds` | D, F | Replace pooled-effect diamonds with standard markers |
+| `cicolor(color)` | D, E, M, F | CI line color; default follows `mcolor()` |
+| `ciwidth(lwstyle)` | D, E, M, F | CI line width; default is `medium` |
+| `title(string)`, `subtitle(string)`, `note(string)` | D, E, M, F | Graph title, subtitle, and note |
+| `name(string)`, `saving(filename)`, `scheme(schemename)` | D, E, M, F | Graph name, saved graph path, and scheme |
+| `plotregion(options)`, `graphregion(options)`, `aspect(#)` | D, E, M, F | Standard Stata graph-region and aspect options |
+| `twoway` options | D, E, M, F | Other options are appended to the generated `twoway` command |
 
 ## Stored Results
 
-`eplot` stores the following in `r()`:
+After a successful call, `eplot` returns r-class results. Use `return list` and `matrix list r(table)` to inspect them.
 
-| Result | Meaning |
-|---|---|
-| `r(N)` | Number of plotted rows (including displayed headers where applicable) |
-| `r(k)` | Number of plotted coefficients/effects |
-| `r(n_models)` | Number of plotted models in estimates mode |
-| `r(cmd)` | The `twoway` command that was executed |
-| `r(table)` | Plotted estimates and confidence limits: `k x 3`, or `k x (3 × models)` for multi-model plots |
-| `r(pvalues)` | P-values for plotted effects when available: data/frame `pvalue()`, one-model estimates mode, or a 2-column matrix with `stars` |
+| Result | Type | Meaning |
+|--------|------|---------|
+| `r(N)` | Scalar | Number of displayed rows after processing, including inserted headers or spacers where applicable |
+| `r(k)` | Scalar | Number of regular plotted effects; pooled rows and headers are excluded where applicable |
+| `r(n_models)` | Scalar | Number of models in estimates mode; not returned for other modes |
+| `r(cmd)` | Local macro | Full generated `twoway` command |
+| `r(table)` | Matrix | `b`, `ll`, and `ul` columns; multi-model estimates use `b_1 ll_1 ul_1 ...` |
+| `r(pvalues)` | Matrix | P-values when supplied in data/frame mode, computed for one-model estimates, or requested for a two-column matrix with `stars` |
 
-## Also See
+For a single model or a matrix, `r(table)` is k × 3. For multiple estimates it is k × (3 × number of models), with three columns per model. Data-mode pooled subgroup and overall rows appear in `r(table)` even though `r(k)` counts regular type-1 rows.
 
-- `help eplot` — full documentation with clickable examples
-- [`coefplot`](https://repec.sowi.unibe.ch/stata/coefplot/) (Ben Jann, SSC) — comprehensive coefficient plotting
-- [`metan`](https://ideas.repec.org/c/boc/bocode/s456798.html) (SSC) — meta-analysis with forest plots
-- Stata 18+: `meta forestplot` — official meta-analysis forest plots
+## Assumptions and Limits
+
+- Data and frame modes take confidence limits from supplied variables; `level()` is only for intervals constructed in estimates and matrix modes.
+- Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
+- Matrix mode requires exactly two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); two-column input is the only matrix form that supports `stars`.
+- `values` and `favors()` require horizontal layout; `values` is available only for a single estimates model.
+- `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; they are ignored for multi-model estimates.
+- `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
+- In data mode, three numeric leading variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
+- Style presets supply defaults only; explicitly supplied options take precedence.
+
+## References
+
+- [coefplot](https://repec.sowi.unibe.ch/stata/coefplot/) by Ben Jann — a comprehensive coefficient-plot command available from SSC
+- [metan](https://ideas.repec.org/c/boc/bocode/s456798.html) — a user-written meta-analysis command available from SSC
+- Stata 18+: `meta forestplot` — the official meta-analysis forest-plot command
+
+## QA
+
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
 - **1.2.5** (2026-07-10): Returned `r(pvalues)` for 2-column matrix input with `stars`, as documented; rows with unavailable p-values are now excluded consistently from the estimates-mode p-value matrix.
-- **1.2.4** (2026-07-06): `xline()` now accepts an optional `line_options` clause after the positions (for example, `xline(0.5, lpattern(dash) lcolor(red))`) so added reference lines can be styled; bare `xline(numlist)` keeps the default light dashed look. Previously any suboption errored with "invalid numlist".
-- **1.2.3** (2026-06-15): Internal hygiene — declared the label-mutating helpers (`coeflabels`/`keep`/`drop`/`rename`) `nclass` so they no longer touch the caller's stored results, and aligned the estimates-mode stars p-value guard with matrix mode (`!missing(es)`). No user-visible behavior change.
-- **1.2.2** (2026-06-14): The category (y) axis line and tick marks are now suppressed by default in data/forest mode and matrix mode, matching estimates mode — every effect plot now has a clean left edge. In estimates mode, `coeflabels()` is now honored when the model's variables also carry variable labels; previously the automatic variable-label pass overwrote the coefficient names before `coeflabels()` could match them, so user-supplied labels were silently ignored.
-- **1.2.1** (2026-06-14): Fixed `insigncolor()` — the option was silently ignored in all modes (non-significant markers always drew in `gs10`) and the documented spelling aborted; it now applies. Estimates-mode coefficients now plot in model order by default (they were incorrectly sorted alphabetically by coefficient name); `sort` and `order()` are unaffected. A mistyped estimate name no longer misreports as a missing variable. Added `capture program drop` guards so the file is safe to re-run in a session.
-- **1.2.0** (2026-06-06): Added frame input mode via `eplot, frame(framename)` with default `estimate`, `ll`, `ul`, `label`, `rowtype`, `pvalue`, and weight-variable detection for tabtools companion frames
-- **1.1.1** (2026-04-30): Fixed y-axis ordering bug where categorical labels appeared in reverse order across all plotting modes (data, estimates, matrix)
-- **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, effect-axis `xlabel()` passthrough, automatic value-annotation margin sizing, and clearer mode-detection documentation
-- **1.0.0** (2026-04-12): Initial release with data, estimates, and matrix modes; multi-model comparison; journal style presets; significance coloring; meta-analysis features
+- **1.2.4** (2026-07-06): `xline()` now accepts an optional `line_options` clause after the positions, while bare `xline(numlist)` keeps the default light dashed look.
+- **1.2.3** (2026-06-15): Internal hygiene declared label-mutating helpers `nclass` and aligned the estimates-mode stars p-value guard with matrix mode; no user-visible behavior change.
+- **1.2.2** (2026-06-14): Suppressed the category axis line and tick marks by default in data and matrix modes, and made estimates-mode `coeflabels()` override variable labels reliably.
+- **1.2.1** (2026-06-14): Fixed `insigncolor()`, restored estimates-mode model order, improved mistyped-estimate errors, and made the ado file safe to re-run in a session.
+- **1.2.0** (2026-06-06): Added frame input mode through `eplot, frame(framename)` with automatic companion-variable detection.
+- **1.1.1** (2026-04-30): Fixed y-axis ordering across data, estimates, and matrix modes.
+- **1.1.0** (2026-04-19): Added `gap()`, effect-axis `xlabel()` passthrough, dynamic values-column margins, and clearer mode detection.
+- **1.0.0** (2026-04-12): Initial release with data, estimates, and matrix modes, multi-model comparison, journal presets, significance coloring, and meta-analysis features.
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT; see the [repository license](../LICENSE).

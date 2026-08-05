@@ -1,29 +1,12 @@
-# compress_tc - Two-stage compression for string-heavy Stata data
+# compress_tc — Two-stage compression for string-heavy Stata data
 
 **Version 1.1.0** | 2026-07-10
 
-`compress_tc` aggressively reduces memory use in string-heavy datasets by first converting fixed-width string variables to `strL`, then running Stata's built-in `compress` so short or unique strings can move back to ordinary storage when that is smaller. It is a fork of Luke Stein's `strcompress` with additional reporting, option control, and safer validation.
-
-## Requirements
-
-- Stata 16 or later
-
-## Installation
-
-```stata
-capture ado uninstall compress_tc
-net install compress_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/compress_tc") replace
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `compress_tc` | Convert fixed-width string variables to `strL`, then optimize storage with `compress` |
+`compress_tc` reduces memory use in string-heavy Stata datasets by converting fixed-width strings to `strL` and then running Stata's built-in `compress`. It is for users who want a reportable way to apply or preview string-storage changes while retaining the resulting `r()` values.
 
 ## Quick Start
 
-Use a built-in dataset first to see the command shape. `auto` has one string variable, `make`, so the example is simple but fully runnable.
+After installation, run a two-stage compression and inspect the dataset-wide result:
 
 ```stata
 sysuse auto, clear
@@ -31,45 +14,71 @@ compress_tc make, detail
 display "Saved " r(bytes_saved) " bytes (" %4.1f r(pct_saved) "%)"
 ```
 
-In a real string-heavy dataset, the savings are usually much larger than in `sysuse auto`.
+`make` is a fixed-width string variable in `auto`; `detail` prints its original storage type. The final summary and `r()` values report total data-memory changes, which can be positive or negative.
+
+## Requirements
+
+- Stata 16 or later
+
+## Installation
+
+Install the released package from Stata-Tools:
+
+```stata
+capture ado uninstall compress_tc
+net install compress_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/compress_tc") replace
+```
+
+For a local Stata-Tools checkout, replace the URL with the package directory:
+
+```stata
+capture ado uninstall compress_tc
+net install compress_tc, from("/path/to/Stata-Tools/compress_tc") replace
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `compress_tc` | Two-stage compression for selected string variables, with reporting and memory controls |
 
 ## How It Works
 
-- Stage 1 converts the requested `str#` variables to `strL` unless you specify `nostrl`.
-- Stage 2 runs `compress` unless you specify `nocompress`.
-- `detail` shows the original string storage types before conversion, while `varsavings` reports a per-variable before/after byte table with the savings.
-- `lowmem` recasts and compresses one variable at a time so peak memory is bounded by the largest single variable, not the whole dataset.
-- `dryrun` reports the projected savings without permanently changing the data.
-- `minlength(#)` skips strL conversion for short fixed-length strings that `compress` would just revert anyway.
-- `noreport` suppresses `compress`'s detailed output but still shows the summary. `quietly` suppresses all output while preserving `r()`.
-- Reported sizes use the most readable unit (KB, MB, or GB).
-- Memory reporting is dataset-wide because Stata's `memory` command reports dataset-wide usage.
+By default, `compress_tc` applies two stages to the selected scope:
+
+1. It identifies eligible fixed-width `str#` variables and recasts them to `strL`. `minlength(#)` can exclude variables whose declared width is below the threshold.
+2. It runs Stata's `compress` on the selected varlist, allowing short or unique strings to return to `str#` when that uses less memory.
+
+If `varlist` is omitted, stage 1 scans all variables for fixed-width strings and stage 2 follows Stata's no-varlist `compress` behavior. With a varlist, both stages are limited to that selection. `nostrl` skips stage 1, `nocompress` skips stage 2, and those options cannot be combined.
+
+`dryrun` preserves the original dataset after the projected run, while the stored results still describe what the run would have achieved. `lowmem` converts and compresses one eligible variable at a time; its peak-memory benefit requires the final `compress` stage and it has no effect when `nostrl` skips conversion.
+
+The summary uses Stata's dataset-wide `memory` totals (`data_data_u` + `data_strl_u`), not only the variables named in `varlist`. A negative `r(bytes_saved)` or `r(pct_saved)` means that the final total is larger, which can happen when `strL` overhead exceeds the savings.
 
 ## Worked Examples
 
-### 1. Compress every string variable in memory
+### 1. Compress every variable in memory
 
-If you omit a varlist, `compress_tc` scans the whole dataset and processes every fixed-width string variable it finds.
+When you omit `varlist`, stage 1 considers every fixed-width string variable and the final `compress` call follows its no-varlist behavior.
 
 ```stata
 sysuse auto, clear
 compress_tc
+return list
 ```
 
-### 2. Inspect which variables changed
+### 2. Inspect selected string variables
 
-`detail` shows the original types before conversion. `varsavings` adds a per-variable summary after compression.
+The repository's prescription data provide a larger string-heavy example. `detail` shows the original types and `varsavings` adds a per-variable memory table.
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/prescriptions.dta", clear
 compress_tc atc drug_name, detail varsavings
 ```
 
-This is the most useful pattern when you want to understand where the memory savings are coming from.
+### 3. Compare the two stages
 
-### 3. Compare the two stages separately
-
-Use `nocompress` to isolate the `strL` conversion, or `nostrl` to keep only ordinary `compress` behavior with the same reporting layer.
+Use `nocompress` to see the effect of `strL` conversion alone, or `nostrl` to run ordinary `compress` without the conversion stage.
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/procedures.dta", clear
@@ -79,49 +88,87 @@ use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/procedu
 compress_tc kva_code proc_description, nostrl
 ```
 
-### 4. Run quietly inside a larger workflow
+The first run can show a negative byte change because it stops before `compress` can re-optimize short or unique strings.
 
-`quietly` suppresses console output but still leaves the summary results in `r()`.
+### 4. Use the summary inside a workflow
+
+`quietly` suppresses normal output but leaves the summary in `r()` for programmatic use.
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/prescriptions.dta", clear
 compress_tc, quietly
+display "Dataset-wide change: " r(bytes_saved) " bytes (" %4.1f r(pct_saved) "%)"
 return list
 ```
 
+### 5. Preview a constrained low-memory run
+
+This combination previews the result, converts eligible variables one at a time, and only converts fixed-width strings at least 20 bytes wide.
+
+```stata
+use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/procedures.dta", clear
+compress_tc kva_code proc_description, dryrun lowmem minlength(20)
+```
+
+## Demo
+
+From the Stata-Tools repository root, run [`demo/demo_compress_tc.do`](demo/demo_compress_tc.do) to regenerate the detailed console report. The demo writes a disposable SMCL log and is not part of the `net install` payload.
+
+## Command Reference
+
+### `compress_tc`
+
+```stata
+compress_tc [varlist] [, nocompress nostrl noreport quietly detail varsavings lowmem dryrun minlength(#)]
+```
+
+`varlist` is optional. The minimum option abbreviations accepted by the command are `noc`, `nos`, `nor`, `q`, `d`, `vars`, `low`, `dry`, and `min`. `minlength(#)` accepts a non-negative integer and defaults to `0`. Specifying both `nocompress` and `nostrl` exits with error 198 because it would disable both stages.
+
 ## Key Options
 
-| Option | What it does |
-|--------|---------------|
-| `nocompress` | Skip the final `compress` step and keep only the `strL` conversion |
-| `nostrl` | Skip the `strL` conversion and run ordinary `compress` only |
-| `lowmem` | Convert and compress one variable at a time to cap peak memory |
-| `dryrun` | Report projected savings without modifying the data |
-| `minlength(#)` | Only convert `str#` variables at least `#` bytes wide to `strL` |
-| `noreport` | Suppress `compress`'s per-variable output while keeping the summary |
-| `quietly` | Suppress all output while still returning results in `r()` |
-| `detail` | Show each processed string variable's original storage type |
-| `varsavings` | Show a per-variable before/after byte table with savings |
+| Option | Default | Effect |
+|--------|---------|--------|
+| `nocompress` | off | Skip the final `compress` stage and keep only the `strL` conversion |
+| `nostrl` | off | Skip `strL` conversion and run standard `compress` only |
+| `noreport` | off | Suppress the per-variable output emitted by `compress` while retaining the summary |
+| `quietly` | off | Suppress normal output while retaining stored results in `r()` |
+| `detail` | off | When stage 1 runs, show each eligible fixed-width string variable's original storage type |
+| `varsavings` | off | Show per-variable type transitions and before/after memory; default batch mode shows shared `strL` heap bytes as a dash |
+| `lowmem` | off | Convert and, unless `nocompress` is specified, compress one eligible variable at a time |
+| `dryrun` | off | Restore the original data after a projected run while retaining projected stored results |
+| `minlength(#)` | `0` | Convert only `str#` variables at least `#` bytes wide; skipped variables still reach final `compress` when that stage runs |
 
-## Returned Results
+With `varsavings lowmem`, per-variable savings include measured `strL` heap effects. Without `lowmem`, a shared `strL` heap cannot be attributed to individual variables and is displayed as a dash.
 
-`compress_tc` stores the following in `r()`:
+## Stored Results
 
-- `r(bytes_saved)`: total bytes saved
-- `r(pct_saved)`: percentage reduction in data size
-- `r(bytes_initial)`: initial data size in bytes
-- `r(bytes_final)`: final data size in bytes
-- `r(bytes_strl)`: bytes held in the `strL` heap after compression
-- `r(k_converted)`: number of variables recast to `strL`
-- `r(k_reverted)`: number of those that `compress` moved back to a fixed type
-- `r(vars_strl)`: variables stored as `strL` after compression
-- `r(varlist)`: string variables actually processed
+`compress_tc` is an r-class command and stores the following results.
 
-## Technical Notes
+### Scalars
 
-- `strL` storage is especially useful for repeated values, long text, and sparse strings.
-- For variables with short, unique strings, `strL` can temporarily increase memory use. The second-stage `compress` call is what re-optimizes those cases.
-- Datasets that contain `strL` variables must be saved in Stata 13+ `.dta` format.
+| Result | Contents |
+|--------|----------|
+| `r(bytes_saved)` | Total data bytes saved, equal to `r(bytes_initial) - r(bytes_final)` and possibly negative |
+| `r(pct_saved)` | Percentage reduction in total data size |
+| `r(bytes_initial)` | Dataset-wide data bytes before the run |
+| `r(bytes_final)` | Dataset-wide data bytes after the run, or after the projected run with `dryrun` |
+| `r(bytes_strl)` | Bytes held in the `strL` heap after the run or projected run |
+| `r(k_converted)` | Number of eligible fixed-width string variables recast to `strL` |
+| `r(k_reverted)` | Number of those variables that the final `compress` stage moved back to a fixed-width type |
+
+### Local macros
+
+| Result | Contents |
+|--------|----------|
+| `r(vars_strl)` | Names of selected string variables stored as `strL` after the run |
+| `r(varlist)` | Names in the command's processing scope: fixed-width strings by default, or all string variables with `nostrl` |
+
+## Assumptions and Limits
+
+- Memory totals are dataset-wide because they come from Stata's `memory` command; they do not isolate the variables named in `varlist`.
+- Short, unique strings can temporarily use more memory as `strL`; the second-stage `compress` call can revert them to `str#` when that is more efficient.
+- Datasets containing `strL` variables must be saved in Stata 13+ `.dta` format (version 117 or later).
+- On an empty dataset or a dataset with zero data memory, the command returns zero scalar values and empty local macros.
 
 ## Version History
 
@@ -132,4 +179,8 @@ return list
 
 Timothy P Copeland, Karolinska Institutet
 
-Fork of `strcompress` by Luke Stein.
+This package is a fork of `strcompress` by Luke Stein.
+
+## License
+
+MIT License

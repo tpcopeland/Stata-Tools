@@ -1,6 +1,6 @@
 * test_massdesas.do
 *
-* Functional tests for massdesas v1.0.5 — batch .sas7bdat to .dta conversion
+* Functional tests for massdesas v1.0.1 — batch .sas7bdat to .dta conversion
 *
 * Sections:
 *   1. Installation and dependency checks (Tests 1-3)
@@ -8,25 +8,29 @@
 *   3. Varabbrev save/restore (Tests 9-11)
 *   4. Working directory preservation (Tests 12-14)
 *   5. Round-trip conversion (Tests 15-22, requires R/haven)
-*   6. Data preservation (Tests 23-24)
+*   6. Data preservation and path handling (Tests 23-27)
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-21
 
 clear all
 set more off
 version 14.0
 
-* =============================================================================
-* SETUP
-* =============================================================================
+**# Setup
 
-* === Bootstrap ===
+**## Bootstrap
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall massdesas
-quietly net install massdesas, from("`pkg_dir'") replace
+do "`qa_dir'/_massdesas_qa_common.do"
+capture noisily _massdesas_qa_bootstrap
+local bootstrap_rc = _rc
+if `bootstrap_rc' {
+    display as error "QA bootstrap failed (rc=`bootstrap_rc')"
+    display as text "RESULT: test_massdesas tests=0 pass=0 fail=1 skip=0"
+    exit `bootstrap_rc'
+}
 
 local test_count = 0
 local pass_count = 0
@@ -50,21 +54,26 @@ if _rc == 0 local has_filelist = 1
 capture which fs
 if _rc == 0 local has_fs = 1
 
-* Check R/haven for SAS file creation.
-* Stata shell never sets _rc -- it reports 0 for a child that failed or does not
-* even exist -- so this probe could not fire and has_r was unconditionally 1,
-* claiming R/haven was present on every host. Everything after && runs only on
-* exit 0, so the sentinel file IS the exit status. See
-* _devkit/automation/scan_shell_rc.py.
+* Check R/haven for SAS file creation. Stata's shell command does not propagate
+* the child status reliably, so R itself creates the sentinel only after haven
+* loads successfully.
 tempfile haven_ok
 capture erase "`haven_ok'"
-shell ( Rscript -e "suppressWarnings(library(haven))" ) > /dev/null 2>&1 && touch "`haven_ok'"
+local haven_ok_r = subinstr("`haven_ok'", "\", "/", .)
+shell Rscript -e "suppressWarnings(library(haven)); file.create('`haven_ok_r'')" > /dev/null 2>&1
 capture confirm file "`haven_ok'"
 if _rc == 0 local has_r = 1
 
 local has_deps = (`has_filelist' & `has_fs')
 
 display as text "Dependencies: filelist=`has_filelist' fs=`has_fs' R/haven=`has_r'"
+
+if !`has_deps' | !`has_r' {
+    display as error "Functional QA requires filelist, fs, R, and the R package haven."
+    _massdesas_qa_cleanup
+    display as text "RESULT: test_massdesas tests=0 pass=0 fail=1 skip=0"
+    exit 499
+}
 
 * Save original CWD
 local original_cwd `"`c(pwd)'"'
@@ -81,8 +90,11 @@ local dir_t21 "`testdir'_t21"
 local dir_t22 "`testdir'_t22"
 local dir_t22s "`testdir'_t22/sub"
 local dir_dp "`testdir'_dp"
+local dir_t25 "`testdir'_t25 space"
+local dir_t26 "`testdir'_t26"
+local dir_t27 "`testdir'_t27"
 
-shell mkdir -p "`dir_t15'" "`dir_t16'" "`dir_t17'" "`dir_t18'" "`dir_t19'" "`dir_t20'" "`dir_t21'" "`dir_t22'" "`dir_t22s'" "`dir_dp'"
+shell mkdir -p "`dir_t15'" "`dir_t16'" "`dir_t17'" "`dir_t18'" "`dir_t19'" "`dir_t20'" "`dir_t21'" "`dir_t22'" "`dir_t22s'" "`dir_dp'" "`dir_t25'" "`dir_t26'" "`dir_t27'"
 
 shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(ID=1:5, AGE=c(25,30,35,40,45), SCORE=c(88.5,92.1,76.3,81.0,95.7)), '`dir_t15'/testdata.sas7bdat')" 2>/dev/null
 shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(ID=1:5, AGE=c(25,30,35,40,45), SCORE=c(88.5,92.1,76.3,81.0,95.7)), '`dir_t16'/testdata.sas7bdat')" 2>/dev/null
@@ -93,6 +105,13 @@ shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(X=1L), 
 shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(X=1L), '`dir_t21'/va_test.sas7bdat')" 2>/dev/null
 shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(A=c(1L,2L)), '`dir_t22'/root.sas7bdat'); write_sas(data.frame(A=c(1L,2L)), '`dir_t22'/sub/child.sas7bdat')" 2>/dev/null
 shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(X=1L), '`dir_dp'/dp_test.sas7bdat')" 2>/dev/null
+shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(X=c(1L,2L)), '`dir_t25'/file with spaces.sas7bdat')" 2>/dev/null
+shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(X=c(7L,8L)), '`dir_t26'/a.sas7bdat.b.sas7bdat')" 2>/dev/null
+shell Rscript -e "suppressWarnings(library(haven)); write_sas(data.frame(X=c(3L,4L)), '`dir_t27'/good.sas7bdat')" 2>/dev/null
+tempname corrupt_fh
+file open `corrupt_fh' using "`dir_t27'/broken.sas7bdat", write replace text
+file write `corrupt_fh' "not a SAS dataset" _n
+file close `corrupt_fh'
 
 * Check if SAS test data was created
 local sas_ok = 0
@@ -101,9 +120,64 @@ if _rc == 0 & `has_deps' local sas_ok = 1
 
 display as text "SAS test data created: `sas_ok'"
 
-* =============================================================================
-* SECTION 1: Installation and dependency checks
-* =============================================================================
+if !`sas_ok' {
+    display as error "Functional QA could not create the required SAS fixtures."
+    shell rm -rf "`testdir'_"*
+    shell rm -rf "`emptydir'"
+    _massdesas_qa_cleanup
+    display as text "RESULT: test_massdesas tests=0 pass=0 fail=1 skip=0"
+    exit 499
+}
+
+capture program drop _massdesas_qa_sthlp_render
+program define _massdesas_qa_sthlp_render, rclass
+    version 14.0
+    syntax anything(name=files id="help files")
+
+    local files = subinstr(`"`files'"', char(34), "", .)
+    local nbad = 0
+    local badfiles ""
+
+    foreach f of local files {
+        capture confirm file "`f'"
+        if _rc {
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+
+        tempfile render_log
+        capture log off
+        log using "`render_log'", replace text name(_qarender)
+        type "`f'", smcl
+        log close _qarender
+        capture log on
+
+        local hits = 0
+        local nlines = 0
+        tempname render_fh
+        file open `render_fh' using "`render_log'", read text
+        file read `render_fh' line
+        while r(eof) == 0 {
+            local ++nlines
+            if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") {
+                local ++hits
+            }
+            file read `render_fh' line
+        }
+        file close `render_fh'
+
+        if `nlines' == 0 | `hits' > 0 {
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+        }
+    }
+
+    return scalar nbad = `nbad'
+    return local badfiles "`badfiles'"
+end
+
+**# Installation and dependency checks
 
 * Test 1: Package installs successfully
 local ++test_count
@@ -127,7 +201,22 @@ local ++test_count
 display as text _n "Test `test_count': Help file renders"
 
 capture noisily {
-    help massdesas
+    findfile massdesas.sthlp
+    local help_file `"`r(fn)'"'
+    _massdesas_qa_sthlp_render `help_file'
+    assert r(nbad) == 0
+
+    tempfile broken_help
+    tempname broken_fh
+    file open `broken_fh' using "`broken_help'", write replace text
+    file write `broken_fh' "{smcl}" _n
+    file write `broken_fh' "{title:Render probe}" _n _n
+    file write `broken_fh' "{pstd}" _n
+    file write `broken_fh' "A split directive: {bf:broken" _n
+    file write `broken_fh' "directive} renders as literal markup." _n
+    file close `broken_fh'
+    _massdesas_qa_sthlp_render `broken_help'
+    assert r(nbad) == 1
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -141,10 +230,15 @@ else {
 
 * Test 3: Version string present in header
 local ++test_count
-display as text _n "Test `test_count': Version 1.0.5 in which output"
+display as text _n "Test `test_count': Installed header reports Version 1.0.1"
 
 capture noisily {
-    which massdesas
+    findfile massdesas.ado
+    tempname version_fh
+    file open `version_fh' using "`r(fn)'", read text
+    file read `version_fh' version_header
+    file close `version_fh'
+    assert regexm(`"`version_header'"', "Version 1[.]0[.]1")
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -156,9 +250,7 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* =============================================================================
-* SECTION 2: Error handling
-* =============================================================================
+**# Error handling
 
 * Test 4: Nonexistent directory triggers rc=601
 local ++test_count
@@ -180,27 +272,37 @@ local ++test_count
 display as text _n "Test `test_count': Empty directory triggers error"
 
 capture massdesas, directory("`emptydir'")
-if _rc == 601 | _rc == 199 {
+if _rc == 601 {
     display as result "  PASS (rc=`=_rc')"
     local ++pass_count
 }
 else {
-    display as error "  FAIL (expected rc=601 or 199, got `=_rc')"
+    display as error "  FAIL (expected rc=601, got `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* Test 6: Default directory (no arguments) works or errors gracefully
+* Test 6: Default directory succeeds when the CWD contains a SAS file
 local ++test_count
-display as text _n "Test `test_count': No arguments uses CWD (errors if no SAS files)"
+display as text _n "Test `test_count': No arguments converts the current directory"
 
-capture massdesas
-if _rc == 0 | _rc == 601 | _rc == 199 {
-    display as result "  PASS (rc=`=_rc' — directory() is optional)"
+local test6_cwd `"`c(pwd)'"'
+capture noisily {
+    cd "`dir_t15'"
+    massdesas
+    assert r(n_converted) == 1
+    assert r(n_failed) == 0
+    assert `"`r(directory)'"' == `"`dir_t15'"'
+    confirm file "`dir_t15'/testdata.dta"
+}
+local test6_rc = _rc
+capture cd `"`test6_cwd'"'
+if `test6_rc' == 0 {
+    display as result "  PASS"
     local ++pass_count
 }
 else {
-    display as error "  FAIL (unexpected rc=`=_rc')"
+    display as error "  FAIL (rc=`test6_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' `test_count'"
 }
@@ -235,9 +337,7 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* =============================================================================
-* SECTION 3: Varabbrev save/restore
-* =============================================================================
+**# Varabbrev save/restore
 
 * Test 9: varabbrev ON preserved after error exit
 local ++test_count
@@ -289,9 +389,7 @@ else {
 }
 set varabbrev on
 
-* =============================================================================
-* SECTION 4: Working directory preservation
-* =============================================================================
+**# Working directory preservation
 
 * Test 12: CWD restored after nonexistent directory error
 local ++test_count
@@ -347,13 +445,7 @@ else {
     cd `"`original_cwd'"'
 }
 
-* =============================================================================
-* SECTION 5: Round-trip conversion (requires R/haven + filelist + fs)
-* =============================================================================
-
-if !`sas_ok' {
-    display as text _n "Skipping round-trip tests (sas_ok=`sas_ok', deps=`has_deps', R=`has_r')"
-}
+**# Round-trip conversion
 
 * Test 15: Basic single-file conversion
 if `sas_ok' {
@@ -529,23 +621,33 @@ if `sas_ok' {
     }
 }
 
-* =============================================================================
-* SECTION 6: Data preservation
-* =============================================================================
+**# Data preservation
 
-* Test 23: User data preserved after error
+* Test 23: User data preserved after a post-preserve error
 local ++test_count
-display as text _n "Test `test_count': User data preserved after error"
+display as text _n "Test `test_count': User data preserved after empty-directory error"
 
 sysuse auto, clear
+generate long _qa_order = _n
 local pre_N = _N
-capture massdesas, directory("/nonexistent/path/xyz_99999")
-if _N == `pre_N' {
-    display as result "  PASS (_N=`=_N' preserved)"
+local pre_make `"`=make[1]'"'
+local pre_price = price[1]
+capture massdesas, directory("`emptydir'")
+local test23_rc = _rc
+capture noisily {
+    assert `test23_rc' == 601
+    assert _N == `pre_N'
+    confirm variable make price _qa_order
+    assert `"`=make[1]'"' == `"`pre_make'"'
+    assert price[1] == `pre_price'
+    assert _qa_order == _n
+}
+if _rc == 0 {
+    display as result "  PASS"
     local ++pass_count
 }
 else {
-    display as error "  FAIL (_N changed from `pre_N' to `=_N')"
+    display as error "  FAIL (data or error code changed)"
     local ++fail_count
     local failed_tests "`failed_tests' `test_count'"
 }
@@ -556,10 +658,22 @@ if `sas_ok' {
     display as text _n "Test `test_count': User data preserved after success"
 
     sysuse auto, clear
+    generate long _qa_order = _n
     local pre_N = _N
+    local pre_make `"`=make[1]'"'
+    local pre_price = price[1]
     capture noisily massdesas, directory("`dir_dp'")
-    if _N == `pre_N' & _rc == 0 {
-        display as result "  PASS (_N=`=_N' preserved)"
+    local test24_rc = _rc
+    capture noisily {
+        assert `test24_rc' == 0
+        assert _N == `pre_N'
+        confirm variable make price _qa_order
+        assert `"`=make[1]'"' == `"`pre_make'"'
+        assert price[1] == `pre_price'
+        assert _qa_order == _n
+    }
+    if _rc == 0 {
+        display as result "  PASS"
         local ++pass_count
     }
     else {
@@ -569,19 +683,97 @@ if `sas_ok' {
     }
 }
 
-* =============================================================================
-* CLEANUP
-* =============================================================================
+* Test 25: Directory paths and filenames containing spaces
+local ++test_count
+display as text _n "Test `test_count': Spaces in directory path and filename"
+
+capture noisily {
+    massdesas, directory("`dir_t25'")
+    assert r(n_converted) == 1
+    assert r(n_failed) == 0
+    confirm file "`dir_t25'/file with spaces.dta"
+    use "`dir_t25'/file with spaces.dta", clear
+    assert _N == 2
+    assert X[2] == 2
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 26: Only the final .sas7bdat suffix is replaced
+local ++test_count
+display as text _n "Test `test_count': Repeated extension text preserves the full basename"
+
+capture noisily {
+    clear
+    set obs 1
+    generate long sentinel = 999
+    save "`dir_t26'/a.dta", replace
+    massdesas, directory("`dir_t26'")
+    assert r(n_converted) == 1
+    assert r(n_failed) == 0
+    confirm file "`dir_t26'/a.sas7bdat.b.dta"
+    use "`dir_t26'/a.sas7bdat.b.dta", clear
+    assert _N == 2
+    assert X[1] == 7
+    assert X[2] == 8
+    use "`dir_t26'/a.dta", clear
+    confirm variable sentinel
+    assert sentinel[1] == 999
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 27: A corrupt file is counted, retained, and does not stop valid siblings
+local ++test_count
+display as text _n "Test `test_count': Mixed valid and corrupt SAS files"
+
+capture noisily {
+    massdesas, directory("`dir_t27'") erase
+    assert r(n_converted) == 1
+    assert r(n_failed) == 1
+    confirm file "`dir_t27'/good.dta"
+    capture confirm file "`dir_t27'/good.sas7bdat"
+    assert _rc != 0
+    confirm file "`dir_t27'/broken.sas7bdat"
+    capture confirm file "`dir_t27'/broken.dta"
+    assert _rc != 0
+    use "`dir_t27'/good.dta", clear
+    assert _N == 2
+    assert X[1] == 3
+    assert X[2] == 4
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+**# Cleanup
 shell rm -rf "`testdir'_"*
 shell rm -rf "`emptydir'"
 cd `"`original_cwd'"'
+_massdesas_qa_cleanup
 
-* =============================================================================
-* SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "MASSDESAS FUNCTIONAL TEST SUMMARY (v1.0.5)"
-display as text "{hline 70}"
+**# Summary
+display as text "MASSDESAS FUNCTIONAL TEST SUMMARY (v1.0.1)"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
 if `fail_count' > 0 {
@@ -591,14 +783,14 @@ if `fail_count' > 0 {
 else {
     display as text "Failed:       `fail_count'"
 }
-display as text "{hline 70}"
+display as text "Testing completed: `c(current_date)' `c(current_time)'"
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED."
+    display as text "RESULT: test_massdesas tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
     exit 1
 }
 else {
     display as result "All tests PASSED!"
 }
-
-display as text _n "Testing completed: `c(current_date)' `c(current_time)'"
+display as text "RESULT: test_massdesas tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"

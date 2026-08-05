@@ -1,11 +1,15 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  05aug2026}{...}
+{vieweralsosee "[D] import sas" "help import sas"}{...}
+{vieweralsosee "filelist" "help filelist"}{...}
+{vieweralsosee "fs" "help fs"}{...}
 {cmd:help massdesas}
 {hline}
 
 {title:Title}
 {p 10}{bf:massdesas} {hline 2} Batch convert SAS files to Stata format{p_end}
 
+{marker syntax}{...}
 {title:Syntax}
 {p 10}
 {cmd:massdesas}
@@ -16,6 +20,7 @@
 ]
 {p_end}
 
+{marker description}{...}
 {title:Description}
 
 {pstd}
@@ -116,7 +121,8 @@ option, files are only deleted if conversion was successful. {p_end}
 {pstd}
 File pattern matching ({cmd:*.sas7bdat}) is case-sensitive on Linux/macOS. Files
 with uppercase extensions (e.g., {cmd:.SAS7BDAT}) will not be found. Filenames
-containing spaces are not supported. {p_end}
+and directory paths containing spaces are supported when the {opt directory()}
+path is quoted. {p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -136,11 +142,9 @@ containing spaces are not supported. {p_end}
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.0 - 2026-04-08{p_end}
+{pstd}Version 1.0.1 - 2026-08-05{p_end}
 
 {title:Also see}
 

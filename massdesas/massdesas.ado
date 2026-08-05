@@ -1,11 +1,12 @@
-*! massdesas Version 1.0.0  2026/04/08
+*! massdesas Version 1.0.1  2026/08/05
 
 *! Author: Timothy P Copeland
 
 program define massdesas, rclass
     version 14.0
-    local _varabbrev `c(varabbrev)'
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _preserved = 0
 
     * Save original working directory before anything changes it
     local original_dir `"`c(pwd)'"'
@@ -44,6 +45,7 @@ program define massdesas, rclass
         tempfile sasfiles
 
         preserve
+        local _preserved = 1
 
         cd `"`source'"'
         filelist, dir(`"`source'"') pat("*.sas7bdat") save(`"`sasfiles'"') replace
@@ -53,8 +55,6 @@ program define massdesas, rclass
         quietly count
         if r(N) == 0 {
             display as error "no SAS files found in directory: `directory'"
-            restore
-            cd `"`original_dir'"'
             exit 601
         }
 
@@ -83,15 +83,16 @@ program define massdesas, rclass
             forvalues i = 1/`nfiles' {
                 local file : word `i' of `filelist'
                 clear
-                local dtaname = substr(`"`file'"', 1, strpos(`"`file'"', ".sas7bdat") - 1)
+                local dtaname = substr("`file'", 1, strlen("`file'") - strlen(".sas7bdat"))
                 capture {
+                    if "`dtaname'" == "" error 198
                     if "`lower'" == "" {
-                        import sas using `"`file'"', clear
+                        import sas using "`file'", clear
                     }
                     else {
-                        import sas using `"`file'"', case(lower) clear
+                        import sas using "`file'", case(lower) clear
                     }
-                    quietly save `"`dtaname'.dta"', replace
+                    quietly save "`dtaname'.dta", replace
                 }
                 local file_rc = _rc
                 if `file_rc' == 0 {
@@ -100,7 +101,7 @@ program define massdesas, rclass
                         display as text "Note: `file' contains 0 observations"
                     }
                     if "`erase'" != "" {
-                        erase `"`file'"'
+                        erase "`file'"
                     }
                     local ++n_converted
                 }
@@ -112,6 +113,7 @@ program define massdesas, rclass
         }
 
         restore
+        local _preserved = 0
 
         * Return values
         return scalar n_converted = `n_converted'
@@ -121,7 +123,14 @@ program define massdesas, rclass
         display as result "Conversion complete: `n_converted' file(s) converted, `n_failed' failed"
     }
     local rc = _rc
+    if `_preserved' {
+        capture restore
+        local _restore_rc = _rc
+        if `rc' == 0 & `_restore_rc' local rc = `_restore_rc'
+    }
     capture cd `"`original_dir'"'
-    set varabbrev `_varabbrev'
+    local _cd_rc = _rc
+    if `rc' == 0 & `_cd_rc' local rc = `_cd_rc'
+    set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

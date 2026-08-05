@@ -1,26 +1,30 @@
 * validation_massdesas.do
 *
-* Validation tests for massdesas v1.0.5 — known-answer and invariant tests
+* Validation tests for massdesas v1.0.1 — known-answer and invariant tests
 *
 * Requires: R/haven, filelist, fs
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-21
 
 clear all
 set more off
 version 14.0
 
-* =============================================================================
-* SETUP
-* =============================================================================
+**# Setup
 
-* === Bootstrap ===
+**## Bootstrap
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall massdesas
-quietly net install massdesas, from("`pkg_dir'") replace
+do "`qa_dir'/_massdesas_qa_common.do"
+capture noisily _massdesas_qa_bootstrap
+local bootstrap_rc = _rc
+if `bootstrap_rc' {
+    display as error "QA bootstrap failed (rc=`bootstrap_rc')"
+    display as text "RESULT: validation_massdesas tests=0 pass=0 fail=1 skip=0"
+    exit `bootstrap_rc'
+}
 
 local test_count = 0
 local pass_count = 0
@@ -76,12 +80,12 @@ if !`can_run' {
     display as error "Validation requires filelist, fs, and R/haven with SAS write support."
     display as text "filelist=`has_filelist' fs=`has_fs' SAS data created: `can_run'"
     shell rm -rf "`testdir'_"*
-    exit 0
+    _massdesas_qa_cleanup
+    display as text "RESULT: validation_massdesas tests=0 pass=0 fail=1 skip=0"
+    exit 499
 }
 
-* =============================================================================
-* SECTION 1: Known-answer tests
-* =============================================================================
+**# Known-answer tests
 
 * Test 1: Exact row count after conversion
 local ++test_count
@@ -160,9 +164,7 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* =============================================================================
-* SECTION 2: Invariant tests — erase safety
-* =============================================================================
+**# Invariant tests — erase safety
 
 * Test 5: erase removes converted .sas7bdat, .dta exists
 local ++test_count
@@ -205,9 +207,7 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* =============================================================================
-* SECTION 3: Boundary tests
-* =============================================================================
+**# Boundary tests
 
 * Test 7: Zero-observation SAS file
 local ++test_count
@@ -295,9 +295,7 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* =============================================================================
-* SECTION 4: Return value consistency
-* =============================================================================
+**# Return value consistency
 
 * Test 11: r(n_converted) + r(n_failed) == total files processed
 local ++test_count
@@ -356,18 +354,13 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* =============================================================================
-* CLEANUP
-* =============================================================================
+**# Cleanup
 shell rm -rf "`testdir'_"*
 cd `"`original_cwd'"'
+_massdesas_qa_cleanup
 
-* =============================================================================
-* SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "MASSDESAS VALIDATION TEST SUMMARY (v1.0.5)"
-display as text "{hline 70}"
+**# Summary
+display as text "MASSDESAS VALIDATION TEST SUMMARY (v1.0.1)"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
 if `fail_count' > 0 {
@@ -377,14 +370,14 @@ if `fail_count' > 0 {
 else {
     display as text "Failed:       `fail_count'"
 }
-display as text "{hline 70}"
+display as text "Validation completed: `c(current_date)' `c(current_time)'"
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED."
+    display as text "RESULT: validation_massdesas tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
     exit 1
 }
 else {
     display as result "All tests PASSED!"
 }
-
-display as text _n "Validation completed: `c(current_date)' `c(current_time)'"
+display as text "RESULT: validation_massdesas tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"

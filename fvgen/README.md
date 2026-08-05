@@ -1,75 +1,12 @@
-# fvgen
-
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+# fvgen — Flatten factor-variable interactions into labeled variables
 
 **Version 1.2.1** | 2026-07-27
 
-Flatten factor-variable interactions into labeled main-effect and product variables for friendlier regression export.
+`fvgen` turns Stata factor-variable specifications into ordinary, labeled main-effect and interaction variables for regression tables and other exports. It returns a ready-to-use `r(allvars)` varlist while preserving the estimable design of the native model.
 
-## Description
+## Quick Start
 
-When you estimate a model with native factor-variable notation — `regress y i.sex##c.age` — table and export commands (`collect`, `esttab`, and the [tabtools](https://github.com/tpcopeland/Stata-Tools) family) emit extra factor-variable *header* rows for every interaction. The exported table ends up cluttered with parent rows you have to clean by hand.
-
-`fvgen` removes that friction. It expands the interaction specification into ordinary variables:
-
-- an **indicator** variable for each categorical level (the base level is dropped, just like `i.`),
-- a **product** variable for each interaction term, and
-- it turns **value labels into variable labels** — level `2 "Female"` becomes a variable labeled `Female`, and its interaction with `age` becomes `Female × Age`.
-
-Running the same model on the flattened variables gives **one clean, self-labeled row per coefficient**. The reparameterization is exact: the flattened regression reproduces the native model's coefficients, standard errors, and R-squared to within numerical precision.
-
-**Why not just relabel the rows in `esttab` or `collect`?** You can — but `esttab`'s `varlabels()` and `collect`/`etable`'s relabeling make you spell out a label for every interaction term, and the renaming lives inside that one tool. `fvgen` works at the **variable** level instead: it reads each factor's value labels and builds the row labels *automatically* (`2 "Female"` interacted with `age` becomes `Female × Age`), and because the result is ordinary labeled variables, those labels flow through **any** downstream consumer — `collect`, `esttab`, `putexcel`, the [tabtools](https://github.com/tpcopeland/Stata-Tools) family, or a hand-built table — with no per-tool relabeling.
-
-**Scope.** By design `fvgen` targets the common case: main effects and **up to two-way interactions**. Higher-order (three-way and beyond) terms are deliberately out of scope and are rejected with a clear message rather than silently flattened.
-
-**Margins bridge.** The flattened model still has no factor-variable structure by default: to Stata `_foreign_1` and `_foreignXmpg_1` are ordinary continuous regressors. After a flattened model, `fvgen, margins` rebuilds the active estimator command with the original `i.`/`c.` specification and reruns it quietly, so Stata's `margins` sees native factor-variable metadata. Use `fvgen, margins store(name)` to store a margins-ready clone while restoring the active flattened estimate for clean `regtab`/export output. This works for estimators whose saved command line can be rerun and that support factor variables plus `margins`; QA covers point estimates and variance matrices across linear, GLM, binary, count, censored, ordered, multinomial, panel, and survey estimators. The active model must have used the exact `r(allvars)` varlist returned by `fvgen`; `center`, `contrast`, and `pwcompare` should use the native `i.`/`c.` model directly.
-
-## Installation
-
-```stata
-net install fvgen, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/fvgen") replace
-```
-
-## Syntax
-
-```stata
-fvgen fvvarlist [if] [in] [weight] [, alllevels center ref(spec) simple(varname) vsref(string) prefix(name) replace xsymbol(string)]
-fvgen, margins [store(name) replace]
-fvgen, drop
-```
-
-`fvvarlist` is a factor-variable varlist using the usual `i.`, `c.`, `#`, and `##` operators (for example `i.group##c.age` or `i.arm##i.sex`). Up to two-way interactions are supported. `aweight`s, `fweight`s, `pweight`s, and `iweight`s are allowed and used only by `center`.
-
-`fvgen, margins` is used after estimating a flattened model on the exact `r(allvars)` varlist. It reruns the active estimator with native factor-variable syntax for `margins`; with `store(name)`, it stores a margins-ready clone and restores the active flattened result.
-
-`fvgen, drop` removes every variable a previous run generated (recognized by their provenance characteristics), completing the create-use-drop loop.
-
-The generated variables and a ready-to-use combined varlist are returned in `r()`:
-
-```stata
-fvgen i.sex##c.age
-regress wage `r(allvars)'
-```
-
-## Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| **alllevels** | off | Materialize an indicator for every categorical level, including the base level. Applies to main effects; interaction terms always use the estimable cells. |
-| **center** | off | Mean-center continuous terms (over the `if`/`in` sample) before they enter main effects and products. Keeps lower-order coefficients interpretable at the mean. When a `weight` is supplied the centering mean is weighted (`pweight` is treated as `aweight` for the mean). |
-| **ref(spec)** | lowest level | Set the reference (base) level per factor as variable/level pairs (commas optional), e.g. `ref(sex 2, race 3)`. A level may be an integer code or a value-label string in quotes, so `ref(foreign "Domestic")` works. Those levels are dropped and everything else is referenced to them. Equivalent to `ibN.` operators; does not alter `fvset` settings. |
-| **simple(varname)** | off | Report per-group slopes: each continuous term interacting with `varname` becomes one standalone slope *within* each level of `varname` (main + interaction combined), instead of a reference slope plus a difference. `varname` must be a factor interacting with a continuous term. |
-| **vsref(string)** | off | Append the reference (base) level to each categorical **main-effect** label. The argument is a template in which `@` is replaced by the base level's label: `vsref("(vs. @)")` gives `Foreign (vs. Domestic)`, `vsref("versus @")` gives `Foreign versus Domestic`. The template must contain `@`. Interaction and continuous-slope labels are unchanged; the reference shown honors `ref()`. |
-| **prefix(name)** | `_` | Prefix for generated variable names. Names exceeding Stata's 32-character limit raise an error. |
-| **replace** | off | Overwrite previously generated variables of the same name. With `fvgen, margins store(name)`, refresh an existing stored clone. |
-| **xsymbol(string)** | `×` | Symbol joining the two sides of an interaction label. Use `xsymbol(x)` for plain ASCII (`Female x Age`). A continuous self-interaction (`c.age##c.age`) is always labeled `Age²`. |
-| **margins** | off | After a flattened model, rerun the active estimator with native factor-variable syntax for Stata's `margins`. |
-| **store(name)** | off | With `margins`, store a margins-ready clone and restore the active flattened result for table export. |
-| **drop** | off | Used alone (`fvgen, drop`): drop every fvgen-generated variable in the dataset, leaving pass-through originals untouched. Returns `r(k_dropped)` and `r(dropped)`. |
-
-## Examples
-
-### Example 1: Categorical-by-continuous interaction
+Flatten a categorical-by-continuous interaction and estimate the same model with readable labels:
 
 ```stata
 sysuse auto, clear
@@ -77,48 +14,74 @@ fvgen i.foreign##c.mpg
 regress price `r(allvars)'
 ```
 
-Creates `_foreign_1` (labeled *Foreign*) and `_foreignXmpg_1` (labeled *Foreign × Mileage (mpg)*); `mpg` passes through unchanged.
+`r(allvars)` contains the pass-through `mpg` variable plus generated indicator and interaction variables. Use that varlist with any downstream table or export command, then run `fvgen, drop` when you are finished.
 
-### Example 2: Categorical-by-categorical interaction
+## Requirements
+
+- Stata 16.0 or later
+- No additional Stata packages or external software
+
+## Installation
+
+```stata
+capture ado uninstall fvgen
+net install fvgen, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/fvgen") replace
+```
+
+For a local Stata-Tools checkout, use the same command with `from("/path/to/Stata-Tools/fvgen")`.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `fvgen` | Flatten factor-variable terms, remove generated variables, or rebuild a margins-ready estimate |
+
+## How It Works
+
+`fvgen` expands `i.` factors into indicator variables, passes continuous terms through as ordinary variables, and turns `#` or `##` interactions into products. The default base level is omitted for categorical main effects; value labels become variable labels, and generated names use a prefix plus the source variable and level.
+
+The command supports main effects and up to two-way interactions. It returns a combined `r(allvars)` varlist in estimation order, along with separate main-effect, interaction, and newly generated-variable lists. Generated variables carry `fvgen_role` and `fvgen_term` characteristics so `fvgen, drop` can remove only variables created by `fvgen`.
+
+The `if` or `in` qualifier controls which levels and interaction cells are discovered, while generated variables are filled for all observations. Source-variable missing values remain missing in the generated indicators and products. Weights are accepted only to calculate the centering mean for `center`.
+
+In the default uncentered workflow, estimating on `r(allvars)` reproduces the corresponding native factor-variable model's estimable coefficients, standard errors, and fit. Centering changes the interpretation of lower-order coefficients but leaves the interaction coefficient and model fit unchanged.
+
+## Worked Examples
+
+### 1. Categorical-by-continuous interaction
+
+The standard workflow creates a labeled indicator and product, then passes the returned varlist to the estimator.
 
 ```stata
 sysuse auto, clear
-label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"
-label values rep78 rl
-fvgen i.foreign##i.rep78
+fvgen i.foreign##c.mpg
+regress price `r(allvars)'
+fvgen, drop
+```
+
+### 2. Reference level and comparison labels
+
+`ref()` changes the base used for a factor, while `vsref()` makes that comparison visible in main-effect labels.
+
+```stata
+sysuse auto, clear
+fvgen i.foreign##i.rep78, ref(rep78 3) vsref("(vs. @)")
 regress price `r(allvars)'
 ```
 
-Empty cells (level combinations with no observations) are skipped automatically, exactly as the native model omits them.
+### 3. Centered continuous interaction
 
-### Example 3: Continuous-by-continuous interaction, centered
+`center` creates centered copies before forming the product; `xsymbol(x)` requests an ASCII interaction label.
 
 ```stata
 sysuse auto, clear
-fvgen c.mpg##c.weight, center
+fvgen c.mpg##c.weight, center xsymbol(x)
 regress price `r(allvars)'
 ```
 
-Creates `_mpg_c`, `_weight_c`, and `_mpgXweight`.
+### 4. Per-group slopes
 
-### Example 4: Keep all levels, ASCII interaction symbol
-
-```stata
-sysuse auto, clear
-fvgen i.foreign##i.rep78, alllevels xsymbol(x)
-```
-
-### Example 5: Choose a different reference level per factor
-
-```stata
-sysuse auto, clear
-fvgen i.foreign##i.rep78, ref(rep78 3)
-regress price `r(allvars)'
-```
-
-Makes `rep78==3` the base for `rep78` (instead of the default lowest level), so the indicators and interactions are expressed relative to it. Equivalent to writing `ib3.rep78`, but set via an option without rewriting the specification.
-
-### Example 6: Per-group slopes (simple effects)
+With `simple(foreign)`, the continuous slope is reported separately within each level of the categorical moderator instead of as a reference slope plus a difference.
 
 ```stata
 sysuse auto, clear
@@ -126,142 +89,74 @@ fvgen i.foreign##c.mpg, simple(foreign)
 regress price `r(allvars)'
 ```
 
-Instead of a reference slope (`mpg`) plus a difference (`1.foreign#c.mpg`), this produces one standalone slope per group — `_foreignXmpg_0` labeled *Mileage (mpg) (Domestic)* and `_foreignXmpg_1` *Mileage (mpg) (Foreign)* — so the regression reports each group's mpg slope directly. The `foreign` indicators remain as group intercepts. Equivalent to the nested `i.foreign i.foreign#c.mpg` parameterization.
+### 5. Margins after a flattened regression
 
-### Example 7: Show the reference level in main-effect labels
-
-```stata
-sysuse auto, clear
-label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"
-label values rep78 rl
-fvgen i.foreign##i.rep78, vsref("(vs. @)")
-regress price `r(allvars)'
-```
-
-The main-effect indicators now carry their reference: `_foreign_1` is labeled *Foreign (vs. Domestic)* and `_rep78_2` *Fair (vs. Poor)*, so an exported coefficient table states what each level is contrasted against. The template is free-form — `vsref("versus @")` yields *Foreign versus Domestic* — and `@` is replaced by the base label, which honors `ref()` (with `ref(rep78 3)`, `_rep78_1` becomes *Poor (vs. Avg)*). Interaction labels (`Foreign × Avg`) are left unchanged.
-
-### Example 8: Margins from a flattened regression without breaking table output
+`store()` preserves the active flattened estimate for export and saves a native factor-variable clone for `margins`.
 
 ```stata
 sysuse auto, clear
 fvgen i.foreign##c.mpg
 regress price `r(allvars)'
-
-* Export this active flattened model with regtab/esttab/collect.
-
 fvgen, margins store(m_price)
 estimates restore m_price
 margins, dydx(mpg) at(foreign=(0 1))
 ```
 
-`store(m_price)` keeps the active estimate flattened after the command returns, so table output still uses `_foreign_1` and `_foreignXmpg_1` labels. Restoring `m_price` activates the margins-ready clone fit from the native `i.foreign##c.mpg` specification.
-
 ## Demo
 
-This is the whole point of the package. Each pair below is the **same regression** — identical coefficients, standard errors, and R² — exported as a coefficient table. Native factor-variable notation makes export tools (`collect`, `esttab`, the [tabtools](https://github.com/tpcopeland/Stata-Tools) family) print cryptic coefficient names (`1.foreign#c.mpg`) and base/omitted *reference* rows; `fvgen` yields one clean, self-labeled row per coefficient. Regenerate with `stata-mp -b do fvgen/demo/demo_fvgen.do` ([demo/export_comparison.md](demo/export_comparison.md)).
+The checkout demo compares native and flattened coefficient tables for `i.foreign##c.mpg` and `i.foreign##i.rep78`. From a Stata-Tools checkout root, run:
 
-### `i.foreign##c.mpg`
-
-**Before** — `regress price i.foreign##c.mpg`
-
-| Term | Coef. | 95% CI | p |
-|---|---:|:---:|---:|
-| 0b.foreign | _(base)_ |  |  |
-| 1.foreign | -14 | (-5268, 5241) | 0.996 |
-| mpg | -329 | (-479, -180) | 0.000 |
-| 0b.foreign#co.mpg | _(base)_ |  |  |
-| 1.foreign#c.mpg | 79 | (-145, 303) | 0.485 |
-| Intercept | 12601 | (9553, 15648) | 0.000 |
-
-**After** — `fvgen i.foreign##c.mpg`, then regress on the returned `r(allvars)`
-
-| Term | Coef. | 95% CI | p |
-|---|---:|:---:|---:|
-| Foreign | -14 | (-5268, 5241) | 0.996 |
-| Mileage (mpg) | -329 | (-479, -180) | 0.000 |
-| Foreign × Mileage (mpg) | 79 | (-145, 303) | 0.485 |
-| Intercept | 12601 | (9553, 15648) | 0.000 |
-
-A categorical-by-categorical model makes the contrast starker — 19 cluttered native rows collapse to 9 clean labeled ones (the lone omitted collinear cell, *Foreign × Best*, is still labeled and marked base, exactly as the native model drops it):
-
-<details>
-<summary><code>i.foreign##i.rep78</code> — before/after</summary>
-
-**Before** — `regress price i.foreign##i.rep78`
-
-| Term | Coef. | 95% CI | p |
-|---|---:|:---:|---:|
-| 0b.foreign | _(base)_ |  |  |
-| 1.foreign | 2088 | (-2615, 6791) | 0.378 |
-| 1b.rep78 | _(base)_ |  |  |
-| 2.rep78 | 1403 | (-3353, 6159) | 0.557 |
-| 3.rep78 | 2043 | (-2366, 6451) | 0.358 |
-| 4.rep78 | 1317 | (-3386, 6020) | 0.578 |
-| 5.rep78 | -360 | (-6376, 5656) | 0.905 |
-| 0b.foreign#1b.rep78 | _(base)_ |  |  |
-| 0b.foreign#2o.rep78 | _(base)_ |  |  |
-| 0b.foreign#3o.rep78 | _(base)_ |  |  |
-| 0b.foreign#4o.rep78 | _(base)_ |  |  |
-| 0b.foreign#5o.rep78 | _(base)_ |  |  |
-| 1o.foreign#1b.rep78 | _(base)_ |  |  |
-| 1o.foreign#2o.rep78 | _(base)_ |  |  |
-| 1.foreign#3.rep78 | -3867 | (-9826, 2093) | 0.199 |
-| 1.foreign#4.rep78 | -1708 | (-7200, 3783) | 0.536 |
-| 1o.foreign#5o.rep78 | _(base)_ |  |  |
-| Intercept | 4565 | (311, 8818) | 0.036 |
-
-**After** — `fvgen i.foreign##i.rep78`, then regress on the returned `r(allvars)`
-
-| Term | Coef. | 95% CI | p |
-|---|---:|:---:|---:|
-| Foreign | 2088 | (-2615, 6791) | 0.378 |
-| Fair | 1403 | (-3353, 6159) | 0.557 |
-| Avg | 2043 | (-2366, 6451) | 0.358 |
-| Good | 1317 | (-3386, 6020) | 0.578 |
-| Best | -360 | (-6376, 5656) | 0.905 |
-| Foreign × Avg | -3867 | (-9826, 2093) | 0.199 |
-| Foreign × Good | -1708 | (-7200, 3783) | 0.536 |
-| Foreign × Best | _(base)_ |  |  |
-| Intercept | 4565 | (311, 8818) | 0.036 |
-
-</details>
-
-## Naming convention
-
-| Term | Generated variable | Variable label |
-|------|--------------------|----------------|
-| `i.sex` (level 2 = Female) | `_sex_2` | `Female` |
-| `c.age` | *(original `age`, passed through)* | *(unchanged)* |
-| `c.age` with `center` | `_age_c` | `Age (centered)` |
-| `i.sex#c.age` | `_sexXage_2` | `Female × Age` |
-| `i.sex#i.race` | `_sexXrace_2_3` | `Female × Asian` |
-| `c.x#c.z` | `_xXz` | `X × Z` |
-| `c.age#c.age` | `_ageXage` | `Age²` |
-
-## Provenance and teardown
-
-Every generated variable carries two characteristics so downstream tools (and you) can recognize, group, and remove them:
-
-- `char `*var*`[fvgen_role]` — `main`, `interaction`, or `centered`
-- `char `*var*`[fvgen_term]` — the factor-variable term it came from (e.g. `1.foreign#c.mpg`)
-
-Each run also stores dataset-level provenance (`char _dta[fvgen_terms]`, `char _dta[fvgen_allvars]`, and related entries) used by `fvgen, margins` to rebuild the native factor-variable estimator command. `fvgen, drop` clears these dataset-level characteristics.
-
-`fvgen, drop` uses `fvgen_role` to remove exactly the variables fvgen created, leaving pass-through originals (like `mpg`) untouched:
-
-```stata
-fvgen i.foreign##c.mpg
-regress price `r(allvars)'
-fvgen, drop          // removes _foreign_1 and _foreignXmpg_1; mpg survives
+```bash
+stata-mp -b do fvgen/demo/demo_fvgen.do
 ```
 
-A no-base specification (`ibn.var`) materializes an indicator for every level (like `alllevels` for that factor). The explicit omit operator (`o.`, `#o.`) is rejected with a clear message — restrict the sample with `if`/`in` or set a base with `ref()` instead.
+The script installs the local package and regenerates [`demo/export_comparison.md`](demo/export_comparison.md); it is a checkout workflow, not part of the `net install` payload.
+
+## Command Reference
+
+### Main generation mode
+
+```stata
+fvgen fvvarlist [if] [in] [weight] [, alllevels center ref(spec) simple(varname) prefix(name) replace xsymbol(string)]
+```
+
+`fvvarlist` uses Stata's `i.`, `c.`, `#`, and `##` operators. The supported weights are `aweight`, `fweight`, `pweight`, and `iweight`; they affect only the centering mean.
+
+### Margins bridge
+
+```stata
+fvgen, margins [store(name) replace]
+```
+
+Use this after estimating with the exact varlist returned in `r(allvars)`. Without `store()`, the native factor-variable refit becomes active. With `store(name)`, the refit is stored and the flattened estimate is restored.
+
+### Teardown mode
+
+```stata
+fvgen, drop
+```
+
+This mode takes no varlist, qualifiers, weights, or other generation options. It drops every variable tagged as generated by `fvgen` and leaves pass-through originals untouched.
+
+## Key Options
+
+| Option | Default | Use and limits |
+|--------|---------|---------------|
+| `alllevels` | Off | Materialize the base level in categorical main effects; interaction terms still use estimable cells. |
+| `center` | Off | Center continuous terms over the `if`/`in` sample before forming products; a weight affects only that mean. The margins bridge is unavailable after centering. |
+| `ref(spec)` | Stata factor-variable base | Set bases with variable/level pairs such as `ref(sex 2, race 3)`; levels may be integer codes or value-label strings and must be observed in the marked sample. |
+| `simple(varname)` | Off | Report each interacting continuous term as a slope within levels of `varname`; `varname` must be a factor and categorical-by-categorical simple effects are not supported. |
+| `vsref(string)` | Off | Append the base label to categorical main-effect labels; the template must contain `@`, and the displayed base honors `ref()`. |
+| `prefix(name)` | `_` | Prefix generated names; a name longer than Stata's 32-character limit is an error. |
+| `replace` | Off | Overwrite generated variables with colliding names; with `margins store(name)`, refresh an existing stored clone. |
+| `xsymbol(string)` | `×` | Set the symbol joining interaction labels; `xsymbol(x)` uses ASCII, while a continuous self-interaction is always labeled with `²`. |
+| `margins` | Off | Rebuild the active estimate with native factor-variable syntax for Stata's `margins` command. |
+| `store(name)` | Not used | Use only with `margins` to store the native refit under `name` and restore the flattened estimate. |
+| `drop` | Off | Use alone to remove all `fvgen`-generated variables and return their names and count. |
 
 ## Stored Results
 
-`fvgen` stores the following in `r()`:
-
-**Scalars:**
+For ordinary generation, `fvgen` returns these scalars:
 
 | Result | Description |
 |--------|-------------|
@@ -269,34 +164,42 @@ A no-base specification (`ibn.var`) materializes an indicator for every level (l
 | `r(k_main)` | Number of main-effect variables |
 | `r(k_int)` | Number of interaction variables |
 
-**Macros:**
+For ordinary generation, it also returns these macros:
 
 | Result | Description |
 |--------|-------------|
-| `r(spec)` | The factor-variable specification expanded, reflecting any `ref()` bases |
-| `r(allvars)` | All model variables, ordered, ready for an estimation command |
+| `r(spec)` | Expanded factor-variable specification, including any `ref()` bases |
+| `r(allvars)` | All model variables in estimation order |
 | `r(mainvars)` | Main-effect variables only |
 | `r(intvars)` | Interaction variables only |
-| `r(genvars)` | Newly created variables (excludes pass-through originals) |
+| `r(genvars)` | Newly created variables, excluding pass-through originals |
 
-With `drop`, `fvgen` instead returns `r(k_dropped)` (number of variables dropped) and `r(dropped)` (their names).
+With `fvgen, drop`, the returned results are `r(k_dropped)` (a scalar count) and `r(dropped)` (the dropped variable names). With `fvgen, margins`, `r(margins)` is `active` or `stored`, and `r(stored)` contains the estimate name when `store()` was used.
 
-With `margins`, `fvgen` returns `r(margins)` (`active` or `stored`) and, when `store(name)` is used, `r(stored)`. The margins-ready estimates carry internal markers for the flattened and native command lines.
+## Assumptions and Limits
+
+- Higher-order interactions with three or more factors are rejected; use a native factor-variable model or split the workflow.
+- The explicit omit operator `o.` is rejected because `fvgen` cannot infer whether it should be materialized; restrict the sample with `if` or `in`, or set a base with `ref()` instead.
+- A no-base factor such as `ibn.foreign` materializes every observed level, equivalent to `alllevels` for that factor. Empty cells and omitted interaction terms are not materialized.
+- Generated variable names must fit Stata's 32-character limit, and generated variable labels are truncated at Stata's 80-character limit.
+- The `margins` bridge requires active estimation results with a saved command line, the exact `r(allvars)` varlist, and an estimator that can be rerun with native factor variables and supports `margins`. Use the native model directly for `contrast` and `pwcompare`; the bridge is not available after `center`.
+
+## References
+
+- Stata factor-variable syntax: `help fvvarlist`
+- Estimation and postestimation: `help regress` and `help margins`
+- Variable and value labels: `help label`
 
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
-## Requirements
+## Version History
 
-- Stata 16.0 or higher
-
-## Version
-
-- **Version 1.2.1** (27 July 2026): Documentation hygiene: QA reporting removed from the shipped help files. Package QA is documented in `qa/README.md`; the help files no longer cite `qa/` paths, test suites, or parity records, which an installed user does not receive from `net install`. No command behavior, option, stored result, or documented default changed.
-- **Version 1.2.0** (30 June 2026): Add `fvgen, margins` for margins-ready native factor-variable estimator clones after flattened models, plus `store(name)` to preserve the active flattened estimate for table export.
-- **Version 1.1.0** (27 June 2026): Add `vsref(string)` — append the reference (base) level to categorical main-effect labels via an `@`-placeholder template (e.g. `vsref("(vs. @)")` → *Foreign (vs. Domestic)*).
-- **Version 1.0.0** (21 June 2026): Initial release
+- **1.2.1** (2026-07-27): Documentation hygiene aligned shipped documentation with the released package and kept contributor material out of user-facing files.
+- **1.2.0** (2026-06-30): Added `fvgen, margins` for margins-ready native factor-variable estimator clones after flattened models, plus `store(name)` to preserve the active flattened estimate for table export.
+- **1.1.0** (2026-06-27): Added `vsref(string)` to append the reference level to categorical main-effect labels via an `@` placeholder.
+- **1.0.0** (2026-06-21): Initial release.
 
 ## Author
 
@@ -305,9 +208,3 @@ Timothy P Copeland, Karolinska Institutet
 ## License
 
 MIT License
-
-## See Also
-
-- `help fvvarlist` — factor-variable operators
-- `help regress` — linear regression
-- `help label` — value and variable labels
