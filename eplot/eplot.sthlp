@@ -189,8 +189,8 @@ come from post-estimation commands or custom calculations.
 {bf:4. Frame mode} — you specify {opt frame(framename)}. {cmd:eplot} reads a
 named Stata frame containing graph-ready variables. By default the frame must
 contain numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}; if present, string
-{cmd:label}, {cmd:rowtype}, {cmd:weight}, {cmd:weights}, and numeric
-{cmd:pvalue} are used automatically. Use {opt estimate()}, {opt ll()},
+{cmd:label}, numeric or string {cmd:rowtype} or {cmd:type}, numeric
+{cmd:weight} or {cmd:weights}, and numeric {cmd:pvalue} are used automatically. Use {opt estimate()}, {opt ll()},
 {opt ul()}, {opt labels()}, {opt rowtype()}, {opt type()}, {opt weights()}, or
 {opt pvalue()} to override those defaults.
 
@@ -233,8 +233,8 @@ matrix mode, {bf:[F]} = frame mode. Options without a tag work in all four modes
 {opt frame(framename)} {bf:[F]}
 specifies a named Stata frame containing graph-ready effect rows. The default
 variable contract is numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}, with
-optional string {cmd:label} and {cmd:rowtype}, numeric {cmd:pvalue}, and
-numeric {cmd:weight} or {cmd:weights}. The active dataset and active graph
+optional string {cmd:label}, numeric or string {cmd:rowtype} or {cmd:type},
+numeric {cmd:pvalue}, and numeric {cmd:weight} or {cmd:weights}. The active dataset and active graph
 scheme are left unchanged unless the user supplies normal graph options such as
 {opt scheme()}.
 
@@ -810,7 +810,7 @@ custom text.
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(N)}}input rows before generated headers{p_end}
+{synopt:{cmd:r(N)}}display rows, including generated headers{p_end}
 {synopt:{cmd:r(k)}}number of plotted coefficients (excludes headers and diamonds){p_end}
 {synopt:{cmd:r(n_models)}}number of models plotted (estimates mode only){p_end}
 
@@ -823,14 +823,17 @@ custom text.
 
 {pstd}
 {cmd:r(pvalues)} is returned in data and frame modes when {opt pvalue()} is
-supplied, in estimates mode for a single model, and in 2-column matrix mode.
+supplied, in estimates mode for a single model, and in 2-column matrix mode
+when {opt stars} is specified.
 
 {pstd}
-{cmd:r(N)} counts rows accepted before {opt groups()} or {opt headers()}
-generates display rows. In data and frame modes, supplied non-effect rows
-retained through {opt type()} are included. {cmd:r(table)} has three columns
+{cmd:r(N)} counts display rows after {opt groups()} or {opt headers()}
+generates any header rows. In data and frame modes, supplied non-effect rows
+retained through {opt type()} are also included. {cmd:r(table)} has three columns
 ({it:b}, {it:ll}, {it:ul}) for one model and three columns per model for a
-multi-model estimates plot.
+multi-model estimates plot. In data and frame modes, pooled subgroup and
+overall rows appear in {cmd:r(table)} even though {cmd:r(k)} counts only
+regular type-1 effects.
 
 
 {marker author}{...}

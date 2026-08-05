@@ -57,7 +57,7 @@ Mode detection checks explicit `matrix()` first, then `frame()`. With no namelis
 
 Data mode uses the three variables as estimate, lower confidence limit, and upper confidence limit. Optional `type()` values identify headers, regular effects, pooled subgroup/overall effects, heterogeneity rows, and blank spacers. Matrix mode accepts either two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`), and row names supply plot labels when present.
 
-Frame mode requires numeric `estimate`, `ll`, and `ul` variables unless `estimate()`, `ll()`, and `ul()` override those names. It automatically uses string `label`, `rowtype` or `type`, numeric `weight` or `weights`, and numeric `pvalue` variables when they are present; `type()` and `rowtype()` are mutually exclusive. Frame mode reuses the data-mode plotting options, including groups, headers, pooled rows, weights, prediction intervals, and heterogeneity notes.
+Frame mode requires numeric `estimate`, `ll`, and `ul` variables unless `estimate()`, `ll()`, and `ul()` override those names. It automatically uses string `label`, numeric or string `rowtype` or `type`, numeric `weight` or `weights`, and numeric `pvalue` variables when they are present; `type()` and `rowtype()` are mutually exclusive. Frame mode reuses the data-mode plotting options, including groups, headers, pooled rows, weights, prediction intervals, and heterogeneity notes.
 
 The optional `tabtools` bridge lets `regtab`, `effecttab`, `comptab`, and `hrcomptab` produce companion frames for `eplot, frame()`. The repository demo documents that workflow and requires sibling `tabtools`, `tc_schemes`, and `logdoc` packages, the `_data/` fixtures, and Stata 17 or later.
 
@@ -151,7 +151,7 @@ In estimates mode, `eform` sets the null line to 1 and suppresses `_cons` automa
 
 ## Gallery
 
-The eight core figures below are reproducible from a repository checkout; run `demo/demo_eplot.do` to regenerate them. The two bridge figures are checked-in reference assets associated with `demo/demo_tabtools_eplot.do`; that optional integration workflow also needs sibling `tabtools`, `tc_schemes`, `logdoc`, the repository `_data/` fixtures, and Stata 17 or later. These demos are checkout workflows and are not part of the `net install` payload.
+The eight core figures below are reproducible from a repository checkout; run `demo/demo_eplot.do` to regenerate them. Run `demo/demo_tabtools_eplot.do` to regenerate the two bridge figures; that optional integration workflow also needs sibling `tabtools`, `tc_schemes`, `logdoc`, the repository `_data/` fixtures, and Stata 17 or later. These demos are checkout workflows and are not part of the `net install` payload.
 
 | Output | Command focus |
 |--------|---------------|
@@ -264,7 +264,7 @@ After a successful call, `eplot` returns r-class results. Use `return list` and 
 
 | Result | Type | Meaning |
 |--------|------|---------|
-| `r(N)` | Scalar | Number of rows accepted before generated `groups()`/`headers()` rows; data/frame counts include supplied non-effect rows retained through `type()` |
+| `r(N)` | Scalar | Number of display rows, including generated `groups()`/`headers()` rows and data/frame non-effect rows retained through `type()` |
 | `r(k)` | Scalar | Number of regular plotted effects; pooled rows and headers are excluded where applicable |
 | `r(n_models)` | Scalar | Number of models in estimates mode; not returned for other modes |
 | `r(cmd)` | Local macro | Full generated `twoway` command |

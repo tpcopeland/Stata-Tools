@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  05aug2026}{...}
+{* *! version 1.0.2  05aug2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -82,8 +82,10 @@ processes all packages listed in the {cmd:stata.trk} file.
 {phang}
 {opt skip(pkglist)} excludes the specified packages from the transfer. {it:pkglist}
 should be a space-separated list of package names to skip. For example,
-{cmd:skip(estout outreg2)} would transfer all packages except estout and outreg2. The
-same package may not appear in both {opt limited()} and {opt skip()}.
+{cmd:skip(estout outreg2)} would transfer all packages except estout
+and outreg2. The same package may not appear in both {opt limited()} and
+{opt skip()}. If {opt skip()} excludes every tracked package,
+{cmd:pkgtransfer} creates the requested empty script or bundle rather than failing.
 
 {phang}
 {opt restore} restores installation pathways in {cmd:stata.trk} to point to original
@@ -179,11 +181,16 @@ Standalone {opt restore} returns only {cmd:r(download_mode)} = {cmd:restore}
 and {cmd:r(os)}. It does not set the package-count, package-list, do-file,
 or ZIP-file results because it generates no installer or archive.
 
+{pstd}
+When {opt skip()} excludes every tracked package, {cmd:r(N_packages)} is 0 and
+{cmd:r(package_list)} is empty. The requested do-file and, for a download
+mode, ZIP archive are still created.
+
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.1 - 2026-08-05{p_end}
+{pstd}Version 1.0.2 - 2026-08-05{p_end}
 
 {hline}

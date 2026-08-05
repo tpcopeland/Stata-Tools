@@ -259,6 +259,15 @@ The signatures below use full option names. Square brackets mark optional syntax
 
 Syntax: ``msm [, list detail protocol status]``
 
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `list` | List the 12 user-facing subcommands |
+| `detail` | Show command-by-command descriptions |
+| `protocol` | Display the seven-component protocol framework |
+| `status` | Report the current stage, mapped variables, artifacts, and next step |
+
 - With no option, displays the suite overview and workflow.
 - `list` lists the 12 user-facing subcommands.
 - `detail` gives a command-by-command description.
@@ -279,7 +288,7 @@ Syntax: ``msm_protocol, population(string) treatment(string) confounders(string)
 Syntax: ``msm_prepare, id(varname) period(varname) treatment(varname) outcome(varname) [censor(varname) covariates(varlist) baseline_covariates(varlist)]``
 
 - Required: `id()` identifies individuals; `period()` is an integer-valued time variable; `treatment()` and `outcome()` are numeric 0/1 indicators.
-- `censor()` is optional and must be a numeric 0/1 terminal censoring indicator when supplied.
+- `censor()` is optional and must be a numeric 0/1 indicator; `msm_validate` checks that censoring is terminal before weighting.
 - `covariates()` defaults to none and identifies time-varying covariates.
 - `baseline_covariates()` defaults to none and identifies covariates that must be constant within individual.
 - The command rejects duplicate `id()`-`period()` rows, noninteger periods, nonbinary structural indicators, and varying baseline covariates.
@@ -348,7 +357,7 @@ Syntax: ``msm_predict, times(numlist) [strategy(string) type(string) samples(#) 
 - Required: `times()` gives integer periods on the mapped period scale.
 - `strategy()` defaults to `both` and accepts `always`, `never`, or `both`.
 - `type()` defaults to `cum_inc` and accepts `cum_inc` or `survival`.
-- `difference` is off by default and adds the always-minus-never contrast when `strategy(both)` is used.
+- `difference` is off by default and adds the always-minus-never contrast on the selected scale when `strategy(both)` is used: a risk difference for `cum_inc` or a survival difference for `survival`.
 - `samples()` defaults to `100` Monte Carlo draws and must be at least 10.
 - `seed()` defaults to the current session RNG state; specifying it makes the simulation reproducible. `level()` defaults to `c(level)`.
 - `extrapolate` is off by default; without it, requested times must be within the fitted risk-set support.
@@ -357,7 +366,7 @@ Syntax: ``msm_predict, times(numlist) [strategy(string) type(string) samples(#) 
 
 Syntax: ``msm_plot, type(string) [covariates(varlist) threshold(#) times(numlist) samples(#) seed(#) n_sample(#) title(string) saving(string) replace]``
 
-- Required: `type()` accepts `weights`, `balance`, `survival`, `trajectory`, or `positivity`.
+- Required: `type()` accepts `weights`, `balance`, `survival`, `trajectory`, or `positivity`. The `positivity` plot shows the marginal proportion treated by period; it is an exploratory support screen, not a conditional positivity diagnostic.
 - For `type(balance)`, `covariates()` defaults to denominator-only balance targets; `threshold()` defaults to `0.1`.
 - For `type(survival)`, `times()` is required, `samples()` defaults to `50`, and `seed()` defaults to the current session RNG state.
 - For `type(trajectory)`, `n_sample()` defaults to `50` randomly sampled individuals.
@@ -474,13 +483,13 @@ These are export commands. Their durable output is the Excel workbook; they do n
 
 ## References
 
-- Robins JM, Hernan MA, Brumback B. Marginal structural models and causal inference in epidemiology. `*Epidemiology*`. 2000;11(5):550-560.
-- Hernan MA, Brumback B, Robins JM. Marginal structural models to estimate the causal effect of zidovudine on the survival of HIV-positive men. `*Epidemiology*`. 2000;11(5):561-570.
-- Cole SR, Hernan MA. Constructing inverse probability weights for marginal structural models. `*American Journal of Epidemiology*`. 2008;168(6):656-664.
-- Austin PC, Stuart EA. Moving towards best practice when using inverse probability of treatment weighting using the propensity score to estimate causal treatment effects in observational studies. `*Statistics in Medicine*`. 2015;34(28):3661-3679. doi:10.1002/sim.6607.
-- Adenyo D, Guertin JR, Candas B, Sirois C, Talbot D. Evaluation and comparison of covariate balance metrics in studies with time-dependent confounding. `*Statistics in Medicine*`. 2024. doi:10.1002/sim.10188.
-- VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. `*Annals of Internal Medicine*`. 2017;167(4):268-274.
-- Hernan MA, Robins JM. `*Causal Inference: What If*`. Boca Raton: Chapman & Hall/CRC, 2020.
+- Robins JM, Hernan MA, Brumback B. Marginal structural models and causal inference in epidemiology. *Epidemiology*. 2000;11(5):550-560.
+- Hernan MA, Brumback B, Robins JM. Marginal structural models to estimate the causal effect of zidovudine on the survival of HIV-positive men. *Epidemiology*. 2000;11(5):561-570.
+- Cole SR, Hernan MA. Constructing inverse probability weights for marginal structural models. *American Journal of Epidemiology*. 2008;168(6):656-664.
+- Austin PC, Stuart EA. Moving towards best practice when using inverse probability of treatment weighting using the propensity score to estimate causal treatment effects in observational studies. *Statistics in Medicine*. 2015;34(28):3661-3679. doi:10.1002/sim.6607.
+- Adenyo D, Guertin JR, Candas B, Sirois C, Talbot D. Evaluation and comparison of covariate balance metrics in studies with time-dependent confounding. *Statistics in Medicine*. 2024. doi:10.1002/sim.10188.
+- VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Annals of Internal Medicine*. 2017;167(4):268-274.
+- Hernan MA, Robins JM. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC, 2020.
 
 ## QA
 

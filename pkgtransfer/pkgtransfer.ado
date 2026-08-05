@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.1  2026/08/05
+*! pkgtransfer Version 1.0.2  2026/08/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -197,13 +197,13 @@ quietly{
 				noisily display as text "No transferable packages found in stata.trk"
 				noisily display as text "Do-file will be empty."
 			}
-			duplicates tag package, gen(tag)
 			if _N > 0 {
+				duplicates tag package, gen(tag)
 				summarize tag, meanonly
 				if `r(max)' > 0 {
-					drop if tag == 0
-					duplicates drop package, force
-					local dupe_list ""
+				drop if tag == 0
+				duplicates drop package, force
+				local dupe_list ""
 					levelsof package, local(dupes)
 					foreach pkg in `dupes' {
 						local dupe_list "`dupe_list' `pkg'"
@@ -215,8 +215,8 @@ quietly{
 					noisily display as error "	2) Run -net uninstall [#]-, replacing # as appropriate."
 					exit 459
 				}
+				drop tag
 			}
-			drop tag
 			* Fix haghish packages with alternative source URLs
 			replace url = "https://raw.githubusercontent.com/haghish/" + package + "/master" ///
 				if strpos(url, "haghish.github.io") | strpos(url, "github.com/haghish") ///
@@ -225,7 +225,10 @@ quietly{
 			replace row = -9999 if strpos(package,"github")
 			replace row = -1*row if strpos(url,"githubusercontent.com/haghish")
 			sort row
-			if "`limited'" == "" {
+			if _N == 0 {
+				local pkg_list_for_do ""
+			}
+			else if "`limited'" == "" {
 				local pkg_list_for_do ""
 				levelsof package if (strpos(url,"http://") | strpos(url,"https://") | strpos(url,".edu/") | strpos(url,".org/") | strpos(url,".com/")) , local(pkg_list_for_do) clean
 			}
@@ -294,7 +297,12 @@ quietly{
 			replace row = -9989 if strpos(package,"rcall")
 			sort row row2
 			keep v1 package
-			if "`limited'" == "" {
+			quietly count if package != ""
+			local _selected_records = r(N)
+			if `_selected_records' == 0 {
+				local pkg_list_for_do ""
+			}
+			else if "`limited'" == "" {
 				local pkg_list_for_do ""
 				levelsof package, local(pkg_list_for_do) clean
 			}
@@ -341,16 +349,18 @@ quietly{
 			replace v1 = substr(v1,3,.)
 			gen source_file = "`plusdir'" + v1
 			replace v1 = regexr(regexr(substr(v1, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
-            quietly forvalues i = 1/`=_N' {
-                local source = source_file[`i']
-                local destination = v1[`i']
-				capture copy "`source'" "pkgtransfer_files/`destination'", replace
+			if _N > 0 {
+				quietly forvalues i = 1/`=_N' {
+					local source = source_file[`i']
+					local destination = v1[`i']
+					capture copy "`source'" "pkgtransfer_files/`destination'", replace
 					if _rc {
 						local source_copy_rc = _rc
 						noisily display as error ///
 							"Could not copy required package file `source'"
 						exit `source_copy_rc'
 					}
+				}
 			}
 
 			// Fix plugins
@@ -370,7 +380,10 @@ quietly{
 			save "`pluginfiles'", replace
 
 			// loop to capture plugin packages
-			quietly forvalues i = 1(1)`=_N'{
+				quietly count
+				local _plugin_packages = r(N)
+				if `_plugin_packages' > 0 {
+				quietly forvalues i = 1(1)`_plugin_packages'{
 				local main_url = url[`i']
 				local pkg_source_url = pkg_source_url[`i']
 				local package = package[`i']
@@ -426,18 +439,22 @@ quietly{
 				append using "`plugin_temp'"
 				// update package file
 				outfile v1 using "pkgtransfer_files/`package'", noquote replace
-				use "`pluginfiles'", replace
-			}
+					use "`pluginfiles'", replace
+				}
+				}
 
 
-            // Initialize empty package description file
+			// Initialize empty package description file
 			tempfile pkg_desc
 			use "`pkg_list'", replace
-			gen row3 = _n
-			egen first_dX = min(row3) if substr(v1,1,2) == "d ",by(package)
-			egen first_d = min(first_dX),by(package)
-			keep if first_d == row3
-            save "`pkg_desc'", replace
+			quietly count
+			if r(N) > 0 {
+				gen row3 = _n
+				egen first_dX = min(row3) if substr(v1,1,2) == "d ",by(package)
+				egen first_d = min(first_dX),by(package)
+				keep if first_d == row3
+			}
+			save "`pkg_desc'", replace
 			clear
 		*END LOCAL FILE COPY
 		}
@@ -460,8 +477,11 @@ quietly{
 			gen package = ""
             save "`pkg_desc'", emptyok replace
 
-            use "`pkg_list'", replace
-            quietly forvalues i = 1/`=_N' {
+			use "`pkg_list'", replace
+			quietly count
+			local _online_packages = r(N)
+			if `_online_packages' > 0 {
+			quietly forvalues i = 1/`_online_packages' {
                 local curr_url = url[`i']
                 local curr_pkg = package[`i']
 
@@ -657,6 +677,7 @@ quietly{
 
             }
 
+			}
 		}
 
 		/* Create stata.toc, pkgtransfer_local.do, and ZIP file [Final Product for local & online download options] */
@@ -772,11 +793,9 @@ local _did_preserve 0
 		return local os "`os'"
 	}
 	else {
-		if "`pkg_list_for_do'" != "" {
 			local n_pkgs : word count `pkg_list_for_do'
 			return scalar N_packages = `n_pkgs'
 			return local package_list "`pkg_list_for_do'"
-		}
 		if "`download'" != "" {
 			return local download_mode "`download'"
 		}

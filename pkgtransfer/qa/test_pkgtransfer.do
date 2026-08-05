@@ -1362,6 +1362,95 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
+* Test 35: Filtering every package creates empty outputs and zero returns
+local ++test_count
+local test_desc "All-filtered selections create empty transfers"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local cleanup_rc 0
+    capture noisily {
+        quietly cd "`tmpdir'"
+        local all_packages "alpha fre pkgtransfer"
+
+        pkgtransfer, skip(`all_packages') dofile(empty_script.do)
+        assert r(N_packages) == 0
+        assert "`r(package_list)'" == ""
+        assert "`r(download_mode)'" == "script_only"
+        confirm file "empty_script.do"
+
+        pkgtransfer, download(online) skip(`all_packages') ///
+            dofile(empty_online.do) zipfile(empty_online.zip)
+        assert r(N_packages) == 0
+        assert "`r(package_list)'" == ""
+        assert "`r(download_mode)'" == "online"
+        confirm file "empty_online.do"
+        confirm file "empty_online.zip"
+        local online_staging : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`online_staging'"' == ""
+        mkdir "empty_online_extract"
+        quietly cd "empty_online_extract"
+        unzipfile "../empty_online.zip", replace
+        confirm file "pkgtransfer_files/stata.toc"
+        local online_pkg_files : dir "pkgtransfer_files" files "*.pkg", ///
+            respectcase
+        assert `"`online_pkg_files'"' == ""
+        quietly cd "`tmpdir'"
+        _pkgtransfer_cleanup_staging, ///
+            directory("`tmpdir'/empty_online_extract")
+
+        pkgtransfer, download(local) skip(`all_packages') ///
+            dofile(empty_local.do) zipfile(empty_local.zip)
+        assert r(N_packages) == 0
+        assert "`r(package_list)'" == ""
+        assert "`r(download_mode)'" == "local"
+        confirm file "empty_local.do"
+        confirm file "empty_local.zip"
+        local local_staging : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`local_staging'"' == ""
+        mkdir "empty_local_extract"
+        quietly cd "empty_local_extract"
+        unzipfile "../empty_local.zip", replace
+        confirm file "pkgtransfer_files/stata.toc"
+        local local_pkg_files : dir "pkgtransfer_files" files "*.pkg", ///
+            respectcase
+        assert `"`local_pkg_files'"' == ""
+        quietly cd "`tmpdir'"
+        _pkgtransfer_cleanup_staging, ///
+            directory("`tmpdir'/empty_local_extract")
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    capture noisily _pkgtransfer_cleanup_staging, ///
+        directory("`tmpdir'/pkgtransfer_files")
+    foreach extract_dir in empty_online_extract empty_local_extract {
+        capture quietly _pkgtransfer_cleanup_staging, ///
+            directory("`tmpdir'/`extract_dir'")
+    }
+    foreach artifact in empty_script.do empty_online.do empty_online.zip ///
+        empty_local.do empty_local.zip {
+        capture erase "`tmpdir'/`artifact'"
+    }
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
 capture noisily _pkgtransfer_qa_cleanup, root("`qa_root'") ///
     originalplus("`qa_original_plus'")
 if _rc != 0 {
@@ -1375,7 +1464,7 @@ if _rc != 0 {
 * ============================================================
 
 display ""
-display as text "pkgtransfer v1.0.1 - Test Results"
+display as text "pkgtransfer v1.0.2 - Test Results"
 display as text "Tests run:    `test_count'"
 display as result "Tests passed: `pass_count'"
 if `fail_count' > 0 {

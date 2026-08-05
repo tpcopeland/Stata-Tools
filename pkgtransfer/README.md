@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.0.1** | 2026-08-05
+**Version 1.0.2** | 2026-08-05
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -160,7 +160,7 @@ The values for `download()` and `os()` are case-sensitive as shown. A package na
 
 ## Stored Results
 
-After a standard non-restore run that selects at least one package, `pkgtransfer` returns:
+After a standard non-restore run, `pkgtransfer` returns:
 
 | Result | Type | Meaning |
 |--------|------|---------|
@@ -173,9 +173,10 @@ After a standard non-restore run that selects at least one package, `pkgtransfer
 
 For standalone `restore`, the returned `download_mode` is `restore` and `r(os)` is returned; the package-count, package-list, do-file, and archive results are not set. When `restore` is combined with `download()`, the returned mode reflects the download mode.
 
+If `skip()` excludes every tracked package, `r(N_packages)` is 0, `r(package_list)` is empty, and the requested empty script or bundle is still created.
+
 ## Assumptions and Limits
 
-- At least one eligible package must remain after `limited()` or `skip()` filtering; filtering out every tracked package currently stops with a Stata no-observations error instead of producing an empty transfer.
 - Only packages and sources recorded in the current PLUS directory's `stata.trk` are considered. Other adopath locations and untracked files are not reconstructed.
 - The default mode does not fetch package files. Its generated commands require internet access on the destination, and GitHub-origin entries require the `github` command there.
 - `download(online)` depends on the recorded source URLs and network availability. A missing or inaccessible required descriptor or package file aborts bundle creation.
@@ -186,6 +187,7 @@ For standalone `restore`, the returned `download_mode` is `restore` and `r(os)` 
 
 ## Version History
 
+- **1.0.2** (2026-08-05): Skipping every tracked package now creates the requested empty script or bundle and returns `r(N_packages)=0` with an empty package list instead of failing with a no-observations error.
 - **1.0.1** (2026-08-05): Generated offline installers now use the archive selected by `zipfile()` and propagate installation failures; standalone restore no longer enters script generation; caller state is protected; contradictory filters are rejected; and bundle creation refuses user-owned staging directories, removes its own failed staging, and aborts on missing required files.
 - **1.0.0** (2026-07-10): Current Stata-Tools release with online transfer scripts, offline bundle creation, package filtering, and source restoration
 
