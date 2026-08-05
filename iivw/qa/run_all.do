@@ -250,6 +250,28 @@ if "`mode'" == "full" {
 }
 
 * -----------------------------------------------------------------------------
+* PUBLISH THE CURATED LIST FOR THE SHELL-LEVEL SENTINEL GATE
+* -----------------------------------------------------------------------------
+* This runner grades a suite on `_rc' alone, which cannot see a suite that
+* prints "RESULT: ... fail=3" and then exits 0, or one that prints no sentinel
+* at all. Verifying the sentinel from inside this process is not possible: ten
+* suites call `log close _all', which would close any nested capture log this
+* file opened and turn a real pass into a parse failure. The check therefore
+* runs at the shell boundary (run_all.sh) against the completed run_all.log,
+* exactly as finegray/qa/run_all.sh does.
+*
+* The lane lists live here and must not be duplicated in shell, so write the
+* resolved list out instead. run_all.sh requires exactly one well-formed
+* sentinel per name below.
+capture file close _expected
+file open _expected using "`qa_dir'/run_all_expected.txt", write replace
+file write _expected "lane=`mode'" _n
+foreach f of local suites {
+    file write _expected "`f'" _n
+}
+file close _expected
+
+* -----------------------------------------------------------------------------
 * RUN
 * -----------------------------------------------------------------------------
 local suite_pass = 0

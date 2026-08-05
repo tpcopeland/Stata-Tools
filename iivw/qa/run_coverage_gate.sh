@@ -19,7 +19,15 @@
 #   run       execute all pending blocks through a work queue
 #   status    how many blocks are done / pending / failed
 #   combine   gather block rows and apply the gate once per family
+#   unclaim   release stale in-flight claims after a killed run (no workers live)
 #   all       prep + run + combine
+#
+# CONCURRENT QUEUES
+#   Blocks are claimed atomically (mkdir), so a second queue -- a resume started
+#   while the first is live, or extra workers added to use freed cores -- skips
+#   in-flight blocks instead of duplicating them. Before this, the only guard
+#   was "is the .dta already pooled", which an in-flight block does not satisfy.
+#   If a run is killed, its claims survive; clear them with `unclaim'.
 #
 # ENV OVERRIDES
 #   BASE      scratch root          (default: $SCRATCH/covgate)
@@ -56,6 +64,9 @@ WORK="$BASE/work"
 POOL="$BASE/blockpool/r${REPS}_s${SEED}_p${PSCALE}"
 COMBINE="$BASE/combine"
 LOGS="$BASE/logs"
+# In-flight block claims (see run_one). Segregated by the same configuration key
+# as POOL so a pilot run's claims can never block a release run's blocks.
+CLAIMS="$BASE/claims/r${REPS}_s${SEED}_p${PSCALE}"
 
 [ "$WORKERS" -lt 1 ] && WORKERS=1
 
@@ -128,8 +139,26 @@ run_one() {
 
     [ -f "$POOL/$out" ] && { echo "SKIP  $tag (already in pool)"; return 0; }
 
+    # ATOMIC CLAIM.  The pool test above only sees FINISHED blocks, so it cannot
+    # exclude a block another process started but has not yet pooled.  A second
+    # queue -- a resume launched while the first is live, or extra workers added
+    # to use freed cores -- therefore re-ran in-flight blocks.  Observed
+    # 2026-08-05: iptw_00951_00975 ran in two processes at once, burning a core
+    # for 17 minutes.  It cost only wasted CPU (combine de-duplicates on
+    # (arm,sim) and refuses overlapping ranges), but on a ~90 CPU-h gate the
+    # waste is the point.
+    #
+    # mkdir is atomic on POSIX: exactly one racer creates the directory, every
+    # other gets EEXIST and steps aside.  A plain -e test would not be atomic.
+    # Claims live outside POOL so `ls $POOL' stays a clean block listing.
+    mkdir -p "$CLAIMS" 2>/dev/null
+    if ! mkdir "$CLAIMS/$tag" 2>/dev/null; then
+        echo "CLAIM $tag (held by another worker; skipping)"
+        return 0
+    fi
+
     d="$WORK/$tag/iivw/qa"
-    [ -d "$d" ] || { echo "FAIL  $tag (no work tree -- run prep)"; return 1; }
+    [ -d "$d" ] || { rmdir "$CLAIMS/$tag" 2>/dev/null; echo "FAIL  $tag (no work tree -- run prep)"; return 1; }
 
     ( cd "$d" && stata-mp -b do validation_iivw_inference.do \
         "$fam" "$SIMS" "$REPS" "$SEED" "$f" "$t" 0 "$PSCALE" ) >/dev/null 2>&1
@@ -142,12 +171,15 @@ run_one() {
         echo "OK    $tag"
         return 0
     fi
+    # Release the claim on failure so a later resume can retry this block; a
+    # successful block needs no release because its .dta now guards it.
+    rmdir "$CLAIMS/$tag" 2>/dev/null
     cp -f "$d/validation_iivw_inference.log" "$LOGS/$tag.FAILED.log" 2>/dev/null
     echo "FAIL  $tag (no rows file; see $LOGS/$tag.FAILED.log)"
     return 1
 }
 export -f run_one blocktag
-export WORK POOL LOGS SIMS REPS SEED PSCALE
+export WORK POOL LOGS CLAIMS SIMS REPS SEED PSCALE
 
 cmd_run() {
     mkdir -p "$POOL" "$LOGS"
@@ -213,11 +245,37 @@ cmd_combine() {
 }
 
 # ---------------------------------------------------------------------------
+# Drop claims for blocks that are not in the pool. A killed worker leaves its
+# claim behind, and nothing else would ever release it, so a resume would skip
+# that block forever and combine would refuse the union for a missing interior
+# block. Run this ONLY when no workers are live -- it cannot distinguish a stale
+# claim from a legitimately in-flight one.
+cmd_unclaim() {
+    live=$(pgrep -x stata-mp 2>/dev/null | wc -l)
+    if [ "$live" -gt 0 ]; then
+        echo "REFUSING: $live stata-mp process(es) live; a claim held by a running" >&2
+        echo "  worker is not stale. Stop the run first." >&2
+        exit 2
+    fi
+    [ -d "$CLAIMS" ] || { echo "no claims directory"; return 0; }
+    n=0
+    for c in "$CLAIMS"/*; do
+        [ -d "$c" ] || continue
+        tag=$(basename "$c")
+        fam=${tag%%_*}; rest=${tag#*_}
+        if [ ! -f "$POOL/${fam}_${rest}.dta" ]; then
+            rmdir "$c" 2>/dev/null && n=$(( n + 1 ))
+        fi
+    done
+    echo "released $n stale claim(s)"
+}
+
 case "${1:-all}" in
     prep)    cmd_prep ;;
     run)     cmd_run ;;
     status)  cmd_status ;;
     combine) cmd_combine ;;
+    unclaim) cmd_unclaim ;;
     all)     cmd_prep && cmd_run && cmd_combine ;;
-    *) echo "usage: $0 {prep|run|status|combine|all}" >&2; exit 2 ;;
+    *) echo "usage: $0 {prep|run|status|combine|unclaim|all}" >&2; exit 2 ;;
 esac

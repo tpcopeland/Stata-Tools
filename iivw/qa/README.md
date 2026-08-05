@@ -30,12 +30,37 @@ From the package QA directory:
 
 ```bash
 cd iivw/qa
-stata-mp -b do run_all.do quick        # fast contract/release smoke
+./run_all.sh quick                     # PREFERRED: lane + sentinel gate, real exit status
+./run_all.sh core
+./run_all.sh full                      # default
+./run_all.sh legacy
+./run_all.sh sensitivity
+
+stata-mp -b do run_all.do quick        # the lane alone, without the sentinel gate
 stata-mp -b do run_all.do core         # all supported Stata gates
 stata-mp -b do run_all.do              # core plus fresh R parity
 stata-mp -b do run_all.do legacy       # legacy estimator constructions
 stata-mp -b do run_all.do sensitivity  # post-hoc simulation envelopes
 ```
+
+**Prefer `run_all.sh`.** `run_all.do` grades each suite on `_rc` alone, which
+cannot see a suite that prints `RESULT: ... fail=3` and then exits 0, one that
+prints no sentinel at all, or one that skipped checks for a missing dependency.
+The conventions below have always made the sentinel mandatory; nothing enforced
+it at the lane boundary until `run_all.sh`. It requires, for **every** curated
+suite in the lane, exactly one evaluated sentinel with `tests == pass + fail +
+skip`, `fail == 0` and `skip == 0`, and it exits nonzero otherwise.
+
+The check cannot live inside `run_all.do`: ten suites call `log close _all`,
+which would close any nested capture log the runner opened and turn a real pass
+into a parse failure. So it runs at the shell boundary against the completed
+`run_all.log`, the same architecture `finegray/qa/run_all.sh` uses. `run_all.do`
+writes the resolved lane membership to `run_all_expected.txt` so the suite names
+are never duplicated in shell.
+
+`test_run_all_wrapper.sh` is the wrapper's own regression test (10 cases, a few
+seconds, against a fake `stata` binary): it proves each refusal actually fires
+and that a clean lane still passes.
 
 `sim` remains a backward-compatible alias for `sensitivity`. `run_all.do` uses
 explicit lane lists and exits nonzero inside Stata when any suite fails.
@@ -46,10 +71,17 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
 ### Reading the result
 
 `stata-mp -b do` returns shell exit status 0 unconditionally on this platform,
-even after `exit 1` or a failed `assert`. **Never gate on `$?`.** Read one of:
+even after `exit 1` or a failed `assert`. **Never gate on `$?` from a bare
+`stata-mp` invocation.** Read one of:
 
+- `./run_all.sh <lane>` — exit status **is** usable, and it additionally
+  verifies every curated suite's sentinel (preferred for CI and automation)
 - `qa/run_all_status.txt` — first line is `PASS` or `FAIL`
 - the final log line — `RUNALL: status=PASS|FAIL suites=N pass=N fail=N`
+
+Note that the first two answer different questions. `run_all_status.txt` records
+whether every suite returned `rc=0`; `run_all.sh` additionally checks what those
+suites *reported*. A lane can be `PASS` in the first sense and red in the second.
 
 ### Lane dependencies
 
@@ -270,7 +302,14 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 ### Support
 
 - `run_all.do` — curated `quick`, `core`, `full`, `legacy`, and `sensitivity`
-  lane runner (`sim` aliases `sensitivity`).
+  lane runner (`sim` aliases `sensitivity`). Also writes `run_all_expected.txt`,
+  the resolved lane membership that `run_all.sh` verifies sentinels against.
+- `run_all.sh` — shell wrapper: runs a lane, then requires one well-formed
+  `RESULT:` sentinel per curated suite (`tests == pass + fail + skip`,
+  `fail == 0`, `skip == 0`) and returns a usable process exit status.
+- `test_run_all_wrapper.sh` — the wrapper's own bounded regression test, run
+  against a fake `stata` binary; proves each refusal fires and a clean lane
+  still passes.
 - `crossval_irreglong.R`, `crossval_fiptiw.R`, and
   `crossval_iivw_external_refs.R` — independent R reference generators.
 - `crossval_iivw_iptw_oracle.R` — base-R `glm` stabilized-ATE IPTW oracle,

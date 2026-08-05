@@ -1,100 +1,93 @@
-# qba -- Quantitative Bias Analysis for Stata
+# qba — Quantitative Bias Analysis for Stata
 
 **Version 1.1.0** | 2026-07-26
 
-Quantitative bias analysis toolkit for epidemiologic data, implementing the methods in Lash, Fox, and Fink's *Applying Quantitative Bias Analysis to Epidemiologic Data* (2nd ed., Springer 2021). Corrects point estimates for the three major sources of systematic error that survive conventional multivariable adjustment, and quantifies the resulting uncertainty as a **simulation interval**: exposure or outcome misclassification (`qba_misclass`), selection bias from differential participation (`qba_selection`), and unmeasured confounding (`qba_confound`). A multi-bias chain (`qba_multi`) applies all three corrections inside one Monte Carlo simulation, and `qba_plot` provides tornado, Monte Carlo distribution, and tipping-point visualizations.
+`qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 
-Following Fox, MacLehose, and Lash (2023), the intervals from drawing bias parameters are reported as **systematic-error simulation intervals**, not as corrected confidence intervals: they propagate uncertainty in the bias parameters and nothing else. `qba_misclass, totalerror` additionally reports a **total-error simulation interval**, which carries conventional random error as well, alongside a random-error-only arm for comparison.
+## Quick Start
+
+Start with a fixed-parameter exposure-misclassification analysis of a 2x2 table:
+
+```stata
+qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)
+return list
+```
+
+The command reports the observed and corrected table, the observed and corrected odds ratios, and the corrected-to-observed ratio. Add `measure(RR)` for a risk ratio or `reps()` plus distribution options for a probabilistic analysis.
 
 ## Requirements
 
-- Stata 16.0 or higher
-- No external dependencies for core `qba` commands
-- Optional: `tmle` or `ltmle` only for the post-estimation integration examples
+- Stata 16 or later
+- No external dependencies for the core commands
+- Optional `tmle` or `ltmle` integration requires a separately installed command that leaves an active estimation contract in `e()`
 
-## Setup
+## Installation
 
-### Install from the distribution repository
+Install the released package from the public Stata-Tools distribution repository:
 
 ```stata
 capture ado uninstall qba
 net install qba, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/qba") replace
 ```
 
-### Verify the installation
-
-```stata
-qba
-```
-
-This displays the package version and lists all available commands. You should see version 1.1.0 and five commands (`qba_misclass`, `qba_selection`, `qba_confound`, `qba_multi`, `qba_plot`).
-
-### Uninstall
-
-```stata
-ado uninstall qba
-```
+Run `qba` after installation to display the package version and the available analysis commands.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `qba` | Package overview and available commands; the `version` option is accepted as a lightweight version check |
-| `qba_misclass` | Misclassification bias analysis for 2x2 tables |
-| `qba_selection` | Selection bias analysis for 2x2 tables |
-| `qba_confound` | Unmeasured confounding analysis with E-values |
-| `qba_multi` | Multi-bias analysis (chains all three in one simulation) |
-| `qba_plot` | Tornado, distribution, and tipping point plots |
+| `qba` | Display package information and the available commands |
+| `qba_misclass` | Correct a 2x2 table for exposure or outcome misclassification |
+| `qba_selection` | Correct a 2x2 table for selection bias |
+| `qba_confound` | Correct a ratio measure or linear coefficient for one unmeasured confounder and optionally compute an E-value |
+| `qba_multi` | Chain misclassification, selection, and confounding corrections in one Monte Carlo analysis |
+| `qba_plot` | Create tornado, Monte Carlo distribution, and tipping-point plots |
 
 ## How It Works
 
-The single-bias correction commands run in two modes:
+`qba_misclass`, `qba_selection`, and `qba_confound` have a simple mode for fixed bias parameters and a probabilistic mode activated by `reps()`. `qba_multi` is always probabilistic and activates whichever complete bias-parameter sets you provide; `qba_plot` visualizes corrected estimates or saved Monte Carlo results.
 
-**Simple mode** takes fixed bias parameters (e.g., Se=0.85, Sp=0.95) and returns an algebraically corrected measure. This is the right starting point for understanding the direction and magnitude of bias under a single set of assumptions.
+In probabilistic mode, the commands draw bias parameters, recompute the corrected estimate for each draw, and summarize the valid draws with the median, mean, standard deviation, and percentile limits. The default interval is a systematic-error simulation interval: it propagates uncertainty in the bias parameters, not conventional sampling error, and is not a corrected confidence interval.
 
-**Probabilistic mode** (`reps()`) draws independent parameter sets from trapezoidal, triangular, uniform, Beta, logit-normal, or constant distributions, re-applies the correction under each draw, and reports median/mean/SD and percentile CIs across the Monte Carlo distribution. This mode propagates uncertainty about the bias parameters into the corrected estimate. `qba_multi` is Monte Carlo only and always requires `reps()`.
+When a `dist_*()` option is omitted in probabilistic mode, its corresponding fixed parameter is used as a constant distribution. The supported distribution specifications are documented under [Key Options](#key-options).
 
-The typical analysis workflow is:
-
-1. **Single-bias analysis** -- run `qba_misclass`, `qba_selection`, or `qba_confound` individually to understand each source of error in isolation.
-2. **Probabilistic analysis** -- add `reps()` and `dist_*()` options to propagate uncertainty. Save results with `saving()`.
-3. **Multi-bias analysis** -- use `qba_multi` to chain all active biases in one Monte Carlo simulation.
-4. **Visualize** -- use `qba_plot` to create tornado, distribution, or tipping point plots.
+For `qba_multi`, misclassification and selection modify the 2x2 table and are applied in the order given by `order()`. Confounding is a measure-level correction and is always applied last; the default cell-level order is `misclass selection` for the active bias types.
 
 ## Worked Examples
 
-### Correct for nondifferential exposure misclassification
+### 1. Correct exposure misclassification
 
-A case-control study reports 136 exposed cases, 297 unexposed cases, 1432 exposed controls, and 6738 unexposed controls. A validation study suggests sensitivity of 0.85 and specificity of 0.95 for the exposure classification.
+The cells are ordered as exposed cases (`a`), unexposed cases (`b`), exposed non-cases (`c`), and unexposed non-cases (`d`). With no `reps()`, `qba_misclass` uses the fixed sensitivity and specificity analytically.
 
 ```stata
 qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)
 ```
 
-The output shows the observed and corrected 2x2 tables, the observed OR, and the corrected OR. The corrected/observed ratio indicates the direction and magnitude of the bias.
+### 2. Correct selection bias
 
-### Correct for selection bias
-
-The same study has differential participation rates. Exposed cases participate at 90%, unexposed cases at 85%, exposed controls at 70%, and unexposed controls at 80%.
+Supply the probability that each exposure-outcome stratum was selected into the study. The four probabilities correspond to `a`, `b`, `c`, and `d` in the same order as the table.
 
 ```stata
 qba_selection, a(136) b(297) c(1432) d(6738) ///
     sela(.9) selb(.85) selc(.7) seld(.8)
 ```
 
-### Correct for unmeasured confounding with E-value
+Use `measure(RR)` when the target measure is a risk ratio rather than an odds ratio.
 
-An observed OR of 1.5 might be explained by an unmeasured confounder with prevalence 0.4 among exposed and 0.2 among unexposed, and a confounder-disease RR of 2.0.
+### 3. Correct unmeasured confounding and compute an E-value
+
+This example applies the Schneeweiss parameterization to an observed odds ratio and asks for the E-value at the point estimate and at the supplied confidence-limit bound.
 
 ```stata
-qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0) evalue ci_bound(1.1)
+qba_confound, estimate(1.5) measure(OR) ///
+    p1(.4) p0(.2) rrcd(2.0) evalue ci_bound(1.1)
 ```
 
-The E-value tells you how strong an unmeasured confounder would need to be -- in terms of its associations with both treatment and outcome -- to fully explain away the observed effect.
+Use `rrud()` instead of `rrcd()` for the Greenland parameterization. `commonoutcome` applies the VanderWeele-Ding conversion before an E-value is computed for a common outcome.
 
-### Correct a model coefficient directly
+### 4. Correct a coefficient from the last model
 
-`qba_confound` can read directly from the last estimation command. It auto-detects whether the model is log-scale (logistic, Cox, Poisson) or linear (regress) and applies the appropriate correction formula.
+`from_model` reads the active Stata estimation results. Log-scale models are exponentiated to a ratio measure; linear models use the coefficient directly and require the signed additive `confeffect()` correction.
 
 ```stata
 sysuse auto, clear
@@ -102,7 +95,7 @@ logistic foreign mpg weight
 qba_confound, from_model coef(mpg) p1(.35) p0(.15) rrcd(1.8) evalue
 ```
 
-For linear models, the correction is subtractive rather than multiplicative:
+For a linear model, use `confeffect()` rather than `rrcd()` or `rrud()`:
 
 ```stata
 sysuse auto, clear
@@ -110,151 +103,320 @@ regress price mpg weight
 qba_confound, from_model coef(weight) p1(.3) p0(.1) confeffect(500)
 ```
 
-### Use qba_confound after tmle or ltmle
+### 5. Propagate bias-parameter uncertainty and plot it
 
-After a separately installed `tmle` or `ltmle` command, `qba_confound` can use the active estimation contract without `estimate()` or `from_model`. `qba` only reads the contract left in `e()`; it does not install or provide those commands. Current TMLE/LTMLE effects are additive contrasts, so use `confeffect()` for a subtractive confounding correction:
-
-```stata
-tmle x1 x2, outcome(y) treatment(a) nolog
-qba_confound, p1(.35) p0(.15) confeffect(.25)
-
-ltmle, id(id) period(t) outcome(y) treatment(a) covariates(l1 l2) nolog
-qba_confound, p1(.35) p0(.15) confeffect(.25)
-```
-
-`qba_confound, evalue` works after TMLE/LTMLE only when the active contract explicitly reports a ratio-scale effect (`OR` or `RR`). For additive contracts, qba reports the observed effect and skips E-values because E-values require a ratio measure.
-
-### Probabilistic analysis with distributions
-
-Use distributions to encode uncertainty about bias parameters. Lash, Fox, and Fink recommend trapezoidal distributions for expert opinion. Save results for visualization.
+`reps()` activates Monte Carlo analysis. The saved dataset contains the corrected result variable used by `qba_plot, distribution`.
 
 ```stata
 qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95) ///
     reps(10000) dist_se("trapezoidal .75 .82 .88 .95") ///
     dist_sp("trapezoidal .90 .93 .97 1.0") seed(12345) ///
-    saving(mc_results, replace)
+    saving("mc_results.dta", replace)
+
+qba_plot, distribution using("mc_results.dta") observed(2.15)
 ```
 
-### Multi-bias analysis
+### 6. Chain multiple biases
 
-Chain misclassification, selection, and confounding corrections in one simulation. The default order follows Lash/Fox/Fink (2021): misclassification -> selection -> confounding.
+Complete parameter sets activate the corresponding bias corrections. This example applies misclassification, selection, and confounding in the default order and uses fixed parameters inside the simulation.
 
 ```stata
 qba_multi, a(136) b(297) c(1432) d(6738) reps(10000) ///
-    seca(.85) spca(.95) dist_se("trapezoidal .75 .82 .88 .95") ///
+    seca(.85) spca(.95) ///
     sela(.9) selb(.85) selc(.7) seld(.8) ///
     p1(.4) p0(.2) rrcd(2.0) seed(12345)
 ```
 
-Only biases with complete parameter sets are activated. You can run any combination of one, two, or all three bias types.
-
-### Visualization
+Reverse the cell-level order when required by the study design:
 
 ```stata
-* Distribution plot from Monte Carlo results
-qba_plot, distribution using(mc_results) observed(2.15)
-
-* Tornado sensitivity plot (which parameter matters most?)
-qba_plot, tornado a(136) b(297) c(1432) d(6738) ///
-    param1(se) range1(.7 1) param2(sp) range2(.8 1)
-
-* Tipping point plot (which Se/Sp combinations cross the null?)
-qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
-    param1(se) range1(.6 1) param2(sp) range2(.6 1)
+qba_multi, a(136) b(297) c(1432) d(6738) reps(10000) ///
+    seca(.85) spca(.95) sela(.9) selb(.85) selc(.7) seld(.8) ///
+    order(selection misclass) measure(RR) seed(12345)
 ```
+
+### 7. Explore sensitivity with tornado and tipping-point plots
+
+Tornado plots vary up to three parameters one at a time. Tipping-point plots vary two parameters of the same bias type and classify whether the corrected estimate crosses the null.
+
+```stata
+qba_plot, tornado a(136) b(297) c(1432) d(6738) ///
+    param1(se) range1(.7 1) param2(sp) range2(.8 1) steps(30)
+
+qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
+    param1(se) range1(.6 1) param2(sp) range2(.6 1) steps(25)
+```
+
+### Use qba_confound after tmle or ltmle
+
+When neither `estimate()` nor `from_model` is supplied, `qba_confound` can read an active estimation contract left by separately installed `tmle` or `ltmle` software. The command uses `e(tau)` and any available confidence limits; additive contracts use `confeffect()`, while E-values require an explicitly declared ratio-scale effect.
 
 ## Demo
 
-The demo script (`qba/demo/demo_qba.do`) produces three plots. It is a development artifact run from the full Stata-Tools checkout, not from a `net install qba` install: in addition to `qba` it requires the sibling package `tc_schemes` (for the plot scheme), which it locates next to the repository directory. Run it from the repository root with:
+The checkout-only script [`demo/demo_qba.do`](demo/demo_qba.do) regenerates the three tracked PNG assets below. Run it from a Stata-Tools checkout with `stata-mp -b do qba/demo/demo_qba.do`; the script installs the local qba build and also requires the sibling `tc_schemes` package for its graph scheme.
 
-```bash
-stata-mp -b do qba/demo/demo_qba.do
+| Output | Focus |
+|--------|-------|
+| ![Three-parameter tornado sensitivity plot for the corrected odds ratio](demo/tornado_plot.png) | Tornado sensitivity across sensitivity, specificity, and the confounder-disease risk ratio |
+| ![Monte Carlo distribution of the multi-bias corrected odds ratio](demo/distribution_plot.png) | Histogram and density of the saved multi-bias simulation |
+| ![Misclassification tipping-point plot for sensitivity and specificity](demo/tipping_plot.png) | Grid of corrected odds ratios classified by null crossing and relation to the observed estimate |
+
+The demo uses a case-control pesticide-exposure scenario and also illustrates fixed analyses, model-based confounding correction, probabilistic analyses, saved Monte Carlo datasets, and all three plot types. The demo and its assets are documentation artifacts in the repository; core qba commands do not require `tc_schemes`.
+
+## Command Reference
+
+### `qba`
+
+```stata
+qba [, version]
 ```
 
-The demo uses a case-control pesticide exposure scenario with 136 exposed cases, 297 unexposed cases, 1432 exposed controls, 6738 unexposed controls, and an observed OR of 2.15. It runs the full range of analyses as a worked example -- fixed single-bias corrections; model-based confounding correction (fitting a logistic outcome model and a linear biomarker model, then applying `qba_confound, from_model`); probabilistic single-bias analyses; multi-bias analysis; and saved Monte Carlo dataset validation -- before building the plots below.
+`qba` displays the package version and the five analysis/visualization commands. The optional `version` flag is accepted for a lightweight version check, but the overview is displayed and `r(version)` and `r(commands)` are stored with or without it.
 
-### Demo Plots
+### `qba_misclass`
 
-The demo regenerates these PNG files and validates the saved Monte Carlo datasets before creating the distribution plot.
+```stata
+qba_misclass, a(#) b(#) c(#) d(#) seca(#) spca(#) ///
+    [secb(#) spcb(#) type(exposure|outcome) measure(OR|RR) ///
+     reps(#) dist_se(spec) dist_sp(spec) dist_se1(spec) dist_sp1(spec) ///
+     corr(#) totalerror fcase(#) fctrl(#) seed(#) level(#) ///
+     saving(filename[, replace])]
+```
 
-![Three-parameter tornado sensitivity plot](demo/tornado_plot.png)
+| Option | Default | Purpose and constraints |
+|--------|---------|------------------------|
+| `a()` `b()` `c()` `d()` | Required | Non-negative 2x2 table cells; the four cells cannot all be zero |
+| `seca()` `spca()` | Required | Group-A sensitivity and specificity in `(0, 1]`; their sum must exceed 1 |
+| `type()` | `exposure` | Correct exposure misclassification within disease strata, or outcome misclassification within exposure strata |
+| `secb()` `spcb()` | Unset | Supplying either enables differential misclassification; the missing value uses its group-A counterpart and the group-B sum must exceed 1 |
+| `measure()` | `OR` | Compute an odds ratio or risk ratio from the corrected table |
+| `reps()` | `0` | Fixed-parameter mode when omitted or zero; probabilistic mode requires at least 100 replications |
+| `dist_se()` `dist_sp()` | Constant at `seca()`/`spca()` | Distributions for group-A sensitivity and specificity in probabilistic mode |
+| `dist_se1()` `dist_sp1()` | Constant at `secb()`/`spcb()` | Distributions for group B in differential probabilistic mode; they require differential mode |
+| `corr()` | `0` | Gaussian-copula correlation in `[-1, 1]` between the two strata's sensitivities and, separately, specificities; requires differential mode |
+| `totalerror` | Off | Add total-error and random-error-only simulation intervals; requires probabilistic mode, whole-number cells, and all four cells greater than zero |
+| `fcase()` `fctrl()` | `1` | Case and non-case source-population sampling fractions in `(0, 1]`; apply only with `type(outcome)` |
+| `seed()` | Unset | Set the random-number seed |
+| `level()` | `95` | Percentile simulation-interval level |
+| `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
 
-![Multi-bias Monte Carlo distribution plot](demo/distribution_plot.png)
+`fcase()` and `fctrl()` inflate a sampled case-control table to the source population before outcome misclassification is corrected. They are rejected for exposure misclassification.
 
-![Misclassification tipping-point plot](demo/tipping_plot.png)
+### `qba_selection`
 
-## Supported Distributions
+```stata
+qba_selection, a(#) b(#) c(#) d(#) ///
+    sela(#) selb(#) selc(#) seld(#) ///
+    [measure(OR|RR) reps(#) dist_sela(spec) dist_selb(spec) ///
+     dist_selc(spec) dist_seld(spec) seed(#) level(#) ///
+     saving(filename[, replace])]
+```
 
-For probabilistic analysis, bias parameters can be drawn from six distribution families:
+| Option | Default | Purpose and constraints |
+|--------|---------|------------------------|
+| `a()` `b()` `c()` `d()` | Required | Non-negative 2x2 table cells; the four cells cannot all be zero |
+| `sela()` through `seld()` | Required | Selection probabilities for the four cells, each in `(0, 1]` |
+| `measure()` | `OR` | Compute an odds ratio or risk ratio from the corrected table |
+| `reps()` | `0` | Fixed cell correction when omitted or zero; probabilistic mode requires at least 100 replications |
+| `dist_sela()` through `dist_seld()` | Constant at the corresponding fixed probability | Distributions for the four selection probabilities in probabilistic mode |
+| `seed()` | Unset | Set the random-number seed |
+| `level()` | `95` | Percentile simulation-interval level |
+| `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
 
-| Distribution | Syntax | Notes |
-|-------------|--------|-------|
-| Trapezoidal | `trapezoidal min m1 m2 max` | Recommended by Lash/Fox/Fink for expert opinion |
-| Triangular | `triangular min mode max` | |
-| Uniform | `uniform min max` | |
-| Beta | `beta shape1 shape2` | Natural for probabilities; shape params encode prior strength |
-| Logit-normal | `logit-normal mean sd` | Mean and SD are on the logit scale; bounded on (0, 1) |
-| Constant | `constant value` | Fixed value (no uncertainty) |
+Simple mode divides each cell by its selection probability and reports the selection bias factor on the odds-ratio scale, even when the requested measure is `RR`.
 
-Distributions are specified as strings in `dist_*()` options. When `reps()` is specified but a `dist_*()` option is omitted, the corresponding fixed parameter value is used as a constant.
+### `qba_confound`
+
+```stata
+qba_confound, [estimate(#) | from_model] ///
+    [coef(name) measure(OR|RR|HR|IRR) ///
+     p1(#) p0(#) rrcd(#) rrud(#) confeffect(#) ///
+     evalue ci_bound(#) commonoutcome ///
+     reps(#) dist_p1(spec) dist_p0(spec) dist_rr(spec) ///
+     dist_confeffect(spec) seed(#) level(#) ///
+     saving(filename[, replace])]
+```
+
+| Option | Default | Purpose and constraints |
+|--------|---------|------------------------|
+| `estimate()` | Unset | Direct observed ratio measure; must be greater than zero and cannot be combined with `from_model` |
+| `from_model` | Off | Read the coefficient and standard error from the last estimation command; `coef()` selects the target when needed |
+| `coef()` | First eligible coefficient when there is one | Name a non-constant, non-omitted main-equation coefficient when the model has multiple eligible predictors |
+| `measure()` | `RR` for `estimate()`; auto-detected from recognized models | Accept `OR`, `RR`, `HR`, or `IRR`; linear `from_model` results are labeled `coefficient` |
+| `p1()` `p0()` | Unset | Confounder prevalence among exposed and unexposed, each in `[0, 1]`; required for a bias correction |
+| `rrcd()` | Unset | Schneeweiss confounder-disease risk-ratio parameterization; must be greater than zero and cannot be combined with `rrud()` |
+| `rrud()` | Unset | Greenland confounder-disease risk-ratio parameterization; must be greater than zero and cannot be combined with `rrcd()` |
+| `confeffect()` | Unset | Signed additive confounder effect for linear `from_model` corrections; required instead of `rrcd()`/`rrud()` |
+| `evalue` | Off | Compute the E-value for the point estimate and, when available, the confidence-limit bound closest to the null |
+| `ci_bound()` | Unset | Positive confidence-limit bound for an E-value when a model-derived interval is unavailable; requires `evalue` |
+| `commonoutcome` | Off | Apply the Table 2 conversion for a common outcome before an E-value; requires `evalue` |
+| `reps()` | `0` | Simple correction or E-value when omitted or zero; probabilistic correction requires at least 100 replications |
+| `dist_p1()` `dist_p0()` | Constant at `p1()`/`p0()` | Distributions for confounder prevalence in probabilistic mode |
+| `dist_rr()` | Constant at `rrcd()` or `rrud()` | Distribution for a ratio-scale confounder-disease parameter |
+| `dist_confeffect()` | Constant at `confeffect()` | Distribution for a signed additive confounder effect in linear probabilistic mode |
+| `seed()` | Unset | Set the random-number seed |
+| `level()` | `95` | Percentile simulation-interval level and model-derived confidence-interval level |
+| `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
+
+`qba_confound` supports automatic ratio-scale handling for recognized log-scale estimators, including logistic, count, Cox, and suitable GLM models. Other model results are treated as additive coefficients. A model with multiple eligible predictors requires `coef()`.
+
+### `qba_multi`
+
+```stata
+qba_multi, a(#) b(#) c(#) d(#) reps(#) ///
+    [measure(OR|RR) ///
+     seca(#) spca(#) secb(#) spcb(#) mctype(exposure|outcome) ///
+     dist_se(spec) dist_sp(spec) dist_se1(spec) dist_sp1(spec) corr(#) ///
+     sela(#) selb(#) selc(#) seld(#) ///
+     dist_sela(spec) dist_selb(spec) dist_selc(spec) dist_seld(spec) ///
+     p1(#) p0(#) rrcd(#) rrud(#) ///
+     dist_p1(spec) dist_p0(spec) dist_rr(spec) ///
+     order(string) seed(#) level(#) saving(filename[, replace])]
+```
+
+| Option | Default | Purpose and constraints |
+|--------|---------|------------------------|
+| `a()` `b()` `c()` `d()` | Required | Non-negative 2x2 table cells; the four cells cannot all be zero |
+| `reps()` | Required | Monte Carlo replications; at least 100 because `qba_multi` has no simple mode |
+| `measure()` | `OR` | Compute an odds ratio or risk ratio |
+| `seca()` `spca()` | Unset | Together activate misclassification; each is in `(0, 1]` and their sum must exceed 1 |
+| `secb()` `spcb()` | Unset | Together or individually enable differential misclassification; a missing counterpart uses group A |
+| `mctype()` | `exposure` | Apply misclassification within outcome strata or exposure strata |
+| `dist_se()` `dist_sp()` | Constant at group-A values | Distributions for group-A sensitivity and specificity |
+| `dist_se1()` `dist_sp1()` | Constant at group-B values | Distributions for differential group-B parameters; require differential mode |
+| `corr()` | `0` | Gaussian-copula correlation across differential strata; requires differential mode |
+| `sela()` through `seld()` | Unset | Together activate selection-bias correction; each probability is in `(0, 1]` |
+| `dist_sela()` through `dist_seld()` | Constant at the corresponding fixed probability | Distributions for active selection probabilities |
+| `p1()` `p0()` plus `rrcd()` or `rrud()` | Unset | Together activate confounding correction; `rrcd()` and `rrud()` cannot both be supplied |
+| `dist_p1()` `dist_p0()` `dist_rr()` | Constant at the corresponding fixed value | Distributions for active confounding parameters |
+| `order()` | Active cell-level biases in `misclass selection` order | Reorder `misclass` and `selection`; all active cell-level biases must appear, and `confound` is always last |
+| `seed()` | Unset | Set the random-number seed |
+| `level()` | `95` | Percentile simulation-interval level |
+| `saving()` | None | Save corrected cell counts and corrected measures; `replace` overwrites an existing file |
+
+At least one complete bias-parameter set is required. `qba_multi` does not offer `totalerror`, E-values, or case-control sampling-fraction adjustment.
+
+### `qba_plot`
+
+```stata
+qba_plot, tornado | distribution | tipping ///
+    [a(#) b(#) c(#) d(#) measure(OR|RR|coefficient) type(exposure|outcome) ///
+     param1(name) range1(# #) param2(name) range2(# #) ///
+     param3(name) range3(# #) steps(#) ///
+     base_se(#) base_sp(#) base_sela(#) base_selb(#) ///
+     base_selc(#) base_seld(#) base_p1(#) base_p0(#) ///
+     base_rrcd(#) base_rrud(#) using(filename) observed(#) null(#) ///
+     scheme(name) title(string) saving(filename) name(name) replace ///
+     twoway_options]
+```
+
+| Option | Default | Purpose and constraints |
+|--------|---------|------------------------|
+| `tornado` `distribution` `tipping` | None | Choose exactly one plot type |
+| `a()` `b()` `c()` `d()` | Unset | Required for tornado and tipping plots; non-negative and not all zero |
+| `type()` | `exposure` | Misclassification type for tornado and tipping calculations |
+| `measure()` | `OR` for grid plots; inferred for distribution plots | Tornado/tipping accept `OR` or `RR`; distribution also accepts `coefficient` |
+| `param1()` and `range1()` | Unset | Required for all grid plots; sweep a recognized bias parameter across two endpoints |
+| `param2()` and `range2()` | Unset | Required for tipping; optional for tornado |
+| `param3()` and `range3()` | Unset | Optional third tornado parameter; not supported for tipping |
+| `steps()` | `20` | Grid points per parameter; minimum 2, with `steps()^2` points for tipping |
+| `base_se()` `base_sp()` | `0.9` | Baseline sensitivity and specificity for non-swept misclassification parameters |
+| `base_sela()` through `base_seld()` | `1` | Baseline selection probabilities for non-swept selection parameters |
+| `base_p1()` `base_p0()` | `0.3`, `0.1` | Baseline confounder prevalence values |
+| `base_rrcd()` | `2` | Baseline Schneeweiss confounder-disease risk ratio |
+| `base_rrud()` | Unset | If supplied, use the Greenland parameterization for confounding sweeps |
+| `using()` | Required for distribution | Saved Monte Carlo dataset containing `corrected_or`, `corrected_rr`, or `corrected_coefficient` |
+| `observed()` | Required for distribution | Observed measure shown as a reference line |
+| `null()` | `1` for OR/RR; `0` for coefficient distributions; `1` for grid plots | Null reference value |
+| `scheme()` | Current Stata graph scheme | Graph scheme |
+| `title()` | Plot-specific default | Graph title |
+| `saving()` | None | Export the graph; `replace` overwrites an existing file |
+| `name()` | None | Name the graph in memory; `replace` permits an existing name |
+| `replace` | Off | Replace an existing exported file or named graph; `name(foo, replace)` is also accepted |
+| `twoway_options` | None | Additional options passed to the underlying `twoway` graph command |
+
+Recognized sweep parameters are `se`/`seca`, `sp`/`spca`, `sela`, `selb`, `selc`, `seld`, `p1`, `p0`, `rrcd`, and `rrud`. Differential `secb()` and `spcb()` are not supported in tornado or tipping plots. Tipping axes must be the same bias type, cannot be selection parameters, and cannot combine `rrcd` with `rrud`.
+
+## Key Options
+
+### Distribution families
+
+Use these forms inside the relevant `dist_*()` option. Parameter order and support are checked by qba.
+
+| Distribution | Specification | Constraints |
+|--------------|---------------|-------------|
+| Trapezoidal | `trapezoidal min mode1 mode2 max` | `min <= mode1 <= mode2 <= max`; recommended for elicited expert opinion |
+| Triangular | `triangular min mode max` | `min <= mode <= max` |
+| Uniform | `uniform min max` | `min < max` |
+| Beta | `beta shape1 shape2` | Both shape parameters greater than zero |
+| Logit-normal | `logit-normal mean sd` | Mean and standard deviation are on the logit scale; `sd` must be positive |
+| Constant | `constant value` | One fixed value and no parameter uncertainty |
+
+Probability parameters are screened against their support after drawing: sensitivities, specificities, and selection probabilities must lie in `(0, 1)`, while confounder prevalences may include 0 and 1. Out-of-support draws and undefined corrected measures are retained as missing rows in saved Monte Carlo data and excluded from summaries.
+
+### Saving and plotting Monte Carlo results
+
+`saving(filename, replace)` is available only in probabilistic analyses. The saved file has one row per requested replication and includes the draws and corrected results needed for downstream inspection; `qba_misclass, totalerror` also saves reallocated and error-source-specific measures. The distribution plot selects a unique `corrected_or`, `corrected_rr`, or `corrected_coefficient` variable automatically, or uses the requested `measure()` when more than one is present.
+
+### E-value scale
+
+`qba_confound, evalue` uses the risk-ratio formula from VanderWeele and Ding (2017). `RR` and `IRR` enter directly, `OR` and `HR` enter directly only under the rare-outcome assumption, and `commonoutcome` applies the documented Table 2 conversion for `OR` or `HR`. The scale used is printed and recorded in `r(evalue_rr)` and `r(evalue_conv)`.
 
 ## Stored Results
 
-All commands are `rclass` and store results in `r()`. See individual help files for complete lists.
+All six public commands are `rclass`. Use `return list` immediately after a command to inspect the current result set.
 
-### Simple mode
+### `qba`
 
-| Result | Description | Commands |
-|--------|-------------|----------|
-| `r(observed)` | Observed measure of association | all |
-| `r(corrected)` | Corrected measure of association | all (when correction is performed) |
-| `r(ratio)` | Corrected / observed | misclass, selection, confound |
-| `r(bias_factor)` | Bias factor | selection (SBF), confound (BF) |
-| `r(measure)` | Measure type (`OR`, `RR`, `HR`, `IRR`, or `coefficient`) | all |
-| `r(version)` | Package version | `qba` |
-| `r(commands)` | Space-separated list of the package's commands | `qba` |
-| `r(method)` | `simple`, `probabilistic`, or `multi-bias` | all |
-| `r(type)` | Misclassification type | misclass |
-| `r(corrected_a)` through `r(corrected_d)` | Corrected cell counts | misclass, selection |
-| `r(evalue)` | E-value for point estimate | confound (when `evalue` specified) |
-| `r(evalue_ci)` | E-value for CI bound | confound (when available) |
-| `r(evalue_rr)` / `r(evalue_conv)` | Risk ratio the E-value formula used, and which VanderWeele-Ding Table 2 conversion produced it | confound (when `evalue` specified) |
-| `r(se)` | Standard error for model/contract-derived source estimate | confound (`from_model` or active contract) |
-| `r(correction_type)` | `subtractive` for linear models | confound |
+Stores the local macros `r(version)` and `r(commands)`.
 
-### Probabilistic mode (when `reps()` specified)
+### `qba_misclass`
 
-| Result | Description | Commands |
-|--------|-------------|----------|
-| `r(corrected)` | Median corrected measure | all |
-| `r(mean)` | Mean of Monte Carlo distribution | all |
-| `r(sd)` | Standard deviation | all |
-| `r(ci_lower)` / `r(ci_upper)` | Systematic-error simulation interval limits | all |
-| `r(interval)` | What `r(ci_lower)`/`r(ci_upper)` are | all |
-| `r(reps)` | Number of replications requested | all |
-| `r(n_valid)` | Valid (non-missing) replications | all |
-| `r(n_draw_invalid)` | Draws with out-of-support parameters | confound, multi |
-| `r(n_biases)` | Number of bias types corrected | multi |
-| `r(order)` | Correction order used | multi |
-| `r(corr)` | Se/Sp correlation across strata (when `corr()` is nonzero) | misclass, multi |
-| `r(te_median)`, `r(te_mean)`, `r(te_sd)`, `r(te_lower)`, `r(te_upper)`, `r(n_valid_te)` | Total-error arm | misclass (`totalerror`) |
-| `r(re_median)`, `r(re_lower)`, `r(re_upper)` | Random-error-only arm | misclass (`totalerror`) |
-| `r(fcase)`, `r(fctrl)`, `r(adj_a)`-`r(adj_d)` | Case-control sampling fractions and the source-population table | misclass (`fcase()`/`fctrl()`) |
+- Simple mode stores `r(a)`, `r(b)`, `r(c)`, `r(d)`, `r(corrected_a)` through `r(corrected_d)`, `r(observed)`, `r(corrected)`, `r(seca)`, `r(spca)`, `r(type)`, `r(measure)`, and `r(method)`, plus `r(ratio)` when defined and `r(secb)`/`r(spcb)` in differential mode.
+- With `fcase()` or `fctrl()`, it additionally stores the fractions and source-population cells as `r(fcase)`, `r(fctrl)`, and `r(adj_a)` through `r(adj_d)`.
+- Probabilistic mode stores the observed measure, median corrected measure, `r(mean)`, `r(sd)`, `r(ci_lower)`, `r(ci_upper)`, `r(reps)`, `r(n_valid)`, and the macros `r(type)`, `r(measure)`, `r(method)`, `r(interval)`, `r(dist_se)`, and `r(dist_sp)`.
+- A nonzero `corr()` adds `r(corr)`. `totalerror` adds `r(n_valid_te)`, total-error summaries when valid, and the random-error-only summaries `r(re_median)`, `r(re_lower)`, and `r(re_upper)`.
 
-## Key Features
+### `qba_selection`
 
-- **Simple and probabilistic modes**: Fixed-parameter analysis for single-bias commands; Monte Carlo simulation for bias-parameter uncertainty propagation
-- **Systematic-, total-, and random-error intervals**: `qba_misclass, totalerror` implements the revised summary-level algorithm of Fox, MacLehose, and Lash (2023) -- predictive-value/binomial reclassification plus a random-error draw -- and reports the three interval widths side by side
-- **Correlated bias parameters**: `corr()` correlates Se across strata and Sp across strata through a Gaussian copula, leaving each requested marginal distribution exactly intact
-- **Case-control outcome misclassification**: `fcase()` and `fctrl()` inflate the sampled table to the source population before correcting, as the method requires
-- **Six distribution families**: Trapezoidal, triangular, uniform, Beta, logit-normal, and constant
-- **Multi-bias chaining**: Combine misclassification, selection, and confounding corrections in one simulation following Lash/Fox/Fink (2021) Chapter 12
-- **E-values**: Compute the minimum confounding strength needed to explain away an observed effect (VanderWeele & Ding 2017), with the Table 2 conversions for common outcomes -- `commonoutcome` applies sqrt(OR) for an odds ratio and the (1-0.5^sqrt(HR))/(1-0.5^sqrt(1/HR)) approximation for a hazard ratio; the scale used is always printed
-- **Model integration**: `qba_confound` reads directly from Stata estimation results (`from_model`) with auto-detection of measure type and support for linear and log-scale models
-- **TMLE/LTMLE integration**: `qba_confound` reads active contracts left by optional `tmle` and `ltmle` commands for post-estimation unmeasured-confounding sensitivity checks
-- **Three visualization types**: Tornado sensitivity plots, Monte Carlo distribution plots, and tipping point heatmaps
-- **Differential misclassification**: Separate Se/Sp by disease or exposure stratum
-- **Subtractive correction**: Linear model coefficients are corrected subtractively rather than by ratio
+- Simple mode stores the observed and corrected cells, `r(observed)`, `r(corrected)`, `r(bias_factor)`, `r(ratio)` when defined, `r(sela)` through `r(seld)`, and the macros `r(measure)` and `r(method)`.
+- Probabilistic mode stores `r(observed)`, the median `r(corrected)`, `r(mean)`, `r(sd)`, `r(ci_lower)`, `r(ci_upper)`, `r(reps)`, `r(n_valid)`, and the macros `r(measure)`, `r(method)`, and `r(interval)`.
+
+### `qba_confound`
+
+- Simple mode stores `r(observed)` and, when a correction is requested, `r(corrected)`, `r(bias_factor)` for ratio measures, `r(ratio)` when defined, the supplied prevalence and confounder parameters, and the macro `r(correction_type)` for linear corrections.
+- `evalue` adds `r(evalue)`, `r(evalue_ci)` when a confidence-limit E-value is available, `r(evalue_rr)`, and `r(evalue_conv)`.
+- Model-derived estimates add `r(ci_lower)`, `r(ci_upper)`, and `r(se)` when available, together with the contract macros `r(source)`, `r(cmd)`, `r(outcome)`, `r(treatment)`, and `r(estimand)`.
+- Probabilistic mode stores `r(observed)`, median `r(corrected)`, `r(mean)`, `r(sd)`, `r(ci_lower)`, `r(ci_upper)`, `r(reps)`, `r(n_valid)`, `r(n_draw_invalid)`, and the macros `r(measure)`, `r(method)`, and `r(interval)`, plus the conditional E-value and contract results above.
+
+### `qba_multi`
+
+Stores `r(observed)`, median `r(corrected)`, `r(mean)`, `r(sd)`, `r(ci_lower)`, `r(ci_upper)`, `r(reps)`, `r(n_valid)`, `r(n_draw_invalid)`, and `r(n_biases)`. It also stores `r(corr)` when nonzero and the macros `r(measure)`, `r(method)`, `r(interval)`, and `r(order)`.
+
+### `qba_plot`
+
+Stores the macros `r(plot_type)`, `r(measure)`, and `r(scheme)`. Tornado and tipping plots also store `r(n_missing)`, the number of infeasible or undefined grid points.
+
+## Assumptions and Limits
+
+- The percentile intervals from `reps()` are systematic-error simulation intervals, not corrected confidence intervals. They reflect uncertainty in the supplied bias distributions and do not automatically include sampling error.
+- The minimum accepted `reps()` value is 100, but that is a floor rather than a stability guarantee. Wider or skewed distributions can produce invalid draws; qba warns when more than 20% of replicates are invalid and recommends narrowing the distributions.
+- Misclassification matrix inversion requires sensitivity plus specificity greater than 1. Fixed analyses report an undefined corrected measure when any corrected cell is nonpositive, and probabilistic analyses exclude such replicates.
+- `totalerror` is available only for `qba_misclass`. It requires integer, strictly positive cells because it draws prevalence values and reallocates cells with binomial draws; `qba_multi` provides no total-error arm.
+- For outcome misclassification in a case-control study, use `fcase()` and `fctrl()` so the sampled table is inflated to the source population. These options do not apply to exposure misclassification.
+- `qba_confound` corrects ratio measures multiplicatively and linear model coefficients subtractively. E-values require an OR, RR, HR, or IRR; they are skipped for additive coefficients.
+- Without `commonoutcome`, applying an E-value directly to an OR or HR assumes a rare outcome. Use `commonoutcome` when the outcome is common, and interpret the result against plausible confounder-treatment and confounder-outcome associations rather than a universal threshold.
+- `from_model` requires active estimation results and can require `coef()` when multiple eligible predictors are present. `tmle` and `ltmle` support is contract-based and is not an estimator supplied by qba.
+- Tipping plots require two parameters of the same supported bias type, and grid plots can become slow as `steps()` increases, especially because tipping plots evaluate `steps()^2` points.
+
+## References
+
+- Lash TL, Fox MP, Fink AK. *Applying Quantitative Bias Analysis to Epidemiologic Data*. 2nd ed. Springer; 2021.
+- Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity analyses of misclassified binary variables. *International Journal of Epidemiology*. 2005;34(6):1370-1376.
+- Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative bias analysis for misclassified binary variables and binary unmeasured confounders. *International Journal of Epidemiology*. 2023;52(5):1624-1633.
+- Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured confounders in epidemiologic database studies of therapeutics. *Pharmacoepidemiology and Drug Safety*. 2006;15(5):291-303.
+- VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Annals of Internal Medicine*. 2017;167(4):268-274.
+- Greenland S. Basic methods for sensitivity analysis of biases. *International Journal of Epidemiology*. 1996;25(6):1107-1116.
 
 ## QA
 
@@ -262,26 +424,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-**Version 1.1.0** (26 July 2026)
-
-Aligns the package with Fox, MacLehose, and Lash (2023) and VanderWeele and Ding (2017) Table 2.
-
-- Monte Carlo percentile intervals are now labelled **systematic-error simulation intervals** in output, help files, and README, and `r(interval)` records what `r(ci_lower)`/`r(ci_upper)` are. `r(ci_lower)`/`r(ci_upper)` keep their names for backward compatibility. Previously they were presented as corrected confidence intervals, which overstated what a bias-parameter-only simulation delivers.
-- New `qba_misclass, totalerror`: implements the revised summary-level algorithm (Beta prevalence draw, PPV/NPV conversion, binomial reallocation of the observed cells, then a normal perturbation on the log scale using the bias-adjusted standard error) and reports total-error and random-error-only intervals next to the systematic-error one. Verified against the author reference R code.
-- New `corr()` on `qba_misclass` and `qba_multi`: correlates the two strata's sensitivities and, separately, their specificities via a Gaussian copula, preserving each requested marginal exactly.
-- New `fcase()` and `fctrl()` on `qba_misclass`: case and control sampling fractions for outcome misclassification in a case-control study. Previously `type(outcome)` silently applied the cohort correction to case-control data.
-- `qba_confound`: `measure()` now accepts `HR` and `IRR`, and the new `commonoutcome` option applies the VanderWeele-Ding Table 2 conversion before the E-value formula. The E-value scale is printed, and `r(evalue_rr)`/`r(evalue_conv)` record it. The hard-coded weak/moderate/strong robustness grade has been replaced with the contextual guidance of their Table 3, which the grade had no basis in.
-- Simple-mode `qba_misclass` now treats a corrected cell of exactly zero as incompatible with the observed data, matching the probabilistic arm and the reference worked example. Previously it could report a corrected odds ratio of exactly 0.
-- The `reps()` floor message no longer describes 100 replications as sufficient for stable results; help files now cite the 10^5-10^6 scale used in the source.
-- Documented that a saved Monte Carlo dataset retains invalid replications as rows with missing measures.
-
-**Version 1.0.1** (19 June 2026)
-
-Documentation polish for explicit selection-distribution and stored-result help tokens, helper lint cleanup, and package metadata refresh.
-
-**Version 1.0.0** (2 June 2026)
-
-Initial public release. Simple and probabilistic bias analysis for exposure and outcome misclassification (`qba_misclass`), selection bias (`qba_selection`), and unmeasured confounding with E-values (`qba_confound`); multi-bias chaining following Lash/Fox/Fink (`qba_multi`); and tornado, Monte Carlo distribution, and tipping-point visualizations (`qba_plot`). Six distribution families for probabilistic analysis, model-based confounding correction via `from_model` with TMLE/LTMLE contract support, and a full known-answer, cross-validation, and adversarial QA suite.
+- **1.1.0** (2026-07-26): Added total-error simulation, correlated differential misclassification, case-control sampling-fraction adjustment, common-outcome E-value conversions, and explicit systematic-error interval semantics.
+- **1.0.1** (2026-06-19): Documentation polish, stored-result coverage, helper cleanup, and package metadata refresh.
+- **1.0.0** (2026-06-02): Initial public release covering misclassification, selection bias, unmeasured confounding, multi-bias simulation, and visualization.
 
 ## Author
 
@@ -290,12 +435,3 @@ Timothy P Copeland, Karolinska Institutet
 ## License
 
 MIT License
-
-## References
-
-- Lash TL, Fox MP, Fink AK. *Applying Quantitative Bias Analysis to Epidemiologic Data*. 2nd ed. Springer; 2021.
-- VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Ann Intern Med*. 2017;167(4):268-274.
-- Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured confounders. *Pharmacoepidemiol Drug Saf*. 2006;15(5):291-303.
-- Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity analyses of misclassified binary variables. *Int J Epidemiol*. 2005;34(6):1370-1376.
-- Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative bias analysis for misclassified binary variables and binary unmeasured confounders. *Int J Epidemiol*. 2023;52(5):1624-1633.
-- Greenland S. Basic methods for sensitivity analysis of biases. *Int J Epidemiol*. 1996;25(6):1107-1116.

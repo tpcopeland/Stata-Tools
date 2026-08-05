@@ -1,12 +1,31 @@
-# tc_schemes - Consolidated graph schemes for Stata
+# tc_schemes — Consolidated Stata graph schemes
 
 **Version 1.1.0** | 2026-07-10
 
-`tc_schemes` bundles publication-oriented graph schemes from Daniel Bischof's `blindschemes`, Mead Over's compatibility fixes, Asjad Naqvi's `schemepack`, Trenton Mize's `cleanplots`, and Michael Droste's `scheme-modern` into one installable package, plus original red-blue diverging (`rdbu`) and Karolinska Institutet (`ki`, `ki_black`) schemes. The wrapper command gives you a real Stata entry point, so `which tc_schemes` succeeds and project headers can check one package instead of juggling multiple upstream installs.
+`tc_schemes` bundles 45 Stata graph schemes from blindschemes, schemepack, cleanplots, scheme-modern, and the original `rdbu`, `ki`, and `ki_black` schemes. It gives applied Stata users one installable catalog command for browsing schemes and checking that the package is present with `which tc_schemes`.
+
+## Quick Start
+
+After installation, inspect the catalog and use a scheme on a graph:
+
+```stata
+tc_schemes
+set scheme plotplain
+sysuse auto, clear
+scatter mpg weight, title("Fuel economy by vehicle weight")
+```
+
+Use `scheme()` to change one graph without changing the session default:
+
+```stata
+sysuse auto, clear
+scatter mpg weight, scheme(white_tableau)
+```
 
 ## Requirements
 
 - Stata 16 or later
+- No external software or Stata package dependencies
 
 ## Installation
 
@@ -15,91 +34,81 @@ capture ado uninstall tc_schemes
 net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes") replace
 ```
 
+The installation includes the `tc_schemes` command and help file, 45 `.scheme` files, and 21 bundled `.style` color files.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `tc_schemes` | Browse the installed scheme catalog, filter by source family, and display either a compact list or detailed descriptions |
-
-## Quick Start
-
-```stata
-tc_schemes
-set scheme plotplain
-
-sysuse auto, clear
-scatter mpg weight
-```
+| `tc_schemes` | Browse the installed scheme catalog, filter by source family, and display compact or detailed output |
 
 ## How It Works
 
-- Run `tc_schemes` with no options to see the organized catalog of available schemes.
-- Use `source(blindschemes)` or `source(schemepack)` when you want to narrow the list to one upstream family.
-- Use `list` for a compact machine-readable list or `detail` for human-readable descriptions. These two display modes are mutually exclusive.
-- After browsing, either run `set scheme <name>` to change the session default or use `scheme(<name>)` on a single graph.
+`tc_schemes` is a catalog and installation-check wrapper around the scheme files shipped with the package. It does not draw a graph itself; after browsing, apply a scheme globally with `set scheme scheme_name` or to one graph with `scheme(scheme_name)`.
 
-## Included Scheme Families
+- With no options, `tc_schemes` prints an organized overview of the five source families and the total number of selected schemes.
+- `source()` narrows the catalog to one family: `blindschemes`, `schemepack`, `cleanplots`, `modern`, or `tc`. The default is `all`.
+- `list` prints one selected scheme name per line; `detail` adds descriptions, attribution, and usage notes. These display options are mutually exclusive.
+- `which tc_schemes` succeeds after installation, making the wrapper useful in project headers that need to check package presence.
 
-| Family | Count | Examples | Best for |
-|--------|-------|----------|----------|
-| `blindschemes` | 4 schemes | `plotplain`, `plotplainblind`, `plottig`, `plottigblind` | Clean publication figures and colorblind-safe defaults |
-| `white_*`, `black_*`, `gg_*` series | 27 schemes | `white_tableau`, `black_cividis`, `gg_viridis` | Choosing a palette and a background style together |
-| Standalone schemepack schemes | 8 schemes | `tab1`, `cblind1`, `ukraine`, `neon` | Distinctive one-off visual styles |
-| `cleanplots` (Trenton Mize) | 1 scheme | `cleanplots` | Publication figures that read in both color and grayscale |
-| `modern` (Michael Droste) | 2 schemes | `modern`, `modern_dark` | matplotlib-inspired modern defaults |
-| tc_schemes originals | 3 schemes | `rdbu`, `ki`, `ki_black` | Red-blue diverging contrasts; Karolinska Institutet branding |
-| Custom color styles | 21 styles | `vermillion`, `sky`, `turquoise`, `sea` | Accessible colors used by the bundled scheme families |
+The bundled scheme families are:
 
-The package includes 45 graph schemes in total: 4 from `blindschemes`, 35 from `schemepack`, `cleanplots`, `modern`/`modern_dark`, and 3 originals (`rdbu`, `ki`, `ki_black`). The `cleanplots` and `modern` schemes are bundled with attribution; see [Acknowledgments](#acknowledgments).
+| Source | Schemes | Examples and use |
+|--------|---------|------------------|
+| `blindschemes` | 4 | `plotplain`, `plotplainblind`, `plottig`, and `plottigblind` for clean publication figures and accessible palettes |
+| `schemepack` series | 27 | `white_*`, `black_*`, and `gg_*` variants of `tableau`, `cividis`, `viridis`, `hue`, `brbg`, `piyg`, `ptol`, `jet`, and `w3d` |
+| `schemepack` standalone | 8 | `tab1`, `tab2`, `tab3`, `cblind1`, `ukraine`, `swift_red`, `neon`, and `rainbow` |
+| `cleanplots` | 1 | A publication scheme designed to remain distinguishable in color and grayscale |
+| `modern` | 2 | `modern` and `modern_dark`, matplotlib-inspired defaults |
+| `tc` | 3 | `rdbu`, `ki`, and `ki_black`, the original schemes authored for this package |
+
+The bundled color styles include `vermillion`, `sky`, `turquoise`, `reddish`, `sea`, `orangebrown`, `ananas`, and the `plb1`–`plb3`, `plg1`–`plg3`, `plr1`–`plr2`, `ply1`–`ply3`, and `pll1`–`pll3` tone families.
 
 ## Worked Examples
 
-### 1. Browse the catalog and filter by source
+### 1. Browse and filter the catalog
 
-Use the catalog first when you want to see what is available before you commit to a scheme.
+Run the default overview, then request a compact list for one source and detailed descriptions for the original schemes:
 
 ```stata
 tc_schemes
-tc_schemes, detail
-tc_schemes, source(blindschemes) list
+tc_schemes, source(schemepack) list
+tc_schemes, source(tc) detail
 ```
 
-### 2. Set a global scheme for the current Stata session
+### 2. Set a global scheme for the session
 
-After `set scheme`, subsequent graphs inherit that scheme until you change it again.
+`set scheme` changes the default used by subsequent graphs until another scheme is selected.
 
 ```stata
-set scheme plotplain
+set scheme plotplainblind
 sysuse auto, clear
-scatter mpg weight, ///
-    title("Fuel Economy by Vehicle Weight") ///
-    xtitle("Weight") ytitle("Miles per gallon")
+scatter mpg weight, title("Fuel economy by vehicle weight") xtitle("Vehicle weight") ytitle("Miles per gallon")
 ```
 
-### 3. Apply a scheme to one graph without changing the session default
+### 3. Apply a scheme to one graph
 
-This is the safer workflow when you want to compare different looks side by side.
+Use `scheme()` when you want a local override without changing the session default.
 
 ```stata
 sysuse auto, clear
-scatter mpg weight, scheme(white_tableau) ///
-    title("Single-graph scheme override")
+scatter mpg weight, scheme(white_viridis) title("Single-graph scheme override")
 ```
 
-### 4. Compare two schemes visually
+### 4. Compare two visual systems
 
-Because the schemes are installed locally, you can render the same graph under two visual systems and combine them in one figure.
+Render the same data under two schemes and combine the named graphs for a side-by-side comparison.
 
 ```stata
 sysuse auto, clear
-scatter mpg weight, scheme(plotplain) name(g1, replace)
-scatter mpg weight, scheme(gg_viridis) name(g2, replace)
-graph combine g1 g2
+scatter mpg weight, scheme(plotplain) name(g_plain, replace)
+scatter mpg weight, scheme(gg_hue) name(g_hue, replace)
+graph combine g_plain g_hue, col(2)
 ```
 
-### 5. Use `which tc_schemes` as an installation check in project headers
+### 5. Check package presence in a do-file header
 
-This is one of the main reasons the wrapper command exists.
+The wrapper provides a reliable command target for an installation check even though the package is primarily a collection of `.scheme` and `.style` files.
 
 ```stata
 capture which tc_schemes
@@ -111,57 +120,79 @@ if _rc != 0 {
 
 ## Gallery
 
-### plotplain
+The previews below are generated by `demo/demo_tc_schemes.do` using `sysuse auto`. Run that script from a repository checkout to regenerate the checked-in PNG assets.
 
-![plotplain](demo/scheme_plotplain.png)
+| Preview | Scheme focus |
+|---------|--------------|
+| ![Minimal white-background publication style](demo/scheme_plotplain.png) | `plotplain` |
+| ![Colorblind-friendly publication palette](demo/scheme_plotplainblind.png) | `plotplainblind` |
+| ![Gray-background ggplot-inspired style](demo/scheme_plottig.png) | `plottig` |
+| ![White-background Tableau palette](demo/scheme_white_tableau.png) | `white_tableau` |
+| ![White-background perceptually uniform viridis palette](demo/scheme_white_viridis.png) | `white_viridis` |
+| ![Black-background Tableau palette](demo/scheme_black_tableau.png) | `black_tableau` |
+| ![Gray-background hue palette](demo/scheme_gg_hue.png) | `gg_hue` |
+| ![High-contrast neon standalone scheme](demo/scheme_neon.png) | `neon` |
+| ![Publication scheme designed for color and grayscale](demo/scheme_cleanplots.png) | `cleanplots` |
+| ![Matplotlib-inspired modern defaults](demo/scheme_modern.png) | `modern` |
+| ![Darker modern presentation variant](demo/scheme_modern_dark.png) | `modern_dark` |
+| ![Red-blue diverging palette](demo/scheme_rdbu.png) | `rdbu` |
+| ![Karolinska Institutet branded palette](demo/scheme_ki.png) | `ki` |
+| ![Karolinska Institutet dark-plum presentation palette](demo/scheme_ki_black.png) | `ki_black` |
 
-### white_tableau
+## Command Reference
 
-![white_tableau](demo/scheme_white_tableau.png)
+### Syntax
 
-### gg_hue
+```stata
+tc_schemes [, source(string) list detail]
+```
 
-![gg_hue](demo/scheme_gg_hue.png)
+### Display output
 
-### neon
+The default display groups schemes by source family, reports the selected total, and shows the `set scheme` and `scheme()` usage forms. `list` emits only the selected scheme names, while `detail` prints family descriptions, authorship, palette information, and usage notes.
 
-![neon](demo/scheme_neon.png)
+## Key Options
 
-### cleanplots
+| Option | Minimum abbreviation | Default | Effect |
+|--------|----------------------|---------|--------|
+| `source(string)` | `so` | `all` | Select `all`, `blindschemes`, `schemepack`, `cleanplots`, `modern`, or `tc` |
+| `list` | `li` | off | Display selected scheme names as a simple list |
+| `detail` | `de` | off | Display detailed descriptions and attribution |
 
-![cleanplots](demo/scheme_cleanplots.png)
+`source()` is case-insensitive. `list` and `detail` cannot be combined; an invalid source or a conflicting pair of display options returns Stata error 198.
 
-### modern
+## Stored Results
 
-![modern](demo/scheme_modern.png)
+After a successful call, `tc_schemes` stores the following results in `r()` regardless of whether the default, list, or detail display was requested:
 
-### rdbu
+| Result | Type | Meaning |
+|--------|------|---------|
+| `r(schemes)` | local macro | Space-separated scheme names in catalog order for the selected source |
+| `r(n_schemes)` | scalar | Number of selected schemes |
+| `r(sources)` | local macro | Selected source label(s); the default is `blindschemes schemepack cleanplots modern tc` |
+| `r(version)` | local macro | Package version, currently `1.1.0` |
 
-![rdbu](demo/scheme_rdbu.png)
+## Assumptions and Limits
 
-### ki
+- The package supplies scheme and style files; it does not replace Stata graph commands or create graphs without a graph command.
+- Use the exact scheme names shown by `tc_schemes` with `set scheme` or `scheme()`.
+- The `jet` family is included for compatibility, but the help file recommends caution because rainbow-style scales can mislead for continuous data.
+- `cleanplots`, `modern`, and `modern_dark` are bundled unmodified with attribution. The wrapper code is MIT-licensed, while bundled upstream files retain their original licensing and attribution.
 
-![ki](demo/scheme_ki.png)
+## References
 
-### ki_black
+### Bundled sources and attribution
 
-![ki_black](demo/scheme_ki_black.png)
-
-## Acknowledgments
-
-- Daniel Bischof created the original `blindschemes` package and its publication-oriented, accessibility-aware visual style.
-- Mead Over supplied `blindschemes_fix`, which resolved compatibility issues with recent Stata versions.
-- Asjad Naqvi created `schemepack`, which contributes the larger palette-and-background scheme families collected here.
-- Trenton D. Mize (Purdue University) created `cleanplots`. The `cleanplots` scheme is bundled here **unmodified, with attribution**; it remains the property of its author. Source: <https://www.trentonmize.com/software/cleanplots>.
-- Michael Droste created `scheme-modern`. The `modern` and `modern_dark` schemes are bundled here **unmodified, with attribution**; they remain the property of their author. Source: <https://github.com/mdroste/stata-scheme-modern>.
-- The `rdbu` scheme uses ColorBrewer colors (Cynthia Brewer, <https://colorbrewer2.org>). The `ki` and `ki_black` schemes use Karolinska Institutet brand colors (KI plum, RGB 135 0 82).
-
-Wrapper code and the original `rdbu`, `ki`, and `ki_black` schemes are distributed under MIT. Bundled third-party schemes (`cleanplots`, `modern`, `modern_dark`) and the upstream `blindschemes`/`schemepack` files retain their original licensing and attribution; they are redistributed as a convenience and remain the property of their respective authors.
+- Daniel Bischof created `blindschemes`; Mead Over supplied compatibility fixes included in this consolidation. Bischof, D. (2015), “Figure Schemes for Decent Stata Figures: plotplain & plottig.”
+- Asjad Naqvi created `schemepack`, including the palette and background series collected here.
+- Trenton D. Mize created [`cleanplots`](https://www.trentonmize.com/software/cleanplots), which is bundled unmodified with attribution.
+- Michael Droste created [`scheme-modern`](https://github.com/mdroste/stata-scheme-modern); `modern` and `modern_dark` are bundled unmodified with attribution.
+- `rdbu` uses colors based on [ColorBrewer](https://colorbrewer2.org); `ki` and `ki_black` use Karolinska Institutet brand colors, including KI plum (RGB 135 0 82).
 
 ## Version History
 
-- **1.1.0** (2026-06-28): Added six schemes (45 total). Bundled `cleanplots` (Trenton Mize) and `modern`/`modern_dark` (Michael Droste) with attribution, and added original `rdbu` (red-blue diverging), `ki`, and `ki_black` (Karolinska Institutet branded) schemes. New `source()` filters: `cleanplots`, `modern`, `tc`.
-- **1.0.0** (2026-04-08): Initial Stata-Tools release consolidating `blindschemes`, `blindschemes_fix`, and `schemepack` under one installable catalog command
+- **1.1.0** (2026-06-28): Added six schemes for 45 total, bundled `cleanplots` and `modern`/`modern_dark` with attribution, and added original `rdbu`, `ki`, and `ki_black` schemes plus `source()` filters for `cleanplots`, `modern`, and `tc`.
+- **1.0.0** (2026-04-08): Initial Stata-Tools release consolidating `blindschemes`, `blindschemes_fix`, and `schemepack` under one installable catalog command.
 
 ## Author
 
@@ -169,4 +200,4 @@ Timothy P Copeland, Karolinska Institutet
 
 ## License
 
-MIT for the wrapper command. Original scheme files retain their original licenses and attribution.
+MIT for the wrapper command and original `rdbu`, `ki`, and `ki_black` schemes. Bundled upstream scheme files retain their original licenses and attribution.

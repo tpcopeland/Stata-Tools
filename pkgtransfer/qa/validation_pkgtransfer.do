@@ -13,13 +13,16 @@ clear all
 set more off
 version 16.0
 
-* Set up validation environment
-else {
-}
-
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
+
+local orig_dir "`c(pwd)'"
+run "`qa_dir'/_pkgtransfer_qa_common.do"
+_pkgtransfer_qa_setup, pkgdir("`pkg_dir'")
+local qa_root "`r(root)'"
+local qa_original_plus "`r(original_plus)'"
+local tmpdir "`r(work)'"
 
 adopath ++ "`pkg_dir'"
 capture program drop pkgtransfer
@@ -36,11 +39,6 @@ display "{hline 70}" _n
 local n_tests 0
 local n_passed 0
 local n_failed 0
-
-* Save working directory
-local orig_dir "`c(pwd)'"
-tempfile tmpdir_marker
-local tmpdir = substr("`tmpdir_marker'", 1, length("`tmpdir_marker'") - length(regexr("`tmpdir_marker'", "^.+[/\\]", "")))
 
 * =============================================================================
 * VALIDATION 1: Every returned package appears in the do-file
@@ -455,6 +453,13 @@ else {
     local ++n_failed
 }
 
+capture noisily _pkgtransfer_qa_cleanup, root("`qa_root'") ///
+    originalplus("`qa_original_plus'")
+if _rc != 0 {
+    display as error "  FAILED: QA fixture cleanup returned rc `=_rc'"
+    local ++n_failed
+}
+
 * =============================================================================
 * SUMMARY
 * =============================================================================
@@ -473,6 +478,8 @@ else {
 display ""
 if `n_failed' > 0 {
     display as error "RESULT: FAIL"
+    log close val_pkgtransfer
+    exit 9
 }
 else {
     display as result "RESULT: PASS"

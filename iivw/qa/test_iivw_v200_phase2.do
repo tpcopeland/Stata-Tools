@@ -496,7 +496,7 @@ else {
 
 display ""
 display "test_iivw_v200_phase2: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: iivw_v200_phase2 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_iivw_v200_phase2 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 capture log close
 

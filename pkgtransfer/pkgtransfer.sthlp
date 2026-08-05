@@ -1,5 +1,6 @@
 {smcl}
 {* *! version 1.0.1  05aug2026}{...}
+{vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
 {p 4 2}

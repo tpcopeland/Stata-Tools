@@ -572,7 +572,7 @@ display as text "  tests:  " as result `test_count'
 display as text "  passed: " as result `pass_count'
 display as text "  failed: " as result `fail_count'
 
-display "RESULT: iivw_v200_phase1 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_iivw_v200_phase1 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 if `fail_count' > 0 {
     log close

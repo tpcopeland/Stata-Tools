@@ -30,9 +30,13 @@ local run_only = $RUN_TEST_NUMBER
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall pkgtransfer
-else {
-}
+local orig_dir "`c(pwd)'"
+run "`qa_dir'/_pkgtransfer_qa_common.do"
+_pkgtransfer_qa_setup, pkgdir("`pkg_dir'")
+local qa_root "`r(root)'"
+local qa_original_plus "`r(original_plus)'"
+local tmpdir "`r(work)'"
+
 adopath ++ "`pkg_dir'"
 capture program drop pkgtransfer
 run "`pkg_dir'/pkgtransfer.ado"
@@ -56,11 +60,6 @@ program define _run_test
         }
     }
 end
-
-* Save working directory and create temp dir for file output tests
-local orig_dir "`c(pwd)'"
-tempfile tmpdir_marker
-local tmpdir = substr("`tmpdir_marker'", 1, length("`tmpdir_marker'") - length(regexr("`tmpdir_marker'", "^.+[/\\]", "")))
 
 * ============================================================
 * SECTION 1: ERROR HANDLING
@@ -788,25 +787,48 @@ if `run_only' == 0 | `run_only' == `test_count' {
         confirm file "pkgtransfer_files/stata.toc"
     }
     local test_rc = _rc
+    local cleanup_rc 0
     capture file close `installer_fh'
     capture file close `tracker_fh'
     capture sysdir set PLUS "`original_plus'"
-    if _rc != 0 & `test_rc' == 0 local test_rc = _rc
-    quietly cd "`tmpdir'"
-    capture erase "pkgtransfer_files/pkgtransfer.ado"
-    capture erase "pkgtransfer_files/pkgtransfer.sthlp"
-    capture erase "pkgtransfer_files/pkgtransfer.pkg"
-    capture erase "pkgtransfer_files/stata.toc"
+    if _rc != 0 local cleanup_rc = _rc
+    if "`c(sysdir_plus)'" != "`original_plus'" local cleanup_rc = 9
+    capture quietly cd "`tmpdir'"
+    if _rc != 0 local cleanup_rc = _rc
+
+    foreach artifact in ///
+        "pkgtransfer_files/pkgtransfer.ado" ///
+        "pkgtransfer_files/pkgtransfer.sthlp" ///
+        "pkgtransfer_files/pkgtransfer.pkg" ///
+        "pkgtransfer_files/stata.toc" ///
+        "custom installer.do" ///
+        "custom archive.zip" ///
+        "`fixture_plus'/p/pkgtransfer.ado" ///
+        "`fixture_plus'/p/pkgtransfer.sthlp" ///
+        "`fixture_plus'/stata.trk" {
+        capture erase `"`artifact'"'
+        capture confirm file `"`artifact'"'
+        if _rc != 601 local cleanup_rc = 9
+    }
+
     capture rmdir "pkgtransfer_files"
-    capture erase "custom installer.do"
-    capture erase "custom archive.zip"
-    capture erase "`fixture_plus'/p/pkgtransfer.ado"
-    capture erase "`fixture_plus'/p/pkgtransfer.sthlp"
-    capture erase "`fixture_plus'/stata.trk"
+    capture mkdir "pkgtransfer_files"
+    if _rc != 0 local cleanup_rc = 9
+    else capture rmdir "pkgtransfer_files"
+
     capture rmdir "`fixture_plus'/p"
+    capture mkdir "`fixture_plus'/p"
+    if _rc != 0 local cleanup_rc = 9
+    else capture rmdir "`fixture_plus'/p"
     capture rmdir "`fixture_plus'"
-    quietly cd "`orig_dir'"
-    if "`c(pwd)'" != "`orig_dir'" & `test_rc' == 0 local test_rc = 9
+    capture mkdir "`fixture_plus'"
+    if _rc != 0 local cleanup_rc = 9
+    else capture rmdir "`fixture_plus'"
+
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if "`c(pwd)'" != "`orig_dir'" local cleanup_rc = 9
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
 
     if `test_rc' == 0 {
         local ++pass_count
@@ -819,6 +841,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
         if `machine' display "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
+}
+
+capture noisily _pkgtransfer_qa_cleanup, root("`qa_root'") ///
+    originalplus("`qa_original_plus'")
+if _rc != 0 {
+    local ++fail_count
+    local failed_tests "`failed_tests' fixture_cleanup"
+    display as error "QA fixture cleanup failed with rc `=_rc'"
 }
 
 * ============================================================

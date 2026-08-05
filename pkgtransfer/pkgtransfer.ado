@@ -10,7 +10,7 @@
       'github install' commands to replicate the package installation on a new machine with internet access.
 
     - Offline Mode: 'pkgtransfer' downloads all package files and creates both a local installation script
-      ('pkgtransfer_local.do') and a ZIP archive ('pkgtransfer_files.zip'). This enables package installation
+      ('pkgtransfer.do') and a ZIP archive ('pkgtransfer_files.zip'). This enables package installation
       on machines without internet access.
 
     The command intelligently handles packages from diverse sources, including the SSC archive, personal websites,

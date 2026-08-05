@@ -495,7 +495,18 @@ gen long _ord = _n
 * Built with char(96) inside the expression. Putting the fence in a macro and
 * then expanding it into a quoted literal would re-inject the backticks into
 * the source and fail exactly as before.
-gen byte _fence = substr(v1, 1, 3) == char(96) + char(96) + char(96)
+* Accept BOTH fenced-block styles. On 2026-08-05 the shipped README was
+* reformatted from ``` fences to ~~~ fences; `_open' then never fired, the
+* extraction returned 0 lines, and this test failed with "the block was not
+* found" -- i.e. it went red over the fence CHARACTER while the documented code
+* it exists to run was untouched. A documentation-reality test must track the
+* documented code, not the markup that wraps it, so it now recognises either
+* fence and keeps working whichever style the README settles on.
+* Still built with char(96) inline per the note above: putting the backticks in
+* a macro and expanding them into a quoted literal re-injects them into the
+* source and fails exactly as the original bug did.
+gen byte _fence = substr(v1, 1, 3) == char(96) + char(96) + char(96) ///
+                | substr(v1, 1, 3) == "~~~"
 gen byte _open  = _fence & substr(v1, 4, 5) == "stata"
 gen byte _qs    = strpos(v1, "## Quick Start") == 1
 
