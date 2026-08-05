@@ -5,7 +5,7 @@
 *          shell metacharacter $ rejection, zero-match exclude r(label),
 *          final label with embedded double quotes, version check.
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-21
 *******************************************************************************/
 

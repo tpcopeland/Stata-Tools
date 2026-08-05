@@ -162,11 +162,17 @@ capture noisily {
     end
     tempfile before bad
     local badfile "`bad'.txt"
+    * Appending an extension means Stata does not track this derivative as a
+    * tempfile. A previous suite in the same long-lived session can reuse the
+    * stem and leave the .txt path behind, turning the intended r(198) into
+    * r(602) before the extension check runs.
+    capture erase "`badfile'"
     save "`before'", replace
 
     set varabbrev on
     capture codescan_describe dx1, save("`badfile'")
-    assert _rc == 198
+    local _save_rc = _rc
+    assert `_save_rc' == 198
     assert "`c(varabbrev)'" == "on"
     cf _all using "`before'"
     capture confirm file "`badfile'"
@@ -177,7 +183,7 @@ if _rc == 0 {
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T5 - save() non-csv state preservation (error `=_rc')"
+    display as error "  FAIL: T5 - save() non-csv state preservation (error `=_rc', command rc=`_save_rc')"
     local ++fail_count
 }
 

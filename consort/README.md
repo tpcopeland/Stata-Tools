@@ -1,6 +1,6 @@
 # consort — CONSORT-style exclusion flowcharts for observational research
 
-**Version 1.1.0** | 2026-07-10
+**Version 1.1.1** | 2026-08-05
 
 `consort` records sequential exclusions from a Stata dataset and renders the resulting participant-flow diagram. It is for analysts who need reproducible exclusion counts, publication-ready flowcharts, and optional machine-readable exports.
 
@@ -188,7 +188,7 @@ Removes the active diagram state and deletes a temporary backing CSV. The `quiet
 | Option | Default | Description |
 |--------|---------|-------------|
 | `initial(string)` | Required | Label for the initial population box |
-| `file(filename)` | Temporary CSV | Path for the raw backing CSV with `label,n,remaining` columns |
+| `file(filename)` | Temporary CSV | Path for the raw backing CSV with `label,n,remaining` columns; the parent directory must already exist |
 
 ### Exclusion options
 
@@ -243,9 +243,13 @@ Removes the active diagram state and deletes a temporary backing CSV. The `quiet
 | `r(N_excluded)` | Scalar | Total number excluded |
 | `r(steps)` | Scalar | Number of recorded exclusion steps |
 | `r(output)` | Local macro | Image output path |
-| `r(final)` | Local macro | Final cohort label used |
+| `r(final)` | Local macro | Final-label argument; defaults to `"Final Cohort"` when `final()` is omitted |
 | `r(csv)` | Local macro | CSV export path, only when `csv()` is requested |
 | `r(xlsx)` | Local macro | Excel export path, only when `xlsx()` is requested |
+
+When `final()` is omitted and the last exclusion has a nonempty `remaining()` label,
+that milestone label is retained in the diagram; `r(final)` still reports the
+default `"Final Cohort"` value.
 
 ## Assumptions and Limits
 
@@ -302,8 +306,13 @@ Confirm that `consort init` ran successfully and that at least one `if` conditio
 
 The package uses the CONSORT naming convention for participant-flow diagrams; consult the [CONSORT Statement](https://www.consort-spirit.org/) and the reporting guidance for your study design when adapting the figure.
 
+## QA
+
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+
 ## Version History
 
+- **1.1.1** (2026-08-05): Clarify final-label return behavior, output-directory requirements, and runnable help examples.
 - **1.1.0** (2026-06-24): Add `csv()` and `xlsx()` options to `consort save` for writing a resolved, machine-readable table of the diagram data (one row per node) alongside the figure; paths returned in `r(csv)`/`r(xlsx)`
 - **1.0.0** (2026-04-08): Initial Stata-Tools release for stateful CONSORT-style flowchart generation from Stata
 

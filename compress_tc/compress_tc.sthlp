@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  19jun2026}{...}
+{* *! version 1.1.1  05aug2026}{...}
 {vieweralsosee "[D] compress" "help compress"}{...}
 {vieweralsosee "[D] recast" "help recast"}{...}
 {vieweralsosee "[D] memory" "help memory"}{...}
@@ -85,8 +85,9 @@ all-at-once path would spike memory. The peak is only reduced when {cmd:compress
 runs (that is, not in combination with {opt nocompress}). Because {cmd:lowmem}
 governs only the strL-conversion stage, it has no effect when combined with
 {opt nostrl} (there is nothing to convert incrementally). With {opt varsavings},
-{cmd:lowmem} also yields {it:measured} per-variable savings (including strL heap
-effects) rather than the storage-width estimate used in the default mode.
+{cmd:lowmem} also lets {opt varsavings} measure each variable's whole-dataset
+delta, including its strL heap effect. The final {cmd:compress} stage is needed
+for the peak-memory benefit, not for this measurement.
 
 {phang}
 {opt dryrun} reports the projected savings without permanently modifying the
@@ -113,8 +114,8 @@ still showing the summary statistics.
 {opt quietly} suppresses all output. Results are still stored in {cmd:r()}.
 
 {phang}
-{opt detail} displays the original type of each string variable before
-conversion.
+{opt detail} displays the original type of each eligible fixed-width string
+variable when the strL-conversion stage runs.
 
 {phang}
 {opt varsavings} displays a per-variable table showing each processed variable's

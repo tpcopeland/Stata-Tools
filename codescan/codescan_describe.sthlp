@@ -85,8 +85,9 @@ in the dataset order, or a wildcard when the variable prefix is consistent.
 {phang2}{cmd:. codescan_describe dx1-dx30 proc1-proc20}{p_end}
 
 {pstd}
-The output pools nonempty code values across all listed variables. That is the
-right behavior when you are asking "what codes exist anywhere in these slots?"
+The output pools nonempty code values across all listed variables and excludes
+the bare {cmd:.} placeholder. That is the right behavior when you are asking
+"what codes exist anywhere in these slots?"
 If you later need to see which variable contributed matches to a scan rule, run
 {helpb codescan} with the {cmd:detail} option.
 
@@ -252,8 +253,8 @@ and never appear as the code values {cmd:.} or {cmd:.a} in the table.
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
-{synopt:{cmd:r(n_unique)}}number of unique nonempty codes found{p_end}
-{synopt:{cmd:r(n_entries)}}total nonempty code entries across all scanned variables{p_end}
+{synopt:{cmd:r(n_unique)}}unique nonempty, non-{cmd:.} codes found{p_end}
+{synopt:{cmd:r(n_entries)}}nonempty, non-{cmd:.} entries across scanned variables{p_end}
 {synopt:{cmd:r(n_vars)}}number of variables scanned{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}

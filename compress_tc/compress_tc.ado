@@ -1,4 +1,4 @@
-*! compress_tc Version 1.1.0  2026/06/19
+*! compress_tc Version 1.1.1  2026/08/05
 *! Maximally compress string variables via strL conversion + compress
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork Author: Tim Copeland (Forked from strcompress)

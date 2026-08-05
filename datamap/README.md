@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.6.2** | 2026-07-27
+**Version 1.6.3** | 2026-08-05
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
 
@@ -32,10 +32,10 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 | Command | Purpose |
 |---------|---------|
-| `datamap` | Create aggregate text or JSON documentation for one dataset or a collection of `.dta` files. |
-| `datadict` | Create a Markdown data dictionary with optional metadata, missingness, statistics, and separate-file output. |
-| `datacheck` | Profile data in the console and enforce declared expectations or schema comparisons. |
-| `datamvp` | Tabulate missing-value patterns, test monotone missingness, and draw missingness graphs. |
+| `datamap` | Create aggregate text or JSON documentation for one dataset or a collection of `.dta` files |
+| `datadict` | Create a Markdown data dictionary with optional metadata, missingness, statistics, and separate-file output |
+| `datacheck` | Profile data in the console and enforce declared expectations or schema comparisons |
+| `datamvp` | Tabulate missing-value patterns, test monotone missingness, and draw missingness graphs |
 
 ## How It Works
 
@@ -58,7 +58,7 @@ On successful in-memory runs, `datamap` and `datadict` leave the caller's observ
 | Inspect or gate a dataset before analysis | `datacheck` | Console profile, expectation verdict, and optional profile or violation artifact |
 | Understand joint missingness | `datamvp` | Pattern-frequency table, monotone test, generated indicators, or graph |
 
-Start with one dataset and the default output. Add `exclude()` and `datesafe` before sharing a map, then move to `directory()` plus `recursive` or `manifest()` when the single-dataset contract is settled.
+Start with one dataset and the default output. Add `exclude()` and `datesafe` before sharing a map, then move to `directory()` plus `recursive` for nested collections; for `datadict`, use `manifest()` when the single-dataset contract is settled.
 
 ## Worked Examples
 
@@ -143,7 +143,7 @@ datacheck price mpg weight, detail outliers(3)
 datacheck, expectn(74) isid(make) notmissing(price mpg weight) inrange(mpg 10 50)
 ```
 
-Gate failures return `r(9)`; add `warn` when violations should be reported without stopping the do-file.
+Gate failures exit with return code 9; add `warn` when violations should be reported without stopping the do-file.
 
 ### 8. Save a profile and compare a refreshed dataset
 
@@ -260,7 +260,7 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 | `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `warn`, `gatesonly`, `onlyflagged`, `show(flagged)` | Expectations, gates, display filters, and halting behavior. |
 | `by()`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, and settings. |
 
-`rare()` flags low-frequency levels, `outliers(#)` uses an IQR rule, and `maskrare` masks cells below the effective rare/minimum-cell threshold. Gate failures return `r(9)` unless `warn` is used.
+`rare()` flags low-frequency levels, `outliers(#)` uses an IQR rule, and `maskrare` masks cells below the effective rare/minimum-cell threshold. Gate failures exit with return code 9 unless `warn` is used.
 
 ### `datamvp`
 
@@ -319,7 +319,7 @@ The help files document the complete stored-result contracts. The following tabl
 - `mincell()` suppresses categorical and binary frequency cells below the threshold, and `uniqcap()` reports a lower-bound count when the distinct-value cap is exceeded.
 - `datamap` in-memory failures are not rolled back after partial processing; use `single()` or a copy when failure isolation is required.
 - `datadict` requires an existing `outdir()` for separate outputs, and `checks()`, `compare()`, and file-based `violations()`/`makespec()` routes use Stata datasets rather than text specifications.
-- `datacheck` treats `warn` as a non-halting gate mode; without it, failed expectations return `r(9)`.
+- `datacheck` treats `warn` as a non-halting gate mode; without it, failed expectations exit with return code 9.
 - `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit.
 
 ## References
@@ -331,6 +331,10 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.6.3 (2026-08-05)
+
+Fixed Viewer-width rendering in the command help files and corrected the documented in-memory rollback behavior.
 
 ### 1.6.2 (2026-07-27)
 

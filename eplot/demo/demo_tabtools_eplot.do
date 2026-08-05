@@ -70,7 +70,7 @@ log using "`pkg_dir'/console_tabtools_eplot.log", replace text name(demo) nomsg
 
 collect clear
 quietly collect: logistic cv_event treated index_age female diabetes hypertension prior_cvd
-noisily regtab, coef("OR") noint eplotframe(or_effects, replace) display
+noisily regtab, coef("OR") noint eplotframe(or_effects, replace)
 
 * ## Model comparison table (comptab)
 
@@ -87,8 +87,7 @@ quietly regtab, coef("OR") noint frame(m_adj, replace) eplotframe(e_adj, replace
 
 noisily comptab m_crude m_adj, rows(1 \ 1) ///
     section("Crude" \ "Adjusted") ///
-    title("Treatment effect across specifications") ///
-    display
+    title("Treatment effect across specifications")
 
 log close demo
 

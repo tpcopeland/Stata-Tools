@@ -1,8 +1,8 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.1** | 2026-07-10
+**Version 1.2.2** | 2026-08-05
 
-`kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition and returns the curve, risk-table, and landmark results in `r()`.
+`kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ net install kmplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 - Add `by(varname)` for one curve per group; numeric and string grouping variables are supported, and value labels are used when available.
 - Add `ci` for confidence intervals. The default is a shaded log-log interval; `cistyle(line)` draws dashed interval lines, and `citransform(log)` or `citransform(plain)` changes the transformation.
 - Add `risktable` for a number-at-risk table, `landmark()` for fixed-time estimates, `median` for median reference lines, and `censor` for censoring marks.
-- Add `pvalue` with `by()` to display the Stata log-rank p-value; without a grouping variable, the p-value is skipped.
+- Add `pvalue` with `by()` when at least two groups are present to display the Stata log-rank p-value; otherwise, the p-value is skipped.
 - `saving()` and `risksaving()` write reusable curve and risk-table datasets, while `export()` writes the graph through Stata's `graph export`.
 - Standard `twoway` graph options are passed through after the named `kmplot` options.
 
@@ -142,7 +142,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `riskevents` | off | Add cumulative events as `N (events)` in the risk table |
 | `riskcompact` | off | Synonym for `riskevents` |
 | `riskmono` | off | Display risk-table numbers in black instead of line colors |
-| `riskheight(#)` | auto | Set risk-table height; supplied values must be greater than 0 and no more than 80 |
+| `riskheight(#)` | auto | Set risk-table height; auto is 25 for up to 3 groups and increases with group count to a maximum of 60; supplied values must be greater than 0 and no more than 80 |
 | `timepoints(numlist)` | auto | Set risk-table timepoints; otherwise approximately six are chosen from 0 to the maximum observed time |
 | `landmark(numlist)` | none | Return survival or cumulative-failure estimates at fixed analysis times |
 | `censor` | off | Show censoring marks on the curves |
@@ -167,14 +167,14 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `name(string)` | `kmplot` | Set the graph name |
 | `aspectratio(string)` | none | Set the graph aspect ratio |
 | `export(string)` | none | Export to a file; the format is inferred from `.pdf`, `.png`, `.eps`, or `.svg`, and graph-export suboptions are passed through |
-| `saving(filename[, replace])` | none | Save curve data with group, label, time, estimate, standard error, bounds, censor, and anchor variables |
-| `risksaving(filename[, replace])` | none | Save risk-table data with group, label, time, at-risk, events, and censored variables |
+| `saving(filename[, replace])` | none | Save curve data with `group`, `group_label`, `time`, `estimate`, `se`, `lower`, `upper`, `censor`, and `anchor` variables |
+| `risksaving(filename[, replace])` | none | Save risk-table data with `group`, `group_label`, `time`, `at_risk`, `events`, and `censored` variables |
 
 `kmplot` also accepts standard `twoway` graph options through its trailing pass-through syntax.
 
 ## Stored Results
 
-`kmplot` is an `rclass` command and stores the following results after a successful run.
+`kmplot` is an `rclass` command and stores the following results after it computes a plot. If `graph export` cannot write the requested file after plotting, analytical results remain available even though the command returns an error.
 
 ### Scalars
 
@@ -186,11 +186,11 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `r(failure)` | 1 if `failure` was requested, otherwise 0 |
 | `r(ci)` | 1 if `ci` was requested, otherwise 0 |
 | `r(n_landmarks)` | Number of requested landmark timepoints |
-| `r(n_timepoints)` | Number of risk-table timepoints, or 0 without risk data |
-| `r(riskheight)` | Risk-table height when risk data were computed |
-| `r(p)` | Log-rank p-value when `pvalue` was used with `by()` |
-| `r(pvalue_y)` | Explicit p-value y coordinate when `pvalueat()` was used |
-| `r(pvalue_x)` | Explicit p-value x coordinate when `pvalueat()` was used |
+| `r(n_timepoints)` | Number of risk-table timepoints, or 0 when neither `risktable` nor `risksaving()` was used |
+| `r(riskheight)` | Risk-table height when `risktable` or `risksaving()` computed risk data |
+| `r(p)` | Log-rank p-value when `pvalue` was used with `by()` and at least two groups were present |
+| `r(pvalue_y)` | Explicit p-value y coordinate when `pvalueat()` was used with `pvalue` |
+| `r(pvalue_x)` | Explicit p-value x coordinate when `pvalueat()` was used with `pvalue` |
 | `r(median_)` | Group-specific median result family; actual returned names are `r(median_1)`, `r(median_2)`, and so on, for groups whose median is reached |
 
 ### Macros
@@ -211,7 +211,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `r(group_labels)` | Group labels joined by a vertical bar |
 | `r(xtitle)` | X-axis title |
 | `r(ytitle)` | Y-axis title |
-| `r(export)` | Requested export path when `export()` was specified |
+| `r(export)` | Requested export path when `export()` was specified, including after a failed file write |
 | `r(saving)` | Curve dataset path when `saving()` succeeded |
 | `r(risksaving)` | Risk-table dataset path when `risksaving()` succeeded |
 | `r(pvalue_text)` | Displayed p-value text |
@@ -224,9 +224,9 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 
 | Result | Columns |
 |--------|---------|
-| `r(medians)` | Group and median |
-| `r(landmarks)` | Group, time, estimate, lower, and upper; bounds are populated when `ci` is requested |
-| `r(risktable)` | Group, time, at-risk, events, and censored |
+| `r(medians)` | Group and median for each group when `median` was requested |
+| `r(landmarks)` | Group, time, estimate, lower, and upper when `landmark()` was requested; bounds are populated when `ci` is requested |
+| `r(risktable)` | Group, time, at-risk, events, and censored when `risktable` or `risksaving()` was used |
 
 ## Assumptions and Limits
 
@@ -249,7 +249,8 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.2.1** (2026-06-26): Added stepped confidence bands, automatic risk-table height, `saving()` without `ci`, and a p-value/CI-level demo panel; removed risk-table gridlines and improved combined-figure spacing.
+- **1.2.2** (2026-08-05): Corrected the documented export-return contract, completed prose for graph appearance, label, and output options, and repaired Viewer-width overflow in the help synopsis and stored-results table.
+- **1.2.1** (2026-07-10): Added stepped confidence bands, automatic risk-table height, `saving()` without `ci`, and a p-value/CI-level demo panel; removed risk-table gridlines and improved combined-figure spacing.
 - **1.2.0** (2026-06-26): Added `level()`, `riskheight()`, `landmark()`, `saving()`, `risksaving()`, p-value display controls, richer `r()` metadata and matrices, delayed-entry risk-table support, cumulative-failure terminology, and method notes.
 - **1.0.3** (2026-06-25): Replaced internal graph-working variables with `tempvar`s, restored preserved data on error paths, guarded `export()` paths, and preserved analytical returns across export failures.
 - **1.0.2** (2026-04-22): Refactored the varabbrev wrapper to cover syntax, validation, and main logic; fixed literal-quote rendering in user-supplied title options; and guarded export success messages with file confirmation.

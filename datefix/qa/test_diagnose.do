@@ -1,7 +1,8 @@
 *******************************************************************************
 * test_diagnose.do
 *
-* Purpose: Coverage for the diagnose option (datefix v1.1.0).
+* Purpose: Coverage for diagnose (introduced in datefix v1.1.0) and the
+*          command-level rollback/result-state regressions fixed in v1.1.1.
 *          diagnose lists the distinct unconvertible values, their
 *          frequencies, and the offending observation rows when a
 *          conversion fails, then aborts with r(198) (report-only-then-stop).
@@ -266,6 +267,139 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: >50 distinct bad values handled (error `=_rc')"
+    local ++fail_count
+}
+
+**# 10. A later-variable failure rolls back earlier conversions
+
+local ++test_count
+capture noisily {
+    clear
+    input long id str10 good double numeric str10 bad
+    2 "2020/01/15" 21915 "2020/02/20"
+    1 "2020/03/25" 21945 "not-a-date"
+    end
+    label variable good "Good source"
+    label variable numeric "Numeric source"
+    format numeric %10.0g
+    char _dta[datefix_probe] "sentinel"
+    sort id
+    tempfile rollback_before
+    save `rollback_before', replace
+    unab order_before : _all
+    local fmt_good_before : format good
+    local fmt_numeric_before : format numeric
+    local lbl_good_before : variable label good
+    local lbl_numeric_before : variable label numeric
+    local sort_before : sortedby
+    local char_before : char _dta[datefix_probe]
+
+    capture noisily datefix good numeric bad, order(YMD) df(%tdDD/NN/CCYY)
+    local call_rc = _rc
+    assert `call_rc' == 198
+    cf _all using `rollback_before', all
+    confirm string variable good
+    confirm numeric variable numeric
+    confirm string variable bad
+    unab order_after : _all
+    local fmt_good_after : format good
+    local fmt_numeric_after : format numeric
+    local lbl_good_after : variable label good
+    local lbl_numeric_after : variable label numeric
+    local sort_after : sortedby
+    local char_after : char _dta[datefix_probe]
+    assert "`order_after'" == "`order_before'"
+    assert "`fmt_good_after'" == "`fmt_good_before'"
+    assert "`fmt_numeric_after'" == "`fmt_numeric_before'"
+    assert `"`lbl_good_after'"' == `"`lbl_good_before'"'
+    assert `"`lbl_numeric_after'"' == `"`lbl_numeric_before'"'
+    assert "`sort_after'" == "`sort_before'"
+    assert `"`char_after'"' == `"`char_before'"'
+}
+if _rc == 0 {
+    display as result "  PASS: multi-variable failure rolls back all conversions"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: multi-variable rollback (error `=_rc')"
+    local ++fail_count
+}
+
+**# 11. Success and failure leave no incidental r() results
+
+local ++test_count
+capture noisily {
+    clear
+    input str10 dob
+    "2020/01/15"
+    "2020/02/20"
+    end
+    datefix dob, order(YMD)
+    mata: st_local("nr_scalars", strofreal(length(st_dir("r()", "numscalar", "*"))))
+    mata: st_local("nr_macros", strofreal(length(st_dir("r()", "macro", "*"))))
+    mata: st_local("nr_matrices", strofreal(length(st_dir("r()", "matrix", "*"))))
+    assert `nr_scalars' == 0
+    assert `nr_macros' == 0
+    assert `nr_matrices' == 0
+
+    clear
+    input str10 dob
+    "2020/01/15"
+    "not-a-date"
+    end
+    capture noisily datefix dob, order(YMD) diagnose
+    local call_rc = _rc
+    mata: st_local("nr_scalars", strofreal(length(st_dir("r()", "numscalar", "*"))))
+    mata: st_local("nr_macros", strofreal(length(st_dir("r()", "macro", "*"))))
+    mata: st_local("nr_matrices", strofreal(length(st_dir("r()", "matrix", "*"))))
+    assert `call_rc' == 198
+    assert `nr_scalars' == 0
+    assert `nr_macros' == 0
+    assert `nr_matrices' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: datefix leaves no incidental r() results"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: incidental r() state remains (error `=_rc')"
+    local ++fail_count
+}
+
+**# 12. Command-level rollback works inside a caller preserve/restore block
+
+local ++test_count
+capture noisily {
+    clear
+    input str10 good str10 bad
+    "2020/01/15" "2020/02/20"
+    "2020/03/25" "not-a-date"
+    end
+    tempfile caller_before
+    save `caller_before', replace
+
+    preserve
+    datefix good, order(YMD)
+    confirm numeric variable good
+    restore
+    confirm string variable good
+    cf _all using `caller_before', all
+
+    preserve
+    capture noisily datefix good bad, order(YMD)
+    local call_rc = _rc
+    assert `call_rc' == 198
+    confirm string variable good
+    cf _all using `caller_before', all
+    restore
+    cf _all using `caller_before', all
+}
+if _rc == 0 {
+    display as result "  PASS: success and failure nest inside caller preserve/restore"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: nested preserve/restore (error `=_rc')"
     local ++fail_count
 }
 

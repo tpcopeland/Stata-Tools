@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.1.0** | 2026-07-25
+**Version 4.1.1** | 2026-08-05
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -68,7 +68,7 @@ Run separate scans with `generate()` when diagnosis, procedure, or medication fi
 
 The unquoted `|` in `define()` separates conditions, while a `|` inside a quoted pattern is part of that regex or prefix list. Use `~` after an inclusion pattern for exclusions, for example `define(dm2 "E11" ~ "E116")`.
 
-Patterns that can match without consuming a character are rejected because an anchored empty match would identify every code. Use `.` to match any nonempty code rather than `.*`. `nocase` enables unicode-aware case-insensitive matching, and `nodots` removes periods from the data before matching without changing the stored data.
+Regex patterns that can match without consuming a character are rejected because an anchored empty match would identify every code; empty alternatives in prefix lists are rejected for the same reason. In `mode(regex)`, use `.` to match any nonempty code rather than `.*`; in `mode(prefix)`, a period is literal. `nocase` enables unicode-aware case-insensitive matching, and `nodots` removes periods from the data before matching without changing the stored data.
 
 ## Choosing a Workflow
 
@@ -80,7 +80,7 @@ Patterns that can match without consuming a character are rejected because an an
 | Keep encounters and attach patient flags | `codescan ..., id(pid) merge` | Original rows plus patient-level results |
 | Keep the active data unchanged | Add `frame(results)` or `preserve` | A named result frame or restored data |
 | Save the prevalence table | Add `export(results.xlsx, replace)` | CSV or Excel summary |
-| Save the transformed dataset | Add `saving(results.dta, replace)` | The selected row-level or patient-level result |
+| Save the transformed dataset | Add `saving(results.dta, replace)` | The final collapsed or merged result dataset |
 
 `frame(name)` implies `preserve`; add `replace` when the named frame already exists. `save()` writes reusable rule definitions, whereas `saving()` writes the transformed result dataset.
 
@@ -201,7 +201,7 @@ The workbook [`demo/codescan_results.xlsx`](demo/codescan_results.xlsx) contains
 codescan varlist [if] [in], define(string asis) | codefile(string) [options]
 ```
 
-Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional `exclusion` and `label` columns. Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
+Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion` and `label` columns (column names are case-insensitive). Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
 
 ### `codescan_describe`
 
@@ -209,7 +209,7 @@ Exactly one of `define()` or `codefile()` is required. Inline definitions use `n
 codescan_describe varlist [if] [in] [, top(#) nodots tostring save(filename [, replace])]
 ```
 
-The command pools nonempty values across all selected variables, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter, then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`.
+The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter, then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`.
 
 ## Key Options
 
@@ -220,18 +220,18 @@ The command pools nonempty values across all selected variables, reports the mos
 | `define()` | Supply inline condition definitions separated by an unquoted pipe |
 | `codefile()` | Read string `name` and `pattern` definitions from CSV or `.dta`, with optional `exclusion` and `label` columns |
 | `label()` | Add presentation labels using `\` between entries; labels do not change condition identifiers |
-| `save()` | Write parsed inline rules or a `codescan_describe` chapter draft to `.csv`; use the `replace` suboption to overwrite a file |
+| `save()` | With `codescan`, write `define()` rules (not `codefile()`) to `.csv`; with `codescan_describe`, write a chapter draft; use the `replace` suboption to overwrite a file |
 
 ### Identifiers and windows
 
 | Option | Use |
 |--------|-----|
 | `id()` | Identify patients or entities for `collapse` and `merge` |
-| `date()` | Supply a numeric Stata daily event-date variable |
-| `refdate()` | Supply the numeric daily reference date for time windows |
-| `lookback()` | Restrict matches to one or more nonnegative backward windows; multiple windows require `collapse` or `merge` |
-| `lookforward()` | Restrict matches to a nonnegative forward window |
-| `inclusive` | Include `refdate()` in a single-direction window |
+| `date()` | Supply a numeric Stata daily event-date variable; required for windows and date summaries |
+| `refdate()` | Supply the numeric daily reference date for `lookback()` or `lookforward()` |
+| `lookback()` | Restrict matches to one or more nonnegative backward windows; requires `date()` and `refdate()`; multiple windows require `collapse` or `merge` |
+| `lookforward()` | Restrict matches to a nonnegative forward window; requires `date()` and `refdate()` |
+| `inclusive` | Include `refdate()` in a single-direction window; with both directions it is already included |
 
 ### Result dataset
 
@@ -252,9 +252,9 @@ The command pools nonempty values across all selected variables, reports the mos
 
 | Option | Use |
 |--------|-----|
-| `detail` | Display and return per-variable match contributions in `r(varcounts)` |
-| `allslots` | With `detail`, count every matching slot instead of the first matching variable; requires `detail` |
-| `cooccurrence` | Return pairwise condition counts in `r(cooccurrence)` and add a sheet to an Excel export |
+| `detail` | Display and return per-variable match contributions in `r(varcounts)`; default attribution is the first matching slot per row |
+| `allslots` | With `detail`, count every matching slot instead of the first matching variable; requires `detail`; `countmode` uses this rule automatically |
+| `cooccurrence` | Return pairwise condition counts in `r(cooccurrence)` and add a sheet to an Excel export; counts rows or unique IDs according to output shape |
 | `unmatched()` | Create a row-level flag: 1 analyzed and unmatched, 0 analyzed and matched, `.` not analyzed |
 | `matched_code()` | Create a row-level string containing the first code that survived matching |
 | `graph` | Draw a horizontal prevalence bar chart |
@@ -315,19 +315,23 @@ File options accept ordinary quoted paths with spaces or hyphens, reject unsafe 
 | `r(frame)` | The result frame name, when `frame()` was used |
 | `r(summary)` | Matrix with `count`, `prevalence`, `total_hits`, and `positive_units` columns |
 | `r(codelist)` | Legacy exact copy of `r(summary)` |
-| `r(varcounts)` | Per-variable match contributions, with `detail` |
-| `r(cooccurrence)` | Pairwise condition counts, with `cooccurrence` |
+| `r(varcounts)` | Per-variable match contributions, with `detail`; default attribution is first-slot per row, while `allslots` or `countmode` credits every slot |
+| `r(cooccurrence)` | Pairwise condition counts, with `cooccurrence`; rows are counted at row level and unique IDs after `collapse` or `merge` |
 | `r(sensitivity)` | Prevalence by condition and lookback window, with multiple windows |
 | `r(sensitivity_n)` | The denominator for each `r(sensitivity)` column |
 
 Without `countmode`, `total_hits` is missing because binary matching does not count repeated slots; `count` then represents `positive_units`. With `countmode`, `count` and `total_hits` are slot hits, while `positive_units` is the number of observations or IDs with at least one hit. `r(newvars)` is empty after `preserve` or `frame()` because the active data are restored.
 
+When `detail` is requested, `r(detail_allslots)` records the attribution used for `r(varcounts)`: it is 1 for `allslots` or `countmode`, and 0 for default first-slot attribution.
+
+Before publishing a successful result set, `codescan` clears prior `r()` contents. A successful call that omits `detail` therefore does not retain `r(detail_allslots)` or `r(varcounts)` from an earlier call; both are absent unless `detail` is specified.
+
 ### `codescan_describe`
 
 | Result | Meaning |
 |--------|---------|
-| `r(n_unique)` | Number of unique nonempty codes |
-| `r(n_entries)` | Number of nonempty code entries across scanned variables |
+| `r(n_unique)` | Number of unique nonempty codes, excluding the bare `.` placeholder |
+| `r(n_entries)` | Number of nonempty, non-`.` code entries across scanned variables |
 | `r(n_vars)` | Number of variables scanned |
 | `r(varlist)` | Scanned variables |
 | `r(top_codes)` | Matrix with `frequency`, `percent`, and `cumul_pct` columns |
@@ -339,6 +343,7 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 
 - The reported prevalence is the prevalence of the supplied code definition, not the prevalence of the underlying disease; positive predictive value and sensitivity of the codes determine the gap between the two.
 - Scan variables must be fixed-width strings; `tostring` handles numeric variables through temporary strings, while `strL` variables are rejected and should be converted first.
+- Empty strings and the bare `.` placeholder are skipped as code values; with `nodots`, values that become empty after periods are removed are skipped too.
 - `date()` and `refdate()` must be numeric Stata daily dates; datetime variables such as `%tc` are rejected because windows are measured in days.
 - Missing `id()` values are excluded from `collapse` and `merge`, and rows with missing dates are excluded whenever a time window is active.
 - `unmatched()` and `matched_code()` are row-level outputs and are not retained after `collapse`; use `merge` when they must remain with encounter rows.
@@ -362,6 +367,10 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.1.1 (2026-08-05)
+
+- Clears prior `r()` contents before publishing a successful call, so an omitted `detail` option cannot leak `r(detail_allslots)` or `r(varcounts)`; corrected matching, window, saving, codefile, co-occurrence, and stored-result documentation.
 
 ### 4.1.0 (2026-07-25)
 

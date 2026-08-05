@@ -210,6 +210,14 @@ if [[ "$lane" == "full" || "$lane" == "gates" ]]; then
         gt_dir="$(mktemp -d)"
         trap 'rm -rf "$gt_dir"' EXIT
         mkdir -p "$gt_dir/gated" "$gt_dir/a" "$gt_dir/b"
+        # Retained copy of the proof's raw output.  The two gt4_*.log files are
+        # the ONLY evidence behind the transfer_gate verdict, and until now they
+        # were written into a mktemp dir that the EXIT trap deletes -- so a
+        # receipt saying "PASS (4 arms identical)" survived while the four rows
+        # it compared did not.  A verdict whose evidence is gone is an assertion.
+        # Cleared per run so a stale pair can never sit beside a fresh verdict.
+        gt_keep="$qa_dir/gates_transfer"
+        rm -rf "$gt_keep"; mkdir -p "$gt_keep"
         printf 'set processors 1\n' > "$gt_dir/a/profile.do"
         printf 'set processors 1\n' > "$gt_dir/b/profile.do"
 
@@ -222,6 +230,11 @@ if [[ "$lane" == "full" || "$lane" == "gates" ]]; then
                 "$gt_dir/gated/$pkg_name" GATED ) >/dev/null 2>&1
             ( cd "$gt_dir/b" && "$stata_bin" -b do "$qa_dir/gates_transfer_proof.do" \
                 "$pkg_dir" CURRENT ) >/dev/null 2>&1
+
+            cp -f "$gt_dir/a/gt4_GATED.log"   "$gt_keep/" 2>/dev/null || true
+            cp -f "$gt_dir/b/gt4_CURRENT.log" "$gt_keep/" 2>/dev/null || true
+            printf 'gated_commit: %s\nsource_repo: %s\ncurrent_tree: %s\n' \
+                "$gated_commit" "$transfer_repo" "$pkg_dir" > "$gt_keep/PROVENANCE.txt"
 
             gated_rows="$(grep -E '^R\|' "$gt_dir/a/gt4_GATED.log" 2>/dev/null | cut -d'|' -f3- || true)"
             cur_rows="$(grep -E '^R\|' "$gt_dir/b/gt4_CURRENT.log" 2>/dev/null | cut -d'|' -f3- || true)"

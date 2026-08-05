@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.1.0  25jul2026}{...}
+{* *! version 4.1.1  05aug2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -476,10 +476,11 @@ redundant with {cmd:countmode}, which already counts every slot.
 
 {pmore}
 {cmd:countmode} therefore applies the all-slots rule whether or not
-{cmd:allslots} was typed, and the scalar {cmd:r(detail_allslots)} -- which
-records which rule produced {cmd:r(varcounts)} -- is {cmd:1} on that path. Read
-the scalar, not the option: under {cmd:countmode} the row totals of
-{cmd:r(varcounts)} are slot totals, not unit counts.
+{cmd:allslots} was typed. When {opt detail} is requested, the scalar
+{cmd:r(detail_allslots)} records which rule produced {cmd:r(varcounts)} and is
+{cmd:1} on that path. Without {opt detail}, neither result is returned. Under
+{cmd:countmode}, row totals in {cmd:r(varcounts)} are slot totals, not unit
+counts.
 
 {phang}
 {opt cooccurrence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
@@ -902,7 +903,7 @@ its own, which makes the table independent of {varlist} order.
 {synopt:{cmd:r(collapsed)}}1 if {cmd:collapse} was used, otherwise 0{p_end}
 {synopt:{cmd:r(merged)}}1 if {cmd:merge} was used, otherwise 0{p_end}
 {synopt:{cmd:r(mode_count)}}1 if {cmd:countmode} was used, otherwise 0{p_end}
-{synopt:{cmd:r(detail_allslots)}}1 if {cmd:detail} counted every slot{p_end}
+{synopt:{cmd:r(detail_allslots)}}all-slot flag, with {cmd:detail}{p_end}
 {synopt:{cmd:r(lookback)}}the single lookback window, if only one{p_end}
 {synopt:{cmd:r(lookforward)}}lookforward window when specified{p_end}
 {synopt:{cmd:r(n_excluded_missingdate)}}rows dropped for a missing date{p_end}
@@ -939,11 +940,12 @@ only when a window was requested, and counts the rows dropped for a missing
 {cmd:date()} or {cmd:refdate()}.
 
 {pstd}
-{cmd:r(detail_allslots)} says which attribution rule built {cmd:r(varcounts)} --
-{cmd:1} for the all-slots rule, {cmd:0} for first-slot attribution. It is {cmd:1}
-whenever {cmd:allslots} was given {bf:and} whenever {cmd:countmode} was given,
-because {cmd:countmode} counts every slot on its own. Under the all-slots rule
-the row totals of {cmd:r(varcounts)} are slot totals, not unit counts.
+When {opt detail} is requested, {cmd:r(detail_allslots)} says which attribution
+rule built {cmd:r(varcounts)}: {cmd:1} for the all-slots rule and {cmd:0} for
+first-slot attribution. It is {cmd:1} with either {cmd:allslots} or
+{cmd:countmode}, because {cmd:countmode} counts every slot on its own. Neither
+result is returned without {opt detail}. Under the all-slots rule, row totals
+of {cmd:r(varcounts)} are slot totals, not unit counts.
 
 {pstd}
 {cmd:r(summary)} has one row per condition, named for the condition, and four

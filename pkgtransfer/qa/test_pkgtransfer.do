@@ -914,6 +914,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         file write `restore_fh' "N pkgtransfer.pkg" _n
         file write `restore_fh' "d pkgtransfer fixture" _n
         file write `restore_fh' "f p/pkgtransfer.ado" _n
+        file write `restore_fh' "f p/pkgtransfer.sthlp" _n
         file write `restore_fh' ///
             "d S https://example.org/restored/pkgtransfer" _n
         file write `restore_fh' "e" _n
@@ -1304,6 +1305,48 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture quietly cd "`orig_dir'"
     if _rc != 0 local cleanup_rc = _rc
     if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* Test 34: Staging cleanup handles arbitrary nesting depth
+local ++test_count
+local test_desc "Owned staging cleanup is recursive"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture noisily {
+        quietly cd "`tmpdir'"
+        mkdir "cleanup_tree"
+        mkdir "cleanup_tree/a"
+        mkdir "cleanup_tree/a/b"
+        mkdir "cleanup_tree/a/b/c"
+        mkdir "cleanup_tree/a/b/c/d"
+        tempname nested_fh
+        file open `nested_fh' using ///
+            "cleanup_tree/a/b/c/d/file.txt", write text replace
+        file write `nested_fh' "nested" _n
+        file close `nested_fh'
+        _pkgtransfer_cleanup_staging, directory("cleanup_tree")
+        local cleanup_dirs : dir "." dirs "cleanup_tree", respectcase
+        assert `"`cleanup_dirs'"' == ""
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    capture noisily _pkgtransfer_cleanup_staging, ///
+        directory("`tmpdir'/cleanup_tree")
+    capture quietly cd "`orig_dir'"
+    if `test_rc' == 0 & _rc != 0 local test_rc = _rc
 
     if `test_rc' == 0 {
         local ++pass_count

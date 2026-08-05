@@ -1,4 +1,4 @@
-*! _compress_tc_human Version 1.1.0  2026/06/19
+*! _compress_tc_human Version 1.1.1  2026/08/05
 *! Format a byte count as a human-readable size string (B / KB / MB / GB)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (helper for compress_tc)

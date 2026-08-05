@@ -5,7 +5,7 @@
 *          for save return values, CSV format integrity, conservation invariants,
 *          order independence, and idempotency.
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-21
 *******************************************************************************/
 

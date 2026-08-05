@@ -1,4 +1,4 @@
-*! _datamap_collect_filelist Version 1.6.2  2026/07/27
+*! _datamap_collect_filelist Version 1.6.3  2026/08/05
 *! Shared datamap/datadict filelist parser
 *! Author: Timothy P Copeland, Karolinska Institutet
 

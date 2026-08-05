@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.5  10jul2026}{...}
+{* *! version 1.2.6  05aug2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -55,12 +55,12 @@ Plot from a graph-ready frame:
 {synopt:{opt fr:ame(framename)}}use a graph-ready frame as input{p_end}
 {synopt:{opt lab:els(varname)}}variable containing row labels{p_end}
 {synopt:{opt wei:ghts(varname)}}variable for marker/box sizing{p_end}
-{synopt:{opt t:ype(varname)}}row type indicator (1=effect, 3=subgroup, 5=overall){p_end}
-{synopt:{opt pv:alue(varname)}}numeric p-value variable for {opt stars} and {cmd:r(pvalues)}{p_end}
-{synopt:{opt est:imate(varname)}}frame-mode point estimate variable; default is {cmd:estimate}{p_end}
-{synopt:{opt ll(varname)}}frame-mode lower confidence limit variable; default is {cmd:ll}{p_end}
-{synopt:{opt ul(varname)}}frame-mode upper confidence limit variable; default is {cmd:ul}{p_end}
-{synopt:{opt rowt:ype(varname)}}frame-mode synonym for {opt type()}; default is {cmd:rowtype} when present{p_end}
+{synopt:{opt t:ype(varname)}}row type indicator{p_end}
+{synopt:{opt pv:alue(varname)}}p-values for stars and {cmd:r(pvalues)}{p_end}
+{synopt:{opt est:imate(varname)}}frame estimate variable; default {cmd:estimate}{p_end}
+{synopt:{opt ll(varname)}}frame lower-limit variable; default {cmd:ll}{p_end}
+{synopt:{opt ul(varname)}}frame upper-limit variable; default {cmd:ul}{p_end}
+{synopt:{opt rowt:ype(varname)}}frame synonym for {opt type()}{p_end}
 
 {syntab:Coefficient selection}
 {synopt:{opt keep(coeflist)}}keep specified coefficients{p_end}
@@ -73,7 +73,7 @@ Plot from a graph-ready frame:
 {synopt:{opt gr:oups(spec)}}define groups of effects with labels{p_end}
 {synopt:{opt head:ers(spec)}}insert section headers{p_end}
 {synopt:{opt headi:ngs(spec)}}alias for {opt headers()}{p_end}
-{synopt:{opt gap(#)}}extra vertical space between {opt groups()} blocks; single-model only{p_end}
+{synopt:{opt gap(#)}}space between adjacent groups{p_end}
 
 {syntab:Transform}
 {synopt:{opt eform}}exponentiate estimates (for OR, HR, RR){p_end}
@@ -81,12 +81,12 @@ Plot from a graph-ready frame:
 
 {syntab:Reference lines}
 {synopt:{opt xl:ine(numlist[, line_options])}}add vertical reference lines{p_end}
-{synopt:{opt xlab:el(spec)}}effect-axis tick specification; maps to the effect axis in either layout{p_end}
+{synopt:{opt xlab:el(spec)}}effect-axis tick specification{p_end}
 {synopt:{opt null(#)}}null hypothesis line position{p_end}
 {synopt:{opt nonull}}suppress null line{p_end}
 
 {syntab:Confidence intervals}
-{synopt:{opt lev:el(#)}}confidence level; default is {cmd:level(95)}; estimates and matrix modes only{p_end}
+{synopt:{opt lev:el(#)}}CI level; default is {cmd:c(level)}{p_end}
 {synopt:{opt noci}}suppress confidence intervals{p_end}
 {synopt:{opt cicap}}draw capped CI lines (rcap instead of rspike){p_end}
 
@@ -95,17 +95,17 @@ Plot from a graph-ready frame:
 {synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
 {synopt:{opt val:ues}}annotate each row with formatted effect text{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
-{synopt:{opt star:s}}add significance stars (*, **, ***) to values; estimates and matrix (2-col) modes{p_end}
+{synopt:{opt star:s}}add significance stars to values{p_end}
 {synopt:{opt sigcolors}}color markers by significance (CI vs null){p_end}
-{synopt:{opt sigcolor(color)}}color for significant effects; default is {cmd:cranberry}{p_end}
-{synopt:{opt insignc:olor(color)}}color for non-significant effects; default is {cmd:gs10}{p_end}
-{synopt:{opt sty:le(name)}}style preset: {cmd:forest}, {cmd:coef}, {cmd:lancet}, {cmd:jama}, {cmd:nejm}, or {cmd:bmj}{p_end}
-{synopt:{opt f:avors(left right)}}directional annotation text below x-axis (horizontal mode){p_end}
+{synopt:{opt sigcolor(color)}}significant-effect color{p_end}
+{synopt:{opt insignc:olor(color)}}non-significant-effect color{p_end}
+{synopt:{opt sty:le(name)}}plot style preset{p_end}
+{synopt:{opt f:avors(left right)}}directional annotation text{p_end}
 
-{syntab:Prediction intervals (data mode)}
+{syntab:Prediction intervals (data and frame modes)}
 {synopt:{opt pi(lci_var uci_var)}}draw prediction interval whiskers behind CIs{p_end}
 
-{syntab:Heterogeneity (data mode)}
+{syntab:Heterogeneity (data and frame modes)}
 {synopt:{opt i2(string)}}display I-squared value in note{p_end}
 {synopt:{opt tau2(string)}}display tau-squared value in note{p_end}
 {synopt:{opt q:stat(string)}}display Q statistic in note{p_end}
@@ -128,7 +128,7 @@ Plot from a graph-ready frame:
 {synopt:{opt msi:ze(size)}}marker size; default is {cmd:medium}{p_end}
 {synopt:{opt boxs:cale(#)}}box size scaling (percentage); default is {cmd:100}{p_end}
 {synopt:{opt nobox}}suppress weighted boxes{p_end}
-{synopt:{opt nodi:amonds}}use markers instead of diamonds for pooled effects{p_end}
+{synopt:{opt nodi:amonds}}replace pooled diamonds with markers{p_end}
 {synopt:{opt cicolor(color)}}CI line color{p_end}
 {synopt:{opt ciw:idth(lwstyle)}}CI line width{p_end}
 
@@ -268,10 +268,11 @@ dataset. Accepted values:
 {p2colreset}{...}
 
 {pmore}
-If {opt type()} is a string variable, the values {cmd:"header"},
-{cmd:"missing"}, {cmd:"subgroup"}, {cmd:"hetinfo"}, {cmd:"overall"}, and
-{cmd:"blank"} are recognized. If {opt type()} is omitted, all rows are
-treated as regular effects (type 1).
+If {opt type()} is a string variable, {cmd:"header"} and {cmd:"section"}
+map to type 0; {cmd:"missing"} and {cmd:"reference"} map to type 2; and
+{cmd:"subgroup"}, {cmd:"hetinfo"}, {cmd:"overall"}, and {cmd:"blank"} map
+to types 3 through 6. If {opt type()} is omitted, all rows are treated as
+regular effects (type 1).
 
 {phang}
 {opt pvalue(varname)} {bf:[D,F]}
@@ -322,7 +323,7 @@ effects. Syntax: {cmd:coeflabels(coef1 = "Label 1" coef2 = "Label 2")}. In data
 mode, labels are matched against the {opt labels()} variable.
 
 {phang}
-{opt groups(spec)} {bf:[D]} {bf:[E single-model]} groups coefficients under
+{opt groups(spec)} {bf:[D,F]} {bf:[E single-model]} groups coefficients under
 section headers.{p_end}
 
 {pmore}
@@ -330,13 +331,13 @@ Syntax: {cmd:groups(coef1 coef2 = "Group A" coef3 coef4 = "Group B")}. Group
 headers appear as bold text above the first coefficient in each group.{p_end}
 
 {phang}
-{opt gap(#)} {bf:[D]} {bf:[E single-model]} adds extra vertical space between adjacent
+{opt gap(#)} {bf:[D,F]} {bf:[E single-model]} adds extra vertical space between adjacent
 {opt groups()} blocks. The value sets the gap size in row-height units; the default
 is {cmd:0} (no extra space). Useful for visually separating clinical domains in
 forest plots without inserting blank rows in the source data.
 
 {phang}
-{opt headers(spec)} {bf:[D]} {bf:[E single-model]} inserts a section header before a specified
+{opt headers(spec)} {bf:[D,F]} {bf:[E single-model]} inserts a section header before a specified
 coefficient. Syntax: {cmd:headers(coef1 = "Section Header")}. Use this when you want
 a header above a single coefficient rather than grouping multiple
 coefficients. {opt headings()} is accepted as an alias.
@@ -383,9 +384,9 @@ you can control the effect scale without worrying about orientation.
 {dlgtab:Confidence intervals}
 
 {phang}
-{opt level(#)} {bf:[E]} {bf:[M]} sets the confidence level for interval construction. Default
-is {cmd:95}. In data mode, confidence limits are taken directly from the supplied
-variables.
+{opt level(#)} {bf:[E]} {bf:[M]} sets the confidence level for interval
+construction. The default is the current {cmd:c(level)}. In data and frame
+modes, confidence limits are taken directly from the supplied variables.
 
 {phang}
 {opt noci}
@@ -475,7 +476,7 @@ and plot styles; any option you specify explicitly overrides the preset.
 {cmd:favors("Favors Treatment" "Favors Control")}. Useful in forest plots to show
 the clinical interpretation of each direction.
 
-{dlgtab:Prediction intervals (data mode)}
+{dlgtab:Prediction intervals (data and frame modes)}
 
 {phang}
 {opt pi(lci_var uci_var)} {bf:[D,F]}
@@ -485,7 +486,7 @@ prediction limits. Prediction intervals are wider than confidence intervals
 and show the range within which a future study's true effect is expected to
 fall.
 
-{dlgtab:Heterogeneity (data mode)}
+{dlgtab:Heterogeneity (data and frame modes)}
 
 {phang}
 {opt i2(string)} {bf:[D,F]}
@@ -514,9 +515,9 @@ creates a vertical plot with effect sizes on the y-axis.
 
 {phang}
 {opt sort}
-sorts coefficients by effect size, smallest at top. In data mode, only
-regular effects (type 1) are sorted; headers, pooled estimates, and blank
-rows keep their original positions.
+sorts coefficients by effect size, smallest at top. In data and frame modes,
+only regular effects (type 1) are sorted; headers, pooled estimates, and
+blank rows keep their original positions.
 
 {phang}
 {opt order(coeflist)}
@@ -565,18 +566,18 @@ sets the marker size. Default is {cmd:medium} for single-model plots and
 {cmd:medsmall} for multi-model plots.
 
 {phang}
-{opt boxscale(#)} {bf:[D]}
+{opt boxscale(#)} {bf:[D,F]}
 scales the weighted-box marker size. The value is a percentage; default is
 {cmd:100}. Use {cmd:boxscale(150)} for 50% larger boxes or {cmd:boxscale(50)}
 for half-sized boxes.
 
 {phang}
-{opt nobox} {bf:[D]}
+{opt nobox} {bf:[D,F]}
 suppresses weighted square markers. Effects are drawn with the standard
 marker symbol instead of weight-proportional squares.
 
 {phang}
-{opt nodiamonds} {bf:[D]}
+{opt nodiamonds} {bf:[D,F]}
 draws pooled effects (type 3 and 5 rows) as standard markers instead of
 diamonds.
 
@@ -587,6 +588,29 @@ sets the CI line color. Default matches {opt mcolor()}.
 {phang}
 {opt ciwidth(lwstyle)}
 sets the CI line width. Default is {cmd:medium}.
+
+{dlgtab:Graph options}
+
+{phang}
+{opt title(string)}, {opt subtitle(string)}, and {opt note(string)}
+set the graph title, subtitle, and note.
+
+{phang}
+{opt name(string)} names the graph in memory. {opt saving(filename)} saves
+the graph; include standard {cmd:saving()} suboptions such as {cmd:replace}
+inside the option argument when needed.
+
+{phang}
+{opt scheme(schemename)} applies a Stata graph scheme.
+
+{phang}
+{opt plotregion(options)}, {opt graphregion(options)}, and {opt aspect(#)}
+pass plot-region, graph-region, and aspect-ratio settings to {cmd:twoway}.
+
+{phang}
+{it:twoway_options} are any other options accepted by {help twoway}. They are
+appended to the generated graph command; inspect {cmd:r(cmd)} when debugging
+passthrough behavior.
 
 
 {marker examples}{...}
@@ -786,7 +810,7 @@ custom text.
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(N)}}number of effects plotted{p_end}
+{synopt:{cmd:r(N)}}input rows before generated headers{p_end}
 {synopt:{cmd:r(k)}}number of plotted coefficients (excludes headers and diamonds){p_end}
 {synopt:{cmd:r(n_models)}}number of models plotted (estimates mode only){p_end}
 
@@ -794,19 +818,26 @@ custom text.
 {synopt:{cmd:r(cmd)}}the full {cmd:twoway} command that was executed{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}k x 3 matrix of plotted effects ({it:b}, {it:ll}, {it:ul}); k x 3m for multi-model{p_end}
+{synopt:{cmd:r(table)}}plotted effects ({it:b}, {it:ll}, {it:ul}){p_end}
 {synopt:{cmd:r(pvalues)}}p-values per plotted effect, when available{p_end}
 
 {pstd}
 {cmd:r(pvalues)} is returned in data and frame modes when {opt pvalue()} is
 supplied, in estimates mode for a single model, and in 2-column matrix mode.
 
+{pstd}
+{cmd:r(N)} counts rows accepted before {opt groups()} or {opt headers()}
+generates display rows. In data and frame modes, supplied non-effect rows
+retained through {opt type()} are included. {cmd:r(table)} has three columns
+({it:b}, {it:ll}, {it:ul}) for one model and three columns per model for a
+multi-model estimates plot.
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.5, 10jul2026{p_end}
+{pstd}Version 1.2.6, 05aug2026{p_end}
 
 
 {marker alsosee}{...}

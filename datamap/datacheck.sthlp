@@ -36,24 +36,24 @@
 {synopthdr}
 {synoptline}
 {syntab:Input}
-{synopt:{opt sing:le(filename)}}profile a saved {opt .dta} instead of data in memory; the in-memory data is preserved{p_end}
+{synopt:{opt sing:le(filename)}}profile a saved {opt .dta}; preserve data in memory{p_end}
 {synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
 
 {syntab:Classification}
-{synopt:{opt maxc:at(#)}}categorical-vs-continuous cutoff passed to the classifier; default {bf:25}{p_end}
-{synopt:{opt exc:lude(varlist)}}skip these variables entirely (also passed to the classifier){p_end}
+{synopt:{opt maxc:at(#)}}categorical cutoff; default {bf:25}{p_end}
+{synopt:{opt exc:lude(varlist)}}skip these variables entirely{p_end}
 {synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
 {synopt:{opt cat:egorical(varlist)}}force these variables into the categorical group{p_end}
 {synopt:{opt date(varlist)}}force these variables into the date group{p_end}
-{synopt:{opt id(keyspec)}}identifier key(s) for the uniqueness report; {cmd:\}-separate several keys{p_end}
+{synopt:{opt id(keyspec)}}identifier keys; {cmd:\}-separate several{p_end}
 
 {syntab:Detail}
-{synopt:{opt d:etail}}full per-variable output: percentiles for continuous variables{p_end}
+{synopt:{opt d:etail}}add percentile detail for continuous variables{p_end}
 {synopt:{opt maxf:req(#)}}cap categorical/string levels shown; default {bf:20}{p_end}
 {synopt:{opt rare(#)}}flag categorical levels with a count below {it:#}{p_end}
 {synopt:{opt min:cell(#)}}flag tabulated cells below {it:#}{p_end}
-{synopt:{opt mask:rare}}mask low-count cells in console output using {opt mincell()} or {opt rare()}{p_end}
-{synopt:{opt out:liers(#)}}flag continuous values beyond {it:#} IQRs from the quartiles{p_end}
+{synopt:{opt mask:rare}}mask low-count cells{p_end}
+{synopt:{opt out:liers(#)}}flag values beyond {it:#} IQRs{p_end}
 
 {syntab:Missingness}
 {synopt:{opt nomiss:ing}}suppress the missingness summary block{p_end}
@@ -61,28 +61,28 @@
 
 {syntab:Gate {it:(any gate option turns on gate mode)}}
 {synopt:{opt gates:only}}run gates without printing the descriptive profile{p_end}
-{synopt:{opt expectn(numlist)}}assert {cmd:_N}; one number is exact, two are an inclusive range{p_end}
+{synopt:{opt expectn(numlist)}}assert {cmd:_N}; exact or inclusive range{p_end}
 {synopt:{opt isid(varlist)}}assert the dataset is unique by this key{p_end}
 {synopt:{opt nodups}}assert no fully duplicated rows{p_end}
 {synopt:{opt req:uire(varlist)}}assert these variables exist{p_end}
 {synopt:{opt notmiss:ing(varlist)}}assert zero missing values in these variables{p_end}
-{synopt:{opt inrange(spec)}}assert variables fall in declared ranges; {cmd:\}-separate{p_end}
+{synopt:{opt inrange(spec)}}assert ranges; {cmd:\}-separate{p_end}
 {synopt:{opt all:owed(spec)}}assert variables contain only allowed values{p_end}
 {synopt:{opt for:bid(spec)}}assert variables do not contain forbidden values{p_end}
 {synopt:{opt regex(spec)}}assert string variables match regular expressions{p_end}
-{synopt:{opt notv:alues(spec)}}assert variables do not contain sentinel or disallowed values{p_end}
-{synopt:{opt by(varlist)}}evaluate gates and missingness summaries within groups defined by {it:varlist}{p_end}
+{synopt:{opt notv:alues(spec)}}reject sentinel or disallowed values{p_end}
+{synopt:{opt by(varlist)}}evaluate gates/missingness within groups{p_end}
 {synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
 {synopt:{opt check:s(filename)}}read gate specifications from a checks file{p_end}
-{synopt:{opt makes:pec(filename[, replace])}}write a starter checks file from the current dataset{p_end}
-{synopt:{opt comp:are(filename)}}compare the current schema with a saved metadata profile or dataset{p_end}
-{synopt:{opt warn}}downgrade every gate from halt to warning; report but do not stop{p_end}
+{synopt:{opt makes:pec(filename[, replace])}}write a starter checks file{p_end}
+{synopt:{opt comp:are(filename)}}compare current schema with a saved file{p_end}
+{synopt:{opt warn}}report gate failures as warnings{p_end}
 
 {syntab:Output}
-{synopt:{opt sav:ing(name[, replace])}}save the per-variable profile to a {opt .dta} or a frame{p_end}
-{synopt:{opt only:flagged}}show only variables or groups with warnings or violations{p_end}
+{synopt:{opt sav:ing(name[, replace])}}save profile to {opt .dta} or frame{p_end}
+{synopt:{opt only:flagged}}show only flagged variables/groups{p_end}
 {synopt:{opt show(flagged)}}same display filter as {opt onlyflagged}{p_end}
-{synopt:{opt viol:ations(name[, replace])}}save the violation-level results to a {opt .dta} or a frame{p_end}
+{synopt:{opt viol:ations(name[, replace])}}save violation rows to {opt .dta}/frame{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -388,15 +388,15 @@ steps need structured diagnostics rather than console text.
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}number of observations profiled{p_end}
-{synopt:{cmd:r(complete_cases)}}observations with no missing in the profiled varlist (excluded variables do not count){p_end}
+{synopt:{cmd:r(complete_cases)}}complete observations (excluded vars ignored){p_end}
 {synopt:{cmd:r(complete_pct)}}percent complete{p_end}
 {synopt:{cmd:r(n_checks)}}number of checks evaluated{p_end}
 {synopt:{cmd:r(n_passed)}}number of check families without violations{p_end}
 {synopt:{cmd:r(n_failed)}}number of check families with at least one violation{p_end}
-{synopt:{cmd:r(n_violations)}}number of failed gates (0 when no gate ran or all passed){p_end}
+{synopt:{cmd:r(n_violations)}}number of failed gates{p_end}
 {synopt:{cmd:r(n_groups)}}number of groups evaluated by {opt by()} or {opt over()}{p_end}
 {synopt:{cmd:r(gatesonly)}}1 when {opt gatesonly} was specified; otherwise 0{p_end}
-{synopt:{cmd:r(onlyflagged)}}1 when {opt onlyflagged} or {cmd:show(flagged)} was specified; otherwise 0{p_end}
+{synopt:{cmd:r(onlyflagged)}}1 with {opt onlyflagged} or {cmd:show(flagged)}{p_end}
 {synopt:{cmd:r(n_continuous)}}number of continuous variables{p_end}
 {synopt:{cmd:r(n_categorical)}}number of categorical variables{p_end}
 {synopt:{cmd:r(n_date)}}number of date variables{p_end}
@@ -408,7 +408,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(n_missing_vars)}}number of variables with missing values{p_end}
 {synopt:{cmd:r(n_outlier_vars)}}number of variables with outlier flags{p_end}
 {synopt:{cmd:r(n_rare_vars)}}number of variables with rare-level flags{p_end}
-{synopt:{cmd:r(n_group_missing_vars)}}number of variables with missing values in at least one {opt by()} or {opt over()} group{p_end}
+{synopt:{cmd:r(n_group_missing_vars)}}vars missing in a {opt by()} or {opt over()} group{p_end}
 {synopt:{cmd:r(mincell)}}small-cell threshold supplied through {opt mincell()}{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was specified; otherwise 0{p_end}
 {synopt:{cmd:r(compare_added)}}number of variables added relative to {opt compare()}{p_end}
@@ -432,7 +432,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(missing_vars)}}variables with missing values{p_end}
 {synopt:{cmd:r(outlier_vars)}}variables with outlier flags{p_end}
 {synopt:{cmd:r(rare_vars)}}variables with rare-level flags{p_end}
-{synopt:{cmd:r(group_missing_vars)}}variables with missing values in at least one {opt by()} or {opt over()} group{p_end}
+{synopt:{cmd:r(group_missing_vars)}}vars missing in a {opt by()} or {opt over()} group{p_end}
 {synopt:{cmd:r(compare_added_vars)}}variables added relative to {opt compare()}{p_end}
 {synopt:{cmd:r(compare_dropped_vars)}}variables dropped relative to {opt compare()}{p_end}
 {synopt:{cmd:r(compare_type_changed_vars)}}variables whose storage type changed{p_end}

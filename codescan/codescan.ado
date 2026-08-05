@@ -1,4 +1,4 @@
-*! codescan Version 4.1.0  2026/07/25
+*! codescan Version 4.1.1  2026/08/05
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -62,8 +62,8 @@ STORED RESULTS:
     r(mode_count)     - 1 if countmode specified, 0 otherwise
     r(detail_allslots) - 1 if detail counted every matching slot, 0 if it
                         attributed each row to its first matching variable
-                        (if detail specified). Always 1 under countmode, which
-                        counts every slot whether or not allslots was given.
+                        (returned only if detail is specified; then always 1
+                        under countmode)
     r(summary)        - Matrix, one row per condition, columns:
                         count          legacy: total_hits under countmode,
                                        positive_units otherwise
@@ -1928,6 +1928,11 @@ program define codescan, rclass
     matrix rownames `codelist' = `cl_rnames'
     matrix colnames `codelist' = count prevalence total_hits positive_units
 
+    * Clear optional results from any earlier codescan invocation before
+    * publishing this call's contract. Without this, results such as
+    * r(varcounts) and r(detail_allslots) can survive when their option is
+    * omitted on the next successful call.
+    return clear
     return scalar N = `N_display'
     return scalar n_conditions = `n_conditions'
     return scalar collapsed = ("`collapse'" != "")
@@ -2186,4 +2191,3 @@ program define codescan, rclass
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
-

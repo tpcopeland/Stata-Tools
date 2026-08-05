@@ -1,6 +1,6 @@
-*! consort Version 1.1.0  2026/06/24
+*! consort Version 1.1.1  2026/08/05
 *! Generate CONSORT-style exclusion flowcharts for observational research
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*

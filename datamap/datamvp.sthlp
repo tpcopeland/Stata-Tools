@@ -57,7 +57,7 @@ help for {cmd:datamvp}
 {synopt:{opt save(name)}}save pattern data to file or frame{p_end}
 
 {syntab:Graphics}
-{synopt:{opt gr:aph(type)}}produce missingness graph; {it:type} may be {cmd:bar}, {cmd:patterns}, {cmd:matrix}, or {cmd:correlation}{p_end}
+{synopt:{opt gr:aph(type)}}graph: {cmd:bar}, {cmd:patterns}, {cmd:matrix}, or {cmd:correlation}{p_end}
 {synopt:{opt sch:eme(schemename)}}graph scheme{p_end}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
 {synopt:{opt subti:tle(string)}}graph subtitle{p_end}
@@ -81,8 +81,8 @@ help for {cmd:datamvp}
 {synopt:{opt colorr:amp(type)}}color scheme: {cmd:bluered} (default), {cmd:redblue}, or {cmd:grayscale}{p_end}
 
 {syntab:Stratification options}
-{synopt:{opt gb:y(varname)}}stratify graphs by categorical variable (faceted display){p_end}
-{synopt:{opt over(varname)}}overlay comparison by categorical variable (grouped bars){p_end}
+{synopt:{opt gb:y(varname)}}facet graphs by categorical var{p_end}
+{synopt:{opt over(varname)}}overlay by categorical var{p_end}
 {synopt:{opt st:acked}}show stacked bar chart; requires graph(bar){p_end}
 {synopt:{opt groupg:ap(#)}}gap between bar groups; default is 0{p_end}
 {synopt:{opt legendo:pts(string)}}pass-through legend options{p_end}
@@ -481,7 +481,7 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {synopt:{cmd:r(over_levels)}}levels of the over variable{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(corr_miss)}}correlation matrix of missingness (if {opt correlate} or {opt graph(correlation)} specified){p_end}
+{synopt:{cmd:r(corr_miss)}}missingness correlation matrix if requested{p_end}
 
 
 {marker authors}{...}

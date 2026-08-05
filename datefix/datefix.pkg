@@ -2,10 +2,9 @@ v 3
 d 'DATEFIX': module to convert string date variables to numeric date formatted variables
 d See {bf:help datefix} after installation.
 d
-d Fixes and standardizes date variables in Stata datasets.
-d Detects inconsistent date formats, corrects common errors, and
-d converts string dates to Stata numeric date format.
-d Handles ambiguous dates, missing values, and mixed-format date columns.
+d Parses string dates into Stata numeric daily dates.
+d Supports explicit or auto-detected date order, numeric-date passthrough,
+d custom display formats, and diagnostics for unconvertible values.
 d
 d Requires: Stata version 16 or higher.
 d
@@ -13,7 +12,7 @@ d KW: Stata
 d KW: date
 d KW: string
 d
-d Distribution-Date: 20260714
+d Distribution-Date: 20260805
 d
 d License: MIT
 d

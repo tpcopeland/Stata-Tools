@@ -420,19 +420,20 @@ else {
 * TEST 18: level() option — default uses c(level)
 * =============================================================================
 local ++test_count
+local _level0 = c(level)
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     stcox age drug
     cstat_surv
-    assert e(level) == 95
+    assert e(level) == `_level0'
 }
 if _rc == 0 {
-    display as result "  PASS: Test `test_count' — level() default = 95"
+    display as result "  PASS: Test `test_count' — level() default uses c(level)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Test `test_count' — level() default = 95 (rc=`=_rc')"
+    display as error "  FAIL: Test `test_count' — level() default uses c(level) (rc=`=_rc')"
     local ++fail_count
 }
 

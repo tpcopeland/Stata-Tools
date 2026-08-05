@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  27jul2026}{...}
+{* *! version 1.6.3  05aug2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -37,7 +37,7 @@
 {synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
 
 {syntab:Output}
-{synopt:{opt o:utput(filename)}}output file name; default is {bf:datamap.txt} or {bf:datamap.json}{p_end}
+{synopt:{opt o:utput(filename)}}output; default {bf:datamap.txt} or {bf:datamap.json}{p_end}
 {synopt:{opt f:ormat(string)}}output format: {bf:text} or {bf:json}{p_end}
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
 {synopt:{opt app:end}}append to an existing output file{p_end}
@@ -49,14 +49,14 @@
 {synopt:{opt nofr:eq}}suppress frequency tables for categorical variables{p_end}
 {synopt:{opt nola:bels}}suppress the value-label definitions section{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to tabulate; default {bf:25}{p_end}
-{synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
+{synopt:{opt maxc:at(#)}}categorical cutoff; default {bf:25}{p_end}
 {synopt:{opt uniqc:ap(#)}}max unique values counted exactly; default {bf:1000}{p_end}
-{synopt:{opt minc:ell(#)}}suppress frequency cells smaller than {it:#}; default {bf:5}; {bf:0} disables{p_end}
+{synopt:{opt minc:ell(#)}}suppress cells below {it:#}; {bf:0} disables{p_end}
 {synopt:{opt nog:uidance}}suppress ANALYSIS GUIDANCE prose{p_end}
 {synopt:{opt com:pact}}write a token-compact map; implies {opt noguidance}{p_end}
 
 {syntab:Privacy}
-{synopt:{opt exc:lude(varlist)}}variables to document structure only (no values/stats){p_end}
+{synopt:{opt exc:lude(varlist)}}omit values/stats for these vars{p_end}
 {synopt:{opt dates:afe}}show date-range span only, not exact dates{p_end}
 {synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
 
@@ -208,8 +208,8 @@ cardinality.
 {cmd:output}, {cmd:format}, {cmd:exclude}, {cmd:continuous}, {cmd:categorical},
 {cmd:datevars}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:uniqcap}, {cmd:mincell},
 {cmd:datesafe}, {cmd:compact}, {cmd:detect}, {cmd:panelid},
-{cmd:survivalvars}, {cmd:dateformat}, {cmd:samples}, and {cmd:missing}.
-Command-line options override config-file defaults.
+{cmd:survivalvars}, {cmd:dateformat}, {cmd:samples}, and {cmd:missing}. Command-line
+options override config-file defaults.
 
 {dlgtab:Content control}
 
@@ -240,8 +240,8 @@ categorical; the rest are continuous. Default is {bf:25}. Must be positive.
 {opt uniqc:ap(#)} caps how far {cmd:datamap} counts distinct values before it
 stops. A variable with more than {it:#} distinct values is reported as
 {bf:>#} rather than an exact count, and JSON marks it
-{bf:unique_values_capped: true} with {bf:unique_values} holding a lower bound.
-The default is {bf:1000}.
+{bf:unique_values_capped: true} with {bf:unique_values} holding a lower bound. The
+default is {bf:1000}.
 
 {pmore}
 This is what keeps {cmd:datamap} fast on large files. Counting a continuous or
@@ -554,7 +554,7 @@ Combine multiple privacy and content options:{p_end}
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 	{synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
-	{synopt:{cmd:r(nobs)}}number of observations (single-file and in-memory modes only){p_end}
+	{synopt:{cmd:r(nobs)}}observations (single-file or memory mode){p_end}
 	{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
 	{synopt:{cmd:r(mincell)}}small-cell threshold used{p_end}
 	{synopt:{cmd:r(n_categorical)}}number of categorical variables documented{p_end}
@@ -587,7 +587,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.6.2 {hline 2} 27jul2026{p_end}
+{pstd}Version 1.6.3 {hline 2} 05aug2026{p_end}
 
 
 {title:Also see}

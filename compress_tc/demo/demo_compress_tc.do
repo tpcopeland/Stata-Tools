@@ -1,4 +1,4 @@
-/*  demo_compress_tc.do - Generate screenshots for compress_tc
+/*  demo_compress_tc.do - Generate example output for compress_tc
 
     Produces 1 output type:
       1. Console output (compression report) -> .smcl

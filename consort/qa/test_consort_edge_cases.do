@@ -10,7 +10,7 @@
 *   - Math verification with known dataset
 *   - State persistence verification
 *
-* Author: Claude (automated testing)
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2025-12-21
 *******************************************************************************/
 

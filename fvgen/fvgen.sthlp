@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1  27jul2026}{...}
+{* *! version 1.2.2  05aug2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -57,7 +57,7 @@ syntax for {helpb margins}:
 {synopt:{opt center}}mean-center continuous terms before forming products{p_end}
 {synopt:{opt ref(spec)}}set the reference (base) level per factor{p_end}
 {synopt:{opt simp:le(varname)}}per-group slopes within levels of {it:varname}{p_end}
-{synopt:{opt vsr:ef(string)}}append the reference level to main-effect labels{p_end}
+{synopt:{opt vs:ref(string)}}append the reference level to main-effect labels{p_end}
 {synopt:{opt pre:fix(name)}}prefix for generated variable names; default is {cmd:_}{p_end}
 {synopt:{opt replace}}overwrite generated variables that already exist{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
@@ -190,8 +190,9 @@ a single underscore ({cmd:_}). Names that would exceed Stata's 32-character
 limit raise an error; choose a shorter prefix or rename the source variables.
 
 {phang}
-{opt replace} permits {cmd:fvgen} to overwrite previously generated variables
-of the same name. Without it, a name collision is an error. With
+{opt replace} permits {cmd:fvgen} to drop and recreate any existing variable
+whose name collides with a generated variable. Without it, a name collision is
+an error. With
 {cmd:fvgen, margins store(name)}, {opt replace} first drops an existing stored
 estimate named {it:name}, then stores the refreshed margins-ready clone.
 
@@ -377,16 +378,18 @@ With {opt margins}, {cmd:fvgen} stores:
 {synopt:{cmd:r(margins)}}{cmd:active} if estimates were rebuilt, else {cmd:stored}{p_end}
 {synopt:{cmd:r(stored)}}stored estimate name, when {opt store()} was used{p_end}
 
-{pstd}
-The margins-ready estimation result is also marked internally as an
-{cmd:fvgen} margins clone and records the flattened and native command lines.
+{p2col 5 20 24 2: Margins-ready {cmd:e()} macros}{p_end}
+{synopt:{cmd:e(fvgen_margins)}}1 for an {cmd:fvgen} margins clone{p_end}
+{synopt:{cmd:e(fvgen_flat_cmdline)}}flattened estimator command line{p_end}
+{synopt:{cmd:e(fvgen_native_cmdline)}}native factor-variable refit command line{p_end}
+{p2colreset}{...}
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.1, 2026-07-27{p_end}
+{pstd}Version 1.2.2, 2026-08-05{p_end}
 
 
 {title:Also see}

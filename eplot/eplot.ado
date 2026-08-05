@@ -1,4 +1,4 @@
-*! eplot Version 1.2.5  2026/07/10
+*! eplot Version 1.2.6  2026/08/05
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -591,10 +591,30 @@ program define _eplot_data, rclass
 
     // Sort by effect size if requested
     if "`sort'" != "" {
-        // Only sort effect rows, keep headers/overall in place
-        tempvar sort_val
-        quietly gen double `sort_val' = `es' if `rowtype' == 1
-        sort `sort_val' `id'
+        // Sort regular effects into their original slots. Non-effect rows
+        // retain their positions, including headers, pooled rows, and blanks.
+        quietly count if `rowtype' == 1
+        if r(N) > 1 {
+            tempvar effect_rank target_pos
+            tempfile sort_source effect_slots
+
+            quietly save `sort_source'
+            quietly keep if `rowtype' == 1
+            quietly keep `id'
+            quietly sort `id'
+            quietly gen long `effect_rank' = _n
+            quietly rename `id' `target_pos'
+            quietly save `effect_slots'
+            quietly use `sort_source', clear
+
+            quietly sort `rowtype' `es' `id'
+            quietly by `rowtype': gen long `effect_rank' = _n ///
+                if `rowtype' == 1
+            quietly merge m:1 `effect_rank' using `effect_slots', ///
+                keep(master match) nogen
+            quietly replace `target_pos' = `id' if `rowtype' != 1
+            quietly sort `target_pos'
+        }
     }
     else if `"`order'"' != "" {
         // Apply explicit ordering

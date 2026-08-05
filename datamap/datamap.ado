@@ -1,4 +1,4 @@
-*! datamap Version 1.6.2  2026/07/27
+*! datamap Version 1.6.3  2026/08/05
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -43,7 +43,9 @@ LLM-assisted coding. Exports metadata and aggregate statistics without
 observation-level data. All output is aggregate-level; no cross-variable
 combinations or individual observations are exported.
 
-The current dataset in memory is preserved and restored after processing.
+File-based input (single(), directory(), or filelist()) preserves and restores
+the current dataset. In-memory runs take no snapshot: successful runs leave the
+data unchanged, but failures are not rolled back.
 
 VARIABLE CLASSIFICATION
 -----------------------
@@ -89,7 +91,9 @@ NOTES
 - No observation-level data exported
 - Use exclude() for sensitive identifiers
 - Use datesafe if exact dates are sensitive
-- The current dataset in memory is preserved and restored after processing
+- File-based input preserves and restores the current dataset
+- In-memory runs take no snapshot: successful runs leave the data unchanged, but
+  failures are not rolled back
 - The .dta extension is optional and assumed if not specified
 */
 

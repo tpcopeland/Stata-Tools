@@ -5,7 +5,7 @@
 *          directory existence check, DPI validation, final() precedence,
 *          protected globals, scientific notation prevention.
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-19
 *******************************************************************************/
 

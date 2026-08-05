@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.5** | 2026-07-10
+**Version 1.2.6** | 2026-08-05
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -17,7 +17,8 @@ eplot ., drop(_cons) cicap
 ## Requirements
 
 - Stata 16 or later
-- No required external packages; the optional `tabtools` frame bridge requires `tabtools` when used
+- No required external packages
+- The optional `tabtools` companion-frame workflow requires sibling `tabtools`; its `regtab`, `effecttab`, `comptab`, and `hrcomptab` commands require Stata 17 or later
 
 ## Installation
 
@@ -52,13 +53,13 @@ net install eplot, from("/path/to/Stata-Tools/eplot") replace
 | `eplot, matrix(matname) ...` | Matrix | Results are assembled in a Stata matrix |
 | `eplot, frame(framename) ...` | Frame | A graph-ready result table is stored in a Stata frame |
 
-Mode detection checks explicit `matrix()` first, then `frame()`. With no namelist or with `.` it uses active estimation results; otherwise, three numeric variables in the first three positions select data mode, and estimate names select estimates mode. Use an explicit selector when a variable name and stored estimate name could be confused.
+Mode detection checks explicit `matrix()` first, then `frame()`. With no namelist or with `.` it uses active estimation results; a call with three leading numeric variables selects data mode, and estimate names select estimates mode. Use an explicit selector when a variable name and stored estimate name could be confused.
 
 Data mode uses the three variables as estimate, lower confidence limit, and upper confidence limit. Optional `type()` values identify headers, regular effects, pooled subgroup/overall effects, heterogeneity rows, and blank spacers. Matrix mode accepts either two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`), and row names supply plot labels when present.
 
 Frame mode requires numeric `estimate`, `ll`, and `ul` variables unless `estimate()`, `ll()`, and `ul()` override those names. It automatically uses string `label`, `rowtype` or `type`, numeric `weight` or `weights`, and numeric `pvalue` variables when they are present; `type()` and `rowtype()` are mutually exclusive. Frame mode reuses the data-mode plotting options, including groups, headers, pooled rows, weights, prediction intervals, and heterogeneity notes.
 
-The optional `tabtools` bridge lets `regtab`, `effecttab`, `comptab`, and `hrcomptab` produce companion frames for `eplot, frame()`. The repository demo documents that workflow and requires the sibling `tabtools` package.
+The optional `tabtools` bridge lets `regtab`, `effecttab`, `comptab`, and `hrcomptab` produce companion frames for `eplot, frame()`. The repository demo documents that workflow and requires sibling `tabtools`, `tc_schemes`, and `logdoc` packages, the `_data/` fixtures, and Stata 17 or later.
 
 ## Worked Examples
 
@@ -150,7 +151,7 @@ In estimates mode, `eform` sets the null line to 1 and suppresses `_cons` automa
 
 ## Gallery
 
-The tracked PNGs below are reproducible from a repository checkout. Run `demo/demo_eplot.do` to regenerate the eight core figures; run `demo/demo_tabtools_eplot.do` for the two `tabtools` bridge figures. The bridge demo also needs sibling `tabtools`, `tc_schemes`, `logdoc`, and the repository `_data/` fixtures.
+The eight core figures below are reproducible from a repository checkout; run `demo/demo_eplot.do` to regenerate them. The two bridge figures are checked-in reference assets associated with `demo/demo_tabtools_eplot.do`; that optional integration workflow also needs sibling `tabtools`, `tc_schemes`, `logdoc`, the repository `_data/` fixtures, and Stata 17 or later. These demos are checkout workflows and are not part of the `net install` payload.
 
 | Output | Command focus |
 |--------|---------------|
@@ -183,7 +184,7 @@ Availability tags are `D` = data, `E` = estimates, `M` = matrix, and `F` = frame
 | `pvalue(varname)` | D, F | Numeric p-values for `stars` and `r(pvalues)`; frame mode auto-detects `pvalue` |
 | `pi(lci_var uci_var)` | D, F | Prediction-limit variables drawn as dashed whiskers behind confidence intervals |
 
-Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/excluded, 3 = subgroup pooled effect, 4 = heterogeneity row, 5 = overall pooled effect, and 6 = blank spacer. String values `header`, `missing`, `subgroup`, `hetinfo`, `overall`, and `blank` are also recognized.
+Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/excluded, 3 = subgroup pooled effect, 4 = heterogeneity row, 5 = overall pooled effect, and 6 = blank spacer. String values `header`/`section`, `missing`/`reference`, `subgroup`, `hetinfo`, `overall`, and `blank` are also recognized.
 
 ### Selection and labeling
 
@@ -220,10 +221,10 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `effect(string)` | D, E, M, F | Effect-axis title; data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
 | `values` | D, E single, M, F | Annotate rows with estimate and interval text; requires horizontal layout |
 | `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%5.2f`, or a format based on `dp()` |
-| `stars` | D, E single, M 2-column, F | Append p-value stars to `values`; requires `pvalue()` in data/frame mode |
-| `sigcolors` | D, E, M, F | Color effects by whether the interval excludes `null()` |
-| `sigcolor(color)` | D, E, M, F | Significant-effect color; default is `cranberry` |
-| `insigncolor(color)` | D, E, M, F | Non-significant-effect color; default is `gs10` |
+| `stars` | D, E single, M 2-column, F | Append p-value stars to `values`; data mode requires `pvalue()`, while frame mode uses `pvalue()` or an auto-detected `pvalue` variable |
+| `sigcolors` | D, E single, M, F | Color single-model effects by whether the interval excludes `null()`; multi-model estimates use `palette()` colors |
+| `sigcolor(color)` | D, E single, M, F | Significant-effect color when `sigcolors` is set; default is `cranberry` |
+| `insigncolor(color)` | D, E single, M, F | Non-significant-effect color when `sigcolors` is set; default is `gs10` |
 | `favors(left right)` | D, E, M, F | Add directional labels below a horizontal effect axis |
 | `i2(string)`, `tau2(string)`, `qstat(string)` | D, F | Add supplied heterogeneity text to the graph note; values are not computed |
 | `style(name)` | D, E, M, F | Presets: `forest`, `coef`, `lancet`, `jama`, `nejm`, and `bmj`; explicit options override preset defaults |
@@ -233,7 +234,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `horizontal` / `vertical` | D, E, M, F | Horizontal is the default; vertical puts effects on the y-axis |
-| `sort` | D, E, M, F | Sort regular effects by estimate; data headers and pooled rows retain their roles |
+| `sort` | D, E, M, F | Sort regular effects by estimate; data/frame headers, pooled rows, and blanks retain their original row slots |
 | `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last |
 | `modellabels(strlist)` | E | Legend labels in model order |
 | `offset(#)` | E | Vertical model spacing; default is `0.15` |
@@ -244,13 +245,13 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
-| `mcolor(color)` | D, E, M, F | Marker color; default is `navy` outside multi-model estimates |
+| `mcolor(color)` | D, E, M, F | Marker color; default is `navy` in single-model plots, while multi-model estimates use `palette()` colors |
 | `msymbol(symbol)` | D, E, M, F | Marker symbol; default is `O` |
 | `msize(size)` | D, E, M, F | Marker size; default is `medium`, or `medsmall` for multi-model estimates |
 | `boxscale(#)` | D, F | Weighted-box scaling; default is `100` percent |
 | `nobox` | D, F | Replace weight-proportional squares with standard markers |
 | `nodiamonds` | D, F | Replace pooled-effect diamonds with standard markers |
-| `cicolor(color)` | D, E, M, F | CI line color; default follows `mcolor()` |
+| `cicolor(color)` | D, E, M, F | CI line color; default follows `mcolor()` in single-model plots, while multi-model estimates use `palette()` colors |
 | `ciwidth(lwstyle)` | D, E, M, F | CI line width; default is `medium` |
 | `title(string)`, `subtitle(string)`, `note(string)` | D, E, M, F | Graph title, subtitle, and note |
 | `name(string)`, `saving(filename)`, `scheme(schemename)` | D, E, M, F | Graph name, saved graph path, and scheme |
@@ -263,14 +264,14 @@ After a successful call, `eplot` returns r-class results. Use `return list` and 
 
 | Result | Type | Meaning |
 |--------|------|---------|
-| `r(N)` | Scalar | Number of displayed rows after processing, including inserted headers or spacers where applicable |
+| `r(N)` | Scalar | Number of rows accepted before generated `groups()`/`headers()` rows; data/frame counts include supplied non-effect rows retained through `type()` |
 | `r(k)` | Scalar | Number of regular plotted effects; pooled rows and headers are excluded where applicable |
 | `r(n_models)` | Scalar | Number of models in estimates mode; not returned for other modes |
 | `r(cmd)` | Local macro | Full generated `twoway` command |
 | `r(table)` | Matrix | `b`, `ll`, and `ul` columns; multi-model estimates use `b_1 ll_1 ul_1 ...` |
-| `r(pvalues)` | Matrix | P-values when supplied in data/frame mode, computed for one-model estimates, or requested for a two-column matrix with `stars` |
+| `r(pvalues)` | Matrix | P-values when supplied in data/frame mode, available for one-model estimates, or requested for a two-column matrix with `stars` |
 
-For a single model or a matrix, `r(table)` is k × 3. For multiple estimates it is k × (3 × number of models), with three columns per model. Data-mode pooled subgroup and overall rows appear in `r(table)` even though `r(k)` counts regular type-1 rows.
+For a single estimates model or a matrix, `r(table)` is k × 3. For multiple estimates it is k × (3 × number of models), with three columns per model. Data- and frame-mode pooled subgroup and overall rows appear in `r(table)` even though `r(k)` counts regular type-1 rows.
 
 ## Assumptions and Limits
 
@@ -280,7 +281,8 @@ For a single model or a matrix, `r(table)` is k × 3. For multiple estimates it 
 - `values` and `favors()` require horizontal layout; `values` is available only for a single estimates model.
 - `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; they are ignored for multi-model estimates.
 - `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
-- In data mode, three numeric leading variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
+- In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
+- In multi-model estimates, `palette()` controls per-model colors; `sigcolors`, `mcolor()`, and `cicolor()` do not override that palette.
 - Style presets supply defaults only; explicitly supplied options take precedence.
 
 ## References
@@ -295,6 +297,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.6** (2026-08-05): Kept non-effect rows in their original slots when sorting data/frame input; aligned frame-mode option documentation, dynamic confidence-level defaults, row-type aliases, graph-option prose, and the tabtools integration demo with current behavior.
 - **1.2.5** (2026-07-10): Returned `r(pvalues)` for 2-column matrix input with `stars`, as documented; rows with unavailable p-values are now excluded consistently from the estimates-mode p-value matrix.
 - **1.2.4** (2026-07-06): `xline()` now accepts an optional `line_options` clause after the positions, while bare `xline(numlist)` keeps the default light dashed look.
 - **1.2.3** (2026-06-15): Internal hygiene declared label-mutating helpers `nclass` and aligned the estimates-mode stars p-value guard with matrix mode; no user-visible behavior change.

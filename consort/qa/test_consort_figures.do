@@ -11,7 +11,7 @@
 * Output:
 *   - Multiple PNG files in _testing/figures/consort/ for visual inspection
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2025-12-16
 *******************************************************************************/
 

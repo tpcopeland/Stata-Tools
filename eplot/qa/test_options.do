@@ -5,7 +5,8 @@
 * Tests: multi-model, values, vformat, dp, sort, order, cicap, marker/CI
 *   customization, boxscale, nobox, nodiamonds, matrix mode, modellabels,
 *   offset, palette, legendopts, rename, headers, eform+rescale, values+
-*   vertical note, varabbrev restore, xline reference-line styling (v1.2.4)
+*   vertical note, stable-slot data sorting, varabbrev restore, and xline
+*   reference-line styling (v1.2.4)
 *
 * Run modes:
 *   Standalone: do test_options.do
@@ -1109,6 +1110,40 @@ else {
     local failed_tests "`failed_tests' 46"
 }
 capture graph drop _v2_t46
+
+* Test 47: Data-mode sort keeps non-effect rows in their original slots
+local ++test_count
+capture noisily {
+    clear
+    input str10 study double(es lci uci) byte type
+    "A"        3  2.5  3.5  1
+    "Overall"  9  8.0 10.0  5
+    "B"        1  0.5  1.5  1
+    "Blank"    .    .    .  6
+    "C"        2  1.5  2.5  1
+    end
+    tempfile sort_input
+    quietly save `sort_input'
+    eplot es lci uci, labels(study) type(type) sort ///
+        name(_v2_t47, replace)
+    local sorted_rows : rownames r(table)
+    assert `"`sorted_rows'"' == "B Overall C A"
+    assert r(table)[1, 1] == 1
+    assert r(table)[2, 1] == 9
+    assert r(table)[3, 1] == 2
+    assert r(table)[4, 1] == 3
+    cf _all using `sort_input'
+}
+if _rc == 0 {
+    display as result "  PASS: Test 47 - stable-slot data-mode sort"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 47 - stable-slot data-mode sort (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 47"
+}
+capture graph drop _v2_t47
 
 * ==========================================================================
 * SUMMARY

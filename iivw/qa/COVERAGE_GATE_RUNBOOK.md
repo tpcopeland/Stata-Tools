@@ -47,16 +47,44 @@ pgrep -x stata-mp | wc -l  # must be 0
 ```bash
 cd /home/tpcopeland/Stata-Tools/iivw/qa
 
-export BASE=/tmp/claude-1000/covgate     # scratch root; must NOT be inside the repo
 export WORKERS=22                        # leave ~2 vCPU for the OS
 export BLOCK=50                          # replications per block
 
 ./run_coverage_gate.sh prep
 ```
 
-`prep` copies one isolated tree per block and writes `MANIFEST.txt` (sha256 of
-every `.ado`/`.do`) plus `GIT_HEAD.txt`. That manifest is the record of *which
-build produced the number* — keep it with the result.
+`prep` echoes both roots before it does anything; read them.
+
+### Where the output goes
+
+Two roots, separated because they have opposite lifetimes.
+
+| Root | Default | Holds | Lifetime |
+|---|---|---|---|
+| `RESULTS` | `qa/coverage_results/runs/r<REPS>_s<SEED>_p<PSCALE>/` | `blocks/*.dta`, `logs/*.log`, `MANIFEST.txt`, `GIT_HEAD.txt`, `run.log`, `combine_<fam>.log` | **kept** — this is the evidence |
+| `BASE` | `$TMPDIR/iivw-covgate-<uid>` | `work/` (one tree per block), `combine/`, `claims/` | scratch — safe to delete between runs |
+
+Every gate artifact now lands **inside the package**, so a result is
+reproducible from the repository. This was not true before: the pool lived
+under a scratch root, which is why the 2026-08-05 numbers could be quoted but
+not re-derived from the tree, and why the 2026-07-22 pool is gone for good.
+
+`BASE` **must not** sit inside the package — `prep` copies `SRC` into every
+work tree, so a scratch root under `SRC` copies itself. `prep` now refuses at
+`exit 2` rather than letting you find out the slow way. (The old default was
+`$(pwd)/covgate`, which did exactly that whenever you followed the `cd` above.)
+`RESULTS` *does* live under `SRC`, safely: the tree copy excludes
+`qa/coverage_results/`.
+
+`prep` writes `MANIFEST.txt` (sha256 of every `.ado`/`.do`) and `GIT_HEAD.txt`
+into `RESULTS`, beside the rows they describe. That manifest is the record of
+*which build produced the number*; a manifest that outlives its pool, or a pool
+that outlives its manifest, certifies nothing.
+
+> **The block `.dta` files are not gitignored.** They are the per-simulation
+> rows behind every coverage claim, they are small, and committing them is what
+> makes a verdict checkable later. Per-block `.log` files under `logs/` are
+> covered by the repo-wide `*.log` rule and stay local.
 
 ### Calibrate before committing to the full run
 
@@ -66,7 +94,7 @@ one real block first rather than trusting an extrapolation:
 
 ```bash
 s=$(date +%s)
-( cd "$BASE/work/iiw_00001_00050/iivw/qa" && \
+( cd "${TMPDIR:-/tmp}/iivw-covgate-$(id -u)/work/iiw_00001_00050/iivw/qa" && \
   stata-mp -b do validation_iivw_inference.do iiw 1000 999 20260715 1 50 )
 echo "one 50-rep iiw block: $(( $(date +%s) - s )) s"
 ```
@@ -84,7 +112,7 @@ report the measured number, not this sentence.
 > *and* `gate=PASS sims=1000 reps=10`, byte-identical coverage.
 >
 > Two changes make that unreachable. Pools are now segregated by configuration
-> (`$BASE/blockpool/r<REPS>_s<SEED>`), so a pilot and the real run never share
+> (`qa/coverage_results/runs/r<REPS>_s<SEED>_p<PSCALE>/`), so a pilot and the real run never share
 > files; and every block row carries a `(reps, sims, seed)` stamp that
 > `combine` verifies is constant across the union **and** equal to its own
 > arguments, refusing at `r(459)` otherwise. Pilot freely — it can no longer
@@ -94,11 +122,11 @@ report the measured number, not this sentence.
 ### Run
 
 ```bash
-nohup ./run_coverage_gate.sh run > "$BASE/run.out" 2>&1 &
+nohup ./run_coverage_gate.sh run > /tmp/covgate-run.out 2>&1 &
 ```
 
 `run` is a work queue (`xargs -P`), longest-family-first. It is **idempotent**:
-a block whose rows are already in `$BASE/blockpool` is skipped, so an
+a block whose rows are already in `RESULTS/blocks` is skipped, so an
 interrupted run resumes by re-issuing the same command. No pinning is used —
 single-threaded processes plus a queue load-balance better than static
 `taskset` affinity, because block runtimes are uneven.

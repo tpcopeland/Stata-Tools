@@ -1,5 +1,7 @@
 {smcl}
-{* *! version 1.1.0  25jun2026}{...}
+{* *! version 1.1.1  05aug2026}{...}
+{vieweralsosee "Datetime values" "help datetime"}{...}
+{vieweralsosee "Date functions" "help date()"}{...}
 {cmd:help datefix}
 {hline}
 
@@ -9,11 +11,13 @@
 {marker syntax}{...}
 {title:Syntax}
 {p 4 8 2}
-{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {cmd:df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)} {opt diag:nose}] {p_end}
+{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {opt df(%fmt)}
+{opt order(string)} {opt topyear(#)} {opt diag:nose}] {p_end}
 
 {marker description}{...}
 {title:Description}
-{p 4 4 2}Given one or more string variables containing date information, {cmd:datefix} converts them to numeric encoded variables with a date format.{p_end}
+{p 4 4 2}Given one or more string variables containing date information,
+{cmd:datefix} converts them to numeric encoded variables with a date format.{p_end}
 
 {p 4 4 2}If {opt newvar()} is used, only one variable can be specified.{p_end}
 
@@ -24,17 +28,21 @@
 
 {marker options}{...}
 {title:Options}
-{p 4 8 2}{opt newvar(name)} creates a new numeric date variable with the given name. Only one variable can be used. The original variable is preserved unless {opt drop} is also specified.{p_end}
+{p 4 8 2}{opt newvar(name)} creates a new numeric date variable with the given
+name. Only one variable can be used. The original variable is preserved unless
+{opt drop} is also specified.{p_end}
 
-{p 4 8 2}{opt drop} drops the original variable. Only applicable when {opt newvar()} is
-used; otherwise redundant since the original variable is replaced.{p_end}
+{p 4 8 2}{opt drop} drops the original variable. Only applicable when
+{opt newvar()} is used; otherwise it is redundant: string inputs are converted
+in place, and numeric inputs are formatted in place.{p_end}
 
-{p 4 8 2}{cmd:df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD}
-(YYYY/MM/DD).{p_end}
+{p 4 8 2}{opt df(%fmt)} sets the {help datetime_display_formats:date display format}
+for the date variable. The default is {bf:%tdCCYY/NN/DD} (YYYY/MM/DD).{p_end}
 
 {p 4 8 2}{opt order(string)} specifies the ordering of month, day, and year in the input
 string (MDY, DMY, or YMD). If omitted, the ordering that produces the fewest
-missing values is automatically selected.{p_end}
+missing values is automatically selected. MDY is preferred when tied for the
+top count; if YMD and DMY tie above MDY, YMD is selected.{p_end}
 
 {p 4 8 2}{opt topyear(#)} specifies the {it:topyear} argument for the {help date():date()} function. Required if
 two-digit years are present. See {help date():date()} for details.{p_end}
@@ -45,8 +53,9 @@ of {bf:00}, an out-of-range component such as {bf:2020/13/40}, or stray non-date
 {cmd:datefix} prints a table of the distinct unconvertible values, their
 frequencies, and the observation numbers where they occur, then stops with an
 error so you can locate and fix the source data. Without {opt diagnose}, {cmd:datefix}
-reports only the count of values that failed. Conversion remains
-all-or-nothing: no variable is created or replaced when any value fails.{p_end}
+reports only the count of values that failed. Conversion is command-wide
+all-or-nothing: if any value fails, every variable in {varlist} remains
+unchanged, including values, storage types, formats, labels, and ordering.{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -74,7 +83,8 @@ all-or-nothing: no variable is created or replaced when any value fails.{p_end}
 
 {title:Stored results}
 
-{pstd}{cmd:datefix} does not store results.{p_end}
+{pstd}{cmd:datefix} does not store results and clears incidental {cmd:r()} state
+before returning.{p_end}
 
 {marker author}{...}
 {title:Author}
@@ -82,6 +92,6 @@ all-or-nothing: no variable is created or replaced when any value fails.{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 
-{pstd}Version 1.1.0 - 25jun2026{p_end}
+{pstd}Version 1.1.1 - 05aug2026{p_end}
 
 {hline}

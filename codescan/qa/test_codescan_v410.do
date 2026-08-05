@@ -1,5 +1,5 @@
-* test_codescan_v410.do - Regression tests for the v4.1.0 fixes
-* Date: 2026-07-25
+* test_codescan_v410.do - Regression tests for the v4.1.0 and v4.1.1 fixes
+* Date: 2026-08-05
 *
 * Each test is written to FAIL on the pre-4.1.0 code and PASS after the fix.
 * Confirmed: 12 of these assertions fail when the suite is run against the
@@ -216,6 +216,19 @@ capture noisily {
     * attribution rules give different row totals: 3 (first-slot) vs 6 (all
     * slots). That difference is what makes the scalar checkable.
 
+    * A prior detail call must not leave a stale scalar behind when the next
+    * call omits detail.
+    quietly codescan dx1 dx2, define(dm2 "E11") countmode detail
+    assert r(detail_allslots) == 1
+    capture drop dm2
+
+    quietly codescan dx1 dx2, define(dm2 "E11") countmode
+    capture confirm scalar r(detail_allslots)
+    assert _rc != 0
+    capture confirm matrix r(varcounts)
+    assert _rc != 0
+
+    capture drop dm2
     quietly codescan dx1 dx2, define(dm2 "E11") countmode detail
     matrix _V = r(varcounts)
     assert _V[1,1] == 3 & _V[1,2] == 3

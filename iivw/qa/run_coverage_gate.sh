@@ -29,9 +29,29 @@
 #   was "is the .dta already pooled", which an in-flight block does not satisfy.
 #   If a run is killed, its claims survive; clear them with `unclaim'.
 #
+# WHERE OUTPUT GOES
+#   Two roots, deliberately separate, because they have opposite lifetimes.
+#
+#   RESULTS -- the EVIDENCE. Block rows, per-block logs, the build manifest, the
+#     git head, and the combine logs. Lives inside the package at
+#     qa/coverage_results/runs/<config>/ so a gate result is reproducible from
+#     the repository rather than from a scratch directory nobody kept. This was
+#     a real gap: the 2026-07-22 pool is un-recombinable and the 2026-08-05 pool
+#     existed only under a scratch root, so every distributional claim about it
+#     rested on files not in the tree.
+#
+#   BASE -- pure SCRATCH. One isolated work tree per block, the combine tree,
+#     and the in-flight claim directory. Must NOT sit inside the package: prep
+#     copies SRC into each work tree, so a scratch root under SRC would copy
+#     itself. RESULTS lives under SRC precisely because copy_tree excludes it.
+#
+#   Everything under RESULTS is keyed by (REPS, SEED, PSCALE) so a pilot's rows
+#   and a release run's rows can never share a directory.
+#
 # ENV OVERRIDES
-#   BASE      scratch root          (default: $SCRATCH/covgate)
-#   SRC       package source tree   (default: ~/Stata-Tools/iivw)
+#   BASE      scratch root          (default: $TMPDIR/iivw-covgate-<uid>)
+#   RESULTS   retained evidence     (default: SRC/qa/coverage_results/runs/<cfg>)
+#   SRC       package source tree   (default: the package this script lives in)
 #   WORKERS   concurrent processes  (default: nproc - 2)
 #   BLOCK     replications per block(default: 50)
 #   SIMS      whole-study size      (default: 1000)  -- NOT the block size
@@ -42,8 +62,20 @@
 # =============================================================================
 set -uo pipefail
 
-SRC="${SRC:-$HOME/Stata-Tools/iivw}"
-BASE="${BASE:-$(pwd)/covgate}"
+# Default to the package this script lives in, not a hardcoded ~/Stata-Tools
+# path: the documented isolation practice runs from a scratch COPY, and an
+# absolute default silently tests the ORIGINAL tree while every log and receipt
+# says the copy. Deriving from BASH_SOURCE makes "the tree under test" mean the
+# tree the script came from. Still overridable by exporting SRC.
+SRC="${SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Scratch, and never inside the repo. The former default was $(pwd)/covgate,
+# which put the work trees INSIDE the package whenever the script was run from
+# qa/ -- which is exactly what COVERAGE_GATE_RUNBOOK.md tells you to do. prep
+# then copied SRC (containing covgate) into each of ~120 work trees. Deriving
+# from TMPDIR removes the footgun instead of documenting around it. Stable, not
+# mktemp: concurrent queues coordinate through the claim directory under BASE,
+# so a fresh random root per invocation would silently disable that guard.
+BASE="${BASE:-${TMPDIR:-/tmp}/iivw-covgate-$(id -u)}"
 WORKERS="${WORKERS:-$(( $(nproc) - 2 ))}"
 BLOCK="${BLOCK:-50}"
 SIMS="${SIMS:-1000}"
@@ -55,20 +87,41 @@ PSCALE="${PSCALE:-1}"
 FAMILIES="${FAMILIES:-iiw fiptiw iptw}"
 
 WORK="$BASE/work"
-# Pools are segregated by the configuration that produced them. A block .dta is
-# named <family>_<from>_<to>.dta and carries REPS/SEED nowhere in its name, so a
-# single flat pool lets a REPS=10 pilot's files satisfy the REPS=999 run's
+COMBINE="$BASE/combine"
+
+# Retained evidence, keyed by the configuration that produced it. A block .dta
+# is named <family>_<from>_<to>.dta and carries REPS/SEED nowhere in its name,
+# so a single flat pool lets a REPS=10 pilot's files satisfy the REPS=999 run's
 # skip-if-present test -- the real run would then skip every block and combine
 # would certify pilot rows. The do-file refuses such a union outright (it stamps
 # and verifies provenance per row); this keeps the two from ever meeting.
-POOL="$BASE/blockpool/r${REPS}_s${SEED}_p${PSCALE}"
-COMBINE="$BASE/combine"
-LOGS="$BASE/logs"
-# In-flight block claims (see run_one). Segregated by the same configuration key
-# as POOL so a pilot run's claims can never block a release run's blocks.
-CLAIMS="$BASE/claims/r${REPS}_s${SEED}_p${PSCALE}"
+CFGKEY="r${REPS}_s${SEED}_p${PSCALE}"
+RESULTS="${RESULTS:-$SRC/qa/coverage_results/runs/$CFGKEY}"
+POOL="$RESULTS/blocks"
+LOGS="$RESULTS/logs"
+# In-flight block claims (see run_one). Runtime state, not evidence, so it stays
+# in scratch -- but it is keyed the same way, so a pilot run's claims can never
+# block a release run's blocks. Losing BASE to a reboot is harmless: the pool
+# test in run_one is the primary guard and the pool is now in the repo.
+CLAIMS="$BASE/claims/$CFGKEY"
 
 [ "$WORKERS" -lt 1 ] && WORKERS=1
+
+# ---------------------------------------------------------------------------
+# Copy the package into a scratch tree, WITHOUT the retained-evidence directory.
+# RESULTS defaults to a path under SRC, so a plain `cp -a $SRC' would copy the
+# accumulating block pool and every per-block log into all ~120 work trees --
+# growing with the run, and pointless because no work tree reads them.
+copy_tree() {
+    local src="$1" dst="$2"
+    mkdir -p "$dst"
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a --exclude='qa/coverage_results/' "$src/" "$dst/"
+    else
+        cp -a "$src/." "$dst/"
+        rm -rf "$dst/qa/coverage_results"
+    fi
+}
 
 # ---------------------------------------------------------------------------
 blocklist() {
@@ -89,37 +142,48 @@ blocktag() { printf '%s_%05d_%05d' "$1" "$2" "$3"; }
 # ---------------------------------------------------------------------------
 cmd_prep() {
     [ -d "$SRC/qa" ] || { echo "FATAL: no qa/ under SRC=$SRC" >&2; exit 2; }
+    case "$BASE" in
+        "$SRC"|"$SRC"/*)
+            echo "FATAL: BASE=$BASE is inside the package tree ($SRC)." >&2
+            echo "  prep copies SRC into every work tree, so a scratch root under" >&2
+            echo "  SRC copies itself. Retained evidence goes to RESULTS, not BASE." >&2
+            exit 2 ;;
+    esac
     mkdir -p "$WORK" "$POOL" "$LOGS"
+    echo "results: $RESULTS"
+    echo "scratch: $BASE"
 
     # Record exactly which code is under test. A coverage gate that cannot say
-    # which build produced its number is not evidence.
+    # which build produced its number is not evidence. The manifest is filed
+    # with the rows it describes, not in scratch -- a manifest that outlives its
+    # pool, or a pool that outlives its manifest, certifies nothing.
     ( cd "$SRC" && find . -type f \( -name '*.ado' -o -name '*.do' \) \
-        -exec sha256sum {} + | sort -k2 ) > "$BASE/MANIFEST.txt"
-    ( cd "$SRC/.." && git rev-parse HEAD 2>/dev/null ) > "$BASE/GIT_HEAD.txt" || true
-    echo "manifest: $(wc -l < "$BASE/MANIFEST.txt") files, head $(cat "$BASE/GIT_HEAD.txt" 2>/dev/null)"
+        -not -path './qa/coverage_results/*' \
+        -exec sha256sum {} + | sort -k2 ) > "$RESULTS/MANIFEST.txt"
+    ( cd "$SRC/.." && git rev-parse HEAD 2>/dev/null ) > "$RESULTS/GIT_HEAD.txt" || true
+    echo "manifest: $(wc -l < "$RESULTS/MANIFEST.txt") files, head $(cat "$RESULTS/GIT_HEAD.txt" 2>/dev/null)"
 
     # Existing work trees are kept so an interrupted run resumes -- but that
     # means they hold the code as it was when first copied. If SRC has changed
     # since, rows already in the pool came from a DIFFERENT build than the ones
     # still to run, and the union would not be one study. Refuse rather than
     # silently mix builds.
-    if [ -f "$BASE/MANIFEST.PREV.txt" ] && \
-       ! cmp -s "$BASE/MANIFEST.PREV.txt" "$BASE/MANIFEST.txt"; then
+    if [ -f "$RESULTS/MANIFEST.PREV.txt" ] && \
+       ! cmp -s "$RESULTS/MANIFEST.PREV.txt" "$RESULTS/MANIFEST.txt"; then
         echo "FATAL: SRC changed since the existing blocks were produced." >&2
         echo "  Mixing builds in one union is not a valid study." >&2
-        echo "  Start clean:  rm -rf '$BASE'   (discards completed blocks)" >&2
-        diff "$BASE/MANIFEST.PREV.txt" "$BASE/MANIFEST.txt" | grep '^[<>]' | head -5 >&2
+        echo "  Start clean:  rm -rf '$RESULTS' '$BASE'   (discards completed blocks)" >&2
+        diff "$RESULTS/MANIFEST.PREV.txt" "$RESULTS/MANIFEST.txt" | grep '^[<>]' | head -5 >&2
         exit 3
     fi
-    cp -f "$BASE/MANIFEST.txt" "$BASE/MANIFEST.PREV.txt"
+    cp -f "$RESULTS/MANIFEST.txt" "$RESULTS/MANIFEST.PREV.txt"
 
     n=0
     while read -r fam f t; do
         tag=$(blocktag "$fam" "$f" "$t")
         d="$WORK/$tag"
         [ -d "$d/iivw/qa" ] && continue
-        mkdir -p "$d"
-        cp -a "$SRC" "$d/iivw"
+        copy_tree "$SRC" "$d/iivw"
         # Blocks must never inherit a previous run's rows.
         rm -rf "$d/iivw/qa/_inf_blocks"
         rm -f "$d/iivw/qa"/*.log
@@ -187,7 +251,7 @@ cmd_run() {
     echo "run: $total block(s), $WORKERS worker(s), processors=1 each"
     echo "run: started $(date -Is)"
     blocklist | xargs -P "$WORKERS" -n 3 bash -c 'run_one "$@"' _ \
-        | tee -a "$BASE/run.log"
+        | tee -a "$RESULTS/run.log"
     echo "run: finished $(date -Is)"
     cmd_status
 }
@@ -215,8 +279,8 @@ cmd_combine() {
     # tree silently runs whatever code was current when it was first copied --
     # that masked a real fix during development.
     rm -rf "$COMBINE"
-    mkdir -p "$COMBINE"
-    cp -a "$SRC" "$COMBINE/iivw"
+    mkdir -p "$COMBINE" "$LOGS"
+    copy_tree "$SRC" "$COMBINE/iivw"
     d="$COMBINE/iivw/qa"
     rm -rf "$d/_inf_blocks"; mkdir -p "$d/_inf_blocks"
     cp -f "$POOL"/*.dta "$d/_inf_blocks/" 2>/dev/null

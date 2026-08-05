@@ -15,7 +15,7 @@
 * Prerequisites:
 *   - consort.ado must be installed/accessible
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2025-12-15
 *******************************************************************************/
 

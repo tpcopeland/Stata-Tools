@@ -8,7 +8,7 @@
 *          with state preservation + re-runnability, r(csv)/r(xlsx) returns,
 *          and user data/frame integrity after export.
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-06-24
 *******************************************************************************/
 

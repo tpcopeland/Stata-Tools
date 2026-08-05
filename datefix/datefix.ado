@@ -1,10 +1,11 @@
-*! datefix Version 1.1.0  2026/06/25
+*! datefix Version 1.1.1  2026/08/05
 *! Convert string date variables to numeric date formatted variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 
-program define datefix
+program define datefix, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
+    local _preserved = 0
     set varabbrev off
 
     capture noisily {
@@ -66,6 +67,11 @@ program define datefix
     if "`topyear'" != "" {
         local topyear_arg ", `topyear'"
     }
+
+    * Keep a command-level rollback point so a failure in any member of a
+    * multi-variable varlist leaves every source variable unchanged.
+    preserve
+    local _preserved = 1
 
     foreach var of varlist `varlist' {
 
@@ -237,8 +243,15 @@ program define datefix
         }
     }
 
+    restore, not
+    local _preserved = 0
+
     }
     local rc = _rc
+    if `_preserved' {
+        capture restore
+    }
+    capture return clear
     set varabbrev `_varabbrev'
     if `rc' exit `rc'
 end

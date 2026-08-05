@@ -1,4 +1,4 @@
-/*  demo_datefix.do - String-to-date conversion demo (v1.0.2)
+/*  demo_datefix.do - String-to-date conversion demo (v1.1.1)
 
     Demonstrates datefix on various string date formats:
       1. Auto-detected ordering with multiple variables

@@ -38,10 +38,10 @@
 {synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
 
 {syntab:Output}
-{synopt:{opt ou:tput(filename)}}output Markdown file; default is {bf:data_dictionary.md}{p_end}
+{synopt:{opt ou:tput(filename)}}Markdown output; default {bf:data_dictionary.md}{p_end}
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
 {synopt:{opt outd:ir(path)}}with {opt separate}, write dictionaries to {it:path}{p_end}
-{synopt:{opt suf:fix(string)}}with {opt separate}, filename suffix; default {bf:_dictionary}{p_end}
+{synopt:{opt suf:fix(string)}}filename suffix; default {bf:_dictionary}{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save variable-level metadata dataset{p_end}
 
 {syntab:Document metadata}
@@ -52,21 +52,21 @@
 {synopt:{opt date(string)}}date string; default is the current date{p_end}
 
 {syntab:Content}
-{synopt:{opt note:s(string)}}notes text, or path to a text file containing notes{p_end}
+{synopt:{opt note:s(string)}}notes text or file{p_end}
 {synopt:{opt change:log(string)}}changelog text, or path to a text file{p_end}
 {synopt:{opt miss:ing}}add a Missing column with count and percent{p_end}
-{synopt:{opt st:ats}}add descriptive statistics to the Values column{p_end}
-{synopt:{opt det:ail}}add storage type, format, value-label, notes, and characteristics columns{p_end}
+{synopt:{opt st:ats}}add descriptive statistics{p_end}
+{synopt:{opt det:ail}}add technical metadata columns{p_end}
 {synopt:{opt col:umns(fields)}}select and order variable table columns{p_end}
-{synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
+{synopt:{opt conf:ig(filename)}}load reusable defaults{p_end}
 {synopt:{opt datasig:nature}}include Stata {cmd:datasignature} in provenance{p_end}
-{synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
-{synopt:{opt maxf:req(#)}}max unique values to show individually; default {bf:25}{p_end}
+{synopt:{opt maxc:at(#)}}categorical cutoff; default {bf:25}{p_end}
+{synopt:{opt maxf:req(#)}}frequency display cap; default {bf:25}{p_end}
 {synopt:{opt uniqc:ap(#)}}unique values counted exactly; default {bf:1000}{p_end}
-{synopt:{opt minc:ell(#)}}suppress frequency cells smaller than {it:#}; default {bf:5}{p_end}
-{synopt:{opt exc:lude(varlist)}}omit sensitive variables from the dictionary and metadata{p_end}
-{synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
-{synopt:{opt cat:egorical(varlist)}}force these variables into the categorical group{p_end}
+{synopt:{opt minc:ell(#)}}suppress cells below {it:#}; default {bf:5}{p_end}
+{synopt:{opt exc:lude(varlist)}}omit sensitive vars from dictionary/metadata{p_end}
+{synopt:{opt cont:inuous(varlist)}}force vars into continuous{p_end}
+{synopt:{opt cat:egorical(varlist)}}force vars into categorical{p_end}
 {synopt:{opt datev:ars(varlist)}}force these variables into the date group{p_end}
 {synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
 {synoptline}
@@ -284,8 +284,8 @@ categorical. Default is {bf:25}. Must be positive.
 
 {phang}
 {opt uniqc:ap(#)} caps how far {cmd:datadict} counts distinct values before it
-stops. A variable with more than {it:#} distinct values reports a censored count:
-{opt saving()} records the lower bound in {bf:unique} and sets {bf:unique_capped}
+stops. A variable with more than {it:#} distinct values reports a censored count: {opt saving()}
+records the lower bound in {bf:unique} and sets {bf:unique_capped}
 to 1. The default is {bf:1000}. Specify {cmd:uniqcap(0)} for exact counts at any
 cardinality, at the cost of a full sort per variable. Classification is
 unaffected -- the cap is always raised to at least {opt maxcat()} and
@@ -476,7 +476,7 @@ Or pass a short note inline:{p_end}
 {synopt:{cmd:r(output)}}combined output filename, or semicolon-delimited separate outputs{p_end}
 {synopt:{cmd:r(outputs)}}semicolon-delimited output filename list{p_end}
 {synopt:{cmd:r(files)}}semicolon-delimited source file list, or {bf:memory}{p_end}
-{synopt:{cmd:r(mode)}}input mode: {bf:memory}, {bf:single}, {bf:filelist}, {bf:manifest}, {bf:directory}, or {bf:directory_recursive}{p_end}
+{synopt:{cmd:r(mode)}}memory/single/filelist/manifest/directory/directory_recursive{p_end}
 {synopt:{cmd:r(metadata)}}metadata dataset path, when {opt saving()} is specified{p_end}
 {synoptline}
 {p2colreset}{...}

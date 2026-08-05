@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  05aug2026}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {viewerjumpto "Syntax" "cstat_surv##syntax"}{...}
@@ -37,7 +37,8 @@
 
 {phang}
 {opt level(#)} specifies the confidence level, as a percentage, for confidence
-intervals. The default is {cmd:level(95)} or as set by {helpb set level}.
+intervals. The default is Stata's current {cmd:c(level)}, which is 95 unless
+changed with {helpb set level}.
 
 
 {marker description}{...}
@@ -120,8 +121,8 @@ seconds.{p_end}
 {pstd}Calculate the C-statistic{p_end}
 {phang2}{stata "cstat_surv":. cstat_surv}{p_end}
 
-{pstd}The output displays the C-statistic with standard error and 95% confidence
-interval, along with pair comparison statistics.
+{pstd}The output displays the C-statistic with standard error and a confidence
+interval at the current {cmd:c(level)}, along with pair comparison statistics.
 
 {pstd}More complex example with SSRI/SNRI cohort{p_end}
 
@@ -170,6 +171,10 @@ interval, along with pair comparison statistics.
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector (C-statistic){p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix{p_end}
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Functions}{p_end}
+{synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
 
 
 {marker author}{...}

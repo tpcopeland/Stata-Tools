@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  24jun2026}{...}
+{* *! version 1.1.1  05aug2026}{...}
 {vieweralsosee "[D] drop" "help drop"}{...}
 {vieweralsosee "[D] count" "help count"}{...}
 {viewerjumpto "Syntax" "consort##syntax"}{...}
@@ -72,7 +72,7 @@
 {synopthdr:save options}
 {synoptline}
 {p2coldent:* {opt out:put(filename)}}output image path (.png recommended){p_end}
-{synopt:{opt fin:al(string)}}label for final cohort box; default "Final Cohort"{p_end}
+{synopt:{opt fin:al(string)}}final-label argument; default "Final Cohort"{p_end}
 {synopt:{opt shad:ing}}enable box shading (blue for flow, red for exclusions){p_end}
 {synopt:{opt python(path)}}path to Python executable{p_end}
 {synopt:{opt dpi(#)}}image resolution; default 150{p_end}
@@ -193,8 +193,11 @@ work.
 
 {phang}
 {opt final(string)} specifies the label for the final cohort box at the bottom
-of the diagram. Default is "Final Cohort". Use this to describe your analytic
-sample, such as "Final Analytic Cohort" or "Study Population".
+of the diagram. Default is "Final Cohort". If {opt final()} is omitted and the
+last exclusion already supplied a nonempty {opt remaining()} label, that
+milestone remains in the diagram; the default does not overwrite it. Use
+{opt final()} to override the retained milestone and describe your analytic
+sample explicitly.
 
 {phang}
 {opt shading} enables color shading for boxes. Main flow boxes are shaded light
@@ -342,13 +345,19 @@ Mark intermediate milestones in the exclusion process:
 {pstd}
 {bf:Example 3: High-resolution output for publication}
 
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata `"consort init, initial("Cars in auto.dta")"':. consort init, initial("Cars in auto.dta")}{p_end}
+{phang2}{stata `"consort exclude if missing(rep78), label("Missing repair record")"':. consort exclude if missing(rep78), label("Missing repair record")}{p_end}
 {phang2}{stata `"consort save, output("figure1.png") final("Study Population") dpi(300)"':. consort save, output("figure1.png") final("Study Population") dpi(300)}{p_end}
 
 
 {pstd}
-{bf:Example 4: Using a specific Python installation}
+{bf:Example 4: Using a specific Python executable}
 
-{phang2}{stata `"consort save, output("diagram.png") python("/usr/local/bin/python3")"':. consort save, output("diagram.png") python("/usr/local/bin/python3")}{p_end}
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata `"consort init, initial("Cars in auto.dta")"':. consort init, initial("Cars in auto.dta")}{p_end}
+{phang2}{stata `"consort exclude if missing(rep78), label("Missing repair record")"':. consort exclude if missing(rep78), label("Missing repair record")}{p_end}
+{phang2}{stata `"consort save, output("diagram.png") python("python3")"':. consort save, output("diagram.png") python("python3")}{p_end}
 
 
 {pstd}
@@ -417,16 +426,21 @@ it can be read without parsing the image:
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(output)}}output file path{p_end}
-{synopt:{cmd:r(final)}}final cohort label{p_end}
+{synopt:{cmd:r(final)}}{opt final()} argument, or default "Final Cohort"{p_end}
 {synopt:{cmd:r(csv)}}CSV data file path (only if {opt csv()} specified){p_end}
 {synopt:{cmd:r(xlsx)}}Excel data file path (only if {opt xlsx()} specified){p_end}
+
+{pstd}
+When {opt final()} is omitted and the last exclusion has a nonempty
+{opt remaining()} label, the diagram retains that milestone while
+{cmd:r(final)} reports the default "Final Cohort" value.
 
 
 {marker requirements}{...}
 {title:Requirements}
 
 {pstd}
-{bf:Stata version}: 16.0 or higher recommended
+{bf:Stata version}: 16.0 or higher required
 
 {pstd}
 {bf:Python requirements}:
@@ -446,9 +460,7 @@ On some systems you may need to use {cmd:pip3} instead of {cmd:pip}.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 
 {title:Also see}

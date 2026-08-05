@@ -17,7 +17,7 @@
 *   - Does it handle edge cases gracefully?
 *   - Does NOT verify computational correctness (that's validation)
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2025-12-15
 *******************************************************************************/
 

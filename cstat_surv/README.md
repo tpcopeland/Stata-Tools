@@ -1,6 +1,6 @@
 # cstat_surv — Harrell's C-statistic after `stcox`
 
-**Version 1.0.0** | 2026-07-10
+**Version 1.0.1** | 2026-08-05
 
 `cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, an infinitesimal-jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
 
@@ -38,7 +38,7 @@ net install cstat_surv, from("https://raw.githubusercontent.com/tpcopeland/Stata
 
 ## How It Works
 
-`cstat_surv` uses the current `stcox` estimates to predict hazard ratios, compares all comparable pairs in the estimation sample, and calculates the proportion of pairs in which higher predicted risk corresponds to earlier failure. It computes the standard error with an infinitesimal jackknife and forms a t-based confidence interval at the requested `level()`.
+`cstat_surv` uses the current `stcox` estimates to predict hazard ratios, compares all comparable pairs among valid observations in the estimation sample, and calculates the proportion of pairs in which higher predicted risk corresponds to earlier failure. It computes the standard error with an infinitesimal jackknife and forms a t-based confidence interval at the requested `level()`.
 
 A pair is comparable when the observation with the shorter survival time experienced the event. For tied survival times where both observations experienced events, unequal predicted risks contribute half a concordant and half a discordant pair, while equal predicted risks contribute a tied pair.
 
@@ -125,7 +125,7 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 | Option | Description |
 |--------|-------------|
-| `level(#)` | Set the confidence level, in percent, for confidence intervals; the default is `level(95)` or the value set by `set level` |
+| `level(#)` | Set the confidence level, in percent, for confidence intervals; defaults to Stata's current `c(level)` (95 unless changed with `set level`) |
 
 ## Stored Results
 
@@ -168,6 +168,7 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 ## Version History
 
+- **1.0.1** (2026-08-05): Correct the documented default confidence level and clarify the valid estimation sample used for pair comparisons.
 - **1.0.0** (2026-07-10): Initial Stata-Tools release
 
 ## Author

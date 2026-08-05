@@ -55,7 +55,7 @@ end
 * sentinel file IS the exit status. See _devkit/automation/scan_shell_rc.py.
 tempfile openpyxl_ok
 capture erase "`openpyxl_ok'"
-shell ( python3 -c "import openpyxl" ) > /dev/null 2>&1 && touch "`openpyxl_ok'"
+shell python3 -c "import openpyxl" > /dev/null 2>&1 && touch "`openpyxl_ok'"
 capture confirm file "`openpyxl_ok'"
 if _rc {
     display as error "python3 with openpyxl is required for validation_codescan_output.do"

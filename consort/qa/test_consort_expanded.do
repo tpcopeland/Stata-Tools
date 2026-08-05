@@ -6,7 +6,7 @@
 *          missing data handling, reproducibility, state management, error
 *          paths, and boundary conditions.
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-21
 *******************************************************************************/
 

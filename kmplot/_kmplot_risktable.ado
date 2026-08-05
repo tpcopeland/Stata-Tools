@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.1  2026/06/26
+*! _kmplot_risktable Version 1.2.2  2026/08/05
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 

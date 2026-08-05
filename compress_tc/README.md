@@ -1,6 +1,6 @@
 # compress_tc — Two-stage compression for string-heavy Stata data
 
-**Version 1.1.0** | 2026-07-10
+**Version 1.1.1** | 2026-08-05
 
 `compress_tc` reduces memory use in string-heavy Stata datasets by converting fixed-width strings to `strL` and then running Stata's built-in `compress`. It is for users who want a reportable way to apply or preview string-storage changes while retaining the resulting `r()` values.
 
@@ -112,7 +112,13 @@ compress_tc kva_code proc_description, dryrun lowmem minlength(20)
 
 ## Demo
 
-From the Stata-Tools repository root, run [`demo/demo_compress_tc.do`](demo/demo_compress_tc.do) to regenerate the detailed console report. The demo writes a disposable SMCL log and is not part of the `net install` payload.
+From the Stata-Tools repository root, run [`demo/demo_compress_tc.do`](demo/demo_compress_tc.do):
+
+```stata
+do compress_tc/demo/demo_compress_tc.do
+```
+
+The demo writes a disposable SMCL log and is not part of the `net install` payload.
 
 ## Command Reference
 
@@ -138,7 +144,7 @@ compress_tc [varlist] [, nocompress nostrl noreport quietly detail varsavings lo
 | `dryrun` | off | Restore the original data after a projected run while retaining projected stored results |
 | `minlength(#)` | `0` | Convert only `str#` variables at least `#` bytes wide; skipped variables still reach final `compress` when that stage runs |
 
-With `varsavings lowmem`, per-variable savings include measured `strL` heap effects. Without `lowmem`, a shared `strL` heap cannot be attributed to individual variables and is displayed as a dash.
+When `lowmem` performs `strL` conversion, `varsavings` uses measured whole-dataset deltas for each variable and therefore includes its `strL` heap effect. The final `compress` stage is required for the peak-memory benefit, but not for this measurement. Without `lowmem`, a shared `strL` heap cannot be attributed to individual variables and is displayed as a dash.
 
 ## Stored Results
 
@@ -172,7 +178,8 @@ With `varsavings lowmem`, per-variable savings include measured `strL` heap effe
 
 ## Version History
 
-- **1.1.0** (2026-06-19): `varsavings` now reports real per-variable before/after bytes and savings; added `lowmem` (peak-memory-safe incremental conversion), `dryrun` (preview without modifying data), and `minlength(#)` (skip strL for short strings). Sizes display in the most readable unit (KB/MB/GB). New stored results `r(bytes_strl)`, `r(k_converted)`, `r(k_reverted)`, `r(vars_strl)`.
+- **1.1.1** (2026-08-05): Corrected the `detail`, `lowmem`, per-variable savings, size-unit, and demo documentation.
+- **1.1.0** (2026-06-19): `varsavings` now reports real per-variable before/after bytes and savings; added `lowmem` (incremental conversion that limits peak memory when the final `compress` stage runs), `dryrun` (preview without modifying data), and `minlength(#)` (skip strL for short strings). Sizes display in the most readable unit (B/KB/MB/GB). New stored results `r(bytes_strl)`, `r(k_converted)`, `r(k_reverted)`, `r(vars_strl)`.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release of the two-stage string-compression workflow.
 
 ## Author

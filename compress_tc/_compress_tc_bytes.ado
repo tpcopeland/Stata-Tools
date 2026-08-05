@@ -1,4 +1,4 @@
-*! _compress_tc_bytes Version 1.1.0  2026/06/19
+*! _compress_tc_bytes Version 1.1.1  2026/08/05
 *! Return a variable's fixed in-memory storage size (storage width x _N).
 *! Returns missing for strL, whose bytes live in the shared heap and cannot
 *! be attributed to a single variable from Stata's dataset-wide -memory-.

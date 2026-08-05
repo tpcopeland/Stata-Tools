@@ -54,7 +54,7 @@ net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stat
 - With `download(local)`, it copies the package files already present in the current PLUS directory, while obtaining platform-specific plugins from their sources.
 - With `restore`, it uses backup source metadata embedded by a transfer bundle to restore online URLs in `stata.trk`.
 
-Standard output files are written in the current working directory. The offline installer unpacks `pkgtransfer_files.zip` and installs the selected packages from the extracted local files; it leaves the extracted folder in place because its cleanup commands are disabled for safety.
+Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files; it leaves the extracted folder in place because its cleanup commands are disabled for safety.
 
 ## Worked Examples
 

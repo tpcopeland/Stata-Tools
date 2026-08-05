@@ -400,7 +400,8 @@ quietly{
 					local success = 0
 					forvalues attempt = 1/`max_retries' {
 						capture copy "`=file_source[`u']'" "pkgtransfer_files`c(dirsep)'`=v2[`u']'", replace
-						if _rc == 0 {
+						local plugin_copy_rc = _rc
+						if `plugin_copy_rc' == 0 {
 							local success = 1
 							continue, break
 						}
@@ -411,6 +412,7 @@ quietly{
 					}
 					if `success' == 0 {
 						noisily display as error "Failed to download plugin file after `max_retries' attempts"
+						exit `plugin_copy_rc'
 					}
 				}
 
@@ -469,7 +471,7 @@ quietly{
 				forvalues attempt = 1/`max_retries' {
 					capture copy "`curr_url'`curr_pkg'.pkg" "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", replace
 					local package_copy_rc = _rc
-					if _rc == 0 {
+					if `package_copy_rc' == 0 {
 						local success = 1
 						continue, break
 					}
@@ -563,16 +565,22 @@ quietly{
 						// Download all platform-specific files with retry logic
 						local max_retries = 3
 						local success = 0
-						forvalues attempt = 1/`max_retries' {
-							capture copy "`base_url'`source_file'" "pkgtransfer_files`c(dirsep)'`clean_source'"
-							if _rc == 0 {
+							forvalues attempt = 1/`max_retries' {
+								capture copy "`base_url'`source_file'" "pkgtransfer_files`c(dirsep)'`clean_source'"
+								local plugin_source_rc = _rc
+								if `plugin_source_rc' == 0 {
 								local success = 1
 								continue, break
 							}
 							if `attempt' < `max_retries' {
-								sleep 2000
+									sleep 2000
+								}
 							}
-						}
+							if `success' == 0 {
+								noisily display as error ///
+									"Failed to download required plugin file `source_file'"
+								exit `plugin_source_rc'
+							}
 
 						// Also save a copy with the target filename
 						// This ensures all platform variants are downloaded and the target file exists
@@ -611,7 +619,7 @@ quietly{
 							forvalues attempt = 1/`max_retries' {
 								capture copy "`base_url'`filepath'" "pkgtransfer_files`c(dirsep)'`clean_filepath'"
 								local file_copy_rc = _rc
-								if _rc == 0 {
+								if `file_copy_rc' == 0 {
 								local success = 1
 								continue, break
 							}
@@ -793,20 +801,7 @@ program define _pkgtransfer_cleanup_staging
 
 	local subdirs : dir "`directory'" dirs "*", respectcase
 	foreach d of local subdirs {
-		local subdirs2 : dir "`directory'/`d'" dirs "*", respectcase
-		foreach d2 of local subdirs2 {
-			local sub2files : dir "`directory'/`d'/`d2'" files "*", ///
-				respectcase
-			foreach f of local sub2files {
-				erase "`directory'/`d'/`d2'/`f'"
-			}
-			rmdir "`directory'/`d'/`d2'"
-		}
-		local subfiles : dir "`directory'/`d'" files "*", respectcase
-		foreach f of local subfiles {
-			erase "`directory'/`d'/`f'"
-		}
-		rmdir "`directory'/`d'"
+		_pkgtransfer_cleanup_staging, directory("`directory'/`d'")
 	}
 	local filelist : dir "`directory'" files "*", respectcase
 	foreach f of local filelist {

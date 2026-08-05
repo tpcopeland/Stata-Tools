@@ -316,6 +316,14 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   invoked by `validation_iivw_iptw_oracle.do` (Gate 2A tier-3 parity).
 - `tools/check_iivw_xlsx.py` and `tools/check_iivw_style.py` — workbook content
   and style validators.
+- `run_coverage_gate.sh` — block-sharded driver for the release-only
+  `validation_iivw_inference.do` coverage gate (`prep`/`run`/`status`/`combine`/
+  `unclaim`/`all`). Blocks are claimed atomically, so **extra workers can be
+  added to a live run** by starting a second `run_coverage_gate.sh run` with the
+  same `BASE`/`REPS`/`SEED`/`PSCALE`: it skips both pooled and in-flight blocks
+  instead of duplicating them. A killed run leaves claims behind; clear them
+  with `unclaim` (which refuses while any `stata-mp` is live). Measured
+  2026-08-05 on 28 vCPU: 120 blocks of 25, ~90 CPU-h, **5 h 34 m** wall.
 - The tracked CSV files are cross-validation inputs or generated reference
   values with companion R scripts in this directory.
 
