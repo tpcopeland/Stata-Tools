@@ -1,4 +1,4 @@
-*! _msm_xlsx_title_header_style Version 1.4.3  2026/07/29
+*! _msm_xlsx_title_header_style Version 1.4.4  2026/08/05
 *! Apply common Excel title and one-row header styling
 *! Author: Timothy P Copeland, Karolinska Institutet
 

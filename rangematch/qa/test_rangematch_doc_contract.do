@@ -105,7 +105,7 @@ string scalar _rmdoc_ado_syntax(string scalar fn)
     return(out)
 }
 
-// Concatenate the fenced code blocks under the README's "## Syntax" heading.
+// Concatenate the fenced code blocks under the README's "### Syntax" heading.
 string scalar _rmdoc_readme_syntax(string scalar fn)
 {
     string colvector L
@@ -118,8 +118,9 @@ string scalar _rmdoc_readme_syntax(string scalar fn)
     out = ""
     for (i = 1; i <= rows(L); i++) {
         s = strtrim(L[i])
-        if (s == "## Syntax") seen = 1
-        if (seen & strpos(s, "## Positional") == 1) break
+        if (s == "### Syntax") seen = 1
+        if (seen & strpos(s, "### ") == 1 & s != "### Syntax") break
+        if (seen & strpos(s, "## ") == 1) break
         if (seen) {
             if (strpos(s, "```") == 1) inblk = !inblk
             else if (inblk) out = out + " " + s
@@ -128,7 +129,7 @@ string scalar _rmdoc_readme_syntax(string scalar fn)
     return(out)
 }
 
-// Return one specific fenced block under "## Syntax" (1=point, 2=overlap).
+// Return one specific fenced block under "### Syntax" (1=point, 2=overlap).
 // Keeping the modes separate is essential: the union can be correct while one
 // mode silently advertises an option that belongs only to the other.
 string scalar _rmdoc_readme_syntax_block(string scalar fn, real scalar want)
@@ -144,8 +145,9 @@ string scalar _rmdoc_readme_syntax_block(string scalar fn, real scalar want)
     out = ""
     for (i = 1; i <= rows(L); i++) {
         s = strtrim(L[i])
-        if (s == "## Syntax") seen = 1
-        if (seen & strpos(s, "## Positional") == 1) break
+        if (s == "### Syntax") seen = 1
+        if (seen & strpos(s, "### ") == 1 & s != "### Syntax") break
+        if (seen & strpos(s, "## ") == 1) break
         if (!seen) continue
         if (strpos(s, "```") == 1) {
             if (inblk) inblk = 0
@@ -160,7 +162,7 @@ string scalar _rmdoc_readme_syntax_block(string scalar fn, real scalar want)
     return(out)
 }
 
-// Write the README's Quick Start block and its Positional-Arguments Examples
+// Write the README's Quick Start block and its Worked Examples blocks
 // block, verbatim and in document order, into one runnable do-file. Extracting
 // rather than transcribing is the point: a hand-copied sequence in this suite
 // would keep passing after the README itself regressed.
@@ -174,7 +176,7 @@ void _rmdoc_write_examples(string scalar fn, string scalar outfn)
     // fopen(..., "w") errors 602 if the file already exists.
     unlink(outfn)
     fh = fopen(outfn, "w")
-    mode = 0                                   // 0 none, 1 Quick Start, 2 Positional
+    mode = 0                                   // 0 none, 1 Quick Start, 2 Worked Examples
     inblk = 0
     nblk = 0
     for (i = 1; i <= rows(L); i++) {
@@ -184,9 +186,14 @@ void _rmdoc_write_examples(string scalar fn, string scalar outfn)
             nblk = 0
             continue
         }
-        if (s == "## Positional Arguments") {
+        if (s == "## Worked Examples") {
             mode = 2
             nblk = 0
+            continue
+        }
+        if (mode == 2 & strpos(s, "## ") == 1 & s != "## Worked Examples") {
+            mode = 0
+            inblk = 0
             continue
         }
         if (mode == 0) continue
@@ -196,7 +203,7 @@ void _rmdoc_write_examples(string scalar fn, string scalar outfn)
                 nblk++
                 if (mode == 1) mode = 0        // Quick Start has one block
             }
-            else if (nblk == 0) inblk = 1      // first block of the section only
+            else if ((mode == 1 & nblk == 0) | mode == 2) inblk = 1
             continue
         }
         if (inblk) fput(fh, L[i])
@@ -242,7 +249,7 @@ if trim("`accepted'") == "" {
 }
 
 **# T1 (RM-I11): every option token advertised in the README syntax blocks is accepted
-* Tokens are extracted structurally from the fenced blocks under "## Syntax",
+* Tokens are extracted structurally from the fenced blocks under "### Syntax",
 * not looked up by name, so a newly invented option fails here.
 local ++test_count
 * Positional/placeholder words are not options and are excluded by name.
@@ -485,7 +492,7 @@ else {
     display as error "FAIL: overlap-mode syntax diagram"
 }
 
-**# T5 (RM-I12): the three README positional examples run verbatim, in sequence
+**# T5 (RM-I12): the README Worked Examples run verbatim, in sequence
 * The audit's rule: do not silently repair the examples inside the test. Each
 * block below is the README text as displayed, including its `use ..., clear'.
 local ++test_count
@@ -513,7 +520,7 @@ capture noisily {
     file close `efh'
     if `nlines' < 20 | `saw_rangematch' < 4 {
         display as error "extracted `nlines' lines and `saw_rangematch' rangematch calls from the README"
-        display as error "expected the Quick Start block plus three positional examples"
+        display as error "expected the Quick Start block plus the Worked Examples blocks"
         exit 459
     }
 
@@ -523,7 +530,7 @@ capture noisily {
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "PASS: README Quick Start + positional examples run verbatim, in sequence"
+    display as result "PASS: README Quick Start + Worked Examples run verbatim, in sequence"
 }
 else {
     local ++fail_count

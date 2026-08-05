@@ -256,6 +256,12 @@ indicator). Variables in
 mapped treatment. {helpb msm_predict} is not available when {opt tvc:ov()} is
 specified.
 
+{pstd}
+After estimation, {cmd:msm_fit} verifies that every requested model predictor
+has an estimable standard error. If Stata omits any requested term because it
+is constant or collinear, {cmd:msm_fit} exits with error 111 and stores no
+fitted package state.
+
 {phang}
 {opt hist:ory(string)} adds prediction-compatible treatment-history terms to
 the structural outcome model. Supply one or more of {cmd:lag1},
@@ -340,10 +346,10 @@ specified.
 {cmd:e(msm_n_clusters)} counts distinct cluster values among the rows the
 estimator actually kept, not among the rows {cmd:msm_fit} intended to
 supply. The two differ whenever the estimator drops rows of its own accord --
-a missing
-{opt out:come_cov()} or {opt tvc:ov()} value, a collinear term, a nonpositive
-weight. {cmd:e(msm_n_dropped)} reports how many intended person-period rows were
-lost that way; it is {cmd:0} when the fitted and intended samples coincide, and
+a missing {opt out:come_cov()} or {opt tvc:ov()} value, a missing outcome, or
+a nonpositive weight. {cmd:e(msm_n_dropped)} reports how many intended
+person-period rows were lost that way; it is {cmd:0} when the fitted and
+intended samples coincide, and
 {cmd:msm_fit} prints a note naming the counts whenever it is not. A
 {cmd:model(cox)} fit refuses outright rather than fitting a subset, so
 {cmd:e(msm_n_dropped)} is always {cmd:0} there.

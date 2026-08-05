@@ -49,13 +49,12 @@ end
 
 * Python is an optional external oracle. If it is absent, skip this file
 * without failing the Stata-only QA suite.
-* Stata shell never sets _rc -- it reports 0 for a child that failed or does
-* not even exist -- so this guard could not fire. Everything after && runs
-* only on exit 0, so the sentinel file IS the exit status. See
-* _devkit/automation/scan_shell_rc.py.
+* Have Python create the sentinel itself so the check does not depend on the
+* user's interactive shell syntax or on Stata propagating the child exit code.
 tempfile py_ok
 capture erase "`py_ok'"
-shell ( python3 --version ) > /dev/null 2>&1 && touch "`py_ok'"
+local py_ok_path = subinstr("`py_ok'", "\", "/", .)
+shell python3 -c "from pathlib import Path; Path(r'`py_ok_path'').write_text('ok')"
 capture confirm file "`py_ok'"
 if _rc {
     display as text "SKIP: python3 not available; Python cross-validation not run"
@@ -143,15 +142,14 @@ file write `fh' "with open(sys.argv[1], 'w', newline='') as f:" _n
 file write `fh' "    writer = csv.writer(f)" _n
 file write `fh' "    writer.writerow(['name', 'value'])" _n
 file write `fh' "    writer.writerows(rows)" _n
+file write `fh' "with open(sys.argv[2], 'w') as f:" _n
+file write `fh' "    f.write('ok')" _n
 file close `fh'
 
-* Stata shell never sets _rc -- it reports 0 for a child that failed or does
-* not even exist -- so this guard could not fire. Everything after && runs
-* only on exit 0, so the sentinel file IS the exit status. See
-* _devkit/automation/scan_shell_rc.py.
+* The oracle writes the sentinel only after the CSV is complete.
 tempfile oracle_ok
 capture erase "`oracle_ok'"
-shell ( python3 "`pyscript'" "`pycsv'" ) && touch "`oracle_ok'"
+shell python3 "`pyscript'" "`pycsv'" "`oracle_ok'"
 capture confirm file "`oracle_ok'"
 if _rc {
     display as error "Python cross-validation oracle failed (error `=_rc')"

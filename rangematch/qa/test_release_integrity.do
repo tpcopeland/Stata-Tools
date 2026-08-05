@@ -224,6 +224,7 @@ if missing(`d') {
 }
 * The three date dialects the release surface uses, all from that one date.
 local help_date = lower(string(`d', "%tdDDmonCCYY"))
+local readme_date = string(`d', "%tdCCYY-NN-DD")
 local pkg_date  = subinstr("`raw_date'", "/", "", .)
 local badge_date = subinstr(string(`d', "%tdCCYY-NN-DD"), "-", "--", .)
 display as text "release surface: version=`pkg_version' pkg=`pkg_date' help=`help_date' badge=`badge_date'"
@@ -255,7 +256,7 @@ if scalar(__n) != 1 {
 
 * Package README header line.
 local path "`pkg_dir'/README.md"
-local needle "Version `pkg_version', `help_date'"
+local needle "**Version `pkg_version'** | `readme_date'"
 mata: st_numscalar("__n", _qa_exact_line_count(st_local("path"), st_local("needle")))
 if scalar(__n) != 1 {
     display as error "README.md has no exact line [`needle'] (found `=scalar(__n)')"

@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.2  2026/07/09
+*! logdoc Version 1.1.3  2026/08/05
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

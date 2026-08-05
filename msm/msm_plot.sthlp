@@ -211,7 +211,7 @@ are provided for each plot type.
 
 {pstd}
 For a balance plot, {cmd:r(balance)} contains signed SMDs even though the
-graph displays their absolute values.  {cmd:r(n_risk)} counts decision-risk
+graph displays their absolute values. {cmd:r(n_risk)} counts decision-risk
 rows before covariate-specific missing values are excluded.
 
 

@@ -1,6 +1,6 @@
 * validation_massdesas.do
 *
-* Validation tests for massdesas v1.0.1 — known-answer and invariant tests
+* Validation tests for massdesas v1.0.2 — known-answer and invariant tests
 *
 * Requires: R/haven, filelist, fs
 *
@@ -360,7 +360,7 @@ cd `"`original_cwd'"'
 _massdesas_qa_cleanup
 
 **# Summary
-display as text "MASSDESAS VALIDATION TEST SUMMARY (v1.0.1)"
+display as text "MASSDESAS VALIDATION TEST SUMMARY (v1.0.2)"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
 if `fail_count' > 0 {

@@ -31,7 +31,7 @@
 {synopthdr}
 {synoptline}
 {syntab:Estimate source}
-{synopt:{opt est:imate(#)}}observed OR or RR to correct{p_end}
+{synopt:{opt est:imate(#)}}observed OR, RR, HR, or IRR to correct{p_end}
 {synopt:{opt from_model}}take the estimate from {cmd:e(b)}{p_end}
 {synopt:{opt coef(coefname)}}which coefficient to correct{p_end}
 
@@ -57,7 +57,7 @@
 {synopt:{opt dist_rr(distribution)}}confounder-disease RR distribution{p_end}
 {synopt:{opt dist_confeffect(distribution)}}confounder-effect distribution{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
+{synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -72,8 +72,8 @@ Greenland (1996) bias factor approaches and optionally computes E-values
 (VanderWeele & Ding 2017).
 
 {pstd}
-{bf:For ratio measures (OR, RR)}, the correction divides the observed estimate
-by a bias factor:
+{bf:For ratio measures (OR, RR, HR, IRR)}, the correction divides the observed
+estimate by a bias factor:
 
 {pstd}
 Using {opt rrcd()} (Schneeweiss formula):
@@ -135,8 +135,8 @@ differs. Note that {opt from_model} auto-detection still reports {cmd:RR} for
 {dlgtab:Estimate source}
 
 {phang}
-{opt estimate(#)} specifies the observed OR or RR to correct. Must be > 0. Cannot be
-combined with {opt from_model}.
+{opt estimate(#)} specifies the observed OR, RR, HR, or IRR to correct. It must
+be greater than 0 and cannot be combined with {opt from_model}.
 
 {phang}
 {opt from_model} reads the point estimate and standard error from the last
@@ -155,8 +155,8 @@ limits. Current {cmd:tmle}/{cmd:ltmle} contracts are treated as additive coeffic
 unless they explicitly declare a ratio measure through {cmd:e(measure)},
 {cmd:e(effect_measure)}, or {cmd:e(qba_measure)}. Additive contracts use the subtractive
 confounding correction with {opt confeffect()}; E-values are skipped because they
-require an odds ratio or risk ratio. This integration requires a separately
-installed {cmd:tmle} or {cmd:ltmle} command that leaves the active contract in
+require an OR, RR, HR, or IRR. This integration requires a separately installed
+{cmd:tmle} or {cmd:ltmle} command that leaves the active contract in
 {cmd:e()}; {cmd:qba_confound} only reads that contract.
 
 {phang}
@@ -218,11 +218,14 @@ had no effect. It requires {opt evalue}.
 {dlgtab:Options}
 
 {phang}
-{opt measure(OR|RR)} specifies the measure type. When {opt from_model} is
-used, the measure is auto-detected from the estimation command (logistic/logit
-family produces OR; Poisson/Cox family produces RR). {cmd:cloglog} requires
-explicit {opt measure(RR)}. When {opt estimate()} is used, the default is
-{cmd:RR}.
+{opt measure(OR|RR|HR|IRR)} specifies the measure type. When {opt from_model}
+is used, the measure is auto-detected from the estimation command
+(logistic/logit family produces OR; Poisson/Cox family defaults to RR). Specify
+{opt measure(HR)} or {opt measure(IRR)} explicitly when that label and its
+E-value scale are required. RR and IRR enter the E-value formula directly,
+whereas with {opt commonoutcome}, HR uses the documented hazard-to-risk conversion,
+while {cmd:cloglog} requires explicit {opt measure(RR)}. With {opt estimate()},
+the default is {cmd:RR}.
 
 {dlgtab:Probabilistic}
 
@@ -249,7 +252,8 @@ additive confounder effects in linear {cmd:from_model} corrections.
 
 {phang}
 {opt level(#)} specifies the confidence level for the percentile interval and
-for the CI derived from {opt from_model}. Default is {cmd:95}.
+for the CI derived from {opt from_model}. The default is the current
+{cmd:c(level)} setting (95 unless changed).
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset to a Stata

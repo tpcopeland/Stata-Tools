@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.3  29jul2026}{...}
+{* *! version 1.4.4  05aug2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -368,7 +368,7 @@ Hall/CRC, 2020.
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Scalars}{p_end}
-{synopt:{cmd:r(n_commands)}}number of available commands (11){p_end}
+{synopt:{cmd:r(n_commands)}}number of available commands (12){p_end}
 
 {pstd}
 With {opt status}, the following additional results are stored:

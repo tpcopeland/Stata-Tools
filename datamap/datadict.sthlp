@@ -138,7 +138,7 @@ in the current directory, include the full or relative path.
 {phang}
 {opt dir:ectory(path)} scans a directory for every {opt .dta} file and
 documents all of them in a single output file (unless {opt separate} is also
-specified). If {it:path} is omitted, the current working directory is used.
+specified). Use {cmd:directory(.)} to scan the current working directory.
 
 {phang}
 {opt file:list(names)} documents a specific set of datasets given as a
@@ -330,9 +330,10 @@ format must begin with {cmd:%t} or {cmd:%d}.
 Use {cmd:datadict} when you need a polished Markdown document: for GitHub
 repositories, report appendices, IRB submissions, or conversion to other
 formats via Pandoc. Use {help datamap} when you need a plain-text file for
-LLM context, internal handoff, or automated pipelines. Both commands accept
-the same input modes (data in memory, single file, directory, or file list)
-and preserve the dataset in memory.
+LLM context, internal handoff, or automated pipelines. Both commands share
+in-memory, single-file, directory, and file-list modes; {cmd:datadict}
+additionally supports {opt manifest()}. Successful runs leave the caller's
+data unchanged.
 
 {pstd}
 {bf:Variable classification}

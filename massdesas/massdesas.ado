@@ -1,6 +1,6 @@
-*! massdesas Version 1.0.1  2026/08/05
+*! massdesas Version 1.0.2  2026/08/05
 
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define massdesas, rclass
     version 14.0
@@ -84,17 +84,22 @@ program define massdesas, rclass
                 local file : word `i' of `filelist'
                 clear
                 local dtaname = substr("`file'", 1, strlen("`file'") - strlen(".sas7bdat"))
-                capture {
-                    if "`dtaname'" == "" error 198
+                if "`dtaname'" == "" {
+                    local file_rc 198
+                }
+                else {
                     if "`lower'" == "" {
-                        import sas using "`file'", clear
+                        capture import sas using "`file'", clear
                     }
                     else {
-                        import sas using "`file'", case(lower) clear
+                        capture import sas using "`file'", case(lower) clear
                     }
-                    quietly save "`dtaname'.dta", replace
+                    local file_rc = _rc
+                    if `file_rc' == 0 {
+                        capture quietly save "`dtaname'.dta", replace
+                        local file_rc = _rc
+                    }
                 }
-                local file_rc = _rc
                 if `file_rc' == 0 {
                     quietly count
                     if r(N) == 0 {

@@ -1,4 +1,4 @@
-*! msm_fit Version 1.4.3  2026/07/29
+*! msm_fit Version 1.4.4  2026/08/05
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -785,32 +785,43 @@ program define msm_fit, eclass
     matrix `_fit_V' = e(V)
 
     local _coef_names : colnames `_fit_b'
+    local _fit_terms "`all_covars'"
+    if "`model'" == "cox" local _fit_terms "`cox_covars'"
     local _tidx = 0
-    local _ii = 0
-    foreach _cn of local _coef_names {
-        local ++_ii
-        if "`_cn'" == "`effect_term'" local _tidx = `_ii'
-    }
-    if `_tidx' == 0 {
-        display as error "exposure term `effect_term' not found in model coefficients"
-        display as error ""
-        display as error "The term was dropped from the model, usually because it does not vary"
-        display as error "in the estimation sample or is collinear with another covariate."
-        display as error "No fitted model has been stored."
-        exit 111
-    }
 
-    * A term can be present in the coefficient vector and still carry no
-    * information: Stata retains omitted terms with a zero coefficient and a
-    * zero variance. Reporting that as an estimate is exactly the rc=0-but-
-    * wrong case this rework exists to eliminate.
-    local _v_treat = `_fit_V'[`_tidx', `_tidx']
-    if missing(`_v_treat') | `_v_treat' <= 0 {
-        display as error "exposure term `effect_term' has no estimable standard error"
-        display as error ""
-        display as error "The term was omitted or perfectly collinear, so its coefficient"
-        display as error "carries no information. No fitted model has been stored."
-        exit 111
+    * A requested term can be present in the coefficient vector and still carry
+    * no information: Stata retains omitted terms with a zero variance. Check
+    * every modeled predictor, not only the primary effect. In a rank-deficient
+    * exposure()/tvcov() specification, which member Stata omits can vary with
+    * numerical details; accepting the fit whenever it retains exposure() would
+    * report an effect from a model whose requested joint specification was not
+    * estimated.
+    foreach _term of local _fit_terms {
+        local _term_idx = 0
+        local _ii = 0
+        foreach _cn of local _coef_names {
+            local ++_ii
+            if "`_cn'" == "`_term'" local _term_idx = `_ii'
+        }
+
+        if `_term_idx' == 0 {
+            display as error "model term `_term' not found in fitted coefficients"
+            display as error ""
+            display as error "The term was dropped from the model, usually because it does not vary"
+            display as error "in the estimation sample or is collinear with another covariate."
+            display as error "No fitted model has been stored."
+            exit 111
+        }
+        if "`_term'" == "`effect_term'" local _tidx = `_term_idx'
+
+        local _term_var = `_fit_V'[`_term_idx', `_term_idx']
+        if missing(`_term_var') | `_term_var' <= 0 {
+            display as error "model term `_term' has no estimable standard error"
+            display as error ""
+            display as error "The term was omitted or perfectly collinear, so its coefficient"
+            display as error "carries no information. No fitted model has been stored."
+            exit 111
+        }
     }
 
     * =========================================================================

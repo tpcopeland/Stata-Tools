@@ -1,4 +1,4 @@
-*! _qba_plot_distribution Version 1.1.0  2026/07/26
+*! _qba_plot_distribution Version 1.1.1  2026/08/05
 *! Internal helper: qba distribution plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

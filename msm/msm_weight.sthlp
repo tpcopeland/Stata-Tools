@@ -464,8 +464,8 @@ Scalars are available only after fitting. They are not returned by
 
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2: Scalars}{p_end}
-{synopt:{cmd:r(mean_weight)}}mean of the final combined weight on decision-risk rows{p_end}
-{synopt:{cmd:r(sd_weight)}}standard deviation of the final weight on decision-risk rows{p_end}
+{synopt:{cmd:r(mean_weight)}}mean final weight on decision-risk rows{p_end}
+{synopt:{cmd:r(sd_weight)}}SD of final weight on decision-risk rows{p_end}
 {synopt:{cmd:r(min_weight)}}minimum weight on decision-risk rows{p_end}
 {synopt:{cmd:r(max_weight)}}maximum weight on decision-risk rows{p_end}
 {synopt:{cmd:r(p1_weight)}}1st percentile weight on decision-risk rows{p_end}

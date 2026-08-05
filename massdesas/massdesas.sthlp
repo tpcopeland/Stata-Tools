@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  05aug2026}{...}
+{* *! version 1.0.2  05aug2026}{...}
 {vieweralsosee "[D] import sas" "help import sas"}{...}
 {vieweralsosee "filelist" "help filelist"}{...}
 {vieweralsosee "fs" "help fs"}{...}
@@ -40,6 +40,11 @@ while making all datasets accessible in Stata. {p_end}
 {bf:Warning:} When using the {opt erase} option, the original .sas7bdat files will be
 permanently deleted after successful conversion. Ensure you have backups
 before using this option. {p_end}
+
+{pstd}
+{bf:Warning:} Each converted dataset is saved with {cmd:replace}. An existing
+.dta file with the same base name and location is overwritten. Preserve any
+existing output that must be retained before running {cmd:massdesas}. {p_end}
 
 {title:Options}
 
@@ -110,8 +115,8 @@ with: {cmd:ssc install filelist} and {cmd:ssc install fs}. {p_end}
 
 {pstd}
 The command processes files sequentially, so conversion of large directory
-trees with many SAS files may take considerable time. Progress is displayed as
-each file is converted. {p_end}
+trees with many SAS files may take considerable time. It reports each failed
+file and displays a final conversion summary. {p_end}
 
 {pstd}
 If a conversion fails for any file, {cmd:massdesas} will display an error message
@@ -119,10 +124,10 @@ for that file and continue processing remaining files. When using the {opt erase
 option, files are only deleted if conversion was successful. {p_end}
 
 {pstd}
-File pattern matching ({cmd:*.sas7bdat}) is case-sensitive on Linux/macOS. Files
-with uppercase extensions (e.g., {cmd:.SAS7BDAT}) will not be found. Filenames
-and directory paths containing spaces are supported when the {opt directory()}
-path is quoted. {p_end}
+On case-sensitive filesystems, the file pattern ({cmd:*.sas7bdat}) does not
+match uppercase extensions such as {cmd:.SAS7BDAT}. Filenames and directory
+paths containing spaces are supported when the {opt directory()} path is
+quoted. {p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -144,7 +149,7 @@ path is quoted. {p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.1 - 2026-08-05{p_end}
+{pstd}Version 1.0.2 - 2026-08-05{p_end}
 
 {title:Also see}
 

@@ -408,16 +408,17 @@ if `ncmp' > 0 & `nreal' < `nreal_floor' {
     exit 9
 }
 * Terminal sentinel (RM-I20). The honest test count is the cells where binary
-* engaged plus the six explicit assert() outcome contracts. Skipped grid cells
-* are not passes.
+* engaged, the six explicit assert() outcome contracts, and the explicit
+* skipped grid cells. Skipped grid cells are not passes.
 * Sentinel counts CELLS, consistently. `nfail' counts individual mismatched
 * comparisons and can exceed the cell count many times over (one broken
 * backend produced 3840 across 320 cells), so using it as the fail field
 * printed a NEGATIVE pass count. Report cells failed; keep the comparison
 * detail on its own line.
-local total_tests = `ncmp' + `nassert'
+local total_tests = `ncmp' + `nassert' + `nskip'
 local total_fail = `ncellfail' + `nassertfail'
-display "RESULT: test_rangematch_backend_diff tests=`total_tests' pass=`=`total_tests' - `total_fail'' fail=`total_fail' skip=`nskip'"
+local total_pass = `ncmp' + `nassert' - `total_fail'
+display "RESULT: test_rangematch_backend_diff tests=`total_tests' pass=`total_pass' fail=`total_fail' skip=`nskip'"
 di as txt "backend_diff mismatched comparisons: `nfail'"
 
 if `ncmp' == 0 {

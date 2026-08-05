@@ -814,7 +814,9 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) outcome_cov(age sex) strata(sex) vce(cluster id) nolog
+    * A stratum variable defines the baseline hazard and must not also be
+    * requested as an estimable coefficient.
+    msm_fit, model(cox) outcome_cov(age) strata(sex) vce(cluster id) nolog
     assert "`e(msm_vce)'" == "cluster"
     assert "`e(msm_cluster)'" == "id"
     assert "`e(msm_strata)'" == "sex"

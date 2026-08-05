@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.1  19jul2026}{...}
+{* *! version 1.5.2  05aug2026}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
@@ -25,13 +25,13 @@
 
 {p 8 16 2}
 {cmd:setools}
-[{cmd:,} {opt list} {opt detail} {opt c:ategory(category)}]
+[{cmd:,} {opt l:ist} {opt d:etail} {opt c:ategory(category)}]
 
 {synoptset 24 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt list}}display only command names for the selected category{p_end}
-{synopt:{opt detail}}display grouped descriptions{p_end}
+{synopt:{opt l:ist}}display only command names for the selected category{p_end}
+{synopt:{opt d:etail}}display grouped descriptions{p_end}
 {synopt:{opt c:ategory(category)}}filter to {cmd:all}, {cmd:codes}, {cmd:migration}, or {cmd:ms}; default is {cmd:all}{p_end}
 {synoptline}
 

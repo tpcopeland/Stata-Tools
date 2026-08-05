@@ -45,6 +45,7 @@ local core_extra ///
     test_migrations_keepimmigrants ///
     test_migrations_minresidence ///
     test_migrations_malformed_rollback ///
+    test_setools_abbrev_and_namespace ///
     validation_migrations_adversarial_boundaries ///
     validation_migrations_type2_censoring ///
     validation_migrations_longwide_equivalence ///

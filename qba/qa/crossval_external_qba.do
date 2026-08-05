@@ -91,13 +91,11 @@ program define _qba_crossval_external_main
 
     tempfile oracle_csv oracle_dta
 
-    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
-    * not even exist -- so this guard could not fire. Everything after && runs
-    * only on exit 0, so the sentinel file IS the exit status. See
-    * _devkit/automation/scan_shell_rc.py.
+    * The R oracle writes the sentinel only after the CSV is complete; this is
+    * independent of the user's interactive shell syntax.
     tempfile oracle_ok
     capture erase "`oracle_ok'"
-    shell ( Rscript "`oracle_script'" "`oracle_csv'" ) && touch "`oracle_ok'"
+    shell Rscript "`oracle_script'" "`oracle_csv'" "`oracle_ok'"
     capture confirm file "`oracle_ok'"
     if _rc {
         display as error "episensr external oracle failed (error `=_rc')"

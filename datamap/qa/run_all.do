@@ -162,6 +162,15 @@ if `rc' {
     local ++failures
 }
 
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_help_render.do"
+local rc = _rc
+if `rc' {
+    display as error "test_help_render.do failed with rc `rc'"
+    local ++failures
+}
+
 if `failures' {
     display as error "`failures' datamap QA file(s) failed."
     exit 1

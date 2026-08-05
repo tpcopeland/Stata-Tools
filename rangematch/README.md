@@ -74,7 +74,7 @@ The point backends use binary search and can select a sweep backend for compatib
 
 ## Worked Examples
 
-The first two examples continue the Quick Start data. Reload the master before each call because an in-place run replaces the data in memory.
+Examples 1, 2, and 5 continue the Quick Start data; examples 3 and 4 are self-contained. Reload the master before each call because an in-place run replaces the data in memory.
 
 ### 1. Variable bounds and endpoint closure
 
@@ -182,7 +182,8 @@ use `master', clear
 rangematch event_date . 30 using `events', count
 return list
 
-rangematch event_date -30 30 using `events', saving(matches.dta, replace)
+tempfile matches
+rangematch event_date -30 30 using `events', saving("`matches'", replace)
 return list
 ```
 
@@ -243,7 +244,7 @@ rangematch low high using filename_or_framename [if] [in]
 | `by(varlist)` | None | Restrict matches to equal values in both datasets. Variables must have compatible types; `strL` by-variables are not allowed. |
 | `keepusing(varlist)` | All using variables | Select using variables to carry into output. Matching keys and by-variables are loaded as needed, and by-variables appear once in the output. |
 | `prefix(string)` | None | Prefix renamed using variables. If both `prefix()` and `suffix()` are omitted or explicitly empty, conflicting names use `_U`. |
-| `suffix(string)` | None | Suffix renamed using variables. If a prefix or suffix is supplied, it controls the requested names; `all` applies it to every carried using variable. |
+| `suffix(string)` | None; `_U` for conflicts when both are omitted/empty | Suffix renamed using variables. If a prefix or suffix is supplied, it controls the requested names; `all` applies it to every carried using variable. |
 | `all` | Off | Rename all carried using variables with the requested prefix and/or suffix, not only variables that conflict with master names. |
 | `unmatched(master\|none\|using\|both)` | `master` | Keep unmatched master rows, neither side, unmatched using rows, or both sides. |
 | `generate(name)` | None | Create a byte match indicator: 1 = master only, 2 = using only, and 3 = matched pair, with a value label. |

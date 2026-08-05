@@ -72,14 +72,14 @@ Install Python package dependencies, when a package needs them:
 {synoptset 28 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt ch:eck}}check Python, renderer, and optional PDF support; default action{p_end}
-{synopt:{opt set}}store the selected Python executable in {cmd:$LOGDOC_PYTHON} for this Stata session{p_end}
+{synopt:{opt ch:eck}}run setup checks; the default action{p_end}
+{synopt:{opt set}}select Python for this Stata session{p_end}
 {synopt:{opt save}}write or update {cmd:python=...} in {cmd:.logdocrc}{p_end}
-{synopt:{opt inst:all(string)}}install Python packages with the selected Python executable{p_end}
+{synopt:{opt inst:all(string)}}install a requested Python package{p_end}
 {synopt:{opt py:thon(path)}}explicit Python executable to check or save{p_end}
 {synopt:{opt pdf}}also check {cmd:xhtml2pdf} and {cmd:wkhtmltopdf} for {cmd:format(pdf)}{p_end}
-{synopt:{opt rep:lace}}allow {cmd:save} to replace an existing {cmd:python=} entry in {cmd:.logdocrc}{p_end}
-{synopt:{opt dry:run}}show the pip command that would be run, but do not install packages{p_end}
+{synopt:{opt rep:lace}}allow {opt save} to replace the Python setting{p_end}
+{synopt:{opt dry:run}}show the pip command without running it{p_end}
 {synopt:{opt q:uiet}}suppress nonessential output{p_end}
 {synopt:{opt v:erbose}}show candidate search and check details{p_end}
 {synoptline}
@@ -157,6 +157,14 @@ advanced users, but should be treated as an explicit user request.
 
 {marker options}{...}
 {title:Options}
+
+{phang}
+{opt check} runs the Python, renderer, and requested PDF checks. It is the
+default action when no action option is specified.
+
+{phang}
+{opt set} runs the same checks and stores the selected executable in
+{cmd:$LOGDOC_PYTHON} for the current Stata session.
 
 {phang}
 {opt python(path)} specifies the Python executable to check. Paths with spaces
@@ -311,19 +319,19 @@ Show the pip command that would be used for a custom package install:
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(ok)}}1 if the requested checks passed, 0 otherwise{p_end}
 {synopt:{cmd:r(python_ok)}}1 if a usable Python executable was found{p_end}
-{synopt:{cmd:r(renderer_ok)}}1 if {cmd:logdoc_render.py} was found and passed the renderer smoke check{p_end}
-{synopt:{cmd:r(pdf_ok)}}1 if either {cmd:xhtml2pdf} or {cmd:wkhtmltopdf} is available; missing if {opt pdf} was not requested{p_end}
+{synopt:{cmd:r(renderer_ok)}}1 if the renderer smoke check passed{p_end}
+{synopt:{cmd:r(pdf_ok)}}PDF support status; missing unless {opt pdf} was requested{p_end}
 {synopt:{cmd:r(installed)}}1 if {opt install()} completed; missing otherwise{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(python)}}selected Python executable{p_end}
 {synopt:{cmd:r(python_version)}}Python version string{p_end}
-{synopt:{cmd:r(python_source)}}where the selected executable came from: {cmd:option}, {cmd:global}, {cmd:config}, {cmd:stata}, or {cmd:path}{p_end}
+{synopt:{cmd:r(python_source)}}source of the selected Python executable{p_end}
 {synopt:{cmd:r(renderer)}}path to {cmd:logdoc_render.py}{p_end}
 {synopt:{cmd:r(config)}}path to {cmd:.logdocrc}, when read or written{p_end}
 {synopt:{cmd:r(xhtml2pdf)}}{cmd:installed} when the preferred PDF library is available{p_end}
 {synopt:{cmd:r(wkhtmltopdf)}}path or command name for {cmd:wkhtmltopdf}, when found{p_end}
-{synopt:{cmd:r(required)}}space-separated required Python packages; empty for current {cmd:logdoc}{p_end}
+{synopt:{cmd:r(required)}}required Python packages; currently empty{p_end}
 {synopt:{cmd:r(optional)}}space-separated optional Python packages, if any{p_end}
 {synopt:{cmd:r(missing)}}space-separated missing Python packages, if any{p_end}
 {synopt:{cmd:r(install_cmd)}}pip command used or proposed by {opt dryrun}{p_end}

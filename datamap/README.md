@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.6.3** | 2026-08-05
+**Version 1.6.4** | 2026-08-05
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
 
@@ -317,7 +317,7 @@ The help files document the complete stored-result contracts. The following tabl
 
 - `datamap` and `datadict` use aggregate summaries by default; `samples()` is an explicit row-level export option.
 - `mincell()` suppresses categorical and binary frequency cells below the threshold, and `uniqcap()` reports a lower-bound count when the distinct-value cap is exceeded.
-- `datamap` in-memory failures are not rolled back after partial processing; use `single()` or a copy when failure isolation is required.
+- `datamap` and `datadict` in-memory failures are not rolled back after partial processing; use file-based input or a copy when failure isolation is required.
 - `datadict` requires an existing `outdir()` for separate outputs, and `checks()`, `compare()`, and file-based `violations()`/`makespec()` routes use Stata datasets rather than text specifications.
 - `datacheck` treats `warn` as a non-halting gate mode; without it, failed expectations exit with return code 9.
 - `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit.
@@ -331,6 +331,10 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.6.4 (2026-08-05)
+
+Corrected input-mode, successful-state, stored-result, and generated-name help contracts.
 
 ### 1.6.3 (2026-08-05)
 

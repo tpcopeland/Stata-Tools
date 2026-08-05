@@ -25,7 +25,7 @@ warning: [0-9]+ of [0-9]+ by-groups had no using rows
 # Float-precision advisory for keys/bounds beyond 2^24.
 # This is test_rangematch_float_warn.do's entire subject: it asserts both that
 # the warning fires when it should and that it does NOT fire when it should not.
-warning: (using key|master bound) .* is stored as float with values beyond
+warning: (using key|master bound|master key) .* is stored as float with values beyond
 
 # Inverted using intervals (ulow > uhigh) in overlap mode.
 # Provoked and asserted by test_rangematch_overlap_inverted.do, which also

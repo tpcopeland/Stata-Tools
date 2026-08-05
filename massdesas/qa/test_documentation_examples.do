@@ -1,6 +1,6 @@
 * test_documentation_examples.do
 *
-* Runnable README workflow checks for massdesas v1.0.1
+* Runnable README workflow checks for massdesas v1.0.2
 *
 * Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-08-05

@@ -91,13 +91,12 @@ program define _qba_crossval_fml_main
     * The oracle needs base R only -- no contributed packages -- so an
     * available Rscript is sufficient. A missing Rscript is a real gap, not a
     * skip: install R rather than weakening this suite.
-    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
-    * not even exist -- so this guard could not fire. Everything after && runs
-    * only on exit 0, so the sentinel file IS the exit status. See
-    * _devkit/automation/scan_shell_rc.py.
+    * Have R create the sentinel itself so the guard is independent of the
+    * user's interactive shell syntax.
     tempfile r_ok
     capture erase "`r_ok'"
-    shell ( Rscript --version ) > /dev/null 2>&1 && touch "`r_ok'"
+    local r_ok_path = subinstr("`r_ok'", "\", "/", .)
+    shell Rscript -e "writeLines('ok', '`r_ok_path'')"
     capture confirm file "`r_ok'"
     if _rc {
         display as error "Rscript is not available; install R to run this cross-validation"
@@ -108,13 +107,10 @@ program define _qba_crossval_fml_main
     quietly net install qba, from("`pkg_dir'") replace
 
     tempfile oracle_csv oracle_dta
-    * Stata shell never sets _rc -- it reports 0 for a child that failed or does
-    * not even exist -- so this guard could not fire. Everything after && runs
-    * only on exit 0, so the sentinel file IS the exit status. See
-    * _devkit/automation/scan_shell_rc.py.
+    * The oracle writes the sentinel only after the CSV is complete.
     tempfile oracle_ok
     capture erase "`oracle_ok'"
-    shell ( Rscript "`oracle_script'" "`oracle_csv'" `seed' `sims' ) && touch "`oracle_ok'"
+    shell Rscript "`oracle_script'" "`oracle_csv'" `seed' `sims' "`oracle_ok'"
     capture confirm file "`oracle_ok'"
     if _rc {
         display as error "author-reference oracle failed (error `=_rc')"

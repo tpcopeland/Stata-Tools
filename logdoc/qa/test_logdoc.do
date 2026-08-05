@@ -1,4 +1,4 @@
-* test_logdoc.do — Functional tests for logdoc package v1.4.2
+* test_logdoc.do — Functional tests for the logdoc package
 * Location: logdoc/qa/
 * Run: stata-mp -e do test_logdoc.do
 

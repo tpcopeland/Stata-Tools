@@ -1,6 +1,6 @@
 # qba — Quantitative Bias Analysis for Stata
 
-**Version 1.1.0** | 2026-07-26
+**Version 1.1.1** | 2026-08-05
 
 `qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 
@@ -147,7 +147,7 @@ qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
     param1(se) range1(.6 1) param2(sp) range2(.6 1) steps(25)
 ```
 
-### Use qba_confound after tmle or ltmle
+### 8. Use qba_confound after tmle or ltmle
 
 When neither `estimate()` nor `from_model` is supplied, `qba_confound` can read an active estimation contract left by separately installed `tmle` or `ltmle` software. The command uses `e(tau)` and any available confidence limits; additive contracts use `confeffect()`, while E-values require an explicitly declared ratio-scale effect.
 
@@ -197,7 +197,7 @@ qba_misclass, a(#) b(#) c(#) d(#) seca(#) spca(#) ///
 | `totalerror` | Off | Add total-error and random-error-only simulation intervals; requires probabilistic mode, whole-number cells, and all four cells greater than zero |
 | `fcase()` `fctrl()` | `1` | Case and non-case source-population sampling fractions in `(0, 1]`; apply only with `type(outcome)` |
 | `seed()` | Unset | Set the random-number seed |
-| `level()` | `95` | Percentile simulation-interval level |
+| `level()` | `c(level)` (95 by default) | Percentile simulation-interval level |
 | `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
 
 `fcase()` and `fctrl()` inflate a sampled case-control table to the source population before outcome misclassification is corrected. They are rejected for exposure misclassification.
@@ -220,7 +220,7 @@ qba_selection, a(#) b(#) c(#) d(#) ///
 | `reps()` | `0` | Fixed cell correction when omitted or zero; probabilistic mode requires at least 100 replications |
 | `dist_sela()` through `dist_seld()` | Constant at the corresponding fixed probability | Distributions for the four selection probabilities in probabilistic mode |
 | `seed()` | Unset | Set the random-number seed |
-| `level()` | `95` | Percentile simulation-interval level |
+| `level()` | `c(level)` (95 by default) | Percentile simulation-interval level |
 | `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
 
 Simple mode divides each cell by its selection probability and reports the selection bias factor on the odds-ratio scale, even when the requested measure is `RR`.
@@ -255,7 +255,7 @@ qba_confound, [estimate(#) | from_model] ///
 | `dist_rr()` | Constant at `rrcd()` or `rrud()` | Distribution for a ratio-scale confounder-disease parameter |
 | `dist_confeffect()` | Constant at `confeffect()` | Distribution for a signed additive confounder effect in linear probabilistic mode |
 | `seed()` | Unset | Set the random-number seed |
-| `level()` | `95` | Percentile simulation-interval level and model-derived confidence-interval level |
+| `level()` | `c(level)` (95 by default) | Percentile simulation-interval level and model-derived confidence-interval level |
 | `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
 
 `qba_confound` supports automatic ratio-scale handling for recognized log-scale estimators, including logistic, count, Cox, and suitable GLM models. Other model results are treated as additive coefficients. A model with multiple eligible predictors requires `coef()`.
@@ -291,7 +291,7 @@ qba_multi, a(#) b(#) c(#) d(#) reps(#) ///
 | `dist_p1()` `dist_p0()` `dist_rr()` | Constant at the corresponding fixed value | Distributions for active confounding parameters |
 | `order()` | Active cell-level biases in `misclass selection` order | Reorder `misclass` and `selection`; all active cell-level biases must appear, and `confound` is always last |
 | `seed()` | Unset | Set the random-number seed |
-| `level()` | `95` | Percentile simulation-interval level |
+| `level()` | `c(level)` (95 by default) | Percentile simulation-interval level |
 | `saving()` | None | Save corrected cell counts and corrected measures; `replace` overwrites an existing file |
 
 At least one complete bias-parameter set is required. `qba_multi` does not offer `totalerror`, E-values, or case-control sampling-fraction adjustment.
@@ -339,6 +339,12 @@ Recognized sweep parameters are `se`/`seca`, `sp`/`spca`, `sela`, `selb`, `selc`
 
 ## Key Options
 
+### Package dispatcher
+
+| Option | Default | Purpose |
+|--------|---------|---------|
+| `version` | Off | Display and store the package version; the overview is displayed either way |
+
 ### Distribution families
 
 Use these forms inside the relevant `dist_*()` option. Parameter order and support are checked by qba.
@@ -352,7 +358,7 @@ Use these forms inside the relevant `dist_*()` option. Parameter order and suppo
 | Logit-normal | `logit-normal mean sd` | Mean and standard deviation are on the logit scale; `sd` must be positive |
 | Constant | `constant value` | One fixed value and no parameter uncertainty |
 
-Probability parameters are screened against their support after drawing: sensitivities, specificities, and selection probabilities must lie in `(0, 1)`, while confounder prevalences may include 0 and 1. Out-of-support draws and undefined corrected measures are retained as missing rows in saved Monte Carlo data and excluded from summaries.
+Probability parameters are screened against their support after drawing: sensitivities, specificities, and selection probabilities must lie in `(0, 1]`, while confounder prevalences may include 0 and 1. Out-of-support draws and undefined corrected measures are retained as missing rows in saved Monte Carlo data and excluded from summaries.
 
 ### Saving and plotting Monte Carlo results
 
@@ -424,6 +430,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.1** (2026-08-05): Corrected help contracts for HR/IRR confounding measures and `c(level)` defaults, and made external-oracle QA sentinels independent of the user's interactive shell syntax.
 - **1.1.0** (2026-07-26): Added total-error simulation, correlated differential misclassification, case-control sampling-fraction adjustment, common-outcome E-value conversions, and explicit systematic-error interval semantics.
 - **1.0.1** (2026-06-19): Documentation polish, stored-result coverage, helper cleanup, and package metadata refresh.
 - **1.0.0** (2026-06-02): Initial public release covering misclassification, selection bias, unmeasured confounding, multi-bias simulation, and visualization.

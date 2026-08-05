@@ -304,8 +304,8 @@ else {
 * zero-width CI is the tell, not the point estimate: the coefficient is not
 * zero, so the result reads as a precisely measured small effect rather than
 * as the hole it is. This probe fails on 1.2.3 (which returns rc=0) and passes
-* once msm_fit verifies the exposure coefficient is estimable before committing
-* any state.
+* once msm_fit verifies every requested model term is estimable before
+* committing any state.
 *
 * Note this spec is not merely degenerate in this fixture: msm_prepare
 * requires binary treatment, so cum_trt + cum_comp == period + 1 in EVERY

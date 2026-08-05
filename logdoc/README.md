@@ -1,6 +1,6 @@
 # logdoc — Faithful Stata log conversion
 
-**Version 1.1.2** | 2026-07-10
+**Version 1.1.3** | 2026-08-05
 
 `logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
@@ -392,6 +392,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.3** (2026-08-05): Corrected Quarto format and append guidance, aligned the Python setup help, and shortened help-table descriptions for clean Viewer rendering.
 - **1.1.2** (2026-07-10): Reject shell-control characters in user-supplied paths, Python executable values, and pip package requests before external shell calls; preserve embedded double quotes when batch, session, and replay commands rebuild options.
 - **1.1.1** (2026-07-07): Report conversion failures even when a previous output exists; use UTF-8 output on Windows; re-execute `run` conversions during replay; preserve captured session logs on failed conversion; read global `.logdocrc`; reject `docx` and `pdf` combine outputs; and require `stataexe()` only with `run`.
 - **1.1.0** (2026-06-14): Add faithful-by-default HTML rendering, opt-in enhancements, `run`, `combine`, `accent()`, and `.logdocrc` support.

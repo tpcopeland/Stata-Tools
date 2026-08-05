@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  09jul2026}{...}
+{* *! version 1.1.3  05aug2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -85,7 +85,7 @@ Other subcommands:
 {p2coldent:* {opt out:put(filename)}}output file path{p_end}
 
 {syntab:Format & theme}
-{synopt:{opt f:ormat(string)}}output format: {bf:html} (default), {bf:md}, {bf:qmd}, {bf:both}, {bf:docx}, {bf:tex}, or {bf:pdf}{p_end}
+{synopt:{opt f:ormat(string)}}select the output format{p_end}
 {synopt:{opt th:eme(string)}}CSS theme: {bf:light} (default) or {bf:dark}{p_end}
 {synopt:{opt css(filename)}}custom CSS file (overrides theme){p_end}
 {synopt:{opt acc:ent(#RRGGBB)}}brand/accent color for headings, links, and controls{p_end}
@@ -95,12 +95,12 @@ Other subcommands:
 {synopt:{opt date(string)}}date subtitle shown in document header{p_end}
 {synopt:{opt foot:er(string)}}custom footer text{p_end}
 {synopt:{opt gen:erated}}add "Generated YYYY-MM-DD HH:MM" footer{p_end}
-{synopt:{opt st:amp}}add Stata version, date/time, and data filename to header{p_end}
+{synopt:{opt st:amp}}add Stata/session metadata to the header{p_end}
 
 {syntab:Display & layout}
-{synopt:{opt run}}execute .do file first, then convert the resulting log{p_end}
-{synopt:{opt statae:xe(string)}}name of the Stata batch executable used by {opt run} (default: auto-detected from flavor/OS){p_end}
-{synopt:{opt pre:formatted}}compatibility option; HTML tables are monospace by default{p_end}
+{synopt:{opt run}}run a .do file before conversion{p_end}
+{synopt:{opt statae:xe(string)}}override the batch Stata executable{p_end}
+{synopt:{opt pre:formatted}}retain legacy preformatted behavior{p_end}
 {synopt:{opt nof:old}}compatibility option; folding is off by default{p_end}
 {synopt:{opt nod:ots}}strip dot prompts from commands for cleaner display{p_end}
 {synopt:{opt fold}}collapse long output blocks into expandable sections{p_end}
@@ -122,8 +122,8 @@ Other subcommands:
 {synopt:{opt drop(string)}}exclude commands matching pattern{p_end}
 
 {syntab:Other}
-{synopt:{opt open}}open the output file in the default browser after generation{p_end}
-{synopt:{opt app:end}}append to existing HTML, Markdown, Quarto Markdown, or LaTeX output{p_end}
+{synopt:{opt open}}open output after generation{p_end}
+{synopt:{opt app:end}}append to a supported existing output{p_end}
 {synopt:{opt ann:otate(filename)}}annotation file with notes to embed in output{p_end}
 {synopt:{opt py:thon(string)}}explicit path to Python executable{p_end}
 {synopt:{opt q:uiet}}suppress all status messages{p_end}
@@ -242,9 +242,10 @@ batch mode (with the same {opt stataexe()} setting) before converting.
 {phang}
 {opt format(string)} selects the output format. {bf:html} (default) produces a
 self-contained HTML document. {bf:md} produces Markdown with YAML front
-matter. {bf:both} generates both formats from the same input. {bf:docx} generates Word
-via {cmd:html2docx} (Stata 17+). {bf:tex} generates LaTeX. {bf:pdf} generates PDF via
-{cmd:xhtml2pdf} (preferred) or {cmd:wkhtmltopdf}.
+matter. {bf:qmd} produces Quarto Markdown with YAML front matter. {bf:both}
+generates HTML and Markdown from the same input. {bf:docx} generates Word via
+{cmd:html2docx} (Stata 17+). {bf:tex} generates LaTeX. {bf:pdf} generates PDF
+via {cmd:xhtml2pdf} (preferred) or {cmd:wkhtmltopdf}.
 
 {phang}
 {opt theme(string)} selects the CSS theme for HTML output. {bf:light}
@@ -373,7 +374,7 @@ after generation.
 {phang}
 {opt append} appends new content to an existing output file instead of
 replacing it. It does not require {opt replace}. Supported for HTML,
-Markdown, LaTeX, and {opt format(both)} output; not supported with
+Markdown, Quarto Markdown, LaTeX, and {opt format(both)} output; not supported with
 {opt format(docx)} or {opt format(pdf)}.
 
 {phang}

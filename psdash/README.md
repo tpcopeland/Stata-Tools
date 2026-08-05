@@ -16,7 +16,7 @@ psdash combined foreign ps, covariates(mpg weight length)
 return list
 ```
 
-combined requests overlap, balance, weight, and support panels by default and returns an overall PASS or FAIL verdict with the analysis-sample ledger. For cross-sectional data it uses one common complete-case sample when covariates are available and skips the balance panel when no covariates are detected.
+For cross-sectional data, combined requests overlap, balance, weight, and support panels by default and returns an overall PASS or FAIL verdict with the analysis-sample ledger. It uses one common complete-case sample when covariates are available and skips the balance panel when no covariates are detected; longitudinal producer contracts instead route to period-specific diagnostics.
 
 ## Requirements
 
@@ -74,15 +74,15 @@ The command family accepts the general form psdash <subcommand> [treatment] [psv
 | After msm_weight | Period-specific treatment propensity, treatment weight, identifiers, and periods | Longitudinal psdash combined diagnostics |
 | After tte_weight, save_ps | Saved switch/treatment propensity, IP weight, identifiers, and periods | Longitudinal psdash combined diagnostics |
 | After iivw_weight | Treatment propensity, treatment covariates, treatment weight, and iivw component state | Treatment diagnostics and weights, iivwcomponent() |
-| After logit or probit | Treatment and covariates from e(); the predicted PS is supplied by the user | predict ..., pr, then a panel command |
-| After mlogit | Treatment and covariates from e(); generalized PS variables are supplied through psvars() | Multi-group diagnostics |
+| After `logit`/`probit` | The treatment and covariates are read from the estimation context; the predicted PS is supplied by the user | `predict ..., pr`, then a panel command |
+| After `mlogit` (multi-group) | The treatment and covariates are read from the estimation context; generalized PS variables are supplied through `psvars()` | Multi-group diagnostics |
 | Manual input | Explicit treatment and PS, with covariates() and wvar() when needed | Fully controlled diagnostics |
 
 teffects psmatch is rejected because it does not expose the propensity-score prediction required by these diagnostics. Longitudinal integrations run period-by-period rather than pooling observations across periods. Individual pooled panels require explicit variables for longitudinal data.
 
 ### Producer-contract verification
 
-Automatic integrations call the producing command's validity guard before using detected state and check the stamped contract version against the supported compatibility matrix. Missing, stale, unsigned, malformed, future, or otherwise unsupported producer state fails closed with an explicit error. Supplying treatment and a propensity score explicitly always uses manual mode and does not require a producer contract.
+Producer-contract integrations call the producing command's validity guard before using detected state and check the stamped contract version against the supported compatibility matrix. Missing, stale, unsigned, malformed, future, or otherwise unsupported producer state fails closed with an explicit error. Built-in teffects, logit, probit, and mlogit contexts use their estimation results instead of a producer contract. Supplying treatment and a propensity score explicitly always uses manual mode and does not require a producer contract.
 
 Combined reports use clear status labels, while `r(verdict)` and `r(warnings)` provide the machine-readable result.
 
@@ -167,7 +167,7 @@ reference() defaults to the smallest observed treatment level and changes the pa
 
 ### Detection, verdicts, and publication output
 
-Use dryrun when you want the resolved analysis inputs before running panels, and use report() when a combined workbook is required.
+Use dryrun when you want the resolved analysis inputs before running panels, and use report() when a cross-sectional combined workbook is required.
 
 ```stata
 sysuse auto, clear
@@ -252,7 +252,7 @@ The default output includes a graph; nograph suppresses it. For binary treatment
 psdash combined [treatment] [psvar] [if] [in] [, covariates(varlist) wvar(varname) threshold(#) overlapmax(#) essmin(#) imbalmax(#) nooverlap nobalance noweights nosupport dryrun report(filename) saving(filename) scheme(schemename) title(string) estimand(string) psvars(varlist) reference(#) gpsfloor(#)]
 ```
 
-All four panels are requested by default when their inputs are available; the balance panel is skipped when no covariates are detected. threshold(0.1) controls the balance SMD finding threshold, overlapmax(10) is the default maximum percentage outside the overlap threshold, essmin(50) is the default minimum ESS percentage, and imbalmax(0) is the default tolerated number of imbalanced covariates. nooverlap, nobalance, noweights, and nosupport suppress panels; dryrun resolves inputs without running panels; and report() writes sheets for the panels that run plus Summary to an .xlsx workbook.
+All four panels are requested by default when their inputs are available; the balance panel is skipped when no covariates are detected. threshold(0.1) controls the balance SMD finding threshold, overlapmax(10) is the default maximum percentage outside the overlap threshold, essmin(50) is the default minimum ESS percentage, and imbalmax(0) is the default tolerated number of imbalanced covariates. nooverlap, nobalance, noweights, and nosupport suppress panels; dryrun resolves inputs without running panels; and, for cross-sectional runs, report() writes sheets for the panels that run plus Summary to an .xlsx workbook.
 
 ### psdash detect
 
@@ -268,7 +268,7 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 
 | Option | Default and behavior |
 |---|---|
-| covariates(varlist) | Auto-detected from a supported estimation/producer context when available; supply it for manual balance diagnostics. Factor notation and interactions are expanded into design columns. |
+| covariates(varlist) | Auto-detected from a supported cross-sectional estimation/producer context when available; supply it for manual or pooled balance diagnostics. Factor notation and interactions are expanded into design columns. |
 | wvar(varname) | Use a supplied analysis-weight variable; otherwise a supported producer weight or an automatically generated IPTW weight is used where permitted. |
 | estimand(ate\|att\|atc) | ate by default; after teffects, the detected e(stat) is respected unless estimand() is explicit. For multi-group treatments, atc is not uniquely defined; use att with reference() for a named arm. |
 | psvars(varlist) | Required for multi-group generalized PS input; give one probability per nonnegative integer treatment level in ascending level order. Binary input may be one treated probability or two ordered probabilities, which are range- and sum-validated. |
@@ -340,25 +340,25 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | essmin(#) | 50 percent ESS tolerated as the minimum before a finding. |
 | imbalmax(#) | 0 imbalanced covariates tolerated before a finding. |
 | dryrun | Resolve and display the analysis inputs without running panels. |
-| report(filename) | Write a multi-sheet .xlsx workbook with panel and summary sheets. |
+| report(filename) | For cross-sectional combined runs, write a multi-sheet .xlsx workbook with panel and summary sheets. |
 | gpsfloor(#) | 0.01 for multi-group overlap/support and forwarded to both panels. |
 
 ## Stored Results
 
-Every diagnostic command stores its principal results in r() and prints findings with a status and, when appropriate, a concise action line. The defaults are diagnostic heuristics, not automatic evidence that an analysis is valid.
+Diagnostic panel commands store their principal results in r() and print findings with a status and, when appropriate, a concise action line; detect stores resolution metadata without running panels. The defaults are diagnostic heuristics, not automatic evidence that an analysis is valid.
 
 | Command | Important returned results |
 |---|---|
 | overlap | r(N), r(overlap_lower), r(overlap_upper), r(n_outside), r(pct_outside), r(auc) for binary treatments, treatment/PS/source metadata, and multi-group r(gps_means). |
 | balance | r(max_smd_raw), r(max_smd_adj), r(max_vr_raw), r(max_vr_adj), r(max_ks_raw), r(n_imbalanced), r(threshold), weight/source metadata, and matrices r(balance) and r(smd). |
 | weights | r(mean_wt), r(sd_wt), r(cv), r(ess), r(ess_pct), r(n_extreme), r(p1), r(p99), r(max_ratio), modification metadata, and r(iivwcomponent) when applicable. |
-| support | r(lower_bound), r(upper_bound), r(n_outside), r(pct_outside), r(trim_lower), r(trim_upper), r(n_trimmed), r(N_remaining), r(crump_alpha), comparison results when requested, and multi-group r(gps_means). |
-| combined | r(verdict), r(n_warnings), r(warnings), r(n_panels), r(N_requested), r(N_analysis), r(n_common_excluded), r(overlapmax), r(essmin), r(imbalmax), r(report) when report() is used, and source/estimand metadata. |
+| support | r(lower_bound), r(upper_bound), r(n_outside), r(pct_outside), r(trim_lower), r(trim_upper), r(n_trimmed), and r(N_remaining) when trimming is requested; r(crump_alpha) when crump is used; comparison results when requested; and multi-group r(gps_means). |
+| combined | r(verdict), r(n_warnings), r(warnings), and source/estimand metadata. Cross-sectional runs additionally return r(n_panels), r(N_requested), r(N_analysis), r(n_common_excluded), r(overlapmax), r(essmin), r(imbalmax), and r(report) when report() is used. |
 | detect | r(source), r(treatment), r(psvar), r(covariates), r(wvar), r(estimand), r(n_covariates), r(multigroup), r(longitudinal), r(K), r(levels), and r(reference) when applicable. |
 
 Multi-group runs also return group counts, generalized-positivity diagnostics, and the K-by-K r(gps_means) matrix. Longitudinal combined runs return producer metadata, period and arm sample/ESS summaries, missingness and exclusion counts, and the period matrices r(overlap_by_period) and r(weights_by_period).
 
-combined adds panel returns with return add; shared names inherited from panels reflect the last panel run, so run the individual command when a panel-specific return surface is needed. r(balance) has one row per covariate for binary treatments and pairwise blocks for multi-group treatments; r(smd) is the compact SMD matrix intended for downstream reporting.
+For cross-sectional combined runs, combined adds panel returns with return add; shared names inherited from panels reflect the last panel run, so run the individual command when a panel-specific return surface is needed. r(balance) has one row per covariate for binary treatments and pairwise blocks for multi-group treatments; r(smd) is the compact SMD matrix intended for downstream reporting.
 
 Example:
 
@@ -373,7 +373,7 @@ matrix list r(balance)
 - A diagnostic PASS means the configured observed-data thresholds were not crossed; it is not a causal proof and does not establish exchangeability, correct model specification, or adequate study design.
 - Binary workflows require two observed treatment groups. Multi-group treatment values must be nonnegative integers, and psvars() must contain one generalized propensity score per level in ascending order; invalid ranges, sums, or missing levels fail rather than being guessed.
 - Exact propensity-score boundaries can make generated inverse-probability weights undefined. psdash rejects undefined generated weights instead of silently dropping them; inspect the model, support, and requested estimand before proceeding.
-- balance uses available complete cases separately by covariate, so a missing covariate can have a smaller effective sample and is reported in the returned missingness fields. combined instead uses one complete-case sample across the requested treatment, PS, covariates, and weight inputs and returns its exclusion ledger.
+- balance uses available complete cases separately by covariate, so a missing covariate can have a smaller effective sample and is reported in the returned missingness fields. Cross-sectional combined runs instead use one complete-case sample across the requested treatment, PS, covariates, and weight inputs and return its exclusion ledger; longitudinal combined runs use period-specific diagnostics.
 - For binary covariates, the variance ratio is not counted as a separate imbalance finding. Adjusted SMDs use a common unweighted pooled-SD scale, while adjusted continuous variance ratios use a scale-invariant unbiased weighted variance; multiplying all weights by a constant does not change these adjusted diagnostics.
 - crump is binary-only. In multi-group workflows, threshold() and gpsfloor() apply a full-vector positivity rule: every GPS component must meet the floor. Component plots compare the same GPS component across all observed treatment groups; observed-arm score ranges remain descriptive and do not determine the multi-group verdict.
 - estimand(atc) is not uniquely defined for more than two treatment groups. Use estimand(att) with reference() for a named arm or define a binary contrast.

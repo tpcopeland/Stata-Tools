@@ -669,8 +669,10 @@ capture {
     msm_weight, treat_d_cov(sex race age wt71) ///
         treat_n_cov(sex race) fitfailure(marginal) nolog
 
+    * died is observed only at the terminal row, so period is constant in the
+    * fitted sample. Do not request a structurally unestimable period effect.
     msm_fit, model(logistic) outcome_cov(sex race age wt71) ///
-        period_spec(linear) nolog
+        period_spec(none) nolog
 
     local b_qsmk = _b[qsmk]
     local or_qsmk = exp(`b_qsmk')

@@ -1,4 +1,4 @@
-*! migrations Version 1.5.1  2026/07/19
+*! migrations Version 1.5.2  2026/08/05
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -16,11 +16,12 @@ program define migrations, rclass
 
     capture noisily {
 
-    syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) MINresidence(integer 0) SAVEExclude(string) SAVECensor(string) REPLACE VERBose QUIetly KEEPimmigrants INTYPE(string) OUTTYPE(string) FLAG]
+    syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) MINresidence(integer 0) SAVEExclude(string) SAVECensor(string) REPLACE VERBose Quietly KEEPimmigrants INTYPE(string) OUTTYPE(string) FLAG]
 
     * Note: using _mig_* prefix (not tempvar) for working variables because
     * tempvars get lost on dataset switching (use/clear within program scope).
-    * All _mig_* variables are cleaned up by keep/drop before restore.
+    * All _mig_* variables are cleaned up by keep/drop before restore, and the
+    * master is refused up front if it already occupies that namespace.
 
     * Set defaults
     if "`idvar'" == "" local idvar "id"
@@ -144,14 +145,16 @@ program define migrations, rclass
         }
     }
 
-    * Preflight the reserved internal working namespace. migrations creates
-    * _mig_*/_neg_* working variables on the merged master (it cannot use
-    * tempvars across dataset switching), so a user column in that namespace
-    * would collide. Fail early with a clear message rather than a cryptic gen.
-    capture ds _mig_* _neg_*
-    if !_rc & "`r(varlist)'" != "" {
-        display as error "Master data contains reserved internal variable(s): `r(varlist)'"
-        display as error "Drop or rename _mig_*/_neg_* columns before running migrations"
+    * Preflight the reserved internal working namespace. migrations merges the
+    * whole master back in and then builds _mig_* working variables on it (it
+    * cannot use tempvars across dataset switching), so a master column in that
+    * namespace collides. Fail early and name it, rather than letting a later
+    * gen die with a bare r(110) that points at an internal variable.
+    capture ds _mig_*
+    if _rc == 0 {
+        local _mig_reserved_clash `"`r(varlist)'"'
+        display as error "Master data contains reserved internal variable(s): `_mig_reserved_clash'"
+        display as error "migrations reserves the _mig_* namespace; drop or rename these columns"
         exit 110
     }
 
@@ -570,25 +573,25 @@ program define migrations, rclass
         * Note: negated sort keys are needed for max-by-group because Stata
         * sorts missing last — [_N] gives missing when ANY row has missing.
         * Negating puts the largest non-missing first at [1].
-        qui gen long _neg_out = -out_
-        qui bysort `idvar' (_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
-        qui drop _neg_out
-        qui gen long _neg_in = -in_
-        qui bysort `idvar' (_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
-        qui drop _neg_in
+        qui gen long _mig_neg_out = -out_
+        qui bysort `idvar' (_mig_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
+        qui drop _mig_neg_out
+        qui gen long _mig_neg_in = -in_
+        qui bysort `idvar' (_mig_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
+        qui drop _mig_neg_in
         qui format _mig_last_out _mig_last_in %tdCCYY/NN/DD
 
         * Baseline-state helpers used for broad format support. These do not
         * rely on in_/out_ being paired at the same reshape index.
         qui gen long _mig_pre_start_out = out_ if out_ < `startvar' & !missing(out_)
-        qui gen long _neg_pre_out = -_mig_pre_start_out
-        qui bysort `idvar' (_neg_pre_out): gen long _mig_last_pre_out = _mig_pre_start_out[1] if !missing(_mig_pre_start_out[1])
-        qui drop _neg_pre_out _mig_pre_start_out
+        qui gen long _mig_neg_pre_out = -_mig_pre_start_out
+        qui bysort `idvar' (_mig_neg_pre_out): gen long _mig_last_pre_out = _mig_pre_start_out[1] if !missing(_mig_pre_start_out[1])
+        qui drop _mig_neg_pre_out _mig_pre_start_out
 
         qui gen long _mig_pre_start_in_all = in_ if in_ <= `startvar' & !missing(in_)
-        qui gen long _neg_pre_in_all = -_mig_pre_start_in_all
-        qui bysort `idvar' (_neg_pre_in_all): gen long _mig_last_pre_in = _mig_pre_start_in_all[1] if !missing(_mig_pre_start_in_all[1])
-        qui drop _neg_pre_in_all _mig_pre_start_in_all
+        qui gen long _mig_neg_pre_in_all = -_mig_pre_start_in_all
+        qui bysort `idvar' (_mig_neg_pre_in_all): gen long _mig_last_pre_in = _mig_pre_start_in_all[1] if !missing(_mig_pre_start_in_all[1])
+        qui drop _mig_neg_pre_in_all _mig_pre_start_in_all
 
         qui gen long _mig_post_start_in = in_ if in_ > `startvar' & !missing(in_)
         qui bysort `idvar' (_mig_post_start_in): gen long _mig_first_post_in = _mig_post_start_in[1] if !missing(_mig_post_start_in[1])
@@ -747,12 +750,12 @@ program define migrations, rclass
             * Recalculate migration sequence
             qui drop _mig_num _mig_last_out _mig_last_in
             capture drop _mig_pre_start_in
-            qui gen long _neg_out = -out_
-            qui bysort `idvar' (_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
-            qui drop _neg_out
-            qui gen long _neg_in = -in_
-            qui bysort `idvar' (_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
-            qui drop _neg_in
+            qui gen long _mig_neg_out = -out_
+            qui bysort `idvar' (_mig_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
+            qui drop _mig_neg_out
+            qui gen long _mig_neg_in = -in_
+            qui bysort `idvar' (_mig_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
+            qui drop _mig_neg_in
             qui format _mig_last_out _mig_last_in %tdCCYY/NN/DD
             qui bysort `idvar' (out_ in_): gen _mig_seq = _n
             qui bysort `idvar': gen _mig_total = _N

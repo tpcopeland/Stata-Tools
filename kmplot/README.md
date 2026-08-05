@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.2** | 2026-08-05
+**Version 1.2.3** | 2026-08-05
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -162,7 +162,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `xlabel(string)` | automatic | Set x-axis labels; numeric positions also set risk-table columns when `timepoints()` is omitted |
 | `ylabel(string)` | `0(0.25)1` | Set y-axis labels |
 | `legend(string)` | automatic | Supply a custom legend specification |
-| `note(string)` | none | Add a graph note |
+| `note(string)` | none | Add a graph note; if `medianannotate` is also requested, the user note replaces the automatic median annotation |
 | `scheme(string)` | current Stata scheme | Set the graph scheme |
 | `name(string)` | `kmplot` | Set the graph name |
 | `aspectratio(string)` | none | Set the graph aspect ratio |
@@ -174,7 +174,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 
 ## Stored Results
 
-`kmplot` is an `rclass` command and stores the following results after it computes a plot. If `graph export` cannot write the requested file after plotting, analytical results remain available even though the command returns an error.
+`kmplot` is an `rclass` command and stores the following results after it computes a plot. If a requested graph or dataset write fails after plotting, analytical results remain available even though the command returns an error; `r(export)` records an attempted export path, while `r(saving)` and `r(risksaving)` are stored only after successful dataset saves.
 
 ### Scalars
 
@@ -214,11 +214,11 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `r(export)` | Requested export path when `export()` was specified, including after a failed file write |
 | `r(saving)` | Curve dataset path when `saving()` succeeded |
 | `r(risksaving)` | Risk-table dataset path when `risksaving()` succeeded |
-| `r(pvalue_text)` | Displayed p-value text |
-| `r(pvalue_label)` | P-value label text |
-| `r(pvalue_format)` | P-value numeric format |
-| `r(pvalue_pos)` | P-value position keyword |
-| `r(pvalue_at)` | Explicit p-value coordinates |
+| `r(pvalue_text)` | Displayed p-value text when the log-rank p-value was computed |
+| `r(pvalue_label)` | P-value label text when the log-rank p-value was computed |
+| `r(pvalue_format)` | P-value numeric format when the log-rank p-value was computed |
+| `r(pvalue_pos)` | P-value position keyword when the log-rank p-value was computed |
+| `r(pvalue_at)` | Explicit p-value coordinates when supplied; otherwise empty when the log-rank p-value was computed |
 
 ### Matrices
 
@@ -249,6 +249,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.3** (2026-08-05): Corrected p-value requirements and stored-result conditions, documented `note()` precedence with `medianannotate`, and aligned help abbreviations with the parser.
 - **1.2.2** (2026-08-05): Corrected the documented export-return contract, completed prose for graph appearance, label, and output options, and repaired Viewer-width overflow in the help synopsis and stored-results table.
 - **1.2.1** (2026-07-10): Added stepped confidence bands, automatic risk-table height, `saving()` without `ci`, and a p-value/CI-level demo panel; removed risk-table gridlines and improved combined-figure spacing.
 - **1.2.0** (2026-06-26): Added `level()`, `riskheight()`, `landmark()`, `saving()`, `risksaving()`, p-value display controls, richer `r()` metadata and matrices, delayed-entry risk-table support, cumulative-failure terminology, and method notes.

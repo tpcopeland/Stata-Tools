@@ -1,4 +1,4 @@
-* Phase 7-8 feature tests for logdoc v1.4.2
+* Phase 7-8 feature tests for logdoc
 * Tests: P78-T1 through P78-T16
 clear all
 set more off

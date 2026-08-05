@@ -1,4 +1,4 @@
-*! setools Version 1.5.1  2026/07/19
+*! setools Version 1.5.2  2026/08/05
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -125,8 +125,21 @@ program define setools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    // VERSION-SYNC: keep this literal in step with the *! header on every bump
-    return local version "1.5.1"
+    // Derived from the *! header rather than duplicated, so r(version) cannot
+    // drift from the shipped version on a bump.
+    local version "unknown"
+    capture findfile setools.ado
+    if !_rc {
+        tempname _setools_fh
+        capture file open `_setools_fh' using "`r(fn)'", read text
+        if !_rc {
+            file read `_setools_fh' _setools_header
+            file close `_setools_fh'
+            if regexm("`_setools_header'", "Version ([0-9.]+)") ///
+                local version = regexs(1)
+        }
+    }
+    return local version "`version'"
     return local categories "all codes migration ms"
     return local category "`category'"
     return local display "`display'"

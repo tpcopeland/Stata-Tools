@@ -12,8 +12,8 @@
 #   breast cancer, chained through misclass(), selection(), confounders().
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) != 1) {
-    stop("usage: oracle_external_qba.R <output_csv>", call. = FALSE)
+if (!length(args) %in% c(1, 2)) {
+    stop("usage: oracle_external_qba.R <output_csv> [sentinel]", call. = FALSE)
 }
 
 suppressPackageStartupMessages(library(episensr))
@@ -100,3 +100,6 @@ put("multi_chien_final_or", multi_conf$adj_measures[1, 1])
 put("multi_chien_bf", multi_conf$adj_measures[1, 2])
 
 write.csv(rows, args[1], row.names = FALSE)
+if (length(args) == 2) {
+    writeLines("ok", args[2])
+}

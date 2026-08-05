@@ -1,4 +1,4 @@
-* validation_logdoc.do — Content validation for logdoc package v1.4.2
+* validation_logdoc.do — Content validation for the logdoc package
 * Location: logdoc/qa/
 * Validates that generated HTML/MD content is correct, not just that files exist.
 * Uses shell grep for content checks (avoids Stata file I/O issues with HTML).

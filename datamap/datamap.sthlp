@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.3  05aug2026}{...}
+{* *! version 1.6.4  05aug2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -401,8 +401,10 @@ Each class gets a dedicated output section:
 Use {cmd:datamap} when you need a plain-text file to paste into an LLM chat window,
 attach to an internal data handoff, or feed into an automated pipeline. Use
 {help datadict} when you need a polished Markdown document for a GitHub repository,
-an appendix, or conversion to PDF/Word via Pandoc. Both commands accept the
-same input modes and preserve the dataset in memory.
+an appendix, or conversion to PDF/Word via Pandoc. Both commands share
+in-memory, single-file, directory, and file-list modes; {cmd:datadict}
+additionally supports {opt manifest()}. Successful runs leave the caller's
+data unchanged.
 
 {pstd}
 {bf:Privacy best practices}
@@ -587,7 +589,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.6.3 {hline 2} 05aug2026{p_end}
+{pstd}Version 1.6.4 {hline 2} 05aug2026{p_end}
 
 
 {title:Also see}

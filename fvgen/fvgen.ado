@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.2  2026/08/05
+*! fvgen Version 1.2.3  2026/08/05
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -7,7 +7,7 @@
 /*
 Basic syntax:
   fvgen fvvarlist [if] [in] [weight] [, alllevels center prefix(name) ///
-      ref(spec) simple(varname) replace xsymbol(string)]
+      ref(spec) simple(varname) vsref(string) replace xsymbol(string)]
   fvgen , margins [store(name) replace]
   fvgen , drop
 

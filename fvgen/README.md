@@ -1,6 +1,6 @@
 # fvgen — Flatten factor-variable interactions into labeled variables
 
-**Version 1.2.2** | 2026-08-05
+**Version 1.2.3** | 2026-08-05
 
 `fvgen` turns Stata factor-variable specifications into ordinary, labeled main-effect and interaction variables for regression tables and other exports. It returns a ready-to-use `r(allvars)` varlist while preserving the estimable design of the native model.
 
@@ -44,7 +44,7 @@ The command supports main effects and up to two-way interactions. It returns a c
 
 The `if` or `in` qualifier controls which levels and interaction cells are discovered, while generated variables are filled for all observations. To reproduce the native model for a restricted sample, use the same `if` or `in` qualifier (and weights, when relevant) in the estimation command. Source-variable missing values remain missing in the generated indicators and products. Weights are accepted only to calculate the centering mean for `center`.
 
-In the default uncentered workflow, estimating on `r(allvars)` reproduces the corresponding native factor-variable model's estimable coefficients, standard errors, and fit. Centering changes the interpretation of lower-order coefficients but leaves the interaction coefficient and model fit unchanged.
+In the default uncentered workflow, estimating on `r(allvars)` spans the same model space and reproduces the corresponding native factor-variable model's fit. When the design is full rank, matching terms also have the same coefficients and standard errors. With empty cells or other exact collinearity, Stata may choose a different omitted-column basis, so individual reported coefficients and standard errors need not map one-to-one even though fitted values and fit agree. Centering changes the interpretation of lower-order coefficients but leaves the interaction coefficient and model fit unchanged.
 
 ## Worked Examples
 
@@ -110,7 +110,7 @@ The checkout demo compares native and flattened coefficient tables for `i.foreig
 stata-mp -b do fvgen/demo/demo_fvgen.do
 ```
 
-The script installs the local package and regenerates [`demo/export_comparison.md`](demo/export_comparison.md); it is a checkout workflow, not part of the `net install` payload.
+The script installs the local package and regenerates [`demo/export_comparison.md`](demo/export_comparison.md); it is a checkout workflow, not part of the `net install` payload. The categorical-by-categorical example contains empty cells, so Stata may select a different omitted-column basis across equivalent fits; treat its individual coefficients as presentation examples, not a one-to-one parity check.
 
 ## Command Reference
 
@@ -189,6 +189,7 @@ The native-factor result produced by `fvgen, margins` also carries these nonstan
 - Higher-order interactions with three or more factors are rejected; use a native factor-variable model or split the workflow.
 - The explicit omit operator `o.` is rejected because `fvgen` cannot infer whether it should be materialized; restrict the sample with `if` or `in`, or set a base with `ref()` instead.
 - A no-base factor such as `ibn.foreign` materializes every observed level, equivalent to `alllevels` for that factor. Empty cells and omitted interaction terms are not materialized.
+- With empty cells or other exact collinearity, native and flattened regressions can choose different omitted columns. Their fitted values and fit agree, but individual coefficient values and standard errors need not map one-to-one; use the native factor-variable model for factor-aware contrasts.
 - Generated variable names must fit Stata's 32-character limit, and generated variable labels are truncated at Stata's 80-character limit.
 - The `margins` bridge requires active estimation results with `e(b)`, `e(V)`, and a saved command line, plus `fvgen` provenance from the exact `r(allvars)` varlist. The estimator must be rerunnable with native factor variables and support `margins`. Use the native model directly for `contrast` and `pwcompare`; the bridge is not available after `center`.
 
@@ -204,6 +205,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.3** (2026-08-05): Clarified full-rank versus rank-deficient equivalence and repaired quoted clickable help examples.
 - **1.2.2** (2026-08-05): Corrected `vsref()` abbreviation, `replace` collision, and margins-clone stored-result documentation.
 - **1.2.1** (2026-07-27): Documentation hygiene aligned shipped documentation with the released package and kept contributor material out of user-facing files.
 - **1.2.0** (2026-06-30): Added `fvgen, margins` for margins-ready native factor-variable estimator clones after flattened models, plus `store(name)` to preserve the active flattened estimate for table export.

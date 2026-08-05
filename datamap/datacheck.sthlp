@@ -393,7 +393,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(n_checks)}}number of checks evaluated{p_end}
 {synopt:{cmd:r(n_passed)}}number of check families without violations{p_end}
 {synopt:{cmd:r(n_failed)}}number of check families with at least one violation{p_end}
-{synopt:{cmd:r(n_violations)}}number of failed gates{p_end}
+{synopt:{cmd:r(n_violations)}}number of accumulated violations{p_end}
 {synopt:{cmd:r(n_groups)}}number of groups evaluated by {opt by()} or {opt over()}{p_end}
 {synopt:{cmd:r(gatesonly)}}1 when {opt gatesonly} was specified; otherwise 0{p_end}
 {synopt:{cmd:r(onlyflagged)}}1 with {opt onlyflagged} or {cmd:show(flagged)}{p_end}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  05aug2026}{...}
+{* *! version 1.2.3  05aug2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -59,7 +59,7 @@ syntax for {helpb margins}:
 {synopt:{opt simp:le(varname)}}per-group slopes within levels of {it:varname}{p_end}
 {synopt:{opt vs:ref(string)}}append the reference level to main-effect labels{p_end}
 {synopt:{opt pre:fix(name)}}prefix for generated variable names; default is {cmd:_}{p_end}
-{synopt:{opt replace}}overwrite generated variables that already exist{p_end}
+{synopt:{opt replace}}overwrite colliding variable names{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
 {synopt:{opt drop}}drop every fvgen-generated variable in the dataset{p_end}
 {syntab:Postestimation}
@@ -90,8 +90,11 @@ The motivation is friendlier export. Estimating with native factor-variable
 notation ({cmd:regress y i.sex##c.age}) makes table commands emit extra
 factor-variable header rows for each interaction. Running the same model on the
 flattened variables produced by {cmd:fvgen} yields one clean, self-labeled
-row per coefficient. The reparameterization is exact: a regression on the
-flattened variables reproduces the native model's coefficients and fit.
+row per coefficient. In a full-rank design, the flattened regression reproduces
+the native model's coefficients, standard errors, and fit. With empty cells or
+other exact collinearity, the two regressions span the same model space and have
+the same fitted values, but Stata may choose different omitted columns, so
+individual reported coefficients and standard errors need not map one-to-one.
 
 {pstd}
 Why not just relabel the coefficients inside an export tool? Tools such as
@@ -239,12 +242,15 @@ each categorical side (for example {cmd:_sexXrace_2_3}); continuous sides
 contribute no level suffix.
 
 {pstd}
-{bf:Exact reparameterization.} Because the flattened variables span the same
-column space as the native factor-variable design (over the estimation sample),
-{cmd:regress y `r(allvars)'} returns the same coefficients, standard errors, and
-R-squared as the corresponding {cmd:regress y} model in factor-variable
-notation. Centering a continuous term shifts the lower-order coefficients but
-leaves the interaction coefficient and the model fit unchanged.
+{bf:Exact reparameterization.} The flattened variables span the same column
+space as the native factor-variable design over the estimation sample. In a
+full-rank design, {cmd:regress y `r(allvars)'} returns the same coefficients,
+standard errors, and R-squared as the corresponding factor-variable model. With
+empty cells or other exact collinearity, fitted values and fit still agree, but
+Stata may choose a different omitted-column basis, so individual coefficients
+and standard errors need not match one-to-one. Centering a continuous term
+shifts the lower-order coefficients but leaves the interaction coefficient and
+the model fit unchanged.
 
 {pstd}
 {bf:Postestimation for margins.} The flattened model has no factor-variable
@@ -290,7 +296,7 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 {pstd}
 {bf:Setup}{p_end}
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
-{phang2}{stata "label define rl 1 \"Poor\" 2 \"Fair\" 3 \"Avg\" 4 \"Good\" 5 \"Best\"":. label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"}{p_end}
+{phang2}{stata `"label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best""':. label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"}{p_end}
 {phang2}{stata "label values rep78 rl":. label values rep78 rl}{p_end}
 
 {pstd}
@@ -324,12 +330,12 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 
 {pstd}
 {bf:Example 7: Reference level by value-label string, then tear down}{p_end}
-{phang2}{stata "fvgen i.foreign##c.mpg, ref(foreign \"Domestic\") replace":. fvgen i.foreign##c.mpg, ref(foreign "Domestic") replace}{p_end}
+{phang2}{stata `"fvgen i.foreign##c.mpg, ref(foreign "Domestic") replace"':. fvgen i.foreign##c.mpg, ref(foreign "Domestic") replace}{p_end}
 {phang2}{stata "fvgen, drop":. fvgen, drop}{p_end}
 
 {pstd}
 {bf:Example 8: Show the reference level in main-effect labels}{p_end}
-{phang2}{stata "fvgen i.foreign##i.rep78, vsref(\"(vs. @)\") replace":. fvgen i.foreign##i.rep78, vsref("(vs. @)") replace}{p_end}
+{phang2}{stata `"fvgen i.foreign##i.rep78, vsref("(vs. @)") replace"':. fvgen i.foreign##i.rep78, vsref("(vs. @)") replace}{p_end}
 {phang2}{stata "regress price `r(allvars)'":. regress price `r(allvars)'}{p_end}
 
 {pstd}
@@ -389,7 +395,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.2, 2026-08-05{p_end}
+{pstd}Version 1.2.3, 2026-08-05{p_end}
 
 
 {title:Also see}

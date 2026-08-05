@@ -326,7 +326,25 @@ capture confirm variable keepme
 local ok = (_rc == 0)
 run_val "migrations preserves user column keepme" `ok'
 
-**# migrations: _neg_*/_mig_* namespace preflight (#12)
+**# migrations: _mig_* namespace preflight (#12)
+* Through 1.5.1 the preflight was `capture ds _mig_* _neg_*`, and ds requires
+* EVERY pattern to match at least one variable — so with only one prefix
+* present it returned 111 and the guard fell through. This case passed anyway,
+* on the incidental r(110) from the later unguarded `gen _neg_out`, which is
+* why a dead guard went unnoticed. 1.5.2 consolidates the workspace into
+* _mig_* and globs that one prefix, so the preflight itself now fires.
+clear
+set obs 3
+gen long id = _n
+gen long study_start = td(01jan2018)
+format study_start %td
+gen byte _mig_foo = 1
+cap noi migrations, migfile("`mig'")
+local ok = (_rc == 110)
+run_val "migrations _mig_* namespace preflight rc110" `ok'
+
+* _neg_* is no longer part of the internal workspace, so it is no longer
+* reserved: a user column of that name must survive a normal run.
 clear
 set obs 3
 gen long id = _n
@@ -334,8 +352,10 @@ gen long study_start = td(01jan2018)
 format study_start %td
 gen byte _neg_out = 1
 cap noi migrations, migfile("`mig'")
-local ok = (_rc == 110)
-run_val "migrations _neg_* namespace preflight rc110" `ok'
+local rc_neg = _rc
+qui count if _neg_out == 1
+local ok = (`rc_neg' == 0 & r(N) == 3)
+run_val "migrations no longer reserves the generic _neg_* prefix" `ok'
 
 **# Summary
 display as text _n "{hline 60}"

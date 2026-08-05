@@ -19,7 +19,7 @@
 # This is an INDEPENDENT implementation of the method, not a wrapper around
 # qba: it shares no code and no nuisance parameter with the package.
 #
-# Base R only. Usage: oracle_fml_totalerror.R <output_csv> [seed] [sims]
+# Base R only. Usage: oracle_fml_totalerror.R <output_csv> [seed] [sims] [sentinel]
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 1) {
@@ -28,6 +28,7 @@ if (length(args) < 1) {
 out_csv <- args[1]
 seed <- if (length(args) >= 2) as.integer(args[2]) else 20260726L
 sims <- if (length(args) >= 3) as.numeric(args[3]) else 1e6
+sentinel <- if (length(args) >= 4) args[4] else ""
 set.seed(seed)
 
 rows <- data.frame(name = character(), value = numeric())
@@ -168,3 +169,6 @@ put("cc_adj_c", o$adj_c)
 put("cc_adj_d", o$adj_d)
 
 write.csv(rows, file = out_csv, row.names = FALSE)
+if (nzchar(sentinel)) {
+    writeLines("ok", sentinel)
+}

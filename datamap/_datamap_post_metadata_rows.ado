@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.6.3  2026/08/05
+*! _datamap_post_metadata_rows Version 1.6.4  2026/08/05
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 

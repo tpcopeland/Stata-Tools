@@ -514,8 +514,8 @@ multiple runs.
 {cmd:sample(#)} suboption to adjust this limit.
 
 {pstd}
-{bf:Generated variable names:} When using {opt generate()}, variable names
-are truncated to 31 characters to comply with Stata's naming limits.
+{bf:Generated variable names:} When using {opt generate()}, names are shortened
+and disambiguated so the complete name fits Stata's 32-character limit.
 
 
 {title:Also see}

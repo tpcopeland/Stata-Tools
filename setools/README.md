@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.1** | 2026-07-19
+**Version 1.5.2** | 2026-08-05
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -163,7 +163,7 @@ From a repository checkout, [`demo/demo_setools.do`](demo/demo_setools.do) runs 
 
 ## Command Reference
 
-### `setools`
+### setools
 
 ~~~stata
 setools [, list detail category(string)]
@@ -177,7 +177,7 @@ setools [, list detail category(string)]
 
 The default grouped display covers five public commands: `cci_se migrations sustainedss cdp pira`. The `codes` category contains `cci_se`, `migration` contains `migrations`, and `ms` contains `sustainedss cdp pira`.
 
-### `cci_se`
+### cci_se
 
 ~~~stata
 cci_se [if] [in], id(varname) icd(varlist) date(varname) [generate(name) components dates prefix(string) dateformat(string) indexdate(varname) lookback(integer) noisily]
@@ -201,7 +201,7 @@ Numeric Stata dates require a `%td` format for `dateformat(stata)` and whole-num
 
 `cci_se` replaces the data in memory with one row per unique patient. The score uses the Swedish adaptation in Ludvigsson et al. (2021), with hierarchy rules for liver disease, diabetes, and metastatic cancer. Component variables use the default names `cci_mi`, `cci_chf`, and so on through `cci_aids`; `dates` adds matching `_date` variables.
 
-### `migrations`
+### migrations
 
 ~~~stata
 migrations, migfile(filename) [idvar(varname) startvar(varname) minresidence(#) saveexclude(filename) savecensor(filename) replace verbose quietly keepimmigrants intype(codes) outtype(codes) flag]
@@ -227,7 +227,7 @@ Wide migration files have one row per person and numeric-suffixed `in_1`/`out_1`
 
 The default exclusion sequence identifies people who emigrated before study start and never returned, people with insufficient pre-entry residence when enabled, people abroad at baseline who returned later, and people whose first post-start event is immigration. `keepimmigrants` changes the last case from exclusion to inclusion and records the post-start entry date.
 
-### `sustainedss`
+### sustainedss
 
 ~~~stata
 sustainedss idvar edssvar datevar [if] [in], threshold(#) [generate(name) confirmwindow(#) confirmvisit(mode) baselinethreshold(#) eventvar(name) exit(varname) keepall quietly]
@@ -247,7 +247,7 @@ sustainedss idvar edssvar datevar [if] [in], threshold(#) [generate(name) confir
 
 Without `confirmvisit()`, a candidate is accepted if no later observed EDSS is below the reversal floor; no later visit is required. `confirmvisit(window)` uses the first later visit within the confirmation window, while `confirmvisit(unlimited)` uses the first later visit without a time limit and still checks the later values against the floor. Same-date EDSS duplicates are reduced conservatively to the lowest value.
 
-### `cdp`
+### cdp
 
 ~~~stata
 cdp idvar edssvar datevar [if] [in], dxdate(varname) [generate(name) confirmdays(#) baselinewindow(#) threetier confirmtype(type) eventvar(name) eventnumvar(name) baseedssvar(name) exit(varname) roving allevents keepall quietly]
@@ -272,7 +272,7 @@ cdp idvar edssvar datevar [if] [in], dxdate(varname) [generate(name) confirmdays
 
 The first baseline is the first EDSS within `baselinewindow()` days of diagnosis, or the earliest available measurement when none falls in that window. The default two-tier progression rule requires an increase of at least 1.0 for baseline EDSS up to 5.5 and 0.5 above 5.5. `confirmtype(sustained)` requires the minimum later EDSS to meet the threshold; `confirmtype(visit)` uses the first visit at least `confirmdays()` later. `roving` without `allevents` retains the first-event estimand; with both options, output is event-level.
 
-### `pira`
+### pira
 
 ~~~stata
 pira idvar edssvar datevar [if] [in], dxdate(varname) relapses(filename) [relapseidvar(varname) relapsedatevar(varname) windowbefore(#) windowafter(#) generate(name) rawgenerate(name) confirmdays(#) baselinewindow(#) threetier confirmtype(type) rebaselinerelapse eventvar(name) exit(varname) keepall quietly]
@@ -300,7 +300,7 @@ pira idvar edssvar datevar [if] [in], dxdate(varname) relapses(filename) [relaps
 
 The relapse file must contain one row per relapse event, a matching ID type, and a numeric whole-number `%td` date. `pira` classifies only the first confirmed CDP per person: outside every relapse window is PIRA, and inside any window is RAW. An event indicator from `eventvar()` marks PIRA only; RAW-only progressors receive 0.
 
-## Key Options
+## Option Guidance
 
 ### Date windows and registry coding
 
@@ -449,6 +449,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.2** (2026-08-05): Restored the documented `q` minimum abbreviation for `migrations`' `quietly`, moved the `migrations` internal workspace fully into the reserved `_mig_*` namespace, and added an up-front refusal when master data already occupies that namespace.
 - **1.5.1** (2026-07-19): Fixed the no-candidate roving CDP path, long-format migration files whose first observed event is emigration, macOS path aliasing, and wide-format date-slot handling; added `migrations` `quietly` and clarified exit-censored results and same-day migration boundaries.
 - **1.5.0** (2026-07-13): Corrected Swedish CCI mappings, repaired roving CDP and event-level output contracts, hardened migration exclusions and exports, treated extended missings as missing, and clarified analytic versus returned migration counts.
 - **1.4.1** (2026-07-03): Corrected post-start immigration classification, retained permanent-emigration censoring for included immigrants, and prevented migration-file columns from shadowing master values; made roving CDP row selection deterministic.

@@ -51,7 +51,7 @@
 {synopt:{opt dist_selc(distribution)}}selc distribution; default constant{p_end}
 {synopt:{opt dist_seld(distribution)}}seld distribution; default constant{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}simulation-interval level; default {cmd:95}{p_end}
+{synopt:{opt level(#)}}simulation-interval level; default {cmd:c(level)}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -133,8 +133,8 @@ syntax.
 {opt seed(#)} sets the random number seed for reproducibility.
 
 {phang}
-{opt level(#)} specifies the confidence level for the percentile interval. Default
-is {cmd:95}.
+{opt level(#)} specifies the confidence level for the percentile interval. The
+default is the current {cmd:c(level)} setting (95 unless changed).
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset to a Stata

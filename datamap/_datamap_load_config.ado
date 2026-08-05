@@ -1,4 +1,4 @@
-*! _datamap_load_config Version 1.6.3  2026/08/05
+*! _datamap_load_config Version 1.6.4  2026/08/05
 *! Shared key=value project config parser for datamap commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 

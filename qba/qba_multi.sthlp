@@ -69,7 +69,7 @@
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
 {synopt:{opt or:der(string)}}cell-level correction order{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}simulation-interval level; default {cmd:95}{p_end}
+{synopt:{opt level(#)}}simulation-interval level; default {cmd:c(level)}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -214,8 +214,8 @@ level. All active cell-level biases must appear. Default order is
 {opt seed(#)} sets the random number seed for reproducibility.
 
 {phang}
-{opt level(#)} specifies the confidence level for the percentile interval. Default
-is {cmd:95}.
+{opt level(#)} specifies the confidence level for the percentile interval. The
+default is the current {cmd:c(level)} setting (95 unless changed).
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset containing

@@ -1,6 +1,6 @@
 # massdesas — Batch convert SAS datasets to Stata format
 
-**Version 1.0.1** | 2026-08-05
+**Version 1.0.2** | 2026-08-05
 
 `massdesas` recursively converts SAS `.sas7bdat` datasets to Stata `.dta` files, preserving the directory tree and writing each result beside its source. It is for Stata users who need to batch-convert a collection of SAS files with optional lowercase variable names and controlled source-file deletion.
 
@@ -115,7 +115,7 @@ After a successful run, `massdesas` stores the following results:
 
 ## Assumptions and Limits
 
-- Only files matching the literal pattern `*.sas7bdat` are searched. On Linux and macOS, matching is case-sensitive, so files ending in `.SAS7BDAT` are not found.
+- Only files matching the literal pattern `*.sas7bdat` are searched. On case-sensitive filesystems, files ending in `.SAS7BDAT` are not found.
 - Filenames and directory paths containing spaces are supported when the `directory()` path is quoted.
 - A nonexistent directory or a directory with no matching SAS files produces an error rather than an empty result set.
 - If `filelist` or `fs` is unavailable, the command stops with `r(199)`; install the missing SSC dependency before running it.
@@ -130,6 +130,7 @@ After a successful run, `massdesas` stores the following results:
 
 ## Version History
 
+- **1.0.2** (2026-08-05): Documented that converted `.dta` outputs overwrite existing same-named files and standardized package author metadata.
 - **1.0.1** (2026-08-05): Fixed SAS filename quoting, preserved the complete basename when it contains `.sas7bdat`, and ensured the caller's data are restored after unexpected errors.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release
 
