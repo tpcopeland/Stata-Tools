@@ -160,7 +160,7 @@ The values for `download()` and `os()` are case-sensitive as shown. A package na
 
 ## Stored Results
 
-After a standard non-restore run, `pkgtransfer` returns:
+After a standard non-restore run that selects at least one package, `pkgtransfer` returns:
 
 | Result | Type | Meaning |
 |--------|------|---------|
@@ -175,6 +175,7 @@ For standalone `restore`, the returned `download_mode` is `restore` and `r(os)` 
 
 ## Assumptions and Limits
 
+- At least one eligible package must remain after `limited()` or `skip()` filtering; filtering out every tracked package currently stops with a Stata no-observations error instead of producing an empty transfer.
 - Only packages and sources recorded in the current PLUS directory's `stata.trk` are considered. Other adopath locations and untracked files are not reconstructed.
 - The default mode does not fetch package files. Its generated commands require internet access on the destination, and GitHub-origin entries require the `github` command there.
 - `download(online)` depends on the recorded source URLs and network availability. A missing or inaccessible required descriptor or package file aborts bundle creation.

@@ -15,18 +15,12 @@ clear all
 set more off
 version 16.0
 
-* Path configuration
-local qa_dir  "`pkg_dir'/qa"
-local tmp     "`c(tmpdir)'"
-
-* Install datefix from local package
-
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
-capture ado uninstall datefix
-quietly net install datefix, from("`pkg_dir'") replace
+* Bootstrap: isolate PLUS/PERSONAL before any uninstall or install
+local qa_dir "`c(pwd)'"
+local tmp "`c(tmpdir)'"
+do "`qa_dir'/_datefix_qa_common.do"
+quietly _datefix_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 display as text _n "DATEFIX EXPANDED FUNCTIONAL TESTS (v1.0.3)"
 display as text "Package: `pkg_dir'"

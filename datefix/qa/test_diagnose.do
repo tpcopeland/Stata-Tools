@@ -16,12 +16,11 @@ version 16.0
 capture log close
 log using "test_diagnose.log", replace nomsg
 
-* Bootstrap: derive package root from qa/ working directory
-local qa_dir  "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-
-capture ado uninstall datefix
-quietly net install datefix, from("`pkg_dir'") replace
+* Bootstrap: isolate PLUS/PERSONAL before any uninstall or install
+local qa_dir "`c(pwd)'"
+do "`qa_dir'/_datefix_qa_common.do"
+quietly _datefix_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 local test_count = 0
 local pass_count = 0

@@ -18,16 +18,11 @@ clear all
 set more off
 version 16.0
 
-* Path configuration
-
-* Install datefix
-
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
-capture ado uninstall datefix
-quietly net install datefix, from("`pkg_dir'") replace
+* Bootstrap: isolate PLUS/PERSONAL before any uninstall or install
+local qa_dir "`c(pwd)'"
+do "`qa_dir'/_datefix_qa_common.do"
+quietly _datefix_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 display as text _n "DATEFIX DEEP VALIDATION TESTS"
 

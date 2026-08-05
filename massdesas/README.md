@@ -120,6 +120,7 @@ After a successful run, `massdesas` stores the following results:
 - A nonexistent directory or a directory with no matching SAS files produces an error rather than an empty result set.
 - If `filelist` or `fs` is unavailable, the command stops with `r(199)`; install the missing SSC dependency before running it.
 - `erase` is permanent and is applied only after a successful `.dta` save; keep a backup until the converted files have been checked.
+- Existing `.dta` files with the same base name are overwritten because each converted dataset is saved with `replace`; preserve a copy if existing outputs must be retained.
 - Conversion behavior and supported SAS features follow Stata's built-in `import sas` command.
 
 ## References

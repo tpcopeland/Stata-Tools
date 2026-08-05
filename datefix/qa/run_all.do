@@ -28,7 +28,8 @@ if !inlist("`mode'", "quick", "full") {
 }
 
 * _datefix_qa_bootstrap owns isolated sysdir setup and local package install.
-* Each suite also self-bootstraps, so its net install lands in the same sandbox.
+* Each suite repeats that bootstrap after clear all, so standalone and runner
+* executions both isolate before any ado uninstall or net install command.
 
 * Fast functional lane: core conversion behavior plus the diagnose option.
 local quick_suites test_datefix test_diagnose

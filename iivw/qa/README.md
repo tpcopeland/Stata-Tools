@@ -324,6 +324,14 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   instead of duplicating them. A killed run leaves claims behind; clear them
   with `unclaim` (which refuses while any `stata-mp` is live). Measured
   2026-08-05 on 28 vCPU: 120 blocks of 25, ~90 CPU-h, **5 h 34 m** wall.
+  **Evidence lands in the package**, at
+  `coverage_results/runs/r<REPS>_s<SEED>_p<PSCALE>/` — per-simulation block
+  rows, per-block and combine logs, `MANIFEST.txt`, `GIT_HEAD.txt`, `run.log`.
+  Only the block work trees, the combine tree, and the in-flight claims are
+  scratch (`BASE`, default `$TMPDIR/iivw-covgate-<uid>`, refused if placed
+  inside the package). Before 2026-08-05 the pool lived under a scratch root,
+  which is why the archived coverage numbers could be quoted but not re-derived
+  from the tree. See `COVERAGE_GATE_RUNBOOK.md` §2.
 - The tracked CSV files are cross-validation inputs or generated reference
   values with companion R scripts in this directory.
 

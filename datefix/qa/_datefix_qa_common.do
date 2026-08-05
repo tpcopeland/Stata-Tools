@@ -4,8 +4,8 @@ version 16.0
 *
 * datefix tracks no .dta input fixtures: every suite builds its own tiny
 * data inline via `input`. This file provides only the sandboxed install
-* bootstrap so run_all.do never touches the real ado tree. Single-file runs
-* keep their own self-contained `ado uninstall` + `net install` bootstrap.
+* bootstrap so neither run_all.do nor standalone suites touch the real ado
+* tree. Every suite calls this bootstrap after its initial clear all.
 
 capture program drop _datefix_qa_bootstrap
 program define _datefix_qa_bootstrap, rclass

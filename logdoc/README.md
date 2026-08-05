@@ -2,7 +2,7 @@
 
 **Version 1.1.2** | 2026-07-10
 
-`logdoc` converts Stata `.smcl`, `.log`, or `.do` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents. It is for Stata users who want to preserve output alignment and SMCL colors while adding optional report controls.
+`logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
 ## Quick Start
 
@@ -51,7 +51,7 @@ logdoc_py
 logdoc_py, python("/path/to/python3") set
 ```
 
-To save a project-local Python choice in `.logdocrc`, use `logdoc_py, python("/path/to/python3") save`. To enable PDF output with the preferred converter, run:
+To save a project-local Python choice in `.logdocrc`, use `logdoc_py, python("/path/to/python3") save replace`. To enable PDF output with the preferred converter, run:
 
 ```stata
 logdoc_py, install(xhtml2pdf)
@@ -67,14 +67,14 @@ logdoc_py, check pdf
 | `logdoc diff` | Produce an HTML side-by-side comparison of two logs |
 | `logdoc batch` | Convert all files matching a pattern into an output directory |
 | `logdoc combine` | Merge two or more logs into one source-sectioned document |
-| `logdoc replay` | Repeat the most recent conversion with a theme, format, or browser override |
+| `logdoc replay` | Repeat the most recent conversion with a theme, format, or open override |
 | `logdoc_py` | Find, check, select, and save the Python executable used by `logdoc` |
 
 A dialog interface for the main conversion command is available with `db logdoc`.
 
 ## How It Works
 
-`logdoc` parses SMCL or plain-text logs into command, output, table, error, and graph blocks, then sends them to the bundled `logdoc_render.py` renderer. HTML is faithful by default and self-contained: the selected CSS is included in the document and detected graph images are embedded as base64 data.
+`logdoc` parses SMCL or plain-text logs into command, output, table, error, and graph blocks, then sends them to the bundled `logdoc_render.py` renderer. HTML is faithful by default and self-contained: the selected CSS is included in the document, and graph images resolved from the log are embedded as base64 data.
 
 Enhancements are opt-in so that the default HTML remains a readable Stata transcript. `highlight`, `tables`, `fold`, `copy`, and `download` add semantic controls; `legacy` enables all five together, while `notebook`, `toc`, `linenumbers`, `email`, annotations, filtering, and accent colors are independent features.
 
@@ -86,7 +86,7 @@ Enhancements are opt-in so that the default HTML remains a readable Stata transc
 
 | Format | Result |
 |--------|--------|
-| `html` | Self-contained HTML with inlined CSS and embedded graph images |
+| `html` | Self-contained HTML with inlined CSS and graph images embedded when they can be resolved |
 | `md` | Markdown with YAML front matter and Markdown image references |
 | `qmd` | Quarto-flavored Markdown with YAML front matter; it is rendered Markdown, not executable chunks |
 | `both` | HTML and Markdown from one conversion |
@@ -204,7 +204,7 @@ logdoc_py, check pdf
 
 ## Demo
 
-Regenerate the checked-in examples from a repository checkout with [`demo/demo_logdoc.do`](demo/demo_logdoc.do). The script exercises themes, graph embedding, enhancements, filters, annotations, batch/combine/diff/replay, live sessions, and output formats; the demo files are checkout assets rather than part of the `net install` payload.
+Regenerate the checked-in examples by running `do logdoc/demo/demo_logdoc.do` from the Stata-Tools repository root. The script exercises themes, graph embedding, enhancements, filters, annotations, batch/combine/diff/replay, live sessions, and output formats; the demo files are checkout assets rather than part of the `net install` payload.
 
 | Preview or artifact | Focus |
 |---------------------|-------|
@@ -225,7 +225,7 @@ Regenerate the checked-in examples from a repository checkout with [`demo/demo_l
 logdoc using filename, output(filename) [options]
 logdoc start, output(filename) [options]
 logdoc stop
-logdoc diff using file1, compare(file2) output(filename) [replace]
+logdoc diff using file1, compare(file2) output(filename) [replace theme(string) python(string) css(filename) accent(#RRGGBB) quiet]
 logdoc batch, input(pattern) outdir(path) [options]
 logdoc combine using file1 file2 [...], output(filename) [options]
 logdoc replay [, theme() format() open]
@@ -237,7 +237,7 @@ logdoc replay [, theme() format() open]
 
 - `logdoc start` accepts the conversion display and metadata options but not `run` or `stataexe()`; `logdoc stop` takes no options.
 - `logdoc diff` always writes HTML and accepts `replace`, `theme()`, `python()`, `css()`, `accent()`, and `quiet`.
-- `logdoc batch` defaults to HTML and changes each matching input filename's extension in the chosen output directory.
+- `logdoc batch` defaults to HTML and writes each matching input basename to the chosen output directory with the selected output extension(s).
 - `logdoc combine` supports `html`, `md`, `qmd`, `tex`, and `both`; it rejects `docx` and `pdf`.
 - `logdoc replay` requires a previous conversion in the current Stata session and reuses all remembered options except for its documented overrides.
 
