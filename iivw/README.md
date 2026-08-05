@@ -8,7 +8,7 @@
 
 The following creates a small irregular-visit panel, computes IIW weights, checks them, and fits a weighted population-average model.
 
-~~~stata
+```stata
 clear
 set seed 20260417
 set obs 240
@@ -26,7 +26,7 @@ gen double fu_end = 12
 iivw_weight, id(id) time(time) visit_cov(x) lagvars(y) maxfu(12) nolog
 iivw_balance
 iivw_fit y x, vce(fixed) nolog
-~~~
+```
 
 <code>vce(fixed)</code> is explicit here so the short example uses the weights-known analytic sandwich. For IIW and IPTW, the supported default when no variance option is supplied is a 999-draw subject-level refit bootstrap; see <a href="#inference">Inference</a>.
 
@@ -42,17 +42,17 @@ iivw_fit y x, vce(fixed) nolog
 
 Install the released package from the public Stata-Tools distribution:
 
-~~~stata
+```stata
 capture ado uninstall iivw
 net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/iivw") replace
-~~~
+```
 
 Install optional companion packages only when you need their workflows:
 
-~~~stata
+```stata
 net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace
 net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace
-~~~
+```
 
 ## Commands
 
@@ -103,47 +103,47 @@ Run the Quick Start setup first if you want to reuse its synthetic data. The exa
 
 Correct informative visit timing without a treatment-propensity component. The default <code>baseline(entry)</code> treats each subject's first row as study entry.
 
-~~~stata
+```stata
 iivw_weight, id(id) time(time) visit_cov(x) lagvars(y) maxfu(12) replace nolog
 iivw_balance
 iivw_fit y x, model(gee) timespec(linear) vce(fixed) nolog
-~~~
+```
 
 ### 2. FIPTIW for treatment confounding and informative visits
 
 Adding <code>treat()</code> makes the default weight type FIPTIW and adds treatment to the visit-intensity model. <code>stabcov(treated)</code> is valid here because <code>treated</code> is also in the outcome design shown below.
 
-~~~stata
+```stata
 iivw_weight, id(id) time(time) visit_cov(x) lagvars(y) maxfu(12) ///
     treat(treated) treat_cov(x) stabcov(treated) replace nolog
 iivw_balance, component(final) nolog
 iivw_fit y treated x, model(gee) timespec(linear) vce(fixed) nolog
-~~~
+```
 
 ### 3. Refit-bootstrap inference
 
 For a weighted IIW or IPTW analysis, the recommended variance route refits the nuisance models inside each subject-level bootstrap replicate. FIPTIW intervals requested explicitly are nominal and are labeled in the stored inference status.
 
-~~~stata
+```stata
 iivw_fit y treated x, model(gee) ///
     vce(bootstrap, reps(999) seed(20260417)) ///
     citype(percentile) nolog
-~~~
+```
 
 ### 4. Exogeneity diagnostic for visit timing
 
 The diagnostic creates one-visit lags of the tested variables and fits counting-process Cox models for subsequent visits. Use the same end-of-follow-up contract as the weighting call.
 
-~~~stata
+```stata
 iivw_exogtest y, id(id) time(time) maxfu(12) ///
     adjust(x) by(treated) replace nolog
-~~~
+```
 
 ### 5. Sampling movement versus measurement-process movement
 
 Store three comparable models for the coefficient of interest, then ask <code>iivw_diagnose</code> to report the sampling gap, artifact gap, and descriptive shares. Use <code>estimand(contrast)</code> when the coefficient is a treatment contrast; that reports movement but suppresses the share decomposition.
 
-~~~stata
+```stata
 iivw_fit y time x, unweighted id(id) time(time) ///
     timespec(none) nolog
 estimates store M_unweighted
@@ -159,11 +159,11 @@ estimates store M_adjusted
 iivw_diagnose time, unweighted(M_unweighted) ///
     weighted(M_weighted) adjusted(M_adjusted) ///
     estimand(marginal) exogeneity(unknown)
-~~~
+```
 
 The direct reporting commands can write styled workbook sheets without <code>tabtools</code>:
 
-~~~stata
+```stata
 iivw_balance, xlsx("iivw_reporting_exports.xlsx") sheet("Balance") replace
 iivw_exogtest y, id(id) time(time) maxfu(12) adjust(x) ///
     by(treated) replace nolog xlsx("iivw_reporting_exports.xlsx") ///
@@ -171,7 +171,7 @@ iivw_exogtest y, id(id) time(time) maxfu(12) adjust(x) ///
 iivw_diagnose time, unweighted(M_unweighted) ///
     weighted(M_weighted) adjusted(M_adjusted) ///
     xlsx("iivw_reporting_exports.xlsx") sheet("Diagnostics") replace
-~~~
+```
 
 ## Demo
 
@@ -190,9 +190,9 @@ The repository checkout workflow is [demo/demo_iivw.do](demo/demo_iivw.do). It c
 
 Syntax:
 
-~~~stata
+```stata
 iivw
-~~~
+```
 
 With no arguments, <code>iivw</code> displays the package overview and returns <code>r(version)</code>, <code>r(commands)</code>, and <code>r(n_commands)</code>.
 
@@ -200,9 +200,9 @@ With no arguments, <code>iivw</code> displays the package overview and returns <
 
 Syntax:
 
-~~~stata
+```stata
 iivw_weight, id(varname) time(varname) [options]
-~~~
+```
 
 | Option | Default | Purpose |
 |---|---|---|
@@ -237,9 +237,9 @@ iivw_weight, id(varname) time(varname) [options]
 
 Syntax:
 
-~~~stata
+```stata
 iivw_balance [varlist] [if] [in], [options]
-~~~
+```
 
 The optional numeric <code>varlist</code> adds covariates to the displayed table; the stored visit-model covariates remain the target of the balance verdict. The command applies to IIW and FIPTIW metadata, not IPTW-only weights.
 
@@ -260,9 +260,9 @@ For the workbook options shared by the reporting commands, see <a href="#excel-r
 
 Syntax:
 
-~~~stata
+```stata
 iivw_fit depvar [indepvars] [if] [in], [options]
-~~~
+```
 
 | Option | Default | Purpose |
 |---|---|---|
@@ -296,9 +296,9 @@ iivw_fit depvar [indepvars] [if] [in], [options]
 
 Syntax:
 
-~~~stata
+```stata
 iivw_exogtest varlist [if] [in], id(varname) time(varname) [options]
-~~~
+```
 
 | Option | Default | Purpose |
 |---|---|---|
@@ -322,9 +322,9 @@ For the workbook options, see <a href="#excel-reporting">Excel reporting</a>; <c
 
 Syntax:
 
-~~~stata
+```stata
 iivw_diagnose coefficient, unweighted(estname) weighted(estname) adjusted(estname) [options]
-~~~
+```
 
 | Option | Default | Purpose |
 |---|---|---|
@@ -351,8 +351,6 @@ The default tie method is Efron in <code>iivw_weight</code> and <code>iivw_exogt
 
 ### Inference
 
-<a id="inference"></a>
-
 For IIW and IPTW GEE fits with no explicit variance request, <code>iivw_fit</code> uses <code>vce(bootstrap, reps(999))</code> with subject-level nuisance-model refitting. <code>vce(bootstrap, reps(#) fixedweights)</code> resamples subjects while holding weights fixed, and <code>vce(fixed)</code> uses the analytic cluster-robust sandwich with weights treated as known. The latter two omit weight-estimation uncertainty and should be described as such.
 
 For a bare weighted FIPTIW GEE fit, the default is point-only: coefficients are reported without a covariance matrix or nominal interval. Explicit <code>vce()</code> or <code>citype()</code> requests nominal inference and records its status in <code>e(iivw_inference_status)</code>. Fewer than 999 bootstrap draws are allowed but are marked <code>uncleared-low-reps</code>; failed draws are an error unless <code>allowfailedreps</code> explicitly accepts them.
@@ -360,8 +358,6 @@ For a bare weighted FIPTIW GEE fit, the default is point-only: coefficients are 
 <code>citype(wald)</code> uses a normal/Wald transformation, <code>citype(percentile)</code> uses empirical bootstrap quantiles, <code>citype(basic)</code> reflects those quantiles around the observed estimate, and <code>citype(bca)</code> adds bias correction and delete-one-subject acceleration. The asymmetric choices require bootstrap draws.
 
 ### Excel reporting
-
-<a id="excel-reporting"></a>
 
 <code>iivw_balance</code>, <code>iivw_exogtest</code>, and <code>iivw_diagnose</code> write direct styled <code>.xlsx</code> sheets when <code>xlsx(filename)</code> is supplied. <code>sheet()</code> defaults are <code>Balance</code>, <code>Exogeneity</code>, and <code>Diagnostics</code>, respectively. <code>replace</code> overwrites only the named sheet, <code>open</code> opens the workbook, and <code>title()</code>/<code>footnote()</code> add optional rows.
 

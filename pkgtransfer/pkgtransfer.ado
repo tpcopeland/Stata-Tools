@@ -31,6 +31,10 @@
 program define pkgtransfer, rclass
 	version 16.0
 	local _varabbrev `c(varabbrev)'
+	local _did_preserve 0
+	local _staging_created 0
+	local _installer_open 0
+	tempname _installer_fh
 	set varabbrev off
 
 	capture noisily {
@@ -53,7 +57,6 @@ quietly {
 	/* Error if specified packages in limited() are not found */
 	if "`limited'" != "" {
 		tempname trkfh
-		tempfile trkpkgs
 		file open `trkfh' using "`plusdir'stata.trk", read text
 		file read `trkfh' line
 		local trk_pkg_list ""
@@ -75,6 +78,23 @@ quietly {
 				noisily display as error "Package must be installed before transfer"
 				exit 111
 			}
+		}
+	}
+
+	/* limited() and skip() may not select and exclude the same package */
+	if "`limited'" != "" & "`skip'" != "" {
+		local overlap ""
+		foreach selected of local limited {
+			foreach excluded of local skip {
+				if "`selected'" == "`excluded'" {
+					local overlap "`overlap' `selected'"
+				}
+			}
+		}
+		if "`overlap'" != "" {
+			noisily display as error ///
+				"limited() and skip() contain the same package(s):`overlap'"
+			exit 198
 		}
 	}
 
@@ -137,6 +157,20 @@ quietly {
 
 /* Preserve user data */
 preserve
+local _did_preserve 1
+
+/* Refuse to reuse an output directory the command does not own */
+if "`download'" != "" {
+	capture mkdir "pkgtransfer_files"
+	if _rc {
+		noisily display as error ///
+			"Output directory pkgtransfer_files already exists or cannot be created"
+		noisily display as error ///
+			"Move or remove that directory before creating a transfer bundle."
+		exit 602
+	}
+	local _staging_created 1
+}
 
 /* Execute Program */
 quietly{
@@ -214,7 +248,7 @@ quietly{
 		}
 
         /* Creation of do file to install with internet access [Final Product for Default] */
-        if "`download'" == "" {
+        if "`download'" == "" & "`restore'" == "" {
             gen command = "net install " + package + ", replace from(" + url + ")"
             replace command = "ssc install " + package + ", replace" if strmatch(url, "*fmwww.bc.edu/repec/bocode*")
 			replace command = "github install haghish/" + package + ", stable replace" if strpos(url,"githubusercontent.com/haghish") & !strpos(command,"github install")
@@ -289,7 +323,6 @@ quietly{
             use "`pkg_list'", replace
 			quietly count if substr(v1,1,2) == "f " | substr(v1,1,2) == "g "
 			local num_files = r(N)
-            capture mkdir "pkgtransfer_files"
 			noisily display "Starting file copy (`num_files' files) from local directory..."
 
 			foreach name of local pkg_list_for_do{
@@ -308,14 +341,16 @@ quietly{
 			replace v1 = substr(v1,3,.)
 			gen source_file = "`plusdir'" + v1
 			replace v1 = regexr(regexr(substr(v1, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
-            tempfile pkg_files
             quietly forvalues i = 1/`=_N' {
                 local source = source_file[`i']
                 local destination = v1[`i']
-                capture copy "`source'" "pkgtransfer_files/`destination'", replace
-				if _rc {
-					noisily display as error "Warning: could not copy `source'"
-				}
+				capture copy "`source'" "pkgtransfer_files/`destination'", replace
+					if _rc {
+						local source_copy_rc = _rc
+						noisily display as error ///
+							"Could not copy required package file `source'"
+						exit `source_copy_rc'
+					}
 			}
 
 			// Fix plugins
@@ -415,9 +450,7 @@ quietly{
 
 			noisily display "Starting download of `total_pkgs' packages..."
 			tempfile pkg_desc
-            capture mkdir "pkgtransfer_files"
-
-            save "`pkg_list'", replace
+			save "`pkg_list'", replace
 
             // Initialize empty package description file
             clear
@@ -426,7 +459,6 @@ quietly{
             save "`pkg_desc'", emptyok replace
 
             use "`pkg_list'", replace
-            tempfile pkg_files
             quietly forvalues i = 1/`=_N' {
                 local curr_url = url[`i']
                 local curr_pkg = package[`i']
@@ -436,6 +468,7 @@ quietly{
 				local success = 0
 				forvalues attempt = 1/`max_retries' {
 					capture copy "`curr_url'`curr_pkg'.pkg" "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", replace
+					local package_copy_rc = _rc
 					if _rc == 0 {
 						local success = 1
 						continue, break
@@ -446,11 +479,9 @@ quietly{
 					}
 				}
 				if `success' == 0 {
-					noisily display as error "Failed to download `curr_pkg'.pkg after `max_retries' attempts — skipping"
-					use "`pkg_list'", clear
-					noisily display "Progress: `curr_pkg_num'/`total_pkgs' packages (`=round(`curr_pkg_num'/`total_pkgs'*100)'%)"
-					local curr_pkg_num = `curr_pkg_num' + 1
-					continue
+					noisily display as error ///
+						"Failed to download required descriptor `curr_pkg'.pkg"
+					exit `package_copy_rc'
 				}
 
 				// Store description from first line
@@ -504,6 +535,15 @@ quietly{
 								if "`_part'" != "" {
 									local _path_built = "`_path_built'`_part'/"
 									capture mkdir "pkgtransfer_files`c(dirsep)'`_path_built'"
+									if _rc {
+										capture local _dir_probe : dir ///
+											"pkgtransfer_files`c(dirsep)'`_path_built'" files "*"
+										if _rc {
+											noisily display as error ///
+												"Could not create bundle subdirectory `_path_built'"
+											exit 693
+										}
+									}
 								}
 							}
 						}
@@ -536,8 +576,14 @@ quietly{
 
 						// Also save a copy with the target filename
 						// This ensures all platform variants are downloaded and the target file exists
-						local clean_target = regexr(regexr("`target_file'", "^\.\.\/", ""), "^[^\/]+\/", "")
-						capture copy "pkgtransfer_files`c(dirsep)'`clean_source'" "pkgtransfer_files`c(dirsep)'`clean_target'", replace
+							local clean_target = regexr(regexr("`target_file'", "^\.\.\/", ""), "^[^\/]+\/", "")
+							capture copy "pkgtransfer_files`c(dirsep)'`clean_source'" "pkgtransfer_files`c(dirsep)'`clean_target'", replace
+							if _rc {
+								local target_copy_rc = _rc
+								noisily display as error ///
+									"Could not create plugin target `clean_target'"
+								exit `target_copy_rc'
+							}
 
 					}
 
@@ -562,17 +608,23 @@ quietly{
 						// Download with retry logic
 						local max_retries = 3
 						local success = 0
-						forvalues attempt = 1/`max_retries' {
-							capture copy "`base_url'`filepath'" "pkgtransfer_files`c(dirsep)'`clean_filepath'"
-							if _rc == 0 {
+							forvalues attempt = 1/`max_retries' {
+								capture copy "`base_url'`filepath'" "pkgtransfer_files`c(dirsep)'`clean_filepath'"
+								local file_copy_rc = _rc
+								if _rc == 0 {
 								local success = 1
 								continue, break
 							}
 							if `attempt' < `max_retries' {
 								sleep 2000
+								}
+							}
+							if `success' == 0 {
+								noisily display as error ///
+									"Failed to download required package file `filepath'"
+								exit `file_copy_rc'
 							}
 						}
-					}
 				}
 
 				// Last, read and modify the entire .pkg file
@@ -612,59 +664,41 @@ quietly{
 			local date = string(year(date("`c(current_date)'", "DMY")), "%4.0f") + "_" + string(month(date("`c(current_date)'", "DMY")), "%02.0f") + "_" + string(day(date("`c(current_date)'", "DMY")), "%02.0f")
 
             // Create installation do-file
-            capture file close inst
-            file open inst using "`dofile'", write replace
-            file write inst "*pkgtransfer local installation script" _n
-            file write inst "*Generated: `date' $S_TIME" _n _n
-            file write inst "*Set working directory to the folder containing package files; place in global below" _n
-            file write inst "global package_dir " `"""' "DIRECTORY_GOES_HERE" `"""' _n _n
-            file write inst "*Use current directory if global is not set" _n
-			file write inst "if " `"""' "\$package_dir" `"""' " == " `"""' "DIRECTORY_GOES_HERE" `"""' " global package_dir " `"""' "\`c(pwd)'" `"""' _n _n
-            file write inst "*Set directory" _n
-            file write inst `"cd "\$package_dir""' _n _n
-            file write inst "*Unzip and install from local files" _n
-            file write inst `"unzipfile "`zipfile'", replace"' _n _n
-            file write inst "*Install packages (Note: add 'replace' or 'force' options to the -net install- command if updating packages)" _n
-            file write inst "foreach pkg in `pkg_list_for_do' {" _n
-			file write inst `"capture noisily net install \`pkg', from("\$package_dir/pkgtransfer_files")"' _n
-            file write inst "}" _n _n
-			file write inst "*Clean up" _n
-			file write inst "* SAFETY NOTE: Automated removal of 'pkgtransfer_files' folder disabled for safety." _n
-			file write inst "* The rm -rf/rmdir command is high-risk when run from scripts on different machines." _n
-			file write inst "* Please manually remove the 'pkgtransfer_files' folder when finished:" _n
+			file open `_installer_fh' using "`dofile'", write replace
+			local _installer_open 1
+			file write `_installer_fh' "*pkgtransfer local installation script" _n
+			file write `_installer_fh' "*Generated: `date' $S_TIME" _n _n
+			file write `_installer_fh' "*Set working directory to the folder containing package files; place in global below" _n
+			file write `_installer_fh' "global package_dir " `"""' "DIRECTORY_GOES_HERE" `"""' _n _n
+			file write `_installer_fh' "*Use current directory if global is not set" _n
+			file write `_installer_fh' "if " `"""' "\$package_dir" `"""' " == " `"""' "DIRECTORY_GOES_HERE" `"""' " global package_dir " `"""' "\`c(pwd)'" `"""' _n _n
+			file write `_installer_fh' "*Set directory" _n
+			file write `_installer_fh' `"cd "\$package_dir""' _n _n
+			file write `_installer_fh' "*Unzip and install from local files" _n
+			file write `_installer_fh' `"unzipfile "`zipfile'", replace"' _n _n
+			file write `_installer_fh' "*Install packages" _n
+			file write `_installer_fh' "foreach pkg in `pkg_list_for_do' {" _n
+			file write `_installer_fh' `"capture noisily net install \`pkg', from("\$package_dir/pkgtransfer_files")"' _n
+			file write `_installer_fh' "    if _rc exit _rc" _n
+			file write `_installer_fh' "}" _n _n
+			file write `_installer_fh' "*Clean up" _n
+			file write `_installer_fh' "* SAFETY NOTE: Automated removal of 'pkgtransfer_files' folder disabled for safety." _n
+			file write `_installer_fh' "* The rm -rf/rmdir command is high-risk when run from scripts on different machines." _n
+			file write `_installer_fh' "* Please manually remove the 'pkgtransfer_files' folder when finished:" _n
 			if "`os'" == "Windows"{
-				file write inst `"* shell rmdir /s /q "pkgtransfer_files""' _n
+				file write `_installer_fh' `"* shell rmdir /s /q "pkgtransfer_files""' _n
 			}
 			if "`os'" == "MacOSX" | "`os'" == "Unix" {
-				file write inst `"* shell rm -rf "pkgtransfer_files""' _n
+				file write `_installer_fh' `"* shell rm -rf "pkgtransfer_files""' _n
 			}
-            file close inst
+			file close `_installer_fh'
+			local _installer_open 0
 
             // Create ZIP file
             zipfile "pkgtransfer_files", saving("`zipfile'", replace)
 
-            // Delete pkgtransfer_files directory (handles up to 3 levels of nesting)
-            local subdirs : dir "pkgtransfer_files" dirs "*", respectcase
-            foreach d of local subdirs {
-                local subdirs2 : dir "pkgtransfer_files/`d'" dirs "*", respectcase
-                foreach d2 of local subdirs2 {
-                    local sub2files : dir "pkgtransfer_files/`d'/`d2'" files "*", respectcase
-                    foreach f of local sub2files {
-                        capture erase "pkgtransfer_files/`d'/`d2'/`f'"
-                    }
-                    capture rmdir "pkgtransfer_files/`d'/`d2'"
-                }
-                local subfiles : dir "pkgtransfer_files/`d'" files "*", respectcase
-                foreach f of local subfiles {
-                    capture erase "pkgtransfer_files/`d'/`f'"
-                }
-                capture rmdir "pkgtransfer_files/`d'"
-            }
-            local filelist : dir "pkgtransfer_files" files "*", respectcase
-            foreach f of local filelist {
-                capture erase "pkgtransfer_files/`f'"
-            }
-            capture rmdir "pkgtransfer_files"
+			_pkgtransfer_cleanup_staging, directory("pkgtransfer_files")
+			local _staging_created 0
 
             // Announce Completion
 			noisily display "Preparation of installation do file and package ZIP file completed!"
@@ -705,12 +739,22 @@ quietly{
 
 /* Restore user data */
 restore
+local _did_preserve 0
 
 	} // end capture noisily
 
 	/* Clean up on success or error */
 	local rc = _rc
-	if `rc' capture restore
+	if `_installer_open' capture file close `_installer_fh'
+	if `rc' & `_staging_created' {
+		capture noisily _pkgtransfer_cleanup_staging, ///
+			directory("pkgtransfer_files")
+		if _rc {
+			display as error ///
+				"Warning: could not remove invocation-owned staging directory"
+		}
+	}
+	if `rc' & `_did_preserve' capture restore
 	set varabbrev `_varabbrev'
 	if `rc' exit `rc'
 
@@ -741,3 +785,32 @@ restore
 *END PROGRAM
 end
 *
+
+capture program drop _pkgtransfer_cleanup_staging
+program define _pkgtransfer_cleanup_staging
+	version 16.0
+	syntax, DIRectory(string)
+
+	local subdirs : dir "`directory'" dirs "*", respectcase
+	foreach d of local subdirs {
+		local subdirs2 : dir "`directory'/`d'" dirs "*", respectcase
+		foreach d2 of local subdirs2 {
+			local sub2files : dir "`directory'/`d'/`d2'" files "*", ///
+				respectcase
+			foreach f of local sub2files {
+				erase "`directory'/`d'/`d2'/`f'"
+			}
+			rmdir "`directory'/`d'/`d2'"
+		}
+		local subfiles : dir "`directory'/`d'" files "*", respectcase
+		foreach f of local subfiles {
+			erase "`directory'/`d'/`f'"
+		}
+		rmdir "`directory'/`d'"
+	}
+	local filelist : dir "`directory'" files "*", respectcase
+	foreach f of local filelist {
+		erase "`directory'/`f'"
+	}
+	rmdir "`directory'"
+end

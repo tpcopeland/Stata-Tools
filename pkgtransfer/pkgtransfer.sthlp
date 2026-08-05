@@ -65,9 +65,12 @@ creates a ZIP archive and local installation do-file. {opt download(local)} copi
 package files from your local PLUS directory instead of downloading
 them. Note: platform-specific plugin files ({bf:.plugin}) are always downloaded
 from the internet even with {opt download(local)}, because the local PLUS directory
-only contains the current platform's version. When {opt download()} is not
-specified, {cmd:pkgtransfer} generates a do-file ({cmd:pkgtransfer.do}) with online
-installation commands only (no ZIP archive).
+only contains the current platform's version. When neither {opt download()}
+nor {opt restore} is specified, {cmd:pkgtransfer} generates a do-file
+({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive). Bundle
+creation refuses to reuse an existing {cmd:pkgtransfer_files} directory, so move or
+remove that directory before rerunning a download mode. Missing required package
+files abort bundle creation instead of producing an incomplete archive.
 
 {phang}
 {opt limited(pkglist)} restricts the operation to a specific set of
@@ -79,7 +82,8 @@ processes all packages listed in the {cmd:stata.trk} file.
 {phang}
 {opt skip(pkglist)} excludes the specified packages from the transfer. {it:pkglist}
 should be a space-separated list of package names to skip. For example,
-{cmd:skip(estout outreg2)} would transfer all packages except estout and outreg2.
+{cmd:skip(estout outreg2)} would transfer all packages except estout and outreg2. The
+same package may not appear in both {opt limited()} and {opt skip()}.
 
 {phang}
 {opt restore} restores installation pathways in {cmd:stata.trk} to point to original
@@ -169,6 +173,11 @@ Restores online source URLs in {cmd:stata.trk} for packages previously installed
 {synopt:{cmd:r(dofile)}}path to generated do-file{p_end}
 {synopt:{cmd:r(zipfile)}}path to ZIP file (if download mode specified){p_end}
 {p2colreset}{...}
+
+{pstd}
+Standalone {opt restore} returns only {cmd:r(download_mode)} = {cmd:restore}
+and {cmd:r(os)}. It does not set the package-count, package-list, do-file,
+or ZIP-file results because it generates no installer or archive.
 
 {marker author}{...}
 {title:Author}

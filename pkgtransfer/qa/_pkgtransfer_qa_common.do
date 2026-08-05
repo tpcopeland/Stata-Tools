@@ -5,6 +5,7 @@
     Date:    2026-08-05
 */
 
+* qa-hygiene: no-package-code
 version 16.0
 
 capture program drop _pkgtransfer_qa_setup

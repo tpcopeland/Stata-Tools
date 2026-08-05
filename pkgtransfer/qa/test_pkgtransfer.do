@@ -36,6 +36,7 @@ _pkgtransfer_qa_setup, pkgdir("`pkg_dir'")
 local qa_root "`r(root)'"
 local qa_original_plus "`r(original_plus)'"
 local tmpdir "`r(work)'"
+local qa_plus "`r(plus)'"
 
 adopath ++ "`pkg_dir'"
 capture program drop pkgtransfer
@@ -738,10 +739,18 @@ if `run_only' == 0 | `run_only' == `test_count' {
     local found_default 0
     local original_plus "`c(sysdir_plus)'"
     local fixture_plus "`tmpdir'/fixture plus"
+    local install_plus "`tmpdir'/install plus"
     tempname installer_fh
     tempname tracker_fh
     capture noisily {
         quietly cd "`tmpdir'"
+        capture confirm file "custom installer.do"
+        assert _rc == 601
+        capture confirm file "custom archive.zip"
+        assert _rc == 601
+        local pre_output_dirs : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`pre_output_dirs'"' == ""
         capture mkdir "`fixture_plus'"
         capture mkdir "`fixture_plus'/p"
         copy "`pkg_dir'/pkgtransfer.ado" ///
@@ -780,11 +789,17 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert "`returned_zip'" == "custom archive.zip"
         assert `found_custom' == 1
         assert `found_default' == 0
+        mkdir "`install_plus'"
+        mkdir "`install_plus'/p"
+        sysdir set PLUS "`install_plus'"
         do "custom installer.do"
         confirm file "pkgtransfer_files/pkgtransfer.ado"
         confirm file "pkgtransfer_files/pkgtransfer.sthlp"
         confirm file "pkgtransfer_files/pkgtransfer.pkg"
         confirm file "pkgtransfer_files/stata.toc"
+        confirm file "`install_plus'/p/pkgtransfer.ado"
+        confirm file "`install_plus'/p/pkgtransfer.sthlp"
+        confirm file "`install_plus'/stata.trk"
     }
     local test_rc = _rc
     local cleanup_rc 0
@@ -805,7 +820,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         "custom archive.zip" ///
         "`fixture_plus'/p/pkgtransfer.ado" ///
         "`fixture_plus'/p/pkgtransfer.sthlp" ///
-        "`fixture_plus'/stata.trk" {
+        "`fixture_plus'/stata.trk" ///
+        "`install_plus'/p/pkgtransfer.ado" ///
+        "`install_plus'/p/pkgtransfer.sthlp" ///
+        "`install_plus'/stata.trk" {
         capture erase `"`artifact'"'
         capture confirm file `"`artifact'"'
         if _rc != 601 local cleanup_rc = 9
@@ -825,6 +843,15 @@ if `run_only' == 0 | `run_only' == `test_count' {
     if _rc != 0 local cleanup_rc = 9
     else capture rmdir "`fixture_plus'"
 
+    capture rmdir "`install_plus'/p"
+    capture mkdir "`install_plus'/p"
+    if _rc != 0 local cleanup_rc = 9
+    else capture rmdir "`install_plus'/p"
+    capture rmdir "`install_plus'"
+    capture mkdir "`install_plus'"
+    if _rc != 0 local cleanup_rc = 9
+    else capture rmdir "`install_plus'"
+
     capture quietly cd "`orig_dir'"
     if _rc != 0 local cleanup_rc = _rc
     if "`c(pwd)'" != "`orig_dir'" local cleanup_rc = 9
@@ -839,6 +866,455 @@ if `run_only' == 0 | `run_only' == `test_count' {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* ============================================================
+* SECTION 10: RESTORE CONTRACT
+* ============================================================
+
+* Test 27: restore replaces local source from its saved online URL
+local ++test_count
+local test_desc "restore replaces local source and removes backup marker"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local restored_alpha 0
+    local restored_pkgtransfer 0
+    local retained_local_sources 0
+    local retained_backup_marker 0
+    local backup_local_sources 0
+    local backup_markers 0
+    local alpha_mapping 0
+    local pkgtransfer_mapping 0
+    local backup_alpha_mapping 0
+    local backup_pkgtransfer_mapping 0
+    tempname restore_fh
+    capture noisily {
+        quietly cd "`tmpdir'"
+        capture confirm file "pkgtransfer.do"
+        assert _rc == 601
+        capture confirm file "pkgtransfer_files.zip"
+        assert _rc == 601
+        local pre_restore_dirs : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`pre_restore_dirs'"' == ""
+
+        file open `restore_fh' using "`qa_plus'/stata.trk", ///
+            write text replace
+        file write `restore_fh' "S `qa_plus'" _n
+        file write `restore_fh' "N alpha.pkg" _n
+        file write `restore_fh' "d alpha fixture" _n
+        file write `restore_fh' "f a/alpha.ado" _n
+        file write `restore_fh' ///
+            "d S https://example.org/restored/alpha" _n
+        file write `restore_fh' "e" _n
+        file write `restore_fh' "S `qa_plus'" _n
+        file write `restore_fh' "N pkgtransfer.pkg" _n
+        file write `restore_fh' "d pkgtransfer fixture" _n
+        file write `restore_fh' "f p/pkgtransfer.ado" _n
+        file write `restore_fh' ///
+            "d S https://example.org/restored/pkgtransfer" _n
+        file write `restore_fh' "e" _n
+        file close `restore_fh'
+
+        pkgtransfer, restore
+        assert "`r(download_mode)'" == "restore"
+        confirm file "`qa_plus'/stata.trk.backup"
+        capture confirm file "pkgtransfer.do"
+        assert _rc == 601
+        capture confirm file "pkgtransfer_files.zip"
+        assert _rc == 601
+        local post_restore_dirs : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`post_restore_dirs'"' == ""
+
+        file open `restore_fh' using "`qa_plus'/stata.trk", read text
+        file read `restore_fh' line
+        local active_source ""
+        while r(eof) == 0 {
+            if substr(`"`macval(line)'"', 1, 2) == "S " {
+                local active_source `"`macval(line)'"'
+            }
+            if `"`macval(line)'"' == "N alpha.pkg" & ///
+                `"`active_source'"' == ///
+                "S https://example.org/restored/alpha" {
+                local alpha_mapping 1
+            }
+            if `"`macval(line)'"' == "N pkgtransfer.pkg" & ///
+                `"`active_source'"' == ///
+                "S https://example.org/restored/pkgtransfer" {
+                local pkgtransfer_mapping 1
+            }
+            if `"`macval(line)'"' == ///
+                "S https://example.org/restored/alpha" {
+                local restored_alpha 1
+            }
+            if `"`macval(line)'"' == ///
+                "S https://example.org/restored/pkgtransfer" {
+                local restored_pkgtransfer 1
+            }
+            if `"`macval(line)'"' == "S `qa_plus'" {
+                local ++retained_local_sources
+            }
+            if substr(`"`macval(line)'"', 1, 4) == "d S " {
+                local retained_backup_marker 1
+            }
+            file read `restore_fh' line
+        }
+        file close `restore_fh'
+        assert `restored_alpha' == 1
+        assert `restored_pkgtransfer' == 1
+        assert `alpha_mapping' == 1
+        assert `pkgtransfer_mapping' == 1
+        assert `retained_local_sources' == 0
+        assert `retained_backup_marker' == 0
+
+        file open `restore_fh' using "`qa_plus'/stata.trk.backup", ///
+            read text
+        file read `restore_fh' line
+        local backup_package ""
+        while r(eof) == 0 {
+            if substr(`"`macval(line)'"', 1, 2) == "N " {
+                local backup_package `"`macval(line)'"'
+            }
+            if `"`macval(line)'"' == "S `qa_plus'" {
+                local ++backup_local_sources
+            }
+            if substr(`"`macval(line)'"', 1, 4) == "d S " {
+                local ++backup_markers
+            }
+            if `"`backup_package'"' == "N alpha.pkg" & ///
+                `"`macval(line)'"' == ///
+                "d S https://example.org/restored/alpha" {
+                local backup_alpha_mapping 1
+            }
+            if `"`backup_package'"' == "N pkgtransfer.pkg" & ///
+                `"`macval(line)'"' == ///
+                "d S https://example.org/restored/pkgtransfer" {
+                local backup_pkgtransfer_mapping 1
+            }
+            file read `restore_fh' line
+        }
+        file close `restore_fh'
+        assert `backup_local_sources' == 2
+        assert `backup_markers' == 2
+        assert `backup_alpha_mapping' == 1
+        assert `backup_pkgtransfer_mapping' == 1
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    local cleanup_rc 0
+    capture file close `restore_fh'
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if "`c(pwd)'" != "`orig_dir'" local cleanup_rc = 9
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* ============================================================
+* SECTION 11: OUTPUT OWNERSHIP AND CALLER STATE
+* ============================================================
+
+* Test 28: Existing staging directory is never reused or deleted
+local ++test_count
+local test_desc "Existing staging directory is preserved"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local cleanup_rc 0
+    tempname sentinel_fh
+    capture noisily {
+        quietly cd "`tmpdir'"
+        mkdir "pkgtransfer_files"
+        file open `sentinel_fh' using ///
+            "pkgtransfer_files/sentinel.txt", write text replace
+        file write `sentinel_fh' "user-owned" _n
+        file close `sentinel_fh'
+
+        capture noisily pkgtransfer, download(local) ///
+            limited(pkgtransfer) dofile(ownership.do) ///
+            zipfile(ownership.zip)
+        local command_rc = _rc
+        assert `command_rc' == 602
+        confirm file "pkgtransfer_files/sentinel.txt"
+        file open `sentinel_fh' using ///
+            "pkgtransfer_files/sentinel.txt", read text
+        file read `sentinel_fh' sentinel_line
+        file close `sentinel_fh'
+        assert `"`macval(sentinel_line)'"' == "user-owned"
+        capture confirm file "ownership.do"
+        assert _rc == 601
+        capture confirm file "ownership.zip"
+        assert _rc == 601
+    }
+    local test_rc = _rc
+    capture file close `sentinel_fh'
+    capture erase "pkgtransfer_files/sentinel.txt"
+    capture confirm file "pkgtransfer_files/sentinel.txt"
+    if _rc != 601 local cleanup_rc = 9
+    capture rmdir "pkgtransfer_files"
+    local ownership_dirs : dir "." dirs "pkgtransfer_files", respectcase
+    if `"`ownership_dirs'"' != "" local cleanup_rc = 9
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if "`c(pwd)'" != "`orig_dir'" local cleanup_rc = 9
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* Test 29: A caller's active preserve survives an inner command error
+local ++test_count
+local test_desc "Caller preserve survives a post-preserve command error"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local cleanup_rc 0
+    local caller_preserved 0
+    capture noisily {
+        quietly cd "`tmpdir'"
+        clear
+        set obs 1
+        generate marker = 1
+        preserve
+        local caller_preserved 1
+        replace marker = 2
+
+        capture noisily pkgtransfer, ///
+            dofile(missing_parent/nested_preserve.do)
+        local command_rc = _rc
+        assert `command_rc' == 603
+        assert marker[1] == 2
+        capture confirm file "missing_parent/nested_preserve.do"
+        assert _rc == 601
+
+        restore
+        local caller_preserved 0
+        assert marker[1] == 1
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    if `caller_preserved' {
+        capture restore
+        if _rc != 0 local cleanup_rc = _rc
+    }
+    capture erase "`tmpdir'/missing_parent/nested_preserve.do"
+    capture confirm file "`tmpdir'/missing_parent/nested_preserve.do"
+    if _rc != 601 local cleanup_rc = 9
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if "`c(pwd)'" != "`orig_dir'" local cleanup_rc = 9
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* Test 30: limited() and skip() cannot contradict one another
+local ++test_count
+local test_desc "limited() and skip() overlap is rejected"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture noisily {
+        quietly cd "`tmpdir'"
+        capture noisily pkgtransfer, limited(pkgtransfer) ///
+            skip(pkgtransfer) dofile(overlap.do)
+        local command_rc = _rc
+        assert `command_rc' == 198
+        capture confirm file "overlap.do"
+        assert _rc == 601
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    capture erase "`tmpdir'/overlap.do"
+    capture quietly cd "`orig_dir'"
+    if `test_rc' == 0 & _rc != 0 local test_rc = _rc
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* Test 31: Post-staging errors remove invocation-owned staging files
+local ++test_count
+local test_desc "Post-staging error removes owned staging directory"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture noisily {
+        quietly cd "`tmpdir'"
+        capture noisily pkgtransfer, download(local) ///
+            limited(pkgtransfer) ///
+            dofile(missing_parent/staging.do) zipfile(staging.zip)
+        local command_rc = _rc
+        assert `command_rc' == 603
+        local staging_dirs : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`staging_dirs'"' == ""
+        capture confirm file "staging.zip"
+        assert _rc == 601
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    capture noisily _pkgtransfer_cleanup_staging, ///
+        directory("`tmpdir'/pkgtransfer_files")
+    capture erase "`tmpdir'/staging.zip"
+    capture quietly cd "`orig_dir'"
+    if `test_rc' == 0 & _rc != 0 local test_rc = _rc
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* Test 32: Installer generation cannot close a caller-owned file handle
+local ++test_count
+local test_desc "Caller file handle named inst remains open"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local caller_handle_open 0
+    capture noisily {
+        quietly cd "`tmpdir'"
+        file open inst using "caller_handle.txt", write text replace
+        local caller_handle_open 1
+        file write inst "before" _n
+        pkgtransfer, download(local) limited(pkgtransfer) ///
+            dofile(handle.do) zipfile(handle.zip)
+        file write inst "after" _n
+        file close inst
+        local caller_handle_open 0
+
+        tempname verify_handle
+        file open `verify_handle' using "caller_handle.txt", read text
+        file read `verify_handle' first_line
+        file read `verify_handle' second_line
+        file close `verify_handle'
+        assert `"`macval(first_line)'"' == "before"
+        assert `"`macval(second_line)'"' == "after"
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    if `caller_handle_open' capture file close inst
+    foreach artifact in caller_handle.txt handle.do handle.zip {
+        capture erase "`tmpdir'/`artifact'"
+    }
+    capture quietly cd "`orig_dir'"
+    if `test_rc' == 0 & _rc != 0 local test_rc = _rc
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* Test 33: Missing tracked files fail instead of producing a partial archive
+local ++test_count
+local test_desc "Missing required package file aborts bundle creation"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local cleanup_rc 0
+    capture noisily {
+        quietly cd "`tmpdir'"
+        erase "`qa_plus'/p/pkgtransfer.sthlp"
+        capture noisily pkgtransfer, download(local) ///
+            limited(pkgtransfer) dofile(missing_file.do) ///
+            zipfile(missing_file.zip)
+        local command_rc = _rc
+        assert `command_rc' == 601
+        local partial_dirs : dir "." dirs "pkgtransfer_files", ///
+            respectcase
+        assert `"`partial_dirs'"' == ""
+        capture confirm file "missing_file.do"
+        assert _rc == 601
+        capture confirm file "missing_file.zip"
+        assert _rc == 601
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    capture copy "`pkg_dir'/pkgtransfer.sthlp" ///
+        "`qa_plus'/p/pkgtransfer.sthlp", replace
+    if _rc != 0 local cleanup_rc = _rc
+    capture noisily _pkgtransfer_cleanup_staging, ///
+        directory("`tmpdir'/pkgtransfer_files")
+    foreach artifact in missing_file.do missing_file.zip {
+        capture erase "`tmpdir'/`artifact'"
+    }
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }

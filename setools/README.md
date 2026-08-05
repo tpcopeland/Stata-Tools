@@ -47,7 +47,7 @@ net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 - `cci_se` collapses long diagnosis data to one row per patient, selects ICD definitions by diagnosis year, and optionally returns component indicators and earliest component dates.
 - `migrations` joins a one-row-per-person cohort to a wide or long migration file, applies residency rules, and adds emigration censoring dates.
-- `sustainedss` detects an absolute EDSS threshold crossing, whereas `cdp@@ measures a confirmed increase from a diagnosis-anchored baseline.
+- `sustainedss` detects an absolute EDSS threshold crossing, whereas `cdp` measures a confirmed increase from a diagnosis-anchored baseline.
 - `pira` runs the first-event CDP algorithm and classifies that event by its distance from relapse dates.
 
 ## Choosing a Workflow
@@ -223,7 +223,7 @@ migrations, migfile(filename) [idvar(varname) startvar(varname) minresidence(#) 
 | `outtype(codes)` | Built-in recognition | Map custom long-format emigration codes |
 | `flag` | Off | Retain all cohort rows and add `mig_excluded` and `mig_exclude_reason` |
 
-Wide migration files have one row per person and numeric-suffixed `in_1`/`out_1`, `in_2`/`out_2`, and later slots, all formatted as `%td`. Long files have `event_date` and `event_type@@; built-in recognition covers Swedish and English immigration/emigration vocabularies plus short forms, while `intype()` and `outtype()` support custom or unlabeled numeric codes.
+Wide migration files have one row per person and numeric-suffixed `in_1`/`out_1`, `in_2`/`out_2`, and later slots, all formatted as `%td`. Long files have `event_date` and `event_type`; built-in recognition covers Swedish and English immigration/emigration vocabularies plus short forms, while `intype()` and `outtype()` support custom or unlabeled numeric codes.
 
 The default exclusion sequence identifies people who emigrated before study start and never returned, people with insufficient pre-entry residence when enabled, people abroad at baseline who returned later, and people whose first post-start event is immigration. `keepimmigrants` changes the last case from exclusion to inclusion and records the post-start entry date.
 
@@ -310,13 +310,13 @@ Use `indexdate()` to exclude post-index diagnoses and add `lookback()` for a pos
 
 ### Migration classification
 
-`migrations` recognizes wide files with numeric-suffixed migration slots and long files with `event_date`/`event_type@@. Long-format string or labeled numeric event types use built-in Swedish and English recognition; unlabeled numeric codes require `intype()` and `outtype()`, whose values must be disjoint.
+`migrations` recognizes wide files with numeric-suffixed migration slots and long files with `event_date`/`event_type`. Long-format string or labeled numeric event types use built-in Swedish and English recognition; unlabeled numeric codes require `intype()` and `outtype()`, whose values must be disjoint.
 
-Use `flag` when you need the full starting cohort for a CONSORT-style flow or sensitivity analysis. Use `keepimmigrants` when post-start immigrants should remain in the data with `migration_in_dt@@ as their effective entry date. The two options can be combined.
+Use `flag` when you need the full starting cohort for a CONSORT-style flow or sensitivity analysis. Use `keepimmigrants` when post-start immigrants should remain in the data with `migration_in_dt` as their effective entry date. The two options can be combined.
 
 ### MS confirmation and censoring
 
-`sustainedss` is an absolute threshold measure and defaults to implied sustainment; `cdp@@ and `pira@@ are baseline-referenced measures that require an observed confirmation. The `confirmtype(visit)` alternative checks the first eligible confirming visit, while `threetier` selects the 1.5/1.0/0.5 EDSS thresholds used in the Lublin/Kappos rule.
+`sustainedss` is an absolute threshold measure and defaults to implied sustainment; `cdp` and `pira` are baseline-referenced measures that require an observed confirmation. The `confirmtype(visit)` alternative checks the first eligible confirming visit, while `threetier` selects the 1.5/1.0/0.5 EDSS thresholds used in the Lublin/Kappos rule.
 
 The `exit()` option handles per-person administrative censoring inside each MS command. It sets post-exit event dates to missing, recomputes event indicators, and returns `r(N_censored_exit)` when requested.
 
@@ -428,10 +428,10 @@ The row names of `r(flow)` identify cohort start, exclusion stages, total exclud
 - `migrations` requires one cohort row per ID and nonmissing study-start dates; its migration file must share the ID and resolve to one row per ID.
 - `cci_se` expects long diagnosis-level data and replaces memory with the patient-level result. Save the result before merging it into a separate analysis cohort.
 - `sustainedss`, `cdp`, and `pira` modify the data in memory and drop non-event patients by default; use `keepall` when the full input cohort or visit structure must be retained.
-- `cdp` and `pira@@ require a nonmissing, person-consistent diagnosis date; `pira@@ also requires matching ID types and valid relapse dates in its separate file.
-- Generated output names must be new. Drop or rename prior output variables before rerunning a command; `migrations@@ also reserves names beginning `_mig_` and `_neg_`, and `pira@@ reserves its documented internal prefixes.
+- `cdp` and `pira` require a nonmissing, person-consistent diagnosis date; `pira` also requires matching ID types and valid relapse dates in its separate file.
+- Generated output names must be new. Drop or rename prior output variables before rerunning a command; `migrations` also reserves names beginning `_mig_` and `_neg_`, and `pira` reserves its documented internal prefixes.
 - Same-day migration semantics are explicit: immigration on study start counts as present at baseline, emigration on study start is not pre-start exclusion or post-start censoring, and post-start censoring uses strictly later emigration dates.
-- `pira@@ classifies only the first confirmed CDP per person, while `cdp@@ can return multiple events only with `roving allevents`.
+- `pira` classifies only the first confirmed CDP per person, while `cdp` can return multiple events only with `roving allevents`.
 - An all-zero `cci_se` result when diagnosis codes are present triggers an informational warning; check separators and the diagnosis years before interpreting it as a genuinely healthy cohort.
 
 ## References

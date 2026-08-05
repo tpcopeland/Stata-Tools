@@ -142,7 +142,7 @@ pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(
 | `download(online)` or `download(local)` | The installer do-file plus `pkgtransfer_files.zip`, or the name supplied by `zipfile()`; the archive contains package descriptors, package files, and `stata.toc` |
 | `restore` | The current PLUS `stata.trk` is rewritten when backup URLs are present, and `stata.trk.backup` is created first |
 
-Existing output files with the same names are replaced. The generated offline installer references the exact archive name selected by `zipfile()` and quotes it, so custom names and paths containing spaces remain valid.
+Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the exact archive name selected by `zipfile()` and quotes it, and it stops if a package cannot be installed.
 
 ## Key Options
 
@@ -156,7 +156,7 @@ Existing output files with the same names are replaced. The generated offline in
 | `dofile(filename)` | `pkgtransfer.do` | Sets the generated do-file name; it must end in `.do` and may not contain shell metacharacters |
 | `zipfile(filename)` | `pkgtransfer_files.zip` | Sets the generated archive name; it must end in `.zip`, may not contain shell metacharacters, and is valid only with `download()` |
 
-The values for `download()` and `os()` are case-sensitive as shown. A package named in `limited()` that is not present in `stata.trk` produces an error. `zipfile()` is not valid without `download()`.
+The values for `download()` and `os()` are case-sensitive as shown. A package named in `limited()` that is not present in `stata.trk` produces an error, and the same package may not appear in both `limited()` and `skip()`. `zipfile()` is not valid without `download()`.
 
 ## Stored Results
 
@@ -177,15 +177,15 @@ For standalone `restore`, the returned `download_mode` is `restore` and `r(os)` 
 
 - Only packages and sources recorded in the current PLUS directory's `stata.trk` are considered. Other adopath locations and untracked files are not reconstructed.
 - The default mode does not fetch package files. Its generated commands require internet access on the destination, and GitHub-origin entries require the `github` command there.
-- `download(online)` depends on the recorded source URLs and network availability. Missing or inaccessible package files cannot be added to the bundle.
-- `download(local)` uses the copies currently installed in PLUS, but platform-specific `.plugin` files are downloaded from their sources because PLUS contains only the current platform build.
+- `download(online)` depends on the recorded source URLs and network availability. A missing or inaccessible required descriptor or package file aborts bundle creation.
+- `download(local)` uses the copies currently installed in PLUS, but platform-specific `.plugin` files are downloaded from their sources because PLUS contains only the current platform build. A missing tracked file aborts bundle creation rather than producing a partial archive.
 - `restore` works only when a bundle has embedded original-source backup records. It creates `stata.trk.backup` before changing the active tracking file.
 - The generated offline installer does not add `replace` or `force` to its local `net install` commands. If the destination already has the package, edit the generated installer as needed.
 - The command preserves the dataset in memory while it reads and writes package-tracking and transfer files.
 
 ## Version History
 
-- **1.0.1** (2026-08-05): Generated offline installers now unzip the archive selected by `zipfile()` instead of hard-coding the default filename
+- **1.0.1** (2026-08-05): Generated offline installers now use the archive selected by `zipfile()` and propagate installation failures; standalone restore no longer enters script generation; caller state is protected; contradictory filters are rejected; and bundle creation refuses user-owned staging directories, removes its own failed staging, and aborts on missing required files.
 - **1.0.0** (2026-07-10): Current Stata-Tools release with online transfer scripts, offline bundle creation, package filtering, and source restoration
 
 ## Author
