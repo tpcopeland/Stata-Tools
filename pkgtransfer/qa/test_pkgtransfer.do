@@ -726,11 +726,107 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * ============================================================
+* SECTION 9: OFFLINE INSTALLER ARCHIVE CONTRACT
+* ============================================================
+
+* Test 26: Custom zipfile() is used by generated installer
+local ++test_count
+local test_desc "Custom zipfile() is quoted in generated installer"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local found_custom 0
+    local found_default 0
+    local original_plus "`c(sysdir_plus)'"
+    local fixture_plus "`tmpdir'/fixture plus"
+    tempname installer_fh
+    tempname tracker_fh
+    capture noisily {
+        quietly cd "`tmpdir'"
+        capture mkdir "`fixture_plus'"
+        capture mkdir "`fixture_plus'/p"
+        copy "`pkg_dir'/pkgtransfer.ado" ///
+            "`fixture_plus'/p/pkgtransfer.ado", replace
+        copy "`pkg_dir'/pkgtransfer.sthlp" ///
+            "`fixture_plus'/p/pkgtransfer.sthlp", replace
+        file open `tracker_fh' using "`fixture_plus'/stata.trk", ///
+            write text replace
+        file write `tracker_fh' "S `pkg_dir'" _n
+        file write `tracker_fh' "N pkgtransfer.pkg" _n
+        file write `tracker_fh' "d pkgtransfer fixture" _n
+        file write `tracker_fh' "f p/pkgtransfer.ado" _n
+        file write `tracker_fh' "f p/pkgtransfer.sthlp" _n
+        file write `tracker_fh' "e" _n
+        file close `tracker_fh'
+        sysdir set PLUS "`fixture_plus'"
+        pkgtransfer, download(local) limited(pkgtransfer) ///
+            dofile("custom installer.do") zipfile("custom archive.zip")
+        local returned_zip "`r(zipfile)'"
+        confirm file "custom installer.do"
+        confirm file "custom archive.zip"
+        capture confirm file "pkgtransfer_files/pkgtransfer.ado"
+        assert _rc == 601
+        file open `installer_fh' using "custom installer.do", read text
+        file read `installer_fh' line
+        while r(eof) == 0 {
+            if strpos(`"`macval(line)'"', `"unzipfile "custom archive.zip", replace"') {
+                local found_custom 1
+            }
+            if strpos(`"`macval(line)'"', "pkgtransfer_files.zip") {
+                local found_default 1
+            }
+            file read `installer_fh' line
+        }
+        file close `installer_fh'
+        assert "`returned_zip'" == "custom archive.zip"
+        assert `found_custom' == 1
+        assert `found_default' == 0
+        do "custom installer.do"
+        confirm file "pkgtransfer_files/pkgtransfer.ado"
+        confirm file "pkgtransfer_files/pkgtransfer.sthlp"
+        confirm file "pkgtransfer_files/pkgtransfer.pkg"
+        confirm file "pkgtransfer_files/stata.toc"
+    }
+    local test_rc = _rc
+    capture file close `installer_fh'
+    capture file close `tracker_fh'
+    capture sysdir set PLUS "`original_plus'"
+    if _rc != 0 & `test_rc' == 0 local test_rc = _rc
+    quietly cd "`tmpdir'"
+    capture erase "pkgtransfer_files/pkgtransfer.ado"
+    capture erase "pkgtransfer_files/pkgtransfer.sthlp"
+    capture erase "pkgtransfer_files/pkgtransfer.pkg"
+    capture erase "pkgtransfer_files/stata.toc"
+    capture rmdir "pkgtransfer_files"
+    capture erase "custom installer.do"
+    capture erase "custom archive.zip"
+    capture erase "`fixture_plus'/p/pkgtransfer.ado"
+    capture erase "`fixture_plus'/p/pkgtransfer.sthlp"
+    capture erase "`fixture_plus'/stata.trk"
+    capture rmdir "`fixture_plus'/p"
+    capture rmdir "`fixture_plus'"
+    quietly cd "`orig_dir'"
+    if "`c(pwd)'" != "`orig_dir'" & `test_rc' == 0 local test_rc = 9
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
+* ============================================================
 * SUMMARY
 * ============================================================
 
 display ""
-display as text "pkgtransfer v1.0.4 - Test Results"
+display as text "pkgtransfer v1.0.1 - Test Results"
 display as text "Tests run:    `test_count'"
 display as result "Tests passed: `pass_count'"
 if `fail_count' > 0 {

@@ -1,11 +1,12 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  05aug2026}{...}
 {title:Title}
 
 {p 4 2}
 {hi:pkgtransfer} {hline 2} Transfer installed packages between Stata installations
 
 
+{marker syntax}{...}
 {title:Syntax}
 
 {p 8 17 2}
@@ -30,6 +31,7 @@
 {synoptline}
 {p 4 4 2}
 
+{marker description}{...}
 {title:Description}
 
 {p 4 4 2}
@@ -100,8 +102,10 @@ filename must end with {bf:.do}. Default is {cmd:pkgtransfer.do}.
 {phang}
 {opt zipfile(filename)} specifies a custom name for the generated ZIP file. The
 filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only valid with
-{opt download()}.
+{opt download()}. The generated installer references the selected filename and
+quotes it so paths containing spaces remain valid.
 
+{marker examples}{...}
 {title:Examples}
 
 {p 4 4 2}
@@ -112,7 +116,8 @@ Generates a do-file ({cmd:pkgtransfer.do}) for online installation of all packag
 {p 4 4 2}
 {cmd:. pkgtransfer, download(online)}
 {break}
-Downloads all packages from the internet and creates a local installation script ({cmd:pkgtransfer.do}) and a ZIP archive ({cmd:pkgtransfer_files.zip}).
+Downloads all packages from the internet and creates a local installation
+script ({cmd:pkgtransfer.do}) and a ZIP archive ({cmd:pkgtransfer_files.zip}).
 
 {p 4 4 2}
 {cmd:. pkgtransfer, download(local)}
@@ -167,10 +172,8 @@ Restores online source URLs in {cmd:stata.trk} for packages previously installed
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.0 - 2026-04-08{p_end}
+{pstd}Version 1.0.1 - 2026-08-05{p_end}
 
 {hline}

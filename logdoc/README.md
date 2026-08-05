@@ -1,462 +1,400 @@
-# logdoc
+# logdoc — Faithful Stata log conversion
 
-![version](https://img.shields.io/badge/version-1.1.2-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+**Version 1.1.2** | 2026-07-10
 
-Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents.
+`logdoc` converts Stata `.smcl`, `.log`, or `.do` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents. It is for Stata users who want to preserve output alignment and SMCL colors while adding optional report controls.
 
-## Description
+## Quick Start
 
-`logdoc` transforms Stata `.smcl`, `.log`, or `.do` files into styled, shareable documents. HTML output is faithful by default: Stata's monospace alignment, SMCL result/input/error coloring, table spacing, and horizontal rules are preserved rather than reinterpreted. The result is fully self-contained -- CSS is inlined, graphs are base64-encoded, and the HTML can be emailed, uploaded, or printed to PDF directly from a browser.
+Capture a small SMCL log, check the Python setup, and render a self-contained HTML document:
 
-Semantic enhancements are now opt-in. Syntax highlighting, parsed HTML tables, collapsible output, copy buttons, and Download .do controls are available when requested, but the default renderer stays close to what Stata showed in the Results window.
+```stata
+capture log close _all
+log using "analysis.smcl", replace smcl name(logdoc_demo) nomsg
+sysuse auto, clear
+* # Data Overview
+summarize price mpg weight
+* # Regression Results
+regress price mpg weight
+log close logdoc_demo
 
-## Features
+logdoc_py
+logdoc using "analysis.smcl", output("analysis.html") replace
+```
 
-- **Faithful default HTML** with monospace Stata output, exact table alignment, and Stata-style input/result/error coloring
-- **Seven output formats**: HTML, Markdown, Quarto Markdown (.qmd), Word (.docx), LaTeX (.tex), PDF, or dual HTML+MD
-- **Opt-in syntax highlighting** with `highlight`
-- **Opt-in HTML table parsing** with `tables`; default output keeps all Stata tables monospace
-- **Opt-in collapsible sections** with `fold`
-- **Opt-in copy/download controls** with `copy` and `download`
-- **Base64-embedded graphs** -- fully standalone HTML, no external image files
-- **Light and dark themes** -- faithful Stata-style light and dark rendering
-- **Accent color** -- apply a project or institutional brand color with `accent(#RRGGBB)`
-- **Live session mode** -- `logdoc start` / `logdoc stop` wraps your interactive session
-- **Notebook mode** -- Jupyter-style cell layout with In/Out labels
-- **Table of contents** -- auto-generated from `* # Section` comment markers
-- **Keep/drop filtering** -- show only specific commands in the output
-- **Batch conversion** -- convert all logs in a directory with one command
-- **Combine mode** -- merge several logs into one source-sectioned report
-- **Diff view** -- compare two log files side by side
-- **Email-safe HTML** -- inline CSS for email client compatibility
-- **Annotations** -- embed notes alongside commands
-- **Stamp** -- add Stata version, date, and data filename to the header
-- **Line numbers** -- numbered command blocks for reference
-- **Legacy mode** -- `legacy` enables all HTML enhancements in one switch
-- **Project config** -- global `~/.logdocrc` defaults with per-project `.logdocrc` overrides
-- **Print-optimized CSS** -- clean output for paper/PDF
-- **Dialog box** -- GUI interface via `db logdoc`
+The default HTML keeps Stata's monospace alignment, input/result/error coloring, tables, and horizontal rules close to the original log.
+
+## Requirements
+
+- Stata 16.0 or later.
+- Python 3.6 or later; ordinary HTML, Markdown, Quarto Markdown, and LaTeX conversion uses only the Python standard library.
+- `format(docx)` requires Stata 17.0 or later because it uses Stata's `html2docx`.
+- `format(pdf)` requires either the optional Python package `xhtml2pdf` or the `wkhtmltopdf` system executable.
+- The `run` option requires a batch Stata executable on `PATH`, unless `stataexe()` supplies its name or path.
 
 ## Installation
+
+Install the released package from Stata's Command window:
 
 ```stata
 capture ado uninstall logdoc
 net install logdoc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc/") replace
-```
-
-## Setup
-
-logdoc requires Python 3.6+ (standard library only -- no pip packages). After installing, run the setup diagnostic:
-
-```stata
 logdoc_py
 ```
 
-If it reports "logdoc Python check passed", you are ready. If Python is not found:
+`logdoc_py` should report a Python 3.6+ executable and the bundled renderer. If Stata's Python is not configured, set it once or select a Python executable for the current session:
 
-1. **Configure Stata's Python** (recommended -- one-time, persistent):
-   ```stata
-   set python_exec "/path/to/python3", permanently
-   logdoc_py
-   ```
+```stata
+set python_exec "/path/to/python3", permanently
+logdoc_py
 
-2. **Or set Python for the current session only:**
-   ```stata
-   logdoc_py, python("/usr/local/bin/python3") set
-   ```
+logdoc_py, python("/path/to/python3") set
+```
 
-3. **Or save a per-project Python path** to `.logdocrc`:
-   ```stata
-   logdoc_py, python("/usr/local/bin/python3") save
-   ```
-
-Run `logdoc_py, verbose` to see every candidate that was tried and why each was accepted or rejected.
-
-**Optional: PDF output** — the recommended method is `xhtml2pdf`, a pure Python library:
+To save a project-local Python choice in `.logdocrc`, use `logdoc_py, python("/path/to/python3") save`. To enable PDF output with the preferred converter, run:
 
 ```stata
 logdoc_py, install(xhtml2pdf)
-```
-
-Alternatively, `wkhtmltopdf` works as a system executable:
-
-```bash
-# Ubuntu / Debian
-sudo apt install wkhtmltopdf
-
-# macOS (Homebrew)
-brew install wkhtmltopdf
-
-# RHEL / Fedora
-sudo dnf install wkhtmltopdf
-
-# Windows (Chocolatey)
-choco install wkhtmltopdf
-```
-
-logdoc tries xhtml2pdf first, then falls back to wkhtmltopdf. Verify either is available:
-
-```stata
 logdoc_py, check pdf
 ```
 
-## Requirements
+## Commands
 
-- Stata 16.0+
-- Python 3.6+ (standard library only -- no pip packages needed)
-- `format(docx)` requires Stata 17+
-- `format(pdf)` requires xhtml2pdf (`logdoc_py, install(xhtml2pdf)`) or wkhtmltopdf
+| Command | Description |
+|---------|-------------|
+| `logdoc` | Convert an existing SMCL or plain-text log, or run a `.do` file and convert its log |
+| `logdoc start` / `logdoc stop` | Capture an interactive session and convert it when the session ends |
+| `logdoc diff` | Produce an HTML side-by-side comparison of two logs |
+| `logdoc batch` | Convert all files matching a pattern into an output directory |
+| `logdoc combine` | Merge two or more logs into one source-sectioned document |
+| `logdoc replay` | Repeat the most recent conversion with a theme, format, or browser override |
+| `logdoc_py` | Find, check, select, and save the Python executable used by `logdoc` |
 
-## Syntax
+A dialog interface for the main conversion command is available with `db logdoc`.
+
+## How It Works
+
+`logdoc` parses SMCL or plain-text logs into command, output, table, error, and graph blocks, then sends them to the bundled `logdoc_render.py` renderer. HTML is faithful by default and self-contained: the selected CSS is included in the document and detected graph images are embedded as base64 data.
+
+Enhancements are opt-in so that the default HTML remains a readable Stata transcript. `highlight`, `tables`, `fold`, `copy`, and `download` add semantic controls; `legacy` enables all five together, while `notebook`, `toc`, `linenumbers`, `email`, annotations, filtering, and accent colors are independent features.
+
+| Input | Behavior |
+|-------|----------|
+| `.smcl` | Preserves Stata's SMCL input, result, and error styling |
+| `.log` | Converts plain-text log content without SMCL color information |
+| `.do` | Requires `run`; executes the do-file in a child Stata session, captures an SMCL log, and converts it |
+
+| Format | Result |
+|--------|--------|
+| `html` | Self-contained HTML with inlined CSS and embedded graph images |
+| `md` | Markdown with YAML front matter and Markdown image references |
+| `qmd` | Quarto-flavored Markdown with YAML front matter; it is rendered Markdown, not executable chunks |
+| `both` | HTML and Markdown from one conversion |
+| `docx` | Word document through Stata's `html2docx`; Stata 17+ is required |
+| `tex` | LaTeX document with listings and booktabs |
+| `pdf` | PDF through `xhtml2pdf` first, then `wkhtmltopdf` |
+
+If `format()` is omitted, the output extension selects `md`, `qmd`, `tex`, `docx`, or `pdf`; otherwise the default is `html`. With `format(both)`, an `.html` output path produces a matching `.md` file, an `.md` path produces a matching `.html` file, and a path without an extension produces both formats with those extensions.
+
+Configuration values use one `key=value` entry per line. `logdoc` reads `~/.logdocrc` first and then `.logdocrc` in the current working directory, so project settings override global settings and command options override both. The Python companion uses the same configuration files; its default candidate order is Stata's configured Python, `$LOGDOC_PYTHON`, configuration files, and platform commands such as `python3` or `python`.
+
+## Worked Examples
+
+### 1. Convert an existing SMCL log
+
+The following creates a real Stata log with section markers and converts it to HTML:
+
+```stata
+capture log close _all
+log using "analysis.smcl", replace smcl name(analysis) nomsg
+sysuse auto, clear
+* # Data Overview
+summarize price mpg weight
+* # Regression Results
+regress price mpg weight
+log close analysis
+
+logdoc using "analysis.smcl", output("analysis.html") replace
+```
+
+### 2. Select Markdown or produce both formats
+
+Output extensions are detected automatically. `format(both)` writes HTML and Markdown from the same input.
+
+```stata
+logdoc using "analysis.smcl", output("analysis.md") replace
+logdoc using "analysis.smcl", output("analysis.html") format(both) replace
+```
+
+### 3. Add a table of contents and HTML controls
+
+The `toc` option turns `* # Section Title` comments in the log into headings. `legacy` enables syntax highlighting, parsed supported tables, folding, copy buttons, and Download `.do` controls.
+
+```stata
+logdoc using "analysis.smcl", output("analysis_enhanced.html") ///
+    legacy toc linenumbers generated replace
+```
+
+### 4. Filter a dark-theme report
+
+`keep()` and `drop()` accept pipe-delimited regular-expression patterns matched against command text. `nodots` removes Stata's dot prompts from the displayed command blocks.
+
+```stata
+logdoc using "analysis.smcl", output("regressions.html") ///
+    theme(dark) keep("regress|margins") nodots replace
+```
+
+### 5. Capture a live session
+
+`logdoc start` opens a temporary SMCL log and sets the session line size to 255; `logdoc stop` closes the log, restores the previous line size, and converts the captured session.
+
+```stata
+logdoc start, output("session.html") theme(dark) notebook replace
+sysuse auto, clear
+summarize price mpg
+regress price mpg weight
+logdoc stop
+```
+
+### 6. Run a do-file before conversion
+
+With an existing `analysis.do`, `run` executes it in a child Stata session and converts the resulting SMCL log. The output is automatically replaceable, and `stataexe()` can override the detected child executable.
+
+```stata
+logdoc using "analysis.do", output("run.html") run
+logdoc using "analysis.do", output("run_custom.html") ///
+    run stataexe("stata-mp")
+```
+
+### 7. Batch, combine, and compare logs
+
+These commands operate on existing log files. `combine` requires at least two sources, while `diff` always produces HTML.
+
+```stata
+logdoc batch, input("logs/*.smcl") outdir("reports") replace
+logdoc combine using "logs/setup.smcl" "logs/models.smcl" ///
+    output("reports/project.html") toc replace
+logdoc diff using "logs/old.smcl", compare("logs/new.smcl") ///
+    output("reports/diff.html") replace
+```
+
+### 8. Append and replay a conversion
+
+Append mode adds a second log to an existing HTML, Markdown, Quarto Markdown, LaTeX, or dual-format output. Replay remembers the last resolved conversion settings and accepts theme, format, and open overrides.
+
+```stata
+logdoc using "analysis.smcl", output("project.html") replace
+logdoc using "followup.smcl", output("project.html") append
+
+logdoc using "analysis.smcl", output("replay.html") ///
+    title("Analysis") replace
+logdoc replay, theme(dark)
+```
+
+### 9. Diagnose Python and PDF support
+
+Use `verbose` to see each Python candidate and `set` or `save` to keep the selected executable for the session or project.
+
+```stata
+logdoc_py, python("/path/to/python3") verbose
+logdoc_py, python("/path/to/python3") set
+logdoc_py, python("/path/to/python3") save replace
+logdoc_py, check pdf
+```
+
+## Demo
+
+Regenerate the checked-in examples from a repository checkout with [`demo/demo_logdoc.do`](demo/demo_logdoc.do). The script exercises themes, graph embedding, enhancements, filters, annotations, batch/combine/diff/replay, live sessions, and output formats; the demo files are checkout assets rather than part of the `net install` payload.
+
+| Preview or artifact | Focus |
+|---------------------|-------|
+| ![Residual distribution generated from the demo analysis](demo/residuals.png) | Graph detection and HTML embedding |
+| ![Price and mileage scatterplot by origin](demo/followup_scatter.png) | A second log and graph export |
+| [`sample_light.html`](demo/sample_light.html) | Faithful default HTML |
+| [`sample_enhanced.html`](demo/sample_enhanced.html) | `legacy`, `toc`, line numbers, and generated footer |
+| [`sample_notebook.html`](demo/sample_notebook.html) | Notebook-style cells |
+| [`sample_diff.html`](demo/sample_diff.html) | Side-by-side log comparison |
+| [`sample_both.html`](demo/sample_both.html) and [`sample_both.md`](demo/sample_both.md) | Dual HTML and Markdown output |
+| [`sample_pdf.pdf`](demo/sample_pdf.pdf) | PDF output when a converter is available |
+
+## Command Reference
+
+### `logdoc` syntax
 
 ```stata
 logdoc using filename, output(filename) [options]
-
 logdoc start, output(filename) [options]
 logdoc stop
-
 logdoc diff using file1, compare(file2) output(filename) [replace]
 logdoc batch, input(pattern) outdir(path) [options]
 logdoc combine using file1 file2 [...], output(filename) [options]
 logdoc replay [, theme() format() open]
 ```
 
-### Options
+`output()` is required for conversion, live-session start, diff, and combine. `input()` and `outdir()` are required for batch; `compare()` and `output()` are required for diff; combine needs two or more source files.
 
-| Option | Description |
-|--------|-------------|
-| `output(filename)` | Output file path (**required**) |
-| `format(html\|md\|qmd\|both\|docx\|tex\|pdf)` | Output format; default `html` (auto-detected from extension) |
-| `theme(light\|dark)` | CSS theme; default `light` |
-| `css(filename)` | Custom CSS file (overrides theme) |
-| `accent(#RRGGBB)` | Brand/accent color for built-in HTML styling |
-| `title(string)` | Document title; defaults to input filename |
-| `date(string)` | Date subtitle shown below the title |
-| `footer(string)` | Custom footer text |
-| `generated` | Add "Generated YYYY-MM-DD HH:MM" timestamp footer |
-| `stamp` | Add Stata version, date/time, and data filename to header |
-| `run` | Execute a `.do` file first, then convert (auto-sets `replace`) |
-| `stataexe(string)` | Override the batch Stata executable used by `run` (default: auto-detected from flavor/OS) |
-| `preformatted` | Compatibility option; HTML tables are monospace by default |
-| `nofold` | Compatibility option; folding is off by default |
-| `nodots` | Strip dot prompts for script-style display |
-| `fold` | Collapse long output blocks into expandable sections |
-| `highlight` | Add conservative Stata syntax highlighting to command blocks |
-| `tables` | Parse supported Stata tables into HTML tables |
-| `copy` | Add copy-to-clipboard buttons to command blocks |
-| `download` | Add a Download .do toolbar button |
-| `legacy` | Enable all HTML enhancements in one switch |
-| `linenumbers` | Show line numbers in command blocks |
-| `toc` | Generate table of contents from `* # Section` markers |
-| `notebook` | Jupyter-style cell layout with In/Out labels |
-| `email` | Email-safe HTML with inline CSS |
-| `nograph` | Skip graph detection and embedding |
-| `graphwidth(#)` | Set graph display width in pixels |
-| `graphheight(#)` | Set graph display height in pixels |
-| `keep(pattern)` | Only include matching commands |
-| `drop(pattern)` | Exclude matching commands |
-| `open` | Open output in default browser after generation |
-| `append` | Append to existing HTML, Markdown, LaTeX, or `both` output; not supported for `docx`/`pdf` |
-| `annotate(filename)` | Annotation file with notes to embed |
-| `python(string)` | Explicit path to Python 3 executable; defaults to Stata's configured Python |
-| `quiet` | Suppress status messages |
-| `verbose` | Show detailed processing information |
-| `replace` | Overwrite existing output file |
+### Subcommand constraints
 
-### Input formats
+- `logdoc start` accepts the conversion display and metadata options but not `run` or `stataexe()`; `logdoc stop` takes no options.
+- `logdoc diff` always writes HTML and accepts `replace`, `theme()`, `python()`, `css()`, `accent()`, and `quiet`.
+- `logdoc batch` defaults to HTML and changes each matching input filename's extension in the chosen output directory.
+- `logdoc combine` supports `html`, `md`, `qmd`, `tex`, and `both`; it rejects `docx` and `pdf`.
+- `logdoc replay` requires a previous conversion in the current Stata session and reuses all remembered options except for its documented overrides.
 
-| Extension | Behavior |
-|-----------|----------|
-| `.smcl` | Faithful SMCL rendering with Stata input/result/error colors |
-| `.log` | Plain text log file conversion |
-| `.do` | Requires `run` option; executes in batch mode, then converts |
-
-The `run` option launches a batch Stata child session using the executable that
-matches your flavor and OS (`stata-mp`/`stata-se`/`stata` on Unix/macOS,
-`StataMP-64`/`StataSE-64`/`Stata-64` on Windows); the binary must be on your
-`PATH`. Override it with `stataexe()` when your install uses a nonstandard name
-or location, e.g. `stataexe(/opt/stata18/stata-mp)`.
-
-### Output formats
-
-| Format | Description |
-|--------|-------------|
-| `html` | Self-contained HTML with inlined CSS and base64 graphs |
-| `md` | Markdown with YAML front matter |
-| `qmd` | Quarto-flavored Markdown with YAML front matter |
-| `both` | HTML + Markdown from one command |
-| `docx` | Word document via `html2docx` (Stata 17+) |
-| `tex` | LaTeX with listings and booktabs |
-| `pdf` | PDF via xhtml2pdf (preferred) or wkhtmltopdf |
-
-## When to Use logdoc
-
-| Tool | Best fit |
-|------|----------|
-| `logdoc` | Post-hoc conversion of existing `.smcl` or `.log` files to faithful, shareable documents |
-| `translate` | Plain SMCL-to-text/PostScript/basic PDF conversion with minimal styling |
-| `dyndoc` | Dynamic documents that execute embedded Stata code while building the report |
-| `markstat` | Literate analysis documents mixing prose, Stata code, and output |
-| `texdoc` / `webdoc` | LaTeX or web documents authored from annotated Stata source files |
-| Quarto | Executable multi-language reports; `logdoc` `.qmd` output is rendered Markdown, not executable chunks |
-| `markdown` | Convert Markdown text to HTML or Word, not Stata log files |
-
-## Examples
+### `logdoc_py` syntax and actions
 
 ```stata
-* Basic: SMCL log to HTML
-logdoc using "analysis.smcl", output("analysis.html") replace
-
-* Auto-detected Markdown (from .md extension)
-logdoc using "results.smcl", output("results.md") replace
-
-* Dark theme with title and date
-logdoc using "output.smcl", output("output.html") theme(dark) ///
-    title("Survival Analysis") date("March 2026") replace
-
-* Institutional accent color
-logdoc using "output.smcl", output("report.html") accent("#005ea8") replace
-
-* Word document
-logdoc using "results.smcl", output("results.docx") replace
-
-* LaTeX
-logdoc using "results.smcl", output("results.tex") replace
-
-* Quarto Markdown
-logdoc using "results.smcl", output("results.qmd") replace
-
-* Opt-in parsed/enhanced HTML
-logdoc using "analysis.smcl", output("enhanced.html") ///
-    highlight tables fold copy download replace
-
-* Notebook mode with TOC and line numbers
-logdoc using "analysis.smcl", output("notebook.html") ///
-    notebook linenumbers toc replace
-
-* Filter to show only regressions
-logdoc using "results.smcl", output("regressions.html") ///
-    keep("regress") replace
-
-* Live session
-logdoc start, output("session.html") theme(dark) open
-sysuse auto, clear
-regress price mpg weight
-logdoc stop
-
-* Batch convert all SMCL files
-logdoc batch, input("*.smcl") outdir("reports/") replace
-
-* Combine several logs into one project report
-logdoc combine using "setup.smcl" "models.smcl" "tables.smcl", ///
-    output("project_report.html") toc replace
-
-* Compare two logs
-logdoc diff using "old.smcl", compare("new.smcl") ///
-    output("diff.html") replace
-
-* Replay with different theme
-logdoc replay, theme(light)
+logdoc_py [, check|set|save|install(string) python(path) pdf ///
+    replace dryrun quiet verbose]
 ```
 
-## Demo
+`check` is the default action. At most one of `check`, `set`, `save`, and `install()` may be specified. `set` stores the selected executable in `$LOGDOC_PYTHON` for the current session, `save` writes `python=...` to `.logdocrc` in the current working directory, and `install()` runs `-m pip install` through the selected executable when an explicit package request is supplied. `logdoc` itself has no required or optional third-party Python package dependencies.
 
-### Live session
+## Key Options
 
-```stata
-. logdoc start, output("session.html") title("Live Session Example") notebook replace
+### Format and theme
 
-logdoc session started
-Output will be saved to: session.html
-Use logdoc stop to end and convert
+| Option | Accepted value | Default and effect |
+|--------|----------------|--------------------|
+| `output(filename)` | Existing or new output path | Required for conversion, start, diff, and combine |
+| `format(string)` | `html`, `md`, `qmd`, `both`, `docx`, `tex`, `pdf` | Extension detection; otherwise `html` |
+| `theme(string)` | `light`, `dark` | `light` |
+| `css(filename)` | Existing CSS file | Built-in theme CSS |
+| `accent(#RRGGBB)` | Six-digit hexadecimal color | None; applied after `css()` |
 
-. sysuse auto, clear
-(1978 automobile data)
+### Document metadata
 
-. summarize price mpg
+| Option | Effect | Default |
+|--------|--------|---------|
+| `title(string)` | Sets the document title | Input filename |
+| `date(string)` | Adds a date subtitle | None |
+| `footer(string)` | Adds custom footer text | None |
+| `generated` | Adds a generated timestamp footer | Off |
+| `stamp` | Adds Stata version, edition, date/time, and current data filename to the header | Off |
 
-    Variable │        Obs        Mean    Std. dev.       Min        Max
-─────────────┼─────────────────────────────────────────────────────────
-       price │         74    6165.257    2949.496       3291      15906
-         mpg │         74     21.2973    5.785503         12         41
+### Display and layout
 
-. regress price mpg weight
+| Option | Effect | Default |
+|--------|--------|---------|
+| `run` | Executes a `.do` file in batch mode before conversion and automatically enables `replace` | Off |
+| `stataexe(string)` | Overrides the child Stata executable used by `run`; an error without `run` | Auto-detected from flavor and operating system |
+| `preformatted` | Compatibility option; keeps HTML tables monospace unless `tables` is requested | Off |
+| `nofold` | Compatibility option; suppresses folding | Folding is already off |
+| `nodots` | Removes dot prompts from command blocks | Off |
+| `fold` | Collapses long output blocks into expandable sections | Off |
+| `highlight` | Adds conservative Stata syntax highlighting | Off |
+| `tables` | Parses supported tables into HTML table elements, with monospace fallback if parsing fails | Off |
+| `copy` | Adds copy-to-clipboard buttons to command blocks | Off |
+| `download` | Adds a Download `.do` toolbar button | Off |
+| `legacy` | Enables `highlight`, `tables`, `fold`, `copy`, and `download` together | Off |
+| `linenumbers` | Adds line numbers to command blocks | Off |
+| `toc` | Builds a table of contents from section-marker comments such as `* # Results` | Off |
+| `notebook` | Uses Jupyter-style `In` and `Out` cell labels | Off |
+| `email` | Inlines CSS and removes the `<style>` block for email clients | Off |
+| `nograph` | Skips graph detection and embedding | Graph detection enabled |
+| `graphwidth(#)` | Sets embedded graph display width in pixels | Renderer default |
+| `graphheight(#)` | Sets embedded graph display height in pixels | Renderer default |
 
-      Source │       SS           df       MS      Number of obs   =        74
-─────────────┼──────────────────────────────────   F(2, 71)        =     14.74
-       Model │   186321280         2  93160639.9   Prob > F        =    0.0000
-    Residual │   448744116        71  6320339.67   R-squared       =    0.2934
-─────────────┼──────────────────────────────────   Adj R-squared   =    0.2735
-       Total │   635065396        73  8699525.97   Root MSE        =      2514
+### Filtering and other controls
 
-─────────────┬──────────────────────────────────────────────────────────────────────
-        price │ Coefficient   Std. err.       t    P>|t|      [95% conf. interval]
-─────────────┼──────────────────────────────────────────────────────────────────────
-         mpg │   -49.51222    86.15604     -0.57    0.567     -221.3025      122.278
-      weight │    1.746559    .6413538      2.72    0.008       .467736     3.025382
-       _cons │    1946.069     3597.05      0.54    0.590     -5226.245     9118.382
-─────────────┴──────────────────────────────────────────────────────────────────────
+| Option | Effect | Default |
+|--------|--------|---------|
+| `keep(string)` | Retains commands matching pipe-delimited regular-expression patterns | None |
+| `drop(string)` | Removes commands matching pipe-delimited regular-expression patterns | None |
+| `open` | Opens the primary output in the default browser or application | Off |
+| `append` | Appends to an existing `html`, `md`, `qmd`, `tex`, or `both` output | Off |
+| `annotate(filename)` | Adds notes using `@block N: text` or `@command "pattern": text` entries | None |
+| `python(string)` | Selects an explicit Python 3 executable | Stata Python, then configured and system candidates |
+| `quiet` | Suppresses status messages | Off |
+| `verbose` | Shows renderer processing details | Off |
+| `replace` | Allows overwriting existing output files | Off |
 
-. logdoc stop
+`quiet` and `verbose` are mutually exclusive. `append` does not require `replace`, but it is not supported for `docx` or `pdf`; `run` enables `replace` automatically. Graph dimensions control display size, while `graph export ..., width()` and `height()` control the source image resolution.
 
-Generating document...
-Output: session.html
-```
+### `logdoc_py` options
 
-### Embedded graphs
+| Option or action | Effect | Default |
+|------------------|--------|---------|
+| `check` | Checks Python and the bundled renderer | Default action |
+| `set` | Stores the selected executable in `$LOGDOC_PYTHON` for this session | Off |
+| `save` | Writes or updates `python=...` in `.logdocrc` | Off |
+| `install(string)` | Runs an explicit pip installation with the selected Python | Off |
+| `python(path)` | Checks only the supplied Python executable | Automatic candidate search |
+| `pdf` | Checks `xhtml2pdf` and `wkhtmltopdf` | Off |
+| `replace` | Allows `save` to replace an existing `python=` entry | Off |
+| `dryrun` | Shows the pip command without installing; only valid with `install()` | Off |
+| `quiet` | Suppresses nonessential output | Off |
+| `verbose` | Shows candidate and renderer checks | Off |
 
-logdoc detects `graph export` commands in the log and embeds the images as base64 directly in the HTML — no external files needed.
-
-![Residual Distribution](demo/residuals.png)
-
-![Price and Mileage by Origin](demo/followup_scatter.png)
-
-### Option showcase
-
-<details>
-<summary>Key options demonstrated in the demo (click to expand)</summary>
-
-```stata
-* Basic HTML with title, date, footer, and Stata version stamp
-logdoc using "analysis.smcl", output("report.html") ///
-    title("Auto Dataset Analysis") date("28 April 2026") ///
-    footer("Generated from demo_logdoc.do") stamp replace
-
-* Dark theme with custom graph dimensions
-logdoc using "analysis.smcl", output("dark.html") ///
-    theme(dark) graphwidth(520) graphheight(320) replace
-
-* Enhanced HTML: syntax highlighting, parsed tables, folding, copy/download
-logdoc using "analysis.smcl", output("enhanced.html") ///
-    legacy toc linenumbers generated replace
-
-* Notebook mode with clean output (no dot prompts)
-logdoc using "analysis.smcl", output("notebook.html") ///
-    notebook nodots replace
-
-* Filter to show only regressions
-logdoc using "analysis.smcl", output("filtered.html") ///
-    keep("regress|margins") nodots replace
-
-* Batch convert all SMCL files in a directory
-logdoc batch, input("logs/*.smcl") outdir("reports/") replace
-
-* Combine selected logs into one report
-logdoc combine using "logs/setup.smcl" "logs/models.smcl" ///
-    "logs/tables.smcl", output("reports/project.html") toc replace
-
-* Side-by-side diff of two logs
-logdoc diff using "old.smcl", compare("new.smcl") output("diff.html") replace
-```
-
-</details>
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `logdoc` | Convert a log file to a document |
-| `logdoc start` / `logdoc stop` | Live session mode |
-| `logdoc diff` | Side-by-side diff of two log files |
-| `logdoc batch` | Batch convert multiple log files |
-| `logdoc combine` | Combine multiple logs into one report |
-| `logdoc replay` | Re-run the last conversion with optional overrides |
-| `logdoc_py` | Find, check, and save Python configuration for logdoc |
-
-## logdoc_py
-
-`logdoc_py` is a setup and diagnostic companion for the Python executable used by `logdoc`. Run it before first use, after moving projects between computers, or when `logdoc` reports that Python cannot be found.
-
-```stata
-logdoc_py                                           * check the default setup
-logdoc_py, verbose                                  * show every candidate tried
-logdoc_py, python("/opt/venv/bin/python3") set      * use a specific Python for this session
-logdoc_py, python("/opt/venv/bin/python3") save     * save to .logdocrc
-logdoc_py, check pdf                                * also check wkhtmltopdf
-logdoc_py, install(jinja2) dryrun                   * preview a pip command
-```
-
-Actions: `check` (default), `set`, `save`, `install()`. At most one may be specified. See `help logdoc_py` for the full detection order, stored results, and the portable setup contract.
-
-## Project Configuration (.logdocrc)
-
-Create `~/.logdocrc` to set defaults across projects, then add a project-level `.logdocrc` in your working directory when a project needs overrides. Command-line options override both files. Format is one `key=value` per line:
-
-```
-theme=dark
-accent=#005ea8
-python=/usr/local/bin/python3
-```
-
-Use `logdoc_py, save` to write the `python=` line automatically. Other keys correspond to logdoc options (e.g., `theme`, `format`, `accent`, `toc`, `tables`).
+`logdoc_py` checks candidates in this order when `python()` is omitted: Stata's configured Python, `$LOGDOC_PYTHON`, `python=` in global then project `.logdocrc`, and platform commands such as `python3`, `python`, or `py -3`. `quiet` and `verbose` are mutually exclusive.
 
 ## Stored Results
 
-**logdoc** (convert, start/stop):
+### `logdoc` results
 
-| Result | Type | Contents |
-|--------|------|----------|
-| `r(output)` | Macro | Output file path |
-| `r(input)` | Macro | Input file path |
-| `r(format)` | Macro | Output format used |
+Conversion, `logdoc stop`, `logdoc combine`, and `logdoc replay` return the conversion results below. `r(secondary)` is present only for `format(both)`.
+
+| Result | Type | Meaning |
+|--------|------|---------|
+| `r(output)` | Macro | Output path supplied or resolved |
+| `r(input)` | Macro | Input path used for rendering; with `run`, this may be the captured temporary log |
+| `r(format)` | Macro | Format used |
 | `r(theme)` | Macro | Theme used |
-| `r(accent)` | Macro | Accent color used, if specified |
-| `r(secondary)` | Macro | Secondary output path (`format(both)` only) |
-| `r(nblocks)` | Scalar | Number of rendered content blocks parsed |
-| `r(filesize)` | Scalar | Output file size in bytes |
-| `r(ngraphs)` | Scalar | Number of graph export commands detected |
-| `r(ntables)` | Scalar | Number of table blocks detected |
-| `r(nwarnings)` | Scalar | Number of renderer warnings |
+| `r(accent)` | Macro | Accent color, if supplied |
+| `r(secondary)` | Macro | Secondary output path for `format(both)` |
+| `r(nblocks)` | Scalar | Number of rendered content blocks |
+| `r(filesize)` | Scalar | Output size in bytes |
+| `r(ngraphs)` | Scalar | Detected graph export commands |
+| `r(ntables)` | Scalar | Detected table blocks |
+| `r(nwarnings)` | Scalar | Renderer warnings, such as unresolved graph files |
 
-**logdoc combine**:
+`logdoc combine` additionally returns `r(n_sources)`, the number of source files combined. `logdoc batch` returns `r(n_files)` and `r(n_failed)`. `logdoc diff` returns the macros `r(output)`, `r(input)`, and `r(compare)`.
 
-Includes the `logdoc` conversion results above, plus:
+### `logdoc_py` results
 
-| Result | Type | Contents |
-|--------|------|----------|
-| `r(n_sources)` | Scalar | Number of source files combined |
+On a successful call, `logdoc_py` returns:
 
-**logdoc batch**:
+| Result | Type | Meaning |
+|--------|------|---------|
+| `r(ok)` | Scalar | 1 when the requested action completes |
+| `r(python_ok)` | Scalar | 1 when a usable Python executable was found |
+| `r(renderer_ok)` | Scalar | 1 when `logdoc_render.py` was found and passed its smoke check |
+| `r(pdf_ok)` | Scalar | 1 when `xhtml2pdf` or `wkhtmltopdf` is available; present only with `pdf` |
+| `r(installed)` | Scalar | Installation status for `install()`; present only for that action |
+| `r(python)` | Macro | Selected Python executable |
+| `r(python_version)` | Macro | Python version string |
+| `r(python_source)` | Macro | Candidate source: `option`, `global`, `config`, `stata`, or `path` |
+| `r(renderer)` | Macro | Path to `logdoc_render.py` |
+| `r(config)` | Macro | Configuration path when a configuration file was read or written |
+| `r(xhtml2pdf)` | Macro | `installed` when the preferred PDF library is available |
+| `r(wkhtmltopdf)` | Macro | Path or command name when `wkhtmltopdf` is found |
+| `r(required)` | Macro | Required Python packages; empty for current `logdoc` |
+| `r(optional)` | Macro | Optional Python packages; empty for current `logdoc` |
+| `r(missing)` | Macro | Missing Python packages; empty for current `logdoc` |
+| `r(install_cmd)` | Macro | Pip command used or proposed by `dryrun` |
 
-| Result | Type | Contents |
-|--------|------|----------|
-| `r(n_files)` | Scalar | Number of files processed |
-| `r(n_failed)` | Scalar | Number of files that failed |
+## Assumptions and Limits
 
-**logdoc diff**:
-
-| Result | Type | Contents |
-|--------|------|----------|
-| `r(output)` | Macro | Output file path |
-| `r(input)` | Macro | First (left-side) input file path |
-| `r(compare)` | Macro | Second (right-side) file path |
-
-## Tips
-
-- Use `.smcl` not `.log` for best results -- SMCL files preserve Stata's input/result/error color semantics
-- Use `log using "file.smcl", nomsg` to avoid metadata clutter
-- `logdoc start` and `logdoc using ..., run` set Stata's line size to the maximum (`255`) while capturing output; existing logs must be rerun if they were already wrapped
-- Structure .do files with `* # Section Title` comments for navigable documents with `toc`
-- Use `legacy` when you want every HTML enhancement enabled in one switch
-- Use `~/.logdocrc` for personal defaults, then `.logdocrc` in a project directory for project-specific overrides
-- Run `python query` or `logdoc_py, check verbose` when diagnosing Python setup; the default path uses Stata's configured Python before project or PATH fallbacks
+- SMCL is the preferred input because plain `.log` files do not retain Stata's input, result, and error color tags.
+- Graphs are embedded when a `graph export` command is detected and the referenced image can be resolved; use a path relative to the log or an absolute path for reliability. `nograph` disables this scan.
+- HTML embeds graph images, while Markdown, Quarto Markdown, and LaTeX use image references that must remain resolvable when the output is moved.
+- `format(qmd)` produces rendered Markdown with Quarto front matter; it does not create executable Quarto code cells.
+- `format(docx)` is unavailable before Stata 17. `format(pdf)` needs `xhtml2pdf` or `wkhtmltopdf`; check it with `logdoc_py, check pdf`.
+- `logdoc combine` does not create Word or PDF output. `append` is unsupported for Word and PDF.
+- An existing output file requires `replace`, except when `append` is used; `run` sets `replace` automatically.
+- `logdoc stop` permits only one active session. If conversion fails, it preserves the captured SMCL log and reports a command that can convert it manually.
+- Input, output, annotation, CSS, Python, and pip-package values that contain shell-control characters are rejected before an external shell call.
+- The default renderer favors faithful monospace output. Use `tables` only when the supported table parser is appropriate; unsupported or ambiguous tables remain monospace.
 
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
-## Version
+## Version History
 
-Version 1.1.2
-
-### Changelog
-
-- **1.1.2** (2026-07-10) -- Reject shell-control characters in user-supplied
-  paths, Python executable values, and pip package requests before any external
-  shell call; preserve embedded double quotes when batch, session, and replay
-  commands rebuild options.
-- **1.1.1** (2026-07-07) -- Conversion failures are now reported even when a previous output file exists (renderer success is verified, not inferred from file existence); UTF-8 output encoding on Windows; `logdoc replay` re-executes `run` conversions instead of rendering the .do source; `logdoc stop` preserves the captured session log when conversion fails; `logdoc_py` reads `~/.logdocrc` in addition to the project `.logdocrc`; `combine` rejects `.pdf`/`.docx` outputs; `stataexe()` without `run` is an error.
-- **1.1.0** (2026-06-14) -- Faithful-by-default HTML rendering; opt-in enhancements; `run`, `combine`, `accent()`, `.logdocrc` support.
+- **1.1.2** (2026-07-10): Reject shell-control characters in user-supplied paths, Python executable values, and pip package requests before external shell calls; preserve embedded double quotes when batch, session, and replay commands rebuild options.
+- **1.1.1** (2026-07-07): Report conversion failures even when a previous output exists; use UTF-8 output on Windows; re-execute `run` conversions during replay; preserve captured session logs on failed conversion; read global `.logdocrc`; reject `docx` and `pdf` combine outputs; and require `stataexe()` only with `run`.
+- **1.1.0** (2026-06-14): Add faithful-by-default HTML rendering, opt-in enhancements, `run`, `combine`, `accent()`, and `.logdocrc` support.
 
 ## Author
 

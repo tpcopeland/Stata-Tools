@@ -1,5 +1,5 @@
-*! pkgtransfer Version 1.0.0  2026/04/08
-*! Author: Timothy P Copeland
+*! pkgtransfer Version 1.0.1  2026/08/05
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
     DESCRIPTION:
@@ -623,7 +623,7 @@ quietly{
             file write inst "*Set directory" _n
             file write inst `"cd "\$package_dir""' _n _n
             file write inst "*Unzip and install from local files" _n
-            file write inst "unzipfile pkgtransfer_files.zip, replace" _n _n
+            file write inst `"unzipfile "`zipfile'", replace"' _n _n
             file write inst "*Install packages (Note: add 'replace' or 'force' options to the -net install- command if updating packages)" _n
             file write inst "foreach pkg in `pkg_list_for_do' {" _n
 			file write inst `"capture noisily net install \`pkg', from("\$package_dir/pkgtransfer_files")"' _n
