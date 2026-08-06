@@ -218,8 +218,10 @@ capture noisily {
     assert B[2] == "Cutoff"
     assert C[2] == "Estimate"
     assert D[2] == "(95% CI)"
-    assert B[3] == "Cutoff >= .2"
-    assert B[9] == "Cutoff >= .5"
+    * Section labels are rendered at one precision, with a leading zero: the
+    * old per-cutoff %9.0g formatting produced ".2" / ".5".
+    assert B[3] == "Cutoff >= 0.2"
+    assert B[9] == "Cutoff >= 0.5"
     assert C[4] == "100.0%"
     assert C[10] == "66.7%"
 }

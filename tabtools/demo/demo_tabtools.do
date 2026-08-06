@@ -203,7 +203,7 @@ quietly simtab estid, estimate(est) se(se) true(truev)              ///
     metrics(mean bias empse meanse coverage n nonconv)              ///
     digits(3) xlsx("`xlsx_simtab'") sheet("Scenarios")              ///
     title("Simulation results by scenario (400 replications)")      ///
-    footnote("Coverage is empirical 95% CI coverage; * flags off-nominal coverage.")
+    footnote("Coverage is empirical 95% CI coverage.")
 
 * Workbook sheet 2: merged-header multi-estimand block
 use "`reps'", clear
@@ -562,7 +562,7 @@ noisily simtab estid, estimate(est) se(se) true(truev)              ///
     metrics(mean bias empse meanse coverage n nonconv)              ///
     digits(3)                                                       ///
     title("Simulation results by scenario (400 replications)")      ///
-    footnote("Coverage is empirical 95% CI coverage; * flags off-nominal coverage.") ///
+    footnote("Coverage is empirical 95% CI coverage.") ///
     display
 
 * ## Figure-ready companion frame (plotframe)
@@ -1695,7 +1695,9 @@ preserve
 import excel using "`xlsx_stacktab'", sheet("Composite") clear allstring
 assert A[1] == "Table 2. Hormone Therapy and Recurrent Events"
 assert B[6] == "By estrogen dose"
-assert C[6] == "aHR 95% CI"
+* Every stacked block header row carries the columnmerge() header, not the raw
+* concatenation of the two source headers.
+assert C[6] == "aHR (95% CI)"
 assert B[7] == "Low dose"
 assert C[7] == "0.91 (0.74, 1.12)"
 assert B[9] == "aHR = adjusted hazard ratio; CI = confidence interval. Models adjusted for age and comorbidities."

@@ -1,6 +1,6 @@
 ### Table 1. Baseline Characteristics
 
-| No. (Column %) or Mean±SD | N=8,934 | N=6,066 | p-value |
+| No. (Column %) or Mean±SD | SSRI (N=8,934) | SNRI (N=6,066) | p-value |
 | --- | --- | --- | --- |
 | Age at cohort entry (years) | 58.3±13.4 | 58.5±13.3 | 0.24 |
 | Female sex | 5,351 (60) | 3,621 (60) | 0.80 |
@@ -23,7 +23,9 @@
 | --- | --- | --- | --- |
 | Age at cohort entry (years) | 1.00 |  |  |
 | C-reactive protein (mg/L) | -0.01 | 1.00 |  |
-| Prior hospitalizations | -0.00 | 0.01 | 1.00 |
+| Prior hospitalizations | 0.00 | 0.01 | 1.00 |
+
+** p<.05, ** p<.01, *** p<.001*
 
 ### Table 4. First Six Analysis Records
 
@@ -49,3 +51,5 @@
 | C | Unweighted | 0.157 | +0.057 | 74%* | 379 | 0.557 | +0.057 | 72%* | 376 |
 |  | IIW | 0.110 | +0.010 | 96% | 400 | 0.508 | +0.008 | 96% | 400 |
 |  | IIW + log(test) | 0.128 | +0.028 | 92%* | 400 | 0.528 | +0.028 | 89%* | 400 |
+
+** coverage differs from the nominal 95% by more than 2 Monte Carlo SEs*

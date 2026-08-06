@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 1.10.1  2026/07/27
+*! _tabtools_markdown_write Version 1.11.0  2026/08/06
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,16 +62,13 @@ program define _tabtools_markdown_write, rclass
         if `headerstart' < 1 local headerstart = 1
         if `datastart' < 1 local datastart = 1
 
+        * A Markdown heading is emitted ONLY for an explicit title(). The writer
+        * used to scan row 1 for the first non-empty cell when no title was
+        * given, which promoted table DATA into a fabricated heading: for
+        * table1_tc, row 1 holds the group labels, so a by(foreign) table with
+        * no title() was headed "### Domestic". Header-shaped data must never
+        * become a heading.
         local _title `"`title'"'
-        if `"`_title'"' == "" & `headerstart' > 1 & _N >= 1 {
-            foreach _v of local _allvars {
-                mata: st_local("_cell", _tt_md_cell("`_v'", 1))
-                if `"`_cell'"' != "" {
-                    local _title `"`_cell'"'
-                    continue, break
-                }
-            }
-        }
 
         forvalues _j = 1/`_k' {
             local _v : word `_j' of `_vars'

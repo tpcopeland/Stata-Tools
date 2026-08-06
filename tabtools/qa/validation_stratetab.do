@@ -447,7 +447,7 @@ capture noisily {
     local irr_low_fmt = ///
         strtrim(string(round(`irr_low', 0.01), "%11.2f")) + ///
         " (" + strtrim(string(round(`irr_low_lo', 0.01), "%11.2f")) + ///
-        "-" + strtrim(string(round(`irr_low_hi', 0.01), "%11.2f")) + ")"
+        ", " + strtrim(string(round(`irr_low_hi', 0.01), "%11.2f")) + ")"
 
     stratetab, using("`output_dir'/_val_strate_rr_ref" "`output_dir'/_val_strate_rr_exp") ///
         xlsx("`output_dir'/_val_stratetab_rr.xlsx") ///
@@ -545,7 +545,7 @@ capture noisily {
     local irr_cell = ///
         strtrim(string(round(`irr',    10^(-`rd')), "%11.`rd'f")) + ///
         " (" + strtrim(string(round(`irr_lo', 10^(-`rd')), "%11.`rd'f")) + ///
-        "-"  + strtrim(string(round(`irr_hi', 10^(-`rd')), "%11.`rd'f")) + ")"
+        ", " + strtrim(string(round(`irr_hi', 10^(-`rd')), "%11.`rd'f")) + ")"
 
     stratetab, using("`output_dir'/_val_strate_z_ref" "`output_dir'/_val_strate_z_exp") ///
         csv("`output_dir'/_val_stratetab_z.csv") ///

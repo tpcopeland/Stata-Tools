@@ -1,4 +1,4 @@
-*! regtab Version 1.10.1  2026/07/27
+*! regtab Version 1.11.0  2026/08/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -308,9 +308,16 @@ if "`starslevels'" != "" {
 	local _sl3 : word 3 of `starslevels'
 }
 
-* Build format strings from digits (F3)
-local coef_fmt "%21.`digits'f"
-local ci_fmt "%`=`digits'+3'.`digits'fc"
+* Build format strings from digits (F3). Both widths must be large enough to
+* hold the widest representable fixed-point value: Stata silently falls back to
+* low-precision scientific notation when a value overflows the field width, so
+* a narrow CI field renders two distinct bounds as one indistinguishable
+* "1.0e+09". Width 32 covers the full |x| < 1e30 fixed-point range at up to 6
+* decimals (digits() is validated to 0-6). No "c" (thousands) flag: the CI
+* string must not acquire commas that would collide with a sep(",") request or
+* diverge from the comma-free coefficient column.
+local coef_fmt "%32.`digits'f"
+local ci_fmt "%32.`digits'f"
 local coef_round = 10^(-`digits')
 
 * Resolve formatting
@@ -2087,8 +2094,15 @@ if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
 replace c`i' = subinstr(c`i', ",", "", .) if _n >= 3
 destring c`i', gen(double c`i'z) force
 * Reference categories are identified from collect's factor-level key, not
-* from a numerical 0/1 value that may be a legitimate coefficient.
-replace c`i' = `"`refcat'"' if _is_base_level & c`=`i'+1' == "" & _n >= 3
+* from a numerical 0/1 value that may be a legitimate coefficient. The key
+* alone only says "this row is a factor level"; whether THIS model constrained
+* it comes from the model's own cells. collect emits _r_b (0, or 1 after
+* eform) with an empty CI for a level the model constrained, and emits nothing
+* at all for a level the model never contained. Requiring a non-empty estimate
+* therefore keeps a constrained level labelled and leaves an absent level
+* blank, instead of claiming every model uses the same reference category.
+replace c`i' = `"`refcat'"' if _is_base_level & strtrim(c`i') != "" ///
+	& c`=`i'+1' == "" & _n >= 3
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -2102,7 +2116,7 @@ if "`re_transform'" != "none" {
 	if _rc gen double _eplot_est`_model_ix' = .
 	replace _eplot_est`_model_ix' = c`i'z if _n >= 3
 * Fixed effects: user-specified decimal places (default 2)
-gen str20 c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") if !_is_re & !missing(c`i'z)
+gen str32 c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") if !_is_re & !missing(c`i'z)
 * Transformed random intercept (MOR/MHR): same precision as fixed effects
 replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
     if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(c`i'z)
@@ -2158,7 +2172,8 @@ forvalues i = 2(3)`=`last'+1' {
         replace _ci_hi = exp(sqrt(2 * _ci_hi) * invnormal(0.75)) ///
             if _is_re_intercept == 1 & !missing(_ci_hi) & _ci_hi >= 0
     }
-	    gen str50 _ci_fmt = ""
+	    * Wide enough for two %32.#f bounds plus parentheses and any sep().
+	    gen str244 _ci_fmt = ""
 	    capture confirm variable _eplot_ll`_model_ix'
 	    if _rc gen double _eplot_ll`_model_ix' = .
 	    capture confirm variable _eplot_ul`_model_ix'
@@ -2672,7 +2687,9 @@ if "`compact'" != "" {
         * Update column header to combined label
         local _hdr_est = c`m'[2]
         local _hdr_ci = c`_ci_col'[2]
-        qui replace c`m' = `"`_hdr_est' `_hdr_ci'"' in 2
+        * strtrim: with no CI header to append this leaves a trailing space in
+        * the stored cell ("Compact "), which reaches the CSV and the workbook.
+        qui replace c`m' = strtrim(`"`_hdr_est' `_hdr_ci'"') in 2
     }
 
     * Drop CI columns (c2, c5, c8, ...)
@@ -2902,16 +2919,16 @@ if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
 drop A_length factor_length c*_max c*_length
 
+* Reference rows are tracked PER MODEL. A union across models would let one
+* model's reference row merge and blank the estimate/CI/p triplet of a
+* different model that has a real result on that row.
+local _ref_model_ix = 0
 forvalues i = 1(`_cols_per_model')`last'{
+local _ref_model_ix = `_ref_model_ix' + 1
 gen ref`i' = _n if c`i' == `"`refcat'"'
 order ref`i', after(c`i')
-levelsof ref`i', local(ref`i'_levels)
+levelsof ref`i', local(_ref_rows_`_ref_model_ix')
 }
-local ref_rows ""
-forvalues i = 1(`_cols_per_model')`last'{
-local ref_rows `"`ref_rows' `ref`i'_levels'"'
-}
-local ref_rows: list uniq ref_rows
 
 * CSV export (F2) — must happen before clear
 if "`csv'" != "" {
@@ -2928,8 +2945,37 @@ local _ret_markdown_cols .
 if `"`markdown'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
+	* GFM allows exactly one header row, but this table has two semantic header
+	* levels: row 2 carries the model names (only in each model's first column,
+	* the rest being covered by a merged range in Excel) and row 3 carries the
+	* statistic labels. Writing row 2 alone dropped every statistic label into
+	* the body and lost the model identity of columns 2 and 3 of each model.
+	* Flatten both levels into row 3 -- "Model A: 95% CI" -- and start the body
+	* at row 4. Snapshot first: the flatten must not reach frame() or r(table).
+	tempfile _md_snapshot
+	quietly save `"`_md_snapshot'"', replace
+	if _N >= 3 {
+		forvalues _mdc = 1/`n_models' {
+			local _md_first = (`_mdc' - 1) * `_cols_per_model' + 1
+			local _md_name = strtrim(c`_md_first'[2])
+			if `"`_md_name'"' != "" {
+				forvalues _md_off = 0/`=`_cols_per_model' - 1' {
+					local _md_col = `_md_first' + `_md_off'
+					capture confirm variable c`_md_col'
+					if !_rc {
+						quietly replace c`_md_col' = ///
+							`"`_md_name': "' + strtrim(c`_md_col') ///
+							in 3 if strtrim(c`_md_col') != ""
+						quietly replace c`_md_col' = `"`_md_name'"' ///
+							in 3 if strtrim(c`_md_col') == ""
+					}
+				}
+			}
+		}
+	}
 	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-		`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') strictheaders
+		`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') ///
+		headerstart(3) datastart(4) strictheaders
 	if _rc {
 		local _md_rc = _rc
 		noisily display as error "Failed to export Markdown to `markdown'"
@@ -2939,6 +2985,7 @@ if `"`markdown'"' != "" {
 	local _ret_markdown `"`markdown'"'
 	local _ret_markdown_rows = r(n_rows)
 	local _ret_markdown_cols = r(n_cols)
+	quietly use `"`_md_snapshot'"', clear
 	noisily display as text "Markdown exported to `markdown'"
 }
 
@@ -2988,7 +3035,16 @@ if `_has_xlsx' {
 local _fn_text `"`footnote'"'
 if "`stars'" != "" {
 	local _stars_note "* p<`_sl1', ** p<`_sl2', *** p<`_sl3'"
-	if `"`_fn_text'"' != "" local _fn_text `"`_fn_text'; `_stars_note'"'
+	* Punctuation-aware join: a user footnote that already ends in terminal
+	* punctuation must not gain a ";" after it (".;" was shipped in the regtab
+	* and diagtab demo workbooks).
+	if `"`_fn_text'"' != "" {
+		local _fn_trim = strtrim(`"`_fn_text'"')
+		local _fn_last = substr(`"`_fn_trim'"', -1, 1)
+		if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
+			local _fn_text `"`_fn_trim' `_stars_note'"'
+		else local _fn_text `"`_fn_trim'; `_stars_note'"'
+	}
 	else local _fn_text `"`_stars_note'"'
 }
 
@@ -3064,10 +3120,14 @@ capture {
 	}
 	local _style_rule_rows `"`_style_rule_rows' | 2 3 3 2 `num_cols' 0 1 0 0 | 5 3 3 2 `num_cols' 0 2 0 0 | 6 3 3 2 `num_cols' 0 2 0 0"'
 
-	foreach row of local ref_rows {
-		forvalues _mc = 1/`n_models' {
-			local _col_start = 2 + (`_mc' - 1) * `_cols_per_model' + 1
-			local _col_end = `_col_start' + `_cols_per_model' - 1
+	* Merge the estimate/CI/p triplet only for the model that actually holds a
+	* reference label on that row. Merging on the union of reference rows
+	* across models destroys the CI and p-value of any model with a real
+	* result on a row some OTHER model treats as its reference.
+	forvalues _mc = 1/`n_models' {
+		local _col_start = 2 + (`_mc' - 1) * `_cols_per_model' + 1
+		local _col_end = `_col_start' + `_cols_per_model' - 1
+		foreach row of local _ref_rows_`_mc' {
 			local _style_rule_rows `"`_style_rule_rows' | 14 `row' `row' `_col_start' `_col_end' 0 0 0 0 | 5 `row' `row' `_col_start' `_col_start' 0 2 0 0 | 6 `row' `row' `_col_start' `_col_start' 0 2 0 0 | 3 `row' `row' `_col_start' `_col_start' 0 1 0 0"'
 		}
 	}

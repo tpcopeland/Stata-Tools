@@ -1,4 +1,4 @@
-*! diagtab Version 1.10.1  2026/07/27
+*! diagtab Version 1.11.0  2026/08/06
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -350,6 +350,24 @@ capture noisily {
         local _header_row = `row'
 
         * Build output rows from stored locals
+        * Section labels are rendered at one fixed precision -- the widest seen
+        * in the cutoff list -- with a leading zero. %9.0g rendered each cutoff
+        * independently and dropped leading and trailing zeros, so a
+        * cutoffs(.3 .32 .34) run labelled its sections ".3", ".32", ".34":
+        * ragged precision and no leading zero. (Stata's own numlist parser
+        * normalises 0.30 to .3 before diagtab sees it, so the original token
+        * text cannot be recovered here; a uniform format is what can be.)
+        * The r(cutoff_table) rownames keep their existing tags -- they are
+        * identifiers on a returned matrix, not prose.
+        local _cut_dec = 0
+        foreach _cv of local cutoffs {
+            local _dotpos = strpos("`_cv'", ".")
+            if `_dotpos' > 0 {
+                local _ndec = strlen("`_cv'") - `_dotpos'
+                if `_ndec' > `_cut_dec' local _cut_dec = `_ndec'
+            }
+        }
+        local _cut_lab_fmt "%21.`_cut_dec'f"
         local _section_rows ""
         local _cuti 0
         foreach _cv of local cutoffs {
@@ -358,8 +376,7 @@ capture noisily {
             * Section header
             local row = `row' + 1
             qui set obs `row'
-            local _cv_fmt : display %9.0g `_cv'
-            local _cv_fmt = strtrim("`_cv_fmt'")
+            local _cv_fmt = strtrim(string(`_cv', "`_cut_lab_fmt'"))
             qui replace c1 = "Cutoff >= `_cv_fmt'" in `row'
             local _section_rows `"`_section_rows' `row'"'
 
@@ -823,7 +840,13 @@ capture noisily {
             local _footnote_display `"`_undefined_note'"'
         }
         else if strpos(`"`_footnote_display'"', "Undefined estimates") == 0 {
-            local _footnote_display `"`_footnote_display'; `_undefined_note'"'
+            * Punctuation-aware join: a user footnote already ending in
+            * terminal punctuation must not gain a ";" after it.
+            local _fn_trim = strtrim(`"`_footnote_display'"')
+            local _fn_last = substr(`"`_fn_trim'"', -1, 1)
+            if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
+                local _footnote_display `"`_fn_trim' `_undefined_note'"'
+            else local _footnote_display `"`_fn_trim'; `_undefined_note'"'
         }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."

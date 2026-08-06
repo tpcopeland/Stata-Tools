@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.10.1  2026/07/27
+*! _tabtools_table1_fast_collect Version 1.11.0  2026/08/06
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -780,7 +780,11 @@ program define _tabtools_table1_fast_collect, rclass
                         local _colb ""
                     }
                     if "`percent_n'" == "percent_n" & "`percent'" == "" local _colb "(`_nstr')"
-                    local _cell = `"`_cola' "' + `"`_colb'"'
+                    * Only separate the two components when there IS a second
+                    * component: percent-only cells otherwise end in a literal
+                    * trailing space ("60 ") that reaches every flat sink.
+                    local _cell = `"`_cola'"'
+                    if `"`_colb'"' != "" local _cell = `"`_cola' "' + `"`_colb'"'
                     quietly replace `stub'`_lv' = `"`_cell'"' in `row'
                     quietly replace _columna_`_lv' = `"`_cola'"' in `row'
                     quietly replace _columnb_`_lv' = `"`_colb'"' in `row'
@@ -872,7 +876,11 @@ program define _tabtools_table1_fast_collect, rclass
                             local _colb ""
                         }
                         if "`percent_n'" == "percent_n" & "`percent'" == "" local _colb "(`_nstr')"
-                        local _cell = `"`_cola' "' + `"`_colb'"'
+                        * Only separate the two components when there IS a second
+                        * component: percent-only cells otherwise end in a literal
+                        * trailing space ("60 ") that reaches every flat sink.
+                        local _cell = `"`_cola'"'
+                        if `"`_colb'"' != "" local _cell = `"`_cola' "' + `"`_colb'"'
                         quietly replace `stub'`_lv' = `"`_cell'"' in `row'
                         quietly replace _columna_`_lv' = `"`_cola'"' in `row'
                         quietly replace _columnb_`_lv' = `"`_colb'"' in `row'

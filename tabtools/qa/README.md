@@ -30,9 +30,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 
 | Lane | Files |
 |------|-------|
-| `quick` | 24 explicitly listed `test_*.do` files (all except `test_package_adversarial.do`) |
-| `full` | 25 tests + 10 validations + `crossval_tabtools.do` (36 files) |
-| `release` | `full` plus `benchmark_tabtools_speed.do` (37 files) |
+| `quick` | 25 explicitly listed `test_*.do` files (all except `test_package_adversarial.do`) |
+| `full` | 26 tests + 10 validations + `crossval_tabtools.do` (37 files) |
+| `release` | `full` plus `benchmark_tabtools_speed.do` (38 files) |
 | `benchmark` | `benchmark_tabtools_speed.do` only |
 
 ## Conventions
@@ -86,6 +86,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | `test_deep_audit_output.do` | Output/provenance regressions: CI levels, near-one p-values, zero effects, reserved labels, maximum precision, atomic sinks, trend errors, Markdown, medians, empty templates, and quotation preservation |
 | `test_package_release.do` | Release gates: required artifacts, canonical metadata, manifest/install contracts, help versions, rendered-SMCL checks with a positive control, staged demo regeneration compared semantically with all 15 tracked workbooks, the required eplot integration demo (runs `demo_tabtools_eplot.do` and regenerates both forest PNGs), and regenerated golden-output digests vs `baseline/summaries/`; tracked demo assets are never rewritten by ordinary QA |
 | `test_option_coverage.do` | Drives per-command OPTION coverage to 100% of the testable surface: every public option of every command is passed in a real invocation and accepted (see [Option coverage](#option-coverage)). Excludes `open` (GUI launch). |
+| `test_issue_review_1_11_0.do` | Regression pins for the 1.11.0 issue review: per-model factor-level rendering and Excel merging in `regtab`, fixed-point precision for large confidence limits, the single `table1_tc` header descriptor and sink parity with/without `xlsx()`, Markdown headings only from `title()`, flattened two-level Markdown headers that do not leak into `frame()`, p-value phrase grammar, generated star/legend parity, footnote punctuation joins, `diagtab` cutoff labels, negative-zero normalization, the `stratetab` CI separator, console chatter, and trailing whitespace in rendered cells |
 
 ### Validation (known answers, oracles, invariants)
 

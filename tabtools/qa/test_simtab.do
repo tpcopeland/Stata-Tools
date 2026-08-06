@@ -135,10 +135,13 @@ capture noisily {
         coverage(covered) frame(ft2, replace)
     assert r(n_by) == 2
     assert "`r(frame)'" == "ft2"
-    frame ft2: assert _N == 7
+    * 8 rows, not 7: the off-nominal coverage flag now emits its own footnote
+    * row so exports carry a legend for the "*" the cells already showed.
+    frame ft2: assert _N == 8
     frame ft2: assert c1[2] == "A"
     frame ft2: assert c2[2] == "Unweighted"
     frame ft2: assert c1[3] == ""
+    frame ft2: assert strpos(c1[8], "coverage differs from the nominal") > 0
 }
 if _rc == 0 {
     display as result "  PASS T2: by() + frame"

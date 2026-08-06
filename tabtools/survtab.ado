@@ -1,4 +1,4 @@
-*! survtab Version 1.10.1  2026/07/27
+*! survtab Version 1.11.0  2026/08/06
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -682,7 +682,18 @@ capture noisily {
         else {
             local _lr_p_str = string(`logrank_p', "`_pfmt_hi'")
         }
-        qui replace c1 = "Log-rank test: chi2(`=string(`logrank_df',"%1.0f")') = `_lr_chi2_str', p = `_lr_p_str'" in `row'
+        * A truncated p-value already carries its own operator, so the sentence
+        * has to change operator too: "p = <0.001" is not a sentence. The cell
+        * form (_lr_p_str) keeps the "<" prefix; the prose form splits it into
+        * an operator and a value.
+        local _lr_p_phrase `"p = `_lr_p_str'"'
+        if substr("`_lr_p_str'", 1, 1) == "<" {
+            local _lr_p_phrase `"p < `=substr("`_lr_p_str'", 2, .)'"'
+        }
+        else if substr("`_lr_p_str'", 1, 1) == ">" {
+            local _lr_p_phrase `"p > `=substr("`_lr_p_str'", 2, .)'"'
+        }
+        qui replace c1 = "Log-rank test: chi2(`=string(`logrank_df',"%1.0f")') = `_lr_chi2_str', `_lr_p_phrase'" in `row'
 
         * Write p-value in the p column on the first data row (row 3)
         if `_p_col' > 0 {

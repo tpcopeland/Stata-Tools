@@ -168,7 +168,8 @@ capture noisily {
     local _tips_py_display : subinstr local _tips_py_display "," "", all
     assert abs(real("`_tips_py_display'") - `_tips_py0') < 0.5
     frame _tips_rate_recipe: local _tips_ci_display = c4[`_tips_rate_row']
-    assert regexm("`_tips_ci_display'", "^([0-9.]+) \(([0-9.]+)-([0-9.]+)\)$")
+    * stratetab renders rate CIs with the suite-wide ", " separator.
+    assert regexm("`_tips_ci_display'", "^([0-9.]+) \(([0-9.]+), ([0-9.]+)\)$")
     assert abs(real(regexs(1)) - `_tips_rate0') < 0.05
     assert abs(real(regexs(2)) - `_tips_lo0') < 0.05
     assert abs(real(regexs(3)) - `_tips_hi0') < 0.05

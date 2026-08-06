@@ -1,4 +1,4 @@
-*! stratetab Version 1.10.1  2026/07/27
+*! stratetab Version 1.11.0  2026/08/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -569,9 +569,13 @@ forvalues e = 1/`n_exposures' {
 			local col = `col' + 1
 
 			* Rate (95% CI)
+			* ", " matches the CI separator every other tabtools command uses.
+			* A bare "-" also reads as a minus sign once a bound is negative,
+			* and hrcomptab places these rate CIs beside comma-separated model
+			* CIs in one table.
 			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
 				" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
-				"-" + strtrim(string(round(`Upper_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ")"
+				", " + strtrim(string(round(`Upper_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ")"
 			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1
 
@@ -586,7 +590,7 @@ forvalues e = 1/`n_exposures' {
 				else {
 					local irr_fmt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ///
 						" (" + strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ///
-						"-" + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ")"
+						", " + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ")"
 					quietly replace c`col' = `"`irr_fmt'"' in `new'
 				}
 				local col = `col' + 1

@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.10.1** | 2026-07-27
+**Version 1.11.0** | 2026-08-06
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -93,6 +93,12 @@ Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `he
 - GitHub-Flavored Markdown, CSV, Stata frames, and graph-ready eplot frames where supported.
 - Shared session defaults for font, font size, border style, theme, numeric digits, and p-value emphasis through `tabtools set` and `tabtools get`.
 - Explicit confidence-level provenance for collection-based and saved-rate workflows, with errors for conflicting or unavailable levels instead of silently substituting a value.
+
+### Workbook cell types
+
+Every exported workbook cell is written as **text**, including cells that look numeric. This is deliberate: the majority of published table cells are composite or annotated strings — `5,351 (60)`, `0.82 (0.69, 0.98)`, `<0.001`, `0.54***`, `Reference` — and the commands render each cell to its final string before any sink runs. Re-deriving a numeric type by reparsing the rendered string would have to guess, and would silently convert an annotated cell into a number that no longer matches the table.
+
+The practical consequence is that Excel will not sum, chart, or numerically sort a column of an exported sheet without a conversion step in Excel. For a numeric payload, use `frame()` (Stata frames, with the underlying numeric columns where a command provides them), the `r()` matrices such as `r(table)` and `r(cutoff_table)`, or `eplotframe()` for plotting.
 
 ## Worked Examples
 
@@ -212,7 +218,7 @@ Compute mode derives simulation metrics from one observation per replication and
 
 ## Demo
 
-The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` with its documented `all`, `main`, or `simtab` argument to regenerate the example workbooks and Markdown report; the demo uses the repository's `_data/` fixtures and writes results under `demo/`.
+The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` with its documented `all`, `main`, or `simtab` argument to regenerate the example workbooks and Markdown report; the demo uses the repository's `_data/` fixtures and writes results under `demo/`. The checked-in set is 15 workbooks (74 sheets total) plus the Markdown report.
 
 The optional forest-plot demo is `demo/demo_tabtools_eplot.do`. It regenerates the two checked-in graph assets below from `regtab`/`comptab` workflows and requires the optional `eplot` and `tc_schemes` packages in the checkout environment.
 
@@ -494,6 +500,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.11.0** (2026-08-06): Corrected multi-model factor-level handling and Excel merging in `regtab`, widened its confidence-limit field so large bounds no longer collapse to scientific notation, unified the `table1_tc` header descriptor across every sink, gave `regtab`, `effecttab`, and `table1_tc` reader-facing single-row Markdown headers, stopped Markdown headings being inferred from table data, applied `stacktab columnmerge()` headers to every stacked block, carried generated star and coverage legends into every sink, normalized rate confidence-interval separators and formatted negative zero, corrected p-value phrasing and footnote punctuation, and quieted internal data-transformation messages.
 - **1.10.1** (2026-07-27): Refined confidence-level provenance, model statistics, coefficient and effect labels, diagnostic intervals, output contracts, and composite workflows.
 - **1.10.0**: Added stricter collection and saved-rate level handling, expanded regression statistics, and improved eplot-frame provenance.
 - **1.9.11**: Extended diagnostic confidence-level handling, p-value precision controls, and effect-table reference labels.

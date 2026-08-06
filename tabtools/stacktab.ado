@@ -1,4 +1,4 @@
-*! stacktab Version 1.10.1  2026/07/27
+*! stacktab Version 1.11.0  2026/08/06
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -443,8 +443,18 @@ program define stacktab, rclass
                 * Concatenate the two columns
                 quietly replace `col_a' = `col_a' + " " + `col_b' ///
                     if `col_b' != "" & `col_b' != "."
-                * Apply header to row 1 (if it's a header row)
-                quietly replace `col_a' = `"`hdr'"' in 1
+                * Apply the requested header to EVERY block header row, not
+                * just the first. Under vstack each block contributes its own
+                * header row, and any block after the first would otherwise
+                * keep the raw concatenation of the two source headers
+                * ("aHR 95% CI") next to the requested one ("aHR (95% CI)").
+                * section_rows holds the first row of each stacked block; it is
+                * empty under hstack, where only row 1 is a header row.
+                local _cm_hdr_rows "1"
+                if `"`section_rows'"' != "" local _cm_hdr_rows `"`section_rows'"'
+                foreach _cm_hr of local _cm_hdr_rows {
+                    quietly replace `col_a' = `"`hdr'"' in `_cm_hr'
+                }
                 drop `col_b'
             }
         }
@@ -490,7 +500,12 @@ program define stacktab, rclass
         }
 
         if "`display'" != "" {
-            list, noobs abbreviate(24)
+            * The columns carry internal scaffolding names (_xcol1, _xcol2, ...)
+            * that Stata prints as the console header, so the preview was headed
+            * by names no reader of the table has any use for. Suppress the
+            * variable-name header and let the block's own header row -- which is
+            * row 1 of the assembled table -- do that job.
+            list, noobs noheader abbreviate(24)
         }
 
         * Resolve the output worksheet and its full used range before mutating

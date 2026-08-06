@@ -1,4 +1,4 @@
-*! effecttab Version 1.10.1  2026/07/27
+*! effecttab Version 1.11.0  2026/08/06
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1306,8 +1306,21 @@ quietly {
 		_tabtools_csv_write using "`csv'", labelvar(A)
 	}
 
-	* Console display
-	noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
+	* Console display. Row 2 is the model-name row and is entirely empty when
+	* models() was not supplied; displaying it produced a blank boxed row above
+	* the statistic labels. Start the display at row 3 in that case.
+	local _console_hdr = 2
+	if _N >= 2 {
+		local _hdr2_filled = 0
+		forvalues _hc = 1/`n' {
+			capture confirm variable c`_hc'
+			if !_rc {
+				if strtrim(c`_hc'[2]) != "" local _hdr2_filled = 1
+			}
+		}
+		if !`_hdr2_filled' local _console_hdr = 3
+	}
+	noisily _tabtools_console_display `n' `"`title'"', labelvar(A) headerstart(`_console_hdr')
 
 	* Markdown export
 	local _ret_markdown ""
@@ -1316,8 +1329,37 @@ quietly {
 	if `"`markdown'"' != "" {
 		local _mdappend_opt ""
 		if "`mdappend'" != "" local _mdappend_opt "append"
+		* GFM allows one header row, but this table has two semantic header
+		* levels: row 2 carries the model names (blank when models() is not
+		* given) and row 3 the statistic labels. Writing row 2 alone produced a
+		* blank header with "Effect / 95% CI / p-value" as the first body row.
+		* Flatten both into row 3 and start the body at row 4. Snapshot first:
+		* the flatten must not reach frame() or the eplot frame.
+		tempfile _md_snapshot
+		quietly save `"`_md_snapshot'"', replace
+		local _md_nmodels = int(`n' / 3)
+		if _N >= 3 & `_md_nmodels' >= 1 {
+			forvalues _mdc = 1/`_md_nmodels' {
+				local _md_first = (`_mdc' - 1) * 3 + 1
+				local _md_name = strtrim(c`_md_first'[2])
+				if `"`_md_name'"' != "" {
+					forvalues _md_off = 0/2 {
+						local _md_col = `_md_first' + `_md_off'
+						capture confirm variable c`_md_col'
+						if !_rc {
+							quietly replace c`_md_col' = ///
+								`"`_md_name': "' + strtrim(c`_md_col') ///
+								in 3 if strtrim(c`_md_col') != ""
+							quietly replace c`_md_col' = `"`_md_name'"' ///
+								in 3 if strtrim(c`_md_col') == ""
+						}
+					}
+				}
+			}
+		}
 		capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-			`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') strictheaders
+			`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') ///
+			headerstart(3) datastart(4) strictheaders
 		if _rc {
 			local _md_rc = _rc
 			noisily display as error "Failed to export Markdown to `markdown'"
@@ -1327,6 +1369,7 @@ quietly {
 		local _ret_markdown `"`markdown'"'
 		local _ret_markdown_rows = r(n_rows)
 		local _ret_markdown_cols = r(n_cols)
+		quietly use `"`_md_snapshot'"', clear
 		noisily display as text "Markdown exported to `markdown'"
 	}
 

@@ -215,7 +215,7 @@ capture noisily {
         --blank B6 ///
         --blank C6 ///
         --cell B7 "Dose category (vs none)" ///
-        --cell C7 "aHR 95% CI" ///
+        --cell C7 "HR (95% CI)" ///
         --bold B7 ///
         --bold C7 ///
         --border-range B7 C7

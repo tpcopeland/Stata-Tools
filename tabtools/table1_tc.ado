@@ -1,4 +1,4 @@
-*! table1_tc Version 1.10.1  2026/07/27 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.11.0  2026/08/06 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -754,7 +754,7 @@ program define table1_tc, rclass
         // Add variable label as header for each column
         if "`var'" != "level" {
             capture confirm string variable `var'
-            if !_rc replace `var'="`: var lab `var''" in `newN'
+            if !_rc qui replace `var'="`: var lab `var''" in `newN'
         }
     }
     qui replace sort1=0 in `newN'  // Set sort order to ensure header is first
@@ -767,11 +767,11 @@ program define table1_tc, rclass
     * so a user column literally named _p_raw/_smd_raw can never be clobbered.
     tempvar p_raw smd_raw
     capture confirm variable p
-    if !_rc gen double `p_raw' = p
+    if !_rc qui gen double `p_raw' = p
     capture drop p  // Drop raw p-value variable
     * Preserve raw SMD values for conditional formatting (O2)
     capture confirm variable smd_val
-    if !_rc gen double `smd_raw' = abs(smd_val)
+    if !_rc qui gen double `smd_raw' = abs(smd_val)
     capture drop smd_val  // Drop raw SMD values
     
     /* Left-justify strings except p-value */
@@ -855,9 +855,9 @@ program define table1_tc, rclass
         * Update header row values to match new labels
         foreach sfx of local _wtc_suffixes {
             capture confirm string variable Cr_`sfx'
-            if !_rc replace Cr_`sfx' = "`: var lab Cr_`sfx''" if _n == 1
+            if !_rc qui replace Cr_`sfx' = "`: var lab Cr_`sfx''" if _n == 1
             capture confirm string variable Wt_`sfx'
-            if !_rc replace Wt_`sfx' = "`: var lab Wt_`sfx''" if _n == 1
+            if !_rc qui replace Wt_`sfx' = "`: var lab Wt_`sfx''" if _n == 1
         }
     }
 
@@ -1332,6 +1332,14 @@ program define table1_tc, rclass
 
     local _xlsx_ok 0
     if "`excel'" != "" {
+        * The Excel branch reshapes the table in place: it prepends a title row
+        * and a title column and drops internal columns. csv(), markdown(), and
+        * frame() run AFTER this branch, so without a snapshot the same call
+        * produced a different CSV/Markdown table merely because xlsx() was
+        * also requested. Snapshot the sink-neutral table here and reload it
+        * once the workbook is written.
+        tempfile _t1_sink_snapshot
+        quietly save `"`_t1_sink_snapshot'"', replace
         quietly {
             /* Add ID for sorting and prepare for export */
             gen id = _n  // Row identifier
@@ -1354,115 +1362,18 @@ program define table1_tc, rclass
                 replace pvalue = "" if _n == 3  // Clear row 3
             }
 			
-			/* Create column format headers based on variable types */
-			local header_parts = ""
-			local part_count = 0
-			
-			/* Get clean version of iqrmiddle for header */
-			local iqrmiddle = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
-
-			/* Add categorical formats if present */
-			if `_resolved_has_cat' {
-				if `part_count' > 0 local header_parts = "`header_parts', "
-				
-				if "`catrowperc'" != "" {
-					if "`percent_n'" == "percent_n" {
-						local header_parts = "`header_parts'Row % (No.)"
-					} 
-					else {
-						local header_parts = "`header_parts'No. (Row %)"
-					}
-				}
-				else {
-					if "`percent_n'" == "percent_n" {
-						local header_parts = "`header_parts'Column % (No.)"
-					}
-					else {
-						local header_parts = "`header_parts'No. (Column %)"
-					}
-				}
-				local part_count = `part_count' + 1
-			}
-			
-			/* Add binary format if present and different from categorical */
-			if `_resolved_has_bin' & (!`_resolved_has_cat' | "`catrowperc'" != "") {
-				if `part_count' > 0 local header_parts = "`header_parts', "
-				
-				if "`percent_n'" == "percent_n" {
-					local header_parts = "`header_parts'Column % (No.)"
-				}
-				else {
-					local header_parts = "`header_parts'No. (Column %)"
-				}
-			}
-			
-			/* Override format description if percent option specified */
-			if "`percent'" == "percent" {
-				local header_parts = ""
-				local part_count = 0
-				
-				if `_resolved_has_contn' | `_resolved_has_contln' | `_resolved_has_conts' {
-					if `_resolved_has_contn' {
-						local header_parts `"`meansd_label'"'
-						local part_count = 1
-					}
-					if `_resolved_has_contln' {
-						if `part_count' > 0 local header_parts = "`header_parts', "
-						local header_parts = "`header_parts'Geometric mean (×/GSD)"
-						local part_count = `part_count' + 1
-					}
-					if `_resolved_has_conts' {
-						if `part_count' > 0 local header_parts = "`header_parts', "
-						local header_parts = "`header_parts'Median (Q1`iqrmiddle'Q3)"
-						local part_count = `part_count' + 1
-					}
-					
-					if `_resolved_has_cat' | `_resolved_has_bin' {
-						if `part_count' > 0 local header_parts = "`header_parts', "
-						
-						if `_resolved_has_cat' & "`catrowperc'" != "" {
-							local header_parts = "`header_parts'Row %"
-							if `_resolved_has_bin' local header_parts = "`header_parts', Column %"
-						}
-						else {
-							local header_parts = "`header_parts'Column %"
-						}
-					}
-				}
-				else {
-					if `_resolved_has_cat' & "`catrowperc'" != "" {
-						local header_parts = "Row %"
-						if `_resolved_has_bin' local header_parts = "`header_parts', Column %"
-					}
-					else {
-						local header_parts = "Column %"
-					}
-				}
-			}
-			
-			/* Add continuous variable formats if present (skip when percent already added them) */
-			if "`percent'" != "percent" {
-				if `_resolved_has_contn' {
-					if `part_count' > 0 local header_parts = "`header_parts', "
-					local header_parts = "`header_parts'Mean (SD)"
-					local part_count = `part_count' + 1
-				}
-
-				if `_resolved_has_contln' {
-					if `part_count' > 0 local header_parts = "`header_parts', "
-					local header_parts = "`header_parts'Geometric mean (×/GSD)"
-					local part_count = `part_count' + 1
-				}
-
-				if `_resolved_has_conts' {
-					if `part_count' > 0 local header_parts = "`header_parts', "
-					local header_parts = "`header_parts'Median (Q1`iqrmiddle'Q3)"
-					local part_count = `part_count' + 1
-				}
-			}
-			
-			/* Set header description in the table */
-			replace factor = `"`header_parts'"' if _n == 2
+			/* The header descriptor is built ONCE, before any sink runs (see
+			   _descriptor_row_text above), and is reused verbatim here. The Excel
+			   path used to REBUILD it with a different join (", " instead of
+			   " or "), a hardcoded "Mean (SD)" that ignored sdleft()/sdright(),
+			   and a binary branch that never incremented part_count -- so a
+			   binary+continuous table wrote "No. (Column %)Mean (SD)" into row 2
+			   while row 3 still carried the real descriptor. Both survived into
+			   the workbook; only the B2:B3 merge hid the contradiction.
+			   Inserting the title row moved the descriptor from row 2 to row 3,
+			   so move it back to row 2 (the merge anchor) and clear row 3. */
+			replace factor = `"`_descriptor_row_text'"' if _n == 2
+			replace factor = "" if _n == 3
 
 	            /* Export to Excel — exclude internal columns */
 	            local _had_p_raw = 0
@@ -1694,7 +1605,8 @@ program define table1_tc, rclass
 
 	                * Column widths and row heights
 	                local _xlsx_style_rule_spec "12 1 1 1 1 30 0 0 0 0"
-                local _hdr_len = strlen(`"`header_parts'"')
+                * Row 2 is the B2:B3 merge anchor that carries the descriptor.
+                local _hdr_len = strlen(`"`_descriptor_row_text'"')
                 if `_hdr_len' > `factorwidth' * 1.2 {
                     local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
                     local _hdr_height = `_hdr_lines' * 15
@@ -1896,6 +1808,9 @@ program define table1_tc, rclass
             }
             local _xlsx_ok 1
 
+            * Restore the sink-neutral table so csv(), markdown(), and frame()
+            * see the same shape they would without xlsx().
+            use `"`_t1_sink_snapshot'"', clear
         }
     }
 
@@ -1916,15 +1831,40 @@ program define table1_tc, rclass
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         * The Markdown writer reads its header from row 2 (headerstart) and, under
-        * strictheaders, does NOT fall back to variable labels. The stat columns
-        * (p-value, SMD) carry their header only as a variable label (set ~l.740),
-        * so their row-2 header cell is empty and renders as a blank column header.
-        * Populate those header cells explicitly here, mirroring the Excel path
-        * (see the "Add p-value header" block in the excel() branch). Row 2 is the
-        * descriptor/header row; body rows start at row 3 (datastart), so this only
-        * affects the header and never overwrites a real p-value/SMD value.
-        capture replace pvalue = "p-value" if _n == 2
-        capture replace smd_str = "SMD" if _n == 2
+        * strictheaders, does NOT fall back to variable labels. Two things have to
+        * happen before it is called.
+        *
+        * First, GFM allows one header row while this table has two semantic
+        * header levels: row 1 carries the group labels and row 2 the descriptor
+        * plus each group's N. Writing row 2 alone left the reader unable to tell
+        * which column is which group, so flatten both into row 2 -- "Domestic
+        * (N=52)". Second, the stat columns (p-value, SMD) carry their header only
+        * as a variable label (set ~l.740); if the flatten leaves their row-2 cell
+        * empty, fill it in explicitly. Body rows start at row 3 (datastart), so
+        * neither step can overwrite a real value.
+        *
+        * Snapshot first: the flatten must not reach frame().
+        tempfile _t1_md_snapshot
+        quietly save `"`_t1_md_snapshot'"', replace
+        if _N >= 2 {
+            _tabtools_visible_vars, labelvar(A)
+            foreach _mdv of local _tabtools_visible_vars {
+                capture confirm string variable `_mdv'
+                if !_rc {
+                    local _mdh1 = strtrim(`_mdv'[1])
+                    local _mdh2 = strtrim(`_mdv'[2])
+                    if `"`_mdh1'"' == `"`_mdh2'"' local _mdh2 ""
+                    if `"`_mdh1'"' != "" & `"`_mdh2'"' != "" {
+                        quietly replace `_mdv' = `"`_mdh1' (`_mdh2')"' in 2
+                    }
+                    else if `"`_mdh1'"' != "" {
+                        quietly replace `_mdv' = `"`_mdh1'"' in 2
+                    }
+                }
+            }
+        }
+        capture replace pvalue = "p-value" if _n == 2 & strtrim(pvalue) == ""
+        capture replace smd_str = "SMD" if _n == 2 & strtrim(smd_str) == ""
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
@@ -1936,6 +1876,7 @@ program define table1_tc, rclass
         local _ret_markdown `"`markdown'"'
         local _ret_markdown_rows = r(n_rows)
         local _ret_markdown_cols = r(n_cols)
+        quietly use `"`_t1_md_snapshot'"', clear
         display as text "Markdown exported to `markdown'"
     }
 

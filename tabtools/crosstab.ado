@@ -1,4 +1,4 @@
-*! crosstab Version 1.10.1  2026/07/27
+*! crosstab Version 1.11.0  2026/08/06
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -471,12 +471,17 @@ capture noisily {
     local _p_row = `row'
     local _trend_row = 0
     local _p_str = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))
+    * A truncated p-value already carries its own operator, so the sentence has
+    * to change operator too: "p = <0.001" is not a sentence. Build the phrase
+    * from an operator/value pair rather than gluing "= " onto the rendered
+    * string.
+    local _p_phrase = cond(`_p' < 0.001, "p < 0.001", "p = " + string(`_p', "%5.3f"))
     if "`_test_name'" == "Fisher's exact test" {
-        qui replace c1 = `"`_test_name': p = `_p_str'"' in `row'
+        qui replace c1 = `"`_test_name': `_p_phrase'"' in `row'
     }
     else {
         local _chi2_str = string(`_chi2', "%6.2f")
-        qui replace c1 = `"`_test_name': chi2 = `_chi2_str', p = `_p_str'"' in `row'
+        qui replace c1 = `"`_test_name': chi2 = `_chi2_str', `_p_phrase'"' in `row'
     }
 
     * Association measure row

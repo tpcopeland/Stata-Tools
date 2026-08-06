@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 1.10.1  2026/07/27
+*! _tabtools_csv_write Version 1.11.0  2026/08/06
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -29,7 +29,10 @@ program define _tabtools_csv_write
         _tabtools_visible_vars, `_visible_opts'
         local _vars `"`_tabtools_visible_vars'"'
 
-        export delimited `_vars' using `"`using'"', replace novarnames
+        * quietly: export delimited announces "(file X not found)" and "file X
+        * saved" from its own replace handling. Each caller prints its own
+        * "CSV exported to ..." line, so that is internal chatter.
+        quietly export delimited `_vars' using `"`using'"', replace novarnames
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

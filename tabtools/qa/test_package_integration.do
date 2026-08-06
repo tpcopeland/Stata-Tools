@@ -2778,14 +2778,31 @@ capture noisily {
         forvalues i = 1/`=_N' {
             local cell = c1[`i']
             if strpos("`cell'", "Log-rank") > 0 | strpos("`cell'", "log-rank") > 0 {
-                * Extract p-value from "Log-rank test: chi2(X) = Y, p = Z"
+                * Extract p-value from "Log-rank test: chi2(X) = Y, p = Z".
+                * A truncated p-value carries its own operator, so the phrase
+                * reads "p < 0.0001" rather than "p = <0.0001"; accept either
+                * operator and record which one appeared.
+                local p_op ""
                 local p_pos = strpos("`cell'", "p = ")
+                if `p_pos' > 0 local p_op "="
+                if `p_pos' == 0 {
+                    local p_pos = strpos("`cell'", "p < ")
+                    if `p_pos' > 0 local p_op "<"
+                }
+                if `p_pos' == 0 {
+                    local p_pos = strpos("`cell'", "p > ")
+                    if `p_pos' > 0 local p_op ">"
+                }
                 if `p_pos' > 0 {
                     local p_str = substr("`cell'", `p_pos' + 4, .)
                     local p_str = strtrim("`p_str'")
-                    if substr("`p_str'", 1, 1) == "<" {
+                    if "`p_op'" == "<" | substr("`p_str'", 1, 1) == "<" {
                         * pdp(4) means threshold "<0.0001"
                         assert strpos("`p_str'", "0.0001") > 0
+                    }
+                    else if "`p_op'" == ">" {
+                        * highpdp(2) means threshold ">0.99"
+                        assert strpos("`p_str'", "0.99") > 0
                     }
                     else {
                         local pval = real("`p_str'")

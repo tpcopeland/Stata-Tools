@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.10.1  27jul2026}{...}
+{* *! version 1.11.0  06aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -46,6 +46,16 @@ All commands apply consistent Excel and Markdown formatting: column widths,
 borders, fonts, merged headers, and professional styling suitable for journal
 submissions. Use {cmd:tabtools set} to configure session-wide formatting defaults
 that every command respects.
+
+{pstd}
+Every exported workbook cell is written as text, including cells that look
+numeric. Published table cells are frequently composite or annotated strings
+({cmd:5,351 (60)}, {cmd:0.82 (0.69, 0.98)}, {cmd:<0.001}, {cmd:Reference}), and
+each cell is rendered to its final string before any sink runs; re-deriving a
+numeric type by reparsing that string would have to guess. Excel will therefore
+not sum, chart, or numerically sort an exported column without a conversion
+step. For a numeric payload use {cmd:frame()}, the returned matrices such as
+{cmd:r(table)}, or {cmd:eplotframe()}.
 
 {pstd}
 Most commands require Stata 17. The suite controller {cmd:tabtools},
@@ -479,6 +489,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.10.1{p_end}
+{pstd}{bf:Version} 1.11.0{p_end}
 
 {hline}

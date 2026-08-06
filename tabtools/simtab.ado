@@ -1,4 +1,4 @@
-*! simtab Version 1.10.1  2026/07/27
+*! simtab Version 1.11.0  2026/08/06
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -814,6 +814,24 @@ program define simtab, rclass
         if `"`_leadhdr_est'"' == "" local _leadhdr_est "Estimator"
         if `_has_by' & `"`_leadhdr_by'"' == "" local _leadhdr_by "Group"
         local _has_title = (`"`title'"' != "")
+        * The off-nominal coverage asterisk is a GENERATED annotation: every
+        * sink renders "94.2*" but only the console named the flagged cells, so
+        * an exported sheet carried a mark with nothing to explain it. Fold the
+        * legend into the footnote (punctuation-aware) before any sink runs, so
+        * console, CSV, frame, Markdown, and Excel all carry it.
+        if `_has_covflag' {
+            local _cov_legend "* coverage differs from the nominal `level'% by more than 2 Monte Carlo SEs"
+            if `"`footnote'"' == "" {
+                local footnote `"`_cov_legend'"'
+            }
+            else if strpos(`"`footnote'"', "* coverage differs") == 0 {
+                local _fn_trim = strtrim(`"`footnote'"')
+                local _fn_last = substr(`"`_fn_trim'"', -1, 1)
+                if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
+                    local footnote `"`_fn_trim' `_cov_legend'"'
+                else local footnote `"`_fn_trim'; `_cov_legend'"'
+            }
+        }
         local _has_foot  = (`"`footnote'"' != "")
 
         local _fvars ""
@@ -1005,6 +1023,20 @@ program define simtab, rclass
             if `_xl_foot' > 0 {
                 local _fnsz = max(`_fontsize' - 2, 6)
                 local _spec `"`_spec' | 14 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 0 0 0 | 1 `_xl_foot' `_xl_foot' 2 `_xl_ctot' `_fnsz' 1 0 0 | 3 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 1 0 0 | 5 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 1 0 0"'
+                * A footnote longer than the merged table width overflows the
+                * sheet instead of staying inside the table box. Wrap it and
+                * grow the row so every line is visible. This matters now that
+                * a generated coverage legend can be appended to a user
+                * footnote.
+                local _fn_width = 0
+                foreach _w of local _xlsx_widths {
+                    local _fn_width = `_fn_width' + `_w'
+                }
+                local _fn_len = strlen(`"`footnote'"')
+                if `_fn_width' > 0 & `_fn_len' > `_fn_width' {
+                    local _fn_lines = ceil(`_fn_len' / `_fn_width')
+                    local _spec `"`_spec' | 4 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 1 0 0 | 12 `_xl_foot' `_xl_foot' 1 1 `=`_fn_lines' * 15' 0 0 0"'
+                }
             }
 
             _tabtools_xlsx_build_styles, matrix(`_rules') rules(`"`_spec'"') cols(9)

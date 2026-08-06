@@ -942,10 +942,13 @@ capture noisily {
     table1_tc, by(foreign) vars(price contn %12.4f) sdleft(" (") sdright(")") ///
         xlsx("`output_dir'/_val_t1_stats.xlsx") sheet("stats") frame(_val_t1)
 
+    * The frame is sink-neutral: row 1 group labels, row 2 descriptor/N,
+    * row 3 first data row. Adding xlsx() no longer prepends the workbook's
+    * title row and title column to the frame.
     frame _val_t1 {
-        assert factor[4] == "Price"
-        local dom_stats = foreign_0[4]
-        local for_stats = foreign_1[4]
+        assert factor[3] == "Price"
+        local dom_stats = foreign_0[3]
+        local for_stats = foreign_1[3]
     }
     local dom_open = strpos(`"`dom_stats'"', "(")
     local dom_close = strpos(`"`dom_stats'"', ")")
