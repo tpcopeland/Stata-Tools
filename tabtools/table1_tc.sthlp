@@ -142,8 +142,9 @@ is {cmd:thin}{p_end}
 {opt clear} replace dataset in memory with the table{p_end}
 
 {phang}
-{opt csv("filename")} also export as CSV file. The CSV holds the table's data columns only; the title and
-footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
+{opt csv("filename")} also export as CSV file. The CSV mirrors the workbook: {opt title()}
+is written as the first row and {opt footnote()} as the last row, both in the first column,
+with the table body between them{p_end}
 
 {phang}
 {opt dots} show progress dots while processing variables{p_end}

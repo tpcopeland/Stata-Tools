@@ -184,6 +184,7 @@ local core_suites ///
     test_iivw_interval_contract ///
     test_iivw_failclosed ///
     test_iivw_coverage_gate ///
+    test_iivw_cr_ladder ///
     test_help_examples ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial

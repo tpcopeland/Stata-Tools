@@ -388,7 +388,22 @@ Attribution, measured rather than argued (400 sims, `nsub=1000`): true weights `
 
 ---
 
-**What this did NOT touch.** SOL-04 through SOL-17 from the same audit are all still open — in particular the **999-replicate coverage study (SOL-04) has not been run**, so the default inference remains uncleared, and the stabilization guard (SOL-05), `iivw_diagnose` decomposition language (SOL-07), `iivw_exogtest` failure states (SOL-08) and the documentation/attribution items are unchanged. Fixing SOL-01–03 makes the default estimator invariant, the draws faithful, and the components fail-closed; it does not establish that the reported interval has nominal coverage.
+**What that pass did NOT touch, as it stood on 2026-07-21.** SOL-04 through SOL-17 were all open at the end of the SOL-01/02/03 pass — in particular the 999-replicate coverage study (SOL-04) had not been run, so the default inference was uncleared, and the stabilization guard (SOL-05), `iivw_diagnose` decomposition language (SOL-07), `iivw_exogtest` failure states (SOL-08) and the documentation/attribution items were unchanged. Fixing SOL-01–03 makes the default estimator invariant, the draws faithful, and the components fail-closed; it does not establish that the reported interval has nominal coverage.
+
+### SOL ledger — state as of 2026-08-06
+
+The paragraph above is a record of one pass, not a live ledger, and reading it as one is what this section exists to prevent. Two later passes closed most of what it lists.
+
+| Item | State | Basis |
+|---|---|---|
+| SOL-01, 02, 03 | **Fixed** 2026-07-21 | the three rows in the table above; each proved against the pre-fix build |
+| SOL-04 | **Answered, not cleared** | run 2026-07-22 and reproduced 2026-08-05. `iiw` 0.939 PASS, `iptw` 0.954 PASS, **`fiptiw` 0.914 FAIL**. `coverage_results/RESULT_2026-08-05.md`. The FIPTIW point-only default is the response; the interval question is open |
+| SOL-05, 07, 08, 11, 12, 13 | **Fixed** 2026-07-21 second pass | `test_iivw_failclosed.do`, **18/18 in an isolated run on 2026-08-06** |
+| SOL-17 | **Disproven — do not action** | same suite, arm S17; deleting the branch would remove the only guard against an incoherent resampling scheme |
+| SOL-14 | **Fixed** 2026-07-21, **regressed and re-fixed** 2026-08-03 | `test_help_examples.do`. The original fix transcribed 3 of 6 help files; the clarity synthesis found two shipped examples failing at `r(111)`/`r(198)` and extended the suite to all six |
+| SOL-06, 09, 10, 15, 16 | **Recorded fixed** 2026-07-21 second pass | documentation and attribution items. Their fixes are described in the audit ledger; they are not individually pinned by a probe here, and this row claims no more than that |
+
+**What is genuinely outstanding.** SOL-04's *scope* is wider than the one cell that has been run: `COVERAGE_MATRIX_PLAN.md` P1 (sample size) is complete, and **P2 (misspecified visit model), P3 (weak positivity), P4 (non-identity link) and P5 (small cluster count) have not been run.** P2 is the largest untested risk in the package's actual use case, and P2–P5 each require a knob `validation_iivw_inference.do` does not currently expose. Separately, the FIPTIW interval itself has no cleared method; the candidate analysis and its release plan are in `_take_action/se_recovery.md`, and `probe_cr_ladder.do` is the diagnostic that reads its scale axis.
 
 **What Phase 1 did NOT touch.** IIVW-B02, B04, B05, B06, B07 and B08 are all still open. Phase 1 made the weighting *state* transactional and exactly replayable. It did not make any *estimator* or any *variance* correct. A bootstrap that now replays the weights faithfully is still bootstrapping the estimator described in §3, defects and all — it is simply no longer bootstrapping a *different* one by accident.
 

@@ -304,6 +304,12 @@ capture noisily {
         * a gate / non-gate sentinel, not the curated tests=/pass=/fail= shape the
         * aggregate parses. Excluded on the same basis as benchmark_*/sim_*.
         if "`s'" == "validation_iivw_inference.do" continue
+        * probe_cr_ladder.do is in the same category: an on-demand DIAGNOSTIC
+        * driver for the FIPTIW CR-ladder study, whose modes emit a non-gate
+        * sentinel rather than curated tests=/pass=/fail= counts. Its ladder
+        * arithmetic is what test_iivw_cr_ladder.do covers, and that suite does
+        * emit the parseable shape.
+        if "`s'" == "probe_cr_ladder.do" continue
         * profile.do is Stata's own startup file, not a QA suite. CLAUDE.md
         * directs placing one here (holding `set processors 1') to run lanes in
         * parallel without the jobs contending for cores, so following the

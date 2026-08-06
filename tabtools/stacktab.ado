@@ -1,4 +1,4 @@
-*! stacktab Version 1.11.0  2026/08/06
+*! stacktab Version 1.12.0  2026/08/06
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -500,12 +500,38 @@ program define stacktab, rclass
         }
 
         if "`display'" != "" {
-            * The columns carry internal scaffolding names (_xcol1, _xcol2, ...)
-            * that Stata prints as the console header, so the preview was headed
-            * by names no reader of the table has any use for. Suppress the
-            * variable-name header and let the block's own header row -- which is
-            * row 1 of the assembled table -- do that job.
-            list, noobs noheader abbreviate(24)
+            * stacktab was the only display-capable command that rendered its
+            * own preview. A bare `list' inherits Stata's separator(5), which
+            * drew a rule after every fifth row that reads as a block boundary,
+            * and it handled neither title() nor note(). The shared helper keys
+            * off c1..cN, while the assembled table carries the _xcol
+            * scaffolding names, so rename onto the shared contract for the
+            * duration of the call and rename back before any sink reads the
+            * data. `final_vars' comes from `ds' above, so the map is by
+            * position and covers composite columns too.
+            local _disp_to ""
+            local _disp_ix = 0
+            foreach _dv of local final_vars {
+                local ++_disp_ix
+                local _disp_to `"`_disp_to' c`_disp_ix'"'
+            }
+            capture rename (`final_vars') (`_disp_to')
+            if _rc {
+                * A source column already named c# would collide; fall back to
+                * the unshared preview rather than failing the whole command.
+                noisily list, noobs noheader separator(0)
+                noisily display as text ""
+            }
+            else {
+                capture noisily _tabtools_console_display `final_ncols' ///
+                    `"`title'"', headerstart(1)
+                local _disp_rc = _rc
+                capture rename (`_disp_to') (`final_vars')
+                if `_disp_rc' exit `_disp_rc'
+            }
+            if `"`note'"' != "" {
+                noisily display as text `"`note'"'
+            }
         }
 
         * Resolve the output worksheet and its full used range before mutating
@@ -590,7 +616,8 @@ program define stacktab, rclass
         }
 
         if `"`csv'"' != "" {
-            quietly _tabtools_csv_write using `"`csv'"'
+            quietly _tabtools_csv_write using `"`csv'"', ///
+                title(`"`title'"') footnote(`"`note'"')
         }
 
         local _ret_markdown ""

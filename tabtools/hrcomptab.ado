@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.11.0  2026/08/06
+*! hrcomptab Version 1.12.0  2026/08/06
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1022,7 +1022,7 @@ program define hrcomptab, rclass
         * CSV export
         if "`csv'" != "" {
             order title c*
-            _tabtools_csv_write using "`csv'"
+            _tabtools_csv_write using "`csv'", title(`"`_out_title'"') footnote(`"`footnote'"')
             capture confirm file "`csv'"
             if _rc {
                 display as error "CSV export completed but file was not created"

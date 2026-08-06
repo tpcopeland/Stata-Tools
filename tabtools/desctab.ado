@@ -1,4 +1,4 @@
-*! desctab Version 1.11.0  2026/08/06
+*! desctab Version 1.12.0  2026/08/06
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -812,7 +812,8 @@ program define desctab, rclass
     return local compose `"`compose_resolved'"'
     return local methods "`_methods'"
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", labelvar(A)
+        _tabtools_csv_write using "`csv'", labelvar(A) ///
+            title(`"`title'"') footnote(`"`footnote'"')
     }
 
     local _ret_markdown ""
@@ -992,6 +993,12 @@ program define desctab, rclass
     }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+    * `capture putexcel close' above errors with r(198) whenever no putexcel
+    * file is set -- the default state -- so the caller was left reading
+    * _rc == 198 after every successful call. _rc is written by `capture' alone
+    * -- never by a program's exit code -- so restore it with a capture that
+    * cannot fail. Guarded by test_synthesis_review.do A2 (bare call).
+    capture version 16.0
 end
 
 capture program drop _desctab_parse_layout

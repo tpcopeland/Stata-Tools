@@ -121,9 +121,9 @@ and matrices in memory are left unchanged.{p_end}
 {it:Detailed option contracts}{p_end}
 
 {phang}
-{opt csv(filename)} also write the assembled table to a CSV file. The CSV holds the table's data columns
-only; the title and footnote, if set, are not written (they are included in Excel
-output written with {cmd:using} and in {opt markdown()} output){p_end}
+{opt csv(filename)} also write the assembled table to a CSV file. The CSV mirrors the
+workbook: {opt title()} is written as the first row and {opt footnote()} as the last row,
+both in the first column, with the table body between them{p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for numeric columns; default 2, range 0-6; also respects

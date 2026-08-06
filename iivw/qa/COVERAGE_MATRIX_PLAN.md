@@ -8,14 +8,31 @@ risk.
 
 ## What the measured run tells us about cost
 
-| Quantity | Measured |
-|---|---|
-| One 50-replication `iiw` block at `REPS=999`, idle box | **89.7 min** |
-| All 60 blocks (3 families x 1000 reps) | **~90 CPU-hours** |
-| Wall-clock at `WORKERS=8`, shared box | **8h55m** |
+**Per-block times below are host-specific and do not transfer. Re-measure one
+block before costing anything from them.** The 2026-07-23 figures were taken on
+a **16-vCPU** host; the 2026-08-05 gate run on the current box measured
+materially different per-block times at a *smaller* block size, which is the
+opposite of what a portable calibration would do.
 
-So **one family-cell of 1000 replications costs ~30 CPU-hours**, or ~3.75 h
-wall-clock at 8 workers. That is the unit of currency below.
+| Quantity | Measured | Host |
+|---|---|---|
+| One 50-replication `iiw` block at `REPS=999`, idle box | **89.7 min** | 16 vCPU, 2026-07-23 |
+| One 25-replication `iptw` block at `REPS=999`, ~30-way concurrency | **~40 min** | 28 vCPU / 16 physical cores, 2026-08-05 |
+| One 25-replication `iiw` block at `REPS=999`, ~30-way concurrency | **~95–128 min** | as above |
+| One 25-replication `fiptiw` block at `REPS=999`, ~30-way concurrency | **~140 min** | as above |
+| All 60 blocks (3 families x 1000 reps) | **~90 CPU-hours** | both runs agree |
+| Wall-clock, `WORKERS=8`, shared 16-vCPU box | **8h55m** | 2026-07-23 |
+| Wall-clock, 120 blocks of 25, `WORKERS≈30` | **5h34m** | 2026-08-05 |
+
+The one figure that *did* transfer is the **~90 CPU-hour** total for a
+three-family 1000-replication study, and that is the unit of currency below:
+**one family-cell of 1000 replications costs ~30 CPU-hours.** Wall-clock is
+whatever that divides into on the host of the day — note that the 2026-08-05
+host's 28 vCPUs are SMT siblings of 16 physical cores, so its aggregate
+throughput is ~16–20 single-thread-equivalents, not 28.
+
+Source for the 2026-08-05 row: `coverage_results/RESULT_2026-08-05.md`
+("Note on block calibration").
 
 A diagnostic cell does not need 1000 replications. To resolve a coverage
 proportion near 0.92 to +/-0.02 needs R ~ 500; to distinguish a variance ratio

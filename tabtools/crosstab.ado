@@ -1,4 +1,4 @@
-*! crosstab Version 1.11.0  2026/08/06
+*! crosstab Version 1.12.0  2026/08/06
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -528,7 +528,7 @@ capture noisily {
 
 **# CSV Export
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'"
+        _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`footnote'"')
         noisily display as text "CSV exported to `csv'"
     }
 

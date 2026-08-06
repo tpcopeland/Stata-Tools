@@ -25,31 +25,31 @@
 | C-reactive protein (mg/L) | -0.01 | 1.00 |  |
 | Prior hospitalizations | 0.00 | 0.01 | 1.00 |
 
-** p<.05, ** p<.01, *** p<.001*
+*\* p<.05, \*\* p<.01, \*\*\* p<.001*
 
 ### Table 4. First Six Analysis Records
 
-| Person identifier | Female sex | Age at cohort entry (years) | Treatment group | Cardiovascular event |
+| Person identifier | Age at cohort entry (years) | Treatment group | Female sex | Cardiovascular event |
 | --- | --- | --- | --- | --- |
-| 1 | Male | 73.75 | SSRI | Yes |
-| 2 | Female | 61.80 | SSRI | No |
-| 3 | Female | 46.22 | SSRI | No |
-| 4 | Female | 51.62 | SNRI | Yes |
-| 5 | Female | 54.89 | SSRI | Yes |
-| 6 | Male | 75.15 | SSRI | No |
+| 1 | 73.75 | SSRI | Male | Yes |
+| 2 | 61.80 | SSRI | Female | No |
+| 3 | 46.22 | SSRI | Female | No |
+| 4 | 51.62 | SNRI | Female | Yes |
+| 5 | 54.89 | SSRI | Female | Yes |
+| 6 | 75.15 | SSRI | Male | No |
 
 ### Simulation results by scenario and estimand
 
 | Scenario | Estimator | Marginal slope: Mean | Marginal slope: Bias | Marginal slope: Coverage | Marginal slope: N | Treatment contrast: Mean | Treatment contrast: Bias | Treatment contrast: Coverage | Treatment contrast: N |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| A | Unweighted | 0.142 | +0.042 | 86%* | 372 | 0.540 | +0.040 | 85%* | 372 |
+| A | Unweighted | 0.142 | +0.042 | 86%\* | 372 | 0.540 | +0.040 | 85%\* | 372 |
 |  | IIW | 0.093 | -0.007 | 95% | 400 | 0.493 | -0.007 | 95% | 400 |
 |  | IIW + log(test) | 0.109 | +0.009 | 96% | 400 | 0.512 | +0.012 | 94% | 400 |
-| B | Unweighted | 0.151 | +0.051 | 75%* | 379 | 0.553 | +0.053 | 80%* | 376 |
-|  | IIW | 0.102 | +0.002 | 96% | 400 | 0.499 | -0.001 | 97%* | 400 |
-|  | IIW + log(test) | 0.120 | +0.020 | 94% | 400 | 0.520 | +0.020 | 92%* | 400 |
-| C | Unweighted | 0.157 | +0.057 | 74%* | 379 | 0.557 | +0.057 | 72%* | 376 |
+| B | Unweighted | 0.151 | +0.051 | 75%\* | 379 | 0.553 | +0.053 | 80%\* | 376 |
+|  | IIW | 0.102 | +0.002 | 96% | 400 | 0.499 | -0.001 | 97%\* | 400 |
+|  | IIW + log(test) | 0.120 | +0.020 | 94% | 400 | 0.520 | +0.020 | 92%\* | 400 |
+| C | Unweighted | 0.157 | +0.057 | 74%\* | 379 | 0.557 | +0.057 | 72%\* | 376 |
 |  | IIW | 0.110 | +0.010 | 96% | 400 | 0.508 | +0.008 | 96% | 400 |
-|  | IIW + log(test) | 0.128 | +0.028 | 92%* | 400 | 0.528 | +0.028 | 89%* | 400 |
+|  | IIW + log(test) | 0.128 | +0.028 | 92%\* | 400 | 0.528 | +0.028 | 89%\* | 400 |
 
-** coverage differs from the nominal 95% by more than 2 Monte Carlo SEs*
+*\* coverage differs from the nominal 95% by more than 2 Monte Carlo SEs*

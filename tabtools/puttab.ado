@@ -1,4 +1,4 @@
-*! puttab Version 1.11.0  2026/08/06
+*! puttab Version 1.12.0  2026/08/06
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -214,6 +214,7 @@ program define puttab, rclass
             if `"`vlist'"' != "" {
                 unab _keepvars : `vlist'
                 keep `_keepvars'
+                order `_keepvars'
             }
             quietly ds
             local _srcvars `r(varlist)'

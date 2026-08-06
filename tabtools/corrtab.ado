@@ -1,4 +1,4 @@
-*! corrtab Version 1.11.0  2026/08/06
+*! corrtab Version 1.12.0  2026/08/06
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -299,8 +299,27 @@ program define corrtab, rclass
         if `"`footnote'"' != "" noisily display as text `"`footnote'"'
         noisily display as text ""
 
+        * The star legend is GENERATED, not user-supplied, and the console, the
+        * workbook and the Markdown file all print it. Combine it with the user
+        * footnote once, punctuation-aware, and hand the same combined note to
+        * both flat sinks, so a CSV cannot carry "0.54**" with nothing
+        * explaining the mark.
+        local _md_footnote `"`footnote'"'
+        if `"`_star_note'"' != "" {
+            if `"`_md_footnote'"' == "" {
+                local _md_footnote `"`_star_note'"'
+            }
+            else {
+                local _fn_trim = strtrim(`"`_md_footnote'"')
+                local _fn_last = substr(`"`_fn_trim'"', -1, 1)
+                if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
+                    local _md_footnote `"`_fn_trim' `_star_note'"'
+                else local _md_footnote `"`_fn_trim'; `_star_note'"'
+            }
+        }
+
         if "`csv'" != "" {
-            _tabtools_csv_write using "`csv'"
+            _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`_md_footnote'"')
             capture confirm file "`csv'"
             if _rc {
                 noisily display as error "CSV export completed but file was not created"
@@ -315,24 +334,8 @@ program define corrtab, rclass
         if `"`markdown'"' != "" {
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
-            * The star legend is GENERATED, not user-supplied, and the console
-            * and the workbook both print it. Markdown used to receive only the
-            * user footnote, so a Markdown file could contain "0.54***" with
-            * nothing explaining the mark. Combine the two, punctuation-aware,
-            * and pass the combined note to the writer.
-            local _md_footnote `"`footnote'"'
-            if `"`_star_note'"' != "" {
-                if `"`_md_footnote'"' == "" {
-                    local _md_footnote `"`_star_note'"'
-                }
-                else {
-                    local _fn_trim = strtrim(`"`_md_footnote'"')
-                    local _fn_last = substr(`"`_fn_trim'"', -1, 1)
-                    if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
-                        local _md_footnote `"`_fn_trim' `_star_note'"'
-                    else local _md_footnote `"`_fn_trim'; `_star_note'"'
-                }
-            }
+            * `_md_footnote' is the star legend combined with the user footnote;
+            * it is built above the CSV branch so both flat sinks carry it.
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' title(`"`title'"') footnote(`"`_md_footnote'"') strictheaders
             if _rc {

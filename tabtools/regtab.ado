@@ -1,4 +1,4 @@
-*! regtab Version 1.11.0  2026/08/06
+*! regtab Version 1.12.0  2026/08/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -2932,7 +2932,8 @@ levelsof ref`i', local(_ref_rows_`_ref_model_ix')
 
 * CSV export (F2) — must happen before clear
 if "`csv'" != "" {
-    _tabtools_csv_write using "`csv'", labelvar(A)
+    _tabtools_csv_write using "`csv'", labelvar(A) ///
+        title(`"`title'"') footnote(`"`footnote'"')
 }
 
 * Console display
@@ -3106,12 +3107,16 @@ capture {
 		local _style_rule_rows `"`_style_rule_rows' | 12 2 2 1 1 `=`headerheight'*15' 0 0 0"'
 	}
 
-	* Wrap the label column so labels longer than the capped width (e.g. a
-	* verbose random-effects covariance row) flow onto extra lines instead of
-	* being clipped by the adjacent estimate cell. Top-align the label rows so
-	* the first line stays level with the single-line estimate cells.
+	* Wrap the label column -- and only the label column -- so labels longer
+	* than the capped width (e.g. a verbose random-effects covariance row) flow
+	* onto extra lines instead of being clipped by the adjacent estimate cell.
+	* Estimate cells are pre-formatted to a known width and must not wrap.
+	* Top-align across the whole row, not just the label: with the rule on
+	* column B alone, C..N kept Excel's default bottom alignment, so the stated
+	* intent -- the label's first line level with the single-line estimate
+	* cells -- failed on every single-line row.
 	if `num_rows' >= 4 {
-		local _style_rule_rows `"`_style_rule_rows' | 4 4 `num_rows' 2 2 0 1 0 0 | 6 4 `num_rows' 2 2 0 3 0 0"'
+		local _style_rule_rows `"`_style_rule_rows' | 4 4 `num_rows' 2 2 0 1 0 0 | 6 4 `num_rows' 2 `num_cols' 0 3 0 0"'
 	}
 
 	local _style_rule_rows `"`_style_rule_rows' | 1 1 `num_rows' 1 `num_cols' `_fontsize' 1 0 0 | 1 1 1 1 `num_cols' `=`_fontsize'+2' 1 0 0 | 14 1 1 1 `num_cols' 0 0 0 0 | 4 1 1 1 1 0 1 0 0 | 5 1 1 1 1 0 1 0 0 | 6 1 1 1 1 0 2 0 0 | 2 1 1 1 1 0 1 0 0"'
@@ -3157,7 +3162,6 @@ capture {
 				local _style_rule_rows `"`_style_rule_rows' | 8 `excel_row' `excel_row' 2 `num_cols' 0 `_hborder_code' 0 0"'
 				local first_stat = 0
 			}
-			local _style_rule_rows `"`_style_rule_rows' | 9 `excel_row' `excel_row' 2 `num_cols' 0 `_hborder_code' 0 0"'
 			forvalues _mc = 1/`n_models' {
 				local _sc = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 				local _sc_end = `_sc' + `_cols_per_model' - 1
@@ -3176,7 +3180,6 @@ capture {
 					local _style_rule_rows `"`_style_rule_rows' | 8 `excel_row' `excel_row' 2 `num_cols' 0 `_hborder_code' 0 0"'
 					local first_ar = 0
 				}
-				local _style_rule_rows `"`_style_rule_rows' | 9 `excel_row' `excel_row' 2 `num_cols' 0 `_hborder_code' 0 0"'
 				forvalues _mc = 1/`n_models' {
 					local _ac = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 					local _ac_end = `_ac' + `_cols_per_model' - 1

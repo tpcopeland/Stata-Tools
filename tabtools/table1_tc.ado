@@ -1,4 +1,4 @@
-*! table1_tc Version 1.11.0  2026/08/06 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.12.0  2026/08/06 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -681,7 +681,7 @@ program define table1_tc, rclass
             if `_any_miss' {
                 local _new = _N + 1
                 qui set obs `_new'
-                qui replace factor = "  Missing" in `_new'
+                qui replace factor = "   Missing" in `_new'
                 qui replace factor_sep = factor_sep[`_obs'] in `_new'
                 capture confirm variable sort1
                 if !_rc replace sort1 = sort1[`_obs'] in `_new'
@@ -690,8 +690,8 @@ program define table1_tc, rclass
                 foreach _lv of local levels {
                     local _mval = m_`_lv'[`_obs']
                     if !missing(`_mval') & `_mval' > 0 {
-                        local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "%5.1f")
-                        local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "%)"
+                        local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                        local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + `percsign' + ")"
                         qui replace `groupnum'`_lv' = "`_mstr'" in `_new'
                     }
                     else {
@@ -729,10 +729,7 @@ program define table1_tc, rclass
         // Handle very small p-values
         local pmin=10^-`pdp'  // Minimum p-value to show numerically
         qui replace pvalue="<" + string(`pmin', "%`=`pdp'+2'.`pdp'f") if p<`pmin'  // Show as <0.001 etc.
-        
-        // Add space for alignment
-        qui replace pvalue=" " + pvalue if p>=`pmin' & pvalue != ""
-        
+
         lab var pvalue "p-value"  // Label p-value column
     }
     
@@ -1820,7 +1817,7 @@ program define table1_tc, rclass
 
     * CSV export (F2)
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'"
+        _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`footnote'"')
         display as text "CSV exported to `csv'"
     }
 
@@ -1917,4 +1914,11 @@ program define table1_tc, rclass
     capture mata: mata drop _smd_raw_save
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+    * The Mata cleanup above runs on the success path too, where those objects
+    * exist only in the Excel branch, so both captures fail with r(111) and the
+    * caller was left reading _rc == 111 after every successful call. _rc is
+    * written by `capture' alone -- never by a program's exit code, so neither
+    * falling off `end' nor `exit 0' clears it -- so restore it with a capture
+    * that cannot fail. Guarded by test_synthesis_review.do A1 (bare call).
+    capture version 16.0
 end

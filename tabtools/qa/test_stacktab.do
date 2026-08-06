@@ -132,10 +132,15 @@ capture noisily {
     assert r(markdown_rows) > 0
     assert r(markdown_cols) > 0
 
+    * Since 1.12.0 the CSV opens on title() when one was given, matching the
+    * workbook and the Markdown file; the visible grid header follows it. The
+    * scaffolding names must still never appear.
     tempname _csv_fh
     file open `_csv_fh' using "`st_csv'", read text
+    file read `_csv_fh' _csv_title
     file read `_csv_fh' _csv_line
     file close `_csv_fh'
+    assert strpos(`"`_csv_title'"', "Stacked table") == 1
     assert strpos(`"`_csv_line'"', "_xcol") == 0
     assert strpos(`"`_csv_line'"', "Category,HR,95% CI") == 1
 
@@ -453,8 +458,15 @@ capture noisily {
     assert strpos(`"`_csv_header'"', "_xcol") == 0
     assert strpos(`"`_csv_body'"', "Active") == 1
 
+    * No title() here, so row 1 is the grid header; footnote()/note() is
+    * appended as the last row, as it is in the workbook (1.12.0).
+    * varnames(1) consumes the grid header, so the columns are named after its
+    * cells rather than v1..v3; resolve the first column by position.
     import delimited using `"`csvout'"', clear varnames(1) stringcols(_all)
-    assert _N == 1
+    assert _N == 2
+    quietly ds
+    local _st_first : word 1 of `r(varlist)'
+    assert strpos(`_st_first'[_N], "Footnote alias works") == 1
 
     shell python3 "`checker'" "`wb'" "FrameCsv" ///
         --result-file "`_st_res'" ///

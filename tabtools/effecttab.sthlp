@@ -113,8 +113,9 @@ values. Use backslash to separate multiple rows{p_end}
 {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}), otherwise falls back to basic cleanup{p_end}
 
 {phang}
-{opt csv(filename)} also export the table as a CSV file. The CSV holds the table's data columns only; the
-title and footnote, if set, are not written (they are included in {opt xlsx()} and {opt markdown()} output){p_end}
+{opt csv(filename)} also export the table as a CSV file. The CSV mirrors the workbook: {opt
+title()} is written as the first row and {opt footnote()} as the last row, both in the first
+column, with the table body between them{p_end}
 
 {phang}
 {opt digits(#)} number of decimal places for effects and CIs (default 2, range 0-6){p_end}

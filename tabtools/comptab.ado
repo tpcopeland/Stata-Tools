@@ -1,4 +1,4 @@
-*! comptab Version 1.11.0  2026/08/06
+*! comptab Version 1.12.0  2026/08/06
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1103,7 +1103,8 @@ program define comptab, rclass
     * CSV EXPORT
     * =====================================================================
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", labelvar(A)
+        _tabtools_csv_write using "`csv'", labelvar(A) ///
+            title(`"`title'"') footnote(`"`footnote'"')
     }
 
     * =====================================================================

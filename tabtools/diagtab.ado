@@ -1,4 +1,4 @@
-*! diagtab Version 1.11.0  2026/08/06
+*! diagtab Version 1.12.0  2026/08/06
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -780,7 +780,7 @@ capture noisily {
 
 **# CSV/Frame/Excel Export
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'"
+        _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`footnote'"')
     }
 
     local _ret_markdown ""
@@ -904,7 +904,10 @@ capture noisily {
                 matrix `_style_rules' = `_style_rules' \ ///
                     (2, `_top_header_row', `_top_header_row', 2, `num_cols', 0, 1, 0, 0) \ ///
                     (5, `_top_header_row', `_top_header_row', 2, `num_cols', 0, 2, 0, 0) \ ///
-                    (2, `_measures_row', `_measures_row', 2, `num_cols', 0, 1, 0, 0)
+                    (8, `_top_header_row', `_top_header_row', 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
+                    (9, `_top_header_row', `_top_header_row', 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
+                    (2, `_measures_row', `_measures_row', 2, `num_cols', 0, 1, 0, 0) \ ///
+                    (9, `_measures_row', `_measures_row', 2, `num_cols', 0, `_hborder_code', 0, 0)
             }
             matrix `_style_rules' = `_style_rules' \ ///
                 (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)

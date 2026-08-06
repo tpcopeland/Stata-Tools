@@ -846,12 +846,18 @@ capture noisily {
     }
 
     * CSV is written without Stata variable-name headers (v1.8.6 contract), so
-    * import with varnames(nonames): column k -> vk, row N aligns with frame row N.
+    * import with varnames(nonames): column k -> vk. The frame reserves row 1
+    * for the title; since 1.12.0 the CSV drops that reserved row when no
+    * title() was given, so CSV row N aligns with frame row N+1. This check
+    * used to read the same index in both and so depended on the empty row.
     preserve
     import delimited "`output_dir'/_val_diagtab_par.csv", clear varnames(nonames)
-    assert v1[7] == "`_se_label'"
-    assert v2[7] == "`_se_est'"
-    assert v3[7] == "`_se_ci'"
+    * The reserved row was empty in every column; diagtab's header row is empty
+    * only in the row-label column, so check the whole row, not just field 1.
+    assert strtrim(v1[1]) + strtrim(v2[1]) + strtrim(v3[1]) != ""
+    assert v1[6] == "`_se_label'"
+    assert v2[6] == "`_se_est'"
+    assert v3[6] == "`_se_ci'"
     restore
     capture frame drop _val_diagpar
 }

@@ -598,7 +598,12 @@ capture noisily {
     * The CSV is written without Stata variable-name headers (v1.8.6 contract)
     * and carries the same visible columns, in the same order, as the frame and
     * the console/XLSX table. Verify column ORDER by aligning the CSV's display
-    * header row (row 2) against the frame's visible columns (c1..c4).
+    * header row against the frame's visible columns (c1..c4).
+    *
+    * The frame reserves row 1 for the title; the CSV no longer does (1.12.0).
+    * With no title() the CSV opens on the header row, so frame row 2 aligns
+    * with CSV row 1. This test used to read CSV row 2 and so pinned the
+    * reserved all-empty first row as expected output.
     frame _ct_layout {
         local _r2_c1 = c1[2]
         local _r2_c2 = c2[2]
@@ -608,9 +613,23 @@ capture noisily {
     preserve
     import delimited "`csvfile'", clear varnames(nonames)
     assert c(k) == 4
+    assert strtrim(v1[1]) != ""
+    assert strtrim(v1[1]) == strtrim("`_r2_c1'")
+    assert strtrim(v2[1]) == strtrim("`_r2_c2'")
+    assert strtrim(v3[1]) == strtrim("`_r2_c3'")
+    assert strtrim(v4[1]) == strtrim("`_r2_c4'")
+    restore
+
+    * With title(), row 1 carries the title and the header row moves to row 2,
+    * still with the same column count as the body.
+    local csvtitled "`output_dir'/crosstab_layout_titled.csv"
+    capture erase "`csvtitled'"
+    crosstab outcome exposure, csv("`csvtitled'") title("Layout title")
+    preserve
+    import delimited "`csvtitled'", clear varnames(nonames)
+    assert c(k) == 4
+    assert strtrim(v1[1]) == "Layout title"
     assert strtrim(v1[2]) == strtrim("`_r2_c1'")
-    assert strtrim(v2[2]) == strtrim("`_r2_c2'")
-    assert strtrim(v3[2]) == strtrim("`_r2_c3'")
     assert strtrim(v4[2]) == strtrim("`_r2_c4'")
     restore
     capture frame drop _ct_layout
