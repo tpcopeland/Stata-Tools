@@ -247,9 +247,7 @@ Removes the active diagram state and deletes a temporary backing CSV. The `quiet
 | `r(csv)` | Local macro | CSV export path, only when `csv()` is requested |
 | `r(xlsx)` | Local macro | Excel export path, only when `xlsx()` is requested |
 
-When `final()` is omitted and the last exclusion has a nonempty `remaining()` label,
-that milestone label is retained in the diagram; `r(final)` still reports the
-default `"Final Cohort"` value.
+When `final()` is omitted and the last exclusion has a nonempty `remaining()` label, that milestone label is retained in the diagram; `r(final)` still reports the default `"Final Cohort"` value.
 
 ## Assumptions and Limits
 
@@ -308,7 +306,7 @@ The package uses the CONSORT naming convention for participant-flow diagrams; co
 
 ## QA
 
-QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+QA suites are available in [`qa/`](qa/).
 
 ## Version History
 

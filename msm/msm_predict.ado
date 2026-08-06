@@ -1,4 +1,4 @@
-*! msm_predict Version 1.4.4  2026/08/05
+*! msm_predict Version 1.4.5  2026/08/05
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -856,9 +856,13 @@ string scalar _msm_mvn_factor(string scalar vname, string scalar fname, real sca
     if (mn < -tol * mx) {
         return("fail")
     }
-    // Clip tiny negatives / zeros to exactly 0, then form F = X * sqrt(diag(L)).
+    // Clip tiny negatives / zeros to exactly 0.  Use the symmetric PSD square
+    // root X*sqrt(diag(L))*X', which is invariant to eigenvector sign choices
+    // and rotations within repeated-eigenvalue subspaces.  The former
+    // X*sqrt(diag(L)) factor was distributionally valid but made identical
+    // seeded draws depend on an arbitrary eigensystem orientation.
     L = L :* (L :> 0)
-    F = X * diag(sqrt(L))
+    F = X * diag(sqrt(L)) * X'
     st_matrix(fname, F)
     if (mn > 0) return("psd")
     return("clipped")

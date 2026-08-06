@@ -63,7 +63,8 @@ pooled logistic MSM from {helpb msm_fit}.
 The command computes cumulative incidence (risk) or survival at each requested
 time point for each strategy, averaging over the reference population at
 baseline. Confidence intervals are computed via Monte Carlo simulation from
-the estimated coefficient distribution using a symmetrized eigendecomposition.
+the estimated coefficient distribution using the symmetric positive-semidefinite
+square root from a symmetrized eigendecomposition.
 
 {pstd}
 When {opt difference} is specified with {cmd:strategy(both)}, the command also

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  05aug2026}{...}
+{* *! version 1.0.2  05aug2026}{...}
 {vieweralsosee "[R] kdensity" "help kdensity"}{...}
 {vieweralsosee "[G-2] graph twoway rarea" "help twoway rarea"}{...}
 {viewerjumpto "Syntax" "raincloud##syntax"}{...}
@@ -374,7 +374,7 @@ plots: a multi-platform tool for robust data visualization. {it:Wellcome Open}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-08-05{p_end}
+{pstd}Version 1.0.2, 2026-08-05{p_end}
 
 
 {title:Also see}

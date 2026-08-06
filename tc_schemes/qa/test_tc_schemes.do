@@ -40,7 +40,7 @@ capture noisily {
     assert r(n_schemes) > 0
     assert "`r(schemes)'" != ""
     assert "`r(sources)'" == "blindschemes schemepack cleanplots modern tc"
-    assert "`r(version)'" == "1.1.0"
+    assert "`r(version)'" == "1.1.1"
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -743,13 +743,13 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* Test 31: r(version) reports 1.1.0
+* Test 31: r(version) reports 1.1.1
 local ++test_count
-display as text _n "Test `test_count': r(version) == 1.1.0"
+display as text _n "Test `test_count': r(version) == 1.1.1"
 
 capture noisily {
     tc_schemes, source(tc)
-    assert "`r(version)'" == "1.1.0"
+    assert "`r(version)'" == "1.1.1"
 }
 if _rc == 0 {
     display as result "  PASS"

@@ -537,7 +537,8 @@ capture noisily {
     local fv "`r(eventvar)'"
     frame change analysis
     tvdiagnose, id(`idv') start(`sv') stop(`ev') entry(study_entry) exit(study_exit) all
-    stset `ev', id(`idv') failure(`fv' == 1) time0(`sv')
+    generate double analysis_t0 = `sv' - 1
+    stset `ev', id(`idv') failure(`fv' == 1) time0(analysis_t0)
     frame change default
 
     * 7. recurring events from a separate frame

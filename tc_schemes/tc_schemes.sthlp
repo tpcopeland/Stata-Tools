@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  28jun2026}{...}
+{* *! version 1.1.1  05aug2026}{...}
 {vieweralsosee "help scheme" "help scheme"}{...}
 {vieweralsosee "help set scheme" "help set_scheme"}{...}
 {vieweralsosee "help graph" "help graph"}{...}
@@ -47,7 +47,7 @@ schemes from several sources:
 colorblind-friendly palettes, plus fixes from Mead Over's blindschemes_fix.
 
 {p 8 12 2}
-2. {bf:schemepack} by Asjad Naqvi - A comprehensive collection of 35+ schemes
+2. {bf:schemepack} by Asjad Naqvi - A comprehensive collection of 35 schemes
 organized by background style (white, black, ggplot2-style) and color palette.
 
 {p 8 12 2}
@@ -281,7 +281,7 @@ slides and presentations.{p_end}
 {synopt:{cmd:r(n_schemes)}}number of schemes in selected source{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
-{synopt:{cmd:r(schemes)}}space-separated list of all scheme names{p_end}
+{synopt:{cmd:r(schemes)}}selected scheme names in catalog order{p_end}
 {synopt:{cmd:r(sources)}}selected source package(s){p_end}
 {synopt:{cmd:r(version)}}version of tc_schemes{p_end}
 {p2colreset}{...}
@@ -311,7 +311,7 @@ resolved compatibility issues between blindschemes and recent Stata versions.
 
 {pstd}
 {bf:Asjad Naqvi} (Vienna University of Economics and Business) created {it:schemepack},
-an impressive collection of 35+ schemes that bring modern color science and
+an impressive collection of 35 schemes that bring modern color science and
 design principles to Stata graphics. His "Stata Guide" blog on Medium provides
 extensive documentation and visualization tutorials.
 
@@ -342,9 +342,7 @@ respective authors.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet
 
 {pstd}
 Consolidation package only. Original scheme authors credited above.
@@ -355,3 +353,4 @@ Consolidation package only. Original scheme authors credited above.
 {psee}
 Online: {helpb scheme}, {helpb set scheme}, {helpb graph}, {helpb palette}
 {p_end}
+{hline}

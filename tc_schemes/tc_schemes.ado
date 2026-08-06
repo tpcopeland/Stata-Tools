@@ -1,4 +1,4 @@
-*! tc_schemes Version 1.1.0  2026/06/28
+*! tc_schemes Version 1.1.1  2026/08/05
 *! Consolidated Stata graph schemes from blindschemes, schemepack, cleanplots, scheme-modern, plus originals
 *! Author: Timothy P Copeland, Karolinska Institutet (consolidation + original rdbu/ki/ki_black schemes)
 *! Original Authors: Daniel Bischof (blindschemes), Asjad Naqvi (schemepack), Mead Over (blindschemes_fix), Trenton Mize (cleanplots), Michael Droste (scheme-modern)
@@ -171,7 +171,7 @@ program define tc_schemes, rclass
         return local schemes "`selected_schemes'"
         return scalar n_schemes = `n_schemes'
         return local sources "`selected_sources'"
-        return local version "1.1.0"
+        return local version "1.1.1"
 
     }
     local rc = _rc

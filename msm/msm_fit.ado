@@ -1,4 +1,4 @@
-*! msm_fit Version 1.4.4  2026/08/05
+*! msm_fit Version 1.4.5  2026/08/05
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -773,9 +773,9 @@ program define msm_fit, eclass
     * =========================================================================
     * VALIDATE THE FIT BEFORE COMMITTING ANY STATE
     *
-    * Everything below works on tempnames. No fitted state is written until the
-    * primary effect is known to be estimable. This validation used to run
-    * AFTER the commit, so a model whose exposure was omitted exited 111 while
+    * Everything below works on tempnames. No fitted state is written until
+    * every requested modeled term is known to be estimable. This validation
+    * used to run after the commit, so an omitted exposure exited 111 while
     * leaving _msm_fitted=1 and a zero coefficient persisted -- a failed fit
     * that looked fitted (audit A03).
     * =========================================================================

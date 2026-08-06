@@ -1,6 +1,6 @@
 /*  demo_tc_schemes.do - Generate screenshots for tc_schemes
 
-    Produces 14 output types:
+    Produces 20 output types: 2 console logs and 18 graph PNGs:
       1. Console output (scheme overview) -> .smcl
       2. Console output (detailed listing) -> .smcl
       3-6. Graphs (blindschemes: plotplain, plotplainblind, plottig, plottigblind) -> .png
@@ -8,6 +8,8 @@
       10-11. Graphs (schemepack black: tableau, cividis) -> .png
       12. Graph (schemepack gg: hue) -> .png
       13-14. Graphs (schemepack standalone: neon, swift_red) -> .png
+      15-20. Graphs (borrowed and original: cleanplots, modern, modern_dark,
+              rdbu, ki, ki_black) -> .png
 */
 
 version 16.0
@@ -16,8 +18,30 @@ set varabbrev off
 set linesize 250
 
 * --- Paths ---
-local pkg_dir "tc_schemes/demo"
+local pkg_root "tc_schemes"
+local pkg_dir "`pkg_root'/demo"
+adopath ++ "`c(pwd)'/`pkg_root'"
 capture mkdir "`pkg_dir'"
+
+* Fail rather than silently exporting s2color fallbacks when a scheme is absent.
+local demo_schemes "plotplain plotplainblind plottig plottigblind"
+local demo_schemes "`demo_schemes' white_tableau white_viridis white_ptol"
+local demo_schemes "`demo_schemes' black_tableau black_cividis gg_hue"
+local demo_schemes "`demo_schemes' neon swift_red cleanplots modern modern_dark"
+local demo_schemes "`demo_schemes' rdbu ki ki_black"
+foreach s of local demo_schemes {
+    capture quietly findfile scheme-`s'.scheme
+    if _rc {
+        display as error "required demo scheme not found: `s'"
+        exit 601
+    }
+    capture set scheme `s'
+    if _rc {
+        display as error "required demo scheme cannot be loaded: `s'"
+        exit 198
+    }
+}
+set scheme s2color
 
 * --- Load and reload command ---
 capture program drop tc_schemes

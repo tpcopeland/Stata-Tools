@@ -672,7 +672,8 @@ locals first: each of these commands replaces {cmd:r()} with its own results.{p_
 {phang2}{cmd:. local fv "`r(eventvar)'"}{p_end}
 {phang2}{cmd:. frame change analysis}{p_end}
 {phang2}{cmd:. tvdiagnose, id(`idv') start(`sv') stop(`ev') entry(study_entry) exit(study_exit) all}{p_end}
-{phang2}{cmd:. stset `ev', id(`idv') failure(`fv' == 1) time0(`sv')}{p_end}
+{phang2}{cmd:. generate double analysis_t0 = `sv' - 1}{p_end}
+{phang2}{cmd:. stset `ev', id(`idv') failure(`fv' == 1) time0(analysis_t0)}{p_end}
 
 {pstd}
 {cmd:tvbuild} automates record construction, not scientific

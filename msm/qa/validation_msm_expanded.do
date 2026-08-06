@@ -430,34 +430,37 @@ else {
 * V6: PREDICTION REPRODUCIBILITY
 * =============================================================================
 
-* --- V6.1: Same seed → same predictions ---
+* --- V6.1: Same seed -> same predictions across repeated refits ---
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) model(logistic) nolog
 
     msm_predict, times(1 3 5) samples(30) seed(77777)
-    tempname p1
-    matrix `p1' = r(predictions)
+    tempname p_reference
+    matrix `p_reference' = r(predictions)
 
-    * Re-run with same seed (need re-fit due to char changes)
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
+    * Refit and redraw several times.  The old eigen factor could flip a
+    * column sign after a numerically equivalent refit, so a single repeat was
+    * intermittently green even though seed() did not guarantee reproducible
+    * intervals.
+    forvalues replicate = 2/4 {
+        _setup_pipeline, nolog
+        msm_fit, outcome_cov(age sex) model(logistic) nolog
+        msm_predict, times(1 3 5) samples(30) seed(77777)
+        tempname p_repeat
+        matrix `p_repeat' = r(predictions)
 
-    msm_predict, times(1 3 5) samples(30) seed(77777)
-    tempname p2
-    matrix `p2' = r(predictions)
-
-    * All point estimates should match
-    forvalues i = 1/3 {
-        forvalues j = 2/7 {
-            local diff = abs(`p1'[`i', `j'] - `p2'[`i', `j'])
-            assert `diff' < 0.0001
+        forvalues i = 1/3 {
+            forvalues j = 2/7 {
+                local diff = abs(`p_reference'[`i', `j'] - `p_repeat'[`i', `j'])
+                assert `diff' < 0.0001
+            }
         }
     }
 }
 if _rc == 0 {
-    display as result "  PASS V6.1: Prediction reproducibility with same seed"
+    display as result "  PASS V6.1: Prediction reproducibility across repeated refits"
     local ++pass_count
 }
 else {

@@ -1,4 +1,4 @@
-*! tvweight Version 1.13.0  2026/08/02
+*! tvweight Version 1.13.1  2026/08/05
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

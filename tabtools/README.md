@@ -22,7 +22,7 @@ The package has no mandatory user-written Stata dependencies. `table1_tc`, `stac
 
 The model and effect commands expect an active Stata `collect` result created by commands such as `regress`, `logistic`, `margins`, or `teffects`; they format and arrange that collection rather than fitting a model. `survtab` requires data declared with `stset`, while `stratetab` reads `.dta` files written by Stata's `strate, output()` command.
 
-Forest-plot output from `comptab` and `hrcomptab`, and graph-ready `eplotframe()` workflows from `regtab` and `effecttab`, require the optional `eplot` package. `simtab` compute mode and `from(summary)` mode have no external dependency; `from(simsum)` and `from(siman)` require the corresponding optional package and its output format.
+Forest-plot output from `comptab` and `hrcomptab`, and plotting graph-ready `eplotframe()` outputs from `regtab` and `effecttab`, require the optional `eplot` package. The table commands can create those graph-ready frames without eplot. `simtab` compute mode and `from(summary)` mode have no external dependency; `from(simsum)` and `from(siman)` require the corresponding optional package and its output format.
 
 ## Installation
 
@@ -165,7 +165,7 @@ survtab, times(1 2 3) by(drug) median riskset xlsx("survival.xlsx")
 webuse diet, clear
 stset dox, failure(fail)
 strate hienergy, per(1) output(rate_hienergy, replace)
-stratetab, using("rate_hienergy.dta") outcomes(1) xlsx("rates.xlsx")
+stratetab, using("rate_hienergy") outcomes(1) xlsx("rates.xlsx")
 ```
 
 `survtab` reports Kaplan–Meier quantities at the requested times. `stratetab` expects the saved `strate` files in exposure-major, outcome-minor order and uses `outcomes()` to interpret that file sequence.
@@ -178,12 +178,12 @@ collect clear
 collect: regress price mpg weight
 regtab, frame(model, replace)
 collect clear
-collect: margins, dydx(mpg weight)
-effecttab, frame(effect, replace)
-comptab model effect, rows("mpg weight") xlsx("composite.xlsx")
+collect: regress price mpg weight length
+regtab, frame(model2, replace)
+comptab model model2, rows("1 2 \ 1 2") xlsx("composite.xlsx")
 ```
 
-The source frames must contain compatible row labels. Use `relabel()` or `section()` when the displayed row names or section structure need to be changed; use `hrcomptab` when one of the source frames is a `stratetab` rate frame.
+The source frames must contain compatible row labels. `rows()` takes one numeric row specification per source frame, separated by `\`; here `1 2 \ 1 2` selects the first two rows from both frames. Use `relabel()` or `section()` when the displayed row names or section structure need to be changed; use `hrcomptab` when one of the source frames is a `stratetab` rate frame.
 
 ### Direct table output
 
@@ -288,7 +288,7 @@ survtab, times(numlist) [by(varname) rmst(#) median riskset timeunit(string) rev
 stratetab, using(string) outcomes(integer) [xlsx(string) excel(string) sheet(string) title(string) outlabels(string) outcomeids(string) explabels(string) digits(#) eventdigits(#) pydigits(#) unitlabel(string) pyscale(#) ratescale(#) rateratio ratiodigits(#) footnote(string) open zebra borderstyle(string) theme(string) headershade headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) level(#)]
 ```
 
-`stratetab` is Stata 17+ and reads `.dta` files produced by `strate, output()`. `outcomes()` is required and must divide the number of input files; files are interpreted as all outcomes for exposure 1, then all outcomes for exposure 2, and so on. Defaults are sheet `Results`, `digits(1)`, `eventdigits(0)`, `pydigits(0)`, `unitlabel("1,000")`, `pyscale(1)`, `ratescale(1000)`, and `ratiodigits(2)`. Rate confidence-level metadata must be present and consistent, or be supplied explicitly with `level()`.
+`stratetab` is Stata 17+ and reads `.dta` files produced by `strate, output()`. Pass the `output()` filename stem to `using()`; `stratetab` adds the `.dta` suffix automatically. `outcomes()` is required and must divide the number of input files; files are interpreted as all outcomes for exposure 1, then all outcomes for exposure 2, and so on. Defaults are sheet `Results`, `digits(1)`, `eventdigits(0)`, `pydigits(0)`, `unitlabel("1,000")`, `pyscale(1)`, `ratescale(1000)`, and `ratiodigits(2)`. Rate confidence-level metadata must be present and consistent, or be supplied explicitly with `level()`.
 
 ### `hrcomptab`
 
@@ -348,7 +348,7 @@ tabtools [, list detail category(string) font(string) fontsize(#) headercolor(st
 tabtools set key value [, permanent profile(string)]
 tabtools set clear [, permanent profile(string)]
 tabtools get
-tabtools use [using filename]
+tabtools use [using filename] [, profile(string)]
 ```
 
 `tabtools` is Stata 16+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `diagnostics`, `composite`, `export`, `simulation`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `theme`, `digits`, and `boldp`; `fontsize()` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
@@ -397,7 +397,7 @@ tabtools_tips [, open]
 | `font(string)` | `tabtools set theme custom` | Set the custom theme's font family |
 | `fontsize(#)` | `tabtools set theme custom` | Set the custom theme's font size in points; valid values are 6–72 |
 | `permanent` | `tabtools set` and `tabtools set clear` | Save the resulting defaults to a runnable profile on disk |
-| `profile(filename)` | `tabtools set` and `tabtools use` | Choose an alternate profile file instead of the default `tabtools_profile.do` in Stata's PERSONAL directory |
+| `profile(filename)` | `tabtools set ..., permanent` and `tabtools use` | Choose an alternate profile file instead of the default `tabtools_profile.do` in Stata's PERSONAL directory |
 
 The custom-theme form also accepts `headercolor()`, `zebracolor()`, and `borderstyle()`. Use these builder-style options with `tabtools set theme custom`; named themes can be selected directly with `tabtools set theme`.
 

@@ -1,6 +1,6 @@
 # raincloud — Raincloud plots for distributional comparisons
 
-**Version 1.0.1** | 2026-08-05
+**Version 1.0.2** | 2026-08-05
 
 `raincloud` combines a kernel-density cloud, jittered observations, and a box-and-whisker summary in one graph. It is for Stata users comparing distribution shape, raw values, and robust summaries across one or more groups.
 
@@ -246,10 +246,11 @@ matrix list r(stats)
 
 ## QA
 
-QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+QA suites are available in [`qa/`](qa/).
 
 ## Version History
 
+- **1.0.2** (2026-08-05): Rejects missing and negative seeds without changing the caller's RNG state
 - **1.0.1** (2026-08-05): Corrected shipped help metadata, documented graph options, and validated bandwidth and seed boundaries
 - **1.0.0** (2026-07-10): Initial Stata-Tools release of `raincloud`
 

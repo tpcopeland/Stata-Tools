@@ -1,4 +1,4 @@
-*! raincloud Version 1.0.1  2026/08/05
+*! raincloud Version 1.0.2  2026/08/05
 *! Raincloud plots: half-violin density + jittered scatter + box elements
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -19,7 +19,8 @@ program define raincloud, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     set varabbrev off
-    local _rng_state ""
+    local _rng_state = c(rngstate)
+    local _restore_rng = 1
 
     capture noisily {
 
@@ -514,6 +515,7 @@ program define raincloud, rclass
     * DRAW GRAPH
     * =========================================================================
     twoway `twoway_cmd', `legend_spec' `graph_opts' `options'
+    if `seed' < 0 local _restore_rng = 0
 
     } // end capture noisily
 
@@ -523,9 +525,7 @@ program define raincloud, rclass
 
     * Always restore session state
     set varabbrev `_varabbrev'
-    if "`_rng_state'" != "" {
-        set rngstate `_rng_state'
-    }
+    if `_restore_rng' capture set rngstate `_rng_state'
 
     * Re-raise any error from the captured block
     if `rc' {

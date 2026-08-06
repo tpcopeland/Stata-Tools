@@ -1,10 +1,13 @@
 clear all
-set more off
+set varabbrev off
 version 16.0
 
+capture log close _all
+log using "test_raincloud.log", replace nomsg
+
 * test_raincloud.do - Functional tests for raincloud package
-* Generated: 2026-03-13, updated 2026-03-21
-* Tests: 69
+* Generated: 2026-03-13, updated 2026-08-05
+* Functional, regression, state, and graph-structure tests for raincloud.
 
 * ============================================================
 * Setup
@@ -17,10 +20,10 @@ local fail_count = 0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall raincloud
-quietly net install raincloud, from("`pkg_dir'")
+do "`qa_dir'/_raincloud_qa_common.do"
+_raincloud_qa_bootstrap "`pkg_dir'"
 
 * ============================================================
 * Basic Functionality
@@ -704,7 +707,7 @@ else {
 }
 
 * ============================================================
-* v1.1.0 Features
+* Feature coverage
 * ============================================================
 
 * Test 41: colors() with fewer colors than groups (cycling)
@@ -885,7 +888,7 @@ else {
 }
 
 * ============================================================
-* v1.2.1 Fixes
+* State, pass-through, and weight regressions
 * ============================================================
 
 * Test 51: RNG state NOT restored when no seed specified
@@ -900,11 +903,11 @@ capture noisily {
     assert "`rng_before'" != "`rng_after'"
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - RNG advances when no seed specified"
+    display as result "  PASS: RNG advances when no seed specified"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - RNG advances when no seed specified (error `=_rc')"
+    display as error "  FAIL: RNG advances when no seed specified (error `=_rc')"
     local ++fail_count
 }
 
@@ -920,11 +923,11 @@ capture noisily {
     assert "`rng_before'" == "`rng_after'"
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - RNG restored when seed() specified"
+    display as result "  PASS: RNG restored when seed() specified"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - RNG restored when seed() specified (error `=_rc')"
+    display as error "  FAIL: RNG restored when seed() specified (error `=_rc')"
     local ++fail_count
 }
 
@@ -942,11 +945,11 @@ capture noisily {
     assert "`rng1'" != "`rng2'"
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - consecutive seedless calls differ"
+    display as result "  PASS: consecutive seedless calls differ"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - consecutive seedless calls differ (error `=_rc')"
+    display as error "  FAIL: consecutive seedless calls differ (error `=_rc')"
     local ++fail_count
 }
 
@@ -958,11 +961,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - cloudopts pass-through"
+    display as result "  PASS: cloudopts pass-through"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - cloudopts pass-through (error `=_rc')"
+    display as error "  FAIL: cloudopts pass-through (error `=_rc')"
     local ++fail_count
 }
 
@@ -974,11 +977,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - pointopts pass-through"
+    display as result "  PASS: pointopts pass-through"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - pointopts pass-through (error `=_rc')"
+    display as error "  FAIL: pointopts pass-through (error `=_rc')"
     local ++fail_count
 }
 
@@ -990,11 +993,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - boxopts pass-through"
+    display as result "  PASS: boxopts pass-through"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - boxopts pass-through (error `=_rc')"
+    display as error "  FAIL: boxopts pass-through (error `=_rc')"
     local ++fail_count
 }
 
@@ -1007,11 +1010,11 @@ capture noisily {
     assert r(N) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - fweight support"
+    display as result "  PASS: fweight support"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - fweight support (error `=_rc')"
+    display as error "  FAIL: fweight support (error `=_rc')"
     local ++fail_count
 }
 
@@ -1023,11 +1026,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - aweight support"
+    display as result "  PASS: aweight support"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - aweight support (error `=_rc')"
+    display as error "  FAIL: aweight support (error `=_rc')"
     local ++fail_count
 }
 
@@ -1044,11 +1047,11 @@ capture noisily {
     set varabbrev on
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - varabbrev restored on all error paths"
+    display as result "  PASS: varabbrev restored on all error paths"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - varabbrev restored on all error paths (error `=_rc')"
+    display as error "  FAIL: varabbrev restored on all error paths (error `=_rc')"
     local ++fail_count
 }
 
@@ -1061,11 +1064,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - saving() option"
+    display as result "  PASS: saving() option"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - saving() option (error `=_rc')"
+    display as error "  FAIL: saving() option (error `=_rc')"
     local ++fail_count
 }
 
@@ -1078,11 +1081,11 @@ capture noisily {
     graph drop test_rain
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - name() option"
+    display as result "  PASS: name() option"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - name() option (error `=_rc')"
+    display as error "  FAIL: name() option (error `=_rc')"
     local ++fail_count
 }
 
@@ -1094,11 +1097,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - legend() pass-through"
+    display as result "  PASS: legend() pass-through"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - legend() pass-through (error `=_rc')"
+    display as error "  FAIL: legend() pass-through (error `=_rc')"
     local ++fail_count
 }
 
@@ -1115,11 +1118,11 @@ capture noisily {
     assert make[1] == "`make1'"
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - data values preserved"
+    display as result "  PASS: data values preserved"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - data values preserved (error `=_rc')"
+    display as error "  FAIL: data values preserved (error `=_rc')"
     local ++fail_count
 }
 
@@ -1128,19 +1131,20 @@ local ++test_count
 capture noisily {
     capture ado uninstall raincloud
     net install raincloud, from("`pkg_dir'") replace
+    discard
     which raincloud
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.1 - package installs and which succeeds"
+    display as result "  PASS: package installs and which succeeds"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.1 - package installs and which succeeds (error `=_rc')"
+    display as error "  FAIL: package installs and which succeeds (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* v1.2.2 Fixes
+* Abbreviation, help, and missing-group regressions
 * ============================================================
 
 * Test 65: saving() abbreviation (sav)
@@ -1152,11 +1156,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.2 - saving() abbreviation sav()"
+    display as result "  PASS: saving() abbreviation sav()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.2 - saving() abbreviation sav() (error `=_rc')"
+    display as error "  FAIL: saving() abbreviation sav() (error `=_rc')"
     local ++fail_count
 }
 
@@ -1168,11 +1172,11 @@ capture noisily {
     assert r(N) == 74
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.2 - legend() abbreviation leg()"
+    display as result "  PASS: legend() abbreviation leg()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.2 - legend() abbreviation leg() (error `=_rc')"
+    display as error "  FAIL: legend() abbreviation leg() (error `=_rc')"
     local ++fail_count
 }
 
@@ -1182,25 +1186,25 @@ capture noisily {
     help raincloud
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.2 - sthlp renders"
+    display as result "  PASS: sthlp renders"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.2 - sthlp renders (error `=_rc')"
+    display as error "  FAIL: sthlp renders (error `=_rc')"
     local ++fail_count
 }
 
-* Test 68: version check (1.2.2)
+* Test 68: installed command resolves
 local ++test_count
 capture noisily {
     which raincloud
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.2 - which raincloud succeeds"
+    display as result "  PASS: which raincloud succeeds"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.2 - which raincloud fails (error `=_rc')"
+    display as error "  FAIL: which raincloud fails (error `=_rc')"
     local ++fail_count
 }
 
@@ -1217,11 +1221,289 @@ capture noisily {
     assert r(n_groups) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: v1.2.2 - partial missing over values"
+    display as result "  PASS: partial missing over values"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: v1.2.2 - partial missing over values (error `=_rc')"
+    display as error "  FAIL: partial missing over values (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* Boundary regressions and state contracts
+* ============================================================
+
+* Test 70: bandwidth(-1) is rejected exactly and preserves caller state
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    gen byte grp = mod(_n, 2)
+    set varabbrev on
+    set seed 24680
+    local rng_before = c(rngstate)
+    capture noisily raincloud x, bandwidth(-1)
+    local got_rc = _rc
+    local rng_after = c(rngstate)
+    assert `got_rc' == 198
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert _N == 12
+    assert id == _n
+    assert x == 10 + id
+    assert grp == mod(id, 2)
+}
+if _rc == 0 {
+    display as result "  PASS: Regression - bandwidth(-1) exact rc and state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Regression - bandwidth(-1) exact rc and state (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 71: missing bandwidth is rejected exactly and preserves caller state
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    gen byte grp = mod(_n, 2)
+    set varabbrev on
+    set seed 24681
+    local rng_before = c(rngstate)
+    capture noisily raincloud x, bandwidth(.)
+    local got_rc = _rc
+    local rng_after = c(rngstate)
+    assert `got_rc' == 198
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert _N == 12
+    assert id == _n
+    assert x == 10 + id
+    assert grp == mod(id, 2)
+}
+if _rc == 0 {
+    display as result "  PASS: Regression - missing bandwidth exact rc and state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Regression - missing bandwidth exact rc and state (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 72: seed(-2) is rejected exactly and preserves caller state
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    gen byte grp = mod(_n, 2)
+    set varabbrev on
+    set seed 24682
+    local rng_before = c(rngstate)
+    capture noisily raincloud x, seed(-2)
+    local got_rc = _rc
+    local rng_after = c(rngstate)
+    assert `got_rc' == 198
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert _N == 12
+    assert id == _n
+    assert x == 10 + id
+    assert grp == mod(id, 2)
+}
+if _rc == 0 {
+    display as result "  PASS: Regression - seed(-2) exact rc and state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Regression - seed(-2) exact rc and state (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 73: missing seed is rejected exactly and preserves caller state
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    gen byte grp = mod(_n, 2)
+    set varabbrev on
+    set seed 24683
+    local rng_before = c(rngstate)
+    capture noisily raincloud x, seed(.)
+    local got_rc = _rc
+    local rng_after = c(rngstate)
+    assert `got_rc' == 198
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert _N == 12
+    assert id == _n
+    assert x == 10 + id
+    assert grp == mod(id, 2)
+}
+if _rc == 0 {
+    display as result "  PASS: Regression - missing seed exact rc and state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Regression - missing seed exact rc and state (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 74: successful seeded call restores RNG, data contents/order, and varabbrev
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    gen byte grp = mod(_n, 2)
+    set varabbrev on
+    set seed 24684
+    local rng_before = c(rngstate)
+    raincloud x, over(grp) seed(17)
+    local rng_after = c(rngstate)
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert _N == 12
+    assert id == _n
+    assert x == 10 + id
+    assert grp == mod(id, 2)
+    assert r(N) == 12
+    assert r(n_groups) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: State - seeded success restores RNG/data/varabbrev"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: State - seeded success restores RNG/data/varabbrev (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 75: plotregion()/graphregion() change the exported graph payload
+local ++test_count
+capture noisily {
+    clear
+    set obs 30
+    gen double x = _n / 3
+    tempfile svgbase
+    local svg "`svgbase'.svg"
+    raincloud x, name(raincloud_regions, replace) ///
+        plotregion(color(red)) graphregion(color(blue))
+    assert r(N) == 30
+    graph export "`svg'", as(svg) replace
+    confirm file "`svg'"
+    local found_plot = 0
+    local found_graph = 0
+    capture file close _raincloud_svg
+    file open _raincloud_svg using "`svg'", read text
+    file read _raincloud_svg _svgline
+    while r(eof) == 0 {
+        if strpos(`"`macval(_svgline)'"', "fill:#FF0000") > 0 local found_plot = 1
+        if strpos(`"`macval(_svgline)'"', "fill:#0000FF") > 0 local found_graph = 1
+        file read _raincloud_svg _svgline
+    }
+    file close _raincloud_svg
+    assert `found_plot' == 1
+    assert `found_graph' == 1
+    graph drop raincloud_regions
+}
+if _rc == 0 {
+    display as result "  PASS: Graph - plotregion()/graphregion() export colors"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Graph - plotregion()/graphregion() export colors (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 76: uppercase SEED() syntax error restores the entry RNG state
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    set varabbrev on
+    set seed 24685
+    local rng_before = c(rngstate)
+    capture noisily raincloud x, SEED(42)
+    local got_rc = _rc
+    local rng_after = c(rngstate)
+    assert `got_rc' == 198
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert id == _n
+    assert x == 10 + id
+}
+if _rc == 0 {
+    display as result "  PASS: Parser - uppercase SEED() error restores RNG"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Parser - uppercase SEED() error restores RNG (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 77: unrelated syntax error restores RNG, data/order, and varabbrev
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    set varabbrev on
+    set seed 24686
+    local rng_before = c(rngstate)
+    capture noisily raincloud x, not_an_option
+    local got_rc = _rc
+    local rng_after = c(rngstate)
+    assert `got_rc' == 198
+    assert "`rng_before'" == "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert id == _n
+    assert x == 10 + id
+}
+if _rc == 0 {
+    display as result "  PASS: Parser - unrelated syntax error restores state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Parser - unrelated syntax error restores state (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 78: title text containing seed( does not suppress seedless RNG advancement
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long id = _n
+    gen double x = 10 + _n
+    set varabbrev on
+    set seed 24687
+    local rng_before = c(rngstate)
+    raincloud x, title("literal seed(")
+    local rng_after = c(rngstate)
+    assert "`rng_before'" != "`rng_after'"
+    assert c(varabbrev) == "on"
+    assert id == _n
+    assert x == 10 + id
+}
+if _rc == 0 {
+    display as result "  PASS: Parser - title seed( keeps seedless RNG advancement"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Parser - title seed( keeps seedless RNG advancement (error `=_rc')"
     local ++fail_count
 }
 
@@ -1231,10 +1513,14 @@ else {
 
 display as result _newline "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
+local suite_rc = cond(`fail_count' > 0, 1, 0)
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+
+display "RESULT: test_raincloud tests=`test_count' pass=`pass_count' fail=`fail_count'"
+capture log close _all
+exit `suite_rc'

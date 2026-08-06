@@ -1,10 +1,13 @@
 clear all
-set more off
+set varabbrev off
 version 16.0
 
+capture log close _all
+log using "validation_raincloud.log", replace nomsg
+
 * validation_raincloud.do - Correctness validation for raincloud package
-* Generated: 2026-03-13
-* Tests: 20
+* Generated: 2026-03-13, updated 2026-08-05
+* Tests: 18
 
 * ============================================================
 * Setup
@@ -17,10 +20,10 @@ local fail_count = 0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall raincloud
-quietly net install raincloud, from("`pkg_dir'")
+do "`qa_dir'/_raincloud_qa_common.do"
+_raincloud_qa_bootstrap "`pkg_dir'"
 
 * ============================================================
 * V1: Stats Matrix - Known-answer tests (sysuse auto)
@@ -464,8 +467,12 @@ display as result _newline "Validation Results: `pass_count'/`test_count' passed
 
 if `fail_count' > 0 {
     display as error "SOME VALIDATIONS FAILED"
-    exit 1
 }
 else {
     display as result "ALL VALIDATIONS PASSED"
 }
+
+local suite_rc = cond(`fail_count' > 0, 1, 0)
+display "RESULT: validation_raincloud tests=`test_count' pass=`pass_count' fail=`fail_count'"
+capture log close _all
+exit `suite_rc'

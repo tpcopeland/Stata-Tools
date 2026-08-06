@@ -1,4 +1,4 @@
-*! _tvbuild_commit Version 1.13.0  2026/08/02
+*! _tvbuild_commit Version 1.13.1  2026/08/05
 *! Commit tvbuild's result and optional manifest as one transaction
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
