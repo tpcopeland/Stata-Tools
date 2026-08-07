@@ -667,7 +667,7 @@ program define finegray_cif, rclass sortpreserve
     foreach _pvn of local _pv_disp {
         local ++_ai
         local _pvv = `zrow'[1, `_ai']
-        local _pvs : display %9.0g `_pvv'
+        local _pvs : display %9.3g `_pvv'
         local _pvs = trim("`_pvs'")
         local _atline `"`_atline' `_pvn'=`_pvs'"'
     }
