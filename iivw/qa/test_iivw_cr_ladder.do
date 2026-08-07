@@ -109,7 +109,11 @@ program define _cr_compare, rclass
         quietly save "`indta'", replace
     restore
 
-    shell Rscript crossval_cr_ladder.R "`indta'" "`outcsv'" > /dev/null 2>&1
+    * R's own report (version, nobs, nclust, its table) goes into the Stata log
+    * rather than to /dev/null. An oracle whose output is discarded cannot be
+    * audited: the first debugging pass on this file spent several runs unable
+    * to tell whether R was reading the data Stata thought it had written.
+    shell Rscript crossval_cr_ladder.R "`indta'" "`outcsv'" 2>&1
 
     * shell never sets _rc: verify by reading the artifact.
     capture confirm file "`outcsv'"
@@ -118,12 +122,20 @@ program define _cr_compare, rclass
         return local why "R produced no output file"
         exit
     }
-    * levelsof would round each value through its display format, which is far
-    * coarser than the 1e-8 agreement this test is asserting. Read the numbers
-    * as doubles instead.
+    * TWO precision traps on the way back, both silent:
+    *
+    * `import delimited' stores a numeric column as FLOAT unless told otherwise,
+    * which caps any comparison at about 1e-7 no matter how many digits R wrote.
+    * That alone accounted for the entire apparent 3e-9 disagreement while the
+    * two implementations were in fact agreeing to 5e-16. `asdouble' is not
+    * optional here.
+    *
+    * `levelsof' would then round each value through its display format, which
+    * is coarser still. Read the numbers with summarize instead.
     tempname R_B R_CR0 R_CR1 R_CR1S R_CR2 R_CR3
     preserve
-        quietly import delimited using "`outcsv'", clear varnames(1) case(preserve)
+        quietly import delimited using "`outcsv'", clear varnames(1) ///
+            case(preserve) asdouble
         quietly count
         local nrow = r(N)
         if `nrow' != 6 {

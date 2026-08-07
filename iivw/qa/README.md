@@ -17,7 +17,7 @@ A green run demonstrates implementation breadth and known-truth recovery. Interv
 | **Stabilized ATE IPTW vs an independent implementation** | ✅ **closed (Gate 2A).** Base-R `glm` IPTW oracle, plus a hand-computed saturated fixture exact to `1e-8` and a mean-one identity check |
 | **FIPTIW known-truth recovery with mechanism discrimination** (Coulombe Appendix A) | ✅ **closed (Gate 2B).** In the arm where treatment drives both the visit schedule and the outcome, only FIPTIW recovers the truth; naive, IIW-only, and IPTW-only each miss |
 | **Treatment present in the FIPTIW visit model** (Coulombe eq. 3.12) | ✅ **detectable.** Removing `treat()` from the visit-intensity model turns `test_iivw_phase2_contract` red |
-| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895 all missed the same gate, so the default is point-only. Records: [`RESULT_2026-07-22.md`](coverage_results/RESULT_2026-07-22.md), [`FIPTIW_INTERVALS_2026-07-23.md`](coverage_results/FIPTIW_INTERVALS_2026-07-23.md), [`FIPTIW_NSCALE_2026-07-23.md`](coverage_results/FIPTIW_NSCALE_2026-07-23.md) |
+| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ⚠️ **split result.** IIW 0.939 and IPTW 0.954 met the preregistered rule. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895 all missed the same gate, so the default is point-only. Records: [`RESULT_2026-07-22.md`](coverage_results/RESULT_2026-07-22.md), [`RESULT_2026-08-05.md`](coverage_results/RESULT_2026-08-05.md), [`FIPTIW_INTERVALS_2026-07-23.md`](coverage_results/FIPTIW_INTERVALS_2026-07-23.md), [`FIPTIW_NSCALE_2026-07-23.md`](coverage_results/FIPTIW_NSCALE_2026-07-23.md), [`CR_LADDER_2026-08-06.md`](coverage_results/CR_LADDER_2026-08-06.md) |
 | **Aggregation integrity of the coverage gate itself** | ✅ **closed 2026-07-22.** `test_iivw_coverage_gate.do` proves `combine` refuses a missing interior block, overlapping blocks, and — after a defect found the same day — any pool whose replication count, study size, or seed disagrees with the verdict it would print |
 
 Three pre-registered false-green mutations are recorded in [`METHOD_ORACLE_MAP.md`](METHOD_ORACLE_MAP.md). **All three turn a gate red** — flipping the IIW exponent breaks `validation_iivw_fiptiw_recovery`, dropping `treat()` from the visit model breaks `test_iivw_phase2_contract`, and the third (holding the weights fixed) is discriminated by the coverage run: for IPTW the fixed-weight SE runs 1.31× the empirical SD against the refit bootstrap's 1.02×, exactly the over-coverage direction the tolerance framework preregistered.
@@ -243,7 +243,8 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 - `test_iivw_interval_contract.do` — 15 selected-interval and fail-closed tests for full-refit percentile, reverse-percentile (basic), and BCa limits. It includes `level()` forwarding, no-rerun selection, initial and replayed endpoints, postestimation preservation, safe ado reload with the replay helper resident, fixed- versus refit-jackknife sample contracts, a manual delete-one-subject acceleration oracle, and the coefficient-only FIPTIW default with no `e(V)`.
 - `test_iivw_failclosed.do` — Gate 4/5 probes for audit findings SOL-05, SOL-07,
   SOL-08, SOL-11, SOL-12, SOL-13 and SOL-17. **Pre-fix score 1/11, post-fix
-  16/16** (same file, both runs), and the single pre-fix pass was S5b, the
+  18/18** (the file has grown since the pre-fix run; 18/18 re-observed in an
+  isolated run 2026-08-06), and the single pre-fix pass was S5b, the
   positive control that must be green both ways. Each probe asserts a state the
   shipped build got wrong at `rc=0`: an interaction-only `stabcov()` certified
   as validated; two disjoint equal-N samples decomposed; a noncollapsible logit
@@ -252,6 +253,16 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   `iivw_balance` mixing a subset refit with full-sample stored weights. S17 is
   the odd one out — it locks behavior the audit proposed **deleting**; see the
   in-file note.
+- `test_iivw_cr_ladder.do` — proves the CR variance ladder in
+  `_iivw_cr_ladder.do` against R's clubSandwich 0.6.2, which is the oracle for
+  every number `probe_cr_ladder.do` reports. Five cases: wide clusters, ragged
+  clusters with singletons (where CR3's `(I - H_g)^-1` degrades first), real
+  FIPTIW weights end to end, the identification of which rung `iivw_fit,
+  vce(fixed)` actually is, and the row-order contract. **Measured 2026-08-06:
+  agreement 8.9e-16 at worst across all five rungs**, and `vce(fixed)` is the
+  **CR1** rung (`m/(m-1)`) to 2.2e-15 — not CR0 and not CR1S, which is why the
+  probe carries a CR1 column. SKIPS rather than passes if clubSandwich is
+  absent.
 - `test_help_examples.do` — documentation reality tests (SOL-14). Every worked
   sequence in `iivw.sthlp`, `iivw_weight.sthlp` and `iivw_fit.sthlp` is
   transcribed and run from a clean sandboxed PLUS directory, plus a source scan
@@ -312,6 +323,26 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   still passes.
 - `crossval_irreglong.R`, `crossval_fiptiw.R`, and
   `crossval_iivw_external_refs.R` — independent R reference generators.
+- `crossval_cr_ladder.R` — clubSandwich reference for the CR variance ladder,
+  the oracle behind `test_iivw_cr_ladder.do`. The handoff is a binary `.dta`
+  read with `haven`, not a CSV, because a CSV round trip capped the achievable
+  agreement at ~3e-9 while the two implementations actually agree to ~5e-16 —
+  and a tolerance wide enough to absorb 3e-9 is wide enough to hide a real error
+  in the CR2 adjustment.
+- `_iivw_cr_ladder.do` — Mata implementation of the CR0/CR1/CR1S/CR2/CR3
+  cluster-robust ladder for a weighted identity-link fit, transcribed from the
+  clubSandwich 0.6.2 source. Used by `probe_cr_ladder.do`; not package code and
+  not shipped.
+- `probe_cr_ladder.do` — the `se_recovery.md` §13.2 diagnostic: regenerates the
+  FIPTIW gate's datasets from its own seed ledger (`MODE=release` on
+  `validation_iivw_inference.do` defines the DGP programs without running a
+  study) and reads every rung of the CR ladder against a **z** critical value,
+  so the scale axis is separated from the df term that produced CR2's `n=600`
+  overcoverage. It is a diagnostic, never a gate: it emits a non-gate sentinel,
+  is excluded from every lane, and is excluded from the Q7 sentinel scan on the
+  same basis as `validation_iivw_inference.do`. Its `combine` mode refuses a
+  pool whose point moments do not reproduce the recorded gate moments, so a
+  regenerated pool that is not the gate's pool cannot be reported.
 - `crossval_iivw_iptw_oracle.R` — base-R `glm` stabilized-ATE IPTW oracle,
   invoked by `validation_iivw_iptw_oracle.do` (Gate 2A tier-3 parity).
 - `tools/check_iivw_xlsx.py` and `tools/check_iivw_style.py` — workbook content
@@ -356,4 +387,4 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
 | `legacy` | `validation_iivw_recovery_extended.do`, `validation_iivw_recovery_extended2.do` |
 | `sensitivity` (`sim`) | `sim_scenarios_abc.do`, `sim_scenario_d.do`, `sim_scenario_e.do` |
 
-`validation_iivw_inference.do` is outside all standard lanes by design and is listed in `_skip.txt`; its release mode is invoked explicitly when the multi-day inference gate is authorized.
+`validation_iivw_inference.do` is outside all standard lanes by design and is listed in `_skip.txt`; its release mode is invoked explicitly when the multi-day inference gate is authorized. `probe_cr_ladder.do` is outside all lanes for the same reason — it is an on-demand diagnostic driver, not a curated pass/fail suite — while `test_iivw_cr_ladder.do`, which proves the arithmetic the probe depends on, runs in `core` and `full`.

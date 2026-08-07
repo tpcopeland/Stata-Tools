@@ -292,6 +292,27 @@ standard errors; the {opt bootstrap(#)}/{opt refitweights} spellings below are
 retained as a legacy alias but name each method less clearly.
 
 {pmore}
+What each fit does with no {opt vce()}, and what is recommended:
+
+{synoptset 26 tabbed}{...}
+{synopthdr:fit}
+{synoptline}
+{synopt :{it:unweighted}}clustered sandwich; recommended{p_end}
+{synopt :{it:IIW}}999-draw full-refit Wald bootstrap; recommended{p_end}
+{synopt :{it:IPTW}}999-draw full-refit Wald bootstrap; recommended{p_end}
+{synopt :{it:FIPTIW}}point estimates only. {bf:No interval is recommended.}
+Explicit interval methods are available for prespecified sensitivity analysis
+and are stamped empirically uncleared{p_end}
+{synoptline}
+{p2colreset}{...}
+
+{pmore}
+The first three rows are cases where the default {it:is} the recommendation. The
+FIPTIW row is not: nothing is recommended there, and the default is the command
+declining to print a number it cannot support. The coverage evidence behind that
+distinction lives in the package's QA directory, not here.
+
+{pmore}
 {cmd:vce(bootstrap, reps(#) [seed(#)])} is the default for IIW and IPTW fits and
 the recommended method: a subject-level bootstrap that {bf:refits} every nuisance
 model inside each draw, so the interval propagates weight-estimation uncertainty

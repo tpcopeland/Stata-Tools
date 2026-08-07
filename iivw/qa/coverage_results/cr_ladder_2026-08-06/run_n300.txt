@@ -1,0 +1,4687 @@
+
+  ___  ____  ____  ____  ____ ®
+ /__    /   ____/   /   ____/      17.0
+___/   /   /___/   /   /___/       MP—Parallel Edition
+
+ Statistics and Data Science       Copyright 1985-2021 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-STATA-PC        https://www.stata.com
+                                   979-696-4600        stata@stata.com
+
+Stata license: Single-user 16-core  perpetual
+Serial number: 501706305188
+  Licensed to: Timothy Copeland
+               Karolinska Institutet
+
+Notes:
+      1. Stata is running in batch mode.
+      2. Unicode is supported; see help unicode_advice.
+      3. More than 2 billion observations are allowed; see help obs_advice.
+      4. Maximum number of variables is set to 5,000 but can be increased;
+          see help set_maxvar.
+
+
+Running /tmp/claude-1000/-home-tpcopeland-Stata-Dev/94c42f6b-b973-4f8d-af0d-4e2
+> fbd74b85a/scratchpad/pilot_300/iivw/qa/profile.do ...
+
+. do probe_cr_ladder.do run 300 1000 20260715 1 1000 
+
+. * ===========================================================================
+> ==
+. * probe_cr_ladder.do - FIPTIW CR ladder at a z critical value (se_recovery 13
+> .2)
+. * ===========================================================================
+> ==
+. * WHAT THIS IS, AND WHAT IT IS NOT
+. * --------------------------------
+. * This is a DIAGNOSTIC probe, never a gate. It answers one question from
+. * `_take_action/se_recovery.md' section 13.2: of the ~16% scale deficit in th
+> e
+. * FIPTIW studentized pivot, how much can a leverage-based scale correction to
+. * the outcome-stage sandwich actually recover?
+. *
+. * Section 4 of that document separates two ways a pivot misses nominal covera
+> ge
+. * -- a SCALE defect (SE too small, pivot SD > 1) and a SHAPE defect (heavy
+. * tails). Section 3 says this one is overwhelmingly scale. A Satterthwaite df
+. * correction is the instrument for shape, and pairing it with CR2 is what
+. * produced the 0.985 overcoverage at n=600 that section 5 rejects. So EVERY r
+> ung
+. * here is read against a z critical value and no df correction is applied
+. * anywhere. That is the entire point of the design.
+. *
+. * It emits no gate verdict, and it cannot: it computes no bootstrap, evaluate
+> s
+. * no candidate the package ships, and carries the relabelling prohibition of
+. * `coverage_results/FIPTIW_NSCALE_2026-07-23.md' lines 5-7. Nothing it prints
+. * may be folded into a headline coverage number or used to change a default.
+. * Section 11 of se_recovery.md governs that, and this probe satisfies none of
+. * its five clauses.
+. *
+. * WHY IT REGENERATES RATHER THAN RE-ANALYSES
+. * ------------------------------------------
+. * Section 13.2 was costed as a re-analysis of "an existing pool". No such poo
+> l
+. * exists in this repository: the 2026-08-05 gate run predates the retention f
+> ix
+. * recorded in section 2, so `coverage_results/' holds combine LOGS and manife
+> sts
+. * but not one per-replication row, and the external reviewer's regenerated co
+> py
+. * was never transferred here. The retention fix applies to the next gate run,
+. * not to that one.
+. *
+. * The datasets are regenerated instead. That is exact rather than approximate
+> ,
+. * because the gate's seed ledger derives replication s from (master, arm, s)
+. * alone -- so `_inf_dgpseed 20260715 3 s' reproduces gate replication s bit f
+> or
+. * bit. `combine' below PROVES the regeneration by checking the reproduced poi
+> nt
+. * moments against the recorded ones (RESULT_2026-08-05.md: bias +0.01707,
+. * empSD 1.23911 at nsub=300); a pool that does not reproduce them is not the
+. * gate's pool and the probe refuses to report on it.
+. *
+. * Regeneration is affordable only because the ladder needs no resampling: the
+. * gate's cost is 999 refit bootstrap draws per replication, and this probe ru
+> ns
+. * one weighting pass and one WLS fit.
+. *
+. * NO SECOND COPY OF THE DGP
+. * -------------------------
+. * The DGP is not transcribed here. `validation_iivw_inference.do' is sourced 
+> for
+. * its program definitions -- MODE=release defines every program and then exit
+> s
+. * rather than running anything -- so `_inf_dgp_fiptiw' and `_inf_dgpseed' are
+>  the
+. * gate's own, and a change to the gate's DGP changes this probe too. The sour
+> cing
+. * is verified below; if that dispatch behaviour ever changes, this file must
+. * fail loudly rather than silently fall back to some other DGP.
+. *
+. * Usage (from iivw/qa):
+. *   stata-mp -b do probe_cr_ladder.do run     NSUB SIMS SEED FROM TO
+. *   stata-mp -b do probe_cr_ladder.do combine NSUB SIMS SEED
+. *
+. *   NSUB  300 | 600 | 1200   (the three sample sizes of se_recovery.md sectio
+> n 4)
+. *   SIMS  total replications in the study (blocks are slices of it)
+. *   SEED  master seed; 20260715 is the registered one
+. *
+. * Blocks land in `_cr_blocks/cr_<NSUB>_<FROM>_<TO>.dta' and carry their own
+. * provenance stamps; combine refuses a pool whose stamps disagree.
+. * ===========================================================================
+> ==
+. 
+. args MODE NSUB SIMS SEED FROM TO
+
+. 
+. if "`MODE'" == "" local MODE run
+
+. if "`NSUB'" == "" local NSUB 300
+
+. if "`SIMS'" == "" local SIMS 1000
+
+. if "`SEED'" == "" local SEED 20260715
+
+. if "`FROM'" == "" local FROM 1
+
+. if "`TO'"   == "" local TO   `SIMS'
+
+. 
+. if !inlist("`MODE'", "run", "combine") {
+.     display as error "MODE must be run or combine (got: `MODE')"
+.     exit 198
+. }
+
+. 
+. local qa_dir "`c(pwd)'"
+
+. local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
+
+. if "`basename'" != "qa" {
+.     display as error "probe_cr_ladder.do must be run from iivw/qa"
+.     exit 198
+. }
+
+. 
+. * The FIPTIW arm id in the gate's seed ledger. Not a free parameter: change i
+> t
+. * and the datasets stop being the gate's datasets.
+. local ARM 3
+
+. local TRUTH 1
+
+. 
+. * ---------------------------------------------------------------------------
+> --
+. * Source the gate's programs. MODE=release defines everything and exits 198
+. * without running a study, which is exactly what is wanted here.
+. * ---------------------------------------------------------------------------
+> --
+. if "`MODE'" == "run" {
+.     capture noisily do "`qa_dir'/validation_iivw_inference.do" release
+
+. clear all
+
+. version 16.0
+
+. set varabbrev off
+
+. 
+. * validation_iivw_inference.do - Phase 3C corrected-variance COVERAGE driver
+. * ===========================================================================
+> ==
+. * WHAT THIS IS, AND WHAT IT IS NOT
+. * --------------------------------
+. * This is the release gate for iivw's inference claim (METHOD_ORACLE_MAP #11,
+. * IIVW-B02). It runs a nested known-truth coverage simulation: for each gener
+> ated
+. * dataset it forms the reported normal/Wald interval three ways -- the refit
+. * bootstrap (candidate release method), the fixed analytic sandwich, and the
+. * fixed-weight bootstrap -- and asks whether the 95% interval covers the trut
+> h.
+. * For every refit draw set it also evaluates the percentile, reverse-percenti
+> le
+. * (basic), and bias-corrected intervals. For FIPTIW it additionally requests
+. * BCa, which reuses those draws but estimates acceleration by leave-one-subje
+> ct-
+. * out jackknife. The first three are interval transformations with no additio
+> nal
+. * bootstrap fits; BCa adds the jackknife refits.
+. *
+. * The RELEASE run is >= COVERAGE_R (1000) outer replications at the productio
+> n
+. * inner replicate count, per family. That is a nested simulation and takes DA
+> YS,
+. * not hours (plan Phase 3C). It is NEVER part of quick/full/sim. This file is
+>  the
+. * on-demand `inference' runner mode; a reduced `smoke' mode exercises the
+. * plumbing and MUST emit a non-gate / failing sentinel so a small run can nev
+> er
+. * be mistaken for the gate.
+. *
+. * THREE INDEPENDENTLY SPECIFIED DGP FAMILIES (plan Phase 3C)
+. *   iiw    IIW random-slope. Z drives both a subject slope and the visit
+. *          intensity; target = the marginal time slope. Informative visiting
+. *          oversamples steep subjects, so the naive slope is biased and IIW m
+> ust
+. *          undo it. (This is the family the existing benchmark_iivw_coverage.
+> do
+. *          proved out; this driver generalises it.)
+. *   iptw   Stabilized ATE IPTW, one row per subject; target = beta_A. The
+. *          Gate-2A oracle (validation_iivw_iptw_oracle.do) supplies the
+. *          independent weight construction; here it is the coverage target.
+. *   fiptiw Coulombe-based (Appendix A), full C_i risk window, true effect 1.
+. *          Integrated from the Gate-2B recovery DGP once it clears review.
+. *
+. * ACCEPTANCE (TOLERANCE_FRAMEWORK.md Class C -- preregistered, not tunable):
+. *   refit coverage 95% Wilson interval CONTAINS 0.95, and no point coverage <
+>  0.92.
+. *   Discriminator is NOT hard-coded undercoverage. In the strong-dependence c
+> ell
+. *   the fixed method must separate in the predicted direction (currently
+. *   OVER-wide under correct specification), or the gate reports that coverage
+. *   does not separate and the demonstrable difference is the fixed/refit SE r
+> atio.
+. *
+. * Usage (from iivw/qa):
+. *   stata-mp -b do validation_iivw_inference.do MODE [SIMS] [REPS] [SEED] [FR
+> OM] [TO] [NSUB] [PSCALE]
+. *
+. *   BLOCK SHARDING (recommended for a gate run)
+. *     The 1000 replications are independent -- the seed ledger derives both
+. *     seeds for replication s from (master, arm, s) and nothing carries betwe
+> en
+. *     them -- so they can be split across processes and recombined exactly.
+. *     Verified: replications 1-6 run as one block and as blocks 1-3 + 4-6 agr
+> ee
+. *     to a worst reldif of 9.8e-17 across all 12 posted quantities.
+. *
+. *       # eight blocks of 125, run concurrently
+. *       for f in 1 126 251 376 501 626 751 876; do
+. *         t=$((f+124))
+. *         stata-mp -b do validation_iivw_inference.do iiw 1000 999 20260715 $
+> f $t &
+. *       done; wait
+. *       # then ONE verdict over the union
+. *       stata-mp -b do validation_iivw_inference.do combine_iiw 1000 999 2026
+> 0715
+. *
+. *     A block emits rows and never a verdict. combine_<family> proves the blo
+> cks
+. *     TILE 1..SIMS exactly -- refusing on overlap or on a missing block -- an
+> d
+. *     then applies the preregistered acceptance once. Sharding by family alon
+> e
+. *     leaves a 16-core box mostly idle: Stata-MP parallelises within a comman
+> d,
+. *     and these fits are far too small to benefit.
+. *     MODE  smoke  (default) small NON-GATE plumbing run, prints a failing se
+> ntinel
+. *           iiw    IIW random-slope coverage cell (gate arithmetic)
+. *           iptw   stabilized ATE IPTW coverage cell (gate arithmetic)
+. *           release  all cleared families at COVERAGE_R (guards runtime; see 
+> notes)
+. *     SIMS  outer replications  (smoke default 30; gate default COVERAGE_R=10
+> 00)
+. *     REPS  inner bootstrap draws (smoke default 40; release default >= 999)
+. *     SEED  master seed          (default 20260715)
+. *   PSCALE multiplies the FIPTIW propensity-model slopes while leaving its
+. *          intercept fixed. PSCALE=1 is the registered base cell; PSCALE=1.5 
+> is
+. *          the preregistered positivity-stress cell for interval selection.
+. * ===========================================================================
+> ==
+. 
+. args MODE SIMS REPS SEED FROM TO NSUB PSCALE
+
+. if "`MODE'" == "" local MODE smoke
+
+. if "`FROM'" == "" local FROM 0
+
+. if "`TO'"   == "" local TO 0
+
+. * NSUB is a DIAGNOSTIC passthrough only: 0 means "use the family's own defaul
+> t",
+. * which is what every gate invocation gets. It exists so a sample-size study 
+> can
+. * reuse this file's DGP rather than keeping a second, drifting copy of it.
+. * A non-zero NSUB can NEVER reach a gate verdict: the requested value is stam
+> ped
+. * into every row as blk_nsub and combine refuses any pool where it is not 0.
+. * That is enforced in code, not by operator discipline -- a diagnostic block
+. * would otherwise agree with a gate pool on reps/sims/seed and tile correctly
+> .
+. if "`NSUB'" == "" local NSUB 0
+
+. if "`PSCALE'" == "" local PSCALE 1
+
+. if `PSCALE' <= 0 {
+.     display as error "PSCALE must be positive"
+.     exit 198
+. }
+
+. if !inlist("`MODE'", "smoke", "iiw", "iptw", "fiptiw", "release", ///
+>     "combine_iiw", "combine_iptw", "combine_fiptiw") {
+.     display as error "MODE must be smoke, iiw, iptw, fiptiw, or release (got:
+>  `MODE')"
+.     exit 198
+. }
+
+. 
+. * ONE THREAD PER PROCESS. Stata-MP's within-command parallelism is a net LOSS
+. * for this workload, and it is actively harmful once blocks run concurrently:
+. * MP worker threads spin-wait, so N concurrent blocks x 16 threads oversubscr
+> ibe
+. * the box and burn CPU on contention rather than on fits. Measured on a 16-vC
+> PU
+. * host, 30 Cox fits on 10k rows, two matched reps under identical load:
+. *
+. *     processors=1   1.19s / 1.21s     processors=4    1.82s / 1.31s
+. *     processors=2   1.63s / 1.25s     processors=16   2.64s / 1.55s
+. *
+. * Monotonic in both reps -- every core handed to a fit this small makes it
+. * slower. An earlier un-sharded gate run left this unset and drove the host t
+> o
+. * load 40 with 1.13M context switches/sec on 16 vCPUs. Parallelism for this
+. * gate comes from running BLOCKS concurrently (see FROM/TO), never from threa
+> ds.
+. if c(MP) == 1 {
+.     capture set processors 1
+. }
+
+. 
+. * registered constants (TOLERANCE_FRAMEWORK.md section 3)
+. local COVERAGE_R     = 1000
+
+. local COVERAGE_FLOOR = 0.92
+
+. local MCSE_K         = 3
+
+. 
+. if "`SEED'" == "" local SEED 20260715
+
+. if "`MODE'" == "smoke" {
+.     if "`SIMS'" == "" local SIMS 30
+.     if "`REPS'" == "" local REPS 40
+. }
+
+. else {
+.     if "`SIMS'" == "" local SIMS `COVERAGE_R'
+.     if "`REPS'" == "" local REPS 999
+. }
+
+. 
+. local qa_dir "`c(pwd)'"
+
+. local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
+
+. if "`basename'" != "qa" {
+.     display as error "validation_iivw_inference.do must be run from iivw/qa"
+.     exit 198
+. }
+
+. do "`qa_dir'/_iivw_qa_common.do"
+
+. * _iivw_qa_common.do — shared QA scaffold for iivw
+. *
+. * Source this from a suite, then call the bootstrap:
+. *
+. *     do "`c(pwd)'/_iivw_qa_common.do"
+. *     iivw_qa_bootstrap
+. *
+. * WHY THIS EXISTS
+. * ---------------
+. * 36 of the 40 iivw suites `net install' the package, and several
+. * uninstall/replace tabtools. Run against the default sysdirs, that mutates t
+> he
+. * USER's real ado tree: a 2026-07 audit run left the tracker pointing iivw at
+. * /tmp and removed tabtools outright, and both had to be restored by hand.
+. *
+. * run_all.do sandboxes PLUS/PERSONAL for the whole run, but that protects onl
+> y
+. * suites it launches in-process. A suite run standalone -- or a suite that
+. * spawns a nested `stata-mp' -- starts from the user's real sysdirs again,
+. * because a child process does not inherit Stata's `sysdir set'. So the sandb
+> ox
+. * has to be available at suite level too. That is what this file provides.
+. *
+. * The sandbox lives under c(tmpdir) and is unique per process, so two suites 
+> can
+. * run concurrently without colliding on a shared PLUS (which is what produces
+. * the r(603) "file ... could not be opened" failures during parallel installs
+> ).
+. 
+. * iivw_qa_sandbox -- sysdir sandbox + path resolution, no install.
+. *
+. * This is the piece EVERY suite needs, including the many that already have
+. * their own bespoke `net install' lines. It is rclass so a suite can take the
+. * resolved directories from r() instead of re-deriving them:
+. *
+. *     do "`c(pwd)'/_iivw_qa_common.do"
+. *     iivw_qa_sandbox
+. *     local pkg_dir  "`r(pkg_dir)'"
+. *     local repo_dir "`r(repo_dir)'"
+. capture program drop iivw_qa_sandbox
+
+. program define iivw_qa_sandbox, rclass
+  1.     version 16.0
+  2.     syntax [, PKGdir(string)]
+  3. 
+.     * Resolve the package directory from the caller's cwd unless told otherwi
+> se.
+.     * Strip the known "/qa" suffix by LENGTH -- never with first-occurrence
+.     * subinstr(), which mangles any path whose ancestors contain "qa" (a run 
+> from
+.     * /tmp/qa-audit-42/iivw/qa derived a nonexistent /tmp-audit-42/iivw).
+.     if "`pkgdir'" == "" {
+  4.         local here "`c(pwd)'"
+  5.         if substr("`here'", -3, 3) == "/qa" {
+  6.             local pkgdir = substr("`here'", 1, strlen("`here'") - 3)
+  7.         }
+  8.         else {
+  9.             display as error "iivw_qa_sandbox: run from the package's qa/ 
+> directory,"
+ 10.             display as error "  or pass pkgdir()"
+ 11.             exit 601
+ 12.         }
+ 13.     }
+ 14.     capture confirm file "`pkgdir'/iivw.pkg"
+ 15.     if _rc {
+ 16.         display as error "iivw_qa_sandbox: no iivw.pkg under `pkgdir'"
+ 17.         exit 601
+ 18.     }
+ 19.     * Same length-based rule one level up: a checkout under ~/iivw-work/ii
+> vw
+.     * would lose the wrong component to subinstr(...,"/iivw","",1).
+.     local repodir = substr("`pkgdir'", 1, strlen("`pkgdir'") - strlen("/iivw"
+> ))
+ 20. 
+.     * Sandbox the ado tree for this process.  Idempotent: a suite launched by
+.     * run_all (which already sandboxed) simply gets a nested sandbox, and a
+.     * standalone suite gets the protection it would otherwise not have.
+.     tempfile _stub
+ 21.     local sandbox "`_stub'_sysdir"
+ 22.     capture mkdir "`sandbox'"
+ 23.     capture mkdir "`sandbox'/plus"
+ 24.     capture mkdir "`sandbox'/personal"
+ 25.     capture confirm file "`sandbox'/plus"
+ 26.     if _rc {
+ 27.         display as error "iivw_qa_sandbox: could not create sysdir sandbox
+>  `sandbox'"
+ 28.         exit 603
+ 29.     }
+ 30.     sysdir set PLUS     "`sandbox'/plus"
+ 31.     sysdir set PERSONAL "`sandbox'/personal"
+ 32. 
+.     display as text "iivw QA sandbox: `sandbox'  (user's PLUS/PERSONAL untouc
+> hed)"
+ 33. 
+.     return local pkg_dir  "`pkgdir'"
+ 34.     return local repo_dir "`repodir'"
+ 35.     return local sandbox  "`sandbox'"
+ 36. end
+
+. 
+. capture program drop iivw_qa_bootstrap
+
+. program define iivw_qa_bootstrap, rclass
+  1.     version 16.0
+  2.     syntax [, PKGdir(string) NOInstall]
+  3. 
+.     if "`pkgdir'" == "" iivw_qa_sandbox
+  4.     else                iivw_qa_sandbox, pkgdir("`pkgdir'")
+  5.     local pkgdir  "`r(pkg_dir)'"
+  6.     local repodir "`r(repo_dir)'"
+  7.     local sandbox "`r(sandbox)'"
+  8. 
+.     if "`noinstall'" == "" {
+  9.         capture ado uninstall iivw
+ 10.         quietly net install iivw, from("`pkgdir'") replace
+ 11.         * Prove the install actually resolves before any test trusts it.
+.         capture which iivw_weight
+ 12.         if _rc {
+ 13.             display as error "iivw_qa_bootstrap: iivw_weight not found aft
+> er net install"
+ 14.             exit 111
+ 15.         }
+ 16.     }
+ 17. 
+.     return local pkg_dir  "`pkgdir'"
+ 18.     return local repo_dir "`repodir'"
+ 19.     return local sandbox  "`sandbox'"
+ 20. end
+
+. 
+. * ---------------------------------------------------------------------------
+> --
+. * SELECTOR AND SUMMARY CONTRACTS (Q5, Q9)
+. * ---------------------------------------------------------------------------
+> --
+. * Every selectable suite took `args run_only' and then guarded each case with
+. *   if `run_only' == 0 | `run_only' == 7 { ... }
+. * so `do test_iivw_exogtest.do 999' executed NOTHING, ended with fail_count==
+> 0,
+. * printed "ALL TESTS PASSED" and exited 0. A typo in a selector was therefore
+. * indistinguishable from a green suite. And seven suites printed a prose succ
+> ess
+. * line instead of the RESULT: sentinel qa/README.md documents, so the parser
+. * could read "4/4 passed" off a suite it had not actually verified.
+. *
+. * iivw_qa_selector validates the selector up front; iivw_qa_summary emits ONE
+. * sentinel shape on both the pass and the fail path, and refuses to call a ru
+> n
+. * green when no case ran.
+. 
+. capture program drop iivw_qa_selector
+
+. program define iivw_qa_selector, rclass
+  1.     version 16.0
+  2.     args sel
+  3.     if `"`sel'"' == "" {
+  4.         return local run_only = 0
+  5.         exit
+  6.     }
+  7.     capture confirm integer number `sel'
+  8.     if _rc {
+  9.         display as error "run_only must be a non-negative integer (got: `s
+> el')"
+ 10.         exit 198
+ 11.     }
+ 12.     if `sel' < 0 {
+ 13.         display as error "run_only must be a non-negative integer (got: `s
+> el')"
+ 14.         exit 198
+ 15.     }
+ 16.     return local run_only = `sel'
+ 17. end
+
+. 
+. capture program drop iivw_qa_summary
+
+. program define iivw_qa_summary
+  1.     version 16.0
+  2.     syntax , NAme(string) Tests(integer) Pass(integer) Fail(integer) ///
+>         [RUNonly(string) FAILEDtests(string)]
+  3. 
+.     if `"`runonly'"' == "" local runonly = 0
+  4.     local executed = `pass' + `fail'
+  5.     local skip     = `tests' - `executed'
+  6. 
+.     display as text ""
+  7.     display as result "`name': `pass'/`tests' passed, `fail' failed, `skip
+> ' skipped"
+  8. 
+.     * Reconciliation. A suite whose counters do not add up is not a suite who
+> se
+.     * result can be trusted, whichever way the arithmetic fell.
+.     if `skip' < 0 {
+  9.         display as error "`name': counter corruption -- pass+fail (`execut
+> ed') exceeds tests (`tests')"
+ 10.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 11.         capture log close _all
+ 12.         exit 198
+ 13.     }
+ 14. 
+.     * Zero executed cases is a selector error, never a pass.
+.     if `executed' == 0 {
+ 15.         display as error "`name': no test executed (run_only = `runonly')"
+ 16.         display as error "  valid selectors are 0 (all) or 1-`tests'"
+ 17.         display "RESULT: `name' tests=`tests' pass=0 fail=0 skip=`skip'"
+ 18.         capture log close _all
+ 19.         exit 198
+ 20.     }
+ 21. 
+.     * A specific selector must select exactly one case.
+.     if `runonly' != 0 & `executed' != 1 {
+ 22.         display as error "`name': selector `runonly' executed `executed' c
+> ases, expected 1"
+ 23.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 24.         capture log close _all
+ 25.         exit 198
+ 26.     }
+ 27. 
+.     if `fail' > 0 {
+ 28.         if `"`failedtests'"' != "" {
+ 29.             display as error "FAILED TESTS: `failedtests'"
+ 30.         }
+ 31.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 32.         capture log close _all
+ 33.         exit 1
+ 34.     }
+ 35. 
+.     display as result "ALL EXECUTED TESTS PASSED"
+ 36.     display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip=`sk
+> ip'"
+ 37.     * The sentinel is emitted BEFORE this, so it lands in the suite's own 
+> log as
+.     * well as the batch log. `log close _all' does not touch Stata's -b log.
+.     capture log close _all
+ 38. end
+
+. 
+. * iivw_qa_sign_contract -- stamp a signature onto a HAND-BUILT weight contrac
+> t.
+. *
+. * Several suites fabricate a weighting contract directly -- they write
+. * `_iivw_weight' by hand and set the _dta characteristics -- so that a
+. * diagnostic can be checked against a weight vector whose answer is known on
+. * paper. That is a legitimate and valuable oracle: it is the only way to test
+. * iivw_balance's arithmetic independently of the model that usually produces 
+> the
+. * weights.
+. *
+. * From 2.0.0 the stale-weight guard FAILS CLOSED: a contract with no signatur
+> e
+. * is an error, not a skipped check. (It used to be "if a signature is stored,
+. * verify it", which meant erasing the signature disarmed the guard entirely -
+> -
+. * one edit and every consumer accepted whatever the data happened to contain.
+> )
+. *
+. * A hand-built contract therefore has to be signed like a real one. This call
+> s
+. * the package's own signature routine, which is exactly what iivw_weight does
+>  at
+. * its commit point -- so the fixture ends up in the state a real weighting ru
+> n
+. * would have left it in, rather than in a state the package cannot produce.
+. *
+. * This does NOT weaken the guard: test_iivw_stale_state.do still asserts that
+. * erasing or tampering with the signature is caught. It just lets the fixture
+> s
+. * start from a contract that is internally consistent.
+. capture program drop iivw_qa_sign_contract
+
+. program define iivw_qa_sign_contract
+  1.     version 16.0
+  2.     quietly _iivw_weight_signature
+  3.     char _dta[_iivw_wsig] "`r(signature)'"
+  4. end
+
+. 
+end of do-file
+
+. iivw_qa_sandbox
+iivw QA sandbox: /tmp/St1831010.000001_sysdir  (user's PLUS/PERSONAL untouched)
+
+. local pkg_dir "`r(pkg_dir)'"
+
+. capture ado uninstall iivw
+
+. quietly net install iivw, from("`pkg_dir'") replace
+
+. capture which iivw_weight
+
+. if _rc {
+.     display as error "iivw_weight not found after net install"
+.     exit 111
+. }
+
+. 
+. * ===========================================================================
+> ==
+. * SEED LEDGER (plan Phase 3C)
+. * ---------------------------------------------------------------------------
+> --
+. * The DGP seed and the shared bootstrap seed are derived SEPARATELY from the
+. * master seed, an arm id, and the outer replication id. The candidate id
+. * (refit/fixed/fixedwb) is deliberately NOT in the bootstrap seed: paired
+. * candidates on the same dataset must resample identically so the comparison 
+> is
+. * apples-to-apples. A fixture below proves identical seeds + canonical order
+. * reproduce identical draws.
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgpseed
+
+. program define _inf_dgpseed, rclass
+  1.     args master arm rep
+  2.     return local seed = `master' + `arm'*1000000 + `rep'
+  3. end
+
+. capture program drop _inf_bootseed
+
+. program define _inf_bootseed, rclass
+  1.     args master arm rep
+  2.     return local seed = `master' + `arm'*1000000 + 500000 + `rep'
+  3. end
+
+. 
+. * ===========================================================================
+> ==
+. * DGP FAMILY: iiw random-slope   (target = marginal slope b[months], truth B1
+> )
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgp_iiw
+
+. program define _inf_dgp_iiw
+  1.     version 16.0
+  2.     syntax , seed(integer) [B1(real 0.5) A0(real 10) DELTA(real 0.6) ///
+>         GAMMA(real 1.0) R0(real 1.5) TAU(real 10) NSUB(integer 250) MAXSLOT(i
+> nteger 80)]
+  3.     clear
+  4.     set seed `seed'
+  5.     set obs `nsub'
+  6.     gen long id = _n
+  7.     gen double Z = runiform(-1, 1)
+  8.     gen double s_i = `b1' + `delta'*Z
+  9.     gen double a_i = `a0' + 1.0*Z
+ 10.     gen double rate_i = `r0'*exp(`gamma'*Z)
+ 11.     expand `maxslot'
+ 12.     bysort id: gen int k = _n
+ 13.     gen double gap = -ln(runiform())/rate_i
+ 14.     bysort id (k): gen double vtime = sum(gap)
+ 15.     quietly keep if vtime <= `tau'
+ 16.     gen double months = vtime
+ 17.     sort id months
+ 18.     bysort id: gen int nv = _N
+ 19.     quietly drop if nv < 2
+ 20.     drop nv
+ 21.     gen double fu_end = `tau'
+ 22.     gen double y = a_i + s_i*months + rnormal(0, 1)
+ 23. end
+
+. 
+. * one dataset -> a result row for the iiw family
+. capture program drop _inf_run_iiw
+
+. program define _inf_run_iiw, rclass
+  1.     version 16.0
+  2.     syntax , dgpseed(integer) bootseed(integer) reps(integer) b1(real) ///
+>         [GAMMA(real 1.0) DELTA(real 0.6) NSUB(integer 250)]
+  3.     _inf_dgp_iiw, seed(`dgpseed') b1(`b1') gamma(`gamma') delta(`delta') n
+> sub(`nsub')
+  4.     quietly count
+  5.     return scalar nrow = r(N)
+  6.     quietly levelsof id, local(_ids)
+  7.     return scalar nsub = `: word count `_ids''
+  8.     * baseline(event), NOT the entry default. _inf_dgp_iiw generates a pur
+> e
+.     * exponential-gap Poisson visit process: a subject's first visit is the
+.     * first EVENT of that process, stochastic and informative exactly like
+.     * every later visit. There is no recruitment visit here (contrast
+.     * _inf_dgp_fiptiw, which appends a real t=0 entry row and correctly asks
+.     * for baseline(entry) below).
+.     *
+.     * Taking the entry default assigned that genuine monitoring event a
+.     * hard-coded weight of 1, which biases the marginal slope by roughly
+.     * -0.015 -- an ASYMPTOTIC offset, measured flat across nsub 250->2000 whi
+> le
+.     * the sampling SD falls like 1/sqrt(n). Predicted coverage of a
+.     * correctly-sized 95% CI therefore DEGRADES with sample size: 0.902 at
+.     * n=250, 0.866 at 500, 0.793 at 1000, 0.617 at 2000. The gate would have
+.     * failed COVERAGE_FLOOR=0.92 at its own n on target bias alone, and the
+.     * failure would have been read as a verdict on the variance method.
+.     *
+.     * Attributed, not guessed (400 sims, nsub=1000): true weights on every ro
+> w
+.     * give bias -0.0006 (0.7 MCSE); true weights with only the first visit
+.     * forced to 1 give -0.0169 (22.0 MCSE), reproducing the package result of
+.     * -0.0173. The convention is the whole effect. With baseline(event) the
+.     * residual slope bias is +0.002..+0.003 and predicted coverage is ~0.948,
+.     * stable in n.
+.     quietly iivw_weight, id(id) time(months) visit_cov(Z) censor(fu_end) ///
+>         baseline(event) nolog
+  9. 
+.     local zc = invnormal(0.975)
+ 10.     * refit bootstrap (candidate)
+.     quietly iivw_fit y, timespec(linear) vce(bootstrap, reps(`reps') seed(`bo
+> otseed')) nolog replace
+ 11.     return scalar b_refit  = _b[months]
+ 12.     return scalar se_refit = _se[months]
+ 13.     local ci_wald_lo = _b[months]-`zc'*_se[months]
+ 14.     local ci_wald_hi = _b[months]+`zc'*_se[months]
+ 15.     tempname CI_PCT CI_BC Z0
+ 16.     matrix `CI_PCT' = e(ci_percentile)
+ 17.     matrix `CI_BC'  = e(ci_bc)
+ 18.     matrix `Z0'     = e(z0)
+ 19.     local j = colnumb(e(b), "months")
+ 20.     local ci_pct_lo = el(`CI_PCT', 1, `j')
+ 21.     local ci_pct_hi = el(`CI_PCT', 2, `j')
+ 22.     local ci_basic_lo = 2*_b[months] - `ci_pct_hi'
+ 23.     local ci_basic_hi = 2*_b[months] - `ci_pct_lo'
+ 24.     local ci_bc_lo = el(`CI_BC', 1, `j')
+ 25.     local ci_bc_hi = el(`CI_BC', 2, `j')
+ 26.     return scalar ci_wald_lo = `ci_wald_lo'
+ 27.     return scalar ci_wald_hi = `ci_wald_hi'
+ 28.     return scalar ci_pct_lo = `ci_pct_lo'
+ 29.     return scalar ci_pct_hi = `ci_pct_hi'
+ 30.     return scalar ci_basic_lo = `ci_basic_lo'
+ 31.     return scalar ci_basic_hi = `ci_basic_hi'
+ 32.     return scalar ci_bc_lo = `ci_bc_lo'
+ 33.     return scalar ci_bc_hi = `ci_bc_hi'
+ 34.     return scalar cov_refit = (`b1' >= `ci_wald_lo' & `b1' <= `ci_wald_hi'
+> )
+ 35.     return scalar cov_pct = (`b1' >= `ci_pct_lo' & `b1' <= `ci_pct_hi')
+ 36.     return scalar cov_basic = (`b1' >= `ci_basic_lo' & `b1' <= `ci_basic_h
+> i')
+ 37.     return scalar cov_bc = (`b1' >= `ci_bc_lo' & `b1' <= `ci_bc_hi')
+ 38.     return scalar z0_refit = el(`Z0', 1, `j')
+ 39.     return scalar ci_bca_lo = .
+ 40.     return scalar ci_bca_hi = .
+ 41.     return scalar cov_bca = .
+ 42.     return scalar accel_refit = .
+ 43.     * fixed analytic sandwich (same weights)
+.     quietly iivw_fit y, timespec(linear) vce(fixed) nolog replace
+ 44.     return scalar b_fix  = _b[months]
+ 45.     return scalar se_fix = _se[months]
+ 46.     return scalar cov_fix = (`b1' >= _b[months]-`zc'*_se[months] & `b1' <=
+>  _b[months]+`zc'*_se[months])
+ 47.     * fixed-weight bootstrap (SAME bootseed -> identical draws to the refi
+> t)
+.     quietly iivw_fit y, timespec(linear) vce(bootstrap, reps(`reps') seed(`bo
+> otseed') fixedweights) nolog replace
+ 48.     return scalar b_fwb  = _b[months]
+ 49.     return scalar se_fwb = _se[months]
+ 50.     return scalar cov_fwb = (`b1' >= _b[months]-`zc'*_se[months] & `b1' <=
+>  _b[months]+`zc'*_se[months])
+ 51.     * naive unweighted, to confirm the DGP bites
+.     quietly glm y months, vce(cluster id)
+ 52.     return scalar cov_naive = (`b1' >= _b[months]-`zc'*_se[months] & `b1' 
+> <= _b[months]+`zc'*_se[months])
+ 53. end
+
+. 
+. * ===========================================================================
+> ==
+. * DGP FAMILY: iptw stabilized ATE   (target = b[A], truth BA), one row/subjec
+> t
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgp_iptw
+
+. program define _inf_dgp_iptw
+  1.     version 16.0
+  2.     syntax , seed(integer) [BA(real 1.5) B0(real 1) BL(real 0.7) ///
+>         A0(real 0.3) A1(real 0.8) A2(real -0.5) NSUB(integer 400)]
+  3.     clear
+  4.     set seed `seed'
+  5.     set obs `nsub'
+  6.     gen long id = _n
+  7.     gen double L1 = rnormal()
+  8.     gen double L2 = rnormal()
+  9.     gen byte A = runiform() < invlogit(`a0' + `a1'*L1 + `a2'*L2)
+ 10.     gen double y = `b0' + `ba'*A + `bl'*L1 - 0.4*L2 + rnormal()
+ 11.     gen double t0 = 0
+ 12. end
+
+. 
+. capture program drop _inf_run_iptw
+
+. program define _inf_run_iptw, rclass
+  1.     version 16.0
+  2.     syntax , dgpseed(integer) bootseed(integer) reps(integer) ba(real) [NS
+> UB(integer 400)]
+  3.     _inf_dgp_iptw, seed(`dgpseed') ba(`ba') nsub(`nsub')
+  4.     quietly count
+  5.     return scalar nrow = r(N)
+  6.     return scalar nsub = r(N)
+  7.     quietly iivw_weight, id(id) time(t0) treat(A) treat_cov(L1 L2) wtype(i
+> ptw) nolog
+  8. 
+.     local zc = invnormal(0.975)
+  9.     * refit bootstrap (refits the treatment/propensity model per draw)
+.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(`bo
+> otseed')) nolog replace
+ 10.     return scalar b_refit  = _b[A]
+ 11.     return scalar se_refit = _se[A]
+ 12.     local ci_wald_lo = _b[A]-`zc'*_se[A]
+ 13.     local ci_wald_hi = _b[A]+`zc'*_se[A]
+ 14.     tempname CI_PCT CI_BC Z0
+ 15.     matrix `CI_PCT' = e(ci_percentile)
+ 16.     matrix `CI_BC'  = e(ci_bc)
+ 17.     matrix `Z0'     = e(z0)
+ 18.     local j = colnumb(e(b), "A")
+ 19.     local ci_pct_lo = el(`CI_PCT', 1, `j')
+ 20.     local ci_pct_hi = el(`CI_PCT', 2, `j')
+ 21.     local ci_basic_lo = 2*_b[A] - `ci_pct_hi'
+ 22.     local ci_basic_hi = 2*_b[A] - `ci_pct_lo'
+ 23.     local ci_bc_lo = el(`CI_BC', 1, `j')
+ 24.     local ci_bc_hi = el(`CI_BC', 2, `j')
+ 25.     return scalar ci_wald_lo = `ci_wald_lo'
+ 26.     return scalar ci_wald_hi = `ci_wald_hi'
+ 27.     return scalar ci_pct_lo = `ci_pct_lo'
+ 28.     return scalar ci_pct_hi = `ci_pct_hi'
+ 29.     return scalar ci_basic_lo = `ci_basic_lo'
+ 30.     return scalar ci_basic_hi = `ci_basic_hi'
+ 31.     return scalar ci_bc_lo = `ci_bc_lo'
+ 32.     return scalar ci_bc_hi = `ci_bc_hi'
+ 33.     return scalar cov_refit = (`ba' >= `ci_wald_lo' & `ba' <= `ci_wald_hi'
+> )
+ 34.     return scalar cov_pct = (`ba' >= `ci_pct_lo' & `ba' <= `ci_pct_hi')
+ 35.     return scalar cov_basic = (`ba' >= `ci_basic_lo' & `ba' <= `ci_basic_h
+> i')
+ 36.     return scalar cov_bc = (`ba' >= `ci_bc_lo' & `ba' <= `ci_bc_hi')
+ 37.     return scalar z0_refit = el(`Z0', 1, `j')
+ 38.     return scalar ci_bca_lo = .
+ 39.     return scalar ci_bca_hi = .
+ 40.     return scalar cov_bca = .
+ 41.     return scalar accel_refit = .
+ 42.     quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
+ 43.     return scalar b_fix  = _b[A]
+ 44.     return scalar se_fix = _se[A]
+ 45.     return scalar cov_fix = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`zc
+> '*_se[A])
+ 46.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(
+> `bootseed') fixedweights) nolog replace
+ 47.     return scalar b_fwb  = _b[A]
+ 48.     return scalar se_fwb = _se[A]
+ 49.     return scalar cov_fwb = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`zc
+> '*_se[A])
+ 50.     quietly glm y A, vce(cluster id)
+ 51.     return scalar cov_naive = (`ba' >= _b[A]-`zc'*_se[A] & `ba' <= _b[A]+`
+> zc'*_se[A])
+ 52. end
+
+. 
+. * ===========================================================================
+> ==
+. * DGP FAMILY: fiptiw Coulombe-based   (target = b[A], truth 1), full C_i wind
+> ow
+. * ---------------------------------------------------------------------------
+> --
+. * Identical to the Gate-2B recovery DGP (validation_iivw_fiptiw_recovery.do),
+>  the
+. * package-representable Coulombe Appendix-A adaptation with the subject-const
+> ant
+. * Z. Carrier entry row at t=0 (y=. -> out of the outcome EE) keeps zero-event
+. * subjects in the risk set. Strong-dependence arm (g1=0.6,g2=0.3) by default 
+> so
+. * the informative monitoring + confounding both bite and the naive comparator
+. * misses. Kept in sync with the Gate-2B suite by construction.
+. * ===========================================================================
+> ==
+. capture program drop _inf_dgp_fiptiw
+
+. program define _inf_dgp_fiptiw
+  1.     version 16.0
+  2.     syntax , seed(integer) [G1(real 0.6) G2(real 0.3) ALPHA(real 3) ///
+>         NSUB(integer 300) PSCALE(real 1)]
+  3.     clear
+  4.     set seed `seed'
+  5.     set obs `nsub'
+  6.     gen long id = _n
+  7.     gen double K1 = rnormal(1,1)
+  8.     gen byte   K2 = runiform() < 0.55
+  9.     gen double K3 = rnormal(0,1)
+ 10.     * PSCALE changes overlap through a declared DGP parameter. The registe
+> red
+.     * stress cell multiplies the slopes by 1.5 and leaves the intercept at 0.
+> 5,
+.     * so it strengthens confounding and creates more extreme propensities.
+.     gen byte   A  = runiform() < ///
+>         invlogit(0.5 + `pscale'*(0.8*K1 + 0.05*K2 - K3))
+ 11.     gen double Z  = cond(A==1, rnormal(2,1), rnormal(4,2))
+ 12.     gen double EZ = cond(A==1, 2, 4)
+ 13.     gen double phi = rnormal(0, 0.2)
+ 14.     gen double eta = rgamma(100, 0.01)
+ 15.     gen double C   = runiform(1, 2)
+ 16.     gen double lam = eta * exp(`g1'*A + `g2'*Z)
+ 17.     tempfile base
+ 18.     quietly save `base'
+ 19.     quietly expand 150
+ 20.     bysort id: gen int k = _n
+ 21.     gen double gap = -ln(runiform()) / lam
+ 22.     bysort id (k): gen double t = sum(gap)
+ 23.     bysort id (k): egen double _tmax = max(t)
+ 24.     quietly count if _tmax < C
+ 25.     if r(N) > 0 {
+ 26.         display as error "fiptiw DGP: visit process truncated before C for
+>  `r(N)' subjects"
+ 27.         exit 459
+ 28.     }
+ 29.     quietly drop if t > C
+ 30.     gen double y = `alpha' + 1*A + 3*(Z - EZ) + 0.4*K1 + 0.05*K2 - 0.6*K3 
+> ///
+>         + rnormal(phi, 0.1)
+ 31.     gen byte entry = 0
+ 32.     drop k gap _tmax
+ 33.     tempfile visits
+ 34.     quietly save `visits'
+ 35.     quietly use `base', clear
+ 36.     gen double t = 0
+ 37.     gen double y = .
+ 38.     gen byte entry = 1
+ 39.     quietly append using `visits'
+ 40.     sort id t
+ 41. end
+
+. 
+. capture program drop _inf_run_fiptiw
+
+. program define _inf_run_fiptiw, rclass
+  1.     version 16.0
+  2.     syntax , dgpseed(integer) bootseed(integer) reps(integer) ///
+>         [TRUTH(real 1) NSUB(integer 300) PSCALE(real 1)]
+  3.     _inf_dgp_fiptiw, seed(`dgpseed') nsub(`nsub') pscale(`pscale')
+  4.     quietly count
+  5.     return scalar nrow = r(N)
+  6.     quietly levelsof id, local(_ids)
+  7.     return scalar nsub = `: word count `_ids''
+  8.     quietly iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) visit
+> _cov(Z) ///
+>         wtype(fiptiw) censor(C) baseline(entry) nolog
+  9. 
+.     local zc = invnormal(0.975)
+ 10.     * refit bootstrap (refits the visit + treatment models per draw)
+.     quietly iivw_fit y A, timespec(none) ///
+>         vce(bootstrap, reps(`reps') seed(`bootseed')) citype(bca) nolog repla
+> ce
+ 11.     return scalar b_refit  = _b[A]
+ 12.     return scalar se_refit = _se[A]
+ 13.     local ci_wald_lo = _b[A]-`zc'*_se[A]
+ 14.     local ci_wald_hi = _b[A]+`zc'*_se[A]
+ 15.     return scalar ci_wald_lo = `ci_wald_lo'
+ 16.     return scalar ci_wald_hi = `ci_wald_hi'
+ 17.     return scalar cov_refit = ///
+>         (`truth' >= `ci_wald_lo' & `truth' <= `ci_wald_hi')
+ 18. 
+.     * Stata's bootstrap prefix computes these quantiles from the same full-re
+> fit
+.     * subject draws used for e(V). The basic interval reflects the percentile
+.     * endpoints around the observed point estimate:
+.     *   [2*b - q_(1-alpha/2), 2*b - q_(alpha/2)].
+.     tempname CI_PCT CI_BC CI_BCA Z0 ACCEL
+ 19.     matrix `CI_PCT' = e(ci_percentile)
+ 20.     matrix `CI_BC'  = e(ci_bc)
+ 21.     matrix `CI_BCA' = e(ci_bca)
+ 22.     matrix `Z0'     = e(z0)
+ 23.     matrix `ACCEL'  = e(accel)
+ 24.     local j = colnumb(e(b), "A")
+ 25.     if missing(`j') | `j' < 1 {
+ 26.         display as error "FIPTIW interval study: A absent from bootstrap r
+> esults"
+ 27.         error 459
+ 28.     }
+ 29.     local ci_pct_lo = el(`CI_PCT', 1, `j')
+ 30.     local ci_pct_hi = el(`CI_PCT', 2, `j')
+ 31.     local ci_basic_lo = 2*_b[A] - `ci_pct_hi'
+ 32.     local ci_basic_hi = 2*_b[A] - `ci_pct_lo'
+ 33.     local ci_bc_lo = el(`CI_BC', 1, `j')
+ 34.     local ci_bc_hi = el(`CI_BC', 2, `j')
+ 35.     local ci_bca_lo = el(`CI_BCA', 1, `j')
+ 36.     local ci_bca_hi = el(`CI_BCA', 2, `j')
+ 37.     return scalar ci_pct_lo = `ci_pct_lo'
+ 38.     return scalar ci_pct_hi = `ci_pct_hi'
+ 39.     return scalar ci_basic_lo = `ci_basic_lo'
+ 40.     return scalar ci_basic_hi = `ci_basic_hi'
+ 41.     return scalar ci_bc_lo = `ci_bc_lo'
+ 42.     return scalar ci_bc_hi = `ci_bc_hi'
+ 43.     return scalar ci_bca_lo = `ci_bca_lo'
+ 44.     return scalar ci_bca_hi = `ci_bca_hi'
+ 45.     return scalar cov_pct = ///
+>         (`truth' >= `ci_pct_lo' & `truth' <= `ci_pct_hi')
+ 46.     return scalar cov_basic = ///
+>         (`truth' >= `ci_basic_lo' & `truth' <= `ci_basic_hi')
+ 47.     return scalar cov_bc = ///
+>         (`truth' >= `ci_bc_lo' & `truth' <= `ci_bc_hi')
+ 48.     return scalar cov_bca = ///
+>         (`truth' >= `ci_bca_lo' & `truth' <= `ci_bca_hi')
+ 49.     return scalar z0_refit = el(`Z0', 1, `j')
+ 50.     return scalar accel_refit = el(`ACCEL', 1, `j')
+ 51.     quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
+ 52.     return scalar b_fix  = _b[A]
+ 53.     return scalar se_fix = _se[A]
+ 54.     return scalar cov_fix = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _b[
+> A]+`zc'*_se[A])
+ 55.     quietly iivw_fit y A, timespec(none) vce(bootstrap, reps(`reps') seed(
+> `bootseed') fixedweights) nolog replace
+ 56.     return scalar b_fwb  = _b[A]
+ 57.     return scalar se_fwb = _se[A]
+ 58.     return scalar cov_fwb = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _b[
+> A]+`zc'*_se[A])
+ 59.     * naive: unweighted outcome events, misses under confounding + monitor
+> ing
+.     quietly glm y A if entry==0, vce(cluster id)
+ 60.     return scalar cov_naive = (`truth' >= _b[A]-`zc'*_se[A] & `truth' <= _
+> b[A]+`zc'*_se[A])
+ 61. end
+
+. 
+. * ===========================================================================
+> ==
+. * COVERAGE ENGINE: run SIMS datasets of one family, post rows, aggregate
+. * ===========================================================================
+> ==
+. capture program drop _inf_engine
+
+. program define _inf_engine, rclass
+  1.     version 16.0
+  2.     syntax , family(string) arm(integer) sims(integer) reps(integer) ///
+>         master(integer) truth(real) [GAMMA(real 1.0) DELTA(real 0.6) ///
+>         NSUB(integer 0) PSCALE(real 1) ///
+>         FLOOR(real 0.92) FROM(integer 0) TO(integer 0) ///
+>         ROWSOUT(string) ROWSIN(string)]
+  3.     * FLOOR is the registered COVERAGE_FLOOR passed in: driver-scope local
+> s are
+.     * NOT visible inside a program, so the constant must arrive as an option.
+.     *
+.     * Capture the REQUESTED nsub before the family defaults overwrite it belo
+> w
+.     * (`nsub' is reassigned inside the loop). 0 means "family default", which
+>  is
+.     * the only value a gate run may carry; anything else is a diagnostic run.
+.     * Without this stamp a diagnostic block at nsub=1200 would agree with a g
+> ate
+.     * pool on reps/sims/seed, tile correctly, and be aggregated into the gate
+> 's
+.     * coverage number -- the same silent-contamination class the reps/sims/se
+> ed
+.     * stamp exists to stop, arriving through the door the nsub passthrough
+.     * opened.
+.     local nsub_requested = `nsub'
+  4.     *
+.     * BLOCK SHARDING (from/to, rowsout, rowsin)
+.     * -----------------------------------------
+.     * The 1000 outer replications are mutually independent: the seed ledger
+.     * derives BOTH seeds for replication s from (master, arm, s) alone, and n
+> o
+.     * state carries from one replication to the next. Replication 700 therefo
+> re
+.     * produces byte-identical output whether it is the 700th iteration of a
+.     * monolithic loop or the 5th of a block covering 696-820. Block sharding 
+> is
+.     * equivalent BY CONSTRUCTION here, not merely in practice.
+.     *
+.     * That matters because the gate was sharded by FAMILY -- three units of w
+> ork
+.     * on a 16-core box -- while Stata-MP's within-command parallelism is clos
+> e to
+.     * useless on fits this small (250 subjects). Measured: 44 replications in
+>  3
+.     * hours for iiw, i.e. ~68 hours for the family. Sharding by replication b
+> lock
+.     * uses the machine in the dimension the problem is actually parallel in.
+.     *
+.     * That ~68h figure is an OVERSTATEMENT of the real cost and should not be
+.     * quoted as the serial baseline: it was measured with processors unset, s
+> o
+.     * two family shards each spawned 16 spin-waiting MP threads on a 16-vCPU
+.     * host (load 40, 1.13M context switches/sec). Most of that time was
+.     * contention, not fitting. The driver now pins processors=1 -- see the no
+> te
+.     * at the top of this file -- and blocks are launched by qa/run_coverage_g
+> ate.sh.
+.     *
+.     * rowsout() writes a block's raw rows and returns WITHOUT a verdict.
+.     * rowsin() skips the loop and evaluates rows collected elsewhere.
+.     * The acceptance rule is applied exactly ONCE, to the union of all blocks
+>  --
+.     * never per block. A per-block PASS/FAIL would be multiple testing on the
+.     * preregistered band, and would let a reader cherry-pick a green block.
+.     if `from' == 0 local from 1
+  5.     if `to' == 0 local to `sims'
+  6.     if `from' < 1 | `to' > `sims' | `from' > `to' {
+  7.         display as error "engine(`family'): block range `from'-`to' is not
+>  inside 1-`sims'"
+  8.         exit 198
+  9.     }
+ 10.     if `"`rowsout'"' != "" & `"`rowsin'"' != "" {
+ 11.         display as error "engine(`family'): rowsout() and rowsin() are mut
+> ually exclusive"
+ 12.         exit 198
+ 13.     }
+ 14. 
+.     tempname P
+ 15.     tempfile rowsfile
+ 16.     local n_ok = 0
+ 17.     local n_fail = 0
+ 18. 
+.     * COMBINE PATH. rowsin() means the rows were already produced by block ru
+> ns,
+.     * so the simulation loop MUST be skipped. It previously was not: the loop
+>  ran
+.     * the full 1..sims study, postclose'd it, and then discarded every row in
+.     * favour of rowsin() -- making combine_<family> silently cost a second en
+> tire
+.     * study (~a day) while reading as pure aggregation. Guarding the loop is 
+> what
+.     * makes the block/combine split actually cheaper than the monolithic run.
+.     if `"`rowsin'"' != "" {
+ 19.         use `"`rowsin'"', clear
+ 20.         quietly count
+ 21.         local n_ok = r(N)
+ 22.         local n_fail = `sims' - `n_ok'
+ 23.     }
+ 24.     else {
+ 25.     * PROVENANCE STAMP. Every row records the (reps, sims, seed, pscale) i
+> t was produced
+.     * under. Without this the verdict line's "reps=" is a free-text label cop
+> ied
+.     * from the command argument and never checked against the rows -- measure
+> d:
+.     * one fabricated pool combined to "gate=PASS sims=1000 reps=999" and
+.     * "gate=PASS sims=1000 reps=10" with byte-identical coverage. That is
+.     * reachable, not hypothetical: run_coverage_gate.sh skips a block whose .
+> dta
+.     * is already in the pool, and the pool filename encodes only family and
+.     * range -- so a REPS=10 plumbing pilot (which the runbook describes doing
+> )
+.     * leaves files named exactly what the REPS=999 run wants. combine would t
+> hen
+.     * certify pilot rows as the release gate. Stamped here, verified in combi
+> ne.
+.     * blk_seed is double, not long: a seed above 2^31 would post as MISSING i
+> n a
+.     * long, and the combine check would then refuse with "produced at
+.     * blk_seed=." rather than naming the real seed. double is exact to 2^53.
+.     postfile `P' int(sim arm) long(blk_reps blk_sims blk_nsub) ///
+>         double(blk_seed blk_pscale) ///
+>         double(b_refit se_refit cov_refit ///
+>         ci_wald_lo ci_wald_hi ci_pct_lo ci_pct_hi cov_pct ///
+>         ci_basic_lo ci_basic_hi cov_basic ci_bc_lo ci_bc_hi cov_bc ///
+>         ci_bca_lo ci_bca_hi cov_bca z0_refit accel_refit ///
+>         b_fix se_fix cov_fix b_fwb se_fwb cov_fwb cov_naive nrow nsub) ///
+>         using "`rowsfile'", replace
+ 26. 
+.     forvalues s = `from'/`to' {
+ 27.         _inf_dgpseed  `master' `arm' `s'
+ 28.         local dgpseed = `r(seed)'
+ 29.         _inf_bootseed `master' `arm' `s'
+ 30.         local bootseed = `r(seed)'
+ 31.         capture noisily {
+ 32.             if "`family'" == "iiw" {
+ 33.                 if `nsub' == 0 local nsub 250
+ 34.                 _inf_run_iiw, dgpseed(`dgpseed') bootseed(`bootseed') reps
+> (`reps') ///
+>                     b1(`truth') gamma(`gamma') delta(`delta') nsub(`nsub')
+ 35.             }
+ 36.             else if "`family'" == "iptw" {
+ 37.                 if `nsub' == 0 local nsub 400
+ 38.                 _inf_run_iptw, dgpseed(`dgpseed') bootseed(`bootseed') rep
+> s(`reps') ///
+>                     ba(`truth') nsub(`nsub')
+ 39.             }
+ 40.             else if "`family'" == "fiptiw" {
+ 41.                 if `nsub' == 0 local nsub 300
+ 42.                 _inf_run_fiptiw, dgpseed(`dgpseed') bootseed(`bootseed') r
+> eps(`reps') ///
+>                     truth(`truth') nsub(`nsub') pscale(`pscale')
+ 43.             }
+ 44.             else {
+ 45.                 display as error "unknown family `family'"
+ 46.                 error 198
+ 47.             }
+ 48.             post `P' (`s') (`arm') (`reps') (`sims') (`nsub_requested') //
+> /
+>                 (`master') (`pscale') ///
+>                 (`r(b_refit)') (`r(se_refit)') (`r(cov_refit)') ///
+>                 (`r(ci_wald_lo)') (`r(ci_wald_hi)') ///
+>                 (`r(ci_pct_lo)') (`r(ci_pct_hi)') (`r(cov_pct)') ///
+>                 (`r(ci_basic_lo)') (`r(ci_basic_hi)') (`r(cov_basic)') ///
+>                 (`r(ci_bc_lo)') (`r(ci_bc_hi)') (`r(cov_bc)') ///
+>                 (`r(ci_bca_lo)') (`r(ci_bca_hi)') (`r(cov_bca)') ///
+>                 (`r(z0_refit)') (`r(accel_refit)') ///
+>                 (`r(b_fix)') (`r(se_fix)') (`r(cov_fix)') ///
+>                 (`r(b_fwb)') (`r(se_fwb)') (`r(cov_fwb)') (`r(cov_naive)') //
+> /
+>                 (`r(nrow)') (`r(nsub)')
+ 49.             local ++n_ok
+ 50.         }
+ 51.         if _rc local ++n_fail
+ 52.     }
+ 53.     postclose `P'
+ 54.     use "`rowsfile'", clear
+ 55.     }
+ 56. 
+.     * A block emits rows and stops. No verdict, and a sentinel that cannot be
+.     * mistaken for one.
+.     if `"`rowsout'"' != "" {
+ 57.         quietly save `"`rowsout'"', replace
+ 58.         quietly count
+ 59.         display as text "engine(`family'): block `from'-`to' wrote " r(N) 
+> ///
+>             " row(s) to `rowsout' (`n_fail' failed draw(s))"
+ 60.         display as error "BLOCK-ONLY: no gate verdict is computed for a bl
+> ock"
+ 61.         return scalar gate_ok = 0
+ 62.         return scalar block_rows = r(N)
+ 63.         exit 0
+ 64.     }
+ 65. 
+.     * --- aggregation integrity: no missing/duplicate (arm, sim) keys ---
+.     quietly count
+ 66.     local N = r(N)
+ 67.     if `N' == 0 {
+ 68.         display as error "engine(`family'): every replication failed"
+ 69.         return scalar gate_ok = 0
+ 70.         exit 459
+ 71.     }
+ 72.     tempvar dup
+ 73.     quietly bysort arm sim: gen byte `dup' = _N
+ 74.     quietly count if `dup' > 1
+ 75.     if r(N) > 0 {
+ 76.         display as error "engine(`family'): duplicate (arm,sim) keys -- ag
+> gregation corrupt"
+ 77.         return scalar gate_ok = 0
+ 78.         exit 459
+ 79.     }
+ 80.     quietly summarize sim
+ 81.     local span = r(max) - r(min) + 1
+ 82.     if `N' < `span' {
+ 83.         display as text "note: engine(`family'): `=`span'-`N'' of `span' r
+> eplications dropped (failed draws)"
+ 84.     }
+ 85. 
+.     local zc = invnormal(0.975)
+ 86.     quietly summarize b_refit
+ 87.     local mb = r(mean)
+ 88.     local sdb = r(sd)
+ 89.     local bias = `mb' - `truth'
+ 90.     local mcse_bias = `sdb'/sqrt(`N')
+ 91.     quietly summarize se_refit, detail
+ 92.     local mse_refit = r(mean)
+ 93.     local mdse_refit = r(p50)
+ 94.     quietly summarize se_fix
+ 95.     local mse_fix = r(mean)
+ 96.     quietly summarize cov_refit
+ 97.     local cov_refit = r(mean)
+ 98.     quietly summarize cov_pct
+ 99.     local cov_pct = r(mean)
+100.     quietly summarize cov_basic
+101.     local cov_basic = r(mean)
+102.     quietly summarize cov_bc
+103.     local cov_bc = r(mean)
+104.     quietly summarize cov_bca
+105.     local cov_bca = r(mean)
+106.     quietly summarize cov_fix
+107.     local cov_fix = r(mean)
+108.     quietly summarize cov_fwb
+109.     local cov_fwb = r(mean)
+110.     quietly summarize cov_naive
+111.     local cov_naive = r(mean)
+112. 
+.     * Shape diagnostics distinguish an interval that repairs coverage by movi
+> ng
+.     * the endpoints in the needed direction from one that merely inflates bot
+> h
+.     * tails. "Below" means the truth fell below the lower endpoint; "above"
+.     * means it fell above the upper endpoint.
+.     tempvar len_wald len_pct len_basic len_bc len_bca ///
+>         below_wald above_wald below_pct above_pct ///
+>         below_basic above_basic below_bc above_bc below_bca above_bca
+113.     quietly gen double `len_wald' = ci_wald_hi - ci_wald_lo
+114.     quietly gen double `len_pct' = ci_pct_hi - ci_pct_lo
+115.     quietly gen double `len_basic' = ci_basic_hi - ci_basic_lo
+116.     quietly gen double `len_bc' = ci_bc_hi - ci_bc_lo
+117.     quietly gen double `len_bca' = ci_bca_hi - ci_bca_lo
+118.     quietly gen byte `below_wald' = (`truth' < ci_wald_lo)
+119.     quietly gen byte `above_wald' = (`truth' > ci_wald_hi)
+120.     quietly gen byte `below_pct' = (`truth' < ci_pct_lo)
+121.     quietly gen byte `above_pct' = (`truth' > ci_pct_hi)
+122.     quietly gen byte `below_basic' = (`truth' < ci_basic_lo)
+123.     quietly gen byte `above_basic' = (`truth' > ci_basic_hi)
+124.     quietly gen byte `below_bc' = (`truth' < ci_bc_lo)
+125.     quietly gen byte `above_bc' = (`truth' > ci_bc_hi)
+126.     quietly gen byte `below_bca' = (`truth' < ci_bca_lo) if ci_bca_lo < .
+127.     quietly gen byte `above_bca' = (`truth' > ci_bca_hi) if ci_bca_hi < .
+128.     quietly summarize `len_wald'
+129.     local meanlen_wald = r(mean)
+130.     quietly summarize `below_wald'
+131.     local below_wald = r(mean)
+132.     quietly summarize `above_wald'
+133.     local above_wald = r(mean)
+134.     quietly summarize `len_pct'
+135.     local meanlen_pct = r(mean)
+136.     quietly summarize `below_pct'
+137.     local below_pct = r(mean)
+138.     quietly summarize `above_pct'
+139.     local above_pct = r(mean)
+140.     quietly summarize `len_basic'
+141.     local meanlen_basic = r(mean)
+142.     quietly summarize `below_basic'
+143.     local below_basic = r(mean)
+144.     quietly summarize `above_basic'
+145.     local above_basic = r(mean)
+146.     quietly summarize `len_bc'
+147.     local meanlen_bc = r(mean)
+148.     quietly summarize `below_bc'
+149.     local below_bc = r(mean)
+150.     quietly summarize `above_bc'
+151.     local above_bc = r(mean)
+152.     quietly summarize `len_bca'
+153.     local meanlen_bca = r(mean)
+154.     quietly summarize `below_bca'
+155.     local below_bca = r(mean)
+156.     quietly summarize `above_bca'
+157.     local above_bca = r(mean)
+158.     quietly summarize z0_refit, detail
+159.     local z0_mean = r(mean)
+160.     local z0_p50 = r(p50)
+161.     local z0_p95 = r(p95)
+162.     quietly summarize accel_refit, detail
+163.     local accel_mean = r(mean)
+164.     local accel_p50 = r(p50)
+165.     local accel_p95 = r(p95)
+166. 
+.     * fixed/refit SE ratio with Monte-Carlo uncertainty (paired, per replicat
+> ion)
+.     tempvar ratio
+167.     quietly gen double `ratio' = se_fix/se_refit
+168.     quietly summarize `ratio'
+169.     local se_ratio = r(mean)
+170.     local se_ratio_mcse = r(sd)/sqrt(`N')
+171. 
+.     * Wilson intervals for refit and fixed coverage
+.     local pr = `cov_refit'
+172.     local wr_c = (`pr' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+173.     local wr_h = `zc'/(1+`zc'^2/`N')*sqrt(`pr'*(1-`pr')/`N' + `zc'^2/(4*`N
+> '^2))
+174.     local wr_lo = `wr_c'-`wr_h'
+175.     local wr_hi = `wr_c'+`wr_h'
+176.     local pp = `cov_pct'
+177.     local wp_c = (`pp' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+178.     local wp_h = `zc'/(1+`zc'^2/`N')*sqrt(`pp'*(1-`pp')/`N' + `zc'^2/(4*`N
+> '^2))
+179.     local wp_lo = `wp_c'-`wp_h'
+180.     local wp_hi = `wp_c'+`wp_h'
+181.     local pb = `cov_basic'
+182.     local wb_c = (`pb' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+183.     local wb_h = `zc'/(1+`zc'^2/`N')*sqrt(`pb'*(1-`pb')/`N' + `zc'^2/(4*`N
+> '^2))
+184.     local wb_lo = `wb_c'-`wb_h'
+185.     local wb_hi = `wb_c'+`wb_h'
+186.     local pbc = `cov_bc'
+187.     local wbc_c = (`pbc' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+188.     local wbc_h = `zc'/(1+`zc'^2/`N')*sqrt(`pbc'*(1-`pbc')/`N' + `zc'^2/(4
+> *`N'^2))
+189.     local wbc_lo = `wbc_c'-`wbc_h'
+190.     local wbc_hi = `wbc_c'+`wbc_h'
+191.     local pbca = `cov_bca'
+192.     local wbca_c = (`pbca' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+193.     local wbca_h = `zc'/(1+`zc'^2/`N')*sqrt(`pbca'*(1-`pbca')/`N' + `zc'^2
+> /(4*`N'^2))
+194.     local wbca_lo = `wbca_c'-`wbca_h'
+195.     local wbca_hi = `wbca_c'+`wbca_h'
+196.     local pf = `cov_fix'
+197.     local wf_c = (`pf' + `zc'^2/(2*`N'))/(1 + `zc'^2/`N')
+198.     local wf_h = `zc'/(1+`zc'^2/`N')*sqrt(`pf'*(1-`pf')/`N' + `zc'^2/(4*`N
+> '^2))
+199.     local wf_lo = `wf_c'-`wf_h'
+200.     local wf_hi = `wf_c'+`wf_h'
+201. 
+.     quietly summarize nsub, meanonly
+202.     local mnsub = r(mean)
+203.     quietly summarize nrow, meanonly
+204.     local mnrow = r(mean)
+205. 
+.     display as text "{hline 74}"
+206.     display as result "  FAMILY=`family' arm=`arm' truth=" %6.3f `truth' /
+> //
+>         "  N usable=`N'/`sims' (fail=`n_fail')  ~subj=" %5.0f `mnsub' ///
+>         " rows=" %6.0f `mnrow' "  pscale=" %4.2f `pscale'
+207.     display as text "{hline 74}"
+208.     display as text "  naive coverage      = " %5.3f `cov_naive' "   (DGP 
+> bites if << 0.95)"
+209.     display as text "  REFIT  bias=" %8.5f `bias' " (MCSE " %7.5f `mcse_bi
+> as' ")  empSD=" %7.5f `sdb'
+210.     display as text "         mean SE=" %7.5f `mse_refit' "  median SE=" %
+> 7.5f `mdse_refit'
+211.     display as result "         Wald coverage=" %5.3f `cov_refit' ///
+>         "  Wilson[" %5.3f `wr_lo' "," %5.3f `wr_hi' "]"
+212.     display as result "         PCTL coverage=" %5.3f `cov_pct' ///
+>         "  Wilson[" %5.3f `wp_lo' "," %5.3f `wp_hi' "]"
+213.     display as result "         BASIC coverage=" %5.3f `cov_basic' ///
+>         " Wilson[" %5.3f `wb_lo' "," %5.3f `wb_hi' "]"
+214.     display as text "         BC coverage=" %5.3f `cov_bc' ///
+>         "    Wilson[" %5.3f `wbc_lo' "," %5.3f `wbc_hi' "]"
+215.     display as result "         BCa coverage=" %5.3f `cov_bca' ///
+>         "   Wilson[" %5.3f `wbca_lo' "," %5.3f `wbca_hi' "]"
+216.     display as text "         mean lengths: Wald=" %7.4f `meanlen_wald' //
+> /
+>         " PCTL=" %7.4f `meanlen_pct' " BASIC=" %7.4f `meanlen_basic' ///
+>         " BC=" %7.4f `meanlen_bc' " BCa=" %7.4f `meanlen_bca'
+217.     display as text "         misses below/above truth:" ///
+>         " Wald=" %5.3f `below_wald' "/" %5.3f `above_wald' ///
+>         " PCTL=" %5.3f `below_pct' "/" %5.3f `above_pct'
+218.     display as text "                                   " ///
+>         " BASIC=" %5.3f `below_basic' "/" %5.3f `above_basic' ///
+>         " BC=" %5.3f `below_bc' "/" %5.3f `above_bc' ///
+>         " BCa=" %5.3f `below_bca' "/" %5.3f `above_bca'
+219.     display as text "         bias-correction z0: mean=" %7.4f `z0_mean' /
+> //
+>         " median=" %7.4f `z0_p50' " p95=" %7.4f `z0_p95'
+220.     display as text "         acceleration a: mean=" %7.4f `accel_mean' //
+> /
+>         " median=" %7.4f `accel_p50' " p95=" %7.4f `accel_p95'
+221.     display as text "  FIXED  mean SE=" %7.5f `mse_fix' "  coverage=" %5.3
+> f `cov_fix' ///
+>         "  Wilson[" %5.3f `wf_lo' "," %5.3f `wf_hi' "]"
+222.     display as text "  FIXEDWB coverage=" %5.3f `cov_fwb' "  (fixed-weight
+>  bootstrap)"
+223.     display as text "  fixed/refit SE ratio = " %6.4f `se_ratio' " (MC " %
+> 6.4f `se_ratio_mcse' ")"
+224. 
+.     * acceptance: refit Wilson contains 0.95 and refit point >= floor
+.     local refit_gate = (`wr_lo' <= 0.95 & `wr_hi' >= 0.95 & `cov_refit' >= `f
+> loor')
+225.     local pct_gate = (`wp_lo' <= 0.95 & `wp_hi' >= 0.95 & `cov_pct' >= `fl
+> oor')
+226.     local basic_gate = (`wb_lo' <= 0.95 & `wb_hi' >= 0.95 & `cov_basic' >=
+>  `floor')
+227.     local bc_gate = (`wbc_lo' <= 0.95 & `wbc_hi' >= 0.95 & `cov_bc' >= `fl
+> oor')
+228.     local bca_gate = (`wbca_lo' <= 0.95 & `wbca_hi' >= 0.95 & `cov_bca' >=
+>  `floor')
+229.     * separator: fixed over-covers (Wilson excludes 0.95 from above) OR SE
+>  ratio > 1
+.     local fixed_over = (`wf_lo' > 0.95)
+230.     local se_sep     = (`se_ratio' - 2*`se_ratio_mcse' > 1)
+231.     display as text "  refit gate (Wilson contains 0.95 && >= floor) : " /
+> //
+>         as result cond(`refit_gate', "PASS", "FAIL")
+232.     display as text "  percentile gate                                  : 
+> " ///
+>         as result cond(`pct_gate', "PASS", "FAIL")
+233.     display as text "  basic gate                                       : 
+> " ///
+>         as result cond(`basic_gate', "PASS", "FAIL")
+234.     display as text "  bias-corrected gate                              : 
+> " ///
+>         as result cond(`bc_gate', "PASS", "FAIL")
+235.     display as text "  BCa gate                                         : 
+> " ///
+>         as result cond(`bca_gate', "PASS", "FAIL")
+236.     display as text "  B02 separator (fixed over-covers OR SE ratio>1)    
+>   : " ///
+>         as result cond(`fixed_over' | `se_sep', "shown", "not shown at this c
+> ell")
+237. 
+.     return scalar gate_ok = `refit_gate'
+238.     return scalar gate_pct = `pct_gate'
+239.     return scalar gate_basic = `basic_gate'
+240.     return scalar gate_bc = `bc_gate'
+241.     return scalar gate_bca = `bca_gate'
+242.     return scalar sep_ok  = (`fixed_over' | `se_sep')
+243.     return scalar cov_refit = `cov_refit'
+244.     return scalar cov_pct = `cov_pct'
+245.     return scalar cov_basic = `cov_basic'
+246.     return scalar cov_bc = `cov_bc'
+247.     return scalar cov_bca = `cov_bca'
+248.     return scalar meanlen_wald = `meanlen_wald'
+249.     return scalar meanlen_pct = `meanlen_pct'
+250.     return scalar meanlen_basic = `meanlen_basic'
+251.     return scalar meanlen_bc = `meanlen_bc'
+252.     return scalar meanlen_bca = `meanlen_bca'
+253.     return scalar below_wald = `below_wald'
+254.     return scalar above_wald = `above_wald'
+255.     return scalar below_pct = `below_pct'
+256.     return scalar above_pct = `above_pct'
+257.     return scalar below_basic = `below_basic'
+258.     return scalar above_basic = `above_basic'
+259.     return scalar below_bc = `below_bc'
+260.     return scalar above_bc = `above_bc'
+261.     return scalar below_bca = `below_bca'
+262.     return scalar above_bca = `above_bca'
+263.     return scalar z0_mean = `z0_mean'
+264.     return scalar z0_p50 = `z0_p50'
+265.     return scalar z0_p95 = `z0_p95'
+266.     return scalar accel_mean = `accel_mean'
+267.     return scalar accel_p50 = `accel_p50'
+268.     return scalar accel_p95 = `accel_p95'
+269.     return scalar cov_fix = `cov_fix'
+270.     return scalar N = `N'
+271. end
+
+. 
+. * ===========================================================================
+> ==
+. * DRIVER
+. * ===========================================================================
+> ==
+. display as text "{hline 74}"
+--------------------------------------------------------------------------
+
+. display as result "validation_iivw_inference  MODE=`MODE'  SIMS=`SIMS' REPS=`
+> REPS' SEED=`SEED'"
+validation_iivw_inference  MODE=release  SIMS=1000 REPS=999 SEED=20260715
+
+. display as text "{hline 74}"
+--------------------------------------------------------------------------
+
+. 
+. if "`MODE'" == "smoke" {
+.     * NON-GATE plumbing run. Exercises all three families cheaply and ALWAYS
+.     * exits non-zero with a sentinel that says it is not the gate, so a smoke
+>  run
+.     * can never be read as clearance (plan Phase 3C).
+.     _inf_engine, family(iiw)    arm(1) sims(`SIMS') reps(`REPS') master(`SEED
+> ') truth(0.5) floor(`COVERAGE_FLOOR')
+.     _inf_engine, family(iptw)   arm(2) sims(`SIMS') reps(`REPS') master(`SEED
+> ') truth(1.5) floor(`COVERAGE_FLOOR')
+.     _inf_engine, family(fiptiw) arm(3) sims(`SIMS') reps(`REPS') master(`SEED
+> ') ///
+>         truth(1) floor(`COVERAGE_FLOOR') nsub(300) pscale(`PSCALE')
+.     display as text "{hline 74}"
+.     display as error "RESULT: validation_iivw_inference INFERENCE-SMOKE non-g
+> ate (SIMS=`SIMS' < COVERAGE_R=`COVERAGE_R')"
+.     display as error "  a smoke run exercises the plumbing only; it is NOT th
+> e release gate"
+.     exit 1
+. }
+
+. else if inlist("`MODE'", "iiw", "iptw", "fiptiw") & `FROM' > 0 & `TO' > 0 {
+.     * BLOCK RUN. Emits rows for replications FROM..TO and no verdict. The gat
+> e
+.     * is applied later, once, by combine_<family> over the union of all block
+> s.
+.     if `SIMS' < `COVERAGE_R' {
+.         display as error "a gate block still requires SIMS >= COVERAGE_R (`CO
+> VERAGE_R')"
+.         display as error "  SIMS is the size of the WHOLE study; FROM/TO sele
+> ct this block's slice"
+.         exit 198
+.     }
+.     if "`MODE'" == "iiw"    local truth 0.5
+.     if "`MODE'" == "iptw"   local truth 1.5
+.     if "`MODE'" == "fiptiw" local truth 1
+.     if "`MODE'" == "iiw"    local arm 1
+.     if "`MODE'" == "iptw"   local arm 2
+.     if "`MODE'" == "fiptiw" local arm 3
+.     local blockdir "`c(pwd)'/_inf_blocks"
+.     capture mkdir "`blockdir'"
+.     local tag = string(`FROM', "%05.0f") + "_" + string(`TO', "%05.0f")
+.     _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
+>         master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') nsub(`NSUB') //
+> /
+>         pscale(`PSCALE') ///
+>         from(`FROM') to(`TO') rowsout("`blockdir'/`MODE'_`tag'.dta")
+.     display as text "{hline 74}"
+.     display as error "RESULT: validation_iivw_inference `MODE' BLOCK `FROM'-`
+> TO' non-gate"
+.     display as error "  a block is not the gate; run combine_`MODE' over all 
+> blocks"
+.     exit 1
+. }
+
+. else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
+.     * COMBINE. Load every block for the family, prove the blocks TILE 1..SIMS
+.     * exactly, then apply the preregistered acceptance once to the union.
+.     local fam = subinstr("`MODE'", "combine_", "", 1)
+.     if `SIMS' < `COVERAGE_R' {
+.         display as error "combine requires SIMS >= COVERAGE_R (`COVERAGE_R')"
+.         exit 198
+.     }
+.     if "`fam'" == "iiw"    local truth 0.5
+.     if "`fam'" == "iptw"   local truth 1.5
+.     if "`fam'" == "fiptiw" local truth 1
+.     if "`fam'" == "iiw"    local arm 1
+.     if "`fam'" == "iptw"   local arm 2
+.     if "`fam'" == "fiptiw" local arm 3
+. 
+.     local blockdir "`c(pwd)'/_inf_blocks"
+.     local blocks : dir "`blockdir'" files "`fam'_*.dta"
+.     local nblk : word count `blocks'
+.     if `nblk' == 0 {
+.         display as error "combine(`fam'): no block files in `blockdir'"
+.         exit 601
+.     }
+.     tempfile allrows
+.     local first = 1
+.     foreach b of local blocks {
+  2.         quietly use "`blockdir'/`b'", clear
+  3.         if `first' == 0 quietly append using "`allrows'"
+  4.         quietly save "`allrows'", replace
+  5.         local first = 0
+  6.     }
+.     quietly use "`allrows'", clear
+. 
+.     * PROVENANCE PROOF. The tiling proof below shows the blocks cover 1..SIMS
+> ;
+.     * it cannot show they were produced under the SAME configuration, because
+>  a
+.     * block filename carries only family and range. Two blocks run at differe
+> nt
+.     * REPS, different SIMS, or different master seeds tile perfectly and comb
+> ine
+.     * silently into one number that describes no study -- and the verdict lin
+> e
+.     * would label it with whatever REPS/SEED this invocation was handed.
+.     * Measured before this check existed: one fabricated pool certified as bo
+> th
+.     * "reps=999" and "reps=10". Refuse rather than mislabel.
+.     foreach v in blk_reps blk_sims blk_seed blk_nsub blk_pscale {
+  2.         capture confirm variable `v'
+  3.         if _rc {
+  4.             display as error "combine(`fam'): block rows carry no `v' stam
+> p"
+  5.             display as error "  these blocks predate the provenance stamp;
+>  re-run them"
+  6.             exit 459
+  7.         }
+  8.     }
+.     * blk_nsub must be 0: a gate cell is defined by the family's own default
+.     * sample size. A diagnostic block run at another nsub agrees with a gate 
+> pool
+.     * on reps/sims/seed and tiles correctly, so nothing else here would catch
+>  it.
+.     local stamps blk_reps `REPS' blk_sims `SIMS' blk_seed `SEED' ///
+>         blk_nsub 0 blk_pscale `PSCALE'
+.     while "`stamps'" != "" {
+  2.         gettoken v stamps : stamps
+  3.         gettoken want stamps : stamps
+  4.         quietly summarize `v'
+  5.         if r(min) != r(max) {
+  6.             display as error "combine(`fam'): blocks disagree on `v' (`=r(
+> min)' .. `=r(max)')"
+  7.             display as error "  the union mixes configurations; it is not 
+> one study"
+  8.             exit 459
+  9.         }
+ 10.         if r(min) != `want' {
+ 11.             display as error "combine(`fam'): blocks were produced at `v'=
+> `=r(min)'," ///
+>                 " but this combine was invoked with `want'"
+ 12.             display as error "  the verdict would carry a label the rows d
+> o not support"
+ 13.             exit 459
+ 14.         }
+ 15.     }
+. 
+.     * TILING PROOF. A block that never ran, or ran twice, must not be
+.     * aggregated silently -- that is how a coverage number gets computed over
+.     * a subset and reported as the whole study.
+.     quietly count
+.     local nrows = r(N)
+.     tempvar dupk
+.     quietly bysort arm sim: gen byte `dupk' = _N
+.     quietly count if `dupk' > 1
+.     if r(N) > 0 {
+.         display as error "combine(`fam'): duplicate (arm,sim) keys across blo
+> cks"
+.         display as error "  the blocks overlap; re-run with disjoint FROM/TO 
+> ranges"
+.         exit 459
+.     }
+.     * The union must TILE 1..SIMS, and that must be proved from the block
+.     * RANGES, not from the pooled row values. A min/max check on sim is not a
+.     * tiling proof: it accepts any missing INTERIOR block, because the absent
+.     * replications then look exactly like failed draws. Measured -- deleting
+.     * block 376-500 of 8 left min=1, max=1000 and produced a verdict over 875
+.     * replications reported as sims=1000. A missing block is a structural fau
+> lt
+.     * and must refuse; a failed draw is legitimate and is counted separately.
+.     tempname COV
+.     matrix `COV' = J(1, `SIMS', 0)
+.     local flen = strlen("`fam'") + 2
+.     foreach b of local blocks {
+  2.         local stem = subinstr("`b'", ".dta", "", 1)
+  3.         local bf = real(substr("`stem'", `flen', 5))
+  4.         local bt = real(substr("`stem'", `flen' + 6, 5))
+  5.         if missing(`bf') | missing(`bt') {
+  6.             display as error "combine(`fam'): cannot parse a block range f
+> rom `b'"
+  7.             display as error "  expected <family>_<FROM>_<TO>.dta with %05
+> .0f fields"
+  8.             exit 459
+  9.         }
+ 10.         if `bf' < 1 | `bt' > `SIMS' | `bf' > `bt' {
+ 11.             display as error "combine(`fam'): block `b' spans `bf'-`bt', o
+> utside 1-`SIMS'"
+ 12.             exit 459
+ 13.         }
+ 14.         forvalues k = `bf'/`bt' {
+ 15.             matrix `COV'[1, `k'] = `COV'[1, `k'] + 1
+ 16.         }
+ 17.     }
+.     local ngap = 0
+.     local nover = 0
+.     local firstgap = 0
+.     forvalues k = 1/`SIMS' {
+  2.         if `COV'[1, `k'] == 0 {
+  3.             local ++ngap
+  4.             if `firstgap' == 0 local firstgap = `k'
+  5.         }
+  6.         else if `COV'[1, `k'] > 1 {
+  7.             local ++nover
+  8.         }
+  9.     }
+.     if `ngap' > 0 {
+.         display as error "combine(`fam'): `ngap' replication(s) covered by NO
+>  block" ///
+>             " (first gap at sim `firstgap')"
+.         display as error "  a missing block is not a failed draw; the union i
+> s not the study"
+.         exit 459
+.     }
+.     if `nover' > 0 {
+.         display as error "combine(`fam'): `nover' replication(s) covered by M
+> ORE THAN ONE block"
+.         display as error "  re-run with disjoint FROM/TO ranges"
+.         exit 459
+.     }
+.     local ndrop = `SIMS' - `nrows'
+.     display as text "combine(`fam'): `nblk' block(s), `nrows' of `SIMS' repli
+> cations" ///
+>         " (`ndrop' failed draw(s))"
+. 
+.     _inf_engine, family(`fam') arm(`arm') sims(`SIMS') reps(`REPS') ///
+>         master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') ///
+>         pscale(`PSCALE') rowsin("`allrows'")
+.     local gate = `r(gate_ok)'
+.     display as text "{hline 74}"
+.     if `gate' {
+.         display as result "RESULT: validation_iivw_inference `fam' gate=PASS"
+>  ///
+>             " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov
+> _refit)' ///
+>             " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)'
+>  ///
+>             " cov_bca=" %5.3f `r(cov_bca)'
+.         exit 0
+.     }
+.     display as error "RESULT: validation_iivw_inference `fam' gate=FAIL" ///
+>         " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov_ref
+> it)' ///
+>         " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)' ///
+>         " cov_bca=" %5.3f `r(cov_bca)'
+.     exit 9
+. }
+
+. else if inlist("`MODE'", "iiw", "iptw", "fiptiw") {
+.     if `SIMS' < `COVERAGE_R' {
+.         display as error "MODE=`MODE' is a GATE cell and requires SIMS >= COV
+> ERAGE_R (`COVERAGE_R')"
+.         display as error "  for a quick plumbing check use MODE=smoke"
+.         exit 198
+.     }
+.     * Braceless, deliberately. `if cond { local truth 0.5 }' on ONE line is n
+> ot
+.     * valid Stata: the opening brace must be the last token on its line. Stat
+> a
+.     * does not error on the malformed form -- it silently leaves `truth' EMPT
+> Y,
+.     * so _inf_engine below was called as truth() arm() and died at r(198),
+.     * taking the brace structure with it and dropping execution into the
+.     * MODE=release branch. That is why every gate cell exited in seconds with
+.     * "MODE=release is a multi-day nested run" while MODE=smoke worked fine:
+.     * smoke never reaches these lines, and the SIMS<COVERAGE_R guard above
+.     * exits before them too, so ONLY a real gate run could hit it.
+.     * Found 2026-07-21, the first time a gate cell was ever launched.
+.     if "`MODE'" == "iiw"    local truth 0.5
+.     if "`MODE'" == "iptw"   local truth 1.5
+.     if "`MODE'" == "fiptiw" local truth 1
+.     if "`MODE'" == "iiw"    local arm 1
+.     if "`MODE'" == "iptw"   local arm 2
+.     if "`MODE'" == "fiptiw" local arm 3
+.     _inf_engine, family(`MODE') arm(`arm') sims(`SIMS') reps(`REPS') ///
+>         master(`SEED') truth(`truth') floor(`COVERAGE_FLOOR') pscale(`PSCALE'
+> )
+.     local gate = `r(gate_ok)'
+.     display as text "{hline 74}"
+.     if `gate' {
+.         display as result "RESULT: validation_iivw_inference `MODE' gate=PASS
+> " ///
+>             " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov
+> _refit)' ///
+>             " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)'
+>  ///
+>             " cov_bca=" %5.3f `r(cov_bca)'
+.     }
+.     else {
+.         display as error "RESULT: validation_iivw_inference `MODE' gate=FAIL"
+>  ///
+>             " sims=`SIMS' reps=`REPS' pscale=`PSCALE' cov_wald=" %5.3f `r(cov
+> _refit)' ///
+>             " cov_pct=" %5.3f `r(cov_pct)' " cov_basic=" %5.3f `r(cov_basic)'
+>  ///
+>             " cov_bca=" %5.3f `r(cov_bca)'
+.         exit 1
+.     }
+. }
+
+. else {
+.     * release: all cleared families run as separately sharded gate cells. Eac
+> h is
+.     * still a multi-day >=1000x999 run; this branch documents that they are r
+> un
+.     * as MODE=iiw / MODE=iptw / MODE=fiptiw shards, not as one monolith.
+.     display as error "MODE=release is a multi-day nested run and is not launc
+> hed as one process."
+MODE=release is a multi-day nested run and is not launched as one process.
+.     display as error "  Run MODE=iiw, MODE=iptw and MODE=fiptiw as separate s
+> harded gate cells,"
+  Run MODE=iiw, MODE=iptw and MODE=fiptiw as separate sharded gate cells,
+.     display as error "  each with SIMS>=`COVERAGE_R' REPS>=999, into isolated
+>  scratch layouts."
+  each with SIMS>=1000 REPS>=999, into isolated scratch layouts.
+.     exit 198
+r(198);
+. }
+r(198);
+
+end of do-file
+. 
+.     * Prove the sourcing worked by USING the programs, not by asking whether 
+> a
+.     * name exists. Stata has no `confirm program', and a check that cannot fa
+> il
+.     * is worse than no check: this probe would otherwise run on whatever
+.     * _inf_dgp_fiptiw happened to be left in memory.
+.     capture _inf_dgpseed `SEED' `ARM' 1
+.     local probe_seed "`r(seed)'"
+.     if _rc | "`probe_seed'" == "" {
+.         display as error "probe_cr_ladder: _inf_dgpseed is not available afte
+> r sourcing"
+.         display as error "  validation_iivw_inference.do. Its MODE dispatch h
+> as changed."
+.         exit 459
+.     }
+.     if `probe_seed' != `SEED' + `ARM'*1000000 + 1 {
+.         display as error "probe_cr_ladder: the gate's seed ledger has changed
+> ."
+.         display as error "  _inf_dgpseed `SEED' `ARM' 1 returned `probe_seed'
+> , expected " ///
+>             `SEED' + `ARM'*1000000 + 1
+.         display as error "  The regenerated datasets would no longer be the g
+> ate's."
+.         exit 459
+.     }
+.     capture _inf_dgp_fiptiw, seed(`probe_seed') nsub(20) pscale(1)
+.     if _rc {
+.         display as error "probe_cr_ladder: _inf_dgp_fiptiw is not available a
+> fter"
+.         display as error "  sourcing validation_iivw_inference.do (rc=`_rc').
+> "
+.         display as error "  This probe must use the gate's DGP, not a copy of
+>  it --"
+.         display as error "  fix the sourcing rather than transcribing the DGP
+>  here."
+.         exit 459
+.     }
+.     foreach v in id t y A Z K1 K2 K3 C entry {
+  2.         capture confirm variable `v'
+  3.         if _rc {
+  4.             display as error "probe_cr_ladder: the gate DGP no longer prod
+> uces `v'"
+  5.             exit 459
+  6.         }
+  7.     }
+.     clear
+.     display as text "gate DGP programs sourced from validation_iivw_inference
+> .do"
+gate DGP programs sourced from validation_iivw_inference.do
+. 
+.     * That file's sandbox belongs to that file. Establish one that lives for 
+> the
+.     * whole of this run, and reinstall into it.
+.     do "`qa_dir'/_iivw_qa_common.do"
+
+. * _iivw_qa_common.do — shared QA scaffold for iivw
+. *
+. * Source this from a suite, then call the bootstrap:
+. *
+. *     do "`c(pwd)'/_iivw_qa_common.do"
+. *     iivw_qa_bootstrap
+. *
+. * WHY THIS EXISTS
+. * ---------------
+. * 36 of the 40 iivw suites `net install' the package, and several
+. * uninstall/replace tabtools. Run against the default sysdirs, that mutates t
+> he
+. * USER's real ado tree: a 2026-07 audit run left the tracker pointing iivw at
+. * /tmp and removed tabtools outright, and both had to be restored by hand.
+. *
+. * run_all.do sandboxes PLUS/PERSONAL for the whole run, but that protects onl
+> y
+. * suites it launches in-process. A suite run standalone -- or a suite that
+. * spawns a nested `stata-mp' -- starts from the user's real sysdirs again,
+. * because a child process does not inherit Stata's `sysdir set'. So the sandb
+> ox
+. * has to be available at suite level too. That is what this file provides.
+. *
+. * The sandbox lives under c(tmpdir) and is unique per process, so two suites 
+> can
+. * run concurrently without colliding on a shared PLUS (which is what produces
+. * the r(603) "file ... could not be opened" failures during parallel installs
+> ).
+. 
+. * iivw_qa_sandbox -- sysdir sandbox + path resolution, no install.
+. *
+. * This is the piece EVERY suite needs, including the many that already have
+. * their own bespoke `net install' lines. It is rclass so a suite can take the
+. * resolved directories from r() instead of re-deriving them:
+. *
+. *     do "`c(pwd)'/_iivw_qa_common.do"
+. *     iivw_qa_sandbox
+. *     local pkg_dir  "`r(pkg_dir)'"
+. *     local repo_dir "`r(repo_dir)'"
+. capture program drop iivw_qa_sandbox
+
+. program define iivw_qa_sandbox, rclass
+  1.     version 16.0
+  2.     syntax [, PKGdir(string)]
+  3. 
+.     * Resolve the package directory from the caller's cwd unless told otherwi
+> se.
+.     * Strip the known "/qa" suffix by LENGTH -- never with first-occurrence
+.     * subinstr(), which mangles any path whose ancestors contain "qa" (a run 
+> from
+.     * /tmp/qa-audit-42/iivw/qa derived a nonexistent /tmp-audit-42/iivw).
+.     if "`pkgdir'" == "" {
+  4.         local here "`c(pwd)'"
+  5.         if substr("`here'", -3, 3) == "/qa" {
+  6.             local pkgdir = substr("`here'", 1, strlen("`here'") - 3)
+  7.         }
+  8.         else {
+  9.             display as error "iivw_qa_sandbox: run from the package's qa/ 
+> directory,"
+ 10.             display as error "  or pass pkgdir()"
+ 11.             exit 601
+ 12.         }
+ 13.     }
+ 14.     capture confirm file "`pkgdir'/iivw.pkg"
+ 15.     if _rc {
+ 16.         display as error "iivw_qa_sandbox: no iivw.pkg under `pkgdir'"
+ 17.         exit 601
+ 18.     }
+ 19.     * Same length-based rule one level up: a checkout under ~/iivw-work/ii
+> vw
+.     * would lose the wrong component to subinstr(...,"/iivw","",1).
+.     local repodir = substr("`pkgdir'", 1, strlen("`pkgdir'") - strlen("/iivw"
+> ))
+ 20. 
+.     * Sandbox the ado tree for this process.  Idempotent: a suite launched by
+.     * run_all (which already sandboxed) simply gets a nested sandbox, and a
+.     * standalone suite gets the protection it would otherwise not have.
+.     tempfile _stub
+ 21.     local sandbox "`_stub'_sysdir"
+ 22.     capture mkdir "`sandbox'"
+ 23.     capture mkdir "`sandbox'/plus"
+ 24.     capture mkdir "`sandbox'/personal"
+ 25.     capture confirm file "`sandbox'/plus"
+ 26.     if _rc {
+ 27.         display as error "iivw_qa_sandbox: could not create sysdir sandbox
+>  `sandbox'"
+ 28.         exit 603
+ 29.     }
+ 30.     sysdir set PLUS     "`sandbox'/plus"
+ 31.     sysdir set PERSONAL "`sandbox'/personal"
+ 32. 
+.     display as text "iivw QA sandbox: `sandbox'  (user's PLUS/PERSONAL untouc
+> hed)"
+ 33. 
+.     return local pkg_dir  "`pkgdir'"
+ 34.     return local repo_dir "`repodir'"
+ 35.     return local sandbox  "`sandbox'"
+ 36. end
+
+. 
+. capture program drop iivw_qa_bootstrap
+
+. program define iivw_qa_bootstrap, rclass
+  1.     version 16.0
+  2.     syntax [, PKGdir(string) NOInstall]
+  3. 
+.     if "`pkgdir'" == "" iivw_qa_sandbox
+  4.     else                iivw_qa_sandbox, pkgdir("`pkgdir'")
+  5.     local pkgdir  "`r(pkg_dir)'"
+  6.     local repodir "`r(repo_dir)'"
+  7.     local sandbox "`r(sandbox)'"
+  8. 
+.     if "`noinstall'" == "" {
+  9.         capture ado uninstall iivw
+ 10.         quietly net install iivw, from("`pkgdir'") replace
+ 11.         * Prove the install actually resolves before any test trusts it.
+.         capture which iivw_weight
+ 12.         if _rc {
+ 13.             display as error "iivw_qa_bootstrap: iivw_weight not found aft
+> er net install"
+ 14.             exit 111
+ 15.         }
+ 16.     }
+ 17. 
+.     return local pkg_dir  "`pkgdir'"
+ 18.     return local repo_dir "`repodir'"
+ 19.     return local sandbox  "`sandbox'"
+ 20. end
+
+. 
+. * ---------------------------------------------------------------------------
+> --
+. * SELECTOR AND SUMMARY CONTRACTS (Q5, Q9)
+. * ---------------------------------------------------------------------------
+> --
+. * Every selectable suite took `args run_only' and then guarded each case with
+. *   if `run_only' == 0 | `run_only' == 7 { ... }
+. * so `do test_iivw_exogtest.do 999' executed NOTHING, ended with fail_count==
+> 0,
+. * printed "ALL TESTS PASSED" and exited 0. A typo in a selector was therefore
+. * indistinguishable from a green suite. And seven suites printed a prose succ
+> ess
+. * line instead of the RESULT: sentinel qa/README.md documents, so the parser
+. * could read "4/4 passed" off a suite it had not actually verified.
+. *
+. * iivw_qa_selector validates the selector up front; iivw_qa_summary emits ONE
+. * sentinel shape on both the pass and the fail path, and refuses to call a ru
+> n
+. * green when no case ran.
+. 
+. capture program drop iivw_qa_selector
+
+. program define iivw_qa_selector, rclass
+  1.     version 16.0
+  2.     args sel
+  3.     if `"`sel'"' == "" {
+  4.         return local run_only = 0
+  5.         exit
+  6.     }
+  7.     capture confirm integer number `sel'
+  8.     if _rc {
+  9.         display as error "run_only must be a non-negative integer (got: `s
+> el')"
+ 10.         exit 198
+ 11.     }
+ 12.     if `sel' < 0 {
+ 13.         display as error "run_only must be a non-negative integer (got: `s
+> el')"
+ 14.         exit 198
+ 15.     }
+ 16.     return local run_only = `sel'
+ 17. end
+
+. 
+. capture program drop iivw_qa_summary
+
+. program define iivw_qa_summary
+  1.     version 16.0
+  2.     syntax , NAme(string) Tests(integer) Pass(integer) Fail(integer) ///
+>         [RUNonly(string) FAILEDtests(string)]
+  3. 
+.     if `"`runonly'"' == "" local runonly = 0
+  4.     local executed = `pass' + `fail'
+  5.     local skip     = `tests' - `executed'
+  6. 
+.     display as text ""
+  7.     display as result "`name': `pass'/`tests' passed, `fail' failed, `skip
+> ' skipped"
+  8. 
+.     * Reconciliation. A suite whose counters do not add up is not a suite who
+> se
+.     * result can be trusted, whichever way the arithmetic fell.
+.     if `skip' < 0 {
+  9.         display as error "`name': counter corruption -- pass+fail (`execut
+> ed') exceeds tests (`tests')"
+ 10.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 11.         capture log close _all
+ 12.         exit 198
+ 13.     }
+ 14. 
+.     * Zero executed cases is a selector error, never a pass.
+.     if `executed' == 0 {
+ 15.         display as error "`name': no test executed (run_only = `runonly')"
+ 16.         display as error "  valid selectors are 0 (all) or 1-`tests'"
+ 17.         display "RESULT: `name' tests=`tests' pass=0 fail=0 skip=`skip'"
+ 18.         capture log close _all
+ 19.         exit 198
+ 20.     }
+ 21. 
+.     * A specific selector must select exactly one case.
+.     if `runonly' != 0 & `executed' != 1 {
+ 22.         display as error "`name': selector `runonly' executed `executed' c
+> ases, expected 1"
+ 23.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 24.         capture log close _all
+ 25.         exit 198
+ 26.     }
+ 27. 
+.     if `fail' > 0 {
+ 28.         if `"`failedtests'"' != "" {
+ 29.             display as error "FAILED TESTS: `failedtests'"
+ 30.         }
+ 31.         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip
+> =`skip'"
+ 32.         capture log close _all
+ 33.         exit 1
+ 34.     }
+ 35. 
+.     display as result "ALL EXECUTED TESTS PASSED"
+ 36.     display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip=`sk
+> ip'"
+ 37.     * The sentinel is emitted BEFORE this, so it lands in the suite's own 
+> log as
+.     * well as the batch log. `log close _all' does not touch Stata's -b log.
+.     capture log close _all
+ 38. end
+
+. 
+. * iivw_qa_sign_contract -- stamp a signature onto a HAND-BUILT weight contrac
+> t.
+. *
+. * Several suites fabricate a weighting contract directly -- they write
+. * `_iivw_weight' by hand and set the _dta characteristics -- so that a
+. * diagnostic can be checked against a weight vector whose answer is known on
+. * paper. That is a legitimate and valuable oracle: it is the only way to test
+. * iivw_balance's arithmetic independently of the model that usually produces 
+> the
+. * weights.
+. *
+. * From 2.0.0 the stale-weight guard FAILS CLOSED: a contract with no signatur
+> e
+. * is an error, not a skipped check. (It used to be "if a signature is stored,
+. * verify it", which meant erasing the signature disarmed the guard entirely -
+> -
+. * one edit and every consumer accepted whatever the data happened to contain.
+> )
+. *
+. * A hand-built contract therefore has to be signed like a real one. This call
+> s
+. * the package's own signature routine, which is exactly what iivw_weight does
+>  at
+. * its commit point -- so the fixture ends up in the state a real weighting ru
+> n
+. * would have left it in, rather than in a state the package cannot produce.
+. *
+. * This does NOT weaken the guard: test_iivw_stale_state.do still asserts that
+. * erasing or tampering with the signature is caught. It just lets the fixture
+> s
+. * start from a contract that is internally consistent.
+. capture program drop iivw_qa_sign_contract
+
+. program define iivw_qa_sign_contract
+  1.     version 16.0
+  2.     quietly _iivw_weight_signature
+  3.     char _dta[_iivw_wsig] "`r(signature)'"
+  4. end
+
+. 
+end of do-file
+.     iivw_qa_bootstrap
+iivw QA sandbox: /tmp/St1831010.000001_sysdir  (user's PLUS/PERSONAL untouched)
+.     do "`qa_dir'/_iivw_cr_ladder.do"
+
+. * ===========================================================================
+> ==
+. * _iivw_cr_ladder.do - CR0/CR1S/CR2/CR3 cluster-robust variance ladder
+. * ===========================================================================
+> ==
+. * WHAT THIS IS
+. * ------------
+. * A Mata implementation of the clubSandwich cluster-robust variance ladder fo
+> r a
+. * weighted linear (identity-link, Gaussian) fit, so that the ladder can be
+. * evaluated inside a Stata simulation without a per-replication round trip to
+>  R.
+. *
+. * It exists for `probe_cr_ladder.do' (se_recovery.md section 13.2): read the
+. * SCALE axis of the FIPTIW interval deficit with the degrees-of-freedom term
+. * removed, i.e. every rung is paired with a z critical value, never with
+. * Satterthwaite df.
+. *
+. * THE FORMULAS ARE TRANSCRIBED FROM THE REFERENCE IMPLEMENTATION, NOT FROM
+. * RECALL. Source: clubSandwich 0.6.2 (installed at /usr/lib/R/site-library),
+. * internal functions `vcov_CR', `adjust_est_mats', `IH_jj_list', `matrix_powe
+> r',
+. * `CR1S', `CR2', `CR3', `weightMatrix.default', `targetVariance.default'.
+. * Definitions cross-checked against the package reference page
+. * (jepusto.github.io/clubSandwich/reference/vcovCR.html), which cites
+. * Pustejovsky & Tipton (2017/2018) for CR2 and Bell & McCaffrey (2002) for CR
+> 3.
+. * `test_iivw_cr_ladder.do' proves the transcription numerically against
+. * clubSandwich itself; this file is not to be trusted without that test.
+. *
+. * WITH the configuration used here -- an lm-like weighted fit, no augmented
+. * model matrix, `inverse_var = FALSE', and the default target -- clubSandwich
+. * takes Theta_g = I (identity working variance) and the ladder reduces to:
+. *
+. *   B        = (X' W X)^-1                       (W = diag(w), the bread)
+. *   XW_g     = X_g' W_g                          (p x n_g estimating matrix)
+. *   H_g      = X_g B XW_g                        (n_g x n_g leverage block)
+. *   CR0      : E_g = XW_g
+. *   CR1      : E_g = XW_g * sqrt( m / (m-1) )                 m = # clusters
+. *   CR1S     : E_g = XW_g * sqrt( m(N-1) / ((m-1)(N-p)) )
+. *   CR2      : E_g = XW_g A_g,  A_g = G_g^(-1/2),
+. *              G_g = I - H_g - H_g' + X_g B (sum_h XW_h XW_h') B X_g'
+. *   CR3      : E_g = XW_g (I - H_g)^-1
+. *   V        = B ( sum_g E_g e_g e_g' E_g' ) B
+. *
+. * G_g^(-1/2) is the SYMMETRIC power: eigendecompose, raise eigenvalues above
+. * 1e-12 to -1/2 and set the rest to 0 (clubSandwich `matrix_power', tol = -12
+> ).
+. *
+. * Every quantity above is invariant to rescaling w by a constant, which is wh
+> y
+. * this file uses the raw weights where clubSandwich normalizes them by their
+. * mean and multiplies the scale back in afterwards.
+. *
+. * Usage:
+. *   do "`qa_dir'/_iivw_cr_ladder.do"
+. *   iivw_cr_ladder y A if e(sample), clustervar(id) weightvar(_iivw_weight)
+. *   -> r(b) r(se_cr0) r(se_cr1) r(se_cr1s) r(se_cr2) r(se_cr3)
+. *      r(nclust) r(nobs) r(maxlev) r(n_singular)
+. *
+. * CR1 is on the ladder because it is the rung `iivw_fit, vce(fixed)' actually
+. * ships: `glm [pw=], vce(cluster)' multiplies by m/(m-1), not by CR1S's
+. * m(N-1)/((m-1)(N-p)). Measured, not assumed -- `test_iivw_cr_ladder.do' C4
+. * pins it, and without that rung every inflation factor would be quoted again
+> st
+. * a baseline the package does not use.
+. *
+. * r(maxlev) is the largest diagonal leverage encountered and r(n_singular) th
+> e
+. * number of clusters whose (I - H_g) could not be inverted -- both are CR3
+. * blow-up tells, and a run that ignores them can report a finite mean SE buil
+> t
+. * out of a few enormous ones.
+. *
+. * The varlist is depvar followed by the covariates; a constant is appended, a
+> nd
+. * the FIRST covariate is the coefficient whose SEs are returned.
+. * ===========================================================================
+> ==
+. 
+. version 16.0
+
+. 
+. capture mata: mata drop _iivw_cr_matpow()
+
+. capture mata: mata drop _iivw_cr_bounds()
+
+. capture mata: mata drop _iivw_cr_run()
+
+. 
+. mata:
+------------------------------------------------- mata (type end to exit) -----
+: mata set matastrict on
+
+: 
+: // Symmetric matrix power, clubSandwich matrix_power() with tol = -12.
+: real matrix _iivw_cr_matpow(real matrix x, real scalar pw)
+> {
+>     real matrix V, Sym
+>     real rowvector L
+>     real colvector Lp
+>     real scalar j
+> 
+>     Sym = (x + x') / 2
+>     symeigensystem(Sym, V, L)
+>     Lp = J(cols(L), 1, 0)
+>     for (j = 1; j <= cols(L); j++) {
+>         if (L[j] > 1e-12) Lp[j] = L[j]^pw
+>     }
+>     return(V * (Lp :* V'))
+> }
+note: variable V may be used before set.
+note: variable L may be used before set.
+
+: 
+: // Start/end row of each cluster. Requires cl sorted ascending.
+: real matrix _iivw_cr_bounds(real colvector cl)
+> {
+>     real matrix bnd
+>     real scalar i, lo, n
+> 
+>     n = rows(cl)
+>     bnd = J(0, 2, .)
+>     lo = 1
+>     for (i = 2; i <= n; i++) {
+>         if (cl[i] != cl[i-1]) {
+>             bnd = bnd \ (lo, i - 1)
+>             lo = i
+>         }
+>     }
+>     bnd = bnd \ (lo, n)
+>     return(bnd)
+> }
+
+: 
+: void _iivw_cr_run(string scalar yv, string scalar xv, string scalar wv,
+>                   string scalar cv, string scalar tousev)
+> {
+>     real matrix X, Bread, Ssum, MWM, bnd, Xg, XWg, Hg, Gg, Ag, IHg, IHinv
+>     real matrix meat0, meat2, meat3, V0, V2, V3
+>     real colvector y, w, sw, cl, e, b, eg, wg, c0, c2, c3
+>     real scalar N, p, m, g, lo, hi, ng, cr1, cr1s, maxlev, nsing
+> 
+>     y  = st_data(., yv, tousev)
+>     X  = st_data(., tokens(xv), tousev)
+>     w  = st_data(., wv, tousev)
+>     cl = st_data(., cv, tousev)
+>     X  = X, J(rows(X), 1, 1)
+> 
+>     N     = rows(X)
+>     p     = cols(X)
+>     Bread = invsym(quadcross(X, w, X))
+> 
+>     // b via QR on the sqrt(w)-scaled design, not via the normal equations.
+>     // Solving Bread * X'Wy squares the condition number, and measured agains
+> t
+>     // R's lm (which is QR) that cost about 1.5e-8 relative on the FIPTIW
+>     // fixture -- small, but it propagates into every residual and therefore
+>     // into every rung of the ladder.
+>     sw = sqrt(w)
+>     b  = qrsolve(X :* sw, y :* sw)
+>     e  = y - X * b
+> 
+>     bnd = _iivw_cr_bounds(cl)
+>     m   = rows(bnd)
+>     if (m < 2) _error(459, "cluster-robust variance needs at least 2 clusters
+> ")
+> 
+>     // Pass 1: sum_h XW_h Theta_h XW_h' with Theta_h = I.
+>     Ssum = J(p, p, 0)
+>     for (g = 1; g <= m; g++) {
+>         lo = bnd[g,1]; hi = bnd[g,2]
+>         Xg   = X[lo..hi, .]
+>         wg   = w[lo..hi]
+>         XWg  = Xg' :* wg'
+>         Ssum = Ssum + XWg * XWg'
+>     }
+>     MWM = Bread * Ssum * Bread
+> 
+>     // Pass 2: the three meats (CR1S is a scalar multiple of CR0).
+>     meat0  = J(p, p, 0)
+>     meat2  = J(p, p, 0)
+>     meat3  = J(p, p, 0)
+>     maxlev = 0
+>     nsing  = 0
+>     for (g = 1; g <= m; g++) {
+>         lo = bnd[g,1]; hi = bnd[g,2]
+>         ng  = hi - lo + 1
+>         Xg  = X[lo..hi, .]
+>         wg  = w[lo..hi]
+>         eg  = e[lo..hi]
+>         XWg = Xg' :* wg'
+>         Hg  = Xg * Bread * XWg
+>         if (max(diagonal(Hg)) > maxlev) maxlev = max(diagonal(Hg))
+> 
+>         Gg  = I(ng) - Hg - Hg' + Xg * MWM * Xg'
+>         Ag  = _iivw_cr_matpow(Gg, -0.5)
+>         IHg = I(ng) - Hg
+> 
+>         // luinv() returns a matrix of missings on a singular argument rather
+>         // than erroring, so a blown-up cluster would otherwise poison the su
+> m
+>         // silently. Count it and leave CR3 missing for the whole dataset.
+>         IHinv = luinv(IHg)
+>         if (hasmissing(IHinv)) nsing = nsing + 1
+> 
+>         c0 = XWg * eg
+>         c2 = (XWg * Ag) * eg
+>         c3 = (XWg * IHinv) * eg
+> 
+>         meat0 = meat0 + c0 * c0'
+>         meat2 = meat2 + c2 * c2'
+>         if (nsing == 0) meat3 = meat3 + c3 * c3'
+>     }
+> 
+>     V0 = Bread * meat0 * Bread
+>     V2 = Bread * meat2 * Bread
+>     V3 = Bread * meat3 * Bread
+>     cr1  = m / (m - 1)
+>     cr1s = m * (N - 1) / ((m - 1) * (N - p))
+> 
+>     st_numscalar("__iivw_cr_b",       b[1])
+>     st_numscalar("__iivw_cr_se0",     sqrt(V0[1,1]))
+>     st_numscalar("__iivw_cr_se1",     sqrt(cr1 * V0[1,1]))
+>     st_numscalar("__iivw_cr_se1s",    sqrt(cr1s * V0[1,1]))
+>     st_numscalar("__iivw_cr_se2",     sqrt(V2[1,1]))
+>     st_numscalar("__iivw_cr_se3",     nsing > 0 ? . : sqrt(V3[1,1]))
+>     st_numscalar("__iivw_cr_m",       m)
+>     st_numscalar("__iivw_cr_n",       N)
+>     st_numscalar("__iivw_cr_maxlev",  maxlev)
+>     st_numscalar("__iivw_cr_nsing",   nsing)
+> }
+
+: end
+-------------------------------------------------------------------------------
+
+. 
+. capture program drop iivw_cr_ladder
+
+. program define iivw_cr_ladder, rclass
+  1.     version 16.0
+  2.     syntax varlist(min=2 numeric) [if] [in], CLUSTERvar(varname) WEIGHTVar
+> (varname)
+  3. 
+.     marksample touse
+  4.     markout `touse' `varlist' `clustervar' `weightvar'
+  5.     quietly count if `touse'
+  6.     if r(N) == 0 {
+  7.         display as error "iivw_cr_ladder: no observations"
+  8.         exit 2000
+  9.     }
+ 10. 
+.     gettoken depvar covars : varlist
+ 11.     if "`covars'" == "" {
+ 12.         display as error "iivw_cr_ladder: needs at least one covariate"
+ 13.         exit 198
+ 14.     }
+ 15. 
+.     * The Mata code walks clusters as contiguous row blocks, so the data must
+>  be
+.     * in cluster order. Sorting is not optional and is not the caller's job:
+.     * an unsorted call would silently split one subject into many "clusters"
+.     * and return a variance that is too small, at rc 0.
+.     tempvar order
+ 16.     quietly generate long `order' = _n
+ 17.     sort `clustervar' `order'
+ 18. 
+.     mata: _iivw_cr_run("`depvar'", "`covars'", "`weightvar'", ///
+>         "`clustervar'", "`touse'")
+ 19. 
+.     sort `order'
+ 20. 
+.     return scalar b         = scalar(__iivw_cr_b)
+ 21.     return scalar se_cr0    = scalar(__iivw_cr_se0)
+ 22.     return scalar se_cr1    = scalar(__iivw_cr_se1)
+ 23.     return scalar se_cr1s   = scalar(__iivw_cr_se1s)
+ 24.     return scalar se_cr2    = scalar(__iivw_cr_se2)
+ 25.     return scalar se_cr3    = scalar(__iivw_cr_se3)
+ 26.     return scalar nclust    = scalar(__iivw_cr_m)
+ 27.     return scalar nobs      = scalar(__iivw_cr_n)
+ 28.     return scalar maxlev    = scalar(__iivw_cr_maxlev)
+ 29.     return scalar n_singular = scalar(__iivw_cr_nsing)
+ 30. 
+.     scalar drop __iivw_cr_b __iivw_cr_se0 __iivw_cr_se1 __iivw_cr_se1s ///
+>         __iivw_cr_se2 __iivw_cr_se3 __iivw_cr_m __iivw_cr_n ///
+>         __iivw_cr_maxlev __iivw_cr_nsing
+ 31. end
+
+. 
+end of do-file
+. 
+.     if c(MP) == 1 {
+.         capture set processors 1
+.     }
+. }
+
+. 
+. local zc = invnormal(0.975)
+
+. 
+. * ===========================================================================
+> ==
+. * RUN: one block of replications
+. * ===========================================================================
+> ==
+. if "`MODE'" == "run" {
+. 
+.     if `FROM' < 1 | `TO' < `FROM' | `TO' > `SIMS' {
+.         display as error "bad block range `FROM'-`TO' for SIMS=`SIMS'"
+.         exit 198
+.     }
+. 
+.     local blockdir "`qa_dir'/_cr_blocks"
+.     capture mkdir "`blockdir'"
+.     local tag = string(`FROM', "%05.0f") + "_" + string(`TO', "%05.0f")
+.     local outfile "`blockdir'/cr_`NSUB'_`tag'.dta"
+. 
+.     tempname pf
+.     postfile `pf' int rep int blk_nsub long blk_sims long blk_seed ///
+>         double b double se_fix double se_cr0 double se_cr1 double se_cr1s ///
+>         double se_cr2 double se_cr3 double maxlev ///
+>         int nsing long nclust long nobs int failed ///
+>         using "`outfile'", replace
+(file
+    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/94c42f6b-b973-4f8d-af0d-4e2fb
+    > d74b85a/scratchpad/pilot_300/iivw/qa/_cr_blocks/cr_300_00001_01000.dta
+    not found)
+. 
+.     local nfail = 0
+.     forvalues s = `FROM'/`TO' {
+  2.         _inf_dgpseed `SEED' `ARM' `s'
+  3.         local dgpseed = r(seed)
+  4. 
+.         capture noisily {
+  5.             _inf_dgp_fiptiw, seed(`dgpseed') nsub(`NSUB') pscale(1)
+  6. 
+.             * This weighting call is the one in _inf_run_fiptiw (the gate's
+.             * fiptiw runner). It is repeated rather than sourced because that
+.             * program also launches 999 bootstrap refits, which is the entire
+.             * cost this probe exists to avoid. If the gate's weighting spec
+.             * changes, this line must change with it -- there is no automatic
+.             * check on that, and it is the one drift risk in this file.
+.             quietly iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) 
+> ///
+>                 visit_cov(Z) wtype(fiptiw) censor(C) baseline(entry) nolog
+  7. 
+.             quietly iivw_fit y A, timespec(none) vce(fixed) nolog replace
+  8.         }
+  9.         if _rc {
+ 10.             local ++nfail
+ 11.             post `pf' (`s') (`NSUB') (`SIMS') (`SEED') ///
+>                 (.) (.) (.) (.) (.) (.) (.) (.) (.) (.) (.) (1)
+ 12.             continue
+ 13.         }
+ 14. 
+.         local b_fit  = _b[A]
+ 15.         local se_fit = _se[A]
+ 16.         local wvar   "`e(iivw_weight_var)'"
+ 17.         tempvar esamp
+ 18.         quietly generate byte `esamp' = e(sample)
+ 19. 
+.         capture noisily iivw_cr_ladder y A if `esamp' == 1, ///
+>             clustervar(id) weightvar(`wvar')
+ 20.         if _rc {
+ 21.             local ++nfail
+ 22.             post `pf' (`s') (`NSUB') (`SIMS') (`SEED') ///
+>                 (`b_fit') (`se_fit') (.) (.) (.) (.) (.) (.) (.) (.) (.) (1)
+ 23.             drop `esamp'
+ 24.             continue
+ 25.         }
+ 26. 
+.         post `pf' (`s') (`NSUB') (`SIMS') (`SEED') ///
+>             (`b_fit') (`se_fit') (r(se_cr0)) (r(se_cr1)) (r(se_cr1s)) ///
+>             (r(se_cr2)) (r(se_cr3)) (r(maxlev)) ///
+>             (r(n_singular)) (r(nclust)) (r(nobs)) (0)
+ 27. 
+.         drop `esamp'
+ 28. 
+.         if mod(`s' - `FROM' + 1, 25) == 0 {
+ 29.             display as text "  ... `=`s' - `FROM' + 1' of `=`TO' - `FROM' 
+> + 1' done (rep `s')"
+ 30.         }
+ 31.     }
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 25 of 1000 done (rep 25)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 50 of 1000 done (rep 50)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 75 of 1000 done (rep 75)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 100 of 1000 done (rep 100)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 125 of 1000 done (rep 125)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 150 of 1000 done (rep 150)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 175 of 1000 done (rep 175)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 200 of 1000 done (rep 200)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 225 of 1000 done (rep 225)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 250 of 1000 done (rep 250)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 275 of 1000 done (rep 275)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 300 of 1000 done (rep 300)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 325 of 1000 done (rep 325)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 350 of 1000 done (rep 350)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 375 of 1000 done (rep 375)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 400 of 1000 done (rep 400)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 425 of 1000 done (rep 425)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 450 of 1000 done (rep 450)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 475 of 1000 done (rep 475)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 500 of 1000 done (rep 500)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 525 of 1000 done (rep 525)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 550 of 1000 done (rep 550)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 575 of 1000 done (rep 575)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 600 of 1000 done (rep 600)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 625 of 1000 done (rep 625)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 650 of 1000 done (rep 650)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 675 of 1000 done (rep 675)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 700 of 1000 done (rep 700)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 725 of 1000 done (rep 725)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 750 of 1000 done (rep 750)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 775 of 1000 done (rep 775)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 800 of 1000 done (rep 800)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 825 of 1000 done (rep 825)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 850 of 1000 done (rep 850)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 875 of 1000 done (rep 875)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 900 of 1000 done (rep 900)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 925 of 1000 done (rep 925)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 950 of 1000 done (rep 950)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 975 of 1000 done (rep 975)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+Number of observations (_N) was 0, now 300.
+(300 missing values generated)
+  ... 1000 of 1000 done (rep 1000)
+.     postclose `pf'
+. 
+.     display as text "{hline 74}"
+--------------------------------------------------------------------------
+.     display as error "RESULT: probe_cr_ladder BLOCK nsub=`NSUB' `FROM'-`TO' n
+> on-gate" ///
+>         " failed=`nfail'"
+RESULT: probe_cr_ladder BLOCK nsub=300 1-1000 non-gate failed=0
+.     display as error "  a block is a diagnostic slice; run MODE=combine over 
+> all blocks"
+  a block is a diagnostic slice; run MODE=combine over all blocks
+.     exit 1
+--Break--
+r(1);
+. }
+--Break--
+r(1);
+
+end of do-file
+--Break--
+r(1);

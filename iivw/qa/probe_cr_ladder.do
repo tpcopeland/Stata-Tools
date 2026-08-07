@@ -234,6 +234,12 @@ if "`MODE'" == "run" {
 * =============================================================================
 * COMBINE: one diagnostic table over the union of blocks
 * =============================================================================
+
+* Batch mode defaults to linesize 80, which silently clipped the Wilson column
+* off the right edge of the ladder table -- the log looked complete and was
+* missing a number. Widen before printing anything.
+set linesize 120
+
 local blockdir "`qa_dir'/_cr_blocks"
 local blocks : dir "`blockdir'" files "cr_`NSUB'_*.dta"
 local nblk : word count `blocks'

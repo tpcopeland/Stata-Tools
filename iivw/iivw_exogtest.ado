@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 3.2.1  2026/08/04
+*! iivw_exogtest Version 3.2.2  2026/08/06
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
