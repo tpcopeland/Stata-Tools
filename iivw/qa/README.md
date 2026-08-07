@@ -318,6 +318,15 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   gives the critical value that *would* deliver 95%. One cell per invocation
   (`NSUB PSCOEF REPS SEED`) so an n-ladder runs as concurrent jobs. **Diagnostic
   only**, on the same terms as the calibration probe.
+- `probe_stacked_screen.do` — the §13.3 item-2 R=200 screen of `vce(stacked)`
+  on the FIPTIW gate DGP at n=300/600/1200, using the registered seed ledger
+  (master 20260715, arm 3). Each generated dataset is fitted three ways —
+  `vce(fixed)`, `vce(stacked)`, and `vce(bootstrap, reps(999))` — and coverage
+  of the truth-centred Wald interval plus the refit bootstrap's percentile/
+  basic/BC/BCa intervals is recorded. The oracle (1.96 × empSD) is reported
+  alongside so the decomposition from `probe_stacked_strain.do` extends to
+  the gate DGP. One cell per invocation (`NSUB [SIMS] [SEED]`); NSUB is
+  required. **Diagnostic only** — R=200 is a screen, not a gate.
 - `test_help_examples.do` — documentation reality tests (SOL-14). Every worked
   sequence in `iivw.sthlp`, `iivw_weight.sthlp` and `iivw_fit.sthlp` is
   transcribed and run from a clean sandboxed PLUS directory, plus a source scan
