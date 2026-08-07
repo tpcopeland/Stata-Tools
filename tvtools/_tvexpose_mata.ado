@@ -1,4 +1,4 @@
-*! _tvexpose_mata Version 1.13.1  2026/08/05
+*! _tvexpose_mata Version 1.14.1  2026/08/07
 *! Mata functions for tvexpose performance optimization
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility (called internally by tvexpose)

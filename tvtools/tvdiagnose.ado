@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.13.1  2026/08/05
+*! tvdiagnose Version 1.14.1  2026/08/07
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -264,9 +264,23 @@ program define tvdiagnose, rclass
 
         * Display sample of results
         if "`verbose'" != "" {
+            local _display_id "`id'"
+            if inlist("`id'", "pct_covered", "n_periods", "n_gaps") {
+                capture drop person_id
+                clonevar person_id = `id'
+                local _display_id "person_id"
+            }
+            foreach _display_var in pct_covered n_periods n_gaps {
+                if "`_display_id'" != "`_display_var'" capture drop `_display_var'
+            }
+            rename (`_pctcov' `_nper' `_ngap') ///
+                (pct_covered n_periods n_gaps)
             display as text "Showing first " min(_N, 20) " persons:"
-            list `id' `_pctcov' `_nper' `_ngap' in 1/`=min(_N,20)', ///
-                clean noobs
+            list `_display_id' pct_covered n_periods n_gaps ///
+                in 1/`=min(_N,20)', ///
+                clean noobs abbreviate(32)
+            rename (pct_covered n_periods n_gaps) ///
+                (`_pctcov' `_nper' `_ngap')
         }
 
         * Display summary statistics
@@ -329,9 +343,22 @@ program define tvdiagnose, rclass
         if `n_gaps' > 0 {
             format `_gs' `_ge' %tdCCYY/NN/DD
             if "`verbose'" != "" {
+                local _display_id "`id'"
+                if inlist("`id'", "gap_start", "gap_end", "gap_days") {
+                    capture drop person_id
+                    clonevar person_id = `id'
+                    local _display_id "person_id"
+                }
+                foreach _display_var in gap_start gap_end gap_days {
+                    if "`_display_id'" != "`_display_var'" ///
+                        capture drop `_display_var'
+                }
+                rename (`_gs' `_ge' `_gd') (gap_start gap_end gap_days)
                 display as text "Showing first 20 gaps:"
-                list `id' `_gs' `_ge' `_gd' in 1/`=min(_N,20)', ///
-                    noobs sepby(`id')
+                list `_display_id' gap_start gap_end gap_days ///
+                    in 1/`=min(_N,20)', noobs sepby(`_display_id') ///
+                    abbreviate(32)
+                rename (gap_start gap_end gap_days) (`_gs' `_ge' `_gd')
             }
 
             * Gap statistics - save to locals immediately (count overwrites r())

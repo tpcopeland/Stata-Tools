@@ -1,4 +1,4 @@
-*! tvevent Version 1.13.1  2026/08/05
+*! tvevent Version 1.14.1  2026/08/07
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -898,13 +898,13 @@ program define tvevent, rclass
         restore
 
         if `v_outside' > 0 {
-            noisily _tvtools_row "events outside interval bounds", ///
+            noisily _tvtools_row "events outside bounds", ///
                 num(`v_outside') note("events")
             noisily display as text ///
                 "    (these events will not be flagged in output)"
         }
         else {
-            noisily _tvtools_row "events outside interval bounds", value("none (OK)")
+            noisily _tvtools_row "events outside bounds", value("none (OK)")
         }
 
         noisily _tvtools_rule
@@ -1693,8 +1693,10 @@ program define tvevent, rclass
         display as text "  " %-30s "records" as result %12.0fc `_flow_rin' ///
             %12.0fc `n_total' %12.0fc `=`_flow_rin' - `n_total''
         _tvtools_rule
-        display as text ///
-            "  A negative records-dropped count is interval splitting at events."
+        if `_flow_rin' - `n_total' < 0 {
+            display as text ///
+                "  A negative records-dropped count is interval splitting at events."
+        }
         return matrix flow = `_flowmat'
     }
 

@@ -1,4 +1,4 @@
-*! tvweight Version 1.13.1  2026/08/05
+*! tvweight Version 1.14.1  2026/08/07
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -81,6 +81,8 @@ program define tvweight, rclass sortpreserve
     local histogram_created = 0
     local loveplot_created = 0
     local graph_created = 0
+    local histogram_graph ""
+    local loveplot_graph ""
     local n_cens_boundary = 0
     local n_cens_extreme = 0
 
@@ -546,6 +548,7 @@ program define tvweight, rclass sortpreserve
 
         * Optionally retain the propensity model for downstream margins/diagnostics
         if "`estname'" != "" {
+            estimates title: tvweight propensity model
             if `_est_target_exists' {
                 capture estimates drop `estname'
                 if _rc {
@@ -588,6 +591,7 @@ program define tvweight, rclass sortpreserve
 
         * Optionally retain the propensity model for downstream margins/diagnostics
         if "`estname'" != "" {
+            estimates title: tvweight propensity model
             if `_est_target_exists' {
                 capture estimates drop `estname'
                 if _rc {
@@ -851,7 +855,21 @@ program define tvweight, rclass sortpreserve
     * treatment weight here.
     local n_truncated = 0
     if "`truncate'" != "" & !`do_ipcw' {
-        display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
+        local _lo_suffix "th"
+        local _hi_suffix "th"
+        if floor(`trunc_lo') == `trunc_lo' & ///
+            !inlist(mod(abs(`trunc_lo'), 100), 11, 12, 13) {
+            if mod(abs(`trunc_lo'), 10) == 1 local _lo_suffix "st"
+            else if mod(abs(`trunc_lo'), 10) == 2 local _lo_suffix "nd"
+            else if mod(abs(`trunc_lo'), 10) == 3 local _lo_suffix "rd"
+        }
+        if floor(`trunc_hi') == `trunc_hi' & ///
+            !inlist(mod(abs(`trunc_hi'), 100), 11, 12, 13) {
+            if mod(abs(`trunc_hi'), 10) == 1 local _hi_suffix "st"
+            else if mod(abs(`trunc_hi'), 10) == 2 local _hi_suffix "nd"
+            else if mod(abs(`trunc_hi'), 10) == 3 local _hi_suffix "rd"
+        }
+        display as text "Truncating weights at `trunc_lo'`_lo_suffix' and `trunc_hi'`_hi_suffix' percentiles..."
 
         quietly {
             * Get percentile values
@@ -1077,12 +1095,19 @@ program define tvweight, rclass sortpreserve
     * DIAGNOSTICS
     * =========================================================================
 
+    * The analysis weight is the weight used by the outcome model: combined
+    * IPTW x IPCW when censoring is modeled, cumulative IPTW for an MSM, and
+    * otherwise the per-period treatment weight.
+    local _awt "`generate'"
+    if `do_ipcw' local _awt "`combgenerate'"
+    else if "`cumulative'" != "" local _awt "`cumgenerate'"
+
     display as text ""
     display as text "{bf:Weight Diagnostics}"
     _tvtools_rule, width(78)
 
     * Weight summary statistics
-    quietly sum `generate' if `touse', detail
+    quietly sum `_awt' if `touse', detail
     local w_mean = r(mean)
     local w_sd = r(sd)
     local w_min = r(min)
@@ -1113,11 +1138,11 @@ program define tvweight, rclass sortpreserve
     * Effective sample size calculation
     quietly {
         * ESS = (sum of weights)^2 / sum of squared weights
-        sum `generate' if `touse'
+        sum `_awt' if `touse'
         local sum_w = r(sum)
 
         tempvar w2
-        gen double `w2' = `generate'^2 if `touse'
+        gen double `w2' = `_awt'^2 if `touse'
         sum `w2' if `touse'
         local sum_w2 = r(sum)
         drop `w2'
@@ -1178,9 +1203,6 @@ program define tvweight, rclass sortpreserve
     * cumulative MSM weight when one was built, otherwise the per-row weight.
     * Every weighted diagnostic below (concentration and covariate balance)
     * must describe that weight, not a per-period intermediate.
-    local _awt "`generate'"
-    if `do_ipcw' local _awt "`combgenerate'"
-    else if "`cumulative'" != "" local _awt "`cumgenerate'"
     tempvar _weight_row_order
     quietly generate long `_weight_row_order' = _n
     preserve
@@ -1395,6 +1417,16 @@ program define tvweight, rclass sortpreserve
             display as text "      returned r(balance) matrix (col 1 = unweighted SMD, col 2 = weighted SMD)."
         }
         else {
+            local loveplot_graph "tvw_loveplot"
+            local _love_suffix = 1
+            capture graph describe `loveplot_graph'
+            local _love_exists = (_rc == 0)
+            while `_love_exists' {
+                local ++_love_suffix
+                local loveplot_graph "tvw_loveplot_`_love_suffix'"
+                capture graph describe `loveplot_graph'
+                local _love_exists = (_rc == 0)
+            }
             * The caller's e() is already held for the duration of tvweight.
             * Clear only the internal propensity model so psdash auto-detection
             * uses the explicit exposure/wvar/covariates below. Nested
@@ -1412,12 +1444,12 @@ program define tvweight, rclass sortpreserve
             * contradicts the numbers tvweight just printed.
             capture quietly psdash balance `exposure' if `touse', ///
                 covariates(`bal_covars') wvar(`_awt') loveplot ///
-                title("Covariate balance") name(tvw_loveplot)
+                title("Covariate balance") name(`loveplot_graph')
             local _lprc = _rc
             if `_lprc' ///
                 display as text "Note: love plot could not be produced via psdash (rc=`_lprc')"
             else {
-                capture graph describe tvw_loveplot
+                capture graph describe `loveplot_graph'
                 if !_rc local loveplot_created = 1
             }
         }
@@ -1427,17 +1459,25 @@ program define tvweight, rclass sortpreserve
     * WEIGHT-DISTRIBUTION HISTOGRAM (optional)
     * =========================================================================
     if "`histogram'" != "" {
-        capture noisily {
-            histogram `generate' if `touse', ///
-                xtitle("`wtype' weight") title("Weight distribution") ///
-                name(tvw_histogram, replace)
+        local histogram_graph "tvw_histogram"
+        local _hist_suffix = 1
+        capture graph describe `histogram_graph'
+        local _hist_exists = (_rc == 0)
+        while `_hist_exists' {
+            local ++_hist_suffix
+            local histogram_graph "tvw_histogram_`_hist_suffix'"
+            capture graph describe `histogram_graph'
+            local _hist_exists = (_rc == 0)
         }
+        capture quietly histogram `_awt' if `touse', ///
+            xtitle("Analysis weight (`_awt')") title("Weight distribution") ///
+            name(`histogram_graph')
         local _hist_rc = _rc
         if `_hist_rc' {
             display as text "Note: weight histogram could not be produced (rc=`_hist_rc')"
         }
         else {
-            capture graph describe tvw_histogram
+            capture graph describe `histogram_graph'
             if !_rc local histogram_created = 1
         }
     }
@@ -1459,8 +1499,15 @@ program define tvweight, rclass sortpreserve
 
     display as text ""
     _tvtools_rule, width(78)
-    display as text "  Weight variable " as result "`generate'" ///
-        as text " created."
+    if "`_awt'" == "`generate'" {
+        display as text "  Weight variable " as result "`generate'" ///
+            as text " created."
+    }
+    else {
+        display as text "  Analysis weight " as result "`_awt'" ///
+            as text " created (per-period weight " as result "`generate'" ///
+            as text ")."
+    }
     _tvtools_rule, width(78)
 
     * =========================================================================
@@ -1486,6 +1533,8 @@ program define tvweight, rclass sortpreserve
     return scalar histogram_created = `histogram_created'
     return scalar loveplot_created = `loveplot_created'
     return scalar graph_created = `graph_created'
+    if `histogram_created' return local histogram_graph "`histogram_graph'"
+    if `loveplot_created' return local loveplot_graph "`loveplot_graph'"
     return scalar w_mean = `w_mean'
     return scalar w_sd = `w_sd'
     return scalar w_min = `w_min'

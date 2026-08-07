@@ -66,6 +66,10 @@ if "`dir'" == "" {
 capture mkdir "`dir'"
 
 local qadir "`c(pwd)'"
+capture ado uninstall tvtools
+while !_rc {
+    capture ado uninstall tvtools
+}
 adopath ++ "`qadir'/.."
 
 * Provenance. A capture taken against the installed package and replayed

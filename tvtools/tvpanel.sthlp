@@ -123,7 +123,7 @@ values, not datetime ({bf:%tc}) values; interval arithmetic is in whole days.
 
 {phang}
 {opt width(#)} sets the interval width in days. {cmd:width(91)} (the default) gives the
-quarterly grid used by most MSM pipelines. Unlike a calendar quarter, this is
+quarterly grid used by most MSM workflows. Unlike a calendar quarter, this is
 exactly 91 days, so interval starts never drift from {cmd:entry + width*k}. It
 must be a positive whole number of days.
 

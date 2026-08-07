@@ -104,6 +104,10 @@ local scale = cond("`3'" == "", 20000, real("`3'"))
 local rep   = cond("`4'" == "",     1, real("`4'"))
 
 local qadir "`c(pwd)'"
+capture ado uninstall tvtools
+while !_rc {
+    capture ado uninstall tvtools
+}
 adopath ++ "`qadir'/.."
 
 * The generators below draw no random numbers, so no measured result depends

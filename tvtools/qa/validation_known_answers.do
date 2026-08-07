@@ -700,7 +700,7 @@ else {
 
 
 * =============================================================================
-**# WORKFLOW 4: tvexpose → tvage → tvmerge → tvevent (full pipeline, 2 persons)
+**# WORKFLOW 4: tvexpose → tvage → tvmerge → tvevent (full workflow, 2 persons)
 * =============================================================================
 *
 * Scenario: 2 persons with different exposure/event patterns
@@ -736,7 +736,7 @@ else {
 *   Person 2 is 49 on 01jan2020 and turns 50 on 01jul2020, yielding groups
 *   45-49 and 50-54.
 
-display as text _newline "WORKFLOW 4: Full pipeline - 2 persons, exposure + age + event"
+display as text _newline "WORKFLOW 4: Full workflow - 2 persons, exposure + age + event"
 
 **## W4.1: tvexpose for 2 persons
 local ++test_count
@@ -1079,7 +1079,7 @@ else {
 *   Person 2: event at 22128 (Aug1), type=2 (competing — death wins)
 *   Person 3: event at 22159 (Sep1), type=2 (competing)
 
-display as text _newline "WORKFLOW 5: Competing risks through full pipeline"
+display as text _newline "WORKFLOW 5: Competing risks through full workflow"
 
 **## W5.1: tvexpose + tvevent with compete()
 local ++test_count
@@ -2212,10 +2212,10 @@ else {
 
 
 * =============================================================================
-**# WORKFLOW 12: Multi-person pipeline invariants
+**# WORKFLOW 12: Multi-person tvbuild invariants
 * =============================================================================
 *
-* Tests structural invariants that must hold for any valid pipeline output:
+* Tests structural invariants that must hold for any valid tvbuild output:
 *   1. No gaps within person (contiguous intervals)
 *   2. No overlaps within person
 *   3. Person-time conservation (sum = exit - entry + 1, or less with events)
@@ -2224,7 +2224,7 @@ else {
 *
 * Uses 5 persons with varied patterns to stress-test invariants.
 
-display as text _newline "WORKFLOW 12: Multi-person pipeline invariants"
+display as text _newline "WORKFLOW 12: Multi-person tvbuild invariants"
 
 **## W12.1: Structural invariants
 local ++test_count

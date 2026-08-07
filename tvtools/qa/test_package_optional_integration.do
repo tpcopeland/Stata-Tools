@@ -70,12 +70,20 @@ capture noisily {
     _psdash_on "`psdash_dir'"
     _mk_binary
     graph drop _all
+    quietly scatter a x1, name(tvw_loveplot)
+    quietly scatter a x2, name(tvw_histogram)
     tvweight a, covariates(x1 x2) generate(w) balance loveplot histogram
+    local love_name "`r(loveplot_graph)'"
+    local hist_name "`r(histogram_graph)'"
     assert r(loveplot_created) == 1
     assert r(histogram_created) == 1
     assert r(graph_created) == 1
+    assert "`love_name'" == "tvw_loveplot_2"
+    assert "`hist_name'" == "tvw_histogram_2"
     graph describe tvw_loveplot
     graph describe tvw_histogram
+    graph describe `love_name'
+    graph describe `hist_name'
 }
 if _rc == 0 local ++pass_count
 else {
@@ -89,10 +97,12 @@ capture noisily {
     _mk_multinomial
     graph drop _all
     tvweight a, covariates(x1 x2) generate(w) model(mlogit) balance loveplot
+    local love_name "`r(loveplot_graph)'"
     assert r(loveplot_created) == 1
     assert r(histogram_created) == 0
     assert r(graph_created) == 1
-    graph describe tvw_loveplot
+    assert "`love_name'" == "tvw_loveplot"
+    graph describe `love_name'
 }
 if _rc == 0 local ++pass_count
 else {
@@ -112,6 +122,7 @@ capture noisily {
     assert r(loveplot_created) == 0
     assert r(histogram_created) == 0
     assert r(graph_created) == 0
+    assert "`r(loveplot_graph)'" == ""
     assert rowsof(B) == 2 & colsof(B) == 2
     capture graph describe tvw_loveplot
     assert _rc != 0

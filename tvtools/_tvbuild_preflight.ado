@@ -1,4 +1,4 @@
-*! _tvbuild_preflight Version 1.13.1  2026/08/05
+*! _tvbuild_preflight Version 1.14.1  2026/08/07
 *! Read-only validation and plan counts shared by tvbuild's real and dry runs
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -24,6 +24,7 @@
 *   r(N_persons)      validated master persons
 *   r(n_files)        distinct source/event files loaded
 *   r(event_input)    master | frame | file | none
+*   r(event_locator)  resolved frame/file locator; empty for master/none
 *   r(n_gap_ids)      persons with uncovered time in a ready interval source
 *   r(uncovered_days) inclusive uncovered person-days, summed over such sources
 *   r(event_frame)    resolved event frame; empty when there is no event stage
@@ -413,6 +414,7 @@ program define _tvbuild_preflight, rclass
     **# ---------------------------------------------------------------------
     local _event_input "none"
     local _evframe ""
+    local _event_locator ""
     if "`eventdate'" != "" {
         local _event_input "master"
         local _evframe "`masterframe'"
@@ -425,6 +427,7 @@ program define _tvbuild_preflight, rclass
             }
             local _event_input "frame"
             local _evframe "`eventframe'"
+            local _event_locator "`eventframe'"
         }
         else if `"`eventusing'"' != "" {
             local _resolved ""
@@ -465,6 +468,7 @@ program define _tvbuild_preflight, rclass
             }
             local _event_input "file"
             local _evframe "`_reuse'"
+            local _event_locator `"`_resolved'"'
         }
 
         _tvbuild_check_event, evframe(`_evframe') id(`id') ///
@@ -481,6 +485,7 @@ program define _tvbuild_preflight, rclass
     return local masteridtype "`_idtype'"
     return local event_frame "`_evframe'"
     return local event_input "`_event_input'"
+    return local event_locator `"`_event_locator'"'
     return scalar n_files = `_n_files'
     return scalar N_persons = `n_persons'
 

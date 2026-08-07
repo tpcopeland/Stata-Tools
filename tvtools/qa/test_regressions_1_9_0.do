@@ -143,6 +143,7 @@ gen byte a = runiform() < invlogit(eta)
 quietly tvweight a, cov(x) id(id) time(period) stabilized cumulative ///
     gen(sw) cumgen(sw_cum) nolog
 local ess_pct = r(ess_pct)
+local ess = r(ess)
 local num_model "`r(numerator_model)'"
 
 * Independent oracle: numerator model = exposure on i.period only.
@@ -154,6 +155,13 @@ gen double _swref = cond(a == 1, _pnum/_pden, (1-_pnum)/(1-_pden))
 sort id period
 by id: gen double _swref_cum = _swref if _n == 1
 by id: replace _swref_cum = _swref_cum[_n-1] * _swref if _n > 1
+quietly summarize _swref_cum, meanonly
+local oracle_sw = r(sum)
+local oracle_n = r(N)
+generate double _swref_cum2 = _swref_cum^2
+quietly summarize _swref_cum2, meanonly
+local oracle_ess = (`oracle_sw'^2) / r(sum)
+local oracle_ess_pct = 100 * `oracle_ess' / `oracle_n'
 
 local ++test_count
 if "`num_model'" == "i.period" {
@@ -194,18 +202,20 @@ else {
     display as error "  FAIL R2c: max cumulative diff = `maxdiff_cum' (expected < 1e-10)"
 }
 
-* Efficiency gate. 1.8.0 scored 34.35% here; the corrected numerator scores
-* 97.83%. The 90% floor fails on the old code by a wide margin and leaves room
-* for Monte-Carlo drift on the fixed code.
+* The headline ESS is for the analysis weight. Under cumulative, that means
+* sw_cum rather than the per-period intermediate sw. Recompute both ESS values
+* from the independent cumulative-weight oracle above.
 local ++test_count
-if `ess_pct' > 90 {
+if reldif(`ess', `oracle_ess') < 1e-12 & ///
+   reldif(`ess_pct', `oracle_ess_pct') < 1e-12 {
     local ++pass_count
-    display as result "  PASS R2d: stabilized ESS% = " %5.2f `ess_pct' " (1.8.0 scored 34.35)"
+    display as result "  PASS R2d: cumulative analysis-weight ESS = " ///
+        %7.3f `ess' " (" %5.2f `ess_pct' "%)"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' R2d_ess_regression"
-    display as error "  FAIL R2d: stabilized ESS% = `ess_pct' (expected > 90)"
+    display as error "  FAIL R2d: ESS=`ess'/`oracle_ess', pct=`ess_pct'/`oracle_ess_pct'"
 }
 
 * Weight-tail gate: the cumulative product is where the defect compounded.

@@ -184,6 +184,9 @@ local e1_src_t "A"
 local e1_src_h "B"
 local e1_exp_t "A"
 local e1_exp_h "B"
+local e1_spec_t ""
+local e1_entry_t ""
+local e1_exit_t ""
 capture noisily {
     local _here "`c(frame)'"
 
@@ -193,6 +196,9 @@ capture noisily {
     local e1_sig_t "`r(datasignature)'"
     local e1_src_t "`r(source_names)'"
     local e1_exp_t "`r(exposure_vars)'"
+    local e1_spec_t "`r(specframe)'"
+    local e1_entry_t "`r(entryvar)'"
+    local e1_exit_t "`r(exitvar)'"
     frame change out_tool
     quietly save "`work'/tvs_tool.dta", replace
     frame change `_here'
@@ -214,7 +220,8 @@ capture noisily {
 local rc = _rc
 _tvs_check `=(`rc' == 0 & `e1_d' == 0 & "`e1_sig_t'" == "`e1_sig_h'" & ///
     "`e1_src_t'" == "`e1_src_h'" & "`e1_exp_t'" == "`e1_exp_h'" & ///
-    "`e1_sig_t'" != "")' ///
+    "`e1_sig_t'" != "" & "`e1_spec_t'" == "sp_tool" & ///
+    "`e1_entry_t'" == "study_entry" & "`e1_exit_t'" == "study_exit")' ///
     "E1 tvspec and a hand-built frame commit identical output" ///
     "rc=`rc' cf=`e1_d' sig=`e1_sig_t'/`e1_sig_h' src=|`e1_src_t'|/|`e1_src_h'| exp=|`e1_exp_t'|/|`e1_exp_h'|"
 

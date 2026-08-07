@@ -278,7 +278,7 @@ the .dta extension. Use with {opt replace} to overwrite an existing file.
 {phang}
 {opt frameout(name)} places the merged result into a new frame named {it:name}
 and leaves the data in the current frame unchanged, enabling a disk-free
-pipeline ({cmd:tvexpose} -> {cmd:tvmerge} -> {cmd:tvevent}). Combine with
+workflow ({cmd:tvexpose} -> {cmd:tvmerge} -> {cmd:tvevent}). Combine with
 {cmd:frames()} to also read the inputs from frames. The frame name is returned
 in {cmd:r(frameout)}. If the frame already exists, specify {cmd:replace}.
 

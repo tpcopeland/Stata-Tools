@@ -365,10 +365,14 @@ the returned {cmd:r(balance)} matrix. Install psdash with
 {stata `"net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace"'}.
 
 {phang}
-{opt histogram} draws a histogram of the weight distribution. The plot honors
-the active graph scheme. Graph outcomes are reported by
+{opt histogram} draws a histogram of the analysis-weight distribution. The
+plot honors the active graph scheme. Both graph options choose the first free
+name in the {cmd:tvw_histogram}, {cmd:tvw_histogram_2}, ... or
+{cmd:tvw_loveplot}, {cmd:tvw_loveplot_2}, ... sequence, so a graph already in
+memory is never overwritten. Graph outcomes are reported by
 {cmd:r(histogram_created)}, {cmd:r(loveplot_created)}, and
-{cmd:r(graph_created)}.
+{cmd:r(graph_created)}; the chosen names are returned in
+{cmd:r(histogram_graph)} and {cmd:r(loveplot_graph)}.
 
 {dlgtab:Output Options}
 
@@ -466,19 +470,19 @@ fixed-width MSM grid.
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}number of observations{p_end}
 {synopt:{cmd:r(n_levels)}}number of exposure levels{p_end}
-{synopt:{cmd:r(ess)}}effective sample size{p_end}
-{synopt:{cmd:r(ess_pct)}}effective sample size as percentage of N{p_end}
-{synopt:{cmd:r(w_mean)}}mean of weights{p_end}
-{synopt:{cmd:r(w_sd)}}standard deviation of weights{p_end}
-{synopt:{cmd:r(w_min)}}minimum weight{p_end}
-{synopt:{cmd:r(w_max)}}maximum weight{p_end}
-{synopt:{cmd:r(w_p1)}}1st percentile of weights{p_end}
-{synopt:{cmd:r(w_p5)}}5th percentile of weights{p_end}
-{synopt:{cmd:r(w_p25)}}25th percentile of weights{p_end}
-{synopt:{cmd:r(w_p50)}}50th percentile of weights (median){p_end}
-{synopt:{cmd:r(w_p75)}}75th percentile of weights{p_end}
-{synopt:{cmd:r(w_p95)}}95th percentile of weights{p_end}
-{synopt:{cmd:r(w_p99)}}99th percentile of weights{p_end}
+{synopt:{cmd:r(ess)}}effective sample size of the analysis weight{p_end}
+{synopt:{cmd:r(ess_pct)}}analysis-weight ESS as percentage of N{p_end}
+{synopt:{cmd:r(w_mean)}}mean of the analysis weight{p_end}
+{synopt:{cmd:r(w_sd)}}standard deviation of the analysis weight{p_end}
+{synopt:{cmd:r(w_min)}}minimum analysis weight{p_end}
+{synopt:{cmd:r(w_max)}}maximum analysis weight{p_end}
+{synopt:{cmd:r(w_p1)}}1st percentile of the analysis weight{p_end}
+{synopt:{cmd:r(w_p5)}}5th percentile of the analysis weight{p_end}
+{synopt:{cmd:r(w_p25)}}25th percentile of the analysis weight{p_end}
+{synopt:{cmd:r(w_p50)}}50th percentile of the analysis weight (median){p_end}
+{synopt:{cmd:r(w_p75)}}75th percentile of the analysis weight{p_end}
+{synopt:{cmd:r(w_p95)}}95th percentile of the analysis weight{p_end}
+{synopt:{cmd:r(w_p99)}}99th percentile of the analysis weight{p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated observations (if truncate specified){p_end}
 {synopt:{cmd:r(trunc_lo)}}lower truncation percentile (if truncate specified){p_end}
 {synopt:{cmd:r(trunc_hi)}}upper truncation percentile (if truncate specified){p_end}
@@ -506,6 +510,8 @@ fixed-width MSM grid.
 {synopt:{cmd:r(stabilized)}}stabilized if stabilized weights requested{p_end}
 {synopt:{cmd:r(denominator)}}name of propensity score variable (if requested){p_end}
 {synopt:{cmd:r(estname)}}name of stored propensity model (if estname specified){p_end}
+{synopt:{cmd:r(histogram_graph)}}created histogram name (if successful){p_end}
+{synopt:{cmd:r(loveplot_graph)}}created love-plot name (if successful){p_end}
 {synopt:{cmd:r(cumgenerate)}}name of cumulative weight variable (if cumulative){p_end}
 {synopt:{cmd:r(ipcw)}}name of the censoring indicator variable (if ipcw){p_end}
 {synopt:{cmd:r(censgenerate)}}name of the cumulative censoring weight (if ipcw){p_end}

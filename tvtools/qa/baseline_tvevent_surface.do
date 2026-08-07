@@ -57,6 +57,10 @@ if "`dir'" == "" {
 capture mkdir "`dir'"
 
 local qadir "`c(pwd)'"
+capture ado uninstall tvtools
+while !_rc {
+    capture ado uninstall tvtools
+}
 adopath ++ "`qadir'/.."
 
 global TVB_PASS = 0

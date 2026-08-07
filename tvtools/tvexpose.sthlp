@@ -480,7 +480,7 @@ exposure".
 {phang}
 {opt frameout(name)} places the time-varying result into a new frame named
 {it:name} and leaves the data in the current frame unchanged. This enables a
-disk-free pipeline ({cmd:tvexpose} -> {cmd:tvmerge} -> {cmd:tvevent}) in
+disk-free workflow ({cmd:tvexpose} -> {cmd:tvmerge} -> {cmd:tvevent}) in
 which intermediate datasets are held in memory as frames rather than saved to
 and reloaded from disk. The result is staged before the named frame is replaced; a
 failed run leaves both the current data and any existing target unchanged. The frame

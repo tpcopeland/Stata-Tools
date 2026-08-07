@@ -85,6 +85,18 @@ local helper_path "`r(fn)'"
 local helper_bak "`c(tmpdir)'/_tvexpose_diagnostics.ado.bak"
 quietly copy "`helper_path'" "`helper_bak'", replace
 quietly erase "`helper_path'"
+
+* In a runner session a prior suite can leave one further package tree on the
+* adopath. Hide and later restore that second copy as part of the same partial-
+* install simulation.
+local helper_path2 ""
+local helper_bak2 "`c(tmpdir)'/_tvexpose_diagnostics.ado.bak2"
+capture findfile _tvexpose_diagnostics.ado
+if _rc == 0 {
+    local helper_path2 "`r(fn)'"
+    quietly copy "`helper_path2'" "`helper_bak2'", replace
+    quietly erase "`helper_path2'"
+}
 capture program drop _tvexpose_diagnostics
 discard
 quietly use "$DATA_DIR/cohort.dta", clear
@@ -129,6 +141,8 @@ _tvd_check `ok' ///
     "plain=`hit_plain' check=`hit_check' validate=`hit_validate'"
 
 quietly copy "`helper_bak'" "`helper_path'", replace
+if "`helper_path2'" != "" ///
+    quietly copy "`helper_bak2'" "`helper_path2'", replace
 capture program drop _tvexpose_diagnostics
 discard
 local ++test_count

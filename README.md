@@ -58,7 +58,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.5.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Swedish registry tools for Charlson scoring, migrations, and MS progression endpoints |
-| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.13.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
+| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.14.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--07-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
 
 ### Reporting & Visualization
 

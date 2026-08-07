@@ -46,6 +46,10 @@ local impl  = cond("`4'" == "",  "all", "`4'")
 * Resolve the package directory from this script's location so the benchmark
 * runs from a scratch copy without editing paths.
 local qadir "`c(pwd)'"
+capture ado uninstall tvtools
+while !_rc {
+    capture ado uninstall tvtools
+}
 adopath ++ "`qadir'/.."
 
 **# Released 1.9.0 algorithm, replicated for comparison

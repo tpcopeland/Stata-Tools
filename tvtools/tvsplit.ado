@@ -1,4 +1,4 @@
-*! tvsplit Version 1.13.1  2026/08/05
+*! tvsplit Version 1.14.1  2026/08/07
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

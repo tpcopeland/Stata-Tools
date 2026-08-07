@@ -1,4 +1,4 @@
-*! tvbuild Version 1.13.1  2026/08/05
+*! tvbuild Version 1.14.1  2026/08/07
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -427,6 +427,7 @@ program define tvbuild, rclass
     local n_files       = r(n_files)
     local event_input   "`r(event_input)'"
     local event_frame   "`r(event_frame)'"
+    local event_locator `"`r(event_locator)'"'
     local n_gap_ids     = r(n_gap_ids)
     local uncovered_days = r(uncovered_days)
     local masteridtype  "`r(masteridtype)'"
@@ -653,7 +654,9 @@ program define tvbuild, rclass
             }
             local _evopts2 ""
             if "`eventdate'" != "" {
-                local _evopts2 `"eventin(`event_in') eventout(`event_out') eventname(`eventgenerate') eventkind(`event_input')"'
+                local _event_vars "`eventdate' `compete'"
+                local _event_vars = strtrim(stritrim("`_event_vars'"))
+                local _evopts2 `"eventin(`event_in') eventout(`event_out') eventname(`eventgenerate') eventkind(`event_input') eventlocator(`"`event_locator'"') eventvars(`"`_event_vars'"')"'
             }
             _tvbuild_manifest, manframe(`_man') planframe(`_plan') ///
                 npersons(`N_persons') nmasterrows(`N_persons') ///
@@ -1114,10 +1117,10 @@ program define _tvbuild_show_result
     }
     if "`eventvar'" != "" {
         noisily display as text ///
-            "    . stset `stopname', id(`id') failure(`eventvar' == 1) time0(`startname')"
+            "    . stset `stopname', id(`id') failure(`eventvar' == 1) time0(`startname' - 1)"
     }
     else {
         noisily display as text ///
-            "    . stset `stopname', id(`id') time0(`startname')"
+            "    . stset `stopname', id(`id') time0(`startname' - 1)"
     }
 end

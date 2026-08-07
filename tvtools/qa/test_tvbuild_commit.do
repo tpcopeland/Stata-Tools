@@ -477,12 +477,14 @@ capture tvbuild, `SRC' `BASE' frameout(tc_e7) replace ///
 local e7_rc = _rc
 local e7_en "`r(enumvar)'"
 local e7_g0 "`r(gapstartvar)'"
+local e7_g1 "`r(gapstopvar)'"
 _tvc_compare, frame(tc_e7) vars(pid start stop tv_drug _failure _enum _g0 _g1) ///
     oracle("`e7oracle'")
 local e7_cf = r(rc)
-local ok = (`e7_rc' == 0 & `e7_cf' == 0 & "`e7_en'" == "_enum" & "`e7_g0'" == "_g0")
+local ok = (`e7_rc' == 0 & `e7_cf' == 0 & "`e7_en'" == "_enum" & ///
+    "`e7_g0'" == "_g0" & "`e7_g1'" == "_g1")
 _tvc_check `ok' "E7 recurring events with enum and gap time match tvevent" ///
-    "rc=`e7_rc' cf=`e7_cf' enum=`e7_en' gapstart=`e7_g0'"
+    "rc=`e7_rc' cf=`e7_cf' enum=`e7_en' gapstart=`e7_g0' gapstop=`e7_g1'"
 
 * E8: timegen()/timeunit() reach the result with the requested unit.
 local ++test_count

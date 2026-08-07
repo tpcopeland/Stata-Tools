@@ -1,4 +1,4 @@
-*! tvtools Version 1.13.1  2026/08/05
+*! tvtools Version 1.14.1  2026/08/07
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -134,6 +134,20 @@ program define tvtools, rclass
     // Count commands
     local n_commands: word count `selected_cmds'
 
+    * Derive version from the *! header so the literal cannot drift on a bump.
+    local version "unknown"
+    capture findfile tvtools.ado
+    if !_rc {
+        tempname _fh
+        capture file open `_fh' using "`r(fn)'", read text
+        if !_rc {
+            file read `_fh' _header_line
+            file close `_fh'
+            if regexm("`_header_line'", "Version ([0-9.]+)") ///
+                local version = regexs(1)
+        }
+    }
+
     * The name field is as wide as the longest name actually being shown, so
     * there is no padding literal left to type wrongly. Both views measure the
     * same list, so both columns move together when a command is added.
@@ -148,6 +162,7 @@ program define tvtools, rclass
     // Display header
     display as text ""
     display as result "tvtools" as text " - Time-Varying Exposure Analysis Suite"
+    display as text "Version " as result "`version'"
     _tvtools_rule
     display as text ""
 
@@ -178,6 +193,7 @@ program define tvtools, rclass
         foreach cmd of local selected_cmds {
             display as result "  `cmd'"
         }
+        _tvtools_rule
     }
     else {
         // Default: organized view
@@ -195,21 +211,11 @@ program define tvtools, rclass
         _tvtools_row "individual command help", value("help <command>")
         _tvtools_rule
     }
-
-    // Return results
-    * Derive version from the *! header so the literal cannot drift on a bump
-    local version "unknown"
-    capture findfile tvtools.ado
-    if !_rc {
-        tempname _fh
-        capture file open `_fh' using "`r(fn)'", read text
-        if !_rc {
-            file read `_fh' _header_line
-            file close `_fh'
-            if regexm("`_header_line'", "Version ([0-9.]+)") local version = regexs(1)
-        }
+    if "`detail'" != "" {
+        _tvtools_rule
     }
 
+    // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
     return local version "`version'"

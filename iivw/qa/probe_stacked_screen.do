@@ -18,10 +18,18 @@
 * and records coverage of each against truth=1, plus the oracle (1.96 × empSD).
 *
 * Usage (from a scratch copy of the package, per the isolation rule):
-*   stata-mp -b do probe_stacked_screen.do NSUB [SIMS] [SEED]
+*   stata-mp -b do probe_stacked_screen.do NSUB [SIMS] [SEED] [FROM] [TO]
 * NSUB is required (no silent default — the caller must know what they asked).
 * SIMS defaults to 200 (the §10 tier-2 count). SEED defaults to 20260715 (the
 * registered master). The arm is always 3 (FIPTIW strong-dependence).
+*
+* BLOCK SHARDING. FROM/TO run a subset of the 1..SIMS replications and write
+* raw rows to probe_stacked_screen_NSUB_FROM_TO.dta without a verdict. A
+* separate COMBINE invocation aggregates the blocks:
+*   stata-mp -b do probe_stacked_screen.do NSUB SIMS SEED COMBINE
+* which reads all probe_stacked_screen_NSUB_*.dta in the cwd, verifies they
+* tile 1..SIMS exactly, and reports. The seed ledger is deterministic, so
+* sharding is equivalent by construction.
 * =============================================================================
 
 clear all
@@ -47,10 +55,23 @@ local master = 20260715
 local arm = 3
 local truth = 1
 local reps = 999
+local from = 1
+local to = 0
+local combine = 0
 if "`2'" != "" local sims = real("`2'")
 if "`3'" != "" local master = real("`3'")
-if `sims' < 50 {
-    display as error "SIMS below 50 cannot screen"
+if "`4'" != "" {
+    if "`4'" == "COMBINE" | "`4'" == "combine" {
+        local combine = 1
+    }
+    else {
+        local from = real("`4'")
+        if "`5'" != "" local to = real("`5'")
+    }
+}
+if `to' == 0 & `combine' == 0 local to = `sims'
+if `combine' == 0 & (`from' < 1 | `to' > `sims' | `from' > `to') {
+    display as error "block range `from'-`to' is not inside 1-`sims'"
     exit 198
 }
 
@@ -113,102 +134,146 @@ program define _scr_dgp
     sort id t
 end
 
-display as text ""
-display as text "probe_stacked_screen -- nsub=`nsub' sims=`sims' master=`master'"
-display as text "DIAGNOSTIC ONLY (§10 tier 2). Not a coverage verdict for any gate."
-display as text ""
+local is_block = (`from' != 1 | `to' != `sims') & `combine' == 0
 
-tempfile out
-tempname pf
-postfile `pf' int(sim) ///
-    double(b_fix se_fix cov_fix b_stk se_stk cov_stk b_ref se_ref cov_ref ///
-           cov_pct cov_basic cov_bc cov_bca nsub_actual) ///
-    using "`out'", replace
+* ---- COMBINE PATH ----
+if `combine' {
+    display as text ""
+    display as text "probe_stacked_screen COMBINE -- nsub=`nsub' sims=`sims'"
+    local allfiles : dir "." files "probe_stacked_screen_`nsub'_*.dta"
+    local n_files : word count `allfiles'
+    if `n_files' == 0 {
+        display as error "no block files found for nsub=`nsub'"
+        exit 601
+    }
+    clear
+    foreach f of local allfiles {
+        append using "`f'"
+    }
+    quietly count
+    local n_ok = r(N)
+    isid sim
+    quietly summarize sim
+    if r(min) != 1 | r(max) != `sims' {
+        display as error "blocks do not tile 1..`sims' (min=" r(min) " max=" r(max) ")"
+        exit 459
+    }
+    if `n_ok' != `sims' {
+        display as error "expected `sims' rows, got `n_ok'"
+        exit 459
+    }
+    local n_fail = 0
+    display as text "  combined `n_files' block file(s), `n_ok' rows, tile verified"
+}
+* ---- SIMULATION PATH ----
+else {
+    display as text ""
+    if `is_block' {
+        display as text "probe_stacked_screen BLOCK -- nsub=`nsub' from=`from' to=`to'"
+    }
+    else {
+        display as text "probe_stacked_screen -- nsub=`nsub' sims=`sims' master=`master'"
+    }
+    display as text "DIAGNOSTIC ONLY (§10 tier 2). Not a coverage verdict for any gate."
+    display as text ""
 
-local n_ok = 0
-local n_fail = 0
-local zc = invnormal(0.975)
-forvalues s = 1/`sims' {
-    _scr_dgpseed  `master' `arm' `s'
-    local dgpseed = `r(seed)'
-    _scr_bootseed `master' `arm' `s'
-    local bootseed = `r(seed)'
-    quietly {
-        capture noisily {
-            _scr_dgp, seed(`dgpseed') nsub(`nsub')
-            levelsof id, local(_ids)
-            local _nsub : word count `_ids'
+    tempfile out
+    tempname pf
+    postfile `pf' int(sim) ///
+        double(b_fix se_fix cov_fix b_stk se_stk cov_stk b_ref se_ref cov_ref ///
+               cov_pct cov_basic cov_bc cov_bca nsub_actual) ///
+        using "`out'", replace
 
-            * FIPTIW weighting with scores for stacked
-            iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) ///
-                visit_cov(Z) wtype(fiptiw) censor(C) baseline(entry) ///
-                scores nolog
+    local n_ok = 0
+    local n_fail = 0
+    local zc = invnormal(0.975)
+    forvalues s = `from'/`to' {
+        _scr_dgpseed  `master' `arm' `s'
+        local dgpseed = `r(seed)'
+        _scr_bootseed `master' `arm' `s'
+        local bootseed = `r(seed)'
+        quietly {
+            capture noisily {
+                _scr_dgp, seed(`dgpseed') nsub(`nsub')
+                levelsof id, local(_ids)
+                local _nsub : word count `_ids'
 
-            * Fixed sandwich
-            iivw_fit y A, timespec(none) vce(fixed) nolog replace
-            local b_fix  = _b[A]
-            local se_fix = _se[A]
-            local cov_fix = (`truth' >= _b[A]-`zc'*_se[A] & ///
-                `truth' <= _b[A]+`zc'*_se[A])
+                iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) ///
+                    visit_cov(Z) wtype(fiptiw) censor(C) baseline(entry) ///
+                    scores nolog
 
-            * Stacked sandwich
-            iivw_fit y A, timespec(none) vce(stacked) nolog replace
-            local b_stk  = _b[A]
-            local se_stk = _se[A]
-            local cov_stk = (`truth' >= _b[A]-`zc'*_se[A] & ///
-                `truth' <= _b[A]+`zc'*_se[A])
+                iivw_fit y A, timespec(none) vce(fixed) nolog replace
+                local b_fix  = _b[A]
+                local se_fix = _se[A]
+                local cov_fix = (`truth' >= _b[A]-`zc'*_se[A] & ///
+                    `truth' <= _b[A]+`zc'*_se[A])
 
-            * Refit bootstrap (the existing gate candidate)
-            iivw_fit y A, timespec(none) ///
-                vce(bootstrap, reps(`reps') seed(`bootseed')) ///
-                citype(bca) nolog replace
-            local b_ref  = _b[A]
-            local se_ref = _se[A]
-            local cov_ref = (`truth' >= _b[A]-`zc'*_se[A] & ///
-                `truth' <= _b[A]+`zc'*_se[A])
+                iivw_fit y A, timespec(none) vce(stacked) nolog replace
+                local b_stk  = _b[A]
+                local se_stk = _se[A]
+                local cov_stk = (`truth' >= _b[A]-`zc'*_se[A] & ///
+                    `truth' <= _b[A]+`zc'*_se[A])
 
-            tempname CI_PCT CI_BC CI_BCA
-            matrix `CI_PCT' = e(ci_percentile)
-            matrix `CI_BC'  = e(ci_bc)
-            matrix `CI_BCA' = e(ci_bca)
-            local j = colnumb(e(b), "A")
-            if missing(`j') | `j' < 1 error 459
-            local cov_pct = (`truth' >= el(`CI_PCT',1,`j') & ///
-                `truth' <= el(`CI_PCT',2,`j'))
-            local ci_pct_lo = el(`CI_PCT',1,`j')
-            local ci_pct_hi = el(`CI_PCT',2,`j')
-            local cov_basic = (`truth' >= 2*_b[A]-`ci_pct_hi' & ///
-                `truth' <= 2*_b[A]-`ci_pct_lo')
-            local cov_bc = (`truth' >= el(`CI_BC',1,`j') & ///
-                `truth' <= el(`CI_BC',2,`j'))
-            local cov_bca = (`truth' >= el(`CI_BCA',1,`j') & ///
-                `truth' <= el(`CI_BCA',2,`j'))
+                iivw_fit y A, timespec(none) ///
+                    vce(bootstrap, reps(`reps') seed(`bootseed')) ///
+                    citype(bca) nolog replace
+                local b_ref  = _b[A]
+                local se_ref = _se[A]
+                local cov_ref = (`truth' >= _b[A]-`zc'*_se[A] & ///
+                    `truth' <= _b[A]+`zc'*_se[A])
 
-            post `pf' (`s') ///
-                (`b_fix') (`se_fix') (`cov_fix') ///
-                (`b_stk') (`se_stk') (`cov_stk') ///
-                (`b_ref') (`se_ref') (`cov_ref') ///
-                (`cov_pct') (`cov_basic') (`cov_bc') (`cov_bca') ///
-                (`_nsub')
-            local ++n_ok
+                tempname CI_PCT CI_BC CI_BCA
+                matrix `CI_PCT' = e(ci_percentile)
+                matrix `CI_BC'  = e(ci_bc)
+                matrix `CI_BCA' = e(ci_bca)
+                local j = colnumb(e(b), "A")
+                if missing(`j') | `j' < 1 error 459
+                local cov_pct = (`truth' >= el(`CI_PCT',1,`j') & ///
+                    `truth' <= el(`CI_PCT',2,`j'))
+                local ci_pct_lo = el(`CI_PCT',1,`j')
+                local ci_pct_hi = el(`CI_PCT',2,`j')
+                local cov_basic = (`truth' >= 2*_b[A]-`ci_pct_hi' & ///
+                    `truth' <= 2*_b[A]-`ci_pct_lo')
+                local cov_bc = (`truth' >= el(`CI_BC',1,`j') & ///
+                    `truth' <= el(`CI_BC',2,`j'))
+                local cov_bca = (`truth' >= el(`CI_BCA',1,`j') & ///
+                    `truth' <= el(`CI_BCA',2,`j'))
+
+                post `pf' (`s') ///
+                    (`b_fix') (`se_fix') (`cov_fix') ///
+                    (`b_stk') (`se_stk') (`cov_stk') ///
+                    (`b_ref') (`se_ref') (`cov_ref') ///
+                    (`cov_pct') (`cov_basic') (`cov_bc') (`cov_bca') ///
+                    (`_nsub')
+                local ++n_ok
+            }
+            if _rc {
+                display as error "sim `s' failed (rc " _rc ")"
+                local ++n_fail
+            }
         }
-        if _rc {
-            display as error "sim `s' failed (rc " _rc ")"
-            local ++n_fail
+        if mod(`s' - `from' + 1, 25) == 0 {
+            display as text "  sim `s' done (`n_ok' ok, `n_fail' fail)"
         }
     }
-    if mod(`s', 50) == 0 {
-        display as text "  sim `s'/`sims' done (`n_ok' ok, `n_fail' fail)"
+    postclose `pf'
+
+    if `is_block' {
+        use "`out'", clear
+        local blkfile "probe_stacked_screen_`nsub'_`from'_`to'.dta"
+        quietly save "`blkfile'", replace
+        display as text "BLOCK `from'-`to': wrote `n_ok' rows to `blkfile' (`n_fail' failed)"
+        display as text "BLOCK-ONLY: no verdict. Run with COMBINE to aggregate."
+        exit
     }
-}
-postclose `pf'
 
-if `n_ok' < 50 {
-    display as error "too few replications to screen (`n_ok'/`sims')"
-    exit 2000
-}
+    if `n_ok' < 50 {
+        display as error "too few replications to screen (`n_ok'/`sims')"
+        exit 2000
+    }
 
-use "`out'", clear
+    use "`out'", clear
+}
 
 * Coverage
 summarize cov_fix

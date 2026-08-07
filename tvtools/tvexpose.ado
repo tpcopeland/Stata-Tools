@@ -1,4 +1,4 @@
-*! tvexpose Version 1.13.1  2026/08/05
+*! tvexpose Version 1.14.1  2026/08/07
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -214,7 +214,7 @@ program define tvexpose, rclass
 
     * Frames-first output: when frameout() is set, the time-varying result is
     * placed into the named frame and the caller's current data is left intact,
-    * so the pipeline never has to round-trip through disk. The internal logic
+    * so the workflow never has to round-trip through disk. The internal logic
     * still builds the result in the working frame; we snapshot the caller's
     * data first and reload it after copying the result into the target frame.
     if "`frameout'" != "" {
@@ -4566,7 +4566,7 @@ program define tvexpose, rclass
         rename (exp_start exp_stop) (start stop)
     }
 
-    * Quantity metadata lets downstream pipeline commands validate the algebra
+    * Quantity metadata lets downstream commands validate the algebra
     * instead of inferring it from a variable name.
     if "`exp_type'" == "continuous" {
         if `skip_main_var' == 0 {
@@ -4882,7 +4882,6 @@ program define tvexpose, rclass
     **# DISPLAY RESULTS
     
     * Display summary results
-    noisily display as text ""
     local _pct_unexposed = 100 - `pct_exposed'
     noisily display as text ""
     noisily display as text "{bf:tvexpose result}"
@@ -4895,6 +4894,9 @@ program define tvexpose, rclass
     noisily _tvtools_row "unexposed person-time", num(`unexposed_time') ///
         note("(`=string(`_pct_unexposed', "%4.1f")'%)")
     noisily _tvtools_row "operationalization", value(`"`exp_type'"')
+    if "`bytype'" != "" {
+        noisily _tvtools_row "bytype variables", value(`"`_bt_map'"')
+    }
 
     * Display applied options
     if `lag' > 0 {
@@ -5141,15 +5143,12 @@ program define tvexpose, rclass
             exit 198
         }
     }
-    capture quietly label data "`using'"
-    local _label_data_rc = _rc
+    quietly label data "tvexpose result: `exposure' by `id'"
 
     **# SAVE DATA IF REQUESTED
    
     * Save final dataset if requested
     if "`saveas'" != "" {
-			capture quietly label data "`saveas'"
-            local _save_label_rc = _rc
         if "`replace'" != "" {
             quietly save "`saveas'", replace
         }
@@ -5238,8 +5237,10 @@ program define tvexpose, rclass
         display as text "  " %-30s "records" as result %12.0fc `_flow_rin' ///
             %12.0fc `N_periods' %12.0fc `=`_flow_rin' - `N_periods''
         _tvtools_rule
-        display as text ///
-            "  A negative records-dropped count is net interval expansion."
+        if `_flow_rin' - `N_periods' < 0 {
+            display as text ///
+                "  A negative records-dropped count is net interval expansion."
+        }
         return matrix flow = `_flowmat'
     }
 

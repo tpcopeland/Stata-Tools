@@ -475,11 +475,17 @@ capture program drop _tvweight_cumprod
 local _plus_save "`c(sysdir_plus)'"
 local _noplus "`c(tmpdir)'/tvw_noplus"
 capture mkdir "`_noplus'"
+* A runner process can retain the source tree on its adopath after an earlier
+* suite. Hide that fallback too, so this remains a partial-install test rather
+* than an adopath-order test.
+capture adopath - "$TVTOOLS_QA_PKG_DIR"
+local _pkg_path_removed = (_rc == 0)
 sysdir set PLUS "`_noplus'"
 capture noisily tvweight treat, covariates(age sex) id(pid) time(period) ///
     generate(w) cumulative
 local guard_rc = _rc
 sysdir set PLUS "`_plus_save'"
+if `_pkg_path_removed' adopath ++ "$TVTOOLS_QA_PKG_DIR"
 capture confirm variable w
 local guard_no_weight = (_rc != 0)
 capture confirm variable w_cum

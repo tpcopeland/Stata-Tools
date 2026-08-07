@@ -1,4 +1,4 @@
-*! tvage Version 1.13.1  2026/08/05
+*! tvage Version 1.14.1  2026/08/07
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -331,13 +331,16 @@ program define tvage, rclass
     * Save output if requested
     if "`saveas'" != "" {
         if "`replace'" != "" {
-            save "`saveas'", replace
+            quietly save "`saveas'", replace
         }
         else {
-            save "`saveas'"
+            quietly save "`saveas'"
         }
         if "`noisily'" != "" {
-            display as text "  Saved to: `saveas'.dta"
+            local _saved_path `"`saveas'"'
+            if lower(substr(`"`_saved_path'"', -4, 4)) != ".dta" ///
+                local _saved_path `"`_saved_path'.dta"'
+            display as text "  Saved to: `_saved_path'"
         }
     }
 

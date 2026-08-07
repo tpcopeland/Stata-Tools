@@ -468,7 +468,7 @@ else {
 
 * SECTION 9: CROSS-COMMAND INTEGRATION
 
-* Test 9.1: Full pipeline with all diagnostics
+* Test 9.1: Full workflow with all diagnostics
 local ++test_count
 capture {
     * Step 1: Create exposure intervals (keepdates to preserve entry/exit)

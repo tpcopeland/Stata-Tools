@@ -1,4 +1,4 @@
-*! _tvbuild_manifest Version 1.13.1  2026/08/05
+*! _tvbuild_manifest Version 1.14.1  2026/08/07
 *! Build tvbuild's deterministic per-stage provenance manifest
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -34,8 +34,9 @@ program define _tvbuild_manifest, rclass
         NOUT(string) NOUTPERSons(string) SIGnature(string) ///
         COVerage(string) UNCOVEREDdays(string) ///
         SRCOUTRows(string) MERGEIn(string) MERGEOut(string) ///
-        [EVENTIn(string) EVENTOut(string) EVENTName(string) ///
-         EVENTKind(string) QMAP(string) MERGED(integer 0) EVENTStage(integer 0)]
+    [EVENTIn(string) EVENTOut(string) EVENTName(string) ///
+         EVENTKind(string) EVENTLocator(string) EVENTVars(string) ///
+         QMAP(string) MERGED(integer 0) EVENTStage(integer 0)]
 
     capture frame drop `manframe'
     frame create `manframe'
@@ -144,6 +145,7 @@ program define _tvbuild_manifest, rclass
         local ++_row
         _tvbuild_manifest_put, manframe(`manframe') row(`_row') ///
             stage(event) inputkind(`eventkind') engine(tvevent_segments) ///
+            locator(`"`eventlocator'"') inputvars(`"`eventvars'"') ///
             ninput(`eventin') noutput(`eventout') npersons(`noutpersons') ///
             outputvars(`"`eventname'"') quantitymap(`"`qmap'"') ///
             description("Event integration into the constructed intervals")

@@ -30,6 +30,7 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     test_tvbuild_regressions_1_10_2 ///
     test_program_limits ///
     test_display_contract ///
+    test_tvtools_v1141 ///
     test_tvexpose_diagnostics ///
     test_tvm_point_engine ///
     validation_phase0_semantics validation_contracts ///
@@ -79,7 +80,8 @@ local manifest_suites test_package_runner_contract ///
     test_tvbuild_manifest_default ///
     test_tvspec ///
     test_tvbuild_regressions_1_10_2 ///
-    test_program_limits test_display_contract test_tvexpose_diagnostics ///
+    test_program_limits test_display_contract test_tvtools_v1141 ///
+    test_tvexpose_diagnostics ///
     test_tvm_point_engine validation_phase0_semantics ///
     validation_contracts validation_audit_tvexpose validation_audit_tvmerge ///
     validation_audit_tvevent validation_audit_tvpanel ///
@@ -105,7 +107,7 @@ local manifest_counts 11 ///
     87 22 15 10 22 ///
     7 5 21 ///
     11 ///
-    165 21 29 17 14 20 52 75 48 35 27 23 18 76 8 15 4 7 ///
+    165 21 29 17 14 20 52 75 48 35 27 23 18 76 8 20 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///

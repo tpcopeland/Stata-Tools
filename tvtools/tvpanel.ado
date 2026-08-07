@@ -1,4 +1,4 @@
-*! tvpanel Version 1.13.1  2026/08/05
+*! tvpanel Version 1.14.1  2026/08/07
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -555,9 +555,14 @@ program define tvpanel, rclass
 
     * --- Save or commit to memory ---
     if "`saveas'" != "" {
-        if "`replace'" != "" save "`saveas'", replace
-        else save "`saveas'"
-        if "`noisily'" != "" display as text "  Saved to: `saveas'.dta"
+        if "`replace'" != "" quietly save "`saveas'", replace
+        else quietly save "`saveas'"
+        if "`noisily'" != "" {
+            local _saved_path `"`saveas'"'
+            if lower(substr(`"`_saved_path'"', -4, 4)) != ".dta" ///
+                local _saved_path `"`_saved_path'.dta"'
+            display as text "  Saved to: `_saved_path'"
+        }
     }
 
     quietly count

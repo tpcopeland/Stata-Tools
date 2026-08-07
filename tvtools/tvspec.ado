@@ -1,4 +1,4 @@
-*! tvspec Version 1.13.1  2026/08/05
+*! tvspec Version 1.14.1  2026/08/07
 *! Build a tvbuild specification frame one source at a time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -470,7 +470,7 @@ program define tvspec_list, rclass
 
     noisily display as text "  Build it with:"
     noisily display as text "    . " as result ///
-        "tvbuild, specframe(`specframe') id() entry() exit() frameout()"
+        "tvbuild, specframe(`specframe') id(idvar) entry(entryvar) exit(exitvar) frameout(result)"
 
     return scalar n_sources = `_nrows'
     return local source_names = strtrim(stritrim("`_names'"))

@@ -1,4 +1,4 @@
-*! tvband Version 1.13.1  2026/08/05
+*! tvband Version 1.14.1  2026/08/07
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -145,9 +145,13 @@ program define tvband, rclass
 
     * --- Optional save ---------------------------------------------------
     if "`saveas'" != "" {
-        if "`replace'" != "" save "`saveas'", replace
-        else                 save "`saveas'"
-        if "`noisily'" != "" local _band_saved "`saveas'.dta"
+        if "`replace'" != "" quietly save "`saveas'", replace
+        else                 quietly save "`saveas'"
+        if "`noisily'" != "" {
+            local _band_saved `"`saveas'"'
+            if lower(substr(`"`_band_saved'"', -4, 4)) != ".dta" ///
+                local _band_saved `"`_band_saved'.dta"'
+        }
     }
 
     if "`noisily'" != "" {

@@ -48,6 +48,10 @@ local scale = cond("`2'" == "", 20000, real("`2'"))
 local rep   = cond("`3'" == "",     1, real("`3'"))
 
 local qadir "`c(pwd)'"
+capture ado uninstall tvtools
+while !_rc {
+    capture ado uninstall tvtools
+}
 adopath ++ "`qadir'/.."
 
 * Both seeds are set and reported: every generated tie below also carries an

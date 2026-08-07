@@ -1,4 +1,4 @@
-*! _tvtools_row Version 1.13.1  2026/08/05
+*! _tvtools_row Version 1.14.1  2026/08/07
 *! Print one aligned label/value row of a tvtools report
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -44,7 +44,7 @@ program define _tvtools_row
     * truncated. Losing a character off a label is worse than losing alignment
     * on one row, and the overflow is visible so it gets fixed at the source.
     local _w = `pad'
-    if length(`"`_lbl'"') > `_w' local _w = length(`"`_lbl'"')
+    if ustrlen(`"`_lbl'"') > `_w' local _w = ustrlen(`"`_lbl'"')
     local _w = `_w' + `indent'
     local _text `"`=char(32) * `indent''`_lbl'"'
 
