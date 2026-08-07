@@ -147,9 +147,9 @@ Remarks){p_end}
 {opt comp:act} merge estimate and CI into one column per model{p_end}
 
 {phang}
-{opt csv(filename)} also export the table as a CSV file. The CSV mirrors the workbook: {opt
-title()} is written as the first row and {opt footnote()} as the last row, both in the first
-column, with the table body between them{p_end}
+{opt csv(filename)} also export the table as a CSV file. The CSV mirrors the
+workbook with {opt title()} written as the first row and {opt footnote()} as
+the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
 {opt cutl:abels(string)} custom labels for ordered-model cutpoint rows, backslash-separated{p_end}

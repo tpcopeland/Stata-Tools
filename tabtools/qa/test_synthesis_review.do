@@ -685,6 +685,49 @@ else {
 }
 
 * =========================================================================
+**# A5 rider. The reserved-row drop must not eat a raw export's own data
+* =========================================================================
+* The 1.12.0 CSV writer dropped every leading row that was blank in each
+* exported column, on the assumption that such a row is the reserved title
+* row. That holds for a rendered table and fails for `puttab'/`simtab', which
+* hand the writer the user's own observations: with `noheader' and a first
+* observation blank in every column, the CSV shipped one row fewer than the
+* workbook, at rc == 0. The drop is now opt-in per caller. Both halves matter
+* -- the raw export must keep the row, the rendered table must still lose its
+* reserved one -- so assert the CSV body against the frame, not just a count.
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 4
+    quietly generate str12 grp = ""
+    quietly generate str12 val = ""
+    quietly replace grp = "B" in 2
+    quietly replace val = "2" in 2
+    quietly replace grp = "C" in 3
+    quietly replace val = "3" in 3
+    quietly replace grp = "D" in 4
+    quietly replace val = "4" in 4
+    local _csv "`outdir'/_sr_a5_rawblank.csv"
+    capture erase "`_csv'"
+    puttab grp val using "`outdir'/_sr_a5_rawblank.xlsx", noheader csv("`_csv'")
+    quietly import delimited using "`_csv'", clear varnames(nonames) ///
+        stringcols(_all) bindquote(strict) encoding(utf8)
+    * Four observations in, four rows out, the blank one still first.
+    assert _N == 4
+    assert strtrim(v1[1]) == "" & strtrim(v2[1]) == ""
+    assert strtrim(v1[2]) == "B" & strtrim(v2[2]) == "2"
+    assert strtrim(v1[4]) == "D" & strtrim(v2[4]) == "4"
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': A5 raw export keeps a blank leading data row"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': A5 raw export lost a blank leading row (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =========================================================================
 * Summary
 * =========================================================================
 display as text ""

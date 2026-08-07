@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/08/03
+*! _finegray_mata Version 1.2.0  2026/08/07
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -163,7 +163,7 @@ real colvector _finegray_km_censor(
     real scalar n, g, nlev, n_trunc, n_trunc_tot
     real colvector G, levels, sel
 
-    /* quiet suppresses the G-truncation note.  The fit prints it once (the
+    /* quiet suppresses the G-truncation note.  The fit REPORTS it once (the
        data characteristic is the user's to act on); post-estimation commands
        recompute G for the influence function and must NOT reprint it, or a
        fit-time warning appears attributed to predict/cif.  Omitted => 0. */
@@ -189,13 +189,20 @@ real colvector _finegray_km_censor(
         n_trunc_tot = n_trunc
     }
 
-    /* One note per sweep, counting every stratum.  Truncation is a property of
+    /* One count per sweep, over every stratum.  Truncation is a property of
        the censoring KM as a whole; the per-stratum breakdown is not something
        the user acts on differently, and printing it per stratum buried the
-       message under its own repeats. */
-    if (n_trunc_tot > 0 & !quiet) {
-        printf("{txt}note: G(t) truncated to 1e-10 for %g observations;" +
-            " inference may be sensitive\n", n_trunc_tot)
+       message under its own repeats.
+
+       Handed BACK rather than printed.  This function runs while the weights
+       are being built, i.e. before the caller has displayed anything, so a
+       printf here made an unexplained line of jargon ("G(t)") the first thing
+       a first-time user saw -- above even the command's own title.  The count
+       now rides out in a local, the fit posts it as e(N_G_trunc), and
+       _finegray_display prints it inside the header where the reader already
+       has the context to read it (and with the right singular/plural). */
+    if (!quiet) {
+        st_local("_fg_ntrunc", strofreal(n_trunc_tot, "%18.0g"))
     }
 
     return(G)

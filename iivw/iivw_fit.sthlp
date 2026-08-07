@@ -54,7 +54,7 @@
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
-{synopt:{opt vce(vcetype)}}{cmd:bootstrap} (refit) or {cmd:fixed}{p_end}
+{synopt:{opt vce(vcetype)}}{cmd:bootstrap} (refit), {cmd:fixed}, or {cmd:stacked}{p_end}
 {synopt:{opt citype(string)}}{cmd:none}, {cmd:wald}, {cmd:percentile}, {cmd:basic}, or {cmd:bca}{p_end}
 {synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
 {synopt:{opt boot:strap(#)}}{it:legacy}; prefer {opt vce()}{p_end}
@@ -335,6 +335,40 @@ all missed the prespecified {cmd:n=300} coverage gate. An explicit {opt vce()}
 requests nominal inference and retains the historical Wald transformation,
 while an explicit {opt citype()} requests the named nominal interval. Every such
 FIPTIW request is stamped and warned as empirically uncleared.
+
+{pmore}
+{cmd:vce(stacked)} is the analytic
+{bf:two-step (stacked) influence-function sandwich}:
+the variance both source papers derive, which {bf:does} carry the
+uncertainty from having estimated the weights. It is one pass with no
+resampling, so it costs a fraction of the refit bootstrap. It requires the
+weights to have been built with {cmd:iivw_weight}'s {opt scores} option, which
+emits the influence-function inputs it needs; those cannot be reconstructed
+after the fact, so a fit whose weights lack them is refused rather than
+approximated.
+
+{pmore}
+{cmd:vce(stacked)} is {bf:empirically uncleared} and is not a recommendation. It
+answers "does the package report the standard error the method's own theory
+specifies", which the fixed sandwich does not; it does {bf:not} answer "is the
+resulting 95% interval calibrated". No coverage gate has been run for it at any
+sample size. It is stamped
+{cmd:e(iivw_inference_status)}={cmd:uncleared-stacked-analytic}, which is
+deliberately distinct from {cmd:uncleared-fixedweights-analytic}: the two name
+different defects, and only the latter is understating uncertainty by omitting
+a term.
+
+{pmore}
+Scope. It cannot be combined with {opt collect}, which would freeze the
+fitter's own table -- the fixed-weight standard errors -- while {cmd:e(V)} holds
+the stacked ones. {cmd:vce(stacked)} supports {opt model(gee)} with a {bf:canonical} link
+only -- {opt family(gaussian)} {opt link(identity)}, {opt family(poisson)}
+{opt link(log)}, {opt family(binomial)} {opt link(logit)} -- and refuses weight
+{bf:trimming}, because a weight clipped at an estimated quantile of itself is
+not differentiable in the nuisance parameters and the delta method the sandwich
+rests on does not apply there. Use {cmd:vce(bootstrap, reps(999))} for a trimmed
+weighting, a non-canonical link, or {opt model(mixed)}. Which nuisance
+parameters were propagated is recorded in {cmd:e(iivw_stacked_terms)}.
 
 {pmore}
 {cmd:vce(bootstrap, reps(#) fixedweights)} bootstraps with the weights held
@@ -1313,6 +1347,10 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_underlying_cmd)}}underlying estimator command{p_end}
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_vce_seed)}}resampling seed, when set via {opt vce(bootstrap, seed())}{p_end}
+{synopt:{cmd:e(vce)}}the variance method behind {cmd:e(V)}: Stata's own label, set to {cmd:stacked} when {opt vce(stacked)} replaces the covariance{p_end}
+{synopt:{cmd:e(iivw_stacked_terms)}}stacked nuisance parameters propagated by {cmd:vce(stacked)}{p_end}
+{synopt:{cmd:e(iivw_stacked_selfcheck)}}relative difference between the helper's fixed sandwich and the fitted one; {cmd:vce(stacked)} only{p_end}
+{synopt:{cmd:e(iivw_stacked_nclust)}}clusters used to form the stacked sandwich; {cmd:vce(stacked)} only{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}inference-evidence tier; see {help iivw_fit##inference:Inference status}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}{cmd:none}, {cmd:wald-normal}, {cmd:percentile}, {cmd:basic}, or {cmd:bca}{p_end}

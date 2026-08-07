@@ -1,4 +1,4 @@
-*! effecttab Version 1.12.0  2026/08/06
+*! effecttab Version 1.12.1  2026/08/07
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1303,7 +1303,7 @@ quietly {
 
 	* CSV export (F2) — must happen before clear
 	if "`csv'" != "" {
-		_tabtools_csv_write using "`csv'", labelvar(A) ///
+		_tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
 			title(`"`title'"') footnote(`"`footnote'"')
 	}
 

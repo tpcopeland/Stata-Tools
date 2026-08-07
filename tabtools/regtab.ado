@@ -1,4 +1,4 @@
-*! regtab Version 1.12.0  2026/08/06
+*! regtab Version 1.12.1  2026/08/07
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -2932,7 +2932,7 @@ levelsof ref`i', local(_ref_rows_`_ref_model_ix')
 
 * CSV export (F2) — must happen before clear
 if "`csv'" != "" {
-    _tabtools_csv_write using "`csv'", labelvar(A) ///
+    _tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
         title(`"`title'"') footnote(`"`footnote'"')
 }
 

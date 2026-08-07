@@ -143,9 +143,9 @@ frame.{p_end}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 
 {phang}
-{opt csv(filename)} export a CSV file. The CSV mirrors the workbook: {opt title()} is
-written as the first row and {opt footnote()} as the last row, both in the first column,
-with the table body between them{p_end}
+{opt csv(filename)} export a CSV file. The CSV mirrors the workbook with
+{opt title()} written as the first row and {opt footnote()} as the last row,
+both in the first column and the table body between them.{p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for survival estimates and CIs (default 1, range 0-6){p_end}

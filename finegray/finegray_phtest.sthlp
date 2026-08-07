@@ -194,7 +194,11 @@ less sensitive to extreme event times and is the default screening choice.
 {pstd}
 {bf:Diagnostic-only surface.} {cmd:r(phtest)} holds one row per covariate with
 columns {cmd:correlation} (the raw-Schoenfeld/time correlation) and
-{cmd:events} (the number of cause-event times used). It does {bf:not} carry
+{cmd:events} (the number of cause-event times used). The {cmd:events} column is
+printed only when it differs from the header's {cmd:Cause events} for some
+covariate - it can, when the {opt time()} transform leaves a missing value (for
+example {cmd:time(log)} at an event time of zero) - but it is returned in
+{cmd:r(phtest)} either way. It does {bf:not} carry
 {cmd:chi2}, {cmd:df}, or a p-value: those are not reported (see
 {it:Statistical scope}). The omnibus scalars {cmd:r(chi2)}, {cmd:r(df)} and
 {cmd:r(p)} were retired earlier and remain unset; see

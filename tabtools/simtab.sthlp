@@ -120,9 +120,10 @@ table-grade measures itself from replication-level data.{p_end}
 {synoptline}
 {p2colreset}{...}
 {p 4 6 2}At least one output target ({opt xlsx()}, {opt csv()}, {opt markdown()},
-{opt frame()}, {opt plotframe()}, or {opt display}) is required. The CSV mirrors the workbook:
-{opt title()} is written as the first row and {opt footnote()} as the last row, both in the first
-column, with the table body between them.{p_end}
+{opt frame()}, {opt plotframe()}, or {opt display}) is required. The CSV
+mirrors the workbook with {opt title()} written as the first row and
+{opt footnote()} as the last row, both in the first column and the table body
+between them.{p_end}
 
 
 {pstd}

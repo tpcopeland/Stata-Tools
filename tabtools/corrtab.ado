@@ -1,4 +1,4 @@
-*! corrtab Version 1.12.0  2026/08/06
+*! corrtab Version 1.12.1  2026/08/07
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -319,7 +319,7 @@ program define corrtab, rclass
         }
 
         if "`csv'" != "" {
-            _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`_md_footnote'"')
+            _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`_md_footnote'"')
             capture confirm file "`csv'"
             if _rc {
                 noisily display as error "CSV export completed but file was not created"

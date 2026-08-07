@@ -263,6 +263,61 @@ What else it pins: `treat()` is in the FIPTIW visit-intensity denominator by con
   **CR1** rung (`m/(m-1)`) to 2.2e-15 — not CR0 and not CR1S, which is why the
   probe carries a CR1 column. SKIPS rather than passes if clubSandwich is
   absent.
+- `test_iivw_stacked.do` — the two-step (stacked) influence-function sandwich
+  behind `iivw_fit, vce(stacked)`. Fourteen cases. Three of them are exact
+  identities, and they are the ones with the power to catch a sign error, a
+  transposed cross-derivative or a mis-scaled information matrix: **S1** the
+  unrobust `stcox` `e(V)` plus per-subject score residuals reproduce
+  `stcox, vce(cluster id)` (**4.3e-19**), **S2** the same for `logit` against
+  `vce(robust)` (**1.7e-17**), **S3** the helper's own fixed sandwich reproduces
+  `glm [pw=], vce(cluster)` (**1.6e-16**, which is also the gate `iivw_fit`
+  refuses to post through). **S4** zeroing every `d log w / d theta` collapses
+  stacked onto fixed *exactly* (1.5e-16) and **S5** proves the term is applied
+  on a real fit (1.8e-3) — the pair matters because the correction is small in
+  the mean for this estimator, so a coverage-style check has no power to notice
+  it being dropped. The rest are scope and fail-closed: canonical-family breads
+  (S6), refusal without `iivw_weight, scores` (S7), refusal of trimming (S8),
+  of a non-canonical link (S9), of unweighted and `model(mixed)` (S10), stale
+  column clearing on a rerun (S11), row-order invariance (S12), and the
+  `uncleared-stacked-analytic` stamp (S13). **S14** pins the one line of the
+  derivation neither source paper states: because this package renormalizes the
+  IIW component to mean 1 over the modeled events, `d log w / d gamma` is
+  `-(Z - Zbar_omega)`, the deviation from the **weight-weighted** mean of `Z`,
+  not the papers' `-Z`. S14 reconstructs that independently and matched to
+  **0.0e+00**, with a guard that the check is not vacuous (weighted mean of `Z`
+  0.293 against unweighted 0.181, so the two terms really do differ). **No coverage evidence exists for
+  this variance**; nothing here is a calibration claim.
+- `probe_stacked_calibration.do` — the calibration half of the `vce(stacked)`
+  evidence, and it is excluded from every lane (`_skip.txt`) exactly as
+  `probe_cr_ladder.do` is. `test_iivw_stacked.do` proves the *arithmetic*; every
+  identity in it would still hold if the cross-derivative were scaled by a
+  constant, so this probe supplies the missing statement about **size** by
+  known-truth simulation against the empirical SD and realized coverage.
+  Executed 2026-08-07 (`coverage_results/STACKED_2026-08-07.md`): with a
+  correctly specified propensity model, mild confounding, `n=400`, 250 reps and
+  a near-normal sampling distribution (SD/IQR-scale **1.011**), the fixed
+  sandwich is **2.29x** the empirical SD at **100%** coverage while stacked is
+  **0.988x** at **94.4%** — the textbook estimated-propensity result reproduced,
+  and the one measurement that confirms the correction's sign and magnitude
+  together. Under strong confounding the picture changes and the probe says so:
+  SD/IQR-scale **1.205**, stacked coverage **0.880**. That is a heavy-tailed
+  pivot, not a bad correction (against the robust scale the stacked SE is 4.5%
+  low, not 21%), and it is **open**. **Diagnostic only** — a different DGP,
+  weight type, cell and seeds from the FIPTIW gate, and not a coverage verdict
+  for it.
+- `probe_stacked_strain.do` — answers the question the calibration probe left
+  open: *why* the strong-confounding cell undercovers. Also excluded from every
+  lane (`_skip.txt`). Three causes are possible and they call for different
+  responses — the SE is short, the pivot is not normal, or the estimator is
+  biased — and a SD/IQR-scale statistic cannot tell them apart. The
+  discriminator is the **oracle** interval, `beta-hat ± 1.96 × empSD`, which
+  treats the SE as known so no variance estimator can beat it: oracle near 0.95
+  with stacked below it indicts the SE, an oracle that itself undercovers does
+  not. A mean-centred oracle separates bias from shape, `median(SE)/IQR-scale`
+  compares SE to spread robustly on both sides, and the empirical p95 of `|t|`
+  gives the critical value that *would* deliver 95%. One cell per invocation
+  (`NSUB PSCOEF REPS SEED`) so an n-ladder runs as concurrent jobs. **Diagnostic
+  only**, on the same terms as the calibration probe.
 - `test_help_examples.do` — documentation reality tests (SOL-14). Every worked
   sequence in `iivw.sthlp`, `iivw_weight.sthlp` and `iivw_fit.sthlp` is
   transcribed and run from a clean sandboxed PLUS directory, plus a source scan

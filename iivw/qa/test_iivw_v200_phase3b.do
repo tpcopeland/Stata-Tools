@@ -310,6 +310,19 @@ capture noisily {
         * arithmetic is what test_iivw_cr_ladder.do covers, and that suite does
         * emit the parseable shape.
         if "`s'" == "probe_cr_ladder.do" continue
+        * probe_stacked_calibration.do, same category: the on-demand calibration
+        * DIAGNOSTIC for vce(stacked). It reports empirical SDs, SE ratios and
+        * realized coverage -- deliberately NOT a pass/fail verdict, because a
+        * calibration number is a measurement and turning it into a gate is how a
+        * diagnostic gets relabelled as a coverage result. The arithmetic it
+        * depends on is covered by test_iivw_stacked.do, which does emit the
+        * parseable shape.
+        if "`s'" == "probe_stacked_calibration.do" continue
+        * probe_stacked_strain.do, same category: the on-demand DIAGNOSTIC that
+        * decomposes the strong-confounding undercoverage into SE size, pivot
+        * shape and bias. Same reason it is not a gate -- an oracle-coverage
+        * measurement is a measurement.
+        if "`s'" == "probe_stacked_strain.do" continue
         * profile.do is Stata's own startup file, not a QA suite. CLAUDE.md
         * directs placing one here (holding `set processors 1') to run lanes in
         * parallel without the jobs contending for cores, so following the

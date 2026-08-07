@@ -652,8 +652,13 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     assert "`e(cmd)'" == "finegray"
     assert "`e(predict)'" == "finegray_predict"
-    assert "`e(depvar)'" == "status"
+    * e(depvar) is the stset analysis time, as after stcrreg: the modelled
+    * outcome is time-to-cause, not the event-type variable.  Changed in 1.2.0
+    * (it was "status", which made the coefficient-table stub claim the event
+    * code was the dependent variable).  The event-type variable is e(compete).
+    assert "`e(depvar)'" == "_t"
     assert "`e(compete)'" == "status"
+    assert "`e(compete_values)'" == "2"
     assert "`e(covariates)'" == "ifp tumsize pelnode"
     assert "`e(title)'" == "Fine-Gray competing risks regression"
     * e(properties) drives `estimates'/`_estimates hold'; b V must both be posted.

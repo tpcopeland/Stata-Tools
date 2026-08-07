@@ -1,4 +1,4 @@
-*! stratetab Version 1.12.0  2026/08/06
+*! stratetab Version 1.12.1  2026/08/07
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -615,7 +615,7 @@ drop `exp_row'
 if "`csv'" != "" {
 	_tabtools_validate_path "`csv'" "csv()"
 	order title c*
-	_tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`footnote'"')
+	_tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
 }
 
 local sht = cond("`sheet'" != "", "`sheet'", "Results")

@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.2.2  2026/08/06
+*! iivw_fit Version 3.3.0  2026/08/07
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -255,6 +255,10 @@ program define iivw_fit, eclass
     local _iivw_if `"`if'"'
     local _iivw_in `"`in'"'
     local vce_seed ""
+    local stacked ""
+    local stacked_varfunc ""
+    local stacked_terms ""
+    local stacked_ainv ""
     if `"`vce'"' != "" {
         if `bootstrap' > 0 | "`refitweights'" != "" {
             display as error "specify the variance through vce() OR the legacy"
@@ -269,11 +273,12 @@ program define iivw_fit, eclass
         if substr(`"`_vcesub'"', 1, 1) == "," ///
             local _vcesub = strtrim(substr(`"`_vcesub'"', 2, .))
 
-        if !inlist("`_vcemethod'", "bootstrap", "fixed") {
-            display as error "vce() must be bootstrap or fixed"
+        if !inlist("`_vcemethod'", "bootstrap", "fixed", "stacked") {
+            display as error "vce() must be bootstrap, fixed, or stacked"
             display as error "  vce(bootstrap, reps(#) [seed(#)])   refit bootstrap (recommended)"
             display as error "  vce(bootstrap, reps(#) fixedweights) bootstrap, weights held fixed"
             display as error "  vce(fixed)                          analytic sandwich (weights known)"
+            display as error "  vce(stacked)                        two-step influence-function sandwich"
             error 198
         }
 
@@ -293,15 +298,16 @@ program define iivw_fit, eclass
             error 198
         }
 
-        if "`_vcemethod'" == "fixed" {
+        if inlist("`_vcemethod'", "fixed", "stacked") {
             if `reps' != `_vce_reps_sentinel' | ///
                 "`seed'" != "" | "`fixedweights'" != "" {
-                display as error "vce(fixed) takes no suboptions"
-                display as error "  it is the analytic cluster-robust sandwich; there are no replicates"
+                display as error "vce(`_vcemethod') takes no suboptions"
+                display as error "  it is an analytic sandwich; there are no replicates"
                 error 198
             }
             local bootstrap 0
             local refitweights ""
+            if "`_vcemethod'" == "stacked" local stacked "stacked"
         }
         else {
             * vce(bootstrap): the release-frozen default is 999 refit draws
@@ -381,6 +387,94 @@ program define iivw_fit, eclass
                 " vce(bootstrap, reps(999)) [refit]"
             display as text ///
                 "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
+        }
+    }
+
+    * =========================================================================
+    * VARIANCE CONTRACT: vce(stacked) admissibility
+    * =========================================================================
+    * The two-step sandwich is the variance both source papers derive -- B&L
+    * (2007) PDF p.10-11 and Coulombe et al. (2021) App. A.3 -- and it is the
+    * answer to "does the package compute the SE the method's own theory
+    * specifies?", which the fixed sandwich is not. It is NOT an answer to "is
+    * the reported interval calibrated at n=300": nothing here has passed a
+    * coverage gate, and the stamp below says so.
+    *
+    * Every restriction here is a place where the derivation does not reach,
+    * and each is refused rather than approximated.
+    if "`stacked'" != "" {
+        if "`unweighted'" != "" {
+            display as error "vce(stacked) requires estimated weights"
+            display as error ""
+            display as text "  An unweighted fit estimates no nuisance model, so there is no"
+            display as text "  weight-estimation term to add. vce(fixed) is already the correct"
+            display as text "  variance for it."
+            error 198
+        }
+        if "`collect'" != "" {
+            display as error "vce(stacked) cannot be combined with collect"
+            display as error ""
+            display as text "  collect captures the fitter's own table, and the stacked"
+            display as text "  covariance replaces e(V) after that table is built. The"
+            display as text "  collection would hold the fixed-weight standard errors while"
+            display as text "  e(V) holds the stacked ones -- two different numbers under one"
+            display as text "  label, with nothing in the output to say which is which."
+            error 198
+        }
+        if "`model'" != "gee" {
+            display as error "vce(stacked) requires model(gee)"
+            display as error ""
+            display as text "  The influence function is derived for the independence-GEE"
+            display as text "  estimating equation. model(mixed) solves a different one, and its"
+            display as text "  random-effects components are not weight-estimated at all."
+            error 198
+        }
+
+        * Canonical links only. B&L's V-hat is displayed for a general link, but
+        * the simplification the bread here uses -- dmu/deta = v(mu) -- is the
+        * canonical one (their PDF p.9, "When we use a canonical link ... the
+        * estimating function (11) simplifies to"). A non-canonical link needs a
+        * different bread and has never been tested against anything.
+        local _sfam : word 1 of `=lower(strtrim("`family'"))'
+        local _slnk = lower(strtrim("`link'"))
+        local _sfam_extra : list sizeof family
+        if "`_sfam'" == "gaussian" & inlist("`_slnk'", "", "identity") ///
+            local stacked_varfunc "constant"
+        else if "`_sfam'" == "poisson" & inlist("`_slnk'", "", "log") ///
+            local stacked_varfunc "mu"
+        else if "`_sfam'" == "binomial" & `_sfam_extra' == 1 & ///
+            inlist("`_slnk'", "", "logit") local stacked_varfunc "mu1mu"
+        if "`stacked_varfunc'" == "" {
+            display as error ///
+                "vce(stacked) supports canonical links only"
+            display as error ""
+            display as text "  supported: family(gaussian) link(identity),"
+            display as text "             family(poisson) link(log),"
+            display as text "             family(binomial) link(logit)"
+            display as text "  requested: family(`family') link(`link')"
+            display as text ""
+            display as text "  For any other family or link use vce(bootstrap, reps(999))."
+            error 198
+        }
+
+        * The influence-function inputs. They are an OPT-IN output of
+        * iivw_weight because their number depends on the nuisance designs and
+        * they cannot be reconstructed afterwards; see the scores option there.
+        local stacked_terms : char _dta[_iivw_score_terms]
+        local stacked_ainv  : char _dta[_iivw_score_ainv]
+        if "`stacked_terms'" == "" | "`stacked_ainv'" == "" {
+            display as error "vce(stacked) needs the weighting's influence-function columns"
+            display as error ""
+            display as text "  These weights were built without them. Re-run the weighting with"
+            display as text "  the scores option, then refit:"
+            display as text ""
+            display as text "    iivw_weight, ... scores"
+            display as text "    iivw_fit `depvar' ..., vce(stacked)"
+            display as text ""
+            display as text "  They are not recoverable from the stored contract: the derivative"
+            display as text "  of the weight carries the mean-1 renormalization, and which rows"
+            display as text "  are modeled events is known only while the weights are built."
+            error 198
         }
     }
 
@@ -1799,6 +1893,11 @@ program define iivw_fit, eclass
             if "`collect'" != "" local _collect_prefix "collect:"
             local _fit_prefix ""
             if "`citype'" == "none" local _fit_prefix "quietly"
+            * vce(stacked) replaces the covariance AFTER glm returns, so glm's
+            * own table would print the fixed-weight SEs -- the very numbers the
+            * user asked not to be given. Suppress it and redisplay from the
+            * reposted matrix further down.
+            if "`stacked'" != "" local _fit_prefix "quietly"
             `_fit_prefix' `_collect_prefix' glm ///
                 `depvar' `all_covars' `wt_clause' if `touse', ///
                 `glm_family' `glm_link' ///
@@ -2063,6 +2162,94 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
+    * OBSERVED VARIANCE IDENTITY, taken before anything can replace it
+    * =========================================================================
+    * The variance lock further down compares what the fitter POSTED against
+    * what the package asked for. vce(stacked) deliberately replaces e(V) a few
+    * lines below, so the observation has to be made here, while e(vce) still
+    * describes the fit rather than the substitution. Reading it after the
+    * replacement would make the lock verify its own output.
+    local _obs_vce      "`e(vce)'"
+    local _obs_clustvar "`e(clustvar)'"
+    local iivw_underlying_cmd "`e(cmd)'"
+
+    * =========================================================================
+    * VCE(STACKED): replace the covariance with the two-step sandwich
+    * =========================================================================
+    * Placed AFTER the variance lock above, deliberately. The lock verifies that
+    * glm produced the covariance the package asked it for; that is still what
+    * happened, and the lock must not be weakened to accommodate a covariance
+    * this command replaces on purpose. Everything else in e() is left alone --
+    * ereturn repost swaps only V.
+    local stacked_reldif = .
+    if "`stacked'" != "" {
+        tempvar __iivw_mu
+        quietly predict double `__iivw_mu' if e(sample), mu
+
+        _iivw_stacked_vce `all_covars' if e(sample), ///
+            depvar(`depvar') mu(`__iivw_mu') ///
+            wtvar(`weight_var') cluster(`cluster') ///
+            varfunc(`stacked_varfunc') ///
+            scoreterms(`stacked_terms') ainv(`stacked_ainv')
+
+        tempname __iivw_Vstk __iivw_Vfix __iivw_Vglm
+        matrix `__iivw_Vstk' = r(V_stacked)
+        matrix `__iivw_Vfix' = r(V_fixed)
+        local __iivw_stk_nclust = r(n_clust)
+        local __iivw_stk_N = r(N)
+        matrix `__iivw_Vglm' = e(V)
+
+        * The variance must be computed on the SAME rows the coefficients were.
+        * The helper marks out every influence-function column, so a row that
+        * carries a weight but lost a derivative would silently leave the
+        * variance sample while staying in e(b) -- a covariance for a different
+        * estimator than the one being reported, at rc 0. iivw_weight's own
+        * fail-closed check should make this unreachable; this is the assertion
+        * that it did.
+        if `__iivw_stk_N' != e(N) {
+            display as error "vce(stacked): the variance sample does not match the fit"
+            display as error "  fit used `=e(N)' observations, the sandwich used `__iivw_stk_N'"
+            display as error "  an influence-function column is incomplete"
+            error 459
+        }
+
+        * ---------------------------------------------------------------------
+        * The gate. The helper rebuilds the FIXED sandwich from the same bread
+        * and the same residuals it uses for the stacked one, so if that
+        * reproduction fails, the bread or the residual is wrong and the
+        * correction term is being added to the wrong thing. Refusing here is
+        * the difference between an error and a plausible number: a bread built
+        * for the wrong variance function still yields a positive-definite
+        * matrix with sensible-looking standard errors.
+        *
+        * The comparison target is glm's own vce(cluster) e(V), which the
+        * CR-ladder work identified as the CR1 rung. 1e-8 is far above the
+        * 1e-16 agreement measured on gaussian, poisson and binomial fits, and
+        * far below any difference that would matter.
+        * ---------------------------------------------------------------------
+        local stacked_reldif = mreldif(`__iivw_Vfix', `__iivw_Vglm')
+        if `stacked_reldif' > 1e-8 | missing(`stacked_reldif') {
+            display as error "vce(stacked): the analytic bread does not reproduce"
+            display as error "  the fitted cluster-robust covariance"
+            display as error "  relative difference `stacked_reldif' (tolerance 1e-8)"
+            display as error ""
+            display as error "  This is a self-check, not a user error. The stacked"
+            display as error "  correction is not posted when it fails."
+            error 459
+        }
+
+        ereturn repost V = `__iivw_Vstk'
+        * e(vce) is Stata's own label for what e(V) IS. Leaving it at "cluster"
+        * after replacing the matrix would misdescribe it to every consumer that
+        * reads the standard field rather than the package-specific one. The
+        * variance lock above has already run against the value glm posted, so
+        * relabelling here cannot weaken it.
+        ereturn local vce "stacked"
+        local iivw_underlying_vce "stacked"
+
+    }
+
+    * =========================================================================
     * FIXED-WEIGHT VARIANCE DISCLOSURE
     * =========================================================================
     * The reported SE treats the estimated weights as KNOWN. It is not the
@@ -2074,7 +2261,19 @@ program define iivw_fit, eclass
     * This is stated where the user reads the SE, not only in the help file. It
     * is the single most consequential thing about the output and it was
     * previously invisible.
-    if "`citype'" != "none" & "`unweighted'" == "" & ///
+    if "`citype'" != "none" & "`unweighted'" == "" & "`stacked'" != "" {
+        display as text ""
+        display as text "{hline 70}"
+        display as text "note: these standard errors are the two-step (stacked) sandwich."
+        display as text "  They DO carry the weight-estimation term that Buzkova & Lumley"
+        display as text "  (2007) and Coulombe et al. (2021) derive, for: `stacked_terms'"
+        display as text ""
+        display as text "  They are EMPIRICALLY UNCLEARED. No coverage gate has been run"
+        display as text "  for this variance at any sample size, so the interval below is"
+        display as text "  nominal. See {help iivw_fit##inference:inference status}."
+        display as text "{hline 70}"
+    }
+    else if "`citype'" != "none" & "`unweighted'" == "" & ///
         (`bootstrap' == 0 | "`refitweights'" == "") {
         display as text ""
         display as text "{hline 70}"
@@ -2205,13 +2404,17 @@ program define iivw_fit, eclass
     else if `bootstrap' > 0 {
         local iivw_underlying_vce "bootstrap-fixedweights"
     }
+    else if "`stacked'" != "" {
+        * The covariance in e(V) was replaced above. Naming this branch "fixed"
+        * would make e(iivw_vce) contradict e(vce) and e(iivw_inference_status),
+        * and every audit that reads the package-specific field rather than
+        * Stata's would record the wrong variance method.
+        local iivw_underlying_vce "stacked"
+    }
     else {
         local iivw_underlying_vce "fixed"
     }
 
-    local _obs_vce      "`e(vce)'"
-    local _obs_clustvar "`e(clustvar)'"
-    local iivw_underlying_cmd "`e(cmd)'"
     local iivw_vce_locked 0
     if "`model'" == "gee" {
         if `bootstrap' > 0 {
@@ -2353,10 +2556,23 @@ program define iivw_fit, eclass
     else if `bootstrap' > 0 {
         local iivw_infstatus "uncleared-fixedweights-bootstrap"
     }
+    else if "`stacked'" != "" {
+        * Distinct from -fixedweights- because the defect is different: this
+        * variance DOES carry the weight-estimation term, so it is not
+        * understating uncertainty for that reason. What it has not got is a
+        * coverage result. Naming it "uncleared-stacked-analytic" keeps those
+        * two failures apart in every downstream audit that reads this stamp.
+        local iivw_infstatus "uncleared-stacked-analytic"
+    }
     else {
         local iivw_infstatus "uncleared-fixedweights-analytic"
     }
     ereturn local iivw_inference_status "`iivw_infstatus'"
+    ereturn local iivw_stacked_terms "`stacked_terms'"
+    if "`stacked'" != "" {
+        ereturn scalar iivw_stacked_selfcheck = `stacked_reldif'
+        ereturn scalar iivw_stacked_nclust = `__iivw_stk_nclust'
+    }
 
     * The weight contract these estimates rest on. If it is empty, the fit was
     * unweighted; if it is stale, _iivw_check_weighted already errored.

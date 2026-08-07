@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.2.2  2026/08/06
+*! iivw_weight Version 3.3.0  2026/08/07
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -90,7 +90,50 @@ program define iivw_weight, rclass sortpreserve
          BASEline(string) ///
          GENerate(name) REPLACE noLOG EFRon BREslow ///
          ALLOWNONCONVerged ALLOWMISSINGWeights ///
+         SCores ///
          EXPERIMENTALNOTREATVISit]
+
+    * -------------------------------------------------------------------------
+    * scores: emit the two-step (stacked) influence-function inputs alongside
+    * the weights, so iivw_fit, vce(stacked) can build the sandwich that both
+    * source papers derive (B&L 2007 PDF p.10-11; Coulombe et al. 2021 App A.3).
+    *
+    * It is an OPTION and not a default for one reason: the derivative columns
+    * are only meaningful for the weight this call is about to build, and the
+    * count of them is a function of the nuisance designs. Emitting them always
+    * would add 2*(k + q + 2) columns to every user's dataset for a variance
+    * nobody asked for.
+    *
+    * They cannot be reconstructed after the fact. d log w / d gamma carries the
+    * mean-1 renormalization term below, and which rows are MODELED EVENTS (as
+    * opposed to the study-entry rows pinned at exactly 1) is knowable only here,
+    * while the flags are live. A consumer that re-derived either from the stored
+    * contract would be describing a different weight than the one in the data.
+    * -------------------------------------------------------------------------
+    local __iivw_scores = ("`scores'" != "")
+
+    * Trimming is a CLIP at a data-dependent quantile. It is not differentiable
+    * in the nuisance parameters at the cutpoint, and the cutpoint is itself an
+    * estimated quantile of the very weights being differentiated, so the delta
+    * method that the stacked sandwich rests on does not apply. Refuse the
+    * combination rather than emit derivative columns that are silently wrong on
+    * every clipped row.
+    if `__iivw_scores' {
+        local __iivw_anytrunc ///
+            "`truncate'`truncvisit'`trunctreat'`truncfinal'"
+        if "`__iivw_anytrunc'" != "" {
+            display as error "scores cannot be combined with weight trimming"
+            display as error ""
+            display as text "  Trimming clips the weight at an estimated quantile of itself. The"
+            display as text "  clipped rows have zero derivative in the nuisance parameters and the"
+            display as text "  cutpoint has a nonzero one, so the two-step delta method the scores"
+            display as text "  feed is not valid for the trimmed weight."
+            display as text ""
+            display as text "  Run the trimmed weighting as a sensitivity analysis with the"
+            display as text "  bootstrap: iivw_fit ..., vce(bootstrap, reps(999))"
+            error 198
+        }
+    }
 
     * =========================================================================
     * SET DEFAULTS
@@ -858,6 +901,107 @@ program define iivw_weight, rclass sortpreserve
     }
     local visit_covars = strtrim(itrim("`visit_covars'"))
 
+    * =========================================================================
+    * SCORE-COLUMN NAME TRANSACTION (scores option only)
+    * =========================================================================
+    * A SECOND reservation pass, deliberately placed here rather than beside the
+    * weight-output reservation above. The number of score columns is a function
+    * of the nuisance DESIGNS, and `visit_covars' -- the union of visit_cov(),
+    * the generated lag columns and, under FIPTIW, treat() -- is only final on
+    * the line above. Recomputing that union at the earlier reservation site
+    * would be a second implementation of the rule three lines up, and the two
+    * would drift.
+    *
+    * Layout of the stacked nuisance parameter vector, in this order:
+    *   g:<v>      one per visit_covars entry     (visit-intensity Cox, gamma)
+    *   a:<v>      one per treat_cov entry        (propensity logit, alpha)
+    *   a:_cons    the logit intercept
+    *   p:_cons    the IPTW stabilization numerator Pr(A=1)
+    * The stabilization model's delta does NOT appear: B&L show the outcome
+    * estimating equation has mean zero for ANY h (PDF p.9), so its derivative
+    * with respect to delta vanishes at the truth and the first-stage estimation
+    * of delta has no first-order effect on the variance. Their p.11 states the
+    * same conclusion directly ("asymptotically we obtain equivalent expressions
+    * when plugging in a random variable delta-hat instead of any fixed delta").
+    *
+    * The layout is written to a characteristic rather than recomputed by the
+    * consumer, so there is exactly one statement of it.
+    local __iivw_score_terms ""
+    local __iivw_score_names ""
+    local __iivw_score_tokens ""
+    local __iivw_gscore_keep ""
+    local __iivw_ng = 0
+    local __iivw_na = 0
+    local __iivw_nscore = 0
+    local __iivw_mp = 0
+    tempname __iivw_ainv_g __iivw_ainv_a
+
+    if `__iivw_scores' {
+        if "`wtype'" != "iptw" {
+            foreach __iivw_v of local visit_covars {
+                local __iivw_score_terms "`__iivw_score_terms' g:`__iivw_v'"
+            }
+        }
+        if inlist("`wtype'", "iptw", "fiptiw") {
+            foreach __iivw_v of local treat_cov {
+                local __iivw_score_terms "`__iivw_score_terms' a:`__iivw_v'"
+            }
+            local __iivw_score_terms "`__iivw_score_terms' a:_cons p:_cons"
+        }
+        local __iivw_score_terms = strtrim(itrim("`__iivw_score_terms'"))
+        local __iivw_nscore : word count `__iivw_score_terms'
+        if `__iivw_nscore' == 0 {
+            display as error "scores requires a weight with an estimated nuisance model"
+            error 198
+        }
+
+        _iivw_own token, role(nd) prefix(`prefix')
+        local __iivw_nd_token "`r(token)'"
+        _iivw_own token, role(ns) prefix(`prefix')
+        local __iivw_ns_token "`r(token)'"
+        forvalues __iivw_j = 1/`__iivw_nscore' {
+            local __iivw_score_names ///
+                "`__iivw_score_names' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
+            local __iivw_score_tokens ///
+                "`__iivw_score_tokens' `__iivw_nd_token' `__iivw_ns_token'"
+        }
+        local __iivw_score_names = strtrim("`__iivw_score_names'")
+        local __iivw_score_tokens = strtrim("`__iivw_score_tokens'")
+
+        _iivw_reserve_names, generated(`__iivw_score_names') ///
+            owntokens(`__iivw_score_tokens') ///
+            protected(`__iivw_protected') `replace' context(iivw_weight)
+    }
+
+    * ---- Stale-column sweep, run whether or not scores was asked for, and
+    * strictly AFTER the reservation above so the `replace' guard still sees the
+    * prior columns in place. The score columns are the one package output whose
+    * NAME COUNT varies with the specification, so the "own all four names
+    * unconditionally" rule used at the first reservation cannot be applied to
+    * them by enumeration. The previous run's layout is read back off its own
+    * characteristic instead, and both that layout and the new one join the
+    * backup transaction: a rerun with a different nuisance design, or with no
+    * scores at all, clears them atomically on success. Without this a dataset
+    * keeps derivative columns describing a weight that no longer exists, and
+    * iivw_fit, vce(stacked) would build its sandwich out of them.
+    local __iivw_prev_terms : char _dta[_iivw_score_terms]
+    local __iivw_prev_n : word count `__iivw_prev_terms'
+    local __iivw_sweep "`__iivw_score_names'"
+    forvalues __iivw_j = 1/`__iivw_prev_n' {
+        local __iivw_sweep ///
+            "`__iivw_sweep' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
+    }
+    local __iivw_sweep : list uniq __iivw_sweep
+    foreach __iivw_g of local __iivw_sweep {
+        capture confirm variable `__iivw_g'
+        if _rc == 0 {
+            tempvar __iivw_bk
+            quietly rename `__iivw_g' `__iivw_bk'
+            local __iivw_bk_names "`__iivw_bk_names' `__iivw_g'"
+            local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
+        }
+    }
+
     * -------------------------------------------------------------------------
     * Treatment inputs must be subject-constant -- checked BEFORE any model.
     * -------------------------------------------------------------------------
@@ -1175,6 +1319,54 @@ program define iivw_weight, rclass sortpreserve
             local __iivw_visit_Nsub = e(N_sub)
             matrix `__iivw_bmat' = e(b)
 
+            * ---------------------------------------------------------------
+            * Stacked-sandwich stage-1 inputs for gamma, taken from the fit
+            * that produced the weights rather than from a replay of it.
+            *
+            *   A_gamma^-1  = e(V) of the UNROBUST stcox. For a Cox/AG fit that
+            *                 is exactly the inverse observed information, which
+            *                 is B&L's A-hat (PDF p.8, eq. 10) up to the 1/n
+            *                 both it and G carry, and which cancels.
+            *   s_gamma_i   = the subject sum of predict, scores, which is the
+            *                 efficient score residual int (Z - Zbar) dM-hat
+            *                 (B&L PDF p.10-11).
+            *
+            * Verified rather than assumed: with these two objects,
+            *   (m/(m-1)) * e(V) * sum_i s_i s_i' * e(V)
+            * reproduces stcox, vce(cluster id)'s own e(V) to 8.6e-19 on an AG
+            * panel. That identity is pinned by test_iivw_stacked.do S1.
+            * ---------------------------------------------------------------
+            if `__iivw_scores' & "`wtype'" != "iptw" {
+                matrix `__iivw_ainv_g' = e(V)
+                local __iivw_ng : word count `visit_covars'
+                forvalues __iivw_j = 1/`__iivw_ng' {
+                    tempvar __iivw_scg`__iivw_j'
+                    local __iivw_gscore_keep ///
+                        "`__iivw_gscore_keep' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
+                }
+                local __iivw_scglist ""
+                forvalues __iivw_j = 1/`__iivw_ng' {
+                    local __iivw_scglist ///
+                        "`__iivw_scglist' `__iivw_scg`__iivw_j''"
+                }
+                predict double `__iivw_scglist', scores
+
+                * Sum within subject over EVERY row the Cox model used, which
+                * includes the terminal censoring rows: they are part of the
+                * subject's martingale residual even though they carry no
+                * weight and are dropped a few lines below. Broadcast the sum
+                * back to all rows so it survives that drop and the merge.
+                forvalues __iivw_j = 1/`__iivw_ng' {
+                    quietly replace `__iivw_scg`__iivw_j'' = 0 ///
+                        if missing(`__iivw_scg`__iivw_j'')
+                    * by() rather than bysort: egen's by() option needs no sort
+                    * and, unlike a -bysort- prefix, does not reorder the data
+                    * underneath the rest of this block.
+                    quietly egen double `prefix'ns`__iivw_j' = ///
+                        total(`__iivw_scg`__iivw_j''), by(`id')
+                }
+            }
+
             * Get linear predictor
             tempvar _xb_full
             predict double `_xb_full', xb
@@ -1269,7 +1461,47 @@ program define iivw_weight, rclass sortpreserve
                 quietly replace `prefix'iw = `prefix'iw / r(mean)
             }
 
-            keep `_obsno' `prefix'iw
+            * ---------------------------------------------------------------
+            * d log(IIW weight) / d gamma, evaluated AFTER the normalization
+            * above and deliberately so. The papers differentiate the raw rate
+            * ratio and get -Z_j. This package divides by the mean over the
+            * modeled events, and that divisor is itself a function of gamma:
+            *
+            *   iw_j    = e_j / mean(e),      e_j = exp(delta'X_j - gamma'Z_j)
+            *   d log iw_j / d gamma = -Z_j + sum_l omega_l Z_l,
+            *                          omega_l = e_l / sum_l e_l = iw_l / sum iw
+            *
+            * so the correct derivative is the deviation of Z_j from the
+            * WEIGHT-WEIGHTED mean of Z over the modeled events, not from zero.
+            * Dropping the second term is not a rescaling of the correction --
+            * it is a different vector, and it does not vanish as n grows,
+            * because the estimator is invariant to a common factor on the
+            * weights while -Z_j alone is not.
+            *
+            * The rows in memory at this point are exactly the modeled events:
+            * the censoring rows were dropped above, and under baseline(entry)
+            * the scheduled entry rows were dropped before the fit. Rows
+            * reinstated at exactly 1 after the restore are not functions of
+            * gamma at all and take derivative 0 there.
+            * ---------------------------------------------------------------
+            if `__iivw_scores' & "`wtype'" != "iptw" {
+                tempvar __iivw_nwt
+                quietly gen double `__iivw_nwt' = `prefix'iw ///
+                    if !missing(`prefix'iw)
+                forvalues __iivw_j = 1/`__iivw_ng' {
+                    local __iivw_zv : word `__iivw_j' of `visit_covars'
+                    quietly summarize `__iivw_zv' ///
+                        [aw=`__iivw_nwt'] if !missing(`prefix'iw), meanonly
+                    local __iivw_zbar = r(mean)
+                    quietly gen double `prefix'nd`__iivw_j' = ///
+                        -(`__iivw_zv' - `__iivw_zbar') if !missing(`prefix'iw)
+                }
+                drop `__iivw_nwt'
+                keep `_obsno' `prefix'iw `__iivw_gscore_keep'
+            }
+            else {
+                keep `_obsno' `prefix'iw
+            }
             save `__iivw_iwfile', replace
         }
         local __iivw_iw_rc = _rc
@@ -1351,6 +1583,37 @@ program define iivw_weight, rclass sortpreserve
                 if _n == 1 & missing(`prefix'iw)
         }
         local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
+
+        * ---- Reconcile the gamma-block score columns with the rows the merge
+        * just decided about. Two distinct fixes, and they are NOT the same:
+        *
+        *   nd (the row derivative) is 0 on every row whose weight is the
+        *   hard-coded study-entry 1. That row's weight is a convention, not a
+        *   function of gamma, so it contributes nothing to G_gamma.
+        *
+        *   ns (the subject score) is subject-CONSTANT and is defined for every
+        *   row of a subject the Cox model saw, including rows the merge left
+        *   master-only. Filling it by subject rather than with 0 is the
+        *   difference between the subject's real influence contribution and a
+        *   silently dropped one.
+        if `__iivw_scores' & "`wtype'" != "iptw" {
+            quietly {
+                forvalues __iivw_j = 1/`__iivw_ng' {
+                    tempvar __iivw_nsfill
+                    egen double `__iivw_nsfill' = ///
+                        mean(`prefix'ns`__iivw_j'), by(`id')
+                    replace `prefix'ns`__iivw_j' = `__iivw_nsfill' ///
+                        if missing(`prefix'ns`__iivw_j')
+                    drop `__iivw_nsfill'
+                    replace `prefix'ns`__iivw_j' = 0 ///
+                        if missing(`prefix'ns`__iivw_j')
+                    replace `prefix'nd`__iivw_j' = 0 ///
+                        if missing(`prefix'nd`__iivw_j')
+                }
+            }
+            local __iivw_created_vars ///
+                "`__iivw_created_vars' `__iivw_gscore_keep'"
+        }
 
         label variable `prefix'iw "Inverse intensity weight"
 
@@ -1494,7 +1757,62 @@ program define iivw_weight, rclass sortpreserve
 
             tempvar _ps_tmp
             predict double `_ps_tmp', pr
-            keep `id' `_ps_tmp'
+
+            * ---------------------------------------------------------------
+            * Stacked-sandwich stage-1 inputs for alpha and for the numerator
+            * p = Pr(A=1), taken from the fit that produced the weights.
+            *
+            * The propensity model here is fitted on ONE ROW PER SUBJECT, which
+            * is the case Coulombe et al. flag explicitly at the head of App.
+            * A.3 as needing an adjustment to their time-varying display. In
+            * the M-estimation framework the adjustment is only that the score
+            * contributes once per subject rather than once per discretized
+            * time unit, which is what this block emits.
+            *
+            *   A_alpha^-1 = e(V) of the UNROBUST logit = inverse information.
+            *   s_alpha_i  = (A_i - e_i) * (K_i, 1), i.e. predict, score times
+            *                the design row. Pinned against logit, vce(robust)
+            *                by test_iivw_stacked.do S2.
+            *   p is a sample mean, so its estimating function is (A_i - p)
+            *   with information exactly n_ps; A_p^-1 = 1/n_ps.
+            * ---------------------------------------------------------------
+            local __iivw_pskeep ""
+            if `__iivw_scores' {
+                matrix `__iivw_ainv_a' = e(V)
+                tempvar __iivw_sc0
+                predict double `__iivw_sc0', score
+                local __iivw_na : word count `treat_covars'
+                local __iivw_off = `__iivw_ng'
+                forvalues __iivw_j = 1/`__iivw_na' {
+                    local __iivw_kv : word `__iivw_j' of `treat_covars'
+                    local __iivw_m = `__iivw_off' + `__iivw_j'
+                    quietly gen double `prefix'ns`__iivw_m' = ///
+                        `__iivw_sc0' * `__iivw_kv'
+                    quietly gen double `prefix'nd`__iivw_m' = ///
+                        -(`treat' - `_ps_tmp') * `__iivw_kv'
+                    local __iivw_pskeep ///
+                        "`__iivw_pskeep' `prefix'nd`__iivw_m' `prefix'ns`__iivw_m'"
+                }
+                * The logit intercept: design column 1.
+                local __iivw_mc = `__iivw_off' + `__iivw_na' + 1
+                quietly gen double `prefix'ns`__iivw_mc' = `__iivw_sc0'
+                quietly gen double `prefix'nd`__iivw_mc' = ///
+                    -(`treat' - `_ps_tmp')
+                * The stabilization numerator.
+                *   d log tw / d p = A/p - (1-A)/(1-p)
+                local __iivw_mp = `__iivw_mc' + 1
+                quietly gen double `prefix'ns`__iivw_mp' = ///
+                    `treat' - `__iivw_p_treat'
+                quietly gen double `prefix'nd`__iivw_mp' = ///
+                    `treat'/`__iivw_p_treat' ///
+                    - (1 - `treat')/(1 - `__iivw_p_treat')
+                local __iivw_pskeep ///
+                    "`__iivw_pskeep' `prefix'nd`__iivw_mc' `prefix'ns`__iivw_mc'"
+                local __iivw_pskeep ///
+                    "`__iivw_pskeep' `prefix'nd`__iivw_mp' `prefix'ns`__iivw_mp'"
+                drop `__iivw_sc0'
+            }
+            keep `id' `_ps_tmp' `__iivw_pskeep'
             save `__iivw_psfile', replace
         }
         local logit_rc = _rc
@@ -1544,6 +1862,10 @@ program define iivw_weight, rclass sortpreserve
             gen double `prefix'ps = `_ps_tmp'
             label variable `prefix'ps "Treatment propensity score"
             local __iivw_created_vars "`__iivw_created_vars' `prefix'ps"
+            if `__iivw_scores' {
+                local __iivw_created_vars ///
+                    "`__iivw_created_vars' `__iivw_pskeep'"
+            }
 
             summarize `prefix'ps, meanonly
             local ps_min = r(min)
@@ -2098,6 +2420,88 @@ program define iivw_weight, rclass sortpreserve
     * refused to overwrite them, correctly, as columns iivw did not own. A
     * generated variable that is not stamped is a variable the package cannot
     * clean up after itself.
+    * =========================================================================
+    * STACKED-SANDWICH CONTRACT
+    * =========================================================================
+    * Two characteristics, always written (empty when scores was not asked for,
+    * so a rerun without it cannot leave a consumer reading last run's layout).
+    *
+    *   _iivw_score_terms  the stacked nuisance parameter vector, in the same
+    *                      order as the ndN/nsN column pairs. The ONE statement
+    *                      of the layout; iivw_fit reads it and never re-derives.
+    *   _iivw_score_ainv   the block-diagonal inverse information, serialized in
+    *                      %21x. Hexadecimal float, not decimal: %21x round-trips
+    *                      a double exactly, and a variance that is only correct
+    *                      to the printed digits is a variance nobody can pin a
+    *                      1e-15 tolerance on.
+    *
+    * The blocks are independent estimating equations, so the inverse
+    * information is block diagonal. The COVARIANCE between stages is not lost
+    * by that: it enters through the joint distribution of (s_gamma_i, s_alpha_i)
+    * inside the per-subject outer product that iivw_fit forms, which is the
+    * standard stacked M-estimation result (Newey & McFadden 1994, as used by
+    * Coulombe et al. 2021 App. A.3 eq. A.1).
+    if `__iivw_nscore' > 0 {
+        * Fail closed on an incomplete score column. A row that carries a final
+        * weight but no derivative would silently contribute its outcome score
+        * to the sandwich with a ZERO correction -- a term dropped, not an error
+        * raised, and the resulting standard error would be somewhere between
+        * the fixed and the stacked one with nothing to say which.
+        forvalues __iivw_j = 1/`__iivw_nscore' {
+            quietly count if !missing(`prefix'weight) & ///
+                (missing(`prefix'nd`__iivw_j') | missing(`prefix'ns`__iivw_j'))
+            * r(N) captured immediately: the display below is not r-class, but
+            * the message is built from macros that would outlive an intervening
+            * r-class call, and this file has been bitten by a stale r(N) before.
+            local __iivw_nbad = r(N)
+            if `__iivw_nbad' > 0 {
+                local __iivw_term : word `__iivw_j' of `__iivw_score_terms'
+                display as error ///
+                    "scores: `__iivw_nbad' weighted row(s) have no influence-function"
+                display as error ///
+                    "  contribution for `__iivw_term'"
+                display as error ///
+                    "  the stacked variance cannot be formed from this weighting"
+                error 498
+            }
+        }
+
+        tempname __iivw_ainv
+        matrix `__iivw_ainv' = J(`__iivw_nscore', `__iivw_nscore', 0)
+        forvalues __iivw_r = 1/`__iivw_ng' {
+            forvalues __iivw_c = 1/`__iivw_ng' {
+                matrix `__iivw_ainv'[`__iivw_r', `__iivw_c'] = ///
+                    `__iivw_ainv_g'[`__iivw_r', `__iivw_c']
+            }
+        }
+        if inlist("`wtype'", "iptw", "fiptiw") {
+            local __iivw_da = `__iivw_na' + 1
+            forvalues __iivw_r = 1/`__iivw_da' {
+                forvalues __iivw_c = 1/`__iivw_da' {
+                    matrix `__iivw_ainv'[`__iivw_ng' + `__iivw_r', ///
+                        `__iivw_ng' + `__iivw_c'] = ///
+                        `__iivw_ainv_a'[`__iivw_r', `__iivw_c']
+                }
+            }
+            matrix `__iivw_ainv'[`__iivw_mp', `__iivw_mp'] = ///
+                1 / `__iivw_ps_N'
+        }
+        local __iivw_ainv_str ""
+        forvalues __iivw_r = 1/`__iivw_nscore' {
+            forvalues __iivw_c = 1/`__iivw_nscore' {
+                local __iivw_cell = ///
+                    strofreal(`__iivw_ainv'[`__iivw_r', `__iivw_c'], "%21x")
+                local __iivw_ainv_str "`__iivw_ainv_str' `__iivw_cell'"
+            }
+        }
+        char _dta[_iivw_score_terms] "`__iivw_score_terms'"
+        char _dta[_iivw_score_ainv] "`=strtrim("`__iivw_ainv_str'")'"
+    }
+    else {
+        char _dta[_iivw_score_terms] ""
+        char _dta[_iivw_score_ainv] ""
+    }
+
     local __iivw_own_names "iw tw ps weight iw_raw tw_raw"
     local __iivw_own_roles "iw tw ps weight iwraw twraw"
     local __iivw_owned ""
@@ -2117,6 +2521,12 @@ program define iivw_weight, rclass sortpreserve
             _iivw_own stamp `__iivw_l', role(lag)
             local __iivw_owned "`__iivw_owned' `__iivw_l'"
         }
+    }
+    forvalues __iivw_j = 1/`__iivw_nscore' {
+        _iivw_own stamp `prefix'nd`__iivw_j', role(nd) prefix(`prefix')
+        _iivw_own stamp `prefix'ns`__iivw_j', role(ns) prefix(`prefix')
+        local __iivw_owned ///
+            "`__iivw_owned' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
     }
     char _dta[_iivw_owned] "`=strtrim("`__iivw_owned'")'"
 
@@ -2338,6 +2748,12 @@ program define iivw_weight, rclass sortpreserve
         return local ps_estimand "ate"
     }
     return local contract_version "3"
+
+    * The stacked-sandwich contract, mirrored from the characteristics so a
+    * caller that runs iivw_weight and iivw_fit in one program does not have to
+    * read chars back off the data.
+    return local score_terms "`__iivw_score_terms'"
+    return scalar n_score = `__iivw_nscore'
 
     }
     local rc = _rc

@@ -1,4 +1,4 @@
-*! _iivw_tie_density Version 3.2.2  2026/08/06
+*! _iivw_tie_density Version 3.3.0  2026/08/07
 *! Measure tie multiplicity among modeled event times and advise on tie method
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

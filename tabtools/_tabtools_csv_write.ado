@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 1.12.0  2026/08/06
+*! _tabtools_csv_write Version 1.12.1  2026/08/07
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -9,7 +9,7 @@ program define _tabtools_csv_write
     set varabbrev off
     local _restore_needed = 0
     capture noisily {
-        syntax using/ [, LABELVar(name) TITLE(string) FOOTnote(string)]
+        syntax using/ [, LABELVar(name) TITLE(string) FOOTnote(string) RESERVEDRow]
 
         capture program list _tabtools_validate_path
         if _rc {
@@ -43,20 +43,31 @@ program define _tabtools_csv_write
 
         * Drop leading rows that carry nothing in any exported column. Those are
         * the reserved title rows; their text lives outside `_vars'.
-        tempvar _tt_filled
-        quietly generate byte `_tt_filled' = 0
-        foreach _v of local _vars {
-            capture confirm string variable `_v'
-            if !_rc quietly replace `_tt_filled' = 1 if strtrim(`_v') != ""
-            else    quietly replace `_tt_filled' = 1 if !missing(`_v')
-        }
-        quietly count if `_tt_filled'
-        if r(N) > 0 {
-            tempvar _tt_rowid
-            quietly generate long `_tt_rowid' = _n
-            quietly summarize `_tt_rowid' if `_tt_filled', meanonly
-            local _tt_first_filled = r(min)
-            if `_tt_first_filled' > 1 quietly drop in 1/`=`_tt_first_filled' - 1'
+        *
+        * Only a caller that actually reserves such a row may ask for this.
+        * The rule "a leading row blank in every exported column is structural"
+        * is true for a rendered table and false for a raw export: `puttab' and
+        * `simtab' hand this helper the user's own observations, where a first
+        * row blank in every column is data. Dropping it there silently shipped
+        * a CSV with one row fewer than the workbook -- so the drop is opt-in,
+        * declared by the caller that built the reserved row, never inferred
+        * from the contents of row 1.
+        if "`reservedrow'" != "" {
+            tempvar _tt_filled
+            quietly generate byte `_tt_filled' = 0
+            foreach _v of local _vars {
+                capture confirm string variable `_v'
+                if !_rc quietly replace `_tt_filled' = 1 if strtrim(`_v') != ""
+                else    quietly replace `_tt_filled' = 1 if !missing(`_v')
+            }
+            quietly count if `_tt_filled'
+            if r(N) > 0 {
+                tempvar _tt_rowid
+                quietly generate long `_tt_rowid' = _n
+                quietly summarize `_tt_rowid' if `_tt_filled', meanonly
+                local _tt_first_filled = r(min)
+                if `_tt_first_filled' > 1 quietly drop in 1/`=`_tt_first_filled' - 1'
+            }
         }
 
         * Title and footnote can only be written into a string column. Every

@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/08/03
+*! finegray_phtest Version 1.2.0  2026/08/07
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -357,24 +357,49 @@ program define finegray_phtest, rclass
     display as text "Cause events:  " as result "`n_fail'"
     display as text ""
 
-    display as text "{hline 13}{c TT}{hline 30}"
-    display as text %12s "Variable" " {c |}" ///
-        %14s "correlation" %10s "events"
-    display as text "{hline 13}{c +}{hline 30}"
+    * The `events' column is the number of cause-event times that entered each
+    * covariate's correlation.  It equals the header's "Cause events" on every
+    * row unless the time transform dropped some (time(log) at an event time of
+    * zero), so printing it unconditionally repeated one number down the whole
+    * table.  Print it only when it carries information -- i.e. when some row
+    * differs from n_fail.  It is returned in r(phtest) either way.
+    local _show_n = 0
+    forvalues v = 1/`p' {
+        if `test_mat'[`v', 2] != `n_fail' local _show_n = 1
+    }
+
+    if `_show_n' {
+        display as text "{hline 13}{c TT}{hline 30}"
+        display as text %12s "Variable" " {c |}" ///
+            %14s "correlation" %10s "events"
+        display as text "{hline 13}{c +}{hline 30}"
+    }
+    else {
+        display as text "{hline 13}{c TT}{hline 20}"
+        display as text %12s "Variable" " {c |}" %14s "correlation"
+        display as text "{hline 13}{c +}{hline 20}"
+    }
 
     forvalues v = 1/`p' {
         local vname : word `v' of `covlabels'
         local rho_v = `test_mat'[`v', 1]
         local n_v   = `test_mat'[`v', 2]
-        display as text %12s abbrev("`vname'", 12) " {c |}" ///
-            as result %14.4f `rho_v' %10.0f `n_v'
+        if `_show_n' {
+            display as text %12s abbrev("`vname'", 12) " {c |}" ///
+                as result %14.4f `rho_v' %10.0f `n_v'
+        }
+        else {
+            display as text %12s abbrev("`vname'", 12) " {c |}" ///
+                as result %14.4f `rho_v'
+        }
     }
 
-    display as text "{hline 13}{c BT}{hline 30}"
+    if `_show_n' display as text "{hline 13}{c BT}{hline 30}"
+    else         display as text "{hline 13}{c BT}{hline 20}"
     display as text ""
     display as text "Correlation of the raw Schoenfeld residual with the time"
     display as text "function; exploratory diagnostic only, no test or p-value is"
-    display as text "reported.  See {bf:help finegray_phtest}."
+    display as text "reported.  See {help finegray_phtest:help finegray_phtest}."
 
     * Return results.  r(phtest) carries the diagnostic correlations (and the
     * per-covariate event count), NOT chi2/df/p -- those are deliberately absent.

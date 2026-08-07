@@ -1,4 +1,4 @@
-*! table1_tc Version 1.12.0  2026/08/06 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.12.1  2026/08/07 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1817,7 +1817,7 @@ program define table1_tc, rclass
 
     * CSV export (F2)
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`footnote'"')
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
         display as text "CSV exported to `csv'"
     }
 

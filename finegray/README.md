@@ -1,6 +1,6 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.2.0** | 2026-08-03
+**Version 1.2.0** | 2026-08-07
 
 `finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 
@@ -212,7 +212,11 @@ The main demo regenerates this cumulative-incidence curve with a pointwise 95% c
 
 ```stata
 finegray varlist [if] [in], compete(varname) cause(integer) [censvalue(integer) noshr level(#) strata(varlist) truncstrata(varlist) cluster(varname) norobust noadjust nolog basehaz nuisance iterate(integer) tolerance(#)]
+
+finegray [, noshr level(#)]
 ```
+
+The second form replays the last `finegray` results without refitting; `noshr` and `level()` are honored on replay.
 
 `varlist` accepts numeric factor-variable notation, including continuous terms, indicators, interactions, and expanded interactions. `compete()` identifies the event-type variable and `cause()` selects the integer event value whose subdistribution hazard is modeled; `censvalue()` defaults to 0. The `stset` declaration supplies analysis time, failure coding, subject identifier, and optional delayed-entry time.
 
@@ -305,11 +309,11 @@ For `finegray_cif`, `attime()` and `timepoints()` cannot be combined. `ci` uses 
 
 ### After `finegray`
 
-Standard estimation results include `e(b)`, `e(V)`, `e(sample)`, `e(N)`, `e(depvar)`, and `e(properties)`. The command also posts these scalars (with `e(N_clust)` when clustering is used):
+Standard estimation results include `e(b)`, `e(V)`, `e(sample)`, `e(N)`, `e(depvar)`, and `e(properties)`. `e(depvar)` is `_t`, the `stset` analysis time, as it is after `stcrreg`; the event-type variable is `e(compete)`. For a factor-variable fit, `e(b)` and `e(V)` are named with the terms you typed (`1.pelnode`, `1.pelnode#c.ifp`), so `test`, `testparm`, and `estimates table` address them directly; the internal design columns are listed in `e(covariates)`. The command also posts these scalars (with `e(N_clust)` when clustering is used):
 
-`e(N_fail)`, `e(N_compete)`, `e(N_cens)`, `e(ll)`, `e(ll_0)`, `e(chi2)`, `e(p)`, `e(df_m)`, `e(rank)`, `e(N_clust)`, `e(converged)`, `e(level)`, `e(cause)`, `e(censvalue)`, `e(iterate)`, `e(tolerance)`, `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, and `e(N_weight_warn)`.
+`e(N_fail)`, `e(N_compete)`, `e(N_cens)`, `e(ll)`, `e(ll_0)`, `e(chi2)`, `e(p)`, `e(df_m)`, `e(rank)`, `e(N_clust)`, `e(converged)`, `e(N_delayed)`, `e(N_G_trunc)`, `e(level)`, `e(cause)`, `e(censvalue)`, `e(iterate)`, `e(tolerance)`, `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, and `e(N_weight_warn)`.
 
-Posted macros are `e(cmd)`, `e(cmdline)`, `e(refitcmd)`, `e(predict)`, `e(compete)`, `e(covariates)`, `e(fvvarlist)`, `e(fvsemantic)`, `e(strata)`, `e(truncstrata)`, `e(clustvar)`, `e(lt_weight)`, `e(lt_vce)`, `e(bh_seq)`, `e(weight_warn_strata)`, `e(vce)`, `e(vce_meat)`, `e(title)`, `e(marginsok)`, `e(datasignature)`, and `e(datasignaturevars)`.
+Posted macros are `e(cmd)`, `e(cmdline)`, `e(refitcmd)`, `e(predict)`, `e(compete)`, `e(compete_values)`, `e(covariates)`, `e(fvvarlist)`, `e(fvsemantic)`, `e(strata)`, `e(truncstrata)`, `e(clustvar)`, `e(lt_weight)`, `e(lt_vce)`, `e(bh_seq)`, `e(weight_warn_strata)`, `e(vce)`, `e(vce_meat)`, `e(title)`, `e(marginsok)`, `e(datasignature)`, and `e(datasignaturevars)`.
 
 The optional matrix `e(basehaz)` has columns for event time and cumulative baseline subdistribution hazard and is posted only when `basehaz` is specified. `e(N_clust)` is posted when clustering is used; delayed-entry diagnostics are populated when delayed-entry weighting applies.
 
@@ -351,7 +355,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.2.0** (2026-08-03): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, and expanded CIF and diagnostic workflows; `finegray_phtest` is an exploratory residual-correlation diagnostic without an omnibus test.
+- **1.2.0** (2026-08-07): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, and expanded CIF and diagnostic workflows; `finegray_phtest` is an exploratory residual-correlation diagnostic without an omnibus test. Display and reporting pass: `finegray` now replays its results when typed with no `varlist`; factor-variable coefficients are named with the terms you typed rather than internal design columns (so `test 1.pelnode` and `estimates table` work directly); the header reports the competing event values, the delayed-entry weight and late-entry count, and which variance is in `e(V)`; `e(depvar)` is `_t`, matching `stcrreg`. `finegray_cif` states the covariate profile above the table and under the graph, extends the plotted curve across the flat tail to the end of follow-up, flags requested times outside the estimated support, and labels the `saving()` dataset. New returns: `e(N_delayed)`, `e(N_G_trunc)`, `e(compete_values)`.
 - **1.1.0** (2026-07-10): Added CIF curves, multiple-record support, stratified censoring, and postestimation confidence intervals.
 - **1.0.0** (2026-04-06): Initial Stata-Tools release of `finegray`, `finegray_predict`, and `finegray_phtest`.
 

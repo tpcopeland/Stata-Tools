@@ -1,4 +1,4 @@
-*! desctab Version 1.12.0  2026/08/06
+*! desctab Version 1.12.1  2026/08/07
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -812,7 +812,7 @@ program define desctab, rclass
     return local compose `"`compose_resolved'"'
     return local methods "`_methods'"
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", labelvar(A) ///
+        _tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
             title(`"`title'"') footnote(`"`footnote'"')
     }
 

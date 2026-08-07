@@ -86,9 +86,9 @@ one composite sheet with {cmd:stacktab}.
 {opt col:umnmerge(mergespec)} concatenate column pairs with header label{p_end}
 
 {phang}
-{opt csv(filename)} export the composed table to CSV. The CSV mirrors the workbook: {opt
-title()} is written as the first row and {opt footnote()} as the last row, both in the first
-column, with the table body between them{p_end}
+{opt csv(filename)} export the composed table to CSV. The CSV mirrors the
+workbook with {opt title()} written as the first row and {opt footnote()} as
+the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
 {opt dis:play} list the composed table in the Results window before writing{p_end}

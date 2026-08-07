@@ -348,7 +348,9 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 in {cmd:r()} or {cmd:e()}. The variables are labeled:
 
 {phang2}{cmd:xb}: "Linear prediction (xb)"{p_end}
-{phang2}{cmd:cif}: "CIF prediction"{p_end}
+{phang2}{cmd:cif}: "CIF at {it:tvar} (cause {it:#})", where {it:tvar} is
+{cmd:_t} or the {opt timevar()} variable and {it:#} is {cmd:e(cause)} - so the
+label records the horizon each prediction was evaluated at{p_end}
 {phang2}{cmd:basecshazard}: "Baseline cumulative subhazard"{p_end}
 {phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:varname}" for each covariate{p_end}
 

@@ -845,7 +845,7 @@ else {
 }
 
 * ---------------------------------------------------------------------------
-* Z27: the G-truncation note is printed ONCE per fit.
+* Z27: the G-truncation note is reported ONCE per fit.
 *
 * It used to be emitted once per censoring stratum (by _finegray_km_censor's
 * per-stratum sweep) AND again from the pooled delayed-entry stabilizer on
@@ -854,13 +854,19 @@ else {
 * test: a stratified delayed-entry fit exercises both duplicate sources at
 * once, and against the pre-fix engine this assertion reads 15, not 1.
 *
+* In 1.2.0 the engine stopped PRINTING the note (it was the first line of
+* output, above the command's own title) and now hands the count back for
+* _finegray_display to report inside the header.  The invariant is unchanged
+* and the wording moved, so the needle below moved with it -- and e(N_G_trunc)
+* is asserted too, which pins the aggregate independently of any wording.
+*
 * The needle is built BEFORE the nested log opens.  A do-file echoes its own
 * source into any open log, so spelling the searched-for text inside the
 * logged region would make the test count its own comments and pass for the
 * wrong reason.
 * ---------------------------------------------------------------------------
 local ++test_count
-local _needle "truncated to 1e-10"
+local _needle "1e-10 floor for"
 
 _zzf_fix, n(4000) seed(20260713)
 quietly stset t, id(id) failure(status == 1 2) enter(time t0)
@@ -892,7 +898,7 @@ void _z27_scan(string scalar fn, string scalar needle)
     while ((line = fget(fh)) != J(0, 0, "")) {
         if (strpos(line, needle) > 0) {
             cnt++
-            /* "note: G(t) ... 1e-10 for 57 observations; inference ..." */
+            /* "note: ... G(t) hit its 1e-10 floor for 57 observations" */
             tail = substr(line, strpos(line, " for ") + 5, .)
             nobs = strtoreal(substr(tail, 1, strpos(tail, " ") - 1))
         }
@@ -915,14 +921,16 @@ mata: _z27_scan(st_local("_z27log"), st_local("_needle"))
 * still print exactly one line and pass a count-only test.
 local _z27_N = e(N)
 local _z27_conv = e(converged)
+local _z27_egt = e(N_G_trunc)
 
-if `_n_note' == 1 & `_n_obs_note' == 57 & `_z27_N' == 4000 & `_z27_conv' == 1 {
+if `_n_note' == 1 & `_n_obs_note' == 57 & `_z27_N' == 4000 & `_z27_conv' == 1 ///
+    & `_z27_egt' == 57 {
     local ++pass_count
     display as result "  PASS: Z27 G-truncation note printed once per fit, aggregated over strata (13+13+17+14=57)"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z27 expected 1 note reporting 57 obs on a converged 4000-obs fit; got `_n_note' note(s), n=`_n_obs_note', e(N)=`_z27_N', converged=`_z27_conv'"
+    display as error "  FAIL: Z27 expected 1 note reporting 57 obs on a converged 4000-obs fit; got `_n_note' note(s), n=`_n_obs_note', e(N_G_trunc)=`_z27_egt', e(N)=`_z27_N', converged=`_z27_conv'"
 }
 
 * ---------------------------------------------------------------------------

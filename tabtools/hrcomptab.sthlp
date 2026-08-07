@@ -199,9 +199,9 @@ is {cmd:Reference}.
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 
 {phang}
-{opt csv(filename)} export the composite table to a CSV file. The CSV mirrors the workbook:
-{opt title()} is written as the first row and {opt footnote()} as the last row, both in the
-first column, with the table body between them{p_end}
+{opt csv(filename)} export the composite table to a CSV file. The CSV mirrors
+the workbook with {opt title()} written as the first row and {opt footnote()}
+as the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
 {opt eplotf:rame(name[, replace])} save a graph-ready companion frame for {helpb eplot}; model

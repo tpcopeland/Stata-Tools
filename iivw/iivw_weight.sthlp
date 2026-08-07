@@ -78,6 +78,7 @@
 {synopt:{opt bre:slow}}Breslow ties in the Cox visit model{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
 {synopt:{opt allowmissingw:eights}}accept rows that receive no weight (complete-case){p_end}
+{synopt:{opt sc:ores}}also emit the influence-function inputs for {cmd:iivw_fit, vce(stacked)}{p_end}
 {synopt:{opt base:line(entry|event)}}first visit: entry (default) or event{p_end}
 
 {synoptline}
@@ -550,6 +551,42 @@ nonconverged nuisance model, and that mark survives any later
 {helpb iivw_fit}. {helpb iivw_balance} then reports {cmd:r(balance_flag)} as {cmd:unknown} and issues no
 good/poor verdict: the target-SMD null assumes the visit model solves its
 estimating equation, and a nonconverged one does not.
+
+{phang}
+{opt sc:ores} additionally emits the inputs that {helpb iivw_fit}'s
+{cmd:vce(stacked)} needs to build the two-step influence-function sandwich --
+the variance that carries the uncertainty from having {bf:estimated} the
+weights, which Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021) both
+derive and which the fixed sandwich omits.
+
+{phang2}
+It creates two columns per stacked nuisance parameter, named
+{cmd:{it:prefix}nd{it:#}} (the derivative of the log weight with respect to that
+parameter, one value per row) and {cmd:{it:prefix}ns{it:#}} (that parameter's
+score contribution for the subject). The parameter list, in the same order, is
+stored in {cmd:r(score_terms)} and in the dataset characteristic
+{cmd:_dta[_iivw_score_terms]}; the count is {cmd:r(n_score)}. The columns carry
+the usual iivw ownership mark and are cleared by a later run that does not ask
+for them.
+
+{phang2}
+It is an option rather than a default because the column count depends on the
+nuisance designs, and because these quantities
+{bf:cannot be reconstructed afterwards}.
+The derivative of the shipped weight is not the derivative of the
+bare rate ratio the papers write down: this package renormalizes the IIW
+component to mean 1 over the modeled events, which adds a term, and pins
+study-entry rows at exactly 1, where the derivative is 0. Which rows are modeled
+events is knowable only while the weights are being built.
+
+{phang2}
+{opt sc:ores} cannot be combined with any weight trimming
+({opt truncate()}, {opt truncvisit()}, {opt trunctreat()}, {opt truncfinal()}).
+A trimmed weight is clipped at an estimated quantile of itself, so it is not
+differentiable in the nuisance parameters at the cutpoint and the delta method
+the sandwich rests on does not apply. The combination is refused rather than
+answered with derivative columns that would be silently wrong on exactly the
+rows the trimming moved.
 
 {phang}
 {opt allowmissingw:eights} lets {cmd:iivw_weight} proceed when some rows receive
@@ -1220,6 +1257,8 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:r(lag_names)}}the generated {cmd:*_lag1} columns{p_end}
 {synopt:{cmd:r(owned)}}every variable name this call owns under the contract{p_end}
 {synopt:{cmd:r(allowmissingweights)}}{cmd:1} if unweighted rows were accepted, else {cmd:0}{p_end}
+{synopt:{cmd:r(score_terms)}}stacked nuisance parameters emitted by {opt scores}, in column order{p_end}
+{synopt:{cmd:r(n_score)}}number of stacked nuisance parameters ({cmd:0} without {opt scores}){p_end}
 {synopt:{cmd:r(treat_covars)}}treatment-model covariates used for IPTW/FIPTIW{p_end}
 {synopt:{cmd:r(ps_estimand)}}treatment propensity-score estimand, currently {cmd:ate}{p_end}
 {synopt:{cmd:r(contract_version)}}iivw metadata contract version{p_end}

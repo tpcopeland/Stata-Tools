@@ -108,9 +108,9 @@ variables. The pairwise observation count matrix is stored in
 
 {phang}
 {opt csv(filename)} also export the output dataset as CSV. {it:filename} must
-end in {cmd:.csv}, matching the rest of the suite. The CSV mirrors the workbook: {opt
-title()} is written as the first row and {opt footnote()} as the last row, both in the first
-column, with the table body between them{p_end}
+end in {cmd:.csv}, matching the rest of the suite. The CSV mirrors the
+workbook with {opt title()} written as the first row and {opt footnote()} as
+the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for correlation coefficients; default 2, range 0-6; also respects

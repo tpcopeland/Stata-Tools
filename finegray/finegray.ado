@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/08/03
+*! finegray Version 1.2.0  2026/08/07
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -33,6 +33,27 @@ See help finegray for complete documentation
 
 program define finegray, eclass sortpreserve
     version 16.0
+
+    * Replay.  `finegray' typed with no varlist (or with display options only)
+    * redisplays the last finegray results, as every Stata e-class estimator
+    * does; `finegray, level(90)' redisplays at another confidence level and
+    * `finegray, noshr' on the log-SHR scale.  Before this the command answered
+    * `varlist required' r(100) and the only way back to the table was to refit
+    * -- the expensive thing this package exists to avoid.
+    *
+    * Handled HERE, ahead of the varabbrev wrapper and the capture block below,
+    * so that the `exit' costs no cleanup: nothing has been set, opened, or
+    * preserved yet.  _finegray_display runs its own wrapper.
+    if replay() {
+        if `"`e(cmd)'"' != "finegray" {
+            display as error "last estimates not found"
+            display as error "you must run {bf:finegray} before replaying its results"
+            exit 301
+        }
+        _finegray_display `0'
+        exit
+    }
+
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
@@ -313,6 +334,11 @@ program define finegray, eclass sortpreserve
     else {
         quietly count if `touse' & _t0 > 0
     }
+    * Kept as well as tested: the header reports HOW MANY subjects entered late,
+    * because "this fit has delayed entry" and "three of 4,000 subjects entered
+    * late" are different facts and only the second one tells the reader how
+    * much of the estimate rides on the entry weights.
+    local _fg_n_lt = r(N)
     local _fg_has_lt = (r(N) > 0)
 
     * The psi term is Fine & Gray (1999) eq. 7-8, derived for right censoring
@@ -435,7 +461,6 @@ program define finegray, eclass sortpreserve
     local _prev_fv_created `"`_dta[_finegray_fvvars]'"'
     local _prev_entryvar `"`_dta[_finegray_entryvar]'"'
     local _has_fv = 0
-    local _fv_nrefs = 0
 
     * Input validation above leaves a prior successful fit intact. Once this
     * new fit begins mutating package-owned columns, invalidate the old state
@@ -655,21 +680,9 @@ program define finegray, eclass sortpreserve
 
         local varlist : list retokenize _fv_final
 
-        * Extract reference categories from base terms for display
-        foreach _term of local _fv_semantic {
-            if regexm("`_term'", "^([0-9]+)b\.(.+)$") & !strpos("`_term'", "#") {
-                local _ref_lev = regexs(1)
-                local _ref_var = regexs(2)
-                local ++_fv_nrefs
-                local _ref_vallbl : value label `_ref_var'
-                local _ref_txt ""
-                if "`_ref_vallbl'" != "" {
-                    local _ref_txt : label `_ref_vallbl' `_ref_lev'
-                }
-                if `"`_ref_txt'"' == "" local _ref_txt "`_ref_lev'"
-                local _fv_refinfo`_fv_nrefs' `"i.`_ref_var': `_ref_txt' (`_ref_var'==`_ref_lev')"'
-            }
-        }
+        * The `Reference:' lines used to be built here, from locals the display
+        * block then read.  They are now derived from e(fvsemantic) inside
+        * _finegray_display, so that a replay prints the same lines as the fit.
     }
 
     * The unpenalized Fine-Gray likelihood cannot identify constant or exactly
@@ -843,10 +856,37 @@ program define finegray, eclass sortpreserve
     matrix `b' = _finegray_b
     matrix `V' = _finegray_V
 
-    * Column names from varlist
-    local cnames ""
-    foreach v of local varlist {
-        local cnames "`cnames' `v'"
+    * Column names.  For a factor-variable fit these are the terms the USER
+    * typed (`1.pelnode', `1.pelnode#c.ifp'), taken from the fit-time expansion,
+    * NOT the package-owned design-column names.  The internal names stay in
+    * e(covariates), which is what the post-estimation rebuild machinery reads
+    * and what finegray_predict re-stripes onto its own scoring copy of e(b);
+    * the coefficient stripe is what the READER sees -- and with it `test',
+    * `testparm', `estimates table' and every estout-style exporter.
+    *
+    * Before this, an interaction row printed as `_fg_pelnod~p' (the 12-char
+    * abbreviation of _fg_pelnode_1Xifp) and was undecodable from the printed
+    * output alone, `estimates table' exported the same names, and
+    * `test 1.pelnode' failed r(111) -- the user had to discover and type
+    * `test _fg_pelnode_1'.
+    *
+    * The count guard is not optional: `matrix colnames' given FEWER names than
+    * columns silently repeats the last one across the remainder, which would
+    * mislabel every coefficient at rc 0.  The capture guards a term the matrix
+    * stripe parser will not take; a fit must never be lost over its labels.
+    local cnames "`varlist'"
+    if `_has_fv' {
+        local _cn_fv ""
+        foreach _cn_t of local _fv_semantic {
+            if regexm("`_cn_t'", "[0-9]+b\.") continue
+            local _cn_fv "`_cn_fv' `_cn_t'"
+        }
+        local _cn_n : word count `_cn_fv'
+        if `_cn_n' == colsof(`b') {
+            local _cn_try : list retokenize _cn_fv
+            capture matrix colnames `b' = `_cn_try'
+            if _rc == 0 local cnames "`_cn_try'"
+        }
     }
     matrix colnames `b' = `cnames'
     matrix colnames `V' = `cnames'
@@ -879,8 +919,22 @@ program define finegray, eclass sortpreserve
         local _fg_p = .
     }
 
-    * Post results
-    ereturn post `b' `V', obs(`N') esample(`touse') depname("`compete'") properties(b V)
+    * The values pooled as COMPETING, for the header.  "Competing events: status"
+    * names the variable; a miscoded event code (a stray 9 alongside 2 and 3) is
+    * then invisible in the output and the reader cannot verify what was pooled.
+    * Computed here, after `restore', so the levelsof sort cannot perturb the row
+    * order the engine consumed, and stored in e() so replay reports the same
+    * list without re-reading data that may since have changed.
+    local _fg_cvals ""
+    if `N_compete' > 0 {
+        quietly levelsof `compete' if `touse' & `compete' != `censvalue' ///
+            & `compete' != `cause', local(_fg_cvals) clean
+    }
+
+    * Post results.  depname("_t") matches stcrreg: the modelled outcome is
+    * time-to-cause on the stset clock, not the event-type variable, and a
+    * `status |' stub said otherwise.  The event-type variable is e(compete).
+    ereturn post `b' `V', obs(`N') esample(`touse') depname("_t") properties(b V)
 
     ereturn scalar N = `N'
     ereturn scalar N_fail = `N_fail'
@@ -894,6 +948,10 @@ program define finegray, eclass sortpreserve
     ereturn scalar rank = `_fg_rank'
     if "`cluster'" != "" ereturn scalar N_clust = `_fg_nclust'
     ereturn scalar converged = `_fg_conv'
+    * Subjects whose earliest entry time is positive.  Reported in the header:
+    * a delayed-entry fit and an ordinary one were display-indistinguishable,
+    * and the ZZF weight construction is a materially different estimator.
+    ereturn scalar N_delayed = `_fg_n_lt'
     ereturn scalar level = `level'
     ereturn scalar cause = `cause'
     ereturn scalar censvalue = `censvalue'
@@ -936,8 +994,11 @@ program define finegray, eclass sortpreserve
     ereturn local refitcmd `"`_refitcmd'"'
 
     ereturn local predict "finegray_predict"
-    ereturn local depvar "`compete'"
     ereturn local compete "`compete'"
+    * The values `compete' takes in the estimation sample that are neither the
+    * cause of interest nor the censoring value -- i.e. what was pooled as a
+    * competing event.  Empty when there are none.
+    ereturn local compete_values "`_fg_cvals'"
     ereturn local covariates "`varlist'"
     if `_has_fv' ereturn local fvvarlist "`_orig_varlist'"
     * The fit-time factor expansion, INCLUDING base terms (1b.grp).  This is the
@@ -1031,6 +1092,16 @@ program define finegray, eclass sortpreserve
     ereturn scalar N_prob_warn     = _finegray_nprobwarn[1,1]
     ereturn scalar N_weight_warn   = _finegray_nwtwarn[1,1]
     ereturn local weight_warn_strata "`_fg_warnstrata'"
+    * Observations whose censoring survivor G(t) was floored at 1e-10 during the
+    * fit's own KM sweep.  `_fg_ntrunc' is set directly in this scope by
+    * _finegray_km_censor via st_local (see its header for why it reports rather
+    * than prints).  Missing would be indistinguishable from "none", so treat an
+    * unset local as a broken contract rather than as a reassuring zero.
+    if "`_fg_ntrunc'" == "" {
+        display as error "internal error: the G(t) truncation count was not returned"
+        exit 498
+    }
+    ereturn scalar N_G_trunc = `_fg_ntrunc'
     * VCE type: cluster > robust (default) > oim (norobust)
     if "`cluster'" != "" {
         ereturn local vce "cluster"
@@ -1116,144 +1187,12 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * DISPLAY RESULTS
     * =========================================================================
-    display as text "Fine-Gray competing risks regression"
-    display as text ""
-    display as text "Competing events:" _col(24) as result "`compete'"
-    display as text "Cause of interest:" _col(24) as result "`cause'"
-    display as text "Censoring value:" _col(24) as result "`censvalue'"
-    if "`strata'" != "" {
-        display as text "Censoring strata:" _col(24) as result "`strata'"
-    }
-    display as text ""
-    display as text "No. of obs" _col(24) "= " as result %10.0fc `N'
-    display as text "No. of cause events" _col(24) "= " as result %10.0fc `N_fail'
-    display as text "No. of competing" _col(24) "= " as result %10.0fc `N_compete'
-    display as text "No. censored" _col(24) "= " as result %10.0fc `N_cens'
-    if "`cluster'" != "" {
-        display as text "No. of clusters" _col(24) "= " ///
-            as result %10.0fc `_fg_nclust'
-    }
-    display as text ""
-
-    if `_fg_ll' != . {
-        display as text "Log pseudo-likelihood" _col(24) "= " ///
-            as result %12.4f `_fg_ll'
-    }
-    if `_fg_chi2' != . {
-        display as text "Wald chi2(" as result "`_fg_df_m'" ///
-            as text ")" _col(24) "= " as result %10.2f `_fg_chi2'
-        display as text "Prob > chi2" _col(24) "= " as result %10.4f `_fg_p'
-    }
-    display as text ""
-
-    * Warn BEFORE the table, as stcrreg does. Printed after the coefficients it
-    * discredits, this is trivially scrolled past -- and the coefficients are
-    * the thing the reader takes away.
-    if `_fg_conv' == 0 {
-        display as error "convergence not achieved"
-        display as text "(the coefficients below are the last iterate, not a " ///
-            "solution; post-estimation commands will refuse them)"
-        display as text ""
-    }
-
-    * Weight-sensitivity warnings, for the same reason: before the coefficients
-    * they discredit, not after.  These are not errors -- the fit is reported --
-    * but a near-zero A or an enormous weight means a handful of subjects carry
-    * the estimate, and the reader must see that next to the numbers.
-    if `_fg_has_lt' {
-        local _fg_npw = e(N_prob_warn)
-        local _fg_nww = e(N_weight_warn)
-        local _fg_mxw : display %9.3e e(max_lt_weight)
-        local _fg_mxw = trim("`_fg_mxw'")
-
-        if `_fg_npw' > 0 & `_fg_npw' < . {
-            display as error "warning: the combined weight A(t) falls below 1e-10 in `_fg_npw' consulted cells"
-            display as text "(near-zero censoring or entry probability: the weights there are" ///
-                " not estimable and the fit leans on very few subjects)"
-        }
-        if `_fg_nww' > 0 & `_fg_nww' < . {
-            display as error "warning: `_fg_nww' retained weights exceed 1e6 (largest `_fg_mxw')"
-            display as text "(a few subjects dominate the risk sets; treat these coefficients" ///
-                " as unstable)"
-        }
-        local _fg_ws "`e(weight_warn_strata)'"
-        if "`_fg_ws'" != "" {
-            display as text "(affected joint weight strata: `_fg_ws')"
-            display as text ""
-        }
-    }
-
-    * Factorized-extension note.  When strata() and truncstrata() name different
-    * groupings the weight is the package's factorized A=G*H extension, not the
-    * ZZF stratified construction.  The help file documents this, but the fit
-    * itself otherwise reports only e(lt_weight)=zzf1_factorized; say at fit time
-    * that the estimator differs from ZZF and what extra structure it requires.
-    if `_fg_factorized' {
-        display as text ""
-        display as text "note: the censoring weight G and entry weight H use different groupings,"
-        display as text "so finegray uses the factorized A=G*H extension -- a package extension,"
-        display as text "requiring the censoring mechanism to be homogeneous across omitted entry"
-        display as text "groups and vice versa. See Left truncation in {help finegray}."
-        display as text "e(lt_weight)=zzf1_factorized."
-    }
-
-    if "`shr'" == "noshr" {
-        ereturn display, level(`level')
-    }
-    else {
-        ereturn display, eform(SHR) level(`level')
-    }
-
-    * The Fine-Gray objective is a PSEUDO-likelihood: its weighted score need not
-    * obey the ordinary likelihood information identity, so inverse information
-    * does not generally estimate the sampling variance of beta-hat.  norobust
-    * is a diagnostic, not a routine inference option -- say so every time.
-    if "`robust'" == "norobust" {
-        display as text ""
-        display as error "Warning: norobust reports model-based (inverse-information) standard errors."
-        display as error "The Fine-Gray weighted score is a pseudo-likelihood score, so the ordinary"
-        display as error "likelihood information identity need not hold.  Inverse information omits"
-        display as error "the empirical score variability and any estimated-weight contribution."
-        display as error "These standard errors are generally too"
-        display as error "small and their confidence intervals do not have nominal coverage."
-        display as error "Use the default robust (sandwich) variance for inference; norobust is"
-        display as error "provided for comparison with the naive likelihood only."
-
-        * Under delayed entry this is not a caution, it is a MEASURED defect, and
-        * it is far larger than the right-censoring case above.  The weights A(t)
-        * are estimated, and their uncertainty is absent from the information
-        * matrix; the damage grows with the truncation fraction.
-        *
-        * qa/validation_finegray_zzf_coverage.do, 1000 replications per arm,
-        * known truth, 95% nominal:
-        *
-        *   truncation    norobust coverage   default (sandwich) coverage
-        *        0%          0.956 / 0.949        0.954 / 0.943
-        *       37%          0.897 / 0.901        0.941 / 0.951
-        *       69%          0.850 / 0.850        0.955 / 0.953
-        *
-        * The model-based SE runs up to 38% below the true sampling SD at 69%
-        * truncation.  Quote the numbers: a user who is told "generally too small"
-        * cannot tell whether that means 1% or 30%.
-        if `_fg_has_lt' {
-            display as error ""
-            display as error "This fit has DELAYED ENTRY, where the defect above is measured and severe."
-            display as error "The truncation weights are themselves estimated and the information matrix"
-            display as error "does not carry their uncertainty.  In this package's coverage study (1000"
-            display as error "replications, known truth, nominal 95%) norobust intervals covered only"
-            display as error "89% at 37% truncation and 85% at 69% truncation, and the model-based"
-            display as error "standard errors ran up to 38% below the true sampling variability.  The"
-            display as error "failure gets WORSE as the truncation fraction rises."
-            display as error "Do not use norobust for inference on left-truncated data."
-        }
-    }
-
-    if `_fv_nrefs' > 0 {
-        display as text ""
-        forvalues _i = 1/`_fv_nrefs' {
-            display as text `"Reference: `_fv_refinfo`_i''"'
-        }
-    }
+    * The whole display lives in _finegray_display and reads e() only, so a
+    * replay (`finegray' with no varlist) reproduces the fit-time output exactly
+    * rather than a second, drifting copy of it.  Every quantity it needs is
+    * posted above -- including e(N_delayed) and e(compete_values), which exist
+    * for no other reason.
+    _finegray_display, level(`level') `shr'
 
     } /* end capture noisily */
 

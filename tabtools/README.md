@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.12.0** | 2026-08-06
+**Version 1.12.1** | 2026-08-07
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -500,6 +500,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.12.1** (2026-08-07): Stopped the CSV writer dropping a leading data row that is blank in every column, which silently cost `puttab` and `simtab` exports one observation relative to the workbook; the leading-row trim is now declared by the table-building commands that reserve that row rather than inferred from its contents. Repaired the `csv()` option paragraph in fourteen help files, where the 1.12.0 wording left an SMCL directive open across a line break and printed `{opt title()}` literally in the Viewer.
 - **1.12.0** (2026-08-06): Corrected the return code `table1_tc` and `desctab` hand back to the caller, which was nonzero after every successful run; gave every CSV export the same shape as its workbook, so `title()` and `footnote()` are written, the reserved all-empty first row is gone, and the `corrtab` star legend now reaches the CSV; made `puttab` honour the order of the variables it was given; escaped Markdown emphasis characters so a star legend survives export; routed the `stacktab` console preview through the shared display path, adding its title, note, and continuous rules; removed the stacked rules under every `regtab` statistic and added-row, and top-aligned whole rows rather than the label alone; gave the single-cutoff `diagtab` table its top and header rules; and aligned the `table1_tc` missing-data row's indent and percent format with the category rows it sits under.
 - **1.11.0** (2026-08-06): Corrected multi-model factor-level handling and Excel merging in `regtab`, widened its confidence-limit field so large bounds no longer collapse to scientific notation, unified the `table1_tc` header descriptor across every sink, gave `regtab`, `effecttab`, and `table1_tc` reader-facing single-row Markdown headers, stopped Markdown headings being inferred from table data, applied `stacktab columnmerge()` headers to every stacked block, carried generated star and coverage legends into every sink, normalized rate confidence-interval separators and formatted negative zero, corrected p-value phrasing and footnote punctuation, and quieted internal data-transformation messages.
 - **1.10.1** (2026-07-27): Refined confidence-level provenance, model statistics, coefficient and effect labels, diagnostic intervals, output contracts, and composite workflows.

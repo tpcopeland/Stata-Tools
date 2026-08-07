@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  03aug2026}{...}
+{* *! version 1.2.0  07aug2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -30,6 +30,14 @@
 {opt comp:ete(varname)}
 {opt cau:se(#)}
 [{it:options}]
+
+{pstd}Replay the last results{p_end}
+
+{p 8 17 2}
+{cmd:finegray}
+[{cmd:,}
+{opt noshr}
+{opt l:evel(#)}]
 
 {synoptset 26 tabbed}{...}
 {synopthdr}
@@ -314,6 +322,13 @@ is {cmd:c(level)}, which is initially 95; see {helpb set level}.
 
 {phang}
 {opt nolog} suppresses the iteration log.
+
+{phang}
+{cmd:finegray} typed with no {it:varlist} redisplays the last {cmd:finegray}
+results. {opt noshr} and {opt level(#)} are honoured on replay, so
+{cmd:finegray, level(90)} reports the same fit at a 90% confidence level without
+refitting the model. Replay requires that the last estimation results in memory
+are a {cmd:finegray} fit; otherwise it exits with {cmd:r(301)}.
 
 {phang}
 {opt basehaz} posts the baseline cumulative subdistribution hazard in
@@ -686,6 +701,16 @@ estimation uses generated design columns rather than native Stata factor
 notation.
 
 {pstd}
+{bf:Coefficient names.} The coefficient table, {cmd:e(b)} and {cmd:e(V)} carry
+the factor-variable terms you typed ({cmd:1.pelnode}, {cmd:1.pelnode#c.ifp}), so
+{helpb test}, {helpb testparm}, {helpb estimates table} and estout-style
+exporters all address coefficients in your own vocabulary. The package-owned
+design columns that hold the expansion ({cmd:_fg_pelnode_1} and the like) are
+reported separately in {cmd:e(covariates)}; they are what {helpb finegray_cif}
+and {helpb finegray_predict} read, and what {cmd:at()} accepts for a term that
+enters an interaction. See {help finegray##sideeffects:Dataset side effects}.
+
+{pstd}
 {bf:Compatibility with other implementations.} Without delayed entry,
 {cmd:finegray} uses the ordinary Fine-Gray risk set and variance conventions
 described above. {helpb finegray_predict} maps its baseline CIF, linear
@@ -859,6 +884,8 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(rank)}}rank of {cmd:e(V)}{p_end}
 {synopt:{cmd:e(N_clust)}}number of clusters (only with {opt cluster()}){p_end}
 {synopt:{cmd:e(converged)}}1 if converged, 0 otherwise{p_end}
+{synopt:{cmd:e(N_delayed)}}number of subjects entering after time 0 (delayed entry){p_end}
+{synopt:{cmd:e(N_G_trunc)}}observations whose censoring survivor {it:G(t)} was floored at 1e-10{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 {synopt:{cmd:e(cause)}}cause of interest value{p_end}
 {synopt:{cmd:e(censvalue)}}censoring value{p_end}
@@ -876,8 +903,9 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(cmdline)}}full estimation command as typed{p_end}
 {synopt:{cmd:e(refitcmd)}}estimation command used by the {opt bootstrap()} refits{p_end}
 {synopt:{cmd:e(predict)}}{cmd:finegray_predict}{p_end}
-{synopt:{cmd:e(depvar)}}competing events variable name{p_end}
+{synopt:{cmd:e(depvar)}}{cmd:_t} (the {cmd:stset} analysis time; as {helpb stcrreg}){p_end}
 {synopt:{cmd:e(compete)}}competing events variable name{p_end}
+{synopt:{cmd:e(compete_values)}}values of {cmd:e(compete)} pooled as competing events{p_end}
 {synopt:{cmd:e(covariates)}}covariate variable names{p_end}
 {synopt:{cmd:e(fvvarlist)}}original factor-variable specification{p_end}
 {synopt:{cmd:e(fvsemantic)}}factor-variable expansion semantics{p_end}
@@ -957,7 +985,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-08-03{p_end}
+{pstd}Version 1.2.0, 2026-08-07{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

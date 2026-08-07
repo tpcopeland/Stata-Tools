@@ -69,6 +69,30 @@ after {helpb stcrreg}, with two additions: it can plot a pointwise confidence
 estimates behind the curve.
 
 {pstd}
+{bf:The covariate profile is always reported.} Both the table and the graph
+state the profile the CIF was evaluated at, in the vocabulary {opt at()} takes -
+an {cmd:at:} line above the table and a {cmd:note()} under the graph. When
+{opt at()} is omitted the line reads {cmd:at (estimation-sample means):} and
+lists the means used, so a default run is as self-describing as an explicit one.
+The graph note is a default: your own {cmd:note()} in {it:twoway_options}
+replaces it.
+
+{pstd}
+{bf:The plotted curve extends to the end of follow-up.} The estimation grid ends
+at the last cause-event time, but the CIF is flat from there to the last observed
+analysis time, and the graph draws that tail as {helpb sts graph} and
+{helpb stcurve} do. Like the (0,0) origin, the terminal segment is display-only:
+it is not in {cmd:r(table)} and not in the {opt saving()} dataset.
+
+{pstd}
+{bf:Times outside the estimated support are flagged.} With {opt attime()} or
+{opt timepoints()}, a requested time past the last cause-event time repeats the
+terminal estimate and a requested time before the first cause-event time returns
+a CIF of exactly 0 with no confidence limits. Both are the correct step-function
+answers, and {cmd:finegray_cif} prints a note naming the boundary time so that
+neither is quoted as an estimate at the requested horizon.
+
+{pstd}
 The command requires the unchanged original {cmd:stset} estimation data in
 memory. It verifies a signature of the estimation sample and the variables used
 by the fit before resolving the baseline or reconstructing influence functions. Re-run
@@ -150,7 +174,11 @@ is initially 95 and can be changed by {helpb set level}.
 {cmd:cif}, {cmd:se}, {cmd:lci}, and {cmd:uci} (one row per evaluated time) - the
 analogue of {cmd:outfile} after {cmd:stcurve}. Only the optional suboption
 {cmd:replace} is accepted. Shell metacharacters and embedded quote characters
-are rejected in {it:filename}.
+are rejected in {it:filename}. Every variable is labelled, the dataset label
+names the cause, and a dataset {helpb notes:note} records the covariate profile,
+so the exported file documents itself. {cmd:finegray_cif} confirms the write
+once, naming the path actually written (including a {cmd:.dta} extension it
+supplied).
 
 {phang}
 {opt nograph} suppresses the graph (useful with {opt saving()}).

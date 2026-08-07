@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/08/03
+*! finegray_predict Version 1.2.0  2026/08/07
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -541,7 +541,11 @@ program define finegray_predict, rclass sortpreserve
         quietly gen `typlist' `varlist' = ///
             1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
         local _created_vars "`varlist'"
-        label variable `varlist' "CIF prediction"
+        * Name the evaluation basis in the label.  `cif' without timevar()
+        * evaluates at each subject's own _t and `cif timevar(h5)' at h5; the
+        * generic "CIF prediction" left `describe' unable to tell the two apart,
+        * and the difference is the whole meaning of the column.
+        label variable `varlist' "CIF at `tvar' (cause `=e(cause)')"
 
         * Confidence interval via influence-function SE of the CIF
         if "`ci'" != "" {

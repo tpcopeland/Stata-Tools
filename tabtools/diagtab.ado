@@ -1,4 +1,4 @@
-*! diagtab Version 1.12.0  2026/08/06
+*! diagtab Version 1.12.1  2026/08/07
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -780,7 +780,7 @@ capture noisily {
 
 **# CSV/Frame/Excel Export
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", title(`"`title'"') footnote(`"`footnote'"')
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
     }
 
     local _ret_markdown ""

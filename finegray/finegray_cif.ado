@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/08/03
+*! finegray_cif Version 1.2.0  2026/08/07
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -649,6 +649,33 @@ program define finegray_cif, rclass sortpreserve
     matrix colnames `R' = time cif se lci uci
 
     * =====================================================================
+    * PROFILE LINE  (the covariate values the numbers belong to)
+    * =====================================================================
+    * The table and the graph used to report a CIF with no statement of WHICH
+    * covariate profile it was evaluated at, so several at() tables scrolled
+    * back through in one session were indistinguishable -- and a default run
+    * never said it had used estimation-sample means either.  `stcurve'/`stci'
+    * print an `at:' line above the table; do the same.
+    *
+    * Spelled in the user's vocabulary (`grp=1'), not the package-owned design
+    * columns, using exactly the term list r(profile_vars) reports.
+    local _pv_disp : list retokenize _nbterms
+    local _pv_dn : word count `_pv_disp'
+    if `"`_pv_disp'"' == "" | `_pv_dn' != `p' local _pv_disp "`covs'"
+    local _atline ""
+    local _ai = 0
+    foreach _pvn of local _pv_disp {
+        local ++_ai
+        local _pvv = `zrow'[1, `_ai']
+        local _pvs : display %9.0g `_pvv'
+        local _pvs = trim("`_pvs'")
+        local _atline `"`_atline' `_pvn'=`_pvs'"'
+    }
+    local _atline : list retokenize _atline
+    local _atsrc "at"
+    if `"`at'"' == "" local _atsrc "at (estimation-sample means)"
+
+    * =====================================================================
     * OUTPUT: table (attime) and/or graph (curve)
     * =====================================================================
     if "`mode'" == "table" {
@@ -661,6 +688,7 @@ program define finegray_cif, rclass sortpreserve
             display as text "Cumulative incidence (cause " as result e(cause) ///
                 as text ")"
         }
+        display as text "`_atsrc': " as result `"`_atline'"'
         display as text "{hline 13}{c TT}{hline 40}"
         if "`ci'" != "" {
             display as text %12s "time" " {c |}" ///
@@ -686,6 +714,47 @@ program define finegray_cif, rclass sortpreserve
         }
         display as text "{hline 13}{c BT}{hline 40}"
     }
+
+    * =====================================================================
+    * OUT-OF-SUPPORT NOTES (user-supplied grids only)
+    * =====================================================================
+    * The CIF is a step function, so it returns a defensible answer at any time:
+    * exactly 0 before the first cause event and the terminal plateau after the
+    * last one.  Both were silent, which let `attime(999)' print 0.3010 with
+    * nothing on screen to say that 999 is 992 years past the last observed
+    * event -- and a reader can then quote "the CIF at year 999".
+    if "`attime'" != "" | "`timepoints'" != "" {
+        tempname _tfirst _tlast
+        quietly summarize _t if `es' & `e(compete)' == `=e(cause)', meanonly
+        scalar `_tfirst' = r(min)
+        scalar `_tlast'  = r(max)
+        if !missing(`_tfirst') {
+            local _nafter = 0
+            local _nbefore = 0
+            foreach _tt of local grid {
+                if `_tt' > `_tlast'  local ++_nafter
+                if `_tt' < `_tfirst' local ++_nbefore
+            }
+            local _tl : display %9.0g `_tlast'
+            local _tl = trim("`_tl'")
+            local _tf : display %9.0g `_tfirst'
+            local _tf = trim("`_tf'")
+            if `_nafter' > 0 {
+                display as text "note: `_nafter' requested time(s) exceed the last cause-event time (`_tl');"
+                display as text "the CIF is flat beyond it, so those rows repeat the terminal estimate"
+            }
+            if `_nbefore' > 0 {
+                display as text "note: `_nbefore' requested time(s) precede the first cause-event time (`_tf');"
+                display as text "the CIF is exactly 0 there and has no confidence limits"
+            }
+        }
+    }
+
+    * Last observed analysis time in the estimation sample.  Read HERE, before
+    * the preserve below clears the data: the graph draws the CIF's flat tail
+    * out to this time (see the terminal-row block), as sts graph and stcurve do.
+    quietly summarize _t if `es', meanonly
+    local _maxfu = r(max)
 
     * Build curve dataset for graph and/or saving
     if "`mode'" == "curve" & "`graph'" != "nograph" | `"`savefile'"' != "" {
@@ -716,6 +785,18 @@ program define finegray_cif, rclass sortpreserve
                     local _graph_uci_made = 1
                     summarize time, meanonly
                 }
+                * Read the terminal grid row NOW, before any display-only row is
+                * appended: the origin row is appended at the end of the data,
+                * so a later `cif[_N-1]' would read the origin, not the last
+                * estimate.
+                local _graph_tmax = r(max)
+                quietly summarize cif if time == `_graph_tmax', meanonly
+                local _graph_lastcif = r(mean)
+                quietly summarize `_graph_lci' if time == `_graph_tmax', meanonly
+                local _graph_lastlci = r(mean)
+                quietly summarize `_graph_uci' if time == `_graph_tmax', meanonly
+                local _graph_lastuci = r(mean)
+                quietly summarize time, meanonly
                 if r(min) > 0 {
                     local _graph_newobs = _N + 1
                     quietly set obs `_graph_newobs'
@@ -723,6 +804,27 @@ program define finegray_cif, rclass sortpreserve
                     local _graph_origin_added = 1
                     quietly replace time = 0 in `_graph_newobs'
                     quietly replace cif = 0 in `_graph_newobs'
+                }
+                * ...and the same treatment at the right edge.  The analytical
+                * grid ends at the LAST CAUSE-EVENT time, but follow-up runs on
+                * past it, and the CIF is flat over that stretch.  Drawn without
+                * this row the curve stops short of the plot's right edge and
+                * reads as "no information here", which is not what a flat tail
+                * means -- sts graph and stcurve both extend it.  Display-only,
+                * like the origin: removed before saving(), so r(table) and the
+                * exported numeric estimates are unchanged.
+                if `_maxfu' < . & `_graph_tmax' < . & ///
+                   `_maxfu' > `_graph_tmax' + 1e-12 {
+                    local _graph_newobs = _N + 1
+                    quietly set obs `_graph_newobs'
+                    quietly replace `_graph_origin' = 1 in `_graph_newobs'
+                    local _graph_origin_added = 1
+                    quietly replace time = `_maxfu' in `_graph_newobs'
+                    quietly replace cif = `_graph_lastcif' in `_graph_newobs'
+                    quietly replace `_graph_lci' = `_graph_lastlci' ///
+                        in `_graph_newobs'
+                    quietly replace `_graph_uci' = `_graph_lastuci' ///
+                        in `_graph_newobs'
                 }
                 * The complementary-log-log interval is undefined at a boundary
                 * CIF, but its graphical band has the exact zero-width limit.
@@ -735,6 +837,11 @@ program define finegray_cif, rclass sortpreserve
                 * Default legend is a single row; because repeated legend()
                 * options merge, anything in `options' (e.g. legend(off),
                 * legend(rows(2)), legend(pos(6))) overrides these defaults.
+                *
+                * The default note() states the covariate profile, for the same
+                * reason the table now prints an `at:' line: a saved .png of a
+                * CIF curve otherwise carries no record of which profile it is.
+                * `options' is expanded last, so a user's own note() wins.
                 if "`ci'" != "" {
                     twoway ///
                         (rarea `_graph_lci' `_graph_uci' time, ///
@@ -743,6 +850,7 @@ program define finegray_cif, rclass sortpreserve
                         ytitle("Cumulative incidence") ///
                         xtitle("Analysis time") ///
                         legend(order(2 "CIF" 1 "`level'% CI") rows(1)) ///
+                        note(`"`_atsrc': `_atline'"') ///
                         xscale(range(0 .)) plotregion(margin(zero)) `options'
                 }
                 else {
@@ -750,6 +858,7 @@ program define finegray_cif, rclass sortpreserve
                         (line cif time, lwidth(medthick) connect(stairstep)), ///
                         ytitle("Cumulative incidence") ///
                         xtitle("Analysis time") legend(rows(1)) ///
+                        note(`"`_atsrc': `_atline'"') ///
                         xscale(range(0 .)) plotregion(margin(zero)) `options'
                 }
             }
@@ -766,7 +875,29 @@ program define finegray_cif, rclass sortpreserve
             }
         }
         if `"`savefile'"' != "" {
-            capture noisily save `"`savefile'"', `savereplace'
+            * Label the exported columns.  This file is meant to be shared, and
+            * finegray_predict labels every variable it creates ("CIF lower 90%
+            * limit"); five unlabelled columns in the same package was an
+            * inconsistency a recipient pays for, not the author.
+            quietly {
+                label variable time "Analysis time"
+                label variable cif  "Cumulative incidence (cause `=e(cause)')"
+                label variable se   "Standard error of CIF"
+                label variable lci  "CIF lower `level'% limit"
+                label variable uci  "CIF upper `level'% limit"
+            }
+            * The profile goes in a dataset NOTE, not the dataset label: a label
+            * is capped at 80 characters and a wide at() profile would be cut
+            * mid-token there, while a note has no such limit.
+            quietly label data ///
+                "finegray_cif: cumulative incidence (cause `=e(cause)')"
+            local _dnote `"finegray_cif `_atsrc': `_atline'"'
+            quietly notes _dta : `_dnote'
+            * -quietly-: Stata's own "file X saved" and the package's
+            * "(estimates saved to X)" said the same thing twice.  The package
+            * note stays because it also resolves the .dta extension actually
+            * written, which Stata's message does not.
+            capture noisily quietly save `"`savefile'"', `savereplace'
             local _save_rc = _rc
             local _saved_path `"`savefile'"'
             if !`_save_rc' {

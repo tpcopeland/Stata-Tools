@@ -116,9 +116,9 @@ and 1{p_end}
 {opt col:pct} column percentages (default); may not be combined with {opt rowpct} or {opt totalpct}{p_end}
 
 {phang}
-{opt csv(filename)} also export the output dataset as CSV. The CSV mirrors the workbook:
-{opt title()} is written as the first row and {opt footnote()} as the last row, both in the
-first column, with the table body between them{p_end}
+{opt csv(filename)} also export the output dataset as CSV. The CSV mirrors the
+workbook with {opt title()} written as the first row and {opt footnote()} as
+the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for percentages and association measures (default 1, range 0-6){p_end}

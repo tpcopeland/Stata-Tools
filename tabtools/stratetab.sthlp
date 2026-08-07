@@ -175,10 +175,10 @@ when header shading is active via {opt headershade} or the selected theme.{p_end
 color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is
 active.{p_end}
 
-{phang2}{opt csv(string)} exports the table data as CSV. It may be used with
-or without {opt xlsx()}. The CSV mirrors the workbook: {opt title()} is written
-as the first row and {opt footnote()} as the last row, both in the first column,
-with the table body between them.{p_end}
+{phang2}{opt csv(string)} exports the table data as CSV. It may be used with or
+without {opt xlsx()}. The CSV mirrors the workbook with {opt title()} written
+as the first row and {opt footnote()} as the last row, both in the first
+column and the table body between them.{p_end}
 
 {phang2}{opt markdown(filename)} exports the rendered table as GitHub-Flavored
 Markdown. It may be used with or without {opt xlsx()}.{p_end}
