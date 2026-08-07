@@ -373,7 +373,7 @@ The specification version may be recorded as a dataset characteristic. An
 absent characteristic means version 1; an unsupported nonempty value is an
 error raised before any source is opened.
 
-{phang2}{cmd:. frame pipe_spec: char _dta[tvbuild_spec_version] "1"}{p_end}
+{phang2}{cmd:. frame build_spec: char _dta[tvbuild_spec_version] "1"}{p_end}
 
 
 {marker dryrun}{...}
@@ -527,18 +527,18 @@ carries the untruncated mapping.
 After analytical success the committed frame carries informational
 characteristics{p_end}
 
-{p 8 8 2}{cmd:_dta[tvtools_pipeline]}{space 11}{cmd:tvbuild}{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_pipeline_schema]}{space 4}{cmd:1}{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_pipeline_coverage]}{space 2}{cmd:strict} or {cmd:allow}{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_pipeline_start]}{space 5}the {opt startname()} in force{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_pipeline_stop]}{space 6}the {opt stopname()} in force{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_pipeline_event]}{space 5}the event indicator, if any{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_pipeline_committed]}{space 1}{cmd:1}{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild]}{space 12}{cmd:tvbuild}{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild_schema]}{space 5}{cmd:1}{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild_coverage]}{space 3}{cmd:strict} or {cmd:allow}{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild_start]}{space 6}the {opt startname()} in force{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild_stop]}{space 7}the {opt stopname()} in force{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild_event]}{space 6}the event indicator, if any{p_end}
+{p 8 8 2}{cmd:_dta[tvtools_tvbuild_committed]}{space 2}{cmd:1}{p_end}
 
 {pstd}
 These are provenance, not an authorization token: no command treats them as
 proof that the data are unchanged. Stata stores an empty characteristic by
-removing it, so {cmd:_dta[tvtools_pipeline_event]} is absent when no event
+removing it, so {cmd:_dta[tvtools_tvbuild_event]} is absent when no event
 stage ran.
 
 {pstd}
@@ -613,18 +613,18 @@ letting it expand to something else later.{p_end}
 {phang3}{cmd:exposure(rx_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:generate(tv_alt) frameout(alt_frame) replace}{p_end}
 {phang2}{cmd:. frame alt_frame: rename (rx_start rx_stop) (start stop)}{p_end}
-{phang2}{cmd:. capture frame drop pipe_spec}{p_end}
-{phang2}{cmd:. frame create pipe_spec}{p_end}
-{phang2}{cmd:. frame pipe_spec {c -(}}{p_end}
+{phang2}{cmd:. capture frame drop build_spec}{p_end}
+{phang2}{cmd:. frame create build_spec}{p_end}
+{phang2}{cmd:. frame build_spec {c -(}}{p_end}
 {phang3}{cmd:input str32 source_name str12 source_kind str32 source_frame strL source_file ///}{p_end}
 {phang3}{cmd:    str32 start_var str32 stop_var strL input_vars strL output_vars double reference}{p_end}
 {phang3}{cmd:"drug" "episodes"  "rx_frame"  "" "rx_start" "rx_stop" "rx_class" "tv_drug" 0}{p_end}
 {phang3}{cmd:"alt"  "intervals" "alt_frame" "" "start"    "stop"    "tv_alt"   "tv_alt2" .}{p_end}
 {phang3}{cmd:end}{p_end}
 {phang2}{cmd:. {c )-}}{p_end}
-{phang2}{cmd:. frame pipe_spec: char _dta[tvbuild_spec_version] "1"}{p_end}
+{phang2}{cmd:. frame build_spec: char _dta[tvbuild_spec_version] "1"}{p_end}
 {phang2}{cmd:. use `cohort', clear}{p_end}
-{phang2}{cmd:. tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, specframe(build_spec) id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:frameout(analysis) manifestframe(provenance) replace}{p_end}
 {phang2}{cmd:. frame provenance: list stage source_name n_input n_output, noobs}{p_end}
 

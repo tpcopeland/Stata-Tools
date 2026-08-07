@@ -1,5 +1,5 @@
-* benchmark_tvexpose_pipeline.do
-* Registered benchmark for the tvexpose categorical construction pipeline and
+* benchmark_tvexpose_workflow.do
+* Registered benchmark for the tvexpose categorical construction workflow and
 * for the end-to-end tvtools construction chain.
 *
 * Covers the tvexpose scope of Section 7.1 of the tvtools single-pass plan:
@@ -12,8 +12,8 @@
 *                   from the construction work
 *
 * 7.1 cases 1 and 2 (tvweight cumulative IPTW with and without IPCW) are NOT
-* here. tvmerge lives in benchmark_tvmerge_pipeline.do, tvevent in
-* benchmark_tvevent_pipeline.do, and the tvweight grouped product in
+* here. tvmerge lives in benchmark_tvmerge_workflow.do, tvevent in
+* benchmark_tvevent_workflow.do, and the tvweight grouped product in
 * benchmark_tvweight_cumprod.do.
 *
 * Manually invoked; deliberately NOT part of any correctness lane and not in
@@ -21,7 +21,7 @@
 * never a timing assertion.
 *
 * Usage (one fresh Stata process per invocation, run serially):
-*   stata-mp -b do benchmark_tvexpose_pipeline.do <case> <scale> <rep>
+*   stata-mp -b do benchmark_tvexpose_workflow.do <case> <scale> <rep>
 *     case   clipout | sparse | dense | frameout | chain
 *     scale  source episode rows to generate (default 20000)
 *     rep    repetition index; odd/even flips execution order where a case
@@ -46,8 +46,8 @@
 * Driver for a paired sweep (serial, fresh process per run; rep 0 discarded):
 *   for c in clipout sparse dense frameout chain; do
 *     for r in $(seq 0 9); do
-*       stata-mp -b do benchmark_tvexpose_pipeline.do $c 20000 $r
-*       grep '^BENCH:' benchmark_tvexpose_pipeline.log
+*       stata-mp -b do benchmark_tvexpose_workflow.do $c 20000 $r
+*       grep '^BENCH:' benchmark_tvexpose_workflow.log
 *     done
 *   done
 * Keep raw logs outside the package tree; they are not tracked.

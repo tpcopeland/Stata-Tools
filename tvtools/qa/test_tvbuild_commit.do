@@ -125,8 +125,8 @@ program define _tvc_fingerprint, rclass
         local _meta `"`_meta'|`v':`_t':`_f':`_l':`_vl'"'
     }
     local _dl : data label
-    local _pc : char _dta[tvtools_pipeline]
-    local _cc : char _dta[tvtools_pipeline_coverage]
+    local _pc : char _dta[tvtools_tvbuild]
+    local _cc : char _dta[tvtools_tvbuild_coverage]
     frame change `_here'
     return local fingerprint `"`_sig'`_meta'|data:`_dl'|char:`_pc':`_cc'"'
 end
@@ -759,13 +759,13 @@ local p5_k ""
 _tvc_ready, fr(tc_p1)
 if r(ok) {
 frame tc_p1 {
-    local p5_p : char _dta[tvtools_pipeline]
-    local p5_s : char _dta[tvtools_pipeline_schema]
-    local p5_c : char _dta[tvtools_pipeline_coverage]
-    local p5_st : char _dta[tvtools_pipeline_start]
-    local p5_sp : char _dta[tvtools_pipeline_stop]
-    local p5_e : char _dta[tvtools_pipeline_event]
-    local p5_k : char _dta[tvtools_pipeline_committed]
+    local p5_p : char _dta[tvtools_tvbuild]
+    local p5_s : char _dta[tvtools_tvbuild_schema]
+    local p5_c : char _dta[tvtools_tvbuild_coverage]
+    local p5_st : char _dta[tvtools_tvbuild_start]
+    local p5_sp : char _dta[tvtools_tvbuild_stop]
+    local p5_e : char _dta[tvtools_tvbuild_event]
+    local p5_k : char _dta[tvtools_tvbuild_committed]
 }
 }
 local ok = ("`p5_p'" == "tvbuild" & "`p5_s'" == "1" & "`p5_c'" == "strict" & ///

@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-quietly log using "validation_pipeline.log", replace nomsg
+quietly log using "validation_tvbuild_conservation.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -24,10 +24,10 @@ global TVQA_FAIL = 0
 global TVQA_FAILED ""
 global TVQA_CURRENT ""
 
-display as result "tvtools QA: pipeline conservation -- $S_DATE $S_TIME"
+display as result "tvtools QA: tvbuild conservation -- $S_DATE $S_TIME"
 
 
-**# ===== merged from validation_tvtools.do L18375-19470: end-to-end pipeline + continuous/person-time conservation =====
+**# ===== merged from validation_tvtools.do L18375-19470: end-to-end tvbuild + continuous/person-time conservation =====
 
 capture noisily {
 * SECTION 1: END-TO-END PIPELINE TESTS
@@ -37,12 +37,12 @@ if `quiet' == 0 {
     display as text "{hline 70}"
 }
 
-* Test 1.1: Complete pipeline with single person, verify all transformations
+* Test 1.1: Complete tvbuild with single person, verify all transformations
 * Known answer: Person has 365 days follow-up, 200 days exposed, event at day 300
 * Note: type(single) censors post-event time, so PT = 300 days, not 365
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 1.1: Complete pipeline - single person"
+    display as text _n "Test 1.1: Complete tvbuild - single person"
     display as text "  Follow-up: 365 days, Exposure: days 50-250, Event: day 300"
     display as text "  Note: type(single) removes post-event time"
 }
@@ -115,7 +115,7 @@ if _rc == 0 {
         display "[OK] 1.1"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: Complete pipeline produces correct intervals and event"
+        display as result "  PASS: Complete tvbuild produces correct intervals and event"
     }
 }
 else {
@@ -125,7 +125,7 @@ else {
         display "[FAIL] 1.1|`=_rc'"
     }
     else {
-        display as error "  FAIL: Complete pipeline test (error `=_rc')"
+        display as error "  FAIL: Complete tvbuild test (error `=_rc')"
     }
 }
 
@@ -202,7 +202,7 @@ if _rc == 0 {
         display "[OK] 1.2"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: tvmerge pipeline preserves person-time"
+        display as result "  PASS: tvmerge workflow preserves person-time"
     }
 }
 else {
@@ -212,7 +212,7 @@ else {
         display "[FAIL] 1.2|`=_rc'"
     }
     else {
-        display as error "  FAIL: tvmerge pipeline test (error `=_rc')"
+        display as error "  FAIL: tvmerge workflow test (error `=_rc')"
     }
 }
 
@@ -419,7 +419,7 @@ else {
 }
 
 * Test 2.4: End-to-end continuous through tvmerge + tvevent
-* Tests that continuous proportioning works correctly through pipeline
+* Tests that continuous proportioning works correctly through tvbuild
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 2.4: Continuous variable through tvmerge then tvevent"
@@ -1129,11 +1129,11 @@ local pass_count = `pass_count' + $TVQA_PASS
 local fail_count = `fail_count' + $TVQA_FAIL
 local failed_tests "`failed_tests' $TVQA_FAILED"
 local test_count = `pass_count' + `fail_count'
-display as result _newline "tvtools QA pipeline conservation Results -- $S_DATE $S_TIME"
+display as result _newline "tvtools QA tvbuild conservation Results -- $S_DATE $S_TIME"
 display as text "Tests run:  `test_count'"
 display as text "Passed:     `pass_count'"
 display as text "Failed:     `fail_count'"
-display "RESULT: validation_pipeline tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: validation_tvbuild_conservation tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "TESTS FAILED: `failed_tests'"
     exit 1

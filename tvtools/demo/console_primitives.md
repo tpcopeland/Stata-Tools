@@ -1,8 +1,8 @@
 ---
-title: "tvtools: Frames-First Pipeline"
+title: "tvtools: Frames-First Primitives"
 ---
 
-## tvtools: Frames-First Time-Varying Pipeline
+## tvtools: Frames-First Time-Varying Primitives
 
 ### Package overview
 

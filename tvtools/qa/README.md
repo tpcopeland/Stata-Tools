@@ -58,31 +58,31 @@ stata-mp -b do benchmark_tvweight_cumprod.do <nrows> <nids> <rep> [all|legacy|ca
 
 Repetition 0 is a discarded warm-up; odd and even repetitions alternate the execution order. Each run prints one `BENCH:` line with the elapsed times, the paired ratios, and the maximum absolute difference against the released algorithm. Use a single `impl` under `/usr/bin/time -v` when peak resident memory is wanted, so one process holds one implementation. Raw logs are not tracked.
 
-`benchmark_tvmerge_pipeline.do` measures the `tvmerge` merge pipeline: two and three sources, sparse/moderate/dense overlap output, and a paired file-input versus `frames()`-input control built from byte-identical data.
+`benchmark_tvmerge_workflow.do` measures the `tvmerge` merge workflow: two and three sources, sparse/moderate/dense overlap output, and a paired file-input versus `frames()`-input control built from byte-identical data.
 
 ```
-stata-mp -b do benchmark_tvmerge_pipeline.do <case> <scale> <rep>
+stata-mp -b do benchmark_tvmerge_workflow.do <case> <scale> <rep>
 ```
 
 `case` is `two`, `three`, `sparse`, `moderate`, `dense`, or `frames`. Because a merge is output-sensitive, every `BENCH:` line reports `M`, `U`, `K`, and the output row count next to the elapsed time; a timing without `K` is not interpretable. The `frames` case runs both input modes in one process and alternates their order with `rep`.
 
-`benchmark_tvevent_pipeline.do` measures the `tvevent` split/segment pipeline: no events, boundary events, one internal event per person, one internal event per interval, and a paired using-file versus `frame()` control built from byte-identical intervals.
+`benchmark_tvevent_workflow.do` measures the `tvevent` split/segment workflow: no events, boundary events, one internal event per person, one internal event per interval, and a paired using-file versus `frame()` control built from byte-identical intervals.
 
 ```
-stata-mp -b do benchmark_tvevent_pipeline.do <case> <scale> <rep>
+stata-mp -b do benchmark_tvevent_workflow.do <case> <scale> <rep>
 ```
 
 `case` is `none`, `boundary`, `internal`, `dense`, or `frame`. Every `BENCH:` line reports `I` (interval rows in), `E` (event rows in), `S` (split points), and `Nout` beside the elapsed time, and asserts `Nout == I + S`. That assertion is not decoration: the first draft ran `type(single)`, under which `tvevent` truncates follow-up at the first event, so one internal event per person collapsed ten intervals to one output row and the benchmark measured truncation instead of segment construction. The guard reported `expected Nout=22000 but observed 2000`. Every case now runs `type(recurring)`, where all person-time is retained.
 
-`benchmark_tvexpose_pipeline.do` measures the default categorical `tvexpose` construction and the end-to-end chain: a non-empty source whose every row clips out, one episode per person, five clean non-overlapping episodes per person, a paired caller-replacement versus `frameout()` control on byte-identical inputs, and `tvexpose` → `tvexpose` → `tvmerge` → `tvevent` with every intermediate held in a frame.
+`benchmark_tvexpose_workflow.do` measures the default categorical `tvexpose` construction and the end-to-end chain: a non-empty source whose every row clips out, one episode per person, five clean non-overlapping episodes per person, a paired caller-replacement versus `frameout()` control on byte-identical inputs, and `tvexpose` → `tvexpose` → `tvmerge` → `tvevent` with every intermediate held in a frame.
 
 ```
-stata-mp -b do benchmark_tvexpose_pipeline.do <case> <scale> <rep>
+stata-mp -b do benchmark_tvexpose_workflow.do <case> <scale> <rep>
 ```
 
 `case` is `clipout`, `sparse`, `dense`, `frameout`, or `chain`. Every `BENCH:` line reports `M` (master persons in), `E` (source episode rows in), and `Nout` beside the elapsed time, because one source episode becomes between one and three output rows depending on where the study bounds fall. `Nout` is known by construction and asserted for every case except `chain`, whose cardinality the generator cannot predict because the merge intersects two different tilings. Like the `tvevent` benchmark it prints `BENCHADO:` and refuses to run when the resolved `tvexpose.ado` is not under the tree being tested.
 
-Building the `chain` case surfaced a package inconsistency worth knowing before writing a pipeline: `tvexpose` renames its structural bounds back to the caller's own `start()`/`stop()` option names on commit, but `tvmerge` does not — its output frame carries `id`, `start`, and `stop` whatever `id()` was passed.
+Building the `chain` case surfaced a package inconsistency worth knowing before writing a workflow: `tvexpose` renames its structural bounds back to the caller's own `start()`/`stop()` option names on commit, but `tvmerge` does not — its output frame carries `id`, `start`, and `stop` whatever `id()` was passed.
 
 Still owed: `tvweight` cumulative IPTW with and without IPCW end to end, and the remaining `tvweight` paired controls.
 
@@ -201,7 +201,7 @@ Core has no undeclared dependency on sibling Stata packages. `test_tvm_overlap_d
 | `tvweight` | `test_tvweight.do`, `test_tvweight_cumprod.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvweight.do`, balance and recovery suites, `validation_audit_tvweight.do` | `crossval_tvweight_ipcw.do`, `crossval_tvtools.do` |
 | `tvspec` | `test_tvspec.do` | Plan equivalence: the same specification built by hand and by `tvspec`, compared through `tvbuild` with `cf _all` on both the committed frame and the manifest | The hand-built specification frame is the oracle; the declared storage types are pinned against a fixed list outside that comparison |
 | `tvdiagnose` | `test_tvdiagnose.do`, `test_options.do`, `test_extended_missing.do` | `validation_tvdiagnose.do`, `validation_audit_tvdiagnose.do` | `crossval_tvtools.do` |
-| Dispatcher and workflows | `test_tvtools.do`, `test_tvtools_catalog.do`, `test_integration.do`, flow, pipeline, frame, naming, verbose, edge, regression, and state suites | `validation_known_answers.do`, DGP, boundary, pipeline, and supplemental suites | Cross-command checks in `crossval_tvtools.do` |
+| Dispatcher and workflows | `test_tvtools.do`, `test_tvtools_catalog.do`, `test_integration.do`, flow, frame, naming, verbose, edge, regression, and state suites | `validation_known_answers.do`, DGP, boundary, tvbuild conservation, and supplemental suites | Cross-command checks in `crossval_tvtools.do` |
 | `tvbuild` | `test_tvbuild_dryrun.do`, `test_tvbuild_construct.do`, `test_tvbuild_commit.do`, `test_tvbuild_manifest_default.do`, `test_tvbuild_regressions_1_10_2.do` | Frozen `tvexpose`/`tvmerge`/`tvevent` sequences compared with `cf _all`, plus hand-written expected plans and tilings | Refusal cases a real preflight must reject; forced commit failures with byte-and-metadata rollback checks |
 | Distribution surface | Runner, fixtures, help examples, optional integration, release, and `test_program_limits.do` suites | Manifest-pinned result counts and fixture checksums | Installed-user, SMCL render, dialog, menu, and demo checks |
 
@@ -221,7 +221,7 @@ The executable filename membership and pinned assertion counts live only in `_tv
 
 Functional and release-contract suites: `test_default_naming.do`, `test_dialogs_gui.do`, `test_edge_cases.do`, `test_extended_missing.do`, `test_frames_input.do`, `test_help_examples.do`, `test_integration.do`, `test_options.do`, `test_package_fixtures.do`, `test_package_optional_integration.do`, `test_package_release.do`, `test_package_runner_contract.do`, `test_package_state.do`, `test_regressions.do`, `test_regressions_1_9_0.do`, `test_tvage.do`, `test_tvband.do`, `test_tvdiagnose.do`, `test_tvevent.do`, `test_tvexpose.do`, `test_tvexpose_diagnostics.do`, `test_tvexpose_fastpath.do`, `test_program_limits.do`, `test_tvm_overlap_drift_guard.do`, `test_tvm_point_engine.do`, `test_tvmerge.do`, `test_tvmerge_idname.do`, `test_tvpanel.do`, `test_tvbuild_dryrun.do`, `test_tvbuild_regressions_1_10_2.do`, `test_tvsplit.do`, `test_tvtools.do`, `test_tvweight.do`, `test_tvweight_cumprod.do`, and `test_verbose.do`.
 
-Known-answer and simulation suites: `validation_audit_tvdiagnose.do`, `validation_audit_tvevent.do`, `validation_audit_tvexpose.do`, `validation_audit_tvmerge.do`, `validation_audit_tvpanel.do`, `validation_audit_tvsplit.do`, `validation_audit_tvweight.do`, `validation_boundary.do`, `validation_contracts.do`, `validation_dgp_known_answers.do`, `validation_dgp_known_answers2.do`, `validation_flow.do`, `validation_known_answers.do`, `validation_phase0_semantics.do`, `validation_pipeline.do`, `validation_supplemental.do`, `validation_tvage.do`, `validation_tvband.do`, `validation_tvdiagnose.do`, `validation_tvevent.do`, `validation_tvexpose.do`, `validation_tvexpose_statetime.do`, `validation_tvmerge.do`, `validation_tvpanel.do`, `validation_tvsplit.do`, `validation_tvweight.do`, `validation_tvweight_balance.do`, `validation_tvweight_msm_recovery.do`, and `validation_tvweight_recovery.do`.
+Known-answer and simulation suites: `validation_audit_tvdiagnose.do`, `validation_audit_tvevent.do`, `validation_audit_tvexpose.do`, `validation_audit_tvmerge.do`, `validation_audit_tvpanel.do`, `validation_audit_tvsplit.do`, `validation_audit_tvweight.do`, `validation_boundary.do`, `validation_contracts.do`, `validation_dgp_known_answers.do`, `validation_dgp_known_answers2.do`, `validation_flow.do`, `validation_known_answers.do`, `validation_phase0_semantics.do`, `validation_tvbuild_conservation.do`, `validation_supplemental.do`, `validation_tvage.do`, `validation_tvband.do`, `validation_tvdiagnose.do`, `validation_tvevent.do`, `validation_tvexpose.do`, `validation_tvexpose_statetime.do`, `validation_tvmerge.do`, `validation_tvpanel.do`, `validation_tvsplit.do`, `validation_tvweight.do`, `validation_tvweight_balance.do`, `validation_tvweight_msm_recovery.do`, and `validation_tvweight_recovery.do`.
 
 Independent parity suites: `crossval_tvevent_recurring.do`, `crossval_tvexpose_expand.do`, `crossval_tvmerge_mata.do`, `crossval_tvsplit_lexis.do`, `crossval_tvtools.do`, and `crossval_tvweight_ipcw.do`.
 

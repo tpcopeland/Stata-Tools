@@ -2011,7 +2011,7 @@ else {
 
 * Test 19.4: tvevent empty master returns r(N) and r(N_events) (MEDIUM fix)
 * Bug: empty-event r() values not propagated to caller
-* Fix: empty/all-missing events flow through the ordinary interval pipeline,
+* Fix: empty/all-missing events flow through the ordinary interval workflow,
 *      which posts the full r() contract (inline at tvevent.ado ~956-964)
 local ++test_count
 capture noisily {

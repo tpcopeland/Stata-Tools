@@ -322,7 +322,7 @@ stset stop, id(id) failure(outcome == 1) time0(start)
 ```
 
 ```stata
-local pipe_periods = r(N_periods)
+local build_periods = r(N_periods)
 ```
 
 ```stata
@@ -405,7 +405,7 @@ tvexpose x2 + tvmerge + tvevent: 764 periods
 ```
 
 ```stata
-noisily display "one tvbuild call:                " as result `pipe_periods' as text " periods"
+noisily display "one tvbuild call:                " as result `build_periods' as text " periods"
 ```
 
 ```

@@ -501,18 +501,18 @@ capture noisily {
     capture frame drop rx_frame
     frame create rx_frame
     frame rx_frame: use `episodes', clear
-    capture frame drop pipe_spec
-    frame create pipe_spec
-    frame pipe_spec {
+    capture frame drop build_spec
+    frame create build_spec
+    frame build_spec {
         input str32 source_name str12 source_kind str32 source_frame strL source_file ///
             str32 start_var str32 stop_var strL input_vars strL output_vars double reference
         "drug" "episodes"  "rx_frame"  "" "rx_start" "rx_stop" "rx_class" "tv_drug" 0
         "alt"  "intervals" "alt_frame" "" "start"    "stop"    "tv_alt"   "tv_alt2" .
         end
     }
-    frame pipe_spec: char _dta[tvbuild_spec_version] "1"
+    frame build_spec: char _dta[tvbuild_spec_version] "1"
     use `cohort', clear
-    tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
+    tvbuild, specframe(build_spec) id(id) entry(study_entry) exit(study_exit) ///
         frameout(analysis) manifestframe(provenance) replace
     frame provenance: list stage source_name n_input n_output, noobs
 
@@ -557,7 +557,7 @@ capture noisily {
         eventframe(ev_frame) eventdate(ev) eventtype(recurring) enum(_enum) gaptime
     assert r(enumvar) == "_enum"
     foreach f in analysis analysis_manifest provenance alt_frame drug_frame ///
-        pipe_spec ev_frame rx_frame {
+        build_spec ev_frame rx_frame {
         capture frame drop `f'
     }
 }

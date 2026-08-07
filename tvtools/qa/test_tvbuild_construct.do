@@ -852,7 +852,7 @@ local c2_char ""
 _tvb_ready, fr(tb_pc)
 if r(ok) {
 frame tb_pc {
-    local c2_char : char _dta[tvtools_pipeline_coverage]
+    local c2_char : char _dta[tvtools_tvbuild_coverage]
 }
 }
 local ok = (`c2_rc' == 0 & `c2_gap' == 1 & `c2_days' == 99 & ///

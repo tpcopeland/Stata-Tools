@@ -47,7 +47,7 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     validation_tvweight validation_tvweight_balance ///
     validation_tvweight_recovery validation_tvweight_msm_recovery ///
     validation_tvdiagnose validation_flow ///
-    validation_boundary validation_pipeline validation_supplemental ///
+    validation_boundary validation_tvbuild_conservation validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools
 
 local external_suites crossval_tvsplit_lexis crossval_tvweight_ipcw ///
@@ -92,7 +92,7 @@ local manifest_suites test_package_runner_contract ///
     validation_tvmerge validation_tvpanel validation_tvweight ///
     validation_tvweight_balance validation_tvweight_recovery ///
     validation_tvweight_msm_recovery validation_tvdiagnose validation_flow ///
-    validation_boundary validation_pipeline validation_supplemental ///
+    validation_boundary validation_tvbuild_conservation validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools ///
     crossval_tvsplit_lexis crossval_tvweight_ipcw ///
     crossval_tvevent_recurring test_tvm_overlap_drift_guard ///

@@ -233,8 +233,8 @@ external file. Run them in order in a scratch session.
 {phang2}{cmd:. 1 22050 22100 1}{p_end}
 {phang2}{cmd:. 2 21950 22000 1}{p_end}
 {phang2}{cmd:. end}{p_end}
-{phang2}{cmd:. tempfile pipe_rx}{p_end}
-{phang2}{cmd:. save "`pipe_rx'"}{p_end}
+{phang2}{cmd:. tempfile rx_data}{p_end}
+{phang2}{cmd:. save "`rx_data'"}{p_end}
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input id study_entry study_exit}{p_end}
@@ -243,11 +243,11 @@ external file. Run them in order in a scratch session.
 {phang2}{cmd:. end}{p_end}
 {phang2}{cmd:. format study_entry study_exit %td}{p_end}
 
-{phang2}{cmd:. tvbuild, sourceusing("`pipe_rx'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, sourceusing("`rx_data'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) frameout(analysis) replace dryrun}{p_end}
 
-{phang2}{cmd:. tvbuild, sourceusing("`pipe_rx'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang2}{cmd:. tvbuild, sourceusing("`rx_data'") id(id) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///}{p_end}
 {phang3}{cmd:generate(tv_drug) frameout(analysis) replace}{p_end}
 
@@ -256,7 +256,7 @@ For more than one source, build the specification frame with {helpb tvspec}
 rather than by hand:
 
 {phang2}{cmd:. tvspec create study_spec, replace}{p_end}
-{phang2}{cmd:. tvspec add study_spec, name(drug) using("`pipe_rx'") start(rx_start) stop(rx_stop) exposure(drug) reference(0) generate(tv_drug)}{p_end}
+{phang2}{cmd:. tvspec add study_spec, name(drug) using("`rx_data'") start(rx_start) stop(rx_stop) exposure(drug) reference(0) generate(tv_drug)}{p_end}
 {phang2}{cmd:. tvbuild, specframe(study_spec) id(id) entry(study_entry) exit(study_exit) frameout(analysis)}{p_end}
 
 {pstd}

@@ -79,13 +79,13 @@ program define _tvbuild_commit, rclass
     local _present "`r(varlist)'"
     quietly datasignature
     local _sig2 "`r(datasignature)'"
-    local _pipechar : char _dta[tvtools_pipeline]
+    local _buildchar : char _dta[tvtools_tvbuild]
     frame change `_caller_frame'
 
     local _extra : list _present - schema
     local _missing : list schema - _present
     if `_n_committed' != `nrows' | "`_extra'`_missing'" != "" | ///
-       "`_sig2'" != "`signature'" | "`_pipechar'" != "tvbuild" {
+       "`_sig2'" != "`signature'" | "`_buildchar'" != "tvbuild" {
         noisily display as error ///
             "tvbuild: the committed frame `frameout' does not match the verified result"
         if `_n_committed' != `nrows' ///
@@ -111,7 +111,7 @@ program define _tvbuild_commit, rclass
             exit 459
         }
         * The mark travels with `frame copy'. Verified here for the same reason
-        * the output frame's tvtools_pipeline mark is: a later run reads it to
+        * the output frame's tvtools_tvbuild mark is: a later run reads it to
         * decide whether a frame at a DERIVED name is tvbuild's to replace, so a
         * commit that lost it would turn the next run's ownership check into a
         * refusal the user cannot act on.

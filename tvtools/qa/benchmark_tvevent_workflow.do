@@ -1,5 +1,5 @@
-* benchmark_tvevent_pipeline.do
-* Registered benchmark for the tvevent split/segment pipeline.
+* benchmark_tvevent_workflow.do
+* Registered benchmark for the tvevent split/segment workflow.
 *
 * Covers the tvevent scope of Section 7.1 of the tvtools single-pass plan:
 *   case 5  tvevent with no events, boundary events, and many internal events
@@ -9,7 +9,7 @@
 *
 * 7.1 cases 1, 2, 6, and 7 (tvweight IPCW end to end, default categorical
 * tvexpose, and the end-to-end construction chain) are NOT here. The tvmerge
-* cases live in benchmark_tvmerge_pipeline.do and the tvweight grouped product
+* cases live in benchmark_tvmerge_workflow.do and the tvweight grouped product
 * in benchmark_tvweight_cumprod.do.
 *
 * Manually invoked; deliberately NOT part of any correctness lane and not in
@@ -17,7 +17,7 @@
 * never a timing assertion.
 *
 * Usage (one fresh Stata process per invocation, run serially):
-*   stata-mp -b do benchmark_tvevent_pipeline.do <case> <scale> <rep>
+*   stata-mp -b do benchmark_tvevent_workflow.do <case> <scale> <rep>
 *     case   none | boundary | internal | dense | frame
 *     scale  interval rows to generate (default 20000)
 *     rep    repetition index; odd/even flips execution order where a case
@@ -41,8 +41,8 @@
 * Driver for a paired sweep (serial, fresh process per run; rep 0 discarded):
 *   for c in none boundary internal dense frame; do
 *     for r in $(seq 0 9); do
-*       stata-mp -b do benchmark_tvevent_pipeline.do $c 20000 $r
-*       grep '^BENCH:' benchmark_tvevent_pipeline.log
+*       stata-mp -b do benchmark_tvevent_workflow.do $c 20000 $r
+*       grep '^BENCH:' benchmark_tvevent_workflow.log
 *     done
 *   done
 * Keep raw logs outside the package tree; they are not tracked.

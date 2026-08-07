@@ -176,13 +176,13 @@ program define _tvbuild_finalize, rclass
     frame change `resframe'
     if `"`_dtalab'"' != "" label data `"`_dtalab'"'
 
-    char _dta[tvtools_pipeline]           "tvbuild"
-    char _dta[tvtools_pipeline_schema]    "1"
-    char _dta[tvtools_pipeline_coverage]  "`coverage'"
-    char _dta[tvtools_pipeline_start]     "`startname'"
-    char _dta[tvtools_pipeline_stop]      "`stopname'"
-    char _dta[tvtools_pipeline_event]     "`eventvar'"
-    char _dta[tvtools_pipeline_committed] "1"
+    char _dta[tvtools_tvbuild]           "tvbuild"
+    char _dta[tvtools_tvbuild_schema]    "1"
+    char _dta[tvtools_tvbuild_coverage]  "`coverage'"
+    char _dta[tvtools_tvbuild_start]     "`startname'"
+    char _dta[tvtools_tvbuild_stop]      "`stopname'"
+    char _dta[tvtools_tvbuild_event]     "`eventvar'"
+    char _dta[tvtools_tvbuild_committed] "1"
 
     sort `id' `startname' `stopname'
 

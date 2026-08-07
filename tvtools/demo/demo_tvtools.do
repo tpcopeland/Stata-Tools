@@ -1,7 +1,7 @@
 /*  demo_tvtools.do - Generate documentation output for tvtools (v1.13.1)
 
     Console assets produced (.log -> .md via logdoc):
-      1. Frames-first primitive pipeline           -> console_pipeline.{log,md}
+      1. Frames-first primitives                   -> console_primitives.{log,md}
       2. tvbuild, the same route as one call       -> console_tvbuild.{log,md}
       3. MSM weighting: IPTW x IPCW + positivity   -> console_msm.{log,md}
       4. Recurrent-event PWP / AG formatting       -> console_recurrent.{log,md}
@@ -19,7 +19,7 @@
     and the two routes are compared with cf.
 
     The demo walks the whole suite end to end:
-      - frames-first output: tvexpose/tvmerge frameout(); whole pipeline in memory
+      - frames-first output: tvexpose/tvmerge frameout(); whole workflow in memory
       - returned output-name macros (r(genvar), r(startname), r(generate))
       - the same construction as one tvbuild call, verified equal to the
         primitive route with cf rather than asserted in prose
@@ -62,7 +62,7 @@ if `"`demo_dir'"' == "" {
 }
 
 tempfile cohort events recur panel ///
-    primitive_out prim_cmp pipe_cmp caller_love_graph caller_swim_graph
+    primitive_out prim_cmp build_cmp caller_love_graph caller_swim_graph
 
 * The two raw episode extracts are NAMED files in the working directory rather
 * than tempfiles. tvbuild's plan display and tvspec list both echo the source
@@ -270,11 +270,11 @@ label var treat "On treatment"
 label var biomarker "Time-varying confounder"
 save "`panel'", replace
 
-**# Frames-first pipeline (no save/use round-trips)
+**# Frames-first primitives (no save/use round-trips)
 capture log close _all
-log using "`demo_dir'/console_pipeline.log", replace text name(pipe) nomsg
+log using "`demo_dir'/console_primitives.log", replace text name(prim) nomsg
 
-* # tvtools: Frames-First Time-Varying Pipeline
+* # tvtools: Frames-First Time-Varying Primitives
 
 * ## Package overview
 use "`cohort'", clear
@@ -321,7 +321,7 @@ noisily display "event indicator: " as result "`r(generate)'" ///
 * rather than merely described as equivalent.
 local prim_periods = c(N)
 quietly save "`primitive_out'", replace
-log close pipe
+log close prim
 
 
 **# tvbuild: the same construction as one call
@@ -396,7 +396,7 @@ noisily tvbuild, specframe(tvdemo_spec) ///
     eventusing("`events'") eventdate(cv_event_date) compete(death_date) ///
     eventgenerate(outcome) ///
     frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace
-local pipe_periods = r(N_periods)
+local build_periods = r(N_periods)
 noisily display "committed periods: " as result r(N_periods) ///
     "   signature: " as result "`r(datasignature)'"
 noisily matrix list r(stage_counts)
@@ -426,17 +426,17 @@ frame change `f_cmp'
 keep `cmp_vars'
 order `cmp_vars'
 sort id start stop
-quietly save "`pipe_cmp'", replace
+quietly save "`build_cmp'", replace
 frame change `demo_frame'
 capture frame drop `f_cmp'
 
-use "`pipe_cmp'", clear
+use "`build_cmp'", clear
 log using "`demo_dir'/console_tvbuild.log", append text name(build) nomsg
 noisily cf _all using "`prim_cmp'", verbose
 local cmp_diffs = r(Nsum)
 assert `cmp_diffs' == 0
 noisily display "tvexpose x2 + tvmerge + tvevent: " as result `prim_periods' as text " periods"
-noisily display "one tvbuild call:                " as result `pipe_periods' as text " periods"
+noisily display "one tvbuild call:                " as result `build_periods' as text " periods"
 noisily display "cf mismatching values:           " as result `cmp_diffs'
 log close build
 
@@ -601,8 +601,8 @@ if _rc != 0 {
     display as text "logdoc not available; console .log files written, .md skipped"
 }
 else {
-    local demo_logs "pipeline tvbuild msm recurrent multigroup"
-    local demo_titles `""tvtools: Frames-First Pipeline""'
+    local demo_logs "primitives tvbuild msm recurrent multigroup"
+    local demo_titles `""tvtools: Frames-First Primitives""'
     local demo_titles `"`demo_titles' "tvbuild: The Whole Route as One Call""'
     local demo_titles `"`demo_titles' "tvtools: MSM Weighting with IPCW""'
     local demo_titles `"`demo_titles' "tvtools: Recurrent-Event Formatting""'
@@ -625,7 +625,7 @@ else {
 local demo_rc = _rc
 
 * --- Unconditional cleanup and session restoration ---
-capture log close pipe
+capture log close prim
 capture log close build
 capture log close msm
 capture log close rec

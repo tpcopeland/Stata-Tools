@@ -173,18 +173,18 @@ frame provenance: list stage source_name n_input n_output, noobs
 `tvspec` appends one typed row per source and preserves row order; `tvbuild` applies the cross-source rules and performs the build.
 
 ```stata
-tvspec create pipe_spec, replace
-tvspec add pipe_spec, name(drug) using(`"`episodes'"') start(rx_start) stop(rx_stop) ///
+tvspec create build_spec, replace
+tvspec add build_spec, name(drug) using(`"`episodes'"') start(rx_start) stop(rx_stop) ///
     exposure(rx_class) generate(tv_drug) reference(0)
-tvspec add pipe_spec, name(second) using(`"`episodes2'"') start(rx_start) stop(rx_stop) ///
+tvspec add build_spec, name(second) using(`"`episodes2'"') start(rx_start) stop(rx_stop) ///
     exposure(rx_class) generate(tv_second) reference(0)
-tvspec list pipe_spec
+tvspec list build_spec
 use `cohort', clear
-tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
+tvbuild, specframe(build_spec) id(id) entry(study_entry) exit(study_exit) ///
     frameout(analysis) manifestframe(provenance) replace
 ```
 
-### 3. Keep a primitive pipeline in frames
+### 3. Keep a primitive workflow in frames
 
 `frameout()` leaves the caller’s data intact, and `frames()` lets `tvmerge` consume named intermediate results without save/use round trips.
 
@@ -474,7 +474,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.13.0** (2026-08-02): Harmonized console-report layout and corrected display-only leaks and formatting defects without changing estimators, interval semantics, computed values, options, or stored results.
 - **1.12.1** (2026-08-02): Hardened provenance-manifest replacement checks and improved diagnostics for damaged specification frames.
 - **1.12.0** (2026-08-01): Added `tvspec`, made `tvbuild` provenance manifests default, and made catalog rendering derive from one command list.
-- **1.11.0** (2026-07-31): Renamed the released front door from `tvpipe` to `tvbuild` and moved its specification and pipeline characteristics to the new command name.
+- **1.11.0** (2026-07-31): Renamed the released front door from `tvpipe` to `tvbuild` and moved its specification and provenance characteristics to the new command name.
 - **1.10.2** (2026-07-31): Hardened front-door specification validation, recurring-event stub discovery, manifest return normalization, and specification-cell arity checks.
 - **1.10.1** (2026-07-30): Repaired `eventlabel()` forwarding in the front door and removed duplicate help content.
 - **1.10.0** (2026-07-30): Added the transactional front door for typed multi-source plans and introduced `tvmerge, idname()`.

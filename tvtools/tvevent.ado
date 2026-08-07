@@ -632,7 +632,7 @@ program define tvevent, rclass
         }
     }
 
-    * Raw interval counts feed the stable 2x3 pipeline flow matrix.
+    * Raw interval counts feed the stable 2x3 flow matrix.
     local _flow_rin = _N
     tempvar _flow_tag
     quietly egen byte `_flow_tag' = tag(`id') if !missing(`id')
@@ -957,7 +957,7 @@ program define tvevent, rclass
         }
 
         * Empty and all-missing event inputs now enter the ordinary interval
-        * pipeline with a typed zero-row event table. This guarantees the same
+        * workflow with a typed zero-row event table. This guarantees the same
         * generate/time/recurrence schema and r() contract on every path.
         if `master_N' == 0 {
             noisily di as txt ///
@@ -1667,7 +1667,7 @@ program define tvevent, rclass
     _tvtools_rule
 
     * Flow is returned whenever requested or whenever dropinvalid authorizes
-    * attrition. It remains a 2x3 interval-pipeline matrix for API stability.
+    * attrition. It remains a 2x3 interval-flow matrix for API stability.
     if `_return_flow' {
         tempvar _flow_tago
         quietly egen byte `_flow_tago' = tag(`id')

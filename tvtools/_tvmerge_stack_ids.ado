@@ -5,7 +5,7 @@
 
 /*
 tvmerge needs the union of person IDs across its source datasets twice: for
-pipeline flow accounting (persons in) and for the shared integer group key the
+flow accounting (persons in) and for the shared integer group key the
 interval sweep matches on.
 
 Stata 16 and 17 have no command that appends one frame onto another, so the

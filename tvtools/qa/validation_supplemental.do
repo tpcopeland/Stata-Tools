@@ -703,7 +703,7 @@ else {
 
 capture noisily {
 
-* CREATE SHARED PIPELINE DATA
+* CREATE SHARED WORKFLOW DATA
 * 5 persons with precisely defined exposure and event patterns
 * Person 1: unexposed throughout (control)
 * Person 2: single exposure to drug A, no event
@@ -711,7 +711,7 @@ capture noisily {
 * Person 4: overlapping drugs A and B, event day 300
 * Person 5: full-window exposure to drug A, censored at exit
 
-display "Setting up pipeline data (5 persons)"
+display "Setting up workflow data (5 persons)"
 
 * Cohort
 clear
@@ -867,7 +867,7 @@ replace id = 1 in 2
 replace id = 2 in 3
 save `events_single', replace
 
-* TESTS 1-5: TVEXPOSE → TVEVENT SINGLE-DRUG PIPELINE
+* TESTS 1-5: TVEXPOSE → TVEVENT SINGLE-DRUG WORKFLOW
 
 }
 

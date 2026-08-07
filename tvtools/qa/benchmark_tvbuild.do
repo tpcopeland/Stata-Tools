@@ -534,13 +534,13 @@ else if inlist("`impl'", "native", "nativev") {
             exit 111
         }
         if `"`_dtalab'"' != "" label data `"`_dtalab'"'
-        char _dta[tvtools_pipeline]           "tvbuild"
-        char _dta[tvtools_pipeline_schema]    "1"
-        char _dta[tvtools_pipeline_coverage]  "strict"
-        char _dta[tvtools_pipeline_start]     "start"
-        char _dta[tvtools_pipeline_stop]      "stop"
-        char _dta[tvtools_pipeline_event]     ""
-        char _dta[tvtools_pipeline_committed] "1"
+        char _dta[tvtools_tvbuild]           "tvbuild"
+        char _dta[tvtools_tvbuild_schema]    "1"
+        char _dta[tvtools_tvbuild_coverage]  "strict"
+        char _dta[tvtools_tvbuild_start]     "start"
+        char _dta[tvtools_tvbuild_stop]      "stop"
+        char _dta[tvtools_tvbuild_event]     ""
+        char _dta[tvtools_tvbuild_committed] "1"
         sort pid start stop
         quietly datasignature
         local vsig "`r(datasignature)'"
@@ -553,12 +553,12 @@ else if inlist("`impl'", "native", "nativev") {
         local vpresent2 "`r(varlist)'"
         quietly datasignature
         local vsig2 "`r(datasignature)'"
-        local vpipechar : char _dta[tvtools_pipeline]
+        local vbuildchar : char _dta[tvtools_tvbuild]
         frame change `resf'
         local vextra2   : list vpresent2 - vschema
         local vmissing2 : list vschema - vpresent2
         if `_n_committed' != `_n_out' | "`vextra2'`vmissing2'" != "" | ///
-           "`vsig2'" != "`vsig'" | "`vpipechar'" != "tvbuild" {
+           "`vsig2'" != "`vsig'" | "`vbuildchar'" != "tvbuild" {
             display as error "BENCHBAD: nativev commit verification failed"
             exit 111
         }

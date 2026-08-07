@@ -16,7 +16,7 @@ threshold, time scale, estimand, or causal model. Those stay visible and
 scriptable.
 
 Canonical multi-source form:
-  tvbuild, specframe(pipe_spec) id(id) entry(study_entry) exit(study_exit) ///
+  tvbuild, specframe(build_spec) id(id) entry(study_entry) exit(study_exit) ///
       frameout(analysis) [options]
 
 One-source categorical shortcut:

@@ -331,13 +331,13 @@ capture noisily {
     assert analysis_time == 1 & _d == 1
 }
 if _rc == 0 {
-    display as result "  PASS: one-day tvpanel-tvevent-stset pipeline preserves time and event"
+    display as result "  PASS: one-day tvpanel-tvevent-stset workflow preserves time and event"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: one-day event pipeline (error `=_rc')"
+    display as error "  FAIL: one-day event workflow (error `=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' one_day_pipeline"
+    local failed_tests "`failed_tests' one_day_workflow"
 }
 
 display "RESULT: validation_audit_tvpanel tests=`test_count' pass=`pass_count' fail=`fail_count'"
