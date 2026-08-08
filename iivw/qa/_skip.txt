@@ -4,3 +4,5 @@ probe_stacked_calibration.do | On-demand calibration diagnostic for vce(stacked)
 probe_stacked_strain.do | On-demand strain decomposition for vce(stacked); not a curated pass/fail suite
 probe_stacked_screen.do | On-demand R=200 screen for vce(stacked) at the FIPTIW DGP; not a curated pass/fail suite
 probe_jackknife_screen.do | On-demand delete-one-subject jackknife screen; not a curated pass/fail suite
+probe_bootstrap_t_screen.do | On-demand bootstrap-t screen for vce(stacked) studentizer; not a curated pass/fail suite
+probe_z_toggle.do | On-demand Z time-varying vs subject-constant comparison; not a curated pass/fail suite

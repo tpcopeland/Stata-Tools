@@ -328,6 +328,10 @@ capture noisily {
         if "`s'" == "probe_stacked_screen.do" continue
         * probe_jackknife_screen.do, same category.
         if "`s'" == "probe_jackknife_screen.do" continue
+        * probe_bootstrap_t_screen.do, same category.
+        if "`s'" == "probe_bootstrap_t_screen.do" continue
+        * probe_z_toggle.do, same category.
+        if "`s'" == "probe_z_toggle.do" continue
         * profile.do is Stata's own startup file, not a QA suite. CLAUDE.md
         * directs placing one here (holding `set processors 1') to run lanes in
         * parallel without the jobs contending for cores, so following the
