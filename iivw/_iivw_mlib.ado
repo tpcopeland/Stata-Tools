@@ -1,4 +1,4 @@
-*! _iivw_mlib Version 3.3.0  2026/08/07
+*! _iivw_mlib Version 3.4.0  2026/08/08
 *! iivw's Mata source. Contains NO Stata program: this file is -run-, never
 *! autoloaded.
 *! Author: Timothy P Copeland, Karolinska Institutet

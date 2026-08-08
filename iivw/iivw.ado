@@ -1,4 +1,4 @@
-*! iivw Version 3.3.0  2026/08/07
+*! iivw Version 3.4.0  2026/08/08
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

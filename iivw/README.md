@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 3.3.0** | 2026-08-07
+**Version 3.4.0** | 2026-08-08
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -435,6 +435,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **3.4.0** (2026-08-08): FIPTIW fits with >= 600 clusters now default to `vce(stacked)` Wald intervals instead of point-only. Coverage is 0.940 at n=600 and 0.960 at n=1200 (Wilson contains 0.95, no overcoverage). Below 600 clusters the default remains point-only: the oracle (true SE) itself covers only 0.943 at n=300, so no variance estimator can deliver nominal coverage there. Explicit `vce(stacked)` remains available at any sample size and is stamped `uncleared-stacked-analytic`; the new auto-default is stamped `cleared-stacked-at-studied-settings`.
 - **3.3.0** (2026-08-07): `iivw_fit` gains `vce(stacked)`, the two-step (stacked) influence-function sandwich that Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021) derive: unlike the fixed sandwich it carries the uncertainty from having estimated the weights, in one pass with no resampling. It requires the new `iivw_weight, scores` option, which emits the influence-function inputs at the point the nuisance models are fitted, since they cannot be reconstructed afterwards. The variance is **empirically uncleared** — no coverage gate has been run for it — and is stamped `uncleared-stacked-analytic`; no default changed and the FIPTIW default remains point-only. Canonical links and `model(gee)` only; weight trimming is refused.
 - **3.2.2** (2026-08-06): `iivw_fit`'s help now carries a compact table of what each fit does with no `vce()` and what is recommended, making the FIPTIW point-only default and the absence of any recommended FIPTIW interval scannable rather than buried in prose. Documentation only; no behavior changed.
 - **3.2.1** (2026-08-04): Reporting exports now preserve quoted worksheet names and workbook paths through the internal writer; package and QA release hygiene was updated.
