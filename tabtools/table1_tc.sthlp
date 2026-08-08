@@ -38,14 +38,16 @@ heuristics. This is the simplest way to use {cmd:table1_tc}.{p_end}
 [{it:{help fmt:%fmt2}}]] [ \ {it:varname vartype} [{it:{help fmt:%fmt1}} [{it:{help fmt:%fmt2}}]] \ ...]
 
 {phang}where {it: vartype} is one of:{p_end}
-{tab}auto   - automatic type detection (default when vartype omitted)
-{tab}contn  - continuous, normally distributed  (mean and SD will be reported)
-{tab}contln - continuous, log normally distributed (geometric mean and GSD reported)
-{tab}conts  - continuous, neither log normally or normally distributed (median, Q1 and Q3 reported)
-{tab}cat    - categorical, groups compared using Pearson's chi-square test
-{tab}cate   - categorical, groups compared using Fisher's exact test
-{tab}bin    - binary (0/1), groups compared using Pearson's chi-square test
-{tab}bine   - binary (0/1), groups compared using Fisher's exact test
+{p2colset 8 16 18 2}{...}
+{p2col:{cmd:auto}}automatic type detection (default when vartype omitted){p_end}
+{p2col:{cmd:contn}}continuous, normally distributed (mean and SD will be reported){p_end}
+{p2col:{cmd:contln}}continuous, log normally distributed (geometric mean and GSD reported){p_end}
+{p2col:{cmd:conts}}continuous, neither log normally nor normally distributed (median, Q1 and Q3 reported){p_end}
+{p2col:{cmd:cat}}categorical, groups compared using Pearson's chi-square test{p_end}
+{p2col:{cmd:cate}}categorical, groups compared using Fisher's exact test{p_end}
+{p2col:{cmd:bin}}binary (0/1), groups compared using Pearson's chi-square test{p_end}
+{p2col:{cmd:bine}}binary (0/1), groups compared using Fisher's exact test{p_end}
+{p2colreset}{...}
 
 {phang}{cmd:[fweight=}{it:exp}{cmd:]} supplies frequency weights using standard
 Stata weight syntax; see {help weight}.{p_end}

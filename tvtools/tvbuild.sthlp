@@ -400,12 +400,12 @@ or cached state marks a plan as approved.
 {pstd}
 The committed variable order is{p_end}
 
-{p 8 8 2}{cmd:id}{p_end}
-{p 8 8 2}{cmd:entry exit}{space 8}(unless {opt dropdates}){p_end}
-{p 8 8 2}{cmd:start stop}{space 8}(using {opt startname()} and {opt stopname()}){p_end}
-{p 8 8 2}source output variables, in specification row and token order{p_end}
-{p 8 8 2}master {opt keepvars()}, in command order{p_end}
-{p 8 8 2}event indicator, elapsed time, event enum, gap start and stop, when requested{p_end}
+{phang2}{cmd:id}{p_end}
+{phang2}{cmd:entry exit} (unless {opt dropdates}){p_end}
+{phang2}{cmd:start stop} (using {opt startname()} and {opt stopname()}){p_end}
+{phang2}source output variables, in specification row and token order{p_end}
+{phang2}master {opt keepvars()}, in command order{p_end}
+{phang2}event indicator, elapsed time, event enum, gap start and stop, when requested{p_end}
 
 {pstd}
 The identifier keeps the master's storage type, format, and labels. Each
@@ -527,13 +527,13 @@ carries the untruncated mapping.
 After analytical success the committed frame carries informational
 characteristics{p_end}
 
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild]}{space 12}{cmd:tvbuild}{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild_schema]}{space 5}{cmd:1}{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild_coverage]}{space 3}{cmd:strict} or {cmd:allow}{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild_start]}{space 6}the {opt startname()} in force{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild_stop]}{space 7}the {opt stopname()} in force{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild_event]}{space 6}the event indicator, if any{p_end}
-{p 8 8 2}{cmd:_dta[tvtools_tvbuild_committed]}{space 2}{cmd:1}{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild]} is {cmd:tvbuild}{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild_schema]} is {cmd:1}{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild_coverage]} is {cmd:strict} or {cmd:allow}{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild_start]} records the {opt startname()} in force{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild_stop]} records the {opt stopname()} in force{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild_event]} records the event indicator, if any{p_end}
+{phang2}{cmd:_dta[tvtools_tvbuild_committed]} is {cmd:1}{p_end}
 
 {pstd}
 These are provenance, not an authorization token: no command treats them as
@@ -618,8 +618,8 @@ letting it expand to something else later.{p_end}
 {phang2}{cmd:. frame build_spec {c -(}}{p_end}
 {phang3}{cmd:input str32 source_name str12 source_kind str32 source_frame strL source_file ///}{p_end}
 {phang3}{cmd:    str32 start_var str32 stop_var strL input_vars strL output_vars double reference}{p_end}
-{phang3}{cmd:"drug" "episodes"  "rx_frame"  "" "rx_start" "rx_stop" "rx_class" "tv_drug" 0}{p_end}
-{phang3}{cmd:"alt"  "intervals" "alt_frame" "" "start"    "stop"    "tv_alt"   "tv_alt2" .}{p_end}
+{phang3}{cmd:"drug" "episodes" "rx_frame" "" "rx_start" "rx_stop" "rx_class" "tv_drug" 0}{p_end}
+{phang3}{cmd:"alt" "intervals" "alt_frame" "" "start" "stop" "tv_alt" "tv_alt2" .}{p_end}
 {phang3}{cmd:end}{p_end}
 {phang2}{cmd:. {c )-}}{p_end}
 {phang2}{cmd:. frame build_spec: char _dta[tvbuild_spec_version] "1"}{p_end}

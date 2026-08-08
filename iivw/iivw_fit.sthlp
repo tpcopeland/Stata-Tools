@@ -43,7 +43,7 @@
 {synopt:{opt time(varname)}}time variable for {opt unweighted} fits{p_end}
 
 {syntab:Model}
-{synopt:{opt mod:el(string)}}estimation method: {cmd:gee} (default) or {cmd:mixed}{p_end}
+{synopt:{opt mod:el(string)}}{cmd:gee} (default) or {cmd:mixed}{p_end}
 {synopt:{opt fam:ily(string)}}GEE family (default: {cmd:gaussian}){p_end}
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
 {synopt:{opt times:pec(string)}}time specification; default {cmd:linear}{p_end}
@@ -54,8 +54,8 @@
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
-{synopt:{opt vce(vcetype)}}{cmd:bootstrap} (refit), {cmd:fixed}, or {cmd:stacked}{p_end}
-{synopt:{opt citype(string)}}{cmd:none}, {cmd:wald}, {cmd:percentile}, {cmd:basic}, or {cmd:bca}{p_end}
+{synopt:{opt vce(vcetype)}}{cmd:bootstrap}, {cmd:fixed}, or {cmd:stacked}{p_end}
+{synopt:{opt citype(string)}}interval: {cmd:wald}, {cmd:percentile}, {cmd:bca}, ...{p_end}
 {synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
 {synopt:{opt boot:strap(#)}}{it:legacy}; prefer {opt vce()}{p_end}
 {synopt:{opt refit:weights}}{it:legacy}; prefer {opt vce()}{p_end}
@@ -298,12 +298,11 @@ What each fit does with no {opt vce()}, and what is recommended:
 {synoptset 26 tabbed}{...}
 {synopthdr:fit}
 {synoptline}
-{synopt :{it:unweighted}}clustered sandwich; recommended{p_end}
-{synopt :{it:IIW}}999-draw full-refit Wald bootstrap; recommended{p_end}
-{synopt :{it:IPTW}}999-draw full-refit Wald bootstrap; recommended{p_end}
-{synopt :{it:FIPTIW, n>=600}}stacked sandwich Wald interval; calibrated{p_end}
-{synopt :{it:FIPTIW, n<600}}point estimates only. {bf:No interval is reported.}
-The oracle (true SE) itself covers only 0.943 at n=300{p_end}
+{synopt :{it:unweighted}}clustered sandwich{p_end}
+{synopt :{it:IIW}}999-draw refit bootstrap (Wald){p_end}
+{synopt :{it:IPTW}}999-draw refit bootstrap (Wald){p_end}
+{synopt :{it:FIPTIW, n>=600}}stacked sandwich (Wald){p_end}
+{synopt :{it:FIPTIW, n<600}}point only; no interval{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -344,16 +343,15 @@ option; if that option was not used, the fit falls back to point-only with a
 diagnostic note.
 
 {pmore}
-With {bf:fewer than 600 clusters}, a bare FIPTIW fit returns point estimates only.
-At n=300, the oracle interval (using the true SE) itself covers only 0.943 --
+With {bf:fewer than 600 clusters}, a bare FIPTIW fit returns point estimates
+only. At n=300, the oracle interval (using the true SE) itself covers only 0.943 --
 no variance estimator can reach nominal coverage at that sample size with a
 symmetric Wald interval. An explicit {opt vce()} or {opt citype()} still requests
 nominal inference and is stamped empirically uncleared.
 
 {pmore}
 {cmd:vce(stacked)} is the analytic
-{bf:two-step (stacked) influence-function sandwich}:
-the variance both source papers derive, which {bf:does} carry the
+{bf:two-step (stacked) influence-function sandwich}: the variance both source papers derive, which {bf:does} carry the
 uncertainty from having estimated the weights. It is one pass with no
 resampling, so it costs a fraction of the refit bootstrap. It requires the
 weights to have been built with {cmd:iivw_weight}'s {opt scores} option, which
@@ -903,10 +901,10 @@ cell and the same fixed rule.
 {synoptset 40 tabbed}{...}
 {synopthdr:status}
 {synoptline}
-{synopt:{cmd:cleared-at-studied-settings}}IIW or IPTW refit bootstrap; met the rule{p_end}
+{synopt:{cmd:cleared-at-studied-settings}}IIW/IPTW refit bootstrap; met the rule{p_end}
 {synopt:{cmd:cleared-stacked-at-studied-settings}}FIPTIW stacked default at n>=600{p_end}
-{synopt:{cmd:point-only-no-valid-interval}}bare FIPTIW fit at n<600; no interval reported{p_end}
-{synopt:{cmd:point-only-requested}}explicit {cmd:citype(none)} outside FIPTIW default{p_end}
+{synopt:{cmd:point-only-no-valid-interval}}bare FIPTIW at n<600; no interval{p_end}
+{synopt:{cmd:point-only-requested}}explicit {cmd:citype(none)}; outside FIPTIW{p_end}
 {synopt:{cmd:uncleared-stacked-analytic}}explicit {cmd:vce(stacked)} request{p_end}
 {synopt:{cmd:uncleared-low-reps}}fewer than 999 draws{p_end}
 {synopt:{cmd:uncleared-failed-reps}}draws failed, {opt allowfailedreps}{p_end}
@@ -968,12 +966,12 @@ estimator.
 datasets and 999 full-refit bootstrap draws per dataset:
 
 {p2colset 5 24 26 2}{...}
-{p2col:{bf:Interval}}{bf:Coverage    95% Wilson interval}{p_end}
-{p2col:{cmd:Wald}}0.914       [0.895, 0.930]{p_end}
-{p2col:{cmd:Percentile}}0.924       [0.906, 0.939]{p_end}
-{p2col:{cmd:Basic}}0.896       [0.876, 0.913]{p_end}
-{p2col:{cmd:Bias-corrected}}0.914       [0.895, 0.930]{p_end}
-{p2col:{cmd:BCa}}0.895       [0.874, 0.913]{p_end}
+{p2col:{bf:Interval}}{bf:Coverage and 95% Wilson interval}{p_end}
+{p2col:{cmd:Wald}}coverage 0.914; 95% Wilson interval [0.895, 0.930]{p_end}
+{p2col:{cmd:Percentile}}coverage 0.924; 95% Wilson interval [0.906, 0.939]{p_end}
+{p2col:{cmd:Basic}}coverage 0.896; 95% Wilson interval [0.876, 0.913]{p_end}
+{p2col:{cmd:Bias-corrected}}coverage 0.914; 95% Wilson interval [0.895, 0.930]{p_end}
+{p2col:{cmd:BCa}}coverage 0.895; 95% Wilson interval [0.874, 0.913]{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -1030,9 +1028,8 @@ inference-dependent postestimation cannot reconstruct a nominal interval; for
 this result {cmd:e(properties)} is {cmd:b}, and replay displays coefficients
 only. With 600 or more clusters the bare default uses {cmd:vce(stacked)} and is
 stamped {cmd:cleared-stacked-at-studied-settings}. In both cases,
-{cmd:e(iivw_underlying_vce)} records the covariance route used internally.
-An explicit {cmd:vce()} or non-{cmd:none}
-{cmd:citype()} request reports nominal inference and
+{cmd:e(iivw_underlying_vce)} records the covariance route used internally. An
+explicit {cmd:vce()} or non-{cmd:none} {cmd:citype()} request reports nominal inference and
 prints the empirical warning before estimation begins.
 
 {pstd}
@@ -1368,10 +1365,10 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_underlying_cmd)}}underlying estimator command{p_end}
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_vce_seed)}}resampling seed, when set via {opt vce(bootstrap, seed())}{p_end}
-{synopt:{cmd:e(vce)}}the variance method behind {cmd:e(V)}: Stata's own label, set to {cmd:stacked} when {opt vce(stacked)} replaces the covariance{p_end}
+{synopt:{cmd:e(vce)}}variance method; {cmd:stacked} when {opt vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_terms)}}stacked nuisance parameters propagated by {cmd:vce(stacked)}{p_end}
-{synopt:{cmd:e(iivw_stacked_selfcheck)}}relative difference between the helper's fixed sandwich and the fitted one; {cmd:vce(stacked)} only{p_end}
-{synopt:{cmd:e(iivw_stacked_nclust)}}clusters used to form the stacked sandwich; {cmd:vce(stacked)} only{p_end}
+{synopt:{cmd:e(iivw_stacked_selfcheck)}}fixed-vs-fitted sandwich reldif; {cmd:vce(stacked)}{p_end}
+{synopt:{cmd:e(iivw_stacked_nclust)}}clusters in stacked sandwich; {cmd:vce(stacked)} only{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}inference-evidence tier; see {help iivw_fit##inference:Inference status}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}{cmd:none}, {cmd:wald-normal}, {cmd:percentile}, {cmd:basic}, or {cmd:bca}{p_end}

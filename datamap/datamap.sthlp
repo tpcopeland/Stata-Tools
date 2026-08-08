@@ -555,17 +555,17 @@ Combine multiple privacy and content options:{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-	{synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
-	{synopt:{cmd:r(nobs)}}observations (single-file or memory mode){p_end}
-	{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
-	{synopt:{cmd:r(mincell)}}small-cell threshold used{p_end}
-	{synopt:{cmd:r(n_categorical)}}number of categorical variables documented{p_end}
-	{synopt:{cmd:r(n_continuous)}}number of continuous variables documented{p_end}
-	{synopt:{cmd:r(n_date)}}number of date variables documented{p_end}
-	{synopt:{cmd:r(n_string)}}number of string variables documented{p_end}
-	{synopt:{cmd:r(n_excluded)}}number of variables excluded by {opt exclude()}{p_end}
-	{synopt:{cmd:r(n_suggested_exclude)}}number of likely identifier variables not excluded{p_end}
-	{synoptline}
+{synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
+{synopt:{cmd:r(nobs)}}observations (single-file or memory mode){p_end}
+{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
+{synopt:{cmd:r(mincell)}}small-cell threshold used{p_end}
+{synopt:{cmd:r(n_categorical)}}number of categorical variables documented{p_end}
+{synopt:{cmd:r(n_continuous)}}number of continuous variables documented{p_end}
+{synopt:{cmd:r(n_date)}}number of date variables documented{p_end}
+{synopt:{cmd:r(n_string)}}number of string variables documented{p_end}
+{synopt:{cmd:r(n_excluded)}}number of variables excluded by {opt exclude()}{p_end}
+{synopt:{cmd:r(n_suggested_exclude)}}number of likely identifier variables not excluded{p_end}
+{synoptline}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}

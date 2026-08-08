@@ -44,9 +44,11 @@ where at least one {it:axis_option} is required:
 {pstd}
 where the per-axis suboptions are
 
-{p 8 12 2}{it:asub} {space 3}= {cmd:width(#)} {cmd:min(#)} {cmd:max(#)} {cmd:generate(name)}{p_end}
-{p 8 12 2}{it:csub} {space 3}= {cmd:width(#)} {cmd:anchor(#)} {cmd:generate(name)}{p_end}
-{p 8 12 2}{it:esub} {space 3}= {cmd:width(#)} {cmd:unit(day|year)} {cmd:min(#)} {cmd:max(#)} {cmd:generate(name)}{p_end}
+{p2colset 8 16 18 2}{...}
+{p2col:{it:asub}}{cmd:width(#)}, {cmd:min(#)}, {cmd:max(#)}, and {cmd:generate(name)}{p_end}
+{p2col:{it:csub}}{cmd:width(#)}, {cmd:anchor(#)}, and {cmd:generate(name)}{p_end}
+{p2col:{it:esub}}{cmd:width(#)}, {cmd:unit(day|year)}, {cmd:min(#)}, {cmd:max(#)}, and {cmd:generate(name)}{p_end}
+{p2colreset}{...}
 
 
 {marker description}{...}
@@ -194,7 +196,7 @@ day-unit elapsed boundaries are also exact.
 {title:Also see}
 
 {psee}
-{space 2}Help: {help tvband}, {help tvage}, {help tvexpose}, {help tvmerge}, {help stsplit}
+Help: {help tvband}, {help tvage}, {help tvexpose}, {help tvmerge}, {help stsplit}
 {p_end}
 
 {hline}

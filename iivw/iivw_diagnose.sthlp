@@ -241,12 +241,11 @@ Let {it:b0} be the unweighted estimate, {it:bw} the weighted estimate, and {it:b
 weighted estimate after direct measurement-process adjustment. These
 quantities should be marginal/reference-arm time-slope estimates.
 
-{pstd}
-{cmd:sampling gap}   = {it:b0} - {it:bw}{break}
-{cmd:artifact gap}   = {it:bw} - {it:ba}{break}
-{cmd:total gap}      = {it:b0} - {it:ba}{break}
-{cmd:sampling share} = ({it:b0} - {it:bw}) / ({it:b0} - {it:ba}){break}
-{cmd:artifact share} = ({it:bw} - {it:ba}) / ({it:b0} - {it:ba})
+{phang2}{cmd:sampling gap} = {it:b0} - {it:bw}{p_end}
+{phang2}{cmd:artifact gap} = {it:bw} - {it:ba}{p_end}
+{phang2}{cmd:total gap} = {it:b0} - {it:ba}{p_end}
+{phang2}{cmd:sampling share} = ({it:b0} - {it:bw}) / ({it:b0} - {it:ba}){p_end}
+{phang2}{cmd:artifact share} = ({it:bw} - {it:ba}) / ({it:b0} - {it:ba}){p_end}
 
 {pstd}
 If the total gap is very small, shares are unstable and are returned as

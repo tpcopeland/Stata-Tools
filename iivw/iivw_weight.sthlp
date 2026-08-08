@@ -77,8 +77,8 @@
 {synopt:{opt efr:on}}Efron ties in the Cox visit model (the default){p_end}
 {synopt:{opt bre:slow}}Breslow ties in the Cox visit model{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
-{synopt:{opt allowmissingw:eights}}accept rows that receive no weight (complete-case){p_end}
-{synopt:{opt sc:ores}}also emit the influence-function inputs for {cmd:iivw_fit, vce(stacked)}{p_end}
+{synopt:{opt allowmissingw:eights}}accept rows that receive no weight{p_end}
+{synopt:{opt sc:ores}}emit influence-function inputs for {cmd:vce(stacked)}{p_end}
 {synopt:{opt base:line(entry|event)}}first visit: entry (default) or event{p_end}
 
 {synoptline}
@@ -572,8 +572,7 @@ for them.
 {phang2}
 It is an option rather than a default because the column count depends on the
 nuisance designs, and because these quantities
-{bf:cannot be reconstructed afterwards}.
-The derivative of the shipped weight is not the derivative of the
+{bf:cannot be reconstructed afterwards}. The derivative of the shipped weight is not the derivative of the
 bare rate ratio the papers write down: this package renormalizes the IIW
 component to mean 1 over the modeled events, which adds a term, and pins
 study-entry rows at exactly 1, where the derivative is 0. Which rows are modeled
@@ -581,8 +580,9 @@ events is knowable only while the weights are being built.
 
 {phang2}
 {opt sc:ores} cannot be combined with any weight trimming
-({opt truncate()}, {opt truncvisit()}, {opt trunctreat()}, {opt truncfinal()}).
-A trimmed weight is clipped at an estimated quantile of itself, so it is not
+({opt truncate()}, {opt truncvisit()}, {opt trunctreat()},
+{opt truncfinal()}). A trimmed weight is clipped at an estimated quantile of
+itself, so it is not
 differentiable in the nuisance parameters at the cutpoint and the delta method
 the sandwich rests on does not apply. The combination is refused rather than
 answered with derivative columns that would be silently wrong on exactly the
@@ -1257,7 +1257,7 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:r(lag_names)}}the generated {cmd:*_lag1} columns{p_end}
 {synopt:{cmd:r(owned)}}every variable name this call owns under the contract{p_end}
 {synopt:{cmd:r(allowmissingweights)}}{cmd:1} if unweighted rows were accepted, else {cmd:0}{p_end}
-{synopt:{cmd:r(score_terms)}}stacked nuisance parameters emitted by {opt scores}, in column order{p_end}
+{synopt:{cmd:r(score_terms)}}stacked nuisance parameters from {opt scores}, column order{p_end}
 {synopt:{cmd:r(n_score)}}number of stacked nuisance parameters ({cmd:0} without {opt scores}){p_end}
 {synopt:{cmd:r(treat_covars)}}treatment-model covariates used for IPTW/FIPTIW{p_end}
 {synopt:{cmd:r(ps_estimand)}}treatment propensity-score estimand, currently {cmd:ate}{p_end}

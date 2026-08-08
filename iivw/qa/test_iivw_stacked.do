@@ -152,6 +152,11 @@ else {
 mkpanel, nsub(200) seed(4713)
 quietly iivw_weight, id(id) time(t) visit_cov(z1) treat(a) treat_cov(k1) ///
     wtype(fiptiw) maxfu(7) scores nolog
+
+* Verify r(score_terms) and r(n_score) are populated by the scores option
+assert "`r(score_terms)'" != ""
+assert r(n_score) > 0
+
 quietly iivw_fit y a z1, timespec(linear) vce(stacked)
 local sc = e(iivw_stacked_selfcheck)
 display as text "S3: selfcheck (fixed sandwich vs glm e(V)) = " %12.3e `sc'

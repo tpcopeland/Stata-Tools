@@ -77,12 +77,11 @@ by stratum) misclassification.
 {pstd}
 The 2x2 table layout is:
 
-{p 12 12 2}
-{c TLC}{hline 30}{c TRC}{break}
-{c |}           Exposed  Unexposed{c |}{break}
-{c |} Cases        a        b     {c |}{break}
-{c |} Non-cases    c        d     {c |}{break}
-{c BLC}{hline 30}{c BRC}
+{p2colset 12 24 26 2}{...}
+{p2col:{bf:Row}}{bf:Cells}{p_end}
+{p2col:{bf:Cases}}exposed {cmd:a}; unexposed {cmd:b}{p_end}
+{p2col:{bf:Non-cases}}exposed {cmd:c}; unexposed {cmd:d}{p_end}
+{p2colreset}{...}
 
 {pstd}
 {bf:Simple mode} (default): Applies the Greenland/Lash matrix method to

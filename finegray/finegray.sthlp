@@ -885,7 +885,7 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(N_clust)}}number of clusters (only with {opt cluster()}){p_end}
 {synopt:{cmd:e(converged)}}1 if converged, 0 otherwise{p_end}
 {synopt:{cmd:e(N_delayed)}}number of subjects entering after time 0 (delayed entry){p_end}
-{synopt:{cmd:e(N_G_trunc)}}observations whose censoring survivor {it:G(t)} was floored at 1e-10{p_end}
+{synopt:{cmd:e(N_G_trunc)}}observations with censoring survivor {it:G(t)} floored at 1e-10{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 {synopt:{cmd:e(cause)}}cause of interest value{p_end}
 {synopt:{cmd:e(censvalue)}}censoring value{p_end}

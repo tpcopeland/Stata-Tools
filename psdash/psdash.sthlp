@@ -719,17 +719,18 @@ along with covariates and/or weights via options.
 what {cmd:psdash} reads and how it routes. Run {cmd:psdash detect} (or
 {cmd:psdash combined, dryrun}) to see which source fired for your data.
 
-{synoptset 12 tabbed}{...}
-{p2col 5 18 22 2: Source}{space 2}Reads{space 16}Routes to{p_end}
-{synopt:{cmd:teffects}}{cmd:e()} treatment/PS/covariates/weight; cross-sectional{p_end}
-{synopt:{cmd:tmle}}contract treatment/PS/covariates; cross-sectional{p_end}
-{synopt:{cmd:ltmle}}contract id/period/PS/weights; longitudinal{p_end}
-{synopt:{cmd:msm}}contract id/period/PS/weights; longitudinal{p_end}
-{synopt:{cmd:tte}}contract trial/period/PS/weight; longitudinal{p_end}
-{synopt:{cmd:iivw}}contract PS/covariates/treatment weight; cross-sectional{p_end}
-{synopt:{cmd:logit}/{cmd:probit}}treatment and covariates from {cmd:e()}; PS user-supplied{space 2}binary panels{p_end}
-{synopt:{cmd:mlogit}}{cmd:e()} treatment/covariates; {opt psvars()}; multi-group{p_end}
-{synopt:{cmd:manual}}argument treatment/PS; binary or multi-group{p_end}
+{p2colset 5 18 22 2}{...}
+{p2col:{bf:Source}}{bf:Reads and routes to}{p_end}
+{p2line}
+{p2col:{cmd:teffects}}reads {cmd:e()} treatment, PS, covariates, and weight; routes to cross-sectional diagnostics{p_end}
+{p2col:{cmd:tmle}}reads the contract treatment, PS, and covariates; routes to cross-sectional diagnostics{p_end}
+{p2col:{cmd:ltmle}}reads the contract ID, period, PS, and weights; routes to longitudinal diagnostics{p_end}
+{p2col:{cmd:msm}}reads the contract ID, period, PS, and weights; routes to longitudinal diagnostics{p_end}
+{p2col:{cmd:tte}}reads the contract trial, period, PS, and weight; routes to longitudinal diagnostics{p_end}
+{p2col:{cmd:iivw}}reads the contract PS, covariates, and treatment weight; routes to cross-sectional diagnostics{p_end}
+{p2col:{cmd:logit}/{cmd:probit}}reads treatment and covariates from {cmd:e()} with a user-supplied PS; routes to binary panels{p_end}
+{p2col:{cmd:mlogit}}reads {cmd:e()} treatment/covariates and {opt psvars()}; routes to multi-group diagnostics{p_end}
+{p2col:{cmd:manual}}reads treatment and PS arguments; routes to binary or multi-group diagnostics{p_end}
 {p2colreset}{...}
 
 {pstd}

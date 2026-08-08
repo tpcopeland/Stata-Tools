@@ -76,10 +76,12 @@ unchanged, including values, storage types, formats, labels, and ordering.{p_end
     {com}. datefix dob, diagnose{reset}
 
 {title:Example Date Formats for df()}
-    %tdCCYY/NN/DD       ex: "2020/01/10" (default)
-    %tdMonth_DD,_CCYY   ex: "January 10, 2020"
-    %tdDD_Mon._CCYY     ex: "10 Jan. 2020"
-    %tdDD/NN/CCYY       ex: "10/01/2020"
+{p2colset 5 30 32 2}{...}
+{p2col:{cmd:%tdCCYY/NN/DD}}example: {cmd:"2020/01/10"} (default){p_end}
+{p2col:{cmd:%tdMonth_DD,_CCYY}}example: {cmd:"January 10, 2020"}{p_end}
+{p2col:{cmd:%tdDD_Mon._CCYY}}example: {cmd:"10 Jan. 2020"}{p_end}
+{p2col:{cmd:%tdDD/NN/CCYY}}example: {cmd:"10/01/2020"}{p_end}
+{p2colreset}{...}
 
 {title:Stored results}
 
