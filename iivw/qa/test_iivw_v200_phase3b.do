@@ -326,6 +326,8 @@ capture noisily {
         * probe_stacked_screen.do, same category: the §13.3 item-2 R=200 screen
         * of vce(stacked) on the FIPTIW gate DGP. Diagnostic, not a gate.
         if "`s'" == "probe_stacked_screen.do" continue
+        * probe_jackknife_screen.do, same category.
+        if "`s'" == "probe_jackknife_screen.do" continue
         * profile.do is Stata's own startup file, not a QA suite. CLAUDE.md
         * directs placing one here (holding `set processors 1') to run lanes in
         * parallel without the jobs contending for cores, so following the

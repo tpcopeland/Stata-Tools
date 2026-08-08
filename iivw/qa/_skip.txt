@@ -3,3 +3,4 @@ benchmark_iivw_coverage.do | Reduced coverage-harness benchmark/pilot; not a rel
 probe_stacked_calibration.do | On-demand calibration diagnostic for vce(stacked); not a curated pass/fail suite
 probe_stacked_strain.do | On-demand strain decomposition for vce(stacked); not a curated pass/fail suite
 probe_stacked_screen.do | On-demand R=200 screen for vce(stacked) at the FIPTIW DGP; not a curated pass/fail suite
+probe_jackknife_screen.do | On-demand delete-one-subject jackknife screen; not a curated pass/fail suite

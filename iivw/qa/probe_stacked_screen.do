@@ -135,6 +135,7 @@ program define _scr_dgp
 end
 
 local is_block = (`from' != 1 | `to' != `sims') & `combine' == 0
+local zc = invnormal(0.975)
 
 * ---- COMBINE PATH ----
 if `combine' {
@@ -186,7 +187,6 @@ else {
 
     local n_ok = 0
     local n_fail = 0
-    local zc = invnormal(0.975)
     forvalues s = `from'/`to' {
         _scr_dgpseed  `master' `arm' `s'
         local dgpseed = `r(seed)'
