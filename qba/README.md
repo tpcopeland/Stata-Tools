@@ -1,6 +1,6 @@
 # qba — Quantitative Bias Analysis for Stata
 
-**Version 1.1.1** | 2026-08-05
+**Version 1.1.1** | 2026-08-09
 
 `qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 

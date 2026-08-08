@@ -1,6 +1,6 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.2.0** | 2026-08-07
+**Version 1.2.0** | 2026-08-09
 
 `finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 

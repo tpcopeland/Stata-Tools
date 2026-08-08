@@ -1,6 +1,6 @@
 # datefix — Convert imported date strings to Stata daily dates
 
-**Version 1.1.1** | 2026-08-05
+**Version 1.1.1** | 2026-08-09
 
 `datefix` converts imported string date variables to numeric Stata daily dates for users cleaning data after import. It can infer date order, preserve raw values in a new variable, apply `%td` display formats, and identify values that prevent conversion.
 
