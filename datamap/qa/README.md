@@ -35,6 +35,7 @@ share the package-local generated data and Stata installation state.
 |------|--------|
 | `test_datamap.do` | Core text/JSON maps, input modes, outputs, and options. |
 | `test_datamap_bugfixes.do` | Focused historical map regressions. |
+| `test_datamap_paths.do` | Parenthesized metadata paths across all metadata writers. |
 | `test_datamap_float_format.do` | Stable numeric formatting and gate messages. |
 | `test_datamap_golden.do` | Normalized golden text and Markdown outputs. |
 | `test_datamap_privacy.do` | Exclusions, small-cell protection, and JSON privacy. |
@@ -48,6 +49,7 @@ share the package-local generated data and Stata installation state.
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |
 | `test_datamvp.do` | Missingness patterns, graphs, paths, and return contracts. |
 | `test_datamvp_labels.do` | Value-label and graph-label handling. |
+| `test_help_render.do` | Help-file rendering and literal-SMCL positive control. |
 | `validation_datamap.do` | Classification, output, and deterministic map invariants. |
 | `validation_datamvp.do` | Known-answer missing-pattern and return-value checks. |
 | `run_all.do` | Curated full-lane runner. |

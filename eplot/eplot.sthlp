@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.6  05aug2026}{...}
+{* *! version 1.2.7  09aug2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -840,7 +840,7 @@ regular type-1 effects.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.6, 05aug2026{p_end}
+{pstd}Version 1.2.7, 09aug2026{p_end}
 
 
 {marker alsosee}{...}

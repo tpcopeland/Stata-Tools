@@ -931,6 +931,7 @@ display "TEST SUMMARY"
 display _dup(70) "-"
 display as text "Total:        `test_count'"
 display as result "Passed:       `pass_count'"
+display "RESULT: test_stars_matrix tests=34 pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed:       `fail_count'"
     display as error "Failed tests:`failed_tests'"

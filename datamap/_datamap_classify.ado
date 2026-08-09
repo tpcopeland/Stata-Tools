@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.6.4  2026/08/05
+*! _datamap_classify Version 1.6.5  2026/08/09
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -11,7 +11,7 @@ program define _datamap_classify, rclass
         syntax using/ , SAVing(string) [MAXCat(integer 25) OBS(integer -1) ///
             EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
             DETECT_binary(integer 0) QUality_level(string) LOADED ///
-            CAP(integer 1000)]
+            CAPacity(integer 1000)]
 
         if `maxcat' <= 0 {
             noisily display as error "maxcat must be positive"
@@ -20,13 +20,13 @@ program define _datamap_classify, rclass
         // A censored unique count is only safe if the cap sits above every
         // threshold the count is later compared against.  Below maxcat, a
         // capped variable could be misclassified as continuous when it is not.
-        if `cap' < 0 {
+        if `capacity' < 0 {
             noisily display as error "cap must be non-negative"
             exit 198
         }
-        if `cap' > 0 & `cap' < `maxcat' {
+        if `capacity' > 0 & `capacity' < `maxcat' {
             noisily display as error ///
-                "cap (`cap') must be >= maxcat (`maxcat')"
+                "cap (`capacity') must be >= maxcat (`maxcat')"
             exit 198
         }
         if !inlist("`quality_level'", "", "basic", "strict") {
@@ -133,7 +133,7 @@ program define _datamap_classify, rclass
                 if strpos("`vtype'", "str") == 1 {
                     // countempty: "" has always counted as a distinct value
                     // here, matching the -duplicates report- this replaced.
-                    capture _datamap_nuniq `vname', countempty cap(`cap')
+                    capture _datamap_nuniq `vname', countempty cap(`capacity')
                     if _rc == 0 {
                         local nuniq = r(n)
                         local ncapped = r(capped)
@@ -146,7 +146,7 @@ program define _datamap_classify, rclass
                     quietly drop `_slen'
                 }
                 else {
-                    capture _datamap_nuniq `vname', cap(`cap')
+                    capture _datamap_nuniq `vname', cap(`capacity')
                     if _rc == 0 {
                         local nuniq = r(n)
                         local ncapped = r(capped)
@@ -268,7 +268,7 @@ program define _datamap_classify, rclass
         postclose `posth'
         local _post_open = 0
 
-        return scalar cap = `cap'
+        return scalar cap = `capacity'
         return scalar nvars = `nvars'
         return scalar n_categorical = `n_categorical'
         return scalar n_continuous = `n_continuous'

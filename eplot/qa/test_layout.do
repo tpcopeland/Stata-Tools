@@ -268,6 +268,7 @@ capture graph drop _v110_t8
 capture estimates drop es
 
 display _newline as result "=== v1.1.0 QA Summary: `pass_count' passed, `fail_count' failed ==="
+display "RESULT: test_layout tests=8 pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

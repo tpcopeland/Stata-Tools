@@ -1,4 +1,4 @@
-*! datadict Version 1.6.4  2026/08/05
+*! datadict Version 1.6.5  2026/08/09
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -450,7 +450,6 @@ program define _datadict_ParseSaving, rclass
 		syntax, SAVing(string)
 
 		local spec = subinstr(`"`macval(saving)'"', char(34), "", .)
-		local spec = subinstr(`"`macval(spec)'"', ")", "", .)
 		local cpos = strpos(`"`macval(spec)'"', ",")
 		if `cpos' > 0 {
 			local savefile = strtrim(substr(`"`macval(spec)'"', 1, `cpos' - 1))

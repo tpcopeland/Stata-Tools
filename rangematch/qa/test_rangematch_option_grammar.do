@@ -520,6 +520,46 @@ else {
     display as error "FAIL: explicit empty suffix() collision handling"
 }
 
+**# T14: an entirely empty master and using side with by() is a valid empty join
+*        (the group catalog must not assume that `by': gen creates a variable
+*        when there are no observations at all).
+local ++test_count
+capture noisily {
+    tempfile empty_master empty_using
+
+    clear
+    quietly set obs 0
+    quietly gen int group = .
+    quietly gen double mlow = .
+    quietly gen double mhigh = .
+    quietly save "`empty_master'"
+
+    clear
+    quietly set obs 0
+    quietly gen int group = .
+    quietly gen double key = .
+    quietly save "`empty_using'"
+
+    use "`empty_master'", clear
+    rangematch key mlow mhigh using "`empty_using'", by(group) ///
+        unmatched(both) stats frame(empty_both) replace
+    assert r(N_master) == 0
+    assert r(N_using) == 0
+    assert r(N_pairs) == 0
+    assert r(N_matched_pairs) == 0
+    frame empty_both: assert _N == 0
+    capture frame drop empty_both
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: empty master/using by-group join returns an empty frame"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' T14_empty_both_by"
+    display as error "FAIL: empty master/using by-group join"
+}
+
 capture program drop _rm_mk_master
 capture program drop _rm_mk_using
 

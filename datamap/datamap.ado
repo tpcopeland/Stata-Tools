@@ -1,4 +1,4 @@
-*! datamap Version 1.6.4  2026/08/05
+*! datamap Version 1.6.5  2026/08/09
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -238,7 +238,6 @@ program define datamap, rclass
 		local result_metadata ""
 		if `"`saving'"' != "" {
 			local saving_spec = subinstr(`"`macval(saving)'"', char(34), "", .)
-			local saving_spec = subinstr(`"`macval(saving_spec)'"', ")", "", .)
 			local saving_cpos = strpos(`"`macval(saving_spec)'"', ",")
 			if `saving_cpos' > 0 {
 				local saving_file = strtrim(substr(`"`macval(saving_spec)'"', 1, `saving_cpos' - 1))

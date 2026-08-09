@@ -834,6 +834,7 @@ graph drop _all
 * =============================================================================
 * SUMMARY
 * =============================================================================
+display "RESULT: test_eplot tests=26 pass=`pass_count' fail=`fail_count' skip=0"
 if `machine' {
     display "[SUMMARY] `pass_count'/`test_count' passed"
     if `fail_count' > 0 {

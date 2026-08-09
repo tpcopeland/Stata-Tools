@@ -504,6 +504,7 @@ display as text "EPLOT EDGE CASE REGRESSION TEST SUMMARY"
 display as text "{hline 70}"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
+display "RESULT: test_edge_cases tests=18 pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed:       `fail_count'"
     display as error "Failed tests:`failed_tests'"

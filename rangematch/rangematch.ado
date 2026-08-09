@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.0  2026/07/25
+*! rangematch Version 1.5.1  2026/08/09
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -598,10 +598,15 @@ program define _rangematch_build_group_ids
                 frame __rm_grp {
                     quietly {
                         append using `"`_grp_u_rows'"'
-                        sort `_rm_aliases'
-                        by `_rm_aliases': gen byte `_rm_first_alias' = (_n == 1)
-                        gen long `_rm_gid_alias' = sum(`_rm_first_alias')
-                        drop `_rm_first_alias'
+                        if _N > 0 {
+                            sort `_rm_aliases'
+                            by `_rm_aliases': gen byte `_rm_first_alias' = (_n == 1)
+                            gen long `_rm_gid_alias' = sum(`_rm_first_alias')
+                            drop `_rm_first_alias'
+                        }
+                        else {
+                            gen long `_rm_gid_alias' = .
+                        }
                     }
                 }
 
@@ -814,7 +819,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.0"
+    local _rm_required_mata_version "1.5.1"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc

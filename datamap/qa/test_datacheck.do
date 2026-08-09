@@ -82,6 +82,10 @@ capture {
     assert "`r(date_vars)'"        != ""
     assert "`r(string_vars)'"      != ""
     assert trim("`r(excluded_vars)'") == "secret"
+    assert r(n_continuous) == 2
+    assert r(n_date) == 1
+    assert r(n_string) == 1
+    assert r(n_excluded) == 1
 }
 _dc `=_rc' "all five class sections populate (continuous/categorical/date/string/excluded)"
 

@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.3  2026/08/05
+*! logdoc Version 1.1.4  2026/08/09
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -362,7 +362,7 @@ program define _logdoc_convert, rclass
             else if c(SE)  local _stataexe "stata-se"
             else           local _stataexe "stata"
         }
-        shell `_stataexe' -b do "`_runwrapper_path'"
+        shell "`_stataexe'" -b do "`_runwrapper_path'"
         capture erase "`_runwrapper_path'"
 
         capture confirm file "`_runlog_path'"
@@ -700,14 +700,14 @@ program define _logdoc_convert, rclass
             tempfile _wkcheck
             shell command -v wkhtmltopdf > "`_wkcheck'" 2>&1
             local _has_wkhtmltopdf = 0
-            capture {
-                tempname _wkfh
-                file open `_wkfh' using "`_wkcheck'", read text
+            tempname _wkfh
+            capture file open `_wkfh' using "`_wkcheck'", read text
+            if !_rc {
                 file read `_wkfh' _wkline
-                file close `_wkfh'
                 if regexm("`_wkline'", "wkhtmltopdf") {
                     local _has_wkhtmltopdf = 1
                 }
+                file close `_wkfh'
             }
             if `_has_wkhtmltopdf' {
                 if "`quiet'" == "" {
@@ -719,9 +719,9 @@ program define _logdoc_convert, rclass
                 capture confirm file "`output'"
                 if _rc {
                     display as error "wkhtmltopdf failed to produce output"
-                    capture {
-                        tempname _wkefh
-                        file open `_wkefh' using "`_wk_stderr'", read text
+                    tempname _wkefh
+                    capture file open `_wkefh' using "`_wk_stderr'", read text
+                    if !_rc {
                         file read `_wkefh' _wkeline
                         while r(eof) == 0 {
                             if strtrim("`_wkeline'") != "" {
@@ -1019,6 +1019,10 @@ program define _logdoc_start
     local rc = _rc
     if `rc' {
         capture set linesize `_orig_linesize'
+        local _linesize_restore_rc = _rc
+        if `_linesize_restore_rc' != 0 {
+            display as error "logdoc: could not restore the caller's linesize"
+        }
         if `_started_new_session' {
             capture log close _logdoc
             capture erase "`_tmplog'"
@@ -1196,6 +1200,11 @@ program define _logdoc_stop, rclass
         LOGDOC_GENERATED LOGDOC_ORIG_LINESIZE LOGDOC_TMPLOG
     if "`_orig_linesize'" != "" {
         capture set linesize `_orig_linesize'
+        local _linesize_restore_rc = _rc
+        if `_linesize_restore_rc' != 0 {
+            display as error "logdoc: could not restore the caller's linesize"
+            if `_convert_rc' == 0 exit `_linesize_restore_rc'
+        }
     }
 
     if `_convert_rc' == 0 {
@@ -1209,6 +1218,10 @@ program define _logdoc_stop, rclass
     local rc = _rc
     if `rc' & "`_stop_orig_linesize'" != "" {
         capture set linesize `_stop_orig_linesize'
+        local _linesize_restore_rc = _rc
+        if `_linesize_restore_rc' != 0 {
+            display as error "logdoc: could not restore the caller's linesize"
+        }
     }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
@@ -1657,6 +1670,11 @@ program define _logdoc_batch, rclass
 
     * Create output directory
     capture mkdir "`outdir'"
+    local _mkdir_rc = _rc
+    if `_mkdir_rc' & `_mkdir_rc' != 693 {
+        display as error "could not create output directory: `outdir'"
+        exit `_mkdir_rc'
+    }
 
     * Build common option string
     local _opts ""
@@ -2036,9 +2054,12 @@ program define _logdoc_parse_pyout, rclass
 
     capture confirm file "`using'"
     if !_rc {
-        capture {
-            tempname _pyofh
-            file open `_pyofh' using "`using'", read text
+        tempname _pyofh
+        capture file open `_pyofh' using "`using'", read text
+        if _rc {
+            local _lastmsg "could not read renderer output"
+        }
+        else {
             file read `_pyofh' _pyoline
             while r(eof) == 0 {
                 if regexm(`"`_pyoline'"', "LOGDOC_META: blocks=([0-9]+) filesize=([0-9]+)") {
@@ -2067,7 +2088,6 @@ program define _logdoc_parse_pyout, rclass
             }
             file close `_pyofh'
         }
-        capture file close `_pyofh'
     }
 
     return scalar nblocks = `_nblocks'
@@ -2101,9 +2121,16 @@ program define _logdoc_find_css
     local _light_css ""
     local _dark_css ""
 
-    capture findfile logdoc_light.css
+    * Prefer a CSS file in the caller's current directory.  `findfile'
+    * searches adopath first, so an installed PLUS copy otherwise shadows a
+    * project-local theme when QA or a user runs from another directory.
+    capture confirm file "logdoc_light.css"
     if _rc == 0 {
-        local _light_css "`r(fn)'"
+        local _light_css "logdoc_light.css"
+    }
+    else {
+        capture findfile logdoc_light.css
+        if _rc == 0 local _light_css "`r(fn)'"
         if substr("`_light_css'", 1, 1) == "~" {
             local homedir : environment HOME
             local rest = substr("`_light_css'", 2, .)
@@ -2111,9 +2138,13 @@ program define _logdoc_find_css
         }
     }
 
-    capture findfile logdoc_dark.css
+    capture confirm file "logdoc_dark.css"
     if _rc == 0 {
-        local _dark_css "`r(fn)'"
+        local _dark_css "logdoc_dark.css"
+    }
+    else {
+        capture findfile logdoc_dark.css
+        if _rc == 0 local _dark_css "`r(fn)'"
         if substr("`_dark_css'", 1, 1) == "~" {
             local homedir : environment HOME
             local rest = substr("`_dark_css'", 2, .)

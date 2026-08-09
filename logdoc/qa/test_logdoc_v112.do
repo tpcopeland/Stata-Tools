@@ -117,9 +117,13 @@ else {
 }
 
 display as result "v1.1.2 Regression Test Results: `test_pass'/`test_total' passed, `test_fail' failed"
+local suite_rc = 0
 if `test_fail' > 0 {
     display as error "SOME TESTS FAILED"
-    exit 1
+    local suite_rc = 1
 }
-display as result "ALL TESTS PASSED"
+else {
+    display as result "ALL TESTS PASSED"
+}
 display "RESULT: test_logdoc_v112 tests=`test_total' pass=`test_pass' fail=`test_fail'"
+if `suite_rc' exit `suite_rc'

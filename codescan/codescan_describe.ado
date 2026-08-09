@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.1.1  2026/08/05
+*! codescan_describe Version 4.1.2  2026/08/09
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -187,7 +187,31 @@ program define codescan_describe, rclass
         matrix `top_codes'[`i', 1] = `_tc_freq'
         matrix `top_codes'[`i', 2] = `_tc_pct'
         matrix `top_codes'[`i', 3] = `_tc_cum'
-        local _tc_rnames `"`_tc_rnames' `"`_tc_code'"'"'
+        * Stata matrix row names are limited to 32 characters. Preserve the
+        * exact displayed value in r(top_code_#), and use a deterministic,
+        * collision-free alias only when the value cannot be a row name.
+        local _tc_rowname `"`_tc_code'"'
+        if strlen(`"`_tc_rowname'"') > 32 {
+            local _tc_rowname "_cs_code_`i'"
+        }
+        * A short code can itself equal an alias selected for an earlier long
+        * code, so check every proposed row name, not only generated aliases.
+        local _tc_alias_dup = 1
+        local _tc_alias_try = 0
+        while `_tc_alias_dup' {
+            local _tc_alias_dup = 0
+            forvalues _tc_prev = 1/`=`i'-1' {
+                if `"`_tc_rowname'"' == `"`_tc_rname_`_tc_prev''"' {
+                    local _tc_alias_dup = 1
+                }
+            }
+            if `_tc_alias_dup' {
+                local ++_tc_alias_try
+                local _tc_rowname "_cs_code_`i'_`_tc_alias_try'"
+            }
+        }
+        local _tc_rname_`i' `"`_tc_rowname'"'
+        local _tc_rnames `"`_tc_rnames' `"`_tc_rowname'"'"'
     }
     matrix rownames `top_codes' = `_tc_rnames'
     matrix colnames `top_codes' = frequency percent cumul_pct
@@ -251,6 +275,9 @@ program define codescan_describe, rclass
     return local varlist "`varlist'"
     return matrix top_codes = `top_codes', copy
     return matrix chapters = `chapters', copy
+    forvalues i = 1/`show' {
+        return local top_code_`i' `"`_desc_code_`i''"'
+    }
 
     * Save draft codefile from chapter summary
     if `"`save'"' != "" {

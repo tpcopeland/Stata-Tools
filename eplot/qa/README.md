@@ -39,7 +39,9 @@ Each suite gates itself with `exit 1`, so the runner keys on per-file return cod
 | `test_colors_routing.do` | `insigncolor()`, mistyped-estimate routing, in-session rerun safety |
 | `test_axis_coeflabels.do` | Default category-axis suppression, `coeflabels()` honored under variable labels, group/model ordering |
 | `test_stars_matrix.do` | Stars + `eform` p-values, `type()` special-row filtering, matrix-mode style/stars, weighted-box note, sort alignment |
+| `test_regressions.do` | Negative-path return gate for failed graph saves across data, matrix, estimates, and frame modes |
 | `validation_eplot.do` | Known-answer checks — `r(table)`/`r(N)`/`r(k)` against `e(b)`, eform transform |
+| `test_examples.do` | Installed-user smoke for the runnable examples in `eplot.sthlp` across all four modes and major option families |
 
 ## Coverage map
 
@@ -55,6 +57,8 @@ Each suite gates itself with `exit 1`, so the runner keys on per-file return cod
 | Returns `r(N)`/`r(k)`/`r(n_models)`/`r(table)`/`r(pvalues)` | `validation_eplot`, `test_eplot` |
 | Graph passthrough | `test_graph_options`, `test_layout` |
 | Error / edge / varabbrev paths | `test_edge_cases`, `test_colors_routing` |
+| Installed documentation examples | `test_examples` |
+| Failed graph/save return payload | `test_regressions` |
 
 ## Lane membership
 
@@ -69,4 +73,6 @@ Each suite gates itself with `exit 1`, so the runner keys on per-file return cod
 | `test_colors_routing` | | ✓ | ✓ |
 | `test_axis_coeflabels` | | ✓ | ✓ |
 | `test_stars_matrix` | | ✓ | ✓ |
+| `test_regressions` | | ✓ | ✓ |
 | `validation_eplot` | | | ✓ |
+| `test_examples` | | | ✓ |

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.3  05aug2026}{...}
+{* *! version 1.1.4  09aug2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -92,14 +92,14 @@ Other subcommands:
 
 {syntab:Document metadata}
 {synopt:{opt ti:tle(string)}}document title; defaults to input filename{p_end}
-{synopt:{opt date(string)}}date subtitle shown in document header{p_end}
+{synopt:{opt dat:e(string)}}date subtitle shown in document header{p_end}
 {synopt:{opt foot:er(string)}}custom footer text{p_end}
 {synopt:{opt gen:erated}}add "Generated YYYY-MM-DD HH:MM" footer{p_end}
 {synopt:{opt st:amp}}add Stata/session metadata to the header{p_end}
 
 {syntab:Display & layout}
 {synopt:{opt run}}run a .do file before conversion{p_end}
-{synopt:{opt statae:xe(string)}}override the batch Stata executable{p_end}
+{synopt:{opt stata:exe(string)}}override the batch Stata executable{p_end}
 {synopt:{opt pre:formatted}}retain legacy preformatted behavior{p_end}
 {synopt:{opt nof:old}}compatibility option; folding is off by default{p_end}
 {synopt:{opt nod:ots}}strip dot prompts from commands for cleaner display{p_end}

@@ -716,4 +716,5 @@ else {
 set varabbrev `orig_varabbrev'
 
 display as result "logdoc_py feature QA: `test_pass' passed, `test_fail' failed, `test_total' total"
+display as result "RESULT: test_logdoc_py tests=`test_total' pass=`test_pass' fail=`test_fail'"
 if `test_fail' > 0 exit 9

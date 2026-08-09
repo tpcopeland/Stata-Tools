@@ -1,23 +1,25 @@
-# logdoc QA suite
+# logdoc QA
 
-This flat suite tests `logdoc` conversion, session, batch, combine, replay, and Python-setup behavior. `run_all.do` uses an explicit full-suite list and exits nonzero if any suite fails. Each file derives the package root from `c(pwd)` and can be run directly from `qa/`.
+This flat suite tests `logdoc` conversion, session, batch, combine, replay, Python setup, and release-surface rendering. `run_all.do` owns the lane membership, emits machine-readable `RESULT:` lines, and exits nonzero if any suite fails. Each suite derives the package root from `c(pwd)`.
 
 ## How to run
 
 ```bash
 cd logdoc/qa
-stata-mp -b do run_all.do
-stata-mp -b do test_logdoc_v112.do
+stata-mp -b do run_all.do                 # full release gate (default)
+stata-mp -b do run_all.do quick            # fast functional lane
+stata-mp -b do run_all.do core             # functional, validation, and current regressions
+stata-mp -b do test_logdoc_v114.do         # one standalone suite
 ```
 
-The full runner reinstalls only `logdoc` before each suite to avoid an installed copy shadowing the package under test. Tests generate inputs and outputs under `c(tmpdir)`; logs and other runtime artifacts are not fixtures.
+The devkit QA runner executes this layout in a scratch copy with isolated `PLUS` and `PERSONAL` directories. Tests generate inputs and outputs under `c(tmpdir)`; logs and other runtime artifacts are not fixtures.
 
 ## Conventions
 
-- `test_*.do` files cover functional and regression behavior; `validation_*.do` checks output content and invariants.
-- Tests use `capture noisily`, pass/fail counters, and a nonzero exit when a suite fails.
-- Test inputs are generated at runtime and all paths are derived from `c(pwd)` or `c(tmpdir)`.
-- No cross-validation lane is needed: logdoc is a deterministic renderer, not an estimator with an independent statistical implementation.
+- `test_*.do` files cover functional and regression behavior; `validation_*` checks output content and invariants; there is no independent external oracle for this deterministic renderer.
+- Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N` and exits nonzero when `fail` is nonzero.
+- The runner reinstalls `logdoc` from the package directory before each suite; test inputs and artifacts use `c(pwd)` or `c(tmpdir)`.
+- Generated `.log`, `.smcl`, `.dta`, `.xlsx`, and other temporary outputs are not fixtures; tracked documentation assets remain under `demo/`.
 
 ## File index
 
@@ -26,26 +28,30 @@ The full runner reinstalls only `logdoc` before each suite to avoid an installed
 | `test_logdoc.do` | Core conversions, formats, run mode, return values, package install, and state restoration |
 | `test_logdoc_py.do` | Python discovery, configuration, install actions, option errors, and session-state preservation |
 | `test_logdoc_phase78.do` | Notebook, batch, append, email, annotation, diff, session, replay, and output-format behavior |
+| `test_documentation_examples.do` | Installed-user README/help workflows for conversion, formats, session, `run`, batch/combine/diff, append/replay, and Python setup |
 | `test_logdoc_refactor_guards.do` | Option, config, CSS, filtering, return-contract, RNG, and installed-user guard regressions |
 | `test_logdoc_v111.do` | Version 1.1.1 renderer-failure, replay, PDF/docx, UTF-8, and config regressions |
 | `test_logdoc_v112.do` | Version 1.1.2 shell-argument and embedded-quote forwarding regressions |
+| `test_logdoc_v114.do` | Executable paths with spaces, SMCL help links, `r(compare)`, and the Stata help render oracle |
 | `validation_logdoc.do` | Known-answer HTML/Markdown/SMCL rendering and artifact-content validation |
-| `run_all.do` | Curated full-suite runner |
+| `run_all.do` | Curated `quick`, `core`, and `full` lane runner |
 
 ## Coverage map
 
 | Command/subcommand | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `logdoc` conversion | `test_logdoc.do` | `validation_logdoc.do` | Phase 7–8, refactor, v1.1.1, and v1.1.2 regressions |
+| `logdoc` conversion | `test_logdoc.do` | `validation_logdoc.do` | Documentation examples, Phase 7–8, refactor, v1.1.1, v1.1.2, and v1.1.4 regressions |
 | `logdoc start` / `stop` | Phase 7–8 | — | Refactor guards and v1.1.1 regressions |
 | `logdoc batch` | Phase 7–8 | — | Refactor guards and v1.1.2 quote regression |
 | `logdoc combine` | Phase 7–8 | — | Refactor guards and v1.1.1 regressions |
 | `logdoc diff` | Phase 7–8 | — | Refactor guards |
 | `logdoc replay` | Phase 7–8 | — | Refactor guards, v1.1.1, and v1.1.2 regressions |
-| `logdoc_py` | `test_logdoc_py.do` | — | v1.1.1 and v1.1.2 regressions |
+| `logdoc_py` | `test_logdoc_py.do` | — | v1.1.1, v1.1.2, and v1.1.4 release-surface checks |
 
 ## Lane membership
 
 | Lane | Suites |
 |---|---|
-| `full` (default) | All six functional/regression suites and `validation_logdoc.do` |
+| `quick` | `test_logdoc.do`, `test_logdoc_py.do` |
+| `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, and `test_logdoc_v114.do` |
+| `full` (default) | `core` plus `test_logdoc_refactor_guards.do`, `test_logdoc_v111.do`, and `test_logdoc_v112.do` |

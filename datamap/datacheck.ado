@@ -1,4 +1,4 @@
-*! datacheck Version 1.6.4  2026/08/05
+*! datacheck Version 1.6.5  2026/08/09
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -505,7 +505,7 @@ program define datacheck, rclass
 	        quietly _datamap_classify using "memory", loaded saving(`"`proff'"') ///
 	            maxcat(`maxcat') exclude("`exclude'") continuous("`continuous'") ///
 	            categorical("`categorical'") date("`date'") detect_binary(1) ///
-	            cap(`nuniq_cap')
+	            capacity(`nuniq_cap')
         local all_vars       "`r(all_vars)'"
         local cls_continuous "`r(continuous_vars)'"
         local cls_categorical "`r(categorical_vars)'"
@@ -1719,7 +1719,6 @@ program define datacheck, rclass
         // the gate verdict; warn and continue instead of aborting.
 	        if `"`saving'"' != "" {
 	            local sspec = subinstr(`"`macval(saving)'"', char(34), "", .)
-	            local sspec = subinstr(`"`macval(sspec)'"', ")", "", .)
 	            local scpos = strpos(`"`macval(sspec)'"', ",")
 	            if `scpos' > 0 {
 	                local sfile = strtrim(substr(`"`macval(sspec)'"', 1, `scpos' - 1))

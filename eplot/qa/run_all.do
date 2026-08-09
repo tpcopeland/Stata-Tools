@@ -37,10 +37,11 @@ local quick_suites test_eplot test_options test_edge_cases
 * Release smoke lane: quick plus the per-feature regression suites and frame mode.
 local core_suites `quick_suites' ///
     test_eplot_frame test_graph_options test_layout ///
-    test_colors_routing test_axis_coeflabels test_stars_matrix
+    test_colors_routing test_axis_coeflabels test_stars_matrix ///
+    test_regressions
 
 * Canonical release QA: core plus known-answer validation.
-local full_suites `core_suites' validation_eplot
+local full_suites `core_suites' validation_eplot test_examples
 
 local suite_list ``mode'_suites'
 

@@ -259,16 +259,20 @@ and never appear as the code values {cmd:.} or {cmd:.a} in the table.
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
+{synopt:{cmd:r(top_code_#)}}exact code for each displayed top-code row, in row order{p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}
 {synopt:{cmd:r(top_codes)}}the displayed top codes{p_end}
 {synopt:{cmd:r(chapters)}}first-character summary{p_end}
 
 {pstd}
-In {cmd:r(top_codes)} the row names are the code values and the columns are
-{cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}. In {cmd:r(chapters)} the
-row names are the leading characters and the columns are {cmd:codes} and
-{cmd:entries}.
+In {cmd:r(top_codes)} the row names are the code values when they fit Stata's
+32-character matrix row-name limit, and the columns are {cmd:frequency},
+{cmd:percent}, and {cmd:cumul_pct}. A longer code receives a bounded row-name
+alias such as {cmd:_cs_code_1}; retrieve its exact value from the matching
+{cmd:r(top_code_1)} macro. The {cmd:r(top_code_#)} macros use the same row order
+for every displayed code. In {cmd:r(chapters)} the row names are the leading
+characters and the columns are {cmd:codes} and {cmd:entries}.
 
 {pstd}
 Both matrices, the displayed tables, and the {cmd:save()} draft codefile are

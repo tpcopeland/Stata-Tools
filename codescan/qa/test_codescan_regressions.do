@@ -32,6 +32,8 @@
 *   T35: datetime %tc date()/refdate() rejected 198 with a clear hint (4.0.1, F11)
 *   T36: merge marks a fully-excluded id as . not 0 (4.0.1 doc, audit F8)
 *   T37: reloaded regex validator still rejects invalid patterns post-clear (F7)
+*   T38: codescan_describe keeps exact long code values when matrix row names
+*        exceed Stata's 32-character row-name limit (4.1.2, deep review)
 
 clear all
 set seed 12345
@@ -1496,6 +1498,55 @@ else {
 }
 * T37's calls recompiled both Mata files; Mata is live for what follows.
 * ============================================================
+
+
+* ============================================================
+* T38: long codes do not make codescan_describe fail (4.1.2, deep review)
+* ============================================================
+* Stata matrix row names are capped at 32 characters, but the package accepts
+* fixed-width strings up to the normal Stata limit. A long code must therefore
+* use a safe row-name alias while returning the exact code in r(top_code_#).
+* Proven red on the pre-fix build: the display succeeded, then matrix rownames
+* failed with r(198) on the 41-character code.
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 3
+    local _longcode ""
+    forvalues _i = 1/40 {
+        local _longcode "`_longcode'A"
+    }
+    gen str100 code = ""
+    replace code = "`_longcode'X" in 1
+    replace code = "`_longcode'Y" in 2
+    replace code = "_cs_code_1" in 3
+
+    codescan_describe code, top(3)
+    matrix _long_top = r(top_codes)
+    local _long_rn : rownames _long_top
+    local _long_rn1 : word 1 of `_long_rn'
+    local _long_rn2 : word 2 of `_long_rn'
+    local _long_rn3 : word 3 of `_long_rn'
+    assert strlen("`_long_rn1'") <= 32
+    assert strlen("`_long_rn2'") <= 32
+    assert strlen("`_long_rn3'") <= 32
+    assert `"`_long_rn1'"' != `"`_long_rn2'"'
+    assert `"`_long_rn1'"' != `"`_long_rn3'"'
+    assert `"`_long_rn2'"' != `"`_long_rn3'"'
+    assert `"`r(top_code_1)'"' == `"`_longcode'X"'
+    assert `"`r(top_code_2)'"' == `"`_longcode'Y"'
+    assert `"`r(top_code_3)'"' == "_cs_code_1"
+    matrix drop _long_top
+}
+if _rc == 0 {
+    display as result "  PASS T38: long describe codes use bounded aliases and retain exact values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T38: long describe code handling (rc=`=_rc')"
+    local ++fail_count
+}
 
 **# Settings hygiene
 

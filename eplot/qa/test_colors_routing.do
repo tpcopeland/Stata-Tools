@@ -24,6 +24,8 @@ cap ado uninstall eplot
 net install eplot, from("`pkg_dir'") replace
 
 local nfail 0
+* C1a-c (3), C1d-e (2), I1a-c (3), M1 (1), varabbrev paths (2)
+local ncheck 11
 
 *------------------------------------------------------------------------------
 * C1: insigncolor() is honored (estimates mode)
@@ -130,5 +132,7 @@ if `nfail' == 0 {
 }
 else {
     di as error "`nfail' test_colors_routing CHECK(S) FAILED"
-    exit 9
 }
+
+display "RESULT: test_colors_routing tests=11 pass=`=`ncheck'-`nfail'' fail=`nfail' skip=0"
+if `nfail' > 0 exit 9

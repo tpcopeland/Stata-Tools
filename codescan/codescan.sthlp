@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.1.1  05aug2026}{...}
+{* *! version 4.1.2  09aug2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}

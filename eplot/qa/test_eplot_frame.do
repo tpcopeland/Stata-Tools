@@ -197,6 +197,7 @@ capture frame drop _ep_frame_override
 capture frame drop _ep_frame_bad
 
 display _newline "Frame tests completed: `pass_count'/`test_count' passed"
+display "RESULT: test_eplot_frame tests=4 pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 9

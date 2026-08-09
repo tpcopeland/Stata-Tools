@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.1.1** | 2026-08-05
+**Version 4.1.2** | 2026-08-09
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -336,8 +336,9 @@ Before publishing a successful result set, `codescan` clears prior `r()` content
 | `r(varlist)` | Scanned variables |
 | `r(top_codes)` | Matrix with `frequency`, `percent`, and `cumul_pct` columns |
 | `r(chapters)` | Matrix with `codes` and `entries` columns grouped by first character |
+| `r(top_code_#)` | Exact code value for each displayed `r(top_codes)` row; needed when a code is too long for a Stata matrix row name |
 
-The displayed tables, returned matrices, and draft codefile are ordered by descending frequency with alphabetical tie-breaking, so repeated runs over the same data are deterministic.
+The displayed tables, returned matrices, and draft codefile are ordered by descending frequency with alphabetical tie-breaking, so repeated runs over the same data are deterministic. For a code longer than Stata's 32-character matrix row-name limit, `r(top_codes)` uses a bounded alias; use the matching `r(top_code_#)` macro to recover the exact code value.
 
 ## Assumptions and Limits
 
@@ -367,6 +368,10 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.1.2 (2026-08-09)
+
+- `codescan_describe` now handles code values longer than Stata's 32-character matrix row-name limit by using bounded row-name aliases while returning each exact displayed code in `r(top_code_#)`.
 
 ### 4.1.1 (2026-08-05)
 

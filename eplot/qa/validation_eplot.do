@@ -462,6 +462,7 @@ display "{bf:VALIDATION SUMMARY}"
 display "{hline 70}"
 display "Total validations:  `n_tests'"
 display as result "Passed:             `n_passed'"
+display "RESULT: validation_eplot tests=12 pass=`n_passed' fail=`n_failed' skip=0"
 if `n_failed' > 0 {
     display as error "Failed:             `n_failed'"
 }

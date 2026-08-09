@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.6** | 2026-08-05
+**Version 1.2.7** | 2026-08-09
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -297,6 +297,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.7** (2026-08-09): Preserved analytical return values when optional graph saves fail, corrected estimates-mode p-value sizing, and expanded release QA with runnable documentation examples and machine-reconcilable negative-path checks.
 - **1.2.6** (2026-08-05): Kept non-effect rows in their original slots when sorting data/frame input; aligned frame-mode option documentation, dynamic confidence-level defaults, row-type aliases, graph-option prose, and the tabtools integration demo with current behavior.
 - **1.2.5** (2026-07-10): Returned `r(pvalues)` for 2-column matrix input with `stars`, as documented; rows with unavailable p-values are now excluded consistently from the estimates-mode p-value matrix.
 - **1.2.4** (2026-07-06): `xline()` now accepts an optional `line_options` clause after the positions, while bare `xline(numlist)` keeps the default light dashed look.

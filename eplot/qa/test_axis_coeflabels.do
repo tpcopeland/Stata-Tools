@@ -29,6 +29,8 @@ cap ado uninstall eplot
 net install eplot, from("`pkg_dir'") replace
 
 local nfail 0
+* C1a-c (3), C2a-b (2), C3a-c (3), C4a-c (3), C5a-b (2)
+local ncheck 13
 
 *------------------------------------------------------------------------------
 * C1: estimates mode honors coeflabels() over variable labels
@@ -144,3 +146,6 @@ if `nfail' == 0 {
 else {
     di as error "`nfail' test_axis_coeflabels CHECK(S) FAILED"
 }
+
+display "RESULT: test_axis_coeflabels tests=13 pass=`=`ncheck'-`nfail'' fail=`nfail' skip=0"
+if `nfail' > 0 exit 1

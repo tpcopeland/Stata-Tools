@@ -858,11 +858,13 @@ else {
 * RESULTS
 * =======================================================================
 display ""
-display as text "RESULT: `test_pass'/`test_total' tests passed, `test_fail' failed"
+local suite_rc = 0
 if `test_fail' > 0 {
     display as error "SOME TESTS FAILED"
-    exit 9
+    local suite_rc = 9
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+display as text "RESULT: test_logdoc tests=`test_total' pass=`test_pass' fail=`test_fail'"
+if `suite_rc' exit `suite_rc'

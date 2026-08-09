@@ -17,8 +17,8 @@ stata-mp -b do run_all.do core       # all validation + adversarial, no install/
 Or via the CLI:
 
 ```bash
-python3 -m _devkit.stata_dev_cli qa run-file codescan run_all.do --arg full
-python3 -m _devkit.stata_dev_cli qa parse codescan/qa/run_all.log
+python3 -m _devkit.stata_dev_cli run qa codescan --repo tools --mode full --isolated
+python3 -m _devkit.stata_dev_cli inspect log /path/from-the-run-output.log --view parse
 ```
 
 `run_all.do` sources `_codescan_qa_common.do` and calls
@@ -35,7 +35,7 @@ is to exercise the package as a freshly installed user sees it.
 The last line of a run is the aggregate sentinel:
 
 ```
-RESULT: run_all_full tests=33 pass=33 fail=0
+RESULT: run_all_full tests=34 pass=34 fail=0
 ```
 
 Gate on that line, not on the shell exit status — `stata-mp -b do` exits 0 even
@@ -61,8 +61,8 @@ The `quick` lane has no Python dependency.
 
 - Every suite ends with `RESULT: <name> tests=N pass=N fail=N`, publishes the
   same counters through `_codescan_qa_publish`, and exits 1 on any failure.
-  The runner verifies both the handshake and its counter arithmetic; `qa parse`
-  keys on the displayed line.
+  The runner verifies both the handshake and its counter arithmetic; the log
+  parser keys on the displayed result line.
 - No decorative display lines; `**#`/`**##` bookmarks mark sections.
 - Test data is built inline (seeded `input` blocks / generators); no `.dta`
   fixtures are tracked. Generated `.dta`/`.xlsx`/`.csv`/`.log` artifacts land
@@ -95,7 +95,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_coverage.do` | functional | 64 | Consolidated coverage: window boundaries, label/date/type contracts, `r()` surface, v1.4.2 fixes, `saving()`/`format()`/`export()` content, cross-variable exclusion |
 | `test_countrows.do` | functional | 25 | `countrows`/`countmode` counting semantics |
 | `test_mata_opt.do` | functional | 15 | Mata fast-path semantics. Every block compares codescan against a naive Stata-level oracle (one `ustrregexm()` per cell, no memoization, no early exit) on an immutable reloaded fixture, so the optimizations must reproduce a brute-force scan exactly: row-level, collapse, merge, `countmode` (`total_hits` vs `positive_units`), nested/overlapping conditions, multi-window sensitivity **and** its `r(sensitivity_n)` denominators, describe vs a `reshape`+`levelsof` tabulation, `nodots` invariance, first-slot vs `allslots` detail, prefix, `nocase`, co-occurrence, and `matched_code` first-hit order |
-| `test_codescan_regressions.do` | functional | 37 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary describe row names, prefix validation, path guards, and the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37) |
+| `test_codescan_regressions.do` | functional | 38 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary and long describe row names, prefix validation, path guards, and the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37) |
 | `test_codescan_v208.do` | functional | 5 | v2.0.8: `label()` backslash preserved (Windows paths) + `\` separator still splits, bare `.`/all-dots skipped to match `codescan_describe`, `if` on numeric scan var works with `tostring` (proven-fail on pre-2.0.8) |
 | `test_codescan_v300_critical.do` | functional | 62 | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
 | `test_codescan_v2_no_scoring.do` | functional | 5 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
@@ -107,7 +107,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_stress_adversarial.do` | functional | 7 | Scale/sparsity/name-collision stress |
 | `test_codescan_install_docs.do` | functional | 12 | `net install` smoke + help/README example reality |
 | `test_documentation_examples.do` | functional | 19 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
-| `test_release_integrity.do` | functional | 7 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris |
+| `test_release_integrity.do` | functional | 9 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
 | `validation_codescan.do` | validation | 26 | Core hand-computed matching, prefix, window, collapse, date-summary, and option oracles for `codescan` |
 | `validation_codescan_extended.do` | validation | 37 | Extended exclusion, output, co-occurrence, merge, sensitivity, frame, export, and invariant oracles split from the former validation monolith |
 | `validation_codescan_known_answers.do` | validation | 9 | Known-answer matrix across option combinations |
@@ -145,18 +145,20 @@ hand-computable oracles.
 
 ## Coverage map
 
-`qa contract codescan` reports full coverage of the public surface:
+`check qa codescan --view contract` reports full coverage of the public surface:
 
 | Command | Options | Returns | Status |
 |---------|--------:|--------:|--------|
-| `codescan` | 37/37 | 28/28 | covered |
-| `codescan_describe` | 4/4 | 6/6 | covered |
+| `codescan` | 37/37 | 27/27 | covered |
+| `codescan_describe` | 4/4 | 7/7 | covered |
 
-`codescan` has 30 `return` statements but 28 distinct names. Two names are
-returned from two places each, and both paths are exercised: `r(lookback)` as a
-scalar for a single window and as a macro for several, and `r(newvars)` as the
+`codescan` has 27 distinct documented return names. Two names are returned from
+two places each, and both paths are exercised: `r(lookback)` as a scalar for a
+single window and as a macro for several, and `r(newvars)` as the
 created-variable list on the normal path and as an empty string after
-`preserve`/`frame()`, where nothing is left in memory.
+`preserve`/`frame()`, where nothing is left in memory. `codescan_describe` also
+returns the exact code for each displayed top-code row through dynamic
+`r(top_code_#)` locals.
 
 Headline coverage by area: option-by-option (the seven `test_codescan*` suites
 split out of the former functional monolith, `validation_codescan.do`, and
@@ -207,8 +209,8 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_documentation_examples` |  |  | ✓ |
 | `test_release_integrity` |  |  | ✓ |
 
-`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **33 suites**
-(737 assertions as of 2026-07-18). The authoritative counts are the
+`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **34 suites**
+(786 assertions as of 2026-08-09). The authoritative counts are the
 `RESULT: ... tests=N` sentinels each suite prints, aggregated into the
 `RESULT: run_all_full ...` line — not this snapshot. Every runnable suite
 belongs to at least one lane except the two exploratory benchmarks above; there

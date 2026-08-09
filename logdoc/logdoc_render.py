@@ -990,16 +990,21 @@ def expand_smcl_line(line, mode="text"):
                 col += len(plain) + pad
                 continue
 
-            # {help topic##|_new:text} → link
-            m = re.match(r'help\s+(\S+?)(?:##\|_new)?(?::(.+))?', tag_inner)
+            # {help topic##|_new:text} → link.  Anchor the expression: the
+            # earlier non-greedy pattern could satisfy every optional group
+            # after a single character, so {help regress} became a link to
+            # ?r rather than ?regress.
+            m = re.match(r'help\s+([^\s:]+?)(?:##\|_new)?(?::(.*))?$', tag_inner)
             if m:
                 topic = m.group(1)
                 display_text = m.group(2) or topic
                 if mode == "html":
-                    url = f"https://www.stata.com/help.cgi?{topic}"
+                    url = html_mod.escape(
+                        f"https://www.stata.com/help.cgi?{topic}", quote=True
+                    )
                     result.append(
                         f'<a href="{url}" class="help-link">'
-                        f'{html_mod.escape(display_text)}</a>'
+                        f'{html_mod.escape(display_text, quote=True)}</a>'
                     )
                 else:
                     result.append(display_text)
@@ -1011,7 +1016,9 @@ def expand_smcl_line(line, mode="text"):
             if m:
                 topic = m.group(1)
                 if mode == "html":
-                    url = f"https://www.stata.com/help.cgi?{topic}"
+                    url = html_mod.escape(
+                        f"https://www.stata.com/help.cgi?{topic}", quote=True
+                    )
                     result.append(
                         f'<a href="{url}" class="help-link">'
                         f'<strong>{html_mod.escape(topic)}</strong></a>'

@@ -1,4 +1,4 @@
-*! eplot Version 1.2.6  2026/08/05
+*! eplot Version 1.2.7  2026/08/09
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,12 +32,22 @@ capture program drop eplot
 program define eplot, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _dispatched 0
+    local _has_results 0
+    local _has_table 0
+    local _has_pvalues 0
+    local _r_N .
+    local _r_nmodels .
+    local _r_k .
+    local _r_cmd ""
+    return clear
     set varabbrev off
 
     capture noisily {
         // Determine mode: data, estimates, matrix, or frame
         _eplot_parse_mode `0'
         local mode "`s(mode)'"
+        local _dispatched 1
 
         if "`mode'" == "data" {
             _eplot_data `0'
@@ -55,22 +65,35 @@ program define eplot, rclass
             display as error "Could not determine eplot mode"
             exit 198
         }
-
-        // Capture return values from subprogram before exiting block
-        local _r_N = r(N)
-        local _r_cmd `"`r(cmd)'"'
-        local _r_nmodels = r(n_models)
-        local _r_k = r(k)
-        tempname _r_table
-        capture matrix `_r_table' = r(table)
-        local _has_table = (_rc == 0)
-        tempname _r_pvalues
-        capture matrix `_r_pvalues' = r(pvalues)
-        local _has_pvalues = (_rc == 0)
     }
     local rc = _rc
 
-    if `rc' == 0 {
+    // A helper may post the analytical payload before returning a graph/save
+    // error.  Capture it after the block so the public wrapper does not strand
+    // results merely because an optional graph side effect failed.
+    if `_dispatched' {
+        capture local _r_cmd `"`r(cmd)'"'
+        if _rc == 0 {
+            capture local _r_N = r(N)
+            if _rc == 0 {
+                local _has_results 1
+                if "`mode'" == "estimates" {
+                    capture local _r_nmodels = r(n_models)
+                    if _rc local _has_results 0
+                }
+                capture local _r_k = r(k)
+                if _rc local _has_results 0
+                tempname _r_table
+                capture matrix `_r_table' = r(table)
+                local _has_table = (_rc == 0)
+                tempname _r_pvalues
+                capture matrix `_r_pvalues' = r(pvalues)
+                local _has_pvalues = (_rc == 0)
+            }
+        }
+    }
+
+    if `_has_results' {
         if "`mode'" == "estimates" {
             return scalar N = `_r_N'
             return scalar n_models = `_r_nmodels'
@@ -189,6 +212,13 @@ program define _eplot_frame, rclass
     local _orig_varabbrev = c(varabbrev)
     local _orig_frame "`c(frame)'"
     local _frame_created 0
+    local _data_rc 0
+    local _has_results 0
+    local _has_table 0
+    local _has_pvalues 0
+    local _r_N .
+    local _r_k .
+    local _r_cmd ""
     set varabbrev off
 
     capture noisily {
@@ -318,17 +348,25 @@ program define _eplot_frame, rclass
             local _data_opts `"pi(`pi') `_data_opts'"'
         }
 
-        _eplot_data `estimate' `ll' `ul' `if' `in', `_data_opts'
+        capture noisily _eplot_data `estimate' `ll' `ul' `if' `in', `_data_opts'
+        local _data_rc = _rc
 
-        local _r_N = r(N)
-        local _r_k = r(k)
-        local _r_cmd `"`r(cmd)'"'
-        tempname _r_table
-        capture matrix `_r_table' = r(table)
-        local _has_table = (_rc == 0)
-        tempname _r_pvalues
-        capture matrix `_r_pvalues' = r(pvalues)
-        local _has_pvalues = (_rc == 0)
+        capture local _r_N = r(N)
+        if _rc == 0 {
+            capture local _r_k = r(k)
+            if _rc == 0 {
+                capture local _r_cmd `"`r(cmd)'"'
+                if _rc == 0 {
+                    local _has_results 1
+                    tempname _r_table
+                    capture matrix `_r_table' = r(table)
+                    local _has_table = (_rc == 0)
+                    tempname _r_pvalues
+                    capture matrix `_r_pvalues' = r(pvalues)
+                    local _has_pvalues = (_rc == 0)
+                }
+            }
+        }
     }
     local rc = _rc
 
@@ -342,8 +380,9 @@ program define _eplot_frame, rclass
         if `_frame_drop_rc' & `_cleanup_rc' == 0 local _cleanup_rc = `_frame_drop_rc'
     }
     if `rc' == 0 & `_cleanup_rc' != 0 local rc = `_cleanup_rc'
+    if `rc' == 0 & `_data_rc' != 0 local rc = `_data_rc'
 
-    if `rc' == 0 {
+    if `_has_results' {
         return scalar N = `_r_N'
         return scalar k = `_r_k'
         return local cmd `"`_r_cmd'"'
@@ -367,6 +406,12 @@ capture program drop _eplot_data
 program define _eplot_data, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _side_rc 0
+    local _has_table 0
+    local _has_pvalues 0
+    local _r_N .
+    local _r_k .
+    local _r_cmd ""
     set varabbrev off
     capture noisily {
         syntax varlist(numeric min=3 max=3) [if] [in] , ///
@@ -1074,8 +1119,10 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
-    // Execute graph
-    `graphcmd'
+    // Execute graph.  Keep the analytical payload available when an optional
+    // graph/save side effect fails; the public wrapper propagates both.
+    capture noisily `graphcmd'
+    local _side_rc = _rc
 
     // Return results
     // Build r(table) matrix from plotted data
@@ -1098,7 +1145,7 @@ program define _eplot_data, rclass
             local _rnames `"`_rnames' `"`_rnm'"'"'
         }
         matrix rownames `_rtable' = `_rnames'
-        return matrix table = `_rtable'
+        local _has_table 1
     }
     if "`pvalue'" != "" {
         quietly count if inlist(`rowtype', 1, 3, 5) & !missing(`es')
@@ -1118,16 +1165,26 @@ program define _eplot_data, rclass
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
             matrix rownames `_rpvals' = `_pnames'
-            return matrix pvalues = `_rpvals'
+            local _has_pvalues 1
         }
     }
 
-        return scalar N = `N'
+        local _r_N = `N'
         quietly count if `rowtype' == 1
-        return scalar k = r(N)
-        return local cmd `"`graphcmd'"'
+        local _r_k = r(N)
+        local _r_cmd `"`graphcmd'"'
 
         restore
+        return scalar N = `_r_N'
+        return scalar k = `_r_k'
+        return local cmd `"`_r_cmd'"'
+        if `_has_table' {
+            return matrix table = `_rtable'
+        }
+        if `_has_pvalues' {
+            return matrix pvalues = `_rpvals'
+        }
+        if `_side_rc' exit `_side_rc'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -1142,6 +1199,13 @@ capture program drop _eplot_estimates
 program define _eplot_estimates, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _side_rc 0
+    local _has_table 0
+    local _has_pvalues 0
+    local _r_N .
+    local _r_nmodels .
+    local _r_k .
+    local _r_cmd ""
     set varabbrev off
     capture noisily {
         syntax [anything] [, ///
@@ -2001,7 +2065,10 @@ program define _eplot_estimates, rclass
     }
 
     // ====== Execute graph ======
-    `graphcmd'
+    // Keep the analytical payload available when an optional graph/save side
+    // effect fails; the public wrapper propagates both.
+    capture noisily `graphcmd'
+    local _side_rc = _rc
 
     // ====== Return results ======
     if `n_models' == 1 {
@@ -2024,7 +2091,7 @@ program define _eplot_estimates, rclass
                 local _rnames `"`_rnames' `"`_rnm'"'"'
             }
             matrix rownames `_rtable' = `_rnames'
-            return matrix table = `_rtable'
+            local _has_table 1
         }
     }
     else {
@@ -2064,7 +2131,7 @@ program define _eplot_estimates, rclass
                 }
             }
             matrix rownames `_rtable' = `_rnames'
-            return matrix table = `_rtable'
+            local _has_table 1
         }
     }
 
@@ -2072,7 +2139,7 @@ program define _eplot_estimates, rclass
     if `n_models' == 1 {
         quietly count if _rowtype == 1 & !missing(_pval)
         if r(N) > 0 {
-            local _npv = `_ntab'
+            local _npv = r(N)
             tempname _rpvals
             matrix `_rpvals' = J(`_npv', 1, .)
             matrix colnames `_rpvals' = "pvalue"
@@ -2087,17 +2154,28 @@ program define _eplot_estimates, rclass
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
             matrix rownames `_rpvals' = `_pnames'
-            return matrix pvalues = `_rpvals'
+            local _has_pvalues 1
         }
     }
 
-        return scalar N = `n_items'
-        return scalar n_models = `n_models'
+        local _r_N = `n_items'
+        local _r_nmodels = `n_models'
         quietly count if _rowtype == 1
-        return scalar k = r(N)
-        return local cmd `"`graphcmd'"'
+        local _r_k = r(N)
+        local _r_cmd `"`graphcmd'"'
 
         restore
+        return scalar N = `_r_N'
+        return scalar n_models = `_r_nmodels'
+        return scalar k = `_r_k'
+        return local cmd `"`_r_cmd'"'
+        if `_has_table' {
+            return matrix table = `_rtable'
+        }
+        if `_has_pvalues' {
+            return matrix pvalues = `_rpvals'
+        }
+        if `_side_rc' exit `_side_rc'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -2112,6 +2190,12 @@ capture program drop _eplot_matrix
 program define _eplot_matrix, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _side_rc 0
+    local _has_table 0
+    local _has_pvalues 0
+    local _r_N .
+    local _r_k .
+    local _r_cmd ""
     set varabbrev off
     capture noisily {
         syntax , Matrix(name) ///
@@ -2510,8 +2594,10 @@ program define _eplot_matrix, rclass
         local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
-    // Execute
-    `graphcmd'
+    // Execute.  Keep the analytical payload available when an optional
+    // graph/save side effect fails; the public wrapper propagates both.
+    capture noisily `graphcmd'
+    local _side_rc = _rc
 
     // Return
     // Build r(table) matrix
@@ -2528,7 +2614,7 @@ program define _eplot_matrix, rclass
             local _rnames `"`_rnames' `"`_rnm'"'"'
         }
         matrix rownames `_rtable' = `_rnames'
-        return matrix table = `_rtable'
+        local _has_table 1
     }
 
     // Two-column matrix input supplies standard errors, so p-values are
@@ -2550,15 +2636,25 @@ program define _eplot_matrix, rclass
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
             matrix rownames `_rpvals' = `_pnames'
-            return matrix pvalues = `_rpvals'
+            local _has_pvalues 1
         }
     }
 
-        return scalar N = `n_coefs'
-        return scalar k = `n_coefs'
-        return local cmd `"`graphcmd'"'
+        local _r_N = `n_coefs'
+        local _r_k = `n_coefs'
+        local _r_cmd `"`graphcmd'"'
 
         restore
+        return scalar N = `_r_N'
+        return scalar k = `_r_k'
+        return local cmd `"`_r_cmd'"'
+        if `_has_table' {
+            return matrix table = `_rtable'
+        }
+        if `_has_pvalues' {
+            return matrix pvalues = `_rpvals'
+        }
+        if `_side_rc' exit `_side_rc'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

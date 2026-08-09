@@ -66,6 +66,72 @@ program define _cs_extract_first, rclass
     return local value "`value'"
 end
 
+* Render shipped help through Stata's own SMCL interpreter and fail closed if
+* literal directives remain in the rendered log. Source-text brace checks cannot
+* detect a directive split across a source newline, but this is exactly what a
+* user sees in the Viewer.
+capture program drop _qa_sthlp_render
+program define _qa_sthlp_render, rclass
+    version 16.0
+    syntax anything(name=files id="help files")
+
+    local files = subinstr(`"`files'"', char(34), "", .)
+    local nbad 0
+    local badfiles ""
+
+    foreach f of local files {
+        capture confirm file "`f'"
+        if _rc {
+            display as error "  render: file not found: `f'"
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+
+        tempfile rlog
+        capture log off
+        log using "`rlog'", replace text name(_qarender)
+        type "`f'", smcl
+        log close _qarender
+        capture log on
+
+        local hits 0
+        local nlines 0
+        tempname fh
+        file open `fh' using "`rlog'", read text
+        file read `fh' line
+        while r(eof) == 0 {
+            local ++nlines
+            if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") {
+                * Park braces on control characters before displaying the line;
+                * the SMCL brace escapes contain braces of their own.
+                local shown = subinstr(`"`line'"', "{", char(1), .)
+                local shown = subinstr(`"`shown'"', "}", char(2), .)
+                local shown = subinstr(`"`shown'"', char(1), "{c -(}", .)
+                local shown = subinstr(`"`shown'"', char(2), "{c )-}", .)
+                display as error "  literal SMCL: `shown'"
+                local ++hits
+            }
+            file read `fh' line
+        }
+        file close `fh'
+
+        if `nlines' == 0 {
+            display as error "  render produced no output for `f' -- FAILING"
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+            continue
+        }
+        if `hits' > 0 {
+            local ++nbad
+            local badfiles "`badfiles' `f'"
+        }
+    }
+
+    return scalar nbad = `nbad'
+    return local badfiles "`badfiles'"
+end
+
 **# Tests
 
 local ++test_count
@@ -234,6 +300,51 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: tracked generated debris outside demo allowances (error `=_rc')"
+    local ++fail_count
+}
+
+* The release gate must exercise the render axis, not only source-text markup.
+local ++test_count
+capture noisily {
+    local sthlps : dir "`pkg_dir'" files "*.sthlp"
+    local help_paths ""
+    foreach s of local sthlps {
+        local help_paths "`help_paths' `pkg_dir'/`s'"
+    }
+    _qa_sthlp_render `help_paths'
+    assert r(nbad) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: shipped .sthlp files render without literal SMCL"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: shipped .sthlp render (error `=_rc')"
+    local ++fail_count
+}
+
+* Positive control: prove the oracle detects a broken directive rather than
+* returning zero because it never rendered the file.
+local ++test_count
+capture noisily {
+    tempname bfh
+    tempfile broken
+    file open `bfh' using "`broken'", write replace text
+    file write `bfh' "{smcl}" _n
+    file write `bfh' "{title:Render probe}" _n _n
+    file write `bfh' "{pstd}" _n
+    file write `bfh' "A directive split across a source newline: {bf:broken" _n
+    file write `bfh' "directive} renders as literal markup." _n
+    file close `bfh'
+    _qa_sthlp_render `broken'
+    assert r(nbad) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: SMCL render oracle positive control detects literal markup"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: SMCL render oracle positive control (error `=_rc')"
     local ++fail_count
 }
 
