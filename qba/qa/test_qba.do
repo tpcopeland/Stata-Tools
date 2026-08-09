@@ -1284,9 +1284,11 @@ display as result "Results: `pass_count'/`test_count' passed, `fail_count' faile
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     capture ado uninstall qba
+    display "RESULT: test_qba tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
     capture ado uninstall qba
+    display "RESULT: test_qba tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

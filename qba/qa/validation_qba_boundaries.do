@@ -396,9 +396,11 @@ display as result "Boundary validation: `pass_count'/`test_count' passed, `fail_
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     capture ado uninstall qba
+    display "RESULT: validation_qba_boundaries tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
     capture ado uninstall qba
+    display "RESULT: validation_qba_boundaries tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

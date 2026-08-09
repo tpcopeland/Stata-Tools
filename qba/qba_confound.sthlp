@@ -143,8 +143,10 @@ be greater than 0 and cannot be combined with {opt from_model}.
 estimation command ({cmd:e(b)} and {cmd:e(V)}). The coefficient is automatically
 exponentiated for log-scale models. Supported log-scale commands: {cmd:logistic},
 {cmd:logit}, {cmd:stcox}, {cmd:poisson}, {cmd:nbreg}, {cmd:cloglog}, {cmd:clogit}, {cmd:xtlogit}, {cmd:xtpoisson}, {cmd:xtnbreg},
-{cmd:melogit}, {cmd:mepoisson}, {cmd:streg}, {cmd:stcrreg}, and {cmd:glm} with log or logit link. All other
-commands are treated as linear (coefficient used directly). Because {cmd:cloglog}
+{cmd:melogit}, {cmd:mepoisson}, {cmd:streg}, {cmd:stcrreg}, and {cmd:glm} with log or logit link. Supported
+additive commands are {cmd:regress}, {cmd:areg}, {cmd:cnsreg}, and identity-link
+{cmd:glm}. Other estimator scales are rejected rather than treated as
+additive. Because {cmd:cloglog}
 coefficients are not odds ratios, {cmd:cloglog} requires explicit {opt measure(RR)}.
 
 {phang}
@@ -298,10 +300,11 @@ too large, i.e. it overstates robustness. Specify {opt commonoutcome} to apply
 the Table 2 conversion instead. The scale used is printed with the E-value.
 
 {pstd}
-{bf:Linear models.} When {opt from_model} detects a linear model (e.g., {cmd:regress}), the
+{bf:Linear models.} When {opt from_model} detects a supported additive model (e.g., {cmd:regress}), the
 correction is subtractive rather than multiplicative. Specify {opt confeffect()} as
 the signed additive confounder-outcome effect. E-values are not computed
-because they require a ratio measure.
+because they require a ratio measure. Unsupported link scales such as probit
+and ordered logit are rejected.
 
 {pstd}
 {bf:After tmle or ltmle.} If a separately installed {cmd:tmle} or

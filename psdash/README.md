@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.1** | 2026-08-09
+**Version 1.6.2** | 2026-08-09
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -252,7 +252,7 @@ The default output includes a graph; nograph suppresses it. For binary treatment
 psdash combined [treatment] [psvar] [if] [in] [, covariates(varlist) wvar(varname) threshold(#) overlapmax(#) essmin(#) imbalmax(#) nooverlap nobalance noweights nosupport dryrun report(filename) saving(filename) scheme(schemename) title(string) estimand(string) psvars(varlist) reference(#) gpsfloor(#)]
 ```
 
-All four panels are requested by default when their inputs are available; the balance panel is skipped when no covariates are detected. threshold(0.1) controls the balance SMD finding threshold, overlapmax(10) is the default maximum percentage outside the overlap threshold, essmin(50) is the default minimum ESS percentage, and imbalmax(0) is the default tolerated number of imbalanced covariates. nooverlap, nobalance, noweights, and nosupport suppress panels; dryrun resolves inputs without running panels; and, for cross-sectional runs, report() writes sheets for the panels that run plus Summary to an .xlsx workbook.
+All four panels are requested by default when their inputs are available; the balance panel is skipped when no covariates are detected. threshold(0.1) controls the balance SMD finding threshold, overlapmax(10) is the default maximum percentage outside binary-treatment common support, essmin(50) is the default minimum overall ESS percentage, and imbalmax(0) is the default tolerated number of SMD-imbalanced covariates. The combined thresholds replace the corresponding panel defaults while independent findings such as exact propensity-score boundaries, variance-ratio imbalance, per-arm ESS collapse, weight dominance, and GPS-floor violations remain active. For multi-group treatments, gpsfloor() drives the positivity verdict and the legacy observed-arm min/max overlap remains descriptive. nooverlap, nobalance, noweights, and nosupport suppress panels; dryrun resolves inputs without running panels; and, for cross-sectional runs, report() writes sheets for the panels that run plus Summary to an .xlsx workbook.
 
 ### psdash detect
 
@@ -336,9 +336,9 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 |---|---|
 | nooverlap, nobalance, noweights, nosupport | Do not run the named panel. |
 | threshold(#) | 0.1 for the balance panel's SMD findings; it is distinct from support's PS trimming threshold. |
-| overlapmax(#) | 10 percent outside overlap tolerated before a finding. |
-| essmin(#) | 50 percent ESS tolerated as the minimum before a finding. |
-| imbalmax(#) | 0 imbalanced covariates tolerated before a finding. |
+| overlapmax(#) | 10 percent outside binary-treatment common support tolerated before a finding; multi-group verdicts use gpsfloor(). |
+| essmin(#) | 50 percent overall ESS tolerated as the minimum before a finding; other weight findings remain active. |
+| imbalmax(#) | 0 SMD-imbalanced covariates tolerated before a finding; variance-ratio findings remain active. |
 | dryrun | Resolve and display the analysis inputs without running panels. |
 | report(filename) | For cross-sectional combined runs, write a multi-sheet .xlsx workbook with panel and summary sheets. |
 | gpsfloor(#) | 0.01 for multi-group overlap/support and forwarded to both panels. |
@@ -392,6 +392,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.2** (09 Aug 2026): Producer and verdict-contract correction. Automatic iivw detection now accepts verified contract versions 2 and 3, restoring compatibility with current iivw releases. The combined dashboard now applies overlapmax(), essmin(), and imbalmax() in place of the corresponding panel defaults while retaining independent findings, and multi-group verdicts no longer use the descriptive observed-arm overlap scalarization.
 - **v1.6.1** (29 Jul 2026): Method and efficiency correction. Binary balance now uses (b-a)^2 p(1-p) rather than Stata's sample-variance inflation, and adjusted continuous variance ratios use the scale-invariant unbiased weighted variance instead of normalized aweight variance. Exact PS boundaries now enter the machine-readable findings contract, and balance rejects undefined auto-generated weights rather than silently dropping those rows. Multi-treatment overlap/support now compare every GPS component across every observed treatment group, return the K-by-K r(gps_means) table, and reserve the legacy observed-arm scalarization for descriptive output only. Balance reuses sorted empirical CDFs and reference-group summaries; Crump trimming uses one sorted cumulative-sum pass rather than repeated full-data scans.
 - **v1.6.0** (26 Jul 2026): Independent-audit remediation. Binary psvars() orientation is now mapped by treatment level and validated, multi-group overlap reports full-vector generalized positivity, stabilize is refused for auto-generated ATT/ATC weights, multi-group support generation uses the GPS-positivity region, longitudinal result matrices are keyed by period value, and balance reports covariate missingness. combined gains gpsfloor() and forwards it to overlap and support. The common-scale SMD convention is documented without the previous citation error, and return-surface documentation is corrected.
 - **v1.5.0** (22 Jul 2026): Release-readiness hardening. Producer auto-detection now calls the producer's validity guard and enforces a centralized contract-version matrix; unsupported, stale, unsigned, or unavailable producer state fails closed. Multi-arm threshold trimming uses the full generalized propensity-score vector, combined dashboards use one complete-case sample and return its attrition ledger, and longitudinal diagnostics reject nonpositive weights while reporting period-by-arm ESS and missingness. Excel exports contain typed numeric cells and complete raw/adjusted balance metrics.

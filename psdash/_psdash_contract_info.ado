@@ -1,4 +1,4 @@
-*! _psdash_contract_info Version 1.6.1  2026/07/29
+*! _psdash_contract_info Version 1.6.2  2026/08/09
 *! Machine-readable producer compatibility matrix for psdash
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -17,7 +17,7 @@ program define _psdash_contract_info, rclass
         local guard "_iivw_check_weighted"
         local version_field "_iivw_contract_version"
         local min_version "2"
-        local max_version "2"
+        local max_version "3"
         local fields "_iivw_weighted _iivw_weighttype _iivw_treat _iivw_ps_var _iivw_tw_var _iivw_iw_var _iivw_weight_var _iivw_treat_covars _iivw_ps_estimand _iivw_contract_version"
     }
     else if "`source'" == "msm" {

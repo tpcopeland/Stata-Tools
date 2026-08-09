@@ -32,7 +32,8 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_overlap_support_multigroup_adversarial.do ///
     test_multigroup_psvars_regression.do ///
     test_v130_features.do test_v140_features.do test_v141_features.do ///
-    test_rb01_verdict.do test_rb02_gps_positivity.do ///
+    test_rb01_verdict.do test_combined_threshold_contract.do ///
+    test_rb02_gps_positivity.do ///
     test_rb03_factor_expansion.do test_rb0405_teffects_sample.do ///
     test_rb06_estimand.do ///
     test_rb08_vr_count.do test_rb09_weight_thresholds.do ///

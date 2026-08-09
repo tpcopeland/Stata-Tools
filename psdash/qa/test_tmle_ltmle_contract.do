@@ -148,15 +148,17 @@ display as text _n "=== TMLE/LTMLE contract summary: " ///
     as result $PSDASH_TMLE_PASS_COUNT as text " passed, " ///
     as error $PSDASH_TMLE_FAIL_COUNT as text " failed ==="
 
-_psdash_qa_cleanup
-capture log close _all
-
+local tmle_fail = $PSDASH_TMLE_FAIL_COUNT
 display "RESULT: test_tmle_ltmle_contract tests=`test_count' pass=$PSDASH_TMLE_PASS_COUNT fail=$PSDASH_TMLE_FAIL_COUNT"
-if $PSDASH_TMLE_FAIL_COUNT > 0 {
+if `tmle_fail' > 0 {
     display as error "Failed tests: $PSDASH_TMLE_FAILED_TESTS"
-    exit 9
 }
 
+_psdash_qa_cleanup
 global PSDASH_TMLE_PASS_COUNT
 global PSDASH_TMLE_FAIL_COUNT
 global PSDASH_TMLE_FAILED_TESTS
+capture log close _all
+if `tmle_fail' > 0 {
+    exit 9
+}

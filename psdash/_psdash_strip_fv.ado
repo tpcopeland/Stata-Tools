@@ -1,4 +1,4 @@
-*! _psdash_strip_fv Version 1.6.1  2026/07/29
+*! _psdash_strip_fv Version 1.6.2  2026/08/09
 *! Strip factor-variable notation from a covariate token list
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

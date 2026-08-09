@@ -396,9 +396,11 @@ display as result "Python cross-validation: `pass_count'/`test_count' passed, `f
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     capture ado uninstall qba
+    display "RESULT: crossval_python_qba tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
     capture ado uninstall qba
+    display "RESULT: crossval_python_qba tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

@@ -711,9 +711,11 @@ display as text "{hline 50}"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     capture ado uninstall qba
+    display "RESULT: test_qba_v110 tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 9
 }
 else {
     display as result "ALL TESTS PASSED"
     capture ado uninstall qba
+    display "RESULT: test_qba_v110 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

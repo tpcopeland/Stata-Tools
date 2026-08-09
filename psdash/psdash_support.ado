@@ -1,4 +1,4 @@
-*! psdash_support Version 1.6.1  2026/07/29
+*! psdash_support Version 1.6.2  2026/08/09
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -374,7 +374,7 @@ program define psdash_support, rclass
     * GENERATE SUPPORT INDICATOR
     if "`generate'" != "" {
         if "`replace'" != "" {
-            capture drop `generate'  // safe: capture swallows 111 if var doesn't exist
+            capture drop `generate'  // safe: capture swallows 111 when the variable is absent
         }
 
         if `has_trimming' {

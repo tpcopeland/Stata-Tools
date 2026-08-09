@@ -309,15 +309,108 @@ else {
     local ++fail_count
 }
 
+**# P34: unsupported from_model link scales are rejected
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    quietly probit foreign mpg
+    capture qba_confound, from_model coef(mpg) p1(.4) p0(.2) confeffect(1)
+    assert _rc == 198
+    assert "`e(cmd)'" == "probit"
+
+    quietly ologit rep78 mpg if rep78 < .
+    capture qba_confound, from_model coef(mpg) p1(.4) p0(.2) confeffect(1)
+    assert _rc == 198
+    assert "`e(cmd)'" == "ologit"
+
+    quietly glm price weight, family(gaussian) link(identity) nolog
+    qba_confound, from_model coef(weight) p1(.4) p0(.2) confeffect(500)
+    assert "`r(measure)'" == "coefficient"
+    assert "`e(cmd)'" == "glm"
+}
+if _rc == 0 {
+    display as result "  PASS: P34.1 unsupported from_model link scales reject"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: P34.1 unsupported model-scale guard (error `=_rc')"
+    local ++fail_count
+}
+
+**# P35: previously uncovered options and stored results have semantic checks
+local ++test_count
+capture noisily {
+    qba_misclass, a(100) b(50) c(80) d(200) seca(.9) spca(.95)
+    assert r(b) == 50
+    assert r(d) == 200
+
+    qba_selection, a(100) b(200) c(50) d(300) ///
+        sela(.9) selb(.8) selc(.7) seld(.6)
+    assert r(sela) == .9
+    assert r(selb) == .8
+    assert r(selc) == .7
+    assert r(seld) == .6
+
+    sysuse auto, clear
+    quietly regress price weight
+    qba_confound, from_model coef(weight) p1(.4) p0(.2) ///
+        confeffect(500) level(90)
+    assert r(p1) == .4
+    assert r(p0) == .2
+    assert reldif(r(se), _se[weight]) < 1e-6
+    local half90 = invnormal(.95) * _se[weight]
+    _assert_close `=r(ci_upper) - r(observed)' `half90' 1e-6
+
+    qba_confound, from_model coef(weight) p1(.4) p0(.2) confeffect(500) ///
+        reps(100) seed(814) dist_p1("constant .4") ///
+        dist_p0("constant .2") dist_confeffect("constant 500")
+    assert reldif(r(se), _se[weight]) < 1e-6
+
+    qba_selection, a(100) b(200) c(50) d(300) ///
+        sela(.9) selb(.8) selc(.7) seld(.6) ///
+        dist_sela("uniform .7 .95") reps(500) seed(812) level(80)
+    local sw80 = r(ci_upper) - r(ci_lower)
+    qba_selection, a(100) b(200) c(50) d(300) ///
+        sela(.9) selb(.8) selc(.7) seld(.6) ///
+        dist_sela("uniform .7 .95") reps(500) seed(812) level(95)
+    assert r(ci_upper) - r(ci_lower) >= `sw80'
+
+    qba_multi, a(100) b(200) c(50) d(300) seca(.85) spca(.95) ///
+        dist_se("uniform .75 .95") reps(500) seed(813) level(80)
+    local mw80 = r(ci_upper) - r(ci_lower)
+    qba_multi, a(100) b(200) c(50) d(300) seca(.85) spca(.95) ///
+        dist_se("uniform .75 .95") reps(500) seed(813) level(95)
+    assert r(ci_upper) - r(ci_lower) >= `mw80'
+
+    qba_plot, tornado a(100) b(200) c(50) d(300) type(outcome) ///
+        param1(se) range1(.8 .95) steps(3) base_p1(.4) base_p0(.2) ///
+        base_rrcd(2) null(1.2) scheme(s2color) ///
+        name(qba_v112_option_contract, replace)
+    assert "`r(plot_type)'" == "tornado"
+    assert "`r(scheme)'" == "s2color"
+    graph drop qba_v112_option_contract
+}
+if _rc == 0 {
+    display as result "  PASS: P35.1 option and stored-result contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: P35.1 option/return contracts (error `=_rc')"
+    capture graph drop qba_v112_option_contract
+    local ++fail_count
+}
+
 display as text ""
 display as result "v1.1.2 Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     capture ado uninstall qba
+    display "RESULT: test_qba_v112 tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
     capture ado uninstall qba
+    display "RESULT: test_qba_v112 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

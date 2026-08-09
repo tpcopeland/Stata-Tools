@@ -1,4 +1,4 @@
-*! _qba_mc_summary Version 1.1.1  2026/08/05
+*! _qba_mc_summary Version 1.1.2  2026/08/09
 *! Internal helper: Monte Carlo summary statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

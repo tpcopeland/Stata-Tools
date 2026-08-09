@@ -50,13 +50,16 @@ The complete return contract, including {cmd:r(verdict)},
 {opt thr:eshold(#)} sets the absolute-SMD cutoff; default is {cmd:0.1}.
 
 {phang}
-{opt overlap:max(#)} sets the maximum tolerated percent outside overlap.
+{opt overlap:max(#)} sets the maximum tolerated percent outside binary-treatment
+common support. Multi-group verdicts use {opt gpsfloor()} instead.
 
 {phang}
-{opt ess:min(#)} sets the minimum tolerated ESS percentage.
+{opt ess:min(#)} sets the minimum tolerated overall ESS percentage; independent
+weight findings such as per-arm collapse, variability, and extremes remain active.
 
 {phang}
-{opt imbal:max(#)} sets the tolerated number of imbalanced covariates.
+{opt imbal:max(#)} sets the tolerated number of SMD-imbalanced covariates, while
+variance-ratio findings remain active.
 
 {phang}
 {opt noo:verlap} skips the overlap panel.

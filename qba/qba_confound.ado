@@ -1,4 +1,4 @@
-*! qba_confound Version 1.1.1  2026/08/05
+*! qba_confound Version 1.1.2  2026/08/09
 *! Unmeasured confounding bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -105,6 +105,7 @@ program define qba_confound, rclass
 
     * Get estimate from model, active estimator contract, or option
     local is_linear = 0
+    local se_treat = .
     local contract_flag = 0
     local contract_source ""
     local contract_cmd ""
@@ -214,6 +215,7 @@ program define qba_confound, rclass
             exit 198
         }
         local is_logscale = 0
+        local is_linearscale = inlist("`ecmd'", "regress", "areg", "cnsreg")
         if inlist("`ecmd'", "logistic", "logit", "stcox", "poisson", "nbreg", "cloglog") {
             local is_logscale = 1
         }
@@ -233,25 +235,28 @@ program define qba_confound, rclass
             if inlist("`elink'", "log", "logit", "glim_l02", "glim_l03") {
                 local is_logscale = 1
             }
+            else if inlist("`elink'", "identity", "glim_l01") {
+                local is_linearscale = 1
+            }
         }
         if `is_logscale' {
             local estimate = exp(`b_treat')
             local est_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
             local est_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
         }
-        else {
+        else if `is_linearscale' {
             * Linear model: use coefficient directly
             local estimate = `b_treat'
             local est_lo = `b_treat' - invnormal((100+`level')/200) * `se_treat'
             local est_hi = `b_treat' + invnormal((100+`level')/200) * `se_treat'
             local is_linear = 1
-            * Estimators without a recognized log/linear scale (probit, ologit,
-            * ...) fall through to the additive-coefficient path. Flag it so the
-            * user can confirm the coefficient really is an additive contrast.
-            if !inlist("`ecmd'", "regress", "areg", "cnsreg", "") {
-                display as text ///
-                    "note: `ecmd' coefficient is corrected on the linear (additive) scale"
-            }
+        }
+        else {
+            display as error ///
+                "`ecmd' does not report a supported ratio- or additive-scale coefficient"
+            display as error ///
+                "use estimate() with a supported ratio measure, or refit a supported model"
+            exit 198
         }
         local from_model_flag = 1
 
@@ -646,8 +651,10 @@ program define qba_confound, rclass
             return scalar ci_lower = `est_lo'
             return scalar ci_upper = `est_hi'
         }
+        if (`from_model_flag' | `contract_flag') & `se_treat' < . {
+            return scalar se = `se_treat'
+        }
         if `contract_flag' {
-            if `se_treat' < . return scalar se = `se_treat'
             return local source "`contract_source'"
             return local cmd "`contract_cmd'"
             return local outcome "`contract_outcome'"
@@ -816,8 +823,10 @@ program define qba_confound, rclass
         return local measure "`measure'"
         return local method "probabilistic"
         return local interval "systematic-error simulation interval"
+        if (`from_model_flag' | `contract_flag') & `se_treat' < . {
+            return scalar se = `se_treat'
+        }
         if `contract_flag' {
-            if `se_treat' < . return scalar se = `se_treat'
             return local source "`contract_source'"
             return local cmd "`contract_cmd'"
             return local outcome "`contract_outcome'"

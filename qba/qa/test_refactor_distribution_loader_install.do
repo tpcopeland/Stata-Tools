@@ -39,5 +39,9 @@ _qba_qa_restore_isolation, origplus("`orig_plus'") ///
     origpersonal("`orig_personal'") plusdir("`plusdir'") ///
     personaldir("`personaldir'") uninstall
 
-if `rc' exit `rc'
+if `rc' {
+    display "RESULT: test_refactor_distribution_loader_install tests=1 pass=0 fail=1"
+    exit `rc'
+}
 display as result "test_refactor_distribution_loader_install passed"
+display "RESULT: test_refactor_distribution_loader_install tests=1 pass=1 fail=0"

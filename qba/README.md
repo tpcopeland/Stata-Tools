@@ -1,6 +1,6 @@
 # qba — Quantitative Bias Analysis for Stata
 
-**Version 1.1.1** | 2026-08-09
+**Version 1.1.2** | 2026-08-09
 
 `qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 
@@ -87,7 +87,7 @@ Use `rrud()` instead of `rrcd()` for the Greenland parameterization. `commonoutc
 
 ### 4. Correct a coefficient from the last model
 
-`from_model` reads the active Stata estimation results. Log-scale models are exponentiated to a ratio measure; linear models use the coefficient directly and require the signed additive `confeffect()` correction.
+`from_model` reads active Stata estimation results only when the estimator has a recognized ratio scale or an explicitly supported additive scale. Supported additive models use the coefficient directly and require the signed `confeffect()` correction; unsupported link scales such as probit and ordered logit are rejected rather than guessed.
 
 ```stata
 sysuse auto, clear
@@ -258,7 +258,7 @@ qba_confound, [estimate(#) | from_model] ///
 | `level()` | `c(level)` (95 by default) | Percentile simulation-interval level and model-derived confidence-interval level |
 | `saving()` | None | Save the Monte Carlo dataset; requires `reps()`, and `replace` overwrites an existing file |
 
-`qba_confound` supports automatic ratio-scale handling for recognized log-scale estimators, including logistic, count, Cox, and suitable GLM models. Other model results are treated as additive coefficients. A model with multiple eligible predictors requires `coef()`.
+`qba_confound` supports automatic ratio-scale handling for recognized logistic, count, proportional-hazards, and suitable GLM estimators. Additive handling is limited to `regress`, `areg`, `cnsreg`, and identity-link `glm`; other estimator scales are rejected. A model with multiple eligible predictors requires `coef()`.
 
 ### `qba_multi`
 
@@ -412,7 +412,7 @@ Stores the macros `r(plot_type)`, `r(measure)`, and `r(scheme)`. Tornado and tip
 - For outcome misclassification in a case-control study, use `fcase()` and `fctrl()` so the sampled table is inflated to the source population. These options do not apply to exposure misclassification.
 - `qba_confound` corrects ratio measures multiplicatively and linear model coefficients subtractively. E-values require an OR, RR, HR, or IRR; they are skipped for additive coefficients.
 - Without `commonoutcome`, applying an E-value directly to an OR or HR assumes a rare outcome. Use `commonoutcome` when the outcome is common, and interpret the result against plausible confounder-treatment and confounder-outcome associations rather than a universal threshold.
-- `from_model` requires active estimation results and can require `coef()` when multiple eligible predictors are present. `tmle` and `ltmle` support is contract-based and is not an estimator supplied by qba.
+- `from_model` requires active estimation results from a recognized ratio or additive estimator and can require `coef()` when multiple eligible predictors are present. Unsupported link scales are rejected. `tmle` and `ltmle` support is contract-based and is not an estimator supplied by qba.
 - Tipping plots require two parameters of the same supported bias type, and grid plots can become slow as `steps()` increases, especially because tipping plots evaluate `steps()^2` points.
 
 ## References
@@ -430,6 +430,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.2** (2026-08-09): Rejected unsupported `from_model` link scales instead of silently treating them as additive coefficients, expanded release and option/return QA, and added a self-contained SMCL render gate.
 - **1.1.1** (2026-08-05): Corrected help contracts for HR/IRR confounding measures and `c(level)` defaults, and made external-oracle QA sentinels independent of the user's interactive shell syntax.
 - **1.1.0** (2026-07-26): Added total-error simulation, correlated differential misclassification, case-control sampling-fraction adjustment, common-outcome E-value conversions, and explicit systematic-error interval semantics.
 - **1.0.1** (2026-06-19): Documentation polish, stored-result coverage, helper cleanup, and package metadata refresh.

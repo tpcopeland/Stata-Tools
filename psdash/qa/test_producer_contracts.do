@@ -11,6 +11,8 @@ log using "test_producer_contracts.log", replace nomsg
 do "`c(pwd)'/_psdash_bootstrap.do"
 discard
 
+local repo_dir = substr("`pkg_dir'", 1, strlen("`pkg_dir'") - strlen("/psdash"))
+
 global pc_test_count = 0
 global pc_pass_count = 0
 global pc_fail_count = 0
@@ -68,7 +70,7 @@ capture noisily {
 }
 _pc_result "unsupported_contract_versions_rejected" `=_rc'
 
-**# Installed producer guards match the matrix; unavailable dev producers skip
+**# Producer guards match the matrix after installing every available sibling
 foreach source in iivw msm tte tmle ltmle {
     capture _psdash_contract_info `source'
     if _rc {
@@ -78,6 +80,14 @@ foreach source in iivw msm tte tmle ltmle {
         continue
     }
     local guard "`r(guard)'"
+    capture ado uninstall `source'
+    if fileexists("`repo_dir'/`source'/`source'.pkg") {
+        capture noisily net install `source', from("`repo_dir'/`source'") replace
+        if _rc {
+            _pc_result "install_`source'" `=_rc'
+            continue
+        }
+    }
     capture which `guard'
     if _rc {
         global pc_test_count = $pc_test_count + 1
@@ -87,6 +97,7 @@ foreach source in iivw msm tte tmle ltmle {
     else {
         capture noisily {
             which `guard'
+            findfile `guard'.ado
             assert "`r(fn)'" != ""
         }
         _pc_result "installed_guard_`source'" `=_rc'

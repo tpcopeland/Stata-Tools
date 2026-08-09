@@ -99,6 +99,9 @@ end
 
 local ++test_count
 display as text _n "--- T1: installed-user dispatcher autoloads subcommand and helper ---"
+local _source_path_removed = 0
+capture adopath - "`pkg_dir'"
+if _rc == 0 local _source_path_removed = 1
 capture noisily {
     clear
     _dd_binary_data, n(300) seed(1001)
@@ -113,7 +116,9 @@ capture noisily {
     assert "`r(varlist)'" == "x1 x2 x3"
     assert rowsof(r(balance)) == 3
 }
-_dd_result "T1" `=_rc'
+local _t1_rc = _rc
+if `_source_path_removed' adopath ++ "`pkg_dir'"
+_dd_result "T1" `_t1_rc'
 
 local ++test_count
 display as text _n "--- T2: dispatcher routes all public subcommands ---"

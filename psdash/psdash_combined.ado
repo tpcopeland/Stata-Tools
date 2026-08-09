@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.6.1  2026/07/29
+*! psdash_combined Version 1.6.2  2026/08/09
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -316,12 +316,24 @@ program define psdash_combined, rclass
         local _pwt `"`r(warnings)'"'
         local _pct = r(pct_outside)
         if "`_pw'" == "" local _pw = 0
+        * The combined threshold replaces the panel's built-in 10% cutoff.
+        * Preserve every other panel finding (boundaries, orientation, GPS
+        * positivity), but do not let the default cutoff override overlapmax().
+        if "`multigroup'" == "0" & `_pct' > 10 {
+            local _needle `"`=string(`_pct',"%4.1f")'% outside common support"'
+            local _pw = max(0, `_pw' - 1)
+            if `"`_pwt'"' == `"`_needle'"' local _pwt ""
+            else {
+                local _pwt = subinstr(`"`_pwt'"', `"`_needle' | "', "", 1)
+                local _pwt = subinstr(`"`_pwt'"', `" | `_needle'"', "", 1)
+            }
+        }
         if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' overlap"
             local _all_findings `"`_all_findings' [overlap] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
         }
-        else if `_pct' > `overlapmax' {
+        if "`multigroup'" == "0" & `_pct' > `overlapmax' {
             local verdict_warnings "`verdict_warnings' overlap"
             local _all_findings `"`_all_findings' [overlap] `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
             local _total_nfind = `_total_nfind' + 1
@@ -345,13 +357,26 @@ program define psdash_combined, rclass
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
         local _nimb = r(n_imbalanced)
+        local _panel_vars `"`r(varlist)'"'
+        local _nvars : word count `_panel_vars'
         if "`_pw'" == "" local _pw = 0
+        * imbalmax() replaces the panel's default zero-tolerance SMD rule;
+        * variance-ratio and exact-boundary findings remain non-overridable.
+        if `_nimb' > 0 {
+            local _needle `"`_nimb' of `_nvars' covariate(s) exceed the SMD threshold"'
+            local _pw = max(0, `_pw' - 1)
+            if `"`_pwt'"' == `"`_needle'"' local _pwt ""
+            else {
+                local _pwt = subinstr(`"`_pwt'"', `"`_needle' | "', "", 1)
+                local _pwt = subinstr(`"`_pwt'"', `" | `_needle'"', "", 1)
+            }
+        }
         if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' balance"
             local _all_findings `"`_all_findings' [balance] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
         }
-        else if `_nimb' > `imbalmax' {
+        if `_nimb' > `imbalmax' {
             local verdict_warnings "`verdict_warnings' balance"
             local _all_findings `"`_all_findings' [balance] `_nimb' covariate(s) > imbalmax(`imbalmax')"'
             local _total_nfind = `_total_nfind' + 1
@@ -377,12 +402,23 @@ program define psdash_combined, rclass
         local _pwt `"`r(warnings)'"'
         local _ess = r(ess_pct)
         if "`_pw'" == "" local _pw = 0
+        * essmin() replaces only the panel's overall-ESS cutoff. Per-arm ESS,
+        * CV, extreme-weight, dominance, and positivity findings still apply.
+        if `_ess' < 50 {
+            local _needle `"overall ESS `=string(`_ess',"%4.1f")'% < 50%"'
+            local _pw = max(0, `_pw' - 1)
+            if `"`_pwt'"' == `"`_needle'"' local _pwt ""
+            else {
+                local _pwt = subinstr(`"`_pwt'"', `"`_needle' | "', "", 1)
+                local _pwt = subinstr(`"`_pwt'"', `" | `_needle'"', "", 1)
+            }
+        }
         if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' weights"
             local _all_findings `"`_all_findings' [weights] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
         }
-        else if `_ess' < `essmin' {
+        if `_ess' < `essmin' {
             local verdict_warnings "`verdict_warnings' weights"
             local _all_findings `"`_all_findings' [weights] ESS `=string(`_ess',"%4.1f")'% < essmin(`essmin')"'
             local _total_nfind = `_total_nfind' + 1
@@ -403,12 +439,24 @@ program define psdash_combined, rclass
         local _pwt `"`r(warnings)'"'
         local _pct = r(pct_outside)
         if "`_pw'" == "" local _pw = 0
+        * As for overlap, overlapmax() replaces the binary panel's built-in
+        * 10% cutoff. Multi-group verdicts use full-vector GPS positivity;
+        * their observed-arm min/max overlap is descriptive only.
+        if "`multigroup'" == "0" & `_pct' > 10 {
+            local _needle `"`=string(`_pct',"%4.1f")'% outside common support"'
+            local _pw = max(0, `_pw' - 1)
+            if `"`_pwt'"' == `"`_needle'"' local _pwt ""
+            else {
+                local _pwt = subinstr(`"`_pwt'"', `"`_needle' | "', "", 1)
+                local _pwt = subinstr(`"`_pwt'"', `" | `_needle'"', "", 1)
+            }
+        }
         if `_pw' > 0 {
             local verdict_warnings "`verdict_warnings' support"
             local _all_findings `"`_all_findings' [support] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
         }
-        else if `_pct' > `overlapmax' {
+        if "`multigroup'" == "0" & `_pct' > `overlapmax' {
             local verdict_warnings "`verdict_warnings' support"
             local _all_findings `"`_all_findings' [support] `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
             local _total_nfind = `_total_nfind' + 1
@@ -462,6 +510,7 @@ program define psdash_combined, rclass
     * Overall verdict (RB-01 binary policy: ANY finding across any panel -> FAIL;
     * PASS only when every executed panel is clean).
     local verdict_warnings = strtrim("`verdict_warnings'")
+    local verdict_warnings : list uniq verdict_warnings
     local _all_findings = strtrim("`_all_findings'")
     local n_warnings = `_total_nfind'
     if `_total_nfind' == 0 {

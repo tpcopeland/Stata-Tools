@@ -59,7 +59,7 @@ if fileexists("`repo_dir'/iivw/iivw.pkg") {
             wtype(fiptiw) nolog
         quietly psdash overlap, nograph
         assert "`r(source)'" == "iivw"
-        assert "`: char _dta[_iivw_contract_version]'" == "2"
+        assert "`: char _dta[_iivw_contract_version]'" == "3"
     }
     _rpi_record real_iivw_contract `=_rc'
 }
@@ -89,16 +89,34 @@ else {
 }
 
 local ++tests
-if fileexists("`repo_dir'/tte/tte.pkg") & ///
-        fileexists("`repo_dir'/_data/tte/tte_example.dta") {
+if fileexists("`repo_dir'/tte/tte.pkg") {
     capture noisily {
         quietly net install tte, from("`repo_dir'/tte") replace
-        use "`repo_dir'/_data/tte/tte_example.dta", clear
+        clear
+        set seed 2026072204
+        set obs 900
+        generate long patid = ceil(_n / 3)
+        bysort patid: generate byte period = _n - 1
+        generate double age = 35 + 20 * runiform() if period == 0
+        bysort patid (period): replace age = age[1]
+        generate byte sex = runiform() > 0.5 if period == 0
+        bysort patid (period): replace sex = sex[1]
+        generate byte comorbidity = runiform() < 0.30 if period == 0
+        bysort patid (period): replace comorbidity = comorbidity[1]
+        generate double biomarker = rnormal(0.20 * period + 0.35 * comorbidity, 1)
+        generate byte treatment = runiform() < ///
+            invlogit(-0.35 + 0.25 * sex + 0.20 * comorbidity + ///
+            0.15 * biomarker + 0.10 * period)
+        generate byte eligible = period == 0
+        generate byte outcome = period == 2 & runiform() < ///
+            invlogit(-2.2 + 0.45 * treatment + 0.25 * comorbidity)
         quietly tte_prepare, id(patid) period(period) treatment(treatment) ///
-            outcome(outcome) eligible(eligible) covariates(age sex comorbidity) ///
+            outcome(outcome) eligible(eligible) ///
+            covariates(age sex comorbidity biomarker) ///
             estimand(PP)
-        quietly tte_expand, maxfollowup(5) grace(1)
-        quietly tte_weight, switch_d_cov(age sex comorbidity) save_ps ///
+        quietly tte_expand, maxfollowup(2) grace(1)
+        quietly tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
+            switch_n_cov(age sex) save_ps ///
             truncate(1 99) nolog
         quietly psdash combined
         assert "`r(source)'" == "tte"

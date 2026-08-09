@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.6.1  2026/07/29
+*! psdash_balance Version 1.6.2  2026/08/09
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -675,7 +675,8 @@ program define psdash_balance, rclass
                 replace order = _n
 
                 * Build value labels for Y-axis (drop first to avoid stale entries from prior calls)
-                cap label drop orderlab
+                capture label list orderlab
+                if !_rc label drop orderlab
                 forvalues j = 1/`nvars' {
                     local covname = covariate[`j']
                     label define orderlab `j' "`covname'", add
@@ -800,7 +801,8 @@ program define psdash_balance, rclass
                 gen order = _n
                 gsort +abs_smd_max
                 replace order = _n
-                cap label drop orderlab
+                capture label list orderlab
+                if !_rc label drop orderlab
                 forvalues j = 1/`nvars' {
                     local covname = covariate[`j']
                     label define orderlab `j' "`covname'", add
@@ -1305,7 +1307,8 @@ program define psdash_balance, rclass
                 gsort +abs_smd_max
                 replace order = _n
 
-                cap label drop orderlab
+                capture label list orderlab
+                if !_rc label drop orderlab
                 forvalues j = 1/`nvars' {
                     local covname = covariate[`j']
                     label define orderlab `j' "`covname'", add

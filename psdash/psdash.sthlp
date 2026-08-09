@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.1  29jul2026}{...}
+{* *! version 1.6.2  09aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -613,16 +613,19 @@ the combined dashboard. It is not passed to the support panel.
 
 {phang}
 {opt overlapmax(#)} sets the threshold (percent outside common support) above
-which the overlap and support panels are flagged in the overall verdict. Default
-is 10.
+which the binary-treatment overlap and support panels are flagged in the overall
+verdict. Default is 10. For multi-group treatments, {opt gpsfloor()} drives the
+positivity verdict; observed-arm min/max overlap is descriptive only.
 
 {phang}
-{opt essmin(#)} sets the minimum effective sample size (percent of N) below which
-the weight panel is flagged. Default is 50.
+{opt essmin(#)} sets the minimum overall effective sample size (percent of N)
+below which the weight panel is flagged. Default is 50. Per-arm ESS collapse,
+weight variability, extremes, dominance, and positivity remain independent findings.
 
 {phang}
-{opt imbalmax(#)} sets the maximum number of imbalanced covariates tolerated
-before the balance panel is flagged. Default is 0.
+{opt imbalmax(#)} sets the maximum number of SMD-imbalanced covariates tolerated
+before the balance panel is flagged. Default is 0. Variance-ratio and exact-boundary
+findings remain active independently.
 
 {phang}
 {opt gpsfloor(#)} sets the multi-group practical-positivity floor and is passed to

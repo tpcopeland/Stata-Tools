@@ -188,13 +188,19 @@ else {
 
 display as text _n "=== iivw contract summary: $IIVW_PASS passed, $IIVW_FAIL failed ==="
 
+local iivw_fail = $IIVW_FAIL
+display "RESULT: test_iivw_contract tests=`test_count' pass=$IIVW_PASS fail=$IIVW_FAIL"
+if `iivw_fail' > 0 {
+    display as error "Failed tests:$IIVW_FAILED"
+}
+else {
+    display as result "ALL PSDASH IIVW CONTRACT TESTS PASSED"
+}
+
 capture ado uninstall iivw
 _psdash_qa_cleanup
+macro drop IIVW_PASS IIVW_FAIL IIVW_FAILED
 capture log close _all
-
-display "RESULT: test_iivw_contract tests=`test_count' pass=$IIVW_PASS fail=$IIVW_FAIL"
-if $IIVW_FAIL > 0 {
-    display as error "Failed tests:$IIVW_FAILED"
+if `iivw_fail' > 0 {
     exit 9
 }
-display as result "ALL PSDASH IIVW CONTRACT TESTS PASSED"

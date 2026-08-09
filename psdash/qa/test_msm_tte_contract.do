@@ -147,15 +147,17 @@ display as text _n "=== MSM/TTE contract summary: " ///
     as result $PSDASH_MT_PASS_COUNT as text " passed, " ///
     as error $PSDASH_MT_FAIL_COUNT as text " failed ==="
 
-_psdash_qa_cleanup
-capture log close _all
-
+local mt_fail = $PSDASH_MT_FAIL_COUNT
 display "RESULT: test_msm_tte_contract tests=`test_count' pass=$PSDASH_MT_PASS_COUNT fail=$PSDASH_MT_FAIL_COUNT"
-if $PSDASH_MT_FAIL_COUNT > 0 {
+if `mt_fail' > 0 {
     display as error "Failed tests: $PSDASH_MT_FAILED_TESTS"
-    exit 9
 }
 
+_psdash_qa_cleanup
 global PSDASH_MT_PASS_COUNT
 global PSDASH_MT_FAIL_COUNT
 global PSDASH_MT_FAILED_TESTS
+capture log close _all
+if `mt_fail' > 0 {
+    exit 9
+}

@@ -302,6 +302,21 @@ capture noisily {
 }
 _qcg_record `=_rc' "psdash combined imbalmax() option and return"
 
+**# Standalone suite logs retain their machine-readable result sentinel
+
+local ++test_count
+capture noisily {
+    foreach suite in test_iivw_contract.do test_msm_tte_contract.do ///
+            test_tmle_ltmle_contract.do {
+        local source = fileread("`qa_dir'/`suite'")
+        local result_pos = strpos(`"`source'"', "RESULT:")
+        assert `result_pos' > 0
+        local after_result = substr(`"`source'"', `result_pos', .)
+        assert strpos(`"`after_result'"', "log close") > 0
+    }
+}
+_qcg_record `=_rc' "contract-suite RESULT sentinels are written before log close"
+
 **# Summary
 
 local pass_count = $QCG_PASS_COUNT

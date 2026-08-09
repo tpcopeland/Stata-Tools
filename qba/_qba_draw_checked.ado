@@ -1,4 +1,4 @@
-*! _qba_draw_checked Version 1.1.1  2026/08/05
+*! _qba_draw_checked Version 1.1.2  2026/08/09
 *! Internal helper: draw a distribution and flag out-of-support values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

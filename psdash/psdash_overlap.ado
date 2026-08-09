@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.6.1  2026/07/29
+*! psdash_overlap Version 1.6.2  2026/08/09
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
