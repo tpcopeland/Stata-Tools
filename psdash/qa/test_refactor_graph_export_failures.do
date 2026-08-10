@@ -90,6 +90,19 @@ capture noisily {
 }
 _gf_result "multigroup_overlap_graph_failure_returns" `=_rc'
 
+local good_png "`_qa_sysroot'/multigroup_overlap.png"
+capture noisily {
+    _gf_multigroup_data
+    capture erase "`good_png'"
+    psdash overlap arm gps0, psvars(gps0 gps1 gps2) ///
+        reference(1) saving("`good_png'")
+    assert r(N) == 18
+    assert r(K) == 3
+    confirm file "`good_png'"
+    capture erase "`good_png'"
+}
+_gf_result "multigroup_overlap_graph_success" `=_rc'
+
 capture noisily {
     _gf_binary_data
     capture noisily psdash support treat ps, saving("`bad_png'")

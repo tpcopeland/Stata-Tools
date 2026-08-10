@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.2** | 2026-08-09
+**Version 1.6.3** | 2026-08-10
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -392,6 +392,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.3** (10 Aug 2026): Bug fix. Multi-group overlap and support graph exports now pass `saving()` paths without adding a second layer of quotes, so valid absolute and nested paths export successfully.
 - **v1.6.2** (09 Aug 2026): Producer and verdict-contract correction. Automatic iivw detection now accepts verified contract versions 2 and 3, restoring compatibility with current iivw releases. The combined dashboard now applies overlapmax(), essmin(), and imbalmax() in place of the corresponding panel defaults while retaining independent findings, and multi-group verdicts no longer use the descriptive observed-arm overlap scalarization.
 - **v1.6.1** (29 Jul 2026): Method and efficiency correction. Binary balance now uses (b-a)^2 p(1-p) rather than Stata's sample-variance inflation, and adjusted continuous variance ratios use the scale-invariant unbiased weighted variance instead of normalized aweight variance. Exact PS boundaries now enter the machine-readable findings contract, and balance rejects undefined auto-generated weights rather than silently dropping those rows. Multi-treatment overlap/support now compare every GPS component across every observed treatment group, return the K-by-K r(gps_means) table, and reserve the legacy observed-arm scalarization for descriptive output only. Balance reuses sorted empirical CDFs and reference-group summaries; Crump trimming uses one sorted cumulative-sum pass rather than repeated full-data scans.
 - **v1.6.0** (26 Jul 2026): Independent-audit remediation. Binary psvars() orientation is now mapped by treatment level and validated, multi-group overlap reports full-vector generalized positivity, stabilize is refused for auto-generated ATT/ATC weights, multi-group support generation uses the GPS-positivity region, longitudinal result matrices are keyed by period value, and balance reports covariate missingness. combined gains gpsfloor() and forwards it to overlap and support. The common-scale SMD convention is documented without the previous citation error, and return-surface documentation is corrected.

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  09aug2026}{...}
+{* *! version 1.6.3  10aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
