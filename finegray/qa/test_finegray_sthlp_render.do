@@ -86,6 +86,20 @@ end
 * -- because the guard written for that repair pinned two literal strings in one
 * file instead of asserting an invariant over every shipped file.  This is that
 * invariant.  Returns r(nbad), r(nlines) and lists up to 10 offenders.
+*
+* KNOWN BLIND SPOT, stated so nobody reads a green RENDER-3 as "no artifacts".
+* This scans the render LINE BY LINE, so an artifact that lands on a wrap
+* boundary -- the renderer breaking the line between the two spaces -- is
+* invisible here.  One such case existed in finegray.sthlp when this check was
+* written (`...across sessions;' + `refitting...', line 487) and RENDER-3 passed
+* over it; the SOURCE-side counterpart caught it, so the two are complementary
+* and neither replaces the other:
+*
+*   python3 -m _devkit.stata_dev_cli check package finegray --view findings
+*
+* That checker (`punct_line_break') tests source lines ending in . : ; ? ! and
+* is wrap-independent but cannot see the hyphen class, which is why this one
+* exists.  Run both.
 capture program drop _fg_render_ws
 program define _fg_render_ws, rclass
     version 16.0

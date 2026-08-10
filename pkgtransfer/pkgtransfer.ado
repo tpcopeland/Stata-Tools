@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.2  2026/08/05
+*! pkgtransfer Version 1.0.3  2026/08/10
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -373,7 +373,8 @@ quietly{
 			replace plugin_name = subinstr(plugin_name,"f ","",.)
 			replace plugin_name = subinstr(plugin_name,"F ","",.)
 			gen pkg_source_url = url + "/" + package if strpos(url,".bc.edu/repec")
-			replace pkg_source_url = url if !strpos(url,".bc.edu/repec")
+			replace pkg_source_url = url + "/" + package + ".pkg" ///
+				if !strpos(url,".bc.edu/repec")
 			replace plugin_name = substr(plugin_name, 3,.) if substr(plugin_name, 1, 1) == substr(url, length(url), 1) & strpos(url,".bc.edu/repec")
 			gen source_file = url + "/" + plugin_name
 			replace plugin_name = regexr(regexr(substr(plugin_name, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
@@ -392,6 +393,7 @@ quietly{
 				// import pkg from offline
 				import delimited using "`pkg_source_url'", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
 				keep if (substr(v1,1,2) == "g " | substr(v1,1,2) == "h ") & strpos(v1,"`plugin_name'")
+				replace v1 = subinstr(v1, char(9), " ", .)
 
 				// save file to append to current pkg file
 				save "`plugin_temp'", replace
@@ -403,12 +405,36 @@ quietly{
 				gen package = "`package'"
 				merge m:1 package using "`pluginfiles'", nogen keep(3)
 				gen file_source = url + "/" + v2 if !strpos(v2,"/")
-				replace file_source = substr(url, 1, strlen(url)-1) + substr(v2,1,strpos(v2,"/")-1) + "/" + substr(v2, strpos(v2,"/")+1, .) if strpos(v2,"/")
-				replace v2 = regexr(regexr(substr(v2, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
+				replace file_source = url + "/" + v2 if strpos(v2,"/")
+				replace v2 = regexr(substr(v2, 1, .), "^\.\.\/", "")
 
 				// Download plugins with retry logic
 				noisily display "Downloading plugins for `package'..."
 				quietly forvalues u = 1(1)`=_N'{
+					local plugin_destination = v2[`u']
+					if strpos("`plugin_destination'", "/") {
+						local plugin_dir = regexr( ///
+							"`plugin_destination'", "/[^/]+$", "")
+						local path_built ""
+						local remaining "`plugin_dir'"
+						while "`remaining'" != "" {
+							gettoken path_part remaining : remaining, ///
+								parse("/")
+							if "`path_part'" == "/" continue
+							local path_built "`path_built'`path_part'/"
+							capture mkdir ///
+								"pkgtransfer_files/`path_built'"
+							if _rc {
+								capture local dir_probe : dir ///
+									"pkgtransfer_files/`path_built'" files "*"
+								if _rc {
+									noisily display as error ///
+										"Could not create plugin directory `path_built'"
+									exit 693
+								}
+							}
+						}
+					}
 					local max_retries = 3
 					local success = 0
 					forvalues attempt = 1/`max_retries' {
@@ -430,7 +456,7 @@ quietly{
 				}
 
 				// get current pkg file
-				import delimited using "pkgtransfer_files/`package'", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				import delimited using "pkgtransfer_files/`package'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
 				// drop plugin file name
 				drop if substr(lower(v1),1,2) == "f " & strpos(v1,"`plugin_name'")
 				// erase current plugin file
@@ -438,7 +464,7 @@ quietly{
 				// append new file names for plugins
 				append using "`plugin_temp'"
 				// update package file
-				outfile v1 using "pkgtransfer_files/`package'", noquote replace
+				outfile v1 using "pkgtransfer_files/`package'.pkg", noquote replace
 					use "`pluginfiles'", replace
 				}
 				}
