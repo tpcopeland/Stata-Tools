@@ -1451,6 +1451,136 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
+* Test 36: Local bundles preserve nested plugin sources from non-SSC packages
+local ++test_count
+local test_desc "Local plugin bundles preserve nested source paths"
+_run_test `test_count' "`test_desc'"
+if `run_only' == 0 | `run_only' == `test_count' {
+    local test_rc 0
+    local cleanup_rc 0
+    local plugin_source "`tmpdir'/plugin_source"
+    local plugin_extract "`tmpdir'/plugin_extract"
+    local plugin_install_plus "`tmpdir'/plugin_install_plus"
+    tempname source_pkg source_plugin installed_plugin installed_ado tracker ///
+        plugin_pkg bundled_plugin installed_check
+    capture noisily {
+        quietly cd "`tmpdir'"
+        mkdir "`plugin_source'"
+        mkdir "`plugin_source'/plug-ins"
+        mkdir "`plugin_source'/plug-ins/linux64"
+        file open `source_plugin' using ///
+            "`plugin_source'/plug-ins/linux64/pluginfixture.plugin", ///
+            write text replace
+        file write `source_plugin' "plugin fixture" _n
+        file close `source_plugin'
+        file open `source_pkg' using "`plugin_source'/pluginfixture.pkg", ///
+            write text replace
+        local tab = char(9)
+        file write `source_pkg' "v 3" _n
+        file write `source_pkg' "d plugin fixture" _n
+        file write `source_pkg' ///
+            "g LINUX64`tab'plug-ins/linux64/pluginfixture.plugin" _n
+        file write `source_pkg' "h pluginfixture.plugin" _n
+        file write `source_pkg' "f pluginfixture.ado" _n
+        file close `source_pkg'
+
+        mkdir "`qa_plus'/x"
+        file open `installed_plugin' using ///
+            "`qa_plus'/x/pluginfixture.plugin", write text replace
+        file write `installed_plugin' "installed plugin fixture" _n
+        file close `installed_plugin'
+        file open `installed_ado' using ///
+            "`qa_plus'/p/pluginfixture.ado", write text replace
+        file write `installed_ado' "program define pluginfixture" _n
+        file write `installed_ado' "end" _n
+        file close `installed_ado'
+        file open `tracker' using "`qa_plus'/stata.trk", ///
+            write text append
+        file write `tracker' "S `plugin_source'" _n
+        file write `tracker' "N pluginfixture.pkg" _n
+        file write `tracker' "d plugin fixture" _n
+        file write `tracker' "f x/pluginfixture.plugin" _n
+        file write `tracker' "f p/pluginfixture.ado" _n
+        file write `tracker' "e" _n
+        file close `tracker'
+
+        pkgtransfer, download(local) limited(pluginfixture) ///
+            dofile(plugin_local.do) zipfile(plugin_local.zip)
+        confirm file "plugin_local.do"
+        confirm file "plugin_local.zip"
+        mkdir "`plugin_extract'"
+        quietly cd "`plugin_extract'"
+        unzipfile "../plugin_local.zip", replace
+        confirm file "pkgtransfer_files/pluginfixture.pkg"
+        confirm file ///
+            "pkgtransfer_files/plug-ins/linux64/pluginfixture.plugin"
+        file open `plugin_pkg' using ///
+            "pkgtransfer_files/pluginfixture.pkg", read text
+        local found_nested 0
+        file read `plugin_pkg' line
+        while r(eof) == 0 {
+            if strpos(`"`macval(line)'"', ///
+                "plug-ins/linux64/pluginfixture.plugin") local found_nested 1
+            file read `plugin_pkg' line
+        }
+        file close `plugin_pkg'
+        assert `found_nested' == 1
+        file open `bundled_plugin' using ///
+            "pkgtransfer_files/plug-ins/linux64/pluginfixture.plugin", ///
+            read text
+        file read `bundled_plugin' bundled_line
+        file close `bundled_plugin'
+        assert `"`macval(bundled_line)'"' == "plugin fixture"
+
+        quietly cd "`tmpdir'"
+        mkdir "`plugin_install_plus'"
+        mkdir "`plugin_install_plus'/p"
+        sysdir set PLUS "`plugin_install_plus'"
+        do plugin_local.do
+        confirm file "`plugin_install_plus'/p/pluginfixture.plugin"
+        file open `installed_check' using ///
+            "`plugin_install_plus'/p/pluginfixture.plugin", read text
+        file read `installed_check' installed_line
+        file close `installed_check'
+        assert `"`macval(installed_line)'"' == "plugin fixture"
+        sysdir set PLUS "`qa_plus'"
+        quietly cd "`orig_dir'"
+    }
+    local test_rc = _rc
+    foreach handle in source_pkg source_plugin installed_plugin installed_ado ///
+        tracker plugin_pkg bundled_plugin installed_check {
+        capture file close ``handle''
+    }
+    capture sysdir set PLUS "`qa_plus'"
+    if _rc != 0 local cleanup_rc = _rc
+    capture quietly cd "`tmpdir'"
+    if _rc != 0 local cleanup_rc = _rc
+    foreach path in pkgtransfer_files `plugin_extract' `plugin_source' ///
+        `plugin_install_plus' {
+        capture quietly _pkgtransfer_cleanup_staging, ///
+            directory("`path'")
+    }
+    foreach artifact in plugin_local.do plugin_local.zip {
+        capture erase "`artifact'"
+    }
+    capture quietly cd "`orig_dir'"
+    if _rc != 0 local cleanup_rc = _rc
+    if `test_rc' == 0 & `cleanup_rc' != 0 local test_rc = `cleanup_rc'
+
+    if `test_rc' == 0 {
+        local ++pass_count
+        if `machine' display "RESULT: [OK] `test_count'"
+        else if `quiet' == 0 display as result "    PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display ///
+            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        else display as error "    FAILED: `test_desc'"
+    }
+}
+
 capture noisily _pkgtransfer_qa_cleanup, root("`qa_root'") ///
     originalplus("`qa_original_plus'")
 if _rc != 0 {
@@ -1464,7 +1594,7 @@ if _rc != 0 {
 * ============================================================
 
 display ""
-display as text "pkgtransfer v1.0.2 - Test Results"
+display as text "pkgtransfer v1.0.3 - Test Results"
 display as text "Tests run:    `test_count'"
 display as result "Tests passed: `pass_count'"
 if `fail_count' > 0 {

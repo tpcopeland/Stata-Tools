@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  05aug2026}{...}
+{* *! version 1.0.3  10aug2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -191,6 +191,6 @@ mode, ZIP archive are still created.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.2 - 2026-08-05{p_end}
+{pstd}Version 1.0.3 - 2026-08-10{p_end}
 
 {hline}

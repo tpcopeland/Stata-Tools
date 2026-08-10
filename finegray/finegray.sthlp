@@ -484,8 +484,8 @@ required by the post-estimation commands; see
 dataset when you {cmd:save} it, but the estimation results themselves do
 not, so after {cmd:save} and {cmd:use} the post-estimation commands report
 {cmd:r(459)} because {cmd:e()} was not restored along with the
-data. {helpb estimates save} and {helpb estimates use} carry the fit across sessions;
-refitting always works and needs nothing explained.
+data. {helpb estimates save} and {helpb estimates use} carry the fit across
+sessions; refitting always works and needs nothing explained.
 
 {pmore2}
 {bf:What {cmd:estimates use} does not bring back is {cmd:e(sample)}.} The sample
