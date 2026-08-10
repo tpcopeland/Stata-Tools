@@ -15,7 +15,13 @@ the known-truth oracles:
 
 **The committed receipt is older than the source.** `run_all_status.txt` and `run_status_full.txt` record a `full` run of 2026-08-10T19:54:06Z over a **33-suite / 654-check** tree. The package was edited after that run — a documentation-and-diagnostics pass, plus `test_finegray_estimates_use.do` and two new checks in `test_finegray_sthlp_render.do` — so **those two files no longer certify the tree in this directory**. They are kept as the last complete `full` receipt, not as the current one; re-run `./run_all.sh full --source-repo <checkout>` to replace them.
 
-What has been observed against the current source, in isolated scratch copies of the repo layout, is the whole `core` lane (29/29 suites, 0 failures, 0 skips — `test_finegray.do` 137/137 was re-run separately with `tabtools/` present, which its `regtab` dependency needs and which the first scratch tree lacked) and three of the five `python`-lane crossvals (`crossval_cif` 2/2, `crossval_predict_phtest` 14/14, `crossval_finegray` 55/55). `crossval_finegray_zzf` and `crossval_nuisance` were still running when this note was written and are **unverified against the current source**.
+Every check in the table below **has** been observed passing against the current source — all **34 suites / 662 checks**, 0 failures, 0 skips — but as **three invocations, not one `full` run**, each from its own isolated scratch copy of the repo layout:
+
+- `core` lane, 28/28 suites (`run_all.do core`);
+- `test_finegray.do` 137/137, re-run on its own because the first scratch tree omitted `tabtools/`, which its `regtab` dependency needs — a missing sibling package makes that suite exit before its first check, and the runner correctly counted it as a failure rather than a pass;
+- `python` lane, 5/5 suites (`crossval_cif` 2/2, `crossval_predict_phtest` 14/14, `crossval_finegray` 55/55, `crossval_finegray_zzf` 102/102 with the 100-dataset R oracle regenerated, `crossval_nuisance` 6/6).
+
+**That is per-suite evidence, not a `full` receipt.** Only `run_all.sh` publishes one, and only from a single uninterrupted invocation: the three wrapper-level gates — the FG-02 stale-oracle fail-closed gate, the wrapper's own regression test, and the delayed-entry transfer proof — run *outside* `run_all.do` and did **not** run here. Re-run `./run_all.sh full --source-repo <checkout>` before release.
 
 The three multi-hour ZZF Monte Carlo gates are intentionally outside `full`; their latest receipt remains the 2026-08-05 `run_status_gates.txt`. The standalone scaling benchmark was not rerun.
 
