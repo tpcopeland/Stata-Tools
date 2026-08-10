@@ -1,4 +1,4 @@
-*! _finegray_resolve_baseline Version 1.2.0  2026/08/07
+*! _finegray_resolve_baseline Version 1.2.0  2026/08/10
 *! Resolve the baseline cumulative subhazard for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (fills a caller-named H0 variable)
@@ -169,7 +169,8 @@ program define _finegray_resolve_baseline
                 local _byg_nvar : word count `e(strata)'
                 if `_byg_nvar' > 1 {
                     tempvar _byg_grp
-                    quietly egen long `_byg_grp' = group(`e(strata)')
+                    _finegray_weight_groups, strata(`e(strata)') ///
+                        bygname(`_byg_grp') touse(`_es')
                     local _byg_mata "`_byg_grp'"
                 }
                 local _tg_mata ""

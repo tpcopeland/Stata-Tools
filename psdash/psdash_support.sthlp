@@ -31,7 +31,10 @@ See {help psdash##subcommands:Subcommand syntax} for the full signature and
 retained by a trimming rule. Binary treatments support Crump's
 variance-oriented rule; multi-valued treatments use a full-vector generalized
 propensity-score floor. The optimized Crump search preserves the documented
-0.01 coarse and 0.001 refinement grids.
+0.01 coarse and 0.001 refinement grids. It can return alpha = 0 only when every
+assessed score is strictly inside (0,1) and the full-sample inequality holds; exact
+boundary scores instead require positive-threshold handling. A sample with no
+interior score fails the retained-sample guard.
 
 {pstd}
 The complete return contract, including {cmd:r(crump_alpha)} and the

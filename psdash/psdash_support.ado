@@ -1,4 +1,4 @@
-*! psdash_support Version 1.6.4  2026/08/10
+*! psdash_support Version 1.6.5  2026/08/10
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

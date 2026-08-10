@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/08/07
+*! finegray_cif Version 1.2.0  2026/08/10
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -378,7 +378,8 @@ program define finegray_cif, rclass sortpreserve
     local _byg_nvar : word count `e(strata)'
     if `_byg_nvar' > 1 {
         tempvar _byg_grp
-        quietly egen long `_byg_grp' = group(`e(strata)')
+        _finegray_weight_groups, strata(`e(strata)') ///
+            bygname(`_byg_grp') touse(`es')
         local _byg_mata "`_byg_grp'"
     }
 

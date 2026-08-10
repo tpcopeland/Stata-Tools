@@ -1,4 +1,4 @@
-*! _qba_distributions Version 1.1.2  2026/08/09
+*! _qba_distributions Version 1.1.3  2026/08/10
 *! Internal helper: random draws from distributions for probabilistic QBA
 *! Author: Timothy P Copeland, Karolinska Institutet
 

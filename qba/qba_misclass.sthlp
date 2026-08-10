@@ -137,7 +137,9 @@ reallocated cells.
 {pstd}
 A random-error-only arm (the observed measure perturbed by its own log
 standard error) is reported alongside, so the three interval widths are
-directly comparable. {opt totalerror} requires whole-number cell counts, all
+directly comparable. The systematic- and total-error arms use the same common
+valid-replication mask, requiring both corrected and reallocated cells to be
+strictly positive. {opt totalerror} requires whole-number cell counts, all
 four greater than zero, because step 1 reallocates counts.
 
 
@@ -283,7 +285,7 @@ the odds ratio toward the null. Differential misclassification can bias the
 estimate in either direction.
 
 {pstd}
-{bf:Choosing distributions.} Lash, Fox, and Fink (2021) recommend trapezoidal
+{bf:Choosing distributions.} Fox, MacLehose, and Lash (2021) recommend trapezoidal
 distributions for encoding expert opinion about likely ranges of Se and
 Sp. When validation study data or prior information are available, a Beta
 distribution is appropriate. Beta shape parameters represent the strength of
@@ -458,8 +460,8 @@ inflated back to the source population before the correction:
 {title:References}
 
 {phang}
-Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapters 5-6.
+Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 6.
 
 {phang}
 Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity

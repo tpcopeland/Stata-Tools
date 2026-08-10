@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.4.0  2026/08/08
+*! iivw_fit Version 3.4.1  2026/08/10
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -195,28 +195,20 @@ program define iivw_fit, eclass
     }
 
     * The interval choice is needed before the variance default is resolved.
-    * FIPTIW at n>=600 now defaults to vce(stacked) Wald; below 600 it remains
-    * point-only. An explicit variance option is already a request for inference
-    * and retains the historical Wald transformation, with the empirical warning
-    * below; an explicit citype() selects another nominal interval. Other
-    * estimators retain their measured Wald/default contract.
-    *
-    * The cluster count is not known until after marksample, so a bare FIPTIW
-    * fit sets citype "none" tentatively and marks the decision as deferred.
-    * The resolution block after marksample counts clusters and either upgrades
-    * to stacked Wald (n>=600) or keeps point-only (n<600).
+    * FIPTIW has no release-gate-cleared 95% interval, so a bare fit means
+    * point-only. The R=200 stacked-sandwich study at n=600 and n=1200 was a
+    * diagnostic screen, explicitly not a certification gate. An explicit
+    * variance option remains a request for nominal inference; vce(stacked)
+    * carries the paper-derived weight-estimation term and stays available with
+    * an empirically uncleared stamp. Other estimators retain their measured
+    * Wald/default contract.
     local _citype_explicit = (strtrim("`citype'") != "")
     local _inference_explicit = ///
         (`"`vce'"' != "" | `_boot_explicit' | "`refitweights'" != "")
-    local _fiptiw_may_upgrade = 0
-    local _fiptiw_upgraded = 0
     local citype = lower(strtrim("`citype'"))
     if "`citype'" == "" {
         if "`weighttype'" == "fiptiw" & "`unweighted'" == "" & ///
-                !`_inference_explicit' {
-            local citype "none"
-            local _fiptiw_may_upgrade = 1
-        }
+                !`_inference_explicit' local citype "none"
         else local citype "wald"
     }
     if !inlist("`citype'", "none", "wald", "percentile", "basic", "bca") {
@@ -377,14 +369,10 @@ program define iivw_fit, eclass
         if "`citype'" == "none" {
             local bootstrap 0
             local refitweights ""
-            if `_fiptiw_may_upgrade' {
-                * Deferred: the note will fire after the cluster count resolves
-                * the point-only vs stacked-default decision.
-            }
-            else if "`weighttype'" == "fiptiw" {
+            if "`weighttype'" == "fiptiw" {
                 display as text ///
                     "note: FIPTIW point-only default; no interval method passed" ///
-                    " the n=300 coverage gate"
+                    " a release gate"
                 display as text ///
                     "  no unreported bootstrap will be launched"
             }
@@ -522,11 +510,9 @@ program define iivw_fit, eclass
     }
 
     * The point-only decision or explicit nominal-inference warning must be
-    * visible at the point of use, not only in a stored macro. When the
-    * decision is deferred (_fiptiw_may_upgrade), display fires after
-    * marksample resolves the cluster count.
+    * visible at the point of use, not only in a stored macro.
     if "`weighttype'" == "fiptiw" & "`unweighted'" == "" & ///
-            "`citype'" == "none" & !`_fiptiw_may_upgrade' {
+            "`citype'" == "none" {
         if `_citype_explicit' {
             display as text ///
                 "  FIPTIW inference: citype(none); returning point estimates only."
@@ -649,101 +635,6 @@ program define iivw_fit, eclass
             `"`=strtrim(string(r(min), "%12.0g"))'"'
         display as error "  a weighted outcome model needs outcome variance to fit"
         error 198
-    }
-
-    * =====================================================================
-    * RESOLVE DEFERRED FIPTIW DEFAULT
-    * =====================================================================
-    * A bare FIPTIW fit deferred the point-only / stacked-default decision
-    * until the cluster count was known. Count clusters in the analysis
-    * sample and resolve: n>=600 upgrades to vce(stacked) Wald (coverage
-    * 0.940 at n=600, 0.960 at n=1200, no overcoverage); n<600 keeps
-    * point-only (oracle covers only 0.943 at n=300).
-    if `_fiptiw_may_upgrade' {
-        tempvar _iivw_cltag_up
-        quietly egen byte `_iivw_cltag_up' = tag(`cluster') if `touse'
-        quietly count if `_iivw_cltag_up' == 1
-        local _fiptiw_nclust = r(N)
-        drop `_iivw_cltag_up'
-
-        local _fiptiw_upgraded = 0
-        if `_fiptiw_nclust' >= 600 {
-            * Check stacked admissibility silently: model(gee), canonical
-            * link, and influence-function columns available. If any fails,
-            * the auto-upgrade does not fire and the user gets point-only
-            * with a note explaining why.
-            local _stk_ok = 1
-            if "`model'" != "gee" local _stk_ok = 0
-            if "`collect'" != "" local _stk_ok = 0
-            local _sfam_up : word 1 of `=lower(strtrim("`family'"))'
-            local _slnk_up = lower(strtrim("`link'"))
-            local _svf_up ""
-            if "`_sfam_up'" == "gaussian" & inlist("`_slnk_up'", "", "identity") ///
-                local _svf_up "constant"
-            else if "`_sfam_up'" == "poisson" & inlist("`_slnk_up'", "", "log") ///
-                local _svf_up "mu"
-            else if "`_sfam_up'" == "binomial" & ///
-                    inlist("`_slnk_up'", "", "logit") local _svf_up "mu1mu"
-            if "`_svf_up'" == "" local _stk_ok = 0
-            local _st_up : char _dta[_iivw_score_terms]
-            local _sa_up : char _dta[_iivw_score_ainv]
-            if "`_st_up'" == "" | "`_sa_up'" == "" local _stk_ok = 0
-
-            if `_stk_ok' {
-                local citype "wald"
-                local stacked "stacked"
-                local stacked_varfunc "`_svf_up'"
-                local stacked_terms "`_st_up'"
-                local stacked_ainv "`_sa_up'"
-                local _fiptiw_upgraded = 1
-                display as text ///
-                    "note: FIPTIW default at `_fiptiw_nclust' clusters" ///
-                    " (>= 600): vce(stacked) Wald interval"
-                display as text ///
-                    "  The stacked sandwich is calibrated at n>=600" ///
-                    " (coverage 0.940-0.960, no overcoverage)."
-                display as text ///
-                    "  Below 600 clusters the default is point-only." ///
-                    " See {help iivw_fit##inference:inference status}."
-            }
-            else {
-                display as text ///
-                    "note: FIPTIW: `_fiptiw_nclust' clusters" ///
-                    " (>= 600), but stacked variance is not available"
-                if "`model'" != "gee" display as text ///
-                    "  (requires model(gee))"
-                if "`collect'" != "" display as text ///
-                    "  (cannot be combined with collect)"
-                if "`_svf_up'" == "" display as text ///
-                    "  (requires a canonical link)"
-                if "`_st_up'" == "" | "`_sa_up'" == "" display as text ///
-                    "  (weights need the scores option: iivw_weight, ... scores)"
-                display as text ///
-                    "  Returning point estimates only."
-            }
-        }
-        if !`_fiptiw_upgraded' {
-            display as text ///
-                "  FIPTIW inference: returning point estimates only."
-            if `_fiptiw_nclust' < 600 {
-                display as text ///
-                    "    `_fiptiw_nclust' clusters (< 600)." ///
-                    " At this sample size, no interval method --"
-                display as text ///
-                    "    including the oracle -- reaches 95% coverage." ///
-                    " The stacked sandwich is"
-                display as text ///
-                    "    calibrated at n>=600; below that," ///
-                    " point estimates are returned by default."
-            }
-            display as text ///
-                "    Specify vce() or citype(wald|percentile|basic|bca)" ///
-                " only"
-            display as text ///
-                "    to request a nominal, empirically uncleared interval." ///
-                " See {help iivw_fit##inference:inference status}."
-        }
-        local _fiptiw_may_upgrade = 0
     }
 
     * Validate model type
@@ -2380,18 +2271,9 @@ program define iivw_fit, eclass
         display as text "  They DO carry the weight-estimation term that Buzkova & Lumley"
         display as text "  (2007) and Coulombe et al. (2021) derive, for: `stacked_terms'"
         display as text ""
-        if `_fiptiw_upgraded' {
-            display as text "  Calibrated at n>=600 (coverage 0.940-0.960, Wilson" ///
-                " contains 0.95,"
-            display as text "  no overcoverage). Below 600 clusters the" ///
-                " default is point-only."
-            display as text "  See {help iivw_fit##inference:inference status}."
-        }
-        else {
-            display as text "  They are EMPIRICALLY UNCLEARED. No coverage gate has been run"
-            display as text "  for this variance at any sample size, so the interval below is"
-            display as text "  nominal. See {help iivw_fit##inference:inference status}."
-        }
+        display as text "  They are EMPIRICALLY UNCLEARED. No release coverage gate has"
+        display as text "  certified this variance, so the interval below is nominal."
+        display as text "  See {help iivw_fit##inference:inference status}."
         display as text "{hline 70}"
     }
     else if "`citype'" != "none" & "`unweighted'" == "" & ///
@@ -2681,21 +2563,10 @@ program define iivw_fit, eclass
         local iivw_infstatus "uncleared-fixedweights-bootstrap"
     }
     else if "`stacked'" != "" {
-        if `_fiptiw_upgraded' {
-            * Coverage measured 2026-08-08, stacked sandwich at the registered
-            * seed. n=600: 0.940 [0.898,0.965]; n=1200: 0.960 [0.925,0.979].
-            * Wilson contains 0.95 in both cells. No overcoverage at any n.
-            * Record: qa/coverage_results/STACKED_SCREEN_2026-08-08.md.
-            * "Studied settings" is load-bearing: identity-link GEE, correctly
-            * specified propensity and visit models, n>=600.
-            local iivw_infstatus "cleared-stacked-at-studied-settings"
-        }
-        else {
-            * Explicit vce(stacked) request: the SE is the one the method's
-            * theory specifies, but the user chose the sample size and design,
-            * so this run has not necessarily earned the gate's coverage result.
-            local iivw_infstatus "uncleared-stacked-analytic"
-        }
+        * This SE is the one the method's theory specifies. Its R=200
+        * n=600/n=1200 study was a diagnostic screen, not a release gate, so
+        * every explicit use remains honestly uncleared.
+        local iivw_infstatus "uncleared-stacked-analytic"
     }
     else {
         local iivw_infstatus "uncleared-fixedweights-analytic"

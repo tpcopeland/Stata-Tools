@@ -1,4 +1,4 @@
-*! qba_misclass Version 1.1.2  2026/08/09
+*! qba_misclass Version 1.1.3  2026/08/10
 *! Misclassification bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,8 +35,8 @@ Estimands:
   measure(RR) -- risk ratio (a/(a+c))/(b/(b+d)) on bias-adjusted cells
 
 References:
-  Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
-    Epidemiologic Data. 2nd ed. Springer; 2021.
+  Fox MP, MacLehose RF, Lash TL. Applying Quantitative Bias Analysis to
+    Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 6.
   Fox MP, Lash TL, Greenland S. A method to automate probabilistic
     sensitivity analyses of misclassified binary variables. Int J
     Epidemiol. 2005;34(6):1370-1376.
@@ -672,6 +672,13 @@ program define qba_misclass, rclass
                 replace _result_te = . if _cells_bad
                 replace _result_te = . if _ab <= 0 | _bb <= 0 | _cb <= 0 | _db <= 0
                 replace _result_te = . if _result_te <= 0 | _result_te >= .
+
+                * The author reference summarizes systematic and total error
+                * over the same replicates: a draw is retained only when both
+                * corrected and reallocated cells are strictly positive.
+                replace _result = . if missing(_result_te)
+                count if _result < .
+                local n_valid = r(N)
                 count if _result_te < .
                 local n_valid_te = r(N)
 

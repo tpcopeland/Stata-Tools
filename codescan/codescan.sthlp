@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.1.2  09aug2026}{...}
+{* *! version 4.1.3  10aug2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -448,7 +448,9 @@ frame already exists, add {cmd:replace}.
 {phang}
 {opt saving(filename [, replace])} saves the final result dataset to disk after
 {cmd:collapse} or {cmd:merge}. The only supported suboption is {cmd:replace}, and
-without it an existing file is never overwritten.
+without it an existing file is never overwritten. A {it:filename} with no
+extension gets {cmd:.dta}, and it is that name — the one actually written — that
+the overwrite check authorizes, before any scanning or other output begins.
 
 {dlgtab:Diagnostics and reporting}
 

@@ -26,6 +26,7 @@ local _qba_plus `"`r(plusdir)'"'
 local _qba_personal `"`r(personaldir)'"'
 
 local quick_suites test_qba test_qba_v110 test_qba_v111 test_qba_v112 ///
+    test_qba_v113 ///
     test_qba_fml2023 ///
     test_qba_contract_detect ///
     test_qba_qa_common_bootstrap test_qba_qa_assert_helpers ///

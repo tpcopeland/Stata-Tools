@@ -30,6 +30,11 @@
 *   V120B-12  The saving() dataset is labelled and carries the profile as a note.
 *   V120B-13  The display-only graph tail does not reach r(table) or saving().
 *   V120B-14  finegray_predict, cif labels the evaluation basis (_t vs timevar).
+*   V120B-15  The factor-name help contract agrees with the fitted coefficient
+*            stripe: user-facing terms in e(b)/e(V), internal columns only in
+*            e(covariates).
+*   V120B-16  The rendered CIF help has no doubled spaces at the two sentence
+*            boundaries split across source lines.
 clear all
 set varabbrev off
 version 16.0
@@ -475,6 +480,63 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V120B-14 cif prediction label (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 15. The factor-name help contract matches the fitted coefficient stripe
+local ++test_count
+capture noisily {
+    tempname fh4
+    local stale_names = 0
+    local user_names = 0
+    file open `fh4' using "`pkg_dir'/finegray.sthlp", read text
+    file read `fh4' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "label a factor term by its design column") > 0 ///
+            local stale_names = 1
+        if strpos(`"`line'"', "the factor-variable terms you typed") > 0 ///
+            local user_names = 1
+        file read `fh4' line
+    }
+    file close `fh4'
+    assert `stale_names' == 0
+    assert `user_names' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: V120B-15 factor-name help matches e(b)/e(V)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V120B-15 factor-name help contract (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 16. The Viewer-visible CIF help has no doubled punctuation spaces
+local ++test_count
+capture noisily {
+    tempfile cifhelp
+    quietly translate "`pkg_dir'/finegray_cif.sthlp" `"`cifhelp'"', ///
+        translator(smcl2txt) replace
+
+    tempname fh5
+    local doubled_one = 0
+    local doubled_tail = 0
+    file open `fh5' using `"`cifhelp'"', read text
+    file read `fh5' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "one.  The") > 0 local doubled_one = 1
+        if strpos(`"`line'"', "display-only:  it") > 0 local doubled_tail = 1
+        file read `fh5' line
+    }
+    file close `fh5'
+    assert `doubled_one' + `doubled_tail' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: V120B-16 rendered CIF help sentence spacing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V120B-16 rendered CIF help spacing (rc=`=_rc')"
     local ++fail_count
 }
 

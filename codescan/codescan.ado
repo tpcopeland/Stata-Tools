@@ -1,4 +1,4 @@
-*! codescan Version 4.1.2  2026/08/09
+*! codescan Version 4.1.3  2026/08/10
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -340,7 +340,14 @@ program define codescan, rclass
             display as error "saving() requires collapse or merge"
             exit 198
         }
-        _codescan_parse_filespec, spec(`"`saving'"') context(saving()) checkexists
+        * defext(.dta) so the overwrite guard authorizes the file `save' will
+        * actually write. Without it, saving(out) was checked against a file
+        * literally named "out" while the write went to "out.dta": the check
+        * passed, the whole analysis ran, export()/graph committed their files,
+        * and the r(602) arrived from `save' at the very end — an up-front
+        * refusal that was neither up front nor free.
+        _codescan_parse_filespec, spec(`"`saving'"') context(saving()) ///
+            checkexists defext(.dta)
         local _saving_fn `"`r(filename)'"'
         local _saving_replace = r(replace)
     }

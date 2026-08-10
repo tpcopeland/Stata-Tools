@@ -8,7 +8,7 @@ The `qba` QA suite is flat and concern-oriented, with one curated lane runner an
 cd qba/qa
 stata-mp -b do run_all.do             # full lane (default release gate)
 stata-mp -b do run_all.do quick       # fast functional and contract lane
-stata-mp -b do test_qba_v112.do       # one suite, standalone
+stata-mp -b do test_qba_v113.do       # one suite, standalone
 ```
 
 The additional canonical lanes are `core` and `crossval`; gate on the final `RESULT:` line because `full` and `crossval` treat a dependency skip as a failure.
@@ -51,6 +51,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `test_qba_v110.do` | Regression locks for coefficient selection, model integration, saving, and graph behavior |
 | `test_qba_v111.do` | Regression locks for HR/IRR, level defaults, and `cloglog` scale handling |
 | `test_qba_v112.do` | Regression locks for missing inputs, save failures, model-scale rejection, option coverage, and release install behavior |
+| `test_qba_v113.do` | Regression locks for estimator-scale handling, total-error validity masks, method labels, and second-edition citations |
 | `test_qba_fml2023.do` | Method-alignment contracts from Fox, MacLehose, and Lash plus E-value scale conversions |
 | `test_qba_contract_detect.do` | Consumption of active `tmle`/`ltmle` estimator contracts |
 | `test_qba_docs.do` | Installed examples, documentation tokens, and the self-contained SMCL render oracle with positive control |

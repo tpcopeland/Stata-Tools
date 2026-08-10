@@ -72,7 +72,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `_expected_warnings.txt` | Warnings the suite provokes on purpose; consumed by `qa log-review` |
 | `test_install.do` | Local install, public command resolution, basic installed-user run |
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
-| `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; missing-bound semantics; cleanup-safe install/net-get distribution contract |
+| `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; native `inrange()` missing-bound parity; reviewed help markup, filename, and unmatched contracts; the documented failure-time `r()` contract, including that the once-unscoped "a captured error leaves no counts" sentence stays scoped to `missing(error)`; cleanup-safe install/net-get distribution contract |
 | `test_rangematch_demo_contract.do` | Demo hygiene: forces a setup error after `PLUS` moves but before `PERSONAL` moves, then asserts propagation, both sysdirs, logs, `more`, `varabbrev`, `linesize`, and RNG state are restored |
 | `test_rangematch_lane_isolation.do` | RM-I17 gate: sandbox resolution, simulated user-install preservation, exact teardown, and failed-bootstrap restoration |
 | `test_rangematch_bench_smoke.do` | RM-I19 gate: analytic expected counts for all six shipped scenarios, rc=0 wrong-count rejection, installed-comparator parity, optional-comparator skip, small known answer, and adopath/session restoration |
@@ -87,7 +87,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_missing_option.do` | `missing()` policy and routing cases |
 | `test_rangematch_missing_option_extra.do` | Extended missing-policy interactions |
 | `test_rangematch_adversarial.do` | Parser failures, cleanup, varabbrev, collisions, internal-name regressions |
-| `test_rangematch_return_contract.do` | Stored-result scalars and locals across output modes |
+| `test_rangematch_return_contract.do` | Stored-result scalars and locals across output modes, and both halves of the failure-time contract: a `saving()` collision keeps the counts while leaving `r(saving)`/`r(frame)` empty, and every abort raised before or during matching clears `r()` entirely (each seeded from a successful run first, so an already-empty `r()` cannot pass the assertion) |
 | `test_rangematch_stats_semantics.do` | What the match-density diagnostics *mean*: percentiles reproduce Stata's own `_pctile` definition (fixtures chosen where nearest rank diverges), and `r(N_empty_groups)` counts groups holding no using row identically in point and overlap mode |
 | `test_rangematch_routing_contract.do` | `frame()`, `saving()`, `dryrun`, and `count` routing contracts |
 | `test_rangematch_display_contract.do` | Display-only and count/dryrun display contracts |
@@ -109,7 +109,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_saving_matrix.do` | Saved-output routing and matrix-like result consistency |
 | `test_rangematch_abbrev.do` | Minimum option abbreviations |
 | `test_rangematch_v*.do` | Regression suites named for the release that fixed the bug. Only versions that actually shipped get a `v` name — six suites were once named `v140`–`v148` for releases that never existed (the package went 1.0.0 → 1.3.3), and are now named for the behavior they guard instead |
-| `test_rangematch_v101.do` | v1.0.1 file/frame source regressions |
+| `test_rangematch_v101.do` | File/frame source regressions, including extensionless `.dta` fallback, exact explicit-extension resolution, and that `r(using)` names the file actually read when a bare name and its `.dta` companion both exist |
 | `test_rangematch_v110.do` | v1.1.0 overlap and routing regressions |
 | `test_rangematch_v120.do` | v1.2.0 missing and precision regressions |
 | `test_rangematch_v130.do` | v1.3.0 random ties and inverted intervals |

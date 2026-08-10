@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/08/07
+*! finegray_phtest Version 1.2.0  2026/08/10
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -212,7 +212,7 @@ program define finegray_phtest, rclass
         local _byg_nvar : word count `byg'
         if `_byg_nvar' > 1 {
             tempvar _byg_grp
-            quietly egen long `_byg_grp' = group(`byg')
+            _finegray_weight_groups, strata(`byg') bygname(`_byg_grp')
             local _byg_mata "`_byg_grp'"
         }
     }

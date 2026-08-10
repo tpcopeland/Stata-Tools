@@ -88,7 +88,7 @@ corrected estimate. Up to three parameters can be displayed simultaneously.
 
 {phang}
 {bf:distribution} - Histogram and kernel density plot of corrected estimates
-from a probabilistic bias analysis. Displays the full uncertainty
+from a probabilistic bias analysis. Displays the saved systematic-error
 distribution with reference lines for the observed estimate (red dashed), the
 null value (gray dotted), and the median (green dashed). Requires a saved
 Monte Carlo dataset from a {cmd:saving()} option.
@@ -326,8 +326,8 @@ parameters are held at their baseline values ({opt base_p1()},
 {title:References}
 
 {phang}
-Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021.
+Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021.
 
 
 {title:Author}

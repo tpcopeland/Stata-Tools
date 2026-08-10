@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  07aug2026}{...}
+{* *! version 1.2.0  10aug2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -52,26 +52,26 @@
 {synopt:{opth trunc:strata(varlist)}}stratify entry distribution (numeric){p_end}
 
 {syntab:SE/Robust}
-{synopt:{opth cl:uster(varname:numvar)}}adjust SEs for intragroup correlation (numeric only){p_end}
+{synopt:{opth cl:uster(varname:numvar)}}adjust SEs for intragroup correlation{p_end}
 {synopt:{opt noadj:ust}}omit finite-sample adjustment to the sandwich{p_end}
 {synopt:{opt norob:ust}}report model-based SEs, not sandwich{p_end}
-{synopt:{opt nuis:ance}}add the estimated-{it:G} nuisance term to the sandwich{p_end}
+{synopt:{opt nuis:ance}}add the estimated-{it:G} term to the sandwich meat{p_end}
 
 {syntab:Reporting}
 {synopt:{opt noshr}}report coefficients, not hazard ratios{p_end}
 {synopt:{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
-{synopt:{opt baseh:az}}post the baseline cumulative subhazard in {cmd:e(basehaz)}{p_end}
+{synopt:{opt baseh:az}}post the cumulative subhazard in {cmd:e(basehaz)}{p_end}
 
 {syntab:Optimization}
-{synopt:{opt iter:ate(#)}}maximum iterations; default is {cmd:iterate(200)}{p_end}
-{synopt:{opt tol:erance(#)}}convergence tolerance; default is {cmd:tolerance(1e-8)}{p_end}
+{synopt:{opt iter:ate(#)}}maximum iterations; default is {cmd:200}{p_end}
+{synopt:{opt tol:erance(#)}}convergence tolerance; default is {cmd:1e-8}{p_end}
 {synoptline}
 {p 4 6 2}
 {it:varlist} may contain factor variables and interactions; see
 {help fvvarlist}. Supports {cmd:i.}{it:varname},
-{cmd:ib}{it:#}{cmd:.}{it:varname}, {cmd:c.}{it:varname}, {cmd:#}, and {cmd:##}
-operators.
+{cmd:ib}{it:#}{cmd:.}{it:varname}, {cmd:ibn.}{it:varname} (interactions only),
+{cmd:c.}{it:varname}, {cmd:#}, and {cmd:##} operators.
 {p_end}
 {p 4 6 2}
 Data must be {cmd:stset} with {cmd:id()}. A subject may contribute multiple
@@ -234,8 +234,9 @@ left-truncated data.
 
 {pmore}
 {bf:Scope of the sandwich estimator.} The default sandwich is a
-{it:fixed-weight} sandwich: it treats the estimated inverse-probability-of-
-censoring weights as fixed and does not propagate the uncertainty in the
+{it:fixed-weight} sandwich: it treats the estimated
+inverse-probability-of-censoring weights as fixed and does not propagate the
+uncertainty in the
 estimated censoring distribution G(t) (nor, under delayed entry, the entry
 distribution H(t)). Under right censoring this is the same variance convention
 {helpb stcrreg} reports. Under delayed entry the commands use different weights, so
@@ -306,8 +307,8 @@ subject-cluster resampling:
 
 {pmore}
 Each replication re-estimates the model and, under delayed entry, G(t), H(t) and
-the weight strata, so the resulting standard errors propagate the weight-
-estimation uncertainty the fixed-weight sandwich omits. Use enough replications
+the weight strata, so the resulting standard errors propagate the
+weight-estimation uncertainty the fixed-weight sandwich omits. Use enough replications
 (500+) for a stable standard error.
 
 {dlgtab:Reporting}
@@ -396,8 +397,18 @@ censoring distribution.
 {pstd}
 {bf:Factor variables and interactions:} {cmd:finegray} supports the full Stata
 factor-variable syntax via {cmd:fvrevar}: {cmd:i.}{it:varname},
-{cmd:ib}{it:#}{cmd:.}{it:varname}, {cmd:c.}{it:varname}, {cmd:#} (interaction),
-and {cmd:##} (full factorial with main effects).
+{cmd:ib}{it:#}{cmd:.}{it:varname}, {cmd:ibn.}{it:varname}, {cmd:c.}{it:varname},
+{cmd:#} (interaction), and {cmd:##} (full factorial with main effects).
+
+{pmore}
+{cmd:ibn.} is estimable only inside an interaction ({cmd:c.x#ibn.grp}). As a
+{it:main effect} it names every level, and the Fine-Gray partial likelihood has
+no intercept to absorb the redundancy: adding a constant to every level's
+coefficient leaves the likelihood unchanged, so one level is not
+identified. {cmd:finegray ibn.grp ...} therefore stops with {cmd:r(459)} and
+tells you to use {cmd:i.} or {cmd:ib}{it:#}{cmd:.} instead. It does not silently drop a level
+and report the rest, which is what {helpb stcox} does with the same
+specification.
 
 {pstd}
 Indicator and interaction variables are automatically created with the prefix
@@ -411,17 +422,15 @@ from the prior run; it does not wildcard-drop every {cmd:_fg_*} variable in the
 dataset.
 
 {pstd}
-{bf:Two names for one term.} The coefficient table and {cmd:e(b)}/{cmd:e(V)}
-label a factor term by its design column ({cmd:_fg_grp_2}), because those are
-real variables that {cmd:matrix score}, {helpb lincom} and {helpb test} address
-by name. The post-estimation commands report the term you typed
-({cmd:2.grp}): {helpb finegray_phtest} labels its rows that way and
-{helpb finegray_cif} returns {cmd:r(profile_vars)} that way, so that the
-vocabulary you read back matches the one {cmd:at()} accepts. The two are the
-same terms in the same order -- {cmd:e(fvsemantic)} holds the fit-time
-expansion, whose non-base terms pair 1:1 and in order with
-{cmd:e(covariates)} -- so the {it:k}th coefficient and the {it:k}th
-post-estimation row always describe the same thing.
+{bf:Names follow the user's specification.} The coefficient table,
+{cmd:e(b)}, {cmd:e(V)}, {helpb finegray_phtest} rows, and
+{helpb finegray_cif}'s {cmd:r(profile_vars)} carry the factor-variable terms
+you typed ({cmd:2.grp}). Thus {helpb lincom} and {helpb test} address those
+user-facing terms directly. Package-owned design columns such as
+{cmd:_fg_grp_2} are recorded separately in {cmd:e(covariates)} for prediction
+and post-estimation. {cmd:e(fvsemantic)} records the fit-time expansion whose
+non-base terms pair 1:1 and in order with those design columns, so the {it:k}th
+coefficient and the {it:k}th post-estimation row always describe the same term.
 
 {pstd}
 {bf:Note:} the post-estimation commands rebuild factor-variable design columns
@@ -474,9 +483,29 @@ required by the post-estimation commands; see
 {help finegray##results:Stored results} for the full list. These travel with the
 dataset when you {cmd:save} it, but the estimation results themselves do
 not, so after {cmd:save} and {cmd:use} the post-estimation commands report
-{cmd:r(459)} because {cmd:e()} was not restored along with the data. Use
-{helpb estimates save} and {helpb estimates use} to carry a fit across
-sessions, or simply refit.
+{cmd:r(459)} because {cmd:e()} was not restored along with the
+data. {helpb estimates save} and {helpb estimates use} carry the fit across sessions;
+refitting always works and needs nothing explained.
+
+{pmore2}
+{bf:What {cmd:estimates use} does not bring back is {cmd:e(sample)}.} The sample
+marker is a property of the data in memory, not of the saved estimation set, so
+after {cmd:estimates use} no observation is marked. {cmd:finegray} itself
+replays, and {cmd:finegray_predict} with {opt xb} or {opt cif} works, because
+neither reads the estimation sample -- {opt cif} needs only the baseline, which
+is why {opt basehaz} matters for a fit you intend to reload (see
+{help finegray##options:Options}). The commands that do read it --
+{helpb finegray_cif}, {helpb finegray_phtest}, and {cmd:finegray_predict} with
+{opt ci} or {opt schoenfeld} -- stop with {cmd:r(459)} and say the estimation
+sample is empty. Re-declare it with {helpb estimates:estimates esample:} over
+the variables listed in {cmd:e(datasignaturevars)} and they all resume; the data
+signature is still checked, so a sample that does not match the fit is refused
+exactly as before.
+
+{pmore2}
+{cmd:. estimates use myfit}{break}
+{cmd:. estimates esample: `e(datasignaturevars)' if !missing(_t)}{break}
+{cmd:. finegray_cif, attime(5)}
 
 {phang2}
 {bf:4. A reduced {cmd:e(sample)}} on multiple-record data -- one record per
@@ -696,9 +725,16 @@ appropriate.
 predictor ({cmd:predict(xb)}) in models without factor-variable expansion.
 
 {pstd}
-For factor-variable models, {cmd:margins} is not supported because the
-estimation uses generated design columns rather than native Stata factor
-notation.
+For factor-variable models, {cmd:margins} cannot address the
+{it:factor terms}: the estimation carries generated design columns rather than
+native Stata factor notation, so {cmd:margins grp}, {cmd:margins, dydx(grp)} and
+{cmd:margins, at(grp=(1 2 3))} all stop with {cmd:r(322)}, naming the variable
+that is not in the covariate list. Margins for a {it:continuous} covariate in
+the same fit remain valid -- {cmd:margins, dydx(x) predict(xb)} returns that
+covariate's coefficient and its standard error -- as does a plain
+{cmd:margins}, which averages the linear predictor. Use {helpb finegray_cif}
+with {opt at()} for covariate-profile quantities on the CIF scale, which is
+what a factor-level margin after this estimator is usually asked for.
 
 {pstd}
 {bf:Coefficient names.} The coefficient table, {cmd:e(b)} and {cmd:e(V)} carry
@@ -985,7 +1021,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-08-07{p_end}
+{pstd}Version 1.2.0, 2026-08-10{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

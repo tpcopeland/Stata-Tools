@@ -1,4 +1,4 @@
-*! _codescan_parse_filespec Version 4.1.2  2026/08/09
+*! _codescan_parse_filespec Version 4.1.3  2026/08/10
 *! Parse a "filename [, replace]" option spec and enforce overwrite authorization
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,7 +36,7 @@ program define _codescan_parse_filespec, rclass
     * char(34) that _codescan_validate_path rejects as unsafe) and hides the
     * suboption comma inside an apparent quoted region. Plain `string' consumes
     * exactly the transport layer and hands over the caller's own text.
-    syntax , SPEC(string) CONTEXT(string) [CHECKEXISTS]
+    syntax , SPEC(string) CONTEXT(string) [CHECKEXISTS DEFExt(string)]
 
     local _replace = 0
 
@@ -80,6 +80,24 @@ program define _codescan_parse_filespec, rclass
     if `"`_fn'"' == "" {
         display as error "`context' requires a filename"
         exit 198
+    }
+
+    * defext(): the extension the caller's writer appends when the filename
+    * carries none. Stata's `save' does exactly that, so for saving() the name
+    * the user types is not always the name written — and authorizing the typed
+    * name let an extension-less saving() slip the guard below entirely. The
+    * command then ran to completion, export()/graph committed their files, and
+    * only `save' raised r(602) on <name>.dta, so a "refusal" left artifacts on
+    * disk. Normalize here, before validation and the existence check, and hand
+    * the normalized name back so the caller writes what was authorized.
+    * A dot anywhere in the base name means the writer appends nothing, matching
+    * Stata; the base name only, so a dot in a directory does not count.
+    if `"`defext'"' != "" {
+        local _fn_base = substr(`"`_fn'"', ///
+            max(strrpos(`"`_fn'"', "/"), strrpos(`"`_fn'"', "\")) + 1, .)
+        if strpos(`"`_fn_base'"', ".") == 0 {
+            local _fn `"`_fn'`defext'"'
+        }
     }
 
     _codescan_validate_path, path(`"`_fn'"') context(`context')

@@ -1,10 +1,9 @@
-*! test_v164_regressions Version 1.0.0  2026/08/10
-*! Regression coverage for the psdash 1.6.4 review fixes
+*! test_v164_regressions Version 1.1.0  2026/08/10
+*! Regression coverage for the psdash 1.6.4-1.6.5 review fixes
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 clear all
 version 16.0
-set more off
 set varabbrev off
 set seed 1640810
 
@@ -114,7 +113,39 @@ capture noisily {
 }
 _v164_result "equal_point_support_is_valid" `=_rc'
 
-**# V164-5 — README cites the implemented multi-treatment sources
+**# V164-5 — exact PS boundaries cannot receive Crump's alpha-zero solution
+capture noisily {
+    clear
+    set obs 100
+    generate byte treat = mod(_n, 2)
+    generate double ps = 0.5
+    replace ps = 0 in 1
+    replace ps = 1 in 2
+
+    psdash support treat ps, crump generate(keep_crump) nograph
+    local alpha = r(crump_alpha)
+    local n_trimmed = r(n_trimmed)
+    local n_remaining = r(N_remaining)
+
+    assert `alpha' > 0 & `alpha' < 0.5
+    assert `n_trimmed' == 2
+    assert `n_remaining' == 98
+    assert keep_crump == 0 if ps == 0 | ps == 1
+    assert keep_crump == 1 if ps == 0.5
+
+    clear
+    set obs 20
+    generate byte treat = mod(_n, 2)
+    generate double ps = treat
+    capture noisily psdash support treat ps, ///
+        crump generate(no_support) nograph
+    assert _rc == 459
+    capture confirm variable no_support
+    assert _rc == 111
+}
+_v164_result "crump_boundaries_not_alpha_zero" `=_rc'
+
+**# V164-6 — README cites the implemented multi-treatment sources
 capture noisily {
     tempfile li_ok mccaffrey_ok old_present
     shell grep -Fq "Li, F., and F. Li. 2019" "`pkg_dir'/README.md" && touch "`li_ok'"

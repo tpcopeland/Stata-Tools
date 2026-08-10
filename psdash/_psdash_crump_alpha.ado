@@ -1,4 +1,4 @@
-*! _psdash_crump_alpha Version 1.6.4  2026/08/10
+*! _psdash_crump_alpha Version 1.6.5  2026/08/10
 *! Efficient Crump optimal-trimming grid search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -87,17 +87,21 @@ void _psdash_crump_search(
     string scalar objective_name)
 {
     real colvector p, inverse_variance, cumulative
-    real scalar i, alpha, best_alpha, best_diff, lo, hi
+    real scalar i, alpha, best_alpha, best_diff, lo, hi, has_boundary
 
     p = st_data(., psvar, touse)
+    has_boundary = any((p :== 0) :| (p :== 1))
     p = select(p, p :> 0 :& p :< 1)
     p = sort(p, 1)
     inverse_variance = 1 :/ (p :* (1 :- p))
 
     /* Crump et al. (2009), Corollary 1: when the full-sample bound
        already satisfies the optimality inequality, A* is the full
-       covariate space and the corresponding trimming threshold is zero. */
-    if (max(inverse_variance) <= 2 * mean(inverse_variance)) {
+       covariate space and the corresponding trimming threshold is zero.
+       Exact boundary scores make that inverse-variance bound undefined,
+       so they can only be assessed by a positive trimming threshold. */
+    if (!has_boundary &
+        max(inverse_variance) <= 2 * mean(inverse_variance)) {
         st_numscalar(alpha_name, 0)
         st_numscalar(objective_name, 0)
         return

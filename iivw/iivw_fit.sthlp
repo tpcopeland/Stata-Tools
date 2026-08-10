@@ -106,11 +106,10 @@ and fits a regression. For Wald inference it displays both the underlying model
 output (from {cmd:glm} or {cmd:mixed}) and a formatted summary table of
 effects with coefficients, standard errors, confidence intervals, and
 p-values. For an asymmetric interval it suppresses the underlying Wald table
-and displays only the selected endpoints. A bare FIPTIW fit with fewer than 600
-clusters is point-only: the underlying model is fitted quietly and the summary
-contains coefficients but no standard errors, intervals, or p-values. With 600
-or more clusters, FIPTIW defaults to the stacked (two-step) sandwich Wald
-interval, which is calibrated at those sample sizes.
+and displays only the selected endpoints. A bare FIPTIW fit is point-only at
+every sample size: the underlying model is fitted quietly and the summary
+contains coefficients but no standard errors, intervals, or p-values. Explicit
+interval methods remain available as nominal, empirically uncleared analyses.
 
 {pstd}
 {bf:For non-technical readers.} After {cmd:iivw_weight} has made the dataset behave less
@@ -301,18 +300,16 @@ What each fit does with no {opt vce()}, and what is recommended:
 {synopt :{it:unweighted}}clustered sandwich{p_end}
 {synopt :{it:IIW}}999-draw refit bootstrap (Wald){p_end}
 {synopt :{it:IPTW}}999-draw refit bootstrap (Wald){p_end}
-{synopt :{it:FIPTIW, n>=600}}stacked sandwich (Wald){p_end}
-{synopt :{it:FIPTIW, n<600}}point only; no interval{p_end}
+{synopt :{it:FIPTIW}}point only; no interval{p_end}
 {synoptline}
 {p2colreset}{...}
 
 {pmore}
-The first three rows and the FIPTIW n>=600 row are cases where the default
-{it:is} the recommendation. The n<600 FIPTIW row is not: it is the command
-declining to print a number it cannot support. Explicit interval methods remain
-available for prespecified sensitivity analysis and are stamped empirically
-uncleared. The coverage evidence behind that distinction lives in the
-package's QA directory, not here.
+The first three rows are cases where the default {it:is} the recommendation.
+The FIPTIW row is not: it is the command declining to print a number it cannot
+support. Explicit interval methods remain available for prespecified
+sensitivity analysis and are stamped empirically uncleared. The coverage
+evidence behind that distinction lives in the package's QA directory, not here.
 
 {pmore}
 {cmd:vce(bootstrap, reps(#) [seed(#)])} is the default for IIW and IPTW fits and
@@ -331,23 +328,13 @@ fixes the resampling stream; with no seed, the exact pre-draw RNG
 state is stored in {cmd:e(iivw_rngstate_start)} so the run is still replayable.
 
 {pmore}
-A bare {bf:FIPTIW} fit with {bf:>= 600 clusters} defaults to {cmd:vce(stacked)}
-with a Wald interval. The stacked sandwich is calibrated at n>=600 (coverage
-0.940 at n=600, 0.960 at n=1200, Wilson intervals contain 0.95 in both cells,
-no overcoverage at any sample size). This is the standard error the method's own
-theory specifies: the two-step influence-function sandwich that Buzkova & Lumley
-(2007) and Coulombe, Moodie & Platt (2021) derive. The default is stamped
-{cmd:e(iivw_inference_status)}={cmd:cleared-stacked-at-studied-settings}. It
-requires the weights to have been built with {cmd:iivw_weight}'s {opt scores}
-option; if that option was not used, the fit falls back to point-only with a
-diagnostic note.
-
-{pmore}
-With {bf:fewer than 600 clusters}, a bare FIPTIW fit returns point estimates
-only. At n=300, the oracle interval (using the true SE) itself covers only 0.943 --
-no variance estimator can reach nominal coverage at that sample size with a
-symmetric Wald interval. An explicit {opt vce()} or {opt citype()} still requests
-nominal inference and is stamped empirically uncleared.
+A bare {bf:FIPTIW} fit returns point estimates only at every sample size. At
+n=300, the oracle interval (using the true SE) itself covers only 0.943. A
+follow-up stacked-sandwich study at n=600 and n=1200 used only 200 outer
+replications and one identity-link DGP; its own record classifies it as a
+diagnostic screen, not a release gate. It therefore cannot establish a universal
+safe cutoff or a default for other links. An explicit {opt vce()} or
+{opt citype()} requests nominal inference and is stamped empirically uncleared.
 
 {pmore}
 {cmd:vce(stacked)} is the analytic
@@ -364,8 +351,9 @@ When requested explicitly, {cmd:vce(stacked)} is stamped
 {cmd:e(iivw_inference_status)}={cmd:uncleared-stacked-analytic}, which is
 deliberately distinct from {cmd:uncleared-fixedweights-analytic}: the two name
 different defects, and only the latter is understating uncertainty by omitting
-a term. The explicit stamp is uncleared because the user chose the sample size
-and design, and the gate result is qualified to the studied settings.
+a term. The explicit stamp is uncleared because no release coverage gate has
+certified the stacked interval. The larger-sample screen remains diagnostic
+evidence only.
 
 {pmore}
 Scope. It cannot be combined with {opt collect}, which would freeze the
@@ -398,8 +386,7 @@ fit keeps the cluster sandwich (no nuisance weights to propagate).
 {opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates. {cmd:bootstrap(0)}
 explicitly requests the weights-known sandwich standard errors
 (equivalent to {cmd:vce(fixed)}); an IIW or IPTW fit with no variance option
-instead takes the refit-bootstrap default, while a bare FIPTIW fit defaults to
-stacked Wald at n>=600 or point-only at n<600,
+instead takes the refit-bootstrap default, while a bare FIPTIW fit is point-only,
 and a positive count applies the {cmd:bootstrap} prefix with clustering at
 {opt cluster()}, which defaults to the subject ID stored by
 {cmd:iivw_weight}. Negative values are not allowed. Prefer {opt vce()}; a plain
@@ -818,9 +805,9 @@ To compare multiple weighting strategies side by side:
 
 {pstd}
 The FIPTIW table call explicitly requests the nominal weights-known
-{cmd:vce(fixed)} interval. A bare FIPTIW fit with fewer than 600 clusters is
-point-only and cannot be collected; at 600+ clusters the default stacked
-variance cannot be combined with {cmd:collect} either.
+{cmd:vce(fixed)} interval. A bare FIPTIW fit is point-only and cannot be
+collected; explicit {cmd:vce(stacked)} cannot be combined with {cmd:collect}
+either.
 
 
 {marker interpreting}{...}
@@ -867,8 +854,7 @@ harmful) over time; a negative interaction means it becomes more protective.
 {bf:Standard errors.} For a weighted IIW or IPTW fit the default is the 999-draw
 refit subject bootstrap ({cmd:vce(bootstrap)}), which re-estimates every nuisance
 model inside each draw and so includes the weight-estimation term. A bare
-FIPTIW fit with >= 600 clusters defaults to {cmd:vce(stacked)} Wald; below
-600 clusters it returns point estimates only. {cmd:vce(fixed)}
+FIPTIW fit returns point estimates only at every sample size. {cmd:vce(fixed)}
 requests the analytic sandwich (robust, clustered at the subject level): it is
 consistent even under misspecification of the within-subject correlation
 structure, but it treats the IIW/IPTW weights as if they were known rather than
@@ -902,8 +888,7 @@ cell and the same fixed rule.
 {synopthdr:status}
 {synoptline}
 {synopt:{cmd:cleared-at-studied-settings}}IIW/IPTW refit bootstrap; met the rule{p_end}
-{synopt:{cmd:cleared-stacked-at-studied-settings}}FIPTIW stacked default at n>=600{p_end}
-{synopt:{cmd:point-only-no-valid-interval}}bare FIPTIW at n<600; no interval{p_end}
+{synopt:{cmd:point-only-no-valid-interval}}bare FIPTIW; no interval{p_end}
 {synopt:{cmd:point-only-requested}}explicit {cmd:citype(none)}; outside FIPTIW{p_end}
 {synopt:{cmd:uncleared-stacked-analytic}}explicit {cmd:vce(stacked)} request{p_end}
 {synopt:{cmd:uncleared-low-reps}}fewer than 999 draws{p_end}
@@ -917,22 +902,21 @@ cell and the same fixed rule.
 {pstd}
 The measured IIW/IPTW tier applies only to the 999-draw refit bootstrap, which
 is their weighted default. Measured coverage was 0.939 for IIW and 0.954 for
-IPTW. The FIPTIW stacked tier applies to bare FIPTIW fits with >= 600 clusters
-and identity-link GEE; measured coverage was 0.940 at n=600 and 0.960 at
-n=1200 (Wilson contains 0.95 in both cells, no overcoverage). Below 600
-clusters the oracle itself covers only 0.943 at n=300, so no interval is
-reported by default. The {cmd:uncleared-*} tiers do not inherit the cleared
+IPTW. For FIPTIW, the oracle itself covers only 0.943 at n=300. A separate
+R=200 diagnostic screen measured stacked-sandwich coverage of 0.940 at n=600
+and 0.960 at n=1200 under one identity-link DGP, but it was not a release gate
+and does not certify a cutoff or other links. No interval is therefore reported
+by default at any sample size. The {cmd:uncleared-*} tiers do not inherit the cleared
 tiers' coverage results: either the run departed from the studied configuration,
 or it used a weights-known variance that omits the nuisance-estimation
 correction. Explicit {cmd:vce(stacked)} at any sample size is stamped
-{cmd:uncleared-stacked-analytic} because the user chose the design.
+{cmd:uncleared-stacked-analytic} because no release gate has certified it.
 
 {pstd}
 {bf:"At studied settings" is load-bearing.} The study covered one correctly
-specified scenario per family at one sample size (n=300 for IIW/IPTW, n=600+
-for FIPTIW stacked). It says nothing about a misspecified visit model, a
-different sample size, or a non-identity link. A {cmd:cleared-*} interval is
-evidence, not a guarantee.
+specified scenario per cleared family at one sample size (n=300 for IIW/IPTW).
+It says nothing about a misspecified visit model or a different sample size. A
+{cmd:cleared-*} interval is evidence, not a guarantee.
 
 {marker fiptiwcoverage}{...}
 {pstd}
@@ -1018,17 +1002,15 @@ not release gates: they have only 200 outer replications, cover one identity-lin
 DGP, and do not establish {cmd:n=600} or any other universal safe cutoff.
 
 {pstd}
-A bare weighted FIPTIW fit with fewer than 600 clusters therefore returns
-coefficients only. It suppresses the underlying model table, launches no hidden
+A bare weighted FIPTIW fit therefore returns coefficients only at every sample
+size. It suppresses the underlying model table, launches no hidden
 bootstrap, stores missing endpoints in {cmd:e(iivw_ci)}, sets
 {cmd:e(iivw_interval_available)} to 0, and stamps
 {cmd:e(iivw_inference_status)}={cmd:point-only-no-valid-interval}. It also
 posts no {cmd:e(V)}, so {cmd:estimates replay}, {cmd:lincom}, and other
 inference-dependent postestimation cannot reconstruct a nominal interval; for
 this result {cmd:e(properties)} is {cmd:b}, and replay displays coefficients
-only. With 600 or more clusters the bare default uses {cmd:vce(stacked)} and is
-stamped {cmd:cleared-stacked-at-studied-settings}. In both cases,
-{cmd:e(iivw_underlying_vce)} records the covariance route used internally. An
+only. {cmd:e(iivw_underlying_vce)} records the covariance route used internally. An
 explicit {cmd:vce()} or non-{cmd:none} {cmd:citype()} request reports nominal inference and
 prints the empirical warning before estimation begins.
 
@@ -1360,7 +1342,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
 {synopt:{cmd:e(iivw_refitweights)}}1 if bootstrap weights were refit; otherwise 0{p_end}
-{synopt:{cmd:e(iivw_vce)}}{cmd:none}, {cmd:fixed}, {cmd:bootstrap-fixedweights}, or {cmd:bootstrap}{p_end}
+{synopt:{cmd:e(iivw_vce)}}{cmd:none}, {cmd:fixed}, {cmd:stacked}, {cmd:bootstrap-fixedweights}, or {cmd:bootstrap}{p_end}
 {synopt:{cmd:e(iivw_underlying_vce)}}pre-suppression covariance route{p_end}
 {synopt:{cmd:e(iivw_underlying_cmd)}}underlying estimator command{p_end}
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}

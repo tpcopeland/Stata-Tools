@@ -240,8 +240,8 @@ uncertainty is strongly recommended.
 {title:References}
 
 {phang}
-Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapter 7.
+Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 4.
 
 {phang}
 Greenland S. Basic methods for sensitivity analysis of

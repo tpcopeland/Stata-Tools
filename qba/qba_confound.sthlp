@@ -124,9 +124,10 @@ rare-outcome approximation applied to a common-outcome estimate.
 {pstd}
 {opt measure(HR)} and {opt measure(IRR)} are corrected by the same bias factor
 as {cmd:RR}; they exist as separate labels because the E-value conversion
-differs. Note that {opt from_model} auto-detection still reports {cmd:RR} for
-{cmd:stcox}, {cmd:streg}, {cmd:stcrreg}, and the count models -- specify
-{opt measure(HR)} explicitly when you want the hazard-ratio conversion.
+differs. {opt from_model} labels {cmd:stcox} and proportional-hazards
+{cmd:streg} results as {cmd:HR}, so {opt commonoutcome} applies the documented
+hazard-to-risk conversion automatically. Count models retain the {cmd:RR}
+label because they may represent risks or rates under the user's model.
 
 
 {marker options}{...}
@@ -142,12 +143,13 @@ be greater than 0 and cannot be combined with {opt from_model}.
 {opt from_model} reads the point estimate and standard error from the last
 estimation command ({cmd:e(b)} and {cmd:e(V)}). The coefficient is automatically
 exponentiated for log-scale models. Supported log-scale commands: {cmd:logistic},
-{cmd:logit}, {cmd:stcox}, {cmd:poisson}, {cmd:nbreg}, {cmd:cloglog}, {cmd:clogit}, {cmd:xtlogit}, {cmd:xtpoisson}, {cmd:xtnbreg},
-{cmd:melogit}, {cmd:mepoisson}, {cmd:streg}, {cmd:stcrreg}, and {cmd:glm} with log or logit link. Supported
+{cmd:logit}, {cmd:stcox}, {cmd:poisson}, {cmd:nbreg}, {cmd:clogit}, {cmd:xtlogit}, {cmd:xtpoisson}, {cmd:xtnbreg},
+{cmd:melogit}, {cmd:mepoisson}, proportional-hazards {cmd:streg}, and {cmd:glm} with log or logit link. Supported
 additive commands are {cmd:regress}, {cmd:areg}, {cmd:cnsreg}, and identity-link
 {cmd:glm}. Other estimator scales are rejected rather than treated as
-additive. Because {cmd:cloglog}
-coefficients are not odds ratios, {cmd:cloglog} requires explicit {opt measure(RR)}.
+additive. {cmd:cloglog} is rejected because its exponentiated coefficient is a
+cumulative-hazard ratio, not a risk ratio. {cmd:stcrreg} is rejected because it
+reports a subhazard ratio, for which this command has no supported measure.
 
 {phang}
 When neither {opt estimate()} nor {opt from_model} is specified, {cmd:qba_confound} can read the
@@ -222,12 +224,11 @@ had no effect. It requires {opt evalue}.
 {phang}
 {opt measure(OR|RR|HR|IRR)} specifies the measure type. When {opt from_model}
 is used, the measure is auto-detected from the estimation command
-(logistic/logit family produces OR; Poisson/Cox family defaults to RR). Specify
-{opt measure(HR)} or {opt measure(IRR)} explicitly when that label and its
-E-value scale are required. RR and IRR enter the E-value formula directly,
-whereas with {opt commonoutcome}, HR uses the documented hazard-to-risk conversion,
-while {cmd:cloglog} requires explicit {opt measure(RR)}. With {opt estimate()},
-the default is {cmd:RR}.
+(logistic/logit family produces OR; {cmd:stcox} and proportional-hazards
+{cmd:streg} produce HR; count models default to RR). A known hazard-ratio model
+cannot be relabeled through {opt measure()}. RR and IRR enter the E-value
+formula directly, whereas with {opt commonoutcome}, HR uses the documented
+hazard-to-risk conversion. With {opt estimate()}, the default is {cmd:RR}.
 
 {dlgtab:Probabilistic}
 
@@ -444,8 +445,8 @@ effect:
 {title:References}
 
 {phang}
-Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapter 8.
+Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 5.
 
 {phang}
 Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured

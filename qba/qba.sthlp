@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  09aug2026}{...}
+{* *! version 1.1.3  10aug2026}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -53,7 +53,7 @@ mode.
 
 {pstd}
 Methods are based on {it:Applying Quantitative Bias Analysis to Epidemiologic}
-{it:Data} (Lash, Fox, Fink; 2nd ed, Springer 2021).
+{it:Data} (Fox, MacLehose, and Lash; 2nd ed, Springer 2021).
 
 
 {marker commands}{...}
@@ -133,7 +133,7 @@ In probabilistic mode, bias parameters are drawn from specified distributions
 at each Monte Carlo replicate. The following distributions are available:
 
 {p2colset 9 40 42 2}{...}
-{p2col:{cmd:trapezoidal} {it:min mode1 mode2 max}}trapezoidal distribution; recommended by Lash, Fox, and Fink for elicited expert opinion{p_end}
+{p2col:{cmd:trapezoidal} {it:min mode1 mode2 max}}trapezoidal distribution; recommended by Fox, MacLehose, and Lash for elicited expert opinion{p_end}
 {p2col:{cmd:triangular} {it:min mode max}}triangular distribution{p_end}
 {p2col:{cmd:uniform} {it:min max}}uniform distribution{p_end}
 {p2col:{cmd:beta} {it:shape1 shape2}}Beta distribution; useful for probabilities{p_end}
@@ -227,8 +227,8 @@ only reads that contract; it does not install or provide those commands.
 {title:References}
 
 {phang}
-Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021.
+Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021.
 
 {phang}
 VanderWeele TJ, Ding P. Sensitivity analysis in observational
@@ -253,6 +253,6 @@ biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.2, 2026-08-09{p_end}
+{pstd}Version 1.1.3, 2026-08-10{p_end}
 
 {hline}

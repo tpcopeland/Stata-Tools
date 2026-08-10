@@ -239,6 +239,14 @@ string scalar _rmdoc_norm(string scalar raw0)
     }
     return(strtrim(out))
 }
+
+// Search the rendered source contract after joining source lines with spaces.
+// This lets prose assertions survive harmless source reflow while still
+// pinning the user-visible promises that previously drifted from behavior.
+real scalar _rmdoc_has_text(string scalar fn, string scalar needle)
+{
+    return(strpos(invtokens(cat(fn)', " "), needle) > 0)
+}
 end
 
 mata: st_local("accepted", _rmdoc_norm(_rmdoc_ado_syntax(st_local("pkg_dir") + "/rangematch.ado")))
@@ -599,6 +607,74 @@ if _rc == 0 {
 else {
     local ++fail_count
     display as error "FAIL: missing-bound semantics"
+}
+
+**# T6b: help contracts for missing bounds, filenames, and option markup
+* Native inrange() and rangematch both treat missing endpoints as open-ended
+* for a nonmissing point. The help must say so, and it must retain the exact
+* parser abbreviation and unmatched(both) contracts found in review.
+local ++test_count
+capture noisily {
+    if inrange(5, ., 10) != 1 | inrange(5, 0, .) != 1 | ///
+            inrange(5, ., .) != 1 {
+        display as error "native inrange() no longer has the measured open-ended endpoint semantics"
+        exit 459
+    }
+
+    local sthlp "`pkg_dir'/rangematch.sthlp"
+    mata: st_local("has_missing_parity", strofreal(_rmdoc_has_text(st_local("sthlp"), "same open-ended endpoint semantics")))
+    mata: st_local("has_false_missing", strofreal(_rmdoc_has_text(st_local("sthlp"), "dropped because every comparison against missing returns false")))
+    mata: st_local("has_keepusing", strofreal(_rmdoc_has_text(st_local("sthlp"), "{opt keepu:sing()}")))
+    mata: st_local("has_unmatched_both", strofreal(_rmdoc_has_text(st_local("sthlp"), "{opt unmatch:ed(master)} or {opt unmatch:ed(both)}")))
+    mata: st_local("has_exact_extension", strofreal(_rmdoc_has_text(st_local("sthlp"), "explicit extension is resolved exactly as written")))
+
+    if !`has_missing_parity' | `has_false_missing' | !`has_keepusing' | ///
+            !`has_unmatched_both' | !`has_exact_extension' {
+        display as error "rangematch.sthlp does not satisfy the reviewed documentation contracts"
+        exit 459
+    }
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: help matches native missing-bound, filename, abbreviation, and unmatched contracts"
+}
+else {
+    local ++fail_count
+    display as error "FAIL: reviewed help-file contracts"
+}
+
+**# T6c: the help documents what r() holds after a FAILED run
+* The Stored results preamble described only successful runs, and the one
+* sentence about failure ("a captured error leaves no rangematch counts behind
+* to read") sat in the missing() paragraph while reading as a general rule. It
+* is not: a failure after matching -- saving() unable to write -- deliberately
+* keeps the counts and withholds r(saving)/r(frame), which is the contract
+* test_rangematch_v133.do T8 and test_rangematch_return_contract.do enforce in
+* code. A reader who trusted the unscoped sentence would conclude the code was
+* broken. Pin both halves of the description, and pin that the over-general
+* sentence has not come back.
+local ++test_count
+capture noisily {
+    local sthlp "`pkg_dir'/rangematch.sthlp"
+    mata: st_local("has_none_posted", strofreal(_rmdoc_has_text(st_local("sthlp"), "posts nothing at all")))
+    mata: st_local("has_counts_kept", strofreal(_rmdoc_has_text(st_local("sthlp"), "keeps the count results")))
+    mata: st_local("has_locators_empty", strofreal(_rmdoc_has_text(st_local("sthlp"), "{cmd:r(saving)} and {cmd:r(frame)} are left empty")))
+    mata: st_local("has_scoped_missing", strofreal(_rmdoc_has_text(st_local("sthlp"), "a captured {opt miss:ing(error)} leaves no")))
+    mata: st_local("has_unscoped_claim", strofreal(_rmdoc_has_text(st_local("sthlp"), "a captured error leaves no")))
+
+    if !`has_none_posted' | !`has_counts_kept' | !`has_locators_empty' | ///
+            !`has_scoped_missing' | `has_unscoped_claim' {
+        display as error "rangematch.sthlp does not describe the failure-time r() contract"
+        exit 459
+    }
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: help documents the failure-time stored-result contract"
+}
+else {
+    local ++fail_count
+    display as error "FAIL: failure-time stored-result documentation"
 }
 
 **# T7 (RM-I14): the demo is repository-only; the benchmark is retrievable

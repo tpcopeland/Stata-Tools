@@ -1,6 +1,6 @@
 # qba — Quantitative Bias Analysis for Stata
 
-**Version 1.1.2** | 2026-08-09
+**Version 1.1.3** | 2026-08-10
 
 `qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 
@@ -49,6 +49,8 @@ Run `qba` after installation to display the package version and the available an
 
 In probabilistic mode, the commands draw bias parameters, recompute the corrected estimate for each draw, and summarize the valid draws with the median, mean, standard deviation, and percentile limits. The default interval is a systematic-error simulation interval: it propagates uncertainty in the bias parameters, not conventional sampling error, and is not a corrected confidence interval.
 
+With `qba_misclass, totalerror`, the systematic- and total-error summaries use the same common set of replications for which both the corrected and reallocated cells are strictly positive. This makes their interval widths directly comparable.
+
 When a `dist_*()` option is omitted in probabilistic mode, its corresponding fixed parameter is used as a constant distribution. The supported distribution specifications are documented under [Key Options](#key-options).
 
 For `qba_multi`, misclassification and selection modify the 2x2 table and are applied in the order given by `order()`. Confounding is a measure-level correction and is always applied last; the default cell-level order is `misclass selection` for the active bias types.
@@ -87,7 +89,7 @@ Use `rrud()` instead of `rrcd()` for the Greenland parameterization. `commonoutc
 
 ### 4. Correct a coefficient from the last model
 
-`from_model` reads active Stata estimation results only when the estimator has a recognized ratio scale or an explicitly supported additive scale. Supported additive models use the coefficient directly and require the signed `confeffect()` correction; unsupported link scales such as probit and ordered logit are rejected rather than guessed.
+`from_model` reads active Stata estimation results only when the estimator has a recognized ratio scale or an explicitly supported additive scale. Cox and proportional-hazards `streg` results are labeled `HR`; `cloglog` and `stcrreg` are rejected because they report cumulative-hazard and subhazard ratios rather than supported risk or hazard ratios. Supported additive models use the coefficient directly and require the signed `confeffect()` correction; unsupported link scales such as probit and ordered logit are rejected rather than guessed.
 
 ```stata
 sysuse auto, clear
@@ -412,12 +414,12 @@ Stores the macros `r(plot_type)`, `r(measure)`, and `r(scheme)`. Tornado and tip
 - For outcome misclassification in a case-control study, use `fcase()` and `fctrl()` so the sampled table is inflated to the source population. These options do not apply to exposure misclassification.
 - `qba_confound` corrects ratio measures multiplicatively and linear model coefficients subtractively. E-values require an OR, RR, HR, or IRR; they are skipped for additive coefficients.
 - Without `commonoutcome`, applying an E-value directly to an OR or HR assumes a rare outcome. Use `commonoutcome` when the outcome is common, and interpret the result against plausible confounder-treatment and confounder-outcome associations rather than a universal threshold.
-- `from_model` requires active estimation results from a recognized ratio or additive estimator and can require `coef()` when multiple eligible predictors are present. Unsupported link scales are rejected. `tmle` and `ltmle` support is contract-based and is not an estimator supplied by qba.
+- `from_model` requires active estimation results from a recognized ratio or additive estimator and can require `coef()` when multiple eligible predictors are present. Cox and proportional-hazards `streg` models are detected as HR; cumulative-hazard, subhazard, and other unsupported link scales are rejected. `tmle` and `ltmle` support is contract-based and is not an estimator supplied by qba.
 - Tipping plots require two parameters of the same supported bias type, and grid plots can become slow as `steps()` increases, especially because tipping plots evaluate `steps()^2` points.
 
 ## References
 
-- Lash TL, Fox MP, Fink AK. *Applying Quantitative Bias Analysis to Epidemiologic Data*. 2nd ed. Springer; 2021.
+- Fox MP, MacLehose RF, Lash TL. *Applying Quantitative Bias Analysis to Epidemiologic Data*. 2nd ed. Cham: Springer; 2021.
 - Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity analyses of misclassified binary variables. *International Journal of Epidemiology*. 2005;34(6):1370-1376.
 - Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative bias analysis for misclassified binary variables and binary unmeasured confounders. *International Journal of Epidemiology*. 2023;52(5):1624-1633.
 - Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured confounders in epidemiologic database studies of therapeutics. *Pharmacoepidemiology and Drug Safety*. 2006;15(5):291-303.
@@ -430,6 +432,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.3** (2026-08-10): Rejected unsupported cumulative-hazard and subhazard model scales, detected supported survival models as hazard ratios, aligned total-error arms on one validity mask, and corrected uncertainty labels and second-edition citations.
 - **1.1.2** (2026-08-09): Rejected unsupported `from_model` link scales instead of silently treating them as additive coefficients, expanded release and option/return QA, and added a self-contained SMCL render gate.
 - **1.1.1** (2026-08-05): Corrected help contracts for HR/IRR confounding measures and `c(level)` defaults, and made external-oracle QA sentinels independent of the user's interactive shell syntax.
 - **1.1.0** (2026-07-26): Added total-error simulation, correlated differential misclassification, case-control sampling-fraction adjustment, common-outcome E-value conversions, and explicit systematic-error interval semantics.
