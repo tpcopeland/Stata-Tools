@@ -89,7 +89,7 @@ any combination of one, two, or all three bias types by specifying their
 parameters. At least one bias type must be specified.
 
 {pstd}
-The default correction order follows Lash, Fox, and Fink (2021, Chapter 12):
+The default correction order follows Fox, MacLehose, and Lash (2021, Chapter 12):
 
 {phang2}1. {bf:Misclassification} (cell-level correction){p_end}
 {phang2}2. {bf:Selection bias} (cell-level correction){p_end}
@@ -208,7 +208,7 @@ fixed values are used.
 entries are {cmd:misclass} and {cmd:selection}. {cmd:confound} cannot appear
 in {opt order()} because confounding is always applied last at the measure
 level. All active cell-level biases must appear. Default order is
-{cmd:misclass selection} (following Lash, Fox, and Fink 2021).
+{cmd:misclass selection} (following Fox, MacLehose, and Lash 2021).
 
 {phang}
 {opt seed(#)} sets the random number seed for reproducibility.
@@ -233,7 +233,7 @@ any combination: misclass only, selection + confounding, all three, etc.
 
 {pstd}
 {bf:Correction order.} The default order (misclass -> selection -> confound)
-follows Lash, Fox, and Fink's recommendation. However, you can reverse the
+follows Fox, MacLehose, and Lash's recommendation. However, you can reverse the
 order of cell-level corrections using {opt order(selection misclass)} if the
 study design suggests selection occurred before misclassification. The
 confounding correction is always applied last because it operates on the
@@ -311,8 +311,8 @@ replicates are invalid, suggesting the distributions may be too wide.
 {title:References}
 
 {phang}
-Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapter 12.
+Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 12.
 
 
 {phang}

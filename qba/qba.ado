@@ -1,4 +1,4 @@
-*! qba Version 1.1.2  2026/08/09
+*! qba Version 1.1.3  2026/08/10
 *! Quantitative Bias Analysis toolkit for epidemiologic data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -61,7 +61,7 @@ program define qba, rclass
     display as text "  - qba_misclass, qba_selection, and qba_confound support"
 	    display as text "    simple fixed-parameter and probabilistic Monte Carlo analysis"
 	    display as text "  - qba_multi is Monte Carlo only"
-    display as text "Based on: Lash TL, Fox MP, Fink AK. Applying Quantitative"
+    display as text "Based on: Fox MP, MacLehose RF, Lash TL. Applying Quantitative"
     display as text "Bias Analysis to Epidemiologic Data. 2nd ed. Springer; 2021."
 
 	    return local version "`_pkgver'"

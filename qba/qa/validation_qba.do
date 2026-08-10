@@ -2,7 +2,7 @@
 * Package: qba (Quantitative Bias Analysis)
 * Location: qba/qa/
 * All expected values are hand-computed from formulas in
-*   Lash/Fox/Fink (2021), VanderWeele & Ding (2017), Schneeweiss (2006)
+*   Fox/MacLehose/Lash (2021), VanderWeele & Ding (2017), Schneeweiss (2006)
 
 clear all
 

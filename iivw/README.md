@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 3.4.0** | 2026-08-09
+**Version 3.4.1** | 2026-08-10
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -277,7 +277,7 @@ iivw_fit depvar [indepvars] [if] [in], [options]
 | `basecat(#)` | Lowest observed level | Reference level for variables in `categorical()` |
 | `timebasecat(#)` | Lowest observed time | Reference level for `timespec(categorical)` |
 | `cluster(varname)` | Stored panel ID | Cluster variable for analytic robust SEs |
-| `vce(bootstrap, reps(#) [seed(#)] [fixedweights]\|fixed)` | Weight-type dependent | Refit bootstrap, fixed-weight bootstrap, or analytic sandwich; details are below |
+| `vce(bootstrap, reps(#) [seed(#)] [fixedweights]\|fixed\|stacked)` | Weight-type dependent | Refit bootstrap, fixed-weight bootstrap, fixed-weight analytic sandwich, or FIPTIW two-step stacked sandwich; details are below |
 | `bootstrap(#)` | Omitted | Legacy spelling for bootstrap variance; prefer `vce()` |
 | `refitweights` | Off | Legacy request to refit weights inside bootstrap draws; prefer `vce(bootstrap)` |
 | `citype(none\|wald\|percentile\|basic\|bca)` | `wald`, except bare FIPTIW is `none` | Select point-only, normal/Wald, percentile, basic, or BCa endpoints |
@@ -352,7 +352,7 @@ The default tie method is Efron in `iivw_weight` and `iivw_exogtest`. `iivw_bala
 
 For IIW and IPTW GEE fits with no explicit variance request, `iivw_fit` uses `vce(bootstrap, reps(999))` with subject-level nuisance-model refitting. `vce(bootstrap, reps(#) fixedweights)` resamples subjects while holding weights fixed, and `vce(fixed)` uses the analytic cluster-robust sandwich with weights treated as known. The latter two omit weight-estimation uncertainty and should be described as such.
 
-For a bare weighted FIPTIW GEE fit, the default is point-only: coefficients are reported without a covariance matrix or nominal interval. Explicit `vce()` or `citype()` requests nominal inference and records its status in `e(iivw_inference_status)`. Fewer than 999 bootstrap draws are allowed but are marked `uncleared-low-reps`; failed draws are an error unless `allowfailedreps` explicitly accepts them.
+For a bare weighted FIPTIW GEE fit, the default is point-only at every sample size: coefficients are reported without a covariance matrix or nominal interval. Explicit `vce()` or `citype()` requests nominal inference and records its status in `e(iivw_inference_status)`; explicit `vce(stacked)` propagates the fitted-weight terms but remains `uncleared-stacked-analytic` because its larger-sample study was diagnostic rather than a release gate. Fewer than 999 bootstrap draws are allowed but are marked `uncleared-low-reps`; failed draws are an error unless `allowfailedreps` explicitly accepts them.
 
 `citype(wald)` uses a normal/Wald transformation, `citype(percentile)` uses empirical bootstrap quantiles, `citype(basic)` reflects those quantiles around the observed estimate, and `citype(bca)` adds bias correction and delete-one-subject acceleration. The asymmetric choices require bootstrap draws.
 
@@ -434,6 +434,8 @@ Weighted `model(mixed)` requires `experimentalmixed` because a single observatio
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **3.4.1** (2026-08-10): Corrects the FIPTIW inference default introduced in 3.4.0. Bare FIPTIW fits are point-only at every sample size because the R=200 stacked-sandwich study was explicitly diagnostic, not a release gate, and covered only one identity-link DGP. Explicit `vce(stacked)` remains available and is stamped `uncleared-stacked-analytic`; the option table now lists it.
 
 - **3.4.0** (2026-08-08): FIPTIW fits with >= 600 clusters now default to `vce(stacked)` Wald intervals instead of point-only. Coverage is 0.940 at n=600 and 0.960 at n=1200 (Wilson contains 0.95, no overcoverage). Below 600 clusters the default remains point-only: the oracle (true SE) itself covers only 0.943 at n=300, so no variance estimator can deliver nominal coverage there. Explicit `vce(stacked)` remains available at any sample size and is stamped `uncleared-stacked-analytic`; the new auto-default is stamped `cleared-stacked-at-studied-settings`.
 - **3.3.0** (2026-08-07): `iivw_fit` gains `vce(stacked)`, the two-step (stacked) influence-function sandwich that Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021) derive: unlike the fixed sandwich it carries the uncertainty from having estimated the weights, in one pass with no resampling. It requires the new `iivw_weight, scores` option, which emits the influence-function inputs at the point the nuisance models are fitted, since they cannot be reconstructed afterwards. The variance is **empirically uncleared** — no coverage gate has been run for it — and is stamped `uncleared-stacked-analytic`; no default changed and the FIPTIW default remains point-only. Canonical links and `model(gee)` only; weight trimming is refused.

@@ -51,6 +51,7 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_nuisance.do ///
     test_finegray_determinism.do test_finegray_reporting.do ///
     test_finegray_contracts.do ///
+    test_finegray_estimates_use.do ///
     test_finegray_sthlp_render.do ///
     test_documentation_examples.do
 local core_files `quick_files' ///

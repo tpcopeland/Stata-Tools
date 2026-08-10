@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.1.2  2026/08/09
+*! codescan_describe Version 4.1.3  2026/08/10
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -30,6 +30,8 @@ program define codescan_describe, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _did_preserve = 0
+    local _return_ready = 0
+    local _side_rc = 0
     capture noisily {
 
     syntax varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string asis)]
@@ -130,25 +132,18 @@ program define codescan_describe, rclass
     local show = `_desc_show'
     local n_chapters = `_desc_n_chapters'
 
+    tempname top_codes chapters
     if `total_codes' == 0 {
         display as text _n "codescan describe: `nvars' variable" ///
             cond(`nvars' > 1, "s", "") ", 0 unique codes, 0 total entries"
-        return scalar n_unique = 0
-        return scalar n_entries = 0
-        return scalar n_vars = `nvars'
-        return local varlist "`varlist'"
-        tempname _empty_tc _empty_ch
-        matrix `_empty_tc' = J(1, 3, 0)
-        matrix colnames `_empty_tc' = frequency percent cumul_pct
-        matrix rownames `_empty_tc' = none
-        matrix `_empty_ch' = J(1, 2, 0)
-        matrix colnames `_empty_ch' = codes entries
-        matrix rownames `_empty_ch' = none
-        return matrix top_codes = `_empty_tc'
-        return matrix chapters = `_empty_ch'
-        exit
+        matrix `top_codes' = J(1, 3, 0)
+        matrix colnames `top_codes' = frequency percent cumul_pct
+        matrix rownames `top_codes' = none
+        matrix `chapters' = J(1, 2, 0)
+        matrix colnames `chapters' = codes entries
+        matrix rownames `chapters' = none
     }
-
+    else {
     * Display header
     display as text _n "codescan describe: `nvars' variable" ///
         cond(`nvars' > 1, "s", "") ", " as result `total_codes' ///
@@ -175,7 +170,6 @@ program define codescan_describe, rclass
     }
 
     * Build r(top_codes) matrix from Mata-returned locals
-    tempname top_codes
     matrix `top_codes' = J(`show', 3, .)
     local _tc_rnames ""
     local _tc_cum = 0
@@ -230,7 +224,6 @@ program define codescan_describe, rclass
     }
 
     * Build r(chapters) matrix
-    tempname chapters
     matrix `chapters' = J(`n_chapters', 2, .)
     local _ch_rnames ""
     forvalues i = 1/`n_chapters' {
@@ -267,51 +260,66 @@ program define codescan_describe, rclass
             display as text `"    define(`_desc_rule_name_`i'' "`ch'") — `nc' codes, `ne' entries"'
         }
     }
-
-    * Return analytical results before optional save() so r() survives side-effect failures.
-    return scalar n_unique = `total_codes'
-    return scalar n_entries = `total_entries'
-    return scalar n_vars = `nvars'
-    return local varlist "`varlist'"
-    return matrix top_codes = `top_codes', copy
-    return matrix chapters = `chapters', copy
-    forvalues i = 1/`show' {
-        return local top_code_`i' `"`_desc_code_`i''"'
     }
+
+    local _return_ready = 1
 
     * Save draft codefile from chapter summary
     if `"`save'"' != "" {
-        local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
-        if "`_save_ext'" != ".csv" {
-            display as error "save() requires a .csv file extension"
-            exit 198
-        }
-        preserve
-        local _did_preserve = 1
-        quietly {
-            clear
-            set obs `n_chapters'
-            gen str32 name = ""
-            gen str244 pattern = ""
-            gen str244 exclusion = ""
-            gen str80 label = ""
-            forvalues i = 1/`n_chapters' {
-                replace name = "`_desc_rule_name_`i''" in `i'
-                replace pattern = `"`_desc_ch_`i''"' in `i'
+        capture noisily {
+            local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
+            if "`_save_ext'" != ".csv" {
+                display as error "save() requires a .csv file extension"
+                exit 198
             }
-            keep name pattern exclusion label
-            export delimited using `"`_save_fn'"', replace
+            preserve
+            local _did_preserve = 1
+            quietly {
+                clear
+                set obs `n_chapters'
+                gen str32 name = ""
+                gen str244 pattern = ""
+                gen str244 exclusion = ""
+                gen str80 label = ""
+                if `n_chapters' > 0 {
+                    forvalues i = 1/`n_chapters' {
+                        replace name = "`_desc_rule_name_`i''" in `i'
+                        replace pattern = `"`_desc_ch_`i''"' in `i'
+                    }
+                }
+                keep name pattern exclusion label
+                export delimited using `"`_save_fn'"', replace
+            }
+            restore
+            local _did_preserve = 0
+            noisily display as text ///
+                `"(draft codefile saved to `_save_fn' -- edit condition names and patterns before use)"'
         }
-        restore
-        local _did_preserve = 0
-        noisily display as text ///
-            `"(draft codefile saved to `_save_fn' -- edit condition names and patterns before use)"'
+        local _side_rc = _rc
     }
 
     } // end capture noisily
     local rc = _rc
     if `_did_preserve' capture restore
     set varabbrev `_orig_varabbrev'
+
+    * Publish the full analytical payload after cleanup, including when an
+    * optional save() side effect failed.
+    if `rc' == 0 & `_return_ready' {
+        if `_side_rc' local rc = `_side_rc'
+        return clear
+        return scalar n_unique = `total_codes'
+        return scalar n_entries = `total_entries'
+        return scalar n_vars = `nvars'
+        return local varlist "`varlist'"
+        return matrix top_codes = `top_codes', copy
+        return matrix chapters = `chapters', copy
+        if `show' > 0 {
+            forvalues i = 1/`show' {
+                return local top_code_`i' `"`_desc_code_`i''"'
+            }
+        }
+    }
     if `rc' exit `rc'
 end
 

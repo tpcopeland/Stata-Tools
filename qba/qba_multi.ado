@@ -1,4 +1,4 @@
-*! qba_multi Version 1.1.2  2026/08/09
+*! qba_multi Version 1.1.3  2026/08/10
 *! Multi-bias analysis combining misclassification, selection, and confounding
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,7 @@ single Monte Carlo simulation framework.
 Only biases with parameters specified are corrected. At least one bias
 type should be specified.
 
-Default order follows Lash/Fox/Fink (2021) recommendation:
+Default order follows Fox/MacLehose/Lash (2021) recommendation:
   misclassification -> selection -> confounding
 
 Confounding is a measure-level correction (divides the final measure
@@ -24,7 +24,7 @@ There is no total-error arm for the chain; qba_misclass, totalerror covers
 the single-bias misclassification case the reference code specifies.
 
 References:
-  Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
+  Fox MP, MacLehose RF, Lash TL. Applying Quantitative Bias Analysis to
     Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 12.
   Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic
     quantitative bias analysis for misclassified binary variables and

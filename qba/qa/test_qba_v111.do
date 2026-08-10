@@ -177,8 +177,8 @@ capture noisily {
     capture qba_confound, from_model p1(.3) p0(.1) rrcd(2.0)
     assert _rc == 198
 
-    qba_confound, from_model measure(RR) p1(.3) p0(.1) rrcd(2.0)
-    assert "`r(measure)'" == "RR"
+    capture qba_confound, from_model measure(RR) p1(.3) p0(.1) rrcd(2.0)
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: P24.1 rrud plot baseline and cloglog semantics are guarded"

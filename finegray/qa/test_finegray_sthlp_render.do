@@ -73,6 +73,64 @@ program define _fg_render_check, rclass
     return scalar nlines = `_nlines'
 end
 
+* Count rendered PROSE lines carrying a whitespace artifact -- the SECOND render
+* axis, and the one test 1 is blind to.  A source line break inside a hyphenated
+* compound, or immediately after sentence-ending punctuation, resolves its markup
+* perfectly and still prints wrong: SMCL joins two source lines with one space, so
+* `inverse-probability-of-' + `censoring' renders as "inverse-probability-of-
+* censoring" and `...one.' + `The...' renders as "one.  The".  Every source-text
+* check in this package passes both, and so does the literal-markup check above.
+*
+* Found by hand on 2026-08-10 in finegray.sthlp, twice, in the SAME release that
+* had just repaired two instances of the identical defect in finegray_cif.sthlp
+* -- because the guard written for that repair pinned two literal strings in one
+* file instead of asserting an invariant over every shipped file.  This is that
+* invariant.  Returns r(nbad), r(nlines) and lists up to 10 offenders.
+capture program drop _fg_render_ws
+program define _fg_render_ws, rclass
+    version 16.0
+    syntax , SRC(string) OUT(string)
+
+    capture erase "`out'"
+    quietly translate "`src'" "`out'", translator(smcl2txt) replace
+
+    quietly import delimited using "`out'", delimiter(`"`=char(1)'"') ///
+        varnames(nonames) stringcols(_all) clear
+
+    * A suspended hyphen ("a subject- or cluster-bootstrap") is correct English
+    * and renders character-for-character like the defect.  Neutralise the three
+    * conjunctions it can precede rather than widening the pattern, which would
+    * lose the defect along with the false positive.
+    quietly gen strL _probe = v1
+    foreach _w in or and to {
+        quietly replace _probe = subinstr(_probe, "- `_w' ", "-`_w'-", .)
+    }
+
+    * EXACTLY two spaces, never an aligned column.  SMCL joins two source lines
+    * with one space, so the artifact is always 1 + 1 = 2; the {synopt} and
+    * stored-result tables pad with many more, and a third space fails the
+    * trailing [A-Za-z].  Their labels also do not end in sentence punctuation,
+    * so the second pattern cannot reach them either.
+    local _pat1 "[a-zA-Z]- [a-z]"
+    local _pat2 "[a-zA-Z][.,;:]  [A-Za-z]"
+
+    quietly count if regexm(_probe, "`_pat1'") | regexm(_probe, "`_pat2'")
+    local _nbad = r(N)
+    local _nlines = _N
+    if `_nbad' > 0 {
+        display as error "  rendered whitespace artifact in `src':"
+        quietly gen long _srcline = _n
+        quietly keep if regexm(_probe, "`_pat1'") | regexm(_probe, "`_pat2'")
+        * `in 1/10' on a shorter dataset is r(198), which would abort the
+        * caller's capture block and report the DETECTION as a checker failure.
+        quietly keep in 1/`=min(10, _N)'
+        list _srcline v1, noobs
+    }
+    clear
+    return scalar nbad = `_nbad'
+    return scalar nlines = `_nlines'
+end
+
 * -----------------------------------------------------------------------------
 **# 1. Every shipped .sthlp renders with no literal markup
 * -----------------------------------------------------------------------------
@@ -142,6 +200,86 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: RENDER-2 checker cannot detect a broken directive (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+**# 3. No shipped .sthlp renders a whitespace artifact
+* -----------------------------------------------------------------------------
+* The invariant, over every shipped file, replacing the two literal strings in
+* one file that test_finegray_v120b.do V120B-16 used to pin.
+local ++test_count
+capture noisily {
+    local helps : dir "`pkg_dir'" files "*.sthlp"
+    local nhelp : word count `helps'
+    assert `nhelp' >= 4
+
+    tempfile wsout
+    local ws_bad = 0
+    foreach h of local helps {
+        _fg_render_ws, src("`pkg_dir'/`h'") out("`wsout'")
+        display as text "  `h': " r(nlines) " rendered lines, " ///
+            r(nbad) " with a whitespace artifact"
+        assert r(nlines) > 100
+        local ws_bad = `ws_bad' + r(nbad)
+    }
+    assert `ws_bad' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: RENDER-3 no rendered whitespace artifacts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: RENDER-3 rendered whitespace artifact (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+**# 4. FAULT INJECTION: the whitespace checker must flag both artifact kinds
+* -----------------------------------------------------------------------------
+* Same reason as test 2: "0 artifacts" is indistinguishable from a checker that
+* cannot fire.  Both defect shapes are injected, and the suspended-hyphen line is
+* injected too -- it must NOT be counted, or the checker would be unusable on
+* correct English and would be switched off the first time it cried wolf.
+local ++test_count
+capture noisily {
+    tempname wfh
+    tempfile wsanchor
+    local wsbroken "`wsanchor'_wsinjected.sthlp"
+    file open `wfh' using "`wsbroken'", write text replace
+    file write `wfh' "{smcl}" _n
+    file write `wfh' "{* injected fault: do not ship}{...}" _n
+    file write `wfh' "{title:Injected}" _n _n
+    * Defect 1: a hyphenated compound split across a source newline.
+    file write `wfh' "{pstd}" _n
+    file write `wfh' "It treats the estimated inverse-probability-of-" _n
+    file write `wfh' "censoring weights as fixed and says so here." _n
+    file write `wfh' "{p_end}" _n _n
+    * Defect 2: a line break immediately after sentence-ending punctuation.
+    file write `wfh' "{pstd}" _n
+    file write `wfh' "A default run is as self-describing as an explicit one." _n
+    file write `wfh' "The graph note is a default that yours replaces." _n
+    file write `wfh' "{p_end}" _n _n
+    * Correct English that renders identically to defect 1 and must NOT count.
+    file write `wfh' "{pstd}" _n
+    file write `wfh' "Compute a subject- or cluster-bootstrap confidence band" _n
+    file write `wfh' "for the curve, and a subject- and cluster-level total." _n
+    file write `wfh' "{p_end}" _n
+    file close `wfh'
+
+    tempfile wsinjout
+    _fg_render_ws, src("`wsbroken'") out("`wsinjout'")
+    display as text "  injected file: " r(nbad) " whitespace artifact(s) (must be exactly 2)"
+    * Exactly 2: one per real defect, and none from the suspended hyphens.
+    assert r(nbad) == 2
+    capture erase "`wsbroken'"
+}
+if _rc == 0 {
+    display as result "  PASS: RENDER-4 checker fires on both artifact kinds, not on suspended hyphens"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: RENDER-4 whitespace checker miscounts injected faults (rc=`=_rc')"
     local ++fail_count
 }
 

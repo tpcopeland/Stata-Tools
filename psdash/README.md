@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.4** | 2026-08-10
+**Version 1.6.5** | 2026-08-10
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -244,7 +244,7 @@ No graph is drawn unless graph is specified. trim(#) uses a percentile from 50 t
 psdash support [treatment] [psvar] [if] [in] [, covariates(varlist) crump threshold(#) qtrim(#) gpsfloor(#) generate(name) replace compare nograph saving(filename) scheme(schemename) graphoptions(string) title(string) name(string) xlsx(filename) sheet(string) estimand(string) psvars(varlist) reference(#)]
 ```
 
-The default output includes a graph; nograph suppresses it. For binary treatments, threshold(#) must lie strictly between 0 and 0.5, qtrim(#) must lie strictly between 0 and 50, and crump performs Crump et al. (2009) optimal trimming for binary treatments; use threshold() for multi-group treatments. For multi-group treatments, gpsfloor(0.01) is the default practical-positivity floor and applies to every GPS component. generate(name) creates an indicator for the retained region, and compare requires a binary trimming operation.
+The default output includes a graph; nograph suppresses it. For binary treatments, threshold(#) must lie strictly between 0 and 0.5, qtrim(#) must lie strictly between 0 and 50, and crump performs Crump et al. (2009) optimal trimming for binary treatments; use threshold() for multi-group treatments. Crump can return alpha zero only when every assessed score is strictly inside (0,1) and its full-sample inequality holds; exact boundary scores require positive-threshold handling and are excluded, while a sample with no interior score fails the retained-sample guard. For multi-group treatments, gpsfloor(0.01) is the default practical-positivity floor and applies to every GPS component. generate(name) creates an indicator for the retained region, and compare requires a binary trimming operation.
 
 ### psdash combined
 
@@ -392,6 +392,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.5** (10 Aug 2026): Crump boundary correction. Exact propensity scores of zero or one no longer qualify for the alpha-zero full-sample shortcut; the positive-threshold search excludes them, including in row-level support indicators. The help and README now state the alpha-zero eligibility rule.
 - **v1.6.4** (10 Aug 2026): Detection and support correction. Explicit treatment-only balance/weight calls no longer consume stale estimation state; built-in propensity-model contexts honor `e(sample)`; Crump trimming represents the full-sample alpha-zero solution; equal point support is accepted; and multi-treatment references are corrected.
 - **v1.6.3** (10 Aug 2026): Bug fix. Multi-group overlap and support graph exports now pass `saving()` paths without adding a second layer of quotes, so valid absolute and nested paths export successfully.
 - **v1.6.2** (09 Aug 2026): Producer and verdict-contract correction. Automatic iivw detection now accepts verified contract versions 2 and 3, restoring compatibility with current iivw releases. The combined dashboard now applies overlapmax(), essmin(), and imbalmax() in place of the corresponding panel defaults while retaining independent findings, and multi-group verdicts no longer use the descriptive observed-arm overlap scalarization.

@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/08/07
+*! finegray_predict Version 1.2.0  2026/08/10
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -692,7 +692,8 @@ program define finegray_predict, rclass sortpreserve
                 local _byg_nvar : word count `e(strata)'
                 if `_byg_nvar' > 1 {
                     tempvar _byg_grp
-                    quietly egen long `_byg_grp' = group(`e(strata)')
+                    _finegray_weight_groups, strata(`e(strata)') ///
+                        bygname(`_byg_grp') touse(`_fvbasis')
                     local _byg_mata "`_byg_grp'"
                 }
                 local _tg_mata ""
@@ -799,7 +800,7 @@ program define finegray_predict, rclass sortpreserve
             local _byg_nvar : word count `byg_var'
             if `_byg_nvar' > 1 {
                 tempvar _byg_grp
-                quietly egen long `_byg_grp' = group(`byg_var')
+                _finegray_weight_groups, strata(`byg_var') bygname(`_byg_grp')
                 local _byg_mata "`_byg_grp'"
             }
         }

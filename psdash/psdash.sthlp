@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10aug2026}{...}
+{* *! version 1.6.5  10aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -531,10 +531,15 @@ or truncating extreme weights.
 
 {phang}
 {opt crump} applies Crump et al. (2009) optimal trimming to determine the
-support region that minimizes variance. A coarse grid search over alpha in
-[0.01, 0.49] (0.01 steps) is refined to 0.001 resolution around the coarse
-minimum, so the reported alpha is not pinned to a 1% step. Restricted to binary
-treatment; for multi-group treatments, use {opt threshold()} instead.
+support region that minimizes variance. When every assessed score is strictly
+inside (0,1), the Corollary 1 full-sample inequality is checked first and can
+return alpha = 0. When at least one interior score remains, a coarse grid search
+over alpha in [0.01, 0.49] (0.01 steps) is refined to 0.001 resolution around
+the coarse minimum, so the reported alpha is not pinned to a 1% step. Exact
+boundary scores cannot qualify for the alpha-zero solution and are excluded by
+any positive trimming threshold. If no interior score remains, the positive
+fallback is subject to the retained-sample guard and fails closed. Restricted
+to binary treatment; for multi-group treatments, use {opt threshold()} instead.
 
 {phang}
 {opt threshold(#)} specifies a manual trimming threshold. For binary treatment,

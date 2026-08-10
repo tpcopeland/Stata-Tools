@@ -1,4 +1,4 @@
-*! _finegray_check_data Version 1.2.0  2026/08/07
+*! _finegray_check_data Version 1.2.0  2026/08/10
 *! Verify that post-estimation commands still see the finegray estimation data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal
@@ -31,6 +31,26 @@ program define _finegray_check_data
                 display as error "re-run {bf:finegray} before this post-estimation command"
                 exit 459
             }
+        }
+
+        * An EMPTY e(sample) is a different failure and needs a different name.
+        * `estimates use' restores e() but not the sample marker -- the marker
+        * is a property of the data in memory, and a saved estimation set does
+        * not carry one -- so the signature below is computed over zero rows,
+        * comes back as `0:k:0:0', and compares unequal to the fit's.  Reported
+        * as "data have changed" that sends the user hunting for a corruption
+        * of data they never touched.  Name the real cause and the one command
+        * that fixes it.  Kept ahead of the comparison for that reason only:
+        * the comparison itself would reject this case anyway, with the wrong
+        * message.  Guarded by test_finegray_estimates_use.do.
+        quietly count if e(sample)
+        if r(N) == 0 {
+            display as error "the finegray estimation sample is empty"
+            display as error "{bf:estimates use} restores e() but not e(sample), so no"
+            display as error "observation is marked as having been used in the fit"
+            display as error "re-declare it with {bf:estimates esample:} over the variables in"
+            display as error "{bf:e(datasignaturevars)}, or re-run {bf:finegray}"
+            exit 459
         }
 
         capture quietly _datasignature `_sigvars' if e(sample), nodefault nonames

@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.1  2026/08/09
+*! rangematch Version 1.5.2  2026/08/10
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -249,16 +249,29 @@ program define _rangematch_load_using, sclass
             }
         }
         else {
-            * Mirror Stata's `use` behavior: append .dta if no extension supplied
-            capture confirm file `"`using'"'
-            if _rc {
-                capture confirm file `"`using'.dta"'
-                if !_rc {
-                    local using `"`using'.dta"'
-                }
-                else {
-                    confirm file `"`using'"'
-                }
+            * Resolve the name to the file `use' will actually read, then
+            * confirm THAT file -- do not confirm one name and load another.
+            *
+            * `use' appends .dta when the file name carries no extension and
+            * never falls back to the bare name: measured, `use noext' reports
+            * "file noext.dta not found" even when a file literally named
+            * "noext" sits in the directory. Confirming the raw token first
+            * therefore accepted a name the loader could not open, and the run
+            * died several lines later on a file the user never typed. Where
+            * both "noext" and "noext.dta" exist it was worse than a bad
+            * message: the command confirmed "noext", loaded noext.dta, and
+            * reported r(using) as the file it had not read.
+            *
+            * A file name carrying an explicit extension is resolved exactly as
+            * written, which is also what `use' does ("use dotted.foo" does not
+            * try dotted.foo.dta).
+            mata: st_local("_rm_using_dta", _rm_dta_name(st_local("using")))
+            if `"`_rm_using_dta'"' != `"`using'"' {
+                confirm file `"`_rm_using_dta'"'
+                local using `"`_rm_using_dta'"'
+            }
+            else {
+                confirm file `"`using'"'
             }
         }
 
@@ -819,7 +832,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.1"
+    local _rm_required_mata_version "1.5.2"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -2121,6 +2134,21 @@ program define rangematch, rclass
     }
     set varabbrev `_orig_varabbrev'
 
+    * `_rm_return_ready' turns on as soon as the backend returns, which is
+    * deliberately BEFORE output is routed: a side-effect failure must not
+    * strand the analytical payload. When saving() cannot write its file the
+    * join itself already succeeded, so the counts are real and the caller can
+    * read them, fix the path, and re-export without recomputing the match.
+    * test_rangematch_v133.do T8 is the gate on that contract.
+    *
+    * What must NOT survive is any claim that output exists: r(saving) and
+    * r(frame) are posted only under `_rm_output_succeeded' below, so an
+    * unwritten file or an uncreated frame is never named. That pairing --
+    * counts yes, output locators no -- is the whole contract. Do not "fix"
+    * this by gating the block on rc; that trades a documented guarantee for
+    * a tidier-looking failure surface. Aborts raised before or inside the
+    * backend leave `_rm_return_ready' at 0 and post nothing, which is why
+    * maxpairs/assert/missing(error)/frame-exists yield an empty r().
     if `_rm_return_ready' {
         return scalar N_master         = `N_master'
         return scalar N_using          = `N_using'

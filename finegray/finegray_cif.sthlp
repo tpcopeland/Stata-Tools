@@ -29,8 +29,8 @@ cumulative incidence after {help finegray}
 {synopt :{opt at(var=# ...)}}covariate profile for the curve{p_end}
 {synopt :{opt att:ime(numlist)}}table of the CIF at the listed horizons{p_end}
 {synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times{p_end}
-{synopt :{opt ci}}add pointwise confidence limits (influence-function SE){p_end}
-{synopt :{opt boot:strap(#)}}compute a subject- or cluster-bootstrap confidence band{p_end}
+{synopt :{opt ci}}add pointwise confidence limits{p_end}
+{synopt :{opt boot:strap(#)}}bootstrap the confidence band with {it:#} resamples{p_end}
 {synopt :{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
 {synopt :{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
 {synopt :{opt sav:ing(filename[, replace])}}save the numeric estimates{p_end}
@@ -73,16 +73,16 @@ estimates behind the curve.
 state the profile the CIF was evaluated at, in the vocabulary {opt at()} takes -
 an {cmd:at:} line above the table and a {cmd:note()} under the graph. When
 {opt at()} is omitted the line reads {cmd:at (estimation-sample means):} and
-lists the means used, so a default run is as self-describing as an explicit one.
-The graph note is a default: your own {cmd:note()} in {it:twoway_options}
+lists the means used, so a default run is as self-describing as an explicit one. The
+graph note is a default: your own {cmd:note()} in {it:twoway_options}
 replaces it.
 
 {pstd}
 {bf:The plotted curve extends to the end of follow-up.} The estimation grid ends
 at the last cause-event time, but the CIF is flat from there to the last observed
 analysis time, and the graph draws that tail as {helpb sts graph} and
-{helpb stcurve} do. Like the (0,0) origin, the terminal segment is display-only:
-it is not in {cmd:r(table)} and not in the {opt saving()} dataset.
+{helpb stcurve} do. Like the (0,0) origin, the terminal segment is display-only: it
+is not in {cmd:r(table)} and not in the {opt saving()} dataset.
 
 {pstd}
 {bf:Times outside the estimated support are flagged.} With {opt attime()} or

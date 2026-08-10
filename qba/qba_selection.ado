@@ -1,4 +1,4 @@
-*! qba_selection Version 1.1.2  2026/08/09
+*! qba_selection Version 1.1.3  2026/08/10
 *! Selection bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,8 +22,8 @@ intervals. There is no total-error arm here -- the reference code specifies
 that pipeline for misclassification and confounding, not selection bias.
 
 References:
-  Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
-    Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 7.
+  Fox MP, MacLehose RF, Lash TL. Applying Quantitative Bias Analysis to
+    Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 4.
   Greenland S. Basic methods for sensitivity analysis of biases.
     Int J Epidemiol. 1996;25(6):1107-1116.
   Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic

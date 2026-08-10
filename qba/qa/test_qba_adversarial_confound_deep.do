@@ -149,10 +149,10 @@ capture noisily {
     assert _rc == 198
     assert "`e(cmd)'" == "cloglog"
     _assert_close `=_b[mpg]' `b_before' 1e-12
-    qba_confound, from_model measure(RR) p1(.75) p0(.25) rrcd(5)
-    assert "`r(measure)'" == "RR"
-    _assert_close `=r(observed)' `=exp(`b_before')' 1e-10
+    capture qba_confound, from_model measure(RR) p1(.75) p0(.25) rrcd(5)
+    assert _rc == 198
     assert "`e(cmd)'" == "cloglog"
+    _assert_close `=_b[mpg]' `b_before' 1e-12
     _assert_close `=_se[mpg]' `se_before' 1e-12
 
     sysuse auto, clear

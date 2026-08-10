@@ -1,6 +1,6 @@
 *! test_combined_threshold_contract Version 1.0.0  2026/08/09
 *! Regression checks for psdash combined verdict-threshold semantics
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 clear all
 version 16.0

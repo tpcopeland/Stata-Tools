@@ -349,8 +349,9 @@ in {cmd:r()} or {cmd:e()}. The variables are labeled:
 
 {phang2}{cmd:xb}: "Linear prediction (xb)"{p_end}
 {phang2}{cmd:cif}: "CIF at {it:tvar} (cause {it:#})", where {it:tvar} is
-{cmd:_t} or the {opt timevar()} variable and {it:#} is {cmd:e(cause)} - so the
-label records the horizon each prediction was evaluated at{p_end}
+{cmd:_t} or the {opt timevar()} variable and {it:#} is the cause of interest the
+fit was estimated for - so the label records both the cause and the horizon each
+prediction was evaluated at{p_end}
 {phang2}{cmd:basecshazard}: "Baseline cumulative subhazard"{p_end}
 {phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:varname}" for each covariate{p_end}
 

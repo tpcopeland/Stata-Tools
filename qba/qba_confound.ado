@@ -1,4 +1,4 @@
-*! qba_confound Version 1.1.2  2026/08/09
+*! qba_confound Version 1.1.3  2026/08/10
 *! Unmeasured confounding bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,8 +32,8 @@ Without commonoutcome an OR or HR is inserted directly, which Table 2
 permits only for a rare (<15%) outcome.
 
 References:
-  Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
-    Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 8.
+  Fox MP, MacLehose RF, Lash TL. Applying Quantitative Bias Analysis to
+    Epidemiologic Data. 2nd ed. Springer; 2021. Chapter 5.
   Schneeweiss S. Sensitivity analysis and external adjustment for
     unmeasured confounders. Pharmacoepidemiol Drug Saf. 2006;15:291-303.
   VanderWeele TJ, Ding P. Sensitivity Analysis in Observational
@@ -187,21 +187,26 @@ program define qba_confound, rclass
         local se_treat = _se[`treat_var']
         * Exponentiate only for log-scale models (logistic, Cox, Poisson, etc.)
         * For the st-family, e(cmd) holds the distribution ("cox", "weibull",
-        * "lnormal", ...) while e(cmd2) holds the st-command ("stcox"/"streg"/
-        * "stcrreg"); key survival detection off e(cmd2).
+        * "lnormal", ...) while e(cmd2) holds the st-command ("stcox"/"streg");
+        * key survival detection off e(cmd2). stcrreg instead reports itself
+        * in e(cmd), and its exponentiated coefficient is a subhazard ratio.
         local ecmd "`e(cmd)'"
         local ecmd2 "`e(cmd2)'"
         local st_cmd ""
-        if inlist("`ecmd2'", "stcox", "streg", "stcrreg") local st_cmd "`ecmd2'"
+        if inlist("`ecmd2'", "stcox", "streg") local st_cmd "`ecmd2'"
         if "`ecmd'" == "cloglog" {
-            if "`measure'" == "" {
-                display as error "cloglog from_model requires explicit measure(RR)"
-                exit 198
-            }
-            if strupper("`measure'") != "RR" {
-                display as error "cloglog from_model supports measure(RR) only"
-                exit 198
-            }
+            display as error ///
+                "cloglog coefficients are cumulative-hazard ratios, not risk ratios"
+            display as error ///
+                "from_model cannot derive a single RR; use estimate() with an independently calculated risk ratio"
+            exit 198
+        }
+        if "`ecmd'" == "stcrreg" {
+            display as error ///
+                "stcrreg reports a subhazard ratio, which qba_confound does not support"
+            display as error ///
+                "do not relabel a subhazard ratio as RR or HR"
+            exit 198
         }
         * streg accelerated-failure-time distributions (lognormal, loglogistic,
         * gamma) report a time ratio, not a hazard ratio (e(frm2)=="time"). The
@@ -214,20 +219,30 @@ program define qba_confound, rclass
                 "qba_confound corrects ratio measures (OR/RR/HR); refit with a proportional-hazards distribution (e.g. dist(weibull), dist(exponential))"
             exit 198
         }
+        if inlist("`ecmd'", "stcox", "streg") | ///
+            inlist("`st_cmd'", "stcox", "streg") {
+            if "`measure'" != "" & strupper("`measure'") != "HR" {
+                local hr_cmd "`st_cmd'"
+                if "`hr_cmd'" == "" local hr_cmd "`ecmd'"
+                display as error ///
+                    "`hr_cmd' from_model reports a hazard ratio; specify measure(HR) or omit measure()"
+                exit 198
+            }
+        }
         local is_logscale = 0
         local is_linearscale = inlist("`ecmd'", "regress", "areg", "cnsreg")
-        if inlist("`ecmd'", "logistic", "logit", "stcox", "poisson", "nbreg", "cloglog") {
+        if inlist("`ecmd'", "logistic", "logit", "stcox", "poisson", "nbreg") {
             local is_logscale = 1
         }
         if inlist("`ecmd'", "clogit", "xtlogit", "xtpoisson", "xtnbreg", "melogit", "mepoisson") {
             local is_logscale = 1
         }
-        if inlist("`ecmd'", "streg", "stcrreg") {
+        if "`ecmd'" == "streg" {
             local is_logscale = 1
         }
-        * st-family via e(cmd2): stcox/stcrreg are always hazard-scale, and any
-        * streg reaching here is a proportional-hazards parameterization.
-        if inlist("`st_cmd'", "stcox", "streg", "stcrreg") {
+        * st-family via e(cmd2): stcox is hazard-scale, and any streg reaching
+        * here is a proportional-hazards parameterization.
+        if inlist("`st_cmd'", "stcox", "streg") {
             local is_logscale = 1
         }
         if "`ecmd'" == "glm" {
@@ -265,7 +280,10 @@ program define qba_confound, rclass
             if inlist("`ecmd'", "logistic", "logit", "clogit", "xtlogit", "melogit") {
                 local measure "OR"
             }
-            else if inlist("`ecmd'", "poisson", "stcox", "streg", "stcrreg") {
+            else if inlist("`ecmd'", "stcox", "streg") {
+                local measure "HR"
+            }
+            else if "`ecmd'" == "poisson" {
                 local measure "RR"
             }
             else if inlist("`ecmd'", "nbreg", "xtpoisson", "xtnbreg", "mepoisson") {
@@ -276,9 +294,9 @@ program define qba_confound, rclass
                 if inlist("`elink2'", "logit", "glim_l02") local measure "OR"
                 else if inlist("`elink2'", "log", "glim_l03") local measure "RR"
             }
-            * st-family point measure is a hazard ratio, carried as RR
-            if "`measure'" == "" & inlist("`st_cmd'", "stcox", "streg", "stcrreg") {
-                local measure "RR"
+            * st-family PH coefficients are hazard ratios.
+            if "`measure'" == "" & inlist("`st_cmd'", "stcox", "streg") {
+                local measure "HR"
             }
         }
     }

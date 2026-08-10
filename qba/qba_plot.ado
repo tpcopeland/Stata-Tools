@@ -1,4 +1,4 @@
-*! qba_plot Version 1.1.2  2026/08/09
+*! qba_plot Version 1.1.3  2026/08/10
 *! Visualization for quantitative bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,7 @@ Creates visualizations for QBA results:
   - tipping: Tipping point contour plot
 
 References:
-  Lash TL, Fox MP, Fink AK. Applying Quantitative Bias Analysis to
+  Fox MP, MacLehose RF, Lash TL. Applying Quantitative Bias Analysis to
     Epidemiologic Data. 2nd ed. Springer; 2021.
 */
 

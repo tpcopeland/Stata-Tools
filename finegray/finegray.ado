@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/08/07
+*! finegray Version 1.2.0  2026/08/10
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -692,10 +692,69 @@ program define finegray, eclass sortpreserve
     if r(k_omitted) > 0 {
         local _fg_identified `r(varlist)'
         local _fg_omitted : list varlist - _fg_identified
+
+        * Name the offending terms the way the USER wrote them.  `varlist' is
+        * the design columns here, and the non-base fit-time terms pair 1:1 and
+        * in order with them (the same pairing e(covariates)/e(fvsemantic) is
+        * built on), so an omitted column maps back by position.  Reporting
+        * `_fg_grp_2' left the reader to work out which level that was, for a
+        * name they never typed.
+        local _rk_report "`_fg_omitted'"
+        if `_has_fv' {
+            local _rk_nb ""
+            foreach _rk_t of local _fv_semantic {
+                if regexm("`_rk_t'", "[0-9]+b\.") continue
+                local _rk_nb "`_rk_nb' `_rk_t'"
+            }
+            local _rk_nnb : word count `_rk_nb'
+            local _rk_nvl : word count `varlist'
+            if `_rk_nnb' == `_rk_nvl' {
+                local _rk_report ""
+                foreach _rk_c of local _fg_omitted {
+                    local _rk_p : list posof "`_rk_c'" in varlist
+                    if `_rk_p' > 0 {
+                        local _rk_report "`_rk_report' `: word `_rk_p' of `_rk_nb''"
+                    }
+                    else local _rk_report "`_rk_report' `_rk_c'"
+                }
+                local _rk_report : list retokenize _rk_report
+            }
+        }
+
+        * A bare `ibn.' main effect is the one rank failure that is a property
+        * of the MODEL rather than of the data, so it earns its own note: the
+        * Fine-Gray partial likelihood has no intercept, adding a constant to
+        * every level's coefficient leaves the likelihood unchanged, and the
+        * level indicators sum to 1.  Without this the user reads "constant or
+        * collinear" about a variable that is neither, and reaches for a data
+        * fix that cannot work.  Detected on a bare `Nbn.var' term -- inside an
+        * interaction (`c.x#ibn.grp') the columns do not sum to a constant and
+        * ibn. is perfectly estimable, so the note must not fire there.
+        local _rk_bn = 0
+        local _rk_bnvar ""
+        if `_has_fv' {
+            foreach _rk_t of local _fv_semantic {
+                if strpos("`_rk_t'", "#") continue
+                if regexm("`_rk_t'", "^[0-9]+bn\.(.+)$") {
+                    local _rk_bn = 1
+                    local _rk_bnvar = regexs(1)
+                }
+            }
+        }
+
         if "`_fv_created'" != "" quietly drop `_fv_created'
         display as error "finegray covariates are not full rank"
-        display as error "constant or collinear term(s): `_fg_omitted'"
-        display as error "remove or recode these terms and fit the model again"
+        display as error "constant or collinear term(s): `_rk_report'"
+        if `_rk_bn' {
+            display as error "an ibn. main effect names every level, and the Fine-Gray partial"
+            display as error "likelihood has no intercept to absorb the redundancy: the level"
+            display as error "indicators sum to 1, so one of them is not identified"
+            display as error "use i.`_rk_bnvar' or ib#.`_rk_bnvar' for a main effect; ibn. is estimable"
+            display as error "inside an interaction, as in c.x#ibn.`_rk_bnvar'"
+        }
+        else {
+            display as error "remove or recode these terms and fit the model again"
+        }
         exit 459
     }
 
@@ -740,7 +799,7 @@ program define finegray, eclass sortpreserve
             local _byg_nvar : word count `strata'
             if `_byg_nvar' > 1 {
                 tempvar _byg_grp
-                quietly egen long `_byg_grp' = group(`strata')
+                _finegray_weight_groups, strata(`strata') bygname(`_byg_grp')
                 local _byg_mata "`_byg_grp'"
             }
         }

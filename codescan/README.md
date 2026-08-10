@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.1.2** | 2026-08-09
+**Version 4.1.3** | 2026-08-10
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -209,7 +209,7 @@ Exactly one of `define()` or `codefile()` is required. Inline definitions use `n
 codescan_describe varlist [if] [in] [, top(#) nodots tostring save(filename [, replace])]
 ```
 
-The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter, then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`.
+The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter, then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`. When the inventory is empty, `save()` writes the four-column header with no data rows.
 
 ## Key Options
 
@@ -368,6 +368,11 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.1.3 (2026-08-10)
+
+- `codescan_describe` now restores `varabbrev` and honors `save()` when the selected observations contain no codes; the resulting draft CSV contains the documented four-column header and no data rows.
+- `saving()` with an extension-less filename now applies `.dta` before the overwrite check, so the refusal happens up front instead of after `export()` and `graph` have already written their files.
 
 ### 4.1.2 (2026-08-09)
 

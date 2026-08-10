@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.1  09aug2026}{...}
+{* *! version 1.5.2  10aug2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -223,7 +223,7 @@ renamed with suffix {bf:_U}. An explicitly empty {cmd:prefix("")} or
 {cmd:suffix("")} is treated the same as omitting it: the default {bf:_U} suffix
 still applies to conflicting names. To keep a conflicting using variable under
 its own name, drop the master-side clash or select the using variables with
-{opt keepus:ing()}; a genuine name collision is reported rather than silently
+{opt keepu:sing()}; a genuine name collision is reported rather than silently
 overwritten.
 
 {phang}
@@ -343,10 +343,11 @@ successful {opt miss:ing(wildcard)} or {opt miss:ing(drop)} run, the count of
 master rows with missing variable bounds is posted in
 {cmd:r(N_missing_bounds)}, the count of master rows with a missing match key in
 {cmd:r(N_master_key_missing)}, and the count of using rows with a missing
-key/bound in {cmd:r(N_using_missing)}. Under {opt miss:ing(error)} the command
-exits before posting any result, so these counts are reported in the error
-message itself rather than in {cmd:r()}; a captured error leaves no
-{cmd:rangematch} counts behind to read. Under {opt miss:ing(drop)},
+key/bound in {cmd:r(N_using_missing)}. {opt miss:ing(error)} aborts before
+matching, so these counts appear in the error message itself and a captured
+{opt miss:ing(error)} leaves no {cmd:rangematch} counts behind to read; see
+{it:Stored results} for which failures do and do not post. Under
+{opt miss:ing(drop)},
 {cmd:r(N_master)} and {cmd:r(N_using)} are the post-drop counts, and adding back
 the corresponding missing count recovers the post-{cmd:if}/{cmd:in}, pre-drop
 total for that side.
@@ -483,8 +484,8 @@ either side; see {opt miss:ing()} for the full symmetric policy.
 
 {pstd}
 If the computed lower bound is greater than the computed upper bound, no match
-is possible for that master observation. It is retained only when
-{opt unmatch:ed(master)} is active.
+is possible for that master observation. It is retained when
+{opt unmatch:ed(master)} or {opt unmatch:ed(both)} is active.
 
 {pstd}
 {bf:Frames}
@@ -503,10 +504,11 @@ dropping it.
 {pstd}
 The token after {cmd:using} may name an existing frame. If a frame with that
 name exists, {cmd:rangematch} copies it into an internal work frame and leaves
-the source frame unchanged. Otherwise the token is treated as a filename; if
-the file does not exist as written, {cmd:rangematch} appends {cmd:.dta} and
-tries again (matching the behavior of {cmd:use}). The using frame must be
-different from the current frame.
+the source frame unchanged. Otherwise the token is treated as a filename and
+resolved the way {helpb use} resolves one: a filename with no extension is read
+as {cmd:.dta}, and a filename with an explicit extension is resolved exactly as
+written. {cmd:r(using)} reports the file that was actually read. The using
+frame must be different from the current frame.
 
 {pstd}
 {bf:Migrating from rangejoin}
@@ -564,15 +566,13 @@ defaults to {opt unmatch:ed(master)}. Specify {opt unmatch:ed(none)} to reproduc
 semantics.
 
 {phang}
-o {bf:Missing variable bounds are handled differently.} When a {cmd:joinby} is followed
-by {cmd:keep if inrange(date, lo, hi)}, rows with missing {cmd:lo} or {cmd:hi} are silently
-dropped because every comparison against missing returns false. {cmd:rangematch}
-treats a missing bound as open-ended on that side, consistent with the literal
-{cmd:.} positional bound, so those rows wildcard-match every using row in the same
-{opt by()} group. If your bound variables can be missing, either drop missing-bound
-rows upstream or specify {opt miss:ing(drop)}; otherwise output may contain spurious
-matches. {opt miss:ing(error)} makes {cmd:rangematch} refuse to run when missing-bound rows
-are present.
+o {bf:Missing variable bounds have the same open-ended endpoint semantics.} For
+a nonmissing {cmd:date}, Stata's {cmd:inrange(date, lo, hi)} treats a missing
+{cmd:lo} as open-ended below and a missing {cmd:hi} as open-ended above. Under
+the default {opt miss:ing(wildcard)}, {cmd:rangematch} matches that behavior: a
+missing bound removes only its side's restriction, and two missing bounds form
+a fully open interval. Specify {opt miss:ing(drop)} to discard such rows or
+{opt miss:ing(error)} to reject them when a stricter policy is required.
 
 {pstd}
 {cmd:rangematch} also avoids the Cartesian blow-up of {cmd:joinby}+{cmd:keep if},
@@ -761,6 +761,18 @@ writing the joined rows to a frame:
 {opt dryrun}, {opt count}, and runs without {opt stats}. Match-density results are computed and
 posted only when {opt stats} is specified.
 
+{pstd}
+After a {it:failed} run, what survives depends on how far the call got, and the
+rule is deliberate. A failure raised before or during matching -- an unparsable
+option, {opt miss:ing(error)}, a {opt maxp:airs()} overrun, a failed
+{opt as:sert()}, or an occupied {opt frame()} target -- posts nothing at all, so
+{cmd:r()} is empty. A failure raised {it:after} matching succeeded, which in
+practice means {opt sav:ing()} could not write its file, keeps the count
+results: the join really did produce them, and you can read the counts, correct
+the path, and re-export without recomputing the match. In that case
+{cmd:r(saving)} and {cmd:r(frame)} are left empty, because no output was
+written -- test those two, not the counts, to decide whether output exists.
+
 {synoptset 22 tabbed}{...}
 {p2col 5 22 26 2: Core scalars}{p_end}
 {synopt:{cmd:r(N_master)}}master observations considered{p_end}
@@ -829,7 +841,7 @@ posted only when {opt stats} is specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.1, 09aug2026{p_end}
+{pstd}Version 1.5.2, 10aug2026{p_end}
 
 
 {title:Also see}

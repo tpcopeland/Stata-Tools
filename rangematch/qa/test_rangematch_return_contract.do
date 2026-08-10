@@ -211,5 +211,103 @@ assert "`r(nosort)'" == "nosort"
 assert "`r(sort)'" == ""
 assert "`r(backend)'" == "binary"
 
+**# A saving() collision keeps the counts and withholds the output locators
+* Side-effect failure must not strand the analytical payload: when saving()
+* cannot write its file the join itself already succeeded, so the counts are
+* real and the caller can read them, fix the path, and re-export without
+* recomputing the match. test_rangematch_v133.do T8 pins the same contract for
+* an unwritable directory; this pins the other reachable trigger, an existing
+* file with no replace suboption.
+*
+* The half that makes the contract safe is asserted here too: r(saving) and
+* r(frame) must stay EMPTY, because nothing was written. Those two -- never the
+* counts -- are what a caller tests to decide whether output exists. A change
+* that gates the whole return block on rc would satisfy "no output named" by
+* throwing away the payload, and this test would catch it.
+local ++test_count
+
+tempfile saving_clash master_clash
+clear
+input byte occupied
+1
+end
+save "`saving_clash'", replace
+
+clear
+input int id byte group double(keyval lo hi)
+1 1 2 1 2
+2 1 5 4 4
+3 2 20 19 21
+end
+save "`master_clash'", replace
+
+use "`master_clash'", clear
+capture rangematch keyval lo hi using "`using_contract'", ///
+    by(group) keepusing(uid value) saving("`saving_clash'")
+assert _rc == 602
+assert r(N_pairs) == 4
+assert r(N_matched_pairs) == 3
+assert r(N_master) == 3
+assert r(N_using) == 4
+assert "`r(cmd)'" == "rangematch"
+assert "`r(saving)'" == ""
+assert "`r(frame)'" == ""
+
+* Caller data preserved, and the file the command refused to overwrite is
+* untouched -- the counts describe a match that happened, not a write that did.
+assert _N == 3
+use "`saving_clash'", clear
+assert _N == 1
+assert occupied[1] == 1
+
+**# Every abort raised before or during matching posts nothing
+* The other half of the same contract. r() is seeded from a SUCCESSFUL run
+* before each abort, so these assert the failed run CLEARED the surface rather
+* than merely declining to add to it -- asserted on an already-empty r() they
+* would pass even if the guard were removed.
+local ++test_count
+
+use "`master_clash'", clear
+rangematch keyval lo hi using "`using_contract'", by(group) dryrun
+assert r(N_pairs) == 4
+capture rangematch keyval lo hi using "`using_contract'", ///
+    by(group) maxpairs(2)
+assert _rc == 198
+assert missing(r(N_pairs))
+assert "`r(cmd)'" == ""
+
+use "`master_clash'", clear
+rangematch keyval lo hi using "`using_contract'", by(group) dryrun
+assert r(N_pairs) == 4
+capture rangematch keyval lo hi using "`using_contract'", ///
+    by(group) assert(using)
+assert _rc == 9
+assert missing(r(N_pairs))
+assert "`r(cmd)'" == ""
+
+clear
+input int id byte group double(keyval hi) double lo
+1 1 2 2 .
+end
+rangematch keyval lo hi using "`using_contract'", by(group) dryrun
+assert r(N_pairs) > 0 & !missing(r(N_pairs))
+capture rangematch keyval lo hi using "`using_contract'", ///
+    by(group) missing(error)
+assert _rc == 459
+assert missing(r(N_pairs))
+assert "`r(cmd)'" == ""
+
+use "`master_clash'", clear
+rangematch keyval lo hi using "`using_contract'", by(group) dryrun
+assert r(N_pairs) == 4
+capture frame drop return_contract_occupied
+frame create return_contract_occupied
+capture rangematch keyval lo hi using "`using_contract'", ///
+    by(group) frame(return_contract_occupied)
+assert _rc == 110
+assert missing(r(N_pairs))
+assert "`r(cmd)'" == ""
+capture frame drop return_contract_occupied
+
 display as result "ALL RANGEMATCH RETURN CONTRACT TESTS PASSED"
 display "RESULT: test_rangematch_return_contract tests=`test_count' pass=`test_count' fail=0"

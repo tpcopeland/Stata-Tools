@@ -95,7 +95,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_coverage.do` | functional | 64 | Consolidated coverage: window boundaries, label/date/type contracts, `r()` surface, v1.4.2 fixes, `saving()`/`format()`/`export()` content, cross-variable exclusion |
 | `test_countrows.do` | functional | 25 | `countrows`/`countmode` counting semantics |
 | `test_mata_opt.do` | functional | 15 | Mata fast-path semantics. Every block compares codescan against a naive Stata-level oracle (one `ustrregexm()` per cell, no memoization, no early exit) on an immutable reloaded fixture, so the optimizations must reproduce a brute-force scan exactly: row-level, collapse, merge, `countmode` (`total_hits` vs `positive_units`), nested/overlapping conditions, multi-window sensitivity **and** its `r(sensitivity_n)` denominators, describe vs a `reshape`+`levelsof` tabulation, `nodots` invariance, first-slot vs `allslots` detail, prefix, `nocase`, co-occurrence, and `matched_code` first-hit order |
-| `test_codescan_regressions.do` | functional | 38 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary and long describe row names, prefix validation, path guards, and the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37) |
+| `test_codescan_regressions.do` | functional | 39 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary and long describe row names, prefix validation, path guards, the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37), and an extension-less `saving()` refused *before* `export()` writes (T39) |
 | `test_codescan_v208.do` | functional | 5 | v2.0.8: `label()` backslash preserved (Windows paths) + `\` separator still splits, bare `.`/all-dots skipped to match `codescan_describe`, `if` on numeric scan var works with `tostring` (proven-fail on pre-2.0.8) |
 | `test_codescan_v300_critical.do` | functional | 62 | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
 | `test_codescan_v2_no_scoring.do` | functional | 5 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
@@ -103,7 +103,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_v410.do` | functional | 12 | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
 | `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
 | `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
-| `test_codescan_describe_adversarial.do` | functional | 10 | `codescan_describe` hostile inputs |
+| `test_codescan_describe_adversarial.do` | functional | 11 | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
 | `test_codescan_stress_adversarial.do` | functional | 7 | Scale/sparsity/name-collision stress |
 | `test_codescan_install_docs.do` | functional | 12 | `net install` smoke + help/README example reality |
 | `test_documentation_examples.do` | functional | 19 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
@@ -210,7 +210,9 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_release_integrity` |  |  | ✓ |
 
 `quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **34 suites**
-(786 assertions as of 2026-08-09). The authoritative counts are the
+(754 assertions as of 2026-08-10 — the sum of the per-suite table above; the
+figure previously carried here also counted the aggregate `run_all_full`
+sentinel, one per suite, and so ran 34 high). The authoritative counts are the
 `RESULT: ... tests=N` sentinels each suite prints, aggregated into the
 `RESULT: run_all_full ...` line — not this snapshot. Every runnable suite
 belongs to at least one lane except the two exploratory benchmarks above; there

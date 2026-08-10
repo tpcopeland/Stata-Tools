@@ -34,6 +34,8 @@
 *   T37: reloaded regex validator still rejects invalid patterns post-clear (F7)
 *   T38: codescan_describe keeps exact long code values when matrix row names
 *        exceed Stata's 32-character row-name limit (4.1.2, deep review)
+*   T39: an extension-less saving() is authorized against the .dta name `save'
+*        actually writes, and the refusal lands BEFORE export() (4.1.3, review)
 
 clear all
 set seed 12345
@@ -1545,6 +1547,73 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T38: long describe code handling (rc=`=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* T39: extension-less saving() is guarded up front (4.1.3, deep review)
+* ============================================================
+* Stata's `save' appends .dta to a filename that carries no extension, so
+* saving(out) writes out.dta. The overwrite guard used to confirm the typed
+* name — a file literally called "out", which does not exist — so the check
+* passed on an existing out.dta, the whole scan ran, export() committed its
+* file, and only `save' raised r(602) at the very end. A refusal that leaves
+* artifacts behind is not the up-front refusal the option documents.
+*
+* Two assertions carry this: the rc must be the authorization refusal (602),
+* and the export() target must NOT exist afterwards. The second is the one
+* that fails on the old code — the rc was already 602 there, just late.
+
+* The target name must contain NO dot anywhere in its base name, or the
+* normalization under test is a no-op and the whole case is vacuous: a
+* `tempfile' name such as St01234.000001 already reads as carrying an
+* extension, to Stata's `save' and to the guard alike. Hence a fixed, dot-free
+* name at the qa/ root (gitignored, like every other artifact this suite
+* writes) rather than a tempfile.
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    local t39base "_codescan_t39_target"
+    local t39_dta "`t39base'.dta"
+    local t39_csv "_codescan_t39_export.csv"
+    capture erase "`t39_dta'"
+    capture erase "`t39_csv'"
+
+    * Seed the .dta the extension-less form resolves to.
+    quietly codescan dx1, define(dm2 "E11") id(pid) collapse saving("`t39_dta'")
+    confirm file "`t39_dta'"
+
+    * Same target, named without the extension, no replace, alongside an
+    * export() whose file must never be written.
+    _make_v101_data
+    capture codescan dx1, define(dm2 "E11") id(pid) collapse ///
+        export("`t39_csv'") saving("`t39base'")
+    local t39_rc = _rc
+    assert `t39_rc' == 602
+    capture confirm file "`t39_csv'"
+    assert _rc != 0
+
+    * replace still reaches the same normalized name and overwrites it.
+    _make_v101_data
+    quietly codescan dx1, define(dm2 "E11") id(pid) collapse ///
+        saving("`t39base'", replace)
+    confirm file "`t39_dta'"
+
+    * An explicit extension is untouched by the normalization.
+    _make_v101_data
+    capture codescan dx1, define(dm2 "E11") id(pid) collapse saving("`t39_dta'")
+    assert _rc == 602
+
+    capture erase "`t39_dta'"
+    capture erase "`t39_csv'"
+}
+if _rc == 0 {
+    display as result "  PASS T39: extension-less saving() refused before export() runs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T39: extension-less saving() guard timing (rc=`=_rc')"
     local ++fail_count
 }
 

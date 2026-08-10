@@ -1,5 +1,5 @@
 * test_codescan_describe_adversarial.do - Adversarial functional tests for codescan_describe
-* Date: 2026-05-07
+* Date: 2026-08-10
 
 clear all
 version 16.0
@@ -193,7 +193,7 @@ else {
 * varabbrev=on leak into every later suite in the lane.
 set varabbrev `_qa_va0'
 
-**# T6: all-empty no-code path succeeds and does not leave stray variables
+**# T6: all-empty no-code path succeeds and restores varabbrev
 
 local ++test_count
 capture noisily {
@@ -205,22 +205,94 @@ capture noisily {
     tempfile before
     save "`before'", replace
 
+    set varabbrev on
     codescan_describe dx1 dx2
 
     assert r(n_unique) == 0
     assert r(n_entries) == 0
+    assert "`c(varabbrev)'" == "on"
     cf _all using "`before'"
     unab vars : _all
     assert "`vars'" == "id dx1 dx2"
 }
 if _rc == 0 {
-    display as result "  PASS: T6 - no-code path succeeds without data mutation"
+    display as result "  PASS: T6 - no-code path succeeds and restores varabbrev"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T6 - no-code path/data mutation (error `=_rc')"
+    display as error "  FAIL: T6 - no-code path state restoration (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline after recording the verdict.
+set varabbrev `_qa_va0'
+
+**# T6b: all-empty save() writes an exact header-only draft CSV
+
+local ++test_count
+capture noisily {
+    clear
+    input long id str8 dx1 str8 dx2
+    1 ""  "."
+    2 "." ""
+    end
+    tempfile before emptybase
+    local empty_csv "`emptybase'.csv"
+    capture erase "`empty_csv'"
+    save "`before'", replace
+
+    set varabbrev on
+    return clear
+    codescan_describe dx1 dx2, save("`empty_csv'")
+
+    confirm file "`empty_csv'"
+    assert "`c(varabbrev)'" == "on"
+    assert r(n_unique) == 0
+    assert r(n_entries) == 0
+    assert r(n_vars) == 2
+    assert "`r(varlist)'" == "dx1 dx2"
+    matrix _empty_top = r(top_codes)
+    matrix _empty_chapters = r(chapters)
+    assert rowsof(_empty_top) == 1
+    assert colsof(_empty_top) == 3
+    assert _empty_top[1, 1] == 0
+    assert _empty_top[1, 2] == 0
+    assert _empty_top[1, 3] == 0
+    assert rowsof(_empty_chapters) == 1
+    assert colsof(_empty_chapters) == 2
+    assert _empty_chapters[1, 1] == 0
+    assert _empty_chapters[1, 2] == 0
+    matrix drop _empty_top _empty_chapters
+    cf _all using "`before'"
+
+    preserve
+    capture noisily {
+        import delimited using "`empty_csv'", clear varnames(1) stringcols(_all)
+        assert _N == 0
+        unab cols : _all
+        assert "`cols'" == "name pattern exclusion label"
+        confirm string variable name
+        confirm string variable pattern
+        confirm string variable exclusion
+        confirm string variable label
+    }
+    local artifact_rc = _rc
+    restore
+    if `artifact_rc' exit `artifact_rc'
+}
+local t6b_rc = _rc
+capture erase "`empty_csv'"
+if `t6b_rc' == 0 {
+    display as result "  PASS: T6b - no-code save() writes exact header-only draft"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T6b - no-code save()/return/state contract (error `t6b_rc')"
+    local ++fail_count
+}
+
+* Restore the suite baseline after recording the verdict.
+set varabbrev `_qa_va0'
 
 **# T7: varabbrev is restored to off as well as on after successful runs
 
