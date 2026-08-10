@@ -86,6 +86,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_v130_features.do` | Export/report and feature regressions introduced around v1.3.0. |
 | `test_v140_features.do` | Variance-ratio, weight-cutoff, quantile-support, and related regressions. |
 | `test_v141_features.do` | Option usability and documentation regressions. |
+| `test_v164_regressions.do` | Treatment-only dispatch, built-in estimation samples, Crump alpha zero, point support, and source corrections. |
 
 ### Validation
 

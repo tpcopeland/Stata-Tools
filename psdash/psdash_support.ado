@@ -1,4 +1,4 @@
-*! psdash_support Version 1.6.3  2026/08/10
+*! psdash_support Version 1.6.4  2026/08/10
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -308,7 +308,7 @@ program define psdash_support, rclass
             _psdash_crump_alpha `psvar' if `touse'
             local best_alpha = r(alpha)
 
-            if `best_alpha' > 0 {
+            if !missing(`best_alpha') & `best_alpha' >= 0 {
                 local crump_alpha = `best_alpha'
                 local trim_lower = `crump_alpha'
                 local trim_upper = 1 - `crump_alpha'
@@ -477,9 +477,9 @@ program define psdash_support, rclass
         local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
         local ++_pfn
     }
-    if `upper_bound' <= `lower_bound' {
-        display as error "Warning: No common support region (upper <= lower bound)."
-        local _pf `"`_pf' | no common support region (upper <= lower)"'
+    if `upper_bound' < `lower_bound' {
+        display as error "Warning: No common support region (upper < lower bound)."
+        local _pf `"`_pf' | no common support region (upper < lower)"'
         local ++_pfn
     }
     local _pf = strtrim("`_pf'")
@@ -489,8 +489,14 @@ program define psdash_support, rclass
 
     * Verdict (WARNING on ANY finding)
     if `has_trimming' {
-        display as text _n "Support: " as result "Trimmed" ///
-            as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
+        if `n_trimmed' == 0 {
+            display as text _n "Support: " as result "Full sample retained" ///
+                as text " (0.0% excluded)"
+        }
+        else {
+            display as text _n "Support: " as result "Trimmed" ///
+                as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
+        }
     }
     else if `_pfn' > 0 {
         display as text _n "Support: " as error "WARNING" ///

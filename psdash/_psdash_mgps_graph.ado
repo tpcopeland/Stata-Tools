@@ -1,4 +1,4 @@
-*! _psdash_mgps_graph Version 1.6.3  2026/08/10
+*! _psdash_mgps_graph Version 1.6.4  2026/08/10
 *! Component-by-treatment generalized propensity score graph
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

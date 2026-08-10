@@ -412,15 +412,20 @@ else {
     local ++fail_count
 }
 
-**# V16: Crump threshold is between 0 and 0.5
+**# V16: Crump threshold follows the full-sample condition or lies below 0.5
 local ++test_count
 capture noisily {
+    tempvar invvar
+    generate double `invvar' = 1 / (ps * (1 - ps))
+    quietly summarize `invvar'
+    local full_sample = r(max) <= 2 * r(mean)
     psdash support treated ps, crump nograph
-    assert r(crump_alpha) > 0
+    if `full_sample' assert r(crump_alpha) == 0
+    else assert r(crump_alpha) > 0
     assert r(crump_alpha) < 0.5
 }
 if _rc == 0 {
-    display as result "  PASS: V16 Crump alpha in valid range"
+    display as result "  PASS: V16 Crump alpha obeys full-sample condition"
     local ++pass_count
 }
 else {

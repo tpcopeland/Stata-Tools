@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.6.3  2026/08/10
+*! _psdash_detect Version 1.6.4  2026/08/10
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -1403,6 +1403,19 @@ program define _psdash_detect
     * Strategy 3: Auto-detect from logit/probit/mlogit
     * -----------------------------------------------------------------
     if inlist("`e(cmd)'", "logit", "probit", "logistic") {
+        * Built-in estimation contexts obey the same sample contract as
+        * teffects: diagnostics may not silently include observations that the
+        * fitted propensity model excluded.
+        if "`samplevar'" != "" {
+            quietly count if `samplevar'
+            local _psd_n_before = r(N)
+            quietly replace `samplevar' = 0 if `samplevar' & !e(sample)
+            quietly count if `samplevar'
+            local _psd_n_after = r(N)
+            c_local _psd_n_estimation "`_psd_n_after'"
+            c_local _psd_n_excluded = `_psd_n_before' - `_psd_n_after'
+        }
+
         local est_treatment "`e(depvar)'"
 
         * Treatment from estimation
@@ -1491,6 +1504,16 @@ program define _psdash_detect
     * Strategy 3b: Auto-detect from mlogit (multi-group)
     * -----------------------------------------------------------------
     if "`e(cmd)'" == "mlogit" {
+        if "`samplevar'" != "" {
+            quietly count if `samplevar'
+            local _psd_n_before = r(N)
+            quietly replace `samplevar' = 0 if `samplevar' & !e(sample)
+            quietly count if `samplevar'
+            local _psd_n_after = r(N)
+            c_local _psd_n_estimation "`_psd_n_after'"
+            c_local _psd_n_excluded = `_psd_n_before' - `_psd_n_after'
+        }
+
         local est_treatment "`e(depvar)'"
         local _K = e(k_out)
 

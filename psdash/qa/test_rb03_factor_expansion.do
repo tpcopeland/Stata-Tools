@@ -123,7 +123,7 @@ capture noisily {
     _f1_data
     quietly logit trt i.cat
     quietly predict double psl, pr
-    psdash balance psl, nowvar
+    psdash balance psl
     assert strpos("`r(varlist)'", "2.cat") > 0
     assert strpos("`r(varlist)'", "3.cat") > 0
     assert r(max_smd_raw) > 1

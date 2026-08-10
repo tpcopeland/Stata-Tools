@@ -154,27 +154,31 @@ capture noisily {
 
     local best_alpha = 0
     local best_diff = .
-    forvalues a = 1/49 {
-        local alpha = `a' / 100
-        quietly summarize invvar if inrange(ps, `alpha', 1 - `alpha')
-        if r(N) {
-            local diff = abs(1/(`alpha'*(1-`alpha')) - 2*r(mean))
-            if missing(`best_diff') | `diff' < `best_diff' {
-                local best_diff = `diff'
-                local best_alpha = `alpha'
+    quietly summarize invvar
+    local full_sample = r(max) <= 2 * r(mean)
+    if !`full_sample' {
+        forvalues a = 1/49 {
+            local alpha = `a' / 100
+            quietly summarize invvar if inrange(ps, `alpha', 1 - `alpha')
+            if r(N) {
+                local diff = abs(1/(`alpha'*(1-`alpha')) - 2*r(mean))
+                if missing(`best_diff') | `diff' < `best_diff' {
+                    local best_diff = `diff'
+                    local best_alpha = `alpha'
+                }
             }
         }
-    }
-    local lo = max(1, round(100 * (`best_alpha' - .01)))
-    local hi = min(49, round(100 * (`best_alpha' + .01)))
-    forvalues a = `=`lo'*10'/`=`hi'*10' {
-        local alpha = `a' / 1000
-        quietly summarize invvar if inrange(ps, `alpha', 1 - `alpha')
-        if r(N) {
-            local diff = abs(1/(`alpha'*(1-`alpha')) - 2*r(mean))
-            if `diff' < `best_diff' {
-                local best_diff = `diff'
-                local best_alpha = `alpha'
+        local lo = max(1, round(100 * (`best_alpha' - .01)))
+        local hi = min(49, round(100 * (`best_alpha' + .01)))
+        forvalues a = `=`lo'*10'/`=`hi'*10' {
+            local alpha = `a' / 1000
+            quietly summarize invvar if inrange(ps, `alpha', 1 - `alpha')
+            if r(N) {
+                local diff = abs(1/(`alpha'*(1-`alpha')) - 2*r(mean))
+                if `diff' < `best_diff' {
+                    local best_diff = `diff'
+                    local best_alpha = `alpha'
+                }
             }
         }
     }

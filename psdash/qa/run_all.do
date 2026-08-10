@@ -39,7 +39,8 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_rb08_vr_count.do test_rb09_weight_thresholds.do ///
     test_rb10_longitudinal.do test_rb11_trim_guard.do ///
     test_rb12_kimi_audit.do ///
-    test_remaining_audit_regressions.do test_producer_contracts.do ///
+    test_remaining_audit_regressions.do test_v164_regressions.do ///
+    test_producer_contracts.do ///
     test_real_producer_integrations.do ///
     test_excel_fidelity.do test_return_surface_remaining.do
 

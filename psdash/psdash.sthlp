@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.3  10aug2026}{...}
+{* *! version 1.6.4  10aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -49,7 +49,8 @@ After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are 
 from {cmd:e()}. The inverse-probability estimators {cmd:teffects ipw}, {cmd:ipwra}, and {cmd:aipw} are
 supported; {cmd:teffects psmatch} is a matching estimator that exposes no
 propensity-score prediction, so it is rejected with an explicit error rather
-than diagnosed as if it were IPW. Diagnostics are computed on the estimation
+than diagnosed as if it were IPW. For {cmd:teffects}, {cmd:logit}, {cmd:probit}, and
+{cmd:mlogit}, diagnostics are computed on the estimation
 sample {cmd:e(sample)}: observations the fitted estimator excluded (by {cmd:if}/{cmd:in} or
 missing covariates) are dropped from every panel, and
 {cmd:r(n_estimation)}/{cmd:r(n_excluded)} report the counts. After cross-sectional {cmd:tmle},
@@ -69,6 +70,12 @@ are both valid; the one-argument form treats the argument as the propensity
 score variable and uses the treatment from {cmd:e(depvar)}. After {cmd:mlogit} with a
 multi-valued treatment, supply {opt psv:ars()} with K predicted probabilities (one
 per treatment level, ordered by level value).
+
+{pstd}
+For {cmd:balance} and {cmd:weights}, one positional argument together with
+{opt wvar()} is always treated as an explicit treatment-only call; {opt nowvar}
+does the same for {cmd:balance}. To use both a treatment and propensity score in
+these forms, supply both positional variables.
 
 {pstd}
 {bf:Producer-contract verification.} Before trusting a detected

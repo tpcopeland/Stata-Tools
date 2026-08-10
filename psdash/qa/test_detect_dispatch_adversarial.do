@@ -111,7 +111,7 @@ capture noisily {
     assert strpos("`r(fn)'", "`_qa_plus'") > 0
     findfile _psdash_detect.ado
     assert strpos("`r(fn)'", "`_qa_plus'") > 0
-    psdash balance ps, nowvar
+    psdash balance ps
     assert "`r(treatment)'" == "treat"
     assert "`r(varlist)'" == "x1 x2 x3"
     assert rowsof(r(balance)) == 3
@@ -166,7 +166,7 @@ capture noisily {
     psdash overlap ps, nograph
     assert "`r(treatment)'" == "treat"
     assert "`r(psvar)'" == "ps"
-    psdash balance ps, nowvar
+    psdash balance ps
     assert "`r(varlist)'" == "x1 x2 x3"
 }
 _dd_result "T4" `=_rc'
@@ -177,7 +177,7 @@ capture noisily {
     _dd_binary_data, n(400) seed(2002)
     quietly probit treat x1 x2 x3
     predict double ps_pb, pr
-    psdash balance ps_pb, nowvar
+    psdash balance ps_pb
     assert "`r(treatment)'" == "treat"
     assert "`r(varlist)'" == "x1 x2 x3"
 }
@@ -313,7 +313,7 @@ capture noisily {
     matrix `b_before' = e(b)
 
     psdash overlap ps, nograph
-    psdash balance ps, nowvar
+    psdash balance ps
     psdash weights ps
 
     assert "`e(cmd)'" == "`cmd_before'"
@@ -398,7 +398,7 @@ capture noisily {
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "After `logit`/`probit`") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "treatment and covariates are read from the estimation context") > 0
+        "Treatment, covariates, and `e(sample)` are read from the estimation context") > 0
     * RB-13: assert the two prose halves separately so a source line-break inside
     * the sentence does not fail a brittle exact one-line substring match.
     assert strpos(fileread("`pkg_dir'/psdash.sthlp"), ///

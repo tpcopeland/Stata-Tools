@@ -343,9 +343,10 @@ _test_result `=_rc'
 _test_start 31 "support with crump"
 capture {
     psdash support treated ps, crump nograph
-    assert r(crump_alpha) > 0
-    assert r(trim_lower) > 0
-    assert r(trim_upper) < 1
+    assert r(crump_alpha) >= 0
+    assert r(crump_alpha) < 0.5
+    assert r(trim_lower) == r(crump_alpha)
+    assert r(trim_upper) == 1 - r(crump_alpha)
     assert r(n_trimmed) >= 0
 }
 _test_result `=_rc'
@@ -721,7 +722,10 @@ else {
 * Use sysuse auto for factor variable tests
 preserve
 sysuse auto, clear
-gen byte treat = foreign
+* Replicate each covariate pattern and alternate treatment so every rep78 level
+* remains represented in e(sample); foreign is separated in several levels.
+expand 4
+gen byte treat = mod(_n, 2)
 
 * RB-03: factor/interaction terms are EXPANDED into design columns (indicators
 * for non-base levels, interaction products), not stripped to base varnames. The
@@ -731,7 +735,7 @@ _test_start 73 "balance auto-detect expands i.varname to level indicators"
 capture {
     logit treat i.rep78 weight length
     predict double ps_fv, pr
-    psdash balance ps_fv, nowvar
+    psdash balance ps_fv
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     * Expanded: one indicator per non-base rep78 level (2.rep78 .. 5.rep78),
@@ -751,7 +755,7 @@ _test_start 74 "balance auto-detect assesses c.var##c.var interaction column"
 capture {
     logit treat c.weight##c.length
     predict double ps_fv2, pr
-    psdash balance ps_fv2, nowvar
+    psdash balance ps_fv2
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     * The interaction product IS assessed (F2 fix). Old code discarded it and
@@ -769,7 +773,7 @@ _test_start 75 "balance auto-detect expands mixed factor + interaction + plain"
 capture {
     logit treat i.rep78 c.weight##c.length mpg
     predict double ps_fv3, pr
-    psdash balance ps_fv3, nowvar
+    psdash balance ps_fv3
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     assert strpos("`covs_used'", "2.rep78") > 0
@@ -786,7 +790,7 @@ _test_start 76 "balance auto-detect honours ib#. base-level specifier"
 capture {
     logit treat ib3.rep78
     predict double ps_fv4, pr
-    psdash balance ps_fv4, nowvar
+    psdash balance ps_fv4
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     * Base moved to level 3: indicators for 1,2,4,5; the level-3 indicator is
@@ -1086,7 +1090,7 @@ capture {
     quietly count if !missing(ps) & (ps < 0.01 | ps > 0.99) & ps != 0 & ps != 1
     local n_near = r(N)
 
-    psdash balance ps, covariates(mpg weight length) nowvar
+    psdash balance ps, covariates(mpg weight length)
     assert r(N) == `n_pssample'
     assert r(n_ps_near_boundary) == `n_near'
 }

@@ -700,15 +700,11 @@ capture noisily {
 _cv_result "K28: n_ps_near_boundary=2 for near-boundary obs (not exact 0/1)" `=_rc'
 
 * =========================================================================
-* DATASET L: Crump with known narrow PS range → fallback or convergence check
+* DATASET L: Crump with known narrow PS range → full-sample solution
 *
 *   When all PS near 0.5, inv_var = 1/(ps*(1-ps)) ≈ 4
-*   LHS at alpha=0.01: 1/(0.01*0.99) ≈ 101
-*   RHS at alpha=0.01: 2 * E[inv_var] ≈ 2*4 = 8
-*   Since LHS >> RHS, alpha needs to be larger.
-*   At alpha=0.49: LHS = 1/(0.49*0.51) ≈ 4.00, RHS ≈ 8 → still LHS < RHS
-*   This means for PS all near 0.5, the Crump criterion isn't satisfied
-*   for any of the grid points → fallback to alpha=0.1.
+*   max(inv_var) <= 2*mean(inv_var), so Corollary 1 sets alpha=0 and
+*   retains the full sample rather than searching the positive-alpha grid.
 * =========================================================================
 quietly {
     clear
@@ -721,17 +717,15 @@ quietly {
 
 display _n "--- CV Dataset L: Crump with narrow PS range ---"
 
-* CV29: Crump with PS near 0.5 returns a valid alpha (converged or fallback)
+* CV29: Crump with PS near 0.5 returns the full-sample alpha-zero solution
 capture noisily {
     psdash support treated ps, crump nograph
-    assert r(crump_alpha) > 0
-    assert r(crump_alpha) < 0.5
-    assert r(trim_lower) > 0
-    assert r(trim_upper) < 1
-    assert r(trim_lower) == r(crump_alpha)
-    assert abs(r(trim_upper) - (1 - r(crump_alpha))) < 1e-10
+    assert r(crump_alpha) == 0
+    assert r(trim_lower) == 0
+    assert r(trim_upper) == 1
+    assert r(n_trimmed) == 0
 }
-_cv_result "L29: Crump with narrow PS returns valid alpha" `=_rc'
+_cv_result "L29: Crump with narrow PS returns alpha zero" `=_rc'
 
 * CV30: Threshold trimming n_trimmed verified: PS [0.48,0.52], threshold=0.45 → 0 trimmed
 capture noisily {

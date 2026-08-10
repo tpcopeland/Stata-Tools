@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.3** | 2026-08-10
+**Version 1.6.4** | 2026-08-10
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -74,8 +74,8 @@ The command family accepts the general form psdash <subcommand> [treatment] [psv
 | After msm_weight | Period-specific treatment propensity, treatment weight, identifiers, and periods | Longitudinal psdash combined diagnostics |
 | After tte_weight, save_ps | Saved switch/treatment propensity, IP weight, identifiers, and periods | Longitudinal psdash combined diagnostics |
 | After iivw_weight | Treatment propensity, treatment covariates, treatment weight, and iivw component state | Treatment diagnostics and weights, iivwcomponent() |
-| After `logit`/`probit` | The treatment and covariates are read from the estimation context; the predicted PS is supplied by the user | `predict ..., pr`, then a panel command |
-| After `mlogit` (multi-group) | The treatment and covariates are read from the estimation context; generalized PS variables are supplied through `psvars()` | Multi-group diagnostics |
+| After `logit`/`probit` | Treatment, covariates, and `e(sample)` are read from the estimation context; the predicted PS is supplied by the user | `predict ..., pr`, then a panel command |
+| After `mlogit` (multi-group) | Treatment, covariates, and `e(sample)` are read from the estimation context; generalized PS variables are supplied through `psvars()` | Multi-group diagnostics |
 | Manual input | Explicit treatment and PS, with covariates() and wvar() when needed | Fully controlled diagnostics |
 
 teffects psmatch is rejected because it does not expose the propensity-score prediction required by these diagnostics. Longitudinal integrations run period-by-period rather than pooling observations across periods. Individual pooled panels require explicit variables for longitudinal data.
@@ -104,7 +104,7 @@ psdash weights foreign ps
 psdash support foreign ps, crump generate(in_support) nograph
 ```
 
-After logit or probit, the estimation context can supply treatment and covariates, so a PS-only call such as psdash overlap ps is also supported.
+After logit or probit, the estimation context supplies treatment, covariates, and the estimation sample, so a PS-only call such as psdash overlap ps is also supported. With balance or weights, one positional argument plus wvar() (or nowvar for balance) is always explicit treatment-only mode; pass both treatment and PS when both are needed.
 
 ### Automatic detection after teffects
 
@@ -383,8 +383,8 @@ matrix list r(balance)
 ## References
 
 - Crump, R. K., V. J. Hotz, G. W. Imbens, and O. A. Mitnik. 2009. “Dealing with limited overlap in estimation of average treatment effects.” Biometrika 96(1): 187–199.
-- Li, F., and L. E. Li. 2019. “Propensity score weighting for causal inference with multiple treatments.” Annals of Applied Statistics 13(4): 2389–2415.
-- McCaffrey, D. F., G. Ridgeway, and A. R. Morral. 2004. “Propensity score estimation with boosted regression for evaluating causal effects in observational studies.” Psychological Methods 9(4): 403–425.
+- Li, F., and F. Li. 2019. “Propensity score weighting for causal inference with multiple treatments.” Annals of Applied Statistics 13(4): 2389–2415.
+- McCaffrey, D. F., B. A. Griffin, D. Almirall, M. E. Slaughter, R. Ramchand, and L. F. Burgette. 2013. “A tutorial on propensity score estimation for multiple treatments using generalized boosted models.” Statistics in Medicine 32(19): 3388–3414.
 
 ## QA
 
@@ -392,6 +392,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.4** (10 Aug 2026): Detection and support correction. Explicit treatment-only balance/weight calls no longer consume stale estimation state; built-in propensity-model contexts honor `e(sample)`; Crump trimming represents the full-sample alpha-zero solution; equal point support is accepted; and multi-treatment references are corrected.
 - **v1.6.3** (10 Aug 2026): Bug fix. Multi-group overlap and support graph exports now pass `saving()` paths without adding a second layer of quotes, so valid absolute and nested paths export successfully.
 - **v1.6.2** (09 Aug 2026): Producer and verdict-contract correction. Automatic iivw detection now accepts verified contract versions 2 and 3, restoring compatibility with current iivw releases. The combined dashboard now applies overlapmax(), essmin(), and imbalmax() in place of the corresponding panel defaults while retaining independent findings, and multi-group verdicts no longer use the descriptive observed-arm overlap scalarization.
 - **v1.6.1** (29 Jul 2026): Method and efficiency correction. Binary balance now uses (b-a)^2 p(1-p) rather than Stata's sample-variance inflation, and adjusted continuous variance ratios use the scale-invariant unbiased weighted variance instead of normalized aweight variance. Exact PS boundaries now enter the machine-readable findings contract, and balance rejects undefined auto-generated weights rather than silently dropping those rows. Multi-treatment overlap/support now compare every GPS component across every observed treatment group, return the K-by-K r(gps_means) table, and reserve the legacy observed-arm scalarization for descriptive output only. Balance reuses sorted empirical CDFs and reference-group summaries; Crump trimming uses one sorted cumulative-sum pass rather than repeated full-data scans.

@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.6.3  2026/08/10
+*! psdash_balance Version 1.6.4  2026/08/10
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -118,8 +118,7 @@ program define psdash_balance, rclass
     * the treatment-only case ourselves before falling through to detect.
     local _manual_mg = 0
     local _n_pos_args : word count `anything'
-    local _has_est_ctx = inlist("`e(cmd)'", "logit", "probit", "logistic", "mlogit", "teffects")
-    if `_n_pos_args' == 1 & ("`wvar'" != "" | "`nowvar'" != "") & !`_has_est_ctx' {
+    if `_n_pos_args' == 1 & ("`wvar'" != "" | "`nowvar'" != "") {
         local ref_manual_opt ""
         if "`reference'" != "" local ref_manual_opt "reference(`reference')"
         local estimand_manual_opt ""

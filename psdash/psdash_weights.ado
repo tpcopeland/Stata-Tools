@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.6.3  2026/08/10
+*! psdash_weights Version 1.6.4  2026/08/10
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -133,8 +133,7 @@ program define psdash_weights, rclass
     * treatment-only + wvar case ourselves before falling through to detect.
     local _manual_mg = 0
     local _n_pos_args : word count `anything'
-    local _has_est_ctx = inlist("`e(cmd)'", "logit", "probit", "logistic", "mlogit", "teffects")
-    if `_n_pos_args' == 1 & "`wvar'" != "" & !`_has_est_ctx' {
+    if `_n_pos_args' == 1 & "`wvar'" != "" {
         local ref_manual_opt ""
         if "`reference'" != "" local ref_manual_opt "reference(`reference')"
         local estimand_manual_opt ""

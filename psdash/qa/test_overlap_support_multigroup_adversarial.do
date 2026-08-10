@@ -375,7 +375,7 @@ local ++test_count
 capture noisily {
     _os_binary_known
     psdash support treat ps, crump nograph
-    assert r(crump_alpha) > 0
+    assert r(crump_alpha) >= 0
     assert r(crump_alpha) < .5
     assert r(trim_lower) == r(crump_alpha)
     assert r(trim_upper) == 1 - r(crump_alpha)
