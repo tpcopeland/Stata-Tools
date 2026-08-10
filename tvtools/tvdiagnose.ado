@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.14.1  2026/08/07
+*! tvdiagnose Version 1.15.0  2026/08/10
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -39,10 +39,8 @@ See help tvdiagnose for complete documentation
 program define tvdiagnose, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     local _preserved = 0
     set varabbrev off
-    set more off
 
     capture noisily {
 
@@ -173,8 +171,6 @@ program define tvdiagnose, rclass
     local graph_truncated = 0
     local graph_name ""
     tempname exposure_summary
-
-    display as text ""
     display as text "{bf:Time-Varying Data Diagnostics}"
     _tvtools_rule, width(78)
 
@@ -201,7 +197,6 @@ program define tvdiagnose, rclass
     **************************************************************************
     if "`coverage'" != "" {
         local coverage_run = 1
-        display as text ""
         display as text "{bf:Coverage Diagnostics}"
         _tvtools_rule, width(78)
 
@@ -317,7 +312,6 @@ program define tvdiagnose, rclass
     **************************************************************************
     if "`gaps'" != "" {
         local gaps_run = 1
-        display as text ""
         display as text "{bf:Gap Analysis}"
         _tvtools_rule, width(78)
 
@@ -371,8 +365,6 @@ program define tvdiagnose, rclass
             quietly egen byte `_gap_id_tag' = tag(`id')
             quietly count if `_gap_id_tag'
             local n_gap_ids = r(N)
-
-            display as text ""
             display as text "Gap Statistics"
             _tvtools_row "total gaps", num(`n_gaps')
             _tvtools_row "mean gap", num(`mean_gap') fmt(%14.1f) note("days")
@@ -389,7 +381,6 @@ program define tvdiagnose, rclass
             quietly count if `_large_id_tag' & `_any_large'
             local n_large_gap_ids = r(N)
             if `n_large_gaps' > 0 {
-                display as text ""
                 display as text "  Warning: " as result `n_large_gaps' ///
                     as text " gaps exceed the threshold of `threshold' days."
             }
@@ -412,7 +403,6 @@ program define tvdiagnose, rclass
     **************************************************************************
     if "`overlaps'" != "" {
         local overlaps_run = 1
-        display as text ""
         display as text "{bf:Overlap Analysis}"
         _tvtools_rule, width(78)
 
@@ -443,7 +433,6 @@ program define tvdiagnose, rclass
             _tvtools_row "number of IDs affected", num(`n_ids_affected')
 
             if "`verbose'" != "" {
-                display as text ""
                 display as text "Showing first 50 overlapping periods:"
                 list `id' `start' `stop' in 1/`=min(_N,50)', noobs sepby(`id')
             }
@@ -466,7 +455,6 @@ program define tvdiagnose, rclass
     **************************************************************************
     if "`summarize'" != "" {
         local summarize_run = 1
-        display as text ""
         display as text "{bf:Exposure Distribution}"
         _tvtools_rule, width(78)
 
@@ -547,17 +535,12 @@ program define tvdiagnose, rclass
         label variable person_days  "person-days"
         label variable percent      "% of total"
         label variable n_periods    "periods"
-
-        display as text ""
         display as text "Person-time by exposure"
         list exposure_level raw_days person_days percent n_periods, ///
             noobs separator(0)
-
-        display as text ""
         _tvtools_row "raw interval-time", num(`raw_interval_person_time') note("days")
         _tvtools_row "union person-time", num(`total_person_time') note("days")
         if `n_crossexposure_overlap_days' > 0 {
-            display as text ""
             display as text "Warning: exposure levels overlap in time for the same person."
             display as text "  " as result %12.0fc `n_crossexposure_overlap_days' ///
                 as text " person-day(s) are counted under more than one level, so the"
@@ -702,7 +685,6 @@ program define tvdiagnose, rclass
     **************************************************************************
     * FINAL SUMMARY
     **************************************************************************
-    display as text ""
     display as text "{bf:Diagnostic Complete}"
     _tvtools_rule, width(78)
 
@@ -756,7 +738,6 @@ program define tvdiagnose, rclass
     }
 
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
 
     if `rc' {
         exit `rc'

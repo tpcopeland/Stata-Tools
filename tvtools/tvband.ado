@@ -1,4 +1,4 @@
-*! tvband Version 1.14.1  2026/08/07
+*! tvband Version 1.15.0  2026/08/10
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -15,9 +15,7 @@
 program define tvband, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     set varabbrev off
-    set more off
     local restore_needed = 0
 
     capture noisily {
@@ -155,7 +153,6 @@ program define tvband, rclass
     }
 
     if "`noisily'" != "" {
-        display as text ""
         display as text "{bf:tvband result}"
         _tvtools_rule
         _tvtools_row "axis type", value(`"`type'"')
@@ -191,6 +188,5 @@ program define tvband, rclass
 
     if `restore_needed' capture restore
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
     if `rc' exit `rc'
 end

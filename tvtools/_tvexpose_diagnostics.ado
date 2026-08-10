@@ -1,4 +1,4 @@
-*! _tvexpose_diagnostics Version 1.14.1  2026/08/07
+*! _tvexpose_diagnostics Version 1.15.0  2026/08/10
 *! Report-only tvexpose diagnostics: check, gaps, overlaps, summarize, validate
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: none (display and optional file output only)
@@ -49,7 +49,6 @@ program define _tvexpose_diagnostics
     
     **# Coverage diagnostics (check option)
     if "`check'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Coverage Diagnostics}"
         noisily _tvtools_rule, width(78)
 
@@ -104,7 +103,6 @@ program define _tvexpose_diagnostics
     
     **# Gap analysis (gaps option)
     if "`gaps'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Gaps in Coverage}"
         noisily _tvtools_rule, width(78)
 
@@ -142,7 +140,6 @@ program define _tvexpose_diagnostics
             local _gap_mean = r(mean)
             local _gap_p50  = r(p50)
             local _gap_max  = r(max)
-            noisily display as text ""
             noisily display as text "Gap Statistics"
             noisily _tvtools_row "total gaps", num(`_gap_n')
             noisily _tvtools_row "mean gap", num(`_gap_mean') fmt(%14.1f) note("days")
@@ -163,7 +160,6 @@ program define _tvexpose_diagnostics
 
     **# Overlap analysis (overlaps option)
     if "`overlaps'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Overlapping Periods}"
         noisily _tvtools_rule, width(78)
 
@@ -188,9 +184,7 @@ program define _tvexpose_diagnostics
             noisily _tvtools_row "number of IDs affected", num(`n_ids')
 
             if "`verbose'" != "" {
-                noisily display as text ""
                 noisily display as text "Showing first 100 overlapping periods:"
-                noisily display as text ""
 
                 * Show first 100 overlaps with better formatting
                 local show_n = min(`total_overlaps', 100)
@@ -218,7 +212,6 @@ program define _tvexpose_diagnostics
 
                 if `total_overlaps' > 100 {
                     local more = `total_overlaps' - 100
-                    noisily display as text ""
                     noisily display as text "... and `more' more overlapping periods"
                 }
             }
@@ -237,7 +230,6 @@ program define _tvexpose_diagnostics
     
     **# Exposure distribution summary (summarize option)
     if "`summarize'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Exposure Distribution}"
         noisily _tvtools_rule, width(78)
 
@@ -269,7 +261,6 @@ program define _tvexpose_diagnostics
                     local _cx_mean = r(mean)
                     local _cx_p50  = r(p50)
                     local _cx_max  = r(max)
-                    noisily display as text ""
                     noisily display as text "  `bytype_var'"
                     noisily _tvtools_row "min", num(`_cx_min') fmt(%14.3f) indent(4)
                     noisily _tvtools_row "mean", num(`_cx_mean') fmt(%14.3f) indent(4)
@@ -324,7 +315,6 @@ program define _tvexpose_diagnostics
             format cat_pct  %8.1f
             label variable cat_time "person-days"
             label variable cat_pct  "% of total"
-            noisily display as text ""
             noisily display as text "Person-time by exposure"
             noisily list `collapse_by_vars' cat_time cat_pct, noobs separator(0)
 

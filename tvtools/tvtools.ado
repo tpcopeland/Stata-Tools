@@ -1,4 +1,4 @@
-*! tvtools Version 1.14.1  2026/08/07
+*! tvtools Version 1.15.0  2026/08/10
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -24,9 +24,7 @@ See help tvtools for complete documentation
 program define tvtools, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     set varabbrev off
-    set more off
 
     capture noisily {
 
@@ -160,11 +158,9 @@ program define tvtools, rclass
     local col_detail  = `w' + 6
 
     // Display header
-    display as text ""
     display as result "tvtools" as text " - Time-Varying Exposure Analysis Suite"
     display as text "Version " as result "`version'"
     _tvtools_rule
-    display as text ""
 
     // Display based on options
     if "`detail'" != "" {
@@ -182,14 +178,12 @@ program define tvtools, rclass
                         local ++k
                     }
                 }
-                display as text ""
             }
         }
     }
     else if "`list'" != "" {
         // Simple list view
         display as text "Available commands (`category'):"
-        display as text ""
         foreach cmd of local selected_cmds {
             display as result "  `cmd'"
         }
@@ -202,7 +196,6 @@ program define tvtools, rclass
             foreach c of local cmd_`g' {
                 display as result "  `c'" _col(`col_compact') as text "- `d_`c''"
             }
-            display as text ""
         }
 
         _tvtools_rule
@@ -225,7 +218,6 @@ program define tvtools, rclass
     local rc = _rc
 
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
 
     if `rc' {
         exit `rc'

@@ -1,4 +1,4 @@
-*! tvspec Version 1.14.1  2026/08/07
+*! tvspec Version 1.15.0  2026/08/10
 *! Build a tvbuild specification frame one source at a time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -398,8 +398,6 @@ program define tvspec_list, rclass
             "frame `specframe' is not a tvbuild specification frame"
         exit 198
     }
-
-    noisily display as text ""
     noisily display as text "{bf:tvbuild specification: `specframe'}"
     noisily _tvtools_rule
     if `_nrows' == 0 {

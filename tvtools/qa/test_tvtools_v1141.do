@@ -371,7 +371,7 @@ if `first_rule' > 0 {
     local second_rule = strpos(`"`rest'"', "`rule68'")
 }
 local ok = `catalog_rc' == 0 & ///
-    strpos(`"`catalog_content'"', "Version 1.14.1") > 0 & `second_rule' > 0
+    strpos(`"`catalog_content'"', "Version 1.15.0") > 0 & `second_rule' > 0
 _k3_record `ok' M2_catalog_frame "rc=`catalog_rc'"
 
 local unicode_log "$TVTOOLS_QA_RUN_DIR/k3_unicode.log"

@@ -454,6 +454,59 @@ else {
 
 **# Migrated: fweight SMD oracle
 
+**# KE-1: continuous SMD uses the root-mean variance denominator
+* Unequal group sizes and variances distinguish the documented Yang-Dalton
+* denominator from the degrees-of-freedom-weighted pooled SD.
+local ++n_total
+capture noisily {
+    clear
+    input byte(g fw) double x
+    0 1  0
+    0 1 10
+    1 1  0
+    1 1  0
+    1 1  0
+    1 1 40
+    end
+
+    quietly summarize x if g == 0
+    local m0 = r(mean)
+    local s0 = r(sd)
+    quietly summarize x if g == 1
+    local m1 = r(mean)
+    local s1 = r(sd)
+    local oracle = abs((`m0' - `m1') / sqrt((`s0'^2 + `s1'^2) / 2))
+
+    capture frame drop _ke_smd_unweighted
+    table1_tc, by(g) vars(x contn) smd nopvalue ///
+        frame(_ke_smd_unweighted, replace)
+    matrix _ke_smd_u = r(table)
+    local smd_u = el(_ke_smd_u, rownumb(_ke_smd_u, "x"), ///
+        colnumb(_ke_smd_u, "smd"))
+    assert abs(`smd_u' - `oracle') < 1e-10
+
+    capture frame drop _ke_smd_fweight
+    table1_tc [fw=fw], by(g) vars(x contn) smd nopvalue ///
+        frame(_ke_smd_fweight, replace)
+    matrix _ke_smd_fw = r(table)
+    local smd_fw = el(_ke_smd_fw, rownumb(_ke_smd_fw, "x"), ///
+        colnumb(_ke_smd_fw, "smd"))
+    assert abs(`smd_fw' - `oracle') < 1e-10
+
+    capture frame drop _ke_smd_unweighted
+    capture frame drop _ke_smd_fweight
+}
+if _rc == 0 {
+    display as result "  PASS: KE-1 — continuous SMD denominator matches Yang-Dalton"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: KE-1 — continuous SMD denominator (rc=`=_rc')"
+    local ++fail_count
+    capture frame drop _ke_smd_unweighted
+    capture frame drop _ke_smd_fweight
+}
+
 **# KE0: table1_tc fweight SMDs match expanded-data oracle
 * =========================================================================
 

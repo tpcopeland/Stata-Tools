@@ -1,4 +1,4 @@
-*! tvevent Version 1.14.1  2026/08/07
+*! tvevent Version 1.15.0  2026/08/10
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -736,8 +736,6 @@ program define tvevent, rclass
         local v_outside = 0
         local v_multiple = 0
         local v_same_date = 0
-
-        noisily display as text ""
         noisily display as text "{bf:Validation Diagnostics}"
         noisily _tvtools_rule
 
@@ -1647,8 +1645,6 @@ program define tvevent, rclass
         return scalar N = `n_total'
         return scalar N_events = `n_failures'
     }
-    
-    display as text ""
     display as text "{bf:tvevent result}"
     _tvtools_rule
     _tvtools_row "observations", num(`n_total')
@@ -1684,7 +1680,6 @@ program define tvevent, rclass
         matrix `_flowmat'[2,3] = `_flow_rin' - `n_total'
         matrix rownames `_flowmat' = persons records
         matrix colnames `_flowmat' = in out dropped
-        display as text ""
         display as text "{bf:tvevent flow}"
         _tvtools_rule
         display as text "  " %-30s "" %12s "in" %12s "out" %12s "dropped"

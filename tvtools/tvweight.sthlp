@@ -41,6 +41,7 @@
 {synopt:{opt gen:erate(name)}}name for weight variable; default is {cmd:iptw}{p_end}
 {synopt:{opt wt:ype(type)}}weight type: {cmd:iptw} (default), {cmd:ato}, or {cmd:matching}{p_end}
 {synopt:{opt stab:ilized}}calculate stabilized weights ({cmd:iptw} only){p_end}
+{synopt:{opt numc:ovariates(varlist)}}covariates retained in the treatment numerator{p_end}
 {synopt:{opt trunc:ate(# #)}}truncate at lower and upper percentiles{p_end}
 {synopt:{opt cum:ulative}}within-person cumulative product weight (MSM){p_end}
 {synopt:{opt cumg:enerate(name)}}name for the cumulative weight variable{p_end}
@@ -48,6 +49,7 @@
 {syntab:Censoring weights (IPCW)}
 {synopt:{opt ipcw(varname)}}interval censoring indicator{p_end}
 {synopt:{opt censorc:ovariates(varlist)}}censoring-model covariates{p_end}
+{synopt:{opt censnumc:ovariates(varlist)}}covariates retained in the censoring numerator{p_end}
 {synopt:{opt censg:enerate(name)}}cumulative censoring weight name{p_end}
 {synopt:{opt combg:enerate(name)}}name for the combined weight (default: {it:weight}{cmd:_ipcw}){p_end}
 
@@ -90,8 +92,7 @@ The command:
 2. Calculates IPTW weights: 1/P(A=a|X) where A is treatment and X are covariates
 
 {phang2}
-3. Optionally stabilizes weights by multiplying by marginal treatment
-probability
+3. Optionally stabilizes weights with a reduced treatment model
 
 {phang2}
 4. Optionally truncates extreme weights at specified percentiles
@@ -193,31 +194,42 @@ treatment:
 SW = P(A=a | numerator model) / P(A=a|X)
 
 {pmore}
-Without {opt id()} and {opt time()} the numerator is the marginal probability
-P(A=a) and the formula reduces to SW = P(A=a)/P(A=a|X).
+Without {opt id()} and {opt time()}, the default numerator is the marginal
+probability P(A=a), so the formula reduces to SW = P(A=a)/P(A=a|X). If
+{opt numcovariates()} is specified, those terms instead define a reduced
+numerator model.
 
 {pmore}
-In panel mode ({opt id()} and {opt time()} both specified) the denominator
-conditions on time fixed effects {cmd:i.}{it:time}, so the numerator is fitted
-as a model of the exposure on {cmd:i.}{it:time} alone. The numerator carries
-the same follow-up-time term as the denominator and omits only the
-time-varying confounders the weighting exists to adjust for (Cole & Hernan
-2008). A pooled marginal constant would leave the weight unstabilized with
-respect to time: still consistent, but with a badly inflated variance, and
-the mean-near-1 diagnostic would no longer discriminate. {cmd:r(numerator_model)}
-reports which numerator was used. The marginal-numerator behaviour of
-{cmd:tvtools} 1.8.0 and earlier is not recoverable through an option; it was
-a defect, not a supported alternative.
+In panel mode ({opt id()} and {opt time()} both specified) the denominator and
+numerator both include time fixed effects {cmd:i.}{it:time}. By default the
+numerator otherwise contains no covariates, preserving the time-only behavior
+of earlier releases. Use {opt numcovariates()} to retain treatment-history and
+baseline terms in the numerator. In the usual longitudinal MSM construction,
+this includes past treatment and any baseline variables selected for
+stabilization while omitting the time-varying confounders the weighting exists
+to adjust for (Robins, Hernan & Brumback 2000; Cole & Hernan 2008). {cmd:r(numerator_model)}
+reports the fitted right-hand side.
 
 {pmore}
-Because the numerator conditions on time, the marginal structural model fitted
-with these weights must include the same time term.
+Every numerator term must also occur in {opt covariates()} or
+{opt tvcovariates()}; otherwise the command stops with error 198. The marginal
+structural outcome model must include the variables retained in the numerator,
+including the same time term in panel mode.
 
 {pmore}
 Stabilized weights have mean closer to 1 and generally smaller variance than
 unstabilized weights, leading to more efficient estimates. A mean near 1 is a
 necessary diagnostic, not proof that the causal assumptions hold
 (Cole & Hernan 2008).
+
+{phang}
+{opt numcovariates(varlist)} specifies treatment-model terms retained in the
+stabilized numerator. It requires {opt stabilized}; factor-variable notation is
+allowed. The terms must be contained in {opt covariates()} or
+{opt tvcovariates()}. In panel mode {cmd:i.}{it:time} is added automatically and
+should not be repeated here. For longitudinal treatment, include the relevant
+past-treatment history explicitly; for example,
+{cmd:numcovariates(lag_treatment baseline_age)}.
 
 {phang}
 {opt truncate(# #)} truncates weights at the specified lower and upper
@@ -261,12 +273,11 @@ treatment and informative censoring (Hernan & Robins). Requires {opt id()} and
 {opt truncate()}, truncation is applied to the final combined weight.
 
 {pmore}
-The stabilized IPCW numerator is the {bf:marginal} (constant) probability of
-remaining uncensored -- the same stabilization form used for the treatment
-weight -- not a time-varying numerator model of censoring. Readers expecting the
-fully stabilized Robins-Hernan censoring weights (a numerator model conditional
-on the past-treatment and baseline history) should note that {cmd:tvweight}
-stabilizes the censoring weight in form only.
+The stabilized IPCW numerator includes {cmd:i.}{it:time}. By default it has no
+other covariates, matching the treatment numerator's time-only default. Use
+{opt censnumcovariates()} to retain past-treatment or baseline history in the
+censoring numerator. {cmd:r(censor_numerator_model)} reports the fitted
+right-hand side.
 
 {pmore}
 The censoring model uses its raw fitted P(uncensored|history). Probabilities are
@@ -278,6 +289,12 @@ combined weight only when explicitly requested.
 {opt censorcovariates(varlist)} lists the covariates for the censoring
 model. Defaults to the treatment-model covariates ({opt covariates()} plus any
 {opt tvcovariates()}). Factor-variable notation is allowed.
+
+{phang}
+{opt censnumcovariates(varlist)} specifies terms retained in the stabilized
+censoring numerator. It requires both {opt ipcw()} and {opt stabilized}; factor-variable
+notation is allowed. Every term must also occur in
+{opt censorcovariates()}. Panel time fixed effects are added automatically.
 
 {phang}
 {opt censgenerate(name)} names the cumulative censoring weight variable
@@ -405,6 +422,7 @@ variables:
 {phang2}{cmd:. generate double comorbidity = rnormal()}{p_end}
 {phang2}{cmd:. generate double p_treat = invlogit(-1 + .02*age + .4*female + .3*comorbidity)}{p_end}
 {phang2}{cmd:. generate byte treated = runiform() < p_treat}{p_end}
+{phang2}{cmd:. bysort id (period): generate byte lag_treated = cond(period == 0, 0, treated[_n-1])}{p_end}
 {phang2}{cmd:. generate double rx_start = mdy(1, 1, 2020) + 91*period}{p_end}
 {phang2}{cmd:. generate double rx_stop = rx_start + 90}{p_end}
 {phang2}{cmd:. by id: generate byte will_censor = runiform() < .25 if _n == 1}{p_end}
@@ -431,9 +449,11 @@ weight and {cmd:r(balance)} matrix are still produced when it is absent.
 {phang3}{cmd:generate(iptw_period) cumgenerate(iptw_cum) nolog}{p_end}
 
 {pstd}{bf:IPTW times IPCW}{p_end}
-{phang2}{cmd:. tvweight treated, covariates(age female comorbidity) ///}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(age female comorbidity lag_treated) ///}{p_end}
 {phang3}{cmd:id(id) time(period) stabilized cumulative ipcw(censored) ///}{p_end}
-{phang3}{cmd:censorcovariates(age female comorbidity) generate(iptw_period) ///}{p_end}
+{phang3}{cmd:numcovariates(age female lag_treated) ///}{p_end}
+{phang3}{cmd:censorcovariates(age female comorbidity lag_treated) ///}{p_end}
+{phang3}{cmd:censnumcovariates(age female lag_treated) generate(iptw_period) ///}{p_end}
 {phang3}{cmd:cumgenerate(iptw_cum) censgenerate(ipcw_cum) ///}{p_end}
 {phang3}{cmd:combgenerate(msm_weight) truncate(1 99) replace nolog}{p_end}
 
@@ -442,7 +462,7 @@ weight and {cmd:r(balance)} matrix are still produced when it is absent.
 {phang2}{cmd:. format calendar_qtr %tq}{p_end}
 {phang2}{cmd:. generate double analysis_t0 = rx_start - 1}{p_end}
 {phang2}{cmd:. stset rx_stop [pweight=msm_weight], failure(event) time0(analysis_t0)}{p_end}
-{phang2}{cmd:. stcox treated, vce(cluster id)}{p_end}
+{phang2}{cmd:. stcox treated lag_treated i.calendar_qtr age female, vce(cluster id)}{p_end}
 
 {pstd}
 The interval-specific weight is declared in {cmd:stset}. Omit {cmd:id()} there
@@ -517,9 +537,12 @@ fixed-width MSM grid.
 {synopt:{cmd:r(censgenerate)}}name of the cumulative censoring weight (if ipcw){p_end}
 {synopt:{cmd:r(combgenerate)}}name of the combined IPTW x IPCW weight (if ipcw){p_end}
 {synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
+{synopt:{cmd:r(numcovariates)}}treatment-numerator covariates{p_end}
+{synopt:{cmd:r(censnumcovariates)}}censoring-numerator covariates{p_end}
 {synopt:{cmd:r(balance_terms)}}factor-expanded terms indexing {cmd:r(balance)} (if balance){p_end}
 {synopt:{cmd:r(balance_weight)}}analysis weight used for the SMD column{p_end}
 {synopt:{cmd:r(numerator_model)}}stabilized-weight numerator model{p_end}
+{synopt:{cmd:r(censor_numerator_model)}}stabilized censoring numerator model (if ipcw){p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}unweighted/weighted SMD matrix{p_end}
@@ -551,13 +574,20 @@ This assigns weight 1/e(X) to treated units and 1/(1-e(X)) to untreated units.
 {bf:Stabilized Weights}
 
 {pstd}
-Stabilized weights multiply the standard weights by the marginal probability:
+Stabilized weights multiply the standard weights by the probability from a
+reduced numerator model:
 
 {p 8 8 2}
-SW = A*P(A=1)/e(X) + (1-A)*P(A=0)/(1-e(X))
+SW(t) = P[A(t)=a(t) | numerator history] /
+        P[A(t)=a(t) | treatment and confounder history]
 
 {pstd}
-Stabilized weights have mean approximately 1 and smaller variance.
+The longitudinal MSM weight is the product of these interval ratios through
+time. The usual numerator history retains past treatment and selected baseline
+variables but excludes time-varying confounders. At a single time point with
+no {opt numcovariates()}, the numerator reduces to the marginal treatment
+probability. Stabilized weights generally have smaller variance than their
+unstabilized counterparts.
 
 {pstd}
 {bf:Effective Sample Size}

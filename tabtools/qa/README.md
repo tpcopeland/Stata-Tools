@@ -30,9 +30,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 
 | Lane | Files |
 |------|-------|
-| `quick` | 25 explicitly listed `test_*.do` files (all except `test_package_adversarial.do`) |
-| `full` | 26 tests + 10 validations + `crossval_tabtools.do` (37 files) |
-| `release` | `full` plus `benchmark_tabtools_speed.do` (38 files) |
+| `quick` | 26 explicitly listed `test_*.do` files (all except `test_package_adversarial.do`) |
+| `full` | 27 tests + 10 validations + `crossval_tabtools.do` (38 files) |
+| `release` | `full` plus `benchmark_tabtools_speed.do` (39 files) |
 | `benchmark` | `benchmark_tabtools_speed.do` only |
 
 ## Conventions

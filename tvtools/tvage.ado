@@ -1,4 +1,4 @@
-*! tvage Version 1.14.1  2026/08/07
+*! tvage Version 1.15.0  2026/08/10
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -12,9 +12,7 @@
 program define tvage, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     set varabbrev off
-    set more off
 
     capture noisily {
 
@@ -354,7 +352,6 @@ program define tvage, rclass
 
     * Display summary
     if "`noisily'" != "" {
-        display as text ""
         display as text "{bf:tvage result}"
         _tvtools_rule
         _tvtools_row "persons", num(`n_persons')
@@ -394,7 +391,6 @@ program define tvage, rclass
     }
 
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
 
     if `rc' {
         exit `rc'

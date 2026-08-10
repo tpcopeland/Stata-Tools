@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.14.1** | 2026-08-09
+**Version 1.15.0** | 2026-08-10
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -456,6 +456,7 @@ Result names below are returned in `r()` after successful execution; option-depe
 - `tvdiagnose` counts global coverage by interval union, but category summaries can have multi-membership when exposure levels overlap.
 - `tvbuild` coordinates construction and provenance but does not run `stset`, an outcome model, an overlap-resolution choice, or a causal model.
 - Weighting output is model-based; causal interpretation requires the relevant exchangeability, positivity, treatment-model, and censoring assumptions.
+- Longitudinal stabilized weights require the analyst to retain the appropriate past-treatment and baseline history with `tvweight, numcovariates()` and, for censoring weights, `censnumcovariates()`; the outcome model must include the retained numerator terms.
 - `tvweight, loveplot` requires optional `psdash`; without it, use `r(balance)` to build a plot with another graphing workflow.
 
 ## References
@@ -470,6 +471,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.15.0** (2026-08-10): Added explicit treatment and censoring numerator models for history-conditioned longitudinal stabilization, exposed both fitted numerator contracts in `r()`, corrected the IPCW documentation to match the time-specific default, and removed package-owned paging changes and decorative empty output lines.
 - **1.14.1** (2026-08-07): Corrected runtime `stset` guidance, verbose table headers, cumulative-weight diagnostics, graph naming, save confirmations, flow notes, event provenance, exported dataset labels, and related console-report polish; added focused regression coverage for each repaired artifact/display path.
 - **1.14.0** (2026-08-07): Renamed `_dta[tvtools_pipeline*]` provenance characteristics to `_dta[tvtools_tvbuild*]` and cleaned up all `pipeline`/`pipe_*` naming throughout documentation, demos, and QA to use `tvbuild`/`workflow` consistently.
 - **1.13.1** (2026-08-05): Corrected the closed-interval `stset` help conversion to use `time0(start - 1)` so the first follow-up day is retained.

@@ -1,4 +1,4 @@
-*! tvweight Version 1.14.1  2026/08/07
+*! tvweight Version 1.15.0  2026/08/10
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -65,9 +65,7 @@ See help tvweight for complete documentation
 program define tvweight, rclass sortpreserve
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     set varabbrev off
-    set more off
     local _outputs_touched = 0
     local _bak_generate_needed = 0
     local _bak_denominator_needed = 0
@@ -95,7 +93,6 @@ program define tvweight, rclass sortpreserve
     if !`_caller_eheld' {
         local _hold_rc = _rc
         set varabbrev `orig_varabbrev'
-        set more `orig_more'
         exit `_hold_rc'
     }
 
@@ -110,7 +107,9 @@ program define tvweight, rclass sortpreserve
          REPLACE DENominator(name) noLOG ///
          BALance LOVEplot HISTogram ESTname(name) ESTREPlace ///
          CUMulative CUMGenerate(name) ///
+         NUMCovariates(varlist fv numeric) ///
          IPCW(varname numeric) CENSORCovariates(varlist fv numeric) ///
+         CENSNUMCovariates(varlist fv numeric) ///
          CENSGenerate(name) COMBGenerate(name)]
 
     local exposure `varlist'
@@ -140,6 +139,10 @@ program define tvweight, rclass sortpreserve
     * Stabilized weights are an IPTW-specific construction
     if "`stabilized'" != "" & "`wtype'" != "iptw" {
         display as error "stabilized weights apply only to wtype(iptw)"
+        exit 198
+    }
+    if "`numcovariates'" != "" & "`stabilized'" == "" {
+        display as error "numcovariates() requires the stabilized option"
         exit 198
     }
 
@@ -182,8 +185,12 @@ program define tvweight, rclass sortpreserve
         * Resolve the censoring/combined weight variable names. Collision and
         * replace handling is centralized below so failures are transactional.
     }
-    else if "`censorcovariates'`censgenerate'`combgenerate'" != "" {
-        display as error "censorcovariates()/censgenerate()/combgenerate() require the ipcw() option"
+    else if "`censorcovariates'`censnumcovariates'`censgenerate'`combgenerate'" != "" {
+        display as error "censorcovariates()/censnumcovariates()/censgenerate()/combgenerate() require the ipcw() option"
+        exit 198
+    }
+    if "`censnumcovariates'" != "" & "`stabilized'" == "" {
+        display as error "censnumcovariates() requires the stabilized option"
         exit 198
     }
 
@@ -208,7 +215,47 @@ program define tvweight, rclass sortpreserve
     * Resolve the underlying variables named by factor-variable expressions.
     * These raw names drive missing-value screening and output protection;
     * model commands continue to receive the original fvvarlists.
-    local _model_specs "`covariates' `tvcovariates' `censorcovariates'"
+    * A stabilization numerator must be nested in its denominator. Otherwise
+    * the ratio is not a probability under a reduced version of the fitted
+    * treatment/censoring mechanism and its causal target is not defined by
+    * the documented MSM construction.
+    quietly fvexpand `covariates' `tvcovariates'
+    local _treat_den_expanded "`r(varlist)'"
+    if "`numcovariates'" != "" {
+        quietly fvexpand `numcovariates'
+        local _num_expanded "`r(varlist)'"
+        local _num_not_den ""
+        foreach _term of local _num_expanded {
+            local _nested : list _term in _treat_den_expanded
+            if !`_nested' local _num_not_den "`_num_not_den' `_term'"
+        }
+        if "`_num_not_den'" != "" {
+            display as error ///
+                "numcovariates() must be contained in covariates()/tvcovariates(); missing:`_num_not_den'"
+            exit 198
+        }
+    }
+    if "`censnumcovariates'" != "" {
+        quietly fvexpand `censorcovariates'
+        local _cens_den_expanded "`r(varlist)'"
+        quietly fvexpand `censnumcovariates'
+        local _cens_num_expanded "`r(varlist)'"
+        local _cens_num_not_den ""
+        foreach _term of local _cens_num_expanded {
+            local _nested : list _term in _cens_den_expanded
+            if !`_nested' {
+                local _cens_num_not_den "`_cens_num_not_den' `_term'"
+            }
+        }
+        if "`_cens_num_not_den'" != "" {
+            display as error ///
+                "censnumcovariates() must be contained in censorcovariates(); missing:`_cens_num_not_den'"
+            exit 198
+        }
+    }
+
+    local _model_specs ///
+        "`covariates' `tvcovariates' `numcovariates' `censorcovariates' `censnumcovariates'"
     quietly fvexpand `_model_specs'
     local _model_expanded "`r(varlist)'"
     local _raw_model_vars ""
@@ -499,8 +546,6 @@ program define tvweight, rclass sortpreserve
         local max_obs = r(max)
         drop `_nobs_per_id' `_id_tag'
     }
-
-    display as text ""
     display as text "{bf:IPTW Weight Calculation}"
     _tvtools_rule, width(78)
     _tvtools_row "exposure variable", value(`"`exposure'"')
@@ -519,7 +564,6 @@ program define tvweight, rclass sortpreserve
         _tvtools_row "time fixed effects", value(`"i.`time'"')
     }
     _tvtools_rule, width(78)
-    display as text ""
 
     * Fit propensity score model
     display as text "Fitting propensity score model..."
@@ -653,8 +697,6 @@ program define tvweight, rclass sortpreserve
     * WEIGHT CALCULATION
     * =========================================================================
 
-    display as text ""
-
     * Diagnose extreme probabilities without changing the fitted probability
     * vector. Silent probability capping changes the estimand and, for
     * multinomial ATO/matching weights, previously mixed an uncapped numerator
@@ -740,31 +782,31 @@ program define tvweight, rclass sortpreserve
     * STABILIZED WEIGHTS (optional)
     * =========================================================================
 
-    * The stabilized numerator must carry the same follow-up-time term as the
-    * denominator and drop only the time-varying confounders the weighting
-    * exists to adjust for (Cole & Hernan 2008, Table 3 spec 1 and p.660:
+    * The stabilized numerator carries the same follow-up-time term as the
+    * denominator. numcovariates() explicitly retains the analyst-selected
+    * past-treatment/baseline history and drops the time-varying confounders
+    * the weighting exists to adjust for (Cole & Hernan 2008, Table 3 spec 1:
     * "the numerator ... chase[s] the denominator but stop[s] short ... when it
     * comes to the set of time-varying confounders"). In panel mode the
-    * denominator conditions on i.time, so a pooled marginal constant leaves
-    * the weight unstabilized with respect to time: still consistent, but with
-    * a badly inflated variance and a mean-near-1 diagnostic that no longer
-    * discriminates.
+    * denominator conditions on i.time, so the default numerator does too.
     local numerator_model "marginal"
     if "`stabilized'" != "" {
         display as text "Calculating stabilized weights..."
 
         tempvar _num_p
         local _num_model_failed = 0
-        if `panel_mode' {
-            local numerator_model "i.`time'"
-            display as text "  Numerator model: `exposure' on i.`time'"
+        local _num_rhs "`numcovariates'"
+        if `panel_mode' local _num_rhs "`_num_rhs' i.`time'"
+        if "`_num_rhs'" != "" {
+            local numerator_model : list retokenize _num_rhs
+            display as text "  Numerator model: `exposure' on `numerator_model'"
             if "`model'" == "logit" {
-                capture quietly logit `exposure' i.`time' if `touse', nolog
+                capture quietly logit `exposure' `_num_rhs' if `touse', nolog
                 if _rc local _num_model_failed = 1
                 else quietly predict double `_num_p' if `touse', pr
             }
             else {
-                capture quietly mlogit `exposure' i.`time' if `touse', ///
+                capture quietly mlogit `exposure' `_num_rhs' if `touse', ///
                     baseoutcome(`ref_level') nolog
                 if _rc local _num_model_failed = 1
                 else {
@@ -782,9 +824,9 @@ program define tvweight, rclass sortpreserve
             }
             if `_num_model_failed' {
                 display as error ///
-                    "stabilized numerator model (`exposure' on i.`time') failed to converge"
+                    "stabilized numerator model (`exposure' on `numerator_model') failed to converge"
                 display as error ///
-                    "collapse sparse time levels, or drop stabilized to use unstabilized weights"
+                    "simplify numcovariates()/time levels, or drop stabilized"
                 exit 498
             }
         }
@@ -900,7 +942,6 @@ program define tvweight, rclass sortpreserve
     * of the period-specific weights within person up to t. This builds that
     * product (requires id() and time()).
     if "`cumulative'" != "" {
-        display as text ""
         display as text "Computing within-person cumulative product weights..."
         * The product chains touse==1 rows only. Indexing the physically
         * previous row (_n-1) would silently restart the product whenever a
@@ -931,7 +972,6 @@ program define tvweight, rclass sortpreserve
     * censoring covariates. The combined weight = cumulative IPTW x cumulative
     * IPCW (both stabilized when stabilized is specified). Hernan & Robins.
     if `do_ipcw' {
-        display as text ""
         display as text "Fitting censoring model and computing IPCW..."
 
         * Cumulative treatment weight (within-person product of per-period
@@ -995,20 +1035,24 @@ program define tvweight, rclass sortpreserve
             display as text "  specification and use truncate() explicitly if scientifically justified."
         }
 
-        * Per-interval censoring weight; stabilized numerator = marginal P(uncens)
+        * Per-interval censoring weight.
         tempvar cw
+        local censor_numerator_model "unstabilized"
         if "`stabilized'" != "" & `panel_mode' {
             * Same Cole & Hernan numerator rule as the treatment weight: the
-            * censoring numerator carries the denominator's follow-up-time term
-            * and omits only the time-varying covariates.
+            * censoring numerator carries follow-up time and may retain the
+            * past-treatment/baseline history selected by the analyst.
             tempvar _num_pc
-            display as text "  Censoring numerator model: `ipcw' on i.`time'"
-            capture quietly logit `ipcw' i.`time' if `touse', nolog
+            local _cens_num_rhs "`censnumcovariates' i.`time'"
+            local censor_numerator_model : list retokenize _cens_num_rhs
+            display as text ///
+                "  Censoring numerator model: `ipcw' on `censor_numerator_model'"
+            capture quietly logit `ipcw' `_cens_num_rhs' if `touse', nolog
             if _rc {
                 display as error ///
-                    "stabilized censoring numerator model (`ipcw' on i.`time') failed to converge"
+                    "stabilized censoring numerator model (`ipcw' on `censor_numerator_model') failed to converge"
                 display as error ///
-                    "collapse sparse time levels, or drop stabilized"
+                    "simplify censnumcovariates()/time levels, or drop stabilized"
                 exit 498
             }
             quietly predict double `_num_pc' if `touse', pr
@@ -1101,8 +1145,6 @@ program define tvweight, rclass sortpreserve
     local _awt "`generate'"
     if `do_ipcw' local _awt "`combgenerate'"
     else if "`cumulative'" != "" local _awt "`cumgenerate'"
-
-    display as text ""
     display as text "{bf:Weight Diagnostics}"
     _tvtools_rule, width(78)
 
@@ -1125,7 +1167,6 @@ program define tvweight, rclass sortpreserve
     _tvtools_row "SD", num(`w_sd') fmt(%14.4f)
     _tvtools_row "min", num(`w_min') fmt(%14.4f)
     _tvtools_row "max", num(`w_max') fmt(%14.4f)
-    display as text ""
     display as text "Percentiles"
     _tvtools_row "1%", num(`w_p1') fmt(%14.4f)
     _tvtools_row "5%", num(`w_p5') fmt(%14.4f)
@@ -1150,8 +1191,6 @@ program define tvweight, rclass sortpreserve
 
     local ess = (`sum_w'^2) / `sum_w2'
     local ess_pct = 100 * `ess' / `n_obs'
-
-    display as text ""
     display as text "Effective sample size"
     _tvtools_row "ESS", num(`ess') fmt(%14.1f) note("(of `n_obs' observations)")
     _tvtools_row "ESS as % of N", num(`ess_pct') fmt(%14.1f) note("%")
@@ -1172,7 +1211,6 @@ program define tvweight, rclass sortpreserve
         drop `cw2'
         local ess_combined = (`sum_cw'^2) / `sum_cw2'
         local ess_combined_pct = 100 * `ess_combined' / `n_obs'
-        display as text ""
         display as text "Combined IPTW x IPCW weight:"
         display as text "  Mean:     " as result %9.4f `cw_mean'
         display as text "  Min/Max:  " as result %9.4f `cw_min' as text " / " as result %9.4f `cw_max'
@@ -1217,8 +1255,6 @@ program define tvweight, rclass sortpreserve
     local _wsum_top = r(sum)
     restore
     local top1_wt_share = 100 * `_wsum_top' / `_wsum_all'
-
-    display as text ""
     display as text "Positivity / overlap"
     _tvtools_row "P(observed treatment) range", ///
         value("`=string(`overlap_lo', "%6.4f")' to `=string(`overlap_hi', "%6.4f")'")
@@ -1242,13 +1278,11 @@ program define tvweight, rclass sortpreserve
     * Warning for extreme weights. This is advice about the model, not a
     * command failure, so it is not printed in the error colour.
     if `w_max' / `w_min' > 100 {
-        display as text ""
         display as text ///
             "  Warning: weight ratio (max/min) > 100. Consider truncation."
     }
 
     * Weight distribution by exposure group
-    display as text ""
     display as text "Weights by exposure group"
 
     if "`model'" == "logit" {
@@ -1375,8 +1409,6 @@ program define tvweight, rclass sortpreserve
         }
         matrix colnames `_balmat' = smd_unweighted smd_weighted
         matrix rownames `_balmat' = `bal_terms'
-
-        display as text ""
         display as text "{bf:Covariate balance (standardized mean differences)}"
         _tvtools_rule, width(78)
         display as text "  Weighted column uses the analysis weight: " ///
@@ -1409,7 +1441,6 @@ program define tvweight, rclass sortpreserve
     if "`loveplot'" != "" {
         capture which psdash
         if _rc {
-            display as text ""
             display as text "Note: loveplot is delegated to the {help psdash} package, which is not installed."
             display as text "      To draw the love plot, install psdash:"
             display as text `"        net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace"'
@@ -1496,8 +1527,6 @@ program define tvweight, rclass sortpreserve
     else {
         label variable `generate' "IPTW for `exposure'"
     }
-
-    display as text ""
     _tvtools_rule, width(78)
     if "`_awt'" == "`generate'" {
         display as text "  Weight variable " as result "`generate'" ///
@@ -1573,6 +1602,7 @@ program define tvweight, rclass sortpreserve
     }
     if "`stabilized'" != "" {
         return local numerator_model "`numerator_model'"
+        return local numcovariates "`numcovariates'"
     }
     if "`cumulative'" != "" {
         return local cumgenerate "`cumgenerate'"
@@ -1583,6 +1613,10 @@ program define tvweight, rclass sortpreserve
         return local censgenerate "`censgenerate'"
         return local combgenerate "`combgenerate'"
         return local censorcovariates "`censorcovariates'"
+        if "`stabilized'" != "" {
+            return local censor_numerator_model "`censor_numerator_model'"
+            return local censnumcovariates "`censnumcovariates'"
+        }
     }
 
     * return matrix MOVES the tempname — must be the last reference to `_balmat'
@@ -1699,7 +1733,6 @@ program define tvweight, rclass sortpreserve
     }
 
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
 
     if `rc' {
         exit `rc'

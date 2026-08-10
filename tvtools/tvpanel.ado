@@ -1,4 +1,4 @@
-*! tvpanel Version 1.14.1  2026/08/07
+*! tvpanel Version 1.15.0  2026/08/10
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -16,9 +16,7 @@
 program define tvpanel, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     set varabbrev off
-    set more off
     tempname _tp_master_frame _tp_using_frame _tp_output_frame
     tempvar tp_estart tp_estop tp_eclass tp_pobs tp_gid tp_plo tp_phi tp_eobs
 
@@ -574,7 +572,6 @@ program define tvpanel, rclass
     drop `idtag'
 
     if "`noisily'" != "" {
-        display as text ""
         display as text "{bf:tvpanel result}"
         _tvtools_rule
         _tvtools_row "persons", num(`n_persons')
@@ -631,7 +628,6 @@ program define tvpanel, rclass
     }
 
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
 
     if `rc' exit `rc'
 end

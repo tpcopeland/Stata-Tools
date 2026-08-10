@@ -1,7 +1,8 @@
-*! _tabtools_table1_fast_collect Version 1.12.1  2026/08/07
+*! _tabtools_table1_fast_collect Version 1.12.2  2026/08/10
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
+*! Method: Standardized mean differences follow Yang and Dalton (2012).
 
 program define _tabtools_table1_fast_collect, rclass
     version 16.0
@@ -504,7 +505,7 @@ program define _tabtools_table1_fast_collect, rclass
                         local _m2 = r(mean)
                         local _s2 = r(sd)
                         local _n2 = r(N)
-                        local _poolsd = sqrt(((`_n1' - 1) * `_s1'^2 + (`_n2' - 1) * `_s2'^2) / (`_n1' + `_n2' - 2))
+                        local _poolsd = sqrt((`_s1'^2 + `_s2'^2) / 2)
                     }
                     else {
                         quietly summarize `testvar' [`weight'`exp'] if `_smd_if1'
@@ -515,7 +516,7 @@ program define _tabtools_table1_fast_collect, rclass
                         local _m2 = r(mean)
                         local _s2 = r(sd)
                         local _n2 = r(N)
-                        local _poolsd = sqrt(((`_n1' - 1) * `_s1'^2 + (`_n2' - 1) * `_s2'^2) / (`_n1' + `_n2' - 2))
+                        local _poolsd = sqrt((`_s1'^2 + `_s2'^2) / 2)
                     }
                     if `_poolsd' > 0 & `_poolsd' < . local smd`i' = (`_m1' - `_m2') / `_poolsd'
                 }

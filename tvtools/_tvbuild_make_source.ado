@@ -1,4 +1,4 @@
-*! _tvbuild_make_source Version 1.14.1  2026/08/07
+*! _tvbuild_make_source Version 1.15.0  2026/08/10
 *! Turn one tvbuild specification row into one normalised interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

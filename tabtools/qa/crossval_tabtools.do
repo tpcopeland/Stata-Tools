@@ -13,8 +13,8 @@
 *   4.  DOR + CI (Woolf's method)                      — diagtab.ado
 *   5.  Youden's index                                 — diagtab.ado
 *   6.  Bayesian PPV/NPV with prevalence               — diagtab.ado
-*   7.  SMD continuous (pooled SD, unequal weights)     — table1_tc.ado
-*   8.  SMD continuous (pooled SD, equal weights)       — table1_tc.ado
+*   7.  SMD continuous (root-mean variance formula)      — table1_tc.ado
+*   8.  SMD continuous (all public weighting paths)      — table1_tc.ado
 *   9.  SMD categorical (Yang & Dalton)                 — table1_tc.ado
 *  10.  ESS (Kish's formula)                            — table1_tc.ado
 *  11.  AIC/BIC from log-likelihood                     — regtab.ado
@@ -479,68 +479,68 @@ else {
 **# CV5: SMD for continuous variables
 * ============================================================
 
-* CV5a: Unequal-weight pooled SD (Stata unweighted default)
+* CV5a: Yang-Dalton root-mean variance denominator
 local ++test_count
 capture noisily {
-    import delimited "`r_data_dir'/crossval_smd_data.csv", clear
+    import delimited "`r_data_dir'/crossval_smd_data.csv", asdouble clear
 
     * Compute Stata-side
     quietly summarize x if group == 1
     local m1 = r(mean)
     local s1 = r(sd)
-    local n1 = r(N)
     quietly summarize x if group == 2
     local m2 = r(mean)
     local s2 = r(sd)
-    local n2 = r(N)
-
-    local poolsd = sqrt(((`n1'-1)*`s1'^2 + (`n2'-1)*`s2'^2) / (`n1'+`n2'-2))
-    local smd = (`m1' - `m2') / `poolsd'
-
-    local r_smd `r_smd_unequal'
-    local r_poolsd `r_smd_poolsd_unequal'
-
-    * Tier 1 tolerance: same algorithm, same data
-    assert abs(`poolsd' - `r_poolsd') < 0.001
-    assert abs(`smd' - `r_smd') < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS: CV5a SMD continuous (unequal-weight pooled SD)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CV5a SMD continuous (unequal-weight pooled SD)"
-    local ++fail_count
-    local failed_tests "`failed_tests' CV5a"
-}
-
-* CV5b: Equal-weight pooled SD (Stata weighted path)
-local ++test_count
-capture noisily {
-    import delimited "`r_data_dir'/crossval_smd_data.csv", clear
-
-    quietly summarize x if group == 1
-    local s1 = r(sd)
-    local m1 = r(mean)
-    quietly summarize x if group == 2
-    local s2 = r(sd)
-    local m2 = r(mean)
 
     local poolsd = sqrt((`s1'^2 + `s2'^2) / 2)
     local smd = (`m1' - `m2') / `poolsd'
 
-    local r_smd `r_smd_equal'
-    local r_poolsd `r_smd_poolsd_equal'
+    local r_smd `r_smd_rootmean'
+    local r_poolsd `r_smd_poolsd_rootmean'
 
-    assert abs(`poolsd' - `r_poolsd') < 0.001
-    assert abs(`smd' - `r_smd') < 0.001
+    * Tier 1 tolerance: same algorithm, same data
+    assert abs(`poolsd' - `r_poolsd') < 1e-8
+    assert abs(`smd' - `r_smd') < 1e-8
 }
 if _rc == 0 {
-    display as result "  PASS: CV5b SMD continuous (equal-weight pooled SD)"
+    display as result "  PASS: CV5a SMD continuous (root-mean variance denominator)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: CV5b SMD continuous (equal-weight pooled SD)"
+    display as error "  FAIL: CV5a SMD continuous (root-mean variance denominator)"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV5a"
+}
+
+* CV5b: public unweighted, fweight, and wt() paths use the same denominator
+local ++test_count
+capture noisily {
+    import delimited "`r_data_dir'/crossval_smd_data.csv", asdouble clear
+
+    table1_tc, by(group) vars(x contn) smd nopvalue
+    matrix _cv5_u = r(table)
+    local smd_u = el(_cv5_u, rownumb(_cv5_u, "x"), colnumb(_cv5_u, "smd"))
+
+    generate byte fw = 1
+    table1_tc [fw=fw], by(group) vars(x contn) smd nopvalue
+    matrix _cv5_fw = r(table)
+    local smd_fw = el(_cv5_fw, rownumb(_cv5_fw, "x"), colnumb(_cv5_fw, "smd"))
+
+    generate double wt = 1
+    table1_tc, by(group) vars(x contn) wt(wt) smd nopvalue
+    matrix _cv5_w = r(table)
+    local smd_w = el(_cv5_w, rownumb(_cv5_w, "x"), colnumb(_cv5_w, "smd"))
+
+    assert abs(abs(`smd_u') - abs(`r_smd_rootmean')) < 1e-8
+    assert abs(abs(`smd_fw') - abs(`r_smd_rootmean')) < 1e-8
+    assert abs(abs(`smd_w') - abs(`r_smd_rootmean')) < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: CV5b SMD continuous (all public weighting paths)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV5b SMD continuous (all public weighting paths)"
     local ++fail_count
     local failed_tests "`failed_tests' CV5b"
 }
@@ -1187,19 +1187,26 @@ else {
 
 local ++test_count
 capture noisily {
-    import delimited "`r_data_dir'/crossval_smd_data.csv", clear
+    import delimited "`r_data_dir'/crossval_smd_data.csv", asdouble clear
     table1_tc, by(group) vars(x contn) smd nopvalue
     matrix _cv_t1_u = r(table)
     local _cv_smd_u = el(_cv_t1_u, rownumb(_cv_t1_u, "x"), ///
         colnumb(_cv_t1_u, "smd"))
-    assert abs(abs(`_cv_smd_u') - abs(`r_smd_unequal')) < 0.001
+    assert abs(abs(`_cv_smd_u') - abs(`r_smd_rootmean')) < 1e-8
+
+    generate byte fw = 1
+    table1_tc [fw=fw], by(group) vars(x contn) smd nopvalue
+    matrix _cv_t1_fw = r(table)
+    local _cv_smd_fw = el(_cv_t1_fw, rownumb(_cv_t1_fw, "x"), ///
+        colnumb(_cv_t1_fw, "smd"))
+    assert abs(abs(`_cv_smd_fw') - abs(`r_smd_rootmean')) < 1e-8
 
     generate double one = 1
     table1_tc, by(group) vars(x contn) wt(one) smd nopvalue
     matrix _cv_t1_w = r(table)
     local _cv_smd_w = el(_cv_t1_w, rownumb(_cv_t1_w, "x"), ///
         colnumb(_cv_t1_w, "smd"))
-    assert abs(abs(`_cv_smd_w') - abs(`r_smd_equal')) < 0.001
+    assert abs(abs(`_cv_smd_w') - abs(`r_smd_rootmean')) < 1e-8
 
     import delimited "`r_data_dir'/crossval_cat_smd_data.csv", clear
     table1_tc, by(group) vars(category cat) smd nopvalue

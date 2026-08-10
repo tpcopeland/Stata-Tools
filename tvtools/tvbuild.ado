@@ -1,4 +1,4 @@
-*! tvbuild Version 1.14.1  2026/08/07
+*! tvbuild Version 1.15.0  2026/08/10
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -598,7 +598,6 @@ program define tvbuild, rclass
         local uncovered_days = r(uncovered_days)
 
         if "`coverage'" == "allow" & `n_gap_ids' > 0 {
-            noisily display as text ""
             noisily display as text ///
                 "Warning: coverage(allow) accepted `n_gap_ids' person(s) with " ///
                 "`uncovered_days' uncovered day(s)."
@@ -981,8 +980,6 @@ program define _tvbuild_show_plan
         [EVENTGenerate(name) MANIFESTframe(name) KEEPvars(string) DRYrun]
 
     local _here "`c(frame)'"
-
-    noisily display as text ""
     if "`dryrun'" != "" {
         noisily display as text "{bf:tvbuild plan (dry run)}"
     }
@@ -1076,8 +1073,6 @@ program define _tvbuild_show_result
         NGAPIds(string) UNCOVered(string) DROPDates(integer) ///
         ENTRYVar(name) EXITVar(name) ///
         [EVENTVar(name) MANIFESTframe(name)]
-
-    noisily display as text ""
     noisily display as text "{bf:tvbuild result}"
     noisily _tvtools_rule
     noisily _tvtools_row "frameout()", value(`"`frameout'"')

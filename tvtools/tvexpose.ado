@@ -1,4 +1,4 @@
-*! tvexpose Version 1.14.1  2026/08/07
+*! tvexpose Version 1.15.0  2026/08/10
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -2019,8 +2019,6 @@ program define tvexpose, rclass
             
             * Store list of IDs in return scalar for later reference
             return local overlap_ids "`conflict_ids'"
-            
-            noisily display as text ""
             noisily display as text "Warning! Overlapping exposure categories detected for `n_overlap_ids' IDs"
             if "`verbose'" != "" {
                 noisily display as text "  (List of IDs stored in r(overlap_ids))"
@@ -2028,7 +2026,6 @@ program define tvexpose, rclass
             else {
                 noisily display as text "  (specify verbose to list affected IDs)"
             }
-            noisily display as text ""
             noisily display as text "Default behavior: Later exposures take precedence (layer-style resolution)"
             noisily display as text "Consider using one of these options to resolve overlaps explicitly:"
             noisily display as text "  priority(numlist) - Specify precedence order for exposure types"
@@ -4883,7 +4880,6 @@ program define tvexpose, rclass
     
     * Display summary results
     local _pct_unexposed = 100 - `pct_exposed'
-    noisily display as text ""
     noisily display as text "{bf:tvexpose result}"
     noisily _tvtools_rule
     noisily _tvtools_row "persons", num(`N_persons')
@@ -5228,7 +5224,6 @@ program define tvexpose, rclass
         matrix `_flowmat'[2,3] = `_flow_rin' - `N_periods'
         matrix rownames `_flowmat' = persons records
         matrix colnames `_flowmat' = in out dropped
-        display as text ""
         display as text "{bf:tvexpose flow}"
         _tvtools_rule
         display as text "  " %-30s "" %12s "in" %12s "out" %12s "dropped"

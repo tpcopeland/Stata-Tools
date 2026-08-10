@@ -209,13 +209,9 @@ x2 <- rnorm(n2, mean = 12, sd = 4)
 m1 <- mean(x1); m2 <- mean(x2)
 s1 <- sd(x1); s2 <- sd(x2)
 
-# Unequal-weight pooled SD (Stata default for unweighted)
-poolsd_unequal <- sqrt(((n1 - 1) * s1^2 + (n2 - 1) * s2^2) / (n1 + n2 - 2))
-smd_unequal <- (m1 - m2) / poolsd_unequal
-
-# Equal-weight pooled SD (Stata weighted path)
-poolsd_equal <- sqrt((s1^2 + s2^2) / 2)
-smd_equal <- (m1 - m2) / poolsd_equal
+# Yang-Dalton continuous SMD denominator: root-mean of group variances
+poolsd_rootmean <- sqrt((s1^2 + s2^2) / 2)
+smd_rootmean <- (m1 - m2) / poolsd_rootmean
 
 results$smd_m1 <- m1
 results$smd_m2 <- m2
@@ -223,15 +219,12 @@ results$smd_s1 <- s1
 results$smd_s2 <- s2
 results$smd_n1 <- n1
 results$smd_n2 <- n2
-results$smd_poolsd_unequal <- poolsd_unequal
-results$smd_unequal <- smd_unequal
-results$smd_poolsd_equal <- poolsd_equal
-results$smd_equal <- smd_equal
+results$smd_poolsd_rootmean <- poolsd_rootmean
+results$smd_rootmean <- smd_rootmean
 
 cat(sprintf("  m1=%.6f, s1=%.6f, n1=%d\n", m1, s1, n1))
 cat(sprintf("  m2=%.6f, s2=%.6f, n2=%d\n", m2, s2, n2))
-cat(sprintf("  Pooled SD (unequal): %.6f, SMD=%.6f\n", poolsd_unequal, smd_unequal))
-cat(sprintf("  Pooled SD (equal):   %.6f, SMD=%.6f\n", poolsd_equal, smd_equal))
+cat(sprintf("  Root-mean SD: %.6f, SMD=%.6f\n", poolsd_rootmean, smd_rootmean))
 
 # Save the generated data for Stata to use
 smd_data <- data.frame(

@@ -1,4 +1,4 @@
-*! tvmerge Version 1.14.1  2026/08/07
+*! tvmerge Version 1.15.0  2026/08/10
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -2013,7 +2013,6 @@ program define tvmerge, rclass
             matrix `_flowmat'[2,3] = `_flow_rin' - `_flow_rout'
             matrix rownames `_flowmat' = persons records
             matrix colnames `_flowmat' = in out dropped
-            noisily display as text ""
             noisily display as text "{bf:tvmerge flow}"
             noisily _tvtools_rule
             noisily display as text "  " %-30s "" %12s "in" %12s "out" %12s "dropped"
@@ -2121,7 +2120,6 @@ program define tvmerge, rclass
     * Display coverage diagnostics if requested
     if "`check'" != "" {
         local _chk_n = return(N)
-        noisily display as text ""
         noisily display as text "{bf:Coverage Diagnostics}"
         noisily _tvtools_rule
         noisily _tvtools_row "persons", num(`n_persons')
@@ -2135,7 +2133,6 @@ program define tvmerge, rclass
 
     * Display coverage validation if requested
     if "`validatecoverage'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Validating coverage}"
         noisily _tvtools_rule
         if `n_gaps' > 0 {
@@ -2158,7 +2155,6 @@ program define tvmerge, rclass
 
     * Display overlap validation if requested
     if "`validateoverlap'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Validating overlaps}"
         noisily _tvtools_rule
         if `n_overlaps' > 0 {
@@ -2183,7 +2179,6 @@ program define tvmerge, rclass
 
     * Display summary statistics if requested
     if "`summarize'" != "" {
-        noisily display as text ""
         noisily display as text "{bf:Summary Statistics}"
         noisily _tvtools_rule, width(78)
         noisily summarize `startname' `stopname', detail format
@@ -2194,8 +2189,6 @@ program define tvmerge, rclass
     local obs = return(N)
     local npersons = return(N_persons)
     local exp_vars = return(exposure_vars)
-    
-    noisily display as text ""
     noisily display as text "{bf:tvmerge result}"
     noisily _tvtools_rule
     noisily _tvtools_row "observations", num(`obs')

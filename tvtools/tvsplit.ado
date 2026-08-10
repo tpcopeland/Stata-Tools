@@ -1,4 +1,4 @@
-*! tvsplit Version 1.14.1  2026/08/07
+*! tvsplit Version 1.15.0  2026/08/10
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -24,9 +24,7 @@
 program define tvsplit, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
-    local orig_more = c(more)
     set varabbrev off
-    set more off
     local restore_needed = 0
 
     capture noisily {
@@ -252,7 +250,6 @@ program define tvsplit, rclass
     local n_axes : word count `axisnames'
 
     if "`noisily'" != "" {
-        display as text ""
         display as text "{bf:tvsplit result}"
         _tvtools_rule
         _tvtools_row "axes", num(`n_axes')
@@ -279,6 +276,5 @@ program define tvsplit, rclass
 
     if `restore_needed' capture restore
     set varabbrev `orig_varabbrev'
-    set more `orig_more'
     if `rc' exit `rc'
 end
