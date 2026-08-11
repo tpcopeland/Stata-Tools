@@ -27,7 +27,7 @@ do "`qa_dir'/_raincloud_qa_common.do"
 _raincloud_qa_bootstrap "`pkg_dir'"
 
 * Explicit membership: both lanes are the same compact release gate.
-local suites "test_raincloud.do validation_raincloud.do"
+local suites "test_raincloud.do test_regressions.do validation_raincloud.do test_package_release.do"
 local suite_count 0
 local suite_pass 0
 local suite_fail 0

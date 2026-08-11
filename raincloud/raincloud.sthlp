@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  05aug2026}{...}
+{* *! version 1.0.3  11aug2026}{...}
 {vieweralsosee "[R] kdensity" "help kdensity"}{...}
 {vieweralsosee "[G-2] graph twoway rarea" "help twoway rarea"}{...}
 {viewerjumpto "Syntax" "raincloud##syntax"}{...}
@@ -63,7 +63,7 @@
 {synopt:{opt over(varname)}}stratify by groups{p_end}
 {synopt:{opt gap(#)}}spacing between groups; default {cmd:1.0}{p_end}
 {synopt:{opt overl:ap}}scatter points overlap the box plot{p_end}
-{synopt:{opt mir:ror}}split violin (cloud on both sides){p_end}
+{synopt:{opt mir:ror}}full mirrored violin (cloud on both sides){p_end}
 {synopt:{opt col:ors(string)}}custom color palette (space-separated){p_end}
 
 {syntab:Graph}
@@ -215,8 +215,8 @@ rather than offset to the side. This produces a more compact plot at the cost
 of some overplotting.
 
 {phang}
-{opt mirror} draws the cloud on both sides of center, producing a split
-violin shape. When {opt mirror} is specified, the box is centered inside the
+{opt mirror} draws the cloud on both sides of center, producing a full
+mirrored violin shape. When {opt mirror} is specified, the box is centered inside the
 violin and rain points are automatically jittered around the center. The total
 visual width of each cloud is {cmd:2 * cloudwidth()}.
 
@@ -327,7 +327,7 @@ points, or reduce {opt n()} to speed density estimation.
 {phang2}{stata "raincloud mpg, over(foreign) seed(12345)":. raincloud mpg, over(foreign) seed(12345)}{p_end}
 
 {pstd}
-{bf:Example 7: Split violin (mirror)}
+{bf:Example 7: Full mirrored violin}
 
 {phang2}{stata "raincloud mpg, over(foreign) mirror mean":. raincloud mpg, over(foreign) mirror mean}{p_end}
 
@@ -356,9 +356,24 @@ points, or reduce {opt n()} to speed density estimation.
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}variable plotted{p_end}
 {synopt:{cmd:r(over)}}grouping variable (if specified){p_end}
+{synopt:{cmd:r(group_levels)}}numeric group values used internally{p_end}
+{synopt:{cmd:r(group_labels)}}group labels in plot order{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(stats)}}n, mean, sd, median, q25, q75, iqr, bandwidth by group{p_end}
+
+{pstd}
+Rows of {cmd:r(stats)} use group labels when every label is a valid Stata
+matrix row name. If any label cannot be represented, all rows are named
+{cmd:group1}, {cmd:group2}, and so on; {cmd:r(group_labels)} always provides
+the exact labels in row order. With
+{cmd:fweight}s, {cmd:r(N)} counts marked input rows while the {cmd:n}
+column of {cmd:r(stats)} contains the weighted frequency count.
+
+{pstd}
+If graph rendering or {opt saving()} fails after the analytical calculations,
+{cmd:raincloud} returns the graph error code and retains these results in
+{cmd:r()} for diagnosis.
 
 
 {marker references}{...}
@@ -374,7 +389,7 @@ plots: a multi-platform tool for robust data visualization. {it:Wellcome Open}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2026-08-05{p_end}
+{pstd}Version 1.0.3, 2026-08-11{p_end}
 
 
 {title:Also see}

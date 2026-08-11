@@ -1,4 +1,4 @@
-*! raincloud Version 1.0.2  2026/08/05
+*! raincloud Version 1.0.3  2026/08/11
 *! Raincloud plots: half-violin density + jittered scatter + box elements
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -21,6 +21,7 @@ program define raincloud, rclass
     set varabbrev off
     local _rng_state = c(rngstate)
     local _restore_rng = 1
+    local _return_ready = 0
 
     capture noisily {
 
@@ -511,6 +512,21 @@ program define raincloud, rclass
         local graph_opts `"`graph_opts' xlabel(`ylab_spec', noticks nogrid) xscale(noline)"'
     }
 
+    * Prepare analytical results before graph rendering.  If graph creation or
+    * saving fails, callers can still inspect the successfully computed results.
+    matrix colnames `stats' = n mean sd median q25 q75 iqr bandwidth
+    if "`over'" != "" {
+        capture matrix rownames `stats' = `stat_names'
+        if _rc {
+            local fallback_names ""
+            forvalues j = 1/`n_groups' {
+                local fallback_names "`fallback_names' group`j'"
+            }
+            matrix rownames `stats' = `fallback_names'
+        }
+    }
+    local _return_ready = 1
+
     * =========================================================================
     * DRAW GRAPH
     * =========================================================================
@@ -527,26 +543,25 @@ program define raincloud, rclass
     set varabbrev `_varabbrev'
     if `_restore_rng' capture set rngstate `_rng_state'
 
-    * Re-raise any error from the captured block
-    if `rc' {
-        exit `rc'
-    }
-
     * =========================================================================
     * RETURN RESULTS
     * =========================================================================
-    * Label stats matrix
-    matrix colnames `stats' = n mean sd median q25 q75 iqr bandwidth
-    if `n_groups' > 1 {
-        matrix rownames `stats' = `stat_names'
+    if `_return_ready' {
+        return clear
+        return scalar N = `N'
+        return scalar n_groups = `n_groups'
+        return local varname "`varlist'"
+        if "`over'" != "" {
+            return local over "`over'"
+        }
+        return local group_levels "`grp_levels'"
+        return local group_labels `"`grp_labels'"'
+        return matrix stats = `stats'
     }
 
-    return scalar N = `N'
-    return scalar n_groups = `n_groups'
-    return matrix stats = `stats'
-    return local varname "`varlist'"
-    if "`over'" != "" {
-        return local over "`over'"
+    * Re-raise graph-side errors after publishing the analytical results.
+    if `rc' {
+        exit `rc'
     }
 
     display as text "Raincloud plot: " as result "`varlist'"
