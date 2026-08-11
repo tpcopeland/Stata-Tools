@@ -22,8 +22,6 @@ if "`extra'" != "" | !inlist("`mode'", "quick", "core", "full") {
 }
 
 local qa_dir "`c(pwd)'"
-quietly ado dir
-capture ado uninstall pkgtransfer
 global RUN_TEST_QUIET 1
 global RUN_TEST_MACHINE 0
 global RUN_TEST_NUMBER 0
@@ -42,6 +40,12 @@ capture noisily do "`qa_dir'/test_pkgtransfer_v104.do"
 local regression_rc = _rc
 local ++suite_count
 if `regression_rc' == 0 local ++suite_pass
+else local ++suite_fail
+
+capture noisily do "`qa_dir'/test_pkgtransfer_v105.do"
+local deep_review_rc = _rc
+local ++suite_count
+if `deep_review_rc' == 0 local ++suite_pass
 else local ++suite_fail
 
 capture noisily do "`qa_dir'/test_pkgtransfer_installed.do"
@@ -65,6 +69,7 @@ capture log close _all
 display _n as text "pkgtransfer `mode' QA lane"
 display as text "  functional rc = `functional_rc'"
 display as text "  regression rc = `regression_rc'"
+display as text "  deep review rc = `deep_review_rc'"
 display as text "  installed rc = `installed_rc'"
 if inlist("`mode'", "core", "full") {
     display as text "  validation rc = `validation_rc'"

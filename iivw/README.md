@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 3.4.1** | 2026-08-10
+**Version 3.4.2** | 2026-08-11
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -434,6 +434,8 @@ Weighted `model(mixed)` requires `experimentalmixed` because a single observatio
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **3.4.2** (2026-08-11): Restores `c(varabbrev)` on captured early-error and helper-success branches, makes every internal program class explicit, repairs the `iivw_fit` stored-results table width, and makes the coverage-gate runbook relocatable. The release QA now inventories every shipped `.ado` dynamically and regression-tests the session-state and documentation contracts.
 
 - **3.4.1** (2026-08-10): Corrects the FIPTIW inference default introduced in 3.4.0. Bare FIPTIW fits are point-only at every sample size because the R=200 stacked-sandwich study was explicitly diagnostic, not a release gate, and covered only one identity-link DGP. Explicit `vce(stacked)` remains available and is stamped `uncleared-stacked-analytic`; the option table now lists it.
 

@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 3.4.1  2026/08/10
+*! _iivw_export_table Version 3.4.2  2026/08/11
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -448,8 +448,12 @@ end
 * The caller has already rejected shell metacharacters and quote characters in
 * the path (see the xlsx() guard above), so the quoting below is safe.
 capture program drop _iivw_open_workbook
-program define _iivw_open_workbook
+program define _iivw_open_workbook, nclass
     version 16.0
+    local __iivw_open_old_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
     gettoken __iivw_file 0 : 0
 
     if "`c(os)'" == "Windows" {
@@ -472,6 +476,11 @@ program define _iivw_open_workbook
         display as text ///
             "note: asked the operating system to open the workbook; Stata cannot confirm it did"
     }
+
+    }
+    local rc = _rc
+    set varabbrev `__iivw_open_old_varabbrev'
+    if `rc' exit `rc'
 end
 
 version 16.0

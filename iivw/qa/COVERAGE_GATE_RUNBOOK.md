@@ -45,7 +45,7 @@ pgrep -x stata-mp | wc -l  # must be 0
 ## 2. Launch
 
 ```bash
-cd /home/tpcopeland/Stata-Tools/iivw/qa
+cd "$(git rev-parse --show-toplevel)/iivw/qa"
 
 export WORKERS=22                        # leave ~2 vCPU for the OS
 export BLOCK=50                          # replications per block

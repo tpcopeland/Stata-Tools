@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.4.1  2026/08/10
+*! iivw_fit Version 3.4.2  2026/08/11
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -1957,7 +1957,7 @@ program define iivw_fit, eclass
             display as text "  If you want the fixed-effect (mean) structure anyway and accept that"
             display as text "  the variance components are not a valid weighted estimate, add"
             display as text "  experimentalmixed. model(mixed) is unaffected without weights."
-            exit 198
+            error 198
         }
         if "`unweighted'" == "" {
             display as text "note: weighted model(mixed) -- the fixed-effect (mean) structure is the"
@@ -2707,8 +2707,12 @@ program define iivw_fit, eclass
 end
 
 capture program drop _iivw_fit_replay
-program define _iivw_fit_replay
+program define _iivw_fit_replay, nclass
     version 16.0
+    local __iivw_replay_old_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
     syntax [, Level(cilevel)]
 
     local citype "`e(iivw_ci_type)'"
@@ -2718,76 +2722,81 @@ program define _iivw_fit_replay
     * e(properties)="b". Wald results can likewise use Stata's generic display.
     if !`interval_available' | "`citype'" == "wald-normal" {
         ereturn display `0'
-        exit
     }
-
-    * Asymmetric endpoints were computed at estimation time. The stored
-    * replicate distribution is not available to reconstruct another level, so
-    * never accept a replay option that would relabel frozen limits.
-    if "`level'" != "" & `level' != e(level) {
-        display as error ///
-            "level() cannot be changed when replaying a stored `citype' interval"
-        display as error "  refit the model with level(`level')"
-        error 198
-    }
-    local level = e(level)
-
-    tempname B V C
-    matrix `B' = e(b)
-    matrix `V' = e(V)
-    matrix `C' = e(iivw_ci)
-    local names : colnames `B'
-    local k = colsof(`B')
-    local __iivw_smcl_lb = char(123)
-    local __iivw_smcl_rb = char(125)
-
-    display as text ""
-    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
-    display as text "iivw_fit replay -- `citype' interval"
-    display as text ""
-    display as text _col(4) ///
-        "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
-        _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
-        _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
-        _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
-        _col(65) "`__iivw_smcl_lb'ralign 6:P(z)`__iivw_smcl_rb'"
-    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
-
-    forvalues j = 1/`k' {
-        local term : word `j' of `names'
-        local vlab "`term'"
-        if "`term'" == "_cons" local vlab "Intercept"
-        if strlen(`"`vlab'"') > 18 {
-            local vlab = substr(`"`vlab'"', 1, 16) + ".."
+    else {
+        * Asymmetric endpoints were computed at estimation time. The stored
+        * replicate distribution is not available to reconstruct another level,
+        * so never accept a replay option that would relabel frozen limits.
+        if "`level'" != "" & `level' != e(level) {
+            display as error ///
+                "level() cannot be changed when replaying a stored `citype' interval"
+            display as error "  refit the model with level(`level')"
+            error 198
         }
+        local level = e(level)
 
-        local b = el(`B', 1, `j')
-        local se = sqrt(el(`V', `j', `j'))
-        local lo = el(`C', 1, `j')
-        local hi = el(`C', 2, `j')
-        if `b' < . & `se' > 0 & `se' < . & `lo' < . & `hi' < . {
-            local p = 2 * normal(-abs(`b'/`se'))
-            if `p' < 0.001 {
-                local p_fmt "<0.001"
+        tempname B V C
+        matrix `B' = e(b)
+        matrix `V' = e(V)
+        matrix `C' = e(iivw_ci)
+        local names : colnames `B'
+        local k = colsof(`B')
+        local __iivw_smcl_lb = char(123)
+        local __iivw_smcl_rb = char(125)
+
+        display as text ""
+        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
+        display as text "iivw_fit replay -- `citype' interval"
+        display as text ""
+        display as text _col(4) ///
+            "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
+            _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
+            _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
+            _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
+            _col(65) "`__iivw_smcl_lb'ralign 6:P(z)`__iivw_smcl_rb'"
+        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
+
+        forvalues j = 1/`k' {
+            local term : word `j' of `names'
+            local vlab "`term'"
+            if "`term'" == "_cons" local vlab "Intercept"
+            if strlen(`"`vlab'"') > 18 {
+                local vlab = substr(`"`vlab'"', 1, 16) + ".."
+            }
+
+            local b = el(`B', 1, `j')
+            local se = sqrt(el(`V', `j', `j'))
+            local lo = el(`C', 1, `j')
+            local hi = el(`C', 2, `j')
+            if `b' < . & `se' > 0 & `se' < . & `lo' < . & `hi' < . {
+                local p = 2 * normal(-abs(`b'/`se'))
+                if `p' < 0.001 {
+                    local p_fmt "<0.001"
+                }
+                else {
+                    local p_fmt : display %6.3f `p'
+                    local p_fmt = strtrim("`p_fmt'")
+                }
+                display as text _col(4) ///
+                    "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
+                    as result _col(24) %10.4f `b' ///
+                    _col(36) %9.4f `se' ///
+                    _col(47) %7.4f `lo' as text "," ///
+                    as result %7.4f `hi' ///
+                    as text _col(65) ///
+                    "`__iivw_smcl_lb'ralign 6:`p_fmt'`__iivw_smcl_rb'"
             }
             else {
-                local p_fmt : display %6.3f `p'
-                local p_fmt = strtrim("`p_fmt'")
+                display as text _col(4) ///
+                    "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
+                    _col(24) "`__iivw_smcl_lb'ralign 41:(omitted)`__iivw_smcl_rb'"
             }
-            display as text _col(4) ///
-                "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
-                as result _col(24) %10.4f `b' ///
-                _col(36) %9.4f `se' ///
-                _col(47) %7.4f `lo' as text "," ///
-                as result %7.4f `hi' ///
-                as text _col(65) ///
-                "`__iivw_smcl_lb'ralign 6:`p_fmt'`__iivw_smcl_rb'"
         }
-        else {
-            display as text _col(4) ///
-                "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
-                _col(24) "`__iivw_smcl_lb'ralign 41:(omitted)`__iivw_smcl_rb'"
-        }
+        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     }
-    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
+
+    }
+    local rc = _rc
+    set varabbrev `__iivw_replay_old_varabbrev'
+    if `rc' exit `rc'
 end

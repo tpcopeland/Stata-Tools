@@ -1,4 +1,4 @@
-*! _iivw_reserve_names Version 3.4.1  2026/08/10
+*! _iivw_reserve_names Version 3.4.2  2026/08/11
 *! Validate a command's complete generated-name inventory before any data is
 *! touched: names must be legal, mutually unique, must never collide with a
 *! scientific input, and -- when the caller declares ownership tokens -- must
@@ -9,7 +9,7 @@
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
-program define _iivw_reserve_names
+program define _iivw_reserve_names, nclass
     version 16.0
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off

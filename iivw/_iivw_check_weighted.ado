@@ -1,4 +1,4 @@
-*! _iivw_check_weighted Version 3.4.1  2026/08/10
+*! _iivw_check_weighted Version 3.4.2  2026/08/11
 *! Verify the stored weights still describe the data in memory before fitting
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -19,7 +19,7 @@ program define _iivw_check_weighted, rclass
         display as error "  `__iivw_smcl_lb'cmd:iivw_weight, id(patid) time(visit_months) ///`__iivw_smcl_rb'"
         display as error "  `__iivw_smcl_lb'cmd:  visit_cov(edss_bl age) lagvars(edss) ///`__iivw_smcl_rb'"
         display as error "  `__iivw_smcl_lb'cmd:  censor(fu_end) nolog`__iivw_smcl_rb'"
-        exit 198
+        error 198
     }
 
     local wvar : char _dta[_iivw_weight_var]
@@ -30,7 +30,7 @@ program define _iivw_check_weighted, rclass
         display as error "weight variable `wvar' not found"
         display as error ""
         display as error "Run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' to compute inverse intensity weights."
-        exit 111
+        error 111
     }
 
     * The weights must still describe THIS data. Existence of the column proves
@@ -61,7 +61,7 @@ program define _iivw_check_weighted, rclass
         display as error "  stored contract has been edited."
         display as error ""
         display as error "  Re-run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' on the current data."
-        exit 459
+        error 459
     }
 
     local sid   : char _dta[_iivw_id]
@@ -83,7 +83,7 @@ program define _iivw_check_weighted, rclass
         display as error "  these variables are gone:`missingvar'"
         display as error "  The stored weights were built from them, so they no longer"
         display as error "  describe this data. Re-run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb'."
-        exit 459
+        error 459
     }
 
     _iivw_weight_signature
@@ -99,7 +99,7 @@ program define _iivw_check_weighted, rclass
         display as error ""
         display as error "  Re-run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' on the current data."
         display as error "  (Re-sorting the data is safe and does not trigger this.)"
-        exit 459
+        error 459
     }
 
     }
