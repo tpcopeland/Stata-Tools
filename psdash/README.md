@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.7** | 2026-08-11
+**Version 1.6.8** | 2026-08-11
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -220,7 +220,7 @@ With no subcommand, psdash displays an overview. For multi-group treatments, use
 psdash overlap [treatment] [psvar] [if] [in] [, covariates(varlist) histogram bins(#) bwidth(#) compact nograph saving(filename) scheme(schemename) graphoptions(string) title(string) name(string) xlsx(filename) sheet(string) gpsfloor(#) estimand(string) psvars(varlist) reference(#)]
 ```
 
-The default graph is a kernel-density overlap plot; histogram switches to overlapping histograms. Detailed multi-group graphs use a separate data-driven x axis for each GPS component because the components can occupy very different probability ranges. The practical-positivity floor is drawn only when it lies within that component's observed range, avoiding empty axis extensions; three-component graphs use one filled row. compact replaces those detailed panels with one grouped box-plot region containing every GPS component. nograph suppresses the graph, bins(30) is the histogram default, and Stata's default bandwidth is used when bwidth() is omitted.
+The default graph is a kernel-density overlap plot; histogram switches to overlapping histograms. Detailed multi-group graphs use a separate data-driven x axis for each GPS component because the components can occupy very different probability ranges. The practical-positivity floor is drawn only when it lies within that component's observed range, avoiding empty axis extensions; three-component graphs use one filled row. compact replaces those detailed panels with one grouped box-plot region containing every GPS component and keeps its treatment-group legend on one row. nograph suppresses the graph, bins(30) is the histogram default, and Stata's default bandwidth is used when bwidth() is omitted.
 
 ### psdash balance
 
@@ -393,6 +393,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.8** (11 Aug 2026): Compact overlap legend correction. Multi-group compact overlap box plots, including the PS Overlap panel in combined dashboards, now place treatment-group legend entries on one row by default.
 - **v1.6.7** (11 Aug 2026): Detailed multi-group graph correction. Standalone overlap and support graphs now place three GPS components in one filled row, use component-specific data ranges instead of extending every axis to an irrelevant positivity floor, align histogram bins within each component, and render clean titles without literal compound-quote markup.
 - **v1.6.6** (11 Aug 2026): Dashboard graph correction. Multi-group combined dashboards now use one readable graph region each for overlap and support instead of nesting two three-panel composites, graph titles no longer retain literal quote markup, and compact weight histograms compare within-arm fractions on data-driven round axes with a clearly annotated remote-tail display cap. Standalone multi-group density detail and all numerical diagnostics are unchanged.
 - **v1.6.5** (10 Aug 2026): Crump boundary correction. Exact propensity scores of zero or one no longer qualify for the alpha-zero full-sample shortcut; the positive-threshold search excludes them, including in row-level support indicators. The help and README now state the alpha-zero eligibility rule.

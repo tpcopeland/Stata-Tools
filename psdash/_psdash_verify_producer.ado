@@ -1,4 +1,4 @@
-*! _psdash_verify_producer Version 1.6.7  2026/08/11
+*! _psdash_verify_producer Version 1.6.8  2026/08/11
 *! Call a producer package's own validity/signature guard before trusting its
 *! post-estimation contract; fail closed on stale, unsigned, or unverifiable state
 *! Author: Timothy P Copeland, Karolinska Institutet

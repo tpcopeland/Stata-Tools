@@ -249,7 +249,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.2.6** (2026-08-11): Moved x-axis labels and title above the risk table, added a horizontal separator, and enlarged default risk-table text.
+- **1.2.6** (2026-08-11): Placed the x-axis title directly below its values, added a solid separator above the risk table, and enlarged default risk-table text.
 - **1.2.5** (2026-08-11): Isolated internal graph names and failure cleanup, fixed custom-color recycling and risk-table median annotations, supported dotted export paths, and made landmark lookup exact for continuous event times and large samples.
 - **1.2.4** (2026-08-11): Corrected subject-level, weighted, delayed-entry, and group-transition risk-table counts; excluded contiguous same-group records from censoring; and rejected ineffective dependent-option combinations.
 - **1.2.3** (2026-08-05): Corrected p-value requirements and stored-result conditions, documented `note()` precedence with `medianannotate`, and aligned help abbreviations with the parser.

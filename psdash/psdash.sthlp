@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.7  11aug2026}{...}
+{* *! version 1.6.8  11aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -321,8 +321,8 @@ not specified, Stata's default bandwidth is used.
 
 {phang}
 {opt compact} replaces the detailed multi-group component density panels with
-one grouped box-plot region containing every GPS component. It has no effect
-for binary treatments.
+one grouped box-plot region containing every GPS component. Its treatment-group
+legend uses one row. It has no effect for binary treatments.
 
 {pstd}
 For a multi-valued treatment, the overlap graph has one panel for each GPS

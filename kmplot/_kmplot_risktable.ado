@@ -246,19 +246,19 @@ program define _kmplot_risktable, rclass
         local ylabels `"`ylabels' `yval' `"`lbl'"'"'
     }
 
-	    * Keep breathing room below the final risk-table row.
-	    local ymin = 0.0
-	    local ymax = `ngroups' + 0.5
-	    if `riskheight' > 0 {
-	        local fysize = `riskheight'
-	    }
-	    else {
-	        local fysize = 25
-	        if `ngroups' > 3 {
-	            local fysize = 25 + (`ngroups' - 3) * 4
-	            if `fysize' > 60 local fysize = 60
-	        }
-	    }
+    * Keep breathing room below the final risk-table row.
+    local ymin = 0.0
+    local ymax = `ngroups' + 0.5
+    if `riskheight' > 0 {
+        local fysize = `riskheight'
+    }
+    else {
+        local fysize = 25
+        if `ngroups' > 3 {
+            local fysize = 25 + (`ngroups' - 3) * 4
+            if `fysize' > 60 local fysize = 60
+        }
+    }
 
     if "`events'" != "" {
         local ytitle_rt "No. at risk (events)"
@@ -294,6 +294,7 @@ program define _kmplot_risktable, rclass
     local xtitle_cmd `"xtitle(`"`xtitle'"', size(vsmall))"'
     local xscale_cmd "xscale(range(`xstart' `xmax') noline)"
     local separator_cmd ""
+    local time_title_cmd ""
     if "`toptimeaxis'" != "" {
         if `"`xlabel'"' != "" {
             if strpos(`"`xlabel'"', ",") {
@@ -307,10 +308,14 @@ program define _kmplot_risktable, rclass
             local top_xlabel_cmd xlabel(`timepoints', labsize(small) noticks nogrid axis(2))
         }
         local xlabel_cmd `"xlabel(, nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
-        local xtitle_cmd `"xtitle("", axis(1)) xtitle(`"`xtitle'"', size(small) axis(2))"'
+        local xtitle_cmd `"xtitle("", axis(1)) xtitle("", axis(2))"'
         local xscale_cmd `"xscale(range(`xstart' `xmax') noline axis(1)) xscale(range(`xstart' `xmax') noline axis(2))"'
-        local separator_y = `ngroups' + 0.25
-        local separator_cmd "yline(`separator_y', lcolor(gs8) lwidth(vthin))"
+        local ymax = `ngroups' + 1.50
+        local time_title_y = `ngroups' + 1.45
+        local time_title_x = (`xstart' + `xmax') / 2
+        local time_title_cmd `"text(`time_title_y' `time_title_x' `"`xtitle'"', placement(n) size(small))"'
+        local separator_y = `ngroups' + 0.55
+        local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
     }
 
     twoway `scatcmd', ///
@@ -320,6 +325,7 @@ program define _kmplot_risktable, rclass
         `xscale_cmd' ///
         `xtitle_cmd' ///
         ytitle("`ytitle_rt'", size(small)) ///
+        `time_title_cmd' ///
         `separator_cmd' ///
         title("") subtitle("") ///
         scheme(`scheme') ///
