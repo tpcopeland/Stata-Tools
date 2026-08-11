@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.13.0** | 2026-08-11
+**Version 1.14.1** | 2026-08-11
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -93,6 +93,7 @@ Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `he
 - GitHub-Flavored Markdown, CSV, Stata frames, and graph-ready eplot frames where supported.
 - Shared session defaults for font, font size, border style, theme, numeric digits, and p-value emphasis through `tabtools set` and `tabtools get`.
 - Explicit confidence-level provenance for collection-based and saved-rate workflows, with errors for conflicting or unavailable levels instead of silently substituting a value.
+- Strict `smallcells(#)` disclosure control for `table1_tc`, `desctab`, and `crosstab`, with primary, complementary, and dependent-result suppression applied before any output sink.
 
 ### Workbook cell types
 
@@ -111,7 +112,7 @@ table1_tc price mpg weight rep78, by(foreign) smd test frame(table1, replace) xl
 
 `table1_tc` detects the supplied variables when `vars()` is omitted. Use `vars()` for explicit row types such as `contn`, `conts`, `cat`, `bin`, and their extended forms; `smd` requires `by()`, and `clear` is available when the rendered table should replace the data in memory.
 
-To protect exact counts below a publication threshold, add `smallcells(#)`. Primary cells are shown as `<#`, complementary cells as `≥#`, and dependent tests and SMDs as `Suppressed`; every requested sink receives the same already-redacted table.
+To protect exact counts below a publication threshold in `table1_tc`, `desctab`, or `crosstab`, add `smallcells(#)`. Primary cells are shown as `<#`, complementary cells as `≥#`, and dependent statistics as `Suppressed`; every requested sink receives the same already-redacted table.
 
 ```stata
 table1_tc rep78, by(foreign) vars(rep78 cat) total(after) smallcells(5) frame(table1_safe, replace)
@@ -141,6 +142,8 @@ desctab, compose(mean_sd) frame(descriptive, replace) xlsx("descriptive.xlsx")
 
 `desctab` consumes the active `collect` result and can arrange rows and columns with `keep()`, `drop()`, `statorder()`, and `statlabels()`. The built-in `compose()` presets include `events_n_pct`, `events_n`, `n_pct`, `mean_sd`, `mean_semean`, `median_iqr`, `median_range`, and `mean_ci`.
 
+For disclosure-controlled output, `desctab, smallcells(#)` accepts recognized `count`, `frequency`, and `fvfrequency` layouts plus the named `compose(n_pct)` preset. It maps exact collect result/dimension identifiers and fails before output for arbitrary compositions, other statistics, filtered layouts, or shapes whose count lineage cannot be proved.
+
 ### Regression and effects
 
 ```stata
@@ -160,12 +163,12 @@ effecttab, frame(effects, replace) xlsx("effects.xlsx")
 
 ```stata
 sysuse auto, clear
-crosstab foreign rep78, rowpct fisher xlsx("crosstab.xlsx")
+crosstab foreign rep78, rowpct fisher smallcells(5) xlsx("crosstab.xlsx")
 corrtab price mpg weight, spearman full pvalues markdown("correlations.md")
 diagtab mpg foreign, cutoff(22) xlsx("diagnostics.xlsx")
 ```
 
-`crosstab` defaults to column percentages and uses a sparse-cell exact test when appropriate. `corrtab` defaults to Pearson correlations and the lower triangle; `diagtab` uses Wilson intervals by default and accepts continuous tests through `cutoff()`, `cutoffs()`, `auc`, or `optimal`.
+`crosstab` defaults to column percentages and uses a sparse-cell exact test when appropriate. With `smallcells(#)`, it protects the count block and margins, withholds percentages whose numerator or denominator is protected, and suppresses count-dependent tests and effect measures. `corrtab` defaults to Pearson correlations and the lower triangle; `diagtab` uses Wilson intervals by default and accepts continuous tests through `cutoff()`, `cutoffs()`, `auc`, or `optimal`.
 
 ### Survival and rates
 
@@ -247,18 +250,18 @@ table1_tc [varlist] [if] [in] [fweight], [by(varname) vars(string) format(string
 ### `desctab`
 
 ```stata
-desctab, [xlsx(string) excel(string) sheet(string) title(string) footnote(string) compose(string) nformats(string) digits(#) pctdigits(#) nintegerfmt(string) pctscale(string) pctsign rowtotals coltotals nototals keep(string) drop(string) statorder(string) statlabels(string) nomissing zebra headershade headercolor(string) zebracolor(string) borderstyle(string) theme(string) open csv(string) markdown(string) mdappend frame(string) highlight(#) hlstat(string)]
+desctab, [xlsx(string) excel(string) sheet(string) title(string) footnote(string) compose(string) nformats(string) digits(#) pctdigits(#) nintegerfmt(string) pctscale(string) pctsign rowtotals coltotals nototals keep(string) drop(string) statorder(string) statlabels(string) nomissing zebra headershade headercolor(string) zebracolor(string) borderstyle(string) theme(string) open csv(string) markdown(string) mdappend frame(string) highlight(#) hlstat(string) smallcells(#)]
 ```
 
-`desctab` is Stata 17+ and requires an active `collect` table from `table`. The sheet defaults to `Descriptive`, digits default to the session setting or `2`, percentage digits default to `1`, the integer format is `%12.0fc`, and `hlstat()` defaults to `mean`. `keep()` and `drop()` are mutually exclusive; `mdappend` requires `markdown()`.
+`desctab` is Stata 17+ and requires an active `collect` table from `table`. The sheet defaults to `Descriptive`, digits default to the session setting or `2`, percentage digits default to `1`, the integer format is `%12.0fc`, and `hlstat()` defaults to `mean`. `smallcells(#)` requires an integer of at least 3 and supports exact count/frequency layouts or named `compose(n_pct)` only; unsupported collect lineages fail closed. `keep()` and `drop()` are mutually exclusive; `mdappend` requires `markdown()`.
 
 ### `crosstab`
 
 ```stata
-crosstab rowvar colvar [if] [in] [fweight=exp], [xlsx(string) excel(string) colpct rowpct totalpct or rr rd trend cochran exact fisher label missing level(#) digits(#) title(string) footnote(string) theme(string) borderstyle(string) headershade headercolor(string) zebracolor(string) boldp(#) zebra csv(string) markdown(string) mdappend frame(string) open]
+crosstab rowvar colvar [if] [in] [fweight=exp], [xlsx(string) excel(string) colpct rowpct totalpct or rr rd trend cochran exact fisher label missing level(#) digits(#) title(string) footnote(string) theme(string) borderstyle(string) headershade headercolor(string) zebracolor(string) boldp(#) zebra csv(string) markdown(string) mdappend frame(string) smallcells(#) open]
 ```
 
-`crosstab` is Stata 17+, accepts numeric categorical variables and frequency weights, and defaults to column percentages, the current `c(level)`, and session digits or `1`. `or`, `rr`, and `rd` require a 2x2 table; `trend` and `cochran` are separate ordered-trend tests; `exact` and `fisher` are synonyms. Numeric level order, not value-label order, determines the requested 2x2 measures.
+`crosstab` is Stata 17+, accepts numeric categorical variables and frequency weights, and defaults to column percentages, the current `c(level)`, and session digits or `1`. `smallcells(#)` requires an integer of at least 3 and protects counts, released margins, dependent percentages, tests, and requested measures before any sink runs. `or`, `rr`, and `rd` require a 2x2 table; `trend` and `cochran` are separate ordered-trend tests; `exact` and `fisher` are synonyms. Numeric level order, not value-label order, determines the requested 2x2 measures.
 
 ### `corrtab`
 
@@ -423,11 +426,11 @@ Returns `r(markdown_rows)`, `r(markdown_cols)`, `r(Dapa)`, `r(methods)`, `r(varl
 
 ### `desctab`
 
-Returns `r(N_cells)`, `r(N_rows)`, `r(markdown_rows)`, `r(markdown_cols)`, `r(version)`, `r(rowvar)`, `r(colvar)`, `r(stats)`, `r(compose)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, `r(markdown)`, `r(methods)`, and `r(table)`.
+Returns `r(N_cells)`, `r(N_rows)`, `r(markdown_rows)`, `r(markdown_cols)`, `r(version)`, `r(rowvar)`, `r(colvar)`, `r(stats)`, `r(compose)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, `r(markdown)`, `r(methods)`, and `r(table)`. With `smallcells(#)`, it also returns `r(smallcells)`, `r(N_primary_suppressed)`, `r(N_secondary_suppressed)`, `r(N_derived_suppressed)`, and `r(suppression)`; protected numeric cells use `.p`, `.s`, and `.d`.
 
 ### `crosstab`
 
-Returns `r(N)`, `r(ci_level)`, `r(chi2)`, `r(p)`, requested `r(or)`, `r(rr)`, or `r(rd)`, trend results `r(p_trend)`, `r(chi2_trend)`, and `r(z_trend)` where applicable, plus `r(markdown_rows)`, `r(markdown_cols)`, `r(table)`, `r(methods)`, `r(trend_method)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, and `r(markdown)`.
+Returns `r(N)`, `r(ci_level)`, `r(chi2)`, `r(p)`, requested `r(or)`, `r(rr)`, or `r(rd)`, trend results `r(p_trend)`, `r(chi2_trend)`, and `r(z_trend)` where applicable, plus `r(markdown_rows)`, `r(markdown_cols)`, `r(table)`, `r(methods)`, `r(trend_method)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, and `r(markdown)`. With `smallcells(#)`, it also returns `r(smallcells)`, suppression counts, and `r(suppression)`; protected counts use `.p`/`.s` and dependent inferential results use `.d`.
 
 ### `corrtab`
 
@@ -493,6 +496,7 @@ Returns `r(mode)`, `r(source)`, `r(metrics)`, `r(methods)`, `r(n_estimands)`, `r
 - `simtab` drops or reports insufficient-replication and missing-standard-error cases according to its input and `minreps()` settings. Compute mode requires the requested source variables, while ingest mode requires the selected external format.
 - `tabtools set permanent` writes a runnable profile in the user's Stata PERSONAL directory. It changes future sessions only when that profile is loaded or sourced.
 - Excel output requires a writable target path, and `open` additionally requires a graphical Excel-capable environment. Markdown and CSV targets do not require Excel.
+- `smallcells(#)` protects exact disclosure within one invocation of `table1_tc`, `desctab`, or `crosstab`. It does not certify anonymization or account for linkage across separate releases; an unsupported or unprovable layout fails before output.
 
 ## References
 
@@ -506,6 +510,8 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.14.1** (2026-08-11): Made all 77 shipped Stata programs declare their class and independently restore `c(varabbrev)` on success and error, and hardened cleanup around variable-type sampling, simulation-summary postfiles, and simulation plot-frame construction.
+- **1.14.0** (2026-08-11): Extended strict `smallcells(#)` disclosure control to `crosstab` count blocks, margins, percentages, tests, and association/trend results, and to recognized `desctab` count/frequency and named `n_pct` collect layouts, with fail-closed mapping, safe returns, frame provenance, and identical redaction across every sink.
 - **1.13.0** (2026-08-11): Added strict `table1_tc, smallcells(#)` disclosure control with primary and complementary suppression, exact-reconstruction checks, dependent-statistic redaction, safe stored results, and identical markers across console, Excel, CSV, Markdown, frame, and `clear` output.
 - **1.12.2** (2026-08-10): Corrected continuous standardized mean differences for unweighted and frequency-weighted Table 1 summaries to use the documented root-mean of group variances rather than a degrees-of-freedom-weighted pooled standard deviation.
 - **1.12.1** (2026-08-07): Stopped the CSV writer dropping a leading data row that is blank in every column, which silently cost `puttab` and `simtab` exports one observation relative to the workbook; the leading-row trim is now declared by the table-building commands that reserve that row rather than inferred from its contents. Repaired the `csv()` option paragraph in fourteen help files, where the 1.12.0 wording left an SMCL directive open across a line break and printed `{opt title()}` literally in the Viewer.

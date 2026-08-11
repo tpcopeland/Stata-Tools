@@ -167,7 +167,8 @@ reproducibility. It requires {opt bootstrap()}.
 
 {phang}
 {opt level(#)} sets the confidence level; the default is {cmd:c(level)}, which
-is initially 95 and can be changed by {helpb set level}.
+is initially 95 and can be changed by {helpb set level}. The value must be at
+least 10 and less than 100.
 
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},

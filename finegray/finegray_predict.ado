@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/08/10
+*! finegray_predict Version 1.2.1  2026/08/11
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -130,8 +130,8 @@ program define finegray_predict, rclass sortpreserve
     }
     else {
         capture confirm number `level'
-        if _rc | real("`level'") <= 0 | real("`level'") >= 100 {
-            display as error "level() must be a number between 0 and 100"
+        if _rc | real("`level'") < 10 | real("`level'") >= 100 {
+            display as error "level() must be a number between 10 and 99.99"
             exit 198
         }
     }
@@ -239,11 +239,12 @@ program define finegray_predict, rclass sortpreserve
         }
     }
 
-    * Entry-time source for the recomputation paths (ci, schoenfeld):
-    * multi-record fits persist each subject's earliest entry in a
-    * finegray-created variable; single-record fits use _t0.
+    * Entry-time source for every path that may rebuild the baseline or score
+    * residuals. Point CIF/basecshazard predictions normally use the warm Mata
+    * cache too, but after mata clear they rebuild from the estimation data and
+    * therefore need the same subject-level entry times as ci/schoenfeld.
     local _t0var "_t0"
-    if ("`ci'" != "" | "`schoenfeld'" != "") ///
+    if ("`cif'" != "" | "`basecshazard'" != "" | "`schoenfeld'" != "") ///
         & `"`_dta[_finegray_entryvar]'"' != "" {
         local _t0var `"`_dta[_finegray_entryvar]'"'
         capture confirm numeric variable `_t0var'
@@ -294,14 +295,15 @@ program define finegray_predict, rclass sortpreserve
                 if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
                     local _flev = regexs(1)
                     local _fvar = regexs(2)
-                    local _seen : list posof "`_fvar'" in _fv_facvars
-                    if `_seen' == 0 {
+                    local _fpos : list posof "`_fvar'" in _fv_facvars
+                    if `_fpos' == 0 {
                         local _fv_facvars "`_fv_facvars' `_fvar'"
-                        local _fvlevels_`_fvar' ""
+                        local _fpos : list posof "`_fvar'" in _fv_facvars
+                        local _fvlevels`_fpos' ""
                     }
-                    local _lseen : list posof "`_flev'" in _fvlevels_`_fvar'
+                    local _lseen : list posof "`_flev'" in _fvlevels`_fpos'
                     if `_lseen' == 0 {
-                        local _fvlevels_`_fvar' "`_fvlevels_`_fvar'' `_flev'"
+                        local _fvlevels`_fpos' "`_fvlevels`_fpos'' `_flev'"
                     }
                     local _rseen : list posof "`_fvar'" in _fv_rawvars
                     if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_fvar'"
@@ -329,6 +331,7 @@ program define finegray_predict, rclass sortpreserve
         * collapse the observation onto the base category (all its dummies zero),
         * which is a fabricated prediction, not an extrapolation.
         foreach _fvar of local _fv_facvars {
+            local _fpos : list posof "`_fvar'" in _fv_facvars
             capture confirm numeric variable `_fvar'
             if _rc {
                 display as error "required factor variable `_fvar' not found"
@@ -337,13 +340,13 @@ program define finegray_predict, rclass sortpreserve
             }
             tempvar _lvbad
             quietly gen byte `_lvbad' = 0 if `_fvbasis'
-            foreach _flev of local _fvlevels_`_fvar' {
+            foreach _flev of local _fvlevels`_fpos' {
                 quietly replace `_lvbad' = `_lvbad' + (`_fvar' == `_flev') if `_fvbasis'
             }
             quietly count if `_lvbad' == 0 & `_fvbasis' & !missing(`_fvar')
             if r(N) > 0 {
                 display as error "`_fvar' contains `r(N)' observation(s) at levels not present when finegray was estimated"
-                display as error "the model has no coefficient for those levels; fitted levels are:`_fvlevels_`_fvar''"
+                display as error "the model has no coefficient for those levels; fitted levels are:`_fvlevels`_fpos''"
                 exit 459
             }
             drop `_lvbad'

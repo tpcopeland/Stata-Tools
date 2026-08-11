@@ -14,15 +14,18 @@ program define _pkgtransfer_qa_setup, rclass
     syntax, PKGDIR(string)
 
     local original_plus "`c(sysdir_plus)'"
+    local original_personal "`c(sysdir_personal)'"
     tempfile qa_marker
     local root "`qa_marker'_root"
     local work "`root'/work"
     local plus "`root'/plus"
+    local personal "`root'/personal"
 
     foreach dir in ///
         `"`root'"' ///
         `"`work'"' ///
         `"`plus'"' ///
+        `"`personal'"' ///
         `"`plus'/a"' ///
         `"`plus'/f"' ///
         `"`plus'/p"' {
@@ -55,20 +58,27 @@ program define _pkgtransfer_qa_setup, rclass
     file close `tracker'
 
     sysdir set PLUS `"`plus'"'
+    sysdir set PERSONAL `"`personal'"'
 
     return local original_plus `"`original_plus'"'
+    return local original_personal `"`original_personal'"'
     return local root `"`root'"'
     return local work `"`work'"'
     return local plus `"`plus'"'
+    return local personal `"`personal'"'
 end
 
 capture program drop _pkgtransfer_qa_cleanup
 program define _pkgtransfer_qa_cleanup
     version 16.0
-    syntax, ROOT(string) ORIGINALPLUS(string)
+    syntax, ROOT(string) ORIGINALPLUS(string) ORIGINALPERSONAL(string)
 
     sysdir set PLUS `"`originalplus'"'
+    sysdir set PERSONAL `"`originalpersonal'"'
     if `"`c(sysdir_plus)'"' != `"`originalplus'"' {
+        exit 9
+    }
+    if `"`c(sysdir_personal)'"' != `"`originalpersonal'"' {
         exit 9
     }
 

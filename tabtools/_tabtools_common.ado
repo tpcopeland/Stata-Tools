@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.13.0  2026/08/11
+*! _tabtools_common Version 1.14.1  2026/08/11
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -33,7 +33,7 @@ PROGRAMS INCLUDED:
 USAGE:
     These programs are called internally by tabtools commands (table1_tc, regtab,
     effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
-    Callers manage variable-abbreviation state; helpers do not set it independently.
+    Each helper independently restores the caller's variable-abbreviation state.
 */
 
 * =============================================================================
@@ -46,8 +46,11 @@ USAGE:
 *        local my_letter = "`result'"   // my_letter = "C"
 
 capture program drop _tabtools_col_letter
-program _tabtools_col_letter
+program _tabtools_col_letter, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args col_num
 
     local col_letter = ""
@@ -60,6 +63,11 @@ program _tabtools_col_letter
     }
 
     c_local result "`col_letter'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -72,8 +80,11 @@ end
 *        (exits with error if invalid)
 
 capture program drop _tabtools_validate_path
-program _tabtools_validate_path
+program _tabtools_validate_path, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args filepath option_name
 
     * Check for shell metacharacters and command injection vectors
@@ -93,6 +104,11 @@ program _tabtools_validate_path
         noisily display as error "`option_name' contains invalid characters"
         exit 198
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -103,12 +119,19 @@ end
 * Usage: _tabtools_validate_color "`color'" "headercolor()"
 
 capture program drop _tabtools_validate_color
-program _tabtools_validate_color
+program _tabtools_validate_color, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args color option_name
 
     local color = strtrim(`"`color'"')
-    if `"`color'"' == "" exit
+    if `"`color'"' == "" {
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
 
     if regexm(`"`color'"', "^[A-Za-z][A-Za-z0-9_]*$") {
         local _named = lower(`"`color'"')
@@ -120,7 +143,11 @@ program _tabtools_validate_color
         local _valid_named "`_valid_named' pink purple red sand sienna stone teal white yellow"
         local _valid_named "`_valid_named' gs0 gs1 gs2 gs3 gs4 gs5 gs6 gs7 gs8"
         local _valid_named "`_valid_named' gs9 gs10 gs11 gs12 gs13 gs14 gs15 gs16"
-        if strpos(" `_valid_named' ", " `_named' ") exit
+        if strpos(" `_valid_named' ", " `_named' ") {
+            quietly version
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
         noisily display as error "`option_name' is not a supported Stata color name;"
         noisily display as error "use a supported name such as navy or an RGB triplet like 200 220 240"
         exit 198
@@ -134,11 +161,18 @@ program _tabtools_validate_color
                 exit 198
             }
         }
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
     noisily display as error "`option_name' must be a supported Stata color name or an RGB triplet like 200 220 240"
     exit 198
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -151,8 +185,11 @@ end
 *        local letters = "`result'"   // letters = "A B C ... AA AB AC AD"
 
 capture program drop _tabtools_build_col_letters
-program _tabtools_build_col_letters
+program _tabtools_build_col_letters, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args num_cols
 
     local col_letters ""
@@ -170,6 +207,11 @@ program _tabtools_build_col_letters
     }
 
     c_local result "`=strtrim("`col_letters'")'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -181,11 +223,18 @@ end
 * Usage: _tabtools_open_file "`filepath'"
 
 capture program drop _tabtools_open_file
-program _tabtools_open_file
+program _tabtools_open_file, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args filepath
 
-    if "`filepath'" == "" exit
+    if "`filepath'" == "" {
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
 
     if "`c(os)'" == "MacOSX" {
         shell open "`filepath'" &
@@ -197,6 +246,11 @@ program _tabtools_open_file
         * Unix/Linux
         shell xdg-open "`filepath'" &
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -219,8 +273,14 @@ end
 *        local type "`result'"
 
 capture program drop _tabtools_detect_vartype
-program _tabtools_detect_vartype
+program _tabtools_detect_vartype, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _restore_needed = 0
+    local _rng_restore_needed = 0
+    local _rng_state ""
+    capture noisily {
     syntax varlist(min=1 max=1) [if] [in]
     local varname `"`varlist'"'
 
@@ -236,6 +296,8 @@ program _tabtools_detect_vartype
     if !_rc {
         c_local result "cat"
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -243,6 +305,8 @@ program _tabtools_detect_vartype
     if `_nuniq' == 0 {
         c_local result "contn"
         c_local result_nuniq "0"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -253,6 +317,8 @@ program _tabtools_detect_vartype
         if r(min) == 0 & r(max) == 1 c_local result "bin"
         else c_local result "cat"
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -261,6 +327,8 @@ program _tabtools_detect_vartype
     if "`vallabel'" != "" {
         c_local result "cat"
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -268,6 +336,8 @@ program _tabtools_detect_vartype
     if `_nuniq' <= 7 {
         c_local result "cat"
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -279,6 +349,8 @@ program _tabtools_detect_vartype
         * Too few observations for normality test — default to contn
         c_local result "contn"
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -295,19 +367,24 @@ program _tabtools_detect_vartype
             c_local result "contn"
         }
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
     * For smaller N, use Shapiro-Wilk
     * Use a sample of up to 2000 obs for speed (swilk max is 2000 in some versions)
     preserve
+    local _restore_needed = 1
     tempvar _sw_use _sw_tie
     if `_nobs' > 2000 {
         local _rng_state = c(rngstate)
+        local _rng_restore_needed = 1
         set seed 12345
         quietly keep if `touse' & !missing(`varname')
         quietly gen `_sw_use' = runiform()
         set rngstate `_rng_state'
+        local _rng_restore_needed = 0
         quietly gen `_sw_tie' = _n
         quietly sort `_sw_use' `_sw_tie'
         capture quietly swilk `varname' in 1/2000
@@ -319,11 +396,14 @@ program _tabtools_detect_vartype
     local _sw_p = .
     if !`_sw_rc' local _sw_p = r(p)
     restore
+    local _restore_needed = 0
 
     if `_sw_rc' {
         * If swilk fails for any reason, default to contn
         c_local result "contn"
         c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -335,6 +415,13 @@ program _tabtools_detect_vartype
         c_local result "conts"
     }
     c_local result_nuniq "`_nuniq'"
+    }
+    local _rc_outer = _rc
+    if `_rng_restore_needed' capture set rngstate `_rng_state'
+    if `_restore_needed' capture restore
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -347,8 +434,11 @@ end
 * Usage: _tabtools_validate_sheet "`sheet'" "sheet()"
 
 capture program drop _tabtools_validate_sheet
-program _tabtools_validate_sheet
+program _tabtools_validate_sheet, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args sheet option_name
     if ustrlen(`"`sheet'"') == 0 {
         display as error "`option_name': sheet name may not be blank"
@@ -371,6 +461,11 @@ program _tabtools_validate_sheet
         display as error "`option_name': History is reserved by Excel and cannot be used as a sheet name"
         exit 198
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -384,8 +479,11 @@ end
 *         _theme_headershade, _theme_headercolor, _theme_zebra)
 
 capture program drop _tabtools_apply_theme
-program _tabtools_apply_theme
+program _tabtools_apply_theme, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args theme
 
     local theme = lower("`theme'")
@@ -483,6 +581,11 @@ program _tabtools_apply_theme
         display as error "Unknown theme: `theme'. Valid themes: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals, custom"
         exit 198
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -499,8 +602,11 @@ end
 *            headershade(string) zebra(string)]
 
 capture program drop _tabtools_resolve_format
-program _tabtools_resolve_format
+program _tabtools_resolve_format, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [THEme(string) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
 
     * Font defaults: global -> default
@@ -537,6 +643,11 @@ program _tabtools_resolve_format
     c_local _hborder "`_hborder'"
     if "`headershade'" != "" c_local headershade "`headershade'"
     if "`zebra'" != "" c_local zebra "`zebra'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -548,8 +659,11 @@ end
 * Usage: _tabtools_resolve_colors, [headercolor(string) zebracolor(string)]
 
 capture program drop _tabtools_resolve_colors
-program _tabtools_resolve_colors
+program _tabtools_resolve_colors, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [HEADERColor(string) ZEBRAColor(string)]
 
     local headercolor = strtrim(subinstr(`"`headercolor'"', char(34), "", .))
@@ -567,6 +681,11 @@ program _tabtools_resolve_colors
 
     c_local _headercolor `"`_headercolor'"'
     c_local _zebracolor `"`_zebracolor'"'
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -576,6 +695,9 @@ end
 capture program drop _tabtools_classify_stat
 program _tabtools_classify_stat, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax anything(name=stat)
     local stat = lower("`stat'")
     local class "unknown"
@@ -598,6 +720,10 @@ program _tabtools_classify_stat, rclass
         local class "continuous"
     }
     return local class "`class'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -607,6 +733,9 @@ end
 capture program drop _tabtools_resolve_stat_format
 program _tabtools_resolve_stat_format, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax anything(name=stat) [, DIGits(integer 2) PCTDIGits(integer 1) ///
         NINTEGERfmt(string)]
     if "`nintegerfmt'" == "" local nintegerfmt "%12.0fc"
@@ -626,6 +755,10 @@ program _tabtools_resolve_stat_format, rclass
     }
     return local class "`class'"
     return local fmt "`fmt'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -640,6 +773,9 @@ end
 capture program drop _tabtools_collect_ci_level
 program _tabtools_collect_ci_level, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     tempfile _collect_level
     local _json "`_collect_level'.stjson"
     tempname _fh
@@ -679,6 +815,10 @@ program _tabtools_collect_ci_level, rclass
     if `rc' exit `rc'
     return scalar found = !missing(`_level')
     return scalar level = `_level'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -706,6 +846,9 @@ end
 capture program drop _tabtools_resolve_ci_level
 program define _tabtools_resolve_ci_level, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args level_opt
 
     if "`level_opt'" == "" local level_opt = -1
@@ -737,6 +880,10 @@ program define _tabtools_resolve_ci_level, rclass
 
     return scalar level = `_lvl'
     return scalar found = `_found'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -746,9 +893,16 @@ end
 capture program drop _tabtools_strip_outer_quotes
 program _tabtools_strip_outer_quotes, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , TEXT(string asis)
     mata: st_local("_out", _tt_strip_outer_quotes(st_local("text")))
     return local text `"`_out'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -758,6 +912,9 @@ end
 capture program drop _tabtools_format_p
 program _tabtools_format_p, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , PVALUE(real) [PDP(integer 3) HIGHPDP(integer 2)]
     if `pdp' < 1 | `highpdp' < 1 exit 198
     local _out ""
@@ -769,6 +926,10 @@ program _tabtools_format_p, rclass
         else local _out = strtrim(string(`pvalue', "%21.`highpdp'f"))
     }
     return local value `"`_out'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -791,8 +952,11 @@ end
 *   headerstart(#)     — first header row to display (default 2)
 
 capture program drop _tabtools_console_display
-program _tabtools_console_display
+program _tabtools_console_display, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax anything(name=args) [, LABELvar(string) DATAstart(integer 3) HEADERstart(integer 2)]
 
     gettoken num_cols title : args
@@ -807,6 +971,8 @@ program _tabtools_console_display
     local total_rows = _N
     if `total_rows' < `headerstart' {
         display as text ""
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -823,11 +989,18 @@ program _tabtools_console_display
 
     if "`_display_vars'" == "" {
         display as text ""
+        quietly version
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
     list `_display_vars' in `headerstart'/`total_rows', noobs noheader table separator(0)
     display as text ""
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -838,8 +1011,11 @@ end
 * Usage: capture _tabtools_helpers_ready
 
 capture program drop _tabtools_helpers_ready
-program _tabtools_helpers_ready
+program _tabtools_helpers_ready, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args required
 
     if `"`required'"' == "" {
@@ -850,6 +1026,11 @@ program _tabtools_helpers_ready
         capture program list `_prog'
         if _rc exit 111
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -861,8 +1042,11 @@ end
 * Usage: _tabtools_require_helpers [, required(string) failmessage(string)]
 
 capture program drop _tabtools_require_helpers
-program _tabtools_require_helpers
+program _tabtools_require_helpers, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax [, REQUIRED(string asis) FAILMessage(string asis)]
 
     if `"`failmessage'"' == "" {
@@ -874,6 +1058,11 @@ program _tabtools_require_helpers
         noisily display as error `"`failmessage'"'
         exit 111
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 * =============================================================================
@@ -906,6 +1095,9 @@ end
 capture program drop _tabtools_frame_preflight
 program _tabtools_frame_preflight, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args frame_spec label
 
     if `"`label'"' == "" local label "frame()"
@@ -943,11 +1135,18 @@ program _tabtools_frame_preflight, rclass
     return local name "`_pfl_name'"
     return scalar replace = `_pfl_repl'
     return scalar exists = `_pfl_exists'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _tabtools_frame_put
-program _tabtools_frame_put
+program _tabtools_frame_put, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args frame_spec
 
     * Parse frame name and optional replace sub-option
@@ -985,6 +1184,11 @@ program _tabtools_frame_put
     frame put *, into(`_fr_name')
 
     c_local _frame_name "`_fr_name'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 version 16.0

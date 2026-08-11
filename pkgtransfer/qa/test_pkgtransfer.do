@@ -2,7 +2,7 @@
     File:    test_pkgtransfer.do
     Purpose: Functional tests for pkgtransfer
     Prereqs: pkgtransfer package installed or on adopath
-    Author:  Tim Copeland
+    Author:  Timothy P Copeland, Karolinska Institutet
     Date:    2026-03-13
 
     Run modes:
@@ -35,10 +35,10 @@ run "`qa_dir'/_pkgtransfer_qa_common.do"
 _pkgtransfer_qa_setup, pkgdir("`pkg_dir'")
 local qa_root "`r(root)'"
 local qa_original_plus "`r(original_plus)'"
+local qa_original_personal "`r(original_personal)'"
 local tmpdir "`r(work)'"
 local qa_plus "`r(plus)'"
 
-adopath ++ "`pkg_dir'"
 capture program drop pkgtransfer
 run "`pkg_dir'/pkgtransfer.ado"
 
@@ -74,13 +74,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, download(invalid)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -93,13 +93,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, os(Linux)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -112,13 +112,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, dofile(myfile.txt)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -131,13 +131,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, dofile(bad;name.do)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -150,13 +150,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, download(online) zipfile(myfile.tar)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -169,13 +169,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, download(online) zipfile(bad|name.zip)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -188,13 +188,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, zipfile(my.zip)
     if _rc == 198 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 198, got `=_rc'"
     }
 }
@@ -207,13 +207,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture noisily pkgtransfer, limited(zzz_nonexistent_pkg_12345)
     if _rc == 111 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: expected rc 111, got `=_rc'"
     }
 }
@@ -238,13 +238,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: varabbrev not restored after success"
     }
     set varabbrev on
@@ -263,13 +263,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: varabbrev not restored after error"
     }
     set varabbrev on
@@ -288,13 +288,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: varabbrev not restored after limited() error"
     }
     set varabbrev on
@@ -318,13 +318,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -343,13 +343,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -372,13 +372,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -397,13 +397,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -425,13 +425,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -464,13 +464,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -496,13 +496,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -520,13 +520,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -557,13 +557,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -597,13 +597,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -638,13 +638,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -666,13 +666,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -690,13 +690,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -714,13 +714,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`=_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`=_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -859,13 +859,13 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `machine' display "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+        if `machine' display "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1015,14 +1015,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1078,14 +1078,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1135,14 +1135,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1169,14 +1169,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1209,14 +1209,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1257,14 +1257,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1308,14 +1308,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1350,14 +1350,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1439,14 +1439,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
@@ -1569,21 +1569,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
     if `test_rc' == 0 {
         local ++pass_count
-        if `machine' display "RESULT: [OK] `test_count'"
+        if `machine' display "TEST: [OK] `test_count'"
         else if `quiet' == 0 display as result "    PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' display ///
-            "RESULT: [FAIL] `test_count'|`test_rc'|`test_desc'"
+            "TEST: [FAIL] `test_count'|`test_rc'|`test_desc'"
         else display as error "    FAILED: `test_desc'"
     }
 }
 
 capture noisily _pkgtransfer_qa_cleanup, root("`qa_root'") ///
-    originalplus("`qa_original_plus'")
+    originalplus("`qa_original_plus'") ///
+    originalpersonal("`qa_original_personal'")
 if _rc != 0 {
+    local ++test_count
     local ++fail_count
     local failed_tests "`failed_tests' fixture_cleanup"
     display as error "QA fixture cleanup failed with rc `=_rc'"
@@ -1594,7 +1596,7 @@ if _rc != 0 {
 * ============================================================
 
 display ""
-display as text "pkgtransfer v1.0.3 - Test Results"
+display as text "pkgtransfer Test Results"
 display as text "Tests run:    `test_count'"
 display as result "Tests passed: `pass_count'"
 if `fail_count' > 0 {
@@ -1605,10 +1607,13 @@ else {
     display as result "Tests failed: 0"
 }
 display ""
+local skip_count = `test_count' - `pass_count' - `fail_count'
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL"
+    display as error ///
+        "RESULT: test_pkgtransfer tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
     exit 9
 }
 else {
-    display as result "RESULT: PASS"
+    display as result ///
+        "RESULT: test_pkgtransfer tests=`test_count' pass=`pass_count' fail=0 skip=`skip_count'"
 }

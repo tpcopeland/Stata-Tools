@@ -1,6 +1,6 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.2.0** | 2026-08-10
+**Version 1.2.1** | 2026-08-11
 
 `finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 
@@ -267,7 +267,7 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 | `norobust` | Off; use model-based rather than sandwich variance. |
 | `noadjust` | Off; suppress the finite-sample sandwich adjustment. |
 | `noshr` | Off; display log-SHR coefficients instead of exponentiated coefficients. |
-| `level(#)` | `c(level)`; confidence level for displayed intervals and postestimation. |
+| `level(#)` | `c(level)`; confidence level from 10 to below 100 for displayed intervals and postestimation. |
 | `nolog` | Off; suppress the iteration log. |
 | `basehaz` | Off; post the baseline cumulative subdistribution hazard in `e(basehaz)`. |
 | `nuisance` | Off; add the right-censoring nuisance term to the sandwich variance. Not available with delayed entry. |
@@ -286,7 +286,7 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 | `basecshazard` | Generate the baseline cumulative subdistribution hazard. |
 | `timevar(varname)` | Numeric evaluation time for `cif` or `basecshazard`. |
 | `ci` | Add lower- and upper-confidence-limit variables for `cif`. |
-| `level(#)` | `c(level)`; confidence level for `ci`. |
+| `level(#)` | `c(level)`; confidence level from 10 to below 100 for `ci`. |
 | `bootstrap(#)` | At least 25 refits for bootstrap CIF confidence limits. |
 | `seed(#)` | Reproducible bootstrap seed; requires `bootstrap()`. |
 
@@ -355,6 +355,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.1** (2026-08-11): Fixed cold-cache CIF and baseline-hazard prediction after multiple-record reduction, prediction with legal long factor-variable names, confidence-level validation in both CIF commands, and a false delayed-entry positivity error for competing exits after the last cause event.
 - **1.2.0** (2026-08-10): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, and expanded CIF and diagnostic workflows; `finegray_phtest` is an exploratory residual-correlation diagnostic without an omnibus test. Display and reporting pass: `finegray` now replays its results when typed with no `varlist`; factor-variable coefficients are named with the terms you typed rather than internal design columns (so `test 1.pelnode` and `estimates table` work directly); the header reports the competing event values, the delayed-entry weight and late-entry count, and which variance is in `e(V)`; `e(depvar)` is `_t`, matching `stcrreg`. `finegray_cif` states the covariate profile above the table and under the graph, extends the plotted curve across the flat tail to the end of follow-up, flags requested times outside the estimated support, and labels the `saving()` dataset. New returns: `e(N_delayed)`, `e(N_G_trunc)`, `e(compete_values)`. Documentation and diagnostics pass: the factor-variable naming guidance now matches the user-facing coefficient names stored in `e(b)` and `e(V)`; `ibn.` is documented as estimable inside an interaction but refused as a main effect, with the refusal naming the terms you typed rather than internal design columns; the `margins` limitation is stated precisely (factor terms give `r(322)`, continuous-covariate margins remain valid); post-estimation on an empty `e(sample)` — what `estimates use` leaves behind — now reports that rather than "data have changed", and the help explains how `estimates esample:` restores it; rendered help spacing repaired throughout and the option tables fit an 80-column Viewer.
 - **1.1.0** (2026-07-10): Added CIF curves, multiple-record support, stratified censoring, and postestimation confidence intervals.
 - **1.0.0** (2026-04-06): Initial Stata-Tools release of `finegray`, `finegray_predict`, and `finegray_phtest`.

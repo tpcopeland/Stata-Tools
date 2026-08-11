@@ -272,8 +272,9 @@ results and {cmd:e(sample)} are preserved.
 {opt bootstrap()}.
 
 {phang}
-{opt level(#)} sets the confidence level for {opt ci}; the default is
-{cmd:c(level)}, which is initially 95 and can be changed by {helpb set level}.
+{opt level(#)} sets the confidence level for {opt ci}; the default is {cmd:c(level)},
+which is initially 95; the setting can be changed by {helpb set level} and must
+be at least 10 and less than 100.
 
 {marker fvalign}{...}
 {pstd}

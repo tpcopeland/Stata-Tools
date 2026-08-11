@@ -1,4 +1,4 @@
-*! _tabtools_simtab_ingest Version 1.13.0  2026/08/11
+*! _tabtools_simtab_ingest Version 1.14.1  2026/08/11
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -26,13 +26,24 @@ DESCRIPTION:
 */
 
 capture program drop _tabtools_simtab_ingest_ready
-program _tabtools_simtab_ingest_ready
+program _tabtools_simtab_ingest_ready, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _tabtools_simtab_ingest
 program define _tabtools_simtab_ingest, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , SOURCE(string) [BYVar(name) ESTIMATORVar(name) ///
         ESTIMANDVar(name) MEASures(string asis) ORDER(string)]
 
@@ -106,6 +117,10 @@ program define _tabtools_simtab_ingest, rclass
     return local by_header "`_by_header'"
     return local est_header "`_est_header'"
     return local source "`source'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 
@@ -113,8 +128,11 @@ end
 * Generic per-cell summary (the stable, dependency-free contract)
 * ============================================================================
 capture program drop _tabtools_simtab_ingest_identity
-program _tabtools_simtab_ingest_identity
+program _tabtools_simtab_ingest_identity, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args var ordvar labvar seq order
 
     capture confirm string variable `var'
@@ -144,11 +162,19 @@ program _tabtools_simtab_ingest_identity
     else quietly gen str244 `_raw' = strtrim(string(`var', "%21x"))
     quietly replace `labvar' = substr(`labvar' + " [" + `_raw' + "]", 1, 244) ///
         if `_lmin' != `_lmax'
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _tabtools_simtab_ingest_summary
 program _tabtools_simtab_ingest_summary, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , ESTIMATORVar(name) [BYVar(name) ESTIMANDVar(name) ///
         MEASures(string) ORDER(string)]
 
@@ -256,6 +282,10 @@ program _tabtools_simtab_ingest_summary, rclass
     return scalar has_emd = `_has_emd'
     return local by_header "`_by_header'"
     return local est_header "`_est_header'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 
@@ -267,6 +297,11 @@ end
 capture program drop _tabtools_simtab_ingest_simsum
 program _tabtools_simtab_ingest_simsum, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    tempname _pf
+    local _post_closed = 1
+    capture noisily {
     syntax , [ORDER(string)]
 
     local order = lower(strtrim("`order'"))
@@ -321,11 +356,11 @@ program _tabtools_simtab_ingest_simsum, rclass
     local _tokens "n     bias pctbias mean empse mse rmse meanse  relerr   coverage power"
 
     tempfile _out
-    tempname _pf
     quietly postfile `_pf' byord str244 bylab estord str244 estlab ///
         double(n m_mean m_bias m_pctbias m_empse m_meanse m_relerr m_mse m_rmse m_coverage m_power) ///
         double(mc_mean mc_bias mc_pctbias mc_empse mc_mse mc_rmse mc_coverage mc_power) ///
         using `"`_out'"'
+    local _post_closed = 0
 
     tempvar _obs
     quietly gen long `_obs' = _n
@@ -427,6 +462,7 @@ program _tabtools_simtab_ingest_simsum, rclass
         }
     }
     postclose `_pf'
+    local _post_closed = 1
 
     use `"`_out'"', clear
     quietly gen str1 emdlab = ""
@@ -436,6 +472,11 @@ program _tabtools_simtab_ingest_simsum, rclass
     return scalar has_emd = 0
     return local by_header "Scenario"
     return local est_header "Method"
+    }
+    local _rc_outer = _rc
+    if !`_post_closed' capture postclose `_pf'
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 
@@ -449,6 +490,9 @@ end
 capture program drop _tabtools_simtab_ingest_siman
 program _tabtools_simtab_ingest_siman, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [ORDER(string)]
 
     local order = lower(strtrim("`order'"))
@@ -649,4 +693,8 @@ program _tabtools_simtab_ingest_siman, rclass
     return scalar has_emd = `_has_emd'
     return local by_header "`_by_header'"
     return local est_header "`_est_header'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end

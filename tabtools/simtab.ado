@@ -1,4 +1,4 @@
-*! simtab Version 1.13.0  2026/08/11
+*! simtab Version 1.14.1  2026/08/11
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1117,8 +1117,11 @@ end
 *   order(data) -> first-occurrence order ; order(sort) -> sorted
 * ============================================================================
 capture program drop _simtab_levels
-program _simtab_levels
+program _simtab_levels, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args var ordvar labvar seq mode
 
     * build a string label column
@@ -1169,6 +1172,11 @@ program _simtab_levels
     quietly replace `labvar' = substr(`labvar' + " [" + `_rawtext' + "]", 1, 244) ///
         if `_lmin' != `_lmax'
     quietly drop `_lmin' `_lmax' `_rawtext'
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 
@@ -1179,6 +1187,12 @@ end
 capture program drop _simtab_plotframe
 program _simtab_plotframe, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _restore_needed = 0
+    local _frame_created = 0
+    local _pf_name ""
+    capture noisily {
     syntax , SPEC(string) NEMD(integer) LEVel(real) ALPha(real) ///
         NSIM(integer) METrics(string) SOURCE(string)
 
@@ -1212,6 +1226,7 @@ program _simtab_plotframe, rclass
 
     * assemble the companion columns from the summary in memory
     preserve
+        local _restore_needed = 1
         keep byord bylab estord estlab emdord emdlab truev n ///
             m_mean m_bias m_pctbias m_empse m_meanse m_relerr m_mse m_rmse ///
             m_coverage m_power m_nfail m_pctfail ///
@@ -1246,7 +1261,9 @@ program _simtab_plotframe, rclass
         order by_value by_label estimator_value estimator_label ///
             estimand_value estimand_label true n
         frame put *, into(`_pf_name')
+        local _frame_created = 1
     restore
+    local _restore_needed = 0
 
     frame `_pf_name': char _dta[tabtools_source] "simtab"
     frame `_pf_name': char _dta[tabtools_kind] "simulation_summary"
@@ -1258,6 +1275,12 @@ program _simtab_plotframe, rclass
     frame `_pf_name': char _dta[tabtools_command] "simtab"
 
     return local plotframe "`_pf_name'"
+    }
+    local _rc_outer = _rc
+    if `_restore_needed' capture restore
+    if `_rc_outer' & `_frame_created' & "`_pf_name'" != "" capture frame drop `_pf_name'
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 

@@ -1282,6 +1282,216 @@ else {
     local ++fail
 }
 
+**# Small-cell disclosure control
+
+**## T45 recognized frequency layout returns only safe counts
+local ++total
+capture noisily {
+    clear
+    input byte row byte col int freq
+    1 1 2
+    1 2 8
+    2 1 6
+    2 2 4
+    end
+    expand freq
+    collect clear
+    collect: table row col, statistic(frequency)
+    capture frame drop _dt_sc_count
+    desctab, smallcells(5) frame(_dt_sc_count, replace)
+
+    assert r(smallcells) == 5
+    assert r(N_primary_suppressed) >= 2
+    assert r(N_secondary_suppressed) >= 1
+    assert r(N_derived_suppressed) == 0
+    matrix _dt_sc_t = r(table)
+    matrix _dt_sc_s = r(suppression)
+    mata: assert(any(st_matrix("_dt_sc_t") :== .p))
+    mata: assert(any(st_matrix("_dt_sc_t") :== .s))
+    mata: assert(any(st_matrix("_dt_sc_s") :== 1))
+    mata: assert(any(st_matrix("_dt_sc_s") :== 2))
+    frame _dt_sc_count: local _sc_k : char _dta[tabtools_smallcells]
+    frame _dt_sc_count: local _sc_codes : char _dta[tabtools_suppression_codes]
+    frame _dt_sc_count: local _sc_scope : char _dta[tabtools_suppression_scope]
+    assert "`_sc_k'" == "5"
+    assert strpos("`_sc_codes'", "2 complementary") > 0
+    assert strpos("`_sc_scope'", "all sinks") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: desctab recognized count layout is redacted"
+    local ++pass
+}
+else {
+    display as error "  FAIL: desctab recognized count smallcells contract (rc=`=_rc')"
+    local ++fail
+}
+capture frame drop _dt_sc_count
+
+**## T46 count(var) layout reuses one redacted payload for every sink
+local ++total
+capture noisily {
+    clear
+    input byte row byte col int freq
+    1 1 2
+    1 2 8
+    2 1 6
+    2 2 4
+    end
+    expand freq
+    collect clear
+    collect: table row col, statistic(count freq)
+
+    local sc_csv "`outdir'/desctab_smallcells.csv"
+    local sc_md "`outdir'/desctab_smallcells.md"
+    local sc_xlsx "`outdir'/desctab_smallcells.xlsx"
+    capture frame drop _dt_sc_sinks
+    desctab, smallcells(5) csv("`sc_csv'") markdown("`sc_md'") ///
+        frame(_dt_sc_sinks, replace) ///
+        xlsx("`sc_xlsx'") sheet("DescSC")
+    matrix _dt_sc_sink_t = r(table)
+    mata: assert(any(st_matrix("_dt_sc_sink_t") :== .p))
+    mata: assert(any(st_matrix("_dt_sc_sink_t") :== .s))
+
+    frame _dt_sc_sinks {
+        local sc_fp = 0
+        local sc_fs = 0
+        foreach sc_v of varlist c* {
+            quietly count if strtrim(`sc_v') == "<5"
+            local sc_fp = `sc_fp' + r(N)
+            quietly count if strtrim(`sc_v') == "≥5"
+            local sc_fs = `sc_fs' + r(N)
+        }
+    }
+    assert `sc_fp' >= 2
+    assert `sc_fs' >= 1
+
+    preserve
+    import delimited "`sc_csv'", clear varnames(nonames) stringcols(_all)
+    local sc_cp = 0
+    local sc_cs = 0
+    foreach sc_v of varlist _all {
+        quietly count if strtrim(`sc_v') == "<5"
+        local sc_cp = `sc_cp' + r(N)
+        quietly count if strtrim(`sc_v') == "≥5"
+        local sc_cs = `sc_cs' + r(N)
+    }
+    assert `sc_cp' >= 2
+    assert `sc_cs' >= 1
+    restore
+
+    tempname sc_fh
+    local sc_md_text ""
+    file open `sc_fh' using "`sc_md'", read text
+    file read `sc_fh' sc_line
+    while r(eof) == 0 {
+        local sc_md_text `"`sc_md_text' `macval(sc_line)'"'
+        file read `sc_fh' sc_line
+    }
+    file close `sc_fh'
+    assert strpos(`"`sc_md_text'"', "<5") > 0
+    assert strpos(`"`sc_md_text'"', "≥5") > 0
+
+    preserve
+    import excel using "`sc_xlsx'", sheet("DescSC") clear allstring
+    local sc_xp = 0
+    local sc_xs = 0
+    foreach sc_v of varlist _all {
+        quietly count if strtrim(`sc_v') == "<5"
+        local sc_xp = `sc_xp' + r(N)
+        quietly count if strtrim(`sc_v') == "≥5"
+        local sc_xs = `sc_xs' + r(N)
+    }
+    assert `sc_xp' >= 2
+    assert `sc_xs' >= 1
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: desctab smallcells is identical across all sinks"
+    local ++pass
+}
+else {
+    display as error "  FAIL: desctab smallcells all-sink contract (rc=`=_rc')"
+    local ++fail
+}
+capture frame drop _dt_sc_sinks
+
+**## T47 named n_pct layout suppresses dependent percentages
+local ++total
+capture noisily {
+    clear
+    input byte row byte col int freq
+    1 1 2
+    1 2 8
+    2 1 6
+    2 2 4
+    end
+    expand freq
+    collect clear
+    collect: table row col, statistic(frequency) statistic(percent)
+    capture frame drop _dt_sc_pct
+    desctab, compose(n_pct) smallcells(5) frame(_dt_sc_pct, replace)
+    assert r(N_derived_suppressed) > 0
+    matrix _dt_sc_pct_t = r(table)
+    mata: assert(any(st_matrix("_dt_sc_pct_t") :== .p))
+    mata: assert(any(st_matrix("_dt_sc_pct_t") :== .s))
+    frame _dt_sc_pct {
+        unab _sc_vars : c*
+        foreach _v of local _sc_vars {
+            count if inlist(strtrim(`_v'), "<5", "≥5") & strpos(`_v', "%") > 0
+            assert r(N) == 0
+        }
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: desctab n_pct dependency suppression"
+    local ++pass
+}
+else {
+    display as error "  FAIL: desctab n_pct dependency suppression (rc=`=_rc')"
+    local ++fail
+}
+capture frame drop _dt_sc_pct
+
+**## T48 unsupported layouts fail closed before any sink
+local ++total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: table rep78, statistic(mean price)
+    capture frame drop _dt_sc_bad
+    local badxlsx "`outdir'/desctab_sc_bad.xlsx"
+    capture erase "`badxlsx'"
+    capture noisily desctab, smallcells(5) frame(_dt_sc_bad) ///
+        xlsx("`badxlsx'")
+    assert _rc == 459
+    capture frame _dt_sc_bad: describe
+    assert _rc == 111
+    capture confirm file "`badxlsx'"
+    assert _rc == 601
+
+    collect clear
+    collect: table rep78, statistic(count price) statistic(percent)
+    capture noisily desctab, compose("{count} ({percent})") smallcells(5)
+    assert _rc == 459
+    capture noisily desctab, keep(3 4) smallcells(5)
+    assert _rc == 459
+    capture noisily desctab, highlight(10) smallcells(5)
+    assert _rc == 459
+
+    capture noisily desctab, smallcells(2)
+    assert _rc == 198
+    capture noisily desctab, smallcells(3.5)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: desctab smallcells unsupported layouts fail closed"
+    local ++pass
+}
+else {
+    display as error "  FAIL: desctab smallcells fail-closed contract (rc=`=_rc')"
+    local ++fail
+}
+
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
     display as error "SOME TESTS FAILED"

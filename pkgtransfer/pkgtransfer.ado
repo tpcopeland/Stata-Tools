@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.3  2026/08/10
+*! pkgtransfer Version 1.0.4  2026/08/11
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -17,7 +17,8 @@
     and GitHub repositories (leveraging the 'github' command by E.F. Haghish).
 
     SYNTAX:
-    pkgtransfer [, DOWNload(string) LIMITED(string) RESTORE]
+    pkgtransfer [, DOWNload(string) LIMited(string) SKIP(string) REStore
+        OS(string) DOfile(string) ZIPfile(string)]
 
 		os(string):			Specifies operating system of destination for installation; by default will use OS of current Stata instance. Valid options are: "MacOSX", "Unix", or "Windows"
 
@@ -34,12 +35,30 @@ program define pkgtransfer, rclass
 	local _did_preserve 0
 	local _staging_created 0
 	local _installer_open 0
+	local _tracker_open 0
+	local _returns_ready 0
+	local _return_N .
+	local _return_pkg_list ""
 	tempname _installer_fh
+	tempname _tracker_fh
 	set varabbrev off
 
 	capture noisily {
 
 	syntax [, DOWNload(string) LIMited(string) SKIP(string) REStore OS(string) DOfile(string) ZIPfile(string)]
+
+	/* Treat package selectors as sets while preserving input order */
+	foreach list_name in limited skip {
+		local unique_list ""
+		foreach pkg of local `list_name' {
+			local already_seen 0
+			foreach seen_pkg of local unique_list {
+				if "`pkg'" == "`seen_pkg'" local already_seen 1
+			}
+			if !`already_seen' local unique_list "`unique_list' `pkg'"
+		}
+		local `list_name' = trim("`unique_list'")
+	}
 
 	* PLUS directory path (always includes trailing separator)
 	local plusdir "`c(sysdir_plus)'"
@@ -54,23 +73,55 @@ quietly {
             exit 601
         }
 
-	/* Error if specified packages in limited() are not found */
-	if "`limited'" != "" {
-		tempname trkfh
-		file open `trkfh' using "`plusdir'stata.trk", read text
-		file read `trkfh' line
+		/* Build the tracked package inventory once for validation */
+		file open `_tracker_fh' using "`plusdir'stata.trk", read text
+		local _tracker_open 1
+		file read `_tracker_fh' line
 		local trk_pkg_list ""
 		while r(eof) == 0 {
 			if substr(`"`macval(line)'"', 1, 2) == "N " {
-				local this_pkg = subinstr(substr(`"`macval(line)'"', 3, .), ".pkg", "", .)
+				local this_pkg = subinstr( ///
+					substr(`"`macval(line)'"', 3, .), ".pkg", "", .)
 				local trk_pkg_list "`trk_pkg_list' `this_pkg'"
 			}
-			file read `trkfh' line
+			file read `_tracker_fh' line
 		}
-		file close `trkfh'
-		foreach pkg of local limited {
-			local found 0
-			foreach trk_pkg of local trk_pkg_list {
+		file close `_tracker_fh'
+		local _tracker_open 0
+
+		/* Duplicate definitions make the source repository ambiguous */
+		local trk_unique ""
+		local trk_duplicates ""
+		foreach pkg of local trk_pkg_list {
+			local already_seen 0
+			foreach seen_pkg of local trk_unique {
+				if "`pkg'" == "`seen_pkg'" local already_seen 1
+			}
+			if `already_seen' {
+				local already_listed 0
+				foreach duplicate_pkg of local trk_duplicates {
+					if "`pkg'" == "`duplicate_pkg'" local already_listed 1
+				}
+				if !`already_listed' ///
+					local trk_duplicates "`trk_duplicates' `pkg'"
+			}
+			else {
+				local trk_unique "`trk_unique' `pkg'"
+			}
+		}
+		if "`trk_duplicates'" != "" {
+			noisily display as error ///
+				"ERROR: The following packages appear in multiple package repositories:`trk_duplicates'"
+			noisily display as error ///
+				"Please use -ado update- to remove duplicate packages (oldest removed)."
+			exit 459
+		}
+
+		/* Error if specified packages in limited() are not found */
+		if "`limited'" != "" {
+			foreach pkg of local limited {
+				local found 0
+				foreach trk_pkg of local trk_unique {
 				if "`pkg'" == "`trk_pkg'" local found 1
 			}
 			if !`found' {
@@ -110,9 +161,11 @@ quietly {
 			exit 198
 		}
 
-	/* Error if dofile not specified correctly */
-		if "`dofile'" != "" {
-			if regexm("`dofile'", "[;&|><\$\`]") {
+		/* Error if dofile not specified correctly */
+			if "`dofile'" != "" {
+				if regexm(`"`dofile'"', "[;&|><\$\`]") | ///
+					strpos(`"`dofile'"', char(34)) | ///
+					strpos(`"`dofile'"', char(39)) {
 				noisily display as error "Error: dofile() contains invalid characters"
 				exit 198
 			}
@@ -122,9 +175,11 @@ quietly {
 			}
 		}
 
-	/* Error if zipfile not specified correctly */
-		if "`zipfile'" != "" {
-			if regexm("`zipfile'", "[;&|><\$\`]") {
+		/* Error if zipfile not specified correctly */
+			if "`zipfile'" != "" {
+				if regexm(`"`zipfile'"', "[;&|><\$\`]") | ///
+					strpos(`"`zipfile'"', char(34)) | ///
+					strpos(`"`zipfile'"', char(39)) {
 				noisily display as error "Error: zipfile() contains invalid characters"
 				exit 198
 			}
@@ -197,26 +252,6 @@ quietly{
 				noisily display as text "No transferable packages found in stata.trk"
 				noisily display as text "Do-file will be empty."
 			}
-			if _N > 0 {
-				duplicates tag package, gen(tag)
-				summarize tag, meanonly
-				if `r(max)' > 0 {
-				drop if tag == 0
-				duplicates drop package, force
-				local dupe_list ""
-					levelsof package, local(dupes)
-					foreach pkg in `dupes' {
-						local dupe_list "`dupe_list' `pkg'"
-					}
-					noisily display as error "ERROR: The following packages appear in multiple package repositories: `dupe_list'"
-					noisily display as error "Please use -ado update- to remove duplicate packages (oldest removed)."
-					noisily display as error "Alternatively, to chose which duplicate to remove: "
-					noisily display as error "	1) Run -ado dir- to identify the # of the duplicate package."
-					noisily display as error "	2) Run -net uninstall [#]-, replacing # as appropriate."
-					exit 459
-				}
-				drop tag
-			}
 			* Fix haghish packages with alternative source URLs
 			replace url = "https://raw.githubusercontent.com/haghish/" + package + "/master" ///
 				if strpos(url, "haghish.github.io") | strpos(url, "github.com/haghish") ///
@@ -228,10 +263,15 @@ quietly{
 			if _N == 0 {
 				local pkg_list_for_do ""
 			}
-			else if "`limited'" == "" {
-				local pkg_list_for_do ""
-				levelsof package if (strpos(url,"http://") | strpos(url,"https://") | strpos(url,".edu/") | strpos(url,".org/") | strpos(url,".com/")) , local(pkg_list_for_do) clean
-			}
+				else if "`limited'" == "" {
+					local pkg_list_for_do ""
+					levelsof package if (strpos(url,"http://") | strpos(url,"https://") | strpos(url,".edu/") | strpos(url,".org/") | strpos(url,".com/")) , local(pkg_list_for_do) clean
+					gen keep_these = 0
+					foreach name of local pkg_list_for_do {
+						replace keep_these = 1 if package == "`name'"
+					}
+					drop if keep_these == 0
+				}
 			else{
 				local pkg_list_for_do "`limited'"
 				gen keep_these = 0
@@ -246,17 +286,23 @@ quietly{
 				}
 				drop if keep_these == 0
 			}
-			replace url = url + "/" if strpos(url,"http") & substr(url, -1, 1) != "/"
-			replace url = url + "`c(dirsep)'" if !strpos(url,"http") & substr(url, -1, 1) != "`c(dirsep)'"
-		}
+				replace url = url + "/" if strpos(url,"http") & substr(url, -1, 1) != "/"
+				replace url = url + "`c(dirsep)'" if !strpos(url,"http") & substr(url, -1, 1) != "`c(dirsep)'"
+				local _return_pkg_list "`pkg_list_for_do'"
+				local _return_N : word count `pkg_list_for_do'
+				local _returns_ready 1
+			}
 
         /* Creation of do file to install with internet access [Final Product for Default] */
-        if "`download'" == "" & "`restore'" == "" {
-            gen command = "net install " + package + ", replace from(" + url + ")"
+	        if "`download'" == "" & "`restore'" == "" {
+	            gen command = "net install " + package + ///
+				", replace from(" + char(34) + url + char(34) + ")"
             replace command = "ssc install " + package + ", replace" if strmatch(url, "*fmwww.bc.edu/repec/bocode*")
 			replace command = "github install haghish/" + package + ", stable replace" if strpos(url,"githubusercontent.com/haghish") & !strpos(command,"github install")
             keep command
-            outfile using "`dofile'", noquote replace wide
+	            outfile using "`dofile'", noquote replace wide
+			capture confirm file "`dofile'"
+			if _rc exit 603
 			noisily display "Preparation of installation do file completed!"
 			clear
         }
@@ -318,9 +364,12 @@ quietly{
 						replace keep_these = 1 if package == "`name'"
 					}
 				}
-				drop if keep_these == 0
-			}
-            save "`pkg_list'", replace
+					drop if keep_these == 0
+				}
+				local _return_pkg_list "`pkg_list_for_do'"
+				local _return_N : word count `pkg_list_for_do'
+				local _returns_ready 1
+	            save "`pkg_list'", replace
 			keep if substr(v1,1,2) == "N " | substr(v1,1,2) == "S "
 			gen url = v1[_n+1]
 			replace url = substr(url,3,.)
@@ -348,12 +397,16 @@ quietly{
 			replace v1 = subinstr(v1,"\","/",.)
 			replace v1 = substr(v1,3,.)
 			gen source_file = "`plusdir'" + v1
-			replace v1 = regexr(regexr(substr(v1, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
-			if _N > 0 {
-				quietly forvalues i = 1/`=_N' {
-					local source = source_file[`i']
-					local destination = v1[`i']
-					capture copy "`source'" "pkgtransfer_files/`destination'", replace
+				replace v1 = regexr(regexr(substr(v1, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
+				if _N > 0 {
+					quietly forvalues i = 1/`=_N' {
+						local source `"`=source_file[`i']'"'
+						local destination `"`=v1[`i']'"'
+						_pkgtransfer_prepare_destination, ///
+							root("pkgtransfer_files") ///
+							relative(`"`destination'"')
+						capture copy `"`source'"' ///
+							`"pkgtransfer_files/`destination'"', replace
 					if _rc {
 						local source_copy_rc = _rc
 						noisily display as error ///
@@ -408,33 +461,13 @@ quietly{
 				replace file_source = url + "/" + v2 if strpos(v2,"/")
 				replace v2 = regexr(substr(v2, 1, .), "^\.\.\/", "")
 
-				// Download plugins with retry logic
-				noisily display "Downloading plugins for `package'..."
-				quietly forvalues u = 1(1)`=_N'{
-					local plugin_destination = v2[`u']
-					if strpos("`plugin_destination'", "/") {
-						local plugin_dir = regexr( ///
-							"`plugin_destination'", "/[^/]+$", "")
-						local path_built ""
-						local remaining "`plugin_dir'"
-						while "`remaining'" != "" {
-							gettoken path_part remaining : remaining, ///
-								parse("/")
-							if "`path_part'" == "/" continue
-							local path_built "`path_built'`path_part'/"
-							capture mkdir ///
-								"pkgtransfer_files/`path_built'"
-							if _rc {
-								capture local dir_probe : dir ///
-									"pkgtransfer_files/`path_built'" files "*"
-								if _rc {
-									noisily display as error ///
-										"Could not create plugin directory `path_built'"
-									exit 693
-								}
-							}
-						}
-					}
+					// Download plugins with retry logic
+					noisily display "Downloading plugins for `package'..."
+					quietly forvalues u = 1(1)`=_N'{
+						local plugin_destination `"`=v2[`u']'"'
+						_pkgtransfer_prepare_destination, ///
+							root("pkgtransfer_files") ///
+							relative(`"`plugin_destination'"')
 					local max_retries = 3
 					local success = 0
 					forvalues attempt = 1/`max_retries' {
@@ -547,12 +580,12 @@ quietly{
 				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
 
 				keep if substr(lower(v1), 1, 2) == "f " | substr(lower(v1), 1, 2) == "g "
-				gen filepath = substr(v1, 3, .)
+					gen filepath = substr(v1, 3, .)
 
-				quietly forvalues j = 1/`=_N' {
-					local filepath = filepath[`j']
-					// For g lines with platform-specific plugins
-					if substr(lower(v1[`j']), 1, 2) == "g " {
+					quietly forvalues j = 1/`=_N' {
+						local filepath `"`=filepath[`j']'"'
+						// For g lines with platform-specific plugins
+						if substr(lower(v1[`j']), 1, 2) == "g " {
 						// Parse the platform and filenames
 						local full_line = trim(substr("`filepath'", 1, .))
 						local platform = word("`full_line'", 1)
@@ -566,38 +599,8 @@ quietly{
 							local target_file = "`source_file'"
 						}
 
-						// Create all necessary directories in the path
-						if strpos("`source_file'", "/") {
-							local _dir_path = regexr("`source_file'", "/[^/]+$", "")
-							local _path_built = ""
-							local _remaining = "`_dir_path'"
-							while "`_remaining'" != "" {
-								if strpos("`_remaining'", "/") > 0 {
-									local _part = substr("`_remaining'", 1, strpos("`_remaining'", "/") - 1)
-									local _remaining = substr("`_remaining'", strpos("`_remaining'", "/") + 1, .)
-								}
-								else {
-									local _part = "`_remaining'"
-									local _remaining = ""
-								}
-								if "`_part'" != "" {
-									local _path_built = "`_path_built'`_part'/"
-									capture mkdir "pkgtransfer_files`c(dirsep)'`_path_built'"
-									if _rc {
-										capture local _dir_probe : dir ///
-											"pkgtransfer_files`c(dirsep)'`_path_built'" files "*"
-										if _rc {
-											noisily display as error ///
-												"Could not create bundle subdirectory `_path_built'"
-											exit 693
-										}
-									}
-								}
-							}
-						}
-
-						// Handle relative paths
-						if substr("`source_file'", 1, 3) == "../" {
+							// Handle relative paths
+							if substr("`source_file'", 1, 3) == "../" {
 							local source_file = substr("`source_file'", 4, .)
 							local base_url = regexr("`curr_url'", "/[^/]+/$", "/")
 						}
@@ -605,14 +608,18 @@ quietly{
 							local base_url = "`curr_url'"
 						}
 
-						// Clean the filepath of any directory components
-						local clean_source = regexr(regexr("`source_file'", "^\.\.\/", ""), "^[^\/]+\/", "")
+							local source_file = subinstr("`source_file'", "\", "/", .)
+							local clean_source "`source_file'"
+							_pkgtransfer_prepare_destination, ///
+								root("pkgtransfer_files") ///
+								relative(`"`clean_source'"')
 
 						// Download all platform-specific files with retry logic
 						local max_retries = 3
 						local success = 0
 							forvalues attempt = 1/`max_retries' {
-								capture copy "`base_url'`source_file'" "pkgtransfer_files`c(dirsep)'`clean_source'"
+									capture copy "`base_url'`source_file'" ///
+										"pkgtransfer_files`c(dirsep)'`clean_source'", replace
 								local plugin_source_rc = _rc
 								if `plugin_source_rc' == 0 {
 								local success = 1
@@ -630,24 +637,27 @@ quietly{
 
 						// Also save a copy with the target filename
 						// This ensures all platform variants are downloaded and the target file exists
-							local clean_target = regexr(regexr("`target_file'", "^\.\.\/", ""), "^[^\/]+\/", "")
-							capture copy "pkgtransfer_files`c(dirsep)'`clean_source'" "pkgtransfer_files`c(dirsep)'`clean_target'", replace
-							if _rc {
-								local target_copy_rc = _rc
-								noisily display as error ///
-									"Could not create plugin target `clean_target'"
-								exit `target_copy_rc'
-							}
+								local clean_target = subinstr("`target_file'", "\", "/", .)
+								if substr("`clean_target'", 1, 3) == "../" ///
+									local clean_target = substr("`clean_target'", 4, .)
+								_pkgtransfer_prepare_destination, ///
+									root("pkgtransfer_files") ///
+									relative(`"`clean_target'"')
+								if "`clean_target'" != "`clean_source'" {
+									capture copy ///
+										"pkgtransfer_files`c(dirsep)'`clean_source'" ///
+										"pkgtransfer_files`c(dirsep)'`clean_target'", replace
+									if _rc {
+										local target_copy_rc = _rc
+										noisily display as error ///
+											"Could not create plugin target `clean_target'"
+										exit `target_copy_rc'
+									}
+								}
 
-					}
+						}
 
-					// For h lines, we don't need to download anything as these are just references
-					// to files that should already be downloaded via the g lines
-					else if substr(lower(v1[`j']), 1, 2) == "h " {
-						continue
-					}
-
-					// For regular f lines
+						// For regular f lines
 					else {
 						if substr("`filepath'", 1, 3) == "../" {
 							local filepath = substr("`filepath'", 4, .)
@@ -657,13 +667,18 @@ quietly{
 							local base_url = "`curr_url'"
 						}
 
-						local clean_filepath = regexr(regexr("`filepath'", "^\.\.\/", ""), "^[^\/]+\/", "")
+							local filepath = subinstr("`filepath'", "\", "/", .)
+							local clean_filepath "`filepath'"
+							_pkgtransfer_prepare_destination, ///
+								root("pkgtransfer_files") ///
+								relative(`"`clean_filepath'"')
 
 						// Download with retry logic
 						local max_retries = 3
 						local success = 0
 							forvalues attempt = 1/`max_retries' {
-								capture copy "`base_url'`filepath'" "pkgtransfer_files`c(dirsep)'`clean_filepath'"
+									capture copy "`base_url'`filepath'" ///
+										"pkgtransfer_files`c(dirsep)'`clean_filepath'", replace
 								local file_copy_rc = _rc
 								if `file_copy_rc' == 0 {
 								local success = 1
@@ -685,8 +700,27 @@ quietly{
 				clear
 				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
 
-				// Modify only the F and G lines while preserving all other content
-				replace v1 = substr(v1, 1, 2) + regexr(regexr(substr(v1, 3, .), "^\.\.\/", ""), "^[^\/]+\/", "") if substr(lower(v1), 1, 2) == "f " | substr(lower(v1), 1, 2) == "g "
+					// Normalize bundled paths while preserving nested directories
+					tempvar manifest_f manifest_gp manifest_gs manifest_gt
+					gen strL `manifest_f' = subinstr(substr(v1, 3, .), ///
+						"\", "/", .) if substr(lower(v1), 1, 2) == "f "
+					replace `manifest_f' = regexr(`manifest_f', "^\.\.\/", "") ///
+						if substr(lower(v1), 1, 2) == "f "
+					replace v1 = "f " + `manifest_f' ///
+						if substr(lower(v1), 1, 2) == "f "
+					gen strL `manifest_gp' = word(v1, 2) ///
+						if substr(lower(v1), 1, 2) == "g "
+					gen strL `manifest_gs' = subinstr(word(v1, 3), "\", "/", .) ///
+						if substr(lower(v1), 1, 2) == "g "
+					gen strL `manifest_gt' = subinstr(word(v1, 4), "\", "/", .) ///
+						if substr(lower(v1), 1, 2) == "g "
+					replace `manifest_gs' = regexr(`manifest_gs', "^\.\.\/", "") ///
+						if substr(lower(v1), 1, 2) == "g "
+					replace `manifest_gt' = regexr(`manifest_gt', "^\.\.\/", "") ///
+						if substr(lower(v1), 1, 2) == "g "
+					replace v1 = "g " + `manifest_gp' + " " + `manifest_gs' + ///
+						cond(`manifest_gt' != "", " " + `manifest_gt', "") ///
+						if substr(lower(v1), 1, 2) == "g "
 
 				// Add backup URL for restore functionality
 				local _obs = _N + 1
@@ -723,19 +757,28 @@ quietly{
 			local _installer_open 1
 			file write `_installer_fh' "*pkgtransfer local installation script" _n
 			file write `_installer_fh' "*Generated: `date' $S_TIME" _n _n
-			file write `_installer_fh' "*Set working directory to the folder containing package files; place in global below" _n
-			file write `_installer_fh' "global package_dir " `"""' "DIRECTORY_GOES_HERE" `"""' _n _n
-			file write `_installer_fh' "*Use current directory if global is not set" _n
-			file write `_installer_fh' "if " `"""' "\$package_dir" `"""' " == " `"""' "DIRECTORY_GOES_HERE" `"""' " global package_dir " `"""' "\`c(pwd)'" `"""' _n _n
-			file write `_installer_fh' "*Set directory" _n
-			file write `_installer_fh' `"cd "\$package_dir""' _n _n
-			file write `_installer_fh' "*Unzip and install from local files" _n
-			file write `_installer_fh' `"unzipfile "`zipfile'", replace"' _n _n
-			file write `_installer_fh' "*Install packages" _n
-			file write `_installer_fh' "foreach pkg in `pkg_list_for_do' {" _n
-			file write `_installer_fh' `"capture noisily net install \`pkg', from("\$package_dir/pkgtransfer_files")"' _n
-			file write `_installer_fh' "    if _rc exit _rc" _n
-			file write `_installer_fh' "}" _n _n
+			file write `_installer_fh' ///
+				"*Set the directory containing the installer and archive" _n
+			file write `_installer_fh' "local _pkgtransfer_original_dir " ///
+				`"""' "\`c(pwd)'" `"""' _n
+			file write `_installer_fh' "local package_dir " ///
+				`"""' "DIRECTORY_GOES_HERE" `"""' _n _n
+			file write `_installer_fh' "*Use the current directory unless edited" _n
+			file write `_installer_fh' "if " `"""' "\`package_dir'" `"""' " == " `"""' "DIRECTORY_GOES_HERE" `"""' " local package_dir " `"""' "\`c(pwd)'" `"""' _n _n
+			file write `_installer_fh' "capture noisily {" _n
+			file write `_installer_fh' "    cd " `"""' ///
+				"\`package_dir'" `"""' _n
+			file write `_installer_fh' "    unzipfile " `"""' "`zipfile'" `"""' ", replace" _n
+			file write `_installer_fh' "    foreach pkg in `pkg_list_for_do' {" _n
+			file write `_installer_fh' "        net install \`pkg', from(" ///
+				`"""' "\`package_dir'/pkgtransfer_files" `"""' ")" _n
+			file write `_installer_fh' "    }" _n
+			file write `_installer_fh' "}" _n
+			file write `_installer_fh' "local _pkgtransfer_rc = _rc" _n
+			file write `_installer_fh' "capture cd " `"""' ///
+				"\`_pkgtransfer_original_dir'" `"""' _n
+			file write `_installer_fh' ///
+				"if \`_pkgtransfer_rc' exit \`_pkgtransfer_rc'" _n _n
 			file write `_installer_fh' "*Clean up" _n
 			file write `_installer_fh' "* SAFETY NOTE: Automated removal of 'pkgtransfer_files' folder disabled for safety." _n
 			file write `_installer_fh' "* The rm -rf/rmdir command is high-risk when run from scripts on different machines." _n
@@ -746,11 +789,15 @@ quietly{
 			if "`os'" == "MacOSX" | "`os'" == "Unix" {
 				file write `_installer_fh' `"* shell rm -rf "pkgtransfer_files""' _n
 			}
-			file close `_installer_fh'
-			local _installer_open 0
+				file close `_installer_fh'
+				local _installer_open 0
+				capture confirm file "`dofile'"
+				if _rc exit 603
 
-            // Create ZIP file
-            zipfile "pkgtransfer_files", saving("`zipfile'", replace)
+	            // Create ZIP file
+	            zipfile "pkgtransfer_files", saving("`zipfile'", replace)
+				capture confirm file "`zipfile'"
+				if _rc exit 603
 
 			_pkgtransfer_cleanup_staging, directory("pkgtransfer_files")
 			local _staging_created 0
@@ -760,9 +807,10 @@ quietly{
 
         }
 
-		/* Restore installation pathways to online sources if requested (standalone) */
-		if "`restore'" != "" {
-			noisily display "Restoring installation pathways to online sources..."
+			/* Restore installation pathways to online sources if requested (standalone) */
+			if "`restore'" != "" {
+				if !`_returns_ready' local _returns_ready 1
+				noisily display "Restoring installation pathways to online sources..."
 			* Backup stata.trk before modifying
 			copy "`plusdir'stata.trk" "`plusdir'stata.trk.backup", replace
 			import delimited using "`plusdir'stata.trk", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
@@ -798,9 +846,10 @@ local _did_preserve 0
 
 	} // end capture noisily
 
-	/* Clean up on success or error */
-	local rc = _rc
-	if `_installer_open' capture file close `_installer_fh'
+		/* Clean up on success or error */
+		local rc = _rc
+		if `_tracker_open' capture file close `_tracker_fh'
+		if `_installer_open' capture file close `_installer_fh'
 	if `rc' & `_staging_created' {
 		capture noisily _pkgtransfer_cleanup_staging, ///
 			directory("pkgtransfer_files")
@@ -809,48 +858,111 @@ local _did_preserve 0
 				"Warning: could not remove invocation-owned staging directory"
 		}
 	}
-	if `rc' & `_did_preserve' capture restore
-	set varabbrev `_varabbrev'
-	if `rc' exit `rc'
+		if `rc' & `_did_preserve' capture restore
+		set varabbrev `_varabbrev'
 
-	/* Return values */
-	if "`restore'" != "" & "`download'" == "" {
-		return local download_mode "restore"
-		return local os "`os'"
-	}
-	else {
-			local n_pkgs : word count `pkg_list_for_do'
-			return scalar N_packages = `n_pkgs'
-			return local package_list "`pkg_list_for_do'"
-		if "`download'" != "" {
-			return local download_mode "`download'"
+		/* Post the complete analytical surface even when side work failed */
+		if `_returns_ready' {
+			return clear
+			if "`restore'" != "" & "`download'" == "" {
+				return local download_mode "restore"
+				return local os "`os'"
+			}
+			else {
+				return scalar N_packages = `_return_N'
+				return local package_list "`_return_pkg_list'"
+				if "`download'" != "" {
+					return local download_mode "`download'"
+				}
+				else {
+					return local download_mode "script_only"
+				}
+				return local os "`os'"
+				return local dofile "`dofile'"
+				if "`download'" != "" {
+					return local zipfile "`zipfile'"
+				}
+			}
 		}
-		else {
-			return local download_mode "script_only"
-		}
-		return local os "`os'"
-		return local dofile "`dofile'"
-		if "`download'" != "" {
-			return local zipfile "`zipfile'"
-		}
-	}
+		if `rc' exit `rc'
 
 *END PROGRAM
+end
+*
+
+capture program drop _pkgtransfer_prepare_destination
+program define _pkgtransfer_prepare_destination, nclass
+	version 16.0
+	local _varabbrev `c(varabbrev)'
+	set varabbrev off
+
+	capture noisily {
+		syntax, ROOT(string) RELative(string)
+		local relative = subinstr(`"`relative'"', "\", "/", .)
+		local padded "/`relative'/"
+		local unsafe = ///
+			`"`relative'"' == "" | ///
+			substr(`"`relative'"', 1, 1) == "/" | ///
+			substr(`"`relative'"', 1, 1) == "\" | ///
+			(strlen(`"`relative'"') >= 2 & ///
+				substr(`"`relative'"', 2, 1) == ":") | ///
+			strpos(`"`padded'"', "/../") > 0 | ///
+			strpos(`"`padded'"', "/./") > 0 | ///
+			strpos(`"`relative'"', "//") > 0 | ///
+			strpos(`"`relative'"', char(34)) > 0 | ///
+			strpos(`"`relative'"', char(39)) > 0
+		if `unsafe' {
+			noisily display as error ///
+				"Unsafe package path in tracking metadata: `relative'"
+			exit 198
+		}
+
+		local parent = regexr(`"`relative'"', "/[^/]+$", "")
+		if `"`parent'"' == `"`relative'"' local parent ""
+		local path_built ""
+		local remaining `"`parent'"'
+		while `"`remaining'"' != "" {
+			gettoken path_part remaining : remaining, parse("/")
+			if `"`path_part'"' == "/" continue
+			local path_built `"`path_built'`path_part'/"'
+			capture mkdir `"`root'/`path_built'"'
+			if _rc {
+				capture local dir_probe : dir ///
+					`"`root'/`path_built'"' files "*"
+				if _rc {
+					noisily display as error ///
+						"Could not create bundle directory `path_built'"
+					exit 693
+				}
+			}
+		}
+	}
+	local rc = _rc
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
 end
 *
 
 capture program drop _pkgtransfer_cleanup_staging
 program define _pkgtransfer_cleanup_staging
 	version 16.0
-	syntax, DIRectory(string)
+	local _varabbrev `c(varabbrev)'
+	set varabbrev off
 
-	local subdirs : dir "`directory'" dirs "*", respectcase
-	foreach d of local subdirs {
-		_pkgtransfer_cleanup_staging, directory("`directory'/`d'")
+	capture noisily {
+		syntax, DIRectory(string)
+		local subdirs : dir `"`directory'"' dirs "*", respectcase
+		foreach d of local subdirs {
+			_pkgtransfer_cleanup_staging, ///
+				directory(`"`directory'/`d'"')
+		}
+		local filelist : dir `"`directory'"' files "*", respectcase
+		foreach f of local filelist {
+			erase `"`directory'/`f'"'
+		}
+		rmdir `"`directory'"'
 	}
-	local filelist : dir "`directory'" files "*", respectcase
-	foreach f of local filelist {
-		erase "`directory'/`f'"
-	}
-	rmdir "`directory'"
+	local rc = _rc
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
 end

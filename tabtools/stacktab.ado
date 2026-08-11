@@ -1,4 +1,4 @@
-*! stacktab Version 1.13.0  2026/08/11
+*! stacktab Version 1.14.1  2026/08/11
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1074,8 +1074,11 @@ end
 *   borders() outer(all)  top(row 1)  bottom(last)  bottom(row #)
 
 capture program drop _stacktab_validate_style
-program define _stacktab_validate_style
+program define _stacktab_validate_style, nclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [STYLE(string asis) BORDERS(string asis)]
 
     local style : subinstr local style `"""' "", all
@@ -1176,11 +1179,16 @@ program define _stacktab_validate_style
             exit 198
         }
     }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 
 capture program drop _stacktab_apply_style
-program define _stacktab_apply_style
+program define _stacktab_apply_style, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
