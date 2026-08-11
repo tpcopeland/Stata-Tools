@@ -23,84 +23,69 @@ stabilized generate(iptw) balance nolog
 ```
 
 ```
-----------------------------------------------------------------------
 IPTW Weight Calculation
-----------------------------------------------------------------------
-
-Exposure variable: treat
-Number of levels:  2
-Model type:        logit
-Weight type:       iptw
-Covariates:        age female biomarker
-Observations:      2296
-Panel structure:   400 clusters
-Obs per cluster:    5.7 (range: 1-6)
-Time FE:           i.period
-
+------------------------------------------------------------------------------
+  exposure variable            : treat
+  number of levels             :              2
+  model type                   : logit
+  weight type                  : iptw
+  covariates                   : age female biomarker
+  observations                 :          2,296
+  panel structure              :            400  clusters
+  obs per cluster              :            5.7  (range 1-6)
+  time fixed effects           : i.period
+------------------------------------------------------------------------------
 Fitting propensity score model...
-
 Calculating weights...
 Calculating stabilized weights...
   Numerator model: treat on i.period
-
 Fitting censoring model and computing IPCW...
   Censoring numerator model: censored on i.period
   Censoring weight ipcw and combined weight iptw_ipcw created.
-
-----------------------------------------------------------------------
 Weight Diagnostics
-----------------------------------------------------------------------
-
-Weight distribution:
-  Mean:        1.0006
-  SD:          0.2254
-  Min:         0.5231
-  Max:         2.7574
-
-Percentiles:
-  1%:          0.6218
-  5%:          0.7172
-  25%:         0.8585
-  50%:         0.9560
-  75%:         1.0915
-  95%:         1.4296
-  99%:         1.7545
-
-Effective sample size:
-  ESS:         2185.2 (of 2296 observations)
-  ESS %:         95.2%
-
+------------------------------------------------------------------------------
+Weight distribution
+  mean                         :         1.0073
+  SD                           :         0.4098
+  min                          :         0.2361
+  max                          :         3.7771
+Percentiles
+  1%                           :         0.3533
+  5%                           :         0.5036
+  25%                          :         0.7383
+  50%                          :         0.9256
+  75%                          :         1.1870
+  95%                          :         1.7688
+  99%                          :         2.4674
+Effective sample size
+  ESS                          :         1970.1  (of 2296 observations)
+  ESS as % of N                :           85.8  %
 Combined IPTW x IPCW weight:
   Mean:        1.0073
   Min/Max:     0.2361 /    3.7771
   99th pct:    2.4674
   ESS:         1970.1 (85.8% of 2296)
-
-Positivity / overlap:
-  P(observed treatment) range: 0.1331 to 0.8893
-  Near-violations (P<0.05):    0 ( 0.0% of obs)
-  PS range, treated:           0.1331 to 0.7042
-  PS range, reference:         0.1107 to 0.7195
-  Weight mass in top 1% of rows (23 row(s)):   2.8%
-
-Weights by exposure group:
---------------------------------------------------
-  Reference (treat=0): N=1434, Mean=  1.000, SD=  0.171
-  Exposed (treat!=0):  N=862, Mean=  1.001, SD=  0.294
-----------------------------------------------------------------------
-
-----------------------------------------------------------------------
+Positivity / overlap
+  P(observed treatment) range  : 0.1331 to 0.8893
+  near-violations (P<0.05)     :              0  (0.0% of obs)
+  PS range, treated            : 0.1331 to 0.7042
+  PS range, reference          : 0.1107 to 0.7195
+  weight mass, top 1% of rows  :            2.8  %  (23 row(s))
+Weights by exposure group
+  reference (treat=0)          : N=1434  mean=1.000  SD=0.171
+  exposed (treat!=0)           : N=862  mean=1.001  SD=0.294
+------------------------------------------------------------------------------
 Covariate balance (standardized mean differences)
-Weighted column uses the analysis weight: iptw_ipcw
-----------------------------------------------------------------------
-Covariate                        SMD (unwtd)     SMD (wtd)
-age                                   0.2434        0.0254
-female                               -0.0569       -0.0120
-biomarker                             0.3557       -0.0026
-----------------------------------------------------------------------
-
-Weight variable iptw created successfully.
-----------------------------------------------------------------------
+------------------------------------------------------------------------------
+  Weighted column uses the analysis weight: iptw_ipcw
+  Covariate                                    SMD (unwtd)         SMD (wtd)
+  age                                               0.2434            0.0254
+  female                                           -0.0569           -0.0120
+  biomarker                                         0.3557           -0.0026
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+  Analysis weight iptw_ipcw created (per-period weight iptw).
+------------------------------------------------------------------------------
 ```
 
 ```stata

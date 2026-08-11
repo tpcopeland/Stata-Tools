@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.6.5  2026/08/10
+*! _psdash_detect Version 1.6.7  2026/08/11
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

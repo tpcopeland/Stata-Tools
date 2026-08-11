@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.5  2026/08/11
+*! kmplot Version 1.2.6  2026/08/11
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -550,7 +550,8 @@ program define kmplot, rclass
 	            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
 	                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
 	                graphname(`_kmplot_risk_graph') ///
-	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_height_opt' `rt_flags'
+	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_height_opt' `rt_flags' ///
+	                toptimeaxis
 	            matrix `risktable_mat' = r(risktable)
 	            local has_risktable_mat = 1
 	            local risk_timepoints "`r(timepoints)'"
@@ -920,7 +921,7 @@ program define kmplot, rclass
     * =========================================================================
 
     if "`risktable'" != "" {
-        * When combining with risk table: suppress xlabel/xtitle on main plot
+        * Place time labels above the risk table, directly below this axis.
         local rt_main_opts "xtitle("") xlabel(, nolabels noticks)"
         twoway `tw_layers', `tw_opts' `rt_main_opts' ///
             nodraw name(`_kmplot_main_graph', replace)

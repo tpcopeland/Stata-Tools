@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.5** | 2026-08-10
+**Version 1.6.7** | 2026-08-11
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -217,10 +217,10 @@ With no subcommand, psdash displays an overview. For multi-group treatments, use
 ### psdash overlap
 
 ```stata
-psdash overlap [treatment] [psvar] [if] [in] [, covariates(varlist) histogram bins(#) bwidth(#) nograph saving(filename) scheme(schemename) graphoptions(string) title(string) name(string) xlsx(filename) sheet(string) gpsfloor(#) estimand(string) psvars(varlist) reference(#)]
+psdash overlap [treatment] [psvar] [if] [in] [, covariates(varlist) histogram bins(#) bwidth(#) compact nograph saving(filename) scheme(schemename) graphoptions(string) title(string) name(string) xlsx(filename) sheet(string) gpsfloor(#) estimand(string) psvars(varlist) reference(#)]
 ```
 
-The default graph is a kernel-density overlap plot; histogram switches to overlapping histograms. nograph suppresses the graph, bins(30) is the histogram default, and Stata's default bandwidth is used when bwidth() is omitted.
+The default graph is a kernel-density overlap plot; histogram switches to overlapping histograms. Detailed multi-group graphs use a separate data-driven x axis for each GPS component because the components can occupy very different probability ranges. The practical-positivity floor is drawn only when it lies within that component's observed range, avoiding empty axis extensions; three-component graphs use one filled row. compact replaces those detailed panels with one grouped box-plot region containing every GPS component. nograph suppresses the graph, bins(30) is the histogram default, and Stata's default bandwidth is used when bwidth() is omitted.
 
 ### psdash balance
 
@@ -233,18 +233,18 @@ The default SMD threshold is 0.1, variance-ratio bounds are 0.5 2.0, the display
 ### psdash weights
 
 ```stata
-psdash weights [treatment] [psvar] [if] [in] [, wvar(varname) trim(#) truncate(#) stabilize generate(name) replace detail graph saving(filename) xlabel(numlist) scheme(schemename) graphoptions(string) name(string) xlsx(filename) sheet(string) estimand(string) extreme(# #) psvars(varlist) reference(#) iivwcomponent(string)]
+psdash weights [treatment] [psvar] [if] [in] [, wvar(varname) trim(#) truncate(#) stabilize generate(name) replace detail graph compact saving(filename) xlabel(numlist) scheme(schemename) graphoptions(string) name(string) xlsx(filename) sheet(string) estimand(string) extreme(# #) psvars(varlist) reference(#) iivwcomponent(string)]
 ```
 
-No graph is drawn unless graph is specified. trim(#) uses a percentile from 50 through 99.9, truncate(#) applies a positive fixed cap, and any modification requires generate(name); replace permits overwriting that generated variable. The default absolute extreme cutoffs are 10 20, and the default Excel sheet is Weights.
+No graph is drawn unless graph is specified. compact scales overlaid histograms to within-arm fractions instead of raw frequencies, which is useful in a dashboard or when arm sizes differ. Automatic weight axes use data-driven round tick intervals. When the maximum is more than 1.5 times both p99 and the lower extreme-weight threshold, the graph focuses on the central distribution through a rounded limit based on the larger cutoff and states the omitted count and full maximum in a note; the numerical diagnostics still use every weight. xlabel() requests an explicit full-range axis and disables that automatic display cap. trim(#) uses a percentile from 50 through 99.9, truncate(#) applies a positive fixed cap, and any modification requires generate(name); replace permits overwriting that generated variable. The default absolute extreme cutoffs are 10 20, and the default Excel sheet is Weights.
 
 ### psdash support
 
 ```stata
-psdash support [treatment] [psvar] [if] [in] [, covariates(varlist) crump threshold(#) qtrim(#) gpsfloor(#) generate(name) replace compare nograph saving(filename) scheme(schemename) graphoptions(string) title(string) name(string) xlsx(filename) sheet(string) estimand(string) psvars(varlist) reference(#)]
+psdash support [treatment] [psvar] [if] [in] [, covariates(varlist) crump threshold(#) qtrim(#) gpsfloor(#) generate(name) replace compare compact nograph saving(filename) scheme(schemename) graphoptions(string) title(string) name(string) xlsx(filename) sheet(string) estimand(string) psvars(varlist) reference(#)]
 ```
 
-The default output includes a graph; nograph suppresses it. For binary treatments, threshold(#) must lie strictly between 0 and 0.5, qtrim(#) must lie strictly between 0 and 50, and crump performs Crump et al. (2009) optimal trimming for binary treatments; use threshold() for multi-group treatments. Crump can return alpha zero only when every assessed score is strictly inside (0,1) and its full-sample inequality holds; exact boundary scores require positive-threshold handling and are excluded, while a sample with no interior score fails the retained-sample guard. For multi-group treatments, gpsfloor(0.01) is the default practical-positivity floor and applies to every GPS component. generate(name) creates an indicator for the retained region, and compare requires a binary trimming operation.
+The default output includes a graph; nograph suppresses it. Detailed multi-group graphs share the overlap command's component-specific axes, relevant-only floor lines, and filled three-component row. compact replaces the detailed component density panels with one box-plot region of the minimum GPS component by observed arm. For binary treatments, threshold(#) must lie strictly between 0 and 0.5, qtrim(#) must lie strictly between 0 and 50, and crump performs Crump et al. (2009) optimal trimming for binary treatments; use threshold() for multi-group treatments. Crump can return alpha zero only when every assessed score is strictly inside (0,1) and its full-sample inequality holds; exact boundary scores require positive-threshold handling and are excluded, while a sample with no interior score fails the retained-sample guard. For multi-group treatments, gpsfloor(0.01) is the default practical-positivity floor and applies to every GPS component. generate(name) creates an indicator for the retained region, and compare requires a binary trimming operation.
 
 ### psdash combined
 
@@ -252,7 +252,7 @@ The default output includes a graph; nograph suppresses it. For binary treatment
 psdash combined [treatment] [psvar] [if] [in] [, covariates(varlist) wvar(varname) threshold(#) overlapmax(#) essmin(#) imbalmax(#) nooverlap nobalance noweights nosupport dryrun report(filename) saving(filename) scheme(schemename) title(string) estimand(string) psvars(varlist) reference(#) gpsfloor(#)]
 ```
 
-All four panels are requested by default when their inputs are available; the balance panel is skipped when no covariates are detected. threshold(0.1) controls the balance SMD finding threshold, overlapmax(10) is the default maximum percentage outside binary-treatment common support, essmin(50) is the default minimum overall ESS percentage, and imbalmax(0) is the default tolerated number of SMD-imbalanced covariates. The combined thresholds replace the corresponding panel defaults while independent findings such as exact propensity-score boundaries, variance-ratio imbalance, per-arm ESS collapse, weight dominance, and GPS-floor violations remain active. For multi-group treatments, gpsfloor() drives the positivity verdict and the legacy observed-arm min/max overlap remains descriptive. nooverlap, nobalance, noweights, and nosupport suppress panels; dryrun resolves inputs without running panels; and, for cross-sectional runs, report() writes sheets for the panels that run plus Summary to an .xlsx workbook.
+All four panels are requested by default when their inputs are available; the balance panel is skipped when no covariates are detected. threshold(0.1) controls the balance SMD finding threshold, overlapmax(10) is the default maximum percentage outside binary-treatment common support, essmin(50) is the default minimum overall ESS percentage, and imbalmax(0) is the default tolerated number of SMD-imbalanced covariates. The combined thresholds replace the corresponding panel defaults while independent findings such as exact propensity-score boundaries, variance-ratio imbalance, per-arm ESS collapse, weight dominance, and GPS-floor violations remain active. For multi-group treatments, gpsfloor() drives the positivity verdict and the legacy observed-arm min/max overlap remains descriptive. To keep the dashboard readable, its overlap panel uses grouped box plots of each GPS component and its support panel uses the minimum GPS component by observed arm; the standalone overlap and support commands retain their detailed one-density-panel-per-component graphs. nooverlap, nobalance, noweights, and nosupport suppress panels; dryrun resolves inputs without running panels; and, for cross-sectional runs, report() writes sheets for the panels that run plus Summary to an .xlsx workbook.
 
 ### psdash detect
 
@@ -313,7 +313,8 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | replace | Allow generate() to replace an existing variable. |
 | detail | Display the weight percentile table. |
 | graph | Draw the weight histogram; off by default. |
-| xlabel(numlist) | Set custom histogram x-axis labels. |
+| compact | Scale each arm's histogram to fractions instead of raw frequencies. |
+| xlabel(numlist) | Set custom histogram x-axis labels and disable the automatic remote-tail display cap. |
 | extreme(# #) | Absolute lower and upper extreme cutoffs; defaults to 10 20. The scale-free maximum-to-mean ratio is also returned. |
 | iivwcomponent(treatment\|final\|visit) | Select the treatment, final, or visit component after an iivw_weight contract. |
 
@@ -392,6 +393,8 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.7** (11 Aug 2026): Detailed multi-group graph correction. Standalone overlap and support graphs now place three GPS components in one filled row, use component-specific data ranges instead of extending every axis to an irrelevant positivity floor, align histogram bins within each component, and render clean titles without literal compound-quote markup.
+- **v1.6.6** (11 Aug 2026): Dashboard graph correction. Multi-group combined dashboards now use one readable graph region each for overlap and support instead of nesting two three-panel composites, graph titles no longer retain literal quote markup, and compact weight histograms compare within-arm fractions on data-driven round axes with a clearly annotated remote-tail display cap. Standalone multi-group density detail and all numerical diagnostics are unchanged.
 - **v1.6.5** (10 Aug 2026): Crump boundary correction. Exact propensity scores of zero or one no longer qualify for the alpha-zero full-sample shortcut; the positive-threshold search excludes them, including in row-level support indicators. The help and README now state the alpha-zero eligibility rule.
 - **v1.6.4** (10 Aug 2026): Detection and support correction. Explicit treatment-only balance/weight calls no longer consume stale estimation state; built-in propensity-model contexts honor `e(sample)`; Crump trimming represents the full-sample alpha-zero solution; equal point support is accepted; and multi-treatment references are corrected.
 - **v1.6.3** (10 Aug 2026): Bug fix. Multi-group overlap and support graph exports now pass `saving()` paths without adding a second layer of quotes, so valid absolute and nested paths export successfully.

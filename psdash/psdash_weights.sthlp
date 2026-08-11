@@ -68,6 +68,11 @@ machine-readable positivity findings, is listed under
 {opt gr:aph} requests a weight-distribution graph.
 
 {phang}
+{opt compact} scales each treatment arm's histogram to within-arm fractions
+instead of raw frequencies. This is useful in compact dashboards and when arm
+sample sizes differ.
+
+{phang}
 {opt sav:ing(filename)} saves the graph.
 
 {phang}

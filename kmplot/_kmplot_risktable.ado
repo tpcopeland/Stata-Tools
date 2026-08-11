@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.5  2026/08/11
+*! _kmplot_risktable Version 1.2.6  2026/08/11
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -24,7 +24,7 @@ program define _kmplot_risktable, rclass
         [TIMEpoints(numlist sort) ///
 	         COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
 	         XTItle(string asis) XLAbel(string asis) ///
-	         EVents MONO]
+	         EVents MONO TOPTimeaxis]
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
     if `"`xtitle'"' == "" local xtitle "Analysis time"
@@ -220,6 +220,8 @@ program define _kmplot_risktable, rclass
     * =====================================================================
 
     local scatcmd ""
+    local xaxis_cmd ""
+    if "`toptimeaxis'" != "" local xaxis_cmd "xaxis(1 2)"
     forvalues g = 1/`ngroups' {
         if "`mono'" != "" {
             local col "black"
@@ -229,7 +231,7 @@ program define _kmplot_risktable, rclass
             local col : word `colidx' of `colors'
             if "`col'" == "" local col "black"
         }
-            local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grp' == `g', msymbol(none) mlabel(`rt_label') mlabposition(0) mlabcolor(`col') mlabsize(vsmall))"'
+            local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grp' == `g', `xaxis_cmd' msymbol(none) mlabel(`rt_label') mlabposition(0) mlabcolor(`col') mlabsize(small))"'
     }
 
     * =====================================================================
@@ -244,7 +246,7 @@ program define _kmplot_risktable, rclass
         local ylabels `"`ylabels' `yval' `"`lbl'"'"'
     }
 
-	    * Extra padding below the bottom row separates the table from the x-axis labels
+	    * Keep breathing room below the final risk-table row.
 	    local ymin = 0.0
 	    local ymax = `ngroups' + 0.5
 	    if `riskheight' > 0 {
@@ -289,13 +291,36 @@ program define _kmplot_risktable, rclass
         local xlabel_cmd xlabel(`timepoints', labsize(vsmall) noticks nogrid)
     }
 
+    local xtitle_cmd `"xtitle(`"`xtitle'"', size(vsmall))"'
+    local xscale_cmd "xscale(range(`xstart' `xmax') noline)"
+    local separator_cmd ""
+    if "`toptimeaxis'" != "" {
+        if `"`xlabel'"' != "" {
+            if strpos(`"`xlabel'"', ",") {
+                local top_xlabel_cmd xlabel(`xlabel' nogrid axis(2))
+            }
+            else {
+                local top_xlabel_cmd xlabel(`xlabel', labsize(small) noticks nogrid axis(2))
+            }
+        }
+        else {
+            local top_xlabel_cmd xlabel(`timepoints', labsize(small) noticks nogrid axis(2))
+        }
+        local xlabel_cmd `"xlabel(, nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
+        local xtitle_cmd `"xtitle("", axis(1)) xtitle(`"`xtitle'"', size(small) axis(2))"'
+        local xscale_cmd `"xscale(range(`xstart' `xmax') noline axis(1)) xscale(range(`xstart' `xmax') noline axis(2))"'
+        local separator_y = `ngroups' + 0.25
+        local separator_cmd "yline(`separator_y', lcolor(gs8) lwidth(vthin))"
+    }
+
     twoway `scatcmd', ///
-        ylabel(`ylabels', angle(0) labsize(vsmall) noticks nogrid) ///
+        ylabel(`ylabels', angle(0) labsize(small) noticks nogrid) ///
         `xlabel_cmd' ///
         yscale(range(`ymin' `ymax') noline) ///
-        xscale(range(`xstart' `xmax') noline) ///
-        xtitle(`"`xtitle'"', size(vsmall)) ///
-        ytitle("`ytitle_rt'", size(vsmall)) ///
+        `xscale_cmd' ///
+        `xtitle_cmd' ///
+        ytitle("`ytitle_rt'", size(small)) ///
+        `separator_cmd' ///
         title("") subtitle("") ///
         scheme(`scheme') ///
         name(`graphname', replace) nodraw ///
