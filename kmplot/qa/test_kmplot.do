@@ -1,6 +1,6 @@
 * test_kmplot.do
-* Functional test suite for kmplot v1.2.0
-* Author: Timothy P Copeland
+* Functional test suite for kmplot
+* Author: Timothy P Copeland, Karolinska Institutet
 * Created: 2026-03-15
 
 clear all
@@ -21,9 +21,7 @@ sysuse cancer, clear
 stset studytime, failure(died)
 local orig_N = _N
 
-* =============================================================================
-* T1: Basic KM (no options)
-* =============================================================================
+**## T1: Basic KM (no options)
 
 local ++test_count
 capture noisily {
@@ -44,9 +42,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T2: KM with by()
-* =============================================================================
+**## T2: KM with by()
 
 local ++test_count
 capture noisily {
@@ -66,9 +62,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T3: Failure mode (cumulative failure)
-* =============================================================================
+**## T3: Failure mode (cumulative failure)
 
 local ++test_count
 capture noisily {
@@ -87,9 +81,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T4: CI band (default cistyle)
-* =============================================================================
+**## T4: CI band (default cistyle)
 
 local ++test_count
 capture noisily {
@@ -106,9 +98,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T5: CI line style
-* =============================================================================
+**## T5: CI line style
 
 local ++test_count
 capture noisily {
@@ -125,9 +115,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T6: CI with failure (inverted bounds)
-* =============================================================================
+**## T6: CI with failure (inverted bounds)
 
 local ++test_count
 capture noisily {
@@ -144,9 +132,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T7: CI transforms (log, plain)
-* =============================================================================
+**## T7: CI transforms (log, plain)
 
 local ++test_count
 capture noisily {
@@ -164,9 +150,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T8: CI opacity
-* =============================================================================
+**## T8: CI opacity
 
 local ++test_count
 capture noisily {
@@ -183,9 +167,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T9: Median lines
-* =============================================================================
+**## T9: Median lines
 
 local ++test_count
 capture noisily {
@@ -205,9 +187,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T10: Median annotate
-* =============================================================================
+**## T10: Median annotate
 
 local ++test_count
 capture noisily {
@@ -225,9 +205,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T11: Risk table
-* =============================================================================
+**## T11: Risk table
 
 local ++test_count
 capture noisily {
@@ -244,9 +222,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T12: Risk table with custom timepoints
-* =============================================================================
+**## T12: Risk table with custom timepoints
 
 local ++test_count
 capture noisily {
@@ -263,9 +239,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T13: Censor marks
-* =============================================================================
+**## T13: Censor marks
 
 local ++test_count
 capture noisily {
@@ -282,9 +256,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T14: Censor thinning
-* =============================================================================
+**## T14: Censor thinning
 
 local ++test_count
 capture noisily {
@@ -301,9 +273,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T15: P-value
-* =============================================================================
+**## T15: P-value
 
 local ++test_count
 capture noisily {
@@ -322,21 +292,17 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T16: P-value without by() (should skip gracefully)
-* =============================================================================
+**## T16: P-value without by() is rejected
 
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    kmplot, pvalue name(t16, replace)
-    * r(p) should NOT be returned when no by()
-    capture assert r(p) < .
-    assert _rc != 0
+    capture kmplot, pvalue name(t16, replace)
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: T16 P-value without by() skipped"
+    display as result "  PASS: T16 P-value without by() rejected"
     local ++pass_count
 }
 else {
@@ -344,9 +310,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T17: P-value position options
-* =============================================================================
+**## T17: P-value position options
 
 local ++test_count
 capture noisily {
@@ -365,9 +329,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T18: Custom colors
-* =============================================================================
+**## T18: Custom colors
 
 local ++test_count
 capture noisily {
@@ -384,9 +346,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T19: Custom lpattern
-* =============================================================================
+**## T19: Custom lpattern
 
 local ++test_count
 capture noisily {
@@ -403,9 +363,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T20: Custom legend
-* =============================================================================
+**## T20: Custom legend
 
 local ++test_count
 capture noisily {
@@ -422,9 +380,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T21: Title/subtitle/xtitle/ytitle
-* =============================================================================
+**## T21: Title/subtitle/xtitle/ytitle
 
 local ++test_count
 capture noisily {
@@ -442,9 +398,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T22: Export PNG
-* =============================================================================
+**## T22: Export PNG
 
 local ++test_count
 capture noisily {
@@ -465,9 +419,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T23: Full combination
-* =============================================================================
+**## T23: Full combination
 
 local ++test_count
 capture noisily {
@@ -489,9 +441,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T24: 3+ groups (value-labeled by-variable)
-* =============================================================================
+**## T24: 3+ groups (value-labeled by-variable)
 
 local ++test_count
 capture noisily {
@@ -510,9 +460,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T25: if/in subset
-* =============================================================================
+**## T25: if/in subset
 
 local ++test_count
 capture noisily {
@@ -532,9 +480,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T26: Error - not stset
-* =============================================================================
+**## T26: Error - not stset
 
 local ++test_count
 capture noisily {
@@ -553,9 +499,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T27: Error - bad cistyle
-* =============================================================================
+**## T27: Error - bad cistyle
 
 local ++test_count
 capture noisily {
@@ -573,9 +517,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T28: Error - empty sample
-* =============================================================================
+**## T28: Error - empty sample
 
 local ++test_count
 capture noisily {
@@ -593,9 +535,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T29: Data preservation
-* =============================================================================
+**## T29: Data preservation
 
 local ++test_count
 capture noisily {
@@ -618,9 +558,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T30: Varabbrev restored on error
-* =============================================================================
+**## T30: Varabbrev restored on error
 
 local ++test_count
 capture noisily {
@@ -642,9 +580,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T31: name() option works
-* =============================================================================
+**## T31: name() option works
 
 local ++test_count
 capture noisily {
@@ -663,9 +599,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T32: scheme() option
-* =============================================================================
+**## T32: scheme() option
 
 local ++test_count
 capture noisily {
@@ -683,9 +617,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T33: Median NR case (all censored subset)
-* =============================================================================
+**## T33: Median NR case (all censored subset)
 
 local ++test_count
 capture noisily {
@@ -707,9 +639,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T34: Risk table with riskcompact
-* =============================================================================
+**## T34: Risk table with riskcompact
 
 local ++test_count
 capture noisily {
@@ -728,9 +658,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T35: Risk table with riskmono
-* =============================================================================
+**## T35: Risk table with riskmono
 
 local ++test_count
 capture noisily {
@@ -749,9 +677,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T36: Risk table with riskevents + riskmono combined
-* =============================================================================
+**## T36: Risk table with riskevents + riskmono combined
 
 local ++test_count
 capture noisily {
@@ -770,9 +696,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T37: Risk table single group (no by)
-* =============================================================================
+**## T37: Risk table single group (no by)
 
 local ++test_count
 capture noisily {
@@ -791,9 +715,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T38: Error - bad citransform
-* =============================================================================
+**## T38: Error - bad citransform
 
 local ++test_count
 capture noisily {
@@ -811,9 +733,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T39: String by-variable
-* =============================================================================
+**## T39: String by-variable
 
 local ++test_count
 capture noisily {
@@ -836,9 +756,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T40: in range qualifier
-* =============================================================================
+**## T40: in range qualifier
 
 local ++test_count
 capture noisily {
@@ -857,9 +775,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T41: aspectratio, lwidth, note, xlabel, ylabel options
-* =============================================================================
+**## T41: aspectratio, lwidth, note, xlabel, ylabel options
 
 local ++test_count
 capture noisily {
@@ -879,9 +795,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T42: Full combination with riskevents
-* =============================================================================
+**## T42: Full combination with riskevents
 
 local ++test_count
 capture noisily {
@@ -904,9 +818,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T43: Error - invalid pvaluepos (rc=198)
-* =============================================================================
+**## T43: Error - invalid pvaluepos (rc=198)
 
 local ++test_count
 capture noisily {
@@ -924,9 +836,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T44: sts test capture - does not crash on edge case
-* =============================================================================
+**## T44: sts test capture - does not crash on edge case
 
 local ++test_count
 capture noisily {
@@ -946,9 +856,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T45: Varabbrev restored after pvaluepos error
-* =============================================================================
+**## T45: Varabbrev restored after pvaluepos error
 
 local ++test_count
 capture noisily {
@@ -969,9 +877,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T46: set more restored after successful run
-* =============================================================================
+**## T46: set more restored after successful run
 
 local ++test_count
 capture noisily {
@@ -991,9 +897,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T47: set more restored after error (not stset)
-* =============================================================================
+**## T47: set more restored after error (not stset)
 
 local ++test_count
 capture noisily {
@@ -1015,9 +919,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T48: set more restored after bad option error
-* =============================================================================
+**## T48: set more restored after bad option error
 
 local ++test_count
 capture noisily {
@@ -1044,9 +946,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T49: Color fallback when fewer colors than groups
-* =============================================================================
+**## T49: Color fallback when fewer colors than groups
 
 local ++test_count
 capture noisily {
@@ -1065,9 +965,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T50: Color fallback with CI bands
-* =============================================================================
+**## T50: Color fallback with CI bands
 
 local ++test_count
 capture noisily {
@@ -1085,9 +983,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T51: Color fallback with censor marks
-* =============================================================================
+**## T51: Color fallback with censor marks
 
 local ++test_count
 capture noisily {
@@ -1105,9 +1001,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T52: Single observation dataset
-* =============================================================================
+**## T52: Single observation dataset
 
 local ++test_count
 capture noisily {
@@ -1129,9 +1023,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T53: All missing by-variable (numeric) — should error 2000
-* =============================================================================
+**## T53: All missing by-variable (numeric) — should error 2000
 
 local ++test_count
 capture noisily {
@@ -1150,9 +1042,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T54: All empty string by-variable — should error 2000
-* =============================================================================
+**## T54: All empty string by-variable — should error 2000
 
 local ++test_count
 capture noisily {
@@ -1174,9 +1064,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T55: Very small time values (sub-1 time scale)
-* =============================================================================
+**## T55: Very small time values (sub-1 time scale)
 
 local ++test_count
 capture noisily {
@@ -1198,9 +1086,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T56: Many groups (>8, tests color cycling)
-* =============================================================================
+**## T56: Many groups (>8, tests color cycling)
 
 local ++test_count
 capture noisily {
@@ -1224,9 +1110,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T57: Many groups with CI and censor (full color cycling test)
-* =============================================================================
+**## T57: Many groups with CI and censor (full color cycling test)
 
 local ++test_count
 capture noisily {
@@ -1249,9 +1133,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T58: Risktable auto-timepoints with very small xmax
-* =============================================================================
+**## T58: Risktable auto-timepoints with very small xmax
 
 local ++test_count
 capture noisily {
@@ -1273,9 +1155,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T59: set more restored after empty-sample error
-* =============================================================================
+**## T59: set more restored after empty-sample error
 
 local ++test_count
 capture noisily {
@@ -1296,9 +1176,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T60: CI line style with color fallback
-* =============================================================================
+**## T60: CI line style with color fallback
 
 local ++test_count
 capture noisily {
@@ -1316,9 +1194,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T61: Median with color fallback
-* =============================================================================
+**## T61: Median with color fallback
 
 local ++test_count
 capture noisily {
@@ -1336,9 +1212,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T62: Risktable with color fallback
-* =============================================================================
+**## T62: Risktable with color fallback
 
 local ++test_count
 capture noisily {
@@ -1357,9 +1231,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T63: Single observation with all options
-* =============================================================================
+**## T63: Single observation with all options
 
 local ++test_count
 capture noisily {
@@ -1382,9 +1254,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T64: Varabbrev restored after syntax parse error
-* =============================================================================
+**## T64: Varabbrev restored after syntax parse error
 
 local ++test_count
 capture noisily {
@@ -1405,9 +1275,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T65: Quoted ytitle renders without literal quotes
-* =============================================================================
+**## T65: Quoted ytitle renders without literal quotes
 
 local ++test_count
 capture noisily {
@@ -1431,9 +1299,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T66: Quoted xtitle renders without literal quotes
-* =============================================================================
+**## T66: Quoted xtitle renders without literal quotes
 
 local ++test_count
 capture noisily {
@@ -1456,9 +1322,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T67: Quoted note renders without literal quotes
-* =============================================================================
+**## T67: Quoted note renders without literal quotes
 
 local ++test_count
 capture noisily {
@@ -1481,9 +1345,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T68: Export to nonexistent directory fails gracefully
-* =============================================================================
+**## T68: Export to nonexistent directory fails gracefully
 
 local ++test_count
 capture noisily {
@@ -1503,9 +1365,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T69: Varabbrev restored after export failure
-* =============================================================================
+**## T69: Varabbrev restored after export failure
 
 local ++test_count
 capture noisily {
@@ -1528,9 +1388,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T70: Risktable with quoted xtitle (no literal quotes in bottom axis)
-* =============================================================================
+**## T70: Risktable with quoted xtitle (no literal quotes in bottom axis)
 
 local ++test_count
 capture noisily {
@@ -1554,9 +1412,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T71: set more not leaked (kmplot no longer touches set more)
-* =============================================================================
+**## T71: set more not leaked (kmplot no longer touches set more)
 
 local ++test_count
 capture noisily {
@@ -1577,9 +1433,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T72: Error - bad ciopacity
-* =============================================================================
+**## T72: Error - bad ciopacity
 
 local ++test_count
 capture noisily {
@@ -1597,9 +1451,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T73: Internal-name collisions do not affect user variables
-* =============================================================================
+**## T73: Internal-name collisions do not affect user variables
 
 local ++test_count
 capture noisily {
@@ -1635,9 +1487,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T74: Export failure preserves analytical returns
-* =============================================================================
+**## T74: Export failure preserves analytical returns
 
 local ++test_count
 capture noisily {
@@ -1661,9 +1511,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T75: Error - unsafe export path characters
-* =============================================================================
+**## T75: Error - unsafe export path characters
 
 local ++test_count
 capture noisily {
@@ -1681,9 +1529,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T76: level() controls CI level and rejects invalid levels
-* =============================================================================
+**## T76: level() controls CI level and rejects invalid levels
 
 local ++test_count
 capture noisily {
@@ -1707,9 +1553,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T77: riskheight() and risk-table matrix return
-* =============================================================================
+**## T77: riskheight() and risk-table matrix return
 
 local ++test_count
 capture noisily {
@@ -1741,9 +1585,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T78: landmark() returns fixed-time estimates
-* =============================================================================
+**## T78: landmark() returns fixed-time estimates
 
 local ++test_count
 capture noisily {
@@ -1771,9 +1613,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T79: saving() and risksaving() create reusable datasets
-* =============================================================================
+**## T79: saving() and risksaving() create reusable datasets
 
 local ++test_count
 capture noisily {
@@ -1824,9 +1664,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T80: p-value text, format, and coordinate controls
-* =============================================================================
+**## T80: p-value text, format, and coordinate controls
 
 local ++test_count
 capture noisily {
@@ -1857,9 +1695,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T81: Rich reproducibility metadata
-* =============================================================================
+**## T81: Rich reproducibility metadata
 
 local ++test_count
 capture noisily {
@@ -1888,9 +1724,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T82: risksaving() works without displaying a risk table
-* =============================================================================
+**## T82: risksaving() works without displaying a risk table
 
 local ++test_count
 capture noisily {
@@ -1915,9 +1749,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T83: Error - unsafe saving()/risksaving() paths
-* =============================================================================
+**## T83: Error - unsafe saving()/risksaving() paths
 
 local ++test_count
 capture noisily {
@@ -1937,9 +1769,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T84: automatic risk-table height scales with group count
-* =============================================================================
+**## T84: automatic risk-table height scales with group count
 
 local ++test_count
 capture noisily {
@@ -1980,9 +1810,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T85: saving() without ci writes missing CI bounds and populated estimates
-* =============================================================================
+**## T85: saving() without ci writes missing CI bounds and populated estimates
 
 local ++test_count
 capture noisily {
@@ -2017,9 +1845,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* T86: stepped CI band helper rows do not leak into saving()
-* =============================================================================
+**## T86: stepped CI band helper rows do not leak into saving()
 
 local ++test_count
 capture noisily {
@@ -2051,17 +1877,11 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* SUMMARY
-* =============================================================================
+**# Summary
 
-display as text "==========================================="
-display as text "  kmplot Functional Test Results"
-display as text "==========================================="
 display as text "  Total:  " as result `test_count'
 display as text "  Passed: " as result `pass_count'
 display as text "  Failed: " as result `fail_count'
-display as text "==========================================="
 
 if `fail_count' > 0 {
     display as error "RESULT: test_kmplot tests=`test_count' pass=`pass_count' fail=`fail_count'"

@@ -1,10 +1,10 @@
-clear all
-set more off
-version 16.0
+*! test_datamap.do Version 1.0.0  2026/08/11
+*! Functional tests for datamap and datadict
+*! Author: Timothy P Copeland, Karolinska Institutet
 
-* test_datamap.do - Functional tests for datamap package (datamap + datadict)
-* Generated: 2026-03-13
-* Tests: 63
+clear all
+set varabbrev off
+version 16.0
 
 * ============================================================
 * Setup
@@ -17,7 +17,8 @@ local fail_count = 0
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
-local tmp_dir "`qa_dir'/data"
+tempfile test_workspace
+local tmp_dir "`test_workspace'_data"
 
 * Create data directory for test outputs
 capture mkdir "`tmp_dir'"
@@ -1868,6 +1869,11 @@ capture erase "`tmp_dir'/test_cohort_dict.md"
 capture erase "`tmp_dir'/test_small_dict.md"
 capture erase "`qa_dir'/test_cohort_dictionary.md"
 capture erase "`qa_dir'/test_small_dictionary.md"
+local generated_files : dir "`tmp_dir'" files "*"
+foreach f of local generated_files {
+    capture erase "`tmp_dir'/`f'"
+}
+capture rmdir "`tmp_dir'"
 
 * ============================================================
 * Summary

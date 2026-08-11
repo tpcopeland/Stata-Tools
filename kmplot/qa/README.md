@@ -1,7 +1,6 @@
 # kmplot QA
 
-This directory contains the package QA for `kmplot`. Run suites from this
-directory so all paths are derived from `c(pwd)`.
+This directory contains the package QA for `kmplot`. Run suites from this directory so all paths are derived from `c(pwd)`.
 
 ## Run
 
@@ -16,13 +15,11 @@ do run_all.do full
 
 ## Layout
 
-- `_kmplot_qa_common.do` installs `kmplot` from the local package path into
-  temporary PLUS/PERSONAL sysdirs and defines shared file-content assertions.
+- `_kmplot_qa_common.do` installs `kmplot` from the local package path into temporary PLUS/PERSONAL sysdirs and defines shared file-content assertions.
 - `run_all.do` is the curated lane runner.
-- `test_kmplot.do` covers functional behavior, options, error handling,
-  state restoration, graph export/save, richer returns, and regression paths.
-- `validation_kmplot.do` checks numerical and survival-analysis invariants
-  against Stata survival commands and hand-computed quantities.
+- `test_kmplot.do` covers functional behavior, options, error handling, state restoration, graph export/save, richer returns, and regression paths.
+- `test_kmplot_v124.do` covers multiple-record risk sets and censoring, weighted risk-table counts, subordinate-option dependency errors, and Stata-native help rendering with a positive control.
+- `validation_kmplot.do` compares saved command estimates and returned matrices directly against Stata survival commands and hand-computed quantities.
 
 ## Coverage Map
 
@@ -33,6 +30,9 @@ do run_all.do full
 | Median lines and stored medians | `test_kmplot.do`, `validation_kmplot.do` |
 | Risk table, `riskheight()`, `riskevents`, `riskcompact`, `riskmono`, `timepoints()` | `test_kmplot.do`, `validation_kmplot.do` |
 | Delayed-entry risk-table counts | `validation_kmplot.do` |
+| Multiple-record and weighted risk-table counts | `test_kmplot_v124.do` |
+| Subordinate-option dependency errors | `test_kmplot_v124.do` |
+| Stata-native `.sthlp` rendering and positive control | `test_kmplot_v124.do` |
 | `landmark()` and returned landmark matrix | `test_kmplot.do`, `validation_kmplot.do` |
 | `saving()` and `risksaving()` datasets | `test_kmplot.do` |
 | Censor marks and `censorthin()` | `test_kmplot.do` |
@@ -47,7 +47,7 @@ do run_all.do full
 | Lane | Suites |
 |------|--------|
 | quick | `test_kmplot.do` |
-| core | `test_kmplot.do`, `validation_kmplot.do` |
-| full | `test_kmplot.do`, `validation_kmplot.do` |
+| core | `test_kmplot.do`, `test_kmplot_v124.do`, `validation_kmplot.do` |
+| full | `test_kmplot.do`, `test_kmplot_v124.do`, `validation_kmplot.do` |
 
 Each suite prints a parseable `RESULT: <suite> tests=N pass=N fail=N` line.

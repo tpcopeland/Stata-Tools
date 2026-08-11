@@ -186,7 +186,9 @@ patterns are important for multiple imputation methods.
 {opt generate(stub)} creates missingness indicator variables with the
 specified stub. For each variable {it:var}, creates {it:stub}_{it:var}
 (1 if missing, 0 otherwise), plus {it:stub}_pattern (the pattern string)
-and {it:stub}_nmiss (count of missing values per observation).
+and {it:stub}_nmiss (count of missing values per observation). All target
+names are checked before any variable is created. Existing targets and source
+variables that would collide with the two reserved summary names are rejected.
 
 {phang}
 {opt save(name)} saves the pattern data. If {it:name} contains a period,
@@ -214,7 +216,7 @@ patterns; use {opt top(#)} to adjust.
 across the dataset. Missing values appear in red (customizable with
 {opt misscolor()}), observed values in blue (customizable with {opt obscolor()}). For
 large datasets (>500 observations), a random sample is drawn by
-default. Suboptions:
+default. The only accepted suboptions are:
 
 {phang3}
 {opt graph(matrix, sample(#))} specifies the number of observations to sample.
@@ -373,7 +375,7 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {pstd}{bf:Graphics examples}{p_end}
 
 {pstd}Bar chart of missingness by variable{p_end}
-{phang2}{stata "datamvp, graph(bar) scheme(plotplainblind)":. datamvp, graph(bar) scheme(plotplainblind)}{p_end}
+{phang2}{stata "datamvp, graph(bar) scheme(s2color)":. datamvp, graph(bar) scheme(s2color)}{p_end}
 
 {pstd}Bar chart with variables sorted by missingness{p_end}
 {phang2}{stata "datamvp, sort graph(bar)":. datamvp, sort graph(bar)}{p_end}
@@ -412,7 +414,7 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {phang2}{stata "datamvp, graph(correlation) gname(mycorr)":. datamvp, graph(correlation) gname(mycorr)}{p_end}
 
 {pstd}Use a specific graph scheme{p_end}
-{phang2}{stata "datamvp, graph(bar) scheme(plotplainblind)":. datamvp, graph(bar) scheme(plotplainblind)}{p_end}
+{phang2}{stata "datamvp, graph(bar) scheme(s2color)":. datamvp, graph(bar) scheme(s2color)}{p_end}
 
 {pstd}{bf:Stratified graphics examples}{p_end}
 
@@ -515,7 +517,8 @@ multiple runs.
 
 {pstd}
 {bf:Generated variable names:} When using {opt generate()}, names are shortened
-and disambiguated so the complete name fits Stata's 32-character limit.
+and disambiguated so the complete name fits Stata's 32-character limit. The
+command refuses to overwrite existing variables.
 
 
 {title:Also see}

@@ -44,6 +44,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `test_audit_remediation.do` | adversarial/known-answer | quick | 2400s | Stata | 24 package-local audit probes | per-probe seeds | C01-C05, C07, C30, H01-H15, GCTAB-H02-H06, M01, M03 |
 | `test_expected_resampling_failure.do` | adversarial | quick | 300s | Stata | fail-closed rc plus bounded progress markers | 606 | C06, Q02 |
 | `test_gcomptab_regressions.do` | functional | quick | 600s | Stata | mocked result/value and workbook contracts | fixed | gcomptab regressions |
+| `test_gcomp_v147.do` | regression | quick | 600s | Stata | stored-result presence, exact t inference, and option-validation contracts | 14701/14702 and fixed small samples | v1.4.7 regressions |
 | `test_refactor_bootstrap_dispatch.do` | regression | quick/refactor | 600s | Stata | repeated-seed matrix identity | fixed | bootstrap dispatch |
 | `test_refactor_msm_omitted.do` | regression | quick/refactor | 600s | Stata | full matrix stripes and omitted-term absence | fixed | C04 |
 | `test_refactor_display_golden.do` | regression | quick/refactor | 600s | Stata | text snapshot predicates | fixed | display contract |

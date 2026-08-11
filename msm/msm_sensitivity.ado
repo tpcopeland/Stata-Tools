@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.4.5  2026/08/05
+*! msm_sensitivity Version 1.4.6  2026/08/11
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -55,6 +55,10 @@ program define msm_sensitivity, rclass
 
     _msm_check_fitted
     _msm_get_settings
+
+    _msm_uuid
+    local _sens_uuid "`r(uuid)'"
+    local _fit_uuid : char _dta[_msm_fit_uuid]
 
     local treatment "`_msm_treatment'"
     local exposure : char _dta[_msm_exposure]
@@ -153,15 +157,22 @@ program define msm_sensitivity, rclass
         * RR = (1 - 0.5^sqrt(HR)) / (1 - 0.5^sqrt(1/HR)) for a Cox MSM --
         * applied to the point estimate and both CI limits.
         * -----------------------------------------------------------------
-        tempvar _sens_ever _sens_idtag
-        quietly bysort `id': egen byte `_sens_ever' = max(`outcome' == 1)
-        quietly bysort `id' (`period'): gen byte `_sens_idtag' = (_n == _N)
-        quietly count if `_sens_idtag'
+        tempvar _sens_ever _sens_subject _sens_idtag
+        * Match the population and risk process that produced the saved fit.
+        * Post-event/post-censor rows and subjects with no fitted rows cannot
+        * change the rare/common-outcome approximation.
+        quietly bysort `id': egen byte `_sens_ever' = ///
+            max(cond(_msm_esample == 1, `outcome' == 1, .))
+        quietly bysort `id': egen byte `_sens_subject' = ///
+            max(_msm_esample == 1)
+        quietly bysort `id' (`period'): gen byte `_sens_idtag' = ///
+            (_n == 1) if `_sens_subject'
+        quietly count if `_sens_idtag' == 1
         if r(N) == 0 {
             display as error "no subjects available to assess outcome rarity"
             exit 2000
         }
-        quietly summarize `_sens_ever' if `_sens_idtag', meanonly
+        quietly summarize `_sens_ever' if `_sens_idtag' == 1, meanonly
         local outcome_prevalence = r(mean)
         if missing(`outcome_prevalence') | `outcome_prevalence' < 0 | ///
             `outcome_prevalence' > 1 {
@@ -372,13 +383,15 @@ program define msm_sensitivity, rclass
             }
             if "`model'" == "logistic" {
                 display as text "  Observed OR:          " as result %9.4f `effect'
-                display as text "  Corrected RR-scale approximation: " ///
+                display as text "  Bias-adjusted RR bound: " ///
                     as result %9.4f `corrected'
                 display as text "  Scale input:          " as result "`rr_scale_label'"
             }
             else {
                 display as text "  Observed `effect_label':    " as result %9.4f `effect'
-                display as text "  Corrected `effect_label':   " as result %9.4f `corrected'
+                display as text "  Bias-adjusted RR bound: " ///
+                    as result %9.4f `corrected'
+                display as text "  Scale input:          " as result "`rr_scale_label'"
             }
 
             * If corrected crosses null
@@ -456,11 +469,17 @@ program define msm_sensitivity, rclass
     * Persist the bias factor and bound so msm_table can export them (audit A29).
     char _dta[_msm_sens_bias_factor]
     char _dta[_msm_sens_bound]
+    char _dta[_msm_sens_rr_ud]
+    char _dta[_msm_sens_rr_uy]
     if "`confounding_strength'" != "" & inlist("`model'", "logistic", "cox") {
         char _dta[_msm_sens_bias_factor] "`_bias_factor_saved'"
         char _dta[_msm_sens_bound] "`_bound_saved'"
+        char _dta[_msm_sens_rr_ud] "`rr_ud'"
+        char _dta[_msm_sens_rr_uy] "`rr_uy'"
     }
     char _dta[_msm_sens_level] "`level'"
+    char _dta[_msm_sens_uuid] "`_sens_uuid'"
+    char _dta[_msm_sens_dep] "`_fit_uuid'"
     * Mark the run saved only when a real sensitivity measure was produced (A28).
     char _dta[_msm_sens_saved]
     if `_metric_produced' char _dta[_msm_sens_saved] "1"

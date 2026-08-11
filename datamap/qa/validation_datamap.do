@@ -1210,8 +1210,9 @@ display as result "Validation Results: `pass_count'/`test_count' passed, `fail_c
 
 if `fail_count' > 0 {
     display as error "SOME VALIDATIONS FAILED"
-    exit 1
 }
 else {
     display as result "ALL VALIDATIONS PASSED"
 }
+display "RESULT: validation_datamap tests=`test_count' pass=`pass_count' fail=`fail_count'"
+if `fail_count' > 0 exit 1

@@ -1,4 +1,4 @@
-*! msm_plot Version 1.4.5  2026/08/05
+*! msm_plot Version 1.4.6  2026/08/11
 *! Visualization for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -227,6 +227,14 @@ program define msm_plot, rclass
         local _save_pred_type : char _dta[_msm_pred_type]
         local _save_pred_strategy : char _dta[_msm_pred_strategy]
         local _save_pred_level : char _dta[_msm_pred_level]
+        local _save_pred_uuid : char _dta[_msm_pred_uuid]
+        local _save_pred_dep : char _dta[_msm_pred_dep]
+
+        * A valid dataset-resident prediction may not yet have been hydrated
+        * into this Stata session. Load it before taking the snapshot.
+        if "`_save_pred_saved'" == "1" {
+            quietly _msm_check_artifact prediction
+        }
         tempname _save_pred_mat
         local _had_pred_mat = 0
         capture matrix `_save_pred_mat' = _msm_pred_matrix
@@ -254,9 +262,22 @@ program define msm_plot, rclass
         char _dta[_msm_pred_type] "`_save_pred_type'"
         char _dta[_msm_pred_strategy] "`_save_pred_strategy'"
         char _dta[_msm_pred_level] "`_save_pred_level'"
+        char _dta[_msm_pred_uuid] "`_save_pred_uuid'"
+        char _dta[_msm_pred_dep] "`_save_pred_dep'"
         capture matrix drop _msm_pred_matrix
         if `_had_pred_mat' {
             matrix _msm_pred_matrix = `_save_pred_mat'
+            if "`_save_pred_saved'" == "1" & ///
+                "`_save_pred_uuid'" != "" & "`_save_pred_dep'" != "" {
+                _msm_mat_save _msm_pred_matrix, ///
+                    key(_msm_pred_mat) token(`_save_pred_uuid')
+            }
+            else {
+                _msm_mat_clear, key(_msm_pred_mat)
+            }
+        }
+        else {
+            _msm_mat_clear, key(_msm_pred_mat)
         }
 
         * Prior state is now restored; only then surface a plot-time failure.

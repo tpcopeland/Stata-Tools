@@ -7,7 +7,8 @@
 *        unweighted SMD denominator is ~0
 *   A28  linear-model sensitivity refuses rather than exiting rc 0 with
 *        _msm_sens_saved=1 and no computed measure
-*   A29  confounding_strength() persists the bias factor and the bound
+*   A29  confounding_strength() persists the inputs, bias factor, and bound,
+*        and refitting clears the entire obsolete sensitivity artifact
 *   A30  a report/protocol write error is surfaced, not swallowed by the
 *        capture-file-close cleanup
 *
@@ -108,11 +109,21 @@ capture noisily {
     * the bias factor and bound are persisted for the table
     assert "`: char _dta[_msm_sens_bias_factor]'" != ""
     assert "`: char _dta[_msm_sens_bound]'" != ""
+    assert "`: char _dta[_msm_sens_rr_ud]'" == "2"
+    assert "`: char _dta[_msm_sens_rr_uy]'" == "2"
     * bias factor for RR_UD=RR_UY=2 is (2*2)/(2+2-1) = 4/3
     assert reldif(r(bias_factor), 4/3) < 1e-10
+
+    * A refit invalidates every member of the old sensitivity artifact. The
+    * prior code cleared the saved flag but leaked bias_factor/bound chars.
+    msm_fit, model(logistic) outcome_cov(age sex) vce(cluster id) nolog
+    foreach ch in _msm_sens_saved _msm_sens_bias_factor _msm_sens_bound ///
+        _msm_sens_rr_ud _msm_sens_rr_uy {
+        assert "`: char _dta[`ch']'" == ""
+    }
 }
 if _rc == 0 {
-    display as result "PASS A29: bias factor and bound are returned and persisted"
+    display as result "PASS A29: full confounding artifact persists and invalidates cleanly"
     local ++pass_count
 }
 else {

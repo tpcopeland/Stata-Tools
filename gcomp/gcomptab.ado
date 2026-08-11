@@ -1,4 +1,4 @@
-*! gcomptab Version 1.4.6  2026/07/19
+*! gcomptab Version 1.4.7  2026/08/11
 *! Export gcomp mediation, dose-response, or component-model results
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1104,10 +1104,12 @@ program define _gcomptab_dr_validate, rclass
         local _oc "`e(outcome)'"
         local _deps "`e(model_depvars)'"
         local _cmds "`e(model_cmds)'"
-        local _ocmd ""
-        local _nw : word count `_deps'
-        forvalues _w = 1/`_nw' {
-            if "`: word `_w' of `_deps''" == "`_oc'" local _ocmd "`: word `_w' of `_cmds''"
+        local _ocmd "`e(outcome_cmd)'"
+        if "`_ocmd'" == "" {
+            local _nw : word count `_deps'
+            forvalues _w = 1/`_nw' {
+                if "`: word `_w' of `_deps''" == "`_oc'" local _ocmd "`: word `_w' of `_cmds''"
+            }
         }
         * poscale is the noun the default footnote appends after "Counterfactual ",
         * so it must not itself contain "counterfactual".
@@ -1463,6 +1465,13 @@ capture noisily {
     if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
     if "`starslevels'" == "" local starslevels "0.05 0.01 0.001"
+    local stats = lower(strtrim(`"`stats'"'))
+    foreach _stat of local stats {
+        if "`_stat'" != "n" {
+            noisily display as error "stats() supports n only"
+            exit 198
+        }
+    }
     * scale override precedence: raw/noeform > eform ; coef() overrides label only
     if "`raw'" != "" local noeform noeform
 
@@ -1514,6 +1523,9 @@ capture noisily {
         local cmd`k'    "`e(cmd)'"
         local depvar`k' "`e(depvar)'"
         local N`k'      = e(N)
+        local dfr`k' = .
+        capture confirm scalar e(df_r)
+        if _rc == 0 local dfr`k' = e(df_r)
 
         * Scale + label per command (auto), then apply overrides
         if "`cmd`k''" == "logit"       local _sc "OR"
@@ -1692,9 +1704,16 @@ capture noisily {
             }
             local _se = sqrt(`_v')
             local _z  = `_b' / `_se'
-            local _p  = 2 * normal(-abs(`_z'))
-            local _lo = `_b' - 1.959964 * `_se'
-            local _hi = `_b' + 1.959964 * `_se'
+            if `dfr`k'' < . & `dfr`k'' > 0 {
+                local _p = 2 * ttail(`dfr`k'', abs(`_z'))
+                local _crit = invttail(`dfr`k'', 0.025)
+            }
+            else {
+                local _p = 2 * normal(-abs(`_z'))
+                local _crit = invnormal(0.975)
+            }
+            local _lo = `_b' - `_crit' * `_se'
+            local _hi = `_b' + `_crit' * `_se'
             local _docut = `cut_`_key''
             if `eform`k'' & !`_docut' {
                 local _pt = exp(`_b')

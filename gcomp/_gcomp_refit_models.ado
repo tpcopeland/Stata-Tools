@@ -1,4 +1,4 @@
-*! _gcomp_refit_models Version 1.4.6  2026/07/19
+*! _gcomp_refit_models Version 1.4.7  2026/08/11
 *! Refit gcomp component specifications on the analytic sample and store them
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

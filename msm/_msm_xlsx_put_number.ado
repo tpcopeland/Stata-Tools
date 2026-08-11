@@ -1,4 +1,4 @@
-*! _msm_xlsx_put_number Version 1.4.5  2026/08/05
+*! _msm_xlsx_put_number Version 1.4.6  2026/08/11
 *! Write a numeric Excel cell and optional number format
 *! Author: Timothy P Copeland, Karolinska Institutet
 

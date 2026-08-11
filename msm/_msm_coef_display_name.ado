@@ -1,4 +1,4 @@
-*! _msm_coef_display_name Version 1.4.5  2026/08/05
+*! _msm_coef_display_name Version 1.4.6  2026/08/11
 *! Display label for MSM coefficient names
 *! Author: Timothy P Copeland, Karolinska Institutet
 

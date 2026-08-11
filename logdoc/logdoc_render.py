@@ -34,10 +34,12 @@ import base64
 import datetime
 import difflib
 import html as html_mod
+import json
 import mimetypes
 import os
 import re
 import sys
+import tempfile
 
 
 # ---------------------------------------------------------------------------
@@ -791,8 +793,8 @@ def filter_blocks(blocks, keep=None, drop=None):
         if block is None:
             return ""
         return " ".join(
-            extract_command_text(l, strip_dots=True)
-            for l in block.raw_lines
+            extract_command_text(raw_line, strip_dots=True)
+            for raw_line in block.raw_lines
         )
 
     groups = _group_blocks(blocks)
@@ -1091,7 +1093,7 @@ def _pad_separator_lines(lines):
     if not lines:
         return lines
 
-    max_width = max(_visible_len(l) for l in lines)
+    max_width = max(_visible_len(line) for line in lines)
 
     result = []
     for line in lines:
@@ -1107,7 +1109,10 @@ def _pad_separator_lines(lines):
 
 def expand_block(block, mode="text"):
     """Expand all raw_lines in a block, set block.lines."""
-    block.lines = [expand_smcl_line(l, mode).rstrip() for l in block.raw_lines]
+    block.lines = [
+        expand_smcl_line(raw_line, mode).rstrip()
+        for raw_line in block.raw_lines
+    ]
     # Pad separator lines to match the widest data line
     block.lines = _pad_separator_lines(block.lines)
 
@@ -1167,9 +1172,13 @@ def parse_table_block(block):
 
     def split_at_pipes(line):
         """Split a line into cells using │ as delimiter."""
-        parts = line.split('│')
-        # Filter empty leading/trailing parts from table borders
-        return [p.strip() for p in parts if p.strip()]
+        parts = [part.strip() for part in line.split('│')]
+        # Border pipes create empty edge cells; internal empty cells are data.
+        if parts and not parts[0]:
+            parts = parts[1:]
+        if parts and not parts[-1]:
+            parts = parts[:-1]
+        return parts
 
     # Collect header rows (between first and second separator)
     header_lines = []
@@ -1185,8 +1194,8 @@ def parse_table_block(block):
             if '┼' not in lines[idx] and '┬' not in lines[idx]:
                 body_lines.append(lines[idx])
 
-    headers = [split_at_pipes(l) for l in header_lines]
-    rows = [split_at_pipes(l) for l in body_lines]
+    headers = [split_at_pipes(line) for line in header_lines]
+    rows = [split_at_pipes(line) for line in body_lines]
 
     return headers, rows
 
@@ -1300,20 +1309,23 @@ def should_fold(command_text, output_lines, nofold=False):
 # ---------------------------------------------------------------------------
 
 def detect_graph_exports(blocks, nograph=False):
-    """Find graph export commands and return {filename: block_index}."""
+    """Find graph export commands as ordered (filename, block_index) pairs."""
     if nograph:
-        return {}
-    graph_files = {}
+        return []
+    graph_files = []
     for idx, block in enumerate(blocks):
         if block.kind != "command":
             continue
-        cmd_text = " ".join(extract_command_text(l) for l in block.raw_lines)
+        cmd_text = " ".join(
+            extract_command_text(raw_line) for raw_line in block.raw_lines
+        )
         # Skip comments — they can contain "graph export" in descriptive text
         if cmd_text.startswith("*") or cmd_text.startswith("//"):
             continue
         m = re.search(r'graph\s+export\s+(?:"([^"]+)"|(\S+))', cmd_text, re.IGNORECASE)
         if m:
-            graph_files[m.group(1) or m.group(2)] = idx
+            filename = m.group(1) or m.group(2).rstrip(",")
+            graph_files.append((filename, idx))
     return graph_files
 
 
@@ -1683,6 +1695,34 @@ def _is_empty_html(content):
     return not text
 
 
+def _download_button(title):
+    """Build a download button with a JS string safe in an HTML attribute."""
+    filename_js = json.dumps(f"{title}.do", ensure_ascii=False)
+    handler = (
+        "(function(){var c=Array.from(document.querySelectorAll("
+        "'.code-block pre')).map(function(e){return e.textContent.trim()})"
+        ".join('\\n\\n');var b=new Blob([c],{type:'text/plain'});"
+        "var a=document.createElement('a');a.href=URL.createObjectURL(b);"
+        f"a.download={filename_js};a.click()}})()"
+    )
+    return (
+        '<button class="toolbar-btn" '
+        f'onclick="{html_mod.escape(handler, quote=True)}">'
+        'Download .do</button>'
+    )
+
+
+def _yaml_double_quoted(value):
+    """Escape one value for a YAML double-quoted scalar."""
+    return (
+        value.replace('\\', '\\\\')
+        .replace('"', '\\"')
+        .replace('\r', '\\r')
+        .replace('\n', '\\n')
+        .replace('\t', '\\t')
+    )
+
+
 def render_html_faithful(blocks, title="Stata Output", theme_css="",
                          nodots=False, date=None, base_dir=".",
                          footer=None, stamp=None, nograph=False,
@@ -1722,7 +1762,7 @@ def render_html_faithful(blocks, title="Stata Output", theme_css="",
         else:
             current_lines.extend(block.lines)
 
-        for gfile, gidx in graph_files.items():
+        for gfile, gidx in graph_files:
             if gidx != idx:
                 continue
             flush_transcript()
@@ -1821,20 +1861,26 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
     if annotations is None:
         annotations = {'block': {}, 'command': {}}
     cmd_block_counter = 0  # Track command block index for annotations
+    cell_open = False
 
     for idx, block in enumerate(blocks):
         if block.kind == "command":
+            if notebook and cell_open:
+                parts.append('</div><!-- /notebook-cell -->')
+                cell_open = False
             cmd_block_counter += 1
             # Always-stripped version for comment/section detection
             # and folding logic (log files keep ". " prefix when nodots is False)
-            clean_cmd_texts = [extract_command_text(l, strip_dots=True)
-                               for l in block.raw_lines]
+            clean_cmd_texts = [
+                extract_command_text(raw_line, strip_dots=True)
+                for raw_line in block.raw_lines
+            ]
             clean_cmd = " ".join(clean_cmd_texts)
             last_command_text = clean_cmd
 
             # Check if this is a graph export command
             graph_html = ""
-            for gfile, gidx in graph_files.items():
+            for gfile, gidx in graph_files:
                 if gidx == idx:
                     data_uri = embed_image_base64(gfile, base_dir)
                     if data_uri:
@@ -1886,8 +1932,10 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
 
             # O1: Syntax highlighting is opt-in. The default path preserves
             # Stata's own SMCL color spans without adding token interpretation.
-            plain_cmd_lines = [extract_command_text(l, strip_dots=True)
-                               for l in block.raw_lines]
+            plain_cmd_lines = [
+                extract_command_text(raw_line, strip_dots=True)
+                for raw_line in block.raw_lines
+            ]
             displayed_lines = []
             for raw_l, expanded_l, pcl in zip(
                     block.raw_lines, block.lines, plain_cmd_lines):
@@ -1927,6 +1975,7 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
             if notebook:
                 cell_counter += 1
                 parts.append('<div class="notebook-cell">')
+                cell_open = True
                 parts.append(
                     f'<div class="cell-number">In [{cell_counter}]:</div>'
                 )
@@ -2059,6 +2108,10 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
                            blocks[idx + 1].kind == "command")
             if next_is_cmd and cell_counter > 0:
                 parts.append('</div><!-- /notebook-cell -->')
+                cell_open = False
+
+    if notebook and cell_open:
+        parts.append('</div><!-- /notebook-cell -->')
 
     body = "\n".join(parts)
     escaped_title = html_mod.escape(title)
@@ -2082,7 +2135,6 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
         stamp_html = f'\n<p class="stamp">{html_mod.escape(stamp)}</p>'
 
     # O6: Expand all / Collapse all toolbar + C5: Download .do button
-    safe_title_js = title.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
     fold_buttons = ""
     if fold and not nofold:
         fold_buttons = (
@@ -2091,9 +2143,7 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
         )
     download_btn = ""
     if download:
-        download_btn = (
-            f'<button class="toolbar-btn" onclick="(function(){{var c=Array.from(document.querySelectorAll(\'.code-block pre\')).map(function(e){{return e.textContent.trim()}}).join(\'\\n\\n\');var b=new Blob([c],{{type:\'text/plain\'}});var a=document.createElement(\'a\');a.href=URL.createObjectURL(b);a.download=\'{safe_title_js}.do\';a.click()}})()">Download .do</button>'
-        )
+        download_btn = _download_button(title)
     toolbar_html = ""
     if fold_buttons or download_btn:
         toolbar_html = (
@@ -2184,11 +2234,11 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
         expand_block(block, mode="text")
 
     parts = []
-    safe_title = title.replace('\\', '\\\\').replace('"', '\\"')
+    safe_title = _yaml_double_quoted(title)
     parts.append("---")
     parts.append(f'title: "{safe_title}"')
     if date:
-        safe_date = date.replace('\\', '\\\\').replace('"', '\\"')
+        safe_date = _yaml_double_quoted(date)
         parts.append(f'date: "{safe_date}"')
     parts.append("---")
     parts.append("")
@@ -2196,8 +2246,10 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
     for idx, block in enumerate(blocks):
         if block.kind == "command":
             # Always-stripped version for comment/section detection
-            clean_cmd_texts = [extract_command_text(l, strip_dots=True)
-                               for l in block.raw_lines]
+            clean_cmd_texts = [
+                extract_command_text(raw_line, strip_dots=True)
+                for raw_line in block.raw_lines
+            ]
             clean_cmd = " ".join(clean_cmd_texts)
 
             if clean_cmd.startswith("*") or clean_cmd.startswith("//"):
@@ -2227,7 +2279,7 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
             parts.append("")
 
             # Graph reference — resolve path relative to the output .md file
-            for gfile, gidx in graph_files.items():
+            for gfile, gidx in graph_files:
                 if gidx == idx:
                     # Try CWD-relative first, then base_dir-relative
                     if os.path.isfile(gfile):
@@ -2383,8 +2435,10 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
 
     for idx, block in enumerate(blocks):
         if block.kind == "command":
-            clean_cmd_texts = [extract_command_text(l, strip_dots=True)
-                               for l in block.raw_lines]
+            clean_cmd_texts = [
+                extract_command_text(raw_line, strip_dots=True)
+                for raw_line in block.raw_lines
+            ]
             clean_cmd = " ".join(clean_cmd_texts)
 
             # Comments
@@ -2415,7 +2469,7 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
             parts.append("")
 
             # Graph reference (use external file path, not base64)
-            for gfile, gidx in graph_files.items():
+            for gfile, gidx in graph_files:
                 if gidx == idx:
                     resolved = _resolve_graph_path(gfile, base_dir)
                     if resolved is not None:
@@ -2518,11 +2572,23 @@ def convert_html_to_pdf(html_path, pdf_path):
 
     html = html.translate(_BOX_DRAW_MAP)
 
-    with open(pdf_path, "wb") as out:
-        status = pisa.CreatePDF(html, dest=out)
-
-    if status.err:
-        raise RuntimeError(f"xhtml2pdf conversion failed with {status.err} error(s)")
+    output_dir = os.path.dirname(os.path.abspath(pdf_path))
+    os.makedirs(output_dir, exist_ok=True)
+    fd, temporary_pdf = tempfile.mkstemp(
+        prefix=".logdoc-pdf-", suffix=".tmp", dir=output_dir
+    )
+    os.close(fd)
+    try:
+        with open(temporary_pdf, "wb") as out:
+            status = pisa.CreatePDF(html, dest=out)
+        if status.err:
+            raise RuntimeError(
+                f"xhtml2pdf conversion failed with {status.err} error(s)"
+            )
+        os.replace(temporary_pdf, pdf_path)
+    finally:
+        if os.path.exists(temporary_pdf):
+            os.remove(temporary_pdf)
     return True
 
 
@@ -2571,6 +2637,30 @@ def validate_accent(accent):
     return re.fullmatch(r"#[0-9A-Fa-f]{6}", accent) is not None
 
 
+def _same_path(path_a, path_b):
+    """Return whether two paths resolve to the same filesystem location."""
+    normalized_a = os.path.normcase(os.path.realpath(os.path.abspath(path_a)))
+    normalized_b = os.path.normcase(os.path.realpath(os.path.abspath(path_b)))
+    return normalized_a == normalized_b
+
+
+def _output_paths(output, fmt):
+    """Return every file the selected format will write."""
+    if fmt == "both":
+        return [_swap_ext(output, ".html"), _swap_ext(output, ".md")]
+    return [output]
+
+
+def _reject_output_collisions(sources, output, fmt):
+    """Raise ValueError when any output would replace a source file."""
+    for source in sources:
+        for destination in _output_paths(output, fmt):
+            if _same_path(source, destination):
+                raise ValueError(
+                    f"output path must differ from source path: {source}"
+                )
+
+
 def apply_accent_css(theme_css, accent):
     """Append accent-color overrides without requiring a custom CSS file."""
     if not accent:
@@ -2591,7 +2681,7 @@ def metadata_for_blocks(blocks, base_dir=".", nograph=False):
     """Return composable metadata counts for a parsed block list."""
     graph_files = detect_graph_exports(blocks, nograph=nograph)
     nwarnings = 0
-    for gfile in graph_files:
+    for gfile, _gidx in graph_files:
         if _resolve_graph_path(gfile, base_dir) is None:
             nwarnings += 1
     return {
@@ -2620,26 +2710,20 @@ _LATEX_END_DOC_RE = re.compile(r"(?m)^\\end\{document\}\s*$")
 
 def _append_html_document(existing, new_content):
     """Append rendered HTML body into an existing logdoc document."""
-    if "</main>" not in existing:
-        return existing.rstrip() + "\n" + new_content
+    if not re.search(r'<main class="logdoc-body">.*?</main>', existing, re.DOTALL):
+        raise ValueError("existing HTML is not a logdoc document")
 
     match = re.search(
         r'<main class="logdoc-body">\s*(.*?)\s*</main>',
         new_content, re.DOTALL
     )
     if not match:
-        return existing.rstrip() + "\n" + new_content
+        raise ValueError("new HTML is not a logdoc document")
 
     new_body = match.group(1).strip()
     if not new_body:
         return existing
 
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    existing = re.sub(
-        r'(<footer class="logdoc-footer">).*?(</footer>)',
-        rf'\1<p>Generated {timestamp}</p>\2',
-        existing, flags=re.DOTALL
-    )
     return existing.replace("</main>", f"\n{new_body}\n</main>", 1)
 
 
@@ -2799,10 +2883,7 @@ def render_combined_html(sources, args, theme_css, annotations=None,
 
     download_btn = ""
     if args.download or args.legacy:
-        safe_title_js = title.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-        download_btn = (
-            f'<button class="toolbar-btn" onclick="(function(){{var c=Array.from(document.querySelectorAll(\'.code-block pre\')).map(function(e){{return e.textContent.trim()}}).join(\'\\n\\n\');var b=new Blob([c],{{type:\'text/plain\'}});var a=document.createElement(\'a\');a.href=URL.createObjectURL(b);a.download=\'{safe_title_js}.do\';a.click()}})()">Download .do</button>'
-        )
+        download_btn = _download_button(title)
     toolbar_html = f'\n<div class="logdoc-toolbar">{download_btn}</div>' if download_btn else ""
 
     html_doc = f"""<!DOCTYPE html>
@@ -2836,10 +2917,10 @@ def render_combined_html(sources, args, theme_css, annotations=None,
 def render_combined_markdown(sources, args, fmt="md"):
     """Render several logs into one Markdown or Quarto Markdown document."""
     title = args.title or "Combined logdoc report"
-    safe_title = title.replace('\\', '\\\\').replace('"', '\\"')
+    safe_title = _yaml_double_quoted(title)
     parts = ["---", f'title: "{safe_title}"']
     if args.date:
-        safe_date = args.date.replace('\\', '\\\\').replace('"', '\\"')
+        safe_date = _yaml_double_quoted(args.date)
         parts.append(f'date: "{safe_date}"')
     parts.extend(["---", ""])
     totals = {"blocks": 0, "graphs": 0, "tables": 0, "warnings": 0}
@@ -3067,12 +3148,35 @@ def main():
         print("Error: --accent must be a #RRGGBB color", file=sys.stderr)
         sys.exit(1)
 
+    for attr in ("graphwidth", "graphheight"):
+        value = getattr(args, attr)
+        if value is not None and re.fullmatch(r"[1-9][0-9]*", value) is None:
+            print_metadata(0, 0)
+            print(
+                f"Error: --{attr} must be a positive integer",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    for attr in ("css", "light_css", "dark_css", "annotate"):
+        path = getattr(args, attr)
+        if path and not os.path.isfile(path):
+            print_metadata(0, 0)
+            print(
+                f"Error: --{attr.replace('_', '-')} not found: {path}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     # Standalone HTML-to-PDF conversion (called from .ado)
     if args.html_to_pdf:
         html_path = args.html_to_pdf
         pdf_path = args.output
         if not os.path.isfile(html_path):
             print(f"Error: HTML file not found: {html_path}", file=sys.stderr)
+            sys.exit(1)
+        if _same_path(html_path, pdf_path):
+            print("Error: PDF output must differ from HTML input", file=sys.stderr)
             sys.exit(1)
         try:
             ok = convert_html_to_pdf(html_path, pdf_path)
@@ -3115,6 +3219,16 @@ def main():
 
     if not os.path.isfile(args.input):
         print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+        sys.exit(1)
+
+    initial_sources = [args.input]
+    if args.compare:
+        initial_sources.append(args.compare)
+    try:
+        _reject_output_collisions(initial_sources, args.output, args.format)
+    except ValueError as exc:
+        print_metadata(0, 0)
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     # R2: Read input with encoding cascade: UTF-8 -> Latin-1 -> replace.
@@ -3188,6 +3302,12 @@ def main():
                 print(f"Error: Combine source not found: {source}",
                       file=sys.stderr)
                 sys.exit(1)
+        try:
+            _reject_output_collisions(sources, args.output, args.format)
+        except ValueError as exc:
+            print_metadata(0, 0)
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
 
         fmt = args.format
         output_path = args.output
@@ -3204,7 +3324,14 @@ def main():
                 with open(html_out, "r", encoding="utf-8",
                           errors="replace") as f:
                     existing = f.read()
-                html_content = _append_html_document(existing, html_content)
+                try:
+                    html_content = _append_html_document(
+                        existing, html_content
+                    )
+                except ValueError as exc:
+                    print_metadata(0, 0)
+                    print(f"Error: {exc}", file=sys.stderr)
+                    sys.exit(1)
             os.makedirs(os.path.dirname(os.path.abspath(html_out)), exist_ok=True)
             with open(html_out, "w", encoding="utf-8") as f:
                 f.write(html_content)
@@ -3342,7 +3469,12 @@ def main():
             with open(html_out, "r", encoding="utf-8",
                       errors="replace") as f:
                 existing = f.read()
-            html_content = _append_html_document(existing, html_content)
+            try:
+                html_content = _append_html_document(existing, html_content)
+            except ValueError as exc:
+                print_metadata(0, 0)
+                print(f"Error: {exc}", file=sys.stderr)
+                sys.exit(1)
 
         os.makedirs(os.path.dirname(os.path.abspath(html_out)), exist_ok=True)
         with open(html_out, "w", encoding="utf-8") as f:

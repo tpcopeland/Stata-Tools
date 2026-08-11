@@ -1,4 +1,4 @@
-*! sustainedss Version 1.5.3  2026/08/05
+*! sustainedss Version 1.5.4  2026/08/11
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -104,7 +104,9 @@ program define sustainedss, rclass
         }
     }
 
-    marksample touse, strok
+    * Mark if/in membership first; missing visit values are filtered only after
+    * person-level exit-date consistency has been validated.
+    marksample touse, novarlist strok
     capture confirm string variable `idvar'
     local id_is_str = (_rc == 0)
     if `id_is_str' {
@@ -157,14 +159,10 @@ program define sustainedss, rclass
     local _ss_workvars "`idvar' `edssvar' `datevar' `exit' `sortorder'"
     local _ss_workvars : list uniq _ss_workvars
     qui keep `_ss_workvars'
-    qui drop if missing(`edssvar') | missing(`datevar')
-    qui count
-    if r(N) == 0 {
-        di as error "no valid observations after dropping missing values"
-        exit 2000
-    }
 
     if "`exit'" != "" {
+        * exit() is person-level; validate every sampled row before unusable
+        * visit rows are dropped so conflicts cannot be hidden by missing EDSS.
         qui egen double `exit_min' = min(`exit'), by(`idvar')
         qui egen double `exit_max' = max(`exit'), by(`idvar')
         qui count if !missing(`exit_min') & `exit_min' != `exit_max'
@@ -173,6 +171,13 @@ program define sustainedss, rclass
             exit 459
         }
         qui replace `exit' = `exit_min'
+    }
+
+    qui drop if missing(`edssvar') | missing(`datevar')
+    qui count
+    if r(N) == 0 {
+        di as error "no valid observations after dropping missing values"
+        exit 2000
     }
 
     qui bysort `idvar' (`sortorder'): gen long `personorder' = `sortorder'[1]

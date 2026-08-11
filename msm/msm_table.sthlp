@@ -124,12 +124,20 @@ weighted SMD, percentage change, and a balanced/imbalanced indicator.
 
 {phang}
 {opt sens:itivity} exports sensitivity analysis results from
-{helpb msm_sensitivity}: treatment effect, CI, and E-values if computed.
+{helpb msm_sensitivity}: treatment effect, CI, E-values if computed, and any
+RR(U,D), RR(U,Y), bias factor, and bias-adjusted RR bound.
 
 {phang}
 {opt all} exports all available tables. Tables whose prerequisites have not
 been run are silently skipped. This is the default behavior when no specific
 table is requested.
+
+{pstd}
+Before exporting, {cmd:msm_table} verifies that every selected artifact still
+belongs to the dataset in memory and to its current fit or weights. Saved
+prediction and balance matrices are rehydrated from the dataset; stale,
+partial, or cross-dataset artifacts are refused with instructions to rerun the
+command that produced them.
 
 {dlgtab:Formatting}
 
@@ -207,7 +215,7 @@ smaller font.
 {bf:Weights:} Statistic | Value (9 summary rows)
 
 {pstd}
-{bf:Sensitivity:} Parameter | Value (effect, CI, E-values)
+{bf:Sensitivity:} Parameter | Value (effect, CI, E-values, confounding bounds)
 
 
 {marker prerequisites}{...}

@@ -1,6 +1,6 @@
 # logdoc — Faithful Stata log conversion
 
-**Version 1.1.4** | 2026-08-09
+**Version 1.1.5** | 2026-08-11
 
 `logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
@@ -158,7 +158,7 @@ logdoc stop
 
 ### 6. Run a do-file before conversion
 
-With an existing `analysis.do`, `run` executes it in a child Stata session and converts the resulting SMCL log. The output is automatically replaceable, and `stataexe()` can override the detected child executable.
+With an existing `analysis.do`, `run` executes it in a child Stata session and converts the resulting SMCL log. The output is automatically replaceable, and `stataexe()` can override the detected child executable. If the child do-file fails, `logdoc` returns its exact Stata return code, leaves the output untouched, and reports the preserved child log.
 
 ```stata
 logdoc using "analysis.do", output("run.html") run
@@ -180,7 +180,7 @@ logdoc diff using "logs/old.smcl", compare("logs/new.smcl") ///
 
 ### 8. Append and replay a conversion
 
-Append mode adds a second log to an existing HTML, Markdown, Quarto Markdown, LaTeX, or dual-format output. Replay remembers the last resolved conversion settings and accepts theme, format, and open overrides.
+Append mode adds a second log to an existing HTML, Markdown, Quarto Markdown, LaTeX, or dual-format output. An HTML target must already be a logdoc document, and its footer is preserved. Replay remembers the last resolved conversion settings and accepts theme, format, and open overrides.
 
 ```stata
 logdoc using "analysis.smcl", output("project.html") replace
@@ -381,7 +381,9 @@ On a successful call, `logdoc_py` returns:
 - `format(qmd)` produces rendered Markdown with Quarto front matter; it does not create executable Quarto code cells.
 - `format(docx)` is unavailable before Stata 17. `format(pdf)` needs `xhtml2pdf` or `wkhtmltopdf`; check it with `logdoc_py, check pdf`.
 - `logdoc combine` does not create Word or PDF output. `append` is unsupported for Word and PDF.
+- A source file and any derived output path must be different; collisions are rejected before execution or rendering.
 - An existing output file requires `replace`, except when `append` is used; `run` sets `replace` automatically.
+- PDF conversion writes a temporary candidate and replaces the destination only after the converter succeeds.
 - `logdoc stop` permits only one active session. If conversion fails, it preserves the captured SMCL log and reports a command that can convert it manually.
 - Input, output, annotation, CSS, Python, and pip-package values that contain shell-control characters are rejected before an external shell call.
 - The default renderer favors faithful monospace output. Use `tables` only when the supported table parser is appropriate; unsupported or ambiguous tables remain monospace.
@@ -392,6 +394,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.5** (2026-08-11): Prevent source/output collisions and partial PDF writes; propagate child Stata failures; preserve valid HTML structure, blank table cells, repeated graph exports, custom footers, and YAML metadata; harden download controls and pip arguments; validate direct-renderer inputs; and add `stataexe()` to the dialog.
 - **1.1.4** (2026-08-09): Prefer caller-local CSS themes, support `stataexe()` paths containing spaces, and render SMCL help links with complete topics and labels; align documented option abbreviations and expand release-surface QA.
 - **1.1.3** (2026-08-05): Corrected Quarto format and append guidance, aligned the Python setup help, and shortened help-table descriptions for clean Viewer rendering.
 - **1.1.2** (2026-07-10): Reject shell-control characters in user-supplied paths, Python executable values, and pip package requests before external shell calls; preserve embedded double quotes when batch, session, and replay commands rebuild options.

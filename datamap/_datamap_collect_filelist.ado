@@ -1,4 +1,4 @@
-*! _datamap_collect_filelist Version 1.6.5  2026/08/09
+*! _datamap_collect_filelist Version 1.6.6  2026/08/11
 *! Shared datamap/datadict filelist parser
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -18,6 +18,7 @@ program define _datamap_collect_filelist, nclass
 	while `"`remaining'"' != "" {
 		gettoken dsname remaining : remaining
 		if `"`dsname'"' != "" {
+			_datamap_validate_path `"`dsname'"', option("filelist()")
 			if !regexm(`"`dsname'"', "\.dta$") {
 				local dsname `"`dsname'.dta"'
 			}

@@ -481,8 +481,9 @@ display "{hline 60}"
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+display "RESULT: validation_datamvp tests=`test_count' pass=`pass_count' fail=`fail_count'"
+if `fail_count' > 0 exit 1

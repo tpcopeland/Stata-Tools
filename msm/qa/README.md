@@ -29,7 +29,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 |------|------------------|
 | `test_qa_harness.do` | Negative and positive controls for the runner’s fail-closed child-result handshake |
 | `test_msm.do` | Core functional tests across all commands (prepare, validate, weight, fit, predict, diagnose, report) |
-| `test_msm_table.do` | `msm_table` workbook export (all sheets, re-import verification, error paths, persistence) |
+| `test_msm_table.do` | `msm_table` workbook export (all sheets, confounding-bound payload, re-import verification, error paths, persistence) |
 | `test_msm_options.do` | Per-command option-path coverage, SECTION A–M (prepare/validate/weight/fit/predict/diagnose/plot/report/protocol/sensitivity, helpers, metadata, audit-fix regressions) |
 | `test_msm_expanded.do` | Expanded command options and pipeline combinations |
 | `test_msm_status.do` | Flagship controller and pipeline-state reporting |
@@ -42,7 +42,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `test_msm_weight_adversarial.do` | Weight ownership, mutation, replacement, and timing edge cases |
 | `test_msm_prepare_validate_adversarial.do` | Mapping, binary-outcome, panel, and validation adversaries |
 | `test_msm_state_guards.do` | Pipeline precondition guards and invalidation |
-| `test_msm_state_identity.do` | Artifact UUID, signature, metadata, order, and lifecycle identity |
+| `test_msm_state_identity.do` | Artifact UUID, signature, metadata, order, lifecycle identity, downstream matrix rehydration, and stale-export refusal |
 | `test_msm_transaction_regressions.do` | Transaction, serialization, ownership, and intermittent-missingness regressions |
 | `test_msm_risk_process_regressions.do` | Person-period structure, role mapping, event/censor timing, gap, and risk-set invariance regressions |
 | `test_msm_history_positivity_regressions.do` | Treatment-history, positivity-policy, repair metadata, and longitudinal-balance regressions |
@@ -65,7 +65,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `validation_msm.do` | Broad analytical and contract validation |
 | `validation_msm_known_answers.do` | Deterministic known-answer calculations |
 | `validation_msm_expanded.do` | Expanded validation scenarios |
-| `validation_msm_sensitivity.do` | E-value and confounding-bound known answers |
+| `validation_msm_sensitivity.do` | E-value and confounding-bound known answers, fitted-risk-set rarity, and RR-scale labeling |
 | `validation_msm_recovery.do` | Marginal log-odds parameter recovery |
 | `validation_msm_dgp_recovery.do` | Binary-outcome and survival DGP recovery, including censoring timing and replicated MCSE-calibrated recovery |
 | `validation_msm_history_recovery.do` | Known-truth static-regime recovery when lagged treatment affects outcome |

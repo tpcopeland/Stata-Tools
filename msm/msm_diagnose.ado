@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.4.5  2026/08/05
+*! msm_diagnose Version 1.4.6  2026/08/11
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -82,6 +82,12 @@ program define msm_diagnose, rclass
     _msm_check_prepared
     _msm_check_weighted
     _msm_get_settings
+
+    _msm_uuid
+    local _diag_uuid "`r(uuid)'"
+    _msm_uuid
+    local _bal_uuid "`r(uuid)'"
+    local _weight_uuid : char _dta[_msm_weight_uuid]
 
     local id         "`_msm_id'"
     local period     "`_msm_period'"
@@ -548,16 +554,19 @@ program define msm_diagnose, rclass
         if `n_unavailable' > 0 {
             display as text "Unavailable: " as error `n_unavailable' as text " covariates (SMD could not be computed), marked (n/a)"
         }
-        return scalar n_unavailable = `n_unavailable'
-
-        * Add names and persist for msm_table
+        * Add names and persist for msm_table. The serialized matrix travels
+        * with the dataset and is bound to the current weighting artifact.
         matrix rownames `bal_matrix' = `balance_covariates'
         matrix colnames `bal_matrix' = raw_smd weighted_smd pct_change
+        _msm_mat_save `bal_matrix', key(_msm_bal_mat) token(`_bal_uuid')
         capture matrix drop _msm_bal_matrix
         matrix _msm_bal_matrix = `bal_matrix'
         char _dta[_msm_bal_saved] "1"
         char _dta[_msm_bal_threshold] "`threshold'"
+        char _dta[_msm_bal_uuid] "`_bal_uuid'"
+        char _dta[_msm_bal_dep] "`_weight_uuid'"
 
+        return scalar n_unavailable = `n_unavailable'
         return matrix balance = `bal_matrix'
     }
 
@@ -606,6 +615,8 @@ program define msm_diagnose, rclass
     char _dta[_msm_diag_ess] "`ess'"
     char _dta[_msm_diag_ess_pct] "`ess_pct'"
     char _dta[_msm_diag_saved] "1"
+    char _dta[_msm_diag_uuid] "`_diag_uuid'"
+    char _dta[_msm_diag_dep] "`_weight_uuid'"
 
     * =========================================================================
     * CROSS-CONTRAST ACCUMULATION (optional)

@@ -1,6 +1,6 @@
 /*******************************************************************************
-* crossval_setools.do
-* Cross-validation suite for setools package
+* validation_setools_crosschecks.do
+* Known-answer and internal-consistency validation for the setools package
 *
 * Validates commands by comparing outputs across methods:
 *   C1. CDP vs manual calculation
@@ -9,7 +9,7 @@
 *   C4. PIRA/CDP internal consistency
 *
 * Run from setools/qa/ directory:
-*   stata-mp -b do crossval_setools.do
+*   stata-mp -b do validation_setools_crosschecks.do
 *
 * Author: Claude Code (gold-standard cross-validation)
 * Date: 2026-03-21
@@ -353,7 +353,7 @@ if scalar(gs_nfail) > 0 {
 else {
     display as text "Failed:       " scalar(gs_nfail)
 }
-display "RESULT: crossval_setools tests=" scalar(gs_ntest) ///
+display "RESULT: validation_setools_crosschecks tests=" scalar(gs_ntest) ///
     " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {

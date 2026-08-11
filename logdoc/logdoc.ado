@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.4  2026/08/09
+*! logdoc Version 1.1.5  2026/08/11
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -226,6 +226,19 @@ program define _logdoc_convert, rclass
         exit 198
     }
 
+    _logdoc_assert_distinct_paths, source(`"`using'"') ///
+        destination(`"`output'"')
+    if "`format'" == "both" {
+        local _collision_primary ""
+        local _collision_secondary ""
+        _logdoc_both_paths, output("`output'") ///
+            primary(_collision_primary) secondary(_collision_secondary)
+        _logdoc_assert_distinct_paths, source(`"`using'"') ///
+            destination(`"`_collision_primary'"')
+        _logdoc_assert_distinct_paths, source(`"`using'"') ///
+            destination(`"`_collision_secondary'"')
+    }
+
     * --- F2: format(docx) requires Stata 17+ ---
     if "`format'" == "docx" {
         if c(stata_version) < 17 {
@@ -312,6 +325,7 @@ program define _logdoc_convert, rclass
             display as text "Running: `input_file'"
         }
         tempfile _runwrapper
+        tempfile _runstatus
         tempname _runfh
         local _runwrapslash = strrpos("`_runwrapper'", "/")
         if `_runwrapslash' == 0 {
@@ -333,8 +347,12 @@ program define _logdoc_convert, rclass
         file write `_runfh' "capture log close _logdoc_run" _n
         file write `_runfh' `"log using "`_runlog_path'", replace smcl name(_logdoc_run) nomsg"' _n
         file write `_runfh' "quietly set linesize 255" _n
-        file write `_runfh' `"do "`input_file'""' _n
+        file write `_runfh' `"capture noisily do "`input_file'""' _n
+        file write `_runfh' "scalar _logdoc_child_rc = _rc" _n
         file write `_runfh' "capture log close _logdoc_run" _n
+        file write `_runfh' `"file open _logdoc_status_fh using "`_runstatus'", write text replace"' _n
+        file write `_runfh' "file write _logdoc_status_fh %9.0f (_logdoc_child_rc) _n" _n
+        file write `_runfh' "file close _logdoc_status_fh" _n
         file close `_runfh'
 
         * Derive the batch Stata executable for the child session.  A
@@ -363,7 +381,30 @@ program define _logdoc_convert, rclass
             else           local _stataexe "stata"
         }
         shell "`_stataexe'" -b do "`_runwrapper_path'"
+
+        capture confirm file "`_runstatus'"
+        if _rc {
+            display as error "child Stata session did not report its exit code"
+            display as error "wrapper log preserved at: `_runlog_path'"
+            capture erase "`_runwrapper_path'"
+            exit 601
+        }
+        tempname _runstatus_fh
+        file open `_runstatus_fh' using "`_runstatus'", read text
+        file read `_runstatus_fh' _runstatus_line
+        file close `_runstatus_fh'
+        local _child_rc = real(strtrim("`_runstatus_line'"))
         capture erase "`_runwrapper_path'"
+        if missing(`_child_rc') {
+            display as error "child Stata session returned an invalid exit code"
+            display as error "wrapper log preserved at: `_runlog_path'"
+            exit 601
+        }
+        if `_child_rc' {
+            display as error "child do-file failed with return code `_child_rc'"
+            display as error "wrapper log preserved at: `_runlog_path'"
+            exit `_child_rc'
+        }
 
         capture confirm file "`_runlog_path'"
         if _rc {
@@ -436,6 +477,16 @@ program define _logdoc_convert, rclass
     local light_css ""
     local dark_css ""
     _logdoc_find_css, light(light_css) dark(dark_css)
+    _logdoc_validate_shell_path, path(`"`scriptpath'"') ///
+        context("renderer path")
+    if "`light_css'" != "" {
+        _logdoc_validate_shell_path, path(`"`light_css'"') ///
+            context("light CSS path")
+    }
+    if "`dark_css'" != "" {
+        _logdoc_validate_shell_path, path(`"`dark_css'"') ///
+            context("dark CSS path")
+    }
 
     * Build command (quote python path for paths with spaces)
     local cmd `""`python'" "`scriptpath'" "`input_file'" "`output'""'
@@ -677,18 +728,18 @@ program define _logdoc_convert, rclass
             exit 601
         }
         * Try xhtml2pdf (via Python) first, then fall back to wkhtmltopdf.
-        * A stale PDF from a previous run would make the existence checks
-        * below report success even when both converters fail; replace was
-        * already validated, so clear the target first.
-        capture erase "`output'"
+        * Both converters write a temporary candidate so a failed conversion
+        * cannot truncate an existing destination.
         local _pdf_done = 0
         if "`quiet'" == "" {
             display as text "Converting HTML to PDF..."
         }
+        tempfile _pdf_candidate_base
+        local _pdf_candidate "`_pdf_candidate_base'.pdf"
         tempfile _xh2p_out
-        shell "`python'" "`scriptpath'" "__dummy__" "`output'" ///
+        shell "`python'" "`scriptpath'" "__dummy__" "`_pdf_candidate'" ///
             --html-to-pdf "`_temphtml_path'" > "`_xh2p_out'" 2>&1
-        capture confirm file "`output'"
+        capture confirm file "`_pdf_candidate'"
         if !_rc {
             local _pdf_done = 1
             if "`quiet'" == "" {
@@ -698,7 +749,12 @@ program define _logdoc_convert, rclass
         if !`_pdf_done' {
             * Fall back to wkhtmltopdf
             tempfile _wkcheck
-            shell command -v wkhtmltopdf > "`_wkcheck'" 2>&1
+            if "`c(os)'" == "Windows" {
+                shell where wkhtmltopdf > "`_wkcheck'" 2>&1
+            }
+            else {
+                shell command -v wkhtmltopdf > "`_wkcheck'" 2>&1
+            }
             local _has_wkhtmltopdf = 0
             tempname _wkfh
             capture file open `_wkfh' using "`_wkcheck'", read text
@@ -714,10 +770,26 @@ program define _logdoc_convert, rclass
                     display as text "(via wkhtmltopdf)"
                 }
                 tempfile _wk_stderr
-                shell wkhtmltopdf "`_temphtml_path'" "`output'" ///
-                    > /dev/null 2>"`_wk_stderr'"
-                capture confirm file "`output'"
-                if _rc {
+                tempfile _wk_status
+                if "`c(os)'" == "Windows" {
+                    shell wkhtmltopdf "`_temphtml_path'" "`_pdf_candidate'" ///
+                        > NUL 2>"`_wk_stderr'" && echo 0 > "`_wk_status'" ///
+                        || echo 1 > "`_wk_status'"
+                }
+                else {
+                    shell wkhtmltopdf "`_temphtml_path'" "`_pdf_candidate'" ///
+                        > /dev/null 2>"`_wk_stderr'" && echo 0 > "`_wk_status'" ///
+                        || echo 1 > "`_wk_status'"
+                }
+                local _wk_rc "1"
+                tempname _wkstatusfh
+                capture file open `_wkstatusfh' using "`_wk_status'", read text
+                if !_rc {
+                    file read `_wkstatusfh' _wk_rc
+                    file close `_wkstatusfh'
+                }
+                capture confirm file "`_pdf_candidate'"
+                if _rc | strtrim("`_wk_rc'") != "0" {
                     display as error "wkhtmltopdf failed to produce output"
                     tempname _wkefh
                     capture file open `_wkefh' using "`_wk_stderr'", read text
@@ -742,6 +814,13 @@ program define _logdoc_convert, rclass
                 display as error "or install wkhtmltopdf as a system package"
                 exit 601
             }
+        }
+        copy "`_pdf_candidate'" "`output'", replace
+        capture confirm file "`output'"
+        if _rc {
+            capture erase "`_temphtml_path'"
+            display as error "PDF converter succeeded but final output could not be written"
+            exit 603
         }
         * Clean up temp HTML
         capture erase "`_temphtml_path'"
@@ -1366,6 +1445,25 @@ program define _logdoc_combine, rclass
         display as error "combine supports format(html), format(md), format(qmd), format(tex), or format(both)"
         exit 198
     }
+    local _collision_sources `"`_source_list'"'
+    while `"`_collision_sources'"' != "" {
+        gettoken _collision_source _collision_sources : ///
+            _collision_sources, bind
+        _logdoc_assert_distinct_paths, source(`"`_collision_source'"') ///
+            destination(`"`output'"')
+        if "`format'" == "both" {
+            local _collision_primary ""
+            local _collision_secondary ""
+            _logdoc_both_paths, output("`output'") ///
+                primary(_collision_primary) secondary(_collision_secondary)
+            _logdoc_assert_distinct_paths, ///
+                source(`"`_collision_source'"') ///
+                destination(`"`_collision_primary'"')
+            _logdoc_assert_distinct_paths, ///
+                source(`"`_collision_source'"') ///
+                destination(`"`_collision_secondary'"')
+        }
+    }
     if !inlist("`theme'", "light", "dark") {
         display as error "theme() must be light or dark"
         exit 198
@@ -1451,6 +1549,16 @@ program define _logdoc_combine, rclass
     local light_css ""
     local dark_css ""
     _logdoc_find_css, light(light_css) dark(dark_css)
+    _logdoc_validate_shell_path, path(`"`scriptpath'"') ///
+        context("renderer path")
+    if "`light_css'" != "" {
+        _logdoc_validate_shell_path, path(`"`light_css'"') ///
+            context("light CSS path")
+    }
+    if "`dark_css'" != "" {
+        _logdoc_validate_shell_path, path(`"`dark_css'"') ///
+            context("dark CSS path")
+    }
 
     local cmd `""`python'" "`scriptpath'" "`_first_source'" "`output'""'
     local cmd `"`cmd' --format `format' --theme `theme'"'
@@ -1779,6 +1887,10 @@ program define _logdoc_diff, rclass
     _logdoc_validate_shell_path, path(`"`using'"') context("input path")
     _logdoc_validate_shell_path, path(`"`compare'"') context("compare()")
     _logdoc_validate_shell_path, path(`"`output'"') context("output path")
+    _logdoc_assert_distinct_paths, source(`"`using'"') ///
+        destination(`"`output'"')
+    _logdoc_assert_distinct_paths, source(`"`compare'"') ///
+        destination(`"`output'"')
 
     * Validate both files exist
     capture confirm file "`using'"
@@ -1835,6 +1947,16 @@ program define _logdoc_diff, rclass
     local light_css ""
     local dark_css ""
     _logdoc_find_css, light(light_css) dark(dark_css)
+    _logdoc_validate_shell_path, path(`"`scriptpath'"') ///
+        context("renderer path")
+    if "`light_css'" != "" {
+        _logdoc_validate_shell_path, path(`"`light_css'"') ///
+            context("light CSS path")
+    }
+    if "`dark_css'" != "" {
+        _logdoc_validate_shell_path, path(`"`dark_css'"') ///
+            context("dark CSS path")
+    }
 
     * Build command
     local cmd `""`python'" "`scriptpath'" "`using'" "`output'""'
@@ -2435,6 +2557,37 @@ program define _logdoc_check_python
             display as error "upgrade Python or specify a different path with python() option"
             exit 601
         }
+    }
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: reject source/output aliases before any renderer can overwrite data
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_assert_distinct_paths
+program define _logdoc_assert_distinct_paths
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , Source(string) DESTination(string)
+
+    mata: st_local("_source_abs", pathresolve(pwd(), st_local("source")))
+    mata: st_local("_destination_abs", pathresolve(pwd(), st_local("destination")))
+    if "`c(os)'" == "Windows" {
+        local _source_abs = lower("`_source_abs'")
+        local _destination_abs = lower("`_destination_abs'")
+    }
+    if `"`_source_abs'"' == `"`_destination_abs'"' {
+        display as error "output path must differ from source path"
+        exit 198
     }
 
     }

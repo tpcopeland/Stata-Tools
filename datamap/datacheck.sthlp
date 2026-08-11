@@ -416,7 +416,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(compare_type_changed)}}number of variables with changed storage type{p_end}
 {synopt:{cmd:r(compare_class_changed)}}number of variables with changed classification{p_end}
 {synopt:{cmd:r(compare_changed)}}total schema-drift count, including N delta when present{p_end}
-{synopt:{cmd:r(n_dup_)}}duplicate-key count keyed by {opt id()} variables{p_end}
+{synopt:{cmd:r(n_dup_)}}duplicate-key counts from {opt id()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(violations)}}space-separated list of failed gate names{p_end}
@@ -443,6 +443,10 @@ steps need structured diagnostics rather than console text.
 The stored results let a wrapper script branch on {cmd:r(n_violations)} without
 parsing console text. Use {opt warn} when you need execution to continue after
 violations so subsequent Stata code can inspect the results programmatically.
+
+{pstd}
+For {cmd:r(n_dup_)}, long key suffixes are shortened to fit Stata's name limit
+and colliding suffixes are disambiguated with {bf:_2}, {bf:_3}, and so on.
 
 
 {marker author}{...}

@@ -1,5 +1,7 @@
 /*  demo_kmplot.do - Demonstrate all features of kmplot
 
+    Author: Timothy P Copeland, Karolinska Institutet
+
     Uses sysuse cancer to produce publication-ready Kaplan-Meier plots.
     Each section showcases a different feature or combination.
 
@@ -8,9 +10,8 @@
 */
 
 version 16.0
-set varabbrev off
 
-* --- Paths ---
+**# Paths
 local start_dir "`c(pwd)'"
 capture confirm file "`start_dir'/../kmplot.ado"
 if _rc == 0 {
@@ -37,7 +38,7 @@ else {
 	}
 local pkg_dir "`demo_dir'"
 
-* --- Scheme ---
+**# Scheme
 local old_scheme "`c(scheme)'"
 capture set scheme plotplainblind
 if _rc {
@@ -45,45 +46,38 @@ if _rc {
 }
 capture log close _all
 
-* --- Reload commands ---
-capture ado uninstall kmplot
+capture noisily {
+
+**# Reload commands
 capture program drop kmplot
 capture program drop _kmplot_risktable
 quietly run "`pkg_root'/kmplot.ado"
 quietly run "`pkg_root'/_kmplot_risktable.ado"
 
-* --- Setup data ---
+**# Setup data
 sysuse cancer, clear
 stset studytime, failure(died)
 
-* ============================================================
-* 1. Basic KM curve (single group, no options)
-* ============================================================
+**## 1. Basic KM curve (single group, no options)
 
 kmplot, name(demo1, replace)
 graph export "`pkg_dir'/km_basic.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 2. Stratified KM by treatment group
-* ============================================================
+**## 2. Stratified KM by treatment group
 
 kmplot, by(drug) name(demo2, replace)
 graph export "`pkg_dir'/km_by_group.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 3. CI bands with median lines and annotation
-* ============================================================
+**## 3. CI bands with median lines and annotation
 
 * Log-log CI (Stata default), shaded bands, median reference lines
 kmplot, by(drug) ci median medianannotate name(demo3, replace)
 graph export "`pkg_dir'/km_ci_median.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 4. Cumulative failure mode with risk table
-* ============================================================
+**## 4. Cumulative failure mode with risk table
 
 * Inverts S(t) to 1-S(t), adds number-at-risk table below
 kmplot, by(drug) failure risktable ///
@@ -92,9 +86,7 @@ kmplot, by(drug) failure risktable ///
 graph export "`pkg_dir'/km_failure_risktable.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 5. Risk table with events + monochrome + censoring
-* ============================================================
+**## 5. Risk table with events + monochrome + censoring
 
 * NEJM-style "N (events)" format, black numbers, censor marks
 kmplot, by(drug) risktable riskevents riskmono ///
@@ -104,9 +96,7 @@ kmplot, by(drug) risktable riskevents riskmono ///
 graph export "`pkg_dir'/km_risk_censor.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 6. Full publication figure with all features
-* ============================================================
+**## 6. Full publication figure with all features
 
 * CI bands, risk table, median lines, p-value, censor marks
 kmplot, by(drug) ci median medianannotate pvalue censor ///
@@ -120,9 +110,7 @@ kmplot, by(drug) ci median medianannotate pvalue censor ///
 graph export "`pkg_dir'/km_publication.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 7. Custom styling: colors, patterns, CI lines
-* ============================================================
+**## 7. Custom styling: colors, patterns, CI lines
 
 * Two-color scheme with dashed CI lines instead of bands
 * (p-value in the bottom-left corner; survival curves crowd the top-left)
@@ -136,9 +124,7 @@ kmplot, by(drug) ci cistyle(line) citransform(log) ///
 graph export "`pkg_dir'/km_custom_style.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 8. Plain CI transform with high opacity bands
-* ============================================================
+**## 8. Plain CI transform with high opacity bands
 
 * Wald CIs (no transformation), high-opacity bands, p-value bottom-left
 kmplot, by(drug) ci citransform(plain) ciopacity(30) ///
@@ -148,9 +134,7 @@ kmplot, by(drug) ci citransform(plain) ciopacity(30) ///
 graph export "`pkg_dir'/km_plain_ci.png", replace width(1200)
 capture graph close _all
 
-* ============================================================
-* 9. Journal-style p-value label and custom CI level (v1.2.0)
-* ============================================================
+**## 9. Journal-style p-value label and custom CI level
 
 * Custom p-value text + format, user-set 90% CI level, risk table
 * (p-value in the bottom-left corner, clear of the top-right legend)
@@ -163,8 +147,13 @@ kmplot, by(drug) ci level(90) risktable ///
 graph export "`pkg_dir'/km_pvalue_level.png", replace width(1200)
 capture graph close _all
 
-* --- Cleanup ---
-display as result "RESULT: demo_kmplot tests=9 pass=9 fail=0"
+}
+local rc = _rc
+
+**# Cleanup
+capture graph close _all
 capture log close _all
 capture set scheme `old_scheme'
-clear
+capture clear
+if `rc' exit `rc'
+display as result "RESULT: demo_kmplot tests=9 pass=9 fail=0"

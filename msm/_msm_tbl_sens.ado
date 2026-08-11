@@ -1,4 +1,4 @@
-*! _msm_tbl_sens Version 1.4.5  2026/08/05
+*! _msm_tbl_sens Version 1.4.6  2026/08/11
 *! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_sens, nclass
     version 16.0
@@ -25,14 +25,25 @@ program define _msm_tbl_sens, nclass
     local eff_label : char _dta[_msm_sens_effect_label]
     local evalue_pt : char _dta[_msm_sens_evalue_point]
     local evalue_ci : char _dta[_msm_sens_evalue_ci]
+    local rr_ud : char _dta[_msm_sens_rr_ud]
+    local rr_uy : char _dta[_msm_sens_rr_uy]
+    local bias_factor : char _dta[_msm_sens_bias_factor]
+    local bound : char _dta[_msm_sens_bound]
     local _sens_level : char _dta[_msm_sens_level]
     if "`_sens_level'" == "" local _sens_level "95"
 
-    * Count rows: title + header + effect + CI [+ evalue_point + evalue_ci]
+    * Count rows: title + header + effect + CI, plus the sensitivity metrics
+    * actually produced. A confounding-strength-only run must never export a
+    * sheet containing just the unadjusted effect.
     local n_data = 2
     local has_evalue = ("`evalue_pt'" != "")
+    local has_bound = ("`bias_factor'" != "" & "`bound'" != "" & ///
+        "`rr_ud'" != "" & "`rr_uy'" != "")
     if `has_evalue' {
         local n_data = `n_data' + 2
+    }
+    if `has_bound' {
+        local n_data = `n_data' + 4
     }
     local total_rows = `n_data' + 2
     local last_data = `total_rows'
@@ -60,22 +71,43 @@ program define _msm_tbl_sens, nclass
         replace A = "Parameter" in 2
         replace B = "Value" in 2
 
+        local _row = 3
+
         * Treatment effect
-        replace A = "Treatment Effect (`eff_label')" in 3
-        replace B = strtrim(string(`effect', "`fmt'")) in 3
+        replace A = "Treatment Effect (`eff_label')" in `_row'
+        replace B = strtrim(string(`effect', "`fmt'")) in `_row'
+        local ++_row
 
         * CI
         local ci_lo_s = strtrim(string(`effect_lo', "`fmt'"))
         local ci_hi_s = strtrim(string(`effect_hi', "`fmt'"))
-        replace A = "`_sens_level'% CI" in 4
-        replace B = "`ci_lo_s' - `ci_hi_s'" in 4
+        replace A = "`_sens_level'% CI" in `_row'
+        replace B = "`ci_lo_s' - `ci_hi_s'" in `_row'
+        local ++_row
 
         * E-values
         if `has_evalue' {
-            replace A = "E-value (point estimate)" in 5
-            replace B = strtrim(string(`evalue_pt', "`fmt'")) in 5
-            replace A = "E-value (CI limit)" in 6
-            replace B = strtrim(string(`evalue_ci', "`fmt'")) in 6
+            replace A = "E-value (point estimate)" in `_row'
+            replace B = strtrim(string(`evalue_pt', "`fmt'")) in `_row'
+            local ++_row
+            replace A = "E-value (CI limit)" in `_row'
+            replace B = strtrim(string(`evalue_ci', "`fmt'")) in `_row'
+            local ++_row
+        }
+
+        * Confounding-strength assumptions and resulting bound
+        if `has_bound' {
+            replace A = "RR(U,D)" in `_row'
+            replace B = strtrim(string(`rr_ud', "`fmt'")) in `_row'
+            local ++_row
+            replace A = "RR(U,Y)" in `_row'
+            replace B = strtrim(string(`rr_uy', "`fmt'")) in `_row'
+            local ++_row
+            replace A = "Bias factor" in `_row'
+            replace B = strtrim(string(`bias_factor', "`fmt'")) in `_row'
+            local ++_row
+            replace A = "Bias-adjusted RR bound" in `_row'
+            replace B = strtrim(string(`bound', "`fmt'")) in `_row'
         }
 
         * Calculate dynamic column widths

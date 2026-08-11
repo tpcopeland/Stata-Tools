@@ -1,4 +1,4 @@
-*! _gcomp_display_stats Version 1.4.6  2026/07/19
+*! _gcomp_display_stats Version 1.4.7  2026/08/11
 *! Display helper for gcomp result rows
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

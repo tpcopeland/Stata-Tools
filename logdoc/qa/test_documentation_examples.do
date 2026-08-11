@@ -228,7 +228,8 @@ capture noisily {
     logdoc_py
     assert r(ok) == 1
     logdoc_py, install(jinja2) dryrun
-    assert strpos(r(install_cmd), "-m pip install jinja2") > 0
+    assert strpos(r(install_cmd), ///
+        "-m pip install " + char(34) + "jinja2" + char(34)) > 0
 }
 local t7_rc = _rc
 if `t7_rc' == 0 {

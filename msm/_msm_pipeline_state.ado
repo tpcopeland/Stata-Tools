@@ -1,4 +1,4 @@
-*! _msm_pipeline_state Version 1.4.5  2026/08/05
+*! _msm_pipeline_state Version 1.4.6  2026/08/11
 *! Compute current MSM pipeline stage and saved-artifact state
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -113,33 +113,28 @@ program define _msm_pipeline_state
         }
         local fit_artifacts : list retokenize fit_artifacts
 
-        * Stages below the fit cannot be usable when the fit itself is not:
-        * they were computed from coefficients that no longer verify. The
-        * dependency is enforced here as well as in _msm_invalidate, because
-        * invalidation only runs on OUR commit paths -- a dataset arriving from
-        * elsewhere has never been through one.
-        capture confirm matrix _msm_pred_matrix
-        local has_pred_matrix = cond(_rc == 0, 1, 0)
         local pred_saved = 0
-        if "`pred_flag'" == "1" & `has_pred_matrix' & `fitted' {
-            local pred_saved = 1
+        if "`pred_flag'" == "1" {
+            _msm_check_artifact prediction, nohydrate
+            local pred_saved = r(ok)
         }
 
-        capture confirm matrix _msm_bal_matrix
-        local has_bal_matrix = cond(_rc == 0, 1, 0)
         local bal_saved = 0
-        if "`bal_flag'" == "1" & `has_bal_matrix' & `weighted' {
-            local bal_saved = 1
+        if "`bal_flag'" == "1" {
+            _msm_check_artifact balance, nohydrate
+            local bal_saved = r(ok)
         }
 
         local diag_saved = 0
-        if "`diag_flag'" == "1" & "`diag_mean'" != "" & `weighted' {
-            local diag_saved = 1
+        if "`diag_flag'" == "1" {
+            _msm_check_artifact diagnostics, nohydrate
+            local diag_saved = r(ok)
         }
 
         local sens_saved = 0
-        if "`sens_flag'" == "1" & "`sens_effect'" != "" & `fitted' {
-            local sens_saved = 1
+        if "`sens_flag'" == "1" {
+            _msm_check_artifact sensitivity, nohydrate
+            local sens_saved = r(ok)
         }
 
         if !`prepared' {

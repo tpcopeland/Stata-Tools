@@ -1,4 +1,4 @@
-*! datamvp Version 1.6.5  2026/08/09
+*! datamvp Version 1.6.6  2026/08/11
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -6,6 +6,9 @@
 program define datamvp, rclass byable(recall) sortpreserve
     version 16.0
     local _uservarabbrev `c(varabbrev)'
+    local _return_ready = 0
+    local _return_has_monotone = 0
+    local _return_has_corr = 0
     set varabbrev off
     capture noisily {
 
@@ -20,7 +23,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         Ascending               /// sort patterns ascending
         MINMissing(integer -999999999)  /// min # missing vars in pattern
         MAXMissing(integer -999999999)  /// max # missing vars in pattern
-        GENerate(string)        /// generate missingness indicators
+        GENerate(name)          /// generate missingness indicators
         SAVE(string)            /// save patterns to file
         CORrelate               /// show tetrachoric correlations
         MONotone                /// test for monotone missingness
@@ -207,35 +210,63 @@ program define datamvp, rclass byable(recall) sortpreserve
     local matsample = 0
     local matsort = 0
     if "`graph'" != "" {
-        local graphorig "`graph'"
-        local graph = lower("`graph'")
-        * Parse matrix suboptions
-        if strpos("`graph'", "matrix") == 1 {
+        local graphorig `"`graph'"'
+        local graph = lower(strtrim(`"`graph'"'))
+        gettoken graphhead graphrest : graph, parse(",")
+        local graphhead = strtrim("`graphhead'")
+        * Parse matrix suboptions strictly: matrix, sample(#) sort
+        if "`graphhead'" == "matrix" {
             local graphtype "matrix"
-            * Extract suboptions: matrix, sample(#), sort
-            local graphrest = subinstr("`graph'", "matrix", "", 1)
             local graphrest = strtrim("`graphrest'")
             if "`graphrest'" != "" {
-                * Remove leading comma if present
-                if substr("`graphrest'", 1, 1) == "," {
-                    local graphrest = substr("`graphrest'", 2, .)
+                if substr("`graphrest'", 1, 1) != "," {
+                    di as err "graph(matrix) suboptions must follow a comma"
+                    exit 198
                 }
-                * Parse sample(#)
-                if regexm("`graphrest'", "sample\(([0-9]+)\)") {
-                    local matsample = regexs(1)
+                local graphrest = strtrim(substr("`graphrest'", 2, .))
+                if "`graphrest'" == "" | strpos("`graphrest'", ",") > 0 {
+                    di as err "invalid graph(matrix) suboptions"
+                    exit 198
                 }
-                * Parse sort
-                if strpos("`graphrest'", "sort") > 0 {
-                    local matsort = 1
+                local seen_sample = 0
+                local seen_sort = 0
+                while "`graphrest'" != "" {
+                    gettoken graphopt graphrest : graphrest
+                    local graphopt = strtrim("`graphopt'")
+                    if regexm("`graphopt'", "^sample\(([0-9]+)\)$") {
+                        if `seen_sample' {
+                            di as err "sample() may be specified only once in graph(matrix)"
+                            exit 198
+                        }
+                        local matsample = real(regexs(1))
+                        if `matsample' < 1 {
+                            di as err "graph(matrix) sample() must be positive"
+                            exit 198
+                        }
+                        local seen_sample = 1
+                    }
+                    else if "`graphopt'" == "sort" {
+                        if `seen_sort' {
+                            di as err "sort may be specified only once in graph(matrix)"
+                            exit 198
+                        }
+                        local matsort = 1
+                        local seen_sort = 1
+                    }
+                    else {
+                        di as err "graph(matrix) suboption `graphopt' not recognized"
+                        di as err "Valid suboptions: sample(#) sort"
+                        exit 198
+                    }
                 }
             }
         }
-        else if !inlist("`graph'", "bar", "patterns", "correlation") {
+        else if "`graphrest'" != "" | !inlist("`graphhead'", "bar", "patterns", "correlation") {
             di as err "graph() must be one of: bar, patterns, matrix, correlation"
             exit 198
         }
         else {
-            local graphtype "`graph'"
+            local graphtype "`graphhead'"
         }
     }
 
@@ -683,9 +714,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             local mono_status "non-monotone"
         }
         
-        return local monotone_status "`mono_status'"
-        return scalar N_monotone = `nmono'
-        return scalar pct_monotone = `pctmono'
+            local _return_has_monotone = 1
     }
 
     * ===================================================================
@@ -730,8 +759,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 matrix list `corrmat', format(%6.3f) noheader
             }
 
-            * Use copy option to keep matrix available for graph(correlation)
-            return matrix corr_miss = `corrmat', copy
+            local _return_has_corr = 1
         }
         else {
             * Fall back to pwcorr
@@ -752,10 +780,13 @@ program define datamvp, rclass byable(recall) sortpreserve
                 matrix list `corrmat', format(%6.3f) noheader
             }
 
-            * Use copy option to keep matrix available for graph(correlation)
-            return matrix corr_miss = `corrmat', copy
+            local _return_has_corr = 1
         }
     }
+
+    * The analytical payload is now complete.  Optional generate/save/graph
+    * failures must not strand it, so all returns are posted at the gate below.
+    local _return_ready = 1
 
     * ===================================================================
     * Generate missingness indicators
@@ -770,25 +801,47 @@ program define datamvp, rclass byable(recall) sortpreserve
         local _gennames ""
         tokenize `varlist'
         forv i = 1/`nvar' {
-            local vname = substr("``i''", 1, `maxvlen')
-            * Two long names can truncate to the same stub; disambiguate with
-            * the variable's position so the first indicator is not silently
-            * dropped and regenerated from the second variable.
-            if `: list vname in _gennames' {
-                local vname = substr("``i''", 1, `maxvlen' - 1 - length("`i'")) + "_`i'"
+            local source_name "``i''"
+            local vname = substr("`source_name'", 1, `maxvlen')
+            local outname "`generate'_`vname'"
+            if inlist("`outname'", "`generate'_pattern", "`generate'_nmiss") {
+                di as err "generate() output for `source_name' conflicts with reserved summary name `outname'"
+                exit 198
             }
-            local _gennames "`_gennames' `vname'"
-            capture drop `generate'_`vname'
-            local _drop_missvar_rc = _rc
-            qui gen byte `generate'_`vname' = missing(``i'') if `touse'
-            label var `generate'_`vname' "Missing: ``i''"
+            local collision_index = 1
+            while `: list outname in _gennames' {
+                local ++collision_index
+                local tag "_`i'"
+                if `collision_index' > 2 local tag "_`i'_`collision_index'"
+                local vname = substr("`source_name'", 1, `maxvlen' - length("`tag'")) + "`tag'"
+                local outname "`generate'_`vname'"
+            }
+            capture confirm new variable `outname'
+            if _rc {
+                local genrc = _rc
+                di as err "generate() target `outname' already exists"
+                exit `genrc'
+            }
+            local _gennames "`_gennames' `outname'"
+            local _genname_`i' "`outname'"
         }
-        
-        * Also generate pattern variable
-        capture drop `generate'_pattern
-        local _drop_pattern_rc = _rc
-        capture drop `generate'_nmiss
-        local _drop_nmiss_rc = _rc
+
+        foreach outname in `generate'_pattern `generate'_nmiss {
+            capture confirm new variable `outname'
+            if _rc {
+                local genrc = _rc
+                di as err "generate() target `outname' already exists"
+                exit `genrc'
+            }
+        }
+
+        * Every target has passed preflight; generation is now atomic.
+        tokenize `varlist'
+        forv i = 1/`nvar' {
+            local outname "`_genname_`i''"
+            qui gen byte `outname' = missing(``i'') if `touse'
+            label var `outname' "Missing: ``i''"
+        }
         qui gen str`nstr' `generate'_pattern = `mv_patt' if `touse'
         label var `generate'_pattern "Missing value pattern"
         qui gen int `generate'_nmiss = `mv_n' if `touse'
@@ -1506,35 +1559,36 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
     }
 
-    * ===================================================================
-    * Return values
-    * ===================================================================
-
-    return scalar N = `N'
-    return scalar N_complete = `ncomplete'
-    return scalar N_incomplete = `nincomplete'
-    return scalar N_patterns = `npatterns'
-    return scalar N_vars = `nvar'
-    return scalar max_miss = `maxmiss_obs'
-    return scalar mean_miss = `meanmiss'
-    return scalar N_mv_total = `nmvtotal'
-
-    return local varlist "`varlist'"
-    if "`varnomv'" != "" {
-        return local varlist_nomiss "`varnomv'"
-    }
-    if "`gby'" != "" {
-        return local gby "`gby'"
-        return local gby_levels "`gby_levels'"
-    }
-    if "`over'" != "" {
-        return local over "`over'"
-        return local over_levels "`over_levels'"
-    }
-
     } // end capture noisily
     local rc = _rc
     set varabbrev `_uservarabbrev'
+    if `_return_ready' {
+        return clear
+        return scalar N = `N'
+        return scalar N_complete = `ncomplete'
+        return scalar N_incomplete = `nincomplete'
+        return scalar N_patterns = `npatterns'
+        return scalar N_vars = `nvar'
+        return scalar max_miss = `maxmiss_obs'
+        return scalar mean_miss = `meanmiss'
+        return scalar N_mv_total = `nmvtotal'
+        return local varlist "`varlist'"
+        if "`varnomv'" != "" return local varlist_nomiss "`varnomv'"
+        if "`gby'" != "" {
+            return local gby "`gby'"
+            return local gby_levels "`gby_levels'"
+        }
+        if "`over'" != "" {
+            return local over "`over'"
+            return local over_levels "`over_levels'"
+        }
+        if `_return_has_monotone' {
+            return local monotone_status "`mono_status'"
+            return scalar N_monotone = `nmono'
+            return scalar pct_monotone = `pctmono'
+        }
+        if `_return_has_corr' return matrix corr_miss = `corrmat'
+    }
     if `rc' exit `rc'
 end
 

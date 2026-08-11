@@ -1,4 +1,4 @@
-*! _msm_invalidate Version 1.4.5  2026/08/05
+*! _msm_invalidate Version 1.4.6  2026/08/11
 *! Invalidate MSM pipeline artifacts downstream of a replaced stage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -88,6 +88,8 @@ program define _msm_invalidate
             foreach _c in _msm_sens_saved _msm_sens_effect _msm_sens_effect_lo ///
                 _msm_sens_effect_hi _msm_sens_effect_label _msm_sens_model ///
                 _msm_sens_evalue_point _msm_sens_evalue_ci _msm_sens_level ///
+                _msm_sens_bias_factor _msm_sens_bound _msm_sens_rr_ud ///
+                _msm_sens_rr_uy ///
                 _msm_sens_uuid _msm_sens_dep {
                 char _dta[`_c']
             }

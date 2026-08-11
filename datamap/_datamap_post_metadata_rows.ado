@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.6.5  2026/08/09
+*! _datamap_post_metadata_rows Version 1.6.6  2026/08/11
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -14,11 +14,6 @@ program define _datamap_post_metadata_rows, nclass
         local source = substr(`"`macval(source)'"', 1, 2045)
         local output = substr(`"`macval(output)'"', 1, 2045)
         local dslabel = substr(`"`macval(dslabel)'"', 1, 2045)
-        foreach field in source output dslabel {
-            local `field' = subinstr(`"`macval(`field')'"', char(96), "", .)
-            local `field' = subinstr(`"`macval(`field')'"', char(34), "", .)
-            local `field' = subinstr(`"`macval(`field')'"', char(39), "", .)
-        }
 
         // Frame, not -preserve-: preserve costs a full in-memory copy of the
         // dataset (see _datamap_nuniq.ado), and this only reads a small lookup.

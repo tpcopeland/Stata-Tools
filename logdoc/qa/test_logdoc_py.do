@@ -477,7 +477,8 @@ capture noisily {
     logdoc_py, python("`detected_python'") install(jinja2) dryrun quiet
     assert r(installed) == .
     assert r(python_source) == "option"
-    assert strpos(r(install_cmd), "-m pip install jinja2") > 0
+    assert strpos(r(install_cmd), ///
+        "-m pip install " + char(34) + "jinja2" + char(34)) > 0
 }
 if _rc == 0 {
     display as result "PASS: PY-T16 - custom install dryrun reports pip command"
@@ -688,7 +689,8 @@ capture noisily {
     logdoc_py
     assert r(ok) == 1
     logdoc_py, install(jinja2) dryrun
-    assert strpos(r(install_cmd), "-m pip install jinja2") > 0
+    assert strpos(r(install_cmd), ///
+        "-m pip install " + char(34) + "jinja2" + char(34)) > 0
 }
 if _rc == 0 {
     display as result "PASS: PY-T25 - runnable help examples work after install"

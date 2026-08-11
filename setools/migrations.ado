@@ -1,4 +1,4 @@
-*! migrations Version 1.5.3  2026/08/05
+*! migrations Version 1.5.4  2026/08/11
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -1026,7 +1026,6 @@ program define migrations, rclass
     * Display summary (suppressed by quietly)
     if "`quietly'" == "" {
         display as text _n "Migration Processing Summary"
-        display as text "{hline 55}"
         display as text "Excluded (emigrated before start, no return):    " as result `n_exclude1'
         if "`keepimmigrants'" != "" {
             display as text "Included (immigration after study start):        " as result `n_included_inmig'
@@ -1038,12 +1037,10 @@ program define migrations, rclass
         if `minresidence' > 0 {
             display as text "Excluded (residence < `minresidence' days):       " as result `n_exclude4'
         }
-        display as text "{hline 55}"
         display as text "Total excluded:                                  " as result `n_exclude_total'
         display as text "Individuals with emigration censoring date:      " as result `n_censor'
         display as text "Analytic cohort size:                           " as result `n_analytic'
         display as text "Rows returned:                                  " as result `n_returned'
-        display as text "{hline 55}"
         if "`flag'" != "" {
             display as text "Flag mode: excluded individuals retained and marked in"
             display as text "  mig_excluded (0/1) and mig_exclude_reason"
