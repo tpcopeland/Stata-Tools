@@ -1234,6 +1234,240 @@ else {
     local failed_tests "`failed_tests' T1"
 }
 
+**# Small-cell disclosure control
+
+**## smallcells() redacts counts, derived results, and frame metadata
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 2
+    0 1 8
+    1 0 6
+    1 1 4
+    end
+    expand freq
+
+    capture frame drop cross_sc
+    crosstab outcome exposure, or rr rd trend smallcells(5) ///
+        frame(cross_sc, replace)
+
+    assert r(smallcells) == 5
+    assert r(N_primary_suppressed) >= 2
+    assert r(N_secondary_suppressed) >= 1
+    assert r(N_derived_suppressed) >= 5
+    assert r(p) == .d
+    assert r(or) == .d
+    assert r(rr) == .d
+    assert r(rd) == .d
+    assert r(p_trend) == .d
+    matrix _cross_sc_t = r(table)
+    matrix _cross_sc_s = r(suppression)
+    assert _cross_sc_t[1,1] == .p
+    assert _cross_sc_t[2,2] == .p
+    mata: assert(any(st_matrix("_cross_sc_t") :== .s))
+    mata: assert(all(st_matrix("_cross_sc_s") :== ///
+        (st_matrix("_cross_sc_t") :== .p) + ///
+        2 * (st_matrix("_cross_sc_t") :== .s)))
+
+    frame cross_sc: assert c2[3] == "<5"
+    frame cross_sc: assert c3[4] == "<5"
+    frame cross_sc: assert strpos(c1[6], "Suppressed") > 0
+    frame cross_sc: assert c1[7] == "OR = Suppressed"
+    frame cross_sc: assert c1[8] == "RR = Suppressed"
+    frame cross_sc: assert c1[9] == "RD = Suppressed"
+    frame cross_sc: assert strpos(c1[10], "Suppressed") > 0
+    frame cross_sc: local _sc_k : char _dta[tabtools_smallcells]
+    frame cross_sc: local _sc_codes : char _dta[tabtools_suppression_codes]
+    frame cross_sc: local _sc_scope : char _dta[tabtools_suppression_scope]
+    assert "`_sc_k'" == "5"
+    assert strpos("`_sc_codes'", "1 primary") > 0
+    assert strpos("`_sc_scope'", "all sinks") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab smallcells strict return/frame contract"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab smallcells strict return/frame contract (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_sc
+
+**## one redacted payload is reused by CSV, Markdown, frame, and XLSX sinks
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 2
+    0 1 8
+    1 0 6
+    1 1 4
+    end
+    expand freq
+
+    local sc_csv "`output_dir'/crosstab_smallcells.csv"
+    local sc_md "`output_dir'/crosstab_smallcells.md"
+    local sc_xlsx "`output_dir'/crosstab_smallcells.xlsx"
+    capture erase "`sc_csv'"
+    capture erase "`sc_md'"
+    capture erase "`sc_xlsx'"
+    capture frame drop cross_sc_sinks
+    crosstab outcome exposure, smallcells(5) ///
+        csv("`sc_csv'") markdown("`sc_md'") ///
+        frame(cross_sc_sinks, replace) ///
+        xlsx("`sc_xlsx'") sheet("CrossSC")
+
+    matrix _cross_sc_sink_t = r(table)
+    assert _cross_sc_sink_t[1,1] == .p
+    frame cross_sc_sinks: assert c2[3] == "<5"
+    frame cross_sc_sinks: assert c3[4] == "<5"
+
+    preserve
+    import delimited "`sc_csv'", clear varnames(nonames) stringcols(_all)
+    assert strtrim(v2[2]) == "<5"
+    assert strtrim(v3[3]) == "<5"
+    restore
+
+    tempname sc_fh
+    local sc_md_text ""
+    file open `sc_fh' using "`sc_md'", read text
+    file read `sc_fh' sc_line
+    while r(eof) == 0 {
+        local sc_md_text `"`sc_md_text' `macval(sc_line)'"'
+        file read `sc_fh' sc_line
+    }
+    file close `sc_fh'
+    assert strpos(`"`sc_md_text'"', "<5") > 0
+    assert strpos(`"`sc_md_text'"', "≥5") > 0
+
+    preserve
+    import excel using "`sc_xlsx'", sheet("CrossSC") clear allstring
+    local sc_np = 0
+    local sc_ns = 0
+    foreach sc_v of varlist _all {
+        quietly count if strtrim(`sc_v') == "<5"
+        local sc_np = `sc_np' + r(N)
+        quietly count if strtrim(`sc_v') == "≥5"
+        local sc_ns = `sc_ns' + r(N)
+    }
+    assert `sc_np' >= 2
+    assert `sc_ns' >= 1
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab smallcells is identical across all sinks"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab smallcells all-sink contract (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_sc_sinks
+
+**## safe returns survive a later workbook export failure
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 2
+    0 1 8
+    1 0 6
+    1 1 4
+    end
+    expand freq
+
+    return clear
+    capture noisily crosstab outcome exposure, smallcells(5) ///
+        xlsx("`output_dir'/missing/crosstab_smallcells.xlsx")
+    assert _rc != 0
+    assert r(smallcells) == 5
+    assert r(p) == .d
+    matrix _cross_sc_failed_t = r(table)
+    matrix _cross_sc_failed_s = r(suppression)
+    assert _cross_sc_failed_t[1,1] == .p
+    mata: assert(any(st_matrix("_cross_sc_failed_t") :== .s))
+    mata: assert(any(st_matrix("_cross_sc_failed_s") :== 1))
+    assert `"`r(xlsx)'"' == ""
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab failed export preserves only safe returns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab safe failed-export contract (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## percentages, fweights, and threshold boundaries stay non-disclosing
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 2
+    0 1 8
+    1 0 8
+    1 1 8
+    end
+
+    capture frame drop cross_sc_pct
+    crosstab outcome exposure [fw=freq], colpct smallcells(5) ///
+        frame(cross_sc_pct, replace)
+    assert r(smallcells) == 5
+    frame cross_sc_pct: assert c2[3] == "<5"
+    frame cross_sc_pct: assert strpos(c2[3], "%") == 0
+    frame cross_sc_pct: assert strpos(c2[4], "%") == 0 ///
+        if strpos(c2[4], "≥5") > 0
+
+    capture frame drop cross_sc_all
+    crosstab outcome exposure [fw=freq], totalpct smallcells(30) ///
+        frame(cross_sc_all, replace)
+    assert r(smallcells) == 30
+    assert r(N_primary_suppressed) > 0
+    frame cross_sc_all {
+        assert strpos(c2[3], "%") == 0
+        assert strpos(c3[3], "%") == 0
+        assert strpos(c2[4], "%") == 0
+        assert strpos(c3[4], "%") == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab smallcells percent/fweight/boundary contract"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab smallcells percent/fweight/boundary contract (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_sc_pct
+capture frame drop cross_sc_all
+
+**## invalid thresholds fail before output and restore caller state
+capture noisily {
+    clear
+    input byte outcome byte exposure
+    0 0
+    1 1
+    end
+    set varabbrev on
+    foreach bad in 0 1 2 {
+        capture noisily crosstab outcome exposure, smallcells(`bad')
+        assert _rc == 198
+        assert "`c(varabbrev)'" == "on"
+    }
+    capture noisily crosstab outcome exposure, smallcells(3.5)
+    assert _rc == 198
+    capture noisily crosstab outcome exposure, smallcells(nonnumeric)
+    assert _rc == 198
+    assert _N == 2
+    assert "`c(varabbrev)'" == "on"
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab smallcells validation is failure-atomic"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab smallcells validation contract (rc=`=_rc')"
+    local ++fail_count
+}
+set varabbrev off
+
 
 
 

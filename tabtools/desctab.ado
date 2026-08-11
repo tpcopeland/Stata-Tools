@@ -1,4 +1,4 @@
-*! desctab Version 1.13.0  2026/08/11
+*! desctab Version 1.14.1  2026/08/11
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -40,7 +40,7 @@ program define desctab, rclass
         STATORDER(string) STATLABELS(string asis) NOMISsing zebra ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BORDERstyle(string) THEme(string) open csv(string) MARKdown(string) MDAPPend ///
-        FRAme(string) HIGHlight(real -1) HLStat(string)]
+        FRAme(string) HIGHlight(real -1) HLStat(string) SMALLCells(string)]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     if `"`nformats'"' != "" {
@@ -53,6 +53,26 @@ program define desctab, rclass
     }
     local _has_xlsx = "`xlsx'" != ""
     if "`sheet'" == "" local sheet "Descriptive"
+    local _sc_active = "`smallcells'" != ""
+    if `_sc_active' {
+        capture confirm integer number `smallcells'
+        if _rc {
+            display as error "smallcells() must be an integer greater than or equal to 3"
+            exit 198
+        }
+        if `smallcells' < 3 {
+            display as error "smallcells() must be an integer greater than or equal to 3"
+            exit 198
+        }
+    }
+    local _sc_note ""
+    if `_sc_active' {
+        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
+        if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
+            if `"`footnote'"' == "" local footnote `"`_sc_note'"'
+            else local footnote `"`footnote' `_sc_note'"'
+        }
+    }
 
     if `digits' == -1 {
         if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
@@ -217,6 +237,76 @@ program define desctab, rclass
         exit 459
     }
     local n_stats : word count `stats_layout'
+
+    * Strict disclosure control requires exact collect dimension/result IDs.
+    * Arbitrary compositions and filtered blocks do not retain enough lineage
+    * for a reconstruction proof, so reject them before rendering any sink.
+    local _sc_count_stat ""
+    local _sc_pct_stat ""
+    if `_sc_active' {
+        local _sc_var_dim 0
+        local _sc_row_nonvar 0
+        local _sc_col_nonvar 0
+        foreach _dim in `=subinstr("`rowdim'", "#", " ", .)' {
+            if "`_dim'" == "var" local _sc_var_dim 1
+            else local ++_sc_row_nonvar
+        }
+        foreach _dim in `=subinstr("`coldim'", "#", " ", .)' {
+            if "`_dim'" == "var" local _sc_var_dim 1
+            else local ++_sc_col_nonvar
+        }
+        if `_sc_row_nonvar' > 1 | `_sc_col_nonvar' > 1 {
+            display as error "smallcells() supports only one row dimension and at most one column dimension in desctab"
+            exit 459
+        }
+        if `_sc_var_dim' {
+            capture collect levelsof var
+            if _rc {
+                display as error "smallcells() could not map the collect var dimension"
+                exit 459
+            }
+            local _sc_var_levels `"`s(levels)'"'
+            local _sc_var_levels : subinstr local _sc_var_levels "_hide" "", word all
+            local _sc_var_n : word count `_sc_var_levels'
+            if `_sc_var_n' != 1 {
+                display as error "smallcells() supports one exact source-variable level per desctab count block"
+                exit 459
+            }
+        }
+        if `is_custom' | !inlist(`"`compose_resolved'"', "", "n_pct") {
+            display as error "smallcells() supports count/frequency/fvfrequency or compose(n_pct) layouts in desctab"
+            exit 459
+        }
+        if `"`keep'"' != "" | `"`drop'"' != "" | "`nomissing'" != "" {
+            display as error "smallcells() cannot be combined with keep(), drop(), or nomissing in desctab"
+            exit 459
+        }
+        if `highlight' != -1 {
+            display as error "smallcells() cannot be combined with highlight() in desctab"
+            exit 459
+        }
+        foreach _candidate in count frequency fvfrequency {
+            local _pos : list posof "`_candidate'" in stats_layout
+            if `_pos' & "`_sc_count_stat'" == "" local _sc_count_stat "`_candidate'"
+        }
+        foreach _candidate in percent fvpercent prop propc propr {
+            local _pos : list posof "`_candidate'" in stats_layout
+            if `_pos' & "`_sc_pct_stat'" == "" local _sc_pct_stat "`_candidate'"
+        }
+        if "`_sc_count_stat'" == "" {
+            display as error "smallcells() requires a count, frequency, or fvfrequency result in desctab"
+            exit 459
+        }
+        if `"`compose_resolved'"' == "" & `n_stats' != 1 {
+            display as error "smallcells() without compose(n_pct) requires a count-only result layout in desctab"
+            exit 459
+        }
+        if `"`compose_resolved'"' == "n_pct" & ///
+            ("`_sc_pct_stat'" == "" | `n_stats' != 2) {
+            display as error "smallcells() with compose(n_pct) requires exactly one count and one percentage result"
+            exit 459
+        }
+    }
 
     local _source_vars ""
     capture collect levelsof var
@@ -405,7 +495,6 @@ program define desctab, rclass
     }
     quietly drop if `_desctab_drop'
     drop `_desctab_drop'
-    drop _tt_row_key _tt_row_total _tt_row_missing
 
     local n_data_vars : word count `data_vars'
     if `n_data_vars' == 0 {
@@ -418,6 +507,258 @@ program define desctab, rclass
         exit 459
     }
     local n_groups = `n_data_vars' / `n_stats'
+
+    * Build the released two-way frequency block from exact result IDs and
+    * raw collect keys, validate every additive margin, then redact the raw
+    * count strings before composition or any public sink can see them.
+    tempname _scmask _scrowmask _sccolmask _sc_counts _sc_exact _sc_sensitive
+    tempname _sc_rowexact _sc_rowsens _sc_colexact _sc_colsens
+    local _sc_totalmask 0
+    local _sc_nprimary 0
+    local _sc_nsecondary 0
+    local _sc_nderived 0
+    if `_sc_active' {
+        local _sc_count_pos : list posof "`_sc_count_stat'" in stats_layout
+        local _sc_pct_pos 0
+        if "`_sc_pct_stat'" != "" {
+            local _sc_pct_pos : list posof "`_sc_pct_stat'" in stats_layout
+        }
+
+        local _sc_body_rows ""
+        local _sc_total_row 0
+        forvalues _r = `raw_data_start'/`=_N' {
+            if _tt_row_total[`_r'] == 1 {
+                if `_sc_total_row' {
+                    display as error "smallcells() found multiple row-total levels; this desctab layout is unsupported"
+                    exit 459
+                }
+                local _sc_total_row = `_r'
+            }
+            else local _sc_body_rows "`_sc_body_rows' `_r'"
+        }
+        local _sc_nr : word count `_sc_body_rows'
+        if `_sc_nr' == 0 {
+            display as error "smallcells() found no non-total count rows in the active collect"
+            exit 459
+        }
+
+        local _sc_body_groups ""
+        local _sc_total_group 0
+        forvalues _g = 1/`n_groups' {
+            local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
+            local _count_var : word `_vpos' of `data_vars'
+            local _is_total : char `_count_var'[_tabtools_col_total]
+            if "`_is_total'" == "1" {
+                if `_sc_total_group' {
+                    display as error "smallcells() found multiple column-total levels; this desctab layout is unsupported"
+                    exit 459
+                }
+                local _sc_total_group = `_g'
+            }
+            else local _sc_body_groups "`_sc_body_groups' `_g'"
+        }
+        local _sc_nc : word count `_sc_body_groups'
+        if `_sc_nc' == 0 {
+            display as error "smallcells() found no non-total count columns in the active collect"
+            exit 459
+        }
+
+        matrix `_sc_counts' = J(`_sc_nr', `_sc_nc', 0)
+        local _sri 0
+        foreach _obs of local _sc_body_rows {
+            local ++_sri
+            local _sci 0
+            foreach _g of local _sc_body_groups {
+                local ++_sci
+                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
+                local _count_var : word `_vpos' of `data_vars'
+                local _raw = subinstr(strtrim(`_count_var'[`_obs']), ",", "", .)
+                if "`_raw'" == "" {
+                    local _raw "0"
+                    quietly replace `_count_var' = "0" in `_obs'
+                }
+                local _n = real("`_raw'")
+                if missing(`_n') | `_n' < 0 | `_n' != floor(`_n') {
+                    display as error "smallcells() requires nonnegative integer count results; `_sc_count_stat' contained `_raw'"
+                    exit 459
+                }
+                matrix `_sc_counts'[`_sri', `_sci'] = `_n'
+            }
+        }
+
+        matrix `_sc_exact' = J(`_sc_nr', `_sc_nc', 1)
+        matrix `_sc_sensitive' = J(`_sc_nr', `_sc_nc', 1)
+        matrix `_sc_rowexact' = J(`_sc_nr', 1, 0)
+        matrix `_sc_rowsens' = J(`_sc_nr', 1, 0)
+        matrix `_sc_colexact' = J(1, `_sc_nc', 0)
+        matrix `_sc_colsens' = J(1, `_sc_nc', 0)
+        local _sc_grandexact 0
+        local _sc_grandsens 0
+
+        if "`coldim'" != "" & `_sc_total_group' {
+            matrix `_sc_rowexact' = J(`_sc_nr', 1, 1)
+            matrix `_sc_rowsens' = J(`_sc_nr', 1, 1)
+            local _sri 0
+            foreach _obs of local _sc_body_rows {
+                local ++_sri
+                local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
+                local _count_var : word `_vpos' of `data_vars'
+                local _raw = subinstr(strtrim(`_count_var'[`_obs']), ",", "", .)
+                if "`_raw'" == "" local _raw "0"
+                local _margin = real("`_raw'")
+                local _expected = 0
+                forvalues _sci = 1/`_sc_nc' {
+                    local _expected = `_expected' + `_sc_counts'[`_sri', `_sci']
+                }
+                if missing(`_margin') | `_margin' != `_expected' {
+                    display as error "smallcells() could not verify a desctab row total from the released count cells"
+                    exit 459
+                }
+            }
+        }
+
+        if `_sc_total_row' {
+            matrix `_sc_colexact' = J(1, `_sc_nc', 1)
+            matrix `_sc_colsens' = J(1, `_sc_nc', 1)
+            local _sci 0
+            foreach _g of local _sc_body_groups {
+                local ++_sci
+                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
+                local _count_var : word `_vpos' of `data_vars'
+                local _raw = subinstr(strtrim(`_count_var'[`_sc_total_row']), ",", "", .)
+                if "`_raw'" == "" local _raw "0"
+                local _margin = real("`_raw'")
+                local _expected = 0
+                forvalues _sri = 1/`_sc_nr' {
+                    local _expected = `_expected' + `_sc_counts'[`_sri', `_sci']
+                }
+                if missing(`_margin') | `_margin' != `_expected' {
+                    display as error "smallcells() could not verify a desctab column total from the released count cells"
+                    exit 459
+                }
+            }
+        }
+
+        if "`coldim'" == "" & `_sc_total_row' {
+            matrix `_sc_colexact' = J(1, `_sc_nc', 1)
+            matrix `_sc_colsens' = J(1, `_sc_nc', 1)
+        }
+        if "`coldim'" != "" & `_sc_total_row' & `_sc_total_group' {
+            local _sc_grandexact 1
+            local _sc_grandsens 1
+            local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
+            local _count_var : word `_vpos' of `data_vars'
+            local _raw = subinstr(strtrim(`_count_var'[`_sc_total_row']), ",", "", .)
+            if "`_raw'" == "" local _raw "0"
+            local _grand = real("`_raw'")
+            local _expected = 0
+            forvalues _sri = 1/`_sc_nr' {
+                forvalues _sci = 1/`_sc_nc' {
+                    local _expected = `_expected' + `_sc_counts'[`_sri', `_sci']
+                }
+            }
+            if missing(`_grand') | `_grand' != `_expected' {
+                display as error "smallcells() could not verify the desctab grand total from the released count cells"
+                exit 459
+            }
+        }
+
+        _tabtools_smallcells, counts(`_sc_counts') exact(`_sc_exact') ///
+            sensitive(`_sc_sensitive') rowexact(`_sc_rowexact') ///
+            rowsensitive(`_sc_rowsens') colexact(`_sc_colexact') ///
+            colsensitive(`_sc_colsens') grandexact(`_sc_grandexact') ///
+            grandsensitive(`_sc_grandsens') smallcells(`smallcells')
+        matrix `_scmask' = r(mask)
+        matrix `_scrowmask' = r(rowmask)
+        matrix `_sccolmask' = r(colmask)
+        local _sc_totalmask = r(totalmask)
+        local _sc_nprimary = r(N_primary_suppressed)
+        local _sc_nsecondary = r(N_secondary_suppressed)
+
+        local _sri 0
+        foreach _obs of local _sc_body_rows {
+            local ++_sri
+            local _sci 0
+            foreach _g of local _sc_body_groups {
+                local ++_sci
+                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
+                local _count_var : word `_vpos' of `data_vars'
+                local _code = `_scmask'[`_sri', `_sci']
+                if `_code' > 0 {
+                    local _value = `_sc_counts'[`_sri', `_sci']
+                    _tabtools_smallcells_render, value(`_value') ///
+                        mask(`_code') smallcells(`smallcells')
+                    quietly replace `_count_var' = `"`r(display)'"' in `_obs'
+                }
+            }
+            if "`coldim'" != "" & `_sc_total_group' {
+                local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
+                local _count_var : word `_vpos' of `data_vars'
+                local _code = `_scrowmask'[`_sri', 1]
+                if `_code' > 0 {
+                    local _value = 0
+                    forvalues _sci = 1/`_sc_nc' {
+                        local _value = `_value' + `_sc_counts'[`_sri', `_sci']
+                    }
+                    _tabtools_smallcells_render, value(`_value') mask(`_code') ///
+                        smallcells(`smallcells')
+                    quietly replace `_count_var' = `"`r(display)'"' in `_obs'
+                }
+            }
+        }
+        if `_sc_total_row' {
+            local _sci 0
+            foreach _g of local _sc_body_groups {
+                local ++_sci
+                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
+                local _count_var : word `_vpos' of `data_vars'
+                local _code = `_sccolmask'[1, `_sci']
+                if `_code' > 0 {
+                    local _value = 0
+                    forvalues _sri = 1/`_sc_nr' {
+                        local _value = `_value' + `_sc_counts'[`_sri', `_sci']
+                    }
+                    _tabtools_smallcells_render, value(`_value') mask(`_code') ///
+                        smallcells(`smallcells')
+                    quietly replace `_count_var' = `"`r(display)'"' in `_sc_total_row'
+                }
+            }
+        }
+        if `_sc_grandexact' & `_sc_totalmask' > 0 {
+            local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
+            local _count_var : word `_vpos' of `data_vars'
+            local _value = 0
+            forvalues _sri = 1/`_sc_nr' {
+                forvalues _sci = 1/`_sc_nc' {
+                    local _value = `_value' + `_sc_counts'[`_sri', `_sci']
+                }
+            }
+            _tabtools_smallcells_render, value(`_value') mask(`_sc_totalmask') ///
+                smallcells(`smallcells')
+            quietly replace `_count_var' = `"`r(display)'"' in `_sc_total_row'
+        }
+
+        * A protected count or margin can be reconstructed from an exact
+        * percentage and denominator. For n_pct, remove every percentage in
+        * the affected logical block and retain the safe count or marker.
+        if `"`compose_resolved'"' == "n_pct" & ///
+            (`_sc_nprimary' + `_sc_nsecondary' > 0) {
+            forvalues _g = 1/`n_groups' {
+                local _vpos = (`_g' - 1) * `n_stats' + `_sc_pct_pos'
+                local _pct_var : word `_vpos' of `data_vars'
+                forvalues _r = `raw_data_start'/`=_N' {
+                    if strtrim(`_pct_var'[`_r']) != "" {
+                        quietly replace `_pct_var' = "" in `_r'
+                        local ++_sc_nderived
+                    }
+                }
+            }
+        }
+    }
+    else {
+        matrix `_scmask' = J(1, 1, 0)
+    }
+    drop _tt_row_key _tt_row_total _tt_row_missing
 
     local highlight_rows ""
     local _merge_group_headers 0
@@ -589,6 +930,11 @@ program define desctab, rclass
                 if `"`_f_mean'"' != "" & `"`_f_percent'"' == "" local _f_percent `"`_f_mean'"'
                 if `"`_f_median'"' != "" local _f_p50 `"`_f_median'"'
                 if `"`_raw_median'"' != "" local _raw_p50 `"`_raw_median'"'
+                if `_sc_active' & inlist(`"`_raw_count'"', ///
+                    "<`smallcells'", "≥`smallcells'") {
+                    local _f_count `"`_raw_count'"'
+                    local _f_percent ""
+                }
 
                 if "`hlstat'" == "" local hlstat "mean"
                 if `highlight' != -1 {
@@ -769,16 +1115,32 @@ program define desctab, rclass
         }
     }
     local body_rows = max(`num_rows' - `data_start' + 1, 1)
-    tempname _rtable
+    tempname _rtable _sc_return
     matrix `_rtable' = J(`body_rows', `n_display_cols', .)
+    matrix `_sc_return' = J(`body_rows', `n_display_cols', 0)
     forvalues _rr = 1/`body_rows' {
         local _drow = `data_start' + `_rr' - 1
         forvalues _cc = 1/`n_display_cols' {
             if `_drow' <= `num_rows' {
-                local _v = subinstr(strtrim(c`_cc'[`_drow']), ",", "", .)
-                local _v = subinstr("`_v'", "%", "", .)
-                local _num = real("`_v'")
-                if `_num' < . matrix `_rtable'[`_rr', `_cc'] = `_num'
+                local _v = strtrim(c`_cc'[`_drow'])
+                if `_sc_active' & "`_v'" == "<`smallcells'" {
+                    matrix `_rtable'[`_rr', `_cc'] = .p
+                    matrix `_sc_return'[`_rr', `_cc'] = 1
+                }
+                else if `_sc_active' & "`_v'" == "≥`smallcells'" {
+                    matrix `_rtable'[`_rr', `_cc'] = .s
+                    matrix `_sc_return'[`_rr', `_cc'] = 2
+                }
+                else if `_sc_active' & "`_v'" == "Suppressed" {
+                    matrix `_rtable'[`_rr', `_cc'] = .d
+                    matrix `_sc_return'[`_rr', `_cc'] = 3
+                }
+                else {
+                    local _v = subinstr("`_v'", ",", "", .)
+                    local _v = subinstr("`_v'", "%", "", .)
+                    local _num = real("`_v'")
+                    if `_num' < . matrix `_rtable'[`_rr', `_cc'] = `_num'
+                }
             }
         }
     }
@@ -786,6 +1148,9 @@ program define desctab, rclass
     local _methods "Formatted descriptive statistics from a Stata collect table using per-statistic formats."
     if `"`compose_resolved'"' != "" {
         local _methods "`_methods' Composite cells were rendered with compose(`compose_resolved')."
+    }
+    if `_sc_active' {
+        local _methods "`_methods' Counts were protected with smallcells(`smallcells'); dependent percentages were withheld when required."
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
 
@@ -811,6 +1176,13 @@ program define desctab, rclass
     return local stats "`stats_layout'"
     return local compose `"`compose_resolved'"'
     return local methods "`_methods'"
+    if `_sc_active' {
+        return scalar smallcells = `smallcells'
+        return scalar N_primary_suppressed = `_sc_nprimary'
+        return scalar N_secondary_suppressed = `_sc_nsecondary'
+        return scalar N_derived_suppressed = `_sc_nderived'
+        return matrix suppression = `_sc_return'
+    }
     if "`csv'" != "" {
         _tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
             title(`"`title'"') footnote(`"`footnote'"')
@@ -841,11 +1213,17 @@ program define desctab, rclass
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame `"`_frame_name'"'
+        if `_sc_active' {
+            frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
+            frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
+            frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        }
         return local frame "`frame'"
     }
 
     noisily _tabtools_console_display `n_display_cols' `"`title'"', ///
         labelvar(A) datastart(`data_start') headerstart(`header_start')
+    if `_sc_active' noisily display as text "`_sc_note'"
 
     if `_has_xlsx' {
         capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
@@ -1004,6 +1382,9 @@ end
 capture program drop _desctab_parse_layout
 program define _desctab_parse_layout, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args rowspec colspec
 
     local rowspec = ustrregexra(`"`rowspec'"', "\[[^\]]*\]", "")
@@ -1030,22 +1411,36 @@ program define _desctab_parse_layout, rclass
     }
     return local rowdim "`rowdim'"
     return local coldim "`coldim'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _desctab_has_stat
 program define _desctab_has_stat, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     args stat stats
     local found 0
     foreach _s of local stats {
         if "`_s'" == "`stat'" local found 1
     }
     return scalar found = `found'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _desctab_pick_stat
 program define _desctab_pick_stat, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , CANDIDATES(string) STATS(string)
     local picked ""
     foreach _cand of local candidates {
@@ -1054,11 +1449,18 @@ program define _desctab_pick_stat, rclass
         }
     }
     return local stat "`picked'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _desctab_resolve_compose
 program define _desctab_resolve_compose, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [COMPOSE(string asis) STATS(string)]
 
     local clean_compose `"`compose'"'
@@ -1070,6 +1472,7 @@ program define _desctab_resolve_compose, rclass
         return local compose ""
         return local required ""
         return scalar custom = 0
+        set varabbrev `_orig_varabbrev'
         exit
     }
 
@@ -1145,15 +1548,25 @@ program define _desctab_resolve_compose, rclass
     return local compose `"`mode'"'
     return local required "`required'"
     return scalar custom = `custom'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _desctab_parse_nformats
 program define _desctab_parse_nformats, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [SPEC(string asis) STATS(string)]
     local clean = subinstr(`"`spec'"', "=", " ", .)
     local n : word count `clean'
-    if `n' == 0 exit
+    if `n' == 0 {
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
     if mod(`n', 2) != 0 {
         display as error "nformats() must contain stat=format or stat format pairs"
         exit 198
@@ -1165,11 +1578,18 @@ program define _desctab_parse_nformats, rclass
         if `r(found)' return local fmt_`_stat' "`_fmt'"
         else display as text "nformats: statistic '`_stat'' not in collect, ignoring"
     }
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _desctab_parse_statlabels
 program define _desctab_parse_statlabels, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , [SPEC(string asis) STATS(string)]
     local rest `"`spec'"'
     if `"`rest'"' != "" {
@@ -1204,26 +1624,39 @@ program define _desctab_parse_statlabels, rclass
         if `r(found)' return local label_`_stat' `"`_label'"'
         else display as text "statlabels: statistic '`_stat'' not in collect, ignoring"
     }
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 capture program drop _desctab_format_local
 program define _desctab_format_local, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , VALUE(string asis) FORMAT(string) [SCALE(real 1) PCTSIGN]
     local clean `"`value'"'
     local clean : subinstr local clean `"""' "", all
     local clean = subinstr(strtrim("`clean'"), ",", "", .)
     if `"`clean'"' == "" {
         return local value ""
+        set varabbrev `_orig_varabbrev'
         exit
     }
     local num = real(`"`clean'"')
     if `num' >= . {
         return local value ""
+        set varabbrev `_orig_varabbrev'
         exit
     }
     local num = `num' * `scale'
     local out = strtrim(string(`num', "`format'"))
     if "`pctsign'" != "" local out "`out'%"
     return local value `"`out'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end

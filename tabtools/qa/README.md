@@ -58,8 +58,8 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 |------|--------|-------|
 | `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, semantic edge contracts (all-missing row, one observation/group, long labels), dots progress option, pdp()/highpdp() 1-10 bound (1.9.11), v1.0.13–v1.5 regressions |
 | `test_smallcells.do` | table1_tc | Small-cell threshold parsing, primary/complementary/derived masking, continuous and missingness dependencies, weighted/frequency-weight semantics, percent/row-percent/total/clear compositions, caller-state stability, sink parity, failure atomicity, and raw-leak attacks |
-| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns (r(version) parsed live from the .ado header) |
-| `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions |
+| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns, recognized smallcells count/n_pct layouts, fail-closed mapping, and all-sink parity |
+| `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions, plus strict smallcells counts/margins/derived returns and all-sink parity |
 | `test_corrtab.do` | corrtab | Pearson/Spearman, stars, shapes, pairwise-N p-value regression |
 | `test_regtab.do` | regtab | Model families (OLS/logit/Cox/GEE/mixed/multilevel), stats() incl. AIC/BIC recompute and n_sub aliases, compact mode, keep/drop, refcat, frames, console display, nopvalue |
 | `test_effecttab.do` | effecttab | margins/teffects collects, from() matrix path, IPTW PS-coefficient filtering, digits, frames, console-only returns, refcat() option (1.9.11) |
@@ -95,7 +95,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | File | Covers |
 |------|--------|
 | `validation_table1_tc.do` | Mean/SD/median/percent/p-values vs `summarize`/`tabulate`, weighted expanded-data oracle, Yang–Dalton multinomial Mahalanobis SMD, coding invariance, two-level reduction, descriptive identities, and Excel cell accuracy |
-| `validation_smallcells.do` | Independent exhaustive 2x2/2x3 reconstruction oracles, tight-bound false-green cases, hidden logical cells, truthful full-block fallback and threshold boundaries, engine input guards, and `.p`/`.s`/`.d` rendering |
+| `validation_smallcells.do` | Independent bounded exhaustive 2x2/2x3 reconstruction oracles for every small table, safe fail-closed cases, tight-bound false-green cases, hidden logical cells, truthful full-block fallback and threshold boundaries, engine input guards, and `.p`/`.s`/`.d` rendering |
 | `validation_regtab.do` | Native-stats suite; coefficients/CIs/p-values vs `e()`, r(table) algebra, Excel accuracy, pdp formatting |
 | `validation_effecttab.do` | ATE vs `e(b)`/`teffects`, SE/CI consistency, stored-results content |
 | `validation_stratetab.do` | Structure/content of rate scaffolds, return values |
@@ -132,8 +132,8 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | Command | Functional | Validation | Also exercised in |
 |---------|-----------|------------|-------------------|
 | table1_tc | test_table1_tc, test_smallcells | validation_table1_tc, validation_smallcells | helpers (fast-collect), integration, adversarial, deep core/output, release, crossval |
-| desctab | test_desctab | — | helpers (collect-JSON render), integration |
-| crosstab | test_crosstab | validation_crosstab | integration, adversarial, deep output, crossval |
+| desctab | test_desctab | validation_smallcells | helpers (collect-JSON render), integration |
+| crosstab | test_crosstab | validation_crosstab, validation_smallcells | integration, adversarial, deep output, crossval |
 | corrtab | test_corrtab | validation_corrtab | integration, adversarial |
 | regtab | test_regtab | validation_regtab | helpers, integration, adversarial, deep core/output, release, crossval |
 | effecttab | test_effecttab | validation_effecttab | integration, adversarial |
@@ -156,7 +156,7 @@ a bare token appearing in another command's test does not count. This is
 stricter than a package-wide name scan (which trivially reports 100%).
 
 - **Command coverage:** 16/16 (100%) — every public command has a test file.
-- **Testable option coverage: 435/435 (100%)** — every testable public option of every
+- **Testable option coverage: 437/437 (100%)** — every testable public option of every
   command is passed in a real invocation and accepted.
 
 `test_option_coverage.do` is the dedicated driver; `tools/option_coverage.py`
@@ -166,8 +166,8 @@ surface, scans `test_*.do`/`validation_*.do` for invocations, reports gaps).
 | Command | Options | Testable | Exercised | Coverage |
 |---------|--------:|---------:|----------:|---------:|
 | `table1_tc` | 53 | 52 | 52 | 100.0% |
-| `desctab` | 33 | 32 | 32 | 100.0% |
-| `crosstab` | 31 | 30 | 30 | 100.0% |
+| `desctab` | 34 | 33 | 33 | 100.0% |
+| `crosstab` | 32 | 31 | 31 | 100.0% |
 | `corrtab` | 23 | 22 | 22 | 100.0% |
 | `regtab` | 44 | 43 | 43 | 100.0% |
 | `effecttab` | 34 | 33 | 33 | 100.0% |
@@ -181,7 +181,7 @@ surface, scans `test_*.do`/`validation_*.do` for invocations, reports gaps).
 | `simtab` | 45 | 44 | 44 | 100.0% |
 | `tabtools` | 10 | 10 | 10 | 100.0% |
 | `tabtools_tips` | 1 | 0 | 0 | 100.0% |
-| **Total** | **449** | **435** | **435** | **100%** |
+| **Total** | **451** | **437** | **437** | **100%** |
 
 **Excluded by design — `open` (14 commands).** It opens the workbook in the OS default application (`shell xdg-open`/`open`/`start`) and cannot be driven deterministically in batch, so it is not a testable coverage target. `tabtools_tips` exposes only `open`, so it has no testable surface.
 

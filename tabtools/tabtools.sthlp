@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.13.0  11aug2026}{...}
+{* *! version 1.14.1  11aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -56,6 +56,14 @@ numeric type by reparsing that string would have to guess. Excel will therefore
 not sum, chart, or numerically sort an exported column without a conversion
 step. For a numeric payload use {cmd:frame()}, the returned matrices such as
 {cmd:r(table)}, or {cmd:eplotframe()}.
+
+{pstd}
+{helpb table1_tc}, {helpb desctab}, and {helpb crosstab} accept
+{opt smallcells(#)} for strict disclosure control. They replace protected
+positive counts with {cmd:<#}, use {cmd:≥#} for complementary suppression, and
+withhold dependent results before console, Excel, CSV, Markdown, frame, or
+stored-result output is built. See each command's help for its supported
+layouts and fail-closed limits.
 
 {pstd}
 Most commands require Stata 17. The suite controller {cmd:tabtools},
@@ -489,6 +497,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.13.0{p_end}
+{pstd}{bf:Version} 1.14.1{p_end}
 
 {hline}

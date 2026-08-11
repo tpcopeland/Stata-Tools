@@ -1,4 +1,4 @@
-*! crosstab Version 1.13.0  2026/08/11
+*! crosstab Version 1.14.1  2026/08/11
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,7 @@ DESCRIPTION:
 SYNTAX:
     crosstab rowvar colvar [if] [in] [weight], xlsx(filename)
         [colpct rowpct totalpct exact fisher
-        or rr rd trend cochran label missing
+        or rr rd trend cochran label missing smallcells(integer)
         sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra headershade headercolor(string) zebracolor(string)
@@ -57,7 +57,8 @@ capture noisily {
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) open]
+        csv(string) MARKdown(string) MDAPPend FRAme(string) ///
+        SMALLCells(string) open]
 
     gettoken rowvar colvar : varlist
 
@@ -93,6 +94,26 @@ capture noisily {
     if `boldp' != -1 & (`boldp' <= 0 | `boldp' >= 1) {
         noisily display as error "boldp() must be between 0 and 1"
         exit 198
+    }
+    local _sc_active = "`smallcells'" != ""
+    if `_sc_active' {
+        capture confirm integer number `smallcells'
+        if _rc {
+            noisily display as error "smallcells() must be an integer greater than or equal to 3"
+            exit 198
+        }
+        if `smallcells' < 3 {
+            noisily display as error "smallcells() must be an integer greater than or equal to 3"
+            exit 198
+        }
+    }
+    local _sc_note ""
+    if `_sc_active' {
+        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
+        if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
+            if `"`footnote'"' == "" local footnote `"`_sc_note'"'
+            else local footnote `"`footnote' `_sc_note'"'
+        }
     }
 
     * Defaults
@@ -236,6 +257,45 @@ capture noisily {
     matrix `_rowsum' = `_freq' * J(`n_cols', 1, 1)
     matrix `_colsum' = J(1, `n_rows', 1) * `_freq'
 
+    * Decide suppression while exact numeric lineage is still available.
+    tempname _scmask _scrowmask _sccolmask _sc_exact _sc_sensitive
+    tempname _sc_rowexact _sc_rowsens _sc_colexact _sc_colsens
+    local _sc_totalmask 0
+    local _sc_nprimary 0
+    local _sc_nsecondary 0
+    local _sc_nderived 0
+    local _sc_suppress_derived 0
+    if `_sc_active' {
+        matrix `_sc_exact' = J(`n_rows', `n_cols', 1)
+        matrix `_sc_sensitive' = J(`n_rows', `n_cols', 1)
+        matrix `_sc_rowexact' = J(`n_rows', 1, 1)
+        matrix `_sc_rowsens' = J(`n_rows', 1, 1)
+        matrix `_sc_colexact' = J(1, `n_cols', 1)
+        matrix `_sc_colsens' = J(1, `n_cols', 1)
+        capture noisily _tabtools_smallcells, counts(`_freq') ///
+            exact(`_sc_exact') sensitive(`_sc_sensitive') ///
+            rowexact(`_sc_rowexact') rowsensitive(`_sc_rowsens') ///
+            colexact(`_sc_colexact') colsensitive(`_sc_colsens') ///
+            grandexact(1) grandsensitive(1) smallcells(`smallcells')
+        if _rc {
+            local _sc_rc = _rc
+            restore
+            exit `_sc_rc'
+        }
+        matrix `_scmask' = r(mask)
+        matrix `_scrowmask' = r(rowmask)
+        matrix `_sccolmask' = r(colmask)
+        local _sc_totalmask = r(totalmask)
+        local _sc_nprimary = r(N_primary_suppressed)
+        local _sc_nsecondary = r(N_secondary_suppressed)
+        local _sc_suppress_derived = `_sc_nprimary' > 0
+    }
+    else {
+        matrix `_scmask' = J(`n_rows', `n_cols', 0)
+        matrix `_scrowmask' = J(`n_rows', 1, 0)
+        matrix `_sccolmask' = J(1, `n_cols', 0)
+    }
+
     * Chi-squared / Fisher's exact test
     local _chi2 .
     local _p .
@@ -262,9 +322,6 @@ capture noisily {
         local _p = r(p)
         local _test_name "Pearson's chi-squared test"
     }
-    return scalar chi2 = `_chi2'
-    return scalar p = `_p'
-
     * Association measures for 2x2 tables
     local _or .
     local _rr .
@@ -291,7 +348,6 @@ capture noisily {
             }
             local _or_lo = r(lb_or)
             local _or_hi = r(ub_or)
-            return scalar or = `_or'
         }
         if "`rr'" != "" | "`rd'" != "" {
             qui cs `_assoc_row01' `_assoc_col01' [`weight'`exp'], level(`level')
@@ -304,7 +360,6 @@ capture noisily {
                 }
                 local _rr_lo = r(lb_rr)
                 local _rr_hi = r(ub_rr)
-                return scalar rr = `_rr'
             }
             if "`rd'" != "" {
                 local _rd = r(rd)
@@ -315,13 +370,13 @@ capture noisily {
                 }
                 local _rd_lo = r(lb_rd)
                 local _rd_hi = r(ub_rd)
-                return scalar rd = `_rd'
             }
         }
     }
 
 	    * Trend test (Spearman rank correlation)
 	    local _p_trend .
+	    local _trend_method ""
 	    if "`trend'" != "" {
 	        tempfile _trend_snap
 	        qui save `_trend_snap'
@@ -343,8 +398,7 @@ capture noisily {
 	            exit 498
 	        }
 	        qui use `_trend_snap', clear
-	        return scalar p_trend = `_p_trend'
-	        return local trend_method "Spearman rank correlation"
+	        local _trend_method "Spearman rank correlation"
 	    }
 
 	    * Cochran-Armitage trend test: linear trend in the proportion of the
@@ -382,8 +436,6 @@ capture noisily {
 	            local _ca_z = `_ca_T' / sqrt(`_ca_varT')
 	            local _ca_chi2 = `_ca_z'^2
 	            local _p_trend = chi2tail(1, `_ca_chi2')
-	            return scalar chi2_trend = `_ca_chi2'
-	            return scalar z_trend = `_ca_z'
 	        }
 	        if missing(`_p_trend') {
 	            noisily display as error "Cochran-Armitage trend test could not be computed; the outcome and ordered exposure must both vary"
@@ -391,8 +443,7 @@ capture noisily {
 	            exit 498
 	        }
 	        qui use `_ca_snap', clear
-	        return scalar p_trend = `_p_trend'
-	        return local trend_method "Cochran-Armitage"
+	        local _trend_method "Cochran-Armitage"
 	    }
 
 **# Build Output Dataset
@@ -428,28 +479,47 @@ capture noisily {
             local _col = `c' + 1
             local _freq_val = `_freq'[`r', `c']
             local _col_total = `_colsum'[1, `c']
-            local _cell_str = string(`_freq_val', "%11.0fc")
-            if "`colpct'" != "" {
+            local _sc_cell_code = `_scmask'[`r', `c']
+            local _sc_denom_code 0
+            if "`colpct'" != "" local _sc_denom_code = `_sccolmask'[1, `c']
+            else if "`rowpct'" != "" local _sc_denom_code = `_scrowmask'[`r', 1]
+            else if "`totalpct'" != "" local _sc_denom_code = `_sc_totalmask'
+            local _sc_pct_blocked = `_sc_active' & ///
+                (`_sc_cell_code' > 0 | `_sc_denom_code' > 0)
+            if `_sc_cell_code' > 0 {
+                _tabtools_smallcells_render, value(`_freq_val') ///
+                    mask(`_sc_cell_code') smallcells(`smallcells')
+                local _cell_str `"`r(display)'"'
+            }
+            else local _cell_str = string(`_freq_val', "%11.0fc")
+            if "`colpct'" != "" & !`_sc_pct_blocked' {
                 if `_col_total' > 0 {
                     local _pct = strtrim(string(`_freq_val' / `_col_total' * 100, "%21.`digits'f"))
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
-            else if "`rowpct'" != "" {
+            else if "`rowpct'" != "" & !`_sc_pct_blocked' {
                 if `_row_total' > 0 {
                     local _pct = strtrim(string(`_freq_val' / `_row_total' * 100, "%21.`digits'f"))
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
-            else if "`totalpct'" != "" {
+            else if "`totalpct'" != "" & !`_sc_pct_blocked' {
                 if `_total_n' > 0 {
                     local _pct = strtrim(string(`_freq_val' / `_total_n' * 100, "%21.`digits'f"))
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
+            if `_sc_pct_blocked' local ++_sc_nderived
             qui replace c`_col' = strtrim("`_cell_str'") in `row'
         }
-        qui replace c`out_ncols' = string(`_row_total', "%11.0fc") in `row'
+        local _sc_row_code = `_scrowmask'[`r', 1]
+        if `_sc_row_code' > 0 {
+            _tabtools_smallcells_render, value(`_row_total') ///
+                mask(`_sc_row_code') smallcells(`smallcells')
+            qui replace c`out_ncols' = strtrim(`"`r(display)'"') in `row'
+        }
+        else qui replace c`out_ncols' = string(`_row_total', "%11.0fc") in `row'
     }
 
     * Total row
@@ -458,9 +528,23 @@ capture noisily {
     qui replace c1 = "Total" in `row'
     forvalues c = 1/`n_cols' {
         local _col = `c' + 1
-        qui replace c`_col' = string(`_colsum'[1,`c'], "%11.0fc") in `row'
+        local _sc_col_code = `_sccolmask'[1, `c']
+        if `_sc_col_code' > 0 {
+            local _sc_col_value = `_colsum'[1, `c']
+            _tabtools_smallcells_render, value(`_sc_col_value') ///
+                mask(`_sc_col_code') smallcells(`smallcells')
+            qui replace c`_col' = strtrim(`"`r(display)'"') in `row'
+        }
+        else qui replace c`_col' = string(`_colsum'[1,`c'], "%11.0fc") in `row'
     }
-    qui replace c`out_ncols' = string(`_total_n', "%11.0fc") in `row'
+    local _sc_safe_N = `_total_n'
+    if `_sc_totalmask' > 0 {
+        _tabtools_smallcells_render, value(`_total_n') ///
+            mask(`_sc_totalmask') smallcells(`smallcells')
+        qui replace c`out_ncols' = strtrim(`"`r(display)'"') in `row'
+        local _sc_safe_N = r(value)
+    }
+    else qui replace c`out_ncols' = string(`_total_n', "%11.0fc") in `row'
 
     * Track first measure row for formatting
     local _first_measure_row = `row' + 1
@@ -476,7 +560,11 @@ capture noisily {
     * from an operator/value pair rather than gluing "= " onto the rendered
     * string.
     local _p_phrase = cond(`_p' < 0.001, "p < 0.001", "p = " + string(`_p', "%5.3f"))
-    if "`_test_name'" == "Fisher's exact test" {
+    if `_sc_suppress_derived' {
+        qui replace c1 = `"`_test_name': Suppressed"' in `row'
+        local ++_sc_nderived
+    }
+    else if "`_test_name'" == "Fisher's exact test" {
         qui replace c1 = `"`_test_name': `_p_phrase'"' in `row'
     }
     else {
@@ -488,17 +576,29 @@ capture noisily {
     if !missing(`_or') {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "OR = " + strtrim(string(`_or', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_or_lo', "%21.`digits'f")) + ", " + strtrim(string(`_or_hi', "%21.`digits'f")) + ")" in `row'
+        if `_sc_suppress_derived' {
+            qui replace c1 = "OR = Suppressed" in `row'
+            local ++_sc_nderived
+        }
+        else qui replace c1 = "OR = " + strtrim(string(`_or', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_or_lo', "%21.`digits'f")) + ", " + strtrim(string(`_or_hi', "%21.`digits'f")) + ")" in `row'
     }
     if !missing(`_rr') {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "RR = " + strtrim(string(`_rr', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_rr_lo', "%21.`digits'f")) + ", " + strtrim(string(`_rr_hi', "%21.`digits'f")) + ")" in `row'
+        if `_sc_suppress_derived' {
+            qui replace c1 = "RR = Suppressed" in `row'
+            local ++_sc_nderived
+        }
+        else qui replace c1 = "RR = " + strtrim(string(`_rr', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_rr_lo', "%21.`digits'f")) + ", " + strtrim(string(`_rr_hi', "%21.`digits'f")) + ")" in `row'
     }
     if !missing(`_rd') {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "RD = " + strtrim(string(`_rd', "%21.`=`digits'+2'f")) + " (`level'% CI: " + strtrim(string(`_rd_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_rd_hi', "%21.`=`digits'+2'f")) + ")" in `row'
+        if `_sc_suppress_derived' {
+            qui replace c1 = "RD = Suppressed" in `row'
+            local ++_sc_nderived
+        }
+        else qui replace c1 = "RD = " + strtrim(string(`_rd', "%21.`=`digits'+2'f")) + " (`level'% CI: " + strtrim(string(`_rd_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_rd_hi', "%21.`=`digits'+2'f")) + ")" in `row'
     }
     if !missing(`_p_trend') {
         local row = `row' + 1
@@ -506,7 +606,11 @@ capture noisily {
         local _trend_row = `row'
         local _pt_str = cond(`_p_trend' < 0.001, "<0.001", string(`_p_trend', "%5.3f"))
         local _trend_lbl = cond("`cochran'" != "", "P for trend (Cochran-Armitage)", "P for trend")
-        qui replace c1 = `"`_trend_lbl' = `_pt_str'"' in `row'
+        if `_sc_suppress_derived' {
+            qui replace c1 = `"`_trend_lbl' = Suppressed"' in `row'
+            local ++_sc_nderived
+        }
+        else qui replace c1 = `"`_trend_lbl' = `_pt_str'"' in `row'
     }
 
     local num_rows = _N
@@ -519,12 +623,21 @@ capture noisily {
     * Build return matrix
     tempname _rtable
     matrix `_rtable' = `_freq'
+    if `_sc_active' {
+        forvalues r = 1/`n_rows' {
+            forvalues c = 1/`n_cols' {
+                if `_scmask'[`r', `c'] == 1 matrix `_rtable'[`r', `c'] = .p
+                else if `_scmask'[`r', `c'] == 2 matrix `_rtable'[`r', `c'] = .s
+            }
+        }
+    }
     capture matrix rownames `_rtable' = `row_levels'
     capture matrix colnames `_rtable' = `col_levels'
     order title c*
 
 **# Console Display
     noisily _tabtools_console_display `out_ncols' `"`title'"'
+    if `_sc_active' noisily display as text "`_sc_note'"
 
 **# CSV Export
     if "`csv'" != "" {
@@ -559,28 +672,84 @@ capture noisily {
         local frame `"`_frame_name'"'
         frame `frame': char _dta[tabtools_ci_level] "`level'"
         frame `frame': char _dta[tabtools_source] "crosstab"
+        if `_sc_active' {
+            frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
+            frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
+            frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        }
     }
 
-**# Return Results
-    capture return matrix table = `_rtable'
-    return scalar N = `_total_n'
+    * Methods paragraph
+    local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
+    local _methods "`_methods' Statistical significance was assessed using `_test_name'."
+    if `_sc_suppress_derived' {
+        local _methods "`_methods' Count-dependent tests and association measures were suppressed under smallcells(`smallcells')."
+    }
+    else {
+        if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
+        if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
+        if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
+        if !missing(`_p_trend') & "`cochran'" != "" local _methods "`_methods' A Cochran-Armitage test for trend in the proportion of `rlabel_2' across ordered column levels is also reported."
+        else if !missing(`_p_trend') local _methods "`_methods' A Spearman rank-correlation test for trend across ordered column levels is also reported."
+    }
+    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+
+    * Post the safe analytical payload before optional workbook side effects.
+    * These returns intentionally survive a later nonzero export rc; copy the
+    * matrices because the successful return gate below still needs them.
+    return clear
+    if `_sc_suppress_derived' {
+        return scalar chi2 = .d
+        return scalar p = .d
+    }
+    else {
+        return scalar chi2 = `_chi2'
+        return scalar p = `_p'
+    }
+    if !missing(`_or') {
+        if `_sc_suppress_derived' return scalar or = .d
+        else return scalar or = `_or'
+    }
+    if !missing(`_rr') {
+        if `_sc_suppress_derived' return scalar rr = .d
+        else return scalar rr = `_rr'
+    }
+    if !missing(`_rd') {
+        if `_sc_suppress_derived' return scalar rd = .d
+        else return scalar rd = `_rd'
+    }
+    if !missing(`_p_trend') {
+        if `_sc_suppress_derived' return scalar p_trend = .d
+        else return scalar p_trend = `_p_trend'
+        return local trend_method "`_trend_method'"
+    }
+    if "`cochran'" != "" & !missing(`_p_trend') {
+        if `_sc_suppress_derived' {
+            return scalar chi2_trend = .d
+            return scalar z_trend = .d
+        }
+        else {
+            return scalar chi2_trend = `_ca_chi2'
+            return scalar z_trend = `_ca_z'
+        }
+    }
+    return scalar N = `_sc_safe_N'
+    return scalar ci_level = `level'
+    return local methods "`_methods'"
     if "`frame'" != "" return local frame "`frame'"
     if `"`_ret_markdown'"' != "" {
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
     }
-
-    * Methods paragraph
-    local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
-    local _methods "`_methods' Statistical significance was assessed using `_test_name'."
-    if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
-    if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
-    if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
-    if !missing(`_p_trend') & "`cochran'" != "" local _methods "`_methods' A Cochran-Armitage test for trend in the proportion of `rlabel_2' across ordered column levels is also reported."
-    else if !missing(`_p_trend') local _methods "`_methods' A Spearman rank-correlation test for trend across ordered column levels is also reported."
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-    return local methods "`_methods'"
+    if `_sc_active' {
+        return scalar smallcells = `smallcells'
+        return scalar N_primary_suppressed = `_sc_nprimary'
+        return scalar N_secondary_suppressed = `_sc_nsecondary'
+        return scalar N_derived_suppressed = `_sc_nderived'
+        return matrix suppression = `_scmask', copy
+    }
+    return matrix table = `_rtable', copy
 
 **# Excel Export
     local _xlsx_ok 0
@@ -655,11 +824,11 @@ capture noisily {
                 matrix `_style_rules' = `_style_rules' \ ///
                     (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
             }
-            if `boldp' != -1 & !missing(`_p') & `_p' < `boldp' {
+            if `boldp' != -1 & !`_sc_suppress_derived' & !missing(`_p') & `_p' < `boldp' {
                 matrix `_style_rules' = `_style_rules' \ ///
                     (2, `_p_row', `_p_row', 2, `num_cols', 0, 1, 0, 0)
             }
-            if `boldp' != -1 & !missing(`_p_trend') & `_p_trend' < `boldp' & `_trend_row' > 0 {
+            if `boldp' != -1 & !`_sc_suppress_derived' & !missing(`_p_trend') & `_p_trend' < `boldp' & `_trend_row' > 0 {
                 matrix `_style_rules' = `_style_rules' \ ///
                     (2, `_trend_row', `_trend_row', 2, `num_cols', 0, 1, 0, 0)
             }
@@ -708,12 +877,66 @@ capture noisily {
 
     restore
 
+    if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
+
+**# Return Results
+    return clear
+    if `_sc_suppress_derived' {
+        return scalar chi2 = .d
+        return scalar p = .d
+    }
+    else {
+        return scalar chi2 = `_chi2'
+        return scalar p = `_p'
+    }
+    if !missing(`_or') {
+        if `_sc_suppress_derived' return scalar or = .d
+        else return scalar or = `_or'
+    }
+    if !missing(`_rr') {
+        if `_sc_suppress_derived' return scalar rr = .d
+        else return scalar rr = `_rr'
+    }
+    if !missing(`_rd') {
+        if `_sc_suppress_derived' return scalar rd = .d
+        else return scalar rd = `_rd'
+    }
+    if !missing(`_p_trend') {
+        if `_sc_suppress_derived' return scalar p_trend = .d
+        else return scalar p_trend = `_p_trend'
+        return local trend_method "`_trend_method'"
+    }
+    if "`cochran'" != "" & !missing(`_p_trend') {
+        if `_sc_suppress_derived' {
+            return scalar chi2_trend = .d
+            return scalar z_trend = .d
+        }
+        else {
+            return scalar chi2_trend = `_ca_chi2'
+            return scalar z_trend = `_ca_z'
+        }
+    }
+    return scalar N = `_sc_safe_N'
+    return scalar ci_level = `level'
+    return local methods "`_methods'"
+    if "`frame'" != "" return local frame "`frame'"
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
-    return scalar ci_level = `level'
-    if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
+    if `_sc_active' {
+        return scalar smallcells = `smallcells'
+        return scalar N_primary_suppressed = `_sc_nprimary'
+        return scalar N_secondary_suppressed = `_sc_nsecondary'
+        return scalar N_derived_suppressed = `_sc_nderived'
+        return matrix suppression = `_scmask'
+    }
+    return matrix table = `_rtable'
 
 } // end capture noisily
     local _rc = _rc

@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.0.3** | 2026-08-10
+**Version 1.0.4** | 2026-08-11
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -55,6 +55,8 @@ net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stat
 - With `restore`, it uses backup source metadata embedded by a transfer bundle to restore online URLs in `stata.trk`.
 
 Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files; it leaves the extracted folder in place because its cleanup commands are disabled for safety.
+
+Nested ordinary and plugin paths recorded by package descriptors are preserved in offline bundles. Unsafe absolute or parent-traversal paths are rejected before a tracked file can escape the command-owned staging directory.
 
 ## Worked Examples
 
@@ -114,7 +116,7 @@ pkgtransfer, limited(`first') dofile(one_package.do)
 pkgtransfer, skip(`first') dofile(without_one.do)
 ```
 
-Package names must match the names recorded in `stata.trk` exactly. `limited()` rejects a name that is not installed; `skip()` ignores names that do not match a tracked package.
+Package names must match the names recorded in `stata.trk` exactly. `limited()` rejects a name that is not installed; `skip()` ignores names that do not match a tracked package. Repeated names in either option are normalized once while retaining their first-supplied order.
 
 ### 5. Restore online source paths
 
@@ -142,7 +144,7 @@ pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(
 | `download(online)` or `download(local)` | The installer do-file plus `pkgtransfer_files.zip`, or the name supplied by `zipfile()`; the archive contains package descriptors, package files, and `stata.toc` |
 | `restore` | The current PLUS `stata.trk` is rewritten when backup URLs are present, and `stata.trk.backup` is created first |
 
-Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the exact archive name selected by `zipfile()` and quotes it, and it stops if a package cannot be installed.
+Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the exact archive name selected by `zipfile()`, uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
 
 ## Key Options
 
@@ -153,8 +155,8 @@ Existing do-file and archive targets with the same names are replaced. Bundle cr
 | `skip(pkglist)` | none | Excludes the exact package names supplied |
 | `restore` | off | Restores embedded online source URLs in `stata.trk`; it may be used alone or with `download()` |
 | `os(Windows|Unix|MacOSX)` | current `c(os)` | Sets the target OS used for the commented manual-cleanup command in an offline installer |
-| `dofile(filename)` | `pkgtransfer.do` | Sets the generated do-file name; it must end in `.do` and may not contain shell metacharacters |
-| `zipfile(filename)` | `pkgtransfer_files.zip` | Sets the generated archive name; it must end in `.zip`, may not contain shell metacharacters, and is valid only with `download()` |
+| `dofile(filename)` | `pkgtransfer.do` | Sets the generated do-file name; it must end in `.do` and may not contain shell metacharacters or quote characters |
+| `zipfile(filename)` | `pkgtransfer_files.zip` | Sets the generated archive name; it must end in `.zip`, may not contain shell metacharacters or quote characters, and is valid only with `download()` |
 
 The values for `download()` and `os()` are case-sensitive as shown. A package named in `limited()` that is not present in `stata.trk` produces an error, and the same package may not appear in both `limited()` and `skip()`. `zipfile()` is not valid without `download()`.
 
@@ -175,6 +177,8 @@ For standalone `restore`, the returned `download_mode` is `restore` and `r(os)` 
 
 If `skip()` excludes every tracked package, `r(N_packages)` is 0, `r(package_list)` is empty, and the requested empty script or bundle is still created.
 
+After package selection has succeeded, capturing a later output-write or archive failure leaves this full return surface available while preserving the original nonzero return code.
+
 ## Assumptions and Limits
 
 - Only packages and sources recorded in the current PLUS directory's `stata.trk` are considered. Other adopath locations and untracked files are not reconstructed.
@@ -187,6 +191,7 @@ If `skip()` excludes every tracked package, `r(N_packages)` is 0, `r(package_lis
 
 ## Version History
 
+- **1.0.4** (2026-08-11): Package selectors are normalized as ordered sets; duplicate tracker definitions fail before any transfer mode; local and online bundles preserve nested ordinary and plugin paths while rejecting traversal; failed side effects retain the analytical return surface; and generated offline installers preserve caller globals and the working directory.
 - **1.0.3** (2026-08-10): Local bundles now resolve non-SSC plugin descriptors correctly, parse tab-delimited platform records, preserve nested plugin source paths, and update the correct package descriptor.
 - **1.0.2** (2026-08-05): Skipping every tracked package now creates the requested empty script or bundle and returns `r(N_packages)=0` with an empty package list instead of failing with a no-observations error.
 - **1.0.1** (2026-08-05): Generated offline installers now use the archive selected by `zipfile()` and propagate installation failures; standalone restore no longer enters script generation; caller state is protected; contradictory filters are rejected; and bundle creation refuses user-owned staging directories, removes its own failed staging, and aborts on missing required files.

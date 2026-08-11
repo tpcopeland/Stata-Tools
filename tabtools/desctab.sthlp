@@ -30,7 +30,7 @@
 {opt zebrac:olor(string)} {opt border:style(string)}
 {opt the:me(string)} {opt open} {opt csv(string)} {opt markdown(filename)} {opt mdappend}
 {opt fra:me(name)} {opt high:light(#)}
-{opt hls:tat(string)}]{p_end}
+{opt hls:tat(string)} {opt smallc:ells(#)}]{p_end}
 
 {pstd}
 Prerequisite: an active {helpb collect} created by {helpb table}. {cmd:desctab}
@@ -90,6 +90,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt fra:me(name)}}store the display table in a Stata frame{p_end}
 {synopt:{opt high:light(#)}}highlight rows where {opt hls:tat()} is below the threshold{p_end}
 {synopt:{opt hls:tat(string)}}statistic used for {opt high:light()}. Default is {cmd:mean}{p_end}
+{synopt:{opt smallc:ells(#)}}protect recognized count layouts{p_end}
 {synoptline}
 
 {pstd}
@@ -186,6 +187,10 @@ by default{p_end}
 {opt sheet(string)} worksheet name. Default is {cmd:Descriptive}{p_end}
 
 {phang}
+{opt smallc:ells(#)} protect exact counts below {it:#}; {it:#} must be an
+integer of at least 3.{p_end}
+
+{phang}
 {opt statlabels(string)} custom statistic labels, for example {cmd:"count=N \ mean=Mean"}{p_end}
 
 {phang}
@@ -207,6 +212,32 @@ statistics afterward{p_end}
 
 {phang}
 {opt zebrac:olor(string)} zebra fill color as a supported Stata color name or RGB triplet{p_end}
+
+{marker smallcells}{title:Small-cell disclosure control}
+
+{pstd}
+{opt smallcells(#)} is available only when the active collection can be mapped
+by exact dimension and result identifiers. Initial support covers a single
+{cmd:count}, {cmd:frequency}, or {cmd:fvfrequency} result, and the named
+{cmd:compose(n_pct)} preset with exactly one count and one percentage result
+in a shape with one non-{cmd:var} row dimension, at most one non-{cmd:var} column
+dimension, and at most one source-variable level in a {cmd:var} dimension.{p_end}
+
+{pstd}
+Positive counts below {it:#} are shown as {cmd:<#}; additional cells or margins
+are shown as {cmd:≥#} when needed to prevent exact reconstruction. Structural
+zeros remain visible. With {cmd:compose(n_pct)}, percentages in a protected
+logical block are withheld and the safe count marker remains. The console,
+Excel, CSV, Markdown, and frame sinks all reuse the same redacted table.{p_end}
+
+{pstd}
+Custom {opt compose()} templates, other statistics, multiple source-variable
+levels, unsupported compound layouts, and combinations with {opt keep()},
+{opt drop()}, {opt nomissing}, or {opt highlight()} fail before any sink is
+written. The command also fails closed if count additivity or reconstruction
+protection cannot be proved. The standard small-cell footnote is appended
+automatically. Protection covers one invocation and does not account for
+linkage across separate releases.{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -231,6 +262,19 @@ statistics afterward{p_end}
 {pstd}Opt in to shaded fills when desired:{p_end}
 {phang2}{cmd:. desctab, xlsx(desc.xlsx) sheet("Styled") title("Styled descriptive table") headershade zebra}{p_end}
 
+{pstd}Protect a recognized count table:{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input byte row byte col int frequency}{p_end}
+{phang2}{cmd:. 1 1 2}{p_end}
+{phang2}{cmd:. 1 2 8}{p_end}
+{phang2}{cmd:. 2 1 6}{p_end}
+{phang2}{cmd:. 2 2 4}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. expand frequency}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: table row col, statistic(frequency)}{p_end}
+{phang2}{cmd:. desctab, smallcells(5) frame(desctab_safe, replace)}{p_end}
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -242,6 +286,10 @@ statistics afterward{p_end}
 {synopt:{cmd:r(N_rows)}}rows in the display table, excluding the title row{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(smallcells)}}requested threshold when {opt smallcells()} is used{p_end}
+{synopt:{cmd:r(N_primary_suppressed)}}primary values hidden{p_end}
+{synopt:{cmd:r(N_secondary_suppressed)}}complementary values hidden{p_end}
+{synopt:{cmd:r(N_derived_suppressed)}}dependent non-count cells hidden{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(version)}}command version{p_end}
@@ -256,7 +304,17 @@ statistics afterward{p_end}
 {synopt:{cmd:r(methods)}}short methods sentence{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}numeric matrix parsed from displayed cells where possible{p_end}
+{synopt:{cmd:r(table)}}numeric display matrix with suppression markers{p_end}
+{synopt:{cmd:r(suppression)}}display-cell suppression codes{p_end}
+
+{pstd}
+{cmd:r(suppression)} uses 0 for visible, 1 for primary, 2 for complementary,
+and 3 for derived display cells.{p_end}
+
+{pstd}
+A requested frame carries characteristics {cmd:tabtools_smallcells},
+{cmd:tabtools_suppression_codes}, and
+{cmd:tabtools_suppression_scope}.{p_end}
 
 {marker author}{...}
 {title:Author}
