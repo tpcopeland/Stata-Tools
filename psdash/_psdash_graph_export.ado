@@ -1,4 +1,4 @@
-*! _psdash_graph_export Version 1.6.7  2026/08/11
+*! _psdash_graph_export Version 1.6.8  2026/08/11
 *! Shared graph export side effect
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

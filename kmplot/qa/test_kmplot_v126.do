@@ -17,7 +17,7 @@ local pass_count = 0
 local fail_count = 0
 
 **# Regression tests
-**## R1: Time axis precedes the separated risk table with readable defaults
+**## R1: Time-axis title favors the values above a solid table separator
 
 local ++test_count
 capture noisily {
@@ -33,6 +33,7 @@ capture noisily {
     local axis_y = .
     local title_y = .
     local separator_y = .
+    local separator_solid = .
     local risk_y = .
     local axis_size = .
     local risk_size = .
@@ -57,6 +58,7 @@ capture noisily {
             if regexm(`"`line'"', `" y1="([0-9.]+)""') {
                 local separator_y = real(regexs(1))
             }
+            local separator_solid = !strpos(`"`line'"', "stroke-dasharray")
         }
         if strpos(`"`line'"', ">48</text>") {
             if regexm(`"`line'"', `" y="([0-9.]+)""') {
@@ -70,9 +72,13 @@ capture noisily {
     }
     file close `fh'
 
-    assert `axis_y' < `separator_y'
+    assert `axis_y' < `title_y'
     assert `title_y' < `separator_y'
     assert `separator_y' < `risk_y'
+    local axis_title_gap = `title_y' - `axis_y'
+    local title_risk_gap = `risk_y' - `title_y'
+    assert `axis_title_gap' < `title_risk_gap'
+    assert `separator_solid' == 1
     assert `axis_size' > 50
     assert `risk_size' > 50
     erase "`svg'"
