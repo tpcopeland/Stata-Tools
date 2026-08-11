@@ -5,7 +5,7 @@
       2. Basic raincloud by groups (graph) -> .png
       3. Vertical raincloud with mean (graph) -> .png
       4. Customized raincloud: cloud + box, 5 groups (graph) -> .png
-      5. Mirror (split violin) (graph) -> .png
+      5. Full mirrored violin (graph) -> .png
       6. Custom colors with mirror (graph) -> .png
       7. Element styling via pass-through options (graph) -> .png
       8. Weighted raincloud (graph) -> .png
@@ -58,10 +58,10 @@ raincloud mpg, over(rep78) norain seed(2026) ///
 graph export "`pkg_dir'/raincloud_custom.png", name(custom) replace width(1200)
 capture graph close custom
 
-* --- 5. Mirror (split violin) ---
+* --- 5. Full mirrored violin ---
 raincloud mpg, over(foreign) mirror mean seed(2026) ///
     opacity(60) ///
-    title("Split Violin: Fuel Efficiency by Origin") ///
+    title("Full Mirrored Violin: Fuel Efficiency by Origin") ///
     name(mirror_plot, replace)
 graph export "`pkg_dir'/raincloud_mirror.png", name(mirror_plot) replace width(1200)
 capture graph close mirror_plot
