@@ -35,6 +35,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | `test_kmplot.do` | Core workflows, options, errors, state restoration, exports, saved datasets, and returned results. |
 | `test_kmplot_v124.do` | Multiple-record and weighted risk sets, option-dependency errors, and Stata-native help rendering. |
 | `test_kmplot_v125.do` | Graph-name isolation and cleanup, custom-color recycling, combined-plot median annotations, and dotted export paths. |
+| `test_kmplot_v126.do` | Combined-plot x-axis ordering, risk-table separator, and readable default label sizing. |
 
 ### Validation
 
@@ -54,7 +55,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 
 | Command | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
+| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
 
 ## Lane membership
 
@@ -63,5 +64,5 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | Lane | Suites |
 |---|---|
 | `quick` | `test_kmplot.do` |
-| `core` | `quick` plus both version-regression suites, recovery, and comprehensive validation |
+| `core` | `quick` plus three version-regression suites, recovery, and comprehensive validation |
 | `full` | Same correctness gate as `core`; no external backend lane applies |

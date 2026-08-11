@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.5  10aug2026}{...}
+{* *! version 1.6.7  11aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -111,7 +111,7 @@ Detailed topics: {helpb psdash_overlap:overlap},
 {opt bwid:th(#)} {opt nog:raph} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt ti:tle(string)} {opt name(string)}
 {opt xlsx(filename)} {opt sheet(string)} {opt gpsfloor(#)}
-{opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
+{opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)} {opt compact}]
 
 {dlgtab:balance}
 
@@ -131,7 +131,7 @@ Detailed topics: {helpb psdash_overlap:overlap},
 {cmd:psdash weights} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt w:var(varname)} {opt trim(#)} {opt trunc:ate(#)} {opt stab:ilize}
 {opt gen:erate(name)} {opt replace} {opt det:ail} {opt gr:aph}
-{opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
+{opt compact} {opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt name(string)} {opt xlsx(filename)} {opt sheet(string)}
 {opt esti:mand(string)} {opt ext:reme(# #)}
 {opt psv:ars(varlist)} {opt ref:erence(#)} {opt iivwcomponent(string)}]
@@ -142,7 +142,7 @@ Detailed topics: {helpb psdash_overlap:overlap},
 {cmd:psdash support} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt crump} {opt thr:eshold(#)} {opt qtrim(#)}
 {opt gpsfloor(#)}
-{opt gen:erate(name)} {opt replace} {opt comp:are} {opt nog:raph} {opt sav:ing(filename)}
+{opt gen:erate(name)} {opt replace} {opt comp:are} {opt compact} {opt nog:raph} {opt sav:ing(filename)}
 {opt sch:eme(schemename)} {opt graphopt:ions(string)} {opt ti:tle(string)}
 {opt name(string)} {opt xlsx(filename)} {opt sheet(string)} {opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
@@ -319,12 +319,21 @@ not specified, Stata's default bandwidth is used.
 {phang}
 {opt nograph} suppresses the graph and shows only the summary table.
 
+{phang}
+{opt compact} replaces the detailed multi-group component density panels with
+one grouped box-plot region containing every GPS component. It has no effect
+for binary treatments.
+
 {pstd}
 For a multi-valued treatment, the overlap graph has one panel for each GPS
 component {it:e_j(X)}. Within panel {it:j}, that same component is plotted for
 every observed treatment group. This is the component-by-assignment diagnostic
 recommended by McCaffrey et al. (2013); plotting only each group's own-arm score
-would compare different quantities.
+would compare different quantities. Each component uses its own observed
+probability range because GPS components can occupy different scales. The
+practical-positivity floor is drawn only when it lies within that component's
+range, and three-component graphs occupy one row rather than a partial 2-by-2
+grid. Histograms use aligned bins within each component.
 
 {phang}
 {opt xlsx(filename)} exports the overlap summary statistics to an Excel file
@@ -508,8 +517,18 @@ support diagnostics remain treatment-propensity diagnostics.
 {opt graph} displays a weight distribution histogram.
 
 {phang}
+{opt compact} scales each treatment arm's histogram to within-arm fractions
+instead of raw frequencies. This makes arm shapes comparable when sample sizes
+differ and is used automatically by multi-group combined dashboards.
+
+{phang}
 {opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram. It is
-ignored unless {opt graph} is also specified.
+ignored unless {opt graph} is also specified. Without {opt xlabel()}, psdash uses
+round, data-driven tick intervals. If the maximum is more than 1.5 times both p99
+and the lower {opt extreme()} cutoff, the graph focuses on the central distribution
+through a rounded limit based on the larger cutoff and notes the omitted count and
+full maximum; numerical diagnostics still use every weight. Specifying
+{opt xlabel()} disables that automatic display cap.
 
 {phang}
 {opt xlsx(filename)} exports the weight summary statistics to an Excel file
@@ -600,6 +619,15 @@ are returned in {cmd:r(*_pre)} and {cmd:r(*_post)}.
 {opt nograph} suppresses the PS density graph.
 
 {phang}
+{opt compact} replaces the detailed multi-group component density panels with
+one box-plot region of the minimum GPS component by observed treatment arm. It
+has no effect for binary treatments.
+
+{pstd}
+The detailed multi-group support graph uses the overlap graph's component-specific
+axes, relevant-only floor lines, and filled three-component row.
+
+{phang}
 {opt xlsx(filename)} exports the support summary statistics to an Excel file
 (a two-column Metric/Value sheet).
 
@@ -661,6 +689,13 @@ the overall verdict and thresholds. The path is returned in {cmd:r(report)}.
 {opt saving(filename)} exports the combined graph (not individual panels) to an
 image file; the format is set by the filename extension ({cmd:.png}, {cmd:.pdf},
 etc.). Use {helpb graph save} for a {cmd:.gph} file.
+
+{pstd}
+For a multi-group treatment, the combined overlap panel is one grouped box-plot
+region containing every GPS component, and the support panel is one box-plot region
+of the minimum GPS component by observed treatment arm. This avoids nesting a
+multi-panel graph inside each dashboard cell. The standalone {cmd:overlap} and
+{cmd:support} commands retain one detailed density panel per GPS component.
 
 {dlgtab:detect options}
 

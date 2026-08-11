@@ -254,6 +254,30 @@ capture noisily {
 }
 _psdash_mc_record overlap_component_panel_graph `=_rc'
 
+**# Detailed GPS panels use relevant floor lines and fill a three-panel row
+capture noisily {
+    use "`multigroup_data'", clear
+    replace p1 = .005 in 1
+    generate byte graph_sample = 1
+
+    _psdash_mgps_graph, treatment(treat) samplevar(graph_sample) ///
+        psvars(p1 p2 p3) levels(1 2 3) name(psd_mc_detail_layout) ///
+        gpsfloor(.01) title("Regression Title")
+
+    assert r(combine_cols) == 3
+    assert r(panel_1_floor_line) == 1
+    assert r(panel_2_floor_line) == 0
+    assert r(panel_3_floor_line) == 0
+    assert r(panel_2_min) > .01
+    assert r(panel_3_min) > .01
+
+    graph describe psd_mc_detail_layout
+    assert strpos("`r(command)'", "cols(3)") > 0
+    assert real("`r(xsize)'") >= 2 * real("`r(ysize)'")
+    graph drop psd_mc_detail_layout
+}
+_psdash_mc_record detailed_multigroup_graph_layout `=_rc'
+
 **# Support verdict also ignores the legacy observed-arm scalarization
 capture noisily {
     use "`multigroup_data'", clear
@@ -277,6 +301,63 @@ capture noisily {
     graph drop psd_mc_support
 }
 _psdash_mc_record support_component_panel_graph `=_rc'
+
+**# Public compact graphs flatten each diagnostic to one graph region
+capture noisily {
+    use "`multigroup_data'", clear
+    psdash overlap treat, psvars(p1 p2 p3) compact name(psd_mc_overlap_compact)
+    graph describe psd_mc_overlap_compact
+    assert strpos(`"`r(command)'"', "box ") == 1
+
+    psdash support treat, psvars(p1 p2 p3) compact name(psd_mc_support_compact)
+    graph describe psd_mc_support_compact
+    assert strpos(`"`r(command)'"', "box ") == 1
+
+    graph drop psd_mc_overlap_compact psd_mc_support_compact
+}
+_psdash_mc_record public_compact_multigroup_graphs `=_rc'
+
+**# Combined dashboard flattens multi-group overlap/support to one graph region
+capture noisily {
+    use "`multigroup_data'", clear
+    generate double x = _n
+    generate double wt = 1
+
+    psdash combined treat, psvars(p1 p2 p3) covariates(x) wvar(wt)
+
+    graph describe psdash_c_overlap
+    assert strpos(`"`r(command)'"', "box ") == 1
+    assert strpos(`"`r(command)'"', `"`"PS Overlap"'"') > 0
+    assert strpos(`"`r(command)'"', `"`"`"PS Overlap"'"'"') == 0
+
+    graph describe psdash_c_support
+    assert strpos(`"`r(command)'"', "box ") == 1
+    assert strpos(`"`r(command)'"', `"`"Common Support"'"') > 0
+    assert strpos(`"`r(command)'"', `"`"`"Common Support"'"'"') == 0
+
+    graph drop psdash_c_overlap psdash_c_balance psdash_c_weights ///
+        psdash_c_support psdash_combined
+}
+_psdash_mc_record combined_multigroup_single_region_graphs `=_rc'
+
+**# Automatic weight axis uses compact nice ticks and caps a remote tail explicitly
+capture noisily {
+    clear
+    set obs 1000
+    generate byte treat = mod(_n, 2)
+    generate double ps = 0.5
+    generate double wt = 1 + 4 * mod(_n, 100) / 99
+    replace wt = 100 in 1000
+
+    psdash weights treat ps, wvar(wt) graph compact name(psd_mc_weight_axis)
+    graph describe psd_mc_weight_axis
+    assert strpos(`"`r(command)'"', "xlabel(0(2)10,") > 0
+    assert strpos(`"`r(command)'"', "wt <= 10") > 0
+    assert strpos(`"`r(command)'"', "1 weight above 10") > 0
+    assert strpos(`"`r(command)'"', "fraction") > 0
+    graph drop psd_mc_weight_axis
+}
+_psdash_mc_record weights_adaptive_tail_axis `=_rc'
 
 display as text _n "RESULT: validation_method_contracts tests=$PSDASH_MC_TESTS pass=$PSDASH_MC_PASS fail=$PSDASH_MC_FAIL skip=0"
 

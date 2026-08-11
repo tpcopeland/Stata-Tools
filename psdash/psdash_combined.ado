@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.6.5  2026/08/10
+*! psdash_combined Version 1.6.7  2026/08/11
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -250,6 +250,8 @@ program define psdash_combined, rclass
     else if "`psvars'" != "" {
         local psvars_subcmd_opt "psvars(`psvars')"
     }
+    local compact_subcmd_opt ""
+    if "`multigroup'" != "0" local compact_subcmd_opt "compact"
 
     * Build per-panel report() pass-through (O2): one workbook, one sheet/panel
     local rep_overlap ""
@@ -310,7 +312,8 @@ program define psdash_combined, rclass
         psdash_overlap `treatment' `psvar' if `touse', ///
             name(psdash_c_overlap) `scheme_opt' ///
             title("PS Overlap") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `rep_overlap'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' ///
+            `rep_overlap' `compact_subcmd_opt'
         local graph_list "`graph_list' psdash_c_overlap"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -396,7 +399,8 @@ program define psdash_combined, rclass
         psdash_weights `treatment' `psvar' if `touse', ///
             `wvar_opt' graph ///
             name(psdash_c_weights) `scheme_opt' estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_weights'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_weights' ///
+            `compact_subcmd_opt'
         local graph_list "`graph_list' psdash_c_weights"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -433,7 +437,8 @@ program define psdash_combined, rclass
         psdash_support `treatment' `psvar' if `touse', ///
             name(psdash_c_support) `scheme_opt' ///
             title("Common Support") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `rep_support'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' ///
+            `rep_support' `compact_subcmd_opt'
         local graph_list "`graph_list' psdash_c_support"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'

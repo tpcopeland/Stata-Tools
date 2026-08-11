@@ -3,7 +3,7 @@
     Produces:
       1. Graph (three-parameter tornado plot)               -> tornado_plot.png
       2. Graph (multi-bias Monte Carlo distribution)        -> distribution_plot.png
-      3. Graph (misclassification tipping-point plot)       -> tipping_plot.png
+      3. Graph (unmeasured-confounding tipping-point plot)  -> tipping_plot.png
 
     The script also runs the full range of fixed, model-based, probabilistic,
     and multi-bias analyses as a runnable example and validates the saved Monte
@@ -284,9 +284,9 @@ qba_plot, distribution using("`demo_dir'/mc_multi_bias.dta") ///
 capture graph close _all
 
 qba_plot, tipping a(`a') b(`b') c(`c') d(`d') ///
-    param1(se) range1(.65 .98) ///
-    param2(sp) range2(.85 1.00) ///
-    steps(30) title("Misclassification Tipping Point: Corrected OR") ///
+    param1(p1) range1(0 .60) ///
+    param2(rrcd) range2(1 5) base_p0(.10) ///
+    steps(30) title("Confounding Tipping Point: Corrected OR") ///
     saving("`demo_dir'/tipping_plot.png") replace
 capture graph close _all
 

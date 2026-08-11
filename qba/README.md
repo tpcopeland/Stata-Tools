@@ -146,7 +146,7 @@ qba_plot, tornado a(136) b(297) c(1432) d(6738) ///
     param1(se) range1(.7 1) param2(sp) range2(.8 1) steps(30)
 
 qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
-    param1(se) range1(.6 1) param2(sp) range2(.6 1) steps(25)
+    param1(p1) range1(0 .6) param2(rrcd) range2(1 5) base_p0(.1) steps(25)
 ```
 
 ### 8. Use qba_confound after tmle or ltmle
@@ -161,7 +161,7 @@ The checkout-only script [`demo/demo_qba.do`](demo/demo_qba.do) regenerates the 
 |--------|-------|
 | ![Three-parameter tornado sensitivity plot for the corrected odds ratio](demo/tornado_plot.png) | Tornado sensitivity across sensitivity, specificity, and the confounder-disease risk ratio |
 | ![Monte Carlo distribution of the multi-bias corrected odds ratio](demo/distribution_plot.png) | Histogram and density of the saved multi-bias simulation |
-| ![Misclassification tipping-point plot for sensitivity and specificity](demo/tipping_plot.png) | Grid of corrected odds ratios classified by null crossing and relation to the observed estimate |
+| ![Unmeasured-confounding tipping-point plot for confounder prevalence and outcome association](demo/tipping_plot.png) | Grid of corrected odds ratios classified by null crossing and relation to the observed estimate |
 
 The demo uses a case-control pesticide-exposure scenario and also illustrates fixed analyses, model-based confounding correction, probabilistic analyses, saved Monte Carlo datasets, and all three plot types. The demo and its assets are documentation artifacts in the repository; core qba commands do not require `tc_schemes`.
 

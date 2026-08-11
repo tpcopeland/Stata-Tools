@@ -56,20 +56,17 @@ enum(stratum) gaptime gapstart(t0) gapstop(t) timegen(tstop) timeunit(days)
 
 ```
 Recurring events: Found 3 event variables (hosp1 hosp2 hosp3)
-id         win_start  win_stop
 Splitting intervals for 297 internal events...
 Recurring event type: Retained all person-time.
 Recurrent formatting: stratum stratum + gap time (t0,t) added.
-
-
---------------------------------------------------
-Event integration complete
-  Observations: 497
-  Events flagged (hosp_ev): 297
-  Variable hosp_ev labels:
-    0 = Censored
-    1 = Event: hosp
---------------------------------------------------
+tvevent result
+--------------------------------------------------------------------
+  observations                 :            497
+  events flagged (hosp_ev)     :            297
+  hosp_ev labels
+    0                          : Censored
+    1                          : Event: hosp
+--------------------------------------------------------------------
 ```
 
 ```stata

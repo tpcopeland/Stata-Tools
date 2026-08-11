@@ -16,15 +16,15 @@ PS variable:       ps0
 Reference group:   0
 Observations:           1,200
 
------------------------------------------------------------
-Propensity Score Range
------------------------------------------------------------
-                          Placebo     Low dose    High dose
------------------------------------------------------------
-                   N          154          321          725
-              Min PS       0.0422       0.1758       0.3046
-              Max PS       0.3586       0.4003       0.8513
------------------------------------------------------------
+---------------------------------------------------------------------
+Mean GPS by Observed Treatment Group
+---------------------------------------------------------------------
+      Observed group         N   e(Placebo)  e(Low dose) e(High dose)
+---------------------------------------------------------------------
+             Placebo       154       0.1515       0.2775       0.5710
+            Low dose       321       0.1336       0.2738       0.5926
+           High dose       725       0.1211       0.2626       0.6163
+---------------------------------------------------------------------
 
 -------------------------------------------------------
 Generalized Positivity (full GPS vector)
@@ -52,13 +52,12 @@ Outside overlap:             1129 (94.08%)
 Manual Threshold Trimming
 -------------------------------------------------------
 Threshold:                 0.1000
-Trim region:           [0.100, 0.900]
+Trim floor:            0.100 (every GPS component)
 Observations trimmed:         410 (34.17%)
 Remaining sample:             790
 -------------------------------------------------------
 
 Support indicator generated: mg_support
-Warning: >10% of observations outside observed-arm PS overlap.
 
 Support: Trimmed (34.2% excluded)
 ```

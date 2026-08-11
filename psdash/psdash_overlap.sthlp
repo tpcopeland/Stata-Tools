@@ -33,6 +33,12 @@ propensity-score component in every observed arm and returns the resulting
 K-by-K mean table in {cmd:r(gps_means)}.
 
 {pstd}
+Detailed multi-group graphs use one data-driven x axis per GPS component. A
+practical-positivity floor line is drawn only when it lies within that
+component's observed range, and three-component graphs occupy one filled
+row. Histogram bins are aligned across observed arms within each component.
+
+{pstd}
 The complete stored-result contract and the distinction between the full-vector
 positivity finding and descriptive observed-arm bounds are documented under
 {help psdash##results:Stored results}.
@@ -87,6 +93,11 @@ positivity finding and descriptive observed-arm bounds are documented under
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.
+
+{phang}
+{opt compact} replaces the detailed multi-group component density panels with
+one grouped box-plot region containing every GPS component. It has no effect
+for binary treatments.
 
 {marker examples}{...}
 {title:Examples}

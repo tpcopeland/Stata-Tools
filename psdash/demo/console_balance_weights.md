@@ -23,7 +23,7 @@ Threshold:      0.100
            Covariate |  SMD Raw  VR Raw      KS  SMD Adj  VR Adj      Status
 ------------------------------------------------------------------------------------------------
                  age | 0.472  0.99 0.209 0.013  1.01    Balanced
-              female | 0.430  1.03 0.211 0.001  1.00    Balanced
+              female | 0.431  1.03 0.211 0.001  1.00    Balanced
                  bmi | 0.156  1.02 0.098 0.014  1.07    Balanced
                  sbp | 0.194  1.01 0.103 0.018  1.05    Balanced
          cholesterol | 0.039  1.04 0.039 0.047  0.99    Balanced

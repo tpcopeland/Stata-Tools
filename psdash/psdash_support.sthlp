@@ -41,6 +41,11 @@ The complete return contract, including {cmd:r(crump_alpha)} and the
 multi-group {cmd:r(gps_means)} matrix, is listed under
 {help psdash##results:Stored results}.
 
+{pstd}
+Detailed multi-group graphs use one data-driven x axis per GPS component. A
+practical-positivity floor line is drawn only when it lies within that
+component's observed range, and three-component graphs occupy one filled row.
+
 {marker options}{...}
 {title:Options}
 
@@ -100,6 +105,11 @@ multi-group {cmd:r(gps_means)} matrix, is listed under
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.
+
+{phang}
+{opt compact} replaces the detailed multi-group component density panels with
+one box-plot region of the minimum GPS component by observed treatment arm. It
+has no effect for binary treatments.
 
 {marker examples}{...}
 {title:Examples}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.5  11aug2026}{...}
+{* *! version 1.2.6  11aug2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -154,7 +154,9 @@ line is drawn.{p_end}
 
 {phang}{opt risktable} adds a number-at-risk table below the main plot. The table shows the
 number of subjects still under observation at each timepoint and honors active
-{cmd:stset} weights.{p_end}
+{cmd:stset} weights. Time-axis labels appear directly below the main plot, and
+a horizontal rule separates them from the table. Risk counts and group labels
+use a readable small text size by default.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
 in compact {it:N (events)} format (e.g., {cmd:14 (3)}). This is the
@@ -176,11 +178,12 @@ table. Default: approximately 6 evenly spaced timepoints from 0 to the
 maximum observed time. Requires {opt risktable} or {opt risksaving()}.{p_end}
 
 {phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
-this is applied to the bottom axis of the combined graph. Default is
+this is placed between the main plot and the separated risk table. Default is
 "Analysis time".{p_end}
 
 {phang}{opt xlabel(string)} sets x-axis labels. With {opt risktable},
-numeric positions are also used for the risk-table columns when
+labels are placed above the separator on the same x scale as the risk-table
+columns; numeric positions are also used for those columns when
 {opt timepoints()} is omitted.{p_end}
 
 {dlgtab:Fixed-time summaries}
@@ -411,6 +414,6 @@ though {cmd:kmplot} exits with the graph-export error.{p_end}
 
 {pstd}
 Timothy P Copeland, Karolinska Institutet{break}
-Version 1.2.5, 2026-08-11{p_end}
+Version 1.2.6, 2026-08-11{p_end}
 
 {hline}

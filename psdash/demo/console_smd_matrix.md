@@ -23,7 +23,7 @@ Threshold:      0.100
            Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
 ---------------------------------------------------------------------------------------
                  age | 0.472  0.99 0.013  1.01    Balanced
-              female | 0.430  1.03 0.001  1.00    Balanced
+              female | 0.431  1.03 0.001  1.00    Balanced
                  bmi | 0.156  1.02 0.014  1.07    Balanced
                  sbp | 0.194  1.01 0.018  1.05    Balanced
          cholesterol | 0.039  1.04 0.047  0.99    Balanced
@@ -50,7 +50,7 @@ Balance: Adequate (max |SMD| =  0.047)
 smd_table[5,2]
              SMD_unadj    SMD_adj
         age  .47159065  .01336012
-     female  .43031695   .0011499
+     female  .43094226  .00115157
         bmi  .15640269  .01378595
         sbp  .19425841  .01822554
 cholesterol  .03903631  .04703299

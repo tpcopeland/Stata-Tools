@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.6.5  2026/08/10
+*! psdash_overlap Version 1.6.7  2026/08/11
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -86,7 +86,8 @@ program define psdash_overlap, rclass
          ESTImand(string) ///
          REFerence(string) ///
          GPSFLOOR(real 0.01) ///
-         PSVars(varlist numeric)]
+         PSVars(varlist numeric) ///
+         COMPACT]
 
     * Validate gpsfloor() (multi-arm practical positivity floor on min_j e_j(X));
     * mirrors psdash support so the two panels are configured the same way.
@@ -630,12 +631,14 @@ program define psdash_overlap, rclass
         if `"`graphoptions'"' != "" {
             local _graphoptions_opt `"graphoptions(`"`graphoptions'"')"'
         }
+        local _compact_opt ""
+        if "`compact'" != "" local _compact_opt "compact(overlap)"
 
         capture noisily _psdash_mgps_graph, treatment(`treatment') ///
             samplevar(`touse') psvars(`_mg_group_psvars') levels(`levels') ///
             name(`name') gpsfloor(`gpsfloor') bins(`bins') ///
             title(`"`title'"') `_hist_opt' `_bwidth_opt' `_saving_opt' ///
-            `_scheme_opt' `_graphoptions_opt'
+            `_scheme_opt' `_graphoptions_opt' `_compact_opt'
         local graph_rc = _rc
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'

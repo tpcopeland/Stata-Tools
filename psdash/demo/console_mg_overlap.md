@@ -14,30 +14,37 @@ Treatment:         arm (3 groups)
 PS variable:       ps0
 Reference group:   0
 
------------------------------------------------------------
-Propensity Score Distribution
------------------------------------------------------------
-                          Placebo     Low dose    High dose
------------------------------------------------------------
-                   N          154          321          725
-                Mean       0.1515       0.2738       0.6163
-                  SD       0.0608       0.0409       0.0831
-                 Min       0.0422       0.1758       0.3046
-                 Max       0.3586       0.4003       0.8513
------------------------------------------------------------
+---------------------------------------------------------------------
+Mean GPS by Observed Treatment Group
+---------------------------------------------------------------------
+      Observed group         N   e(Placebo)  e(Low dose) e(High dose)
+---------------------------------------------------------------------
+             Placebo       154       0.1515       0.2775       0.5710
+            Low dose       321       0.1336       0.2738       0.5926
+           High dose       725       0.1211       0.2626       0.6163
+---------------------------------------------------------------------
 
 -------------------------------------------------------
-Common Support Region
+Generalized Positivity (full GPS vector)
+-------------------------------------------------------
+Min GPS (worst unit):       0.0214
+Floor:                     0.0100
+Below floor:                    0 ( 0.00%)
+  min e(Placebo):       0.0214
+  min e(Low dose):       0.1273
+  min e(High dose):       0.3046
+-------------------------------------------------------
+
+-------------------------------------------------------
+Observed-arm PS Overlap (informational)
 -------------------------------------------------------
 Lower bound:               0.3046
 Upper bound:               0.3586
-Outside support:             1129 (94.08%)
+Outside overlap:             1129 (94.08%)
   Placebo outside:        152
   Low dose outside:        253
   High dose outside:        724
 -------------------------------------------------------
-Warning: >10% of observations outside common support region.
 
-Overlap: WARNING (94.1% outside support; 1 finding(s))
-  Consider: psdash support, threshold(0.05)
+Overlap: No GPS-floor violation ( 0.0% below 0.010)
 ```
