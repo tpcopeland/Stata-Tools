@@ -305,8 +305,9 @@ What each fit does with no {opt vce()}, and what is recommended:
 {p2colreset}{...}
 
 {pmore}
-The first three rows are cases where the default {it:is} the recommendation.
-The FIPTIW row is not: it is the command declining to print a number it cannot
+The first three rows are cases where the default {it:is} the
+recommendation. The FIPTIW row is not: it is the command declining to print a
+number it cannot
 support. Explicit interval methods remain available for prespecified
 sensitivity analysis and are stamped empirically uncleared. The coverage
 evidence behind that distinction lives in the package's QA directory, not here.
@@ -914,8 +915,9 @@ correction. Explicit {cmd:vce(stacked)} at any sample size is stamped
 
 {pstd}
 {bf:"At studied settings" is load-bearing.} The study covered one correctly
-specified scenario per cleared family at one sample size (n=300 for IIW/IPTW).
-It says nothing about a misspecified visit model or a different sample size. A
+specified scenario per cleared family at one sample size
+(n=300 for IIW/IPTW). It says nothing about a misspecified visit model or
+a different sample size. A
 {cmd:cleared-*} interval is evidence, not a guarantee.
 
 {marker fiptiwcoverage}{...}
@@ -1342,7 +1344,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
 {synopt:{cmd:e(iivw_refitweights)}}1 if bootstrap weights were refit; otherwise 0{p_end}
-{synopt:{cmd:e(iivw_vce)}}{cmd:none}, {cmd:fixed}, {cmd:stacked}, {cmd:bootstrap-fixedweights}, or {cmd:bootstrap}{p_end}
+{synopt:{cmd:e(iivw_vce)}}resolved variance method; values listed below{p_end}
 {synopt:{cmd:e(iivw_underlying_vce)}}pre-suppression covariance route{p_end}
 {synopt:{cmd:e(iivw_underlying_cmd)}}underlying estimator command{p_end}
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
@@ -1394,6 +1396,10 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_ci_percentile)}}percentile endpoints after bootstrap{p_end}
 {synopt:{cmd:e(iivw_ci_basic)}}basic endpoints after bootstrap{p_end}
 {synopt:{cmd:e(iivw_ci_bca)}}BCa endpoints when {cmd:citype(bca)}{p_end}
+
+{pstd}
+{cmd:e(iivw_vce)} is {cmd:none}, {cmd:fixed}, {cmd:stacked},
+{cmd:bootstrap-fixedweights}, or {cmd:bootstrap}.{p_end}
 
 {pstd}
 {bf:Reading e(N) and e(N_clust) after} {opt refitweights}{bf:.} These two

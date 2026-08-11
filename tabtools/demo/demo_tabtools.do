@@ -22,16 +22,16 @@
         separate simtab .md files are emitted.
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
-      Per-command workbooks (14 xlsx files, 72 sheets total):
-        demo_table1.xlsx    (11 sheets) - table1_tc + themes
-        demo_desctab.xlsx   (6 sheets)  - desctab table collect formatting
+      Per-command workbooks (14 xlsx files, 78 sheets total):
+        demo_table1.xlsx    (13 sheets) - table1_tc + themes + small cells
+        demo_desctab.xlsx   (8 sheets)  - desctab collect formatting + small cells
         demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
         demo_regtab_models.xlsx (10 sheets) - regtab model-family coverage
         demo_comptab.xlsx    (5 sheets) - comptab + source frames
         demo_effecttab.xlsx  (4 sheets) - effecttab ATE + margins
         demo_stratetab.xlsx  (1 sheet)  - stratetab rates
         demo_corrtab.xlsx    (3 sheets) - corrtab Pearson + Spearman
-        demo_crosstab.xlsx   (5 sheets) - crosstab all variants
+        demo_crosstab.xlsx   (7 sheets) - crosstab variants + small cells
         demo_diagtab.xlsx    (3 sheets) - diagtab accuracy
         demo_survtab.xlsx    (3 sheets) - survtab KM + RMST
         demo_hrcomptab.xlsx  (1 sheet)  - hrcomptab composite
@@ -476,6 +476,77 @@ log on demo
 noisily crosstab treated female, or label
 
 log off demo
+
+**# Console: smallcells() disclosure control
+preserve
+clear
+input byte group byte category int frequency
+0 0 2
+0 1 3
+1 0 3
+1 1 2
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define demo_category 0 "Absent" 1 "Present", replace
+label values category demo_category
+label variable category "Characteristic"
+
+log on demo
+
+* # smallcells(): primary and complementary suppression
+
+* ## Primary suppression only: table1_tc
+noisily table1_tc category, by(group) vars(category cat) ///
+    total(after) smallcells(5)
+
+* ## Primary suppression only: desctab
+collect clear
+quietly collect: table group category, statistic(frequency)
+noisily desctab, smallcells(5)
+
+* ## Primary suppression only: crosstab
+noisily crosstab group category, label smallcells(5)
+
+log off demo
+restore
+
+preserve
+clear
+input byte group byte category int frequency
+0 0 2
+0 1 8
+1 0 6
+1 1 4
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define demo_category 0 "Absent" 1 "Present", replace
+label values category demo_category
+label variable category "Characteristic"
+
+log on demo
+
+* ## Complementary suppression: table1_tc
+noisily table1_tc category, by(group) vars(category cat) ///
+    total(after) smallcells(5)
+
+* ## Complementary suppression: desctab
+collect clear
+quietly collect: table group category, statistic(frequency)
+noisily desctab, smallcells(5)
+
+* ## Complementary suppression: crosstab
+noisily crosstab group category, label smallcells(5)
+
+log off demo
+restore
 
 **# Console: diagtab display
 quietly logit cv_event treated index_age female diabetes hypertension
@@ -1812,6 +1883,122 @@ preserve
 import excel using "`xlsx_desctab'", sheet("Custom") clear allstring
 assert A[1] == "Custom composition template"
 restore
+
+**# Sheets 60-65: Small-cell disclosure control
+**## Primary suppression only
+preserve
+clear
+input byte group byte category int frequency
+0 0 2
+0 1 3
+1 0 3
+1 1 2
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define demo_category 0 "Absent" 1 "Present", replace
+label values category demo_category
+label variable category "Characteristic"
+
+table1_tc category, by(group) vars(category cat) total(after) ///
+    smallcells(5) ///
+    title("Small-cell suppression: primary counts only") ///
+    xlsx("`xlsx_table1'") sheet("Small Cells Primary")
+assert r(N_primary_suppressed) == 4
+assert r(N_secondary_suppressed) == 0
+
+collect clear
+collect: table group category, statistic(frequency)
+desctab, smallcells(5) ///
+    title("Small-cell suppression: primary counts only") ///
+    xlsx("`xlsx_desctab'") sheet("Small Cells Primary")
+assert r(N_primary_suppressed) == 4
+assert r(N_secondary_suppressed) == 0
+
+crosstab group category, label smallcells(5) ///
+    title("Small-cell suppression: primary counts only") ///
+    xlsx("`xlsx_crosstab'") sheet("Small Cells Primary")
+assert r(N_primary_suppressed) == 4
+assert r(N_secondary_suppressed) == 0
+restore
+
+**## Complementary suppression prevents reconstruction
+preserve
+clear
+input byte group byte category int frequency
+0 0 2
+0 1 8
+1 0 6
+1 1 4
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define demo_category 0 "Absent" 1 "Present", replace
+label values category demo_category
+label variable category "Characteristic"
+
+table1_tc category, by(group) vars(category cat) total(after) ///
+    smallcells(5) ///
+    title("Small-cell suppression: complementary protection") ///
+    xlsx("`xlsx_table1'") sheet("Small Cells Complement")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 2
+
+collect clear
+collect: table group category, statistic(frequency)
+desctab, smallcells(5) ///
+    title("Small-cell suppression: complementary protection") ///
+    xlsx("`xlsx_desctab'") sheet("Small Cells Complement")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 2
+
+crosstab group category, label smallcells(5) ///
+    title("Small-cell suppression: complementary protection") ///
+    xlsx("`xlsx_crosstab'") sheet("Small Cells Complement")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 2
+restore
+
+**## Verify primary and complementary markers in every workbook
+foreach _sc_cmd in table1 desctab crosstab {
+    preserve
+    import excel using "`xlsx_`_sc_cmd''", ///
+        sheet("Small Cells Primary") clear allstring
+    assert A[1] == "Small-cell suppression: primary counts only"
+    local _sc_primary 0
+    local _sc_secondary 0
+    foreach _sc_v of varlist _all {
+        quietly count if strtrim(`_sc_v') == "<5"
+        local _sc_primary = `_sc_primary' + r(N)
+        quietly count if strtrim(`_sc_v') == "≥5"
+        local _sc_secondary = `_sc_secondary' + r(N)
+    }
+    assert `_sc_primary' == 4
+    assert `_sc_secondary' == 0
+    restore
+
+    preserve
+    import excel using "`xlsx_`_sc_cmd''", ///
+        sheet("Small Cells Complement") clear allstring
+    assert A[1] == "Small-cell suppression: complementary protection"
+    local _sc_primary 0
+    local _sc_secondary 0
+    foreach _sc_v of varlist _all {
+        quietly count if strtrim(`_sc_v') == "<5"
+        local _sc_primary = `_sc_primary' + r(N)
+        quietly count if strtrim(`_sc_v') == "≥5"
+        local _sc_secondary = `_sc_secondary' + r(N)
+    }
+    assert `_sc_primary' == 2
+    assert `_sc_secondary' == 2
+    restore
+}
 
 **# Convert console output to markdown
 local logdoc_dir "`repo_root'/logdoc"

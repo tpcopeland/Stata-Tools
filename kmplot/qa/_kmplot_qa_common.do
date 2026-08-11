@@ -65,3 +65,22 @@ program define _kmplot_assert_file_not_contains
     file close `fh'
     assert `found' == 0
 end
+
+capture program drop _kmplot_assert_file_line_count
+program define _kmplot_assert_file_line_count
+    version 16.0
+    syntax using/, PATTERN(string) EXPECTED(integer)
+
+    tempname fh
+    local hits 0
+    file open `fh' using `"`using'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', `"`pattern'"') > 0 {
+            local ++hits
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `hits' == `expected'
+end

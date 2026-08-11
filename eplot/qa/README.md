@@ -1,78 +1,81 @@
 # eplot QA
 
-QA suite for `eplot` — unified effect plotting from data, estimates, matrices, and frames.
+The `eplot` QA suite is flat and concern-oriented, covering data, estimates, matrix, and frame inputs through one curated runner. Every suite is independently runnable from this directory.
 
 ## How to run
 
-```stata
+```bash
 cd eplot/qa
-stata-mp -b do run_all.do            // full release gate (default)
-stata-mp -b do run_all.do quick      // fast functional smoke
-stata-mp -b do run_all.do core       // quick + per-feature regressions
+stata-mp -b do run_all.do            # full lane (default release gate)
+stata-mp -b do run_all.do quick      # fast functional lane
+stata-mp -b do run_all.do core       # functional + regression lane
+stata-mp -b do test_eplot_v128.do    # one suite standalone
 ```
 
-The runner sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)` (via `_eplot_qa_bootstrap`
-in `_eplot_qa_common.do`), installs the package from the parent directory, runs the
-lane's suites with a fresh `clear all` between each, and `exit 1` if any suite fails.
-Each suite gates itself with `exit 1`, so the runner keys on per-file return codes.
+`run_all.do` installs the parent package into sandboxed `PLUS`/`PERSONAL` directories, gives each suite a fresh Stata session state, and exits nonzero if any suite fails.
+
+## Isolation
+
+The runner writes suite logs in the active `qa/` directory. Concurrent runs of the same lane can corrupt those logs; use a scratch copy that preserves the repository layout and remove copied `qa/*.log` files before running. A disagreement between `run_all.log` and a suite’s own log is the tell for a collision.
 
 ## Conventions
 
-- Every suite is a self-contained `.do` at `qa/` root, runnable standalone.
-- Suites are named by concern, not by the release that introduced them; each file's
-  header documents which version/bug its checks guard.
-- Paths are derived from `c(pwd)` — no machine-local paths.
-- `.log`/`.smcl` build artifacts are gitignored, never tracked.
+- `test_*` files provide functional and regression checks; `validation_*` files provide known-answer or invariant checks. There is no `crossval_*` layer because `eplot` transforms and renders supplied or Stata-estimated values rather than implementing an external estimator.
+- Every suite ends with `RESULT: <name> tests=N pass=N fail=N skip=N` and exits nonzero on failure; the `full` lane accepts no skips.
+- The canonical runner sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)` through `_eplot_qa_common.do`, so its package installation does not touch the user’s real ado tree; use the runner or isolated devkit entry point when installation isolation matters.
+- Paths derive from `c(pwd)`; no suite contains machine-local paths.
+- Test data are generated at runtime from built-in datasets or inline fixtures; no `.dta` fixture is tracked.
+- Generated `.log`, `.smcl`, `.dta`, `.xlsx`, `.png`, and graph artifacts are gitignored; only reader-facing assets under `demo/` may be tracked.
 
 ## File index
 
-| File | Concern |
-|------|---------|
-| `run_all.do` | Curated lane runner (quick/core/full) |
-| `_eplot_qa_common.do` | Sandboxed-install bootstrap |
-| `test_eplot.do` | Core functional coverage across data + estimates modes and all options |
-| `test_options.do` | Broad option/feature surface — multi-model, values, sort/order, matrix, palette, headers, eform+rescale |
-| `test_edge_cases.do` | Zero/single/all-missing obs, `noci`, `nodiamonds`, `order()` quoting, abbreviation disambiguation, varabbrev restore |
-| `test_eplot_frame.do` | `frame()` input mode (tabtools-companion frames) |
-| `test_graph_options.do` | Graph-option passthrough (titles, scheme, region, legend) |
-| `test_layout.do` | `gap()` spacing, effect-axis `xlabel()` passthrough, dynamic values-column margin, mode-detection precedence |
-| `test_colors_routing.do` | `insigncolor()`, mistyped-estimate routing, in-session rerun safety |
-| `test_axis_coeflabels.do` | Default category-axis suppression, `coeflabels()` honored under variable labels, group/model ordering |
-| `test_stars_matrix.do` | Stars + `eform` p-values, `type()` special-row filtering, matrix-mode style/stars, weighted-box note, sort alignment |
-| `test_regressions.do` | Negative-path return gate for failed graph saves across data, matrix, estimates, and frame modes |
-| `validation_eplot.do` | Known-answer checks — `r(table)`/`r(N)`/`r(k)` against `e(b)`, eform transform |
-| `test_examples.do` | Installed-user smoke for the runnable examples in `eplot.sthlp` across all four modes and major option families |
+### Functional and regression tests
+
+| File | Covers |
+|------|--------|
+| `test_eplot.do` | Core data and estimates behavior, options, preservation, returns, and targeted-run reporting |
+| `test_options.do` | Multi-model, values, sort/order, matrix, palette, headers, and transform options |
+| `test_edge_cases.do` | Empty and single samples, missing values, option quoting, abbreviation disambiguation, and varabbrev restoration |
+| `test_eplot_frame.do` | Graph-ready `frame()` input and companion-variable routing |
+| `test_graph_options.do` | Titles, scheme, graph regions, legend, and other graph-option passthrough |
+| `test_layout.do` | Group gaps, effect-axis labels, values-column margins, and mode-detection precedence |
+| `test_colors_routing.do` | Significance colors, mistyped-estimate routing, and in-session rerun safety |
+| `test_axis_coeflabels.do` | Category-axis suppression, coefficient labels, and group/model ordering |
+| `test_stars_matrix.do` | Stars, p-values, special row types, matrix styles, weighted markers, and sort alignment |
+| `test_regressions.do` | Analytical return preservation when graph saving fails in each input mode |
+| `test_eplot_v128.do` | Multi-equation identity, estimate state, interval validation, option conflicts, interaction messaging, and rendered help |
+| `test_examples.do` | Installed-user execution of shipped help examples across all input modes |
+
+### Validation
+
+| File | Covers |
+|------|--------|
+| `validation_eplot.do` | Known-answer checks for `r(table)`, `r(N)`, `r(k)`, coefficient extraction, and eform transformation |
+
+### Support
+
+| Path | Contents |
+|------|----------|
+| `run_all.do` | Curated `quick`, `core`, and `full` lane runner |
+| `_eplot_qa_common.do` | Sandboxed-install bootstrap shared by the runner and standalone suites |
+| `.gitignore` | Generated-artifact policy for the QA directory |
 
 ## Coverage map
 
-| Surface | Covered by |
-|---------|-----------|
-| Data mode (`eplot es lci uci`) | `test_eplot`, `test_layout`, `test_edge_cases` |
-| Estimates mode (`eplot namelist`) | `test_eplot`, `test_options`, `test_colors_routing`, `test_axis_coeflabels` |
-| Matrix mode (`matrix()`) | `test_options`, `test_stars_matrix` |
-| Frame mode (`frame()`) | `test_eplot_frame` |
-| Multi-model comparison | `test_options`, `test_axis_coeflabels` |
-| `keep()`/`drop()`/`rename()`/`coeflabels()` | `test_options`, `test_axis_coeflabels`, `validation_eplot` |
-| Stars / p-values | `test_stars_matrix`, `validation_eplot` |
-| Returns `r(N)`/`r(k)`/`r(n_models)`/`r(table)`/`r(pvalues)` | `validation_eplot`, `test_eplot` |
-| Graph passthrough | `test_graph_options`, `test_layout` |
-| Error / edge / varabbrev paths | `test_edge_cases`, `test_colors_routing` |
-| Installed documentation examples | `test_examples` |
-| Failed graph/save return payload | `test_regressions` |
+| Command | Functional | Validation | Also exercised in |
+|---------|------------|------------|-------------------|
+| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128` |
 
 ## Lane membership
 
-| Suite | quick | core | full |
-|-------|:-----:|:----:|:----:|
-| `test_eplot` | ✓ | ✓ | ✓ |
-| `test_options` | ✓ | ✓ | ✓ |
-| `test_edge_cases` | ✓ | ✓ | ✓ |
-| `test_eplot_frame` | | ✓ | ✓ |
-| `test_graph_options` | | ✓ | ✓ |
-| `test_layout` | | ✓ | ✓ |
-| `test_colors_routing` | | ✓ | ✓ |
-| `test_axis_coeflabels` | | ✓ | ✓ |
-| `test_stars_matrix` | | ✓ | ✓ |
-| `test_regressions` | | ✓ | ✓ |
-| `validation_eplot` | | | ✓ |
-| `test_examples` | | | ✓ |
+`quick` ⊆ `core` ⊆ `full`; `full` is the default release gate. The explicit suite lists in `run_all.do` are authoritative.
+
+| Lane | Membership |
+|------|------------|
+| `quick` | Core command, option, and edge-case suites |
+| `core` | `quick` plus frame, graph, layout, routing, labels, stars/matrix, graph-failure, and current-version regression suites |
+| `full` | `core` plus known-answer validation and installed documentation examples |
+
+## Known gaps
+
+- The suite validates graph commands, analytical returns, save failures, and representative exports, but it does not perform pixel-level comparison of rendered graphs.

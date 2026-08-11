@@ -1,4 +1,4 @@
-*! _iivw_stacked_vce Version 3.4.1  2026/08/10
+*! _iivw_stacked_vce Version 3.4.2  2026/08/11
 *! Two-step (stacked) influence-function sandwich for a weighted GEE fit whose
 *! weights were estimated by iivw_weight.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -189,7 +189,7 @@ program define _iivw_stacked_vce, rclass
         capture findfile _iivw_mlib.ado
         if _rc {
             display as error "_iivw_mlib.ado not found; reinstall iivw"
-            exit 111
+            error 111
         }
         local __iivw_mlib_fn "`r(fn)'"
         run "`__iivw_mlib_fn'"
@@ -200,7 +200,7 @@ program define _iivw_stacked_vce, rclass
         if `__iivw_probe_rc' | "`__iivw_mata_ok'" != "1" {
             display as error "could not compile iivw's Mata functions"
             display as error "  from `__iivw_mlib_fn' (probe rc `__iivw_probe_rc')"
-            exit 499
+            error 499
         }
     }
 

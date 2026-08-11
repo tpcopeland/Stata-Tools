@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.4** | 2026-08-11
+**Version 1.2.5** | 2026-08-11
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -41,7 +41,7 @@ net install kmplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 - Add `by(varname)` for one curve per group; numeric and string grouping variables are supported, and value labels are used when available.
 - Add `ci` for confidence intervals. The default is a shaded log-log interval; `cistyle(line)` draws dashed interval lines, and `citransform(log)` or `citransform(plain)` changes the transformation.
 - Add `risktable` for a number-at-risk table, `landmark()` for fixed-time estimates, `median` for median reference lines, and `censor` for censoring marks. Risk tables count subjects in multiple-record data and honor active `stset` weights.
-- Add `pvalue` with `by()` when at least two groups are present to display the Stata log-rank p-value; invalid p-value requests return `r(198)`.
+- Add `pvalue` with `by()` when at least two groups are present to display the Stata log-rank p-value; invalid p-value requests exit with return code 198.
 - `saving()` and `risksaving()` write reusable curve and risk-table datasets, while `export()` writes the graph through Stata's `graph export`.
 - Standard `twoway` graph options are passed through after the named `kmplot` options.
 
@@ -249,6 +249,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.5** (2026-08-11): Isolated internal graph names and failure cleanup, fixed custom-color recycling and risk-table median annotations, supported dotted export paths, and made landmark lookup exact for continuous event times and large samples.
 - **1.2.4** (2026-08-11): Corrected subject-level, weighted, delayed-entry, and group-transition risk-table counts; excluded contiguous same-group records from censoring; and rejected ineffective dependent-option combinations.
 - **1.2.3** (2026-08-05): Corrected p-value requirements and stored-result conditions, documented `note()` precedence with `medianannotate`, and aligned help abbreviations with the parser.
 - **1.2.2** (2026-08-05): Corrected the documented export-return contract, completed prose for graph appearance, label, and output options, and repaired Viewer-width overflow in the help synopsis and stored-results table.

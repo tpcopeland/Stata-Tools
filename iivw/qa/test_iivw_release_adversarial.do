@@ -265,29 +265,17 @@ capture noisily {
     _qa_iivw_must_contain, file("`pkg_dir'/stata.toc") ///
         pattern("p iivw")
 
-    foreach pair in ///
-        "iivw.ado|iivw" ///
-        "iivw_weight.ado|iivw_weight" ///
-        "iivw_balance.ado|iivw_balance" ///
-        "iivw_fit.ado|iivw_fit" ///
-        "iivw_exogtest.ado|iivw_exogtest" ///
-        "iivw_diagnose.ado|iivw_diagnose" ///
-        "_iivw_get_settings.ado|_iivw_get_settings" ///
-        "_iivw_check_weighted.ado|_iivw_check_weighted" ///
-        "_iivw_bs_estimate.ado|_iivw_bs_estimate" ///
-        "_iivw_bs_refit.ado|_iivw_bs_refit" ///
-        "_iivw_reserve_names.ado|_iivw_reserve_names" ///
-        "_iivw_require_converged.ado|_iivw_require_converged" ///
-        "_iivw_weight_signature.ado|_iivw_weight_signature" ///
-        "_iivw_export_table.ado|_iivw_export_table" {
-        gettoken file cmd : pair, parse("|")
-        local cmd = substr("`cmd'", 2, .)
+    local ado_files : dir "`pkg_dir'" files "*.ado"
+    foreach file of local ado_files {
+        local cmd = subinstr("`file'", ".ado", "", .)
         _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
             pattern("*! `cmd' Version `version'  `ado_date'")
         _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
             pattern("*! Author: Timothy P Copeland, Karolinska Institutet")
         _qa_iivw_must_not_contain, file("`pkg_dir'/`file'") ///
             pattern("*! Department of Clinical Neuroscience")
+        _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
+            pattern("f `file'")
     }
 
     _qa_iivw_must_contain, file("`pkg_dir'/iivw_weight.ado") ///
@@ -329,6 +317,94 @@ else {
     local ++fail_count
 }
 
+* Every program declares its class explicitly. These six helpers were the only
+* implicit nclass definitions in the shipped runtime surface.
+local ++test_count
+capture noisily {
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_check_passthru.ado") ///
+        pattern("program define _iivw_check_passthru, nclass")
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_export_table.ado") ///
+        pattern("program define _iivw_open_workbook, nclass")
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.ado") ///
+        pattern("program define _iivw_fit_replay, nclass")
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_require_converged.ado") ///
+        pattern("program define _iivw_require_converged, nclass")
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_require_draw_converged.ado") ///
+        pattern("program define _iivw_require_draw_converged, nclass")
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_reserve_names.ado") ///
+        pattern("program define _iivw_reserve_names, nclass")
+}
+if _rc == 0 {
+    display as result "  PASS: every shipped Stata program declares its class"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: explicit program-class contract (error `=_rc')"
+    local ++fail_count
+}
+
+* Distinct tokens keep this check from finding an outer program's varabbrev
+* skeleton when the helper shares its file.
+local ++test_count
+capture noisily {
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_check_passthru.ado") ///
+        pattern("local __iivw_passthru_old_varabbrev = c(varabbrev)")
+    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_export_table.ado") ///
+        pattern("local __iivw_open_old_varabbrev = c(varabbrev)")
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.ado") ///
+        pattern("local __iivw_replay_old_varabbrev = c(varabbrev)")
+}
+if _rc == 0 {
+    display as result "  PASS: every input-parsing helper owns a varabbrev wrapper"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: helper varabbrev-wrapper contract (error `=_rc')"
+    local ++fail_count
+}
+
+* synoptset 24 leaves 56 rendered columns. The old e(iivw_vce) description
+* used 58 and could cascade in the Viewer. The prose needles also prevent
+* source newlines from inserting doubled spaces after sentence punctuation.
+local ++test_count
+capture noisily {
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.sthlp") ///
+        pattern("{synopt:{cmd:e(iivw_vce)}}resolved variance method; values listed below{p_end}")
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.sthlp") ///
+        pattern("recommendation. The FIPTIW row is not:")
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.sthlp") ///
+        pattern("(n=300 for IIW/IPTW). It says nothing")
+}
+if _rc == 0 {
+    display as result "  PASS: iivw_fit help respects Viewer width and prose reflow"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: iivw_fit help layout contract (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    local slash = char(47)
+    local personal_root "`slash'home`slash'tpcopeland`slash'"
+    _qa_iivw_must_not_contain, ///
+        file("`qa_dir'/COVERAGE_GATE_RUNBOOK.md") pattern("`personal_root'")
+    _qa_iivw_must_contain, file("`qa_dir'/README.md") pattern("# iivw QA")
+    _qa_iivw_must_not_contain, file("`qa_dir'/README.md") ///
+        pattern("# iivw QA suite")
+    _qa_iivw_must_contain, file("`qa_dir'/README.md") ///
+        pattern("See [AUDIT_NOTES.md](AUDIT_NOTES.md)")
+}
+if _rc == 0 {
+    display as result "  PASS: QA runbooks are canonical and checkout-relocatable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: coverage-gate path portability (error `=_rc')"
+    local ++fail_count
+}
+
 * -----------------------------------------------------------------------------
 * SMCL render integrity: no directive may span a newline
 *
@@ -364,29 +440,23 @@ else {
 
 local ++test_count
 capture noisily {
-    local package_files ///
-        iivw.ado ///
+    local help_files ///
         iivw.sthlp ///
-        iivw_weight.ado ///
         iivw_weight.sthlp ///
-        iivw_balance.ado ///
         iivw_balance.sthlp ///
-        iivw_fit.ado ///
         iivw_fit.sthlp ///
-        iivw_exogtest.ado ///
         iivw_exogtest.sthlp ///
-        iivw_diagnose.ado ///
-        iivw_diagnose.sthlp ///
-        _iivw_get_settings.ado ///
-        _iivw_check_weighted.ado ///
-        _iivw_bs_estimate.ado ///
-        _iivw_bs_refit.ado ///
-        _iivw_reserve_names.ado ///
-        _iivw_require_converged.ado ///
-        _iivw_weight_signature.ado ///
-        _iivw_export_table.ado
+        iivw_diagnose.sthlp
 
-    foreach file of local package_files {
+    foreach file of local ado_files {
+        capture confirm file "`pkg_dir'/`file'"
+        if _rc {
+            display as error "missing shipped file: `file'"
+            exit 601
+        }
+        _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") pattern("f `file'")
+    }
+    foreach file of local help_files {
         capture confirm file "`pkg_dir'/`file'"
         if _rc {
             display as error "missing shipped file: `file'"
@@ -410,26 +480,13 @@ capture noisily {
         README.md ///
         iivw.pkg ///
         stata.toc ///
-        iivw.ado ///
+        `ado_files' ///
         iivw.sthlp ///
-        iivw_weight.ado ///
         iivw_weight.sthlp ///
-        iivw_balance.ado ///
         iivw_balance.sthlp ///
-        iivw_fit.ado ///
         iivw_fit.sthlp ///
-        iivw_exogtest.ado ///
         iivw_exogtest.sthlp ///
-        iivw_diagnose.ado ///
         iivw_diagnose.sthlp ///
-        _iivw_get_settings.ado ///
-        _iivw_check_weighted.ado ///
-        _iivw_bs_estimate.ado ///
-        _iivw_bs_refit.ado ///
-        _iivw_reserve_names.ado ///
-        _iivw_require_converged.ado ///
-        _iivw_weight_signature.ado ///
-        _iivw_export_table.ado ///
         demo/demo_iivw.do
 
     local slash = char(47)
@@ -631,6 +688,65 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: public command/helper installed-user smoke (error `=_rc')"
+    local ++fail_count
+}
+
+* An `exit' inside a captured varabbrev wrapper bypasses its cleanup zone.
+* Exercise both helper and public-command success/error branches that used that
+* shape, then assert the session setting survives every call.
+local ++test_count
+capture noisily {
+    if `installed_ready' != 1 exit 9
+    local leaks = 0
+
+    clear
+    set obs 1
+    set varabbrev on
+    capture _iivw_check_weighted
+    local check_rc = _rc
+    if "`c(varabbrev)'" != "on" local ++leaks
+    set varabbrev on
+
+    quietly _iivw_own token, role(probe)
+    if "`c(varabbrev)'" != "on" local ++leaks
+    set varabbrev on
+
+    quietly _iivw_require_converged, model(probe) allownonconverged
+    if "`c(varabbrev)'" != "on" local ++leaks
+    set varabbrev on
+
+    _qa_iivw_doc_data
+    replace age = age + 1 if visit == 4 & id == 1
+    capture iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
+        visit_cov(edss_bl) treat(treated) treat_cov(age sex edss_bl) nolog
+    local weight_rc = _rc
+    if "`c(varabbrev)'" != "on" local ++leaks
+    set varabbrev on
+
+    _qa_iivw_doc_data
+    quietly iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
+        visit_cov(edss_bl age sex) nolog
+    quietly iivw_fit edss treated edss_bl, vce(fixed) model(gee) nolog
+    set varabbrev on
+    quietly iivw_fit
+    if "`c(varabbrev)'" != "on" local ++leaks
+    set varabbrev on
+    capture iivw_fit edss treated edss_bl, vce(fixed) model(mixed) nolog
+    local fit_rc = _rc
+    if "`c(varabbrev)'" != "on" local ++leaks
+
+    assert `check_rc' == 198
+    assert `weight_rc' == 459
+    assert `fit_rc' == 198
+    assert `leaks' == 0
+    set varabbrev off
+}
+if _rc == 0 {
+    display as result "  PASS: varabbrev survives every captured early-exit branch"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: captured early-exit varabbrev cleanup (error `=_rc')"
     local ++fail_count
 }
 

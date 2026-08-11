@@ -1,53 +1,67 @@
 # kmplot QA
 
-This directory contains the package QA for `kmplot`. Run suites from this directory so all paths are derived from `c(pwd)`.
+The `kmplot` QA suite covers functional behavior, regressions, graph artifacts, published known answers, and survival-estimate recovery. One curated lane runner drives the flat suite, and every test file is independently runnable from this directory.
 
-## Run
+## How to run
 
-```stata
-do run_all.do
-do run_all.do quick
-do run_all.do core
-do run_all.do full
+```bash
+cd kmplot/qa
+stata-mp -b do run_all.do            # full lane (default release gate)
+stata-mp -b do run_all.do quick      # fast functional lane
+stata-mp -b do test_kmplot_v125.do   # one suite standalone
 ```
 
-`full` is the default release gate.
+Gate on the final `RESULT:` line; the runner exits nonzero when any suite fails.
 
-## Layout
+## Isolation
 
-- `_kmplot_qa_common.do` installs `kmplot` from the local package path into temporary PLUS/PERSONAL sysdirs and defines shared file-content assertions.
-- `run_all.do` is the curated lane runner.
-- `test_kmplot.do` covers functional behavior, options, error handling, state restoration, graph export/save, richer returns, and regression paths.
-- `test_kmplot_v124.do` covers multiple-record risk sets and censoring, weighted risk-table counts, subordinate-option dependency errors, and Stata-native help rendering with a positive control.
-- `validation_kmplot.do` compares saved command estimates and returned matrices directly against Stata survival commands and hand-computed quantities.
+The runner and suites write logs into `qa/`. Concurrent runs of the same lane require separate scratch copies preserving the repository layout; a disagreement between `run_all.log` and a suite log indicates a collision.
 
-## Coverage Map
+## Conventions
 
-| Surface | Covered by |
-|---------|------------|
-| Basic `kmplot` and `by()` workflows | `test_kmplot.do`, `validation_kmplot.do` |
-| Confidence intervals, `level()`, and transforms | `test_kmplot.do`, `validation_kmplot.do` |
-| Median lines and stored medians | `test_kmplot.do`, `validation_kmplot.do` |
-| Risk table, `riskheight()`, `riskevents`, `riskcompact`, `riskmono`, `timepoints()` | `test_kmplot.do`, `validation_kmplot.do` |
-| Delayed-entry risk-table counts | `validation_kmplot.do` |
-| Multiple-record and weighted risk-table counts | `test_kmplot_v124.do` |
-| Subordinate-option dependency errors | `test_kmplot_v124.do` |
-| Stata-native `.sthlp` rendering and positive control | `test_kmplot_v124.do` |
-| `landmark()` and returned landmark matrix | `test_kmplot.do`, `validation_kmplot.do` |
-| `saving()` and `risksaving()` datasets | `test_kmplot.do` |
-| Censor marks and `censorthin()` | `test_kmplot.do` |
-| P-value computation, formatting, text, and positioning | `test_kmplot.do`, `validation_kmplot.do` |
-| Rich reproducibility metadata and returned matrices | `test_kmplot.do` |
-| Appearance, labels, scheme, graph name, aspect ratio | `test_kmplot.do` |
-| `export()` success and failure paths | `test_kmplot.do`, `validation_kmplot.do` |
-| Data preservation and session-state restoration | `test_kmplot.do`, `validation_kmplot.do` |
+- `test_*` files cover functional and regression behavior; `validation_*` files provide published, hand-computed, invariant, or simulated-truth oracles. The package has no external `crossval_*` layer.
+- Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N` and exits nonzero on failure; `full` permits no skips.
+- Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` through `_kmplot_qa_common.do`, then install the local package without touching the user’s ado tree.
+- Paths derive from `c(pwd)`; no suite contains a machine-local path.
+- Test data use built-in datasets, inline published observations, or seeded runtime generation; no tracked data fixture is required.
+- Generated logs, graphs, and datasets are gitignored; only package `demo/` assets may be tracked generated files.
 
-## Lane Membership
+## File index
+
+### Functional and regression tests
+
+| File | Covers |
+|---|---|
+| `test_kmplot.do` | Core workflows, options, errors, state restoration, exports, saved datasets, and returned results. |
+| `test_kmplot_v124.do` | Multiple-record and weighted risk sets, option-dependency errors, and Stata-native help rendering. |
+| `test_kmplot_v125.do` | Graph-name isolation and cleanup, custom-color recycling, combined-plot median annotations, and dotted export paths. |
+
+### Validation
+
+| File | Covers |
+|---|---|
+| `validation_kmplot_recovery.do` | Kaplan–Meier’s published worked example and multi-seed survival recovery under two censoring DGPs. |
+| `validation_kmplot.do` | Saved estimates, confidence intervals, medians, risk tables, p-values, and landmark results against independent calculations and Stata survival commands. |
+
+### Support
+
+| File | Covers |
+|---|---|
+| `run_all.do` | Curated `quick`, `core`, and `full` lane runner. |
+| `_kmplot_qa_common.do` | Sandboxed local installation and shared artifact assertions. |
+
+## Coverage map
+
+| Command | Functional | Validation | Also exercised in |
+|---|---|---|---|
+| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
+
+## Lane membership
+
+`quick` ⊆ `core` = `full`; `full` is the default release gate.
 
 | Lane | Suites |
-|------|--------|
-| quick | `test_kmplot.do` |
-| core | `test_kmplot.do`, `test_kmplot_v124.do`, `validation_kmplot.do` |
-| full | `test_kmplot.do`, `test_kmplot_v124.do`, `validation_kmplot.do` |
-
-Each suite prints a parseable `RESULT: <suite> tests=N pass=N fail=N` line.
+|---|---|
+| `quick` | `test_kmplot.do` |
+| `core` | `quick` plus both version-regression suites, recovery, and comprehensive validation |
+| `full` | Same correctness gate as `core`; no external backend lane applies |

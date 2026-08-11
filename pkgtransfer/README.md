@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.0.4** | 2026-08-11
+**Version 1.0.5** | 2026-08-11
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -56,7 +56,7 @@ net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stat
 
 Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files; it leaves the extracted folder in place because its cleanup commands are disabled for safety.
 
-Nested ordinary and plugin paths recorded by package descriptors are preserved in offline bundles. Unsafe absolute or parent-traversal paths are rejected before a tracked file can escape the command-owned staging directory.
+Nested ordinary and plugin paths recorded by package descriptors are preserved in offline bundles. Parent-relative plugin sources are rebased into the archive, plugin `g`/`G` installation semantics are preserved, and unsafe absolute or remaining parent-traversal paths are rejected before a tracked file can escape the command-owned staging directory. Generated `.pkg` files and `stata.toc` use Stata's version-3 distribution format.
 
 ## Worked Examples
 
@@ -191,6 +191,7 @@ After package selection has succeeded, capturing a later output-write or archive
 
 ## Version History
 
+- **1.0.5** (2026-08-11): Offline bundles now emit canonical version-3 package and content metadata; preserve plugin directive case, normalized source/target paths, and descriptor terminators; support multiple plugins per package and SSC descriptor lookup; use unambiguous restore markers with legacy URL compatibility; and keep the QA runner from uninstalling the user's package.
 - **1.0.4** (2026-08-11): Package selectors are normalized as ordered sets; duplicate tracker definitions fail before any transfer mode; local and online bundles preserve nested ordinary and plugin paths while rejecting traversal; failed side effects retain the analytical return surface; and generated offline installers preserve caller globals and the working directory.
 - **1.0.3** (2026-08-10): Local bundles now resolve non-SSC plugin descriptors correctly, parse tab-delimited platform records, preserve nested plugin source paths, and update the correct package descriptor.
 - **1.0.2** (2026-08-05): Skipping every tracked package now creates the requested empty script or bundle and returns `r(N_packages)=0` with an empty package list instead of failing with a no-observations error.

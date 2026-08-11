@@ -1,4 +1,4 @@
-*! eplot Version 1.2.7  2026/08/09
+*! eplot Version 1.2.8  2026/08/11
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -504,6 +504,19 @@ program define _eplot_data, rclass
             if "`msize'" == "" local msize "`s(msize)'"
         }
 
+        if "`horizontal'" != "" & "`vertical'" != "" {
+            display as error "horizontal and vertical may not be combined"
+            exit 198
+        }
+        if "`sort'" != "" & `"`order'"' != "" {
+            display as error "sort and order() may not be combined"
+            exit 198
+        }
+        if "`vertical'" != "" & `"`favors'"' != "" {
+            display as error "favors() requires horizontal layout"
+            exit 198
+        }
+
     // Parse varlist
     tokenize `varlist'
     local es_var `1'
@@ -514,6 +527,25 @@ program define _eplot_data, rclass
     marksample touse, novarlist
     tempvar ifin_ok
     quietly gen byte `ifin_ok' = `touse'
+
+    // Validate every supplied row-type value inside if/in before markout can
+    // remove rows whose effect or interval fields are missing.
+    if "`type'" != "" {
+        capture confirm numeric variable `type'
+        if _rc == 0 {
+            quietly count if `ifin_ok' & (missing(`type') | ///
+                `type' != floor(`type') | !inrange(`type', 0, 6))
+        }
+        else {
+            quietly count if `ifin_ok' & !( ///
+                inlist(lower(strtrim(`type')), "effect", "regular", "header", "section", "missing", "reference") | ///
+                inlist(lower(strtrim(`type')), "subgroup", "hetinfo", "overall", "blank"))
+        }
+        if r(N) > 0 {
+            display as error "type() contains an unknown row type; use codes 0-6 or a documented string value"
+            exit 198
+        }
+    }
     markout `touse' `es_var' `lci_var' `uci_var'
 
     // Restore non-data rows (headers, blanks, etc.) ONLY within the if/in range
@@ -585,13 +617,6 @@ program define _eplot_data, rclass
         quietly replace `uci' = exp(`uci')
     }
 
-    // Apply rescale
-    if `rescale' != 1 {
-        quietly replace `es' = `es' * `rescale'
-        quietly replace `lci' = `lci' * `rescale'
-        quietly replace `uci' = `uci' * `rescale'
-    }
-
     // Weights
     if "`weights'" != "" {
         quietly gen double `wt' = `weights'
@@ -604,10 +629,11 @@ program define _eplot_data, rclass
     if "`type'" != "" {
         capture confirm numeric variable `type'
         if _rc == 0 {
-            quietly gen int `rowtype' = `type'
+            quietly gen double `rowtype' = `type'
         }
         else {
-            quietly gen int `rowtype' = 1
+            quietly gen int `rowtype' = .
+            quietly replace `rowtype' = 1 if inlist(lower(strtrim(`type')), "effect", "regular")
             quietly replace `rowtype' = 0 if inlist(lower(strtrim(`type')), "header", "section")
             quietly replace `rowtype' = 2 if inlist(lower(strtrim(`type')), "missing", "reference")
             quietly replace `rowtype' = 3 if lower(strtrim(`type')) == "subgroup"
@@ -620,6 +646,48 @@ program define _eplot_data, rclass
         quietly gen int `rowtype' = 1
     }
     quietly gen byte `gapflag' = 0
+
+    quietly count if missing(`rowtype') | `rowtype' != floor(`rowtype') | ///
+        !inrange(`rowtype', 0, 6)
+    if r(N) > 0 {
+        display as error "type() contains an unknown row type; use codes 0-6 or a documented string value"
+        restore
+        exit 198
+    }
+
+    quietly count if inlist(`rowtype', 1, 3, 5) & ///
+        !missing(`lci') & !missing(`uci') & `lci' > `uci'
+    if r(N) > 0 {
+        display as error "lower confidence limits may not exceed upper confidence limits"
+        restore
+        exit 198
+    }
+
+    if "`pvalue'" != "" {
+        quietly count if inlist(`rowtype', 1, 3, 5) & ///
+            !missing(`pvalue') & !inrange(`pvalue', 0, 1)
+        if r(N) > 0 {
+            display as error "pvalue() must contain values between 0 and 1"
+            restore
+            exit 198
+        }
+    }
+
+    // Apply rescale after validating the source interval. A negative factor
+    // reverses the endpoints, so swap them to preserve the ll <= ul contract.
+    if `rescale' != 1 {
+        tempvar unscaled_lci
+        quietly gen double `unscaled_lci' = `lci'
+        quietly replace `es' = `es' * `rescale'
+        if `rescale' > 0 {
+            quietly replace `lci' = `lci' * `rescale'
+            quietly replace `uci' = `uci' * `rescale'
+        }
+        else {
+            quietly replace `lci' = `uci' * `rescale'
+            quietly replace `uci' = `unscaled_lci' * `rescale'
+        }
+    }
 
     // Labels
     if "`labels'" != "" {
@@ -1206,6 +1274,10 @@ program define _eplot_estimates, rclass
     local _r_nmodels .
     local _r_k .
     local _r_cmd ""
+    local _est_hold 0
+    local _clear_est 0
+    local _restore_needed 0
+    local _post_open 0
     set varabbrev off
     capture noisily {
         syntax [anything] [, ///
@@ -1303,6 +1375,19 @@ program define _eplot_estimates, rclass
             if "`msize'" == "" local msize "`s(msize)'"
         }
 
+        if "`horizontal'" != "" & "`vertical'" != "" {
+            display as error "horizontal and vertical may not be combined"
+            exit 198
+        }
+        if "`sort'" != "" & `"`order'"' != "" {
+            display as error "sort and order() may not be combined"
+            exit 198
+        }
+        if "`vertical'" != "" & `"`favors'"' != "" {
+            display as error "favors() requires horizontal layout"
+            exit 198
+        }
+
     // ====== Parse estimate list ======
     if `"`anything'"' == "" | `"`anything'"' == "." {
         local estlist "."
@@ -1324,27 +1409,6 @@ program define _eplot_estimates, rclass
     }
     if `null' == -999 {
         local null = cond("`eform'" != "", 1, 0)
-    }
-    if `"`effect'"' == "" {
-        if "`eform'" != "" {
-            // Auto-detect effect label from estimation command
-            local _ecmd "`e(cmd)'"
-            if inlist("`_ecmd'", "logit", "logistic", "melogit", "xtlogit", "clogit") {
-                local effect "Odds Ratio (`level'% CI)"
-            }
-            else if inlist("`_ecmd'", "stcox", "mestreg") {
-                local effect "Hazard Ratio (`level'% CI)"
-            }
-            else if inlist("`_ecmd'", "poisson", "nbreg", "mepoisson", "menbreg", "xtpoisson") {
-                local effect "IRR (`level'% CI)"
-            }
-            else {
-                local effect "Effect (`level'% CI)"
-            }
-        }
-        else {
-            local effect "Coefficient (`level'% CI)"
-        }
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
 
@@ -1390,13 +1454,62 @@ program define _eplot_estimates, rclass
     if `had_est' {
         tempname __est_save
         _est hold `__est_save', copy
+        local _est_hold 1
+    }
+    else {
+        local _clear_est 1
     }
 
     // Extract "." matrices before any estimates restore
     if `dot_idx' > 0 {
         tempname b_dot V_dot
-        matrix `b_dot' = e(b)
-        matrix `V_dot' = e(V)
+        capture matrix `b_dot' = e(b)
+        if _rc {
+            display as error "active estimation results do not contain e(b)"
+            exit 498
+        }
+        capture matrix `V_dot' = e(V)
+        if _rc {
+            display as error "active estimation results do not contain e(V)"
+            exit 498
+        }
+    }
+
+    // Auto-detect the effect label from the requested model, not from an
+    // unrelated model that happened to be active when eplot was called.
+    if `"`effect'"' == "" {
+        if "`eform'" == "" {
+            local effect "Coefficient (`level'% CI)"
+        }
+        else {
+            local _ecmd ""
+            if `n_models' == 1 {
+                local est_name : word 1 of `estlist'
+                if `dot_idx' == 1 {
+                    local _ecmd "`e(cmd)'"
+                }
+                else {
+                    capture estimates restore `est_name'
+                    if _rc {
+                        display as error `"estimation results '`est_name'' not found"'
+                        exit 111
+                    }
+                    local _ecmd "`e(cmd)'"
+                }
+            }
+            if inlist("`_ecmd'", "logit", "logistic", "melogit", "xtlogit", "clogit") {
+                local effect "Odds Ratio (`level'% CI)"
+            }
+            else if inlist("`_ecmd'", "stcox", "mestreg") {
+                local effect "Hazard Ratio (`level'% CI)"
+            }
+            else if inlist("`_ecmd'", "poisson", "nbreg", "mepoisson", "menbreg", "xtpoisson") {
+                local effect "IRR (`level'% CI)"
+            }
+            else {
+                local effect "Effect (`level'% CI)"
+            }
+        }
     }
 
     // ====== Gather variable labels before preserve (for auto-labeling) ======
@@ -1404,18 +1517,19 @@ program define _eplot_estimates, rclass
     // Uses variable labels and factor value labels from data in memory
     local _auto_labels ""
     local _n_autolabels 0
-    local _n_interactions 0
     forvalues m = 1/`n_models' {
         local est_name : word `m' of `estlist'
         if `m' == `dot_idx' {
-            local _colnames : colnames `b_dot'
+            _eplot_matrix_coefnames, matrix(`b_dot')
+            local _colnames `"`s(names)'"'
         }
         else {
             capture estimates restore `est_name'
             if _rc continue
             tempname _btemp
             matrix `_btemp' = e(b)
-            local _colnames : colnames `_btemp'
+            _eplot_matrix_coefnames, matrix(`_btemp')
+            local _colnames `"`s(names)'"'
         }
         foreach _cn of local _colnames {
             // Skip if already mapped
@@ -1430,7 +1544,9 @@ program define _eplot_estimates, rclass
 
             // Parse: strip equation prefix (eq:varname -> varname)
             local _basevar "`_cn'"
+            local _eqname ""
             if strpos("`_cn'", ":") > 0 {
+                local _eqname = substr("`_cn'", 1, strpos("`_cn'", ":") - 1)
                 local _basevar = substr("`_cn'", strpos("`_cn'", ":") + 1, .)
             }
 
@@ -1447,7 +1563,6 @@ program define _eplot_estimates, rclass
 
             // Interaction terms: skip complex patterns with #
             if strpos("`_basevar'", "#") > 0 {
-                local ++_n_interactions
                 continue
             }
 
@@ -1475,6 +1590,9 @@ program define _eplot_estimates, rclass
             }
 
             if `"`_label'"' != "" {
+                if "`_eqname'" != "" {
+                    local _label `"`_eqname': `_label'"'
+                }
                 local ++_n_autolabels
                 local _autokey_`_n_autolabels' `"`_cn'"'
                 local _autoval_`_n_autolabels' `"`_label'"'
@@ -1482,31 +1600,16 @@ program define _eplot_estimates, rclass
         }
     }
 
-    if `_n_interactions' > 0 {
-        display as text "(note: `_n_interactions' interaction term(s) excluded from plot)"
-    }
-
-    // Restore current estimates if we moved away
-    if `dot_idx' > 0 & `n_models' > 1 {
-        if "`__est_save'" != "" {
-            capture _est unhold `__est_save'
-            local _unhold_rc = _rc
-            if `_unhold_rc' {
-                display as error "could not restore the active estimation results"
-                exit `_unhold_rc'
-            }
-            _est hold `__est_save', copy
-        }
-    }
-
     // ====== Build combined dataset via postfile ======
     preserve
+    local _restore_needed 1
     clear
 
     tempname posthn
     tempfile postfn
     postfile `posthn' str244 coef_name double(es se lci uci) byte model_id ///
         using `postfn', replace
+    local _post_open 1
 
     forvalues m = 1/`n_models' {
         local est_name : word `m' of `estlist'
@@ -1514,11 +1617,17 @@ program define _eplot_estimates, rclass
         if `m' == `dot_idx' {
             // Current estimates (already extracted)
             local k = colsof(`b_dot')
-            local names : colnames `b_dot'
+            _eplot_matrix_coefnames, matrix(`b_dot')
+            local names `"`s(names)'"'
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
-                local this_se = sqrt(`V_dot'[`i', `i'])
+                local this_var = `V_dot'[`i', `i']
+                if missing(`this_var') | `this_var' < 0 {
+                    display as error "e(V) contains an invalid variance for coefficient `nm'"
+                    exit 498
+                }
+                local this_se = sqrt(`this_var')
                 if `this_se' < 1e-15 continue
 
                 local this_b = `b_dot'[1, `i']
@@ -1533,26 +1642,34 @@ program define _eplot_estimates, rclass
             // Named estimate
             capture estimates restore `est_name'
             if _rc {
-                postclose `posthn'
-                restore
-                if "`__est_save'" != "" {
-                    capture _est unhold `__est_save'
-                    local _unhold_rc = _rc
-                }
                 display as error `"estimation results '`est_name'' not found"'
                 exit 111
             }
 
             tempname bm Vm
-            matrix `bm' = e(b)
-            matrix `Vm' = e(V)
+            capture matrix `bm' = e(b)
+            if _rc {
+                display as error `"estimation results '`est_name'' do not contain e(b)"'
+                exit 498
+            }
+            capture matrix `Vm' = e(V)
+            if _rc {
+                display as error `"estimation results '`est_name'' do not contain e(V)"'
+                exit 498
+            }
 
             local k = colsof(`bm')
-            local names : colnames `bm'
+            _eplot_matrix_coefnames, matrix(`bm')
+            local names `"`s(names)'"'
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
-                local this_se = sqrt(`Vm'[`i', `i'])
+                local this_var = `Vm'[`i', `i']
+                if missing(`this_var') | `this_var' < 0 {
+                    display as error `"e(V) for '`est_name'' contains an invalid variance for coefficient `nm'"'
+                    exit 498
+                }
+                local this_se = sqrt(`this_var')
                 if `this_se' < 1e-15 continue
 
                 local this_b = `bm'[1, `i']
@@ -1566,17 +1683,31 @@ program define _eplot_estimates, rclass
     }
 
     postclose `posthn'
-    use `postfn', clear
+    local _post_open 0
+
+    // Return to the caller's dataset before unholding so the hidden e(sample)
+    // marker created by _est hold is present when the estimate is restored.
+    restore
+    local _restore_needed 0
 
     // Restore original estimation state
-    if "`__est_save'" != "" {
+    if `_est_hold' {
         capture _est unhold `__est_save'
         local _unhold_rc = _rc
         if `_unhold_rc' {
             display as error "could not restore the active estimation results"
             exit `_unhold_rc'
         }
+        local _est_hold 0
     }
+    else if `_clear_est' {
+        ereturn clear
+        local _clear_est 0
+    }
+
+    preserve
+    local _restore_needed 1
+    use `postfn', clear
 
     // ====== Transform data ======
 
@@ -1593,6 +1724,7 @@ program define _eplot_estimates, rclass
     if r(N) == 0 {
         display as error "no coefficients to plot after keep/drop"
         restore
+        local _restore_needed 0
         exit 2000
     }
 
@@ -1618,10 +1750,18 @@ program define _eplot_estimates, rclass
 
     // Apply rescale
     if `rescale' != 1 {
+        tempvar unscaled_lci
         quietly {
+            gen double `unscaled_lci' = lci
             replace es = es * `rescale'
-            replace lci = lci * `rescale'
-            replace uci = uci * `rescale'
+            if `rescale' > 0 {
+                replace lci = lci * `rescale'
+                replace uci = uci * `rescale'
+            }
+            else {
+                replace lci = uci * `rescale'
+                replace uci = `unscaled_lci' * `rescale'
+            }
         }
     }
 
@@ -2160,11 +2300,11 @@ program define _eplot_estimates, rclass
 
         local _r_N = `n_items'
         local _r_nmodels = `n_models'
-        quietly count if _rowtype == 1
-        local _r_k = r(N)
+        local _r_k = `n_coefs'
         local _r_cmd `"`graphcmd'"'
 
         restore
+        local _restore_needed 0
         return scalar N = `_r_N'
         return scalar n_models = `_r_nmodels'
         return scalar k = `_r_k'
@@ -2178,7 +2318,25 @@ program define _eplot_estimates, rclass
         if `_side_rc' exit `_side_rc'
     }
     local rc = _rc
+    local _cleanup_rc 0
+    if `_post_open' {
+        capture postclose `posthn'
+        if _rc & !`_cleanup_rc' local _cleanup_rc = _rc
+    }
+    if `_restore_needed' {
+        capture restore
+        if _rc & !`_cleanup_rc' local _cleanup_rc = _rc
+    }
+    if `_est_hold' {
+        capture _est unhold `__est_save'
+        if _rc & !`_cleanup_rc' local _cleanup_rc = _rc
+    }
+    if `_clear_est' {
+        capture ereturn clear
+        if _rc & !`_cleanup_rc' local _cleanup_rc = _rc
+    }
     set varabbrev `_orig_varabbrev'
+    if !`rc' & `_cleanup_rc' local rc = `_cleanup_rc'
     if `rc' exit `rc'
 end
 
@@ -2278,6 +2436,19 @@ program define _eplot_matrix, rclass
             if "`msize'" == "" local msize "`s(msize)'"
         }
 
+    if "`horizontal'" != "" & "`vertical'" != "" {
+        display as error "horizontal and vertical may not be combined"
+        exit 198
+    }
+    if "`sort'" != "" & `"`order'"' != "" {
+        display as error "sort and order() may not be combined"
+        exit 198
+    }
+    if "`vertical'" != "" & `"`favors'"' != "" {
+        display as error "favors() requires horizontal layout"
+        exit 198
+    }
+
     // Validate matrix dimensions
     local nrows = rowsof(`matrix')
     local ncols = colsof(`matrix')
@@ -2341,6 +2512,23 @@ program define _eplot_matrix, rclass
         }
     }
 
+    if `ncols' == 3 {
+        quietly count if !missing(lci) & !missing(uci) & lci > uci
+        if r(N) > 0 {
+            display as error "matrix lower confidence limits may not exceed upper confidence limits"
+            restore
+            exit 198
+        }
+    }
+    else {
+        quietly count if !missing(se) & se < 0
+        if r(N) > 0 {
+            display as error "matrix standard errors must be nonnegative"
+            restore
+            exit 198
+        }
+    }
+
     // Apply keep/drop
     if `"`keep'"' != "" {
         _eplot_apply_keep coef_name, keep(`keep')
@@ -2383,10 +2571,18 @@ program define _eplot_matrix, rclass
 
     // Apply rescale
     if `rescale' != 1 {
+        tempvar unscaled_lci
         quietly {
+            gen double `unscaled_lci' = lci
             replace es = es * `rescale'
-            replace lci = lci * `rescale'
-            replace uci = uci * `rescale'
+            if `rescale' > 0 {
+                replace lci = lci * `rescale'
+                replace uci = uci * `rescale'
+            }
+            else {
+                replace lci = uci * `rescale'
+                replace uci = `unscaled_lci' * `rescale'
+            }
         }
     }
 
@@ -2665,6 +2861,30 @@ end
 // Shared helpers
 // =============================================================================
 
+capture program drop _eplot_matrix_coefnames
+program define _eplot_matrix_coefnames, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, Matrix(name)
+
+        local names : colnames `matrix'
+        local unique_names : list uniq names
+        local n_names : word count `names'
+        local n_unique : word count `unique_names'
+        if `n_unique' < `n_names' {
+            local names : colfullnames `matrix'
+        }
+
+        sreturn clear
+        sreturn local names `"`names'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 capture program drop _eplot_apply_style
 program define _eplot_apply_style, sclass
     version 16.0
@@ -2857,7 +3077,16 @@ program define _eplot_build_favors, sclass
         syntax, FAVors(string asis) NULL(real) MIN(real) MAX(real) TOP(real)
 
         gettoken _fav_left favors : favors, bind
-        gettoken _fav_right : favors, bind
+        gettoken _fav_right favors : favors, bind
+
+        local _left_check = trim(subinstr(`"`_fav_left'"', char(34), "", .))
+        local _right_check = trim(subinstr(`"`_fav_right'"', char(34), "", .))
+        local _fav_rest = trim(`"`favors'"')
+        if `"`_left_check'"' == "" | `"`_right_check'"' == "" | ///
+            `"`_fav_rest'"' != "" {
+            display as error "favors() requires exactly two nonempty labels"
+            exit 198
+        }
 
         local _fav_x_left = (`min' + `null') / 2
         local _fav_x_right = (`null' + `max') / 2
@@ -2952,15 +3181,20 @@ program define _eplot_apply_keep, nclass
 
         local labelvar `varlist'
 
-        tempvar tokeep
+        tempvar tokeep basename
         quietly gen byte `tokeep' = 0
+        quietly gen str244 `basename' = `labelvar'
+        quietly replace `basename' = substr(`labelvar', strpos(`labelvar', ":") + 1, .) ///
+            if strpos(`labelvar', ":") > 0
 
         foreach pattern of local keep {
             if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
-                quietly replace `tokeep' = 1 if strmatch(`labelvar', "`pattern'")
+                quietly replace `tokeep' = 1 if ///
+                    strmatch(`labelvar', "`pattern'") | strmatch(`basename', "`pattern'")
             }
             else {
-                quietly replace `tokeep' = 1 if `labelvar' == "`pattern'"
+                quietly replace `tokeep' = 1 if ///
+                    `labelvar' == "`pattern'" | `basename' == "`pattern'"
             }
         }
 
@@ -2985,12 +3219,19 @@ program define _eplot_apply_drop, nclass
 
         local labelvar `varlist'
 
+        tempvar basename
+        quietly gen str244 `basename' = `labelvar'
+        quietly replace `basename' = substr(`labelvar', strpos(`labelvar', ":") + 1, .) ///
+            if strpos(`labelvar', ":") > 0
+
         foreach pattern of local drop {
             if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
-                quietly drop if strmatch(`labelvar', "`pattern'")
+                quietly drop if ///
+                    strmatch(`labelvar', "`pattern'") | strmatch(`basename', "`pattern'")
             }
             else {
-                quietly drop if `labelvar' == "`pattern'"
+                quietly drop if ///
+                    `labelvar' == "`pattern'" | `basename' == "`pattern'"
             }
         }
     }

@@ -5,7 +5,11 @@
 clear all
 version 16.0
 
-local mode "`1'"
+args mode extra
+if "`extra'" != "" {
+    display as error "run_all.do accepts at most one lane argument"
+    exit 198
+}
 if "`mode'" == "" {
     local mode "full"
 }
@@ -15,7 +19,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 }
 
 local quick_suites "test_kmplot.do"
-local core_suites "`quick_suites' test_kmplot_v124.do validation_kmplot.do"
+local core_suites "`quick_suites' test_kmplot_v124.do test_kmplot_v125.do validation_kmplot_recovery.do validation_kmplot.do"
 local full_suites "`core_suites'"
 local suites "``mode'_suites'"
 

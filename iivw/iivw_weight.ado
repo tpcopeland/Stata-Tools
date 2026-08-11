@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.4.1  2026/08/10
+*! iivw_weight Version 3.4.2  2026/08/11
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1060,7 +1060,7 @@ program define iivw_weight, rclass sortpreserve
             display as text "    bysort `id' (`time'): generate double base_x = x[1]"
             display as text "  and pass base_x. Then the row that defines baseline is your choice,"
             display as text "  not an accident of the sort order."
-            exit 459
+            error 459
         }
     }
 
@@ -1153,7 +1153,7 @@ program define iivw_weight, rclass sortpreserve
         else {
             local __iivw_hold_rc = _rc
             display as error "could not preserve active estimation results"
-            exit `__iivw_hold_rc'
+            error `__iivw_hold_rc'
         }
 
         preserve
@@ -1527,7 +1527,7 @@ program define iivw_weight, rclass sortpreserve
             else {
                 display as error "visit intensity model failed; no weights created"
             }
-            exit `__iivw_iw_rc'
+            error `__iivw_iw_rc'
         }
 
         * Convergence gate BEFORE the weights are merged into the user's data.
@@ -1731,7 +1731,7 @@ program define iivw_weight, rclass sortpreserve
         else {
             local __iivw_hold_rc = _rc
             display as error "could not preserve active estimation results"
-            exit `__iivw_hold_rc'
+            error `__iivw_hold_rc'
         }
         local __iivw_logit_converged = 1
         local __iivw_ps_N = 0
@@ -1843,7 +1843,7 @@ program define iivw_weight, rclass sortpreserve
             else {
                 display as error "treatment model failed; no weights created"
             }
-            exit `logit_rc'
+            error `logit_rc'
         }
 
         * The treatment model had no convergence guard at all: a nonconverged
@@ -2131,7 +2131,7 @@ program define iivw_weight, rclass sortpreserve
             display as text "  Either complete or drop those rows, or add"
             display as text "    allowmissingweights"
             display as text "  to declare that a complete-case analysis is what you intend."
-            exit 416
+            error 416
         }
 
         display as text ""

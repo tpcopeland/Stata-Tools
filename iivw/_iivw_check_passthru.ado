@@ -1,4 +1,4 @@
-*! _iivw_check_passthru Version 3.4.1  2026/08/10
+*! _iivw_check_passthru Version 3.4.2  2026/08/11
 *! Reject variance/resampling tokens in a pass-through option string
 *! (geeopts(), mixedopts()).  Part of iivw.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -19,11 +19,15 @@
 *   _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
 *   _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
 
-program define _iivw_check_passthru
+program define _iivw_check_passthru, nclass
     version 16.0
+    local __iivw_passthru_old_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
     syntax , OPTname(string) [VALue(string) NOIRLS]
 
-    if `"`value'"' == "" exit
+    if `"`value'"' != "" {
 
     * Normalize: lowercase; tabs and quote characters -> spaces; collapse runs
     * of whitespace so token boundaries are single spaces; pad with spaces so a
@@ -89,4 +93,10 @@ program define _iivw_check_passthru
         display as error "  Drop irls to keep the bootstrap, or use vce(fixed) to keep irls."
         error 198
     }
+
+    }
+    }
+    local rc = _rc
+    set varabbrev `__iivw_passthru_old_varabbrev'
+    if `rc' exit `rc'
 end

@@ -200,10 +200,12 @@ capture noisily {
     * dominated by per-column work, while the vectorized scan pays a large
     * fixed cost for the id/time/weight pass and only a small increment per
     * additional column. Measure that directly by timing the same signature on
-    * the same data with 10 bound covariates and with 1, and gate the ratio.
-    * Both halves are the same code in the same run under the same load, so a
-    * loaded machine slows numerator and denominator alike and the verdict does
-    * not move. A calibration against cheap `generate' calls was tried first
+    * the same data with 10 bound covariates and with 1, and gate the median of
+    * three paired ratios. Both halves are the same code in the same run under
+    * the same load. Taking the median keeps a single scheduling or frequency
+    * excursion from deciding the verdict while still requiring at least two
+    * of three measurements to remain below the scaling gate. A calibration
+    * against cheap `generate' calls was tried first
     * and rejected: the unit measured 0.035 s standalone and 0.016 s in-run,
     * so the denominator was not stable enough to gate on.
     *
@@ -213,52 +215,51 @@ capture noisily {
     * 1M-row data adds a large fixed cost to each half and compresses the
     * ratio toward 1, which is exactly the signal being measured.
     *
-    * Measured. Three consecutive idle runs gave 1.63, 1.67, 1.64 (spread
-    * 1.2%). One run under twelve cores of competing CPU load gave 1.41 -- it
-    * moved DOWN, while the absolute signature time over the same fixture rose
-    * from 0.954 to 1.072, i.e. toward the 1.25 s bound that the old gate
-    * failed on. That is the whole point: contention perturbs the absolute
-    * number and leaves the ratio alone.
+    * Review evidence on 2026-08-11 showed why one pair is not enough: identical
+    * code produced ratios 2.41, 1.98, 1.89, and 1.75 in consecutive lane and
+    * standalone runs. The first value falsely crossed the old 2.2 gate even
+    * though the next three passed. The median-of-three gate preserves the
+    * scaling signal but no longer treats one timing excursion as a regression.
     *
-    * The gate is 2.2, about 32% above the highest ratio observed and far
-    * outside the +-1.2% run-to-run spread. Honest limit: the pre-optimization
-    * implementation no longer exists, so its ratio was NOT measured and the
-    * gate is calibrated on this build's stability plus margin rather than on
-    * an observed failing value. What it enforces is that signature cost must
-    * not become dominated by per-bound-column work again; the sort-invariance
-    * and edit-detection asserts below are what protect correctness, and they
-    * are exact rather than timing-based.
-    char _dta[_iivw_visit_cov_raw] "x1 x2 x3 x4 x5 x6 x7 x8 x9 x10"
-    quietly _iivw_weight_signature
-    timer clear 4
-    timer on 4
-    quietly _iivw_weight_signature
-    timer off 4
-    quietly timer list 4
-    local t_wide = r(t4)
+    * Honest limit: the pre-optimization implementation no longer exists, so
+    * its ratio was NOT measured. What this gate enforces is that signature
+    * cost must not become dominated by per-bound-column work again; the exact
+    * sort-invariance and edit-detection assertions below protect correctness.
+    forvalues rep = 1/3 {
+        char _dta[_iivw_visit_cov_raw] "x1 x2 x3 x4 x5 x6 x7 x8 x9 x10"
+        quietly _iivw_weight_signature
+        timer clear 4
+        timer on 4
+        quietly _iivw_weight_signature
+        timer off 4
+        quietly timer list 4
+        local t_wide`rep' = r(t4)
 
-    char _dta[_iivw_visit_cov_raw] "x1"
-    quietly _iivw_weight_signature
-    timer clear 5
-    timer on 5
-    quietly _iivw_weight_signature
-    timer off 5
-    quietly timer list 5
-    local t_narrow = r(t5)
+        char _dta[_iivw_visit_cov_raw] "x1"
+        quietly _iivw_weight_signature
+        timer clear 5
+        timer on 5
+        quietly _iivw_weight_signature
+        timer off 5
+        quietly timer list 5
+        local t_narrow`rep' = r(t5)
+
+        * Fail closed if timer resolution floors the narrow measurement.
+        assert `t_narrow`rep'' > 0
+        local colratio`rep' = `t_wide`rep'' / `t_narrow`rep''
+        display as text "  P3 column-scaling ratio, pair `rep': " ///
+            %8.2f `colratio`rep''
+    }
 
     * Restore the fixture's declared contract so nothing downstream inherits
     * the one-covariate spec this measurement installed.
     char _dta[_iivw_visit_cov_raw] "x1 x2 x3 x4 x5 x6 x7 x8 x9 x10"
 
-    * A machine fast enough to floor the narrow timing at the timer's
-    * resolution would make the ratio meaningless -- fail closed rather than
-    * divide by ~0.
-    assert `t_narrow' > 0
-
-    local colratio = `t_wide' / `t_narrow'
-    display as text "  P3 signature seconds, 10 bound columns: " %8.3f `t_wide'
-    display as text "  P3 signature seconds,  1 bound column:  " %8.3f `t_narrow'
-    display as text "  P3 wide/narrow column-scaling ratio (gate: < 2.2): " %8.2f `colratio'
+    local colratio = `colratio1' + `colratio2' + `colratio3' - ///
+        min(`colratio1', `colratio2', `colratio3') - ///
+        max(`colratio1', `colratio2', `colratio3')
+    display as text "  P3 median wide/narrow column-scaling ratio (gate: < 2.2): " ///
+        %8.2f `colratio'
     assert `colratio' < 2.2
 
     * A harmless row permutation must leave the signature byte-identical. The

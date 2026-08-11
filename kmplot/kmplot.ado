@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.4  2026/08/11
+*! kmplot Version 1.2.5  2026/08/11
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -28,6 +28,7 @@ program define kmplot, rclass
         set varabbrev off
         local _kmplot_preserved = 0
         local _kmplot_side_rc = 0
+        tempname _kmplot_main_graph _kmplot_risk_graph
         capture noisily {
 
     syntax [if] [in] , [BY(varname) FAILure ///
@@ -260,6 +261,11 @@ program define kmplot, rclass
 
     if `"`colors'"' == "" {
         local colors "navy cranberry forest_green dkorange purple teal maroon olive_teal"
+    }
+    local ncolors : word count `colors'
+    if `ncolors' == 0 {
+        noisily display as error "colors() must contain at least one color"
+        exit 198
     }
     if `"`ytitle'"' == "" {
         if "`failure'" != "" {
@@ -543,6 +549,7 @@ program define kmplot, rclass
 
 	            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
 	                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
+	                graphname(`_kmplot_risk_graph') ///
 	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_height_opt' `rt_flags'
 	            matrix `risktable_mat' = r(risktable)
 	            local has_risktable_mat = 1
@@ -595,6 +602,8 @@ program define kmplot, rclass
 	    * =========================================================================
 
 	    if "`landmark'" != "" {
+	        tempvar km_lm_obs
+	        quietly gen long `km_lm_obs' = _n
 	        local n_landmarks : word count `landmark'
 	        matrix `landmarks_mat' = J(`=`ngroups' * `n_landmarks'', 5, .)
 	        matrix colnames `landmarks_mat' = group time estimate lower upper
@@ -604,16 +613,18 @@ program define kmplot, rclass
 	                local ++_lm_row
 	                matrix `landmarks_mat'[`_lm_row', 1] = `g'
 	                matrix `landmarks_mat'[`_lm_row', 2] = `tp'
-	                quietly summarize _t if `grpid' == `g' & _t <= `tp' & !missing(`km_s'), meanonly
+	                quietly summarize `km_lm_obs' if `grpid' == `g' & ///
+	                    _t <= `tp' & !missing(`km_s'), meanonly
 	                if r(N) > 0 {
-	                    local _lm_last_t = r(max)
-	                    quietly summarize `km_s' if `grpid' == `g' & _t == `_lm_last_t' & !missing(`km_s'), meanonly
-	                    matrix `landmarks_mat'[`_lm_row', 3] = r(mean)
+	                    local _lm_obs = r(max)
+	                    matrix `landmarks_mat'[`_lm_row', 3] = `km_s'[`_lm_obs']
 	                    if "`ci'" != "" {
-	                        quietly summarize `km_lb' if `grpid' == `g' & _t == `_lm_last_t' & !missing(`km_lb'), meanonly
-	                        if r(N) > 0 matrix `landmarks_mat'[`_lm_row', 4] = r(mean)
-	                        quietly summarize `km_ub' if `grpid' == `g' & _t == `_lm_last_t' & !missing(`km_ub'), meanonly
-	                        if r(N) > 0 matrix `landmarks_mat'[`_lm_row', 5] = r(mean)
+	                        if !missing(`km_lb'[`_lm_obs']) {
+	                            matrix `landmarks_mat'[`_lm_row', 4] = `km_lb'[`_lm_obs']
+	                        }
+	                        if !missing(`km_ub'[`_lm_obs']) {
+	                            matrix `landmarks_mat'[`_lm_row', 5] = `km_ub'[`_lm_obs']
+	                        }
 	                    }
 	                }
 	            }
@@ -662,7 +673,7 @@ program define kmplot, rclass
                 local mfmt : display %6.1f `median_`g''
                 local mfmt = strtrim("`mfmt'")
                 if `ngroups' > 1 {
-                    local med_note "`med_note'`grplbl`g'': `mfmt'  "
+                    local med_note `"`med_note'`grplbl`g'': `mfmt'  "'
                 }
                 else {
                     local med_note "Median: `mfmt'"
@@ -670,7 +681,7 @@ program define kmplot, rclass
             }
             else {
                 if `ngroups' > 1 {
-                    local med_note "`med_note'`grplbl`g'': NR  "
+                    local med_note `"`med_note'`grplbl`g'': NR  "'
                 }
                 else {
                     local med_note "Median: NR"
@@ -744,7 +755,7 @@ program define kmplot, rclass
     * --- CI bands (behind everything); stepped to track the KM staircase ---
         if "`ci'" != "" & "`cistyle'" == "band" & `has_stepband' {
             forvalues g = 1/`ngroups' {
-                local colidx = mod(`g' - 1, 8) + 1
+                local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
                 local tw_layers `"`tw_layers' (rarea `bhi' `blo' `btime' if `bgrp' == `g', fcolor(`col'%`ciopacity') lwidth(none))"'
@@ -754,7 +765,7 @@ program define kmplot, rclass
 
     * --- KM step lines ---
     forvalues g = 1/`ngroups' {
-        local colidx = mod(`g' - 1, 8) + 1
+        local colidx = mod(`g' - 1, `ncolors') + 1
         local col : word `colidx' of `colors'
         if "`col'" == "" local col "black"
         local npatterns : word count `lpattern'
@@ -771,7 +782,7 @@ program define kmplot, rclass
     * --- CI lines (alternative to bands) ---
     if "`ci'" != "" & "`cistyle'" == "line" {
         forvalues g = 1/`ngroups' {
-                local colidx = mod(`g' - 1, 8) + 1
+                local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
                 local tw_layers `"`tw_layers' (line `km_lb' _t if `grpid' == `g' & !missing(`km_lb'), lcolor(`col') lwidth(thin) lpattern(dash) sort connect(J))"'
@@ -782,7 +793,7 @@ program define kmplot, rclass
     * --- Censor marks ---
     if "`censor'" != "" {
         forvalues g = 1/`ngroups' {
-                local colidx = mod(`g' - 1, 8) + 1
+                local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
                 local tw_layers `"`tw_layers' (scatter `km_s' _t if `grpid' == `g' & `km_cens' == 1, msymbol(pipe) mcolor(`col') msize(medsmall))"'
@@ -807,7 +818,7 @@ program define kmplot, rclass
         * Short vertical drop at each group's median
         forvalues g = 1/`ngroups' {
             if `median_`g'' < . {
-                local colidx = mod(`g' - 1, 8) + 1
+                local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
                 local tw_layers `"`tw_layers' (pci 0 `median_`g'' 0.5 `median_`g'', lcolor(`col') lpattern(shortdash) lwidth(vthin))"'
@@ -912,25 +923,20 @@ program define kmplot, rclass
         * When combining with risk table: suppress xlabel/xtitle on main plot
         local rt_main_opts "xtitle("") xlabel(, nolabels noticks)"
         twoway `tw_layers', `tw_opts' `rt_main_opts' ///
-            nodraw name(_kmplot_main, replace)
+            nodraw name(`_kmplot_main_graph', replace)
 
-        graph combine _kmplot_main _kmplot_risktable, ///
+        local combine_note `"note("")"'
+        if `"`note'"' == "" & `"`med_note'"' != "" {
+            local combine_note `"note(`"`med_note'"', size(vsmall) color(gs5))"'
+        }
+        graph combine `_kmplot_main_graph' `_kmplot_risk_graph', ///
             cols(1) xcommon ///
             imargin(0 0 0 0) ///
             name(`name', replace) ///
-            scheme(`scheme') note("")
-
-            capture graph drop _kmplot_main
-            local _kmplot_drop_main_rc = _rc
-            capture graph drop _kmplot_risktable
-            local _kmplot_drop_risktable_rc = _rc
+            scheme(`scheme') `combine_note'
         }
 	    else {
 	        twoway `tw_layers', `tw_opts' name(`name', replace)
-	        if "`risktable'" == "" & `"`risksaving'"' != "" {
-	            capture graph drop _kmplot_risktable
-	            local _drop_orphan_rt_rc = _rc
-	        }
 	    }
 
     * Remove the stepped-band helper rows now that the graph is rendered,
@@ -963,7 +969,17 @@ program define kmplot, rclass
                     exit 198
                 }
             }
-            capture noisily graph export `"`export_file'"', `export_opts'
+            local export_as_opt ""
+            local _export_dot = strrpos(`"`export_file'"', ".")
+            if `_export_dot' > 0 & `_export_dot' < strlen(`"`export_file'"') & ///
+                strpos(lower(`"`export_opts'"'), "as(") == 0 {
+                local _export_suffix = lower(substr(`"`export_file'"', `_export_dot' + 1, .))
+                if inlist("`_export_suffix'", "ps", "eps", "svg", "emf", "pdf", "png", "tif", "gif", "jpg") {
+                    local export_as_opt "as(`_export_suffix')"
+                }
+            }
+            capture noisily graph export `"`export_file'"', ///
+                name(`name') `export_as_opt' `export_opts'
             local _kmplot_side_rc = _rc
             if `_kmplot_side_rc' == 0 {
                 capture confirm file `"`export_file'"'
@@ -1136,6 +1152,10 @@ program define kmplot, rclass
 
         } // end capture noisily
         local rc = _rc
+        capture graph drop `_kmplot_main_graph'
+        local _drop_main_rc = _rc
+        capture graph drop `_kmplot_risk_graph'
+        local _drop_risk_rc = _rc
         if `_kmplot_preserved' {
             capture restore
         }

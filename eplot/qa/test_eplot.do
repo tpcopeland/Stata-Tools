@@ -834,9 +834,18 @@ graph drop _all
 * =============================================================================
 * SUMMARY
 * =============================================================================
-display "RESULT: test_eplot tests=26 pass=`pass_count' fail=`fail_count' skip=0"
+local executed_count = `pass_count' + `fail_count'
+local skip_count = `test_count' - `executed_count'
+if `run_only' > 0 & `executed_count' == 0 {
+    display as error "RUN_TEST_NUMBER=`run_only' does not identify a test"
+    local fail_count 1
+    local failed_tests "`failed_tests' invalid-selection"
+    local executed_count 1
+    local skip_count = max(`test_count' - 1, 0)
+}
+display "RESULT: test_eplot tests=`=`executed_count'+`skip_count'' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
 if `machine' {
-    display "[SUMMARY] `pass_count'/`test_count' passed"
+    display "[SUMMARY] `pass_count'/`executed_count' selected tests passed"
     if `fail_count' > 0 {
         display "[FAILED]`failed_tests'"
     }
@@ -845,7 +854,8 @@ else {
     display as text _n "{hline 70}"
     display as text "EPLOT FUNCTIONAL TEST SUMMARY"
     display as text "{hline 70}"
-    display as text "Total tests:  `test_count'"
+    display as text "Selected tests: `executed_count'"
+    if `skip_count' > 0 display as text "Skipped:        `skip_count'"
     display as result "Passed:       `pass_count'"
     if `fail_count' > 0 {
         display as error "Failed:       `fail_count'"
@@ -858,7 +868,6 @@ else {
 
     if `fail_count' > 0 {
         display as error "Some tests FAILED. Review output above."
-        exit 1
     }
     else {
         display as result "ALL TESTS PASSED!"
@@ -869,3 +878,5 @@ else {
 global RUN_TEST_QUIET
 global RUN_TEST_MACHINE
 global RUN_TEST_NUMBER
+
+if `fail_count' > 0 exit 1

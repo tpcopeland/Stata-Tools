@@ -71,7 +71,7 @@ capture noisily {
             "program define _pkgtransfer_prepare_destination, nclass" ///
             local found_prepare 1
         if `"`macval(line)'"' == ///
-            "program define _pkgtransfer_cleanup_staging" ///
+            "program define _pkgtransfer_cleanup_staging, nclass" ///
             local found_cleanup 1
         file read `bundled_ado' line
     }

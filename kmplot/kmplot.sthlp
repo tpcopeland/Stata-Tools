@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.4  11aug2026}{...}
+{* *! version 1.2.5  11aug2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -411,6 +411,6 @@ though {cmd:kmplot} exits with the graph-export error.{p_end}
 
 {pstd}
 Timothy P Copeland, Karolinska Institutet{break}
-Version 1.2.4, 2026-08-11{p_end}
+Version 1.2.5, 2026-08-11{p_end}
 
 {hline}
