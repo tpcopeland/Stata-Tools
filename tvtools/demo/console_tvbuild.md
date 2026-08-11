@@ -38,37 +38,37 @@ frameout(tvdemo_analysis) replace
 ```
 tvbuild plan
 --------------------------------------------------------------------
-  master frame      : default
-  persons           :          200
-  id / entry / exit : id study_entry study_exit
-  output bounds     : start stop
-  coverage policy   : strict
-  files loaded      : 1
+  master frame                 : default
+  persons                      :            200
+  id / entry / exit            : id study_entry study_exit
+  output bounds                : start stop
+  coverage policy              : strict
+  files loaded                 :              1
 --------------------------------------------------------------------
-  source 1          : tv_drug  (episodes, file)
-  locator           : tvdemo_episodes_antidep.dta
-  rows / persons    :          281 /      166
-  rows outside win. :       17  (reported and ignored)
-  mapping           : drug -> tv_drug
-  engine            : tvexpose_categorical
+  source 1                     : tv_drug  (episodes, file)
+  locator                      : tvdemo_episodes_antidep.dta
+  rows                         :            281
+  persons in source            :            166
+  rows outside window          :             17  (reported and ignored)
+  mapping                      : drug -> tv_drug
+  engine                       : tvexpose_categorical
 --------------------------------------------------------------------
-  master keepvars   : age female
-  entry/exit        : retained
-  event stage       : none
-  frameout()        : tvdemo_analysis  (create)
-  manifestframe()   : tvdemo_analysis_manifest  (create)
+  master keepvars              : age female
+  entry/exit                   : retained
+  event stage                  : none
+  frameout()                   : tvdemo_analysis  (create)
+  manifestframe()              : tvdemo_analysis_manifest  (create)
 --------------------------------------------------------------------
-
 tvbuild result
 --------------------------------------------------------------------
-  frameout()        : tvdemo_analysis
-  persons           :          200
-  periods           :          589
-  key / bounds      : id start stop
-  study window      : study_entry study_exit
-  output variables  : tv_drug
-  manifestframe()   : tvdemo_analysis_manifest
-  coverage          : strict  (every master day is represented)
+  frameout()                   : tvdemo_analysis
+  persons                      :            200
+  periods                      :            589
+  key / bounds                 : id start stop
+  study window                 : study_entry study_exit
+  output variables             : tv_drug
+  manifestframe()              : tvdemo_analysis_manifest
+  coverage                     : strict  (every master day is represented)
 --------------------------------------------------------------------
   Next steps (not run by tvbuild):
 ```
@@ -82,7 +82,7 @@ tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) a
 ```
 
 ```stata
-stset stop, id(id) time0(start)
+stset stop, id(id) time0(start - 1)
 ```
 
 ```stata
@@ -171,23 +171,27 @@ noisily tvspec list tvdemo_spec
 ```
 tvbuild specification: tvdemo_spec
 --------------------------------------------------------------------
-  source 1          : antidep  (episodes, file)
-  locator           : tvdemo_episodes_antidep.dta
-  interval bounds   : rx_start rx_stop
-  mapping           : drug -> tv_drug
-  reference         : 0
-  reference label   : Unexposed
-  variable label    : Antidepressant class
+  source 1                     : antidep  (episodes, file)
+  locator                      : tvdemo_episodes_antidep.dta
+  interval bounds              : rx_start rx_stop
+  mapping                      : drug -> tv_drug
+  reference                    :              0
+  reference label              : Unexposed
+  variable label               : Antidepressant class
 --------------------------------------------------------------------
-  source 2          : benzo  (episodes, file)
-  locator           : tvdemo_episodes_benzo.dta
-  interval bounds   : rx_start rx_stop
-  mapping           : benzo_use -> tv_benzo_use
-  reference         : 0
-  reference label   : No benzo
-  variable label    : Benzodiazepine use
+  source 2                     : benzo  (episodes, file)
+  locator                      : tvdemo_episodes_benzo.dta
+  interval bounds              : rx_start rx_stop
+  mapping                      : benzo_use -> tv_benzo_use
+  reference                    :              0
+  reference label              : No benzo
+  variable label               : Benzodiazepine use
 --------------------------------------------------------------------
-  Build it with: tvbuild, specframe(tvdemo_spec) id() entry() exit() frameout()
+  Build it with:
+```
+
+```stata
+tvbuild, specframe(tvdemo_spec) id(idvar) entry(entryvar) exit(exitvar) frameout(result)
 ```
 
 <!-- * tvbuild reads the same two raw episode files Steps 1-4 consumed and -->
@@ -221,31 +225,33 @@ frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace dryrun
 ```
 tvbuild plan (dry run)
 --------------------------------------------------------------------
-  master frame      : default
-  persons           :          200
-  id / entry / exit : id study_entry study_exit
-  output bounds     : start stop
-  coverage policy   : strict
-  files loaded      : 3
+  master frame                 : default
+  persons                      :            200
+  id / entry / exit            : id study_entry study_exit
+  output bounds                : start stop
+  coverage policy              : strict
+  files loaded                 :              3
 --------------------------------------------------------------------
-  source 1          : antidep  (episodes, file)
-  locator           : tvdemo_episodes_antidep.dta
-  rows / persons    :          281 /      166
-  rows outside win. :       17  (reported and ignored)
-  mapping           : drug -> tv_drug
-  engine            : tvexpose_categorical
+  source 1                     : antidep  (episodes, file)
+  locator                      : tvdemo_episodes_antidep.dta
+  rows                         :            281
+  persons in source            :            166
+  rows outside window          :             17  (reported and ignored)
+  mapping                      : drug -> tv_drug
+  engine                       : tvexpose_categorical
 --------------------------------------------------------------------
-  source 2          : benzo  (episodes, file)
-  locator           : tvdemo_episodes_benzo.dta
-  rows / persons    :          100 /       86
-  mapping           : benzo_use -> tv_benzo_use
-  engine            : tvexpose_categorical
+  source 2                     : benzo  (episodes, file)
+  locator                      : tvdemo_episodes_benzo.dta
+  rows                         :            100
+  persons in source            :             86
+  mapping                      : benzo_use -> tv_benzo_use
+  engine                       : tvexpose_categorical
 --------------------------------------------------------------------
-  master keepvars   : age female
-  entry/exit        : retained
-  event stage       : outcome  (event data from the file)
-  frameout()        : tvdemo_full  (create)
-  manifestframe()   : tvdemo_full_manifest  (create)
+  master keepvars              : age female
+  entry/exit                   : retained
+  event stage                  : outcome  (event data from the file)
+  frameout()                   : tvdemo_full  (create)
+  manifestframe()              : tvdemo_full_manifest  (create)
 --------------------------------------------------------------------
   Dry run: no frame, variable, value label, or file was created or changed.
 ```
@@ -267,44 +273,45 @@ frameout(tvdemo_full) manifestframe(tvdemo_full_manifest) replace
 ```
 tvbuild plan
 --------------------------------------------------------------------
-  master frame      : default
-  persons           :          200
-  id / entry / exit : id study_entry study_exit
-  output bounds     : start stop
-  coverage policy   : strict
-  files loaded      : 3
+  master frame                 : default
+  persons                      :            200
+  id / entry / exit            : id study_entry study_exit
+  output bounds                : start stop
+  coverage policy              : strict
+  files loaded                 :              3
 --------------------------------------------------------------------
-  source 1          : antidep  (episodes, file)
-  locator           : tvdemo_episodes_antidep.dta
-  rows / persons    :          281 /      166
-  rows outside win. :       17  (reported and ignored)
-  mapping           : drug -> tv_drug
-  engine            : tvexpose_categorical
+  source 1                     : antidep  (episodes, file)
+  locator                      : tvdemo_episodes_antidep.dta
+  rows                         :            281
+  persons in source            :            166
+  rows outside window          :             17  (reported and ignored)
+  mapping                      : drug -> tv_drug
+  engine                       : tvexpose_categorical
 --------------------------------------------------------------------
-  source 2          : benzo  (episodes, file)
-  locator           : tvdemo_episodes_benzo.dta
-  rows / persons    :          100 /       86
-  mapping           : benzo_use -> tv_benzo_use
-  engine            : tvexpose_categorical
+  source 2                     : benzo  (episodes, file)
+  locator                      : tvdemo_episodes_benzo.dta
+  rows                         :            100
+  persons in source            :             86
+  mapping                      : benzo_use -> tv_benzo_use
+  engine                       : tvexpose_categorical
 --------------------------------------------------------------------
-  master keepvars   : age female
-  entry/exit        : retained
-  event stage       : outcome  (event data from the file)
-  frameout()        : tvdemo_full  (create)
-  manifestframe()   : tvdemo_full_manifest  (create)
+  master keepvars              : age female
+  entry/exit                   : retained
+  event stage                  : outcome  (event data from the file)
+  frameout()                   : tvdemo_full  (create)
+  manifestframe()              : tvdemo_full_manifest  (create)
 --------------------------------------------------------------------
-
 tvbuild result
 --------------------------------------------------------------------
-  frameout()        : tvdemo_full
-  persons           :          200
-  periods           :          764
-  key / bounds      : id start stop
-  study window      : study_entry study_exit
-  output variables  : tv_drug tv_benzo_use
-  event variable    : outcome
-  manifestframe()   : tvdemo_full_manifest
-  coverage          : strict  (every master day is represented)
+  frameout()                   : tvdemo_full
+  persons                      :            200
+  periods                      :            764
+  key / bounds                 : id start stop
+  study window                 : study_entry study_exit
+  output variables             : tv_drug tv_benzo_use
+  event variable               : outcome
+  manifestframe()              : tvdemo_full_manifest
+  coverage                     : strict  (every master day is represented)
 --------------------------------------------------------------------
   Next steps (not run by tvbuild):
 ```
@@ -318,7 +325,7 @@ tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) a
 ```
 
 ```stata
-stset stop, id(id) failure(outcome == 1) time0(start)
+stset stop, id(id) failure(outcome == 1) time0(start - 1)
 ```
 
 ```stata

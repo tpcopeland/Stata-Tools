@@ -128,6 +128,233 @@ pkgtransfer, restore
 
 The command backs up the current PLUS `stata.trk` as `stata.trk.backup`, replaces source lines when embedded backup URLs are available, and removes those backup records from the active tracking file.
 
+## Demo
+
+The checkout demo (`pkgtransfer/demo/demo_pkgtransfer.do`) exercises online-script generation, package filtering, local and online offline bundles, custom filenames, target operating systems, bundle installation, and source restoration. It uses isolated temporary PLUS and PERSONAL directories and removes every generated installer, archive, and extracted file after verifying its contents. The online-bundle section requires internet access.
+
+Run it from the Stata-Tools repository root:
+
+```bash
+stata-mp -b do pkgtransfer/demo/demo_pkgtransfer.do
+```
+
+### Online installation scripts and package filters
+
+The controlled tracker contains the locally installed `pkgtransfer` package and a small `demofixture` record so the effects of `limited()` and `skip()` are visible.
+
+<details>
+<summary>Script generation and filtering output (click to expand)</summary>
+
+#### All eligible packages
+
+```stata
+.     noisily pkgtransfer, dofile("_all_packages.do")
+```
+
+```
+Preparation of installation do file completed!
+```
+
+```stata
+.     noisily return list
+```
+
+```
+scalars:
+         r(N_packages) =  2
+
+macros:
+             r(dofile) : "_all_packages.do"
+                 r(os) : "Unix"
+      r(download_mode) : "script_only"
+       r(package_list) : "demofixture pkgtransfer"
+```
+
+```stata
+.     noisily type "_all_packages.do"
+```
+
+```
+net install demofixture, replace from("https://example.org/stata/")
+net install pkgtransfer, replace from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/pkgtransfer/")
+```
+
+#### limited() normalizes repeated package names
+
+```stata
+.     noisily pkgtransfer, limited(pkgtransfer pkgtransfer)
+>         os(MacOSX) dofile("_limited_packages.do")
+```
+
+```
+Preparation of installation do file completed!
+```
+
+```stata
+.     noisily return list
+```
+
+```
+scalars:
+         r(N_packages) =  1
+
+macros:
+             r(dofile) : "_limited_packages.do"
+                 r(os) : "MacOSX"
+      r(download_mode) : "script_only"
+       r(package_list) : "pkgtransfer"
+```
+
+#### skip() excludes an exact package name
+
+```stata
+.     noisily pkgtransfer, skip(demofixture)
+>         dofile("_skip_packages.do")
+```
+
+```
+Preparation of installation do file completed!
+```
+
+```stata
+.     noisily return list
+```
+
+```
+scalars:
+         r(N_packages) =  1
+
+macros:
+             r(dofile) : "_skip_packages.do"
+                 r(os) : "Unix"
+      r(download_mode) : "script_only"
+       r(package_list) : "pkgtransfer"
+```
+
+</details>
+
+### Local offline bundle
+
+This stage copies the selected package from the isolated PLUS directory, targets Windows cleanup syntax, and uses custom installer and archive names.
+
+<details>
+<summary>Local bundle output (click to expand)</summary>
+
+```stata
+.     noisily pkgtransfer, download(local) limited(pkgtransfer)
+>         os(Windows) dofile("_offline_install.do")
+>         zipfile("_offline_bundle.zip")
+```
+
+```
+Starting file copy (2 files) from local directory...
+Copying OS-specific plugins from online...
+Preparation of installation do file and package ZIP file completed!
+```
+
+```stata
+.     noisily return list
+```
+
+```
+scalars:
+         r(N_packages) =  1
+
+macros:
+            r(zipfile) : "_offline_bundle.zip"
+             r(dofile) : "_offline_install.do"
+                 r(os) : "Windows"
+      r(download_mode) : "local"
+       r(package_list) : "pkgtransfer"
+```
+
+</details>
+
+### Online offline bundle
+
+This stage downloads a fresh package descriptor and its required files from the recorded URL, targets macOS, verifies the version-3 archive metadata, and checks that the archive contains the `.ado`, `.sthlp`, `.pkg`, and `stata.toc` files.
+
+<details>
+<summary>Online bundle output (click to expand)</summary>
+
+```stata
+.     noisily pkgtransfer, download(online) limited(pkgtransfer)
+>         os(MacOSX) dofile("_online_bundle_install.do")
+>         zipfile("_online_bundle.zip")
+```
+
+```
+Starting download of 1 packages...
+Progress: 1/1 packages (100%)
+Preparation of installation do file and package ZIP file completed!
+```
+
+```stata
+.     noisily return list
+```
+
+```
+scalars:
+         r(N_packages) =  1
+
+macros:
+            r(zipfile) : "_online_bundle.zip"
+             r(dofile) : "_online_bundle_install.do"
+                 r(os) : "MacOSX"
+      r(download_mode) : "online"
+       r(package_list) : "pkgtransfer"
+```
+
+</details>
+
+### Install a bundle and restore its online source
+
+The demo installs the local bundle into a fresh destination PLUS directory, confirms that its tracker contains the embedded backup source, runs `restore`, and verifies both the restored source and the tracker backup.
+
+<details>
+<summary>Restore output (click to expand)</summary>
+
+```stata
+.     noisily pkgtransfer, restore
+```
+
+```
+Restoring installation pathways to online sources...
+Installation pathways restored!
+```
+
+```stata
+.     noisily return list
+```
+
+```
+macros:
+                 r(os) : "Unix"
+      r(download_mode) : "restore"
+```
+
+```stata
+.     noisily type "`destination_plus'/stata.trk"
+```
+
+```
+* 00000001
+*! version 1.0.0
+* Do not erase or edit this file
+* It is used by Stata to track the ado and help
+* files you have installed.
+S https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/pkgtransfer
+N pkgtransfer.pkg
+D 11 Aug 2026
+U 1
+d pkgtransfer feature demo
+f p/pkgtransfer.ado
+f p/pkgtransfer.sthlp
+e
+```
+
+</details>
+
 ## Command Reference
 
 ### Syntax

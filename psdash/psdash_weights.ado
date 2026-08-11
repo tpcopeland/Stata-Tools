@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.6.5  2026/08/10
+*! psdash_weights Version 1.6.7  2026/08/11
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -88,6 +88,7 @@ program define psdash_weights, rclass
          SCHeme(string) ///
          GRAPHOPTions(string asis) ///
          name(string) ///
+         COMPACT ///
          xlsx(string) ///
          sheet(string) ///
          ESTImand(string) ///
@@ -767,32 +768,46 @@ program define psdash_weights, rclass
     if "`graph'" != "" {
         capture noisily {
             quietly {
+                local graph_if ""
+                local graph_note ""
+                local xscale_opt ""
+                local graph_max = `max_wt'
+                local hist_stat "frequency"
+                local graph_ytitle "Frequency"
+                if "`compact'" != "" {
+                    local hist_stat "fraction"
+                    local graph_ytitle "Fraction"
+                }
                 if "`xlabel'" == "" {
-                    if `max_wt' <= 1 {
-                        local xlabel "0 .25 .5 .75 1"
+                    local graph_cap = `max_wt'
+                    local tail_threshold = max(`p99', `exthi')
+                    if `max_wt' > 1.5 * `tail_threshold' {
+                        local graph_cap = `tail_threshold'
                     }
-                    else if `max_wt' <= 2 {
-                        local xlabel "0 .5 1 1.5 2"
-                    }
-                    else if `max_wt' <= 5 {
-                        local xlabel "0 1 2 3 4 5"
-                    }
-                    else if `max_wt' <= 10 {
-                        local xlabel "0 2 4 6 8 10"
-                    }
-                    else if `max_wt' <= 20 {
-                        local xlabel "0 5 10 15 20"
-                    }
-                    else if `max_wt' <= 50 {
-                        local xlabel "0 10 20 30 40 50"
-                    }
-                    else if `max_wt' <= 100 {
-                        local xlabel "0 20 40 60 80 100"
-                    }
-                    else {
-                        local xstep = ceil(`max_wt' / 5)
-                        local xupper = `xstep' * 5
-                        local xlabel "0(`xstep')`xupper'"
+                    local raw_step = `graph_cap' / 5
+                    local magnitude = 10^floor(log10(`raw_step'))
+                    local normalized = `raw_step' / `magnitude'
+                    if `normalized' <= 1 local nice_step = 1
+                    else if `normalized' <= 2 local nice_step = 2
+                    else if `normalized' <= 2.5 local nice_step = 2.5
+                    else if `normalized' <= 5 local nice_step = 5
+                    else local nice_step = 10
+                    local xstep = `nice_step' * `magnitude'
+                    local xupper = ceil(`graph_cap' / `xstep') * `xstep'
+                    local xlabel "0(`xstep')`xupper'"
+                    local xscale_opt "xscale(range(0 `xupper'))"
+                    local graph_max = `xupper'
+
+                    quietly count if `touse' & `wvar' > `xupper'
+                    local n_graph_clipped = r(N)
+                    if `n_graph_clipped' > 0 {
+                        local graph_if "& `wvar' <= `xupper'"
+                        local weight_word = cond(`n_graph_clipped' == 1, "weight", "weights")
+                        local xupper_label : display %8.3g `xupper'
+                        local xupper_label = strtrim("`xupper_label'")
+                        local max_label : display %8.3g `max_wt'
+                        local max_label = strtrim("`max_label'")
+                        local graph_note `"note("`n_graph_clipped' `weight_word' above `xupper_label' omitted; maximum = `max_label'", size(vsmall))"'
                     }
                 }
 
@@ -801,19 +816,22 @@ program define psdash_weights, rclass
                     local scheme_opt "scheme(`scheme')"
                 }
 
-                local bw = (`max_wt' - `min_wt') / min(20, ceil(sqrt(`N')))
+                local bw = (`graph_max' - `min_wt') / min(20, ceil(sqrt(`N')))
                 if `bw' <= 0 {
                     local bw = 1
                 }
 
-                noisily twoway (histogram `wvar' if `touse' & `treatment' == 1, ///
-                           frequency fcolor(navy%50) lcolor(navy) width(`bw')) ///
-                       (histogram `wvar' if `touse' & `treatment' == 0, ///
-                           frequency fcolor(cranberry%50) lcolor(cranberry) width(`bw')), ///
-                       legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
-                       xtitle("`weight_xtitle'") ytitle("Frequency") ///
-                       title("`graph_title'") ///
-                       xlabel(`xlabel') ///
+                noisily twoway (histogram `wvar' if `touse' & `treatment' == 1 `graph_if', ///
+                           `hist_stat' fcolor(navy%50) lcolor(navy) width(`bw')) ///
+                       (histogram `wvar' if `touse' & `treatment' == 0 `graph_if', ///
+                           `hist_stat' fcolor(cranberry%50) lcolor(cranberry) width(`bw')), ///
+                       legend(order(1 "Treated" 2 "Control") rows(1) position(6) size(small)) ///
+                       xtitle("`weight_xtitle'", size(small)) ///
+                       ytitle("`graph_ytitle'", size(small)) ///
+                       ylabel(, format(%4.2f) labsize(vsmall) angle(horizontal)) ///
+                       title("`graph_title'", size(medsmall)) ///
+                       xlabel(`xlabel', labsize(small)) ///
+                       `xscale_opt' `graph_note' ///
                        xline(1, lcolor(gs8) lpattern(dash)) ///
                        name(`name', replace) ///
                        `scheme_opt' `graphoptions'
@@ -1264,32 +1282,46 @@ program define psdash_weights, rclass
     if "`graph'" != "" {
         capture noisily {
             quietly {
+                local graph_if ""
+                local graph_note ""
+                local xscale_opt ""
+                local graph_max = `max_wt'
+                local hist_stat "frequency"
+                local graph_ytitle "Frequency"
+                if "`compact'" != "" {
+                    local hist_stat "fraction"
+                    local graph_ytitle "Fraction"
+                }
                 if "`xlabel'" == "" {
-                    if `max_wt' <= 1 {
-                        local xlabel "0 .25 .5 .75 1"
+                    local graph_cap = `max_wt'
+                    local tail_threshold = max(`p99', `exthi')
+                    if `max_wt' > 1.5 * `tail_threshold' {
+                        local graph_cap = `tail_threshold'
                     }
-                    else if `max_wt' <= 2 {
-                        local xlabel "0 .5 1 1.5 2"
-                    }
-                    else if `max_wt' <= 5 {
-                        local xlabel "0 1 2 3 4 5"
-                    }
-                    else if `max_wt' <= 10 {
-                        local xlabel "0 2 4 6 8 10"
-                    }
-                    else if `max_wt' <= 20 {
-                        local xlabel "0 5 10 15 20"
-                    }
-                    else if `max_wt' <= 50 {
-                        local xlabel "0 10 20 30 40 50"
-                    }
-                    else if `max_wt' <= 100 {
-                        local xlabel "0 20 40 60 80 100"
-                    }
-                    else {
-                        local xstep = ceil(`max_wt' / 5)
-                        local xupper = `xstep' * 5
-                        local xlabel "0(`xstep')`xupper'"
+                    local raw_step = `graph_cap' / 5
+                    local magnitude = 10^floor(log10(`raw_step'))
+                    local normalized = `raw_step' / `magnitude'
+                    if `normalized' <= 1 local nice_step = 1
+                    else if `normalized' <= 2 local nice_step = 2
+                    else if `normalized' <= 2.5 local nice_step = 2.5
+                    else if `normalized' <= 5 local nice_step = 5
+                    else local nice_step = 10
+                    local xstep = `nice_step' * `magnitude'
+                    local xupper = ceil(`graph_cap' / `xstep') * `xstep'
+                    local xlabel "0(`xstep')`xupper'"
+                    local xscale_opt "xscale(range(0 `xupper'))"
+                    local graph_max = `xupper'
+
+                    quietly count if `touse' & `wvar' > `xupper'
+                    local n_graph_clipped = r(N)
+                    if `n_graph_clipped' > 0 {
+                        local graph_if "& `wvar' <= `xupper'"
+                        local weight_word = cond(`n_graph_clipped' == 1, "weight", "weights")
+                        local xupper_label : display %8.3g `xupper'
+                        local xupper_label = strtrim("`xupper_label'")
+                        local max_label : display %8.3g `max_wt'
+                        local max_label = strtrim("`max_label'")
+                        local graph_note `"note("`n_graph_clipped' `weight_word' above `xupper_label' omitted; maximum = `max_label'", size(vsmall))"'
                     }
                 }
 
@@ -1298,7 +1330,7 @@ program define psdash_weights, rclass
                     local scheme_opt "scheme(`scheme')"
                 }
 
-                local bw = (`max_wt' - `min_wt') / min(20, ceil(sqrt(`N')))
+                local bw = (`graph_max' - `min_wt') / min(20, ceil(sqrt(`N')))
                 if `bw' <= 0 {
                     local bw = 1
                 }
@@ -1312,15 +1344,18 @@ program define psdash_weights, rclass
                     local gnum = `gnum' + 1
                     local col : word `gnum' of `color_list'
                     local lab "`lbl_`lev''"
-                    local plot_cmd `"`plot_cmd' (histogram `wvar' if `touse' & `treatment' == `lev', frequency fcolor(`col'%50) lcolor(`col') width(`bw'))"'
+                    local plot_cmd `"`plot_cmd' (histogram `wvar' if `touse' & `treatment' == `lev' `graph_if', `hist_stat' fcolor(`col'%50) lcolor(`col') width(`bw'))"'
                     local legend_order `"`legend_order' `gnum' "`lab'""'
                 }
 
                 noisily twoway `plot_cmd', ///
-                    legend(order(`legend_order') rows(1) position(6)) ///
-                    xtitle("`weight_xtitle'") ytitle("Frequency") ///
-                    title("`graph_title'") ///
-                    xlabel(`xlabel') ///
+                    legend(order(`legend_order') rows(1) position(6) size(small)) ///
+                    xtitle("`weight_xtitle'", size(small)) ///
+                    ytitle("`graph_ytitle'", size(small)) ///
+                    ylabel(, format(%4.2f) labsize(vsmall) angle(horizontal)) ///
+                    title("`graph_title'", size(medsmall)) ///
+                    xlabel(`xlabel', labsize(small)) ///
+                    `xscale_opt' `graph_note' ///
                     xline(1, lcolor(gs8) lpattern(dash)) ///
                     name(`name', replace) ///
                     `scheme_opt' `graphoptions'
