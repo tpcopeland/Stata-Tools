@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  05aug2026}{...}
+{* *! version 1.2.4  11aug2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -155,7 +155,10 @@ given as variable/level pairs with optional commas: {cmd:ref(sex 2, race 3)} mak
 other level (and its interactions) is expressed relative to them. A level may
 be given as an integer code or as a {it:value-label string} in quotes, so
 {cmd:ref(foreign "Domestic")} and {cmd:ref(foreign 0)} are equivalent when {cmd:0} is labeled
-{cmd:"Domestic"}. Each named variable must appear as a factor in the specification,
+{cmd:"Domestic"}. A quoted numeric token is resolved as a label string, not as a
+numeric code. If the same label text identifies more than one observed code,
+{cmd:fvgen} rejects the ambiguous label and requires an integer code instead. Each
+named variable must appear as a factor in the specification,
 and each level must be observed in the {cmd:if}/{cmd:in} sample. This is equivalent to
 writing {cmd:ibN.} operators in the varlist ({cmd:ib2.sex##ib3.race}); the option is a
 convenience for setting bases without rewriting the specification, and it does
@@ -195,7 +198,9 @@ limit raise an error; choose a shorter prefix or rename the source variables.
 {phang}
 {opt replace} permits {cmd:fvgen} to drop and recreate any existing variable
 whose name collides with a generated variable. Without it, a name collision is
-an error. With
+an error. Before changing the data, {cmd:fvgen} checks the complete output-name
+plan. Distinct terms that would map to one name, and an output name that would
+overwrite a source variable, are errors even with {opt replace}. With
 {cmd:fvgen, margins store(name)}, {opt replace} first drops an existing stored
 estimate named {it:name}, then stores the refreshed margins-ready clone.
 
@@ -220,7 +225,11 @@ model on the exact varlist returned by {cmd:fvgen}. It reconstructs the native
 factor-variable command from {cmd:fvgen}'s provenance and reruns the estimator,
 so the estimator itself supplies the hidden factor-variable metadata that
 {helpb margins} expects. The active estimate is changed so {helpb margins} can
-operate on the original factor variables.
+operate on the original factor variables. The bridge verifies a stored signature
+of the source and generated variables before refitting. If any relevant variable
+was changed, dropped, or recast after {cmd:fvgen}, the bridge exits with error 498
+and asks you to rerun {cmd:fvgen} and the flattened estimator. Adding an unrelated
+variable does not invalidate the bridge.
 
 {phang}
 {opt store(name)} is used with {opt margins}. Instead of leaving the native
@@ -279,7 +288,9 @@ characteristics so downstream tools can recognize and group
 it: {cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or {cmd:centered}, and
 {cmd:char }{it:var}{cmd:[fvgen_term]} records the factor-variable term it came from (for
 example {cmd:1.foreign#c.mpg}). {cmd:fvgen, drop} uses {cmd:fvgen_role} to identify exactly the
-variables it created.
+variables it created. Dataset-level provenance also records the effective
+specification, generated-variable inventory, and a signature of the relevant
+source and generated data used by the {opt margins} bridge.
 
 {pstd}
 {bf:No-base factors.} A no-base specification ({cmd:ibn.}{it:var}) materializes
@@ -395,7 +406,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.3, 2026-08-05{p_end}
+{pstd}Version 1.2.4, 2026-08-11{p_end}
 
 
 {title:Also see}

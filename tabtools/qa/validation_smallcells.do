@@ -45,6 +45,7 @@ capture mata: mata drop _vsc_ranges_2x2()
 capture mata: mata drop _vsc_ranges_2x3()
 capture mata: mata drop _vsc_assert_primary_ranges()
 capture mata: mata drop _vsc_certify()
+capture mata: mata drop _vsc_assert_irredundant()
 
 mata:
 real scalar _vsc_ok(real scalar candidate, real scalar actual, real scalar code, real scalar k)
@@ -266,14 +267,61 @@ real scalar _vsc_certify(
     assert(feasible > 0)
     for (i = 1; i <= nr; i++) {
         for (j = 1; j <= nc; j++) {
-            if (mask[i, j] == 1) assert(bodymin[i, j] < bodymax[i, j])
+            if (mask[i, j] == 1 & bodymin[i, j] == bodymax[i, j]) return(0)
         }
-        if (rowmask[i] == 1) assert(rowmin[i] < rowmax[i])
+        if (rowmask[i] == 1 & rowmin[i] == rowmax[i]) return(0)
     }
     for (j = 1; j <= nc; j++) {
-        if (colmask[j] == 1) assert(colmin[j] < colmax[j])
+        if (colmask[j] == 1 & colmin[j] == colmax[j]) return(0)
     }
-    if (totalmask == 1) assert(totalmin < totalmax)
+    if (totalmask == 1 & totalmin == totalmax) return(0)
+    return(1)
+}
+
+real scalar _vsc_assert_irredundant(
+    real matrix actual,
+    real matrix mask,
+    real matrix exact,
+    real colvector rowmask,
+    real rowvector colmask,
+    real scalar totalmask,
+    real scalar k,
+    real scalar maxv)
+{
+    real scalar i, j
+    real matrix trialmask
+    real colvector trialrowmask
+    real rowvector trialcolmask
+
+    assert(_vsc_certify(actual, mask, exact, rowmask, colmask, ///
+        totalmask, k, maxv) == 1)
+    for (i = 1; i <= rows(mask); i++) {
+        for (j = 1; j <= cols(mask); j++) {
+            if (mask[i, j] != 2) continue
+            trialmask = mask
+            trialmask[i, j] = 0
+            assert(_vsc_certify(actual, trialmask, exact, rowmask, ///
+                colmask, totalmask, k, maxv) == 0)
+        }
+    }
+    for (i = 1; i <= rows(rowmask); i++) {
+        if (rowmask[i] != 2) continue
+        trialrowmask = rowmask
+        trialrowmask[i] = 0
+        assert(_vsc_certify(actual, mask, exact, trialrowmask, ///
+            colmask, totalmask, k, maxv) == 0)
+    }
+    for (j = 1; j <= cols(colmask); j++) {
+        if (colmask[j] != 2) continue
+        trialcolmask = colmask
+        trialcolmask[j] = 0
+        assert(_vsc_certify(actual, mask, exact, rowmask, ///
+            trialcolmask, totalmask, k, maxv) == 0)
+    }
+    if (totalmask == 2) {
+        assert(_vsc_certify(actual, mask, exact, rowmask, ///
+            colmask, 0, k, maxv) == 0)
+    }
     return(1)
 }
 end
@@ -330,7 +378,46 @@ capture noisily {
 }
 _vsc_record "2x2 engine decisions satisfy independent enumeration" `=_rc' `pass_count' `fail_count'
 
-**# V3: 2x3 structural-zero table
+**# V3: redundant complementary margins are pruned
+
+local ++test_count
+capture noisily {
+    matrix C = (0, 1 \ 1, 4)
+    matrix E = J(2, 2, 1)
+    matrix S = J(2, 2, 1)
+    matrix RE = J(2, 1, 1)
+    matrix RS = J(2, 1, 1)
+    matrix CE = J(1, 2, 1)
+    matrix CS = J(1, 2, 1)
+    _tabtools_smallcells, counts(C) exact(E) sensitive(S) ///
+        rowexact(RE) rowsensitive(RS) colexact(CE) colsensitive(CS) ///
+        grandexact(1) grandsensitive(1) smallcells(5)
+    matrix M = r(mask)
+    matrix RM = r(rowmask)
+    matrix CM = r(colmask)
+    scalar GM = r(totalmask)
+    matrix M_expected = (0, 1 \ 1, 1)
+    matrix RM_expected = (1 \ 0)
+    matrix CM_expected = (1, 0)
+    assert mreldif(M, M_expected) == 0
+    assert mreldif(RM, RM_expected) == 0
+    assert mreldif(CM, CM_expected) == 0
+    assert GM == 2
+    assert r(N_primary_suppressed) == 5
+    assert r(N_secondary_suppressed) == 1
+    matrix B = (0, 2 \ 2, 3)
+    mata: assert(all((st_matrix("B") :== 0) :| ///
+        ((st_matrix("B") :>= 1) :& (st_matrix("B") :< 5))))
+    mata: assert(all(rowsum(st_matrix("B")) :== (2 \ 5)))
+    mata: assert(all(colsum(st_matrix("B")) :== (2, 5)))
+    mata: assert(sum(st_matrix("B")) >= 5)
+    mata: assert(_vsc_assert_irredundant(st_matrix("C"), ///
+        st_matrix("M"), st_matrix("E"), st_matrix("RM"), ///
+        st_matrix("CM"), st_numscalar("GM"), 5, 6) == 1)
+}
+_vsc_record "only the necessary grand-total complement remains" `=_rc' `pass_count' `fail_count'
+
+**# V4: 2x3 structural-zero table
 
 local ++test_count
 capture noisily {
@@ -356,7 +443,7 @@ capture noisily {
 }
 _vsc_record "2x3 oracle agrees and structural zeros stay visible" `=_rc' `pass_count' `fail_count'
 
-**# V4: hidden cells provide bounded residual capacity
+**# V5: hidden cells provide bounded residual capacity
 
 local ++test_count
 capture noisily {
@@ -383,7 +470,7 @@ capture noisily {
 }
 _vsc_record "unreleased logical cells are not exposed as complementary markers" `=_rc' `pass_count' `fail_count'
 
-**# V5: truthful full-block fallback and threshold boundaries
+**# V6: truthful full-block fallback and threshold boundaries
 
 local ++test_count
 capture noisily {
@@ -427,7 +514,7 @@ capture noisily {
 }
 _vsc_record "full-block fallback markers are truthful at 0/1/k-1/k/k+1" `=_rc' `pass_count' `fail_count'
 
-**# V6: validation and safe numeric rendering
+**# V7: validation and safe numeric rendering
 
 local ++test_count
 capture noisily {
@@ -457,7 +544,7 @@ capture noisily {
 }
 _vsc_record "engine input guards and .p/.s/.d rendering contract" `=_rc' `pass_count' `fail_count'
 
-**# V7: bounded exhaustive 2x2 and 2x3 reconstruction gate
+**# V8: bounded exhaustive 2x2 and 2x3 reconstruction gate
 
 local ++test_count
 capture noisily {
@@ -483,6 +570,11 @@ capture noisily {
                             matrix CM = r(colmask)
                             scalar GM = r(totalmask)
                             mata: assert(_vsc_certify(st_matrix("C"), ///
+                                st_matrix("M"), st_matrix("E"), ///
+                                st_matrix("RM"), st_matrix("CM"), ///
+                                st_numscalar("GM"), 3, ///
+                                max((sum(st_matrix("C")), 3))) == 1)
+                            mata: assert(_vsc_assert_irredundant(st_matrix("C"), ///
                                 st_matrix("M"), st_matrix("E"), ///
                                 st_matrix("RM"), st_matrix("CM"), ///
                                 st_numscalar("GM"), 3, ///
@@ -524,6 +616,11 @@ capture noisily {
                                     matrix CM = r(colmask)
                                     scalar GM = r(totalmask)
                                     mata: assert(_vsc_certify(st_matrix("C"), ///
+                                        st_matrix("M"), st_matrix("E"), ///
+                                        st_matrix("RM"), st_matrix("CM"), ///
+                                        st_numscalar("GM"), 3, ///
+                                        max((sum(st_matrix("C")), 3))) == 1)
+                                    mata: assert(_vsc_assert_irredundant(st_matrix("C"), ///
                                         st_matrix("M"), st_matrix("E"), ///
                                         st_matrix("RM"), st_matrix("CM"), ///
                                         st_numscalar("GM"), 3, ///

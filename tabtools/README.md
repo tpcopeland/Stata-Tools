@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.14.1** | 2026-08-11
+**Version 1.14.2** | 2026-08-11
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -112,7 +112,7 @@ table1_tc price mpg weight rep78, by(foreign) smd test frame(table1, replace) xl
 
 `table1_tc` detects the supplied variables when `vars()` is omitted. Use `vars()` for explicit row types such as `contn`, `conts`, `cat`, `bin`, and their extended forms; `smd` requires `by()`, and `clear` is available when the rendered table should replace the data in memory.
 
-To protect exact counts below a publication threshold in `table1_tc`, `desctab`, or `crosstab`, add `smallcells(#)`. Primary cells are shown as `<#`, complementary cells as `≥#`, and dependent statistics as `Suppressed`; every requested sink receives the same already-redacted table.
+To protect exact counts below a publication threshold in `table1_tc`, `desctab`, or `crosstab`, add `smallcells(#)`. Primary cells are shown as `<#`, complementary cells as `≥#`, and dependent statistics as `Suppressed`; every requested sink receives the same already-redacted table. After safety is certified, the engine deterministically removes complementary markers one at a time whenever the protected counts remain non-exact. Each remaining `≥#` is therefore individually necessary in the final table, although the result is not guaranteed to use the globally smallest possible number of complementary markers.
 
 ```stata
 table1_tc rep78, by(foreign) vars(rep78 cat) total(after) smallcells(5) frame(table1_safe, replace)
@@ -498,7 +498,7 @@ Returns `r(mode)`, `r(source)`, `r(metrics)`, `r(methods)`, `r(n_estimands)`, `r
 - `simtab` drops or reports insufficient-replication and missing-standard-error cases according to its input and `minreps()` settings. Compute mode requires the requested source variables, while ingest mode requires the selected external format.
 - `tabtools set permanent` writes a runnable profile in the user's Stata PERSONAL directory. It changes future sessions only when that profile is loaded or sourced.
 - Excel output requires a writable target path, and `open` additionally requires a graphical Excel-capable environment. Markdown and CSV targets do not require Excel.
-- `smallcells(#)` protects exact disclosure within one invocation of `table1_tc`, `desctab`, or `crosstab`. It does not certify anonymization or account for linkage across separate releases; an unsupported or unprovable layout fails before output.
+- `smallcells(#)` protects exact disclosure within one invocation of `table1_tc`, `desctab`, or `crosstab`. Its deterministic final pass makes the complementary set irredundant, not necessarily globally minimum. It does not certify anonymization or account for linkage across separate releases; an unsupported or unprovable layout fails before output.
 
 ## References
 
@@ -512,6 +512,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.14.2** (2026-08-11): Removed individually redundant `≥#` complementary markers after exact-disclosure safety is certified, so each one remaining is necessary in the final protected table; added independent bounded irredundancy validation and public-command regressions for `table1_tc`, `desctab`, and `crosstab`.
 - **1.14.1** (2026-08-11): Made all 77 shipped Stata programs declare their class and independently restore `c(varabbrev)` on success and error, and hardened cleanup around variable-type sampling, simulation-summary postfiles, and simulation plot-frame construction.
 - **1.14.0** (2026-08-11): Extended strict `smallcells(#)` disclosure control to `crosstab` count blocks, margins, percentages, tests, and association/trend results, and to recognized `desctab` count/frequency and named `n_pct` collect layouts, with fail-closed mapping, safe returns, frame provenance, and identical redaction across every sink.
 - **1.13.0** (2026-08-11): Added strict `table1_tc, smallcells(#)` disclosure control with primary and complementary suppression, exact-reconstruction checks, dependent-statistic redaction, safe stored results, and identical markers across console, Excel, CSV, Markdown, frame, and `clear` output.

@@ -7,13 +7,14 @@
 *          frequencies, and the offending observation rows when a
 *          conversion fails, then aborts with r(198) (report-only-then-stop).
 *          Conversion stays all-or-nothing and non-destructive.
+* Author: Timothy P Copeland, Karolinska Institutet
 *******************************************************************************
 
 clear all
 set varabbrev off
 version 16.0
 
-capture log close
+capture log close _all
 log using "test_diagnose.log", replace nomsg
 
 * Bootstrap: isolate PLUS/PERSONAL before any uninstall or install
@@ -71,7 +72,7 @@ else {
     local ++fail_count
 }
 
-**# 3. Datetime-detection path: diagnose reports and aborts with r(198)
+**# 3. Datetime strings remain unsupported and abort with r(198)
 
 local ++test_count
 capture noisily {
@@ -85,11 +86,11 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: datetime-detection path aborts r(198)"
+    display as result "  PASS: datetime strings abort r(198)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datetime-detection path aborts r(198) (error `=_rc')"
+    display as error "  FAIL: datetime strings abort r(198) (error `=_rc')"
     local ++fail_count
 }
 

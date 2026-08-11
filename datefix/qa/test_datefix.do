@@ -1,10 +1,10 @@
 /*******************************************************************************
 * test_datefix.do
 *
-* Purpose: Functional test suite for datefix command (v1.0.2)
-*          Tests all options, error handling, edge cases, v1.0.2 fixes
+* Purpose: Functional test suite for the datefix command
+*          Tests all options, error handling, and edge cases
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-19
 *******************************************************************************/
 
@@ -19,7 +19,7 @@ do "`qa_dir'/_datefix_qa_common.do"
 quietly _datefix_qa_bootstrap
 local pkg_dir "`r(pkg_dir)'"
 
-display as text _n "DATEFIX FUNCTIONAL TESTS (v1.0.2)"
+display as text _n "DATEFIX FUNCTIONAL TESTS"
 display as text "Package: `pkg_dir'"
 
 local test_count = 0
@@ -649,23 +649,25 @@ else {
     local ++fail_count
 }
 
-* Test 33: All missing values
+* Test 33: All-missing input is rejected as a zero-result conversion
 local ++test_count
 capture noisily {
     clear
     set obs 5
     gen datestr = ""
-    datefix datestr, newvar(dt)
-    confirm numeric variable dt
-    count if missing(dt)
-    assert r(N) == 5
+    capture noisily datefix datestr, newvar(dt)
+    local call_rc = _rc
+    assert `call_rc' == 2000
+    confirm string variable datestr
+    capture confirm variable dt
+    assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: All missing values"
+    display as result "  PASS: All-missing input produces rc=2000 without output"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: All missing (error `=_rc')"
+    display as error "  FAIL: All-missing input handling (error `=_rc')"
     local ++fail_count
 }
 

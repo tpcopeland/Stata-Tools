@@ -35,8 +35,9 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | `test_provenance.do` | Provenance chars (`fvgen_role`/`fvgen_term`) on main/interaction/centered vars; `fvgen, drop` teardown, returns, idempotence, absorbed-copy clearing, strict drop-only syntax, edge paths |
 | `test_errors.do` | Failure paths: 3-way→198, >32-char name→198, collision→110, empty sample→2000, ref() 198/111, ref() bad label→198, simple() 198, omit operator `o.`→198, varabbrev restore on error and success |
 | `test_margins.do` | Margins bridge: active `regress` equivalence to native factor-variable margins and VCE, `logit`/`poisson` native-clone equivalence, `svy` prefix with comma options, broad estimator-family matrix (`regress`, `glm`, `qreg`, `rreg`, `logit`/`logistic`, `probit`, `cloglog`, `poisson`, `nbreg`, `tobit`, `ologit`/`oprobit`, `mlogit`, `xtreg`, `svy`), `store()` active-restore contract, `store()` replacement, unsupported center refusal, drop and failed-generation provenance cleanup |
+| `test_regressions.do` | Review regressions: structural output-name collisions, source/output collisions, atomic failure, exact `ref()` label mapping, and margins stale-data guards |
 | `validation_fvgen.do` | Known-answer: hand-computed values + exact equivalence to native `##` + centering invariance |
-| `test_package_release.do` | Install smoke, autoload + second in-session call, documented examples |
+| `test_package_release.do` | Install smoke, autoload + second in-session call, documented examples, and shipped-help render with a broken-markup positive control |
 | `run_all.do` | Curated lane runner |
 
 ## Coverage map
@@ -56,7 +57,7 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | Squared self-interaction (`c.x##c.x`) label + values | `test_fvgen` (#11) |
 | `ibn.` no-base materializes every level | `test_fvgen` (#12) |
 | Weight-aware centering (aweight/pweight); weighted-mean known answer | `test_fvgen` (#13) |
-| Provenance chars `fvgen_role`/`fvgen_term` (main/interaction/centered) | `test_provenance` (#1,#2) |
+| Variable and dataset provenance chars, including margins signature state | `test_provenance` (#1–#3), `test_regressions` (#6–#8) |
 | `fvgen, drop` teardown: returns, idempotence, pass-through survival, strict syntax, edges | `test_provenance` (#3–#7) |
 | `fvgen, margins`: native factor-variable estimator clone and margins VCE parity across linear/GLM/binary/count/censored/ordered/multinomial/panel/survey estimators, `store()` clone, unsupported paths | `test_margins` |
 | `r(allvars/mainvars/intvars/genvars/k_all/k_main/k_int/spec)` | `test_fvgen` (#1) |
@@ -64,7 +65,11 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | Exact reparameterization (coef + R² + N) vs native `##` | `validation_fvgen` (#2–#4) |
 | Centering leaves interaction coef + fit unchanged | `validation_fvgen` (#5) |
 | Error codes 198 / 110 / 2000; ref() bad label; omit operator `o.`; varabbrev restore | `test_errors`, `test_provenance` (#7) |
+| Structural/source name collisions and failure atomicity | `test_regressions` (#1–#3) |
+| Ambiguous and quoted-numeric `ref()` label mapping | `test_regressions` (#4–#5) |
+| Margins bridge stale source/generated data guards | `test_regressions` (#6–#8) |
 | Install / autoload / crash-on-rerun / doc examples | `test_package_release` |
+| Shipped `.sthlp` render axis + positive control | `test_package_release` (#5–#6) |
 
 ## Lane membership
 
@@ -76,5 +81,6 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | `test_errors` | | ✓ | ✓ |
 | `test_provenance` | | ✓ | ✓ |
 | `test_margins` | | ✓ | ✓ |
+| `test_regressions` | | ✓ | ✓ |
 | `validation_fvgen` | | ✓ | ✓ |
 | `test_package_release` | | | ✓ |

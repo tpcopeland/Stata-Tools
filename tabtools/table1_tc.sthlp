@@ -207,8 +207,10 @@ Excel, CSV, and frame exports{p_end}
 complementary suppression where released cells or margins would otherwise
 reveal an exact protected count. {it:#} must be an integer of at least 3. Primary
 cells are shown as {cmd:<#}; complementary cells are shown as {cmd:≥#}. Zeros
-remain visible. See {help table1_tc##technical:Technical notes} for the
-disclosure-control contract and limits.{p_end}
+remain visible. After safety is certified, individually redundant complementary
+markers are removed in a deterministic pass. See
+{help table1_tc##technical:Technical notes} for the disclosure-control contract
+and limits.{p_end}
 
 {phang}
 {opt nf:ormat(%fmt)} display format for n and N; default is %12.0fc{p_end}
@@ -438,6 +440,14 @@ additional exact cells as {cmd:≥#} until every primary cell has at least two
 feasible integer values under all released row, column, and grand margins. Structural
 zeros remain visible and are never selected as complementary
 cells.{p_end}
+
+{pstd}
+After certification, the command tests each complementary marker for removal
+in a stable order and repeats until none can be revealed safely. Every remaining
+{cmd:≥#} is therefore individually necessary in the final protected table
+because revealing it would make at least one primary count exact. This set is
+irredundant, but it is not guaranteed to be a globally minimum-cardinality
+suppression set.{p_end}
 
 {pstd}
 Continuous summaries whose contributing N is below the threshold are replaced

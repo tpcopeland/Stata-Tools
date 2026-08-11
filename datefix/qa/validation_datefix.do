@@ -10,7 +10,7 @@
 *   Jan 1, 2020 = 21915
 *   Dec 31, 2020 = 22280
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-19
 *******************************************************************************/
 

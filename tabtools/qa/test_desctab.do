@@ -1327,7 +1327,46 @@ else {
 }
 capture frame drop _dt_sc_count
 
-**## T46 count(var) layout reuses one redacted payload for every sink
+**## T46 redundant complementary margins are pruned
+local ++total
+capture noisily {
+    clear
+    input byte row byte col int freq
+    1 2 1
+    2 1 1
+    2 2 4
+    end
+    expand freq
+    collect clear
+    collect: table row col, statistic(frequency)
+    capture frame drop _dt_sc_irredundant
+    desctab, smallcells(5) frame(_dt_sc_irredundant, replace)
+    assert r(N_primary_suppressed) == 5
+    assert r(N_secondary_suppressed) == 1
+    frame _dt_sc_irredundant {
+        local sc_ns = 0
+        ds
+        foreach sc_v of varlist `r(varlist)' {
+            capture confirm string variable `sc_v'
+            if !_rc {
+                quietly count if strpos(`sc_v', "≥5") > 0
+                local sc_ns = `sc_ns' + r(N)
+            }
+        }
+    }
+    assert `sc_ns' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: desctab prunes redundant complementary margins"
+    local ++pass
+}
+else {
+    display as error "  FAIL: desctab complementary-margin pruning (rc=`=_rc')"
+    local ++fail
+}
+capture frame drop _dt_sc_irredundant
+
+**## T47 count(var) layout reuses one redacted payload for every sink
 local ++total
 capture noisily {
     clear
@@ -1415,7 +1454,7 @@ else {
 }
 capture frame drop _dt_sc_sinks
 
-**## T47 named n_pct layout suppresses dependent percentages
+**## T48 named n_pct layout suppresses dependent percentages
 local ++total
 capture noisily {
     clear
@@ -1452,7 +1491,7 @@ else {
 }
 capture frame drop _dt_sc_pct
 
-**## T48 unsupported layouts fail closed before any sink
+**## T49 unsupported layouts fail closed before any sink
 local ++total
 capture noisily {
     sysuse auto, clear

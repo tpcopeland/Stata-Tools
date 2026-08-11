@@ -154,6 +154,37 @@ _sc_record "primary/complementary/derived masks and frame metadata" `=_rc' `pass
 
 local ++test_count
 capture noisily {
+    clear
+    input byte group byte category int frequency
+        0 1 1
+        1 0 1
+        1 1 4
+    end
+    expand frequency
+    drop frequency
+    capture frame drop sc_irredundant
+    table1_tc category, by(group) vars(category cat) total(after) ///
+        smallcells(5) frame(sc_irredundant)
+    assert r(N_primary_suppressed) == 5
+    assert r(N_secondary_suppressed) == 1
+    frame sc_irredundant {
+        local nsecondary = 0
+        ds
+        foreach v of varlist `r(varlist)' {
+            capture confirm string variable `v'
+            if !_rc {
+                quietly count if strpos(`v', "≥5") > 0
+                local nsecondary = `nsecondary' + r(N)
+            }
+        }
+    }
+    assert `nsecondary' == 1
+}
+_sc_record "redundant complementary margins are absent" `=_rc' `pass_count' `fail_count'
+capture frame drop sc_irredundant
+
+local ++test_count
+capture noisily {
     _sc_build_2x2
     capture frame drop sc_legacy
     table1_tc category, by(group) vars(category cat) total(after) ///
