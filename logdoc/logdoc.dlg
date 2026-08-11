@@ -128,7 +128,7 @@ BEGIN
   * =========================================================================
   * PYTHON AND CSS
   * =========================================================================
-  GROUPBOX gb_python     10  10  620  100, label("Python and Styling")
+  GROUPBOX gb_python     10  10  620  125, label("Runtime and Styling")
 
   TEXT     tx_python     20  +20 140  ., label("Python path:")
   EDIT     ed_python     165 @   465  ., label("Python path")
@@ -139,6 +139,9 @@ BEGIN
 
   TEXT     tx_accent     20  +25 140  ., label("Accent color:")
   EDIT     ed_accent     165 @   140  ., label("Accent color")
+
+  TEXT     tx_stataexe   330 @   140  ., label("Stata executable:")
+  EDIT     ed_stataexe   475 @   140  ., label("Stata executable")
 
   * =========================================================================
   * FOOTER AND FILTERING
@@ -278,6 +281,15 @@ BEGIN
 		put " python("
 		put `"""'
 		put advanced.ed_python
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: child Stata executable for run
+	if advanced.ed_stataexe {
+		put " stataexe("
+		put `"""'
+		put advanced.ed_stataexe
 		put `"""'
 		put ")"
 	}

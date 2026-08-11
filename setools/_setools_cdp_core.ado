@@ -1,4 +1,4 @@
-*! _setools_cdp_core Version 1.5.3  2026/08/05
+*! _setools_cdp_core Version 1.5.4  2026/08/11
 *! setools internal: confirmed disability progression engine (non-roving)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -26,6 +26,11 @@
 
 program define _setools_cdp_core, rclass
     version 16.0
+    local _varabbrev `c(varabbrev)'
+    set varabbrev off
+
+    capture noisily {
+
     syntax varlist(min=3 max=3), BASEedss(varname) BASEdate(varname) ///
         CONFirmdays(integer) GENname(name) [THREEtier CONFirmtype(string) ///
         BASEout(name) CONFdate(name) CONFedss(name)]
@@ -147,4 +152,9 @@ program define _setools_cdp_core, rclass
     return scalar N_events  = r(N)
     return scalar converged = `converged'
     return scalar iterations = `cdp_iter'
+
+    }
+    local _rc = _rc
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end

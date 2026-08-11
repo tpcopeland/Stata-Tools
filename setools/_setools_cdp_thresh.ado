@@ -1,4 +1,4 @@
-*! _setools_cdp_thresh Version 1.5.3  2026/08/05
+*! _setools_cdp_thresh Version 1.5.4  2026/08/11
 *! setools internal: EDSS progression threshold column from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -14,6 +14,11 @@
 
 program define _setools_cdp_thresh, nclass
     version 16.0
+    local _varabbrev `c(varabbrev)'
+    set varabbrev off
+
+    capture noisily {
+
     syntax varname, GENerate(name) [THREEtier]
 
     if "`threetier'" != "" {
@@ -23,4 +28,9 @@ program define _setools_cdp_thresh, nclass
     else {
         qui gen double `generate' = cond(`varlist' <= 5.5, 1.0, 0.5)
     }
+
+    }
+    local _rc = _rc
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end

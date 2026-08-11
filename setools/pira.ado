@@ -1,4 +1,4 @@
-*! pira Version 1.5.3  2026/08/05
+*! pira Version 1.5.4  2026/08/11
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -55,8 +55,8 @@ program define pira, rclass
         DXdate(varname) ///
         RELapses(string) ///
         [ ///
-        RELAPSEIdvar(string) ///
-        RELAPSEDatevar(string) ///
+        RELAPSEIdvar(name) ///
+        RELAPSEDatevar(name) ///
         WINDOWBefore(integer 90) ///
         WINDOWAfter(integer 30) ///
         GENerate(name) ///
@@ -211,8 +211,9 @@ program define pira, rclass
         }
     }
 
-    // Mark sample (strok: allow string ID variables)
-    marksample touse, strok
+    // Mark if/in membership first (strok permits string IDs). Missing visit
+    // values are filtered only after person-level dates are validated.
+    marksample touse, novarlist strok
     if `id_is_str' {
         quietly replace `touse' = 0 if trim(`idvar') == "" & `touse'
     }
@@ -503,16 +504,17 @@ program define pira, rclass
 
         // Check if CDP date falls within relapse window
         // Window: [relapse_date - windowbefore, relapse_date + windowafter]
-        qui gen byte _in_relapse_window = inrange(_pira_cdp_dt, _relapse_dt - `windowbefore', ///
+        qui gen byte _pira_in_relapse_window = inrange(_pira_cdp_dt, _relapse_dt - `windowbefore', ///
             _relapse_dt + `windowafter') if !missing(_relapse_dt)
 
         // Collapse: any relapse within window makes it RAW
-        qui egen byte _any_relapse_window = max(_in_relapse_window), by(`idvar')
-        qui replace _any_relapse_window = 0 if missing(_any_relapse_window)
+        qui egen byte _pira_any_relapse_window = ///
+            max(_pira_in_relapse_window), by(`idvar')
+        qui replace _pira_any_relapse_window = 0 if missing(_pira_any_relapse_window)
 
         // Classify
-        qui gen long `generate' = _pira_cdp_dt if _any_relapse_window == 0
-        qui gen long `rawgenerate' = _pira_cdp_dt if _any_relapse_window == 1
+        qui gen long `generate' = _pira_cdp_dt if _pira_any_relapse_window == 0
+        qui gen long `rawgenerate' = _pira_cdp_dt if _pira_any_relapse_window == 1
         format `generate' `rawgenerate' %tdCCYY/NN/DD
 
         // Keep one record per person

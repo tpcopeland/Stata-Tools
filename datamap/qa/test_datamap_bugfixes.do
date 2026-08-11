@@ -381,11 +381,12 @@ else {
 
 di _newline
 di as text "Results: `pass_count'/`test_count' passed"
-if `pass_count' == `test_count' {
+local fail_count = `test_count' - `pass_count'
+if `fail_count' == 0 {
 	di as result "ALL TESTS PASSED"
 }
 else {
-	local nfail = `test_count' - `pass_count'
-	di as error "`nfail' TESTS FAILED"
-	exit 9
+	di as error "`fail_count' TESTS FAILED"
 }
+display "RESULT: test_datamap_bugfixes tests=`test_count' pass=`pass_count' fail=`fail_count'"
+if `fail_count' > 0 exit 9

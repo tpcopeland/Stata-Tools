@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.3** | 2026-08-05
+**Version 1.2.4** | 2026-08-11
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -40,8 +40,8 @@ net install kmplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 - The default graph is survival, `S(t)`. Add `failure` to plot cumulative failure, `1 - S(t)`.
 - Add `by(varname)` for one curve per group; numeric and string grouping variables are supported, and value labels are used when available.
 - Add `ci` for confidence intervals. The default is a shaded log-log interval; `cistyle(line)` draws dashed interval lines, and `citransform(log)` or `citransform(plain)` changes the transformation.
-- Add `risktable` for a number-at-risk table, `landmark()` for fixed-time estimates, `median` for median reference lines, and `censor` for censoring marks.
-- Add `pvalue` with `by()` when at least two groups are present to display the Stata log-rank p-value; otherwise, the p-value is skipped.
+- Add `risktable` for a number-at-risk table, `landmark()` for fixed-time estimates, `median` for median reference lines, and `censor` for censoring marks. Risk tables count subjects in multiple-record data and honor active `stset` weights.
+- Add `pvalue` with `by()` when at least two groups are present to display the Stata log-rank p-value; invalid p-value requests return `r(198)`.
 - `saving()` and `risksaving()` write reusable curve and risk-table datasets, while `export()` writes the graph through Stata's `graph export`.
 - Standard `twoway` graph options are passed through after the named `kmplot` options.
 
@@ -132,26 +132,26 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `by(varname)` | none | Stratify curves by a numeric or string variable |
 | `failure` | survival | Plot cumulative failure, `1 - S(t)`, instead of survival |
 | `ci` | off | Draw confidence intervals |
-| `level(#)` | 95 | Set the confidence level; values must be between 0 and 100, exclusive |
-| `cistyle(string)` | `band` | Use shaded bands or dashed `line` intervals |
-| `ciopacity(#)` | 12 | Set shaded-band opacity from 0 to 100 |
-| `citransform(string)` | `loglog` | Use `loglog`, `log`, or `plain` confidence intervals |
+| `level(#)` | 95 | Set the confidence level for `ci`; values must be between 0 and 100, exclusive |
+| `cistyle(string)` | `band` | Use shaded bands or dashed `line` intervals; requires `ci` |
+| `ciopacity(#)` | 12 | Set shaded-band opacity from 0 to 100; requires `ci` with band intervals |
+| `citransform(string)` | `loglog` | Use `loglog`, `log`, or `plain` confidence intervals; requires `ci` |
 | `median` | off | Draw median reference lines for groups whose median is reached |
 | `medianannotate` | off | Add median values to the graph note; requires `median` |
 | `risktable` | off | Add a number-at-risk table below the graph |
-| `riskevents` | off | Add cumulative events as `N (events)` in the risk table |
-| `riskcompact` | off | Synonym for `riskevents` |
-| `riskmono` | off | Display risk-table numbers in black instead of line colors |
-| `riskheight(#)` | auto | Set risk-table height; auto is 25 for up to 3 groups and increases with group count to a maximum of 60; supplied values must be greater than 0 and no more than 80 |
-| `timepoints(numlist)` | auto | Set risk-table timepoints; otherwise approximately six are chosen from 0 to the maximum observed time |
+| `riskevents` | off | Add cumulative events as `N (events)` in the risk table; requires `risktable` |
+| `riskcompact` | off | Synonym for `riskevents`; requires `risktable` |
+| `riskmono` | off | Display risk-table numbers in black instead of line colors; requires `risktable` |
+| `riskheight(#)` | auto | Set risk-table height; requires `risktable` or `risksaving()`; supplied values must be greater than 0 and no more than 80 |
+| `timepoints(numlist)` | auto | Set risk-table timepoints; requires `risktable` or `risksaving()` |
 | `landmark(numlist)` | none | Return survival or cumulative-failure estimates at fixed analysis times |
 | `censor` | off | Show censoring marks on the curves |
-| `censorthin(#)` | 1 | Show every Nth censor mark |
+| `censorthin(#)` | 1 | Show every Nth censor mark; requires `censor` and a value of at least 1 |
 | `pvalue` | off | Display the log-rank p-value; requires `by()` |
 | `pvaluepos(string)` | `bottomright` | Place the p-value at `bottomright`, `topright`, `topleft`, or `bottomleft` |
 | `pvalueformat(string)` | `%5.3f` | Set the numeric display format for the p-value |
 | `pvaluetext(string)` | `Log-rank p` | Set the text printed before the p-value |
-| `pvalueat(y x)` | none | Place the p-value at explicit graph coordinates |
+| `pvalueat(y x)` | none | Place the p-value at explicit graph coordinates; may not be combined with `pvaluepos()` |
 | `colors(colorlist)` | colorblind-safe palette | Set curve colors |
 | `lwidth(string)` | `medthick` | Set curve line width |
 | `lpattern(patternlist)` | `solid` | Set curve line patterns |
@@ -168,7 +168,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `aspectratio(string)` | none | Set the graph aspect ratio |
 | `export(string)` | none | Export to a file; the format is inferred from `.pdf`, `.png`, `.eps`, or `.svg`, and graph-export suboptions are passed through |
 | `saving(filename[, replace])` | none | Save curve data with `group`, `group_label`, `time`, `estimate`, `se`, `lower`, `upper`, `censor`, and `anchor` variables |
-| `risksaving(filename[, replace])` | none | Save risk-table data with `group`, `group_label`, `time`, `at_risk`, `events`, and `censored` variables |
+| `risksaving(filename[, replace])` | none | Save risk-table data with `group`, `group_label`, `time`, `at_risk`, `events`, and cumulative censoring exits in `censored` |
 
 `kmplot` also accepts standard `twoway` graph options through its trailing pass-through syntax.
 
@@ -233,9 +233,9 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 - Run `stset` before `kmplot`; the command uses the current survival-time definition and analysis sample.
 - `failure` is the complement of the Kaplan-Meier survival estimate, `1 - S(t)`. It is not a competing-risk cumulative incidence function, and `kmplot` does not implement Aalen-Johansen or Fine-Gray estimators.
 - Confidence intervals use Greenwood standard errors with the selected `level()` and `citransform()`; `loglog` is the default, with `log` and `plain` alternatives.
-- `pvalue` uses Stata's log-rank test and requires `by()`; it is skipped when there is no grouping variable or only one group in the analysis sample.
+- `pvalue` uses Stata's log-rank test and requires `by()` with at least two groups in the analysis sample.
 - If a group's survival curve does not reach 0.5, `median` draws no line for that group and its median entry is missing in `r(medians)`.
-- Risk-table counts honor delayed entry through `_t0` when it is present in the `stset` definition.
+- Risk-table counts honor delayed entry, active `stset` weights, and subject identifiers. In multiple-record data, each subject is counted once at a timepoint; contiguous records within the same group are not marked as censoring, while departures from a group and terminal censored records are counted in `censored`.
 - `saving()` and `risksaving()` support the `replace` suboption only; `export()` passes graph-export suboptions to Stata.
 
 ## References
@@ -249,6 +249,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.4** (2026-08-11): Corrected subject-level, weighted, delayed-entry, and group-transition risk-table counts; excluded contiguous same-group records from censoring; and rejected ineffective dependent-option combinations.
 - **1.2.3** (2026-08-05): Corrected p-value requirements and stored-result conditions, documented `note()` precedence with `medianannotate`, and aligned help abbreviations with the parser.
 - **1.2.2** (2026-08-05): Corrected the documented export-return contract, completed prose for graph appearance, label, and output options, and repaired Viewer-width overflow in the help synopsis and stored-results table.
 - **1.2.1** (2026-07-10): Added stepped confidence bands, automatic risk-table height, `saving()` without `ci`, and a p-value/CI-level demo panel; removed risk-table gridlines and improved combined-figure spacing.

@@ -1,4 +1,4 @@
-*! msm_table Version 1.4.5  2026/08/05
+*! msm_table Version 1.4.6  2026/08/11
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -130,15 +130,9 @@ program define msm_table, nclass
             }
         }
         else {
-            capture matrix list _msm_fit_b
-            if _rc {
-                if `auto' local do_coef = 0
-                else {
-                    display as error "saved model coefficients not found; re-run msm_fit"
-                    exit 301
-                }
-            }
-            else local ++n_sheets
+            * Verify freshness and rehydrate this dataset's own b/V matrices.
+            _msm_check_fitted
+            local ++n_sheets
         }
     }
 
@@ -152,15 +146,8 @@ program define msm_table, nclass
             }
         }
         else {
-            capture matrix list _msm_pred_matrix
-            if _rc {
-                if `auto' local do_pred = 0
-                else {
-                    display as error "predictions matrix not found; re-run msm_predict"
-                    exit 111
-                }
-            }
-            else local ++n_sheets
+            _msm_check_artifact prediction, require
+            local ++n_sheets
         }
     }
 
@@ -174,15 +161,8 @@ program define msm_table, nclass
             }
         }
         else {
-            capture matrix list _msm_bal_matrix
-            if _rc {
-                if `auto' local do_bal = 0
-                else {
-                    display as error "balance matrix not found; re-run msm_diagnose"
-                    exit 111
-                }
-            }
-            else local ++n_sheets
+            _msm_check_artifact balance, require
+            local ++n_sheets
         }
     }
 
@@ -195,7 +175,10 @@ program define msm_table, nclass
                 exit 198
             }
         }
-        else local ++n_sheets
+        else {
+            _msm_check_artifact diagnostics, require
+            local ++n_sheets
+        }
     }
 
     if `do_sens' {
@@ -207,7 +190,10 @@ program define msm_table, nclass
                 exit 198
             }
         }
-        else local ++n_sheets
+        else {
+            _msm_check_artifact sensitivity, require
+            local ++n_sheets
+        }
     }
 
     if `n_sheets' == 0 {

@@ -52,8 +52,8 @@ mean the result is more robust to unmeasured confounding.{p_end}
 
 {phang2}{bf:Confounding strength bounds:} Given specific hypothetical
 confounder-treatment and confounder-outcome associations (RR_UD and RR_UY),
-computes the bias factor and what the corrected effect would be after
-accounting for that confounder.{p_end}
+computes the bias factor and the resulting bias-adjusted risk-ratio bound
+under that confounder.{p_end}
 
 {pstd}
 The command requires a prior {helpb msm_fit} run and reads the persisted
@@ -96,8 +96,9 @@ risk ratio only when the outcome is rare {it:by the end of follow-up}.
 
 {pstd}
 {cmd:msm_sensitivity} therefore judges rarity by the subject-level
-{bf:cumulative incidence} (the share of subjects who experience the event over
-follow-up), returned in {cmd:r(cumulative_incidence)}. When it is at most
+{bf:cumulative incidence} among subjects contributing to the saved fit, using
+events on fitted risk-set rows only. This quantity is returned in
+{cmd:r(cumulative_incidence)}. When it is at most
 {cmd:rarethreshold()} (default 0.15, the VanderWeele-Ding rare/common cut), the
 OR (logistic) or HR (Cox) is used directly as the risk ratio.
 
@@ -131,16 +132,16 @@ for a specific unmeasured confounder. The first number is RR(U,D), the
 confounder-treatment association; the second is RR(U,Y), the
 confounder-outcome association. Both values must be >= 1 (invert
 protective associations). The command computes the bias factor
-= (RR_UD x RR_UY) / (RR_UD + RR_UY - 1) and reports the corrected effect,
-shifted toward the null: the observed effect is divided by the bias factor
+= (RR_UD x RR_UY) / (RR_UD + RR_UY - 1) and reports the bias-adjusted RR bound,
+shifted toward the null: the RR-scale input is divided by the bias factor
 when it exceeds 1 and multiplied by it when it is below 1.
 
 {phang}
 {opt level(#)} specifies the confidence level. The default is the current {cmd:c(level)}, usually 95.
 
 {phang}
-{opt rarethr:eshold(#)} specifies the cumulative-incidence cut (share of
-subjects with the event by the end of follow-up) at or below which the OR/HR
+{opt rarethr:eshold(#)} specifies the cumulative-incidence cut (share of fitted
+subjects with an event on a fitted risk-set row) at or below which the OR/HR
 is used directly as the risk ratio; above it, the common-outcome transform is
 applied ({cmd:sqrt(OR)} for logistic, the HR-to-RR transform for Cox). Default
 is 0.15 (VanderWeele & Ding 2017). Must be strictly between 0 and 1.
@@ -198,10 +199,10 @@ RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 {synopt:{cmd:r(effect_se)}}standard error of the effect term{p_end}
 {synopt:{cmd:r(bias_factor)}}computed bias factor (with {opt confounding_strength()}){p_end}
 {synopt:{cmd:r(bound)}}bias-adjusted bound on the RR scale{p_end}
-{synopt:{cmd:r(corrected_effect)}}effect corrected toward the null by the bias factor{p_end}
+{synopt:{cmd:r(corrected_effect)}}backward-compatible alias of {cmd:r(bound)}{p_end}
 {synopt:{cmd:r(rr_ud)}}hypothetical RR(U,D) specified{p_end}
 {synopt:{cmd:r(rr_uy)}}hypothetical RR(U,Y) specified{p_end}
-{synopt:{cmd:r(cumulative_incidence)}}cumulative incidence by end of follow-up{p_end}
+{synopt:{cmd:r(cumulative_incidence)}}cumulative incidence in the saved fit sample{p_end}
 {synopt:{cmd:r(outcome_prevalence)}}alias of {cmd:r(cumulative_incidence)}{p_end}
 {synopt:{cmd:r(rare_threshold)}}value of {cmd:rarethreshold()} used{p_end}
 {synopt:{cmd:r(metric_produced)}}1 if a RR-scale measure was produced{p_end}

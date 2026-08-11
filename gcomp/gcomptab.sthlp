@@ -372,14 +372,20 @@ p-value column. {opt compact} merges the estimate and CI/SE into one column per
 model. {opt stars} appends significance stars at the thresholds in
 {opt starslevels(numlist)} (default {cmd:0.05 0.01 0.001}).
 
+{pstd}
+Component-model confidence intervals and p-values use residual-degrees-of-freedom
+t inference when the stored estimator supplies {cmd:e(df_r)} (including
+{cmd:regress}); otherwise they use normal inference.
+
 {phang}
 {opt nointercept} drops {cmd:_cons} and {cmd:ologit} cutpoints; {opt keepintercept}
 keeps them (the default). {opt keep(string)} and {opt drop(string)} filter rows
 by term name.
 
 {phang}
-{opt digits(#)} (or {opt decimal(#)}) sets numeric precision (default 3). {opt stats(string)}
-adds a per-model footer; {cmd:n} (sample size) is supported.
+{opt digits(#)} (or {opt decimal(#)}) sets numeric precision (default 3), while
+{opt stats(string)} adds a per-model footer. The only supported statistic is
+{cmd:n} (sample size), and it is case-insensitive.
 
 {phang}
 {opt markdown(filename)} and {opt csv(filename)} (shared with the mediation and

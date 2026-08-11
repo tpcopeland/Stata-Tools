@@ -15,7 +15,6 @@
 */
 
 version 16.0
-set more off
 set varabbrev off
 set linesize 120
 
@@ -42,9 +41,16 @@ capture ado uninstall datamap
 quietly net install datamap, from("`c(pwd)'/datamap") replace
 discard
 
-**# Graph scheme (datamvp missingness graph)
+**# Graph scheme (local checkout first, public release fallback)
 capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+capture confirm file "`c(pwd)'/tc_schemes/stata.toc"
+if _rc {
+    quietly net install tc_schemes, ///
+        from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes") replace
+}
+else {
+    quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+}
 set scheme plotplainblind
 
 **# Demo helper programs
@@ -256,7 +262,7 @@ log using "`pkg_dir'/console_datamap_privacy.log", replace text name(privacy) no
 
 * # Likely identifier warning
 
-noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
+quietly datamap, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datamap_warning.txt") ///
     mincell(5) noguidance compact
 quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_warning.txt"
@@ -480,7 +486,14 @@ _demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///
 
 **# Convert console logs to markdown via logdoc
 capture ado uninstall logdoc
-quietly net install logdoc, from("`c(pwd)'/logdoc") replace
+capture confirm file "`c(pwd)'/logdoc/stata.toc"
+if _rc {
+    quietly net install logdoc, ///
+        from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc") replace
+}
+else {
+    quietly net install logdoc, from("`c(pwd)'/logdoc") replace
+}
 
 foreach section in datamap_privacy datamap_json datamap_compact datamap_missing ///
     datadict datacheck datamvp {

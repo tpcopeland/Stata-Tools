@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and longitudinal interventions
 
-**Version 1.4.6** | 2026-07-19
+**Version 1.4.7** | 2026-08-11
 
 `gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
 
@@ -338,7 +338,7 @@ Mediation and dose-response modes require `xlsx()` and `sheet()`; component-mode
 | `eofu`, `pooled`, `monotreat`, `dynamic`, `death()` | Choose end-of-follow-up outcomes, common pooled coefficients, monotone treatment, dynamic regimes, or a competing event. |
 | `impute()`, `imp_eq()`, `imp_cmd()`, `imp_cycles()` | Configure single stochastic chained-equation imputation; `imp_cycles()` defaults to 10. |
 | `simulations()`, `samples()`, `seed()`, `minsim`, `moreMC` | Control Monte Carlo size, bootstrap replications, random state, minimum-simulation checks, and the mediation-only larger-Monte-Carlo option. Defaults are observed sample size, 1,000, and no explicit seed. |
-| `diagnostics`, `all`, `graph` | Display model diagnostics, retain all supported interval matrices, or graph non-`eofu` time-varying survival results. |
+| `diagnostics`, `all`, `graph` | Display model diagnostics, retain the BCa interval matrix in addition to the default normal/percentile/BC matrices, or graph non-`eofu` time-varying survival results. |
 | `saving()`, `replace` | Save exact point-estimate stochastic data and permit overwriting an existing file. |
 | `savemodels`, `showmodels`, `modelstyle()` | Store or display analytic-sample component-model refit approximations; `modelstyle()` accepts `compact` or `native`. |
 
@@ -352,7 +352,7 @@ Mediation and dose-response modes require `xlsx()` and `sheet()`; component-mode
 | `headershade`, `noshade`, `headercolor()`, `zebra`, `nozebra`, `zebracolor()`, `footnote()`, `boldp()`, `highlight()` | Control table shading, colors, notes, bold p-value cutoff, and highlight cutoff; the cutoffs default to 0, which disables emphasis. |
 | `doseresponse`, `strategylabels()`, `expyears()`, `reference()`, `nord` | Select and label dose-response rows, add cumulative exposure-years, choose the reference strategy (default 1), or suppress the risk-difference column. |
 | `models`, `usemodels()`, `modellabels()`, `termlabels()`, `stats()`, `display` | Select component-model mode, stored estimates, model and term labels, requested summary statistics, and Results-window output. |
-| `coef()`, `eform`, `noeform`, `raw`, `se`, `compact`, `nopvalue`, `stars`, `starslevels()` | Override the scale-column label and select coefficient display columns; automatic model scales are OR for logit/ologit, RRR for mlogit, and Coef for regress. |
+| `coef()`, `eform`, `noeform`, `raw`, `se`, `compact`, `nopvalue`, `stars`, `starslevels()` | Override the scale-column label and select coefficient display columns; automatic model scales are OR for logit/ologit, RRR for mlogit, and Coef for regress. Model inference uses residual-df t statistics when available and normal statistics otherwise. |
 | `nointercept`, `keepintercept`, `keep()`, `drop()`, `digits()` | Filter terms and set model-table digits; `digits(-1)` uses the decimal setting. |
 
 ## Stored Results
@@ -370,7 +370,7 @@ The command is `eclass` and posts the following result groups:
 | `e(model_diagnostics)` | Component-model rows with `N`, `converged`, `ll`, `r2`, and `rmse`. |
 | `e(N)`, `e(N_rows)`, `e(N_subjects)`, `e(MC_sims)`, `e(samples)` | Analytic-sample and resampling sizes; `e(N)` is rows for mediation and subjects for time-varying analyses. |
 | `e(bootstrap_requested)`, `e(bootstrap_attempted)`, `e(bootstrap_successful)`, `e(bootstrap_failed)`, `e(seed)` | Bootstrap accounting and optional seed. |
-| `e(analysis_type)`, `e(outcome)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(idvar)`, `e(tvar)`, `e(intvars)`, `e(interventions)` | Analysis and design metadata. |
+| `e(analysis_type)`, `e(outcome)`, `e(outcome_cmd)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(idvar)`, `e(tvar)`, `e(intvars)`, `e(interventions)` | Analysis and design metadata, including the outcome model family. |
 | `e(saving)`, `e(saved_schema_version)`, `e(saved_arm_schema)`, `e(run_id)`, `e(rngstate)`, `e(graph)` | Point-run saving, reproducibility, and optional graph metadata when applicable. |
 | `e(model_names)`, `e(model_cmds)`, `e(model_depvars)`, `e(model_eq_1)`, `e(model_skipped)`, `e(model_capture)` | Component-model manifest when `savemodels` is used; `e(model_eq_1)` illustrates the indexed equation family. |
 | `e(msm)`, `e(msm_colnames)` | Marginal structural-model specification and coefficient names when an MSM is requested. |
@@ -409,6 +409,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **1.4.7** (2026-08-11): Removed the unrequested placeholder BCa return, made component-model tables use residual-df t inference where available, made `stats()` fail closed, and preserved outcome-family metadata so ordinary dose-response tables use the correct risk/mean label.
 - **1.4.6** (2026-07-19): Corrected post-exposure mediator-confounder world assignment, made survival dose-response tables use outcome-specific cumulative incidence, and expanded imputation equation handling for factor variables.
 - **1.4.5** (2026-07-13): Hardened monotreatment, multi-mediator cross-world simulation, BOCE-AM, MSM posting, missing-value handling, point-run saving, bootstrap accounting, replay metadata, component-model manifests, and Markdown/CSV/Excel export semantics.
 - **1.4.4** (2026-07-10): Preserved completed `gcomptab` results when the optional workbook opener fails.

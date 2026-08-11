@@ -1,4 +1,4 @@
-*! _setools_cdp_confirm Version 1.5.3  2026/08/05
+*! _setools_cdp_confirm Version 1.5.4  2026/08/11
 *! setools internal: per-person confirmation EDSS value for a candidate date
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -26,6 +26,11 @@
 
 program define _setools_cdp_confirm, nclass
     version 16.0
+    local _varabbrev `c(varabbrev)'
+    set varabbrev off
+
+    capture noisily {
+
     syntax varlist(min=3 max=3), CANDdate(varname) CONFirmdays(integer) ///
         GENerate(name) [CONFirmtype(string) DATEout(name) EDSSout(name)]
 
@@ -64,4 +69,9 @@ program define _setools_cdp_confirm, nclass
             `datevar' >= `canddate' + `confirmdays' & !missing(`canddate')
         qui egen double `generate' = min(`minvalue'), by(`idvar')
     }
+
+    }
+    local _rc = _rc
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end

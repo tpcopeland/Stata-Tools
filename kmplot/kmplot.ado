@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.3  2026/08/05
+*! kmplot Version 1.2.4  2026/08/11
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -11,6 +11,11 @@ Basic syntax:
 Description:
   One-command publication-quality Kaplan-Meier survival curves with confidence
   bands, risk tables, median lines, censoring marks, and log-rank p-values.
+
+Method:
+  Estimates the Kaplan-Meier product-limit survival function S(t), or 1-S(t)
+  with failure. Greenwood standard errors come from sts generate.
+  Reference: Kaplan EL, Meier P. JASA 1958;53:457-481.
 
 Requires: Data must be stset
 
@@ -26,11 +31,11 @@ program define kmplot, rclass
         capture noisily {
 
     syntax [if] [in] , [BY(varname) FAILure ///
-        CI Level(real 95) CIStyle(string) CIOpacity(integer 12) CITRansform(string) ///
+        CI Level(string) CIStyle(string) CIOpacity(string) CITRansform(string) ///
         MEDian MEDIANAnnotate ///
-        RISKtable RISKEVents RISKCOMpact RISKMono RISKHeight(real -1) TIMEpoints(numlist sort) ///
+        RISKtable RISKEVents RISKCOMpact RISKMono RISKHeight(string) TIMEpoints(numlist sort) ///
         LANDmark(numlist sort) ///
-        CENsor CENSORThin(integer 1) ///
+        CENsor CENSORThin(string) ///
         PVALue PVALUEPOs(string) PVALUEFormat(string) PVALUEText(string asis) PVALUEAT(string asis) ///
         COLors(string asis) LWidth(string) LPattern(string asis) ///
         TItle(string asis) SUBtitle(string asis) ///
@@ -39,6 +44,51 @@ program define kmplot, rclass
         LEGend(string asis) NOTE(string asis) ///
         SCHeme(string) NAME(string asis) ASPectratio(string) ///
         EXPort(string asis) SAVing(string asis) RISKSAVing(string asis) *]
+
+    local _level_specified = ("`level'" != "")
+    local _ciopacity_specified = ("`ciopacity'" != "")
+    local _censorthin_specified = ("`censorthin'" != "")
+    local _riskheight_specified = ("`riskheight'" != "")
+
+    if `_level_specified' {
+        capture confirm number `level'
+        if _rc {
+            noisily display as error "level() must be numeric"
+            exit 198
+        }
+        local level = real("`level'")
+    }
+    else local level = 95
+
+    if `_ciopacity_specified' {
+        capture confirm integer number `ciopacity'
+        if _rc {
+            noisily display as error "ciopacity() must be an integer"
+            exit 198
+        }
+        local ciopacity = real("`ciopacity'")
+    }
+    else local ciopacity = 12
+
+    if `_censorthin_specified' {
+        capture confirm integer number `censorthin'
+        if _rc {
+            noisily display as error "censorthin() must be an integer"
+            exit 198
+        }
+        local censorthin = real("`censorthin'")
+    }
+    else local censorthin = 1
+
+    if `_riskheight_specified' {
+        capture confirm number `riskheight'
+        if _rc {
+            noisily display as error "riskheight() must be numeric"
+            exit 198
+        }
+        local riskheight = real("`riskheight'")
+    }
+    else local riskheight = -1
 
     * =========================================================================
     * VALIDATE PREREQUISITES
@@ -91,6 +141,55 @@ program define kmplot, rclass
 
     tempname medians_mat landmarks_mat risktable_mat
 
+    * Reject subordinate options that would otherwise be silently ignored
+    if "`medianannotate'" != "" & "`median'" == "" {
+        noisily display as error "medianannotate requires median"
+        exit 198
+    }
+    if ("`riskevents'" != "" | "`riskcompact'" != "" | ///
+        "`riskmono'" != "") & "`risktable'" == "" {
+        noisily display as error "riskevents, riskcompact, and riskmono require risktable"
+        exit 198
+    }
+    if "`timepoints'" != "" & "`risktable'" == "" & `"`risksaving'"' == "" {
+        noisily display as error "timepoints() requires risktable or risksaving()"
+        exit 198
+    }
+    if `_riskheight_specified' & "`risktable'" == "" & `"`risksaving'"' == "" {
+        noisily display as error "riskheight() requires risktable or risksaving()"
+        exit 198
+    }
+    if `_censorthin_specified' & "`censor'" == "" {
+        noisily display as error "censorthin() requires censor"
+        exit 198
+    }
+    if `censorthin' < 1 {
+        noisily display as error "censorthin() must be at least 1"
+        exit 198
+    }
+    if "`pvalue'" == "" & ("`pvaluepos'" != "" | "`pvalueformat'" != "" | ///
+        `"`pvaluetext'"' != "" | `"`pvalueat'"' != "") {
+        noisily display as error "pvaluepos(), pvalueformat(), pvaluetext(), and pvalueat() require pvalue"
+        exit 198
+    }
+    if "`pvalue'" != "" & "`by'" == "" {
+        noisily display as error "pvalue requires by()"
+        exit 198
+    }
+    if "`pvaluepos'" != "" & `"`pvalueat'"' != "" {
+        noisily display as error "pvaluepos() and pvalueat() may not be combined"
+        exit 198
+    }
+    if "`ci'" == "" & ("`cistyle'" != "" | "`citransform'" != "" | ///
+        `_ciopacity_specified' | `_level_specified') {
+        noisily display as error "level(), cistyle(), ciopacity(), and citransform() require ci"
+        exit 198
+    }
+    if "`ci'" != "" & "`cistyle'" == "line" & `_ciopacity_specified' {
+        noisily display as error "ciopacity() is not supported with cistyle(line)"
+        exit 198
+    }
+
     * Validate cistyle
     if "`cistyle'" != "" & !inlist("`cistyle'", "band", "line") {
         noisily display as error "cistyle() must be {bf:band} or {bf:line}"
@@ -124,7 +223,7 @@ program define kmplot, rclass
         noisily display as error "pvaluepos() must be {bf:topleft}, {bf:topright}, {bf:bottomleft}, or {bf:bottomright}"
         exit 198
     }
-    if `riskheight' != -1 & (`riskheight' <= 0 | `riskheight' > 80) {
+    if `_riskheight_specified' & (`riskheight' <= 0 | `riskheight' > 80) {
         noisily display as error "riskheight() must be greater than 0 and no more than 80"
         exit 198
     }
@@ -154,8 +253,7 @@ program define kmplot, rclass
         local pvalue_x : word 2 of `pvalueat'
         local pvalue_place "c"
     }
-        if `censorthin' < 1 local censorthin = 1
-        if `ciopacity' < 0 | `ciopacity' > 100 {
+	        if `ciopacity' < 0 | `ciopacity' > 100 {
             noisily display as error "ciopacity() must be between 0 and 100"
             exit 198
         }
@@ -198,17 +296,18 @@ program define kmplot, rclass
 
     local pval = .
     local pval_text ""
-    if "`pvalue'" != "" & "`by'" != "" {
+    if "`pvalue'" != "" {
         quietly tab `by' if `touse'
         if r(r) < 2 {
-            display as text "(p-value skipped: only one group in sample)"
-            local pvalue ""
+            noisily display as error "pvalue requires at least two groups in the analysis sample"
+            exit 198
         }
         else {
             capture noisily quietly sts test `by' if `touse', logrank
             if _rc {
-                display as text "(p-value computation failed; skipped)"
-                local pvalue ""
+                local _pvalue_rc = _rc
+                noisily display as error "p-value computation failed"
+                exit `_pvalue_rc'
             }
             else {
                 local pval = chi2tail(r(df), r(chi2))
@@ -223,11 +322,6 @@ program define kmplot, rclass
 	            }
 	        }
     }
-    else if "`pvalue'" != "" & "`by'" == "" {
-        display as text "(p-value requires by() variable; skipped)"
-        local pvalue ""
-    }
-
     * =========================================================================
     * PREPARE DATA
     * =========================================================================
@@ -367,7 +461,18 @@ program define kmplot, rclass
     * =========================================================================
 
 	        if "`censor'" != "" | `"`saving'"' != "" {
-	            quietly gen byte `km_cens' = (_d == 0 & !missing(`km_s'))
+                    local _st_id : char _dta[st_id]
+                    if `"`_st_id'"' != "" {
+                        tempvar km_continues
+                        quietly bysort `_st_id' (_t0 _t): gen byte `km_continues' = ///
+                            (_n < _N & _t0[_n + 1] <= _t & ///
+                            `grpid'[_n + 1] == `grpid')
+                        quietly gen byte `km_cens' = ///
+                            (_d == 0 & `km_continues' == 0 & !missing(`km_s'))
+                    }
+                    else {
+	                quietly gen byte `km_cens' = (_d == 0 & !missing(`km_s'))
+                    }
 	            if "`censor'" != "" & `censorthin' > 1 {
 	                tempvar _ccnt
 	                bysort `grpid' (_t) : gen int `_ccnt' = ///
@@ -978,7 +1083,7 @@ program define kmplot, rclass
 	            label variable time "Analysis time"
 	            label variable at_risk "Number at risk"
 	            label variable events "Cumulative events"
-	            label variable censored "Cumulative censoring records"
+	            label variable censored "Cumulative censoring exits"
 	            order group group_label time at_risk events censored
 	            if lower(`"`risk_opts'"') == "replace" {
 	                capture noisily save `"`risk_file'"', replace

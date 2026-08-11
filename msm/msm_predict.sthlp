@@ -79,6 +79,11 @@ counterfactual standardization is not defined for a continuous or time-varying
 exposure model. Use {cmd:msm, status} to confirm that prediction is available
 before calling this command.
 
+{pstd}
+The prediction matrix is persisted in dataset characteristics and bound to the
+saved fit, allowing {helpb msm_table} to rehydrate the correct predictions
+after the dataset is saved, reloaded, or used after another MSM dataset.
+
 
 {marker how}{...}
 {title:How prediction works}

@@ -8,6 +8,7 @@
         {"name": "test_audit_remediation", "timeout_seconds": 2400},
         {"name": "test_expected_resampling_failure", "timeout_seconds": 300, "expected_resampling_failures_min": 1, "expected_resampling_failures_max": 100},
         {"name": "test_gcomptab_regressions", "timeout_seconds": 600},
+        {"name": "test_gcomp_v147", "timeout_seconds": 600},
         {"name": "test_refactor_bootstrap_dispatch", "timeout_seconds": 600},
         {"name": "test_refactor_msm_omitted", "timeout_seconds": 600},
         {"name": "test_refactor_display_golden", "timeout_seconds": 600},

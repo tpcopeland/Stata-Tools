@@ -47,8 +47,6 @@ file close `_pfh'
 assert strlen("`distdate'") == 8
 local release_date = substr("`distdate'", 1, 4) + "-" + ///
     substr("`distdate'", 5, 2) + "-" + substr("`distdate'", 7, 2)
-local badge_date = subinstr("`release_date'", "-", "--", .)
-local top_readme "`pkg_dir'/../README.md"
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
 local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_dta_path.ado"
 local metadata_files "README.md setools.pkg stata.toc"
@@ -117,9 +115,6 @@ capture noisily {
     _assert_file_contains "`pkg_dir'/README.md", pattern("**Version `version'**")
     _assert_file_contains "`pkg_dir'/README.md", ///
         pattern("**Version `version'** | `release_date'")
-    _assert_file_contains "`top_readme'", pattern("version-`version'-blue")
-    _assert_file_contains "`top_readme'", ///
-        pattern("updated-`badge_date'-brightgreen")
     setools
     assert "`r(version)'" == "`version'"
 }
@@ -200,7 +195,6 @@ capture noisily {
     foreach f in setools.ado setools.sthlp setools.pkg stata.toc {
         _assert_file_not_contains "`pkg_dir'/`f'", pattern("procmatch")
     }
-    _assert_file_not_contains "`top_readme'", pattern("procedure-code matching")
 }
 if _rc == 0 {
     local ++pass_count
@@ -210,6 +204,31 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' removed_surface"
     display as error "  FAIL: active release surface excludes removed procmatch command (error `=_rc')"
+}
+
+**# Shipped Source Contracts
+
+local ++test_count
+capture noisily {
+    local helper_files "_setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_dta_path.ado"
+    local source_ados "setools.ado cci_se.ado migrations.ado sustainedss.ado cdp.ado pira.ado `helper_files'"
+    foreach f of local helper_files {
+        _assert_file_contains "`pkg_dir'/`f'", pattern("c(varabbrev)")
+        _assert_file_contains "`pkg_dir'/`f'", pattern("set varabbrev off")
+        _assert_file_contains "`pkg_dir'/`f'", pattern("capture noisily {")
+    }
+    foreach f of local source_ados {
+        _assert_file_not_contains "`pkg_dir'/`f'", pattern("{hline")
+    }
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: helper wrappers and non-decorative output satisfy source contracts"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' source_contracts"
+    display as error "  FAIL: helper wrappers or non-decorative output violate source contracts (error `=_rc')"
 }
 
 **# Canonical Author Surface

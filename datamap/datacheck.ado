@@ -1,4 +1,4 @@
-*! datacheck Version 1.6.5  2026/08/09
+*! datacheck Version 1.6.6  2026/08/11
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -966,6 +966,7 @@ program define datacheck, rclass
             if `id_inferred' {
                 display as text "  (id() not given; inferred from identifier-like names)"
             }
+            local _dup_return_names ""
             forvalues k = 1/`n_key' {
                 local kv "`key`k''"
                 tempvar kn ktag
@@ -981,7 +982,15 @@ program define datacheck, rclass
                 local nmulti = r(N)
                 // r() scalar names are capped at 32 characters; truncate the
                 // key portion so long/multi-variable keys cannot error r(198).
-                local kvkey = substr(subinstr("`kv'", " ", "_", .), 1, 26)
+                local kvbase = subinstr("`kv'", " ", "_", .)
+                local kvkey = substr("`kvbase'", 1, 26)
+                local suffix_index = 1
+                while `: list kvkey in _dup_return_names' {
+                    local ++suffix_index
+                    local suffix "_`suffix_index'"
+                    local kvkey = substr("`kvbase'", 1, 26 - length("`suffix'")) + "`suffix'"
+                }
+                local _dup_return_names "`_dup_return_names' `kvkey'"
                 return scalar n_dup_`kvkey' = `nmulti'
                 display as text "  key (" as result "`kv'" as text "):  " ///
                     as result `nobs' as text " obs, " as result `ndist' ///

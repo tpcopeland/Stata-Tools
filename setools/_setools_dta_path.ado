@@ -1,9 +1,16 @@
-*! _setools_dta_path Version 1.5.3  2026/08/05
+*! _setools_dta_path Version 1.5.4  2026/08/11
 *! setools internal: canonicalize an effective Stata dataset path
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _setools_dta_path, rclass
     version 16.0
+    local _varabbrev `c(varabbrev)'
+    local _resolved_open = 0
+    tempname _resolved_handle
+    set varabbrev off
+
+    capture noisily {
+
     syntax, PATH(string)
 
     local _raw = strtrim(`"`path'"')
@@ -36,12 +43,11 @@ program define _setools_dta_path, rclass
         tempfile _resolved_file
         capture quietly shell readlink -m -- "`_canonical'" > "`_resolved_file'"
         if !_rc {
-            tempname _resolved_handle
             capture file open `_resolved_handle' using "`_resolved_file'", ///
                 read text
             if !_rc {
+                local _resolved_open = 1
                 file read `_resolved_handle' _resolved_line
-                file close `_resolved_handle'
                 if !_rc & strtrim(`"`_resolved_line'"') != "" {
                     local _canonical = strtrim(`"`_resolved_line'"')
                 }
@@ -50,4 +56,10 @@ program define _setools_dta_path, rclass
     }
 
     return local path `"`_canonical'"'
+
+    }
+    local _rc = _rc
+    if `_resolved_open' capture file close `_resolved_handle'
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end

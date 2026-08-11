@@ -1,4 +1,4 @@
-*! logdoc_py Version 1.1.4  2026/08/09
+*! logdoc_py Version 1.1.5  2026/08/11
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -376,9 +376,11 @@ program define _logdoc_py_check_candidate, rclass
     syntax , PYthon(string) source(string) renderer(string) [Verbose]
 
     _logdoc_py_validate_shell_arg, text(`"`python'"') context("Python executable")
+    _logdoc_py_validate_shell_arg, text(`"`renderer'"') context("renderer path")
 
     local cmdprefix `""`python'""'
     if `"`python'"' == "py -3" local cmdprefix "py -3"
+
     if `"`python'"' == "py -3" & "`c(os)'" != "Windows" {
         if "`verbose'" != "" {
             display as text "  rejected: py -3 is only checked on Windows"
@@ -760,6 +762,20 @@ program define _logdoc_py_install, rclass
     local cmdprefix `""`python'""'
     if `"`python'"' == "py -3" local cmdprefix "py -3"
 
+    local _remaining_packages `"`packages'"'
+    local _shell_packages ""
+    while `"`_remaining_packages'"' != "" {
+        gettoken _package _remaining_packages : _remaining_packages
+        if `"`_package'"' != "" {
+            if `"`_shell_packages'"' == "" {
+                local _shell_packages `""`_package'""'
+            }
+            else {
+                local _shell_packages `"`_shell_packages' "`_package'""'
+            }
+        }
+    }
+
     if `"`packages'"' == "" {
         if "`quiet'" == "" {
             display as result "logdoc has no Python packages to install"
@@ -773,10 +789,10 @@ program define _logdoc_py_install, rclass
     }
 
     if "`source'" == "stata" {
-        local install_cmd `"`python' -m pip install `packages' (via Stata python:)"'
+        local install_cmd `"`python' -m pip install `_shell_packages' (via Stata python:)"'
     }
     else {
-        local install_cmd `"`cmdprefix' -m pip install `packages'"'
+        local install_cmd `"`cmdprefix' -m pip install `_shell_packages'"'
     }
     if "`dryrun'" != "" {
         if "`quiet'" == "" {

@@ -22,10 +22,10 @@ if !inlist("`lane'", "quick", "core", "full") {
 
 local suites "test_logdoc test_logdoc_py"
 if "`lane'" == "core" {
-    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114"
+    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115"
 }
 if "`lane'" == "full" {
-    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114"
+    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115"
     local suites "`suites' test_logdoc_refactor_guards test_logdoc_v111 test_logdoc_v112"
 }
 

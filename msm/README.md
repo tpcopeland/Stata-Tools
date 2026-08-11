@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.5** | 2026-08-05
+**Version 1.4.6** | 2026-08-11
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 
@@ -72,7 +72,7 @@ net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 
 ## How It Works
 
-`msm` stores the variable mapping and pipeline contracts in dataset characteristics. Weighting creates named analysis variables, fitting persists the coefficient and variance matrices, and downstream commands read those artifacts without requiring the variable mapping to be repeated.
+`msm` stores the variable mapping and pipeline contracts in dataset characteristics. Weighting creates named analysis variables; fitting, prediction, balance, diagnostics, and sensitivity results are bound to their upstream artifact, and matrix results are serialized with the dataset where needed. Downstream commands verify ownership and dependencies before using those artifacts.
 
 The usual sequence is:
 
@@ -398,8 +398,8 @@ Syntax: ``msm_table, xlsx(filename) [coefficients predictions balance weights se
 Syntax: ``msm_sensitivity [, evalue confounding_strength(# #) level(#) rarethreshold(#) orapprox]``
 
 - With no option, `evalue` is selected. `evalue` computes point and confidence-limit E-values for logistic or Cox fits; linear fits have no ratio-scale E-value.
-- `confounding_strength(# #)` supplies hypothetical RR(U,D) and RR(U,Y), each at least 1, and returns the bias factor and effect shifted toward the null.
-- `level()` defaults to `c(level)`. `rarethreshold()` defaults to `0.15` and determines when a logistic OR or Cox HR is used directly as a risk-ratio scale or transformed for a common outcome.
+- `confounding_strength(# #)` supplies hypothetical RR(U,D) and RR(U,Y), each at least 1, and returns the bias factor and bias-adjusted bound on the risk-ratio scale.
+- `level()` defaults to `c(level)`. `rarethreshold()` defaults to `0.15` and determines when a logistic OR or Cox HR is used directly as a risk-ratio scale or transformed for a common outcome. Cumulative incidence is evaluated among subjects and risk-set rows that contributed to the saved fit.
 - `orapprox` is off by default and forces the raw OR or HR to be used as the risk-ratio scale even for a common outcome.
 
 ## Stored Results
@@ -448,7 +448,7 @@ Returns the seven protocol macros `r(population)`, `r(treatment)`, `r(confounder
 
 ### `msm_sensitivity`
 
-Returns the effect and interval scalars `r(effect)`, `r(effect_lo)`, `r(effect_hi)`, and `r(effect_se)`. E-value runs add `r(evalue_point)` and `r(evalue_ci)`; confounding-strength runs add `r(bias_factor)`, `r(bound)`, `r(corrected_effect)`, `r(rr_ud)`, and `r(rr_uy)`. When available, `r(cumulative_incidence)`, `r(outcome_prevalence)`, and `r(rare_threshold)` describe the outcome-scale decision. The remaining macros are `r(effect_label)`, `r(model)`, `r(rr_scale)`, and `r(approximation)`, with `r(metric_produced)` indicating whether a ratio-scale metric was produced.
+Returns the effect and interval scalars `r(effect)`, `r(effect_lo)`, `r(effect_hi)`, and `r(effect_se)`. E-value runs add `r(evalue_point)` and `r(evalue_ci)`; confounding-strength runs add `r(bias_factor)`, `r(bound)`, the backward-compatible alias `r(corrected_effect)`, `r(rr_ud)`, and `r(rr_uy)`. When available, `r(cumulative_incidence)`, `r(outcome_prevalence)`, and `r(rare_threshold)` describe the outcome-scale decision for the saved fit sample. The remaining macros are `r(effect_label)`, `r(model)`, `r(rr_scale)`, and `r(approximation)`, with `r(metric_produced)` indicating whether a ratio-scale metric was produced.
 
 ### `msm_table` and `msm_diagtab`
 
@@ -497,6 +497,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.6** (2026-08-11): Bound downstream artifacts to their owning fit or weights, persisted prediction and balance matrices with saved datasets, corrected fitted-sample sensitivity incidence and RR-scale labels, and exported confounding-strength assumptions and bounds.
 - **1.4.5** (2026-08-05): Made seeded Monte Carlo prediction intervals reproducible across numerically equivalent refits by using the symmetric positive-semidefinite covariance square root.
 - **1.4.4** (2026-08-05): Refused rank-deficient fitted specifications before committing package state and corrected stored-result documentation.
 - **1.4.3** (2026-07-29): Hardened empty-dataset handling in `msm_prepare` and aligned the flagship version readout with its shipped header.

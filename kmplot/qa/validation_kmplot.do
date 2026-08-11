@@ -1,6 +1,6 @@
 * validation_kmplot.do
-* Numerical validation suite for kmplot v1.2.0
-* Author: Timothy P Copeland
+* Numerical validation suite for kmplot
+* Author: Timothy P Copeland, Karolinska Institutet
 * Created: 2026-03-15
 *
 * Validates correctness of KM estimates, CIs, medians, p-values,
@@ -9,7 +9,6 @@
 clear all
 version 16.0
 set varabbrev off
-set more off
 
 
 **# Bootstrap
@@ -21,9 +20,7 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-* =============================================================================
-* V1: S(t) matches sts generate exactly
-* =============================================================================
+**## V1: S(t) matches sts generate exactly
 * The KM estimates produced by kmplot should match sts generate s = s
 * since kmplot uses sts generate internally.
 
@@ -32,17 +29,26 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * Get kmplot's internal KM via return values
-    kmplot, median name(v1, replace)
+    tempfile v1_expected v1_curve
+    tempvar expected_s
+    quietly sts generate `expected_s' = s
+    preserve
+    keep _t `expected_s'
+    collapse (mean) `expected_s', by(_t)
+    rename _t time
+    save "`v1_expected'"
+    restore
+
+    kmplot, saving("`v1_curve'", replace) name(v1, replace)
     local km_N = r(N)
-
-    * Now compute KM directly
-    quietly sts generate _raw_s = s
-    * KM estimate should exist and be bounded [0, 1]
-    assert _raw_s >= 0 & _raw_s <= 1 if !missing(_raw_s)
-
-    * Verify N matches
     assert `km_N' == 48
+
+    use "`v1_curve'", clear
+    keep if anchor == 0
+    collapse (mean) estimate, by(time)
+    merge 1:1 time using "`v1_expected'", assert(match) nogen
+    assert abs(estimate - `expected_s') < 1e-12 if !missing(`expected_s')
+    assert missing(estimate) == missing(`expected_s')
 }
 if _rc == 0 {
     display as result "  PASS: V1 S(t) matches sts generate"
@@ -53,9 +59,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V2: CI bounds match manual log-log calculation
-* =============================================================================
+**## V2: CI bounds match manual log-log calculation
 * Verify log-log CI: lb = exp(-exp(log(-log(S)) + z*se/(S*|log(S)|)))
 *                    ub = exp(-exp(log(-log(S)) - z*se/(S*|log(S)|)))
 
@@ -64,29 +68,32 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * Compute KM and SE
-    quietly sts generate _km_s = s
-    quietly sts generate _km_se = se(s)
+    tempfile v2_expected v2_curve
+    tempvar expected_s expected_se expected_lb expected_ub
+    quietly sts generate `expected_s' = s
+    quietly sts generate `expected_se' = se(s)
+    quietly gen double `expected_lb' = exp(-exp(log(-log(`expected_s')) + ///
+        invnormal(0.975) * `expected_se' / (`expected_s' * abs(log(`expected_s'))))) ///
+        if `expected_s' > 0 & `expected_s' < 1 & `expected_se' > 0
+    quietly gen double `expected_ub' = exp(-exp(log(-log(`expected_s')) - ///
+        invnormal(0.975) * `expected_se' / (`expected_s' * abs(log(`expected_s'))))) ///
+        if `expected_s' > 0 & `expected_s' < 1 & `expected_se' > 0
+    preserve
+    keep _t `expected_lb' `expected_ub'
+    collapse (mean) `expected_lb' `expected_ub', by(_t)
+    rename _t time
+    save "`v2_expected'"
+    restore
 
-    * Manual log-log CI
-    quietly gen double _man_lb = exp(-exp(log(-log(_km_s)) + ///
-        invnormal(0.975) * _km_se / (_km_s * abs(log(_km_s))))) ///
-        if _km_s > 0 & _km_s < 1 & _km_se > 0
-    quietly gen double _man_ub = exp(-exp(log(-log(_km_s)) - ///
-        invnormal(0.975) * _km_se / (_km_s * abs(log(_km_s))))) ///
-        if _km_s > 0 & _km_s < 1 & _km_se > 0
-
-    * Verify bounds are valid
-    assert _man_lb >= 0 & _man_lb <= 1 if !missing(_man_lb)
-    assert _man_ub >= 0 & _man_ub <= 1 if !missing(_man_ub)
-
-    * lb < S < ub
-    assert _man_lb <= _km_s + 0.0001 if !missing(_man_lb)
-    assert _man_ub >= _km_s - 0.0001 if !missing(_man_ub)
-    assert _man_lb <= _man_ub + 0.0001 if !missing(_man_lb) & !missing(_man_ub)
-
-    * Verify kmplot runs with ci without error
-    kmplot, ci name(v2, replace)
+    kmplot, ci saving("`v2_curve'", replace) name(v2, replace)
+    use "`v2_curve'", clear
+    keep if anchor == 0
+    collapse (mean) lower upper, by(time)
+    merge 1:1 time using "`v2_expected'", assert(match) nogen
+    assert abs(lower - `expected_lb') < 1e-12 if !missing(`expected_lb')
+    assert abs(upper - `expected_ub') < 1e-12 if !missing(`expected_ub')
+    assert missing(lower) == missing(`expected_lb')
+    assert missing(upper) == missing(`expected_ub')
 }
 if _rc == 0 {
     display as result "  PASS: V2 CI bounds match manual log-log"
@@ -97,9 +104,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V3: 1-KM equals failure mode
-* =============================================================================
+**## V3: 1-KM equals failure mode
 * The failure option should produce F(t) = 1 - S(t)
 
 local ++test_count
@@ -107,16 +112,19 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * Get median in survival mode
-    kmplot, by(drug) median name(v3s, replace)
-    local med_surv_1 = r(median_1)
+    tempfile v3_survival v3_failure v3_reduced
+    kmplot, by(drug) saving("`v3_survival'", replace) name(v3s, replace)
+    kmplot, by(drug) failure saving("`v3_failure'", replace) name(v3f, replace)
 
-    * Get median in failure mode
-    kmplot, by(drug) median failure name(v3f, replace)
-    local med_fail_1 = r(median_1)
-
-    * Medians should be equal (S crosses 0.5 at same time F crosses 0.5)
-    assert abs(`med_surv_1' - `med_fail_1') < 0.001
+    use "`v3_survival'", clear
+    keep if anchor == 0
+    collapse (mean) survival=estimate, by(group time)
+    save "`v3_reduced'"
+    use "`v3_failure'", clear
+    keep if anchor == 0
+    collapse (mean) failure=estimate, by(group time)
+    merge 1:1 group time using "`v3_reduced'", assert(match) nogen
+    assert abs(failure - (1 - survival)) < 1e-12 if !missing(survival)
 }
 if _rc == 0 {
     display as result "  PASS: V3 1-KM equals failure mode"
@@ -127,9 +135,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V4: Median matches stci
-* =============================================================================
+**## V4: Median matches stci
 * kmplot median should match Stata's stci command
 
 local ++test_count
@@ -157,9 +163,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V5: Median matches stci by group
-* =============================================================================
+**## V5: Median matches stci by group
 
 local ++test_count
 capture noisily {
@@ -196,9 +200,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V6: P-value matches sts test
-* =============================================================================
+**## V6: P-value matches sts test
 
 local ++test_count
 capture noisily {
@@ -225,9 +227,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V7: N-at-risk matches manual count
-* =============================================================================
+**## V7: N-at-risk matches manual count
 * Verify risk table counts at specific timepoints
 
 local ++test_count
@@ -252,13 +252,12 @@ capture noisily {
     quietly count if _t >= 30
     local n_t30 = r(N)
 
-    * kmplot with risk table should run without error
     kmplot, risktable timepoints(0 10 20 30) name(v7, replace)
-
-    * Verify counts are monotonically decreasing
-    assert `n_t0' >= `n_t10'
-    assert `n_t10' >= `n_t20'
-    assert `n_t20' >= `n_t30'
+    matrix R = r(risktable)
+    assert R[1,3] == `n_t0'
+    assert R[2,3] == `n_t10'
+    assert R[3,3] == `n_t20'
+    assert R[4,3] == `n_t30'
 }
 if _rc == 0 {
     display as result "  PASS: V7 N-at-risk matches manual count"
@@ -269,28 +268,20 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V8: CIs clamped to [0, 1]
-* =============================================================================
+**## V8: CIs clamped to [0, 1]
 
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * Use plain (Wald) CIs which are most likely to exceed bounds
-    * Compute manually
-    quietly sts generate _km_s8 = s
-    quietly sts generate _km_se8 = se(s)
-    quietly gen double _lb = _km_s8 - invnormal(0.975) * _km_se8
-    quietly gen double _ub = _km_s8 + invnormal(0.975) * _km_se8
-
-    * Unclamped Wald CIs can go below 0 near tail
-    * kmplot should clamp them internally
-    kmplot, ci citransform(plain) name(v8, replace)
-
-    * Verify no assertion error from plotting (clamping happened internally)
-    assert r(N) == 48
+    tempfile v8_curve
+    kmplot, ci citransform(plain) saving("`v8_curve'", replace) name(v8, replace)
+    use "`v8_curve'", clear
+    assert lower >= 0 & lower <= 1 if !missing(lower)
+    assert upper >= 0 & upper <= 1 if !missing(upper)
+    assert lower <= estimate if !missing(lower, estimate)
+    assert upper >= estimate if !missing(upper, estimate)
 }
 if _rc == 0 {
     display as result "  PASS: V8 CIs clamped to [0,1]"
@@ -301,22 +292,26 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V9: Different CI transforms produce valid bounds
-* =============================================================================
+**## V9: Different CI transforms produce valid bounds
 
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * All three transforms should succeed
-    kmplot, ci citransform(loglog) name(v9a, replace)
-    assert r(N) == 48
-    kmplot, ci citransform(log) name(v9b, replace)
-    assert r(N) == 48
-    kmplot, ci citransform(plain) name(v9c, replace)
-    assert r(N) == 48
+    foreach transform in loglog log plain {
+        tempfile v9_`transform'
+        kmplot, ci citransform(`transform') ///
+            saving("`v9_`transform''", replace) name(v9_`transform', replace)
+        preserve
+        use "`v9_`transform''", clear
+        assert lower >= 0 & lower <= 1 if !missing(lower)
+        assert upper >= 0 & upper <= 1 if !missing(upper)
+        assert lower <= upper if !missing(lower, upper)
+        quietly count if !missing(lower, upper)
+        assert r(N) > 0
+        restore
+    }
 }
 if _rc == 0 {
     display as result "  PASS: V9 All CI transforms produce valid bounds"
@@ -327,9 +322,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V10: Exported file exists with nonzero size
-* =============================================================================
+**## V10: Exported file exists with nonzero size
 
 local ++test_count
 capture noisily {
@@ -357,9 +350,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V11: sysuse cancer benchmark - N by group
-* =============================================================================
+**## V11: sysuse cancer benchmark - N by group
 * cancer dataset: drug 1 = 16 obs, drug 2 = 16 obs, drug 3 = 16 obs (48 total)
 
 local ++test_count
@@ -388,9 +379,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V12: Large dataset performance
-* =============================================================================
+**## V12: Large dataset performance
 
 local ++test_count
 capture noisily {
@@ -416,9 +405,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V13: Median NR case
-* =============================================================================
+**## V13: Median NR case
 * Create data where S never reaches 0.5
 
 local ++test_count
@@ -444,9 +431,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V14: Risk table alignment (timepoints match)
-* =============================================================================
+**## V14: Risk table alignment (timepoints match)
 
 local ++test_count
 capture noisily {
@@ -468,9 +453,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V15: Varabbrev restored after successful run
-* =============================================================================
+**## V15: Varabbrev restored after successful run
 
 local ++test_count
 capture noisily {
@@ -490,9 +473,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V16: Cumulative events match manual count
-* =============================================================================
+**## V16: Cumulative events match manual count
 * Verify events reported by riskevents match hand-computed counts
 
 local ++test_count
@@ -520,10 +501,13 @@ capture noisily {
     assert `manual_evt_d1_t10' <= `manual_evt_d1_t20'
     assert `manual_evt_d1_t20' <= `total_evt_d1'
 
-    * Verify kmplot with riskevents runs
     kmplot, by(drug) risktable riskevents timepoints(0 10 20 30) ///
         name(v16, replace)
-    assert r(N) == 48
+    matrix R = r(risktable)
+    assert R[1,4] == 0
+    assert R[2,4] == `manual_evt_d1_t10'
+    assert R[3,4] == `manual_evt_d1_t20'
+    assert R[4,4] == `total_evt_d1'
 }
 if _rc == 0 {
     display as result "  PASS: V16 Cumulative events match manual count"
@@ -534,38 +518,30 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V17: Events conservation: events + at-risk + censored = total at each time
-* =============================================================================
+**## V17: Events conservation: events + at-risk + censored = total at each time
 
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * At any timepoint: N_risk(t) + cum_events(t) + cum_censored(t) should
-    * approach the original N as t increases (at t=max, all are accounted for)
     quietly count if drug == 1
     local n_d1 = r(N)
 
-    * At time 39 (max), all subjects accounted for
-    quietly count if _t >= 39 & drug == 1
-    local nrisk_d1_39 = r(N)
-    quietly count if _t <= 39 & _d == 1 & drug == 1
-    local nevt_d1_39 = r(N)
-    quietly count if _t <= 39 & _d == 0 & drug == 1
-    local ncens_d1_39 = r(N)
-
-    * Conservation: at-risk + events + censored before t should sum
-    * Actually: cum_events + cum_censored + at_risk = total N
-    * (events before t) + (censored before t) + (still at risk at t) = N
-    quietly count if _t < 39 & _d == 1 & drug == 1
-    local evt_before = r(N)
-    quietly count if _t < 39 & _d == 0 & drug == 1
-    local cens_before = r(N)
-    quietly count if _t >= 39 & drug == 1
+    local tp = 38.5
+    quietly count if _t >= `tp' & drug == 1
     local risk_at = r(N)
-    assert `evt_before' + `cens_before' + `risk_at' == `n_d1'
+    quietly count if _t <= `tp' & _d == 1 & drug == 1
+    local evt_through = r(N)
+    quietly count if _t <= `tp' & _d == 0 & drug == 1
+    local cens_through = r(N)
+
+    kmplot, by(drug) risktable timepoints(`tp') name(v17, replace)
+    matrix R = r(risktable)
+    assert R[1,3] == `risk_at'
+    assert R[1,4] == `evt_through'
+    assert R[1,5] == `cens_through'
+    assert R[1,3] + R[1,4] + R[1,5] == `n_d1'
 }
 if _rc == 0 {
     display as result "  PASS: V17 Events conservation invariant"
@@ -576,9 +552,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V18: Riskmono produces valid plot (no error)
-* =============================================================================
+**## V18: Riskmono produces valid plot (no error)
 
 local ++test_count
 capture noisily {
@@ -599,9 +573,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V19: set more state invariant (success path)
-* =============================================================================
+**## V19: set more state invariant (success path)
 
 local ++test_count
 capture noisily {
@@ -620,9 +592,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V20: KM at-risk by group matches manual count
-* =============================================================================
+**## V20: KM at-risk by group matches manual count
 
 local ++test_count
 capture noisily {
@@ -644,9 +614,11 @@ capture noisily {
     quietly count if _t >= 10
     assert r(N) == `manual_total'
 
-    * Verify kmplot with risktable runs with these timepoints
     kmplot, by(drug) risktable timepoints(0 10 20 30) name(v20, replace)
-    assert r(N) == 48
+    matrix R = r(risktable)
+    assert R[2,3] == `manual_d1'
+    assert R[6,3] == `manual_d2'
+    assert R[10,3] == `manual_d3'
 }
 if _rc == 0 {
     display as result "  PASS: V20 At-risk by group matches manual count"
@@ -657,9 +629,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V21: Small time-scale KM estimates bounded [0,1]
-* =============================================================================
+**## V21: Small time-scale KM estimates bounded [0,1]
 
 local ++test_count
 capture noisily {
@@ -670,11 +640,12 @@ capture noisily {
     gen byte d = runiform() < 0.5
     stset t, failure(d)
 
-    quietly sts generate _s_check = s
-    assert _s_check >= 0 & _s_check <= 1 if !missing(_s_check)
-
-    kmplot, ci name(v21, replace)
-    assert r(N) == 100
+    tempfile v21_curve
+    kmplot, ci saving("`v21_curve'", replace) name(v21, replace)
+    use "`v21_curve'", clear
+    assert estimate >= 0 & estimate <= 1 if !missing(estimate)
+    assert lower >= 0 & lower <= 1 if !missing(lower)
+    assert upper >= 0 & upper <= 1 if !missing(upper)
 }
 if _rc == 0 {
     display as result "  PASS: V21 Small time-scale KM bounded [0,1]"
@@ -685,9 +656,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V22: Failure mode CIs inversion invariant
-* =============================================================================
+**## V22: Failure mode CIs inversion invariant
 * For failure mode: if S_lb < S < S_ub, then (1-S_ub) < (1-S) < (1-S_lb)
 * The CI bounds must be properly swapped
 
@@ -696,26 +665,32 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    * Compute survival CI manually
-    quietly sts generate _s22 = s
-    quietly sts generate _se22 = se(s)
-    quietly gen double _lb22 = exp(-exp(log(-log(_s22)) + ///
-        invnormal(0.975) * _se22 / (_s22 * abs(log(_s22))))) ///
-        if _s22 > 0 & _s22 < 1 & _se22 > 0
-    quietly gen double _ub22 = exp(-exp(log(-log(_s22)) - ///
-        invnormal(0.975) * _se22 / (_s22 * abs(log(_s22))))) ///
-        if _s22 > 0 & _s22 < 1 & _se22 > 0
+    tempfile v22_expected v22_curve
+    tempvar expected_s expected_se expected_lb expected_ub
+    quietly sts generate `expected_s' = s
+    quietly sts generate `expected_se' = se(s)
+    quietly gen double `expected_lb' = 1 - exp(-exp(log(-log(`expected_s')) - ///
+        invnormal(0.975) * `expected_se' / (`expected_s' * abs(log(`expected_s'))))) ///
+        if `expected_s' > 0 & `expected_s' < 1 & `expected_se' > 0
+    quietly gen double `expected_ub' = 1 - exp(-exp(log(-log(`expected_s')) + ///
+        invnormal(0.975) * `expected_se' / (`expected_s' * abs(log(`expected_s'))))) ///
+        if `expected_s' > 0 & `expected_s' < 1 & `expected_se' > 0
+    preserve
+    keep _t `expected_lb' `expected_ub'
+    collapse (mean) `expected_lb' `expected_ub', by(_t)
+    rename _t time
+    save "`v22_expected'"
+    restore
 
-    * Failure mode CIs should be 1-ub_surv < 1-S < 1-lb_surv
-    quietly gen double _f_lb = 1 - _ub22
-    quietly gen double _f_ub = 1 - _lb22
-    assert _f_lb <= _f_ub + 0.0001 if !missing(_f_lb) & !missing(_f_ub)
-    assert _f_lb >= 0 - 0.0001 if !missing(_f_lb)
-    assert _f_ub <= 1 + 0.0001 if !missing(_f_ub)
-
-    * Verify failure mode runs
-    kmplot, ci failure name(v22, replace)
-    assert r(N) == 48
+    kmplot, ci failure saving("`v22_curve'", replace) name(v22, replace)
+    use "`v22_curve'", clear
+    keep if anchor == 0
+    collapse (mean) lower upper, by(time)
+    merge 1:1 time using "`v22_expected'", assert(match) nogen
+    assert abs(lower - `expected_lb') < 1e-12 if !missing(`expected_lb')
+    assert abs(upper - `expected_ub') < 1e-12 if !missing(`expected_ub')
+    assert missing(lower) == missing(`expected_lb')
+    assert missing(upper) == missing(`expected_ub')
 }
 if _rc == 0 {
     display as result "  PASS: V22 Failure mode CI inversion invariant"
@@ -726,9 +701,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V23: Many groups color cycling produces valid plot
-* =============================================================================
+**## V23: Many groups color cycling produces valid plot
 * 10+ groups should cycle through 8 colors without error
 
 local ++test_count
@@ -753,22 +726,20 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V24: Monotonicity invariant — KM is non-increasing
-* =============================================================================
+**## V24: Monotonicity invariant — KM is non-increasing
 
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
 
-    quietly sts generate _s24 = s
-    sort _t
-    quietly gen byte _mono_ok = (_s24 <= _s24[_n-1] + 1e-10) if _n > 1 & !missing(_s24) & !missing(_s24[_n-1])
-    quietly count if _mono_ok == 0
-    assert r(N) == 0
-
-    kmplot, name(v24, replace)
+    tempfile v24_curve
+    kmplot, saving("`v24_curve'", replace) name(v24, replace)
+    use "`v24_curve'", clear
+    keep if anchor == 0
+    sort group time
+    by group: assert estimate <= estimate[_n - 1] + 1e-12 ///
+        if _n > 1 & !missing(estimate, estimate[_n - 1])
 }
 if _rc == 0 {
     display as result "  PASS: V24 KM monotonicity invariant"
@@ -779,9 +750,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V25: Quoted export path writes to the requested filename
-* =============================================================================
+**## V25: Quoted export path writes to the requested filename
 
 local ++test_count
 capture noisily {
@@ -813,9 +782,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V26: Risktable respects explicit bottom-axis title and labels
-* =============================================================================
+**## V26: Risktable respects explicit bottom-axis title and labels
 
 local ++test_count
 capture noisily {
@@ -846,9 +813,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V27: Delayed-entry risk-table counts honor _t0
-* =============================================================================
+**## V27: Delayed-entry risk-table counts honor _t0
 
 local ++test_count
 capture noisily {
@@ -868,7 +833,7 @@ capture noisily {
     assert rowsof(R) == 8
     assert colsof(R) == 5
     assert R[1,3] == 1
-    assert R[2,3] == 2
+    assert R[2,3] == 1
     assert R[3,3] == 3
     assert R[4,3] == 2
     assert R[5,3] == 1
@@ -887,9 +852,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V28: landmark() estimates match sts generate step values
-* =============================================================================
+**## V28: landmark() estimates match sts generate step values
 
 local ++test_count
 capture noisily {
@@ -923,9 +886,7 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* V29: level() changes CI bounds using requested z critical value
-* =============================================================================
+**## V29: level() changes CI bounds using requested z critical value
 
 local ++test_count
 capture noisily {
@@ -958,18 +919,11 @@ else {
     local ++fail_count
 }
 
-* =============================================================================
-* SUMMARY
-* =============================================================================
+**# Summary
 
-display ""
-display as text "==========================================="
-display as text "  kmplot Validation Results"
-display as text "==========================================="
 display as text "  Total:  " as result `test_count'
 display as text "  Passed: " as result `pass_count'
 display as text "  Failed: " as result `fail_count'
-display as text "==========================================="
 
 if `fail_count' > 0 {
     display as error "RESULT: validation_kmplot tests=`test_count' pass=`pass_count' fail=`fail_count'"

@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.3  2026/08/05
+*! _kmplot_risktable Version 1.2.4  2026/08/11
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -84,6 +84,23 @@ program define _kmplot_risktable, rclass
     capture confirm variable _t0
     local has_t0 = (_rc == 0)
 
+    local st_id : char _dta[st_id]
+    local st_wv : char _dta[st_wv]
+    tempvar rt_weight rt_loss rt_tag
+    quietly gen double `rt_weight' = 1
+    if `"`st_wv'"' != "" {
+        quietly replace `rt_weight' = `st_wv'
+    }
+
+    if `"`st_id'"' != "" {
+        quietly bysort `st_id' (_t0 _t): gen byte `rt_loss' = ///
+            (_d == 0 & (_n == _N | _t < _t0[_n + 1] | ///
+            `grpvar' != `grpvar'[_n + 1]))
+    }
+    else {
+        quietly gen byte `rt_loss' = (_d == 0)
+    }
+
 	    tempname rtmat
 	    matrix `rtmat' = J(`ngroups' * `ntp', 5, .)
 	    matrix colnames `rtmat' = group time at_risk events censored
@@ -92,13 +109,34 @@ program define _kmplot_risktable, rclass
 	        local j = 0
 	        foreach tp of local timepoints {
 	            local ++j
-            if `has_t0' {
-                quietly count if _t >= `tp' & _t0 <= `tp' & `grpvar' == `g'
+            if `"`st_id'"' != "" {
+                if `has_t0' {
+                    quietly egen byte `rt_tag' = tag(`st_id') ///
+                        if _t >= `tp' & ///
+                        (_t0 < `tp' | (_t0 == 0 & `tp' == 0)) & ///
+                        `grpvar' == `g'
+                }
+                else {
+                    quietly egen byte `rt_tag' = tag(`st_id') ///
+                        if _t >= `tp' & `grpvar' == `g'
+                }
+                quietly summarize `rt_weight' if `rt_tag' == 1, meanonly
+                local nrisk_`g'_`j' = r(sum)
+                quietly drop `rt_tag'
             }
             else {
-                quietly count if _t >= `tp' & `grpvar' == `g'
+                if `has_t0' {
+                    quietly summarize `rt_weight' ///
+                        if _t >= `tp' & ///
+                        (_t0 < `tp' | (_t0 == 0 & `tp' == 0)) & ///
+                        `grpvar' == `g', meanonly
+                }
+                else {
+                    quietly summarize `rt_weight' ///
+                        if _t >= `tp' & `grpvar' == `g', meanonly
+                }
+                local nrisk_`g'_`j' = r(sum)
 	            }
-	            local nrisk_`g'_`j' = r(N)
 	        }
 	    }
 
@@ -110,10 +148,12 @@ program define _kmplot_risktable, rclass
 	        local j = 0
 	        foreach tp of local timepoints {
 	            local ++j
-	            quietly count if _t <= `tp' & _d == 1 & `grpvar' == `g'
-	            local nevt_`g'_`j' = r(N)
-	            quietly count if _t <= `tp' & _d == 0 & `grpvar' == `g'
-	            local ncens_`g'_`j' = r(N)
+	            quietly summarize `rt_weight' ///
+                    if _t <= `tp' & _d == 1 & `grpvar' == `g', meanonly
+	            local nevt_`g'_`j' = r(sum)
+	            quietly summarize `rt_weight' ///
+                    if _t <= `tp' & `rt_loss' == 1 & `grpvar' == `g', meanonly
+	            local ncens_`g'_`j' = r(sum)
 	        }
 	    }
 

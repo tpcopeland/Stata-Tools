@@ -1,4 +1,4 @@
-*! cci_se Version 1.5.3  2026/08/05
+*! cci_se Version 1.5.4  2026/08/11
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -456,9 +456,7 @@ program define cci_se, rclass
     * ---------------------------------------------------------------
     if "`noisily'" != "" {
         display as text ""
-        display as text "{hline 60}"
         display as text "Swedish Charlson Comorbidity Index (Ludvigsson et al. 2021)"
-        display as text "{hline 60}"
         display as text "Input observations:     " as result %12.0fc `N_input'
         if "`indexdate'" != "" {
             display as text "Excluded by window:     " as result %12.0fc `N_excluded_window'
@@ -467,19 +465,16 @@ program define cci_se, rclass
         display as text "Patients with CCI > 0:  " as result %12.0fc `N_any'
         display as text "Mean CCI:               " as result %12.2f `mean_cci'
         display as text "Max CCI:                " as result %12.0f `max_cci'
-        display as text "{hline 60}"
 
         if "`components'" != "" {
             display as text ""
             display as text "Component prevalence:"
-            display as text "{hline 45}"
             foreach i in 1 2 3 4 5 6 7 8 9 10 11 12 13 15 16 17 18 19 {
                 quietly count if `prefix'`name_`i'' > 0
                 local n_comp = r(N)
                 local pct : display %5.1f 100 * `n_comp' / `N_out'
                 display as text "  `lbl_`i''" _column(36) as result %6.0fc `n_comp' as text " (" as result "`pct'" as text "%)"
             }
-            display as text "{hline 45}"
         }
     }
 

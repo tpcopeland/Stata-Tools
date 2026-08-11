@@ -11,8 +11,8 @@
 * transition rather than an assertion authored after the fix.
 *
 * Coverage map:
-*   A01 anonymous global artifacts    -> S1, S2, S3
-*   A02 no input-data freshness check -> S4, S5
+*   A01 anonymous global artifacts    -> S1, S2, S3, S14
+*   A02 no input-data freshness check -> S4, S5, S15
 *   A03 stale downstream authorized   -> S6, S7, S8
 *   A04 non-transactional stages      -> S9, S10
 *   A05 deletes user-owned variables  -> S11, S12
@@ -36,8 +36,7 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall msm
-quietly net install msm, from("`pkg_dir'") replace
+do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 discard
 
 * Helper: build a small, well-formed person-period panel with a known
@@ -492,6 +491,68 @@ if _rc == 0 {
 }
 else {
     display as error "FAIL: S13 a public pipeline command permanently reordered caller data (A06)"
+    local ++fail_count
+}
+
+**# S14 - A01: prediction and balance matrices travel with their dataset
+local ++test_count
+capture noisily {
+    _mk_panel, seed(1515)
+    msm_prepare, id(pid) period(per) treatment(trt) outcome(outc) censor(cens) covariates(v)
+    msm_weight, treat_d_cov(v) nolog
+    msm_fit, model(logistic) nolog
+    msm_predict, times(1) samples(20) seed(1515)
+    msm_diagnose, balance_covariates(v)
+    local predA = _msm_pred_matrix[1, 2]
+    local balA = _msm_bal_matrix[1, 2]
+    tempfile dsA downstream_xlsx
+    quietly save "`dsA'"
+
+    * Dataset B overwrites both live session matrices.
+    _mk_panel, seed(1616)
+    msm_prepare, id(pid) period(per) treatment(trt) outcome(outc) censor(cens) covariates(v)
+    msm_weight, treat_d_cov(v) nolog
+    msm_fit, model(logistic) nolog
+    msm_predict, times(1) samples(20) seed(1616)
+    msm_diagnose, balance_covariates(v)
+    local predB = _msm_pred_matrix[1, 2]
+    local balB = _msm_bal_matrix[1, 2]
+    assert reldif(`predA', `predB') > 1e-6 | reldif(`balA', `balB') > 1e-6
+
+    * Exporting A must rehydrate A's own downstream artifacts, never B's.
+    use "`dsA'", clear
+    msm_table, xlsx("`downstream_xlsx'.xlsx") predictions balance replace
+    assert reldif(_msm_pred_matrix[1, 2], `predA') < 1e-12
+    assert reldif(_msm_bal_matrix[1, 2], `balA') < 1e-12
+}
+if _rc == 0 {
+    display as result "PASS: S14 dataset A exports its own prediction and balance artifacts"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: S14 downstream export consumed dataset B's session matrices (A01)"
+    local ++fail_count
+}
+
+**# S15 - A02: msm_table must reject a fitted artifact after its inputs change
+local ++test_count
+capture noisily {
+    _mk_panel, seed(1717)
+    msm_prepare, id(pid) period(per) treatment(trt) outcome(outc) censor(cens) covariates(v)
+    msm_weight, treat_d_cov(v) nolog
+    msm_fit, model(logistic) nolog
+    quietly replace trt = 1 - trt
+
+    tempfile stale_xlsx
+    capture msm_table, xlsx("`stale_xlsx'.xlsx") coefficients replace
+    assert _rc == 459
+}
+if _rc == 0 {
+    display as result "PASS: S15 msm_table rejects edited fitted inputs"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: S15 msm_table exported stale coefficients after data edits (A02)"
     local ++fail_count
 }
 

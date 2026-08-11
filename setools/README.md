@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.3** | 2026-08-05
+**Version 1.5.4** | 2026-08-11
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -431,7 +431,7 @@ The row names of `r(flow)` identify cohort start, exclusion stages, total exclud
 - All MS EDSS, diagnosis, migration, relapse, index, and exit dates that the commands validate as Stata dates must be numeric whole-number daily dates with a `%td` format; `cci_se` additionally supports its documented YYYYMMDD and YYYY-MM-DD parsing modes.
 - `migrations` requires one cohort row per ID and nonmissing study-start dates; its migration file must share the ID and resolve to one row per ID.
 - `cci_se` expects long diagnosis-level data and replaces memory with the patient-level result. Save the result before merging it into a separate analysis cohort.
-- `sustainedss`, `cdp`, and `pira` modify the data in memory and drop non-event patients by default; use `keepall` when the full input cohort or visit structure must be retained.
+- `sustainedss`, `cdp`, and `pira` modify the data in memory and drop non-event patients by default; exit-censored patients are retained with a valid 0 event indicator, and `keepall` retains the full input cohort or visit structure.
 - `cdp` and `pira` require a nonmissing, person-consistent diagnosis date; `pira` also requires matching ID types and valid relapse dates in its separate file.
 - Generated output names must be new. Drop or rename prior output variables before rerunning a command; `migrations` reserves names beginning `_mig_`, and `pira` reserves its documented internal prefixes.
 - Same-day migration semantics are explicit: immigration on study start counts as present at baseline, emigration on study start is not pre-start exclusion or post-start censoring, and post-start censoring uses strictly later emigration dates.
@@ -453,6 +453,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.4** (2026-08-11): Enforced person-level diagnosis and exit-date consistency across the full sampled data, rejected invalid PIRA relapse-file variable names during syntax parsing, removed a PIRA scratch/output namespace collision, isolated internal helpers from variable-abbreviation state, hardened file-handle cleanup, and simplified decorative console output.
 - **1.5.3** (2026-08-05): Corrected the `migrations` reserved-namespace documentation to match its `_mig_*` working-state contract.
 - **1.5.2** (2026-08-05): Restored the documented `q` minimum abbreviation for `migrations`' `quietly`, moved the `migrations` internal workspace fully into the reserved `_mig_*` namespace, and added an up-front refusal when master data already occupies that namespace.
 - **1.5.1** (2026-07-19): Fixed the no-candidate roving CDP path, long-format migration files whose first observed event is emigration, macOS path aliasing, and wide-format date-slot handling; added `migrations` `quietly` and clarified exit-censored results and same-day migration boundaries.

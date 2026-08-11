@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.6.5** | 2026-08-09
+**Version 1.6.6** | 2026-08-11
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
 
@@ -19,7 +19,7 @@ datamap, output(auto_map.txt)
 - No external package dependencies for the four commands
 - Pandoc is optional and is needed only when converting a `datadict` Markdown file to HTML, PDF, or Word
 
-The repository demo additionally uses the sibling `logdoc` and `tc_schemes` packages to regenerate console transcripts and the gallery graph.
+The repository demo uses the sibling `logdoc` and `tc_schemes` packages to regenerate console transcripts and the gallery graph. It installs them from the checkout when available and otherwise uses their public Stata-Tools sources.
 
 ## Installation
 
@@ -178,7 +178,7 @@ From a Stata-Tools repository checkout, run the named demo script from the repos
 stata-mp -b do datamap/demo/demo_datamap.do
 ```
 
-The script installs the local `datamap`, `logdoc`, and `tc_schemes` sources into the caller's PLUS directory, writes reproducible assets under `datamap/demo/`, and removes its temporary logs at the end. The generated assets are checkout documentation, not files installed by `net install`.
+The script installs the local `datamap` source plus `logdoc` and `tc_schemes` from the checkout or their public Stata-Tools sources, writes reproducible assets under `datamap/demo/`, and removes its temporary logs at the end. The generated assets are checkout documentation, not files installed by `net install`.
 
 - [Privacy-safe map transcript](demo/console_datamap_privacy.md)
 - [JSON output transcript](demo/console_datamap_json.md)
@@ -270,7 +270,7 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 | `correlate`, `monotone`, `generate()`, `save()` | Missingness analysis and reusable outputs. |
 | `graph(bar|patterns|matrix|correlation)`, `scheme()`, `title()`, `subtitle()`, `gname()`, `gsaving()`, `nodraw`, `horizontal`, `vertical`, `top()`, `barcolor()`, `misscolor()`, `obscolor()`, `textlabels`, `colorramp()`, `gby()`, `over()`, `stacked`, `groupgap()`, `legendopts()`, `graphoptions()` | Graph types, styling, grouping, and export. |
 
-The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger, and the command accepts at most 244 variables.
+The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger and accept only the documented `sample(#)` and `sort` suboptions. The command accepts at most 244 variables. `generate()` checks every output name before creating variables and refuses to overwrite existing targets.
 
 ## Stored Results
 
@@ -320,7 +320,7 @@ The help files document the complete stored-result contracts. The following tabl
 - `datamap` and `datadict` in-memory failures are not rolled back after partial processing; use file-based input or a copy when failure isolation is required.
 - `datadict` requires an existing `outdir()` for separate outputs, and `checks()`, `compare()`, and file-based `violations()`/`makespec()` routes use Stata datasets rather than text specifications.
 - `datacheck` treats `warn` as a non-halting gate mode; without it, failed expectations exit with return code 9.
-- `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit.
+- `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit; reserved-name or existing-target collisions stop with an error before any output variable is created.
 
 ## References
 
@@ -331,6 +331,10 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.6.6 (2026-08-11)
+
+Prevented generated-variable and stored-result name collisions, tightened matrix graph parsing, preserved analytical returns after graph failures, repaired separate in-memory output, preserved quoted text and apostrophes in dictionaries and paths, and replaced temporary in-memory identities with stable `memory` labels.
 
 ### 1.6.5 (2026-08-09)
 

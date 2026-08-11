@@ -19,6 +19,7 @@ local coef_xlsx   "`work_dir'/coefficients.xlsx"
 local pred_xlsx   "`work_dir'/predictions.xlsx"
 local bal_xlsx    "`work_dir'/balance.xlsx"
 local sens_xlsx   "`work_dir'/sensitivity.xlsx"
+local sens_bound_xlsx "`work_dir'/sensitivity_bounds.xlsx"
 local custom_xlsx "`work_dir'/custom.xlsx"
 
 capture log close _all
@@ -160,6 +161,56 @@ else {
     display as error "  FAIL: sensitivity export error (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' Table5"
+}
+
+* --- Table Test 5b: Confounding-strength content is actually exported ---
+local ++test_count
+capture noisily {
+    msm_sensitivity, confounding_strength(2 3)
+    local expected_bias = r(bias_factor)
+    local expected_bound = r(bound)
+    capture erase "`sens_bound_xlsx'"
+    msm_table, xlsx("`sens_bound_xlsx'") sensitivity decimals(4) replace
+
+    preserve
+    import excel "`sens_bound_xlsx'", sheet("Sensitivity") allstring clear
+    local found_ud 0
+    local found_uy 0
+    local found_bias 0
+    local found_bound 0
+    forvalues i = 1/`=_N' {
+        if A[`i'] == "RR(U,D)" {
+            assert abs(real(B[`i']) - 2) < 0.00011
+            local found_ud 1
+        }
+        if A[`i'] == "RR(U,Y)" {
+            assert abs(real(B[`i']) - 3) < 0.00011
+            local found_uy 1
+        }
+        if A[`i'] == "Bias factor" {
+            assert abs(real(B[`i']) - `expected_bias') < 0.00011
+            local found_bias 1
+        }
+        if A[`i'] == "Bias-adjusted RR bound" {
+            assert abs(real(B[`i']) - `expected_bound') < 0.00011
+            local found_bound 1
+        }
+    }
+    restore
+    assert `found_ud' == 1
+    assert `found_uy' == 1
+    assert `found_bias' == 1
+    assert `found_bound' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: confounding-strength values exported"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: sensitivity workbook omitted confounding-strength content (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' Table5b"
+    capture restore
 }
 
 * --- Table Test 6: Verify coefficients values via re-import ---
@@ -307,6 +358,7 @@ capture erase "`coef_xlsx'"
 capture erase "`pred_xlsx'"
 capture erase "`bal_xlsx'"
 capture erase "`sens_xlsx'"
+capture erase "`sens_bound_xlsx'"
 capture erase "`custom_xlsx'"
 capture rmdir "`work_dir'"
 

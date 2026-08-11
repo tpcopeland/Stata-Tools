@@ -129,7 +129,8 @@ checks, see {help datamap}.
 {pstd}
 If no input option is specified and data is loaded in memory, {cmd:datadict}
 documents the current dataset directly. This is the simplest usage: load or
-prepare your data, then run {cmd:datadict}.
+prepare your data, then run {cmd:datadict}. Reports and saved metadata identify
+this source as {bf:memory}; {opt separate} writes {bf:memory_dictionary.md}.
 
 {phang}
 {opt si:ngle(filename)} documents one Stata dataset file. If the file is not

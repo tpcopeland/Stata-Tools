@@ -1473,8 +1473,9 @@ display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' 
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+display "RESULT: test_datamap_v2 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+if `fail_count' > 0 exit 1

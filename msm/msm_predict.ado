@@ -1,4 +1,4 @@
-*! msm_predict Version 1.4.5  2026/08/05
+*! msm_predict Version 1.4.6  2026/08/11
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -64,6 +64,10 @@ program define msm_predict, rclass
 
     _msm_check_fitted
     _msm_get_settings
+
+    _msm_uuid
+    local _pred_uuid "`r(uuid)'"
+    local _fit_uuid : char _dta[_msm_fit_uuid]
 
     local id        "`_msm_id'"
     local period    "`_msm_period'"
@@ -630,13 +634,17 @@ program define msm_predict, rclass
             est_always ci_lo_always ci_hi_always
     }
 
-    * Persist for msm_table
+    * Persist the matrix in the dataset, not only in the live Stata session.
+    * The UUID and dependency bind it to this dataset's current fitted model.
+    _msm_mat_save `results', key(_msm_pred_mat) token(`_pred_uuid')
     capture matrix drop _msm_pred_matrix
     matrix _msm_pred_matrix = `results'
     char _dta[_msm_pred_saved] "1"
     char _dta[_msm_pred_type] "`type'"
     char _dta[_msm_pred_strategy] "`strategy'"
     char _dta[_msm_pred_level] "`level'"
+    char _dta[_msm_pred_uuid] "`_pred_uuid'"
+    char _dta[_msm_pred_dep] "`_fit_uuid'"
 
     * Extract scalars before return matrix
     local time_idx = 0

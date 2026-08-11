@@ -1688,6 +1688,10 @@ capture {
     local pred_cols_before = colsof(_msm_pred_matrix)
     local pred_rows_before = rowsof(_msm_pred_matrix)
     local strat_before : char _dta[_msm_pred_strategy]
+    local uuid_before : char _dta[_msm_pred_uuid]
+    local dep_before : char _dta[_msm_pred_dep]
+    tempname pred_before
+    matrix `pred_before' = _msm_pred_matrix
 
     * Survival plot internally calls msm_predict (fewer times, no difference)
     * This should NOT overwrite the saved predictions
@@ -1699,10 +1703,22 @@ capture {
     local pred_cols_after = colsof(_msm_pred_matrix)
     local pred_rows_after = rowsof(_msm_pred_matrix)
     local strat_after : char _dta[_msm_pred_strategy]
+    local uuid_after : char _dta[_msm_pred_uuid]
+    local dep_after : char _dta[_msm_pred_dep]
 
     assert `pred_cols_before' == `pred_cols_after'
     assert `pred_rows_before' == `pred_rows_after'
     assert "`strat_before'" == "`strat_after'"
+    assert "`uuid_before'" == "`uuid_after'"
+    assert "`dep_before'" == "`dep_after'"
+    assert mreldif(`pred_before', _msm_pred_matrix) < 1e-12
+
+    * Prove the dataset-resident payload was restored too, not just the
+    * session-global matrix and display characteristics.
+    matrix drop _msm_pred_matrix
+    _msm_check_artifact prediction
+    assert r(ok) == 1
+    assert mreldif(`pred_before', _msm_pred_matrix) < 1e-12
 }
 if _rc == 0 {
     display as result "  PASS M7: msm_plot survival is non-destructive"

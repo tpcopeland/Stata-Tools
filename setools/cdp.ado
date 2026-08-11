@@ -1,4 +1,4 @@
-*! cdp Version 1.5.3  2026/08/05
+*! cdp Version 1.5.4  2026/08/11
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -147,7 +147,9 @@ program define cdp, rclass
         }
     }
 
-    marksample touse, strok
+    * Mark if/in membership first; missing visit values are filtered only after
+    * person-level diagnosis and exit-date consistency has been validated.
+    marksample touse, novarlist strok
     capture confirm string variable `idvar'
     local id_is_str = (_rc == 0)
     if `id_is_str' {
@@ -208,15 +210,10 @@ program define cdp, rclass
     local _cdp_workvars "`idvar' `edssvar' `datevar' `dxdate' `exit' `sortorder'"
     local _cdp_workvars : list uniq _cdp_workvars
     qui keep `_cdp_workvars'
-    qui drop if missing(`edssvar') | missing(`datevar')
-    qui count
-    if r(N) == 0 {
-        di as error "no valid observations after dropping missing values"
-        exit 2000
-    }
 
     * dxdate() is person-level. Mixed missing/nonmissing rows are accepted and
     * normalized to the unique nonmissing value; conflicting values are not.
+    * Validate the full sampled person before unusable visit rows are dropped.
     qui egen double `dx_min' = min(`dxdate'), by(`idvar')
     qui egen double `dx_max' = max(`dxdate'), by(`idvar')
     qui count if !missing(`dx_min') & `dx_min' != `dx_max'
@@ -225,12 +222,6 @@ program define cdp, rclass
         exit 459
     }
     qui replace `dxdate' = `dx_min'
-    qui drop if missing(`dxdate')
-    qui count
-    if r(N) == 0 {
-        di as error "no valid observations with a person-level diagnosis date"
-        exit 2000
-    }
 
     if "`exit'" != "" {
         qui egen double `exit_min' = min(`exit'), by(`idvar')
@@ -241,6 +232,19 @@ program define cdp, rclass
             exit 459
         }
         qui replace `exit' = `exit_min'
+    }
+
+    qui drop if missing(`edssvar') | missing(`datevar')
+    qui count
+    if r(N) == 0 {
+        di as error "no valid observations after dropping missing values"
+        exit 2000
+    }
+    qui drop if missing(`dxdate')
+    qui count
+    if r(N) == 0 {
+        di as error "no valid observations with a person-level diagnosis date"
+        exit 2000
     }
 
     qui bysort `idvar' (`sortorder'): gen long `personorder' = `sortorder'[1]

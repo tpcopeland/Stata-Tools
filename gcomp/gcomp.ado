@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.6  2026/07/19
+*! gcomp Version 1.4.7  2026/08/11
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -913,6 +913,8 @@ if _rc {
 forvalues i=1/`nvar' {
 	local command`i' `"`r(value`i')'"'
 }
+local _gc_outcome_pos : list posof "`outcome'" in varlist2
+local _gc_outcome_cmd "`command`_gc_outcome_pos''"
 forvalues i=1/`nvar' {
 	local _v: word `i' of `varlist2'
 	if "`command`i''"=="" {
@@ -1730,7 +1732,7 @@ mat se=e(se)
 mat ci_normal=e(ci_normal)
 mat ci_percentile=e(ci_percentile)
 mat ci_bc=e(ci_bc)
-mat ci_bca=e(ci_bca)
+if "`all'"!="" matrix ci_bca=e(ci_bca)
 	local _gc_ci_required "ci_normal"
 	if "`all'"!="" local _gc_ci_required "ci_normal ci_percentile ci_bc ci_bca"
 	foreach _gc_ci_name of local _gc_ci_required {
@@ -1820,9 +1822,9 @@ matrix colnames V = `_colnames'
 matrix rownames V = `_colnames'
 matrix colnames se = `_colnames'
 matrix colnames ci_normal = `_colnames'
-capture matrix colnames ci_percentile = `_colnames'
-capture matrix colnames ci_bc = `_colnames'
-capture matrix colnames ci_bca = `_colnames'
+matrix colnames ci_percentile = `_colnames'
+matrix colnames ci_bc = `_colnames'
+if "`all'"!="" matrix colnames ci_bca = `_colnames'
 * Build V matrix and save copies for ereturn post
 tempname b_post V_post se_post cin_post
 local _k = colsof(b)
@@ -1832,10 +1834,15 @@ matrix `cin_post' = ci_normal
 matrix `V_post' = V
 matrix colnames `V_post' = `_colnames'
 matrix rownames `V_post' = `_colnames'
-tempname cip_post cibc_post cibca_post
-capture matrix `cip_post' = ci_percentile
-capture matrix `cibc_post' = ci_bc
-capture matrix `cibca_post' = ci_bca
+tempname cip_post cibc_post
+matrix `cip_post' = ci_percentile
+matrix `cibc_post' = ci_bc
+local _gc_cibca_post ""
+if "`all'"!="" {
+	tempname cibca_post
+	matrix `cibca_post' = ci_bca
+	local _gc_cibca_post "cibca(`cibca_post')"
+}
 if "`msm'"!="" {
 	noi di as text " "
 	noi di as text "G-computation formula estimates for the parameters of the specified marginal structural model"
@@ -2317,9 +2324,9 @@ else {
 		matrix b=b[1,`r1plus1'..`r1end']
 		matrix se=se[1,`r1plus1'..`r1end']
 		matrix ci_normal=ci_normal[1..2,`r1plus1'..`r1end']
-		cap matrix ci_percentile=ci_percentile[1..2,`r1plus1'..`r1end']
-		cap matrix ci_bc=ci_bc[1..2,`r1plus1'..`r1end']
-		cap matrix ci_bca=ci_bca[1..2,`r1plus1'..`r1end']
+		matrix ci_percentile=ci_percentile[1..2,`r1plus1'..`r1end']
+		matrix ci_bc=ci_bc[1..2,`r1plus1'..`r1end']
+		if "`all'"!="" matrix ci_bca=ci_bca[1..2,`r1plus1'..`r1end']
 	}
 	noi di as text " "
     if "`control'"=="" {
@@ -3159,12 +3166,13 @@ else {
 	drop `_gc_original_obs' `_gc_sample_link'
 
 	_gcomp_post_results, b(`b_post') v(`V_post') se(`se_post') ci(`cin_post') ///
-		cip(`cip_post') cibc(`cibc_post') cibca(`cibca_post') diag(`_gc_diag_saved') ///
+		cip(`cip_post') cibc(`cibc_post') `_gc_cibca_post' diag(`_gc_diag_saved') ///
 		nobs(`_N_obs') sims(`simulations') samples(`samples') outcome(`"`outcome'"') ///
 		exposure(`"`originalexposure'"') mediator(`"`originalmediator'"') ///
 		po0(`_post_po0') nexplev(`_post_nexplev') esample(`_gc_esample') ///
 		`mediation' `oce' `obe' `linexp' `specific' `_post_logor' `_post_logrr'
 	ereturn local cmdline `"`_gc_cmdline'"'
+	ereturn local outcome_cmd "`_gc_outcome_cmd'"
 	ereturn local idvar "`originalidvar'"
 	ereturn local tvar "`originaltvar'"
 	ereturn local intvars "`originalintvars'"
@@ -3302,9 +3310,9 @@ capture noisily {
 	ereturn scalar samples = `samples'
 	ereturn matrix se = `se'
 	ereturn matrix ci_normal = `ci'
-	if "`cip'" != "" capture ereturn matrix ci_percentile = `cip'
-	if "`cibc'" != "" capture ereturn matrix ci_bc = `cibc'
-	if "`cibca'" != "" capture ereturn matrix ci_bca = `cibca'
+	if "`cip'" != "" ereturn matrix ci_percentile = `cip'
+	if "`cibc'" != "" ereturn matrix ci_bc = `cibc'
+	if "`cibca'" != "" ereturn matrix ci_bca = `cibca'
 	if "`diag'" != "" {
 		capture confirm matrix `diag'
 		if _rc == 0 {

@@ -1,6 +1,9 @@
+* run_all.do
+* Curated kmplot QA lane runner
+* Author: Timothy P Copeland, Karolinska Institutet
+
 clear all
 version 16.0
-set varabbrev off
 
 local mode "`1'"
 if "`mode'" == "" {
@@ -12,7 +15,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 }
 
 local quick_suites "test_kmplot.do"
-local core_suites "`quick_suites' validation_kmplot.do"
+local core_suites "`quick_suites' test_kmplot_v124.do validation_kmplot.do"
 local full_suites "`core_suites'"
 local suites "``mode'_suites'"
 

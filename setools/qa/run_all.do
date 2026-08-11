@@ -6,7 +6,7 @@ capture log close _all
 set more off
 args mode
 local mode = lower(strtrim("`mode'"))
-if "`mode'" == "" local mode "core"
+if "`mode'" == "" local mode "full"
 if !inlist("`mode'", "quick", "core", "full", "python", "network") {
     display as error "run_all.do mode must be quick, core, full, python, or network"
     display "RESULT: run_all mode=`mode' suites=0 pass=0 fail=1"
@@ -21,6 +21,7 @@ local quick ///
     test_release_integrity ///
     test_documentation_examples ///
     test_audit_regressions ///
+    test_setools_v154_regressions ///
     test_cci_engine_smoke ///
     test_cci_dates_parity ///
     test_cdp_adversarial ///
@@ -50,7 +51,7 @@ local core_extra ///
     validation_migrations_type2_censoring ///
     validation_migrations_longwide_equivalence ///
     validation_setools ///
-    crossval_setools
+    validation_setools_crosschecks
 
 local core "`quick' `core_extra'"
 local full "`core' crossval_cci_se_python"

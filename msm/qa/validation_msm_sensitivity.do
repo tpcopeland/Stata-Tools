@@ -323,6 +323,104 @@ else {
     local failed_tests "`failed_tests' S8"
 }
 
+* --- S9: rarity is defined on the fitted risk-set population ---
+* Subjects with no row in the outcome-model estimation sample must not change
+* the population or event count used to choose the E-value approximation.
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    tempvar id_group excluded fit_event fit_subject idtag
+    egen long `id_group' = group(id)
+    gen byte `excluded' = (`id_group' <= 50)
+    quietly count if `excluded'
+    assert r(N) > 0
+
+    * These subjects have events but are excluded from the fitted MSM because
+    * the outcome-model covariate is missing on every one of their rows.
+    replace outcome = 0 if `excluded'
+    bysort id (period): replace outcome = 1 if `excluded' & _n == 1
+    replace censored = 0 if `excluded'
+    gen byte fit_cov = mod(`id_group', 7)
+    replace fit_cov = . if `excluded'
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) censor_d_cov(biomarker age sex) nolog
+    msm_fit, model(logistic) outcome_cov(age sex fit_cov) ///
+        period_spec(linear) nolog
+
+    * Independent oracle: one event indicator per subject contributing at least
+    * one row to the actual fitted estimation sample.
+    bysort id: egen byte `fit_event' = ///
+        max(cond(_msm_esample == 1, outcome == 1, .))
+    bysort id: egen byte `fit_subject' = max(_msm_esample == 1)
+    bysort id (period): gen byte `idtag' = (_n == 1) if `fit_subject'
+    quietly summarize `fit_event' if `idtag', meanonly
+    local expected_incidence = r(mean)
+
+    msm_sensitivity, evalue
+    assert reldif(r(cumulative_incidence), `expected_incidence') < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS S9: rarity uses fitted risk-set subjects and events"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL S9: excluded subjects changed rarity (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' S9"
+}
+
+* --- S10: Cox bias adjustment is labelled on the RR scale ---
+* For a common outcome the HR is transformed to an approximate RR before the
+* bias factor is applied. The displayed adjusted quantity must not be called HR.
+local ++test_count
+capture noisily {
+    _setup_common_logistic
+    local _stale : dir "`c(pwd)'" files "_cox_sample_map*"
+    foreach _m of local _stale {
+        capture erase "`c(pwd)'/`_m'"
+    }
+    msm_fit, model(cox) nolog
+
+    tempfile cox_label_stub
+    local cox_label_log "`cox_label_stub'.log"
+    capture log close senscox
+    quietly log using "`cox_label_log'", text replace name(senscox)
+    noisily msm_sensitivity, confounding_strength(2 3)
+    capture log close senscox
+
+    tempname cox_label_fh
+    local found_rr_label 0
+    local found_hr_label 0
+    file open `cox_label_fh' using "`cox_label_log'", read text
+    file read `cox_label_fh' cox_label_line
+    while r(eof) == 0 {
+        local cox_label_lc = lower(`"`macval(cox_label_line)'"')
+        if strpos(`"`cox_label_lc'"', "bias-adjusted rr bound") {
+            local found_rr_label 1
+        }
+        if strpos(`"`cox_label_lc'"', "corrected hr") {
+            local found_hr_label 1
+        }
+        file read `cox_label_fh' cox_label_line
+    }
+    file close `cox_label_fh'
+    assert `found_rr_label' == 1
+    assert `found_hr_label' == 0
+}
+if _rc == 0 {
+    display as result "  PASS S10: Cox adjusted bound is labelled on the RR scale"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL S10: Cox adjusted bound has the wrong scale label (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' S10"
+}
+
 display as text ""
 display as text "=== Sensitivity Validation Summary ==="
 display as text "Tests run: `test_count'"

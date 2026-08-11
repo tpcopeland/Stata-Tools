@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  05aug2026}{...}
+{* *! version 1.2.4  11aug2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -130,17 +130,17 @@ and the curve starts at 0 instead of 1.{p_end}
 {phang}{opt ci} displays confidence intervals around the KM curve.{p_end}
 
 {phang}{opt level(#)} sets the confidence level for {opt ci}. The default is
-{bf:95}; values must be greater than 0 and less than 100.{p_end}
+{bf:95}; values must be greater than 0 and less than 100. Requires {opt ci}.{p_end}
 
 {phang}{opt cistyle(string)} sets the CI display style. {bf:band} (default) shows shaded
-bands; {bf:line} shows dashed lines.{p_end}
+bands; {bf:line} shows dashed lines. Requires {opt ci}.{p_end}
 
-{phang}{opt ciopacity(#)} sets shaded band opacity (0-100); default 12. Only applies when
-{opt cistyle(band)}.{p_end}
+{phang}{opt ciopacity(#)} sets shaded band opacity (0-100); default 12. Requires
+{opt ci} with {opt cistyle(band)}.{p_end}
 
 {phang}{opt citransform(string)} sets the CI transformation. {bf:loglog} (default) uses the
 log-log transform (Stata's default for KM). {bf:log} uses the log transform. {bf:plain}
-uses untransformed (Wald) intervals.{p_end}
+uses untransformed (Wald) intervals. Requires {opt ci}.{p_end}
 
 {dlgtab:Median}
 
@@ -153,26 +153,27 @@ line is drawn.{p_end}
 {dlgtab:Risk table}
 
 {phang}{opt risktable} adds a number-at-risk table below the main plot. The table shows the
-number of subjects still under observation at each timepoint.{p_end}
+number of subjects still under observation at each timepoint and honors active
+{cmd:stset} weights.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
 in compact {it:N (events)} format (e.g., {cmd:14 (3)}). This is the
-NEJM/Lancet convention. Equivalent to {opt riskcompact}.{p_end}
+NEJM/Lancet convention. Equivalent to {opt riskcompact}. Requires {opt risktable}.{p_end}
 
-{phang}{opt riskcompact} synonym for {opt riskevents}.{p_end}
+{phang}{opt riskcompact} synonym for {opt riskevents}. Requires {opt risktable}.{p_end}
 
 {phang}{opt riskmono} displays all risk table numbers in black instead of
 matching line colors. Default is colored numbers that match each group's
-line color.{p_end}
+line color. Requires {opt risktable}.{p_end}
 
 {phang}{opt riskheight(#)} sets the vertical size of the risk-table graph
 inside the combined plot. If omitted, {cmd:kmplot} uses 25 for small risk
 tables and increases the height automatically when there are more than
-three groups.{p_end}
+three groups. Requires {opt risktable} or {opt risksaving()}.{p_end}
 
 {phang}{opt timepoints(numlist)} specifies the timepoints for the risk
 table. Default: approximately 6 evenly spaced timepoints from 0 to the
-maximum observed time.{p_end}
+maximum observed time. Requires {opt risktable} or {opt risksaving()}.{p_end}
 
 {phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
 this is applied to the bottom axis of the combined graph. Default is
@@ -194,7 +195,7 @@ specified, lower and upper bounds are included in {cmd:r(landmarks)}.{p_end}
 KM curve.{p_end}
 
 {phang}{opt censorthin(#)} shows every Nth censor mark to reduce clutter. Default 1 (show
-all). Use {cmd:censorthin(5)} to show every 5th mark.{p_end}
+all). Values must be at least 1, and the option requires {opt censor}.{p_end}
 
 {dlgtab:P-value}
 
@@ -214,7 +215,7 @@ p-value.{p_end}
 
 {phang}{opt pvalueat(y x)} places the p-value annotation at explicit graph
 coordinates. The first number is the y coordinate and the second is the x
-coordinate.{p_end}
+coordinate. It may not be combined with {opt pvaluepos()}.{p_end}
 
 {dlgtab:Appearance}
 
@@ -271,7 +272,8 @@ mode and cumulative failure with {opt failure}.{p_end}
 {phang}{opt risksaving(filename[, replace])} saves risk-table counts in a
 Stata dataset with {cmd:group}, {cmd:group_label}, {cmd:time},
 {cmd:at_risk}, {cmd:events}, and {cmd:censored}. It can be used with or
-without displaying {opt risktable}.{p_end}
+without displaying {opt risktable}. The {cmd:censored} variable records
+cumulative censoring exits from each plotted group.{p_end}
 
 {dlgtab:Graph passthrough}
 
@@ -297,8 +299,10 @@ Fine-Gray competing-risk estimators.{p_end}
 
 {pstd}
 The {opt pvalue} option uses Stata's {cmd:sts test, logrank}. Risk-table
-counts honor delayed entry through {cmd:_t0} when data are {cmd:stset} with
-an entry time.{p_end}
+counts honor delayed entry, active {cmd:stset} weights, and subject
+identifiers. In multiple-record data, subjects are counted once per
+timepoint. Contiguous records within the same group are not treated as
+censoring; departures from a group are.{p_end}
 
 
 {marker examples}{...}
@@ -407,6 +411,6 @@ though {cmd:kmplot} exits with the graph-export error.{p_end}
 
 {pstd}
 Timothy P Copeland, Karolinska Institutet{break}
-Version 1.2.3, 2026-08-05{p_end}
+Version 1.2.4, 2026-08-11{p_end}
 
 {hline}

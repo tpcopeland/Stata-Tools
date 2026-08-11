@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  09aug2026}{...}
+{* *! version 1.1.5  11aug2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -289,7 +289,8 @@ sets {opt replace} for the output file. The child session is launched with the b
 Stata executable matching the running flavor and operating
 system: {bf:stata-mp}/{bf:stata-se}/{bf:stata} on Unix and macOS,
 {bf:StataMP-64}/{bf:StataSE-64}/{bf:Stata-64} on Windows. The chosen binary must be on the
-system {cmd:PATH}.
+system {cmd:PATH}. If the child .do file fails, {cmd:logdoc} returns that exact Stata return
+code, does not render an output document, and reports the preserved child log.
 
 {phang}
 {opt stataexe(string)} overrides the auto-detected batch executable used by
@@ -375,7 +376,8 @@ after generation.
 {opt append} appends new content to an existing output file instead of
 replacing it. It does not require {opt replace}. Supported for HTML,
 Markdown, Quarto Markdown, LaTeX, and {opt format(both)} output; not supported with
-{opt format(docx)} or {opt format(pdf)}.
+{opt format(docx)} or {opt format(pdf)}. An existing HTML target must be a
+logdoc document; its footer is preserved.
 
 {phang}
 {opt annotate(filename)} specifies an annotation file containing notes
@@ -636,7 +638,10 @@ table cannot be parsed safely, logdoc falls back to monospace output.
 
 {phang}
 {bf:Python CLI}: Advanced users can call the renderer directly:{break}
-{cmd:python3 logdoc_render.py --help}
+{cmd:python3 logdoc_render.py --help}{break}
+The direct renderer rejects source/output collisions, nonpositive or
+nonnumeric graph dimensions, and explicitly requested CSS or annotation
+files that do not exist.
 
 
 {marker requirements}{...}

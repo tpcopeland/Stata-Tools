@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.6  19jul2026}{...}
+{* *! version 1.4.7  11aug2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -875,6 +875,7 @@ commands:
 {synopt:{cmd:e(cmdline)}}complete command line{p_end}
 {synopt:{cmd:e(analysis_type)}}{cmd:mediation} or {cmd:time_varying}{p_end}
 {synopt:{cmd:e(outcome)}}outcome name{p_end}
+{synopt:{cmd:e(outcome_cmd)}}outcome model command{p_end}
 {synopt:{cmd:e(exposure)}}mediation exposure names{p_end}
 {synopt:{cmd:e(mediator)}}mediation mediator names{p_end}
 {synopt:{cmd:e(mediation_type)}}mediation estimand family{p_end}
@@ -988,7 +989,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.4.6, 2026-07-19{p_end}
+{pstd}Version 1.4.7, 2026-08-11{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

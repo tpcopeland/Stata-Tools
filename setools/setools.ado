@@ -1,4 +1,4 @@
-*! setools Version 1.5.3  2026/08/05
+*! setools Version 1.5.4  2026/08/11
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -26,6 +26,8 @@ See help setools for complete documentation
 program define setools, rclass
     version 16.0
     local _varabbrev `c(varabbrev)'
+    local _setools_fh_open = 0
+    tempname _setools_fh
     set varabbrev off
 
     capture noisily {
@@ -75,9 +77,7 @@ program define setools, rclass
 
     // Display header
     display as text ""
-    display as text "{hline 70}"
     display as result "setools" as text " - Swedish Registry Toolkit"
-    display as text "{hline 70}"
     display as text ""
 
     // Display based on options
@@ -115,7 +115,6 @@ program define setools, rclass
             display as text ""
         }
 
-        display as text "{hline 70}"
         display as text "Total commands: " as result "`n_commands'"
         display as text ""
         display as text "Help: " as result "help setools" as text " for overview"
@@ -130,11 +129,10 @@ program define setools, rclass
     local version "unknown"
     capture findfile setools.ado
     if !_rc {
-        tempname _setools_fh
         capture file open `_setools_fh' using "`r(fn)'", read text
         if !_rc {
+            local _setools_fh_open = 1
             file read `_setools_fh' _setools_header
-            file close `_setools_fh'
             if regexm("`_setools_header'", "Version ([0-9.]+)") ///
                 local version = regexs(1)
         }
@@ -146,6 +144,7 @@ program define setools, rclass
 
     }
     local _rc = _rc
+    if `_setools_fh_open' capture file close `_setools_fh'
     set varabbrev `_varabbrev'
     if `_rc' exit `_rc'
 end
@@ -163,7 +162,6 @@ program define _setools_detail, nclass
 
     if inlist("`category'", "all", "codes") {
         display as text "{bf:Registry Code Utilities}"
-        display as text "  {hline 60}"
         display as result "  cci_se" as text "       Swedish Charlson Comorbidity Index."
         display as text "               Computes CCI from ICD-7 through ICD-10 codes"
         display as text "               using the Ludvigsson et al. (2021) adaptation"
@@ -173,7 +171,6 @@ program define _setools_detail, nclass
 
     if inlist("`category'", "all", "migration") {
         display as text "{bf:Migration Registry}"
-        display as text "  {hline 60}"
         display as result "  migrations" as text "   Process Swedish migration registry data for cohort"
         display as text "               studies. Identifies periods of residence,"
         display as text "               generates exclusion flags for non-residents,"
@@ -184,7 +181,6 @@ program define _setools_detail, nclass
 
     if inlist("`category'", "all", "ms") {
         display as text "{bf:MS Disability Progression}"
-        display as text "  {hline 60}"
         display as result "  sustainedss" as text "  Compute the first sustained EDSS threshold date."
         display as text "               Finds the first date EDSS reaches a user-"
         display as text "               specified threshold and is not reversed within"

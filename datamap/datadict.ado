@@ -1,4 +1,4 @@
-*! datadict Version 1.6.5  2026/08/09
+*! datadict Version 1.6.6  2026/08/11
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -13,9 +13,9 @@ program define datadict, rclass
 	          SIngle(string) DIRectory(string) FILElist(string) ///
 	          MANifest(string) RECursive ///
 	          OUtput(string) OUTDir(string) SUFfix(string) SEParate ///
-	          TItle(string asis) SUBTitle(string asis) VERsion(string) ///
-	          AUTHor(string asis) DATE(string) ///
-		          NOTEs(string asis) CHANGElog(string asis) ///
+	          TItle(string) SUBTitle(string) VERsion(string) ///
+	          AUTHor(string) DATE(string) ///
+		          NOTEs(string) CHANGElog(string) ///
 		          MISSing STats DETail SAVing(string) ///
 		          COLumns(string asis) CONFig(string) DATASIGnature ///
 		          MAXCat(integer -999999999) MAXFreq(integer -999999999) ///
@@ -87,6 +87,8 @@ program define datadict, rclass
 		noisily di as error "specify only one of single(), directory(), filelist(), or manifest()"
 		exit 198
 	}
+	if `"`single'"' != "" _datadict_ValidatePath `"`single'"', option("single()")
+	if `"`directory'"' != "" _datadict_ValidatePath `"`directory'"', option("directory()")
 	if `"`varspec'"' != "" & `ninput' > 0 & `"`single'"' == "" {
 		noisily di as error "varlist is allowed only with data in memory or single()"
 		exit 198
@@ -209,6 +211,13 @@ program define datadict, rclass
 	// Collect dataset names for TOC
 	tempfile names_tmp
 	_datadict_CollectDatasetNames `"`filelist_tmp'"' `"`names_tmp'"' `nfiles'
+	if `from_memory' {
+		local memory_label : data label
+		tempname fh_names_memory
+		quietly file open `fh_names_memory' using `"`names_tmp'"', write text replace
+		file write `fh_names_memory' `"data_in_memory|`macval(memory_label)'"' _n
+		file close `fh_names_memory'
+	}
 
 	_datadict_FileListMacro, filelist(`"`filelist_tmp'"') memory(`from_memory')
 	local result_files `"`r(files)'"'
@@ -240,6 +249,8 @@ program define datadict, rclass
 	}
 
 	// Process files (data already preserved at top of program)
+	local memoryopt ""
+	if `from_memory' local memoryopt "memory"
 	if "`separate'" != "" {
 		_datadict_ProcessSeparate, filelist(`"`filelist_tmp'"') namesfile(`"`names_tmp'"') ///
 			title(`"`title'"') subtitle(`"`subtitle'"') version(`"`version'"') ///
@@ -251,7 +262,7 @@ program define datadict, rclass
 				categorical(`"`categorical'"') datevars(`"`datevars'"') ///
 				dateformat("`dateformat'") ///
 				columns(`columns') varspec(`"`varspec'"') outdir(`"`outdir'"') ///
-				suffix(`"`suffix'"') `datasignature' `postopt'
+				suffix(`"`suffix'"') `datasignature' `postopt' `memoryopt'
 	}
 	else {
 		_datadict_ProcessCombined, filelist(`"`filelist_tmp'"') namesfile(`"`names_tmp'"') ///
@@ -262,7 +273,7 @@ program define datadict, rclass
 				mincell(`mincell') uniqcap(`uniqcap') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 				datevars(`"`datevars'"') dateformat("`dateformat'") columns(`columns') ///
-				varspec(`"`varspec'"') `datasignature' `postopt'
+				varspec(`"`varspec'"') `datasignature' `postopt' `memoryopt'
 	}
 	local result_output `"`r(output)'"'
 	local result_outputs `"`r(outputs)'"'
@@ -412,6 +423,42 @@ program define _datadict_EscapeMarkdown, rclass
 end
 
 // =============================================================================
+// Helper: Unquote - remove one syntactic outer quote pair, preserve content
+// =============================================================================
+capture program drop _datadict_Unquote
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_Unquote, rclass
+	version 16.0
+	local _varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken value 0 : 0
+		local value `"`macval(value)'"'
+
+		// Helper calls can add nested compound delimiters. Remove those only:
+		// ordinary double quotes are already content by this boundary and must
+		// survive, including when they are the first and last characters.
+		local unwrap_compound = 1
+		while `unwrap_compound' {
+			local unwrap_compound = 0
+			local nchar = length(`"`macval(value)'"')
+			if `nchar' >= 4 & substr(`"`macval(value)'"', 1, 1) == char(96) & ///
+			   substr(`"`macval(value)'"', 2, 1) == char(34) & ///
+			   substr(`"`macval(value)'"', `nchar' - 1, 1) == char(34) & ///
+			   substr(`"`macval(value)'"', `nchar', 1) == char(39) {
+				local value = substr(`"`macval(value)'"', 3, `nchar' - 4)
+				local unwrap_compound = 1
+			}
+		}
+		return local value `"`macval(value)'"'
+	}
+	local rc = _rc
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
+end
+
+// =============================================================================
 // Helper: ValidatePath - reject shell metacharacters in file path options
 // =============================================================================
 capture program drop _datadict_ValidatePath
@@ -419,21 +466,40 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_ValidatePath, nclass
 	version 16.0
-	syntax anything(name=path id="path"), OPTion(string)
+	local _varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		syntax anything(name=path id="path"), OPTion(string)
 
-	local path = strtrim(`"`macval(path)'"')
-	if substr(`"`path'"', 1, 1) == char(34) & ///
-	   substr(`"`path'"', length(`"`path'"'), 1) == char(34) {
-		local path = substr(`"`path'"', 2, length(`"`path'"') - 2)
-	}
-	local path = subinstr(`"`macval(path)'"', char(34), "", .)
+		local path = strtrim(`"`macval(path)'"')
+		local unwrap_compound = 1
+		while `unwrap_compound' {
+			local unwrap_compound = 0
+			local nchar = length(`"`macval(path)'"')
+			if `nchar' >= 4 & substr(`"`macval(path)'"', 1, 1) == char(96) & ///
+			   substr(`"`macval(path)'"', 2, 1) == char(34) & ///
+			   substr(`"`macval(path)'"', `nchar' - 1, 1) == char(34) & ///
+			   substr(`"`macval(path)'"', `nchar', 1) == char(39) {
+				local path = substr(`"`macval(path)'"', 3, `nchar' - 4)
+				local unwrap_compound = 1
+			}
+		}
 
-	foreach bad in ";" "&" "|" ">" "<" "$" {
-		if strpos(`"`macval(path)'"', "`bad'") > 0 {
-			noisily di as error "`option' contains unsupported shell metacharacter: `bad'"
+		foreach bad in ";" "&" "|" ">" "<" "$" {
+			if strpos(`"`macval(path)'"', "`bad'") > 0 {
+				noisily di as error "`option' contains unsupported shell metacharacter: `bad'"
+				exit 198
+			}
+		}
+		if strpos(`"`macval(path)'"', char(34)) | ///
+		   strpos(`"`macval(path)'"', char(96)) {
+			noisily di as error "`option' contains unsupported quote characters"
 			exit 198
 		}
 	}
+	local rc = _rc
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -772,7 +838,8 @@ program define _datadict_FormatDisplayName, rclass
 	capture noisily {
 	args dsname
 
-	local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+	if `"`dsname'"' == "data_in_memory" local dispname "Data in memory"
+	else local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
 
 	return local dispname `"`dispname'"'
 	}
@@ -1092,9 +1159,8 @@ program define _datadict_WriteTextBlock, nclass
 	version 16.0
 	syntax, HANDLE(name) KIND(string) DATEFormat(string) [TEXT(string asis)]
 
-	local text = subinstr(`"`macval(text)'"', char(34), "", .)
-	local text = subinstr(`"`macval(text)'"', char(96), "", .)
-	local text = subinstr(`"`macval(text)'"', char(39), "", .)
+	_datadict_Unquote `"`macval(text)'"'
+	local text `"`r(value)'"'
 
 	if `"`text'"' != "" {
 		capture quietly confirm file `"`text'"'
@@ -1135,20 +1201,16 @@ program define _datadict_DeriveSeparateOutput, rclass
 	local _varabbrev = c(varabbrev)
 	set varabbrev off
 	capture noisily {
-		syntax, FILEPATH(string asis) DSName(string asis) SUFfix(string) [OUTDir(string)]
+		syntax, FILEPATH(string asis) DSName(string asis) SUFfix(string) [MEMory OUTDir(string)]
 
-		local filepath = subinstr(`"`macval(filepath)'"', char(34), "", .)
-		local filepath = subinstr(`"`macval(filepath)'"', char(96), "", .)
-		local filepath = subinstr(`"`macval(filepath)'"', char(39), "", .)
-		local outdir = subinstr(`"`macval(outdir)'"', char(34), "", .)
-		local outdir = subinstr(`"`macval(outdir)'"', char(96), "", .)
-		local outdir = subinstr(`"`macval(outdir)'"', char(39), "", .)
-		local suffix = subinstr(`"`macval(suffix)'"', char(34), "", .)
-		local suffix = subinstr(`"`macval(suffix)'"', char(96), "", .)
-		local suffix = subinstr(`"`macval(suffix)'"', char(39), "", .)
+		foreach field in filepath outdir suffix {
+			_datadict_Unquote `"`macval(`field')'"'
+			local `field' `"`r(value)'"'
+		}
 
 		local basename = ustrregexra(`"`macval(filepath)'"', ".*[/\\]", "")
 		local basename = ustrregexra(`"`basename'"', "\.dta$", "")
+		if "`memory'" != "" local basename "memory"
 		if `"`outdir'"' != "" {
 			local outroot = subinstr(`"`outdir'"', "\", "/", .)
 			if substr(`"`outroot'"', length(`"`outroot'"'), 1) == "/" {
@@ -1157,12 +1219,15 @@ program define _datadict_DeriveSeparateOutput, rclass
 			local outfile `"`outroot'/`basename'`suffix'.md"'
 		}
 		else {
-			local len = length(`"`macval(filepath)'"')
-			if substr(`"`macval(filepath)'"', `len' - 3, 4) == ".dta" {
-				local outbase = substr(`"`macval(filepath)'"', 1, `len' - 4)
-			}
+			if "`memory'" != "" local outbase "memory"
 			else {
-				local outbase `"`macval(filepath)'"'
+				local len = length(`"`macval(filepath)'"')
+				if substr(`"`macval(filepath)'"', `len' - 3, 4) == ".dta" {
+					local outbase = substr(`"`macval(filepath)'"', 1, `len' - 4)
+				}
+				else {
+					local outbase `"`macval(filepath)'"'
+				}
 			}
 			local outfile `"`outbase'`suffix'.md"'
 		}
@@ -1184,18 +1249,10 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			SOURCE(string asis) OUtput(string asis) DSName(string asis) ///
 			DSLABEL(string asis) NVARS(integer) [POSTNAME(name) DATASIGnature(string asis)]
 
-	local source = subinstr(`"`macval(source)'"', char(34), "", .)
-	local source = subinstr(`"`macval(source)'"', char(96), "", .)
-	local source = subinstr(`"`macval(source)'"', char(39), "", .)
-	local output = subinstr(`"`macval(output)'"', char(34), "", .)
-	local output = subinstr(`"`macval(output)'"', char(96), "", .)
-	local output = subinstr(`"`macval(output)'"', char(39), "", .)
-	local dsname = subinstr(`"`macval(dsname)'"', char(34), "", .)
-	local dsname = subinstr(`"`macval(dsname)'"', char(96), "", .)
-	local dsname = subinstr(`"`macval(dsname)'"', char(39), "", .)
-	local dslabel = subinstr(`"`macval(dslabel)'"', char(34), "", .)
-	local dslabel = subinstr(`"`macval(dslabel)'"', char(96), "", .)
-	local dslabel = subinstr(`"`macval(dslabel)'"', char(39), "", .)
+	foreach field in source output dsname dslabel {
+		_datadict_Unquote `"`macval(`field')'"'
+		local `field' `"`r(value)'"'
+	}
 
 	local vtype: type `vname'
 	local vfmt: format `vname'
@@ -1381,11 +1438,6 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	if "`postname'" != "" {
 		local post_source = substr(`"`macval(source)'"', 1, 2045)
 		local post_output = substr(`"`macval(output)'"', 1, 2045)
-		foreach field in post_source post_output {
-			local `field' = subinstr(`"`macval(`field')'"', char(96), "", .)
-			local `field' = subinstr(`"`macval(`field')'"', char(34), "", .)
-			local `field' = subinstr(`"`macval(`field')'"', char(39), "", .)
-		}
 		local post_dslabel = substr(`"`macval(dslabel)'"', 1, 2045)
 		local post_vlab = substr(`"`macval(vlab)'"', 1, 2045)
 		local post_notes = substr(`"`macval(notesstr)'"', 1, 2045)
@@ -1457,19 +1509,18 @@ program define _datadict_ProcessCombined, rclass
 	local _fh_names2_open = 0
 	capture noisily {
 			syntax, FILElist(string) NAMESFILE(string) OUtput(string) ///
-				TItle(string asis) DATE(string) NFILES(integer) ///
+				TItle(string) DATE(string) NFILES(integer) ///
 				MAXCat(integer) MAXFreq(integer) MINCell(integer) ///
 				UNIQCap(integer) ///
 				DATEFormat(string) ///
-				COLumns(string) [SUBTitle(string asis) VERsion(string) ///
-				AUTHor(string asis) NOTEs(string asis) CHANGElog(string asis) ///
+					COLumns(string) [MEMory SUBTitle(string) VERsion(string) ///
+				AUTHor(string) NOTEs(string) CHANGElog(string) ///
 				MISSing STats VARSPEC(string asis) POSTNAME(name) DATASIGnature ///
 				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach opt in title subtitle version author date notes changelog {
-			local `opt' = subinstr(`"`macval(`opt')'"', char(34), "", .)
-			local `opt' = subinstr(`"`macval(`opt')'"', char(96), "", .)
-			local `opt' = subinstr(`"`macval(`opt')'"', char(39), "", .)
+			_datadict_Unquote `"`macval(`opt')'"'
+			local `opt' `"`r(value)'"'
 		}
 
 		tempname fh
@@ -1521,11 +1572,11 @@ program define _datadict_ProcessCombined, rclass
 		file read `fh_names2' nameline
 		while r(eof) == 0 {
 			local ++i
-			_datadict_ParseNameLine `"`macval(nameline)'"'
-			local dsname `"`r(dsname)'"'
-			local dslabel `"`r(dslabel)'"'
+				_datadict_ParseNameLine `"`macval(nameline)'"'
+				local dsname `"`r(dsname)'"'
+				local dslabel `"`r(dslabel)'"'
 
-					_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
+						_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
 						dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') idx(`i') ///
 						maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
 						uniqcap(`uniqcap') ///
@@ -1533,7 +1584,7 @@ program define _datadict_ProcessCombined, rclass
 						categorical(`"`categorical'"') datevars(`"`datevars'"') ///
 						dateformat("`dateformat'") ///
 						columns(`columns') varspec(`"`varspec'"') output(`"`output'"') ///
-						`datasignature' `postopt'
+							`datasignature' `postopt' `memory'
 			local nobs_total = `nobs_total' + r(nobs)
 			local nvars_total = `nvars_total' + r(nvars)
 
@@ -1600,19 +1651,18 @@ program define _datadict_ProcessSeparate, rclass
 	local _fh_names_open = 0
 	local _fh_open = 0
 	capture noisily {
-			syntax, FILElist(string) NAMESFILE(string) TItle(string asis) ///
+			syntax, FILElist(string) NAMESFILE(string) TItle(string) ///
 				DATE(string) NFILES(integer) MAXCat(integer) MAXFreq(integer) ///
 				UNIQCap(integer) ///
 				MINCell(integer) DATEFormat(string) COLumns(string) SUFfix(string) ///
-				[SUBTitle(string asis) VERsion(string) AUTHor(string asis) ///
-				NOTEs(string asis) CHANGElog(string asis) MISSing STats ///
+					[MEMory SUBTitle(string) VERsion(string) AUTHor(string) ///
+				NOTEs(string) CHANGElog(string) MISSing STats ///
 				VARSPEC(string asis) OUTDir(string) POSTNAME(name) DATASIGnature ///
 				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach opt in title subtitle version author date notes changelog {
-			local `opt' = subinstr(`"`macval(`opt')'"', char(34), "", .)
-			local `opt' = subinstr(`"`macval(`opt')'"', char(96), "", .)
-			local `opt' = subinstr(`"`macval(`opt')'"', char(39), "", .)
+			_datadict_Unquote `"`macval(`opt')'"'
+			local `opt' `"`r(value)'"'
 		}
 
 		tempname fh_list fh_names
@@ -1629,12 +1679,17 @@ program define _datadict_ProcessSeparate, rclass
 		file read `fh_list' filepath
 		file read `fh_names' nameline
 		while r(eof) == 0 {
-			_datadict_ParseNameLine `"`macval(nameline)'"'
-			local dsname `"`r(dsname)'"'
-			local dslabel `"`r(dslabel)'"'
+				_datadict_ParseNameLine `"`macval(nameline)'"'
+				local dsname `"`r(dsname)'"'
+				local dslabel `"`r(dslabel)'"'
+				local dispname `"`dsname'"'
+				if "`memory'" != "" {
+					_datadict_FormatDisplayName `"`dsname'"'
+					local dispname `"`r(dispname)'"'
+				}
 
-			_datadict_DeriveSeparateOutput, filepath(`"`macval(filepath)'"') ///
-				dsname(`"`dsname'"') suffix(`"`suffix'"') outdir(`"`outdir'"')
+				_datadict_DeriveSeparateOutput, filepath(`"`macval(filepath)'"') ///
+					dsname(`"`dsname'"') suffix(`"`suffix'"') outdir(`"`outdir'"') `memory'
 			local outfile `"`r(output)'"'
 			_datadict_ValidatePath `"`outfile'"', option("separate output path")
 
@@ -1642,7 +1697,7 @@ program define _datadict_ProcessSeparate, rclass
 			quietly file open `fh' using `"`outfile'"', write text replace
 			local _fh_open = 1
 
-			file write `fh' `"# `macval(title)': `dsname'"' _n _n
+			file write `fh' `"# `macval(title)': `macval(dispname)'"' _n _n
 			if `"`subtitle'"' != "" file write `fh' `"`macval(subtitle)'"' _n _n
 			if `"`version'"' != "" file write `fh' `"Version `version'"' _n _n
 			file write `fh' _n
@@ -1655,7 +1710,7 @@ program define _datadict_ProcessSeparate, rclass
 					categorical(`"`categorical'"') datevars(`"`datevars'"') ///
 					dateformat("`dateformat'") ///
 					columns(`columns') varspec(`"`varspec'"') output(`"`outfile'"') ///
-					`datasignature' `postopt'
+						`datasignature' `postopt' `memory'
 			local nobs_total = `nobs_total' + r(nobs)
 			local nvars_total = `nvars_total' + r(nvars)
 
@@ -1722,25 +1777,14 @@ program define _datadict_ProcessOneDataset, rclass
 				IDX(integer) MAXCat(integer) MAXFreq(integer) MINCell(integer) ///
 				UNIQCap(integer) ///
 				DATEFormat(string) ///
-				COLumns(string) [DSLABEL(string asis) VARSPEC(string asis) ///
+					COLumns(string) [MEMory DSLABEL(string asis) VARSPEC(string asis) ///
 				OUtput(string asis) POSTNAME(name) DATASIGnature ///
 				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
-		local filepath = subinstr(`"`macval(filepath)'"', char(34), "", .)
-		local filepath = subinstr(`"`macval(filepath)'"', char(96), "", .)
-		local filepath = subinstr(`"`macval(filepath)'"', char(39), "", .)
-		local output = subinstr(`"`macval(output)'"', char(34), "", .)
-		local output = subinstr(`"`macval(output)'"', char(96), "", .)
-		local output = subinstr(`"`macval(output)'"', char(39), "", .)
-		local varspec = subinstr(`"`macval(varspec)'"', char(34), "", .)
-		local varspec = subinstr(`"`macval(varspec)'"', char(96), "", .)
-		local varspec = subinstr(`"`macval(varspec)'"', char(39), "", .)
-		local dsname = subinstr(`"`macval(dsname)'"', char(34), "", .)
-		local dsname = subinstr(`"`macval(dsname)'"', char(96), "", .)
-		local dsname = subinstr(`"`macval(dsname)'"', char(39), "", .)
-		local dslabel = subinstr(`"`macval(dslabel)'"', char(34), "", .)
-		local dslabel = subinstr(`"`macval(dslabel)'"', char(96), "", .)
-		local dslabel = subinstr(`"`macval(dslabel)'"', char(39), "", .)
+		foreach field in filepath output varspec dsname dslabel {
+			_datadict_Unquote `"`macval(`field')'"'
+			local `field' `"`r(value)'"'
+		}
 
 		capture quietly describe using `"`macval(filepath)'"', short
 		if _rc != 0 {
@@ -1802,20 +1846,32 @@ program define _datadict_ProcessOneDataset, rclass
 		if missing(`filesize') local filesizestr "unavailable"
 		else local filesizestr = strtrim(string(`filesize', "%15.0fc")) + " bytes"
 
-		local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
-		_datadict_EscapeMarkdown `"`macval(dslabel)'"'
-		local dslabel_safe `"`r(escaped)'"'
-		_datadict_EscapeMarkdown `"`macval(filepath)'"'
-		local filepath_safe `"`r(escaped)'"'
+			local metadata_source `"`macval(filepath)'"'
+			local metadata_dsname `"`dsname'"'
+			if "`memory'" != "" {
+				local dispname "Data in memory"
+				local metadata_source "memory"
+				local metadata_dsname "memory"
+			}
+			else local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+			_datadict_EscapeMarkdown `"`macval(dslabel)'"'
+			local dslabel_safe `"`r(escaped)'"'
+			_datadict_EscapeMarkdown `"`macval(filepath)'"'
+			local filepath_safe `"`r(escaped)'"'
 
-		file write `handle' `"## `idx'. `dispname'"' _n _n
-		file write `handle' `"**Filename:** \``dsname'.dta\`  "' _n
-		file write `handle' `"**Source path:** \``macval(filepath_safe)'\`  "' _n
-		file write `handle' `"**Description:** `macval(dslabel_safe)'  "' _n
+			file write `handle' `"## `idx'. `dispname'"' _n _n
+			if "`memory'" != "" {
+				file write `handle' "**Source:** data in memory  " _n
+			}
+			else {
+				file write `handle' `"**Filename:** \``dsname'.dta\`  "' _n
+				file write `handle' `"**Source path:** \``macval(filepath_safe)'\`  "' _n
+			}
+			file write `handle' `"**Description:** `macval(dslabel_safe)'  "' _n
 		file write `handle' `"**Observations:** `obs'  "' _n
 		file write `handle' `"**Variables in file:** `nvars_file'  "' _n
 		file write `handle' `"**Variables documented:** `nvars_doc'  "' _n
-		file write `handle' `"**File size:** `filesizestr'  "' _n
+			if "`memory'" == "" file write `handle' `"**File size:** `filesizestr'  "' _n
 		if "`datasignature'" != "" {
 			file write `handle' `"**Data signature:** \``dsignature'\`  "' _n
 		}
@@ -1844,8 +1900,8 @@ program define _datadict_ProcessOneDataset, rclass
 					columns(`columns') maxcat(`maxcat') maxfreq(`maxfreq') ///
 						uniqcap(`nuniq_cap') ///
 						mincell(`mincell') dateformat("`dateformat'") varclass("`varclass'") ///
-						source(`"`macval(filepath)'"') output(`"`output'"') ///
-						dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') ///
+							source(`"`macval(metadata_source)'"') output(`"`output'"') ///
+							dsname(`"`metadata_dsname'"') dslabel(`"`macval(dslabel)'"') ///
 						nvars(`nvars_file') datasignature(`"`dsignature'"') `postopt'
 		}
 

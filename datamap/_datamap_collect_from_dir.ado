@@ -1,4 +1,4 @@
-*! _datamap_collect_from_dir Version 1.6.5  2026/08/09
+*! _datamap_collect_from_dir Version 1.6.6  2026/08/11
 *! Shared datamap/datadict directory scanner
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -10,6 +10,7 @@ program define _datamap_collect_from_dir, nclass
 	local opened 0
 	capture noisily {
 	args directory recursive tmpfile
+	_datamap_validate_path `"`directory'"', option("directory()")
 
 	quietly file open `fh' using `"`tmpfile'"', write text replace
 	local opened 1

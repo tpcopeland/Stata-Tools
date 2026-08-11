@@ -1,3 +1,7 @@
+* _kmplot_qa_common.do
+* Shared bootstrap and assertions for kmplot QA
+* Author: Timothy P Copeland, Karolinska Institutet
+
 version 16.0
 
 capture program drop _kmplot_qa_bootstrap
