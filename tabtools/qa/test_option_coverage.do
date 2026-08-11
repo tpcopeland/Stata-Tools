@@ -172,6 +172,15 @@ capture noisily {
     sysuse auto, clear
     table1_tc price mpg foreign, by(foreign) ///
         markdown("`out'/table1.md") mdappend clear
+    clear
+    input byte(group category frequency)
+        0 0 2
+        0 1 8
+        1 0 6
+        1 1 4
+    end
+    expand frequency
+    table1_tc category, by(group) vars(category cat) smallcells(5) clear
 }
 _oc_record "table1_tc" `=_rc'
 if `_oc_ok' local ++pass_count

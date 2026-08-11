@@ -1,4 +1,4 @@
-*! table1_tc Version 1.12.2  2026/08/10 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.13.0  2026/08/11 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -82,6 +82,7 @@ program define table1_tc, rclass
         [MARKdown(string)]      /// Export data as Markdown file
         [MDAPPend]              /// Append Markdown table
         [MISSINGSummary]        /// Add missing data summary row per variable
+        [SMALLCells(string)]    /// Suppress counts below threshold and prevent reconstruction
         [dots]                  /// Show progress dots per variable
         [WTCompare]             /// Side-by-side crude vs weighted comparison
         [WTN]                   /// Show weighted (effective) counts in weighted columns
@@ -112,6 +113,26 @@ program define table1_tc, rclass
     if "`vars'" == "" {
         display as error "vars() or varlist required"
         error 100
+    }
+
+    if "`smallcells'" != "" {
+        capture confirm integer number `smallcells'
+        if _rc {
+            display as error "smallcells() must be an integer greater than or equal to 3"
+            error 198
+        }
+        if `smallcells' < 3 {
+            display as error "smallcells() must be an integer greater than or equal to 3"
+            error 198
+        }
+    }
+
+    if "`smallcells'" != "" {
+        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
+        if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
+            if `"`footnote'"' == "" local footnote `"`_sc_note'"'
+            else local footnote `"`footnote' `_sc_note'"'
+        }
     }
 
     /* Validation: Check if by() variable exists */
@@ -484,6 +505,8 @@ program define table1_tc, rclass
     local _fast_common_opts `"replace stub(`groupnum') totalcode(`_total_code')"'
     if "`total'" != "" local _fast_common_opts `"`_fast_common_opts' total(`total')"'
     if "`missing'" != "" local _fast_common_opts `"`_fast_common_opts' missing"'
+    if "`missingsummary'" != "" local _fast_common_opts `"`_fast_common_opts' missingsummary"'
+    if "`smallcells'" != "" local _fast_common_opts `"`_fast_common_opts' smallcells(`smallcells')"'
     if "`percent'" != "" local _fast_common_opts `"`_fast_common_opts' percent"'
     if "`percent_n'" != "" local _fast_common_opts `"`_fast_common_opts' percent_n"'
     if "`slashN'" != "" local _fast_common_opts `"`_fast_common_opts' slashN"'
@@ -581,7 +604,10 @@ program define table1_tc, rclass
             capture rename _columna_`lv' _cr_columna_`lv'
             capture rename _columnb_`lv' _cr_columnb_`lv'
             capture rename N_`lv' _cr_N_`lv'
+            capture rename _scmask_`lv' _cr_scmask_`lv'
+            capture rename _scmiss_`lv' _cr_scmiss_`lv'
         }
+        capture rename _sc_derived _cr_sc_derived
         capture confirm variable sort2
         if _rc gen sort2 = 0
         keep sort1 sort2 _cr_*
@@ -690,12 +716,39 @@ program define table1_tc, rclass
                 foreach _lv of local levels {
                     local _mval = m_`_lv'[`_obs']
                     if !missing(`_mval') & `_mval' > 0 {
-                        local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
-                        local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + `percsign' + ")"
+                        local _sc_mcode 0
+                        if "`smallcells'" != "" local _sc_mcode = _scmiss_`_lv'[`_obs']
+                        if `_sc_mcode' > 0 {
+                            _tabtools_smallcells_render, value(`_mval') mask(`_sc_mcode') ///
+                                smallcells(`smallcells') format(`nformat')
+                            local _mstr `"`r(display)'"'
+                        }
+                        else {
+                            local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + `percsign' + ")"
+                        }
                         qui replace `groupnum'`_lv' = "`_mstr'" in `_new'
+                        if "`smallcells'" != "" qui replace _scmask_`_lv' = `_sc_mcode' in `_new'
                     }
                     else {
                         qui replace `groupnum'`_lv' = "0" in `_new'
+                    }
+
+                    if `has_wtcompare' {
+                        local _cr_mcode 0
+                        if "`smallcells'" != "" local _cr_mcode = _cr_scmiss_`_lv'[`_obs']
+                        if !missing(`_mval') & `_mval' > 0 & `_cr_mcode' > 0 {
+                            _tabtools_smallcells_render, value(`_mval') mask(`_cr_mcode') ///
+                                smallcells(`smallcells') format(`nformat')
+                            qui replace _cr_`_lv' = `"`r(display)'"' in `_new'
+                        }
+                        else if !missing(`_mval') & `_mval' > 0 {
+                            local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + `percsign' + ")"
+                            qui replace _cr_`_lv' = "`_mstr'" in `_new'
+                        }
+                        else qui replace _cr_`_lv' = "0" in `_new'
+                        if "`smallcells'" != "" qui replace _cr_scmask_`_lv' = `_cr_mcode' in `_new'
                     }
                 }
             }
@@ -712,6 +765,20 @@ program define table1_tc, rclass
     capture lab var _columnb_`_total_code' "T _columnb_"
     capture lab var N_`_total_code' "T N_"
     capture lab var m_`_total_code' "T m_"
+
+    tempvar _sc_anyderived
+    if "`smallcells'" != "" {
+        quietly gen byte `_sc_anyderived' = _sc_derived == 1
+        if `has_wtcompare' quietly replace `_sc_anyderived' = 1 if _cr_sc_derived == 1
+        capture confirm variable p
+        if !_rc quietly replace p = .d if `_sc_anyderived'
+        capture confirm variable smd_val
+        if !_rc quietly replace smd_val = .d if `_sc_anyderived'
+        capture confirm variable test
+        if !_rc quietly replace test = "Suppressed" if `_sc_anyderived'
+        capture confirm variable statistic
+        if !_rc quietly replace statistic = "Suppressed" if `_sc_anyderived'
+    }
     
     /* Format p-values (skipped when wt() or nopvalue specified) */
     if `groupcount'>1 & !`_suppress_p' {
@@ -731,6 +798,7 @@ program define table1_tc, rclass
         qui replace pvalue="<" + string(`pmin', "%`=`pdp'+2'.`pdp'f") if p<`pmin'  // Show as <0.001 etc.
 
         lab var pvalue "p-value"  // Label p-value column
+        if "`smallcells'" != "" quietly replace pvalue = "Suppressed" if `_sc_anyderived'
     }
     
     /* Format SMD column if present */
@@ -738,6 +806,7 @@ program define table1_tc, rclass
         capture confirm variable smd_val
         if !_rc {
             qui gen smd_str = string(abs(smd_val), "%5.3f") if !missing(smd_val)
+            if "`smallcells'" != "" quietly replace smd_str = "Suppressed" if `_sc_anyderived'
             lab var smd_str "SMD"
         }
     }
@@ -847,7 +916,8 @@ program define table1_tc, rclass
 
         * Reorder: factor, Crude columns, Weighted columns, SMD
         capture order factor Cr_* Wt_*
-        capture order smd_str, last
+        capture confirm variable smd_str
+        if !_rc order smd_str, last
 
         * Update header row values to match new labels
         foreach sfx of local _wtc_suffixes {
@@ -881,6 +951,84 @@ program define table1_tc, rclass
         cap order N_T, before(m_`first')  // Reorder N columns
         cap order m_T, before(_columna_`first')  // Reorder missing columns
         cap order _columna_T _columnb_T, last  // Move column components to end
+    }
+
+    /* Snapshot the public suppression map before internal mask variables are
+       discarded. Counts refer to display cells, so a shared logical margin is
+       counted once for each cell in which the user can see its marker. */
+    tempname _sc_return
+    local _sc_nprimary 0
+    local _sc_nsecondary 0
+    local _sc_nderived 0
+    if "`smallcells'" != "" {
+        local _sc_public_vars ""
+        local _sc_mask_vars ""
+        local _sc_suffixes ""
+        foreach _lv of local levels {
+            if "`_lv'" == "`_total_code'" local _sc_sfx "T"
+            else local _sc_sfx "`_lv'"
+            local _sc_suffixes "`_sc_suffixes' `_sc_sfx'"
+        }
+
+        if `has_wtcompare' {
+            foreach _sc_sfx of local _sc_suffixes {
+                capture confirm variable Cr_`_sc_sfx'
+                if !_rc {
+                    local _sc_public_vars "`_sc_public_vars' Cr_`_sc_sfx'"
+                    local _sc_mask_vars "`_sc_mask_vars' _cr_scmask_`_sc_sfx'"
+                }
+                capture confirm variable Wt_`_sc_sfx'
+                if !_rc {
+                    local _sc_public_vars "`_sc_public_vars' Wt_`_sc_sfx'"
+                    local _sc_mask_vars "`_sc_mask_vars' _scmask_`_sc_sfx'"
+                }
+            }
+        }
+        else if "`by'" == "" {
+            local _sc_first : word 1 of `_sc_suffixes'
+            local _sc_public_vars "Total"
+            local _sc_mask_vars "_scmask_`_sc_first'"
+        }
+        else {
+            foreach _sc_sfx of local _sc_suffixes {
+                local _sc_public_vars "`_sc_public_vars' `by'_`_sc_sfx'"
+                local _sc_mask_vars "`_sc_mask_vars' _scmask_`_sc_sfx'"
+            }
+        }
+
+        local _sc_stat_vars ""
+        foreach _sc_stat in pvalue test statistic smd_str {
+            capture confirm variable `_sc_stat'
+            if !_rc local _sc_stat_vars "`_sc_stat_vars' `_sc_stat'"
+        }
+        local _sc_all_vars "`_sc_public_vars' `_sc_stat_vars'"
+        local _sc_ncols : word count `_sc_all_vars'
+        matrix `_sc_return' = J(`=_N', `_sc_ncols', 0)
+
+        local _sc_col 0
+        local _sc_nmasks : word count `_sc_mask_vars'
+        forvalues _sc_j = 1/`_sc_nmasks' {
+            local ++_sc_col
+            local _sc_mv : word `_sc_j' of `_sc_mask_vars'
+            forvalues _sc_obs = 1/`=_N' {
+                local _sc_code = `_sc_mv'[`_sc_obs']
+                if missing(`_sc_code') local _sc_code 0
+                matrix `_sc_return'[`_sc_obs', `_sc_col'] = `_sc_code'
+                if `_sc_code' == 1 local ++_sc_nprimary
+                else if `_sc_code' == 2 local ++_sc_nsecondary
+                else if `_sc_code' == 3 local ++_sc_nderived
+            }
+        }
+        foreach _sc_stat of local _sc_stat_vars {
+            local ++_sc_col
+            forvalues _sc_obs = 1/`=_N' {
+                local _sc_code 0
+                if `_sc_anyderived'[`_sc_obs'] == 1 local _sc_code 3
+                matrix `_sc_return'[`_sc_obs', `_sc_col'] = `_sc_code'
+                if `_sc_code' == 3 local ++_sc_nderived
+            }
+        }
+        matrix colnames `_sc_return' = `_sc_all_vars'
     }
 
     /* Format N and missing counts */
@@ -954,7 +1102,7 @@ program define table1_tc, rclass
             // otherwise sum across the scratch columns we just built. The Cr_T
             // / Wt_T / by_T total columns were renamed to Cr_T / Wt_T / by_T
             // already; their scratch versions live under the __hp_ prefix.
-            tempvar hperc_den hperc_crden hperc_wtden
+            tempvar hperc_den hperc_crden hperc_wtden hperc_nmiss hperc_crnmiss hperc_wtnmiss
             if `has_wtcompare' {
                 local _cr_tot_scratch ""
                 local _wt_tot_scratch ""
@@ -963,21 +1111,37 @@ program define table1_tc, rclass
                     if "`_hcol'" == "Wt_T" local _wt_tot_scratch "`hperc_scratch_for_`_hcol''"
                 }
                 if "`_cr_tot_scratch'" != "" gen double `hperc_crden' = `_cr_tot_scratch' if inlist(_n, 2)
-                else egen `hperc_crden' = rowtotal(`hperc_cr_scratch') if inlist(_n, 2)
+                else {
+                    egen `hperc_crden' = rowtotal(`hperc_cr_scratch') if inlist(_n, 2)
+                    egen `hperc_crnmiss' = rowmiss(`hperc_cr_scratch') if inlist(_n, 2)
+                    replace `hperc_crden' = . if `hperc_crnmiss' > 0
+                }
 
                 if "`_wt_tot_scratch'" != "" gen double `hperc_wtden' = `_wt_tot_scratch' if inlist(_n, 2)
-                else egen `hperc_wtden' = rowtotal(`hperc_wt_scratch') if inlist(_n, 2)
+                else {
+                    egen `hperc_wtden' = rowtotal(`hperc_wt_scratch') if inlist(_n, 2)
+                    egen `hperc_wtnmiss' = rowmiss(`hperc_wt_scratch') if inlist(_n, 2)
+                    replace `hperc_wtden' = . if `hperc_wtnmiss' > 0
+                }
             }
             else if "`by'" == "" {
                 local _tot_scratch `"`hperc_scratch_for_Total'"'
                 if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
-                else egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
+                else {
+                    egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
+                    egen `hperc_nmiss' = rowmiss(`hperc_main_scratch') if inlist(_n, 2)
+                    replace `hperc_den' = . if `hperc_nmiss' > 0
+                }
             }
             else {
                 local _by_t "`by'_T"
                 local _tot_scratch `"`hperc_scratch_for_`_by_t''"'
                 if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
-                else egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
+                else {
+                    egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
+                    egen `hperc_nmiss' = rowmiss(`hperc_main_scratch') if inlist(_n, 2)
+                    replace `hperc_den' = . if `hperc_nmiss' > 0
+                }
             }
 
             // Add percentage of total to each sample-size label.
@@ -997,6 +1161,9 @@ program define table1_tc, rclass
             capture drop `hperc_den'
             capture drop `hperc_crden'
             capture drop `hperc_wtden'
+            capture drop `hperc_nmiss'
+            capture drop `hperc_crnmiss'
+            capture drop `hperc_wtnmiss'
 
         }
     }
@@ -1122,6 +1289,7 @@ program define table1_tc, rclass
     /* Display the table */
     qui ds factor_sep _* N_* m_*, not
     list `r(varlist)', sepby(factor_sep) noobs noheader table  // Show table with separators between variables
+    if "`smallcells'" != "" display as text "`_sc_note'"
     drop factor_sep  // Clean up
     
     /* Generate data description string */
@@ -1296,12 +1464,14 @@ program define table1_tc, rclass
                     if `_has_praw' {
                         local _rt_c = `_rt_c' + 1
                         local _pval = `p_raw'[`_obs']
-                        if `_pval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
+                        if `_pval' < . | `_pval' == .d ///
+                            matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
                     }
                     if `_has_smdraw' {
                         local _rt_c = `_rt_c' + 1
                         local _sval = `smd_raw'[`_obs']
-                        if `_sval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
+                        if `_sval' < . | `_sval' == .d ///
+                            matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
                     }
                     * Clean variable name for row label
                     local _rname = subinstr("`_fval'", ".", "_", .)
@@ -1325,6 +1495,20 @@ program define table1_tc, rclass
     return local varlist "`_processed_varlist'"
     if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
         capture return matrix table = `_rtable'
+    }
+
+    if "`smallcells'" != "" {
+        capture drop _scmask_* _scmiss_* _sc_derived
+        capture drop _cr_scmask_* _cr_scmiss_* _cr_sc_derived
+        capture drop `_sc_anyderived'
+        char _dta[tabtools_smallcells] "`smallcells'"
+        char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
+        char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        return scalar smallcells = `smallcells'
+        return scalar N_primary_suppressed = `_sc_nprimary'
+        return scalar N_secondary_suppressed = `_sc_nsecondary'
+        return scalar N_derived_suppressed = `_sc_nderived'
+        return matrix suppression = `_sc_return'
     }
 
     local _xlsx_ok 0
@@ -1881,6 +2065,11 @@ program define table1_tc, rclass
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame `"`_frame_name'"'
+        if "`smallcells'" != "" {
+            frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
+            frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
+            frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        }
         return local frame "`frame'"
     }
 

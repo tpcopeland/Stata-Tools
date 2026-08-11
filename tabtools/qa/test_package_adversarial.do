@@ -48,6 +48,8 @@ capture noisily {
         comptab survtab crosstab diagtab corrtab {
         which `cmd'
     }
+    which _tabtools_smallcells
+    which _tabtools_smallcells_render
 
     clear
     input byte row byte col

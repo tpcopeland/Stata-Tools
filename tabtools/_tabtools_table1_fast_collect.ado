@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.12.2  2026/08/10
+*! _tabtools_table1_fast_collect Version 1.13.0  2026/08/11
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -37,7 +37,20 @@ program define _tabtools_table1_fast_collect, rclass
               Format(string) PERCFormat(string) NFormat(string) ///
               iqrmiddle(string) sdleft(string) sdright(string) ///
               gsdleft(string) gsdright(string) ///
-              percsign(string) NOSPACElowpercent extraspace ]
+              percsign(string) NOSPACElowpercent extraspace ///
+              SMALLCells(string) MISSINGSummary ]
+
+        if "`smallcells'" != "" {
+            capture confirm integer number `smallcells'
+            if _rc {
+                display as error "smallcells() must be an integer greater than or equal to 3"
+                exit 198
+            }
+            if `smallcells' < 3 {
+                display as error "smallcells() must be an integer greater than or equal to 3"
+                exit 198
+            }
+        }
 
         local vars = strtrim(`"`vars'"')
         if substr(`"`vars'"', 1, 1) == `"""' & substr(`"`vars'"', -1, 1) == `"""' {
@@ -610,6 +623,221 @@ program define _tabtools_table1_fast_collect, rclass
             `has_fw', `has_wt', `include_total', `include_missing', `totalcode', ///
             "`sample'", "`contnmat'", "`contamat'", "`contbmat'", "`contcmat'", "`catmat'")
 
+        /* Build disclosure masks while every count still has numeric lineage.
+           Base blocks contain the real group columns only; displayed totals
+           are the corresponding row margins. Unreleased complements and
+           missingness rows remain logical cells but are not public markers. */
+        local _smallcells_active = "`smallcells'" != ""
+        local _missing_summary = "`missingsummary'" != ""
+        tempname sc_samplemask sc_contmask sc_catmask sc_missmask sc_denmask sc_derived
+        if `_smallcells_active' {
+            matrix `sc_samplemask' = J(1, `ngout', 0)
+            matrix `sc_contmask' = J(`nvars', `ngout', 0)
+            matrix `sc_catmask' = J(rowsof(`catmat'), 1, 0)
+            matrix `sc_missmask' = J(`nvars', `ngout', 0)
+            matrix `sc_denmask' = J(`nvars', `ngout', 0)
+            matrix `sc_derived' = J(`nvars', 1, 0)
+
+            forvalues i = 1/`nvars' {
+                local _sctyp `"`type_`i''"'
+                tempname _scC _scE _scS _scRE _scRS _scCE _scCS
+                tempname _scM _scRM _scCM
+
+                if inlist("`_sctyp'", "contn", "contln", "conts") {
+                    matrix `_scC' = J(2, `groupcount', 0)
+                    matrix `_scE' = J(2, `groupcount', 0)
+                    matrix `_scS' = J(2, `groupcount', 0)
+                    forvalues _g = 1/`groupcount' {
+                        local _sc_n = `contnmat'[`i', `_g']
+                        if missing(`_sc_n') local _sc_n 0
+                        local _sc_m = `sample'[`_g', 3] - `_sc_n'
+                        matrix `_scC'[1, `_g'] = `_sc_n'
+                        matrix `_scC'[2, `_g'] = `_sc_m'
+                        matrix `_scS'[1, `_g'] = 1
+                        if `_missing_summary' {
+                            matrix `_scE'[2, `_g'] = 1
+                            matrix `_scS'[2, `_g'] = 1
+                        }
+                    }
+                    matrix `_scRE' = (0 \ `_missing_summary' * `include_total')
+                    matrix `_scRS' = (`include_total' \ `_missing_summary' * `include_total')
+                    matrix `_scCE' = J(1, `groupcount', 1)
+                    matrix `_scCS' = J(1, `groupcount', 1)
+
+                    _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
+                        sensitive(`_scS') rowexact(`_scRE') ///
+                        rowsensitive(`_scRS') colexact(`_scCE') ///
+                        colsensitive(`_scCS') grandexact(`include_total') ///
+                        grandsensitive(`include_total') smallcells(`smallcells')
+                    matrix `_scM' = r(mask)
+                    matrix `_scRM' = r(rowmask)
+                    matrix `_scCM' = r(colmask)
+                    local _scGM = r(totalmask)
+
+                    forvalues _g = 1/`groupcount' {
+                        matrix `sc_contmask'[`i', `_g'] = `_scM'[1, `_g']
+                        matrix `sc_missmask'[`i', `_g'] = `_scM'[2, `_g']
+                        local _old = `sc_samplemask'[1, `_g']
+                        local _new = `_scCM'[1, `_g']
+                        if `_new' == 1 | (`_new' == 2 & `_old' == 0) ///
+                            matrix `sc_samplemask'[1, `_g'] = `_new'
+                    }
+                    if `include_total' {
+                        matrix `sc_contmask'[`i', `ngout'] = `_scRM'[1, 1]
+                        matrix `sc_missmask'[`i', `ngout'] = `_scRM'[2, 1]
+                        local _old = `sc_samplemask'[1, `ngout']
+                        if `_scGM' == 1 | (`_scGM' == 2 & `_old' == 0) ///
+                            matrix `sc_samplemask'[1, `ngout'] = `_scGM'
+                    }
+                    if r(N_primary_suppressed) > 0 matrix `sc_derived'[`i', 1] = 1
+                }
+                else {
+                    local _scL = `cat_nlevels_`i''
+                    local _sc_hidden = 0
+                    if inlist("`_sctyp'", "bin", "bine") local _sc_hidden = 2
+                    else if !`include_missing' local _sc_hidden = 1
+                    local _scR = `_scL' + `_sc_hidden'
+                    matrix `_scC' = J(`_scR', `groupcount', 0)
+                    matrix `_scE' = J(`_scR', `groupcount', 0)
+                    matrix `_scS' = J(`_scR', `groupcount', 0)
+
+                    forvalues _r = 1/`_scL' {
+                        forvalues _g = 1/`groupcount' {
+                            local _scrow = `cat_start_`i'' + (`_r' - 1) * `ngout' + `_g' - 1
+                            matrix `_scC'[`_r', `_g'] = `catmat'[`_scrow', 5]
+                            matrix `_scE'[`_r', `_g'] = 1
+                            matrix `_scS'[`_r', `_g'] = 1
+                        }
+                    }
+
+                    local _sc_missrow 0
+                    if inlist("`_sctyp'", "bin", "bine") {
+                        local _sc_negrow = `_scL' + 1
+                        local _sc_missrow = `_scL' + 2
+                        forvalues _g = 1/`groupcount' {
+                            local _scrow = `cat_start_`i'' + `_g' - 1
+                            local _sc_pos = `catmat'[`_scrow', 5]
+                            local _sc_nonmiss = `catmat'[`_scrow', 6]
+                            matrix `_scC'[`_sc_negrow', `_g'] = `_sc_nonmiss' - `_sc_pos'
+                            matrix `_scC'[`_sc_missrow', `_g'] = `sample'[`_g', 3] - `_sc_nonmiss'
+                            if `_missing_summary' | ("`slashN'" == "slashN" & ///
+                                (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "")) {
+                                matrix `_scE'[`_sc_missrow', `_g'] = 1
+                                matrix `_scS'[`_sc_missrow', `_g'] = 1
+                            }
+                            if "`slashN'" == "slashN" & ///
+                                (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") {
+                                matrix `_scE'[`_sc_negrow', `_g'] = 1
+                                matrix `_scS'[`_sc_negrow', `_g'] = 1
+                            }
+                        }
+                    }
+                    else if !`include_missing' {
+                        local _sc_missrow = `_scR'
+                        forvalues _g = 1/`groupcount' {
+                            local _scrow = `cat_start_`i'' + `_g' - 1
+                            local _sc_nonmiss = `catmat'[`_scrow', 6]
+                            matrix `_scC'[`_sc_missrow', `_g'] = `sample'[`_g', 3] - `_sc_nonmiss'
+                            if `_missing_summary' | ("`slashN'" == "slashN" & "`catrowperc'" == "") {
+                                matrix `_scE'[`_sc_missrow', `_g'] = 1
+                                matrix `_scS'[`_sc_missrow', `_g'] = 1
+                            }
+                        }
+                    }
+                    else {
+                        local _sc_li 0
+                        foreach _sc_level of local cat_levels_`i' {
+                            local ++_sc_li
+                            if "`_sc_level'" == "." local _sc_missrow `_sc_li'
+                        }
+                    }
+
+                    matrix `_scRE' = J(`_scR', 1, 0)
+                    matrix `_scRS' = J(`_scR', 1, 0)
+                    local _sc_row_released = `include_total' | ///
+                        ("`slashN'" == "slashN" & "`catrowperc'" != "")
+                    forvalues _r = 1/`_scL' {
+                        matrix `_scRE'[`_r', 1] = `_sc_row_released'
+                        matrix `_scRS'[`_r', 1] = `_sc_row_released'
+                    }
+                    if `_sc_missrow' > 0 & `_missing_summary' & `include_total' {
+                        matrix `_scRE'[`_sc_missrow', 1] = 1
+                        matrix `_scRS'[`_sc_missrow', 1] = 1
+                    }
+                    matrix `_scCE' = J(1, `groupcount', 1)
+                    matrix `_scCS' = J(1, `groupcount', 1)
+
+                    _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
+                        sensitive(`_scS') rowexact(`_scRE') ///
+                        rowsensitive(`_scRS') colexact(`_scCE') ///
+                        colsensitive(`_scCS') grandexact(`include_total') ///
+                        grandsensitive(`include_total') smallcells(`smallcells')
+                    matrix `_scM' = r(mask)
+                    matrix `_scRM' = r(rowmask)
+                    matrix `_scCM' = r(colmask)
+                    local _scGM = r(totalmask)
+                    local sc_rowmask_`i' `"`_scRM'"'
+
+                    forvalues _r = 1/`_scL' {
+                        forvalues _g = 1/`groupcount' {
+                            local _scrow = `cat_start_`i'' + (`_r' - 1) * `ngout' + `_g' - 1
+                            matrix `sc_catmask'[`_scrow', 1] = `_scM'[`_r', `_g']
+                        }
+                        if `include_total' {
+                            local _scrow = `cat_start_`i'' + (`_r' - 1) * `ngout' + `ngout' - 1
+                            matrix `sc_catmask'[`_scrow', 1] = `_scRM'[`_r', 1]
+                        }
+                    }
+                    if `_sc_missrow' > 0 {
+                        forvalues _g = 1/`groupcount' {
+                            matrix `sc_missmask'[`i', `_g'] = `_scM'[`_sc_missrow', `_g']
+                            if "`slashN'" == "slashN" & ///
+                                (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") & ///
+                                `_scM'[`_sc_missrow', `_g'] > 0 ///
+                                matrix `sc_denmask'[`i', `_g'] = 3
+                        }
+                        if `include_total' {
+                            matrix `sc_missmask'[`i', `ngout'] = `_scRM'[`_sc_missrow', 1]
+                            if "`slashN'" == "slashN" & ///
+                                (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") & ///
+                                `_scRM'[`_sc_missrow', 1] > 0 ///
+                                matrix `sc_denmask'[`i', `ngout'] = 3
+                        }
+                    }
+                    if inlist("`_sctyp'", "bin", "bine") & ///
+                        "`slashN'" == "slashN" {
+                        forvalues _g = 1/`groupcount' {
+                            if `_scM'[`_sc_negrow', `_g'] > 0 ///
+                                matrix `sc_denmask'[`i', `_g'] = 3
+                        }
+                        if `include_total' & `_scRM'[`_sc_negrow', 1] > 0 ///
+                            matrix `sc_denmask'[`i', `ngout'] = 3
+                    }
+                    if "`slashN'" == "slashN" & ///
+                        (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") {
+                        forvalues _g = 1/`ngout' {
+                            local _scrow = `cat_start_`i'' + `_g' - 1
+                            local _sc_denom = `catmat'[`_scrow', 6]
+                            if `_sc_denom' > 0 & `_sc_denom' < `smallcells' ///
+                                matrix `sc_denmask'[`i', `_g'] = 1
+                        }
+                    }
+                    forvalues _g = 1/`groupcount' {
+                        local _old = `sc_samplemask'[1, `_g']
+                        local _new = `_scCM'[1, `_g']
+                        if `_new' == 1 | (`_new' == 2 & `_old' == 0) ///
+                            matrix `sc_samplemask'[1, `_g'] = `_new'
+                    }
+                    if `include_total' {
+                        local _old = `sc_samplemask'[1, `ngout']
+                        if `_scGM' == 1 | (`_scGM' == 2 & `_old' == 0) ///
+                            matrix `sc_samplemask'[1, `ngout'] = `_scGM'
+                    }
+                    if r(N_primary_suppressed) > 0 matrix `sc_derived'[`i', 1] = 1
+                }
+            }
+        }
+
         preserve
         local _restore_needed 1
         clear
@@ -624,7 +852,12 @@ program define _tabtools_table1_fast_collect, rclass
             quietly gen double N_`_lv' = .
             quietly gen str120 _columna_`_lv' = ""
             quietly gen str120 _columnb_`_lv' = ""
+            if `_smallcells_active' {
+                quietly gen byte _scmask_`_lv' = 0
+                quietly gen byte _scmiss_`_lv' = 0
+            }
         }
+        if `_smallcells_active' quietly gen byte _sc_derived = 0
         if !`suppress_p' quietly gen double p = .
         if "`smd'" != "" quietly gen double smd_val = .
         if "`test'" == "test" & !`suppress_p' quietly gen str48 test = ""
@@ -641,7 +874,15 @@ program define _tabtools_table1_fast_collect, rclass
         foreach _lv of local output_levels {
             local _gi = `gidx_`_lv''
             local _nval = `sample'[`_gi', 3]
-            local _cell = "N=" + string(`_nval', "`nformat'")
+            local _sc_code 0
+            if `_smallcells_active' local _sc_code = `sc_samplemask'[1, `_gi']
+            if `_sc_code' > 0 {
+                _tabtools_smallcells_render, value(`_nval') mask(`_sc_code') ///
+                    smallcells(`smallcells') format(`nformat')
+                local _cell `"`r(display)'"'
+                quietly replace _scmask_`_lv' = `_sc_code' in `row'
+            }
+            else local _cell = "N=" + string(`_nval', "`nformat'")
             quietly replace `stub'`_lv' = `"`_cell'"' in `row'
             quietly replace N_`_lv' = `_nval' in `row'
         }
@@ -656,7 +897,13 @@ program define _tabtools_table1_fast_collect, rclass
             foreach _lv of local output_levels {
                 local _gi = `gidx_`_lv''
                 local _ess = `sample'[`_gi', 5]
-                local _cell = "ESS=" + string(`_ess', "`nformat'")
+                local _sc_code 0
+                if `_smallcells_active' local _sc_code = `sc_samplemask'[1, `_gi']
+                if `_sc_code' > 0 {
+                    local _cell "Suppressed"
+                    quietly replace _scmask_`_lv' = 3 in `row'
+                }
+                else local _cell = "ESS=" + string(`_ess', "`nformat'")
                 quietly replace `stub'`_lv' = `"`_cell'"' in `row'
             }
             local ++sortorder
@@ -691,6 +938,13 @@ program define _tabtools_table1_fast_collect, rclass
                 quietly replace factor = `"`_factor'"' in `row'
                 quietly replace factor_sep = `"`_factor'"' in `row'
                 quietly replace sort1 = `sortorder' in `row'
+                if `_smallcells_active' {
+                    quietly replace _sc_derived = `sc_derived'[`i', 1] in `row'
+                    foreach _lv of local output_levels {
+                        local _gi = `gidx_`_lv''
+                        quietly replace _scmiss_`_lv' = `sc_missmask'[`i', `_gi'] in `row'
+                    }
+                }
                 if `p`i'' < . quietly replace p = `p`i'' in `row'
                 if `smd`i'' < . quietly replace smd_val = `smd`i'' in `row'
                 if "`test'" == "test" & "`test`i''" != "" quietly replace test = `"`test`i''"' in `row'
@@ -705,7 +959,16 @@ program define _tabtools_table1_fast_collect, rclass
                     local _cell ""
                     local _cola ""
                     local _colb ""
-                    if `_a' < . {
+                    local _sc_code 0
+                    if `_smallcells_active' local _sc_code = `sc_contmask'[`i', `_gi']
+                    if `_sc_code' > 0 {
+                        _tabtools_smallcells_render, value(`_nval') mask(`_sc_code') ///
+                            smallcells(`smallcells') format(`nformat')
+                        local _cell `"`r(display)'"'
+                        local _cola `"`r(display)'"'
+                        quietly replace _scmask_`_lv' = `_sc_code' in `row'
+                    }
+                    else if `_a' < . {
                         if inlist("`typ'", "contn", "contln") {
                             local _cola = string(`_a', "`fmt1'")
                             if "`typ'" == "contn" local _colb = `"`sdleft'"' + string(`_b', "`fmt2'") + `"`sdright'"'
@@ -733,6 +996,13 @@ program define _tabtools_table1_fast_collect, rclass
                 quietly replace factor = `"`_factor'"' in `row'
                 quietly replace factor_sep = `"`_factor'"' in `row'
                 quietly replace sort1 = `sortorder' in `row'
+                if `_smallcells_active' {
+                    quietly replace _sc_derived = `sc_derived'[`i', 1] in `row'
+                    foreach _lv of local output_levels {
+                        local _gi = `gidx_`_lv''
+                        quietly replace _scmiss_`_lv' = `sc_missmask'[`i', `_gi'] in `row'
+                    }
+                }
                 if `p`i'' < . quietly replace p = `p`i'' in `row'
                 if `smd`i'' < . quietly replace smd_val = `smd`i'' in `row'
                 if "`test'" == "test" & "`test`i''" != "" quietly replace test = `"`test`i''"' in `row'
@@ -742,6 +1012,7 @@ program define _tabtools_table1_fast_collect, rclass
                     local _gi = `gidx_`_lv''
                     local _mrow = `cat_start_`i'' + `_gi' - 1
                     local _cnt = `catmat'[`_mrow', 5]
+                    local _sc_rawcnt = `_cnt'
                     local _grpN = `catmat'[`_mrow', 6]
                     local _num = `catmat'[`_mrow', 7]
                     local _den = `catmat'[`_mrow', 8]
@@ -770,8 +1041,34 @@ program define _tabtools_table1_fast_collect, rclass
                         }
                         local _perc = "`_perc'" + `"`percsign'"'
                     }
+                    local _sc_code 0
+                    if `_smallcells_active' local _sc_code = `sc_catmask'[`_mrow', 1]
+                    if `_sc_code' > 0 {
+                        _tabtools_smallcells_render, value(`_sc_rawcnt') mask(`_sc_code') ///
+                            smallcells(`smallcells') format(`nformat')
+                        local _cell `"`r(display)'"'
+                        local _cola `"`r(display)'"'
+                        local _colb ""
+                        quietly replace `stub'`_lv' = `"`_cell'"' in `row'
+                        quietly replace _columna_`_lv' = `"`_cola'"' in `row'
+                        quietly replace _columnb_`_lv' = "" in `row'
+                        quietly replace _scmask_`_lv' = `_sc_code' in `row'
+                        quietly replace N_`_lv' = `_grpN' in `row'
+                        continue
+                    }
                     local _nstr = string(`_cnt', "`nformat'")
-                    if "`slashN'" == "slashN" local _nstr = "`_nstr'" + "/" + string(`_grpN', "`nformat'")
+                    if "`slashN'" == "slashN" {
+                        local _sc_dcode 0
+                        if `_smallcells_active' local _sc_dcode = `sc_denmask'[`i', `_gi']
+                        if `_sc_dcode' > 0 {
+                            _tabtools_smallcells_render, value(`_grpN') mask(`_sc_dcode') ///
+                                smallcells(`smallcells') format(`nformat')
+                            local _sc_denstr `"`r(display)'"'
+                            quietly replace _scmask_`_lv' = `_sc_dcode' in `row'
+                        }
+                        else local _sc_denstr = string(`_grpN', "`nformat'")
+                        local _nstr = "`_nstr'" + "/" + "`_sc_denstr'"
+                    }
                     if "`percent_n'" == "" & "`percent'" == "" {
                         local _cola `"`_nstr'"'
                         local _colb "(`_perc')"
@@ -802,6 +1099,13 @@ program define _tabtools_table1_fast_collect, rclass
                 quietly replace factor_sep = `"`varlab'"' in `top'
                 quietly replace sort1 = `sortorder' in `top'
                 quietly replace sort2 = 1 in `top'
+                if `_smallcells_active' {
+                    quietly replace _sc_derived = `sc_derived'[`i', 1] in `top'
+                    foreach _lv of local output_levels {
+                        local _gi = `gidx_`_lv''
+                        quietly replace _scmiss_`_lv' = `sc_missmask'[`i', `_gi'] in `top'
+                    }
+                }
                 if `p`i'' < . quietly replace p = `p`i'' in `top'
                 if `smd`i'' < . quietly replace smd_val = `smd`i'' in `top'
                 if "`test'" == "test" & "`test`i''" != "" quietly replace test = `"`test`i''"' in `top'
@@ -832,6 +1136,7 @@ program define _tabtools_table1_fast_collect, rclass
                         local _gi = `gidx_`_lv''
                         local _mrow = `cat_start_`i'' + (`_lo' - 1) * `ngout' + `_gi' - 1
                         local _cnt = `catmat'[`_mrow', 5]
+                        local _sc_rawcnt = `_cnt'
                         local _grpN = `catmat'[`_mrow', 6]
                         local _num = `catmat'[`_mrow', 7]
                         if "`catrowperc'" == "" local _den = `catmat'[`_mrow', 8]
@@ -863,10 +1168,40 @@ program define _tabtools_table1_fast_collect, rclass
                             }
                             local _perc = "`_perc'" + `"`percsign'"'
                         }
+                        local _sc_code 0
+                        if `_smallcells_active' local _sc_code = `sc_catmask'[`_mrow', 1]
+                        if `_sc_code' > 0 {
+                            _tabtools_smallcells_render, value(`_sc_rawcnt') mask(`_sc_code') ///
+                                smallcells(`smallcells') format(`nformat')
+                            local _cell `"`r(display)'"'
+                            local _cola `"`r(display)'"'
+                            local _colb ""
+                            quietly replace `stub'`_lv' = `"`_cell'"' in `row'
+                            quietly replace _columna_`_lv' = `"`_cola'"' in `row'
+                            quietly replace _columnb_`_lv' = "" in `row'
+                            quietly replace _scmask_`_lv' = `_sc_code' in `row'
+                            continue
+                        }
                         local _nstr = string(`_cnt', "`nformat'")
                         if "`slashN'" == "slashN" {
-                            if "`catrowperc'" == "" local _nstr = "`_nstr'" + "/" + string(`_grpN', "`nformat'")
-                            else local _nstr = "`_nstr'" + "/" + string(`_den', "`nformat'")
+                            local _sc_dcode 0
+                            if `_smallcells_active' {
+                                if "`catrowperc'" == "" local _sc_dcode = `sc_denmask'[`i', `_gi']
+                                else {
+                                    local _sc_rowmat `"`sc_rowmask_`i''"'
+                                    local _sc_dcode = `_sc_rowmat'[`_lo', 1]
+                                }
+                            }
+                            if "`catrowperc'" == "" local _sc_den = `_grpN'
+                            else local _sc_den = `_den'
+                            if `_sc_dcode' > 0 {
+                                _tabtools_smallcells_render, value(`_sc_den') mask(`_sc_dcode') ///
+                                    smallcells(`smallcells') format(`nformat')
+                                local _sc_denstr `"`r(display)'"'
+                                quietly replace _scmask_`_lv' = `_sc_dcode' in `row'
+                            }
+                            else local _sc_denstr = string(`_sc_den', "`nformat'")
+                            local _nstr = "`_nstr'" + "/" + "`_sc_denstr'"
                         }
                         if "`percent_n'" == "" & "`percent'" == "" {
                             local _cola `"`_nstr'"'
@@ -912,12 +1247,23 @@ program define _tabtools_table1_fast_collect, rclass
         return scalar used_kwallis = `_used_kw'
         return scalar used_chi2 = `_used_chi2'
         return scalar used_fisher = `_used_fisher'
-        return matrix sample = `sample'
-        return matrix continuous_n = `contnmat'
-        return matrix continuous_a = `contamat'
-        return matrix continuous_b = `contbmat'
-        return matrix continuous_c = `contcmat'
-        return matrix categorical = `catmat'
+        if `_smallcells_active' {
+            return scalar smallcells = `smallcells'
+            return matrix sample_mask = `sc_samplemask'
+            return matrix continuous_mask = `sc_contmask'
+            return matrix categorical_mask = `sc_catmask'
+            return matrix missing_mask = `sc_missmask'
+            return matrix denominator_mask = `sc_denmask'
+            return matrix derived_mask = `sc_derived'
+        }
+        else {
+            return matrix sample = `sample'
+            return matrix continuous_n = `contnmat'
+            return matrix continuous_a = `contamat'
+            return matrix continuous_b = `contbmat'
+            return matrix continuous_c = `contcmat'
+            return matrix categorical = `catmat'
+        }
         return local varlist "`=strtrim("`processed_varlist'")'"
     }
     local rc = _rc

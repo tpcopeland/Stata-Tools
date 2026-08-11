@@ -118,6 +118,7 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt clear}}replace dataset in memory with the table{p_end}
 {synopt:{opt dots}}show progress dots while processing variables{p_end}
 {synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
+{synopt:{opt smallc:ells(#)}}suppress small counts and prevent exact reconstruction{p_end}
 {synopt:{opt wtc:ompare}}show weighted and unweighted statistics{p_end}
 {synopt:{opt wtn}}show weighted effective counts{p_end}
 {synoptline}
@@ -200,6 +201,14 @@ Excel, CSV, and frame exports{p_end}
 
 {phang}
 {opt missings:ummary} add missing data summary row per variable{p_end}
+
+{phang}
+{opt smallc:ells(#)} suppresses every positive count below {it:#} and adds
+complementary suppression where released cells or margins would otherwise
+reveal an exact protected count. {it:#} must be an integer of at least 3. Primary
+cells are shown as {cmd:<#}; complementary cells are shown as {cmd:≥#}. Zeros
+remain visible. See {help table1_tc##technical:Technical notes} for the
+disclosure-control contract and limits.{p_end}
 
 {phang}
 {opt nf:ormat(%fmt)} display format for n and N; default is %12.0fc{p_end}
@@ -345,6 +354,11 @@ directly to a regression model:{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. table1_tc rep78 foreign, by(foreign)}{p_end}
 
+{pstd}{bf:Protect small counts in every output sink:}{p_end}
+
+{phang2}{cmd:. table1_tc rep78, by(foreign) vars(rep78 cat) ///}{p_end}
+{phang3}{cmd:total(after) smallcells(5) frame(table1_safe, replace)}{p_end}
+
 {pstd}{bf:With Excel and Markdown export and formatting:}{p_end}
 
 {phang2}{cmd:. table1_tc price mpg weight rep78, by(foreign) ///}{p_end}
@@ -391,26 +405,57 @@ variables and weight.{p_end}
 {pstd}
 {cmd:table1_tc} stores the following in {cmd:r()}:
 
-{synoptset 18 tabbed}{...}
-{p2col 5 18 22 2: Scalars}{p_end}
+{synoptset 32 tabbed}{...}
+{p2col 5 32 36 2: Scalars}{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(smallcells)}}active small-cell threshold{p_end}
+{synopt:{cmd:r(N_primary_suppressed)}}primary display cells{p_end}
+{synopt:{cmd:r(N_secondary_suppressed)}}complementary display cells{p_end}
+{synopt:{cmd:r(N_derived_suppressed)}}dependent display cells{p_end}
 
-{p2col 5 18 22 2: Macros}{p_end}
+{p2col 5 32 36 2: Macros}{p_end}
 {synopt:{cmd:r(Dapa)}}resolved data-presentation description{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for resolved tests{p_end}
 {synopt:{cmd:r(varlist)}}space-separated list of processed variables{p_end}
-{synopt:{cmd:r(xlsx)}}path to exported Excel file (when {opt xlsx()} specified){p_end}
+{synopt:{cmd:r(xlsx)}}exported Excel path{p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 
-{p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}raw p-values and absolute SMDs{p_end}
+{p2col 5 32 36 2: Matrices}{p_end}
+{synopt:{cmd:r(table)}}p-values and absolute SMDs; {cmd:.d} when protected{p_end}
+{synopt:{cmd:r(suppression)}}display-cell suppression codes{p_end}
 
 
 {marker technical}{...}
 {title:Technical notes}
+
+{pstd}{bf:Small-cell disclosure control.} {opt smallcells(#)} protects exact
+counts within one invocation of {cmd:table1_tc}. A positive count below the
+threshold is primary-suppressed as {cmd:<#}. The command then suppresses
+additional exact cells as {cmd:≥#} until every primary cell has at least two
+feasible integer values under all released row, column, and grand margins. Structural
+zeros remain visible and are never selected as complementary
+cells.{p_end}
+
+{pstd}
+Continuous summaries whose contributing N is below the threshold are replaced
+by {cmd:<#}. P-values, test statistics, and SMDs that depend on a protected
+block are shown as {cmd:Suppressed} and stored as {cmd:.d} in {cmd:r(table)}. The
+same already-redacted table is used by the console, Excel, CSV, Markdown,
+{opt frame()}, and {opt clear} sinks. When {opt smallcells()} is active,
+{cmd:r(suppression)} uses codes 0=visible, 1=primary, 2=complementary, and
+3=derived. Output frames carry the threshold, code legend, and protection
+scope as dataset characteristics.{p_end}
+
+{pstd}
+The standard footnote states the active threshold and marker meanings. This is
+an exact-disclosure safeguard for one command call, not a certification of
+anonymization or legal compliance. It does not account for information already
+released, later manual edits, linkage to other tables, or repeated calls on
+overlapping data. Data controllers must still assess those risks and applicable
+rules before publication.{p_end}
 
 {pstd}{bf:SMD methodology:} Standardized mean differences are computed as follows:{p_end}
 {p 8 8 2}Continuous variables: {it:d} = (mean1 - mean2) / sqrt((sd1^2 + sd2^2)/2),

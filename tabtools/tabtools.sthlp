@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.12.2  10aug2026}{...}
+{* *! version 1.13.0  11aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -489,6 +489,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.12.2{p_end}
+{pstd}{bf:Version} 1.13.0{p_end}
 
 {hline}
