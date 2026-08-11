@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  10aug2026}{...}
+{* *! version 1.0.4  11aug2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -77,7 +77,8 @@ files abort bundle creation instead of producing an incomplete archive.
 packages. {it:pkglist} should be a space-separated list of package names, exactly
 as they appear in the {cmd:stata.trk} file. For example,
 {cmd:limited(estout outreg2)}. When {opt limited()} is not specified, {cmd:pkgtransfer}
-processes all packages listed in the {cmd:stata.trk} file.
+processes all packages listed in the {cmd:stata.trk} file. Repeated package names
+are normalized to one selection while preserving the order supplied.
 
 {phang}
 {opt skip(pkglist)} excludes the specified packages from the transfer. {it:pkglist}
@@ -85,7 +86,8 @@ should be a space-separated list of package names to skip. For example,
 {cmd:skip(estout outreg2)} would transfer all packages except estout
 and outreg2. The same package may not appear in both {opt limited()} and
 {opt skip()}. If {opt skip()} excludes every tracked package,
-{cmd:pkgtransfer} creates the requested empty script or bundle rather than failing.
+{cmd:pkgtransfer} creates the requested empty script or bundle rather than
+failing. Repeated names are normalized to one exclusion.
 
 {phang}
 {opt restore} restores installation pathways in {cmd:stata.trk} to point to original
@@ -104,13 +106,15 @@ the current OS.
 
 {phang}
 {opt dofile(filename)} specifies a custom name for the generated do-file. The
-filename must end with {bf:.do}. Default is {cmd:pkgtransfer.do}.
+filename must end with {bf:.do} and may not contain shell metacharacters or quote
+characters. Default is {cmd:pkgtransfer.do}.
 
 {phang}
 {opt zipfile(filename)} specifies a custom name for the generated ZIP file. The
 filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only valid with
 {opt download()}. The generated installer references the selected filename and
-quotes it so paths containing spaces remain valid.
+quotes it so paths containing spaces remain valid. Shell metacharacters and quote
+characters are not allowed.
 
 {marker examples}{...}
 {title:Examples}
@@ -186,11 +190,27 @@ When {opt skip()} excludes every tracked package, {cmd:r(N_packages)} is 0 and
 {cmd:r(package_list)} is empty. The requested do-file and, for a download
 mode, ZIP archive are still created.
 
+{pstd}
+Local and online bundles preserve nested paths recorded by package
+descriptors. Absolute paths, remaining parent traversal, and other unsafe
+relative paths in tracking metadata abort bundle creation before a file is
+written outside the invocation-owned staging directory.
+
+{pstd}
+Once package selection succeeds, the full standard return surface remains
+available after a captured output-write or archive failure. The command still
+exits with the original nonzero return code.
+
+{pstd}
+Generated offline installers use local macros, restore the caller's working
+directory, and propagate installation failures without overwriting a caller's
+global {cmd:package_dir} macro.
+
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.3 - 2026-08-10{p_end}
+{pstd}Version 1.0.4 - 2026-08-11{p_end}
 
 {hline}

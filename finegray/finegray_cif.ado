@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/08/10
+*! finegray_cif Version 1.2.1  2026/08/11
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -133,8 +133,8 @@ program define finegray_cif, rclass sortpreserve
     }
     else {
         capture confirm number `level'
-        if _rc | real("`level'") <= 0 | real("`level'") >= 100 {
-            display as error "level() must be a number between 0 and 100"
+        if _rc | real("`level'") < 10 | real("`level'") >= 100 {
+            display as error "level() must be a number between 10 and 99.99"
             exit 198
         }
     }

@@ -85,6 +85,14 @@ capture noisily {
     confirm file "`out'/crosstab.xlsx"
     crosstab foreign rep78, xlsx("`out'/crosstab2.xlsx") sheet("T") theme(apa)
     confirm file "`out'/crosstab2.xlsx"
+    clear
+    input byte outcome byte exposure int frequency
+    0 0 2
+    0 1 8
+    1 0 6
+    1 1 4
+    end
+    crosstab outcome exposure [fw=frequency], smallcells(5)
 }
 _oc_record "crosstab" `=_rc'
 if `_oc_ok' local ++pass_count
@@ -259,6 +267,17 @@ capture noisily {
     collect clear
     version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
     desctab, markdown("`out'/desctab.md") mdappend
+    clear
+    input byte row byte col int frequency
+    1 1 2
+    1 2 8
+    2 1 6
+    2 2 4
+    end
+    expand frequency
+    collect clear
+    version 17.0: collect: table row col, statistic(frequency)
+    desctab, smallcells(5)
 }
 _oc_record "desctab" `=_rc'
 if `_oc_ok' local ++pass_count

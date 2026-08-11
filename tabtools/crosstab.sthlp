@@ -21,7 +21,8 @@ Markdown export
 {p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] {cmd:[fweight=}{it:exp}{cmd:]},
 [{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt coch:ran} {opt ex:act} {opt fi:sher}
-{opt lab:el} {opt mis:sing} {opt level(#)} {opt dig:its(#)}
+{opt lab:el} {opt mis:sing} {opt smallc:ells(#)} {opt level(#)}
+{opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
@@ -55,6 +56,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {syntab:Content}
 {synopt:{opt lab:el}}use value labels for row and column headers{p_end}
 {synopt:{opt mis:sing}}treat missing values as a category{p_end}
+{synopt:{opt smallc:ells(#)}}protect sparse counts{p_end}
 {synopt:{opt level(#)}}set the confidence level; default is {cmd:c(level)}{p_end}
 {synopt:{opt dig:its(#)}}set decimals for percentages and measures{p_end}
 {syntab:Output}
@@ -161,6 +163,10 @@ Excel, CSV, and frame exports{p_end}
 {opt sheet(string)} Excel sheet name (default {cmd:"Crosstab"}){p_end}
 
 {phang}
+{opt smallc:ells(#)} protect exact counts below {it:#}; {it:#} must be an
+integer of at least 3.{p_end}
+
+{phang}
 {opt title(string)} title row in the exported table{p_end}
 
 {phang}
@@ -191,6 +197,31 @@ honored).{p_end}
 {cmdab:the:me(} {it:string} {cmd:)} journal-style formatting theme: {cmd:lancet}, {cmd:nejm},
 {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or
 {cmd:custom}{p_end}
+
+{marker smallcells}{title:Small-cell disclosure control}
+
+{pstd}
+{opt smallcells(#)} applies exact-disclosure protection to the two-way count
+block and every released margin before display strings, tests, returns, or
+exports are built. Positive counts below {it:#} are primary suppressions shown
+as {cmd:<#}. Additional counts or margins are shown as {cmd:≥#} when needed to
+prevent exact reconstruction. Structural zeros remain visible.{p_end}
+
+{pstd}
+A percentage is withheld when its numerator or denominator is protected. If
+the table contains a primary suppression, the chi-squared or Fisher test and
+requested OR, RR, RD, or trend results are shown as {cmd:Suppressed} and
+returned as extended missing {cmd:.d}. Protected counts in {cmd:r(table)} are
+{cmd:.p} for primary and {cmd:.s} for complementary suppression. The same
+redacted payload is used by the console, Excel, CSV, Markdown, and frame
+sinks.{p_end}
+
+{pstd}
+The command adds the footnote "Counts below # are shown as <#; complementary
+cells are shown as ≥# to prevent exact reconstruction." If protection cannot
+be certified, {cmd:crosstab} exits before writing a sink. The option protects
+one invocation; it does not certify anonymization or account for linkage
+across separate releases.{p_end}
 
 {marker trendnote}{title:Trend tests}
 
@@ -231,6 +262,17 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {phang3}{cmd:xlsx(crosstab.xlsx) sheet("Fisher") ///}{p_end}
 {phang3}{cmd:title("Repair Record by Origin") zebra}{p_end}
 
+{pstd}{bf:Example 6: Protect a sparse 2x2 table}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input byte outcome byte exposure int frequency}{p_end}
+{phang2}{cmd:. 0 0 2}{p_end}
+{phang2}{cmd:. 0 1 8}{p_end}
+{phang2}{cmd:. 1 0 6}{p_end}
+{phang2}{cmd:. 1 1 4}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. crosstab outcome exposure [fw=frequency], or ///}{p_end}
+{phang3}{cmd:smallcells(5) frame(crosstab_safe, replace)}{p_end}
+
 {marker stored}{title:Stored results}
 
 {synoptset 15 tabbed}{...}
@@ -247,9 +289,18 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic (when {opt cochran} is used){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(smallcells)}}requested threshold when {opt smallcells()} is used{p_end}
+{synopt:{cmd:r(N_primary_suppressed)}}primary values hidden{p_end}
+{synopt:{cmd:r(N_secondary_suppressed)}}complementary values hidden{p_end}
+{synopt:{cmd:r(N_derived_suppressed)}}dependent non-count cells hidden{p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}frequency matrix{p_end}
+{synopt:{cmd:r(table)}}frequency matrix with {cmd:.p}/{cmd:.s} markers{p_end}
+{synopt:{cmd:r(suppression)}}body-cell suppression codes{p_end}
+
+{pstd}
+{cmd:r(suppression)} uses 0 for visible, 1 for primary, and 2 for
+complementary count cells.{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
@@ -258,6 +309,13 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+
+{pstd}
+With {opt smallcells()}, a protected {cmd:r(N)} is returned as {cmd:.p} or
+{cmd:.s}; protected test and association results are {cmd:.d}. A requested
+frame carries characteristics {cmd:tabtools_smallcells},
+{cmd:tabtools_suppression_codes}, and
+{cmd:tabtools_suppression_scope}.{p_end}
 
 {marker alsosee}{title:Also see}
 

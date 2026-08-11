@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/08/10
+*! _finegray_mata Version 1.2.1  2026/08/11
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -733,7 +733,9 @@ real scalar _finegray_positivity_check(
 
     n = rows(t)
     is_cause = (event_type :== cause) :& (delta :== 1)
-    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1) :& (t :< max(select(t, is_cause)))
+    last_cause = max(select(t, is_cause))
 
     /* The engine already needs this beta-independent bundle for optimization.
        Accept it here so the pre-fit guard does not build the same N-by-strata
@@ -756,7 +758,6 @@ real scalar _finegray_positivity_check(
         entry_ord = order((t0, row_id), (1, 2))
         riskn = J(nj, 1, 0)
         flagged = J(nj, 1, 0)
-        last_cause = max(select(t, is_cause))
         npos = 0
         ep = 1
         i = 1
@@ -828,7 +829,9 @@ real scalar _finegray_positivity_check(
     npos = 0
     flagged = J(nj, 1, 0)
     for (i = 1; i <= n; i++) {
-        if (!is_compete[i]) continue
+        /* Only X_i < t_k subjects are retained at a later cause time. A zero
+           denominator after the final cause event is never consulted. */
+        if (!is_compete[i] | t[i] >= last_cause) continue
         if (Gminus[i] > 0) continue
         npos++
         flagged[gidx[i]] = 1
@@ -871,7 +874,8 @@ void _finegray_weight_diag_zzf(
     WT_CEIL = 1e6
     n = rows(t)
     is_cause = (event_type :== cause) :& (delta :== 1)
-    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1) :& (t :< max(select(t, is_cause)))
     if (args() < 13) {
         _finegray_prepare_weight_design(t, delta, censval, event_type, G,
             byg_id, t0, tg_id, _use, gidx, Gminus, Aden, Apool)
@@ -1434,7 +1438,8 @@ real matrix _finegray_scores_zzf_strat(
     eta = Z * beta
     expeta = exp(eta)
     is_cause = (event_type :== cause) :& (delta :== 1)
-    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1) :& (t :< max(select(t, is_cause)))
     row_id = (1::n)
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
@@ -1860,7 +1865,8 @@ real matrix _finegray_score_residuals(
     eta = Z * beta
     expeta = exp(eta)
     is_cause = (event_type :== cause) :& (delta :== 1)
-    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1) :& (t :< max(select(t, is_cause)))
 
     /* Deterministic tie-break by row index.  Mata's order() resolves ties
        using Stata's sort seed, which ADVANCES on every sort, so a tied key

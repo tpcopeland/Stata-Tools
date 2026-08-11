@@ -152,6 +152,31 @@ else {
     local failed_tests "`failed_tests' pkg_manifest"
 }
 
+**## Every shipped Stata program declares a class and restores varabbrev
+* Internal helpers are callable programs too. A public wrapper cannot protect
+* direct helper calls or future call sites, so enforce the session-state
+* contract on every program block in every shipped .ado file.
+capture noisily {
+    tempfile _program_contract_status
+    shell `python_cmd' "`tools_dir'/check_program_contracts.py" "`pkg_dir'" ///
+        --status-file "`_program_contract_status'"
+    tempname _program_contract_fh
+    file open `_program_contract_fh' using "`_program_contract_status'", read text
+    file read `_program_contract_fh' _program_contract_line
+    file close `_program_contract_fh'
+    assert `"`_program_contract_line'"' == ///
+        "PASS programs=77 class_missing=0 wrapper_missing=0"
+}
+if _rc == 0 {
+    display as result "  PASS: all 77 shipped programs declare a class and restore varabbrev"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: shipped program class/varabbrev contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' program_runtime_contract"
+}
+
 **## Shipped text artifacts do not contain dev-only paths or legacy repo refs
 capture noisily {
     * Distribution surface: what installs/ships to users, plus the demo doc.

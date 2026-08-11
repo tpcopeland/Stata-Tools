@@ -5,7 +5,7 @@
 * Purpose: Verify that pkgtransfer produces correct, verifiable output files
 *          and return values — not just error handling but actual content checks.
 *
-* Author: Timothy Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-13
 *******************************************************************************/
 
@@ -22,9 +22,9 @@ run "`qa_dir'/_pkgtransfer_qa_common.do"
 _pkgtransfer_qa_setup, pkgdir("`pkg_dir'")
 local qa_root "`r(root)'"
 local qa_original_plus "`r(original_plus)'"
+local qa_original_personal "`r(original_personal)'"
 local tmpdir "`r(work)'"
 
-adopath ++ "`pkg_dir'"
 capture program drop pkgtransfer
 run "`pkg_dir'/pkgtransfer.ado"
 
@@ -454,9 +454,11 @@ else {
 }
 
 capture noisily _pkgtransfer_qa_cleanup, root("`qa_root'") ///
-    originalplus("`qa_original_plus'")
+    originalplus("`qa_original_plus'") ///
+    originalpersonal("`qa_original_personal'")
 if _rc != 0 {
     display as error "  FAILED: QA fixture cleanup returned rc `=_rc'"
+    local ++n_tests
     local ++n_failed
 }
 
@@ -477,12 +479,14 @@ else {
 }
 display ""
 if `n_failed' > 0 {
-    display as error "RESULT: FAIL"
+    display as error ///
+        "RESULT: validation_pkgtransfer tests=`n_tests' pass=`n_passed' fail=`n_failed' skip=0"
     log close val_pkgtransfer
     exit 9
 }
 else {
-    display as result "RESULT: PASS"
+    display as result ///
+        "RESULT: validation_pkgtransfer tests=`n_tests' pass=`n_passed' fail=0 skip=0"
 }
 
 log close val_pkgtransfer

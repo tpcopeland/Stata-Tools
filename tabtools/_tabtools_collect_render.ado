@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 1.13.0  2026/08/11
+*! _tabtools_collect_render Version 1.14.1  2026/08/11
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -245,6 +245,9 @@ end
 cap program drop _tt_collect_dim_locals
 program define _tt_collect_dim_locals, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax anything(name=args) [, LEVELS(string)]
     gettoken dim args : args
     gettoken prefix args : args
@@ -294,11 +297,18 @@ program define _tt_collect_dim_locals, rclass
     return scalar n = `n'
     return local levels `"`levels'"'
     return local dimlabel `"`dimlabel'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 cap program drop _tt_collect_result_locals
 program define _tt_collect_result_locals, rclass
     version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
     syntax , RESULTS(string) PREFIX(name)
 
     local k = 0
@@ -325,6 +335,10 @@ program define _tt_collect_result_locals, rclass
 
     return scalar n = `n'
     return local levels `"`results'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
 end
 
 version 17.0
