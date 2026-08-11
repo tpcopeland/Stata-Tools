@@ -308,6 +308,8 @@ capture noisily {
     psdash overlap treat, psvars(p1 p2 p3) compact name(psd_mc_overlap_compact)
     graph describe psd_mc_overlap_compact
     assert strpos(`"`r(command)'"', "box ") == 1
+    assert strpos(`"`r(command)'"', "rows(1)") > 0
+    assert strpos(`"`r(command)'"', "cols(2)") == 0
 
     psdash support treat, psvars(p1 p2 p3) compact name(psd_mc_support_compact)
     graph describe psd_mc_support_compact

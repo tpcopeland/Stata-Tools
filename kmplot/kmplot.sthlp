@@ -154,9 +154,10 @@ line is drawn.{p_end}
 
 {phang}{opt risktable} adds a number-at-risk table below the main plot. The table shows the
 number of subjects still under observation at each timepoint and honors active
-{cmd:stset} weights. Time-axis labels appear directly below the main plot, and
-a horizontal rule separates them from the table. Risk counts and group labels
-use a readable small text size by default.{p_end}
+{cmd:stset} weights. Time-axis values appear directly below the main plot,
+followed closely by the x-axis title. A solid horizontal rule separates the
+title from the first risk-table row. Risk counts and group labels use a
+readable small text size by default.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
 in compact {it:N (events)} format (e.g., {cmd:14 (3)}). This is the
@@ -178,12 +179,13 @@ table. Default: approximately 6 evenly spaced timepoints from 0 to the
 maximum observed time. Requires {opt risktable} or {opt risksaving()}.{p_end}
 
 {phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
-this is placed between the main plot and the separated risk table. Default is
-"Analysis time".{p_end}
+this is placed directly below and closer to the x-axis value labels than to
+the risk table. Default is "Analysis time".{p_end}
 
 {phang}{opt xlabel(string)} sets x-axis labels. With {opt risktable},
-labels are placed above the separator on the same x scale as the risk-table
-columns; numeric positions are also used for those columns when
+labels are placed below the main plot and above the x-axis title on the same
+x scale as the risk-table columns. A solid horizontal rule separates the
+title from the first risk-table row. Numeric positions are also used when
 {opt timepoints()} is omitted.{p_end}
 
 {dlgtab:Fixed-time summaries}

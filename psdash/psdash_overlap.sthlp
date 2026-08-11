@@ -96,8 +96,8 @@ positivity finding and descriptive observed-arm bounds are documented under
 
 {phang}
 {opt compact} replaces the detailed multi-group component density panels with
-one grouped box-plot region containing every GPS component. It has no effect
-for binary treatments.
+one grouped box-plot region containing every GPS component. Its treatment-group
+legend uses one row. It has no effect for binary treatments.
 
 {marker examples}{...}
 {title:Examples}
