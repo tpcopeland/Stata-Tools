@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.4  2026/08/11
+*! _kmplot_risktable Version 1.2.5  2026/08/11
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -20,7 +20,7 @@ program define _kmplot_risktable, rclass
         local _kmplot_rt_preserved = 0
         capture noisily {
 
-    syntax , GRPvar(varname) NGRoups(integer) ///
+    syntax , GRPvar(varname) NGRoups(integer) GRAPHName(name) ///
         [TIMEpoints(numlist sort) ///
 	         COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
 	         XTItle(string asis) XLAbel(string asis) ///
@@ -28,6 +28,11 @@ program define _kmplot_risktable, rclass
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
     if `"`xtitle'"' == "" local xtitle "Analysis time"
+    local ncolors : word count `colors'
+    if `ncolors' == 0 & "`mono'" == "" {
+        noisily display as error "colors() must contain at least one color"
+        exit 198
+    }
     local _xt_len = strlen(`"`xtitle'"')
     while `_xt_len' >= 2 & ///
         substr(`"`xtitle'"', 1, 1) == char(34) & ///
@@ -220,7 +225,7 @@ program define _kmplot_risktable, rclass
             local col "black"
         }
         else {
-            local colidx = mod(`g' - 1, 8) + 1
+            local colidx = mod(`g' - 1, `ncolors') + 1
             local col : word `colidx' of `colors'
             if "`col'" == "" local col "black"
         }
@@ -293,7 +298,7 @@ program define _kmplot_risktable, rclass
         ytitle("`ytitle_rt'", size(vsmall)) ///
         title("") subtitle("") ///
         scheme(`scheme') ///
-        name(_kmplot_risktable, replace) nodraw ///
+        name(`graphname', replace) nodraw ///
         plotregion(margin(l=3 r=0 t=2 b=0)) ///
         graphregion(margin(t=0 b=0)) ///
         legend(off) ///

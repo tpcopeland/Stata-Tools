@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  11aug2026}{...}
+{* *! version 1.0.5  11aug2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -70,7 +70,10 @@ nor {opt restore} is specified, {cmd:pkgtransfer} generates a do-file
 ({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive). Bundle
 creation refuses to reuse an existing {cmd:pkgtransfer_files} directory, so move or
 remove that directory before rerunning a download mode. Missing required package
-files abort bundle creation instead of producing an incomplete archive.
+files abort bundle creation instead of producing an incomplete archive. Generated
+package descriptors and {cmd:stata.toc} use Stata's version-3
+distribution format. Plugin source and target paths are normalized into the
+bundle, while the original {cmd:g}/{cmd:G} installation semantics are preserved.
 
 {phang}
 {opt limited(pkglist)} restricts the operation to a specific set of
@@ -211,6 +214,6 @@ global {cmd:package_dir} macro.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.4 - 2026-08-11{p_end}
+{pstd}Version 1.0.5 - 2026-08-11{p_end}
 
 {hline}

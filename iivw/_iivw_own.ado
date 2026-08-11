@@ -1,4 +1,4 @@
-*! _iivw_own Version 3.4.1  2026/08/10
+*! _iivw_own Version 3.4.2  2026/08/11
 *! Stamp variable-level ownership on a package output, and read it back.
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -53,29 +53,27 @@ program define _iivw_own, rclass
         syntax , ROLE(string) [PREFix(string)]
         if "`role'" == "lag" local prefix ""
         return local token "iivw|`prefix'|`role'|2"
-        exit
     }
-
-    * ---------------------------------------------------------------------
-    * read: return the token a variable currently carries (empty if unowned).
-    * ---------------------------------------------------------------------
-    if "`__iivw_sub'" == "read" {
+    else if "`__iivw_sub'" == "read" {
+        * -----------------------------------------------------------------
+        * read: return the token a variable carries (empty if unowned).
+        * -----------------------------------------------------------------
         syntax varname
         local __iivw_tok : char `varlist'[_iivw_owner]
         return local token "`__iivw_tok'"
-        exit
     }
+    else {
+        * -----------------------------------------------------------------
+        * stamp: claim ownership of every variable in varlist for one role.
+        * -----------------------------------------------------------------
+        syntax varlist , ROLE(string) [PREFix(string)]
+        if "`role'" == "lag" local prefix ""
 
-    * ---------------------------------------------------------------------
-    * stamp: claim ownership of every variable in varlist for one role.
-    * ---------------------------------------------------------------------
-    syntax varlist , ROLE(string) [PREFix(string)]
-    if "`role'" == "lag" local prefix ""
-
-    foreach __iivw_v of local varlist {
-        char `__iivw_v'[_iivw_owner] "iivw|`prefix'|`role'|2"
+        foreach __iivw_v of local varlist {
+            char `__iivw_v'[_iivw_owner] "iivw|`prefix'|`role'|2"
+        }
+        return local token "iivw|`prefix'|`role'|2"
     }
-    return local token "iivw|`prefix'|`role'|2"
 
     }
     local rc = _rc

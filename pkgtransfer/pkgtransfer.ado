@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.4  2026/08/11
+*! pkgtransfer Version 1.0.5  2026/08/11
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -386,9 +386,18 @@ quietly{
 				use "`pkg_list'", replace
 				keep if package == "`name'"
 				replace v1 = substr(v1, 1, 2) + regexr(regexr(substr(v1, 3, .), "^\.\.\/", ""), "^[^\/]+\/", "") if substr(lower(v1), 1, 2) == "f " | substr(lower(v1), 1, 2) == "g "
-				* Convert S line to "d S <url>" backup for restore functionality
-				replace v1 = "d " + v1 if substr(v1,1,2) == "S "
+				* Preserve the original source under a private restore marker
+				replace v1 = "d pkgtransfer-source " + substr(v1, 3, .) ///
+					if substr(v1,1,2) == "S "
 				drop if substr(v1,1,2) == "N "
+				tempvar pkg_order
+				gen long `pkg_order' = _n + 1
+				local _pkg_obs = _N + 1
+				set obs `_pkg_obs'
+				replace v1 = "v 3" in `_pkg_obs'
+				replace `pkg_order' = 1 in `_pkg_obs'
+				sort `pkg_order'
+				drop `pkg_order'
 				outfile v1 using "pkgtransfer_files/`name'.pkg", noquote replace
 			}
 
@@ -425,11 +434,8 @@ quietly{
 			merge m:1 package using "`pkg_url'", nogen keep(3)
 			replace plugin_name = subinstr(plugin_name,"f ","",.)
 			replace plugin_name = subinstr(plugin_name,"F ","",.)
-			gen pkg_source_url = url + "/" + package if strpos(url,".bc.edu/repec")
-			replace pkg_source_url = url + "/" + package + ".pkg" ///
-				if !strpos(url,".bc.edu/repec")
+			gen pkg_source_url = url + "/" + package + ".pkg"
 			replace plugin_name = substr(plugin_name, 3,.) if substr(plugin_name, 1, 1) == substr(url, length(url), 1) & strpos(url,".bc.edu/repec")
-			gen source_file = url + "/" + plugin_name
 			replace plugin_name = regexr(regexr(substr(plugin_name, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
 			save "`pluginfiles'", replace
 
@@ -438,64 +444,115 @@ quietly{
 				local _plugin_packages = r(N)
 				if `_plugin_packages' > 0 {
 				quietly forvalues i = 1(1)`_plugin_packages'{
-				local main_url = url[`i']
-				local pkg_source_url = pkg_source_url[`i']
-				local package = package[`i']
-				local plugin_name = plugin_name[`i']
+				local main_url `"`=url[`i']'"'
+				local pkg_source_url `"`=pkg_source_url[`i']'"'
+				local package `"`=package[`i']'"'
+				local plugin_name `"`=plugin_name[`i']'"'
+				// Remove the stale installed-platform copy before replacement
+				capture erase "pkgtransfer_files/`plugin_name'"
 
 				// import pkg from offline
 				import delimited using "`pkg_source_url'", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
-				keep if (substr(v1,1,2) == "g " | substr(v1,1,2) == "h ") & strpos(v1,"`plugin_name'")
+				keep if (substr(lower(v1),1,2) == "g " | ///
+					substr(lower(v1),1,2) == "h ") & ///
+					strpos(v1,"`plugin_name'")
 				replace v1 = subinstr(v1, char(9), " ", .)
 
-				// save file to append to current pkg file
-				save "`plugin_temp'", replace
+				// Normalize descriptor paths and download every matching plugin
+				noisily display "Downloading plugins for `package'..."
+				quietly count if substr(lower(v1),1,2) == "g "
+				if r(N) == 0 {
+					noisily display as error ///
+						"Plugin `plugin_name' has no platform record"
+					exit 498
+				}
+				quietly forvalues u = 1/`=_N' {
+					if substr(lower(v1[`u']),1,2) == "g " {
+						local plugin_directive `"`=substr(v1[`u'], 1, 1)'"'
+						local plugin_platform `"`=word(v1[`u'], 2)'"'
+						local source_file `"`=word(v1[`u'], 3)'"'
+						local target_file `"`=word(v1[`u'], 4)'"'
+						local plugin_base_url = ///
+							regexr(`"`main_url'"', "/$", "") + "/"
+						if substr(`"`source_file'"', 1, 3) == "../" {
+							local source_file = substr(`"`source_file'"', 4, .)
+							local plugin_base_url = regexr( ///
+								`"`plugin_base_url'"', "/[^/]+/$", "/")
+						}
 
-				// keep only rows for plugin so we can grab them
-				keep if substr(v1,1,2) == "g " & strpos(v1,"`plugin_name'")
-				gen v2 = word(v1, 3)
-				drop v1
-				gen package = "`package'"
-				merge m:1 package using "`pluginfiles'", nogen keep(3)
-				gen file_source = url + "/" + v2 if !strpos(v2,"/")
-				replace file_source = url + "/" + v2 if strpos(v2,"/")
-				replace v2 = regexr(substr(v2, 1, .), "^\.\.\/", "")
-
-					// Download plugins with retry logic
-					noisily display "Downloading plugins for `package'..."
-					quietly forvalues u = 1(1)`=_N'{
-						local plugin_destination `"`=v2[`u']'"'
+						local clean_source = subinstr( ///
+							`"`source_file'"', "\", "/", .)
+						if `"`target_file'"' == "" ///
+							local target_file `"`clean_source'"'
+						if substr(`"`target_file'"', 1, 3) == "../" ///
+							local target_file = substr(`"`target_file'"', 4, .)
+						local clean_target = subinstr( ///
+							`"`target_file'"', "\", "/", .)
 						_pkgtransfer_prepare_destination, ///
 							root("pkgtransfer_files") ///
-							relative(`"`plugin_destination'"')
-					local max_retries = 3
-					local success = 0
-					forvalues attempt = 1/`max_retries' {
-						capture copy "`=file_source[`u']'" "pkgtransfer_files`c(dirsep)'`=v2[`u']'", replace
-						local plugin_copy_rc = _rc
-						if `plugin_copy_rc' == 0 {
-							local success = 1
-							continue, break
+							relative(`"`clean_source'"')
+						_pkgtransfer_prepare_destination, ///
+							root("pkgtransfer_files") ///
+							relative(`"`clean_target'"')
+
+						replace v1 = "`plugin_directive' `plugin_platform' `clean_source'" + ///
+							cond(`"`clean_target'"' != `"`clean_source'"', ///
+							" `clean_target'", "") in `u'
+
+						local max_retries = 3
+						local success = 0
+						forvalues attempt = 1/`max_retries' {
+							capture copy ///
+								`"`plugin_base_url'`source_file'"' ///
+								`"pkgtransfer_files/`clean_source'"', replace
+							local plugin_copy_rc = _rc
+							if `plugin_copy_rc' == 0 {
+								local success = 1
+								continue, break
+							}
+							if `attempt' < `max_retries' {
+								noisily display as text ///
+									"Retry `attempt' of `max_retries' for plugin file..."
+								sleep 2000
+							}
 						}
-						if `attempt' < `max_retries' {
-							noisily display as text "Retry `attempt' of `max_retries' for plugin file..."
-							sleep 2000
+						if `success' == 0 {
+							noisily display as error ///
+								"Failed to download plugin file after `max_retries' attempts"
+							exit `plugin_copy_rc'
 						}
-					}
-					if `success' == 0 {
-						noisily display as error "Failed to download plugin file after `max_retries' attempts"
-						exit `plugin_copy_rc'
+
+						if `"`clean_target'"' != `"`clean_source'"' {
+							capture copy ///
+								`"pkgtransfer_files/`clean_source'"' ///
+								`"pkgtransfer_files/`clean_target'"', replace
+							if _rc {
+								local target_copy_rc = _rc
+								noisily display as error ///
+									"Could not create plugin target `clean_target'"
+								exit `target_copy_rc'
+							}
+						}
 					}
 				}
 
+				// Save normalized g/h records to append to the local descriptor
+				save "`plugin_temp'", replace
+
 				// get current pkg file
 				import delimited using "pkgtransfer_files/`package'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				quietly count if strtrim(lower(v1)) == "e"
+				local had_end_marker = r(N) > 0
+				drop if strtrim(lower(v1)) == "e"
 				// drop plugin file name
 				drop if substr(lower(v1),1,2) == "f " & strpos(v1,"`plugin_name'")
-				// erase current plugin file
-				capture erase "pkgtransfer_files/`plugin_name'"
 				// append new file names for plugins
 				append using "`plugin_temp'"
+				if `had_end_marker' {
+					local _end_obs = _N + 1
+					set obs `_end_obs'
+					replace v1 = "e" in `_end_obs'
+				}
 				// update package file
 				outfile v1 using "pkgtransfer_files/`package'.pkg", noquote replace
 					use "`pluginfiles'", replace
@@ -701,7 +758,7 @@ quietly{
 				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
 
 					// Normalize bundled paths while preserving nested directories
-					tempvar manifest_f manifest_gp manifest_gs manifest_gt
+					tempvar manifest_f manifest_gd manifest_gp manifest_gs manifest_gt
 					gen strL `manifest_f' = subinstr(substr(v1, 3, .), ///
 						"\", "/", .) if substr(lower(v1), 1, 2) == "f "
 					replace `manifest_f' = regexr(`manifest_f', "^\.\.\/", "") ///
@@ -709,6 +766,8 @@ quietly{
 					replace v1 = "f " + `manifest_f' ///
 						if substr(lower(v1), 1, 2) == "f "
 					gen strL `manifest_gp' = word(v1, 2) ///
+						if substr(lower(v1), 1, 2) == "g "
+					gen str1 `manifest_gd' = substr(v1, 1, 1) ///
 						if substr(lower(v1), 1, 2) == "g "
 					gen strL `manifest_gs' = subinstr(word(v1, 3), "\", "/", .) ///
 						if substr(lower(v1), 1, 2) == "g "
@@ -718,14 +777,23 @@ quietly{
 						if substr(lower(v1), 1, 2) == "g "
 					replace `manifest_gt' = regexr(`manifest_gt', "^\.\.\/", "") ///
 						if substr(lower(v1), 1, 2) == "g "
-					replace v1 = "g " + `manifest_gp' + " " + `manifest_gs' + ///
+					replace v1 = `manifest_gd' + " " + `manifest_gp' + ///
+						" " + `manifest_gs' + ///
 						cond(`manifest_gt' != "", " " + `manifest_gt', "") ///
 						if substr(lower(v1), 1, 2) == "g "
 
-				// Add backup URL for restore functionality
+				// Add a private backup URL marker for restore functionality
+				quietly count if strtrim(lower(v1)) == "e"
+				local had_end_marker = r(N) > 0
+				drop if strtrim(lower(v1)) == "e"
 				local _obs = _N + 1
 				set obs `_obs'
-				replace v1 = "d S `curr_url'" in `_obs'
+				replace v1 = "d pkgtransfer-source `curr_url'" in `_obs'
+				if `had_end_marker' {
+					local _end_obs = _N + 1
+					set obs `_end_obs'
+					replace v1 = "e" in `_end_obs'
+				}
 
 				// Save the modified complete .pkg file
 				outfile v1 using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", noquote replace
@@ -746,7 +814,17 @@ quietly{
             // Create stata.toc file
             use "`pkg_desc'", clear
 			keep if substr(v1,1,2) == "d "
-            replace v1 = subinstr(v1, "d ", "p ", 1)
+			tempvar toc_description toc_order
+			gen strL `toc_description' = strtrim(substr(v1, 3, .))
+			replace v1 = "p " + package + ///
+				cond(`toc_description' != "", " " + `toc_description', "")
+			gen long `toc_order' = _n + 1
+			local _toc_obs = _N + 1
+			set obs `_toc_obs'
+			replace v1 = "v 3" in `_toc_obs'
+			replace `toc_order' = 1 in `_toc_obs'
+			sort `toc_order'
+			drop `toc_description' `toc_order'
             outfile v1 using "pkgtransfer_files/stata.toc", noquote replace
             clear
 
@@ -814,8 +892,14 @@ quietly{
 			* Backup stata.trk before modifying
 			copy "`plusdir'stata.trk" "`plusdir'stata.trk.backup", replace
 			import delimited using "`plusdir'stata.trk", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
-			* Check if any backup URLs exist
-			quietly count if substr(v1,1,4) == "d S "
+			* Recognize private markers and URL-shaped legacy markers
+			tempvar restore_marker
+			gen byte `restore_marker' = ///
+				substr(v1,1,21) == "d pkgtransfer-source "
+			replace `restore_marker' = 1 if ///
+				substr(v1,1,4) == "d S " & ///
+				regexm(substr(v1,5,.), "^[A-Za-z]+://")
+			quietly count if `restore_marker'
 			if r(N) == 0 {
 				noisily display as text "No pkgtransfer backup URLs found in stata.trk"
 				noisily display as text "Restore requires packages installed from a pkgtransfer ZIP archive."
@@ -823,16 +907,19 @@ quietly{
 			else {
 				gen row_id = _n
 				gen entry_id = sum(substr(v1,1,2) == "S ")
-				* Extract original URL from "d S " backup lines
-				gen orig_url = substr(v1, 5, .) if substr(v1,1,4) == "d S "
+				* Extract original URLs from private and legacy backup lines
+				gen orig_url = substr(v1, 22, .) if ///
+					substr(v1,1,21) == "d pkgtransfer-source "
+				replace orig_url = substr(v1, 5, .) if ///
+					substr(v1,1,4) == "d S " & `restore_marker'
 				* Fill orig_url backward within each entry to reach the S line
 				gsort entry_id -row_id
 				by entry_id: replace orig_url = orig_url[_n-1] if missing(orig_url) & !missing(orig_url[_n-1])
 				sort row_id
 				* Replace S lines with original URL where backup exists
 				replace v1 = "S " + orig_url if substr(v1,1,2) == "S " & !missing(orig_url)
-				drop if substr(v1,1,4) == "d S "
-				drop row_id entry_id orig_url
+				drop if `restore_marker'
+				drop row_id entry_id orig_url `restore_marker'
 				outfile v1 using "`plusdir'stata.trk", noquote replace
 				noisily display "Installation pathways restored!"
 			}
@@ -944,7 +1031,7 @@ end
 *
 
 capture program drop _pkgtransfer_cleanup_staging
-program define _pkgtransfer_cleanup_staging
+program define _pkgtransfer_cleanup_staging, nclass
 	version 16.0
 	local _varabbrev `c(varabbrev)'
 	set varabbrev off

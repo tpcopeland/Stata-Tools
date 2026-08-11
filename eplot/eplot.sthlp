@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.7  09aug2026}{...}
+{* *! version 1.2.8  11aug2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -65,14 +65,14 @@ Plot from a graph-ready frame:
 {syntab:Coefficient selection}
 {synopt:{opt keep(coeflist)}}keep specified coefficients{p_end}
 {synopt:{opt drop(coeflist)}}drop specified coefficients{p_end}
-{synopt:{opt rena:me(spec)}}rename coefficients (estimates mode){p_end}
+{synopt:{opt ren:ame(spec)}}rename coefficients (estimates mode){p_end}
 {synopt:{opt nocons:tant}}drop the constant (_cons){p_end}
 
 {syntab:Labeling}
 {synopt:{opt coefl:abels(spec)}}custom coefficient/effect labels{p_end}
 {synopt:{opt gr:oups(spec)}}define groups of effects with labels{p_end}
 {synopt:{opt head:ers(spec)}}insert section headers{p_end}
-{synopt:{opt headi:ngs(spec)}}alias for {opt headers()}{p_end}
+{synopt:{opt head:ings(spec)}}alias for {opt headers()}{p_end}
 {synopt:{opt gap(#)}}space between adjacent groups{p_end}
 
 {syntab:Transform}
@@ -179,11 +179,19 @@ estimation results. This is the fastest path from model to plot: run a
 regression, then type {cmd:eplot .} to see the coefficients. Multiple stored
 estimates can be overlaid for model comparison.
 
+{pmore}
+For estimation results with multiple equations, repeated coefficient names
+retain their equation prefix so distinct effects are not overlaid. Single-equation
+models continue to align by coefficient name in multi-model comparisons. Plotting
+named estimates preserves the caller's active estimation results, including an
+initially empty {cmd:e()} state.
+
 {phang2}
 {bf:3. Matrix mode} — you specify {opt matrix(matname)}. {cmd:eplot} reads a
 Stata matrix with either 2 columns ({it:b}, {it:se}) or 3 columns ({it:b},
 {it:lci}, {it:uci}). Row names become labels. This is useful when results
-come from post-estimation commands or custom calculations.
+come from post-estimation commands or custom calculations. Standard errors
+must be nonnegative, and lower limits may not exceed upper limits.
 
 {phang2}
 {bf:4. Frame mode} — you specify {opt frame(framename)}. {cmd:eplot} reads a
@@ -268,17 +276,20 @@ dataset. Accepted values:
 {p2colreset}{...}
 
 {pmore}
-If {opt type()} is a string variable, {cmd:"header"} and {cmd:"section"}
-map to type 0; {cmd:"missing"} and {cmd:"reference"} map to type 2; and
-{cmd:"subgroup"}, {cmd:"hetinfo"}, {cmd:"overall"}, and {cmd:"blank"} map
-to types 3 through 6. If {opt type()} is omitted, all rows are treated as
-regular effects (type 1).
+If {opt type()} is a string variable, {cmd:"effect"} and {cmd:"regular"} map
+to type 1; {cmd:"header"} and {cmd:"section"} map to type 0; {cmd:"missing"}
+and {cmd:"reference"} map to type 2; and {cmd:"subgroup"}, {cmd:"hetinfo"},
+{cmd:"overall"}, and {cmd:"blank"} map to types 3 through 6. Numeric values
+must be integer codes from 0 through 6. Unknown string or numeric codes are
+rejected. If {opt type()} is omitted, all
+rows are treated as regular effects (type 1).
 
 {phang}
 {opt pvalue(varname)} {bf:[D,F]}
 specifies a numeric p-value variable. In data and frame modes, {opt stars}
 uses this variable for significance stars when {opt values} is specified, and
-{cmd:eplot} returns it in {cmd:r(pvalues)} for plotted effect rows.
+{cmd:eplot} returns it in {cmd:r(pvalues)} for plotted effect rows. Nonmissing
+p-values must lie between 0 and 1.
 
 {phang}
 {opt estimate(varname)} {bf:[F]}, {opt ll(varname)} {bf:[F]}, and
@@ -354,7 +365,9 @@ mode, the x-axis label is set automatically (e.g., "Odds Ratio" after {cmd:logit
 
 {phang}
 {opt rescale(#)} multiplies all estimates and confidence limits by {it:#} before
-plotting. Useful for rescaling units (e.g., per 10-unit increase).
+plotting. Useful for rescaling units (e.g., per 10-unit increase). With a
+negative multiplier, {cmd:eplot} swaps the transformed endpoints so the lower
+limit remains less than or equal to the upper limit.
 
 {dlgtab:Reference lines}
 
@@ -472,8 +485,8 @@ and plot styles; any option you specify explicitly overrides the preset.
 
 {phang}
 {opt favors(left right)} adds directional annotation text below the x-axis
-(horizontal layout only). Provide two quoted strings, e.g.,
-{cmd:favors("Favors Treatment" "Favors Control")}. Useful in forest plots to show
+(horizontal layout only). Provide exactly two nonempty labels, quoting labels
+that contain spaces, e.g., {cmd:favors("Favors Treatment" "Favors Control")}. Useful in forest plots to show
 the clinical interpretation of each direction.
 
 {dlgtab:Prediction intervals (data and frame modes)}
@@ -511,7 +524,8 @@ plots.
 
 {phang}
 {opt vertical}
-creates a vertical plot with effect sizes on the y-axis.
+creates a vertical plot with effect sizes on the y-axis. It may not be combined
+with {opt horizontal}.
 
 {phang}
 {opt sort}
@@ -523,7 +537,7 @@ blank rows keep their original positions.
 {opt order(coeflist)}
 specifies an explicit ordering of coefficients. List the coefficient names
 (or labels, in data mode) in the desired display order. Unmatched names are
-placed at the end.
+placed at the end. It may not be combined with {opt sort}.
 
 {dlgtab:Multi-model (estimates mode)}
 
@@ -833,14 +847,15 @@ retained through {opt type()} are also included. {cmd:r(table)} has three column
 ({it:b}, {it:ll}, {it:ul}) for one model and three columns per model for a
 multi-model estimates plot. In data and frame modes, pooled subgroup and
 overall rows appear in {cmd:r(table)} even though {cmd:r(k)} counts only
-regular type-1 effects.
+regular type-1 effects. In estimates mode, {cmd:r(k)} is the number of distinct
+coefficient rows, not the number of model-by-coefficient entries.
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.7, 09aug2026{p_end}
+{pstd}Version 1.2.8, 11aug2026{p_end}
 
 
 {marker alsosee}{...}

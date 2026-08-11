@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.7** | 2026-08-09
+**Version 1.2.8** | 2026-08-11
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -97,7 +97,7 @@ eplot base extended, drop(_cons) ///
     modellabels("Base" "Extended") cicap
 ```
 
-A single active model uses `eplot .`; multiple models share coefficient rows and receive separate legend entries.
+A single active model uses `eplot .`; multiple single-equation models share coefficient rows and receive separate legend entries. Multi-equation estimates retain equation prefixes when coefficient names repeat, and plotting named estimates preserves the caller’s active estimation state.
 
 ### 3. Matrix mode: exponentiated effects with stars
 
@@ -181,10 +181,10 @@ Availability tags are `D` = data, `E` = estimates, `M` = matrix, and `F` = frame
 | `weights(varname)` | D, F | Numeric marker/box weights; frame mode auto-detects `weight`, then `weights` |
 | `type(varname)` | D, F | Row-role variable; omitted rows are regular effects |
 | `rowtype(varname)` | F | Frame synonym for `type()`; auto-detected when present |
-| `pvalue(varname)` | D, F | Numeric p-values for `stars` and `r(pvalues)`; frame mode auto-detects `pvalue` |
+| `pvalue(varname)` | D, F | Numeric p-values in [0, 1] for `stars` and `r(pvalues)`; frame mode auto-detects `pvalue` |
 | `pi(lci_var uci_var)` | D, F | Prediction-limit variables drawn as dashed whiskers behind confidence intervals |
 
-Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/excluded, 3 = subgroup pooled effect, 4 = heterogeneity row, 5 = overall pooled effect, and 6 = blank spacer. String values `header`/`section`, `missing`/`reference`, `subgroup`, `hetinfo`, `overall`, and `blank` are also recognized.
+Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/excluded, 3 = subgroup pooled effect, 4 = heterogeneity row, 5 = overall pooled effect, and 6 = blank spacer. String values `effect`/`regular`, `header`/`section`, `missing`/`reference`, `subgroup`, `hetinfo`, `overall`, and `blank` are also recognized; unknown values are rejected.
 
 ### Selection and labeling
 
@@ -204,7 +204,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `eform` | D, E, M, F | Exponentiate estimates and limits; the null defaults to 1 instead of 0 |
-| `rescale(#)` | D, E, M, F | Multiply estimates and limits; default is `1` |
+| `rescale(#)` | D, E, M, F | Multiply estimates and limits; negative factors preserve lower/upper ordering; default is `1` |
 | `xline(numlist[, line_options])` | D, E, M, F | Add reference lines; bare positions use a light dashed style |
 | `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation |
 | `null(#)` | D, E, M, F | Null line position; default is `0`, or `1` with `eform` |
@@ -233,9 +233,9 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
-| `horizontal` / `vertical` | D, E, M, F | Horizontal is the default; vertical puts effects on the y-axis |
-| `sort` | D, E, M, F | Sort regular effects by estimate; data/frame headers, pooled rows, and blanks retain their original row slots |
-| `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last |
+| `horizontal` / `vertical` | D, E, M, F | Horizontal is the default; the two orientations are mutually exclusive |
+| `sort` | D, E, M, F | Sort regular effects by estimate; may not be combined with `order()` |
+| `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last; may not be combined with `sort` |
 | `modellabels(strlist)` | E | Legend labels in model order |
 | `offset(#)` | E | Vertical model spacing; default is `0.15` |
 | `palette(colorlist)` | E | Model colors; default is `navy cranberry forest_green dkorange purple teal maroon olive_teal` |
@@ -276,6 +276,7 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 ## Assumptions and Limits
 
 - Data and frame modes take confidence limits from supplied variables; `level()` is only for intervals constructed in estimates and matrix modes.
+- Supplied lower confidence limits may not exceed upper limits; two-column matrix standard errors must be nonnegative.
 - Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
 - Matrix mode requires exactly two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); two-column input is the only matrix form that supports `stars`.
 - `values` and `favors()` require horizontal layout; `values` is available only for a single estimates model.
@@ -297,6 +298,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.8** (2026-08-11): Preserved multi-equation coefficient identities and empty estimation state, corrected multi-model `r(k)`, named-model `eform` labels, and negative rescaling, and added explicit validation for intervals, row types, p-values, conflicting options, covariance matrices, and `favors()` labels.
 - **1.2.7** (2026-08-09): Preserved analytical return values when optional graph saves fail, corrected estimates-mode p-value sizing, and expanded release QA with runnable documentation examples and machine-reconcilable negative-path checks.
 - **1.2.6** (2026-08-05): Kept non-effect rows in their original slots when sorting data/frame input; aligned frame-mode option documentation, dynamic confidence-level defaults, row-type aliases, graph-option prose, and the tabtools integration demo with current behavior.
 - **1.2.5** (2026-07-10): Returned `r(pvalues)` for 2-column matrix input with `stars`, as documented; rows with unavailable p-values are now excluded consistently from the estimates-mode p-value matrix.

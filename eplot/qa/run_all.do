@@ -38,7 +38,7 @@ local quick_suites test_eplot test_options test_edge_cases
 local core_suites `quick_suites' ///
     test_eplot_frame test_graph_options test_layout ///
     test_colors_routing test_axis_coeflabels test_stars_matrix ///
-    test_regressions
+    test_regressions test_eplot_v128
 
 * Canonical release QA: core plus known-answer validation.
 local full_suites `core_suites' validation_eplot test_examples
