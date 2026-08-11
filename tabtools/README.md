@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.12.2** | 2026-08-10
+**Version 1.13.0** | 2026-08-11
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -110,6 +110,12 @@ table1_tc price mpg weight rep78, by(foreign) smd test frame(table1, replace) xl
 ```
 
 `table1_tc` detects the supplied variables when `vars()` is omitted. Use `vars()` for explicit row types such as `contn`, `conts`, `cat`, `bin`, and their extended forms; `smd` requires `by()`, and `clear` is available when the rendered table should replace the data in memory.
+
+To protect exact counts below a publication threshold, add `smallcells(#)`. Primary cells are shown as `<#`, complementary cells as `≥#`, and dependent tests and SMDs as `Suppressed`; every requested sink receives the same already-redacted table.
+
+```stata
+table1_tc rep78, by(foreign) vars(rep78 cat) total(after) smallcells(5) frame(table1_safe, replace)
+```
 
 ### Shared formatting profile
 
@@ -233,10 +239,10 @@ The command help files are the authoritative reference for abbreviations and com
 ### `table1_tc`
 
 ```stata
-table1_tc [varlist] [if] [in] [fweight], [by(varname) vars(string) format(string) percformat(string) nformat(string) iqrmiddle(string) sdleft(string) sdright(string) gsdleft(string) gsdright(string) percent missing pdp(#) highpdp(#) test statistic excel(string) xlsx(string) sheet(string) title(string) clear percent_n percsign(string) spacelowpercent extraspace slashN total(string) catrowperc varlabplus headerperc borderstyle(string) wt(varname) smd footnote(string) open boldp(#) zebra highlight(#) headershade frame(string) theme(string) smdthreshold(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend missingsummary dots wtcompare wtn nopvalue]
+table1_tc [varlist] [if] [in] [fweight], [by(varname) vars(string) format(string) percformat(string) nformat(string) iqrmiddle(string) sdleft(string) sdright(string) gsdleft(string) gsdright(string) percent missing pdp(#) highpdp(#) test statistic excel(string) xlsx(string) sheet(string) title(string) clear percent_n percsign(string) spacelowpercent extraspace slashN total(string) catrowperc varlabplus headerperc borderstyle(string) wt(varname) smd footnote(string) open boldp(#) zebra highlight(#) headershade frame(string) theme(string) smdthreshold(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend missingsummary smallcells(#) dots wtcompare wtn nopvalue]
 ```
 
-`table1_tc` is Stata 16+ and accepts frequency weights. Without `vars()`, it infers row types from the varlist; the default display formats are `%2.0f`, `%5.0f`, and `%12.0fc` for common continuous, percentage, and count cells, with `pdp(3)`, `highpdp(2)`, and an SMD threshold of `0.1`. The Excel sheet defaults to `Table 1`; `smdthreshold(-1)` disables SMD highlighting, and `clear` replaces the current dataset with the table.
+`table1_tc` is Stata 16+ and accepts frequency weights. Without `vars()`, it infers row types from the varlist; the default display formats are `%2.0f`, `%5.0f`, and `%12.0fc` for common continuous, percentage, and count cells, with `pdp(3)`, `highpdp(2)`, and an SMD threshold of `0.1`. The Excel sheet defaults to `Table 1`; `smdthreshold(-1)` disables SMD highlighting, and `clear` replaces the current dataset with the table. `smallcells(#)` requires an integer threshold of at least 3 and protects exact disclosure within one invocation; it does not certify anonymization or account for linkage across separate releases.
 
 ### `desctab`
 
@@ -413,7 +419,7 @@ All result-producing commands return output paths and dimensions when the corres
 
 ### `table1_tc`
 
-Returns `r(markdown_rows)`, `r(markdown_cols)`, `r(Dapa)`, `r(methods)`, `r(varlist)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, `r(markdown)`, and the `r(table)` matrix of raw p-values and absolute SMDs.
+Returns `r(markdown_rows)`, `r(markdown_cols)`, `r(Dapa)`, `r(methods)`, `r(varlist)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, `r(markdown)`, and `r(table)`. With `smallcells(#)`, it also returns `r(smallcells)`, `r(N_primary_suppressed)`, `r(N_secondary_suppressed)`, `r(N_derived_suppressed)`, and the code matrix `r(suppression)`; protected p-values and SMDs in `r(table)` are `.d`.
 
 ### `desctab`
 
@@ -500,6 +506,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.13.0** (2026-08-11): Added strict `table1_tc, smallcells(#)` disclosure control with primary and complementary suppression, exact-reconstruction checks, dependent-statistic redaction, safe stored results, and identical markers across console, Excel, CSV, Markdown, frame, and `clear` output.
 - **1.12.2** (2026-08-10): Corrected continuous standardized mean differences for unweighted and frequency-weighted Table 1 summaries to use the documented root-mean of group variances rather than a degrees-of-freedom-weighted pooled standard deviation.
 - **1.12.1** (2026-08-07): Stopped the CSV writer dropping a leading data row that is blank in every column, which silently cost `puttab` and `simtab` exports one observation relative to the workbook; the leading-row trim is now declared by the table-building commands that reserve that row rather than inferred from its contents. Repaired the `csv()` option paragraph in fourteen help files, where the 1.12.0 wording left an SMCL directive open across a line break and printed `{opt title()}` literally in the Viewer.
 - **1.12.0** (2026-08-06): Corrected the return code `table1_tc` and `desctab` hand back to the caller, which was nonzero after every successful run; gave every CSV export the same shape as its workbook, so `title()` and `footnote()` are written, the reserved all-empty first row is gone, and the `corrtab` star legend now reaches the CSV; made `puttab` honour the order of the variables it was given; escaped Markdown emphasis characters so a star legend survives export; routed the `stacktab` console preview through the shared display path, adding its title, note, and continuous rules; removed the stacked rules under every `regtab` statistic and added-row, and top-aligned whole rows rather than the label alone; gave the single-cutoff `diagtab` table its top and header rules; and aligned the `table1_tc` missing-data row's indent and percent format with the category rows it sits under.
