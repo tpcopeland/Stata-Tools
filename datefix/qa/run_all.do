@@ -1,5 +1,6 @@
 *! run_all.do — canonical QA runner for datefix
 *! Usage: cd datefix/qa && stata-mp -b do run_all.do [quick|full]
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 version 16.0
 set more off
@@ -32,11 +33,11 @@ if !inlist("`mode'", "quick", "full") {
 * executions both isolate before any ado uninstall or net install command.
 
 * Fast functional lane: core conversion behavior plus the diagnose option.
-local quick_suites test_datefix test_diagnose
+local quick_suites test_datefix test_diagnose test_datefix_v112
 
 * Default release gate: quick lane plus expanded functional coverage and
 * known-answer validation.
-local full_suites `quick_suites' test_datefix_expanded validation_datefix
+local full_suites `quick_suites' test_datefix_expanded validation_datefix test_package_release
 
 local suite_list ``mode'_suites'
 
@@ -57,4 +58,6 @@ foreach f in `suite_list' {
 }
 
 display _n as result "=== QA Summary (`mode'): `pass' passed, `fail' failed ==="
+local total = `pass' + `fail'
+display "RESULT: run_all tests=`total' pass=`pass' fail=`fail'"
 if `fail' > 0 exit 1

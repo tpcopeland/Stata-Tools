@@ -1,4 +1,4 @@
-*! datefix Version 1.1.1  2026/08/05
+*! datefix Version 1.1.2  2026/08/11
 *! Convert string date variables to numeric date formatted variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -62,6 +62,15 @@ program define datefix, rclass
         }
     }
 
+    * Refuse a successful conversion that has no usable input values
+    foreach var of varlist `varlist' {
+        quietly count if !missing(`var')
+        if r(N) == 0 {
+            display as error "variable `var' has no nonmissing values"
+            exit 2000
+        }
+    }
+
     * Build topyear argument for date() function
     local topyear_arg ""
     if "`topyear'" != "" {
@@ -103,22 +112,6 @@ program define datefix, rclass
         local is_string = (_rc == 0)
 
         if `is_string' {
-            * Check for datetime values
-            quietly count if !missing(`var')
-            if r(N) > 0 {
-                quietly count if strpos(`var', ":") > 0 & !missing(`var')
-                if r(N) > 0 {
-                    if "`diagnose'" != "" {
-                        tempvar badflag
-                        quietly gen byte `badflag' = strpos(`var', ":") > 0 & !missing(`var')
-                        _datefix_diagnose `var' `badflag'
-                    }
-                    display as error "variable `var' appears to contain datetime values"
-                    display as error "datefix does not support datetime variables"
-                    exit 198
-                }
-            }
-
             tempvar new_date
 
             if "`order_upper'" != "" {
@@ -252,8 +245,10 @@ program define datefix, rclass
         capture restore
     }
     capture return clear
+    local clear_rc = _rc
     set varabbrev `_varabbrev'
     if `rc' exit `rc'
+    if `clear_rc' exit `clear_rc'
 end
 
 * Diagnostic listing for diagnose option: tabulates the distinct string values
@@ -261,53 +256,60 @@ end
 * Non-destructive (all working variables are tempvars); callers invoke this just
 * before aborting, so it never alters the user's data.
 capture program drop _datefix_diagnose
-program define _datefix_diagnose
+program define _datefix_diagnose, nclass
     version 16.0
-    args var bad
+    local _varabbrev = c(varabbrev)
+    set varabbrev off
 
-    quietly count if `bad'
-    local nbad = r(N)
-    if `nbad' == 0 exit
+    capture noisily {
+        args var bad
 
-    tempvar grp obsnum vlen
-    quietly generate long `obsnum' = _n
-    quietly egen `grp' = group(`var') if `bad'
-    quietly summarize `grp', meanonly
-    local ndistinct = r(max)
+        quietly count if `bad'
+        local nbad = r(N)
 
-    quietly generate `vlen' = strlen(`var') if `bad'
-    quietly summarize `vlen', meanonly
-    local w = r(max)
-    if `w' < 5  local w = 5
-    if `w' > 30 local w = 30
+        if `nbad' > 0 {
+            tempvar grp obsnum vlen
+            quietly generate long `obsnum' = _n
+            quietly egen `grp' = group(`var') if `bad'
+            quietly summarize `grp', meanonly
+            local ndistinct = r(max)
 
-    display as text ""
-    display as text "Unconvertible values in {res:`var'} (`nbad' observation(s), `ndistinct' distinct):"
-    display as text %-`w's "value" "   " %6s "freq" "   " "obs"
-    display as text "{hline `=`w' + 3 + 6 + 3 + 24'}"
+            quietly generate `vlen' = ustrlen(`var') if `bad'
+            quietly summarize `vlen', meanonly
+            local w = r(max)
+            if `w' < 5  local w = 5
+            if `w' > 30 local w = 30
 
-    local gmax = `ndistinct'
-    if `gmax' > 50 local gmax = 50
+            display as text "Unconvertible values in {res:`var'} (`nbad' observation(s), `ndistinct' distinct):"
+            display as text %-`w's "value" "   " %6s "freq" "   " "obs"
 
-    forvalues g = 1/`gmax' {
-        quietly levelsof `var' if `grp' == `g', local(thisval) clean
-        quietly count if `grp' == `g'
-        local f = r(N)
-        quietly levelsof `obsnum' if `grp' == `g', local(allrows) clean
-        local rowct : word count `allrows'
-        local shown ""
-        local i = 0
-        foreach r of local allrows {
-            local ++i
-            if `i' > 10 continue, break
-            local shown = cond("`shown'" == "", "`r'", "`shown', `r'")
+            local gmax = `ndistinct'
+            if `gmax' > 50 local gmax = 50
+
+            forvalues g = 1/`gmax' {
+                quietly levelsof `var' if `grp' == `g', local(thisval) clean
+                quietly count if `grp' == `g'
+                local f = r(N)
+                quietly levelsof `obsnum' if `grp' == `g', local(allrows) clean
+                local rowct : word count `allrows'
+                local shown ""
+                local i = 0
+                foreach r of local allrows {
+                    local ++i
+                    if `i' > 10 continue, break
+                    local shown = cond("`shown'" == "", "`r'", "`shown', `r'")
+                }
+                if `rowct' > 10 local shown "`shown', ... (+`=`rowct' - 10' more)"
+                local vshow = usubstr(`"`thisval'"', 1, `w')
+                display as text _asis %-`w's `"`vshow'"' "   " %6.0f `f' "   " "`shown'"
+            }
+
+            if `ndistinct' > 50 {
+                display as text "... and `=`ndistinct' - 50' more distinct value(s) not shown."
+            }
         }
-        if `rowct' > 10 local shown "`shown', ... (+`=`rowct' - 10' more)"
-        local vshow = substr(`"`thisval'"', 1, `w')
-        display as text %-`w's `"`vshow'"' "   " %6.0f `f' "   " "`shown'"
     }
-
-    if `ndistinct' > 50 {
-        display as text "... and `=`ndistinct' - 50' more distinct value(s) not shown."
-    }
+    local rc = _rc
+    set varabbrev `_varabbrev'
+    if `rc' exit `rc'
 end

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  05aug2026}{...}
+{* *! version 1.1.2  11aug2026}{...}
 {vieweralsosee "Datetime values" "help datetime"}{...}
 {vieweralsosee "Date functions" "help date()"}{...}
 {cmd:help datefix}
@@ -24,7 +24,12 @@
 {p 4 4 2}If the variable is already numeric, {cmd:datefix} applies the date format directly
 (or copies to {opt newvar()} if specified).{p_end}
 
-{p 4 4 2}The program does not accommodate datetime values, only dates.{p_end}
+{p 4 4 2}The program does not accommodate datetime values, only dates. Date-only
+strings may use punctuation separators, including colons.{p_end}
+
+{p 4 4 2}A source variable with no nonmissing values produces error
+{bf:r(2000)}; the command leaves every variable in {varlist} unchanged on this and every
+other conversion failure.{p_end}
 
 {marker options}{...}
 {title:Options}
@@ -53,27 +58,34 @@ of {bf:00}, an out-of-range component such as {bf:2020/13/40}, or stray non-date
 {cmd:datefix} prints a table of the distinct unconvertible values, their
 frequencies, and the observation numbers where they occur, then stops with an
 error so you can locate and fix the source data. Without {opt diagnose}, {cmd:datefix}
-reports only the count of values that failed. Conversion is command-wide
+reports only the number of unconvertible values. Conversion is command-wide
 all-or-nothing: if any value fails, every variable in {varlist} remains
 unchanged, including values, storage types, formats, labels, and ordering.{p_end}
 
 {marker examples}{...}
 {title:Examples}
 
-{p 4 4 2}Convert string date variables using auto-detected ordering:{p_end}
-    {com}. datefix dob dod{reset}
+{p 4 4 2}Create a small dataset used by the examples:{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input str10 dob str10 dod str10 visit_date str8 city_founded str10 admission_date str12 invalid_date}{p_end}
+{phang2}{cmd:  "2020-01-15" "2024-03-01" "03/14/2020" "07/04/76" "15/06/2024" "2020/00/15"}{p_end}
+{phang2}{cmd:  "1990-12-31" "2024-07-04" "11/03/2023" "11/12/84" "01/01/2025" "not-a-date"}{p_end}
+{phang2}{cmd:  end}{p_end}
+
+{p 4 4 2}Convert two string date variables in place:{p_end}
+{phang2}{cmd:. datefix dob dod, order(YMD)}{p_end}
 
 {p 4 4 2}Convert to a new variable with MDY ordering and custom format:{p_end}
-    {com}. datefix visit_date, newvar(vdate) order(MDY) df(%tdMonth_DD,_CCYY){reset}
+{phang2}{cmd:. datefix visit_date, newvar(vdate) order(MDY) df(%tdMonth_DD,_CCYY)}{p_end}
 
 {p 4 4 2}Handle two-digit years with topyear:{p_end}
-    {com}. datefix city_founded, topyear(1900){reset}
+{phang2}{cmd:. datefix city_founded, order(MDY) topyear(1900)}{p_end}
 
 {p 4 4 2}Create a new variable and drop the original:{p_end}
-    {com}. datefix admission_date, newvar(admit_dt) drop df(%tdDD/NN/CCYY){reset}
+{phang2}{cmd:. datefix admission_date, newvar(admit_dt) drop order(DMY) df(%tdDD/NN/CCYY)}{p_end}
 
 {p 4 4 2}Report which values block the conversion instead of just the count:{p_end}
-    {com}. datefix dob, diagnose{reset}
+{phang2}{cmd:. datefix invalid_date, order(YMD) diagnose}{p_end}
 
 {title:Example Date Formats for df()}
 {p2colset 5 30 32 2}{...}
@@ -94,6 +106,6 @@ before returning.{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 
-{pstd}Version 1.1.1 - 05aug2026{p_end}
+{pstd}Version 1.1.2 - 11aug2026{p_end}
 
 {hline}

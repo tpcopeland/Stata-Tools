@@ -1,13 +1,13 @@
 /*******************************************************************************
 * test_datefix_expanded.do
 *
-* Purpose: Expanded functional tests for datefix command (v1.0.3)
+* Purpose: Expanded functional tests for the datefix command
 *          Covers gaps not in test_datefix.do: pre-1960 dates, separators,
 *          auto-detect tie-breaking, topyear+auto-detect, mixed types,
 *          label transfer in-place, drop-without-newvar note, large datasets,
 *          format styles, whitespace, duplicates, constant data, varabbrev-off
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-21
 *******************************************************************************/
 
@@ -22,7 +22,7 @@ do "`qa_dir'/_datefix_qa_common.do"
 quietly _datefix_qa_bootstrap
 local pkg_dir "`r(pkg_dir)'"
 
-display as text _n "DATEFIX EXPANDED FUNCTIONAL TESTS (v1.0.3)"
+display as text _n "DATEFIX EXPANDED FUNCTIONAL TESTS"
 display as text "Package: `pkg_dir'"
 
 local test_count = 0

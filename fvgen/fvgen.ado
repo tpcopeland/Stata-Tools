@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.3  2026/08/05
+*! fvgen Version 1.2.4  2026/08/11
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -138,6 +138,8 @@ program define fvgen, rclass
             char _dta[fvgen_allvars] ""
             char _dta[fvgen_genvars] ""
             char _dta[fvgen_centered] ""
+            char _dta[fvgen_sigvars] ""
+            char _dta[fvgen_signature] ""
             local _dropped : list clean _dropped
             local _nd : word count `_dropped'
             return local dropped  "`_dropped'"
@@ -163,6 +165,8 @@ program define fvgen, rclass
             char _dta[fvgen_allvars] ""
             char _dta[fvgen_genvars] ""
             char _dta[fvgen_centered] ""
+            char _dta[fvgen_sigvars] ""
+            char _dta[fvgen_signature] ""
 
             **# Validate the vsref() template up front
             * vsref() appends the reference (base) level to main-effect labels.
@@ -219,9 +223,10 @@ program define fvgen, rclass
                 while `"`refwork'"' != "" {
                     gettoken rv refwork : refwork, parse(" ,")
                     if `"`rv'"' == "," continue
-                    gettoken rl refwork : refwork, parse(" ,")
+                    local _rl_quoted = 0
+                    gettoken rl refwork : refwork, parse(" ,") qed(_rl_quoted)
                     while `"`rl'"' == "," {
-                        gettoken rl refwork : refwork, parse(" ,")
+                        gettoken rl refwork : refwork, parse(" ,") qed(_rl_quoted)
                     }
                     if `"`rv'"' == "" | `"`rl'"' == "" {
                         display as error ///
@@ -234,8 +239,12 @@ program define fvgen, rclass
                         exit 111
                     }
                     * Resolve the level: an integer code, else a value-label string.
-                    capture confirm integer number `rl'
-                    if _rc == 0 {
+                    local _numeric_level = 0
+                    if !`_rl_quoted' {
+                        capture confirm integer number `rl'
+                        if _rc == 0 local _numeric_level = 1
+                    }
+                    if `_numeric_level' {
                         local _lvl `rl'
                     }
                     else {
@@ -247,13 +256,22 @@ program define fvgen, rclass
                         }
                         quietly levelsof `rv' if `touse', local(_obslv)
                         local _lvl ""
+                        local _label_matches = 0
                         foreach L of local _obslv {
                             local _thislab : label `_vlbl' `L'
-                            if `"`_thislab'"' == `"`rl'"' local _lvl `L'
+                            if `"`_thislab'"' == `"`rl'"' {
+                                local ++_label_matches
+                                local _lvl `L'
+                            }
                         }
                         if "`_lvl'" == "" {
                             display as error ///
                                 `"ref(): label "`rl'" not found among observed levels of `rv'"'
+                            exit 198
+                        }
+                        if `_label_matches' > 1 {
+                            display as error ///
+                                `"ref(): label "`rl'" identifies more than one observed level of `rv'; use an integer code"'
                             exit 198
                         }
                     }
@@ -385,8 +403,15 @@ program define fvgen, rclass
             * can append "(vs. <base label>)" to main-effect labels.
             local _vsbasevars   ""
             local _vsbaselevels ""
+            local sourcevars    ""
             foreach t of local terms {
                 _ms_parse_parts `t'
+                if "`r(type)'" == "variable" | "`r(type)'" == "factor" {
+                    local sourcevars "`sourcevars' `r(name)'"
+                }
+                else if "`r(type)'" == "interaction" {
+                    local sourcevars "`sourcevars' `r(name1)' `r(name2)'"
+                }
                 if "`r(type)'" == "interaction" & r(k_names) > 2 {
                     display as error ///
                         "fvgen supports up to 2-way interactions; '`t'' is higher-order"
@@ -397,17 +422,17 @@ program define fvgen, rclass
                     local _vsbaselevels "`_vsbaselevels' `=r(level)'"
                 }
             }
+            local sourcevars : list uniq sourcevars
 
-            **# Optional pre-pass: center continuous variables once, up front
+            **# Plan optional centered copies
             * A centered copy is reused by both main effects and products so the
-            * product is the product of centered terms. The centering mean honors
-            * any supplied weight.
+            * product is the product of centered terms.
+            local contvars  ""
+            local cmapvars  ""
+            local cmapnames ""
             if "`center'" != "" {
-                local contvars ""
                 * Parallel var/name lists map each centered original to its copy
                 * (name-keyed macros would overflow the 31-char local-name limit).
-                local cmapvars  ""
-                local cmapnames ""
                 foreach t of local terms {
                     _ms_parse_parts `t'
                     if "`r(type)'" == "variable" {
@@ -421,6 +446,95 @@ program define fvgen, rclass
                 local contvars : list uniq contvars
                 foreach cv of local contvars {
                     local cname "`prefix'`cv'_c"
+                    local cmapvars  "`cmapvars' `cv'"
+                    local cmapnames "`cmapnames' `cname'"
+                }
+            }
+
+            **# Preflight every generated name before changing the dataset
+            * Reject collisions between planned outputs and with source variables.
+            * Existing unrelated variables are allowed only under replace. Running
+            * the full preflight first prevents late r(110)/r(198) failures from
+            * leaving earlier generated variables behind.
+            local plannednames ""
+            foreach newname of local cmapnames {
+                if length("`newname'") > 32 {
+                    display as error ///
+                        "fvgen: generated name '`newname'' exceeds the 32-character limit; use a shorter prefix()"
+                    exit 198
+                }
+                if `: list newname in sourcevars' {
+                    display as error ///
+                        "fvgen: generated name '`newname'' collides with a source variable; choose a different prefix()"
+                    exit 198
+                }
+                if `: list newname in plannednames' {
+                    display as error ///
+                        "fvgen: distinct terms map to the same generated name '`newname''; rename a source variable or choose a different prefix()"
+                    exit 198
+                }
+                capture confirm new variable `newname'
+                if _rc & "`replace'" == "" {
+                    display as error "fvgen: variable '`newname'' already exists; specify the replace option"
+                    exit 110
+                }
+                local plannednames "`plannednames' `newname'"
+            }
+
+            foreach t of local terms {
+                _ms_parse_parts `t'
+                local ty "`r(type)'"
+                local newname ""
+                if "`ty'" == "factor" {
+                    local omit = r(omit)
+                    local base = r(base)
+                    if `omit' & !(`alllev' & `base') continue
+                    local newname "`prefix'`r(name)'_`=r(level)'"
+                }
+                else if "`ty'" == "interaction" {
+                    if r(omit) continue
+                    local n1 "`r(name1)'"
+                    local o1 "`r(op1)'"
+                    local l1 = r(level1)
+                    local n2 "`r(name2)'"
+                    local o2 "`r(op2)'"
+                    local l2 = r(level2)
+                    local f1 = (strpos("`o1'", "c") == 0)
+                    local f2 = (strpos("`o2'", "c") == 0)
+                    local suff ""
+                    if `f1' local suff "`suff'_`l1'"
+                    if `f2' local suff "`suff'_`l2'"
+                    local newname "`prefix'`n1'X`n2'`suff'"
+                }
+                if "`newname'" == "" continue
+                if length("`newname'") > 32 {
+                    display as error ///
+                        "fvgen: generated name '`newname'' exceeds the 32-character limit; use a shorter prefix()"
+                    exit 198
+                }
+                if `: list newname in sourcevars' {
+                    display as error ///
+                        "fvgen: generated name '`newname'' collides with a source variable; choose a different prefix()"
+                    exit 198
+                }
+                if `: list newname in plannednames' {
+                    display as error ///
+                        "fvgen: distinct terms map to the same generated name '`newname''; rename a source variable or choose a different prefix()"
+                    exit 198
+                }
+                capture confirm new variable `newname'
+                if _rc & "`replace'" == "" {
+                    display as error "fvgen: variable '`newname'' already exists; specify the replace option"
+                    exit 110
+                }
+                local plannednames "`plannednames' `newname'"
+            }
+
+            **# Create centered copies after the name preflight succeeds
+            if "`center'" != "" {
+                foreach cv of local contvars {
+                    local _ci : list posof "`cv'" in cmapvars
+                    local cname : word `_ci' of `cmapnames'
                     _fvgen_newvar `cname' "`replace'"
                     quietly summarize `cv' `wmean' if `touse', meanonly
                     quietly generate double `cname' = `cv' - r(mean)
@@ -429,8 +543,6 @@ program define fvgen, rclass
                     _fvgen_setlabel `cname' `"`clab' (centered)"'
                     char `cname'[fvgen_role] "centered"
                     char `cname'[fvgen_term] "c.`cv'"
-                    local cmapvars  "`cmapvars' `cv'"
-                    local cmapnames "`cmapnames' `cname'"
                     local genvars `genvars' `cname'
                 }
             }
@@ -568,11 +680,15 @@ program define fvgen, rclass
             }
 
             **# Dataset-level provenance for post-estimation margins-ready clones
+            local _sigvars : list sourcevars | genvars
+            quietly _datasignature `_sigvars'
             char _dta[fvgen_spec] "`expandspec'"
             char _dta[fvgen_terms] "`terms'"
             char _dta[fvgen_allvars] "`allvars'"
             char _dta[fvgen_genvars] "`genvars'"
             char _dta[fvgen_centered] "`center'"
+            char _dta[fvgen_sigvars] "`_sigvars'"
+            char _dta[fvgen_signature] "`r(datasignature)'"
 
             **# Return results
             return local spec     "`expandspec'"
@@ -615,119 +731,168 @@ end
 
 **# Helper: validate a candidate variable name (length + collision)
 capture program drop _fvgen_newvar
-program define _fvgen_newvar
-    args name replace
-    if length("`name'") > 32 {
-        display as error ///
-            "fvgen: generated name '`name'' exceeds the 32-character limit; use a shorter prefix()"
-        exit 198
-    }
-    capture confirm new variable `name'
-    if _rc {
-        if "`replace'" == "" {
-            display as error "fvgen: variable '`name'' already exists; specify the replace option"
-            exit 110
+program define _fvgen_newvar, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args name replace
+        if length("`name'") > 32 {
+            display as error ///
+                "fvgen: generated name '`name'' exceeds the 32-character limit; use a shorter prefix()"
+            exit 198
         }
-        capture drop `name'
+        capture confirm new variable `name'
+        if _rc {
+            if "`replace'" == "" {
+                display as error "fvgen: variable '`name'' already exists; specify the replace option"
+                exit 110
+            }
+            capture drop `name'
+        }
     }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 **# Helper: build a friendly label for one factor level (returns r(label))
 capture program drop _fvgen_partlabel
 program define _fvgen_partlabel, rclass
-    args var level xsymbol
-    local vl : value label `var'
-    if "`vl'" != "" {
-        local lab : label `vl' `level'
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args var level xsymbol
+        local vl : value label `var'
+        if "`vl'" != "" {
+            local lab : label `vl' `level'
+        }
+        else {
+            local lab "`var'=`level'"
+        }
+        return local label `"`lab'"'
     }
-    else {
-        local lab "`var'=`level'"
-    }
-    return local label `"`lab'"'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 **# Helper: set a variable label, truncated to Stata's 80-character limit
 capture program drop _fvgen_setlabel
-program define _fvgen_setlabel
-    gettoken name 0 : 0
-    gettoken lab  0 : 0
-    if ustrlen(`"`lab'"') > 80 {
-        local lab = usubstr(`"`lab'"', 1, 80)
-        display as text ///
-            "note: variable label for `name' truncated to Stata's 80-character limit"
+program define _fvgen_setlabel, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        gettoken name 0 : 0
+        gettoken lab  0 : 0
+        if ustrlen(`"`lab'"') > 80 {
+            local lab = usubstr(`"`lab'"', 1, 80)
+            display as text ///
+                "note: variable label for `name' truncated to Stata's 80-character limit"
+        }
+        label variable `name' `"`lab'"'
     }
-    label variable `name' `"`lab'"'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 **# Helper: rerun active flattened estimates with native factor-variable syntax
 capture program drop _fvgen_margins_repost
 program define _fvgen_margins_repost, eclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        if "`e(cmd)'" == "" {
+            display as error "fvgen, margins requires active estimation results"
+            exit 301
+        }
+        capture confirm matrix e(b)
+        if _rc {
+            display as error "fvgen, margins requires active estimation results with e(b)"
+            exit 301
+        }
+        capture confirm matrix e(V)
+        if _rc {
+            display as error "fvgen, margins requires active estimation results with e(V)"
+            exit 301
+        }
 
-    if "`e(cmd)'" == "" {
-        display as error "fvgen, margins requires active estimation results"
-        exit 301
-    }
-    capture confirm matrix e(b)
-    if _rc {
-        display as error "fvgen, margins requires active estimation results with e(b)"
-        exit 301
-    }
-    capture confirm matrix e(V)
-    if _rc {
-        display as error "fvgen, margins requires active estimation results with e(V)"
-        exit 301
-    }
+        local allvars : char _dta[fvgen_allvars]
+        local spec    : char _dta[fvgen_spec]
+        if `"`allvars'"' == "" | `"`spec'"' == "" {
+            display as error ///
+                "fvgen, margins requires fvgen term provenance; rerun fvgen, estimate on r(allvars), then call fvgen, margins"
+            exit 198
+        }
+        local sigvars   : char _dta[fvgen_sigvars]
+        local signature : char _dta[fvgen_signature]
+        if `"`sigvars'"' == "" | `"`signature'"' == "" {
+            display as error ///
+                "fvgen, margins requires current fvgen data provenance; rerun fvgen and the flattened estimator"
+            exit 198
+        }
+        capture confirm variable `sigvars'
+        if _rc {
+            display as error ///
+                "fvgen, margins: source or generated variables changed after fvgen; rerun fvgen and the flattened estimator"
+            exit 498
+        }
+        quietly _datasignature `sigvars'
+        if `"`r(datasignature)'"' != `"`signature'"' {
+            display as error ///
+                "fvgen, margins: source or generated variables changed after fvgen; rerun fvgen and the flattened estimator"
+            exit 498
+        }
+        local centered : char _dta[fvgen_centered]
+        if "`centered'" != "" {
+            display as error ///
+                "fvgen, margins does not support models generated with center; margins must see the same raw factor-variable scale used for estimation"
+            exit 198
+        }
 
-    local allvars : char _dta[fvgen_allvars]
-    local spec    : char _dta[fvgen_spec]
-    if `"`allvars'"' == "" | `"`spec'"' == "" {
-        display as error ///
-            "fvgen, margins requires fvgen term provenance; rerun fvgen, estimate on r(allvars), then call fvgen, margins"
-        exit 198
-    }
-    local centered : char _dta[fvgen_centered]
-    if "`centered'" != "" {
-        display as error ///
-            "fvgen, margins does not support models generated with center; margins must see the same raw factor-variable scale used for estimation"
-        exit 198
-    }
+        local cmdline `"`e(cmdline)'"'
+        if `"`cmdline'"' == "" {
+            display as error "fvgen, margins requires e(cmdline) so the estimator can be rerun with native factor-variable syntax"
+            exit 301
+        }
 
-    local cmdline `"`e(cmdline)'"'
-    if `"`cmdline'"' == "" {
-        display as error "fvgen, margins requires e(cmdline) so the estimator can be rerun with native factor-variable syntax"
-        exit 301
-    }
+        local cmd_pad `" `cmdline' "'
+        local varseq  `" `allvars'"'
+        local pos = strpos(`"`cmd_pad'"', `"`varseq'"')
+        local nextchar ""
+        if `pos' {
+            local nextchar = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), 1)
+        }
+        if `pos' == 0 | !inlist(`"`nextchar'"', " ", ",") {
+            display as error ///
+                "fvgen, margins could not locate r(allvars) in the active estimation command line"
+            display as error ///
+                "rerun the model using the exact varlist returned by fvgen before calling fvgen, margins"
+            exit 198
+        }
 
-    local cmd_pad `" `cmdline' "'
-    local varseq  `" `allvars'"'
-    local pos = strpos(`"`cmd_pad'"', `"`varseq'"')
-    local nextchar ""
-    if `pos' {
-        local nextchar = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), 1)
-    }
-    if `pos' == 0 | !inlist(`"`nextchar'"', " ", ",") {
-        display as error ///
-            "fvgen, margins could not locate r(allvars) in the active estimation command line"
-        display as error ///
-            "rerun the model using the exact varlist returned by fvgen before calling fvgen, margins"
-        exit 198
-    }
+        local before = substr(`"`cmd_pad'"', 1, `pos' - 1)
+        local after  = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), .)
+        local native_cmdline `"`before' `spec' `after'"'
 
-    local before = substr(`"`cmd_pad'"', 1, `pos' - 1)
-    local after  = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), .)
-    local native_cmdline `"`before' `spec' `after'"'
+        capture quietly `native_cmdline'
+        if _rc {
+            local native_rc = _rc
+            display as error ///
+                "fvgen, margins could not rerun the estimator with native factor-variable syntax"
+            display as error `"`native_cmdline'"'
+            exit `native_rc'
+        }
 
-    capture quietly `native_cmdline'
-    if _rc {
-        local native_rc = _rc
-        display as error ///
-            "fvgen, margins could not rerun the estimator with native factor-variable syntax"
-        display as error `"`native_cmdline'"'
-        exit `native_rc'
+        ereturn local fvgen_margins "1"
+        ereturn local fvgen_flat_cmdline `"`cmdline'"'
+        ereturn local fvgen_native_cmdline `"`native_cmdline'"'
     }
-
-    ereturn local fvgen_margins "1"
-    ereturn local fvgen_flat_cmdline `"`cmdline'"'
-    ereturn local fvgen_native_cmdline `"`native_cmdline'"'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

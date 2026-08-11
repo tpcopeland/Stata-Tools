@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.14.1  11aug2026}{...}
+{* *! version 1.14.2  11aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -63,7 +63,9 @@ step. For a numeric payload use {cmd:frame()}, the returned matrices such as
 positive counts with {cmd:<#}, use {cmd:≥#} for complementary suppression, and
 withhold dependent results before console, Excel, CSV, Markdown, frame, or
 stored-result output is built. See each command's help for its supported
-layouts and fail-closed limits.
+layouts and fail-closed limits. A deterministic final pass removes every
+individually redundant complementary marker; the retained set is irredundant
+but not guaranteed globally minimum.
 
 {pstd}
 Most commands require Stata 17. The suite controller {cmd:tabtools},
@@ -497,6 +499,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.14.1{p_end}
+{pstd}{bf:Version} 1.14.2{p_end}
 
 {hline}

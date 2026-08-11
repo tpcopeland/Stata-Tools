@@ -1293,6 +1293,44 @@ else {
 }
 capture frame drop cross_sc
 
+**## redundant complementary margins are pruned
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 1 1
+    1 0 1
+    1 1 4
+    end
+    expand freq
+
+    capture frame drop cross_sc_irredundant
+    crosstab outcome exposure, smallcells(5) ///
+        frame(cross_sc_irredundant, replace)
+    assert r(N_primary_suppressed) == 5
+    assert r(N_secondary_suppressed) == 1
+    frame cross_sc_irredundant {
+        local sc_ns = 0
+        ds
+        foreach sc_v of varlist `r(varlist)' {
+            capture confirm string variable `sc_v'
+            if !_rc {
+                quietly count if strpos(`sc_v', "≥5") > 0
+                local sc_ns = `sc_ns' + r(N)
+            }
+        }
+    }
+    assert `sc_ns' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab prunes redundant complementary margins"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab complementary-margin pruning (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_sc_irredundant
+
 **## one redacted payload is reused by CSV, Markdown, frame, and XLSX sinks
 capture noisily {
     clear
