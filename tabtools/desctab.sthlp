@@ -231,6 +231,13 @@ logical block are withheld and the safe count marker remains. The console,
 Excel, CSV, Markdown, and frame sinks all reuse the same redacted table.{p_end}
 
 {pstd}
+After safety is certified, individually redundant complementary markers are
+removed in a deterministic pass. Each remaining {cmd:≥#} is necessary in the
+final protected table because revealing it would make at least one primary
+count exact. The resulting set is irredundant, but not guaranteed globally
+minimum.{p_end}
+
+{pstd}
 Custom {opt compose()} templates, other statistics, multiple source-variable
 levels, unsupported compound layouts, and combinations with {opt keep()},
 {opt drop()}, {opt nomissing}, or {opt highlight()} fail before any sink is

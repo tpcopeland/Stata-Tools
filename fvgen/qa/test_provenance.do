@@ -27,6 +27,8 @@ capture noisily {
     assert "`: char _armXage_1[fvgen_term]'" == "1.arm#c.age"
     * a pass-through original carries NO fvgen characteristic
     assert "`: char age[fvgen_role]'" == ""
+    assert `"`: char _dta[fvgen_sigvars]'"' != ""
+    assert `"`: char _dta[fvgen_signature]'"' != ""
 }
 if _rc == 0 {
     display as result "  PASS: role/term chars on main + interaction"
@@ -79,6 +81,8 @@ capture noisily {
     * pass-through originals untouched
     confirm variable age
     confirm variable arm
+    assert `"`: char _dta[fvgen_sigvars]'"' == ""
+    assert `"`: char _dta[fvgen_signature]'"' == ""
 }
 if _rc == 0 {
     display as result "  PASS: drop removes genvars, keeps originals, returns"

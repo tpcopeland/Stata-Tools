@@ -1,4 +1,4 @@
-*! _tabtools_smallcells Version 1.14.1  2026/08/11
+*! _tabtools_smallcells Version 1.14.2  2026/08/11
 *! Exact-disclosure suppression engine for tabtools count blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -525,6 +525,49 @@ real scalar _ttsc_run(
         }
         failures = _ttsc_failures(counts, state, rowstate, colstate, grandstate, k)
     }
+    if (failures > 0) return(0)
+
+    // Remove every individually redundant complementary marker. Candidate
+    // cells and margins are revealed in a stable order; each reveal is kept
+    // only when all primary suppressions remain non-exact.
+    changed = 1
+    while (changed) {
+        changed = 0
+        for (i = 1; i <= nr; i++) {
+            for (j = 1; j <= nc; j++) {
+                if (state[i, j] != 2) continue
+                state[i, j] = 0
+                failures = _ttsc_failures(counts, state, rowstate, ///
+                    colstate, grandstate, k)
+                if (failures == 0) changed = 1
+                else state[i, j] = 2
+            }
+        }
+        for (i = 1; i <= nr; i++) {
+            if (rowstate[i] != 2) continue
+            rowstate[i] = 0
+            failures = _ttsc_failures(counts, state, rowstate, ///
+                colstate, grandstate, k)
+            if (failures == 0) changed = 1
+            else rowstate[i] = 2
+        }
+        for (j = 1; j <= nc; j++) {
+            if (colstate[j] != 2) continue
+            colstate[j] = 0
+            failures = _ttsc_failures(counts, state, rowstate, ///
+                colstate, grandstate, k)
+            if (failures == 0) changed = 1
+            else colstate[j] = 2
+        }
+        if (grandstate == 2) {
+            grandstate = 0
+            failures = _ttsc_failures(counts, state, rowstate, ///
+                colstate, grandstate, k)
+            if (failures == 0) changed = 1
+            else grandstate = 2
+        }
+    }
+    failures = _ttsc_failures(counts, state, rowstate, colstate, grandstate, k)
     if (failures > 0) return(0)
 
     mask = (state :>= 0) :* state

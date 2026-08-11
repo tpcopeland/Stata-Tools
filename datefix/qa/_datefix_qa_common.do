@@ -1,6 +1,7 @@
 version 16.0
 
 * Shared QA scaffold for datefix.
+* Author: Timothy P Copeland, Karolinska Institutet
 *
 * datefix tracks no .dta input fixtures: every suite builds its own tiny
 * data inline via `input`. This file provides only the sandboxed install

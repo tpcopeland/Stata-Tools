@@ -208,6 +208,13 @@ as {cmd:<#}. Additional counts or margins are shown as {cmd:≥#} when needed to
 prevent exact reconstruction. Structural zeros remain visible.{p_end}
 
 {pstd}
+After safety is certified, individually redundant complementary markers are
+removed in a deterministic pass. Each remaining {cmd:≥#} is necessary in the
+final protected table because revealing it would make at least one primary
+count exact. The resulting set is irredundant, but not guaranteed globally
+minimum.{p_end}
+
+{pstd}
 A percentage is withheld when its numerator or denominator is protected. If
 the table contains a primary suppression, the chi-squared or Fisher test and
 requested OR, RR, RD, or trend results are shown as {cmd:Suppressed} and

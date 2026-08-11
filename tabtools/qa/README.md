@@ -57,9 +57,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | File | Covers | Notes |
 |------|--------|-------|
 | `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, semantic edge contracts (all-missing row, one observation/group, long labels), dots progress option, pdp()/highpdp() 1-10 bound (1.9.11), v1.0.13–v1.5 regressions |
-| `test_smallcells.do` | table1_tc | Small-cell threshold parsing, primary/complementary/derived masking, continuous and missingness dependencies, weighted/frequency-weight semantics, percent/row-percent/total/clear compositions, caller-state stability, sink parity, failure atomicity, and raw-leak attacks |
-| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns, recognized smallcells count/n_pct layouts, fail-closed mapping, and all-sink parity |
-| `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions, plus strict smallcells counts/margins/derived returns and all-sink parity |
+| `test_smallcells.do` | table1_tc | Small-cell threshold parsing, primary/complementary/derived masking, complementary-marker irredundancy, continuous and missingness dependencies, weighted/frequency-weight semantics, percent/row-percent/total/clear compositions, caller-state stability, sink parity, failure atomicity, and raw-leak attacks |
+| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns, recognized smallcells count/n_pct layouts, complementary-marker irredundancy, fail-closed mapping, and all-sink parity |
+| `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions, plus strict smallcells counts/margins/derived returns, complementary-marker irredundancy, and all-sink parity |
 | `test_corrtab.do` | corrtab | Pearson/Spearman, stars, shapes, pairwise-N p-value regression |
 | `test_regtab.do` | regtab | Model families (OLS/logit/Cox/GEE/mixed/multilevel), stats() incl. AIC/BIC recompute and n_sub aliases, compact mode, keep/drop, refcat, frames, console display, nopvalue |
 | `test_effecttab.do` | effecttab | margins/teffects collects, from() matrix path, IPTW PS-coefficient filtering, digits, frames, console-only returns, refcat() option (1.9.11) |
@@ -95,7 +95,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | File | Covers |
 |------|--------|
 | `validation_table1_tc.do` | Mean/SD/median/percent/p-values vs `summarize`/`tabulate`, weighted expanded-data oracle, Yang–Dalton multinomial Mahalanobis SMD, coding invariance, two-level reduction, descriptive identities, and Excel cell accuracy |
-| `validation_smallcells.do` | Independent bounded exhaustive 2x2/2x3 reconstruction oracles for every small table, safe fail-closed cases, tight-bound false-green cases, hidden logical cells, truthful full-block fallback and threshold boundaries, engine input guards, and `.p`/`.s`/`.d` rendering |
+| `validation_smallcells.do` | Independent bounded exhaustive 2x2/2x3 safety and irredundancy oracles for every small table, safe fail-closed cases, tight-bound false-green cases, hidden logical cells, truthful full-block fallback and threshold boundaries, engine input guards, and `.p`/`.s`/`.d` rendering |
 | `validation_regtab.do` | Native-stats suite; coefficients/CIs/p-values vs `e()`, r(table) algebra, Excel accuracy, pdp formatting |
 | `validation_effecttab.do` | ATE vs `e(b)`/`teffects`, SE/CI consistency, stored-results content |
 | `validation_stratetab.do` | Structure/content of rate scaffolds, return values |
