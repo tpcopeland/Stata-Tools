@@ -40,6 +40,8 @@ capture noisily {
     ado dir
     capture ado uninstall swimlane
     quietly net install swimlane, from("`pkg_dir'") replace
+    local tc_schemes_dir "`root'/tc_schemes"
+    capture quietly net install tc_schemes, from("`tc_schemes_dir'") replace
     discard
     which swimlane
 
@@ -81,6 +83,7 @@ capture noisily {
         colorby(arm) palette(colorblind) barlabel(duration) ///
         title("Oncology swimmer plot") ///
         xtitle("Days from enrollment") legend(pos(6) cols(3) holes(3)) ///
+        scheme(modern) ///
         savedata("`demo_dir'/swimmer_oncology.md") ///
         export("`demo_dir'/swimmer_oncology.png", replace width(1600)) ///
         name(sw_demo_oncology, replace)
@@ -137,7 +140,8 @@ capture noisily {
     swimlane, id(id) start(start) stop(stop) state(state) ///
         stateorder("Induction" "Maintenance" "Off treatment") ///
         title("Treatment-state swimlane") xtitle("Days") ///
-        legend(pos(6) rows(1)) savedata("`demo_dir'/state_episodes.md") ///
+        legend(pos(6) rows(1)) scheme(modern) ///
+        savedata("`demo_dir'/state_episodes.md") ///
         export("`demo_dir'/state_episodes.png", replace width(1600)) ///
         name(sw_demo_state, replace)
     confirm file "`demo_dir'/state_episodes.md"
@@ -150,7 +154,8 @@ capture noisily {
         eventlabels("Response" "Progression") ongoing(ongoing) by(arm) ///
         bylayout(compact) palette(colorblind) ///
         title("Swimmer plot by treatment arm") xtitle("Days from enrollment") ///
-        legend(pos(6) rows(1)) savedata("`demo_dir'/faceted_by_arm.md") ///
+        legend(pos(6) rows(1)) scheme(modern) ///
+        savedata("`demo_dir'/faceted_by_arm.md") ///
         export("`demo_dir'/faceted_by_arm.png", replace width(1600)) ///
         name(sw_demo_byarm, replace)
     confirm file "`demo_dir'/faceted_by_arm.md"
@@ -188,6 +193,7 @@ capture noisily {
         xtitle("Days from enrollment") ytitle("") ///
         legend(order(1 "Standard" 2 "Targeted" 3 "Combination") ///
             pos(6) rows(1) size(small) symxsize(8) colgap(3)) ///
+        scheme(modern) ///
         savedata("`demo_dir'/dense_overview.md") ///
         export("`demo_dir'/dense_overview.png", replace width(1600)) ///
         name(sw_demo_dense, replace)
@@ -233,7 +239,8 @@ capture noisily {
     stset t, failure(failed) id(pid)
 
     swimlane, id(pid) censor title("stset-derived swimlane") xtitle("Months") ///
-        legend(pos(6) rows(1)) savedata("`demo_dir'/stset_survival.md") ///
+        legend(pos(6) rows(1)) scheme(modern) ///
+        savedata("`demo_dir'/stset_survival.md") ///
         export("`demo_dir'/stset_survival.png", replace width(1600)) ///
         name(sw_demo_stset, replace)
     confirm file "`demo_dir'/stset_survival.md"
@@ -287,7 +294,8 @@ capture noisily {
     swimlane, id(id) start(start) stop(stop) eventvar(evflag) ///
         eventtime(evtime) eventtype(evtype) ///
         title("Patient timelines on a calendar axis") xtitle("Date") ///
-        legend(pos(6) rows(1)) savedata("`demo_dir'/long_events_dates.md") ///
+        legend(pos(6) rows(1)) scheme(modern) ///
+        savedata("`demo_dir'/long_events_dates.md") ///
         export("`demo_dir'/long_events_dates.png", replace width(1600)) ///
         name(sw_demo_dates, replace)
     confirm file "`demo_dir'/long_events_dates.md"
