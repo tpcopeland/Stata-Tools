@@ -2,7 +2,7 @@
 
 ---
 
-Production distribution repository for Stata packages (28 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (29 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -46,6 +46,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
+| [comorbidity](https://github.com/tpcopeland/Stata-Tools/tree/main/comorbidity) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--19-brightgreen) | Charlson, Elixhauser, or custom comorbidity scores from wide-format ICD-10 fields, with hierarchy rules and component indicators (requires codescan) |
 | [cstat_surv](https://github.com/tpcopeland/Stata-Tools/tree/main/cstat_surv) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Post-stcox Harrell's C-statistic with infinitesimal-jackknife SEs and confidence intervals |
 | [finegray](https://github.com/tpcopeland/Stata-Tools/tree/main/finegray) | ![version](https://img.shields.io/badge/version-1.2.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Fast Fine-Gray competing risks regression with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic |
 | [gcomp](https://github.com/tpcopeland/Stata-Tools/tree/main/gcomp) | ![version](https://img.shields.io/badge/version-1.4.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Parametric g-computation for mediation and time-varying confounding (includes gcomptab) |
