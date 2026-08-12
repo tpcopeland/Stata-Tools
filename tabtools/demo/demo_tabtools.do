@@ -22,9 +22,9 @@
         separate simtab .md files are emitted.
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
-      Per-command workbooks (14 xlsx files, 78 sheets total):
-        demo_table1.xlsx    (13 sheets) - table1_tc + themes + small cells
-        demo_desctab.xlsx   (8 sheets)  - desctab collect formatting + small cells
+      Per-command workbooks (14 xlsx files, 80 sheets total):
+        demo_table1.xlsx    (14 sheets) - table1_tc + themes + small cells
+        demo_desctab.xlsx   (9 sheets)  - desctab collect formatting + small cells
         demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
         demo_regtab_models.xlsx (10 sheets) - regtab model-family coverage
         demo_comptab.xlsx    (5 sheets) - comptab + source frames
@@ -544,6 +544,37 @@ noisily desctab, smallcells(5)
 
 * ## Complementary suppression: crosstab
 noisily crosstab group category, label smallcells(5)
+
+log off demo
+restore
+
+preserve
+clear
+input byte group byte rare_ae int frequency
+0 0 48
+0 1 2
+1 0 47
+1 1 3
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define yn 0 "No" 1 "Yes", replace
+label values rare_ae yn
+label variable rare_ae "Rare adverse event"
+
+log on demo
+
+* ## Binary variable suppression: table1_tc
+noisily table1_tc rare_ae, by(group) vars(rare_ae bin) ///
+    total(after) smallcells(5)
+
+* ## Binary variable suppression: desctab
+collect clear
+quietly collect: table group rare_ae, statistic(frequency)
+noisily desctab, smallcells(5)
 
 log off demo
 restore
@@ -1965,6 +1996,40 @@ assert r(N_primary_suppressed) == 2
 assert r(N_secondary_suppressed) == 2
 restore
 
+**## Binary variable suppression
+preserve
+clear
+input byte group byte rare_ae int frequency
+0 0 48
+0 1 2
+1 0 47
+1 1 3
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define yn 0 "No" 1 "Yes", replace
+label values rare_ae yn
+label variable rare_ae "Rare adverse event"
+
+table1_tc rare_ae, by(group) vars(rare_ae bin) total(after) ///
+    smallcells(5) ///
+    title("Small-cell suppression: binary variable") ///
+    xlsx("`xlsx_table1'") sheet("Small Cells Binary")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 0
+
+collect clear
+collect: table group rare_ae, statistic(frequency)
+desctab, smallcells(5) ///
+    title("Small-cell suppression: binary variable") ///
+    xlsx("`xlsx_desctab'") sheet("Small Cells Binary")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 2
+restore
+
 **## Verify primary and complementary markers in every workbook
 foreach _sc_cmd in table1 desctab crosstab {
     preserve
@@ -1997,6 +2062,23 @@ foreach _sc_cmd in table1 desctab crosstab {
     }
     assert `_sc_primary' == 2
     assert `_sc_secondary' == 2
+    restore
+}
+
+foreach _sc_cmd in table1 desctab {
+    preserve
+    import excel using "`xlsx_`_sc_cmd''", ///
+        sheet("Small Cells Binary") clear allstring
+    assert A[1] == "Small-cell suppression: binary variable"
+    local _sc_primary 0
+    local _sc_secondary 0
+    foreach _sc_v of varlist _all {
+        quietly count if strtrim(`_sc_v') == "<5"
+        local _sc_primary = `_sc_primary' + r(N)
+        quietly count if strtrim(`_sc_v') == "≥5"
+        local _sc_secondary = `_sc_secondary' + r(N)
+    }
+    assert `_sc_primary' >= 2
     restore
 }
 
