@@ -1,0 +1,10 @@
+# Generated QA outputs
+run_all.log
+*.log
+*.smcl
+*.dta
+*.csv
+*.xlsx
+*.png
+__pycache__/
+*.pyc
