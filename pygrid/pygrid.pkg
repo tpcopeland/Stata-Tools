@@ -1,0 +1,24 @@
+v 3
+d 'PYGRID': Person-period denominator grids with zero-filled event attachment
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260812
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d KW: person-time
+d KW: denominator
+d KW: event rates
+d
+f pygrid.ado
+f pyattach.ado
+f _pygrid_window.ado
+f _pygrid_expand.ado
+f _pygrid_pytime.ado
+f _pygrid_stamp.ado
+f _pygrid_report.ado
+f _pyattach_join.ado
+f pygrid.sthlp
+f pyattach.sthlp
