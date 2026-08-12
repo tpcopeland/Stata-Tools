@@ -1,0 +1,9 @@
+*.log
+*.smcl
+*.gph
+*.png
+*.csv
+*.md
+!README.md
+*.dta
+output/

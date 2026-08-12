@@ -1,0 +1,131 @@
+---
+title: "console_period_axes"
+---
+
+## Anniversary periods anchored on each person's index date
+
+```stata
+. noisily pygrid, id(id) start(index_date) end(followup_date)
+>     axis(anniversary) origin(index_date) partial(flag) keep(cohort) noisily
+```
+
+```
+pygrid:            2 persons,            7 period rows
+  empty windows:            0   partial periods:            2
+  person-time:        5.76591   axis: anniversary   convention: inclusive
+
+```
+
+```stata
+. format person_years %9.3f
+```
+
+```stata
+. noisily list id cohort period rel_period period_start period_stop
+>     person_years _partial, sepby(id) noobs abbreviate(16)
+```
+
+```
+  +---------------------------------------------------------------------------------------------+
+  |  id     cohort   period   rel_period   period_start   period_stop   person_years   _partial |
+  |---------------------------------------------------------------------------------------------|
+  | 201   Clinic A        1            0      15jun2020     14jun2021          0.999          0 |
+  | 201   Clinic A        2            1      15jun2021     14jun2022          0.999          0 |
+  | 201   Clinic A        3            2      15jun2022     14jun2023          0.999          0 |
+  | 201   Clinic A        4            3      15jun2023     20sep2023          0.268          1 |
+  |---------------------------------------------------------------------------------------------|
+  | 202   Clinic B        1            0      01oct2019     29sep2020          0.999          0 |
+  | 202   Clinic B        2            1      30sep2020     29sep2021          0.999          0 |
+  | 202   Clinic B        3            2      30sep2021     31mar2022          0.501          1 |
+  +---------------------------------------------------------------------------------------------+
+
+```
+
+```stata
+. noisily return list
+```
+
+```
+scalars:
+         r(period_max) =  4
+         r(period_min) =  1
+              r(pymax) =  .999315537303217
+              r(pymin) =  .2683093771389459
+            r(pytotal) =  5.765913757700205
+          r(N_partial) =  2
+        r(N_uncovered) =  0
+     r(N_empty_window) =  0
+             r(N_rows) =  7
+          r(N_persons) =  2
+
+macros:
+       r(pyconvention) : "inclusive"
+               r(unit) : "year"
+              r(width) : "1"
+               r(axis) : "anniversary"
+
+```
+
+## Fixed windows and person-time in days
+
+```stata
+. use "`anniversary_source'", clear
+```
+
+```stata
+. noisily pygrid, id(id) start(index_date) end(followup_date)
+>     axis(fixed) generate(window) startgen(observed_start)
+>     stopgen(observed_stop) pytime(days_at_risk) pyunit(day)
+>     keep(cohort) noisily
+```
+
+```
+pygrid:            2 persons,            2 period rows
+  empty windows:            0   partial periods:            0
+  person-time:           2106   axis: fixed   convention: inclusive
+
+```
+
+```stata
+. format observed_start observed_stop %td
+```
+
+```stata
+. noisily list id cohort window observed_start observed_stop days_at_risk,
+>     noobs abbreviate(16)
+```
+
+```
+  +-------------------------------------------------------------------------+
+  |  id     cohort   window   observed_start   observed_stop   days_at_risk |
+  |-------------------------------------------------------------------------|
+  | 201   Clinic A        1        15jun2020       20sep2023           1193 |
+  | 202   Clinic B        1        01oct2019       31mar2022            913 |
+  +-------------------------------------------------------------------------+
+
+```
+
+```stata
+. noisily return list
+```
+
+```
+scalars:
+         r(period_max) =  1
+         r(period_min) =  1
+              r(pymax) =  1193
+              r(pymin) =  913
+            r(pytotal) =  2106
+          r(N_partial) =  0
+        r(N_uncovered) =  0
+     r(N_empty_window) =  0
+             r(N_rows) =  2
+          r(N_persons) =  2
+
+macros:
+       r(pyconvention) : "inclusive"
+               r(unit) : "year"
+              r(width) : "1"
+               r(axis) : "fixed"
+
+```
