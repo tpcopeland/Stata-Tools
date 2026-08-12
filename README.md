@@ -2,7 +2,7 @@
 
 ---
 
-Production distribution repository for Stata packages (25 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (26 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -32,6 +32,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
+| [asof](https://github.com/tpcopeland/Stata-Tools/tree/main/asof) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--12-brightgreen) | Attach one eligible measurement record per identifier-anchor key with explicit direction, selection, tie, and window rules |
 | [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-4.1.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--10-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
 | [compress_tc](https://github.com/tpcopeland/Stata-Tools/tree/main/compress_tc) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Two-stage compression for string-heavy Stata data via strL and compress |
 | [datamap](https://github.com/tpcopeland/Stata-Tools/tree/main/datamap) | ![version](https://img.shields.io/badge/version-1.6.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Privacy-safe dataset maps, Markdown dictionaries, console QC/expectation gates (datacheck), and missing-value pattern analysis (datamvp) |

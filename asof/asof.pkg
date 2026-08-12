@@ -1,0 +1,16 @@
+v 3
+d asof: Index-anchored value extraction
+d
+d Requires: Stata version 16+
+d Distribution-Date: 20260812
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+f asof.ado
+f _asof_parse_rules.ado
+f _asof_load_using.ado
+f _asof_join.ado
+f _asof_report.ado
+f _asof_mata.ado
+f asof.sthlp
