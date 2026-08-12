@@ -1,0 +1,12 @@
+v 3
+d 'SWIMLANE': Swimmer and state swimlane plots
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+d Distribution-Date: 20260629
+d License: MIT
+p swimlane
+f swimlane.ado
+f swimlane.sthlp
+f _swimlane_resolve.ado
+f _swimlane_plot.ado
+f _swimlane_export.ado

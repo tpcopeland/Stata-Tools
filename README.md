@@ -2,7 +2,7 @@
 
 ---
 
-Production distribution repository for Stata packages (26 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (28 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -58,6 +58,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
+| [pygrid](https://github.com/tpcopeland/Stata-Tools/tree/main/pygrid) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--12-brightgreen) | Person-period denominator grids with zero-filled event attachment |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.5.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Swedish registry tools for Charlson scoring, migrations, and MS progression endpoints |
 | [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.15.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--10-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
 
@@ -71,6 +72,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | [kmplot](https://github.com/tpcopeland/Stata-Tools/tree/main/kmplot) | ![version](https://img.shields.io/badge/version-1.2.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Publication-ready Kaplan-Meier and cumulative failure curves with CI, risk tables, landmarks, saved data, median lines, and censor marks |
 | [raincloud](https://github.com/tpcopeland/Stata-Tools/tree/main/raincloud) | ![version](https://img.shields.io/badge/version-1.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Raincloud plots combining density, raw points, and box summaries |
 | [spaghetti](https://github.com/tpcopeland/Stata-Tools/tree/main/spaghetti) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Long-format longitudinal trajectory plots with optional group mean and CI overlays |
+| [swimlane](https://github.com/tpcopeland/Stata-Tools/tree/main/swimlane) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--29-brightgreen) | Swimmer and state swimlane plots for clinical and longitudinal data, with canonical-table export |
 | [tabtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools) | ![version](https://img.shields.io/badge/version-1.14.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Excel-ready manuscript tables with optional eplot forest-plot companions for regression, treatment-effect, composite, and survival workflows (Stata 17+ for most commands) |
 | [tc_schemes](https://github.com/tpcopeland/Stata-Tools/tree/main/tc_schemes) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Manage 45 bundled graph schemes (blindschemes, schemepack, cleanplots, modern, originals) from one command |
 
