@@ -1,0 +1,20 @@
+v 3
+d 'COMORBIDITY': Charlson and Elixhauser comorbidity indices from ICD code fields
+d
+d Requires: Stata version 16+; codescan
+d
+d Distribution-Date: 20260619
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d KW: comorbidity
+d KW: Charlson
+d KW: Elixhauser
+d KW: ICD-10
+d
+f comorbidity.ado
+f _comorbidity_dictionary.ado
+f _comorbidity_weights.ado
+f _comorbidity_hierarchy.ado
+f comorbidity.sthlp
