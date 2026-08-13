@@ -1,4 +1,4 @@
-*! cdp Version 1.5.4  2026/08/11
+*! cdp Version 1.5.5  2026/08/13
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -434,9 +434,6 @@ program define cdp, rclass
         di as text "  Variable created: `generate'"
         if "`eventvar'" != "" {
             di as text "  Event indicator: `eventvar'"
-        }
-        if `cdp_converged' == 0 {
-            di as text "  Note: confirmation did not converge (results may be approximate)"
         }
     }
 

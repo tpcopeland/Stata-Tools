@@ -1,4 +1,4 @@
-*! table1_tc Version 1.14.2  2026/08/11 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.15.0  2026/08/13 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -128,7 +128,7 @@ program define table1_tc, rclass
     }
 
     if "`smallcells'" != "" {
-        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
+        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction. Percentages are withheld for any variable carrying a suppressed count."
         if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
             if `"`footnote'"' == "" local footnote `"`_sc_note'"'
             else local footnote `"`footnote' `_sc_note'"'
@@ -275,6 +275,19 @@ program define table1_tc, rclass
     local _show_wtn = ("`percent_n'" != "" | "`wtn'" != "")
     if `has_wt' & !`_show_wtn' & "`wtcompare'" == "" {
         local percent "percent"
+    }
+
+    /* A percent-only cell publishes nothing BUT the percentage, and a published
+       percentage releases its own denominator (the per-variable non-missing
+       count). A protected block has to withhold that percentage, which would
+       leave the block empty, so the combination cannot be protected and is
+       refused rather than shipped as a reconstructable table. This check sits
+       after the weighted default above so it catches an implicitly set
+       percent, not only an explicitly requested one. */
+    if "`smallcells'" != "" & "`percent'" != "" {
+        display as error "smallcells() cannot be combined with percent-only display"
+        display as error "Hint: use percent_n, wtn, or the default n (%); percentages are withheld for any variable that carries a suppressed count"
+        exit 198
     }
 
     /* Validate new options */
