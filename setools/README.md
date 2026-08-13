@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.4** | 2026-08-11
+**Version 1.5.5** | 2026-08-13
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -453,6 +453,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.5** (2026-08-13): Fixed `migrations` silently dropping the emigration censoring date for a person who immigrated before study start and emigrated permanently after it; because `in_`/`out_` are independently numbered, both events could share one reshape row and the immigration-only pre-filter discarded the row wholesale. This also made wide- and long-format migration files disagree. Corrected the `r(converged)` description in `cdp`, `pira`, and `sustainedss` (it is always 1; non-convergence exits with error r(430)) and removed the unreachable display branches, a no-op wide-format date assignment, and a duplicate-name hazard in the `pira` working varlist.
 - **1.5.4** (2026-08-11): Enforced person-level diagnosis and exit-date consistency across the full sampled data, rejected invalid PIRA relapse-file variable names during syntax parsing, removed a PIRA scratch/output namespace collision, isolated internal helpers from variable-abbreviation state, hardened file-handle cleanup, and simplified decorative console output.
 - **1.5.3** (2026-08-05): Corrected the `migrations` reserved-namespace documentation to match its `_mig_*` working-state contract.
 - **1.5.2** (2026-08-05): Restored the documented `q` minimum abbreviation for `migrations`' `quietly`, moved the `migrations` internal workspace fully into the reserved `_mig_*` namespace, and added an up-front refusal when master data already occupies that namespace.

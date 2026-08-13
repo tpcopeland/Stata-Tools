@@ -1,4 +1,4 @@
-*! corrtab Version 1.14.2  2026/08/11
+*! corrtab Version 1.15.0  2026/08/13
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -215,9 +215,17 @@ program define corrtab, rclass
                 forvalues _k = 1/`_nstars' {
                     local _smark "`_smark'*"
                 }
+                * The legend must not echo the threshold token: the DEFAULT
+                * arrives as the literal string "0.001 0.01 0.05", while a
+                * user-supplied star() has already been through numlist, which
+                * strips the leading zero. Echoing gave "p<0.05" by default and
+                * "p<.05" for star(0.05 0.01 0.001) -- same thresholds, same
+                * table, two legends. Render every threshold the same way.
+                local _sltxt = strtrim(string(`_sl', "%12.0g"))
+                if substr("`_sltxt'", 1, 1) == "." local _sltxt = "0`_sltxt'"
                 local ++_fn_count
                 if `_fn_count' > 1 local _star_note "`_star_note', "
-                local _star_note `"`_star_note'`_smark' p<`_sl'"'
+                local _star_note `"`_star_note'`_smark' p<`_sltxt'"'
             }
         }
 

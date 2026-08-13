@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.1.3  2026/08/10
+*! codescan_describe Version 4.1.4  2026/08/13
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -181,11 +181,17 @@ program define codescan_describe, rclass
         matrix `top_codes'[`i', 1] = `_tc_freq'
         matrix `top_codes'[`i', 2] = `_tc_pct'
         matrix `top_codes'[`i', 3] = `_tc_cum'
-        * Stata matrix row names are limited to 32 characters. Preserve the
-        * exact displayed value in r(top_code_#), and use a deterministic,
-        * collision-free alias only when the value cannot be a row name.
+        * Preserve the exact displayed value in r(top_code_#), and use a
+        * deterministic, collision-free alias whenever the value cannot be a row
+        * name. "Cannot be a row name" is decided by _codescan_rowname_safe()
+        * (see the Mata block below), not by length alone: a code well inside
+        * the 32-character limit can still fail to survive the macro-expanded
+        * "matrix rownames" round trip — a leading space, a ":", a "$" — and
+        * Stata answers that by silently substituting its positional default
+        * (r1, r2, ...) at rc=0, so " PAD" and ":Q1" came back as "PAD" and
+        * "Q1". Testing only the length let every one of those through.
         local _tc_rowname `"`_tc_code'"'
-        if strlen(`"`_tc_rowname'"') > 32 {
+        if !`_desc_code_safe_`i'' {
             local _tc_rowname "_cs_code_`i'"
         }
         * A short code can itself equal an alias selected for an earlier long
@@ -223,14 +229,31 @@ program define codescan_describe, rclass
             _col(24) as result %9.0fc `ne'
     }
 
-    * Build r(chapters) matrix
+    * Build r(chapters) matrix.
+    *
+    * Same row-name hazard as r(top_codes) above, and it used to have no escape
+    * hatch at all: a leading character of " " or ":" is a perfectly ordinary
+    * chapter in fixed-width registry data, but neither survives as a row name,
+    * so r(chapters) came back labelled r1 and r3 and the caller could not tell
+    * which chapter either row described. Alias the unusable ones and publish
+    * the exact character in r(chapter_#), mirroring r(top_code_#).
     matrix `chapters' = J(`n_chapters', 2, .)
     local _ch_rnames ""
     forvalues i = 1/`n_chapters' {
         local _ch_ch "`_desc_ch_`i''"
         matrix `chapters'[`i', 1] = `_desc_ch_codes_`i''
         matrix `chapters'[`i', 2] = `_desc_ch_entries_`i''
-        local _ch_rnames `"`_ch_rnames' `"`_ch_ch'"'"'
+        local _ch_rowname `"`_ch_ch'"'
+        if !`_desc_ch_safe_`i'' {
+            local _ch_rowname "_cs_chapter_`i'"
+        }
+        * No collision loop here, unlike r(top_codes). A chapter is always ONE
+        * character (usubstr(code, 1, 1)) and the chapters are distinct by
+        * construction, so a chapter can never equal a 13-character
+        * _cs_chapter_# alias and two aliases differ by index. The top-codes
+        * loop needs its check because a short code CAN equal an alias picked
+        * for a longer one; that cannot happen here.
+        local _ch_rnames `"`_ch_rnames' `"`_ch_rowname'"'"'
     }
     matrix rownames `chapters' = `_ch_rnames'
     matrix colnames `chapters' = codes entries
@@ -319,6 +342,14 @@ program define codescan_describe, rclass
                 return local top_code_`i' `"`_desc_code_`i''"'
             }
         }
+        * The exact leading character for each r(chapters) row, in row order.
+        * The row NAME may be an alias when the character cannot be one, so
+        * this is the only place the chapter identity is always recoverable.
+        if `n_chapters' > 0 {
+            forvalues i = 1/`n_chapters' {
+                return local chapter_`i' `"`_desc_ch_`i''"'
+            }
+        }
     }
     if `rc' exit `rc'
 end
@@ -328,6 +359,37 @@ end
 * =============================================================================
 
 mata:
+// Can this string survive the round trip into a Stata matrix row name?
+//
+// Row names are set by macro-expanding a quoted name list into `matrix
+// rownames', and a name that cannot survive that expansion is NOT rejected —
+// Stata silently substitutes its positional default (r1, r2, ...), so the row
+// stops identifying anything at rc=0. Census over printable ASCII 32-126, each
+// character tested alone and as a leading character:
+//
+//   (space)  leading/trailing whitespace is stripped; an all-space name
+//            collapses to the positional default
+//   "        terminates the quoted name
+//   $        is macro-expanded away at expansion time
+//   `        opens a macro reference (r(132), too few quotes)
+//   :        is parsed as the equation-name separator
+//
+// Every other printable character round-trips verbatim, and an INTERIOR space
+// is safe — only leading/trailing whitespace is stripped — so codes such as
+// "A B", "A/B" and "A-B" keep their own names and are deliberately untouched.
+// The 32-character cap is Stata's documented row-name limit.
+real scalar _codescan_rowname_safe(string scalar s)
+{
+    if (s == "") return(0)
+    if (strtrim(s) != s) return(0)
+    if (strlen(s) > 32) return(0)
+    if (strpos(s, char(34)) > 0) return(0)
+    if (strpos(s, "$") > 0) return(0)
+    if (strpos(s, char(96)) > 0) return(0)
+    if (strpos(s, ":") > 0) return(0)
+    return(1)
+}
+
 void _codescan_describe_tabulate()
 {
     string rowvector scanvars
@@ -417,6 +479,8 @@ void _codescan_describe_tabulate()
         si = sort_idx[i]
         st_local("_desc_code_" + strofreal(i), skeys[si])
         st_local("_desc_freq_" + strofreal(i), strofreal(sfreqs[si]))
+        st_local("_desc_code_safe_" + strofreal(i),
+                 strofreal(_codescan_rowname_safe(skeys[si])))
     }
 
     // Chapter summary: group by first character
@@ -458,6 +522,8 @@ void _codescan_describe_tabulate()
         st_local("_desc_ch_" + strofreal(i), sch_keys[ci])
         st_local("_desc_ch_codes_" + strofreal(i), strofreal(cv[1]))
         st_local("_desc_ch_entries_" + strofreal(i), strofreal(cv[2]))
+        st_local("_desc_ch_safe_" + strofreal(i),
+                 strofreal(_codescan_rowname_safe(sch_keys[ci])))
     }
 }
 end

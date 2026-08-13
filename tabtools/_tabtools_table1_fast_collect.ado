@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.14.2  2026/08/11
+*! _tabtools_table1_fast_collect Version 1.15.0  2026/08/13
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1069,15 +1069,35 @@ program define _tabtools_table1_fast_collect, rclass
                         else local _sc_denstr = string(`_grpN', "`nformat'")
                         local _nstr = "`_nstr'" + "/" + "`_sc_denstr'"
                     }
+                    * A published percentage releases its own denominator -- the
+                    * per-variable, per-group NON-MISSING count -- which the
+                    * suppression engine is not told about: it is handed the
+                    * group N as the column margin and leaves the missing row
+                    * free. A reader who divides a published count by its
+                    * published percentage recovers that denominator and then
+                    * subtracts, which reconstructs a primary-suppressed count
+                    * exactly. Withhold every percentage in a block that carries
+                    * a primary suppression, so what is published is exactly
+                    * what the engine certified.
+                    local _sc_pct_blocked 0
+                    if `_smallcells_active' {
+                        if `sc_derived'[`i', 1] == 1 {
+                            local _sc_pct_blocked 1
+                            local _perc ""
+                        }
+                    }
                     if "`percent_n'" == "" & "`percent'" == "" {
                         local _cola `"`_nstr'"'
                         local _colb "(`_perc')"
+                        if `_sc_pct_blocked' local _colb ""
                     }
                     else {
                         local _cola `"`_perc'"'
                         local _colb ""
+                        if `_sc_pct_blocked' local _cola `"`_nstr'"'
                     }
-                    if "`percent_n'" == "percent_n" & "`percent'" == "" local _colb "(`_nstr')"
+                    if "`percent_n'" == "percent_n" & "`percent'" == "" & !`_sc_pct_blocked' ///
+                        local _colb "(`_nstr')"
                     * Only separate the two components when there IS a second
                     * component: percent-only cells otherwise end in a literal
                     * trailing space ("60 ") that reaches every flat sink.
@@ -1203,15 +1223,28 @@ program define _tabtools_table1_fast_collect, rclass
                             else local _sc_denstr = string(`_sc_den', "`nformat'")
                             local _nstr = "`_nstr'" + "/" + "`_sc_denstr'"
                         }
+                        * See the companion note above: a published percentage
+                        * releases the denominator the engine models as free, so
+                        * a protected block publishes counts only.
+                        local _sc_pct_blocked 0
+                        if `_smallcells_active' {
+                            if `sc_derived'[`i', 1] == 1 {
+                                local _sc_pct_blocked 1
+                                local _perc ""
+                            }
+                        }
                         if "`percent_n'" == "" & "`percent'" == "" {
                             local _cola `"`_nstr'"'
                             local _colb "(`_perc')"
+                            if `_sc_pct_blocked' local _colb ""
                         }
                         else {
                             local _cola `"`_perc'"'
                             local _colb ""
+                            if `_sc_pct_blocked' local _cola `"`_nstr'"'
                         }
-                        if "`percent_n'" == "percent_n" & "`percent'" == "" local _colb "(`_nstr')"
+                        if "`percent_n'" == "percent_n" & "`percent'" == "" & !`_sc_pct_blocked' ///
+                            local _colb "(`_nstr')"
                         * Only separate the two components when there IS a second
                         * component: percent-only cells otherwise end in a literal
                         * trailing space ("60 ") that reaches every flat sink.

@@ -450,8 +450,16 @@ capture noisily {
     end
     expand frequency
     drop frequency
-    table1_tc category, by(group) vars(category cat) missing ///
+    * 1.15.0: this call used to carry `percent' as well. A percent-only display
+    * publishes nothing BUT the percentage, and a published percentage releases
+    * its own denominator, so a protected block has nothing left it can safely
+    * show; the combination is refused now rather than shipped reconstructable.
+    * Assert the refusal here, then exercise the remaining compositions.
+    capture table1_tc category, by(group) vars(category cat) missing ///
         total(before) percent catrowperc smallcells(3) clear
+    assert _rc == 198
+    table1_tc category, by(group) vars(category cat) missing ///
+        total(before) catrowperc smallcells(3) clear
     confirm variable factor
     ds factor, not
     local public_cells "`r(varlist)'"

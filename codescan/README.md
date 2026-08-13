@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.1.3** | 2026-08-10
+**Version 4.1.4** | 2026-08-13
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -368,6 +368,12 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.1.4 (2026-08-13)
+
+- `collapse` no longer discards its own result when a later side effect fails. A failing `export()`, `saving()`, or `graph` used to leave the caller with a dataset holding nothing but `id()`: the rows were already gone to the collapse, and the error path then dropped every indicator. Dropping the outputs is a rollback only while the pre-call data is still there to roll back to, so it is now skipped once `collapse` has consumed the data. The `preserve`, `frame()`, `merge`, and row-level paths are unchanged and still roll back in full.
+- `codescan_describe` no longer loses a code or chapter identity in `r(top_codes)` and `r(chapters)`. A row name that cannot survive Stata's macro-expanded `matrix rownames` — one beginning or ending with a space, or containing `"`, `$`, a backquote, or `:` — was silently replaced by Stata's positional default (`r1`, `r2`), so a chapter of `" "` or `":"` came back unidentifiable. Such rows now receive a bounded `_cs_code_#` / `_cs_chapter_#` alias. The previous guard tested length only.
+- New `r(chapter_#)` returns the exact leading character for each `r(chapters)` row, in row order, mirroring the existing `r(top_code_#)`. It is the reliable way to read a chapter identity when a row was aliased.
 
 ### 4.1.3 (2026-08-10)
 

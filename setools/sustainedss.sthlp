@@ -285,7 +285,7 @@ date.{p_end}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(N_events)}}number of patients with a sustained event{p_end}
 {synopt:{cmd:r(iterations)}}number of iterations required by the algorithm{p_end}
-{synopt:{cmd:r(converged)}}whether the algorithm converged{p_end}
+{synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
 {synopt:{cmd:r(threshold)}}EDSS threshold used{p_end}
 {synopt:{cmd:r(confirmwindow)}}confirmation window in days{p_end}
 {synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}

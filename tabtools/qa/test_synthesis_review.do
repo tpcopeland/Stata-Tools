@@ -282,7 +282,13 @@ capture noisily {
     * ship "0.54**" with nothing explaining the mark.
     local _fn = v1[_N]
     assert strpos(`"`_fn'"', "`_sr_f'") == 1
-    assert strpos(`"`_fn'"', "p<.05") > 0
+    * 1.15.0: this assertion used to read "p<.05" and so PINNED the legend
+    * defect it was standing next to -- corrtab printed "p<0.05" for its default
+    * thresholds and "p<.05" for the identical thresholds passed through star(),
+    * because the default is a literal string while star() has been through
+    * numlist. The claim this test exists to make is that the generated legend
+    * REACHES the CSV, not which of two spellings it arrives in.
+    assert strpos(`"`_fn'"', "p<0.05") > 0
     assert strtrim(v1[_N - 1]) != ""
 }
 if _rc == 0 {
