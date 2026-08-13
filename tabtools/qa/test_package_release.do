@@ -1595,7 +1595,13 @@ else {
             file close `widthfh'
             assert substr("`width_line'", 1, 4) == "PASS"
         }
-        assert `actual_sheets' == 80
+        * 80 -> 82 at 1.15.0. Commit 3c5f99c0 added a "Small Cells Binary"
+        * sheet to demo_table1.xlsx (13 -> 14) and demo_desctab.xlsx (8 -> 9)
+        * and left this literal and the README count at 80, so this gate was
+        * RED on main from that commit until it was noticed here. Keep the
+        * number literal: deriving it from the README would make the check
+        * vacuous, and it is the literal that caught the drift.
+        assert `actual_sheets' == 82
         tempfile readme_hit
         shell grep -F "(`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
         tempname readmefh

@@ -1,4 +1,4 @@
-*! tvage Version 1.15.0  2026/08/10
+*! tvage Version 1.16.0  2026/08/13
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -89,6 +89,23 @@ program define tvage, rclass
     _tvtools_check_dates, cmd(tvage) dates(`dobvar' `entryvar' `exitvar') ///
         startvar(`entryvar') stopvar(`exitvar')
 
+    * Follow-up cannot begin before birth. Left unchecked, attained age at
+    * entry goes negative, the minage() clamp below raises it to minage, and
+    * the effective interval start is moved forward to the birth anniversary
+    * -- silently deleting the pre-birth person-days at rc=0. That loss is
+    * invisible on every channel: the row count is unchanged, the noisily
+    * report says nothing, and r() has no counter for it. Refuse it with the
+    * same code the reversed-bounds contract already uses, so tvage never
+    * discards person-time without an error.
+    quietly count if `entryvar' < `dobvar'
+    if r(N) > 0 {
+        local n_pre_birth = r(N)
+        display as text "  (list them with: list `idvar' `dobvar' `entryvar' if `entryvar' < `dobvar')"
+        display as error "Malformed tvage input: `n_pre_birth' row(s) have entry(`entryvar') before dob(`dobvar')"
+        display as error "Follow-up cannot begin before birth; correct the dates or exclude those persons."
+        exit 498
+    }
+
     * Set default variable names
     if "`generate'" == "" local generate "age_tv"
     if "`startgen'" == "" local startgen "age_start"
@@ -146,6 +163,12 @@ program define tvage, rclass
         exit 459
     }
 
+    * Input person count, captured before any age filtering. r(n_persons)
+    * counts the OUTPUT, so this is the only thing that makes an age-window
+    * drop detectable from r() without recounting the input by hand.
+    local n_persons_in = _N
+    local n_persons_dropped = 0
+
     * Preserve original data
     preserve
 
@@ -185,15 +208,18 @@ program define tvage, rclass
         replace `age_entry' = max(`age_entry', `minage')
         replace `age_exit' = min(`age_exit', `maxage')
 
-        * Drop persons with invalid age range after clamping
+        * Drop persons whose whole follow-up falls outside [minage, maxage].
+        * The truncation itself is documented, but it deletes person-time, so
+        * the count is reported unconditionally -- not behind the noisily
+        * option, which is off by default and would leave a 30%-smaller
+        * denominator with an empty console. Every sibling command in the
+        * suite (tvmerge, tvbuild, tvdiagnose) reports its drops this way.
         count if `age_exit' < `age_entry'
         if r(N) > 0 {
-            local n_invalid = r(N)
-            if "`noisily'" != "" {
-                noisily display as text ///
-                    "Warning: `n_invalid' observation(s) dropped" ///
-                    " (invalid age range after clamping)"
-            }
+            local n_persons_dropped = r(N)
+            noisily display as text ///
+                "Note: `n_persons_dropped' person(s) contributed no rows" ///
+                " (follow-up entirely outside minage(`minage')/maxage(`maxage'))"
             drop if `age_exit' < `age_entry'
         }
 
@@ -356,6 +382,10 @@ program define tvage, rclass
         _tvtools_rule
         _tvtools_row "persons", num(`n_persons')
         _tvtools_row "observations", num(`n_obs')
+        if `n_persons_dropped' > 0 {
+            _tvtools_row "persons dropped", num(`n_persons_dropped') ///
+                note("(outside minage()/maxage())")
+        }
         if `groupwidth' == 1 {
             _tvtools_row "age grouping", value("none (continuous)")
         }
@@ -376,6 +406,8 @@ program define tvage, rclass
 
     * Return values
     return scalar n_persons = `n_persons'
+    return scalar n_persons_in = `n_persons_in'
+    return scalar n_persons_dropped = `n_persons_dropped'
     return scalar n_observations = `n_obs'
     return scalar groupwidth = `groupwidth'
     return local varname "`generate'"

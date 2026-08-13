@@ -442,6 +442,19 @@ zeros remain visible and are never selected as complementary
 cells.{p_end}
 
 {pstd}
+{bf:Percentages are withheld for a protected variable.} A published percentage
+releases its own denominator: dividing a published count by its published
+percentage recovers the per-variable non-missing group total, after which the
+remaining counts follow by subtraction. Whenever a variable's block carries a
+primary suppression, {cmd:table1_tc} therefore publishes counts only for that
+variable, in every column including {opt total()}. Other variables keep their
+percentages. For the same reason {opt smallcells()} may not be combined with a
+percent-only display -- explicit {opt percent}, or the percent-only default that
+{opt wt()} applies without {opt wtn} or {opt percent_n} -- because a protected
+block would then have nothing left to publish; use {opt percent_n}, {opt wtn}, or
+the default {cmd:n (%)}.{p_end}
+
+{pstd}
 After certification, the command tests each complementary marker for removal
 in a stable order and repeats until none can be revealed safely. Every remaining
 {cmd:≥#} is therefore individually necessary in the final protected table

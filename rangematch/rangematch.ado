@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.2  2026/08/10
+*! rangematch Version 1.5.3  2026/08/13
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -167,29 +167,83 @@ program define _rangematch_build_output_names, sclass
         local _rm_touse_var "`touse'"
         local master_vars : list master_vars - _rm_touse_var
 
+        * Screen prefix()/suffix() once, against a one-character stem, before
+        * either is used to construct a real name. Two separate screens:
+        *
+        * WHITESPACE. Both options are declared string, so either may carry a
+        * space, and a decorated name built from one is appended to a
+        * SPACE-DELIMITED macro list. The list re-splits it into two words while
+        * carry_vars keeps one word per variable, and _rm_materialize pairs the
+        * two positionally -- so every carried variable after the first
+        * decorated name lands under the NEXT name in the list. prefix("p q")
+        * on a colliding dup1, with a clean zz behind it, produced a column
+        * named qdup1 holding zz's data and a column named zz holding the match
+        * key, at rc=0 and with no warning. The uniqueness screen further down
+        * caught this only when a stray token happened to collide with
+        * something, which is why two colliding variables errored and one did
+        * not. An affix containing whitespace cannot produce a legal variable
+        * name under any circumstances, so this is pure input validation.
+        *
+        * CHARACTERS. The per-variable check below fires only for names that
+        * are actually decorated, so without a probe here a malformed prefix
+        * such as prefix(2x) would become a silent no-op whenever nothing
+        * collided. Length is deliberately NOT judged here: whether the
+        * 32-character cap is breached depends on the variable being decorated,
+        * which is a per-variable question answered below.
+        local _rm_affix_probe "`prefix'x`suffix'"
+        local _rm_affix_words : word count `_rm_affix_probe'
+        if `_rm_affix_words' != 1 {
+            display as error ///
+                "prefix() and suffix() may not contain spaces"
+            exit 198
+        }
+        capture confirm name `_rm_affix_probe'
+        if _rc {
+            display as error ///
+                `"prefix()/suffix() do not form a legal variable name: {bf:`prefix'}...{bf:`suffix'}"'
+            exit 198
+        }
+
         local out_names ""
         foreach v of local carry_vars {
             local outname "`prefix'`v'`suffix'"
-            capture confirm name `outname'
-            if _rc {
-                display as error ///
-                    `"prefix()/suffix() constructs invalid output name {bf:`outname'}"'
-                exit 198
-            }
+            * Decide whether the decorated name is USED before validating it.
+            * Without all, prefix()/suffix() apply only to a carried variable
+            * whose name collides with a master variable; a non-colliding
+            * variable keeps its own name and the decorated form is never
+            * built. Validating unconditionally rejected the entire join --
+            * rc=198, "constructs invalid output name" -- whenever a using
+            * variable's name ran to 31 or 32 characters, because decorating it
+            * overflows Stata's 32-character cap. The name it complained about
+            * was one it had no intention of using, and the variable would have
+            * been carried under its own perfectly legal name. Nor could the
+            * user opt out: prefix("") and suffix("") both parse as NOT
+            * SUPPLIED, so the "_U" default is reapplied downstream, leaving no
+            * way to run the join at all short of renaming the source column.
+            local use_decorated = 0
             if "`all'" != "" {
+                local use_decorated = 1
+            }
+            else {
+                foreach mv of local master_vars {
+                    if "`v'" == "`mv'" local use_decorated = 1
+                }
+            }
+            if `use_decorated' {
+                capture confirm name `outname'
+                if _rc {
+                    display as error ///
+                        `"prefix()/suffix() constructs invalid output name {bf:`outname'}"'
+                    if strlen("`outname'") > 32 {
+                        display as error ///
+                            `"the decorated name exceeds Stata's 32-character limit; rename {bf:`v'} in the using data or shorten prefix()/suffix()"'
+                    }
+                    exit 198
+                }
                 local out_names `"`out_names' `outname'"'
             }
             else {
-                local conflict = 0
-                foreach mv of local master_vars {
-                    if "`v'" == "`mv'" local conflict = 1
-                }
-                if `conflict' {
-                    local out_names `"`out_names' `outname'"'
-                }
-                else {
-                    local out_names `"`out_names' `v'"'
-                }
+                local out_names `"`out_names' `v'"'
             }
         }
         local out_names : list retokenize out_names
@@ -832,7 +886,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.2"
+    local _rm_required_mata_version "1.5.3"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc

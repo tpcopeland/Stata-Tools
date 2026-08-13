@@ -1,4 +1,4 @@
-*! pira Version 1.5.4  2026/08/11
+*! pira Version 1.5.5  2026/08/13
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -379,8 +379,11 @@ program define pira, rclass
     // switching (use/clear) happens within the same program scope.
     // All _pira_* variables are cleaned up by keep/drop before restore.
 
-    // Keep only relevant variables
-    qui keep `idvar' `edssvar' `datevar' `dxdate'
+    // Keep only relevant variables. dxdate() may name a positional variable
+    // (e.g. dxdate(`datevar')), so deduplicate before keep.
+    local _pira_workvars "`idvar' `edssvar' `datevar' `dxdate'"
+    local _pira_workvars : list uniq _pira_workvars
+    qui keep `_pira_workvars'
 
     // Drop missing EDSS or date values
     qui drop if missing(`edssvar') | missing(`datevar')
@@ -606,9 +609,6 @@ program define pira, rclass
         di as text _n "  Variables created: `generate', `rawgenerate'"
         if "`eventvar'" != "" {
             di as text "  Event indicator: `eventvar'"
-        }
-        if `pira_converged' == 0 {
-            di as text "  Note: confirmation did not converge (results may be approximate)"
         }
     }
 

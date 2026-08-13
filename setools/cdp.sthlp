@@ -299,7 +299,7 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(N_events)}}total number of CDP events{p_end}
 {synopt:{cmd:r(confirmdays)}}confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
-{synopt:{cmd:r(converged)}}whether confirmation converged{p_end}
+{synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
 {synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}

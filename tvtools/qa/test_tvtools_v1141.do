@@ -354,9 +354,12 @@ _k3_record `ok' I5_tvspec_hint "rc=`spec_rc'"
 
 **# tvtools catalog framing and Unicode row width
 local catalog_log "$TVTOOLS_QA_RUN_DIR/k3_catalog.log"
+local catalog_version ""
 capture noisily {
     quietly log using "`catalog_log'", replace text nomsg name(k3catalog)
     noisily tvtools, list
+    * Read r() before closing the log; a log command clears it.
+    local catalog_version "`r(version)'"
     quietly log close k3catalog
 }
 local catalog_rc = _rc
@@ -370,9 +373,17 @@ if `first_rule' > 0 {
     local rest = substr(`"`catalog_content'"', `first_rule' + 1, .)
     local second_rule = strpos(`"`rest'"', "`rule68'")
 }
-local ok = `catalog_rc' == 0 & ///
-    strpos(`"`catalog_content'"', "Version 1.15.0") > 0 & `second_rule' > 0
-_k3_record `ok' M2_catalog_frame "rc=`catalog_rc'"
+* The banner version is compared against r(version) rather than a literal. A
+* hardcoded version here has to be edited on every release and silently turns
+* the framing check red when it is not -- and the invariant that actually
+* matters is that the rendered banner and the stored result agree, which a
+* literal cannot express. Package-wide version consistency is gated separately
+* by `check version tvtools`.
+local ok = `catalog_rc' == 0 & "`catalog_version'" != "" & ///
+    strpos(`"`catalog_content'"', "Version `catalog_version'") > 0 & ///
+    `second_rule' > 0
+_k3_record `ok' M2_catalog_frame ///
+    "rc=`catalog_rc' version=`catalog_version'"
 
 local unicode_log "$TVTOOLS_QA_RUN_DIR/k3_unicode.log"
 capture noisily {

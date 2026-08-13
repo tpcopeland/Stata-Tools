@@ -151,7 +151,9 @@ nonlinear monotonic data).{p_end}
 
 {phang}
 {opt star(numlist)} Significance thresholds for stars; up to 3 unique values in (0,1); default
-{cmd:0.001 0.01 0.05}. Not with {opt pvalues}.{p_end}
+{cmd:0.001 0.01 0.05}. The generated legend renders each threshold with a leading
+zero ({cmd:p<0.05}) whether it came from the default or from {opt star()}. Not
+with {opt pvalues}.{p_end}
 
 {phang}
 {opt title(string)} table title written to cell A1{p_end}

@@ -341,7 +341,7 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(windowafter)}}days after relapse in the exclusion window{p_end}
 {synopt:{cmd:r(confirmdays)}}CDP confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
-{synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
+{synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
 {synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}

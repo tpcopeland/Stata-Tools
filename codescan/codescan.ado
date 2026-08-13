@@ -1,4 +1,4 @@
-*! codescan Version 4.1.3  2026/08/10
+*! codescan Version 4.1.4  2026/08/13
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -93,6 +93,7 @@ program define codescan, rclass
     local _did_preserve      = 0
     local _internal_preserve = 0
     local _outputs_created   = 0
+    local _data_collapsed    = 0
     capture noisily {
 
     * =========================================================================
@@ -1391,6 +1392,10 @@ program define codescan, rclass
 
         quietly count
         local N_collapsed = r(N)
+        * The caller's row-level data no longer exists. Recorded for the cleanup
+        * zone, which must not treat "drop the outputs" as a rollback from here
+        * on — there is nothing left to roll back TO.
+        local _data_collapsed = 1
     }
 
     * =========================================================================
@@ -2190,7 +2195,18 @@ program define codescan, rclass
         * variables — dropping them there is the C1 data-loss defect, not
         * cleanup. Reached only when nothing collided, in which case every
         * planned name was created by this run and is ours to remove.
-        if !`_rolled_back' & "`_outputs'" != "" & `_outputs_created' {
+        *
+        * ...and never after collapse consumed the data. Dropping outputs is a
+        * rollback only while the caller's pre-call data is still there to roll
+        * back to. Once collapse has run without a snapshot, it is not: the rows
+        * are already gone, so the drop cannot restore anything and instead
+        * destroys the run's only surviving product, handing back a dataset
+        * holding nothing but id(). Every fallible side effect here (graph,
+        * export, saving) runs AFTER the analysis is complete and r() is posted,
+        * so the collapsed result is analytical payload — it survives a failed
+        * side effect for the same reason r() does. The snapshot paths are
+        * unaffected: preserve and frame() still restore in full.
+        if !`_rolled_back' & !`_data_collapsed' & "`_outputs'" != "" & `_outputs_created' {
             capture noisily _codescan_cleanup_outputs, outputs("`_outputs'") ///
                 scanvars("`varlist'") protected("`id' `date' `refdate'")
         }

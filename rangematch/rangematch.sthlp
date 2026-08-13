@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  10aug2026}{...}
+{* *! version 1.5.3  13aug2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -140,8 +140,9 @@ definition is copied under a collision-free name ({it:name}{cmd:_U}, then
 {it:name}{cmd:_U2}, and so on), to which the carried using variables are
 attached; carried variables sharing one mapping share one copy. Both meanings
 therefore survive, and {helpb decode} on a carried variable returns the using
-data's own text. Dataset {helpb notes} and {cmd:_dta[]} characteristics are not
-carried onto the output; unlike {helpb merge}, which leaves the master data in
+data's own text. Neither dataset {helpb notes} nor {helpb char:characteristics}
+are carried onto the output, and that covers variable-level characteristics as
+well as {cmd:_dta[]} ones; unlike {helpb merge}, which leaves the master data in
 place, {cmd:rangematch} rebuilds the result from the matched rows.
 
 {pstd}
@@ -224,7 +225,9 @@ renamed with suffix {bf:_U}. An explicitly empty {cmd:prefix("")} or
 still applies to conflicting names. To keep a conflicting using variable under
 its own name, drop the master-side clash or select the using variables with
 {opt keepu:sing()}; a genuine name collision is reported rather than silently
-overwritten.
+overwritten. Stata caps variable names at 32 characters, so a rename that would
+exceed the cap is reported as an error; a using variable that is not renamed is
+unaffected by the cap and is carried under its own name whatever its length.
 
 {phang}
 {opt all} renames all using variables with the requested prefix and/or suffix,
@@ -841,7 +844,7 @@ written -- test those two, not the counts, to decide whether output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.2, 10aug2026{p_end}
+{pstd}Version 1.5.3, 13aug2026{p_end}
 
 
 {title:Also see}

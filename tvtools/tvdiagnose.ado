@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.15.0  2026/08/10
+*! tvdiagnose Version 1.16.0  2026/08/13
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

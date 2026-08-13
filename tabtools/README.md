@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.14.2** | 2026-08-11
+**Version 1.15.0** | 2026-08-13
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -227,7 +227,7 @@ Compute mode derives simulation metrics from one observation per replication and
 
 ## Demo
 
-The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` with its documented `all`, `main`, or `simtab` argument to regenerate the example workbooks and Markdown report; the demo uses the repository's `_data/` fixtures and writes results under `demo/`. The checked-in set is 15 workbooks (80 sheets total) plus the Markdown report.
+The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` with its documented `all`, `main`, or `simtab` argument to regenerate the example workbooks and Markdown report; the demo uses the repository's `_data/` fixtures and writes results under `demo/`. The checked-in set is 15 workbooks (82 sheets total) plus the Markdown report.
 
 The `table1_tc`, `desctab`, and `crosstab` workbooks each contain paired `smallcells(5)` examples. The `Small Cells Primary` sheets use a 2×2 table with counts 2/3/3/2, so only below-threshold cells are hidden as `<5`. The `Small Cells Complement` sheets use counts 2/8/6/4, which also hide reconstructive cells as `≥5`.
 
@@ -512,6 +512,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.15.0** (2026-08-13): Corrected the checked-in demo count to 82 sheets across 15 workbooks; commit `3c5f99c0` added a `Small Cells Binary` sheet to `demo_table1.xlsx` and `demo_desctab.xlsx` without updating this README or `qa/test_package_release.do`, leaving that release gate failing on `main`. Closed an exact-disclosure leak in `table1_tc, smallcells()`. A published percentage releases its own denominator — the per-variable, per-group non-missing count — which the suppression engine was never told about, so dividing a published count by its published percentage recovered that denominator and subtraction then reconstructed a primary-suppressed count exactly, at `rc 0`, under a table the engine had certified. A variable carrying a primary suppression now publishes counts only, in every column including `total()`; other variables keep their percentages. `smallcells()` is refused with a percent-only display (explicit `percent`, or the percent-only default `wt()` applies without `wtn`/`percent_n`), because a protected block would have nothing left to publish. Also made the `corrtab` star legend independent of how its thresholds arrived: the default and `star(0.05 0.01 0.001)` printed `p<0.05` and `p<.05` for the same thresholds. New `qa/test_review_2026_08_13.do` runs a live reconstruction attack against the rendered table; all 7 of its checks fail on 1.14.2.
 - **1.14.2** (2026-08-11): Removed individually redundant `≥#` complementary markers after exact-disclosure safety is certified, so each one remaining is necessary in the final protected table; added independent bounded irredundancy validation and public-command regressions for `table1_tc`, `desctab`, and `crosstab`.
 - **1.14.1** (2026-08-11): Made all 77 shipped Stata programs declare their class and independently restore `c(varabbrev)` on success and error, and hardened cleanup around variable-type sampling, simulation-summary postfiles, and simulation plot-frame construction.
 - **1.14.0** (2026-08-11): Extended strict `smallcells(#)` disclosure control to `crosstab` count blocks, margins, percentages, tests, and association/trend results, and to recognized `desctab` count/frequency and named `n_pct` collect layouts, with fail-closed mapping, safe returns, frame provenance, and identical redaction across every sink.

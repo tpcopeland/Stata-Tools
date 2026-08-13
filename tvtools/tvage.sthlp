@@ -65,6 +65,11 @@ if any observation has missing values in {opt id()}, {opt dob()}, {opt entry()},
 or {opt exit()}.
 
 {pstd}
+{opt entry()} must not precede {opt dob()}. Follow-up cannot begin before
+birth, so {cmd:tvage} refuses such rows with {cmd:r(498)} and reports how many
+there are rather than silently discarding the pre-birth person-days.
+
+{pstd}
 {bf:Important}: the output dataset retains only the identifier and the three
 generated interval variables ({opt id()}, {opt generate()}, {opt startgen()},
 and {opt stopgen()}). {bf:All other variables in memory -- sex and other}
@@ -130,6 +135,14 @@ before that boundary contributes no output rows. Default is 0. Must not exceed
 anniversary after the requested maximum age. Later person-time is removed; a
 person whose entry is after that boundary contributes no output rows. Default
 is 120.
+
+{pstd}
+Persons whose follow-up lies entirely outside the {opt minage()}-{opt maxage()}
+window contribute no output rows. {cmd:tvage} reports how many were dropped and
+returns the count in {cmd:r(n_persons_dropped)}, alongside the input count in
+{cmd:r(n_persons_in)}, so the lost person-time is never invisible. A default
+{opt maxage(120)} silently removing an implausibly old person created by a
+{opt dob()} data-entry error is the case this guards.
 
 {phang}
 {opt saveas(filename)} saves the expanded dataset to the specified file and
@@ -224,7 +237,9 @@ the anniversary convention described above.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(n_persons)}}number of unique persons{p_end}
+{synopt:{cmd:r(n_persons)}}number of unique persons in the output{p_end}
+{synopt:{cmd:r(n_persons_in)}}number of persons supplied as input{p_end}
+{synopt:{cmd:r(n_persons_dropped)}}persons outside the age window{p_end}
 {synopt:{cmd:r(n_observations)}}total number of observations (person-age periods){p_end}
 {synopt:{cmd:r(groupwidth)}}age group width used{p_end}
 

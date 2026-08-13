@@ -122,6 +122,7 @@ local test_files "`test_files' test_tabtools_tips.do"
 local test_files "`test_files' test_option_coverage.do"
 local test_files "`test_files' test_issue_review_1_11_0.do"
 local test_files "`test_files' test_synthesis_review.do"
+local test_files "`test_files' test_review_2026_08_13.do"
 
 local validation_files ""
 local validation_files "`validation_files' validation_corrtab.do"

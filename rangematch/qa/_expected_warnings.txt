@@ -19,7 +19,9 @@
 warning: one master row matched [0-9]+ using rows
 
 # by-groups present in the master with no using rows.
-# Provoked and asserted by test_rangematch_by.do and the group-coding tests.
+# Provoked and asserted by test_rangematch_by.do and the group-coding tests, and
+# provoked incidentally by validation_rangematch_option_fuzz.do, whose randomized
+# by() shapes leave some master groups without using rows.
 warning: [0-9]+ of [0-9]+ by-groups had no using rows
 
 # Float-precision advisory for keys/bounds beyond 2^24.
@@ -29,5 +31,7 @@ warning: (using key|master bound|master key) .* is stored as float with values b
 
 # Inverted using intervals (ulow > uhigh) in overlap mode.
 # Provoked and asserted by test_rangematch_overlap_inverted.do, which also
-# checks the accompanying r(N_using_inverted) return.
+# checks the accompanying r(N_using_inverted) return. Provoked incidentally by
+# validation_rangematch_option_fuzz.do, which draws inverted using intervals on
+# purpose so the oracle has to agree about rows that can never match.
 warning: [0-9]+ using interval\(s\) have (ulo|ulow) > (uhi|uhigh) \(inverted bounds\)

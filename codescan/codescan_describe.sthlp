@@ -262,19 +262,32 @@ and never appear as the code values {cmd:.} or {cmd:.a} in the table.
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
 {synopt:{cmd:r(top_code_#)}}exact code for each displayed top-code row, in row order{p_end}
+{synopt:{cmd:r(chapter_#)}}exact leading character for each chapter row{p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}
 {synopt:{cmd:r(top_codes)}}the displayed top codes{p_end}
 {synopt:{cmd:r(chapters)}}first-character summary{p_end}
 
 {pstd}
-In {cmd:r(top_codes)} the row names are the code values when they fit Stata's
-32-character matrix row-name limit, and the columns are {cmd:frequency},
-{cmd:percent}, and {cmd:cumul_pct}. A longer code receives a bounded row-name
-alias such as {cmd:_cs_code_1}; retrieve its exact value from the matching
-{cmd:r(top_code_1)} macro. The {cmd:r(top_code_#)} macros use the same row order
-for every displayed code. In {cmd:r(chapters)} the row names are the leading
-characters and the columns are {cmd:codes} and {cmd:entries}.
+The columns of {cmd:r(top_codes)} are {cmd:frequency}, {cmd:percent}, and
+{cmd:cumul_pct}; the columns of {cmd:r(chapters)} are {cmd:codes} and
+{cmd:entries}. Both matrices use the code value (or the leading character) as
+the row name whenever it can be one.
+
+{pstd}
+Not every code can. Stata caps a matrix row name at 32 characters, and a name
+is also unusable if it begins or ends with a space, or contains a double quote,
+a dollar sign, a backquote, or a colon — all of which occur in fixed-width
+registry extracts. Such a row receives a bounded, collision-free alias
+({cmd:_cs_code_1} in {cmd:r(top_codes)}, {cmd:_cs_chapter_1} in
+{cmd:r(chapters)}) rather than a silently mangled name. An interior space is
+fine and is left alone, so a code such as {cmd:A B} keeps its own row name.
+
+{pstd}
+Because of that aliasing, {bf:read the identity from the macros}, not from the
+row names. {cmd:r(top_code_#)} and {cmd:r(chapter_#)} always hold the exact
+value for row {it:#}, in the same order as the matrix rows, whether or not that
+row was aliased.
 
 {pstd}
 Both matrices, the displayed tables, and the {cmd:save()} draft codefile are

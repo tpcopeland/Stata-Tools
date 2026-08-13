@@ -1,6 +1,6 @@
 # rangematch — Range joins for interval data
 
-**Version 1.5.2** | 2026-08-10
+**Version 1.5.3** | 2026-08-13
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
@@ -68,7 +68,7 @@ The `using` token names an existing frame when one exists with that name; otherw
 
 By default, successful output replaces the current data with matched pairs plus unmatched master observations. `frame(name)` writes the result to a named frame and preserves the current data, while `saving(filename[, replace])` writes a dataset to disk and preserves the current data. `dryrun` and its alias `count` validate the request and report counts without writing output.
 
-The default output order is original master observation order followed by original using observation order. `nosort` leaves backend materialization order. Carried variables preserve storage types, formats, variable labels, value-label attachments and definitions, and the master dataset label; dataset notes and `_dta[]` characteristics are not carried.
+The default output order is original master observation order followed by original using observation order. `nosort` leaves backend materialization order. Carried variables preserve storage types, formats, variable labels, value-label attachments and definitions, and the master dataset label; dataset notes and characteristics — both `_dta[]` and variable-level — are not carried.
 
 The point backends use binary search and can select a sweep backend for compatible all-match calls. Overlap mode uses a streaming plane-sweep backend, so the full within-group Cartesian product is not materialized before filtering. Check `r(backend)` after a run: it is `binary`, `sweep`, or `overlap`.
 
@@ -361,6 +361,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.3** (2026-08-13): A using variable whose name runs to 31 or 32 characters no longer aborts the join. `prefix()`/`suffix()` are now validated only for the names they are actually applied to — under the default rules that is a carried variable whose name collides with a master variable — so a non-colliding long name is carried under its own name instead of failing `rc=198` on a decorated name the command never intended to use. `prefix()`/`suffix()` are still screened up front for illegal name characters, and a genuine collision that overflows Stata's 32-character limit now says so. A `prefix()` or `suffix()` containing a space is now rejected instead of silently mis-mapping the output: the decorated name was re-split into two words inside a space-delimited list, so every carried variable after the first renamed one landed under the *next* name in the list — `prefix("p q")` returned `rc=0` with a column named `qdup1` holding a different variable's values and a column named `zz` holding the match key.
 - **1.5.2** (2026-08-10): A using filename is now resolved to the file `use` will actually read *before* it is confirmed, so an extensionless name is never confirmed under one name and loaded under another; `r(using)` reports the file that was read. The `.dta` fallback is restricted to extensionless filenames. The help now documents what `r()` holds after a *failed* run — nothing when the failure precedes matching, the counts (but never `r(saving)`/`r(frame)`) when `saving()` fails after matching — and its contracts for missing bounds, `keepusing()`, unmatched inverted master intervals, and explicit filename extensions were corrected.
 - **1.5.1** (2026-08-09): Fixed the empty-master/empty-using `by()` edge case so a valid full-outer join returns an empty result instead of failing during group-catalog construction.
 - **1.5.0** (2026-07-25): Match-density p50, p90, and p99 now use Stata's sample-percentile definition consistently, `r(N_empty_groups)` has the same using-row-presence meaning in point and overlap modes, and the documentation reflects the current diagnostics.

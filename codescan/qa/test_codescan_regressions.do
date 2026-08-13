@@ -36,6 +36,12 @@
 *        exceed Stata's 32-character row-name limit (4.1.2, deep review)
 *   T39: an extension-less saving() is authorized against the .dta name `save'
 *        actually writes, and the refusal lands BEFORE export() (4.1.3, review)
+*   T40: a failed export()/saving()/graph after collapse leaves the collapsed
+*        RESULT in memory, not a dataset holding only id() (4.1.4, review)
+*   T41: describe row names that cannot survive `matrix rownames' are aliased
+*        rather than silently replaced by r1/r2, and r(chapter_#) carries the
+*        exact leading character (4.1.4, review)
+*   T42: the mirror of T41 — usable code and chapter row names are left alone
 
 clear all
 set seed 12345
@@ -129,6 +135,26 @@ capture noisily {
     matrix drop _Smry _SmryOK
 
     * ...and the data left in memory must be the collapsed result, unchanged.
+    *
+    * `cf _all using' ALONE IS NOT ENOUGH, and reading it as a guard here was
+    * how the 4.1.4 collapse defect survived: cf iterates over the variables in
+    * MEMORY, so a variable that is present in the using file but has been
+    * DROPPED from memory is invisible to it and returns rc=0. (Proven: drop two
+    * variables and re-run cf _all -> rc 0; add one instead -> rc 9. The check is
+    * one-directional.) On the pre-fix build memory held only pid, and this line
+    * still passed. Compare the variable LIST in both directions first, then let
+    * cf compare the values.
+    quietly describe, varlist
+    local _t1_have `"`r(varlist)'"'
+    preserve
+    quietly use `_dataOK', clear
+    quietly describe, varlist
+    local _t1_want `"`r(varlist)'"'
+    restore
+    local _t1_missing : list _t1_want - _t1_have
+    local _t1_extra   : list _t1_have - _t1_want
+    assert `"`_t1_missing'"' == ""
+    assert `"`_t1_extra'"' == ""
     cf _all using `_dataOK'
 }
 if _rc == 0 {
@@ -1616,6 +1642,240 @@ else {
     display as error "  FAIL T39: extension-less saving() guard timing (rc=`=_rc')"
     local ++fail_count
 }
+
+**# T40: collapse keeps its result when a side effect fails (4.1.4, review)
+
+* ============================================================
+* T40: a failed side effect must not delete the collapsed result
+* ============================================================
+* collapse has already consumed the caller's rows by the time export(),
+* saving() and graph run, so "drop the planned outputs" is no longer a
+* rollback — there is nothing left to roll back TO. On 4.1.3 the error path
+* dropped them anyway and handed back a dataset holding NOTHING BUT id():
+* every indicator, every _first/_last/_count/_nrows summary, gone.
+*
+* Proven red on 4.1.3: `ds' after the failed call returned "pid" alone for all
+* three side effects. The r() surface was already covered (T1/T22/T23); what
+* was uncovered is the DATA left in memory, which T1's `cf _all' could not see
+* (see the note there — cf is blind to a variable dropped from memory).
+*
+* Asserted per side effect, because each has its own failure path.
+
+local _t40_nodir "`c(tmpdir)'/cs_t40_absent_`=strofreal(runiformint(1, 999999999))'"
+capture confirm file "`_t40_nodir'/x.csv"
+assert _rc != 0
+
+local ++test_count
+capture noisily {
+    * Baseline: the same analysis with no side effect at all.
+    _make_v101_data
+    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse countrows
+    quietly describe, varlist
+    local _t40_want `"`r(varlist)'"'
+    * The baseline must actually carry the outputs, or every assertion below
+    * is satisfied by an empty expectation.
+    foreach _v in pid dm2 htn dm2_nrows htn_nrows {
+        local _t40_has : list _v in _t40_want
+        assert `_t40_has'
+    }
+    tempfile _t40_ok
+    quietly save `_t40_ok'
+
+    * Each side effect, made to fail, must leave that same variable set behind.
+    foreach _t40_opt in "export(`_t40_nodir'/o.csv)" ///
+                        "export(`_t40_nodir'/o.xlsx)" ///
+                        "saving(`_t40_nodir'/o.dta)" ///
+                        "graph export(`_t40_nodir'/o.csv)" {
+        _make_v101_data
+        capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
+            countrows `_t40_opt'
+        * The side effect must genuinely have failed, or the case is vacuous.
+        assert _rc != 0
+
+        quietly describe, varlist
+        local _t40_have `"`r(varlist)'"'
+        local _t40_missing : list _t40_want - _t40_have
+        local _t40_extra   : list _t40_have - _t40_want
+        assert `"`_t40_missing'"' == ""
+        assert `"`_t40_extra'"' == ""
+        * ...and the values must be the collapsed result, not zeros.
+        cf _all using `_t40_ok'
+    }
+
+    * Mirror: the snapshot paths still roll back IN FULL, so the fix did not
+    * turn "keep the result" into "never clean up".
+    _make_v101_data
+    quietly describe, varlist
+    local _t40_pre `"`r(varlist)'"'
+    capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
+        preserve saving(`_t40_nodir'/o.dta)
+    assert _rc != 0
+    quietly describe, varlist
+    assert `"`r(varlist)'"' == `"`_t40_pre'"'
+
+    * Mirror: row-level with no snapshot still drops what it created.
+    _make_v101_data
+    capture codescan dx1, define(dm2 "E11") replace export(`_t40_nodir'/o.csv)
+    assert _rc != 0
+    capture confirm variable dm2
+    assert _rc != 0
+
+    * Mirror: replace over a PRE-EXISTING variable still restores the
+    * caller's own column untouched (the C1 data-loss guard).
+    _make_v101_data
+    quietly gen byte dm2 = 99
+    capture codescan dx1, define(dm2 "E11") replace export(`_t40_nodir'/o.csv)
+    assert _rc != 0
+    quietly summarize dm2, meanonly
+    assert r(min) == 99 & r(max) == 99
+}
+if _rc == 0 {
+    display as result "  PASS T40: collapsed result survives a failed side effect"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T40: collapse side-effect rollback (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+**# T41: describe row names keep their identity (4.1.4, review)
+
+* ============================================================
+* T41: unusable matrix row names are aliased, not silently mangled
+* ============================================================
+* Row names are set by macro-expanding a quoted name list into `matrix
+* rownames'. A name that cannot survive that expansion is NOT rejected: Stata
+* substitutes its positional default (r1, r2, ...) at rc=0, so the row stops
+* identifying anything. On 4.1.3 the guard tested LENGTH only, so a chapter of
+* " " or ":" came back as r1/r3 and there was no r(chapter_#) to recover it.
+*
+* Proven red on 4.1.3: r(chapters) rowfullnames was "r1 . r3 E" and
+* r(top_codes) was "PAD .5X Q1 E110" (leading space stripped, ":" eaten).
+*
+* The five characters below are the census result over printable ASCII 32-126,
+* each tested alone and as a leading character; every other printable
+* character round-trips verbatim and is deliberately left alone (see T29).
+
+local ++test_count
+capture noisily {
+    clear
+    input str20 c1
+    ".5X"
+    ":Q1"
+    " PAD"
+    "E110"
+    end
+    codescan_describe c1
+
+    * Capture the whole r() surface FIRST: everything below reads it, and a
+    * later r-class command would silently blank it mid-assertion.
+    forvalues i = 1/4 {
+        local _t41_ch_`i' `"`r(chapter_`i')'"'
+        local _t41_tc_`i' `"`r(top_code_`i')'"'
+    }
+
+    * Chapters, in displayed order: " ", ".", ":", "E".
+    matrix _T41C = r(chapters)
+    assert rowsof(_T41C) == 4
+    local _t41_cn : rowfullnames _T41C
+    * The unusable ones are aliased...
+    local _t41_c1 : word 1 of `_t41_cn'
+    local _t41_c3 : word 3 of `_t41_cn'
+    assert "`_t41_c1'" == "_cs_chapter_1"
+    assert "`_t41_c3'" == "_cs_chapter_3"
+    * ...and never Stata's positional default, which is the silent failure.
+    assert "`_t41_c1'" != "r1"
+    assert "`_t41_c3'" != "r3"
+
+    * r(chapter_#) recovers the exact character for EVERY row, aliased or not.
+    assert `"`_t41_ch_1'"' == " "
+    assert `"`_t41_ch_2'"' == "."
+    assert `"`_t41_ch_3'"' == ":"
+    assert `"`_t41_ch_4'"' == "E"
+
+    * Same contract for top_codes, whose codes carry the same characters.
+    matrix _T41T = r(top_codes)
+    assert rowsof(_T41T) == 4
+    local _t41_tn : rowfullnames _T41T
+    local _t41_t1 : word 1 of `_t41_tn'
+    local _t41_t3 : word 3 of `_t41_tn'
+    assert "`_t41_t1'" == "_cs_code_1"
+    assert "`_t41_t3'" == "_cs_code_3"
+    assert `"`_t41_tc_1'"' == " PAD"
+    assert `"`_t41_tc_3'"' == ":Q1"
+
+    * The alias must line up with the row it names: r(chapters) row 1 is the
+    * " " chapter, so its counts must be that chapter's, not another row's.
+    assert _T41C[1, 1] == 1 & _T41C[1, 2] == 1
+    assert _T41T[1, 1] == 1
+
+    matrix drop _T41C _T41T
+}
+if _rc == 0 {
+    display as result "  PASS T41: unusable describe row names aliased, identity in r(chapter_#)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T41: describe row-name aliasing (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T42: every remaining row-name character still round-trips
+* ============================================================
+* The mirror of T41. Aliasing everything would also "pass" T41, so pin the
+* codes that MUST keep their own names: an interior space, a slash, a hyphen
+* (T29's set), and a chapter that is ordinary punctuation.
+
+local ++test_count
+capture noisily {
+    clear
+    input str12 code
+    "A B"
+    "A/B"
+    "A-B"
+    ".5"
+    end
+    codescan_describe code
+    forvalues i = 1/4 {
+        local _t42_tc_`i' `"`r(top_code_`i')'"'
+    }
+    matrix _T42T = r(top_codes)
+    matrix _T42C = r(chapters)
+    assert rowsof(_T42T) == 4
+
+    * Read each row name through the matrix stripe, not through a whitespace
+    * split of rowfullnames: "A B" is one name containing a space, and any
+    * token-based read of it is ambiguous by construction (that ambiguity is
+    * what made the 4.1.3 defect hard to see in the first place).
+    forvalues i = 1/4 {
+        mata: st_local("_t42_rn", st_matrixrowstripe("_T42T")[`i', 2])
+        * Nothing here needs an alias, so none may be handed one...
+        assert strpos("`_t42_rn'", "_cs_code_") == 0
+        * ...and the row name must still BE the code it stands for.
+        assert `"`_t42_rn'"' == `"`_t42_tc_`i''"'
+    }
+
+    * Chapters here are "A" (3 codes) and "." (1 code); both are usable row
+    * names, so neither may be aliased. "." in particular is punctuation that
+    * Stata DOES accept, so aliasing it would be an over-correction.
+    assert rowsof(_T42C) == 2
+    local _t42_cn : rowfullnames _T42C
+    assert "`_t42_cn'" == "A ."
+
+    matrix drop _T42T _T42C
+}
+if _rc == 0 {
+    display as result "  PASS T42: usable code and chapter row names left alone"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T42: usable row names were aliased (rc=`=_rc')"
+    local ++fail_count
+}
+
 
 **# Settings hygiene
 

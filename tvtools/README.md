@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.15.0** | 2026-08-10
+**Version 1.16.0** | 2026-08-13
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -440,7 +440,7 @@ Result names below are returned in `r()` after successful execution; option-depe
 | `tvevent` | Scalars `N`, `N_events`, quantity counts, invalid-input counts, and event validation counts; macros `generate`, `startvar`, `stopvar`, `timegen`, `enum`, `gapstart`, `gapstop`, and quantity variables; matrix `flow` when requested |
 | `tvdiagnose` | Scalars for each requested diagnostic, coverage/gap/overlap summaries, exposure levels, and graph status; macros `id`, `start`, `stop`, `graph_name`; matrix `exposure_summary` when `summarize` runs |
 | `tvweight` | Scalars for sample size, levels, ESS, weight distribution, overlap, positivity, truncation, and graph status; macros for model, weight, output, treatment/censoring, and balance settings; scalar `ess_combined` and matrix `balance` in the corresponding modes |
-| `tvage` | Scalars `n_persons`, `n_observations`, `groupwidth`; macros `varname`, `startvar`, `stopvar` |
+| `tvage` | Scalars `n_persons`, `n_persons_in`, `n_persons_dropped`, `n_observations`, `groupwidth`; macros `varname`, `startvar`, `stopvar` |
 | `tvband` | Scalars `n_persons`, `n_observations`, `width`; macros `axistype`, `varname`, `startvar`, `stopvar` |
 | `tvsplit` | Scalars `n_axes`, `n_persons`, `n_observations`; macros `agevar`, `calvar`, `fuvar`, `startvar`, `stopvar` when applicable |
 | `tvpanel` | Scalars for persons, observations, width, and invalid-input counts; macros `periodvar`, `startvar`, `stopvar`, `classvar`, `cumvars` |
@@ -471,6 +471,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.16.0** (2026-08-13): `tvage` no longer discards person-time without saying so. An `entry()` date earlier than `dob()` is refused with `r(498)` and a row count instead of being silently truncated to the birth date, and persons dropped because their follow-up lies entirely outside `minage()`/`maxage()` are now reported unconditionally and counted in the new `r(n_persons_dropped)` and `r(n_persons_in)`.
 - **1.15.0** (2026-08-10): Added explicit treatment and censoring numerator models for history-conditioned longitudinal stabilization, exposed both fitted numerator contracts in `r()`, corrected the IPCW documentation to match the time-specific default, and removed package-owned paging changes and decorative empty output lines.
 - **1.14.1** (2026-08-07): Corrected runtime `stset` guidance, verbose table headers, cumulative-weight diagnostics, graph naming, save confirmations, flow notes, event provenance, exported dataset labels, and related console-report polish; added focused regression coverage for each repaired artifact/display path.
 - **1.14.0** (2026-08-07): Renamed `_dta[tvtools_pipeline*]` provenance characteristics to `_dta[tvtools_tvbuild*]` and cleaned up all `pipeline`/`pipe_*` naming throughout documentation, demos, and QA to use `tvbuild`/`workflow` consistently.

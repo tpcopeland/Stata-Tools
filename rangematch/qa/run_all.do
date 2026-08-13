@@ -80,6 +80,7 @@ local suites ///
     test_rangematch_group_types.do ///
     test_rangematch_frame_safety.do ///
     test_rangematch_internal_names.do ///
+    test_rangematch_output_names.do ///
     test_rangematch_option_grammar.do ///
     test_rangematch_missing_key_labels.do ///
     test_rangematch_edge_topup.do ///
@@ -101,6 +102,7 @@ if "`mode'" == "full" {
     local suites `suites' validation_rangematch_nearest.do
     local suites `suites' validation_rangematch_known_answers.do
     local suites `suites' validation_rangematch_overlap_oracle.do
+    local suites `suites' validation_rangematch_option_fuzz.do
 }
 
 local suite_count = 0

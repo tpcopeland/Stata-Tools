@@ -1,4 +1,4 @@
-*! migrations Version 1.5.4  2026/08/11
+*! migrations Version 1.5.5  2026/08/13
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -279,7 +279,6 @@ program define migrations, rclass
                 display as error "Wide-format migration variable '`wide_date_var'' must contain whole-number Stata daily dates"
                 exit 109
             }
-            quietly replace `wide_date_var' = . if missing(`wide_date_var')
         }
 
         tempvar _mig_has_wide_event
@@ -760,8 +759,33 @@ program define migrations, rclass
             qui bysort `idvar' (out_ in_): gen _mig_seq = _n
             qui bysort `idvar': gen _mig_total = _N
 
-            * Drop if only one migration and it's an immigration before study_start
-            qui drop if _mig_total == 1 & _mig_last_in < `startvar'
+            * Drop if the person's only remaining record is a pre-start
+            * immigration. in_/out_ are independently numbered sequences, so a
+            * single reshape row can carry BOTH an immigration and an
+            * emigration; missing(out_) is what makes this row immigration-only.
+            * Without that guard a person who immigrated before study start and
+            * emigrated permanently after it is dropped from the event stream
+            * and silently loses migration_out_dt.
+            qui drop if _mig_total == 1 & _mig_last_in < `startvar' & missing(out_)
+
+            * That drop can empty the event stream (e.g. a person who emigrated
+            * and returned entirely before study start). Everything below builds
+            * person-level state with `bysort ...: gen`, which on zero
+            * observations returns rc=0 but creates no variable, so the next
+            * reference dies with an opaque r(111) naming an internal column.
+            * Take the same empty-result path the other drop sites use.
+            qui count
+            if r(N) == 0 {
+                local n_exclude2 = 0
+                local n_censor = 0
+                qui keep `idvar'
+                qui save `exclude2', replace emptyok
+                qui gen long migration_out_dt = .
+                qui label var migration_out_dt "Emigration censoring date"
+                qui format migration_out_dt %tdCCYY/NN/DD
+                qui save `censor_data', replace emptyok
+            }
+            else {
 
             * EXCLUSION 2: First-ever migration event is a post-start immigration
             * (no evidence of being in Sweden at baseline). Use person-level state
@@ -868,6 +892,7 @@ program define migrations, rclass
             local n_censor = r(N)
 
             qui save `censor_data', replace
+            }
             }
             }
         }

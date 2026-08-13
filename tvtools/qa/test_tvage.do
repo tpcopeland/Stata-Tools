@@ -507,7 +507,7 @@ else {
     local ++fail_count
 }
 
-* TEST 11: Invalid-age diagnostic suppressed without noisily option
+* TEST 11: entry before dob is refused, not silently truncated (1.16.0)
 local ++test_count
 
 clear
@@ -518,48 +518,57 @@ gen entry = mdy(1, 1, 2020)
 gen exit = mdy(12, 31, 2022)
 format dob entry exit %tdCCYY/NN/DD
 
-* DOB after entry means invalid ages — all will be dropped
-* Without noisily, should still get error 2000 (empty dataset)
-* but no invalid-age diagnostic text should appear
+* Through 1.15.0 this fixture pinned the defect rather than the contract: a dob
+* after entry drove attained age negative, the minage() clamp raised it, and
+* tvage either dropped the person or moved their interval start to the birth
+* date -- deleting person-time at rc=0. Follow-up cannot begin before birth, so
+* 1.16.0 refuses the input with r(498). See test_tvage_v1160.do for the
+* person-time conservation form of this contract.
 capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit)
-if _rc == 2000 {
-    display as result "  PASS: Invalid ages without noisily triggers error 2000 (diagnostic suppressed)"
+local rc11 = _rc
+capture confirm variable age_start
+local made11 = (_rc == 0)
+if `rc11' == 498 & !`made11' {
+    display as result "  PASS: entry before dob refused with r(498), no output created"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Expected error 2000, got _rc=" _rc
+    display as error "  FAIL: Expected r(498) and no output, got _rc=`rc11' age_start=`made11'"
     local ++fail_count
 }
 
-* TEST 12: Invalid-age diagnostic shown with noisily option
+* TEST 12: a partial age-window drop is reported and counted (1.16.0)
 local ++test_count
 
 clear
 set obs 5
 gen long id = _n
 gen dob = mdy(1, 1, 1960)
-replace dob = mdy(1, 1, 2025) in 1
+replace dob = mdy(1, 1, 1800) in 1
 gen entry = mdy(1, 1, 2020)
 gen exit = mdy(12, 31, 2022)
 format dob entry exit %tdCCYY/NN/DD
 
-* Person 1 has DOB after entry — will be dropped. Others valid.
+* Person 1 is ~220 at entry, past the default maxage(120), so their whole
+* follow-up falls outside the age window and they contribute no rows. The
+* remaining four are ~60 and are kept. The count must reach the caller.
 capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit) noisily
-if _rc == 0 {
-    * Check that we got 4 persons (1 dropped)
+local rc12 = _rc
+local dropped12 = .
+local in12 = .
+if `rc12' == 0 {
+    local dropped12 = r(n_persons_dropped)
+    local in12 = r(n_persons_in)
     quietly egen _tag = tag(id)
     quietly count if _tag == 1
-    if r(N) == 4 {
-        display as result "  PASS: 1 invalid person dropped with noisily, 4 remain"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Expected 4 persons, got " r(N)
-        local ++fail_count
-    }
+    local kept12 = r(N)
+}
+if `rc12' == 0 & `kept12' == 4 & `dropped12' == 1 & `in12' == 5 {
+    display as result "  PASS: 1 person outside the age window dropped, reported, and counted"
+    local ++pass_count
 }
 else {
-    display as error "  FAIL: Partial invalid with noisily returned _rc=" _rc
+    display as error "  FAIL: rc=`rc12' kept=`kept12' dropped=`dropped12' in=`in12' (expected 0/4/1/5)"
     local ++fail_count
 }
 

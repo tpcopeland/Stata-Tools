@@ -1,4 +1,4 @@
-*! regtab Version 1.14.2  2026/08/11
+*! regtab Version 1.15.0  2026/08/13
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*

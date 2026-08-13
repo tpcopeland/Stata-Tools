@@ -192,6 +192,75 @@ capture confirm variable bad4
 local ok = `bad4_rc' == 198 & _rc == 111
 _w15_record `ok' W15_CENSNUM_REQUIRES_STABILIZED "rc=`bad4_rc'"
 
+**# The two numerator branches the original 1.15.0 suite never entered
+* Every check above uses a binary exposure in panel mode, so the mlogit
+* numerator (tvweight.ado, the mlogit arm of the stabilized block) and the
+* no-id()/no-time() arm that omits i.time from the numerator both shipped
+* without coverage. Each is compared against a reduced model fitted here.
+
+use `panel', clear
+quietly generate byte treat3 = treatment
+quietly replace treat3 = 2 if runiform() < .3
+quietly mlogit treat3 z lag_treatment confounder i.period, ///
+    baseoutcome(0) nolog vce(cluster id)
+quietly generate double m_den = .
+forvalues k = 0/2 {
+    quietly predict double m_den`k', pr outcome(`k')
+    quietly replace m_den = m_den`k' if treat3 == `k'
+}
+quietly mlogit treat3 z lag_treatment i.period, baseoutcome(0) nolog
+quietly generate double m_num = .
+forvalues k = 0/2 {
+    quietly predict double m_num`k', pr outcome(`k')
+    quietly replace m_num = m_num`k' if treat3 == `k'
+}
+quietly generate double sw_mlogit_manual = m_num / m_den
+
+capture noisily tvweight treat3, ///
+    covariates(c.z i.lag_treatment c.confounder) ///
+    numcovariates(c.z i.lag_treatment) id(id) time(period) stabilized ///
+    generate(sw_ml) nolog
+local mlogit_rc = _rc
+local mlogit_model ""
+local max_mlogit_diff = .
+if `mlogit_rc' == 0 {
+    local mlogit_model `"`r(numerator_model)'"'
+    quietly generate double mlogit_diff = abs(sw_ml - sw_mlogit_manual)
+    quietly summarize mlogit_diff, meanonly
+    local max_mlogit_diff = r(max)
+}
+local ok = `mlogit_rc' == 0 & `max_mlogit_diff' < 1e-10 & ///
+    `"`mlogit_model'"' == "z i.lag_treatment i.period"
+_w15_record `ok' W15_MLOGIT_NUMERATOR ///
+    `"rc=`mlogit_rc' diff=`max_mlogit_diff' model=`mlogit_model'"'
+
+* Without id()/time() the denominator carries no time term, so the numerator
+* must not acquire one either: r(numerator_model) is exactly numcovariates().
+use `panel', clear
+quietly logit treatment z lag_treatment confounder, nolog
+quietly predict double np_den, pr
+quietly logit treatment z, nolog
+quietly predict double np_num, pr
+quietly generate double sw_nopanel_manual = cond(treatment, ///
+    np_num / np_den, (1-np_num) / (1-np_den))
+
+capture noisily tvweight treatment, ///
+    covariates(c.z i.lag_treatment c.confounder) numcovariates(c.z) ///
+    stabilized generate(sw_np) nolog
+local nopanel_rc = _rc
+local nopanel_model ""
+local max_nopanel_diff = .
+if `nopanel_rc' == 0 {
+    local nopanel_model `"`r(numerator_model)'"'
+    quietly generate double nopanel_diff = abs(sw_np - sw_nopanel_manual)
+    quietly summarize nopanel_diff, meanonly
+    local max_nopanel_diff = r(max)
+}
+local ok = `nopanel_rc' == 0 & `max_nopanel_diff' < 1e-10 & ///
+    `"`nopanel_model'"' == "z"
+_w15_record `ok' W15_NONPANEL_NUMERATOR ///
+    `"rc=`nopanel_rc' diff=`max_nopanel_diff' model=`nopanel_model'"'
+
 display as result "tvtools 1.15.0 numerator regressions: $W15_PASS/$W15_TESTS passed"
 display "RESULT: test_tvweight_v1150 tests=$W15_TESTS pass=$W15_PASS fail=$W15_FAIL"
 if $W15_FAIL > 0 {
