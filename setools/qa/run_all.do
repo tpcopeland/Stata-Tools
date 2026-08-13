@@ -22,6 +22,7 @@ local quick ///
     test_documentation_examples ///
     test_audit_regressions ///
     test_setools_v154_regressions ///
+    test_setools_v155_regressions ///
     test_cci_engine_smoke ///
     test_cci_dates_parity ///
     test_cdp_adversarial ///
@@ -54,8 +55,13 @@ local core_extra ///
     validation_setools_crosschecks
 
 local core "`quick' `core_extra'"
-local full "`core' crossval_cci_se_python"
-local python "crossval_cci_se_python"
+local crossval ///
+    crossval_cci_se_python ///
+    crossval_edss_python ///
+    crossval_migrations_python
+
+local full "`core' `crossval'"
+local python "`crossval'"
 local network "test_network_smoke"
 local suites "``mode''"
 
