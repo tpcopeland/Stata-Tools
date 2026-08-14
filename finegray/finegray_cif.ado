@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.1  2026/08/11
+*! finegray_cif Version 1.2.0  2026/08/14
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -690,7 +690,13 @@ program define finegray_cif, rclass sortpreserve
                 as text ")"
         }
         display as text "`_atsrc': " as result `"`_atline'"'
-        display as text "{hline 13}{c TT}{hline 40}"
+        * Rule width tracks the widest data line, which depends on whether the
+        * CI pair is printed: the last field ends at column 56 with `ci' and at
+        * column 34 without it.  A fixed 40 left the CI table's rules two
+        * columns short of the upper limit and hung 20 columns past the SE in
+        * the no-CI table.  Stem is 13 + 1 (the {c TT}/{c +}/{c BT} glyph).
+        local _rulew = cond("`ci'" != "", 42, 20)
+        display as text "{hline 13}{c TT}{hline `_rulew'}"
         if "`ci'" != "" {
             display as text %12s "time" " {c |}" ///
                 _col(18) "CIF" _col(30) "SE" _col(42) "[`level'% CI]"
@@ -698,7 +704,7 @@ program define finegray_cif, rclass sortpreserve
         else {
             display as text %12s "time" " {c |}" _col(18) "CIF" _col(30) "SE"
         }
-        display as text "{hline 13}{c +}{hline 40}"
+        display as text "{hline 13}{c +}{hline `_rulew'}"
         forvalues r = 1/`ngrid' {
             local tt = `R'[`r', 1]
             local cf = `R'[`r', 2]
@@ -713,7 +719,7 @@ program define finegray_cif, rclass sortpreserve
                     _col(16) %7.4f `cf' _col(28) %7.4f `se'
             }
         }
-        display as text "{hline 13}{c BT}{hline 40}"
+        display as text "{hline 13}{c BT}{hline `_rulew'}"
     }
 
     * =====================================================================
