@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.15.0  2026/08/13
+*! _tabtools_common Version 1.15.1  2026/08/14
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -830,15 +830,11 @@ end
 * Rules, in order:
 *   1. collection records the level  -> use it; a conflicting level() is an error
 *   2. no provenance, level() given  -> use level()
-*   3. no provenance, no level()     -> ERROR
+*   3. no provenance, no level()     -> warn and use current c(level)
 *
-* Case 3 used to fall back to c(level), the CURRENT session setting. That is
-* unknowable-by-inference: the intervals were computed when the models ran, so a
-* collection built at 90% and rendered after `set level 95' kept its 90% bounds
-* while being labeled "95% CI" and returning r(ci_level)=95. The old code only
-* emitted a `note:', which any caller's `quietly' would swallow entirely.
-* Refusing is the only safe answer; the level is not recoverable from session
-* state and a mislabeled interval is worse than a stopped command.
+* Case 3 is needed on Stata versions that omit the collection metadata. The
+* fallback cannot prove the model-time level, so it emits a visible warning and
+* tells the user to specify level() when c(level) is not the correct value.
 *
 * Usage: _tabtools_resolve_ci_level `level'      // -1 when level() not given
 *        local _ci_level = r(level)
@@ -871,11 +867,10 @@ program define _tabtools_resolve_ci_level, rclass
         local _lvl = `level_opt'
     }
     else {
-        display as error "this Stata version does not record confidence-level provenance in the collection"
-        display as error "specify level(#) to state the level the collected models were fit at"
-        display as error "the current {bf:set level} (`c(level)') is deliberately NOT assumed: the intervals"
-        display as error "were computed when the models ran and may use a different level"
-        exit 198
+        local _lvl = c(level)
+        display as text "warning: this Stata version does not record confidence-level provenance in the collection"
+        display as text "assuming the current {bf:set level} (`_lvl') for interval labels; specify level(#) if the"
+        display as text "collected models were fit at a different confidence level"
     }
 
     return scalar level = `_lvl'
