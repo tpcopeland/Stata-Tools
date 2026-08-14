@@ -198,11 +198,10 @@ wrap{p_end}
 uses the level stored in the active collection, and an explicit value must
 match that stored level or the command fails before writing output. Not every
 Stata version records the level in the collection: Stata 17 does, Stata 19 does
-not. When it is absent, {cmd:regtab} requires {opt level()} and exits with
-error 198 otherwise. It does {it:not} fall back to the current
-{helpb set level}: that is the session setting at render time, whereas the
-intervals were computed when the models ran, so assuming it can label real 90%
-bounds as a 95% CI. State the level the collected models were fit at. The
+not. When it is absent and {opt level()} is omitted, {cmd:regtab} warns and uses
+the current {helpb set level} for interval labels. Because that is the session
+setting at render time rather than necessarily the model-time level, specify
+{opt level()} whenever the collected models were fit at a different level. The
 resolved level labels intervals in headers and methods text, is returned in
 {cmd:r(ci_level)}, and is stored on display and eplot frames; it affects no
 computed quantity.{p_end}

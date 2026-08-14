@@ -94,12 +94,12 @@ program _tabtools_collect_ci_level, rclass
     return scalar level = .
 end
 
-**# Test 4: regtab REFUSES to guess when provenance is absent and level() is not given
-* This used to assert the opposite -- that falling back to c(level) was correct.
-* It is not: c(level) is the CURRENT session setting, while the intervals were
-* computed when the models ran. The two can differ, and the old behavior labeled
-* real 90% bounds as "95% CI" and returned r(ci_level)=95 at rc=0.
+**# Test 4: regtab warns and uses c(level) when provenance is absent
+* Some Stata versions do not record the collection's confidence level. Omitting
+* level() must remain usable, with a visible warning and the current set level as
+* the documented fallback.
 set level 95
+set varabbrev on
 sysuse auto, clear
 collect clear
 collect: regress price mpg weight
@@ -107,15 +107,17 @@ collect: regress price mpg weight foreign
 capture frame drop _ci_fb1
 capture noisily regtab, frame(_ci_fb1) models("M1 \ M2")
 local rc = _rc
+local _va_after = c(varabbrev)
+set varabbrev off
 local _made = 0
 capture confirm frame _ci_fb1
 if _rc == 0 local _made = 1
-if `rc' == 198 & `_made' == 0 {
-    display as result "  PASS: regtab refuses to infer the level, and writes no frame"
+if `rc' == 0 & `_made' == 1 & abs(`=r(ci_level)' - 95) < 1e-8 & "`_va_after'" == "on" {
+    display as result "  PASS: regtab warns and falls back to set level 95"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: regtab should refuse without provenance (rc=`rc' frame_created=`_made')"
+    display as error "  FAIL: regtab no-provenance fallback (rc=`rc' frame_created=`_made')"
     local ++fail_count
 }
 
@@ -163,27 +165,24 @@ else {
     local ++fail_count
 }
 
-**# Test 6: the refusal does NOT depend on what set level happens to be
-* Previously this asserted the fallback tracked `set level 99'. Tracking the
-* session setting was the defect, so the requirement is now the opposite: the
-* refusal must fire identically whatever c(level) is.
+**# Test 6: fallback tracks the current set level
 set level 99
 collect clear
 collect: regress price mpg weight
 capture frame drop _ci_fb3
 capture noisily regtab, frame(_ci_fb3)
 local rc = _rc
-if `rc' == 198 {
-    display as result "  PASS: regtab refuses at set level 99 too (no session inference)"
+if `rc' == 0 & abs(`=r(ci_level)' - 99) < 1e-8 {
+    display as result "  PASS: regtab fallback tracks set level 99"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: regtab should refuse regardless of set level (rc=`rc' ci_level=`=r(ci_level)')"
+    display as error "  FAIL: regtab set-level fallback (rc=`rc' ci_level=`=r(ci_level)')"
     local ++fail_count
 }
 set level 95
 
-**# Test 7: effecttab falls back rather than dying
+**# Test 7: effecttab shares the warning fallback
 * effecttab accepts only teffects/margins collections, hence the different DGP.
 webuse cattaneo2, clear
 collect clear
@@ -191,12 +190,12 @@ collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
 capture frame drop _ci_fb4
 capture noisily effecttab, frame(_ci_fb4)
 local rc = _rc
-if `rc' == 198 {
-    display as result "  PASS: effecttab refuses to infer the level (shares the helper)"
+if `rc' == 0 & abs(`=r(ci_level)' - 95) < 1e-8 {
+    display as result "  PASS: effecttab warns and falls back to set level 95"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: effecttab should refuse without provenance (rc=`rc' ci_level=`=r(ci_level)')"
+    display as error "  FAIL: effecttab no-provenance fallback (rc=`rc' ci_level=`=r(ci_level)')"
     local ++fail_count
 }
 
@@ -220,13 +219,17 @@ run "`pkg_dir'/_tabtools_common.ado"
 sysuse auto, clear
 collect clear
 collect: regress price mpg weight
+set varabbrev on
 capture regtab, frame(_ci_fb5) level(90)
-if _rc == 198 {
+local rc = _rc
+local _va_after = c(varabbrev)
+set varabbrev off
+if `rc' == 198 & "`_va_after'" == "on" {
     display as result "  PASS: level() conflicting with real provenance still errors 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: conflict guard did not fire (rc=`=_rc')"
+    display as error "  FAIL: conflict guard or varabbrev restoration (rc=`rc' varabbrev=`_va_after')"
     local ++fail_count
 }
 
