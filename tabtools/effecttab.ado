@@ -1,4 +1,4 @@
-*! effecttab Version 1.15.0  2026/08/13
+*! effecttab Version 1.15.1  2026/08/14
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -237,7 +237,7 @@ quietly {
 	else {
 		* Shared with regtab: see _tabtools_resolve_ci_level in _tabtools_common.
 		* When the collection carries no level provenance and level() was not
-		* given, this ERRORS rather than guessing from the current c(level).
+		* given, this warns and falls back to the current c(level).
 		noisily _tabtools_resolve_ci_level `level'
 		local _ci_level = r(level)
 		local _ci_found = r(found)

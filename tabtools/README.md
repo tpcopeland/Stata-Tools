@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.15.0** | 2026-08-13
+**Version 1.15.1** | 2026-08-14
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -92,7 +92,7 @@ Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `he
 - Excel workbooks with named sheets, titles, notes, footnotes, borders, header colors, zebra striping, significance emphasis, and optional post-write opening.
 - GitHub-Flavored Markdown, CSV, Stata frames, and graph-ready eplot frames where supported.
 - Shared session defaults for font, font size, border style, theme, numeric digits, and p-value emphasis through `tabtools set` and `tabtools get`.
-- Explicit confidence-level provenance for collection-based and saved-rate workflows, with errors for conflicting or unavailable levels instead of silently substituting a value.
+- Explicit confidence-level provenance for collection-based and saved-rate workflows, with errors for conflicting levels and a visible `c(level)` fallback warning when a Stata version omits collection provenance.
 - Strict `smallcells(#)` disclosure control for `table1_tc`, `desctab`, and `crosstab`, with primary, complementary, and dependent-result suppression applied before any output sink.
 
 ### Workbook cell types
@@ -281,7 +281,7 @@ regtab, [xlsx(string) excel(string) sheet(string) sep(string) models(string) coe
 
 `regtab` is Stata 17+ and renders the active `collect` result. The sheet defaults to `Regression`, digits to the session setting or `2`, `sep()` to `, `, `pdp(3)`, `highpdp(2)`, `refcat()` to `Reference`, `labelwidth()` to `45`, and `starslevels()` to `0.05 0.01 0.001`. Ratio-scale models receive their conventional coefficient labels and suppress intercepts automatically where appropriate; `keep()` and `drop()` are mutually exclusive. `stats()` accepts `n`, `aic`, `bic`, `qic`, `icc`, `ll`, `groups`, and `r2`.
 
-The command does not fit models and can alter the active collection's layout and styles. Explicit `level()` must agree with collection metadata; when Stata 19 has no collection level metadata, supply `level()` rather than relying on an implicit fallback. `nopvalue` hides p-value columns but does not remove p-values used by stars or highlighting.
+The command does not fit models and can alter the active collection's layout and styles. Explicit `level()` must agree with collection metadata. When a Stata version omits that metadata and `level()` is not supplied, `regtab` warns and uses the current `c(level)` for interval labels; supply `level()` if the models were fit at a different level. `nopvalue` hides p-value columns but does not remove p-values used by stars or highlighting.
 
 ### `effecttab`
 
@@ -512,6 +512,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.15.1** (2026-08-14): Changed the missing confidence-level provenance path used by `regtab` and `effecttab`: on Stata versions that omit the collection's level metadata, omitting `level()` now emits a visible warning and uses the current `c(level)` for interval labels instead of stopping with error 198. Explicit `level()` still overrides the fallback and still errors when it conflicts with recorded collection provenance.
 - **1.15.0** (2026-08-13): Corrected the checked-in demo count to 82 sheets across 15 workbooks; commit `3c5f99c0` added a `Small Cells Binary` sheet to `demo_table1.xlsx` and `demo_desctab.xlsx` without updating this README or `qa/test_package_release.do`, leaving that release gate failing on `main`. Closed an exact-disclosure leak in `table1_tc, smallcells()`. A published percentage releases its own denominator — the per-variable, per-group non-missing count — which the suppression engine was never told about, so dividing a published count by its published percentage recovered that denominator and subtraction then reconstructed a primary-suppressed count exactly, at `rc 0`, under a table the engine had certified. A variable carrying a primary suppression now publishes counts only, in every column including `total()`; other variables keep their percentages. `smallcells()` is refused with a percent-only display (explicit `percent`, or the percent-only default `wt()` applies without `wtn`/`percent_n`), because a protected block would have nothing left to publish. Also made the `corrtab` star legend independent of how its thresholds arrived: the default and `star(0.05 0.01 0.001)` printed `p<0.05` and `p<.05` for the same thresholds. New `qa/test_review_2026_08_13.do` runs a live reconstruction attack against the rendered table; all 7 of its checks fail on 1.14.2.
 - **1.14.2** (2026-08-11): Removed individually redundant `≥#` complementary markers after exact-disclosure safety is certified, so each one remaining is necessary in the final protected table; added independent bounded irredundancy validation and public-command regressions for `table1_tc`, `desctab`, and `crosstab`.
 - **1.14.1** (2026-08-11): Made all 77 shipped Stata programs declare their class and independently restore `c(varabbrev)` on success and error, and hardened cleanup around variable-type sampling, simulation-summary postfiles, and simulation plot-frame construction.
