@@ -1,6 +1,6 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.2.1** | 2026-08-11
+**Version 1.2.0** | 2026-08-14
 
 `finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 
@@ -65,6 +65,25 @@ With a proportional subdistribution-hazards model, the exponentiated coefficient
 The usual workflow is to declare survival-time data, fit one model, use `finegray_predict` for row-level quantities, use `finegray_cif` for a covariate profile or a curve, and use `finegray_phtest` to explore time-varying effects. `xb` can score compatible new data. Point `cif` and `basecshazard` predictions can also use compatible data while the active fit's cached event-time structure or a posted `e(basehaz)` is available; those quantities need `_t` or `timevar()`. `finegray_cif`, `finegray_phtest`, and the `ci`, `schoenfeld`, and `bootstrap()` paths of `finegray_predict` require the original, unchanged `stset` data.
 
 For delayed entry, declare `enter(time ...)` in `stset` and fit with the package's Weight 1 risk-set construction. Use `strata()` for censoring groups and `truncstrata()` for entry groups; when both are specified, observed combinations form joint weighting groups. Inspect `e(lt_weight)`, `e(lt_vce)`, and the weight diagnostics before interpreting the result.
+
+## Performance
+
+There are three ways to fit a Fine-Gray model in Stata: `finegray`, Stata's built-in `stcrreg`, and `stcrprep` (Lambert, SSC) followed by a weighted `stcox`. `stcrreg` forms the weighted risk sets internally at every iteration; `stcrprep` expands the data once with time-dependent censoring weights and hands the expanded rows to `stcox`; `finegray` scans the original rows in Mata and expands nothing.
+
+Simulated competing-risks data, three covariates, median of three timed runs after one untimed warm-up, on Linux x86-64 under Stata 17 with `c(processors)` = 16:
+
+| N | finegray | stcrreg | stcrprep + stcox | stcox alone | vs `stcrreg` | vs `stcrprep` |
+|------:|---------:|---------:|-----------------:|------------:|-------------:|--------------:|
+| 109 (hypoxia) | 0.009s | 0.045s | 0.020s | 0.006s | **5.0x** | **2.2x** |
+| 500 | 0.031s | 1.279s | 0.130s | 0.034s | **41.3x** | **4.2x** |
+| 1,000 | 0.049s | 3.160s | 0.353s | 0.126s | **64.5x** | **7.2x** |
+| 2,000 | 0.087s | 11.835s | 1.635s | 0.520s | **136.0x** | **18.8x** |
+| 5,000 | 0.214s | 76.496s | 14.848s | 5.896s | **357.5x** | **69.4x** |
+| 10,000 | 0.358s | 334.140s | 76.550s | 35.374s | **933.4x** | **213.8x** |
+
+The `stcrprep + stcox` column is the whole pipeline, which is what one Fine-Gray fit costs from a standing start. `stcox alone` is what a second model on the same expanded weights costs, since `stcrprep` is designed to compute the weights once and reuse them — and even on that best case it is slower than a *complete* `finegray` fit from N=1,000 upward (35.374s vs 0.358s at N=10,000). The expansion is why: it turns 5,000 subjects into 487,458 weighted rows and 10,000 into 1,790,932, and every operation afterwards pays for them.
+
+Absolute seconds are machine-dependent; the ratios are the portable quantity. All three commands fit the same model — the benchmark scripts print the maximum relative coefficient difference across the three fits alongside the timings (4.6e-11 on `hypoxia`, 1.3e-08 to 3.2e-08 across the simulated sizes). Methodology, the on-demand `stcrprep` install, and how to reproduce the table: [`demo/README.md`](demo/README.md).
 
 ## Choosing a Workflow
 
@@ -355,8 +374,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.2.1** (2026-08-11): Fixed cold-cache CIF and baseline-hazard prediction after multiple-record reduction, prediction with legal long factor-variable names, confidence-level validation in both CIF commands, and a false delayed-entry positivity error for competing exits after the last cause event.
-- **1.2.0** (2026-08-10): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, and expanded CIF and diagnostic workflows; `finegray_phtest` is an exploratory residual-correlation diagnostic without an omnibus test. Display and reporting pass: `finegray` now replays its results when typed with no `varlist`; factor-variable coefficients are named with the terms you typed rather than internal design columns (so `test 1.pelnode` and `estimates table` work directly); the header reports the competing event values, the delayed-entry weight and late-entry count, and which variance is in `e(V)`; `e(depvar)` is `_t`, matching `stcrreg`. `finegray_cif` states the covariate profile above the table and under the graph, extends the plotted curve across the flat tail to the end of follow-up, flags requested times outside the estimated support, and labels the `saving()` dataset. New returns: `e(N_delayed)`, `e(N_G_trunc)`, `e(compete_values)`. Documentation and diagnostics pass: the factor-variable naming guidance now matches the user-facing coefficient names stored in `e(b)` and `e(V)`; `ibn.` is documented as estimable inside an interaction but refused as a main effect, with the refusal naming the terms you typed rather than internal design columns; the `margins` limitation is stated precisely (factor terms give `r(322)`, continuous-covariate margins remain valid); post-estimation on an empty `e(sample)` — what `estimates use` leaves behind — now reports that rather than "data have changed", and the help explains how `estimates esample:` restores it; rendered help spacing repaired throughout and the option tables fit an 80-column Viewer.
+- **1.2.0** (2026-08-14): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, and expanded CIF and diagnostic workflows; `finegray_phtest` is an exploratory residual-correlation diagnostic without an omnibus test. Display and reporting pass: `finegray` now replays its results when typed with no `varlist`; factor-variable coefficients are named with the terms you typed rather than internal design columns (so `test 1.pelnode` and `estimates table` work directly); the header reports the competing event values, the delayed-entry weight and late-entry count, and which variance is in `e(V)`; `e(depvar)` is `_t`, matching `stcrreg`. `finegray_cif` states the covariate profile above the table and under the graph, extends the plotted curve across the flat tail to the end of follow-up, flags requested times outside the estimated support, and labels the `saving()` dataset. New returns: `e(N_delayed)`, `e(N_G_trunc)`, `e(compete_values)`. Documentation and diagnostics pass: the factor-variable naming guidance now matches the user-facing coefficient names stored in `e(b)` and `e(V)`; `ibn.` is documented as estimable inside an interaction but refused as a main effect, with the refusal naming the terms you typed rather than internal design columns; the `margins` limitation is stated precisely (factor terms give `r(322)`, continuous-covariate margins remain valid); post-estimation on an empty `e(sample)` — what `estimates use` leaves behind — now reports that rather than "data have changed", and the help explains how `estimates esample:` restores it; rendered help spacing repaired throughout and the option tables fit an 80-column Viewer. Correctness and rendering fixes: cold-cache CIF and baseline-hazard prediction after multiple-record reduction, prediction with legal long factor-variable names, confidence-level validation in both CIF commands, and a false delayed-entry positivity error for competing exits after the last cause event; the `finegray_cif` table rules now end level with the last printed column instead of stopping short of the confidence-interval pair or overhanging the SE column.
 - **1.1.0** (2026-07-10): Added CIF curves, multiple-record support, stratified censoring, and postestimation confidence intervals.
 - **1.0.0** (2026-04-06): Initial Stata-Tools release of `finegray`, `finegray_predict`, and `finegray_phtest`.
 

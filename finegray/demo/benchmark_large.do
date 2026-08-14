@@ -1,7 +1,7 @@
 /*  benchmark_large.do - Speed comparison on simulated data
 
     Produces:
-      1. finegray and stcrreg timings for N=500 to 5,000
+      1. finegray, stcrreg and stcrprep+stcox timings for N=500 to 10,000
          -> benchmark_large.log
 */
 
@@ -20,6 +20,16 @@ log using "`pkg_dir'/benchmark_large.log", ///
 * Use the local development copy via adopath, without mutating the user's ado
 * tree (no `ado uninstall'/`net install').  Session-local; removed on exit.
 adopath ++ "`c(pwd)'/finegray"
+
+* stcrprep (Lambert, SSC) is the third comparator: it expands the data with
+* time-dependent censoring weights so that a weighted stcox reproduces the
+* Fine-Gray fit.  Installed on demand -- this is the one place the benchmark
+* writes to the user's ado tree, and only when the command is genuinely absent.
+capture which stcrprep
+if _rc {
+    display as text "installing stcrprep from SSC (third comparator)"
+    ssc install stcrprep, replace
+}
 
 **# Synthetic competing-risks data
 capture program drop _finegray_demo_data
@@ -66,15 +76,30 @@ display as text "           ratio is the reproducible, portable quantity."
 * three timed runs after one untimed warm-up (first call pays one-time cache and
 * JIT costs neither command should be charged for).  N runs to 10,000 so the
 * published table row is reproducible from this harness.
+*
+* Three comparators, all fitting the SAME Fine-Gray model:
+*   finegray            Mata forward-backward scan, no data expansion
+*   stcrreg             Stata's built-in, expands internally at every iteration
+*   stcrprep + stcox    expand once with time-dependent weights, then weighted Cox
+* The stcrprep column is the whole pipeline, which is what one Fine-Gray fit
+* costs.  stcox alone is reported separately because stcrprep's design goal is
+* that the expansion is amortised over several models fitted on the same
+* weights; charging every model the expansion would understate that use.
 capture matrix drop _bench
 foreach n in 500 1000 2000 5000 10000 {
     _finegray_demo_data `n'
 
-    * warm-up (untimed): both commands, so first-call costs are excluded
+    * warm-up (untimed): all three paths, so first-call costs are excluded
     quietly finegray x1 x2 x3, compete(status) cause(1) nolog
     preserve
     quietly stset time, failure(status==1) id(id)
     quietly stcrreg x1 x2 x3, compete(status == 2)
+    restore
+    preserve
+    quietly stset time, failure(status==1 2) id(id)
+    quietly stcrprep, events(status) keep(x1 x2 x3) trans(1)
+    quietly stset tstop [pw=weight_c], failure(status==1) enter(tstart)
+    quietly stcox x1 x2 x3, nolog
     restore
 
     * three timed repeats; take the median
@@ -86,6 +111,7 @@ foreach n in 500 1000 2000 5000 10000 {
         timer off 1
         quietly timer list 1
         local fg`rep' = r(t1)
+        if `rep' == 1 matrix _b_fg = e(b)
 
         preserve
         quietly stset time, failure(status==1) id(id)
@@ -95,27 +121,62 @@ foreach n in 500 1000 2000 5000 10000 {
         timer off 2
         quietly timer list 2
         local cr`rep' = r(t2)
+        if `rep' == 1 matrix _b_cr = e(b)
+        restore
+
+        preserve
+        quietly stset time, failure(status==1 2) id(id)
+        timer clear
+        timer on 3
+        quietly stcrprep, events(status) keep(x1 x2 x3) trans(1)
+        quietly stset tstop [pw=weight_c], failure(status==1) enter(tstart)
+        timer on 4
+        quietly stcox x1 x2 x3, nolog
+        timer off 4
+        timer off 3
+        quietly timer list
+        local sp`rep' = r(t3)
+        local cx`rep' = r(t4)
+        if `rep' == 1 {
+            matrix _b_sp = e(b)
+            local rows`n' = _N
+        }
         restore
     }
     * median of three = the middle value after sorting
     local fgmed = max(min(`fg1',`fg2'), min(max(`fg1',`fg2'),`fg3'))
     local crmed = max(min(`cr1',`cr2'), min(max(`cr1',`cr2'),`cr3'))
-    local ratio = cond(`fgmed' > 0, `crmed'/`fgmed', .)
+    local spmed = max(min(`sp1',`sp2'), min(max(`sp1',`sp2'),`sp3'))
+    local cxmed = max(min(`cx1',`cx2'), min(max(`cx1',`cx2'),`cx3'))
+    local ratio   = cond(`fgmed' > 0, `crmed'/`fgmed', .)
+    local ratiosp = cond(`fgmed' > 0, `spmed'/`fgmed', .)
 
-    display as text "N=`n': finegray median=" as result %8.3f `fgmed' ///
-        as text "s  stcrreg median=" as result %8.3f `crmed' ///
-        as text "s  speedup=" as result %7.1f `ratio' as text "x"
-    matrix _row = (`n', `fgmed', `crmed', `ratio')
+    * The speed table only means something if the three fits agree.
+    local maxrd = 0
+    forvalues j = 1/3 {
+        local maxrd = max(`maxrd', reldif(_b_fg[1,`j'], _b_cr[1,`j']))
+        local maxrd = max(`maxrd', reldif(_b_fg[1,`j'], _b_sp[1,`j']))
+    }
+
+    display as text "N=`n': finegray=" as result %8.3f `fgmed' ///
+        as text "s  stcrreg=" as result %8.3f `crmed' ///
+        as text "s  stcrprep+stcox=" as result %8.3f `spmed' ///
+        as text "s  (stcox alone=" as result %7.3f `cxmed' as text "s)"
+    display as text "        speedup vs stcrreg=" as result %7.1f `ratio' ///
+        as text "x  vs stcrprep+stcox=" as result %7.1f `ratiosp' ///
+        as text "x  expanded rows=" as result `rows`n'' ///
+        as text "  max coef reldif=" as result %10.2e `maxrd'
+    matrix _row = (`n', `fgmed', `crmed', `spmed', `cxmed', `ratio', `ratiosp')
     matrix _bench = nullmat(_bench) \ _row
 }
 
-matrix colnames _bench = N finegray_s stcrreg_s speedup
+matrix colnames _bench = N finegray_s stcrreg_s stcrprep_s stcox_s sp_crreg sp_crprep
 display as text _newline "Benchmark table (median of 3 timed runs, one warm-up):"
 matrix list _bench, noheader format(%10.3f)
 
 **# Cleanup
 capture program drop _finegray_demo_data
-capture matrix drop _bench _row
+capture matrix drop _bench _row _b_fg _b_cr _b_sp
 log close benchmark
 capture adopath - "`c(pwd)'/finegray"
 clear
