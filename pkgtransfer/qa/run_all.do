@@ -2,7 +2,7 @@
     File:    run_all.do
     Purpose: Run the quick, core, or full pkgtransfer QA lane
     Author:  Timothy P Copeland, Karolinska Institutet
-    Date:    2026-08-11
+    Date:    2026-08-16
 */
 
 version 16.0
@@ -48,6 +48,12 @@ local ++suite_count
 if `deep_review_rc' == 0 local ++suite_pass
 else local ++suite_fail
 
+capture noisily do "`qa_dir'/test_pkgtransfer_v110.do"
+local os_filter_rc = _rc
+local ++suite_count
+if `os_filter_rc' == 0 local ++suite_pass
+else local ++suite_fail
+
 capture noisily do "`qa_dir'/test_pkgtransfer_installed.do"
 local installed_rc = _rc
 local ++suite_count
@@ -70,6 +76,7 @@ display _n as text "pkgtransfer `mode' QA lane"
 display as text "  functional rc = `functional_rc'"
 display as text "  regression rc = `regression_rc'"
 display as text "  deep review rc = `deep_review_rc'"
+display as text "  OS filter rc = `os_filter_rc'"
 display as text "  installed rc = `installed_rc'"
 if inlist("`mode'", "core", "full") {
     display as text "  validation rc = `validation_rc'"

@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.5  2026/08/11
+*! pkgtransfer Version 1.1.0  2026/08/16
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -20,7 +20,7 @@
     pkgtransfer [, DOWNload(string) LIMited(string) SKIP(string) REStore
         OS(string) DOfile(string) ZIPfile(string)]
 
-		os(string):			Specifies operating system of destination for installation; by default will use OS of current Stata instance. Valid options are: "MacOSX", "Unix", or "Windows"
+		os(string):			Specifies the destination OS and limits plugin binaries to that OS. If omitted, all OS variants are bundled. Valid options are: "MacOSX", "Unix", or "Windows"
 
 		download(string):	Create a ZIP file of all packages and a do-file for local installation. Specify "local" if you with to capture local copies of packages and files and "online" if you wish to capture online copies of packages and files.
 
@@ -46,6 +46,8 @@ program define pkgtransfer, rclass
 	capture noisily {
 
 	syntax [, DOWNload(string) LIMited(string) SKIP(string) REStore OS(string) DOfile(string) ZIPfile(string)]
+	local _os_requested = (`"`os'"' != "")
+	local _plugin_platform_regex ""
 
 	/* Treat package selectors as sets while preserving input order */
 	foreach list_name in limited skip {
@@ -159,6 +161,12 @@ quietly {
 		if "`os'" != "" & "`os'" != "Windows" & "`os'" != "Unix" & "`os'" != "MacOSX" {
 			noisily display as error "Error: Invalid os() specification. Valid options are 'Windows', 'Unix', or 'MacOSX'."
 			exit 198
+		}
+		if `_os_requested' {
+			if "`os'" == "Windows" local _plugin_platform_regex "^WIN"
+			else if "`os'" == "Unix" ///
+				local _plugin_platform_regex "^(LINUX|UNIX)"
+			else local _plugin_platform_regex "^MAC"
 		}
 
 		/* Error if dofile not specified correctly */
@@ -457,6 +465,11 @@ quietly{
 					substr(lower(v1),1,2) == "h ") & ///
 					strpos(v1,"`plugin_name'")
 				replace v1 = subinstr(v1, char(9), " ", .)
+				if `_os_requested' {
+					drop if substr(lower(v1),1,2) == "g " & ///
+						!regexm(upper(word(v1, 2)), ///
+						`"`_plugin_platform_regex'"')
+				}
 
 				// Normalize descriptor paths and download every matching plugin
 				noisily display "Downloading plugins for `package'..."
@@ -522,17 +535,6 @@ quietly{
 							exit `plugin_copy_rc'
 						}
 
-						if `"`clean_target'"' != `"`clean_source'"' {
-							capture copy ///
-								`"pkgtransfer_files/`clean_source'"' ///
-								`"pkgtransfer_files/`clean_target'"', replace
-							if _rc {
-								local target_copy_rc = _rc
-								noisily display as error ///
-									"Could not create plugin target `clean_target'"
-								exit `target_copy_rc'
-							}
-						}
 					}
 				}
 
@@ -637,6 +639,11 @@ quietly{
 				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
 
 				keep if substr(lower(v1), 1, 2) == "f " | substr(lower(v1), 1, 2) == "g "
+				if `_os_requested' {
+					drop if substr(lower(v1),1,2) == "g " & ///
+						!regexm(upper(word(v1, 2)), ///
+						`"`_plugin_platform_regex'"')
+				}
 					gen filepath = substr(v1, 3, .)
 
 					quietly forvalues j = 1/`=_N' {
@@ -692,25 +699,12 @@ quietly{
 								exit `plugin_source_rc'
 							}
 
-						// Also save a copy with the target filename
-						// This ensures all platform variants are downloaded and the target file exists
 								local clean_target = subinstr("`target_file'", "\", "/", .)
 								if substr("`clean_target'", 1, 3) == "../" ///
 									local clean_target = substr("`clean_target'", 4, .)
 								_pkgtransfer_prepare_destination, ///
 									root("pkgtransfer_files") ///
 									relative(`"`clean_target'"')
-								if "`clean_target'" != "`clean_source'" {
-									capture copy ///
-										"pkgtransfer_files`c(dirsep)'`clean_source'" ///
-										"pkgtransfer_files`c(dirsep)'`clean_target'", replace
-									if _rc {
-										local target_copy_rc = _rc
-										noisily display as error ///
-											"Could not create plugin target `clean_target'"
-										exit `target_copy_rc'
-									}
-								}
 
 						}
 
@@ -756,6 +750,11 @@ quietly{
 				// Last, read and modify the entire .pkg file
 				clear
 				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				if `_os_requested' {
+					drop if substr(lower(v1),1,2) == "g " & ///
+						!regexm(upper(word(v1, 2)), ///
+						`"`_plugin_platform_regex'"')
+				}
 
 					// Normalize bundled paths while preserving nested directories
 					tempvar manifest_f manifest_gd manifest_gp manifest_gs manifest_gt
