@@ -55,11 +55,14 @@ CIF(t | z) = 1 - exp( -H0(t) * exp(z'b) ),
 where H0(t) is the fitted baseline cumulative subdistribution hazard. The
 command uses {cmd:e(basehaz)} when that opt-in matrix exists and otherwise
 resolves the fit-specific cached or rebuilt baseline. By default it plots the
-CIF as a right-continuous step function over the event-time grid. The plotted
-curve and confidence band begin at the exact (0,0) boundary, and the plot region
-is anchored at zero on the analysis-time axis. This display-only origin is not
-added to {cmd:r(table)} or {opt saving()} output. With {opt attime()} the command
-instead reports the CIF at specific horizons (for example the 5-year cumulative
+CIF as a right-continuous step function over the event-time grid. When the
+baseline contains more than 400 distinct cause-event times, the default grid is
+thinned to at most 401 points and always includes the final cause-event time; use
+{opt timepoints()} to request an exact grid. The plotted curve and confidence
+band begin at the exact (0,0) boundary, and the plot region is anchored at zero
+on the analysis-time axis. This display-only origin is not added to
+{cmd:r(table)} or {opt saving()} output. With {opt attime()} the command instead
+reports the CIF at specific horizons (for example the 5-year cumulative
 incidence).
 
 {pstd}
@@ -133,7 +136,8 @@ term must be set through its internal {cmd:_fg_*} indicator names instead (see
 at the distinct cause-event times of the fitted baseline. May not be combined
 with {opt attime()}: both name the times the CIF is evaluated at, and
 {opt attime()} additionally selects table output over a plotted curve, so the
-combination is refused rather than resolved silently.
+combination is refused rather than resolved silently. Unlike the default grid,
+the requested grid is not thinned.
 
 {phang}
 {opt ci} adds pointwise confidence limits. The standard error of the CIF is an
@@ -144,10 +148,10 @@ entry it can therefore omit weight-estimation variability; {opt bootstrap()}
 re-estimates the weight functions in each replication.
 
 {phang}
-{opt bootstrap(#)} computes the confidence band by resampling subjects with
-replacement and refitting the model. If the original fit specified
-{opt cluster()}, whole clusters are resampled instead. The simulated band
-therefore follows the fitted resampling unit and includes variability from
+{opt bootstrap(#)} computes pointwise confidence limits by resampling subjects
+with replacement and refitting the model. It requires {opt ci}. If the original
+fit specified {opt cluster()}, whole clusters are resampled. The resulting limits
+therefore follow the fitted resampling unit and include variability from
 re-estimating the censoring weights. Under delayed entry it also re-estimates
 the entry weights and weight strata. Nonconverged refits, and refits whose
 resample loses a factor level (so the coefficient vector no longer matches the
@@ -166,9 +170,9 @@ limits differ. The original estimation results and {cmd:e(sample)} are preserved
 reproducibility. It requires {opt bootstrap()}.
 
 {phang}
-{opt level(#)} sets the confidence level; the default is {cmd:c(level)}, which
-is initially 95 and can be changed by {helpb set level}. The value must be at
-least 10 and less than 100.
+{opt level(#)} sets the confidence level for {opt ci}; it requires {opt ci}. The
+default is {cmd:c(level)}, which is initially 95 and can be changed by
+{helpb set level}. The value must be at least 10 and less than 100.
 
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},
@@ -187,7 +191,9 @@ supplied).
 {phang}
 {it:twoway_options} are any of the options documented in {help twoway_options},
 for example {cmd:title()}, {cmd:xtitle()}, or {cmd:scheme()}. These pass through
-to the CIF plot and override the defaults. The legend defaults to a single
+to the CIF plot and override the defaults. In {opt attime()} mode no graph is
+drawn, so these options are ignored with a note. The legend defaults to a
+single
 row; because repeated {cmd:legend()} options merge, you can adjust or suppress
 it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 {cmd:legend(rows(2))}.
