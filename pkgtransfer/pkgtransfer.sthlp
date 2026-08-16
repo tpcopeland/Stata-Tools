@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  11aug2026}{...}
+{* *! version 1.1.0  16aug2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -25,7 +25,7 @@
 {synopt:{cmdab:res:tore}}restore online source URLs in stata.trk{p_end}
 
 {syntab:Advanced}
-{synopt:{opt os(string)}}target OS: {bf:Windows}, {bf:Unix}, or {bf:MacOSX}{p_end}
+{synopt:{opt os(string)}}target OS and plugin filter: {bf:Windows}, {bf:Unix}, or {bf:MacOSX}{p_end}
 {synopt:{cmdab:do:file(}{it:filename}{cmd:)}}custom name for generated do-file{p_end}
 {synopt:{cmdab:zip:file(}{it:filename}{cmd:)}}custom name for generated ZIP file{p_end}
 
@@ -63,9 +63,10 @@ is moved to a separate folder.
 packages. {opt download(online)} downloads all package files from the internet and
 creates a ZIP archive and local installation do-file. {opt download(local)} copies
 package files from your local PLUS directory instead of downloading
-them. Note: platform-specific plugin files ({bf:.plugin}) are always downloaded
-from the internet even with {opt download(local)}, because the local PLUS directory
-only contains the current platform's version. When neither {opt download()}
+them. Platform-specific plugin files are downloaded from the internet even with
+{opt download(local)}, because the local PLUS directory only contains the current
+platform's version. By default, every OS variant is bundled; explicitly specifying
+{opt os()} limits plugin files and descriptor records to that OS. When neither {opt download()}
 nor {opt restore} is specified, {cmd:pkgtransfer} generates a do-file
 ({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive). Bundle
 creation refuses to reuse an existing {cmd:pkgtransfer_files} directory, so move or
@@ -104,8 +105,9 @@ before modification. If no backup URLs are found, a warning is displayed.
 
 {phang}
 {opt os(string)} specifies the target operating system for the installation script
-cleanup commands. Valid options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. By default, uses
-the current OS.
+cleanup commands and limits an offline bundle to plugin variants for that OS. Valid
+options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. When omitted, the
+installer uses the current OS and an offline bundle includes every OS plugin variant.
 
 {phang}
 {opt dofile(filename)} specifies a custom name for the generated do-file. The
@@ -136,7 +138,13 @@ script ({cmd:pkgtransfer.do}) and a ZIP archive ({cmd:pkgtransfer_files.zip}).
 {p 4 4 2}
 {cmd:. pkgtransfer, download(local)}
 {break}
-Copies all packages from your local PLUS directory and creates a local installation script and ZIP archive.
+Copies all packages from your local PLUS directory and creates a local installation
+script and ZIP archive containing all OS plugin variants.
+
+{p 4 4 2}
+{cmd:. pkgtransfer, download(local) os(Unix)}
+{break}
+Creates a Unix-targeted bundle containing Linux/Unix plugin variants only.
 
 {p 4 4 2}
 {cmd:. pkgtransfer, limited(estout outreg2)}
@@ -214,6 +222,6 @@ global {cmd:package_dir} macro.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.5 - 2026-08-11{p_end}
+{pstd}Version 1.1.0 - 2026-08-16{p_end}
 
 {hline}

@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.0.5** | 2026-08-11
+**Version 1.1.0** | 2026-08-16
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -51,7 +51,7 @@ net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stat
 
 - With no options, it writes a do-file containing `ssc install`, `net install`, or `github install` commands for eligible recorded sources.
 - With `download(online)`, it downloads package descriptors and files from their recorded online sources, then creates an archive and an installer do-file.
-- With `download(local)`, it copies the package files already present in the current PLUS directory, while obtaining platform-specific plugins from their sources.
+- With `download(local)`, it copies the package files already present in the current PLUS directory, while obtaining platform-specific plugins from their sources. Omit `os()` to bundle every platform variant, or specify it to retain only the target OS variants.
 - With `restore`, it uses backup source metadata embedded by a transfer bundle to restore online URLs in `stata.trk`.
 
 Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files; it leaves the extracted folder in place because its cleanup commands are disabled for safety.
@@ -101,7 +101,7 @@ This example bundles the installed copy of `pkgtransfer` itself. Replace the pac
 pkgtransfer, download(local) limited(pkgtransfer) dofile(local_setup.do)
 ```
 
-Move `local_setup.do` and `pkgtransfer_files.zip` to the destination machine and run `do local_setup.do` there. Platform-specific plugin files, if any, are fetched while the bundle is being built.
+Move `local_setup.do` and `pkgtransfer_files.zip` to the destination machine and run `do local_setup.do` there. Platform-specific plugin files, if any, are fetched while the bundle is being built. Add `os(Windows)`, `os(Unix)`, or `os(MacOSX)` to keep only that platform's plugins; omitting `os()` keeps all variants.
 
 ### 4. Limit or skip packages
 
@@ -381,7 +381,7 @@ Existing do-file and archive targets with the same names are replaced. Bundle cr
 | `limited(pkglist)` | all eligible packages | Restricts the operation to the space-separated package names supplied; names must be present in `stata.trk` |
 | `skip(pkglist)` | none | Excludes the exact package names supplied |
 | `restore` | off | Restores embedded online source URLs in `stata.trk`; it may be used alone or with `download()` |
-| `os(Windows|Unix|MacOSX)` | current `c(os)` | Sets the target OS used for the commented manual-cleanup command in an offline installer |
+| `os(Windows|Unix|MacOSX)` | current `c(os)`; all plugin variants | Sets the installer target OS and limits offline bundles to matching plugin variants when explicitly supplied |
 | `dofile(filename)` | `pkgtransfer.do` | Sets the generated do-file name; it must end in `.do` and may not contain shell metacharacters or quote characters |
 | `zipfile(filename)` | `pkgtransfer_files.zip` | Sets the generated archive name; it must end in `.zip`, may not contain shell metacharacters or quote characters, and is valid only with `download()` |
 
@@ -411,13 +411,14 @@ After package selection has succeeded, capturing a later output-write or archive
 - Only packages and sources recorded in the current PLUS directory's `stata.trk` are considered. Other adopath locations and untracked files are not reconstructed.
 - The default mode does not fetch package files. Its generated commands require internet access on the destination, and GitHub-origin entries require the `github` command there.
 - `download(online)` depends on the recorded source URLs and network availability. A missing or inaccessible required descriptor or package file aborts bundle creation.
-- `download(local)` uses the copies currently installed in PLUS, but platform-specific `.plugin` files are downloaded from their sources because PLUS contains only the current platform build. A missing tracked file aborts bundle creation rather than producing a partial archive.
+- `download(local)` uses the copies currently installed in PLUS, but platform-specific plugin files are downloaded from their sources because PLUS contains only the current platform build. Omitted `os()` downloads every platform variant; explicit `os()` downloads only matching variants. A missing tracked file aborts bundle creation rather than producing a partial archive.
 - `restore` works only when a bundle has embedded original-source backup records. It creates `stata.trk.backup` before changing the active tracking file.
 - The generated offline installer does not add `replace` or `force` to its local `net install` commands. If the destination already has the package, edit the generated installer as needed.
 - The command preserves the dataset in memory while it reads and writes package-tracking and transfer files.
 
 ## Version History
 
+- **1.1.0** (2026-08-16): Offline bundles retain every OS plugin variant by default, while explicit `os(Windows)`, `os(Unix)`, or `os(MacOSX)` limits both plugin files and descriptor records to the selected platform; source files are no longer duplicated under their installation target names inside archives.
 - **1.0.5** (2026-08-11): Offline bundles now emit canonical version-3 package and content metadata; preserve plugin directive case, normalized source/target paths, and descriptor terminators; support multiple plugins per package and SSC descriptor lookup; use unambiguous restore markers with legacy URL compatibility; and keep the QA runner from uninstalling the user's package.
 - **1.0.4** (2026-08-11): Package selectors are normalized as ordered sets; duplicate tracker definitions fail before any transfer mode; local and online bundles preserve nested ordinary and plugin paths while rejecting traversal; failed side effects retain the analytical return surface; and generated offline installers preserve caller globals and the working directory.
 - **1.0.3** (2026-08-10): Local bundles now resolve non-SSC plugin descriptors correctly, parse tab-delimited platform records, preserve nested plugin source paths, and update the correct package descriptor.
