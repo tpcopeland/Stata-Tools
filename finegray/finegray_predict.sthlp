@@ -122,10 +122,10 @@ never saw is refused with {cmd:r(459)}; see
 
 {pstd}
 {bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
-rather than erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} exists but
-holds the last iterate rather than a solution. Every prediction type reads
-{cmd:e(b)}, so all of them would otherwise be computed from a non-solution and
-returned with {cmd:rc 0}. {cmd:finegray_predict} therefore exits with
+rather than erroring, leaving {cmd:e(converged)} at 0 and the fitted coefficients
+and baseline at the last iterate rather than a solution. Every prediction type
+depends on that fitted solution, so it could otherwise return a quantity from a
+non-solution with {cmd:rc 0}. {cmd:finegray_predict} therefore exits with
 {cmd:r(430)} when {cmd:e(converged)} is not 1 — this applies to {opt xb} just as
 it does to {opt cif} and {opt schoenfeld}. Refit with a larger {opt iterate()}
 or a different specification. (Refits inside {opt bootstrap()} that fail to
@@ -151,10 +151,13 @@ column, as described below.
 
 {pstd}
 {bf:Data requirements by prediction type:} {opt xb} predictions can be
-computed on any dataset containing the model covariates. {opt cif}
-predictions additionally require a time variable ({cmd:_t} or
-{opt timevar()}). {opt schoenfeld} residuals and {helpb finegray_phtest}
-require the original {cmd:stset} estimation data — specifically {cmd:_t},
+computed on compatible data containing the model covariates. Point {opt cif}
+and {opt basecshazard} predictions additionally require a time variable
+({cmd:_t} or {opt timevar()}) and a resolvable cached or posted fitted baseline. All
+prediction types currently run the model-design compatibility checks, so
+the scoring data must contain the model covariates. {opt schoenfeld} residuals
+and {helpb finegray_phtest} require the original {cmd:stset} estimation data —
+specifically {cmd:_t},
 {cmd:_d}, and a nonempty estimation sample ({cmd:e(sample)}). These commands
 will exit with an informative error if the estimation context is not present.
 
@@ -218,10 +221,11 @@ variable.
 model with {it:p} covariates, {it:p} variables are created: {it:newvar}
 contains residuals for the first covariate, and {it:newvar}{cmd:_2} through
 {it:newvar}{cmd:_}{it:p} contain residuals for the remaining
-covariates. Because the suffix is part of the created name, {it:newvar} may be
-at most 30 characters for a model with 2-9 covariates (29 for 10-99); an
-over-long stub is refused with {cmd:r(198)} before any residual is
-computed. Residuals are set to missing for observations that are not
+covariates. Because the suffix is part of the created name, a one-covariate
+model allows a 32-character {it:newvar}; with multiple covariates, its maximum
+length is 32 - 1 - length(string({it:p})) characters (30 for 2-9 terms, 29 for
+10-99, and so on). An over-long stub is refused with {cmd:r(198)} before any
+residual is computed. Residuals are set to missing for observations that are not
 cause-of-interest events. {opt timevar()} is not allowed with {opt schoenfeld}
 and is rejected with {cmd:r(198)}; residuals are computed at the original event times. The
 residuals match
@@ -248,8 +252,9 @@ influence functions require the original estimation data, {opt ci} restricts
 the prediction to the estimation sample ({cmd:e(sample)}) and needs {cmd:_t} in
 memory. The standard error treats the inverse-probability-of-censoring weights
 and, under delayed entry, the entry weights as fixed. It therefore omits
-weight-estimation variability. For confidence bands over a grid of times, or a
-fixed-horizon table for a covariate profile, see {helpb finegray_cif}.
+weight-estimation variability. For pointwise confidence limits over a grid of
+times, or a fixed-horizon table for a covariate profile, see
+{helpb finegray_cif}.
 
 {phang}
 {opt bootstrap(#)} (with {opt ci}) computes the confidence limits by resampling
@@ -327,12 +332,13 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 {phang2}{cmd:. finegray_predict cif_at5, cif timevar(mytime)}{p_end}
 
 {pstd}5-year CIF with a confidence interval for each subject{p_end}
-{phang2}{cmd:. gen double mytime = 5}{p_end}
-{phang2}{cmd:. finegray_predict cif5, cif timevar(mytime) ci}{p_end}
+{phang2}{cmd:. gen double mytime_ci = 5}{p_end}
+{phang2}{cmd:. finegray_predict cif5, cif timevar(mytime_ci) ci}{p_end}
 {phang2}{cmd:. list cif5 cif5_lci cif5_uci in 1/5}{p_end}
 
 {pstd}5-year CIF with bootstrap confidence limits{p_end}
-{phang2}{cmd:. finegray_predict cif5_bs, cif timevar(mytime) ci bootstrap(200) seed(12345)}{p_end}
+{phang2}{cmd:. gen double mytime_bs = 5}{p_end}
+{phang2}{cmd:. finegray_predict cif5_bs, cif timevar(mytime_bs) ci bootstrap(200) seed(12345)}{p_end}
 
 {pstd}
 {bf:Schoenfeld residuals}
@@ -353,6 +359,8 @@ in {cmd:r()} or {cmd:e()}. The variables are labeled:
 {cmd:_t} or the {opt timevar()} variable and {it:#} is the cause of interest the
 fit was estimated for - so the label records both the cause and the horizon each
 prediction was evaluated at{p_end}
+{phang2}{it:newvar}{cmd:_lci}: "CIF lower {it:level}% limit"{p_end}
+{phang2}{it:newvar}{cmd:_uci}: "CIF upper {it:level}% limit"{p_end}
 {phang2}{cmd:basecshazard}: "Baseline cumulative subhazard"{p_end}
 {phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:varname}" for each covariate{p_end}
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  14aug2026}{...}
+{* *! version 1.2.0  16aug2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -75,9 +75,10 @@
 {p_end}
 {p 4 6 2}
 Data must be {cmd:stset} with {cmd:id()}. A subject may contribute multiple
-records when the model covariates are constant within {cmd:id()} (e.g. delayed
-entry or {helpb stsplit} data); such records are reduced automatically to one
-risk-set unit. Left-truncated (delayed entry) data are supported.
+records when its intervals are contiguous and the model covariates,
+{opt strata()}, {opt truncstrata()}, and {opt cluster()} variables are constant
+within {cmd:id()} (e.g. delayed-entry or {helpb stsplit} data); such records are
+reduced automatically to one risk-set unit. Left-truncated data are supported.
 {p_end}
 
 {pstd}
@@ -668,8 +669,9 @@ correlations, with no test statistic or p-value. See {helpb finegray_phtest}.
 Both {cmd:finegray_phtest} and {cmd:finegray_predict, schoenfeld} require the
 original {cmd:stset} estimation data ({cmd:_t}, {cmd:_d}, and
 {cmd:e(sample)}); they cannot be run after loading a new
-dataset. {cmd:finegray_predict, xb} and {cmd:finegray_predict, cif} work on any
-dataset containing the model covariates.
+dataset. {cmd:finegray_predict, xb} works on compatible data containing the
+model covariates. Point {cmd:cif} and {cmd:basecshazard} predictions also need
+{cmd:_t} or {opt timevar()} and a resolvable cached or posted fitted baseline.
 
 {pmore}
 {bf:Cumulative incidence curves:} Use {helpb finegray_cif} after estimation to
@@ -685,7 +687,9 @@ use {cmd:finegray_predict, cif ci}.
 {bf:Multiple records per subject:} {cmd:finegray} accepts datasets in which a
 subject contributes more than one in-sample record (delayed entry,
 {cmd:(start,stop]} intervals, or data run through {helpb stsplit}) as long as
-the model covariates are constant within {cmd:id()}.
+the intervals are contiguous (no gaps or overlaps) and the model covariates,
+{opt strata()}, {opt truncstrata()}, and {opt cluster()} variables are constant
+within {cmd:id()}.
 
 {pmore}
 Such records are reduced automatically to one risk-set unit per subject
@@ -909,9 +913,9 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of subjects{p_end}
-{synopt:{cmd:e(N_fail)}}number of cause-of-interest events{p_end}
-{synopt:{cmd:e(N_compete)}}number of competing events{p_end}
-{synopt:{cmd:e(N_cens)}}number of censored observations{p_end}
+{synopt:{cmd:e(N_fail)}}subjects with a cause-of-interest event{p_end}
+{synopt:{cmd:e(N_compete)}}subjects with a competing event{p_end}
+{synopt:{cmd:e(N_cens)}}censored subjects{p_end}
 {synopt:{cmd:e(ll)}}log pseudo-likelihood{p_end}
 {synopt:{cmd:e(ll_0)}}log pseudo-likelihood at b=0 (the null model){p_end}
 {synopt:{cmd:e(chi2)}}Wald chi-squared{p_end}
@@ -1021,7 +1025,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-08-14{p_end}
+{pstd}Version 1.2.0, 2026-08-16{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
