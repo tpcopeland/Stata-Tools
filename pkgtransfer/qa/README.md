@@ -10,6 +10,7 @@ stata-mp -b do run_all.do          # full lane (default)
 stata-mp -b do run_all.do quick    # functional and regression tests
 stata-mp -b do run_all.do core     # quick plus validation
 stata-mp -b do test_pkgtransfer_v105.do
+stata-mp -b do test_pkgtransfer_v110.do
 ```
 
 Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Stata batch mode's shell status alone.
@@ -35,6 +36,7 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 | `test_pkgtransfer.do` | Public options, errors, script generation, transfer modes, cleanup, plugins, and installed-bundle behavior. |
 | `test_pkgtransfer_v104.do` | Selector normalization, nested ordinary/plugin paths, traversal rejection, failure returns, generated-installer state, duplicate-source handling, and output-path quote guards. |
 | `test_pkgtransfer_v105.do` | Version-3 distribution metadata, SSC and parent-relative plugin handling, directive-case and install witnesses, multi-plugin bundles, restore-marker namespacing, and runner isolation. |
+| `test_pkgtransfer_v110.do` | Default all-platform plugin bundles, explicit OS filtering for local and online modes, removal of redundant target copies, and installation from a filtered descriptor. |
 | `test_pkgtransfer_installed.do` | Fresh `net install`, installed-command execution, and bundled helper definitions in a local transfer archive. |
 | `validation_pkgtransfer.do` | Known-answer script content, filtering, filenames, return values, and mode contracts. |
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner. |
@@ -43,7 +45,7 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 
 | Lane | Suites |
 |---|---|
-| `quick` | `test_pkgtransfer.do`, `test_pkgtransfer_v104.do`, `test_pkgtransfer_v105.do`, `test_pkgtransfer_installed.do` |
+| `quick` | `test_pkgtransfer.do`, `test_pkgtransfer_v104.do`, `test_pkgtransfer_v105.do`, `test_pkgtransfer_v110.do`, `test_pkgtransfer_installed.do` |
 | `core` | `quick` plus `validation_pkgtransfer.do` |
 | `full` | Same membership as `core`; default release gate |
 
