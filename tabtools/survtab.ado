@@ -291,16 +291,20 @@ capture noisily {
             * Get last KM estimate at or before this timepoint
             qui su `_surv_fn' if _t <= `_time' & `groupvar' == `_glv' & _st
             if r(N) > 0 {
-                * Find the survival value at the largest time <= _time
-                tempvar _at_time
+                * Find the survival value at the largest time <= _time. The
+                * comparison stays variable-to-variable: routing the maximum
+                * through a local loses the low-order bits of _t, so an exact
+                * `_t == `_max_t'` match can select no observations and blank
+                * the cell.
+                tempvar _at_time _t_sel _t_max
                 qui gen byte `_at_time' = (_t <= `_time' & `groupvar' == `_glv' & _st & !missing(`_surv_fn'))
-                qui su _t if `_at_time', meanonly
-                local _max_t = r(max)
-                qui su `_surv_fn' if _t == `_max_t' & `groupvar' == `_glv' & _st, meanonly
+                qui gen double `_t_sel' = _t if `_at_time'
+                qui egen double `_t_max' = max(`_t_sel')
+                qui su `_surv_fn' if `_at_time' & `_t_sel' == `_t_max', meanonly
                 local _surv = r(min)
-                qui su `_se_fn' if _t == `_max_t' & `groupvar' == `_glv' & _st, meanonly
+                qui su `_se_fn' if `_at_time' & `_t_sel' == `_t_max', meanonly
                 local _se = r(min)
-                drop `_at_time'
+                drop `_at_time' `_t_sel' `_t_max'
             }
             else {
                 * No events before this time — survival is 1
