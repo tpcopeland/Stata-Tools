@@ -338,6 +338,21 @@ visit. This is the usual choice for registry and EHR cohorts, where follow-up
 ends at different times for different people.
 
 {pmore}
+A visit falling {bf:on} the end of follow-up is allowed: that subject was at
+risk right up to the boundary and is seen at it. Both orderings against the
+last visit -- this one and {opt maxfu()}'s -- are judged past a relative
+tolerance of 1e-6 rather than exactly, because {opt censor()} and {opt time()}
+usually descend from the same calendar dates by different expressions and are
+often stored at different types. A {cmd:float} holding {cmd:days/365.25} sits
+up to one float epsilon (~6e-08 relative) below the {cmd:double} holding the
+same quantity; without the tolerance that gap reads as a visit after
+censoring. 1e-6 relative is roughly 1/2700 of a day on a time scale in years,
+so no substantive violation is absorbed. Storing both as {cmd:double} is still
+worth doing: near six years a {cmd:float} year count cannot separate two
+instants closer together than about 15 seconds, so it is the wrong type for a
+time variable whatever this tolerance does.
+
+{pmore}
 {bf:This is a risk-set boundary, not a censoring model.} {cmd:iivw_weight}
 estimates {it:no} model for why follow-up ended and computes {it:no} censoring
 weight. {opt censor()} tells the Andersen-Gill visit model when each subject

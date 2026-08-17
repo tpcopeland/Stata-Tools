@@ -98,6 +98,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_v200_qagate.do` | Selector and zero-execution refusal. |
 | `test_iivw_v310_regressions.do` | Baseline-event and trimming-unit regressions. |
 | `test_iivw_v341_regressions.do` | FIPTIW point-only default and explicit stacked route. |
+| `test_iivw_v343_regressions.do` | End-of-follow-up boundary tolerance, and agreement of the `iivw_weight`, `iivw_exogtest` and `iivw_balance` risk sets. |
 | `test_iivw_weight_adversarial.do` | Weight construction hostile cases. |
 | `test_iivw_weight_validation_guards.do` | Weight-option validation and error codes. |
 
