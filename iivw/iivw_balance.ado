@@ -1,4 +1,4 @@
-*! iivw_balance Version 3.4.2  2026/08/11
+*! iivw_balance Version 3.4.3  2026/08/17
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -172,6 +172,18 @@ program define iivw_balance, rclass
     local rep_cens_var  "`r(censor_var)'"
     local rep_maxfu     "`r(maxfu)'"
     local rep_nonconv   "`r(nonconverged)'"
+
+    * Representation tolerance for the terminal-interval test below, identical
+    * to iivw_weight's. iivw_balance REBUILDS the risk set iivw_weight built, so
+    * the two must take the same branch on the same data: a last visit falling
+    * ON the end of follow-up that iivw_weight left alone must not acquire a
+    * terminal interval here. Without the tolerance it did -- 151 intervals of
+    * length ~5e-07 on a fixture where iivw_weight reported r(n_censor_rows)=0,
+    * which both inflated the printed at-risk interval count and moved the
+    * SOL-11 verdict off its refit_ncens==0 branch. Rationale for the constant
+    * is at its declaration in iivw_weight.ado; it is also carried in
+    * iivw_exogtest.ado, and all three must move together.
+    local __iivw_teps = 1e-6
 
     if !inlist("`weighttype'", "iivw", "fiptiw") {
         display as error "iivw_balance requires weights with an IIW visit-intensity component"
@@ -578,7 +590,9 @@ program define iivw_balance, rclass
             }
             bysort `panel_id' (`panel_time'): gen byte ///
                 `__iivw_lastrow' = (_n == _N)
-            expand 2 if `__iivw_lastrow' & `__iivw_censt' > `__iivw_stop' & ///
+            expand 2 if `__iivw_lastrow' & ///
+                `__iivw_censt' > ///
+                    `__iivw_stop' + `__iivw_teps' * max(1, abs(`__iivw_stop')) & ///
                 !missing(`__iivw_censt'), gen(`__iivw_newrow')
             quietly count if `__iivw_newrow'
             local refit_ncens = r(N)

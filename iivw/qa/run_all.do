@@ -110,6 +110,7 @@ local quick_suites ///
     test_iivw_phase2_contract ///
     test_iivw_inference_contract ///
     test_iivw_v341_regressions ///
+    test_iivw_v343_regressions ///
     test_iivw_balance ///
     test_iivw_performance ///
     test_iivw_weight_validation_guards ///
@@ -183,6 +184,7 @@ local core_suites ///
     test_iivw_v200_qagate ///
     test_iivw_v310_regressions ///
     test_iivw_v341_regressions ///
+    test_iivw_v343_regressions ///
     test_iivw_interval_contract ///
     test_iivw_failclosed ///
     test_iivw_coverage_gate ///

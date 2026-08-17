@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.4.2  2026/08/11
+*! iivw_fit Version 3.4.3  2026/08/17
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
