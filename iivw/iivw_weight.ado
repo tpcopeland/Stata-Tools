@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.4.2  2026/08/11
+*! iivw_weight Version 3.4.3  2026/08/17
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -489,6 +489,31 @@ program define iivw_weight, rclass sortpreserve
     * estimate. There is no safe default here, and the old one was not safe, so
     * 2.0.0 requires the user to state the design.
     local __iivw_cens_mode ""
+
+    * ---------------------------------------------------------------------
+    * Representation tolerance for time comparisons.
+    *
+    * Three guards below order a subject's end of follow-up against their last
+    * visit time. Both are usually derived from the same calendar dates -- a
+    * visit falling ON the end of follow-up makes them the SAME instant -- but
+    * they reach that instant by different expressions, and often at different
+    * storage types. A float holds ~7 significant digits, so float(d/365.25)
+    * sits below double(d/365.25) for about half of all day counts d, by up to
+    * 6e-08 in relative terms (2^-24, float epsilon). An exact `<' then reads
+    * that representation gap as a subject who kept visiting after they were
+    * censored, and aborts the run.
+    *
+    * 1e-6 relative is ~17x float epsilon, so it absorbs every representation
+    * gap; and it is ~1/2700 of one day on a time scale in years, so it cannot
+    * absorb a violation of any substantive size. Scaled by max(1,|t|) so it
+    * behaves on either side of 1 and on any time unit.
+    *
+    * This is a REPRESENTATION tolerance, not a statistical one: it judges
+    * whether two encodings denote the same instant. qa/TOLERANCE_FRAMEWORK.md
+    * governs acceptance bounds on estimated quantities and does not apply.
+    * ---------------------------------------------------------------------
+    local __iivw_teps = 1e-6
+
     if inlist("`wtype'", "iivw", "fiptiw") {
         local __iivw_n_cens_opts = 0
         if "`censor'" != ""         local ++__iivw_n_cens_opts
@@ -535,8 +560,12 @@ program define iivw_weight, rclass sortpreserve
             * made the message read as though time() contained missing values --
             * a different error the package raises separately.
             local __iivw_tmax = r(max)
-            if `__iivw_tmax' > `maxfu' {
-                quietly count if `time' > `maxfu'
+            * A visit landing exactly ON maxfu() is at the boundary, not past
+            * it; compare past the representation tolerance so a rounded time
+            * does not read as a visit after the end of follow-up.
+            local __iivw_maxfu_hi = `maxfu' + `__iivw_teps' * max(1, abs(`maxfu'))
+            if `__iivw_tmax' > `__iivw_maxfu_hi' {
+                quietly count if `time' > `__iivw_maxfu_hi'
                 display as error "`=r(N)' visits occur after maxfu(`maxfu')"
                 display as error "  the maximum visit time is " %12.0g `__iivw_tmax'
                 display as error "  use censor() for subject-specific follow-up"
@@ -564,7 +593,7 @@ program define iivw_weight, rclass sortpreserve
             }
 
             quietly bysort `id': egen double `_lastvis' = max(`time')
-            quietly count if `censor' < `_lastvis'
+            quietly count if `censor' < `_lastvis' - `__iivw_teps' * max(1, abs(`_lastvis'))
             if r(N) > 0 {
                 display as error "censor() is earlier than the last observed visit for some subjects"
                 display as error "  a subject cannot have stopped being at risk at a time when they"
@@ -1226,7 +1255,15 @@ program define iivw_weight, rclass sortpreserve
                 * A subject last seen exactly at their end of follow-up needs no
                 * extra row: the interval would have zero length, and stset drops
                 * it anyway. (IrregLong calls this case `alreadythere'.)
-                expand 2 if `_lastrow' & `_cens_t' > `_stop' & ///
+                *
+                * Tolerance, not `>': when the last visit falls ON the end of
+                * follow-up but the two are encoded slightly differently, an
+                * exact `>' takes the wrong branch and appends a no-event
+                * interval of length ~5e-07 -- a row that is in the risk set,
+                * and in the reported censoring-row count, for an instant that
+                * is really the same instant as the visit.
+                expand 2 if `_lastrow' & ///
+                    `_cens_t' > `_stop' + `__iivw_teps' * max(1, abs(`_stop')) & ///
                     !missing(`_cens_t'), gen(`_newrow')
                 quietly count if `_newrow'
                 local __iivw_n_cens_rows = r(N)

@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 3.4.2  2026/08/11
+*! iivw_exogtest Version 3.4.3  2026/08/17
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -103,10 +103,27 @@ program define iivw_exogtest, rclass sortpreserve
     if "`endatlastvisit'" != "" local __iivw_cens_mode "lastvisit"
     if "`maxfu'" != ""          local __iivw_cens_mode "maxfu"
 
+    * Representation tolerance for the three time comparisons below, identical
+    * to iivw_weight's. The full rationale is at its declaration in
+    * iivw_weight.ado; in short, a visit falling ON the end of follow-up makes
+    * censor()/maxfu() and time() the same instant, but they are reached by
+    * different expressions and often stored at different types, and a float
+    * encoding of days/365.25 sits up to one float epsilon below the double
+    * encoding. An exact comparison reads that gap as a visit after censoring.
+    *
+    * This constant appears in three files -- iivw_weight.ado, iivw_exogtest.ado
+    * and iivw_balance.ado -- because each builds the SAME Andersen-Gill risk
+    * set from its own copy of this code. They must move together: a subject
+    * iivw_weight accepts and gives no terminal interval must be accepted by
+    * iivw_exogtest and given no terminal interval by iivw_balance, or the three
+    * commands describe different risk sets for one analysis.
+    local __iivw_teps = 1e-6
+
     if "`__iivw_cens_mode'" == "maxfu" {
         quietly summarize `time', meanonly
-        if r(max) > `maxfu' {
-            quietly count if `time' > `maxfu'
+        local __iivw_maxfu_hi = `maxfu' + `__iivw_teps' * max(1, abs(`maxfu'))
+        if r(max) > `__iivw_maxfu_hi' {
+            quietly count if `time' > `__iivw_maxfu_hi'
             display as error "`=r(N)' visits occur after maxfu(`maxfu')"
             error 198
         }
@@ -126,7 +143,8 @@ program define iivw_exogtest, rclass sortpreserve
             error 198
         }
         quietly bysort `id': egen double `__iivw_lastvis' = max(`time')
-        quietly count if `censor' < `__iivw_lastvis'
+        quietly count if `censor' < ///
+            `__iivw_lastvis' - `__iivw_teps' * max(1, abs(`__iivw_lastvis'))
         if r(N) > 0 {
             display as error "censor() is earlier than the last observed visit for some subjects"
             error 198
@@ -406,7 +424,11 @@ program define iivw_exogtest, rclass sortpreserve
         }
         quietly bysort `id' (`time'): gen byte `__iivw_lastrow' = (_n == _N)
 
-        quietly expand 2 if `__iivw_lastrow' & `__iivw_cens_t' > `__iivw_stop' & ///
+        * Tolerance, not `>': a last visit falling ON the end of follow-up is
+        * the `alreadythere' case and needs no extra row. See iivw_weight.ado.
+        quietly expand 2 if `__iivw_lastrow' & ///
+            `__iivw_cens_t' > ///
+                `__iivw_stop' + `__iivw_teps' * max(1, abs(`__iivw_stop')) & ///
             !missing(`__iivw_cens_t'), gen(`__iivw_newrow')
 
         quietly replace `__iivw_start' = `__iivw_stop'    if `__iivw_newrow'
