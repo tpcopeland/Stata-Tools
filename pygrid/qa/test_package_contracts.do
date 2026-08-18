@@ -15,7 +15,7 @@ local pass_count = 0
 local fail_count = 0
 local skip_count = 0
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local d2010 = td(01jan2010)
 local e2010 = td(31dec2010)
 

@@ -5,7 +5,7 @@ set varabbrev off
 
 * Install the local package copy so an installed build cannot shadow it.
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 * Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
 * installs this working copy. Running this suite standalone must not mutate
 * the developer's real adopath, which the bare net install here used to do;

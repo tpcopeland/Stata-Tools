@@ -7,7 +7,7 @@ program define _pygrid_qa_bootstrap
     * Relocatable: derive the package root from the working directory. Suites
     * are run from <package>/qa/, so never hardcode a machine path.
     local qa_dir "`c(pwd)'"
-    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
     * Isolate PLUS/PERSONAL so an installed GitHub or SSC copy earlier in the
     * adopath cannot shadow the local development copy.

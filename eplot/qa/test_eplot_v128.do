@@ -496,7 +496,7 @@ capture graph drop eplot_v128_t13
 **## Help abbreviations, row types, and rendered SMCL match the command
 local ++test_count
 capture noisily {
-    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
     local saw_rename 0
     local saw_headings 0
     local saw_effect_type 0
