@@ -1,4 +1,4 @@
-*! puttab Version 1.15.1  2026/08/14
+*! puttab Version 1.16.0  2026/08/18
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -435,6 +435,12 @@ program define puttab, rclass
 
             mata: b.close_book()
             local _book_open = 0
+
+            * xl() appends a style record for every styled cell instead of
+            * reusing one per distinct format, so collapse the pools here;
+            * a workbook that keeps growing would otherwise reach Stata's
+            * 65,536-record ceiling and fail with r(16147).
+            _tabtools_xlsx_compact_styles using "`using'"
             capture mata: mata drop b
 
             capture confirm file `"`using'"'

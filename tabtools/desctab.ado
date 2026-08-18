@@ -1,4 +1,4 @@
-*! desctab Version 1.15.1  2026/08/14
+*! desctab Version 1.16.0  2026/08/18
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1337,6 +1337,12 @@ program define desctab, rclass
                 color1("`_headercolor'") color2("`_zebracolor'") ///
                 color3("255 255 204")
             mata: b.close_book()
+
+            * xl() appends a style record for every styled cell instead of
+            * reusing one per distinct format, so collapse the pools here;
+            * a workbook that keeps growing would otherwise reach Stata's
+            * 65,536-record ceiling and fail with r(16147).
+            _tabtools_xlsx_compact_styles using "`xlsx'"
         }
         if _rc {
             local _fmt_rc = _rc

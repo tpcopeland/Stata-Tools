@@ -1,4 +1,4 @@
-*! table1_tc Version 1.15.1  2026/08/14 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.16.0  2026/08/18 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1969,6 +1969,12 @@ program define table1_tc, rclass
 	                    color1("`_headercolor'") color2("`_zebracolor'") ///
 	                    color3("255 255 204") color4("255 235 205")
                 mata: b.close_book()
+
+                * xl() appends a style record for every styled cell instead of
+                * reusing one per distinct format, so collapse the pools here;
+                * a workbook that keeps growing would otherwise reach Stata's
+                * 65,536-record ceiling and fail with r(16147).
+                _tabtools_xlsx_compact_styles using "`excel'"
             }
 	            if _rc {
 	                local saved_rc = _rc

@@ -165,7 +165,7 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=77 class_missing=0 wrapper_missing=0"
+        "PASS programs=79 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all 77 shipped programs declare a class and restore varabbrev"
@@ -616,6 +616,7 @@ capture noisily {
         _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
         _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
         _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
+        _tabtools_xlsx_compact_styles.ado ///
         _tabtools_table1_fast_collect.ado _tabtools_visible_vars.ado ///
         _tabtools_csv_write.ado {
         findfile `helper'
@@ -1162,7 +1163,7 @@ local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
     _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
     _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
     _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
-    _tabtools_table1_fast_collect.ado
+    _tabtools_xlsx_compact_styles.ado _tabtools_table1_fast_collect.ado
 
 **# Release Manifest Contracts
 **## .pkg explicitly ships every public command ado/help file and backend helper

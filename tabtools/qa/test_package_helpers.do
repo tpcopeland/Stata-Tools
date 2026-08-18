@@ -5018,6 +5018,41 @@ if !`has_checker' {
 
 * =========================================================================
 
+**# Stale Mata workbook object does not poison the next export
+
+* A closed xl() object left in Mata under the name the writer uses is not
+* reset by assigning a fresh one over it; before 1.16.0 the next export died
+* with r(16111).  An interrupted export, or any user object named b, put the
+* suite in that state.
+capture erase "`output_dir'/_stale_seed.xlsx"
+mata:
+b = xl()
+b.create_book(st_local("output_dir") + "/_stale_seed", "Seed", "xlsx")
+b.set_mode("open")
+b.put_number(1, 1, 1)
+b.close_book()
+end
+
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_stale_target.xlsx"
+    quietly table1_tc, by(foreign) vars(price contn \ mpg contn) ///
+        excel("`output_dir'/_stale_target.xlsx") sheet("After") test
+}
+if _rc == 0 {
+    display as result "  PASS: a stale Mata workbook object does not block the next export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: export after a stale Mata workbook object failed with rc `=_rc'"
+    local ++fail_count
+}
+capture mata: mata drop b
+capture erase "`output_dir'/_stale_seed.xlsx"
+capture erase "`output_dir'/_stale_target.xlsx"
+
+* =========================================================================
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""
