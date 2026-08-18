@@ -2,7 +2,7 @@ clear all
 set more off
 version 16.0
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 do "`qa_dir'/_qa_bootstrap.do"
 
 * Public source is reload-safe in an active development session.

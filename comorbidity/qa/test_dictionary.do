@@ -11,7 +11,7 @@ local pass_count = 0
 local fail_count = 0
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall comorbidity
 do "`pkg_dir'/_comorbidity_dictionary.ado"
 

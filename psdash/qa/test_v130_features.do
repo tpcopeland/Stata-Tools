@@ -13,7 +13,7 @@ capture log close _all
 log using "test_v130_features.log", replace nomsg
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 * Isolated install of the local copy
 do "`qa_dir'/_psdash_bootstrap.do"

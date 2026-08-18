@@ -14,7 +14,7 @@ if inlist("`action'", "setup", "setup_runner") {
     if "$SETOOLS_QA_ACTIVE" != "1" {
         if `"`pkg_dir'"' == "" {
             local qa_dir "`c(pwd)'"
-            local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+            local pkg_dir = regexr("`qa_dir'", "/qa$", "")
         }
         capture confirm file `"`pkg_dir'/setools.pkg"'
         if _rc {

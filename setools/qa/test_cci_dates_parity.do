@@ -7,7 +7,7 @@ set more off
 capture log close _all
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar dp_tests = 0

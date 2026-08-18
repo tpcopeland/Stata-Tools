@@ -19,7 +19,7 @@ local failed_tests ""
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
-local pkg_dir : subinstr local pkg_dir "/qa" "", all
+local pkg_dir = regexr("`pkg_dir'", "/qa$", "")
 do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
 * Derive the expected version from the flagship .ado header (single source of

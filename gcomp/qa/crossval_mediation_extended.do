@@ -7,7 +7,7 @@ version 16.0
 set varabbrev off
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 foreach fixture in reference covariance categorical linexp {
     capture confirm file "`qa_dir'/data/mediation_extended_`fixture'.csv"

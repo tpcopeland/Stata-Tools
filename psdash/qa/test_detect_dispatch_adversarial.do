@@ -15,7 +15,7 @@ global DD_FAILED_TESTS ""
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 if strpos("`pkg_dir'", "/qa") > 0 {
-    local pkg_dir = subinstr("`pkg_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`pkg_dir'", "/qa$", "")
 }
 
 local _qa_plus_orig "`c(sysdir_plus)'"

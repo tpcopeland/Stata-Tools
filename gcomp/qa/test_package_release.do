@@ -5,7 +5,7 @@ set more off
 version 16.0
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local workbook "`pkg_dir'/demo/demo_gcomptab.xlsx"
 local checker "`qa_dir'/tools/check_xlsx.py"
 local release_checker "`qa_dir'/tools/check_release.py"

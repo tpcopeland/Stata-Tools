@@ -12,7 +12,7 @@ local fail_count = 0
 
 * Bootstrap: derive package root from qa/ working directory
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local tools_dir "`qa_dir'/tools"
 
 * Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then

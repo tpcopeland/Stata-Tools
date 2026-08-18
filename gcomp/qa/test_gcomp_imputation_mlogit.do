@@ -21,7 +21,7 @@ local fail_count = 0
 
 * === Bootstrap (sandboxed local install) ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 do "`qa_dir'/_qa_bootstrap.do"
 
 **# Helper: build a mediation dataset with a 3-category mediator (some missing)

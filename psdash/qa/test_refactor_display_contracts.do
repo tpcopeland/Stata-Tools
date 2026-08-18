@@ -16,7 +16,7 @@ global DISP_FAIL_COUNT = 0
 global DISP_FAILED_TESTS ""
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 capture program drop _disp_result
 program define _disp_result

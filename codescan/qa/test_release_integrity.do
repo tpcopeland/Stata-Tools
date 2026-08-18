@@ -9,7 +9,7 @@ local pass_count = 0
 local fail_count = 0
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local repo_dir "`pkg_dir'/.."
 
 * Install the local copy so a stale installed build cannot shadow it, and so the

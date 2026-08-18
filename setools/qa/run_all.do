@@ -14,7 +14,7 @@ if !inlist("`mode'", "quick", "core", "full", "python", "network") {
 }
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 local quick ///
     test_setools ///

@@ -700,7 +700,7 @@ else {
 local ++test_count
 capture noisily {
     local qa_dir "`c(pwd)'"
-    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
     tempname hfh
     file open `hfh' using "`pkg_dir'/swimlane.sthlp", read text
     local stale_ancillary = 0

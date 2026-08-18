@@ -15,7 +15,7 @@ global DOC_FAIL_COUNT = 0
 global DOC_FAILED_TESTS ""
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 local _qa_plus_orig "`c(sysdir_plus)'"
 local _qa_personal_orig "`c(sysdir_personal)'"

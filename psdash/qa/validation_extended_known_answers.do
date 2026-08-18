@@ -22,7 +22,7 @@ capture ado uninstall psdash
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 if strpos("`pkg_dir'", "/qa") > 0 {
-    local pkg_dir = subinstr("`pkg_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`pkg_dir'", "/qa$", "")
 }
 * Handle running from a repository root rather than this package's qa/ directory
 if !strpos("`pkg_dir'", "psdash") {
