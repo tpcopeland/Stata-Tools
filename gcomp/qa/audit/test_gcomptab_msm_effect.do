@@ -2,7 +2,7 @@ clear all
 set more off
 version 16.0
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 do "`qa_dir'/_qa_bootstrap.do"
 capture program drop mock_msm
 program define mock_msm, eclass

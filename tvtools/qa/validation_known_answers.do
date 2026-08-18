@@ -18,7 +18,7 @@ quietly log using "validation_known_answers.log", replace nomsg
 
 * Bootstrap: derive paths from working directory
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 do "`c(pwd)'/_tvtools_qa_common.do"
 _tvtools_qa_bootstrap

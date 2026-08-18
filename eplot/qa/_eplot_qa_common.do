@@ -7,7 +7,7 @@ capture program drop _eplot_qa_bootstrap
 program define _eplot_qa_bootstrap, rclass
     version 16.0
     local qa_dir "`c(pwd)'"
-    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
     * Sandbox PLUS/PERSONAL under c(tmpdir) so the real ado tree is untouched.
     if "$EPLOT_QA_ISOLATED" == "" {
         tempfile _eplot_qa_base

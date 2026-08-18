@@ -1,7 +1,7 @@
 version 16.0
 clear all
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 do "`qa_dir'/_qa_bootstrap.do"
 set seed 714
 set obs 240

@@ -34,7 +34,7 @@ local fail_count = 0
 
 * Relocatable bootstrap (never hardcode a home path).
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 discard

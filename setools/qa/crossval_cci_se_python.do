@@ -8,7 +8,7 @@ set varabbrev off
 capture log close _all
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local fixture "`qa_dir'/data/cci_authoritative_prefixes.csv"
 local comparator "`qa_dir'/tools/compare_cci_fixture.py"
 

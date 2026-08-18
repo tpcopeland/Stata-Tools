@@ -20,7 +20,7 @@ log using "`c(tmpdir)'/validation_cci_se_date_hierarchy_`c(processid)'.log", rep
 *   stata-mp -b do validation_cci_se_date_hierarchy.do
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 capture program drop runval

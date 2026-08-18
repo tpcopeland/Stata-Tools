@@ -2,7 +2,7 @@
 version 16.0
 
 local _qa_dir "`c(pwd)'"
-local _pkg_dir = subinstr("`_qa_dir'", "/qa", "", 1)
+local _pkg_dir = regexr("`_qa_dir'", "/qa$", "")
 
 * Put the development source ahead of any installed copy.  Every suite also
 * verifies the resolved file so a stale PERSONAL/PLUS installation cannot pass.
