@@ -1,4 +1,4 @@
-*! stacktab Version 1.15.1  2026/08/14
+*! stacktab Version 1.16.0  2026/08/18
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -683,6 +683,14 @@ program define stacktab, rclass
                 `note_row', `export_start_col', `export_start_col', ///
                 `last_sheet_col', `"`note'"', 8, `note_height', 0, 1)
         }
+
+        * Every write into this workbook is done by now.  xl() appends a
+        * style record for each styled cell rather than reusing one per
+        * distinct format, and a composite workbook is exactly the shape that
+        * accumulates sheets, so collapse the pools before handing the file
+        * back; without it the run walks into Stata's 65,536-record ceiling
+        * and fails with r(16147).
+        _tabtools_xlsx_compact_styles using `"`using'"'
 
         local _ret_blocks_loaded = `n_blocks'
         local _ret_rows_written = `rows_written'
