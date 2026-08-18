@@ -373,12 +373,251 @@ else {
 }
 
 * -------------------------------------------------------------------------
+* The count-guard test below reaches past the public program into the
+* helper's own Mata.  Calling the program is not enough to reach it: the
+* functions an autoloaded .ado compiles stay private to that file, so
+* `mata describe' shows nothing and a top-level call gets r(3499) even though
+* the program itself works.  Only `run' puts them in the global namespace.
+*
+* The programs have to be dropped first.  The autoload that satisfied the
+* earlier tests already defined them, and `run' on a file whose programs
+* exist dies with r(110) "already defined".
+* -------------------------------------------------------------------------
+capture mata: st_local("_have_mata", ///
+    strofreal(findexternal("_tt_xlsx_verify()") != NULL))
+if "`_have_mata'" != "1" {
+    capture findfile _tabtools_xlsx_compact_styles.ado
+    local _cs_file `"`r(fn)'"'
+    if `"`_cs_file'"' != "" {
+        capture program drop _tabtools_xlsx_compact_styles
+        capture program drop _tabtools_xlsx_compact_engine
+        capture quietly run `"`_cs_file'"'
+        capture mata: st_local("_have_mata", ///
+            strofreal(findexternal("_tt_xlsx_verify()") != NULL))
+    }
+}
+if "`_have_mata'" != "1" {
+    display as error "  note: _tabtools_xlsx_compact_styles Mata is unreachable; the sheet-count guard cannot be tested directly"
+}
+
+* QA-local Mata helpers.  _tt_qa_make_book writes a workbook with a known
+* number of sheets; _tt_qa_sheets reads the names xl() reports back.
+capture mata: mata drop _tt_qa_make_book()
+capture mata: mata drop _tt_qa_sheets()
+mata:
+void _tt_qa_make_book(string scalar path, real scalar n)
+{
+    class xl scalar b
+    real scalar i
+
+    b = xl()
+    b.create_book(path, "S1", "xlsx")
+    for (i = 2; i <= n; i++) b.add_sheet("S" + strofreal(i, "%18.0f"))
+    b.close_book()
+}
+
+string colvector _tt_qa_sheets(string scalar path)
+{
+    class xl scalar b
+    string colvector s
+
+    b = xl()
+    b.load_book(path)
+    s = b.get_sheets()
+    b.close_book()
+    return(s)
+}
+
+// One sheet, one cell, no styling at all: every style pool holds exactly one
+// distinct record, so a compaction of this book has nothing to collapse.
+void _tt_qa_make_plain_book(string scalar path)
+{
+    class xl scalar b
+
+    b = xl()
+    b.create_book(path, "Only", "xlsx")
+    b.set_mode("open")
+    b.put_string(1, 1, "hello")
+    b.close_book()
+}
+end
+
+* -------------------------------------------------------------------------
+* Test: a workbook that is already compact is left byte for byte alone.
+* Rebuilding the archive is the expensive part of this helper -- the zip, the
+* unpack that checks it, and the xl() reopen -- and none of it buys anything
+* when no pool has a duplicate left to shed.  Skipping it is what keeps a
+* per-sheet compaction affordable across a long workbook.  Through 1.16.0 the
+* rebuild ran unconditionally, so this asserts on the file's bytes rather
+* than on r(): the counts came back equal either way.
+* -------------------------------------------------------------------------
+* The fixture is an unstyled workbook written straight by xl().  It matters
+* that nothing has styled it: every pool then holds a single distinct record,
+* so there is nothing to collapse.  It matters just as much that xl() wrote
+* the container, because a rebuild re-zips it and Stata's zipfile packs the
+* same parts to a different byte count -- which is what makes "was it
+* rewritten?" answerable without timing the run.  A workbook this suite has
+* already compacted would be re-zipped back to identical bytes and hide the
+* difference.
+local noop "`output_dir'/_compact_noop.xlsx"
+capture erase "`noop'"
+capture noisily mata: _tt_qa_make_plain_book("`noop'")
+local noop_write_rc = _rc
+
+if `noop_write_rc' == 0 {
+    quietly checksum "`noop'"
+    local _noop_len_before = r(filelen)
+    local _noop_sum_before = r(checksum)
+
+    capture noisily _tabtools_xlsx_compact_styles using "`noop'"
+    local noop_rc = _rc
+    local noop_fonts_b = r(fonts_before)
+    local noop_fonts_a = r(fonts_after)
+    local noop_xf_b = r(formats_before)
+    local noop_xf_a = r(formats_after)
+
+    quietly checksum "`noop'"
+    local _noop_len_after = r(filelen)
+    local _noop_sum_after = r(checksum)
+
+    local _pools_already_compact = (`noop_fonts_b' == `noop_fonts_a') & ///
+        (`noop_xf_b' == `noop_xf_a')
+
+    if `noop_rc' == 0 & `_pools_already_compact' & ///
+        `_noop_len_before' == `_noop_len_after' & ///
+        `_noop_sum_before' == `_noop_sum_after' {
+        display as result "  PASS: an already-compact workbook is not rewritten (fonts `noop_fonts_b', formats `noop_xf_b')"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: no-op compaction rc `noop_rc', pools `noop_fonts_b'->`noop_fonts_a'/`noop_xf_b'->`noop_xf_a', checksum `_noop_sum_before'->`_noop_sum_after'"
+        local ++fail_count
+    }
+}
+else {
+    display as error "  FAIL: no-op fixture write failed with rc `noop_write_rc'"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
+* Test: sheet names carrying XML-special characters survive a compaction.
+* The expected names are read from the unpacked workbook.xml, where they are
+* stored escaped, while xl() reports them decoded.  Comparing the two without
+* resolving &amp; &lt; &gt; &quot; &apos; makes every such workbook look like
+* it lost its sheets, and the rebuild is then discarded -- compaction would
+* switch itself off silently for exactly the workbook that needs it.
+* -------------------------------------------------------------------------
+local esc "`output_dir'/_compact_escaped.xlsx"
+capture erase "`esc'"
+sysuse auto, clear
+quietly gen byte _esc_grp = mod(_n, 2)
+capture noisily {
+    table1_tc rep78 mpg, by(_esc_grp) excel("`esc'") sheet("A&B")
+    table1_tc rep78 mpg, by(_esc_grp) excel("`esc'") sheet("Q'ty <hi>")
+}
+local esc_rc = _rc
+
+if `esc_rc' == 0 {
+    capture noisily _tabtools_xlsx_compact_styles using "`esc'"
+    local esc_compact_rc = _rc
+    local esc_compacted = r(compacted)
+
+    * The sheets must still be there, under the names that were asked for.
+    capture mata: st_local("_esc_names", invtokens(_tt_qa_sheets("`esc'")', "|"))
+    local esc_read_rc = _rc
+
+    if `esc_compact_rc' == 0 & `esc_compacted' == 1 & `esc_read_rc' == 0 & ///
+        `"`_esc_names'"' == `"A&B|Q'ty <hi>"' {
+        display as result "  PASS: XML-escaped sheet names survive compaction"
+        local ++pass_count
+    }
+    else {
+        display as error `"  FAIL: escaped-name compaction rc `esc_compact_rc', compacted `esc_compacted', names "`_esc_names'""'
+        local ++fail_count
+    }
+}
+else {
+    display as error "  FAIL: escaped-name fixture write failed with rc `esc_rc'"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
+* Test: the sheet-count guard actually fires.  get_sheets() returns an N x 1
+* column vector, so through 1.16.0 the guard compared cols() -- always 1 on
+* both sides -- and could never trigger.  A dropped sheet was still caught by
+* the name comparison below it, but reported as a name mismatch.  This pins
+* the count check itself by naming the message it must produce.
+* -------------------------------------------------------------------------
+capture erase "`output_dir'/_compact_two.xlsx"
+capture erase "`output_dir'/_compact_three.xlsx"
+capture noisily mata: _tt_qa_make_book("`output_dir'/_compact_two.xlsx", 2)
+capture noisily mata: _tt_qa_make_book("`output_dir'/_compact_three.xlsx", 3)
+local mk_rc = _rc
+
+if "`_have_mata'" != "1" {
+    display as error "  FAIL: sheet-count guard untested, helper Mata unreachable"
+    local ++fail_count
+}
+else if `mk_rc' == 0 {
+    * Unpack the 2-sheet book so it can stand in as the "original" tree, then
+    * offer the 3-sheet book as the rebuild.
+    local tree "`output_dir'/_compact_tree"
+    capture mata: _tt_xlsx_rmtree("`tree'")
+    capture mkdir "`tree'"
+    local _home "`c(pwd)'"
+    quietly cd "`tree'"
+    quietly copy "`output_dir'/_compact_two.xlsx" "_s.xlsx", replace
+    quietly unzipfile "_s.xlsx"
+    erase "_s.xlsx"
+    quietly cd "`_home'"
+
+    * Two books whose sheet COUNTS differ, 2 against 3.  The message is what
+    * distinguishes the count guard from the name comparison beneath it: both
+    * reject, but only one of them names the count.  Through 1.16.0 the count
+    * guard read cols() of an N x 1 column vector -- always 1 on both sides --
+    * so it never fired and this always came back as a name mismatch.
+    tempname _gl
+    capture file close `_gl'
+    capture erase "`output_dir'/_compact_guard.txt"
+    quietly log using "`output_dir'/_compact_guard.txt", replace text name(_ttguard)
+    capture noisily mata: _tt_xlsx_verify("`output_dir'/_compact_three.xlsx", "`tree'")
+    local guard_rc = _rc
+    quietly log close _ttguard
+
+    local _saw_count_msg 0
+    file open `_gl' using "`output_dir'/_compact_guard.txt", read text
+    file read `_gl' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "lost a sheet") local _saw_count_msg 1
+        file read `_gl' line
+    }
+    file close `_gl'
+
+    if `guard_rc' == 459 & `_saw_count_msg' {
+        display as result "  PASS: a sheet-count mismatch is caught by the count guard"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: count guard rc `guard_rc' (expected 459), message seen `_saw_count_msg'"
+        local ++fail_count
+    }
+
+    capture mata: _tt_xlsx_rmtree("`tree'")
+}
+else {
+    display as error "  FAIL: could not build the sheet-count fixtures (rc `mk_rc')"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
 * Cleanup
 * -------------------------------------------------------------------------
 foreach f in _compact_raw.xlsx _compact_done.xlsx _compact_base.xlsx ///
     _compact_base_ref.xlsx _compact_many.xlsx _compact_bogus.xlsx ///
     _compact_identity.txt _compact_roundtrip.txt _compact_many.txt ///
-    _compact_stacktab.xlsx _compact_stacktab.txt {
+    _compact_stacktab.xlsx _compact_stacktab.txt _compact_noop.xlsx ///
+    _compact_escaped.xlsx _compact_two.xlsx _compact_three.xlsx ///
+    _compact_guard.txt {
     capture erase "`output_dir'/`f'"
 }
 

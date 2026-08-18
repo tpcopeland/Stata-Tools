@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 1.16.0  2026/08/18
+*! _tabtools_xlsx_compact_styles Version 1.16.1  2026/08/18
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -16,6 +16,15 @@
 * the indices change, so every cell keeps the identical resolved font, fill,
 * border and alignment.  Compacting after each sheet write keeps the pools
 * proportional to the number of distinct formats for the life of the workbook.
+*
+* Scope: fonts, fills, borders and cellXfs.  numFmts is deliberately NOT
+* handled, because nothing in tabtools calls set_number_format() and that pool
+* is empty in every workbook the package writes -- every cell ships as a
+* string.  If a number-format call is ever added, this helper must learn to
+* dedupe numFmts and remap numFmtId as well: left alone that pool would grow
+* per styled cell exactly like the others, and worse, a distinct numFmtId on
+* every <xf> would make the cellXfs records all differ and defeat the cellXfs
+* dedupe below entirely.
 
 program define _tabtools_xlsx_compact_styles, rclass
     version 16.0
@@ -82,43 +91,63 @@ program define _tabtools_xlsx_compact_engine, rclass
         local _tt_`_p'_after 0
     }
 
+    * Conservative default: anything that stops before the pools are examined
+    * is treated as "the workbook changed", so the rebuild-and-verify path
+    * still runs rather than being skipped on an unknown state.
+    local _tt_changed 1
+
     local _home "`c(pwd)'"
     capture noisily {
         quietly cd "`work'"
         quietly unzipfile "_tt_src.xlsx"
         erase "_tt_src.xlsx"
         confirm file "xl/styles.xml"
+        * The sheet names the rebuilt archive is checked against are read from
+        * this part rather than by reopening the original with xl(), so its
+        * absence has to stop the run before anything is rewritten.
+        confirm file "xl/workbook.xml"
 
         mata: _tt_xlsx_compact_dir(".")
 
-        mata: st_local("_flist", _tt_xlsx_quoted_files("."))
-        if `"`_flist'"' == "" exit 601
-        quietly zipfile `_flist', saving("_tt_out.xlsx")
-        confirm file "_tt_out.xlsx"
+        * Every pool already holds nothing but distinct records, so rebuilding
+        * the archive would write the same workbook back byte for byte.  The
+        * zip, the unpack, and the xl() reopen below are the expensive part of
+        * this helper -- skipping them when there is nothing to collapse is
+        * what keeps a per-sheet compaction affordable across a long workbook.
+        if `_tt_changed' {
+            mata: st_local("_flist", _tt_xlsx_quoted_files("."))
+            if `"`_flist'"' == "" exit 601
+            quietly zipfile `_flist', saving("_tt_out.xlsx")
+            confirm file "_tt_out.xlsx"
 
-        * zipfile reports success while silently omitting entries it could not
-        * add, so the rebuilt archive is unpacked again and matched against
-        * what went in, name for name and byte count for byte count.
-        capture mkdir "_tt_verify"
-        if _rc exit 693
-        quietly cd "_tt_verify"
-        quietly unzipfile "../_tt_out.xlsx"
-        quietly cd ".."
-        mata: _tt_xlsx_check_manifest(".", "_tt_verify", "_tt_out.xlsx")
+            * zipfile reports success while silently omitting entries it could
+            * not add, so the rebuilt archive is unpacked again and matched
+            * against what went in, name for name and byte count for byte
+            * count.
+            capture mkdir "_tt_verify"
+            if _rc exit 693
+            quietly cd "_tt_verify"
+            quietly unzipfile "../_tt_out.xlsx"
+            quietly cd ".."
+            mata: _tt_xlsx_check_manifest(".", "_tt_verify", "_tt_out.xlsx")
+        }
     }
     local _rc_inner = _rc
     quietly cd "`_home'"
 
     * Reject the rebuilt archive unless xl() still opens it and reports the
     * same sheets; a silently truncated zip must never replace a good
-    * workbook.
-    if `_rc_inner' == 0 {
-        capture mata: _tt_xlsx_verify("`work'/_tt_out.xlsx", `"`using'"')
+    * workbook.  The names it is compared against come from the workbook.xml
+    * already unpacked above: reopening the original with xl() only to list
+    * its sheets costs a full parse of the very style pools this helper
+    * exists to shrink, and it grows with every sheet added.
+    if `_rc_inner' == 0 & `_tt_changed' {
+        capture mata: _tt_xlsx_verify("`work'/_tt_out.xlsx", "`work'")
         local _rc_inner = _rc
     }
 
     if `_rc_inner' == 0 {
-        quietly copy "`work'/_tt_out.xlsx" `"`using'"', replace
+        if `_tt_changed' quietly copy "`work'/_tt_out.xlsx" `"`using'"', replace
         return scalar fonts_before = `_tt_fonts_before'
         return scalar fonts_after = `_tt_fonts_after'
         return scalar fills_before = `_tt_fills_before'
@@ -151,6 +180,8 @@ capture mata: mata drop _tt_xlsx_files()
 capture mata: mata drop _tt_xlsx_quoted_files()
 capture mata: mata drop _tt_xlsx_rmtree()
 capture mata: mata drop _tt_xlsx_verify()
+capture mata: mata drop _tt_xlsx_sheetnames_xml()
+capture mata: mata drop _tt_xlsx_unescape()
 capture mata: mata drop _tt_xlsx_check_manifest()
 capture mata: mata drop _tt_xlsx_filesize()
 
@@ -169,6 +200,12 @@ void _tt_xlsx_compact_dir(string scalar root)
     xfmap = J(0, 1, .)
     styles = _tt_xlsx_slurp(root + "/xl/styles.xml")
     styles = _tt_xlsx_compact_styles_xml(styles, xfmap)
+
+    // _tt_xlsx_compact_styles_xml reports whether any pool actually lost a
+    // record.  When none did, styles.xml is left untouched so the caller can
+    // skip rebuilding the archive around an identical set of parts.
+    if (st_local("_tt_changed") == "0") return
+
     _tt_xlsx_spit(root + "/xl/styles.xml", styles)
 
     if (rows(xfmap) == 0) return
@@ -197,13 +234,17 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
     string colvector items, uniq, xfs, xfuniq
     real colvector fontmap, fillmap, bordermap, thismap
     real rowvector span
-    real scalar i
+    real scalar i, changed
     string matrix pools
 
     out = styles
     fontmap = J(0, 1, .)
     fillmap = J(0, 1, .)
     bordermap = J(0, 1, .)
+    // Counts how many records the four pools shed in total.  Zero means the
+    // workbook is already compact and does not need to be rewritten.
+    changed = 0
+    st_local("_tt_changed", "1")
 
     pools = ("fonts", "<font", "fonts") \ ("fills", "<fill", "fills") \
         ("borders", "<border", "borders")
@@ -223,6 +264,7 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
 
         st_local("_tt_" + pools[i, 3] + "_before", strofreal(rows(items), "%18.0f"))
         st_local("_tt_" + pools[i, 3] + "_after", strofreal(rows(uniq), "%18.0f"))
+        changed = changed + (rows(items) - rows(uniq))
 
         out = substr(out, 1, span[1] - 1) +
             "<" + pools[i, 1] + " count=" + char(34) +
@@ -252,10 +294,16 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
     }
 
     span = _tt_xlsx_block(out, "cellXfs")
-    if (span[1] == 0) return(out)
+    if (span[1] == 0) {
+        st_local("_tt_changed", changed > 0 ? "1" : "0")
+        return(out)
+    }
     body = substr(out, span[2], span[3] - span[2])
     xfs = _tt_xlsx_pool_items(body, "<xf")
-    if (rows(xfs) == 0) return(out)
+    if (rows(xfs) == 0) {
+        st_local("_tt_changed", changed > 0 ? "1" : "0")
+        return(out)
+    }
     for (i = 1; i <= rows(xfs); i++) {
         xfs[i] = _tt_xlsx_remap_attr(xfs[i], "fontId", fontmap)
         xfs[i] = _tt_xlsx_remap_attr(xfs[i], "fillId", fillmap)
@@ -264,6 +312,8 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
     xfuniq = _tt_xlsx_dedupe(xfs, xfmap)
     st_local("_tt_formats_before", strofreal(rows(xfs), "%18.0f"))
     st_local("_tt_formats_after", strofreal(rows(xfuniq), "%18.0f"))
+    changed = changed + (rows(xfs) - rows(xfuniq))
+    st_local("_tt_changed", changed > 0 ? "1" : "0")
 
     out = substr(out, 1, span[1] - 1) +
         "<cellXfs count=" + char(34) + strofreal(rows(xfuniq), "%18.0f") +
@@ -505,28 +555,78 @@ void _tt_xlsx_check_manifest(string scalar root, string scalar sub,
     }
 }
 
-// A rebuilt archive is accepted only if xl() still opens it and reports the
-// same sheets, in the same order, as the workbook it would replace.
-void _tt_xlsx_verify(string scalar rebuilt, string scalar original)
+// Sheet names, in tab order, read from an unpacked workbook.xml.  These are
+// the names the original book would report, obtained without paying for an
+// xl() load_book() of a workbook whose style pools are still uncollapsed.
+//
+// Returned as a COLUMN vector, because that is the shape get_sheets() hands
+// back and the two are compared directly; a row vector compares unequal
+// against every multi-sheet book and would silently disable compaction.
+string colvector _tt_xlsx_sheetnames_xml(string scalar root)
 {
-    class xl scalar a, b
-    string rowvector sa, sb
+    string scalar wb
+    string rowvector parts
+    string colvector out
+    string scalar key
+    real scalar i, p, q
 
-    a = xl()
-    a.load_book(original)
-    sa = a.get_sheets()
-    a.close_book()
+    wb = _tt_xlsx_slurp(root + "/xl/workbook.xml")
+    // ustrsplit() takes a regular expression; this literal has no
+    // metacharacters in it, so it splits on the tag as written.
+    parts = ustrsplit(wb, "<sheet ")
+    out = J(0, 1, "")
+    key = "name=" + char(34)
+    for (i = 2; i <= cols(parts); i++) {
+        p = strpos(parts[i], key)
+        if (p == 0) continue
+        p = p + strlen(key)
+        q = strpos(substr(parts[i], p, .), char(34))
+        if (q == 0) continue
+        out = out \ _tt_xlsx_unescape(substr(parts[i], p, q - 1))
+    }
+    return(out)
+}
+
+// workbook.xml stores the sheet name XML-escaped while get_sheets() hands
+// back the decoded name, so a book with a sheet called "A&B" compares unequal
+// unless the five predefined entities are resolved first.  &amp; is resolved
+// last: doing it first would turn a literal "&amp;lt;" into "<".
+string scalar _tt_xlsx_unescape(string scalar s)
+{
+    string scalar out
+
+    out = subinstr(s, "&lt;", "<", .)
+    out = subinstr(out, "&gt;", ">", .)
+    out = subinstr(out, "&quot;", char(34), .)
+    out = subinstr(out, "&apos;", char(39), .)
+    out = subinstr(out, "&amp;", "&", .)
+    return(out)
+}
+
+// A rebuilt archive is accepted only if xl() still opens it and reports the
+// same sheets, in the same order, as the workbook it would replace.  Only the
+// rebuilt file is opened with xl(): that is the check that matters, since it
+// proves Stata can still read what zipfile produced.  `root' is the unpacked
+// tree the archive was built from, and supplies the expected names.
+void _tt_xlsx_verify(string scalar rebuilt, string scalar root)
+{
+    class xl scalar b
+    string colvector sa, sb
+
+    sa = _tt_xlsx_sheetnames_xml(root)
 
     b = xl()
     b.load_book(rebuilt)
     sb = b.get_sheets()
     b.close_book()
 
-    if (cols(sa) != cols(sb)) {
+    // get_sheets() returns an N x 1 column vector, so the count lives in
+    // rows(); cols() is 1 for every workbook and compares equal always.
+    if (rows(sa) != rows(sb)) {
         errprintf("compacted workbook lost a sheet\n")
         _error(459)
     }
-    if (cols(sa) > 0) {
+    if (rows(sa) > 0) {
         if (sa != sb) {
             errprintf("compacted workbook does not match the original sheets\n")
             _error(459)
