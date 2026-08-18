@@ -9,7 +9,7 @@ capture log close _visualstress
 log using "_visual_stress_gen.log", replace text name(_visualstress)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local output_root "`qa_dir'/output"
 local out "`output_root'/visual_stress_20260625"
 capture mkdir "`output_root'"
