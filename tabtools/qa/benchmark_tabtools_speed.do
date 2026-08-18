@@ -18,7 +18,7 @@ else if regexm("`_cwd'", "/qa$") {
 else {
     local qa_dir "`_cwd'/qa"
 }
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local output_dir "`qa_dir'/output"
 if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"

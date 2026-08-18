@@ -15,7 +15,7 @@ local fail_count = 0
 
 **# Bootstrap
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
 if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
@@ -1012,7 +1012,7 @@ capture erase "test_documentation_contracts.log"
 log using "test_documentation_contracts.log", text name(_doc_contracts)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 local failed_tests ""
 
@@ -1463,7 +1463,7 @@ version 16.0
 
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 * Strip only the terminal package directory. A scratch parent may itself
 * contain "tabtools" (for example /tmp/tabtools-audit-*/tabtools).
 local repo_dir = regexr("`pkg_dir'", "/tabtools$", "")

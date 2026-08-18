@@ -25,7 +25,7 @@ if !inlist("`lane'", "full", "quick", "release", "benchmark") {
 }
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local skip_file "`qa_dir'/_skip.txt"
 local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"

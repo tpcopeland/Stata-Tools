@@ -18,7 +18,7 @@ else if regexm("`cwd'", "/qa$") {
 else {
     local qa_dir "`cwd'"
 }
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 local test_count = 0
 local pass_count = 0

@@ -9,7 +9,7 @@ capture log close _diagtab
 log using "test_diagtab.log", replace text name(_diagtab)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local output_dir "`qa_dir'/output"
 if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
