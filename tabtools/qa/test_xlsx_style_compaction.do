@@ -610,6 +610,56 @@ else {
 }
 
 * -------------------------------------------------------------------------
+* Test: _tt_xlsx_files returns separator-normalized paths
+*
+* dir() prefixes each entry with the platform separator.  Every caller in the
+* helper builds its comparison strings with "/", so on Windows the guards in
+* _tt_xlsx_check_manifest matched nothing: the verify subtree and the rebuilt
+* archive were counted as original parts, a good rebuild was rejected with
+* r(459), and compaction was silently off for the whole platform -- which put
+* Windows back on the 65,536-record font ceiling and r(16147) that this suite
+* exists to prevent.  This is the platform contract; it is a tautology on Unix
+* and the discriminating case on Windows, so it is pinned rather than assumed.
+* -------------------------------------------------------------------------
+display ""
+display as text "Test: _tt_xlsx_files normalizes the directory separator"
+if "`_have_mata'" == "1" {
+    local sep_tree "`output_dir'/_compact_septree"
+    capture mata: _tt_xlsx_rmtree("`sep_tree'")
+    capture mkdir "`sep_tree'"
+    capture mkdir "`sep_tree'/xl"
+    capture mkdir "`sep_tree'/xl/worksheets"
+    quietly {
+        tempname _sh
+        file open `_sh' using "`sep_tree'/xl/worksheets/sheet1.xml", write replace
+        file write `_sh' "<x/>" _n
+        file close `_sh'
+        file open `_sh' using "`sep_tree'/xl/styles.xml", write replace
+        file write `_sh' "<x/>" _n
+        file close `_sh'
+    }
+    capture mata: st_local("_sep_hits", strofreal(sum(strpos( ///
+        _tt_xlsx_files("`sep_tree'"), char(92)) :> 0)))
+    capture mata: st_local("_sep_n", strofreal(rows(_tt_xlsx_files("`sep_tree'"))))
+    if "`_sep_n'" != "2" {
+        display as error "  FAIL: expected 2 files below the fixture tree, found `_sep_n'"
+        local ++fail_count
+    }
+    else if "`_sep_hits'" != "0" {
+        display as error "  FAIL: `_sep_hits' of `_sep_n' paths still carry a backslash; the manifest guards will not match"
+        local ++fail_count
+    }
+    else {
+        display as result "  PASS: all `_sep_n' paths use the forward slash"
+        local ++pass_count
+    }
+    capture mata: _tt_xlsx_rmtree("`sep_tree'")
+}
+else {
+    display as error "  note: helper Mata is unreachable; separator normalization not tested"
+}
+
+* -------------------------------------------------------------------------
 * Cleanup
 * -------------------------------------------------------------------------
 foreach f in _compact_raw.xlsx _compact_done.xlsx _compact_base.xlsx ///

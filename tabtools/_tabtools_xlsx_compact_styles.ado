@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 1.16.1  2026/08/18
+*! _tabtools_xlsx_compact_styles Version 1.16.2  2026/08/19
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -177,6 +177,7 @@ capture mata: mata drop _tt_xlsx_block()
 capture mata: mata drop _tt_xlsx_remap_attr()
 capture mata: mata drop _tt_xlsx_remap_sheet()
 capture mata: mata drop _tt_xlsx_files()
+capture mata: mata drop _tt_xlsx_slash()
 capture mata: mata drop _tt_xlsx_quoted_files()
 capture mata: mata drop _tt_xlsx_rmtree()
 capture mata: mata drop _tt_xlsx_verify()
@@ -462,17 +463,37 @@ void _tt_xlsx_spit(string scalar path, string scalar s)
 }
 
 // Every file below `base', depth first, as paths relative to `base'.
+//
+// dir() prefixes each entry with the platform separator, so on Windows the
+// results come back as ".\xl\styles.xml" while every caller below builds its
+// comparison strings with "/".  Left alone, _tt_xlsx_check_manifest() then
+// matches neither its `prefix' nor its `skip' guard, counts the verify tree
+// and the rebuilt archive as original parts, and rejects a perfectly good
+// rebuild with r(459) -- which silently disables compaction on Windows and
+// lets the style pools grow to the 65,536-record ceiling.  Normalizing here
+// covers every caller at once and is a no-op on Unix.  It also keeps the file
+// list handed to zipfile free of backslash entry names, which Excel and
+// xl() both refuse to read back.
 string colvector _tt_xlsx_files(string scalar base)
 {
     string colvector out, subdirs
     real scalar i
 
-    out = dir(base, "files", "*", 1)
-    subdirs = dir(base, "dirs", "*", 1)
+    out = _tt_xlsx_slash(dir(base, "files", "*", 1))
+    subdirs = _tt_xlsx_slash(dir(base, "dirs", "*", 1))
     for (i = 1; i <= rows(subdirs); i++) {
         out = out \ _tt_xlsx_files(subdirs[i])
     }
     return(out)
+}
+
+// subinstr() raises r(3200) on the J(0,1,"") that dir() returns for an empty
+// match, and a leaf directory produces one on every recursion, so the empty
+// case has to short-circuit rather than fall through to the replacement.
+string colvector _tt_xlsx_slash(string colvector paths)
+{
+    if (rows(paths) == 0) return(paths)
+    return(subinstr(paths, "\", "/", .))
 }
 
 string scalar _tt_xlsx_quoted_files(string scalar base)
