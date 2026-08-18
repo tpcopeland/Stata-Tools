@@ -10,7 +10,7 @@ capture log close _desctab
 log using "test_desctab.log", replace text name(_desctab)
 
 local qa_dir "`c(pwd)'"
-local pkg_root = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_root = regexr("`qa_dir'", "/qa$", "")
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_root'") replace
