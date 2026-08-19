@@ -580,34 +580,6 @@ else {
 **# VC9: Invariant checks — sanity bounds
 * =========================================================================
 
-* --- VC9.1: diagtab proportions in [0,1] ---
-local ++n_total
-capture noisily {
-    clear
-    set obs 100
-    set seed 99
-    gen byte gold = (_n <= 40)
-    gen score = runiform()
-
-    diagtab score gold, cutoff(0.5)
-    assert r(sensitivity) >= 0 & r(sensitivity) <= 1
-    assert r(specificity) >= 0 & r(specificity) <= 1
-    assert r(ppv) >= 0 & r(ppv) <= 1
-    assert r(npv) >= 0 & r(npv) <= 1
-    assert r(accuracy) >= 0 & r(accuracy) <= 1
-    assert r(lr_pos) >= 0
-    assert r(dor) >= 0
-    assert r(youden) >= -1 & r(youden) <= 1
-}
-if _rc == 0 {
-    display as result "  PASS: VC9.1 — diagtab proportions in valid range"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: VC9.1 — diagtab proportion bounds (rc=`=_rc')"
-    local ++fail_count
-}
-
 * --- VC9.2: corrtab all values in [-1,1] ---
 local ++n_total
 capture noisily {
@@ -789,51 +761,9 @@ else {
     local ++fail_count
 }
 
-* --- KE10.3: diagtab Se equals proportion of TP among gold positives ---
-local ++n_total
-capture noisily {
-    _ke_diag2x2
-    diagtab test gold
-    local _se = r(sensitivity)
-    quietly count if test == 1 & gold == 1
-    local _tp = r(N)
-    quietly count if gold == 1
-    local _np = r(N)
-    assert abs(`_se' - `_tp'/`_np') < 1e-6
-}
-if _rc == 0 {
-    display as result "  PASS: KE10.3 — diagtab Se = TP/(TP+FN) by direct count"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: KE10.3 — Se direct count (rc=`=_rc')"
-    local ++fail_count
-}
-
-
 * =========================================================================
 **# KE11: Sanity bounds (universal invariants)
 * =========================================================================
-
-* --- KE11.1: All proportions/probabilities bounded — diagtab ---
-local ++n_total
-capture noisily {
-    _ke_diag2x2
-    diagtab test gold, auc
-    foreach m in sensitivity specificity ppv npv accuracy auc {
-        local v = r(`m')
-        assert `v' >= 0 - 1e-9
-        assert `v' <= 1 + 1e-9
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: KE11.1 — diagtab Se/Sp/PPV/NPV/Acc/AUC all in [0,1]"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: KE11.1 — diagtab bounds (rc=`=_rc')"
-    local ++fail_count
-}
 
 * --- KE11.2: crosstab p-value in [0,1], chi2 ≥ 0 ---
 local ++n_total

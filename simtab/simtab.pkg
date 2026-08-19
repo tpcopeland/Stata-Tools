@@ -1,0 +1,13 @@
+v 3
+d 'SIMTAB': Publication-ready Monte Carlo simulation performance tables
+d Timothy P Copeland, Karolinska Institutet
+d Distribution-Date: 20260819
+d License: MIT
+f simtab.ado
+f simtab.sthlp
+f _simtab_ingest.ado
+f _simtab_common.ado
+f _simtab_xlsx_write.ado
+f _simtab_markdown_write.ado
+f _simtab_csv_write.ado
+

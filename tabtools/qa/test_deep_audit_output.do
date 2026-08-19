@@ -35,26 +35,12 @@ set obs 100
 generate byte gold = _n <= 50
 generate byte test = (gold & _n <= 40) | (!gold & _n <= 55)
 set level 95
-capture frame drop deep_diag90
-capture noisily diagtab test gold, level(90) digits(6) ///
-    frame(deep_diag90, replace)
-local diag_rc = _rc
-local diag_level = cond(`diag_rc' == 0, r(ci_level), .)
-local diag_lb = cond(`diag_rc' == 0, r(sensitivity_lb), .)
-quietly cii proportions 50 40, wilson level(90)
-local diag_want = r(lb)
-
 capture frame drop deep_cross90
 capture noisily crosstab test gold, or level(90) digits(6) ///
     frame(deep_cross90, replace)
 local cross_rc = _rc
 local cross_level = cond(`cross_rc' == 0, r(ci_level), .)
 capture noisily {
-    assert `diag_rc' == 0
-    assert `diag_level' == 90
-    assert reldif(`diag_lb', `diag_want') < 1e-12
-    frame deep_diag90: count if c3 == "(90% CI)"
-    frame deep_diag90: assert r(N) == 1
     assert `cross_rc' == 0
     assert `cross_level' == 90
     frame deep_cross90: count if strpos(c1, "90% CI") > 0
@@ -302,16 +288,6 @@ clear
 set obs 100
 generate byte gold = _n <= 50
 generate byte test = (gold & _n <= 40) | (!gold & _n <= 55)
-capture frame drop deep_diag6
-diagtab test gold, digits(6) frame(deep_diag6, replace)
-local diag_shell = 0
-frame deep_diag6 {
-    foreach v of varlist c* {
-        count if inlist(strtrim(`v'), "%", "(, )", "(,)")
-        local diag_shell = `diag_shell' + r(N)
-    }
-}
-
 capture frame drop deep_cross6
 crosstab test gold, or digits(6) frame(deep_cross6, replace)
 local cross_ok = 0
@@ -332,7 +308,6 @@ frame deep_surv6 {
 capture noisily {
     assert `corr_ok'
     assert `desc_shell' == 0
-    assert `diag_shell' == 0
     assert `cross_ok'
     assert `surv_shell' == 0
 }

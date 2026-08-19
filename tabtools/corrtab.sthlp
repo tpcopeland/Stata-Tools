@@ -9,7 +9,6 @@
 {viewerjumpto "Author" "corrtab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "crosstab" "help crosstab"}{...}
-{vieweralsosee "diagtab" "help diagtab"}{...}
 {vieweralsosee "pwcorr" "help pwcorr"}{...}
 {vieweralsosee "spearman" "help spearman"}{...}
 {title:Title}
@@ -21,8 +20,7 @@
 {title:Package}
 
 {pstd}{cmd:corrtab} is part of the {helpb tabtools} suite. See {helpb crosstab}
-for categorical association tables and {helpb diagtab} for diagnostic-accuracy
-output from binary classification data.{p_end}
+for categorical association tables.{p_end}
 
 {hline}
 
@@ -240,7 +238,7 @@ or RGB triplet{p_end}
 {title:Also see}
 
 {psee}
-{helpb tabtools}, {helpb crosstab}, {helpb diagtab},
+{helpb tabtools}, {helpb crosstab},
 {helpb tabtools_tips}, {helpb pwcorr}, {helpb spearman}
 {p_end}
 

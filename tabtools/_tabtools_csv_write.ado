@@ -37,7 +37,7 @@ program define _tabtools_csv_write, nclass
         * row. Materialise them into the first exported column here, once, so
         * every command's CSV has the same shape as its workbook: title row,
         * table body, note row. Callers whose title/footnote already occupy a
-        * body cell (puttab, simtab) pass neither option and are unaffected.
+        * body cell (puttab) passes neither option and is unaffected.
         preserve
         local _restore_needed = 1
 
@@ -47,7 +47,7 @@ program define _tabtools_csv_write, nclass
         * Only a caller that actually reserves such a row may ask for this.
         * The rule "a leading row blank in every exported column is structural"
         * is true for a rendered table and false for a raw export: `puttab' and
-        * `simtab' hand this helper the user's own observations, where a first
+        * Some callers hand this helper the user's own observations, where a first
         * row blank in every column is data. Dropping it there silently shipped
         * a CSV with one row fewer than the workbook -- so the drop is opt-in,
         * declared by the caller that built the reserved row, never inferred

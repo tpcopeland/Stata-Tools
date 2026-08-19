@@ -1,4 +1,5 @@
 {smcl}
+{* *! version 2.0.0  2026/08/19}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}
@@ -12,7 +13,7 @@
 {viewerjumpto "References" "simtab##refs"}{...}
 {viewerjumpto "Also see" "simtab##alsosee"}{...}
 {viewerjumpto "Author" "simtab##author"}{...}
-{vieweralsosee "tabtools" "help tabtools"}{...}
+{vieweralsosee "simtab" "help simtab"}{...}
 {vieweralsosee "puttab" "help puttab"}{...}
 {vieweralsosee "comptab" "help comptab"}{...}
 {title:Title}
@@ -24,7 +25,7 @@ performance table
 {marker package}{...}
 {title:Package}
 
-{pstd}{cmd:simtab} is part of the {helpb tabtools} suite. It owns the last mile of a simulation
+{pstd}{cmd:simtab} is a standalone package. It owns the last mile of a simulation
 study: turning replication-level results -- or an already-computed summary --
 into a styled, exportable, publication-ready performance table with merged
 multi-estimand group headers, scenario row grouping, themes, and one-call
@@ -109,7 +110,7 @@ table-grade measures itself from replication-level data.{p_end}
 {synopt:{opt plotf:rame(name[, replace])}}store the numeric companion frame{p_end}
 {synopt:{opt ti:tle(string)}}table title{p_end}
 {synopt:{opt foot:note(string)}}table footnote{p_end}
-{synopt:{opt the:me(name)}}journal theme; see {helpb tabtools##themes:tabtools} for the accepted names{p_end}
+{synopt:{opt the:me(name)}}journal theme; see {helpb simtab##themes:simtab} for the accepted names{p_end}
 {synopt:{opt border:style(name)}}default, thin, medium, academic{p_end}
 {synopt:{opt headerc:olor(c)}}header fill color{p_end}
 {synopt:{opt zebrac:olor(c)}}zebra stripe color{p_end}
@@ -448,11 +449,13 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 {title:Also see}
 
 {psee}Manual: {bf:[R] simulate}{p_end}
-{psee}Online: {helpb tabtools}, {helpb puttab}, {helpb comptab}, {helpb stacktab}{p_end}
+{psee}Online: {browse "https://www.stata-journal.com/article.html?article=st0200":White (2010), simsum}{p_end}
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+
+{pstd}Version 2.0.0{p_end}
 
 {hline}

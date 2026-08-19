@@ -221,7 +221,7 @@ capture noisily {
     file read `_tips_recipe_fh' _tips_recipe_line
     while r(eof) == 0 {
         if strpos(`"`_tips_recipe_line'"', ///
-            "RESULT: tabtools_tips_recipes tests=21 pass=21 fail=0") > 0 {
+            "RESULT: tabtools_tips_recipes tests=19 pass=19 fail=0") > 0 {
             local _tips_recipe_green 1
         }
         file read `_tips_recipe_fh' _tips_recipe_line
@@ -231,7 +231,7 @@ capture noisily {
     if `_tips_recipe_owned' capture shell rm -rf "`_tips_recipe_dir'"
 }
 if _rc == 0 {
-    display as result "  PASS: all 21 help recipes run in independent Stata processes"
+    display as result "  PASS: all 19 help recipes run in independent Stata processes"
     local ++pass_count
 }
 else {

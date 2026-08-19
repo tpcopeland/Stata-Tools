@@ -7,22 +7,16 @@
 
     Usage:
       do tabtools/demo/demo_tabtools.do            // everything (default "all")
-      do tabtools/demo/demo_tabtools.do simtab     // only the simtab section
-      do tabtools/demo/demo_tabtools.do main       // everything except simtab
+      do tabtools/demo/demo_tabtools.do main       // alias for the full demo
 
     Produces:
       Console (1 text log + 1 markdown file):
         1. console_output.log         - consolidated display log
         2. console_output.md          - transient console conversion for local inspection
                                          (gitignored; not a README source)
-      simtab section (folded in; runs for "all" or "simtab"):
-        demo_simtab.xlsx   (2 sheets) - scenarios + multi-estimand workbook
-        In "all" mode the simtab console tables fold into console_output.md and
-        the multi-estimand report folds into demo_markdown_report.md, so no
-        separate simtab .md files are emitted.
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
-      Per-command workbooks (14 xlsx files, 80 sheets total):
+      Per-command workbooks (13 xlsx files, 77 sheets total):
         demo_table1.xlsx    (14 sheets) - table1_tc + themes + small cells
         demo_desctab.xlsx   (9 sheets)  - descriptive tables + small cells
         demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
@@ -32,7 +26,6 @@
         demo_stratetab.xlsx  (1 sheet)  - stratetab rates
         demo_corrtab.xlsx    (3 sheets) - corrtab Pearson + Spearman
         demo_crosstab.xlsx   (7 sheets) - crosstab variants + small cells
-        demo_diagtab.xlsx    (3 sheets) - diagtab accuracy
         demo_survtab.xlsx    (3 sheets) - survtab KM + RMST
         demo_hrcomptab.xlsx  (1 sheet)  - hrcomptab composite
         demo_puttab.xlsx     (3 sheets) - puttab matrix/frame/data sources
@@ -42,8 +35,8 @@
 version 17.0
 args _demo_part
 if "`_demo_part'" == "" local _demo_part "all"
-if !inlist("`_demo_part'", "all", "simtab", "main") {
-    display as error "demo_tabtools.do: argument must be empty, all, simtab, or main (got `_demo_part')"
+if !inlist("`_demo_part'", "all", "main") {
+    display as error "demo_tabtools.do: argument must be empty, all, or main (got `_demo_part')"
     exit 198
 }
 local _orig_more = c(more)
@@ -113,7 +106,6 @@ local xlsx_effecttab "`pkg_dir'/demo_effecttab.xlsx"
 local xlsx_stratetab "`pkg_dir'/demo_stratetab.xlsx"
 local xlsx_corrtab   "`pkg_dir'/demo_corrtab.xlsx"
 local xlsx_crosstab  "`pkg_dir'/demo_crosstab.xlsx"
-local xlsx_diagtab   "`pkg_dir'/demo_diagtab.xlsx"
 local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
 local xlsx_puttab    "`pkg_dir'/demo_puttab.xlsx"
@@ -123,115 +115,17 @@ local markdown_report_export "`pkg_ref'/demo_markdown_report.md"
 local console_log    "`pkg_dir'/console_output.log"
 local console_md     "`pkg_dir'/console_output.md"
 
-local do_simtab = inlist("`_demo_part'", "all", "simtab")
-local do_main   = inlist("`_demo_part'", "all", "main")
+local do_main = 1
 
-* Erase prior main-demo artifacts only when the main body will regenerate them,
-* so a "simtab"-only run leaves console_output/markdown/workbooks intact.
+* Erase prior demo artifacts before regenerating the full documentation set.
 if `do_main' {
-    foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
+    foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab {
         capture erase "`xlsx_`_f''"
     }
     capture erase "`pkg_dir'/demo_tabtools.xlsx"
     capture erase "`markdown_report'"
     capture erase "`console_md'"
 }
-
-**# simtab data + workbook (folded-in former demo_simtab.do)
-* Runs for "all" and "simtab". Builds the synthetic replication-level results
-* and writes demo_simtab.xlsx (Scenarios + Multi-estimand sheets). In "all" mode
-* the simtab console tables and the multi-estimand Markdown report are woven into
-* console_output.md and demo_markdown_report.md by the main body below, so no
-* separate simtab .md files are produced. In "simtab"-only mode just the workbook
-* is regenerated.
-local xlsx_simtab "`pkg_dir'/demo_simtab.xlsx"
-
-if `do_simtab' {
-
-capture erase "`xlsx_simtab'"
-
-* Synthetic replication-level results (IIVW-style):
-*   3 scenarios x 3 estimators x 2 estimands, ~400 replications each. Unweighted
-*   is biased (low coverage); IIW is well-calibrated; IIW + log(test) carries a
-*   small residual bias. ~6% of Unweighted fits "fail" to converge and are
-*   dropped, so n < nsim.
-clear
-set seed 20260608
-local R 400
-set obs `R'
-gen long sim = _n
-expand 3
-bysort sim: gen byte estid = _n
-expand 3
-bysort sim estid: gen byte scen = _n
-expand 2
-bysort sim estid scen: gen byte emd = _n
-
-label define sclbl  1 "A" 2 "B" 3 "C", replace
-label values scen sclbl
-label define estlbl 1 "Unweighted" 2 "IIW" 3 "IIW + log(test)", replace
-label values estid estlbl
-label define emdlbl 1 "Marginal slope" 2 "Treatment contrast", replace
-label values emd emdlbl
-label variable scen "Scenario"
-label variable estid "Estimator"
-
-gen double truev = cond(emd==1, 0.10, 0.50)
-* estimator-specific bias on the estimate scale, with a mild scenario nudge
-gen double bias_e = cond(estid==1, 0.05, cond(estid==3, 0.02, 0)) + 0.008*(scen-2)
-gen double sd_e = 0.04
-gen double est = truev + bias_e + rnormal(0, sd_e)
-gen double se  = sd_e + runiform()*0.004
-gen double lo  = est - 1.96*se
-gen double hi  = est + 1.96*se
-gen byte covered = (lo <= truev & truev <= hi)
-
-* simulate ~6% non-convergence for the Unweighted estimator
-gen double _u = runiform()
-drop if estid==1 & _u < 0.06
-drop _u bias_e sd_e
-
-label variable est "Slope estimate"
-tempfile reps
-quietly save "`reps'"
-
-* Workbook sheet 1: per-scenario performance (single estimand)
-use "`reps'", clear
-keep if emd == 1
-quietly simtab estid, estimate(est) se(se) true(truev)              ///
-    by(scen) sim(sim) coverage(covered) nsim(400)                   ///
-    metrics(mean bias empse meanse coverage n nonconv)              ///
-    digits(3) xlsx("`xlsx_simtab'") sheet("Scenarios")              ///
-    title("Simulation results by scenario (400 replications)")      ///
-    footnote("Coverage is empirical 95% CI coverage.")
-
-* Workbook sheet 2: merged-header multi-estimand block
-use "`reps'", clear
-quietly simtab estid, estimate(est) se(se) true(truev)               ///
-    by(scen) estimand(emd) sim(sim) coverage(covered) nsim(400)      ///
-    metrics(mean bias coverage n)                                    ///
-    digits(3) xlsx("`xlsx_simtab'") sheet("Multi-estimand")          ///
-    title("Simulation results by scenario and estimand")             ///
-    footnote("Coverage is empirical 95% CI coverage.")               ///
-    borderstyle(academic) zebra
-
-* verify the Excel merged-header row was written
-* layout: blank margin col A, Scenario/Estimator in B/C, then 4 metrics x 2
-* estimands from col D; estimand group labels sit at block-start cols D and H
-* of row 2 (matches tabtools/qa/test_simtab.do)
-import excel using "`xlsx_simtab'", sheet("Multi-estimand") ///
-    cellrange(A2:K2) clear allstring
-assert D[1] == "Marginal slope"
-assert H[1] == "Treatment contrast"
-
-if "`_demo_part'" == "simtab" {
-    clear
-    display as result "simtab section complete. Output: `xlsx_simtab'"
-}
-
-}
-
-if `do_main' {
 
 **# Build analysis dataset
 * Merge cohort, treatment, comorbidities, and outcomes
@@ -300,7 +194,7 @@ save `analysis'
 capture log close demo
 capture erase "`console_log'"
 foreach legacy_log in console_survtab.smcl console_tabtools.smcl console_regtab.smcl ///
-    console_corrtab.smcl console_crosstab.smcl console_diagtab.smcl {
+    console_corrtab.smcl console_crosstab.smcl {
     capture erase "`pkg_dir'/`legacy_log'"
 }
 
@@ -574,18 +468,6 @@ noisily desctab rare_ae, by(group) vars(rare_ae bin) ///
 log off demo
 restore
 
-**# Console: diagtab display
-quietly logit cv_event treated index_age female diabetes hypertension
-predict double phat_display, pr
-label variable phat_display "Predicted CV risk"
-
-log on demo
-
-noisily diagtab phat_display cv_event, cutoff(0.35) ///
-    auc wilson
-
-log off demo
-
 **# Console: puttab + stacktab export pipeline
 * Emit two styled estimate blocks with puttab, then assemble them into one
 * composite sheet with stacktab (vstack, column merge, section labels).
@@ -637,66 +519,6 @@ log off demo
 capture erase "`_pipe_xlsx'"
 restore
 
-**# Console: simtab Monte Carlo performance tables
-if `do_simtab' {
-log on demo
-
-* # simtab: Monte Carlo simulation performance tables
-
-* simtab summarizes one row per replication x estimator x estimand x scenario
-* into table-grade performance measures, then styles and exports the table.
-
-* ## Compute mode: scenarios, estimators, non-convergence, coverage flag
-
-* The intended replication count is nsim(400). Estimators whose fits failed to
-* converge show nfail > 0 via the nonconv column. Coverage that deviates from
-* the nominal 95% by more than 2 Monte Carlo SEs is flagged with "*".
-
-use "`reps'", clear
-keep if emd == 1
-noisily simtab estid, estimate(est) se(se) true(truev)              ///
-    by(scen) sim(sim) coverage(covered) nsim(400)                   ///
-    metrics(mean bias empse meanse coverage n nonconv)              ///
-    digits(3)                                                       ///
-    title("Simulation results by scenario (400 replications)")      ///
-    footnote("Coverage is empirical 95% CI coverage.") ///
-    display
-
-* ## Figure-ready companion frame (plotframe)
-
-* plotframe() stores one row per by x estimator x estimand cell with the raw
-* measures and their Monte Carlo SEs - the structured source for figures.
-
-use "`reps'", clear
-keep if emd == 1
-quietly simtab estid, estimate(est) se(se) true(truev)   ///
-    by(scen) sim(sim) coverage(covered) nsim(400)        ///
-    metrics(mean bias empse coverage n) plotframe(simfig, replace)
-frame simfig: format mean bias empse %6.3f
-frame simfig: format coverage mcse_coverage %5.3f
-noisily frame simfig: list by_label estimator_label mean bias empse ///
-    coverage mcse_coverage nfail n, noobs sepby(by_label)
-capture frame drop simfig
-
-* ## Ingest mode: render a pre-computed summary (from(summary))
-
-* When the per-cell numbers already exist - computed by simsum, siman, or any
-* collapse - simtab renders them without recomputation. from(summary) maps the
-* columns explicitly and never depends on an external package.
-
-use "`reps'", clear
-keep if emd == 1
-collapse (mean) avg=est (sd) sdest=est (mean) cov=covered ///
-    (count) nrep=est, by(scen estid)
-gen double b = avg - 0.10
-noisily list scen estid avg b sdest cov nrep, noobs sepby(scen)
-noisily simtab, from(summary) byvar(scen) estimatorvar(estid)         ///
-    measures(mean=avg bias=b empse=sdest coverage=cov n=nrep)         ///
-    title("Ingested per-cell summary (no recomputation)") display
-
-log off demo
-}
-
 **# Console: Markdown export report
 use `analysis', clear
 capture erase "`markdown_report'"
@@ -726,15 +548,6 @@ noisily puttab id index_age treated female cv_event, ///
     markdown("`markdown_report_export'") mdappend
 restore
 
-* Append the simtab multi-estimand performance table when the simtab section ran
-if `do_simtab' {
-use "`reps'", clear
-noisily simtab estid, estimate(est) se(se) true(truev)               ///
-    by(scen) estimand(emd) sim(sim) coverage(covered) nsim(400)      ///
-    metrics(mean bias coverage n) digits(3)                          ///
-    title("Simulation results by scenario and estimand")             ///
-    markdown("`markdown_report_export'") mdappend borderstyle(academic) zebra
-}
 
 noisily display as text "Markdown report written to tabtools/demo/demo_markdown_report.md"
 noisily display as text "The file contains multiple GitHub-Flavored Markdown tables appended in one report."
@@ -750,14 +563,12 @@ local _has_crosstab 0
 local _has_corrtab 0
 local _has_puttab 0
 local _has_pipe_table 0
-local _has_simtab 0
 file read `_md_fh' _md_line
 while r(eof) == 0 {
     if strpos(`"`_md_line'"', "### Table 1. Baseline Characteristics") local _has_table1 1
     if strpos(`"`_md_line'"', "### Table 2. Treatment by Sex") local _has_crosstab 1
     if strpos(`"`_md_line'"', "### Table 3. Correlation Matrix") local _has_corrtab 1
     if strpos(`"`_md_line'"', "### Table 4. First Six Analysis Records") local _has_puttab 1
-    if strpos(`"`_md_line'"', "### Simulation results by scenario and estimand") local _has_simtab 1
     if strpos(`"`_md_line'"', "| --- |") local _has_pipe_table 1
     file read `_md_fh' _md_line
 }
@@ -767,7 +578,6 @@ assert `_has_crosstab' == 1
 assert `_has_corrtab' == 1
 assert `_has_puttab' == 1
 assert `_has_pipe_table' == 1
-if `do_simtab' assert `_has_simtab' == 1
 
 log close demo
 capture drop phat_display
@@ -1480,34 +1290,6 @@ crosstab treated cv_event, ///
     footnote("Percentages are row percentages within each treatment group.")
 
 
-**# Sheet 38: Diagnostic -- Sensitivity/specificity from propensity model
-quietly logit cv_event treated index_age female diabetes hypertension
-predict double phat, pr
-label variable phat "Predicted CV risk"
-
-diagtab phat cv_event, cutoff(0.35) ///
-    xlsx("`xlsx_diagtab'") sheet("Diagnostic") ///
-    title("Table 17. Diagnostic Accuracy of Risk Prediction Model") ///
-    auc optimal wilson
-
-**# Sheet 39: Diagnostic Prevalence -- Prevalence-adjusted PPV/NPV
-* Demonstrates: diagtab prevalence() for population-level PPV/NPV adjustment
-diagtab phat cv_event, cutoff(0.35) ///
-    xlsx("`xlsx_diagtab'") sheet("Diag Prevalence") ///
-    title("Table 17a. Diagnostic Accuracy (Prevalence-Adjusted)") ///
-    prevalence(0.15) auc wilson ///
-    footnote("PPV and NPV adjusted to population prevalence of 15%.")
-
-**# Sheet 40: Diagnostic Multi-Cut -- Multiple cutoff thresholds
-* Demonstrates: diagtab cutoffs() for comparing sensitivity/specificity across thresholds
-diagtab phat cv_event, cutoffs(0.30 0.32 0.34 0.36 0.38 0.40) ///
-    xlsx("`xlsx_diagtab'") sheet("Diag Multi-Cut") ///
-    title("Table 17b. Diagnostic Accuracy Across Multiple Cutoffs") ///
-    wilson ///
-    footnote("Sensitivity and specificity shown at each probability threshold.")
-
-drop phat
-
 **# Sheet 41: Survival -- Kaplan-Meier table with median
 stset follow_up, failure(cv_event)
 survtab, times(365 730 1095 1460) by(treated) ///
@@ -2060,7 +1842,7 @@ display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.log"
 display as result "  `pkg_dir'/console_output.md"
 display as result "  `markdown_report'"
-foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab {
     capture confirm file "`xlsx_`_f''"
     if _rc {
         display as error "Expected demo artifact not found: `xlsx_`_f''"
@@ -2075,8 +1857,6 @@ foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab co
 log using "`console_log'", append text name(demo) nomsg
 display "RESULT: demo_tabtools tests=1 pass=1 fail=0"
 log close demo
-
-}
 local _demo_success "1"
 }
 local _rc = _rc

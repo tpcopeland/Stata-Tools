@@ -2078,20 +2078,6 @@ capture noisily {
         sheet("Cross") title("Console_Crosstab")
     confirm file "`output_dir'/_console_contract_crosstab.xlsx"
 
-    clear
-    input byte(test gold)
-    1 1
-    1 1
-    1 0
-    0 0
-    0 1
-    0 0
-    end
-    capture erase "`output_dir'/_console_contract_diagtab.xlsx"
-    diagtab test gold, xlsx("`output_dir'/_console_contract_diagtab.xlsx") ///
-        sheet("Diag") title("Console_Diagtab")
-    confirm file "`output_dir'/_console_contract_diagtab.xlsx"
-
     webuse drugtr, clear
     stset studytime, failure(died)
     capture erase "`output_dir'/_console_contract_survtab.xlsx"
@@ -2273,7 +2259,7 @@ quietly tabtools set clear
 local invalid_ok = 1
 
 local invalid_color "999 999 999"
-local direct_cmds "table1_tc regtab effecttab comptab corrtab diagtab stratetab hrcomptab"
+local direct_cmds "table1_tc regtab effecttab comptab corrtab stratetab hrcomptab"
 
 capture erase "`output_dir'/_color_table1.xlsx"
 sysuse auto, clear
@@ -2348,21 +2334,6 @@ if `rc' != 198 | `file_exists' {
     local invalid_ok = 0
 }
 capture erase "`output_dir'/_color_corrtab.xlsx"
-
-capture erase "`output_dir'/_color_diagtab.xlsx"
-sysuse auto, clear
-generate byte highprice = (price > 6000)
-generate byte lowmpg = (mpg < 20)
-capture diagtab lowmpg highprice, xlsx("`output_dir'/_color_diagtab.xlsx") ///
-    headershade headercolor("`invalid_color'")
-local rc = _rc
-capture confirm file "`output_dir'/_color_diagtab.xlsx"
-local file_exists = (_rc == 0)
-if `rc' != 198 | `file_exists' {
-    display as error "  FAIL [diagtab]: expected rc=198 and no workbook; rc=`rc' file=`file_exists'"
-    local invalid_ok = 0
-}
-capture erase "`output_dir'/_color_diagtab.xlsx"
 
 clear
 set obs 2
@@ -2513,7 +2484,7 @@ capture noisily {
     quietly net install tabtools, from("`pkg_dir'") replace
 
     foreach cmd in tabtools table1_tc desctab regtab effecttab stratetab ///
-        hrcomptab comptab survtab crosstab diagtab corrtab {
+        hrcomptab comptab survtab crosstab corrtab {
         which `cmd'
     }
     which _tabtools_smallcells
@@ -2549,7 +2520,7 @@ else {
 capture noisily {
     tabtools set clear
     tabtools
-    assert r(n_commands) == 16
+    assert r(n_commands) == 14
     assert strpos("`r(commands)'", "table1_tc") > 0
     assert strpos("`r(commands)'", "desctab") > 0
     assert strpos("`r(commands)'", "regtab") > 0
@@ -2608,25 +2579,6 @@ capture noisily {
     matrix contract_corr_n = r(N)
     assert colsof(contract_corr_c) == 3
     assert contract_corr_n[1,1] > 0
-
-    local xlsx "`output_dir'/contract_diagtab.xlsx"
-    capture erase "`xlsx'"
-    capture frame drop contract_diag
-    clear
-    set obs 100
-    gen byte gold = (_n <= 50)
-    gen byte test = 0
-    replace test = 1 in 1/40
-    replace test = 1 in 51/70
-    diagtab test gold, xlsx("`xlsx'") sheet("Diag") ///
-        frame(contract_diag, replace)
-    confirm file "`xlsx'"
-    assert `"`r(xlsx)'"' == `"`xlsx'"'
-    assert "`r(sheet)'" == "Diag"
-    assert "`r(frame)'" == "contract_diag"
-    assert `"`r(methods)'"' != ""
-    assert abs(r(sensitivity) - 0.8) < 1e-10
-    assert abs(r(specificity) - 0.6) < 1e-10
 
     local xlsx "`output_dir'/contract_survtab.xlsx"
     capture erase "`xlsx'"
@@ -2781,7 +2733,7 @@ else {
     display as error "  FAIL: public command return contracts (rc=`=_rc')"
     local ++fail_count
 }
-foreach fr in contract_t1 contract_cross contract_corr contract_diag contract_surv ///
+foreach fr in contract_t1 contract_cross contract_corr contract_surv ///
     contract_rates contract_reg contract_eff contract_desc contract_comp1 ///
     contract_comp2 contract_comp contract_hr_rates contract_hr_model contract_hr {
     capture frame drop `fr'
@@ -3492,16 +3444,7 @@ capture frame drop _md_hrmod
 
 **# Remaining command Markdown return contracts
 capture noisily {
-    local md_diag "`output_dir'/markdown_diagtab.md"
-    capture erase "`md_diag'"
     sysuse auto, clear
-    gen byte expensive = price > 6000
-    gen byte heavy = weight > 3000
-    diagtab heavy expensive, markdown("`md_diag'")
-    assert "`r(markdown)'" == "`md_diag'"
-    assert r(markdown_rows) > 0
-    assert r(markdown_cols) > 0
-
     local md_reg "`output_dir'/markdown_regtab.md"
     capture erase "`md_reg'"
     collect clear
@@ -3718,26 +3661,6 @@ if !`has_checker' {
         preserve
         import excel "`output_dir'/_xl_native_corrtab.xlsx", sheet("Corr") cellrange(A1:A1) clear
         assert A[1] == "Correlations"
-        restore
-    }
-    if _rc == 0 {
-        local ++pass_count
-    }
-    else {
-        local ++fail_count
-    }
-
-    * diagtab
-    local ++n_total
-    capture noisily {
-        webuse nhanes2, clear
-        gen byte bmi_high = (bmi >= 30) if !missing(bmi)
-        capture erase "`output_dir'/_xl_native_diagtab.xlsx"
-        diagtab bmi_high diabetes, xlsx("`output_dir'/_xl_native_diagtab.xlsx") ///
-            sheet("Diag") title("Diagnostic")
-        preserve
-        import excel "`output_dir'/_xl_native_diagtab.xlsx", sheet("Diag") cellrange(A1:A1) clear
-        assert A[1] == "Diagnostic"
         restore
     }
     if _rc == 0 {
@@ -4545,94 +4468,6 @@ else {
 capture erase "`output_dir'/_xl_cr3.txt"
 
 * =========================================================================
-**# SECTION 9: diagtab Excel
-* =========================================================================
-
-* --- XL9.1: diagtab structure ---
-local ++n_total
-capture noisily {
-    clear
-    set obs 200
-    gen byte gold = (_n <= 100)
-    gen byte test = 0
-    replace test = 1 if gold == 1 & _n <= 80
-    replace test = 1 if gold == 0 & _n > 100 & _n <= 110
-    capture erase "`output_dir'/_xl_diagtab.xlsx"
-    diagtab test gold, xlsx("`output_dir'/_xl_diagtab.xlsx") ///
-        sheet("Diag") title("Diagnostic Accuracy")
-
-    shell python3 "`checker'" "`output_dir'/_xl_diagtab.xlsx" --sheet "Diag" ///
-        --min-rows 12 --min-cols 3 ///
-        --cell-contains A1 "Diagnostic Accuracy" ///
-        --has-borders ///
-        --contains "Sensitivity" --contains "Specificity" ///
-        --contains "PPV" --contains "NPV" --contains "Accuracy" ///
-        --has-pattern percentages ci sensitivity ///
-        --merged-row 1 ///
-        --result-file "`output_dir'/_xl_d1.txt" --quiet
-    file open _fh using "`output_dir'/_xl_d1.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL9.1 — diagtab structure (metrics, CIs, patterns)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: XL9.1 — diagtab structure (rc=`=_rc')"
-    local ++fail_count
-}
-capture erase "`output_dir'/_xl_d1.txt"
-
-* --- XL9.2: diagtab confusion matrix values ---
-local ++n_total
-capture noisily {
-    * Known: TP=80, FP=10, FN=20, TN=90
-    shell python3 "`checker'" "`output_dir'/_xl_diagtab.xlsx" --sheet "Diag" ///
-        --cell C3 "80" --cell D3 "10" ///
-        --cell C4 "20" --cell D4 "90" ///
-        --result-file "`output_dir'/_xl_d2.txt" --quiet
-    file open _fh using "`output_dir'/_xl_d2.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL9.2 — diagtab confusion matrix cells correct (80/10/20/90)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: XL9.2 — diagtab confusion matrix (rc=`=_rc')"
-    local ++fail_count
-}
-capture erase "`output_dir'/_xl_d2.txt"
-
-* --- XL9.3: diagtab sensitivity/specificity values ---
-local ++n_total
-capture noisily {
-    * Sensitivity = 80%, Specificity = 90%, Accuracy = 85%
-    shell python3 "`checker'" "`output_dir'/_xl_diagtab.xlsx" --sheet "Diag" ///
-        --cell-contains C7 "80.0%" ///
-        --cell-contains C8 "90.0%" ///
-        --cell-contains C11 "85.0%" ///
-        --result-file "`output_dir'/_xl_d3.txt" --quiet
-    file open _fh using "`output_dir'/_xl_d3.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL9.3 — diagtab Sens=80%, Spec=90%, Acc=85%"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: XL9.3 — diagtab metric values (rc=`=_rc')"
-    local ++fail_count
-}
-capture erase "`output_dir'/_xl_d3.txt"
-
-* =========================================================================
 **# SECTION 12: comptab Excel
 * =========================================================================
 
@@ -4929,7 +4764,7 @@ capture erase "`output_dir'/_xl_ar1.txt"
 * --- XL18.1: all xlsx files have non-empty content ---
 local ++n_total
 local xl18_pass = 1
-foreach cmd in regtab effecttab survtab crosstab corrtab diagtab comptab {
+foreach cmd in regtab effecttab survtab crosstab corrtab comptab {
     capture confirm file "`output_dir'/_xl_`cmd'.xlsx"
     if _rc != 0 {
         display as error "  FAIL: XL18.1 — _xl_`cmd'.xlsx does not exist"
