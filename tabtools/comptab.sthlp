@@ -27,6 +27,25 @@
 
 {p 8 17 2}
 {cmd:comptab}
+{it:modelframes}
+{cmd:,}
+{opt ratef:rame(rateframe)}
+{cmd:rows(}{it:string}{cmd:)}
+[{opt eff:ect(string)}]
+[{opt refl:abel(string)}]
+[{opt outcomem:ap(string)}]
+[{it:options}]
+
+{p 8 17 2}
+{cmd:comptab}
+{cmd:,}
+{opt ratef:rame(rateframe)}
+{opt modelf:ames(framelist)}
+{opt rown:ames(string)}
+[{it:options}]
+
+{p 8 17 2}
+{cmd:comptab}
 {it:framelist}
 {cmd:,}
 {cmdab:rown:ames(}{it:string}{cmd:)}
@@ -39,6 +58,9 @@
 {syntab:Required}
 {synopt:{opt rows(string)}}row selections, one per source frame{p_end}
 {synopt:{opt rown:ames(string)}}select rows by displayed-label pattern{p_end}
+{synopt:{opt ratef:rame(name)}}use a {cmd:stratetab} frame as a rate scaffold{p_end}
+{synopt:{opt modelf:ames(framelist)}}model frames for rate-scaffold mode{p_end}
+{synopt:{opt outcomem:ap(string)}}map rate outcomes to model identities{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
@@ -60,6 +82,8 @@
 {synopt:{opt sec:tion(string)}}section labels, one per source frame{p_end}
 {synopt:{opt rela:bel(string)}}rename selected composite rows{p_end}
 {synopt:{opt sep:arator(numlist)}}add borders above selected data rows{p_end}
+{synopt:{opt eff:ect(string)}}rate-mode effect header; default {cmd:aHR}{p_end}
+{synopt:{opt refl:abel(string)}}rate-mode reference-row text; default {cmd:Reference}{p_end}
 
 {syntab:Formatting}
 {synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
@@ -83,6 +107,12 @@ multiple {helpb regtab} or {helpb effecttab} output frames and combining them
 into a single formatted Excel table. This eliminates the manual
 import/export/format workflow for composite tables that combine results from
 different analyses.
+
+{pstd}
+With {opt rateframe()}, {cmd:comptab} instead uses a {helpb stratetab} frame as
+the row scaffold and interlocks selected {helpb regtab} model rows into each
+outcome block as events, person-time, rate, effect, and p-value columns. {helpb
+hrcomptab} is a compatibility wrapper for this mode.
 
 {pstd}
 Common use cases:
@@ -148,6 +178,23 @@ labels contain those substrings. Only one of {opt rows()} or {opt rownames()} ma
 be specified.
 
 {dlgtab:Content}
+
+{phang}
+{opt ratef:rame(name)} activates rate-scaffold mode. Put the model frames
+before the comma, or supply them with {opt modelframes()}. In this mode,
+{opt section()}, {opt separator()}, {opt relabel()}, and {opt compact} are not
+allowed. Without {opt rateframe()}, the rate-only options {opt effect()},
+{opt reflabel()}, and {opt outcomemap()} are not allowed.
+
+{phang}
+{opt modelf:ames(framelist)} supplies the model frames when no framelist
+precedes the comma. It is also accepted with one positional rate frame for
+compatibility with {cmd:hrcomptab}.
+
+{phang}
+{opt eff:ect(string)}, {opt refl:abel(string)}, and
+{opt outcomem:ap(string)} have the same rate-mode contracts documented in
+{helpb hrcomptab}.
 
 {phang}
 {opt compact} merges the estimate and CI into a single column per model,
@@ -326,6 +373,18 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {phang2}{cmd:    footnote("aHR, adjusted hazard ratio; CI, confidence interval.") ///}{p_end}
 {phang2}{cmd:    theme(lancet)}{p_end}
 
+{pstd}
+{bf:Example 6: Rate + hazard-ratio composition}
+
+{pstd}
+After creating {cmd:rates} with {cmd:stratetab, frame(rates)} and compatible
+model frames {cmd:m1} and {cmd:m2} with {cmd:regtab, frame()}, compose the
+Table 2 layout directly:
+
+{phang2}{cmd:. comptab m1 m2, rateframe(rates) rows(1 2 \ 1 2) ///}{p_end}
+{phang2}{cmd:    effect("aHR") reflabel("1.00 (Ref)") ///}{p_end}
+{phang2}{cmd:    xlsx("table2.xlsx") sheet("Table 2")}{p_end}
+
 
 {marker stored}{...}
 {title:Stored results}
@@ -350,6 +409,13 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
+
+{pstd}
+In rate-scaffold mode, {cmd:comptab} instead stores the {cmd:hrcomptab}
+contract: {cmd:r(N_rows)}, {cmd:r(N_outcomes)}, {cmd:r(N_sections)},
+{cmd:r(N_modelrows)}, {cmd:r(N_modelframes)}, {cmd:r(ci_level)},
+{cmd:r(rateframe)}, {cmd:r(modelframes)}, {cmd:r(effect)}, and any requested
+output-path or frame results.
 
 
 {marker author}{...}

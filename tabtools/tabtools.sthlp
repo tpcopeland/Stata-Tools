@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  19aug2026}{...}
+{* *! version 2.1.0  19aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -94,8 +94,8 @@ guide and end-to-end worked recipes.
 {pstd}
 {bf:Composite and assembly}
 
-{synopt:{helpb comptab}}Combine selected model-frame rows{p_end}
-{synopt:{helpb hrcomptab}}Combine rate and hazard-ratio frames{p_end}
+{synopt:{helpb comptab}}Combine model rows vertically or with a rate scaffold{p_end}
+{synopt:{helpb hrcomptab}}Compatibility wrapper for comptab rate mode{p_end}
 {synopt:{helpb stacktab}}Assemble exported Excel blocks{p_end}
 
 {pstd}
@@ -134,10 +134,10 @@ have no dedicated tabtools command. Broad on input, single sheet on output.
 {pstd}
 {bf:{helpb comptab}} reads tabtools {helpb regtab} / {helpb effecttab} {it:frames}
 (live estimation results stored with the {cmd:frame()} option) and cherry-picks
-selected rows into one composite sheet. Assembly happens at the
-{it:estimation} level, so rows can be reordered, relabeled, and grouped before
-export. {helpb hrcomptab} is the related builder that attaches {helpb regtab}
-rows to a {helpb stratetab} rates scaffold for a Table 2-style sheet.
+selected rows into one composite sheet. With {cmd:rateframe()}, it instead
+attaches {helpb regtab} rows to a {helpb stratetab} rates scaffold for a
+Table 2-style sheet. {helpb hrcomptab} is the specialized compatibility
+wrapper for that mode.
 
 {pstd}
 {bf:{helpb stacktab}} reads sheets that have {it:already been exported} to an
@@ -489,6 +489,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.0.0{p_end}
+{pstd}{bf:Version} 2.1.0{p_end}
 
 {hline}

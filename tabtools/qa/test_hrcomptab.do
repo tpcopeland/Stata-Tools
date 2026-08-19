@@ -190,8 +190,106 @@ else {
 }
 capture frame drop hrc_final
 
+**# 1a. Unified comptab rate mode matches the compatibility wrapper
+local ++test_count
+capture noisily {
+    local _wrapper_xlsx "`output_dir'/hrcomptab_wrapper_parity.xlsx"
+    local _direct_xlsx "`output_dir'/comptab_rate_parity.xlsx"
+    local _xml_result "`output_dir'/comptab_rate_xml_parity.txt"
+    capture erase "`_wrapper_xlsx'"
+    capture erase "`_direct_xlsx'"
+    capture erase "`_xml_result'"
+    capture frame drop hrc_wrapper_parity
+    capture frame drop hrc_direct_parity
+
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+        effect("aHR") frame(hrc_wrapper_parity, replace) ///
+        xlsx("`_wrapper_xlsx'") sheet("Parity")
+
+    local _hr_N_rows = r(N_rows)
+    local _hr_N_outcomes = r(N_outcomes)
+    local _hr_N_sections = r(N_sections)
+    local _hr_N_modelrows = r(N_modelrows)
+    local _hr_N_modelframes = r(N_modelframes)
+    local _hr_ci_level = r(ci_level)
+    local _hr_rateframe "`r(rateframe)'"
+    local _hr_modelframes "`r(modelframes)'"
+    local _hr_effect "`r(effect)'"
+    frame hrc_wrapper_parity: save "`output_dir'/hrcomptab_wrapper_parity.dta", replace
+
+    comptab hrc_bin hrc_dose, rateframe(hrc_rates) ///
+        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+        effect("aHR") frame(hrc_direct_parity, replace) ///
+        xlsx("`_direct_xlsx'") sheet("Parity")
+
+    assert r(N_rows) == `_hr_N_rows'
+    assert r(N_outcomes) == `_hr_N_outcomes'
+    assert r(N_sections) == `_hr_N_sections'
+    assert r(N_modelrows) == `_hr_N_modelrows'
+    assert r(N_modelframes) == `_hr_N_modelframes'
+    assert reldif(r(ci_level), `_hr_ci_level') < 1e-12
+    assert "`r(rateframe)'" == "`_hr_rateframe'"
+    assert "`r(modelframes)'" == "`_hr_modelframes'"
+    assert "`r(effect)'" == "`_hr_effect'"
+    frame hrc_direct_parity: cf _all using "`output_dir'/hrcomptab_wrapper_parity.dta"
+
+    ! python3 -c "import sys,zipfile; a=zipfile.ZipFile(sys.argv[1]); b=zipfile.ZipFile(sys.argv[2]); names=[n for n in a.namelist() if n.startswith('xl/worksheets/') or n=='xl/styles.xml']; ok=set(names)==set(n for n in b.namelist() if n.startswith('xl/worksheets/') or n=='xl/styles.xml') and all(a.read(n)==b.read(n) for n in names); open(sys.argv[3],'w').write('PASS' if ok else 'FAIL')" "`_wrapper_xlsx'" "`_direct_xlsx'" "`_xml_result'"
+    tempname _xfh
+    file open `_xfh' using "`_xml_result'", read text
+    file read `_xfh' _xml_line
+    file close `_xfh'
+    assert "`_xml_line'" == "PASS"
+
+    capture frame drop hrc_wrapper_parity
+    capture frame drop hrc_direct_parity
+    capture erase "`output_dir'/hrcomptab_wrapper_parity.dta"
+    capture erase "`_wrapper_xlsx'"
+    capture erase "`_direct_xlsx'"
+    capture erase "`_xml_result'"
+}
+if _rc == 0 {
+    display as result "  PASS: comptab rate mode and hrcomptab have identical analytical output and workbook XML"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: comptab/hrcomptab parity (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_wrapper_parity
+capture frame drop hrc_direct_parity
+capture erase "`output_dir'/hrcomptab_wrapper_parity.dta"
+capture erase "`output_dir'/hrcomptab_wrapper_parity.xlsx"
+capture erase "`output_dir'/comptab_rate_parity.xlsx"
+capture erase "`output_dir'/comptab_rate_xml_parity.txt"
+
+**# 1b. Explicit modelframes() mapping and mode-specific option guards
+local ++test_count
+capture noisily {
+    comptab, rateframe(hrc_rates) modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2")
+    assert r(N_outcomes) == 2
+    assert "`r(rateframe)'" == "hrc_rates"
+    assert "`r(modelframes)'" == "hrc_bin hrc_dose"
+
+    capture comptab hrc_bin hrc_dose, rateframe(hrc_rates) ///
+        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") compact
+    assert _rc == 198
+
+    capture comptab hrc_bin, rows(1) effect("aHR")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: comptab explicit rate mapping and mode-specific option guards"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: comptab rate mapping/option guards (rc=`=_rc')"
+    local ++fail_count
+}
+
 * -------------------------------------------------------------------------
-* 1b. reflabel() overrides inferred reference text; r(rateframe) returns source
+* 1c. reflabel() overrides inferred reference text; r(rateframe) returns source
 *     Clarity audit MINOR-4 (2026-06-13): reflabel and r(rateframe) untested.
 *     Same rows()/effect() as test 1 so reference-row positions match.
 * -------------------------------------------------------------------------

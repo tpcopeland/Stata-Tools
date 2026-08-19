@@ -124,6 +124,27 @@ else {
 }
 
 * -------------------------------------------------------------------------
+* 3b. Rate-only options are rejected in vertical mode
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture comptab ct_std1, rows(1) effect("aHR")
+    assert _rc == 198
+    capture comptab ct_std1, rows(1) reflabel("Reference")
+    assert _rc == 198
+    capture comptab ct_std1, rows(1) outcomemap("outcome")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: comptab rejects rate-only options in vertical mode"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: comptab vertical-mode option guards (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
 * 4. Compact source frames are accepted directly
 * -------------------------------------------------------------------------
 local ++test_count
