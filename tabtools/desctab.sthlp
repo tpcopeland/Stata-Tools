@@ -1,102 +1,127 @@
 {smcl}
-{vieweralsosee "tabtools" "help tabtools"}{...}
-{vieweralsosee "table" "help table"}{...}
-{vieweralsosee "collect" "help collect"}{...}
 {viewerjumpto "Syntax" "desctab##syntax"}{...}
-{viewerjumpto "Description" "desctab##description"}{...}
 {viewerjumpto "Options" "desctab##options"}{...}
+{viewerjumpto "Description" "desctab##description"}{...}
 {viewerjumpto "Examples" "desctab##examples"}{...}
 {viewerjumpto "Stored results" "desctab##stored"}{...}
+{viewerjumpto "Technical notes" "desctab##technical"}{...}
 {viewerjumpto "Author" "desctab##author"}{...}
+{vieweralsosee "tabtools" "help tabtools"}{...}
+{vieweralsosee "regtab" "help regtab"}{...}
+{hline}
+help for {cmd:desctab}
+{hline}
 
 {title:Title}
 
-{p2colset 5 16 18 2}{...}
-{p2col:{cmd:desctab} {hline 2}}Format descriptive {cmd:table} collections with per-statistic formats{p_end}
-{p2colreset}{...}
+{p2colset 5 15 21 2}{...}
+{p2col: {bf:desctab}}{hline 2} Create descriptive tables with the consolidated Table 1 engine
 
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 8 2}
-{cmd:desctab} [{cmd:,} {opt xlsx(filename)} {opt excel(filename)}
-{opt sheet(string)} {opt title(string)} {opt foot:note(string)}
-{opt compose(string)} {opt nformats(string)} {opt digits(#)}
-{opt pctdigits(#)} {opt nintegerfmt(string)} {opt pctscale(string)}
-{opt pctsign} {opt rowtotals} {opt coltotals} {opt nototals}
-{opt keep(string)} {opt drop(string)} {opt statorder(string)}
-{opt statlabels(string)} {opt nomis:sing} {opt zebra}
-{opt headers:hade} {opt headerc:olor(string)}
-{opt zebrac:olor(string)} {opt border:style(string)}
-{opt the:me(string)} {opt open} {opt csv(string)} {opt markdown(filename)} {opt mdappend}
-{opt fra:me(name)} {opt high:light(#)}
-{opt hls:tat(string)} {opt smallc:ells(#)}]{p_end}
+{pstd}{bf:Quick start (recommended):}{p_end}
 
-{pstd}
-Prerequisite: an active {helpb collect} created by {helpb table}. {cmd:desctab}
-always displays the completed table in the Results window, and can also export
-the same table to Excel, CSV, or a Stata frame.
+{p 8 18 2}
+{cmd:desctab} [{it:varlist}] {ifin} {cmd:[fweight=}{it:exp}{cmd:]} [{cmd:,} {opt by(varname)} {it:options}]
 
-{marker description}{...}
-{title:Description}
+{pstd}When a {it:varlist} is provided without {opt vars()}, each variable's type is
+automatically detected using the command's built-in type-classification
+heuristics. This is the simplest way to use {cmd:desctab}.{p_end}
 
-{pstd}
-{cmd:desctab} is a formatter. It does not compute descriptive statistics and it
-does not wrap {cmd:table}. Run your own {cmd:collect: table ...}, then call
-{cmd:desctab} to apply statistic-specific number formats, optionally collapse
-multiple statistics into one display cell, and export a polished worksheet.
+{pstd}{bf:Advanced (explicit types):}{p_end}
 
-{pstd}
-The main use case is a {cmd:table} collection containing statistics such as
-{cmd:sum}, {cmd:count}, and {cmd:mean}, where each statistic needs a different
-format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
-{cmd:7 / 142 (4.9%)}.
+{p 8 18 2}
+{cmd:desctab} {ifin} {cmd:[fweight=}{it:exp}{cmd:]}, {opt vars(var_spec)} [{it:options}]
+
+{phang}{it:var_spec} = {it: varname vartype} [{it:{help fmt:%fmt1}}
+[{it:{help fmt:%fmt2}}]] [ \ {it:varname vartype} [{it:{help fmt:%fmt1}} [{it:{help fmt:%fmt2}}]] \ ...]
+
+{phang}where {it: vartype} is one of:{p_end}
+{p2colset 8 16 18 2}{...}
+{p2col:{cmd:auto}}automatic type detection (default when vartype omitted){p_end}
+{p2col:{cmd:contn}}continuous, normally distributed (mean and SD will be reported){p_end}
+{p2col:{cmd:contln}}continuous, log normally distributed (geometric mean and GSD reported){p_end}
+{p2col:{cmd:conts}}continuous, neither log normally nor normally distributed (median, Q1 and Q3 reported){p_end}
+{p2col:{cmd:cat}}categorical, groups compared using Pearson's chi-square test{p_end}
+{p2col:{cmd:cate}}categorical, groups compared using Fisher's exact test{p_end}
+{p2col:{cmd:bin}}binary (0/1), groups compared using Pearson's chi-square test{p_end}
+{p2col:{cmd:bine}}binary (0/1), groups compared using Fisher's exact test{p_end}
+{p2colreset}{...}
+
+{phang}{cmd:[fweight=}{it:exp}{cmd:]} supplies frequency weights using standard
+Stata weight syntax; see {help weight}.{p_end}
+
 
 {marker options}{...}
 {title:Options}
 
-{synoptset 28 tabbed}{...}
+{synoptset 26 tabbed}{...}
+{synopthdr}
 {synoptline}
-{synopt:{opt xlsx(filename)}}write an Excel workbook{p_end}
-{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
-{synopt:{opt sheet(string)}}worksheet name. Default is {cmd:Descriptive}{p_end}
-{synopt:{opt title(string)}}title written to cell A1 and used in console display{p_end}
-{synopt:{opt foot:note(string)}}footnote written below the Excel table{p_end}
-{synopt:{opt compose(string)}}combine statistics with a cell template{p_end}
-{synopt:{opt nformats(string)}}set display formats by statistic{p_end}
-{synopt:{opt digits(#)}}digits for continuous statistics{p_end}
-{synopt:{opt pctdigits(#)}}digits for displayed percents in composite cells{p_end}
-{synopt:{opt nintegerfmt(string)}}format for counts and integer totals{p_end}
-{synopt:{opt pctscale(string)}}choose proportion or percentage scale{p_end}
-{synopt:{opt pctsign}}append percent signs{p_end}
-{synopt:{opt rowtotals}}keep row totals when {opt nototals} is also specified{p_end}
-{synopt:{opt coltotals}}keep column totals when {opt nototals} is also specified{p_end}
-{synopt:{opt nototals}}drop row and column totals labeled {cmd:Total}{p_end}
-{synopt:{opt keep(string)}}retain rows matching displayed labels{p_end}
-{synopt:{opt drop(string)}}omit rows matching displayed labels{p_end}
-{synopt:{opt statorder(string)}}set the statistic display order{p_end}
-{synopt:{opt statlabels(string)}}set custom statistic labels{p_end}
-{synopt:{opt nomis:sing}}drop rows labeled missing, {cmd:.}, or {cmd:.m}{p_end}
-{synopt:{opt zebra}}apply alternating row shading in Excel{p_end}
-{synopt:{opt headers:hade}}shade header rows in Excel{p_end}
-{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
-{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme; see {helpb tabtools##themes:tabtools}{p_end}
-{synopt:{opt open}}open the workbook after export{p_end}
-{synopt:{opt csv(string)}}also export the display table as CSV{p_end}
-{synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
-{synopt:{opt fra:me(name)}}store the display table in a Stata frame{p_end}
-{synopt:{opt high:light(#)}}highlight rows where {opt hls:tat()} is below the threshold{p_end}
-{synopt:{opt hls:tat(string)}}statistic used for {opt high:light()}. Default is {cmd:mean}{p_end}
-{synopt:{opt smallc:ells(#)}}protect recognized count layouts{p_end}
-{synoptline}
+{syntab:Weighting}
+{synopt:{opt wt(varname)}}apply probability or inverse-probability weights{p_end}
 
-{pstd}
-{opt compose()} presets: {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct},
-{cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and
-{cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.
+{syntab:Columns/Rows}
+{synopt:{opt by(varname)}}group observations by {it:varname}{p_end}
+{synopt:{opt total(before|after)}}include a total column before/after group columns{p_end}
+{synopt:{opt mis:sing}}treat missing values as a category{p_end}
+{synopt:{opt test}}include column describing the significance test used{p_end}
+{synopt:{opt stat:istic}}show the test statistic{p_end}
+{synopt:{opt headerp:erc}}add percentage of total to sample size row{p_end}
+{synopt:{opt smd}}show standardized mean differences{p_end}
+{synopt:{opt nop:value}}suppress p-value and test columns{p_end}
+
+{syntab:Contents of Cells}
+{synopt:{opt f:ormat(%fmt)}}default display format for continuous variables{p_end}
+{synopt:{opt percf:ormat(%fmt)}}default display format for percentages{p_end}
+{synopt:{opt nf:ormat(%fmt)}}display format for n and N; default is %12.0fc{p_end}
+{synopt:{opt varlabplus}}add data type description after variable labels{p_end}
+{synopt:{opt iqrmiddle("string")}}symbol between Q1 and Q3; default is ", "{p_end}
+{synopt:{opt sdleft("string")}}symbol before SD; default is "±"{p_end}
+{synopt:{opt sdright("string")}}symbol after SD; default is "" (none){p_end}
+{synopt:{opt gsdleft("string")}}symbol before GSD; default is " (×/"{p_end}
+{synopt:{opt gsdright("string")}}symbol after GSD; default is ")"{p_end}
+{synopt:{opt percsign("string")}}percent sign; default is "" (none){p_end}
+{synopt:{opt space:lowpercent}}report ( 3%) instead of (3%){p_end}
+{synopt:{opt extraspace}}helps alignment in .docx with non-monospaced fonts{p_end}
+{synopt:{opt percent}}report % only (no N) for categorical/binary vars{p_end}
+{synopt:{opt percent_n}}report % (n) rather than n (%){p_end}
+{synopt:{opt slashN}}report n/N instead of n{p_end}
+{synopt:{opt catrowperc}}report row % for categorical vars{p_end}
+{synopt:{opt pdp(#)}}max decimal places for p < 0.10; default is 3{p_end}
+{synopt:{opt highpdp(#)}}max decimal places for p >= 0.10; default is 2{p_end}
+
+{syntab:Excel Output}
+{synopt:{opt xlsx("filename")}}save table to Excel file{p_end}
+{synopt:{opt sheet("string")}}Excel sheet name{p_end}
+{synopt:{opt title("string")}}title for the Excel table{p_end}
+{synopt:{opt border:style(string)}}border style: default, thin, medium, or academic{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
+{synopt:{opt foot:note(string)}}add footnote row below table{p_end}
+{synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{opt headers:hade}}apply shading to header rows{p_end}
+{synopt:{opt high:light(#)}}highlight rows where p < threshold{p_end}
+{synopt:{opt smdt:hreshold(#)}}SMD threshold for orange highlighting in Excel{p_end}
+{synopt:{opt headerc:olor(string)}}custom header background color{p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra stripe color{p_end}
+{synopt:{opt csv("filename")}}also export as CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+
+{syntab:Frame & Pipeline}
+{synopt:{opt fra:me(name[, replace])}}store output in a named Stata frame{p_end}
+
+{syntab:Other}
+{synopt:{opt clear}}replace dataset in memory with the table{p_end}
+{synopt:{opt dots}}show progress dots while processing variables{p_end}
+{synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
+{synopt:{opt smallc:ells(#)}}suppress small counts and prevent exact reconstruction{p_end}
+{synopt:{opt wtc:ompare}}show weighted and unweighted statistics{p_end}
+{synopt:{opt wtn}}show weighted effective counts{p_end}
+{synoptline}
 
 
 
@@ -104,48 +129,65 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {it:Detailed option contracts}{p_end}
 
 {phang}
-{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{opt bold:p(#)} bold p-value cells below threshold{p_end}
 
 {phang}
-{opt coltotals} keep column totals when {opt nototals} is also specified{p_end}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}; default
+is {cmd:thin}{p_end}
 
 {phang}
-{opt csv(string)} also export the display table as CSV. The CSV mirrors the
-workbook with {opt title()} written as the first row and {opt footnote()} as
-the last row, both in the first column and the table body between them.{p_end}
+{opt by(varname)} group observations by {it:varname}{p_end}
 
 {phang}
-{opt digits(#)} digits for continuous statistics. Default is 2, or the session default set by
-{cmd:tabtools set digits}{p_end}
+{opt catrowperc} report row % for categorical vars{p_end}
 
 {phang}
-{opt drop(string)} drop rows whose displayed row label matches a listed token. Cannot be combined
-with {opt keep()}{p_end}
+{opt clear} replace dataset in memory with the table{p_end}
 
 {phang}
-{opt excel(filename)} synonym for {opt xlsx()}{p_end}
+{opt csv("filename")} also export as CSV file. The CSV mirrors the workbook
+with {opt title()} written as the first row and {opt footnote()} as the last
+row, both in the first column and the table body between them.{p_end}
 
 {phang}
-{opt foot:note(string)} footnote written below the Excel table{p_end}
+{opt dots} show progress dots while processing variables{p_end}
 
 {phang}
-{opt fra:me(name)} store the display table in a Stata frame. Use {cmd:frame(name, replace)} to
-replace an existing frame{p_end}
+{opt extraspace} helps alignment in .docx with non-monospaced fonts{p_end}
 
 {phang}
-{opt headerc:olor(string)} header fill color as a supported Stata color name or RGB triplet{p_end}
+{opt foot:note(string)} add footnote row below table{p_end}
 
 {phang}
-{opt headers:hade} shade header rows in Excel. Header shading is off by default{p_end}
+{opt f:ormat(%fmt)} default display format for continuous variables; default is %2.0f{p_end}
 
 {phang}
-{opt high:light(#)} highlight rows where {opt hls:tat()} is below the threshold{p_end}
+{opt fra:me(name[, replace])} store output in a named Stata frame{p_end}
 
 {phang}
-{opt hls:tat(string)} statistic used for {opt high:light()}. Default is {cmd:mean}{p_end}
+{opt gsdleft("string")} symbol before GSD; default is " (×/"{p_end}
 
 {phang}
-{opt keep(string)} keep only rows whose displayed row label matches a listed token{p_end}
+{opt gsdright("string")} symbol after GSD; default is ")"{p_end}
+
+{phang}
+{opt headerc:olor(string)} custom header background color; supported Stata color name or RGB triplet
+such as {cmd:"200 220 240"}{p_end}
+
+{phang}
+{opt headerp:erc} add percentage of total to sample size row{p_end}
+
+{phang}
+{opt headers:hade} apply shading to header rows{p_end}
+
+{phang}
+{opt high:light(#)} highlight rows where p < threshold{p_end}
+
+{phang}
+{opt highpdp(#)} max decimal places for p >= 0.10; default is 2{p_end}
+
+{phang}
+{opt iqrmiddle("string")} symbol between Q1 and Q3; default is ", "{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
@@ -155,177 +197,392 @@ Excel, CSV, and frame exports{p_end}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {phang}
-{opt nformats(string)} override statistic formats using pairs such as {cmd:"count %4.0f mean %5.2f"}{p_end}
+{opt mis:sing} treat missing values as another category for categorical variables{p_end}
 
 {phang}
-{opt nintegerfmt(string)} format for counts and integer totals. Default is {cmd:%12.0fc}{p_end}
+{opt missings:ummary} add missing data summary row per variable{p_end}
 
 {phang}
-{opt nomis:sing} drop rows labeled missing, {cmd:.}, or {cmd:.m}{p_end}
+{opt smallc:ells(#)} suppresses every positive count below {it:#} and adds
+complementary suppression where released cells or margins would otherwise
+reveal an exact protected count. {it:#} must be an integer of at least 3. Primary
+cells are shown as {cmd:<#}; complementary cells are shown as {cmd:≥#}. Zeros
+remain visible. After safety is certified, individually redundant complementary
+markers are removed in a deterministic pass. See
+{help desctab##technical:Technical notes} for the disclosure-control contract
+and limits.{p_end}
 
 {phang}
-{opt nototals} drop row and column totals labeled {cmd:Total}{p_end}
+{opt nf:ormat(%fmt)} display format for n and N; default is %12.0fc{p_end}
 
 {phang}
-{opt open} open the workbook after export. Requires {opt xlsx()} or {opt excel()}{p_end}
+{opt nop:value} suppress the p-value column (and associated test/statistic columns){p_end}
 
 {phang}
-{opt pctdigits(#)} digits for displayed percents in composite cells. Default is 1{p_end}
+{opt open} open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {phang}
-{opt pctscale(string)} percent scale for proportions: {cmd:auto} (default), {cmd:0to1}, or
-{cmd:0to100}{p_end}
+{opt pdp(#)} max decimal places for p < 0.10; default is 3{p_end}
 
 {phang}
-{opt pctsign} append a percent sign to percent/proportion display values. Compose mode enables this
-by default{p_end}
+{opt percent} report % only (no N) for categorical/binary vars{p_end}
 
 {phang}
-{opt rowtotals} keep row totals when {opt nototals} is also specified{p_end}
+{opt percent_n} report % (n) rather than n (%){p_end}
 
 {phang}
-{opt sheet(string)} worksheet name. Default is {cmd:Descriptive}{p_end}
+{opt percf:ormat(%fmt)} default display format for percentages; default is %5.0f{p_end}
 
 {phang}
-{opt smallc:ells(#)} protect exact counts below {it:#}; {it:#} must be an
-integer of at least 3.{p_end}
+{opt percsign("string")} percent sign; default is "" (none){p_end}
 
 {phang}
-{opt statlabels(string)} custom statistic labels, for example {cmd:"count=N \ mean=Mean"}{p_end}
+{opt sdleft("string")} symbol before SD; default is "±"{p_end}
 
 {phang}
-{opt statorder(string)} display statistics in the specified order, appending any remaining collected
-statistics afterward{p_end}
+{opt sdright("string")} symbol after SD; default is "" (none){p_end}
 
 {phang}
-{opt the:me(string)} journal-style font and border theme shared across tabtools; use
-{opt headershade}/ {opt zebra} for shaded fills{p_end}
+{opt sheet("string")} Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/
+{opt excel()}{p_end}
 
 {phang}
-{opt title(string)} title written to cell A1 and used in console display{p_end}
+{opt slashN} report n/N instead of n{p_end}
 
 {phang}
-{opt xlsx(filename)} write an Excel workbook. The filename must end in {cmd:.xlsx}{p_end}
+{opt smd} add standardized mean differences column (requires {opt by()}){p_end}
 
 {phang}
-{opt zebra} apply alternating row shading in Excel. Shading is off by default{p_end}
+{opt smdt:hreshold(#)} SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to
+disable{p_end}
 
 {phang}
-{opt zebrac:olor(string)} zebra fill color as a supported Stata color name or RGB triplet{p_end}
+{opt space:lowpercent} report ( 3%) instead of (3%); no-space alignment is the default{p_end}
 
-{marker smallcells}{title:Small-cell disclosure control}
+{phang}
+{opt stat:istic} include column describing the value of the test statistic{p_end}
+
+{phang}
+{opt test} include column describing the significance test used{p_end}
+
+{phang}
+{opt the:me(string)} journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
+{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+
+{phang}
+{opt title("string")} title for the Excel table{p_end}
+
+{phang}
+{opt total(before|after)} include a total column before/after group columns{p_end}
+
+{phang}
+{opt varlabplus} add data type description after variable labels{p_end}
+
+{phang}
+{opt wt(varname)} probability/IP weight (e.g. IPTW); weighted columns are % only (see {opt wtn},
+Technical notes){p_end}
+
+{phang}
+{opt wtc:ompare} show unweighted statistics alongside weighted (requires {opt wt()}){p_end}
+
+{phang}
+{opt wtn} show weighted (effective) counts as {it:n (%)} in weighted columns (requires {opt wt()}){p_end}
+
+{phang}
+{opt xlsx("filename")} save table to Excel file; {opt excel()} is a synonym; target must end in
+{cmd:.xlsx}{p_end}
+
+{phang}
+{opt zebra} alternating row shading{p_end}
+
+{phang}
+{opt zebrac:olor(string)} custom zebra stripe color; supported Stata color name or RGB triplet such
+as {cmd:"240 245 250"}{p_end}
+
+{marker description}{...}
+{title:Description}
 
 {pstd}
-{opt smallcells(#)} is available only when the active collection can be mapped
-by exact dimension and result identifiers. Initial support covers a single
-{cmd:count}, {cmd:frequency}, or {cmd:fvfrequency} result, and the named
-{cmd:compose(n_pct)} preset with exactly one count and one percentage result
-in a shape with one non-{cmd:var} row dimension, at most one non-{cmd:var} column
-dimension, and at most one source-variable level in a {cmd:var} dimension.{p_end}
+{cmd:desctab} generates a "Table 1" of characteristics for a manuscript. Such a
+table generally includes a collection of baseline characteristics which may be
+either continuous or categorical. The observations are often grouped, with a
+"p-value" column on the right comparing the characteristics between groups.{p_end}
 
-{pstd}
-Positive counts below {it:#} are shown as {cmd:<#}; additional cells or margins
-are shown as {cmd:≥#} when needed to prevent exact reconstruction. Structural
-zeros remain visible. With {cmd:compose(n_pct)}, percentages in a protected
-logical block are withheld and the safe count marker remains. The console,
-Excel, CSV, Markdown, and frame sinks all reuse the same redacted table.{p_end}
+{pstd}In tabtools 2.0, {cmd:desctab} is the direct descriptive engine used by
+{cmd:table1_tc}. The tabtools 1.x interface that formatted the caller's active
+{cmd:collect} collection is intentionally unsupported.{p_end}
 
-{pstd}
-After safety is certified, individually redundant complementary markers are
-removed in a deterministic pass. Each remaining {cmd:≥#} is necessary in the
-final protected table because revealing it would make at least one primary
-count exact. The resulting set is irredundant, but not guaranteed globally
-minimum.{p_end}
+{pstd}{bf:Auto-type detection:} When you provide a varlist without {opt vars()}, or use the {cmd:auto}
+type keyword, each variable's type is automatically classified:{p_end}
 
-{pstd}
-Custom {opt compose()} templates, other statistics, multiple source-variable
-levels, unsupported compound layouts, and combinations with {opt keep()},
-{opt drop()}, {opt nomissing}, or {opt highlight()} fail before any sink is
-written. The command also fails closed if count additivity or reconstruction
-protection cannot be proved. The standard small-cell footnote is appended
-automatically. Protection covers one invocation and does not account for
-linkage across separate releases.{p_end}
+{p 8 8 2}1. String variables are classified as {cmd:cat}{p_end}
+{p 8 8 2}2. Numeric variables whose observed analysis-sample values are exactly
+0 and 1 are classified as {cmd:bin}{p_end}
+{p 8 8 2}3. Other variables with ≤7 unique analysis-sample values, including
+1/2-coded dichotomies, are classified as {cmd:cat}{p_end}
+{p 8 8 2}4. Variables with >7 unique values → distributional classification
+via the shared helper:{p_end}
+{p 12 12 2}p ≥ 0.05 → {cmd:contn} (normal){p_end}
+{p 12 12 2}p < 0.05 → {cmd:conts} (skewed){p_end}
+
+{pstd}This command is a fork of {cmd:table1_mc} version 3.5 by Mark Chatfield, with
+enhancements including Excel and Markdown export, journal themes, auto-type
+detection, IPTW weighting, SMD, and a methods paragraph generator.{p_end}
+
+{pstd}{bf:Themes:} The {opt theme()} option applies journal-inspired formatting presets that
+match the current {cmd:tabtools} theme defaults:{p_end}
+{p 8 8 2}{cmd:lancet} - Arial 9pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:nejm} - Arial 9pt, academic borders, zebra striping{p_end}
+{p 8 8 2}{cmd:bmj} - Arial 10pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:apa} - Times New Roman 12pt, academic borders{p_end}
+{p 8 8 2}{cmd:jama} - Arial 10pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:plos} - Arial 10pt, thin borders, no header shading{p_end}
+{p 8 8 2}{cmd:nature} - Arial 7pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:cell} - Arial 8pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:annals} - Arial 10pt, academic borders, no header shading{p_end}
+{pstd}Publishers may restyle accepted tables during production, so treat these as
+built-in Excel presets rather than exact house templates.{p_end}
+
+{pstd}{bf:Frame output:} The {opt frame()} option stores the results table in a Stata frame
+for programmatic access without replacing data in memory.{p_end}
+
+{pstd}{bf:Pipeline:} After running {cmd:desctab}, use {cmd:r(varlist)} to pass the variable list
+directly to a regression model:{p_end}
+{p 8 8 2}{cmd:desctab age sex bmi, by(treated)}{p_end}
+{p 8 8 2}{cmd:local myvars `r(varlist)'}{p_end}
+
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Events / N (%) from a binary indicator:{p_end}
+{pstd}{bf:Quick start — auto-detect all variable types:}{p_end}
+
 {phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
-{phang2}{cmd:. desctab, compose(events_n_pct) pctdigits(1)}{p_end}
+{phang2}{cmd:. desctab rep78 foreign, by(foreign)}{p_end}
 
-{pstd}Mean (SD) by group:{p_end}
-{phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. collect: table (var) (foreign), statistic(mean mpg weight) statistic(sd mpg weight)}{p_end}
-{phang2}{cmd:. desctab, compose(mean_sd) digits(1)}{p_end}
+{pstd}{bf:Protect small counts in every output sink:}{p_end}
 
-{pstd}Export a formatted table with separate statistic columns:{p_end}
-{phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)}{p_end}
-{phang2}{cmd:. desctab, xlsx(desc.xlsx) sheet("Descriptive") title("Price by repair record and origin") digits(1)}{p_end}
+{phang2}{cmd:. desctab rep78, by(foreign) vars(rep78 cat) ///}{p_end}
+{phang3}{cmd:total(after) smallcells(5) frame(table1_safe, replace)}{p_end}
 
-{pstd}Opt in to shaded fills when desired:{p_end}
-{phang2}{cmd:. desctab, xlsx(desc.xlsx) sheet("Styled") title("Styled descriptive table") headershade zebra}{p_end}
+{pstd}{bf:With Excel and Markdown export and formatting:}{p_end}
 
-{pstd}Protect a recognized count table:{p_end}
-{phang2}{cmd:. clear}{p_end}
-{phang2}{cmd:. input byte row byte col int frequency}{p_end}
-{phang2}{cmd:. 1 1 2}{p_end}
-{phang2}{cmd:. 1 2 8}{p_end}
-{phang2}{cmd:. 2 1 6}{p_end}
-{phang2}{cmd:. 2 2 4}{p_end}
-{phang2}{cmd:. end}{p_end}
-{phang2}{cmd:. expand frequency}{p_end}
-{phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. collect: table row col, statistic(frequency)}{p_end}
-{phang2}{cmd:. desctab, smallcells(5) frame(desctab_safe, replace)}{p_end}
+{phang2}{cmd:. desctab price mpg weight rep78, by(foreign) ///}{p_end}
+{phang3}{cmd:xlsx("table1.xlsx") title("Table 1") smd theme(lancet)}{p_end}
+
+{pstd}{bf:Explicit variable types (advanced):}{p_end}
+
+{phang2}{cmd:. desctab, by(foreign) ///}{p_end}
+{phang3}{cmd:vars(price contn %8.0fc \ mpg contn %5.1f \ weight contn \ ///}{p_end}
+{phang3}{cmd:     rep78 cat \ headroom conts) ///}{p_end}
+{phang3}{cmd:xlsx("table1_detail.xlsx") sheet("Baseline") ///}{p_end}
+{phang3}{cmd:title("Table 1. Baseline Characteristics") smd zebra}{p_end}
+
+{pstd}The weighted-cohort examples below are workflow sketches: they assume a cohort
+in memory carrying an IPTW weight ({cmd:iptw}) and the covariates {cmd:age},
+{cmd:female}, {cmd:education}, and {cmd:bmi}. Substitute your own analysis
+variables and weight.{p_end}
+
+{pstd}{bf:IPTW-weighted Table 1:} (weighted columns show % + SMD; add
+{opt wtn} for weighted counts){p_end}
+
+{phang2}{cmd:. desctab, by(treated) wt(iptw) smd ///}{p_end}
+{phang3}{cmd:vars(age contn \ female bin \ education cat \ bmi contn)}{p_end}
+
+{pstd}{bf:Crude vs IPTW-weighted, side by side:}{p_end}
+
+{phang2}{cmd:. desctab, by(treated) wt(iptw) wtcompare smd ///}{p_end}
+{phang3}{cmd:vars(age contn \ female bin \ education cat \ bmi contn)}{p_end}
+
+{pstd}{bf:Custom SMD threshold (0.2 instead of 0.1):}{p_end}
+
+{phang2}{cmd:. desctab age sex bmi, by(treated) smd smdthreshold(0.2) ///}{p_end}
+{phang3}{cmd:xlsx("table1_smd.xlsx")}{p_end}
+
+{pstd}{bf:Store results in a frame:}{p_end}
+
+{phang2}{cmd:. desctab age sex bmi, by(treated) frame(mytable, replace)}{p_end}
+{phang2}{cmd:. frame mytable: list}{p_end}
+
 
 {marker stored}{...}
 {title:Stored results}
 
-{pstd}{cmd:desctab} stores the following in {cmd:r()}:{p_end}
+{pstd}
+{cmd:desctab} stores the following in {cmd:r()}:
 
-{synoptset 18 tabbed}{...}
-{p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(N_cells)}}non-empty body cells written{p_end}
-{synopt:{cmd:r(N_rows)}}rows in the display table, excluding the title row{p_end}
+{synoptset 32 tabbed}{...}
+{p2col 5 32 36 2: Scalars}{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
-{synopt:{cmd:r(smallcells)}}requested threshold when {opt smallcells()} is used{p_end}
-{synopt:{cmd:r(N_primary_suppressed)}}primary values hidden{p_end}
-{synopt:{cmd:r(N_secondary_suppressed)}}complementary values hidden{p_end}
-{synopt:{cmd:r(N_derived_suppressed)}}dependent non-count cells hidden{p_end}
+{synopt:{cmd:r(smallcells)}}active small-cell threshold{p_end}
+{synopt:{cmd:r(N_primary_suppressed)}}primary display cells{p_end}
+{synopt:{cmd:r(N_secondary_suppressed)}}complementary display cells{p_end}
+{synopt:{cmd:r(N_derived_suppressed)}}dependent display cells{p_end}
 
-{p2col 5 18 22 2: Macros}{p_end}
-{synopt:{cmd:r(version)}}command version{p_end}
-{synopt:{cmd:r(rowvar)}}row dimension inferred from the active collect{p_end}
-{synopt:{cmd:r(colvar)}}column dimension inferred from the active collect, if any{p_end}
-{synopt:{cmd:r(stats)}}statistics displayed or used for composition{p_end}
-{synopt:{cmd:r(compose)}}resolved compose mode or custom template{p_end}
-{synopt:{cmd:r(xlsx)}}Excel filename, if exported{p_end}
-{synopt:{cmd:r(sheet)}}sheet name, if exported{p_end}
-{synopt:{cmd:r(frame)}}frame name, if {opt frame()} was specified{p_end}
+{p2col 5 32 36 2: Macros}{p_end}
+{synopt:{cmd:r(Dapa)}}resolved data-presentation description{p_end}
+{synopt:{cmd:r(methods)}}methods paragraph for resolved tests{p_end}
+{synopt:{cmd:r(varlist)}}space-separated list of processed variables{p_end}
+{synopt:{cmd:r(xlsx)}}exported Excel path{p_end}
+{synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}
+{synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(methods)}}short methods sentence{p_end}
 
-{p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}numeric display matrix with suppression markers{p_end}
+{p2col 5 32 36 2: Matrices}{p_end}
+{synopt:{cmd:r(table)}}p-values and absolute SMDs; {cmd:.d} when protected{p_end}
 {synopt:{cmd:r(suppression)}}display-cell suppression codes{p_end}
 
-{pstd}
-{cmd:r(suppression)} uses 0 for visible, 1 for primary, 2 for complementary,
-and 3 for derived display cells.{p_end}
+
+{marker technical}{...}
+{title:Technical notes}
+
+{pstd}{bf:Small-cell disclosure control.} {opt smallcells(#)} protects exact
+counts within one invocation of {cmd:desctab}. A positive count below the
+threshold is primary-suppressed as {cmd:<#}. The command then suppresses
+additional exact cells as {cmd:≥#} until every primary cell has at least two
+feasible integer values under all released row, column, and grand margins. Structural
+zeros remain visible and are never selected as complementary
+cells.{p_end}
 
 {pstd}
-A requested frame carries characteristics {cmd:tabtools_smallcells},
-{cmd:tabtools_suppression_codes}, and
-{cmd:tabtools_suppression_scope}.{p_end}
+{bf:Percentages are withheld for a protected variable.} A published percentage
+releases its own denominator: dividing a published count by its published
+percentage recovers the per-variable non-missing group total, after which the
+remaining counts follow by subtraction. Whenever a variable's block carries a
+primary suppression, {cmd:desctab} therefore publishes counts only for that
+variable, in every column including {opt total()}. Other variables keep their
+percentages. For the same reason {opt smallcells()} may not be combined with a
+percent-only display -- explicit {opt percent}, or the percent-only default that
+{opt wt()} applies without {opt wtn} or {opt percent_n} -- because a protected
+block would then have nothing left to publish; use {opt percent_n}, {opt wtn}, or
+the default {cmd:n (%)}.{p_end}
+
+{pstd}
+After certification, the command tests each complementary marker for removal
+in a stable order and repeats until none can be revealed safely. Every remaining
+{cmd:≥#} is therefore individually necessary in the final protected table
+because revealing it would make at least one primary count exact. This set is
+irredundant, but it is not guaranteed to be a globally minimum-cardinality
+suppression set.{p_end}
+
+{pstd}
+Continuous summaries whose contributing N is below the threshold are replaced
+by {cmd:<#}. P-values, test statistics, and SMDs that depend on a protected
+block are shown as {cmd:Suppressed} and stored as {cmd:.d} in {cmd:r(table)}. The
+same already-redacted table is used by the console, Excel, CSV, Markdown,
+{opt frame()}, and {opt clear} sinks. When {opt smallcells()} is active,
+{cmd:r(suppression)} uses codes 0=visible, 1=primary, 2=complementary, and
+3=derived. Output frames carry the threshold, code legend, and protection
+scope as dataset characteristics.{p_end}
+
+{pstd}
+The standard footnote states the active threshold and marker meanings. This is
+an exact-disclosure safeguard for one command call, not a certification of
+anonymization or legal compliance. It does not account for information already
+released, later manual edits, linkage to other tables, or repeated calls on
+overlapping data. Data controllers must still assess those risks and applicable
+rules before publication.{p_end}
+
+{pstd}{bf:SMD methodology:} Standardized mean differences are computed as follows:{p_end}
+{p 8 8 2}Continuous variables: {it:d} = (mean1 - mean2) / sqrt((sd1^2 + sd2^2)/2),
+whose denominator is the root mean of the two group variances (Yang and Dalton,
+2012, eq. 1), not the degrees-of-freedom-weighted pooled SD{p_end}
+{p 8 8 2}Binary variables: difference in proportions / pooled SD of proportions{p_end}
+{p 8 8 2}Categorical variables: the Yang-Dalton multinomial Mahalanobis distance{p_end}
+
+{pstd}
+For a categorical variable with {it:K} levels, one category is omitted and
+{it:p1} and {it:p2} contain the remaining {it:K}-1 group proportions. Define
+{it:Vg} = diag({it:pg}) - {it:pg}{it:pg}' and {it:S} = ({it:V1}+{it:V2})/2, then the
+reported distance is sqrt[({it:p1}-{it:p2})'{it:S}^-1({it:p1}-{it:p2})]. It is
+nonnegative, has no direction, and is invariant to the omitted category when
+{it:S} is nonsingular. The two-level case reduces to the binary SMD, while
+{cmd:desctab} reports a missing categorical SMD when either comparison group
+is empty, fewer than two levels are observed, or the pooled covariance is
+singular. Proportions use positive {opt wt()} values or supplied
+{cmd:fweight}s when present.{p_end}
+
+{pstd}
+Observations with zero or missing {opt wt()} are outside the weighted analysis
+sample, including header N and {opt by()}-level validation; negative weights are
+rejected. Consequently, every displayed comparison group must contain at least
+one observation with a positive weight.{p_end}
+
+{pstd}
+See Yang, D. and J. E. Dalton (2012),
+{browse "https://support.sas.com/resources/papers/proceedings12/335-2012.pdf":A unified approach to measuring the effect size between two groups},
+SAS Global Forum Paper 335-2012.{p_end}
+
+{pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
+deviations, and weighted proportions for the first two {opt by()} groups.{p_end}
+
+{pstd}{bf:Weight type.} {opt wt()} is intended for probability / inverse-probability weights
+(IPTW, survey, or sampling weights), {it:not} frequency weights -- pass true
+frequency counts as an {opt fweight} instead. The weight is applied analytically
+(like an {opt aweight}) for point estimates: weighted means and proportions equal
+{it:(sum of w*x) / (sum of w)}, which is identical whether the weight is regarded
+as a probability or an analytic weight. The two differ only in variance /
+standard-error estimation -- which is exactly why p-values are suppressed
+under {opt wt()}: correct inference would require survey ({helpb svy}) or robust treatment that
+this descriptive command does not attempt.{p_end}
+
+{pstd}{bf:Weighted display.} Under {opt wt()}, weighted statistics are reported on the
+{it:unweighted}-N scale (the header N and ESS count real observations). Weighted
+columns show {it:percentages only} by default: once weighted, the cell count is
+just {it:(weighted %) x N}, so {it:n (%)} would print the same number twice and dress a
+synthetic quantity up as a real frequency. The percentage -- together with the
+{opt smd} balance column -- is what carries meaning. To display the weighted
+{it:effective} count anyway, add {opt wtn} (shows {it:n (%)}) or {opt percent_n} (shows {it:% (n)}); the
+effective count is {it:(weighted %) x N}, a normalized pseudo-count on the
+real-observation scale, not the sum of weights.{p_end}
+
+{pstd}With {opt wtcompare} the crude columns always show {it:n (%)} (real counts), while
+the weighted columns follow the same rule: percent-only by default, {opt wtn} or
+{opt percent_n} to add the weighted effective count.{p_end}
+
+{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel
+and Markdown output. Specify {cmd:smdthreshold(-1)} to disable this formatting. The
+0.1 convention follows Austin (2009).{p_end}
+
+{pstd}When {opt by()} has more than 2 groups, SMD is computed for the first two groups
+only. A note is displayed identifying which groups are compared.{p_end}
+
+{pstd}{bf:Auto-type detection:} Variables with more than 7 unique values are classified
+by the shared helper using normality/distributional heuristics; large-N paths
+may use a fallback heuristic instead of direct Shapiro-Wilk testing. Users
+should verify classifications for publishable tables.{p_end}
+
+{pstd}{bf:Reserved by() variable names:} The internal reshape pipeline produces wide
+columns named {cmd:N_<level>}, {cmd:m_<level>}, {cmd:_columna_<level>}, and {cmd:_columnb_<level>}. A
+{opt by()} variable whose own name starts with {cmd:N_}, {cmd:m_}, or {cmd:_column*} would alias those
+reshape outputs and silently corrupt the resulting table, so {cmd:desctab} rejects
+such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd:_c}, {cmd:_co}, {cmd:_col},
+{cmd:_colu}, {cmd:_colum}, {cmd:_column}, {cmd:_columna}, {cmd:_columnb}; reserved prefixes are {cmd:N_} and
+{cmd:m_}. If you hit this error, rename the variable (for example,
+{cmd:rename N_age age_n}) before calling {cmd:desctab}.{p_end}
+
+
+{title:References}
+
+{phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
+covariates between treatment groups in propensity-score matched
+samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
+{phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics
+1979; 35: 908-909.{p_end}
+{phang}table1_mc - Mark Chatfield, The University of Queensland, Australia.{p_end}
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+
+{title:Also see}
+
+{psee}
+{space 2}Help: {helpb tabtools}, {helpb regtab}, {helpb effecttab},
+{helpb stratetab}, {helpb comptab}
+{p_end}
 
 {hline}

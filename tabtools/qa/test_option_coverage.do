@@ -255,18 +255,13 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    collect clear
-    version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
-    desctab, xlsx("`out'/desctab.xlsx") sheet("S") borderstyle(academic) ///
+    desctab price mpg rep78, by(foreign) ///
+        xlsx("`out'/desctab.xlsx") sheet("S") borderstyle(academic) ///
         headercolor("200 220 240") zebra zebracolor("240 245 250")
     confirm file "`out'/desctab.xlsx"
-    collect clear
-    version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
-    desctab, markdown("`out'/desctab.md")
+    desctab price mpg rep78, by(foreign) markdown("`out'/desctab.md")
     confirm file "`out'/desctab.md"
-    collect clear
-    version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
-    desctab, markdown("`out'/desctab.md") mdappend
+    desctab price mpg rep78, by(foreign) markdown("`out'/desctab.md") mdappend
     clear
     input byte row byte col int frequency
     1 1 2
@@ -275,9 +270,7 @@ capture noisily {
     2 2 4
     end
     expand frequency
-    collect clear
-    version 17.0: collect: table row col, statistic(frequency)
-    desctab, smallcells(5)
+    desctab row, by(col) vars(row cat) smallcells(5)
 }
 _oc_record "desctab" `=_rc'
 if `_oc_ok' local ++pass_count

@@ -4,7 +4,7 @@
 clear all
 set more off
 set varabbrev off
-version 16.0
+version 17.0
 
 capture log close _table1tc
 log using "test_table1_tc.log", replace text name(_table1tc)

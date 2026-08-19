@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 1.16.3** | 2026-08-19
+**Version 2.0.0** | 2026-08-19
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -18,7 +18,7 @@ The command displays a Results preview and writes `table1.xlsx` in the current w
 
 ## Requirements
 
-The package has no mandatory user-written Stata dependencies. `table1_tc`, `stacktab`, `simtab`, `tabtools`, and `tabtools_tips` run on Stata 16 or newer; `desctab`, `crosstab`, `corrtab`, `regtab`, `effecttab`, `survtab`, `stratetab`, `hrcomptab`, `comptab`, `diagtab`, and `puttab` require Stata 17 or newer.
+The package requires Stata 17 or newer and has no mandatory user-written Stata dependencies.
 
 The model and effect commands expect an active Stata `collect` result created by commands such as `regress`, `logistic`, `margins`, or `teffects`; they format and arrange that collection rather than fitting a model. `survtab` requires data declared with `stset`, while `stratetab` reads `.dta` files written by Stata's `strate, output()` command.
 
@@ -40,8 +40,8 @@ The suite contains 16 public commands. The version column is the minimum Stata r
 
 | Command | Stata | Purpose |
 | --- | ---: | --- |
-| `table1_tc` | 16+ | Baseline Table 1 by group, with continuous, categorical, missingness, tests, and standardized mean differences |
-| `desctab` | 17+ | Render an active `collect` table of descriptive statistics |
+| `table1_tc` | 17+ | Baseline Table 1 by group, with continuous, categorical, missingness, tests, and standardized mean differences |
+| `desctab` | 17+ | Direct access to the consolidated descriptive engine used by `table1_tc` |
 | `crosstab` | 17+ | Two-way categorical tables with percentages, tests, and 2x2 effect measures |
 | `corrtab` | 17+ | Pearson or Spearman correlation tables with p-values or significance stars |
 | `regtab` | 17+ | Render active regression collections with estimates, confidence intervals, statistics, and optional plot frames |
@@ -52,10 +52,10 @@ The suite contains 16 public commands. The version column is the minimum Stata r
 | `comptab` | 17+ | Combine compatible `regtab` or `effecttab` frames into a composite table |
 | `diagtab` | 17+ | Diagnostic accuracy, likelihood ratios, diagnostic odds ratios, ROC AUC, and cutoff analysis |
 | `puttab` | 17+ | Put variables, a frame, or a matrix into a formatted workbook or Markdown table |
-| `stacktab` | 16+ | Stack or place blocks from an existing workbook into a new worksheet |
-| `simtab` | 16+ | Summarize simulation results in compute or `simsum`/`siman`/summary ingest mode |
-| `tabtools` | 16+ | Inspect and set shared fonts, digits, borders, themes, and persistent profiles |
-| `tabtools_tips` | 16+ | Open or print a compact recipe reference for the suite |
+| `stacktab` | 17+ | Stack or place blocks from an existing workbook into a new worksheet |
+| `simtab` | 17+ | Summarize simulation results in compute or `simsum`/`siman`/summary ingest mode |
+| `tabtools` | 17+ | Inspect and set shared fonts, digits, borders, themes, and persistent profiles |
+| `tabtools_tips` | 17+ | Open or print a compact recipe reference for the suite |
 
 ## How It Works
 
@@ -72,7 +72,7 @@ Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `he
 | Need | Start with | Add or follow with |
 | --- | --- | --- |
 | Baseline characteristics by one group variable | `table1_tc` | `smd`, `test`, `xlsx()`, `frame()` |
-| A `table`/`collect` descriptive result | `desctab` | `compose()`, `keep()`/`drop()`, `statorder()` |
+| Direct access to the Table 1 engine | `desctab` | the same syntax and options as `table1_tc` |
 | Two categorical variables | `crosstab` | `rowpct`, `colpct`, `or`, `rr`, `rd`, `fisher`, `trend`, or `cochran` |
 | Correlations | `corrtab` | `spearman`, `lower`, `upper`, `full`, `pvalues`, or `star()` |
 | Regression model collection | `regtab` | `stats()`, `keep()`/`drop()`, `eplotframe()`, or `frame()` |
@@ -131,18 +131,14 @@ tabtools get
 
 Use `tabtools, list` for the compact catalog, or replace `category(models)` with another catalog category. The profile contains ordinary `tabtools set` commands and can be version controlled with a project.
 
-### Descriptive `collect` table
+### Consolidated descriptive engine
 
 ```stata
 sysuse auto, clear
-collect clear
-table foreign, statistic(count price) statistic(mean price) statistic(sd price)
-desctab, compose(mean_sd) frame(descriptive, replace) xlsx("descriptive.xlsx")
+desctab price mpg weight rep78, by(foreign) smd test frame(descriptive, replace) xlsx("descriptive.xlsx")
 ```
 
-`desctab` consumes the active `collect` result and can arrange rows and columns with `keep()`, `drop()`, `statorder()`, and `statlabels()`. The built-in `compose()` presets include `events_n_pct`, `events_n`, `n_pct`, `mean_sd`, `mean_semean`, `median_iqr`, `median_range`, and `mean_ci`.
-
-For disclosure-controlled output, `desctab, smallcells(#)` accepts recognized `count`, `frequency`, and `fvfrequency` layouts plus the named `compose(n_pct)` preset. It maps exact collect result/dimension identifiers and fails before output for arbitrary compositions, other statistics, filtered layouts, or shapes whose count lineage cannot be proved.
+`desctab` is the consolidated implementation behind `table1_tc`. It accepts the same variable-type, inference, suppression, weighting, formatting, and output options; `table1_tc` is the stable user-facing frontend.
 
 ### Regression and effects
 
@@ -247,15 +243,15 @@ The command help files are the authoritative reference for abbreviations and com
 table1_tc [varlist] [if] [in] [fweight], [by(varname) vars(string) format(string) percformat(string) nformat(string) iqrmiddle(string) sdleft(string) sdright(string) gsdleft(string) gsdright(string) percent missing pdp(#) highpdp(#) test statistic excel(string) xlsx(string) sheet(string) title(string) clear percent_n percsign(string) spacelowpercent extraspace slashN total(string) catrowperc varlabplus headerperc borderstyle(string) wt(varname) smd footnote(string) open boldp(#) zebra highlight(#) headershade frame(string) theme(string) smdthreshold(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend missingsummary smallcells(#) dots wtcompare wtn nopvalue]
 ```
 
-`table1_tc` is Stata 16+ and accepts frequency weights. Without `vars()`, it infers row types from the varlist; the default display formats are `%2.0f`, `%5.0f`, and `%12.0fc` for common continuous, percentage, and count cells, with `pdp(3)`, `highpdp(2)`, and an SMD threshold of `0.1`. The Excel sheet defaults to `Table 1`; `smdthreshold(-1)` disables SMD highlighting, and `clear` replaces the current dataset with the table. `smallcells(#)` requires an integer threshold of at least 3 and protects exact disclosure within one invocation; it does not certify anonymization or account for linkage across separate releases.
+`table1_tc` is Stata 17+ and accepts frequency weights. Without `vars()`, it infers row types from the varlist; the default display formats are `%2.0f`, `%5.0f`, and `%12.0fc` for common continuous, percentage, and count cells, with `pdp(3)`, `highpdp(2)`, and an SMD threshold of `0.1`. The Excel sheet defaults to `Table 1`; `smdthreshold(-1)` disables SMD highlighting, and `clear` replaces the current dataset with the table. `smallcells(#)` requires an integer threshold of at least 3 and protects exact disclosure within one invocation; it does not certify anonymization or account for linkage across separate releases.
 
 ### `desctab`
 
 ```stata
-desctab, [xlsx(string) excel(string) sheet(string) title(string) footnote(string) compose(string) nformats(string) digits(#) pctdigits(#) nintegerfmt(string) pctscale(string) pctsign rowtotals coltotals nototals keep(string) drop(string) statorder(string) statlabels(string) nomissing zebra headershade headercolor(string) zebracolor(string) borderstyle(string) theme(string) open csv(string) markdown(string) mdappend frame(string) highlight(#) hlstat(string) smallcells(#)]
+desctab [varlist] [if] [in] [fweight], [the same options as table1_tc]
 ```
 
-`desctab` is Stata 17+ and requires an active `collect` table from `table`. The sheet defaults to `Descriptive`, digits default to the session setting or `2`, percentage digits default to `1`, the integer format is `%12.0fc`, and `hlstat()` defaults to `mean`. `smallcells(#)` requires an integer of at least 3 and supports exact count/frequency layouts or named `compose(n_pct)` only; unsupported collect lineages fail closed. `keep()` and `drop()` are mutually exclusive; `mdappend` requires `markdown()`.
+`desctab` is the direct engine entry point and has the same syntax, defaults, outputs, and stored results as `table1_tc`. Existing `desctab` collect-formatter syntax from tabtools 1.x is intentionally unsupported.
 
 ### `crosstab`
 
@@ -345,7 +341,7 @@ puttab [varlist] [if] [in] [using filename.xlsx], [frame(string) matrix(name) sh
 stacktab using outbook.xlsx, blocks(blockspec) sheet(sheetname) [layout(string) title(string) note(string) footnote(string) columnmerge style(string) borders(string) spacing(#) csv(string) markdown(string) mdappend frame(string) display append sheetreplace]
 ```
 
-`stacktab` is Stata 16+ and reads an existing `.xlsx` workbook. `blocks()` identifies the source ranges, `sheet()` identifies the output worksheet, and `layout()` defaults to vertical stacking; `hstack` places blocks horizontally. The default title cell is `A1`, the first table starts at `B2`, and `spacing()` defaults to `0`. `append` and `sheetreplace` control an existing target sheet and cannot be used together.
+`stacktab` is Stata 17+ and reads an existing `.xlsx` workbook. `blocks()` identifies the source ranges, `sheet()` identifies the output worksheet, and `layout()` defaults to vertical stacking; `hstack` places blocks horizontally. The default title cell is `A1`, the first table starts at `B2`, and `spacing()` defaults to `0`. `append` and `sheetreplace` control an existing target sheet and cannot be used together.
 
 ### `simtab`
 
@@ -356,7 +352,7 @@ simtab, from(simsum|siman|summary) [byvar(varname) estimatorvar(varname) estiman
 
 Common output and formatting options are `metrics()` `level(#)` `alpha(#)` `minreps(#)` `warnreps(#)` `order(data|sort)` `digits(#)` `pctdigits(#)` `sedigits(#)` `nosign` `xlsx()` `excel()` `sheet()` `title()` `footnote()` `frame()` `plotframe()` `csv()` `markdown()` `mdappend` `theme()` `borderstyle()` `headercolor()` `zebracolor()` `headershade` `zebra` `display` `open`.
 
-`simtab` is Stata 16+. Compute mode requires `estimate()` and `se()` and uses `true()` when bias or coverage metrics need a target; ingest mode requires `from()`, and `from(summary)` uses the supplied mapping options. Defaults are metrics `mean bias empse meanse coverage n`, `level(95)`, `alpha(.05)`, `minreps(2)`, `warnreps(100)`, data order, digits `2`, `sedigits()` equal to `digits()`, `pctdigits(0)`, and sheet `Simulation`. At least one of `xlsx()`, `csv()`, `markdown()`, `frame()`, `plotframe()`, or `display` must be requested.
+`simtab` is Stata 17+. Compute mode requires `estimate()` and `se()` and uses `true()` when bias or coverage metrics need a target; ingest mode requires `from()`, and `from(summary)` uses the supplied mapping options. Defaults are metrics `mean bias empse meanse coverage n`, `level(95)`, `alpha(.05)`, `minreps(2)`, `warnreps(100)`, data order, digits `2`, `sedigits()` equal to `digits()`, `pctdigits(0)`, and sheet `Simulation`. At least one of `xlsx()`, `csv()`, `markdown()`, `frame()`, `plotframe()`, or `display` must be requested.
 
 ### `tabtools`
 
@@ -368,7 +364,7 @@ tabtools get
 tabtools use [using filename] [, profile(string)]
 ```
 
-`tabtools` is Stata 16+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `diagnostics`, `composite`, `export`, `simulation`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `theme`, `digits`, and `boldp`; `fontsize()` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
+`tabtools` is Stata 17+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `diagnostics`, `composite`, `export`, `simulation`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `theme`, `digits`, and `boldp`; `fontsize()` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
 
 ### `tabtools_tips`
 
@@ -376,7 +372,7 @@ tabtools use [using filename] [, profile(string)]
 tabtools_tips [, open]
 ```
 
-`tabtools_tips` is Stata 16+ and prints a compact recipe reference; `open` opens its help file. It has no stored results.
+`tabtools_tips` is Stata 17+ and prints a compact recipe reference; `open` opens its help file. It has no stored results.
 
 ## Key Options
 
@@ -428,7 +424,7 @@ Returns `r(markdown_rows)`, `r(markdown_cols)`, `r(Dapa)`, `r(methods)`, `r(varl
 
 ### `desctab`
 
-Returns `r(N_cells)`, `r(N_rows)`, `r(markdown_rows)`, `r(markdown_cols)`, `r(version)`, `r(rowvar)`, `r(colvar)`, `r(stats)`, `r(compose)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, `r(markdown)`, `r(methods)`, and `r(table)`. With `smallcells(#)`, it also returns `r(smallcells)`, `r(N_primary_suppressed)`, `r(N_secondary_suppressed)`, `r(N_derived_suppressed)`, and `r(suppression)`; protected numeric cells use `.p`, `.s`, and `.d`.
+Returns the same results as `table1_tc`.
 
 ### `crosstab`
 
@@ -484,8 +480,8 @@ Returns `r(mode)`, `r(source)`, `r(metrics)`, `r(methods)`, `r(n_estimands)`, `r
 
 ## Assumptions and Limits
 
-- Stata version requirements are command-specific; installing the package on Stata 16 does not make the Stata 17 commands available.
-- `regtab`, `effecttab`, and `desctab` format existing `collect` results. Save or rebuild a collection if you need to preserve an unmodified layout or style after rendering.
+- All tabtools commands require Stata 17 or newer.
+- `regtab` and `effecttab` format existing `collect` results. `desctab` and `table1_tc` preserve the caller's active collection while using a private collection internally.
 - `regtab` and `effecttab` require confidence-level metadata to agree with an explicit `level()`; `stratetab` applies the same rule to saved `strate` metadata.
 - `table1_tc` uses Stata frequency-weight syntax. Probability and importance weights are not silently treated as frequency weights; weighted tables use weighted percentages by default, and `wtn` requests effective counts where supported.
 - Standardized mean differences require `table1_tc, by()`. `wtcompare` and `wtn` require `wt()`.
@@ -512,6 +508,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.0.0** (2026-08-19): Raised the package baseline to Stata 17 and consolidated the descriptive subsystem. `table1_tc` is now a stable forwarding frontend to the `desctab` engine; the former standalone collect-formatter interface of `desctab` was removed. The finalized Table 1 passes through a private Stata collection and the shared collect renderer, and crude/weighted aggregation staging now uses frames instead of intermediate `.dta` files. The `table1_tc` syntax, output sinks, and stored-result contract are preserved.
 - **1.16.3** (2026-08-19): Fixed `table1_tc, missingsummary` placing a continuous variable's missing-data row before the variable it describes. The row now sorts after its parent variable, so missing counts remain attached to the correct variable in console, frame, and exported table output.
 - **1.16.2** (2026-08-19): Fixed style compaction on Windows, where it had been failing silently since 1.16.0 and leaving every workbook on the record ceiling the feature exists to remove. Mata's `dir()` prefixes each entry it returns with the platform directory separator, so on Windows the helper's file list came back as `.\xl\styles.xml` while the manifest check built its comparison strings with `/`. Neither the guard that excludes the verification subtree nor the one that excludes the rebuilt archive could match, both were counted as parts of the original workbook, and a correct rebuild was rejected as incomplete with r(459). Compaction is best effort, so the rejection surfaced only as a note and the workbook was left uncompacted; the pools then grew per styled cell exactly as they did before 1.16.0 and a long export died at the font ceiling with `Calibri: invalid font name` r(16147) — the original symptom, on Windows only, with the fix installed. Paths are now normalized to the forward slash as they leave `dir()`, which also keeps the file list handed to `zipfile` free of backslash entry names that Excel and `xl()` both refuse to read back. Unix behaviour is unchanged. QA pins the platform contract directly.
 - **1.16.1** (2026-08-18): Made style compaction cheaper and its rejection check honest, with no change to any table. Compaction now skips the rebuild entirely when every style pool already holds nothing but distinct records: the unzip, re-zip, re-unpack and workbook reopen were running unconditionally and buying nothing, and because compaction runs after every sheet, a workbook paid that cost once per sheet on a file that grows with each one. The rebuilt archive is also checked without reopening the *original* workbook through `xl()` — the sheet names it is compared against are read from the `workbook.xml` already unpacked a moment earlier, so verification no longer pays to parse the very style pools compaction exists to shrink. A 60-sheet `table1_tc` workbook builds in 18.1s where 1.16.0 took 21.3s, with the saving growing as sheets accumulate. Corrected the sheet-count guard in that check: `get_sheets()` returns an N-by-1 column vector, so comparing `cols()` compared 1 against 1 and the guard could never fire; a rebuild that dropped a sheet was still rejected, but by the name comparison below it and under the wrong message. Sheet names carrying `&`, `<` or `'` are XML-escaped in `workbook.xml` and are now decoded before that comparison, so such a workbook is not mistaken for one that lost its sheets.

@@ -1,10 +1,10 @@
-*! _tabtools_xlsx_build_styles Version 1.16.3  2026/08/19
+*! _tabtools_xlsx_build_styles Version 2.0.0  2026/08/19
 *! Build compact Excel style rule matrices from row specifications
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define _tabtools_xlsx_build_styles, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -26,7 +26,7 @@ program define _tabtools_xlsx_build_styles, rclass
     if `rc' exit `rc'
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _tt_xlsx_build_styles()
 capture mata: mata drop _tt_xlsx_build_styles_rows()
 capture mata: mata drop _tt_xlsx_build_styles_values()

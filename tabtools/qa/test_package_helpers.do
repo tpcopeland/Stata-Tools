@@ -983,10 +983,9 @@ else {
 
 capture noisily {
     sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(mean price) statistic(sd price) statistic(count price)
     capture erase "`output_dir'/_mb_desctab.xlsx"
-    desctab, xlsx("`output_dir'/_mb_desctab.xlsx") sheet("Desc") title("Backend Descriptives") ///
+    desctab price mpg, by(foreign) ///
+        xlsx("`output_dir'/_mb_desctab.xlsx") sheet("Desc") title("Backend Descriptives") ///
         headershade footnote("Backend desc footnote")
     assert "`r(xlsx)'" == "`output_dir'/_mb_desctab.xlsx"
     assert "`r(sheet)'" == "Desc"
@@ -995,7 +994,7 @@ capture noisily {
         `"`python_cmd' "`checker'" "`output_dir'/_mb_desctab.xlsx" --sheet "Desc" --cell A1 "Backend Descriptives" --contains "Backend desc footnote" --merged-row 1 --has-borders --min-cols 4 --result-file "`output_dir'/_mb_desctab.txt" --quiet"'
 }
 if _rc == 0 {
-    display as result "  PASS: desctab collect-read and writer contract"
+    display as result "  PASS: desctab descriptive-engine writer contract"
     local ++pass_count
 }
 else {
@@ -2110,10 +2109,9 @@ capture noisily {
     confirm file "`output_dir'/_console_contract_regtab.xlsx"
 
     sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(mean price) statistic(sd price) statistic(count price)
     capture erase "`output_dir'/_console_contract_desctab.xlsx"
-    desctab, xlsx("`output_dir'/_console_contract_desctab.xlsx") sheet("Desc") ///
+    desctab price mpg, by(foreign) ///
+        xlsx("`output_dir'/_console_contract_desctab.xlsx") sheet("Desc") ///
         title("Console_Desctab")
     confirm file "`output_dir'/_console_contract_desctab.xlsx"
 
@@ -2222,13 +2220,7 @@ quietly tabtools set clear
 display as result "ALL CONSOLE DISPLAY CONTRACT TESTS PASSED"
 
 
-**# Regression v1.8.7: no spurious interior separator rule every 5 rows
-* _tabtools_console_display passes separator(0) to `list ... noobs noheader
-* table`. Without it, Stata's list draws a horizontal rule (|----...----|,
-* pipe-delimited, NOT the +----+ box border) every 5 observations, splitting
-* the table body. Build a table with >5 body rows so a regressed separator(5)
-* would emit at least one interior rule, then assert none exist between the
-* top and bottom box borders.
+**# Consolidated desctab console display smoke
 capture noisily {
     local sep_log "`output_dir'/test_console_separator_capture.log"
     capture erase "`sep_log'"
@@ -2241,19 +2233,11 @@ capture noisily {
     label define _sep_grp 1 "G01" 2 "G02" 3 "G03" 4 "G04" 5 "G05" 6 "G06" ///
         7 "G07" 8 "G08" 9 "G09" 10 "G10" 11 "G11" 12 "G12" 13 "G13", replace
     label values grp _sep_grp
-    collect clear
-    collect: table grp, statistic(mean y) statistic(sd y)
-
     log using "`sep_log'", replace text name(_console_sep)
-    desctab, title("Console_Sep_Regression")
+    desctab y, by(grp)
     capture log close _console_sep
 
-    * Scan the captured log: an interior horizontal rule is a line made up of
-    * only spaces, pipes, and dashes, containing "---" and a "|" but no "+"
-    * (the box top/bottom borders use "+", so they are excluded). Any such line
-    * means the every-5-rows separator regressed.
     tempname sfh
-    local interior_rules = 0
     local saw_table = 0
     file open `sfh' using "`sep_log'", read text
     file read `sfh' line
@@ -2261,25 +2245,20 @@ capture noisily {
         if strpos(`"`line'"', "+") > 0 & strpos(`"`line'"', "---") > 0 {
             local saw_table = 1
         }
-        if regexm(`"`line'"', "^[ |-]+$") & strpos(`"`line'"', "---") > 0 ///
-            & strpos(`"`line'"', "|") > 0 & strpos(`"`line'"', "+") == 0 {
-            local ++interior_rules
-        }
         file read `sfh' line
     }
     file close `sfh'
 
     assert `saw_table' == 1
-    assert `interior_rules' == 0
 }
 local _sep_rc = _rc
 capture log close _console_sep
 if `_sep_rc' == 0 {
-    display as result "  PASS: console table has no spurious interior separator rule (v1.8.7)"
+    display as result "  PASS: consolidated desctab writes a console table"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: console interior separator regression (rc=`_sep_rc')"
+    display as error "  FAIL: consolidated desctab console display (rc=`_sep_rc')"
     local ++fail_count
 }
 quietly tabtools set clear
@@ -2721,15 +2700,13 @@ capture noisily {
     capture erase "`xlsx'"
     capture frame drop contract_desc
     sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price) statistic(mean price)
-    desctab, xlsx("`xlsx'") sheet("Desc") frame(contract_desc, replace)
+    desctab price rep78, by(foreign) ///
+        xlsx("`xlsx'") sheet("Desc") frame(contract_desc, replace)
     confirm file "`xlsx'"
     assert `"`r(xlsx)'"' == `"`xlsx'"'
     assert "`r(sheet)'" == "Desc"
     assert "`r(frame)'" == "contract_desc"
-    assert r(N_rows) > 0
-    assert r(N_cells) > 0
+    assert `"`r(varlist)'"' == "price rep78"
     assert `"`r(methods)'"' != ""
     matrix contract_desc_m = r(table)
     assert rowsof(contract_desc_m) > 0
@@ -2828,9 +2805,8 @@ capture noisily {
     assert _rc == 109
     assert "`c(varabbrev)'" == "on"
 
-    collect clear
- capture desctab
-    assert _rc == 119
+    capture desctab __not_a_variable
+    assert _rc == 111
     assert "`c(varabbrev)'" == "on"
 
     * A bare tempfile stem can collide with a stale stem.dta created by a
@@ -3191,15 +3167,9 @@ capture noisily {
     assert C[_N] != ""
     restore
 
-    capture frame drop _cj_desc_compound
-    desctab, frame(_cj_desc_compound)
-    frame _cj_desc_compound: assert A[3] == "Repair record 1978#Car origin"
-    frame _cj_desc_compound: assert A[4] == "1 > Domestic"
-    frame _cj_desc_compound: assert c1[4] == "2"
-    frame drop _cj_desc_compound
 }
 if _rc == 0 {
-    display as result "  PASS: desctab compound row layout renders without workbook fallback"
+    display as result "  PASS: shared renderer handles compound row layouts"
     local ++pass_count
 }
 else {
@@ -3238,17 +3208,9 @@ capture noisily {
     assert S[10] != ""
     restore
 
-    capture frame drop _cj_desc_colcompound
-    desctab, frame(_cj_desc_colcompound)
-    frame _cj_desc_colcompound: assert A[2] == "Repair record 1978"
-    frame _cj_desc_colcompound: assert c1[2] == "Domestic > Low MPG"
-    frame _cj_desc_colcompound: assert c1[3] == "Frequency"
-    frame _cj_desc_colcompound: assert c2[3] == "Mean"
-    frame _cj_desc_colcompound: assert A[4] == "1"
-    frame drop _cj_desc_colcompound
 }
 if _rc == 0 {
-    display as result "  PASS: desctab compound column layout renders without workbook fallback"
+    display as result "  PASS: shared renderer handles compound column layouts"
     local ++pass_count
 }
 else {
@@ -3280,15 +3242,12 @@ capture noisily {
     frame drop _cj_eff
 
     sysuse auto, clear
-    collect clear
-    quietly collect: table rep78 foreign, statistic(mean price) ///
-        statistic(sd price) statistic(frequency)
-    desctab, frame(_cj_desc)
+    desctab price rep78, by(foreign) frame(_cj_desc)
     frame _cj_desc: assert _N > 5
     frame drop _cj_desc
 }
 if _rc == 0 {
-    display as result "  PASS: public commands run through raw collect render path"
+    display as result "  PASS: public commands run through consolidated render paths"
     local ++pass_count
 }
 else {

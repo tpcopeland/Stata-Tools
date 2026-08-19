@@ -1,10 +1,10 @@
-*! _tabtools_xlsx_write Version 1.16.3  2026/08/19
+*! _tabtools_xlsx_write Version 2.0.0  2026/08/19
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define _tabtools_xlsx_write, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -51,7 +51,7 @@ program define _tabtools_xlsx_write, rclass
     }
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _tt_xlsx_write_mata()
 capture mata: mata drop _tt_cur_strmat()
 

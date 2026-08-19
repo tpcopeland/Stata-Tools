@@ -236,13 +236,11 @@ input byte category
 end
 label define reserved_total 1 "Total" 2 "Other"
 label values category reserved_total
-collect clear
-collect: table category, statistic(frequency)
 capture frame drop deep_total_label
-desctab, nototals frame(deep_total_label, replace)
+desctab category, vars(category cat) frame(deep_total_label, replace)
 local real_total_n = 0
 frame deep_total_label {
-    count if strtrim(A) == "Total"
+    count if strtrim(factor) == "Total"
     local real_total_n = r(N)
 }
 
@@ -255,18 +253,18 @@ input byte category
 end
 label define reserved_missing 1 "Missing" 2 "Other"
 label values category reserved_missing
-collect clear
-collect: table category, statistic(frequency) missing
 capture frame drop deep_missing_label
-desctab, nomissing frame(deep_missing_label, replace)
+desctab category, vars(category cat) missing frame(deep_missing_label, replace)
 local real_missing_n = 0
 frame deep_missing_label {
-    count if strtrim(A) == "Missing"
+    count if strtrim(factor) == "Missing"
     local real_missing_n = r(N)
 }
 capture noisily {
     assert `real_total_n' == 1
-    assert `real_missing_n' == 1
+    * One labeled category and one true missing row legitimately share the
+    * display text; neither may be filtered away.
+    assert `real_missing_n' == 2
 }
 if _rc == 0 {
     display as result "  PASS M13: total/missing filters use raw collect identity"
@@ -289,14 +287,15 @@ frame deep_corr6 {
     }
 }
 
-collect clear
-collect: table foreign, statistic(mean price) statistic(sd price)
 capture frame drop deep_desc6
-desctab, digits(6) frame(deep_desc6, replace)
+desctab price, vars(price contn %12.6f) frame(deep_desc6, replace)
 local desc_shell = 0
 frame deep_desc6 {
-    count if regexm(strtrim(c1), "^[%(), -]+$")
-    local desc_shell = r(N)
+    ds, has(type string)
+    foreach v of varlist `r(varlist)' {
+        count if regexm(strtrim(`v'), "^[%(), -]+$")
+        local desc_shell = `desc_shell' + r(N)
+    }
 }
 
 clear
@@ -481,13 +480,13 @@ input byte row byte col byte event
 1 1 1
 1 1 1
 end
-collect clear
-collect: table row col, statistic(sum event) statistic(count event) statistic(mean event)
 capture frame drop deep_sparse_compose
-desctab, compose(events_n_pct) frame(deep_sparse_compose, replace)
+desctab row col event, vars(row cat \ col cat \ event bin) ///
+    frame(deep_sparse_compose, replace)
 local shell_count = 0
 frame deep_sparse_compose {
-    foreach v of varlist c* {
+    ds, has(type string)
+    foreach v of varlist `r(varlist)' {
         count if regexm(strtrim(`v'), "^[ /()-]+$") & strtrim(`v') != ""
         local shell_count = `shell_count' + r(N)
     }

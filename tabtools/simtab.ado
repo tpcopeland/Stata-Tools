@@ -1,4 +1,4 @@
-*! simtab Version 1.16.3  2026/08/19
+*! simtab Version 2.0.0  2026/08/19
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,7 +25,7 @@ DESCRIPTION:
 */
 
 program define simtab, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
@@ -1124,7 +1124,7 @@ end
 * ============================================================================
 capture program drop _simtab_levels
 program _simtab_levels, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1192,7 +1192,7 @@ end
 * ============================================================================
 capture program drop _simtab_plotframe
 program _simtab_plotframe, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
@@ -1294,7 +1294,7 @@ end
 * Mata: lay out the rendered c1..cK string table from the per-cell summary
 *   mode 1 = flat (single combined header) ; mode 2 = excel (group + metric)
 * ============================================================================
-version 16.0
+version 17.0
 capture mata: mata drop _simtab_build()
 capture mata: mata drop _simtab_emit()
 

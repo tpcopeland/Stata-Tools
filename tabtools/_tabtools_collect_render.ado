@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 1.16.3  2026/08/19
+*! _tabtools_collect_render Version 2.0.0  2026/08/19
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,8 +14,8 @@ program define _tabtools_collect_render, rclass
             [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents]
 
         local type = lower(strtrim("`type'"))
-        if !inlist("`type'", "meta", "stats", "main", "icc", "desctab") {
-            noisily display as error "type() must be meta, stats, main, icc, or desctab"
+        if !inlist("`type'", "meta", "stats", "main", "icc", "desctab", "raw") {
+            noisily display as error "type() must be meta, stats, main, icc, desctab, or raw"
             exit 198
         }
         if `"`sep'"' == "" local sep ", "
@@ -352,6 +352,7 @@ capture mata: mata drop _tt_collect_render_main()
 capture mata: mata drop _tt_collect_render_main_multirow()
 capture mata: mata drop _tt_collect_render_desctab()
 capture mata: mata drop _tt_collect_render_desc_multi()
+capture mata: mata drop _tt_collect_render_raw()
 capture mata: mata drop _tt_collect_item()
 capture mata: mata drop _tt_collect_sum_items()
 capture mata: mata drop _tt_collect_ci()
@@ -420,12 +421,44 @@ void _tt_collect_render_mata(
         out = _tt_collect_render_desctab(index, items, rowdim, coldim, sep,
             row_n, col_n, res_n)
     }
+    else if (type == "raw") {
+        out = _tt_collect_render_raw(index, items, rowdim, coldim, sep,
+            row_n, col_n, res_n)
+    }
     else {
         _error(198)
     }
 
     if (rows(out) == 0 | cols(out) == 0) _error(2000)
     _tt_collect_post(out)
+}
+
+string matrix _tt_collect_render_raw(
+    transmorphic scalar index,
+    string matrix items,
+    string scalar rowdim,
+    string scalar coldim,
+    string scalar sep,
+    real scalar row_n,
+    real scalar col_n,
+    real scalar res_n)
+{
+    string matrix out
+    string scalar rowlev, clev, rlev
+    real scalar i, j
+
+    if (coldim == "" | col_n <= 0 | res_n != 1) _error(198)
+    rlev = st_local("_tt_res_level_1")
+    out = J(row_n, col_n, "")
+    for (i = 1; i <= row_n; i++) {
+        rowlev = st_local("_tt_row_level_" + strofreal(i))
+        for (j = 1; j <= col_n; j++) {
+            clev = st_local("_tt_col_level_" + strofreal(j))
+            out[i, j] = _tt_collect_item(index, items,
+                (rowdim, coldim), (rowlev, clev), rlev, sep)
+        }
+    }
+    return(out)
 }
 
 string matrix _tt_collect_render_meta(

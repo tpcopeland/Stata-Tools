@@ -1,19 +1,19 @@
-*! desctab Version 1.16.3  2026/08/19
-*! Format descriptive table collects with per-statistic formats and composite cells
+*! desctab Version 2.0.0  2026/08/19 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
-*! Program class: rclass
+*! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
+*! This program generates descriptive statistics tables with formatting options
+*! and can export them to Excel with automatic column width calculation
 
 program define desctab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    local _preserved 0
 
     capture noisily {
 
     capture putexcel close
 
-    * Auto-load shared helper programs
+    * Auto-load shared helper programs if not already in memory
     capture _tabtools_helpers_ready
     if _rc {
         capture findfile _tabtools_common.ado
@@ -32,89 +32,180 @@ program define desctab, rclass
     }
     _tabtools_require_helpers
 
-    syntax , [XLSX(string) EXCEL(string) SHEET(string) TITLE(string) ///
-        FOOTnote(string) COMPOSE(string asis) NFORMATS(string asis) ///
-        DIGITS(integer -1) PCTDIGITS(integer -1) NINTEGERFMT(string) ///
-        PCTSCALE(string) PCTSIGN ROWTOTALS COLTOTALS NOTOTALS ///
-        KEEP(string asis) DROP(string asis) ///
-        STATORDER(string) STATLABELS(string asis) NOMISsing zebra ///
-        HEADERShade HEADERColor(string) ZEBRAColor(string) ///
-        BORDERstyle(string) THEme(string) open csv(string) MARKdown(string) MDAPPend ///
-        FRAme(string) HIGHlight(real -1) HLStat(string) SMALLCells(string)]
+**# Syntax Definition
+    syntax [varlist] [if] [in] [fweight], ///
+        [by(varname)]           /// Optional grouping variable
+        [vars(string)]          /// Variables to display: varname vartype [varformat], vars delimited by \
+        [Format(string)]        /// Default format for continuous normal/skewed variables
+        [PERCFormat(string)]    /// Default format for categorical/binary variables
+        [NFormat(string)]       /// Format for counts (n and N); default is %12.0fc
+        [iqrmiddle(string asis)] /// Symbol between Q1 and Q3; default is ", "
+        [sdleft(string asis)]   /// Symbol before SD; default is "+/-"
+        [sdright(string asis)]  /// Symbol after SD; default is "" (none)
+        [gsdleft(string asis)]  /// Symbol before GSD; default is " (×/"
+        [gsdright(string asis)] /// Symbol after GSD; default is ")"
+        [percent]               /// Report categorical vars just as % (no N)
+        [MISsing]               /// Don't exclude missing values
+        [pdp(integer 3)]        /// Max decimal places in p-value < 0.1 (1-10)
+        [highpdp(integer 2)]    /// Max decimal places in p-value >= 0.1 (1-10)
+        [test]                  /// Include column specifying which test was used
+        [STATistic]             /// Give value of test statistic
+        [excel(string)]         /// Excel file to save output
+        [xlsx(string)]          /// Synonym for excel()
+        [sheet(string)]         /// Excel sheet name
+        [title(string)]         /// Table title
+        [clear]                 /// Keep resulting table in memory
+        [percent_n]             /// Display as % (n) rather than n (%)
+        [percsign(string asis)] /// Percent sign; default is "" (none)
+        [SPACElowpercent]       /// Report e.g. ( 3%) rather than (3%) (no-space is default)
+        [extraspace]            /// Helps alignment in DOCX with non-monospaced fonts
+        [slashN]                /// Report n/N instead of n
+        [total(string)]         /// Include total column ("before" or "after" group columns)
+        [catrowperc]            /// Report row % rather than column % for categorical vars
+        [varlabplus]            /// Add data type description to variable labels
+        [HEADERPerc]            /// Add percentage of total to sample size row
+        [BORDERstyle(string)]   /// Border style: "default" or "thin"
+        [wt(varname)]           /// Importance/probability weight variable (e.g., IPTW)
+        [smd]                   /// Standardized mean differences column
+        [FOOTnote(string)]      /// Footnote text below table
+        [open]                  /// Open Excel file after export
+        [BOLDp(real -1)]        /// Bold p-values below threshold (-1 = disabled)
+        [zebra]                 /// Alternating row shading
+        [HIGHlight(real -1)]    /// Highlight rows where p < threshold
+        [HEADERShade]           /// Header row shading in Excel
+        [FRAme(string)]         /// Store output in a named frame
+        [THEme(string)]         /// Journal-style theme: lancet, nejm, bmj, apa
+        [SMDThreshold(real 0.1)] /// SMD threshold for conditional formatting (0.1 default; -1 = disabled)
+        [HEADERColor(string)]   /// Custom header background color (R G B)
+        [ZEBRAColor(string)]    /// Custom zebra stripe color (R G B)
+        [csv(string)]           /// Export data as CSV file
+        [MARKdown(string)]      /// Export data as Markdown file
+        [MDAPPend]              /// Append Markdown table
+        [MISSINGSummary]        /// Add missing data summary row per variable
+        [SMALLCells(string)]    /// Suppress counts below threshold and prevent reconstruction
+        [dots]                  /// Show progress dots per variable
+        [WTCompare]             /// Side-by-side crude vs weighted comparison
+        [WTN]                   /// Show weighted (effective) counts in weighted columns
+        [NOPvalue]              /// Suppress p-value column
 
-    if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-    if `"`nformats'"' != "" {
-        _tabtools_strip_outer_quotes, text(`"`nformats'"')
-        local nformats `"`r(text)'"'
+**# Input Validation and Option Setup
+
+    local _markdown_title `"`title'"'
+
+    /* Accept xlsx() as synonym for excel() */
+    if "`excel'" == "" & "`xlsx'" != "" local excel "`xlsx'"
+
+    * Resolve persistent defaults
+    if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
+
+    /* Build vars() from varlist if not specified (U1) */
+    if "`vars'" == "" & "`varlist'" != "" {
+        local vars ""
+        local _vcount : word count `varlist'
+        forvalues _vi = 1/`_vcount' {
+            local _vname : word `_vi' of `varlist'
+            if `_vi' > 1 local vars "`vars' \ "
+            local vars "`vars'`_vname' auto"
+        }
     }
-    if `"`statlabels'"' != "" {
-        _tabtools_strip_outer_quotes, text(`"`statlabels'"')
-        local statlabels `"`r(text)'"'
+
+    /* Validation: Check if vars() is specified */
+    if "`vars'" == "" {
+        display as error "vars() or varlist required"
+        error 100
     }
-    local _has_xlsx = "`xlsx'" != ""
-    if "`sheet'" == "" local sheet "Descriptive"
-    local _sc_active = "`smallcells'" != ""
-    if `_sc_active' {
+
+    if "`smallcells'" != "" {
         capture confirm integer number `smallcells'
         if _rc {
             display as error "smallcells() must be an integer greater than or equal to 3"
-            exit 198
+            error 198
         }
         if `smallcells' < 3 {
             display as error "smallcells() must be an integer greater than or equal to 3"
-            exit 198
+            error 198
         }
     }
-    local _sc_note ""
-    if `_sc_active' {
-        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
+
+    if "`smallcells'" != "" {
+        local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction. Percentages are withheld for any variable carrying a suppressed count."
         if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
             if `"`footnote'"' == "" local footnote `"`_sc_note'"'
             else local footnote `"`footnote' `_sc_note'"'
         }
     }
 
-    if `digits' == -1 {
-        if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
-        else local digits = 2
-    }
-    if `pctdigits' == -1 local pctdigits = 1
-    if "`nintegerfmt'" == "" local nintegerfmt "%12.0fc"
-    if "`pctscale'" == "" local pctscale "auto"
-    local pctscale = lower("`pctscale'")
-    if !inlist("`pctscale'", "auto", "0to1", "0to100") {
-        display as error "pctscale() must be auto, 0to1, or 0to100"
-        exit 198
-    }
-    if `digits' < 0 | `digits' > 6 {
-        display as error "digits() must be between 0 and 6"
-        exit 198
-    }
-    if `pctdigits' < 0 | `pctdigits' > 6 {
-        display as error "pctdigits() must be between 0 and 6"
-        exit 198
-    }
-    if "`keep'" != "" & "`drop'" != "" {
-        display as error "keep() and drop() cannot be combined"
-        exit 198
-    }
-    if "`open'" != "" & !`_has_xlsx' {
-        display as error "open requires xlsx() or excel()"
-        exit 198
-    }
-    if `_has_xlsx' {
-        if !strmatch(lower("`xlsx'"), "*.xlsx") {
-            display as error "xlsx()/excel() must specify a .xlsx file"
-            exit 198
+    /* Validation: Check if by() variable exists */
+    if "`by'" != "" {
+        capture confirm variable `by'
+        if _rc {
+            display as error "by() variable `by' not found"
+            error 111
         }
-        _tabtools_validate_path "`xlsx'" "xlsx()"
     }
-    if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
-    if "`mdappend'" != "" & `"`markdown'"' == "" {
+
+    /* Check if by() variable will cause naming conflicts.
+       The reshape pipeline below produces wide columns named N_<level>,
+       m_<level>, _columna_<level>, _columnb_<level>. A by-variable whose own
+       name starts with N_, m_, or _column* would alias one of those during
+       reshape and silently corrupt the output. See "Reserved by() variable
+       names" in help table1_tc (Technical notes). */
+    if (substr("`by'",1,2) == "N_" | substr("`by'",1,2) == "m_" | inlist("`by'", "N", "m") | ///
+        inlist("`by'", "_", "_c","_co","_col","_colu","_colum","_column","_columna","_columnb")) {
+        display as error "by() variable name `by' collides with internal reshape columns"
+        display as error "Reserved prefixes: N_, m_; reserved names: N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb"
+        display as error "Rename the variable (e.g. {bf:rename `by' grp}); see {help table1_tc##technical:help table1_tc}"
+        error 498  // User-defined error
+    }
+
+    /* Check if Excel options are properly specified */
+    local has_excel = "`excel'" != ""  // Boolean flag for Excel option
+    local has_markdown = `"`markdown'"' != ""
+    local has_sheet = "`sheet'" != ""  // Boolean flag for sheet option
+    local has_title = "`title'" != ""  // Boolean flag for title option
+    local has_open = "`open'" != ""    // Boolean flag for open option
+
+    if "`total'" != "" & !inlist("`total'", "before", "after") {
+        display as error "total() must be before or after"
+        error 198
+    }
+
+    // Default sheet name when excel() is specified but sheet() is not
+    if `has_excel' & !`has_sheet' {
+        local sheet "Table 1"
+        local has_sheet = 1
+    }
+
+    // Validate sheet name for Excel constraints
+    if `has_sheet' _tabtools_validate_sheet "`sheet'" "sheet()"
+
+    // sheet() only makes sense with excel(); title() also applies to Markdown.
+    if !`has_excel' & `has_sheet' {
+        display as error "sheet() is only available when using excel()"
+        error 498
+    }
+    if !`has_excel' & !`has_markdown' & `has_title' {
+        display as error "title() is only available when using excel() or markdown()"
+        error 498
+    }
+    if `has_open' & !`has_excel' {
+        display as error "open requires excel() or xlsx()"
+        error 498
+    }
+
+    /* Validate Excel file path for security */
+    if `has_excel' {
+        if !regexm(lower(`"`excel'"'), "\.xlsx$") {
+            display as error "excel()/xlsx() must specify a .xlsx file"
+            error 198
+        }
+        _tabtools_validate_path "`excel'" "excel()"
+    }
+    if "`mdappend'" != "" & !`has_markdown' {
         display as error "mdappend requires markdown()"
-        exit 198
+        error 198
     }
-    if `"`markdown'"' != "" {
+    if `has_markdown' {
         _tabtools_validate_path `"`markdown'"' "markdown()"
         local _md_lower = lower(`"`markdown'"')
         if !(strmatch(`"`_md_lower'"', "*.md") | ///
@@ -122,1098 +213,1890 @@ program define desctab, rclass
              strmatch(`"`_md_lower'"', "*.qmd") | ///
              strmatch(`"`_md_lower'"', "*.rmd")) {
             display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
-            exit 198
+            error 198
         }
     }
-    _tabtools_validate_sheet "`sheet'" "sheet()"
 
-    local _requested_headershade `"`headershade'"'
-    local _requested_zebra `"`zebra'"'
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
-        headershade(`headershade') zebra(`zebra')
-    local headershade `"`_requested_headershade'"'
-    local zebra `"`_requested_zebra'"'
+    /* Validate pdp and highpdp options */
+    if `pdp' < 1 | `pdp' > 10 {
+        display as error "pdp() must be between 1 and 10"
+        error 198
+    }
+    if `highpdp' < 1 | `highpdp' > 10 {
+        display as error "highpdp() must be between 1 and 10"
+        error 198
+    }
+
+    /* Validate borderstyle option */
+    local has_borderstyle = "`borderstyle'" != ""
+
+    // borderstyle only makes sense with excel()
+    if `has_borderstyle' & !`has_excel' {
+        display as error "borderstyle() is only available when using excel()"
+        error 498
+    }
+
+    // borderstyle must be a valid value
+    if `has_borderstyle' & !inlist("`borderstyle'", "default", "thin", "medium", "academic") {
+        display as error "borderstyle() must be default, thin, medium, or academic"
+        error 498
+    }
+
+    /* Validate weight option metadata */
+    if "`wt'" != "" {
+        confirm numeric variable `wt'
+        if "`weight'" == "fweight" {
+            display as error "wt() and fweight cannot be used together"
+            error 198
+        }
+    }
+    local has_wt = "`wt'" != ""
+    local _suppress_p = `has_wt' | "`nopvalue'" == "nopvalue"
+
+    /* Weighted display policy. The recommended weighted table reports
+       percentages (plus SMD for balance), not counts: once weighted, the
+       displayed count is a function of the percentage and N (effective
+       n = % × N), so "n (%)" prints the same number twice and dresses a
+       synthetic quantity up as a real frequency. Counts are therefore shown
+       only on request, via wtn (or percent_n):
+         - standalone weighted: percent-only by default; wtn restores the
+           effective count as n (%), percent_n as % (n).
+         - wtcompare: crude columns always keep n (%); weighted columns are
+           percent-only by default, with wtn/percent_n restoring weighted n.
+       See the weighted-data Technical note in help table1_tc. */
+    if "`wtn'" != "" & !`has_wt' {
+        display as error "wtn requires wt() to be specified"
+        exit 198
+    }
+    if "`wtn'" != "" & "`percent'" != "" {
+        display as error "wtn and percent are incompatible (percent suppresses all counts)"
+        exit 198
+    }
+    local _show_wtn = ("`percent_n'" != "" | "`wtn'" != "")
+    if `has_wt' & !`_show_wtn' & "`wtcompare'" == "" {
+        local percent "percent"
+    }
+
+    /* A percent-only cell publishes nothing BUT the percentage, and a published
+       percentage releases its own denominator (the per-variable non-missing
+       count). A protected block has to withhold that percentage, which would
+       leave the block empty, so the combination cannot be protected and is
+       refused rather than shipped as a reconstructable table. This check sits
+       after the weighted default above so it catches an implicitly set
+       percent, not only an explicitly requested one. */
+    if "`smallcells'" != "" & "`percent'" != "" {
+        display as error "smallcells() cannot be combined with percent-only display"
+        display as error "Hint: use percent_n, wtn, or the default n (%); percentages are withheld for any variable that carries a suppressed count"
+        exit 198
+    }
+
+    /* Validate new options */
+
+    * SMD requires by() with 2+ groups
+    local has_smd = "`smd'" != ""
+    if `has_smd' & "`by'" == "" {
+        display as error "smd option requires by() to be specified"
+        exit 198
+    }
+
+    * wtcompare requires both wt() and by()
+    local has_wtcompare = "`wtcompare'" != ""
+    if `has_wtcompare' & !`has_wt' {
+        display as error "wtcompare requires wt() to be specified"
+        exit 198
+    }
+    if `has_wtcompare' & "`by'" == "" {
+        display as error "wtcompare requires by() to be specified"
+        exit 198
+    }
+
+    * Validate boldp
+    local has_boldp = `boldp' != -1
+    if `has_boldp' & (`boldp' <= 0 | `boldp' >= 1) {
+        display as error "boldp() must be between 0 and 1"
+        exit 198
+    }
+
+    * Validate highlight
+    local has_highlight = `highlight' != -1
+    if `has_highlight' & (`highlight' <= 0 | `highlight' >= 1) {
+        display as error "highlight() must be between 0 and 1"
+        exit 198
+    }
+
+    * Validate smdthreshold
+    if `smdthreshold' != -1 & `smdthreshold' <= 0 {
+        display as error "smdthreshold() must be positive or -1 to disable highlighting"
+        exit 198
+    }
+
+    * Resolve formatting
+    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade')
 
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
-    capture quietly collect query row
-    if _rc {
-        display as error "No active collect table found"
-        display as error "Run a table command first, for example:"
-        display as error "    collect clear"
-        display as error "    collect: table group, statistic(count x) statistic(mean x)"
-        exit 119
+    * Initialize test tracking for methods paragraph (C5)
+    local _used_ttest 0
+    local _used_anova 0
+    local _used_wilcoxon 0
+    local _used_kw 0
+    local _used_chi2 0
+    local _used_fisher 0
+
+    /* Set default formats if not specified */
+    if `"`nformat'"' == "" local nformat "%12.0fc"        // Default format for counts
+    if `"`format'"' == "" local format "%2.0f"            // Default format for continuous vars
+    if `"`percformat'"' == "" local percformat "%5.0f"    // Default format for percentages
+    local percsign = subinstr(strtrim(`"`percsign'"'), char(34), "", .)  // strip quotes from asis
+    if `"`iqrmiddle'"' == "" local iqrmiddle `"", ""'     // Default separator for IQR
+    if `"`sdleft'"' == "" local sdleft `""±""'            // Default symbol before SD
+    if `"`sdright'"' == "" local sdright `""""'           // Default symbol after SD (none)
+    local meanSD : display "mean"`sdleft'"SD"`sdright'    // Create mean±SD format string
+
+    if `"`gsdleft'"' == "" local gsdleft `"" (×/""'       // Default format before GSD
+    if `"`gsdright'"' == "" local gsdright `"")""'        // Default format after GSD
+    local gmeanSD : display "geometric mean"`gsdleft'"GSD"`gsdright'  // Create geometric mean×/GSD format string
+
+    /* Configure display formats for different variable types */
+    local n "No."  // Column header for count (updated from just "n")
+    if "`slashN'" == "slashN" local n "`n'/total"  // Modified for slashN option
+    local percentage "%"  // Default percentage label
+
+    // Handle row percentage display for categorical variables
+    if "`catrowperc'" != "" {
+        local percentage2 `"`percentage'"'
+        local percentage2 "column `percentage'"  // Column percentage label
+
+        // Format footnote based on options
+        if "`percent_n'" == "percent_n" & "`percent'"=="" local percfootnote2 "`percentage2' (`n')"
+        if "`percent_n'" != "percent_n" & "`percent'"=="" local percfootnote2 "`n' (`percentage2')"
+        if "`percent'"=="percent" local percfootnote2 "`percentage2'"
+
+        local percentage "row `percentage'"  // Row percentage label
     }
 
-    quietly collect layout
-    local _rowspec `"`s(rows)'"'
-    local _colspec `"`s(columns)'"'
-    local _tabspec `"`s(tables)'"'
-    local _ktables = real("`s(k_tables)'")
-    if `_ktables' > 1 {
-        display as error "desctab supports one table at a time"
-        display as error "Loop over the third table dimension and call desctab once per sheet"
-        exit 459
+    // Standard format for percentage display
+    if "`percent_n'" == "percent_n" & "`percent'"=="" local percfootnote "`percentage' (`n')"
+    if "`percent_n'" != "percent_n" & "`percent'"=="" local percfootnote "`n' (`percentage')"
+    if "`percent'"=="percent" local percfootnote "`percentage'"
+
+    // Use percfootnote as default for percfootnote2 if not set
+    if `"`percfootnote2'"' == "" local percfootnote2 "`percfootnote'"
+
+**# Data Preparation
+
+    /* Save by-variable label before any preserve (for methods paragraph) */
+    local _bylab ""
+    if "`by'" != "" {
+        local _bylab : variable label `by'
+        if "`_bylab'" == "" local _bylab "`by'"
     }
 
-    _desctab_parse_layout `"`_rowspec'"' `"`_colspec'"'
-    local rowdim `"`r(rowdim)'"'
-    local coldim `"`r(coldim)'"'
-    if "`rowdim'" == "" {
-        display as error "No active table-shaped collect found"
-        display as error "Run collect: table ... before desctab"
-        exit 119
+    /* Mark observations to include in analysis before sample-dependent validation */
+    marksample touse, novarlist  // Creates indicator variable for observations that satisfy if/in conditions
+    if `has_wt' markout `touse' `wt'  // Exclude observations with missing weights
+
+    /* Validate wt() only within the analysis sample */
+    if `has_wt' {
+        quietly count if `touse' & `wt' < 0
+        if r(N) > 0 {
+            display as error "wt() variable must be non-negative"
+            error 498
+        }
+        quietly replace `touse' = 0 if `touse' & `wt' <= 0
     }
 
-    quietly collect label list result
-    local stats_available ""
-    forvalues _i = 1/`=real("`s(k)'")' {
-        local stats_available `"`stats_available' `s(level`_i')'"'
-    }
-    local stats_available = strtrim("`stats_available'")
-    if "`stats_available'" == "" {
-        collect levelsof result
-        local stats_available `"`s(levels)'"'
-        local stats_available : subinstr local stats_available "N" "", word all
-        local stats_available = strtrim("`stats_available'")
-    }
-    if "`stats_available'" == "" {
-        display as error "No table statistics found in the active collect"
-        display as error "Run collect: table ... statistic(...) before desctab"
-        exit 459
+    /* Validate that observations remain after if/in conditions */
+    quietly count if `touse'
+    if r(N) == 0 {
+        display as error "no observations"
+        error 2000
     }
 
-    local compose_mode = lower(strtrim(`"`compose'"'))
+    /* Stage the analytical table in frames; no intermediate .dta files. */
+    tempname _result_frame _wtc_crude_table
+    local _caller_frame = c(frame)
 
-    if `"`compose_mode'"' != "" {
-        _desctab_resolve_compose, compose("`compose'") stats("`stats_available'")
-        local compose_resolved `"`r(compose)'"'
-        local required_stats `"`r(required)'"'
-        local is_custom = `r(custom)'
+    /* Initialize row order counter */
+    local sortorder=1  // Counter to maintain the order of variables in the final table
+
+    /* Create numeric group variable */
+    tempvar groupnum  // Temporary variable for numeric group codes
+    if "`by'"=="" {
+        gen byte `groupnum'=1  // Create single placeholder group if no by() variable
+        local total ""         // No total column needed
     }
     else {
-        local compose_resolved ""
-        local required_stats ""
-        local is_custom 0
-    }
-
-    local _pct_compose = inlist("`compose_resolved'", "events_n_pct", "n_pct")
-    if "`pctscale'" == "auto" {
-        if `_pct_compose' local pctscale "0to100"
-        else local pctscale "0to1"
-    }
-    if `_pct_compose' & "`pctsign'" == "" local pctsign "pctsign"
-
-    if `"`compose_mode'"' != "" {
-        foreach _need of local required_stats {
-            _desctab_has_stat "`_need'" "`stats_available'"
-            if !`r(found)' {
-                display as error "compose(`compose') requires statistic(`_need' ...)"
-                display as error "Available result statistics: `stats_available'"
-                exit 459
+        // Convert string by() variable to numeric if needed
+        capture confirm numeric variable `by'
+        if !_rc qui clonevar `groupnum'=`by'  // If by() is already numeric
+        else qui encode `by', gen(`groupnum')  // If by() is string, encode to numeric
+        // Validate non-integer / non-negative values BEFORE recast long, force,
+        // because that recast silently truncates non-integer values.
+        qui levelsof `groupnum' if `touse', local(_pre_levels)
+        foreach _pl of local _pre_levels {
+            capture confirm integer number `_pl'
+            if _rc!=0 {
+                display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
+                error 498
             }
         }
-        local stats_layout `"`required_stats'"'
+        // Ensure long storage so total sentinel value is exact
+        qui recast long `groupnum', force
     }
-    else if "`statorder'" != "" {
-        local stats_layout ""
-        foreach _stat of local statorder {
-            _desctab_has_stat "`_stat'" "`stats_available'"
-            if `r(found)' local stats_layout "`stats_layout' `_stat'"
-            else display as text "statorder: statistic '`_stat'' not in collect, ignoring"
+
+    /* Validate the grouping variable */
+    qui su `groupnum' if `touse', meanonly
+    // Check that grouping variable values are non-negative
+    if `r(min)' < 0 {
+        display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
+        error 498
+    }
+
+    /* Sentinel value for total column (replaces hardcoded 919) */
+    local _total_code = c(maxlong)
+
+    // Check if grouping variable contains the reserved sentinel value (used for totals)
+    qui count if `groupnum' == `_total_code' & `touse'
+    if `r(N)' > 0 {
+        display as error "by() variable not allowed to take the value `_total_code' due to internal coding. Please recode to any other non-negative integer."
+        error 498
+    }
+
+    // Get unique values of the grouping variable
+    qui levelsof `groupnum' if `touse', local(levels)
+    local _group_levels "`levels'"  // Save group levels for wtcompare merge
+
+    /* Check that all group values are integers (re-check after recast) */
+    foreach l of local levels {
+        capture confirm integer number `l'
+        if _rc!=0 {
+            display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
+            error 498
         }
-        foreach _stat of local stats_available {
-            _desctab_has_stat "`_stat'" "`stats_layout'"
-            if !`r(found)' local stats_layout "`stats_layout' `_stat'"
-        }
-        local stats_layout = strtrim("`stats_layout'")
+    }
+
+    /* Determine number of groups and validate */
+    local groupcount: word count `levels'  // Count number of unique groups
+    // Check that by() has at least 2 groups if specified
+    if `groupcount'<2 & "`by'"!="" {
+        display as error "by() variable must have at least 2 levels"
+        error 498
+    }
+
+    /* Store group level values for SMD comparisons */
+    tokenize `levels'
+    local level1 `1'
+    local level2 `2'
+    local level3 `3'
+
+    * SMD >2 groups warning (R3)
+    if `has_smd' & `groupcount' > 2 {
+        local _l1lab : label (`groupnum') `level1'
+        local _l2lab : label (`groupnum') `level2'
+        display as text "{bf:Note:} SMD computed for first two groups only (`_l1lab' vs `_l2lab')"
+    }
+
+    /* Create placeholder group variable if not specified */
+    if "`by'"=="" local group `groupnum'
+
+    /* wtcompare: two-pass loop setup */
+    if `has_wtcompare' {
+        local _wtc_passes "crude weighted"
     }
     else {
-        local stats_layout `"`stats_available'"'
+        local _wtc_passes "single"
+    }
+    local _wtc_save_sortorder = `sortorder'
+    local _wtc_save_has_wt = `has_wt'
+    local _wtc_save_has_smd = `has_smd'
+
+**# Fast Aggregation
+    local _fast_weight ""
+    if "`weight'" != "" local _fast_weight "[`weight'`exp']"
+
+    local _fast_common_opts `"replace stub(`groupnum') totalcode(`_total_code')"'
+    if "`total'" != "" local _fast_common_opts `"`_fast_common_opts' total(`total')"'
+    if "`missing'" != "" local _fast_common_opts `"`_fast_common_opts' missing"'
+    if "`missingsummary'" != "" local _fast_common_opts `"`_fast_common_opts' missingsummary"'
+    if "`smallcells'" != "" local _fast_common_opts `"`_fast_common_opts' smallcells(`smallcells')"'
+    if "`percent'" != "" local _fast_common_opts `"`_fast_common_opts' percent"'
+    if "`percent_n'" != "" local _fast_common_opts `"`_fast_common_opts' percent_n"'
+    if "`slashN'" != "" local _fast_common_opts `"`_fast_common_opts' slashN"'
+    if "`catrowperc'" != "" local _fast_common_opts `"`_fast_common_opts' catrowperc"'
+    if "`varlabplus'" != "" local _fast_common_opts `"`_fast_common_opts' varlabplus"'
+    if "`spacelowpercent'" == "" local _fast_common_opts `"`_fast_common_opts' nospacelowpercent"'
+    if "`extraspace'" != "" local _fast_common_opts `"`_fast_common_opts' extraspace"'
+    if `"`format'"' != "" local _fast_common_opts `"`_fast_common_opts' format(`"`format'"')"'
+    if `"`percformat'"' != "" local _fast_common_opts `"`_fast_common_opts' percformat(`"`percformat'"')"'
+    if `"`nformat'"' != "" local _fast_common_opts `"`_fast_common_opts' nformat(`"`nformat'"')"'
+    if `"`iqrmiddle'"' != "" local _fast_common_opts `"`_fast_common_opts' iqrmiddle(`iqrmiddle')"'
+    if `"`sdleft'"' != "" local _fast_common_opts `"`_fast_common_opts' sdleft(`sdleft')"'
+    if `"`sdright'"' != "" local _fast_common_opts `"`_fast_common_opts' sdright(`sdright')"'
+    if `"`gsdleft'"' != "" local _fast_common_opts `"`_fast_common_opts' gsdleft(`gsdleft')"'
+    if `"`gsdright'"' != "" local _fast_common_opts `"`_fast_common_opts' gsdright(`gsdright')"'
+    if `"`percsign'"' != "" local _fast_common_opts `"`_fast_common_opts' percsign(`percsign')"'
+
+    local _fast_analysis_opts ""
+    if "`smd'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' smd"'
+    if "`test'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' test"'
+    if "`statistic'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' statistic"'
+    if "`nopvalue'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' nopvalue"'
+
+    * Progress dots (opt-in): one dot per analysis variable about to be
+    * processed. Help documents this; it was declared but unwired before.
+    if "`dots'" != "" {
+        local _ndelim = length(`"`vars'"') - length(subinstr(`"`vars'"', "\", "", .))
+        local _nspec = `_ndelim' + 1
+        display as text "Processing `_nspec' variable(s): " _continue
+        forvalues _d = 1/`_nspec' {
+            display as text "." _continue
+        }
+        display as text ""
     }
 
-    if "`stats_layout'" == "" {
-        display as error "No statistics selected for display"
-        exit 459
-    }
-    local n_stats : word count `stats_layout'
+    if !`has_wtcompare' {
+        local _fast_single_opts `"`_fast_common_opts' `_fast_analysis_opts'"'
+        if `has_wt' local _fast_single_opts `"`_fast_single_opts' wt(`wt')"'
+        _desctab_collect `_fast_weight' if `touse', ///
+            by(`groupnum') vars(`vars') frame(`_result_frame') ///
+            `_fast_single_opts'
 
-    * Strict disclosure control requires exact collect dimension/result IDs.
-    * Arbitrary compositions and filtered blocks do not retain enough lineage
-    * for a reconstruction proof, so reject them before rendering any sink.
-    local _sc_count_stat ""
-    local _sc_pct_stat ""
-    if `_sc_active' {
-        local _sc_var_dim 0
-        local _sc_row_nonvar 0
-        local _sc_col_nonvar 0
-        foreach _dim in `=subinstr("`rowdim'", "#", " ", .)' {
-            if "`_dim'" == "var" local _sc_var_dim 1
-            else local ++_sc_row_nonvar
-        }
-        foreach _dim in `=subinstr("`coldim'", "#", " ", .)' {
-            if "`_dim'" == "var" local _sc_var_dim 1
-            else local ++_sc_col_nonvar
-        }
-        if `_sc_row_nonvar' > 1 | `_sc_col_nonvar' > 1 {
-            display as error "smallcells() supports only one row dimension and at most one column dimension in desctab"
-            exit 459
-        }
-        if `_sc_var_dim' {
-            capture collect levelsof var
-            if _rc {
-                display as error "smallcells() could not map the collect var dimension"
-                exit 459
+        local _processed_varlist = strtrim("`r(varlist)'")
+        local _resolved_has_bin = r(has_bin)
+        local _resolved_has_cat = r(has_cat)
+        local _resolved_has_contn = r(has_contn)
+        local _resolved_has_contln = r(has_contln)
+        local _resolved_has_conts = r(has_conts)
+        local _used_ttest = r(used_ttest)
+        local _used_anova = r(used_anova)
+        local _used_wilcoxon = r(used_wilcoxon)
+        local _used_kw = r(used_kwallis)
+        local _used_chi2 = r(used_chi2)
+        local _used_fisher = r(used_fisher)
+    }
+    else {
+        _desctab_collect if `touse', ///
+            by(`groupnum') vars(`vars') frame(`_wtc_crude_table') ///
+            `_fast_common_opts' nopvalue
+
+        local _fast_weighted_opts `"`_fast_common_opts' `_fast_analysis_opts' wt(`wt') wtcompare"'
+        /* Recommended default: weighted columns are percent-only. wtn/percent_n
+           (captured in _show_wtn) restore the weighted effective count. The
+           crude pass above always keeps n (%). */
+        if !`_show_wtn' local _fast_weighted_opts `"`_fast_weighted_opts' percent"'
+        _desctab_collect if `touse', ///
+            by(`groupnum') vars(`vars') frame(`_result_frame') ///
+            `_fast_weighted_opts'
+
+        local _processed_varlist = strtrim("`r(varlist)'")
+        local _resolved_has_bin = r(has_bin)
+        local _resolved_has_cat = r(has_cat)
+        local _resolved_has_contn = r(has_contn)
+        local _resolved_has_contln = r(has_contln)
+        local _resolved_has_conts = r(has_conts)
+        local _used_ttest = r(used_ttest)
+        local _used_anova = r(used_anova)
+        local _used_wilcoxon = r(used_wilcoxon)
+        local _used_kw = r(used_kwallis)
+        local _used_chi2 = r(used_chi2)
+        local _used_fisher = r(used_fisher)
+
+        frame `_wtc_crude_table' {
+            capture confirm variable sort1
+            if !_rc replace sort1 = sort1 + 1 if sort1 >= 2
+
+            local _wtc_merge_levels `"`_group_levels'"'
+            if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
+
+            foreach lv of local _wtc_merge_levels {
+                capture rename `groupnum'`lv' _cr_`lv'
+                capture rename _columna_`lv' _cr_columna_`lv'
+                capture rename _columnb_`lv' _cr_columnb_`lv'
+                capture rename N_`lv' _cr_N_`lv'
+                capture rename _scmask_`lv' _cr_scmask_`lv'
+                capture rename _scmiss_`lv' _cr_scmiss_`lv'
             }
-            local _sc_var_levels `"`s(levels)'"'
-            local _sc_var_levels : subinstr local _sc_var_levels "_hide" "", word all
-            local _sc_var_n : word count `_sc_var_levels'
-            if `_sc_var_n' != 1 {
-                display as error "smallcells() supports one exact source-variable level per desctab count block"
-                exit 459
+            capture rename _sc_derived _cr_sc_derived
+            capture confirm variable sort2
+            if _rc gen sort2 = 0
+            keep sort1 sort2 _cr_*
+            * Stata 17 frget omits underscore-prefixed variables and cannot
+            * copy strL. Use a temporary legal prefix and bounded strings.
+            rename _cr_* crtmp_*
+            foreach _crv of varlist crtmp_* {
+                capture confirm string variable `_crv'
+                if !_rc recast str2045 `_crv'
             }
         }
-        if `is_custom' | !inlist(`"`compose_resolved'"', "", "n_pct") {
-            display as error "smallcells() supports count/frequency/fvfrequency or compose(n_pct) layouts in desctab"
-            exit 459
-        }
-        if `"`keep'"' != "" | `"`drop'"' != "" | "`nomissing'" != "" {
-            display as error "smallcells() cannot be combined with keep(), drop(), or nomissing in desctab"
-            exit 459
-        }
-        if `highlight' != -1 {
-            display as error "smallcells() cannot be combined with highlight() in desctab"
-            exit 459
-        }
-        foreach _candidate in count frequency fvfrequency {
-            local _pos : list posof "`_candidate'" in stats_layout
-            if `_pos' & "`_sc_count_stat'" == "" local _sc_count_stat "`_candidate'"
-        }
-        foreach _candidate in percent fvpercent prop propc propr {
-            local _pos : list posof "`_candidate'" in stats_layout
-            if `_pos' & "`_sc_pct_stat'" == "" local _sc_pct_stat "`_candidate'"
-        }
-        if "`_sc_count_stat'" == "" {
-            display as error "smallcells() requires a count, frequency, or fvfrequency result in desctab"
-            exit 459
-        }
-        if `"`compose_resolved'"' == "" & `n_stats' != 1 {
-            display as error "smallcells() without compose(n_pct) requires a count-only result layout in desctab"
-            exit 459
-        }
-        if `"`compose_resolved'"' == "n_pct" & ///
-            ("`_sc_pct_stat'" == "" | `n_stats' != 2) {
-            display as error "smallcells() with compose(n_pct) requires exactly one count and one percentage result"
-            exit 459
+
+        frame `_result_frame' {
+            capture confirm variable sort2
+            if _rc gen sort2 = 0
+            frlink 1:1 sort1 sort2, frame(`_wtc_crude_table') generate(_wtc_link)
+            frget crtmp_*, from(_wtc_link)
+            rename crtmp_* _cr_*
+            drop _wtc_link
         }
     }
 
-    local _source_vars ""
-    capture collect levelsof var
-    if !_rc {
-        local _source_vars `"`s(levels)'"'
-        local _source_vars : subinstr local _source_vars "_hide" "", word all
-        local _source_vars = strtrim("`_source_vars'")
-    }
-    local _source_nvars : word count `_source_vars'
-    local _single_source_var ""
-    if `_source_nvars' == 1 {
-        local _single_source_var : word 1 of `_source_vars'
+
+**# Finalize Results Table
+
+    /* Get value labels for group if available */
+    local vallab: value label `groupnum'
+    if "`vallab'"!="" {
+        tempfile labels
+        qui label save `vallab' using "`labels'"  // Save value labels to temporary file
     }
 
-    local _sum_integer 1
-    local _mean_binary 0
-    if "`_single_source_var'" != "" {
-        capture confirm numeric variable `_single_source_var'
-        if _rc {
-            local _sum_integer 0
-            display as text "desctab: source variable `_single_source_var' not in memory; formatting sums with digits()"
+    /* Get levels of group variable for subsequent labelling */
+    qui levelsof `groupnum' if `touse', local(levels)
+
+    /* Load results table */
+    preserve
+    frame copy `_result_frame' `_caller_frame', replace
+    if `_suppress_p' {
+        capture drop p
+        capture drop test
+        capture drop statistic
+    }
+    if "`test'" != "test" capture drop test
+    if "`statistic'" != "statistic" capture drop statistic
+    if !`has_smd' capture drop smd_val
+
+    /* Restore value labels if available */
+    if "`vallab'" != "" quietly do "`labels'"
+
+    /* Set up total column label */
+    if "`total'" != "" {
+        // If no value label exists, generate a unique tempname to avoid
+        // mutating any user label of the same arbitrary name.
+        if "`vallab'"=="" {
+            tempname _t1tc_vallab
+            local vallab `"`_t1tc_vallab'"'
+        }
+        label define `vallab' `_total_code' `"Total"', modify  // Add "Total" label for sentinel
+        local levels "`levels' `_total_code'"  // Add sentinel to levels list
+    }
+
+    /* Apply labels to each group column */
+    foreach level of local levels {
+        if "`vallab'"=="" {
+            // If no value label, use by-variable name and value
+            lab var `groupnum'`level' "`by' = `level'"
+            if `has_wtcompare' {
+                capture lab var _cr_`level' "Crude `by' = `level'"
+            }
         }
         else {
-            quietly count if !missing(`_single_source_var') ///
-                & `_single_source_var' != round(`_single_source_var')
-            if r(N) > 0 local _sum_integer 0
-            quietly count if !missing(`_single_source_var') ///
-                & !inlist(`_single_source_var', 0, 1)
-            if r(N) == 0 local _mean_binary 1
-        }
-    }
-    else if `_source_nvars' > 1 {
-        local _sum_integer 0
-    }
-
-    foreach _stat of local stats_layout {
-        _tabtools_resolve_stat_format `_stat', digits(`digits') ///
-            pctdigits(`pctdigits') nintegerfmt("`nintegerfmt'")
-        local fmt_`_stat' `"`r(fmt)'"'
-        local class_`_stat' `"`r(class)'"'
-        if inlist("`_stat'", "sum", "sum_w", "total") & !`_sum_integer' {
-            local fmt_`_stat' "%21.`digits'f"
-            local class_`_stat' "continuous"
-        }
-    }
-
-    if `"`nformats'"' != "" {
-        local _nf_clean = subinstr(`"`nformats'"', "=", " ", .)
-        local _nf_n : word count `_nf_clean'
-        if mod(`_nf_n', 2) != 0 {
-            display as error "nformats() must contain stat=format or stat format pairs"
-            exit 198
-        }
-        forvalues _nf_i = 1(2)`_nf_n' {
-            local _nf_stat : word `_nf_i' of `_nf_clean'
-            local _nf_fmt : word `=`_nf_i' + 1' of `_nf_clean'
-            _desctab_has_stat "`_nf_stat'" "`stats_available'"
-            if `r(found)' local fmt_`_nf_stat' "`_nf_fmt'"
-            else display as text "nformats: statistic '`_nf_stat'' not in collect, ignoring"
-        }
-    }
-
-    if `"`statlabels'"' != "" {
-        _desctab_parse_statlabels, spec("`statlabels'") stats("`stats_available'")
-        foreach _stat of local stats_available {
-            if `"`r(label_`_stat')'"' != "" local statlabel_`_stat' `"`r(label_`_stat')'"'
-        }
-    }
-
-    foreach _stat of local stats_layout {
-        capture collect style cell result[`_stat'], warn nformat(`fmt_`_stat'') ///
-            halign(center) valign(center)
-    }
-    collect style column, dups(center)
-    collect style row stack, nodelimiter nospacer indent length(.) wrapon(word) ///
-        noabbreviate wrap(.) truncate(tail)
-
-    tempfile _desctab_export
-    local _temp_xlsx "`_desctab_export'.xlsx"
-    if "`coldim'" != "" {
-        quietly collect layout (`rowdim') (`coldim'#result[`stats_layout']) ()
-        local raw_stat_row 3
-        local raw_col_row 2
-        local raw_dim_row 4
-        local raw_data_start 5
-    }
-    else {
-        quietly collect layout (`rowdim') (result[`stats_layout']) ()
-        local raw_stat_row 1
-        local raw_col_row 0
-        local raw_dim_row 2
-        local raw_data_start 3
-    }
-
-    preserve
-    local _preserved 1
-    if "`coldim'" != "" {
-        capture _tabtools_collect_render, type(desctab) rowdim(`rowdim') ///
-            coldim(`coldim') results(`stats_layout')
-        local _collect_render_rc = _rc
-    }
-    else {
-        capture _tabtools_collect_render, type(desctab) rowdim(`rowdim') ///
-            results(`stats_layout')
-        local _collect_render_rc = _rc
-    }
-    if `_collect_render_rc' {
-        restore
-        local _preserved 0
-        capture collect export "`_temp_xlsx'", replace
-        if _rc {
-            display as error "Failed to export the active collect to a temporary workbook"
-            exit _rc
-        }
-        preserve
-        local _preserved 1
-        capture _tabtools_xlsx_read using "`_temp_xlsx'", sheet("Sheet1")
-        if _rc {
-            display as error "Failed to import the temporary collect workbook"
-            exit _rc
-        }
-    }
-    capture erase "`_temp_xlsx'"
-
-    unab _allvars : _all
-    local data_vars ""
-    foreach _v of local _allvars {
-        if !inlist("`_v'", "A", "_tt_row_key", "_tt_row_total", "_tt_row_missing") {
-            local data_vars `"`data_vars' `_v'"'
-        }
-    }
-    local data_vars = strtrim("`data_vars'")
-    if "`data_vars'" == "" {
-        display as error "The active collect exported no data cells"
-        exit 2000
-    }
-
-    if "`coldim'" != "" & `raw_dim_row' <= _N {
-        local _raw_dim_has_data 0
-        foreach _v of local data_vars {
-            if strtrim(`_v'[`raw_dim_row']) != "" local _raw_dim_has_data 1
-        }
-        if `_raw_dim_has_data' {
-            local raw_data_start = `raw_dim_row'
-            local raw_dim_row 0
-        }
-    }
-
-    local drop_row_totals = ("`nototals'" != "" & "`rowtotals'" == "")
-    local drop_col_totals = ("`nototals'" != "" & "`coltotals'" == "")
-
-    if `drop_col_totals' & "`coldim'" != "" {
-        foreach _v of local data_vars {
-            local _is_col_total : char `_v'[_tabtools_col_total]
-            if "`_is_col_total'" == "1" {
-                drop `_v'
+            // Use value label if available
+            local lab: label `vallab' `level'
+            lab var `groupnum'`level' "`lab'"
+            if `has_wtcompare' {
+                capture lab var _cr_`level' "Crude `lab'"
             }
         }
-        unab _allvars : _all
-        local data_vars ""
-        foreach _v of local _allvars {
-            if !inlist("`_v'", "A", "_tt_row_key", "_tt_row_total", "_tt_row_missing") {
-                local data_vars `"`data_vars' `_v'"'
+    }
+
+    /* Calculate missing counts */
+    foreach i of local levels {
+        cap gen cat_not_top_row = .  // Create indicator for categorical variables
+        qui recode N_`i' .=0 if cat_not_top_row !=1  // Use N=0 for categorical vars
+        qui su N_`i'  // Get maximum sample size for this group
+        local _max_n_`i' = r(max)
+        qui gen m_`i' = `_max_n_`i'' - N_`i'  // Calculate missing as max - observed
+        label var m_`i' "`i' m"  // Label missing count columns
+    }
+
+    /* Add missing data summary rows when missingsummary specified */
+    if "`missingsummary'" != "" {
+        local _nobs_before = _N
+        forvalues _obs = 1/`_nobs_before' {
+            local _fval = factor[`_obs']
+            if "`_fval'" == " " | "`_fval'" == "" | "`_fval'" == "N" | "`_fval'" == "Effective sample size" continue
+            * Check if any group has missing values for this variable
+            local _any_miss 0
+            foreach _lv of local levels {
+                local _mval = m_`_lv'[`_obs']
+                if !missing(`_mval') & `_mval' > 0 local _any_miss 1
+            }
+            if `_any_miss' {
+                local _new = _N + 1
+                qui set obs `_new'
+                qui replace factor = "   Missing" in `_new'
+                qui replace factor_sep = factor_sep[`_obs'] in `_new'
+                capture confirm variable sort1
+                if !_rc replace sort1 = sort1[`_obs'] in `_new'
+                capture confirm variable sort2
+                * Extended missing sorts after both numbered category levels
+                * and the plain missing sort key used by continuous rows.
+                if !_rc replace sort2 = .a in `_new'
+                foreach _lv of local levels {
+                    local _mval = m_`_lv'[`_obs']
+                    if !missing(`_mval') & `_mval' > 0 {
+                        local _sc_mcode 0
+                        if "`smallcells'" != "" local _sc_mcode = _scmiss_`_lv'[`_obs']
+                        if `_sc_mcode' > 0 {
+                            _tabtools_smallcells_render, value(`_mval') mask(`_sc_mcode') ///
+                                smallcells(`smallcells') format(`nformat')
+                            local _mstr `"`r(display)'"'
+                        }
+                        else {
+                            local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
+                        }
+                        qui replace `groupnum'`_lv' = "`_mstr'" in `_new'
+                        if "`smallcells'" != "" qui replace _scmask_`_lv' = `_sc_mcode' in `_new'
+                    }
+                    else {
+                        qui replace `groupnum'`_lv' = "0" in `_new'
+                    }
+
+                    if `has_wtcompare' {
+                        local _cr_mcode 0
+                        if "`smallcells'" != "" local _cr_mcode = _cr_scmiss_`_lv'[`_obs']
+                        if !missing(`_mval') & `_mval' > 0 & `_cr_mcode' > 0 {
+                            _tabtools_smallcells_render, value(`_mval') mask(`_cr_mcode') ///
+                                smallcells(`smallcells') format(`nformat')
+                            qui replace _cr_`_lv' = `"`r(display)'"' in `_new'
+                        }
+                        else if !missing(`_mval') & `_mval' > 0 {
+                            local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
+                            qui replace _cr_`_lv' = "`_mstr'" in `_new'
+                        }
+                        else qui replace _cr_`_lv' = "0" in `_new'
+                        if "`smallcells'" != "" qui replace _cr_scmask_`_lv' = `_cr_mcode' in `_new'
+                    }
+                }
             }
         }
-        local data_vars = strtrim("`data_vars'")
     }
 
-    tempvar _desctab_drop
-    quietly gen byte `_desctab_drop' = 0
-    if `drop_row_totals' {
-        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
-            & _tt_row_total == 1
-    }
-    if "`nomissing'" != "" {
-        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
-            & _tt_row_missing == 1
-    }
-    if `"`keep'"' != "" {
-        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
-            & strpos(" `keep' ", " " + strtrim(A) + " ") == 0
-    }
-    if `"`drop'"' != "" {
-        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
-            & strpos(" `drop' ", " " + strtrim(A) + " ") > 0
-    }
-    quietly drop if `_desctab_drop'
-    drop `_desctab_drop'
+    /* Apply variable labels */
+    lab var factor "Factor "
+    capture lab var level "Level"
+    capture lab var test "Test"
+    capture lab var statistic "Statistic"
+    if `groupcount'==1 lab var `groupnum'1 "Total"  // Simplify single group label
+    capture lab var _columna_`_total_code' "T _columna_"  // Label total column components
+    capture lab var _columnb_`_total_code' "T _columnb_"
+    capture lab var N_`_total_code' "T N_"
+    capture lab var m_`_total_code' "T m_"
 
-    local n_data_vars : word count `data_vars'
-    if `n_data_vars' == 0 {
-        display as error "No data columns remain after filtering"
-        exit 2000
+    tempvar _sc_anyderived
+    if "`smallcells'" != "" {
+        quietly gen byte `_sc_anyderived' = _sc_derived == 1
+        if `has_wtcompare' quietly replace `_sc_anyderived' = 1 if _cr_sc_derived == 1
+        capture confirm variable p
+        if !_rc quietly replace p = .d if `_sc_anyderived'
+        capture confirm variable smd_val
+        if !_rc quietly replace smd_val = .d if `_sc_anyderived'
+        capture confirm variable test
+        if !_rc quietly replace test = "Suppressed" if `_sc_anyderived'
+        capture confirm variable statistic
+        if !_rc quietly replace statistic = "Suppressed" if `_sc_anyderived'
     }
-    if mod(`n_data_vars', `n_stats') != 0 {
-        display as error "The active collect table shape is not supported by desctab"
-        display as error "Expected one row dimension and zero or one column dimension"
-        exit 459
-    }
-    local n_groups = `n_data_vars' / `n_stats'
 
-    * Build the released two-way frequency block from exact result IDs and
-    * raw collect keys, validate every additive margin, then redact the raw
-    * count strings before composition or any public sink can see them.
-    tempname _scmask _scrowmask _sccolmask _sc_counts _sc_exact _sc_sensitive
-    tempname _sc_rowexact _sc_rowsens _sc_colexact _sc_colsens
-    local _sc_totalmask 0
+    /* Format p-values (skipped when wt() or nopvalue specified) */
+    if `groupcount'>1 & !`_suppress_p' {
+        cap gen p = .  // Create p-value variable if it doesn't exist
+
+        // Format p-values according to their magnitude and specified decimal places
+        qui gen pvalue=string(p, "%`=`highpdp'+2'.`highpdp'f") if !missing(p)  // Standard format for high p-values
+        qui replace pvalue=string(p, "%`=`pdp'+2'.`pdp'f") if p<0.10  // More decimal places for low p-values
+
+        // Preserve direction when rounding would otherwise understate p.
+        local pmax = 1 - 10^(-`highpdp')
+        qui replace pvalue=">" + string(`pmax', "%`=`highpdp'+2'.`highpdp'f") ///
+            if p>`pmax' & p<1 & !missing(p)
+
+        // Handle very small p-values
+        local pmin=10^-`pdp'  // Minimum p-value to show numerically
+        qui replace pvalue="<" + string(`pmin', "%`=`pdp'+2'.`pdp'f") if p<`pmin'  // Show as <0.001 etc.
+
+        lab var pvalue "p-value"  // Label p-value column
+        if "`smallcells'" != "" quietly replace pvalue = "Suppressed" if `_sc_anyderived'
+    }
+
+    /* Format SMD column if present */
+    if `has_smd' {
+        capture confirm variable smd_val
+        if !_rc {
+            qui gen smd_str = string(abs(smd_val), "%5.3f") if !missing(smd_val)
+            if "`smallcells'" != "" quietly replace smd_str = "Suppressed" if `_sc_anyderived'
+            lab var smd_str "SMD"
+        }
+    }
+
+    /* Create a header row with variable labels */
+    qui count
+    local newN=r(N) + 1
+    qui set obs `newN'  // Add new row for headers
+    qui desc, varlist
+    foreach var of varlist `r(varlist)' {
+        // Add variable label as header for each column
+        if "`var'" != "level" {
+            capture confirm string variable `var'
+            if !_rc qui replace `var'="`: var lab `var''" in `newN'
+        }
+    }
+    qui replace sort1=0 in `newN'  // Set sort order to ensure header is first
+
+    /* Sort rows and drop unneeded variables */
+    sort sort*  // Sort by primary and secondary sort variables
+
+    drop sort*  // Remove sort variables
+    * Preserve raw numeric p-values for boldp/highlight formatting. Use tempvars
+    * so a user column literally named _p_raw/_smd_raw can never be clobbered.
+    tempvar p_raw smd_raw
+    capture confirm variable p
+    if !_rc qui gen double `p_raw' = p
+    capture drop p  // Drop raw p-value variable
+    * Preserve raw SMD values for conditional formatting (O2)
+    capture confirm variable smd_val
+    if !_rc qui gen double `smd_raw' = abs(smd_val)
+    capture drop smd_val  // Drop raw SMD values
+
+    /* Left-justify strings except p-value */
+    qui desc, varlist
+    foreach var in `r(varlist)' {
+        format `var' %-`=substr("`: format `var''", 2, .)'  // Set left alignment
+    }
+    capture format %`=`pdp'+3's _columna_*  // Format column components
+
+    /* Reorganize columns for display */
+    order N_*, seq  // Group N columns together
+    order `groupnum'*, seq  // Group data columns together
+    order factor `groupnum'* N_* m_*  // Set main column order
+    capture order factor `groupnum'* pvalue  // Add p-value if exists
+    capture order test, before(pvalue)  // Add test column if exists
+    capture order statistic, before(pvalue)  // Add statistic column if exists
+    * Add SMD column after pvalue
+    capture order smd_str, after(pvalue)
+    capture order level, after(factor)  // Add level column for categorical variables
+
+    /* Rename placeholder group variable or add group prefix */
+    if `groupcount'==1 rename `groupnum'1 Total  // Simplify single group name
+    else rename `groupnum'* `by'*  // Add by-variable name prefix to group columns
+
+    if "`by'" !="" rename `by'* `by'_*  // Add underscore for clarity
+    capture rename *_`_total_code' *_T  // Rename total columns to _T
+    capture rename _*_`_total_code' _*_T  // Rename total column components
+
+    /* wtcompare: rename crude columns and reorder for side-by-side display */
+    if `has_wtcompare' {
+        * Build list of column suffixes (group levels, already renamed for total)
+        * levels may include the total sentinel which was renamed to T
+        local _wtc_suffixes ""
+        foreach lv of local levels {
+            if "`lv'" == "`_total_code'" {
+                local _wtc_suffixes "`_wtc_suffixes' T"
+            }
+            else {
+                local _wtc_suffixes `"`_wtc_suffixes' `lv'"'
+            }
+        }
+
+        * Rename weighted columns: by_X -> Wt_X
+        * Rename crude columns: _cr_X -> Cr_X
+        foreach sfx of local _wtc_suffixes {
+            * Get label for this column
+            if "`sfx'" == "T" {
+                local _wtc_lab "Total"
+            }
+            else if "`vallab'" != "" {
+                local _wtc_lab : label `vallab' `sfx'
+            }
+            else {
+                local _wtc_lab `"`by' = `sfx'"'
+            }
+
+            * Rename weighted group column and set label
+            capture rename `by'_`sfx' Wt_`sfx'
+            capture lab var Wt_`sfx' "Weighted `_wtc_lab'"
+
+            * Rename crude group column (already renamed _T by standard rename)
+            capture rename _cr_`sfx' Cr_`sfx'
+            capture lab var Cr_`sfx' "Crude `_wtc_lab'"
+
+            * Drop crude helper columns (not needed for display)
+            capture drop _cr_columna_`sfx'
+            capture drop _cr_columnb_`sfx'
+            capture drop _cr_N_`sfx'
+            * Also try original sentinel names (in case standard rename missed them)
+            if "`sfx'" == "T" {
+                capture drop _cr_columna_`_total_code'
+                capture drop _cr_columnb_`_total_code'
+                capture drop _cr_N_`_total_code'
+            }
+        }
+
+        * Reorder: factor, Crude columns, Weighted columns, SMD
+        capture order factor Cr_* Wt_*
+        capture confirm variable smd_str
+        if !_rc order smd_str, last
+
+        * Update header row values to match new labels
+        foreach sfx of local _wtc_suffixes {
+            capture confirm string variable Cr_`sfx'
+            if !_rc qui replace Cr_`sfx' = "`: var lab Cr_`sfx''" if _n == 1
+            capture confirm string variable Wt_`sfx'
+            if !_rc qui replace Wt_`sfx' = "`: var lab Wt_`sfx''" if _n == 1
+        }
+    }
+
+    /* Position total column if requested */
+    if "`total'" == "before" {
+        tokenize `levels'
+        local first `1'
+        if `has_wtcompare' {
+            cap order Cr_T, before(Cr_`first')  // Move crude total before first crude group
+            cap order Wt_T, before(Wt_`first')  // Move weighted total before first weighted group
+        }
+        else {
+            cap order `by'_T, before(`by'_`first')  // Move total before first group
+        }
+        order N_T, before(N_`first')  // Reorder N columns
+        order m_T, before(m_`first')  // Reorder missing columns
+        order _columna_T _columnb_T, before(_columna_`first')  // Reorder column components
+    }
+
+    if "`total'" == "after" {
+        tokenize `levels'
+        local first `1'
+        cap order `by'_T, before(pvalue)  // Move total before p-value
+        cap order N_T, before(m_`first')  // Reorder N columns
+        cap order m_T, before(_columna_`first')  // Reorder missing columns
+        cap order _columna_T _columnb_T, last  // Move column components to end
+    }
+
+    /* Snapshot the public suppression map before internal mask variables are
+       discarded. Counts refer to display cells, so a shared logical margin is
+       counted once for each cell in which the user can see its marker. */
+    tempname _sc_return
     local _sc_nprimary 0
     local _sc_nsecondary 0
     local _sc_nderived 0
-    if `_sc_active' {
-        local _sc_count_pos : list posof "`_sc_count_stat'" in stats_layout
-        local _sc_pct_pos 0
-        if "`_sc_pct_stat'" != "" {
-            local _sc_pct_pos : list posof "`_sc_pct_stat'" in stats_layout
+    if "`smallcells'" != "" {
+        local _sc_public_vars ""
+        local _sc_mask_vars ""
+        local _sc_suffixes ""
+        foreach _lv of local levels {
+            if "`_lv'" == "`_total_code'" local _sc_sfx "T"
+            else local _sc_sfx "`_lv'"
+            local _sc_suffixes "`_sc_suffixes' `_sc_sfx'"
         }
 
-        local _sc_body_rows ""
-        local _sc_total_row 0
-        forvalues _r = `raw_data_start'/`=_N' {
-            if _tt_row_total[`_r'] == 1 {
-                if `_sc_total_row' {
-                    display as error "smallcells() found multiple row-total levels; this desctab layout is unsupported"
-                    exit 459
+        if `has_wtcompare' {
+            foreach _sc_sfx of local _sc_suffixes {
+                capture confirm variable Cr_`_sc_sfx'
+                if !_rc {
+                    local _sc_public_vars "`_sc_public_vars' Cr_`_sc_sfx'"
+                    local _sc_mask_vars "`_sc_mask_vars' _cr_scmask_`_sc_sfx'"
                 }
-                local _sc_total_row = `_r'
+                capture confirm variable Wt_`_sc_sfx'
+                if !_rc {
+                    local _sc_public_vars "`_sc_public_vars' Wt_`_sc_sfx'"
+                    local _sc_mask_vars "`_sc_mask_vars' _scmask_`_sc_sfx'"
+                }
             }
-            else local _sc_body_rows "`_sc_body_rows' `_r'"
         }
-        local _sc_nr : word count `_sc_body_rows'
-        if `_sc_nr' == 0 {
-            display as error "smallcells() found no non-total count rows in the active collect"
-            exit 459
+        else if "`by'" == "" {
+            local _sc_first : word 1 of `_sc_suffixes'
+            local _sc_public_vars "Total"
+            local _sc_mask_vars "_scmask_`_sc_first'"
         }
-
-        local _sc_body_groups ""
-        local _sc_total_group 0
-        forvalues _g = 1/`n_groups' {
-            local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
-            local _count_var : word `_vpos' of `data_vars'
-            local _is_total : char `_count_var'[_tabtools_col_total]
-            if "`_is_total'" == "1" {
-                if `_sc_total_group' {
-                    display as error "smallcells() found multiple column-total levels; this desctab layout is unsupported"
-                    exit 459
-                }
-                local _sc_total_group = `_g'
-            }
-            else local _sc_body_groups "`_sc_body_groups' `_g'"
-        }
-        local _sc_nc : word count `_sc_body_groups'
-        if `_sc_nc' == 0 {
-            display as error "smallcells() found no non-total count columns in the active collect"
-            exit 459
-        }
-
-        matrix `_sc_counts' = J(`_sc_nr', `_sc_nc', 0)
-        local _sri 0
-        foreach _obs of local _sc_body_rows {
-            local ++_sri
-            local _sci 0
-            foreach _g of local _sc_body_groups {
-                local ++_sci
-                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
-                local _count_var : word `_vpos' of `data_vars'
-                local _raw = subinstr(strtrim(`_count_var'[`_obs']), ",", "", .)
-                if "`_raw'" == "" {
-                    local _raw "0"
-                    quietly replace `_count_var' = "0" in `_obs'
-                }
-                local _n = real("`_raw'")
-                if missing(`_n') | `_n' < 0 | `_n' != floor(`_n') {
-                    display as error "smallcells() requires nonnegative integer count results; `_sc_count_stat' contained `_raw'"
-                    exit 459
-                }
-                matrix `_sc_counts'[`_sri', `_sci'] = `_n'
+        else {
+            foreach _sc_sfx of local _sc_suffixes {
+                local _sc_public_vars "`_sc_public_vars' `by'_`_sc_sfx'"
+                local _sc_mask_vars "`_sc_mask_vars' _scmask_`_sc_sfx'"
             }
         }
 
-        matrix `_sc_exact' = J(`_sc_nr', `_sc_nc', 1)
-        matrix `_sc_sensitive' = J(`_sc_nr', `_sc_nc', 1)
-        matrix `_sc_rowexact' = J(`_sc_nr', 1, 0)
-        matrix `_sc_rowsens' = J(`_sc_nr', 1, 0)
-        matrix `_sc_colexact' = J(1, `_sc_nc', 0)
-        matrix `_sc_colsens' = J(1, `_sc_nc', 0)
-        local _sc_grandexact 0
-        local _sc_grandsens 0
+        local _sc_stat_vars ""
+        foreach _sc_stat in pvalue test statistic smd_str {
+            capture confirm variable `_sc_stat'
+            if !_rc local _sc_stat_vars "`_sc_stat_vars' `_sc_stat'"
+        }
+        local _sc_all_vars "`_sc_public_vars' `_sc_stat_vars'"
+        local _sc_ncols : word count `_sc_all_vars'
+        matrix `_sc_return' = J(`=_N', `_sc_ncols', 0)
 
-        if "`coldim'" != "" & `_sc_total_group' {
-            matrix `_sc_rowexact' = J(`_sc_nr', 1, 1)
-            matrix `_sc_rowsens' = J(`_sc_nr', 1, 1)
-            local _sri 0
-            foreach _obs of local _sc_body_rows {
-                local ++_sri
-                local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
-                local _count_var : word `_vpos' of `data_vars'
-                local _raw = subinstr(strtrim(`_count_var'[`_obs']), ",", "", .)
-                if "`_raw'" == "" local _raw "0"
-                local _margin = real("`_raw'")
-                local _expected = 0
-                forvalues _sci = 1/`_sc_nc' {
-                    local _expected = `_expected' + `_sc_counts'[`_sri', `_sci']
-                }
-                if missing(`_margin') | `_margin' != `_expected' {
-                    display as error "smallcells() could not verify a desctab row total from the released count cells"
-                    exit 459
-                }
+        local _sc_col 0
+        local _sc_nmasks : word count `_sc_mask_vars'
+        forvalues _sc_j = 1/`_sc_nmasks' {
+            local ++_sc_col
+            local _sc_mv : word `_sc_j' of `_sc_mask_vars'
+            forvalues _sc_obs = 1/`=_N' {
+                local _sc_code = `_sc_mv'[`_sc_obs']
+                if missing(`_sc_code') local _sc_code 0
+                matrix `_sc_return'[`_sc_obs', `_sc_col'] = `_sc_code'
+                if `_sc_code' == 1 local ++_sc_nprimary
+                else if `_sc_code' == 2 local ++_sc_nsecondary
+                else if `_sc_code' == 3 local ++_sc_nderived
             }
         }
-
-        if `_sc_total_row' {
-            matrix `_sc_colexact' = J(1, `_sc_nc', 1)
-            matrix `_sc_colsens' = J(1, `_sc_nc', 1)
-            local _sci 0
-            foreach _g of local _sc_body_groups {
-                local ++_sci
-                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
-                local _count_var : word `_vpos' of `data_vars'
-                local _raw = subinstr(strtrim(`_count_var'[`_sc_total_row']), ",", "", .)
-                if "`_raw'" == "" local _raw "0"
-                local _margin = real("`_raw'")
-                local _expected = 0
-                forvalues _sri = 1/`_sc_nr' {
-                    local _expected = `_expected' + `_sc_counts'[`_sri', `_sci']
-                }
-                if missing(`_margin') | `_margin' != `_expected' {
-                    display as error "smallcells() could not verify a desctab column total from the released count cells"
-                    exit 459
-                }
+        foreach _sc_stat of local _sc_stat_vars {
+            local ++_sc_col
+            forvalues _sc_obs = 1/`=_N' {
+                local _sc_code 0
+                if `_sc_anyderived'[`_sc_obs'] == 1 local _sc_code 3
+                matrix `_sc_return'[`_sc_obs', `_sc_col'] = `_sc_code'
+                if `_sc_code' == 3 local ++_sc_nderived
             }
         }
-
-        if "`coldim'" == "" & `_sc_total_row' {
-            matrix `_sc_colexact' = J(1, `_sc_nc', 1)
-            matrix `_sc_colsens' = J(1, `_sc_nc', 1)
-        }
-        if "`coldim'" != "" & `_sc_total_row' & `_sc_total_group' {
-            local _sc_grandexact 1
-            local _sc_grandsens 1
-            local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
-            local _count_var : word `_vpos' of `data_vars'
-            local _raw = subinstr(strtrim(`_count_var'[`_sc_total_row']), ",", "", .)
-            if "`_raw'" == "" local _raw "0"
-            local _grand = real("`_raw'")
-            local _expected = 0
-            forvalues _sri = 1/`_sc_nr' {
-                forvalues _sci = 1/`_sc_nc' {
-                    local _expected = `_expected' + `_sc_counts'[`_sri', `_sci']
-                }
-            }
-            if missing(`_grand') | `_grand' != `_expected' {
-                display as error "smallcells() could not verify the desctab grand total from the released count cells"
-                exit 459
-            }
-        }
-
-        _tabtools_smallcells, counts(`_sc_counts') exact(`_sc_exact') ///
-            sensitive(`_sc_sensitive') rowexact(`_sc_rowexact') ///
-            rowsensitive(`_sc_rowsens') colexact(`_sc_colexact') ///
-            colsensitive(`_sc_colsens') grandexact(`_sc_grandexact') ///
-            grandsensitive(`_sc_grandsens') smallcells(`smallcells')
-        matrix `_scmask' = r(mask)
-        matrix `_scrowmask' = r(rowmask)
-        matrix `_sccolmask' = r(colmask)
-        local _sc_totalmask = r(totalmask)
-        local _sc_nprimary = r(N_primary_suppressed)
-        local _sc_nsecondary = r(N_secondary_suppressed)
-
-        local _sri 0
-        foreach _obs of local _sc_body_rows {
-            local ++_sri
-            local _sci 0
-            foreach _g of local _sc_body_groups {
-                local ++_sci
-                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
-                local _count_var : word `_vpos' of `data_vars'
-                local _code = `_scmask'[`_sri', `_sci']
-                if `_code' > 0 {
-                    local _value = `_sc_counts'[`_sri', `_sci']
-                    _tabtools_smallcells_render, value(`_value') ///
-                        mask(`_code') smallcells(`smallcells')
-                    quietly replace `_count_var' = `"`r(display)'"' in `_obs'
-                }
-            }
-            if "`coldim'" != "" & `_sc_total_group' {
-                local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
-                local _count_var : word `_vpos' of `data_vars'
-                local _code = `_scrowmask'[`_sri', 1]
-                if `_code' > 0 {
-                    local _value = 0
-                    forvalues _sci = 1/`_sc_nc' {
-                        local _value = `_value' + `_sc_counts'[`_sri', `_sci']
-                    }
-                    _tabtools_smallcells_render, value(`_value') mask(`_code') ///
-                        smallcells(`smallcells')
-                    quietly replace `_count_var' = `"`r(display)'"' in `_obs'
-                }
-            }
-        }
-        if `_sc_total_row' {
-            local _sci 0
-            foreach _g of local _sc_body_groups {
-                local ++_sci
-                local _vpos = (`_g' - 1) * `n_stats' + `_sc_count_pos'
-                local _count_var : word `_vpos' of `data_vars'
-                local _code = `_sccolmask'[1, `_sci']
-                if `_code' > 0 {
-                    local _value = 0
-                    forvalues _sri = 1/`_sc_nr' {
-                        local _value = `_value' + `_sc_counts'[`_sri', `_sci']
-                    }
-                    _tabtools_smallcells_render, value(`_value') mask(`_code') ///
-                        smallcells(`smallcells')
-                    quietly replace `_count_var' = `"`r(display)'"' in `_sc_total_row'
-                }
-            }
-        }
-        if `_sc_grandexact' & `_sc_totalmask' > 0 {
-            local _vpos = (`_sc_total_group' - 1) * `n_stats' + `_sc_count_pos'
-            local _count_var : word `_vpos' of `data_vars'
-            local _value = 0
-            forvalues _sri = 1/`_sc_nr' {
-                forvalues _sci = 1/`_sc_nc' {
-                    local _value = `_value' + `_sc_counts'[`_sri', `_sci']
-                }
-            }
-            _tabtools_smallcells_render, value(`_value') mask(`_sc_totalmask') ///
-                smallcells(`smallcells')
-            quietly replace `_count_var' = `"`r(display)'"' in `_sc_total_row'
-        }
-
-        * A protected count or margin can be reconstructed from an exact
-        * percentage and denominator. For n_pct, remove every percentage in
-        * the affected logical block and retain the safe count or marker.
-        if `"`compose_resolved'"' == "n_pct" & ///
-            (`_sc_nprimary' + `_sc_nsecondary' > 0) {
-            forvalues _g = 1/`n_groups' {
-                local _vpos = (`_g' - 1) * `n_stats' + `_sc_pct_pos'
-                local _pct_var : word `_vpos' of `data_vars'
-                forvalues _r = `raw_data_start'/`=_N' {
-                    if strtrim(`_pct_var'[`_r']) != "" {
-                        quietly replace `_pct_var' = "" in `_r'
-                        local ++_sc_nderived
-                    }
-                }
-            }
-        }
+        matrix colnames `_sc_return' = `_sc_all_vars'
     }
-    else {
-        matrix `_scmask' = J(1, 1, 0)
-    }
-    drop _tt_row_key _tt_row_total _tt_row_missing
 
-    local highlight_rows ""
-    local _merge_group_headers 0
-    local _merge_row_header 0
+    /* Format N and missing counts */
+    format `nformat' N_* m_*  // Apply count format to N and m columns
+    cap drop cat_not_top_row  // Remove helper variable
+    qui replace factor = "" if factor == "N"  // Clean up factor labels
+    qui replace factor = " " if factor == "Factor "  // Clean up header
 
-    if `"`compose_resolved'"' == "" {
-        local _j = 0
-        foreach _v of local data_vars {
-            local ++_j
-            local _sidx = mod(`_j' - 1, `n_stats') + 1
-            local _stat : word `_sidx' of `stats_layout'
-            local _fmt `"`fmt_`_stat''"'
-            local _class `"`class_`_stat''"'
-            local _scale = 1
-            local _add_pctsign = inlist("`_class'", "percent", "proportion")
-            if "`_class'" == "proportion" & "`pctscale'" == "0to100" {
-                local _scale = 100
-                local _fmt "%21.`pctdigits'f"
-            }
-            else if "`_stat'" == "mean" & "`pctscale'" == "0to100" & `_mean_binary' {
-                local _scale = 100
-                local _fmt "%21.`pctdigits'f"
-                local _add_pctsign = 1
-            }
-            quietly replace `_v' = strtrim(string(real(subinstr(`_v', ",", "", .)) * `_scale', "`_fmt'")) ///
-                if _n >= `raw_data_start' & strtrim(`_v') != "" ///
-                & real(subinstr(`_v', ",", "", .)) < .
-            if "`pctsign'" != "" & `_add_pctsign' {
-                quietly replace `_v' = `_v' + "%" if _n >= `raw_data_start' ///
-                    & strtrim(`_v') != "" & strpos(`_v', "%") == 0
-            }
-            if "`hlstat'" == "" local hlstat "mean"
-            if `highlight' != -1 & "`_stat'" == "`hlstat'" {
-                forvalues _r = `raw_data_start'/`=_N' {
-                    local _hraw = subinstr(strtrim(`_v'[`_r']), ",", "", .)
-                    local _hnum = real("`_hraw'")
-                    if `_hnum' < . & `_hnum' < `highlight' {
-                        local highlight_rows `"`highlight_rows' `_r'"'
+    /* Add percentages to header if requested */
+    if "`headerperc'" != "" {
+        qui {
+            // Build list of visible sample-size columns after all renaming.
+            local hperc_cols ""
+            if `has_wtcompare' {
+                foreach _pfx in Cr Wt {
+                    foreach gl of local levels {
+                        if "`gl'" == "`_total_code'" local _hgl "T"
+                        else local _hgl "`gl'"
+                        capture confirm variable `_pfx'_`_hgl'
+                        if !_rc local hperc_cols "`hperc_cols' `_pfx'_`_hgl'"
                     }
                 }
             }
-            if `"`statlabel_`_stat''"' != "" {
-                quietly replace `_v' = `"`statlabel_`_stat''"' in `raw_stat_row'
-            }
-            rename `_v' c`_j'
-        }
-        local n_display_cols = `n_data_vars'
-        * Capture per-group header labels for later border / grouping logic.
-        if "`coldim'" != "" {
-            forvalues _g = 1/`n_groups' {
-                local _first = (`_g' - 1) * `n_stats' + 1
-                local _glabel_`_g' = strtrim(c`_first'[`raw_col_row'])
-            }
-        }
-        if "`coldim'" != "" & `n_stats' > 1 {
-            local _merge_group_headers 1
-            forvalues _g = 1/`n_groups' {
-                local _first = (`_g' - 1) * `n_stats' + 1
-                local _firstvar c`_first'
-                local _glabel = strtrim(`_firstvar'[`raw_col_row'])
-                forvalues _s = 1/`n_stats' {
-                    local _j = (`_g' - 1) * `n_stats' + `_s'
-                    if `_s' == 1 {
-                        quietly replace c`_j' = `"`_glabel'"' in `raw_col_row'
-                    }
-                    else {
-                        quietly replace c`_j' = "" in `raw_col_row'
-                    }
-                }
-            }
-            local _row_label ""
-            local _dim_row_is_label 0
-            if `raw_dim_row' > 0 {
-                local _row_label = strtrim(A[`raw_dim_row'])
-                if `"`_row_label'"' != "" local _dim_row_is_label 1
-                forvalues _j = 1/`n_display_cols' {
-                    if strtrim(c`_j'[`raw_dim_row']) != "" local _dim_row_is_label 0
-                }
-            }
-            quietly replace A = `"`_row_label'"' in `raw_col_row'
-            quietly replace A = "" in `raw_stat_row'
-            if `_dim_row_is_label' {
-                quietly drop in `raw_dim_row'
-                local raw_data_start = `raw_data_start' - 1
-                local raw_dim_row 0
-                local _merge_row_header 1
-            }
-            local _top_header_row = `raw_col_row' - 1
-            local _drop_top_header 0
-            if `_top_header_row' > 0 {
-                local _top_label = strtrim(A[`_top_header_row'])
-                local _first_header ""
-                local _same_header 1
-                local _nonblank_header 0
-                forvalues _j = 1/`n_display_cols' {
-                    local _hdr = strtrim(c`_j'[`_top_header_row'])
-                    if `"`_hdr'"' != "" {
-                        local _nonblank_header 1
-                        if `"`_first_header'"' == "" local _first_header `"`_hdr'"'
-                        else if `"`_hdr'"' != `"`_first_header'"' local _same_header 0
-                    }
-                }
-                if `"`_top_label'"' == "" & `_nonblank_header' & `_same_header' {
-                    local _drop_top_header 1
-                }
-            }
-            if `_drop_top_header' {
-                quietly drop in `_top_header_row'
-                local raw_col_row = `raw_col_row' - 1
-                local raw_stat_row = `raw_stat_row' - 1
-                local raw_data_start = `raw_data_start' - 1
-            }
-        }
-    }
-    else {
-        forvalues _g = 1/`n_groups' {
-            quietly gen strL _new`_g' = ""
-            local _first = (`_g' - 1) * `n_stats' + 1
-            local _firstvar : word `_first' of `data_vars'
-            if "`coldim'" != "" {
-                local _glabel_`_g' = strtrim(`_firstvar'[`raw_col_row'])
-                quietly replace _new`_g' = `"`_glabel_`_g''"' in `raw_col_row'
+            else if "`by'" == "" {
+                capture confirm variable Total
+                if !_rc local hperc_cols "Total"
             }
             else {
-                local _glabel_`_g' ""
-                quietly replace _new`_g' = "Value" in `raw_stat_row'
+                foreach gl of local levels {
+                    if "`gl'" == "`_total_code'" local _hgl "T"
+                    else local _hgl "`gl'"
+                    capture confirm variable `by'_`_hgl'
+                    if !_rc local hperc_cols "`hperc_cols' `by'_`_hgl'"
+                }
             }
-        }
 
-        forvalues _r = `raw_data_start'/`=_N' {
-            forvalues _g = 1/`n_groups' {
-                foreach _alias in count frequency fvfrequency total sum sum_w ///
-                    percent fvpercent prop propc propr mean sd semean median ///
-                    p50 p25 p75 min max {
-                    local _raw_`_alias' ""
-                    local _f_`_alias' ""
-                }
-                foreach _stat of local stats_layout {
-                    local _pos : list posof "`_stat'" in stats_layout
-                    local _vpos = (`_g' - 1) * `n_stats' + `_pos'
-                    local _v : word `_vpos' of `data_vars'
-                    local _raw_`_stat' = strtrim(`_v'[`_r'])
-                    local _scale = 1
-                    local _sign ""
-                    local _fmt `"`fmt_`_stat''"'
-                    if inlist("`_stat'", "mean", "prop", "propc", "propr", "percent", "fvpercent") {
-                        if inlist("`_stat'", "mean", "prop", "propc", "propr") & "`pctscale'" == "0to100" {
-                            local _scale = 100
-                            local _fmt "%21.`pctdigits'f"
-                        }
-                        if "`pctsign'" != "" & inlist("`_stat'", "mean", "prop", "propc", "propr", "percent", "fvpercent") {
-                            local _sign "pctsign"
-                        }
-                    }
-                    _desctab_format_local, value("`_raw_`_stat''") ///
-                        format("`_fmt'") scale(`_scale') `_sign'
-                    local _f_`_stat' `"`r(value)'"'
-                }
-                if `"`_f_total'"' != "" local _f_sum `"`_f_total'"'
-                if `"`_raw_total'"' != "" local _raw_sum `"`_raw_total'"'
-                if `"`_f_frequency'"' != "" local _f_count `"`_f_frequency'"'
-                if `"`_f_fvfrequency'"' != "" local _f_count `"`_f_fvfrequency'"'
-                if `"`_raw_frequency'"' != "" local _raw_count `"`_raw_frequency'"'
-                if `"`_raw_fvfrequency'"' != "" local _raw_count `"`_raw_fvfrequency'"'
-                if `"`_f_fvpercent'"' != "" local _f_percent `"`_f_fvpercent'"'
-                if `"`_f_prop'"' != "" local _f_percent `"`_f_prop'"'
-                if `"`_f_propc'"' != "" local _f_percent `"`_f_propc'"'
-                if `"`_f_propr'"' != "" local _f_percent `"`_f_propr'"'
-                if `"`_f_mean'"' != "" & `"`_f_percent'"' == "" local _f_percent `"`_f_mean'"'
-                if `"`_f_median'"' != "" local _f_p50 `"`_f_median'"'
-                if `"`_raw_median'"' != "" local _raw_p50 `"`_raw_median'"'
-                if `_sc_active' & inlist(`"`_raw_count'"', ///
-                    "<`smallcells'", "≥`smallcells'") {
-                    local _f_count `"`_raw_count'"'
-                    local _f_percent ""
-                }
+            if "`hperc_cols'" == "" {
+                noisily display as error "headerperc could not identify sample-size columns"
+                exit 111
+            }
 
-                if "`hlstat'" == "" local hlstat "mean"
-                if `highlight' != -1 {
-                    capture local _hraw = subinstr(strtrim(`"`_raw_`hlstat''"'), ",", "", .)
-                    if !_rc {
-                        local _hnum = real("`_hraw'")
-                        if `_hnum' < . & `_hnum' < `highlight' {
-                            local highlight_rows `"`highlight_rows' `_r'"'
-                        }
-                    }
+            // Process each sample-size column and build numeric scratch columns.
+            // Use a unique prefix (__hp_) for the scratch names so we never
+            // collide with user-level group columns like by_12 produced by a
+            // by-variable level == 12 — the prior `<col>2` suffix scheme could
+            // alias real data columns.
+            local hperc_scratch ""
+            local hperc_cr_scratch ""
+            local hperc_wt_scratch ""
+            local hperc_main_scratch ""
+            local _hpn = 0
+            foreach _hcol of local hperc_cols {
+                local ++_hpn
+                tempvar _hp_var
+                replace `_hcol' = subinstr(`_hcol', "N=", "", .)
+                gen double `_hp_var' = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
+                local hperc_scratch `"`hperc_scratch' `_hp_var'"'
+                local hperc_scratch_for_`_hcol' `"`_hp_var'"'
+                if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" {
+                    local hperc_cr_scratch `"`hperc_cr_scratch' `_hp_var'"'
                 }
-
-                if "`compose_resolved'" == "events_n_pct" {
-                    local _cell ""
-                    if `"`_f_sum'"' != "" & `"`_f_count'"' != "" {
-                        local _cell `"`_f_sum' / `_f_count'"'
-                    }
-                    else if `"`_f_sum'"' != "" local _cell `"`_f_sum'"'
-                    else if `"`_f_count'"' != "" local _cell `"`_f_count'"'
-                    if `"`_f_mean'"' != "" {
-                        if `"`_cell'"' == "" local _cell `"`_f_mean'"'
-                        else local _cell `"`_cell' (`_f_mean')"'
-                    }
-                }
-                else if "`compose_resolved'" == "events_n" {
-                    if `"`_f_sum'"' != "" & `"`_f_count'"' != "" {
-                        local _cell `"`_f_sum' / `_f_count'"'
-                    }
-                    else if `"`_f_sum'"' != "" local _cell `"`_f_sum'"'
-                    else local _cell `"`_f_count'"'
-                }
-                else if "`compose_resolved'" == "n_pct" {
-                    if `"`_f_count'"' != "" & `"`_f_percent'"' != "" {
-                        local _cell `"`_f_count' (`_f_percent')"'
-                    }
-                    else if `"`_f_count'"' != "" local _cell `"`_f_count'"'
-                    else local _cell `"`_f_percent'"'
-                }
-                else if "`compose_resolved'" == "mean_sd" {
-                    if `"`_f_mean'"' != "" & `"`_f_sd'"' != "" {
-                        local _cell `"`_f_mean' (`_f_sd')"'
-                    }
-                    else if `"`_f_mean'"' != "" local _cell `"`_f_mean'"'
-                    else local _cell `"`_f_sd'"'
-                }
-                else if "`compose_resolved'" == "mean_semean" {
-                    if `"`_f_mean'"' != "" & `"`_f_semean'"' != "" {
-                        local _cell `"`_f_mean' (`_f_semean')"'
-                    }
-                    else if `"`_f_mean'"' != "" local _cell `"`_f_mean'"'
-                    else local _cell `"`_f_semean'"'
-                }
-                else if "`compose_resolved'" == "median_iqr" {
-                    local _spread ""
-                    if `"`_f_p25'"' != "" & `"`_f_p75'"' != "" local _spread `"`_f_p25'-`_f_p75'"'
-                    else if `"`_f_p25'"' != "" local _spread `"`_f_p25'"'
-                    else local _spread `"`_f_p75'"'
-                    if `"`_f_p50'"' != "" & `"`_spread'"' != "" local _cell `"`_f_p50' (`_spread')"'
-                    else if `"`_f_p50'"' != "" local _cell `"`_f_p50'"'
-                    else local _cell `"`_spread'"'
-                }
-                else if "`compose_resolved'" == "median_range" {
-                    local _spread ""
-                    if `"`_f_min'"' != "" & `"`_f_max'"' != "" local _spread `"`_f_min'-`_f_max'"'
-                    else if `"`_f_min'"' != "" local _spread `"`_f_min'"'
-                    else local _spread `"`_f_max'"'
-                    if `"`_f_p50'"' != "" & `"`_spread'"' != "" local _cell `"`_f_p50' (`_spread')"'
-                    else if `"`_f_p50'"' != "" local _cell `"`_f_p50'"'
-                    else local _cell `"`_spread'"'
-                }
-                else if "`compose_resolved'" == "mean_ci" {
-                    local _mean = real(subinstr(`"`_raw_mean'"', ",", "", .))
-                    local _count = real(subinstr(`"`_raw_count'"', ",", "", .))
-                    local _se = .
-                    if `"`_raw_semean'"' != "" {
-                        local _se = real(subinstr(`"`_raw_semean'"', ",", "", .))
-                    }
-                    else if `"`_raw_sd'"' != "" & `_count' > 0 {
-                        local _sd = real(subinstr(`"`_raw_sd'"', ",", "", .))
-                        local _se = `_sd' / sqrt(`_count')
-                    }
-                    if `_mean' < . & `_se' < . & `_count' > 1 {
-                        local _crit = invttail(`_count' - 1, 0.025)
-                        local _lo = `_mean' - `_crit' * `_se'
-                        local _hi = `_mean' + `_crit' * `_se'
-                        local _lo_s = strtrim(string(`_lo', "`fmt_mean'"))
-                        local _hi_s = strtrim(string(`_hi', "`fmt_mean'"))
-                        local _cell `"`_f_mean' (`_lo_s'-`_hi_s')"'
-                    }
-                    else local _cell ""
+                else if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" {
+                    local hperc_wt_scratch `"`hperc_wt_scratch' `_hp_var'"'
                 }
                 else {
-                    local _cell `"`compose_resolved'"'
-                    foreach _stat of local stats_layout {
-                        local _cell : subinstr local _cell "{`_stat'}" `"`_f_`_stat''"', all
-                    }
+                    local hperc_main_scratch `"`hperc_main_scratch' `_hp_var'"'
                 }
-                quietly replace _new`_g' = `"`_cell'"' in `_r'
             }
-        }
 
-        drop `data_vars'
-        if "`coldim'" != "" {
-            quietly drop in `raw_stat_row'
-            quietly drop in 1
-            local raw_data_start = `raw_data_start' - 2
-            local raw_dim_row = `raw_dim_row' - 2
-        }
-        local _j = 0
-        forvalues _g = 1/`n_groups' {
-            local ++_j
-            rename _new`_g' c`_j'
-        }
-        local n_display_cols = `n_groups'
-
-        * Collapse residual dim-label row in compose path. After the drops above,
-        * raw_dim_row may still hold a dimension label (e.g. "Education level")
-        * in column A with no data in the c1..cN cells. Move the label up to the
-        * header row (so column B gets a "what these rows are levels of" header)
-        * and drop the residual row so the header sits on row 2 with no spacer.
-        * Post-drops the header row is row 1 in both the coldim and no-coldim
-        * branches (coldim: drops in 1 and `raw_stat_row' shifted col headers up;
-        * no-coldim: "Value" was written at `raw_stat_row' = 1).
-        if `raw_dim_row' > 0 & `raw_dim_row' < `raw_data_start' & `raw_dim_row' <= _N {
-            local _dim_row_is_label 0
-            local _dim_label = strtrim(A[`raw_dim_row'])
-            if `"`_dim_label'"' != "" local _dim_row_is_label 1
-            forvalues _j = 1/`n_display_cols' {
-                if strtrim(c`_j'[`raw_dim_row']) != "" local _dim_row_is_label 0
-            }
-            if `_dim_row_is_label' {
-                quietly replace A = `"`_dim_label'"' in 1
-                quietly drop in `raw_dim_row'
-                local raw_data_start = `raw_data_start' - 1
-                local raw_dim_row 0
-            }
-        }
-    }
-
-    * Add title row/column so Excel and Markdown output follows the suite convention:
-    * title in A1, row labels in B, table body starting at B2/C2.
-    tempvar _desctab_id
-    quietly gen long `_desctab_id' = _n
-    local _oldN = _N
-    quietly set obs `=`_oldN' + 1'
-    quietly replace `_desctab_id' = 0 if missing(`_desctab_id')
-    quietly sort `_desctab_id'
-    drop `_desctab_id'
-    foreach _v of varlist A c* {
-        quietly replace `_v' = "" in 1
-    }
-    quietly gen strL title = ""
-    order title A c*
-    quietly replace title = `"`title'"' in 1
-
-    local data_start = `raw_data_start' + 1
-    local header_start = 2
-    local num_rows = _N
-    local num_cols = c(k)
-    local _label_width = 8
-    forvalues _r = 2/`num_rows' {
-        local _len = strlen(A[`_r'])
-        if `_len' > `_label_width' local _label_width = `_len'
-    }
-    local _label_width = min(max(`_label_width' + 2, 8), 32)
-    forvalues _c = 1/`n_display_cols' {
-        local _data_width_`_c' = 10
-        forvalues _r = 2/`num_rows' {
-            local _len = strlen(c`_c'[`_r'])
-            if `_len' > `_data_width_`_c'' local _data_width_`_c' = `_len'
-        }
-        local _data_width_`_c' = min(max(`_data_width_`_c'' + 2, 10), 28)
-    }
-    local n_cells = 0
-    forvalues _r = `data_start'/`num_rows' {
-        forvalues _c = 1/`n_display_cols' {
-            if strtrim(c`_c'[`_r']) != "" local ++n_cells
-        }
-    }
-    local body_rows = max(`num_rows' - `data_start' + 1, 1)
-    tempname _rtable _sc_return
-    matrix `_rtable' = J(`body_rows', `n_display_cols', .)
-    matrix `_sc_return' = J(`body_rows', `n_display_cols', 0)
-    forvalues _rr = 1/`body_rows' {
-        local _drow = `data_start' + `_rr' - 1
-        forvalues _cc = 1/`n_display_cols' {
-            if `_drow' <= `num_rows' {
-                local _v = strtrim(c`_cc'[`_drow'])
-                if `_sc_active' & "`_v'" == "<`smallcells'" {
-                    matrix `_rtable'[`_rr', `_cc'] = .p
-                    matrix `_sc_return'[`_rr', `_cc'] = 1
+            // Build denominator variables from total columns when present,
+            // otherwise sum across the scratch columns we just built. The Cr_T
+            // / Wt_T / by_T total columns were renamed to Cr_T / Wt_T / by_T
+            // already; their scratch versions live under the __hp_ prefix.
+            tempvar hperc_den hperc_crden hperc_wtden hperc_nmiss hperc_crnmiss hperc_wtnmiss
+            if `has_wtcompare' {
+                local _cr_tot_scratch ""
+                local _wt_tot_scratch ""
+                foreach _hcol of local hperc_cols {
+                    if "`_hcol'" == "Cr_T" local _cr_tot_scratch "`hperc_scratch_for_`_hcol''"
+                    if "`_hcol'" == "Wt_T" local _wt_tot_scratch "`hperc_scratch_for_`_hcol''"
                 }
-                else if `_sc_active' & "`_v'" == "≥`smallcells'" {
-                    matrix `_rtable'[`_rr', `_cc'] = .s
-                    matrix `_sc_return'[`_rr', `_cc'] = 2
+                if "`_cr_tot_scratch'" != "" gen double `hperc_crden' = `_cr_tot_scratch' if inlist(_n, 2)
+                else {
+                    egen `hperc_crden' = rowtotal(`hperc_cr_scratch') if inlist(_n, 2)
+                    egen `hperc_crnmiss' = rowmiss(`hperc_cr_scratch') if inlist(_n, 2)
+                    replace `hperc_crden' = . if `hperc_crnmiss' > 0
                 }
-                else if `_sc_active' & "`_v'" == "Suppressed" {
-                    matrix `_rtable'[`_rr', `_cc'] = .d
-                    matrix `_sc_return'[`_rr', `_cc'] = 3
+
+                if "`_wt_tot_scratch'" != "" gen double `hperc_wtden' = `_wt_tot_scratch' if inlist(_n, 2)
+                else {
+                    egen `hperc_wtden' = rowtotal(`hperc_wt_scratch') if inlist(_n, 2)
+                    egen `hperc_wtnmiss' = rowmiss(`hperc_wt_scratch') if inlist(_n, 2)
+                    replace `hperc_wtden' = . if `hperc_wtnmiss' > 0
+                }
+            }
+            else if "`by'" == "" {
+                local _tot_scratch `"`hperc_scratch_for_Total'"'
+                if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
+                else {
+                    egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
+                    egen `hperc_nmiss' = rowmiss(`hperc_main_scratch') if inlist(_n, 2)
+                    replace `hperc_den' = . if `hperc_nmiss' > 0
+                }
+            }
+            else {
+                local _by_t "`by'_T"
+                local _tot_scratch `"`hperc_scratch_for_`_by_t''"'
+                if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
+                else {
+                    egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
+                    egen `hperc_nmiss' = rowmiss(`hperc_main_scratch') if inlist(_n, 2)
+                    replace `hperc_den' = . if `hperc_nmiss' > 0
+                }
+            }
+
+            // Add percentage of total to each sample-size label.
+            foreach _hcol of local hperc_cols {
+                local _hden `"`hperc_den'"'
+                if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
+                if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
+                local _hp_var `"`hperc_scratch_for_`_hcol''"'
+                replace `_hcol' = `_hcol' + " " + "(" + ///
+                    string(round(`_hp_var' / `_hden', 0.001) * 100, "%9.1f") + ///
+                    "`percsign'" + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
+            }
+
+            foreach _htmp of local hperc_scratch {
+                capture drop `_htmp'
+            }
+            capture drop `hperc_den'
+            capture drop `hperc_crden'
+            capture drop `hperc_wtden'
+            capture drop `hperc_nmiss'
+            capture drop `hperc_crnmiss'
+            capture drop `hperc_wtnmiss'
+
+        }
+    }
+
+    /* Create header description with proper Oxford comma usage */
+    qui {
+        /* Build header parts */
+        local header_parts = ""
+        local part_count = 0
+
+        /* Add categorical description */
+        if `_resolved_has_cat' {
+            if "`percent'" == "percent" {
+                if "`catrowperc'" != "" local header_parts = "Row %"
+                else local header_parts = "Column %"
+            }
+            else if "`catrowperc'" != "" {
+                if "`percent_n'" == "percent_n" {
+                    local header_parts = "Row % (No.)"
                 }
                 else {
-                    local _v = subinstr("`_v'", ",", "", .)
-                    local _v = subinstr("`_v'", "%", "", .)
-                    local _num = real("`_v'")
-                    if `_num' < . matrix `_rtable'[`_rr', `_cc'] = `_num'
+                    local header_parts = "No. (Row %)"
                 }
             }
+            else {
+                if "`percent_n'" == "percent_n" {
+                    local header_parts = "Column % (No.)"
+                }
+                else {
+                    local header_parts = "No. (Column %)"
+                }
+            }
+            local part_count = 1
+        }
+
+        /* Add binary description if different from categorical */
+        if `_resolved_has_bin' & (!`_resolved_has_cat' | "`catrowperc'" != "") {
+            if `part_count' > 0 local header_parts = "`header_parts' or "
+
+            if "`percent'" == "percent" {
+                local header_parts = "`header_parts'Column %"
+            }
+            else if "`percent_n'" == "percent_n" {
+                local header_parts = "`header_parts'Column % (No.)"
+            }
+            else {
+                local header_parts = "`header_parts'No. (Column %)"
+            }
+            local part_count = `part_count' + 1
+        }
+
+        /* Build continuous measure descriptions */
+        local cont_parts = ""
+        local cont_count = 0
+
+        /* Clean up the iqrmiddle value for display */
+        local iqrmiddle_clean = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
+
+        /* Describe the mean/SD cell using the ACTIVE sdleft()/sdright()
+           notation. The header used to be hardcoded "Mean (SD)" while the
+           default notation renders 58.3+/-13.4, so the column caption
+           contradicted every cell beneath it. Defaults give "Mean+/-SD";
+           sdleft(" (") sdright(")") gives "Mean (SD)". */
+        local sdleft_clean = substr(`"`sdleft'"', 2, length(`"`sdleft'"') - 2)
+        local sdright_clean = substr(`"`sdright'"', 2, length(`"`sdright'"') - 2)
+        local meansd_label `"Mean`sdleft_clean'SD`sdright_clean'"'
+
+        if `_resolved_has_contn' {
+            local cont_parts `"`meansd_label'"'
+            local cont_count = 1
+        }
+
+        if `_resolved_has_contln' {
+            if `cont_count' > 0 {
+                if `cont_count' == 1 {
+                    local cont_parts = "`cont_parts' or "
+                }
+                else {
+                    local cont_parts = "`cont_parts', "
+                }
+            }
+            local cont_parts = "`cont_parts'Geometric mean (×/GSD)"
+            local cont_count = `cont_count' + 1
+        }
+
+        if `_resolved_has_conts' {
+            if `cont_count' > 0 {
+                if `cont_count' == 1 {
+                    local cont_parts = "`cont_parts' or "
+                }
+                else {
+                    /* Add Oxford comma for 3+ items */
+                    local cont_parts = "`cont_parts', "
+                    if `cont_count' > 1 {
+                        local cont_parts = "`cont_parts'and "
+                    }
+                }
+            }
+            local cont_parts = "`cont_parts'Median (Q1`iqrmiddle_clean'Q3)"
+            local cont_count = `cont_count' + 1
+        }
+
+        /* Combine categorical and continuous parts with proper grammar */
+        if `cont_count' > 0 {
+            if `part_count' > 0 {
+                if `part_count' + `cont_count' > 2 {
+                    local header_parts = "`header_parts', and `cont_parts'"  // Use comma and 'and' for 3+ parts
+                }
+                else {
+                    local header_parts = "`header_parts' or `cont_parts'"  // Use 'or' for 2 parts
+                }
+            }
+            else {
+                local header_parts = "`cont_parts'"  // Just use continuous parts
+            }
+        }
+
+        /* Apply header description */
+        replace factor = `"`header_parts'"' if _n == 2
+    }
+    local _descriptor_row_text `"`header_parts'"'
+
+    /* Display the table */
+    qui ds factor_sep _* N_* m_*, not
+    list `r(varlist)', sepby(factor_sep) noobs noheader table  // Show table with separators between variables
+    if "`smallcells'" != "" display as text "`_sc_note'"
+    drop factor_sep  // Clean up
+
+    /* Generate data description string */
+    qui {
+        // Check which variable types are present
+        local ybin `_resolved_has_bin'  // Binary variables
+        local ycat `_resolved_has_cat'  // Categorical variables
+        if "`ycat'" == "1" | "`ybin'" == "1" local ycatbin "1"  // Flag if any categorical/binary
+
+        local ycontn `_resolved_has_contn'  // Normal continuous
+        local ycontln `_resolved_has_contln'  // Log-normal continuous
+        local yconts `_resolved_has_conts'  // Skewed continuous
+
+        /* Build description for continuous variables */
+        if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
+            local ycont "`meanSD', `gmeanSD', and median (Q1, Q3)"
+        }
+        else if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
+            local ycont `"`meanSD' or `gmeanSD'"'
+        }
+        else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
+            local ycont "`meanSD' or median (Q1, Q3)"
+        }
+        else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
+            local ycont "`gmeanSD' or median (Q1, Q3)"
+        }
+        else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" != "1" {
+            local ycont `"`meanSD'"'
+        }
+        else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
+            local ycont `"`gmeanSD'"'
+        }
+        else if "`ycontn'" != "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
+            local ycont "median (Q1, Q3)"
+        }
+
+        /* Build complete description with both continuous and categorical */
+        if "`ycont'" != "" & "`ycatbin'" !="" {
+            local ymix "`ycont' for continuous measures, and `percfootnote' for categorical measures"
+        }
+        else if "`ycont'" != "" & "`ycatbin'" =="" {
+            local ymix `"`ycont'"'
+        }
+        else if "`ycont'" == "" & "`ycatbin'" !="" {
+            local ymix `"`percfootnote'"'
+        }
+
+        /* Add separate note for binary measures with row percentages */
+        if "`catrowperc'" != "" & "`ycat'" == "1" & "`ybin'" == "1" {
+            local ymix "`ymix' and `percfootnote2' for binary measures"
+        }
+
+        if `has_wtcompare' {
+            local Dapa "Crude and weighted data are presented as `ymix'. P-values suppressed. SMD reflects weighted comparison."
+        }
+        else if `has_wt' {
+            local Dapa "Weighted data are presented as `ymix'. P-values suppressed."
+            if `has_smd' local Dapa "`Dapa' SMD reflects weighted comparison."
+        }
+        else if "`nopvalue'" == "nopvalue" {
+            local Dapa "Data are presented as `ymix'. P-values suppressed."
+        }
+        else {
+            local Dapa "Data are presented as `ymix'."
+        }
+        if `"`varlabplus'"' == "" {
+            display "`Dapa'"
+        }
+        return local Dapa "`Dapa'"
+        display " "
+
+        /* Build extended methods paragraph (C5) */
+        if "`by'" != "" & !`_suppress_p' {
+
+            * Build test list
+            local _test_list ""
+            if `_used_ttest' local _test_list "independent t-test"
+            if `_used_anova' {
+                if "`_test_list'" != "" local _test_list "`_test_list', "
+                local _test_list "`_test_list'one-way ANOVA"
+            }
+            if `_used_wilcoxon' {
+                if "`_test_list'" != "" local _test_list "`_test_list', "
+                local _test_list "`_test_list'Wilcoxon rank-sum test"
+            }
+            if `_used_kw' {
+                if "`_test_list'" != "" local _test_list "`_test_list', "
+                local _test_list "`_test_list'Kruskal-Wallis test"
+            }
+            if `_used_chi2' {
+                if "`_test_list'" != "" local _test_list "`_test_list', "
+                local _test_list "`_test_list'Pearson's chi-squared test"
+            }
+            if `_used_fisher' {
+                if "`_test_list'" != "" local _test_list "`_test_list', "
+                local _test_list "`_test_list'Fisher's exact test"
+            }
+
+            local _methods "Baseline characteristics were compared between groups defined by `_bylab'."
+            local _methods `"`_methods' `Dapa'"'
+            if "`_test_list'" != "" {
+                local _methods "`_methods' P-values were calculated using `_test_list'."
+            }
+            local _methods "`_methods' A two-sided p-value < 0.05 was considered statistically significant."
+            local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+
+            return local methods "`_methods'"
         }
     }
 
-    local _methods "Formatted descriptive statistics from a Stata collect table using per-statistic formats."
-    if `"`compose_resolved'"' != "" {
-        local _methods "`_methods' Composite cells were rendered with compose(`compose_resolved')."
-    }
-    if `_sc_active' {
-        local _methods "`_methods' Counts were protected with smallcells(`smallcells'); dependent percentages were withheld when required."
-    }
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+    /* Add extra space for alignment if requested */
+    if `"`extraspace'"' != "" {
+        // Add extra space before p-values for alignment
+        qui cap replace pvalue=" " + pvalue if substr(pvalue,1,1) != "<"
 
-    return matrix table = `_rtable'
-    return scalar N_cells = `n_cells'
-    return scalar N_rows = `=`num_rows' - 1'
-    * Derive version from this file's *! header so it cannot drift on a bump.
-    local _dt_version "unknown"
-    capture findfile desctab.ado
-    if !_rc {
-        tempname _dt_vfh
-        capture file open `_dt_vfh' using "`r(fn)'", read text
-        if !_rc {
-            file read `_dt_vfh' _dt_vheader
-            file close `_dt_vfh'
-            if regexm(`"`_dt_vheader'"', "Version ([0-9.]+)") ///
-                local _dt_version = regexs(1)
+    }
+
+    /* Format N and missing count columns as strings */
+    qui ds N_* m_*
+    foreach v of varlist `r(varlist)' {
+        // Convert numeric counts to formatted strings
+        qui gen z`v' = string(`v', "`nformat'") if !missing(`v'), after(`v')
+        qui drop `v'
+        qui rename z`v' `v'
+    }
+
+    /* Set nice labels in row 1 for N_* and m_* */
+    local levels "`levels' T"
+    foreach l of local levels {
+        // Copy group headers to N and m columns in the first row
+        qui cap replace N_`l' = `by'_`l' if factor == " "
+        qui cap replace m_`l' = `by'_`l' if factor == " "
+        qui cap replace _columna_`l' = `by'_`l' if factor == " "
+        qui cap replace _columnb_`l' = `by'_`l' if factor == " "
+    }
+
+    if `groupcount'==1 {
+        // Format for single group - use string literal
+        qui replace N_1 = "Total" if factor == " "
+        qui replace m_1 = "Total" if factor == " "
+        qui replace _columna_1 = "Total" if factor == " "
+        qui replace _columnb_1 = "Total" if factor == " "
+    }
+
+    qui drop N_* m_* _columna_* _columnb_*  // Remove unused columns
+
+**# Build r(table) return matrix
+    * Build numeric matrix from p-values and SMD values for programmatic access
+    tempname _rtable
+    local _rt_nrows 0
+    local _rt_rnames ""
+    local _rt_ncols 0
+    capture confirm variable `p_raw'
+    local _has_praw = !_rc
+    capture confirm variable `smd_raw'
+    local _has_smdraw = !_rc
+    if `_has_praw' | `_has_smdraw' {
+        * Count data rows (skip descriptor/header rows and category sub-rows)
+        qui count if factor != " " & factor != "" & factor != "N" & ///
+            factor != "Effective sample size" & factor != `"`_descriptor_row_text'"'
+        local _rt_nrows = r(N)
+        if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
+            local _rt_ncols = `_has_praw' + `_has_smdraw'
+            matrix `_rtable' = J(`_rt_nrows', `_rt_ncols', .)
+            local _rt_r = 0
+            forvalues _obs = 1/`=_N' {
+                local _fval = factor[`_obs']
+                if "`_fval'" != " " & "`_fval'" != "" & "`_fval'" != "N" & ///
+                    "`_fval'" != "Effective sample size" & "`_fval'" != `"`_descriptor_row_text'"' {
+                    local _rt_r = `_rt_r' + 1
+                    local _rt_c = 0
+                    if `_has_praw' {
+                        local _rt_c = `_rt_c' + 1
+                        local _pval = `p_raw'[`_obs']
+                        if `_pval' < . | `_pval' == .d ///
+                            matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
+                    }
+                    if `_has_smdraw' {
+                        local _rt_c = `_rt_c' + 1
+                        local _sval = `smd_raw'[`_obs']
+                        if `_sval' < . | `_sval' == .d ///
+                            matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
+                    }
+                    * Clean variable name for row label
+                    local _rname = subinstr("`_fval'", ".", "_", .)
+                    local _rname = subinstr("`_rname'", " ", "_", .)
+                    local _rname = subinstr("`_rname'", ",", "", .)
+                    local _rname = substr("`_rname'", 1, 32)
+                    if "`_rname'" == "" local _rname "row`_rt_r'"
+                    local _rt_rnames `"`_rt_rnames' `_rname'"'
+                }
+            }
+            local _rt_cnames ""
+            if `_has_praw' local _rt_cnames "p_value"
+            if `_has_smdraw' local _rt_cnames "`_rt_cnames' smd"
+            capture matrix rownames `_rtable' = `_rt_rnames'
+            capture matrix colnames `_rtable' = `_rt_cnames'
         }
     }
-    return local version "`_dt_version'"
-    return local rowvar "`rowdim'"
-    return local colvar "`coldim'"
-    return local stats "`stats_layout'"
-    return local compose `"`compose_resolved'"'
-    return local methods "`_methods'"
-    if `_sc_active' {
+
+**# Export to Excel if Requested
+    local _processed_varlist = strtrim("`_processed_varlist'")
+    return local varlist "`_processed_varlist'"
+    if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
+        capture return matrix table = `_rtable'
+    }
+
+    * The finalized sink-neutral table now passes through one Stata 17
+    * collection and the shared JSON renderer. The round trip is deliberately
+    * lossless: row order, variable types, formats, and labels are restored
+    * before disclosure characteristics or any output sink is populated.
+    _desctab_collect_roundtrip
+
+    if "`smallcells'" != "" {
+        capture drop _scmask_* _scmiss_* _sc_derived
+        capture drop _cr_scmask_* _cr_scmiss_* _cr_sc_derived
+        capture drop `_sc_anyderived'
+        char _dta[tabtools_smallcells] "`smallcells'"
+        char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
+        char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
         return scalar smallcells = `smallcells'
         return scalar N_primary_suppressed = `_sc_nprimary'
         return scalar N_secondary_suppressed = `_sc_nsecondary'
         return scalar N_derived_suppressed = `_sc_nderived'
         return matrix suppression = `_sc_return'
     }
+
+    local _xlsx_ok 0
+    if "`excel'" != "" {
+        * The Excel branch reshapes the table in place: it prepends a title row
+        * and a title column and drops internal columns. csv(), markdown(), and
+        * frame() run AFTER this branch, so without a snapshot the same call
+        * produced a different CSV/Markdown table merely because xlsx() was
+        * also requested. Snapshot the sink-neutral table here and reload it
+        * once the workbook is written.
+        tempfile _t1_sink_snapshot
+        quietly save `"`_t1_sink_snapshot'"', replace
+        quietly {
+            /* Add ID for sorting and prepare for export */
+            gen id = _n  // Row identifier
+            count
+            local count `=`r(N)'+1'
+            set obs `count'  // Add a row for title
+            replace id = 0 if id == .  // Set ID for title row
+            sort id  // Sort with title first
+            drop id  // Remove ID variable
+
+            /* Add title row */
+            gen title = ""  // Title column
+            order title  // Make title the first column
+            replace title = `"`title'"' if _n == 1  // Set title text
+
+            /* Add p-value header */
+            capture confirm string variable pvalue
+            if !_rc {
+                replace pvalue = "p-value" if _n == 2  // Label p-value column
+                replace pvalue = "" if _n == 3  // Clear row 3
+            }
+
+			/* The header descriptor is built ONCE, before any sink runs (see
+			   _descriptor_row_text above), and is reused verbatim here. The Excel
+			   path used to REBUILD it with a different join (", " instead of
+			   " or "), a hardcoded "Mean (SD)" that ignored sdleft()/sdright(),
+			   and a binary branch that never incremented part_count -- so a
+			   binary+continuous table wrote "No. (Column %)Mean (SD)" into row 2
+			   while row 3 still carried the real descriptor. Both survived into
+			   the workbook; only the B2:B3 merge hid the contradiction.
+			   Inserting the title row moved the descriptor from row 2 to row 3,
+			   so move it back to row 2 (the merge anchor) and clear row 3. */
+			replace factor = `"`_descriptor_row_text'"' if _n == 2
+			replace factor = "" if _n == 3
+
+	            /* Export to Excel — exclude internal columns */
+	            local _had_p_raw = 0
+	            capture confirm variable `p_raw'
+	            if !_rc {
+	                local _had_p_raw = 1
+	                mata: _p_raw_save = st_data(., "`p_raw'")
+	                drop `p_raw'
+	            }
+	            local _had_smd_raw = 0
+	            capture confirm variable `smd_raw'
+	            if !_rc {
+	                local _had_smd_raw = 1
+	                mata: _smd_raw_save = st_data(., "`smd_raw'")
+	                drop `smd_raw'
+	            }
+            * Safety: drop any surviving internal variables before export
+            * (catrowperc + slashN can leave N_* or _uwn* columns)
+	            capture drop N_*
+	            capture drop _columna_*
+	            capture drop _columnb_*
+	            capture drop m_*
+	            capture drop _uwn*
+		            capture noisily _tabtools_xlsx_write using "`excel'", sheet("`sheet'") book(b)
+		            local _xlsx_write_rc = _rc
+		            if `_had_p_raw' {
+		                gen double `p_raw' = .
+		                mata: st_store(., "`p_raw'", _p_raw_save)
+		                mata: mata drop _p_raw_save
+		            }
+		            if `_had_smd_raw' {
+		                gen double `smd_raw' = .
+		                mata: st_store(., "`smd_raw'", _smd_raw_save)
+		                mata: mata drop _smd_raw_save
+		            }
+		            if `_xlsx_write_rc' {
+			                local saved_rc = `_xlsx_write_rc'
+			                capture mata: b.close_book()
+			                local _xlsx_close_cleanup_rc = _rc
+			                capture mata: mata drop b
+			                local _xlsx_drop_cleanup_rc = _rc
+			                noisily display as error "Failed to export to `excel'"
+	                noisily display as error "Hint: ensure the xlsx file is not open in another application"
+	                restore
+	                exit `saved_rc'
+	            }
+
+**# Calculate column widths based on content length
+
+			/* Calculate column widths based on content */
+			gen factor_length = length(factor)
+			egen max_factor_length = max(factor_length) if !inrange(_n,2,3)
+			egen max_factor2_length = max(factor_length) if inrange(_n,2,3)
+			sum max_factor_length, d
+			local factorwidth = `=ceil(`r(max)'*0.85)+2'  // Factor column width based on content
+			sum max_factor2_length, d
+			local factor2width = `=ceil(`r(max)'*0.85)+2'  // Factor column width based on content
+			if `factor2width' > `=`factorwidth'*2' local factorwidth = `=`factorwidth'+((`factor2width'-`factorwidth')/2.5)'
+
+			/* Ensure reasonable min/max bounds */
+			if `factorwidth' < 15 local factorwidth = 15  // Minimum width
+			if `factorwidth' > 60 local factorwidth = 60  // Maximum width
+
+			/* Calculate data column width */
+			local datawidth = 0
+			if `groupcount' == 1 {
+				local _data_cols "Total"
+			}
+			else {
+				local _data_cols ""
+				if `has_wtcompare' {
+					foreach var of varlist Cr_* Wt_* {
+						local _data_cols `"`_data_cols' `var'"'
+					}
+				}
+				else {
+					foreach var of varlist `by'_* {
+						local _data_cols `"`_data_cols' `var'"'
+					}
+				}
+			}
+			foreach var of local _data_cols {
+				gen `var'_length = length(`var')
+				egen `var'_max = max(`var'_length)
+				sum `var'_max, d
+				if `r(max)' > `datawidth' local datawidth = `r(max)'
+			}
+			local datawidth = `=ceil(`datawidth'*0.85)+2'  // Data column width with adjustment factor
+
+			/* Ensure reasonable min/max bounds */
+			if `datawidth' < 12 local datawidth = 12  // Minimum width
+			if `datawidth' > 30 local datawidth = 30  // Maximum width
+
+			/* Clean up temporary variables */
+			cap drop *_length *_max
+
+            /*****************************************************************
+            * Build Excel column position references
+            *****************************************************************/
+			qui desc
+			local num_cols = `r(k)'  // Number of columns
+			* Exclude internal columns from column count (not exported to Excel)
+			capture confirm variable `p_raw'
+			if !_rc local num_cols = `num_cols' - 1
+			capture confirm variable `smd_raw'
+			if !_rc local num_cols = `num_cols' - 1
+			qui count
+			local num_rows = `r(N)'  // Number of rows
+
+            /* Find column position of level and data */
+            local level_pos = 0
+            local i = 1
+            foreach var of varlist * {
+                if "`var'" == "level" {
+                    local level_pos = `i'  // Position of level column
+                    continue, break
+                }
+                local i = `i' + 1
+            }
+
+            /* Find p-value column position if it exists */
+            local pvalue_pos = 0
+            local i = 1
+            foreach var of varlist * {
+                if "`var'" == "pvalue" {
+                    local pvalue_pos = `i'  // Position of p-value column
+                    continue, break
+                }
+                local i = `i' + 1
+            }
+
+            /* Find test column position if it exists */
+            local test_pos = 0
+            local i = 1
+            foreach var of varlist * {
+                if "`var'" == "test" {
+                    local test_pos = `i'
+                    continue, break
+                }
+                local i = `i' + 1
+            }
+
+            /* Find statistic column position if it exists */
+            local statistic_pos = 0
+            local i = 1
+            foreach var of varlist * {
+                if "`var'" == "statistic" {
+                    local statistic_pos = `i'
+                    continue, break
+                }
+                local i = `i' + 1
+            }
+
+            /* Find SMD column position if it exists */
+            local smd_pos = 0
+            local i = 1
+            foreach var of varlist * {
+                if "`var'" == "smd_str" {
+                    local smd_pos = `i'
+                    continue, break
+                }
+                local i = `i' + 1
+            }
+
+			local data_start_pos = 3
+
+            /*****************************************************************
+            * Apply all Excel formatting in a single Mata xl() session
+            *****************************************************************/
+
+            * Pre-extract p-value and SMD data for conditional formatting
+            if `has_boldp' | `has_highlight' {
+                if `pvalue_pos' > 0 {
+                    forvalues _br = 4/`num_rows' {
+                        capture local _pval_`_br' = `p_raw'[`_br']
+                        if _rc local _pval_`_br' = .
+                    }
+                }
+            }
+            if `smd_pos' > 0 & `smdthreshold' > 0 {
+                forvalues _sr = 4/`num_rows' {
+                    capture local _sval_`_sr' = `smd_raw'[`_sr']
+                    if _rc local _sval_`_sr' = .
+                }
+            }
+
+            * Find total column position before entering Mata
+            local total_col_pos = 0
+            if "`total'" != "" & "`borderstyle'" != "academic" {
+                local i = 1
+                foreach var of varlist * {
+                    if "`var'" == "`by'_T" {
+                        local total_col_pos = `i'
+                        continue, break
+                    }
+                    local i = `i' + 1
+                }
+            }
+
+            * Dynamic column width calculations
+            if `test_pos' > 0 {
+                local _test_maxlen = 12
+                forvalues _tw = 1/`=_N' {
+                    local _tstr = test[`_tw']
+                    local _tlen = strlen("`_tstr'")
+                    if `_tlen' > `_test_maxlen' local _test_maxlen = `_tlen'
+                }
+                local _test_width = max(12, ceil(`_test_maxlen' * 0.85) + 2)
+            }
+            if `statistic_pos' > 0 {
+                local _stat_maxlen = 14
+                forvalues _sw = 1/`=_N' {
+                    local _sstr = statistic[`_sw']
+                    local _slen = strlen("`_sstr'")
+                    if `_slen' > `_stat_maxlen' local _stat_maxlen = `_slen'
+                }
+                local _stat_width = max(14, ceil(`_stat_maxlen' * 0.85) + 2)
+            }
+
+	            capture {
+	                * Column widths, row heights, and styles are dispatched
+	                * through the shared Mata style engine. Rule columns are:
+	                * op r1 r2 c1 c2 value code r g b.
+	                tempname _xlsx_style_rules
+	                local _font_code = -1
+	                local _border_code = 1
+	                if "`_hborder'" == "medium" local _border_code = 2
+	                if "`_hborder'" == "thick" local _border_code = 3
+
+	                * Column widths and row heights
+	                local _xlsx_style_rule_spec "12 1 1 1 1 30 0 0 0 0"
+                * Row 2 is the B2:B3 merge anchor that carries the descriptor.
+                local _hdr_len = strlen(`"`_descriptor_row_text'"')
+                if `_hdr_len' > `factorwidth' * 1.2 {
+                    local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
+                    local _hdr_height = `_hdr_lines' * 15
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 12 2 2 1 1 `_hdr_height' 0 0 0 0"'
+                }
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 1 1 1 0 0 0 0 | 13 1 1 2 2 `factorwidth' 0 0 0 0"'
+	                foreach _dc of local _data_cols {
+	                    capture confirm variable `_dc'
+	                    if !_rc {
+	                        local _dc_pos = 0
+	                        local _dc_i = 1
+	                        foreach _dv of varlist * {
+	                            if "`_dv'" == "`_dc'" {
+	                                local _dc_pos = `_dc_i'
+	                                continue, break
+	                            }
+	                            local _dc_i = `_dc_i' + 1
+	                        }
+	                        if `_dc_pos' > 0 & `_dc_pos' <= `num_cols' {
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `_dc_pos' `_dc_pos' `datawidth' 0 0 0 0"'
+	                        }
+	                    }
+	                }
+                if `pvalue_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `pvalue_pos' `pvalue_pos' 10 0 0 0 0"'
+                }
+                if `test_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `test_pos' `test_pos' `_test_width' 0 0 0 0"'
+                }
+                if `statistic_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `statistic_pos' `statistic_pos' `_stat_width' 0 0 0 0"'
+                }
+                if `smd_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `smd_pos' `smd_pos' 8 0 0 0 0"'
+                }
+
+                * Font for entire table (single row-range call)
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 1 1 `num_rows' 1 `num_cols' `_fontsize' `_font_code' 0 0 0 | 1 1 1 1 `num_cols' `=`_fontsize'+2' `_font_code' 0 0 0"'
+
+                * Title row: merge + format
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 1 1 1 `num_cols' 0 0 0 0 0 | 4 1 1 1 1 0 1 0 0 0 | 5 1 1 1 1 0 1 0 0 0 | 6 1 1 1 1 0 2 0 0 0 | 2 1 1 1 1 0 1 0 0 0"'
+
+                * Header rows: merge factor column across rows 2-3
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 2 2 0 0 0 0 0 | 5 2 3 2 2 0 2 0 0 0 | 6 2 3 2 2 0 2 0 0 0 | 4 2 3 2 2 0 1 0 0 0 | 2 2 3 2 2 0 1 0 0 0"'
+
+                * Level column header merge (if exists)
+                if `level_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `level_pos' `level_pos' 0 0 0 0 0 | 5 2 3 `level_pos' `level_pos' 0 2 0 0 0 | 6 2 3 `level_pos' `level_pos' 0 2 0 0 0 | 4 2 3 `level_pos' `level_pos' 0 1 0 0 0 | 2 2 3 `level_pos' `level_pos' 0 1 0 0 0"'
+                }
+
+                * Group data column headers (skip special columns)
+                local data_col = `data_start_pos'
+                while `data_col' <= `num_cols' {
+                    local _skip = 0
+                    if `data_col' == `pvalue_pos' local _skip = 1
+                    if `data_col' == `test_pos' local _skip = 1
+                    if `data_col' == `statistic_pos' local _skip = 1
+                    if `data_col' == `smd_pos' local _skip = 1
+                    if !`_skip' {
+	                        local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 5 2 3 `data_col' `data_col' 0 2 0 0 0 | 6 2 3 `data_col' `data_col' 0 2 0 0 0 | 4 2 3 `data_col' `data_col' 0 1 0 0 0 | 2 2 3 `data_col' `data_col' 0 1 0 0 0"'
+                    }
+                    local data_col = `data_col' + 1
+                }
+
+                * P-value column header merge
+                if `pvalue_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `pvalue_pos' `pvalue_pos' 0 0 0 0 0 | 5 2 3 `pvalue_pos' `pvalue_pos' 0 2 0 0 0 | 6 2 3 `pvalue_pos' `pvalue_pos' 0 2 0 0 0 | 4 2 3 `pvalue_pos' `pvalue_pos' 0 1 0 0 0 | 2 2 3 `pvalue_pos' `pvalue_pos' 0 1 0 0 0"'
+                }
+
+                * Test, statistic, SMD column header merges
+                if `test_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `test_pos' `test_pos' 0 0 0 0 0 | 5 2 3 `test_pos' `test_pos' 0 2 0 0 0 | 6 2 3 `test_pos' `test_pos' 0 2 0 0 0 | 4 2 3 `test_pos' `test_pos' 0 1 0 0 0 | 2 2 3 `test_pos' `test_pos' 0 1 0 0 0"'
+                }
+                if `statistic_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `statistic_pos' `statistic_pos' 0 0 0 0 0 | 5 2 3 `statistic_pos' `statistic_pos' 0 2 0 0 0 | 6 2 3 `statistic_pos' `statistic_pos' 0 2 0 0 0 | 4 2 3 `statistic_pos' `statistic_pos' 0 1 0 0 0 | 2 2 3 `statistic_pos' `statistic_pos' 0 1 0 0 0"'
+                }
+                if `smd_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `smd_pos' `smd_pos' 0 0 0 0 0 | 5 2 3 `smd_pos' `smd_pos' 0 2 0 0 0 | 6 2 3 `smd_pos' `smd_pos' 0 2 0 0 0 | 4 2 3 `smd_pos' `smd_pos' 0 1 0 0 0 | 2 2 3 `smd_pos' `smd_pos' 0 1 0 0 0"'
+                }
+
+                * Horizontal borders
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 8 2 2 2 `num_cols' 0 `_border_code' 0 0 0 | 8 4 4 2 `num_cols' 0 `_border_code' 0 0 0 | 9 `num_rows' `num_rows' 2 `num_cols' 0 `_border_code' 0 0 0"'
+
+                * Vertical borders (skip for academic)
+                if "`borderstyle'" != "academic" {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' 2 2 0 `_border_code' 0 0 0 | 11 2 `num_rows' 2 2 0 `_border_code' 0 0 0 | 11 2 `num_rows' `num_cols' `num_cols' 0 `_border_code' 0 0 0"'
+                }
+
+                * Total column borders
+                if `total_col_pos' > 0 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `total_col_pos' `total_col_pos' 0 `_border_code' 0 0 0 | 11 2 `num_rows' `total_col_pos' `total_col_pos' 0 `_border_code' 0 0 0"'
+                }
+
+                * P-value column left border
+                if `pvalue_pos' > 0 & "`borderstyle'" != "academic" {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `pvalue_pos' `pvalue_pos' 0 `_border_code' 0 0 0"'
+                }
+
+                * Test/statistic/SMD column left borders
+                if `test_pos' > 0 & "`borderstyle'" != "academic" {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `test_pos' `test_pos' 0 `_border_code' 0 0 0"'
+                }
+                if `statistic_pos' > 0 & "`borderstyle'" != "academic" {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `statistic_pos' `statistic_pos' 0 `_border_code' 0 0 0"'
+                }
+                if `smd_pos' > 0 & "`borderstyle'" != "academic" {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `smd_pos' `smd_pos' 0 `_border_code' 0 0 0"'
+                }
+
+                * Header background
+                if "`headershade'" != "" {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 7 2 3 2 `num_cols' 0 -1 0 0 0"'
+                }
+
+                * Center-align data columns
+                if `num_rows' >= 4 {
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 5 4 `num_rows' `data_start_pos' `num_cols' 0 2 0 0 0"'
+                }
+
+                * Zebra striping
+                if "`zebra'" != "" {
+                    forvalues _zr = 5(2)`num_rows' {
+	                        local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 7 `_zr' `_zr' 2 `num_cols' 0 -2 0 0 0"'
+                    }
+                }
+
+                * Bold significant p-values
+                if `has_boldp' & `pvalue_pos' > 0 {
+                    forvalues _br = 4/`num_rows' {
+                        if `_pval_`_br'' < . & `_pval_`_br'' < `boldp' {
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 2 `_br' `_br' `pvalue_pos' `pvalue_pos' 0 1 0 0 0"'
+                        }
+                    }
+                }
+
+                * Highlight significant rows
+                if `has_highlight' & `pvalue_pos' > 0 {
+                    forvalues _hr = 4/`num_rows' {
+                        if `_pval_`_hr'' < . & `_pval_`_hr'' < `highlight' {
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 7 `_hr' `_hr' 2 `num_cols' 0 -3 0 0 0"'
+                        }
+                    }
+                }
+
+                * SMD conditional formatting
+                if `smd_pos' > 0 & `smdthreshold' > 0 {
+                    forvalues _sr = 4/`num_rows' {
+                        if `_sval_`_sr'' < . & `_sval_`_sr'' > `smdthreshold' {
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 2 `_sr' `_sr' `smd_pos' `smd_pos' 0 1 0 0 0 | 7 `_sr' `_sr' `smd_pos' `smd_pos' 0 -4 0 0 0"'
+                        }
+                    }
+                }
+
+                * Footnote
+                if `"`footnote'"' != "" {
+                    local _fn_row = `num_rows' + 1
+                    local _fn_fontsize = max(`_fontsize' - 2, 6)
+                    mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' `_font_code' 0 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0 0"'
+                }
+
+	                _tabtools_xlsx_build_styles, matrix(`_xlsx_style_rules') ///
+	                    rules(`_xlsx_style_rule_spec') cols(10)
+	                _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+	                    rules(`_xlsx_style_rules') font("`_font'") ///
+	                    color1("`_headercolor'") color2("`_zebracolor'") ///
+	                    color3("255 255 204") color4("255 235 205")
+                mata: b.close_book()
+
+                * xl() appends a style record for every styled cell instead of
+                * reusing one per distinct format, so collapse the pools here;
+                * a workbook that keeps growing would otherwise reach Stata's
+                * 65,536-record ceiling and fail with r(16147).
+                _tabtools_xlsx_compact_styles using "`excel'"
+            }
+	            if _rc {
+	                local saved_rc = _rc
+	                capture mata: b.close_book()
+	                local _style_close_cleanup_rc = _rc
+	                capture mata: mata drop b
+	                local _style_drop_b_cleanup_rc = _rc
+	                * Drop the saved-state Mata vectors so a failed Excel write
+	                * does not leak _p_raw_save / _smd_raw_save into the user's
+	                * Mata workspace. Without this, a retry on a different table
+	                * size would hit a stale-vector error.
+	                capture mata: mata drop _p_raw_save
+	                local _style_drop_p_cleanup_rc = _rc
+	                capture mata: mata drop _smd_raw_save
+	                local _style_drop_s_cleanup_rc = _rc
+                noisily display as error "Excel formatting failed with error `saved_rc'"
+                restore
+                exit `saved_rc'
+            }
+            capture mata: mata drop b
+
+            /* Clean up temporary p-value and SMD variables */
+            capture drop `p_raw'
+            capture drop `smd_raw'
+
+            capture confirm file "`excel'"
+            if _rc {
+                noisily display as error "Export command succeeded but file not found"
+                restore
+                exit 601
+            }
+            local _xlsx_ok 1
+
+            * Restore the sink-neutral table so csv(), markdown(), and frame()
+            * see the same shape they would without xlsx().
+            use `"`_t1_sink_snapshot'"', clear
+        }
+    }
+
+    /* Keep internal raw columns out of public outputs */
+    capture drop `p_raw'
+    capture drop `smd_raw'
+
+    * CSV export (F2)
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
-            title(`"`title'"') footnote(`"`footnote'"')
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+        display as text "CSV exported to `csv'"
     }
 
     local _ret_markdown ""
     local _ret_markdown_rows .
     local _ret_markdown_cols .
-    if `"`markdown'"' != "" {
+    if `has_markdown' {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
+        * The Markdown writer reads its header from row 2 (headerstart) and, under
+        * strictheaders, does NOT fall back to variable labels. Two things have to
+        * happen before it is called.
+        *
+        * First, GFM allows one header row while this table has two semantic
+        * header levels: row 1 carries the group labels and row 2 the descriptor
+        * plus each group's N. Writing row 2 alone left the reader unable to tell
+        * which column is which group, so flatten both into row 2 -- "Domestic
+        * (N=52)". Second, the stat columns (p-value, SMD) carry their header only
+        * as a variable label (set ~l.740); if the flatten leaves their row-2 cell
+        * empty, fill it in explicitly. Body rows start at row 3 (datastart), so
+        * neither step can overwrite a real value.
+        *
+        * Snapshot first: the flatten must not reach frame().
+        tempfile _t1_md_snapshot
+        quietly save `"`_t1_md_snapshot'"', replace
+        if _N >= 2 {
+            _tabtools_visible_vars, labelvar(A)
+            foreach _mdv of local _tabtools_visible_vars {
+                capture confirm string variable `_mdv'
+                if !_rc {
+                    local _mdh1 = strtrim(`_mdv'[1])
+                    local _mdh2 = strtrim(`_mdv'[2])
+                    if `"`_mdh1'"' == `"`_mdh2'"' local _mdh2 ""
+                    if `"`_mdh1'"' != "" & `"`_mdh2'"' != "" {
+                        quietly replace `_mdv' = `"`_mdh1' (`_mdh2')"' in 2
+                    }
+                    else if `"`_mdh1'"' != "" {
+                        quietly replace `_mdv' = `"`_mdh1'"' in 2
+                    }
+                }
+            }
+        }
+        capture replace pvalue = "p-value" if _n == 2 & strtrim(pvalue) == ""
+        capture replace smd_str = "SMD" if _n == 2 & strtrim(smd_str) == ""
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) headerstart(`header_start') ///
-            datastart(`data_start') title(`"`title'"') footnote(`"`footnote'"') strictheaders
+            `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
             display as error "Failed to export Markdown to `markdown'"
-            error `_md_rc'
+            restore
+            exit `_md_rc'
         }
         local _ret_markdown `"`markdown'"'
         local _ret_markdown_rows = r(n_rows)
         local _ret_markdown_cols = r(n_cols)
-        return local markdown `"`_ret_markdown'"'
-        return scalar markdown_rows = `_ret_markdown_rows'
-        return scalar markdown_cols = `_ret_markdown_cols'
+        quietly use `"`_t1_md_snapshot'"', clear
+        display as text "Markdown exported to `markdown'"
     }
 
+**#  Store output in frame if requested (I5)
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame `"`_frame_name'"'
-        if `_sc_active' {
+        if "`smallcells'" != "" {
             frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
             frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
             frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
@@ -1221,448 +2104,112 @@ program define desctab, rclass
         return local frame "`frame'"
     }
 
-    noisily _tabtools_console_display `n_display_cols' `"`title'"', ///
-        labelvar(A) datastart(`data_start') headerstart(`header_start')
-    if `_sc_active' noisily display as text "`_sc_note'"
+**#  Restore original data unless told not to
+{
+    if "`clear'"=="clear" restore, not
+    else restore
+}
 
-    if `_has_xlsx' {
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
-        if _rc {
-            local _export_rc = _rc
-            display as error "Failed to export to `xlsx', sheet `sheet'"
-            display as error "Check file permissions and that the workbook is not open"
-            error `_export_rc'
-        }
-
-        local _fn_text `"`footnote'"'
-        capture {
-            local _hborder_code = 1
-            if "`_hborder'" == "medium" local _hborder_code = 2
-            if "`_hborder'" == "thick" local _hborder_code = 3
-            if "`_hborder'" == "none" local _hborder_code = 4
-            local _vborder_code = 1
-            if "`borderstyle'" == "medium" local _vborder_code = 2
-            if "`borderstyle'" == "thick" local _vborder_code = 3
-            if "`borderstyle'" == "none" local _vborder_code = 4
-
-            tempname _style_rules
-            local _style_rule_rows ""
-            local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 1, 1, 1, 0, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 2, 2, `_label_width', 0, 0, 0"'
-            forvalues _c = 3/`num_cols' {
-                local _dc = `_c' - 2
-                local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `_c', `_c', `_data_width_`_dc'', 0, 0, 0"'
-            }
-            local _style_rule_rows `"`_style_rule_rows' | 12, 1, 1, 1, 1, 30, 0, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 1, 1, 1, 1, `num_cols', `=`_fontsize' + 2', 1, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 14, 1, 1, 1, `num_cols', 0, 0, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 4, 1, 1, 1, 1, 0, 1, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 5, 1, 1, 1, 1, 0, 1, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 6, 1, 1, 1, 1, 0, 2, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 2, 1, 1, 1, 1, 0, 1, 0, 0"'
-            if `_merge_group_headers' {
-                if `_merge_row_header' & `data_start' > 3 {
-                    local _style_rule_rows `"`_style_rule_rows' | 14, 2, `=`data_start' - 1', 2, 2, 0, 0, 0, 0"'
-                    local _style_rule_rows `"`_style_rule_rows' | 6, 2, `=`data_start' - 1', 2, 2, 0, 2, 0, 0"'
-                }
-                forvalues _g = 1/`n_groups' {
-                    local _merge_start = 3 + (`_g' - 1) * `n_stats'
-                    local _merge_end = `_merge_start' + `n_stats' - 1
-                    if `_merge_end' > `_merge_start' {
-                        local _style_rule_rows `"`_style_rule_rows' | 14, 2, 2, `_merge_start', `_merge_end', 0, 0, 0, 0"'
-                    }
-                }
-            }
-            local _style_rule_rows `"`_style_rule_rows' | 2, 2, `=`data_start' - 1', 2, `num_cols', 0, 1, 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 5, 2, `=`data_start' - 1', 3, `num_cols', 0, 2, 0, 0"'
-            if "`headershade'" != "" {
-                local _style_rule_rows `"`_style_rule_rows' | 7, 2, `=`data_start' - 1', 2, `num_cols', 0, -1, 0, 0"'
-            }
-            local _style_rule_rows `"`_style_rule_rows' | 8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 9, `=`data_start' - 1', `=`data_start' - 1', 2, `num_cols', 0, `_hborder_code', 0, 0"'
-            local _style_rule_rows `"`_style_rule_rows' | 9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0"'
-            if "`borderstyle'" != "academic" {
-                local _style_rule_rows `"`_style_rule_rows' | 10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0"'
-                local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0"'
-                local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0"'
-                if `n_groups' > 1 {
-                    local _cols_per_group = `n_display_cols' / `n_groups'
-                    forvalues _g = 1/`=`n_groups' - 1' {
-                        local _next_g = `_g' + 1
-                        local _curr_label `"`_glabel_`_g''"'
-                        local _next_label `"`_glabel_`_next_g''"'
-                        local _draw = (`_cols_per_group' > 1) ///
-                            | ("`_next_label'" == "Total") ///
-                            | ("`_curr_label'" == "Total")
-                        if `_draw' {
-                            local _gcol_end = 2 + `_g' * `_cols_per_group'
-                            local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', `_gcol_end', `_gcol_end', 0, `_vborder_code', 0, 0"'
-                        }
-                    }
-                }
-            }
-            if "`zebra'" != "" {
-                forvalues _zr = `=`data_start' + 1'(2)`num_rows' {
-                    local _style_rule_rows `"`_style_rule_rows' | 7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0"'
-                }
-            }
-            if `highlight' != -1 {
-                local _hl_rows : list uniq highlight_rows
-                foreach _hr of local _hl_rows {
-                    local _excel_hr = `_hr' + 1
-                    if `"`compose_resolved'"' != "" & "`coldim'" != "" {
-                        local _excel_hr = `_hr' - 1
-                    }
-                    if `_excel_hr' >= `data_start' & `_excel_hr' <= `num_rows' {
-                        local _style_rule_rows `"`_style_rule_rows' | 7, `_excel_hr', `_excel_hr', 2, `num_cols', 0, -3, 0, 0"'
-                    }
-                }
-            }
-            local _style_rule_rows `"`_style_rule_rows' | 5, `data_start', `num_rows', 3, `num_cols', 0, 2, 0, 0"'
-            if `"`_fn_text'"' != "" {
-                local _fn_row = `num_rows' + 1
-                local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: b.put_string(`_fn_row', 2, `"`_fn_text'"')
-                local _style_rule_rows `"`_style_rule_rows' | 14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0"'
-                local _style_rule_rows `"`_style_rule_rows' | 4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
-                local _style_rule_rows `"`_style_rule_rows' | 1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0"'
-                local _style_rule_rows `"`_style_rule_rows' | 3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
-            }
-
-            _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
-                rules(`"`_style_rule_rows'"') cols(9)
-            _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
-                rules(`_style_rules') font("`_font'") ///
-                color1("`_headercolor'") color2("`_zebracolor'") ///
-                color3("255 255 204")
-            mata: b.close_book()
-
-            * xl() appends a style record for every styled cell instead of
-            * reusing one per distinct format, so collapse the pools here;
-            * a workbook that keeps growing would otherwise reach Stata's
-            * 65,536-record ceiling and fail with r(16147).
-            _tabtools_xlsx_compact_styles using "`xlsx'"
-        }
-        if _rc {
-            local _fmt_rc = _rc
-            capture mata: b.close_book()
-            capture mata: mata drop b
-            display as error "Excel and Markdown formatting failed with error `_fmt_rc'"
-            error `_fmt_rc'
-        }
-        capture mata: mata drop b
-        capture confirm file "`xlsx'"
-        if _rc {
-            display as error "Export command succeeded but file not found"
-            exit 601
-        }
-        return local xlsx "`xlsx'"
+    if `_xlsx_ok' {
+        return local xlsx "`excel'"
         return local sheet "`sheet'"
-        display as text "Exported " as result "`=`num_rows' - 1'" ///
-            as text " rows x " as result "`=`num_cols' - 1'" ///
-            as text " cols to " as result `"`xlsx'"' ///
-            as text ", sheet " as result `"`sheet'"'
-        if "`open'" != "" _tabtools_open_file "`xlsx'"
+    }
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
     }
 
-    restore
+    /* Open file if requested (W3) */
+    if "`open'" != "" & `_xlsx_ok' {
+        _tabtools_open_file "`excel'"
+    }
+
+    } // end capture noisily
+    local _rc = _rc
+    * Unconditional Mata cleanup — runs on success AND on any error path so a
+    * failure mid-Excel-write cannot leak _p_raw_save / _smd_raw_save into the
+    * user's Mata workspace.
+    capture mata: mata drop _p_raw_save
+    capture mata: mata drop _smd_raw_save
+    capture frame change `_caller_frame'
+    capture frame drop `_result_frame'
+    capture frame drop `_wtc_crude_table'
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
+    * The Mata cleanup above runs on the success path too, where those objects
+    * exist only in the Excel branch, so both captures fail with r(111) and the
+    * caller was left reading _rc == 111 after every successful call. _rc is
+    * written by `capture' alone -- never by a program's exit code, so neither
+    * falling off `end' nor `exit 0' clears it -- so restore it with a capture
+    * that cannot fail. Guarded by test_synthesis_review.do A1 (bare call).
+    capture version 17.0
+    local _success_rc = _rc
+end
+
+capture program drop _desctab_collect_roundtrip
+program define _desctab_collect_roundtrip, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    tempname _collection
+    local _old_collection ""
+    local _collection_created 0
     local _preserved 0
 
+    capture noisily {
+        capture quietly collect dir
+        if !_rc local _old_collection `"`s(current)'"'
+
+        unab _source_vars : _all
+        local _nvars : word count `_source_vars'
+        local _nobs = _N
+        if `_nvars' == 0 | `_nobs' == 0 error 2000
+
+        local _row_levels ""
+        forvalues _i = 1/`_nobs' {
+            local _row_levels "`_row_levels' r`_i'"
+        }
+        local _col_levels ""
+        forvalues _j = 1/`_nvars' {
+            local _col_levels "`_col_levels' c`_j'"
+        }
+
+        * The collect renderer is an internal serialization check.  Keep the
+        * public table dataset byte-for-byte intact: collect string results do
+        * not preserve leading indentation, which is part of table1_tc's frame
+        * and workbook contract.
+        preserve
+        local _preserved 1
+        quietly collect create `_collection'
+        local _collection_created 1
+        forvalues _i = 1/`_nobs' {
+            forvalues _j = 1/`_nvars' {
+                local _v : word `_j' of `_source_vars'
+                quietly collect get cell = `_v'[`_i'], ///
+                    tags(_ttrow[r`_i'] _ttcol[c`_j'])
+            }
+        }
+        quietly collect layout (_ttrow) (_ttcol#result[cell])
+        quietly collect style cell result[cell], nformat(%21.16g)
+
+        _tabtools_collect_render, type(raw) rowdim(_ttrow) ///
+            rowlevels("`_row_levels'") coldim(_ttcol) ///
+            collevels("`_col_levels'") results(cell)
+        assert _N == `_nobs'
+        unab _rendered_vars : _all
+        local _rendered_nvars : word count `_rendered_vars'
+        assert `_rendered_nvars' == `_nvars'
+        restore
+        local _preserved 0
     }
     local rc = _rc
-    capture putexcel close
-    if `_preserved' {
-        capture restore
+    if `_preserved' capture restore
+    if `"`_old_collection'"' != "" {
+        capture collect set `_old_collection'
+        local _collection_set_rc = _rc
     }
+    if `_collection_created' capture collect drop `_collection'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
-    * `capture putexcel close' above errors with r(198) whenever no putexcel
-    * file is set -- the default state -- so the caller was left reading
-    * _rc == 198 after every successful call. _rc is written by `capture' alone
-    * -- never by a program's exit code -- so restore it with a capture that
-    * cannot fail. Guarded by test_synthesis_review.do A2 (bare call).
-    capture version 16.0
-end
-
-capture program drop _desctab_parse_layout
-program define _desctab_parse_layout, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    args rowspec colspec
-
-    local rowspec = ustrregexra(`"`rowspec'"', "\[[^\]]*\]", "")
-    local colspec = ustrregexra(`"`colspec'"', "\[[^\]]*\]", "")
-    local rowdim ""
-    local coldim ""
-    foreach _tok in `=subinstr("`rowspec'", "#", " ", .)' {
-        local _dim = regexr("`_tok'", "\[.*", "")
-        if "`_dim'" != "" & "`_dim'" != "result" & "`rowdim'" == "" {
-            local rowdim `"`_dim'"'
-        }
-        else if "`_dim'" != "" & "`_dim'" != "result" & "`rowdim'" != "" {
-            local rowdim `"`rowdim'#`_dim'"'
-        }
-    }
-    foreach _tok in `=subinstr("`colspec'", "#", " ", .)' {
-        local _dim = regexr("`_tok'", "\[.*", "")
-        if "`_dim'" != "" & "`_dim'" != "result" & "`coldim'" == "" {
-            local coldim `"`_dim'"'
-        }
-        else if "`_dim'" != "" & "`_dim'" != "result" & "`coldim'" != "" {
-            local coldim `"`coldim'#`_dim'"'
-        }
-    }
-    return local rowdim "`rowdim'"
-    return local coldim "`coldim'"
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-capture program drop _desctab_has_stat
-program define _desctab_has_stat, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    args stat stats
-    local found 0
-    foreach _s of local stats {
-        if "`_s'" == "`stat'" local found 1
-    }
-    return scalar found = `found'
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-capture program drop _desctab_pick_stat
-program define _desctab_pick_stat, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    syntax , CANDIDATES(string) STATS(string)
-    local picked ""
-    foreach _cand of local candidates {
-        foreach _s of local stats {
-            if "`_s'" == "`_cand'" & "`picked'" == "" local picked "`_cand'"
-        }
-    }
-    return local stat "`picked'"
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-capture program drop _desctab_resolve_compose
-program define _desctab_resolve_compose, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    syntax , [COMPOSE(string asis) STATS(string)]
-
-    local clean_compose `"`compose'"'
-    local clean_compose : subinstr local clean_compose `"""' "", all
-    local mode = lower(strtrim(`"`clean_compose'"'))
-    local required ""
-    local custom 0
-    if `"`mode'"' == "" {
-        return local compose ""
-        return local required ""
-        return scalar custom = 0
-        set varabbrev `_orig_varabbrev'
-        exit
-    }
-
-    _desctab_pick_stat, candidates("count frequency fvfrequency") stats("`stats'")
-    local count_stat `"`r(stat)'"'
-    _desctab_pick_stat, candidates("sum total sum_w") stats("`stats'")
-    local sum_stat `"`r(stat)'"'
-    _desctab_pick_stat, candidates("percent fvpercent prop propc propr mean") stats("`stats'")
-    local pct_stat `"`r(stat)'"'
-    _desctab_pick_stat, candidates("p50 median") stats("`stats'")
-    local median_stat `"`r(stat)'"'
-    if "`count_stat'" == "" local count_stat "count"
-    if "`sum_stat'" == "" local sum_stat "sum"
-    if "`pct_stat'" == "" local pct_stat "percent"
-    if "`median_stat'" == "" local median_stat "p50"
-
-    if "`mode'" == "events_n_pct" {
-        local required "`sum_stat' `count_stat' mean"
-        local mode "events_n_pct"
-    }
-    else if "`mode'" == "events_n" {
-        local required `"`sum_stat' `count_stat'"'
-    }
-    else if "`mode'" == "n_pct" {
-        local required `"`count_stat' `pct_stat'"'
-        if "`pct_stat'" != "percent" & "`pct_stat'" != "" {
-            local required : subinstr local required "`pct_stat'" "percent", all
-            local mode "n_pct"
-            if "`pct_stat'" != "percent" local required "`count_stat' `pct_stat'"
-        }
-    }
-    else if "`mode'" == "mean_sd" {
-        local required "mean sd"
-    }
-    else if "`mode'" == "mean_semean" {
-        local required "mean semean"
-    }
-    else if "`mode'" == "median_iqr" {
-        local required "p25 `median_stat' p75"
-        if "`median_stat'" == "median" local mode "median_iqr"
-    }
-    else if "`mode'" == "median_range" {
-        local required "`median_stat' min max"
-    }
-    else if "`mode'" == "mean_ci" {
-        local required "mean count"
-        _desctab_has_stat "semean" "`stats'"
-        if `r(found)' local required "`required' semean"
-        else local required "`required' sd"
-    }
-    else {
-        local n_open = strlen(`"`clean_compose'"') - strlen(subinstr(`"`clean_compose'"', "{", "", .))
-        local n_close = strlen(`"`clean_compose'"') - strlen(subinstr(`"`clean_compose'"', "}", "", .))
-        if `n_open' != `n_close' {
-            display as error "compose() has unbalanced braces"
-            exit 198
-        }
-        local work `"`clean_compose'"'
-        while regexm(`"`work'"', "\{([A-Za-z0-9_]+)\}") {
-            local _ph = regexs(1)
-            local required `"`required' `_ph'"'
-            local work : subinstr local work "{`_ph'}" "", all
-        }
-        local required : list uniq required
-        if "`required'" == "" {
-            display as error "compose() must be a named preset or contain {stat} placeholders"
-            exit 198
-        }
-        local mode `"`clean_compose'"'
-        local custom 1
-    }
-    local required = strtrim("`required'")
-    return local compose `"`mode'"'
-    return local required "`required'"
-    return scalar custom = `custom'
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-capture program drop _desctab_parse_nformats
-program define _desctab_parse_nformats, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    syntax , [SPEC(string asis) STATS(string)]
-    local clean = subinstr(`"`spec'"', "=", " ", .)
-    local n : word count `clean'
-    if `n' == 0 {
-        set varabbrev `_orig_varabbrev'
-        exit
-    }
-    if mod(`n', 2) != 0 {
-        display as error "nformats() must contain stat=format or stat format pairs"
-        exit 198
-    }
-    forvalues _i = 1(2)`n' {
-        local _stat : word `_i' of `clean'
-        local _fmt : word `=`_i' + 1' of `clean'
-        _desctab_has_stat "`_stat'" "`stats'"
-        if `r(found)' return local fmt_`_stat' "`_fmt'"
-        else display as text "nformats: statistic '`_stat'' not in collect, ignoring"
-    }
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-capture program drop _desctab_parse_statlabels
-program define _desctab_parse_statlabels, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    syntax , [SPEC(string asis) STATS(string)]
-    local rest `"`spec'"'
-    if `"`rest'"' != "" {
-        _tabtools_strip_outer_quotes, text(`"`rest'"')
-        local rest `"`r(text)'"'
-    }
-    while `"`rest'"' != "" {
-        local _slash = strpos(`"`rest'"', "\")
-        if `_slash' {
-            local piece = substr(`"`rest'"', 1, `_slash' - 1)
-            local rest = substr(`"`rest'"', `_slash' + 1, .)
-        }
-        else {
-            local piece `"`rest'"'
-            local rest ""
-        }
-        local piece = strtrim(`"`piece'"')
-        if `"`piece'"' == "" continue
-        if regexm(`"`piece'"', "^([^= ]+)[ ]*=[ ]*(.+)$") {
-            local _stat = regexs(1)
-            local _label = regexs(2)
-        }
-        else {
-            gettoken _stat _label : piece
-            local _label = strtrim(`"`_label'"')
-        }
-        _tabtools_strip_outer_quotes, text(`"`_stat'"')
-        local _stat `"`r(text)'"'
-        _tabtools_strip_outer_quotes, text(`"`_label'"')
-        local _label `"`r(text)'"'
-        _desctab_has_stat "`_stat'" "`stats'"
-        if `r(found)' return local label_`_stat' `"`_label'"'
-        else display as text "statlabels: statistic '`_stat'' not in collect, ignoring"
-    }
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-capture program drop _desctab_format_local
-program define _desctab_format_local, rclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    syntax , VALUE(string asis) FORMAT(string) [SCALE(real 1) PCTSIGN]
-    local clean `"`value'"'
-    local clean : subinstr local clean `"""' "", all
-    local clean = subinstr(strtrim("`clean'"), ",", "", .)
-    if `"`clean'"' == "" {
-        return local value ""
-        set varabbrev `_orig_varabbrev'
-        exit
-    }
-    local num = real(`"`clean'"')
-    if `num' >= . {
-        return local value ""
-        set varabbrev `_orig_varabbrev'
-        exit
-    }
-    local num = `num' * `scale'
-    local out = strtrim(string(`num', "`format'"))
-    if "`pctsign'" != "" local out "`out'%"
-    return local value `"`out'"'
-    }
-    local _rc_outer = _rc
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
 end

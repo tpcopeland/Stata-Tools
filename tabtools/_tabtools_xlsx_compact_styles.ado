@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 1.16.3  2026/08/19
+*! _tabtools_xlsx_compact_styles Version 2.0.0  2026/08/19
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,7 +27,7 @@
 * dedupe below entirely.
 
 program define _tabtools_xlsx_compact_styles, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -70,7 +70,7 @@ end
 
 capture program drop _tabtools_xlsx_compact_engine
 program define _tabtools_xlsx_compact_engine, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -166,7 +166,7 @@ program define _tabtools_xlsx_compact_engine, rclass
     if `rc' exit `rc'
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _tt_xlsx_compact_dir()
 capture mata: mata drop _tt_xlsx_compact_styles_xml()
 capture mata: mata drop _tt_xlsx_slurp()

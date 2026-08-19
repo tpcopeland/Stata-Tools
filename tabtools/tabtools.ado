@@ -1,4 +1,4 @@
-*! tabtools Version 1.16.3  2026/08/19
+*! tabtools Version 2.0.0  2026/08/19
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -31,7 +31,7 @@ See help tabtools for complete documentation
 */
 
 program define tabtools, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -559,7 +559,7 @@ program define tabtools, rclass
             if inlist("`category'", "all", "descriptive") {
                 display as text "{bf:Descriptive Statistics}"
                 display as result "  table1_tc    " as text "- Table 1 with automatic statistical tests"
-                display as result "  desctab      " as text "- Format descriptive table collects"
+                display as result "  desctab      " as text "- Consolidated descriptive Table 1 engine"
                 display as result "  crosstab     " as text "- Cross-tabulation with association measures"
                 display as result "  corrtab      " as text "- Correlation matrix with significance"
                 display as text ""
@@ -643,7 +643,7 @@ end
 * Write current tabtools defaults as a runnable Stata profile.
 capture program drop _tabtools_write_profile
 program define _tabtools_write_profile, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _fh_open = 0
@@ -723,7 +723,7 @@ end
 * Load a saved tabtools profile into the current session.
 capture program drop _tabtools_use_profile
 program define _tabtools_use_profile, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -745,7 +745,7 @@ end
 * Subroutine for detailed display
 capture program drop _tabtools_detail
 program define _tabtools_detail, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -761,7 +761,7 @@ program define _tabtools_detail, nclass
             display as text "               Supports continuous, categorical, and binary"
             display as text "               variables with customizable formatting."
             display as text ""
-            display as result "  desctab" as text "      Format an active table collect with per-statistic"
+            display as result "  desctab" as text "      Direct access to the consolidated Table 1 engine"
             display as text "               number formats and optional composite cells such"
             display as text "               as events / N (%)."
             display as text ""

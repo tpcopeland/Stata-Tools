@@ -24,7 +24,7 @@
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
       Per-command workbooks (14 xlsx files, 80 sheets total):
         demo_table1.xlsx    (14 sheets) - table1_tc + themes + small cells
-        demo_desctab.xlsx   (9 sheets)  - desctab collect formatting + small cells
+        demo_desctab.xlsx   (9 sheets)  - descriptive tables + small cells
         demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
         demo_regtab_models.xlsx (10 sheets) - regtab model-family coverage
         demo_comptab.xlsx    (5 sheets) - comptab + source frames
@@ -342,13 +342,11 @@ log off demo
 
 **# Console: desctab display
 use `analysis', clear
-collect clear
-collect: table education, ///
-    statistic(sum cv_event) statistic(count cv_event) statistic(mean cv_event)
 
 log on demo
 
-noisily desctab, compose(events_n_pct) pctdigits(1)
+noisily desctab education cv_event, ///
+    vars(education cat \ cv_event bin)
 
 log off demo
 
@@ -504,9 +502,8 @@ noisily table1_tc category, by(group) vars(category cat) ///
     total(after) smallcells(5)
 
 * ## Primary suppression only: desctab
-collect clear
-quietly collect: table group category, statistic(frequency)
-noisily desctab, smallcells(5)
+noisily desctab category, by(group) vars(category cat) ///
+    total(after) smallcells(5)
 
 * ## Primary suppression only: crosstab
 noisily crosstab group category, label smallcells(5)
@@ -538,9 +535,8 @@ noisily table1_tc category, by(group) vars(category cat) ///
     total(after) smallcells(5)
 
 * ## Complementary suppression: desctab
-collect clear
-quietly collect: table group category, statistic(frequency)
-noisily desctab, smallcells(5)
+noisily desctab category, by(group) vars(category cat) ///
+    total(after) smallcells(5)
 
 * ## Complementary suppression: crosstab
 noisily crosstab group category, label smallcells(5)
@@ -572,9 +568,8 @@ noisily table1_tc rare_ae, by(group) vars(rare_ae bin) ///
     total(after) smallcells(5)
 
 * ## Binary variable suppression: desctab
-collect clear
-quietly collect: table group rare_ae, statistic(frequency)
-noisily desctab, smallcells(5)
+noisily desctab rare_ae, by(group) vars(rare_ae bin) ///
+    total(after) smallcells(5)
 
 log off demo
 restore
@@ -1829,59 +1824,38 @@ assert D[3] == "Low dose"
 assert E[4] == "0.73 (0.58, 0.92)"
 restore
 
-**# Sheets 47-52: Desctab -- formatted table collect examples
+**# Sheets 47-52: Desctab -- direct descriptive table examples
 sysuse auto, clear
-collect clear
-collect: table rep78, ///
-    statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
+desctab rep78, vars(rep78 cat) ///
+    xlsx("`xlsx_desctab'") sheet("Events") ///
+    title("Repair record distribution")
 
-desctab, xlsx("`xlsx_desctab'") sheet("Events") ///
-    title("Foreign cars by repair record") compose(events_n_pct) ///
-    pctdigits(1)
+desctab rep78, vars(rep78 cat) ///
+    xlsx("`xlsx_desctab'") sheet("Styled Events") ///
+    title("Repair record distribution") headershade zebra
 
-desctab, xlsx("`xlsx_desctab'") sheet("Styled Events") ///
-    title("Foreign cars by repair record") compose(events_n_pct) ///
-    pctdigits(1) headershade zebra
+desctab mpg weight, by(foreign) ///
+    vars(mpg contn %6.1f \ weight contn %8.1f) ///
+    xlsx("`xlsx_desctab'") sheet("Mean SD") ///
+    title("Vehicle characteristics by origin")
 
-collect clear
-collect: table (var) (foreign), ///
-    statistic(mean mpg weight) statistic(sd mpg weight)
+desctab price, by(foreign) vars(price conts %8.0fc) ///
+    xlsx("`xlsx_desctab'") sheet("Median IQR") ///
+    title("Vehicle price by origin")
 
-desctab, xlsx("`xlsx_desctab'") sheet("Mean SD") ///
-    title("Vehicle characteristics by origin") compose(mean_sd) ///
-    digits(1)
+desctab price rep78, by(foreign) ///
+    vars(price contn %8.0fc \ rep78 cat) ///
+    xlsx("`xlsx_desctab'") sheet("Separate Stats") ///
+    title("Price and repair record by origin")
 
-collect clear
-collect: table foreign, ///
-    statistic(p25 price) statistic(p50 price) statistic(p75 price)
-
-desctab, xlsx("`xlsx_desctab'") sheet("Median IQR") ///
-    title("Vehicle price by origin") compose(median_iqr) ///
-    digits(0)
-
-collect clear
-collect: table rep78 foreign, ///
-    statistic(count price) statistic(mean price) statistic(sd price)
-
-desctab, xlsx("`xlsx_desctab'") sheet("Separate Stats") ///
-    title("Price statistics by repair record and origin") ///
-    statorder(count mean sd) ///
-    statlabels("count=N \ mean=Mean \ sd=SD") ///
-    nformats("count %8.0fc mean %8.0fc sd %8.0fc")
-
-collect clear
-collect: table rep78, ///
-    statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
-
-desctab, xlsx("`xlsx_desctab'") sheet("Custom") ///
-    title("Custom composition template") ///
-    compose("{total} of {count} ({mean})") pctscale(0to100) pctsign ///
-    pctdigits(1)
+desctab price mpg rep78, by(foreign) ///
+    xlsx("`xlsx_desctab'") sheet("Custom") ///
+    title("Mixed descriptive table") smd test
 
 **# Verify desctab workbook content
 preserve
 import excel using "`xlsx_desctab'", sheet("Events") clear allstring
-assert A[1] == "Foreign cars by repair record"
+assert A[1] == "Repair record distribution"
 restore
 
 preserve
@@ -1896,23 +1870,14 @@ restore
 
 preserve
 import excel using "`xlsx_desctab'", sheet("Separate Stats") clear allstring
-assert A[1] == "Price statistics by repair record and origin"
-assert B[2] == "Repair record 1978"
+assert A[1] == "Price and repair record by origin"
 assert C[2] == "Domestic"
-assert D[2] == ""
-assert E[2] == ""
-assert F[2] == "Foreign"
-assert I[2] == "Total"
-assert B[3] == ""
-assert C[3] == "N"
-assert D[3] == "Mean"
-assert E[3] == "SD"
-assert strtrim(B[4]) == "1"
+assert D[2] == "Foreign"
 restore
 
 preserve
 import excel using "`xlsx_desctab'", sheet("Custom") clear allstring
-assert A[1] == "Custom composition template"
+assert A[1] == "Mixed descriptive table"
 restore
 
 **# Sheets 60-65: Small-cell disclosure control
@@ -1941,9 +1906,7 @@ table1_tc category, by(group) vars(category cat) total(after) ///
 assert r(N_primary_suppressed) == 4
 assert r(N_secondary_suppressed) == 0
 
-collect clear
-collect: table group category, statistic(frequency)
-desctab, smallcells(5) ///
+desctab category, by(group) vars(category cat) total(after) smallcells(5) ///
     title("Small-cell suppression: primary counts only") ///
     xlsx("`xlsx_desctab'") sheet("Small Cells Primary")
 assert r(N_primary_suppressed) == 4
@@ -1981,9 +1944,7 @@ table1_tc category, by(group) vars(category cat) total(after) ///
 assert r(N_primary_suppressed) == 2
 assert r(N_secondary_suppressed) == 2
 
-collect clear
-collect: table group category, statistic(frequency)
-desctab, smallcells(5) ///
+desctab category, by(group) vars(category cat) total(after) smallcells(5) ///
     title("Small-cell suppression: complementary protection") ///
     xlsx("`xlsx_desctab'") sheet("Small Cells Complement")
 assert r(N_primary_suppressed) == 2
@@ -2021,13 +1982,11 @@ table1_tc rare_ae, by(group) vars(rare_ae bin) total(after) ///
 assert r(N_primary_suppressed) == 2
 assert r(N_secondary_suppressed) == 0
 
-collect clear
-collect: table group rare_ae, statistic(frequency)
-desctab, smallcells(5) ///
+desctab rare_ae, by(group) vars(rare_ae bin) total(after) smallcells(5) ///
     title("Small-cell suppression: binary variable") ///
     xlsx("`xlsx_desctab'") sheet("Small Cells Binary")
 assert r(N_primary_suppressed) == 2
-assert r(N_secondary_suppressed) == 2
+assert r(N_secondary_suppressed) == 0
 restore
 
 **## Verify primary and complementary markers in every workbook

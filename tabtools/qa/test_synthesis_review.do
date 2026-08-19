@@ -381,11 +381,13 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    collect clear
-    quietly collect: table rep78, statistic(count price)
     local _csv "`outdir'/_sr_a5_desctab.csv"
+    local _md "`outdir'/_sr_a5_desctab.md"
     capture erase "`_csv'"
-    desctab, csv("`_csv'") title("`_sr_t'") footnote("`_sr_f'")
+    capture erase "`_md'"
+    desctab price mpg rep78, by(foreign) ///
+        csv("`_csv'") markdown("`_md'") ///
+        title("`_sr_t'") footnote("`_sr_f'")
     _sr_csv_contract using "`_csv'", title("`_sr_t'") footnote("`_sr_f'")
 }
 if _rc == 0 {

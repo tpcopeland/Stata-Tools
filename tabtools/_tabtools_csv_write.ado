@@ -1,10 +1,10 @@
-*! _tabtools_csv_write Version 1.16.3  2026/08/19
+*! _tabtools_csv_write Version 2.0.0  2026/08/19
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 program define _tabtools_csv_write, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0

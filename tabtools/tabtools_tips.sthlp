@@ -84,10 +84,8 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {hline}
 {title:desctab}
 
-{phang2}{cmd:collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)}{p_end}
-{phang2}{cmd:desctab, xlsx(desc.xlsx) sheet("Descriptive") digits(1)}{p_end}
-{phang2}{cmd:collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
-{phang2}{cmd:desctab, compose(events_n_pct) pctdigits(1)} {it:// events / N (%)}{p_end}
+{phang2}{cmd:desctab price mpg weight rep78, by(foreign) xlsx(desc.xlsx) sheet("Descriptive")}{p_end}
+{phang2}{cmd:desctab, by(foreign) vars(price contn \ mpg conts \ rep78 cat) smd test}{p_end}
 
 {hline}
 {title:regtab}
@@ -358,12 +356,10 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {cmd:xlsx(correlations.xlsx) sheet("Table 4") title("Spearman Correlations")}
 {cmd:star(0.001 0.01 0.05) digits(2) theme(nejm)}{p_end}
 
-{title:18. Events / N (%) from a table collect}
+{title:18. Direct access to the consolidated descriptive engine}
 {phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:collect clear}{p_end}
-{phang2}{cmd:collect: table rep78 foreign, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
-{phang2}{cmd:desctab, xlsx(desc_events.xlsx) sheet("Events") compose(events_n_pct)}
-{cmd:title("Events / N (%) by repair record and origin")}{p_end}
+{phang2}{cmd:desctab price mpg weight rep78, by(foreign) xlsx(desc_events.xlsx) sheet("Descriptive")}
+{cmd:title("Characteristics by origin")}{p_end}
 
 {title:19. Style a raw in-memory table with puttab}
 {phang2}{cmd:sysuse auto, clear}{p_end}

@@ -1,10 +1,10 @@
-*! _tabtools_markdown_write Version 1.16.3  2026/08/19
+*! _tabtools_markdown_write Version 2.0.0  2026/08/19
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define _tabtools_markdown_write, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _fh_open = 0
@@ -153,7 +153,7 @@ program define _tabtools_markdown_write, rclass
     if `rc' exit `rc'
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _tt_md_escape()
 capture mata: mata drop _tt_md_cell()
 

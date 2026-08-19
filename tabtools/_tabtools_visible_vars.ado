@@ -1,10 +1,10 @@
-*! _tabtools_visible_vars Version 1.16.3  2026/08/19
+*! _tabtools_visible_vars Version 2.0.0  2026/08/19
 *! Resolve visible table variables for CSV and Markdown exports
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 program define _tabtools_visible_vars, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {

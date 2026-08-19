@@ -5,7 +5,7 @@
 * verified correct so it cannot silently regress.
 
 clear all
-version 16.0
+version 17.0
 set more off
 set varabbrev off
 

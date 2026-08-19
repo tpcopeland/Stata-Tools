@@ -1,10 +1,10 @@
-*! tabtools_tips Version 1.16.3  2026/08/19
+*! tabtools_tips Version 2.0.0  2026/08/19
 *! Quick links to the tabtools tips reference and worked recipes
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 program define tabtools_tips, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {

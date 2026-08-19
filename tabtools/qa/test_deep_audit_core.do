@@ -3,7 +3,7 @@
 clear all
 set more off
 set varabbrev off
-version 16.0
+version 17.0
 
 capture log close _deepcore
 log using "test_deep_audit_core.log", replace text name(_deepcore) nomsg
