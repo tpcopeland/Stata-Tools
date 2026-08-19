@@ -117,13 +117,24 @@ that fail to converge are skipped and counted rather than treated as fatal.
 {phang}
 {opt at(var=# ...)} sets the covariate profile at which the CIF is evaluated, for
 example {cmd:at(age=60 male=1)}. Variables not listed are held at their
-estimation-sample mean. The default profile is the estimation-sample means of
-all model covariates. Factor variables may be named directly by their level,
-for example {cmd:at(pelnode=1)} after {cmd:finegray i.pelnode ...}; the
-requested level is mapped onto the internal indicator variables (the reference
-level sets every indicator to 0). A factor variable that enters an interaction
-term must be set through its internal {cmd:_fg_*} indicator names instead (see
-{cmd:e(covariates)}).
+estimation-sample mean, which is also the default profile.
+
+{phang2}
+Factor variables are named directly by their level, for example
+{cmd:at(pelnode=1)} after {cmd:finegray i.pelnode ...}; the reference level
+({cmd:at(pelnode=0)}) leaves every indicator at 0. A variable that enters an
+interaction may be set the same way: the setting is carried into every design
+column the variable appears in, so after
+{cmd:finegray i.pelnode c.ifp i.pelnode#c.ifp}, {cmd:at(pelnode=1 ifp=20)}
+evaluates the interaction at {cmd:1 * 20 = 20}, and {cmd:at(pelnode=0 ifp=20)}
+evaluates it at 0. Where a term mixes a variable you set with one you do not,
+the unset part is held at its estimation-sample mean. A design column that
+contains no variable you set keeps its own estimation-sample mean.
+
+{phang2}
+The package-owned design columns in {cmd:e(covariates)} may still be set by
+name, for example {cmd:at(_fg_pelnode_1Xifp=0)}, and such a setting is applied
+after, and therefore overrides, anything implied by the variables you named.
 
 {phang}
 {opt attime(numlist)} requests a table of the CIF at the listed time horizons
@@ -167,12 +178,14 @@ limits differ. The original estimation results and {cmd:e(sample)} are preserved
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
-reproducibility. It requires {opt bootstrap()}.
+reproducibility. It requires {opt bootstrap()}, and must be an integer between
+{cmd:0} and {cmd:2147483647}.
 
 {phang}
 {opt level(#)} sets the confidence level for {opt ci}; it requires {opt ci}. The
 default is {cmd:c(level)}, which is initially 95 and can be changed by
-{helpb set level}. The value must be at least 10 and less than 100.
+{helpb set level}. The value must be between 10 and 99.99 inclusive, with at
+most two decimal places -- the same rule {cmd:finegray} itself applies.
 
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},
@@ -246,6 +259,10 @@ cluster-robust variance and {opt bootstrap()} resamples whole clusters.
 
 {pstd}Fixed-horizon table: CIF at 1, 5, and 8 years with confidence limits{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci}{p_end}
+
+{pstd}Curve for a profile of an interaction model{p_end}
+{phang2}{cmd:. finegray i.pelnode c.ifp i.pelnode#c.ifp tumsize, compete(status) cause(1)}{p_end}
+{phang2}{cmd:. finegray_cif, at(pelnode=1 ifp=20) attime(1 5) ci}{p_end}
 
 {pstd}Curve evaluated on a custom time grid{p_end}
 {phang2}{cmd:. finegray_cif, timepoints(1 2 3 4 5 6 7 8) ci}{p_end}

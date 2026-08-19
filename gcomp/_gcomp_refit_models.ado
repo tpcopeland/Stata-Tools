@@ -1,4 +1,4 @@
-*! _gcomp_refit_models Version 1.4.7  2026/08/11
+*! _gcomp_refit_models Version 1.6.0  2026/08/19
 *! Refit gcomp component specifications on the analytic sample and store them
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -8,7 +8,8 @@ DESCRIPTION:
     Explicitly labelled one-time approximation to the per-variable component
     models that gcomp simulates from. Called by gcomp (savemodels/showmodels) AFTER the
     analytic sample is finalized in memory but BEFORE the rename/reshape, so the
-    fits use the same command/equation/sample gcomp used in simulation.
+    fits use the same command/equation/structural-complement sample gcomp used
+    in simulation.
 
     For time-varying analyses this refit is pooled across visits and therefore
     is not the exact nonpooled simulation fit.  Loop-created lagged/derived
@@ -22,7 +23,7 @@ DESCRIPTION:
 RETURNS:
     r(n_models)         number of models successfully captured
     r(model_names)      stub_1 stub_2 ... (stored-estimate names, contiguous)
-    r(model_cmds)       per-model command (logit/regress/mlogit/ologit)
+    r(model_cmds)       per-model command (logit/regress/mlogit/ologit/poisson/nbreg)
     r(model_depvars)    per-model dependent variable
     r(model_eq_k)       prediction equation for captured model k
     r(skipped)          depvars of models that could not be refit
@@ -35,7 +36,8 @@ program define _gcomp_refit_models, rclass
     set varabbrev off
     capture noisily {
         syntax , VARS(string) COMmands(string) EQuations(string) STUB(name) ///
-            [ANALYSIS(string) Pooled IDVAR(varname) TVAR(varname) ///
+            [STRUCTural(string) ///
+            ANALYSIS(string) Pooled IDVAR(varname) TVAR(varname) ///
             INTVARS(varlist) MONOTREAT]
 
         local nvar : word count `vars'
@@ -53,6 +55,15 @@ program define _gcomp_refit_models, rclass
         _gcomp_detangle "`equations'" equation "`vars'"
         forvalues i = 1/`nvar' {
             local equation`i' `"`r(value`i')'"'
+        }
+        forvalues i = 1/`nvar' {
+            local _gc_struct_condition`i' ""
+        }
+        if `"`structural'"' != "" {
+            _gcomp_parse_structural, rules(`"`structural'"') vars(`vars')
+            forvalues i = 1/`nvar' {
+                local _gc_struct_condition`i' `"`r(condition`i')'"'
+            }
         }
 
         local _kept 0
@@ -72,7 +83,7 @@ program define _gcomp_refit_models, rclass
             if "`_cmd'" == "" | "`_eq'" == "" {
                 continue
             }
-            if !inlist("`_cmd'", "logit", "regress", "mlogit", "ologit") {
+            if !inlist("`_cmd'", "logit", "regress", "mlogit", "ologit", "poisson", "nbreg") {
                 continue
             }
 
@@ -88,15 +99,22 @@ program define _gcomp_refit_models, rclass
 			* whose subject has not initiated before the current visit.  Apply
 			* the exact observed-data risk set here as well as in the simulator,
 			* making the stored approximation auditable against a manual fit.
-			local _gc_refit_if ""
+			local _gc_refit_condition ""
 			local _gc_is_int : list posof "`_v'" in intvars
 			if "`monotreat'" != "" & `_gc_is_int' & "`idvar'" != "" & "`tvar'" != "" {
 				tempvar _gc_refit_prior
 				quietly sort `idvar' `tvar'
 				quietly by `idvar': gen long `_gc_refit_prior' = ///
 					sum(`_v' == 1) - (`_v' == 1)
-				local _gc_refit_if "if `_gc_refit_prior' == 0"
+				local _gc_refit_condition "`_gc_refit_prior' == 0"
 			}
+			local _gc_scondition `"`_gc_struct_condition`i''"'
+			if `"`_gc_scondition'"' != "" {
+				if "`_gc_refit_condition'" == "" local _gc_refit_condition "!(`_gc_scondition')"
+				else local _gc_refit_condition "(`_gc_refit_condition') & !(`_gc_scondition')"
+			}
+			local _gc_refit_if ""
+			if "`_gc_refit_condition'" != "" local _gc_refit_if "if `_gc_refit_condition'"
 
             * Refit on the analytic sample; skip gracefully if predictors are
             * unavailable at this stage (lagged/derived vars built in the loop).

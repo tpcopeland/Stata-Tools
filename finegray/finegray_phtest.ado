@@ -95,9 +95,15 @@ program define finegray_phtest, rclass
 
     * Entry-time source: multi-record fits persist each subject's earliest
     * entry in a finegray-created variable; single-record fits use _t0.
+    * The characteristic travels with the data, e(entryvar) with the estimates.
+    * After `estimates use' over a dataset saved before the fit there is no
+    * characteristic, and reading _t0 instead would silently substitute
+    * per-record entry times for the subject-level ones the fit used.
     local _t0var "_t0"
-    if `"`_dta[_finegray_entryvar]'"' != "" {
-        local _t0var `"`_dta[_finegray_entryvar]'"'
+    local _fg_entrysrc `"`_dta[_finegray_entryvar]'"'
+    if `"`_fg_entrysrc'"' == "" local _fg_entrysrc `"`e(entryvar)'"'
+    if `"`_fg_entrysrc'"' != "" {
+        local _t0var `"`_fg_entrysrc'"'
         capture confirm numeric variable `_t0var'
         if _rc {
             display as error "variable `_t0var' not found"

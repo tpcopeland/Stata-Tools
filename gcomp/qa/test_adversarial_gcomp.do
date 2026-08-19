@@ -310,7 +310,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) impute(m) imp_cmd(m: poisson) imp_eq(m: x c) ///
+        base_confs(c) impute(m) imp_cmd(m: probit) imp_eq(m: x c) ///
         sim(80) samples(2) seed(8303)
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"

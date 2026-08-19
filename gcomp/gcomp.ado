@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.7  2026/08/11
+*! gcomp Version 1.6.0  2026/08/19
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -14,6 +14,9 @@
 *!   - Added double precision to gen statements
 *!   - Inlined detangle/formatline/chkin (no more ice/SSC dependency)
 *!   - Added version 16.0, set varabbrev off, set more off
+*!   - Warns when a component model omits eligible observations at fit time
+*!   - Added structural() deterministic fit-and-simulation rules
+*!   - Added Poisson and NB2 count component and imputation models
 /*------------------------------------------------------------*\ 
 |  This .ado file fits Robins' G-computation formula (Robins   |
 |   1986, Mathematical Modelling) to longitudinal datasets in  |
@@ -110,8 +113,8 @@ foreach _gc_matrix_name of local _gc_literal_matrices {
 }
 capture noisily {
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
-    Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat dynamic eofu pooled death(varname) ///
-    derived(varlist) derrules(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
+	    Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat dynamic eofu pooled death(varname) ///
+	    derived(varlist) derrules(string) STRUCTural(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
     mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
     post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 99999) ///
 	    SAMples(int 1000) SEED(string) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace ///
@@ -127,6 +130,7 @@ if "`modelstyle'"!="" {
 	}
 }
 local _gc_cmdline `"gcomp `0'"'
+local _gc_user_varlist "`varlist'"
 local _gc_keepvars `varlist'
 foreach _gc_varblock in outcome idvar tvar varyingcovariates intvars death derived fixedcovariates laggedvars exposure mediator base_confs post_confs impute {
 	local _gc_keepvars `"`_gc_keepvars' ``_gc_varblock''"'
@@ -920,7 +924,7 @@ forvalues i=1/`nvar' {
 	if "`command`i''"=="" {
 		noi di as err "commands(): no model specified for `_v'"
 		noi di as err "  Every variable that gcomp simulates needs a model command."
-		noi di as err "  Add `_v': logit (or regress/mlogit/ologit) to commands()."
+		noi di as err "  Add `_v': logit (or regress/mlogit/ologit/poisson/nbreg) to commands()."
 		exit 198
 	}
 }
@@ -991,6 +995,108 @@ forvalues i=1/`nvar' {
 		}
 	}
 }
+* Parse and validate deterministic structural rules before any aliasing.  A rule
+* may use only variables on the user's analysis surface and only nodes already
+* available when its target is generated.
+forvalues i=1/`nvar' {
+	local _gc_struct_condition`i' ""
+	local _gc_struct_value`i' ""
+}
+if `"`structural'"' != "" {
+	capture noisily _gcomp_parse_structural, rules(`"`structural'"') vars(`varlist2')
+	if _rc exit 198
+	forvalues i=1/`nvar' {
+		local _gc_struct_condition`i' `"`r(condition`i')'"'
+		local _gc_struct_value`i' `"`r(value`i')'"'
+	}
+	forvalues i=1/`nvar' {
+		local _gc_scondition `"`_gc_struct_condition`i''"'
+		if `"`_gc_scondition'"' == "" continue
+		local _gc_starget : word `i' of `varlist2'
+		local _gc_svalue `"`_gc_struct_value`i''"'
+
+		if "`death'" != "" & "`_gc_starget'" == "`death'" {
+			noi di as err "structural(): `_gc_starget' is already governed by death()"
+			noi di as err "  death() remains a separate competing-event mechanism; do not target the same variable with both options."
+			exit 198
+		}
+
+		foreach _gc_candidate of local _gc_dataset_vars {
+			mata: st_local("_gc_dep_hit", strofreal(_gcomp_expression_uses_variable(st_local("_gc_scondition"), st_local("_gc_candidate"))))
+			if `_gc_dep_hit' {
+				local _gc_on_surface : list posof "`_gc_candidate'" in _gc_user_varlist
+				if `_gc_on_surface' == 0 {
+					noi di as err "structural(): condition for `_gc_starget' references `_gc_candidate', which is outside the command varlist"
+					exit 198
+				}
+			}
+		}
+		forvalues _gc_j=`i'/`nvar' {
+			local _gc_later : word `_gc_j' of `varlist2'
+			mata: st_local("_gc_dep_hit", strofreal(_gcomp_expression_uses_variable(st_local("_gc_scondition"), st_local("_gc_later"))))
+			if `_gc_dep_hit' {
+				if `_gc_j'==`i' noi di as err "structural(): rule for `_gc_starget' cannot depend on its own target"
+				else noi di as err "structural(): rule for `_gc_starget' depends on later simulated variable `_gc_later'; reorder the modelled variables"
+				exit 198
+			}
+		}
+
+		tempvar _gc_struct_check
+		capture quietly gen byte `_gc_struct_check' = (`_gc_scondition')
+		if _rc {
+			noi di as err `"structural(): invalid condition for `_gc_starget': `_gc_scondition'"'
+			exit 198
+		}
+		quietly count if `_gc_struct_check' != 0 & !missing(`_gc_struct_check')
+		if r(N)==0 {
+			noi di as err "Warning: structural() condition for `_gc_starget' is never true in the observed data; the rule is a no-op for this sample."
+		}
+
+		local _gc_scmd "`command`i''"
+		if inlist("`_gc_scmd'", "logit", "mlogit", "ologit", "poisson", "nbreg") {
+			quietly count if `_gc_starget' == `_gc_svalue'
+			if r(N)==0 {
+				noi di as err "structural(): forced value `_gc_svalue' is outside observed support for `_gc_starget'"
+				exit 459
+			}
+		}
+		else {
+			quietly summarize `_gc_starget' if !missing(`_gc_starget'), meanonly
+			if r(N)==0 | `_gc_svalue' < r(min) | `_gc_svalue' > r(max) {
+				noi di as err "structural(): forced value `_gc_svalue' is outside observed support for `_gc_starget'"
+				exit 459
+			}
+		}
+	}
+
+	* A controlled mediator setting that makes an outcome rule true for every
+	* analytic row has no nonstructural outcome contrast and is not a CDE.
+	if `"`control'"' != "" {
+		forvalues _gc_ci=1/`_gc_n_control' {
+			local _gc_cmed : word `_gc_ci' of `mediator'
+			tempvar _gc_control_backup`_gc_ci'
+			quietly clonevar `_gc_control_backup`_gc_ci'' = `_gc_cmed'
+			quietly replace `_gc_cmed' = `_gc_control_value`_gc_ci''
+		}
+		forvalues i=1/`nvar' {
+			local _gc_starget : word `i' of `varlist2'
+			local _gc_scondition `"`_gc_struct_condition`i''"'
+			if "`_gc_starget'" != "`outcome'" | `"`_gc_scondition'"' == "" continue
+			tempvar _gc_control_struct
+			quietly gen byte `_gc_control_struct' = (`_gc_scondition')
+			quietly count if missing(`_gc_control_struct') | `_gc_control_struct' == 0
+			if r(N)==0 {
+				noi di as err "control() fixes the mediator setting inside the deterministic set for outcome `outcome'"
+				noi di as err "  Every potential outcome would be structurally forced, so the controlled direct effect is undefined."
+				exit 198
+			}
+		}
+		forvalues _gc_ci=1/`_gc_n_control' {
+			local _gc_cmed : word `_gc_ci' of `mediator'
+			quietly replace `_gc_cmed' = `_gc_control_backup`_gc_ci''
+		}
+	}
+}
 local _gc_dependency_vars : list uniq _gc_dependency_vars
 local varlist "`varlist' `_gc_keepvars' `_gc_dependency_vars'"
 local varlist : list uniq varlist
@@ -998,9 +1104,14 @@ local varlist : list uniq varlist
 forvalues i=1/`nvar' {
 	local _v: word `i' of `varlist2'
 	local _cmd "`command`i''"
-	if !inlist("`_cmd'", "logit", "regress", "mlogit", "ologit") {
+	if strpos("`_cmd'", "nbreg") == 1 & "`_cmd'" != "nbreg" {
+		noi di as err "commands(): only the default NB2 form nbreg is supported"
+		noi di as err "  dispersion(constant) is NB1 and requires a different simulation law."
+		exit 198
+	}
+	if !inlist("`_cmd'", "logit", "regress", "mlogit", "ologit", "poisson", "nbreg") {
 		noi di as err "commands(): `_cmd' is not a supported model command for `_v'"
-		noi di as err "  Supported commands: logit, regress, mlogit, ologit"
+		noi di as err "  Supported commands: logit, regress, mlogit, ologit, poisson, nbreg"
 		exit 198
 	}
 	if "`_cmd'" == "logit" {
@@ -1030,6 +1141,13 @@ forvalues i=1/`nvar' {
 				noi di as text "  Note: `_v' appears binary (0/1) but is modeled with regress."
 				noi di as text "  This is valid (linear probability model) but logit is more common."
 			}
+		}
+	}
+	if inlist("`_cmd'", "poisson", "nbreg") {
+		quietly count if !missing(`_v') & (`_v' < 0 | `_v' != floor(`_v'))
+		if r(N) {
+			noi di as err "commands(): `_cmd' outcome `_v' must be a nonnegative integer count"
+			exit 459
 		}
 	}
 }
@@ -1090,7 +1208,7 @@ if "`control'"!="" {
 		local _gc_cval `_gc_control_value`_gc_ci''
 		local _gc_cpos : list posof "`_gc_cmed'" in varlist2
 		local _gc_ccmd "`command`_gc_cpos''"
-		if inlist("`_gc_ccmd'", "logit", "mlogit", "ologit") {
+		if inlist("`_gc_ccmd'", "logit", "mlogit", "ologit", "poisson", "nbreg") {
 			quietly count if `_gc_cmed'==`_gc_cval'
 			if r(N)==0 {
 				noi di as err "control(): value `_gc_cval' is outside observed support for `_gc_cmed'"
@@ -1233,10 +1351,16 @@ if "`impute'" != "" {
 			noi di as err "imp_cmd(): no model specified for `_imp_v'"
 			exit 198
 		}
-		if !inlist("`_imp_c'", "logit", "regress", "mlogit", "ologit") {
+		if strpos("`_imp_c'", "nbreg") == 1 & "`_imp_c'" != "nbreg" {
+			local _imp_v: word `_ii' of `impute'
+			noi di as err "imp_cmd(): only the default NB2 form nbreg is supported for `_imp_v'"
+			noi di as err "  dispersion(constant) is NB1 and requires a different simulation law."
+			exit 198
+		}
+		if !inlist("`_imp_c'", "logit", "regress", "mlogit", "ologit", "poisson", "nbreg") {
 			local _imp_v: word `_ii' of `impute'
 			noi di as err "imp_cmd(): `_imp_c' is not a supported imputation command for `_imp_v'"
-			noi di as err "  Supported: logit, regress, mlogit, ologit"
+			noi di as err "  Supported: logit, regress, mlogit, ologit, poisson, nbreg"
 			exit 198
 		}
 		local _imp_v: word `_ii' of `impute'
@@ -1261,6 +1385,13 @@ if "`impute'" != "" {
 			if `_gc_imp_nlevels'<2 {
 				noi di as err "imp_cmd(): `_imp_c' target `_imp_v' needs at least two observed donor levels"
 				exit 2000
+			}
+		}
+		if inlist("`_imp_c'", "poisson", "nbreg") {
+			quietly count if !missing(`_imp_v') & (`_imp_v' < 0 | `_imp_v' != floor(`_imp_v'))
+			if r(N) {
+				noi di as err "imp_cmd(): `_imp_c' target `_imp_v' must be a nonnegative integer count"
+				exit 459
 			}
 		}
 	}
@@ -1379,8 +1510,9 @@ if "`savemodels'"!="" {
 	if "`idvar'" != "" local _gc_refit_panelopts "`_gc_refit_panelopts' idvar(`idvar')"
 	if "`tvar'" != "" local _gc_refit_panelopts "`_gc_refit_panelopts' tvar(`tvar')"
 	if "`intvars'" != "" local _gc_refit_panelopts "`_gc_refit_panelopts' intvars(`intvars')"
-	capture noisily _gcomp_refit_models, vars(`varlist2') ///
-		commands(`commands') equations(`equations') stub(`_gc_model_stub') ///
+		capture noisily _gcomp_refit_models, vars(`varlist2') ///
+			commands(`commands') equations(`equations') stub(`_gc_model_stub') ///
+			structural(`"`structural'"') ///
 		analysis(`=cond("`mediation'"!="","mediation","time_varying")') `pooled' ///
 		`_gc_refit_panelopts' `monotreat'
 	if _rc {
@@ -1460,7 +1592,7 @@ if "`saving'"!="" {
 * every exit.  The original-row marker has already been copied to its frame.
 quietly keep `varlist'
 
-local originallist "varlist varlist2 if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules fixedcovariates laggedvars lagrules msm mediation exposure mediator control baseline alternative base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
+local originallist "varlist varlist2 if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules structural fixedcovariates laggedvars lagrules msm mediation exposure mediator control baseline alternative base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
 foreach member of local originallist {
 	local original`member' "``member''"
 }
@@ -1493,7 +1625,7 @@ foreach member of local originallist {
 	if `"`msm'"' != "" {
 		gettoken _gc_msm_command _gc_msm_rest : msm
 	}
-	local listofstrings "varlist varlist2 outcome idvar tvar varyingcovariates intvars interventions death derived derrules fixedcovariates laggedvars lagrules exposure mediator base_confs post_confs impute control baseline alternative"
+	local listofstrings "varlist varlist2 outcome idvar tvar varyingcovariates intvars interventions death derived derrules structural fixedcovariates laggedvars lagrules exposure mediator base_confs post_confs impute control baseline alternative"
 	foreach currstring of local listofstrings {
 		mata: st_local("`currstring'", _gcomp_alias_expression(st_local("`currstring'"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
 	}
@@ -1590,7 +1722,7 @@ if "`diagnostics'" != "" {
 }
 _gcomp_bootstrap_impl `varlist' `if' `in', out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') ///
 	var(`varyingcovariates') intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') ///
-	derived(`derived') derrules(`derrules') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') ///
+	derived(`derived') derrules(`derrules') structural(`"`structural'"') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') ///
 	msm(`msm') `mediation' ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') ///
 	base_confs(`base_confs') post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') ///
 	imp_cycles(`imp_cycles') sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' `graph' saving(`"`saving'"') `replace' ///
@@ -1709,7 +1841,7 @@ set rngstate `_gc_rngstate_initial'
 bootstrap `_b' `_po' `_cinc', reps(`samples') `bca' noheader nolegend notable: _gcomp_bootstrap `varlist' `if' `in', ///
 	out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') var(`varyingcovariates') ///
 	intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') derived(`derived') ///
-	derrules(`derrules') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') msm(`msm') `mediation' ///
+	derrules(`derrules') structural(`"`structural'"') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') msm(`msm') `mediation' ///
 	ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') base_confs(`base_confs') ///
 	post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') imp_cycles(`imp_cycles') ///
 		sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' saving(`"`saving'"') `replace' ///
@@ -3177,6 +3309,7 @@ else {
 	ereturn local tvar "`originaltvar'"
 	ereturn local intvars "`originalintvars'"
 	ereturn local interventions `"`originalinterventions'"'
+	ereturn local structural `"`originalstructural'"'
 	ereturn local rngstate `"`_gc_rngstate_initial'"'
 	ereturn local run_id `"`_gc_run_id'"'
 	if "`graph'"!="" ereturn local graph "`_gc_graph_name'"

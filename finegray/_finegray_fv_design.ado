@@ -11,6 +11,14 @@ Returns, for the factor-variable fit currently in e():
               e(fvsemantic) spells them -- `2.race', `2.race#c.age'
   r(expr#)    a Stata expression that evaluates design column # from the
               raw covariates, e.g. `(race == 2) * age'
+  r(rawvars)  the unique underlying variables the design is built from, in
+              first-appearance order (e.g. `grp x')
+  r(fvars)    the subset of r(rawvars) that enters as a factor level
+  r(pieces#)  the factors of design column #, encoded `var:level' for a
+              factor indicator and bare `var' for a continuous part, so a caller can
+              re-evaluate the column at a chosen profile without parsing the
+              term itself.  r(expr#) is the same information as a Stata
+              expression; pieces# is the form a profile builder needs.
 
 WHY THIS EXISTS.  A post-estimation command needs two things from a factor
 fit: what to CALL each column, and how to REBUILD it if the package-owned
@@ -72,6 +80,8 @@ program define _finegray_fv_design, rclass
         }
 
         local _terms ""
+        local _rawv  ""
+        local _fvarv ""
         local _k = 0
         foreach _term of local _fvsem {
             * Base levels carry no coefficient.  This rule must agree with
@@ -89,6 +99,7 @@ program define _finegray_fv_design, rclass
             * flattened anyway so a hand-set e(fvsemantic) cannot smuggle one in.
             local _parts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
             local _expr ""
+            local _pieces ""
             foreach _p of local _parts {
                 * Tolerate any factor operator on the level marker (b, bn, o).
                 if regexm("`_p'", "^([0-9]+)[a-z]*\.(.+)$") {
@@ -101,6 +112,9 @@ program define _finegray_fv_design, rclass
                         exit 111
                     }
                     local _piece "(`_vr' == `_lv')"
+                    local _pieces "`_pieces' `_vr':`_lv'"
+                    local _rawv   "`_rawv' `_vr'"
+                    local _fvarv  "`_fvarv' `_vr'"
                 }
                 else {
                     local _vr = subinstr("`_p'", "c.", "", .)
@@ -111,11 +125,15 @@ program define _finegray_fv_design, rclass
                         exit 111
                     }
                     local _piece "`_vr'"
+                    local _pieces "`_pieces' `_vr'"
+                    local _rawv   "`_rawv' `_vr'"
                 }
                 if `"`_expr'"' == "" local _expr "`_piece'"
                 else                 local _expr "`_expr' * `_piece'"
             }
             return local expr`_k' "`_expr'"
+            local _pieces : list retokenize _pieces
+            return local pieces`_k' "`_pieces'"
         }
 
         if `_k' == 0 {
@@ -127,6 +145,11 @@ program define _finegray_fv_design, rclass
             display as error "(`_k' non-base terms in e(fvsemantic), `=colsof(e(b))' coefficients)"
             exit 198
         }
+
+        local _rawv  : list uniq _rawv
+        local _fvarv : list uniq _fvarv
+        return local rawvars "`_rawv'"
+        return local fvars   "`_fvarv'"
 
         return local terms : list retokenize _terms
         return scalar k = `_k'

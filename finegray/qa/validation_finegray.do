@@ -344,7 +344,10 @@ capture noisily {
     gen double const_x = 5
     capture finegray const_x ifp, compete(status) cause(1) nolog
     assert _rc == 459
-    assert `"`_dta[_finegray_estimated]'"' == ""
+    * Not "1": a fit that failed after it began mutating package-owned columns
+    * marks the state INVALIDATED ("0" as of this release, "" before it), and either
+    * way post-estimation must refuse.
+    assert `"`_dta[_finegray_estimated]'"' != "1"
 }
 if _rc == 0 {
     display as result "  PASS: V14 constant covariate rejected"
@@ -1007,7 +1010,10 @@ capture noisily {
     gen double ifp2 = ifp * 2
     capture finegray ifp ifp2 tumsize, compete(status) cause(1) nolog
     assert _rc == 459
-    assert `"`_dta[_finegray_estimated]'"' == ""
+    * Not "1": a fit that failed after it began mutating package-owned columns
+    * marks the state INVALIDATED ("0" as of this release, "" before it), and either
+    * way post-estimation must refuse.
+    assert `"`_dta[_finegray_estimated]'"' != "1"
     drop ifp2
 }
 if _rc == 0 {

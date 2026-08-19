@@ -1,4 +1,4 @@
-*! gcomptab Version 1.4.7  2026/08/11
+*! gcomptab Version 1.6.0  2026/08/19
 *! Export gcomp mediation, dose-response, or component-model results
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
