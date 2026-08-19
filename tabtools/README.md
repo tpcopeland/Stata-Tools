@@ -2,7 +2,7 @@
 
 **Version 2.0.0** | 2026-08-19
 
-`tabtools` is a Stata suite for turning descriptive, model, survival, rate, diagnostic, simulation, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
+`tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
 ## Quick Start
 
@@ -22,7 +22,7 @@ The package requires Stata 17 or newer and has no mandatory user-written Stata d
 
 The model and effect commands expect an active Stata `collect` result created by commands such as `regress`, `logistic`, `margins`, or `teffects`; they format and arrange that collection rather than fitting a model. `survtab` requires data declared with `stset`, while `stratetab` reads `.dta` files written by Stata's `strate, output()` command.
 
-Forest-plot output from `comptab` and `hrcomptab`, and plotting graph-ready `eplotframe()` outputs from `regtab` and `effecttab`, require the optional `eplot` package. The table commands can create those graph-ready frames without eplot. `simtab` compute mode and `from(summary)` mode have no external dependency; `from(simsum)` and `from(siman)` require the corresponding optional package and its output format.
+Forest-plot output from `comptab` and `hrcomptab`, and plotting graph-ready `eplotframe()` outputs from `regtab` and `effecttab`, require the optional `eplot` package. The table commands can create those graph-ready frames without eplot.
 
 ## Installation
 
@@ -36,7 +36,7 @@ If another copy is earlier on the `adopath`, inspect `ado dir` and remove only t
 
 ## Commands
 
-The suite contains 16 public commands. The version column is the minimum Stata release for that command.
+The suite contains 14 public commands. The version column is the minimum Stata release for that command.
 
 | Command | Stata | Purpose |
 | --- | ---: | --- |
@@ -50,10 +50,8 @@ The suite contains 16 public commands. The version column is the minimum Stata r
 | `stratetab` | 17+ | Convert saved `strate, output()` rate files into rate and rate-ratio tables |
 | `hrcomptab` | 17+ | Combine a rate frame with model frames for a multi-outcome rate comparison |
 | `comptab` | 17+ | Combine compatible `regtab` or `effecttab` frames into a composite table |
-| `diagtab` | 17+ | Diagnostic accuracy, likelihood ratios, diagnostic odds ratios, ROC AUC, and cutoff analysis |
 | `puttab` | 17+ | Put variables, a frame, or a matrix into a formatted workbook or Markdown table |
 | `stacktab` | 17+ | Stack or place blocks from an existing workbook into a new worksheet |
-| `simtab` | 17+ | Summarize simulation results in compute or `simsum`/`siman`/summary ingest mode |
 | `tabtools` | 17+ | Inspect and set shared fonts, digits, borders, themes, and persistent profiles |
 | `tabtools_tips` | 17+ | Open or print a compact recipe reference for the suite |
 
@@ -81,14 +79,12 @@ Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `he
 | Incidence rates from `strate` | `stratetab` | `outlabels()`, `rateratio`, or a later `hrcomptab` |
 | Several model/effect results | `comptab` | compatible source frames and `rows()` |
 | Rates plus model estimates | `hrcomptab` | `modelframes()`, `rows()`, and optional `forest` |
-| Diagnostic accuracy | `diagtab` | `cutoff()`, `cutoffs()`, `auc`, `optimal`, `exact`, or `prevalence()` |
 | A dataset, frame, or matrix as a table | `puttab` | `using`, `frame()`, `matrix()`, `varlabels`, or `noheader` |
-| Existing Excel blocks | `stacktab` | `blocks()`, `layout(hstack)`, `append`, or `sheetreplace` |
-| Simulation summaries | `simtab` | compute mode, `from(summary)`, or optional `from(simsum)`/`from(siman)` |
+| Existing Excel blocks | `stacktab` | `blocks()`, `layout(hstack)`, `append`, or `sheetreplace` | compute mode, `from(summary)`, or optional `from(simsum)`/`from(siman)` |
 
 ## Features
 
-- One output vocabulary across descriptive, modeling, survival, rates, diagnostics, simulation, and composite workflows.
+- One output vocabulary across descriptive, modeling, survival, rates, and composite workflows.
 - Excel workbooks with named sheets, titles, notes, footnotes, borders, header colors, zebra striping, significance emphasis, and optional post-write opening.
 - GitHub-Flavored Markdown, CSV, Stata frames, and graph-ready eplot frames where supported.
 - Shared session defaults for font, font size, border style, theme, numeric digits, and p-value emphasis through `tabtools set` and `tabtools get`.
@@ -155,16 +151,15 @@ effecttab, frame(effects, replace) xlsx("effects.xlsx")
 
 `regtab` and `effecttab` format active collections; they do not fit models. Both can also feed a composite table, and their `eplotframe()` output can be plotted by the optional `eplot` package.
 
-### Categorical, correlation, and diagnostic tables
+### Categorical and correlation tables
 
 ```stata
 sysuse auto, clear
 crosstab foreign rep78, rowpct fisher smallcells(5) xlsx("crosstab.xlsx")
 corrtab price mpg weight, spearman full pvalues markdown("correlations.md")
-diagtab mpg foreign, cutoff(22) xlsx("diagnostics.xlsx")
 ```
 
-`crosstab` defaults to column percentages and uses a sparse-cell exact test when appropriate. With `smallcells(#)`, it protects the count block and margins, withholds percentages whose numerator or denominator is protected, and suppresses count-dependent tests and effect measures. `corrtab` defaults to Pearson correlations and the lower triangle; `diagtab` uses Wilson intervals by default and accepts continuous tests through `cutoff()`, `cutoffs()`, `auc`, or `optimal`.
+`crosstab` defaults to column percentages and uses a sparse-cell exact test when appropriate. With `smallcells(#)`, it protects the count block and margins, withholds percentages whose numerator or denominator is protected, and suppresses count-dependent tests and effect measures. `corrtab` defaults to Pearson correlations and the lower triangle.
 
 ### Survival and rates
 
@@ -206,24 +201,10 @@ puttab price mpg weight, markdown("selected.md")
 
 `puttab` accepts a current-data varlist, `frame(name)`, or `matrix(name)` as its one source. An Excel `using` target is required for workbook output, while Markdown-only output does not need a workbook.
 
-### Simulation summary
-
-```stata
-clear
-set obs 20
-set seed 42
-generate str8 estimator = "demo"
-generate estimate = rnormal(1, .2)
-generate se = .2
-generate true = 1
-simtab estimator, estimate(estimate) se(se) true(true) display xlsx("simulation.xlsx")
-```
-
-Compute mode derives simulation metrics from one observation per replication and can group by `by()` and `estimand()`. Ingest mode uses `from(simsum)`, `from(siman)`, or `from(summary)` with the corresponding mapping options; `plotframe()` exposes numeric results for graphs.
 
 ## Demo
 
-The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` with its documented `all`, `main`, or `simtab` argument to regenerate the example workbooks and Markdown report; the demo uses the repository's `_data/` fixtures and writes results under `demo/`. The checked-in set is 15 workbooks (82 sheets total) plus the Markdown report.
+The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` to regenerate the example workbooks and Markdown report; the demo uses the repository’s `_data/` fixtures and writes results under `demo/`. The checked-in set is 13 workbooks (77 sheets total) plus the Markdown report.
 
 The `table1_tc`, `desctab`, and `crosstab` workbooks each contain paired `smallcells(5)` examples. The `Small Cells Primary` sheets use a 2×2 table with counts 2/3/3/2, so only below-threshold cells are hidden as `<5`. The `Small Cells Complement` sheets use counts 2/8/6/4, which also hide reconstructive cells as `≥5`.
 
@@ -319,14 +300,6 @@ comptab framelist, rows(string) [rownames(string) xlsx(string) excel(string) she
 
 `comptab` is Stata 17+ and combines compatible `regtab`/`effecttab` source frames. Supply exactly one of `rows()` or `rownames()`; the sheet defaults to `Composite` and `labelwidth()` to `45`. `separator()` controls section separation, `section()` and `relabel()` control displayed organization, and `forest`/`eplotframe()` require `eplot`.
 
-### `diagtab`
-
-```stata
-diagtab test_var gold_var [if] [in], [xlsx(string) excel(string) cutoff(#) cutoffs(numlist) prevalence(#) exact wilson auc optimal level(#) digits(#) title(string) footnote(string) theme(string) borderstyle(string) headercolor(string) zebracolor(string) zebra headershade csv(string) markdown(string) mdappend frame(string) open]
-```
-
-`diagtab` is Stata 17+ and requires numeric test and gold-standard variables. With no cutoff option, the test must already be binary; `cutoff()` accepts one threshold, `cutoffs()` accepts several, `auc` computes ROC AUC for a continuous test, and `optimal` selects the Youden-optimal cutoff. `cutoff()`/`cutoffs()` cannot be combined with `auc` or `optimal`; the default interval is Wilson, the confidence level is `c(level)`, and digits are the session setting or `1`. `prevalence()` adjusts PPV and NPV for a known prevalence.
-
 ### `puttab`
 
 ```stata
@@ -343,16 +316,6 @@ stacktab using outbook.xlsx, blocks(blockspec) sheet(sheetname) [layout(string) 
 
 `stacktab` is Stata 17+ and reads an existing `.xlsx` workbook. `blocks()` identifies the source ranges, `sheet()` identifies the output worksheet, and `layout()` defaults to vertical stacking; `hstack` places blocks horizontally. The default title cell is `A1`, the first table starts at `B2`, and `spacing()` defaults to `0`. `append` and `sheetreplace` control an existing target sheet and cannot be used together.
 
-### `simtab`
-
-```stata
-simtab estimator [if] [in], estimate(varname) se(varname) [true(#|varname) by(varname) estimand(varname) sim(varname) coverage(varname) lci(varname) uci(varname) pvalue(varname) reject(varname) nsim(varname)]
-simtab, from(simsum|siman|summary) [byvar(varname) estimatorvar(varname) estimandvar(varname) measures(string)]
-```
-
-Common output and formatting options are `metrics()` `level(#)` `alpha(#)` `minreps(#)` `warnreps(#)` `order(data|sort)` `digits(#)` `pctdigits(#)` `sedigits(#)` `nosign` `xlsx()` `excel()` `sheet()` `title()` `footnote()` `frame()` `plotframe()` `csv()` `markdown()` `mdappend` `theme()` `borderstyle()` `headercolor()` `zebracolor()` `headershade` `zebra` `display` `open`.
-
-`simtab` is Stata 17+. Compute mode requires `estimate()` and `se()` and uses `true()` when bias or coverage metrics need a target; ingest mode requires `from()`, and `from(summary)` uses the supplied mapping options. Defaults are metrics `mean bias empse meanse coverage n`, `level(95)`, `alpha(.05)`, `minreps(2)`, `warnreps(100)`, data order, digits `2`, `sedigits()` equal to `digits()`, `pctdigits(0)`, and sheet `Simulation`. At least one of `xlsx()`, `csv()`, `markdown()`, `frame()`, `plotframe()`, or `display` must be requested.
 
 ### `tabtools`
 
@@ -364,7 +327,7 @@ tabtools get
 tabtools use [using filename] [, profile(string)]
 ```
 
-`tabtools` is Stata 17+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `diagnostics`, `composite`, `export`, `simulation`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `theme`, `digits`, and `boldp`; `fontsize()` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
+`tabtools` is Stata 17+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `composite`, `export`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `theme`, `digits`, and `boldp`; `fontsize()` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
 
 ### `tabtools_tips`
 
@@ -382,7 +345,7 @@ tabtools_tips [, open]
 - `sheet(name)` selects the Excel sheet. Defaults are `Table 1`, `Descriptive`, `Crosstab`, `Correlation`, `Regression`, `Effects`, `Survival`, `Results`, `Composite`, `Table`, and `Simulation` for the corresponding commands.
 - `csv(filename)` writes the visible table data for commands that support CSV output. Titles and footnotes are not additional CSV columns.
 - `markdown(filename)` writes GitHub-Flavored Markdown. Use `mdappend` only with an existing Markdown target.
-- `frame(name[, replace])` stores the rendered table; `eplotframe(name[, replace])` stores graph-ready model/effect results; `plotframe(name[, replace])` is the numeric simulation companion.
+- `frame(name[, replace])` stores the rendered table; `eplotframe(name[, replace])` stores graph-ready model/effect results.
 - `open` requires an Excel target and asks Stata to open the written workbook.
 
 ### Formatting
@@ -406,7 +369,7 @@ tabtools_tips [, open]
 | --- | --- | --- |
 | `list` | `tabtools` display mode | Show the public command catalog as a simple list |
 | `detail` | `tabtools` display mode | Add command descriptions to the catalog |
-| `category(string)` | `tabtools` display mode | Filter the catalog by `descriptive`, `models`, `rates`, `survival`, `diagnostics`, `composite`, `export`, `simulation`, `general`, or `all` |
+| `category(string)` | `tabtools` display mode | Filter the catalog by `descriptive`, `models`, `rates`, `survival`, `composite`, `export`, `general`, or `all` |
 | `font(string)` | `tabtools set theme custom` | Set the custom theme's font family |
 | `fontsize(#)` | `tabtools set theme custom` | Set the custom theme's font size in points; valid values are 6–72 |
 | `permanent` | `tabtools set` and `tabtools set clear` | Save the resulting defaults to a runnable profile on disk |
@@ -458,10 +421,6 @@ Returns `r(N_rows)`, `r(N_outcomes)`, `r(N_sections)`, `r(N_modelrows)`, `r(N_mo
 
 Returns `r(N_rows)`, `r(N_cols)`, `r(N_models)`, `r(N_frames)`, `r(ci_level)`, `r(markdown_rows)`, `r(markdown_cols)`, `r(frame)`, `r(markdown)`, `r(xlsx)`, `r(sheet)`, `r(methods)`, and `r(eplotframe)`.
 
-### `diagtab`
-
-Returns the accuracy scalars `r(TP)`, `r(FP)`, `r(FN)`, `r(TN)`, `r(ci_level)`, and the estimate, interval, and likelihood-ratio results named `r(sensitivity)`, `r(sensitivity_lb)`, `r(sensitivity_ub)`, `r(specificity)`, `r(specificity_lb)`, `r(specificity_ub)`, `r(ppv)`, `r(ppv_lb)`, `r(ppv_ub)`, `r(npv)`, `r(npv_lb)`, `r(npv_ub)`, `r(accuracy)`, `r(accuracy_lb)`, `r(accuracy_ub)`, `r(lr_pos)`, `r(lr_pos_lb)`, `r(lr_pos_ub)`, `r(lr_neg)`, `r(lr_neg_lb)`, `r(lr_neg_ub)`, `r(dor)`, `r(dor_lb)`, `r(dor_ub)`, and `r(youden)`. AUC and optimal-cutoff results use `r(auc)`, `r(auc_lb)`, `r(auc_ub)`, and `r(optimal_cutoff)` when requested; table output also returns `r(markdown_rows)`, `r(markdown_cols)`, `r(cutoff_table)`, `r(cutoffs)`, `r(xlsx)`, `r(sheet)`, `r(frame)`, `r(markdown)`, and `r(methods)`.
-
 ### `puttab`
 
 Returns `r(n_rows)`, `r(n_cols)`, `r(n_datarows)`, `r(source)`, and, when applicable, `r(sheet)`, `r(file)`, `r(csv)`, `r(markdown)`, `r(markdown_rows)`, and `r(markdown_cols)`.
@@ -470,9 +429,6 @@ Returns `r(n_rows)`, `r(n_cols)`, `r(n_datarows)`, `r(source)`, and, when applic
 
 Returns `r(blocks_loaded)`, `r(rows_written)`, `r(rows_out)`, `r(cols_out)`, `r(append_start)`, `r(layout)`, `r(sheet)`, `r(markdown)`, `r(book)`, `r(table_start)`, `r(title_cell)`, `r(frame)`, `r(csv)`, and optional `r(note_row)`, `r(markdown_rows)`, and `r(markdown_cols)`.
 
-### `simtab`
-
-Returns `r(mode)`, `r(source)`, `r(metrics)`, `r(methods)`, `r(n_estimands)`, `r(n_estimators)`, `r(n_by)`, `r(N_cells)`, `r(N_input)`, `r(n_dropped_se)`, `r(level)`, `r(alpha)`, `r(n_reps_min)`, `r(n_reps_max)`, `r(frame)`, `r(plotframe)`, `r(xlsx)`, `r(sheet)`, `r(csv)`, `r(markdown)`, `r(markdown_rows)`, and `r(markdown_cols)`, with `r(n_fail_max)` when the input supplies failure counts.
 
 ### `tabtools`
 
@@ -488,17 +444,14 @@ Returns `r(mode)`, `r(source)`, `r(metrics)`, `r(methods)`, `r(n_estimands)`, `r
 - `crosstab` effect measures require a 2x2 table and can be undefined for zero cells. Ordered trend tests require the relevant binary or ordered variables.
 - `survtab` requires `stset`; `reverse` is a complementary Kaplan–Meier display and does not model competing risks. RMST differences are defined for two groups.
 - `stratetab` depends on the exact file order emitted by `strate, output()` and requires `outcomes()` to describe that order. Its `rateratio` matching uses exposure labels and treats the first exposure as the reference.
-- `diagtab` direct binomial intervals can be exact or Wilson; prevalence-adjusted PPV/NPV use a delta-method interval truncated to the unit interval. `auc` requires both gold-standard classes.
 - `comptab` and `hrcomptab` require compatible source-frame row identifiers. Forest output is an optional eplot integration, not a required table dependency.
 - `stacktab` reads existing `.xlsx` workbooks and uses Stata's Excel facilities; source blocks must identify valid worksheet ranges.
-- `simtab` drops or reports insufficient-replication and missing-standard-error cases according to its input and `minreps()` settings. Compute mode requires the requested source variables, while ingest mode requires the selected external format.
 - `tabtools set permanent` writes a runnable profile in the user's Stata PERSONAL directory. It changes future sessions only when that profile is loaded or sourced.
 - Excel output requires a writable target path, and `open` additionally requires a graphical Excel-capable environment. Markdown and CSV targets do not require Excel.
 - `smallcells(#)` protects exact disclosure within one invocation of `table1_tc`, `desctab`, or `crosstab`. Its deterministic final pass makes the complementary set irredundant, not necessarily globally minimum. It does not certify anonymization or account for linkage across separate releases; an unsupported or unprovable layout fails before output.
 
 ## References
 
-- Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. `simsum` documentation and article: [doi:10.1177/1536867X1001000305](https://doi.org/10.1177/1536867X1001000305).
 - `siman` is available from the [UCL/siman repository](https://github.com/UCL/siman).
 - Optional forest plots use the [eplot package](https://github.com/tpcopeland/Stata-Tools/tree/main/eplot) when installed.
 

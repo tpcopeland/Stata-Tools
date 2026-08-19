@@ -1,0 +1,10 @@
+run_all.log
+*.log
+*.smcl
+*.xlsx
+*.csv
+*.md
+*.dta
+output/
+__pycache__/
+*.pyc

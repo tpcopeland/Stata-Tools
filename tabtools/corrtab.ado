@@ -58,7 +58,7 @@ program define corrtab, rclass
         if "`csv'" != "" {
             * Suite-wide contract: csv() must name a .csv file. corrtab
             * validated only the path, so corrtab ... csv("out.txt") succeeded
-            * and wrote the file while the identical puttab/simtab/stacktab call
+            * and wrote the file while identical puttab/stacktab calls
             * returned r(198).
             if !strmatch(lower(`"`csv'"'), "*.csv") {
                 noisily display as error "csv() must have a .csv extension"

@@ -1,0 +1,8 @@
+*.log
+*.smcl
+*.dta
+*.csv
+*.md
+*.xlsx
+!README.md
+!demo/*.xlsx

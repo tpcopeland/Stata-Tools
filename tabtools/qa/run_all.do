@@ -44,41 +44,6 @@ sysdir set PLUS "`plus_dir'"
 sysdir set PERSONAL "`personal_dir'"
 discard
 
-* Full/release lanes require their external simulation oracles. Install them
-* inside the disposable ado tree so an absent user installation cannot turn a
-* release run into an unreported embedded skip.
-local oracle_rc = 0
-if inlist("`lane'", "full", "release") {
-    foreach dep in simsum sencode labelsof {
-        capture noisily ssc install `dep', replace
-        if _rc {
-            display as error "required QA dependency `dep' could not be installed"
-            local oracle_rc = _rc
-        }
-    }
-    capture noisily net install siman, ///
-        from("https://raw.githubusercontent.com/UCL/siman/master/") replace
-    if _rc {
-        display as error "required QA dependency siman could not be installed"
-        local oracle_rc = _rc
-    }
-    foreach dep in simsum sencode labelsof siman {
-        capture which `dep'
-        if _rc {
-            display as error "required QA dependency `dep' is not discoverable in the sandbox"
-            local oracle_rc = 111
-        }
-    }
-}
-if `oracle_rc' {
-    sysdir set PLUS "`orig_plus'"
-    sysdir set PERSONAL "`orig_personal'"
-    discard
-    global TABTOOLS_QA_OUTPUT_DIR
-    capture shell rm -rf "`plus_dir'" "`personal_dir'" "`run_output_dir'"
-    exit `oracle_rc'
-}
-
 capture ado uninstall tabtools
 capture noisily net install tabtools, from("`pkg_dir'") replace
 local install_rc = _rc
@@ -99,7 +64,6 @@ local test_files "`test_files' test_comptab.do"
 local test_files "`test_files' test_corrtab.do"
 local test_files "`test_files' test_crosstab.do"
 local test_files "`test_files' test_desctab.do"
-local test_files "`test_files' test_diagtab.do"
 local test_files "`test_files' test_deep_audit_core.do"
 local test_files "`test_files' test_deep_audit_output.do"
 local test_files "`test_files' test_effecttab.do"
@@ -111,7 +75,6 @@ local test_files "`test_files' test_package_integration.do"
 local test_files "`test_files' test_package_release.do"
 local test_files "`test_files' test_puttab.do"
 local test_files "`test_files' test_regtab.do"
-local test_files "`test_files' test_simtab.do"
 local test_files "`test_files' test_smallcells.do"
 local test_files "`test_files' test_stacktab.do"
 local test_files "`test_files' test_stratetab.do"
@@ -129,11 +92,9 @@ local test_files "`test_files' test_xlsx_style_compaction.do"
 local validation_files ""
 local validation_files "`validation_files' validation_corrtab.do"
 local validation_files "`validation_files' validation_crosstab.do"
-local validation_files "`validation_files' validation_diagtab.do"
 local validation_files "`validation_files' validation_effecttab.do"
 local validation_files "`validation_files' validation_package.do"
 local validation_files "`validation_files' validation_regtab.do"
-local validation_files "`validation_files' validation_simtab.do"
 local validation_files "`validation_files' validation_smallcells.do"
 local validation_files "`validation_files' validation_stratetab.do"
 local validation_files "`validation_files' validation_survtab.do"
@@ -212,9 +173,6 @@ if "`skip_names'" != "" {
     display as text "Skip file: `skip_file'"
 }
 
-if inlist("`lane'", "full", "release") global TABTOOLS_QA_REQUIRE_ORACLES 1
-else global TABTOOLS_QA_REQUIRE_ORACLES
-
 foreach f of local all_files {
     local in_skip : list f in skip_names
     if `in_skip' {
@@ -273,7 +231,6 @@ if `suite_rc' == 0 {
 }
 
 capture ado uninstall tabtools
-global TABTOOLS_QA_REQUIRE_ORACLES
 global TABTOOLS_QA_OUTPUT_DIR
 sysdir set PLUS "`orig_plus'"
 sysdir set PERSONAL "`orig_personal'"

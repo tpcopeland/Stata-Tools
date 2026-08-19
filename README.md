@@ -2,7 +2,7 @@
 
 ---
 
-Production distribution repository for Stata packages (29 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (31 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -68,10 +68,12 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [consort](https://github.com/tpcopeland/Stata-Tools/tree/main/consort) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | CONSORT-style exclusion flowcharts with bundled Python/matplotlib rendering |
+| [diagtab](https://github.com/tpcopeland/Stata-Tools/tree/main/diagtab) | ![version](https://img.shields.io/badge/version-2.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--19-brightgreen) | Diagnostic accuracy, confidence intervals, ROC AUC, and cutoff analysis with publication-ready exports (Stata 17+) |
 | [eplot](https://github.com/tpcopeland/Stata-Tools/tree/main/eplot) | ![version](https://img.shields.io/badge/version-1.2.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Unified effect plotting from variables, stored estimates, matrices, or graph-ready frames |
 | [logdoc](https://github.com/tpcopeland/Stata-Tools/tree/main/logdoc) | ![version](https://img.shields.io/badge/version-1.1.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents (requires Python 3.6+) |
 | [kmplot](https://github.com/tpcopeland/Stata-Tools/tree/main/kmplot) | ![version](https://img.shields.io/badge/version-1.2.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Publication-ready Kaplan-Meier and cumulative failure curves with CI, risk tables, landmarks, saved data, median lines, and censor marks |
 | [raincloud](https://github.com/tpcopeland/Stata-Tools/tree/main/raincloud) | ![version](https://img.shields.io/badge/version-1.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Raincloud plots combining density, raw points, and box summaries |
+| [simtab](https://github.com/tpcopeland/Stata-Tools/tree/main/simtab) | ![version](https://img.shields.io/badge/version-2.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--19-brightgreen) | Monte Carlo simulation performance metrics, MCSEs, ingest adapters, and publication-ready exports (Stata 17+) |
 | [spaghetti](https://github.com/tpcopeland/Stata-Tools/tree/main/spaghetti) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Long-format longitudinal trajectory plots with optional group mean and CI overlays |
 | [swimlane](https://github.com/tpcopeland/Stata-Tools/tree/main/swimlane) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--29-brightgreen) | Swimmer and state swimlane plots for clinical and longitudinal data, with canonical-table export |
 | [tabtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools) | ![version](https://img.shields.io/badge/version-2.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--19-brightgreen) | Excel-ready manuscript tables with optional eplot forest-plot companions for regression, treatment-effect, composite, and survival workflows (Stata 17+) |

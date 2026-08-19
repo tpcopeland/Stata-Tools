@@ -1,4 +1,4 @@
-*! _tabtools_simtab_ingest Version 2.0.0  2026/08/19
+*! _simtab_ingest Version 2.0.0  2026/08/19
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,8 +25,8 @@ DESCRIPTION:
              r(est_header) r(n_by) r(n_estimators) r(n_estimands)
 */
 
-capture program drop _tabtools_simtab_ingest_ready
-program _tabtools_simtab_ingest_ready, nclass
+capture program drop _simtab_ingest_ready
+program _simtab_ingest_ready, nclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -38,8 +38,8 @@ program _tabtools_simtab_ingest_ready, nclass
     if `_rc_outer' exit `_rc_outer'
 end
 
-capture program drop _tabtools_simtab_ingest
-program define _tabtools_simtab_ingest, rclass
+capture program drop _simtab_ingest
+program define _simtab_ingest, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -50,14 +50,14 @@ program define _tabtools_simtab_ingest, rclass
     local source = strtrim(lower("`source'"))
 
     if "`source'" == "summary" {
-        _tabtools_simtab_ingest_summary, byvar(`byvar') estimatorvar(`estimatorvar') ///
+        _simtab_ingest_summary, byvar(`byvar') estimatorvar(`estimatorvar') ///
             estimandvar(`estimandvar') measures(`measures') order(`order')
     }
     else if "`source'" == "simsum" {
-        _tabtools_simtab_ingest_simsum, order(`order')
+        _simtab_ingest_simsum, order(`order')
     }
     else if "`source'" == "siman" {
-        _tabtools_simtab_ingest_siman, order(`order')
+        _simtab_ingest_siman, order(`order')
     }
     else {
         display as error "from() must be one of: simsum, siman, summary"
@@ -127,8 +127,8 @@ end
 * ============================================================================
 * Generic per-cell summary (the stable, dependency-free contract)
 * ============================================================================
-capture program drop _tabtools_simtab_ingest_identity
-program _tabtools_simtab_ingest_identity, nclass
+capture program drop _simtab_ingest_identity
+program _simtab_ingest_identity, nclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -169,8 +169,8 @@ program _tabtools_simtab_ingest_identity, nclass
     if `_rc_outer' exit `_rc_outer'
 end
 
-capture program drop _tabtools_simtab_ingest_summary
-program _tabtools_simtab_ingest_summary, rclass
+capture program drop _simtab_ingest_summary
+program _simtab_ingest_summary, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -196,12 +196,12 @@ program _tabtools_simtab_ingest_summary, rclass
 
     * ----- estimator labels/ord -----
     quietly gen str244 `_estlab' = ""
-    _tabtools_simtab_ingest_identity `estimatorvar' `_estord' `_estlab' `_seq' "`order'"
+    _simtab_ingest_identity `estimatorvar' `_estord' `_estlab' `_seq' "`order'"
 
     * ----- by labels/ord -----
     if `_has_by' {
         quietly gen str244 `_bylab' = ""
-        _tabtools_simtab_ingest_identity `byvar' `_byord' `_bylab' `_seq' "`order'"
+        _simtab_ingest_identity `byvar' `_byord' `_bylab' `_seq' "`order'"
     }
     else {
         quietly gen str1 `_bylab' = ""
@@ -211,7 +211,7 @@ program _tabtools_simtab_ingest_summary, rclass
     * ----- estimand labels/ord -----
     if `_has_emd' {
         quietly gen str244 `_emdlab' = ""
-        _tabtools_simtab_ingest_identity `estimandvar' `_emdord' `_emdlab' `_seq' "`order'"
+        _simtab_ingest_identity `estimandvar' `_emdord' `_emdlab' `_seq' "`order'"
     }
     else {
         quietly gen str1 `_emdlab' = ""
@@ -294,8 +294,8 @@ end
 *   vars: perfmeascode (str codes), estimate0 estimate1 ... (var label=method),
 *         optional estimateK_mcse, optional single by-variable column.
 * ============================================================================
-capture program drop _tabtools_simtab_ingest_simsum
-program _tabtools_simtab_ingest_simsum, rclass
+capture program drop _simtab_ingest_simsum
+program _simtab_ingest_simsum, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -369,7 +369,7 @@ program _tabtools_simtab_ingest_simsum, rclass
     if `_has_by' {
         tempvar _bytag _bylabtmp
         quietly gen str244 `_bylabtmp' = ""
-        _tabtools_simtab_ingest_identity `_byvar' `_bytag' `_bylabtmp' `_obs' "`order'"
+        _simtab_ingest_identity `_byvar' `_bytag' `_bylabtmp' `_obs' "`order'"
         quietly summarize `_bytag', meanonly
         local _nbylev = r(max)
     }
@@ -487,8 +487,8 @@ end
 *   and its Monte Carlo SE in `se'. Structure variables (method/dgm/target/true)
 *   are read from the siman_* _dta characteristics setup leaves behind.
 * ============================================================================
-capture program drop _tabtools_simtab_ingest_siman
-program _tabtools_simtab_ingest_siman, rclass
+capture program drop _simtab_ingest_siman
+program _simtab_ingest_siman, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -553,7 +553,7 @@ program _tabtools_simtab_ingest_siman, rclass
 
     * ----- standardized estimator labels/ords -----
     quietly gen str244 `_estlab' = ""
-    _tabtools_simtab_ingest_identity `_method' `_estord' `_estlab' `_seq' "`order'"
+    _simtab_ingest_identity `_method' `_estord' `_estlab' `_seq' "`order'"
 
     * ----- by (dgm) -----
     local _has_by = 0
@@ -567,7 +567,7 @@ program _tabtools_simtab_ingest_siman, rclass
             confirm variable `_dv'
             tempvar _component _component_ord
             quietly gen str244 `_component' = ""
-            _tabtools_simtab_ingest_identity `_dv' `_component_ord' `_component' `_seq' "`order'"
+            _simtab_ingest_identity `_dv' `_component_ord' `_component' `_seq' "`order'"
             if `_n_dgm' == 1 {
                 quietly replace `_bylab' = `_component'
             }
@@ -595,7 +595,7 @@ program _tabtools_simtab_ingest_siman, rclass
     if "`_target1'" != "" {
         local _has_emd = 1
         quietly gen str244 `_emdlab' = ""
-        _tabtools_simtab_ingest_identity `_target1' `_emdord' `_emdlab' `_seq' "`order'"
+        _simtab_ingest_identity `_target1' `_emdord' `_emdlab' `_seq' "`order'"
     }
     else {
         quietly gen str1 `_emdlab' = ""

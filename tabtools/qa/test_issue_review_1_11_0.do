@@ -456,34 +456,6 @@ else {
     local ++fail_count
 }
 
-**# 10. diagtab cutoff labels use one precision and a leading zero
-* 1.10.1 formatted each cutoff independently with %9.0g, giving ".3", ".32".
-
-local ++test_count
-capture noisily {
-    tempname frd
-    webuse cattaneo2, clear
-    gen byte gold = lbweight
-    diagtab bweight gold, cutoffs(.3 .32 .34) frame(`frd')
-    frame `frd' {
-        quietly count if strtrim(c1) == "Cutoff >= 0.30"
-        assert r(N) == 1
-        quietly count if strtrim(c1) == "Cutoff >= 0.32"
-        assert r(N) == 1
-        quietly count if strpos(c1, "Cutoff >= .") > 0
-        assert r(N) == 0
-    }
-    capture frame drop `frd'
-}
-if _rc == 0 {
-    display as result "  PASS 10: diagtab cutoff labels carry a leading zero at uniform precision"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 10: diagtab cutoff labels (rc=`=_rc')"
-    local ++fail_count
-}
-
 **# 11. corrtab never renders a formatted negative zero
 
 local ++test_count

@@ -8,7 +8,6 @@
 {viewerjumpto "Author" "crosstab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
-{vieweralsosee "diagtab" "help diagtab"}{...}
 {vieweralsosee "tabulate twoway" "help tabulate twoway"}{...}
 {title:Title}
 
@@ -327,7 +326,7 @@ frame carries characteristics {cmd:tabtools_smallcells},
 {marker alsosee}{title:Also see}
 
 {psee}
-{helpb tabtools}, {helpb corrtab}, {helpb diagtab},
+{helpb tabtools}, {helpb corrtab},
 {helpb tabtools_tips}, {helpb tabulate twoway}
 {p_end}
 

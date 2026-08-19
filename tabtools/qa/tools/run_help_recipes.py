@@ -62,8 +62,8 @@ def extract_recipes(help_path: Path) -> list[tuple[int, str, list[str]]]:
     finish_recipe()
     expected = list(range(1, len(recipes) + 1))
     actual = [number for number, _title, _commands in recipes]
-    if actual != expected or len(recipes) != 21:
-        raise RuntimeError(f"expected recipes 1-21, found {actual}")
+    if actual != expected or len(recipes) != 19:
+        raise RuntimeError(f"expected recipes 1-19, found {actual}")
     empty = [number for number, _title, cmds in recipes if not cmds]
     if empty:
         raise RuntimeError(f"recipes contain no commands: {empty}")

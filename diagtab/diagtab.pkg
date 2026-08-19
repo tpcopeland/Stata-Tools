@@ -1,0 +1,18 @@
+v 3
+d 'DIAGTAB': Publication-ready diagnostic test accuracy and cutoff analysis
+d
+d diagtab computes diagnostic accuracy measures, confidence intervals, ROC AUC,
+d and cutoff analyses, with console, Excel, CSV, Markdown, and frame output.
+d
+d Requires: Stata version 17+
+d Distribution-Date: 20260819
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+f diagtab.ado
+f diagtab.sthlp
+f _diagtab_common.ado
+f _diagtab_xlsx_write.ado
+f _diagtab_markdown_write.ado
+f _diagtab_csv_write.ado

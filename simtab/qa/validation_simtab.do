@@ -11,11 +11,11 @@ log using "validation_simtab.log", replace text name(_simtabval)
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local output_dir "`qa_dir'/output"
-if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
+if "$SIMTAB_QA_OUTPUT_DIR" != "" local output_dir "$SIMTAB_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 
-capture ado uninstall tabtools
-quietly net install tabtools, from("`pkg_dir'") replace
+capture ado uninstall simtab
+quietly net install simtab, from("`pkg_dir'") replace
 
 local pass = 0
 local fail = 0
@@ -104,7 +104,7 @@ foreach chk in ///
 * =====================================================================
 capture which simsum
 if _rc {
-    if "$TABTOOLS_QA_REQUIRE_ORACLES" == "1" {
+    if "$SIMTAB_QA_REQUIRE_ORACLES" == "1" {
         display as error "  FAIL simsum oracle: required simsum is not installed"
         local ++fail
     }

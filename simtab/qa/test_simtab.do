@@ -17,7 +17,7 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local output_dir "`qa_dir'/output"
-if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
+if "$SIMTAB_QA_OUTPUT_DIR" != "" local output_dir "$SIMTAB_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
@@ -30,10 +30,9 @@ local summary_tool "`tools_dir'/summarize_xlsx.py"
 * pretend-detected. See _devkit/automation/scan_shell_rc.py.
 local python_cmd "python3"
 
-capture ado uninstall tabtools
-quietly net install tabtools, from("`pkg_dir'") replace
+capture ado uninstall simtab
+quietly net install simtab, from("`pkg_dir'") replace
 discard
-tabtools set clear
 
 
 **# Migrated from test_simtab.do
@@ -703,11 +702,11 @@ else {
 * =====================================================================
 **# T3: from(simsum) -- capture-guarded against live simsum
 *   As with T4: run_all installs simsum into the sandbox on the full/release
-*   lanes, where TABTOOLS_QA_REQUIRE_ORACLES makes an absent oracle a failure.
+*   lanes, where SIMTAB_QA_REQUIRE_ORACLES makes an absent oracle a failure.
 * =====================================================================
 capture which simsum
 if _rc {
-    if "$TABTOOLS_QA_REQUIRE_ORACLES" == "1" {
+    if "$SIMTAB_QA_REQUIRE_ORACLES" == "1" {
         display as error "  FAIL T3: required simsum oracle is not installed"
         local ++fail_count
     }
@@ -786,7 +785,7 @@ capture frame drop _simsum_quote
 **# T4: from(siman) -- capture-guarded; reproduces siman analyse values
 *   Requires siman (UCL) plus its sencode/labelsof dependencies. run_all.do
 *   INSTALLS all three into the disposable sandbox for the full and release
-*   lanes and sets TABTOOLS_QA_REQUIRE_ORACLES=1, so on those lanes a missing
+*   lanes and sets SIMTAB_QA_REQUIRE_ORACLES=1, so on those lanes a missing
 *   oracle is a FAILURE, not a skip -- an embedded skip would have hidden a
 *   broken adapter behind a green run. The skip branch below applies only to a
 *   direct standalone run where the oracle genuinely is not installed.
@@ -797,7 +796,7 @@ foreach _dep in siman sencode labelsof {
     if _rc local _siman_ok = 0
 }
 if !`_siman_ok' {
-    if "$TABTOOLS_QA_REQUIRE_ORACLES" == "1" {
+    if "$SIMTAB_QA_REQUIRE_ORACLES" == "1" {
         display as error "  FAIL T4: required siman/sencode/labelsof oracle is not installed"
         local ++fail_count
     }

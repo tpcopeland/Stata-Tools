@@ -7,7 +7,7 @@ set varabbrev off
 version 17.0
 
 capture log close _valdiag
-log using "validation_diagtab.log", replace text name(_valdiag)
+log using "validation_diagtab.log", replace text name(_valdiag) nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -19,7 +19,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
-if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
+if "$DIAGTAB_QA_OUTPUT_DIR" != "" local output_dir "$DIAGTAB_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
@@ -32,10 +32,9 @@ local summary_tool "`tools_dir'/summarize_xlsx.py"
 * pretend-detected. See _devkit/automation/scan_shell_rc.py.
 local python_cmd "python3"
 
-capture ado uninstall tabtools
-quietly net install tabtools, from("`pkg_dir'") replace
+capture ado uninstall diagtab
+quietly net install diagtab, from("`pkg_dir'") replace
 discard
-tabtools set clear
 
 
 **# Migrated: Se/Sp/PPV/NPV, cutoffs(), AUC

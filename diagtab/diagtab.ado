@@ -28,23 +28,46 @@ capture noisily {
     capture putexcel close
 
     * Auto-load shared helper programs
-    capture _tabtools_helpers_ready
+    capture _diagtab_helpers_ready
     if _rc {
-        capture findfile _tabtools_common.ado
+        capture findfile _diagtab_common.ado
         if _rc == 0 {
             run "`r(fn)'"
-            capture _tabtools_helpers_ready
+            capture _diagtab_helpers_ready
             if _rc {
-                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                display as error "_diagtab_common.ado failed to load fully; reinstall diagtab"
                 exit 111
             }
         }
         else {
-            display as error "_tabtools_common.ado not found; reinstall tabtools"
+            display as error "_diagtab_common.ado not found; reinstall diagtab"
             exit 111
         }
     }
-    _tabtools_require_helpers
+    _diagtab_require_helpers
+
+    * The Excel writer bundles the writer, style applicator, and style-pool
+    * compactor in one installed file. Load the bundle explicitly so every
+    * helper is available in a fresh installed-user session.
+    capture program list _diagtab_xlsx_write
+    if _rc {
+        capture findfile _diagtab_xlsx_write.ado
+        if _rc == 0 {
+            run "`r(fn)'"
+        }
+        else {
+            display as error "_diagtab_xlsx_write.ado not found; reinstall diagtab"
+            exit 111
+        }
+    }
+    foreach _xlsx_helper in _diagtab_xlsx_write ///
+            _diagtab_xlsx_apply_styles _diagtab_xlsx_compact_styles {
+        capture program list `_xlsx_helper'
+        if _rc {
+            display as error "_diagtab_xlsx_write.ado failed to load fully; reinstall diagtab"
+            exit 111
+        }
+    }
 
 **# Syntax and Validation
     syntax varlist(min=2 max=2 numeric) [if] [in], ///
@@ -72,28 +95,28 @@ capture noisily {
 
     * Resolve digits option
     if `digits' == -1 {
-        if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
+        if "$DIAGTAB_DIGITS" != "" local digits = $DIAGTAB_DIGITS
         else local digits = 1
     }
     if `digits' < 0 | `digits' > 6 {
         noisily display as error "digits() must be between 0 and 6"
         exit 198
     }
-    _tabtools_validate_sheet "`sheet'" "sheet()"
+    _diagtab_validate_sheet "`sheet'" "sheet()"
     if `_has_xlsx' {
         if !strmatch(lower("`xlsx'"), "*.xlsx") {
             noisily display as error "xlsx() must have .xlsx extension"
             exit 198
         }
-        _tabtools_validate_path "`xlsx'" "xlsx()"
+        _diagtab_validate_path "`xlsx'" "xlsx()"
     }
-    if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+    if "`csv'" != "" _diagtab_validate_path "`csv'" "csv()"
     if "`mdappend'" != "" & `"`markdown'"' == "" {
         noisily display as error "mdappend requires markdown()"
         exit 198
     }
     if `"`markdown'"' != "" {
-        _tabtools_validate_path `"`markdown'"' "markdown()"
+        _diagtab_validate_path `"`markdown'"' "markdown()"
         local _md_lower = lower(`"`markdown'"')
         if !(strmatch(`"`_md_lower'"', "*.md") | ///
              strmatch(`"`_md_lower'"', "*.markdown") | ///
@@ -179,10 +202,10 @@ capture noisily {
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+    _diagtab_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
         headershade(`headershade') zebra(`zebra')
 
-    _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
+    _diagtab_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     local _ci_method = cond("`exact'" != "", "exact", "wilson")
     local _has_undefined 0
@@ -776,11 +799,11 @@ capture noisily {
     local _top_header_row = 2
 
 **# Console Display
-    noisily _tabtools_console_display `out_ncols' `"`title'"'
+    noisily _diagtab_console_display `out_ncols' `"`title'"'
 
 **# CSV/Frame/Excel Export
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+        _diagtab_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
     }
 
     local _ret_markdown ""
@@ -789,7 +812,7 @@ capture noisily {
     if `"`markdown'"' != "" {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+        capture noisily _diagtab_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
@@ -804,10 +827,10 @@ capture noisily {
     }
 
     if `"`frame'"' != "" {
-        _tabtools_frame_put `"`frame'"'
+        _diagtab_frame_put `"`frame'"'
         local frame `"`_frame_name'"'
-        frame `frame': char _dta[tabtools_ci_level] "`level'"
-        frame `frame': char _dta[tabtools_source] "diagtab"
+        frame `frame': char _dta[diagtab_ci_level] "`level'"
+        frame `frame': char _dta[diagtab_source] "diagtab"
     }
 
     if "`frame'" != "" return local frame "`frame'"
@@ -855,7 +878,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
+        capture noisily _diagtab_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -949,7 +972,7 @@ capture noisily {
                     (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
-            _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+            _diagtab_xlsx_apply_styles, book(b) sheet("`sheet'") ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
             mata: b.close_book()
@@ -958,7 +981,7 @@ capture noisily {
             * reusing one per distinct format, so collapse the pools here;
             * a workbook that keeps growing would otherwise reach Stata's
             * 65,536-record ceiling and fail with r(16147).
-            _tabtools_xlsx_compact_styles using "`xlsx'"
+            _diagtab_xlsx_compact_styles using "`xlsx'"
         }
         if _rc {
             local _format_rc = _rc
@@ -984,7 +1007,7 @@ capture noisily {
         return local sheet "`sheet'"
     }
     return scalar ci_level = `level'
-    if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
+    if "`open'" != "" & `_xlsx_ok' _diagtab_open_file "`xlsx'"
 
 } // end capture noisily
     local _rc = _rc

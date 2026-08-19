@@ -17,7 +17,6 @@
 {vieweralsosee "hrcomptab" "help hrcomptab"}{...}
 {vieweralsosee "puttab" "help puttab"}{...}
 {vieweralsosee "stacktab" "help stacktab"}{...}
-{vieweralsosee "simtab" "help simtab"}{...}
 {title:tabtools tips}
 
 {marker syntax}{...}
@@ -59,8 +58,8 @@ Common option combinations for each command. {p_end}
 {title:Choosing commands}
 
 {pstd}{bf:Dedicated builders:} use {bf:table1_tc}, {bf:desctab},
-{bf:crosstab}, {bf:corrtab}, {bf:survtab}, {bf:diagtab}, {bf:stratetab},
-{bf:regtab}, {bf:effecttab}, and {bf:simtab} when the command owns the
+{bf:crosstab}, {bf:corrtab}, {bf:survtab}, {bf:stratetab},
+{bf:regtab}, and {bf:effecttab} when the command owns the
 analysis-to-table contract for your workflow.{p_end}
 
 {pstd}{bf:Combining/styling tables:} use {bf:puttab} to style one raw
@@ -141,14 +140,6 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {phang2}{cmd:crosstab exposure outcome, exact or} {it:// force Fisher's exact test}{p_end}
 
 {hline}
-{title:diagtab}
-
-{phang2}{cmd:diagtab test_pos gold_std, xlsx(diag.xlsx) title("Diagnostic Accuracy")}{p_end}
-{phang2}{cmd:diagtab score gold_std, cutoff(0.5) auc optimal} {it:// continuous score with ROC}{p_end}
-{phang2}{cmd:diagtab test gold, exact prevalence(0.05)}
-{it:// exact CIs, prevalence-adjusted PPV/NPV}{p_end}
-
-{hline}
 {title:corrtab}
 
 {phang2}{cmd:corrtab age bmi sbp dbp, xlsx(corr.xlsx) title("Correlations") lower}{p_end}
@@ -187,20 +178,6 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide")}
 {cmd:blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)}
 {it:// side by side}{p_end}
-{hline}
-{title:simtab}
-
-{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) by(scenario) estimand(target) sim(rep) coverage(covered) display}
-{it:// compute mode}{p_end}
-{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) nsim(1000)}
-{cmd:metrics(mean bias empse meanse coverage n nonconv)}
-{cmd:xlsx("t2.xlsx") sheet("Table 2")}
-{it:// non-convergence + Excel}{p_end}
-{phang2}{cmd:simsum b, true(theta) se(se) methodvar(estimator) id(rep) mcse clear}
-{it:// analysis by simsum ...}{p_end}
-{phang2}{cmd:simtab, from(simsum) xlsx("t2.xlsx") sheet("Table 2") display}
-{it:// ... table by simtab}{p_end}
-
 {hline}
 {title:tabtools set/get}
 
@@ -344,24 +321,18 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {cmd:title("Table 2. Survival Estimates by Treatment")}
 {cmd:median riskset difference theme(lancet)}{p_end}
 
-{title:16. Diagnostic accuracy report}
-{phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:gen gold = (rep78 >= 4) if rep78 < .}{p_end}
-{phang2}{cmd:diagtab mpg gold, cutoff(25) auc optimal xlsx(diagnostics.xlsx) sheet("Accuracy")}
-{cmd:title("Diagnostic Accuracy of MPG") prevalence(0.3)}{p_end}
-
-{title:17. Correlation matrix with significance stars}
+{title:16. Correlation matrix with significance stars}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:corrtab price mpg weight length displacement, spearman lower}
 {cmd:xlsx(correlations.xlsx) sheet("Table 4") title("Spearman Correlations")}
 {cmd:star(0.001 0.01 0.05) digits(2) theme(nejm)}{p_end}
 
-{title:18. Direct access to the consolidated descriptive engine}
+{title:17. Direct access to the consolidated descriptive engine}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:desctab price mpg weight rep78, by(foreign) xlsx(desc_events.xlsx) sheet("Descriptive")}
 {cmd:title("Characteristics by origin")}{p_end}
 
-{title:19. Style a raw in-memory table with puttab}
+{title:18. Style a raw in-memory table with puttab}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:regress price mpg weight i.foreign}{p_end}
 {phang2}{cmd:matrix T = r(table)'}{p_end}
@@ -369,7 +340,7 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:frame put make mpg price in 1/10, into(top)}{p_end}
 {phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) title("First Ten Cars") varlabels theme(nejm) zebra}{p_end}
 
-{title:20. Emit-then-assemble pipeline}
+{title:19. Emit-then-assemble pipeline}
 {phang2}{cmd:clear}{p_end}
 {phang2}{cmd:input str18 term double ahr str16 ci}{p_end}
 {phang2}{cmd:"Any HRT use" 0.82 "0.70, 0.96"}{p_end}
@@ -385,32 +356,14 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {cmd:columnmerge(B+C as "aHR (95% CI)") spacing(1)}
 {cmd:title("Table 2. Hormone Therapy and Recurrent Events")}{p_end}
 
-{title:21. Monte Carlo simulation performance table}
-{phang2}{cmd:clear}{p_end}
-{phang2}{cmd:set seed 20260713}{p_end}
-{phang2}{cmd:set obs 400}{p_end}
-{phang2}{cmd:generate int sim = mod(_n-1, 100) + 1}{p_end}
-{phang2}{cmd:generate str8 estimator = cond(mod(floor((_n-1)/100), 2)==0, "Method A", "Method B")}{p_end}
-{phang2}{cmd:generate str8 scenario = cond(_n<=200, "Base", "Stress")}{p_end}
-{phang2}{cmd:generate str8 estimand = "theta"}{p_end}
-{phang2}{cmd:generate double true_value = 1}{p_end}
-{phang2}{cmd:generate double se = 0.20}{p_end}
-{phang2}{cmd:generate double estimate = true_value + (estimator=="Method B")*0.05 + rnormal()*se}{p_end}
-{phang2}{cmd:generate byte covered = abs(estimate-true_value) <= invnormal(.975)*se}{p_end}
-{phang2}{cmd:simtab estimator, estimate(estimate) se(se) true(true_value)}
-{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(100)}
-{cmd:metrics(mean bias empse meanse coverage n nonconv)}
-{cmd:xlsx("sim.xlsx") sheet("Table 2") borderstyle(academic) digits(3)}
-{cmd:plotframe(sim_plot, replace) display}{p_end}
-
 {hline}
 {title:Also see}
 
 {pstd}{helpb tabtools} - overview and settings{p_end}
 {pstd}{helpb table1_tc}, {helpb desctab}, {helpb regtab}, {helpb effecttab},
-{helpb stratetab}, {helpb survtab}, {helpb crosstab}, {helpb diagtab},
+{helpb stratetab}, {helpb survtab}, {helpb crosstab},
 {helpb corrtab}, {helpb comptab}, {helpb hrcomptab}, {helpb puttab},
-{helpb stacktab}, {helpb simtab} - command-specific help{p_end}
+{helpb stacktab} - command-specific help{p_end}
 
 {marker author}{...}
 {hline}

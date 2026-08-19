@@ -118,7 +118,7 @@ else {
 **# A1/A2 scope: every other public command already returned 0. These are
 **# guards against the same tail-shaped defect appearing elsewhere.
 * =========================================================================
-foreach _cmd in corrtab crosstab diagtab puttab regtab survtab simtab {
+foreach _cmd in corrtab crosstab puttab regtab survtab {
     local ++test_count
     capture noisily {
         if "`_cmd'" == "corrtab" {
@@ -128,11 +128,6 @@ foreach _cmd in corrtab crosstab diagtab puttab regtab survtab simtab {
         else if "`_cmd'" == "crosstab" {
             sysuse auto, clear
             crosstab foreign rep78
-        }
-        else if "`_cmd'" == "diagtab" {
-            sysuse auto, clear
-            quietly generate byte _sr_hi = price > 6000
-            diagtab _sr_hi foreign
         }
         else if "`_cmd'" == "puttab" {
             sysuse auto, clear
@@ -148,16 +143,6 @@ foreach _cmd in corrtab crosstab diagtab puttab regtab survtab simtab {
             webuse stan3, clear
             quietly stset t1, failure(died) id(id)
             survtab, times(50 100)
-        }
-        else if "`_cmd'" == "simtab" {
-            clear
-            set seed 90210
-            quietly set obs 200
-            quietly generate estid = 1 + mod(_n, 2)
-            quietly generate est = 0.10 + rnormal(0, 0.05)
-            quietly generate se = 0.05
-            quietly generate byte covered = 1
-            simtab estid, estimate(est) se(se) true(0.10) coverage(covered) display
         }
         assert _rc == 0
     }
@@ -319,25 +304,6 @@ else {
     local ++fail_count
 }
 
-* --- diagtab
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    quietly generate byte _sr_hi = price > 6000
-    local _csv "`outdir'/_sr_a5_diagtab.csv"
-    capture erase "`_csv'"
-    diagtab _sr_hi foreign, csv("`_csv'") title("`_sr_t'") footnote("`_sr_f'")
-    _sr_csv_contract using "`_csv'", title("`_sr_t'") footnote("`_sr_f'")
-}
-if _rc == 0 {
-    display as result "  PASS `test_count': A5 diagtab CSV shape"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL `test_count': A5 diagtab CSV shape (rc=`=_rc')"
-    local ++fail_count
-}
-
 * --- table1_tc (title() needs a workbook sink alongside csv())
 local ++test_count
 capture noisily {
@@ -399,7 +365,7 @@ else {
     local ++fail_count
 }
 
-* --- puttab and simtab already wrote both into body cells; these guard that
+* --- puttab already wrote both into body cells; this guards that
 * --- the shared writer did not disturb them.
 local ++test_count
 capture noisily {
@@ -461,13 +427,12 @@ else {
 }
 
 * =========================================================================
-**# B1/B2/B3. Workbook rules and alignment
+**# B1/B2. Workbook rules and alignment
 * =========================================================================
 * B1: every regtab stats() and addrow() row carried its own bottom rule, so a
 *     model-fit block rendered as a grid stapled to a booktabs table.
 * B2: only the label column was top-aligned, so the comment's stated intent
 *     failed for every single-line row.
-* B3: the single-cutoff diagtab branch emitted no border op at all.
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -484,18 +449,11 @@ capture noisily {
     capture erase "`_xl2'"
     regtab, xlsx("`_xl2'") sheet("B2")
 
-    sysuse auto, clear
-    quietly generate byte _sr_hi = price > 6000
-    local _xl3 "`outdir'/_sr_b3.xlsx"
-    capture erase "`_xl3'"
-    diagtab _sr_hi foreign, xlsx("`_xl3'") sheet("B3")
-
     local _status "`outdir'/_sr_style_status.txt"
     capture erase "`_status'"
     shell python3 "`qa_dir'/tools/check_synthesis_style.py" ///
         --b1 "`_xl1'" --b1-sheet "B1" ///
         --b2 "`_xl2'" --b2-sheet "B2" ///
-        --diagtab "`_xl3'" --diagtab-sheet "B3" ///
         --status-file "`_status'"
     tempname _sfh
     file open `_sfh' using "`_status'", read text
@@ -697,7 +655,7 @@ else {
 * =========================================================================
 * The 1.12.0 CSV writer dropped every leading row that was blank in each
 * exported column, on the assumption that such a row is the reserved title
-* row. That holds for a rendered table and fails for `puttab'/`simtab', which
+* row. That holds for a rendered table and fails for `puttab', which
 * hand the writer the user's own observations: with `noheader' and a first
 * observation blank in every column, the CSV shipped one row fewer than the
 * workbook, at rc == 0. The drop is now opt-in per caller. Both halves matter

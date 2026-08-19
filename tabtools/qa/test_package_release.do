@@ -48,7 +48,7 @@ capture noisily {
         regtab.ado regtab.sthlp effecttab.ado effecttab.sthlp ///
         stratetab.ado stratetab.sthlp hrcomptab.ado hrcomptab.sthlp ///
         comptab.ado comptab.sthlp survtab.ado survtab.sthlp ///
-        crosstab.ado crosstab.sthlp diagtab.ado diagtab.sthlp ///
+        crosstab.ado crosstab.sthlp ///
         corrtab.ado corrtab.sthlp tabtools_tips.ado tabtools_tips.sthlp {
         confirm file "`pkg_dir'/`f'"
     }
@@ -165,10 +165,10 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=73 class_missing=0 wrapper_missing=0"
+        "PASS programs=63 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
-    display as result "  PASS: all 73 shipped programs declare a class and restore varabbrev"
+    display as result "  PASS: all 63 shipped programs declare a class and restore varabbrev"
     local ++pass_count
 }
 else {
@@ -273,7 +273,7 @@ else {
 * The package now has one universal Stata 17 baseline.  This gate checks that
 * every public command agrees with that advertised requirement.
 capture noisily {
-    local all_commands "tabtools tabtools_tips table1_tc desctab regtab effecttab comptab hrcomptab survtab crosstab corrtab diagtab stratetab puttab stacktab simtab"
+    local all_commands "tabtools tabtools_tips table1_tc desctab regtab effecttab comptab hrcomptab survtab crosstab corrtab stratetab puttab stacktab"
 
     local matrix_bad = 0
     foreach c of local all_commands {
@@ -589,7 +589,7 @@ else {
 **## Public commands resolve after net install
 capture noisily {
     foreach cmd in tabtools table1_tc regtab effecttab stratetab hrcomptab ///
-        comptab survtab crosstab diagtab corrtab {
+        comptab survtab crosstab corrtab {
         which `cmd'
     }
 }
@@ -607,7 +607,7 @@ else {
 capture noisily {
     foreach helper in _tabtools_common.ado _tabtools_xlsx_write.ado ///
         _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
-        _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
+        _tabtools_markdown_write.ado ///
         _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
         _tabtools_xlsx_compact_styles.ado ///
         _desctab_collect.ado _tabtools_visible_vars.ado ///
@@ -795,27 +795,6 @@ else {
     local failed_tests "`failed_tests' readme_surv_strate"
 }
 
-**## README example: diagtab runs as displayed
-capture noisily {
-    webuse lbw, clear
-    capture erase "diagtab.xlsx"
-    logit low age lwt smoke
-    predict phat
-    diagtab phat low, cutoff(0.4) auc ///
-        xlsx(diagtab.xlsx) ///
-        title("Diagnostic Accuracy: Low Birth Weight Prediction")
-    confirm file "diagtab.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: README diagtab example runs unchanged"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: README diagtab example (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' readme_diagtab"
-}
-
 **## regtab.sthlp example runs as displayed
 capture noisily {
     webuse nhanes2, clear
@@ -884,8 +863,8 @@ else {
 **# Migrated: public command inventory
 
 
-local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab simtab tabtools_tips"
-local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab simtab tabtools tabtools_tips"
+local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab corrtab puttab stacktab tabtools_tips"
+local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
 
 **# Public Inventory
 
@@ -899,7 +878,7 @@ capture noisily {
     }
 
     local n_public : word count `public_ado'
-    assert `n_public' == 16
+    assert `n_public' == 14
 
     foreach cmd of local public_cmds {
         local ado_file "`cmd'.ado"
@@ -910,7 +889,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: source tree has exact 16-command public inventory"
+    display as result "  PASS: source tree has exact 14-command public inventory"
     local ++pass_count
 }
 else {
@@ -973,7 +952,7 @@ else {
 
 capture noisily {
     tabtools
-    assert r(n_commands) == 16
+    assert r(n_commands) == 14
     local commands " `r(commands)' "
     foreach cmd of local advertised_cmds {
         assert strpos("`commands'", " `cmd' ") > 0
@@ -985,7 +964,7 @@ capture noisily {
     assert strpos("`export_commands'", " stacktab ") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools advertises 16 current commands"
+    display as result "  PASS: tabtools advertises 14 current commands"
     local ++pass_count
 }
 else {
@@ -1150,11 +1129,11 @@ log close _doc_contracts
 **# Migrated: release manifest + installed-user contracts
 
 local public_commands tabtools table1_tc desctab regtab effecttab stratetab ///
-    hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab ///
-    simtab tabtools_tips
+    hrcomptab comptab survtab crosstab corrtab puttab stacktab ///
+    tabtools_tips
 local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
     _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
-    _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
+    _tabtools_markdown_write.ado ///
     _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
     _tabtools_xlsx_compact_styles.ado _desctab_collect.ado
 
@@ -1542,12 +1521,10 @@ else {
             demo_stratetab.xlsx ///
             demo_corrtab.xlsx ///
             demo_crosstab.xlsx ///
-            demo_diagtab.xlsx ///
             demo_survtab.xlsx ///
             demo_hrcomptab.xlsx ///
             demo_puttab.xlsx ///
-            demo_stacktab.xlsx ///
-            demo_simtab.xlsx
+            demo_stacktab.xlsx
 
         local actual_sheets 0
         confirm file "`checker'"
@@ -1595,7 +1572,7 @@ else {
         * RED on main from that commit until it was noticed here. Keep the
         * number literal: deriving it from the README would make the check
         * vacuous, and it is the literal that caught the drift.
-        assert `actual_sheets' == 82
+        assert `actual_sheets' == 77
         tempfile readme_hit
         shell grep -F "(`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
         tempname readmefh
@@ -1614,7 +1591,7 @@ else {
         * the specific mismatch (which workbook, which Markdown line, which PNG
         * geometry); without echoing them a failure here says only "rc=9" and
         * the staging tree is deleted before anyone can look at it.
-        if strpos(`"`demo_compare_line'"', "PASS 15 workbooks") != 1 {
+        if strpos(`"`demo_compare_line'"', "PASS 13 workbooks") != 1 {
             display as error `"  demo comparison status: `demo_compare_line'"'
             local _dcl = 0
             file read `democmpfh' demo_compare_detail
@@ -1625,7 +1602,7 @@ else {
             }
         }
         file close `democmpfh'
-        assert strpos(`"`demo_compare_line'"', "PASS 15 workbooks") == 1
+        assert strpos(`"`demo_compare_line'"', "PASS 13 workbooks") == 1
     }
     if _rc == 0 {
         display as result "  PASS: demo workbooks are readable, width-fit, and free of release text anomalies"
@@ -1721,7 +1698,7 @@ capture noisily {
 
     preserve
     import delimited "`manifest_file'", varnames(1) stringcols(_all) clear
-    assert _N >= 15
+    assert _N >= 14
     forvalues i = 1/`=_N' {
         assert status[`i'] == "PASS"
         assert xlsx[`i'] != ""

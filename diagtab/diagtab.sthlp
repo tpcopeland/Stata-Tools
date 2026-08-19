@@ -1,4 +1,5 @@
 {smcl}
+{* *! version 2.0.0  2026/08/19}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -7,9 +8,6 @@
 {viewerjumpto "Stored results" "diagtab##stored"}{...}
 {viewerjumpto "Also see" "diagtab##alsosee"}{...}
 {viewerjumpto "Author" "diagtab##author"}{...}
-{vieweralsosee "tabtools" "help tabtools"}{...}
-{vieweralsosee "corrtab" "help corrtab"}{...}
-{vieweralsosee "crosstab" "help crosstab"}{...}
 {vieweralsosee "roctab" "help roctab"}{...}
 {vieweralsosee "diagt" "help diagt"}{...}
 {title:Title}
@@ -20,8 +18,8 @@ predictive values
 
 {marker package}{title:Package}
 
-{pstd}{cmd:diagtab} is part of the {helpb tabtools} suite. See {helpb crosstab}
-for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{p_end}
+{pstd}{cmd:diagtab} is a standalone package for diagnostic-accuracy and cutoff
+analysis.{p_end}
 
 {hline}
 
@@ -289,12 +287,13 @@ results are returned in {cmd:r(cutoff_table)}.{p_end}
 {marker alsosee}{title:Also see}
 
 {psee}
-{helpb tabtools}, {helpb crosstab}, {helpb corrtab},
-{helpb tabtools_tips}, {helpb roctab}, {helpb diagt}
+{helpb roctab}, {helpb diagt}
 {p_end}
 
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+
+{pstd}Version 2.0.0{p_end}
 
 {hline}

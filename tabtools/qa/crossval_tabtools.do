@@ -8,11 +8,6 @@
 *
 * Formulas cross-validated:
 *   1.  Correlation p-values (t-approximation)        — corrtab.ado
-*   2.  Diagnostic accuracy (Se/Sp/PPV/NPV/Acc)       — diagtab.ado
-*   3.  Likelihood ratios + CIs (log method)           — diagtab.ado
-*   4.  DOR + CI (Woolf's method)                      — diagtab.ado
-*   5.  Youden's index                                 — diagtab.ado
-*   6.  Bayesian PPV/NPV with prevalence               — diagtab.ado
 *   7.  SMD continuous (root-mean variance formula)      — table1_tc.ado
 *   8.  SMD continuous (all public weighting paths)      — table1_tc.ado
 *   9.  SMD categorical (Yang & Dalton)                 — table1_tc.ado
@@ -1334,51 +1329,6 @@ else {
 }
 
 **# Command-Backed Oracle Checks
-**## CV18: diagtab command returns R-benchmarked diagnostic estimates
-local ++test_count
-capture noisily {
-    clear
-    set obs 200
-    gen byte gold = (_n <= 100)
-    gen byte test = 0
-    replace test = 1 in 1/80
-    replace test = 1 in 101/110
-
-    diagtab test gold
-
-    assert abs(r(sensitivity) - `r_diag_Se') < 1e-10
-    assert abs(r(specificity) - `r_diag_Sp') < 1e-10
-    assert abs(r(ppv) - `r_diag_PPV') < 1e-10
-    assert abs(r(npv) - `r_diag_NPV') < 1e-10
-    assert abs(r(accuracy) - `r_diag_Acc') < 1e-10
-    assert abs(r(lr_pos) - `r_diag_LRp') < 1e-10
-    assert abs(r(lr_neg) - `r_diag_LRn') < 1e-10
-    assert abs(r(dor) - `r_diag_DOR') < 1e-10
-    assert abs(r(youden) - `r_diag_J') < 1e-10
-    assert abs(r(lr_pos_lb) - `r_diag_LRp_lo') < 0.0005
-    assert abs(r(lr_pos_ub) - `r_diag_LRp_hi') < 0.0005
-    assert abs(r(lr_neg_lb) - `r_diag_LRn_lo') < 0.0005
-    assert abs(r(lr_neg_ub) - `r_diag_LRn_hi') < 0.0005
-    assert abs(r(dor_lb) - `r_diag_DOR_lo') < 0.005
-    assert abs(r(dor_ub) - `r_diag_DOR_hi') < 0.005
-
-    diagtab test gold, prevalence(0.05)
-    assert abs(r(ppv) - `r_bayes_PPV') < 1e-10
-    assert abs(r(npv) - `r_bayes_NPV') < 1e-10
-    diagtab test gold, prevalence(0.30)
-    assert abs(r(ppv) - `r_bayes_PPV2') < 1e-10
-    assert abs(r(npv) - `r_bayes_NPV2') < 1e-10
-}
-if _rc == 0 {
-    display as result "  PASS: CV18 diagtab command matches R diagnostic oracle"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CV18 diagtab command oracle"
-    local ++fail_count
-    local failed_tests "`failed_tests' CV18"
-}
-
 **## CV19: crosstab fweight trend tests equal a filtered explicit expansion
 local ++test_count
 capture noisily {

@@ -20,10 +20,8 @@
 {vieweralsosee "hrcomptab" "help hrcomptab"}{...}
 {vieweralsosee "puttab" "help puttab"}{...}
 {vieweralsosee "stacktab" "help stacktab"}{...}
-{vieweralsosee "simtab" "help simtab"}{...}
 {vieweralsosee "survtab" "help survtab"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
-{vieweralsosee "diagtab" "help diagtab"}{...}
 {vieweralsosee "tabtools tips" "help tabtools_tips"}{...}
 {title:Title}
 
@@ -110,12 +108,6 @@ guide and end-to-end worked recipes.
 
 {synopt:{helpb survtab}}Kaplan-Meier estimates, medians, and RMST{p_end}
 {synopt:{helpb stratetab}}Incidence rates from strate output{p_end}
-{synopt:{helpb diagtab}}Sensitivity, specificity, PPV, NPV, ROC{p_end}
-
-{pstd}
-{bf:Simulation studies}
-
-{synopt:{helpb simtab}}Summarize Monte Carlo performance{p_end}
 
 {pstd}
 {bf:Utility}
@@ -280,7 +272,7 @@ apply the requested override.
 
 {phang}
 {opt c:ategory(string)} filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates},
-{cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:export}, {cmd:simulation}, {cmd:general},
+{cmd:survival}, {cmd:composite}, {cmd:export}, {cmd:general},
 {cmd:all}{p_end}
 
 {phang}

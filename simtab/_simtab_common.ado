@@ -1,0 +1,1267 @@
+*! _simtab_common Version 2.0.0  2026/08/19
+*! Shared utility programs for simtab package
+*! Author: Timothy P Copeland, Karolinska Institutet
+
+/*
+DESCRIPTION:
+    Common utility programs shared across the simtab suite of table export
+    commands. These utilities handle Excel column letter conversion, path
+    validation, footnotes, file opening, variable type detection,
+    format resolution, and sheet validation.
+
+PROGRAMS INCLUDED:
+    _simtab_col_letter        - Convert column number to Excel letter (A, B, ..., Z, AA, AB, ...)
+    _simtab_validate_path     - Validate file path for dangerous characters
+    _simtab_validate_color    - Validate named/RGB color tokens for Excel formatting
+    _simtab_build_col_letters - Build list of Excel column letters for N columns
+    _simtab_open_file         - Open an xlsx file in the OS default application
+    _simtab_detect_vartype    - Auto-classify a variable as contn/conts/cat/bin
+    _simtab_validate_sheet    - Validate Excel sheet name (length, forbidden chars)
+    _simtab_apply_theme       - Apply journal-style formatting presets
+    _simtab_resolve_format    - Resolve font/fontsize/borderstyle from options, globals, and themes
+    _simtab_resolve_colors    - Resolve header/zebra colors from options and globals
+    _simtab_classify_stat      - Classify collect table statistics for formatting
+    _simtab_resolve_stat_format - Resolve per-statistic display formats
+    _simtab_collect_ci_level  - Read the CI level stored in an active collection
+    _simtab_strip_outer_quotes - Remove one balanced outer quote layer
+    _simtab_format_p          - Apply the package p-value display policy
+    _simtab_frame_put         - Store output in a named frame with optional replace
+    _simtab_frame_preflight   - Validate a frame spec without mutating anything
+    _simtab_resolve_ci_level  - Resolve the CI level to label intervals with
+    _simtab_helpers_ready     - Verify the helper bundle is fully loaded
+    _simtab_require_helpers   - Exit with package reinstall message if helpers are incomplete
+USAGE:
+    These programs are called internally by simtab commands (table1_tc, regtab,
+    effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
+    Each helper independently restores the caller's variable-abbreviation state.
+*/
+
+* =============================================================================
+* _simtab_col_letter: Convert column number to Excel letter reference
+* =============================================================================
+* Converts 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, etc.
+* Returns result in c_local variable 'result'
+*
+* Usage: _simtab_col_letter 3
+*        local my_letter = "`result'"   // my_letter = "C"
+
+capture program drop _simtab_col_letter
+program _simtab_col_letter, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args col_num
+
+    local col_letter = ""
+    local temp_num = `col_num'
+
+    while `temp_num' > 0 {
+        local remainder = mod(`temp_num' - 1, 26)
+        local col_letter = char(`remainder' + 65) + "`col_letter'"
+        local temp_num = floor((`temp_num' - 1) / 26)
+    }
+
+    c_local result "`col_letter'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_validate_path: Validate file path for security
+* =============================================================================
+* Checks for dangerous characters that could enable command injection.
+* Returns error code 198 if invalid characters found.
+*
+* Usage: _simtab_validate_path "`filepath'" "xlsx()"
+*        (exits with error if invalid)
+
+capture program drop _simtab_validate_path
+program _simtab_validate_path, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args filepath option_name
+
+    * Check for shell metacharacters and command injection vectors
+    * Reject: ; & | > < $ ` " '
+    * Note: the regex character class below matches literal $ and backtick via
+    * \$/\`. Double-quote (") is checked separately via char(34) to avoid
+    * quoting headaches in the pattern itself. Both quote characters are
+    * rejected because callers interpolate validated paths into commands.
+    local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
+    if !`_has_bad' {
+        local _has_bad = strpos(`"`filepath'"', char(34)) > 0
+    }
+    if !`_has_bad' {
+        local _has_bad = strpos(`"`filepath'"', char(39)) > 0
+    }
+    if `_has_bad' {
+        noisily display as error "`option_name' contains invalid characters"
+        exit 198
+    }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_validate_color: Validate Excel color tokens
+* =============================================================================
+* Accepts supported Stata color names (e.g. navy) or RGB triplets (e.g. 200 220 240).
+*
+* Usage: _simtab_validate_color "`color'" "headercolor()"
+
+capture program drop _simtab_validate_color
+program _simtab_validate_color, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args color option_name
+
+    local color = strtrim(`"`color'"')
+    if `"`color'"' == "" {
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    if regexm(`"`color'"', "^[A-Za-z][A-Za-z0-9_]*$") {
+        local _named = lower(`"`color'"')
+        local _valid_named "black blue bluishgray brown cranberry cyan dimgray"
+        local _valid_named "`_valid_named' dkgreen dknavy dkorange ebblue eggshell eltblue"
+        local _valid_named "`_valid_named' emerald forest_green gold gray green khaki lavender"
+        local _valid_named "`_valid_named' lime ltblue ltbluishgray ltkhaki magenta maroon"
+        local _valid_named "`_valid_named' midblue midgreen mint navy olive orange orange_red"
+        local _valid_named "`_valid_named' pink purple red sand sienna stone teal white yellow"
+        local _valid_named "`_valid_named' gs0 gs1 gs2 gs3 gs4 gs5 gs6 gs7 gs8"
+        local _valid_named "`_valid_named' gs9 gs10 gs11 gs12 gs13 gs14 gs15 gs16"
+        if strpos(" `_valid_named' ", " `_named' ") {
+            quietly version
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
+        noisily display as error "`option_name' is not a supported Stata color name;"
+        noisily display as error "use a supported name such as navy or an RGB triplet like 200 220 240"
+        exit 198
+    }
+
+    if regexm(`"`color'"', "^[0-9]+[ ]+[0-9]+[ ]+[0-9]+$") {
+        tokenize `"`color'"'
+        foreach _channel in `1' `2' `3' {
+            if real("`_channel'") < 0 | real("`_channel'") > 255 {
+                noisily display as error "`option_name' RGB values must be between 0 and 255"
+                exit 198
+            }
+        }
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    noisily display as error "`option_name' must be a supported Stata color name or an RGB triplet like 200 220 240"
+    exit 198
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_build_col_letters: Build list of Excel column letters for N columns
+* =============================================================================
+* Creates a space-separated list of column letters for columns 1 to N.
+* Returns result in c_local variable 'result'
+*
+* Usage: _simtab_build_col_letters 30
+*        local letters = "`result'"   // letters = "A B C ... AA AB AC AD"
+
+capture program drop _simtab_build_col_letters
+program _simtab_build_col_letters, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args num_cols
+
+    local col_letters ""
+
+    forvalues i = 1/`num_cols' {
+        * Inline base-26 conversion (avoids program call overhead per column)
+        local _letter = ""
+        local _n = `i'
+        while `_n' > 0 {
+            local _r = mod(`_n' - 1, 26)
+            local _letter = char(`_r' + 65) + "`_letter'"
+            local _n = floor((`_n' - 1) / 26)
+        }
+        local col_letters `"`col_letters' `_letter'"'
+    }
+
+    c_local result "`=strtrim("`col_letters'")'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_open_file: Open an xlsx file in the OS default application
+* =============================================================================
+* Detects the operating system via c(os) and launches the appropriate shell
+* command to open the file.
+*
+* Usage: _simtab_open_file "`filepath'"
+
+capture program drop _simtab_open_file
+program _simtab_open_file, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args filepath
+
+    if "`filepath'" == "" {
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    if "`c(os)'" == "MacOSX" {
+        shell open "`filepath'" &
+    }
+    else if "`c(os)'" == "Windows" {
+        shell start "" "`filepath'"
+    }
+    else {
+        * Unix/Linux
+        shell xdg-open "`filepath'" &
+    }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_detect_vartype: Auto-classify a variable for table1_tc
+* =============================================================================
+* Classifies a variable as one of: contn, conts, cat, bin
+* Auto-classify a variable for descriptive statistics tables.
+* Returns result in c_local variable 'result'.
+*
+* Logic:
+*   1. String variable -> cat
+*   2. Has value labels -> cat
+*   3. Numeric, exactly the values 0 and 1 -> bin
+*   4. Numeric, <= 7 unique non-missing values -> cat
+*   5. Numeric, > 7 unique values -> Shapiro-Wilk normality test:
+*      - p >= 0.05 -> contn (normally distributed)
+*      - p < 0.05  -> conts (skewed)
+*
+* Usage: _simtab_detect_vartype myvar [if] [in]
+*        local type "`result'"
+
+capture program drop _simtab_detect_vartype
+program _simtab_detect_vartype, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _restore_needed = 0
+    local _rng_restore_needed = 0
+    local _rng_state ""
+    capture noisily {
+    syntax varlist(min=1 max=1) [if] [in]
+    local varname `"`varlist'"'
+
+    marksample touse, novarlist
+
+    tempvar _uniqtag
+    quietly egen byte `_uniqtag' = tag(`varname') if `touse' & !missing(`varname')
+    quietly count if `_uniqtag'
+    local _nuniq = r(N)
+
+    * Check if string
+    capture confirm string variable `varname'
+    if !_rc {
+        c_local result "cat"
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * All-missing numeric -> contn
+    if `_nuniq' == 0 {
+        c_local result "contn"
+        c_local result_nuniq "0"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * Only literal 0/1 coding is binary. Other two-level codings remain
+    * categorical so the collector does not later reject its own auto choice.
+    if `_nuniq' == 2 {
+        quietly summarize `varname' if `touse', meanonly
+        if r(min) == 0 & r(max) == 1 c_local result "bin"
+        else c_local result "cat"
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * Has value labels with >2 levels -> cat
+    local vallabel : value label `varname'
+    if "`vallabel'" != "" {
+        c_local result "cat"
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * <= 7 unique values -> cat
+    if `_nuniq' <= 7 {
+        c_local result "cat"
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * > 7 unique values: test normality
+    quietly count if `touse' & !missing(`varname')
+    local _nobs = r(N)
+
+    if `_nobs' < 4 {
+        * Too few observations for normality test — default to contn
+        c_local result "contn"
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * For large N (>5000), use skewness/kurtosis heuristic instead of Shapiro-Wilk
+    * Shapiro-Wilk rejects normality for essentially all large samples
+    if `_nobs' > 5000 {
+        quietly summarize `varname' if `touse', detail
+        local _skew = abs(r(skewness))
+        local _kurt = r(kurtosis)
+        if `_skew' > 1 | abs(`_kurt' - 3) > 2 {
+            c_local result "conts"
+        }
+        else {
+            c_local result "contn"
+        }
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * For smaller N, use Shapiro-Wilk
+    * Use a sample of up to 2000 obs for speed (swilk max is 2000 in some versions)
+    preserve
+    local _restore_needed = 1
+    tempvar _sw_use _sw_tie
+    if `_nobs' > 2000 {
+        local _rng_state = c(rngstate)
+        local _rng_restore_needed = 1
+        set seed 12345
+        quietly keep if `touse' & !missing(`varname')
+        quietly gen `_sw_use' = runiform()
+        set rngstate `_rng_state'
+        local _rng_restore_needed = 0
+        quietly gen `_sw_tie' = _n
+        quietly sort `_sw_use' `_sw_tie'
+        capture quietly swilk `varname' in 1/2000
+    }
+    else {
+        capture quietly swilk `varname' if `touse'
+    }
+    local _sw_rc = _rc
+    local _sw_p = .
+    if !`_sw_rc' local _sw_p = r(p)
+    restore
+    local _restore_needed = 0
+
+    if `_sw_rc' {
+        * If swilk fails for any reason, default to contn
+        c_local result "contn"
+        c_local result_nuniq "`_nuniq'"
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    * Classify based on Shapiro-Wilk p-value
+    if `_sw_p' >= 0.05 {
+        c_local result "contn"
+    }
+    else {
+        c_local result "conts"
+    }
+    c_local result_nuniq "`_nuniq'"
+    }
+    local _rc_outer = _rc
+    if `_rng_restore_needed' capture set rngstate `_rng_state'
+    if `_restore_needed' capture restore
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_validate_sheet: Validate Excel sheet name
+* =============================================================================
+* Checks Excel's worksheet-name contract: nonblank, at most 31 characters,
+* no forbidden characters (\ / ? * [ ] :), no leading/trailing apostrophe,
+* and not the reserved name History.
+*
+* Usage: _simtab_validate_sheet "`sheet'" "sheet()"
+
+capture program drop _simtab_validate_sheet
+program _simtab_validate_sheet, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args sheet option_name
+    if ustrlen(`"`sheet'"') == 0 {
+        display as error "`option_name': sheet name may not be blank"
+        exit 198
+    }
+    if ustrlen(`"`sheet'"') > 31 {
+        display as error "`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"
+        exit 198
+    }
+    if regexm(`"`sheet'"', "[][/\\?*:]" ) {
+        display as error "`option_name': sheet name contains characters not allowed by Excel (\ / ? * [ ] :)"
+        exit 198
+    }
+    if substr(`"`sheet'"', 1, 1) == char(39) | ///
+            substr(`"`sheet'"', -1, 1) == char(39) {
+        display as error "`option_name': sheet name may not begin or end with an apostrophe"
+        exit 198
+    }
+    if lower(`"`sheet'"') == "history" {
+        display as error "`option_name': History is reserved by Excel and cannot be used as a sheet name"
+        exit 198
+    }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_apply_theme: Apply journal-style formatting presets (O1)
+* =============================================================================
+* Sets formatting locals in the caller's scope based on theme name.
+* Themes: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals
+*
+* Usage: _simtab_apply_theme lancet
+*        (sets c_local variables: _theme_font, _theme_fontsize, _theme_border,
+*         _theme_headershade, _theme_headercolor, _theme_zebra)
+
+capture program drop _simtab_apply_theme
+program _simtab_apply_theme, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args theme
+
+    local theme = lower("`theme'")
+
+    if "`theme'" == "lancet" {
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "9"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "nejm" {
+        * 9pt matches NEJM manuscript table conventions (10pt was too large).
+        * zebra=1: NEJM uses light row alternation. The theme system does not
+        * support per-theme zebra colors, so the global default (237 242 249,
+        * blue-tinted) is used. For exact NEJM neutral-gray shading, override:
+        *   zebracolor("242 242 242")
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "9"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "1"
+    }
+    else if "`theme'" == "bmj" {
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "10"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "apa" {
+        c_local _theme_font "Times New Roman"
+        c_local _theme_fontsize "12"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "jama" {
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "10"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "plos" {
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "10"
+        c_local _theme_border "thin"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "nature" {
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "7"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "cell" {
+        * 8pt matches Cell Press table conventions (10pt was too large).
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "8"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "annals" {
+        * Annals of Internal Medicine uses a clean three-rule format (no row
+        * alternation). zebra was incorrectly set to 1.
+        c_local _theme_font "Arial"
+        c_local _theme_fontsize "10"
+        c_local _theme_border "academic"
+        c_local _theme_headershade "0"
+        c_local _theme_headercolor ""
+        c_local _theme_zebra "0"
+    }
+    else if "`theme'" == "custom" {
+        * Custom theme reads from globals set by simtab set theme custom
+        c_local _theme_font = cond("$SIMTAB_FONT" != "", "$SIMTAB_FONT", "Arial")
+        c_local _theme_fontsize = cond("$SIMTAB_FONTSIZE" != "", "$SIMTAB_FONTSIZE", "10")
+        c_local _theme_border = cond("$SIMTAB_BORDER" != "", "$SIMTAB_BORDER", "thin")
+        c_local _theme_headershade = cond("$SIMTAB_HEADERCOLOR" != "", "1", "0")
+        c_local _theme_headercolor "$SIMTAB_HEADERCOLOR"
+        c_local _theme_zebra = cond("$SIMTAB_ZEBRACOLOR" != "", "1", "0")
+    }
+    else {
+        display as error "Unknown theme: `theme'. Valid themes: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals, custom"
+        exit 198
+    }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_resolve_format: Resolve font/fontsize/borderstyle from options,
+*   globals, and themes
+* =============================================================================
+* Centralizes the format resolution logic shared across all simtab commands.
+* Resolves: user option -> theme -> $SIMTAB_* global -> default.
+*
+* Sets c_local variables in the caller's scope:
+*   _font, _fontsize, borderstyle, _hborder, headershade, zebra
+*
+* Usage: _simtab_resolve_format, [theme(string) borderstyle(string)
+*            headershade(string) zebra(string)]
+
+capture program drop _simtab_resolve_format
+program _simtab_resolve_format, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax , [THEme(string) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
+
+    * Font defaults: global -> default
+    local _font "Arial"
+    local _fontsize 10
+    if "$SIMTAB_FONT" != "" local _font "$SIMTAB_FONT"
+    if "$SIMTAB_FONTSIZE" != "" local _fontsize $SIMTAB_FONTSIZE
+
+    * Apply theme: explicit option overrides global
+    if "`theme'" == "" & "$SIMTAB_THEME" != "" local theme "$SIMTAB_THEME"
+    if "`theme'" != "" {
+        _simtab_apply_theme "`theme'"
+        local _font `"`_theme_font'"'
+        local _fontsize `_theme_fontsize'
+        if "`borderstyle'" == "" local borderstyle "`_theme_border'"
+        if "`_theme_headershade'" == "1" & "`headershade'" == "" local headershade "headershade"
+        if "`_theme_zebra'" == "1" & "`zebra'" == "" local zebra "zebra"
+    }
+
+    * Resolve borderstyle: global -> default
+    if "`borderstyle'" == "" & "$SIMTAB_BORDER" != "" local borderstyle "$SIMTAB_BORDER"
+    if "`borderstyle'" == "" local borderstyle "thin"
+    if !inlist("`borderstyle'", "default", "thin", "medium", "academic") {
+        display as error "borderstyle must be: default, thin, medium, or academic"
+        exit 198
+    }
+    if "`borderstyle'" == "default" local borderstyle "thin"
+    local _hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
+
+    * Return via c_local to caller's scope
+    c_local _font "`_font'"
+    c_local _fontsize `_fontsize'
+    c_local borderstyle "`borderstyle'"
+    c_local _hborder "`_hborder'"
+    if "`headershade'" != "" c_local headershade "`headershade'"
+    if "`zebra'" != "" c_local zebra "`zebra'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_resolve_colors: Resolve header/zebra colors from options and globals
+* =============================================================================
+* Sets c_local variables in the caller's scope:
+*   _headercolor, _zebracolor
+*
+* Usage: _simtab_resolve_colors, [headercolor(string) zebracolor(string)]
+
+capture program drop _simtab_resolve_colors
+program _simtab_resolve_colors, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax , [HEADERColor(string) ZEBRAColor(string)]
+
+    local headercolor = strtrim(subinstr(`"`headercolor'"', char(34), "", .))
+    local zebracolor = strtrim(subinstr(`"`zebracolor'"', char(34), "", .))
+
+    local _headercolor "219 229 241"
+    local _zebracolor "237 242 249"
+    if "$SIMTAB_HEADERCOLOR" != "" local _headercolor "$SIMTAB_HEADERCOLOR"
+    if "$SIMTAB_ZEBRACOLOR" != "" local _zebracolor "$SIMTAB_ZEBRACOLOR"
+    if `"`headercolor'"' != "" local _headercolor `"`headercolor'"'
+    if `"`zebracolor'"' != "" local _zebracolor `"`zebracolor'"'
+
+    _simtab_validate_color "`_headercolor'" "headercolor()"
+    _simtab_validate_color "`_zebracolor'" "zebracolor()"
+
+    c_local _headercolor `"`_headercolor'"'
+    c_local _zebracolor `"`_zebracolor'"'
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_classify_stat: Classify collect table statistics for formatting
+* =============================================================================
+
+capture program drop _simtab_classify_stat
+program _simtab_classify_stat, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax anything(name=stat)
+    local stat = lower("`stat'")
+    local class "unknown"
+    if inlist("`stat'", "frequency", "fvfrequency", "count", "sum", "sum_w", "total") {
+        local class "integer"
+    }
+    else if inlist("`stat'", "percent", "fvpercent") {
+        local class "percent"
+    }
+    else if inlist("`stat'", "prop", "propc", "propr") {
+        local class "proportion"
+    }
+    else if inlist("`stat'", "mean", "sd", "variance", "semean", "min", "max", "range") {
+        local class "continuous"
+    }
+    else if inlist("`stat'", "median", "iqr", "q", "skewness", "kurtosis") {
+        local class "continuous"
+    }
+    else if regexm("`stat'", "^p[0-9][0-9]?$") {
+        local class "continuous"
+    }
+    return local class "`class'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_resolve_stat_format: Resolve per-statistic display formats
+* =============================================================================
+
+capture program drop _simtab_resolve_stat_format
+program _simtab_resolve_stat_format, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax anything(name=stat) [, DIGits(integer 2) PCTDIGits(integer 1) ///
+        NINTEGERfmt(string)]
+    if "`nintegerfmt'" == "" local nintegerfmt "%12.0fc"
+    _simtab_classify_stat `stat'
+    local class `"`r(class)'"'
+    if "`class'" == "integer" {
+        local fmt `"`nintegerfmt'"'
+    }
+    else if "`class'" == "percent" {
+        local fmt "%21.`pctdigits'f"
+    }
+    else if "`class'" == "proportion" {
+        local fmt "%21.3f"
+    }
+    else {
+        local fmt "%21.`digits'f"
+    }
+    return local class "`class'"
+    return local fmt "`fmt'"
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_collect_ci_level: Read CI provenance from collect's saved JSON
+*
+* The "ci-level" key is an undocumented collect internal. Stata 17 writes it;
+* Stata 19 does not write it at all and nothing replaced it. Absence is
+* therefore an expected outcome, not an error: report it via r(found) and let
+* callers fall back. Erroring here broke regtab/effecttab outright on Stata 19.
+* =============================================================================
+
+capture program drop _simtab_collect_ci_level
+program _simtab_collect_ci_level, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    tempfile _collect_level
+    local _json "`_collect_level'.stjson"
+    tempname _fh
+    local _fh_open = 0
+    local _level = .
+
+    capture noisily {
+        quietly collect save "`_json'", replace
+        file open `_fh' using "`_json'", read text
+        local _fh_open = 1
+        file read `_fh' _line
+        while r(eof) == 0 & missing(`_level') {
+            local _needle `""ci-level""'
+            local _pos = strpos(`"`_line'"', `"`_needle'"')
+            if `_pos' > 0 {
+                local _colon = strpos(substr(`"`_line'"', `_pos', .), ":")
+                if `_colon' > 0 {
+                    local _tail = substr(`"`_line'"', `_pos' + `_colon', .)
+                    local _tail : subinstr local _tail "," "", all
+                    local _tail : subinstr local _tail "}" "", all
+                    local _cand = real(strtrim(`"`_tail'"'))
+                    * Accept only a usable level; a malformed or out-of-range
+                    * match must not be mistaken for provenance.
+                    if !missing(`_cand') & `_cand' > 0 & `_cand' < 100 {
+                        local _level = `_cand'
+                    }
+                }
+            }
+            file read `_fh' _line
+        }
+        file close `_fh'
+        local _fh_open = 0
+    }
+    local rc = _rc
+    if `_fh_open' capture file close `_fh'
+    capture erase "`_json'"
+    if `rc' exit `rc'
+    return scalar found = !missing(`_level')
+    return scalar level = `_level'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_resolve_ci_level: decide the confidence level to LABEL intervals with
+* =============================================================================
+* Single source of truth for regtab and effecttab, which previously carried
+* byte-identical copies of this decision and could drift apart.
+*
+* Rules, in order:
+*   1. collection records the level  -> use it; a conflicting level() is an error
+*   2. no provenance, level() given  -> use level()
+*   3. no provenance, no level()     -> warn and use current c(level)
+*
+* Case 3 is needed on Stata versions that omit the collection metadata. The
+* fallback cannot prove the model-time level, so it emits a visible warning and
+* tells the user to specify level() when c(level) is not the correct value.
+*
+* Usage: _simtab_resolve_ci_level `level'      // -1 when level() not given
+*        local _ci_level = r(level)
+
+capture program drop _simtab_resolve_ci_level
+program define _simtab_resolve_ci_level, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args level_opt
+
+    if "`level_opt'" == "" local level_opt = -1
+
+    _simtab_collect_ci_level
+    local _found = r(found)
+    local _stored = r(level)
+
+    if `_found' {
+        local _lvl = `_stored'
+        if `level_opt' != -1 {
+            if abs(`level_opt' - `_stored') > 1e-8 {
+                display as error "level(`level_opt') conflicts with the active collection's `_stored'% intervals"
+                exit 198
+            }
+            local _lvl = `level_opt'
+        }
+    }
+    else if `level_opt' != -1 {
+        local _lvl = `level_opt'
+    }
+    else {
+        local _lvl = c(level)
+        display as text "warning: this Stata version does not record confidence-level provenance in the collection"
+        display as text "assuming the current {bf:set level} (`_lvl') for interval labels; specify level(#) if the"
+        display as text "collected models were fit at a different confidence level"
+    }
+
+    return scalar level = `_lvl'
+    return scalar found = `_found'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_strip_outer_quotes: Remove one balanced outer quoting layer only
+* =============================================================================
+
+capture program drop _simtab_strip_outer_quotes
+program _simtab_strip_outer_quotes, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax , TEXT(string asis)
+    mata: st_local("_out", _st_strip_outer_quotes(st_local("text")))
+    return local text `"`_out'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_format_p: Shared p-value rendering without downward truncation
+* =============================================================================
+
+capture program drop _simtab_format_p
+program _simtab_format_p, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax , PVALUE(real) [PDP(integer 3) HIGHPDP(integer 2)]
+    if `pdp' < 1 | `highpdp' < 1 exit 198
+    local _out ""
+    if !missing(`pvalue') {
+        if `pvalue' < 10^(-`pdp') local _out "<`=string(10^(-`pdp'), "%21.`pdp'f")'"
+        else if `pvalue' < 1 & `pvalue' > 1 - 10^(-`highpdp') {
+            local _out ">`=string(1 - 10^(-`highpdp'), "%21.`highpdp'f")'"
+        }
+        else local _out = strtrim(string(`pvalue', "%21.`highpdp'f"))
+    }
+    return local value `"`_out'"'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_console_display: Format and display a table dataset with proper
+*   column widths
+* =============================================================================
+* Displays the current dataset as a formatted console table. Assumes the
+* dataset has string columns c1..cN (and optionally a label variable), with
+* row 1 as title, rows 2..datastart-1 as headers, and rows datastart+ as data.
+* Rendering uses Stata's list, table style so console previews share the same
+* boxed-table look as table1_tc.
+*
+* Usage:
+*   _simtab_console_display `num_cols' `"`title'"'
+*   _simtab_console_display `num_cols' `"`title'"', labelvar(A) datastart(4) headerstart(3)
+*
+* Options:
+*   labelvar(varname)  — separate label column (e.g. A in regtab/effecttab/comptab)
+*   datastart(#)       — first data row (default 3; use 4 for comptab)
+*   headerstart(#)     — first header row to display (default 2)
+
+capture program drop _simtab_console_display
+program _simtab_console_display, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax anything(name=args) [, LABELvar(string) DATAstart(integer 3) HEADERstart(integer 2)]
+
+    gettoken num_cols title : args
+    * Resolve compound-quoted title passed via `"`macro'"'
+    local title `title'
+
+    if `"`title'"' != "" {
+        display as text ""
+        display as result `"`title'"'
+    }
+
+    local total_rows = _N
+    if `total_rows' < `headerstart' {
+        display as text ""
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    local _display_vars ""
+    if "`labelvar'" != "" {
+        capture confirm variable `labelvar'
+        if !_rc local _display_vars "`labelvar'"
+    }
+
+    forvalues c = 1/`num_cols' {
+        capture confirm variable c`c'
+        if !_rc local _display_vars "`_display_vars' c`c'"
+    }
+
+    if "`_display_vars'" == "" {
+        display as text ""
+        quietly version
+        set varabbrev `_orig_varabbrev'
+        exit
+    }
+
+    list `_display_vars' in `headerstart'/`total_rows', noobs noheader table separator(0)
+    display as text ""
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_helpers_ready: Verify helper bundle completeness
+* =============================================================================
+* Returns rc=0 when all requested helpers are loaded; rc=111 otherwise.
+*
+* Usage: capture _simtab_helpers_ready
+
+capture program drop _simtab_helpers_ready
+program _simtab_helpers_ready, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args required
+
+    if `"`required'"' == "" {
+        local required "_simtab_col_letter _simtab_validate_path _simtab_validate_color _simtab_build_col_letters _simtab_open_file _simtab_detect_vartype _simtab_validate_sheet _simtab_apply_theme _simtab_resolve_format _simtab_resolve_colors _simtab_classify_stat _simtab_resolve_stat_format _simtab_collect_ci_level _simtab_resolve_ci_level _simtab_strip_outer_quotes _simtab_format_p _simtab_console_display _simtab_frame_put _simtab_frame_preflight _simtab_visible_vars _simtab_require_helpers"
+    }
+
+    foreach _prog of local required {
+        capture program list `_prog'
+        if _rc exit 111
+    }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_require_helpers: Require helper bundle completeness
+* =============================================================================
+* Displays the caller-compatible reinstall message and exits rc=111 when helpers
+* are not loaded completely.
+*
+* Usage: _simtab_require_helpers [, required(string) failmessage(string)]
+
+capture program drop _simtab_require_helpers
+program _simtab_require_helpers, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    syntax [, REQUIRED(string asis) FAILMessage(string asis)]
+
+    if `"`failmessage'"' == "" {
+        local failmessage "_simtab_common.ado failed to load fully; reinstall simtab"
+    }
+
+    capture _simtab_helpers_ready `"`required'"'
+    if _rc {
+        noisily display as error `"`failmessage'"'
+        exit 111
+    }
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+* =============================================================================
+* _simtab_frame_put: Store output in a named frame with optional replace
+* =============================================================================
+* Parses frame specification that may include ", replace" sub-option.
+* Drops existing frame if replace is specified, otherwise errors if exists.
+* Creates the frame via frame put *, into().
+* Returns parsed frame name in c_local _frame_name.
+*
+* Usage: _simtab_frame_put `"`frame'"'
+*        local frame "`_frame_name'"
+
+* =============================================================================
+* _simtab_frame_preflight: validate a frame specification WITHOUT mutating
+* =============================================================================
+* Parses and fully validates a frame spec (name plus optional ", replace") but
+* creates, drops, and renames nothing. This lets a command that writes more than
+* one frame validate every destination before it commits any of them, so a bad
+* second destination cannot leave a half-written first one behind.
+*
+* Usage: _simtab_frame_preflight `"`spec'"' "plotframe()"
+*        local nm = r(name)
+*        local rp = r(replace)
+*
+* Returns: r(name)    parsed frame name
+*          r(replace) 1 if the replace sub-option was given, else 0
+*          r(exists)  1 if a frame of that name exists right now, else 0
+
+capture program drop _simtab_frame_preflight
+program _simtab_frame_preflight, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args frame_spec label
+
+    if `"`label'"' == "" local label "frame()"
+
+    gettoken _pfl_name _pfl_opts : frame_spec, parse(",")
+    local _pfl_name = strtrim(`"`_pfl_name'"')
+    local _pfl_opts : subinstr local _pfl_opts "," "", all
+    local _pfl_opts = strtrim(lower(`"`_pfl_opts'"'))
+
+    if "`_pfl_opts'" != "" & "`_pfl_opts'" != "replace" {
+        display as error "`label': unknown sub-option `_pfl_opts'"
+        exit 198
+    }
+
+    capture confirm name `_pfl_name'
+    if _rc {
+        display as error "`label': invalid frame name `_pfl_name'"
+        exit 198
+    }
+
+    local _pfl_repl = ("`_pfl_opts'" == "replace")
+
+    capture confirm frame `_pfl_name'
+    local _pfl_exists = (_rc == 0)
+
+    if `_pfl_exists' & !`_pfl_repl' {
+        display as error "frame `_pfl_name' already exists; use `label' with the replace sub-option"
+        exit 110
+    }
+    if `_pfl_exists' & `_pfl_repl' & "`_pfl_name'" == "`c(frame)'" {
+        display as error "`label': cannot replace the current frame (`_pfl_name')"
+        exit 198
+    }
+
+    return local name "`_pfl_name'"
+    return scalar replace = `_pfl_repl'
+    return scalar exists = `_pfl_exists'
+    }
+    local _rc_outer = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+capture program drop _simtab_frame_put
+program _simtab_frame_put, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+    args frame_spec
+
+    * Parse frame name and optional replace sub-option
+    gettoken _fr_name _fr_opts : frame_spec, parse(",")
+    local _fr_name = strtrim("`_fr_name'")
+    local _fr_opts : subinstr local _fr_opts "," "", all
+    local _fr_opts = strtrim(lower("`_fr_opts'"))
+
+    if "`_fr_opts'" != "" & "`_fr_opts'" != "replace" {
+        display as error "frame(): unknown sub-option `_fr_opts'"
+        exit 198
+    }
+
+    * Validate frame name
+    capture confirm name `_fr_name'
+    if _rc {
+        display as error "frame(): invalid frame name `_fr_name'"
+        exit 198
+    }
+
+    capture confirm frame `_fr_name'
+    if !_rc {
+        if "`_fr_opts'" == "replace" {
+            if "`_fr_name'" == "`c(frame)'" {
+                display as error "frame(): cannot replace the current frame (`_fr_name')"
+                exit 198
+            }
+            frame drop `_fr_name'
+        }
+        else {
+            display as error "frame `_fr_name' already exists"
+            exit 110
+        }
+    }
+    frame put *, into(`_fr_name')
+
+    c_local _frame_name "`_fr_name'"
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+version 17.0
+capture mata: mata drop _st_strip_outer_quotes()
+mata:
+mata set matastrict on
+
+string scalar _st_strip_outer_quotes(string scalar x)
+{
+    real scalar n
+    string scalar compound_open, compound_close
+
+    compound_open = char(96) + char(34)
+    compound_close = char(34) + char(39)
+    n = strlen(x)
+    if (n >= 4 & substr(x, 1, 2) == compound_open &
+        substr(x, n - 1, 2) == compound_close) {
+        x = substr(x, 3, n - 4)
+        n = strlen(x)
+    }
+    if (n >= 2 & substr(x, 1, 1) == char(34) &
+        substr(x, n, 1) == char(34)) {
+        x = substr(x, 2, n - 2)
+    }
+    return(x)
+}
+
+end
+
+* End of file
+capture program drop _simtab_visible_vars
+program define _simtab_visible_vars, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [, LABELVar(name)]
+
+        quietly ds
+        local _allvars `r(varlist)'
+        if "`_allvars'" == "" {
+            noisily display as error "No variables available for export"
+            exit 111
+        }
+
+        local _vars ""
+        if `"`labelvar'"' != "" {
+            capture confirm variable `labelvar'
+            if !_rc local _vars "`labelvar'"
+        }
+
+        local _cvars ""
+        foreach _v of local _allvars {
+            if regexm("`_v'", "^c[0-9]+$") local _cvars "`_cvars' `_v'"
+        }
+
+        if `"`_cvars'"' != "" {
+            local _vars `"`_vars' `_cvars'"'
+        }
+        else {
+            foreach _v of local _allvars {
+                if regexm("`_v'", "(_length|_max)$") continue
+                if regexm("`_v'", "^ref[0-9]+$") continue
+                local _vars `"`_vars' `_v'"'
+            }
+        }
+
+        local _vars : list uniq _vars
+        local _vars : list _vars & _allvars
+        local _vars : list clean _vars
+        if "`_vars'" == "" {
+            noisily display as error "No visible output columns available for export"
+            exit 111
+        }
+
+        c_local _simtab_visible_vars "`_vars'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end

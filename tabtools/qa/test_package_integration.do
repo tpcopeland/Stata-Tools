@@ -338,54 +338,6 @@ else {
     local failed_tests "`failed_tests' 1.12"
 }
 
-* --- 1.13 diagtab: frame() rejects existing frame ---
-capture noisily {
-    clear
-    set obs 200
-    set seed 42
-    gen gold = runiform() < 0.3
-    gen test_result = runiform() < (0.8 * gold + 0.1 * (1 - gold))
-    capture frame drop victim
-    frame create victim
-    capture diagtab test_result gold, frame(victim)
-    assert _rc == 110
-}
-local _test_rc = _rc
-capture frame drop victim
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.13 diagtab frame() rejects existing frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.13 diagtab frame() rejects existing frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.13"
-}
-
-* --- 1.14 diagtab: frame() succeeds when frame does not exist ---
-capture noisily {
-    clear
-    set obs 200
-    set seed 42
-    gen gold = runiform() < 0.3
-    gen test_result = runiform() < (0.8 * gold + 0.1 * (1 - gold))
-    capture frame drop fresh_diag
-    diagtab test_result gold, frame(fresh_diag)
-    capture confirm frame fresh_diag
-    assert _rc == 0
-}
-local _test_rc = _rc
-capture frame drop fresh_diag
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.14 diagtab frame() works for new frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.14 diagtab frame() works for new frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.14"
-}
-
 * --- 1.17 survtab: frame() rejects existing frame ---
 capture noisily {
     clear
@@ -955,9 +907,9 @@ tabtools set clear
 
 * =========================================================================
 
-**# Migrated: digits() across crosstab/survtab/diagtab/corrtab
+**# Migrated: digits() across crosstab/survtab/corrtab
 
-**# F1: digits() for crosstab, survtab, diagtab, corrtab
+**# F1: digits() for crosstab, survtab, and corrtab
 * =========================================================================
 
 * --- F1.1: crosstab digits(3) ---
@@ -1026,44 +978,6 @@ else {
     local ++fail_count
 }
 capture frame drop _f1_2
-
-* --- F1.3: diagtab digits(3) ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    gen byte highprice = price > 6000
-    gen byte bigcar = weight > 3000
-    capture frame drop _f1_3
-    diagtab highprice bigcar, digits(3) frame(_f1_3)
-    frame _f1_3 {
-        * Find Sensitivity row — value should have 3 decimal places
-        local found = 0
-        forvalues i = 1/`=_N' {
-            local label = c1[`i']
-            if strtrim("`label'") == "Sensitivity" {
-                local val = c2[`i']
-                local dot_pos = strpos("`val'", ".")
-                local pct_pos = strpos("`val'", "%")
-                if `dot_pos' > 0 & `pct_pos' > 0 {
-                    local n_dec = `pct_pos' - `dot_pos' - 1
-                    assert `n_dec' == 3
-                    local found = 1
-                }
-                continue, break
-            }
-        }
-        assert `found' == 1
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: F1.3 — diagtab digits(3) formats correctly"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: F1.3 — diagtab digits(3) failed (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop _f1_3
 
 * --- F1.4: corrtab digits(4) ---
 local ++n_total
@@ -1427,27 +1341,6 @@ else {
     local ++fail_count
 }
 capture frame drop _u2_6
-
-* --- U2.7: frame(name, replace) for diagtab ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    gen byte highprice = price > 6000
-    gen byte bigcar = weight > 3000
-    capture frame drop _u2_7
-    diagtab highprice bigcar, frame(_u2_7)
-    diagtab highprice bigcar, frame(_u2_7, replace)
-    frame _u2_7: assert _N > 0
-}
-if _rc == 0 {
-    display as result "  PASS: U2.7 — diagtab frame(name, replace) works"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: U2.7 — diagtab frame(name, replace) failed (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop _u2_7
 
 * --- U2.9: frame(name, replace) for table1_tc ---
 local ++n_total
@@ -2114,29 +2007,6 @@ else {
 }
 tabtools set clear
 
-**## 2d. diagtab respects custom theme colors
-capture noisily {
-    tabtools set theme custom, headercolor("0 0 255") zebracolor("200 200 255")
-    sysuse auto, clear
-    gen byte highprice = (price > 6000) if !missing(price)
-    gen byte mpg_test = (mpg < 20) if !missing(mpg)
-    capture erase "`output_dir'/_regfix_diagtab_custom.xlsx"
-    diagtab mpg_test highprice, xlsx("`output_dir'/_regfix_diagtab_custom.xlsx") ///
-        headershade zebra
-    confirm file "`output_dir'/_regfix_diagtab_custom.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: diagtab accepts custom headercolor/zebracolor"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: diagtab custom theme colors (error `=_rc')"
-    local ++fail_count
-}
-tabtools set clear
-
-
-
 **# Migrated: bivariate/descriptive command contracts
 
 **# Helpers
@@ -2391,51 +2261,6 @@ else {
 }
 capture frame drop review_regcox
 capture frame drop review_surv
-
-**# Diagnostic reporting after an estimation command
-capture noisily {
-    * deterministic local stand-in for webuse lbw (avoids a network fetch
-    * that has no timeout and can hang batch QA runs)
-    clear
-    set obs 189
-    set seed 4242
-    gen byte smoke = runiform() < .39
-    gen double lwt = 80 + int(runiform()*150)
-    gen byte age = 14 + int(runiform()*30)
-    gen byte low = runiform() < invlogit(-1 + .6*smoke - .012*lwt + .02*age)
-    quietly logit low age lwt smoke
-    local before_cmd "`e(cmd)'"
-    predict double phat, pr
-
-    capture frame drop review_diag
-    diagtab phat low, cutoff(0.30) auc frame(review_diag, replace)
-
-    assert "`before_cmd'" == "logit"
-    assert "`e(cmd)'" == "logit"
-    assert r(TP) + r(FP) + r(FN) + r(TN) == e(N)
-    assert r(auc) >= 0 & r(auc) <= 1
-    assert "`r(frame)'" == "review_diag"
-    assert strpos(lower(`"`r(methods)'"'), "diagnostic accuracy") > 0
-
-    frame review_diag {
-        assert _N >= 6
-        local found_auc = 0
-        forvalues i = 1/`=_N' {
-            if strpos(lower(c1[`i']), "auc") > 0 local found_auc = 1
-        }
-    }
-    assert `found_auc' == 1
-}
-if _rc == 0 {
-    display as result "  PASS: diagtab preserves estimation state and reports AUC"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: diagtab estimation-state/AUC contract (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop review_diag
-
 
 **# Migrated: Excel content inspection: regtab, pdp formatting, persistent boldp
 

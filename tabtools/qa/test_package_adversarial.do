@@ -45,7 +45,7 @@ tabtools set clear
 **# Install Surface and Helper Auto-Load
 capture noisily {
     foreach cmd in tabtools table1_tc regtab effecttab stratetab hrcomptab ///
-        comptab survtab crosstab diagtab corrtab {
+        comptab survtab crosstab corrtab {
         which `cmd'
     }
     which _tabtools_smallcells
@@ -75,9 +75,9 @@ capture noisily {
     tabtools set clear
 
     tabtools
-    assert r(n_commands) == 16
+    assert r(n_commands) == 14
     assert "`r(commands)'" == ///
-        "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab simtab tabtools tabtools_tips"
+        "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
 
     set varabbrev on
     capture tabtools nonsense
@@ -263,57 +263,6 @@ else {
     local ++fail_count
 }
 capture frame drop corr_adv
-
-**# diagtab
-capture noisily {
-    clear
-    input double score byte test byte gold
-    0.10 0 0
-    0.20 0 0
-    0.80 1 1
-    0.90 1 1
-    0.40 1 0
-    0.60 0 1
-    end
-
-    set varabbrev on
-    capture diagtab score gold
-    assert _rc == 198
-    assert c(varabbrev) == "on"
-
-    replace gold = 2 in 1
-    capture diagtab test gold
-    assert _rc == 198
-    assert c(varabbrev) == "on"
-    replace gold = 0 in 1
-
-    capture diagtab test gold, prevalence(0)
-    assert _rc == 198
-
-    capture diagtab test gold, prevalence(1)
-    assert _rc == 198
-
-    capture diagtab score gold, cutoff(0.5) cutoffs(0.2 0.5)
-    assert _rc == 198
-
-    capture diagtab score gold, cutoffs(0.2 0.5) auc
-    assert _rc == 198
-
-    capture diagtab score gold, cutoffs(0.2 0.5) optimal
-    assert _rc == 198
-
-    capture diagtab test gold if 0
-    assert _rc == 2000
-    set varabbrev off
-}
-if _rc == 0 {
-    display as result "  PASS: diagtab adversarial inputs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: diagtab adversarial inputs (rc=`=_rc')"
-    local ++fail_count
-}
 
 **# regtab
 capture noisily {
@@ -869,44 +818,6 @@ else {
     local ++fail_count
 }
 
-* S15: diagtab with perfect prediction (Se=Sp=100%)
-capture noisily {
-    clear
-    set obs 100
-    gen byte gold = (_n <= 50)
-    gen byte test = gold
-    diagtab test gold, xlsx("`output_dir'/_stress_diag_perfect.xlsx") sheet("perfect")
-    assert abs(r(sensitivity) - 1.0) < 0.001
-    assert abs(r(specificity) - 1.0) < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS: S15 diagtab perfect prediction"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: S15 diagtab perfect prediction (error `=_rc')"
-    local ++fail_count
-}
-
-* S16: diagtab with zero sensitivity (all predicted negative)
-capture noisily {
-    clear
-    set obs 100
-    gen byte gold = (_n <= 30)
-    gen byte test = 0
-    diagtab test gold, xlsx("`output_dir'/_stress_diag_nosens.xlsx") sheet("nosens")
-    assert abs(r(sensitivity)) < 0.001
-    assert abs(r(specificity) - 1.0) < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS: S16 diagtab zero sensitivity"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: S16 diagtab zero sensitivity (error `=_rc')"
-    local ++fail_count
-}
-
 * S17: crosstab with very sparse table exports with exact test
 capture noisily {
     clear
@@ -1213,28 +1124,6 @@ else {
     local ++fail_count
 }
 
-**## diagtab returns scalar diagnostics after xlsx() failure
-capture noisily {
-    sysuse auto, clear
-    gen byte expensive = price > 6000 if !missing(price)
-    gen byte heavy = weight > 3000 if !missing(weight)
-    return clear
-    capture noisily diagtab heavy expensive, ///
-        xlsx("`bad_root'/diagtab.xlsx")
-    local rc = _rc
-    assert `rc' != 0
-    assert r(sensitivity) >= 0 & r(sensitivity) <= 1
-    assert r(specificity) >= 0 & r(specificity) <= 1
-}
-if _rc == 0 {
-    display as result "  PASS: diagtab preserves r() after export failure"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: diagtab export-failure returns (rc=`=_rc')"
-    local ++fail_count
-}
-
 **## survtab returns survival table after xlsx() failure
 capture noisily {
     webuse drugtr, clear
@@ -1425,41 +1314,7 @@ else {
     local ++fail_count
 }
 
-**## simtab returns analytical metadata after xlsx() failure
-capture noisily {
-    clear
-    set obs 8
-    gen long sim = mod(_n - 1, 4) + 1
-    gen byte estimator = floor((_n - 1) / 4) + 1
-    gen double estimate = cond(estimator == 1, .1, .2) + ///
-        (_n - 4 * floor((_n - 1) / 4) - 2.5) / 100
-    gen double se = .05
-    return clear
-    capture noisily simtab estimator, estimate(estimate) se(se) true(0) ///
-        sim(sim) xlsx("`bad_root'/simtab.xlsx")
-    local rc = _rc
-    assert `rc' != 0
-    assert "`r(mode)'" == "compute"
-    assert "`r(source)'" == "compute"
-    assert r(n_estimands) == 1
-    assert r(n_estimators) == 2
-    assert r(n_by) == 1
-    assert r(N_cells) == 2
-    assert r(n_reps_min) == 4
-    assert r(n_reps_max) == 4
-    assert `"`r(xlsx)'"' == ""
-}
-if _rc == 0 {
-    display as result "  PASS: simtab preserves r() after export failure"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: simtab export-failure returns (rc=`=_rc')"
-    local ++fail_count
-}
-
-
-**# Quoted eplotframe() specifications across 4 commands
+**# Quoted eplotframe**# Quoted eplotframe() specifications across 4 commands
 * Regression: eplotframe("name, replace") crashed with r(198) because
 * string asis preserved outer quotes and gettoken treated the entire
 * quoted string as one token.

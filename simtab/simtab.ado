@@ -58,24 +58,45 @@ program define simtab, rclass
 
         capture putexcel close
 
-        * ----- auto-load shared tabtools helper bundle -----
-        capture _tabtools_helpers_ready
+        * ----- auto-load shared simtab helper bundle -----
+        capture _simtab_helpers_ready
         if _rc {
-            capture findfile _tabtools_common.ado
+            capture findfile _simtab_common.ado
             if _rc == 0 {
                 run "`r(fn)'"
-                capture _tabtools_helpers_ready
+                capture _simtab_helpers_ready
                 if _rc {
-                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    display as error "_simtab_common.ado failed to load fully; reinstall simtab"
                     exit 111
                 }
             }
             else {
-                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                display as error "_simtab_common.ado not found; reinstall simtab"
                 exit 111
             }
         }
-        _tabtools_require_helpers
+        _simtab_require_helpers
+
+        * Load the bundled Excel writer and style programs as one unit. The
+        * subsidiary program names do not match the shipped bundle filename,
+        * so Stata cannot autoload them individually.
+        capture program list _simtab_xlsx_write
+        if _rc {
+            capture findfile _simtab_xlsx_write.ado
+            if _rc {
+                display as error "_simtab_xlsx_write.ado not found; reinstall simtab"
+                exit 111
+            }
+            run "`r(fn)'"
+        }
+        foreach _xlsx_prog in _simtab_xlsx_write _simtab_xlsx_build_styles ///
+            _simtab_xlsx_apply_styles _simtab_xlsx_compact_styles {
+            capture program list `_xlsx_prog'
+            if _rc {
+                display as error "_simtab_xlsx_write.ado failed to load fully; reinstall simtab"
+                exit 111
+            }
+        }
 
         syntax [anything(name=estimator)] [if] [in] , [           ///
             FROM(string)                                          ///
@@ -173,11 +194,11 @@ program define simtab, rclass
         local _frame_name_pre ""
         local _pframe_name_pre ""
         if `_has_frame' {
-            _tabtools_frame_preflight `"`frame'"' "frame()"
+            _simtab_frame_preflight `"`frame'"' "frame()"
             local _frame_name_pre `"`r(name)'"'
         }
         if `_has_pframe' {
-            _tabtools_frame_preflight `"`plotframe'"' "plotframe()"
+            _simtab_frame_preflight `"`plotframe'"' "plotframe()"
             local _pframe_name_pre `"`r(name)'"'
         }
         if `_has_frame' & `_has_pframe' & "`_frame_name_pre'" == "`_pframe_name_pre'" {
@@ -192,19 +213,19 @@ program define simtab, rclass
                 display as error "xlsx()/excel() file must have a .xlsx extension"
                 exit 198
             }
-            _tabtools_validate_path `"`xlsx'"' "xlsx()"
+            _simtab_validate_path `"`xlsx'"' "xlsx()"
         }
         if "`sheet'" == "" local sheet "Simulation"
-        if `_has_xlsx' _tabtools_validate_sheet "`sheet'" "sheet()"
+        if `_has_xlsx' _simtab_validate_sheet "`sheet'" "sheet()"
         if `_has_csv' {
             if !strmatch(lower(`"`csv'"'), "*.csv") {
                 display as error "csv() must have a .csv extension"
                 exit 198
             }
-            _tabtools_validate_path `"`csv'"' "csv()"
+            _simtab_validate_path `"`csv'"' "csv()"
         }
         if `_has_md' {
-            _tabtools_validate_path `"`markdown'"' "markdown()"
+            _simtab_validate_path `"`markdown'"' "markdown()"
             local _md_lower = lower(`"`markdown'"')
             if !(strmatch(`"`_md_lower'"', "*.md") | strmatch(`"`_md_lower'"', "*.markdown") | ///
                  strmatch(`"`_md_lower'"', "*.qmd") | strmatch(`"`_md_lower'"', "*.rmd")) {
@@ -217,7 +238,7 @@ program define simtab, rclass
         * Resolve digits / styling
         * =====================================================================
         if `digits' == -1 {
-            if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
+            if "$SIMTAB_DIGITS" != "" local digits = $SIMTAB_DIGITS
             else local digits = 2
         }
         if `digits' < 0 | `digits' > 6 {
@@ -234,9 +255,9 @@ program define simtab, rclass
             exit 198
         }
 
-        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+        _simtab_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
-        _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
+        _simtab_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
         * ----- order mode -----
         local order = strtrim(lower("`order'"))
@@ -300,18 +321,18 @@ program define simtab, rclass
             * --------------------------------------------------------------
             * INGEST MODE  (delegate to the isolated adapter helper)
             * --------------------------------------------------------------
-            capture _tabtools_simtab_ingest_ready
+            capture _simtab_ingest_ready
             if _rc {
-                capture findfile _tabtools_simtab_ingest.ado
+                capture findfile _simtab_ingest.ado
                 if _rc == 0 {
                     run "`r(fn)'"
                 }
                 else {
-                    display as error "_tabtools_simtab_ingest.ado not found; reinstall tabtools"
+                    display as error "_simtab_ingest.ado not found; reinstall simtab"
                     exit 111
                 }
             }
-            _tabtools_simtab_ingest, source("`_from'") byvar(`byvar') ///
+            _simtab_ingest, source("`_from'") byvar(`byvar') ///
                 estimatorvar(`estimatorvar') estimandvar(`estimandvar') ///
                 measures(`measures') order(`order')
             local _source   `"`r(source)'"'
@@ -857,7 +878,7 @@ program define simtab, rclass
 
             * ----- CSV (full table, incl. footnote row) -----
             if `_has_csv' {
-                _tabtools_csv_write using `"`csv'"'
+                _simtab_csv_write using `"`csv'"'
                 capture confirm file `"`csv'"'
                 if _rc {
                     display as error "CSV export completed but file was not created"
@@ -867,11 +888,11 @@ program define simtab, rclass
             }
             * ----- frame (full table, incl. footnote row) -----
             if `_has_frame' {
-                _tabtools_frame_put `"`frame'"'
+                _simtab_frame_put `"`frame'"'
                 local _frame_out `"`_frame_name'"'
-                frame `_frame_out': char _dta[tabtools_source] "simtab"
-                frame `_frame_out': char _dta[tabtools_kind] "rendered_table"
-                frame `_frame_out': char _dta[tabtools_metrics] "`disp_metrics'"
+                frame `_frame_out': char _dta[simtab_source] "simtab"
+                frame `_frame_out': char _dta[simtab_kind] "rendered_table"
+                frame `_frame_out': char _dta[simtab_metrics] "`disp_metrics'"
                 local _ret_frame `"`_frame_out'"'
             }
             * ----- console display -----
@@ -879,7 +900,7 @@ program define simtab, rclass
             * c1 would otherwise inflate the whole first column's width.
             if `_has_disp' {
                 if `_has_foot' quietly drop in L
-                noisily _tabtools_console_display `_Kcols' `"`title'"', ///
+                noisily _simtab_console_display `_Kcols' `"`title'"', ///
                     datastart(`_ft_data') headerstart(`_ft_hdr')
                 if `"`footnote'"' != "" noisily display as text `"`footnote'"'
             }
@@ -889,7 +910,7 @@ program define simtab, rclass
                 if `_has_title' quietly drop in 1
                 local _mdappend_opt ""
                 if "`mdappend'" != "" local _mdappend_opt "append"
-                capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+                capture noisily _simtab_markdown_write using `"`markdown'"', ///
                     `_mdappend_opt' headerstart(1) datastart(2) ///
                     title(`"`title'"') footnote(`"`footnote'"') strictheaders
                 if _rc {
@@ -947,7 +968,7 @@ program define simtab, rclass
             if "`_hborder'" == "none"   local _hbc = 4
 
             * ----- write the sheet -----
-            _tabtools_xlsx_write using `"`xlsx'"', sheet(`"`sheet'"') book(b)
+            _simtab_xlsx_write using `"`xlsx'"', sheet(`"`sheet'"') book(b)
             local _book_open = 1
 
             * ----- build style rules -----
@@ -1039,8 +1060,8 @@ program define simtab, rclass
                 }
             }
 
-            _tabtools_xlsx_build_styles, matrix(`_rules') rules(`"`_spec'"') cols(9)
-            _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
+            _simtab_xlsx_build_styles, matrix(`_rules') rules(`"`_spec'"') cols(9)
+            _simtab_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
                 rules(`_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
 
@@ -1051,7 +1072,7 @@ program define simtab, rclass
             * reusing one per distinct format, so collapse the pools here;
             * a workbook that keeps growing would otherwise reach Stata's
             * 65,536-record ceiling and fail with r(16147).
-            _tabtools_xlsx_compact_styles using "`xlsx'"
+            _simtab_xlsx_compact_styles using "`xlsx'"
             capture mata: mata drop b
 
             capture confirm file `"`xlsx'"'
@@ -1114,7 +1135,7 @@ program define simtab, rclass
         exit `rc'
     }
 
-    if "`open'" != "" & `"`_ret_xlsx'"' != "" _tabtools_open_file `"`_ret_xlsx'"'
+    if "`open'" != "" & `"`_ret_xlsx'"' != "" _simtab_open_file `"`_ret_xlsx'"'
 end
 
 
@@ -1271,14 +1292,14 @@ program _simtab_plotframe, rclass
     restore
     local _restore_needed = 0
 
-    frame `_pf_name': char _dta[tabtools_source] "simtab"
-    frame `_pf_name': char _dta[tabtools_kind] "simulation_summary"
-    frame `_pf_name': char _dta[tabtools_metrics] `"`metrics'"'
-    frame `_pf_name': char _dta[tabtools_level] "`level'"
-    frame `_pf_name': char _dta[tabtools_alpha] "`alpha'"
-    frame `_pf_name': char _dta[tabtools_nsim] "`nsim'"
-    frame `_pf_name': char _dta[tabtools_ingest] "`source'"
-    frame `_pf_name': char _dta[tabtools_command] "simtab"
+    frame `_pf_name': char _dta[simtab_source] "simtab"
+    frame `_pf_name': char _dta[simtab_kind] "simulation_summary"
+    frame `_pf_name': char _dta[simtab_metrics] `"`metrics'"'
+    frame `_pf_name': char _dta[simtab_level] "`level'"
+    frame `_pf_name': char _dta[simtab_alpha] "`alpha'"
+    frame `_pf_name': char _dta[simtab_nsim] "`nsim'"
+    frame `_pf_name': char _dta[simtab_ingest] "`source'"
+    frame `_pf_name': char _dta[simtab_command] "simtab"
 
     return local plotframe "`_pf_name'"
     }

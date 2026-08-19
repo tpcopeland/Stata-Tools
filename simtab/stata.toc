@@ -1,0 +1,6 @@
+v 3
+d Stata-Tools: simtab
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+p simtab
+

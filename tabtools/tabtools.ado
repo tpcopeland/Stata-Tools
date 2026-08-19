@@ -482,9 +482,9 @@ program define tabtools, rclass
         local category = lower("`category'")
         local _valid_category = ///
             inlist("`category'", "all", "descriptive", "models", "rates", "general") | ///
-            inlist("`category'", "survival", "diagnostics", "composite", "export", "simulation")
+            inlist("`category'", "survival", "composite", "export")
         if !`_valid_category' {
-            display as error "category() must be: all, descriptive, models, rates, survival, diagnostics, composite, export, simulation, or general"
+            display as error "category() must be: all, descriptive, models, rates, survival, composite, export, or general"
             exit 198
         }
 
@@ -493,10 +493,8 @@ program define tabtools, rclass
         local cmd_models "regtab effecttab"
         local cmd_rates "stratetab"
         local cmd_survival "survtab"
-        local cmd_diagnostics "diagtab"
         local cmd_composite "comptab hrcomptab"
         local cmd_export "puttab stacktab"
-        local cmd_simulation "simtab"
         local cmd_general "tabtools tabtools_tips"
 
         // Build selected list based on category
@@ -512,23 +510,17 @@ program define tabtools, rclass
         else if "`category'" == "survival" {
             local selected_cmds `"`cmd_survival'"'
         }
-        else if "`category'" == "diagnostics" {
-            local selected_cmds `"`cmd_diagnostics'"'
-        }
         else if "`category'" == "composite" {
             local selected_cmds `"`cmd_composite'"'
         }
         else if "`category'" == "export" {
             local selected_cmds `"`cmd_export'"'
         }
-        else if "`category'" == "simulation" {
-            local selected_cmds `"`cmd_simulation'"'
-        }
         else if "`category'" == "general" {
             local selected_cmds `"`cmd_general'"'
         }
         else {
-            local selected_cmds `"`cmd_descriptive' `cmd_models' `cmd_rates' `cmd_survival' `cmd_diagnostics' `cmd_composite' `cmd_export' `cmd_simulation' `cmd_general'"'
+            local selected_cmds `"`cmd_descriptive' `cmd_models' `cmd_rates' `cmd_survival' `cmd_composite' `cmd_export' `cmd_general'"'
         }
 
         // Count commands
@@ -584,12 +576,6 @@ program define tabtools, rclass
                 display as text ""
             }
 
-            if inlist("`category'", "all", "diagnostics") {
-                display as text "{bf:Diagnostic Accuracy}"
-                display as result "  diagtab      " as text "- Sensitivity, specificity, PPV, NPV, ROC"
-                display as text ""
-            }
-
             if inlist("`category'", "all", "composite") {
                 display as text "{bf:Composite}"
                 display as result "  comptab      " as text "- Combine regtab/effecttab frames into one table"
@@ -604,11 +590,6 @@ program define tabtools, rclass
                 display as text ""
             }
 
-            if inlist("`category'", "all", "simulation") {
-                display as text "{bf:Simulation Studies}"
-                display as result "  simtab       " as text "- Monte Carlo performance table (pairs with simsum/siman)"
-                display as text ""
-            }
 
             if inlist("`category'", "all", "general") {
                 display as text "{bf:General Purpose}"
@@ -631,7 +612,7 @@ program define tabtools, rclass
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
         return local version "`_package_version'"
-        return local categories "descriptive models rates survival diagnostics composite export simulation general"
+        return local categories "descriptive models rates survival composite export general"
     }
 
     } // end capture noisily
@@ -810,15 +791,6 @@ program define _tabtools_detail, nclass
             display as text ""
         }
 
-        if inlist("`category'", "all", "diagnostics") {
-            display as text "{bf:Diagnostic Accuracy}"
-            display as text "  {hline 60}"
-            display as result "  diagtab" as text "      Export sensitivity, specificity, PPV, NPV, and"
-            display as text "               ROC analysis results. Supports multiple cutpoints"
-            display as text "               and diagnostic tests."
-            display as text ""
-        }
-
         if inlist("`category'", "all", "composite") {
             display as text "{bf:Composite}"
             display as text "  {hline 60}"
@@ -843,17 +815,6 @@ program define _tabtools_detail, nclass
             display as result "  stacktab" as text "     Assemble multi-sheet composite Excel tables from"
             display as text "               source blocks (vstack or hstack), with column"
             display as text "               merges, titles, and notes."
-            display as text ""
-        }
-
-        if inlist("`category'", "all", "simulation") {
-            display as text "{bf:Simulation Studies}"
-            display as text "  {hline 60}"
-            display as result "  simtab" as text "       Render and export a Monte Carlo simulation"
-            display as text "               performance table (bias, empirical/model SE,"
-            display as text "               coverage, ...) from replication-level results,"
-            display as text "               or ingest a simsum/siman summary. Pairs with"
-            display as text "               simsum and siman for full analysis and graphs."
             display as text ""
         }
 

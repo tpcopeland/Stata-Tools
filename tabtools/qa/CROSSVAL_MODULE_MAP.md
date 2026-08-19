@@ -7,7 +7,6 @@ then exercises both formula-level and public-command contracts.
 | Cross-validation block | Package surface | Independent oracle |
 |---|---|---|
 | CV1 | `corrtab` correlation p-values | Base R `pt()` |
-| CV2–CV4, CV18 | `diagtab` accuracy, likelihood ratios, diagnostic odds ratio, confidence intervals, and prevalence-adjusted predictive values | Base R arithmetic and `qnorm()` |
 | CV5–CV7 | `table1_tc` continuous/categorical SMD and Kish ESS | Seeded R data plus base R matrix/statistical operations |
 | CV8–CV10, CV15–CV17 | `regtab` AIC/BIC, ICC, variance transformation, and median odds ratio | Base R arithmetic and `qnorm()` |
 | CV11, CV20 | `stratetab` incidence-rate ratio and confidence interval | Base R arithmetic and `qnorm()` |

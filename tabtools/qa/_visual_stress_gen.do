@@ -23,8 +23,8 @@ discard
 tabtools set clear
 
 local stems table1_tc regtab desctab crosstab crosstab_fisher crosstab_rr ///
-    corrtab diagtab effecttab hrcomptab comptab comptab_full1 comptab_full2 ///
-    stratetab survtab simtab puttab puttab_A puttab_B stacktab ///
+    corrtab effecttab hrcomptab comptab comptab_full1 comptab_full2 ///
+    stratetab survtab puttab puttab_A puttab_B stacktab ///
     stress_table1_long_unicode stress_crosstab_many_groups ///
     stress_corrtab_extreme stress_puttab_overwrite
 foreach s of local stems {
@@ -181,30 +181,6 @@ else {
     local failed "`failed' corrtab"
 }
 
-**# diagtab
-local ++test_count
-capture noisily {
-    clear
-    set obs 200
-    set seed 71025
-    gen byte gold = (_n <= 100)
-    gen byte test = runiform() < cond(gold, 0.82, 0.12)
-    diagtab test gold, title("Diagnostic accuracy") exact auc ///
-        xlsx("`out'/diagtab.xlsx") sheet("Diagnostic") ///
-        csv("`out'/diagtab.csv") markdown("`out'/diagtab.md") ///
-        headershade zebra
-    confirm file "`out'/diagtab.xlsx"
-    confirm file "`out'/diagtab.csv"
-    confirm file "`out'/diagtab.md"
-    file write `mh' "diagtab`tab'happy`tab'`out'/diagtab.xlsx`tab'Diagnostic`tab'`out'/diagtab.csv`tab'`out'/diagtab.md" _n
-}
-_vs_record "diagtab happy export" `=_rc'
-if `_vs_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' diagtab"
-}
-
 **# effecttab
 local ++test_count
 capture noisily {
@@ -300,37 +276,6 @@ if `_vs_ok' local ++pass_count
 else {
     local ++fail_count
     local failed "`failed' survtab"
-}
-
-**# simtab
-local ++test_count
-capture noisily {
-    clear
-    set obs 120
-    set seed 41025
-    gen long sim = mod(_n-1, 30) + 1
-    gen byte estid = mod(floor((_n-1)/30), 4) + 1
-    gen double truev = 0.5
-    gen double est = truev + rnormal(0, 0.05)
-    gen double se = 0.05 + runiform()*0.005
-    gen byte covered = abs(est - truev) <= 1.96*se
-    gen double pval = 2*(1 - normal(abs(est/se)))
-    gen byte reject = pval < 0.05
-    simtab estid, estimate(est) se(se) true(truev) coverage(covered) reject(reject) ///
-        title("Simulation performance") xlsx("`out'/simtab.xlsx") sheet("Table 2") ///
-        csv("`out'/simtab.csv") markdown("`out'/simtab.md") ///
-        level(95) alpha(0.05) minreps(2) warnreps(2) headershade zebra ///
-        plotframe(vs_simpf, replace)
-    confirm file "`out'/simtab.xlsx"
-    confirm file "`out'/simtab.csv"
-    confirm file "`out'/simtab.md"
-    file write `mh' "simtab`tab'happy`tab'`out'/simtab.xlsx`tab'Table 2`tab'`out'/simtab.csv`tab'`out'/simtab.md" _n
-}
-_vs_record "simtab happy export" `=_rc'
-if `_vs_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' simtab"
 }
 
 **# puttab
