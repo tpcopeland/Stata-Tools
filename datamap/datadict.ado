@@ -1,4 +1,4 @@
-*! datadict Version 1.6.6  2026/08/11
+*! datadict Version 1.6.7  2026/08/19
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -877,6 +877,28 @@ program define _datadict_DateDisplayFormat, rclass
 end
 
 // =============================================================================
+// Helper: FormatLevelNumber - render a numeric level using its variable format
+// =============================================================================
+capture program drop _datadict_FormatLevelNumber
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_FormatLevelNumber, rclass
+	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		args vname num
+		confirm numeric variable `vname'
+		local vfmt : format `vname'
+		local formatted = strtrim(string(`num', "`vfmt'"))
+		return local formatted `"`formatted'"'
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end
+
+// =============================================================================
 // Helper: GetValueLabelString - format value labels for display
 // =============================================================================
 capture program drop _datadict_GetValueLabelString
@@ -905,6 +927,8 @@ program define _datadict_GetValueLabelString, rclass
 	local valstring ""
 	local first 1
 	foreach lev of local levels {
+		_datadict_FormatLevelNumber `vname' `lev'
+		local levdisplay `"`r(formatted)'"'
 		capture local labtext: label `vallabname' `lev'
 		if _rc != 0 {
 			local labtext ""
@@ -915,19 +939,19 @@ program define _datadict_GetValueLabelString, rclass
 
 		if `first' {
 			if `"`labtext'"' != "" {
-				local valstring "`lev'=`labtext'"
+				local valstring "`levdisplay'=`labtext'"
 			}
 			else {
-				local valstring "`lev'"
+				local valstring "`levdisplay'"
 			}
 			local first 0
 		}
 		else {
 			if `"`labtext'"' != "" {
-				local valstring `"`valstring', `lev'=`labtext'"'
+				local valstring `"`valstring', `levdisplay'=`labtext'"'
 			}
 			else {
-				local valstring `"`valstring', `lev'"'
+				local valstring `"`valstring', `levdisplay'"'
 			}
 		}
 
@@ -1015,17 +1039,21 @@ program define _datadict_GetCategoricalStats, rclass
 	// Count non-missing
 	quietly count if !missing(`vname')
 	local nvalid = r(N)
+	local vtype : type `vname'
 
 	// Build multi-line output: Unique= first, then one line per category
 	local valstring "Unique=`nlevels'"
 	foreach lev of local levels {
+		_datadict_FormatLevelNumber `vname' `lev'
+		local levdisplay `"`r(formatted)'"'
 		capture local labtext: label `vallabname' `lev'
 		if _rc != 0 {
 			local labtext ""
 		}
 
 		// Get count for this level
-		quietly count if `vname' == `lev'
+		if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+		else quietly count if `vname' == `lev'
 		local levcount = r(N)
 		if `nvalid' > 0 {
 			local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
@@ -1039,17 +1067,17 @@ program define _datadict_GetCategoricalStats, rclass
 
 		if `mincell' > 0 & `levcount' < `mincell' {
 			if `"`labtext'"' != "" {
-				local valstring `"`valstring'<br>`lev' `labtext' (suppressed <`mincell')"'
+				local valstring `"`valstring'<br>`levdisplay' `labtext' (suppressed <`mincell')"'
 			}
 			else {
-				local valstring `"`valstring'<br>`lev' (suppressed <`mincell')"'
+				local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
 			}
 		}
 		else if `"`labtext'"' != "" {
-			local valstring `"`valstring'<br>`lev' `labtext' (`levcount'; `levpct'%)"'
+			local valstring `"`valstring'<br>`levdisplay' `labtext' (`levcount'; `levpct'%)"'
 		}
 		else {
-			local valstring `"`valstring'<br>`lev' (`levcount'; `levpct'%)"'
+			local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
 		}
 	}
 
@@ -1080,6 +1108,7 @@ program define _datadict_GetUnlabeledStats, rclass
 	local nvalid = r(N)
 	capture confirm numeric variable `vname'
 	local is_numeric = (_rc == 0)
+	if `is_numeric' local vtype : type `vname'
 
 	if `nlevels' > `maxlevels' {
 		return local valstring "Unique=`nlevels'"
@@ -1092,15 +1121,19 @@ program define _datadict_GetUnlabeledStats, rclass
 		// Get count for this level
 		local levdisplay `"`macval(lev)'"'
 		if `is_numeric' {
-			quietly count if `vname' == `lev'
+			if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+			else quietly count if `vname' == `lev'
+			local levcount = r(N)
+			_datadict_FormatLevelNumber `vname' `lev'
+			local levdisplay `"`r(formatted)'"'
 		}
 		else {
 			local levcmp = subinstr(`"`macval(lev)'"', char(34), "", .)
 			quietly count if `vname' == `"`macval(levcmp)'"'
+			local levcount = r(N)
 			_datadict_EscapeMarkdown `"`macval(levcmp)'"'
 			local levdisplay `"`r(escaped)'"'
 		}
-		local levcount = r(N)
 		if `nvalid' > 0 {
 			local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
 		}
