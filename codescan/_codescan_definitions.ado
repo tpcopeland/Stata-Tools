@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.1.4  2026/08/13
+*! _codescan_definitions Version 4.1.5  2026/08/19
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -162,7 +162,7 @@ program define _codescan_apply_level, rclass
         }
         local _lv_tok = strtrim(`"`_lv_tok'"')
         if `"`_lv_tok'"' != "" {
-            local _lv_tok = substr(`"`_lv_tok'"', 1, `level')
+            local _lv_tok = usubstr(`"`_lv_tok'"', 1, `level')
             if `"`_lv_result'"' == "" {
                 local _lv_result `"`_lv_tok'"'
             }

@@ -96,7 +96,7 @@ program define effecttab, rclass
 		local _eplotframe_name ""
 		local _eplotframe_replace 0
 			if `"`eplotframe'"' != "" {
-			local _ep_spec = strtrim(`"`eplotframe'"')
+			local _ep_spec = subinstr(strtrim(`"`eplotframe'"'), char(34), "", .)
 			gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
 			local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
 			if `"`_eplotframe_name'"' == "" {
@@ -123,7 +123,7 @@ program define effecttab, rclass
 				local _displayframe_name ""
 				local _displayframe_replace 0
 				if `"`frame'"' != "" {
-				local _fr_spec = subinstr(strtrim(`"`frame'"'), `""""', "", .)
+				local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
 				gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
 					local _displayframe_name = strtrim(`"`_displayframe_name'"')
 					local _fr_rest : subinstr local _fr_rest "," "", all

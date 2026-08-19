@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.1.4  2026/08/13
+*! codescan_describe Version 4.1.5  2026/08/19
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -44,6 +44,11 @@ program define codescan_describe, rclass
         _codescan_parse_filespec, spec(`"`save'"') context(save()) checkexists
         local _save_fn `"`r(filename)'"'
         local _save_replace = r(replace)
+        local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
+        if "`_save_ext'" != ".csv" {
+            display as error "save() requires a .csv file extension"
+            exit 198
+        }
     }
 
     * Validate top
@@ -84,10 +89,7 @@ program define codescan_describe, rclass
     marksample touse, novarlist
 
     quietly count if `touse'
-    if r(N) == 0 {
-        display as error "no observations"
-        exit 2000
-    }
+    if r(N) == 0 error 2000
 
     local nvars : word count `varlist'
 
@@ -290,11 +292,6 @@ program define codescan_describe, rclass
     * Save draft codefile from chapter summary
     if `"`save'"' != "" {
         capture noisily {
-            local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
-            if "`_save_ext'" != ".csv" {
-                display as error "save() requires a .csv file extension"
-                exit 198
-            }
             preserve
             local _did_preserve = 1
             quietly {

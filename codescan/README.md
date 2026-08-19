@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.1.4** | 2026-08-13
+**Version 4.1.5** | 2026-08-19
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -368,6 +368,14 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.1.5 (2026-08-19)
+
+- Fix false-positive prefix matches on multibyte UTF-8 characters (e.g. Nordic ICD codes with `Å`, `Ä`, `Ö`) when `level()` truncated to a byte boundary instead of a character boundary.
+- Fix `export()` silently truncating `pattern` and `exclusion` columns at 80 characters; now uses `str244` matching `save()`.
+- Fix `codescan_describe` deferring `save()` extension validation until after the full scan; now rejects non-`.csv` filenames before any work.
+- Fix `graph` bar label format ignoring user-specified `format()` option.
+- Fix duplicate "no observations" error message in `codescan_describe`.
 
 ### 4.1.4 (2026-08-13)
 
