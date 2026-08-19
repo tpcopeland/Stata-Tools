@@ -347,7 +347,7 @@ program define table1_tc, rclass
     if `"`nformat'"' == "" local nformat "%12.0fc"        // Default format for counts
     if `"`format'"' == "" local format "%2.0f"            // Default format for continuous vars
     if `"`percformat'"' == "" local percformat "%5.0f"    // Default format for percentages
-    if `"`percsign'"' == "" local percsign `""""'         // Default percent sign (none)
+    local percsign = subinstr(strtrim(`"`percsign'"'), char(34), "", .)  // strip quotes from asis
     if `"`iqrmiddle'"' == "" local iqrmiddle `"", ""'     // Default separator for IQR
     if `"`sdleft'"' == "" local sdleft `""±""'            // Default symbol before SD
     if `"`sdright'"' == "" local sdright `""""'           // Default symbol after SD (none)
@@ -738,7 +738,7 @@ program define table1_tc, rclass
                         }
                         else {
                             local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
-                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + `percsign' + ")"
+                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
                         }
                         qui replace `groupnum'`_lv' = "`_mstr'" in `_new'
                         if "`smallcells'" != "" qui replace _scmask_`_lv' = `_sc_mcode' in `_new'
@@ -757,7 +757,7 @@ program define table1_tc, rclass
                         }
                         else if !missing(`_mval') & `_mval' > 0 {
                             local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
-                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + `percsign' + ")"
+                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
                             qui replace _cr_`_lv' = "`_mstr'" in `_new'
                         }
                         else qui replace _cr_`_lv' = "0" in `_new'
@@ -1165,7 +1165,7 @@ program define table1_tc, rclass
                 local _hp_var `"`hperc_scratch_for_`_hcol''"'
                 replace `_hcol' = `_hcol' + " " + "(" + ///
                     string(round(`_hp_var' / `_hden', 0.001) * 100, "%9.1f") + ///
-                    `percsign' + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
+                    "`percsign'" + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
             }
 
             foreach _htmp of local hperc_scratch {

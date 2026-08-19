@@ -1,4 +1,4 @@
-*! codescan Version 4.1.4  2026/08/13
+*! codescan Version 4.1.5  2026/08/19
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -2026,7 +2026,7 @@ program define codescan, rclass
             graph hbar prevalence, over(order) ///
                 ytitle("Prevalence (%)") ///
                 title("Condition Prevalence") ///
-                blabel(bar, format(%4.1f))
+                blabel(bar, format(`_prev_fmt'))
         }
         local _graph_rc = _rc
         capture quietly use `_graph_save', clear
@@ -2055,8 +2055,8 @@ program define codescan, rclass
             gen long total_hits = .
             gen long positive_units = .
             gen double prevalence = .
-            gen str80 pattern = ""
-            gen str80 exclusion = ""
+            gen str244 pattern = ""
+            gen str244 exclusion = ""
             forvalues i = 1/`n_conditions' {
                 replace condition = "`def_name_`i''" in `i'
                 replace label = `"`_cs_dlab_`i''"' in `i'

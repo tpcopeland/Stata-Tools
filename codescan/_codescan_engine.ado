@@ -1,4 +1,4 @@
-*! _codescan_engine Version 4.1.4  2026/08/13
+*! _codescan_engine Version 4.1.5  2026/08/19
 *! codescan Mata scanning engine (row-loop scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan
