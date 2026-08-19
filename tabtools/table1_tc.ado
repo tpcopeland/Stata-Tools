@@ -1,4 +1,4 @@
-*! table1_tc Version 1.16.2  2026/08/19 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.16.3  2026/08/19 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -725,7 +725,9 @@ program define table1_tc, rclass
                 capture confirm variable sort1
                 if !_rc replace sort1 = sort1[`_obs'] in `_new'
                 capture confirm variable sort2
-                if !_rc replace sort2 = 9999 in `_new'
+                * Extended missing sorts after both numbered category levels
+                * and the plain missing sort key used by continuous rows.
+                if !_rc replace sort2 = .a in `_new'
                 foreach _lv of local levels {
                     local _mval = m_`_lv'[`_obs']
                     if !missing(`_mval') & `_mval' > 0 {
