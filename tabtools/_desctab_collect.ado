@@ -1,11 +1,11 @@
-*! _tabtools_table1_fast_collect Version 1.16.3  2026/08/19
-*! Fast pre-finalization aggregation helper for table1_tc
+*! _desctab_collect Version 2.0.0  2026/08/19
+*! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Method: Standardized mean differences follow Yang and Dalton (2012).
 
-program define _tabtools_table1_fast_collect, rclass
-    version 16.0
+program define _desctab_collect, rclass
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed 0
@@ -30,7 +30,7 @@ program define _tabtools_table1_fast_collect, rclass
         }
 
         syntax [if] [in] [fweight], BY(varname numeric) VARS(string asis) ///
-            SAVing(string) ///
+            FRAme(name) ///
             [ REPLACE STUB(name) TOTAL(string) TOTALCode(real -1) ///
               WT(varname numeric) SMD TEST STATistic NOPvalue WTCompare ///
               MISsing PERCENT percent_n slashN CATROWPERC VARLABPLUS ///
@@ -1259,11 +1259,16 @@ program define _tabtools_table1_fast_collect, rclass
             }
         }
 
-        quietly save `"`saving'"', replace
+        capture confirm new frame `frame'
+        if _rc {
+            display as error "internal result frame `frame' already exists"
+            exit 110
+        }
+        frame put *, into(`frame')
         restore
         local _restore_needed 0
 
-        return local saving `"`saving'"'
+        return local frame "`frame'"
         return local levels "`group_levels'"
         return local output_levels "`output_levels'"
         return scalar nvars = `nvars'

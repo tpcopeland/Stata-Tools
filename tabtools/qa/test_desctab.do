@@ -1,4 +1,4 @@
-* test_desctab.do - focused QA for desctab
+* test_desctab.do - focused QA for consolidated descriptive engine
 * Run from tabtools/qa.
 
 clear all
@@ -19,1517 +19,207 @@ discard
 local pass = 0
 local fail = 0
 local total = 0
-
 tempfile outtoken
-local outdir "`outtoken'_desctab"
-capture mkdir "`outdir'"
+local xlsx "`outtoken'_desctab.xlsx"
+local csv "`outtoken'_desctab.csv"
+local md "`outtoken'_desctab.md"
 
-display as text "test_desctab"
-
-**# T1 active collect required and varabbrev restore on error
+**# T1 direct engine creates the expected mixed table
 local ++total
 capture noisily {
-    set varabbrev on
-    collect clear
- capture desctab
-    assert _rc == 119
-    assert "`c(varabbrev)'" == "on"
-}
-if _rc == 0 {
-    display as result "  PASS: active collect required"
-    local ++pass
-}
-else {
-    display as error "  FAIL: active collect required"
-    local ++fail
-}
-set varabbrev off
-
-**# T2 events_n_pct literal cell
-local ++total
-capture noisily {
-    set varabbrev on
     sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
-    capture frame drop _dt_events
-    desctab, frame(_dt_events, replace) compose(events_n_pct) pctdigits(1)
-    local cell ""
-    frame _dt_events {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local cell = strtrim(c1[`i'])
-        }
+    capture frame drop _dt_basic
+    desctab price mpg rep78, by(foreign) ///
+        vars(price contn %9.1f \ mpg conts %9.1f \ rep78 cat) ///
+        test smd frame(_dt_basic, replace)
+    assert "`r(varlist)'" == "price mpg rep78"
+    matrix _dt_r = r(table)
+    assert rowsof(_dt_r) > 0
+    frame _dt_basic {
+        confirm variable foreign_0
+        confirm variable foreign_1
+        confirm variable pvalue
+        confirm variable smd_str
+        quietly count if strpos(factor, "Price") > 0
+        assert r(N) == 1
     }
-    frame drop _dt_events
-    assert "`cell'" == "3 / 30 (10.0%)"
-    assert "`c(varabbrev)'" == "on"
+    frame drop _dt_basic
 }
 if _rc == 0 {
-    display as result "  PASS: events_n_pct literal cell"
     local ++pass
 }
 else {
-    display as error "  FAIL: events_n_pct literal cell"
+    display as error "  FAIL: direct mixed table (rc=`=_rc')"
     local ++fail
 }
-set varabbrev off
 
-**# T3 per-stat formats in wide row x column layout
+**# T2 table1_tc forwards the analytical return contract unchanged
+local ++total
+capture noisily {
+    sysuse auto, clear
+    desctab price mpg, by(foreign) smd
+    matrix _direct = r(table)
+    local _direct_vars "`r(varlist)'"
+    local _direct_dapa `"`r(Dapa)'"'
+    table1_tc price mpg, by(foreign) smd
+    matrix _front = r(table)
+    assert mreldif(_direct, _front) < 1e-12
+    assert "`r(varlist)'" == "`_direct_vars'"
+    assert `"`r(Dapa)'"' == `"`_direct_dapa'"'
+}
+if _rc == 0 {
+    local ++pass
+}
+else {
+    display as error "  FAIL: forwarding parity (rc=`=_rc')"
+    local ++fail
+}
+
+**# T3 private collect round trip preserves the caller's active collection
 local ++total
 capture noisily {
     sysuse auto, clear
     collect clear
-    collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)
-    capture frame drop _dt_wide
-    desctab, frame(_dt_wide, replace) digits(1)
-    local count_cell ""
-    local mean_cell ""
-    frame _dt_wide {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" {
-                local count_cell = strtrim(c1[`i'])
-                local mean_cell = strtrim(c2[`i'])
-            }
-        }
-    }
-    frame drop _dt_wide
-    assert "`count_cell'" == "27"
-    assert "`mean_cell'" == "6607.1"
+    collect create sentinel
+    collect get value = 42, tags(row[kept])
+    collect layout (row) (result)
+    desctab price mpg, by(foreign)
+    quietly collect layout
+    assert "`s(collection)'" == "sentinel"
+    collect levelsof row
+    assert "`s(levels)'" == "kept"
+    collect drop sentinel
+
+    collect create empty_sentinel
+    desctab price mpg, by(foreign)
+    quietly collect dir
+    assert "`s(current)'" == "empty_sentinel"
+    collect drop empty_sentinel
 }
 if _rc == 0 {
-    display as result "  PASS: per-stat formats"
     local ++pass
 }
 else {
-    display as error "  FAIL: per-stat formats"
+    display as error "  FAIL: active collection preservation (rc=`=_rc')"
     local ++fail
 }
 
-**# T4 nformats override
+**# T4 all three file sinks carry semantic table content
 local ++total
 capture noisily {
     sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean price)
-    capture frame drop _dt_fmt
-    desctab, frame(_dt_fmt, replace) nformats("mean %9.3f")
-    local cell ""
-    frame _dt_fmt {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "1" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_fmt
-    assert "`cell'" == "4564.500"
-}
-if _rc == 0 {
-    display as result "  PASS: nformats override"
-    local ++pass
-}
-else {
-    display as error "  FAIL: nformats override"
-    local ++fail
-}
-
-**# T5 xlsx export writes requested sheet
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
-    local xlsx "`outdir'/desctab_export.xlsx"
-    desctab, xlsx("`xlsx'") sheet("Events") compose(events_n_pct) title("Events")
+    desctab price mpg rep78, by(foreign) test smd ///
+        xlsx("`xlsx'") sheet("Direct") title("Direct engine") ///
+        csv("`csv'") markdown("`md'")
     confirm file "`xlsx'"
-    preserve
-    import excel using "`xlsx'", sheet("Events") clear allstring
-    assert A[1] == "Events"
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: xlsx export"
-    local ++pass
-}
-else {
-    display as error "  FAIL: xlsx export"
-    local ++fail
-}
-
-**# T6 nototals drops row and column totals
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78 foreign, statistic(count price)
-    capture frame drop _dt_notot
-    desctab, frame(_dt_notot, replace) nototals
-    local has_total = 0
-    frame _dt_notot {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "Total" local has_total = 1
-            forvalues j = 1/`=c(k)-2' {
-                if strtrim(c`j'[`i']) == "Total" local has_total = 1
-            }
-        }
-    }
-    frame drop _dt_notot
-    assert `has_total' == 0
-}
-if _rc == 0 {
-    display as result "  PASS: nototals"
-    local ++pass
-}
-else {
-    display as error "  FAIL: nototals"
-    local ++fail
-}
-
-**# T7 statorder reorders result columns
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price) statistic(mean price)
-    capture frame drop _dt_order
-    desctab, frame(_dt_order, replace) statorder(mean count)
-    local header = ""
-    frame _dt_order {
-        local header = strtrim(c1[2])
-    }
-    frame drop _dt_order
-    assert "`header'" == "Mean"
-}
-if _rc == 0 {
-    display as result "  PASS: statorder"
-    local ++pass
-}
-else {
-    display as error "  FAIL: statorder"
-    local ++fail
-}
-
-**# T8 missing-stat compose error restores varabbrev
-local ++total
-capture noisily {
-    set varabbrev off
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price) statistic(mean price)
-    capture desctab, compose(events_n_pct)
-    assert _rc == 459
-    assert "`c(varabbrev)'" == "off"
-}
-if _rc == 0 {
-    display as result "  PASS: missing-stat compose error"
-    local ++pass
-}
-else {
-    display as error "  FAIL: missing-stat compose error"
-    local ++fail
-}
-
-**# T9 returned metadata and numeric r(table)
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture frame drop _dt_returns
-    desctab, frame(_dt_returns, replace)
-    * r(version) must match the .ado header, parsed live so the assertion
-    * cannot drift when the package version is bumped. Save r(version) first:
-    * file read below overwrites r().
-    local _ret_version "`r(version)'"
-    local _ret_rowvar "`r(rowvar)'"
-    local _ret_stats "`r(stats)'"
-    local _ret_ncells = r(N_cells)
-    matrix M = r(table)
-    tempname _fh_ver
-    file open `_fh_ver' using "`pkg_root'/desctab.ado", read text
-    file read `_fh_ver' _hdr_line
-    file close `_fh_ver'
-    local _ado_version = word(`"`_hdr_line'"', 4)
-    assert "`_ret_version'" == "`_ado_version'"
-    assert "`_ret_rowvar'" == "rep78"
-    assert "`_ret_stats'" == "count"
-    assert `_ret_ncells' > 0
-    assert M[1,1] == 2
-    frame drop _dt_returns
-}
-if _rc == 0 {
-    display as result "  PASS: returned metadata"
-    local ++pass
-}
-else {
-    display as error "  FAIL: returned metadata"
-    local ++fail
-}
-
-**# T9b returned column dimension and compose metadata
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78 foreign, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
-    capture frame drop _dt_compose_returns
-    desctab, frame(_dt_compose_returns, replace) compose(events_n_pct) pctdigits(1)
-    assert "`r(rowvar)'" == "rep78"
-    assert "`r(colvar)'" == "foreign"
-    assert "`r(compose)'" == "events_n_pct"
-    frame drop _dt_compose_returns
-}
-if _rc == 0 {
-    display as result "  PASS: returned colvar and compose metadata"
-    local ++pass
-}
-else {
-    display as error "  FAIL: returned colvar and compose metadata"
-    local ++fail
-}
-
-**# T10 default output is display mode
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    desctab
-    assert r(N_cells) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: default display mode"
-    local ++pass
-}
-else {
-    display as error "  FAIL: default display mode"
-    local ++fail
-}
-
-**# T11 csv mirror is written
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    local csv "`outdir'/desctab_export.csv"
-    desctab, csv("`csv'")
     confirm file "`csv'"
+    confirm file "`md'"
+    assert "`r(xlsx)'" == "`xlsx'"
+    assert "`r(markdown)'" == "`md'"
+    preserve
+    import excel using "`xlsx'", sheet("Direct") clear allstring
+    quietly count if strpos(A, "Direct engine") > 0
+    assert r(N) == 1
+    quietly count if strpos(B, "Price") > 0
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
-    display as result "  PASS: csv export"
     local ++pass
 }
 else {
-    display as error "  FAIL: csv export"
+    display as error "  FAIL: file sink content (rc=`=_rc')"
     local ++fail
 }
 
-**# T12 excel() synonym records xlsx return
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    local xlsx "`outdir'/desctab_excel_synonym.xlsx"
-    desctab, excel("`xlsx'") sheet("Synonym")
-    confirm file "`xlsx'"
-    assert `"`r(xlsx)'"' == `"`xlsx'"'
-    assert "`r(sheet)'" == "Synonym"
-}
-if _rc == 0 {
-    display as result "  PASS: excel synonym"
-    local ++pass
-}
-else {
-    display as error "  FAIL: excel synonym"
-    local ++fail
-}
-
-**# T13 invalid pctscale rejected
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean foreign)
-    capture desctab, pctscale(bad)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: invalid pctscale"
-    local ++pass
-}
-else {
-    display as error "  FAIL: invalid pctscale"
-    local ++fail
-}
-
-**# T14 keep() filters displayed row levels
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture frame drop _dt_keep
-    desctab, frame(_dt_keep, replace) keep(3 4)
-    local has3 = 0
-    local has4 = 0
-    local has5 = 0
-    frame _dt_keep {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local has3 = 1
-            if strtrim(A[`i']) == "4" local has4 = 1
-            if strtrim(A[`i']) == "5" local has5 = 1
-        }
-    }
-    frame drop _dt_keep
-    assert `has3' == 1
-    assert `has4' == 1
-    assert `has5' == 0
-}
-if _rc == 0 {
-    display as result "  PASS: keep filters"
-    local ++pass
-}
-else {
-    display as error "  FAIL: keep filters"
-    local ++fail
-}
-
-**# T15 drop() filters displayed row levels
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture frame drop _dt_drop
-    desctab, frame(_dt_drop, replace) drop(3)
-    local has3 = 0
-    frame _dt_drop {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local has3 = 1
-        }
-    }
-    frame drop _dt_drop
-    assert `has3' == 0
-}
-if _rc == 0 {
-    display as result "  PASS: drop filters"
-    local ++pass
-}
-else {
-    display as error "  FAIL: drop filters"
-    local ++fail
-}
-
-**# T16 statlabels override statistic headers
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price) statistic(mean price)
-    capture frame drop _dt_labels
-    desctab, frame(_dt_labels, replace) statlabels("count=N \ mean=Average")
-    frame _dt_labels {
-        assert strtrim(c1[2]) == "N"
-        assert strtrim(c2[2]) == "Average"
-    }
-    frame drop _dt_labels
-}
-if _rc == 0 {
-    display as result "  PASS: statlabels"
-    local ++pass
-}
-else {
-    display as error "  FAIL: statlabels"
-    local ++fail
-}
-
-**# T17 custom compose template
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(sum foreign) statistic(count foreign)
-    capture frame drop _dt_custom
-    desctab, frame(_dt_custom, replace) compose("{total}/{count}")
-    local cell ""
-    frame _dt_custom {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_custom
-    assert "`cell'" == "3/30"
-}
-if _rc == 0 {
-    display as result "  PASS: custom compose"
-    local ++pass
-}
-else {
-    display as error "  FAIL: custom compose"
-    local ++fail
-}
-
-**# T18 n_pct preset with binary mean
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count foreign) statistic(mean foreign)
-    capture frame drop _dt_npct
-    desctab, frame(_dt_npct, replace) compose(n_pct) pctdigits(1)
-    local cell ""
-    frame _dt_npct {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_npct
-    assert "`cell'" == "30 (10.0%)"
-}
-if _rc == 0 {
-    display as result "  PASS: n_pct compose"
-    local ++pass
-}
-else {
-    display as error "  FAIL: n_pct compose"
-    local ++fail
-}
-
-**# T19 mean_sd does not percent-scale continuous means
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table (var) (foreign), statistic(mean mpg weight) statistic(sd mpg weight)
-    capture frame drop _dt_meansd
-    desctab, frame(_dt_meansd, replace) compose(mean_sd) digits(1)
-    local cell ""
-    frame _dt_meansd {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "Mileage (mpg)" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_meansd
-    assert "`cell'" == "19.8 (4.7)"
-}
-if _rc == 0 {
-    display as result "  PASS: mean_sd compose"
-    local ++pass
-}
-else {
-    display as error "  FAIL: mean_sd compose"
-    local ++fail
-}
-
-**# T20 median_range preset
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(p50 price) statistic(min price) statistic(max price)
-    capture frame drop _dt_range
-    desctab, frame(_dt_range, replace) compose(median_range) digits(0)
-    local cell ""
-    frame _dt_range {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "Domestic" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_range
-    assert strpos("`cell'", "(") > 0
-    assert strpos("`cell'", "-") > 0
-}
-if _rc == 0 {
-    display as result "  PASS: median_range compose"
-    local ++pass
-}
-else {
-    display as error "  FAIL: median_range compose"
-    local ++fail
-}
-
-**# T21 median_iqr preset
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(p25 price) statistic(p50 price) statistic(p75 price)
-    capture frame drop _dt_iqr
-    desctab, frame(_dt_iqr, replace) compose(median_iqr) digits(0)
-    local cell ""
-    frame _dt_iqr {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "Domestic" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_iqr
-    assert strpos("`cell'", "(") > 0
-    assert strpos("`cell'", "-") > 0
-}
-if _rc == 0 {
-    display as result "  PASS: median_iqr compose"
-    local ++pass
-}
-else {
-    display as error "  FAIL: median_iqr compose"
-    local ++fail
-}
-
-**# T22 mean_ci preset matches Stata's ci means interval
+**# T5 strict small-cell outputs and returns survive consolidation
 local ++total
 capture noisily {
     clear
-    input byte g double y
+    input byte group byte category
+    0 0
+    0 0
     0 1
-    0 2
-    0 3
-    0 4
-    0 5
-    1 8
-    1 10
-    1 12
-    1 14
-    1 16
+    0 1
+    0 1
+    1 0
+    1 0
+    1 0
+    1 1
+    1 1
     end
-    collect clear
-    collect: table g, statistic(mean y) statistic(sd y) statistic(count y)
-    capture frame drop _dt_ci
-    desctab, frame(_dt_ci, replace) compose(mean_ci) digits(3)
-    quietly ci means y if g == 0
-    local m0 = strtrim(string(r(mean), "%9.3f"))
-    local lb0 = strtrim(string(r(lb), "%9.3f"))
-    local ub0 = strtrim(string(r(ub), "%9.3f"))
-    local expected0 "`m0' (`lb0'-`ub0')"
-    quietly ci means y if g == 1
-    local m1 = strtrim(string(r(mean), "%9.3f"))
-    local lb1 = strtrim(string(r(lb), "%9.3f"))
-    local ub1 = strtrim(string(r(ub), "%9.3f"))
-    local expected1 "`m1' (`lb1'-`ub1')"
-    local cell0 ""
-    local cell1 ""
-    frame _dt_ci {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "0" local cell0 = strtrim(c1[`i'])
-            if strtrim(A[`i']) == "1" local cell1 = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_ci
-    assert "`cell0'" == "`expected0'"
-    assert "`cell1'" == "`expected1'"
-}
-if _rc == 0 {
-    display as result "  PASS: mean_ci compose matches ci means"
-    local ++pass
-}
-else {
-    display as error "  FAIL: mean_ci compose"
-    local ++fail
-}
-
-**# T23 events_n preset
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(sum foreign) statistic(count foreign)
-    capture frame drop _dt_events_n
-    desctab, frame(_dt_events_n, replace) compose(events_n)
-    local cell ""
-    frame _dt_events_n {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_events_n
-    assert "`cell'" == "3 / 30"
-}
-if _rc == 0 {
-    display as result "  PASS: events_n compose"
-    local ++pass
-}
-else {
-    display as error "  FAIL: events_n compose"
-    local ++fail
-}
-
-**# T24 continuous sum keeps decimals
-local ++total
-capture noisily {
-    sysuse auto, clear
-    gen cont = price / 100
-    collect clear
-    collect: table rep78, statistic(sum cont)
-    capture frame drop _dt_cont_sum
-    desctab, frame(_dt_cont_sum, replace) digits(2)
-    local cell ""
-    frame _dt_cont_sum {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "1" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_cont_sum
-    assert "`cell'" == "91.29"
-}
-if _rc == 0 {
-    display as result "  PASS: continuous sum format"
-    local ++pass
-}
-else {
-    display as error "  FAIL: continuous sum format"
-    local ++fail
-}
-
-**# T25 integer-valued sum uses integer format
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(sum price)
-    capture frame drop _dt_int_sum
-    desctab, frame(_dt_int_sum, replace) digits(2)
-    local cell ""
-    frame _dt_int_sum {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "1" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_int_sum
-    assert "`cell'" == "9,129"
-}
-if _rc == 0 {
-    display as result "  PASS: integer sum format"
-    local ++pass
-}
-else {
-    display as error "  FAIL: integer sum format"
-    local ++fail
-}
-
-**# T26 pctscale(0to100) applies to binary mean without compose
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean foreign)
-    capture frame drop _dt_pctscale
-    desctab, frame(_dt_pctscale, replace) pctscale(0to100) pctsign pctdigits(1)
-    local cell ""
-    frame _dt_pctscale {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_pctscale
-    assert "`cell'" == "10.0%"
-}
-if _rc == 0 {
-    display as result "  PASS: pctscale binary mean"
-    local ++pass
-}
-else {
-    display as error "  FAIL: pctscale binary mean"
-    local ++fail
-}
-
-**# T27 native-scale binary mean remains decimal by default
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean foreign)
-    capture frame drop _dt_native_mean
-    desctab, frame(_dt_native_mean, replace) digits(2)
-    local cell ""
-    frame _dt_native_mean {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local cell = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_native_mean
-    assert "`cell'" == "0.10"
-}
-if _rc == 0 {
-    display as result "  PASS: native-scale mean"
-    local ++pass
-}
-else {
-    display as error "  FAIL: native-scale mean"
-    local ++fail
-}
-
-**# T28 invalid xlsx extension rejected
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture desctab, xlsx("`outdir'/bad.xls")
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: invalid xlsx extension"
-    local ++pass
-}
-else {
-    display as error "  FAIL: invalid xlsx extension"
-    local ++fail
-}
-
-**# T29 open requires xlsx/excel
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture desctab, open
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: open requires xlsx"
-    local ++pass
-}
-else {
-    display as error "  FAIL: open requires xlsx"
-    local ++fail
-}
-
-**# T30 keep() and drop() cannot be combined
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture desctab, keep(3) drop(4)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: keep/drop conflict"
-    local ++pass
-}
-else {
-    display as error "  FAIL: keep/drop conflict"
-    local ++fail
-}
-
-**# T31 frame without replace protects existing frame
-local ++total
-capture noisily {
-    sysuse auto, clear
-    capture frame drop _dt_exists
-    frame create _dt_exists
-    collect clear
-    collect: table rep78, statistic(count price)
-    capture desctab, frame(_dt_exists)
-    local rc = _rc
-    frame drop _dt_exists
-    assert `rc' == 110
-}
-if _rc == 0 {
-    display as result "  PASS: frame replace guard"
-    local ++pass
-}
-else {
-    display as error "  FAIL: frame replace guard"
-    local ++fail
-}
-
-**# T32 frame replace overwrites existing frame
-local ++total
-capture noisily {
-    sysuse auto, clear
-    capture frame drop _dt_replace
-    frame create _dt_replace
-    collect clear
-    collect: table rep78, statistic(count price)
-    desctab, frame(_dt_replace, replace)
-    frame _dt_replace {
-        assert _N > 0
-    }
-    frame drop _dt_replace
-}
-if _rc == 0 {
-    display as result "  PASS: frame replace"
-    local ++pass
-}
-else {
-    display as error "  FAIL: frame replace"
-    local ++fail
-}
-
-**# T33 repeated calls on the same collect are stable
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
-    capture frame drop _dt_first
-    capture frame drop _dt_second
-    desctab, frame(_dt_first, replace) compose(events_n_pct)
-    desctab, frame(_dt_second, replace) compose(events_n_pct)
-    local first ""
-    local second ""
-    frame _dt_first {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local first = strtrim(c1[`i'])
-        }
-    }
-    frame _dt_second {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "3" local second = strtrim(c1[`i'])
-        }
-    }
-    frame drop _dt_first
-    frame drop _dt_second
-    assert "`first'" == "`second'"
-}
-if _rc == 0 {
-    display as result "  PASS: repeated calls"
-    local ++pass
-}
-else {
-    display as error "  FAIL: repeated calls"
-    local ++fail
-}
-
-**# T34 nototals coltotals keeps column totals
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78 foreign, statistic(count price)
-    capture frame drop _dt_coltot
-    desctab, frame(_dt_coltot, replace) nototals coltotals
-    frame _dt_coltot {
-        assert strtrim(c3[3]) == "Total"
-    }
-    frame drop _dt_coltot
-}
-if _rc == 0 {
-    display as result "  PASS: coltotals override"
-    local ++pass
-}
-else {
-    display as error "  FAIL: coltotals override"
-    local ++fail
-}
-
-**# T35 nototals rowtotals keeps row totals
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78 foreign, statistic(count price)
-    capture frame drop _dt_rowtot
-    desctab, frame(_dt_rowtot, replace) nototals rowtotals
-    local has_total = 0
-    frame _dt_rowtot {
-        forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "Total" local has_total = 1
-        }
-    }
-    frame drop _dt_rowtot
-    assert `has_total' == 1
-}
-if _rc == 0 {
-    display as result "  PASS: rowtotals override"
-    local ++pass
-}
-else {
-    display as error "  FAIL: rowtotals override"
-    local ++fail
-}
-
-**# T36 Excel row-label column width is content-driven
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(count price)
-    local xlsx "`outdir'/desctab_width.xlsx"
-    tempfile sheetxml
-    desctab, xlsx("`xlsx'") sheet("Width") title("Width")
-    shell unzip -p "`xlsx'" xl/worksheets/sheet1.xml > "`sheetxml'"
-    file open _xfh using "`sheetxml'", read text
-    file read _xfh line
-    local xml ""
-    while r(eof) == 0 {
-        local xml `"`xml'`line'"'
-        file read _xfh line
-    }
-    file close _xfh
-    local q = char(34)
-    local pat "<col min=`q'2`q' max=`q'2`q' width=`q'([0-9.]+)"
-    assert regexm(`"`xml'"', `"`pat'"')
-    local bwidth = real(regexs(1))
-    assert `bwidth' < 18
-}
-if _rc == 0 {
-    display as result "  PASS: content-driven label column width"
-    local ++pass
-}
-else {
-    display as error "  FAIL: content-driven label column width"
-    local ++fail
-}
-
-**# T37 Theme alone does not imply shaded fills
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(count price)
-    local xlsx "`outdir'/desctab_no_shade.xlsx"
-    tempfile stylesxml
-    desctab, xlsx("`xlsx'") sheet("NoShade") title("No Shade") theme(lancet)
-    shell unzip -p "`xlsx'" xl/styles.xml | grep -o "<fills count=\"[0-9]*\"" > "`stylesxml'"
-    file open _sfh using "`stylesxml'", read text
-    file read _sfh line
-    local fillcount .
-    local q = char(34)
-    local pat "<fills count=`q'([0-9]+)`q'"
-    while r(eof) == 0 {
-        if missing(`fillcount') & regexm(`"`line'"', `"`pat'"') {
-            local fillcount = real(regexs(1))
-        }
-        file read _sfh line
-    }
-    file close _sfh
-    assert !missing(`fillcount')
-    assert `fillcount' == 2
-}
-if _rc == 0 {
-    display as result "  PASS: theme alone leaves shading off"
-    local ++pass
-}
-else {
-    display as error "  FAIL: theme alone leaves shading off"
-    local ++fail
-}
-
-**# T38 Row x column x statistic headers are merged and compact
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)
-    local xlsx "`outdir'/desctab_merged_headers.xlsx"
-    tempfile sheetxml sharedxml
-    desctab, xlsx("`xlsx'") sheet("Merged") ///
-        title("Merged Headers") statorder(count mean sd) ///
-        statlabels("count=N \ mean=Mean \ sd=SD") ///
-        nformats("count %8.0fc mean %8.1f sd %8.1f")
-    preserve
-    import excel using "`xlsx'", sheet("Merged") clear allstring
-    assert A[1] == "Merged Headers"
-    assert strtrim(B[2]) == "Repair record 1978"
-    assert strtrim(C[2]) == "Domestic"
-    assert strtrim(D[2]) == ""
-    assert strtrim(E[2]) == ""
-    assert strtrim(F[2]) == "Foreign"
-    assert strtrim(I[2]) == "Total"
-    assert strtrim(B[3]) == ""
-    assert strtrim(C[3]) == "N"
-    assert strtrim(D[3]) == "Mean"
-    assert strtrim(E[3]) == "SD"
-    assert strtrim(B[4]) == "1"
-    restore
-    shell unzip -p "`xlsx'" xl/worksheets/sheet1.xml > "`sheetxml'"
-    file open _mfh using "`sheetxml'", read text
-    file read _mfh line
-    local xml ""
-    while r(eof) == 0 {
-        local xml `"`xml'`line'"'
-        file read _mfh line
-    }
-    file close _mfh
-    assert strpos(`"`xml'"', "B2:B3") > 0
-    assert strpos(`"`xml'"', "C2:E2") > 0
-    assert strpos(`"`xml'"', "F2:H2") > 0
-    assert strpos(`"`xml'"', "I2:K2") > 0
-    shell unzip -p "`xlsx'" xl/sharedStrings.xml > "`sharedxml'"
-    file open _ssh using "`sharedxml'", read text
-    file read _ssh line
-    local shared ""
-    while r(eof) == 0 {
-        local shared `"`shared'`line'"'
-        file read _ssh line
-    }
-    file close _ssh
-    assert strpos(`"`shared'"', "Car origin") == 0
-}
-if _rc == 0 {
-    display as result "  PASS: merged row-column-stat headers"
-    local ++pass
-}
-else {
-    display as error "  FAIL: merged row-column-stat headers"
-    local ++fail
-}
-
-**# T39 nintegerfmt controls count/integer formatting
-* Clarity audit MINOR-3 (2026-06-13): nintegerfmt was untested. Default
-* %12.0fc inserts thousands separators; an override without `c' removes them.
-local ++total
-capture noisily {
-    clear
-    set obs 5000
-    gen byte grp = mod(_n, 2)
-    collect clear
-    collect: table grp, statistic(frequency)
-
-    capture frame drop _dt_ifc
-    desctab, frame(_dt_ifc, replace)
-    local _saw_comma 0
-    frame _dt_ifc {
-        foreach _v of varlist c* {
-            quietly count if strpos(`_v', "2,500") > 0
-            if r(N) > 0 local _saw_comma 1
-        }
-    }
-    frame drop _dt_ifc
-    assert `_saw_comma' == 1
-
-    capture frame drop _dt_ifp
-    desctab, frame(_dt_ifp, replace) nintegerfmt("%12.0f")
-    local _saw_plain 0
-    local _saw_comma 0
-    frame _dt_ifp {
-        foreach _v of varlist c* {
-            quietly count if strtrim(`_v') == "2500"
-            if r(N) > 0 local _saw_plain 1
-            quietly count if strpos(`_v', "2,500") > 0
-            if r(N) > 0 local _saw_comma 1
-        }
-    }
-    frame drop _dt_ifp
-    assert `_saw_plain' == 1
-    assert `_saw_comma' == 0
-}
-if _rc == 0 {
-    display as result "  PASS: nintegerfmt controls count formatting"
-    local ++pass
-}
-else {
-    display as error "  FAIL: nintegerfmt formatting"
-    local ++fail
-}
-
-**# T40 nomissing drops the missing-category row
-* Clarity audit MINOR-3 (2026-06-13): nomissing was untested.
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(frequency) missing
-
-    capture frame drop _dt_miss
-    desctab, frame(_dt_miss, replace)
-    local _has_missrow 0
-    frame _dt_miss {
-        forvalues i = 1/`=_N' {
-            if inlist(lower(strtrim(A[`i'])), ".", "missing", ".m") local _has_missrow 1
-        }
-    }
-    frame drop _dt_miss
-    assert `_has_missrow' == 1
-
-    capture frame drop _dt_nomiss
-    desctab, frame(_dt_nomiss, replace) nomissing
-    local _has_missrow 0
-    frame _dt_nomiss {
-        forvalues i = 1/`=_N' {
-            if inlist(lower(strtrim(A[`i'])), ".", "missing", ".m") local _has_missrow 1
-        }
-    }
-    frame drop _dt_nomiss
-    assert `_has_missrow' == 0
-}
-if _rc == 0 {
-    display as result "  PASS: nomissing drops missing-category row"
-    local ++pass
-}
-else {
-    display as error "  FAIL: nomissing missing-row drop"
-    local ++fail
-}
-
-**# T42 hlstat() option reachable (HIGHlightStat->HLStat collision fix)
-* Regression (2026-06-13): HIGHlightStat() was a strict prefix-collision with
-* HIGHlight() and returned rc=198 for every form, so the highlight statistic
-* could never be changed. Renamed to HLStat(). Assert the full name and the
-* minimum abbreviation hls() parse, and the retired name now errors.
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(mean price) statistic(sd price)
-
-    * full name parses
- desctab, compose(mean_sd) highlight(5000) hlstat(mean)
-    * minimum abbreviation parses
- desctab, compose(mean_sd) highlight(5000) hls(mean)
-    * retired colliding name is rejected
- capture desctab, compose(mean_sd) highlight(5000) highlightstat(mean)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: hlstat() reachable, highlightstat() retired"
-    local ++pass
-}
-else {
-    display as error "  FAIL: hlstat() collision-fix regression (rc=`=_rc')"
-    local ++fail
-}
-
-**# T43 title()/footnote() with embedded double quotes and apostrophes
-* Regression (v1.9.3): TITLE()/FOOTnote() were declared string asis, so a
-* value containing a double quote (`Q "x" Z`) was silently dropped entirely
-* from every sink and an apostrophe (`It's`) was corrupted to `s here'`.
-* asis preserved the compound-quote wrappers as literal content, which the
-* internal quote-strip step (subinstr local title `"""' "", all) then mangled
-* into a stray macro reference that expanded to empty. Fix drops asis; the
-* strip now removes embedded double quotes and preserves everything else.
-local ++total
-capture noisily {
-    * --- embedded double quotes: markdown ---
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean price)
-    local mdq "`outdir'/desctab_titleq.md"
-    capture erase "`mdq'"
-    desctab, markdown("`mdq'") title(`"Q "x" Z"') footnote(`"F "y" G"')
-    assert "`r(markdown)'" == "`mdq'"
-    assert r(markdown_rows) > 0
-    assert r(markdown_cols) > 0
-    * read the title (### line) and footnote (*...* line)
-    tempname fh
-    local _title_line ""
-    local _foot_line ""
-    file open `fh' using "`mdq'", read
-    file read `fh' line
-    while r(eof) == 0 {
-        if substr(`"`macval(line)'"', 1, 4) == "### " ///
-            local _title_line `"`macval(line)'"'
-        if substr(`"`macval(line)'"', 1, 1) == "*" & ///
-           substr(`"`macval(line)'"', 2, 1) != "*" ///
-            local _foot_line `"`macval(line)'"'
-        file read `fh' line
-    }
-    file close `fh'
-    * embedded quotes round-trip through Markdown
-    assert `"`_title_line'"' == `"### Q "x" Z"'
-    assert `"`_foot_line'"'  == `"*F "y" G*"'
-
-    * --- apostrophe preserved: markdown ---
-    collect clear
-    collect: table rep78, statistic(mean price)
-    local mda "`outdir'/desctab_titlea.md"
-    capture erase "`mda'"
-    desctab, markdown("`mda'") title(`"It's here"') footnote(`"Don't drop"')
-    local _title_line ""
-    local _foot_line ""
-    file open `fh' using "`mda'", read
-    file read `fh' line
-    while r(eof) == 0 {
-        if substr(`"`macval(line)'"', 1, 4) == "### " ///
-            local _title_line `"`macval(line)'"'
-        if substr(`"`macval(line)'"', 1, 1) == "*" & ///
-           substr(`"`macval(line)'"', 2, 1) != "*" ///
-            local _foot_line `"`macval(line)'"'
-        file read `fh' line
-    }
-    file close `fh'
-    assert `"`_title_line'"' == "### It's here"
-    assert `"`_foot_line'"'  == "*Don't drop*"
-
-    * --- embedded double quotes: xlsx title cell round-trips ---
-    collect clear
-    collect: table rep78, statistic(mean price)
-    local xq "`outdir'/desctab_titleq.xlsx"
-    capture erase "`xq'"
-    desctab, xlsx("`xq'") sheet("S") title(`"Q "x" Z"')
-    import excel using "`xq'", sheet("S") clear allstring
-    assert A[1] == `"Q "x" Z"'
-}
-if _rc == 0 {
-    display as result "  PASS: quoted/apostrophe title & footnote round-trip"
-    local ++pass
-}
-else {
-    display as error "  FAIL: quoted title/footnote regression (rc=`=_rc')"
-    local ++fail
-}
-
-**# T44 failed Excel export does not claim a workbook path
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean price)
-    return clear
-    capture desctab, xlsx("`outdir'/missing/bad.xlsx") sheet("S")
-    local _xrc = _rc
-    assert `_xrc' != 0
-    assert r(N_rows) > 0
-    assert `"`r(xlsx)'"' == ""
-}
-if _rc == 0 {
-    display as result "  PASS: unsuccessful export omits r(xlsx)"
-    local ++pass
-}
-else {
-    display as error "  FAIL: failed export r(xlsx) contract (rc=`=_rc')"
-    local ++fail
-}
-
-**# Small-cell disclosure control
-
-**## T45 recognized frequency layout returns only safe counts
-local ++total
-capture noisily {
-    clear
-    input byte row byte col int freq
-    1 1 2
-    1 2 8
-    2 1 6
-    2 2 4
-    end
-    expand freq
-    collect clear
-    collect: table row col, statistic(frequency)
-    capture frame drop _dt_sc_count
-    desctab, smallcells(5) frame(_dt_sc_count, replace)
-
+    capture frame drop _dt_safe
+    desctab, by(group) vars(category cat) total(after) ///
+        smallcells(5) frame(_dt_safe, replace)
     assert r(smallcells) == 5
-    assert r(N_primary_suppressed) >= 2
-    assert r(N_secondary_suppressed) >= 1
-    assert r(N_derived_suppressed) == 0
-    matrix _dt_sc_t = r(table)
-    matrix _dt_sc_s = r(suppression)
-    mata: assert(any(st_matrix("_dt_sc_t") :== .p))
-    mata: assert(any(st_matrix("_dt_sc_t") :== .s))
-    mata: assert(any(st_matrix("_dt_sc_s") :== 1))
-    mata: assert(any(st_matrix("_dt_sc_s") :== 2))
-    frame _dt_sc_count: local _sc_k : char _dta[tabtools_smallcells]
-    frame _dt_sc_count: local _sc_codes : char _dta[tabtools_suppression_codes]
-    frame _dt_sc_count: local _sc_scope : char _dta[tabtools_suppression_scope]
-    assert "`_sc_k'" == "5"
-    assert strpos("`_sc_codes'", "2 complementary") > 0
-    assert strpos("`_sc_scope'", "all sinks") > 0
+    assert r(N_primary_suppressed) > 0
+    matrix _supp = r(suppression)
+    assert rowsof(_supp) > 0
+    frame _dt_safe {
+        quietly count if strpos(group_0, "<5") | strpos(group_1, "<5")
+        assert r(N) > 0
+        assert "`: char _dta[tabtools_smallcells]'" == "5"
+    }
+    frame drop _dt_safe
 }
 if _rc == 0 {
-    display as result "  PASS: desctab recognized count layout is redacted"
     local ++pass
 }
 else {
-    display as error "  FAIL: desctab recognized count smallcells contract (rc=`=_rc')"
+    display as error "  FAIL: small-cell contract (rc=`=_rc')"
     local ++fail
 }
-capture frame drop _dt_sc_count
 
-**## T46 redundant complementary margins are pruned
+**# T6 crude/weighted frame merge is disk-free and semantically distinct
 local ++total
 capture noisily {
     clear
-    input byte row byte col int freq
-    1 2 1
-    2 1 1
-    2 2 4
-    end
-    expand freq
-    collect clear
-    collect: table row col, statistic(frequency)
-    capture frame drop _dt_sc_irredundant
-    desctab, smallcells(5) frame(_dt_sc_irredundant, replace)
-    assert r(N_primary_suppressed) == 5
-    assert r(N_secondary_suppressed) == 1
-    frame _dt_sc_irredundant {
-        local sc_ns = 0
-        ds
-        foreach sc_v of varlist `r(varlist)' {
-            capture confirm string variable `sc_v'
-            if !_rc {
-                quietly count if strpos(`sc_v', "≥5") > 0
-                local sc_ns = `sc_ns' + r(N)
-            }
-        }
+    set obs 100
+    generate byte group = _n > 50
+    generate double x = _n + group * 10
+    generate double ipw = cond(mod(_n, 3), 0.5, 3)
+    capture frame drop _dt_wt
+    desctab x, by(group) wt(ipw) wtcompare wtn smd ///
+        frame(_dt_wt, replace)
+    frame _dt_wt {
+        confirm variable Cr_0
+        confirm variable Wt_0
+        quietly count if Cr_0 != Wt_0 & Cr_0 != "" & Wt_0 != ""
+        assert r(N) > 0
     }
-    assert `sc_ns' == 1
+    frame drop _dt_wt
 }
 if _rc == 0 {
-    display as result "  PASS: desctab prunes redundant complementary margins"
     local ++pass
 }
 else {
-    display as error "  FAIL: desctab complementary-margin pruning (rc=`=_rc')"
+    display as error "  FAIL: crude/weighted frame merge (rc=`=_rc')"
     local ++fail
 }
-capture frame drop _dt_sc_irredundant
 
-**## T47 count(var) layout reuses one redacted payload for every sink
-local ++total
-capture noisily {
-    clear
-    input byte row byte col int freq
-    1 1 2
-    1 2 8
-    2 1 6
-    2 2 4
-    end
-    expand freq
-    collect clear
-    collect: table row col, statistic(count freq)
-
-    local sc_csv "`outdir'/desctab_smallcells.csv"
-    local sc_md "`outdir'/desctab_smallcells.md"
-    local sc_xlsx "`outdir'/desctab_smallcells.xlsx"
-    capture frame drop _dt_sc_sinks
-    desctab, smallcells(5) csv("`sc_csv'") markdown("`sc_md'") ///
-        frame(_dt_sc_sinks, replace) ///
-        xlsx("`sc_xlsx'") sheet("DescSC")
-    matrix _dt_sc_sink_t = r(table)
-    mata: assert(any(st_matrix("_dt_sc_sink_t") :== .p))
-    mata: assert(any(st_matrix("_dt_sc_sink_t") :== .s))
-
-    frame _dt_sc_sinks {
-        local sc_fp = 0
-        local sc_fs = 0
-        foreach sc_v of varlist c* {
-            quietly count if strtrim(`sc_v') == "<5"
-            local sc_fp = `sc_fp' + r(N)
-            quietly count if strtrim(`sc_v') == "≥5"
-            local sc_fs = `sc_fs' + r(N)
-        }
-    }
-    assert `sc_fp' >= 2
-    assert `sc_fs' >= 1
-
-    preserve
-    import delimited "`sc_csv'", clear varnames(nonames) stringcols(_all)
-    local sc_cp = 0
-    local sc_cs = 0
-    foreach sc_v of varlist _all {
-        quietly count if strtrim(`sc_v') == "<5"
-        local sc_cp = `sc_cp' + r(N)
-        quietly count if strtrim(`sc_v') == "≥5"
-        local sc_cs = `sc_cs' + r(N)
-    }
-    assert `sc_cp' >= 2
-    assert `sc_cs' >= 1
-    restore
-
-    tempname sc_fh
-    local sc_md_text ""
-    file open `sc_fh' using "`sc_md'", read text
-    file read `sc_fh' sc_line
-    while r(eof) == 0 {
-        local sc_md_text `"`sc_md_text' `macval(sc_line)'"'
-        file read `sc_fh' sc_line
-    }
-    file close `sc_fh'
-    assert strpos(`"`sc_md_text'"', "<5") > 0
-    assert strpos(`"`sc_md_text'"', "≥5") > 0
-
-    preserve
-    import excel using "`sc_xlsx'", sheet("DescSC") clear allstring
-    local sc_xp = 0
-    local sc_xs = 0
-    foreach sc_v of varlist _all {
-        quietly count if strtrim(`sc_v') == "<5"
-        local sc_xp = `sc_xp' + r(N)
-        quietly count if strtrim(`sc_v') == "≥5"
-        local sc_xs = `sc_xs' + r(N)
-    }
-    assert `sc_xp' >= 2
-    assert `sc_xs' >= 1
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: desctab smallcells is identical across all sinks"
-    local ++pass
-}
-else {
-    display as error "  FAIL: desctab smallcells all-sink contract (rc=`=_rc')"
-    local ++fail
-}
-capture frame drop _dt_sc_sinks
-
-**## T48 named n_pct layout suppresses dependent percentages
-local ++total
-capture noisily {
-    clear
-    input byte row byte col int freq
-    1 1 2
-    1 2 8
-    2 1 6
-    2 2 4
-    end
-    expand freq
-    collect clear
-    collect: table row col, statistic(frequency) statistic(percent)
-    capture frame drop _dt_sc_pct
-    desctab, compose(n_pct) smallcells(5) frame(_dt_sc_pct, replace)
-    assert r(N_derived_suppressed) > 0
-    matrix _dt_sc_pct_t = r(table)
-    mata: assert(any(st_matrix("_dt_sc_pct_t") :== .p))
-    mata: assert(any(st_matrix("_dt_sc_pct_t") :== .s))
-    frame _dt_sc_pct {
-        unab _sc_vars : c*
-        foreach _v of local _sc_vars {
-            count if inlist(strtrim(`_v'), "<5", "≥5") & strpos(`_v', "%") > 0
-            assert r(N) == 0
-        }
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: desctab n_pct dependency suppression"
-    local ++pass
-}
-else {
-    display as error "  FAIL: desctab n_pct dependency suppression (rc=`=_rc')"
-    local ++fail
-}
-capture frame drop _dt_sc_pct
-
-**## T49 unsupported layouts fail closed before any sink
+**# T7 error path restores varabbrev and leaves data intact
 local ++total
 capture noisily {
     sysuse auto, clear
-    collect clear
-    collect: table rep78, statistic(mean price)
-    capture frame drop _dt_sc_bad
-    local badxlsx "`outdir'/desctab_sc_bad.xlsx"
-    capture erase "`badxlsx'"
-    capture noisily desctab, smallcells(5) frame(_dt_sc_bad) ///
-        xlsx("`badxlsx'")
-    assert _rc == 459
-    capture frame _dt_sc_bad: describe
+    local _N0 = _N
+    set varabbrev on
+    capture desctab price, by(no_such_variable)
     assert _rc == 111
-    capture confirm file "`badxlsx'"
-    assert _rc == 601
-
-    collect clear
-    collect: table rep78, statistic(count price) statistic(percent)
-    capture noisily desctab, compose("{count} ({percent})") smallcells(5)
-    assert _rc == 459
-    capture noisily desctab, keep(3 4) smallcells(5)
-    assert _rc == 459
-    capture noisily desctab, highlight(10) smallcells(5)
-    assert _rc == 459
-
-    capture noisily desctab, smallcells(2)
-    assert _rc == 198
-    capture noisily desctab, smallcells(3.5)
-    assert _rc == 198
+    assert "`c(varabbrev)'" == "on"
+    assert _N == `_N0'
+    set varabbrev off
 }
 if _rc == 0 {
-    display as result "  PASS: desctab smallcells unsupported layouts fail closed"
     local ++pass
 }
 else {
-    display as error "  FAIL: desctab smallcells fail-closed contract (rc=`=_rc')"
+    display as error "  FAIL: error cleanup (rc=`=_rc')"
     local ++fail
 }
+
+capture erase "`xlsx'"
+capture erase "`csv'"
+capture erase "`md'"
 
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
@@ -1541,6 +231,3 @@ if `fail' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_desctab tests=`total' pass=`pass' fail=`fail'"
 log close _desctab
-capture shell rm -rf "`outdir'"
-local cleanup_rc = _rc
-if `cleanup_rc' exit `cleanup_rc'

@@ -3,7 +3,7 @@
 clear all
 set more off
 set varabbrev off
-version 16.0
+version 17.0
 
 capture log close _crosstab
 log using "test_crosstab.log", replace text name(_crosstab)

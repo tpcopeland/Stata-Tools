@@ -1,4 +1,4 @@
-*! stacktab Version 1.16.3  2026/08/19
+*! stacktab Version 2.0.0  2026/08/19
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -17,7 +17,7 @@ Syntax:
 */
 
 program define stacktab, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
@@ -739,7 +739,7 @@ end
 
 capture program drop _stacktab_xlsx_write
 program define _stacktab_xlsx_write, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     local _book_name "_stacktab_write_book"
@@ -789,7 +789,7 @@ end
 
 capture program drop _stacktab_xlsx_sheet_bounds
 program define _stacktab_xlsx_sheet_bounds, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -848,7 +848,7 @@ end
 
 capture program drop _stacktab_parse_frame
 program define _stacktab_parse_frame, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -905,7 +905,7 @@ end
 * ============================================================================
 capture program drop _stacktab_get_subopt
 program define _stacktab_get_subopt, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -950,7 +950,7 @@ end
 
 capture program drop _stacktab_resolve_col
 program define _stacktab_resolve_col, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -980,7 +980,7 @@ end
 
 capture program drop _stacktab_parse_rows
 program define _stacktab_parse_rows, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1020,7 +1020,7 @@ end
 
 capture program drop _stacktab_parse_cols
 program define _stacktab_parse_cols, rclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1083,7 +1083,7 @@ end
 
 capture program drop _stacktab_validate_style
 program define _stacktab_validate_style, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1197,7 +1197,7 @@ end
 
 capture program drop _stacktab_apply_style
 program define _stacktab_apply_style, nclass
-    version 16.0
+    version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
     local _book_open = 0
@@ -1350,7 +1350,7 @@ program define _stacktab_apply_style, nclass
 end
 
 
-version 16.0
+version 17.0
 capture mata: mata drop _stacktab_xlsx_write_mata()
 capture mata: mata drop _stacktab_cur_strmat()
 capture mata: mata drop _stacktab_xlsx_put_text_mata()

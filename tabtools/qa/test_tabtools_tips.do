@@ -3,7 +3,7 @@
 clear all
 set more off
 set varabbrev off
-version 16.0
+version 17.0
 
 capture log close _tips
 log using "test_tabtools_tips.log", replace text name(_tips)

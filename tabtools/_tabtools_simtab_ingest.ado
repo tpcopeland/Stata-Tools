@@ -1,4 +1,4 @@
-*! _tabtools_simtab_ingest Version 1.16.3  2026/08/19
+*! _tabtools_simtab_ingest Version 2.0.0  2026/08/19
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,7 +27,7 @@ DESCRIPTION:
 
 capture program drop _tabtools_simtab_ingest_ready
 program _tabtools_simtab_ingest_ready, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -40,7 +40,7 @@ end
 
 capture program drop _tabtools_simtab_ingest
 program define _tabtools_simtab_ingest, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -129,7 +129,7 @@ end
 * ============================================================================
 capture program drop _tabtools_simtab_ingest_identity
 program _tabtools_simtab_ingest_identity, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -171,7 +171,7 @@ end
 
 capture program drop _tabtools_simtab_ingest_summary
 program _tabtools_simtab_ingest_summary, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -296,7 +296,7 @@ end
 * ============================================================================
 capture program drop _tabtools_simtab_ingest_simsum
 program _tabtools_simtab_ingest_simsum, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _pf
@@ -489,7 +489,7 @@ end
 * ============================================================================
 capture program drop _tabtools_simtab_ingest_siman
 program _tabtools_simtab_ingest_siman, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {

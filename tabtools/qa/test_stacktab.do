@@ -1,7 +1,7 @@
 * test_stacktab.do - QA for stacktab in tabtools
 
 clear all
-version 16.0
+version 17.0
 set more off
 set varabbrev off
 

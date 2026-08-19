@@ -5,7 +5,7 @@ d tabtools is a comprehensive suite of Stata commands for exporting
 d tables to professionally formatted Excel and Markdown files. Includes:
 d
 d   table1_tc      - Descriptive statistics (Table 1) with automatic tests
-d   desctab        - Per-statistic formatted descriptive table collects
+d   desctab        - Consolidated descriptive table engine
 d   tabtools       - Suite controller and persistent defaults manager
 d   regtab         - Regression results from any model
 d   effecttab      - Treatment effects and margins results
@@ -24,7 +24,7 @@ d
 d Commands apply consistent Excel formatting and can emit GitHub-Flavored
 d Markdown tables for report workflows.
 d
-d Requires: Stata version 16+ (tabtools, tabtools_tips, table1_tc, stacktab, simtab), 17+ (all other commands)
+d Requires: Stata version 17+ (all commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d Optional: simsum / siman for simtab ingest mode (from()) and analysis
 d
@@ -47,7 +47,7 @@ f _tabtools_collect_render.ado
 f _tabtools_xlsx_apply_styles.ado
 f _tabtools_xlsx_build_styles.ado
 f _tabtools_xlsx_compact_styles.ado
-f _tabtools_table1_fast_collect.ado
+f _desctab_collect.ado
 f _tabtools_smallcells.ado
 f _tabtools_smallcells_render.ado
 f table1_tc.ado
