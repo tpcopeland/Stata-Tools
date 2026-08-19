@@ -3038,7 +3038,7 @@ if "`stars'" != "" {
 	local _stars_note "* p<`_sl1', ** p<`_sl2', *** p<`_sl3'"
 	* Punctuation-aware join: a user footnote that already ends in terminal
 	* punctuation must not gain a ";" after it (".;" was shipped in the regtab
-	* and diagtab demo workbooks).
+	* and other table demo workbooks).
 	if `"`_fn_text'"' != "" {
 		local _fn_trim = strtrim(`"`_fn_text'"')
 		local _fn_last = substr(`"`_fn_trim'"', -1, 1)

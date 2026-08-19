@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Workbook style assertions for the synthesized 4-reviewer audit (B1, B2, B3).
+Workbook style assertions for the synthesized 4-reviewer audit (B1 and B2).
 
 check_xlsx.py asserts that a border or an alignment IS present. These three
 findings are all about a rule being present where it should not be, or absent
@@ -17,14 +17,9 @@ canonical validator does not offer:
       level with the single-line estimate cells -- failed on every row. Label
       and value cells in a body row must share a vertical alignment.
 
-  B3  the single-cutoff diagtab branch emitted no border op at all, so two of
-      three shipped sheets carried exactly one horizontal rule. The table needs
-      a rule above and below its header row.
-
 Usage:
     check_synthesis_style.py --b1 FILE --b1-sheet NAME
                              --b2 FILE --b2-sheet NAME
-                             --diagtab FILE --diagtab-sheet NAME
                              [--status-file PATH]
 
 B1 and B2 take separate workbooks: B1 needs stats()/addrow() rows to exist,
@@ -49,11 +44,6 @@ except ImportError:  # pragma: no cover - environment guard
 def _has_bottom(cell):
     b = cell.border.bottom
     return bool(b and b.style)
-
-
-def _has_top(cell):
-    t = cell.border.top
-    return bool(t and t.style)
 
 
 def _last_used_row(ws):
@@ -116,31 +106,12 @@ def check_b2(path, sheet, failures):
         )
 
 
-def check_diagtab(path, sheet, failures):
-    ws = load_workbook(path)[sheet]
-    last = _last_used_row(ws)
-
-    horizontal = 0
-    for r in range(1, last + 1):
-        if any(_has_top(ws.cell(row=r, column=c)) or
-               _has_bottom(ws.cell(row=r, column=c))
-               for c in range(2, ws.max_column + 1)):
-            horizontal += 1
-    if horizontal < 3:
-        failures.append(
-            f"B3: sheet carries {horizontal} ruled row(s); a booktabs table "
-            "needs a top rule, a header rule and a bottom rule"
-        )
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--b1", required=True, help="regtab workbook WITH stats()/addrow()")
     ap.add_argument("--b1-sheet", required=True)
     ap.add_argument("--b2", required=True, help="regtab workbook WITHOUT stats()/addrow()")
     ap.add_argument("--b2-sheet", required=True)
-    ap.add_argument("--diagtab", required=True)
-    ap.add_argument("--diagtab-sheet", required=True)
     ap.add_argument("--status-file")
     args = ap.parse_args()
 
@@ -148,7 +119,6 @@ def main():
     try:
         check_b1(args.b1, args.b1_sheet, failures)
         check_b2(args.b2, args.b2_sheet, failures)
-        check_diagtab(args.diagtab, args.diagtab_sheet, failures)
     except Exception as exc:  # noqa: BLE001 - surface the reason to Stata
         failures.append(f"error: {exc}")
 
@@ -156,7 +126,7 @@ def main():
         lines = ["FAIL synthesis style checks"] + failures
         rc = 1
     else:
-        lines = ["PASS synthesis style checks (B1 B2 B3)"]
+        lines = ["PASS synthesis style checks (B1 B2)"]
         rc = 0
 
     out = "\n".join(lines)

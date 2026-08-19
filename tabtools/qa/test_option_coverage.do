@@ -27,7 +27,7 @@ capture mkdir "`out'"
 * markdown()/csv() (non-append) deliberately refuse to overwrite an existing
 * file (clobber-guard; mdappend is the documented way to add). Erase prior-run
 * targets up front so the suite is idempotent -- mirrors demo_tabtools.do.
-foreach f in diagtab effecttab regtab table1 survtab puttab desctab simtab ///
+foreach f in effecttab regtab table1 survtab puttab desctab ///
              comptab hrcomptab stratetab stacktab {
     capture erase "`out'/`f'.md"
 }
@@ -99,30 +99,6 @@ if `_oc_ok' local ++pass_count
 else {
     local ++fail_count
     local failed "`failed' crosstab"
-}
-
-* =====================================================================
-**# diagtab: excel, footnote, markdown, mdappend, theme, zebracolor
-* =====================================================================
-local ++test_count
-capture noisily {
-    clear
-    set obs 200
-    set seed 71
-    gen byte gold = (_n <= 100)
-    gen byte test = runiform() < cond(gold, 0.8, 0.1)
-    diagtab test gold, excel("`out'/diagtab.xlsx") sheet("S") footnote("note") ///
-        theme(apa) zebracolor("240 245 250")
-    confirm file "`out'/diagtab.xlsx"
-    diagtab test gold, markdown("`out'/diagtab.md")
-    confirm file "`out'/diagtab.md"
-    diagtab test gold, markdown("`out'/diagtab.md") mdappend
-}
-_oc_record "diagtab" `=_rc'
-if `_oc_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' diagtab"
 }
 
 * =====================================================================
@@ -280,43 +256,6 @@ else {
 }
 
 * =====================================================================
-**# simtab: alpha, excel, headercolor, level, mdappend, minreps, open,
-**#         pctdigits, warnreps, zebra, zebracolor
-* =====================================================================
-local ++test_count
-capture noisily {
-    clear
-    set obs 60
-    set seed 41
-    gen long sim = mod(_n-1, 20) + 1
-    gen byte estid = mod(floor((_n-1)/20), 3) + 1
-    gen double truev = 0.5
-    gen double est = truev + rnormal(0, 0.05)
-    gen double se = 0.05 + runiform()*0.005
-    gen byte covered = 1
-    gen double pval = 2*(1 - normal(abs(est/se)))
-    gen byte rej = pval < 0.05
-    simtab estid, estimate(est) se(se) true(truev) coverage(covered) reject(rej) ///
-        excel("`out'/simtab.xlsx") sheet("S") alpha(0.05) level(95) theme(apa) ///
-        minreps(2) warnreps(2) pctdigits(1) headercolor("200 220 240") zebra zebracolor("240 245 250") ///
-        plotframe(oc_simpf, replace)
-    confirm file "`out'/simtab.xlsx"
-    simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
-        markdown("`out'/simtab.md") plotframe(oc_simpf2, replace)
-    confirm file "`out'/simtab.md"
-    simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
-        markdown("`out'/simtab.md") mdappend plotframe(oc_simpf3, replace)
-    capture simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
-        display open
-    assert _rc == 198
-}
-_oc_record "simtab" `=_rc'
-if `_oc_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' simtab"
-}
-
 * =====================================================================
 **# comptab: boldp, compact, csv, highlight, labelwidth, mdappend, relabel,
 **#          separator, theme, zebra, zebracolor   (needs regtab source frames)

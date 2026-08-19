@@ -1,0 +1,126 @@
+# diagtab — Diagnostic accuracy and cutoff analysis
+
+**Version 2.0.0** | 2026-08-19
+
+`diagtab` computes diagnostic accuracy measures and confidence intervals from binary classifications or continuous scores. It produces publication-ready console, Excel, CSV, Markdown, and frame output for clinical diagnostic and screening studies.
+
+## Quick Start
+
+```stata
+webuse lbw, clear
+logit low age lwt smoke
+predict double phat
+diagtab phat low, cutoff(0.30) auc
+```
+
+## Requirements
+
+- Stata 17 or later
+
+## Installation
+
+```stata
+capture ado uninstall diagtab
+net install diagtab, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/diagtab") replace
+```
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `diagtab` | Diagnostic accuracy, confidence intervals, ROC AUC, and cutoff analysis |
+
+## How It Works
+
+With a binary test variable, `diagtab` builds the 2 × 2 classification table directly. For a continuous score, use `cutoff()` for one threshold, `cutoffs()` for a threshold table, `auc` for ROC area, or `optimal` to select the cutoff that maximizes Youden's J.
+
+The command reports sensitivity, specificity, PPV, NPV, accuracy, likelihood ratios, diagnostic odds ratio, and Youden's index. Wilson score intervals are the default; `exact` selects Clopper–Pearson intervals for directly estimated binomial proportions. `prevalence()` recalculates predictive values for a fixed target prevalence and uses delta-method intervals.
+
+## Worked Examples
+
+### 1. Binary classification
+
+```stata
+webuse lbw, clear
+logit low age lwt smoke
+predict double phat
+generate byte predicted = phat >= 0.30
+diagtab predicted low
+```
+
+### 2. Continuous score with AUC
+
+```stata
+webuse lbw, clear
+logit low age lwt smoke
+predict double phat
+diagtab phat low, cutoff(0.30) auc level(95)
+```
+
+### 3. Compare thresholds and export
+
+```stata
+webuse lbw, clear
+logit low age lwt smoke
+predict double phat
+diagtab phat low, cutoffs(0.20 0.30 0.40 0.50) ///
+    xlsx("diagnostic_cutoffs.xlsx") sheet("Cutoffs") ///
+    title("Low birth weight prediction")
+```
+
+### 4. Target-population predictive values
+
+```stata
+webuse lbw, clear
+logit low age lwt smoke
+predict double phat
+generate byte predicted = phat >= 0.30
+diagtab predicted low, prevalence(0.07) exact
+```
+
+## Demo
+
+Run `demo/demo_diagtab.do` from a repository checkout to regenerate `demo/demo_diagtab.xlsx` with single-cutoff, prevalence-adjusted, and multi-cutoff sheets.
+
+## Key Options
+
+- `cutoff(#)` evaluates one threshold; values at or above the threshold are test-positive.
+- `cutoffs(numlist)` returns a multi-threshold table in `r(cutoff_table)`.
+- `auc` reports ROC area and its confidence interval.
+- `optimal` chooses the cutoff maximizing Youden's J.
+- `exact` and `wilson` select binomial interval methods.
+- `prevalence(#)` adjusts PPV and NPV to a fixed external prevalence.
+- `xlsx()`, `csv()`, `markdown()`, and `frame()` select output sinks.
+
+## Stored Results
+
+Single-cutoff mode returns the four cell counts; sensitivity, specificity, predictive values, accuracy, likelihood ratios, diagnostic odds ratio, Youden's index, and their applicable confidence bounds. AUC and optimal-cutoff results are returned when requested. Multi-cutoff mode returns `r(cutoff_table)` and `r(cutoffs)`. See `help diagtab` for the complete contract.
+
+## Assumptions and Limits
+
+- The gold-standard variable must be coded 0/1 and contain both classes for AUC analysis.
+- Without a cutoff option, the test variable must be coded 0/1.
+- `prevalence()` is treated as fixed without uncertainty.
+- Undefined measures caused by zero cells are displayed as `--` and retained as missing numeric results.
+
+## References
+
+- Clopper CJ, Pearson ES. The use of confidence or fiducial limits illustrated in the case of the binomial. *Biometrika*. 1934;26:404–413.
+- Wilson EB. Probable inference, the law of succession, and statistical inference. *Journal of the American Statistical Association*. 1927;22:209–212.
+- Youden WJ. Index for rating diagnostic tests. *Cancer*. 1950;3:32–35.
+
+## QA
+
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+
+## Version History
+
+- **2.0.0** (2026-08-19): Extracted `diagtab` into a standalone package while preserving its command and stored-result contracts.
+
+## Author
+
+Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT
