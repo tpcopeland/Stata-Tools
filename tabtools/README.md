@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.0.0** | 2026-08-19
+**Version 2.1.0** | 2026-08-19
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, formatting themes, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -48,8 +48,8 @@ The suite contains 14 public commands. The version column is the minimum Stata r
 | `effecttab` | 17+ | Render active `margins` or `teffects` results, or a supplied effect matrix |
 | `survtab` | 17+ | Kaplan–Meier survival, event, risk-set, median, RMST, and group-difference tables |
 | `stratetab` | 17+ | Convert saved `strate, output()` rate files into rate and rate-ratio tables |
-| `hrcomptab` | 17+ | Combine a rate frame with model frames for a multi-outcome rate comparison |
-| `comptab` | 17+ | Combine compatible `regtab` or `effecttab` frames into a composite table |
+| `hrcomptab` | 17+ | Compatibility wrapper for `comptab` rate-scaffold mode |
+| `comptab` | 17+ | Combine model frames vertically or interlock them with a rate scaffold |
 | `puttab` | 17+ | Put variables, a frame, or a matrix into a formatted workbook or Markdown table |
 | `stacktab` | 17+ | Stack or place blocks from an existing workbook into a new worksheet |
 | `tabtools` | 17+ | Inspect and set shared fonts, digits, borders, themes, and persistent profiles |
@@ -61,7 +61,7 @@ Most table commands follow the same three-stage pattern: calculate or receive re
 
 `xlsx()` is the main Excel option and `excel()` is retained as a synonym on commands that support both names. `sheet()` selects the worksheet. `open` opens an Excel target after writing it and therefore requires an `xlsx()` or `using` target. `csv()` exports the visible table data for commands that offer it; `markdown()` writes GitHub-Flavored Markdown, and `mdappend` appends to an existing Markdown file rather than replacing it.
 
-`frame(name[, replace])` stores the rendered table in a Stata frame for later composition or inspection. `eplotframe(name[, replace])` stores graph-ready estimates, confidence limits, p-values, labels, and model identifiers for the model/effect commands that support it. `comptab` consumes compatible model/effect frames, and `hrcomptab` consumes a rate frame plus model frames.
+`frame(name[, replace])` stores the rendered table in a Stata frame for later composition or inspection. `eplotframe(name[, replace])` stores graph-ready estimates, confidence limits, p-values, labels, and model identifiers for the model/effect commands that support it. `comptab` consumes compatible model/effect frames and, with `rateframe()`, a rate frame plus model frames; `hrcomptab` is the compatibility wrapper for that mode.
 
 Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `headercolor()`, `zebra`, `zebracolor()`, `title()`, `footnote()`, `boldp()`, and `highlight()` where supported. Named themes are `lancet`, `nejm`, `bmj`, `apa`, `jama`, `plos`, `nature`, `cell`, and `annals`; `custom` uses the supplied formatting settings. A fresh session resolves the shared baseline as Arial 10-point text with thin borders, while command-specific precision and display defaults are listed below.
 
@@ -78,7 +78,7 @@ Shared formatting options include `theme()`, `borderstyle()`, `headershade`, `he
 | Survival probabilities or RMST | `survtab` | `times()`, `by()`, `median`, `riskset`, `rmst()`, or `difference` |
 | Incidence rates from `strate` | `stratetab` | `outlabels()`, `rateratio`, or a later `hrcomptab` |
 | Several model/effect results | `comptab` | compatible source frames and `rows()` |
-| Rates plus model estimates | `hrcomptab` | `modelframes()`, `rows()`, and optional `forest` |
+| Rates plus model estimates | `comptab` | `rateframe()`, `rows()`, and optional `forest` |
 | A dataset, frame, or matrix as a table | `puttab` | `using`, `frame()`, `matrix()`, `varlabels`, or `noheader` |
 | Existing Excel blocks | `stacktab` | `blocks()`, `layout(hstack)`, `append`, or `sheetreplace` | compute mode, `from(summary)`, or optional `from(simsum)`/`from(siman)` |
 
@@ -290,15 +290,17 @@ stratetab, using(string) outcomes(integer) [xlsx(string) excel(string) sheet(str
 hrcomptab rateframe, modelframes(framelist) rows(string) [rownames(string) outcomemap(string) xlsx(string) excel(string) sheet(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) forest eplotoptions(string) open title(string) footnote(string) effect(string) reflabel(string) theme(string) borderstyle(string) zebra headershade headercolor(string) zebracolor(string)]
 ```
 
-`hrcomptab` is Stata 17+ and requires a rate frame from `stratetab, frame()` plus model frames from `regtab` or `effecttab`. Supply exactly one of `rows()` or `rownames()` with compatible row identifiers. The sheet defaults to `Composite`, `effect()` to `aHR`, `reflabel()` to `Reference`, and the title to the source rate-frame title; `forest` and `eplotframe()` require `eplot` for plotting.
+`hrcomptab` is a compatibility wrapper for `comptab, rateframe()`. It preserves the existing syntax, defaults, outputs, and stored results.
 
 ### `comptab`
 
 ```stata
 comptab framelist, rows(string) [rownames(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) compact separator(numlist) section(string) relabel(string) theme(string) borderstyle(string) open zebra headershade highlight(#) boldp(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) forest eplotoptions(string) labelwidth(#)]
+
+comptab modelframes, rateframe(name) rows(string) [rownames(string) effect(string) reflabel(string) outcomemap(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) theme(string) borderstyle(string) open zebra headershade headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) forest eplotoptions(string)]
 ```
 
-`comptab` is Stata 17+ and combines compatible `regtab`/`effecttab` source frames. Supply exactly one of `rows()` or `rownames()`; the sheet defaults to `Composite` and `labelwidth()` to `45`. `separator()` controls section separation, `section()` and `relabel()` control displayed organization, and `forest`/`eplotframe()` require `eplot`.
+`comptab` is Stata 17+ and combines compatible `regtab`/`effecttab` source frames. Supply exactly one of `rows()` or `rownames()`; the sheet defaults to `Composite` and `labelwidth()` to `45`. Without `rateframe()`, `separator()`, `section()`, `relabel()`, and `compact` control vertical composition. With `rateframe()`, the model frames are interlocked with a `stratetab` scaffold and `effect()`, `reflabel()`, and `outcomemap()` become available. The two option families are mutually exclusive. `hrcomptab` forwards to this rate mode.
 
 ### `puttab`
 
@@ -461,6 +463,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.1.0** (2026-08-19): Unified composite-table dispatch under `comptab`. The new `rateframe()` mode interlocks `stratetab` rates with selected model rows, while `hrcomptab` remains as a backward-compatible forwarding command with the same syntax and stored results.
 - **2.0.0** (2026-08-19): Raised the package baseline to Stata 17 and consolidated the descriptive subsystem. `table1_tc` is now a stable forwarding frontend to the `desctab` engine; the former standalone collect-formatter interface of `desctab` was removed. The finalized Table 1 passes through a private Stata collection and the shared collect renderer, and crude/weighted aggregation staging now uses frames instead of intermediate `.dta` files. The `table1_tc` syntax, output sinks, and stored-result contract are preserved.
 - **1.16.3** (2026-08-19): Fixed `table1_tc, missingsummary` placing a continuous variable's missing-data row before the variable it describes. The row now sorts after its parent variable, so missing counts remain attached to the correct variable in console, frame, and exported table output.
 - **1.16.2** (2026-08-19): Fixed style compaction on Windows, where it had been failing silently since 1.16.0 and leaving every workbook on the record ceiling the feature exists to remove. Mata's `dir()` prefixes each entry it returns with the platform directory separator, so on Windows the helper's file list came back as `.\xl\styles.xml` while the manifest check built its comparison strings with `/`. Neither the guard that excludes the verification subtree nor the one that excludes the rebuilt archive could match, both were counted as parts of the original workbook, and a correct rebuild was rejected as incomplete with r(459). Compaction is best effort, so the rejection surfaced only as a note and the workbook was left uncompacted; the pools then grew per styled cell exactly as they did before 1.16.0 and a long export died at the font ceiling with `Calibri: invalid font name` r(16147) — the original symptom, on Windows only, with the fix installed. Paths are now normalized to the forward slash as they leave `dir()`, which also keeps the file list handed to `zipfile` free of backslash entry names that Excel and `xl()` both refuse to read back. Unix behaviour is unchanged. QA pins the platform contract directly.
