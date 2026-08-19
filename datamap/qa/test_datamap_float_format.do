@@ -3,8 +3,8 @@ set varabbrev off
 set more off
 version 16.0
 
-* test_datamap_float_format.do - v1.4.1 regression: no IEEE float-precision noise
-* in datamap/datacheck text output. Guards the round()->write and raw-value-write
+* test_datamap_float_format.do - regressions for no IEEE float-precision noise
+* in datamap/datadict/datacheck text output. Guards the round()->write and raw-value-write
 * sites fixed in 1.4.1: continuous DISTRIBUTION stats, panel/survival/survey
 * detection ranges, the missing-data summary %, sample-observation rows, and the
 * datacheck inrange gate message. Pre-1.4.1 these emitted values like
@@ -194,13 +194,47 @@ else {
     local ++fail_count
 }
 
+**# T6: datadict categorical levels respect numeric display precision
+local ++test_count
+capture noisily {
+    clear
+    set obs 34
+    gen float visual_score = mod(_n - 1, 17) / 10
+    quietly datadict, output("`tmp_dir'/_ff_dictionary.md") mincell(0)
+    _ff_count_noise using "`tmp_dir'/_ff_dictionary.md"
+    assert r(n) == 0
+
+    tempname fh
+    local found_clean 0
+    file open `fh' using "`tmp_dir'/_ff_dictionary.md", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', ".1 (2; 5.9%)") > 0 & ///
+           strpos(`"`macval(line)'"', "1.6 (2; 5.9%)") > 0 {
+            local found_clean 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `found_clean' == 1
+}
+if _rc == 0 {
+    di as result "  T`test_count': PASS - datadict categorical levels free of float noise"
+    local ++pass_count
+}
+else {
+    di as error "  T`test_count': FAIL - noisy datadict categorical levels"
+    local ++fail_count
+}
+
 **# Summary
 di as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
-log close _all
 if `fail_count' > 0 {
     di as error "SOME TESTS FAILED"
     di "RESULT: test_datamap_float_format tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    log close _all
     exit 1
 }
 di as result "ALL TESTS PASSED"
 di "RESULT: test_datamap_float_format tests=`test_count' pass=`pass_count' fail=`fail_count'"
+log close _all
