@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.16.3  19aug2026}{...}
+{* *! version 2.0.0  19aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -68,9 +68,7 @@ individually redundant complementary marker; the retained set is irredundant
 but not guaranteed globally minimum.
 
 {pstd}
-Most commands require Stata 17. The suite controller {cmd:tabtools},
-{helpb tabtools_tips}, {helpb table1_tc}, {helpb stacktab}, and {helpb simtab}
-also support Stata 16.
+All commands require Stata 17 or newer.
 
 {pstd}
 See {helpb tabtools_tips:tabtools tips} for the quick-reference option
@@ -85,7 +83,7 @@ guide and end-to-end worked recipes.
 
 {synoptset 16}{...}
 {synopt:{helpb table1_tc}}Table 1 with automatic statistical tests and SMDs{p_end}
-{synopt:{helpb desctab}}Per-statistic formatted descriptive tables from {cmd:table} collects{p_end}
+{synopt:{helpb desctab}}Consolidated descriptive engine used by {cmd:table1_tc}{p_end}
 {synopt:{helpb crosstab}}Cross-tabulation with association measures{p_end}
 {synopt:{helpb corrtab}}Correlation matrix with significance stars{p_end}
 
@@ -499,6 +497,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.16.3{p_end}
+{pstd}{bf:Version} 2.0.0{p_end}
 
 {hline}

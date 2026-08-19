@@ -1,10 +1,10 @@
-*! _tabtools_smallcells_render Version 1.16.3  2026/08/19
+*! _tabtools_smallcells_render Version 2.0.0  2026/08/19
 *! Render safe disclosure-control strings and numeric extended missings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define _tabtools_smallcells_render, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 

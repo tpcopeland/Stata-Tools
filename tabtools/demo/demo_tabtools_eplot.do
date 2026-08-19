@@ -13,7 +13,7 @@
       3. Model-comparison forest plot (comptab forest) -> forest_comptab.png
 */
 
-version 16.0
+version 17.0
 
 * --- Session isolation ---------------------------------------------------
 * This demo installs three packages. Doing that in the user's real sysdirs

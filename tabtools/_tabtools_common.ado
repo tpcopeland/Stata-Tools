@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.16.3  2026/08/19
+*! _tabtools_common Version 2.0.0  2026/08/19
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -47,7 +47,7 @@ USAGE:
 
 capture program drop _tabtools_col_letter
 program _tabtools_col_letter, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -81,7 +81,7 @@ end
 
 capture program drop _tabtools_validate_path
 program _tabtools_validate_path, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -120,7 +120,7 @@ end
 
 capture program drop _tabtools_validate_color
 program _tabtools_validate_color, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -186,7 +186,7 @@ end
 
 capture program drop _tabtools_build_col_letters
 program _tabtools_build_col_letters, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -224,7 +224,7 @@ end
 
 capture program drop _tabtools_open_file
 program _tabtools_open_file, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -274,7 +274,7 @@ end
 
 capture program drop _tabtools_detect_vartype
 program _tabtools_detect_vartype, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
@@ -435,7 +435,7 @@ end
 
 capture program drop _tabtools_validate_sheet
 program _tabtools_validate_sheet, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -480,7 +480,7 @@ end
 
 capture program drop _tabtools_apply_theme
 program _tabtools_apply_theme, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -603,7 +603,7 @@ end
 
 capture program drop _tabtools_resolve_format
 program _tabtools_resolve_format, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -660,7 +660,7 @@ end
 
 capture program drop _tabtools_resolve_colors
 program _tabtools_resolve_colors, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -694,7 +694,7 @@ end
 
 capture program drop _tabtools_classify_stat
 program _tabtools_classify_stat, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -732,7 +732,7 @@ end
 
 capture program drop _tabtools_resolve_stat_format
 program _tabtools_resolve_stat_format, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -887,7 +887,7 @@ end
 
 capture program drop _tabtools_strip_outer_quotes
 program _tabtools_strip_outer_quotes, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -906,7 +906,7 @@ end
 
 capture program drop _tabtools_format_p
 program _tabtools_format_p, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -948,7 +948,7 @@ end
 
 capture program drop _tabtools_console_display
 program _tabtools_console_display, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1007,7 +1007,7 @@ end
 
 capture program drop _tabtools_helpers_ready
 program _tabtools_helpers_ready, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1038,7 +1038,7 @@ end
 
 capture program drop _tabtools_require_helpers
 program _tabtools_require_helpers, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1089,7 +1089,7 @@ end
 
 capture program drop _tabtools_frame_preflight
 program _tabtools_frame_preflight, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1138,7 +1138,7 @@ end
 
 capture program drop _tabtools_frame_put
 program _tabtools_frame_put, nclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -1186,7 +1186,7 @@ program _tabtools_frame_put, nclass
     if `_rc_outer' exit `_rc_outer'
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _tt_strip_outer_quotes()
 mata:
 mata set matastrict on

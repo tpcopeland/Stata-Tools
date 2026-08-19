@@ -1,4 +1,4 @@
-*! diagtab Version 1.16.3  2026/08/19
+*! diagtab Version 2.0.0  2026/08/19
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -992,7 +992,7 @@ capture noisily {
     if `_rc' exit `_rc'
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _diagtab_counts_at_cutoffs()
 
 mata:

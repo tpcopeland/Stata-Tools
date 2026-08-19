@@ -58,7 +58,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 |------|--------|-------|
 | `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, semantic edge contracts (all-missing row, one observation/group, long labels), dots progress option, pdp()/highpdp() 1-10 bound (1.9.11), v1.0.13–v1.5 regressions |
 | `test_smallcells.do` | table1_tc | Small-cell threshold parsing, primary/complementary/derived masking, complementary-marker irredundancy, continuous and missingness dependencies, weighted/frequency-weight semantics, percent/row-percent/total/clear compositions, caller-state stability, sink parity, failure atomicity, and raw-leak attacks |
-| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing options, returns, recognized smallcells count/n_pct layouts, complementary-marker irredundancy, fail-closed mapping, and all-sink parity |
+| `test_desctab.do` | desctab | Consolidated descriptive engine: mixed variables, forwarding parity, private-collection preservation, output sinks, small-cell disclosure control, crude/weighted frame staging, and error cleanup |
 | `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions, plus strict smallcells counts/margins/derived returns, complementary-marker irredundancy, and all-sink parity |
 | `test_corrtab.do` | corrtab | Pearson/Spearman, stars, shapes, pairwise-N p-value regression |
 | `test_regtab.do` | regtab | Model families (OLS/logit/Cox/GEE/mixed/multilevel), stats() incl. AIC/BIC recompute and n_sub aliases, compact mode, keep/drop, refcat, frames, console display, nopvalue |
@@ -136,7 +136,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | Command | Functional | Validation | Also exercised in |
 |---------|-----------|------------|-------------------|
 | table1_tc | test_table1_tc, test_smallcells, test_tabtools_v1163 | validation_table1_tc, validation_smallcells | helpers (fast-collect), integration, adversarial, deep core/output, release, crossval |
-| desctab | test_desctab | validation_smallcells | helpers (collect-JSON render), integration |
+| desctab | test_desctab | validation_table1_tc, validation_smallcells | helpers (collect render), integration |
 | crosstab | test_crosstab | validation_crosstab, validation_smallcells | integration, adversarial, deep output, crossval |
 | corrtab | test_corrtab | validation_corrtab | integration, adversarial |
 | regtab | test_regtab | validation_regtab | helpers, integration, adversarial, deep core/output, release, crossval |

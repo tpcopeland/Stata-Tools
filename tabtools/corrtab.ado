@@ -1,4 +1,4 @@
-*! corrtab Version 1.16.3  2026/08/19
+*! corrtab Version 2.0.0  2026/08/19
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -514,7 +514,7 @@ program define corrtab, rclass
     if `_rc' exit `_rc'
 end
 
-version 16.0
+version 17.0
 capture mata: mata drop _corrtab_pairwise_n()
 
 mata:

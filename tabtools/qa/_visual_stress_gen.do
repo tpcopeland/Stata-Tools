@@ -110,9 +110,7 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    collect clear
-    collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)
-    desctab, title("Descriptive statistics") digits(1) ///
+    desctab price mpg rep78, by(foreign) title("Descriptive statistics") digits(1) ///
         xlsx("`out'/desctab.xlsx") sheet("Descriptive") ///
         csv("`out'/desctab.csv") markdown("`out'/desctab.md") ///
         headershade zebra

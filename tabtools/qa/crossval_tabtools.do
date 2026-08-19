@@ -57,7 +57,7 @@ else {
 }
 
 set varabbrev off
-version 16.0
+version 17.0
 
 cd "`qa_dir'"
 capture ado uninstall tabtools

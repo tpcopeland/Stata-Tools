@@ -40,7 +40,7 @@ tabtools set clear
 
 capture program drop _tt_file_has
 program define _tt_file_has, rclass
-    version 16.0
+    version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _fh_open = 0

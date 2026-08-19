@@ -253,22 +253,20 @@ else {
 capture erase "`xlsx'"
 
 local ++test_count
-local scenario "desctab_wide_collect_xlsx"
+local scenario "desctab_wide_xlsx"
 local budget = `default_budget'
 local obs = 30000
 local xlsx "`work_dir'/`scenario'.xlsx"
-local dstats ""
+local dvars ""
 forvalues j = 1/18 {
-    local dstats "`dstats' statistic(count x`j') statistic(mean x`j') statistic(sd x`j')"
+    local dvars "`dvars' x`j'"
 }
 timer clear 4
 capture noisily {
     _bench_dataset, obs(`obs') groups(4)
-    collect clear
-    collect: table group, `dstats'
     capture erase "`xlsx'"
     timer on 4
-    desctab, xlsx("`xlsx'") sheet("Desc") ///
+    desctab `dvars', by(group) xlsx("`xlsx'") sheet("Desc") ///
         title("Benchmark: wide grouped descriptive table")
     timer off 4
     confirm file "`xlsx'"

@@ -5,7 +5,7 @@
 clear all
 set processors 1
 set varabbrev off
-version 16.0
+version 17.0
 
 capture log close _smallcells
 log using "test_smallcells.log", replace text name(_smallcells)
@@ -43,7 +43,7 @@ end
 
 capture program drop _sc_build_2x2
 program define _sc_build_2x2
-    version 16.0
+    version 17.0
     clear
     quietly set obs 4
     generate byte group = floor((_n - 1) / 2)

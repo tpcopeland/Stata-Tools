@@ -4,7 +4,7 @@
 clear all
 set more off
 set varabbrev off
-version 16.0
+version 17.0
 
 capture log close _pkgrel
 log using "test_package_release.log", replace text name(_pkgrel)
@@ -165,10 +165,10 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=79 class_missing=0 wrapper_missing=0"
+        "PASS programs=73 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
-    display as result "  PASS: all 77 shipped programs declare a class and restore varabbrev"
+    display as result "  PASS: all 73 shipped programs declare a class and restore varabbrev"
     local ++pass_count
 }
 else {
@@ -270,21 +270,14 @@ else {
 }
 
 **## Advertised Stata version matrix matches the version statements in the code
-* I14 (partial). The package advertises Stata 16 for five commands and 17+ for
-* the rest. Executing lanes on Stata 16 and 19 needs those installations and is
-* NOT done here -- see the ledger. What IS checkable on any host is that the
-* advertised matrix agrees with each command's own `version' statement, and
-* that no version-16 command reaches a helper declaring a higher version (which
-* would break on 16 regardless of what the .ado header claims).
+* The package now has one universal Stata 17 baseline.  This gate checks that
+* every public command agrees with that advertised requirement.
 capture noisily {
-    local v16_commands "tabtools tabtools_tips table1_tc stacktab simtab"
     local all_commands "tabtools tabtools_tips table1_tc desctab regtab effecttab comptab hrcomptab survtab crosstab corrtab diagtab stratetab puttab stacktab simtab"
 
     local matrix_bad = 0
     foreach c of local all_commands {
         local want = 17
-        local is16 : list posof "`c'" in v16_commands
-        if `is16' > 0 local want = 16
 
         tempname _vfh
         tempfile _vout
@@ -617,7 +610,7 @@ capture noisily {
         _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
         _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
         _tabtools_xlsx_compact_styles.ado ///
-        _tabtools_table1_fast_collect.ado _tabtools_visible_vars.ado ///
+        _desctab_collect.ado _tabtools_visible_vars.ado ///
         _tabtools_csv_write.ado {
         findfile `helper'
     }
@@ -1005,7 +998,7 @@ else {
 **# Migrated: documentation contracts
 
 clear all
-version 16.0
+version 17.0
 
 capture log close _doc_contracts
 capture erase "test_documentation_contracts.log"
@@ -1163,7 +1156,7 @@ local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
     _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
     _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
     _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
-    _tabtools_xlsx_compact_styles.ado _tabtools_table1_fast_collect.ado
+    _tabtools_xlsx_compact_styles.ado _desctab_collect.ado
 
 **# Release Manifest Contracts
 **## .pkg explicitly ships every public command ado/help file and backend helper
@@ -1346,7 +1339,7 @@ else {
 * defects appear only after Viewer rendering.
 capture program drop _qa_sthlp_render
 program define _qa_sthlp_render, rclass
-    version 16.0
+    version 17.0
     syntax anything(name=files id="help files")
 
     local files = subinstr(`"`files'"', char(34), "", .)
@@ -1459,7 +1452,7 @@ else {
 clear all
 set more off
 set varabbrev off
-version 16.0
+version 17.0
 
 
 local qa_dir "`c(pwd)'"
