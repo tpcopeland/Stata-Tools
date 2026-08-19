@@ -41,12 +41,13 @@ local skip_file "`qa_dir'/_skip.txt"
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
 local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
-    test_finegray_v120b.do test_finegray_v121.do ///
+    test_finegray_v120b.do test_finegray_v121.do test_finegray_v130.do ///
     test_finegray_release120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///
-    test_finegray_fvgrammar.do test_finegray_fg03_diagnostic.do ///
+    test_finegray_fvgrammar.do test_finegray_at_profile.do ///
+    test_finegray_fg03_diagnostic.do ///
     test_finegray_fg06_vce.do test_finegray_fg07_options.do ///
     test_finegray_nuisance.do ///
     test_finegray_determinism.do test_finegray_reporting.do ///

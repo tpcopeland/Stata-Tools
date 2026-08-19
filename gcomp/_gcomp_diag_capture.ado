@@ -1,10 +1,10 @@
-*! _gcomp_diag_capture Version 1.4.7  2026/08/11
+*! _gcomp_diag_capture Version 1.6.0  2026/08/19
 *! Diagnostic capture helper for gcomp model fits
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 capture program drop _gcomp_diag_capture
-program define _gcomp_diag_capture
+program define _gcomp_diag_capture, nclass
 	version 16.0
 	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
@@ -15,7 +15,7 @@ program define _gcomp_diag_capture
 	local _ll = .
 	local _r2 = .
 	local _rmse = .
-	if inlist("`command'", "logit", "mlogit", "ologit") {
+	if inlist("`command'", "logit", "mlogit", "ologit", "poisson", "nbreg") {
 		local _converged = e(converged)
 		local _ll = e(ll)
 		local _r2 = e(r2_p)
@@ -76,7 +76,7 @@ program define _gcomp_diag_capture
 		if "`command'" == "regress" & `_r2' < 0.01 {
 			noi di as text "   >>> Note: very low R" _char(178) " for `varname'`_vlabel'. Model explains <1% of variance."
 		}
-		if inlist("`command'", "logit", "mlogit", "ologit") & `_r2' != . & `_r2' < 0.001 {
+		if inlist("`command'", "logit", "mlogit", "ologit", "poisson", "nbreg") & `_r2' != . & `_r2' < 0.001 {
 			noi di as text "   >>> Note: very low pseudo-R" _char(178) " for `varname'`_vlabel'. Model may have poor discrimination."
 		}
 	}

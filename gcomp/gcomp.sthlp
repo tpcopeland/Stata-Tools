@@ -1,8 +1,10 @@
 {smcl}
-{* *! version 1.4.7  11aug2026}{...}
+{* *! version 1.6.0  19aug2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
+{vieweralsosee "[R] poisson" "help poisson"}{...}
+{vieweralsosee "[R] nbreg" "help nbreg"}{...}
 {viewerjumpto "Syntax" "gcomp##syntax"}{...}
 {viewerjumpto "Description" "gcomp##description"}{...}
 {viewerjumpto "Concepts" "gcomp##concepts"}{...}
@@ -99,6 +101,9 @@ or {opt baseline(string)}.
 {synopt:{opt baseline(string)}}baseline exposure level(s){p_end}
 {synopt:{opt alternative(string)}}alternative exposure level(s){p_end}
 
+{syntab:Structural rules (both modes)}
+{synopt:{opt struct:ural(string)}}deterministic rules for modelled variables{p_end}
+
 {syntab:Time-varying options}
 {synopt:{opt eofu}}outcome measured only at end of follow-up{p_end}
 {synopt:{opt pooled}}pooled logistic regression across visits{p_end}
@@ -176,6 +181,14 @@ indirect effect (NIE), and the proportion mediated (PM). A controlled direct
 effect (CDE) is available when you specify {opt control()}.
 
 {pstd}
+For a modelled variable with a known deterministic region, {opt structural()}
+fits its component model only on the complement and forces the declared value
+inside that region during simulation. Conditions are evaluated in generation
+order against the already simulated values in each counterfactual world. Thus
+an outcome rule that depends on a mediator sees the simulated mediator, not its
+observed value.
+
+{pstd}
 In both modes, inference is obtained by bootstrapping: the entire simulation
 is repeated {opt samples()} times on resampled data, and confidence intervals are
 constructed from the bootstrap distribution. Four CI types are
@@ -184,8 +197,9 @@ accelerated (BCa).
 
 {pstd}
 Supported model types for the parametric models are {helpb logit} (binary),
-{helpb regress} (continuous), {helpb mlogit} (multinomial), and
-{helpb ologit} (ordinal). Each variable can use a different model type.
+{helpb regress} (continuous), {helpb mlogit} (multinomial),
+{helpb ologit} (ordinal), {helpb poisson} (count), and {helpb nbreg}
+(NB2 count). Each variable can use a different model type.
 
 
 {marker concepts}{...}
@@ -247,7 +261,19 @@ the colon-separated syntax {it:var1}{cmd:: }{it:cmd1}{cmd:, }{it:var2}{cmd:: }{i
 {cmd:logit} {hline 2} logistic regression (binary outcomes){break}
 {cmd:regress} {hline 2} linear regression (continuous outcomes){break}
 {cmd:mlogit} {hline 2} multinomial logit (unordered categorical outcomes){break}
-{cmd:ologit} {hline 2} ordered logit (ordered categorical outcomes)
+{cmd:ologit} {hline 2} ordered logit (ordered categorical outcomes){break}
+{cmd:poisson} {hline 2} Poisson regression (nonnegative integer counts){break}
+{cmd:nbreg} {hline 2} NB2 negative binomial regression (nonnegative integer counts)
+
+{pstd}
+The {cmd:nbreg} family uses Stata's default {cmd:dispersion(mean)} NB2 model. The
+NB2 draw is the fitted gamma-Poisson mixture. {cmd:dispersion(constant)}
+is NB1 and is rejected because it requires a different draw law; estimator
+options cannot be embedded in {opt commands()}. When fitted NB2 alpha is at or
+below {cmd:1e-8}, simulation uses the Poisson boundary rather than an unstable
+gamma shape. With {opt minsim}, a count outcome uses its fitted conditional
+mean; count mediators and covariates remain stochastic so their distribution
+can propagate through downstream nonlinear models.
 
 {phang}
 {opt equations(string)} specifies the right-hand-side predictors for each
@@ -425,6 +451,28 @@ stochastically.
 {phang}
 {opt derrules(string)} specifies the derivation rules for {opt derived()}.
 
+{phang}
+{opt structural(string)} specifies deterministic rules for modelled variables,
+using keyed comma-separated clauses such as
+{cmd:structural(y: m == 0 => 0, d: eligible == 0 => 0)}. For each clause,
+{cmd:gcomp} excludes rows satisfying the condition when fitting the target's
+component model, then assigns the forced value before drawing the remaining
+simulated rows. The condition may reference only variables in the command
+{varlist} that are available before the target in generation order. A categorical
+forced value must be an observed level; a continuous forced value must lie in
+the observed range. A condition that is never true produces a warning and acts
+as a no-op for that sample.
+
+{pstd}
+{opt death()} remains a separate competing-event mechanism; it and
+{opt structural()} may not target the same variable. A controlled mediator
+setting that places every potential outcome inside an outcome's deterministic
+set is rejected because the CDE is undefined. {cmd:minsim}, bootstrap refits,
+and {cmd:savemodels}/{cmd:showmodels} use the same rule and complement
+sample. The option is intentionally not named {cmd:hurdle()} because rules need not be
+zero-valued, and it is not encoded as a special command in {opt commands()}
+because a structural constraint is separate from the stochastic model family.
+
 {dlgtab:Mediation options}
 
 {phang}
@@ -472,7 +520,9 @@ should appear here.
 
 {phang}
 {opt imp_cmd(string)} specifies the model commands for imputation, using the
-same {it:var}{cmd::} {it:cmd} syntax as {opt commands()}.
+same {it:var}{cmd::} {it:cmd} syntax and supported model families as
+{opt commands()}. Count targets specified with {cmd:poisson} or {cmd:nbreg}
+must contain only nonnegative integers among their observed donor values.
 
 {phang}
 {opt imp_cycles(#)} specifies the number of chained-equation imputation
@@ -524,6 +574,16 @@ and RMSE ({cmd:regress}). Warnings flag non-convergence, small sample sizes
 The diagnostics matrix is always stored in {cmd:e(model_diagnostics)} regardless
 of whether this option is specified; the option controls only the console
 display.
+
+{pstd}
+Independently of {opt diagnostics}, {cmd:gcomp} warns when an initial component
+model uses fewer observations than were eligible for that fit. Eligibility uses the
+model's visit and monotreatment qualifier and requires a nonmissing target; rows
+excluded by declared imputation eligibility are outside the comparison. The warning
+reports the fitted and eligible counts and points to possible causes,
+including perfect prediction, collinearity, and missing predictor values. The
+actual fitted count remains available in the {cmd:N} column of
+{cmd:e(model_diagnostics)}.
 
 {phang}
 {opt all} reports all four confidence interval types: normal, percentile,
@@ -715,7 +775,54 @@ The CDE appears as a fifth column in the output and in {cmd:e(b)}.
 
     {hline}
 {pstd}
-{bf:Example 3: Mediation with a categorical exposure (OCE)}
+{bf:Example 3: A deterministic outcome region}
+
+{pstd}
+Here {cmd:y} is structurally zero whenever {cmd:m==0}. The outcome model is
+therefore fitted only where {cmd:m!=0}; the same rule is imposed after each
+simulated mediator draw. {opt showmodels} displays the complement-sample refit.
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 24680}{p_end}
+{phang2}{cmd:. set obs 1000}{p_end}
+{phang2}{cmd:. gen double c = rnormal()}{p_end}
+{phang2}{cmd:. gen byte x = rbinomial(1, invlogit(0.5 * c))}{p_end}
+{phang2}{cmd:. gen byte m = rbinomial(1, invlogit(-0.4 + 0.8 * x + 0.3 * c))}{p_end}
+{phang2}{cmd:. gen byte y = 0}{p_end}
+{phang2}{cmd:. replace y = rbinomial(1, invlogit(-1 + 0.5 * x + 0.2 * c)) if m == 1}{p_end}
+{phang2}{cmd:. gcomp y m x c, outcome(y) mediation obe ///}{p_end}
+{phang2}{cmd:      exposure(x) mediator(m) ///}{p_end}
+{phang2}{cmd:      commands(m: logit, y: logit) ///}{p_end}
+{phang2}{cmd:      equations(m: x c, y: m x c) ///}{p_end}
+{phang2}{cmd:      structural(y: m == 0 => 0) base_confs(c) ///}{p_end}
+{phang2}{cmd:      sim(300) samples(5) seed(24680) showmodels}{p_end}
+
+    {hline}
+{pstd}
+{bf:Example 4: Mediation with an NB2 count mediator}
+
+{pstd}
+The mediator below is an overdispersed count. {cmd:nbreg} draws nonnegative
+integers from the fitted NB2 gamma-Poisson mixture instead of applying a
+Gaussian residual to the mediator.
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 13579}{p_end}
+{phang2}{cmd:. set obs 1000}{p_end}
+{phang2}{cmd:. gen double c = rnormal()}{p_end}
+{phang2}{cmd:. gen byte x = rbinomial(1, invlogit(0.2 * c))}{p_end}
+{phang2}{cmd:. gen double mu = exp(-0.2 + 0.6 * x + 0.2 * c)}{p_end}
+{phang2}{cmd:. gen long m = rpoisson(rgamma(2, 0.5 * mu))}{p_end}
+{phang2}{cmd:. gen double y = 0.3 + 0.4 * x + 0.5 * m + 0.2 * c + rnormal()}{p_end}
+{phang2}{cmd:. gcomp y m x c, outcome(y) mediation obe ///}{p_end}
+{phang2}{cmd:      exposure(x) mediator(m) ///}{p_end}
+{phang2}{cmd:      commands(m: nbreg, y: regress) ///}{p_end}
+{phang2}{cmd:      equations(m: x c, y: m x c) ///}{p_end}
+{phang2}{cmd:      base_confs(c) sim(500) samples(5) seed(13579)}{p_end}
+
+    {hline}
+{pstd}
+{bf:Example 5: Mediation with a categorical exposure (OCE)}
 
 {pstd}
 When the exposure has more than two levels, use {opt oce}. Here {cmd:x} takes
@@ -740,7 +847,7 @@ contrasts. Convenience scalars are stored as {cmd:e(tce_1)}, {cmd:e(nde_1)}, etc
 
     {hline}
 {pstd}
-{bf:Example 4: Time-varying confounding with end-of-follow-up outcome}
+{bf:Example 6: Time-varying confounding with end-of-follow-up outcome}
 
 {pstd}
 Panel data with 120 subjects observed over 3 time points. {cmd:A} is the
@@ -786,7 +893,7 @@ This estimates potential outcomes under "always treat" ({cmd:A=1}) and
 
     {hline}
 {pstd}
-{bf:Example 5: Model-fit diagnostics}
+{bf:Example 7: Model-fit diagnostics}
 
 {pstd}
 Add {opt diagnostics} to display model-fit statistics during the initial run:
@@ -805,7 +912,7 @@ RMSE for each model. The matrix is also stored in {cmd:e(model_diagnostics)}:
 
     {hline}
 {pstd}
-{bf:Example 6: Export mediation results to Excel}
+{bf:Example 8: Export mediation results to Excel}
 
 {pstd}
 After running a supported mediation model (Examples 1-2), use {helpb gcomptab}
@@ -816,7 +923,7 @@ to produce a publication-ready Excel table:
 
     {hline}
 {pstd}
-{bf:Example 7: Extracting results after estimation}
+{bf:Example 9: Extracting results after estimation}
 
 {pstd}
 All results are available in {cmd:e()} after estimation. Useful post-estimation
@@ -884,6 +991,7 @@ commands:
 {synopt:{cmd:e(tvar)}}panel time name{p_end}
 {synopt:{cmd:e(intvars)}}intervention variable names{p_end}
 {synopt:{cmd:e(interventions)}}intervention rules{p_end}
+{synopt:{cmd:e(structural)}}deterministic structural-rule specification{p_end}
 {synopt:{cmd:e(msm)}}MSM specification in either mode{p_end}
 {synopt:{cmd:e(msm_colnames)}}full posted MSM parameter names{p_end}
 {synopt:{cmd:e(run_id)}}point-estimate run identifier{p_end}
@@ -968,6 +1076,10 @@ Daniel RM, De Stavola BL, Cousens SN, Vansteelandt S (2015). Causal
 mediation analysis with multiple mediators. {it:Biometrics} 71(1):1-14.
 
 {phang}
+StataCorp LLC (2025). {it:nbreg — Negative binomial regression}.{break}
+{it:Stata 19 Base Reference Manual}. College Station, TX: Stata Press.
+
+{phang}
 Robins JM (1986). A new approach to causal inference in mortality studies with
 a sustained exposure period — application to control of the healthy worker
 survivor effect. {it:Mathematical Modelling} 7(9-12):1393-1512.
@@ -989,7 +1101,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.4.7, 2026-08-11{p_end}
+{pstd}Version 1.6.0, 2026-08-19{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,
@@ -1001,6 +1113,6 @@ London School of Hygiene and Tropical Medicine).
 
 {psee}
 Online: {helpb gcomptab}, {helpb bootstrap}, {helpb logit}, {helpb regress},
-{helpb mlogit}, {helpb ologit}
+{helpb mlogit}, {helpb ologit}, {helpb poisson}, {helpb nbreg}
 
 {hline}

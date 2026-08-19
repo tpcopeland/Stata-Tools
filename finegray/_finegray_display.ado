@@ -44,11 +44,9 @@ program define _finegray_display
         if `level' >= . local level = c(level)
     }
     else {
-        capture confirm number `level'
-        if _rc | real(`"`level'"') < 10 | real(`"`level'"') >= 100 {
-            display as error "level() must be a number between 10 and 99.99"
-            exit 198
-        }
+        * One bound, one message, in all four places -- Stata's own cilevel
+        * rule, delegated so it cannot drift from `finegray, level()' again.
+        _finegray_check_level, level(`level')
     }
 
     * A fit from an older release has no lt_weight; treat it as right censoring.

@@ -1,4 +1,4 @@
-*! _gcomp_xl_common Version 1.4.7  2026/08/11
+*! _gcomp_xl_common Version 1.6.0  2026/08/19
 *! Shared Excel export utility programs for gcomp package
 *! Author: Timothy P Copeland, Karolinska Institutet
 

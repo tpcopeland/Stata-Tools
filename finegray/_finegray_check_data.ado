@@ -10,10 +10,53 @@ program define _finegray_check_data
     set varabbrev off
 
     capture noisily {
-        if `"`_dta[_finegray_estimated]'"' != "1" {
-            display as error "finegray estimation state is not active"
-            display as error "re-run {bf:finegray} before this post-estimation command"
-            exit 301
+        * The `_finegray_estimated' characteristic is stored in the DATASET, so
+        * whether it is here depends on which copy of the data is in memory --
+        * not on whether e() holds a finegray fit.  The natural cross-session
+        * workflow saves the analysis data, fits, saves the estimates, and comes
+        * back later:  use <data>  ->  estimates use <est>.  That data was
+        * written BEFORE the fit and carries no characteristic, so this test
+        * used to end at r(301) "re-run finegray" -- while finegray.sthlp
+        * documents r(459) and the one-line `estimates esample:' repair for
+        * exactly that workflow, and that repair does work.  (Saving the data
+        * AFTER the fit carried the characteristic and did reach r(459), which
+        * is why the released behaviour depended on save order.)
+        *
+        * Recognise the restored-estimates case -- a finegray fit in e() carrying
+        * its data signature -- and let it through to the checks below, which
+        * are the ones that can actually adjudicate it: the empty-sample branch
+        * names the cause and the repair, and the signature comparison rejects a
+        * sample re-declared over the wrong rows.  Nothing is computed here, so
+        * the relaxation stays fail-closed at every exit.
+        *
+        * The test is deliberately NOT "and e(sample) is empty".  It was, and
+        * that was self-defeating: the message tells the user to run
+        * `estimates esample:', after which e(sample) is no longer empty and the
+        * very next command hit r(301) again -- an instruction that could not be
+        * followed.  What the characteristic uniquely carried is the entry-time
+        * column of a multiple-record fit; that is now also in e(entryvar), and
+        * the three post-estimation readers fall back to it, so a restored fit
+        * that needs an entry column the data does not have stops by name
+        * instead of quietly using per-record _t0.
+        * "0" is the mark a fit writes when it starts mutating package-owned
+        * columns, so it says the previous fit's state was DELIBERATELY
+        * invalidated -- a re-fit began and did not finish.  That is never
+        * adjudicable from e(): the prior fit's signature variables can be
+        * untouched by the failed re-fit and would compare equal.  Refuse it
+        * outright, and reserve the fall-through for a characteristic that is
+        * simply absent.
+        local _fg_state `"`_dta[_finegray_estimated]'"'
+        local _fg_restored = 0
+        if `"`_fg_state'"' != "1" {
+            if `"`_fg_state'"' == "" & `"`e(cmd)'"' == "finegray" ///
+                & `"`e(datasignature)'"' != "" {
+                local _fg_restored = 1
+            }
+            if `_fg_restored' == 0 {
+                display as error "finegray estimation state is not active"
+                display as error "re-run {bf:finegray} before this post-estimation command"
+                exit 301
+            }
         }
 
         local _sig `"`e(datasignature)'"'
@@ -42,7 +85,9 @@ program define _finegray_check_data
         * of data they never touched.  Name the real cause and the one command
         * that fixes it.  Kept ahead of the comparison for that reason only:
         * the comparison itself would reject this case anyway, with the wrong
-        * message.  Guarded by test_finegray_estimates_use.do.
+        * message.  This is also the branch the missing-characteristic
+        * fall-through above lands in.  Guarded by
+        * test_finegray_estimates_use.do.
         quietly count if e(sample)
         if r(N) == 0 {
             display as error "the finegray estimation sample is empty"

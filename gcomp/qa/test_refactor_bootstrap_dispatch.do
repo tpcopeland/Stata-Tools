@@ -246,6 +246,83 @@ else {
     local failed_tests "`failed_tests' B2"
 }
 
+**# B3: Extracted helper preserves every model-family draw contract
+local ++test_count
+capture noisily {
+    clear
+    set seed 202605153
+    set obs 600
+    generate byte arm = _n > 300
+    generate double x = rnormal()
+
+    generate double z_reg = 1 + 0.7*x + 0.2*x^2 + rnormal(0, 0.4)
+    replace z_reg = . if arm
+    _gcomp_draw_sim, command(regress) target(z_reg) equation("c.x##c.x") ///
+        fitif("arm==0") drawif("missing(z_reg)") commandopts("")
+    assert r(fit_N) == 300
+    assert e(cmd) == "regress"
+    assert !missing(z_reg)
+
+    generate byte z_log = rbinomial(1, invlogit(-0.4 + 0.8*x))
+    replace z_log = . if arm
+    _gcomp_draw_sim, command(logit) target(z_log) equation("x") ///
+        fitif("arm==0") drawif("missing(z_log)") commandopts(", nolog") ///
+        drawmode(mean)
+    assert r(fit_N) == 300
+    assert inrange(z_log, 0, 1) if arm
+    count if arm & !inlist(z_log, 0, 1)
+    assert r(N) > 0
+
+    generate double _u_m = x + rnormal()
+    generate byte z_mlog = cond(_u_m < -0.5, 1, cond(_u_m < 0.6, 2, 3))
+    replace z_mlog = . if arm
+    _gcomp_draw_sim, command(mlogit) target(z_mlog) equation("x") ///
+        fitif("arm==0") drawif("missing(z_mlog)") commandopts(", nolog")
+    assert r(fit_N) == 300
+    assert inlist(z_mlog, 1, 2, 3) if arm
+
+    generate double _u_o = 0.5*x + rlogistic()
+    generate byte z_olog = cond(_u_o < -0.7, 1, cond(_u_o < 0.8, 2, 3))
+    replace z_olog = . if arm
+    _gcomp_draw_sim, command(ologit) target(z_olog) equation("x") ///
+        fitif("arm==0") drawif("missing(z_olog)") commandopts(", nolog")
+    assert r(fit_N) == 300
+    assert inlist(z_olog, 1, 2, 3) if arm
+
+    generate long z_pois = rpoisson(exp(0.5 + 0.3*x))
+    replace z_pois = . if arm
+    _gcomp_draw_sim, command(poisson) target(z_pois) equation("x") ///
+        fitif("arm==0") drawif("missing(z_pois)") commandopts(", nolog") ///
+        structcondition("inrange(x,-2,0)") structvalue(0) ///
+        context("B3 comma-bearing structural condition")
+    assert r(fit_N) == 300
+    assert z_pois == 0 if arm & inrange(x, -2, 0)
+    assert z_pois >= 0 & z_pois == floor(z_pois) if arm
+
+    generate long z_nb = rpoisson(rgamma(2, exp(0.5 + 0.3*x)/2))
+    replace z_nb = . if arm
+    _gcomp_draw_sim, command(nbreg) target(z_nb) equation("x") ///
+        fitif("arm==0") drawif("missing(z_nb)") commandopts(", nolog")
+    assert r(fit_N) == 300
+    assert r(alpha) > 0
+    assert z_nb >= 0 & z_nb == floor(z_nb) if arm
+
+    local _vab = c(varabbrev)
+    capture _gcomp_draw_sim, command(qreg) target(z_reg) equation("x") ///
+        fitif("arm==0") drawif("missing(z_reg)")
+    assert _rc == 198
+    assert c(varabbrev) == "`_vab'"
+}
+if _rc == 0 {
+    display as result "  PASS: B3 helper preserves all fit-and-draw families and parser boundary"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: B3 helper family/parser contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' B3"
+}
+
 display ""
 display as result "test_refactor_bootstrap_dispatch Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

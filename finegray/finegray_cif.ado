@@ -67,6 +67,25 @@ program define finegray_cif, rclass sortpreserve
         display as error "seed() requires bootstrap()"
         exit 198
     }
+    * seed() is documented as seed(#) and is handed straight to `set seed'.  A
+    * non-numeric seed used to reach it raw, so seed(abc) cleared both curated
+    * guards above and then died inside `set seed' on Stata's own complaint
+    * about finding a non-integer where an integer below 2^31 was expected:
+    * correct and fail-closed, but not this command's message, and printed long
+    * after the guards that exist to speak first.
+    *
+    * NOTE for future editors: keep the sequence double-quote-then-apostrophe
+    * out of these comment lines.  test_finegray_contracts.do reads this file a
+    * line at a time inside a compound quote, and that sequence closes it early
+    * -- r(132) too few quotes, reported against the test rather than the file.
+    if `"`seed'"' != "" {
+        capture confirm integer number `seed'
+        if _rc | real(`"`seed'"') < 0 | real(`"`seed'"') >= 2^31 {
+            display as error "seed() must be an integer between 0 and 2147483647"
+            display as error "{bf:`seed'} is not a usable random-number seed"
+            exit 198
+        }
+    }
     * FG-07: bootstrap() and level() shape a confidence interval, so both require
     * ci.  Before this guard, bootstrap() without ci performed every refit and
     * changed the SE but returned missing interval limits, and level() without ci
@@ -132,18 +151,22 @@ program define finegray_cif, rclass sortpreserve
         local level = c(level)
     }
     else {
-        capture confirm number `level'
-        if _rc | real("`level'") < 10 | real("`level'") >= 100 {
-            display as error "level() must be a number between 10 and 99.99"
-            exit 198
-        }
+        * One bound, one message, in all four places -- Stata's own cilevel
+        * rule, delegated so it cannot drift from `finegray, level()' again.
+        _finegray_check_level, level(`level')
     }
 
     * Entry-time source: multi-record fits persist each subject's earliest
     * entry in a finegray-created variable; single-record fits use _t0.
+    * The characteristic travels with the data, e(entryvar) with the estimates.
+    * After `estimates use' over a dataset saved before the fit there is no
+    * characteristic, and reading _t0 instead would silently substitute
+    * per-record entry times for the subject-level ones the fit used.
     local _t0var "_t0"
-    if `"`_dta[_finegray_entryvar]'"' != "" {
-        local _t0var `"`_dta[_finegray_entryvar]'"'
+    local _fg_entrysrc `"`_dta[_finegray_entryvar]'"'
+    if `"`_fg_entrysrc'"' == "" local _fg_entrysrc `"`e(entryvar)'"'
+    if `"`_fg_entrysrc'"' != "" {
+        local _t0var `"`_fg_entrysrc'"'
         capture confirm numeric variable `_t0var'
         if _rc {
             display as error "variable `_t0var' not found"
@@ -249,6 +272,12 @@ program define finegray_cif, rclass sortpreserve
     * =====================================================================
     * BUILD COVARIATE PROFILE (default: estimation-sample means)
     * =====================================================================
+    * Every column starts at its own estimation-sample mean -- unchanged from
+    * v1.2.0, and unchanged for any column at() does not reach.  This matters:
+    * for an interaction column the mean of the PRODUCT is not the product of
+    * the means (i.grp##c.x, live: _fg_grp_2Xx mean 1.6344536 against
+    * 0.33333 * 4.97502 = 1.6583), so recomputing untouched columns from a raw
+    * profile would silently move the default curve of every factor fit.
     tempname zrow
     matrix `zrow' = J(1, `p', 0)
     local j 0
@@ -257,9 +286,69 @@ program define finegray_cif, rclass sortpreserve
         quietly summarize `v' if e(sample), meanonly
         matrix `zrow'[1, `j'] = r(mean)
     }
-    * Override means with user-specified at(var=#)
+
+    * Override means with user-specified at(var=#).  A name may be either a
+    * RAW model variable (`grp', `x') or a package-owned design column
+    * (`_fg_grp_2Xx').  A raw setting is carried into every design column the
+    * variable enters, which is what makes at() usable on an interaction fit:
+    * through v1.2.0 at(grp=1) after `i.grp##c.x' was refused outright, and
+    * at(x=0) was ACCEPTED while _fg_grp_2Xx stayed at its mean 1.63 -- a
+    * profile no subject can have, reported at rc 0.
     if `"`at'"' != "" {
-        * Parse "var=val var=val"
+        * -----------------------------------------------------------------
+        * Resolve the fit-time design FIRST and copy every r() out before any
+        * other command runs.  r() is one shared queue: the `summarize' and
+        * `count' calls below wipe r(pieces#)/r(rawvars) on their first use.
+        * Verified 2026-08-18: r(expr1) = "(grp == 2)" before `summarize x',
+        * empty after.
+        * -----------------------------------------------------------------
+        local _fvk = 0
+        local _rawvars ""
+        local _fvars   ""
+        if `"`e(fvsemantic)'"' != "" & `"`e(fvsemantic)'"' != "." {
+            _finegray_fv_design, caller(finegray_cif)
+            local _fvk = r(k)
+            local _rawvars `"`r(rawvars)'"'
+            local _fvars   `"`r(fvars)'"'
+            forvalues _c = 1/`_fvk' {
+                local _pieces`_c' `"`r(pieces`_c')'"'
+            }
+            * The helper already checks _k against colsof(e(b)); covs is built
+            * from e(covariates).  A disagreement here would mispair a column
+            * with a term silently, so refuse rather than index into it.
+            if `_fvk' != `p' {
+                display as error "fitted design columns do not match e(covariates)"
+                display as error "(`_fvk' non-base terms, `p' design columns); re-run {bf:finegray}"
+                exit 198
+            }
+            * Belt for the r()-clobbering failure mode above: an empty pieces
+            * list would silently leave that column at its mean.
+            forvalues _c = 1/`_fvk' {
+                if `"`_pieces`_c''"' == "" {
+                    display as error "the fitted design for column `_c' could not be resolved"
+                    display as error "re-run {bf:finegray} before {bf:finegray_cif}"
+                    exit 198
+                }
+            }
+        }
+
+        * Number of estimation-sample rows, for the proportion of an unset
+        * factor indicator.  Taken once, here, because r(N) is as volatile as
+        * everything else in r().
+        quietly count if e(sample)
+        local _nes = r(N)
+
+        * -----------------------------------------------------------------
+        * Parse at() into raw-variable settings and direct column settings.
+        * A name that is a raw model variable is treated as raw even when a
+        * design column shares its spelling (a continuous main effect keeps
+        * its own name in e(covariates)); that is what lets a setting reach
+        * the interaction columns the variable also enters.
+        * -----------------------------------------------------------------
+        local _rvars ""
+        local _rvals ""
+        local _dcols ""
+        local _dvals ""
         local _rest `"`at'"'
         while `"`_rest'"' != "" {
             gettoken _pair _rest : _rest, parse(" ")
@@ -269,8 +358,8 @@ program define finegray_cif, rclass sortpreserve
                 display as error "at() must be specified as var=# [var=# ...]"
                 exit 198
             }
-            local _avar = substr(`"`_pair'"', 1, `_eqp' - 1)
-            local _aval = substr(`"`_pair'"', `_eqp' + 1, .)
+            local _avar = strtrim(substr(`"`_pair'"', 1, `_eqp' - 1))
+            local _aval = strtrim(substr(`"`_pair'"', `_eqp' + 1, .))
             capture confirm number `_aval'
             if _rc {
                 display as error "at(): `_aval' is not a number"
@@ -280,76 +369,112 @@ program define finegray_cif, rclass sortpreserve
                 display as error "at(): values must be finite numbers"
                 exit 198
             }
-            * Numeric value used for factor-level matching.  Match against the
-            * fit-time semantic expansion, not the package-owned variable name:
-            * Stata accepts 1, 1.0, and 1e0 as the same level, and long internal
-            * names may be truncated before the level suffix.
-            local _anum = real(`"`_aval'"')
-            local _pos : list posof "`_avar'" in covs
-            if `_pos' > 0 {
-                * Direct covariate column (continuous term, or an internal
-                * _fg_* dummy typed by name)
-                matrix `zrow'[1, `_pos'] = `_aval'
-            }
-            else {
-                * Factor variable named by its user-facing name (e.g.
-                * at(pelnode=1) after finegray i.pelnode ...): map the level
-                * onto the internal _fg_<var>_<level> dummies.  Reject vars
-                * that also enter interactions, since one level cannot drive
-                * an interaction profile unambiguously.
-                local _fvlist "`e(fvvarlist)'"
-                foreach _fvt of local _fvlist {
-                    if strpos("`_fvt'", "#") {
-                        local _fvtn = subinstr("`_fvt'", "##", "#", .)
-                        local _fvparts : subinstr local _fvtn "#" " ", all
-                        foreach _fvp of local _fvparts {
-                            local _fvpv = "`_fvp'"
-                            if regexm("`_fvp'", "\.([^.]+)$") ///
-                                local _fvpv = regexs(1)
-                            if "`_fvpv'" == "`_avar'" {
-                                display as error ///
-                                    "at(): `_avar' enters an interaction; set its {cmd:_fg_*} dummies directly"
-                                display as error "covariates are: `covs'"
-                                exit 198
-                            }
-                        }
-                    }
-                }
-                * Collect this factor's main-effect dummies from the fit-time
-                * semantic expansion, zero them all, then set the requested
-                * numeric level to 1.  Removing base terms reproduces the exact
-                * column order used to build e(covariates), including when an
-                * _fg_* name was truncated to Stata's 32-character limit.  A
-                * reference level leaves every dummy at 0.
-                local _found = 0
-                local _tgtpos = 0
-                local _cc = 0
-                local _fvsem "`e(fvsemantic)'"
-                foreach _fst of local _fvsem {
-                    if regexm("`_fst'", "[0-9]+b\.") continue
-                    local ++_cc
-                    if regexm("`_fst'", "^([0-9]+)\.`_avar'$") {
-                        local _found = 1
-                        matrix `zrow'[1, `_cc'] = 0
-                        if real(regexs(1)) == `_anum' local _tgtpos = `_cc'
-                    }
-                }
-                if !`_found' {
-                    display as error "at(): `_avar' is not a model covariate"
-                    display as error "covariates are: `covs'"
+            * Keep the LITERAL token, not real(): `local x = real("...")'
+            * renders at about 8 significant digits, and the contract that
+            * at(grp=1), at(grp=1.0) and at(grp=1e0) agree exactly (FG-M04)
+            * rests on the value reaching a numeric context unrounded.
+
+            local _israw : list posof "`_avar'" in _rawvars
+            local _isdir : list posof "`_avar'" in covs
+
+            if `_israw' {
+                local _dup : list posof "`_avar'" in _rvars
+                if `_dup' {
+                    display as error "at(): `_avar' is set more than once"
                     exit 198
                 }
-                * Validate the requested level against the observed data
-                capture confirm variable `_avar'
-                if !_rc {
-                    quietly count if e(sample) & `_avar' == `_anum'
+                local _isf : list posof "`_avar'" in _fvars
+                if `_isf' {
+                    quietly count if e(sample) & `_avar' == `_aval'
                     if r(N) == 0 {
                         display as error "at(): `_aval' is not an observed level of `_avar'"
                         exit 198
                     }
                 }
-                if `_tgtpos' > 0 matrix `zrow'[1, `_tgtpos'] = 1
+                local _rvars "`_rvars' `_avar'"
+                local _rvals "`_rvals' `_aval'"
             }
+            else if `_isdir' {
+                local _dup : list posof "`_avar'" in _dcols
+                if `_dup' {
+                    display as error "at(): `_avar' is set more than once"
+                    exit 198
+                }
+                local _dcols "`_dcols' `_avar'"
+                local _dvals "`_dvals' `_aval'"
+            }
+            else {
+                display as error "at(): `_avar' is not a model covariate"
+                if `"`_rawvars'"' != "" {
+                    display as error "model variables are: `_rawvars'"
+                }
+                display as error "design columns are: `covs'"
+                exit 198
+            }
+        }
+
+        * -----------------------------------------------------------------
+        * Propagate raw settings into every design column they enter.
+        * A column no set variable appears in keeps its mean; a piece the user
+        * did not set is held at its own estimation-sample mean (the sample
+        * PROPORTION for a factor indicator), so the untouched part of a mixed
+        * term reads exactly as it would have without at().
+        * -----------------------------------------------------------------
+        tempname _cval
+        if `"`_rvars'"' != "" {
+            forvalues _c = 1/`_fvk' {
+                local _touched = 0
+                foreach _pc of local _pieces`_c' {
+                    local _cp = strpos("`_pc'", ":")
+                    local _pvar = cond(`_cp', substr("`_pc'", 1, `_cp' - 1), "`_pc'")
+                    local _sp : list posof "`_pvar'" in _rvars
+                    if `_sp' local _touched = 1
+                }
+                if !`_touched' continue
+
+                scalar `_cval' = 1
+                foreach _pc of local _pieces`_c' {
+                    local _cp = strpos("`_pc'", ":")
+                    if `_cp' {
+                        local _pvar = substr("`_pc'", 1, `_cp' - 1)
+                        local _plev = substr("`_pc'", `_cp' + 1, .)
+                    }
+                    else {
+                        local _pvar "`_pc'"
+                        local _plev ""
+                    }
+                    local _sp : list posof "`_pvar'" in _rvars
+                    if `_sp' {
+                        local _uval : word `_sp' of `_rvals'
+                        if "`_plev'" != "" scalar `_cval' = `_cval' * (`_uval' == `_plev')
+                        else               scalar `_cval' = `_cval' * (`_uval')
+                    }
+                    else if "`_plev'" != "" {
+                        * Unset factor part: its estimation-sample proportion,
+                        * i.e. the mean of the indicator, which is exactly what
+                        * the untouched column would have carried.
+                        quietly count if e(sample) & `_pvar' == `_plev'
+                        scalar `_cval' = `_cval' * (r(N) / `_nes')
+                    }
+                    else {
+                        quietly summarize `_pvar' if e(sample), meanonly
+                        scalar `_cval' = `_cval' * r(mean)
+                    }
+                }
+                matrix `zrow'[1, `_c'] = `_cval'
+            }
+        }
+
+        * -----------------------------------------------------------------
+        * Direct design-column settings last, so an explicit _fg_* value wins
+        * over anything the propagation computed for the same column.
+        * -----------------------------------------------------------------
+        local _nd : word count `_dcols'
+        forvalues _d = 1/`_nd' {
+            local _dc : word `_d' of `_dcols'
+            local _dv : word `_d' of `_dvals'
+            local _pos : list posof "`_dc'" in covs
+            matrix `zrow'[1, `_pos'] = `_dv'
         }
     }
 

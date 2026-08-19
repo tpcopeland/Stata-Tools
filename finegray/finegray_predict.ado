@@ -70,6 +70,25 @@ program define finegray_predict, rclass sortpreserve
         display as error "seed() requires bootstrap()"
         exit 198
     }
+    * seed() is documented as seed(#) and is handed straight to `set seed'.  A
+    * non-numeric seed used to reach it raw, so seed(abc) cleared both curated
+    * guards above and then died inside `set seed' on Stata's own complaint
+    * about finding a non-integer where an integer below 2^31 was expected:
+    * correct and fail-closed, but not this command's message, and printed long
+    * after the guards that exist to speak first.
+    *
+    * NOTE for future editors: keep the sequence double-quote-then-apostrophe
+    * out of these comment lines.  test_finegray_contracts.do reads this file a
+    * line at a time inside a compound quote, and that sequence closes it early
+    * -- r(132) too few quotes, reported against the test rather than the file.
+    if `"`seed'"' != "" {
+        capture confirm integer number `seed'
+        if _rc | real(`"`seed'"') < 0 | real(`"`seed'"') >= 2^31 {
+            display as error "seed() must be an integer between 0 and 2147483647"
+            display as error "{bf:`seed'} is not a usable random-number seed"
+            exit 198
+        }
+    }
 
     * Check finegray was run
     if "`e(cmd)'" != "finegray" {
@@ -129,11 +148,9 @@ program define finegray_predict, rclass sortpreserve
         local level = c(level)
     }
     else {
-        capture confirm number `level'
-        if _rc | real("`level'") < 10 | real("`level'") >= 100 {
-            display as error "level() must be a number between 10 and 99.99"
-            exit 198
-        }
+        * One bound, one message, in all four places -- Stata's own cilevel
+        * rule, delegated so it cannot drift from `finegray, level()' again.
+        _finegray_check_level, level(`level')
     }
 
     * ci derives two more variable names from newvarname by suffix, so the
@@ -243,10 +260,16 @@ program define finegray_predict, rclass sortpreserve
     * residuals. Point CIF/basecshazard predictions normally use the warm Mata
     * cache too, but after mata clear they rebuild from the estimation data and
     * therefore need the same subject-level entry times as ci/schoenfeld.
+    * The characteristic travels with the data, e(entryvar) with the estimates.
+    * After `estimates use' over a dataset saved before the fit there is no
+    * characteristic, and reading _t0 instead would silently substitute
+    * per-record entry times for the subject-level ones the fit used.
     local _t0var "_t0"
+    local _fg_entrysrc `"`_dta[_finegray_entryvar]'"'
+    if `"`_fg_entrysrc'"' == "" local _fg_entrysrc `"`e(entryvar)'"'
     if ("`cif'" != "" | "`basecshazard'" != "" | "`schoenfeld'" != "") ///
-        & `"`_dta[_finegray_entryvar]'"' != "" {
-        local _t0var `"`_dta[_finegray_entryvar]'"'
+        & `"`_fg_entrysrc'"' != "" {
+        local _t0var `"`_fg_entrysrc'"'
         capture confirm numeric variable `_t0var'
         if _rc {
             display as error "variable `_t0var' not found"

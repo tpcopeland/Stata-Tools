@@ -274,12 +274,13 @@ results and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()}. It requires
-{opt bootstrap()}.
+{opt bootstrap()}, and must be an integer between {cmd:0} and {cmd:2147483647}.
 
 {phang}
 {opt level(#)} sets the confidence level for {opt ci}; the default is {cmd:c(level)},
 which is initially 95; the setting can be changed by {helpb set level} and must
-be at least 10 and less than 100.
+be between 10 and 99.99 inclusive, with at most two decimal places -- the same
+rule {cmd:finegray} itself applies.
 
 {marker fvalign}{...}
 {pstd}

@@ -18,7 +18,7 @@ local testdir "`c(tmpdir)'"
 
 local public_cmds gcomp gcomptab
 local help_targets gcomp gcomptab
-local helper_ados _gcomp_apply_rule _gcomp_bootstrap _gcomp_bootstrap_impl _gcomp_display_stats _gcomp_diag_capture _gcomp_detangle _gcomp_formatline _gcomp_refit_models _gcomp_xl_common
+local helper_ados _gcomp_apply_rule _gcomp_bootstrap _gcomp_bootstrap_impl _gcomp_display_stats _gcomp_diag_capture _gcomp_detangle _gcomp_draw_sim _gcomp_formatline _gcomp_parse_structural _gcomp_refit_models _gcomp_warn_fit_sample_loss _gcomp_xl_common
 
 local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
@@ -198,6 +198,10 @@ capture noisily {
     assert "`e(cmd)'" == "gcomp"
     assert "`e(analysis_type)'" == "mediation"
     assert e(N) == _N
+    capture program list _gcomp_warn_fit_sample_loss
+    assert _rc == 0
+    capture program list _gcomp_draw_sim
+    assert _rc == 0
 }
 if _rc == 0 {
     display as result "  PASS: I6 installed mediation gcomp fit runs"

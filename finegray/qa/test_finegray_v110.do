@@ -1313,8 +1313,14 @@ else {
 }
 
 **# ---------------------------------------------------------------
-**# 13. at() multi-level factor coherence + interaction rejection
+**# 13. at() multi-level factor coherence + interaction propagation
 **# ---------------------------------------------------------------
+* Through v1.2.0 the last case here pinned a REFUSAL: a factor entering an
+* interaction could not be named by at().  Since this release the setting is carried
+* into every design column the variable enters, so the refusal is replaced by
+* the profile it now produces.  The arithmetic across the whole grammar is
+* pinned in test_finegray_at_profile.do; what this block owns is that the
+* single-level coherence above and the interaction path agree on one fixture.
 local ++test_count
 capture noisily {
     _mk_hypoxia
@@ -1340,17 +1346,27 @@ capture noisily {
     matrix g0 = r(at)
     assert g0[1,1] == 0 & g0[1,2] == 0
 
-    * a factor entering an interaction is rejected by natural name
+    * a factor entering an interaction is now set by natural name: the
+    * indicator lights, and the interaction column follows it with ifp held
+    * at its estimation-sample mean.
     quietly finegray i.grp3##c.ifp, compete(status) cause(1) nolog
+    * covariates: _fg_grp3_1 _fg_grp3_2 ifp _fg_grp3_1Xifp _fg_grp3_2Xifp
+    quietly summarize ifp if e(sample), meanonly
+    local _mifp = r(mean)
     capture finegray_cif, at(grp3=2) attime(5)
-    assert _rc == 198
+    assert _rc == 0
+    matrix gx = r(at)
+    assert gx[1,1] == 0 & gx[1,2] == 1
+    assert reldif(gx[1,3], `_mifp') < 1e-12
+    assert gx[1,4] == 0
+    assert reldif(gx[1,5], `_mifp') < 1e-12
 }
 if _rc == 0 {
-    display as result "  PASS: at() multi-level coherence + interaction guard"
+    display as result "  PASS: at() multi-level coherence + interaction propagation"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: at() multi-level coherence + interaction guard (rc=`=_rc')"
+    display as error "  FAIL: at() multi-level coherence + interaction propagation (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1450,7 +1466,14 @@ capture noisily {
     gen byte _fg_grp_1 = 0
     capture finegray i.grp ifp, compete(status) cause(1) nolog
     assert _rc == 198
-    assert `"`_dta[_finegray_estimated]'"' == ""
+    * "0" -- INVALIDATED -- not "".  The distinction is load-bearing as of
+    * this release: post-estimation now recognises a fit restored by `estimates use'
+    * over a dataset that never carried the characteristic, and adjudicates it
+    * against e().  This state must NOT be adjudicable that way.  The prior
+    * fit's e() is still in memory here and its signature variables are
+    * untouched by the failed re-fit, so it would compare equal and
+    * finegray_cif would answer from a fit whose data have since been mutated.
+    assert `"`_dta[_finegray_estimated]'"' == "0"
     capture finegray_cif, attime(5)
     assert _rc == 301
 }
