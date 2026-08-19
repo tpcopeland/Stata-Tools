@@ -115,7 +115,9 @@ program define finegray, eclass sortpreserve
     * MARK SAMPLE
     * =========================================================================
     marksample touse
-    markout `touse' `compete'
+    * NOTE: compete() is deliberately NOT passed to `markout'.  It is the
+    * outcome classification, not a covariate, and an unknown event type is
+    * refused below rather than dropped.  See "compete() MUST BE OBSERVED".
 
     * Stamp the caller's row order NOW, before any egen/gsort/sort in this
     * command can permute it.  Stata (and Mata) break sort ties using a seed
@@ -177,6 +179,56 @@ program define finegray, eclass sortpreserve
     if "`cluster'" != "" markout `touse' `cluster'
 
     quietly replace `touse' = 0 if _st != 1
+
+    * =========================================================================
+    * compete() MUST BE OBSERVED ON EVERY ESTIMATION-SAMPLE RECORD
+    * =========================================================================
+    * This used to be `markout `touse' `compete'' beside `marksample'.  markout
+    * is the right tool for a covariate and the wrong one for the outcome
+    * classification: it dropped every record whose event type was UNKNOWN
+    * with no message, no e() count and no note -- including failure records
+    * (_d==1), where the drop removes an event from the estimand and moves the
+    * coefficients.  Live on webuse hypoxia, blanking compete() on five records
+    * of which three were cause-1 failures returned rc 0 with N 109 -> 104,
+    * N_fail 33 -> 30 and b(ifp) .0326664 -> .04609379, a 41% change.
+    *
+    * It was also strictly inconsistent with the consistency checks further
+    * below, which fail closed at r(198) on a record whose event type merely
+    * DISAGREES with _d -- and those counts are restricted to `touse', so the
+    * stricter case was the one that survived.  Refuse the unknown case too.
+    *
+    * Placed AFTER the covariate/strata/cluster markouts and the _st filter, so
+    * a record already excluded for a missing covariate or an out-of-sample _st
+    * cannot raise this error: only a record that would otherwise have been fit
+    * counts.
+    *
+    * The common way in is stsetting the failure indicator ON the event-type
+    * variable and then splitting: `stset t, failure(status) id(id)' followed by
+    * `stsplit' sets `status' to missing on every non-terminal episode.  The
+    * EXPRESSION form does it too -- verified 2026-08-19, `failure(ev == 1 2)'
+    * then `stsplit sp, at(2 6)' blanked 765 of 1365 records -- so what makes
+    * the ordinary fixtures safe is not the form but that they stset a SEPARATE
+    * indicator, `failure(dfcens == 1)' with `compete(status)'.  Before this
+    * guard that configuration reached r(459) "positivity violation in the
+    * delayed-entry weights ... use coarser strata()", a message about a cause
+    * that was not the cause: the blanked episodes were dropped, every surviving
+    * record started at the last split boundary, and the reverse-time product
+    * limit for H hit zero there.
+    quietly count if `touse' & missing(`compete')
+    if r(N) > 0 {
+        local _fg_nmiss = r(N)
+        quietly count if `touse' & missing(`compete') & _d == 1
+        local _fg_nmissfail = r(N)
+        display as error "compete() is missing on `_fg_nmiss' record(s) of the estimation sample"
+        display as error "`_fg_nmissfail' of them are stset failures (_d==1)"
+        display as error "finegray cannot classify a record whose event type is unknown, and"
+        display as error "dropping such records would remove events from the estimand silently"
+        display as error "if these data were {help stsplit:stsplit} after an {cmd:stset} whose {cmd:failure()}"
+        display as error "was built on `compete', {cmd:stsplit} set `compete' to missing on every"
+        display as error "non-terminal episode; carry the subject's event type onto every episode,"
+        display as error "or exclude those records with {cmd:if}"
+        exit 198
+    }
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -465,7 +517,16 @@ program define finegray, eclass sortpreserve
     * Input validation above leaves a prior successful fit intact. Once this
     * new fit begins mutating package-owned columns, invalidate the old state
     * first so a failed re-fit cannot masquerade as the previous success.
-    char _dta[_finegray_estimated] ""
+    *
+    * The mark is "0", not "": it has to be TELLABLE from a dataset that never
+    * carried the characteristic at all.  Post-estimation now recognises a
+    * finegray fit restored by `estimates use' over a dataset saved before the
+    * fit -- which has no characteristic -- and both states used to spell
+    * themselves the same way, so writing "" here would have let a re-fit that
+    * failed mid-mutation fall through to the prior fit's e() and answer from
+    * it.  "0" means INVALIDATED and is refused; absent means UNKNOWN and is
+    * adjudicated against e().  Guarded by test_finegray_v110.do.
+    char _dta[_finegray_estimated] "0"
     char _dta[_finegray_compete] ""
     char _dta[_finegray_cause] ""
     char _dta[_finegray_covars] ""
@@ -1059,6 +1120,14 @@ program define finegray, eclass sortpreserve
     * competing event.  Empty when there are none.
     ereturn local compete_values "`_fg_cvals'"
     ereturn local covariates "`varlist'"
+    * The package-owned entry-time column of a multiple-record fit, empty for a
+    * single-record fit.  It is also written to _dta[_finegray_entryvar], but a
+    * dataset characteristic travels with the DATA and e() travels with the
+    * ESTIMATES: after `estimates use' over a dataset saved BEFORE the fit, only
+    * e() is left.  Post-estimation reads the characteristic first and falls
+    * back to this, so a restored fit that needs an entry column it cannot see
+    * fails closed by name instead of silently reverting to per-record _t0.
+    ereturn local entryvar "`_fg_entryvar'"
     if `_has_fv' ereturn local fvvarlist "`_orig_varlist'"
     * The fit-time factor expansion, INCLUDING base terms (1b.grp).  This is the
     * semantic record of which level each coefficient belongs to.  Post-estimation

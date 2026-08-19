@@ -129,18 +129,19 @@ else {
 }
 
 **# 4. Interaction terms report their typed form too [FAILS PRE-FIX]
-* Uses the estimation-sample-means profile, not at().  at() deliberately
-* REFUSES a variable that enters an interaction ("grp enters an interaction;
-* set its _fg_* dummies directly") -- a pre-existing limitation, not
-* something this release changed.  Asserted below so the refusal is pinned
-* rather than merely worked around, and so this test cannot pass by at()
-* quietly starting to accept the term.
+* Through v1.2.0 at() REFUSED a variable that entered an interaction ("grp
+* enters an interaction; set its _fg_* dummies directly"), and this block
+* pinned that refusal.  Since this release at() sets every design column the variable
+* enters, so the refusal assertion is replaced by its opposite -- the call must
+* succeed -- and the arithmetic it produces is pinned in
+* test_finegray_at_profile.do.  What this block still owns is the REPORTING
+* vocabulary: r(profile_vars) names fitted terms, never the _fg_* columns.
 local ++test_count
 capture noisily {
     _mk_fgrep
     quietly finegray i.grp##c.x1, compete(ev) cause(1) nolog
     capture finegray_cif, at(grp=1 x1=0) attime(5)
-    assert _rc == 198
+    assert _rc == 0
     quietly finegray_cif, attime(5)
     local _pv "`r(profile_vars)'"
     display as text "  interaction r(profile_vars) = `_pv'"

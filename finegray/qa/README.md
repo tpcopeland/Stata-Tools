@@ -52,6 +52,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `test_finegray_v120.do` | Diagnostic-only `finegray_phtest` return and display contract. |
 | `test_finegray_v120b.do` | Factor coefficient naming, replay, reporting, support notes, saving labels, and v1.2.0 presentation regressions. |
 | `test_finegray_v121.do` | Cold-cache multiple-record prediction, long factor names, cilevel validation, and consulted-only positivity guards. |
+| `test_finegray_v130.do` | Missing-`compete()` refusal (including the `stsplit`-blanked configuration), one `level()` bound across fit/replay/`finegray_cif`/`finegray_predict`, and `seed()` validation in both bootstrap paths. |
 | `test_finegray_release120.do` | VCE contradictions, clustered bootstrap identities, raw residuals, and cluster-label invariance. |
 | `test_finegray_ties.do` | Censor/event tie conventions and delayed-entry risk-set boundaries. |
 | `test_finegray_optimizer.do` | Rank, convergence, tolerance, accepted-likelihood, and Newton-decrement safeguards. |
@@ -60,6 +61,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `test_finegray_postest.do` | Factor rebuilds, stale-data checks, CIF limits, baseline grids, and post-estimation cleanup. |
 | `test_finegray_zzf.do` | Delayed-entry Weight 1 parsing, support, diagnostics, limiting cases, warnings, and refit fidelity. |
 | `test_finegray_fvgrammar.do` | Base-none factors, interactions, missing values, and unseen-level refusal. |
+| `test_finegray_at_profile.do` | `at()` covariate profiles on factor and interaction designs, including raw-variable propagation and direct `_fg_*` overrides. |
 | `test_finegray_fg03_diagnostic.do` | `finegray_phtest` matrix/display semantics and no-variation refusal. |
 | `test_finegray_fg06_vce.do` | Delayed-entry variance labeling and whole-fit coefficient bootstrap. |
 | `test_finegray_fg07_options.do` | Accepted and refused post-estimation option combinations. |
@@ -67,7 +69,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `test_finegray_determinism.do` | Bit-identical repeat calls and post-estimation call-order independence. |
 | `test_finegray_reporting.do` | Factor-aware profiles and complete analytic/bootstrap CIF reporting. |
 | `test_finegray_contracts.do` | Weight-stratum mapping, factor scoring, singleton strata, and fail-closed inversion. |
-| `test_finegray_estimates_use.do` | Saved-estimate reloads, empty `e(sample)` diagnosis, and signature enforcement. |
+| `test_finegray_estimates_use.do` | Saved-estimate reloads for datasets saved before and after the fit, empty `e(sample)` diagnosis, `estimates esample:` recovery, and signature enforcement. |
 | `test_finegray_sthlp_render.do` | Self-contained SMCL render and literal-markup checks for shipped help. |
 | `test_documentation_examples.do` | Installed-user execution of README/help workflows and advertised baseline options. |
 
@@ -117,7 +119,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 |---|---|---|---|---|
 | `finegray` | `test_finegray*`, optimizer/variance/bootstrap/ZZF/nuisance suites | Recovery, CIF, LT-SE, and ZZF gate suites | `crossval_finegray*`, `crossval_nuisance`, `crossval_predict_stcrreg` | Documentation examples, contracts, determinism, ties |
 | `finegray_predict` | Postestimation, factor-grammar, options, reporting, v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_predict_phtest`, `crossval_predict_stcrreg`, `crossval_cif` | Determinism, saved-estimate reloads |
-| `finegray_cif` | CIF/bootstrap/reporting/options and v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_cif`, `crossval_finegray`, `crossval_predict_stcrreg` | Documentation examples, determinism, saved-estimate reloads |
+| `finegray_cif` | CIF/bootstrap/reporting/options, `at()` profiles on factor and interaction designs, and v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_cif`, `crossval_finegray`, `crossval_predict_stcrreg` | Documentation examples, determinism, saved-estimate reloads |
 | `finegray_phtest` | Diagnostic, factor, postestimation, and determinism suites | Core invariant suite | `crossval_predict_phtest` | Documentation examples, saved-estimate reloads |
 
 ## Lane membership

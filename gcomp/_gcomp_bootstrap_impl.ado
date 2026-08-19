@@ -1,8 +1,9 @@
-*! _gcomp_bootstrap_impl Version 1.4.7  2026/08/11
+*! _gcomp_bootstrap_impl Version 1.6.0  2026/08/19
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel
 *! Program class: rclass
+*! Count-model draw: StataCorp (2025), nbreg manual, pp. 6 and 13-14
 
 * Inner bootstrap program (was gformula_.ado in SSC)
 * =============================================================================
@@ -104,7 +105,7 @@ set varabbrev off
 capture noisily {
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
 	Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat eofu pooled death(varname) ///
-	derived(varlist) derrules(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
+	derived(varlist) derrules(string) STRUCTural(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
 	mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
 	post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 10000) ///
 	obe oce specific boceam linexp minsim moreMC logOR logRR graph saving(string) replace ///
@@ -438,10 +439,22 @@ if "`impute'"!="" {
 						if "`pooled'"=="" {
 							qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' if `tvar'==`k' `_gc_impbaseopt'
 						}
-						else {
-							qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' `_gc_impbaseopt'
-						}
-						if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
+							else {
+								qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' `_gc_impbaseopt'
+							}
+							local _gc_imp_alpha = .
+							if "`imp_cmd`i''" == "nbreg" {
+								if "`e(dispers)'" != "mean" {
+									noi di as err "imp_cmd(): nbreg supports only the default NB2 dispersion(mean) model"
+									exit 198
+								}
+								local _gc_imp_alpha = e(alpha)
+								if missing(`_gc_imp_alpha') | `_gc_imp_alpha' <= 0 {
+									noi di as err "imp_cmd(): nbreg did not return a usable positive alpha"
+									exit 498
+								}
+							}
+							if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
 							if "`imp_cmd`i''"=="mlogit" {
 								local maxl=e(k_out)
 								mat out_mlogit=e(out)
@@ -460,16 +473,31 @@ if "`impute'"!="" {
 								}
 								qui predict `_gc_imp_probs'
 						}
-						else {
-							tempvar pred_imp_var`i'
-							qui predict `pred_imp_var`i''
-						}
+							else if inlist("`imp_cmd`i''", "logit", "regress") {
+								tempvar pred_imp_var`i'
+								qui predict `pred_imp_var`i''
+							}
+							else if inlist("`imp_cmd`i''", "poisson", "nbreg") {
+								tempvar pred_imp_var`i'
+								qui predict `pred_imp_var`i'', n
+							}
 						if "`imp_cmd`i''"=="logit" {
 							qui replace `imp_var`i''=runiform()<`pred_imp_var`i'' if missing(`imp_imp_var`i'') & `tvar'==`k'
 						}
-						if "`imp_cmd`i''"=="regress" {
-							qui replace `imp_var`i''=`pred_imp_var`i''+e(rmse)*rnormal(0,1) if missing(`imp_imp_var`i'') & `tvar'==`k'
-						}
+							if "`imp_cmd`i''"=="regress" {
+								qui replace `imp_var`i''=`pred_imp_var`i''+e(rmse)*rnormal(0,1) if missing(`imp_imp_var`i'') & `tvar'==`k'
+							}
+							if "`imp_cmd`i''"=="poisson" {
+								qui replace `imp_var`i''=rpoisson(`pred_imp_var`i'') if missing(`imp_imp_var`i'') & `tvar'==`k' & `pred_imp_var`i''<.
+							}
+							if "`imp_cmd`i''"=="nbreg" {
+								if `_gc_imp_alpha' <= 1e-8 {
+									qui replace `imp_var`i''=rpoisson(`pred_imp_var`i'') if missing(`imp_imp_var`i'') & `tvar'==`k' & `pred_imp_var`i''<.
+								}
+								else {
+									qui replace `imp_var`i''=rpoisson(rgamma(1/`_gc_imp_alpha', `pred_imp_var`i''*`_gc_imp_alpha')) if missing(`imp_imp_var`i'') & `tvar'==`k' & `pred_imp_var`i''<.
+								}
+							}
 						if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
 							tempvar u_for_mlogit
 							tempvar cumulative_pred
@@ -481,8 +509,8 @@ if "`impute'"!="" {
 									qui replace `cumulative_pred'=`cumulative_pred'+`_gc_imp_p'
 							}
 						}
-						if "`imp_cmd`i''"!="regress" & "`imp_cmd`i''"!="logit" & "`imp_cmd`i''"!="mlogit" & "`imp_cmd`i''"!="ologit" {
-							noi di as err "Error: only regress, logit, mlogit and ologit are supported as imputation commands in gcomp."
+							if !inlist("`imp_cmd`i''", "regress", "logit", "mlogit", "ologit", "poisson", "nbreg") {
+								noi di as err "Error: only regress, logit, mlogit, ologit, poisson and nbreg are supported as imputation commands in gcomp."
 							exit 198
 						}
 					}
@@ -534,13 +562,25 @@ if "`impute'"!="" {
 						local limit_could=`limit_could'+1
 					}
 				}
-				local _gc_impbaseopt ""
+					local _gc_impbaseopt ""
 				if "`imp_cmd`i''"=="mlogit" {
 					qui summarize `imp_imp_var`i'', meanonly
 					local _gc_impbaseopt ", baseoutcome(`r(min)')"
 				}
-				qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' `_gc_impbaseopt'
-				if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
+					qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' `_gc_impbaseopt'
+					local _gc_imp_alpha = .
+					if "`imp_cmd`i''" == "nbreg" {
+						if "`e(dispers)'" != "mean" {
+							noi di as err "imp_cmd(): nbreg supports only the default NB2 dispersion(mean) model"
+							exit 198
+						}
+						local _gc_imp_alpha = e(alpha)
+						if missing(`_gc_imp_alpha') | `_gc_imp_alpha' <= 0 {
+							noi di as err "imp_cmd(): nbreg did not return a usable positive alpha"
+							exit 498
+						}
+					}
+					if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
 					if "`imp_cmd`i''"=="mlogit" {
 						local maxl=e(k_out)
 						mat out_mlogit=e(out)
@@ -559,16 +599,31 @@ if "`impute'"!="" {
 					}
 					qui predict `_gc_imp_probs'
 				}
-				else {
-					tempvar pred_imp_var`i'
-					qui predict `pred_imp_var`i''
-				}				
+					else if inlist("`imp_cmd`i''", "logit", "regress") {
+						tempvar pred_imp_var`i'
+						qui predict `pred_imp_var`i''
+					}
+					else if inlist("`imp_cmd`i''", "poisson", "nbreg") {
+						tempvar pred_imp_var`i'
+						qui predict `pred_imp_var`i'', n
+					}
 				if "`imp_cmd`i''"=="logit" {
 					qui replace `imp_var`i''=runiform()<`pred_imp_var`i'' if missing(`imp_imp_var`i'')
 				}
-				if "`imp_cmd`i''"=="regress" {
-					qui replace `imp_var`i''=`pred_imp_var`i''+e(rmse)*rnormal(0,1) if missing(`imp_imp_var`i'')
-				}
+					if "`imp_cmd`i''"=="regress" {
+						qui replace `imp_var`i''=`pred_imp_var`i''+e(rmse)*rnormal(0,1) if missing(`imp_imp_var`i'')
+					}
+					if "`imp_cmd`i''"=="poisson" {
+						qui replace `imp_var`i''=rpoisson(`pred_imp_var`i'') if missing(`imp_imp_var`i'') & `pred_imp_var`i''<.
+					}
+					if "`imp_cmd`i''"=="nbreg" {
+						if `_gc_imp_alpha' <= 1e-8 {
+							qui replace `imp_var`i''=rpoisson(`pred_imp_var`i'') if missing(`imp_imp_var`i'') & `pred_imp_var`i''<.
+						}
+						else {
+							qui replace `imp_var`i''=rpoisson(rgamma(1/`_gc_imp_alpha', `pred_imp_var`i''*`_gc_imp_alpha')) if missing(`imp_imp_var`i'') & `pred_imp_var`i''<.
+						}
+					}
 				if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
 					tempvar u_for_mlogit
 					tempvar cumulative_pred
@@ -580,8 +635,8 @@ if "`impute'"!="" {
 						qui replace `cumulative_pred'=`cumulative_pred'+`_gc_imp_p'
 					}
 				}
-				if "`imp_cmd`i''"!="regress" & "`imp_cmd`i''"!="logit" & "`imp_cmd`i''"!="mlogit" & "`imp_cmd`i''"!="ologit" {
-					noi di as err "Error: only regress, logit, mlogit and ologit are supported as imputation commands in gcomp."
+					if !inlist("`imp_cmd`i''", "regress", "logit", "mlogit", "ologit", "poisson", "nbreg") {
+						noi di as err "Error: only regress, logit, mlogit, ologit, poisson and nbreg are supported as imputation commands in gcomp."
 					exit 198
 				}
 			}  
@@ -639,6 +694,21 @@ if `_gc_chk_prt'==0 {
 _gcomp_detangle "`equations'" equation "`varlist2'"
 forvalues i=1/`nvar' {
 	local equation`i' `"`r(value`i')'"'
+}
+forvalues i=1/`nvar' {
+	local _gc_struct_condition`i' ""
+	local _gc_struct_value`i' ""
+	local _gc_struct_fit`i' ""
+}
+if `"`structural'"' != "" {
+	_gcomp_parse_structural, rules(`"`structural'"') vars(`varlist2')
+	forvalues i=1/`nvar' {
+		local _gc_struct_condition`i' `"`r(condition`i')'"'
+		local _gc_struct_value`i' `"`r(value`i')'"'
+		if `"`_gc_struct_condition`i''"' != "" {
+			local _gc_struct_fit`i' `"& !(`_gc_struct_condition`i'')"'
+		}
+	}
 }
 if `_gc_chk_prt'==0 {
 	noi di as text "{hline 1}" _cont
@@ -1543,20 +1613,41 @@ if "`mediation'"=="" {
 						}
 						if "`eofu'"!="" {
 						if "`pooled'"=="" {
-							if "`monotreat'"=="" | `is_intvar_`i''==0 {
-								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `commandopts`i''
-							}
-								else {
-									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `_gc_mono_condition' `commandopts`i''
-								}
+							local _gc_fit_if "`tvar'==`k' & `int_no'==0 `_gc_mono_condition' `_gc_struct_fit`i''"
 						}
 						else {
-							if "`monotreat'"=="" | `is_intvar_`i''==0 {
-								qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0 `commandopts`i''
-							}
-								else {
-									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0 `_gc_mono_condition' `commandopts`i''
-								}
+							local _gc_fit_if "`int_no'==0 `_gc_mono_condition' `_gc_struct_fit`i''"
+						}
+						if `_gc_chk_prt'==0 {
+							quietly count if `_gc_fit_if' & !missing(`simvar`i'')
+							local _gc_fit_offered = r(N)
+						}
+						local _gc_draw_if "missing(`simvar`i'') & `tvar'==`k' & `int_no'>0"
+						if "`death'"!="" & "`simvar`i''"=="`outcome'" {
+							local _gc_draw_if "`_gc_draw_if' & `death'!=1"
+						}
+						local _gc_drawmode "stochastic"
+						if "`simvar`i''"=="`outcome'" & "`minsim'"!="" local _gc_drawmode "mean"
+						if `"`_gc_struct_condition`i''"' != "" {
+							_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+								equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+								drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"') ///
+								structcondition(`"`_gc_struct_condition`i''"') ///
+								structvalue(`_gc_struct_value`i'') drawmode(`_gc_drawmode') ///
+								context("structural() for `simvar`i''")
+						}
+						else {
+							_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+								equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+								drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"') ///
+								drawmode(`_gc_drawmode')
+						}
+						if `_gc_chk_prt'==0 {
+							local _gc_warn_var "`simvar`i''"
+							local _gc_warn_pos : list posof "`simvar`i''" in varlist
+							if `_gc_warn_pos'>0 local _gc_warn_var : word `_gc_warn_pos' of `_gc_origvars'
+							_gcomp_warn_fit_sample_loss, varname(`_gc_warn_var') command(`command`i'') ///
+								offered(`_gc_fit_offered') visit(`k')
 						}
 						if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
 							if e(converged)==0 {
@@ -1569,47 +1660,8 @@ if "`mediation'"=="" {
 							if `_gc_diag_pos'>0 local _gc_diag_var : word `_gc_diag_pos' of `_gc_origvars'
 							_gcomp_diag_capture, varname(`_gc_diag_var') command(`command`i'') visit(`k') `_gc_show_flag'
 						}
-*****************************************************************************************************************************************************************************
-						if "`command`i''"=="logit" | "`command`i''"=="regress" {
-							tempvar pred_simvar`i'
-							qui predict `pred_simvar`i''
-						}
-						else {
-							if "`command`i''"=="mlogit" {
-								local maxcat=e(k_out)
-							}
-							if "`command`i''"=="ologit" {
-								local maxcat=e(k_cat)
-							}
-							local _gc_probvars ""
-							forvalues _gc_pc=1/`maxcat' {
-								tempvar _gc_prob
-								local _gc_probvars "`_gc_probvars' `_gc_prob'"
-							}
-							qui predict `_gc_probvars'
-						}
-*****************************************************************************************************************************************************************************
 						if "`command`i''"=="logit" {
-							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"!="" {
-								if "`death'"!="" {
-									qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'') ///
-										& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
-								}
-								else {
-									qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0
-								}
-							}	
-							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"=="" {
-								if "`death'"!="" {
-										qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') ///
-											& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
-								}
-								else {
-										qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
-								}
-							}	
 							if rtrim(ltrim("`simvar`i''"))!=rtrim(ltrim("`outcome'")) {
-											qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
 								if "`monotreat'"!="" & `is_intvar_`i''==1 {
 									qui replace `simvar`i''=1 if `simvar`i''[_n-1]==1 & `idvar'[_n]==`idvar'[_n-1] & `int_no'==`nint'+1
 								}
@@ -1627,69 +1679,42 @@ if "`mediation'"=="" {
 								}
 							}
 						}
-*****************************************************************************************************************************************************************************
-						if ("`command`i''"=="mlogit" | "`command`i''"=="ologit") {
-							tempvar umlogitimp
-							qui gen double `umlogitimp'=runiform()
-							tempvar cum_p1 cum_p2
-							qui gen double `cum_p1'=0
-							qui gen double `cum_p2'=0
-							forvalues cat=1(1)`maxcat' {
-								local _gc_pcat : word `cat' of `_gc_probvars'
-								if "`command`i''"=="mlogit" {
-									mat catvals=e(out)
-								}
-								if "`command`i''"=="ologit" {
-									mat catvals=e(cat)
-								}
-								local catval=catvals[1,`cat']
-								qui replace `cum_p2'=`cum_p2'+`_gc_pcat'
-								if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
-									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & missing(`simvar`i'') ///
-										& `tvar'==`k' & `death'!=1 & `int_no'>0
-								}
-								else {
-									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & missing(`simvar`i'') ///
-										& `tvar'==`k' & `int_no'>0
-								}
-								qui replace `cum_p1'=`cum_p2'
-							}
-						}
-*****************************************************************************************************************************************************************************
-						if "`command`i''"=="regress" {
-							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"!="" {
-								if "`death'"!="" {
-								qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `death'!=1 & `int_no'>0
-								}
-								else {
-								qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0								
-								}
-							}	
-							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"=="" {
-								if "`death'"!="" {
-								qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*rnormal(0,1) if missing(`simvar`i'') & `tvar'==`k' & `death'!=1 & `int_no'>0
-								}
-								else {
-									qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*rnormal(0,1) if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0								
-								}
-							}	
-							if rtrim(ltrim("`simvar`i''"))!=rtrim(ltrim("`outcome'")) {
-								qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*rnormal(0,1) if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0								
-							}
-						}
-						if "`command`i''"!="regress" & "`command`i''"!="logit" & "`command`i''"!="mlogit" & "`command`i''"!="ologit" {
-							noi di as err "Error: only regress, logit, mlogit and ologit are supported as simulation commands in gcomp."
-							exit 198
-						}
 					}
 					else {
 						if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) | ///
 							rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`death'")) {
 							if "`pooled'"=="" {
-								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k'  & `int_no'==0 `commandopts`i''
+								local _gc_fit_if "`tvar'==`k' & `int_no'==0 `_gc_struct_fit`i''"
 							}
 							else {
-								qui `command`i'' `simvar`i'' `equation`i''  if `int_no'==0 `commandopts`i''
+								local _gc_fit_if "`int_no'==0 `_gc_struct_fit`i''"
+							}
+							if `_gc_chk_prt'==0 {
+								quietly count if `_gc_fit_if' & !missing(`simvar`i'')
+								local _gc_fit_offered = r(N)
+							}
+							local _gc_draw_if "missing(`simvar`i'') & `tvar'==`k' & `int_no'>0"
+							if "`death'"!="" & "`simvar`i''"=="`outcome'" {
+								local _gc_draw_if "`_gc_draw_if' & `death'!=1"
+							}
+							if `"`_gc_struct_condition`i''"' != "" {
+								_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+									equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+									drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"') ///
+									structcondition(`"`_gc_struct_condition`i''"') ///
+									structvalue(`_gc_struct_value`i'') context("structural() for `simvar`i''")
+							}
+							else {
+								_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+									equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+									drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"')
+							}
+							if `_gc_chk_prt'==0 {
+								local _gc_warn_var "`simvar`i''"
+								local _gc_warn_pos : list posof "`simvar`i''" in varlist
+								if `_gc_warn_pos'>0 local _gc_warn_var : word `_gc_warn_pos' of `_gc_origvars'
+								_gcomp_warn_fit_sample_loss, varname(`_gc_warn_var') command(`command`i'') ///
+									offered(`_gc_fit_offered') visit(`k')
 							}
 							if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
 								if e(converged)==0 {
@@ -1702,34 +1727,7 @@ if "`mediation'"=="" {
 								if `_gc_diag_pos'>0 local _gc_diag_var : word `_gc_diag_pos' of `_gc_origvars'
 								_gcomp_diag_capture, varname(`_gc_diag_var') command(`command`i'') visit(`k') `_gc_show_flag'
 							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="logit" | "`command`i''"=="regress" {
-								tempvar pred_simvar`i'
-								qui predict `pred_simvar`i''
-							}
-							else {
-								if "`command`i''"=="mlogit" {
-									local maxcat=e(k_out)
-								}
-								if "`command`i''"=="ologit" {
-									local maxcat=e(k_cat)
-								}
-								local _gc_probvars ""
-								forvalues _gc_pc=1/`maxcat' {
-									tempvar _gc_prob
-									local _gc_probvars "`_gc_probvars' `_gc_prob'"
-								}
-								qui predict `_gc_probvars'
-							}
-*****************************************************************************************************************************************************************************
 							if "`command`i''"=="logit" {
-								if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
-											qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') ///
-												& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
-								}
-								else {
-									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
-								}
 								local tc=1
 								while `tc'>0 {
 									qui sort `idvar' `tvar'
@@ -1740,125 +1738,44 @@ if "`mediation'"=="" {
 									qui by `idvar': drop if `simvar`i''[_n-1]==1
 									drop `temp_count'
 								}
-							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="mlogit" | "`command`i''"=="ologit" {
-								tempvar umlogitimp
-								qui gen double `umlogitimp'=runiform()
-								tempvar cum_p1 cum_p2
-								qui gen double `cum_p1'=0
-								qui gen double `cum_p2'=0
-								forvalues cat=1(1)`maxcat' {
-									local _gc_pcat : word `cat' of `_gc_probvars'
-									if "`command`i''"=="mlogit" {
-										mat catvals=e(out)
-									}
-									if "`command`i''"=="ologit" {
-										mat catvals=e(cat)
-									}
-									local catval=catvals[1,`cat']
-									qui replace `cum_p2'=`cum_p2'+`_gc_pcat'
-									if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
-										qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & missing(`simvar`i'') ///
-											& `tvar'==`k' & `death'!=1 & `int_no'>0
-									}
-									else {
-										qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & missing(`simvar`i'') ///
-											& `tvar'==`k' & `int_no'>0
-									}
-									qui replace `cum_p1'=`cum_p2'
-								}
-							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="regress" {
-								if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
-									qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*rnormal(0,1) if missing(`simvar`i'') & `tvar'==`k' ///
-										& `death'!=1 & `int_no'>0
-								}
-								else {
-							qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*rnormal(0,1) if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0
-								}
-							}
-							if "`command`i''"!="regress" & "`command`i''"!="logit" & "`command`i''"!="mlogit" & "`command`i''"!="ologit" {
-								noi di as err "Error: only regress, logit, mlogit and ologit are supported as simulation commands in gcomp."
-								exit 198
-							}
+						}
 						}
 						else {
 							if "`pooled'"=="" {
-								if "`monotreat'"=="" | `is_intvar_`i''==0 {
-									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `commandopts`i''
-								}
-								else {
-									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `_gc_mono_condition' `commandopts`i''
-								}
+								local _gc_fit_if "`tvar'==`k' & `int_no'==0 `_gc_mono_condition' `_gc_struct_fit`i''"
 							}
 							else {
-								if "`monotreat'"=="" | `is_intvar_`i''==0 {
-									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0 `commandopts`i''
-								}
-								else {
-									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0 `_gc_mono_condition' `commandopts`i''
-								}
+								local _gc_fit_if "`int_no'==0 `_gc_mono_condition' `_gc_struct_fit`i''"
+							}
+							if `_gc_chk_prt'==0 {
+								quietly count if `_gc_fit_if' & !missing(`simvar`i'')
+								local _gc_fit_offered = r(N)
+							}
+							local _gc_draw_if "missing(`simvar`i'') & `tvar'==`k' & `int_no'>0"
+							if `"`_gc_struct_condition`i''"' != "" {
+								_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+									equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+									drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"') ///
+									structcondition(`"`_gc_struct_condition`i''"') ///
+									structvalue(`_gc_struct_value`i'') context("structural() for `simvar`i''")
+							}
+							else {
+								_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+									equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+									drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"')
+							}
+							if `_gc_chk_prt'==0 {
+								local _gc_warn_var "`simvar`i''"
+								local _gc_warn_pos : list posof "`simvar`i''" in varlist
+								if `_gc_warn_pos'>0 local _gc_warn_var : word `_gc_warn_pos' of `_gc_origvars'
+								_gcomp_warn_fit_sample_loss, varname(`_gc_warn_var') command(`command`i'') ///
+									offered(`_gc_fit_offered') visit(`k')
 							}
 							if "`gcdiagnostics'" != "" {
 								local _gc_diag_var "`simvar`i''"
 								local _gc_diag_pos : list posof "`simvar`i''" in varlist
 								if `_gc_diag_pos'>0 local _gc_diag_var : word `_gc_diag_pos' of `_gc_origvars'
 								_gcomp_diag_capture, varname(`_gc_diag_var') command(`command`i'') visit(`k') `_gc_show_flag'
-							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="logit" | "`command`i''"=="regress" {
-								tempvar pred_simvar`i'
-								qui predict `pred_simvar`i''
-							}
-							else {
-								if "`command`i''"=="mlogit" {
-									local maxcat=e(k_out)
-								}
-								if "`command`i''"=="ologit" {
-									local maxcat=e(k_cat)
-								}
-								local _gc_probvars ""
-								forvalues _gc_pc=1/`maxcat' {
-									tempvar _gc_prob
-									local _gc_probvars "`_gc_probvars' `_gc_prob'"
-								}
-								qui predict `_gc_probvars'
-							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="logit" {
-								qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
-							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="mlogit" | "`command`i''"=="ologit" {
-								tempvar umlogitimp
-								qui gen double `umlogitimp'=runiform()
-								tempvar cum_p1 cum_p2
-								qui gen double `cum_p1'=0
-								qui gen double `cum_p2'=0
-								forvalues cat=1(1)`maxcat' {
-									local _gc_pcat : word `cat' of `_gc_probvars'
-									if "`command`i''"=="mlogit" {
-										mat catvals=e(out)
-									}
-									if "`command`i''"=="ologit" {
-										mat catvals=e(cat)
-									}
-									local catval=catvals[1,`cat']
-									qui replace `cum_p2'=`cum_p2'+`_gc_pcat'
-									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & missing(`simvar`i'') ///
-											& `tvar'==`k' & `int_no'>0
-									qui replace `cum_p1'=`cum_p2'
-								}
-							}
-*****************************************************************************************************************************************************************************
-							if "`command`i''"=="regress" {
-								qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*rnormal(0,1) if missing(`simvar`i'') & `tvar'==`k' & `int_no'>0
-							}	
-							if "`command`i''"!="regress" & "`command`i''"!="logit" & "`command`i''"!="mlogit" & "`command`i''"!="ologit" {
-								noi di as err "Error: only regress, logit, mlogit and ologit are supported as simulation commands in gcomp."
-								exit 198
 							}
 						}
 					}
@@ -1994,7 +1911,58 @@ else {
 			_gcomp_apply_rule, rule(`"`der`l''=`derrule`l''"') ///
 				condition(`"if missing(`der`l'')"') context("derrules() for `der`l''")
 		}
-		qui `command`i'' `simvar`i'' `equation`i'' if  `int_no'==0 `commandopts`i''
+		if `_gc_chk_prt'==0 {
+			quietly count if `int_no'==0 `_gc_struct_fit`i'' & !missing(`simvar`i'')
+			local _gc_fit_offered = r(N)
+		}
+		local _gc_fit_if "`int_no'==0 `_gc_struct_fit`i''"
+		local _gc_draw_if "missing(`simvar`i'')"
+		local _gc_drawmode "stochastic"
+		if "`simvar`i''"=="`outcome'" & "`minsim'"!="" local _gc_drawmode "mean"
+		local _gc_prefill_opt ""
+		if "`simvar`i''"=="`outcome'" & "`minsim'"!="" & "`linexp'"!="" {
+			tempvar _gc_prefill
+			quietly generate double `_gc_prefill' = .
+			if "`moreMC'"=="" {
+				quietly replace `_gc_prefill'=`simvar`i''[_n-`oldN'-`simulations'] if `int_no'==2
+			}
+			else {
+				local RA=ceil(`simulations'/`oldN')
+				local _gc_prefill_ra = `RA'
+				if "`command`i''"=="logit" local _gc_prefill_ra = 1
+				forvalues ra=1/`_gc_prefill_ra' {
+					quietly replace `_gc_prefill'=`simvar`i''[_n-`ra'*`oldN'-`simulations'] ///
+						if `int_no'==2 & `int_no'[_n-`ra'*`oldN'-`simulations']==0
+				}
+			}
+			local _gc_prefill_opt "prefillsource(`_gc_prefill')"
+		}
+		local _gc_error_opt ""
+		if "`command`i''"=="regress" & "`_gc_drawmode'"=="stochastic" {
+			tempvar helpU
+			quietly generate double `helpU'=rnormal(0,1) if _n<=`simulations'
+			local _gc_error_opt `"errorexpr(`helpU'[`subjectid'])"'
+		}
+		if `"`_gc_struct_condition`i''"' != "" {
+			_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+				equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+				drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"') ///
+				structcondition(`"`_gc_struct_condition`i''"') ///
+				structvalue(`_gc_struct_value`i'') drawmode(`_gc_drawmode') ///
+				context("structural() for `simvar`i''") `_gc_error_opt' `_gc_prefill_opt'
+		}
+		else {
+			_gcomp_draw_sim, command(`command`i'') target(`simvar`i'') ///
+				equation(`"`equation`i''"') fitif(`"`_gc_fit_if'"') ///
+				drawif(`"`_gc_draw_if'"') commandopts(`"`commandopts`i''"') ///
+				drawmode(`_gc_drawmode') `_gc_error_opt' `_gc_prefill_opt'
+		}
+		if `_gc_chk_prt'==0 {
+			local _gc_warn_var "`simvar`i''"
+			local _gc_warn_pos : list posof "`simvar`i''" in varlist
+			if `_gc_warn_pos'>0 local _gc_warn_var : word `_gc_warn_pos' of `_gc_origvars'
+			_gcomp_warn_fit_sample_loss, varname(`_gc_warn_var') command(`command`i'') offered(`_gc_fit_offered')
+		}
 		if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
 			if e(converged)==0 {
 				noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
@@ -2006,98 +1974,20 @@ else {
 			if `_gc_diag_pos'>0 local _gc_diag_var : word `_gc_diag_pos' of `_gc_origvars'
 			_gcomp_diag_capture, varname(`_gc_diag_var') command(`command`i'') `_gc_show_flag'
 		}
-*****************************************************************************************************************************************************************************
-		if "`command`i''"=="logit" | "`command`i''"=="regress" {
-			tempvar pred_simvar`i'
-			qui predict `pred_simvar`i''
-		}
-		else {
-			if "`command`i''"=="mlogit" {
-				local maxcat=e(k_out)
-			}
-			if "`command`i''"=="ologit" {
-				local maxcat=e(k_cat)
-			}
-			local _gc_probvars ""
-			forvalues _gc_pc=1/`maxcat' {
-				tempvar _gc_prob
-				local _gc_probvars "`_gc_probvars' `_gc_prob'"
-			}
-			qui predict `_gc_probvars'
-		}
-*****************************************************************************************************************************************************************************
-		if "`command`i''"=="logit" {
-			if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"!="" {
-				if "`moreMC'"=="" {
-					qui replace `simvar`i''=`simvar`i''[_n-`oldN'-`simulations'] if missing(`simvar`i'') & `int_no'==2 & "`linexp'"!=""
-					qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'')
-				}
-				else {
-					local RA=ceil(`simulations'/`oldN')
-					forvalues ra=1(1)`RA' {
-						qui replace `simvar`i''=`simvar`i''[_n-`ra'*`oldN'-`simulations'] if missing(`simvar`i'') & `int_no'==2 & "`linexp'"!="" & `int_no'[_n-`ra'*`oldN'-`simulations']==0
-						qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'')
-					}
-				}
-			}
-			else {
-				qui replace `simvar`i''=runiform()<`pred_simvar`i'' if missing(`simvar`i'') & `pred_simvar`i''<.
-			}
-		}
-*****************************************************************************************************************************************************************************
 		if "`command`i''"=="mlogit" | "`command`i''"=="ologit" {
-			tempvar umlogitimp
-			qui gen double `umlogitimp'=runiform()
-			tempvar cum_p1 cum_p2
-			qui gen double `cum_p1'=0
-			qui gen double `cum_p2'=0
-			forvalues cat=1(1)`maxcat' {
-				local _gc_pcat : word `cat' of `_gc_probvars'
-				if "`command`i''"=="mlogit" {
-					mat catvals=e(out)
-				}
-				if "`command`i''"=="ologit" {
-					mat catvals=e(cat)
-				}				
-				local catval=catvals[1,`cat']
-				qui replace `cum_p2'=`cum_p2'+`_gc_pcat'
-				qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & missing(`simvar`i'')
-				if "`moreMC'"=="" {
-					qui replace `simvar`i''=`simvar`i''[_n-`oldN'-`simulations'] if `int_no'==2 & "`linexp'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'"))
-				}
-				else {
-					local RA=ceil(`simulations'/`oldN')
-					forvalues ra=1(1)`RA' {
-						qui replace `simvar`i''=`simvar`i''[_n-`ra'*`oldN'-`simulations'] if `int_no'==2 & "`linexp'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & `int_no'[_n-`ra'*`oldN'-`simulations']==0
-					}
-				}
-				qui replace `cum_p1'=`cum_p2'
-			}
-		}
-*****************************************************************************************************************************************************************************
-		if "`command`i''"=="regress" {
-			if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"!="" {
-				if "`moreMC'"=="" {
-					qui replace `simvar`i''=`simvar`i''[_n-`oldN'-`simulations'] if missing(`simvar`i'') & `int_no'==2 & "`linexp'"!=""
-				}
-				else {
-					local RA=ceil(`simulations'/`oldN')
-					forvalues ra=1(1)`RA' {
-						qui replace `simvar`i''=`simvar`i''[_n-`ra'*`oldN'-`simulations'] if missing(`simvar`i'') & `int_no'==2 & "`linexp'"!="" & `int_no'[_n-`ra'*`oldN'-`simulations']==0
-					}
-				}
-				qui replace `simvar`i''=`pred_simvar`i'' if missing(`simvar`i'')
+			if "`moreMC'"=="" {
+				quietly replace `simvar`i''=`simvar`i''[_n-`oldN'-`simulations'] ///
+					if `int_no'==2 & "`linexp'"!="" & "`simvar`i''"=="`outcome'"
 			}
 			else {
-				tempvar helpU
-				qui gen double `helpU'=rnormal(0,1) if _n<=`simulations'
-				qui replace `simvar`i''=`pred_simvar`i''+e(rmse)*`helpU'[`subjectid'] if missing(`simvar`i'')
+				local RA=ceil(`simulations'/`oldN')
+				forvalues ra=1/`RA' {
+					quietly replace `simvar`i''=`simvar`i''[_n-`ra'*`oldN'-`simulations'] ///
+						if `int_no'==2 & "`linexp'"!="" & "`simvar`i''"=="`outcome'" ///
+						& `int_no'[_n-`ra'*`oldN'-`simulations']==0
+				}
 			}
 		}
-			if "`command`i''"!="regress" & "`command`i''"!="logit" & "`command`i''"!="mlogit" & "`command`i''"!="ologit" {
-			noi di as err "Error: only regress, logit, mlogit and ologit are supported as simulation commands in gcomp."
-				exit 198
-			}
 			if `i'==`_gc_last_mediator_pos' {
 				local _gc_exposure_index 0
 				foreach _gc_exp of local exposure {

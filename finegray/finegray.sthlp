@@ -132,6 +132,28 @@ extensions described below.
 coded as 0 = censored, 1 = cause 1, 2 = cause 2, etc. Must be consistent with
 the {cmd:stset} failure indicator.
 
+{pmore}
+{cmd:compete()} is the outcome classification, not a covariate, so it must be
+observed on every record of the estimation sample. A record whose event type is
+{it:missing} is refused with {cmd:r(198)}, naming how many such records there
+are and how many of them are {cmd:stset} failures; it is not dropped. Dropping
+it would remove an event from the estimand with nothing on screen, and it would
+be inconsistent with the check that already refuses a record whose event type
+merely {it:disagrees} with the {cmd:stset} failure indicator.
+
+{pmore}
+The usual way to arrive at a missing {cmd:compete()} is to {cmd:stset} the
+failure indicator on the event-type variable itself and then {helpb stsplit} --
+{cmd:stsplit} sets that variable to missing on every non-terminal episode, in
+both the by-name and the expression form. Carry the subject's event type onto
+every episode before fitting, or {cmd:stset} a separate failure indicator:
+
+{pmore2}
+{cmd:. generate byte anyev = status != 0}{break}
+{cmd:. stset t, failure(anyev) id(id)}{break}
+{cmd:. stsplit iv, at(2 4)}{break}
+{cmd:. finegray x1 x2, compete(status) cause(1)}
+
 {phang}
 {opt cause(#)} specifies which value of {it:compete()} represents the cause of
 interest.
@@ -240,7 +262,13 @@ inverse-probability-of-censoring weights as fixed and does not propagate the
 uncertainty in the
 estimated censoring distribution G(t) (nor, under delayed entry, the entry
 distribution H(t)). Under right censoring this is the same variance convention
-{helpb stcrreg} reports. Under delayed entry the commands use different weights, so
+{helpb stcrreg} reports. {bf:Same convention is not the same digits:} the two
+commands break ties in the censoring Kaplan-Meier differently, so the standard
+errors agree to about four significant figures rather than exactly. On
+{cmd:webuse hypoxia} the coefficients match to {cmd:mreldif} 5e-11 while the
+standard errors differ by up to 2e-4 in relative terms; the package's own
+cross-validation gates {cmd:stcrreg} standard-error parity as a tolerance, not
+as equality. Under delayed entry the commands use different weights, so
 neither estimates nor standard errors are numerically comparable. Coefficients
 are unaffected by the variance option — only their standard errors change. {cmd:e(lt_vce)}
 records the delayed-entry variance actually computed as
@@ -504,6 +532,17 @@ signature is still checked, so a sample that does not match the fit is refused
 exactly as before.
 
 {pmore2}
+This holds whether the dataset in memory was saved before or after the fit. The
+dataset characteristics in point 3 above are written by the fit, so a copy saved
+{it:before} it does not carry them; that copy is still recognised from
+{cmd:e()}, and it reaches the same {cmd:r(459)} and the same one-line
+repair. A multiple-record fit is the one case the repair cannot rescue: its
+subject-level entry times live in the {cmd:_fg_entry} column that the fit
+created, {cmd:_fg_entry} is one of the {cmd:e(datasignaturevars)}, and a dataset
+that predates the fit does not contain it -- so the reload stops with
+{cmd:r(459)} naming {cmd:_fg_entry}, and the fit must be re-run.
+
+{pmore2}
 {cmd:. estimates use myfit}{break}
 {cmd:. estimates esample: `e(datasignaturevars)' if !missing(_t)}{break}
 {cmd:. finegray_cif, attime(5)}
@@ -747,8 +786,8 @@ the factor-variable terms you typed ({cmd:1.pelnode}, {cmd:1.pelnode#c.ifp}), so
 exporters all address coefficients in your own vocabulary. The package-owned
 design columns that hold the expansion ({cmd:_fg_pelnode_1} and the like) are
 reported separately in {cmd:e(covariates)}; they are what {helpb finegray_cif}
-and {helpb finegray_predict} read, and what {cmd:at()} accepts for a term that
-enters an interaction. See {help finegray##sideeffects:Dataset side effects}.
+and {helpb finegray_predict} read, and {cmd:at()} accepts them by name as an
+override; ordinarily you name the underlying variables instead. See {help finegray##sideeffects:Dataset side effects}.
 
 {pstd}
 {bf:Compatibility with other implementations.} Without delayed entry,
@@ -947,6 +986,7 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(compete)}}competing events variable name{p_end}
 {synopt:{cmd:e(compete_values)}}values of {cmd:e(compete)} pooled as competing events{p_end}
 {synopt:{cmd:e(covariates)}}covariate variable names{p_end}
+{synopt:{cmd:e(entryvar)}}entry-time column of a multiple-record fit; empty otherwise{p_end}
 {synopt:{cmd:e(fvvarlist)}}original factor-variable specification{p_end}
 {synopt:{cmd:e(fvsemantic)}}factor-variable expansion semantics{p_end}
 {synopt:{cmd:e(strata)}}censoring stratification variables{p_end}
@@ -1000,7 +1040,12 @@ estimation data.
 {pstd}
 {cmd:finegray} also records dataset characteristics
 {cmd:_dta[_finegray_estimated]}, {cmd:_dta[_finegray_compete]},
-{cmd:_dta[_finegray_cause]}, and {cmd:_dta[_finegray_covars]}.
+{cmd:_dta[_finegray_cause]}, and {cmd:_dta[_finegray_covars]}. The first of
+these is {cmd:1} after a successful fit and {cmd:0} when a re-fit began mutating
+package-owned columns and then failed; {cmd:0} is refused by every
+post-estimation command with {cmd:r(301)}, and is deliberately distinct from the
+characteristic being absent altogether, which is what a dataset saved before the
+fit looks like.
 
 {pstd}
 When factor variables are used it also records {cmd:_dta[_finegray_fvvars]} and
@@ -1011,8 +1056,12 @@ factor-variable columns safely.
 {pstd}
 When multiple records per subject are reduced, {cmd:finegray} records the name
 of the persistent entry-time variable ({cmd:_fg_entry}) in
-{cmd:_dta[_finegray_entryvar]}; post-estimation commands read it to
-reconstruct each subject's risk window.
+{cmd:_dta[_finegray_entryvar]} and in {cmd:e(entryvar)}; post-estimation
+commands read the characteristic, falling back to {cmd:e(entryvar)} when the
+dataset in memory does not carry it, and reconstruct each subject's risk window
+from it. Two records of the same fact because the characteristic travels with
+the data and {cmd:e()} travels with the estimates: reading {cmd:_t0} instead
+would silently substitute per-record entry times for subject-level ones.
 
 {pstd}
 Constant and exactly collinear covariate columns are not identified by the
