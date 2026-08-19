@@ -88,6 +88,11 @@ separate {helpb regtab} calls already build adjusted Cox or competing-risk
 models.
 
 {pstd}
+{cmd:hrcomptab} is retained as a specialized compatibility wrapper. It forwards
+to the unified {cmd:comptab, rateframe()} engine and preserves the syntax and
+stored results documented here.
+
+{pstd}
 It keeps the row and outcome layout from the {cmd:stratetab} frame, adds two
 columns per outcome ({it:effect} and {it:p-value}), and fills those columns
 from selected rows of one or more {cmd:regtab} frames.

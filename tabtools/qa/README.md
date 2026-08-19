@@ -65,9 +65,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | `test_effecttab.do` | effecttab | margins/teffects collects, from() matrix path, IPTW PS-coefficient filtering, digits, frames, console-only returns, refcat() option (1.9.11) |
 | `test_survtab.do` | survtab | KM estimates, medians, RMST (+difference, no-late-entry), events option, riskset, highlight bounds, ev abbreviation, user-variable collisions, pdp()/highpdp() 1-10 bound (1.9.11) |
 | `test_stratetab.do` | stratetab | strate-file workflows, multi-outcome/exposure scaffolds, rateratio, console/frame modes without xlsx(), sheet validation, row-order regression, error handling, varabbrev restore |
-| `test_comptab.do` | comptab | Composite tables from regtab/effecttab frames, varabbrev restore on error |
+| `test_comptab.do` | comptab | Vertical model composition, mode-specific option guards, varabbrev restore on error |
 | `test_ci_level_provenance.do` | regtab, effecttab, `_tabtools_collect_ci_level` | CI-level provenance: key present/absent/non-default, explicit `level()` fallback only when provenance is absent, refusal without either source, and conflict guard. Guards the Stata 19 `r(459)` breakage (`collect save` omits the undocumented `ci-level` key) |
-| `test_hrcomptab.do` | hrcomptab | stratetab scaffold + regtab model frames, rownames() patterns, reflabel() override + r(rateframe), xlsx success message |
+| `test_hrcomptab.do` | comptab + hrcomptab | Rate-scaffold composition, direct/wrapper frame and workbook-XML parity, explicit modelframes(), option guards, rownames(), reflabel(), and xlsx output |
 | `test_puttab.do` | puttab | Dataset/frame/matrix sources, styling options, markdown-only mode |
 | `test_stacktab.do` | stacktab | Workbook block assembly (vstack/hstack, columnmerge), frame replacement guard |
 | `test_tabtools.do` | tabtools (controller) | Command listing/categories, set/get/clear round-trips, detail re-load, disk-backed profiles (sandboxes PERSONAL and supports a serial external restart-result handoff), r(version) vs header |

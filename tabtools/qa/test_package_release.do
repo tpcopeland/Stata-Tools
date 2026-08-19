@@ -165,10 +165,10 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=63 class_missing=0 wrapper_missing=0"
+        "PASS programs=65 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
-    display as result "  PASS: all 63 shipped programs declare a class and restore varabbrev"
+    display as result "  PASS: all 65 shipped programs declare a class and restore varabbrev"
     local ++pass_count
 }
 else {
