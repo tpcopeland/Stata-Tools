@@ -1459,6 +1459,114 @@ else {
 }
 
 
+**# Quoted eplotframe() specifications across 4 commands
+* Regression: eplotframe("name, replace") crashed with r(198) because
+* string asis preserved outer quotes and gettoken treated the entire
+* quoted string as one token.
+
+sysuse auto, clear
+collect clear
+collect: regress price mpg weight
+
+* regtab: quoted eplotframe
+capture noisily {
+    regtab, eplotframe("ep_adv, replace")
+    capture frame drop ep_adv
+}
+if _rc == 0 {
+    display as result "  PASS: regtab eplotframe(quoted) accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab eplotframe(quoted) (rc=`=_rc')"
+    local ++fail_count
+}
+
+* effecttab: quoted eplotframe
+sysuse auto, clear
+generate treat = (foreign == 1)
+collect clear
+collect: teffects ra (price mpg weight) (treat)
+
+capture noisily {
+    effecttab, eplotframe("ep_adv_eff, replace")
+    capture frame drop ep_adv_eff
+}
+if _rc == 0 {
+    display as result "  PASS: effecttab eplotframe(quoted) accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: effecttab eplotframe(quoted) (rc=`=_rc')"
+    local ++fail_count
+}
+
+* regtab: quoted frame()
+sysuse auto, clear
+collect clear
+collect: regress price mpg weight
+
+capture noisily {
+    regtab, frame("fr_adv, replace")
+    capture frame drop fr_adv
+}
+if _rc == 0 {
+    display as result "  PASS: regtab frame(quoted) accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab frame(quoted) (rc=`=_rc')"
+    local ++fail_count
+}
+
+* eplotframe with invalid name still errors
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight
+    regtab, eplotframe("123bad, replace")
+}
+if _rc == 198 {
+    display as result "  PASS: eplotframe(invalid quoted name) rejects with r(198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: eplotframe(invalid quoted name) expected r(198), got rc=`=_rc'"
+    local ++fail_count
+}
+
+**# table1_tc percsign(%) with missingsummary
+* Regression: bare % from percsign(%) caused r(198) in the missingsummary
+* code path because the macro expanded to a bare operator in expression context.
+
+capture noisily {
+    sysuse auto, clear
+    replace mpg = . if _n <= 5
+    table1_tc foreign, vars(mpg contn rep78 cat) percsign(%) missingsummary
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc percsign(%) with missingsummary"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc percsign(%) with missingsummary (rc=`=_rc')"
+    local ++fail_count
+}
+
+capture noisily {
+    sysuse auto, clear
+    table1_tc foreign, vars(rep78 cat) percsign(%) headerperc
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc percsign(%) with headerperc"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc percsign(%) with headerperc (rc=`=_rc')"
+    local ++fail_count
+}
+
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""
