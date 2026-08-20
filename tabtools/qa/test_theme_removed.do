@@ -3,6 +3,12 @@ version 16.0
 clear all
 set more off
 
+local qa_dir "`c(pwd)'"
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
+discard
+
 sysuse auto, clear
 
 capture noisily table1_tc, by(foreign) vars(price contn) theme(lancet)
