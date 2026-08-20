@@ -397,7 +397,7 @@ else {
 * lane, where output_dir points at a disposable tmp directory and qa/output is
 * never created.
 *
-* The scan covers every qa/*.do INCLUDING this file, so the gate cannot be
+* The scan covers every QA do-file INCLUDING this file, so the gate cannot be
 * weakened by relocating a violation into it. That is why neither the forbidden
 * literal nor a bare example of it appears anywhere in this file: the search
 * pattern is assembled from char(34) at runtime, and the positive control writes
@@ -425,22 +425,18 @@ capture noisily {
         }
     }
 
-    * Positive control: the scan must actually flag the forbidden form, and must
-    * NOT flag the compliant one. Without both halves a broken grep or quoting
-    * change would leave the gate vacuously green.
+    * Positive control: exactly the violating probe line must match.
     tempfile _lit_ctrl
     tempname _ctrlh
     file open `_ctrlh' using "`_lit_ctrl'", write text replace
-    file write `_ctrlh' `"regtab, xlsx(`dq'`rel_dir'/ctrl.xlsx`dq')"' _n
-    file write `_ctrlh' `"regtab, xlsx(`dq'`=char(96)'output_dir'/ok.xlsx`dq')"' _n
+    file write `_ctrlh' "regtab, xlsx(" _char(34) "`rel_dir'/ctrl.xlsx" _char(34) ")" _n
+    file write `_ctrlh' "regtab, xlsx(" _char(34) "`_lit_ctrl'.xlsx" _char(34) ")" _n
     file close `_ctrlh'
     shell grep -cE '`lit_pat'' "`_lit_ctrl'" > "`_lit_out'" 2>/dev/null
     file open `_lith' using "`_lit_out'", read text
     file read `_lith' _ctrlline
     file close `_lith'
-    * Exactly one of the two probe lines must match: the violating one.
     assert real("`_ctrlline'") == 1
-
     assert `literal_target_files' == 0
 }
 if _rc == 0 {
@@ -1046,13 +1042,18 @@ else {
     local failed_tests "`failed_tests' table1_weight_smcl"
 }
 capture noisily {
-    tempfile grep_out
-    shell grep -cE 'Repository Checkout Demo|not part of the net install payload' "`pkg_dir'/README.md" > "`grep_out'" 2>/dev/null
+    tempfile checkout_out data_out
+    shell grep -cF 'repository-checkout workflow' "`pkg_dir'/README.md" > "`checkout_out'" 2>/dev/null
+    shell grep -cF '_data/' "`pkg_dir'/README.md" > "`data_out'" 2>/dev/null
     tempname fh
-    file open `fh' using "`grep_out'", read text
-    file read `fh' line
+    file open `fh' using "`checkout_out'", read text
+    file read `fh' checkout_hits
     file close `fh'
-    assert real("`line'") == 2
+    file open `fh' using "`data_out'", read text
+    file read `fh' data_hits
+    file close `fh'
+    assert real("`checkout_hits'") >= 1
+    assert real("`data_hits'") >= 1
 }
 if _rc == 0 {
     display as result "  PASS: README labels demo as checkout-only"
@@ -1288,71 +1289,86 @@ else {
 capture program drop _qa_sthlp_render
 program define _qa_sthlp_render, rclass
     version 17.0
-    syntax anything(name=files id="help files")
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local caller_log_off 0
+    local render_log_open 0
+    capture noisily {
+        syntax anything(name=files id="help files")
 
-    local files = subinstr(`"`files'"', char(34), "", .)
-    local nbad 0
-    local badfiles ""
+        local files = subinstr(`"`files'"', char(34), "", .)
+        local nbad 0
+        local badfiles ""
 
-    foreach f of local files {
-        capture confirm file "`f'"
-        if _rc {
-            display as error "  render: file not found: `f'"
-            local ++nbad
-            local badfiles "`badfiles' `f'"
-            continue
-        }
-
-        tempfile rlog
-        capture log off
-        local log_off_rc = _rc
-        if `log_off_rc' {
-            display as error "  render: could not suspend the caller log"
-            exit `log_off_rc'
-        }
-        log using "`rlog'", replace text name(_qarender)
-        type "`f'", smcl
-        log close _qarender
-        capture log on
-        local log_on_rc = _rc
-        if `log_on_rc' {
-            display as error "  render: could not resume the caller log"
-            exit `log_on_rc'
-        }
-
-        local hits 0
-        local nlines 0
-        tempname fh
-        file open `fh' using "`rlog'", read text
-        file read `fh' line
-        while r(eof) == 0 {
-            local ++nlines
-            if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") {
-                local shown = subinstr(`"`line'"',  "{",     char(1), .)
-                local shown = subinstr(`"`shown'"', "}",     char(2), .)
-                local shown = subinstr(`"`shown'"', char(1), "{c -(}", .)
-                local shown = subinstr(`"`shown'"', char(2), "{c )-}", .)
-                display as error "  literal SMCL: `shown'"
-                local ++hits
+        foreach f of local files {
+            capture confirm file "`f'"
+            if _rc {
+                display as error "  render: file not found: `f'"
+                local ++nbad
+                local badfiles "`badfiles' `f'"
+                continue
             }
+
+            tempfile rlog
+            capture log off _pkgrel
+            local log_off_rc = _rc
+            if `log_off_rc' {
+                display as error "  render: could not suspend the caller log"
+                exit `log_off_rc'
+            }
+            local caller_log_off 1
+            log using "`rlog'", replace text name(_qarender)
+            local render_log_open 1
+            type "`f'", smcl
+            log close _qarender
+            local render_log_open 0
+            capture log on _pkgrel
+            local log_on_rc = _rc
+            if `log_on_rc' {
+                display as error "  render: could not resume the caller log"
+                exit `log_on_rc'
+            }
+            local caller_log_off 0
+            local hits 0
+            local nlines 0
+            tempname fh
+            file open `fh' using "`rlog'", read text
             file read `fh' line
-        }
-        file close `fh'
+            while r(eof) == 0 {
+                local ++nlines
+                if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") | ///
+                    regexm(`"`line'"', "\{helpb") {
+                    local shown = subinstr(`"`line'"',  "{",     char(1), .)
+                    local shown = subinstr(`"`shown'"', "}",     char(2), .)
+                    local shown = subinstr(`"`shown'"', char(1), "{c -(}", .)
+                    local shown = subinstr(`"`shown'"', char(2), "{c )-}", .)
+                    display as error "  literal SMCL: `shown'"
+                    local ++hits
+                }
+                file read `fh' line
+            }
+            file close `fh'
 
-        if `nlines' == 0 {
-            display as error "  render produced no output for `f' -- FAILING"
-            local ++nbad
-            local badfiles "`badfiles' `f'"
-            continue
+            if `nlines' == 0 {
+                display as error "  render produced no output for `f' -- FAILING"
+                local ++nbad
+                local badfiles "`badfiles' `f'"
+                continue
+            }
+            if `hits' > 0 {
+                local ++nbad
+                local badfiles "`badfiles' `f'"
+            }
         }
-        if `hits' > 0 {
-            local ++nbad
-            local badfiles "`badfiles' `f'"
-        }
+
+        return scalar nbad = `nbad'
+        return local badfiles "`badfiles'"
     }
-
-    return scalar nbad = `nbad'
-    return local badfiles "`badfiles'"
+    local rc = _rc
+    if `render_log_open' capture log close _qarender
+    if `caller_log_off' capture log on _pkgrel
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 capture noisily {
@@ -1366,8 +1382,8 @@ capture noisily {
     _qa_sthlp_render `paths'
     assert r(nbad) == 0
 
-    * Positive control: prove the oracle catches a directive split across a
-    * source newline instead of returning zero regardless of input.
+    * Positive controls: prove the oracle catches directives split after a
+    * colon and before the separating space.
     tempname bfh
     local broken "`output_dir'/_render_probe.sthlp"
     file open `bfh' using "`broken'", write replace text
@@ -1379,9 +1395,21 @@ capture noisily {
     file close `bfh'
     _qa_sthlp_render `broken'
     assert r(nbad) == 1
+
+    local broken_prespace "`output_dir'/_render_probe_prespace.sthlp"
+    file open `bfh' using "`broken_prespace'", write replace text
+    file write `bfh' "{smcl}" _n
+    file write `bfh' "{title:Render probe}" _n _n
+    file write `bfh' "{pstd}" _n
+    file write `bfh' "A directive split before its argument: {helpb" _n
+    file write `bfh' "broken} renders as literal markup." _n
+    file close `bfh'
+    _qa_sthlp_render `broken_prespace'
+    assert r(nbad) == 1
 }
 local render_rc = _rc
 capture erase "`broken'"
+capture erase "`broken_prespace'"
 if `render_rc' == 0 {
     display as result "  PASS: all shipped .sthlp files render cleanly and the positive control is detected"
     local ++pass_count

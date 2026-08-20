@@ -112,8 +112,8 @@ different analyses.
 {pstd}
 With {opt rateframe()}, {cmd:comptab} instead uses a {helpb stratetab} frame as
 the row scaffold and interlocks selected {helpb regtab} model rows into each
-outcome block as events, person-time, rate, effect, and p-value columns. {helpb
-hrcomptab} is a compatibility wrapper for this mode.
+outcome block as events, person-time, rate, effect, and p-value columns. {helpb hrcomptab} is a compatibility
+wrapper for this mode.
 
 {pstd}
 Common use cases:
