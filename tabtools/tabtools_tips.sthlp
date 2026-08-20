@@ -341,7 +341,9 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:matrix T = r(table)'}{p_end}
 {phang2}{cmd:puttab using report.xlsx, sheet("Coefs") matrix(T) title("OLS Coefficients") digits(3) headershade}{p_end}
 {phang2}{cmd:frame put make mpg price in 1/10, into(top)}{p_end}
-{phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) title("First Ten Cars") varlabels font(Arial) fontsize(9) borderstyle(academic) zebra}{p_end}
+{phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) ///}{p_end}
+{phang2}{cmd:    title("First Ten Cars") varlabels font(Arial) fontsize(9) ///}{p_end}
+{phang2}{cmd:    borderstyle(academic) zebra}{p_end}
 
 {title:19. Emit-then-assemble pipeline}
 {phang2}{cmd:clear}{p_end}
