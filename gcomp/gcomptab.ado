@@ -1,4 +1,4 @@
-*! gcomptab Version 1.6.0  2026/08/19
+*! gcomptab Version 2.0.0  2026/08/19
 *! Export gcomp mediation, dose-response, or component-model results
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -89,7 +89,7 @@ capture noisily {
 
     syntax [, xlsx(string) sheet(string) ci(string) effect(string) title(string) ///
             labels(string) decimal(integer 3) Font(string) FONTSize(integer 10) ///
-            BORDERstyle(string) THEme(string) HEADERShade NOSHAde ///
+            BORDERstyle(string) HEADERShade NOSHAde ///
             HEADERColor(string) ZEBRA ZEBRAColor(string) NOZEbra ///
             FOOTnote(string) OPEN BOLDp(real 0) ///
             HIGHlight(real 0) DOSEresponse STRATEGYlabels(string) ///
@@ -123,26 +123,6 @@ capture noisily {
     }
     _gcomp_xl_require_helpers
 
-    if "`theme'" != "" {
-        local theme = lower("`theme'")
-        if !inlist("`theme'", "lancet", "nejm", "bmj", "apa", "jama", ///
-            "plos", "nature", "cell", "annals") {
-            noisily display as error "theme() must be lancet, nejm, bmj, apa, jama, plos, nature, cell, or annals"
-            exit 198
-        }
-        if "`font'" == "" local font = cond("`theme'" == "apa", "Times New Roman", "Arial")
-        if `fontsize' == 10 {
-            if inlist("`theme'", "lancet", "nejm") local fontsize 9
-            else if "`theme'" == "apa" local fontsize 12
-            else if "`theme'" == "nature" local fontsize 7
-            else if "`theme'" == "cell" local fontsize 8
-        }
-        if "`borderstyle'" == "" {
-            if "`theme'" == "plos" local borderstyle "thin"
-            else local borderstyle "academic"
-        }
-        if "`theme'" == "nejm" local zebra "zebra"
-    }
     if "`noshade'" != "" local headershade ""
     if "`nozebra'" != "" local zebra ""
     if `"`headercolor'"' == "" local headercolor "219 229 241"

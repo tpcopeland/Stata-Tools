@@ -68,12 +68,11 @@ accepts any of Excel, Markdown, CSV, or Results-window display.
 {synopt:{opt f:ont(string)}}font family; default is {cmd:"Arial"}{p_end}
 {synopt:{opt fonts:ize(#)}}body font size; default {cmd:10}{p_end}
 {synopt:{opt border:style(string)}}{cmd:thin}, {cmd:medium}, {cmd:academic}, or {cmd:none}{p_end}
-{synopt:{opt the:me(string)}}journal-style formatting preset{p_end}
 {synopt:{opt headers:hade}}shade header rows{p_end}
-{synopt:{opt nosha:de}}suppress header shading from a theme{p_end}
+{synopt:{opt nosha:de}}suppress header shading{p_end}
 {synopt:{opt headerc:olor(string)}}header fill color; default {cmd:"219 229 241"}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
-{synopt:{opt noze:bra}}suppress zebra shading from a theme{p_end}
+{synopt:{opt noze:bra}}suppress zebra shading{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill color; default {cmd:"237 242 249"}{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table in smaller italic font{p_end}
 
@@ -277,17 +276,12 @@ confidence limits, and standard errors. Default is {cmd:3}. Range is 1 to 6.
 {cmd:none} {hline 2} no explicit borders
 
 {phang}
-{opt theme(string)} applies a journal-style preset. Allowed values are
-{cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
-{cmd:nature}, {cmd:cell}, and {cmd:annals}.
-
-{phang}
 {opt headershade}, {opt noshade}, and {opt headercolor(string)} control header
 fills. Header shading is off by default.
 
 {phang}
 {opt zebra} applies alternating row shading to data rows. {opt nozebra}
-suppresses zebra shading requested by a theme. {opt zebracolor(string)} sets
+suppresses zebra shading. {opt zebracolor(string)} sets
 the alternating-row fill color.
 
 {phang}

@@ -17,7 +17,7 @@
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
       Per-command workbooks (13 xlsx files, 77 sheets total):
-        demo_table1.xlsx    (14 sheets) - table1_tc + themes + small cells
+        demo_table1.xlsx    (14 sheets) - table1_tc + explicit styles + small cells
         demo_desctab.xlsx   (9 sheets)  - descriptive tables + small cells
         demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
         demo_regtab_models.xlsx (10 sheets) - regtab model-family coverage
@@ -674,16 +674,16 @@ table1_tc, by(treated) ///
     footnote("SD shown as mean [SD]. IQR uses 'to' separator. Row % for categoricals.") ///
     excel("`xlsx_table1'") sheet("Table 1 Custom")
 
-**# Sheet 9: Table 1 NEJM -- Journal theme styling
-* Demonstrates: theme(nejm) for New England Journal of Medicine formatting
+**# Sheet 9: Table 1 explicit compact styling
+* Demonstrates: explicit font, size, academic borders, and zebra formatting
 table1_tc, by(treated) ///
     vars(index_age contn %5.1f \ female bin \ ///
          education cat \ diabetes bin \ hypertension bin \ ///
          anxiety bin \ prior_cvd bin) ///
     smd test ///
-    theme(nejm) ///
-    title("Table 1. Baseline Characteristics (NEJM Style)") ///
-    excel("`xlsx_table1'") sheet("Table 1 NEJM")
+    font(Arial) fontsize(9) borderstyle(academic) zebra ///
+    title("Table 1. Baseline Characteristics (Compact Style)") ///
+    excel("`xlsx_table1'") sheet("Table 1 Compact")
 
 **# Sheet 10: Logistic -- Single propensity score model
 collect clear
@@ -802,7 +802,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("GEE QICu") ///
 restore
 
 **# Sheet 19: Regtab Advanced -- Conditional formatting and label features
-* Demonstrates: dimnonsig, factorlabel, starslevels(), theme(bmj)
+* Demonstrates: dimnonsig, factorlabel, starslevels(), and explicit formatting
 collect clear
 collect: logistic cv_event treated index_age female i.education ///
     i.civil_status diabetes hypertension anxiety prior_cvd
@@ -811,7 +811,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab Advanced") ///
     title("Table 5d. Logistic Regression with Advanced Formatting") ///
     coef("OR") noint dimnonsig factorlabel ///
     starslevels(0.05 0.01 0.001) ///
-    theme(bmj) models("Advanced")
+    font(Arial) fontsize(10) borderstyle(academic) models("Advanced")
 
 **# Sheet 20: Regtab Select -- Covariate filtering with keep/drop
 * Demonstrates: keep() to show only selected covariates, stars
@@ -1085,7 +1085,7 @@ comptab _demo_binary _demo_educ, ///
     separator(2)
 
 **# Sheet 23: Composite Compact -- Full composite with sections + footnote
-* Demonstrates: compact, section(), relabel(), footnote(), theme()
+* Demonstrates: compact, section(), relabel(), footnote(), and explicit formatting
 * Treatment + confounders from model 1, education from model 2
 comptab _demo_binary _demo_educ, ///
     rows(1 4 5 6 \ 1/4) compact ///
@@ -1093,7 +1093,7 @@ comptab _demo_binary _demo_educ, ///
     xlsx("`xlsx_comptab'") sheet("Composite Compact") ///
     title("Table 3. Risk Factors for Cardiovascular Events") ///
     footnote("aHR = adjusted hazard ratio; CI = confidence interval. Models adjusted for age, sex, and comorbidities.") ///
-    theme(lancet)
+    font(Arial) fontsize(9) borderstyle(academic)
 
 **# Sheet 24: Composite Names -- Pattern-based row selection with rownames()
 * Demonstrates: comptab rownames() as alternative to rows() for label-based selection
@@ -1308,36 +1308,36 @@ survtab, times(365 730 1095 1460) by(treated) ///
     footnote("RMST = restricted mean survival time truncated at 1460 days.")
 
 **# Sheet 43: Cumulative Incidence -- Reverse survival function
-* Demonstrates: survtab reverse (1 - S(t)) + theme(apa)
+* Demonstrates: survtab reverse (1 - S(t)) plus explicit formatting
 survtab, times(365 730 1095 1460) by(treated) ///
     reverse ///
     xlsx("`xlsx_survtab'") sheet("Cumul Incidence") ///
     title("Table 18b. Cumulative Incidence of CV Events") ///
-    timeunit(days) theme(apa)
+    timeunit(days) font("Times New Roman") fontsize(12) borderstyle(academic)
 
 
-**# Sheet 44: Theme BMJ -- BMJ journal formatting
-* Demonstrates: theme(bmj) applied to table1_tc
+**# Sheet 44: Explicit Arial formatting
+* Demonstrates: Arial 10-point text with academic borders
 use `analysis', clear
 table1_tc, by(treated) ///
     vars(index_age contn %5.1f \ female bin \ ///
          education cat \ diabetes bin \ hypertension bin \ ///
          anxiety bin \ prior_cvd bin) ///
     smd ///
-    theme(bmj) ///
-    title("Table 1. Baseline Characteristics (BMJ Style)") ///
-    excel("`xlsx_table1'") sheet("Theme BMJ")
+    font(Arial) fontsize(10) borderstyle(academic) ///
+    title("Table 1. Baseline Characteristics (Arial Style)") ///
+    excel("`xlsx_table1'") sheet("Explicit Arial")
 
-**# Sheet 45: Theme APA -- APA formatting
-* Demonstrates: theme(apa) applied to table1_tc
+**# Sheet 45: Explicit serif formatting
+* Demonstrates: Times New Roman 12-point text with academic borders
 table1_tc, by(treated) ///
     vars(index_age contn %5.1f \ female bin \ ///
          education cat \ diabetes bin \ hypertension bin \ ///
          anxiety bin \ prior_cvd bin) ///
     smd ///
-    theme(apa) ///
-    title("Table 1. Baseline Characteristics (APA Style)") ///
-    excel("`xlsx_table1'") sheet("Theme APA")
+    font("Times New Roman") fontsize(12) borderstyle(academic) ///
+    title("Table 1. Baseline Characteristics (Serif Style)") ///
+    excel("`xlsx_table1'") sheet("Explicit Serif")
 
 **# Sheet 46: HR Composite -- hrcomptab final Table 2-style survival composite
 tempfile rate11 rate12 rate13 rate21 rate22 rate23
@@ -1499,7 +1499,7 @@ capture frame drop _put_top
 frame put make mpg price weight in 1/10, into(_put_top)
 puttab using "`xlsx_puttab'", sheet("Frame") frame(_put_top) ///
     title("Table P2. First Ten Cars") ///
-    varlabels theme(nejm) zebra
+    varlabels font(Arial) fontsize(9) borderstyle(academic) zebra
 capture frame drop _put_top
 
 * Source 3: the current dataset (a collapse result with value labels)

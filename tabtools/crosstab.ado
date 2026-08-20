@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.0  2026/08/19
+*! crosstab Version 2.0.0  2026/08/19
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -13,7 +13,7 @@ SYNTAX:
         [colpct rowpct totalpct exact fisher
         or rr rd trend cochran label missing smallcells(integer)
         sheet(string) title(string)
-        footnote(string) theme(string) borderstyle(string)
+        footnote(string) font(string) fontsize(integer) borderstyle(string)
         boldp(real) zebra headershade headercolor(string) zebracolor(string)
         csv(filename) frame(name) open]
 */
@@ -54,7 +54,7 @@ capture noisily {
         Level(cilevel) ///
         DIGits(integer -1) ///
         title(string) ///
-        FOOTnote(string) THEme(string) BORDERstyle(string) ///
+        FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
         csv(string) MARKdown(string) MDAPPend FRAme(string) ///
@@ -175,7 +175,7 @@ capture noisily {
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     if "`headershade'" != "" local _headershade 1
 
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')

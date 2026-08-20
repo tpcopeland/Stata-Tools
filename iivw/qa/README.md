@@ -71,6 +71,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_release_adversarial.do` | Version, package, installed-user, session-state, and documentation release surface. |
 | `test_iivw_replay.do` | Estimation replay and interval display. |
 | `test_iivw_reporting_exports.do` | Console and Excel report fidelity. |
+| `test_theme_removed.do` | Removed theme() parser rejection for reporting commands. |
 | `test_iivw_sample_contract.do` | Weighted outcome sample and arm-specific loss. |
 | `test_iivw_stacked.do` | Independent reconstruction of the stacked sandwich. |
 | `test_iivw_stale_state.do` | Mutated-input signatures and harmless changes. |

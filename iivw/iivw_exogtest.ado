@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 3.4.3  2026/08/17
+*! iivw_exogtest Version 4.0.0  2026/08/19
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -62,7 +62,7 @@ program define iivw_exogtest, rclass sortpreserve
          XLSX(string asis) SHEET(string asis) ///
          TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) OPEN ///
-         BORDERstyle(string) HEADERShade THEme(string) ///
+         BORDERstyle(string) HEADERShade FONT(string asis) FONTSIZE(integer -1) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     * =========================================================================
@@ -179,7 +179,8 @@ program define iivw_exogtest, rclass sortpreserve
     if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
     if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
     if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
-    if `"`theme'"'       != "" local __iivw_exportonly "`__iivw_exportonly' theme()"
+    if `"`font'"'        != "" local __iivw_exportonly "`__iivw_exportonly' font()"
+    if `fontsize' != -1    local __iivw_exportonly "`__iivw_exportonly' fontsize()"
     if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
     if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
     if "`zebra'"         != "" local __iivw_exportonly "`__iivw_exportonly' zebra"
@@ -1130,9 +1131,8 @@ program define iivw_exogtest, rclass sortpreserve
         if "`headershade'" != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' headershade"'
         }
-        if `"`theme'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' theme(`theme')"'
-        }
+        if `"`font'"' != "" local __iivw_exog_opts `"`__iivw_exog_opts' font(`"`font'"')"'
+        if `fontsize' != -1 local __iivw_exog_opts `"`__iivw_exog_opts' fontsize(`fontsize')"'
         if `"`headercolor'"' != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' headercolor("`headercolor'")"'
         }

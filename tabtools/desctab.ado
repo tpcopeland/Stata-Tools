@@ -1,4 +1,4 @@
-*! desctab Version 2.1.0  2026/08/19 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.0.0  2026/08/19 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -74,7 +74,8 @@ program define desctab, rclass
         [HIGHlight(real -1)]    /// Highlight rows where p < threshold
         [HEADERShade]           /// Header row shading in Excel
         [FRAme(string)]         /// Store output in a named frame
-        [THEme(string)]         /// Journal-style theme: lancet, nejm, bmj, apa
+        [FONT(string)]          /// Font family for Excel output
+        [FONTSIZE(integer -1)]  /// Font size in points for Excel output
         [SMDThreshold(real 0.1)] /// SMD threshold for conditional formatting (0.1 default; -1 = disabled)
         [HEADERColor(string)]   /// Custom header background color (R G B)
         [ZEBRAColor(string)]    /// Custom zebra stripe color (R G B)
@@ -331,7 +332,7 @@ program define desctab, rclass
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade')
 
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 

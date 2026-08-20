@@ -198,7 +198,7 @@ else {
     local ++fail_count
 }
 
-**# D: companion exports + styling-option coverage (theme/headercolor/zebracolor/noshade/nozebra/open)
+**# D: companion exports + styling-option coverage (font/colors/noshade/nozebra/open)
 
 local ++test_count
 local xlsx "`td'/_te_style.xlsx"
@@ -208,13 +208,13 @@ capture noisily {
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
         base_confs(c) sim(300) samples(10) seed(2) minsim
-    * theme + explicit header/zebra colors, with markdown companion
-    gcomptab, xlsx("`xlsx'") sheet("T1") theme(nejm) ///
+    * Explicit font, border, and header/zebra colors, with markdown companion
+    gcomptab, xlsx("`xlsx'") sheet("T1") font("Arial") fontsize(10) borderstyle(academic) ///
         headercolor("200 210 230") zebracolor("245 245 245") markdown("`md'")
     assert _rc == 0
     confirm file "`md'"
-    * suppress shading/zebra from a theme
-    gcomptab, xlsx("`xlsx'") sheet("T2") theme(jama) noshade nozebra
+    * Suppress shading and zebra explicitly
+    gcomptab, xlsx("`xlsx'") sheet("T2") font("Arial") fontsize(10) borderstyle(academic) noshade nozebra
     assert _rc == 0
     * open launches the OS viewer (a GUI app); exercise the option path only in
     * interactive use so batch/CI never spawns a lingering LibreOffice/Excel.
@@ -224,7 +224,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: D styling-option coverage (theme/colors/noshade/nozebra/open)"
+    display as result "  PASS: D styling-option coverage (font/colors/noshade/nozebra/open)"
     local ++pass_count
 }
 else {

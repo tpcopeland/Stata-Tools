@@ -4640,20 +4640,21 @@ else {
     local ++fail_count
 }
 
-* Test: theme options
+* Test: explicit formatting options
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("`output_dir'/_cov_reg_lancet.xlsx") sheet("lancet") theme(lancet)
-    confirm file "`output_dir'/_cov_reg_lancet.xlsx"
+    regtab, xlsx("`output_dir'/_cov_reg_style.xlsx") sheet("style") ///
+        font("Arial") fontsize(10) borderstyle(academic) headershade zebra
+    confirm file "`output_dir'/_cov_reg_style.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: regtab theme(lancet)"
+    display as result "  PASS: regtab explicit formatting"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: regtab theme(lancet) (error `=_rc')"
+    display as error "  FAIL: regtab explicit formatting (error `=_rc')"
     local ++fail_count
 }
 
@@ -4665,7 +4666,7 @@ capture noisily {
     regtab, xlsx("`output_dir'/_cov_reg_stress.xlsx") sheet("stress") ///
         zebra boldp(0.05) highlight(0.1) borderstyle(academic) ///
         footnote("OLS regression") title("Combined Test") ///
-        stars starslevels(0.1 0.05 0.01) theme(nejm)
+        stars starslevels(0.1 0.05 0.01) font("Arial") fontsize(10) headershade
     confirm file "`output_dir'/_cov_reg_stress.xlsx"
 }
 if _rc == 0 {

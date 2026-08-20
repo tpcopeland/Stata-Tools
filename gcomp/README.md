@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and longitudinal interventions
 
-**Version 1.6.0** | 2026-08-19
+**Version 2.0.0** | 2026-08-19
 
 `gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
 
@@ -389,7 +389,7 @@ Mediation and dose-response modes require `xlsx()` and `sheet()`; component-mode
 |---|---|
 | `xlsx()`, `sheet()`, `markdown()`, `csv()`, `open` | Select output targets; mediation and dose-response require Excel path and sheet, while `open` is best effort and returns `r(open_rc)`. |
 | `ci()`, `effect()`, `labels()`, `title()`, `decimal()` | Select the interval matrix, effect label, row labels, title, and decimal places; CI defaults to normal and decimal defaults to 3. |
-| `font()`, `fontsize()`, `borderstyle()`, `theme()` | Set font, font size, border preset, or a named preset (`lancet`, `nejm`, `bmj`, `apa`, `jama`, `plos`, `nature`, `cell`, or `annals`); defaults are Arial, 10, and thin borders. |
+| `font()`, `fontsize()`, `borderstyle()` | Set font, font size, and border preset; defaults are Arial, 10, and thin borders. |
 | `headershade`, `noshade`, `headercolor()`, `zebra`, `nozebra`, `zebracolor()`, `footnote()`, `boldp()`, `highlight()` | Control table shading, colors, notes, bold p-value cutoff, and highlight cutoff; the cutoffs default to 0, which disables emphasis. |
 | `doseresponse`, `strategylabels()`, `expyears()`, `reference()`, `nord` | Select and label dose-response rows, add cumulative exposure-years, choose the reference strategy (default 1), or suppress the risk-difference column. |
 | `models`, `usemodels()`, `modellabels()`, `termlabels()`, `stats()`, `display` | Select component-model mode, stored estimates, model and term labels, requested summary statistics, and Results-window output. |
@@ -451,7 +451,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
-- **1.6.0** (2026-08-19): Added Poisson and NB2 negative-binomial component and imputation models with nonnegative-integer validation, gamma-Poisson draws, diagnostics, and a near-zero-dispersion Poisson fallback.
+- **2.0.0** (2026-08-19): Removed journal theme presets from `gcomptab`; use direct formatting options.
 - **1.5.0** (2026-08-19): Added `structural()` rules that fit component models on the nonstructural complement and force deterministic mediator or outcome values from each world’s simulated history.
 - **1.4.8** (2026-08-19): Added unconditional warnings when component models omit eligible observations at fit time, with exact fitted and omitted row counts.
 - **1.4.7** (2026-08-11): Removed the unrequested placeholder BCa return, made component-model tables use residual-df t inference where available, made `stats()` fail closed, and preserved outcome-family metadata so ordinary dose-response tables use the correct risk/mean label.

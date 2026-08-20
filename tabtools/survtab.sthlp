@@ -47,7 +47,7 @@ requested by reviewers.{p_end}
 
 {pstd}Output can be exported to a professionally formatted Excel workbook, displayed
 automatically in the Results window, saved as CSV, or stored in a Stata {helpb frames:frame}
-for programmatic access. All tabtools formatting options — themes, borders,
+for programmatic access. All tabtools formatting options — fonts, borders,
 zebra striping, bold p-values, and custom colors — are supported.{p_end}
 
 {marker options}{title:Options}
@@ -80,7 +80,8 @@ zebra striping, bold p-values, and custom colors — are supported.{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 
 {syntab:Formatting}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt bold:p(#)}}bold log-rank results below a p threshold{p_end}
 {synopt:{opt headers:hade}}shade header row background{p_end}
@@ -199,8 +200,12 @@ Excel, CSV, and frame exports{p_end}
 {opt sheet(string)} Excel sheet name; default is {cmd:"Survival"}{p_end}
 
 {phang}
-{opt the:me(string)} journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa},
-{cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{opt font(string)} sets the Excel font family. The default is Arial unless a
+session default was set with {cmd:tabtools set font}.{p_end}
+
+{phang}
+{opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
+a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {phang}
 {opt times(numlist)} analysis timepoints for Kaplan-Meier estimates{p_end}

@@ -695,12 +695,12 @@ else {
 }
 
 
-**# Migrated: v1.5 theme support
+**# Explicit formatting support
 
-**# F7: stratetab theme() support
+**# F7: stratetab explicit formatting
 * =========================================================================
 
-* --- F7.1: stratetab accepts theme(lancet) ---
+* --- F7.1: stratetab accepts explicit formatting ---
 * Note: stratetab requires strate output files; test syntax acceptance only
 local ++n_total
 capture noisily {
@@ -737,15 +737,16 @@ capture noisily {
     replace _Upper = 250 in 3
     save "`output_dir'/_strate_test", replace
     restore
-    stratetab, using("`output_dir'/_strate_test") xlsx("`output_dir'/test_f7_theme.xlsx") ///
-        outcomes(1) title("Theme Test") theme(lancet)
+    stratetab, using("`output_dir'/_strate_test") xlsx("`output_dir'/test_f7_style.xlsx") ///
+        outcomes(1) title("Style Test") font("Arial") fontsize(10) ///
+        borderstyle(academic) headershade zebra
 }
 if _rc == 0 {
-    display as result "  PASS: F7.1 — stratetab theme(lancet) accepted"
+    display as result "  PASS: F7.1 — stratetab explicit formatting accepted"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: F7.1 — stratetab theme failed (rc=`=_rc')"
+    display as error "  FAIL: F7.1 — stratetab explicit formatting failed (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1103,19 +1104,20 @@ else {
     local ++fail_count
 }
 
-* Test: theme option
+* Test: explicit formatting option combination
 capture noisily {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1" "`output_dir'/_cov_strate_o2e1") ///
-        xlsx("`output_dir'/_cov_strate_theme.xlsx") outcomes(2) theme(lancet)
-    confirm file "`output_dir'/_cov_strate_theme.xlsx"
+        xlsx("`output_dir'/_cov_strate_style.xlsx") outcomes(2) ///
+        font("Arial") fontsize(10) borderstyle(academic) headershade zebra
+    confirm file "`output_dir'/_cov_strate_style.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: stratetab theme(lancet)"
+    display as result "  PASS: stratetab explicit formatting"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: stratetab theme(lancet) (error `=_rc')"
+    display as error "  FAIL: stratetab explicit formatting (error `=_rc')"
     local ++fail_count
 }
 
@@ -1180,7 +1182,7 @@ capture noisily {
         digits(2) eventdigits(0) pydigits(1) unitlabel("100,000") ///
         ratescale(100000) pyscale(365.25) rateratio ratiodigits(2) ///
         footnote("Rates per 100,000 person-years") ///
-        zebra borderstyle(academic) theme(nejm) sheet("Table 3")
+        zebra borderstyle(academic) font("Arial") fontsize(10) headershade sheet("Table 3")
     confirm file "`output_dir'/_cov_strate_stress.xlsx"
     assert r(N_outcomes) == 2
     assert r(N_exposures) == 2

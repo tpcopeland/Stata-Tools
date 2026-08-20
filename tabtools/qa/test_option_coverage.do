@@ -75,7 +75,7 @@ else {
 }
 
 * =====================================================================
-**# crosstab: excel, footnote, headercolor, headershade, theme, zebracolor
+**# crosstab: excel, footnote, font, headercolor, headershade, zebracolor
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -83,7 +83,8 @@ capture noisily {
     crosstab foreign rep78, excel("`out'/crosstab.xlsx") sheet("S") ///
         footnote("note") headercolor("200 220 240") headershade zebracolor("240 245 250")
     confirm file "`out'/crosstab.xlsx"
-    crosstab foreign rep78, xlsx("`out'/crosstab2.xlsx") sheet("T") theme(apa)
+    crosstab foreign rep78, xlsx("`out'/crosstab2.xlsx") sheet("T") ///
+        font("Times New Roman") fontsize(12) borderstyle(academic) headershade zebra
     confirm file "`out'/crosstab2.xlsx"
     clear
     input byte outcome byte exposure int frequency
@@ -258,7 +259,7 @@ else {
 * =====================================================================
 * =====================================================================
 **# comptab: boldp, compact, csv, highlight, labelwidth, mdappend, relabel,
-**#          separator, theme, zebra, zebracolor   (needs regtab source frames)
+**#          separator, font, zebra, zebracolor   (needs regtab source frames)
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -268,7 +269,8 @@ capture noisily {
     collect: regress price foreign mpg weight
     capture frame drop oc_cf
     regtab, frame(oc_cf) noint models("Model A" \ "Model B")
-    comptab oc_cf, rows(1 2) csv("`out'/comptab.csv") theme(apa) zebra ///
+    comptab oc_cf, rows(1 2) csv("`out'/comptab.csv") ///
+        font("Times New Roman") fontsize(12) borderstyle(academic) headershade zebra ///
         zebracolor("240 245 250") ///
         labelwidth(20) relabel(1 "Relabeled foreign") separator(1) ///
         highlight(0.05) boldp(0.05) compact frame(oc_cmp1, replace)

@@ -29,6 +29,7 @@
         {"name": "test_gcomp_imputation_mlogit", "timeout_seconds": 900},
         {"name": "test_gcomptab_doseresponse", "timeout_seconds": 600},
         {"name": "test_gcomptab_text_export", "timeout_seconds": 600},
+        {"name": "test_theme_removed", "timeout_seconds": 300},
         {"name": "test_models", "timeout_seconds": 600},
         {"name": "test_adversarial_gcomptab", "timeout_seconds": 900},
         {"name": "validation_adversarial_gcomp", "timeout_seconds": 600},

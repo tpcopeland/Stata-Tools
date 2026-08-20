@@ -438,8 +438,8 @@ capture noisily {
     survtab, times(1 3 5) by(treatment) median riskset ///
         difference rmst(5) ///
         xlsx("`output_dir'/test_survtab_full.xlsx") ///
-        sheet("Full") title("Survival Table") zebra boldp(0.05) ///
- theme(lancet)
+        sheet("Full") title("Survival Table") zebra headershade ///
+        font("Arial") fontsize(10) borderstyle(academic) boldp(0.05)
     confirm file "`output_dir'/test_survtab_full.xlsx"
 }
 if _rc == 0 {

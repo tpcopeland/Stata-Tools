@@ -1,4 +1,4 @@
-* test_package_integration.do - cross-command integration: themes/defaults propagation, frames, eplot bridge, multi-command contracts
+* test_package_integration.do - cross-command integration: defaults propagation, frames, eplot bridge, multi-command contracts
 * Consolidated in v1.7.0 from: test_coverage_gaps.do, test_eplot_bridge.do, test_eplot_section_fold.do, test_regression_fixes.do, test_residual_risks.do, test_review_bivar_contracts.do, test_review_models_contracts.do, test_tabtools_v101.do, test_v140_features.do, test_v150_features.do, test_v160_features.do, test_v170_features.do
 
 clear all
@@ -392,20 +392,21 @@ else {
 
 * ============================================================
 
-**# Migrated: journal themes across commands
+**# Explicit workbook formatting across commands
 
-**# O1: Journal-style themes
+**# O1: Explicit formatting
 * =========================================================================
 sysuse auto, clear
 
-* --- O1.1: lancet theme ---
+* --- O1.1: Arial formatting ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
-    excel("`output_dir'/test_o1_lancet.xlsx") title("Lancet Theme") theme(lancet)
+    excel("`output_dir'/test_o1_arial.xlsx") title("Arial Formatting") ///
+    font("Arial") fontsize(10) borderstyle(academic) headershade zebra
 if _rc == 0 {
-    capture confirm file "`output_dir'/test_o1_lancet.xlsx"
+    capture confirm file "`output_dir'/test_o1_arial.xlsx"
     if _rc == 0 {
-        display as result "PASS: O1.1 — lancet theme"
+        display as result "PASS: O1.1 — Arial formatting"
         local ++pass_count
     }
     else {
@@ -414,68 +415,70 @@ if _rc == 0 {
     }
 }
 else {
-    display as error "FAIL: O1.1 — lancet theme (rc=`=_rc')"
+    display as error "FAIL: O1.1 — Arial formatting (rc=`=_rc')"
     local ++fail_count
 }
 
 sysuse auto, clear
 
-* --- O1.2: nejm theme ---
+* --- O1.2: Times New Roman formatting ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
-    excel("`output_dir'/test_o1_nejm.xlsx") title("NEJM Theme") theme(nejm)
+    excel("`output_dir'/test_o1_times.xlsx") title("Times Formatting") ///
+    font("Times New Roman") fontsize(12) borderstyle(academic) headershade zebra
 if _rc == 0 {
-    display as result "PASS: O1.2 — nejm theme"
+    display as result "PASS: O1.2 — Times New Roman formatting"
     local ++pass_count
 }
 else {
-    display as error "FAIL: O1.2 — nejm theme (rc=`=_rc')"
+    display as error "FAIL: O1.2 — Times New Roman formatting (rc=`=_rc')"
     local ++fail_count
 }
 
 sysuse auto, clear
 
-* --- O1.3: apa theme ---
+* --- O1.3: Calibri formatting ---
 local ++n_total
 capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
-    excel("`output_dir'/test_o1_apa.xlsx") title("APA Theme") theme(apa)
+    excel("`output_dir'/test_o1_calibri.xlsx") title("Calibri Formatting") ///
+    font("Calibri") fontsize(11) borderstyle(thin) headershade zebra
 if _rc == 0 {
-    display as result "PASS: O1.3 — apa theme"
+    display as result "PASS: O1.3 — Calibri formatting"
     local ++pass_count
 }
 else {
-    display as error "FAIL: O1.3 — apa theme (rc=`=_rc')"
+    display as error "FAIL: O1.3 — Calibri formatting (rc=`=_rc')"
     local ++fail_count
 }
 
 sysuse auto, clear
 
-* --- O1.4: invalid theme ---
+* --- O1.4: invalid formatting option ---
 local ++n_total
-capture table1_tc, by(foreign) vars(price contn) theme(invalid_theme)
+capture table1_tc, by(foreign) vars(price contn) borderstyle(invalid_style)
 if _rc != 0 {
-    display as result "PASS: O1.4 — invalid theme rejected"
+    display as result "PASS: O1.4 — invalid border style rejected"
     local ++pass_count
 }
 else {
-    display as error "FAIL: O1.4 — invalid theme should error"
+    display as error "FAIL: O1.4 — invalid border style should error"
     local ++fail_count
 }
 
 sysuse auto, clear
 
-* --- O1.5: theme in regtab ---
+* --- O1.5: explicit formatting in regtab ---
 local ++n_total
 collect clear
 collect: regress price mpg weight
-capture noisily regtab, xlsx("`output_dir'/test_o1_regtab.xlsx") sheet("Lancet") ///
-    title("Lancet Regression") theme(lancet)
+capture noisily regtab, xlsx("`output_dir'/test_o1_regtab.xlsx") sheet("Explicit") ///
+    title("Styled Regression") font("Arial") fontsize(10) borderstyle(academic) headershade zebra
 if _rc == 0 {
-    display as result "PASS: O1.5 — theme in regtab"
+    display as result "PASS: O1.5 — explicit formatting in regtab"
     local ++pass_count
 }
 else {
-    display as error "FAIL: O1.5 — theme in regtab (rc=`=_rc')"
+    display as error "FAIL: O1.5 — explicit formatting in regtab (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -830,76 +833,82 @@ set varabbrev off
 
 * =========================================================================
 
-**# Migrated: persistent theme propagation
+**# Persistent direct-setting propagation
 
-**# 2.5: Persistent theme
+**# 2.5: Persistent direct settings
 * =========================================================================
 
-* --- 2.5.1: tabtools set theme lancet ---
+* --- 2.5.1: direct settings are returned by tabtools get ---
 local ++n_total
 capture noisily {
     tabtools set clear
-    tabtools set theme lancet
+    tabtools set font Arial
+    tabtools set fontsize 10
+    tabtools set borderstyle academic
     tabtools get
-    assert r(theme) == "lancet"
+    assert "`r(font)'" == "Arial"
+    assert "`r(fontsize)'" == "10"
+    assert "`r(borderstyle)'" == "academic"
 }
 if _rc == 0 {
-    display as result "  PASS: 2.5.1 — tabtools set theme lancet works"
+    display as result "  PASS: 2.5.1 — tabtools direct settings work"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: 2.5.1 — tabtools set theme failed (rc=`=_rc')"
+    display as error "  FAIL: 2.5.1 — tabtools direct settings failed (rc=`=_rc')"
     local ++fail_count
 }
 
-* --- 2.5.2: invalid theme rejected ---
+* --- 2.5.2: invalid direct setting rejected ---
 local ++n_total
 capture {
-    tabtools set theme invalid
+    tabtools set borderstyle invalid
 }
 if _rc != 0 {
-    display as result "  PASS: 2.5.2 — invalid theme correctly rejected"
+    display as result "  PASS: 2.5.2 — invalid borderstyle correctly rejected"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: 2.5.2 — invalid theme should have been rejected"
+    display as error "  FAIL: 2.5.2 — invalid borderstyle should have been rejected"
     local ++fail_count
 }
 
-* --- 2.5.3: theme applies to regtab without explicit option ---
+* --- 2.5.3: direct settings apply to regtab without explicit options ---
 local ++n_total
 capture noisily {
     tabtools set clear
-    tabtools set theme lancet
+    tabtools set font Arial
+    tabtools set fontsize 10
+    tabtools set borderstyle academic
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("`output_dir'/test_v160_theme_regtab.xlsx") sheet("Test")
-    confirm file "`output_dir'/test_v160_theme_regtab.xlsx"
+    regtab, xlsx("`output_dir'/test_v160_style_regtab.xlsx") sheet("Test")
+    confirm file "`output_dir'/test_v160_style_regtab.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: 2.5.3 — persistent theme applies to regtab"
+    display as result "  PASS: 2.5.3 — persistent direct settings apply to regtab"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: 2.5.3 — persistent theme regtab failed (rc=`=_rc')"
+    display as error "  FAIL: 2.5.3 — persistent direct settings regtab failed (rc=`=_rc')"
     local ++fail_count
 }
 
-* --- 2.5.4: tabtools set clear clears theme ---
+* --- 2.5.4: tabtools set clear clears direct settings ---
 local ++n_total
 capture noisily {
-    tabtools set theme nejm
+    tabtools set font Arial
     tabtools set clear
     tabtools get
-    assert `"`r(theme)'"' == ""
+    assert "$TABTOOLS_FONT" == ""
 }
 if _rc == 0 {
-    display as result "  PASS: 2.5.4 — set clear clears theme"
+    display as result "  PASS: 2.5.4 — set clear clears direct settings"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: 2.5.4 — set clear did not clear theme (rc=`=_rc')"
+    display as error "  FAIL: 2.5.4 — set clear did not clear direct settings (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1919,15 +1928,16 @@ else {
 
 * ============================================================
 
-**# Migrated: custom theme colors respected
+**# Custom direct colors respected
 
-**# 2. Custom theme colors — commands must respect global color settings
+**# 2. Custom colors — commands must respect global color settings
 
 **## 2a. Commands resolve custom headercolor/zebracolor globals
 local t2a_pass = 1
 capture noisily {
-    * Set custom theme
-    tabtools set theme custom, headercolor("255 0 0") zebracolor("255 255 0")
+    * Set direct colors
+    tabtools set headercolor "255 0 0"
+    tabtools set zebracolor "255 255 0"
     assert "$TABTOOLS_HEADERCOLOR" == "255 0 0"
     assert "$TABTOOLS_ZEBRACOLOR" == "255 255 0"
 
@@ -1959,38 +1969,40 @@ else {
 }
 
 if `t2a_pass' == 1 {
-    display as result "  PASS: commands respect custom theme colors"
+    display as result "  PASS: commands respect custom colors"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: commands respect custom theme colors"
+    display as error "  FAIL: commands respect custom colors"
     local ++fail_count
 }
 
-* Clean up theme
+* Clean up direct settings
 tabtools set clear
 
-**## 2b. Custom theme colors are cleared properly
+**## 2b. Custom colors are cleared properly
 capture noisily {
-    tabtools set theme custom, headercolor("255 0 0") zebracolor("255 255 0")
+    tabtools set headercolor "255 0 0"
+    tabtools set zebracolor "255 255 0"
     assert "$TABTOOLS_HEADERCOLOR" == "255 0 0"
     tabtools set clear
     assert "$TABTOOLS_HEADERCOLOR" == ""
     assert "$TABTOOLS_ZEBRACOLOR" == ""
 }
 if _rc == 0 {
-    display as result "  PASS: custom theme colors cleared by set clear"
+    display as result "  PASS: custom colors cleared by set clear"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: custom theme colors not cleared (error `=_rc')"
+    display as error "  FAIL: custom colors not cleared (error `=_rc')"
     local ++fail_count
 }
 
 
-**## 2c. corrtab respects custom theme colors
+**## 2c. corrtab respects custom colors
 capture noisily {
-    tabtools set theme custom, headercolor("255 0 0") zebracolor("255 255 0")
+    tabtools set headercolor "255 0 0"
+    tabtools set zebracolor "255 255 0"
     sysuse auto, clear
     capture erase "`output_dir'/_regfix_corrtab_custom.xlsx"
     corrtab price mpg weight, xlsx("`output_dir'/_regfix_corrtab_custom.xlsx") ///
@@ -2002,7 +2014,7 @@ if _rc == 0 {
     local ++pass_count
 }
 else {
-    display as error "  FAIL: corrtab custom theme colors (error `=_rc')"
+    display as error "  FAIL: corrtab custom colors (error `=_rc')"
     local ++fail_count
 }
 tabtools set clear
