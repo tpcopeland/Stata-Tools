@@ -1,4 +1,4 @@
-*! puttab Version 2.1.0  2026/08/19
+*! puttab Version 2.0.0  2026/08/19
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -70,7 +70,7 @@ program define puttab, rclass
             [ FRAme(string) Matrix(name) ///
               SHeet(string) ///
               TItle(string) FOOTnote(string) ///
-              THEme(string) BORDERstyle(string) ///
+              FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
               HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
               DIGits(integer -1) VARLabels NOHeader ///
               CSV(string) MARKdown(string) MDAPPend open ]
@@ -131,7 +131,7 @@ program define puttab, rclass
         }
 
         * ----- shared formatting / colors -----
-        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
         _tabtools_resolve_colors, headercolor(`"`headercolor'"') ///
             zebracolor(`"`zebracolor'"')

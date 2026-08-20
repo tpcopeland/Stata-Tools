@@ -1,4 +1,4 @@
-*! corrtab Version 2.1.0  2026/08/19
+*! corrtab Version 2.0.0  2026/08/19
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,7 +35,7 @@ program define corrtab, rclass
             SPEarman LOWer UPPer FULL ///
             STAR(numlist sort) PVALues DIGits(integer -1) ///
             title(string) ///
-            FOOTnote(string) THEme(string) BORDERstyle(string) ///
+            FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
             HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
             csv(string) MARKdown(string) MDAPPend FRAme(string) open]
 
@@ -91,7 +91,7 @@ program define corrtab, rclass
             exit 198
         }
 
-        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
 
         _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')

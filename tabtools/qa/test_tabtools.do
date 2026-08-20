@@ -258,22 +258,23 @@ else {
     local ++fail_count
 }
 
-* Test: tabtools get returns effective named-theme values
+* Test: tabtools get returns direct-setting values
 capture noisily {
     tabtools set clear
-    tabtools set theme lancet
+    tabtools set font Arial
+    tabtools set fontsize 10
+    tabtools set borderstyle academic
     tabtools get
-    assert "`r(theme)'" == "lancet"
     assert "`r(font)'" == "Arial"
-    assert "`r(fontsize)'" == "9"
+    assert "`r(fontsize)'" == "10"
     assert "`r(borderstyle)'" == "academic"
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools get - named theme reports effective values"
+    display as result "  PASS: tabtools get - direct settings report effective values"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools get effective named-theme values (error `=_rc')"
+    display as error "  FAIL: tabtools get direct-setting values (error `=_rc')"
     local ++fail_count
 }
 
@@ -305,7 +306,6 @@ capture noisily {
     assert "`r(font)'" == "Arial"
     assert "`r(fontsize)'" == "10"
     assert "`r(borderstyle)'" == "thin"
-    assert `"`r(theme)'"' == ""
 }
 if _rc == 0 {
     display as result "  PASS: tabtools get - clear resolves to Arial/10/thin"
@@ -348,26 +348,26 @@ else {
     local ++fail_count
 }
 
-* Test: permanent custom-theme profile is valid when the first custom option is not font()
+* Test: permanent direct-setting profile reloads
 capture noisily {
     local _profile "`output_dir'/tabtools_profile_custom.do"
     capture erase "`_profile'"
     tabtools set clear
-    tabtools set theme custom, fontsize(12) headercolor("200 220 240") permanent profile("`_profile'")
+    tabtools set fontsize 12, permanent profile("`_profile'")
+    tabtools set headercolor "200 220 240", permanent profile("`_profile'")
     confirm file "`_profile'"
     tabtools set clear
     tabtools use, profile("`_profile'")
-    assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_FONTSIZE" == "12"
     assert "$TABTOOLS_HEADERCOLOR" == "200 220 240"
     capture erase "`_profile'"
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools permanent custom-theme profile reloads"
+    display as result "  PASS: tabtools permanent direct-setting profile reloads"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools custom-theme profile reload (error `=_rc')"
+    display as error "  FAIL: tabtools direct-setting profile reload (error `=_rc')"
     local ++fail_count
 }
 
@@ -462,56 +462,50 @@ else {
     local ++fail_count
 }
 
-* Test: tabtools set font/size/border convert named theme to custom before overriding
+* Test: tabtools set font/size/border stores direct settings
 capture noisily {
     tabtools set clear
-    tabtools set theme lancet
     tabtools set font Calibri
-    assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_FONT" == "Calibri"
-    tabtools set theme lancet
     tabtools set fontsize 11
-    assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_FONTSIZE" == "11"
-    tabtools set theme lancet
     tabtools set borderstyle thin
-    assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_BORDER" == "thin"
 }
 tabtools set clear
 if _rc == 0 {
-    display as result "  PASS: tabtools direct setters convert named themes to custom"
+    display as result "  PASS: tabtools direct setters store values"
     local ++pass_count
 }
 else {
     tabtools set clear
-    display as error "  FAIL: tabtools named-theme setter conversion (error `=_rc')"
+    display as error "  FAIL: tabtools direct setters (error `=_rc')"
     local ++fail_count
 }
 
-* Test: tabtools set theme custom rejects invalid borderstyle
+* Test: tabtools set rejects invalid borderstyle
 capture {
-    tabtools set theme custom, borderstyle(garbage)
+    tabtools set borderstyle garbage
 }
 if _rc == 198 {
-    display as result "  PASS: tabtools set theme custom invalid borderstyle - rc=198"
+    display as result "  PASS: tabtools set invalid borderstyle - rc=198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools set theme custom invalid borderstyle - expected rc=198, got `=_rc'"
+    display as error "  FAIL: tabtools set invalid borderstyle - expected rc=198, got `=_rc'"
     local ++fail_count
 }
 
-* Test: tabtools set theme custom rejects invalid headercolor
+* Test: tabtools set rejects invalid headercolor
 capture {
-    tabtools set theme custom, headercolor("12 999 5")
+    tabtools set headercolor "12 999 5"
 }
 if _rc == 198 {
-    display as result "  PASS: tabtools set theme custom invalid headercolor - rc=198"
+    display as result "  PASS: tabtools set invalid headercolor - rc=198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools set theme custom invalid headercolor - expected rc=198, got `=_rc'"
+    display as error "  FAIL: tabtools set invalid headercolor - expected rc=198, got `=_rc'"
     local ++fail_count
 }
 
@@ -577,12 +571,12 @@ else {
     local ++fail_count
 }
 
-* Test: tabtools rejects theme-builder options in display mode
+* Test: tabtools rejects setting options in display mode
 capture {
     tabtools, font(ComicSans)
 }
 if _rc == 198 {
-    display as result "  PASS: tabtools, font(...) - rc=198 outside set theme custom"
+    display as result "  PASS: tabtools, font(...) - rc=198 outside tabtools set"
     local ++pass_count
 }
 else {
@@ -706,9 +700,11 @@ end
 * T1: default PERSONAL profile writes, reloads, and posts exact returns
 capture noisily {
     tabtools set clear
-    tabtools set theme custom, font("Times New Roman") fontsize(11) ///
-        headercolor("200 220 240") zebracolor("245 245 245") ///
-        borderstyle(academic) permanent
+    tabtools set font "Times New Roman", permanent
+    tabtools set fontsize 11, permanent
+    tabtools set headercolor "200 220 240", permanent
+    tabtools set zebracolor "245 245 245", permanent
+    tabtools set borderstyle academic, permanent
     assert "`r(permanent)'" == "permanent"
     assert "`r(profile)'" == "`default_profile'"
     confirm file "`default_profile'"
@@ -718,7 +714,6 @@ capture noisily {
     confirm file "`default_profile'"
 
     tabtools set clear
-    assert "$TABTOOLS_THEME" == ""
     assert "$TABTOOLS_FONT" == ""
     assert "$TABTOOLS_DIGITS" == ""
     assert "$TABTOOLS_BOLDP" == ""
@@ -726,7 +721,6 @@ capture noisily {
     tabtools use
     assert "`r(action)'" == "loaded"
     assert "`r(profile)'" == "`default_profile'"
-    assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_FONT" == "Times New Roman"
     assert "$TABTOOLS_FONTSIZE" == "11"
     tabtools get
@@ -752,7 +746,7 @@ else {
 capture noisily {
     confirm file "`default_profile'"
     local saw_clear = 0
-    local saw_custom = 0
+    local saw_font = 0
     local saw_digits = 0
     local saw_boldp = 0
     local saw_permanent = 0
@@ -761,7 +755,8 @@ capture noisily {
     file read `fh' line
     while r(eof) == 0 {
         if strpos(`"`line'"', "tabtools set clear") > 0 local saw_clear = 1
-        if strpos(`"`line'"', `"tabtools set theme custom"') > 0 local saw_custom = 1
+        if strpos(`"`line'"', "tabtools set font") > 0 & ///
+            strpos(`"`line'"', "Times New Roman") > 0 local saw_font = 1
         if strpos(`"`line'"', "tabtools set digits 3") > 0 local saw_digits = 1
         if strpos(`"`line'"', "tabtools set boldp 0.025") > 0 local saw_boldp = 1
         if strpos(`"`line'"', "permanent") > 0 local saw_permanent = 1
@@ -769,7 +764,7 @@ capture noisily {
     }
     file close `fh'
     assert `saw_clear' == 1
-    assert `saw_custom' == 1
+    assert `saw_font' == 1
     assert `saw_digits' == 1
     assert `saw_boldp' == 1
     assert `saw_permanent' == 0
@@ -812,21 +807,21 @@ else {
 * T4: profile() syntax on tabtools use works and refuses duplicate path sources
 capture noisily {
     tabtools set clear
-    tabtools set theme lancet, permanent profile("`project_profile'")
-    local default_saw_lancet = 0
+    tabtools set font Arial, permanent profile("`project_profile'")
+    local default_saw_font = 0
     tempname dfh
     file open `dfh' using "`default_profile'", read text
     file read `dfh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "tabtools set theme lancet") > 0 local default_saw_lancet = 1
+        if strpos(`"`line'"', "tabtools set font Arial") > 0 local default_saw_font = 1
         file read `dfh' line
     }
     file close `dfh'
-    assert `default_saw_lancet' == 0
+    assert `default_saw_font' == 0
 
     tabtools set clear
     tabtools use, profile("`project_profile'")
-    assert "$TABTOOLS_THEME" == "lancet"
+    assert "$TABTOOLS_FONT" == "Arial"
     assert "`r(profile)'" == "`project_profile'"
 
     capture noisily tabtools use using "`project_profile'", profile("`project_profile'")
@@ -894,9 +889,11 @@ if `"`_profile_restart_result'"' != "" {
 else {
     capture noisily {
         tabtools set clear
-        tabtools set theme custom, font("Times New Roman") fontsize(11) ///
-            headercolor("200 220 240") zebracolor("245 245 245") ///
-            borderstyle(academic) permanent
+        tabtools set font "Times New Roman", permanent
+        tabtools set fontsize 11, permanent
+        tabtools set headercolor "200 220 240", permanent
+        tabtools set zebracolor "245 245 245", permanent
+        tabtools set borderstyle academic, permanent
         tabtools set digits 3, permanent
         tabtools set boldp 0.025, permanent
         confirm file "`default_profile'"
@@ -914,7 +911,6 @@ else {
         fput(fh, sprintf(`"sysdir set PERSONAL "%s""', st_local("personal_dir")))
         fput(fh, "discard")
         fput(fh, "tabtools use")
-        fput(fh, `"assert "$TABTOOLS_THEME" == "custom""')
         fput(fh, `"assert "$TABTOOLS_FONT" == "Times New Roman""')
         fput(fh, `"assert "$TABTOOLS_FONTSIZE" == "11""')
         fput(fh, `"assert "$TABTOOLS_HEADERCOLOR" == "200 220 240""')

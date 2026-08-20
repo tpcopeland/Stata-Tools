@@ -645,7 +645,7 @@ capture noisily {
     foreach _p in _tabtools_col_letter _tabtools_validate_path ///
         _tabtools_validate_color _tabtools_build_col_letters ///
         _tabtools_open_file _tabtools_detect_vartype ///
-        _tabtools_validate_sheet _tabtools_apply_theme ///
+        _tabtools_validate_sheet ///
         _tabtools_resolve_format _tabtools_console_display ///
         _tabtools_frame_put _tabtools_helpers_ready {
         capture program drop `_p'
@@ -671,7 +671,7 @@ local t3b_pass = 1
 foreach prog in _tabtools_col_letter _tabtools_validate_path ///
     _tabtools_validate_color _tabtools_build_col_letters ///
     _tabtools_open_file _tabtools_detect_vartype ///
-    _tabtools_validate_sheet _tabtools_apply_theme ///
+    _tabtools_validate_sheet ///
     _tabtools_resolve_format _tabtools_console_display ///
     _tabtools_frame_put _tabtools_helpers_ready {
     capture program list `prog'
@@ -842,19 +842,20 @@ else {
     local ++fail_count
 }
 
-* --- 7.13: Custom theme builder ---
+* --- 7.13: Explicit default settings ---
 capture noisily {
     tabtools set clear
-    tabtools set theme custom, font(Calibri) fontsize(11)
+    tabtools set font Calibri
+    tabtools set fontsize 11
     tabtools get
-    assert r(theme) == "custom"
+    assert "`r(font)'" == "Calibri"
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools set theme custom"
+    display as result "  PASS: tabtools set explicit defaults"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools set theme custom (rc=`=_rc')"
+    display as error "  FAIL: tabtools set explicit defaults (rc=`=_rc')"
     local ++fail_count
 }
 tabtools set clear
@@ -4563,20 +4564,21 @@ capture erase "`output_dir'/_xl_st1.txt"
 capture erase "`output_dir'/_xl_strate_o1.dta"
 
 * =========================================================================
-**# SECTION 14: Theme validation (NEJM, Lancet, APA)
+**# SECTION 14: Explicit formatting validation
 * =========================================================================
 
-* --- XL14.1: NEJM theme ---
+* --- XL14.1: Arial 10pt academic formatting ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "`output_dir'/_xl_theme_nejm.xlsx"
-    regtab, xlsx("`output_dir'/_xl_theme_nejm.xlsx") sheet("NEJM") theme(nejm)
+    capture erase "`output_dir'/_xl_style_arial.xlsx"
+    regtab, xlsx("`output_dir'/_xl_style_arial.xlsx") sheet("Arial") ///
+        font("Arial") fontsize(10) borderstyle(academic) headershade zebra
 
-    shell python3 "`checker'" "`output_dir'/_xl_theme_nejm.xlsx" --sheet "NEJM" ///
-        --theme nejm ///
+    shell python3 "`checker'" "`output_dir'/_xl_style_arial.xlsx" --sheet "Arial" ///
+        --font "Arial" --fontsize 10 --has-borders ///
         --result-file "`output_dir'/_xl_th1.txt" --quiet
     file open _fh using "`output_dir'/_xl_th1.txt", read text
     file read _fh _line
@@ -4584,26 +4586,27 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL14.1 — NEJM theme validates (Arial 9pt, academic borders)"
+    display as result "  PASS: XL14.1 — Arial formatting validates"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: XL14.1 — NEJM theme (rc=`=_rc')"
+    display as error "  FAIL: XL14.1 — Arial formatting (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_xl_th1.txt"
 
-* --- XL14.2: Lancet theme ---
+* --- XL14.2: Times New Roman 12pt formatting ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "`output_dir'/_xl_theme_lancet.xlsx"
-    regtab, xlsx("`output_dir'/_xl_theme_lancet.xlsx") sheet("Lancet") theme(lancet)
+    capture erase "`output_dir'/_xl_style_times.xlsx"
+    regtab, xlsx("`output_dir'/_xl_style_times.xlsx") sheet("Times") ///
+        font("Times New Roman") fontsize(12) borderstyle(academic) headershade zebra
 
-    shell python3 "`checker'" "`output_dir'/_xl_theme_lancet.xlsx" --sheet "Lancet" ///
-        --theme lancet ///
+    shell python3 "`checker'" "`output_dir'/_xl_style_times.xlsx" --sheet "Times" ///
+        --font "Times New Roman" --fontsize 12 --has-borders ///
         --result-file "`output_dir'/_xl_th2.txt" --quiet
     file open _fh using "`output_dir'/_xl_th2.txt", read text
     file read _fh _line
@@ -4611,26 +4614,27 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL14.2 — Lancet theme validates (Arial 9pt, academic borders)"
+    display as result "  PASS: XL14.2 — Times New Roman formatting validates"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: XL14.2 — Lancet theme (rc=`=_rc')"
+    display as error "  FAIL: XL14.2 — Times New Roman formatting (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_xl_th2.txt"
 
-* --- XL14.3: APA theme ---
+* --- XL14.3: Calibri 11pt formatting ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture erase "`output_dir'/_xl_theme_apa.xlsx"
-    regtab, xlsx("`output_dir'/_xl_theme_apa.xlsx") sheet("APA") theme(apa)
+    capture erase "`output_dir'/_xl_style_calibri.xlsx"
+    regtab, xlsx("`output_dir'/_xl_style_calibri.xlsx") sheet("Calibri") ///
+        font("Calibri") fontsize(11) borderstyle(thin) headershade zebra
 
-    shell python3 "`checker'" "`output_dir'/_xl_theme_apa.xlsx" --sheet "APA" ///
-        --theme apa ///
+    shell python3 "`checker'" "`output_dir'/_xl_style_calibri.xlsx" --sheet "Calibri" ///
+        --font "Calibri" --fontsize 11 --has-borders ///
         --result-file "`output_dir'/_xl_th3.txt" --quiet
     file open _fh using "`output_dir'/_xl_th3.txt", read text
     file read _fh _line
@@ -4638,20 +4642,19 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL14.3 — APA theme validates (Times New Roman 12pt)"
+    display as result "  PASS: XL14.3 — Calibri formatting validates"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: XL14.3 — APA theme (rc=`=_rc')"
+    display as error "  FAIL: XL14.3 — Calibri formatting (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_xl_th3.txt"
 
-* --- XL14.4: NEJM theme zebra striping ---
+* --- XL14.4: Explicit zebra striping ---
 local ++n_total
 capture noisily {
-    * NEJM theme should have zebra fills
-    shell python3 "`checker'" "`output_dir'/_xl_theme_nejm.xlsx" --sheet "NEJM" ///
+    shell python3 "`checker'" "`output_dir'/_xl_style_arial.xlsx" --sheet "Arial" ///
         --has-fill 5 ///
         --result-file "`output_dir'/_xl_th4.txt" --quiet
     file open _fh using "`output_dir'/_xl_th4.txt", read text
@@ -4660,11 +4663,11 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL14.4 — NEJM theme has zebra fill colors"
+    display as result "  PASS: XL14.4 — explicit zebra has fill colors"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: XL14.4 — NEJM theme zebra fills (rc=`=_rc')"
+    display as error "  FAIL: XL14.4 — explicit zebra fills (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_xl_th4.txt"

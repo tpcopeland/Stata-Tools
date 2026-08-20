@@ -86,7 +86,8 @@
 {synopt:{opt refl:abel(string)}}rate-mode reference-row text; default {cmd:Reference}{p_end}
 
 {syntab:Formatting}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt labelw:idth(#)}}cap the label-column width{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
@@ -227,14 +228,12 @@ not needed.
 {dlgtab:Formatting}
 
 {phang}
-{opt theme(string)} applies a journal-inspired formatting preset. Valid
-themes: {cmd:lancet} (Arial 9pt, academic borders), {cmd:nejm} (Arial 9pt, academic
-borders, zebra), {cmd:bmj} (Arial 10pt, academic borders), {cmd:apa} (Times New Roman
-12pt, academic borders), {cmd:jama} (Arial 10pt, academic borders), {cmd:plos} (Arial
-10pt, thin borders), {cmd:nature} (Arial 7pt, academic borders), {cmd:cell} (Arial 8pt,
-academic borders), {cmd:annals} (Arial 10pt, academic borders), and
-{cmd:custom}. Theme settings can be overridden by explicit options. See
-{helpb tabtools##themes:tabtools} for the canonical table.
+{opt font(string)} sets the Excel font family. The default is Arial unless a
+session default was set with {cmd:tabtools set font}.{p_end}
+
+{phang}
+{opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
+a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {phang}
 {opt boldp(#)} bolds p-values smaller than the specified
@@ -371,7 +370,7 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {phang2}{cmd:    relabel(3 "Low dose (vs. none)") ///}{p_end}
 {phang2}{cmd:    title("Table 3. HRT and MS Outcomes") ///}{p_end}
 {phang2}{cmd:    footnote("aHR, adjusted hazard ratio; CI, confidence interval.") ///}{p_end}
-{phang2}{cmd:    theme(lancet)}{p_end}
+{phang2}{cmd:    font(Arial) fontsize(9) borderstyle(academic)}{p_end}
 
 {pstd}
 {bf:Example 6: Rate + hazard-ratio composition}

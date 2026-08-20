@@ -51,7 +51,8 @@
 {synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
 {synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
-{synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
+{synopt:{opt font(string)}}font family; default {cmd:Arial}{p_end}
+{synopt:{opt fontsize(#)}}font size in points; default {cmd:10}{p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
@@ -206,6 +207,11 @@ the same layout with medium lines. {cmd:academic} uses a three-rule
 for {cmd:thin}.
 
 {phang}
+{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets
+its point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.
+Both options require {opt xlsx()}.
+
+{phang}
 {opt headershade} shades the header rows. It is off by default so that output
 matches the unshaded house style. {opt headercolor(string)} sets the header
 fill as three space-separated 0-255 RGB values, for example
@@ -214,12 +220,6 @@ fill as three space-separated 0-255 RGB values, for example
 {phang}
 {opt zebra} shades alternating data rows, and {opt zebracolor(string)} sets
 that fill as {cmd:"R G B"} values.
-
-{phang}
-{opt theme(string)} applies a journal preset ({cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
-{cmd:nature}, {cmd:cell}, or {cmd:annals}) that sets the font, font size, and border scheme
-together. Explicit {opt borderstyle()}, {opt headershade}, or {opt zebra} options override the
-matching theme setting.
 
 
 {marker estimand}{...}

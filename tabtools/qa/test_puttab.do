@@ -373,7 +373,8 @@ capture erase "`fg'"
 capture noisily {
     sysuse auto, clear
     puttab make mpg price in 1/6 using "`fg'", sheet("S") ///
-        title("My Title") footnote("My footnote") zebra headershade theme(nejm)
+        title("My Title") footnote("My footnote") zebra headershade ///
+        font("Arial") fontsize(10) borderstyle(academic)
     * title(1) + header(1) + data(6) + footnote(1) = 9 rows
     assert r(n_rows) == 9
     assert r(n_datarows) == 6

@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 3.4.3  2026/08/17
+*! _iivw_export_table Version 4.0.0  2026/08/19
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -21,7 +21,7 @@ program define _iivw_export_table, rclass
         [XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(integer 4) LAYout(string) VALUESPANFROM(integer 0) ///
-         BORDERstyle(string) HEADERShade THEme(string) ///
+         BORDERstyle(string) HEADERShade FONT(string asis) FONTSIZE(integer -1) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     local __iivw_dq = char(34)
@@ -65,68 +65,12 @@ program define _iivw_export_table, rclass
     * Defaults match the tabtools house style: thin framed grid (frame plus
     * group separators, no full interior grid), no header shade.
     local borderstyle = lower(strtrim(subinstr(`"`borderstyle'"', `"`__iivw_dq'"', "", .)))
-    local theme = lower(strtrim(subinstr(`"`theme'"', `"`__iivw_dq'"', "", .)))
-    local __iivw_font "Arial"
-    local __iivw_fontsize = 10
-    if "`theme'" != "" {
-        local __iivw_t_border ""
-        local __iivw_t_shade = 0
-        local __iivw_t_zebra = 0
-        if "`theme'" == "lancet" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 9
-            local __iivw_t_border "academic"
-        }
-        else if "`theme'" == "nejm" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 9
-            local __iivw_t_border "academic"
-            local __iivw_t_zebra = 1
-        }
-        else if "`theme'" == "bmj" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 10
-            local __iivw_t_border "academic"
-        }
-        else if "`theme'" == "apa" {
-            local __iivw_font "Times New Roman"
-            local __iivw_fontsize = 12
-            local __iivw_t_border "academic"
-        }
-        else if "`theme'" == "jama" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 10
-            local __iivw_t_border "academic"
-        }
-        else if "`theme'" == "plos" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 10
-            local __iivw_t_border "thin"
-        }
-        else if "`theme'" == "nature" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 7
-            local __iivw_t_border "academic"
-        }
-        else if "`theme'" == "cell" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 8
-            local __iivw_t_border "academic"
-        }
-        else if "`theme'" == "annals" {
-            local __iivw_font "Arial"
-            local __iivw_fontsize = 10
-            local __iivw_t_border "academic"
-        }
-        else {
-            display as error ///
-                "theme() must be one of: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals"
-            error 198
-        }
-        * Explicit options override the theme; theme only fills the gaps.
-        if "`borderstyle'" == "" local borderstyle "`__iivw_t_border'"
-        if "`headershade'" == "" & `__iivw_t_shade' local headershade "headershade"
-        if "`zebra'" == "" & `__iivw_t_zebra' local zebra "zebra"
+    local __iivw_font = strtrim(subinstr(`"`font'"', `"`__iivw_dq'"', "", .))
+    if `"`__iivw_font'"' == "" local __iivw_font "Arial"
+    local __iivw_fontsize = cond(`fontsize' == -1, 10, `fontsize')
+    if `fontsize' != -1 & (`__iivw_fontsize' < 1 | `__iivw_fontsize' > 72) {
+        display as error "fontsize() must be between 1 and 72"
+        error 198
     }
 
     if "`borderstyle'" == "" local borderstyle "thin"
@@ -790,7 +734,7 @@ void _iivw_xlsx_style_tabtools(
         }
     }
 
-    // Header shading (off in the house style; on for headershade/theme).
+    // Header shading is off in the house style and enabled by headershade.
     if (headershade == 1 & n_cols >= 2) {
         if (n_rows >= 2) {
             b.set_fill_pattern((2, 2), (2, n_cols), "solid", headercolor)

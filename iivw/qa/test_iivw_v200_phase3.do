@@ -139,7 +139,7 @@ local ++test_count
 local p3_ok = 1
 _p3_weighted
 foreach spec in "sheet(X)" "open" "replace" "title(T)" "footnote(F)" ///
-    "decimals(2)" "zebra" "headershade" "theme(blue)" {
+    "decimals(2)" "zebra" "headershade" "font(Arial)" {
     capture iivw_balance, `spec'
     if _rc != 198 {
         local p3_ok = 0

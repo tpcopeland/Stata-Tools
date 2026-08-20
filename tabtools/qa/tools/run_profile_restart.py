@@ -65,7 +65,11 @@ sysdir set PERSONAL "{stata_quote(str(personal_dir))}"
 discard
 quietly net install tabtools, from("{stata_quote(str(package_dir))}") replace
 tabtools set clear
-tabtools set theme custom, font("Times New Roman") fontsize(11) headercolor("200 220 240") zebracolor("245 245 245") borderstyle(academic) permanent
+tabtools set font "Times New Roman", permanent
+tabtools set fontsize 11, permanent
+tabtools set headercolor "200 220 240", permanent
+tabtools set zebracolor "245 245 245", permanent
+tabtools set borderstyle academic, permanent
 tabtools set digits 3, permanent
 tabtools set boldp 0.025, permanent
 confirm file "{stata_quote(str(personal_dir / "tabtools_profile.do"))}"
@@ -88,7 +92,6 @@ sysdir set PLUS "{stata_quote(str(plus_dir))}"
 sysdir set PERSONAL "{stata_quote(str(personal_dir))}"
 discard
 tabtools use
-assert "$TABTOOLS_THEME" == "custom"
 assert "$TABTOOLS_FONT" == "Times New Roman"
 assert "$TABTOOLS_FONTSIZE" == "11"
 assert "$TABTOOLS_HEADERCOLOR" == "200 220 240"

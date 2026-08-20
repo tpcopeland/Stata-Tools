@@ -5,16 +5,9 @@ title: "console_datamap_privacy"
 ## Likely identifier warning
 
 ```stata
-. noisily datamap, single("`pkg_dir'/_demo_cohort.dta")
+. quietly datamap, single("`pkg_dir'/_demo_cohort.dta")
 >     output("`pkg_dir'/datamap_warning.txt")
 >     mincell(5) noguidance compact
-```
-
-```
-warning: likely identifier variable(s) not in exclude(): patient_id subject_id patient_name
-Output written to: datamap/demo/datamap_warning.txt
-Documentation generated successfully
-
 ```
 
 ```stata
@@ -36,7 +29,7 @@ Disclosure-risk summary excerpt:
 
 ```
 Dataset Documentation
-Generated:  5 Aug 2026 14:40:34
+Generated: 19 Aug 2026 23:26:25
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -174,7 +167,7 @@ Privacy-safe map excerpt:
 
 ```
 Dataset Documentation
-Generated:  5 Aug 2026 14:40:34
+Generated: 19 Aug 2026 23:26:25
 
 ========================================
 DATASET: _demo_cohort.dta

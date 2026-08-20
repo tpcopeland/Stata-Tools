@@ -69,7 +69,8 @@ and {cmd:regtab} frames
 {synopt:{opt refl:abel(string)}}text for inferred reference rows{p_end}
 
 {syntab:Formatting}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt headers:hade}}shade the 2 header rows{p_end}
@@ -249,8 +250,12 @@ Excel, CSV, and frame exports{p_end}
 {opt sheet(string)} Excel sheet name; default {cmd:"Composite"}{p_end}
 
 {phang}
-{opt the:me(string)} journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama},
-{it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
+{opt font(string)} sets the Excel font family. The default is Arial unless a
+session default was set with {cmd:tabtools set font}.{p_end}
+
+{phang}
+{opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
+a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {phang}
 {opt title(string)} table title for cell A1; defaults to the title stored in {it:rateframe}{p_end}

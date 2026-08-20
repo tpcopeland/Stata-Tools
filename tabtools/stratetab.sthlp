@@ -161,15 +161,17 @@ export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {phang2}{opt border:style(string)} specifies the border style: {cmd:default},
 {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 
-{phang2}{opt the:me(string)} applies a journal-style formatting
-theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
-{cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
+{phang2}{opt font(string)} sets the Excel font family. The default is Arial
+unless a session default was set with {cmd:tabtools set font}.{p_end}
+
+{phang2}{opt fontsize(#)} sets the Excel font size in points. The default is 10
+unless a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {phang2}{opt headers:hade} applies a background fill to the header rows.{p_end}
 
 {phang2}{opt headerc:olor(string)} specifies a custom header color as a
 supported Stata color name or RGB triplet (e.g., "200 220 240"). It is applied
-when header shading is active via {opt headershade} or the selected theme.{p_end}
+when header shading is active via {opt headershade}.{p_end}
 
 {phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a supported Stata
 color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is

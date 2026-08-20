@@ -1,4 +1,4 @@
-*! comptab Version 2.1.0  2026/08/19
+*! comptab Version 2.0.0  2026/08/19
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -15,7 +15,7 @@ SYNTAX:
     comptab framelist, {rows(string)|rownames(string)} [xlsx(string)
            sheet(string) title(string) footnote(string) compact
            separator(numlist) section(string asis) relabel(string asis)
-           theme(string) borderstyle(string) open zebra
+           font(string) fontsize(integer) borderstyle(string) open zebra
            highlight(real) boldp(real)
            headercolor(string) zebracolor(string)
            frame(name) csv(string)]
@@ -46,7 +46,7 @@ SYNTAX:
                  Example: relabel(3 "Low dose (vs. none)" 5 "High dose")
                  Row numbers are 1-based from first data row (after headers),
                  including any section header rows.
-    theme:       Journal theme: lancet, nejm, bmj, apa
+    font/fontsize: Explicit workbook typography
     borderstyle: Border style: thin, medium, academic (default: thin)
     open:        Open the Excel file after export
     zebra:       Apply alternating row shading
@@ -79,7 +79,7 @@ EXAMPLES:
 
     * Compact mode (merge estimate + CI into one column)
     comptab s1 s2, rows(1 \ 1 3/5) compact ///
-        xlsx(results.xlsx) sheet("Summary") theme(lancet)
+        xlsx(results.xlsx) sheet("Summary") font("Arial") fontsize(10) borderstyle(academic)
 
     * Console output only (no Excel output)
     comptab s1 s2, rows(1 2 \ 1 3/5)
@@ -98,7 +98,7 @@ program define comptab, rclass
             XLSX(string) EXCEL(string) SHEET(string) ///
             TITLE(string) FOOTnote(string) COMPact ///
             SEParator(numlist >0 integer sort) SECtion(string asis) ///
-            RELAbel(string asis) THEme(string) BORDERstyle(string) ///
+            RELAbel(string asis) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
             OPEN ZEBRA HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
             HEADERColor(string) ZEBRAColor(string) CSV(string) ///
             MARKdown(string) MDAPPend FRAme(string asis) ///
@@ -113,7 +113,8 @@ program define comptab, rclass
         if `"`sheet'"' != "" local _common_opts `"`_common_opts' sheet(`"`sheet'"')"'
         if `"`title'"' != "" local _common_opts `"`_common_opts' title(`"`title'"')"'
         if `"`footnote'"' != "" local _common_opts `"`_common_opts' footnote(`"`footnote'"')"'
-        if `"`theme'"' != "" local _common_opts `"`_common_opts' theme(`"`theme'"')"'
+        if `"`font'"' != "" local _common_opts `"`_common_opts' font(`"`font'"')"'
+        if `fontsize' != -1 local _common_opts `"`_common_opts' fontsize(`fontsize')"'
         if `"`borderstyle'"' != "" local _common_opts `"`_common_opts' borderstyle(`"`borderstyle'"')"'
         if "`open'" != "" local _common_opts "`_common_opts' open"
         if "`zebra'" != "" local _common_opts "`_common_opts' zebra"
@@ -237,7 +238,7 @@ program define _comptab_rates, rclass
             XLSX(string) EXCEL(string) SHEET(string) ///
             TITLE(string) FOOTnote(string) ///
 	            EFFect(string) REFLabel(string) OUTCOMEMap(string asis) ///
-            BORDERstyle(string) THEme(string) ///
+            BORDERstyle(string) FONT(string) FONTSIZE(integer -1) ///
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
             CSV(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
@@ -325,7 +326,7 @@ program define _comptab_rates, rclass
         _tabtools_validate_sheet "`sheet'" "sheet()"
 
         * Resolve formatting
-        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
 
         _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
@@ -1580,7 +1581,7 @@ program define _comptab_vertical, rclass
         [title(string) FOOTnote(string) COMPact ///
         SEParator(numlist >0 integer sort) SECtion(string asis) ///
         RELAbel(string asis) ///
-        THEme(string) BORDERstyle(string) open zebra HEADERShade ///
+        FONT(string) FONTSIZE(integer -1) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
         csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
@@ -1620,7 +1621,7 @@ program define _comptab_vertical, rclass
     * =====================================================================
     * RESOLVE FORMATTING OPTIONS
     * =====================================================================
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     local has_highlight = `highlight' != -1

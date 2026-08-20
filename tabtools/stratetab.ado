@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.0  2026/08/19
+*! stratetab Version 2.0.0  2026/08/19
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -73,7 +73,7 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
-	BORDERstyle(string) THEme(string) HEADERShade ///
+	BORDERstyle(string) FONT(string) FONTSIZE(integer -1) HEADERShade ///
 	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) ///
 	Level(real -1)]
 
@@ -137,7 +137,7 @@ if `level' != -1 & (`level' <= 0 | `level' >= 100) {
 }
 
 	* Resolve formatting
-	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+	_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 
 	_tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 

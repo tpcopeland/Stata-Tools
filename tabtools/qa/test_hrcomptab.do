@@ -525,7 +525,7 @@ else {
 }
 
 * -------------------------------------------------------------------------
-* 4. theme(apa) propagates workbook font settings
+* 4. Explicit formatting reaches workbook styles
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
@@ -535,11 +535,12 @@ capture noisily {
 	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
 	        rows(1 \ 3/4) ///
 	        outcomemap("Outcome 1" \ "Outcome 2") ///
-        xlsx("`xlsx'") sheet("APA") theme(apa)
+        xlsx("`xlsx'") sheet("Style") font("Times New Roman") fontsize(12) ///
+        borderstyle(academic) headershade zebra
     confirm file "`xlsx'"
     tempfile style_ok
     capture erase "`style_ok'"
-    quietly shell python3 "`xlsx_checker'" "`xlsx'" --sheet "APA" ///
+    quietly shell python3 "`xlsx_checker'" "`xlsx'" --sheet "Style" ///
         --font "Times New Roman" --fontsize 12 ///
         --result-file "`style_ok'" --quiet
     confirm file "`style_ok'"
@@ -550,11 +551,11 @@ capture noisily {
     assert `"`_apa_style_result'"' == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: hrcomptab theme(apa) reaches workbook styles"
+    display as result "  PASS: hrcomptab explicit formatting reaches workbook styles"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: hrcomptab theme(apa) workbook styles (rc=`=_rc')"
+    display as error "  FAIL: hrcomptab explicit formatting workbook styles (rc=`=_rc')"
     local ++fail_count
 }
 

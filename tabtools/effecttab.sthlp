@@ -80,7 +80,6 @@ collection must remain unchanged.{p_end}
 {synopt:{opt labelw:idth(#)}}cap the label-column width{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt from(name)}}read results from a named matrix{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
@@ -208,9 +207,7 @@ string; such cases are rare in {cmd:teffects}/{cmd:margins} output but can be av
 {opt sheet(string)} target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}{p_end}
 
 {phang}
-{opt the:me(string)} formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama},
-{cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides
-font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}{p_end}
+{opt font(string)}, {opt fontsize(#)}, and {opt borderstyle(string)} control workbook typography and borders.{p_end}
 
 {phang}
 {opt title(string)} text written into cell {cmd:A1} and merged across the table width{p_end}

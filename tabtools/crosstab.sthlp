@@ -63,7 +63,8 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt title(string)}}title row in the exported table{p_end}
 {synopt:{opt foot:note(string)}}add a footnote below the table{p_end}
 {syntab:Formatting}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt bold:p(#)}}bold result rows below a p threshold{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
@@ -193,9 +194,12 @@ honored).{p_end}
 {cmd:frame(name, replace)} to replace an existing frame{p_end}
 
 {phang}
-{cmdab:the:me(} {it:string} {cmd:)} journal-style formatting theme: {cmd:lancet}, {cmd:nejm},
-{cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or
-{cmd:custom}{p_end}
+{opt font(string)} sets the Excel font family. The default is Arial unless a
+session default was set with {cmd:tabtools set font}.{p_end}
+
+{phang}
+{opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
+a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {marker smallcells}{title:Small-cell disclosure control}
 

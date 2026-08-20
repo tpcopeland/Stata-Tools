@@ -493,22 +493,23 @@ else {
 }
 
 * ============================================================
-* Test 12: effecttab with theme
+* Test 12: effecttab with explicit workbook styling
 * ============================================================
 capture noisily {
     webuse cattaneo2, clear
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, xlsx("`output_dir'/test_iptw_theme.xlsx") sheet("Lancet") ///
-        title("IPTW Lancet") effect("ATE") theme(lancet)
-    confirm file "`output_dir'/test_iptw_theme.xlsx"
+    effecttab, xlsx("`output_dir'/test_iptw_style.xlsx") sheet("Styled") ///
+        title("IPTW") effect("ATE") font("Arial") fontsize(10) ///
+        borderstyle(academic) headershade zebra
+    confirm file "`output_dir'/test_iptw_style.xlsx"
 }
 if _rc == 0 {
-    display as result "PASS: T12 — theme with IPTW works"
+    display as result "PASS: T12 — explicit styling with IPTW works"
     local ++pass_count
 }
 else {
-    display as error "FAIL: T12 — theme with IPTW failed (rc=`=_rc')"
+    display as error "FAIL: T12 — explicit styling with IPTW failed (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1606,20 +1607,21 @@ else {
     local ++fail_count
 }
 
-* Test: theme option
+* Test: explicit font and border options
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ipw (price) (foreign mpg weight, logit)
-    effecttab, xlsx("`output_dir'/_cov_eff_theme.xlsx") sheet("lancet") theme(lancet)
-    confirm file "`output_dir'/_cov_eff_theme.xlsx"
+    effecttab, xlsx("`output_dir'/_cov_eff_style.xlsx") sheet("style") ///
+        font("Arial") fontsize(10) borderstyle(academic) headershade zebra
+    confirm file "`output_dir'/_cov_eff_style.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: effecttab theme(lancet)"
+    display as result "  PASS: effecttab explicit formatting"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: effecttab theme(lancet) (error `=_rc')"
+    display as error "  FAIL: effecttab explicit formatting (error `=_rc')"
     local ++fail_count
 }
 
@@ -1788,7 +1790,7 @@ capture noisily {
     effecttab, xlsx("`output_dir'/_cov_eff_stress.xlsx") sheet("stress") ///
         zebra boldp(0.05) highlight(0.1) borderstyle(academic) ///
         footnote("Treatment effect estimates") title("Effect Stress Test") ///
-        theme(bmj) digits(3)
+        font("Arial") fontsize(10) headershade digits(3)
     confirm file "`output_dir'/_cov_eff_stress.xlsx"
 }
 if _rc == 0 {

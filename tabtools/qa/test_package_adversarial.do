@@ -88,16 +88,13 @@ capture noisily {
     assert _rc == 198
     assert c(varabbrev) == "on"
 
-    tabtools set theme lancet
     tabtools set font Calibri
-    assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_FONT" == "Calibri"
 
-    capture tabtools set theme custom, fontsize(5)
+    capture tabtools set fontsize 5
     assert _rc == 198
 
     tabtools set clear
-    assert "$TABTOOLS_THEME" == ""
     set varabbrev off
 }
 if _rc == 0 {
@@ -995,22 +992,23 @@ else {
     local ++fail_count
 }
 
-* S26: All theme options across commands
+* S26: Explicit formatting across representative commands
 capture noisily {
     sysuse auto, clear
-    foreach theme in lancet nejm bmj apa {
+    foreach font in Arial Calibri {
         table1_tc, by(foreign) vars(price contn) ///
-            xlsx("`output_dir'/_stress_theme_`theme'.xlsx") ///
-            sheet("`theme'") theme(`theme')
-        confirm file "`output_dir'/_stress_theme_`theme'.xlsx"
+            xlsx("`output_dir'/_stress_style_`font'.xlsx") ///
+            sheet("`font'") font("`font'") fontsize(10) ///
+            borderstyle(academic) headershade zebra
+        confirm file "`output_dir'/_stress_style_`font'.xlsx"
     }
 }
 if _rc == 0 {
-    display as result "  PASS: S26 all 4 themes (lancet, nejm, bmj, apa)"
+    display as result "  PASS: S26 explicit formatting combinations"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: S26 theme options (error `=_rc')"
+    display as error "  FAIL: S26 explicit formatting (error `=_rc')"
     local ++fail_count
 }
 

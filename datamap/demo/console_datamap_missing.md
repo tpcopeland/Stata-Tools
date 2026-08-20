@@ -26,7 +26,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated:  5 Aug 2026 14:40:34
+Generated: 19 Aug 2026 23:26:25
 
 ========================================
 DATASET: _demo_missing.dta

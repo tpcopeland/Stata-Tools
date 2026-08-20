@@ -83,12 +83,13 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt high:light(#)}}yellow fill for rows where p-value < #{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below #{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt border:style(string)}}set the table border style{p_end}
 {synopt:{opt cdisc}}apply CDISC labels and defaults{p_end}
 {synopt:{opt relab:el}}relabel random effects{p_end}
 {synopt:{opt stars}}add significance stars to coefficients (*, **, ***){p_end}
 {synopt:{opt starsl:evels(numlist)}}custom p-value thresholds for stars{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
@@ -272,8 +273,6 @@ dispersion is fixed at 1 (see Remarks).{p_end}
 {cmd:"219 229 241"}){p_end}
 
 {phang}
-{cmdab:the:me(} {it:string} {cmd:)} formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
-{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 
 {phang}
 {cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra color (Stata color name or RGB triplet; default
@@ -359,7 +358,8 @@ ordered-model cutpoints displayed with publication-friendly labels.{p_end}
 {opt nopvalue}. If {opt stars} is also specified, significance stars are still
 computed from the collected p-values before the p-value columns are dropped.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by
-{opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders
+{opt font()}, {opt fontsize()}, or session defaults set with
+{helpb tabtools:set font} / {helpb tabtools:set fontsize}. Borders
 are drawn around the table and model blocks. Column widths and row heights are
 adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes Excel and Markdown output through the shared tabtools

@@ -128,7 +128,7 @@ capture noisily {
     local frames_before "`r(frames)'"
     local book "`c(tmpdir)'/iivw_v194_balance_fail.xlsx"
     capture erase "`book'"
-    capture noisily iivw_balance, xlsx("`book'") theme(not_a_theme)
+    capture noisily iivw_balance, xlsx("`book'") borderstyle(not_a_style)
     assert _rc == 198
     frame dir
     assert "`r(frames)'" == "`frames_before'"
@@ -160,7 +160,7 @@ capture noisily {
     capture erase "`book'"
     capture noisily iivw_diagnose x, unweighted(M_unw) ///
         weighted(M_wgt) adjusted(M_adj) xlsx("`book'") ///
-        theme(not_a_theme)
+        borderstyle(not_a_style)
     assert _rc == 198
     frame dir
     assert "`r(frames)'" == "`frames_before'"

@@ -418,8 +418,7 @@ def check_font(ws: Worksheet, expected_name: str) -> CheckResult:
     """Check that the primary font matches expected name.
 
     Only cells with content count: empty cells carry the workbook default
-    font, which would otherwise outvote the styled table on sparse sheets
-    (and disagree with --theme, which already counts non-empty cells only).
+    font, which would otherwise outvote the styled table on sparse sheets.
     """
     from collections import Counter
     font_counts: Counter[str] = Counter()
@@ -568,7 +567,7 @@ def check_patterns(ws: Worksheet, pattern_names: list[str]) -> CheckResult:
 
 
 # =============================================================================
-# Styling Checks (per-package lineage: fills, italics, borders, widths, themes)
+# Styling Checks (per-package lineage: fills, italics, borders, and widths)
 # =============================================================================
 # These helpers and checks were unified from the per-package qa/tools copies so
 # this module is the single source of truth. They intentionally use raw
@@ -693,34 +692,6 @@ def _row_any_italic(ws, row: int) -> bool:
         if getattr(getattr(cell, "font", None), "italic", False):
             return True
     return False
-
-
-def _dominant_font(ws: Worksheet) -> tuple[str, Optional[float]]:
-    from collections import Counter
-    counts: Counter[tuple[str, Optional[float]]] = Counter()
-    for cell in _iter_nonempty_cells(ws):
-        font = getattr(cell, "font", None)
-        if font is None:
-            continue
-        name = (font.name or "").strip()
-        size = round(float(font.sz), 1) if font.sz is not None else None
-        counts[(name, size)] += 1
-    if not counts:
-        return ("", None)
-    return counts.most_common(1)[0][0]
-
-
-def _theme_expectations(name: str):
-    theme = name.lower()
-    if theme == "nejm":
-        # regtab NEJM theme emits Arial 9pt (see _tabtools_common.ado: "9pt
-        # matches NEJM manuscript table conventions (10pt was too large)").
-        return ("Arial", 9.0, "medium")
-    if theme == "lancet":
-        return ("Arial", 9.0, "medium")
-    if theme == "apa":
-        return ("Times New Roman", 12.0, None)
-    return None
 
 
 def _column_width(ws, ref: str) -> float:
@@ -1031,31 +1002,6 @@ def check_all_col_widths_fit(ws: Worksheet, start_row: int, slack: float) -> Che
     )
 
 
-def check_theme(ws: Worksheet, name: str) -> CheckResult:
-    expected = _theme_expectations(name)
-    if expected is None:
-        return CheckResult(f"Theme {name}", False, f"unknown theme '{name}'")
-    exp_font, exp_size, exp_border = expected
-    dom_name, dom_size = _dominant_font(ws)
-    problems = []
-    if dom_name.lower() != exp_font.lower():
-        problems.append(f"font '{dom_name}' != '{exp_font}'")
-    if dom_size is None or abs(dom_size - exp_size) > 0.1:
-        problems.append(f"size {dom_size} != {exp_size}")
-    if exp_border is not None and not any(
-        _cell_border_matches(cell, "bottom", exp_border)
-        or _cell_border_matches(cell, "top", exp_border)
-        for cell in _iter_nonempty_cells(ws)
-    ):
-        problems.append(f"missing {exp_border} borders")
-    passed = not problems
-    return CheckResult(
-        name=f"Theme {name}",
-        passed=passed,
-        message="matched" if passed else "; ".join(problems),
-    )
-
-
 # =============================================================================
 # Check Runner
 # =============================================================================
@@ -1250,10 +1196,6 @@ class CheckRunner:
         if args.all_col_widths_fit:
             for spec in args.all_col_widths_fit:
                 results.append(check_all_col_widths_fit(ws, int(spec[0]), float(spec[1])))
-        if args.theme:
-            for name in args.theme:
-                results.append(check_theme(ws, name))
-
         self.results = results
         return results
 
@@ -1419,7 +1361,7 @@ Available patterns for --has-pattern:
                       help="Content must contain pattern(s): p-values, ci, percentages, "
                            "mean-sd, n-equals, sensitivity, rates, reference")
 
-    # Styling checks (per-package lineage: fills, italics, borders, widths, themes)
+    # Styling checks (per-package lineage: fills, italics, borders, widths)
     style = parser.add_argument_group("Styling checks")
     style.add_argument("--sheet-order", "--exact-sheets", nargs="+", dest="sheet_order",
                        metavar="NAME", help="Workbook sheets in exactly this order")
@@ -1471,9 +1413,6 @@ Available patterns for --has-pattern:
     style.add_argument("--all-col-widths-fit", nargs=2, action=CellPairAction,
                        metavar=("STARTROW", "SLACK"),
                        help="Every used unwrapped cell width plus SLACK fits content from STARTROW")
-    style.add_argument("--theme", action="append", metavar="NAME",
-                       help="Dominant font/size/borders match theme: nejm, lancet, apa")
-
     # Output options
     out = parser.add_argument_group("Output options")
     out.add_argument("--result-file", metavar="PATH",

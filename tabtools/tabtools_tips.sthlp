@@ -181,7 +181,6 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {hline}
 {title:tabtools set/get}
 
-{phang2}{cmd:tabtools set theme lancet} {it:// journal-inspired style preset}{p_end}
 {phang2}{cmd:tabtools set font Calibri}{p_end}
 {phang2}{cmd:tabtools set fontsize 11}{p_end}
 {phang2}{cmd:tabtools set borderstyle thin}{p_end}
@@ -240,7 +239,9 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {title:6. Multi-model manuscript workflow}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:generate byte expensive = price > 6000}{p_end}
-{phang2}{cmd:tabtools set theme lancet}{p_end}
+{phang2}{cmd:tabtools set font Arial}{p_end}
+{phang2}{cmd:tabtools set fontsize 9}{p_end}
+{phang2}{cmd:tabtools set borderstyle academic}{p_end}
 {phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat)}
 {cmd:xlsx(manuscript.xlsx) sheet("Table 1") title("Table 1. Baseline Characteristics") smd}{p_end}
 {phang2}{cmd:collect clear}{p_end}
@@ -300,10 +301,12 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:regtab, xlsx(models.xlsx) sheet("OR") frame(results) noint}{p_end}
 {phang2}{cmd:frame results: list}{p_end}
 
-{title:13. Custom theme setup}
-{phang2}{cmd:tabtools set theme lancet}{p_end}
-{phang2}{cmd:tabtools set theme custom, font(Calibri) fontsize(9)}
-{cmd:headercolor(200 220 240) zebracolor(240 245 250) borderstyle(thin)}{p_end}
+{title:13. Custom formatting setup}
+{phang2}{cmd:tabtools set font Calibri}{p_end}
+{phang2}{cmd:tabtools set fontsize 9}{p_end}
+{phang2}{cmd:tabtools set headercolor "200 220 240"}{p_end}
+{phang2}{cmd:tabtools set zebracolor "240 245 250"}{p_end}
+{phang2}{cmd:tabtools set borderstyle thin}{p_end}
 {phang2}{cmd:tabtools get}{p_end}
 {phang2}{cmd:tabtools set clear}{p_end}
 
@@ -319,13 +322,13 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:stset studytime, failure(died)}{p_end}
 {phang2}{cmd:survtab, times(5 10 15 20) by(drug) xlsx(survival.xlsx) sheet("Table 2")}
 {cmd:title("Table 2. Survival Estimates by Treatment")}
-{cmd:median riskset difference theme(lancet)}{p_end}
+{cmd:median riskset difference font(Arial) fontsize(9) borderstyle(academic)}{p_end}
 
 {title:16. Correlation matrix with significance stars}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:corrtab price mpg weight length displacement, spearman lower}
 {cmd:xlsx(correlations.xlsx) sheet("Table 4") title("Spearman Correlations")}
-{cmd:star(0.001 0.01 0.05) digits(2) theme(nejm)}{p_end}
+{cmd:star(0.001 0.01 0.05) digits(2) font(Arial) fontsize(9) borderstyle(academic) zebra}{p_end}
 
 {title:17. Direct access to the consolidated descriptive engine}
 {phang2}{cmd:sysuse auto, clear}{p_end}
@@ -338,7 +341,7 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:matrix T = r(table)'}{p_end}
 {phang2}{cmd:puttab using report.xlsx, sheet("Coefs") matrix(T) title("OLS Coefficients") digits(3) headershade}{p_end}
 {phang2}{cmd:frame put make mpg price in 1/10, into(top)}{p_end}
-{phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) title("First Ten Cars") varlabels theme(nejm) zebra}{p_end}
+{phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) title("First Ten Cars") varlabels font(Arial) fontsize(9) borderstyle(academic) zebra}{p_end}
 
 {title:19. Emit-then-assemble pipeline}
 {phang2}{cmd:clear}{p_end}

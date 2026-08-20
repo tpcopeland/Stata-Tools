@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.0  2026/08/19
+*! _tabtools_common Version 2.0.0  2026/08/19
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -17,8 +17,7 @@ PROGRAMS INCLUDED:
     _tabtools_open_file         - Open an xlsx file in the OS default application
     _tabtools_detect_vartype    - Auto-classify a variable as contn/conts/cat/bin
     _tabtools_validate_sheet    - Validate Excel sheet name (length, forbidden chars)
-    _tabtools_apply_theme       - Apply journal-style formatting presets
-    _tabtools_resolve_format    - Resolve font/fontsize/borderstyle from options, globals, and themes
+    _tabtools_resolve_format    - Resolve font/fontsize/borderstyle from options and globals
     _tabtools_resolve_colors    - Resolve header/zebra colors from options and globals
     _tabtools_classify_stat      - Classify collect table statistics for formatting
     _tabtools_resolve_stat_format - Resolve per-statistic display formats
@@ -469,136 +468,15 @@ program _tabtools_validate_sheet, nclass
 end
 
 * =============================================================================
-* _tabtools_apply_theme: Apply journal-style formatting presets (O1)
-* =============================================================================
-* Sets formatting locals in the caller's scope based on theme name.
-* Themes: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals
-*
-* Usage: _tabtools_apply_theme lancet
-*        (sets c_local variables: _theme_font, _theme_fontsize, _theme_border,
-*         _theme_headershade, _theme_headercolor, _theme_zebra)
-
-capture program drop _tabtools_apply_theme
-program _tabtools_apply_theme, nclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-    args theme
-
-    local theme = lower("`theme'")
-
-    if "`theme'" == "lancet" {
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "9"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "nejm" {
-        * 9pt matches NEJM manuscript table conventions (10pt was too large).
-        * zebra=1: NEJM uses light row alternation. The theme system does not
-        * support per-theme zebra colors, so the global default (237 242 249,
-        * blue-tinted) is used. For exact NEJM neutral-gray shading, override:
-        *   zebracolor("242 242 242")
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "9"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "1"
-    }
-    else if "`theme'" == "bmj" {
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "10"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "apa" {
-        c_local _theme_font "Times New Roman"
-        c_local _theme_fontsize "12"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "jama" {
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "10"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "plos" {
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "10"
-        c_local _theme_border "thin"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "nature" {
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "7"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "cell" {
-        * 8pt matches Cell Press table conventions (10pt was too large).
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "8"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "annals" {
-        * Annals of Internal Medicine uses a clean three-rule format (no row
-        * alternation). zebra was incorrectly set to 1.
-        c_local _theme_font "Arial"
-        c_local _theme_fontsize "10"
-        c_local _theme_border "academic"
-        c_local _theme_headershade "0"
-        c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
-    }
-    else if "`theme'" == "custom" {
-        * Custom theme reads from globals set by tabtools set theme custom
-        c_local _theme_font = cond("$TABTOOLS_FONT" != "", "$TABTOOLS_FONT", "Arial")
-        c_local _theme_fontsize = cond("$TABTOOLS_FONTSIZE" != "", "$TABTOOLS_FONTSIZE", "10")
-        c_local _theme_border = cond("$TABTOOLS_BORDER" != "", "$TABTOOLS_BORDER", "thin")
-        c_local _theme_headershade = cond("$TABTOOLS_HEADERCOLOR" != "", "1", "0")
-        c_local _theme_headercolor "$TABTOOLS_HEADERCOLOR"
-        c_local _theme_zebra = cond("$TABTOOLS_ZEBRACOLOR" != "", "1", "0")
-    }
-    else {
-        display as error "Unknown theme: `theme'. Valid themes: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals, custom"
-        exit 198
-    }
-    }
-    local _rc_outer = _rc
-    quietly version
-    set varabbrev `_orig_varabbrev'
-    if `_rc_outer' exit `_rc_outer'
-end
-
-* =============================================================================
-* _tabtools_resolve_format: Resolve font/fontsize/borderstyle from options,
-*   globals, and themes
+* _tabtools_resolve_format: Resolve font/fontsize/borderstyle from options
 * =============================================================================
 * Centralizes the format resolution logic shared across all tabtools commands.
-* Resolves: user option -> theme -> $TABTOOLS_* global -> default.
+* Resolves: user option -> $TABTOOLS_* global -> default.
 *
 * Sets c_local variables in the caller's scope:
 *   _font, _fontsize, borderstyle, _hborder, headershade, zebra
 *
-* Usage: _tabtools_resolve_format, [theme(string) borderstyle(string)
+* Usage: _tabtools_resolve_format, [font(string) fontsize(integer) borderstyle(string)
 *            headershade(string) zebra(string)]
 
 capture program drop _tabtools_resolve_format
@@ -607,23 +485,18 @@ program _tabtools_resolve_format, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-    syntax , [THEme(string) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
+    syntax , [FONT(string) FONTSIZE(integer -1) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
 
     * Font defaults: global -> default
     local _font "Arial"
     local _fontsize 10
     if "$TABTOOLS_FONT" != "" local _font "$TABTOOLS_FONT"
     if "$TABTOOLS_FONTSIZE" != "" local _fontsize $TABTOOLS_FONTSIZE
-
-    * Apply theme: explicit option overrides global
-    if "`theme'" == "" & "$TABTOOLS_THEME" != "" local theme "$TABTOOLS_THEME"
-    if "`theme'" != "" {
-        _tabtools_apply_theme "`theme'"
-        local _font `"`_theme_font'"'
-        local _fontsize `_theme_fontsize'
-        if "`borderstyle'" == "" local borderstyle "`_theme_border'"
-        if "`_theme_headershade'" == "1" & "`headershade'" == "" local headershade "headershade"
-        if "`_theme_zebra'" == "1" & "`zebra'" == "" local zebra "zebra"
+    if `"`font'"' != "" local _font `"`font'"'
+    if `fontsize' != -1 local _fontsize `fontsize'
+    if `fontsize' != -1 & (`_fontsize' < 1 | `_fontsize' > 72) {
+        display as error "fontsize() must be between 1 and 72"
+        exit 198
     }
 
     * Resolve borderstyle: global -> default
@@ -1014,7 +887,7 @@ program _tabtools_helpers_ready, nclass
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_require_helpers"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_require_helpers"
     }
 
     foreach _prog of local required {

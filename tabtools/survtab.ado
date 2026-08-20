@@ -1,4 +1,4 @@
-*! survtab Version 2.1.0  2026/08/19
+*! survtab Version 2.0.0  2026/08/19
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,7 +14,7 @@ SYNTAX:
     survtab, times(numlist) [by(varname) rmst(real) median riskset
         timeunit(string) reverse difference
         xlsx(filename) sheet(string) title(string)
-        footnote(string) theme(string) borderstyle(string)
+        footnote(string) font(string) fontsize(integer) borderstyle(string)
         boldp(real) zebra highlight(real)
         csv(filename) frame(name) open]
 
@@ -63,7 +63,7 @@ capture noisily {
         TIMEUnit(string) REVerse DIFFerence EVents ///
         Level(cilevel) ///
         xlsx(string) excel(string) sheet(string) title(string) ///
-        FOOTnote(string) THEme(string) BORDERstyle(string) ///
+        FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
         csv(string) MARKdown(string) MDAPPend FRAme(string) open pdp(integer -1) highpdp(integer -1) ///
@@ -180,7 +180,7 @@ capture noisily {
     local has_rmst = `rmst' != -1
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     * Count timepoints
