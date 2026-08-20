@@ -108,8 +108,9 @@ and matrices in memory are left unchanged.{p_end}
 {synoptset 26 tabbed}{...}
 {synopt:{opt ti:tle(string)}}set the table title in cell A1{p_end}
 {synopt:{opt foot:note(string)}}add italic footnote text{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt border:style(string)}}set the table border style{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt headers:hade}}shade the header row{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
@@ -164,6 +165,10 @@ Excel and CSV exports{p_end}
 {cmd:academic}{p_end}
 
 {phang}
+{opt font(string)} sets the Excel font family, and {opt fontsize(#)} sets its
+point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
+
+{phang}
 {cmdab:foot:note(} {it:string} {cmd:)} footnote below the table in smaller italic font{p_end}
 
 {phang}
@@ -178,8 +183,6 @@ triplet (e.g., {cmd:"200 220 240"}){p_end}
 labels/headers{p_end}
 
 {phang}
-{cmdab:the:me(} {it:string} {cmd:)} journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
-{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 
 {phang}
 {cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra stripe color as a supported Stata color name
@@ -192,7 +195,7 @@ or RGB triplet{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. collapse (mean) price mpg (count) n=price, by(foreign)}{p_end}
 {phang2}{cmd:. puttab foreign price mpg n using table.xlsx, sheet("ByOrigin") ///}{p_end}
-{phang3}{cmd:title("Mean price and mpg by origin") theme(nejm) zebra varlabels digits(1)}{p_end}
+{phang3}{cmd:title("Mean price and mpg by origin") zebra varlabels digits(1)}{p_end}
 
 {pstd}{bf:Example 2: A named frame}{p_end}
 {phang2}{cmd:. frame put make mpg price in 1/10, into(top)}{p_end}

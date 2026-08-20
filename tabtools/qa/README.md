@@ -73,13 +73,14 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | `test_tabtools.do` | tabtools (controller) | Command listing/categories, set/get/clear round-trips, detail re-load, disk-backed profiles (sandboxes PERSONAL and supports a serial external restart-result handoff), r(version) vs header |
 | `test_tabtools_tips.do` | tabtools_tips | Index display, README Quick Start execution, numerical incidence-rate contract, and all 21 help recipes in separate fresh Stata processes (strictly serial external handoff supported) |
 | `test_tabtools_v1163.do` | table1_tc | v1.16.3 regression: mixed categorical and continuous `missingsummary` rows follow the variables they describe and retain their own group-specific counts |
+| `test_theme_removed.do` | tabtools suite | Removed theme() parser rejection across the affected public command surfaces |
 
 ### Package-level tests (genuinely multi-command)
 
 | File | Purpose |
 |------|---------|
 | `test_package_helpers.do` | Shared infrastructure contracts: `_tabtools_common` utilities (col letters, path/sheet/color validators including Excel boundary-apostrophe/reserved-name rules, detect_vartype + RNG preservation), Mata xlsx write/read backends, style-engine build/apply (with in-test legacy reference via `tools/style_engine_compare.py`), markdown writer, collect-JSON render, console display, column widths, Excel engine validation sweep |
-| `test_package_integration.do` | Cross-command behavior: theme/defaults propagation (`tabtools set` → consumers), persistent digits/boldp, frame(name, replace) for all frame-capable commands, frame() pre-existing rejection, addrow()/pdp() across commands, CSV/markdown export parity, post-estimation e() preservation, eplot bridge + section folding (**requires sibling eplot**) |
+| `test_package_integration.do` | Cross-command behavior: explicit formatting/default propagation (`tabtools set` → consumers), persistent digits/boldp, frame(name, replace) for all frame-capable commands, frame() pre-existing rejection, addrow()/pdp() across commands, CSV/markdown export parity, post-estimation e() preservation, eplot bridge + section folding (**requires sibling eplot**) |
 | `test_package_adversarial.do` | Adversarial breakage sweep, 3-perspective stress suite, and export-failure r() survival contracts, including `puttab` dimensions |
 | `test_package_hardening.do` | Hostile edge-case sweep across the shared export surface: extreme table shapes (single column/row, no title, title wider than table, sheet-reshape stale-cell clearing → B2 geometry), pathological cell content round-trip (pipes/commas/quotes/leading-`=`/negatives through md/csv/xlsx), locale (`set dp comma` must not corrupt numeric export), and re-run / session-state safety (varabbrev + data + frame restoration) |
 | `test_deep_audit_core.do` | Critical destructive/silent-corruption regressions: Excel used ranges, frame alias/current-source transactions, semantic metadata, GLM scales, fweight/sample handling, and adversarial failures |

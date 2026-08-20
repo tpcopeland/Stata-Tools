@@ -92,8 +92,9 @@ variables. The pairwise observation count matrix is stored in
 {synoptset 24 tabbed}{...}
 {synopt:{opt title(string)}}table title written to cell A1{p_end}
 {synopt:{opt foot:note(string)}}add italic footnote text{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt border:style(string)}}set the table border style{p_end}
+{synopt:{opt font(string)}}set the Excel font family{p_end}
+{synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt headers:hade}}shade the header row{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
@@ -172,6 +173,10 @@ named sheet is replaced{p_end}
 {cmd:academic}{p_end}
 
 {phang}
+{opt font(string)} sets the Excel font family, and {opt fontsize(#)} sets its
+point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
+
+{phang}
 {cmdab:foot:note(} {it:string} {cmd:)} footnote text below the table in smaller italic font{p_end}
 
 {phang}
@@ -183,8 +188,6 @@ named sheet is replaced{p_end}
 triplet (e.g., {cmd:"200 220 240"}){p_end}
 
 {phang}
-{cmdab:the:me(} {it:string} {cmd:)} journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
-{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 
 {phang}
 {cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra stripe color as a supported Stata color name
@@ -206,7 +209,7 @@ or RGB triplet{p_end}
 {phang3}{cmd:star(0.1 0.05 0.01) digits(3) ///}{p_end}
 {phang3}{cmd:xlsx(corr.xlsx) sheet("Full") ///}{p_end}
 {phang3}{cmd:footnote("* p<0.10, ** p<0.05, *** p<0.01") ///}{p_end}
-{phang3}{cmd:theme(lancet)}{p_end}
+{phang3}{cmd:font("Arial") fontsize(10) borderstyle(academic)}{p_end}
 
 {pstd}{bf:Example 4: Store in frame for downstream use}{p_end}
 {phang2}{cmd:. corrtab price mpg weight, frame(corr_results, replace)}{p_end}

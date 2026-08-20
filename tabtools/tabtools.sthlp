@@ -1,12 +1,11 @@
 {smcl}
-{* *! version 2.1.0  19aug2026}{...}
+{* *! version 2.0.0  19aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
 {viewerjumpto "Options" "tabtools##options"}{...}
 {viewerjumpto "Persistent defaults" "tabtools##defaults"}{...}
-{viewerjumpto "Themes" "tabtools##themes"}{...}
 {viewerjumpto "Examples" "tabtools##examples"}{...}
 {viewerjumpto "Stored results" "tabtools##stored"}{...}
 {viewerjumpto "Author" "tabtools##author"}{...}
@@ -213,7 +212,6 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synopt:{cmd:font} {it:name}}set the default font family{p_end}
 {synopt:{cmd:fontsize} {it:#}}font size in points; integer between 6 and 72{p_end}
 {synopt:{cmd:borderstyle} {it:name}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmd:theme} {it:name}}set the default formatting theme; see {it:Themes} below{p_end}
 {synopt:{cmd:digits} {it:#}}decimal digits for numeric output; integer between 0 and 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
@@ -230,42 +228,7 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 The {cmd:academic} border style uses horizontal rules only (top, header bottom,
 table bottom) with no vertical borders, following journal conventions.
 
-{pstd}
-A {cmd:custom} theme accepts additional options on the same line:
-
-{p 8 17 2}
-{cmd:tabtools set theme custom, font(}{it:name}{cmd:)}
-{cmd:fontsize(}{it:#}{cmd:) headercolor(}{it:color}{cmd:) zebracolor(}{it:color}{cmd:)}
-{cmd:borderstyle(}{it:name}{cmd:)}
-
-{synoptset 22 tabbed}{...}
-{synopthdr:custom-theme option}
-{synoptline}
-{synopt:{opt font(string)}}font family for the custom theme{p_end}
-{synopt:{opt fontsize(#)}}font size in points for the custom theme{p_end}
-{synopt:{opt headerc:olor(string)}}header fill: supported Stata color name or RGB triplet{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill: supported Stata color name or RGB triplet{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synoptline}
-
-{pstd}
-{it:color} may be either a supported Stata color name such as {cmd:navy} or an RGB
-triplet such as {cmd:"200 220 240"}. Omitted custom-theme suboptions reset
-that component to the command default the next time {cmd:tabtools set theme custom}
-is run.
-
-{pstd}
-The builder-style options {cmd:font()}, {cmd:fontsize()}, {cmd:headercolor()},
-{cmd:zebracolor()}, and {cmd:borderstyle()} are only valid with
-{cmd:tabtools set theme custom}. If a named non-{cmd:custom} theme is active,
-direct {cmd:tabtools set font}, {cmd:set fontsize}, and
-{cmd:set borderstyle} first resolve that named theme to {cmd:custom}, then
-apply the requested override.
-
-
-
-{pstd}
-{it:Detailed option contracts}{p_end}
+{dlgtab:Detailed option contracts}
 
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -279,10 +242,10 @@ apply the requested override.
 {opt detail} show detailed information with descriptions{p_end}
 
 {phang}
-{opt font(string)} font family for the custom theme{p_end}
+{opt font(string)} font family for persistent defaults{p_end}
 
 {phang}
-{opt fontsize(#)} font size in points for the custom theme{p_end}
+{opt fontsize(#)} font size in points for persistent defaults{p_end}
 
 {phang}
 {opt headerc:olor(string)} header fill: supported Stata color name or RGB triplet{p_end}
@@ -317,9 +280,7 @@ style somewhere else. The saved profile contains ordinary {cmd:tabtools set}
 commands, so it can be read, version controlled, and run as a do-file.
 
 {pstd}
-{cmd:tabtools get} reports the effective values that commands will use. Under a
-named theme such as {cmd:lancet}, this means the resolved theme values rather
-than any stale raw globals left over from earlier custom settings.
+{cmd:tabtools get} reports the effective values that commands will use.
 
 {pstd}
 {cmd:tabtools use} loads a saved profile into the current session. With no
@@ -339,47 +300,10 @@ only read when you run {cmd:tabtools use} or source it from your own
 {phang2}{cmd:. tabtools set font Calibri}{p_end}
 {phang2}{cmd:. tabtools set fontsize 11}{p_end}
 {phang2}{cmd:. tabtools set borderstyle academic}{p_end}
-{phang2}{cmd:. tabtools set theme lancet, permanent}{p_end}
 {phang2}{cmd:. tabtools use}{p_end}
-{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) permanent profile("project_tabtools.do")}{p_end}
 {phang2}{cmd:. tabtools use using "project_tabtools.do"}{p_end}
 {phang2}{cmd:. tabtools get}{p_end}
 {phang2}{cmd:. tabtools set clear}{p_end}
-
-
-{marker themes}{...}
-{title:Themes}
-
-{pstd}
-Every {cmd:tabtools} command that formats output accepts {opt theme(name)}. This
-is the canonical list of accepted names and what each one resolves to; the
-per-command help files refer here rather than restating it.{p_end}
-
-{synoptset 12 tabbed}{...}
-{synopthdr:theme}
-{synoptline}
-{synopt:{cmd:lancet}}Arial 9pt, academic borders{p_end}
-{synopt:{cmd:nejm}}Arial 9pt, academic borders, zebra striping{p_end}
-{synopt:{cmd:bmj}}Arial 10pt, academic borders{p_end}
-{synopt:{cmd:apa}}Times New Roman 12pt, academic borders{p_end}
-{synopt:{cmd:jama}}Arial 10pt, academic borders{p_end}
-{synopt:{cmd:plos}}Arial 10pt, thin borders{p_end}
-{synopt:{cmd:nature}}Arial 7pt, academic borders{p_end}
-{synopt:{cmd:cell}}Arial 8pt, academic borders{p_end}
-{synopt:{cmd:annals}}Arial 10pt, academic borders{p_end}
-{synopt:{cmd:custom}}reads the font, size, border, and color set by {cmd:tabtools set}{p_end}
-{synoptline}
-{p2colreset}{...}
-
-{pstd}
-No preset applies header shading by default; request it with {opt headershade}
-or {opt headercolor()}. Explicit formatting options always override the
-theme. {cmd:tabtools set theme} accepts the nine named themes; {cmd:custom} is selected
-implicitly when you set an individual font, size, border, or color.{p_end}
-
-{pstd}
-Publishers may restyle accepted tables during production, so treat these as
-built-in Excel presets rather than exact house templates.{p_end}
 
 
 {marker examples}{...}
@@ -398,20 +322,9 @@ built-in Excel presets rather than exact house templates.{p_end}
 {phang2}{cmd:. tabtools get}{p_end}
 
 {pstd}
-{bf:Apply a journal theme}
-
-{phang2}{cmd:. tabtools set theme lancet, permanent}{p_end}
-{phang2}{cmd:. tabtools use}{p_end}
-
-{pstd}
-{bf:Custom theme with specific colors}
-
-{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) headercolor("200 220 240") borderstyle(thin)}{p_end}
-
-{pstd}
 {bf:Project-specific profile}
 
-{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) headercolor("200 220 240") borderstyle(thin) permanent profile("tabtools_project.do")}{p_end}
+{phang2}{cmd:. tabtools set font Arial, permanent profile("tabtools_project.do")}{p_end}
 {phang2}{cmd:. tabtools set clear}{p_end}
 {phang2}{cmd:. tabtools use using "tabtools_project.do"}{p_end}
 
@@ -457,7 +370,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(font)}}font name (when setting font){p_end}
 {synopt:{cmd:r(borderstyle)}}border style (when setting borderstyle){p_end}
-{synopt:{cmd:r(theme)}}theme name (when setting theme){p_end}
 {synopt:{cmd:r(action)}}{cmd:"cleared"} (when using {cmd:set clear}){p_end}
 {synopt:{cmd:r(permanent)}}{cmd:"permanent"} (when saving a disk profile){p_end}
 {synopt:{cmd:r(profile)}}profile path written by {cmd:permanent}{p_end}
@@ -470,7 +382,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {synopt:{cmd:r(font)}}effective current font name{p_end}
 {synopt:{cmd:r(fontsize)}}effective current font size{p_end}
 {synopt:{cmd:r(borderstyle)}}effective current border style{p_end}
-{synopt:{cmd:r(theme)}}current theme name{p_end}
 {synopt:{cmd:r(headercolor)}}effective current header color setting{p_end}
 {synopt:{cmd:r(zebracolor)}}effective current zebra stripe color setting{p_end}
 {synopt:{cmd:r(digits)}}current digits setting{p_end}
@@ -489,6 +400,6 @@ built-in Excel presets rather than exact house templates.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.1.0{p_end}
+{pstd}{bf:Version} 2.0.0{p_end}
 
 {hline}

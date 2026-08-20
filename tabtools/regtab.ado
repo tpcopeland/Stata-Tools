@@ -1,4 +1,4 @@
-*! regtab Version 2.1.0  2026/08/19
+*! regtab Version 2.0.0  2026/08/19
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -72,7 +72,7 @@ capture noisily {
 syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(string) coef(string) ///
 	title(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
-	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
+	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
 	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) DIMNONsig FACTORLabel ///
 	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
@@ -321,7 +321,7 @@ local ci_fmt "%32.`digits'f"
 local coef_round = 10^(-`digits')
 
 * Resolve formatting
-_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 
 _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 

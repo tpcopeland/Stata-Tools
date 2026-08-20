@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 3.4.3** | 2026-08-17
+**Version 4.0.0** | 2026-08-19
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -360,7 +360,7 @@ For a bare weighted FIPTIW GEE fit, the default is point-only at every sample si
 
 `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose` write direct styled `.xlsx` sheets when `xlsx(filename)` is supplied. `sheet()` defaults are `Balance`, `Exogeneity`, and `Diagnostics`, respectively. `replace` overwrites only the named sheet, `open` opens the workbook, and `title()`/`footnote()` add optional rows.
 
-The reporting defaults are `decimals(4)` for `iivw_balance` and `iivw_diagnose`, `decimals(3)` for `iivw_exogtest`, and `borderstyle(thin)` with header shading and zebra rows off. `borderstyle()`, `headershade`, `theme()`, `headercolor()`, `zebracolor()`, and `zebra` control the workbook presentation and require `xlsx()` when they affect an export.
+The reporting defaults are `decimals(4)` for `iivw_balance` and `iivw_diagnose`, `decimals(3)` for `iivw_exogtest`, and `borderstyle(thin)` with header shading and zebra rows off. `font()`, `fontsize()`, `borderstyle()`, `headershade`, `headercolor()`, `zebracolor()`, and `zebra` control the workbook presentation and require `xlsx()` when they affect an export.
 
 ## Stored Results
 
@@ -435,7 +435,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
-- **3.4.3** (2026-08-17): Compares a subject's end of follow-up against their last visit time past a representation tolerance rather than exactly. A visit falling ON the end of follow-up makes `censor()`/`maxfu()` and `time()` the same instant, but they are reached by different expressions and often stored at different types; a float encoding of `days/365.25` sits up to one float epsilon below the double encoding, which an exact `<` read as a visit after censoring and aborted the run. The same tolerance keeps that case on the `alreadythere` branch, so it no longer appends a censoring interval of length ~5e-07. `iivw_weight`, `iivw_exogtest` and `iivw_balance` each build the Andersen-Gill risk set from their own copy of that code and all three now apply the tolerance: previously `iivw_exogtest` still aborted on data `iivw_weight` accepted, and `iivw_balance` still built the terminal intervals `iivw_weight` had declined to build, so the balance diagnostic evaluated against a different risk set than the weights it was checking.
+- **4.0.0** (2026-08-19): Removed journal theme presets from reporting exports and added direct `font()` and `fontsize()` options.
 - **3.4.2** (2026-08-11): Restores `c(varabbrev)` on captured early-error and helper-success branches, makes every internal program class explicit, repairs the `iivw_fit` stored-results table width, and makes the coverage-gate runbook relocatable. The release QA now inventories every shipped `.ado` dynamically and regression-tests the session-state and documentation contracts.
 
 - **3.4.1** (2026-08-10): Corrects the FIPTIW inference default introduced in 3.4.0. Bare FIPTIW fits are point-only at every sample size because the R=200 stacked-sandwich study was explicitly diagnostic, not a release gate, and covered only one identity-link DGP. Explicit `vce(stacked)` remains available and is stamped `uncleared-stacked-analytic`; the option table now lists it.

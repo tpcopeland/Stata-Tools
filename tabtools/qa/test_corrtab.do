@@ -699,19 +699,20 @@ else {
     local ++fail_count
 }
 
-* Test: corrtab theme option
+* Test: corrtab explicit formatting options
 capture noisily {
     sysuse auto, clear
-    capture erase "`output_dir'/test_corrtab_lancet.xlsx"
-    corrtab price mpg weight, xlsx("`output_dir'/test_corrtab_lancet.xlsx") theme(lancet)
-    confirm file "`output_dir'/test_corrtab_lancet.xlsx"
+    capture erase "`output_dir'/test_corrtab_style.xlsx"
+    corrtab price mpg weight, xlsx("`output_dir'/test_corrtab_style.xlsx") ///
+        font("Arial") fontsize(10) borderstyle(academic) headershade zebra
+    confirm file "`output_dir'/test_corrtab_style.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: corrtab theme(lancet)"
+    display as result "  PASS: corrtab explicit formatting"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: corrtab theme(lancet) (rc=`=_rc')"
+    display as error "  FAIL: corrtab explicit formatting (rc=`=_rc')"
     local ++fail_count
 }
 

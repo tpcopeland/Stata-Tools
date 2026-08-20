@@ -200,6 +200,13 @@ else {
 
 local ++test_count
 capture noisily {
+    _reporting_balance_panel
+    tempfile balfmtstub
+    local balfmtxlsx "`balfmtstub'.xlsx"
+    capture erase "`balfmtxlsx'"
+    iivw_balance, xlsx("`balfmtxlsx'") sheet(BalanceApa) replace ///
+        font("Times New Roman") fontsize(12) borderstyle(academic)
+
     _reporting_diag_known
     clear
     set obs 30
@@ -603,7 +610,7 @@ else {
     local failed_tests "`failed_tests' T10"
 }
 
-**# T11: theme() preset applies its border scheme (apa -> academic)
+**# T11: explicit formatting applies the academic border scheme
 
 local ++test_count
 capture noisily {
@@ -612,7 +619,7 @@ capture noisily {
     local thxlsx "`thstub'.xlsx"
     capture erase "`thxlsx'"
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
-        xlsx("`thxlsx'") sheet(Apa) replace theme(apa)
+        xlsx("`thxlsx'") sheet(Apa) replace font("Times New Roman") fontsize(12) borderstyle(academic)
     tempfile thmark
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`thxlsx'" Apa academic 0 0 "`thmark'"
@@ -623,18 +630,18 @@ capture noisily {
     local extxlsx "`extstub'.xlsx"
     capture erase "`extxlsx'"
     iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
-        xlsx("`extxlsx'") sheet(ExogApa) replace theme(apa)
+        xlsx("`extxlsx'") sheet(ExogApa) replace font("Times New Roman") fontsize(12) borderstyle(academic)
     tempfile extmark
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`extxlsx'" ExogApa academic 0 0 "`extmark'"
     confirm file "`extmark'"
 }
 if _rc == 0 {
-    display as result "  PASS: T11 - theme(apa) academic preset"
+    display as result "  PASS: T11 - explicit academic formatting"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T11 - theme(apa) (error `=_rc')"
+    display as error "  FAIL: T11 - explicit academic formatting (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T11"
 }
@@ -650,7 +657,7 @@ capture noisily {
     _reporting_balance_panel
     capture noisily iivw_balance, xlsx("`vxlsx'") replace borderstyle(fancy)
     assert _rc == 198
-    capture noisily iivw_balance, xlsx("`vxlsx'") replace theme(bogus)
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace fontsize(0)
     assert _rc == 198
     capture noisily iivw_balance, xlsx("`vxlsx'") replace headercolor("300 0 0")
     assert _rc == 198

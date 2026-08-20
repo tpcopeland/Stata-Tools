@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 3.4.3  2026/08/17
+*! iivw_diagnose Version 4.0.0  2026/08/19
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -26,7 +26,7 @@ program define iivw_diagnose, rclass
              Level(cilevel) XLSX(string asis) ///
              SHeet(string asis) Title(string asis) Footnote(string asis) ///
              DECimals(string) REPLACE OPEN ///
-             BORDERstyle(string) HEADERShade THEme(string) ///
+             BORDERstyle(string) HEADERShade FONT(string asis) FONTSIZE(integer -1) ///
              HEADERColor(string) ZEBRAColor(string) ZEBra]
         * cilevel (not real 95): it defaults to c(level) and enforces the
         * standard 10-99.99 range, so `set level' reaches the displayed and
@@ -71,7 +71,8 @@ program define iivw_diagnose, rclass
         if "`decimals'"      != "" local _exportonly "`_exportonly' decimals()"
         if `"`borderstyle'"' != "" local _exportonly "`_exportonly' borderstyle()"
         if "`headershade'"   != "" local _exportonly "`_exportonly' headershade"
-        if `"`theme'"'       != "" local _exportonly "`_exportonly' theme()"
+        if `"`font'"'        != "" local _exportonly "`_exportonly' font()"
+        if `fontsize' != -1    local _exportonly "`_exportonly' fontsize()"
         if `"`headercolor'"' != "" local _exportonly "`_exportonly' headercolor()"
         if `"`zebracolor'"'  != "" local _exportonly "`_exportonly' zebracolor()"
         if "`zebra'"         != "" local _exportonly "`_exportonly' zebra"
@@ -856,7 +857,8 @@ program define iivw_diagnose, rclass
             if "`open'" != "" local _export_opts `"`_export_opts' open"'
             if `"`borderstyle'"' != "" local _export_opts `"`_export_opts' borderstyle(`borderstyle')"'
             if "`headershade'" != "" local _export_opts `"`_export_opts' headershade"'
-            if `"`theme'"' != "" local _export_opts `"`_export_opts' theme(`theme')"'
+            if `"`font'"' != "" local _export_opts `"`_export_opts' font(`"`font'"')"'
+            if `fontsize' != -1 local _export_opts `"`_export_opts' fontsize(`fontsize')"'
             if `"`headercolor'"' != "" local _export_opts `"`_export_opts' headercolor("`headercolor'")"'
             if `"`zebracolor'"' != "" local _export_opts `"`_export_opts' zebracolor("`zebracolor'")"'
             if "`zebra'" != "" local _export_opts `"`_export_opts' zebra"'

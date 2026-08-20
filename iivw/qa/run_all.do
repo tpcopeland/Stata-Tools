@@ -120,6 +120,7 @@ local quick_suites ///
     test_iivw_exogtest ///
     test_iivw_diagnose ///
     test_iivw_reporting_exports ///
+    test_theme_removed ///
     test_iivw_literature_invariants ///
     validation_iivw_iptw_oracle ///
     validation_iivw_fiptiw_recovery ///
@@ -155,6 +156,7 @@ local core_suites ///
     test_iivw_exogtest ///
     test_iivw_diagnose ///
     test_iivw_reporting_exports ///
+    test_theme_removed ///
     test_iivw_diagnostic_workflow ///
     test_iivw_exogtest_adversarial ///
     validation_iivw_diagnostics_known_answers ///

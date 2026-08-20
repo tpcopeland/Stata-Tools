@@ -97,7 +97,6 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{opt border:style(string)}}border style: default, thin, medium, or academic{p_end}
-{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
 {synopt:{opt foot:note(string)}}add footnote row below table{p_end}
 {synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -266,8 +265,6 @@ disable{p_end}
 {opt test} include column describing the significance test used{p_end}
 
 {phang}
-{opt the:me(string)} journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
-{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 
 {phang}
 {opt title("string")} title for the Excel table{p_end}
@@ -322,22 +319,8 @@ via the shared helper:{p_end}
 {p 12 12 2}p < 0.05 → {cmd:conts} (skewed){p_end}
 
 {pstd}This command is a fork of {cmd:table1_mc} version 3.5 by Mark Chatfield, with
-enhancements including Excel and Markdown export, journal themes, auto-type
+enhancements including Excel and Markdown export, explicit formatting, auto-type
 detection, IPTW weighting, SMD, and a methods paragraph generator.{p_end}
-
-{pstd}{bf:Themes:} The {opt theme()} option applies journal-inspired formatting presets that
-match the current {cmd:tabtools} theme defaults:{p_end}
-{p 8 8 2}{cmd:lancet} - Arial 9pt, academic borders, no header shading{p_end}
-{p 8 8 2}{cmd:nejm} - Arial 9pt, academic borders, zebra striping{p_end}
-{p 8 8 2}{cmd:bmj} - Arial 10pt, academic borders, no header shading{p_end}
-{p 8 8 2}{cmd:apa} - Times New Roman 12pt, academic borders{p_end}
-{p 8 8 2}{cmd:jama} - Arial 10pt, academic borders, no header shading{p_end}
-{p 8 8 2}{cmd:plos} - Arial 10pt, thin borders, no header shading{p_end}
-{p 8 8 2}{cmd:nature} - Arial 7pt, academic borders, no header shading{p_end}
-{p 8 8 2}{cmd:cell} - Arial 8pt, academic borders, no header shading{p_end}
-{p 8 8 2}{cmd:annals} - Arial 10pt, academic borders, no header shading{p_end}
-{pstd}Publishers may restyle accepted tables during production, so treat these as
-built-in Excel presets rather than exact house templates.{p_end}
 
 {pstd}{bf:Frame output:} The {opt frame()} option stores the results table in a Stata frame
 for programmatic access without replacing data in memory.{p_end}
@@ -364,7 +347,7 @@ directly to a regression model:{p_end}
 {pstd}{bf:With Excel and Markdown export and formatting:}{p_end}
 
 {phang2}{cmd:. table1_tc price mpg weight rep78, by(foreign) ///}{p_end}
-{phang3}{cmd:xlsx("table1.xlsx") title("Table 1") smd theme(lancet)}{p_end}
+{phang3}{cmd:xlsx("table1.xlsx") title("Table 1") smd borderstyle(academic)}{p_end}
 
 {pstd}{bf:Explicit variable types (advanced):}{p_end}
 

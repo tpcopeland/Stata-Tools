@@ -165,10 +165,10 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=65 class_missing=0 wrapper_missing=0"
+        "PASS programs=64 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
-    display as result "  PASS: all 65 shipped programs declare a class and restore varabbrev"
+    display as result "  PASS: all 64 shipped programs declare a class and restore varabbrev"
     local ++pass_count
 }
 else {
@@ -384,37 +384,6 @@ else {
     display as error "  FAIL: baseline manifest overstates its golden gates (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' baseline_manifest_labels"
-}
-
-**## Documented journal themes match the presets the code defines
-* M02 regression gate. The theme table is defined once in _tabtools_apply_theme
-* and restated in prose by tabtools.sthlp, comptab.sthlp and table1_tc.sthlp.
-* Those copies had drifted (nejm documented 10pt vs 9pt in code, cell 10pt vs
-* 8pt, annals claimed zebra striping it does not apply) because prose is not
-* executable. The checker re-derives the table from the ado source each run and
-* fails on any documented value that disagrees.
-capture noisily {
-    local theme_checker "`qa_dir'/tools/check_theme_docs.py"
-    confirm file "`theme_checker'"
-    local theme_status "`output_dir'/_theme_doc_status.txt"
-    capture erase "`theme_status'"
-    shell `python_cmd' "`theme_checker'" "`pkg_dir'" --result-file "`theme_status'"
-    confirm file "`theme_status'"
-    tempname _thh
-    file open `_thh' using "`theme_status'", read text
-    file read `_thh' _thline
-    file close `_thh'
-    capture erase "`theme_status'"
-    assert strtrim("`_thline'") == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: journal theme documentation matches the code"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: journal theme documentation has drifted (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' theme_doc_drift"
 }
 
 **## QA export targets resolve through output_dir, never a literal relative path

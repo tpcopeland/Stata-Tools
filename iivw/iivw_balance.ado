@@ -1,4 +1,4 @@
-*! iivw_balance Version 3.4.3  2026/08/17
+*! iivw_balance Version 4.0.0  2026/08/19
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -55,7 +55,7 @@ program define iivw_balance, rclass
          XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) ///
-         BORDERstyle(string) HEADERShade THEme(string) ///
+         BORDERstyle(string) HEADERShade FONT(string asis) FONTSIZE(integer -1) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     * Missing must be rejected BEFORE any range test. syntax accepts . and the
@@ -133,7 +133,8 @@ program define iivw_balance, rclass
     if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
     if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
     if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
-    if `"`theme'"'       != "" local __iivw_exportonly "`__iivw_exportonly' theme()"
+    if `"`font'"'        != "" local __iivw_exportonly "`__iivw_exportonly' font()"
+    if `fontsize' != -1    local __iivw_exportonly "`__iivw_exportonly' fontsize()"
     if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
     if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
     if "`zebra'"         != "" local __iivw_exportonly "`__iivw_exportonly' zebra"
@@ -1489,7 +1490,8 @@ program define iivw_balance, rclass
         if "`open'" != "" local __iivw_export_opts `"`__iivw_export_opts' open"'
         if `"`borderstyle'"' != "" local __iivw_export_opts `"`__iivw_export_opts' borderstyle(`borderstyle')"'
         if "`headershade'" != "" local __iivw_export_opts `"`__iivw_export_opts' headershade"'
-        if `"`theme'"' != "" local __iivw_export_opts `"`__iivw_export_opts' theme(`theme')"'
+        if `"`font'"' != "" local __iivw_export_opts `"`__iivw_export_opts' font(`"`font'"')"'
+        if `fontsize' != -1 local __iivw_export_opts `"`__iivw_export_opts' fontsize(`fontsize')"'
         if `"`headercolor'"' != "" local __iivw_export_opts `"`__iivw_export_opts' headercolor("`headercolor'")"'
         if `"`zebracolor'"' != "" local __iivw_export_opts `"`__iivw_export_opts' zebracolor("`zebracolor'")"'
         if "`zebra'" != "" local __iivw_export_opts `"`__iivw_export_opts' zebra"'

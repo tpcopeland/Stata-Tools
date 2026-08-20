@@ -1721,7 +1721,7 @@ capture noisily {
         smd test statistic missing total(after) ///
         xlsx("`xlsx_file'") sheet("Agg Contracts") ///
         title("Table 1 Aggregation Contracts") footnote("Excel style smoke") ///
-        theme(lancet) borderstyle(thin) headershade zebra boldp(0.05) ///
+        font("Arial") fontsize(10) borderstyle(thin) headershade zebra boldp(0.05) ///
         nformat(%9.0f) percformat(%5.1f)
     confirm file "`xlsx_file'"
 
