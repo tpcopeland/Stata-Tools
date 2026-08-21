@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.6  2026/08/11
+*! _kmplot_risktable Version 1.2.7  2026/08/21
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -187,10 +187,11 @@ program define _kmplot_risktable, rclass
         local nobs = `ngroups' * `ntp'
         quietly set obs `nobs'
 
-        tempvar rt_time rt_ypos rt_label rt_grp
+        tempvar rt_time rt_ypos rt_label rt_grplabel rt_grp
         quietly gen double `rt_time' = .
         quietly gen double `rt_ypos' = .
         quietly gen str30 `rt_label' = ""
+        quietly gen str244 `rt_grplabel' = ""
         quietly gen int `rt_grp' = .
 
     local row = 0
@@ -212,6 +213,9 @@ program define _kmplot_risktable, rclass
                     quietly replace `rt_label' = "`nrisk_`g'_`j''" in `row'
                 }
                 quietly replace `rt_grp' = `g' in `row'
+                if `j' == 1 {
+                    quietly replace `rt_grplabel' = `"`grplbl`g''"' in `row'
+                }
             }
         }
 
@@ -233,18 +237,11 @@ program define _kmplot_risktable, rclass
         }
             local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grp' == `g', `xaxis_cmd' msymbol(none) mlabel(`rt_label') mlabposition(0) mlabcolor(`col') mlabsize(small))"'
     }
+    local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grplabel' != "", `xaxis_cmd' msymbol(none) mlabel(`rt_grplabel') mlabposition(9) mlabgap(4) mlabcolor(black) mlabsize(small))"'
 
     * =====================================================================
     * Y-AXIS LABELS
     * =====================================================================
-
-    local ylabels ""
-
-    forvalues g = 1/`ngroups' {
-        local yval = `ngroups' - `g' + 1
-        local lbl `"`grplbl`g''"'
-        local ylabels `"`ylabels' `yval' `"`lbl'"'"'
-    }
 
     * Keep breathing room below the final risk-table row.
     local ymin = 0.0
@@ -271,10 +268,8 @@ program define _kmplot_risktable, rclass
     * DRAW RISK TABLE
     * =====================================================================
 
-    local tp_first : word 1 of `timepoints'
-
-    * Offset xscale start to separate ylabel from first data point
-    local xstart = `tp_first' - (`xmax' - `tp_first') * 0.02
+    * Match the main plot's time-zero origin so table columns align with it.
+    local xstart = 0
 
     local xlabel_cmd ""
     if `"`xlabel'"' != "" {
@@ -292,7 +287,7 @@ program define _kmplot_risktable, rclass
     }
 
     local xtitle_cmd `"xtitle(`"`xtitle'"', size(vsmall))"'
-    local xscale_cmd "xscale(range(`xstart' `xmax') noline)"
+    local xscale_cmd "xscale(range(`xstart' `xmax') noextend noline)"
     local separator_cmd ""
     local time_title_cmd ""
     if "`toptimeaxis'" != "" {
@@ -309,7 +304,7 @@ program define _kmplot_risktable, rclass
         }
         local xlabel_cmd `"xlabel(, nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
         local xtitle_cmd `"xtitle("", axis(1)) xtitle("", axis(2))"'
-        local xscale_cmd `"xscale(range(`xstart' `xmax') noline axis(1)) xscale(range(`xstart' `xmax') noline axis(2))"'
+        local xscale_cmd `"xscale(range(`xstart' `xmax') noextend noline axis(1)) xscale(range(`xstart' `xmax') noextend noline axis(2))"'
         local ymax = `ngroups' + 1.50
         local time_title_y = `ngroups' + 1.45
         local time_title_x = (`xstart' + `xmax') / 2
@@ -319,19 +314,19 @@ program define _kmplot_risktable, rclass
     }
 
     twoway `scatcmd', ///
-        ylabel(`ylabels', angle(0) labsize(small) noticks nogrid) ///
+        ylabel(, nolabels noticks nogrid) ///
         `xlabel_cmd' ///
         yscale(range(`ymin' `ymax') noline) ///
         `xscale_cmd' ///
         `xtitle_cmd' ///
-        ytitle("`ytitle_rt'", size(small)) ///
+        ytitle("`ytitle_rt'", size(small) margin(l=-4)) ///
         `time_title_cmd' ///
         `separator_cmd' ///
         title("") subtitle("") ///
         scheme(`scheme') ///
         name(`graphname', replace) nodraw ///
-        plotregion(margin(l=3 r=0 t=2 b=0)) ///
-        graphregion(margin(t=0 b=0)) ///
+        plotregion(margin(l=16.1 r=2.2 t=2 b=0)) ///
+        graphregion(margin(l=0 t=0 b=0)) ///
         legend(off) ///
         fysize(`fysize')
 
