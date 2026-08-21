@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.7  2026/08/21
+*! _kmplot_risktable Version 1.2.8  2026/08/21
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -313,6 +313,16 @@ program define _kmplot_risktable, rclass
         local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
     }
 
+    * stcolor reserves substantially more horizontal space around plot-region
+    * labels than the legacy schemes.  Use scheme-specific margins so the
+    * risk-table endpoints share the main plot's x coordinates.
+    local plot_margin_left = 16.1
+    local plot_margin_right = 2.2
+    if lower("`scheme'") == "stcolor" {
+        local plot_margin_left = 5.9
+        local plot_margin_right = 3.85
+    }
+
     twoway `scatcmd', ///
         ylabel(, nolabels noticks nogrid) ///
         `xlabel_cmd' ///
@@ -325,7 +335,7 @@ program define _kmplot_risktable, rclass
         title("") subtitle("") ///
         scheme(`scheme') ///
         name(`graphname', replace) nodraw ///
-        plotregion(margin(l=16.1 r=2.2 t=2 b=0)) ///
+        plotregion(margin(l=`plot_margin_left' r=`plot_margin_right' t=2 b=0)) ///
         graphregion(margin(l=0 t=0 b=0)) ///
         legend(off) ///
         fysize(`fysize')
