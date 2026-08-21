@@ -19,7 +19,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 }
 
 local quick_suites "test_kmplot.do"
-local core_suites "`quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do validation_kmplot_recovery.do validation_kmplot.do"
+local core_suites "`quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do test_kmplot_v127.do validation_kmplot_recovery.do validation_kmplot.do"
 local full_suites "`core_suites'"
 local suites "``mode'_suites'"
 
