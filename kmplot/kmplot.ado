@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.6  2026/08/11
+*! kmplot Version 1.2.7  2026/08/21
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
