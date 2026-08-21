@@ -49,6 +49,11 @@ capture log close _all
 capture noisily {
 
 **# Reload commands
+* kmplot re-resolves its risk-table helper with findfile on every call, so
+* running the checkout's copies is not enough: an installed copy earlier on
+* the adopath would be loaded instead, pairing this kmplot.ado with a helper
+* from another version.  Put the checkout first.
+adopath ++ "`pkg_root'"
 capture program drop kmplot
 capture program drop _kmplot_risktable
 quietly run "`pkg_root'/kmplot.ado"
@@ -151,6 +156,7 @@ capture graph close _all
 local rc = _rc
 
 **# Cleanup
+capture adopath - "`pkg_root'"
 capture graph close _all
 capture log close _all
 capture set scheme `old_scheme'

@@ -80,7 +80,7 @@ capture noisily {
             local ++last_n
             if `last_n' <= 2 local last_x`last_n' = real(regexs(1))
         }
-        if strpos(`"`line'"', ">4000 (2000)</text>") & ///
+        if strpos(`"`line'"', ">4,000 (2,000)</text>") & ///
             regexm(`"`line'"', `" x="([0-9.]+)""') {
             local ++count_n
             local count_x = real(regexs(1))
