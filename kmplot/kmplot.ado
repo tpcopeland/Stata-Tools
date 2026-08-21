@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.9  2026/08/21
+*! kmplot Version 1.2.10  2026/08/21
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -531,18 +531,16 @@ program define kmplot, rclass
             local rt_ylabel_opt ylabel(`ylabel')
         }
 
-        * Load helper if needed
-        capture program list _kmplot_risktable
+        * Reload the installed helper so an older in-memory definition cannot
+        * survive a package update and mix layouts with the current command.
+        capture findfile _kmplot_risktable.ado
         if _rc {
-            capture findfile _kmplot_risktable.ado
-            if _rc == 0 {
-                run "`r(fn)'"
-            }
-            else {
-                display as error "_kmplot_risktable.ado not found; reinstall kmplot"
-                exit 111
-            }
+            noisily display as error "_kmplot_risktable.ado not found; reinstall kmplot"
+            exit 111
         }
+        local rt_helper_file `"`r(fn)'"'
+        capture program drop _kmplot_risktable
+        run `"`rt_helper_file'"'
 
         * riskcompact is a synonym for riskevents
         local rt_flags ""
@@ -564,6 +562,10 @@ program define kmplot, rclass
 	            local riskheight_used = r(riskheight)
 	            local risk_plot_left = r(plot_margin_left)
 	            local risk_plot_right = r(plot_margin_right)
+	            if missing(`risk_plot_left', `risk_plot_right') {
+	                noisily display as error "kmplot installation contains inconsistent command and helper versions; reinstall kmplot"
+	                exit 498
+	            }
 	        }
 
     * =========================================================================
