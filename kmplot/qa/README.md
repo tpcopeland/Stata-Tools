@@ -38,6 +38,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | `test_kmplot_v126.do` | Combined-plot x-axis ordering, risk-table separator, and readable default label sizing. |
 | `test_kmplot_v127.do` | Risk-table tick labels and count columns aligned with main-plot x-axis positions. |
 | `test_kmplot_v129.do` | Rendered-SVG alignment under two graph layouts, custom axis specifications, and margin reserves for labels and large endpoint counts. |
+| `test_kmplot_v1210.do` | Stale in-memory risk-table helper replacement and repeated-call helper reload behavior. |
 
 ### Validation
 
@@ -57,7 +58,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 
 | Command | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
+| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
 
 ## Lane membership
 
@@ -66,5 +67,5 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | Lane | Suites |
 |---|---|
 | `quick` | `test_kmplot.do` |
-| `core` | `quick` plus five version-regression suites, recovery, and comprehensive validation |
+| `core` | `quick` plus six version-regression suites, recovery, and comprehensive validation |
 | `full` | Same correctness gate as `core`; no external backend lane applies |
