@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.10  2026/08/21
+*! _kmplot_risktable Version 1.2.11  2026/08/21
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -237,7 +237,9 @@ program define _kmplot_risktable, rclass
         }
             local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grp' == `g', `xaxis_cmd' msymbol(none) mlabel(`rt_label') mlabposition(0) mlabcolor(`col') mlabsize(small))"'
     }
-    local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grplabel' != "", `xaxis_cmd' msymbol(none) mlabel(`rt_grplabel') mlabposition(9) mlabgap(4) mlabcolor(black) mlabsize(small))"'
+    * Separate row labels from wider time-zero counts in the standard
+    * N (events) display.
+    local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grplabel' != "", `xaxis_cmd' msymbol(none) mlabel(`rt_grplabel') mlabposition(9) mlabgap(8) mlabcolor(black) mlabsize(small))"'
 
     * =====================================================================
     * Y-AXIS LABELS
@@ -272,7 +274,9 @@ program define _kmplot_risktable, rclass
     local xstart = 0
 
     local xlabel_cmd ""
-    local plot_margin_left = 10
+    * Reserve room for row labels between the vertical table title and the
+    * time-zero count.  kmplot applies this same margin to the main panel.
+    local plot_margin_left = 24
     local plot_margin_right = 6
     if `"`xlabel'"' != "" {
         * Append nogrid to the user spec: into the existing suboption group if

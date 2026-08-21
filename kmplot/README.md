@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.10** | 2026-08-21
+**Version 1.2.11** | 2026-08-21
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -249,6 +249,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.11** (2026-08-21): Added a dedicated left gutter and wider label gap so risk-table group labels do not overlap the vertical table title or time-zero counts.
 - **1.2.10** (2026-08-21): Reloaded the installed risk-table helper on each call so an older in-memory helper cannot reintroduce misalignment or missing-size warnings after an update.
 - **1.2.9** (2026-08-21): Matched the main and risk-table panel geometry so endpoint columns remain aligned across Stata graph schemes and leave room for rightmost counts.
 - **1.2.8** (2026-08-21): Added a scheme-specific risk-table margin calibration for Stata's `stcolor` scheme.
