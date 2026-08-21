@@ -23,6 +23,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 - Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N` and exits nonzero on failure; `full` permits no skips.
 - Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` through `_kmplot_qa_common.do`, then install the local package without touching the user’s ado tree.
 - Paths derive from `c(pwd)`; no suite contains a machine-local path.
+- Layout assertions in `test_kmplot_v130.do` measure the exported SVG. Text extents are computed from Helvetica advance widths; letters render up to 6% wider than that metric, so letter-based extents are inflated by 10% before being asserted on, and a pass means the clearance is real. Two things the suite cannot cover, and that a layout change should be checked against by hand: raster inspection of the rendered graph, and the `stcolor` scheme, which needs Stata 18 or later.
 - Test data use built-in datasets, inline published observations, or seeded runtime generation; no tracked data fixture is required.
 - Generated logs, graphs, and datasets are gitignored; only package `demo/` assets may be tracked generated files.
 
@@ -39,7 +40,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | `test_kmplot_v127.do` | Risk-table tick labels and count columns aligned with main-plot x-axis positions. |
 | `test_kmplot_v129.do` | Rendered-SVG alignment under two graph layouts, custom axis specifications, and margin reserves for labels and large endpoint counts. |
 | `test_kmplot_v1210.do` | Stale in-memory risk-table helper replacement and repeated-call helper reload behavior. |
-| `test_kmplot_v1211.do` | Rendered-SVG spacing between risk-table group labels, time-zero counts, and the vertical table title. |
+| `test_kmplot_v130.do` | Rendered-SVG geometry of the combined risk-table layout across four schemes and three canvas sizes: the main plot's time origin sits on its own y axis, both panels share that origin, row labels clear the time-zero count and the vertical table title, the final count fits inside the graph boundary, and each panel carries the other's label set invisibly. Also pins comma-formatted counts and the helper's margin contract. |
 
 ### Validation
 
@@ -59,7 +60,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 
 | Command | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do`, `test_kmplot_v1211.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
+| `kmplot` | `test_kmplot.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do`, `test_kmplot_v130.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | Local install and helper auto-load through `_kmplot_qa_common.do` |
 
 ## Lane membership
 
