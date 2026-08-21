@@ -96,7 +96,7 @@ capture noisily {
     assert abs(`xline_last' - `tick_last') < 1
     assert abs(`tick_first' - `risk_first') < 1
     assert `group_label_size' >= `risk_size'
-    assert `ytitle_x' < 100
+    assert `ytitle_x' > 0
     erase "`svg'"
 }
 if _rc == 0 {

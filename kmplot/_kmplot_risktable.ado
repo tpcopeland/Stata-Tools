@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.8  2026/08/21
+*! _kmplot_risktable Version 1.2.9  2026/08/21
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -23,7 +23,7 @@ program define _kmplot_risktable, rclass
     syntax , GRPvar(varname) NGRoups(integer) GRAPHName(name) ///
         [TIMEpoints(numlist sort) ///
 	         COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
-	         XTItle(string asis) XLAbel(string asis) ///
+	         XTItle(string asis) XLAbel(string asis) YLAbel(string asis) ///
 	         EVents MONO TOPTimeaxis]
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
@@ -272,6 +272,8 @@ program define _kmplot_risktable, rclass
     local xstart = 0
 
     local xlabel_cmd ""
+    local plot_margin_left = 10
+    local plot_margin_right = 6
     if `"`xlabel'"' != "" {
         * Append nogrid to the user spec: into the existing suboption group if
         * one is present (a comma), otherwise as a new suboption group.
@@ -284,6 +286,21 @@ program define _kmplot_risktable, rclass
     }
     else {
         local xlabel_cmd xlabel(`timepoints', labsize(vsmall) noticks nogrid)
+    }
+
+    * Reserve the same left-axis width as the main plot without displaying a
+    * second set of y labels.  graph combine aligns whole graphs, not their
+    * plot regions, so both panels must carry the same axis geometry.
+    if `"`ylabel'"' != "" {
+        if strpos(`"`ylabel'"', ",") {
+            local ylabel_cmd ylabel(`ylabel' labcolor(none) tlcolor(none) nogrid)
+        }
+        else {
+            local ylabel_cmd ylabel(`ylabel', labcolor(none) tlcolor(none) nogrid)
+        }
+    }
+    else {
+        local ylabel_cmd "ylabel(0(0.25)1, format(%4.2f) angle(0) labcolor(none) tlcolor(none) nogrid)"
     }
 
     local xtitle_cmd `"xtitle(`"`xtitle'"', size(vsmall))"'
@@ -313,23 +330,13 @@ program define _kmplot_risktable, rclass
         local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
     }
 
-    * stcolor reserves substantially more horizontal space around plot-region
-    * labels than the legacy schemes.  Use scheme-specific margins so the
-    * risk-table endpoints share the main plot's x coordinates.
-    local plot_margin_left = 16.1
-    local plot_margin_right = 2.2
-    if lower("`scheme'") == "stcolor" {
-        local plot_margin_left = 5.9
-        local plot_margin_right = 3.85
-    }
-
     twoway `scatcmd', ///
-        ylabel(, nolabels noticks nogrid) ///
+        `ylabel_cmd' ///
         `xlabel_cmd' ///
         yscale(range(`ymin' `ymax') noline) ///
         `xscale_cmd' ///
         `xtitle_cmd' ///
-        ytitle("`ytitle_rt'", size(small) margin(l=-4)) ///
+        ytitle("`ytitle_rt'", size(small)) ///
         `time_title_cmd' ///
         `separator_cmd' ///
         title("") subtitle("") ///
@@ -352,6 +359,8 @@ program define _kmplot_risktable, rclass
 	        if `rc' exit `rc'
 	        return scalar riskheight = `fysize'
 	        return scalar n_timepoints = `ntp'
+	        return scalar plot_margin_left = `plot_margin_left'
+	        return scalar plot_margin_right = `plot_margin_right'
 	        return local timepoints "`timepoints'"
 	        return matrix risktable = `rtmat'
 	end

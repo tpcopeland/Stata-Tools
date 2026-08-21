@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.8  2026/08/21
+*! kmplot Version 1.2.9  2026/08/21
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -526,6 +526,10 @@ program define kmplot, rclass
         if `"`xlabel'"' != "" {
             local rt_xlabel_opt xlabel(`xlabel')
         }
+        local rt_ylabel_opt ""
+        if `"`ylabel'"' != "" {
+            local rt_ylabel_opt ylabel(`ylabel')
+        }
 
         * Load helper if needed
         capture program list _kmplot_risktable
@@ -550,13 +554,16 @@ program define kmplot, rclass
 	            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
 	                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
 	                graphname(`_kmplot_risk_graph') ///
-	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_height_opt' `rt_flags' ///
+	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_ylabel_opt' ///
+	                `rt_height_opt' `rt_flags' ///
 	                toptimeaxis
 	            matrix `risktable_mat' = r(risktable)
 	            local has_risktable_mat = 1
 	            local risk_timepoints "`r(timepoints)'"
 	            local n_timepoints = r(n_timepoints)
 	            local riskheight_used = r(riskheight)
+	            local risk_plot_left = r(plot_margin_left)
+	            local risk_plot_right = r(plot_margin_right)
 	        }
 
     * =========================================================================
@@ -861,7 +868,7 @@ program define kmplot, rclass
         local tw_opts `"`tw_opts' ylabel(0(0.25)1, format(%4.2f) angle(0) nogrid)"'
     }
 
-    if `"`xlabel'"' != "" {
+    if `"`xlabel'"' != "" & "`risktable'" == "" {
         local tw_opts `"`tw_opts' xlabel(`xlabel')"'
     }
 
@@ -921,8 +928,21 @@ program define kmplot, rclass
     * =========================================================================
 
     if "`risktable'" != "" {
-        * Place time labels above the risk table, directly below this axis.
-        local rt_main_opts "xtitle("") xlabel(, nolabels noticks)"
+        * Match the risk panel's axis and plot-region geometry.  Invisible
+        * labels reserve the same endpoint space while the visible labels sit
+        * above the risk table.
+        if `"`xlabel'"' != "" {
+            if strpos(`"`xlabel'"', ",") {
+                local rt_main_xlabel xlabel(`xlabel' nogrid labcolor(none))
+            }
+            else {
+                local rt_main_xlabel xlabel(`xlabel', labsize(small) noticks nogrid labcolor(none))
+            }
+        }
+        else {
+            local rt_main_xlabel "xlabel(`risk_timepoints', labsize(small) noticks nogrid labcolor(none))"
+        }
+        local rt_main_opts `"xtitle("") `rt_main_xlabel' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
         twoway `tw_layers', `tw_opts' `rt_main_opts' ///
             nodraw name(`_kmplot_main_graph', replace)
 
