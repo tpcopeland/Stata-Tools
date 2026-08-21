@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.11  21aug2026}{...}
+{* *! version 1.3.0  21aug2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -157,10 +157,18 @@ number of subjects still under observation at each timepoint and honors active
 {cmd:stset} weights. Time-axis values appear directly below the main plot,
 followed closely by the x-axis title. A solid horizontal rule separates the
 title from the first risk-table row. Risk counts and group labels use a
-readable small text size by default.{p_end}
+readable small text size by default. Counts of 1,000 or more are shown with
+thousands separators.{p_end}
+
+{phang}Group labels are drawn in the risk table's y-axis label column, that
+is, outside the plotting region, so the table's time origin coincides with
+the main plot's y axis and the two time axes align without inserting blank
+space inside either plotting region. Schemes that place the y axis on the
+right-hand side, such as {cmd:economist}, mirror that column and are not
+supported with {opt risktable}.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
-in compact {it:N (events)} format (e.g., {cmd:14 (3)}). This is the
+in compact {it:N (events)} format (e.g., {cmd:14 (3)}, {cmd:5,682 (424)}). This is the
 NEJM/Lancet convention. Equivalent to {opt riskcompact}. Requires {opt risktable}.{p_end}
 
 {phang}{opt riskcompact} synonym for {opt riskevents}. Requires {opt risktable}.{p_end}
@@ -416,6 +424,6 @@ though {cmd:kmplot} exits with the graph-export error.{p_end}
 
 {pstd}
 Timothy P Copeland, Karolinska Institutet{break}
-Version 1.2.11, 2026-08-21{p_end}
+Version 1.3.0, 2026-08-21{p_end}
 
 {hline}

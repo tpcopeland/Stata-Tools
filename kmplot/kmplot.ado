@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.11  2026/08/21
+*! kmplot Version 1.3.0  2026/08/21
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -554,7 +554,7 @@ program define kmplot, rclass
 	                graphname(`_kmplot_risk_graph') ///
 	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_ylabel_opt' ///
 	                `rt_height_opt' `rt_flags' ///
-	                toptimeaxis
+	                callerversion("1.3.0") toptimeaxis
 	            matrix `risktable_mat' = r(risktable)
 	            local has_risktable_mat = 1
 	            local risk_timepoints "`r(timepoints)'"
@@ -562,7 +562,15 @@ program define kmplot, rclass
 	            local riskheight_used = r(riskheight)
 	            local risk_plot_left = r(plot_margin_left)
 	            local risk_plot_right = r(plot_margin_right)
-	            if missing(`risk_plot_left', `risk_plot_right') {
+	            local risk_row_offset = r(row_offset)
+	            local risk_row_labgap = r(row_labgap)
+	            local risk_title_gap = r(title_gap)
+	            * A helper left over in memory from an older install returns
+	            * fewer scalars; the layout options would then be built with
+	            * missing values and Stata would warn about gsize(.) rather
+	            * than fail.  Refuse the plot instead.
+	            if missing(`risk_plot_left', `risk_plot_right', ///
+	                `risk_row_offset', `risk_row_labgap', `risk_title_gap') {
 	                noisily display as error "kmplot installation contains inconsistent command and helper versions; reinstall kmplot"
 	                exit 498
 	            }
@@ -861,7 +869,13 @@ program define kmplot, rclass
     if `"`subtitle'"' != "" {
         local tw_opts `"`tw_opts' subtitle(`subtitle', size(small))"'
     }
-    local tw_opts `"`tw_opts' xtitle(`"`xtitle'"', size(small)) ytitle(`"`ytitle'"', size(small))"'
+    * With a risk table the y title carries the same right margin as the risk
+    * panel's, so the two label columns start at the same place.
+    local ytitle_margin ""
+    if "`risktable'" != "" {
+        local ytitle_margin "margin(r=`risk_title_gap')"
+    }
+    local tw_opts `"`tw_opts' xtitle(`"`xtitle'"', size(small)) ytitle(`"`ytitle'"', size(small) `ytitle_margin')"'
 
     if `"`ylabel'"' != "" {
         local tw_opts `"`tw_opts' ylabel(`ylabel')"'
@@ -944,7 +958,42 @@ program define kmplot, rclass
         else {
             local rt_main_xlabel "xlabel(`risk_timepoints', labsize(small) noticks nogrid labcolor(none))"
         }
-        local rt_main_opts `"xtitle("") `rt_main_xlabel' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
+        * The risk panel prints the group labels in its y-axis label column.
+        * Reserve exactly that width here with the same strings, drawn
+        * invisibly, so both panels' label columns -- and therefore both time
+        * axes -- come out identical without any tuned margin.  Positions are
+        * placed inside the main y range at values a user's ylabel() will not
+        * land on, since a collision would make ylabel(..., add) replace one
+        * of the visible labels.
+        local _gy_lo = 0
+        local _gy_hi = 1
+        if `"`ylabel'"' != "" {
+            local _gy_spec `"`ylabel'"'
+            local _gy_comma = strpos(`"`_gy_spec'"', ",")
+            if `_gy_comma' > 0 {
+                local _gy_spec = ///
+                    strtrim(substr(`"`_gy_spec'"', 1, `_gy_comma' - 1))
+            }
+            capture numlist `"`_gy_spec'"', sort
+            if _rc == 0 {
+                local _gy_vals `r(numlist)'
+                local _gy_n : word count `_gy_vals'
+                local _gy_lo : word 1 of `_gy_vals'
+                local _gy_hi : word `_gy_n' of `_gy_vals'
+            }
+        }
+        if `_gy_hi' <= `_gy_lo' {
+            local _gy_lo = 0
+            local _gy_hi = 1
+        }
+        local rt_grp_ylabels ""
+        forvalues g = 1/`ngroups' {
+            local _gy = `_gy_lo' + (0.37 + 0.0137 * `g') * (`_gy_hi' - `_gy_lo')
+            local rt_grp_ylabels `"`rt_grp_ylabels' `_gy' `"`grplbl`g''"'"'
+        }
+        local rt_grp_ylabel_cmd `"ylabel(`rt_grp_ylabels', add custom angle(0) labsize(small) labgap(`risk_row_labgap') labcolor(none) tlcolor(none) nogrid)"'
+
+        local rt_main_opts `"xtitle("") `rt_main_xlabel' `rt_grp_ylabel_cmd' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
         twoway `tw_layers', `tw_opts' `rt_main_opts' ///
             nodraw name(`_kmplot_main_graph', replace)
 

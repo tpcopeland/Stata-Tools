@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.11  2026/08/21
+*! _kmplot_risktable Version 1.3.0  2026/08/21
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -24,7 +24,21 @@ program define _kmplot_risktable, rclass
         [TIMEpoints(numlist sort) ///
 	         COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
 	         XTItle(string asis) XLAbel(string asis) YLAbel(string asis) ///
-	         EVents MONO TOPTimeaxis]
+	         EVents MONO TOPTimeaxis CALLERVersion(string)]
+
+    * Layout is split across two files: this one places the row labels and
+    * reports the reserves, kmplot mirrors them onto the main panel.  A
+    * package update mid-session leaves the old kmplot.ado in memory while
+    * this file is reloaded from disk, which would silently misalign the two
+    * panels.  Refuse rather than draw a wrong graph.
+    local rt_this_version "1.3.0"
+    if "`callerversion'" != "`rt_this_version'" {
+        noisily display as error ///
+            "kmplot and _kmplot_risktable versions differ (helper `rt_this_version')"
+        noisily display as error ///
+            "type -discard- and rerun, or reinstall kmplot"
+        exit 498
+    }
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
     if `"`xtitle'"' == "" local xtitle "Analysis time"
@@ -46,6 +60,13 @@ program define _kmplot_risktable, rclass
         local grplbl`g' : char _dta[_kmplot_grplbl`g']
         if `"`grplbl`g''"' == "" local grplbl`g' "Group `g'"
     }
+
+    * Row labels are drawn as y-axis labels.  Offsetting the rows off the
+    * integer grid keeps them from colliding with the main panel's y-axis
+    * label values, which are added here invisibly to reserve column width.
+    * A collision would make ylabel(..., add) replace one of those reserved
+    * labels and shrink this panel's label column below the main panel's.
+    local rt_row_offset = 0.137
 
     * Determine time range
     if `xmax' <= 0 {
@@ -187,14 +208,15 @@ program define _kmplot_risktable, rclass
         local nobs = `ngroups' * `ntp'
         quietly set obs `nobs'
 
-        tempvar rt_time rt_ypos rt_label rt_grplabel rt_grp
+        tempvar rt_time rt_ypos rt_label rt_grp
         quietly gen double `rt_time' = .
         quietly gen double `rt_ypos' = .
-        quietly gen str30 `rt_label' = ""
-        quietly gen str244 `rt_grplabel' = ""
+        quietly gen str60 `rt_label' = ""
         quietly gen int `rt_grp' = .
 
     local row = 0
+    local rt_first_width = 0
+    local rt_last_width = 0
 
     forvalues g = 1/`ngroups' {
         local j = 0
@@ -202,19 +224,51 @@ program define _kmplot_risktable, rclass
             local ++j
             local ++row
                 quietly replace `rt_time' = `tp' in `row'
-                quietly replace `rt_ypos' = `ngroups' - `g' + 1 in `row'
+                quietly replace `rt_ypos' = ///
+                    `ngroups' - `g' + 1 + `rt_row_offset' in `row'
+                local nr = `nrisk_`g'_`j''
+                if `nr' == int(`nr') {
+                    local nr = strtrim(string(`nr', "%21.0fc"))
+                }
                 if "`events'" != "" {
                     * Compact "N (E)" format
-                    local nr = `nrisk_`g'_`j''
                     local ne = `nevt_`g'_`j''
-                    quietly replace `rt_label' = "`nr' (`ne')" in `row'
+                    if `ne' == int(`ne') {
+                        local ne = strtrim(string(`ne', "%21.0fc"))
+                    }
+                    local _celltext "`nr' (`ne')"
                 }
                 else {
-                    quietly replace `rt_label' = "`nrisk_`g'_`j''" in `row'
+                    local _celltext "`nr'"
                 }
+                quietly replace `rt_label' = "`_celltext'" in `row'
                 quietly replace `rt_grp' = `g' in `row'
-                if `j' == 1 {
-                    quietly replace `rt_grplabel' = `"`grplbl`g''"' in `row'
+                if `j' == 1 | `j' == `ntp' {
+                    * Helvetica advance widths, in thousandths of an em.
+                    * The first column's count is centred on the y axis and so
+                    * reaches back into the row-label column; the last one
+                    * overhangs the graph boundary.  Both reserves are sized
+                    * from the text actually drawn.
+                    local _cw = 0
+                    local _cn = strlen("`_celltext'")
+                    forvalues _c = 1/`_cn' {
+                        local _ch = substr("`_celltext'", `_c', 1)
+                        if "`_ch'" == " " | "`_ch'" == "," | "`_ch'" == "." {
+                            local _cw = `_cw' + 278
+                        }
+                        else if "`_ch'" == "(" | "`_ch'" == ")" {
+                            local _cw = `_cw' + 333
+                        }
+                        else {
+                            local _cw = `_cw' + 556
+                        }
+                    }
+                    if `j' == 1 & `_cw' > `rt_first_width' {
+                        local rt_first_width = `_cw'
+                    }
+                    if `j' == `ntp' & `_cw' > `rt_last_width' {
+                        local rt_last_width = `_cw'
+                    }
                 }
             }
         }
@@ -237,9 +291,6 @@ program define _kmplot_risktable, rclass
         }
             local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grp' == `g', `xaxis_cmd' msymbol(none) mlabel(`rt_label') mlabposition(0) mlabcolor(`col') mlabsize(small))"'
     }
-    * Separate row labels from wider time-zero counts in the standard
-    * N (events) display.
-    local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grplabel' != "", `xaxis_cmd' msymbol(none) mlabel(`rt_grplabel') mlabposition(9) mlabgap(8) mlabcolor(black) mlabsize(small))"'
 
     * =====================================================================
     * Y-AXIS LABELS
@@ -247,7 +298,7 @@ program define _kmplot_risktable, rclass
 
     * Keep breathing room below the final risk-table row.
     local ymin = 0.0
-    local ymax = `ngroups' + 0.5
+    local ymax = `ngroups' + 0.5 + `rt_row_offset'
     if `riskheight' > 0 {
         local fysize = `riskheight'
     }
@@ -266,6 +317,20 @@ program define _kmplot_risktable, rclass
         local ytitle_rt "No. at risk"
     }
 
+    * Stata packs the vertical title hard against the y-axis label column and
+    * sizes that column with a text metric narrower than what it then paints,
+    * so a long row label runs over the title.  The shortfall grows with the
+    * label, so reserve a title margin that grows with it too.  kmplot applies
+    * the same margin to the main panel's title, keeping the panels aligned.
+    local rt_widest = 0
+    forvalues g = 1/`ngroups' {
+        if strlen(`"`grplbl`g''"') > `rt_widest' {
+            local rt_widest = strlen(`"`grplbl`g''"')
+        }
+    }
+    local rt_title_gap = ceil(0.1111 * `rt_widest') + 1
+    if `rt_title_gap' < 2 local rt_title_gap = 2
+
     * =====================================================================
     * DRAW RISK TABLE
     * =====================================================================
@@ -274,10 +339,26 @@ program define _kmplot_risktable, rclass
     local xstart = 0
 
     local xlabel_cmd ""
-    * Reserve room for row labels between the vertical table title and the
-    * time-zero count.  kmplot applies this same margin to the main panel.
-    local plot_margin_left = 24
-    local plot_margin_right = 6
+
+    * ---------------------------------------------------------------------
+    * PLOT-REGION MARGINS
+    * ---------------------------------------------------------------------
+    * The left margin must stay at zero.  Anything positive is blank space
+    * *inside* the plotting region, and kmplot applies the same value to the
+    * main panel to keep the two time axes aligned, which would push the KM
+    * curve's time origin away from the main y-axis.  Row labels are drawn
+    * as y-axis labels instead, i.e. outside the plotting region entirely.
+    local plot_margin_left = 0
+
+    * The final column's count is centred on the last timepoint and so
+    * overhangs the plotting region by half its width.  Reserve that much.
+    * Derivation (measured, scale invariant -- see qa/test_kmplot_v130.do):
+    * in the combined graph one margin unit is 0.75% of graph height and
+    * label text is 2.0833% of graph height, so half of a label `w' em wide
+    * is w * 0.5 * 2.0833 / 0.75 = w * 1.3889 margin units.  Helvetica
+    * advance widths: digits .556 em, space/comma/period .278, parens .333.
+    local plot_margin_right = ceil(`rt_last_width' / 1000 * 1.3889)
+    if `plot_margin_right' < 4 local plot_margin_right = 4
     if `"`xlabel'"' != "" {
         * Append nogrid to the user spec: into the existing suboption group if
         * one is present (a comma), otherwise as a new suboption group.
@@ -307,6 +388,31 @@ program define _kmplot_risktable, rclass
         local ylabel_cmd "ylabel(0(0.25)1, format(%4.2f) angle(0) labcolor(none) tlcolor(none) nogrid)"
     }
 
+    * The time-zero count is centred on the y axis, so half of it sits to the
+    * left of the plotting region, in the row-label column.  Push the row
+    * labels out by that much.  labgap widens the label column rather than
+    * the plotting region, so the main panel's time origin stays on its axis
+    * when kmplot applies the same gap there.  Same unit conversion as
+    * plot_margin_right above.
+    local rt_row_labgap = ceil(`rt_first_width' / 1000 * 1.3889) + 1
+    if `rt_row_labgap' < 2 local rt_row_labgap = 2
+
+    * Row labels occupy the y-axis label column, clear of both the time-zero
+    * counts (which sit inside the plotting region) and the vertical table
+    * title (which sits outside the label column).  kmplot adds the same
+    * strings invisibly to the main panel so the two label columns, and
+    * therefore the two time axes, come out the same width.
+    local grp_ylabels ""
+    forvalues g = 1/`ngroups' {
+        local _gy = `ngroups' - `g' + 1 + `rt_row_offset'
+        local grp_ylabels `"`grp_ylabels' `_gy' `"`grplbl`g''"'"'
+    }
+    * custom scopes these style options to the row labels alone, so the
+    * labcolor(none) that hides the reserved numeric labels above does not
+    * take them with it.  Custom labels must be given as explicit
+    * value/"text" pairs -- a rule such as 0(0.25)1 is rejected there.
+    local grp_ylabel_cmd `"ylabel(`grp_ylabels', add custom angle(0) labsize(small) labgap(`rt_row_labgap') labcolor(black) tlcolor(none) nogrid)"'
+
     local xtitle_cmd `"xtitle(`"`xtitle'"', size(vsmall))"'
     local xscale_cmd "xscale(range(`xstart' `xmax') noextend noline)"
     local separator_cmd ""
@@ -326,27 +432,28 @@ program define _kmplot_risktable, rclass
         local xlabel_cmd `"xlabel(, nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
         local xtitle_cmd `"xtitle("", axis(1)) xtitle("", axis(2))"'
         local xscale_cmd `"xscale(range(`xstart' `xmax') noextend noline axis(1)) xscale(range(`xstart' `xmax') noextend noline axis(2))"'
-        local ymax = `ngroups' + 1.50
-        local time_title_y = `ngroups' + 1.45
+        local ymax = `ngroups' + 1.50 + `rt_row_offset'
+        local time_title_y = `ngroups' + 1.025 + `rt_row_offset'
         local time_title_x = (`xstart' + `xmax') / 2
-        local time_title_cmd `"text(`time_title_y' `time_title_x' `"`xtitle'"', placement(n) size(small))"'
-        local separator_y = `ngroups' + 0.55
+        local time_title_cmd `"text(`time_title_y' `time_title_x' `"`xtitle'"', placement(c) size(small))"'
+        local separator_y = `ngroups' + 0.55 + `rt_row_offset'
         local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
     }
 
     twoway `scatcmd', ///
         `ylabel_cmd' ///
+        `grp_ylabel_cmd' ///
         `xlabel_cmd' ///
         yscale(range(`ymin' `ymax') noline) ///
         `xscale_cmd' ///
         `xtitle_cmd' ///
-        ytitle("`ytitle_rt'", size(small)) ///
+        ytitle("`ytitle_rt'", size(small) margin(r=`rt_title_gap')) ///
         `time_title_cmd' ///
         `separator_cmd' ///
         title("") subtitle("") ///
         scheme(`scheme') ///
         name(`graphname', replace) nodraw ///
-        plotregion(margin(l=`plot_margin_left' r=`plot_margin_right' t=2 b=0)) ///
+        plotregion(margin(l=`plot_margin_left' r=`plot_margin_right' t=2 b=0) lcolor(none) lwidth(none)) ///
         graphregion(margin(l=0 t=0 b=0)) ///
         legend(off) ///
         fysize(`fysize')
@@ -365,6 +472,9 @@ program define _kmplot_risktable, rclass
 	        return scalar n_timepoints = `ntp'
 	        return scalar plot_margin_left = `plot_margin_left'
 	        return scalar plot_margin_right = `plot_margin_right'
+	        return scalar row_offset = `rt_row_offset'
+	        return scalar row_labgap = `rt_row_labgap'
+	        return scalar title_gap = `rt_title_gap'
 	        return local timepoints "`timepoints'"
 	        return matrix risktable = `rtmat'
 	end
