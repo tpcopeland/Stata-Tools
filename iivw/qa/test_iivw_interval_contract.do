@@ -119,7 +119,9 @@ capture noisily {
     matrix P = e(ci_percentile)
     local j = colnumb(e(b), "A")
     assert "`e(iivw_ci_type)'" == "basic"
+    assert !missing(B[1,`j'], 2*_b[A] - P[2,`j'])
     assert reldif(B[1,`j'], 2*_b[A] - P[2,`j']) < 1e-12
+    assert !missing(B[2,`j'], 2*_b[A] - P[1,`j'])
     assert reldif(B[2,`j'], 2*_b[A] - P[1,`j']) < 1e-12
     matrix PB = e(iivw_ci_basic)
     assert mreldif(B, PB) < 1e-12
@@ -416,6 +418,7 @@ capture noisily {
     local accel_manual = `ss3' / (6 * `ss2'^(3/2))
     restore
 
+    assert !missing(`accel_stata', `accel_manual')
     assert reldif(`accel_stata', `accel_manual') < 1e-10
 }
 if _rc == 0 {
@@ -651,7 +654,9 @@ capture noisily {
     assert mreldif(B, W) > 1e-8
 
     * the basic copy is the percentile copy reflected about e(b)
+    assert !missing(B[1,`j'], 2*_b[A] - P[2,`j'])
     assert reldif(B[1,`j'], 2*_b[A] - P[2,`j']) < 1e-12
+    assert !missing(B[2,`j'], 2*_b[A] - P[1,`j'])
     assert reldif(B[2,`j'], 2*_b[A] - P[1,`j']) < 1e-12
 
     * usable endpoints: present, ordered, and bracketing the point estimate

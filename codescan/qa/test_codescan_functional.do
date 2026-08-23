@@ -764,7 +764,9 @@ capture noisily {
     replace dx1 = 660 in 3
     replace dx1 = 110 in 4
     codescan_describe dx1, tostring
+    assert !missing(r(n_unique))
     assert r(n_unique) > 0
+    assert !missing(r(n_entries))
     assert r(n_entries) > 0
 }
 if _rc == 0 {

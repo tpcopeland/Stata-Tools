@@ -16,7 +16,7 @@ if "`mode'" != "full" {
 }
 
 local qa_dir `"`c(pwd)'"'
-local suites "test_massdesas.do validation_massdesas.do test_documentation_examples.do"
+local suites "test_massdesas.do validation_massdesas.do test_documentation_examples.do test_massdesas_hostile.do test_massdesas_documentation_exact.do test_massdesas_oracle.do test_massdesas_errors.do"
 local suite_count = 0
 local pass_count = 0
 local fail_count = 0

@@ -60,6 +60,18 @@ local ++suite_count
 if `installed_rc' == 0 local ++suite_pass
 else local ++suite_fail
 
+capture noisily do "`qa_dir'/test_pkgtransfer_errors.do"
+local errors_rc = _rc
+local ++suite_count
+if `errors_rc' == 0 local ++suite_pass
+else local ++suite_fail
+
+capture noisily do "`qa_dir'/test_pkgtransfer_hostile.do"
+local hostile_rc = _rc
+local ++suite_count
+if `hostile_rc' == 0 local ++suite_pass
+else local ++suite_fail
+
 local validation_rc .
 if inlist("`mode'", "core", "full") {
     capture noisily do "`qa_dir'/validation_pkgtransfer.do"

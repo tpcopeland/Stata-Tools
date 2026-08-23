@@ -281,6 +281,7 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     _finegray_xv ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert !missing(e(ll))
     assert e(ll) > e(ll_0)
 }
 if _rc == 0 {
@@ -359,6 +360,7 @@ capture noisily {
     _finegray_xv ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
     finegray_predict cif_strata, cif
     summ cif_strata, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop cif_strata
 }
@@ -388,10 +390,12 @@ capture noisily {
     * Stata locals vs Mata binary search can differ, so avoid pointwise
     * comparison
     summ cif_hat, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     * CIF depends on both xb and _t, so correlation with xb alone is moderate
     spearman xb_hat cif_hat
     display as text "  xb-CIF Spearman rho = " %6.4f r(rho)
+    assert !missing(r(rho))
     assert r(rho) > 0.5 & r(rho) < .
     drop xb_hat cif_hat
 }
@@ -513,6 +517,7 @@ capture noisily {
     * CIF at later time should be >= CIF at earlier time
     gen double diff = cif_late - cif_early
     summ diff, meanonly
+    assert !missing(r(N))
     assert r(N) > 0 & r(min) >= -1e-10 & r(min) < .
     drop t_early t_late cif_early cif_late diff
 }
@@ -535,6 +540,7 @@ capture noisily {
     finegray_predict cif_hat, cif timevar(t_fixed)
     * Rank correlation between xb and CIF should be positive
     spearman xb_hat cif_hat
+    assert !missing(r(rho))
     assert r(rho) > 0.9 & r(rho) < .
     drop xb_hat t_fixed cif_hat
 }
@@ -937,6 +943,7 @@ capture noisily {
     stset t, failure(d) id(id)
     _finegray_xv x1, compete(status) cause(1) censvalue(5) nolog
     local b_fg = e(b)[1,1]
+    assert !missing(e(N_cens))
     assert e(N_cens) > 0 & e(N_cens) < .
     * stcrreg (standard setup)
     stset t, failure(status==1) id(id)
@@ -981,6 +988,7 @@ capture noisily {
     local b_multi = e(b)[1,1]
     finegray_predict cif_multi, cif
     summ cif_multi, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     * Compare against manual egen group
     egen int strata_combo = group(site arm)

@@ -42,6 +42,7 @@ Stata 16 or later is required throughout. No R package is used.
 | File | Covers |
 |---|---|
 | `test_setools.do` | Public command discovery, overview output, and basic command behavior. |
+| `test_setools_oracle.do` | Seeded repeated catalog oracle for exact category command lists and counts. |
 | `test_release_integrity.do` | Relocatable package inventory, version, metadata, author, path, helper, and source contracts. |
 | `test_documentation_examples.do` | Runnable README and help examples, including shipped-data CDP behavior. |
 | `test_audit_regressions.do` | Cross-command regressions found by prior adversarial audits. |

@@ -237,7 +237,9 @@ capture noisily {
     _cov_registry, n(250) seed(55506)
     quietly iivw_weight, id(id) time(time) visit(z) censor(cens)
     iivw_exogtest y, id(id) time(time) censor(cens)
+    assert !missing(r(n_models))
     assert r(n_models) > 0
+    assert !missing(r(holm_min_p))
     assert r(holm_min_p) >= 0 & r(holm_min_p) <= 1
     assert inlist(r(history_association_flag), 0, 1)
 }
@@ -301,6 +303,7 @@ capture noisily {
         allownonconverged replace
     quietly summarize _iivw_weight, meanonly
     assert r(N) == `n_plain'
+    assert !missing(r(mean), `w_plain')
     assert reldif(r(mean), `w_plain') < 1e-12
 
     * A converged fit must NOT be stamped just because the option was offered.
@@ -329,7 +332,9 @@ capture noisily {
     _cov_registry, n(250) seed(55509)
     quietly iivw_weight, id(id) time(time) visit(z) maxfu(10)
     iivw_exogtest y, id(id) time(time) maxfu(10)
+    assert !missing(r(n_models))
     assert r(n_models) > 0
+    assert !missing(r(holm_min_p))
     assert r(holm_min_p) >= 0 & r(holm_min_p) <= 1
 }
 if _rc == 0 {
@@ -383,6 +388,7 @@ capture noisily {
     * DOES to the observed visits, so it must persist at large N. If it shrank,
     * the weights would be doing nothing and the whole diagnostic is vacuous.
     assert `shift_big' > 0.20
+    assert !missing(`shift_big', `shift_small')
     assert reldif(`shift_big', `shift_small') < 0.5
 }
 if _rc == 0 {

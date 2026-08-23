@@ -6,6 +6,9 @@ set more off
 set varabbrev off
 version 17.0
 
+* Fixed seed for the randomized adversarial fixtures below.
+set seed 20260823
+
 capture log close _pkgadv
 capture erase "test_package_adversarial.log"
 log using "test_package_adversarial.log", text name(_pkgadv)

@@ -115,6 +115,8 @@ if `run_only' == 0 | `run_only' == 1 {
         iivw_fit event treated sev_bl, vce(fixed) model(gee) family(binomial) ///
             link(logit) timespec(linear) cluster(site) nolog
 
+        assert !missing(e(N))
+
         assert e(N) > 0
         assert e(converged) == 1
         assert "`e(iivw_model)'" == "gee"
@@ -141,6 +143,8 @@ if `run_only' == 0 | `run_only' == 2 {
         _adv_setup_panel, wtype(fiptiw)
         iivw_fit y treated sev_bl, vce(fixed) model(mixed) experimentalmixed timespec(none) ///
             cluster(site) nolog
+
+        assert !missing(e(N))
 
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
@@ -501,6 +505,7 @@ if `run_only' == 0 | `run_only' == 13 {
         assert _rc == 198
         assert "`e(iivw_cmd)'" == "`cmd_before'"
         assert "`e(iivw_model)'" == "`model_before'"
+        assert !missing(_b[severity], b_before)
         assert reldif(_b[severity], b_before) < 1e-12
 
         * v1.0.6+: validation-stage failures preserve fit metadata too
@@ -613,6 +618,7 @@ if `run_only' == 0 | `run_only' == 17 {
     capture noisily {
         _adv_setup_panel, seed(20260528)
         iivw_fit y, vce(fixed) model(gee) timespec(none) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_display_vars)'" == ""
         quietly count if e(sample)

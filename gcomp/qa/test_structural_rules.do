@@ -134,9 +134,11 @@ capture noisily {
 
     bysort _id: egen byte _obs_m = max(cond(_int == 0, m, .))
     quietly count if _int > 0 & _obs_m == 0 & m == 1
+    assert !missing(r(N))
     assert r(N) > 25
     assert y > 1 if _int > 0 & _obs_m == 0 & m == 1
     quietly count if _int > 0 & _obs_m == 1 & m == 0
+    assert !missing(r(N))
     assert r(N) > 25
     assert y == 0 if _int > 0 & _obs_m == 1 & m == 0
 }
@@ -180,8 +182,10 @@ capture noisily {
     assert m == 0 if _int > 0 & x == 0
     assert y == 0 if _int > 0 & m == 0
     quietly count if _int > 0 & x == 1 & m == 1
+    assert !missing(r(N))
     assert r(N) > 25
     quietly count if _int > 0 & m == 1 & y == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 local _test_rc = _rc
@@ -367,6 +371,7 @@ capture noisily {
     use `"`_s7saved'"', clear
     assert Y == 0 if _int > 0 & time == 3 & Z == 0
     quietly count if _int > 0 & time == 3 & Z == 1 & Y == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 local _test_rc = _rc

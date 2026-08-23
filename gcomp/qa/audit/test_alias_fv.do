@@ -24,9 +24,9 @@ gcomp y m x x_ abcdefghijklmnopqrstuvwxyzABCDEF if keep, outcome(y) ///
     base_confs(z_omitted x_ abcdefghijklmnopqrstuvwxyzABCDEF) ///
     simulations(450) samples(3) seed(904)
 assert e(N_rows) == 600
+assert e(N_subjects) == 600
 assert e(sample) == keep
 cf _all using `before', all
 display "RESULT: gcomp_alias_fv_probe status=PASS"
 
 display "RESULT: test_alias_fv tests=1 pass=1 fail=0 status=PASS"
-

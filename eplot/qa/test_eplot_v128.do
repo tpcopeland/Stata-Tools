@@ -238,16 +238,22 @@ capture noisily {
     end
     eplot es ll ul, rescale(-2) name(eplot_v128_t6a, replace)
     matrix TD = r(table)
+    assert !missing(TD[1, 1], -2)
     assert reldif(TD[1, 1], -2) < 1e-12
+    assert !missing(TD[1, 2], -3)
     assert reldif(TD[1, 2], -3) < 1e-12
+    assert !missing(TD[1, 3], -1)
     assert reldif(TD[1, 3], -1) < 1e-12
 
     matrix R = (1, .5, 1.5)
     matrix rownames R = x
     eplot, matrix(R) rescale(-2) name(eplot_v128_t6b, replace)
     matrix TM = r(table)
+    assert !missing(TM[1, 1], -2)
     assert reldif(TM[1, 1], -2) < 1e-12
+    assert !missing(TM[1, 2], -3)
     assert reldif(TM[1, 2], -3) < 1e-12
+    assert !missing(TM[1, 3], -1)
     assert reldif(TM[1, 3], -1) < 1e-12
 
     sysuse auto, clear
@@ -255,6 +261,7 @@ capture noisily {
     matrix B = e(b)
     eplot ., noconstant rescale(-2) name(eplot_v128_t6c, replace)
     matrix TE = r(table)
+    assert !missing(TE[1, 1], -2 * B[1, 1])
     assert reldif(TE[1, 1], -2 * B[1, 1]) < 1e-12
     assert TE[1, 2] <= TE[1, 1]
     assert TE[1, 1] <= TE[1, 3]

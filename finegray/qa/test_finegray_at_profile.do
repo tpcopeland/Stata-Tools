@@ -131,7 +131,9 @@ capture noisily {
     matrix Z_part = r(at)
     assert Z_part[1,1] == 1
     assert Z_part[1,2] == 0
+    assert !missing(Z_part[1,3], `_mx')
     assert reldif(Z_part[1,3], `_mx') < 1e-12
+    assert !missing(Z_part[1,4], `_mx')
     assert reldif(Z_part[1,4], `_mx') < 1e-12
     assert Z_part[1,5] == 0
 }
@@ -159,7 +161,9 @@ capture noisily {
     local _m3 = r(mean)
     quietly finegray_cif, at(x=0) attime(4) nograph
     matrix Z_x0 = r(at)
+    assert !missing(Z_x0[1,1], `_m2')
     assert reldif(Z_x0[1,1], `_m2') < 1e-12
+    assert !missing(Z_x0[1,2], `_m3')
     assert reldif(Z_x0[1,2], `_m3') < 1e-12
     assert Z_x0[1,3] == 0
     assert Z_x0[1,4] == 0
@@ -189,6 +193,7 @@ capture noisily {
     foreach _cv of local _covs {
         local ++_cj
         quietly summarize `_cv' if e(sample), meanonly
+        assert !missing(Z_def[1, `_cj'], r(mean))
         assert reldif(Z_def[1, `_cj'], r(mean)) < 1e-12
     }
     assert `_cj' == colsof(Z_def)
@@ -198,6 +203,7 @@ capture noisily {
     local _pm2 = r(mean)
     quietly summarize x if e(sample), meanonly
     local _pmx = r(mean)
+    assert !missing(Z_def[1,4], `_pm2' * `_pmx')
     assert reldif(Z_def[1,4], `_pm2' * `_pmx') > 1e-3
 
     * same pin on a main-effects-only fit
@@ -210,6 +216,7 @@ capture noisily {
     foreach _cv of local _covs2 {
         local ++_cj
         quietly summarize `_cv' if e(sample), meanonly
+        assert !missing(Z_def2[1, `_cj'], r(mean))
         assert reldif(Z_def2[1, `_cj'], r(mean)) < 1e-12
     }
     assert `_cj' == colsof(Z_def2)
@@ -237,7 +244,9 @@ capture noisily {
     quietly finegray_cif, at(_fg_grp_2=1) attime(4) nograph
     matrix Z_d1 = r(at)
     assert Z_d1[1,1] == 1
+    assert !missing(Z_d1[1,2], `_m3')
     assert reldif(Z_d1[1,2], `_m3') < 1e-12
+    assert !missing(Z_d1[1,5], `_m3x')
     assert reldif(Z_d1[1,5], `_m3x') < 1e-12
 
     * mixed: the direct value wins over what grp=2 x=10 would have implied
@@ -279,7 +288,9 @@ capture noisily {
     quietly finegray_cif, at(a=2) attime(4) nograph
     matrix Z_fp = r(at)
     assert Z_fp[1,1] == 1
+    assert !missing(Z_fp[1,2], `_pb')
     assert reldif(Z_fp[1,2], `_pb') < 1e-12
+    assert !missing(Z_fp[1,3], `_pb')
     assert reldif(Z_fp[1,3], `_pb') < 1e-12
 }
 if _rc == 0 {
@@ -364,7 +375,9 @@ capture noisily {
     * a continuous value must survive with more than 8 significant digits
     quietly finegray_cif, at(grp=2 x=0.33333333333333331) attime(4) nograph
     matrix Z_p = r(at)
+    assert !missing(Z_p[1,3], 1/3)
     assert reldif(Z_p[1,3], 1/3) < 1e-15
+    assert !missing(Z_p[1,4], 1/3)
     assert reldif(Z_p[1,4], 1/3) < 1e-15
 }
 if _rc == 0 {
@@ -419,7 +432,9 @@ capture noisily {
     matrix T_ce = r(table)
     * columns 4 and 5 of r(table) are lci and uci
     forvalues _r = 1/3 {
+        assert !missing(T_cn[`_r', 4], T_ce[`_r', 4])
         assert reldif(T_cn[`_r', 4], T_ce[`_r', 4]) < 1e-12
+        assert !missing(T_cn[`_r', 5], T_ce[`_r', 5])
         assert reldif(T_cn[`_r', 5], T_ce[`_r', 5]) < 1e-12
     }
     assert mreldif(T_cn, T_ce) < 1e-12
@@ -489,8 +504,10 @@ capture noisily {
     quietly finegray_cif, attime(4) nograph
     matrix Z_nfd = r(at)
     quietly summarize x1 if e(sample), meanonly
+    assert !missing(Z_nfd[1,1], r(mean))
     assert reldif(Z_nfd[1,1], r(mean)) < 1e-12
     quietly summarize x2 if e(sample), meanonly
+    assert !missing(Z_nfd[1,2], r(mean))
     assert reldif(Z_nfd[1,2], r(mean)) < 1e-12
 }
 if _rc == 0 {
@@ -559,8 +576,10 @@ capture noisily {
     local _bnp = r(N) / `_bnn'
     quietly finegray_cif, at(x=10) attime(4) nograph
     matrix Z_bx = r(at)
+    assert !missing(Z_bx[1,1], `_bnp' * 10)
     assert reldif(Z_bx[1,1], `_bnp' * 10) < 1e-12
     * and that is NOT the untouched mean, so the assertion has content
+    assert !missing(Z_bx[1,1], `_bn1')
     assert reldif(Z_bx[1,1], `_bn1') > 1e-3
 }
 if _rc == 0 {

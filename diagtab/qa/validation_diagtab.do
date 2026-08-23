@@ -483,6 +483,7 @@ capture noisily {
     gen score = runiform()
     diagtab score gold, cutoff(0.5) auc
     * Random scores: AUC should be ~0.5 ± a few percent
+    assert !missing(r(auc))
     assert r(auc) > 0.40 & r(auc) < 0.60
 }
 if _rc == 0 {
@@ -897,7 +898,9 @@ foreach _m in wilson exact {
         * Proportion-scale measures: bounds present, in [0,1], lb<=point<=ub
         foreach _s in sensitivity specificity ppv npv accuracy {
             assert !missing(r(`_s'_lb)) & !missing(r(`_s'_ub))
+            assert !missing(r(`_s'_lb))
             assert r(`_s'_lb) >= 0 & r(`_s'_lb) <= 1
+            assert !missing(r(`_s'_ub))
             assert r(`_s'_ub) >= 0 & r(`_s'_ub) <= 1
             assert r(`_s'_lb) <= r(`_s') + 1e-9
             assert r(`_s') <= r(`_s'_ub) + 1e-9
@@ -907,6 +910,7 @@ foreach _m in wilson exact {
         * lb<=point<=ub (LR/DOR CI method is the same regardless of `_m').
         foreach _s in lr_pos lr_neg dor {
             assert !missing(r(`_s'_lb)) & !missing(r(`_s'_ub))
+            assert !missing(r(`_s'_lb))
             assert r(`_s'_lb) > 0 & r(`_s'_ub) < .
             assert r(`_s'_lb) <= r(`_s') + 1e-9
             assert r(`_s') <= r(`_s'_ub) + 1e-9
@@ -1074,6 +1078,7 @@ capture noisily {
 
     diagtab score gold, cutoff(0.5) auc
     assert !missing(r(auc)) & !missing(r(auc_lb)) & !missing(r(auc_ub))
+    assert !missing(r(auc_lb))
     assert r(auc_lb) >= 0 & r(auc_ub) <= 1
     assert r(auc_lb) <= r(auc) + 1e-9
     assert r(auc) <= r(auc_ub) + 1e-9
@@ -1118,6 +1123,7 @@ capture noisily {
     assert abs(r(dor_ub) - exp(ln(`_dor') + `_z90'*`_se_dor')) < 1e-9
 
     * 90% interval is strictly narrower than 95% (proves level() is honored)
+    assert !missing(r(lr_pos_lb))
     assert r(lr_pos_lb) > `_lrp_lb95' + 1e-6
     assert r(dor_ub) < `_dor_ub95' - 1e-6
 }
@@ -1164,6 +1170,7 @@ capture noisily {
     assert abs(r(npv_ub) - min(1, `npv' + `z90'*`se_npv')) < 1e-9
 
     * 90% lower bound strictly above the 95% lower bound
+    assert !missing(r(ppv_lb))
     assert r(ppv_lb) > `_ppv_lb95' + 1e-9
 }
 if _rc == 0 {

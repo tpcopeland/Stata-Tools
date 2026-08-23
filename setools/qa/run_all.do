@@ -18,11 +18,13 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 local quick ///
     test_setools ///
+    test_setools_option_errors ///
     test_release_integrity ///
     test_documentation_examples ///
     test_audit_regressions ///
     test_setools_v154_regressions ///
     test_setools_v155_regressions ///
+    test_setools_oracle ///
     test_cci_engine_smoke ///
     test_cci_dates_parity ///
     test_cdp_adversarial ///

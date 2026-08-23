@@ -40,6 +40,7 @@ capture noisily {
     stcox age drug
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
@@ -160,6 +161,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug
     cstat_surv
+    assert !missing(e(ci_lo))
     assert e(ci_lo) >= 0
     assert e(ci_hi) <= 1
     assert e(ci_lo) < e(ci_hi)
@@ -186,9 +188,13 @@ capture noisily {
     cstat_surv
     local sum_pairs = e(N_concordant) + e(N_discordant) + e(N_tied)
     assert abs(e(N_comparable) - `sum_pairs') < 0.01
+    assert !missing(e(N_comparable))
     assert e(N_comparable) > 0
+    assert !missing(e(N_concordant))
     assert e(N_concordant) >= 0
+    assert !missing(e(N_discordant))
     assert e(N_discordant) >= 0
+    assert !missing(e(N_tied))
     assert e(N_tied) >= 0
 }
 if _rc == 0 {
@@ -359,6 +365,8 @@ local ++test_count
 capture noisily {
     sysuse cancer, clear
     * Weights declared via stset, not stcox
+    * Seed: 271828
+    set seed 271828
     gen double pw = 1 + runiform() * 0.5
     stset studytime [iweight=pw], failure(died)
     stcox age drug
@@ -452,8 +460,14 @@ capture noisily {
     stcox age drug
     cstat_surv, level(90)
     assert e(level) == 90
+    assert !missing(e(ci_lo))
     assert e(ci_lo) >= `ci_lo_95'
     assert e(ci_hi) <= `ci_hi_95'
+    local tcrit = invttail(e(df_r), (100 - e(level)) / 200)
+    local expected_lo = max(0, e(c) - `tcrit' * e(se))
+    local expected_hi = min(1, e(c) + `tcrit' * e(se))
+    assert abs(e(ci_lo) - `expected_lo') < 1e-12
+    assert abs(e(ci_hi) - `expected_hi') < 1e-12
 }
 if _rc == 0 {
     display as result "  PASS: Test `test_count' — level(90) narrows CI"
@@ -480,6 +494,7 @@ capture noisily {
     cstat_surv, level(99)
     assert e(level) == 99
     assert e(ci_lo) <= `ci_lo_95'
+    assert !missing(e(ci_hi))
     assert e(ci_hi) >= `ci_hi_95'
 }
 if _rc == 0 {
@@ -639,6 +654,7 @@ capture noisily {
     stcox x1 x2
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
@@ -687,8 +703,10 @@ capture noisily {
     stcox x
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
     * With many tied times, tied pairs should be > 0
+    assert !missing(e(N_tied))
     assert e(N_tied) >= 0
 }
 if _rc == 0 {
@@ -715,7 +733,9 @@ capture noisily {
     stcox x
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
+    assert !missing(e(N_comparable))
     assert e(N_comparable) > 0
 }
 if _rc == 0 {
@@ -743,6 +763,7 @@ capture noisily {
     stset time, failure(event)
     stcox x
     cstat_surv
+    assert !missing(e(c))
     assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
@@ -860,6 +881,7 @@ capture noisily {
     assert _b[x] < 0
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
@@ -881,6 +903,7 @@ capture noisily {
     stcox age c.age#i.drug i.drug
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
@@ -901,6 +924,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug, nohr
     cstat_surv
+    assert !missing(e(c))
     assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
@@ -967,6 +991,7 @@ capture noisily {
     stcox age, tvc(drug) texp(_t)
     cstat_surv
     assert !missing(e(c))
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
@@ -988,6 +1013,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox drug, strata(stratum)
     cstat_surv
+    assert !missing(e(c))
     assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
@@ -1015,6 +1041,7 @@ capture noisily {
     stset time, failure(event)
     stcox x
     cstat_surv
+    assert !missing(e(N_comparable))
     assert e(N_comparable) > 0
 }
 if _rc == 0 {

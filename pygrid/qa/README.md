@@ -50,6 +50,8 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 | `test_pyattach.do` | Measures, zero filling, filters, exclusive bounds, grid integrity, orphan policies, identifier/date contracts, repeated calls, and rollback. |
 | `test_package_contracts.do` | Installed helper autoloading, saved characteristics, rollback, package inventory, version placement, and SMCL rendering with a positive control. |
 | `test_doc_examples.do` | Executable README and help workflows with semantic value assertions after local installation. |
+| `test_pygrid_errors.do` | Exact public pygrid/pyattach failure codes and no-mutation contracts. |
+| `test_pygrid_hostile.do` | Overlapping episode refusal under an adversarial denominator shape. |
 
 ### Validation
 
@@ -80,7 +82,7 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `pygrid` | `test_pygrid.do` | `validation_pygrid_known_truth.do` | `crossval_pygrid.do` | Package contracts, doc examples, MOGAD rewrite, and attachment suites |
+| `pygrid` | `test_pygrid.do`, error contracts | `validation_pygrid_known_truth.do` | `crossval_pygrid.do` | Package contracts, doc examples, MOGAD rewrite, and attachment suites |
 | `pyattach` | `test_pyattach.do` | `validation_pyattach_known_truth.do`, `validation_pyattach_reference.do` | `crossval_pygrid.do` | Package contracts, doc examples, and MOGAD rewrite |
 
 ## Lane membership

@@ -922,6 +922,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
         pkgtransfer, restore
         assert "`r(download_mode)'" == "restore"
+        assert "`r(os)'" == "`c(os)'"
         confirm file "`qa_plus'/stata.trk.backup"
         capture confirm file "pkgtransfer.do"
         assert _rc == 601

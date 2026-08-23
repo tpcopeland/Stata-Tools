@@ -46,6 +46,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 | `test_asof_types.do` | Numeric and string identifiers, storage formats, `%td`/`%tc` units, incompatible types, and frame sources. |
 | `test_asof_install.do` | Installed command/helper discovery, Mata reload, documented workflow, and package metadata presence. |
 | `test_asof_examples.do` | Inline synthetic fixtures, exact execution of all three documented workflows, and public-example path hygiene. |
+| `test_asof_hostile.do` | 31/32-character output-name rejection, structural collisions, empty restrictions, repeated calls, and unsorted-row preservation. |
 
 ### Validation
 
@@ -81,7 +82,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 
 | Lane | Suites |
 |---|---|
-| `quick` | All `test_asof_*` functional and install suites. |
+| `quick` | All `test_asof_*` functional, hostile, and install suites. |
 | `core` | `quick` plus both `validation_asof_*` suites. |
 | `crossval` | `crossval_asof_pandas.do`. |
 | `full` | `core` plus `crossval`. |

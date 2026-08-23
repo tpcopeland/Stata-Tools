@@ -72,6 +72,7 @@ capture noisily {
     estimates store m2
 
     eplot m1 m2, drop(_cons) name(_v2_t1, replace)
+    assert !missing(r(N))
     assert r(N) > 0
     assert r(n_models) == 2
 }
@@ -647,6 +648,7 @@ capture noisily {
     eplot ., drop(_cons) ///
         headers(mpg = "Vehicle Stats" foreign = "Other") ///
         name(_v2_t27, replace)
+    assert !missing(r(N))
     assert r(N) >= 5
 }
 if _rc == 0 {
@@ -667,6 +669,7 @@ capture noisily {
     quietly regress price mpg weight foreign
     eplot ., drop(_cons) ///
         headings(mpg = "Main") name(_v2_t28, replace)
+    assert !missing(r(N))
     assert r(N) >= 3
 }
 if _rc == 0 {

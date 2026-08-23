@@ -388,6 +388,7 @@ capture noisily {
     assert "`e(cmd)'" == "`user_cmd'"
     assert e(N) == `user_N'
     matrix AFTER_B = e(b)
+    assert !missing(USER_B[1,1], AFTER_B[1,1])
     assert reldif(USER_B[1,1], AFTER_B[1,1]) < 1e-12
 }
 local rc = _rc

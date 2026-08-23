@@ -69,6 +69,7 @@ capture noisily {
 
         assert "`before_cmd'" == "regress"
         assert "`e(cmd)'" == "regress"
+        assert !missing(_b[x], before_b)
         assert reldif(_b[x], before_b) < 1e-12
     }
 }

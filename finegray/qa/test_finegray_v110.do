@@ -100,6 +100,7 @@ capture noisily {
     assert e(N) == N1
     assert mreldif(e(b), b1) < 1e-9
     assert mreldif(e(V), V1) < 1e-9
+    assert !missing(e(ll), ll1)
     assert reldif(e(ll), ll1) < 1e-9
     assert rowsof(e(basehaz)) == rowsof(bh1)
     assert mreldif(e(basehaz), bh1) < 1e-9
@@ -328,6 +329,7 @@ capture noisily {
     gen pelnode = 1
     gen double t5 = 5
     finegray_predict cif_p, cif timevar(t5)
+    assert !missing(cif_p[1], cif_cmd)
     assert reldif(cif_p[1], cif_cmd) < 1e-7
 }
 if _rc == 0 {
@@ -355,6 +357,7 @@ capture noisily {
     assert cif5 <= cif5_uci + 1e-9 if !missing(cif5)
     assert cif5_lci >= 0 & cif5_uci <= 1 if !missing(cif5)
     quietly count if !missing(cif5)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -417,6 +420,7 @@ capture noisily {
     assert "`e(cmd)'" == "finegray"
     assert mreldif(e(b), b0) < 1e-12
     forvalues r = 1/3 {
+        assert !missing(A[`r',2], B[`r',2])
         assert reldif(A[`r',2], B[`r',2]) < 1e-10
         assert B[`r',3] > 0 & B[`r',3] < .
         assert B[`r',4] <= B[`r',2] + 1e-9
@@ -541,6 +545,7 @@ capture noisily {
     assert r(max) < 1e-8
     * the restriction actually dropped observations from the prediction set
     quietly count if missing(cifS) & !missing(cifF)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -565,7 +570,9 @@ capture noisily {
     assert r(level) == 90
     mata: assert(!hasmissing(st_matrix("C90")))
     mata: assert(!hasmissing(st_matrix("C95")))
+    assert !missing(C90[1,2], C95[1,2])
     assert reldif(C90[1,2], C95[1,2]) < 1e-12
+    assert !missing(C90[1,3], C95[1,3])
     assert reldif(C90[1,3], C95[1,3]) < 1e-12
     assert C90[1,4] >= C95[1,4] - 1e-9
     assert C90[1,5] <= C95[1,5] + 1e-9
@@ -592,10 +599,12 @@ capture noisily {
     local ulabel : variable label cif90_uci
     assert "`llabel'" == "CIF lower 90% limit"
     assert "`ulabel'" == "CIF upper 90% limit"
+    assert !missing(cif90[1], cif95[1])
     assert reldif(cif90[1], cif95[1]) < 1e-12 if !missing(cif90[1])
     assert cif90_lci >= cif95_lci - 1e-9 if !missing(cif90)
     assert cif90_uci <= cif95_uci + 1e-9 if !missing(cif90)
     quietly count if !missing(cif90)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -680,8 +689,10 @@ capture noisily {
     assert _rc == 0
     graph export "`g3'", replace
     _svg_count "`g3'" ZZTITLE
+    assert !missing(r(n))
     assert r(n) >= 1
     _svg_count "`g3'" ZZXAXIS
+    assert !missing(r(n))
     assert r(n) >= 1
     * the default xtitle is gone (overridden)
     _svg_count "`g3'" Analysis time
@@ -735,6 +746,7 @@ capture noisily {
     graph export "`g5'", replace
     * a curve was drawn (default xtitle present), single series -> no legend
     _svg_count "`g5'" Analysis time
+    assert !missing(r(n))
     assert r(n) >= 1
     capture erase "`g5'"
 }
@@ -932,8 +944,11 @@ capture noisily {
     quietly finegray_predict cifB, cif timevar(t5) ci
     quietly keep if !missing(cifB)
     quietly merge 1:1 stnum using `single', assert(match) nogenerate
+    assert !missing(cifA, cifB)
     assert reldif(cifA, cifB) < 1e-9
+    assert !missing(cifA_lci, cifB_lci)
     assert reldif(cifA_lci, cifB_lci) < 1e-9
+    assert !missing(cifA_uci, cifB_uci)
     assert reldif(cifA_uci, cifB_uci) < 1e-9
 }
 if _rc == 0 {
@@ -988,6 +1003,7 @@ capture noisily {
     matrix B = r(table)
     * point CIF unchanged; bootstrap SE close to the analytic SE (the refits
     * would roughly triple it if they treated kept records as late entries)
+    assert !missing(A[1,2], B[1,2])
     assert reldif(A[1,2], B[1,2]) < 1e-10
     assert B[1,3] > 0 & B[1,3] < .
     assert abs(B[1,3]/A[1,3] - 1) < 0.35
@@ -1099,8 +1115,11 @@ capture noisily {
     quietly finegray_predict cs1, cif timevar(t5) ci
 
     assert mreldif(S1, S2) < 1e-9
+    assert !missing(cs1, cs2)
     assert reldif(cs1, cs2) < 1e-9 if !missing(cs1)
+    assert !missing(cs1_lci, cs2_lci)
     assert reldif(cs1_lci, cs2_lci) < 1e-9 if !missing(cs1)
+    assert !missing(cs1_uci, cs2_uci)
     assert reldif(cs1_uci, cs2_uci) < 1e-9 if !missing(cs1)
 }
 if _rc == 0 {
@@ -1127,18 +1146,22 @@ capture noisily {
     scalar _an_se  = A[1, 3]
     quietly finegray_cif, attime(5) ci bootstrap(60) seed(20260710)
     matrix B = r(table)
+    assert !missing(r(bootstrap_success))
     assert r(bootstrap_success) > 1 & r(bootstrap_success) < .
     * The point estimate is the full-sample fit either way.
+    assert !missing(B[1, 2], _an_cif)
     assert reldif(B[1, 2], _an_cif) < 1e-8
     * Bootstrap SE is independent of the ng>1 prefix-sum path but must land in
     * the same ballpark as the analytical SE.
     assert B[1, 3] > 0 & B[1, 3] < .
+    assert !missing(B[1, 3], _an_se)
     assert reldif(B[1, 3], _an_se) < 0.5
     assert B[1, 4] < B[1, 2] & B[1, 2] < B[1, 5]
 
     gen double t5 = 5
     quietly finegray_predict cbs, cif timevar(t5) ci bootstrap(60) seed(20260710)
     quietly count if !missing(cbs) & cbs_lci < cbs & cbs < cbs_uci
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -1167,6 +1190,7 @@ capture noisily {
     * finegray_predict bootstrap likewise
     quietly finegray_predict cstr, cif ci bootstrap(30) seed(1)
     quietly count if !missing(cstr)
+    assert !missing(r(N))
     assert r(N) > 0
     assert cstr_lci <= cstr + 1e-9 if !missing(cstr)
     assert cstr <= cstr_uci + 1e-9 if !missing(cstr)
@@ -1357,8 +1381,10 @@ capture noisily {
     assert _rc == 0
     matrix gx = r(at)
     assert gx[1,1] == 0 & gx[1,2] == 1
+    assert !missing(gx[1,3], `_mifp')
     assert reldif(gx[1,3], `_mifp') < 1e-12
     assert gx[1,4] == 0
+    assert !missing(gx[1,5], `_mifp')
     assert reldif(gx[1,5], `_mifp') < 1e-12
 }
 if _rc == 0 {
@@ -1717,7 +1743,9 @@ capture noisily {
     quietly finegray i.grp x, compete(ev) cause(1) nolog
     finegray_cif, attime(1) ci bootstrap(40) seed(7) nograph
     assert r(bootstrap_requested) == 40
+    assert !missing(r(bootstrap_failed))
     assert r(bootstrap_failed) > 0 & r(bootstrap_failed) < .
+    assert !missing(r(bootstrap_success))
     assert r(bootstrap_success) >= 25
     assert r(bootstrap_success) + r(bootstrap_failed) == 40
     matrix _T114 = r(table)
@@ -1745,6 +1773,7 @@ capture noisily {
     confirm variable cb_lci
     confirm variable cb_uci
     quietly count if cb < . & cb_lci < . & cb_uci < . & e(sample)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

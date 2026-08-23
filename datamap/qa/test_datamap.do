@@ -524,6 +524,7 @@ local ++test_count
 capture noisily {
     datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_dir.txt")
     confirm file "`tmp_dir'/_out_dir.txt"
+    assert !missing(r(nfiles))
     assert r(nfiles) >= 1
 }
 if _rc == 0 {
@@ -1055,6 +1056,7 @@ local ++test_count
 capture noisily {
     datadict, directory("`tmp_dir'") output("`tmp_dir'/_dd_dir.md")
     confirm file "`tmp_dir'/_dd_dir.md"
+    assert !missing(r(nfiles))
     assert r(nfiles) >= 1
 }
 if _rc == 0 {
@@ -1349,7 +1351,9 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rr.txt")
+    assert !missing(r(nobs))
     assert r(nobs) > 0
+    assert !missing(r(nvars))
     assert r(nvars) > 0
     assert "`r(input_source)'" == "single"
 }
@@ -1368,6 +1372,7 @@ local ++test_count
 capture noisily {
     datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_rdir.txt")
     assert "`r(input_source)'" == "directory"
+    assert !missing(r(nfiles))
     assert r(nfiles) >= 1
 }
 if _rc == 0 {

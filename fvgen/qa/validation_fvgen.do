@@ -55,7 +55,9 @@ capture noisily {
     scalar nn  = e(N)
     fvgen i.arm##c.age
     quietly regress y `r(allvars)'
+    assert !missing(_b[_armXage_1], bn)
     assert reldif(_b[_armXage_1], bn) < 1e-8
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
     assert e(N) == nn
 }
@@ -78,6 +80,7 @@ capture noisily {
     scalar nn  = e(N)
     fvgen i.grp##i.arm
     quietly regress y `r(allvars)'
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
     assert e(N) == nn
 }
@@ -100,7 +103,9 @@ capture noisily {
     scalar r2n = e(r2)
     fvgen c.age##c.bmi
     quietly regress y `r(allvars)'
+    assert !missing(_b[_ageXbmi], bn)
     assert reldif(_b[_ageXbmi], bn) < 1e-8
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
 }
 if _rc == 0 {
@@ -123,7 +128,9 @@ capture noisily {
     fvgen c.age##c.bmi, center
     quietly regress y `r(allvars)'
     * centering shifts lower-order terms but not the product coef or fit
+    assert !missing(_b[_ageXbmi], bn)
     assert reldif(_b[_ageXbmi], bn) < 1e-8
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
 }
 if _rc == 0 {

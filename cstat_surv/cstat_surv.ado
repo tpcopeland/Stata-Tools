@@ -2,6 +2,7 @@
 *! C-statistic for Cox proportional hazards models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Standalone version with embedded calculation (no somersd dependency)
+*! Method: Harrell FE Jr, Lee KL, Mark DB. Stat Med 1996;15:361-387.
 
 program define cstat_surv, eclass
     version 16.0
@@ -141,7 +142,7 @@ program define cstat_surv, eclass
         display as text "{hline 80}"
         display as text "c_statistic" _col(32) as result %9.6f `cstat' _col(45) %9.6f `se_cstat' _col(58) %9.6f `ci_lo' _col(70) %9.6f `ci_hi'
         display as text "{hline 80}"
-        display as text "Note: Standard error computed via infinitesimal jackknife"
+        display as text "Note: Standard error computed via leave-one-out jackknife"
     }
     local rc = _rc
     set varabbrev `_varabbrev'
@@ -158,7 +159,7 @@ void _cstat_surv_calc(string scalar hrsvar, string scalar timevar,
     real colvector hrs, time, event
     real scalar n, i, j
     real scalar concordant, discordant, tied, comparable
-    real scalar ti, tj, hi, hj, ei, ej
+    real scalar ti, tj, hi, hj, ei, ej, event_risk, censor_risk
     real colvector conc_i, comp_i
     real scalar cstat, somers_d, se_cstat
     real colvector c_loo, pseudoval
@@ -237,22 +238,32 @@ void _cstat_surv_calc(string scalar hrsvar, string scalar timevar,
                 }
             }
             else {
-                // ti == tj (tied times)
-                if (ei == 1 && ej == 1) {
-                    comparable++
-                    comp_i[i] = comp_i[i] + 1
-                    comp_i[j] = comp_i[j] + 1
-                    if (hi != hj) {
-                        concordant = concordant + 0.5
-                        discordant = discordant + 0.5
-                        conc_i[i] = conc_i[i] + 0.5
-                        conc_i[j] = conc_i[j] + 0.5
-                    }
-                    else {
-                        tied++
-                        conc_i[i] = conc_i[i] + 0.5
-                        conc_i[j] = conc_i[j] + 0.5
-                    }
+                // Same-time dual events/censors are unusable.  An event is
+                // comparable with a subject censored at that same time.
+                if (ei == ej) continue
+                if (ei == 1) {
+                    event_risk = hi
+                    censor_risk = hj
+                }
+                else {
+                    event_risk = hj
+                    censor_risk = hi
+                }
+                comparable++
+                comp_i[i] = comp_i[i] + 1
+                comp_i[j] = comp_i[j] + 1
+                if (event_risk > censor_risk) {
+                    concordant++
+                    conc_i[i] = conc_i[i] + 1
+                    conc_i[j] = conc_i[j] + 1
+                }
+                else if (event_risk < censor_risk) {
+                    discordant++
+                }
+                else {
+                    tied++
+                    conc_i[i] = conc_i[i] + 0.5
+                    conc_i[j] = conc_i[j] + 0.5
                 }
             }
         }
@@ -276,7 +287,7 @@ void _cstat_surv_calc(string scalar hrsvar, string scalar timevar,
         return
     }
     
-    // Calculate SE using infinitesimal jackknife (leave-one-out)
+    // Calculate SE using the leave-one-out jackknife
     // c_loo[k] = c-statistic when observation k is removed
     c_loo = J(n, 1, 0)
     

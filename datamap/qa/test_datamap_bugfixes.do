@@ -163,6 +163,8 @@ local ++test_count
 capture {
 	clear
 	set obs 100
+	* Seed: 271828
+	set seed 271828
 	gen id = _n
 	gen entry = td(01jan2020) + int(runiform()*365)
 	format entry %td

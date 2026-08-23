@@ -156,6 +156,7 @@ capture noisily {
     quietly count if v310_first & abs(_iivw_iw - 1) < 1e-12
     assert r(N) == 0
     quietly summarize _iivw_iw if v310_first
+    assert !missing(r(sd))
     assert r(sd) > 1e-6
     drop v310_first
 }
@@ -239,10 +240,13 @@ capture noisily {
     }
 
     * The raw weight is identical across the two runs -- the premise of the test
+    assert !missing(`v310_raw_200', `v310_raw_2')
     assert reldif(`v310_raw_200', `v310_raw_2') < 1e-10
 
     * The cutpoints must now be identical too. On 3.0.0 they differed ~8.8-fold.
+    assert !missing(`v310_hi_200', `v310_hi_2')
     assert reldif(`v310_hi_200', `v310_hi_2') < 1e-10
+    assert !missing(`v310_lo_200', `v310_lo_2')
     assert reldif(`v310_lo_200', `v310_lo_2') < 1e-10
 
     * And the extreme subject must actually be bounded in BOTH runs. This is the
@@ -250,6 +254,7 @@ capture noisily {
     * is the one where the trim used to do nothing.
     assert `v310_trim_200' < `v310_raw_200'
     assert `v310_trim_2'   < `v310_raw_2'
+    assert !missing(`v310_trim_200', `v310_trim_2')
     assert reldif(`v310_trim_200', `v310_trim_2') < 1e-10
 
     * Same subjects bounded either way; only the ROW count may differ.
@@ -541,6 +546,7 @@ capture noisily {
     * The visit-trim cutpoint is a row statistic, so thinning the panel moves it.
     * If a future change converted truncvisit() to subject-level percentiles this
     * assertion is what would catch it.
+    assert !missing(`v310_tv_hi_1', `v310_tv_hi_2')
     assert reldif(`v310_tv_hi_1', `v310_tv_hi_2') > 1e-6
 
     * The complement, restated on the treat side so the pair reads as one rule:

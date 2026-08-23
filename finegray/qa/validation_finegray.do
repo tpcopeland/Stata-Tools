@@ -368,6 +368,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_predict cif_pred, cif
     summ cif_pred, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop cif_pred
 }
@@ -1139,6 +1140,7 @@ capture noisily {
     assert cif_v >= 0 & cif_v <= 1 if !missing(cif_v)
     * Mean CIF should be reasonable (not 0 or 1)
     summ cif_v, meanonly
+    assert !missing(r(mean))
     assert r(mean) > 0.01 & r(mean) < 0.99
     drop cif_v
     cap drop _fg_*
@@ -1160,6 +1162,7 @@ capture noisily {
     finegray i.pelnode##i.ifp_grp c.tumsize, compete(status) cause(1) nolog
     * Sparse interaction cell may cause quasi-separation → df_m <= 4
     assert e(df_m) <= 4
+    assert !missing(e(df_m))
     assert e(df_m) >= 2
     assert e(ll) < .
     drop ifp_grp

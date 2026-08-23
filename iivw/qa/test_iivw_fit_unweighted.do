@@ -58,7 +58,9 @@ capture noisily {
     assert "`e(iivw_weight_var)'" == ""
 
     glm y x t, family(gaussian) vce(cluster id) nolog
+    assert !missing(b_fit_x, _b[x])
     assert reldif(b_fit_x, _b[x]) < 1e-10
+    assert !missing(b_fit_t, _b[t])
     assert reldif(b_fit_t, _b[t]) < 1e-10
 }
 if _rc == 0 {
@@ -109,6 +111,7 @@ capture noisily {
     iivw_fit y x trt, unweighted id(id) timespec(none) nolog
     scalar b_fit_x = _b[x]
     glm y x trt, family(gaussian) vce(cluster id) nolog
+    assert !missing(b_fit_x, _b[x])
     assert reldif(b_fit_x, _b[x]) < 1e-10
 }
 if _rc == 0 {

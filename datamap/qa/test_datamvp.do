@@ -59,7 +59,9 @@ capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking
     assert r(N) == 1000
+    assert !missing(r(N_vars))
     assert r(N_vars) > 0
+    assert !missing(r(N_patterns))
     assert r(N_patterns) > 0
     assert r(N_complete) + r(N_incomplete) == r(N)
 }
@@ -679,6 +681,7 @@ capture noisily {
     use `testdata', clear
     gen all_miss = .
     datamvp age all_miss bmi
+    assert !missing(r(N_vars))
     assert r(N_vars) >= 2
     drop all_miss
 }
@@ -1016,7 +1019,9 @@ capture noisily {
     assert !missing(r(mean_miss))
     assert !missing(r(N_mv_total))
     assert r(N_complete) + r(N_incomplete) == r(N)
+    assert !missing(r(N_vars))
     assert r(N_vars) > 0
+    assert !missing(r(mean_miss))
     assert r(mean_miss) >= 0
     assert "`r(varlist)'" != ""
 }

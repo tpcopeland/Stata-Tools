@@ -507,6 +507,8 @@ capture noisily {
     _clear_consort_state
     clear
     set obs 100
+    * Seed: 271828
+    set seed 271828
     gen id = _n
     gen age = 20 + int(60 * runiform()) if _n > 10
     gen bmi = 18 + 15 * runiform() if _n > 20

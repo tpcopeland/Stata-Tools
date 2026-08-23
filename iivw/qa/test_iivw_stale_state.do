@@ -300,6 +300,7 @@ capture noisily {
     drop _shift
     quietly summarize _iivw_weight
     * The permutation is genuine only if the marginal is untouched.
+    assert !missing(r(sum), `sum_before')
     assert reldif(r(sum), `sum_before') < 1e-10
     _iivw_stale_expect, want(459)
 }

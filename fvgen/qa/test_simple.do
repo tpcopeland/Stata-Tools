@@ -47,8 +47,11 @@ capture noisily {
     scalar r2n = e(r2)
     fvgen i.arm##c.age, simple(arm)
     quietly regress y `r(allvars)'
+    assert !missing(_b[_armXage_0], s0)
     assert reldif(_b[_armXage_0], s0) < 1e-8
+    assert !missing(_b[_armXage_1], s1)
     assert reldif(_b[_armXage_1], s1) < 1e-8
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
 }
 if _rc == 0 {
@@ -74,6 +77,7 @@ capture noisily {
     confirm variable _grpXage_2
     confirm variable _grpXage_3
     quietly regress y `r(allvars)'
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
 }
 if _rc == 0 {
@@ -125,8 +129,11 @@ capture noisily {
     assert strpos(" `r(allvars)' ", " _age_c ") == 0
     * per-group slopes survive centering and equal the native quantities
     quietly regress y `r(allvars)'
+    assert !missing(_b[_armXage_0], s0)
     assert reldif(_b[_armXage_0], s0) < 1e-7
+    assert !missing(_b[_armXage_1], s1)
     assert reldif(_b[_armXage_1], s1) < 1e-7
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-9
 }
 if _rc == 0 {

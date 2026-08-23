@@ -295,6 +295,7 @@ capture {
         name(val8b, replace)
 
     // At minimum, should not error and have at least 4 rows
+    assert !missing(r(N))
     assert r(N) >= 4
 }
 

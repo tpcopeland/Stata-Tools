@@ -117,6 +117,8 @@ _dc `=_rc' "id() composite key (pid visit) is unique"
 * Person-level: unique pid
 clear
 set obs 40
+* Seed: 271828
+set seed 271828
 gen long pid = _n
 gen double x = runiform()
 capture {
@@ -353,24 +355,31 @@ capture {
     local cmdrc = _rc
     assert `cmdrc' == 0
     assert r(onlyflagged) == 1
+    assert !missing(r(n_flagged))
     assert r(n_flagged) >= 5
     assert strpos("`r(flagged_vars)'", "age") > 0
     assert strpos("`r(flagged_vars)'", "email") > 0
     assert strpos("`r(flagged_vars)'", "raregrp") > 0
     assert strpos("`r(flagged_vars)'", "constvar") > 0
+    assert !missing(r(n_missing_vars))
     assert r(n_missing_vars) >= 1
     assert strpos("`r(missing_vars)'", "age") > 0
+    assert !missing(r(n_outlier_vars))
     assert r(n_outlier_vars) >= 1
     assert strpos("`r(outlier_vars)'", "age") > 0
+    assert !missing(r(n_rare_vars))
     assert r(n_rare_vars) >= 1
     assert strpos("`r(rare_vars)'", "raregrp") > 0
+    assert !missing(r(n_constant))
     assert r(n_constant) >= 1
     assert strpos("`r(constant_vars)'", "constvar") > 0
+    assert !missing(r(n_highcard))
     assert r(n_highcard) >= 1
     assert strpos("`r(highcard_vars)'", "email") > 0
     capture quietly datacheck, show(flagged) rare(5) outliers(3)
     local cmdrc = _rc
     assert `cmdrc' == 0
+    assert !missing(r(n_flagged))
     assert r(n_flagged) >= 5
 }
 _dc `=_rc' "planned onlyflagged/show(flagged): flagged-only views run and return flagged vars"

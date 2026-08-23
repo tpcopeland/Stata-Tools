@@ -161,6 +161,14 @@ capture noisily {
     qba_confound, estimate(.25) evalue ci_bound(1.1)
     _assert_close `=r(evalue)' `=4 + sqrt(12)' 1e-12
     _assert_close `=r(evalue_ci)' 1 1e-12
+
+    * At the null point estimate, use the lower model limit nearest the null.
+    * The interval crosses 1, so its E-value is exactly 1.
+    _post_onecoef, cmd(logit) b(0) se(.2) coef(x)
+    qba_confound, from_model evalue
+    _assert_close `=r(observed)' 1 1e-12
+    _assert_close `=r(evalue)' 1 1e-12
+    _assert_close `=r(evalue_ci)' 1 1e-12
 }
 if _rc == 0 {
     display as result "  PASS: K4 E-value known formulas"

@@ -320,6 +320,7 @@ if `run_only' == 0 | `run_only' == 6 {
         scalar b_diff = _b[severity]
         iivw_fit y severity, vce(fixed) replace nolog
         scalar b_def = _b[severity]
+        assert !missing(b_diff, b_def)
         assert reldif(b_diff, b_def) < 1e-10
     }
     if _rc == 0 {
@@ -342,6 +343,7 @@ if `run_only' == 0 | `run_only' == 7 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         iivw_fit y severity, vce(fixed) model(mixed) experimentalmixed mixedopts(iterate(50)) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
     }
@@ -402,6 +404,7 @@ if `run_only' == 0 | `run_only' == 9 {
 
         * Keep only sites 1-3 via if (eliminates 7 of 10 clusters)
         iivw_fit y severity if site <= 3, vce(fixed) cluster(site) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert e(N_clust) <= 3
         assert "`e(iivw_cluster)'" == "site"
@@ -448,6 +451,7 @@ if `run_only' == 0 | `run_only' == 10 {
         confirm variable _iivw_weight
         quietly summarize _iivw_weight, meanonly
         assert r(N) == _N
+        assert !missing(r(min))
         assert r(min) > 0 & r(max) < .
         display as text "  Untruncated weights above 1e15: " `n_huge'
 
@@ -458,6 +462,7 @@ if `run_only' == 0 | `run_only' == 10 {
         assert r(N) == 0
         quietly summarize _iivw_weight, meanonly
         assert r(N) == _N
+        assert !missing(r(min))
         assert r(min) > 0 & r(max) < .
     }
     if _rc == 0 {
@@ -544,6 +549,7 @@ if `run_only' == 0 | `run_only' == 12 {
             treat(treated) treat_cov(sev_bl) nolog
         assert r(N) == `=`nids' * `nvis''
         assert r(n_ids) == `nids'
+        assert !missing(r(ess))
         assert r(ess) > 0
 
         iivw_fit y treated sev_bl, vce(fixed) timespec(quadratic) nolog

@@ -15,68 +15,38 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-**# Inline synthetic data and all documented workflows
+**# Current help-file examples, copied verbatim from asof.sthlp
 local ++test_count
 capture noisily {
-    tempfile events master
+    tempfile events
 
     clear
-    input long id double visit_date score edss eq5d_uk eq5d_se eq_vas
-    1 21990 4 2.0 .80 .78 75
-    1 22010 6 2.5 .76 .74 70
-    1 22480 8 3.0 .71 .69 65
-    2 22070 5 1.5 .85 .83 80
-    2 22130 7 2.0 .81 .79 76
-    2 22390 9 2.5 .77 .75 72
-    3 21950 3 1.0 .90 .88 88
-    3 22220 6 1.5 .86 .84 82
-    3 22610 8 2.0 .82 .80 78
+    input long id double visit_date score edss
+    1 90 4 2
+    1 110 6 2.5
+    1 140 8 3
+    2 190 5 1.5
+    2 230 9 2.5
     end
     format %td visit_date
     save `events'
 
     clear
     input long id double(index_date study_start followup_date)
-    1 22000 21500 22500
-    2 22100 21700 22400
-    3 22200 22000 22600
+    1 100 50 150
+    2 200 160 240
     end
     format %td index_date study_start followup_date
-    save `master'
 
-    * README/help example 1: closest value on either side.
-    use `master', clear
-    asof score using `events', id(id) date(visit_date) ///
-        anchor(index_date) direction(both) select(nearest) ///
-        generate(score_index) datename(score_date) gapname(score_gap) ///
-        matchname(score_found)
-    assert score_index[1] == 4 & score_index[2] == 5 & score_index[3] == 6
-    assert score_gap[1] == -10 & score_gap[2] == -30 & score_gap[3] == 20
+    asof score using `events', id(id) date(visit_date) anchor(index_date) direction(both) select(nearest) generate(score_index) datename(score_date) gapname(score_gap) matchname(score_found)
+    assert score_index[1] == 4 & score_index[2] == 5
+    assert score_date[1] == 90 & score_date[2] == 190
+    assert score_gap[1] == -10 & score_gap[2] == -10
     assert score_found == 1
 
-    * README example 2: protocol and observability windows.
-    use `master', clear
-    asof edss using `events', id(id) date(visit_date) ///
-        anchor(index_date) direction(onorbefore) select(nearest) ///
-        window(-365 0) range(study_start followup_date) ///
-        generate(edss_baseline)
-    assert edss_baseline[1] == 2
-    assert edss_baseline[2] == 1.5
-    assert missing(edss_baseline[3])
-
-    * README/help example 3: last available values.
-    use `master', clear
-    asof eq5d_uk eq5d_se eq_vas using `events', ///
-        id(id) date(visit_date) anchor(followup_date) ///
-        direction(onorbefore) select(last) ///
-        range(study_start followup_date) suffix(_last) ///
-        datename(eq5d_date_last)
-    assert abs(eq5d_uk_last[1] - .71) < 1e-6
-    assert abs(eq5d_se_last[2] - .75) < 1e-6
-    assert eq_vas_last[3] == 82
-    assert eq5d_date_last[1] == 22480
-    assert eq5d_date_last[2] == 22390
-    assert eq5d_date_last[3] == 22220
+    asof edss using `events', id(id) date(visit_date) anchor(followup_date) range(study_start followup_date) direction(onorbefore) select(last) suffix(_last)
+    assert edss_last[1] == 3 & edss_last[2] == 2.5
+    assert r(N_matched) == 2 & r(N_unmatched) == 0
 }
 if _rc == 0 local ++pass_count
 else local ++fail_count

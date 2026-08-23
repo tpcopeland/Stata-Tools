@@ -47,6 +47,7 @@ program define _v15_common_schema
         confirm variable `v'
     }
     quietly count
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if source_command == "`command'"
     assert r(N) == _N

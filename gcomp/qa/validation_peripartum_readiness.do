@@ -218,9 +218,14 @@ capture noisily {
             age parity education income ms_duration) ///
         sim(5000) samples(200) seed(20260425)
 
+    assert !missing(e(tce))
+
     assert e(tce) > 0
+    assert !missing(e(nde))
     assert e(nde) > 0
+    assert !missing(e(nie))
     assert e(nie) > 0
+    assert !missing(e(pm))
     assert e(pm) > 0
 }
 if _rc == 0 {
@@ -313,6 +318,7 @@ else {
 * P2.7: PM in plausible range for this DGP (truth ~ 0.30-0.40)
 local ++test_count
 capture noisily {
+    assert !missing(e(pm))
     assert e(pm) > 0.05 & e(pm) < 0.80
 }
 if _rc == 0 {
@@ -327,10 +333,14 @@ else {
 * P2.8: Bootstrap SEs all positive
 local ++test_count
 capture noisily {
+    assert !missing(e(se_tce))
     assert e(se_tce) > 0
+    assert !missing(e(se_nde))
     assert e(se_nde) > 0
+    assert !missing(e(se_nie))
     assert e(se_nie) > 0
-    assert e(se_pm)  > 0
+    assert !missing(e(se_pm))
+    assert e(se_pm) > 0
 }
 if _rc == 0 {
     display as result "  PASS: P2.8 All SEs positive"
@@ -412,6 +422,7 @@ capture noisily {
 
     assert "`e(scale)'" == "logRR"
     * logRR(TCE) should be positive (depression increases relapse risk)
+    assert !missing(e(tce))
     assert e(tce) > 0
     * Decomposition still holds on logRR scale
     local decomp = abs(e(tce) - (e(nde) + e(nie)))
@@ -447,6 +458,7 @@ capture noisily {
             age parity education income ms_duration) ///
         sim(3000) samples(100) seed(20260425)
 
+    assert !missing(`tce_logrr', e(tce))
     assert reldif(`tce_logrr', e(tce)) > 0.01
 }
 if _rc == 0 {
@@ -495,6 +507,7 @@ capture noisily {
     assert `decomp' < 0.001
     * CDE(M=1) should be positive but less than TCE
     * (with everyone on DMT, only the direct depression->relapse path remains)
+    assert !missing(e(cde))
     assert e(cde) > -0.10
     assert e(cde) < e(tce) + 0.05
 }
@@ -574,6 +587,7 @@ capture noisily {
         sim(10000) samples(50) seed(20260425) moreMC
 
     assert e(MC_sims) == 10000
+    assert !missing(e(tce))
     assert e(tce) > 0
     local decomp = abs(e(tce) - (e(nde) + e(nie)))
     assert `decomp' < 0.001
@@ -650,6 +664,7 @@ capture noisily {
     * NIE should be approximately 0 (no mediation pathway)
     assert abs(e(nie)) < 0.03
     * TCE should be positive (direct effect of A on Y)
+    assert !missing(e(tce))
     assert e(tce) > 0.02
     * NDE should be approximately equal to TCE
     assert abs(e(nde) - e(tce)) < 0.03
@@ -695,9 +710,11 @@ capture noisily {
     * NDE should be approximately 0 (no direct path)
     assert abs(e(nde)) < 0.03
     * NIE should be positive and approximately equal to TCE
+    assert !missing(e(nie))
     assert e(nie) > 0.02
     assert abs(e(nie) - e(tce)) < 0.03
     * PM should be close to 1.0
+    assert !missing(e(pm))
     assert e(pm) > 0.50
 }
 if _rc == 0 {
@@ -746,8 +763,10 @@ capture noisily {
     * that the disclosed effective count remains above the 90% inference gate.
     assert e(bootstrap_requested) == 200
     assert e(bootstrap_attempted) == 200
+    assert !missing(e(bootstrap_successful))
     assert e(bootstrap_successful) >= 180
     assert e(bootstrap_failed) == 200 - e(bootstrap_successful)
+    assert !missing(e(bootstrap_failed))
     assert e(bootstrap_failed) > 0
 }
 if _rc == 0 {
@@ -812,9 +831,13 @@ capture noisily {
             age parity education income ms_duration) ///
         sim(2000) samples(30) seed(12345)
 
+    assert !missing(`tce1', e(tce))
     assert reldif(`tce1', e(tce)) < 1e-10
+    assert !missing(`nde1', e(nde))
     assert reldif(`nde1', e(nde)) < 1e-10
+    assert !missing(`nie1', e(nie))
     assert reldif(`nie1', e(nie)) < 1e-10
+    assert !missing(`pm1',  e(pm))
     assert reldif(`pm1',  e(pm))  < 1e-10
 }
 if _rc == 0 {
@@ -864,12 +887,14 @@ capture noisily {
     assert r(nde) != .
     assert r(nie) != .
     assert r(pm) != .
+    assert !missing(r(N_effects))
     assert r(N_effects) >= 4
 
     * Verify Excel file exists and has correct structure
     import excel "`testdir'/_val_peripartum_mediation.xlsx", ///
         sheet("Table_Mediation") clear
     count
+    assert !missing(r(N))
     assert r(N) >= 6
 }
 if _rc == 0 {
@@ -914,13 +939,17 @@ capture noisily {
     assert "`e(cmd)'" == "gcomp"
     local decomp = abs(e(tce) - (e(nde) + e(nie)))
     assert `decomp' < 0.001
+    assert !missing(e(tce))
     assert e(tce) > 0
     * Both direct and indirect components are present and positive here (z enters
     * the mediator model, so the arm-1 mediator is drawn under the baseline
     * exposure world).  The full analytic cross-world oracle for this path lives in
     * audit/validation_postconfs_crossworld.do (GCOMP-C08).
+    assert !missing(e(nde))
     assert e(nde) > 0
+    assert !missing(e(nie))
     assert e(nie) > 0
+    assert !missing(e(pm))
     assert e(pm) > 0 & e(pm) < 1
 }
 if _rc == 0 {
@@ -948,6 +977,7 @@ capture noisily {
 
     * Verify depression prevalence is ~15%
     quietly summarize depression
+    assert !missing(r(mean))
     assert r(mean) > 0.08 & r(mean) < 0.25
 
     gcomp relapse dmt_resumed depression ///
@@ -967,9 +997,11 @@ capture noisily {
         sim(5000) samples(200) seed(20260425) moreMC
 
     assert e(N) == 1500
+    assert !missing(e(tce))
     assert e(tce) > 0
     local decomp = abs(e(tce) - (e(nde) + e(nie)))
     assert `decomp' < 0.001
+    assert !missing(e(se_tce))
     assert e(se_tce) > 0
     assert e(se_tce) < 0.15
 }
@@ -1011,6 +1043,8 @@ capture noisily {
         base_confs(prior_mh edss_cat relapse_2yr dmt_conception ///
             age parity education income ms_duration) ///
         sim(3000) samples(100) seed(20260425) minsim
+
+    assert !missing(e(tce))
 
     assert e(tce) > 0
     local decomp = abs(e(tce) - (e(nde) + e(nie)))
@@ -1187,6 +1221,7 @@ capture noisily {
 
     assert _N == `n_before'
     quietly summarize age
+    assert !missing(r(mean), `age_mean_before')
     assert reldif(r(mean), `age_mean_before') < 1e-10
 }
 if _rc == 0 {

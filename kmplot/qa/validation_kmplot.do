@@ -309,6 +309,7 @@ capture noisily {
         assert upper >= 0 & upper <= 1 if !missing(upper)
         assert lower <= upper if !missing(lower, upper)
         quietly count if !missing(lower, upper)
+        assert !missing(r(N))
         assert r(N) > 0
         restore
     }
@@ -337,6 +338,7 @@ capture noisily {
 
     * Check file is nonzero size
     quietly checksum "`tmpfile'"
+    assert !missing(r(filelen))
     assert r(filelen) > 0
 
     erase "`tmpfile'"
@@ -769,6 +771,7 @@ capture noisily {
     capture confirm file `"`badsvgfile'"'
     assert _rc != 0
     quietly checksum "`svgfile'"
+    assert !missing(r(filelen))
     assert r(filelen) > 0
 
     erase "`svgfile'"

@@ -21,7 +21,7 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 
 ## Conventions
 
-- `test_*` files cover functional, regression, state-preservation, and install behavior; `validation_*` files use hand-computable or source-tabulated known answers. There is no `crossval_*` suite because the command is a deterministic classification and weighting transform, and no `benchmark_*` suite is needed.
+- `test_*` files cover functional, regression, state-preservation, and install behavior; `validation_*` files use hand-computable or source-tabulated known answers; `crossval_comorbidity_r.do` compares the Quan ICD-10 indicator mappings and original/Quan/van Walraven scores with R's `comorbidity` package.
 - Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N [skip=N]` and exits nonzero on failure. The full lane accepts no dependency skips.
 - Suites sandbox `SITE`, `PLUS`, `PERSONAL`, and `OLDPLACE` under `c(tmpdir)` through `_comorbidity_qa_common.do`; the user's real ado tree is untouched and the process-local settings disappear when Stata exits.
 - Paths derive from `c(pwd)`; no suite contains a machine-local path.
@@ -35,6 +35,7 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 |---|---|---|
 | All command-level suites | Local `Stata-Tools/codescan` sibling checkout | Hard failure during sandbox bootstrap |
 | `test_comorbidity_install.do` | No visible `codescan` installation inside its dependency sandbox | The suite fails unless `comorbidity` exits cleanly with `r(199)` |
+| `crossval_comorbidity_r.do` | `Rscript`, R `comorbidity` 1.1.0, and `haven` | Hard failure; the central environment installs and records the exact R package version |
 
 ## File index
 
@@ -46,10 +47,12 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 | `test_regressions.do` | Failure atomicity, structural output collisions, patient-level bands, negative scores, and post-hierarchy summaries |
 | `test_documentation_examples.do` | Executable help and README workflows for Charlson, Elixhauser, merge, windows, and custom dictionaries |
 | `test_comorbidity_adversarial.do` | Invalid schemes, missing identifiers, malformed custom files, and `varabbrev` restoration |
+| `test_comorbidity_hostile.do` | Structural score-name collision, empty input, quoted custom path, repeated merge, and row/value preservation |
 | `test_comorbidity_install.do` | Fresh install behavior when the required `codescan` dependency is absent |
 | `test_dictionary.do` | Built-in dictionary shape and the guarded unimplemented AHRQ surface |
 | `test_weights.do` | Charlson original, Quan 2011, and van Walraven weight vectors |
 | `test_hierarchy.do` | Charlson and Elixhauser supersession rules |
+| `crossval_comorbidity_r.do` | R `comorbidity` 1.1.0 parity for Quan ICD-10 indicators and Charlson original, Charlson Quan, and Elixhauser van Walraven scores |
 
 ### Validation
 
@@ -70,7 +73,7 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 
 | Command | Functional and regression | Validation | Also exercised in |
 |---|---|---|---|
-| `comorbidity` | `test_comorbidity.do`, `test_regressions.do`, `test_comorbidity_adversarial.do` | `validation_comorbidity.do`, `validation_dictionary_quan2005.do` | `test_documentation_examples.do`, `test_comorbidity_install.do` |
+| `comorbidity` | `test_comorbidity.do`, `test_regressions.do`, `test_comorbidity_adversarial.do`, `test_comorbidity_hostile.do` | `validation_comorbidity.do`, `validation_dictionary_quan2005.do` | `test_documentation_examples.do`, `test_comorbidity_install.do` |
 
 Private dictionaries, weights, and hierarchy helpers are covered directly by their corresponding `test_dictionary.do`, `test_weights.do`, and `test_hierarchy.do` suites.
 
@@ -80,10 +83,10 @@ Private dictionaries, weights, and hierarchy helpers are covered directly by the
 
 | Lane | Suites |
 |---|---|
-| `quick` | `test_dictionary.do`, `test_weights.do`, `test_hierarchy.do`, `test_comorbidity.do` |
-| `core` | `quick` plus `test_regressions.do`, `test_documentation_examples.do`, both `validation_*` suites, and `test_comorbidity_adversarial.do` |
-| `full` | `core` plus `test_comorbidity_install.do` |
+| `quick` | `test_dictionary.do`, `test_weights.do`, `test_hierarchy.do`, `test_comorbidity.do`, and `test_comorbidity_errors.do` |
+| `core` | `quick` plus `test_regressions.do`, `test_documentation_examples.do`, both `validation_*` suites, `test_comorbidity_adversarial.do`, and `test_comorbidity_hostile.do` |
+| `full` | `core` plus `test_comorbidity_install.do` and `crossval_comorbidity_r.do` |
 
 ## Known gaps
 
-The Stata help render axis is checked outside these lanes with the devkit `artifact help` and package checks. The suite has no independent R or Python parity implementation; the correctness oracles are the fetched Quan ICD-10 definitions, published weight tables, and hand-computable scores.
+The Stata help render axis is checked outside these lanes with the devkit `artifact help` and package checks. The R cross-validation covers the Quan ICD-10 mapping plus the published original Charlson, Quan 2011, and van Walraven weight surfaces; it does not cover AHRQ schemes, which are intentionally unimplemented.

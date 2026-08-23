@@ -169,6 +169,7 @@ capture noisily {
     * baseline(event): the first visit is a modelled event and carries its own
     * FITTED weight, so first-visit weights differ across subjects.
     quietly summarize w_def if _f
+    assert !missing(r(sd))
     assert r(sd) > 1e-9
     * baseline(entry): the first visit is study entry, not a modelled event, and
     * carries exactly 1 -- assigned after the fitted component is normalized.
@@ -177,6 +178,7 @@ capture noisily {
     assert abs(r(mean) - 1) < 1e-12
     * follow-up visits differ because the fitted intensity model changed
     quietly count if !_f & abs(w_def - w_nbe) > 1e-8
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

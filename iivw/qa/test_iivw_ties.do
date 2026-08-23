@@ -220,6 +220,7 @@ if `run_only' == 0 | `run_only' == 1 {
         assert reldif(r(tie_multiplicity), ///
             r(n_modeled_events)/r(n_event_times)) < 1e-12
         * This fixture must actually be tied, or the test proves nothing.
+        assert !missing(r(tie_multiplicity))
         assert r(tie_multiplicity) > 2 & r(tie_multiplicity) < .
         display as text "  T1 events=" r(n_modeled_events) ///
             " times=" r(n_event_times) " mult=" r(tie_multiplicity)
@@ -341,6 +342,7 @@ if `run_only' == 0 | `run_only' == 4 {
 
         quietly iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) ///
             nolog efron replace
+        assert !missing(r(tie_multiplicity), `m_def')
         assert reldif(r(tie_multiplicity), `m_def') < 1e-12
         assert r(n_modeled_events) == `e_def'
         assert r(n_event_times) == `n_def'
@@ -396,6 +398,7 @@ if `run_only' == 0 | `run_only' == 5 {
             nolog efron replace
         _tie_gamma
         local g_e = r(g)
+        assert !missing(`g_b', `g_e')
         assert reldif(`g_b', `g_e') < 1e-10
 
         * (b) tied -- must diverge materially
@@ -409,6 +412,7 @@ if `run_only' == 0 | `run_only' == 5 {
             nolog efron replace
         _tie_gamma
         local h_e = r(g)
+        assert !missing(`h_b', `h_e')
         assert reldif(`h_b', `h_e') > 0.10
         * Breslow is the attenuated one: |gamma| must be SMALLER under Breslow.
         assert abs(`h_b') < abs(`h_e')
@@ -449,6 +453,7 @@ if `run_only' == 0 | `run_only' == 6 {
         quietly iivw_exogtest y, id(id) time(t) maxfu(10) by(arm) replace
         assert r(tie_multiplicity) < .
         assert r(n_modeled_events) < . & r(n_event_times) < .
+        assert !missing(r(tie_multiplicity))
         assert r(tie_multiplicity) > 2 & r(tie_multiplicity) < .
         assert r(n_event_times) < r(n_modeled_events)
         assert reldif(r(tie_multiplicity), ///

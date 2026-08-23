@@ -186,6 +186,7 @@ capture noisily {
 
     local k = colsof(`b_if')
     forvalues j = 1/`k' {
+        assert !missing(`b_if'[1,`j'], `b_keep'[1,`j'])
         assert reldif(`b_if'[1,`j'], `b_keep'[1,`j']) < 1e-10
     }
 }
@@ -480,6 +481,7 @@ capture noisily {
         base_confs(c) sim(100) samples(5) seed(999)
     local tce2 = e(tce)
 
+    assert !missing(`tce1', `tce2')
     assert reldif(`tce1', `tce2') < 1e-10
 }
 if _rc == 0 {
@@ -516,6 +518,7 @@ else {
 local ++test_count
 capture noisily {
     _gcomp_formatline, n("x c m y some_long_variable another") maxlen(20)
+    assert !missing(r(lines))
     assert r(lines) >= 1
 }
 if _rc == 0 {
@@ -808,10 +811,15 @@ local ++test_count
 capture noisily {
     mock_gcomp, tce(0.15) nde(0.10) nie(0.05) pm(0.33) cde(0.08)
     gcomptab, xlsx("`testdir'/_test_gcomptab_r.xlsx") sheet("R")
+    assert !missing(r(tce), 0.15)
     assert reldif(r(tce), 0.15) < 0.0001
+    assert !missing(r(nde), 0.10)
     assert reldif(r(nde), 0.10) < 0.0001
+    assert !missing(r(nie), 0.05)
     assert reldif(r(nie), 0.05) < 0.0001
+    assert !missing(r(pm), 0.33)
     assert reldif(r(pm), 0.33) < 0.0001
+    assert !missing(r(cde), 0.08)
     assert reldif(r(cde), 0.08) < 0.0001
     assert r(N_effects) == 5
 }
@@ -1817,7 +1825,9 @@ capture noisily {
     confirm scalar e(N)
     confirm scalar e(MC_sims)
     confirm scalar e(samples)
+    assert !missing(e(N))
     assert e(N) > 0
+    assert !missing(e(MC_sims))
     assert e(MC_sims) > 0
     assert e(samples) == 3
     confirm matrix e(b)

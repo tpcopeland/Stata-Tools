@@ -6,6 +6,9 @@ set more off
 set varabbrev off
 version 17.0
 
+* Fixed seed for the randomized weighted fixtures below.
+set seed 20260823
+
 capture log close _valt1tc
 log using "validation_table1_tc.log", replace text name(_valt1tc)
 

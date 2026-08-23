@@ -159,6 +159,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     assert "`e(cmd)'" == "finegray"
     assert e(converged) == 1
+    assert !missing(e(N))
     assert e(N) > 0 & e(N) < .
 }
 if _rc == 0 {
@@ -192,6 +193,7 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize, compete(status) cause(2) nolog
     assert e(cause) == 2
+    assert !missing(e(N_fail))
     assert e(N_fail) > 0 & e(N_fail) < .
 }
 if _rc == 0 {
@@ -619,14 +621,20 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert !missing(e(N))
     assert e(N) > 0 & e(N) < .
     assert e(rank) == 3
+    assert !missing(e(N_fail))
     assert e(N_fail) > 0 & e(N_fail) < .
+    assert !missing(e(N_compete))
     assert e(N_compete) > 0 & e(N_compete) < .
+    assert !missing(e(N_cens))
     assert e(N_cens) > 0 & e(N_cens) < .
     assert e(ll) < 0
     assert e(ll_0) < 0
+    assert !missing(e(chi2))
     assert e(chi2) > 0 & e(chi2) < .
+    assert !missing(e(p))
     assert e(p) >= 0 & e(p) <= 1
     assert e(df_m) == 3
     assert e(converged) == 1
@@ -907,6 +915,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_predict cif_hat, cif
     summ cif_hat, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop cif_hat
 }
@@ -927,6 +936,7 @@ capture noisily {
     gen double mytime = 5
     finegray_predict cif_at5, cif timevar(mytime)
     summ cif_at5, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop mytime cif_at5
 }
@@ -1193,6 +1203,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status9) cause(1) censvalue(9) nolog
     assert e(converged) == 1
     assert e(censvalue) == 9
+    assert !missing(e(N_cens))
     assert e(N_cens) > 0 & e(N_cens) < .
     * Coefficients should match the standard coding
     matrix b_recode = e(b)
@@ -1243,6 +1254,7 @@ capture noisily {
     quietly count if cif_in < .
     assert r(N) == 20
     summ cif_in, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop cif_in
 }
@@ -2008,6 +2020,7 @@ capture noisily {
     finegray i.pelnode##i.ifp_grp tumsize, compete(status) cause(1) nolog
     * Sparse interaction cell may cause quasi-separation → df_m <= 4
     assert e(df_m) <= 4
+    assert !missing(e(df_m))
     assert e(df_m) >= 2
     assert e(ll) < .
     drop ifp_grp
@@ -2029,6 +2042,7 @@ capture noisily {
     finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
     finegray_predict cif_int, cif
     summ cif_int, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop cif_int
     cap drop _fg_*
@@ -2294,6 +2308,7 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_predict cif_lt, cif
     summ cif_lt, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop cif_lt
 }
@@ -2397,6 +2412,7 @@ capture noisily {
     _setup_hypoxia
     capture noisily finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
     assert _rc == 0
+    assert !missing(e(N))
     assert e(N) > 0 & e(N) < .
     assert e(converged) == 0
 
@@ -2784,6 +2800,7 @@ capture noisily {
     local _rb_rn : rownames _ph_rb
     assert "`_rb_rn'" == "`_pres_rn'"
     forvalues j = 1/`=rowsof(_ph_pres)' {
+        assert !missing(_ph_pres[`j',1], _ph_rb[`j',1])
         assert reldif(_ph_pres[`j',1], _ph_rb[`j',1]) < 1e-10
     }
     matrix drop _ph_pres _ph_rb
@@ -2834,6 +2851,7 @@ capture noisily {
     local _rn1 : rownames _ph_b1
     assert "`_rn1'" == "`_rn0'"
     forvalues j = 1/`_nb' {
+        assert !missing(_ph_b0[`j',1], _ph_b1[`j',1])
         assert reldif(_ph_b0[`j',1], _ph_b1[`j',1]) < 1e-10
     }
 
@@ -2847,6 +2865,7 @@ capture noisily {
     local _rn2 : rownames _ph_b2
     assert "`_rn2'" == "`_rn0'"
     forvalues j = 1/`_nb' {
+        assert !missing(_ph_b0[`j',1], _ph_b2[`j',1])
         assert reldif(_ph_b0[`j',1], _ph_b2[`j',1]) < 1e-10
     }
 

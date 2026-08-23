@@ -122,11 +122,14 @@ capture noisily {
     scalar se_norm = _se[treated]
     quietly glm edss treated edss_bl days [pw=w_scaled], ///
         family(gaussian) vce(cluster id)
+    assert !missing(b_norm, _b[treated])
     assert reldif(b_norm, _b[treated]) < 1e-10
+    assert !missing(se_norm, _se[treated])
     assert reldif(se_norm, _se[treated]) < 1e-10
     * iivw_fit (timespec(linear) adds the panel time term, matching the manual
     * glm covariate set {treated, edss_bl, days}) reproduces the coefficient
     iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    assert !missing(_b[treated], b_norm)
     assert reldif(_b[treated], b_norm) < 1e-8
 }
 if _rc == 0 {

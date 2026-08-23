@@ -2,7 +2,7 @@
 
 **Version 1.0.1** | 2026-08-05
 
-`cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, an infinitesimal-jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
+`cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, a leave-one-out jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
 
 ## Quick Start
 
@@ -38,9 +38,9 @@ net install cstat_surv, from("https://raw.githubusercontent.com/tpcopeland/Stata
 
 ## How It Works
 
-`cstat_surv` uses the current `stcox` estimates to predict hazard ratios, compares all comparable pairs among valid observations in the estimation sample, and calculates the proportion of pairs in which higher predicted risk corresponds to earlier failure. It computes the standard error with an infinitesimal jackknife and forms a t-based confidence interval at the requested `level()`.
+`cstat_surv` uses the current `stcox` estimates to predict hazard ratios, compares all comparable pairs among valid observations in the estimation sample, and calculates the proportion of pairs in which higher predicted risk corresponds to earlier failure. It computes the standard error with a leave-one-out jackknife and forms a t-based confidence interval at the requested `level()`.
 
-A pair is comparable when the observation with the shorter survival time experienced the event. For tied survival times where both observations experienced events, unequal predicted risks contribute half a concordant and half a discordant pair, while equal predicted risks contribute a tied pair.
+A pair is comparable when the observation with the shorter survival time experienced the event. Two events at the same survival time are not comparable; an event and a censoring at that same time are comparable because the censored observation is known to have survived at least to the event time.
 
 The C-statistic ranges from 0 to 1. A value of 0.5 indicates no discrimination, values above 0.7 indicate acceptable discrimination, and values above 0.8 indicate excellent discrimination.
 
@@ -134,7 +134,7 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 | Result | Type | Description |
 |--------|------|-------------|
 | `e(c)` | Scalar | Harrell's C-statistic |
-| `e(se)` | Scalar | Infinitesimal-jackknife standard error |
+| `e(se)` | Scalar | Leave-one-out jackknife standard error |
 | `e(ci_lo)` | Scalar | Lower confidence limit |
 | `e(ci_hi)` | Scalar | Upper confidence limit |
 | `e(df_r)` | Scalar | Degrees of freedom |
@@ -157,6 +157,7 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 - The data must be declared with `stset` before the Cox model is fit, and the current estimation results must come from `stcox`.
 - The C-statistic uses unweighted pairs even when the original `stcox` model used weights; the command displays a note when weights are detected.
+- Two events at the same survival time are not comparable; an event and a censoring at that same time are comparable.
 - Delayed entry through `_t0` is not accounted for in pair comparisons.
 - Multi-record counting-process data are not supported; the command assumes one record per subject.
 - The algorithm compares all pairs of observations and has O(n²) complexity. For datasets with more than 10,000 observations, computation may take several seconds.

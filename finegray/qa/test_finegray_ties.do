@@ -131,6 +131,7 @@ capture noisily {
     display as text "  finegray = " %20.12f `b_finegray'
     display as text "  stcrreg  = " %20.12f `b_stcrreg'
     display as text "  reldif   = " %10.2e reldif(`b_finegray', `b_stcrreg')
+    assert !missing(`b_finegray', `b_stcrreg')
     assert reldif(`b_finegray', `b_stcrreg') < `tol_parity'
 }
 if _rc == 0 {
@@ -159,7 +160,9 @@ capture noisily {
 
     display as text "  x: finegray=" %14.10f _b[x] "  stcrreg=" %14.10f `b_x'
     display as text "  z: finegray=" %14.10f _b[z] "  stcrreg=" %14.10f `b_z'
+    assert !missing(_b[x], `b_x')
     assert reldif(_b[x], `b_x') < `tol_parity'
+    assert !missing(_b[z], `b_z')
     assert reldif(_b[z], `b_z') < `tol_parity'
 }
 if _rc == 0 {
@@ -179,6 +182,7 @@ local ++test_count
 capture noisily {
     _finegray_qa_entry_data, eps(0)
     quietly count if etype == 1 & t == 5
+    assert !missing(r(N))
     assert r(N) > 0              // there must BE cause events at the entry time
     quietly stset t, failure(etype) id(id) time0(t0)
     quietly finegray x, compete(etype) cause(1) norobust nolog
@@ -205,6 +209,7 @@ capture noisily {
     * 1e-12 is ~10 orders below the defect it guards (FG-C03 moved this
     * coefficient by 2.245e-03, i.e. 2.3e-02 relative) and ~4 orders above ulp
     * noise. Verified to go RED against v1.1.4.
+    assert !missing(`b_at5', `b_eps')
     assert reldif(`b_at5', `b_eps') < 1e-12
 }
 if _rc == 0 {
@@ -263,6 +268,7 @@ capture noisily {
     * (a) and it moved the estimate.  The floor is the parity tolerance this file
     * uses for two estimators that ARE supposed to agree (1e-7): anything at or
     * below that would mean the ZZF weight is inert on left-truncated data.
+    assert !missing(`b_fg', `b_stcrreg')
     assert reldif(`b_fg', `b_stcrreg') > `tol_parity'
 }
 if _rc == 0 {
@@ -295,6 +301,7 @@ capture noisily {
 
     forvalues k = 1/3 {
         display as text "  coef `k': reldif = " %10.2e reldif(b_fg[1,`k'], b_sc[1,`k'])
+        assert !missing(b_fg[1,`k'], b_sc[1,`k'])
         assert reldif(b_fg[1,`k'], b_sc[1,`k']) < `tol_parity'
     }
 }

@@ -140,6 +140,7 @@ capture noisily {
     _iivw_v343_panel
     quietly iivw_weight, id(id) time(t) censor(fu) visit_cov(z) ///
         baseline(entry) wtype(iivw) nolog
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if missing(_iivw_weight)
     assert r(N) == 0
@@ -229,6 +230,7 @@ capture noisily {
     display as text "  T4: max visit time `tmax', maxfu(`maxfu')"
     quietly iivw_weight, id(id) time(t) maxfu(`maxfu') visit_cov(z) ///
         baseline(entry) wtype(iivw) nolog
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

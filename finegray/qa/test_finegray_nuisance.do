@@ -166,6 +166,7 @@ capture noisily {
     assert `v_eta' < . & `v_psi' < .
     assert `v_psi' > `v_eta'
     _reldif `v_psi' `v_eta'
+    assert !missing(r(rd))
     assert r(rd) > 1e-3
 
     _mk_tied_strat
@@ -175,6 +176,7 @@ capture noisily {
     local w_psi = _se[Z]^2
     assert `w_eta' < . & `w_psi' < .
     _reldif `w_psi' `w_eta'
+    assert !missing(r(rd))
     assert r(rd) > 1e-6
 }
 if _rc == 0 {
@@ -468,6 +470,7 @@ capture noisily {
     quietly count if eps == 2
     assert r(N) == 0
     quietly count if eps == 1
+    assert !missing(r(N))
     assert r(N) > 50
     quietly stset X, failure(eps) id(_fgid)
 

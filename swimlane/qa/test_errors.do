@@ -456,6 +456,69 @@ else {
     local ++fail_count
 }
 
+**# Preservation and late output-routing contracts
+
+* An early incompatible option must not overwrite a pre-existing named graph.
+local ++test_count
+capture noisily {
+    _swimlane_make_wide
+    twoway scatter duration id, name(sw_errors_keep, replace)
+    local orig_N = _N
+    capture noisily swimlane, id(id) duration(duration) events(response) ///
+        state(arm) name(sw_errors_keep, replace) nodraw
+    local call_rc = _rc
+    assert `call_rc' == 198
+    assert _N == `orig_N'
+    graph describe sw_errors_keep
+    swimlane, id(id) duration(duration) events(response) ///
+        name(sw_errors_legal, replace) nodraw
+    assert r(N_subjects) == 4
+    graph drop sw_errors_keep
+    graph drop sw_errors_legal
+}
+if _rc == 0 {
+    display as result "  PASS: early error preserves graph and data"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: early error graph preservation (error `=_rc')"
+    capture graph drop sw_errors_keep
+    local ++fail_count
+}
+
+* A pre-existing canonical-output frame is a late routing error, never an
+* rc=0 replacement. The replace form is the legal inverse.
+local ++test_count
+capture noisily {
+    _swimlane_make_wide
+    local orig_N = _N
+    capture frame drop sw_errors_output
+    frame create sw_errors_output
+    frame sw_errors_output: clear
+    frame sw_errors_output: set obs 1
+    frame sw_errors_output: gen byte sentinel = 1
+    capture noisily swimlane, id(id) duration(duration) ///
+        frame(sw_errors_output) nograph
+    local call_rc = _rc
+    assert `call_rc' == 110
+    assert _N == `orig_N'
+    frame sw_errors_output: assert _N == 1
+    frame sw_errors_output: assert sentinel == 1
+    swimlane, id(id) duration(duration) ///
+        frame(sw_errors_output, replace) nograph
+    frame sw_errors_output: assert _N == 4
+    frame drop sw_errors_output
+}
+if _rc == 0 {
+    display as result "  PASS: existing frame is not silently replaced"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: output frame collision preservation (error `=_rc')"
+    capture frame drop sw_errors_output
+    local ++fail_count
+}
+
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 display "RESULT: test_errors tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _all

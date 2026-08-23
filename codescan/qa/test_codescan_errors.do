@@ -595,6 +595,50 @@ else {
 }
 
 
+**# codescan_describe error contracts
+
+* Invalid top() rejects immediately, preserves data, and top(1) is legal
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local before = price[1]
+    capture noisily codescan_describe make, top(0)
+    local call_rc = _rc
+    assert `call_rc' == 198
+    assert price[1] == `before'
+    codescan_describe make, top(1)
+    assert r(n_vars) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: codescan_describe top(0) errors and top(1) succeeds"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: codescan_describe top() contract (error `=_rc')"
+    local ++fail_count
+}
+
+* Numeric scan variables error unless tostring is explicitly requested
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local before = price[1]
+    capture noisily codescan_describe price
+    local call_rc = _rc
+    assert `call_rc' == 109
+    assert price[1] == `before'
+    codescan_describe price, tostring top(1)
+    assert r(n_vars) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: numeric describe errors unless tostring is explicit"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: codescan_describe numeric contract (error `=_rc')"
+    local ++fail_count
+}
+
 * ============================================================
 
 **# Settings hygiene

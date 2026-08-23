@@ -30,6 +30,7 @@ capture noisily {
     kmplot
     assert r(N) == 48
     assert r(n_groups) == 1
+    assert r(ci) == 0
     assert "`r(cmd)'" == "kmplot"
     assert "`r(scheme)'" == "`c(scheme)'"
 }
@@ -88,6 +89,7 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) ci name(t4, replace)
+    assert r(ci) == 1
 }
 if _rc == 0 {
     display as result "  PASS: T4 CI band (default cistyle)"
@@ -176,6 +178,7 @@ capture noisily {
     kmplot, by(drug) median name(t9, replace)
     * Drug 1 (Placebo): median should be around 8
     assert r(median_1) < .
+    assert !missing(r(median_1))
     assert r(median_1) > 0
 }
 if _rc == 0 {
@@ -281,6 +284,7 @@ capture noisily {
     stset studytime, failure(died)
     kmplot, by(drug) pvalue name(t15, replace)
     assert r(p) < 1
+    assert !missing(r(p))
     assert r(p) > 0
 }
 if _rc == 0 {
@@ -845,6 +849,7 @@ capture noisily {
     * Normal pvalue should still work after adding capture wrapper
     kmplot, by(drug) pvalue name(t44, replace)
     assert r(p) < 1
+    assert !missing(r(p))
     assert r(p) > 0
 }
 if _rc == 0 {
@@ -1831,6 +1836,7 @@ capture noisily {
     quietly count if !missing(upper)
     assert r(N) == 0
     quietly count if !missing(estimate)
+    assert !missing(r(N))
     assert r(N) > 0
     restore
 
@@ -1864,6 +1870,7 @@ capture noisily {
     quietly count if missing(time)
     assert r(N) == 0
     quietly count if !missing(lower)
+    assert !missing(r(N))
     assert r(N) > 0
     restore
     erase "`curvefile'"

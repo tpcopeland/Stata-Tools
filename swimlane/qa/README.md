@@ -36,7 +36,7 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 | `test_data_preservation.do` | Caller data, `varabbrev`, and `more` preservation on success and error paths. |
 | `test_density.do` | All-subject retention, schema/rank metadata, deterministic single- and multi-key ordering, density preset overrides, selective labels, independent block headers and color groups, bar/line canonical equality, physical lane sizing, marker/continuation policies, and persistent render metadata. |
 | `test_documentation_examples.do` | Installed-user README and help workflows, including long and wide inputs, frames, interval layers, exports, dense layouts, pagination, and documented sorting recipes. |
-| `test_errors.do` | Invalid input shapes, option combinations, display labels, external events, interval layers, bounds, paths, and empty samples. |
+| `test_errors.do` | Invalid input shapes, option combinations, display labels, external events, interval layers, bounds, paths, empty samples, and graph/frame preservation on early and late output errors. |
 | `test_export.do` | Canonical CSV, Markdown, DTA, and frame output plus return survival after side-effect failure. |
 | `test_features.do` | Long and external events, date formats including absolute wide events and readable calendar axes, compact facets, display labels, palettes, custom overlays, state ordering, censoring, bar labels, and command reconstruction. |
 | `test_options.do` | Styling, graph save/export, grouping, and `nostset` behavior. |

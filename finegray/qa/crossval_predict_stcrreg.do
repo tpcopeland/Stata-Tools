@@ -514,6 +514,7 @@ capture noisily {
     gen double dC_bad = cifC_fg - cifC_wrong
     _mad dC_bad
     display as text "    issue#1 CIF vs F0^exp(xb) (wrong) max|diff| = " %12.3e r(mad)
+    assert !missing(r(mad))
     assert r(mad) > 0.05 & r(mad) < .
 }
 if _rc == 0 {

@@ -65,6 +65,7 @@ local suites ///
     test_rangematch_missing_option_extra.do ///
     test_rangematch_abbrev.do ///
     test_rangematch_adversarial.do ///
+    test_rangematch_hostile.do ///
     test_rangematch_return_contract.do ///
     test_rangematch_stats_semantics.do ///
     test_rangematch_display_contract.do ///
@@ -82,6 +83,7 @@ local suites ///
     test_rangematch_internal_names.do ///
     test_rangematch_output_names.do ///
     test_rangematch_option_grammar.do ///
+    test_rangematch_errors.do ///
     test_rangematch_missing_key_labels.do ///
     test_rangematch_edge_topup.do ///
     test_rangematch_saving_matrix.do ///

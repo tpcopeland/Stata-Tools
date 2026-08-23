@@ -682,6 +682,7 @@ capture noisily {
     200 .
     end
     codescan_describe code1 code2, tostring nodots
+    assert !missing(r(n_unique))
     assert r(n_unique) > 0
     assert r(n_vars) == 2
 }

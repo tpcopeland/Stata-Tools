@@ -456,6 +456,7 @@ capture noisily {
     assert r(sum) == `tot_slots'
     * some row must have >1 slot hit for the test to bite
     quietly count if o_dm2_slots >= 2
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

@@ -5,6 +5,9 @@
 clear all
 version 16.0
 
+* Fixed seed for randomized distribution fixtures below.
+set seed 20260823
+
 * === Bootstrap ===
 capture do "_qba_qa_common.do"
 if _rc {

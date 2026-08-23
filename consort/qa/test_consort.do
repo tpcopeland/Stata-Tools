@@ -119,7 +119,7 @@ tempfile mpl_ok
 foreach _py in python python3 {
     if `python_available' == 0 {
         capture erase "`mpl_ok'"
-        shell ( `_py' -c "import matplotlib" ) > /dev/null 2>&1 && touch "`mpl_ok'"
+        shell `_py' -c "import matplotlib" > /dev/null 2>&1 && touch "`mpl_ok'"
         capture confirm file "`mpl_ok'"
         if _rc == 0 {
             local python_available = 1

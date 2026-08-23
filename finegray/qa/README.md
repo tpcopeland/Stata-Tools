@@ -69,6 +69,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `test_finegray_determinism.do` | Bit-identical repeat calls and post-estimation call-order independence. |
 | `test_finegray_reporting.do` | Factor-aware profiles and complete analytic/bootstrap CIF reporting. |
 | `test_finegray_contracts.do` | Weight-stratum mapping, factor scoring, singleton strata, and fail-closed inversion. |
+| `test_finegray_hostile.do` | No-event and foreign-postestimation refusal with input preservation. |
 | `test_finegray_estimates_use.do` | Saved-estimate reloads for datasets saved before and after the fit, empty `e(sample)` diagnosis, `estimates esample:` recovery, and signature enforcement. |
 | `test_finegray_sthlp_render.do` | Self-contained SMCL render and literal-markup checks for shipped help. |
 | `test_documentation_examples.do` | Installed-user execution of README/help workflows and advertised baseline options. |
@@ -93,6 +94,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 |---|---|
 | `crossval_predict_stcrreg.do` | Row-level parity with Stata's native `stcrreg` prediction paths. |
 | `crossval_finegray.do` | Coefficient, SE, likelihood, CIF, strata, and benchmark parity with `stcrreg` and `cmprsk::crr`. |
+| `crossval_finegray_dta.do` | Seeded tied-event double-precision `.dta` exchange; coefficient and full nuisance-sandwich SE parity with `cmprsk::crr`. |
 | `crossval_cif.do` | CIF parity with `riskRegression` and bootstrap uncertainty checks. |
 | `crossval_predict_phtest.do` | Prediction and diagnostic parity with an R implementation. |
 | `crossval_finegray_zzf.do` | Dataset-level parity with a regenerated direct-equation ZZF Weight 1 oracle. |

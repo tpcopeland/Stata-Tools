@@ -872,6 +872,7 @@ capture noisily {
     * Only patients 1-3 should appear
     quietly count
     assert r(N) <= 3
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

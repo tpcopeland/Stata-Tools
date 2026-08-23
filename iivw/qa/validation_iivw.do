@@ -89,9 +89,12 @@ if `run_only' == 0 | `run_only' == 1 {
             visit_cov(severity) replace nolog
         bysort id (months): gen byte `_v1first' = (_n == 1)
         quietly summarize severity if `_v1first'
+        assert !missing(r(sd))
         assert r(sd) > 0
         quietly summarize _iivw_iw if `_v1first'
+        assert !missing(r(sd))
         assert r(sd) > 1e-9
+        assert !missing(r(N))
         assert r(N) > 0
     }
     if _rc == 0 {
@@ -767,6 +770,7 @@ if `run_only' == 0 | `run_only' == 18 {
         quietly count if `_v18first' & missing(_iivw_iw)
         assert r(N) == 0
         quietly summarize _iivw_iw if `_v18first'
+        assert !missing(r(min))
         assert r(min) > 0
     }
     if _rc == 0 {
@@ -939,6 +943,7 @@ if `run_only' == 0 | `run_only' == 22 {
         local b_bootstrap = _b[severity]
 
         * Point estimates should be identical (same data, same model)
+        assert !missing(`b_direct', `b_bootstrap')
         assert reldif(`b_direct', `b_bootstrap') < 1e-6
     }
     if _rc == 0 {

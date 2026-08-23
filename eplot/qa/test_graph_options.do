@@ -78,6 +78,7 @@ capture noisily {
         legendopts(rows(2) pos(3) size(vsmall)) ///
         title("Estimates Title") scheme(s2mono) ///
         graphregion(color(white)) name(_graphopts_est, replace)
+    assert !missing(r(N))
     assert r(N) > 0
     assert r(n_models) == 2
     local cmd `"`r(cmd)'"'

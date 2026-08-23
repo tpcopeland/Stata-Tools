@@ -157,6 +157,7 @@ capture noisily {
 
     quietly finegray_predict _eu_cif, cif
     quietly summarize _eu_cif, meanonly
+    assert !missing(r(mean), `ref_predmean')
     assert reldif(r(mean), `ref_predmean') < 1e-10
 
     quietly finegray_predict _eu_xb, xb
@@ -285,9 +286,13 @@ capture noisily {
     quietly finegray_cif, attime(2 5) nograph
     tempname GOT_CIF
     matrix `GOT_CIF' = r(table)
+    assert !missing(`GOT_CIF'[1, 2], `ref_cif2')
     assert reldif(`GOT_CIF'[1, 2], `ref_cif2') < 1e-12
+    assert !missing(`GOT_CIF'[1, 3], `ref_se2')
     assert reldif(`GOT_CIF'[1, 3], `ref_se2')  < 1e-12
+    assert !missing(`GOT_CIF'[2, 2], `ref_cif5')
     assert reldif(`GOT_CIF'[2, 2], `ref_cif5') < 1e-12
+    assert !missing(`GOT_CIF'[2, 3], `ref_se5')
     assert reldif(`GOT_CIF'[2, 3], `ref_se5')  < 1e-12
 
     quietly finegray_phtest
@@ -295,6 +300,7 @@ capture noisily {
     matrix `GOT_PH' = r(phtest)
     assert rowsof(`GOT_PH') == `ref_np'
     forvalues k = 1/`ref_np' {
+        assert !missing(`GOT_PH'[`k', 1], `ref_ph`k'')
         assert reldif(`GOT_PH'[`k', 1], `ref_ph`k'') < 1e-12
     }
 
@@ -308,6 +314,7 @@ capture noisily {
     * would be testing Stata's macro formatter.
     assert colsof(e(b)) == `ref_nb'
     forvalues k = 1/`ref_nb' {
+        assert !missing(e(b)[1, `k'], `ref_b`k'')
         assert reldif(e(b)[1, `k'], `ref_b`k'') < 1e-15
     }
 }
@@ -336,6 +343,7 @@ capture noisily {
     quietly estimates esample: `e(datasignaturevars)' if !missing(_t) & mod(id, 2) == 0
 
     quietly count if e(sample)
+    assert !missing(r(N))
     assert r(N) > 0
 
     tempfile eucap3
@@ -446,9 +454,13 @@ capture noisily {
     quietly finegray_cif, attime(2 5) nograph
     tempname A_CIF
     matrix `A_CIF' = r(table)
+    assert !missing(`A_CIF'[1, 2], `ref_cif2')
     assert reldif(`A_CIF'[1, 2], `ref_cif2') < 1e-12
+    assert !missing(`A_CIF'[1, 3], `ref_se2')
     assert reldif(`A_CIF'[1, 3], `ref_se2')  < 1e-12
+    assert !missing(`A_CIF'[2, 2], `ref_cif5')
     assert reldif(`A_CIF'[2, 2], `ref_cif5') < 1e-12
+    assert !missing(`A_CIF'[2, 3], `ref_se5')
     assert reldif(`A_CIF'[2, 3], `ref_se5')  < 1e-12
 
     quietly finegray_phtest
@@ -456,6 +468,7 @@ capture noisily {
     matrix `A_PH' = r(phtest)
     assert rowsof(`A_PH') == `ref_np'
     forvalues k = 1/`ref_np' {
+        assert !missing(`A_PH'[`k', 1], `ref_ph`k'')
         assert reldif(`A_PH'[`k', 1], `ref_ph`k'') < 1e-12
     }
 }

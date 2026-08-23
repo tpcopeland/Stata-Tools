@@ -254,7 +254,7 @@ if "`mode'" == "full" {
         capture erase "`qa_dir'/`rsrc'.ok"
     }
 
-    local suites `suites' crossval_iivw crossval_iivw_external
+    local suites `suites' crossval_iivw crossval_iivw_external crossval_iivw_dta
 }
 
 * -----------------------------------------------------------------------------

@@ -26,6 +26,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, quietly
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -42,6 +43,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, quietly
+    assert !missing(r(bytes_final))
     assert r(bytes_final) > 0
 }
 if _rc == 0 {
@@ -74,6 +76,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, quietly
+    assert !missing(r(bytes_saved))
     assert r(bytes_saved) >= 0
 }
 if _rc == 0 {
@@ -90,6 +93,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, quietly
+    assert !missing(r(pct_saved))
     assert r(pct_saved) >= 0
     assert r(pct_saved) <= 100
 }
@@ -379,7 +383,9 @@ capture noisily {
     quietly memory
     local pre_mem = `r(data_data_u)' + `r(data_strl_u)'
     compress_tc, quietly
+    assert !missing(r(bytes_saved))
     assert r(bytes_saved) > 0
+    assert !missing(r(pct_saved))
     assert r(pct_saved) > 0
 }
 if _rc == 0 {
@@ -399,6 +405,7 @@ capture noisily {
     gen str20 unique = "val_" + string(_n, "%04.0f")
     compress_tc, quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -415,13 +422,18 @@ local ++test_count
 capture noisily {
     clear
     set obs 500
+    * Seed: 271828
+    set seed 271828
     gen str100 text = "Category " + string(mod(_n, 5))
     gen double value = runiform() * 1000
     gen long id = _n
     gen str5 code = "A" + string(mod(_n, 10))
     compress_tc, quietly
+    assert !missing(r(bytes_saved))
     assert r(bytes_saved) >= 0
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
+    assert !missing(r(bytes_final))
     assert r(bytes_final) > 0
 }
 if _rc == 0 {
@@ -463,6 +475,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, quietly
+    assert !missing(r(bytes_saved))
     assert r(bytes_saved) >= 0
     * Check it looks like an integer (no fractional bytes)
     assert r(bytes_saved) == round(r(bytes_saved))
@@ -713,6 +726,7 @@ capture noisily {
     * bytes_saved can be negative here (strL adds overhead for short unique strings)
     * Just verify it runs and returns something
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -732,7 +746,9 @@ capture noisily {
     gen str50 s = "test"
     gen double x = runiform()
     compress_tc, quietly
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
+    assert !missing(r(bytes_final))
     assert r(bytes_final) > 0
 }
 if _rc == 0 {
@@ -989,6 +1005,7 @@ capture noisily {
     gen str200 b = "longrepeat " + string(mod(_n,3))
     compress_tc, quietly
     assert r(k_reverted) <= r(k_converted)
+    assert !missing(r(k_reverted))
     assert r(k_reverted) >= 0
 }
 if _rc == 0 {
@@ -1016,6 +1033,7 @@ capture noisily {
         local t : type `v'
         assert "`t'" == "strL"
     }
+    assert !missing(r(bytes_strl))
     assert r(bytes_strl) > 0
 }
 if _rc == 0 {
@@ -1040,6 +1058,7 @@ capture noisily {
     local dry = r(bytes_saved)
     use `orig', clear
     compress_tc, quietly
+    assert !missing(r(bytes_saved), `dry')
     assert reldif(r(bytes_saved), `dry') < 0.01
 }
 if _rc == 0 {

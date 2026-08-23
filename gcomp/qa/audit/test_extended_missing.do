@@ -34,9 +34,9 @@ tempname bs
 matrix `bs' = e(b)
 assert colsof(`be') == colsof(`bs')
 forvalues j = 1/`=colsof(`be')' {
+    assert !missing(`be'[1,`j'], `bs'[1,`j'])
     assert reldif(`be'[1,`j'], `bs'[1,`j']) < 1e-13
 }
 display "RESULT: gcomp_extended_missing_probe status=PASS"
 
 display "RESULT: test_extended_missing tests=1 pass=1 fail=0 status=PASS"
-

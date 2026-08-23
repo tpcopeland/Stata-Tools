@@ -230,6 +230,7 @@ capture noisily {
 
     local changed = 0
     forvalues j = 1/`=colsof(`b1')' {
+        assert !missing(`b1'[1,`j'], `b2'[1,`j'])
         assert reldif(`b1'[1,`j'], `b2'[1,`j']) < 1e-10
         if reldif(`b1'[1,`j'], `b3'[1,`j']) > 1e-8 {
             local changed = 1
@@ -270,6 +271,7 @@ capture noisily {
     tempname now_b
     matrix `now_b' = e(b)
     forvalues j = 1/`=colsof(`old_b')' {
+        assert !missing(`old_b'[1,`j'], `now_b'[1,`j'])
         assert reldif(`old_b'[1,`j'], `now_b'[1,`j']) < 1e-10
     }
 }
@@ -522,6 +524,7 @@ capture noisily {
 
     local offdiag_nonzero = 0
     forvalues i = 1/`k' {
+        assert !missing(sqrt(`V'[`i', `i']), `se'[1, `i'])
         assert reldif(sqrt(`V'[`i', `i']), `se'[1, `i']) < 1e-10
         if `i' < `k' {
             forvalues j = `=`i' + 1'/`k' {
@@ -558,6 +561,7 @@ capture noisily {
 
     local offdiag_nonzero = 0
     forvalues i = 1/`k' {
+        assert !missing(sqrt(`V'[`i', `i']), `se'[1, `i'])
         assert reldif(sqrt(`V'[`i', `i']), `se'[1, `i']) < 1e-10
         if `i' < `k' {
             forvalues j = `=`i' + 1'/`k' {

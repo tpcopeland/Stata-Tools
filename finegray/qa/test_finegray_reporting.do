@@ -242,9 +242,11 @@ capture noisily {
     quietly finegray x1 x2, compete(ev) cause(1) nolog
     quietly finegray_predict pc, cif ci bootstrap(25) seed(31337)
     quietly count if !missing(pc)
+    assert !missing(r(N))
     assert r(N) > 100
     * lower/upper limits are created as pc_lb/pc_ub-style companions; find them
     quietly summarize pc, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     display as text "  predict cif bootstrap: n=" r(N) " range [" %6.4f r(min) ", " %6.4f r(max) "]"
 }

@@ -33,11 +33,11 @@ if !inlist("`mode'", "quick", "full") {
 * executions both isolate before any ado uninstall or net install command.
 
 * Fast functional lane: core conversion behavior plus the diagnose option.
-local quick_suites test_datefix test_diagnose test_datefix_v112
+local quick_suites test_datefix test_diagnose test_datefix_v112 test_datefix_errors
 
 * Default release gate: quick lane plus expanded functional coverage and
 * known-answer validation.
-local full_suites `quick_suites' test_datefix_expanded validation_datefix test_package_release
+local full_suites `quick_suites' test_datefix_expanded validation_datefix test_datefix_documentation_examples test_package_release
 
 local suite_list ``mode'_suites'
 

@@ -208,6 +208,7 @@ capture noisily {
     scalar se_pred = segp*(1 - cifp)*(-ln(1 - cifp))
     drop tt pc pc_lci pc_uci
     display as text "  finegray_cif SE=" %9.6f se_cif "  finegray_predict SE=" %9.6f se_pred
+    assert !missing(se_cif, se_pred)
     assert reldif(se_cif, se_pred) < 1e-4
 }
 if _rc == 0 {

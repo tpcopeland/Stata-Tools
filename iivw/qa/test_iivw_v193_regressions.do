@@ -102,10 +102,13 @@ capture noisily {
     local buggy_se = _se[_cons]
 
     * fixed command must reproduce the idcluster recipe byte-for-byte
+    assert !missing(`iivw_se', `correct_se')
     assert reldif(`iivw_se', `correct_se') < 1e-8
     * and the two recipes must genuinely differ (else the test proves nothing)
+    assert !missing(`correct_se', `buggy_se')
     assert reldif(`correct_se', `buggy_se') > 0.005
     * so the command must NOT match the buggy recipe
+    assert !missing(`iivw_se', `buggy_se')
     assert reldif(`iivw_se', `buggy_se') > 0.005
 }
 if _rc == 0 {
@@ -134,6 +137,7 @@ capture noisily {
     quietly bootstrap, reps(20) cluster(id) level(95) nodots: ///
         _iivw_bs_estimate y sev if `touse', weightvar(_iivw_weight) ///
         model(gee) family(gaussian) geeopts()
+    assert !missing(`iivw_gee_se', _se[sev])
     assert reldif(`iivw_gee_se', _se[sev]) < 1e-8
 }
 if _rc == 0 {
@@ -170,9 +174,12 @@ capture noisily {
     local se_naive = _se[sev]
 
     * the command now reports the cluster-robust SE ...
+    assert !missing(`se_cmd', `se_cluster')
     assert reldif(`se_cmd', `se_cluster') < 1e-6
     * ... which is materially different from the pre-fix naive SE
+    assert !missing(`se_cluster', `se_naive')
     assert reldif(`se_cluster', `se_naive') > 0.005
+    assert !missing(`se_cmd', `se_naive')
     assert reldif(`se_cmd', `se_naive') > 0.005
 }
 if _rc == 0 {

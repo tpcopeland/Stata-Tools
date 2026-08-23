@@ -78,6 +78,8 @@ save "`tmp_dir'/v2_longname.dta", replace
 * Dataset: no labels at all
 clear
 set obs 30
+* Seed: 271828
+set seed 271828
 gen double x = _n
 gen double y = runiform()
 gen str5 z = "a"

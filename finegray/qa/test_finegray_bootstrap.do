@@ -82,6 +82,7 @@ capture noisily {
     quietly finegray ifp tumsize in 1/100, compete(status) cause(1) nolog
     finegray_predict cb, cif ci bootstrap(25) seed(7)
     quietly summarize cb_lci if !missing(cb_lci)
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if !missing(cb) & !missing(cb_lci) & cb_lci >= cb
     assert r(N) == 0
@@ -112,6 +113,7 @@ capture noisily {
     quietly finegray ifp tumsize if tumsize < 8, compete(status) cause(1) nolog
     assert e(N) == `n_est'
     quietly count
+    assert !missing(r(N))
     assert r(N) > `n_est'
 }
 if _rc == 0 {
@@ -184,6 +186,7 @@ capture noisily {
     * whatever we passed.  The gap must be far larger than the 1e-12 tolerance.
     finegray_cif, attime(5) ci bootstrap(25) seed(1234) nograph
     matrix T3 = r(table)
+    assert !missing(T1[1,3], T3[1,3])
     assert !missing(T1[1,3], T3[1,3])
     assert reldif(T1[1,3], T3[1,3]) > 1e-6
 }
@@ -361,7 +364,9 @@ capture noisily {
         at(ifp=`a_ifp' tumsize=`a_tum') nograph
     matrix _ct = r(table)
     assert !missing(`C'[1,1], `C'[2,1], _ct[1,2], _ct[2,2])
+    assert !missing(`C'[1,1], _ct[1,2])
     assert reldif(`C'[1,1], _ct[1,2]) < 1e-12
+    assert !missing(`C'[2,1], _ct[2,2])
     assert reldif(`C'[2,1], _ct[2,2]) < 1e-12
 
     * The observation helper uses the same cache and binary-search step lookup.

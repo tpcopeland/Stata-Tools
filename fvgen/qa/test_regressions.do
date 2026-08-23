@@ -157,6 +157,7 @@ capture noisily {
     local command_rc = _rc
     assert `command_rc' == 498
     assert "`e(cmd)'" == "`before_cmd'"
+    assert !missing(e(r2), `before_r2')
     assert reldif(e(r2), `before_r2') < 1e-14
 }
 if _rc == 0 {
@@ -184,6 +185,7 @@ capture noisily {
     local command_rc = _rc
     assert `command_rc' == 498
     assert "`e(cmd)'" == "`before_cmd'"
+    assert !missing(e(r2), `before_r2')
     assert reldif(e(r2), `before_r2') < 1e-14
 }
 if _rc == 0 {

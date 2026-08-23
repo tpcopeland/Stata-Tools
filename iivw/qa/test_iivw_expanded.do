@@ -156,8 +156,10 @@ if `run_only' == 0 | `run_only' == 2 {
         scalar se2 = _se[severity]
 
         * Bit-level agreement on point estimates
+        assert !missing(b1[1,1], b2[1,1])
         assert reldif(b1[1,1], b2[1,1]) < 1e-10
         * Bootstrap SEs also identical
+        assert !missing(se1, se2)
         assert reldif(se1, se2) < 1e-10
     }
     if _rc == 0 {
@@ -713,7 +715,9 @@ if `run_only' == 0 | `run_only' == 21 {
         scalar se_zero = _se[severity]
 
         * bootstrap(0) must behave identically to no bootstrap
+        assert !missing(b_none, b_zero)
         assert reldif(b_none, b_zero) < 1e-10
+        assert !missing(se_none, se_zero)
         assert reldif(se_none, se_zero) < 1e-10
     }
     if _rc == 0 {
@@ -767,6 +771,7 @@ if `run_only' == 0 | `run_only' == 23 {
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             truncfinal(0.01 99.99) nolog
+        assert !missing(r(n_truncated))
         assert r(n_truncated) >= 0 & r(n_truncated) < .
     }
     if _rc == 0 {
@@ -890,6 +895,8 @@ if `run_only' == 0 | `run_only' == 27 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, vce(fixed) model(mixed) experimentalmixed timespec(linear) ///
             cluster(site) nolog
+
+        assert !missing(e(N))
 
         assert e(N) > 0
         assert "`e(iivw_cluster)'" == "site"

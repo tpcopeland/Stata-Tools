@@ -145,6 +145,7 @@ capture noisily {
     * a reader reconstructing the analysis from a saved estimation result must be
     * able to see that the SE came from fewer draws than were requested.
     assert e(iivw_bs_reps_requested) == 40
+    assert !missing(e(iivw_bs_reps_failed))
     assert e(iivw_bs_reps_failed) > 0
     assert e(iivw_bs_reps_failed) < .
     assert e(iivw_bs_reps_completed) + e(iivw_bs_reps_failed) == 40
@@ -257,10 +258,12 @@ capture noisily {
     * The POINT estimate is the same object either way -- the bootstrap only
     * supplies the variance -- so a difference there would mean something is
     * badly wrong.
+    assert !missing(`b_fixed', `b_refit')
     assert reldif(`b_fixed', `b_refit') < 1e-10
 
     * The SEs must differ: if they did not, refitweights would be doing nothing
     * and the option would be a decoration on the same incomplete variance.
+    assert !missing(`se_fixed', `se_refit')
     assert reldif(`se_fixed', `se_refit') > 1e-6
 }
 if _rc == 0 {
@@ -298,11 +301,13 @@ capture noisily {
 
     * Same seed, same answer -- to the bit. A bootstrap that is not reproducible
     * cannot be checked by anyone, including its author.
+    assert !missing(`se_a', `se_b')
     assert reldif(`se_a', `se_b') < 1e-12
 
     * Different seed, different answer. If this were also identical, the seed
     * would not be reaching the resampler and every "reproducibility" check above
     * would be passing vacuously.
+    assert !missing(`se_a', `se_c')
     assert reldif(`se_a', `se_c') > 1e-9
 }
 if _rc == 0 {
@@ -489,7 +494,9 @@ capture noisily {
         vce(bootstrap, reps(25) seed(99)) nolog replace
     local se_c = _se[treat]
 
+    assert !missing(`se_a', `se_b')
     assert reldif(`se_a', `se_b') < 1e-12
+    assert !missing(`se_a', `se_c')
     assert reldif(`se_a', `se_c') > 1e-9
 }
 if _rc == 0 {
@@ -656,6 +663,7 @@ capture noisily {
     set rngstate `state0'
     quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(30)) nolog replace
     local se1 = _se[treat]
+    assert !missing(`se0', `se1')
     assert reldif(`se0', `se1') < 1e-12
 }
 if _rc == 0 {
@@ -889,6 +897,7 @@ capture noisily {
     quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
         prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
         censor(fu_end) family(gaussian) nolog
+    assert !missing(_b[a], `b_observed')
     assert reldif(_b[a], `b_observed') < 1e-10
 
     * And e(sample) from that helper must be the PANEL, because that is what
@@ -923,6 +932,7 @@ capture noisily {
         quietly _iivw_bs_refit y a xout time, newid(id) timevar(time) ///
             wtype(iivw) prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
             censor(fu_end) family(gaussian) nolog
+        assert !missing(_b[a], `b_observed')
         assert reldif(_b[a], `b_observed') < 1e-10
 
         quietly count if e(sample)
@@ -967,6 +977,7 @@ capture noisily {
     quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
         prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
         outcometouse(`ocmark') censor(fu_end) family(gaussian) nolog
+    assert !missing(_b[a], `b_target')
     assert reldif(_b[a], `b_target') < 1e-10
 
     * DISCRIMINATION: had the restriction been applied to the PANEL instead of
@@ -981,6 +992,7 @@ capture noisily {
         censor(fu_end) family(gaussian) nolog
     local b_wrongframe = _b[a]
     restore
+    assert !missing(`b_wrongframe', `b_target')
     assert reldif(`b_wrongframe', `b_target') > 1e-8
 
     * And the reported N stays the outcome row count: the panel frame is an

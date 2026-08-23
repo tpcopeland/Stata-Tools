@@ -134,12 +134,16 @@ _oracle_ind dx1 dx2 dx3, name(_chk_htn) pattern(I10)
 _oracle_ind dx1 dx2 dx3, name(_chk_copd) pattern(J44)
 _oracle_ind dx1 dx2 dx3, name(_chk_obe) pattern(E66)
 quietly count if _chk_dm2
+assert !missing(r(N))
 assert r(N) > 0
 quietly count if _chk_htn
+assert !missing(r(N))
 assert r(N) > 0
 quietly count if _chk_copd
+assert !missing(r(N))
 assert r(N) > 0
 quietly count if _chk_obe
+assert !missing(r(N))
 assert r(N) > 0
 
 
@@ -171,6 +175,7 @@ capture noisily {
         assert S[`k', 1] == r(N)
         * Prevalence is that count over N, as a percentage.
         quietly count if o_`c' == 1
+        assert !missing(S[`k', 2], 100 * r(N) / 1000)
         assert reldif(S[`k', 2], 100 * r(N) / 1000) < 1e-8
     }
     matrix drop S
@@ -333,9 +338,11 @@ capture noisily {
     quietly count if dm2 == 1 & diabetes == 0
     assert r(N) == 0
     quietly count if dm2 == 1
+    assert !missing(r(N))
     assert r(N) > 0
     * ...and the two must not be identical, or the assertion above is vacuous.
     quietly count if diabetes == 1 & dm2 == 0
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -405,6 +412,7 @@ capture noisily {
         local w_i = 0
         foreach w in 30 90 180 365 {
             local ++w_i
+            assert !missing(MW[`k', `w_i'], 100 * `n_`c'_`w'' / `nelig_`w'')
             assert reldif(MW[`k', `w_i'], 100 * `n_`c'_`w'' / `nelig_`w'') < 1e-8
         }
     }
@@ -453,7 +461,9 @@ capture noisily {
         id(pid) date(date) refdate(refdate) lookback(180) collapse replace
     matrix S180 = r(summary)
 
+    assert !missing(MW[1, 3], S180[1, 2])
     assert reldif(MW[1, 3], S180[1, 2]) < 1e-10
+    assert !missing(MW[2, 3], S180[2, 2])
     assert reldif(MW[2, 3], S180[2, 2]) < 1e-10
     matrix drop MW S180
 }
@@ -602,6 +612,7 @@ capture noisily {
         assert `c' == o_`c'
     }
     quietly count if o_dm2 == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -721,6 +732,7 @@ capture noisily {
     * Exact string, every row — including the empty string on non-matching rows.
     assert mc == o_mc
     quietly count if mc != ""
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if mc == "" & (dm2 == 1 | htn == 1)
     assert r(N) == 0

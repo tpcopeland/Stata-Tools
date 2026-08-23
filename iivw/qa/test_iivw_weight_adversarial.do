@@ -219,6 +219,7 @@ if `run_only' == 0 | `run_only' == 3 {
             truncfinal(10 90) nolog
         assert r(n_truncated) == `n_low' + `n_high'
         quietly summarize _iivw_weight
+        assert !missing(r(min))
         assert r(min) >= `p10' - 1e-10
         assert r(max) <= `p90' + 1e-10
 
@@ -448,10 +449,13 @@ if `run_only' == 0 | `run_only' == 9 {
         tempvar _t9first
         bysort id (months): gen byte `_t9first' = (_n == 1)
         quietly summarize _iivw_iw if `_t9first' & id != 1
+        assert !missing(r(N))
         assert r(N) > 1
+        assert !missing(r(sd))
         assert r(sd) > 1e-9
         assert missing(_iivw_weight) if id == 2 & visit == 3
         quietly count if missing(_iivw_weight)
+        assert !missing(r(N))
         assert r(N) >= 1
 
         _adv_panel
@@ -652,6 +656,7 @@ if `run_only' == 0 | `run_only' == 15 {
         local rc = _rc
         if `rc' == 0 {
             assert r(N) == _N
+            assert !missing(r(ess))
             assert r(ess) > 0
             assert r(ess) <= r(N) + 1e-6
             quietly count if missing(_iivw_weight) | _iivw_weight <= 0
@@ -736,4 +741,3 @@ if `run_only' == 0 | `run_only' == 16 {
 * Summary
 iivw_qa_summary, name(test_iivw_weight_adversarial) tests(`test_count') pass(`pass_count') ///
     fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
-

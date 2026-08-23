@@ -130,6 +130,25 @@ else {
     local ++fail_count
 }
 
+**# 5b. predict bootstrap() without ci is rejected before resampling
+local ++test_count
+capture noisily {
+    _mk_fg07
+    gen double horizon5b = 5
+    capture finegray_predict q5b, cif timevar(horizon5b) bootstrap(25) seed(1)
+    assert _rc == 198
+    capture confirm variable q5b
+    assert _rc == 111
+}
+if _rc == 0 {
+    display as result "  PASS: FG07-5b predict bootstrap() without ci rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG07-5b (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# 6. cif level() without ci is rejected; cif ci level() is accepted
 local ++test_count
 capture noisily {

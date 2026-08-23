@@ -123,6 +123,7 @@ capture noisily {
         scalar `total_percent' = `total_percent' + B[`row', colnumb(B, "percent")]
     }
     assert `total_n' == 2
+    assert !missing(`total_percent', 100)
     assert reldif(`total_percent', 100) < 1e-12
 }
 if _rc == 0 {
@@ -154,6 +155,7 @@ capture noisily {
         scalar `total_percent' = `total_percent' + B[`row', colnumb(B, "percent")]
     }
     assert `total_n' == 2
+    assert !missing(`total_percent', 100)
     assert reldif(`total_percent', 100) < 1e-12
 }
 if _rc == 0 {

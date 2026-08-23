@@ -167,6 +167,7 @@ capture noisily {
         display as text "  `h': " r(nlines) " rendered lines, " ///
             r(nbad) " with literal markup"
         * A help file that renders to almost nothing did not render at all.
+        assert !missing(r(nlines))
         assert r(nlines) > 100
         local total_bad = `total_bad' + r(nbad)
     }
@@ -205,6 +206,7 @@ capture noisily {
     tempfile injout
     _fg_render_check, src("`broken'") out("`injout'")
     display as text "  injected file: " r(nbad) " literal-markup line(s) (must be > 0)"
+    assert !missing(r(nbad))
     assert r(nbad) > 0
     capture erase "`broken'"
 }
@@ -234,6 +236,7 @@ capture noisily {
         _fg_render_ws, src("`pkg_dir'/`h'") out("`wsout'")
         display as text "  `h': " r(nlines) " rendered lines, " ///
             r(nbad) " with a whitespace artifact"
+        assert !missing(r(nlines))
         assert r(nlines) > 100
         local ws_bad = `ws_bad' + r(nbad)
     }

@@ -41,6 +41,7 @@ capture noisily {
     scalar nn  = e(N)
     fvgen i.arm##i.grp, ref(grp 2)
     quietly regress y `r(allvars)'
+    assert !missing(e(r2), r2n)
     assert reldif(e(r2), r2n) < 1e-10
     assert e(N) == nn
 }

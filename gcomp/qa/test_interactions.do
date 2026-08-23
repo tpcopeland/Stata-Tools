@@ -132,7 +132,9 @@ capture noisily {
     assert r(N_effects) == 4
     assert "`e(cmd)'" == "`cmd_before'"
     assert "`e(analysis_type)'" == "`anal_before'"
+    assert !missing(e(tce), `tce_before')
     assert reldif(e(tce), `tce_before') < 1e-12
+    assert !missing(e(nde), `nde_before')
     assert reldif(e(nde), `nde_before') < 1e-12
 }
 if _rc == 0 {
@@ -268,6 +270,7 @@ capture noisily {
     local t1 = e(tce)
     _fit_mediation                               // reloads, same seed -> same answer
     local t2 = e(tce)
+    assert !missing(`t1', `t2')
     assert reldif(`t1', `t2') < 1e-10
 }
 if _rc == 0 {

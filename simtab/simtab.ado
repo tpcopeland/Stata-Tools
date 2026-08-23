@@ -566,7 +566,7 @@ program define simtab, rclass
 
             * ----- coverage indicator -----
             tempvar covered
-            quietly gen byte `covered' = .
+            quietly gen double `covered' = .
             if `"`coverage'"' != "" {
                 quietly replace `covered' = (`coverage' != 0) if !missing(`coverage')
             }
@@ -587,7 +587,7 @@ program define simtab, rclass
 
             * ----- rejection indicator (power) -----
             tempvar rejected
-            quietly gen byte `rejected' = .
+            quietly gen double `rejected' = .
             if `_need_pow' {
                 if `"`reject'"' != "" {
                     quietly replace `rejected' = (`reject' != 0) if !missing(`reject')

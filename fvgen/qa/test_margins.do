@@ -101,12 +101,14 @@ program define _fvgen_margins_compare
     matrix `flat_v' = r(V)
     assert colsof(`flat_b') == colsof(`native_b')
     forvalues j = 1/`=colsof(`native_b')' {
+        assert !missing(`native_b'[1, `j'], `flat_b'[1, `j'])
         assert reldif(`native_b'[1, `j'], `flat_b'[1, `j']) < `tol'
     }
     assert rowsof(`flat_v') == rowsof(`native_v')
     assert colsof(`flat_v') == colsof(`native_v')
     forvalues i = 1/`=rowsof(`native_v')' {
         forvalues j = 1/`=colsof(`native_v')' {
+            assert !missing(`native_v'[`i', `j'], `flat_v'[`i', `j'])
             assert reldif(`native_v'[`i', `j'], `flat_v'[`i', `j']) < `tol'
         }
     }
@@ -136,12 +138,14 @@ capture noisily {
     matrix flatV = r(V)
     assert colsof(flat) == colsof(native)
     forvalues j = 1/`=colsof(native)' {
+        assert !missing(native[1, `j'], flat[1, `j'])
         assert reldif(native[1, `j'], flat[1, `j']) < 1e-10
     }
     assert rowsof(flatV) == rowsof(nativeV)
     assert colsof(flatV) == colsof(nativeV)
     forvalues i = 1/`=rowsof(nativeV)' {
         forvalues j = 1/`=colsof(nativeV)' {
+            assert !missing(nativeV[`i', `j'], flatV[`i', `j'])
             assert reldif(nativeV[`i', `j'], flatV[`i', `j']) < 1e-10
         }
     }
@@ -261,12 +265,14 @@ capture noisily {
     matrix flatV = r(V)
     assert colsof(flat) == colsof(native)
     forvalues j = 1/`=colsof(native)' {
+        assert !missing(native[1, `j'], flat[1, `j'])
         assert reldif(native[1, `j'], flat[1, `j']) < 1e-10
     }
     assert rowsof(flatV) == rowsof(nativeV)
     assert colsof(flatV) == colsof(nativeV)
     forvalues i = 1/`=rowsof(nativeV)' {
         forvalues j = 1/`=colsof(nativeV)' {
+            assert !missing(nativeV[`i', `j'], flatV[`i', `j'])
             assert reldif(nativeV[`i', `j'], flatV[`i', `j']) < 1e-10
         }
     }
@@ -312,12 +318,14 @@ capture noisily {
     matrix flatV = r(V)
     assert colsof(flat) == colsof(native)
     forvalues j = 1/`=colsof(native)' {
+        assert !missing(native[1, `j'], flat[1, `j'])
         assert reldif(native[1, `j'], flat[1, `j']) < 1e-10
     }
     assert rowsof(flatV) == rowsof(nativeV)
     assert colsof(flatV) == colsof(nativeV)
     forvalues i = 1/`=rowsof(nativeV)' {
         forvalues j = 1/`=colsof(nativeV)' {
+            assert !missing(nativeV[`i', `j'], flatV[`i', `j'])
             assert reldif(nativeV[`i', `j'], flatV[`i', `j']) < 1e-10
         }
     }
@@ -366,12 +374,14 @@ capture noisily {
     matrix flatV = r(V)
     assert colsof(flat) == colsof(native)
     forvalues j = 1/`=colsof(native)' {
+        assert !missing(native[1, `j'], flat[1, `j'])
         assert reldif(native[1, `j'], flat[1, `j']) < 1e-8
     }
     assert rowsof(flatV) == rowsof(nativeV)
     assert colsof(flatV) == colsof(nativeV)
     forvalues i = 1/`=rowsof(nativeV)' {
         forvalues j = 1/`=colsof(nativeV)' {
+            assert !missing(nativeV[`i', `j'], flatV[`i', `j'])
             assert reldif(nativeV[`i', `j'], flatV[`i', `j']) < 1e-8
         }
     }

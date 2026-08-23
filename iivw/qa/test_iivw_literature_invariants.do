@@ -93,7 +93,9 @@ if `run_only' == 0 | `run_only' == 1 {
         _setup_irregular
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) stabcov(z) nolog
         quietly summarize _iivw_iw
+        assert !missing(r(min), 1)
         assert reldif(r(min), 1) < 1e-10
+        assert !missing(r(max), 1)
         assert reldif(r(max), 1) < 1e-10
     }
     if _rc == 0 {
@@ -140,7 +142,9 @@ if `run_only' == 0 | `run_only' == 2 {
         assert r(treat_in_visit) == 1
 
         quietly summarize _iivw_iw
+        assert !missing(r(min), 1)
         assert reldif(r(min), 1) < 1e-10
+        assert !missing(r(max), 1)
         assert reldif(r(max), 1) < 1e-10
 
         * And the converse: a numerator that does NOT match the full FIPTIW
@@ -149,6 +153,7 @@ if `run_only' == 0 | `run_only' == 2 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(z) stabcov(z) treat(trt) treat_cov(k) replace nolog
         quietly summarize _iivw_iw
+        assert !missing(r(max), 1)
         assert reldif(r(max), 1) > 1e-6
     }
     if _rc == 0 {
@@ -229,12 +234,14 @@ if `run_only' == 0 | `run_only' == 4 {
         quietly summarize _iivw_iw if `isfirst'
         * constant across subjects, free of that subject's covariates, and
         * exactly 1 -- the literal value the cited convention specifies
+        assert !missing(r(min), r(max))
         assert reldif(r(min), r(max)) < 1e-10
         assert abs(r(mean) - 1) < 1e-12
         quietly correlate _iivw_iw z if `isfirst'
         assert missing(r(rho)) | abs(r(rho)) < 1e-8
         * and it is NOT the model-driven weight: later visits do vary
         quietly summarize _iivw_iw if !`isfirst'
+        assert !missing(r(min), r(max))
         assert reldif(r(min), r(max)) > 1e-6
 
         * baseline(event): the user has declared the first visit to be an
@@ -246,6 +253,7 @@ if `run_only' == 0 | `run_only' == 4 {
             visit_cov(z) replace nolog
         bysort id (months): gen byte `isfirst' = (_n == 1)
         quietly summarize _iivw_iw if `isfirst'
+        assert !missing(r(sd))
         assert r(sd) > 1e-9
     }
     if _rc == 0 {
@@ -282,10 +290,12 @@ if `run_only' == 0 | `run_only' == 5 {
             truncfinal(5 95) nolog
         quietly summarize _iivw_iw
         * component is NOT trimmed
+        assert !missing(r(max), `iw_max_untrimmed')
         assert reldif(r(max), `iw_max_untrimmed') < 1e-10
         quietly summarize _iivw_weight
         * final weight IS trimmed
         assert r(max) < `w_max_untrimmed'
+        assert !missing(r(N))
         assert r(N) > 0
     }
     if _rc == 0 {
@@ -329,14 +339,18 @@ if `run_only' == 0 | `run_only' == 6 {
                                           _iivw_tw * (1 - _iivw_ps))
         * constant within each arm ...
         quietly summarize `num' if trt == 1
+        assert !missing(r(min), r(max))
         assert reldif(r(min), r(max)) < 1e-10
         local num_treated = r(mean)
         quietly summarize `num' if trt == 0
+        assert !missing(r(min), r(max))
         assert reldif(r(min), r(max)) < 1e-10
         local num_control = r(mean)
         * ... and stabilized, not unstabilized: the two numerators are the
         * complementary prevalences p and 1-p, so they sum to 1 and are not both 1
+        assert !missing(`num_treated' + `num_control', 1)
         assert reldif(`num_treated' + `num_control', 1) < 1e-8
+        assert !missing(`num_treated', 1)
         assert reldif(`num_treated', 1) > 1e-6
     }
     if _rc == 0 {

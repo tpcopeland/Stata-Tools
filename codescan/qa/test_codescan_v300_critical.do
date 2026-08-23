@@ -776,7 +776,9 @@ capture noisily {
     assert N[1,1] == 1
     assert N[1,2] == 2
     * The audit's reported percentages: the drop is entirely denominator-driven.
+    assert !missing(S[1,1], 100)
     assert reldif(S[1,1], 100) < 1e-6
+    assert !missing(S[1,2],  50)
     assert reldif(S[1,2],  50) < 1e-6
 }
 if _rc == 0 {
@@ -1067,6 +1069,7 @@ capture noisily {
     assert S[1,1] == S[1,3]
     * Prevalence is built from positive_units, not from the hit total. If it
     * used hits it would read 150%.
+    assert !missing(S[1,2], 100)
     assert reldif(S[1,2], 100) < 1e-6
 
     matrix C = r(codelist)
@@ -1182,6 +1185,7 @@ capture noisily {
     * ... while the cohort is untouched. This is the whole point: the detail
     * table moved, the result did not.
     assert S1[1,1] == S2[1,1]
+    assert !missing(S1[1,2], S2[1,2])
     assert reldif(S1[1,2], S2[1,2]) < 1e-12
 }
 if _rc == 0 {
@@ -1221,6 +1225,7 @@ capture noisily {
     codescan dx1 dx2, define(dm2 "E11") detail
     matrix SD = r(summary)
     assert SA1[1,1] == SD[1,1]
+    assert !missing(SA1[1,2], SD[1,2])
     assert reldif(SA1[1,2], SD[1,2]) < 1e-12
 }
 if _rc == 0 {

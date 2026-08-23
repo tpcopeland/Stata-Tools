@@ -3,6 +3,9 @@
 * Usage: cd psdash/qa && stata-mp -b do test_adversarial.do
 
 version 16.0
+
+* Fixed seed for randomized adversarial fixtures below.
+set seed 20260823
 do "`c(pwd)'/_psdash_bootstrap.do"
 local repo_dir = subinstr("`pkg_dir'", "/psdash", "", 1)
 

@@ -49,8 +49,10 @@ program define _workflow_panel
         0.15 * sin(id)
     gen byte treat = severity0 + 0.10 * female + 0.03 * age0 > 2.10
     quietly count if treat == 0
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if treat == 1
+    assert !missing(r(N))
     assert r(N) > 0
     gen double marker = severity0 + 0.18 * visit + 0.05 * cos(id + visit)
     gen double visit_need = severity0 + 0.12 * marker + 0.04 * visit
@@ -117,11 +119,15 @@ capture noisily {
     assert r(n_ids) == 40
     assert "`r(weighttype)'" == "fiptiw"
     assert "`r(weight_var)'" == "_iivw_weight"
+    assert !missing(r(mean_weight))
     assert r(mean_weight) > 0
+    assert !missing(r(min_weight))
     assert r(min_weight) > 0
     assert r(max_weight) < .
+    assert !missing(r(ess))
     assert r(ess) > 0
     assert r(ess) <= r(N)
+    assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0
     confirm variable _iivw_iw
     confirm variable _iivw_tw

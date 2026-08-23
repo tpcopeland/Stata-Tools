@@ -269,11 +269,17 @@ capture noisily {
     assert "`e(iivw_time)'" == "t"
 
     glm y x z t, family(gaussian) link(identity) vce(cluster id) nolog
+    assert !missing(fit_b_x, _b[x])
     assert reldif(fit_b_x, _b[x]) < 1e-12
+    assert !missing(fit_b_z, _b[z])
     assert reldif(fit_b_z, _b[z]) < 1e-12
+    assert !missing(fit_b_t, _b[t])
     assert reldif(fit_b_t, _b[t]) < 1e-12
+    assert !missing(fit_se_x, _se[x])
     assert reldif(fit_se_x, _se[x]) < 1e-10
+    assert !missing(fit_se_z, _se[z])
     assert reldif(fit_se_z, _se[z]) < 1e-10
+    assert !missing(fit_se_t, _se[t])
     assert reldif(fit_se_t, _se[t]) < 1e-10
 }
 if _rc == 0 {

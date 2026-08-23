@@ -64,6 +64,7 @@ capture noisily {
     datefix str_ymd
     confirm numeric variable str_ymd
     sum str_ymd
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -124,6 +125,7 @@ capture noisily {
     datefix str_ymd, order(YMD) newvar(date_ymd)
     confirm numeric variable date_ymd
     sum date_ymd
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -142,6 +144,7 @@ capture noisily {
     datefix str_dmy, order(DMY) newvar(date_dmy)
     confirm numeric variable date_dmy
     sum date_dmy
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -160,6 +163,7 @@ capture noisily {
     datefix str_mdy, order(MDY) newvar(date_mdy)
     confirm numeric variable date_mdy
     sum date_mdy
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -213,6 +217,7 @@ capture noisily {
     datefix str_ymd_2digit, order(YMD) topyear(2050) newvar(date_2digit)
     confirm numeric variable date_2digit
     sum date_2digit
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -231,6 +236,7 @@ capture noisily {
     datefix str_dmony, newvar(date_dmony)
     confirm numeric variable date_dmony
     sum date_dmony
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -267,6 +273,7 @@ capture noisily {
     datefix str_ymd, newvar(date_ymd)
     confirm numeric variable date_ymd
     count if missing(date_ymd)
+    assert !missing(r(N))
     assert r(N) >= 10
 }
 if _rc == 0 {
@@ -423,6 +430,42 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Empty dataset error (error `=_rc')"
+    local ++fail_count
+}
+
+* Test 20b: Zero-observation rejection identifies the dataset condition
+local ++test_count
+capture noisily {
+    clear
+    set obs 0
+    generate str10 datestr = ""
+    tempfile zerobase
+    local zerolog "`zerobase'.log"
+    capture log close _dfzero
+    log using "`zerolog'", replace text name(_dfzero)
+    capture noisily datefix datestr
+    local call_rc = _rc
+    log close _dfzero
+    assert `call_rc' == 2000
+    local found_noobs = 0
+    tempname zfh
+    file open `zfh' using "`zerolog'", read text
+    file read `zfh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "no observations") local found_noobs = 1
+        file read `zfh' line
+    }
+    file close `zfh'
+    assert `found_noobs' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: Zero-observation error identifies no observations"
+    local ++pass_count
+}
+else {
+    local test_rc = _rc
+    capture log close _dfzero
+    display as error "  FAIL: Zero-observation diagnostic (error `test_rc')"
     local ++fail_count
 }
 

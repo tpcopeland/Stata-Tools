@@ -144,6 +144,7 @@ capture noisily {
     gcomptab, models markdown("`testdir'/_tm_models.md") csv("`testdir'/_tm_models.csv") display
     assert r(N_models) == 2
     assert r(N_rows) == 4
+    assert r(N_cols) == 7
     assert "`r(coef_label)'" == "OR"
     confirm file "`testdir'/_tm_models.md"
     confirm file "`testdir'/_tm_models.csv"

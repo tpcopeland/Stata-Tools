@@ -65,7 +65,10 @@ capture noisily {
 
     diagtab score gold, auc optimal
 
+    assert !missing(r(auc))
+
     assert r(auc) > 0.95
+    assert !missing(r(optimal_cutoff))
     assert r(optimal_cutoff) > 0.1
     assert r(optimal_cutoff) < 0.9
 }
@@ -389,7 +392,9 @@ capture noisily {
     assert !missing(r(ppv))
     assert !missing(r(npv))
     assert !missing(r(accuracy))
+    assert !missing(r(sensitivity))
     assert r(sensitivity) > 0 & r(sensitivity) <= 1
+    assert !missing(r(specificity))
     assert r(specificity) > 0 & r(specificity) <= 1
 }
 if _rc == 0 {
@@ -462,6 +467,7 @@ else {
 capture noisily {
     use `diagdata', clear
  diagtab test_score gold, cutoff(0.5) auc
+    assert !missing(r(auc))
     assert !missing(r(auc))
     assert r(auc) > 0.5 & r(auc) <= 1
 }

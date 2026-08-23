@@ -36,6 +36,8 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | `test_errors.do` | Failure paths: 3-way→198, >32-char name→198, collision→110, empty sample→2000, ref() 198/111, ref() bad label→198, simple() 198, omit operator `o.`→198, varabbrev restore on error and success |
 | `test_margins.do` | Margins bridge: active `regress` equivalence to native factor-variable margins and VCE, `logit`/`poisson` native-clone equivalence, `svy` prefix with comma options, broad estimator-family matrix (`regress`, `glm`, `qreg`, `rreg`, `logit`/`logistic`, `probit`, `cloglog`, `poisson`, `nbreg`, `tobit`, `ologit`/`oprobit`, `mlogit`, `xtreg`, `svy`), `store()` active-restore contract, `store()` replacement, unsupported center refusal, drop and failed-generation provenance cleanup |
 | `test_regressions.do` | Review regressions: structural output-name collisions, source/output collisions, atomic failure, exact `ref()` label mapping, and margins stale-data guards |
+| `test_fvgen_hostile.do` | Adversarial factor-variable parsing, namespace, and state-preservation cases |
+| `test_fvgen_oracle.do` | Seeded randomized factor-product oracle with generated-name shadow preservation |
 | `validation_fvgen.do` | Known-answer: hand-computed values + exact equivalence to native `##` + centering invariance |
 | `test_package_release.do` | Install smoke, autoload + second in-session call, documented examples, and shipped-help render with a broken-markup positive control |
 | `run_all.do` | Curated lane runner |
@@ -82,5 +84,7 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | `test_provenance` | | ✓ | ✓ |
 | `test_margins` | | ✓ | ✓ |
 | `test_regressions` | | ✓ | ✓ |
+| `test_fvgen_hostile` | | ✓ | ✓ |
+| `test_fvgen_oracle` | | ✓ | ✓ |
 | `validation_fvgen` | | ✓ | ✓ |
 | `test_package_release` | | | ✓ |

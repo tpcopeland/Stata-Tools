@@ -90,6 +90,7 @@ if `run_only' == 0 | `run_only' == 1 {
                     treat(treated) treat_cov(sev_bl) wtype(`wt') nolog
             }
             quietly summarize _iivw_weight
+            assert !missing(r(min))
             assert r(min) > 0
             assert r(max) < .
             assert r(min) < .
@@ -126,6 +127,7 @@ if `run_only' == 0 | `run_only' == 2 {
             truncfinal(5 95) nolog
         quietly summarize _iivw_weight
         * All weights must lie in [lo, hi] to float precision
+        assert !missing(r(min))
         assert r(min) >= `lo' - 1e-8
         assert r(max) <= `hi' + 1e-8
     }
@@ -512,6 +514,7 @@ if `run_only' == 0 | `run_only' == 16 {
         scalar b90 = _b[severity]
         iivw_fit event severity, vce(fixed) level(99) nolog
         scalar b99 = _b[severity]
+        assert !missing(b90, b99)
         assert reldif(b90, b99) < 1e-10
     }
     if _rc == 0 {
@@ -539,6 +542,7 @@ if `run_only' == 0 | `run_only' == 17 {
         quietly summarize _w2
         local sum_w2 = r(sum)
         local ess_manual = (`sum_w'^2) / `sum_w2'
+        assert !missing(`ess_stored', `ess_manual')
         assert reldif(`ess_stored', `ess_manual') < 1e-8
     }
     if _rc == 0 {

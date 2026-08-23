@@ -37,6 +37,7 @@ Run lanes from a scratch copy that preserves `scratch/{_data,tabtools,qba}` and 
 |---|---|---|
 | `crossval_python_qba.do` | Python 3 used by Stata | Hard failure |
 | `crossval_external_qba.do` | `Rscript` and R package `episensr` | Suite reports skip; `full`/`crossval` fail |
+| `crossval_episensr_dta.do` | `Rscript` and R packages `haven` and `episensr` | Hard failure |
 | `crossval_fml_totalerror.do` | `Rscript` with base R | Hard failure |
 
 A missing dependency is installed and the affected lane rerun; it is not replaced with an internal-sanity check.
@@ -48,6 +49,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | File | Covers |
 |---|---|
 | `test_qba.do` | Core behavior, options, error paths, returns, and state preservation across the public commands |
+| `test_qba_errors.do` | Exact invalid-cell error code, legal inverse input, and caller-data preservation for `qba_misclass` |
 | `test_qba_v110.do` | Regression locks for coefficient selection, model integration, saving, and graph behavior |
 | `test_qba_v111.do` | Regression locks for HR/IRR, level defaults, and `cloglog` scale handling |
 | `test_qba_v112.do` | Regression locks for missing inputs, save failures, model-scale rejection, option coverage, and release install behavior |
@@ -55,6 +57,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `test_qba_fml2023.do` | Method-alignment contracts from Fox, MacLehose, and Lash plus E-value scale conversions |
 | `test_qba_contract_detect.do` | Consumption of active `tmle`/`ltmle` estimator contracts |
 | `test_qba_docs.do` | Installed examples, documentation tokens, and the self-contained SMCL render oracle with positive control |
+| `test_qba_documentation_examples.do` | Literal examples from every shipped qba help file, including Monte-Carlo and optional tmle workflows |
 | `test_qba_plot_release_deep.do` | Installed surface, metadata/date agreement, package manifest, examples, and graph failure returns |
 | `test_qba_qa_common_bootstrap.do` | QA root discovery and isolated install/restore behavior |
 | `test_qba_qa_assert_helpers.do` | Numeric assertion helpers, including missing-value comparison |
@@ -100,6 +103,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 |---|---|
 | `crossval_python_qba.do` | Independent Python implementations of the main formulas |
 | `crossval_external_qba.do` | R `episensr` worked examples |
+| `crossval_episensr_dta.do` | Same-run double `.dta` parity with R `episensr::misclass()` for differential exposure misclassification |
 | `crossval_fml_totalerror.do` | Published Fox/MacLehose/Lash R algorithms for systematic and total error |
 
 ### Support
@@ -116,11 +120,11 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
 | `qba` | `test_qba` | `validation_qba_known_plot` | — | release and documentation suites |
-| `qba_misclass` | core and adversarial suites | `validation_qba_known_misclass` | all cross-validation suites | method-alignment and release suites |
-| `qba_selection` | core and adversarial suites | `validation_qba_known_selection` | Python and `episensr` | release suite |
-| `qba_confound` | core, contract, and adversarial suites | `validation_qba_known_confound` | Python and `episensr` | method-alignment and documentation suites |
-| `qba_multi` | core and adversarial suites | `validation_qba_known_multi` | Python and `episensr` | method-alignment suite |
-| `qba_plot` | core, refactor, release, and adversarial suites | `validation_qba_known_plot` | — | documentation render/example suite |
+| `qba_misclass` | core and adversarial suites | `validation_qba_known_misclass` | all cross-validation suites | method-alignment, release, and literal documentation suites |
+| `qba_selection` | core and adversarial suites | `validation_qba_known_selection` | Python and `episensr` | release and literal documentation suites |
+| `qba_confound` | core, contract, and adversarial suites | `validation_qba_known_confound` | Python and `episensr` | method-alignment and literal documentation suites |
+| `qba_multi` | core and adversarial suites | `validation_qba_known_multi` | Python and `episensr` | method-alignment and literal documentation suites |
+| `qba_plot` | core, refactor, release, and adversarial suites | `validation_qba_known_plot` | — | render and literal documentation suites |
 
 ## Lane membership
 

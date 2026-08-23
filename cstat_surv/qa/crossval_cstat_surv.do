@@ -99,11 +99,21 @@ capture noisily {
                     local ++tied
                 }
             }
-            else if `ti' == `tj' & `ei' == 1 & `ej' == 1 {
+            else if `ti' == `tj' & `ei' != `ej' {
                 local ++comparable
-                if `hi' != `hj' {
-                    local concordant = `concordant' + 0.5
-                    local discordant = `discordant' + 0.5
+                if `ei' == 1 {
+                    local event_risk = `hi'
+                    local censor_risk = `hj'
+                }
+                else {
+                    local event_risk = `hj'
+                    local censor_risk = `hi'
+                }
+                if `event_risk' > `censor_risk' {
+                    local ++concordant
+                }
+                else if `event_risk' < `censor_risk' {
+                    local ++discordant
                 }
                 else {
                     local ++tied
@@ -190,11 +200,21 @@ capture noisily {
                     local ++tied
                 }
             }
-            else if `ti' == `tj' & `ei' == 1 & `ej' == 1 {
+            else if `ti' == `tj' & `ei' != `ej' {
                 local ++comparable
-                if `hi' != `hj' {
-                    local concordant = `concordant' + 0.5
-                    local discordant = `discordant' + 0.5
+                if `ei' == 1 {
+                    local event_risk = `hi'
+                    local censor_risk = `hj'
+                }
+                else {
+                    local event_risk = `hj'
+                    local censor_risk = `hi'
+                }
+                if `event_risk' > `censor_risk' {
+                    local ++concordant
+                }
+                else if `event_risk' < `censor_risk' {
+                    local ++discordant
                 }
                 else {
                     local ++tied

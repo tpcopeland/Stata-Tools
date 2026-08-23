@@ -570,7 +570,9 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan_describe dx1-dx3
+    assert !missing(r(n_unique))
     assert r(n_unique) > 0
+    assert !missing(r(n_entries))
     assert r(n_entries) > 0
     assert r(n_vars) == 3
     assert "`r(varlist)'" == "dx1 dx2 dx3"
@@ -590,6 +592,7 @@ capture noisily {
     _make_test_data
     codescan_describe dx1 in 1/4
     assert r(n_vars) == 1
+    assert !missing(r(n_entries))
     assert r(n_entries) > 0
 }
 if _rc == 0 {
@@ -606,6 +609,7 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan_describe dx1-dx3, top(3)
+    assert !missing(r(n_unique))
     assert r(n_unique) > 0
 }
 if _rc == 0 {
@@ -1424,7 +1428,9 @@ capture noisily {
     _make_test_data
     codescan_describe dx1-dx3
     * Just verify it runs without error and returns results
+    assert !missing(r(n_unique))
     assert r(n_unique) > 0
+    assert !missing(r(n_entries))
     assert r(n_entries) > 0
 }
 if _rc == 0 {
@@ -1734,6 +1740,7 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11") id(pid) collapse replace countmode
     * Patient 1 has dm2 codes in rows 1, 3 → count should be >= 2
     summarize dm2 if pid == 1, meanonly
+    assert !missing(r(mean))
     assert r(mean) >= 2
     * Patient 5 has no matches → count = 0
     summarize dm2 if pid == 5, meanonly

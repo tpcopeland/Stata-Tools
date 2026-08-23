@@ -777,6 +777,7 @@ capture noisily {
     assert r(N) == 2
     matrix _S = r(summary)
     assert _S[1,1] == 3            // Total: 3 matched slots, all p1
+    assert !missing(_S[1,2], 50)
     assert reldif(_S[1,2], 50) < 1e-12   // prevalence 50%, not 100%
     matrix drop _S
     * The merged variable itself: p3 must be missing, not counted

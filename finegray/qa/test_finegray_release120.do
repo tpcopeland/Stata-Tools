@@ -96,6 +96,7 @@ capture noisily {
         cluster(cl) nolog
     finegray_predict p120, cif ci bootstrap(25) seed(42)
     quietly count if e(sample) & !missing(p120, p120_lci, p120_uci)
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if e(sample) & ///
         (p120_lci > p120 | p120 > p120_uci)

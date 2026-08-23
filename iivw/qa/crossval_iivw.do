@@ -815,6 +815,7 @@ if `run_only' == 0 | `run_only' == 8 {
         assert abs(r(rho) - `rho_unscaled') < 1e-12
         gen double scaled_diff = abs(_iivw_weight - r_fiptiw_scaled)
         quietly summarize scaled_diff, meanonly
+        assert !missing(r(max))
         assert r(max) > 0.01
     }
     if _rc == 0 {

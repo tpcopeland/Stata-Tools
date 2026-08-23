@@ -71,6 +71,9 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line). Any 
 | `test_puttab.do` | puttab | Dataset/frame/matrix sources, styling options, markdown-only mode |
 | `test_stacktab.do` | stacktab | Workbook block assembly (vstack/hstack, columnmerge), frame replacement guard |
 | `test_tabtools.do` | tabtools (controller) | Command listing/categories, set/get/clear round-trips, detail re-load, disk-backed profiles (sandboxes PERSONAL and supports a serial external restart-result handoff), r(version) vs header |
+| `test_tabtools_errors.do` | crosstab | Exact 2x2 association-measure error code, legal inverse input, and caller-data preservation |
+| `test_tabtools_oracle.do` | tabtools controller | Seeded return-surface oracle for command catalog and category counts |
+| `test_tabtools_documentation_examples.do` | tabtools suite | Executable self-contained `sysuse auto` help examples; workflow sketches with undeclared frames/data are tracked as documentation findings |
 | `test_tabtools_tips.do` | tabtools_tips | Index display, README Quick Start execution, numerical incidence-rate contract, and all 21 help recipes in separate fresh Stata processes (strictly serial external handoff supported) |
 | `test_tabtools_v1163.do` | table1_tc | v1.16.3 regression: mixed categorical and continuous `missingsummary` rows follow the variables they describe and retain their own group-specific counts |
 | `test_theme_removed.do` | tabtools suite | Removed theme() parser rejection across the affected public command surfaces |

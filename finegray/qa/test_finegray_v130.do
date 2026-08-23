@@ -217,6 +217,7 @@ capture noisily {
     * and round-tripping the double through it costs up to an ULP.  The claim is
     * "the fit did not move"; exact equality would be testing Stata's macro
     * formatter (same trap documented in test_finegray_estimates_use.do).
+    assert !missing(e(b)[1, 1], `b_clean')
     assert reldif(e(b)[1, 1], `b_clean') < 1e-15
 }
 local _rc = _rc
@@ -238,6 +239,7 @@ capture noisily {
     quietly stset t, failure(status) id(id)
     quietly stsplit cat, at(2 4)
     quietly count if missing(status)
+    assert !missing(r(N))
     assert r(N) > 0
     local n_blank = r(N)
 
@@ -405,9 +407,16 @@ capture noisily {
     * A different seed must move the bootstrap SE; equal here would mean seed()
     * is being ignored, which is what the guard exists to make impossible.
     assert `B3'[1, 3] != `B1'[1, 3]
+
+    quietly finegray_predict _p130s1, cif ci bootstrap(25) seed(12345)
+    quietly finegray_predict _p130s2, cif ci bootstrap(25) seed(12345)
+    quietly count if !missing(_p130s1_lci, _p130s2_lci, _p130s1_uci, _p130s2_uci)
+    assert r(N) > 0
+    assert _p130s1_lci == _p130s2_lci if !missing(_p130s1_lci, _p130s2_lci)
+    assert _p130s1_uci == _p130s2_uci if !missing(_p130s1_uci, _p130s2_uci)
 }
 local _rc = _rc
-_fg130_result `_rc' "FG130-9 seed(12345) reproduces, seed(999) does not"
+_fg130_result `_rc' "FG130-9 seed() controls reproducible CIF and prediction bootstraps"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

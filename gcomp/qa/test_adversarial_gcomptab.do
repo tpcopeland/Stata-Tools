@@ -414,10 +414,15 @@ capture erase "`scramble_xlsx'"
 capture noisily {
     _adv_mock_gcomp, scrambled
     gcomptab, xlsx("`scramble_xlsx'") sheet("Scrambled") decimal(4)
+    assert !missing(r(tce), 0.4321)
     assert reldif(r(tce), 0.4321) < 1e-12
+    assert !missing(r(nde), 0.2102)
     assert reldif(r(nde), 0.2102) < 1e-12
+    assert !missing(r(nie), 0.2219)
     assert reldif(r(nie), 0.2219) < 1e-12
+    assert !missing(r(pm), 0.5136)
     assert reldif(r(pm), 0.5136) < 1e-12
+    assert !missing(r(cde), 0.1955)
     assert reldif(r(cde), 0.1955) < 1e-12
     import excel "`scramble_xlsx'", sheet("Scrambled") allstring clear
     assert B[3] == "Total Causal Effect (TCE)"

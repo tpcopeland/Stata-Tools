@@ -155,6 +155,7 @@ quietly iivw_weight, id(id) time(t) visit_cov(z1) treat(a) treat_cov(k1) ///
 
 * Verify r(score_terms) and r(n_score) are populated by the scores option
 assert "`r(score_terms)'" != ""
+assert !missing(r(n_score))
 assert r(n_score) > 0
 
 quietly iivw_fit y a z1, timespec(linear) vce(stacked)
