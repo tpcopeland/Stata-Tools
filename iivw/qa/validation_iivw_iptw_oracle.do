@@ -113,11 +113,15 @@ if `run_only' == 0 | `run_only' == 1 {
         * (a) ps equals the hand cell proportions
         quietly summarize _iivw_ps if L == 0
         display as text "    ps(L=0): min=" %8.6f r(min) " max=" %8.6f r(max) " target=0.40"
+        assert !missing(r(min), 0.40)
         assert reldif(r(min), 0.40) < `TOL_PARITY_COEF'
+        assert !missing(r(max), 0.40)
         assert reldif(r(max), 0.40) < `TOL_PARITY_COEF'
         quietly summarize _iivw_ps if L == 1
         display as text "    ps(L=1): min=" %8.6f r(min) " max=" %8.6f r(max) " target=0.70"
+        assert !missing(r(min), 0.70)
         assert reldif(r(min), 0.70) < `TOL_PARITY_COEF'
+        assert !missing(r(max), 0.70)
         assert reldif(r(max), 0.70) < `TOL_PARITY_COEF'
 
         * (b) the weight is the exact closed-form function of ps and p=0.55.
@@ -133,12 +137,16 @@ if `run_only' == 0 | `run_only' == 1 {
 
         * (c) the hand-computed absolute weights, to optimiser tolerance
         quietly summarize _iivw_tw if A == 1 & L == 0
+        assert !missing(r(mean), 1.375)
         assert reldif(r(mean), 1.375) < `TOL_PARITY_COEF'
         quietly summarize _iivw_tw if A == 0 & L == 0
+        assert !missing(r(mean), 0.75)
         assert reldif(r(mean), 0.75) < `TOL_PARITY_COEF'
         quietly summarize _iivw_tw if A == 1 & L == 1
+        assert !missing(r(mean), 0.55/0.70)
         assert reldif(r(mean), 0.55/0.70) < `TOL_PARITY_COEF'
         quietly summarize _iivw_tw if A == 0 & L == 1
+        assert !missing(r(mean), 1.5)
         assert reldif(r(mean), 1.5) < `TOL_PARITY_COEF'
         drop _dev
     }
@@ -231,8 +239,11 @@ if `run_only' == 0 | `run_only' == 2 {
         display as text "    tm_L2  Stata=" %10.7f `b_L2_s'   "  R=" %10.7f `R_tm_L2'
         display as text "    p_treat Stata=" %10.7f `ptreat_s' "  R=" %10.7f `R_p_treat'
         display as text "    wcoefA Stata=" %10.7f `wcoef_A_s' "  R=" %10.7f `R_wcoef_A'
+        assert !missing(`b_cons_s', `R_tm_cons')
         assert reldif(`b_cons_s', `R_tm_cons') < `TOL_PARITY_COEF'
+        assert !missing(`b_L1_s',   `R_tm_L1')
         assert reldif(`b_L1_s',   `R_tm_L1')   < `TOL_PARITY_COEF'
+        assert !missing(`b_L2_s',   `R_tm_L2')
         assert reldif(`b_L2_s',   `R_tm_L2')   < `TOL_PARITY_COEF'
         * p_treat = mean(A) is exact algebra on both sides, but R's value reaches
         * Stata through a CSV that -import delimited- stores as FLOAT (~1e-7
@@ -241,9 +252,11 @@ if `run_only' == 0 | `run_only' == 2 {
         * treatment coefficients above -- not a Class-A identity. The package
         * value is provably correct (here 213/400 = 0.5325); the residual is the
         * float round-trip alone. Registered Class-P tolerance is TOL_PARITY_COEF.
+        assert !missing(`ptreat_s', `R_p_treat')
         assert reldif(`ptreat_s', `R_p_treat') < `TOL_PARITY_COEF'
         assert `R_n' == `n_stata'
         * weighted treatment coef: outcome tolerance
+        assert !missing(`wcoef_A_s', `R_wcoef_A')
         assert reldif(`wcoef_A_s', `R_wcoef_A') < `TOL_PARITY_OUTCOME'
 
         * --- per-subject propensity + weight parity ---
@@ -326,6 +339,7 @@ if `run_only' == 0 | `run_only' == 3 {
 
         display as text "    saturated beta_A: stabilized=" %10.7f `b_stab' ///
             "  unstabilized=" %10.7f `b_unstab'
+        assert !missing(`b_stab', `b_unstab')
         assert reldif(`b_stab', `b_unstab') < `TOL_INVARIANT'
     }
     if _rc == 0 {
@@ -411,12 +425,16 @@ if `run_only' == 0 | `run_only' == 5 {
         tempvar num
         gen double `num' = cond(A == 1, _iivw_tw*_iivw_ps, _iivw_tw*(1-_iivw_ps))
         quietly summarize `num' if A == 1
+        assert !missing(r(min), r(max))
         assert reldif(r(min), r(max)) < `TOL_INVARIANT'
         display as text "    treated numerator=" %10.7f r(mean) "  p=" %10.7f `p'
+        assert !missing(r(mean), `p')
         assert reldif(r(mean), `p') < `TOL_PARITY_COEF'
         quietly summarize `num' if A == 0
+        assert !missing(r(min), r(max))
         assert reldif(r(min), r(max)) < `TOL_INVARIANT'
         display as text "    control numerator=" %10.7f r(mean) "  1-p=" %10.7f (1-`p')
+        assert !missing(r(mean), 1-`p')
         assert reldif(r(mean), 1-`p') < `TOL_PARITY_COEF'
     }
     if _rc == 0 {

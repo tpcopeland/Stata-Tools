@@ -146,6 +146,7 @@ capture noisily {
     quietly count if !missing(subxb) & grp != 1
     assert r(N) == 0                   // scored only where asked
     quietly count if !missing(subxb) & grp == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -268,8 +269,10 @@ capture noisily {
     * a degenerate all-zero baseline would satisfy "equal" trivially
     quietly summarize rb5_cif_warm, meanonly
     display as text "  warm CIF mean = " %18.10f r(mean)
+    assert !missing(r(mean))
     assert r(mean) > 0 & r(mean) < 1
     quietly summarize rb5_bh_warm, meanonly
+    assert !missing(r(mean))
     assert r(mean) > 0
 
     gen double _rb5dc = abs(rb5_cif_warm - rb5_cif_cold)
@@ -409,6 +412,7 @@ capture noisily {
     quietly summarize rb6_after, meanonly
     display as text "  restored-fit CIF mean = " %18.10f r(mean) ///
         " vs original " %18.10f `_rb6_truth'
+    assert !missing(r(mean), `_rb6_truth')
     assert reldif(r(mean), `_rb6_truth') < 1e-12
     gen double _rb6d = abs(rb6_after - rb6_truth)
     quietly summarize _rb6d, meanonly
@@ -450,6 +454,7 @@ capture noisily {
     capture noisily finegray_predict double rb7_new, cif timevar(rb7_t)
     display as text "  predict, cif on new data (cached path) rc = `=_rc' (must stay 0)"
     assert _rc == 0
+    assert !missing(rb7_new[1], `_rb7_truth')
     assert reldif(rb7_new[1], `_rb7_truth') < 1e-10
 }
 if _rc == 0 {
@@ -775,7 +780,9 @@ capture noisily {
 
     * a cumulative hazard: nonnegative and nondecreasing in time
     quietly summarize bch
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(min))
     assert r(min) >= 0 & r(min) < .
     sort _t
     quietly gen double _lag = bch[_n-1]
@@ -862,6 +869,7 @@ capture noisily {
     assert _rc == 0
     assert !missing(cif_new[1])
     assert cif_new[1] > 0 & cif_new[1] < 1
+    assert !missing(cif_new[1], `truth')
     assert reldif(cif_new[1], `truth') < 1e-7
     display as text "  new-data CIF = " %9.7f cif_new[1] ///
         " reproduces the in-sample value " %9.7f `truth'
@@ -913,6 +921,7 @@ capture noisily {
     capture noisily finegray_predict double cif_new, cif timevar(t5)
     assert _rc == 0
     assert !missing(cif_new[1])
+    assert !missing(cif_new[1], `truth')
     assert reldif(cif_new[1], `truth') < 1e-10
     display as text "  post-bootstrap new-data CIF = " %9.7f cif_new[1] ///
         " matches pre-bootstrap " %9.7f `truth'
@@ -959,6 +968,7 @@ capture noisily {
     local mA = r(mean)
     quietly summarize cifB
     local mB = r(mean)
+    assert !missing(`mA', `mB')
     assert reldif(`mA', `mB') > 1e-8
     display as text "  fit A seq=`seqA' mean CIF=" %8.6f `mA' ///
         "   fit B seq=`seqB' mean CIF=" %8.6f `mB'

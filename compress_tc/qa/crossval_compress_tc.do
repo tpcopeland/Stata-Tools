@@ -71,6 +71,8 @@ capture noisily {
     * Run compress_tc (full pipeline) on one copy
     clear
     set obs 500
+    * Seed: 271828
+    set seed 271828
     gen str100 text = "Category " + string(mod(_n, 10))
     gen str50 code = "CODE_" + string(mod(_n, 5))
     gen double value = runiform() * 1000

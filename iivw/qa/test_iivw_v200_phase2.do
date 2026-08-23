@@ -86,6 +86,7 @@ capture noisily {
     quietly iivw_balance, nolog
     assert "`r(component)'" == "iiw"
     assert "`r(weight_var)'" == "_iivw_iw"
+    assert !missing(r(weight_cv), `iw_cv')
     assert reldif(r(weight_cv), `iw_cv') < 1e-8
 
     * component(final) MUST be the product, and it must be a different number --
@@ -94,6 +95,7 @@ capture noisily {
     quietly iivw_balance, component(final) nolog
     assert "`r(component)'" == "final"
     assert "`r(weight_var)'" == "_iivw_weight"
+    assert !missing(r(weight_cv), `final_cv')
     assert reldif(r(weight_cv), `final_cv') < 1e-8
     assert `final_cv' > `iw_cv' * 1.5
 
@@ -121,6 +123,7 @@ capture noisily {
 
     * The composition MOVED a lot: this is the statistic the old code called
     * "poor" and used to set Informative: 0.
+    assert !missing(r(balance_max_shift))
     assert r(balance_max_shift) > 0.20
 
     * ...and it moved to the RIGHT place: the IIW-weighted visit distribution
@@ -129,6 +132,7 @@ capture noisily {
     assert abs(r(balance_max_tsmd)) < 0.10
     assert "`r(balance_flag)'" == "within_rule"
     assert r(refit_ok) == 1
+    assert !missing(r(refit_n_censrows))
     assert r(refit_n_censrows) > 0
 
     * r(informative) is gone: a single scalar cannot carry "trust these weights",
@@ -207,14 +211,17 @@ capture noisily {
     assert r(N_total) == `n_total'
     assert r(N_weighted) == `n_wtd'
     assert r(n_unweighted) == `n_total' - `n_wtd'
+    assert !missing(r(n_unweighted))
     assert r(n_unweighted) > 0
 
     * The ratio is against the WEIGHTED rows. This is the fix: the old code
     * divided by the total, so rows that were never weighted read as
     * concentration loss.
+    assert !missing(r(ess_ratio), r(ess) / r(N_weighted))
     assert reldif(r(ess_ratio), r(ess) / r(N_weighted)) < 1e-9
 
     * ...and that is a genuinely different number from the old denominator.
+    assert !missing(r(ess_ratio), r(ess) / r(N_total))
     assert reldif(r(ess_ratio), r(ess) / r(N_total)) > 1e-4
 
     assert r(n_ids_weighted) <= r(n_ids_total)
@@ -384,6 +391,7 @@ capture noisily {
     * smallest raw p gets the factor m, and the monotonicity step only raises
     * the ones after it.
     local expect = min(1, `m' * r(joint_min_p))
+    assert !missing(r(holm_min_p), `expect')
     assert reldif(r(holm_min_p), `expect') < 1e-10
 
     * The flag follows the ADJUSTED omnibus p, and nothing else.
@@ -475,7 +483,9 @@ capture noisily {
 
     * regress is a t-based estimator. The interval must be the one regress
     * itself reports, not a normal approximation to it.
+    assert !missing(`got_ll', `reg_ll')
     assert reldif(`got_ll', `reg_ll') < 1e-8
+    assert !missing(`got_ul', `reg_ul')
     assert reldif(`got_ul', `reg_ul') < 1e-8
 
     * ...and that is a materially different limit from the old z-based one.

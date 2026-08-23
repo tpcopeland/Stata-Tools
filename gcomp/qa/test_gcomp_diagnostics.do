@@ -348,6 +348,7 @@ capture noisily {
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(500) samples(20) seed(42) diagnostics
     local tce2 = e(tce)
+    assert !missing(`tce1', `tce2')
     assert reldif(`tce1', `tce2') < 1e-10
 }
 if _rc == 0 {

@@ -89,7 +89,7 @@ capture erase "`qa_dir'/codescan_results.xlsx"
 capture erase "`qa_dir'/codescan_results.dta"
 
 * ============================================================
-* README/sthlp examples for codescan
+* Current README/sthlp examples for codescan
 * ============================================================
 
 local ++test_count
@@ -251,7 +251,7 @@ else {
 local ++test_count
 capture noisily {
     _load_describe_setup
-    codescan_describe dx1 dx2, top(10)
+    codescan_describe dx1 dx2
     assert r(n_unique) == 5
     assert r(n_entries) == 5
     assert r(n_vars) == 2
@@ -261,11 +261,11 @@ capture noisily {
     matrix drop TC
 }
 if _rc == 0 {
-    display as result "  PASS: codescan_describe top(10) example"
+    display as result "  PASS: codescan_describe inventory example"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: codescan_describe top(10) example (error `=_rc')"
+    display as error "  FAIL: codescan_describe inventory example (error `=_rc')"
     local ++fail_count
 }
 
@@ -350,12 +350,14 @@ capture noisily {
     assert r(N) == 5
     matrix _qs = r(summary)
     assert el(_qs, 1, 1) == 2
+    assert !missing(el(_qs, 1, 2), 40)
     assert reldif(el(_qs, 1, 2), 40) < 1e-8
 
     codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse replace
     assert r(N) == 3
     matrix _qs2 = r(summary)
     assert el(_qs2, 1, 1) == 1
+    assert !missing(el(_qs2, 1, 2), 100/3)
     assert reldif(el(_qs2, 1, 2), 100/3) < 1e-6
     matrix drop _qs _qs2
 }
@@ -368,21 +370,23 @@ else {
     local ++fail_count
 }
 
-* Exclusion example: define(dm2 "E11" ~ "E116") — E11 codes except E116.
+* Help Example 4, verbatim command: E11 codes except E116.
 local ++test_count
 capture noisily {
     clear
-    input str6 dx1
-    "E110"
-    "E116"
-    "E119"
-    "Z00"
+    input str6 dx1 str6 dx2
+    "E110" "I10"
+    "E116" "I14"
+    "E119" ""
+    "Z00"  ""
     end
-    codescan dx1, define(dm2 "E11" ~ "E116")
+    codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I1[0-35]")
     assert dm2 == 1 in 1
     assert dm2 == 0 in 2
     assert dm2 == 1 in 3
     assert dm2 == 0 in 4
+    assert htn[1] == 1
+    assert htn[2] == 0
     assert r(N) == 4
 }
 if _rc == 0 {
@@ -467,6 +471,24 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: documented multi-window example (error `=_rc')"
+    local ++fail_count
+}
+
+* Help Example 2, verbatim command: the documented setup has no dotted codes,
+* so nodots preserves its five-code inventory while accepting the option.
+local ++test_count
+capture noisily {
+    _load_describe_setup
+    codescan_describe dx1 dx2, top(10) nodots
+    assert r(n_unique) == 5
+    assert r(n_entries) == 5
+}
+if _rc == 0 {
+    display as result "  PASS: codescan_describe nodots example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: codescan_describe nodots example (error `=_rc')"
     local ++fail_count
 }
 
@@ -569,6 +591,7 @@ capture noisily {
     matrix S = r(summary)
     assert S[1,3] == 3      // total_hits: code slots
     assert S[1,4] == 2      // positive_units: patients
+    assert !missing(S[1,2], 100)
     assert reldif(S[1,2], 100) < 1e-6
 
     * detail credits the two-slot row to dx1 alone...

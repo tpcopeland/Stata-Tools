@@ -155,7 +155,9 @@ capture noisily {
     iivw_balance, balcut(10) nolog
     assert r(N) == _N
     assert r(n_ids) == 60
+    assert !missing(r(weight_cv))
     assert r(weight_cv) >= 0
+    assert !missing(r(ess_ratio))
     assert r(ess_ratio) > 0
     assert r(ess_ratio) <= 1
     assert inlist("`r(leverage)'", "low", "moderate", "adequate")
@@ -192,7 +194,9 @@ capture noisily {
     local sw2 = r(sum)
     drop `w2'
     quietly iivw_balance, balcut(10) nolog
+    assert !missing(r(ess), (`sw'^2) / `sw2')
     assert reldif(r(ess), (`sw'^2) / `sw2') < 1e-8
+    assert !missing(r(ess_ratio), r(ess) / r(N))
     assert reldif(r(ess_ratio), r(ess) / r(N)) < 1e-8
 
     matrix B = r(balance)
@@ -209,12 +213,14 @@ capture noisily {
     iivw_weight, censor(cens) baseline(event) id(id) time(months) ///
         visit_cov(age female severity) nolog
     iivw_balance, balcut(10) nolog
+    assert !missing(r(refit_n_censrows))
     assert r(refit_n_censrows) > 0
     assert "`r(target_status)'" == "identified"
     assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
 
     * The replay must reproduce the stored visit weight, or every number in
     * this report describes a weight nobody fitted with (SOL-11).
+    assert !missing(r(replay_n))
     assert r(replay_n) > 0
     assert r(replay_max_reldif) < 1e-8
     assert "`r(replay_mode)'" == "stored"
@@ -236,6 +242,7 @@ capture noisily {
     iivw_balance
     assert "`r(leverage)'" == "low"
     assert r(weight_cv) < .01
+    assert !missing(r(ess_ratio))
     assert r(ess_ratio) > .99
 }
 if _rc == 0 {
@@ -278,6 +285,7 @@ capture noisily {
     * This fixture moves the covariate composition a long way. The OLD code read
     * that movement as "poor" balance and set Informative: 0 -- which is how it
     * came to call the package's own known-truth correction a failure.
+    assert !missing(r(balance_max_shift))
     assert r(balance_max_shift) > .1
 
     * The verdict is now a function of the TARGET gap and of nothing else.
@@ -442,6 +450,7 @@ capture noisily {
     local active_b = _b[z]
     iivw_balance, agrefit nolog
     assert "`e(cmd)'" == "`active_cmd'"
+    assert !missing(_b[z], `active_b')
     assert reldif(_b[z], `active_b') < 1e-12
     matrix HW = r(hr_unweighted)
     assert HW[1,6] == 0
@@ -521,6 +530,7 @@ capture noisily {
     iivw_balance, agrefit nolog efron
     matrix HUe = r(hr_unweighted)
     assert HUe[1,6] == 0
+    assert !missing(HUe[1,4], HUd[1,4])
     assert reldif(HUe[1,4], HUd[1,4]) < 1e-12
 
     * level(90) narrows the CI versus the default 95% without moving the point.
@@ -528,6 +538,7 @@ capture noisily {
     iivw_balance, agrefit nolog level(90)
     matrix HU90 = r(hr_unweighted)
     assert HU90[1,6] == 0
+    assert !missing(HU90[1,1], HUd[1,1])
     assert reldif(HU90[1,1], HUd[1,1]) < 1e-8
     assert (HU90[1,3] - HU90[1,2]) < (HUd[1,3] - HUd[1,2])
 }

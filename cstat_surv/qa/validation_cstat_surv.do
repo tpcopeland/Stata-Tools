@@ -51,6 +51,7 @@ capture noisily {
     stcox x
     cstat_surv
     * Cox learns that higher x = higher risk, so C should be very high
+    assert !missing(e(c))
     assert e(c) > 0.9
 }
 if _rc == 0 {
@@ -82,6 +83,7 @@ capture noisily {
     stcox x
     cstat_surv
     * Random predictor: C should be around 0.5
+    assert !missing(e(c))
     assert e(c) > 0.3 & e(c) < 0.7
 }
 if _rc == 0 {
@@ -116,6 +118,7 @@ capture noisily {
     stset time, failure(event)
     stcox x
     cstat_surv
+    assert !missing(e(c))
     assert e(c) > 0.95
     * 6 comparable pairs total
     assert e(N_comparable) == 6
@@ -190,6 +193,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug
     cstat_surv
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
@@ -208,6 +212,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug
     cstat_surv
+    assert !missing(e(se))
     assert e(se) >= 0
 }
 if _rc == 0 {
@@ -226,6 +231,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug
     cstat_surv
+    assert !missing(e(c))
     assert e(c) >= e(ci_lo)
     assert e(c) <= e(ci_hi)
 }
@@ -289,8 +295,11 @@ capture noisily {
     stset time, failure(event)
     stcox x1 x2
     cstat_surv
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
+    assert !missing(e(se))
     assert e(se) >= 0
+    assert !missing(e(ci_lo))
     assert e(ci_lo) >= 0
     assert e(ci_hi) <= 1
 
@@ -305,7 +314,9 @@ capture noisily {
     stset time, failure(event)
     stcox x
     cstat_surv
+    assert !missing(e(c))
     assert e(c) >= 0 & e(c) <= 1
+    assert !missing(e(se))
     assert e(se) >= 0
 }
 if _rc == 0 {
@@ -454,11 +465,9 @@ else {
     local ++fail_count
 }
 
-* Test 16: All tied times with events — known pair count
-* 4 obs, all time=5, all event=1. All pairs have tied times + both events.
-* Comparable pairs: C(4,2) = 6
-* Each pair: both events + tied time → 0.5 concordant, 0.5 discordant
-* C = (sum of concordant contributions) / comparable
+* Test 16: All tied times with events have no comparable pairs
+* 4 observations, all time=5 and event=1. Harrell's definition excludes every
+* event/event pair at the same time, so cstat_surv must reject the sample.
 local ++test_count
 capture noisily {
     clear
@@ -470,17 +479,16 @@ capture noisily {
     end
     stset time, failure(event)
     stcox x
-    cstat_surv
-    assert !missing(e(c))
-    * 6 comparable pairs = C(4,2)
-    assert e(N_comparable) == 6
+    capture noisily cstat_surv
+    local no_pair_rc = _rc
+    assert `no_pair_rc' == 2001
 }
 if _rc == 0 {
-    display as result "  PASS: Test `test_count' — All tied times with events"
+    display as result "  PASS: Test `test_count' — All tied events rejected"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Test `test_count' — All tied times (rc=`=_rc')"
+    display as error "  FAIL: Test `test_count' — All tied events (rc=`=_rc')"
     local ++fail_count
 }
 

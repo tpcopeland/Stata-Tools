@@ -445,6 +445,7 @@ capture noisily {
     assert e(converged) == 1
     local b_multi = _b[z1]
     assert abs(`b_multi' - 0.5) < `TOL'
+    assert !missing(`b_multi', `b_single')
     assert reldif(`b_multi', `b_single') < 1e-4
 }
 if _rc == 0 {

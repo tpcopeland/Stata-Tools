@@ -150,11 +150,12 @@ gcomp y m x c z row, outcome(y) mediation obe exposure(x) mediator(m) ///
     base_confs(c z) impute(c z) imp_cmd(c: regress, z: regress) ///
     imp_eq(c: z x, z: c x) imp_cycles(3) sim(350) samples(3) seed(136)
 assert e(N_impute_targets)==2
-assert e(impute_eligible_1)>0 & e(impute_eligible_2)>0
+assert !missing(e(impute_eligible_1))
+assert !missing(e(impute_eligible_2))
+assert e(impute_eligible_1) > 0 & e(impute_eligible_2)>0
 assert e(bootstrap_failed)==0
 display "RESULT: H12 imputation eligibility/maps/FCS status=PASS"
 
 display "RESULT: gcomp_rules_imputation_probe status=PASS"
 
 display "RESULT: test_rules_imputation tests=1 pass=1 fail=0 status=PASS"
-

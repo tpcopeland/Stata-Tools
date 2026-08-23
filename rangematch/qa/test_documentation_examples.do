@@ -57,7 +57,7 @@ local ++test_count
 use `master', clear
 generate double lo = event_date - 14
 generate double hi = event_date + 14
-rangematch event_date lo hi using `events', closed(left) unmatched(none)
+rangematch event_date lo hi using `events', closed(left)
 assert r(N_pairs) == 2
 sort id eid
 assert id[1] == 1 & eid[1] == 102
@@ -68,6 +68,18 @@ rangematch event_date . 30 using `events', count
 assert _N == 2
 assert r(N_pairs) == 5
 display as result "PASS: help-file scalar/count examples"
+
+* Help-file grouped matching example
+local ++test_count
+use `master', clear
+rangematch event_date -7 7 using `events', by(site) generate(_merge)
+assert r(N_pairs) == 2
+assert _merge[1] == 3
+assert _merge[2] == 3
+sort id eid
+assert id[1] == 1 & eid[1] == 102
+assert id[2] == 2 & eid[2] == 103
+display as result "PASS: help-file grouped matching example"
 
 **# README worked exposure-window example
 local ++test_count

@@ -41,6 +41,7 @@ local skip_file "`qa_dir'/_skip.txt"
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
 local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
+    test_finegray_errors.do ///
     test_finegray_v120b.do test_finegray_v121.do test_finegray_v130.do ///
     test_finegray_release120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
@@ -52,6 +53,7 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_nuisance.do ///
     test_finegray_determinism.do test_finegray_reporting.do ///
     test_finegray_contracts.do ///
+    test_finegray_hostile.do ///
     test_finegray_estimates_use.do ///
     test_finegray_sthlp_render.do ///
     test_documentation_examples.do
@@ -61,7 +63,7 @@ local core_files `quick_files' ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     crossval_predict_stcrreg.do
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
-    crossval_finegray_zzf.do crossval_nuisance.do
+    crossval_finegray_dta.do crossval_finegray_zzf.do crossval_nuisance.do
 
 * The ZZF Monte Carlo GATES.  Hours, not minutes -- see the header.  They live in
 * their own lane so that (a) they are wired in and runnable by name rather than

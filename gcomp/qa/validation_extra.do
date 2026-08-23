@@ -111,6 +111,7 @@ capture noisily {
     forvalues j = 1/`ncols' {
         local s = `se'[1, `j']
         local v = sqrt(`V'[`j', `j'])
+        assert !missing(`s', `v')
         assert reldif(`s', `v') < 1e-8
     }
 }
@@ -132,6 +133,7 @@ capture noisily {
     local tce_b = `b'[1, 1]    // col 1 = tce
     local nde_b = `b'[1, 2]
     local nie_b = `b'[1, 3]
+    assert !missing(`tce_b' - (`nde_b' + `nie_b'), 0)
     assert reldif(`tce_b' - (`nde_b' + `nie_b'), 0) < 1e-6 ///
         | abs(`tce_b' - (`nde_b' + `nie_b')) < 1e-6
 }
@@ -329,10 +331,14 @@ capture noisily {
     assert abs(e(tce)) <= 1
     assert abs(e(nde)) <= 1
     assert abs(e(nie)) <= 1
+    assert !missing(e(se_tce))
     assert e(se_tce) > 0
+    assert !missing(e(se_nde))
     assert e(se_nde) > 0
+    assert !missing(e(se_nie))
     assert e(se_nie) > 0
-    assert e(se_pm)  > 0
+    assert !missing(e(se_pm))
+    assert e(se_pm) > 0
 }
 if _rc == 0 {
     display as result "  PASS: VX10 RD effects within [-1,1]; SEs > 0"
@@ -356,6 +362,7 @@ capture noisily {
         equations(m: x c, y: m x c) ///
         base_confs(c) control(0) sim(100) samples(20) seed(48)
     assert !missing(e(cde))
+    assert !missing(e(se_cde))
     assert e(se_cde) > 0
     tempname bc cic
     matrix `bc' = e(b)

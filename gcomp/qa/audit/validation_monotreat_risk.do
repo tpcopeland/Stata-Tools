@@ -48,9 +48,9 @@ local onames : colfullnames `oracle'
 local anames : colfullnames `actual'
 assert `"`onames'"' == `"`anames'"'
 forvalues j = 1/`=colsof(`oracle')' {
+    assert !missing(`oracle'[1,`j'], `actual'[1,`j'])
     assert reldif(`oracle'[1,`j'], `actual'[1,`j']) < 1e-13
 }
 display "RESULT: gcomp_monotreat_risk_probe status=PASS N=" e(N)
 
 display "RESULT: validation_monotreat_risk tests=1 pass=1 fail=0 status=PASS"
-

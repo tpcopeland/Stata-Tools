@@ -238,6 +238,7 @@ capture noisily {
     quietly summarize _iivw_iw
     local m = r(mean)
     quietly summarize L1
+    assert !missing(`m', r(mean))
     assert reldif(`m', r(mean)) < 1e-12
 }
 local rc = _rc

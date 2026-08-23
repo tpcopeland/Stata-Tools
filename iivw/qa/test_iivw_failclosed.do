@@ -119,6 +119,7 @@ capture noisily {
     quietly count if foreign == 0
     assert r(N) == 52
     quietly count if (foreign == 0) != (_n > 22)
+    assert !missing(r(N))
     assert r(N) > 0
 
     quietly regress price mpg weight if foreign == 0
@@ -219,7 +220,7 @@ capture noisily {
     assert _N < `_n_unw'
 
     quietly iivw_diagnose mpg, unweighted(s_unw) weighted(s_wt) adjusted(s_adj)
-    assert r(sample_identical) >= .
+    assert missing(r(sample_identical))
     assert r(decomposable) == 0
 }
 if _rc == 0 {
@@ -396,6 +397,7 @@ capture noisily {
     * replay_scale separates a normalization-convention mismatch from a
     * specification mismatch; it must be present and finite either way.
     assert r(replay_scale) < .
+    assert !missing(r(replay_scale))
     assert r(replay_scale) > 0
 }
 if _rc == 0 {
@@ -507,13 +509,14 @@ local ++test_count
 capture noisily {
     _fc_panel, n(250) seed(77109)
     quietly iivw_weight, id(id) time(time) visit(z) censor(cens) truncvisit(0 95)
-    assert r(trunc_visit_lo) >= .
+    assert missing(r(trunc_visit_lo))
     assert r(trunc_visit_hi) < .
 
     * Upper tail clipped, lower tail untouched: the minimum must survive.
     quietly summarize _iivw_iw_raw, meanonly
     local _raw_min = r(min)
     quietly summarize _iivw_iw, meanonly
+    assert !missing(r(min), `_raw_min')
     assert reldif(r(min), `_raw_min') < 1e-12
     assert r(max) < .
 
@@ -571,9 +574,11 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit(z) censor(cens) truncvisit(0 95)
 
     quietly iivw_balance, nolog
+    assert !missing(r(replay_n))
     assert r(replay_n) > 0
     assert r(replay_max_reldif) < 1e-8
     assert r(weight_cv) < .
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 if _rc == 0 {
@@ -599,6 +604,7 @@ capture noisily {
 
     assert r(ess_cluster) < .
     assert r(ess_cluster_ratio) < .
+    assert !missing(r(ess_cluster_ratio))
     assert r(ess_cluster_ratio) > 0 & r(ess_cluster_ratio) <= 1
     assert r(ess_cluster) <= r(n_ids) + 1e-8
 
@@ -643,9 +649,11 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit(zt) censor(cens) ///
         treat(trt) treat_cov(zt) nolog
     assert r(n_ps_extreme_id) < .
+    assert !missing(r(n_ps_extreme_id))
     assert r(n_ps_extreme_id) >= 1
     * Rows must exceed subjects on a multi-visit panel, which is exactly the
     * inflation the old row-only count reported as an overlap problem.
+    assert !missing(r(n_ps_extreme))
     assert r(n_ps_extreme) > r(n_ps_extreme_id)
     assert r(n_ps_extreme_id) <= 300
 }

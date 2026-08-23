@@ -267,6 +267,7 @@ capture noisily {
     finegray x1 pelnode, compete(ev) cause(1) nolog
     assert e(N_delayed) == 0
     assert e(N_G_trunc) < .
+    assert !missing(e(N_G_trunc))
     assert e(N_G_trunc) >= 0
 
     _mk_120b_lt
@@ -436,6 +437,7 @@ capture noisily {
     quietly finegray_cif, ci saving(`"`cifout2'"', replace) nodraw
     matrix _t13 = r(table)
     local nr = rowsof(_t13)
+    assert !missing(_t13[`nr', 1], `tlastev')
     assert reldif(_t13[`nr', 1], `tlastev') < 1e-8
 
     preserve
@@ -445,6 +447,7 @@ capture noisily {
     local sav_tmin = r(min)
     restore
 
+    assert !missing(`sav_tmax', `tlastev')
     assert reldif(`sav_tmax', `tlastev') < 1e-8
     assert `sav_tmin' > 0
 }

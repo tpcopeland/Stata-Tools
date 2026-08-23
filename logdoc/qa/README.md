@@ -34,6 +34,8 @@ The devkit QA runner executes this layout in a scratch copy with isolated `PLUS`
 | `test_logdoc_v112.do` | Version 1.1.2 shell-argument and embedded-quote forwarding regressions |
 | `test_logdoc_v114.do` | Executable paths with spaces, SMCL help links, `r(compare)`, and the Stata help render oracle |
 | `test_logdoc_v115.do` | Source/output collision, child-run failure, HTML structure and injection, renderer atomicity, direct-CLI validation, and platform regressions |
+| `test_logdoc_hostile.do` | Shell-hostile paths, quoted space-containing paths, 31-character basenames, extended missing values, and caller-data preservation |
+| `test_logdoc_errors.do` | Exact early and late public error codes, output non-creation, active-estimate preservation, and varabbrev restoration |
 | `validation_logdoc.do` | Known-answer HTML/Markdown/SMCL rendering and artifact-content validation |
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner |
 
@@ -41,18 +43,18 @@ The devkit QA runner executes this layout in a scratch copy with isolated `PLUS`
 
 | Command/subcommand | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `logdoc` conversion | `test_logdoc.do` | `validation_logdoc.do` | Documentation examples, Phase 7–8, refactor, and version regressions through v1.1.5 |
+| `logdoc` conversion | `test_logdoc.do` | `validation_logdoc.do` | Documentation examples, error contracts, Phase 7–8, refactor, and version regressions through v1.1.5 |
 | `logdoc start` / `stop` | Phase 7–8 | — | Refactor guards and version regressions |
 | `logdoc batch` | Phase 7–8 | — | Refactor guards and version regressions |
 | `logdoc combine` | Phase 7–8 | — | Refactor guards and version regressions |
 | `logdoc diff` | Phase 7–8 | — | Refactor guards |
 | `logdoc replay` | Phase 7–8 | — | Refactor guards and version regressions |
-| `logdoc_py` | `test_logdoc_py.do` | — | Version and release-surface regressions through v1.1.5 |
+| `logdoc_py` | `test_logdoc_py.do` | — | Error contracts and version/release-surface regressions through v1.1.5 |
 
 ## Lane membership
 
 | Lane | Suites |
 |---|---|
 | `quick` | `test_logdoc.do`, `test_logdoc_py.do` |
-| `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, and `test_logdoc_v115.do` |
+| `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_hostile.do`, and `test_logdoc_errors.do` |
 | `full` (default) | `core` plus `test_logdoc_refactor_guards.do`, `test_logdoc_v111.do`, and `test_logdoc_v112.do` |

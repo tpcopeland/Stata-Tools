@@ -182,11 +182,13 @@ program define _inv_fit, rclass
     * it would fail for the wrong reason and read as a real defect. Assert the
     * counts directly so the failure says what actually went wrong.
     quietly count if visit == 1 & !missing(_iivw_weight)
+    assert !missing(r(N))
     assert r(N) > 0
     quietly summarize _iivw_weight if visit == 1 & !missing(_iivw_weight), meanonly
     local wb = r(mean)
 
     quietly count if visit > 1 & !missing(_iivw_weight)
+    assert !missing(r(N))
     assert r(N) > 0
     quietly summarize _iivw_weight if visit > 1 & !missing(_iivw_weight), meanonly
     local wf = r(mean)
@@ -200,8 +202,11 @@ capture program drop _inv_assert_same
 program define _inv_assert_same
     version 16.0
     args b1 se1 wr1 b2 se2 wr2
+    assert !missing(`b1',  `b2')
     assert reldif(`b1',  `b2')  < 1e-10
+    assert !missing(`se1', `se2')
     assert reldif(`se1', `se2') < 1e-10
+    assert !missing(`wr1', `wr2')
     assert reldif(`wr1', `wr2') < 1e-10
 end
 
@@ -483,6 +488,7 @@ capture noisily {
     _inv_fit, visitcov(w)
     local b_without = r(b)
 
+    assert !missing(`b_with', `b_without')
     assert reldif(`b_with', `b_without') > 1e-6
 }
 if _rc == 0 {

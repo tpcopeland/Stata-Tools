@@ -34,6 +34,8 @@ The runner and suites write logs in `qa/`, so do not run the same package lane c
 | File | Covers |
 |---|---|
 | `test_raincloud.do` | Core syntax, options, state restoration, graph structure, weights, install behavior, and edge cases. |
+| `test_raincloud_errors.do` | Exact numeric, no-element, empty-sample, and late graph-saving error contracts with data/session/artifact preservation and legal inverses. |
+| `test_raincloud_documentation_examples.do` | Every displayed help example, with plotted-sample and group-count assertions. |
 | `test_regressions.do` | Long group labels, analytical returns after saving failure, and exact frequency-weight semantics. |
 | `test_package_release.do` | Installed command/help resolution, self-contained SMCL rendering with a positive control, and method terminology. |
 
@@ -55,7 +57,7 @@ The runner and suites write logs in `qa/`, so do not run the same package lane c
 
 | Command | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `raincloud` | `test_raincloud.do`, `test_regressions.do` | `validation_raincloud.do` | `test_package_release.do` |
+| `raincloud` | `test_raincloud.do`, `test_raincloud_errors.do`, `test_raincloud_documentation_examples.do`, `test_regressions.do` | `validation_raincloud.do` | `test_package_release.do` |
 
 ## Lane membership
 
@@ -63,5 +65,5 @@ For this compact package, `quick` and `full` intentionally run the same release 
 
 | Lane | Suites |
 |---|---|
-| `quick` | `test_raincloud.do`, `test_regressions.do`, `validation_raincloud.do`, `test_package_release.do` |
+| `quick` | `test_raincloud.do`, `test_raincloud_errors.do`, `test_regressions.do`, `validation_raincloud.do`, `test_package_release.do` |
 | `full` | Same curated release gate as `quick` |

@@ -239,8 +239,10 @@ capture noisily {
     assert `base_final_mean' == `alt_final_mean'
     local k = colsof(`b_base')
     forvalues j = 1/`k' {
+        assert !missing(`b_base'[1,`j'], `b_alt'[1,`j'])
         assert reldif(`b_base'[1,`j'], `b_alt'[1,`j']) < 1e-10
     }
+    assert !missing(`obs_base', `obs_alt')
     assert reldif(`obs_base', `obs_alt') < 1e-10
 }
 if _rc == 0 {

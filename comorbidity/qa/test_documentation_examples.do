@@ -27,6 +27,7 @@ capture noisily {
     2 "C780" ""
     end
     comorbidity dx1 dx2, id(pid) charlson(original) collapse band
+    matrix list r(bands)
     assert charlson[1] == 3
     assert charlson[2] == 6
     matrix B = r(bands)
@@ -51,6 +52,7 @@ capture noisily {
     end
     comorbidity dx1 dx2 dx3, id(pid) elixhauser(vanwalraven) collapse ///
         generate(elx_) band
+    matrix list r(bands)
     assert elx_score[1] == 12
     assert elx_score[2] == -7
     matrix B = r(bands)

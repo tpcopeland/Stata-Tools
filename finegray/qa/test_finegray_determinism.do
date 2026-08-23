@@ -253,11 +253,13 @@ capture noisily {
     quietly finegray_predict cifa, cif
     quietly finegray_predict cifb, cif
     quietly count if !missing(cifa)
+    assert !missing(r(N))
     assert r(N) > 100
     assert cifa == cifb
     quietly finegray_predict xba, xb
     quietly finegray_predict xbb, xb
     quietly count if !missing(xba)
+    assert !missing(r(N))
     assert r(N) > 100
     assert xba == xbb
     display as text "  cif and xb both bit-identical across repeat calls"

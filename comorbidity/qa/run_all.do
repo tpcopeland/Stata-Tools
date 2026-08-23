@@ -14,9 +14,9 @@ if !inlist("`mode'", "quick", "core", "full") {
 
 capture ado uninstall comorbidity
 
-local quick "test_dictionary.do test_weights.do test_hierarchy.do test_comorbidity.do"
-local core "`quick' test_regressions.do test_documentation_examples.do validation_comorbidity.do validation_dictionary_quan2005.do test_comorbidity_adversarial.do"
-local full "`core' test_comorbidity_install.do"
+local quick "test_dictionary.do test_weights.do test_hierarchy.do test_comorbidity.do test_comorbidity_errors.do test_comorbidity_oracle.do"
+local core "`quick' test_regressions.do test_documentation_examples.do validation_comorbidity.do validation_dictionary_quan2005.do test_comorbidity_adversarial.do test_comorbidity_hostile.do"
+local full "`core' test_comorbidity_install.do crossval_comorbidity_r.do"
 local suites "``mode''"
 
 local suite_count = 0

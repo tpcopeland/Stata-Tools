@@ -171,6 +171,7 @@ capture noisily {
     local b_manual = _b[sev]
     restore
 
+    assert !missing(`b_refit', `b_manual')
     assert reldif(`b_refit', `b_manual') < 1e-8
 }
 if _rc == 0 {
@@ -207,6 +208,7 @@ capture noisily {
     local b_manual = _b[sev]
     restore
 
+    assert !missing(`b_refit', `b_manual')
     assert reldif(`b_refit', `b_manual') < 1e-8
 }
 if _rc == 0 {

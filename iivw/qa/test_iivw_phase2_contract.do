@@ -368,6 +368,7 @@ capture noisily {
     * DGP and seed, and it agrees to every printed digit with the shipped build.
     * A literal, not a recomputation: an "expected" value recomputed by the code
     * under test moves with the code and can never detect that the code moved.
+    assert !missing(`mt_unstab', .04872)
     assert reldif(`mt_unstab', .04872) < 1e-4
 }
 if _rc == 0 {
@@ -472,7 +473,9 @@ capture noisily {
 
     * Both components actually bit on this DGP -- a trim test on a DGP where
     * nothing is extreme proves nothing.
+    assert !missing(r(n_trunc_visit))
     assert r(n_trunc_visit) > 0
+    assert !missing(r(n_trunc_treat))
     assert r(n_trunc_treat) > 0
 
     * The command echoes back which components were trimmed and the raw-column
@@ -512,6 +515,7 @@ capture noisily {
     confirm variable _iivw_tw_raw
     quietly summarize _iivw_iw_raw
     assert r(min) < `vlo'
+    assert !missing(r(max))
     assert r(max) > `vhi'
 
     * The final weight is the product of the ANALYSIS components, not the raw
@@ -591,6 +595,7 @@ capture noisily {
     * refit and never applied the trim, so it returned the untrimmed number in
     * both cases -- it reported the balance of a weight vector the outcome model
     * never saw, and reported it as the analysis.
+    assert !missing(`tsmd_trimmed', `tsmd_untrimmed')
     assert reldif(`tsmd_trimmed', `tsmd_untrimmed') > 1e-3
 
     * And the honest direction: trimming the VISIT weight makes balance WORSE,

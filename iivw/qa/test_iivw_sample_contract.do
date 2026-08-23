@@ -312,6 +312,7 @@ capture noisily {
 
     quietly iivw_fit y treat L1, model(gee) bootstrap(5) refitweights nolog
     assert _rc == 0
+    assert !missing(e(N))
     assert e(N) > 0
 }
 local rc = _rc

@@ -72,6 +72,7 @@ capture noisily {
     _mk_ph_120
     finegray x1 x2 x3, compete(ev) cause(1) nolog
     finegray_phtest, time(rank)
+    assert !missing(r(N_fail))
     assert r(N_fail) > 0 & r(N_fail) < .
     assert "`r(time)'" == "rank"
     matrix ph = r(phtest)

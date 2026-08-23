@@ -106,6 +106,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
 | `test_codescan_describe_adversarial.do` | functional | 11 | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
 | `test_codescan_stress_adversarial.do` | functional | 7 | Scale/sparsity/name-collision stress |
+| `test_codescan_hostile.do` | functional | pending run | Output/helper-pattern name collisions, empty and malformed definitions, repeated replacement, and source-value preservation |
 | `test_codescan_install_docs.do` | functional | 12 | `net install` smoke + help/README example reality |
 | `test_documentation_examples.do` | functional | 19 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
 | `test_release_integrity.do` | functional | 9 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
@@ -207,6 +208,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_codescan_adversarial` |  | ✓ | ✓ |
 | `test_codescan_describe_adversarial` |  | ✓ | ✓ |
 | `test_codescan_stress_adversarial` |  | ✓ | ✓ |
+| `test_codescan_hostile` |  | ✓ | ✓ |
 | `test_codescan_install_docs` |  |  | ✓ |
 | `test_documentation_examples` |  |  | ✓ |
 | `test_release_integrity` |  |  | ✓ |

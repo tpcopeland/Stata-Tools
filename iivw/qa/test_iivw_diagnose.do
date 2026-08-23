@@ -65,13 +65,21 @@ capture noisily {
         exogeneity(exogenous)
     matrix E = r(estimates)
     matrix D = r(decomp)
+    assert !missing(E[1,1], 0.42)
     assert reldif(E[1,1], 0.42) < 1e-12
+    assert !missing(E[2,1], 0.31)
     assert reldif(E[2,1], 0.31) < 1e-12
+    assert !missing(E[3,1], 0.10)
     assert reldif(E[3,1], 0.10) < 1e-12
+    assert !missing(D[1,1], 0.11)
     assert reldif(D[1,1], 0.11) < 1e-12
+    assert !missing(D[2,1], 0.21)
     assert reldif(D[2,1], 0.21) < 1e-12
+    assert !missing(D[3,1], 0.32)
     assert reldif(D[3,1], 0.32) < 1e-12
+    assert !missing(D[4,1], 0.34375)
     assert reldif(D[4,1], 0.34375) < 1e-12
+    assert !missing(D[5,1], 0.65625)
     assert reldif(D[5,1], 0.65625) < 1e-12
     assert "`r(conclusion)'" == "shares_descriptive"
     assert rowsof(E) == 3
@@ -95,8 +103,11 @@ capture noisily {
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         true(0.10) exogeneity(unknown)
     matrix B = r(bias)
+    assert !missing(B[1,1], 0.10)
     assert reldif(B[1,1], 0.10) < 1e-12
+    assert !missing(B[2,1], 0.32)
     assert reldif(B[2,1], 0.32) < 1e-12
+    assert !missing(B[3,1], 0.21)
     assert reldif(B[3,1], 0.21) < 1e-12
     assert abs(B[4,1]) < 1e-12
 }
@@ -204,7 +215,9 @@ capture noisily {
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         exogeneity(endogenous)
     matrix D = r(decomp)
+    assert !missing(D[6,1], 0.10)
     assert reldif(D[6,1], 0.10) < 1e-12
+    assert !missing(D[7,1], 0.31)
     assert reldif(D[7,1], 0.31) < 1e-12
     assert "`r(conclusion)'" == "bounds"
 }
@@ -232,6 +245,7 @@ capture noisily {
     local active_cmd "`e(cmd)'"
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj)
     assert "`e(cmd)'" == "`active_cmd'"
+    assert !missing(_b[z], `active_b')
     assert reldif(_b[z], `active_b') < 1e-12
 }
 if _rc == 0 {
@@ -382,6 +396,7 @@ capture noisily {
     iivw_diagnose x, unweighted(F_unweighted) weighted(F_weighted) ///
         adjusted(F_adjusted)
     matrix E = r(estimates)
+    assert !missing(E[1,1], `fit_b')
     assert reldif(E[1,1], `fit_b') < 1e-10
     assert "`r(unweighted)'" == "F_unweighted"
 }
@@ -745,11 +760,13 @@ capture noisily {
     * tolerance(1e-12) nrtolerance(1e-12) reproduces 2.9e-8 exactly. 1e-6 still
     * pins the published value to seven significant figures.
     quietly logit y x
+    assert !missing(exp(_b[x]), 2.25)
     assert reldif(exp(_b[x]), 2.25) < 1e-6
     estimates store GRP_unw
     quietly logit y x
     estimates store GRP_wgt
     quietly logit y x Z
+    assert !missing(exp(_b[x]), 8/3)
     assert reldif(exp(_b[x]), 8/3) < 1e-6
     estimates store GRP_adj
 
@@ -763,6 +780,7 @@ capture noisily {
     * paper's noncollapsibility, and the true artifact is zero
     matrix GRPd = r(decomp)
     local grp_artifact = log(8/3) - log(2.25)
+    assert !missing(abs(GRPd[2,1]), abs(`grp_artifact'))
     assert reldif(abs(GRPd[2,1]), abs(`grp_artifact')) < 1e-6
 }
 if _rc == 0 {

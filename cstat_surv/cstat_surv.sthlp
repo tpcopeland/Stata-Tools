@@ -79,13 +79,14 @@ The command works by:
 {phang2}2. Comparing all comparable pairs of observations{p_end}
 {phang2}3. Calculating concordance (pairs where higher predicted risk corresponds to
 earlier event){p_end}
-{phang2}4. Computing standard errors via infinitesimal jackknife{p_end}
+{phang2}4. Computing standard errors via leave-one-out jackknife{p_end}
 
 {pstd}
 A pair of observations is comparable if the observation with the shorter
 survival time experienced the event. For tied survival times where both
-subjects experienced events, each possible ordering is counted as half
-concordant and half discordant.
+subjects experienced events, the pair is not comparable. An event and a
+censoring at the same time are comparable because the censored subject is
+known to have survived at least to that event time.
 
 {pstd}
 The C-statistic is equivalent to the area under the ROC curve (AUC) for binary
@@ -148,7 +149,7 @@ interval at the current {cmd:c(level)}, along with pair comparison statistics.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:e(c)}}C-statistic{p_end}
-{synopt:{cmd:e(se)}}Standard error (infinitesimal jackknife){p_end}
+{synopt:{cmd:e(se)}}Standard error (leave-one-out jackknife){p_end}
 {synopt:{cmd:e(ci_lo)}}Lower bound of confidence interval{p_end}
 {synopt:{cmd:e(ci_hi)}}Upper bound of confidence interval{p_end}
 {synopt:{cmd:e(df_r)}}Degrees of freedom{p_end}
@@ -175,6 +176,16 @@ interval at the current {cmd:c(level)}, along with pair comparison statistics.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Functions}{p_end}
 {synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Harrell FE Jr, Lee KL, Mark DB. Multivariable prognostic models: issues in
+developing models, evaluating assumptions and adequacy, and measuring and
+reducing errors. {it:Statistics in Medicine}. 1996;15(4):361–387.
+{browse "https://doi.org/10.1002/%28SICI%291097-0258%2819960229%2915%3A4%3C361%3A%3AAID-SIM168%3E3.0.CO%3B2-4":DOI}{p_end}
 
 
 {marker author}{...}

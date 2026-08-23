@@ -3,6 +3,9 @@
 
 version 16.1
 
+* Fixed seed for the randomized using-data fixture below.
+set seed 20260823
+
 local TESTS 0
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
 _rm_qa_bootstrap

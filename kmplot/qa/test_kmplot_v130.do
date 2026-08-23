@@ -421,8 +421,10 @@ capture noisily {
         graphname(v130_helper) colors(black gray) mono events toptimeaxis ///
         callerversion("`_km_ver'")
     assert r(plot_margin_left) == 0
+    assert !missing(r(plot_margin_right))
     assert r(plot_margin_right) >= 4
     assert !missing(r(row_offset), r(row_labgap), r(title_gap))
+    assert !missing(r(row_offset))
     assert r(row_offset) > 0 & r(row_offset) < 0.5
 }
 if _rc == 0 {

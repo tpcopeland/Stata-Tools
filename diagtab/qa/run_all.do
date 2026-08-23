@@ -43,7 +43,7 @@ if `install_rc' {
     exit `install_rc'
 }
 
-local files "test_diagtab.do"
+local files "test_diagtab.do test_diagtab_errors.do test_diagtab_documentation_examples.do"
 if "`lane'" == "full" local files "`files' validation_diagtab.do"
 
 local suite_pass = 0

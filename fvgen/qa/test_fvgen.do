@@ -245,6 +245,7 @@ capture noisily {
     assert ustrpos(`"`lb'"', "²") > 0
     assert ustrpos(`"`lb'"', "×") == 0
     * value is age*age where age is present (obs 20), missing where age is (obs 6)
+    assert !missing(_ageXage[20], age[20]*age[20])
     assert reldif(_ageXage[20], age[20]*age[20]) < 1e-10
     assert missing(_ageXage[6])
 }
@@ -290,6 +291,7 @@ capture noisily {
     * known answer: centered value == raw minus the weighted sample mean
     quietly summarize age [aweight=wt] if !missing(age, bmi), meanonly
     scalar wm = r(mean)
+    assert !missing(_age_c[20], age[20] - wm)
     assert reldif(_age_c[20], age[20] - wm) < 1e-10
     * pweight is accepted and gives the same centering mean as aweight
     fvgen c.age##c.bmi [pweight=wt], center replace

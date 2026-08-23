@@ -40,12 +40,14 @@ quietly summarize y if _int == 1, meanonly
 local e1 = r(mean)
 quietly summarize y if _int == 2, meanonly
 local e2 = r(mean)
+assert !missing(`tce', `e0' - `e2')
 assert reldif(`tce', `e0' - `e2') < 1e-13
+assert !missing(`nde', `e1' - `e2')
 assert reldif(`nde', `e1' - `e2') < 1e-13
+assert !missing(`nie', (`e0' - `e2') - (`e1' - `e2'))
 assert reldif(`nie', (`e0' - `e2') - (`e1' - `e2')) < 1e-13
 display "RESULT: gcomp_saved_match_probe status=PASS"
 
 capture erase `"`saved'"'
 
 display "RESULT: test_saved_match tests=1 pass=1 fail=0 status=PASS"
-

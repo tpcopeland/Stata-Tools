@@ -38,6 +38,8 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 | `test_pkgtransfer_v105.do` | Version-3 distribution metadata, SSC and parent-relative plugin handling, directive-case and install witnesses, multi-plugin bundles, restore-marker namespacing, and runner isolation. |
 | `test_pkgtransfer_v110.do` | Default all-platform plugin bundles, explicit OS filtering for local and online modes, removal of redundant target copies, and installation from a filtered descriptor. |
 | `test_pkgtransfer_installed.do` | Fresh `net install`, installed-command execution, and bundled helper definitions in a local transfer archive. |
+| `test_pkgtransfer_errors.do` | Exact public parser rejection for download, OS, dofile, and zipfile contracts. |
+| `test_pkgtransfer_hostile.do` | Shell-metacharacter filenames and nonexistent-package refusal. |
 | `validation_pkgtransfer.do` | Known-answer script content, filtering, filenames, return values, and mode contracts. |
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner. |
 
@@ -45,7 +47,7 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 
 | Lane | Suites |
 |---|---|
-| `quick` | `test_pkgtransfer.do`, `test_pkgtransfer_v104.do`, `test_pkgtransfer_v105.do`, `test_pkgtransfer_v110.do`, `test_pkgtransfer_installed.do` |
+| `quick` | Functional, regression, installed-user, and error-contract suites in `run_all.do`. |
 | `core` | `quick` plus `validation_pkgtransfer.do` |
 | `full` | Same membership as `core`; default release gate |
 

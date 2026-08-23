@@ -193,6 +193,7 @@ capture noisily {
     * independent oracle: e(ll) must equal the tight fit's ll to the precision
     * a one-step fit can reach -- i.e. it is a real likelihood at a real beta
     quietly finegray x, compete(etype) cause(1) norobust nolog
+    assert !missing(`ll_loose', e(ll))
     assert reldif(`ll_loose', e(ll)) < 1e-6
 }
 if _rc == 0 {
@@ -260,7 +261,9 @@ capture noisily {
     display as text "  |dll|  = " %10.2e abs(`ll1' - `ll2')
 
     * the log-likelihood is invariant under reparameterization: same optimum
+    assert !missing(`ll1', `ll2')
     assert reldif(`ll1', `ll2') < 1e-10
+    assert !missing(`b1', 1e6 * `b2')
     assert reldif(`b1', 1e6 * `b2') < 1e-6
 }
 if _rc == 0 {
@@ -284,6 +287,7 @@ capture noisily {
     quietly finegray xs, compete(etype) cause(1) norobust nolog
     assert e(converged) == 1
     display as text "  |dll| = " %10.2e abs(`ll1' - e(ll))
+    assert !missing(`ll1', e(ll))
     assert reldif(`ll1', e(ll)) < 1e-10
 }
 if _rc == 0 {
@@ -343,6 +347,7 @@ capture noisily {
     quietly finegray x, compete(etype) cause(1) nolog
 
     assert e(converged) == 1
+    assert !missing(e(ll))
     assert e(ll) > e(ll_0)
     assert !missing(e(ll)) & !missing(e(ll_0))
     assert e(N) == 300
@@ -353,6 +358,7 @@ capture noisily {
     local b_default = _b[x]
     quietly finegray x, compete(etype) cause(1) nolog tolerance(1e-14)
     display as text "  b(tol 1e-8)=" %18.12f `b_default' "  b(tol 1e-14)=" %18.12f _b[x]
+    assert !missing(`b_default', _b[x])
     assert reldif(`b_default', _b[x]) < 1e-9
 }
 if _rc == 0 {

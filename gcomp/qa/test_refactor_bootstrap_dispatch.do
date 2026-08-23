@@ -71,6 +71,7 @@ capture noisily {
 
     forvalues j = 1/4 {
         assert `se1'[1,`j'] > 0
+        assert !missing(sqrt(`V1'[`j',`j']), `se1'[1,`j'])
         assert reldif(sqrt(`V1'[`j',`j']), `se1'[1,`j']) < 1e-10
         assert `ci1'[1,`j'] < `ci1'[2,`j']
     }
@@ -95,11 +96,16 @@ capture noisily {
     matrix `diag2' = e(model_diagnostics)
 
     forvalues j = 1/4 {
+        assert !missing(`b1'[1,`j'], `b2'[1,`j'])
         assert reldif(`b1'[1,`j'], `b2'[1,`j']) < 1e-10
+        assert !missing(`se1'[1,`j'], `se2'[1,`j'])
         assert reldif(`se1'[1,`j'], `se2'[1,`j']) < 1e-10
+        assert !missing(`ci1'[1,`j'], `ci2'[1,`j'])
         assert reldif(`ci1'[1,`j'], `ci2'[1,`j']) < 1e-10
+        assert !missing(`ci1'[2,`j'], `ci2'[2,`j'])
         assert reldif(`ci1'[2,`j'], `ci2'[2,`j']) < 1e-10
         forvalues k = 1/4 {
+            assert !missing(`V1'[`j',`k'], `V2'[`j',`k'])
             assert reldif(`V1'[`j',`k'], `V2'[`j',`k']) < 1e-10
         }
     }
@@ -197,6 +203,7 @@ capture noisily {
     forvalues j = 1/3 {
         assert `tb1'[1,`j'] >= 0 & `tb1'[1,`j'] <= 1
         assert `tse1'[1,`j'] > 0
+        assert !missing(sqrt(`tV1'[`j',`j']), `tse1'[1,`j'])
         assert reldif(sqrt(`tV1'[`j',`j']), `tse1'[1,`j']) < 1e-10
         assert `tci1'[1,`j'] < `tci1'[2,`j']
     }
@@ -224,11 +231,16 @@ capture noisily {
     matrix `tdiag2' = e(model_diagnostics)
 
     forvalues j = 1/3 {
+        assert !missing(`tb1'[1,`j'], `tb2'[1,`j'])
         assert reldif(`tb1'[1,`j'], `tb2'[1,`j']) < 1e-10
+        assert !missing(`tse1'[1,`j'], `tse2'[1,`j'])
         assert reldif(`tse1'[1,`j'], `tse2'[1,`j']) < 1e-10
+        assert !missing(`tci1'[1,`j'], `tci2'[1,`j'])
         assert reldif(`tci1'[1,`j'], `tci2'[1,`j']) < 1e-10
+        assert !missing(`tci1'[2,`j'], `tci2'[2,`j'])
         assert reldif(`tci1'[2,`j'], `tci2'[2,`j']) < 1e-10
         forvalues k = 1/3 {
+            assert !missing(`tV1'[`j',`k'], `tV2'[`j',`k'])
             assert reldif(`tV1'[`j',`k'], `tV2'[`j',`k']) < 1e-10
         }
     }
@@ -271,6 +283,7 @@ capture noisily {
     assert r(fit_N) == 300
     assert inrange(z_log, 0, 1) if arm
     count if arm & !inlist(z_log, 0, 1)
+    assert !missing(r(N))
     assert r(N) > 0
 
     generate double _u_m = x + rnormal()
@@ -304,6 +317,7 @@ capture noisily {
     _gcomp_draw_sim, command(nbreg) target(z_nb) equation("x") ///
         fitif("arm==0") drawif("missing(z_nb)") commandopts(", nolog")
     assert r(fit_N) == 300
+    assert !missing(r(alpha))
     assert r(alpha) > 0
     assert z_nb >= 0 & z_nb == floor(z_nb) if arm
 

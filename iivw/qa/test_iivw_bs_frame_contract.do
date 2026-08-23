@@ -231,6 +231,7 @@ capture noisily {
     * or anything else generic, this control would fail too.
     quietly iivw_fit y a, timespec(linear) bootstrap(5) refitweights ///
         geeopts(iterate(50)) nolog
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -260,6 +261,7 @@ capture noisily {
 
     * Same contrast control as B3, on the fixed-weight path.
     quietly iivw_fit y a, timespec(linear) bootstrap(5) geeopts(iterate(50)) nolog
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -286,6 +288,7 @@ capture noisily {
         wtype(iivw) nolog
 
     quietly iivw_fit y a, timespec(linear) bootstrap(0) geeopts(irls) nolog
+    assert !missing(e(N))
     assert e(N) > 0
     assert !missing(_b[a])
 }
@@ -357,6 +360,7 @@ capture noisily {
 
     assert e(N) == `_no'
     assert e(iivw_bs_frame_N) == `_np'
+    assert !missing(e(iivw_bs_frame_N))
     assert e(iivw_bs_frame_N) > e(N)
 }
 if _rc == 0 {

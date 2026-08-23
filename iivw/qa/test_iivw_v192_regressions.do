@@ -100,7 +100,9 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(sid) time(time) visit_cov(sev) nolog
     iivw_fit y sev, vce(fixed) nolog
     assert "`e(iivw_cluster)'" == "sid"
+    assert !missing(_b[sev], `b_num')
     assert reldif(_b[sev], `b_num') < 1e-10
+    assert !missing(_se[sev], `se_num')
     assert reldif(_se[sev], `se_num') < 1e-10
 }
 if _rc == 0 {
@@ -137,6 +139,7 @@ capture noisily {
     _iivw_v192_panel, nsubj(40)
     gen str6 arm = cond(treat, "active", "ctrl")
     iivw_exogtest y, endatlastvisit id(sid) time(time) by(arm) nolog
+    assert !missing(r(n_models))
     assert r(n_models) >= 1
     assert r(min_p) < .
     capture drop _iivw_exog_y_lag1
@@ -204,10 +207,12 @@ capture noisily {
 
     foreach grp in "ft == 0" "ft > 0 & !missing(ft)" {
         quietly count if `grp'
+        assert !missing(r(N))
         assert r(N) > 1
         quietly count if (`grp') & (missing(fw) | fw <= 0)
         assert r(N) == 0
         quietly summarize fw if `grp'
+        assert !missing(r(sd))
         assert r(sd) > 1e-9
     }
     drop fw ft

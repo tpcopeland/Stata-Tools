@@ -600,6 +600,7 @@ capture noisily {
     quietly regress price c.mpg##c.weight
     eplot .
     * Command should succeed (interaction terms silently excluded)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -674,6 +675,7 @@ capture noisily {
     estimates store m2
     eplot m1 m2, drop(_cons)
     assert r(n_models) == 2
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -761,6 +763,7 @@ capture noisily {
     sysuse auto, clear
     quietly regress price mpg weight
     eplot ., drop(_cons) style(nejm)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -922,6 +925,29 @@ else {
     local failed_tests "`failed_tests' 34"
 }
 
+* Test 35: group helper returns the exact number of inserted groups
+local ++test_count
+capture noisily {
+    clear
+    input double pos str20 label byte rowtype byte gapflag
+    1 "mpg" 1 0
+    2 "weight" 1 0
+    3 "foreign" 1 0
+    end
+    _eplot_process_groups pos label rowtype gapflag, ///
+        groups(mpg weight = "Vehicle" foreign = "Origin")
+    assert r(n_groups) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: Test 35 - Group helper count"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 35 - Group helper count (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 35"
+}
+
 * =============================================================================
 **# Summary
 * =============================================================================
@@ -931,7 +957,7 @@ display "TEST SUMMARY"
 display _dup(70) "-"
 display as text "Total:        `test_count'"
 display as result "Passed:       `pass_count'"
-display "RESULT: test_stars_matrix tests=34 pass=`pass_count' fail=`fail_count' skip=0"
+display "RESULT: test_stars_matrix tests=35 pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     display as error "Failed:       `fail_count'"
     display as error "Failed tests:`failed_tests'"

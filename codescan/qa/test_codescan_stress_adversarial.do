@@ -267,7 +267,9 @@ capture noisily {
     _make_codescan_adversarial_data
     codescan_describe dx1-dx40, top(8) nodots
     assert r(n_vars) == 40
+    assert !missing(r(n_unique))
     assert r(n_unique) >= 10
+    assert !missing(r(n_entries))
     assert r(n_entries) >= 14
     assert rowsof(r(top_codes)) == 8
     assert colsof(r(top_codes)) == 3

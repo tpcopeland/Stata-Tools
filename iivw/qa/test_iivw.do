@@ -87,10 +87,23 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 5
+        assert "`r(commands)'" == ///
+            "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
         * Dispatcher derives its version from the .ado header; assert it is a
         * well-formed semantic version rather than pinning a literal that goes
         * stale on every bump (currency is enforced by the CLI version check).
-        assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
+        local dispatcher_version "`r(version)'"
+        assert regexm("`dispatcher_version'", "^[0-9]+\.[0-9]+\.[0-9]+$")
+        findfile iivw.ado
+        local dispatcher_path "`r(fn)'"
+        tempname dispatcher_fh
+        file open `dispatcher_fh' using "`dispatcher_path'", read text
+        file read `dispatcher_fh' dispatcher_header
+        file close `dispatcher_fh'
+        assert regexm(`"`dispatcher_header'"', ///
+            "Version ([0-9]+\.[0-9]+\.[0-9]+)")
+        local header_version = regexs(1)
+        assert "`dispatcher_version'" == "`header_version'"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -112,6 +125,7 @@ if `run_only' == 0 | `run_only' == 2 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         assert r(N) == _N
         assert r(n_ids) == 500
+        assert !missing(r(mean_weight))
         assert r(mean_weight) > 0
         assert "`r(weighttype)'" == "iivw"
         confirm variable _iivw_weight
@@ -138,6 +152,7 @@ if `run_only' == 0 | `run_only' == 3 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) truncfinal(1 99) nolog
         assert "`r(weighttype)'" == "fiptiw"
+        assert !missing(r(n_truncated))
         assert r(n_truncated) >= 0
         confirm variable _iivw_iw
         confirm variable _iivw_tw
@@ -188,6 +203,7 @@ if `run_only' == 0 | `run_only' == 5 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
         iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_cmd)'" == "iivw_fit"
         assert "`e(iivw_model)'" == "gee"
@@ -344,6 +360,7 @@ if `run_only' == 0 | `run_only' == 12 {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             stabcov(relapse) nolog
+        assert !missing(r(mean_weight))
         assert r(mean_weight) > 0
         confirm variable _iivw_weight
     }
@@ -366,6 +383,7 @@ if `run_only' == 0 | `run_only' == 13 {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             truncfinal(5 95) nolog
+        assert !missing(r(n_truncated))
         assert r(n_truncated) >= 0
         quietly summarize _iivw_weight
         local w_range = r(max) - r(min)
@@ -391,8 +409,18 @@ if `run_only' == 0 | `run_only' == 14 {
         gen long id = .
         gen double t = .
         gen double v = .
+        quietly _datasignature, nonames
+        local empty_signature "`r(datasignature)'"
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(v)
-        assert _rc == 2000
+        local call_rc = _rc
+        assert `call_rc' == 2000
+        assert _N == 0
+        quietly _datasignature, nonames
+        assert "`r(datasignature)'" == "`empty_signature'"
+        capture confirm variable _iivw_iw
+        assert _rc == 111
+        capture confirm variable _iivw_weight
+        assert _rc == 111
     }
     if _rc == 0 {
         display as result "  PASS: Test 14 - Error on empty data"
@@ -544,14 +572,23 @@ if `run_only' == 0 | `run_only' == 21 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
+        assert !missing(r(N))
         assert r(N) > 0
+        assert !missing(r(n_ids))
         assert r(n_ids) > 0
+        assert !missing(r(mean_weight))
         assert r(mean_weight) > 0
+        assert !missing(r(sd_weight))
         assert r(sd_weight) > 0
+        assert !missing(r(min_weight))
         assert r(min_weight) > 0
+        assert !missing(r(max_weight))
         assert r(max_weight) > 0
+        assert !missing(r(p1_weight))
         assert r(p1_weight) > 0
+        assert !missing(r(p99_weight))
         assert r(p99_weight) > 0
+        assert !missing(r(ess))
         assert r(ess) > 0
         assert r(n_truncated) == 0
         assert "`r(weighttype)'" == "iivw"
@@ -1283,6 +1320,7 @@ if `run_only' == 0 | `run_only' == 50 {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
         assert "`e(iivw_timespec)'" == "linear"
@@ -1341,6 +1379,7 @@ if `run_only' == 0 | `run_only' == 52 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
             cluster(site_id) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert e(N_clust) <= 10
     }
@@ -1364,6 +1403,7 @@ if `run_only' == 0 | `run_only' == 53 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
             level(90) nolog
+        assert !missing(e(N))
         assert e(N) > 0
     }
     if _rc == 0 {
@@ -1394,6 +1434,7 @@ if `run_only' == 0 | `run_only' == 54 {
         bysort id: replace entry_time = entry_time[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             entry(entry_time) nolog
+        assert !missing(r(N))
         assert r(N) > 0
         confirm variable _iivw_weight
     }
@@ -1438,6 +1479,7 @@ if `run_only' == 0 | `run_only' == 56 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
             geeopts(iterate(50)) nolog
+        assert !missing(e(N))
         assert e(N) > 0
     }
     if _rc == 0 {
@@ -1543,6 +1585,7 @@ if `run_only' == 0 | `run_only' == 60 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
         iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_cmd)'" == "iivw_fit"
         assert "`e(iivw_model)'" == "gee"
@@ -1573,6 +1616,7 @@ if `run_only' == 0 | `run_only' == 61 {
         quietly {
             iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         }
+        assert !missing(r(N))
         assert r(N) > 0
     }
     if _rc == 0 {
@@ -1780,8 +1824,10 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     assert r(median_weight) < .
+    assert !missing(r(median_weight))
     assert r(median_weight) > 0
     * Median should be between min and max
+    assert !missing(r(median_weight))
     assert r(median_weight) >= r(min_weight)
     assert r(median_weight) <= r(max_weight)
 }
@@ -1865,6 +1911,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * Normal data with sufficient variation should NOT trigger the guard
     iivw_fit edss treated, vce(fixed) model(gee) timespec(ns(3)) nolog replace
+    assert !missing(e(N))
     assert e(N) > 0
     * Verify the knot validation code exists by confirming ns() works
     * The tied-knot guard fires when _pctile returns duplicate values,
@@ -1964,9 +2011,11 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * First fit creates _iivw_time_sq
     iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
+    assert !missing(e(N))
     assert e(N) > 0
     * Second fit with replace should succeed (overwrites _iivw_time_sq)
     iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -2206,6 +2255,7 @@ capture noisily {
     assert "`e(iivw_timespec)'" == "ns(2)"
     confirm variable _iivw_tns1
     confirm variable _iivw_tns2
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -2228,6 +2278,7 @@ capture noisily {
     assert "`e(iivw_timespec)'" == "ns(4)"
     confirm variable _iivw_tns1
     confirm variable _iivw_tns4
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -2250,6 +2301,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     iivw_fit n_visits relapse, vce(fixed) family(poisson) link(log) ///
         timespec(linear) nolog
+    assert !missing(e(N))
     assert e(N) > 0
     assert "`e(iivw_model)'" == "gee"
 }
@@ -2272,6 +2324,7 @@ capture noisily {
     local N_full = _N
     iivw_fit edss relapse if edss > 3, vce(fixed) model(gee) timespec(linear) nolog
     assert e(N) < `N_full'
+    assert !missing(e(N))
     assert e(N) > 0
     * Dataset should be unchanged
     assert _N == `N_full'
@@ -2532,6 +2585,7 @@ capture noisily {
     confirm variable _iivw_ix_low_dose_tns2
     confirm variable _iivw_ix_high_dose_tns1
     confirm variable _iivw_ix_high_dose_tns2
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -2562,6 +2616,7 @@ capture noisily {
     * arm gets label-based: _iivw_cat_active
     * site should get numeric: _iivw_cat_site_1 (collision with arm's _iivw_cat_active)
     assert "`e(iivw_cat_vars)'" != ""
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -2602,6 +2657,7 @@ capture noisily {
     iivw_weight, id(id) time(days) ///
         treat(treated) treat_cov(edss_bl) wtype(iptw) nolog
     assert "`r(weighttype)'" == "iptw"
+    assert !missing(r(N))
     assert r(N) > 0
     confirm variable _iivw_tw
     confirm variable _iivw_weight
@@ -2774,6 +2830,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     iivw_fit edss arm edss_bl, vce(fixed) categorical(arm) model(gee) nolog
     * Verify dummy coefficients are accessible
+    assert !missing(e(N))
     assert e(N) > 0
     assert "`e(iivw_cat_vars)'" != ""
 }
@@ -2826,6 +2883,7 @@ if `run_only' == 0 | `run_only' == 113 {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
+        assert !missing(e(N))
         assert e(N) > 0
     }
     if _rc == 0 {
@@ -2925,6 +2983,7 @@ if `run_only' == 0 | `run_only' == 117 {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss, vce(fixed) model(gee) timespec(linear) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert _b[days] != .
         assert "`e(iivw_display_vars)'" == "days"
@@ -2948,6 +3007,7 @@ if `run_only' == 0 | `run_only' == 118 {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss, vce(fixed) model(gee) timespec(none) nolog
+        assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_display_vars)'" == ""
     }

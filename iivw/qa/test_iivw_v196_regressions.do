@@ -103,7 +103,9 @@ capture noisily {
     * sysuse auto (df_r = 72) it put the mpg lower limit at -342.9227 where
     * regress itself gives -344.7008. The oracle is now the estimator's own
     * contract, not a normal approximation to it.
+    assert !missing(ll90, b_u - invttail(72, 0.05) * se_u)
     assert reldif(ll90, b_u - invttail(72, 0.05) * se_u) < 1e-10
+    assert !missing(ul90, b_u + invttail(72, 0.05) * se_u)
     assert reldif(ul90, b_u + invttail(72, 0.05) * se_u) < 1e-10
     assert abs(ll90 - (b_u - invnormal(0.95) * se_u)) > 1e-6
 }
@@ -135,7 +137,9 @@ capture noisily {
     * sysuse auto (df_r = 72) it put the mpg lower limit at -342.9227 where
     * regress itself gives -344.7008. The oracle is now the estimator's own
     * contract, not a normal approximation to it.
+    assert !missing(E99[1, 3], b_u - invttail(72, 0.005) * se_u)
     assert reldif(E99[1, 3], b_u - invttail(72, 0.005) * se_u) < 1e-10
+    assert !missing(E99[1, 4], b_u + invttail(72, 0.005) * se_u)
     assert reldif(E99[1, 4], b_u + invttail(72, 0.005) * se_u) < 1e-10
     assert abs(E99[1, 3] - (b_u - invnormal(0.995) * se_u)) > 1e-6
 }

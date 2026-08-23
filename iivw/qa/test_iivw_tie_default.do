@@ -201,6 +201,7 @@ if `run_only' == 0 | `run_only' == 1 {
         quietly iivw_weight, id(id) time(t) visit_cov(u) censor(fu_end) ///
             nolog replace
         assert r(tie_multiplicity) < .
+        assert !missing(r(tie_multiplicity))
         assert r(tie_multiplicity) > 2 & r(tie_multiplicity) < .
         matrix _bd = r(visit_b)
         local b_def = _bd[1,1]
@@ -212,6 +213,7 @@ if `run_only' == 0 | `run_only' == 1 {
         local b_bre = _bb[1,1]
 
         assert `b_def' < . & `b_bre' < .
+        assert !missing(`b_def', `b_bre')
         assert reldif(`b_def', `b_bre') > 0.05
         display as text "  T1 default=" %9.6f `b_def' "  breslow=" %9.6f `b_bre'
     }
@@ -245,6 +247,7 @@ if `run_only' == 0 | `run_only' == 2 {
         local b_efr = _be[1,1]
 
         assert `b_def' < . & `b_efr' < .
+        assert !missing(`b_def', `b_efr')
         assert reldif(`b_def', `b_efr') < 1e-12
     }
     if _rc == 0 {
@@ -285,10 +288,13 @@ if `run_only' == 0 | `run_only' == 3 {
         local o_bre = r(b_breslow)
 
         assert `o_efr' < . & `o_bre' < .
+        assert !missing(`b_def', `o_efr')
         assert reldif(`b_def', `o_efr') < 1e-8
+        assert !missing(`b_bre', `o_bre')
         assert reldif(`b_bre', `o_bre') < 1e-8
         * ...and the oracle itself must show the two methods differ, or the
         * anchor is satisfied by a degenerate fixture.
+        assert !missing(`o_efr', `o_bre')
         assert reldif(`o_efr', `o_bre') > 0.05
         display as text "  T3 pkg default=" %9.6f `b_def' "  stcox efron=" %9.6f `o_efr'
         display as text "  T3 pkg breslow=" %9.6f `b_bre' "  stcox breslow=" %9.6f `o_bre'
@@ -434,7 +440,9 @@ if `run_only' == 0 | `run_only' == 7 {
         local b_bre = _Rb[1, colnumb(_Rb, "b")]
 
         assert `b_def' < . & `b_efr' < . & `b_bre' < .
+        assert !missing(`b_def', `b_efr')
         assert reldif(`b_def', `b_efr') < 1e-12
+        assert !missing(`b_def', `b_bre')
         assert reldif(`b_def', `b_bre') > 0.05
         display as text "  T7 default=" %9.6f `b_def' "  breslow=" %9.6f `b_bre'
     }
@@ -576,9 +584,11 @@ if `run_only' == 0 | `run_only' == 10 {
 
         assert `b_none' < . & `b_bres' < . & `b_efr' < .
         * The unthreaded call followed the contract...
+        assert !missing(`b_none', `b_bres')
         assert reldif(`b_none', `b_bres') < 1e-12
         * ...and the two methods are genuinely distinguishable on this fixture,
         * so the equality above is not satisfied by a degenerate refit.
+        assert !missing(`b_bres', `b_efr')
         assert reldif(`b_bres', `b_efr') > 1e-6
         display as text "  T10 none=" %9.6f `b_none' "  breslow=" %9.6f `b_bres' ///
             "  efron=" %9.6f `b_efr'
@@ -676,6 +686,7 @@ if `run_only' == 0 | `run_only' == 12 {
         local b_bre = _bb[1,1]
 
         assert `b_def' < . & `b_bre' < .
+        assert !missing(`b_def', `b_bre')
         assert reldif(`b_def', `b_bre') < 1e-10
 
         * iivw_balance takes both and honours neither.

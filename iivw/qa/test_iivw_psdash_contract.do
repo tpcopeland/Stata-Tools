@@ -98,8 +98,10 @@ capture noisily {
     assert "`r(treat_covars)'" == "age sex bl_edss bl_sdmt"
     assert "`r(ps_estimand)'" == "ate"
     assert "`r(contract_version)'" == "3"
+    assert !missing(r(ps_min))
     assert r(ps_min) >= 0
     assert r(ps_max) <= 1
+    assert !missing(r(n_ps_extreme))
     assert r(n_ps_extreme) >= 0
 
     _iivw_get_settings

@@ -111,7 +111,10 @@ capture noisily {
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(700) samples(25) seed(9301)
 
+    assert !missing(e(tce))
+
     assert e(tce) > 0.05
+    assert !missing(e(nde))
     assert e(nde) > 0.05
     assert abs(e(nie)) < 0.035
     assert abs(e(tce) - e(nde)) < 0.035
@@ -144,11 +147,16 @@ capture noisily {
     assert colsof(`b') == 5
     assert colnumb(`b', "cde") == 5
     assert rowsof(`effects') == 5
+    assert !missing(e(tce))
     assert e(tce) > 0
+    assert !missing(e(nde))
     assert e(nde) > 0
+    assert !missing(e(nie))
     assert e(nie) > 0
     assert abs(e(tce) - (e(nde) + e(nie))) < 0.005
+    assert !missing(e(cde))
     assert e(cde) > 0
+    assert !missing(e(se_cde))
     assert e(se_cde) > 0
 }
 if _rc == 0 {
@@ -187,8 +195,10 @@ capture noisily {
     matrix `b_unsorted' = e(b)
 
     assert e(N) == `n_sorted'
+    assert !missing(e(obs_data), `obs_sorted')
     assert reldif(e(obs_data), `obs_sorted') < 1e-10
     forvalues j = 1/`=colsof(`b_sorted')' {
+        assert !missing(`b_sorted'[1,`j'], `b_unsorted'[1,`j'])
         assert reldif(`b_sorted'[1,`j'], `b_unsorted'[1,`j']) < 1e-10
     }
     use `tv_unsorted', clear

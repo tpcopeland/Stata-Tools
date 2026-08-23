@@ -850,6 +850,7 @@ _rc_result `rc' "S14 setup (unweighted vs weighted)"
 local ++test_count
 capture noisily {
     assert s14_ok == 1
+    assert !missing(s14_unw, s14_naive)
     assert reldif(s14_unw, s14_naive) < 1e-6             // unweighted == plain GLM
     assert abs(s14_naive - 0.5) > 0.08                   // naive misses (bias ~0.14)
     assert abs(s14_w - 0.5) < 0.025                      // weighted recovers

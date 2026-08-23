@@ -484,6 +484,7 @@ _rc_result `rc' "N8 setup (cluster invariance)"
 local ++test_count
 capture noisily {
     assert n8_ok == 1
+    assert !missing(n8_bsite, n8_bdef)
     assert reldif(n8_bsite, n8_bdef) < 1e-10               // point estimate identical
     assert abs(n8_bdef - 0.5) < 0.025                      // recovers slope
     assert n8_sesite != n8_sedef                           // SE genuinely differs by cluster
@@ -728,6 +729,7 @@ local ++test_count
 capture noisily {
     assert n11_ok == 1
     * bias_unweighted equals the actual unweighted miss (internal consistency)
+    assert !missing(n11_bias_unw, n11_unw_slope - 0.5)
     assert reldif(n11_bias_unw, n11_unw_slope - 0.5) < 1e-6
     assert abs(n11_bias_unw) > 0.10                        // unweighted materially biased (obs 0.17)
     assert abs(n11_bias_wt) < 0.03                         // weighted bias ~0 (obs 0.006)

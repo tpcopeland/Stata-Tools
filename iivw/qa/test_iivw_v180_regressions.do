@@ -85,6 +85,7 @@ capture noisily {
     set seed 180180
     iivw_fit y treat, model(gee) timespec(linear) bootstrap(15) refitweights nolog
     assert "`e(iivw_refitweights)'" == "1"
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -115,8 +116,10 @@ capture noisily {
     local se_fixed = _se[treat]
 
     * Observed point estimate is the same weighted fit either way
+    assert !missing(`b_refit', `b_fixed')
     assert reldif(`b_refit', `b_fixed') < 1e-4
     * SEs must differ: refitting the weights changes the resampling distribution
+    assert !missing(`se_refit', `se_fixed')
     assert reldif(`se_refit', `se_fixed') > 1e-6
     * fixed-weight fit records the mode as 0
     assert "`e(iivw_refitweights)'" == "0"
@@ -153,6 +156,7 @@ capture noisily {
 
     * a subsequent fit on the restored contract still works
     iivw_fit y treat, vce(fixed) model(gee) timespec(linear) nolog replace
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -175,6 +179,7 @@ capture noisily {
     set seed 180180
     iivw_fit y treat sev, model(gee) timespec(linear) bootstrap(15) refitweights nolog
     assert "`e(iivw_refitweights)'" == "1"
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {

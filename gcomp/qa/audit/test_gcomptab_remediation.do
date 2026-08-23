@@ -38,7 +38,8 @@ gcomptab, models xlsx("`xlsx'") sheet("Models & QA") markdown("`md'") csv("`csv'
     borderstyle(academic) decimal(4) fontsize(10)
 mata: assert(b==42)
 assert r(N_models)==2
-assert r(N_rows)>0
+assert !missing(r(N_rows))
+assert r(N_rows) > 0
 assert `"`r(xlsx)'"'==`"`xlsx'"'
 preserve
 import excel using "`xlsx'", sheet("Models & QA") cellrange(A1:A1) clear allstring

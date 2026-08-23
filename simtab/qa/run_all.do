@@ -77,8 +77,8 @@ if `install_rc' {
     exit `install_rc'
 }
 
-local files "test_simtab.do"
-if "`lane'" == "full" local files "`files' validation_simtab.do"
+local files "test_simtab.do test_simtab_errors.do test_simtab_documentation_examples.do"
+if "`lane'" == "full" local files "`files' validation_simtab.do test_simtab_oracle.do"
 if "`lane'" == "full" global SIMTAB_QA_REQUIRE_ORACLES 1
 else global SIMTAB_QA_REQUIRE_ORACLES
 

@@ -1039,12 +1039,16 @@ capture noisily {
     * Multi-window prevalences should match individual scans. Both sides run
     * the same deterministic scan on the same rows, so this is exact equality —
     * a 0.5pp tolerance spans a whole patient in a 3-patient cohort.
+    assert !missing(MW[1,1], S180[1,2])
     assert reldif(MW[1,1], S180[1,2]) < 1e-10
+    assert !missing(MW[1,2], S365[1,2])
     assert reldif(MW[1,2], S365[1,2]) < 1e-10
 
     * Anchor both to hand-computed values: within 180d only pid 2 (21800) is in
     * window; within 365d pid 1 (21550) joins. 1/3 and 2/3 of the cohort.
+    assert !missing(S180[1,2], 100/3)
     assert reldif(S180[1,2], 100/3) < 1e-8
+    assert !missing(S365[1,2], 200/3)
     assert reldif(S365[1,2], 200/3) < 1e-8
 }
 if _rc == 0 {

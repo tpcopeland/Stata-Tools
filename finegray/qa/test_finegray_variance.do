@@ -206,6 +206,7 @@ capture noisily {
 
     * The adjustment is not lost in the noise: the default and noadjust SEs
     * really do differ by the expected factor, so test 4 is not vacuous.
+    assert !missing(sqrt(F_adj[1,1]/F_noadj[1,1]), sqrt(109/108))
     assert reldif(sqrt(F_adj[1,1]/F_noadj[1,1]), sqrt(109/108)) < 1e-10
 }
 if _rc == 0 {
@@ -264,6 +265,7 @@ capture noisily {
 
     quietly finegray_predict xb_cl, xb
     quietly summarize xb_cl
+    assert !missing(r(N))
     assert r(N) > 1 & r(sd) > 0 & r(sd) < .
 }
 if _rc == 0 {

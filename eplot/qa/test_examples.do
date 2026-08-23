@@ -35,7 +35,7 @@ capture noisily {
     "Wilson 2023" -0.39 -0.65 -0.12 12.8 1
     "Overall"     -0.24 -0.34 -0.13  .   5
     end
-    eplot es lci uci, labels(study) weights(weight) type(type)
+    eplot es lci uci, labels(study) weights(weight) type(type) scheme(plotplainblind)
     assert r(N) == 5
     assert r(k) == 4
 }
@@ -46,7 +46,7 @@ capture graph drop _all
 * Example 2: values annotation on the same data surface.
 local ++test_count
 capture noisily {
-    eplot es lci uci, labels(study) weights(weight) type(type) values
+    eplot es lci uci, labels(study) weights(weight) type(type) values scheme(plotplainblind)
     assert r(N) == 5
 }
 if _rc == 0 local ++pass_count
@@ -57,9 +57,9 @@ capture graph drop _all
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly regress price mpg weight foreign
+    regress price mpg weight foreign
     eplot ., drop(_cons) coeflabels(mpg = "Miles per Gallon" ///
-        weight = "Vehicle Weight" foreign = "Foreign Make") cicap
+        weight = "Vehicle Weight" foreign = "Foreign Make") cicap scheme(plotplainblind)
     assert r(N) == 3
     assert r(k) == 3
 }
@@ -72,25 +72,26 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     quietly regress price mpg weight foreign
-    estimates store _ep_example_base
+    estimates store base
     quietly regress price mpg weight length foreign headroom
-    estimates store _ep_example_extended
-    eplot _ep_example_base _ep_example_extended, drop(_cons) ///
-        modellabels("Base" "Extended")
+    estimates store extended
+    eplot base extended, drop(_cons) ///
+        modellabels("Base" "Extended") scheme(plotplainblind)
     assert r(n_models) == 2
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 local ++pass_count
 else local failed_tests "`failed_tests' 4"
-capture estimates drop _ep_example_base _ep_example_extended
+capture estimates drop base extended
 capture graph drop _all
 
 * Example 5: sorted coefficients and capped confidence intervals.
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly regress price mpg weight length foreign
-    eplot ., drop(_cons) sort cicap mcolor(cranberry)
+    regress price mpg weight length foreign
+    eplot ., drop(_cons) sort cicap mcolor(cranberry) scheme(plotplainblind)
     assert r(N) == 4
 }
 if _rc == 0 local ++pass_count
@@ -101,9 +102,10 @@ capture graph drop _all
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly regress price mpg weight length turn foreign rep78
+    regress price mpg weight length turn foreign rep78
     eplot ., drop(_cons) groups(mpg weight length turn = ///
-        "Vehicle Characteristics" foreign rep78 = "Other Factors")
+        "Vehicle Characteristics" foreign rep78 = "Other Factors") scheme(plotplainblind)
+    assert !missing(r(N))
     assert r(N) > r(k)
 }
 if _rc == 0 local ++pass_count
@@ -114,8 +116,8 @@ capture graph drop _all
 local ++test_count
 capture noisily {
     matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)
-    matrix rownames R = Treatment_A Treatment_B Treatment_C
-    eplot, matrix(R) eform effect("Odds Ratio")
+    matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"
+    eplot, matrix(R) eform effect("Odds Ratio") scheme(plotplainblind)
     assert r(N) == 3
     assert r(k) == 3
 }
@@ -132,23 +134,23 @@ capture noisily {
     "Sex"      0.86 0.70 1.06 0.150 "effect"
     "Overall"  1.03 0.97 1.10 0.320 "overall"
     end
-    frame put label estimate ll ul pvalue rowtype, into(_ep_example_effects)
+    frame put label estimate ll ul pvalue rowtype, into(effects)
     clear
-    eplot, frame(_ep_example_effects) values stars effect("Ratio (95% CI)")
+    eplot, frame(effects) values stars effect("Ratio (95% CI)")
     assert r(N) == 3
     assert r(k) == 2
 }
 if _rc == 0 local ++pass_count
 else local failed_tests "`failed_tests' 8"
-capture frame drop _ep_example_effects
+capture frame drop effects
 capture graph drop _all
 
 * Example 9: logistic regression with eform and values.
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly logit foreign mpg weight length
-    eplot ., drop(_cons) eform values effect("Odds Ratio")
+    logit foreign mpg weight length
+    eplot ., drop(_cons) eform values effect("Odds Ratio") scheme(plotplainblind)
     assert r(N) == 3
 }
 if _rc == 0 local ++pass_count
@@ -159,8 +161,8 @@ capture graph drop _all
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly regress price mpg weight foreign
-    eplot ., noconstant stars values
+    regress price mpg weight foreign
+    eplot ., noconstant stars values scheme(plotplainblind)
     assert r(N) == 3
     capture matrix list r(pvalues)
     assert _rc == 0
@@ -172,7 +174,7 @@ capture graph drop _all
 * Example 11: significance coloring.
 local ++test_count
 capture noisily {
-    eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap
+    eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap scheme(plotplainblind)
     assert r(N) == 3
 }
 if _rc == 0 local ++pass_count
@@ -182,7 +184,7 @@ capture graph drop _all
 * Example 12: journal style preset.
 local ++test_count
 capture noisily {
-    eplot ., noconstant style(lancet)
+    eplot ., noconstant style(lancet) scheme(plotplainblind)
     assert r(N) == 3
 }
 if _rc == 0 local ++pass_count
@@ -193,8 +195,9 @@ capture graph drop _all
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly logit foreign mpg weight i.rep78
-    eplot ., noconstant eform cicap
+    logit foreign mpg weight i.rep78
+    eplot ., noconstant eform cicap scheme(plotplainblind)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 local ++pass_count
@@ -216,7 +219,7 @@ capture noisily {
     end
     eplot es lci uci, labels(study) weights(weight) type(type) values ///
         vformat(%4.2f) i2("42.1") tau2("0.021") ///
-        qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)")
+        qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)
     assert r(N) == 7
     assert r(k) == 6
 }

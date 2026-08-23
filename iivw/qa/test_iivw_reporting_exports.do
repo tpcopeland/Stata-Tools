@@ -149,11 +149,13 @@ capture noisily {
     assert "`r(frame)'" == ""
     assert "`r(balance_covars)'" == "`covars0'"
     assert "`e(cmd)'" == "`active_cmd'"
+    assert !missing(_b[z], `active_b')
     assert reldif(_b[z], `active_b') < 1e-12
     assert _N == 8
 
     forvalues i = 1/2 {
         forvalues j = 1/8 {
+            assert !missing(B0[`i', `j'], B1[`i', `j'])
             assert reldif(B0[`i', `j'], B1[`i', `j']) < 1e-12
         }
     }
@@ -233,6 +235,7 @@ capture noisily {
     assert "`r(csv)'" == ""
     assert "`r(frame)'" == ""
     assert "`e(cmd)'" == "`active_cmd'"
+    assert !missing(_b[q], `active_b')
     assert reldif(_b[q], `active_b') < 1e-12
 
     tempfile diagmark

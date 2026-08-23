@@ -32,7 +32,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 * and harmless under the sandboxed PLUS/PERSONAL.
 
 * Routine development lane: fast functional coverage across the four input modes.
-local quick_suites test_eplot test_options test_edge_cases
+local quick_suites test_eplot test_options test_edge_cases test_eplot_errors
 
 * Release smoke lane: quick plus the per-feature regression suites and frame mode.
 local core_suites `quick_suites' ///

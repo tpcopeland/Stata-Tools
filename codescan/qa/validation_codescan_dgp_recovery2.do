@@ -162,6 +162,7 @@ capture noisily {
     quietly count if o_dm2 == 1
     local t_dm2 = r(N)
     quietly count if o_union == 1
+    assert !missing(r(N))
     assert r(N) > `t_dm2'
 }
 if _rc == 0 {
@@ -192,6 +193,7 @@ capture noisily {
         replace o_f33only = 1 if dx`s' == "F33"
     }
     quietly count if o_f33only == 1 & o_pfx == 0
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if o_f33only == 1 & o_pfx == 0 & cvd == 1
     assert r(N) == 0

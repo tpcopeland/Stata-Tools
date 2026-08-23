@@ -121,6 +121,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_internal_names.do` | User variables matching private pair-index and tempvar-style names across frames/backends; error-path marker, frame, data, and session-state cleanup |
 | `test_rangematch_output_names.do` | Which name a carried using variable lands under: the 31/32-character regression (a non-colliding long name must join, a genuinely-needed decorated name that overflows the 32-character cap must still be refused), malformed `prefix()`/`suffix()` rejection with nothing colliding, and a value check so a column that exists but is wrong cannot pass |
 | `test_rangematch_option_grammar.do` | Empty required arguments, `keepusing()` varlist expansion, empty-side `missing(drop)`, `r(saving)` path normalization |
+| `test_rangematch_errors.do` | Exact parser, missing-policy, overlap-option, and destination-frame error contracts, with data/frame preservation and legal inverses |
 | `test_rangematch_missing_key_labels.do` | `missing()` policy over the master key where it is a matching input (`r(N_master_key_missing)`), no counts posted under `missing(error)`, and value-label collision resolution under collision-free names |
 | `test_rangematch_ties_random.do` | Random tie-breaking, seed reproducibility, and RNG restoration |
 | `test_rangematch_saving_matrix.do` | Saved-output routing and matrix-like result consistency |

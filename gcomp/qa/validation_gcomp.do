@@ -172,8 +172,11 @@ capture noisily {
         base_confs(c) sim(2000) samples(100) seed(20260306) minsim
 
     * All effects should be positive (exposure increases outcome risk)
+    assert !missing(e(tce))
     assert e(tce) > 0
+    assert !missing(e(nde))
     assert e(nde) > 0
+    assert !missing(e(nie))
     assert e(nie) > 0
 }
 if _rc == 0 {
@@ -236,6 +239,7 @@ else {
 * V2.5: NDE > NIE (direct dominates in this DGP)
 local ++test_count
 capture noisily {
+    assert !missing(e(nde))
     assert e(nde) > e(nie)
 }
 if _rc == 0 {
@@ -252,6 +256,7 @@ else {
 * With moderate sim/samples, PM can be quite variable; use wide range
 local ++test_count
 capture noisily {
+    assert !missing(e(pm))
     assert e(pm) > 0.001 & e(pm) < 0.80
 }
 if _rc == 0 {
@@ -270,9 +275,13 @@ else {
 * V3.1: All SEs are positive
 local ++test_count
 capture noisily {
+    assert !missing(e(se_tce))
     assert e(se_tce) > 0
+    assert !missing(e(se_nde))
     assert e(se_nde) > 0
+    assert !missing(e(se_nie))
     assert e(se_nie) > 0
+    assert !missing(e(se_pm))
     assert e(se_pm) > 0
 }
 if _rc == 0 {
@@ -334,6 +343,7 @@ capture noisily {
     forvalues j = 1/`k' {
         local se_from_vec = `se_vec'[1,`j']
         local se_from_V = sqrt(`V_mat'[`j',`j'])
+        assert !missing(`se_from_vec', `se_from_V')
         assert reldif(`se_from_vec', `se_from_V') < 0.0001
     }
 }
@@ -379,6 +389,7 @@ capture noisily {
     local tce_logor = e(tce)
 
     * Should be different (logOR is on log-odds scale)
+    assert !missing(`tce_rd', `tce_logor')
     assert reldif(`tce_rd', `tce_logor') > 0.01
 }
 if _rc == 0 {
@@ -400,6 +411,7 @@ capture noisily {
         base_confs(c) sim(500) samples(10) seed(1) logRR
     local tce_logrr = e(tce)
 
+    assert !missing(`tce_rd', `tce_logrr')
     assert reldif(`tce_rd', `tce_logrr') > 0.01
 }
 if _rc == 0 {
@@ -511,10 +523,15 @@ local ++test_count
 capture noisily {
     mock_gcomp, tce(0.150) nde(0.100) nie(0.050) pm(0.333) cde(0.080)
     gcomptab, xlsx("`testdir'/_val_gcomptab.xlsx") sheet("V6_1")
+    assert !missing(r(tce), 0.150)
     assert reldif(r(tce), 0.150) < 1e-6
+    assert !missing(r(nde), 0.100)
     assert reldif(r(nde), 0.100) < 1e-6
+    assert !missing(r(nie), 0.050)
     assert reldif(r(nie), 0.050) < 1e-6
+    assert !missing(r(pm), 0.333)
     assert reldif(r(pm), 0.333) < 1e-6
+    assert !missing(r(cde), 0.080)
     assert reldif(r(cde), 0.080) < 1e-6
     assert r(N_effects) == 5
 }
@@ -833,6 +850,7 @@ capture noisily {
     local PO2 = `_eb'[1,2]
     local PO3 = `_eb'[1,3]
     assert e(obs_data) != .
+    assert !missing(e(obs_data))
     assert e(obs_data) >= 0
     assert e(obs_data) <= 1
     assert abs(e(obs_data) - `PO1') > 0.01
@@ -924,6 +942,7 @@ else {
 * V8.2: TCE positive (exposure increases continuous outcome)
 local ++test_count
 capture noisily {
+    assert !missing(e(tce))
     assert e(tce) > 0
 }
 if _rc == 0 {
@@ -975,6 +994,7 @@ capture noisily {
 
     local k = colsof(`b1')
     forvalues j = 1/`k' {
+        assert !missing(`b1'[1,`j'], `b2'[1,`j'])
         assert reldif(`b1'[1,`j'], `b2'[1,`j']) < 1e-10
     }
 }

@@ -4,6 +4,9 @@
 
 clear all
 
+* Fixed seed for randomized temporary graph and fixture names below.
+set seed 20260823
+
 * === Bootstrap ===
 capture do "_qba_qa_common.do"
 if _rc {

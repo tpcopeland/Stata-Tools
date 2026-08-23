@@ -326,8 +326,10 @@ capture noisily {
         base_confs(c) sim(100) samples(50) seed(7) all
     assert e(bootstrap_requested) == 50
     assert e(bootstrap_attempted) == 50
+    assert !missing(e(bootstrap_successful))
     assert e(bootstrap_successful) >= 45
     assert e(bootstrap_failed) == 50 - e(bootstrap_successful)
+    assert !missing(e(bootstrap_failed))
     assert e(bootstrap_failed) > 0
     foreach cim in ci_normal ci_percentile ci_bc ci_bca {
         tempname M
@@ -377,7 +379,9 @@ capture noisily {
         base_confs(c) sim(200) samples(10) seed(999)
     local t2 = e(tce)
     local n2 = e(nde)
+    assert !missing(`t1', `t2')
     assert reldif(`t1', `t2') < 1e-10
+    assert !missing(`n1', `n2')
     assert reldif(`n1', `n2') < 1e-10
 }
 if _rc == 0 {
@@ -447,6 +451,7 @@ capture noisily {
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(20) seed(10) logOR all
     assert !missing(e(tce))
+    assert !missing(e(se_tce))
     assert e(se_tce) > 0
     * logOR values should be finite
     assert abs(e(tce)) < 20

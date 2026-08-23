@@ -59,6 +59,8 @@ local ++test_count
 capture noisily {
     clear
     set obs 100
+    * Seed: 271828
+    set seed 271828
     gen str20 s1 = "hello"
     gen str20 s2 = "world"
     gen double x = runiform()
@@ -364,6 +366,7 @@ capture noisily {
     gen str50 name = "test"
     compress_tc, quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -435,6 +438,7 @@ capture noisily {
     set obs 10000
     gen str200 longtext = "This is a long repeated text for strL compression test with deduplication benefit"
     compress_tc, quietly
+    assert !missing(r(bytes_saved))
     assert r(bytes_saved) > 0
 }
 if _rc == 0 {
@@ -708,6 +712,7 @@ capture noisily {
     recast strL s
     compress_tc, quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -727,6 +732,7 @@ capture noisily {
     gen str30 only_var = "single var dataset"
     compress_tc, quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -787,6 +793,7 @@ capture noisily {
     }
     compress_tc, quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -863,6 +870,7 @@ capture noisily {
     set obs 1000
     gen str100 constant = "exactly the same value in every observation"
     compress_tc, quietly
+    assert !missing(r(bytes_saved))
     assert r(bytes_saved) > 0
 }
 if _rc == 0 {
@@ -922,6 +930,7 @@ capture noisily {
     gen double value = runiform()
     compress_tc, quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
     assert _N == 50000
 }
@@ -1202,6 +1211,7 @@ capture noisily {
     gen double x = runiform()
     compress_tc, lowmem quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
 }
 if _rc == 0 {
@@ -1286,6 +1296,7 @@ capture noisily {
     gen str100 t = "repeated value " + string(mod(_n,5))
     compress_tc, dryrun quietly
     assert r(bytes_saved) != .
+    assert !missing(r(bytes_initial))
     assert r(bytes_initial) > 0
     assert r(bytes_final) != .
 }
@@ -1313,6 +1324,7 @@ capture noisily {
     use `orig', clear
     compress_tc, quietly
     local real_saved = r(bytes_saved)
+    assert !missing(`dry_saved', `real_saved')
     assert reldif(`dry_saved', `real_saved') < 0.01
 }
 if _rc == 0 {
@@ -1345,7 +1357,28 @@ else {
     local ++fail_count
 }
 
-* Test 73: minlength(0) default converts every str# variable
+* Test 73: a str# width exactly equal to minlength() is eligible
+local ++test_count
+capture noisily {
+    clear
+    set obs 10
+    gen str20 exactwidth = "boundary"
+    compress_tc, nocompress minlength(20) quietly
+    assert r(k_converted) == 1
+    assert strpos("`r(varlist)'", "exactwidth") > 0
+    local exacttype : type exactwidth
+    assert "`exacttype'" == "strL"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — minlength equality is eligible"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — minlength equality (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 74: minlength(0) default converts every str# variable
 local ++test_count
 capture noisily {
     clear
@@ -1364,7 +1397,7 @@ else {
     local ++fail_count
 }
 
-* Test 74: negative minlength is rejected
+* Test 75: negative minlength is rejected
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -1389,6 +1422,7 @@ capture noisily {
     gen double x = runiform()
     compress_tc, quietly
     assert r(bytes_strl) != .
+    assert !missing(r(bytes_strl))
     assert r(bytes_strl) >= 0
     assert r(k_converted) != .
     assert r(k_reverted) != .
@@ -1414,6 +1448,7 @@ capture noisily {
     }
     compress_tc, quietly
     assert strpos("`r(vars_strl)'", "bigtext") > 0
+    assert !missing(r(bytes_strl))
     assert r(bytes_strl) > 0
 }
 if _rc == 0 {

@@ -146,6 +146,7 @@ capture noisily {
     estimates store _t4_m2
 
     eplot _t4_m1 _t4_m2, drop(_cons) noci name(_v202_t4, replace)
+    assert !missing(r(N))
     assert r(N) > 0
     assert r(n_models) == 2
 }
@@ -171,6 +172,7 @@ capture noisily {
     estimates store _t5_m2
 
     eplot _t5_m1 _t5_m2, drop(_cons) noci cicap name(_v202_t5, replace)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

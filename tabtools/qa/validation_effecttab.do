@@ -6,6 +6,9 @@ set more off
 set varabbrev off
 version 17.0
 
+* Fixed seed for the randomized validation fixtures below.
+set seed 20260823
+
 capture log close _valeff
 log using "validation_effecttab.log", replace text name(_valeff)
 

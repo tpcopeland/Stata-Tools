@@ -108,6 +108,7 @@ capture noisily {
 
     forvalues j = 1/11 {
         assert `se'[1,`j'] >= 0
+        assert !missing(sqrt(`V'[`j',`j']), `se'[1,`j'])
         assert reldif(sqrt(`V'[`j',`j']), `se'[1,`j']) < 1e-10
         assert `ci'[1,`j'] <= `ci'[2,`j']
     }

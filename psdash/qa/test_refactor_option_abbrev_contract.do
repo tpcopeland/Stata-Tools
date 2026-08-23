@@ -6,6 +6,9 @@ clear all
 version 16.0
 set more off
 
+* Fixed seed for the randomized option-abbreviation fixture below.
+set seed 20260823
+
 capture log close _all
 log using "test_refactor_option_abbrev_contract.log", replace nomsg
 
