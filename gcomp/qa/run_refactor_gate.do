@@ -1,4 +1,5 @@
 * run_refactor_gate.do - Compatibility wrapper for the refactor QA lane
+* qa-hygiene: no-package-code -- shells run_qa.py --lane refactor and parses its sentinel; child suites own install hygiene
 * Usage: cd to qa/ and run: stata-mp -b do run_refactor_gate.do
 
 clear all

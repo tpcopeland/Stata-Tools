@@ -1,4 +1,5 @@
 * run_all.do - Compatibility wrapper for the canonical full QA aggregate
+* qa-hygiene: no-package-code -- shells run_qa.py and parses its sentinel; child suites own install hygiene
 * Usage: cd to qa/ and run: stata-mp -b do run_all.do
 
 clear all

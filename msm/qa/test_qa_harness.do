@@ -1,5 +1,6 @@
 * test_qa_harness.do
 * Negative and positive controls for the run_all.do child-result handshake.
+* qa-hygiene: no-package-code -- probes the run_all.do result handshake only; no msm command runs here
 
 version 16.0
 clear all

@@ -1,5 +1,6 @@
 * crossval_fixture_provenance.do - regenerate external fixtures without writes
 * to the tracked data directory and fail on semantic drift
+* qa-hygiene: no-package-code -- shells tools/verify_fixtures.py; no gcomp command runs here
 
 clear all
 set more off
