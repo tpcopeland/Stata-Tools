@@ -1,4 +1,5 @@
 * test_package_release.do - package-local static/document/XLSX release gate
+* qa-hygiene: no-package-code -- shells python xlsx checkers over committed demo artifacts; no gcomp command runs here
 
 clear all
 set more off

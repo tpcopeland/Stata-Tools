@@ -44,6 +44,7 @@ local core_suites ///
     test_datamap_v154.do ///
     test_datamap_v160.do ///
     test_datamvp_labels.do ///
+    test_datamvp_oracle.do ///
     validation_datamap.do ///
     validation_datamvp.do
 

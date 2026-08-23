@@ -1,4 +1,5 @@
 * test_demo_contract.do
+* qa-hygiene: no-package-code -- greps demo source and shell-checks committed artifacts; never executes the demo or msm
 * Q13: demo-lane contract. Guards the demo against drift without re-running the
 * (multi-minute) full demo: the demo .do keeps its deterministic, portable,
 * data-derived, IPCW-inclusive form; the committed artifacts exist and are

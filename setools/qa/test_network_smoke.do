@@ -1,5 +1,6 @@
 *! test_network_smoke.do  1.0.0  2026/07/13
 *! Optional network lane: pinned authoritative CCI source checksum
+* qa-hygiene: no-package-code -- fetches and checksums the upstream CCI source; no setools command runs here
 
 version 16.0
 clear all
