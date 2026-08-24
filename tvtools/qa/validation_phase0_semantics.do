@@ -104,8 +104,10 @@ capture noisily {
         generate(w_tv) denominator(ps_tv) nolog
     quietly logit a xbase xtv i.t, vce(cluster id)
     predict double ps_manual, pr
+    assert !missing(ps_tv, ps_manual)
     assert reldif(ps_tv, ps_manual) < 1e-10
     generate double w_manual = cond(a == 1, 1/ps_manual, 1/(1-ps_manual))
+    assert !missing(w_tv, w_manual)
     assert reldif(w_tv, w_manual) < 1e-10
 }
 if _rc == 0 local ++pass_count

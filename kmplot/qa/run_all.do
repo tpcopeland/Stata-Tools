@@ -20,7 +20,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 
 local quick_suites "test_kmplot.do test_kmplot_errors.do"
 local core_suites "`quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do test_kmplot_v127.do test_kmplot_v129.do test_kmplot_v1210.do test_kmplot_v130.do validation_kmplot_recovery.do validation_kmplot.do"
-local full_suites "`core_suites'"
+local full_suites "`core_suites' crossval_kmplot_sts.do"
 local suites "``mode'_suites'"
 
 local qa_dir "`c(pwd)'"

@@ -91,8 +91,10 @@ capture noisily {
     gen double w = 1
     replace w = 500 in 1            // max/mean ~ 25x -> dominance finding
     psdash weights treat ps, wvar(w) nograph
+    assert !missing(r(max_ratio))
     assert r(max_ratio) >= 20
     assert strpos("`r(warnings)'", "max/mean weight ratio") > 0
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
 }
 _t "maxratio_dominance_is_a_finding" `=_rc'

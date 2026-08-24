@@ -171,7 +171,9 @@ capture noisily {
     assert "`r(xlsx)'" == "`x3'"
     assert "`r(sheet)'" == "Tab"
     assert "`r(markdown)'" == "`m3'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
     assert "`r(methods)'" != ""
     * Excel: title row, group header row, metric header row
@@ -729,10 +731,13 @@ else {
         assert r(source) == "simsum"
         * method A row in plotframe
         frame pfs: quietly summarize bias if estimator_label=="A", meanonly
+        assert !missing(r(mean), `ss_bias')
         assert reldif(r(mean), `ss_bias') < 1e-5
         frame pfs: quietly summarize empse if estimator_label=="A", meanonly
+        assert !missing(r(mean), `ss_empse')
         assert reldif(r(mean), `ss_empse') < 1e-5
         frame pfs: quietly summarize coverage if estimator_label=="A", meanonly
+        assert !missing(r(mean), `ss_cover')
         assert reldif(r(mean), `ss_cover') < 1e-5
     }
     if _rc == 0 {
@@ -842,12 +847,15 @@ else {
             forvalues s = 1/2 {
                 frame spf: quietly summarize bias ///
                     if estimator_label=="`mm'" & by_label=="S`s'", meanonly
+                assert !missing(r(mean), `ref_bias_`mm'`s'')
                 assert reldif(r(mean), `ref_bias_`mm'`s'') < 1e-5
                 frame spf: quietly summarize empse ///
                     if estimator_label=="`mm'" & by_label=="S`s'", meanonly
+                assert !missing(r(mean), `ref_empse_`mm'`s'')
                 assert reldif(r(mean), `ref_empse_`mm'`s'') < 1e-5
                 frame spf: quietly summarize coverage ///
                     if estimator_label=="`mm'" & by_label=="S`s'", meanonly
+                assert !missing(r(mean)*100, `ref_cover_`mm'`s'')
                 assert reldif(r(mean)*100, `ref_cover_`mm'`s'') < 1e-4
             }
         }

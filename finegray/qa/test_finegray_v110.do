@@ -1286,6 +1286,7 @@ capture noisily {
     quietly finegray_predict ps, cif ci bootstrap(150) seed(5)
     gen double ws = ps_uci - ps_lci
     quietly summarize ws, meanonly
+    assert !missing(r(N))
     assert wcm < . & r(N) > 0 & r(mean) > 0 & r(mean) < .
     assert wcm / r(mean) > 1.3
 }

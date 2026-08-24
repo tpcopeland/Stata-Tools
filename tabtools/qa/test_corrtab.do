@@ -743,6 +743,7 @@ else {
 capture noisily {
     clear
     set obs 20
+    set seed 20260825
     gen double x = _n
     gen double y = _n * 2 + rnormal()
     gen double z = _n * 3 + rnormal()

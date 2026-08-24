@@ -1315,6 +1315,7 @@ capture noisily {
     assert r(rmst_2) < .
     assert abs(r(rmst_diff) - (r(rmst_1) - r(rmst_2))) < 1e-10
     assert abs(r(rmst_diff_se) - sqrt(r(rmst_se_1)^2 + r(rmst_se_2)^2)) < 1e-10
+    assert !missing(r(rmst_diff_ub))
     assert r(rmst_diff_lb) < r(rmst_diff_ub)
     capture frame drop _cv_surv_public
 }
@@ -1430,7 +1431,9 @@ capture noisily {
     estat ic
     matrix _S = r(S)
     regtab, stats(aic bic ll n) frame(_cv21a, replace)
+    assert !missing(r(aic_1), _S[1,5])
     assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert !missing(r(bic_1), _S[1,6])
     assert reldif(r(bic_1), _S[1,6]) < 1e-8
 
     * CV21b: logit
@@ -1440,7 +1443,9 @@ capture noisily {
     estat ic
     matrix _S = r(S)
     regtab, stats(aic bic) frame(_cv21b, replace)
+    assert !missing(r(aic_1), _S[1,5])
     assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert !missing(r(bic_1), _S[1,6])
     assert reldif(r(bic_1), _S[1,6]) < 1e-8
 
     * CV21c: poisson
@@ -1450,7 +1455,9 @@ capture noisily {
     estat ic
     matrix _S = r(S)
     regtab, stats(aic bic) frame(_cv21c, replace)
+    assert !missing(r(aic_1), _S[1,5])
     assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert !missing(r(bic_1), _S[1,6])
     assert reldif(r(bic_1), _S[1,6]) < 1e-8
 
     * CV21d: mixed (synthetic two-level data, no network dependency)
@@ -1467,7 +1474,9 @@ capture noisily {
     estat ic
     matrix _S = r(S)
     regtab, stats(aic bic) frame(_cv21d, replace)
+    assert !missing(r(aic_1), _S[1,5])
     assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert !missing(r(bic_1), _S[1,6])
     assert reldif(r(bic_1), _S[1,6]) < 1e-8
 
     capture frame drop _cv21a
@@ -1507,6 +1516,7 @@ capture noisily {
     quietly estat icc
     local _e_icc = r(icc2)
     regtab, stats(icc) frame(_cv22a, replace)
+    assert !missing(r(icc_1), `_e_icc')
     assert reldif(r(icc_1), `_e_icc') < 1e-7
 
     * CV22b: melogit binary ICC (pi^2/3 denominator)
@@ -1524,6 +1534,7 @@ capture noisily {
     quietly estat icc
     local _e_icc = r(icc2)
     regtab, stats(icc) frame(_cv22b, replace)
+    assert !missing(r(icc_1), `_e_icc')
     assert reldif(r(icc_1), `_e_icc') < 1e-7
 
     * CV22c: meprobit binary ICC (latent residual variance 1, not pi^2/3)
@@ -1532,6 +1543,7 @@ capture noisily {
     quietly estat icc
     local _e_icc = r(icc2)
     regtab, stats(icc) frame(_cv22c, replace)
+    assert !missing(r(icc_1), `_e_icc')
     assert reldif(r(icc_1), `_e_icc') < 1e-7
 
     capture frame drop _cv22a
@@ -1621,6 +1633,7 @@ capture noisily {
         corr(exchangeable) scale(1)
     local _fixed_ref = e(deviance) + 2 * e(rank)
     regtab, stats(qic) frame(_cv23c, replace)
+    assert !missing(r(qic_1), `_fixed_ref')
     assert reldif(r(qic_1), `_fixed_ref') < 1e-8
     frame _cv23c: count if A == "QICu"
     assert r(N) == 1

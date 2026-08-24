@@ -40,6 +40,7 @@ capture noisily {
     diagtab phat low, cutoff(0.4) auc ///
         xlsx(diag_auc.xlsx) title("LBW Prediction") ///
         theme(nejm)
+    assert !missing(r(auc))
     assert r(auc) > 0 & r(auc) < 1
     confirm file "`qa_dir'/diag_auc.xlsx"
 }
@@ -71,7 +72,9 @@ capture noisily {
     gen byte pred_low = (phat > 0.3)
     diagtab pred_low low, prevalence(0.07) exact ///
         title("PPV/NPV Adjusted for 7% Population Prevalence")
+    assert !missing(r(ppv))
     assert r(ppv) > 0 & r(ppv) < 1
+    assert !missing(r(npv))
     assert r(npv) > 0 & r(npv) < 1
 }
 if _rc == 0 local ++pass_count

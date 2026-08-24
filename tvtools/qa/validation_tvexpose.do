@@ -418,6 +418,7 @@ capture {
 
     * Should have unexposed period between the two exposures
     quietly count if tv_exp == 0
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -495,6 +496,7 @@ capture {
 
     * Verify categories exist
     quietly tab dur_cat
+    assert !missing(r(r))
     assert r(r) >= 1
 
     * Duration categories:
@@ -505,6 +507,7 @@ capture {
     * By end of full year, should reach category 3 or 4
     sort rx_start
     quietly sum dur_cat
+    assert !missing(r(max))
     assert r(max) >= 2
 }
 if _rc == 0 {
@@ -544,6 +547,7 @@ capture {
     * Find interval containing mid-March (should be unexposed due to lag)
     gen has_mar15 = (rx_start <= mdy(3,15,2020) & rx_stop >= mdy(3,15,2020))
     quietly count if has_mar15 == 1 & tv_exp == 0
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -576,6 +580,7 @@ capture {
     * Find interval containing mid-July (should be exposed due to washout)
     gen has_jul15 = (rx_start <= mdy(7,15,2020) & rx_stop >= mdy(7,15,2020))
     quietly count if has_jul15 == 1 & tv_exp == 1
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -612,6 +617,7 @@ capture {
     sort rx_start
     gen has_may = (rx_start <= mdy(5,15,2020) & rx_stop >= mdy(5,15,2020))
     quietly count if has_may == 1 & tv_exp == 2
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -887,6 +893,7 @@ capture {
 
     * Verify variable created with expected categories
     quietly tab recency_cat
+    assert !missing(r(r))
     assert r(r) >= 1
 }
 if _rc == 0 {
@@ -966,6 +973,7 @@ capture {
 
     * Verify cumulative dose is tracked
     quietly sum cum_dose
+    assert !missing(r(max))
     assert r(max) > 0
 
     * Should be monotonically increasing
@@ -999,6 +1007,7 @@ capture {
 
     * Verify categories exist
     quietly tab dose_cat
+    assert !missing(r(r))
     assert r(r) >= 1
 
     * Values should be non-negative integers
@@ -1193,6 +1202,7 @@ capture {
     * Exposure 2 starts later (Apr), so during Apr-Jun should be type 2
     gen has_may = (rx_start <= mdy(5,15,2020) & rx_stop >= mdy(5,15,2020))
     quietly count if has_may == 1 & tv_layer == 2
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -1950,6 +1960,7 @@ capture {
     confirm variable tv_exp
     quietly sum tv_exp
     * If continuousunit is days, values should be reasonable day counts
+    assert !missing(r(max))
     assert r(max) >= 1
 }
 if _rc == 0 {
@@ -2226,6 +2237,7 @@ capture {
 
     * Should have at least one interval with exposure
     quietly count if tv_exp == 1
+    assert !missing(r(N))
     assert r(N) >= 1
 
     * Total person-time should be preserved (inclusive endpoints)
@@ -2263,6 +2275,7 @@ capture {
     * Note: tvexpose renames start/stop back to original names (rx_start/rx_stop)
     sort id rx_start
     quietly count if tv_exp == 1
+    assert !missing(r(N))
     assert r(N) >= 1
 
     * The exposed period should include the study entry date
@@ -3248,6 +3261,7 @@ capture {
 
     * But person 3 should still have time accounted for
     quietly count if id == 3
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -3961,6 +3975,7 @@ capture {
 
     * With grace(0), even 1-day gap should create unexposed period
     quietly count if tv_exp == 0
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -4056,6 +4071,7 @@ capture {
     * Total exposed should span roughly 22006-22011 = 5 days
     gen dur = (rx_stop - rx_start) if tv_exp == 1
     quietly sum dur
+    assert !missing(r(sum))
     assert r(sum) >= 3
 }
 if _rc == 0 {
@@ -4372,6 +4388,7 @@ capture {
 
     * Maximum cumulative should be about 150 days (5 x 30)
     quietly sum cum_exp
+    assert !missing(r(max))
     assert r(max) >= 140 & r(max) <= 160
 }
 if _rc == 0 {
@@ -4475,6 +4492,7 @@ capture {
 
     * Should create duration category transitions
     quietly tab dur_cat
+    assert !missing(r(r))
     assert r(r) >= 2
 }
 if _rc == 0 {
@@ -4502,6 +4520,7 @@ capture {
 
     * Should have at least one exposed interval
     quietly count if dur_cat >= 1
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -5044,6 +5063,7 @@ capture {
 
     * Verify exposed period exists and has exactly 1 day
     quietly count if tv_exp == 1
+    assert !missing(r(N))
     assert r(N) >= 1
     gen dur = rx_stop - rx_start + 1
     quietly sum dur if tv_exp == 1
@@ -5159,8 +5179,10 @@ capture {
 
     * Check both exposure types exist
     quietly count if tv_exp == 1
+    assert !missing(r(N))
     assert r(N) >= 1
     quietly count if tv_exp == 2
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {

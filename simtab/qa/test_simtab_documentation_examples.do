@@ -28,7 +28,7 @@ capture noisily {
     gen double true_value = cond(estimand == "marginal", .10, .50)
     gen byte covered = 1
     simtab estimator, estimate(estimate) se(se) true(true_value) ///
-        by(scenario) estimand(estimand) sim(sim) coverage(covered) ///
+        by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(1000) ///
         metrics(mean bias empse meanse coverage n nonconv) ///
         xlsx("sim.xlsx") sheet("Table 2") title("Simulation results") ///
         borderstyle(academic) digits(3) plotframe(sim_plot, replace) display

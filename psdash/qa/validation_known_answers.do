@@ -404,6 +404,7 @@ capture noisily {
 
     psdash balance treat pshat, covariates(x1 x2) wvar(wate)
     * confounding is real: at least one raw SMD is substantial
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 0.3
     * correct IPTW recovers balance: adjusted SMDs collapse toward zero
     assert r(max_smd_adj) < 0.1
@@ -434,7 +435,9 @@ capture noisily {
     * omitted confounder x2 remains materially imbalanced after weighting
     assert abs(B[2,8]) > 0.3
     * and psdash flags the residual imbalance
+    assert !missing(r(n_imbalanced))
     assert r(n_imbalanced) >= 1
+    assert !missing(r(max_smd_adj))
     assert r(max_smd_adj) > 0.3
 }
 _vka_result "KA15 misspecified-model negative control (diagnostic discriminates)" `=_rc'

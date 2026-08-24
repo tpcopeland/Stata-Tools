@@ -73,6 +73,7 @@ capture noisily {
 
     quietly logdoc using "`source_smcl'", output("`output_html'") format(html) replace quiet
     confirm file "`output_html'"
+    assert !missing(r(nblocks))
     assert r(nblocks) > 0
     assert protected[1] == 11
     assert protected[2] == .a

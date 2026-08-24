@@ -4,9 +4,10 @@ version 16.0
 set seed 303103
 set varabbrev off
 capture log close _all
-log using "test_gcomp_hostile.log", replace text nomsg
-local pkg_dir = subinstr("`c(pwd)'", "/qa", "", 1)
-adopath ++ "`pkg_dir'"
+tempfile test_log
+log using "`test_log'", replace text nomsg
+local qa_dir = regexr("`c(pwd)'", "/+$", "")
+do "`qa_dir'/_qa_bootstrap.do"
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -38,9 +39,10 @@ capture noisily {
 }
 if _rc == 0 local ++pass_count
 else local ++fail_count
-display "RESULT: test_gcomp_hostile tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
+    display "RESULT: test_gcomp_hostile tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     capture log close _all
     exit 1
 }
+display "RESULT: test_gcomp_hostile tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
 capture log close _all

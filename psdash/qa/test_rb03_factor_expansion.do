@@ -99,7 +99,9 @@ capture noisily {
     assert `: word count `r(varlist)'' == 2
     * Both indicators are strongly imbalanced; old code reported max SMD 0.
     assert r(n_imbalanced) == 2
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 1
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
     assert strpos(`"`r(warnings)'"', "SMD threshold") > 0
 }
@@ -114,6 +116,7 @@ capture noisily {
     * Main effects balanced, interaction strongly imbalanced -> exactly one
     * imbalanced column, driven by the joint term old code never built.
     assert r(n_imbalanced) == 1
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 1
 }
 _t "F2_interaction_assessed" `=_rc'
@@ -126,6 +129,7 @@ capture noisily {
     psdash balance psl
     assert strpos("`r(varlist)'", "2.cat") > 0
     assert strpos("`r(varlist)'", "3.cat") > 0
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 1
 }
 _t "auto_detect_logit_expands_design" `=_rc'
@@ -138,6 +142,7 @@ capture noisily {
     psdash balance
     assert strpos("`r(varlist)'", "2.cat") > 0
     * teffects IPW balances the design; the RAW categorical imbalance is exposed.
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 1
 }
 _t "auto_detect_teffects_expands_design" `=_rc'
@@ -153,6 +158,7 @@ capture noisily {
     psdash balance trt ps, covariates(i.catr) nowvar
     * Max SMD and imbalance count must be invariant to the relabeling. On the old
     * code, i.cat was rejected; on any integer-code scalarization these would move.
+    assert !missing(r(max_smd_raw), `base_smd')
     assert reldif(r(max_smd_raw), `base_smd') < 1e-10
     assert r(n_imbalanced) == `base_nimb'
 }
@@ -169,6 +175,7 @@ capture noisily {
     assert strpos("`r(varlist)'", "2b.cat") == 0
     assert strpos("`r(varlist)'", "2.cat") == 0    // level 2 is now the base
     * The design still detects imbalance regardless of which level is the base.
+    assert !missing(r(n_imbalanced))
     assert r(n_imbalanced) >= 1
     assert `nimb_default' >= 1
 }
@@ -221,6 +228,7 @@ capture noisily {
     psdash balance trt ps, covariates(i.cat2) nowvar
     assert `: word count `r(varlist)'' == 1
     assert strpos("`r(varlist)'", "1.cat2") > 0
+    assert !missing(r(max_smd_raw), `smd_hand')
     assert reldif(r(max_smd_raw), `smd_hand') < 1e-8
 }
 _t "independent_oracle_indicator_smd" `=_rc'

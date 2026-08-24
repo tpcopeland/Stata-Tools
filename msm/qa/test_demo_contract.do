@@ -85,6 +85,7 @@ capture noisily {
         capture confirm file "`demo_dir'/`a'"
         assert _rc == 0
         quietly checksum "`demo_dir'/`a'"
+        assert !missing(r(filelen))
         assert r(filelen) > 0
     }
 

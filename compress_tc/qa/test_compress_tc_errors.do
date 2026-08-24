@@ -27,6 +27,7 @@ capture noisily {
     assert `call_rc' == 198
     assert marker[1] == `before'
     compress_tc code, nocompress
+    assert !missing(r(k_converted))
     assert r(k_converted) >= 0
 }
 if _rc == 0 local ++pass_count

@@ -139,6 +139,7 @@ else {
 capture noisily {
     clear
     set obs 50000
+    * lint: unseeded-ok — uniqueness, not reproducibility
     gen double hi_cont = _n + runiform()/1000000
     _tabtools_detect_vartype hi_cont
     assert "`result'" == "contn"
@@ -670,7 +671,9 @@ capture noisily {
     capture frame drop _ke_comp
  comptab _ke_src1 _ke_src2, rows(1 \ 1 2) frame(_ke_comp)
     assert r(N_frames) == 2
+    assert !missing(r(N_models))
     assert r(N_models) >= 1
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 5    // ≥3 data rows + ≥2 header
 }
 if _rc == 0 {
@@ -769,11 +772,15 @@ else {
 local ++n_total
 capture noisily {
     _ke_cross2x2
-    crosstab event exposed
+    crosstab event exposed, or rr
+    assert !missing(r(p))
     assert r(p) >= 0 - 1e-12
     assert r(p) <= 1 + 1e-12
+    assert !missing(r(chi2))
     assert r(chi2) >= 0 - 1e-12
+    assert !missing(r(or))
     assert r(or) > 0
+    assert !missing(r(rr))
     assert r(rr) > 0
 }
 if _rc == 0 {
@@ -791,8 +798,10 @@ capture noisily {
     webuse drugtr, clear
     quietly stset studytime, failure(died)
     survtab, times(20) by(drug)
+    assert !missing(r(logrank_p))
     assert r(logrank_p) >= 0 - 1e-12
     assert r(logrank_p) <= 1 + 1e-12
+    assert !missing(r(logrank_chi2))
     assert r(logrank_chi2) >= 0 - 1e-12
 }
 if _rc == 0 {

@@ -227,7 +227,9 @@ capture noisily {
     psdash weights treat ps, nograph
 }
 if _rc == 0 {
+    assert !missing(r(max_wt))
     assert r(max_wt) > 100
+    assert !missing(r(n_extreme))
     assert r(n_extreme) > 0
     display as result "  PASS: T14 extreme weights detected (max_wt=" ///
         string(r(max_wt), "%9.1f") ")"
@@ -1158,7 +1160,9 @@ capture noisily {
     gen byte treat = mod(_n, 2)
     gen double ps = runiform() * 0.6 + 0.2
     psdash weights treat ps, stabilize generate(sw)
+    assert !missing(r(mean_wt))
     assert r(new_mean) < r(mean_wt)
+    assert !missing(r(new_mean))
     assert r(new_mean) > 0
 }
 if _rc == 0 {
@@ -1395,10 +1399,15 @@ capture noisily {
     assert r(N_control) == 60
     assert r(mean_ps_treated) != .
     assert r(mean_ps_control) != .
+    assert !missing(r(overlap_lower))
     assert r(overlap_lower) >= 0 & r(overlap_lower) <= 1
+    assert !missing(r(overlap_upper))
     assert r(overlap_upper) >= 0 & r(overlap_upper) <= 1
+    assert !missing(r(overlap_upper))
     assert r(overlap_lower) <= r(overlap_upper)
+    assert !missing(r(n_outside))
     assert r(n_outside) >= 0
+    assert !missing(r(pct_outside))
     assert r(pct_outside) >= 0 & r(pct_outside) <= 100
 }
 if _rc == 0 {
@@ -1463,7 +1472,9 @@ capture noisily {
     gen double ps = runiform() * 0.8 + 0.1
     replace ps = 0.001 in 1
     psdash weights treat ps, trim(95) generate(w_trimmed)
+    assert !missing(r(max_wt))
     assert r(new_max) <= r(max_wt)
+    assert !missing(r(max_wt))
     assert r(new_max) < r(max_wt)
 }
 if _rc == 0 {
@@ -1487,8 +1498,10 @@ capture noisily {
     psdash support treat ps, generate(in_s) threshold(0.1) nograph
     assert in_s == 0 | in_s == 1
     quietly count if in_s == 1
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if in_s == 0
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

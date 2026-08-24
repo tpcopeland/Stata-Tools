@@ -173,6 +173,7 @@ capture noisily {
     assert r(n_gps_violate) == 107
     assert abs(r(min_gps) - 0.001) < 1e-9
     assert r(gps_floor) == 0.01
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1                    // OLD: 0 ("Overlap: Good")
     * FG2: the finding is GPS-based, not the observed-arm rule
     assert r(pct_outside) <= 10
@@ -212,6 +213,7 @@ capture noisily {
     * overlap panel alone: OLD reported PASS on this design
     psdash combined arm, psvars(p0 p1 p2) covariates(x) nobalance noweights nosupport
     assert "`r(verdict)'" == "FAIL"
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
     * gpsfloor() must reach the panels, not be silently dropped
     psdash combined arm, psvars(p0 p1 p2) covariates(x) ///

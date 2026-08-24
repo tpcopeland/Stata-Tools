@@ -266,6 +266,7 @@ else {
     display as text "Failed: `fail_count'"
 }
 
+display as result "RESULT: crossval_compress_tc tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     exit 1
 }

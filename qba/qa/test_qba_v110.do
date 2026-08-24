@@ -223,6 +223,7 @@ local ++test_count
 	    regress price weight
 	    qba_confound, from_model p1(.4) p0(.2) confeffect(500) coef(weight) ///
 	        reps(500) seed(12345)
+	    assert !missing(r(n_valid))
 	    assert r(n_valid) > 0
 	}
 if _rc == 0 {
@@ -616,8 +617,11 @@ local ++test_count
 capture noisily {
     qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0) ///
         reps(1000) dist_p1("uniform 0.0 1.5") seed(54321)
+    assert !missing(r(n_draw_invalid))
     assert r(n_draw_invalid) > 0
+    assert !missing(r(n_valid))
     assert r(n_valid) > 0
+    assert !missing(r(reps))
     assert r(n_valid) < r(reps)
 }
 if _rc == 0 {

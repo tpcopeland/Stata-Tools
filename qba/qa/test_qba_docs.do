@@ -114,8 +114,11 @@ capture noisily {
     logistic foreign mpg weight
     qba_confound, from_model coef(mpg) p1(.35) p0(.15) rrcd(1.8) evalue
     assert "`r(measure)'" == "OR"
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(evalue))
     assert r(evalue) > 0
 }
 if _rc == 0 {

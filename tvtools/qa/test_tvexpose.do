@@ -3286,10 +3286,15 @@ capture {
         exposure(drug) reference(0) entry(entry) exit(exit)
 
     assert r(N_persons) == 2
+    assert !missing(r(N_periods))
     assert r(N_periods) > 0
+    assert !missing(r(total_time))
     assert r(total_time) > 0
+    assert !missing(r(exposed_time))
     assert r(exposed_time) > 0
+    assert !missing(r(unexposed_time))
     assert r(unexposed_time) > 0
+    assert !missing(r(pct_exposed))
     assert r(pct_exposed) > 0 & r(pct_exposed) < 100
 }
 if _rc == 0 {

@@ -37,6 +37,7 @@ display as text _n "Test `test_count': Basic run returns all r() values"
 
 capture noisily {
     tc_schemes
+    assert !missing(r(n_schemes))
     assert r(n_schemes) > 0
     assert "`r(schemes)'" != ""
     assert "`r(sources)'" == "blindschemes schemepack cleanplots modern tc"

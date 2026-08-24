@@ -98,7 +98,9 @@ if `run_only' == 0 | `run_only' == 1 {
         * Verify weights are positive
         assert iptw > 0
         * Verify return values exist
+        assert !missing(r(N))
         assert r(N) > 0
+        assert !missing(r(ess))
         assert r(ess) > 0
     }
     if _rc == 0 {
@@ -454,14 +456,22 @@ if `run_only' == 0 | `run_only' == 14 {
         use `testdata', clear
         tvweight treatment, covariates(age sex) nolog
         * Check all expected return values
+        assert !missing(r(N))
         assert r(N) > 0
         assert r(n_levels) == 2
+        assert !missing(r(ess))
         assert r(ess) > 0
+        assert !missing(r(ess_pct))
         assert r(ess_pct) > 0 & r(ess_pct) <= 100
+        assert !missing(r(w_mean))
         assert r(w_mean) > 0
+        assert !missing(r(w_sd))
         assert r(w_sd) >= 0
+        assert !missing(r(w_min))
         assert r(w_min) > 0
+        assert !missing(r(w_max))
         assert r(w_max) > 0
+        assert !missing(r(w_p50))
         assert r(w_p50) > 0
         assert "`r(exposure)'" == "treatment"
         assert "`r(model)'" == "logit"
@@ -510,10 +520,13 @@ capture noisily {
     * Check all required stored results
     assert r(N) == 500
     assert r(n_levels) == 2
+    assert !missing(r(ess))
     assert r(ess) > 0
+    assert !missing(r(ess_pct))
     assert r(ess_pct) > 0 & r(ess_pct) <= 100
     assert !missing(r(w_mean))
     assert !missing(r(w_sd))
+    assert !missing(r(w_min))
     assert r(w_min) > 0
     assert !missing(r(w_max))
     assert !missing(r(w_p1))
@@ -587,6 +600,7 @@ local ++test_count
 capture noisily {
     use `weight_data', clear
     tvweight treatment, covariates(age female) generate(tw) truncate(5 95) nolog
+    assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0
     assert r(trunc_lo) == 5
     assert r(trunc_hi) == 95
@@ -857,6 +871,7 @@ capture noisily {
     tvweight treatment, covariates(age female) generate(stw) ///
         stabilized truncate(1 99) nolog
     assert "`r(stabilized)'" == "stabilized"
+    assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0
 }
 if _rc == 0 {
@@ -964,6 +979,7 @@ capture noisily {
     tvweight treat, covariates(x) id(id) time(t) ipcw(cens) generate(iptw) stabilized
     assert "`r(censgenerate)'" == "ipcw"
     assert "`r(combgenerate)'" == "iptw_ipcw"
+    assert !missing(r(ess_combined))
     assert r(ess_combined) > 0 & r(ess_combined) < _N + 1
     confirm variable ipcw
     confirm variable iptw_ipcw
@@ -1005,11 +1021,16 @@ capture noisily {
     gen pa = invlogit(3*x)
     gen treat = runiform() < pa
     tvweight treat, covariates(x) generate(w)
+    assert !missing(r(overlap_lo))
     assert r(overlap_lo) >= 0 & r(overlap_lo) <= 1
+    assert !missing(r(overlap_hi))
     assert r(overlap_hi) >= 0 & r(overlap_hi) <= 1
+    assert !missing(r(pct_nonoverlap))
     assert r(pct_nonoverlap) >= 0 & r(pct_nonoverlap) <= 100
+    assert !missing(r(top1_wt_share))
     assert r(top1_wt_share) >= 0 & r(top1_wt_share) <= 100
     * strong confounding should create at least some near-violations
+    assert !missing(r(pct_nonoverlap))
     assert r(pct_nonoverlap) > 0
 }
 if _rc == 0 {
@@ -1057,6 +1078,7 @@ capture noisily {
     local w3 = r(mean)
     quietly summarize w_cum if id==1 & time==3
     local got = r(mean)
+    assert !missing(`got', `w1' * `w3')
     assert reldif(`got', `w1' * `w3') < 1e-8
     assert reldif(`got', `w3') > 0.01
 }
@@ -1126,6 +1148,7 @@ capture noisily {
     local c1 = r(mean)
     quietly summarize ipcw if id==1 & time==3
     local c3 = r(mean)
+    assert !missing(`c3', `c1' * `cw_t3_x0')
     assert reldif(`c3', `c1' * `cw_t3_x0') < 1e-6
     assert reldif(`c3', `cw_t3_x0') > 1e-4
 }

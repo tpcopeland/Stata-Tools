@@ -16,4 +16,5 @@ forvalues rep = 1/200 {
     assert hit == want
     assert _codescan_shadow == "keep_"+string(_n)
 }
-display as result "RESULT: PASS codescan randomized oracle (200 reps)"
+_codescan_qa_publish "test_codescan_oracle" 200 200 0
+display as result "RESULT: test_codescan_oracle tests=200 pass=200 fail=0"

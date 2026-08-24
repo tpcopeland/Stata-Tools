@@ -1829,6 +1829,7 @@ capture noisily {
     * Median should be between min and max
     assert !missing(r(median_weight))
     assert r(median_weight) >= r(min_weight)
+    assert !missing(r(max_weight))
     assert r(median_weight) <= r(max_weight)
 }
 if _rc == 0 {

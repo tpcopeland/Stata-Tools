@@ -57,6 +57,7 @@ confirm variable event_date
 
 assert r(N_master) == 5
 assert r(N_using)  == 10
+assert !missing(r(N_pairs))
 assert r(N_pairs) > 0
 
 local ++TESTS

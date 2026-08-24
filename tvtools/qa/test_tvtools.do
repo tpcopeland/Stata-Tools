@@ -36,6 +36,7 @@ capture noisily {
     clear
     tvtools
     assert "`r(version)'" != ""
+    assert !missing(r(n_commands))
     assert r(n_commands) > 0
     assert "`r(commands)'" != ""
     assert "`r(categories)'" == "prep diag weight"
@@ -322,4 +323,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

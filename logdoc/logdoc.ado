@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.5  2026/08/11
+*! logdoc Version 1.1.6  2026/08/24
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -39,14 +39,16 @@ program define logdoc, rclass
     gettoken subcmd rest : 0, parse(" ,")
 
     if inlist("`subcmd'", "start", "stop", "diff", "batch", "replay", "combine") {
-        _logdoc_`subcmd' `rest'
+        capture noisily _logdoc_`subcmd' `rest'
     }
     else {
-        _logdoc_convert `0'
+        capture noisily _logdoc_convert `0'
     }
+    local _dispatch_rc = _rc
 
     local _r_scalars : r(scalars)
     local _r_macros : r(macros)
+    local _r_matrices : r(matrices)
     foreach _r_name of local _r_scalars {
         local _r_scalar_`_r_name' = r(`_r_name')
     }
@@ -54,7 +56,13 @@ program define logdoc, rclass
         local _r_macro_`_r_name' `"`r(`_r_name')'"'
     }
 
-    return add
+    * return add itself exits r(9) when the failed child posted no returns.
+    * Only forward a payload that actually exists, so the child's rc survives.
+    if `"`_r_scalars'`_r_macros'`_r_matrices'"' != "" {
+        return add
+    }
+
+    if `_dispatch_rc' exit `_dispatch_rc'
 
     if strpos(" `_r_scalars' ", " nblocks ") {
         return scalar nblocks = `_r_scalar_nblocks'
@@ -690,6 +698,11 @@ program define _logdoc_convert, rclass
         }
         display as error "command attempted:"
         display as error `"`cmd'"'
+        return scalar nblocks = `_nblocks'
+        return scalar filesize = `_filesize'
+        return scalar ngraphs = `_ngraphs'
+        return scalar ntables = `_ntables'
+        return scalar nwarnings = `_nwarnings'
         exit 601
     }
 

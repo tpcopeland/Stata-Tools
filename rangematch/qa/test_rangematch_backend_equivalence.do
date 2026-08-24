@@ -65,6 +65,7 @@ assert "`r(backend)'" == "binary"
 assert r(N_pairs) == `sweep_pairs'
 assert r(N_matched_pairs) == `sweep_matched_pairs'
 assert r(N_unmatched) == `sweep_unmatched'
+assert !missing(r(mean_matches), `sweep_mean')
 assert reldif(r(mean_matches), `sweep_mean') < 1e-12
 assert r(median_matches) == `sweep_median'
 assert r(p90_matches) == `sweep_p90'
@@ -106,6 +107,7 @@ rangematch keyval lo hi using "`using_backend'", ///
 
 assert "`r(backend)'" == "binary"
 assert r(N_pairs) == `nearest_pairs'
+assert !missing(r(mean_matches), `nearest_mean')
 assert reldif(r(mean_matches), `nearest_mean') < 1e-12
 sort id uid
 save "`binary_nearest'", replace

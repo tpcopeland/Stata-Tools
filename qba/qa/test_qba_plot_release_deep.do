@@ -159,6 +159,7 @@ capture noisily {
 
     qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0) evalue ci_bound(1.1)
     assert "`r(method)'" == "simple"
+    assert !missing(r(evalue))
     assert r(evalue) > 0
 
     sysuse auto, clear

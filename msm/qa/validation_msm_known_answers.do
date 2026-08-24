@@ -262,7 +262,9 @@ capture noisily {
     local se_direct = _se[treatment]
     restore
 
+    assert !missing(`b_msm', `b_direct')
     assert reldif(`b_msm', `b_direct') < 1e-10
+    assert !missing(`se_msm', `se_direct')
     assert reldif(`se_msm', `se_direct') < 1e-10
     assert exp(`b_msm') > 1
 }
@@ -770,6 +772,7 @@ capture noisily {
     assert abs(r(effect_lo) - `expected_lo') < 1e-10
     assert abs(r(effect_hi) - `expected_hi') < 1e-10
     assert r(effect_lo) < 1
+    assert !missing(r(effect_hi))
     assert r(effect_hi) > 1
     assert abs(r(evalue_point) - `expected_evalue') < 1e-10
     assert abs(r(evalue_ci) - 1) < 1e-12

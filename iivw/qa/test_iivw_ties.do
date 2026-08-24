@@ -217,6 +217,7 @@ if `run_only' == 0 | `run_only' == 1 {
 
         assert r(n_modeled_events) == `want_ev'
         assert r(n_event_times) == `want_nt'
+        assert !missing(r(tie_multiplicity), r(n_modeled_events)/r(n_event_times))
         assert reldif(r(tie_multiplicity), ///
             r(n_modeled_events)/r(n_event_times)) < 1e-12
         * This fixture must actually be tied, or the test proves nothing.
@@ -456,6 +457,7 @@ if `run_only' == 0 | `run_only' == 6 {
         assert !missing(r(tie_multiplicity))
         assert r(tie_multiplicity) > 2 & r(tie_multiplicity) < .
         assert r(n_event_times) < r(n_modeled_events)
+        assert !missing(r(n_modeled_events)/r(n_event_times))
         assert reldif(r(tie_multiplicity), ///
             r(n_modeled_events)/r(n_event_times)) < 1e-12
 

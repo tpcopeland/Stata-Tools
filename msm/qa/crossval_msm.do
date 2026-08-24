@@ -22,6 +22,7 @@ local pkg_dir "`qa_dir'/.."
 local mode = lower(strtrim("`0'"))
 local keep_outputs = inlist("`mode'", "keep", "retain")
 
+* lint: unseeded-ok — uniqueness, not reproducibility
 local work_id = string(floor(runiform() * 1000000000), "%09.0f")
 local work_root "`c(tmpdir)'/msm_crossval_`work_id'"
 local work_qa_dir "`work_root'/qa"

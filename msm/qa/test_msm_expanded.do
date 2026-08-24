@@ -217,8 +217,11 @@ capture noisily {
         outcome(outcome) covariates(biomarker comorbidity) ///
         baseline_covariates(age sex)
     msm_validate
+    assert !missing(r(n_checks))
     assert r(n_checks) > 0
+    assert !missing(r(n_errors))
     assert r(n_errors) >= 0
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 0
     assert inlist("`r(validation)'", "passed", "failed")
 }
@@ -419,6 +422,7 @@ capture noisily {
         baseline_covariates(age sex)
     msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         truncate(5 95) nolog
+    assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0
     assert r(mean_weight) != .
 }
@@ -448,6 +452,7 @@ capture noisily {
     assert r(median_weight) != .
     assert r(p99_weight) != .
     assert r(ess) != .
+    assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0
     assert "`r(weight_var)'" == "_msm_weight"
 }
@@ -631,6 +636,7 @@ capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) level(90) nolog
     * Should run without error
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -686,6 +692,7 @@ capture noisily {
     assert "`e(msm_model)'" == "logistic"
     assert "`e(msm_treatment)'" == "treatment"
     assert "`e(msm_period_spec)'" == "quadratic"
+    assert !missing(e(N))
     assert e(N) > 0
     * Verify saved matrices exist
     matrix list _msm_fit_b
@@ -905,6 +912,7 @@ capture noisily {
     assert r(p99_weight) != .
     assert r(ess) != .
     assert r(ess_pct) != .
+    assert !missing(r(n_extreme))
     assert r(n_extreme) >= 0
     * Balance matrix should have 4 rows, 3 cols
     assert rowsof(r(balance)) == 4
@@ -1118,6 +1126,7 @@ capture noisily {
     _setup_pipeline, nolog fit
     msm_predict, times(1 3 5) samples(20) seed(99)
     assert r(n_times) == 3
+    assert !missing(r(n_ref))
     assert r(n_ref) > 0
     assert r(samples) == 20
     assert r(level) == 95
@@ -2232,11 +2241,17 @@ capture noisily {
         outcome(outcome) censor(censored) ///
         covariates(biomarker comorbidity) ///
         baseline_covariates(age sex)
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(n_ids))
     assert r(n_ids) > 0
+    assert !missing(r(n_periods))
     assert r(n_periods) > 0
+    assert !missing(r(n_events))
     assert r(n_events) >= 0
+    assert !missing(r(n_treated))
     assert r(n_treated) >= 0
+    assert !missing(r(n_censored))
     assert r(n_censored) >= 0
     assert "`r(id)'" == "id"
     assert "`r(period)'" == "period"

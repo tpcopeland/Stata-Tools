@@ -14,6 +14,7 @@ local keep_outputs = inlist("`mode'", "keep", "retain")
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 do "`qa_dir'/_msm_qa_common.do"
 
+* lint: unseeded-ok — uniqueness, not reproducibility
 local work_id = string(floor(runiform() * 1000000000), "%09.0f")
 local work_root "`c(tmpdir)'/msm_external_`work_id'"
 local work_qa_dir "`work_root'/qa"

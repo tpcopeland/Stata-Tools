@@ -39,6 +39,7 @@ capture noisily {
     pyattach using `events', id(id) date(event_date) count(n) orphans(report)
     local n_zero = r(N_zerofilled)
     quietly summarize n, meanonly
+    assert !missing(r(mean))
     assert reldif(r(mean), 4 / 30) < 1e-12
     assert _N == 30
     quietly count if n == 0
@@ -116,6 +117,7 @@ capture noisily {
     pyattach using `events', id(id) date(event_date) count(n_er) rate(er_rate) ///
         if(er == 1) orphans(report)
     assert r(events) == 2
+    assert !missing(r(rate_overall), 2 / `total_py')
     assert reldif(r(rate_overall), 2 / `total_py') < 1e-12
     quietly summarize n_er, meanonly
     assert r(sum) == 2

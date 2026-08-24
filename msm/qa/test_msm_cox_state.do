@@ -61,6 +61,7 @@ capture noisily {
     gen byte `esample' = e(sample)
     assert _msm_esample == `esample'
     quietly count if `esample'
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -117,6 +118,7 @@ capture noisily {
     gen byte `esample' = e(sample)
     assert _msm_esample == `esample'
     quietly count if `esample'
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

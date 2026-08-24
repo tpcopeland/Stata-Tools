@@ -143,8 +143,11 @@ assert r(N_matched_pairs) == 13
 assert r(N_matched_using) == 10
 assert r(N_unmatched_using) == 0
 assert r(N_matched_using) + r(N_unmatched_using) == r(N_using)
+assert !missing(r(mean_matches))
 assert reldif(r(mean_matches), 3.25) < 1e-12
+assert !missing(r(median_matches))
 assert reldif(r(median_matches), 1.5) < 1e-12
+assert !missing(r(p50_matches))
 assert reldif(r(p50_matches), 1.5) < 1e-12
 assert r(p90_matches) == 10
 assert r(p99_matches) == 10

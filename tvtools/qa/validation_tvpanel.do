@@ -270,10 +270,13 @@ capture {
         reference(0) width(100) cumulative(weeks)
     sort id period
     quietly sum cum_1 if id==1 & period==1, meanonly
+    assert !missing(r(mean))
     assert reldif(r(mean), 80/7) < 1e-9
     quietly sum cum_2 if id==1 & period==1, meanonly
+    assert !missing(r(mean))
     assert reldif(r(mean), 10/7) < 1e-9
     quietly sum cum_1 if id==1 & period==2, meanonly
+    assert !missing(r(mean))
     assert reldif(r(mean), 101/7) < 1e-9
 }
 if _rc==0 {

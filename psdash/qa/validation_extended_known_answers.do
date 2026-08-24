@@ -148,8 +148,8 @@ quietly {
     gen double ps = .
     replace ps = 0.65 + 0.20 * (_n - 1) / 29  if treated == 1
     replace ps = 0.10 + 0.20 * (_n - 31) / 29 if treated == 0
-    gen double x1 = rnormal(0,1)
     set seed 77777
+    gen double x1 = rnormal(0,1)
     replace x1 = rnormal(0,1)
 }
 
@@ -160,6 +160,7 @@ capture noisily {
     psdash overlap treated ps, nograph
     assert r(n_outside) == 60
     assert abs(r(pct_outside) - 100) < 0.001
+    assert !missing(r(overlap_lower))
     assert r(overlap_upper) < r(overlap_lower)
 }
 _cv_result "B6: n_outside=N when PS ranges are disjoint" `=_rc'
@@ -168,6 +169,7 @@ _cv_result "B6: n_outside=N when PS ranges are disjoint" `=_rc'
 capture noisily {
     psdash support treated ps, nograph
     assert r(n_outside) == 60
+    assert !missing(r(lower_bound))
     assert r(upper_bound) < r(lower_bound)
 }
 _cv_result "B7: support upper_bound < lower_bound for disjoint PS" `=_rc'
@@ -206,8 +208,10 @@ display _n "--- CV Dataset C: ATT with PS=0 control obs (regression bug 2) ---"
 capture noisily {
     psdash weights treated ps, estimand(att)
     * min weight: control with ps=0 → 0/(1-0)=0; so min=0
+    assert !missing(r(min_wt))
     assert r(min_wt) >= 0
     * But overall ESS should still be > 0 (other obs have valid weights)
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 _cv_result "C9: ATT with PS=0 control runs without error" `=_rc'
@@ -300,6 +304,7 @@ capture noisily {
     gen double ps_d = cond(treated==1, 0.6, 0.4)
     psdash balance treated ps_d, covariates(x_imbal) nowvar
     * VR = Var(treated)/Var(control) ≈ 9/1 = 9 → outside [0.5,2.0]
+    assert !missing(r(n_vr_imbalanced))
     assert r(n_vr_imbalanced) >= 1
     restore
 }
@@ -389,6 +394,7 @@ display _n "--- CV Dataset F: KS hline combinations (regression bug 4) ---"
 capture noisily {
     gen double ipw_e = cond(treated==1, 1/ps, 1/(1-ps))
     psdash balance treated ps, covariates(x1 x2) nowvar ks
+    assert !missing(r(max_ks_raw))
     assert r(max_ks_raw) >= 0
     drop ipw_e
 }
@@ -398,6 +404,7 @@ _cv_result "F16: balance ks+nowvar runs without error" `=_rc'
 capture noisily {
     gen double ipw_f = cond(treated==1, 1/ps, 1/(1-ps))
     psdash balance treated ps, covariates(x1 x2) wvar(ipw_f) ks
+    assert !missing(r(max_ks_raw))
     assert r(max_ks_raw) >= 0
     assert !missing(r(max_smd_adj))
     drop ipw_f
@@ -491,6 +498,7 @@ capture noisily {
     psdash overlap treated ps, nograph
     assert abs(r(pct_outside) - 100) < 0.001
     assert abs(r(auc) - 1) < 1e-8
+    assert !missing(r(overlap_lower))
     assert r(overlap_upper) < r(overlap_lower)
 }
 _cv_result "H21: Perfect separation → pct_outside=100%, AUC=1" `=_rc'
@@ -631,6 +639,7 @@ display _n "--- CV Dataset J: Combined panel suppression ---"
 capture noisily {
     psdash combined treated ps, nooverlap nobalance noweights
     * Should still return support results via return add
+    assert !missing(r(N))
     assert r(N) > 0
     assert "`r(treatment)'" == "treated"
     assert "`r(psvar)'" == "ps"
@@ -640,7 +649,9 @@ _cv_result "J25: Combined nooverlap+nobalance+noweights (support only) runs" `=_
 * CV26: Combined nooverlap+nobalance+nosupport (weights only) works
 capture noisily {
     psdash combined treated ps, nooverlap nobalance nosupport
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 _cv_result "J26: Combined nooverlap+nobalance+nosupport (weights only) runs" `=_rc'

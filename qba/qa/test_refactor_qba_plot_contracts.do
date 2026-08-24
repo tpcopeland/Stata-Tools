@@ -26,6 +26,7 @@ capture noisily {
     assert "`r(plot_type)'" == "tornado"
     assert "`r(measure)'" == "OR"
     assert "`r(scheme)'" != ""
+    assert !missing(r(n_missing))
     assert r(n_missing) >= 0
 
     qba_plot, distribution using("`mc'") observed(2)
@@ -40,6 +41,7 @@ capture noisily {
     assert "`r(plot_type)'" == "tipping"
     assert "`r(measure)'" == "OR"
     assert "`r(scheme)'" != ""
+    assert !missing(r(n_missing))
     assert r(n_missing) >= 0
 }
 local rc = _rc

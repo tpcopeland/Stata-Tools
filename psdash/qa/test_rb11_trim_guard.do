@@ -84,8 +84,10 @@ capture noisily {
     psdash support treat ps, threshold(0.05) generate(insup) nograph
     assert _rc == 0
     quietly count if insup == 1 & treat == 1
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if insup == 1 & treat == 0
+    assert !missing(r(N))
     assert r(N) > 0
 }
 _t "S1c_normal_trim_positive_control" `=_rc'

@@ -745,10 +745,5 @@ else {
 }
 display as text "{hline 70}"
 
-if `fail_count' > 0 {
-    display as error _n "RESULT: FAIL"
-    exit 1
-}
-else {
-    display as result _n "RESULT: PASS"
-}
+display as result _n "RESULT: validation_consort_expanded tests=`test_count' pass=`pass_count' fail=`fail_count'"
+if `fail_count' > 0 exit 1

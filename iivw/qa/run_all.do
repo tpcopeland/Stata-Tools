@@ -194,7 +194,8 @@ local core_suites ///
     test_iivw_stacked ///
     test_help_examples ///
     test_iivw_final_adversarial ///
-    test_iivw_release_adversarial
+    test_iivw_release_adversarial ///
+    test_iivw_hostile
 
 local legacy_suites ///
     validation_iivw_recovery_extended ///

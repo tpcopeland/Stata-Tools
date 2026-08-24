@@ -44,6 +44,7 @@ capture noisily {
     assert total_cost[1] == 30 & total_cost[2] == 30
     assert had[1] == 1 & any_icu[1] == 1
     assert n[4] == 0 & total_cost[4] == 0 & had[4] == 0
+    assert !missing(rate[1], 2 / person_years[1])
     assert reldif(rate[1], 2 / person_years[1]) < 1e-12
     assert r(N_attached) == 3 & r(N_zerofilled) == 4
 }
@@ -72,6 +73,7 @@ capture noisily {
     local n_attached = r(N_attached)
     assert _N == `N_before'
     quietly summarize person_years, meanonly
+    assert !missing(r(sum), `py_before')
     assert reldif(r(sum), `py_before') < 1e-12
     assert `n_eligible' == 1 & `n_attached' == 1
 }

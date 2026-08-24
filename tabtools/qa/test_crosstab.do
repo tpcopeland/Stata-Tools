@@ -714,6 +714,7 @@ capture noisily {
  crosstab exposure outcome
     assert !missing(r(chi2))
     assert !missing(r(p))
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -1033,6 +1034,7 @@ else {
 capture noisily {
     sysuse auto, clear
  crosstab foreign rep78, colpct
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -1252,8 +1254,11 @@ capture noisily {
         frame(cross_sc, replace)
 
     assert r(smallcells) == 5
+    assert !missing(r(N_primary_suppressed))
     assert r(N_primary_suppressed) >= 2
+    assert !missing(r(N_secondary_suppressed))
     assert r(N_secondary_suppressed) >= 1
+    assert !missing(r(N_derived_suppressed))
     assert r(N_derived_suppressed) >= 5
     assert r(p) == .d
     assert r(or) == .d
@@ -1457,6 +1462,7 @@ capture noisily {
     crosstab outcome exposure [fw=freq], totalpct smallcells(30) ///
         frame(cross_sc_all, replace)
     assert r(smallcells) == 30
+    assert !missing(r(N_primary_suppressed))
     assert r(N_primary_suppressed) > 0
     frame cross_sc_all {
         assert strpos(c2[3], "%") == 0

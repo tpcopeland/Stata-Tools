@@ -60,6 +60,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, quietly
+    assert !missing(r(bytes_initial))
     assert r(bytes_final) <= r(bytes_initial)
 }
 if _rc == 0 {
@@ -1004,6 +1005,7 @@ capture noisily {
     gen str20 a = "short " + string(mod(_n,50))
     gen str200 b = "longrepeat " + string(mod(_n,3))
     compress_tc, quietly
+    assert !missing(r(k_converted))
     assert r(k_reverted) <= r(k_converted)
     assert !missing(r(k_reverted))
     assert r(k_reverted) >= 0
@@ -1108,6 +1110,7 @@ else {
     display as text "Failed: `fail_count'"
 }
 
+display as result "RESULT: validation_compress_tc tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     exit 1
 }

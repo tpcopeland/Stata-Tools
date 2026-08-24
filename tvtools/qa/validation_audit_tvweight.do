@@ -88,6 +88,7 @@ capture noisily {
     generate double h_raw = 1 / ((1 / p0) + (1 / p1) + (1 / p2))
     generate double ato_expected = h_raw / pobs_raw
     quietly count if pobs_raw < .001 | pobs_raw > .999
+    assert !missing(r(N))
     assert r(N) > 0 & `n_extreme' == r(N)
     assert `n_boundary' == 0
     generate double ato_diff = abs(w_ato - ato_expected)
@@ -406,6 +407,7 @@ capture noisily {
     quietly summarize cw_ext_reldif, meanonly
     assert r(max) < 2e-4
     quietly summarize cw_ext_cens if x_hi, meanonly
+    assert !missing(r(mean))
     assert r(mean) > 1050
 }
 if _rc == 0 {

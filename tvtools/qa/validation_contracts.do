@@ -157,6 +157,7 @@ capture noisily {
     end
     generate double split_total = total * piece_days / source_days
     quietly summarize split_total, meanonly
+    assert !missing(r(sum))
     assert reldif(r(sum), 25) < 1e-12
     assert split_total[1] == 10
     assert split_total[2] == 15

@@ -214,6 +214,7 @@ capture noisily {
 
     * The fixture must genuinely be three different samples, or this proves
     * nothing about staleness.
+    assert !missing(e(N))
     assert `_n_unw' != e(N)
 
     keep if rep78 == 3
@@ -420,6 +421,7 @@ capture noisily {
     quietly iivw_balance if z > 0, nolog
     assert "`r(replay_mode)'" == "stored"
     assert r(replay_max_reldif) < 1e-8
+    assert !missing(r(N_replay))
     assert r(N) < r(N_replay)
 }
 if _rc == 0 {
@@ -606,11 +608,14 @@ capture noisily {
     assert r(ess_cluster_ratio) < .
     assert !missing(r(ess_cluster_ratio))
     assert r(ess_cluster_ratio) > 0 & r(ess_cluster_ratio) <= 1
+    assert !missing(r(n_ids))
     assert r(ess_cluster) <= r(n_ids) + 1e-8
 
     * The two ESS measures are computed on different units, so the cluster one
     * must be bounded by the cluster count, not by the row count.
+    assert !missing(r(N))
     assert r(ess) <= r(N) + 1e-8
+    assert !missing(r(N))
     assert r(n_ids) < r(N)
 }
 if _rc == 0 {

@@ -706,6 +706,7 @@ capture noisily {
     assert rowsof(e(V)) == 3
     * FG-M01: one row per unique cause-event TIME, so <= N_fail (equal only when
     * no two cause events share a time)
+    assert !missing(e(N_fail))
     assert rowsof(e(basehaz)) <= e(N_fail)
     assert rowsof(e(basehaz)) >= 1
     assert colsof(e(basehaz)) == 2
@@ -1096,6 +1097,7 @@ capture noisily {
     quietly levelsof _t if status == 1 & e(sample), local(_evt)
     local n_evtimes : word count `_evt'
     assert rowsof(bh) == `n_evtimes'
+    assert !missing(e(N_fail))
     assert rowsof(bh) <= e(N_fail)
 
     * times are strictly increasing and unique

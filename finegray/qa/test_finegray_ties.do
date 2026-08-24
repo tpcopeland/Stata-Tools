@@ -44,6 +44,7 @@ version 16.0
 
 capture log close _all
 log using "test_finegray_ties.log", replace name(_ties)
+set seed 26082415
 
 local qa_dir "`c(pwd)'"
 do "`qa_dir'/_finegray_qa_common.do"

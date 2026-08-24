@@ -75,7 +75,9 @@ _test_start 3 "binary overlap still works after detect changes"
 capture noisily {
     psdash overlap treated ps, nograph
     assert r(N) == 500
+    assert !missing(r(N_treated))
     assert r(N_treated) > 0
+    assert !missing(r(N_control))
     assert r(N_control) > 0
 }
 _test_result `=_rc'
@@ -83,7 +85,9 @@ _test_result `=_rc'
 _test_start 4 "binary balance still works after detect changes"
 capture {
     psdash balance treated ps, covariates(age female bmi)
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) >= 0
 }
 _test_result `=_rc'
@@ -91,6 +95,7 @@ _test_result `=_rc'
 _test_start 5 "binary weights still works after detect changes"
 capture {
     psdash weights treated ps, wvar(ipw)
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 _test_result `=_rc'
@@ -197,6 +202,7 @@ capture {
     * Verify weights: w = 1/GPS for own group
     * Group 0: w should be 1/gps0
     quietly count if trt3 == 0 & !missing(_psdash_wt)
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if trt3 == 0 & abs(_psdash_wt - 1/gps0) > 1e-8 & !missing(_psdash_wt)
     assert r(N) == 0
@@ -344,6 +350,7 @@ capture {
     capture drop _psdash_wt
     teffects ipw (y) (treated age female bmi)
     psdash overlap, nograph
+    assert !missing(r(N))
     assert r(N) > 0
     assert "`r(treatment)'" == "treated"
 }

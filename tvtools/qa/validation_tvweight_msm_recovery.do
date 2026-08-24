@@ -96,6 +96,7 @@ program define _gen_msm_dgp
     local sY    = 1.0
     set obs `n'
     gen long id = _n
+    * lint: unseeded-ok — callers set deterministic seeds immediately before every DGP invocation
     gen double L1 = rnormal()
     if `regime' >= 0     gen byte A1 = `regime'
     else if `confounded' gen byte A1 = runiform() < invlogit(`a1'*L1)

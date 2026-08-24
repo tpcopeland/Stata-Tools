@@ -101,6 +101,7 @@ capture noisily {
     assert r(n_excluded) == 1
     assert r(n_missing_weight) == 1
     assert r(min_period_arm_ess_pct) < 50
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 2
     assert "`r(verdict)'" == "FAIL"
     matrix W = r(weights_by_period)

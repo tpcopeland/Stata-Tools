@@ -40,6 +40,7 @@ forvalues rep = 1/200 {
     preserve
         keep pid p_mi p_chf p_dm_uncomp p_dm_comp p_cancer p_metastatic exp_score
         bysort pid: keep if _n == 1
+        local expected_N = _N
         tempfile expected
         save "`expected'"
     restore
@@ -55,7 +56,7 @@ forvalues rep = 1/200 {
         assert orc_cancer == p_cancer
         assert orc_metastatic == p_metastatic
         assert orc_score == exp_score
-        assert _N == 10
+        assert _N == `expected_N'
     }
     if _rc == 0 local ++pass_count
     else local ++fail_count

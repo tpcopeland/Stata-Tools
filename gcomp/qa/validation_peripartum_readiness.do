@@ -356,8 +356,11 @@ local ++test_count
 capture noisily {
     tempname ci
     matrix `ci' = e(ci_normal)
+    assert !missing(e(tce))
     assert `ci'[1,1] < e(tce) & e(tce) < `ci'[2,1]
+    assert !missing(e(nde))
     assert `ci'[1,2] < e(nde) & e(nde) < `ci'[2,2]
+    assert !missing(e(nie))
     assert `ci'[1,3] < e(nie) & e(nie) < `ci'[2,3]
 }
 if _rc == 0 {
@@ -509,6 +512,7 @@ capture noisily {
     * (with everyone on DMT, only the direct depression->relapse path remains)
     assert !missing(e(cde))
     assert e(cde) > -0.10
+    assert !missing(e(tce))
     assert e(cde) < e(tce) + 0.05
 }
 if _rc == 0 {

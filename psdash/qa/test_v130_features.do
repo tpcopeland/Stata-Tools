@@ -78,6 +78,7 @@ display as text _n "--- I2: combined returns verdict/warnings ---"
 capture noisily {
     psdash combined treat ps, covariates(x1 x2 x3)
     assert inlist("`r(verdict)'", "PASS", "FAIL")
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 0
     assert r(overlapmax) == 10
     assert r(essmin) == 50
@@ -89,6 +90,7 @@ display as text _n "--- U2: tightening overlapmax flips verdict to FAIL ---"
 capture noisily {
     psdash combined treat ps, covariates(x1 x2 x3) overlapmax(0)
     assert "`r(verdict)'" == "FAIL"
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
     assert strpos("`r(warnings)'", "overlap") > 0
     assert r(overlapmax) == 0
@@ -157,6 +159,7 @@ _t "O1_xlsx_parity" `=_rc'
 display as text _n "--- F3: support compare returns ---"
 capture noisily {
     psdash support treat ps, crump compare covariates(x1 x2 x3) nograph
+    assert !missing(r(n_post))
     assert r(n_post) > 0
     assert r(n_post) <= 1000
     assert !missing(r(pct_outside_pre))

@@ -225,6 +225,7 @@ capture noisily {
     * the double exclusion must remove more than a single ~ "E116" exclusion
     codescan dx1 dx2 dx3, define(dm2 "E11" ~ "E116") replace
     quietly count if dm2 == 1
+    assert !missing(r(N))
     assert `t2' < r(N)
 }
 if _rc == 0 {

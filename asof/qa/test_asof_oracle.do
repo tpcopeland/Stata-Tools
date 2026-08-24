@@ -5,6 +5,7 @@ version 16.0
 
 quietly do "`c(pwd)'/_asof_qa_common.do"
 _asof_qa_bootstrap
+global ASOF_QA_STATUS "fail"
 set seed 26082301
 
 forvalues rep = 1/200 {
@@ -81,4 +82,5 @@ asof score using "`hostile_events'" if keepme, id(id) date(visit) anchor(anchor)
 assert got == 80 & gdate == 8 & ggap == -2 & gmatch == 1 in 1
 assert missing(got) & missing(gdate) & missing(ggap) & missing(gmatch) in 2/4
 assert _asof_shadow == "master"
-display as result "RESULT: PASS asof randomized oracle (200 reps)"
+display as result "RESULT: test_asof_oracle tests=201 pass=201 fail=0"
+global ASOF_QA_STATUS "pass"

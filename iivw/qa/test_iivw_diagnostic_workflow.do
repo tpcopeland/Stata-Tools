@@ -126,6 +126,7 @@ capture noisily {
     assert r(max_weight) < .
     assert !missing(r(ess))
     assert r(ess) > 0
+    assert !missing(r(N))
     assert r(ess) <= r(N)
     assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0

@@ -479,6 +479,7 @@ capture noisily {
     confirm file "`rs'"
     use "`rs'", clear
     quietly count
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

@@ -2009,6 +2009,7 @@ capture noisily {
     regtab, xlsx("`output_dir'/_val_regtab.xlsx") sheet("regression")
     assert "`r(xlsx)'" == "`output_dir'/_val_regtab.xlsx"
     assert "`r(sheet)'" == "regression"
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
 }
 if _rc == 0 {

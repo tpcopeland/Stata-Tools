@@ -65,6 +65,7 @@ capture program drop _rt_build_multiclass
 program define _rt_build_multiclass
     version 17.0
     clear
+    set seed 20260824
     set obs 900
     gen double age_z = rnormal()
     gen double biomarker = rnormal()
@@ -454,6 +455,7 @@ capture noisily {
     collect: regress gaussian_y mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "Coef."
     frame drop _rt_fam_`family_n'
@@ -464,6 +466,7 @@ capture noisily {
     collect: logit binary_y mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "OR"
     frame drop _rt_fam_`family_n'
@@ -474,6 +477,7 @@ capture noisily {
     collect: probit binary_y mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace) coef("Coef.")
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     frame drop _rt_fam_`family_n'
 
@@ -483,6 +487,7 @@ capture noisily {
     collect: ologit price3 mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "OR"
     frame drop _rt_fam_`family_n'
@@ -493,6 +498,7 @@ capture noisily {
     collect: poisson count_y mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "IRR"
     frame drop _rt_fam_`family_n'
@@ -503,6 +509,7 @@ capture noisily {
     collect: nbreg count_y mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "IRR"
     frame drop _rt_fam_`family_n'
@@ -513,6 +520,7 @@ capture noisily {
     collect: glm count_y mpg weight, family(poisson) link(log)
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "IRR"
     frame drop _rt_fam_`family_n'
@@ -524,6 +532,7 @@ capture noisily {
     collect: xtreg gaussian_y mpg weight, re
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace) coef("Coef.") noreeffects
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     frame drop _rt_fam_`family_n'
 
@@ -534,6 +543,7 @@ capture noisily {
     collect: stcox mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     assert "`r(coef_label)'" == "HR"
     frame drop _rt_fam_`family_n'
@@ -544,6 +554,7 @@ capture noisily {
     collect: qreg gaussian_y mpg weight
     capture frame drop _rt_fam_`family_n'
     regtab, frame(_rt_fam_`family_n', replace) coef("Coef.")
+    assert !missing(r(N_rows))
     assert r(N_rows) > 3
     frame drop _rt_fam_`family_n'
 }
@@ -2452,6 +2463,7 @@ else {
     * Verify e() values — N should be rows, N_sub should be subjects
     di "e(N) = " e(N) " (rows in risk set)"
     di "e(N_sub) = " e(N_sub) " (subjects)"
+    assert !missing(e(N))
     assert e(N) > e(N_sub)
     assert e(N_sub) == `n_subjects'
 
@@ -2645,6 +2657,7 @@ else {
     quietly collect: streg height, dist(weibull)
 
     di "e(N) = " e(N) ", e(N_sub) = " e(N_sub)
+    assert !missing(e(N))
     assert e(N) > e(N_sub)
     assert e(N_sub) == `n_subjects'
 
@@ -3520,6 +3533,7 @@ capture noisily {
     assert r(N) == 0
     * Should have variance label instead
     count if strpos(B, "Intercept") > 0 | strpos(B, "Variance") > 0 | strpos(B, "Residual") > 0
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -4083,7 +4097,9 @@ capture noisily {
     collect clear
     collect: regress price mpg weight
     regtab
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
+    assert !missing(r(N_models))
     assert r(N_models) > 0
 }
 if _rc == 0 {
@@ -5017,7 +5033,9 @@ capture noisily {
     estat ic
     matrix _Sic = r(S)
     regtab, stats(aic bic ll n) frame(_rt_ret, replace)
+    assert !missing(r(aic_1), _Sic[1,5])
     assert reldif(r(aic_1), _Sic[1,5]) < 1e-8
+    assert !missing(r(bic_1), _Sic[1,6])
     assert reldif(r(bic_1), _Sic[1,6]) < 1e-8
     assert !missing(r(ll_1))
     assert r(n_1) == 74
@@ -5096,6 +5114,7 @@ capture noisily {
     regtab, frame(_v188_b) keep(1.foreign#c.mpg)
     frame _v188_b {
         quietly count if strpos(A, "foreign#mpg") > 0
+        assert !missing(r(N))
         assert r(N) >= 1
     }
     capture frame drop _v188_b

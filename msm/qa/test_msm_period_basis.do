@@ -477,6 +477,7 @@ capture noisily {
 
         quietly gen double pb_resid = A - _msm_treat_den_p if _msm_decision_risk
         quietly count if !missing(pb_resid)
+        assert !missing(r(N))
         assert r(N) > 0
         quietly levelsof period, local(pb_pers)
         local pb_max = 0

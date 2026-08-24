@@ -267,6 +267,7 @@ capture noisily {
     findfile qba.sthlp
     findfile _qba_distributions.ado
     qba_misclass, a(80) b(120) c(200) d(600) seca(.8) spca(.9)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     _qba_qa_restore_isolation, origplus("`orig_plus'") ///
         origpersonal("`orig_personal'") plusdir("`plusdir'") ///
@@ -360,6 +361,7 @@ capture noisily {
         confeffect(500) level(90)
     assert r(p1) == .4
     assert r(p0) == .2
+    assert !missing(r(se), _se[weight])
     assert reldif(r(se), _se[weight]) < 1e-6
     local half90 = invnormal(.95) * _se[weight]
     _assert_close `=r(ci_upper) - r(observed)' `half90' 1e-6
@@ -367,6 +369,7 @@ capture noisily {
     qba_confound, from_model coef(weight) p1(.4) p0(.2) confeffect(500) ///
         reps(100) seed(814) dist_p1("constant .4") ///
         dist_p0("constant .2") dist_confeffect("constant 500")
+    assert !missing(r(se), _se[weight])
     assert reldif(r(se), _se[weight]) < 1e-6
 
     qba_selection, a(100) b(200) c(50) d(300) ///
@@ -376,6 +379,7 @@ capture noisily {
     qba_selection, a(100) b(200) c(50) d(300) ///
         sela(.9) selb(.8) selc(.7) seld(.6) ///
         dist_sela("uniform .7 .95") reps(500) seed(812) level(95)
+    assert !missing(r(ci_lower))
     assert r(ci_upper) - r(ci_lower) >= `sw80'
 
     qba_multi, a(100) b(200) c(50) d(300) seca(.85) spca(.95) ///
@@ -383,6 +387,7 @@ capture noisily {
     local mw80 = r(ci_upper) - r(ci_lower)
     qba_multi, a(100) b(200) c(50) d(300) seca(.85) spca(.95) ///
         dist_se("uniform .75 .95") reps(500) seed(813) level(95)
+    assert !missing(r(ci_lower))
     assert r(ci_upper) - r(ci_lower) >= `mw80'
 
     qba_plot, tornado a(100) b(200) c(50) d(300) type(outcome) ///

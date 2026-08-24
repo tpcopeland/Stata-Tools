@@ -108,6 +108,7 @@ capture noisily {
     _qba_draw_one, dist("uniform .2 .4") gen(u) n(5000)
     assert u >= .2 & u < .4
     summarize u, meanonly
+    assert !missing(r(min))
     assert r(min) >= .2
     assert r(max) < .4
 

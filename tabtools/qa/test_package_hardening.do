@@ -246,6 +246,7 @@ capture noisily {
     * xlsx readback also period-delimited
     import excel using "`lxl'", sheet("S") clear allstring
     quietly count if regexm(C, "[0-9]\.[0-9]")
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 capture set dp period

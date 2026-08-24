@@ -29,6 +29,7 @@ local fail_count = 0
 * (worst |resid| observed ~0.02). Binary/factor covariates carry less
 * information per obs, so those scenarios use larger N to stay inside TOL.
 local TOL = 0.035
+set seed 26082416
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")

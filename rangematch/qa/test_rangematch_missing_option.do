@@ -107,6 +107,7 @@ use "`m_clean'", clear
 rangematch event_date lo hi using "`u_data'", by(id) ///
     unmatched(none) missing(error) frame(out4) replace
 assert r(N_missing_bounds) == 0
+assert !missing(r(N_pairs))
 assert r(N_pairs) > 0
 assert "`r(missing)'" == "error"
 local ++TESTS

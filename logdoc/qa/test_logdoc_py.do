@@ -72,7 +72,9 @@ capture noisily {
     assert _rc != 0
     capture assert r(installed) == 1
     assert _rc != 0
+    assert !missing(r(python))
     assert r(python) != ""
+    assert !missing(r(python_version))
     assert r(python_version) != ""
     assert strpos(r(python_version), "Python") == 1
     if `has_stata_python' {
@@ -82,6 +84,7 @@ capture noisily {
     else {
         assert r(python_source) == "path"
     }
+    assert !missing(r(renderer))
     assert r(renderer) != ""
     local detected_python `"`r(python)'"'
 }
@@ -101,6 +104,7 @@ capture noisily {
     assert r(ok) == 1
     assert r(python_ok) == 1
     assert r(renderer_ok) == 1
+    assert !missing(r(python))
     assert r(python) != ""
 }
 if _rc == 0 {

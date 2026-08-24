@@ -358,6 +358,7 @@ capture noisily {
     display as text "  D1 truth=" %6.4f `truth' "  naive=" %7.4f `naive' "  IPTW=" %7.4f `est'
     assert abs(`naive' - `truth') > 0.05
     assert abs(`est'   - `truth') < 0.01
+    assert !missing(e(effects)[1,1], `est')
     assert reldif(e(effects)[1,1], `est') < 1e-8
 }
 if _rc==0 {
@@ -974,7 +975,9 @@ capture noisily {
     * assertions below no longer show what they claim to.
     quietly summarize _msm_weight
     assert r(N) == 200000
+    assert !missing(r(min))
     assert reldif(r(min), 1) < 1e-8
+    assert !missing(r(max))
     assert reldif(r(max), 1) < 1e-8
 
     * Omitting V is refused, not silently estimated.

@@ -567,7 +567,7 @@ def check_patterns(ws: Worksheet, pattern_names: list[str]) -> CheckResult:
 
 
 # =============================================================================
-# Styling Checks (per-package lineage: fills, italics, borders, widths)
+# Styling Checks (per-package lineage: fills, italics, borders, and widths)
 # =============================================================================
 # These helpers and checks were unified from the per-package qa/tools copies so
 # this module is the single source of truth. They intentionally use raw

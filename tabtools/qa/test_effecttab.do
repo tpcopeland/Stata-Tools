@@ -68,6 +68,7 @@ matrix rownames mymat = Age Sex BMI
 
 capture noisily {
  effecttab, from(mymat) title("From Matrix Test") effect("OR")
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     * from() with no prior teffects defaults to margins type
     assert r(type) == "margins"
@@ -185,6 +186,7 @@ capture noisily {
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
  effecttab, title("Multi-Model") effect("ATE") ///
         models("RA \ IPW") clean
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     assert strpos(lower(`"`r(methods)'"'), "multiple collected models") > 0
     assert strpos(lower(`"`r(methods)'"'), "inverse probability weighting") == 0
@@ -266,6 +268,7 @@ capture noisily {
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
  effecttab, title("IPTW + AddRow") effect("ATE") clean ///
         addrow("N" 4642)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 5
 }
 if _rc == 0 {
@@ -544,6 +547,7 @@ capture noisily {
     collect: margins, dydx(mbsmoke)
  effecttab, title("AME") effect("AME")
     assert r(type) == "margins"
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 4
 }
 if _rc == 0 {
@@ -565,6 +569,7 @@ capture noisily {
     collect clear
     collect: margins, at(mage=(20 25 30 35 40))
  effecttab, title("Predicted at ages") effect("Pr(Y)")
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 7
 }
 if _rc == 0 {
@@ -624,6 +629,7 @@ capture noisily {
  effecttab, from(helpermat)
     capture program drop _tabtools_validate_sheet
  effecttab, from(helpermat)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
 }
 if _rc == 0 {
@@ -1953,6 +1959,7 @@ capture noisily {
  effecttab
     assert "`r(type)'" == "teffects"
     assert "`r(effect_label)'" == "Effect"
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     * xlsx and sheet should NOT be returned
     assert "`r(xlsx)'" == ""
@@ -2032,6 +2039,7 @@ capture noisily {
  survtab, times(4 7) riskset
     * At time 4: subjects 1(0-5),2(0-10),3(3-8),4(NOT yet: 5-12),5(2-6) -> 4 at risk
     * At time 7: subjects 2(0-10),3(3-8 but failed),4(5-12),5(2-6 but failed) -> need to check
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
 }
 if _rc == 0 {
@@ -2114,6 +2122,7 @@ capture noisily {
 
     capture frame drop review_eff_frame
  effecttab, from(review_eff) frame(review_eff_frame, replace) effect("Effect")
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     assert "`r(type)'" == "margins"
     assert strpos(lower(`"`r(methods)'"'), "supplied matrix") > 0
@@ -2183,6 +2192,7 @@ capture noisily {
     collect: margins, dydx(mbsmoke)
     effecttab, effect("AME") refcat("Baseline") frame(_ef_refcat, replace)
     assert r(type) == "margins"
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 4
 }
 if _rc == 0 {

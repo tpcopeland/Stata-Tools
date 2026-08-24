@@ -145,6 +145,7 @@ local ++test_count
 capture noisily {
     _setup_common_logistic
     msm_sensitivity, evalue
+    assert !missing(r(cumulative_incidence))
     assert r(cumulative_incidence) > r(rare_threshold)
     assert "`r(approximation)'" == "common-outcome sqrt(OR)"
     * the E-value must be computed from RR = sqrt(OR), not the raw OR
@@ -152,6 +153,7 @@ capture noisily {
     if `rr' < 1 local rr = 1 / `rr'
     local expected = `rr' + sqrt(`rr' * (`rr' - 1))
     assert abs(r(evalue_point) - `expected') < 1e-6
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 1
 }
 if _rc == 0 {
@@ -189,8 +191,10 @@ capture noisily {
     _setup_common_logistic
     msm_sensitivity, evalue confounding_strength(2 3) orapprox
 
+    assert !missing(r(cumulative_incidence))
     assert r(cumulative_incidence) > r(rare_threshold)
     assert "`r(approximation)'" == "OR-direct override"
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 1
     assert abs(r(bias_factor) - 1.5) < 1e-6
     assert abs(r(corrected_effect) - (r(effect) / r(bias_factor))) < 1e-6
@@ -213,9 +217,11 @@ capture noisily {
     * it reclassifies the outcome as rare and uses the OR directly.
     msm_sensitivity, evalue rarethreshold(0.99)
 
+    assert !missing(r(rare_threshold))
     assert r(cumulative_incidence) < r(rare_threshold)
     assert r(rare_threshold) == 0.99
     assert "`r(approximation)'" == "rare-outcome"
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 1
 }
 if _rc == 0 {
@@ -243,8 +249,10 @@ capture noisily {
     msm_fit, model(cox) nolog
     msm_sensitivity, evalue
 
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 1
     assert "`r(effect_label)'" == "HR"
+    assert !missing(r(rare_threshold))
     assert r(cumulative_incidence) <= r(rare_threshold)
     assert "`r(approximation)'" == "rare-outcome"
     * rare -> HR used directly as the RR scale
@@ -292,6 +300,7 @@ capture noisily {
     assert r(effect) < 1
     assert abs(r(bias_factor) - (4/3)) < 1e-6
     assert abs(r(corrected_effect) - (r(effect) * r(bias_factor))) < 1e-6
+    assert !missing(r(corrected_effect))
     assert r(corrected_effect) > r(effect)
 }
 if _rc == 0 {
@@ -333,6 +342,7 @@ capture noisily {
     egen long `id_group' = group(id)
     gen byte `excluded' = (`id_group' <= 50)
     quietly count if `excluded'
+    assert !missing(r(N))
     assert r(N) > 0
 
     * These subjects have events but are excluded from the fitted MSM because
@@ -361,6 +371,7 @@ capture noisily {
     local expected_incidence = r(mean)
 
     msm_sensitivity, evalue
+    assert !missing(r(cumulative_incidence), `expected_incidence')
     assert reldif(r(cumulative_incidence), `expected_incidence') < 1e-10
 }
 if _rc == 0 {

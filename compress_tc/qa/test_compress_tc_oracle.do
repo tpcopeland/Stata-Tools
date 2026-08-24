@@ -19,6 +19,7 @@ forvalues rep = 1/200 {
     save "`before'", replace
     compress_tc, quietly
     assert r(bytes_initial) - r(bytes_final) == r(bytes_saved)
+    assert !missing(r(pct_saved))
     assert r(pct_saved) >= 0 & r(pct_saved) <= 100
     save "`after'", replace
     use "`before'", clear
@@ -38,4 +39,4 @@ local before_type : type original
 compress_tc, quietly dryrun
 local after_type : type original
 assert "`before_type'" == "`after_type'"
-display as result "RESULT: PASS compress_tc randomized oracle (200 reps)"
+display as result "RESULT: test_compress_tc_oracle tests=201 pass=201 fail=0"

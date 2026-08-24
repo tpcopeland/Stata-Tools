@@ -195,8 +195,10 @@ else {
 local ++test_count
 capture noisily {
     qba_misclass, a(80) b(120) c(200) d(600) seca(.8) spca(.9)
+    assert !missing(r(corrected))
     assert r(corrected) > r(observed)
     * The ratio corrected/observed should be > 1 when true OR > 1
+    assert !missing(r(observed))
     assert r(corrected) / r(observed) > 1
 }
 if _rc == 0 {
@@ -532,6 +534,7 @@ else {
 local ++test_count
 capture noisily {
     qba_confound, estimate(2.0) evalue ci_bound(0.8)
+    assert !missing(r(evalue))
     assert r(evalue) > 1
     _assert_close `=r(evalue_ci)' 1.0 0.0001
 }
@@ -860,6 +863,7 @@ capture noisily {
     _qba_draw_one, dist("uniform 0.6 1.0") gen(_u) n(10000)
     summarize _u, meanonly
     _assert_close `=r(mean)' 0.8 0.01
+    assert !missing(r(min))
     assert r(min) >= 0.6
     assert r(max) <= 1.0
     restore
@@ -884,6 +888,7 @@ capture noisily {
     _qba_draw_one, dist("beta 2 5") gen(_bt) n(10000)
     summarize _bt, meanonly
     _assert_close `=r(mean)' 0.28571 0.02
+    assert !missing(r(min))
     assert r(min) >= 0
     assert r(max) <= 1
     restore
@@ -909,6 +914,7 @@ capture noisily {
     _qba_draw_one, dist("triangular 0.6 0.8 1.0") gen(_t) n(10000)
     summarize _t, meanonly
     _assert_close `=r(mean)' 0.8 0.02
+    assert !missing(r(min))
     assert r(min) >= 0.6
     assert r(max) <= 1.0
     restore
@@ -932,6 +938,7 @@ capture noisily {
     set seed 265
     _qba_draw_one, dist("trapezoidal 0.7 0.8 0.9 1.0") gen(_tr) n(10000)
     summarize _tr, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0.7
     assert r(max) <= 1.0
     * Mean of trapezoidal(a,b,c,d) = (a+b+c+d)/4 - approximate for symmetric
@@ -960,6 +967,7 @@ capture noisily {
     set seed 358
     _qba_draw_one, dist("logit-normal 0 1") gen(_ln) n(10000)
     summarize _ln, meanonly
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < 1
     * Logit-normal(0,1): mean is approximately 0.5 by symmetry
@@ -1252,9 +1260,13 @@ else {
 local ++test_count
 capture noisily {
     qba_misclass, a(80) b(120) c(200) d(600) seca(.8) spca(.9)
+    assert !missing(r(corrected_a))
     assert r(corrected_a) > 0
+    assert !missing(r(corrected_b))
     assert r(corrected_b) > 0
+    assert !missing(r(corrected_c))
     assert r(corrected_c) > 0
+    assert !missing(r(corrected_d))
     assert r(corrected_d) > 0
     assert r(corrected) < .
     assert r(corrected) > 0
@@ -1290,9 +1302,13 @@ else {
 local ++test_count
 capture noisily {
     qba_confound, estimate(2.5) p1(.4) p0(.1) rrcd(3.0) evalue ci_bound(1.2)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(bias_factor))
     assert r(bias_factor) > 0
+    assert !missing(r(evalue))
     assert r(evalue) > 0
+    assert !missing(r(evalue_ci))
     assert r(evalue_ci) > 0
     * Verify both calculations are independent and correct
     _assert_close `=r(corrected)' 1.66667 0.001

@@ -92,6 +92,7 @@ capture noisily {
     sysuse auto, clear
     raincloud mpg if price > 5000, over(foreign)
     assert r(N) < 74
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -715,6 +716,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     raincloud mpg, over(rep78) colors(red blue)
+    assert !missing(r(N))
     assert r(N) > 0
     assert r(n_groups) == 5
 }
@@ -850,6 +852,7 @@ local ++test_count
 capture noisily {
     clear
     set obs 30
+    set seed 20260824
     gen double x = cond(_n <= 20, rnormal(), 5)
     gen group = cond(_n <= 20, 1, 2)
     * Group 2 has 10 obs all equal to 5 (zero variance)
@@ -1007,6 +1010,7 @@ capture noisily {
     sysuse auto, clear
     gen int fw = max(1, round(price / 1000))
     raincloud mpg [fweight = fw]
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

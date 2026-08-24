@@ -298,8 +298,11 @@ capture noisily {
         censor_d_cov(L bl) censor_n_cov(bl) nolog
 
     merge 1:1 id period using `reference', nogenerate
+    assert !missing(_msm_weight, ref_weight)
     assert reldif(_msm_weight, ref_weight) < `tol'
+    assert !missing(_msm_tw_weight, ref_tw)
     assert reldif(_msm_tw_weight, ref_tw) < `tol'
+    assert !missing(_msm_cw_weight, ref_cw)
     assert reldif(_msm_cw_weight, ref_cw) < `tol'
 }
 if _rc == 0 {
@@ -408,6 +411,7 @@ capture noisily {
     gen double expected_weight = untruncated_weight
     replace expected_weight = `lo' if untrunc_risk & expected_weight < `lo' & !missing(expected_weight)
     replace expected_weight = `hi' if untrunc_risk & expected_weight > `hi' & !missing(expected_weight)
+    assert !missing(_msm_weight)
     assert reldif(_msm_weight, expected_weight) < `tol' if !missing(expected_weight)
 }
 if _rc == 0 {
@@ -442,6 +446,7 @@ capture noisily {
     quietly count if missing(_msm_weight)
     assert r(N) == 0
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
     assert "`weight_var'" == "_msm_weight"
     assert "`treat_d_cov'" == "L bl"

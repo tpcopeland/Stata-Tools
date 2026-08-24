@@ -18,17 +18,24 @@ local ++tests
 capture noisily {
     sysuse auto, clear
     corrtab price mpg weight, spearman pvalues
-    assert r(N) == _N
+    matrix _doc_pairwise_N = r(N)
+    assert rowsof(_doc_pairwise_N) == 3
+    assert colsof(_doc_pairwise_N) == 3
     crosstab rep78 foreign, label
+    assert !missing(r(N))
     assert r(N) > 0
     desctab rep78 foreign, by(foreign)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     table1_tc rep78 foreign, by(foreign)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     regress price mpg weight foreign
     puttab using table.xlsx, sheet("Regression") matrix(e(b))
+    assert !missing(r(n_cols))
     assert r(n_cols) > 0
     tabtools
+    assert !missing(r(n_commands))
     assert r(n_commands) > 0
 }
 if _rc == 0 local ++pass

@@ -129,7 +129,9 @@ capture noisily {
     confirm file "`st_csv'"
     confirm file "`st_md'"
     assert "`r(sheet)'" == "CSVMD"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
 
     * Since 1.12.0 the CSV opens on title() when one was given, matching the

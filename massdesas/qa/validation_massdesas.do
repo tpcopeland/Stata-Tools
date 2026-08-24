@@ -341,6 +341,7 @@ display as text _n "Test `test_count': Idempotent re-run succeeds"
 
 capture noisily {
     massdesas, directory("`dir_v12'")
+    assert !missing(r(n_converted))
     assert r(n_converted) >= 1
     assert r(n_failed) == 0
 }

@@ -117,6 +117,7 @@ capture noisily {
     assert _rc == 198
     * positive control: a legitimate fit still succeeds
     msm_fit, model(logistic) nolog
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -268,9 +269,13 @@ capture noisily {
     scalar mx_post  = r(max_weight)
 
     * at-risk results must be byte-for-byte invariant to appended post-risk rows
+    assert !missing(b_base, b_post)
     assert reldif(b_base, b_post)     < 1e-11
+    assert !missing(ess_base, ess_post)
     assert reldif(ess_base, ess_post) < 1e-9
+    assert !missing(mw_base, mw_post)
     assert reldif(mw_base, mw_post)   < 1e-11
+    assert !missing(mx_base, mx_post)
     assert reldif(mx_base, mx_post)   < 1e-11
     * the appended rows really did enter the dataset (guard against a no-op test)
     assert b_base != .
@@ -309,6 +314,7 @@ capture noisily {
     scalar hr_shift = _b[treat]
 
     * rebasing is a pure origin shift: the hazard-ratio coefficient is invariant
+    assert !missing(hr_signed, hr_shift)
     assert reldif(hr_signed, hr_shift) < 1e-8
 }
 if _rc == 0 {

@@ -153,6 +153,7 @@ capture noisily {
         local ++_r
         quietly summarize `pobs' if _msm_decision_risk & period == `p', meanonly
         local _want = r(min)
+        assert !missing(S[`_r', 7], `_want')
         assert reldif(S[`_r', 7], `_want') < 1e-12
         if `_want' < 0.10 local ++_oracle_viol
         if S[`_r', 5] < 0.10 local ++_psmin_viol
@@ -175,6 +176,7 @@ capture noisily {
     quietly summarize `pobs' if _msm_decision_risk, meanonly
     local _globmin = r(min)
     assert `_globmin' > 0.005 & `_globmin' < 0.05
+    assert !missing(`_rep_minobs', `_globmin')
     assert reldif(`_rep_minobs', `_globmin') < 1e-12
 
     * Sanity: this panel really is the extreme-weight case the gate exists for.
@@ -215,10 +217,12 @@ capture noisily {
     quietly gen double `pobs' = cond(treat == 1, _msm_treat_den_raw, ///
         1 - _msm_treat_den_raw) if _msm_decision_risk
     quietly summarize `pobs' if _msm_decision_risk, meanonly
+    assert !missing(r(min))
     assert r(min) > 0.05
 
     msm_diagnose, balance_covariates(L) positivity(0.05)
     assert r(n_positivity_violations) == 0
+    assert !missing(r(min_obs_probability))
     assert r(min_obs_probability) > 0.05
 }
 if _rc == 0 {
@@ -392,6 +396,7 @@ capture noisily {
     matrix B = r(balance)
 
     * The reported weighted SMD is the risk-set value ...
+    assert !missing(B[1, 2], `_oracle_riskset')
     assert reldif(B[1, 2], `_oracle_riskset') < 1e-8
     * ... and the two rules are far apart on this panel, so the assertion above
     * is a real discrimination and not a coincidence.
@@ -407,6 +412,7 @@ capture noisily {
     quietly summarize L if _msm_decision_risk & treat == 0, meanonly
     local um0 = r(mean)
     local uv0 = `um0' * (1 - `um0')
+    assert !missing(B[1, 1], (`um1' - `um0') / sqrt((`uv1' + `uv0') / 2))
     assert reldif(B[1, 1], (`um1' - `um0') / sqrt((`uv1' + `uv0') / 2)) < 1e-8
 }
 if _rc == 0 {
@@ -445,6 +451,7 @@ capture noisily {
     * The estimator really did drop rows, or this test proves nothing.
     assert e(N) < `_n_intended'
     assert e(msm_n_dropped) == `_n_intended' - e(N)
+    assert !missing(e(msm_n_dropped))
     assert e(msm_n_dropped) > 0
 
     * The stored cluster count matches the clusters among the FITTED rows.
@@ -461,6 +468,7 @@ capture noisily {
     local _intended_clusters = r(N)
     drop _dc_itag
     assert `_intended_clusters' > `_true_clusters'
+    assert !missing(e(msm_n_clusters))
     assert e(msm_n_clusters) != `_intended_clusters'
 
     * _msm_esample marks exactly the fitted rows.
@@ -660,6 +668,7 @@ capture noisily {
 
     _msm_smd x, treatment(treat) weight(w)
     local _continuous_got = `_msm_smd_value'
+    assert !missing(`_continuous_got', `_continuous_oracle')
     assert reldif(`_continuous_got', `_continuous_oracle') < 1e-12
 
     * The fixture is discriminating: Stata's normalized-aweight variance gives
@@ -691,6 +700,7 @@ capture noisily {
         sqrt((0.25 * 0.75 + 0.75 * 0.25) / 2)
     _msm_smd x, treatment(treat) weight(w)
     local _binary_got = `_msm_smd_value'
+    assert !missing(`_binary_got', `_binary_oracle')
     assert reldif(`_binary_got', `_binary_oracle') < 1e-12
     assert abs(`_binary_got' + 1) > 0.1
 }
@@ -746,7 +756,9 @@ capture noisily {
     matrix PB = r(balance)
     assert rowsof(PB) == 1
     assert colsof(PB) == 2
+    assert !missing(PB[1, 1], `_plot_raw')
     assert reldif(PB[1, 1], `_plot_raw') < 1e-8
+    assert !missing(PB[1, 2], `_plot_weighted')
     assert reldif(PB[1, 2], `_plot_weighted') < 1e-8
     assert r(n_risk) == `_nrisk'
     assert abs(`_all_weighted' - `_plot_weighted') > 0.2

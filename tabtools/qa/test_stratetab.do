@@ -113,6 +113,7 @@ capture noisily {
     _make_issue_strate, basename("`rate1'")
     clear
  stratetab, using("`rate1'") outcomes(1)
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 6
     assert _N == 0
     assert c(k) == 0
@@ -1223,6 +1224,7 @@ capture noisily {
         xlsx("`output_dir'/_cov_strate_returns.xlsx") outcomes(2) rateratio
     assert r(N_outcomes) == 2
     assert r(N_exposures) == 2
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     assert "`r(xlsx)'" != ""
     assert "`r(sheet)'" != ""
@@ -1588,6 +1590,7 @@ capture noisily {
 
     sysuse auto, clear
  stratetab, using("`rate1'") outcomes(1)
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 6
     capture erase "`rate1'.dta"
 }

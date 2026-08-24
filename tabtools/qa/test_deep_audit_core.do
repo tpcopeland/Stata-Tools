@@ -505,8 +505,10 @@ local glm_probit_label "`r(coef_label)'"
 frame glm_probit: local got_probit = real(c1[4])
 capture noisily {
     assert "`glm_logit_label'" == "OR"
+    assert !missing(`got_or', `want_or')
     assert reldif(`got_or', `want_or') < .01
     assert "`glm_probit_label'" == "Coef."
+    assert !missing(`got_probit', `want_probit')
     assert reldif(`got_probit', `want_probit') < .01
 }
 if _rc == 0 {

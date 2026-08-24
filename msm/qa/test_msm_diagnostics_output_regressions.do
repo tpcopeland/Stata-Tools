@@ -112,6 +112,7 @@ capture noisily {
     assert "`: char _dta[_msm_sens_rr_ud]'" == "2"
     assert "`: char _dta[_msm_sens_rr_uy]'" == "2"
     * bias factor for RR_UD=RR_UY=2 is (2*2)/(2+2-1) = 4/3
+    assert !missing(r(bias_factor))
     assert reldif(r(bias_factor), 4/3) < 1e-10
 
     * A refit invalidates every member of the old sensitivity artifact. The
@@ -156,6 +157,7 @@ capture noisily {
     * imbalanced. Old code counted abs(.) > threshold as imbalanced.
     gen double sepvar = treat * 5
     msm_diagnose, balance_covariates(L sepvar) threshold(0.1)
+    assert !missing(r(n_unavailable))
     assert r(n_unavailable) >= 1
 }
 if _rc == 0 {
@@ -251,6 +253,7 @@ capture noisily {
     msm_sensitivity, evalue
     * subject-level cumulative incidence drives the rarity call ...
     assert abs(r(cumulative_incidence) - `cuminc') < 1e-8
+    assert !missing(r(cumulative_incidence))
     assert r(cumulative_incidence) > r(rare_threshold)
     * ... and a common outcome uses RR = sqrt(OR), not the raw OR.
     assert "`r(approximation)'" == "common-outcome sqrt(OR)"
@@ -286,6 +289,7 @@ capture noisily {
     }
     msm_fit, model(cox) outcome_cov(age sex) nolog
     msm_sensitivity, evalue
+    assert !missing(r(cumulative_incidence))
     assert r(cumulative_incidence) > r(rare_threshold)
     assert "`r(approximation)'" == "common-outcome HR transform"
     local hr = r(effect)
@@ -394,6 +398,7 @@ capture noisily {
     msm_weight, treat_d_cov(L) nolog
     msm_diagnose, by_period positivity(0.05)
     assert r(positivity_threshold) == 0.05
+    assert !missing(r(n_positivity_violations))
     assert r(n_positivity_violations) >= 1
 
     * positive control: (near-)random treatment => propensity stays away from 0
@@ -446,6 +451,7 @@ capture noisily {
     capture confirm file "`xlf'"
     assert _rc == 0
     quietly checksum "`xlf'"
+    assert !missing(r(filelen))
     assert r(filelen) > 0
     capture erase "`xlf'"
 }

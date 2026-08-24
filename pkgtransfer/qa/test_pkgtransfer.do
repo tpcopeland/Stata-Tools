@@ -365,6 +365,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert "`r(download_mode)'" == "script_only"
         assert "`r(os)'" == "`c(os)'"
         assert "`r(dofile)'" == "pkgtransfer.do"
+        assert !missing(r(N_packages))
         assert r(N_packages) > 0
         assert "`r(package_list)'" != ""
         capture erase "pkgtransfer.do"

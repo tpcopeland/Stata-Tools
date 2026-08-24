@@ -326,6 +326,7 @@ capture noisily {
     * e(N_clust) is the frame; the new scalar is the outcome sample.
     assert e(N_clust) == `_ncp'
     assert e(iivw_outcome_nclust) == `_nco'
+    assert !missing(e(N_clust))
     assert e(iivw_outcome_nclust) < e(N_clust)
 }
 if _rc == 0 {

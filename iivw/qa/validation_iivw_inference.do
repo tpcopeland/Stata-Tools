@@ -931,6 +931,7 @@ if "`MODE'" == "smoke" {
     display as text "{hline 74}"
     display as error "RESULT: validation_iivw_inference INFERENCE-SMOKE non-gate (SIMS=`SIMS' < COVERAGE_R=`COVERAGE_R')"
     display as error "  a smoke run exercises the plumbing only; it is NOT the release gate"
+    display as error "RESULT: validation_iivw_inference tests=1 pass=0 fail=1 skip=0"
     exit 1
 }
 else if inlist("`MODE'", "iiw", "iptw", "fiptiw") & `FROM' > 0 & `TO' > 0 {

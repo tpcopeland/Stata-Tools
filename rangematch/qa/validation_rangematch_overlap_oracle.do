@@ -167,15 +167,20 @@ capture noisily {
         master("`m0'") using("`u0'")
     use "`u0'", clear
     quietly count if !missing(ulo, uhi) & ulo > uhi
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if !missing(ulo, uhi) & ulo == uhi
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if missing(ulo) | missing(uhi)
+    assert !missing(r(N))
     assert r(N) > 0
     use "`m0'", clear
     quietly count if !missing(mlo, mhi) & mlo > mhi
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if missing(mlo) | missing(mhi)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc {
@@ -400,6 +405,7 @@ capture noisily {
     * backend wrote it.
     quietly generate long _row = _n
     quietly count
+    assert !missing(r(N))
     assert r(N) > 100
 
     * An ordering contract is only testable where there is something to order.
@@ -409,9 +415,11 @@ capture noisily {
     tempvar npairs
     quietly bysort _mid: generate long `npairs' = _N
     quietly summarize `npairs', meanonly
+    assert !missing(r(max))
     assert r(max) >= 3
     sort _row
     quietly count if _n > 1 & _mid == _mid[_n-1] & ulo == ulo[_n-1]
+    assert !missing(r(N))
     assert r(N) > 0
 
     * Master ids appear in one ascending, non-interleaved run: ascending alone
@@ -501,6 +509,7 @@ capture noisily {
         local t = r(t97)
         * The premise of the shape: zero pairs. If this ever stops holding the
         * timing below is measuring something else entirely.
+        assert !missing(r(N_pairs))
         assert r(N_pairs) == 0 | r(N_pairs) >= .
 
         display as text "    n=`n' pairs=0 time=`t's"

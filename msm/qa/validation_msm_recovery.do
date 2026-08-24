@@ -128,6 +128,7 @@ program define _run_recovery
     * recovery: IPTW-MSM returns the parameter built into the data
     assert abs(`est' - `truth') < `tol'
     * return-handle consistency: documented e(effects)[1,1] == _b[treatment]
+    assert !missing(`eff', `est')
     assert reldif(`eff', `est') < 1e-8
 end
 

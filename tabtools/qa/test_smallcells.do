@@ -107,6 +107,7 @@ capture noisily {
     assert r(smallcells) == 5
     assert r(N_primary_suppressed) == 2
     assert r(N_secondary_suppressed) == 2
+    assert !missing(r(N_derived_suppressed))
     assert r(N_derived_suppressed) >= 2
     matrix _S = r(suppression)
     mata: st_numscalar("_sc_has_primary", any(st_matrix("_S") :== 1))
@@ -143,10 +144,13 @@ capture noisily {
             }
         }
         count if _has_primary
+        assert !missing(r(N))
         assert r(N) >= 2
         count if _has_secondary
+        assert !missing(r(N))
         assert r(N) >= 2
         count if _has_derived
+        assert !missing(r(N))
         assert r(N) >= 1
     }
 }
@@ -250,6 +254,7 @@ capture noisily {
         count if _value_primary
         assert r(N) == 1
         count if _derived
+        assert !missing(r(N))
         assert r(N) >= 1
     }
 }
@@ -278,6 +283,7 @@ capture noisily {
             if !_rc replace _marker = 1 if strpos(`v', "<5") > 0
         }
         count if _marker
+        assert !missing(r(N))
         assert r(N) >= 2
     }
 
@@ -336,6 +342,7 @@ capture noisily {
             }
         }
         count if _saw_marker
+        assert !missing(r(N))
         assert r(N) >= 2
         count if _saw_raw_nonmissing_den
         assert r(N) == 0
@@ -362,8 +369,11 @@ capture noisily {
         xlsx("`xlsx'") csv("`csv'") markdown("`md'") title("Synthetic small cells")
 
     assert r(smallcells) == 5
+    assert !missing(r(N_primary_suppressed))
     assert r(N_primary_suppressed) > 0
+    assert !missing(r(N_secondary_suppressed))
     assert r(N_secondary_suppressed) > 0
+    assert !missing(r(N_derived_suppressed))
     assert r(N_derived_suppressed) > 0
     matrix _S_all = r(suppression)
     mata: assert(any(st_matrix("_S_all") :== 1))
@@ -411,8 +421,10 @@ capture noisily {
         }
     }
     count if _saw_primary
+    assert !missing(r(N))
     assert r(N) >= 1
     count if _saw_secondary
+    assert !missing(r(N))
     assert r(N) >= 1
     count if _saw_raw
     assert r(N) == 0
@@ -469,6 +481,7 @@ capture noisily {
         if !_rc replace _marker = 1 if strpos(`v', "<3") > 0 | strpos(`v', "≥3") > 0
     }
     count if _marker
+    assert !missing(r(N))
     assert r(N) > 0
 
     clear
@@ -488,6 +501,7 @@ capture noisily {
                 strpos(`v', "≥3") > 0 | `v' == "Suppressed"
         }
         count if _marker
+        assert !missing(r(N))
         assert r(N) > 0
     }
 }

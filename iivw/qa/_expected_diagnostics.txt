@@ -1,0 +1,3 @@
+# These are asserted strings emitted by contract tests, not lane failures.
+^[ \t]*I1: failed replicates error rather than shrink the draw set$
+^[ \t]*runner verdict on 3 missing suites: FAIL / suites=3 pass=0 fail=3$

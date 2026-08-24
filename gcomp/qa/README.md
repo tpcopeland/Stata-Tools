@@ -53,6 +53,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `test_refactor_display_golden.do` | regression | quick/refactor | 600s | Stata | text snapshot predicates | fixed | display contract |
 | `test_refactor_gcomptab_geometry.do` | regression | quick/refactor | 600s | Stata | workbook geometry/content | fixed | GCTAB-H01 |
 | `test_gcomp.do` | functional | core | 1800s | Stata | command/e()/saved-output assertions | scenario seeds | broad public surface |
+| `test_gcomp_hostile.do` | adversarial | core | 300s | Stata | deterministic invalid-input and empty-sample contracts | 303103 | hostile parser/sample paths |
 | `test_adversarial_gcomp.do` | adversarial | core | 1200s | Stata | state/error/covariance assertions | scenario seeds | H07, C06 |
 | `test_gcomp_validation.do` | functional | core | 600s | Stata | invalid-role/panel/mode matrix | scenario seeds | validation surface |
 | `test_gcomp_diagnostics.do` | functional | core | 900s | Stata | diagnostic schema/name checks | 42 | M03 |

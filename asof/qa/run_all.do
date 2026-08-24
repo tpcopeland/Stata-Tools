@@ -23,7 +23,7 @@ local quick_suites test_asof_syntax test_asof_selection test_asof_windows ///
     test_asof_ties test_asof_edge_cases test_asof_types test_asof_install ///
     test_asof_examples test_asof_errors test_asof_hostile
 local core_suites `quick_suites' validation_asof_known_truth ///
-    validation_asof_mogad
+    validation_asof_mogad test_asof_oracle
 local crossval_suites crossval_asof_pandas
 local full_suites `core_suites' `crossval_suites'
 local benchmark_suites benchmark_asof_scaling

@@ -45,6 +45,7 @@ if `install_rc' {
 
 local files "test_diagtab.do test_diagtab_errors.do test_diagtab_documentation_examples.do"
 if "`lane'" == "full" local files "`files' validation_diagtab.do"
+if "`lane'" == "full" local files "`files' test_diagtab_oracle.do"
 
 local suite_pass = 0
 local suite_fail = 0
