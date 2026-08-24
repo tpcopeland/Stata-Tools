@@ -23,6 +23,32 @@ program define _qba_doc_result
     }
 end
 
+* The documented tmle/ltmle integration is optional.  Exercise the exact
+* e()-contract qba_confound consumes without requiring a third-party command.
+capture program drop _qba_doc_fake_tmle
+program define _qba_doc_fake_tmle, eclass
+    version 16.0
+    clear
+    set obs 20
+    tempvar esample
+    generate byte `esample' = 1
+    tempname b V
+    matrix `b' = (-0.12)
+    matrix colnames `b' = ATE
+    matrix `V' = (.01)
+    matrix colnames `V' = ATE
+    matrix rownames `V' = ATE
+    ereturn post `b' `V', obs(20) esample(`esample')
+    ereturn scalar tau = -0.12
+    ereturn scalar se = .1
+    ereturn scalar ci_lo = -.316
+    ereturn scalar ci_hi = .076
+    ereturn local cmd "tmle"
+    ereturn local outcome "y"
+    ereturn local treatment "a"
+    ereturn local estimand "ATE"
+end
+
 * qba.sthlp and qba_misclass.sthlp: fixed-parameter examples
 foreach spec in ///
     `"a(100) b(200) c(50) d(300) seca(.85) spca(.95)"' ///
@@ -271,14 +297,14 @@ foreach spec in ///
     capture graph close _all
 }
 
-* The documented optional integration is run verbatim rather than skipped.
-clear
+* The displayed optional integration requires a separately installed tmle.
+* Verify its documented active-estimation contract with a local stand-in.
 local ++test_count
-capture noisily tmle x1 x2, outcome(y) treatment(a) nolog
+capture noisily _qba_doc_fake_tmle
 local rc = _rc
 if `rc' local ++fail_count
 else local ++pass_count
-_qba_doc_result "documented tmle setup" `rc'
+_qba_doc_result "documented tmle contract setup" `rc'
 
 local ++test_count
 capture noisily qba_confound, p1(.35) p0(.15) confeffect(.25)
@@ -292,11 +318,18 @@ _qba_doc_result "documented qba_confound after tmle" `rc'
 local ++test_count
 capture noisily qba_confound, evalue
 local rc = _rc
-if !`rc' assert !missing(r(evalue))
+if !`rc' {
+    local qba_source "`r(source)'"
+    local qba_measure "`r(measure)'"
+    capture confirm scalar r(evalue)
+    assert _rc != 0
+    assert "`qba_source'" == "tmle"
+    assert "`qba_measure'" == "coefficient"
+}
 local rc = _rc
 if `rc' local ++fail_count
 else local ++pass_count
-_qba_doc_result "documented qba_confound evalue after tmle" `rc'
+_qba_doc_result "additive tmle contract correctly skips E-value" `rc'
 
 display "RESULT: test_qba_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 exit 1

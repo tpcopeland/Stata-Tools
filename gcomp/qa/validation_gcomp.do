@@ -300,10 +300,13 @@ capture noisily {
     matrix `ci' = e(ci_normal)
     * Row 1 = lower, Row 2 = upper
     * TCE: lower < tce < upper
+    assert !missing(e(tce))
     assert `ci'[1,1] < e(tce) & e(tce) < `ci'[2,1]
     * NDE
+    assert !missing(e(nde))
     assert `ci'[1,2] < e(nde) & e(nde) < `ci'[2,2]
     * NIE
+    assert !missing(e(nie))
     assert `ci'[1,3] < e(nie) & e(nie) < `ci'[2,3]
 }
 if _rc == 0 {

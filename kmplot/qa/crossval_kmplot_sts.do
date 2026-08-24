@@ -4,6 +4,7 @@ version 16.0
 quietly do "`c(pwd)'/_kmplot_qa_common.do"
 _kmplot_qa_bootstrap
 set seed 26082440
+local test_count = 0
 forvalues rep = 1/200 {
     clear
     set obs 80
@@ -21,6 +22,7 @@ forvalues rep = 1/200 {
         local g=L[`j',1]
         local tt=L[`j',2]
         quietly summarize _t if grp==`g'-1 & _t<=`tt' & !missing(`s'), meanonly
+        assert !missing(r(N))
         assert r(N)>0
         local ref_t = r(max)
         quietly summarize `s' if grp==`g'-1 & _t==`ref_t', meanonly
@@ -29,5 +31,6 @@ forvalues rep = 1/200 {
         assert `ref_s'<.
         assert abs(L[`j',3]-`ref_s')<1e-12
     }
+    local ++test_count
 }
-display as result "RESULT: PASS kmplot sts differential (200 reps)"
+display as result "RESULT: crossval_kmplot_sts tests=`test_count' pass=`test_count' fail=0 skip=0"

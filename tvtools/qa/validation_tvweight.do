@@ -341,6 +341,7 @@ capture {
     use "${DATA_DIR}/val_known_ps.dta", clear
     tvweight treatment, covariates(x) nolog
 
+    assert !missing(r(N))
     assert r(ess) <= r(N) + 0.01  // Small tolerance for floating point
 }
 if _rc == 0 {
@@ -791,6 +792,7 @@ capture {
     gen byte treat = (x + rnormal() > 0)
     tvweight treat, covariates(x) denominator(ps)
     quietly summarize ps
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < 1
     drop ps
@@ -814,7 +816,9 @@ capture {
     gen double x = 3*rnormal()
     gen byte treat = (x + rnormal() > 0)
     tvweight treat, covariates(x) truncate(5 95)
+    assert !missing(r(n_truncated))
     assert r(n_truncated) >= 0
+    assert !missing(r(w_min))
     assert r(w_min) > 0
 }
 if _rc == 0 {
@@ -843,6 +847,7 @@ capture {
     quietly summarize w2
     local sum_w2 = r(sum)
     local manual_ess = (`sum_w')^2 / `sum_w2'
+    assert !missing(`reported_ess', `manual_ess')
     assert reldif(`reported_ess', `manual_ess') < 0.01
     drop w2
 }
@@ -875,4 +880,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

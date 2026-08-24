@@ -47,6 +47,7 @@ tabtools set clear
 * Test: tabtools default listing
 capture noisily {
     tabtools
+    assert !missing(r(n_commands))
     assert r(n_commands) > 0
 }
 if _rc == 0 {
@@ -61,6 +62,7 @@ else {
 * Test: tabtools with list option
 capture noisily {
     tabtools, list
+    assert !missing(r(n_commands))
     assert r(n_commands) > 0
 }
 if _rc == 0 {
@@ -75,6 +77,7 @@ else {
 * Test: tabtools with detail option
 capture noisily {
     tabtools, detail
+    assert !missing(r(n_commands))
     assert r(n_commands) > 0
 }
 if _rc == 0 {
@@ -1031,6 +1034,7 @@ local t5c_pass = 1
 foreach cat in descriptive models rates survival composite export general {
     capture noisily {
         tabtools, category(`cat')
+        assert !missing(r(n_commands))
         assert r(n_commands) > 0
     }
     if _rc == 0 {
@@ -1126,6 +1130,7 @@ capture {
 * Test: tabtools default listing includes new commands
 capture noisily {
     tabtools
+    assert !missing(r(n_commands))
     assert r(n_commands) >= 10
 }
 if _rc == 0 {

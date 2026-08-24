@@ -125,10 +125,12 @@ capture noisily {
     gen int id = _n
     gen double duration = 251 - id
     swimlane, id(id) duration(duration) maxids(all) nograph
+    assert !missing(r(points_per_lane))
     assert reldif(r(points_per_lane), 288 / 250) < 1e-12
     assert r(graph_height) == 4
     assert r(readability_warning) == 1
     swimlane, id(id) duration(duration) maxids(all) nograph ysize( 20 )
+    assert !missing(r(points_per_lane))
     assert reldif(r(points_per_lane), 1440 / 250) < 1e-12
     assert r(graph_height) == 20
     assert r(readability_warning) == 0
@@ -218,19 +220,25 @@ capture noisily {
     gen double duration = 251 - id
     swimlane, id(id) duration(duration) maxids(all) laneheight(5pt) ///
         noylabels nograph
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 5) < 1e-12
+    assert !missing(r(graph_height))
     assert reldif(r(graph_height), 250 * 5 / 72) < 1e-12
     assert strpos(`"`r(cmdline)'"', "ysize(17.361") > 0
     swimlane, id(id) duration(duration) maxids(all) laneheight(8px) ///
         noylabels nograph
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 6) < 1e-12
+    assert !missing(r(graph_height))
     assert reldif(r(graph_height), 250 * 6 / 72) < 1e-12
 
     gen byte panel = ceil(id / 50)
     swimlane, id(id) duration(duration) by(panel) bylayout(compact) ///
         maxids(all) laneheight(5pt) idlabels(none) nograph
     assert r(N_panels) == 5
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 5) < 1e-12
+    assert !missing(r(graph_height))
     assert reldif(r(graph_height), 500 / 72) < 1e-12
     assert strpos(`"`r(cmdline)'"', "cols(3)") > 0
 
@@ -241,6 +249,7 @@ capture noisily {
     swimlane, id(id) duration(duration) maxids(all) laneheight(5pt) ///
         noylabels nograph
     assert r(graph_height) == 800
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 72 * 800 / 12000) < 1e-12
 }
 if _rc == 0 {
@@ -311,6 +320,7 @@ capture noisily {
     assert "`r(markers)'" == "minimal"
     assert "`r(continuation)'" == "cap"
     assert r(N_panels) == 2
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 6) < 1e-12
     frame sw_layout {
         assert "`: char _dta[swimlane_render_mode]'" == "standard"
@@ -323,6 +333,7 @@ capture noisily {
         assert r(min) == 1
         assert r(max) == 2
         assert real("`: char _dta[swimlane_laneheight_points]'") == 6
+        assert !missing(real("`: char _dta[swimlane_graph_height_inches]'"))
         assert reldif(real("`: char _dta[swimlane_graph_height_inches]'"), ///
             1 / 6) < 1e-12
     }
@@ -429,6 +440,7 @@ capture noisily {
     assert "`r(label_policy)'" == "none"
     assert "`r(markers)'" == "minimal"
     assert "`r(continuation)'" == "cap"
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 5) < 1e-12
 
     swimlane, id(id) duration(duration) density(dense) maxids(20) ///
@@ -440,6 +452,7 @@ capture noisily {
     assert "`r(label_policy)'" == "every 5"
     assert "`r(markers)'" == "full"
     assert "`r(continuation)'" == "arrow"
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 12) < 1e-12
 
     preserve
@@ -457,6 +470,7 @@ capture noisily {
     assert "`r(maxids_spec)'" == "20"
     swimlane, id(id) duration(duration) density(dense) ysize(10) nograph
     assert r(graph_height) == 10
+    assert !missing(r(laneheight))
     assert reldif(r(laneheight), 7.2) < 1e-12
 }
 if _rc == 0 {

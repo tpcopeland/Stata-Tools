@@ -93,6 +93,7 @@ capture noisily {
     psdash weights trt e, estimand(atc) truncate(999) generate(w) nograph
     assert "`r(estimand)'" == "atc"
     assert abs(w - 1) < 1e-12                if trt == 3
+    assert !missing(w)
     assert reldif(w, (1 - e) / e) < 1e-12    if trt == 5
 }
 _t "k2_arbitrary_atc_known_answer" `=_rc'
@@ -103,6 +104,7 @@ capture noisily {
     psdash weights trt e, estimand(att) truncate(999) generate(w) nograph
     assert "`r(estimand)'" == "att"
     assert abs(w - 1) < 1e-12                if trt == 5
+    assert !missing(w)
     assert reldif(w, e / (1 - e)) < 1e-12    if trt == 3
 }
 _t "k2_arbitrary_att_known_answer" `=_rc'
@@ -112,7 +114,9 @@ capture noisily {
     _bin35
     psdash weights trt e, estimand(ate) truncate(999) generate(w) nograph
     assert "`r(estimand)'" == "ate"
+    assert !missing(w)
     assert reldif(w, 1 / (1 - e)) < 1e-12    if trt == 3
+    assert !missing(w)
     assert reldif(w, 1 / e) < 1e-12          if trt == 5
 }
 _t "k2_arbitrary_ate_known_answer" `=_rc'
@@ -131,8 +135,10 @@ capture noisily {
     quietly psdash weights trt e, estimand(att) truncate(999) generate(b) nograph
     quietly psdash weights trt e, estimand(ate) truncate(999) generate(c) nograph
     * At e=0.5 (row 5, treated): ate=2 but att=atc=1 -> ate distinguishes.
+    assert !missing(c)
     assert reldif(c, 2) < 1e-12 & abs(a - 1) < 1e-12 & abs(b - 1) < 1e-12 in 5
     * At e=0.2 (row 1, control): atc=1, att=0.25, ate=1.25 -> all three differ.
+    assert !missing(b, c)
     assert abs(a - 1) < 1e-12 & reldif(b, 0.25) < 1e-12 & reldif(c, 1.25) < 1e-12 in 1
 }
 _t "k2_estimands_are_distinct" `=_rc'
@@ -150,10 +156,12 @@ capture noisily {
     gen byte a35 = cond(a01 == 1, 5, 3)
     * Both arms must be populated for the comparison to be meaningful.
     quietly count if a01 == 1
+    assert !missing(r(N))
     assert r(N) > 50 & r(N) < 350
     foreach est in atc att ate {
         quietly psdash weights a01 e, estimand(`est') truncate(1e6) generate(w01_`est') nograph
         quietly psdash weights a35 e, estimand(`est') truncate(1e6) generate(w35_`est') nograph
+        assert !missing(w01_`est', w35_`est')
         assert reldif(w01_`est', w35_`est') < 1e-12
     }
 }
@@ -214,7 +222,9 @@ capture noisily {
         quietly teffects ipw (y) (a35 x)
         quietly psdash weights, estimand(`est') nograph
         assert "`r(estimand)'" == "`est'"
+        assert !missing(r(mean_wt), `m01')
         assert reldif(r(mean_wt), `m01') < 1e-8
+        assert !missing(r(ess), `e01')
         assert reldif(r(ess), `e01') < 1e-8
     }
 }

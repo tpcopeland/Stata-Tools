@@ -99,6 +99,7 @@ capture noisily {
     assert r(n_gps_violate) == 6                       // 6 units have p(C)=0.001
     assert abs(r(min_gps) - 0.001) < 1e-9              // OLD: r(min_gps) missing
     assert abs(r(pct_gps_violate) - 100*6/9) < 1e-6
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1                          // OLD: 0 (support "Good")
     assert strpos(`"`r(warnings)'"', "GPS positivity") > 0
     * observed-arm overlap is 0% outside — the old false-green signal
@@ -111,6 +112,7 @@ capture noisily {
     _m1_data
     psdash combined treat, psvars(p1 p2 p3) nooverlap noweights nobalance
     assert "`r(verdict)'" == "FAIL"                    // OLD: PASS
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
     assert strpos(`"`r(warnings)'"', "GPS positivity") > 0
 }

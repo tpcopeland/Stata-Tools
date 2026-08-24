@@ -35,8 +35,8 @@ capture noisily {
     sysuse auto, clear
     scatter mpg weight
     tempfile plotplain_svg
-    local plotplain_file "`plotplain_svg'.svg"
-    graph export "`plotplain_file'", replace
+    local plotplain_file "`plotplain_svg'"
+    graph export "`plotplain_file'", as(svg) replace
     tempname plotplain_fh
     file open `plotplain_fh' using "`plotplain_file'", read text
     local plotplain_svg_found = 0
@@ -57,8 +57,8 @@ capture noisily {
     sysuse auto, clear
     scatter mpg weight, scheme(white_tableau)
     tempfile tableau_svg
-    local tableau_file "`tableau_svg'.svg"
-    graph export "`tableau_file'", replace
+    local tableau_file "`tableau_svg'"
+    graph export "`tableau_file'", as(svg) replace
     tempname tableau_fh
     file open `tableau_fh' using "`tableau_file'", read text
     local tableau_svg_found = 0
@@ -74,8 +74,8 @@ capture noisily {
     scatter mpg weight, scheme(gg_viridis) name(g2, replace)
     graph combine g1 g2
     tempfile combined_svg
-    local combined_file "`combined_svg'.svg"
-    graph export "`combined_file'", replace
+    local combined_file "`combined_svg'"
+    graph export "`combined_file'", as(svg) replace
     tempname combined_fh
     file open `combined_fh' using "`combined_file'", read text
     local combined_svg_found = 0

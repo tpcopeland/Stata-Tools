@@ -386,6 +386,7 @@ capture noisily {
     * Align against the reference and assert exact id/start/stop/drugA + tol doseB
     merge 1:1 id start stop using `ref', nogenerate
     assert drugA == drugA_ref
+    assert !missing(doseB, doseB_ref)
     assert reldif(doseB, doseB_ref) < 1e-9
 }
 if _rc == 0 {

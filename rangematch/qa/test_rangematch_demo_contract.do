@@ -102,6 +102,7 @@ file close `decoy'
 * The demo runs `clear all', which drops every local in this file. Anything the
 * assertions need afterwards has to survive outside the macro space.
 local statefile "`c(tmpdir)'/rm_demo_state_`tag'.txt"
+local lane_personal "`c(sysdir_personal)'"
 sysdir set PERSONAL "`stale'"
 local expect_plus "`c(sysdir_plus)'"
 local expect_personal "`c(sysdir_personal)'"
@@ -121,6 +122,7 @@ file write `sf' `"`expect_more'"' _n
 file write `sf' `"`expect_varabbrev'"' _n
 file write `sf' `"`expect_linesize'"' _n
 file write `sf' `"`expect_rngstate'"' _n
+file write `sf' `"`lane_personal'"' _n
 file close `sf'
 
 **# Run the demo, expecting the injected failure
@@ -191,6 +193,7 @@ file read `sf2' expect_more
 file read `sf2' expect_varabbrev
 file read `sf2' expect_linesize
 file read `sf2' expect_rngstate
+file read `sf2' lane_personal
 file read `sf2' had_pkg_on_path
 file close `sf2'
 erase "`statefile'"
@@ -281,7 +284,7 @@ else {
 }
 
 **# Cleanup
-sysdir set PERSONAL "`expect_personal'"
+sysdir set PERSONAL "`lane_personal'"
 capture erase "`stale'/rangematch.ado"
 capture rmdir "`stale'"
 

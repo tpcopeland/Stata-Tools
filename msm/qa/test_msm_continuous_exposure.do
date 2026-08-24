@@ -76,6 +76,7 @@ capture noisily {
 
     * Primary effect term is still the mapped treatment, and e(effects) tracks it.
     matrix eff = e(effects)
+    assert !missing(eff[1,1], _b[treatment])
     assert reldif(eff[1,1], _b[treatment]) < 1e-12
 
     * Default logistic fit still routes to msm_predict.
@@ -131,6 +132,7 @@ capture noisily {
 
     * The exposure term is the primary effect, not the binary treatment.
     matrix eff = e(effects)
+    assert !missing(eff[1,1], _b[cum_trt])
     assert reldif(eff[1,1], _b[cum_trt]) < 1e-12
     local eff_rows : rownames eff
     assert "`eff_rows'" == "cum_trt"
@@ -255,6 +257,7 @@ capture noisily {
         outcome_cov(age sex) vce(cluster id) nolog
     local fit_hr = exp(_b[cum_trt])
     msm_sensitivity, evalue
+    assert !missing(r(effect), `fit_hr')
     assert reldif(r(effect), `fit_hr') < 1e-8
     assert !missing(r(evalue_point))
 

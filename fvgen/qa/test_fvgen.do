@@ -10,6 +10,7 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local failed_tests ""
+set seed 26082417
 
 **# 1. Basic cat-by-continuous: variables, returns, naming
 local ++test_count

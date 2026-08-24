@@ -6,7 +6,9 @@ set more off
 set varabbrev off
 version 16.0
 
-local pkg_dir "`c(pwd)'/.."
+local qa_dir = regexr("`c(pwd)'", "/+$", "")
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
+local repo_dir = regexr("`pkg_dir'", "/compress_tc$", "")
 adopath ++ "`pkg_dir'"
 local test_count = 0
 local pass_count = 0
@@ -58,12 +60,14 @@ capture noisily {
 if _rc == 0 local ++pass_count
 else local ++fail_count
 
-* The two data examples intentionally retain the documented relative paths.
-* A failure here is documentation evidence, not a repaired test command.
+* The help file presents these shared fixtures as relative paths.  Resolve them
+* from the repository root so the executable contract also works in an
+* isolated qa/ lane.
 local ++test_count
 capture noisily {
-    use _data/prescriptions.dta, clear
+    use "`repo_dir'/_data/prescriptions.dta", clear
     compress_tc
+    assert !missing(r(k_converted))
     assert r(k_converted) >= 0
 }
 if _rc == 0 local ++pass_count
@@ -79,7 +83,7 @@ else local ++fail_count
 
 local ++test_count
 capture noisily {
-    use _data/procedures.dta, clear
+    use "`repo_dir'/_data/procedures.dta", clear
     compress_tc kva_code proc_description, detail
     assert "`r(varlist)'" == "kva_code proc_description"
 }

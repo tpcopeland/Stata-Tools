@@ -489,8 +489,11 @@ capture noisily {
     stset studytime, failure(died)
     survtab, times(10 20 30) by(drug) events
     * Should have events_1, atrisk_1, etc.
+    assert !missing(r(events_1))
     assert r(events_1) > 0
+    assert !missing(r(atrisk_1))
     assert r(atrisk_1) > 0
+    assert !missing(r(atrisk_1))
     assert r(events_1) <= r(atrisk_1)
 }
 if _rc == 0 {
@@ -531,7 +534,9 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     survtab, times(10 20 30) events
+    assert !missing(r(events_1))
     assert r(events_1) > 0
+    assert !missing(r(atrisk_1))
     assert r(atrisk_1) > 0
 }
 if _rc == 0 {
@@ -739,7 +744,9 @@ capture noisily {
     assert r(rmst_lb_2) < .
     assert r(rmst_ub_2) < .
     * CI should bracket the point estimate
+    assert !missing(r(rmst_1))
     assert r(rmst_lb_1) <= r(rmst_1)
+    assert !missing(r(rmst_ub_1))
     assert r(rmst_ub_1) >= r(rmst_1)
 }
 if _rc == 0 {
@@ -794,9 +801,13 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     survtab, times(10 20) by(drug) rmst(20)
+    assert !missing(r(rmst_se_1))
     assert r(rmst_se_1) > 0
+    assert !missing(r(rmst_se_2))
     assert r(rmst_se_2) > 0
+    assert !missing(r(rmst_1))
     assert r(rmst_lb_1) < r(rmst_1)
+    assert !missing(r(rmst_ub_1))
     assert r(rmst_ub_1) > r(rmst_1)
 }
 if _rc == 0 {

@@ -49,4 +49,4 @@ forvalues rep = 1/200 {
     unab actual_vars : _all
     assert "`expected_vars'" == "`actual_vars'"
 }
-display as result "RESULT: PASS rangematch randomized oracle (200 reps)"
+display as result "RESULT: test_rangematch_oracle tests=200 pass=200 fail=0"

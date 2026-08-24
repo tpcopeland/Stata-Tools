@@ -272,8 +272,11 @@ local ++test_count
 capture noisily {
     qba_multi, a(100) b(200) c(50) d(300) reps(500) ///
         p1(.4) p0(.2) rrcd(2) dist_p1("uniform .2 1.2") seed(444)
+    assert !missing(r(n_draw_invalid))
     assert r(n_draw_invalid) > 0
+    assert !missing(r(n_valid))
     assert r(n_valid) > 0
+    assert !missing(r(reps))
     assert r(n_valid) < r(reps)
     assert r(n_valid) + r(n_draw_invalid) == r(reps)
     assert r(n_biases) == 1

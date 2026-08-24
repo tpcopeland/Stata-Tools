@@ -73,7 +73,9 @@ capture noisily {
     msm_weight, treat_n_cov(age sex) nolog
 
     merge 1:1 id period using `default_ref', nogenerate
+    assert !missing(_msm_weight, explicit_weight)
     assert reldif(_msm_weight, explicit_weight) < 1e-12
+    assert !missing(_msm_tw_weight, explicit_tw_weight)
     assert reldif(_msm_tw_weight, explicit_tw_weight) < 1e-12
 }
 if _rc == 0 {
@@ -155,9 +157,11 @@ capture noisily {
         treat_n_cov(age sex) truncate(1) nolog
 
     assert r(n_truncated) == `pair_truncated'
+    assert !missing(r(ess), `pair_ess')
     assert reldif(r(ess), `pair_ess') < 1e-12
 
     merge 1:1 id period using `trunc_ref', nogenerate
+    assert !missing(_msm_weight, pair_weight)
     assert reldif(_msm_weight, pair_weight) < 1e-12
 }
 if _rc == 0 {

@@ -80,6 +80,7 @@ capture noisily {
     use `actual', clear
     merge 1:1 id period using `reference', nogen assert(match)
     assert n_actual == n_reference
+    assert !missing(total_actual, total_reference)
     assert reldif(total_actual, total_reference) < 1e-12
     assert peak_actual == peak_reference
     assert n_actual == cond(period == 2010, 2, 1)
@@ -156,6 +157,7 @@ capture noisily {
     use `actual', clear
     merge 1:1 id episode using `reference', nogen assert(match)
     assert n_actual == n_reference
+    assert !missing(total_actual, total_reference)
     assert reldif(total_actual, total_reference) < 1e-12
     assert peak_actual == peak_reference
     assert n_actual == 1

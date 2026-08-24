@@ -32,10 +32,11 @@ gcomp y m x c, outcome(y) mediation obe boceam exposure(x) mediator(m) ///
 tempname bo
 matrix `bo' = e(b)
 foreach eff in tce nde nie pm {
+    assert !missing(`plain'[1,colnumb(`plain',"`eff'")], ///
+        `bo'[1,colnumb(`bo',"`eff'")])
     assert reldif(`plain'[1,colnumb(`plain',"`eff'")], ///
         `bo'[1,colnumb(`bo',"`eff'")]) < 1e-13
 }
 display "RESULT: gcomp_boceam_probe status=PASS"
 
 display "RESULT: validation_boceam tests=1 pass=1 fail=0 status=PASS"
-

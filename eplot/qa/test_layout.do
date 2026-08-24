@@ -26,6 +26,7 @@ local test_count 0
 local pass_count 0
 local fail_count 0
 local failed_tests ""
+set seed 26082424
 
 * -----------------------------------------------------------------------------
 * Test 1: Package installs and command resolves

@@ -160,6 +160,7 @@ import delimited using "`data_dir'/intervention_imputation_dynamic_data.csv", cl
 quietly count if time == 1
 local ns = r(N)
 
+set seed 20260527
 gcomp y l0 a l alag llag id time, outcome(y) ///
     idvar(id) tvar(time) ///
     varyingcovariates(l) fixedcovariates(l0) ///

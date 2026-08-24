@@ -134,6 +134,7 @@ capture noisily {
     * tvexpose emits complete coverage, so the documented diagnostic must
     * report exactly 100% and no gaps -- never the >100% the union defect
     * used to produce.
+    assert !missing(r(mean_coverage))
     assert reldif(r(mean_coverage), 100) < 1e-6
     assert r(max_coverage) <= 100 + 1e-6
     assert r(n_gaps) == 0
@@ -205,6 +206,7 @@ capture noisily {
     quietly count if missing(iptw)
     assert r(N) == 0
     quietly summarize iptw
+    assert !missing(r(min))
     assert r(min) > 0
     * Unstabilized IPTW for a binary exposure has expectation 2 -- each arm
     * contributes 1 -- not 1. Assert the value the estimator is actually
@@ -254,6 +256,7 @@ capture noisily {
     local ccode = real(substr(`"`cmap'"', 1, strpos(`"`cmap'"', "=") - 1))
     assert `ccode' > 2 & `ccode' < .
     quietly count if combo == `ccode'
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -360,6 +363,7 @@ capture noisily {
         stop(a_stop b_stop) exposure(expA expB) generate(gA gB)
 
     assert r(n_input_overlaps_ds1) == 0
+    assert !missing(r(n_input_overlaps_ds2))
     assert r(n_input_overlaps_ds2) > 0
     assert r(n_input_overlaps) == r(n_input_overlaps_ds1) + r(n_input_overlaps_ds2)
 
@@ -370,6 +374,7 @@ capture noisily {
     tvmerge "`ovB'" "`ovA'", id(id) start(b_start a_start) ///
         stop(b_stop a_stop) exposure(expB expA) generate(gB gA)
 
+    assert !missing(r(n_input_overlaps_ds1))
     assert r(n_input_overlaps_ds1) > 0
     assert r(n_input_overlaps_ds2) == 0
     assert r(n_input_overlaps) == `total_fwd'
@@ -490,6 +495,7 @@ capture noisily {
         generate(tv_drug) referencelabel("Unexposed") keepvars(female) ///
         frameout(analysis) replace
     assert r(dryrun) == 0
+    assert !missing(r(N_periods))
     assert r(N_periods) > 0
 
     * 3. two sources through a specification frame

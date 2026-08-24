@@ -50,6 +50,7 @@ capture noisily {
     quietly logit treat x
     predict double ps
     psdash overlap treat ps
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
     assert strpos(`"`r(warnings)'"', "near-separation") > 0
 }
@@ -59,6 +60,7 @@ _t "B7_overlap_near_separation_is_finding" `=_rc'
 capture noisily {
     quietly gen double ps_rev = 1 - ps
     psdash overlap treat ps_rev
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
     assert strpos(`"`r(warnings)'"', "reversed") > 0
 }
@@ -73,7 +75,9 @@ capture noisily {
     gen double cov = rnormal(0, cond(treat, 10, 1))   // equal mean, ~100x VR
     gen double ps2 = 0.5
     psdash balance treat ps2, covariates(cov)
+    assert !missing(r(n_vr_imbalanced))
     assert r(n_vr_imbalanced) >= 1
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1                          // OLD: missing / 0
     assert strpos(`"`r(warnings)'"', "variance-ratio") > 0
 }
@@ -89,6 +93,7 @@ capture noisily {
     replace w = 11 in 1
     psdash combined treat ps3, wvar(w) nobalance nosupport
     assert "`r(verdict)'" == "FAIL"                    // OLD: PASS
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1                          // OLD: 0
     assert `"`r(warnings)'"' != ""
 }

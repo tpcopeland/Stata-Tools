@@ -153,9 +153,13 @@ capture noisily {
     _assert_close `=r(corrected_b)' `b_corr' 0.000001
     _assert_close `=r(corrected_c)' `c_corr' 0.000001
     _assert_close `=r(corrected_d)' `d_corr' 0.000001
+    assert !missing(r(observed))
     assert r(observed) != `or_obs'
+    assert !missing(r(corrected))
     assert r(corrected) != `or_corr'
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
 }
 if _rc == 0 {

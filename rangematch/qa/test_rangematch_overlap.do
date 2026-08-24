@@ -380,9 +380,13 @@ capture noisily {
     use "`m6'", clear
     rangematch mlo mhi using "`u6'", overlap(ulo uhi) by(id) ///
         frame(s8) replace stats
+    assert !missing(r(max_matches))
     assert r(max_matches) >= 1
+    assert !missing(r(mean_matches))
     assert r(mean_matches) >= 0
+    assert !missing(r(N_matched_master))
     assert r(N_matched_master) >= 1
+    assert !missing(r(N_master_groups))
     assert r(N_master_groups) >= 1
     assert !missing(r(p90_matches))
     assert !missing(r(p99_matches))

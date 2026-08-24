@@ -110,6 +110,7 @@ capture noisily {
     tvweight a, covariates(x1 x2) generate(w) denominator(ps)
     assert "`r(wtype)'" == "iptw"
     gen double w_expected = cond(a == 1, 1/ps, 1/(1-ps))
+    assert !missing(w, w_expected)
     assert reldif(w, w_expected) < 1e-10
 }
 if _rc == 0 {
@@ -128,6 +129,7 @@ capture noisily {
     _mk_data
     tvweight a, covariates(x1 x2) generate(w) wtype(ato) denominator(ps)
     gen double w_expected = cond(a == 1, 1-ps, ps)
+    assert !missing(w, w_expected)
     assert reldif(w, w_expected) < 1e-10
 }
 if _rc == 0 {
@@ -146,6 +148,7 @@ capture noisily {
     _mk_data
     tvweight a, covariates(x1 x2) generate(w) wtype(matching) denominator(ps)
     gen double w_expected = min(ps, 1-ps) / cond(a == 1, ps, 1-ps)
+    assert !missing(w, w_expected)
     assert reldif(w, w_expected) < 1e-10
 }
 if _rc == 0 {
@@ -196,6 +199,7 @@ capture noisily {
     sort id t
     by id (t): gen double manual = w if _n == 1
     by id (t): replace manual = manual[_n-1] * w if _n > 1
+    assert !missing(wc, manual)
     assert reldif(wc, manual) < 1e-10
 }
 if _rc == 0 {
@@ -250,6 +254,7 @@ capture noisily {
     gen double suminv = 1/p0 + 1/p1 + 1/p2
     gen double pobs = cond(a==0, p0, cond(a==1, p1, p2))
     gen double w_expected = (1/suminv)/pobs
+    assert !missing(w, w_expected)
     assert reldif(w, w_expected) < 1e-7
 }
 if _rc == 0 {
@@ -277,6 +282,7 @@ capture noisily {
     gen double minp = min(p0, p1, p2)
     gen double pobs = cond(a==0, p0, cond(a==1, p1, p2))
     gen double w_expected = minp/pobs
+    assert !missing(w, w_expected)
     assert reldif(w, w_expected) < 1e-7
 }
 if _rc == 0 {

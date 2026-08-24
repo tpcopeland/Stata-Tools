@@ -218,6 +218,7 @@ capture noisily {
     sysuse auto, clear
     capture frame drop rv4
     table1_tc, by(foreign) vars(rep78 cat) smallcells(5) frame(rv4)
+    assert !missing(r(N_primary_suppressed))
     assert r(N_primary_suppressed) > 0
 
     frame rv4 {
@@ -247,6 +248,7 @@ capture noisily {
     generate byte evenmpg = mod(mpg, 2)
     capture frame drop rv5
     table1_tc, by(foreign) vars(evenmpg cat \ rep78 cat) smallcells(5) frame(rv5)
+    assert !missing(r(N_primary_suppressed))
     assert r(N_primary_suppressed) > 0
 
     frame rv5 {

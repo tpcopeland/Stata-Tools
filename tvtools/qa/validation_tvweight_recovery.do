@@ -187,7 +187,9 @@ capture noisily {
         "  overlap=[" %6.4f `r_lo' "," %6.4f `r_hi' "]"
     assert `r_nono' > 0
     assert `r_nono' == `manual_nono'
+    assert !missing(`r_lo', `manual_lo')
     assert reldif(`r_lo', `manual_lo') < 1e-9
+    assert !missing(`r_hi', `manual_hi')
     assert reldif(`r_hi', `manual_hi') < 1e-9
 }
 if _rc == 0 {

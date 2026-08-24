@@ -51,21 +51,27 @@ capture {
     gen byte treatment = (runiform() < ps_true)
 
     tvweight treatment, covariates(x) generate(w) nolog
+    local _ess = r(ess)
+    local _ess_pct = r(ess_pct)
 
     * All weights should be > 0
     assert w > 0 if !missing(w)
 
     * Mean weight for treated should be > 1 (since 1/PS > 1 for PS < 1)
     quietly sum w if treatment == 1
+    assert !missing(r(mean))
     assert r(mean) >= 1
 
     * Mean weight for untreated should also be > 1
     quietly sum w if treatment == 0
+    assert !missing(r(mean))
     assert r(mean) >= 1
 
     * ESS should be meaningful and positive
-    assert r(ess) > 0
-    assert r(ess_pct) > 0
+    assert !missing(`_ess')
+    assert `_ess' > 0
+    assert !missing(`_ess_pct')
+    assert `_ess_pct' > 0
 }
 if _rc == 0 {
     display as result "  PASS 3.1: IPTW binary formula properties"
@@ -128,6 +134,7 @@ capture {
 
     * Truncated range should be narrower or equal
     quietly sum w_trunc
+    assert !missing(r(min))
     assert r(min) >= `full_min' - 0.001
     assert r(max) <= `full_max' + 0.001
 }
@@ -218,6 +225,7 @@ capture {
     tvdiagnose, id(id) start(start) stop(stop) overlaps
 
     * At least person 1 has clear overlap
+    assert !missing(r(n_overlaps))
     assert r(n_overlaps) >= 1
 }
 if _rc == 0 {
@@ -296,11 +304,13 @@ capture {
 
     * Should have more or equal exposed intervals than without carryforward
     quietly count if tv_drug != 0
+    assert !missing(r(N))
     assert r(N) >= `exposed_no_cf'
 
     * Total person-time should still be preserved (output uses rx_start/rx_stop)
     gen double dur = rx_stop - rx_start
     quietly sum dur
+    assert !missing(r(sum))
     assert r(sum) > 0
 
     erase "`DATA_DIR'/_val_cf_cohort.dta"
@@ -433,6 +443,7 @@ capture {
         id(id) start(s1 s2) stop(e1 e2) exposure(exp1 exp2) ///
         validatecoverage
 
+    assert !missing(r(N))
     assert r(N) > 0
 
     erase "`DATA_DIR'/_val_merge_vc1.dta"

@@ -1134,6 +1134,7 @@ capture noisily {
         xlsx("`bad_root'/survtab.xlsx")
     local rc = _rc
     assert `rc' != 0
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     tempname st
     matrix `st' = r(table)
@@ -1159,6 +1160,7 @@ capture noisily {
     local rc = _rc
     capture confirm file "`bad_root'/stratetab.xlsx"
     assert _rc != 0
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 6
     tempname rt
     matrix `rt' = r(rates)
@@ -1243,6 +1245,7 @@ capture noisily {
     local rc = _rc
     assert `rc' != 0
     assert r(N_frames) == 2
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
 }
 if _rc == 0 {
@@ -1280,6 +1283,7 @@ capture noisily {
     assert `rc' != 0
     assert r(N_outcomes) == 1
     assert r(N_modelframes) == 1
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
 }
 if _rc == 0 {

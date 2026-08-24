@@ -63,7 +63,9 @@ capture noisily {
     capture erase "`output_dir'/_val_effecttab.xlsx"
     effecttab, xlsx("`output_dir'/_val_effecttab.xlsx") sheet("Test")
 
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
+    assert !missing(r(N_cols))
     assert r(N_cols) > 0
     assert "`r(xlsx)'" == "`output_dir'/_val_effecttab.xlsx"
     assert "`r(sheet)'" == "Test"
@@ -148,6 +150,7 @@ capture noisily {
     local ncols : word count `r(varlist)'
     assert `ncols' >= 4
     count
+    assert !missing(r(N))
     assert r(N) >= 3
 }
 if _rc == 0 {
@@ -209,6 +212,7 @@ capture noisily {
 
     import excel "`output_dir'/_val_effecttab_dydx.xlsx", sheet("dydx") clear
     count
+    assert !missing(r(N))
     assert r(N) >= 3
 }
 if _rc == 0 {
@@ -239,6 +243,7 @@ capture noisily {
 
     import excel "`output_dir'/_val_effecttab_pred.xlsx", sheet("Pred") clear
     count
+    assert !missing(r(N))
     assert r(N) >= 4
 }
 if _rc == 0 {
@@ -290,6 +295,7 @@ capture noisily {
 
     import excel "`output_dir'/_val_effecttab_single.xlsx", sheet("Single") clear
     count
+    assert !missing(r(N))
     assert r(N) >= 3
 }
 if _rc == 0 {
@@ -317,6 +323,7 @@ capture noisily {
 
     import excel "`output_dir'/_val_effecttab_many.xlsx", sheet("Many") clear
     count
+    assert !missing(r(N))
     assert r(N) >= 5
 }
 if _rc == 0 {

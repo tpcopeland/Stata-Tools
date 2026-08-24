@@ -398,6 +398,7 @@ capture noisily {
     assert rowsof(`diag') >= 3
     forvalues r = 1/`=rowsof(`diag')' {
         assert `diag'[`r', 1] > 0
+        assert !missing(e(N))
         assert `diag'[`r', 1] <= e(N)
         assert inlist(`diag'[`r', 2], 0, 1, .)
     }

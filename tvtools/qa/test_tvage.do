@@ -658,6 +658,7 @@ capture noisily {
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_date) groupwidth(5)
     assert r(n_persons) == 1
+    assert !missing(r(n_observations))
     assert r(n_observations) > 0
     assert r(groupwidth) == 5
     assert "`r(varname)'" == "age_tv"
@@ -722,6 +723,7 @@ capture noisily {
         minage(62) maxage(63)
     * Should only get ages 62 and 63
     assert r(n_observations) <= 2
+    assert !missing(r(n_observations))
     assert r(n_observations) >= 1
 }
 if _rc == 0 {
@@ -968,6 +970,7 @@ capture noisily {
     format dob entry exit_date %td
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_date)
     assert r(n_persons) == 3
+    assert !missing(r(n_observations))
     assert r(n_observations) >= 3
 }
 if _rc == 0 {

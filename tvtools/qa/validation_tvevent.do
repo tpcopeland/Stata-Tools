@@ -550,6 +550,7 @@ capture {
 
     * Person 2 should still have follow-up
     quietly count if id == 2
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -997,6 +998,7 @@ capture {
 
     * Values should be populated on event row
     quietly count if outcome == 1 & !missing(dx_code)
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -1078,6 +1080,7 @@ capture {
 
     * Should have multiple event rows
     quietly count if hospitalized == 1
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -1105,6 +1108,7 @@ capture {
     * Total follow-up should be preserved (approximately 366 days)
     gen double dur = stop - start + 1
     quietly sum dur
+    assert !missing(r(sum))
     assert r(sum) >= 300
 }
 if _rc == 0 {
@@ -1171,7 +1175,9 @@ capture {
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
     * Verify r() scalars
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(N_events))
     assert r(N_events) >= 1
 }
 if _rc == 0 {
@@ -2154,6 +2160,7 @@ capture {
 
     * Multiple events should be recorded
     quietly count if outcome == 1
+    assert !missing(r(N))
     assert r(N) >= 2
 }
 if _rc == 0 {
@@ -2316,6 +2323,7 @@ capture {
 
     * Both events should be captured (they fall within intervals, not on boundaries)
     quietly count if outcome == 1
+    assert !missing(r(N))
     assert r(N) >= 1
 
     * No overlapping output intervals
@@ -2800,6 +2808,7 @@ capture {
     * Run Cox model
     stcox tv_exp
 
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -2860,8 +2869,11 @@ capture {
         type(single) validate generate(outcome)
 
     * Verify stored results exist and are non-negative
+    assert !missing(r(v_outside_bounds))
     assert r(v_outside_bounds) >= 0
+    assert !missing(r(v_multiple_events))
     assert r(v_multiple_events) >= 0
+    assert !missing(r(v_same_date_compete))
     assert r(v_same_date_compete) >= 0
 }
 if _rc == 0 {

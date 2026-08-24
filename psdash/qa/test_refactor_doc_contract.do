@@ -151,6 +151,7 @@ capture noisily {
     psdash balance foreign ps, covariates(mpg weight length) loveplot
     assert rowsof(r(balance)) == 3
     psdash weights foreign ps
+    assert !missing(r(ess))
     assert r(ess) > 0
     psdash support foreign ps, crump generate(in_support)
     assert "`r(treatment)'" == "foreign"
@@ -182,6 +183,7 @@ capture noisily {
     psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi)
     assert rowsof(r(balance)) == 3
     psdash weights arm, psvars(ps0 ps1 ps2) detail
+    assert !missing(r(ess))
     assert r(ess) > 0
     psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
     assert r(K) == 3

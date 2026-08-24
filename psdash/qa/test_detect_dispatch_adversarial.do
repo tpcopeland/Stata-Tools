@@ -131,6 +131,7 @@ capture noisily {
     psdash balance treat ps, covariates(x1 x2 x3) nowvar
     assert rowsof(r(balance)) == 3
     psdash weights treat ps
+    assert !missing(r(ess))
     assert r(ess) > 0
     psdash support treat ps, nograph
     assert r(N) == 300
@@ -322,6 +323,7 @@ capture noisily {
     matrix `b_after' = e(b)
     assert colsof(`b_after') == colsof(`b_before')
     forvalues j = 1/`=colsof(`b_before')' {
+        assert !missing(`b_before'[1,`j'], `b_after'[1,`j'])
         assert reldif(`b_before'[1,`j'], `b_after'[1,`j']) < 1e-12
     }
 }

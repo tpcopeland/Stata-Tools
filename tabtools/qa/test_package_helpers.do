@@ -831,6 +831,7 @@ capture noisily {
     import excel using "`_casebook'", describe
     assert r(N_worksheet) == 1
     _tabtools_xlsx_read using "`_casebook'", sheet("TABLE")
+    assert !missing(r(n_rows))
     assert r(n_rows) > 0
 }
 if _rc == 0 {
@@ -2592,6 +2593,7 @@ capture noisily {
     assert `"`r(xlsx)'"' == `"`xlsx'"'
     assert "`r(sheet)'" == "Surv"
     assert "`r(frame)'" == "contract_surv"
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     assert `"`r(methods)'"' != ""
 
@@ -2608,6 +2610,7 @@ capture noisily {
     assert `"`r(xlsx)'"' == `"`xlsx'"'
     assert "`r(sheet)'" == "Rates"
     assert "`r(frame)'" == "contract_rates"
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 6
     assert r(N_outcomes) == 2
 
@@ -2622,7 +2625,9 @@ capture noisily {
     assert `"`r(xlsx)'"' == `"`xlsx'"'
     assert "`r(sheet)'" == "Reg"
     assert "`r(frame)'" == "contract_reg"
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
+    assert !missing(r(N_cols))
     assert r(N_cols) > 0
     assert r(N_models) == 1
     assert `"`r(methods)'"' != ""
@@ -2642,7 +2647,9 @@ capture noisily {
     assert `"`r(xlsx)'"' == `"`xlsx'"'
     assert "`r(sheet)'" == "Effect"
     assert "`r(frame)'" == "contract_eff"
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
+    assert !missing(r(N_cols))
     assert r(N_cols) > 0
     assert "`r(type)'" == "margins"
     assert `"`r(methods)'"' != ""
@@ -2722,6 +2729,7 @@ capture noisily {
     assert `"`r(xlsx)'"' == `"`xlsx'"'
     assert "`r(sheet)'" == "HR"
     assert "`r(frame)'" == "contract_hr"
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
     assert r(N_outcomes) == 2
     assert r(N_modelrows) == 1
@@ -2968,6 +2976,7 @@ capture noisily {
     frame _cj_fv_drop: quietly count if strpos(A, "Secondary") | strpos(A, "Tertiary")
     assert r(N) == 0
     frame _cj_fv_drop: quietly count if A == "Education level" | strpos(A, "Primary")
+    assert !missing(r(N))
     assert r(N) >= 1
     frame drop _cj_fv_drop
 }
@@ -3283,7 +3292,9 @@ capture noisily {
     sysuse auto, clear
     table1_tc price mpg rep78, by(foreign) title("Table 1") markdown("`md_table1'")
     assert "`r(markdown)'" == "`md_table1'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
     _md_assert_contains using "`md_table1'", text("Table 1")
     _md_assert_contains using "`md_table1'", text("Price")
@@ -3307,7 +3318,9 @@ capture noisily {
     crosstab rep78 foreign, label xlsx("`xlsx_cross'") markdown("`md_cross'") title("Repairs")
     confirm file "`xlsx_cross'"
     assert "`r(markdown)'" == "`md_cross'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
     _md_assert_contains using "`md_cross'", text("Repairs")
 }
@@ -3325,7 +3338,9 @@ capture noisily {
     sysuse auto, clear
     corrtab price mpg weight, spearman pvalues markdown("`md_cross'") mdappend title("Correlations")
     assert "`r(markdown)'" == "`md_cross'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
     _md_assert_contains using "`md_cross'", text("Correlations")
     _md_assert_tables using "`md_cross'", minimum(2)
@@ -3375,7 +3390,9 @@ capture noisily {
     regtab, frame(_md_rt2, replace)
     comptab _md_rt1 _md_rt2, rows(1 2 \ 1 2) markdown("`md_comp'") title("Composite")
     assert "`r(markdown)'" == "`md_comp'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
     _md_assert_contains using "`md_comp'", text("Composite")
 }
@@ -3428,7 +3445,9 @@ capture noisily {
         markdown("`md_hr'") csv("`csv_hr'") title("Survival")
     assert "`r(markdown)'" == "`md_hr'"
     assert "`r(csv)'" == "`csv_hr'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
     _md_assert_contains using "`md_hr'", text("Survival")
 }
@@ -3452,7 +3471,9 @@ capture noisily {
     collect: regress price mpg weight
     regtab, markdown("`md_reg'")
     assert "`r(markdown)'" == "`md_reg'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
 
     local md_eff "`output_dir'/markdown_effecttab.md"
@@ -3461,7 +3482,9 @@ capture noisily {
     matrix rownames _md_eff = exposure
     effecttab, from(_md_eff) markdown("`md_eff'")
     assert "`r(markdown)'" == "`md_eff'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
 
     local md_surv "`output_dir'/markdown_survtab.md"
@@ -3473,7 +3496,9 @@ capture noisily {
     survtab, times(10 20) by(drug) markdown("`md_surv'") csv("`csv_surv'")
     assert "`r(markdown)'" == "`md_surv'"
     assert "`r(csv)'" == "`csv_surv'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
 
     local md_rate "`output_dir'/markdown_stratetab.md"
@@ -3495,7 +3520,9 @@ capture noisily {
     clear
     stratetab, using("`_md_rate_only'") outcomes(1) markdown("`md_rate'")
     assert "`r(markdown)'" == "`md_rate'"
+    assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
+    assert !missing(r(markdown_cols))
     assert r(markdown_cols) > 0
 }
 if _rc == 0 {

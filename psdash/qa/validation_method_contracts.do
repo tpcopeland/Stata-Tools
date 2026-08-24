@@ -268,7 +268,9 @@ capture noisily {
     assert r(panel_1_floor_line) == 1
     assert r(panel_2_floor_line) == 0
     assert r(panel_3_floor_line) == 0
+    assert !missing(r(panel_2_min))
     assert r(panel_2_min) > .01
+    assert !missing(r(panel_3_min))
     assert r(panel_3_min) > .01
 
     graph describe psd_mc_detail_layout

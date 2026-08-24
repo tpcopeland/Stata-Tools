@@ -22,6 +22,7 @@
       "budget_seconds": 5400,
       "suites": [
         {"name": "test_gcomp", "timeout_seconds": 1800},
+        {"name": "test_gcomp_hostile", "timeout_seconds": 300},
         {"name": "test_adversarial_gcomp", "timeout_seconds": 1200},
         {"name": "test_gcomp_validation", "timeout_seconds": 600},
         {"name": "test_gcomp_diagnostics", "timeout_seconds": 900},

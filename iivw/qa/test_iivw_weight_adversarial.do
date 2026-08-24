@@ -658,6 +658,7 @@ if `run_only' == 0 | `run_only' == 15 {
             assert r(N) == _N
             assert !missing(r(ess))
             assert r(ess) > 0
+            assert !missing(r(N))
             assert r(ess) <= r(N) + 1e-6
             quietly count if missing(_iivw_weight) | _iivw_weight <= 0
             assert r(N) == 0

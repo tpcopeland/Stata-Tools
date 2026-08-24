@@ -117,6 +117,7 @@ assert r(N_matched_using) == 3
 assert r(N_unmatched_master) == 1
 assert r(N_unmatched_using) == 1
 assert r(max_matches) == 2
+assert !missing(r(mean_matches))
 assert reldif(r(mean_matches), 1) < 1e-12
 assert r(median_matches) == 1
 assert r(p50_matches) == 1

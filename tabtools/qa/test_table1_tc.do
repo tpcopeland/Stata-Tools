@@ -2238,6 +2238,7 @@ capture noisily {
     table1_tc price mpg weight, by(foreign)
     assert _N == `orig_n'
     summarize price, meanonly
+    assert !missing(r(mean), `orig_mean')
     assert reldif(r(mean), `orig_mean') < 1e-10
 }
 if _rc == 0 {
@@ -2321,9 +2322,13 @@ capture noisily {
     scalar _rt_s_y = el(`T', 1, 2)
     scalar _rt_p_x = el(`T', 2, 1)
     scalar _rt_s_x = el(`T', 2, 2)
+    assert !missing(_rt_p_y, `_p_y')
     assert reldif(_rt_p_y, `_p_y') < 1e-8
+    assert !missing(_rt_p_x, `_p_x')
     assert reldif(_rt_p_x, `_p_x') < 1e-8
+    assert !missing(_rt_s_y)
     assert reldif(_rt_s_y, 3) < 1e-12
+    assert !missing(_rt_s_x)
     assert reldif(_rt_s_x, 2) < 1e-12
 }
 if _rc == 0 {
@@ -2755,8 +2760,9 @@ capture noisily {
     gen byte catvar = mod(_n, 3)
     replace catvar = . if group == 2
     table1_tc, vars(catvar cat) by(group) smd
-    assert r(N) > 0
-    matrix list r(table)
+    matrix _smd_allmissing_table = r(table)
+    assert rowsof(_smd_allmissing_table) > 0
+    assert colsof(_smd_allmissing_table) > 0
 }
 if _rc == 0 {
     display as result "  PASS [1a]: table1_tc SMD with all-missing group completes without error"

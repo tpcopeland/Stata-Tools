@@ -28,6 +28,7 @@ capture noisily {
     assert _rc == 602
     assert "`r(plot_type)'" == "tornado"
     assert "`r(measure)'" == "OR"
+    assert !missing(r(n_missing))
     assert r(n_missing) >= 0
     capture erase "`existing'"
 }

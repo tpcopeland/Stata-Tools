@@ -81,8 +81,11 @@ capture noisily {
     tvdiagnose, id(id) start(start) stop(stop) gaps
     assert r(n_persons) == 2
     * Each person has 3 periods with 30-day gaps between them
+    assert !missing(r(n_gaps))
     assert r(n_gaps) > 0
+    assert !missing(r(mean_gap))
     assert r(mean_gap) > 0
+    assert !missing(r(max_gap))
     assert r(max_gap) > 0
 }
 if _rc == 0 {
@@ -109,7 +112,9 @@ capture noisily {
     * Periods overlap by 10 days
 
     tvdiagnose, id(id) start(start) stop(stop) overlaps
+    assert !missing(r(n_overlaps))
     assert r(n_overlaps) > 0
+    assert !missing(r(n_ids_affected))
     assert r(n_ids_affected) > 0
 }
 if _rc == 0 {
@@ -127,6 +132,7 @@ local ++test_count
 capture noisily {
     use `diag_data', clear
     tvdiagnose, id(id) start(start) stop(stop) exposure(exposure) summarize
+    assert !missing(r(total_person_time))
     assert r(total_person_time) > 0
 }
 if _rc == 0 {
@@ -299,6 +305,7 @@ capture noisily {
 
     tvdiagnose, id(id) start(start) stop(stop) gaps threshold(60)
     * Only gaps > 60 days should be flagged as large
+    assert !missing(r(n_gaps))
     assert r(n_gaps) > 0
     assert !missing(r(n_large_gaps))
 }
@@ -491,4 +498,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

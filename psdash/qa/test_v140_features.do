@@ -124,6 +124,7 @@ capture noisily {
     assert abs(`ratio_def' - r(max_wt)/r(mean_wt)) < 1e-9
     psdash weights foreign ps, extreme(3 6)
     assert r(extreme_hi) == 3 & r(extreme_vhi) == 6
+    assert !missing(r(n_extreme))
     assert r(n_extreme) >= `nx_def'
     * rescaling weights leaves max_ratio invariant
     gen double ipw2 = 100 * ipw
@@ -151,6 +152,7 @@ capture noisily {
     psdash support foreign ps, qtrim(5) nograph
     assert r(qtrim) == 5
     * quantile region is contained within the min-max region
+    assert !missing(r(lower_bound))
     assert r(lower_bound) >= `lb_mm' - 1e-12
     assert r(upper_bound) <= `ub_mm' + 1e-12
 }

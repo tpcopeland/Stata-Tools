@@ -49,6 +49,7 @@ display as text "{hline 70}" _newline
 
 // Cohort-like time-varying dataset
 clear
+set seed 20260824
 set obs 200
 gen int id = ceil(_n / 4)
 bysort id: gen int period = _n

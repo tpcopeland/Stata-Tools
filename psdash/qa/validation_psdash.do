@@ -356,13 +356,17 @@ local ++test_count
 capture noisily {
     psdash overlap treated ps, nograph
     * Lower bound must be >= 0
+    assert !missing(r(overlap_lower))
     assert r(overlap_lower) >= 0
     * Upper bound must be <= 1
     assert r(overlap_upper) <= 1
     * Upper >= lower
+    assert !missing(r(overlap_upper))
     assert r(overlap_upper) >= r(overlap_lower)
     * Means must be between 0 and 1
+    assert !missing(r(mean_ps_treated))
     assert r(mean_ps_treated) > 0 & r(mean_ps_treated) < 1
+    assert !missing(r(mean_ps_control))
     assert r(mean_ps_control) > 0 & r(mean_ps_control) < 1
 }
 if _rc == 0 {
@@ -441,6 +445,7 @@ capture noisily {
     quietly tab in_supp
     assert r(r) <= 2
     quietly summarize in_supp
+    assert !missing(r(min))
     assert r(min) >= 0 & r(max) <= 1
     drop in_supp
 }
@@ -976,6 +981,7 @@ capture noisily {
     assert r(n_imbalanced) == 0
     psdash balance treated ps, covariates(age female bmi) nowvar ///
         threshold(`mid_thresh')
+    assert !missing(r(n_imbalanced))
     assert r(n_imbalanced) >= 1
 }
 if _rc == 0 {

@@ -233,6 +233,7 @@ assert r(N_pairs) == 4
 assert r(N_unmatched) == 2
 assert r(max_matches) == 2
 assert r(N_matched_master) == 1
+assert !missing(r(mean_matches))
 assert reldif(r(mean_matches), 2/3) < 1e-12
 assert r(N_empty_groups) == 1
 assert "`r(cmd)'" == "rangematch"

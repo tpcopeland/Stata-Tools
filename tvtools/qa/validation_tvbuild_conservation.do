@@ -187,6 +187,7 @@ capture {
     * Period 5: Neither drug (270-365)
 
     quietly count
+    assert !missing(r(N))
     assert r(N) >= 4
 
     * Verify person-time conservation
@@ -738,6 +739,7 @@ capture {
 
     * Should get intersection at single point
     quietly count if start == stop
+    assert !missing(r(N))
     assert r(N) >= 1
 
     * Dose at that point should be 10 (100% overlap)

@@ -359,6 +359,7 @@ capture noisily {
     assert "`r(frameout)'" == "fm_out"
     datasignature confirm           // caller's keepme data unchanged
     frame fm_out: count
+    assert !missing(r(N))
     assert r(N) > 0
     * exists-without-replace -> rc 110
     capture tvmerge "`ma'" "`mb'", id(id) start(start start) stop(stop stop) ///

@@ -138,6 +138,7 @@ capture noisily {
     assert r(N) == `truth'
     * exclusion must remove at least one row relative to plain dm2 (guard)
     quietly count if o_dm2 == 1
+    assert !missing(r(N))
     assert `truth' < r(N)
 }
 if _rc == 0 {

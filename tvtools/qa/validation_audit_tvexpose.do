@@ -285,6 +285,7 @@ capture noisily {
     assert `total_time' == 15
     assert `exposed_time' == 10
     assert `unexposed_time' == 5
+    assert !missing(`pct_exposed')
     assert reldif(`pct_exposed', 100 * 10 / 15) < 1e-12
 }
 local captured_rc = _rc
@@ -343,6 +344,7 @@ capture noisily {
     assert `total_time' == 15
     assert `exposed_time' == 10
     assert `unexposed_time' == 5
+    assert !missing(`pct_exposed')
     assert reldif(`pct_exposed', 100 * 10 / 15) < 1e-12
 }
 local captured_rc = _rc
@@ -676,9 +678,11 @@ capture noisily {
     assert `total_time' == 10
     assert `exposed_time' == 8
     assert `unexposed_time' == 2
+    assert !missing(`pct_exposed')
     assert reldif(`pct_exposed', 80) < 1e-12
     generate double days = stop - start + 1
     quietly summarize days, meanonly
+    assert !missing(r(sum))
     assert r(sum) > `total_time'
 }
 local captured_rc = _rc

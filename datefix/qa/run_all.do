@@ -37,7 +37,7 @@ local quick_suites test_datefix test_diagnose test_datefix_v112 test_datefix_err
 
 * Default release gate: quick lane plus expanded functional coverage and
 * known-answer validation.
-local full_suites `quick_suites' test_datefix_expanded validation_datefix test_datefix_documentation_examples test_package_release
+local full_suites `quick_suites' test_datefix_expanded validation_datefix test_datefix_documentation_examples test_datefix_oracle test_package_release
 
 local suite_list ``mode'_suites'
 

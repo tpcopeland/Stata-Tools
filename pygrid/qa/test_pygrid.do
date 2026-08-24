@@ -32,8 +32,11 @@ capture noisily {
     assert r(N_empty_window) == 0
     assert r(N_uncovered) == 0
     assert r(N_partial) == 0
+    assert !missing(r(pytotal))
     assert reldif(r(pytotal), 2 * 1096 / 365.25) < 1e-12
+    assert !missing(r(pymin))
     assert reldif(r(pymin), 365 / 365.25) < 1e-12
+    assert !missing(r(pymax))
     assert reldif(r(pymax), 366 / 365.25) < 1e-12
     assert r(period_min) == 2010
     assert r(period_max) == 2012

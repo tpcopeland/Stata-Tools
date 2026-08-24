@@ -47,6 +47,7 @@ forvalues rep = 1/200 {
         quietly count if est == 0
         assert r(N) == 2
         quietly count if missing(se)
+        assert !missing(r(N))
         assert r(N) > 0
         if mod(`rep', 10) == 0 {
             quietly count if method == "B" & usable
@@ -89,6 +90,7 @@ forvalues rep = 1/200 {
         unab vars_after : _all
         assert "`vars_after'" == "`vars_before'"
         assert r(N_input) == 16
+        assert !missing(r(n_dropped_se))
         assert r(n_dropped_se) > 0
 
         forvalues g = 1/2 {

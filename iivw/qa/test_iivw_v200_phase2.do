@@ -224,6 +224,7 @@ capture noisily {
     assert !missing(r(ess_ratio), r(ess) / r(N_total))
     assert reldif(r(ess_ratio), r(ess) / r(N_total)) > 1e-4
 
+    assert !missing(r(n_ids_total))
     assert r(n_ids_weighted) <= r(n_ids_total)
 }
 if _rc == 0 {
@@ -395,6 +396,7 @@ capture noisily {
     assert reldif(r(holm_min_p), `expect') < 1e-10
 
     * The flag follows the ADJUSTED omnibus p, and nothing else.
+    assert !missing(r(alpha))
     assert r(history_association_flag) == (r(holm_min_p) < r(alpha))
 
     * The exploratory term p-values are reported but must not drive the flag.

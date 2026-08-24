@@ -406,9 +406,11 @@ capture {
     assert r(N) == 0
 
     quietly count if id == 2
+    assert !missing(r(N))
     assert r(N) >= 1
 
     quietly count if id == 3
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {
@@ -1006,7 +1008,9 @@ capture {
         exposure(exp1 exp2)
 
     * Verify scalars exist
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(N_persons))
     assert r(N_persons) > 0
     assert r(N_datasets) == 2
 }

@@ -283,6 +283,7 @@ capture noisily {
     gen byte exposed = (_n <= 100)
     gen byte event = mod(_n, 2) == 0   // independent of exposure
     crosstab event exposed, or
+    assert !missing(r(p))
     assert r(p) > 0.20
     assert abs(r(or) - 1.0) < 0.5
 }

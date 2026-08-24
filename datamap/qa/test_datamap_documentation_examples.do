@@ -20,6 +20,7 @@ foreach mode in text named json {
         if "`mode'" == "text" datamap
         if "`mode'" == "named" datamap, output(auto_codebook.txt)
         if "`mode'" == "json" datamap, format(json) output(auto_map.json)
+        assert !missing(r(nvars))
         assert r(nfiles) == 1 & r(nobs) == _N & r(nvars) > 0
         if "`mode'" == "text" confirm file "`qa_dir'/datamap.txt"
         if "`mode'" == "named" confirm file "`qa_dir'/auto_codebook.txt"
@@ -37,6 +38,7 @@ foreach mode in plain titled stats {
         if "`mode'" == "plain" datadict
         if "`mode'" == "titled" datadict, title("Auto Dataset") author("Timothy P Copeland, Karolinska Institutet")
         if "`mode'" == "stats" datadict, missing stats output(auto_dict.md)
+        assert !missing(r(nvars_total))
         assert r(nfiles) == 1 & r(nvars_total) > 0
         if "`mode'" == "stats" confirm file "`qa_dir'/auto_dict.md"
     }
@@ -49,6 +51,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     datamvp
+    assert !missing(r(N_patterns))
     assert r(N) == _N & r(N_patterns) > 0
     datamvp, generate(m)
     tab m_pattern
@@ -64,6 +67,7 @@ capture noisily {
     datacheck
     assert r(N) == _N & r(n_checks) == 0
     assert r(n_string) == 1
+    assert !missing(r(n_string))
     assert r(n_continuous) + r(n_categorical) + r(n_date) + r(n_string) > 0
 }
 if _rc == 0 local ++pass_count

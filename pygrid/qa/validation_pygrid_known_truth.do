@@ -23,9 +23,13 @@ capture noisily {
     pygrid, id(id) start(window_start) end(window_end) axis(calendar)
     sort period
     assert _N == 3
+    assert !missing(person_years[1])
     assert reldif(person_years[1], 365 / 365.25) < 1e-12
+    assert !missing(person_years[2])
     assert reldif(person_years[2], 365 / 365.25) < 1e-12
+    assert !missing(person_years[3])
     assert reldif(person_years[3], 366 / 365.25) < 1e-12
+    assert !missing(r(pytotal))
     assert reldif(r(pytotal), 1096 / 365.25) < 1e-12
 }
 local case_rc = _rc
@@ -38,9 +42,13 @@ capture noisily {
     pygrid, id(id) start(window_start) end(window_end) axis(calendar)
     sort period
     assert _N == 3
+    assert !missing(person_years[1])
     assert reldif(person_years[1], 200 / 365.25) < 1e-12
+    assert !missing(person_years[2])
     assert reldif(person_years[2], 365 / 365.25) < 1e-12
+    assert !missing(person_years[3])
     assert reldif(person_years[3], 80 / 365.25) < 1e-12
+    assert !missing(r(pytotal), (td(20mar2012) - td(15jun2010) + 1) / 365.25)
     assert reldif(r(pytotal), ///
         (td(20mar2012) - td(15jun2010) + 1) / 365.25) < 1e-12
 }
@@ -52,6 +60,7 @@ _pygrid_record, rc(`case_rc') name("partial calendar years") ///
 capture noisily {
     _pygrid_make_calendar, n(1) start(`=td(29feb2012)') end(`=td(29feb2012)')
     pygrid, id(id) start(window_start) end(window_end) axis(calendar)
+    assert !missing(person_years)
     assert reldif(person_years, 1 / 365.25) < 1e-12
     _pygrid_make_calendar, n(1) start(`=td(29feb2012)') end(`=td(29feb2012)')
     pygrid, id(id) start(window_start) end(window_end) axis(calendar) noinclusive
@@ -87,6 +96,7 @@ capture noisily {
     assert period_start[4] == floor(td(01jan2010) + 3 * 365.25)
     assert period_stop[4] == td(15apr2013)
     local total = r(pytotal)
+    assert !missing(`total', (td(15apr2013) - td(01jan2010) + 1) / 365.25)
     assert reldif(`total', (td(15apr2013) - td(01jan2010) + 1) / 365.25) < 1e-12
     clear
     set obs 1
@@ -109,6 +119,7 @@ capture noisily {
     sort period
     assert _N == 2
     assert period[1] == 2005
+    assert !missing(person_years[1])
     assert reldif(person_years[1], 184 / 365.25) < 1e-12
     assert r(N_uncovered) == 1
 }
@@ -122,6 +133,7 @@ capture noisily {
     pygrid, id(id) start(window_start) end(window_end) axis(calendar) ///
         clamp(`=td(01jan2004)' `=td(31dec2008)') coverage(`=td(01jul2005)')
     quietly summarize person_years, meanonly
+    assert !missing(r(sum), (td(31dec2008) - td(01jul2005) + 1) / 365.25)
     assert reldif(r(sum), (td(31dec2008) - td(01jul2005) + 1) / 365.25) < 1e-12
     assert period_start[1] == td(01jul2005)
     assert period_stop[_N] == td(31dec2008)

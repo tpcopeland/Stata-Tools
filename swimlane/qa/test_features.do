@@ -168,6 +168,7 @@ capture noisily {
     capture graph describe swimlane
     assert _rc != 0
     frame sw_ng: quietly count
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

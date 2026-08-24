@@ -39,7 +39,7 @@ capture noisily {
     spaghetti ln_wage, id(idcode) time(year) sample(50) refline(80, label("Policy change") style(dash))
     assert r(n_sampled) == 50
     webuse nlswork, clear
-    spaghetti ln_wage, id(idcode) time(year) by(race) individual(color(gs12) opacity(10) lwidth(vthin)) mean(bold ci) colors(navy cranberry)
+    spaghetti ln_wage, id(idcode) time(year) by(race) individual(color(gs12) opacity(10) lwidth(vthin)) mean(bold ci) colors(navy cranberry forest_green)
     assert r(n_groups) == 3
 }
 if _rc == 0 local ++pass

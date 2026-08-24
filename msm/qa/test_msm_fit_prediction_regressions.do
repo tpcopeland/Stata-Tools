@@ -84,6 +84,7 @@ capture noisily {
     * Under identical fit and draws, the survival difference is the negative of
     * the risk difference (S1-S0 = -(F1-F0)). The old code returned the survival
     * contrast as rd_* and labelled it "risk difference".
+    assert !missing(sd3, -rd3)
     assert reldif(sd3, -rd3) < 1e-8
     assert abs(rd3) > 1e-6
 }
@@ -182,9 +183,11 @@ capture noisily {
     assert _rc == 198
     * positive control: ns(2) needs 3 distinct periods, which we have
     msm_fit, model(logistic) period_spec(ns(2)) nolog
+    assert !missing(e(N))
     assert e(N) > 0
     * Cox with an over-specified spline must NOT block: period basis is skipped
     msm_fit, model(cox) period_spec(ns(9)) vce(cluster id) nolog
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -241,6 +244,7 @@ capture noisily {
     local se = (`hi' - `lo') / (2 * invttail(`df', 0.025))
     local lo_t = `est' - invttail(`df', 0.025) * `se'
     local lo_z = `est' - invnormal(0.975) * `se'
+    assert !missing(`lo', `lo_t')
     assert reldif(`lo', `lo_t') < 1e-6
     * the t interval is strictly wider than the z interval it replaced
     assert `lo' < `lo_z'
@@ -277,6 +281,7 @@ capture noisily {
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) covariates(L)
     msm_weight, treat_d_cov(L) nolog
     msm_fit, model(logistic) vce(robust) period_spec(none) nolog
+    assert !missing(e(N))
     assert e(N) > 0
 }
 if _rc == 0 {

@@ -1109,6 +1109,7 @@ capture {
 
     display "  Run 1: " %12.8f `b_run1'
     display "  Run 2: " %12.8f `b_run2'
+    assert !missing(`b_run1', `b_run2')
     assert reldif(`b_run1', `b_run2') < 1e-10
 }
 if _rc == 0 {
@@ -1435,6 +1436,7 @@ local ++test_count
 capture {
     msm_diagnose, by_period
     * Should not error
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 if _rc == 0 {
@@ -1553,7 +1555,9 @@ else {
 local ++test_count
 capture {
     msm_sensitivity, confounding_strength(1.5 2.0)
+    assert !missing(r(bias_factor))
     assert r(bias_factor) > 0
+    assert !missing(r(corrected_effect))
     assert r(corrected_effect) > 0
     display "  Bias factor: " %7.4f r(bias_factor)
 }
@@ -2035,10 +2039,12 @@ capture {
     * 2) Weights should all be positive and finite
 
     quietly summarize _msm_tw_weight
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < .
 
     * Verify log-sum stability: no extreme weights even without truncation
+    assert !missing(r(min))
     assert r(min) > 1e-6
     assert r(max) < 1e6
 
@@ -2079,6 +2085,7 @@ capture {
 
     * Verify all weights are positive and finite
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < .
     assert r(N) == 8
@@ -2086,6 +2093,7 @@ capture {
     * Verify stabilized property: mean should be roughly near 1
     * (with only 4 individuals, this is approximate)
     display "  Tiny dataset weight mean: " %9.4f r(mean)
+    assert !missing(r(mean))
     assert r(mean) > 0.1 & r(mean) < 5.0
 }
 if _rc == 0 {
@@ -2113,6 +2121,7 @@ capture {
     * df=3 => 2 internal knots at 33rd and 67th percentiles
     * boundary at min(x)=0.1 and max(x)=10
     * Check that ns1 = x (linear basis)
+    assert !missing(x)
     assert reldif(_ns1, x) < 1e-10 if !missing(_ns1)
 
     * Check nonlinear bases are 0 at the minimum (boundary knot)
@@ -2543,8 +2552,10 @@ capture {
 
     * Weights should be finite and positive
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < .
+    assert !missing(r(mean))
     assert r(mean) > 0
 
     msm_fit, model(logistic) outcome_cov(bl) period_spec(linear) nolog
@@ -2589,6 +2600,7 @@ capture {
     display "  Weight SD: " %9.4f r(sd)
 
     * With strong confounding, weight SD should be large
+    assert !missing(r(sd))
     assert r(sd) > 0.1
 
     msm_fit, model(logistic) outcome_cov(bl) period_spec(linear) nolog
@@ -2640,6 +2652,7 @@ capture {
         treat_n_cov(bl_x1 bl_x2) truncate(1 99) nolog
 
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < .
     display "  10-covariate weight mean: " %9.4f r(mean)
@@ -2699,6 +2712,7 @@ capture {
     bysort id: gen int `t_count' = _N
     quietly summarize `t_count'
     display "  Panel lengths: min=" r(min) " max=" r(max) " mean=" %4.1f r(mean)
+    assert !missing(r(max))
     assert r(min) < r(max)
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
@@ -2891,6 +2905,7 @@ capture {
     * Weights should not explode or collapse to 0
     quietly summarize _msm_weight
     display "  T=50 weight range: [" %12.6f r(min) ", " %12.4f r(max) "]"
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < 1000
 
@@ -2985,6 +3000,7 @@ capture {
 
     confirm variable _msm_cw_weight
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < .
 
@@ -3114,6 +3130,7 @@ capture {
         outcome(outcome) covariates(L) baseline_covariates(bl)
     msm_weight, treat_d_cov(L bl) treat_n_cov(bl) truncate(10 90) nolog
 
+    assert !missing(r(n_truncated))
     assert r(n_truncated) > 0
     local n_trunc = r(n_truncated)
     local trunc_pct = 100 * `n_trunc' / _N
@@ -3164,6 +3181,7 @@ capture noisily {
 
     * Without strict: should pass (rc==0) but have warnings
     msm_validate
+    assert !missing(r(n_warnings))
     assert r(n_warnings) > 0
     assert r(n_errors) == 0
 
@@ -3193,6 +3211,7 @@ capture noisily {
 
     * Without strict: passes with warnings
     msm_validate
+    assert !missing(r(n_warnings))
     assert r(n_warnings) > 0
     local w_no_strict = r(n_warnings)
 

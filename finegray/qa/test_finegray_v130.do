@@ -411,6 +411,7 @@ capture noisily {
     quietly finegray_predict _p130s1, cif ci bootstrap(25) seed(12345)
     quietly finegray_predict _p130s2, cif ci bootstrap(25) seed(12345)
     quietly count if !missing(_p130s1_lci, _p130s2_lci, _p130s1_uci, _p130s2_uci)
+    assert !missing(r(N))
     assert r(N) > 0
     assert _p130s1_lci == _p130s2_lci if !missing(_p130s1_lci, _p130s2_lci)
     assert _p130s1_uci == _p130s2_uci if !missing(_p130s1_uci, _p130s2_uci)

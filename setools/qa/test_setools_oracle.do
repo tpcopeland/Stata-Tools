@@ -23,4 +23,4 @@ forvalues rep = 1/200 {
 capture noisily setools, category(bogus)
 assert _rc == 198
 do "`qa_dir'/_setools_qa_common.do" teardown
-display as result "RESULT: PASS setools randomized oracle (200 reps)"
+display as result "RESULT: test_setools_oracle tests=201 pass=201 fail=0"

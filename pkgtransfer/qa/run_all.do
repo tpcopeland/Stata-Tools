@@ -9,6 +9,7 @@ version 16.0
 clear all
 set more off
 capture log close _all
+* qa-hygiene: no-package-code
 
 args mode extra
 local mode = lower(trim("`mode'"))

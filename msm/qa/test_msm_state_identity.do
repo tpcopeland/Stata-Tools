@@ -94,15 +94,18 @@ capture noisily {
     * Return to dataset A. Its characteristics say "fitted", and the live
     * session matrix currently holds B's coefficients.
     use "`dsA'", clear
+    assert !missing(_msm_fit_b[1, 1], `coefB')
     assert reldif(_msm_fit_b[1, 1], `coefB') < 1e-12
 
     * Consuming the fit must yield A's OWN coefficients. On pre-Phase-1 code
     * the guard passes and B's matrix is adopted silently.
     _msm_check_fitted
+    assert !missing(_msm_fit_b[1, 1], `coefA')
     assert reldif(_msm_fit_b[1, 1], `coefA') < 1e-12
 
     * And the reported effect must be A's, not B's.
     quietly msm_report
+    assert !missing(_msm_fit_b[1, 1], `coefA')
     assert reldif(_msm_fit_b[1, 1], `coefA') < 1e-12
 }
 if _rc == 0 {
@@ -134,6 +137,7 @@ capture noisily {
     * S2a: the artifact travels with the .dta, so the fit is still usable and
     * still the same numbers.
     _msm_check_fitted
+    assert !missing(_msm_fit_b[1, 1], `coef_saved')
     assert reldif(_msm_fit_b[1, 1], `coef_saved') < 1e-12
 
     * S2b: a dataset flagged fitted whose stored coefficients have been removed
@@ -341,6 +345,7 @@ capture noisily {
     capture confirm variable _msm_weight
     assert _rc == 0
     quietly summarize _msm_weight, meanonly
+    assert !missing(r(mean), `w_before')
     assert reldif(r(mean), `w_before') < 1e-12
 }
 if _rc == 0 {
@@ -430,6 +435,7 @@ capture noisily {
     capture confirm variable _msm_per_ns_mine
     assert _rc == 0
     quietly summarize _msm_per_ns_mine, meanonly
+    assert !missing(r(mean))
     assert reldif(r(mean), 3.14) < 1e-10
 }
 if _rc == 0 {
@@ -522,7 +528,9 @@ capture noisily {
     * Exporting A must rehydrate A's own downstream artifacts, never B's.
     use "`dsA'", clear
     msm_table, xlsx("`downstream_xlsx'.xlsx") predictions balance replace
+    assert !missing(_msm_pred_matrix[1, 2], `predA')
     assert reldif(_msm_pred_matrix[1, 2], `predA') < 1e-12
+    assert !missing(_msm_bal_matrix[1, 2], `balA')
     assert reldif(_msm_bal_matrix[1, 2], `balA') < 1e-12
 }
 if _rc == 0 {

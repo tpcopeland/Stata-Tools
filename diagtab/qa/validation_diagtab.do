@@ -1081,6 +1081,7 @@ capture noisily {
     assert !missing(r(auc_lb))
     assert r(auc_lb) >= 0 & r(auc_ub) <= 1
     assert r(auc_lb) <= r(auc) + 1e-9
+    assert !missing(r(auc_ub))
     assert r(auc) <= r(auc_ub) + 1e-9
 }
 if _rc == 0 {

@@ -581,6 +581,7 @@ capture {
     format %td dob entry exit_
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) minage(32)
     quietly summarize age_tv
+    assert !missing(r(min))
     assert r(min) >= 32
 }
 if _rc == 0 {

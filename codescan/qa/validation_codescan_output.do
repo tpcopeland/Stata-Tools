@@ -126,7 +126,7 @@ capture noisily {
     assert strpos(`"`r(command)'"', "hbar prevalence") > 0
     assert strpos(`"`r(command)'"', "Condition Prevalence") > 0
     assert strpos(`"`r(command)'"', "Prevalence (%)") > 0
-    assert strpos(`"`r(command)'"', "blabel(bar, format(%4.1f))") > 0
+    assert strpos(`"`r(command)'"', "blabel(bar, format(%9.1f))") > 0
 
     graph export "`out_svg'", as(svg) replace
     confirm file "`out_svg'"

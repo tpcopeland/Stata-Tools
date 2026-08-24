@@ -59,11 +59,17 @@ capture {
         baseline_covariates(age sex)
 
     * Check all documented return scalars
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(n_ids))
     assert r(n_ids) > 0
+    assert !missing(r(n_periods))
     assert r(n_periods) > 0
+    assert !missing(r(n_events))
     assert r(n_events) >= 0
+    assert !missing(r(n_treated))
     assert r(n_treated) > 0
+    assert !missing(r(n_censored))
     assert r(n_censored) >= 0
 
     * Check all return locals
@@ -236,6 +242,7 @@ capture {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(biomarker)
     msm_validate
+    assert !missing(r(n_warnings))
     assert r(n_warnings) > 0
     assert r(n_errors) == 0
     assert "`r(validation)'" == "passed"
@@ -795,6 +802,7 @@ capture {
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
     msm_predict, times(3 5 9) type(cum_inc) samples(20) seed(42) difference
     assert r(n_times) == 3
+    assert !missing(r(n_ref))
     assert r(n_ref) > 0
     assert r(samples) == 20
     assert r(level) == 95
@@ -850,6 +858,7 @@ else {
 local ++test_count
 capture {
     msm_diagnose, by_period
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 if _rc == 0 {
@@ -866,6 +875,7 @@ else {
 local ++test_count
 capture {
     msm_diagnose, balance_covariates(biomarker comorbidity) threshold(0.05)
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 if _rc == 0 {
@@ -882,6 +892,7 @@ else {
 local ++test_count
 capture {
     msm_diagnose
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 if _rc == 0 {
@@ -1222,6 +1233,7 @@ capture {
     _setup_pipeline, nolog
     msm_fit, model(cox) outcome_cov(age sex) nolog
     msm_sensitivity, evalue
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 1 | r(evalue_point) != .
     assert "`r(effect_label)'" == "HR"
 }
@@ -1851,7 +1863,9 @@ capture {
     * that had extreme probabilities. The truncation should produce weights != 1.
     * More importantly, all weights should be valid (not missing, not extreme)
     quietly summarize _msm_weight
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(min))
     assert r(min) > 0
     quietly count if missing(_msm_weight)
     assert r(N) == 0
@@ -1942,6 +1956,7 @@ capture {
     matrix drop _msm_fit_b
     matrix drop _msm_fit_V
     _msm_check_fitted
+    assert !missing(_msm_fit_b[1, 1], `b_before')
     assert reldif(_msm_fit_b[1, 1], `b_before') < 1e-12
 
     * Removing the STORED fit while leaving the flag set must be refused.
@@ -2091,10 +2106,15 @@ capture noisily {
     msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue
     * Verify correct return name
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 0
+    assert !missing(r(evalue_ci))
     assert r(evalue_ci) >= 0
+    assert !missing(r(effect))
     assert r(effect) > 0
+    assert !missing(r(effect_lo))
     assert r(effect_lo) > 0
+    assert !missing(r(effect_hi))
     assert r(effect_hi) > 0
 }
 if _rc == 0 {
@@ -2164,7 +2184,9 @@ capture noisily {
     assert r(N) == 0
     * Verify weights are positive
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
+    assert !missing(r(mean))
     assert r(mean) > 0
     * Stabilized weights should be near 1
     assert abs(r(mean) - 1) < 0.15
@@ -2387,6 +2409,7 @@ capture noisily {
     bysort id (period): replace _post_event_row = (sum(outcome[_n-1]) >= 1) if _n > 1
     count if _post_event_row == 1 & _msm_esample == 1
     assert r(N) == 0
+    assert !missing(_b[treatment], `clean_b')
     assert reldif(_b[treatment], `clean_b') < 1e-10
     drop _post_event_row
 }

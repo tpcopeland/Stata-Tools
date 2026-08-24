@@ -17,11 +17,22 @@ capture noisily {
     capture confirm file msm_example.dta
     if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
     use msm_example.dta, clear
-    msm_protocol,
-    msm_prepare, id(id) period(period) treatment(treatment)
+    msm_protocol, ///
+        population("Adults aged 18-65 with condition X") ///
+        treatment("Always treat vs. never treat") ///
+        confounders("Biomarker (TV), comorbidity (TV), age, sex") ///
+        outcome("Binary clinical endpoint") ///
+        causal_contrast("ATE: always treat vs. never treat") ///
+        weight_spec("Stabilized IPTW, 1/99 truncation") ///
+        analysis("Pooled logistic with robust SE clustered by ID")
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
     msm_validate, strict verbose
-    msm_weight, treat_d_cov(biomarker comorbidity age sex)
-    msm_diagnose, balance_covariates(biomarker comorbidity age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) truncate(1 99) nolog
+    msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
+        by_period threshold(0.1)
     msm_fit, model(logistic) outcome_cov(age sex) nolog
     msm_predict, times(3 5 7 9) difference seed(12345)
     matrix list r(predictions)

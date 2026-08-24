@@ -274,6 +274,7 @@ capture noisily {
     count if tv_exp_type == 9
     assert r(N) == 0
     count if tv_exp_type == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -373,6 +374,7 @@ capture noisily {
     count if id == 991
     assert r(N) == 0
     count if id == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

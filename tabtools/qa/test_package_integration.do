@@ -1642,6 +1642,7 @@ capture noisily {
     * Replace frame
     survtab, times(10 20 30) by(drug) events frame(_combo2, replace)
     frame _combo2: assert _N > 0
+    assert !missing(r(events_1))
     assert r(events_1) > 0
 }
 if _rc == 0 {
@@ -2245,9 +2246,12 @@ capture noisily {
 
     capture frame drop review_surv
     survtab, times(10 20) by(treated) events riskset frame(review_surv, replace)
+    assert !missing(r(N_rows))
     assert r(N_rows) > 0
+    assert !missing(r(events_2))
     assert r(events_1) + r(events_2) > 0
     assert r(atrisk_1) + r(atrisk_2) == 160
+    assert !missing(r(logrank_p))
     assert r(logrank_p) >= 0 & r(logrank_p) <= 1
     assert "`r(frame)'" == "review_surv"
     assert strpos(lower(`"`r(methods)'"'), "kaplan-meier") > 0
@@ -3141,6 +3145,7 @@ capture noisily {
         confirm numeric variable pvalue
         confirm string variable rowtype
         count if rowtype == "effect" & estimate < . & ll < . & ul < .
+        assert !missing(r(N))
         assert r(N) >= 2
         local source : char _dta[tabtools_source]
         assert "`source'" == "regtab"
@@ -3170,6 +3175,7 @@ capture noisily {
     assert "`c(frame)'" == "`active_frame'"
     assert _N == 2
     assert sentinel[2] == 2
+    assert !missing(r(N))
     assert r(N) >= 2
     assert strpos(`"`r(cmd)'"', "scheme(") == 0
 }
@@ -3232,11 +3238,13 @@ capture noisily {
     assert "`r(frame)'" == "_eb_comp"
     assert "`r(eplotframe)'" == "_eb_comp_ep"
     assert r(N_frames) == 2
+    assert !missing(r(N_rows))
     assert r(N_rows) >= 6
     frame _eb_comp: local linked : char _dta[tabtools_eplotframe]
     assert "`linked'" == "_eb_comp_ep"
     frame _eb_comp_ep {
         count if rowtype == "effect"
+        assert !missing(r(N))
         assert r(N) >= 4
         local source : char _dta[tabtools_source]
         assert "`source'" == "comptab"
@@ -3297,6 +3305,7 @@ capture noisily {
     assert "`linked'" == "_eb_hr_ep"
     frame _eb_hr_ep {
         count if rowtype == "effect"
+        assert !missing(r(N))
         assert r(N) >= 1
         local source : char _dta[tabtools_source]
         assert "`source'" == "hrcomptab"
@@ -3500,8 +3509,10 @@ capture noisily {
         * "Exposure" owns a reference ("None") + one effect ("Current"):
         * two children, so the section header is retained, not folded.
         count if rowtype == "section"
+        assert !missing(r(N))
         assert r(N) >= 1
         count if rowtype == "effect"
+        assert !missing(r(N))
         assert r(N) >= 1
     }
 }

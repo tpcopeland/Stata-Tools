@@ -79,9 +79,12 @@ capture noisily {
     assert r(n_vr_imbalanced) == r(n_vr_imbalanced_adj)
     assert r(n_vr_imbalanced_raw) == 0
     assert r(n_vr_imbalanced_adj) == 1
+    assert !missing(r(max_vr_raw))
     assert r(max_vr_raw) > 0.5 & r(max_vr_raw) < 2      // raw VR in bounds
+    assert !missing(r(max_vr_adj))
     assert r(max_vr_adj) < 0.5 | r(max_vr_adj) > 2      // adjusted VR out
     assert strpos("`r(warnings)'", "variance-ratio") > 0
+    assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
 }
 _t "B2_adjusted_vr_counted_and_surfaced" `=_rc'

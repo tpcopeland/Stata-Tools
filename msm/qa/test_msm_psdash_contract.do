@@ -38,6 +38,7 @@ capture noisily {
     _mp_weight_example
     confirm variable _msm_ps
     quietly count if !missing(_msm_ps)
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if !missing(_msm_ps) & (_msm_ps < 0 | _msm_ps > 1)
     assert r(N) == 0

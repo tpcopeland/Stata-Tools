@@ -247,6 +247,7 @@ capture noisily {
     * positive control: the LT fit itself must succeed and be recognised as LT
     quietly finegray Z, compete(eps) cause(1) censvalue(0) nolog
     assert _rc == 0
+    assert !missing(e(lt_weight))
     assert e(lt_weight) != "right_censoring"
     capture finegray Z, compete(eps) cause(1) censvalue(0) nuisance nolog
     assert _rc == 198
@@ -326,6 +327,7 @@ capture noisily {
     mata: _fg_psi_invariant("Z", "cg")
     assert scalar(PSISUM) < 1e-8
     assert scalar(ETASUM) < 1e-6
+    assert !missing(r(PSIABS))
     assert scalar(PSIABS) > 1e-6
 }
 if _rc == 0 {

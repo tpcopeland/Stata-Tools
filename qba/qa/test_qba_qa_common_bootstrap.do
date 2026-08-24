@@ -66,6 +66,7 @@ capture noisily {
     assert "`c(sysdir_personal)'" == "`personaldir'/"
     which qba_misclass
     qba_misclass, a(80) b(120) c(200) d(600) seca(.8) spca(.9)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     _qba_qa_restore_isolation, origplus("`orig_plus'") ///
         origpersonal("`orig_personal'") plusdir("`plusdir'") ///

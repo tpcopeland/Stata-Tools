@@ -228,6 +228,7 @@ capture noisily {
     assert r(N_sections) == `_hr_N_sections'
     assert r(N_modelrows) == `_hr_N_modelrows'
     assert r(N_modelframes) == `_hr_N_modelframes'
+    assert !missing(r(ci_level), `_hr_ci_level')
     assert reldif(r(ci_level), `_hr_ci_level') < 1e-12
     assert "`r(rateframe)'" == "`_hr_rateframe'"
     assert "`r(modelframes)'" == "`_hr_modelframes'"

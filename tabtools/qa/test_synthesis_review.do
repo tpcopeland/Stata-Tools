@@ -607,6 +607,7 @@ capture noisily {
     assert r(N) == 0
     * More than five body rows were rendered, so separator(5) would have fired.
     quietly count if regexm(v1, "^ *\|.*\| *$")
+    assert !missing(r(N))
     assert r(N) > 6
     capture frame drop _sr_b7
 }

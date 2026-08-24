@@ -1,5 +1,8 @@
 *! iivw reporting theme-option removal regression tests
 version 16.0
+local qa_dir = regexr("`c(pwd)'", "/+$", "")
+do "`qa_dir'/_iivw_qa_common.do"
+quietly iivw_qa_bootstrap
 capture noisily iivw_balance, theme(lancet)
 assert _rc == 198
 sysuse auto, clear

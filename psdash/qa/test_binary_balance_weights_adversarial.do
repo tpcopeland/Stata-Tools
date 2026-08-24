@@ -393,6 +393,7 @@ capture noisily {
     assert missing(el(B, 2, 3))
     assert missing(el(B, 2, 5))
     assert missing(el(B, 3, 3))
+    assert !missing(r(n_imbalanced))
     assert r(n_imbalanced) >= 2
 }
 if _rc == 0 {

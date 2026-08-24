@@ -202,10 +202,12 @@ local ++test_count
 capture noisily {
     _os_binary_no_overlap
     psdash overlap treat ps, nograph
+    assert !missing(r(overlap_lower))
     assert r(overlap_lower) > r(overlap_upper)
     assert r(n_outside) == r(N)
     assert r(pct_outside) == 100
     psdash support treat ps, nograph
+    assert !missing(r(lower_bound))
     assert r(lower_bound) > r(upper_bound)
     assert r(n_outside) == r(N)
     assert r(pct_outside) == 100
@@ -375,11 +377,14 @@ local ++test_count
 capture noisily {
     _os_binary_known
     psdash support treat ps, crump nograph
+    assert !missing(r(crump_alpha))
     assert r(crump_alpha) >= 0
     assert r(crump_alpha) < .5
     assert r(trim_lower) == r(crump_alpha)
     assert r(trim_upper) == 1 - r(crump_alpha)
+    assert !missing(r(n_trimmed))
     assert r(n_trimmed) >= 0
+    assert !missing(r(N))
     assert r(n_trimmed) <= r(N)
 }
 local rc = _rc

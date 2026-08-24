@@ -162,7 +162,9 @@ capture noisily {
     local mw1 = r(mean_weight)
     local ess1 = r(ess)
     msm_weight, treat_n_cov(age sex) truncate(1 99) replace nolog
+    assert !missing(r(mean_weight), `mw1')
     assert reldif(r(mean_weight), `mw1') < 1e-8
+    assert !missing(r(ess), `ess1')
     assert reldif(r(ess), `ess1') < 1e-8
 }
 if _rc == 0 {

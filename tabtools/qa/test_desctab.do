@@ -152,11 +152,13 @@ capture noisily {
     desctab, by(group) vars(category cat) total(after) ///
         smallcells(5) frame(_dt_safe, replace)
     assert r(smallcells) == 5
+    assert !missing(r(N_primary_suppressed))
     assert r(N_primary_suppressed) > 0
     matrix _supp = r(suppression)
     assert rowsof(_supp) > 0
     frame _dt_safe {
         quietly count if strpos(group_0, "<5") | strpos(group_1, "<5")
+        assert !missing(r(N))
         assert r(N) > 0
         assert "`: char _dta[tabtools_smallcells]'" == "5"
     }
@@ -185,6 +187,7 @@ capture noisily {
         confirm variable Cr_0
         confirm variable Wt_0
         quietly count if Cr_0 != Wt_0 & Cr_0 != "" & Wt_0 != ""
+        assert !missing(r(N))
         assert r(N) > 0
     }
     frame drop _dt_wt

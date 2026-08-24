@@ -233,6 +233,7 @@ capture noisily {
     cstat_surv
     assert !missing(e(c))
     assert e(c) >= e(ci_lo)
+    assert !missing(e(ci_hi))
     assert e(c) <= e(ci_hi)
 }
 if _rc == 0 {
@@ -647,10 +648,5 @@ else {
 }
 display as text "{hline 70}"
 
-if `fail_count' > 0 {
-    display as error "RESULT: FAIL"
-    exit 1
-}
-else {
-    display as result "RESULT: PASS"
-}
+display as result "RESULT: validation_cstat_surv tests=`test_count' pass=`pass_count' fail=`fail_count'"
+if `fail_count' > 0 exit 1

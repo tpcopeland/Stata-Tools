@@ -135,6 +135,7 @@ capture noisily {
     quietly count if missing(_msm_weight)
     assert r(N) == 0
     quietly summarize _msm_weight
+    assert !missing(r(min))
     assert r(min) > 0
 }
 if _rc == 0 {
@@ -207,6 +208,7 @@ capture noisily {
     quietly count if missing(_msm_cw_weight)
     assert r(N) == 0
     quietly summarize _msm_cw_weight
+    assert !missing(r(min))
     assert r(min) > 0
 }
 if _rc == 0 {

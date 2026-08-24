@@ -75,6 +75,7 @@ capture {
     format %td start stop entry exit_
     drop s_*
     tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) coverage
+    assert !missing(r(mean_coverage))
     assert r(mean_coverage) > 45 & r(mean_coverage) < 55
     assert r(n_with_gaps) == 1
 }
@@ -105,7 +106,9 @@ capture {
     * Gap: Apr 1 to Apr 30 = ~31 days
     tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) gaps
     assert r(n_gaps) == 1
+    assert !missing(r(mean_gap))
     assert r(mean_gap) >= 28 & r(mean_gap) <= 35
+    assert !missing(r(max_gap))
     assert r(max_gap) >= 28 & r(max_gap) <= 35
 }
 if _rc == 0 {
@@ -162,6 +165,7 @@ capture {
     format %td start stop
     drop s_*
     tvdiagnose, id(id) start(start) stop(stop) overlaps
+    assert !missing(r(n_overlaps))
     assert r(n_overlaps) >= 1
     assert r(n_ids_affected) == 1
 }
@@ -190,6 +194,7 @@ capture {
     drop s_*
     gen byte exp = 1
     tvdiagnose, id(id) start(start) stop(stop) exposure(exp) summarize
+    assert !missing(r(total_person_time))
     assert r(total_person_time) >= 1090 & r(total_person_time) <= 1100
 }
 if _rc == 0 {
@@ -282,4 +287,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

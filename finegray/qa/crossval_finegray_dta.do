@@ -89,7 +89,9 @@ capture noisily {
     * coefficient even when finegray's convergence tolerance is tightened;
     * their full nuisance-sandwich SEs differ by 6.8e-7.  Separate gates retain
     * measured numerical headroom without hiding a 1e-4-level method change.
+    assert !missing(`b_fg', `b_r')
     assert reldif(`b_fg', `b_r') < 1e-5
+    assert !missing(`se_fg', `se_r')
     assert reldif(`se_fg', `se_r') < 1e-6
 }
 if _rc == 0 {

@@ -1466,7 +1466,8 @@ capture noisily {
     sysuse auto, clear
     compress_tc make, quietly
     assert "`r(vars_strl)'" == ""
-    assert r(bytes_strl) == 0 | r(bytes_strl) >= 0
+    assert !missing(r(bytes_strl))
+    assert r(bytes_strl) >= 0
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — vars_strl empty when no strL survives"
@@ -1657,6 +1658,7 @@ else {
     display as text "Failed: `fail_count'"
 }
 
+display as result "RESULT: test_compress_tc tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     exit 1
 }

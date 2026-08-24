@@ -112,6 +112,7 @@ capture noisily {
     assert `row_count' == 720
     assert `subj_count' == 240
     assert e(N) == `subj_count'
+    assert !missing(e(N))
     assert e(N) != `row_count'
 }
 if _rc == 0 {

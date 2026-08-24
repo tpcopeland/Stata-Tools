@@ -50,6 +50,7 @@ else {
 
 local ++test_count
 capture noisily {
+    assert !missing(r(N))
     assert r(N) > 4000
 }
 if _rc == 0 {
@@ -251,6 +252,7 @@ msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
 
 local ++test_count
 capture noisily {
+    assert !missing(r(n_truncated))
     assert r(n_truncated) > 0
 }
 if _rc == 0 {
@@ -412,6 +414,7 @@ msm_diagnose, by_period threshold(0.1)
 
 local ++test_count
 capture noisily {
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 if _rc == 0 {
@@ -426,6 +429,7 @@ else {
 
 local ++test_count
 capture noisily {
+    assert !missing(r(ess_pct))
     assert r(ess_pct) > 0 & r(ess_pct) <= 100
 }
 if _rc == 0 {
@@ -513,6 +517,7 @@ else {
 
 local ++test_count
 capture noisily {
+    assert !missing(r(evalue_point))
     assert r(evalue_point) > 1
 }
 if _rc == 0 {

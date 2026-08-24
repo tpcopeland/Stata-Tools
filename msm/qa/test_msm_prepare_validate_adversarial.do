@@ -123,6 +123,7 @@ capture noisily {
 
     assert `validate_rc' == 198
     assert c(varabbrev) == "on"
+    assert !missing(r(n_errors))
     assert r(n_errors) >= 1
     set varabbrev off
 }
@@ -153,6 +154,7 @@ capture noisily {
     capture msm_validate, strict
     local strict_rc = _rc
     assert `strict_rc' == 198
+    assert !missing(r(n_errors))
     assert r(n_errors) >= 1
 }
 if _rc == 0 {

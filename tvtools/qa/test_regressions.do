@@ -1067,7 +1067,9 @@ capture {
     assert !missing(r(mean_periods))
     assert !missing(r(max_periods))
     * n_continuous and n_categorical may be 0 with simple test data
+    assert !missing(r(n_continuous))
     assert r(n_continuous) >= 0
+    assert !missing(r(n_categorical))
     assert r(n_categorical) >= 0
     * Previously untested macros - check they exist (may be empty if 0 of type)
     assert "`r(prefix)'" == "gap_"
@@ -1202,8 +1204,11 @@ capture {
     assert !missing(r(w_p95))
     * Verify ordering: p5 <= p25 <= p50 <= p75 <= p95
     assert r(w_p5) <= r(w_p25)
+    assert !missing(r(w_p50))
     assert r(w_p25) <= r(w_p50)
+    assert !missing(r(w_p75))
     assert r(w_p50) <= r(w_p75)
+    assert !missing(r(w_p95))
     assert r(w_p75) <= r(w_p95)
     * Previously untested macro
     assert "`r(covariates)'" == "age bmi"
@@ -1324,6 +1329,7 @@ capture {
         dose dosecuts(90 180) generate(tv_dose) reference(0) replace
     confirm variable tv_dose
     quietly tab tv_dose
+    assert !missing(r(r))
     assert r(r) >= 2
 }
 if _rc == 0 {
@@ -1402,6 +1408,7 @@ capture {
         exposure(drug) entry(entry) exit(exit_) ///
         reference(0) generate(tv_exp) check replace
     * Command should complete (overlaps resolved) and return person count
+    assert !missing(r(N_persons))
     assert r(N_persons) >= 1
 }
 if _rc == 0 {
@@ -1512,6 +1519,7 @@ capture {
     tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         continuous(expA)
+    assert !missing(r(n_continuous))
     assert r(n_continuous) >= 1
 }
 if _rc == 0 {
@@ -1626,6 +1634,7 @@ local ++test_count
 capture {
     tvtools
     assert "`r(commands)'" != ""
+    assert !missing(r(n_commands))
     assert r(n_commands) > 0
     assert "`r(version)'" != ""
     assert "`r(categories)'" != ""
@@ -1762,6 +1771,7 @@ capture {
     format %td dob entry exit_d
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) groupwidth(1) minage(32)
     quietly summarize age_tv
+    assert !missing(r(min))
     assert r(min) >= 32
 }
 if _rc == 0 {
@@ -1932,6 +1942,7 @@ capture noisily {
     assert !missing(w)
     quietly summarize w
     assert r(max) < 1000
+    assert !missing(r(min))
     assert r(min) > 0
 }
 if _rc == 0 {
@@ -2040,6 +2051,7 @@ capture noisily {
         startvar(start) stopvar(stop) generate(outcome) replace
 
     * Return values must be populated
+    assert !missing(r(N))
     assert r(N) > 0
     assert r(N_events) == 0
 }
@@ -2083,6 +2095,7 @@ capture noisily {
         startvar(start) stopvar(stop) generate(outcome) replace
 
     * Return values must be populated
+    assert !missing(r(N))
     assert r(N) > 0
     assert r(N_events) == 0
 }
@@ -2251,6 +2264,7 @@ capture noisily {
     gen exit_ = mdy(12,31,2020)
     format %td start stop entry exit_
     tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) coverage
+    assert !missing(r(mean_coverage))
     assert r(mean_coverage) > 0
     assert r(n_persons) == 1
 }
@@ -2330,6 +2344,7 @@ capture noisily {
     format %td start stop
     tvdiagnose, id(id) start(start) stop(stop) overlaps
     * Should detect at least 2 overlapping periods
+    assert !missing(r(n_overlaps))
     assert r(n_overlaps) >= 2
 }
 if _rc == 0 {
@@ -3395,6 +3410,7 @@ capture {
         stop(a_stop b_stop) exposure(expA expB expC) continuous(expC)
     * overlap [50,99] = 50 of expC's 100 days at rate 1/day -> 50
     assert _N == 1
+    assert !missing(expC)
     assert reldif(expC, 50) < 1e-9
 }
 if _rc == 0 {
@@ -3414,6 +3430,7 @@ capture {
     tvmerge `s25_multiA2' `s25_multiB', id(pid) start(a_start b_start) ///
         stop(a_stop b_stop) exposure(expA expB expC) continuous(expC)
     assert _N == 1
+    assert !missing(expC)
     assert reldif(expC, 50) < 1e-9
 }
 if _rc == 0 {
@@ -3793,6 +3810,7 @@ capture {
     clear
     quietly tvmerge "`_s19_str_a2'" "`_s19_str_b2'", id(id) ///
         start(s1 s2) stop(e1v e2v) exposure(drugA drugB)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {

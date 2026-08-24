@@ -108,6 +108,7 @@ foreach seed in 11 4242 90210 {
                 * delta sign/magnitude check against the using key
                 merge m:1 uid using "`uorc'", keep(match) nogenerate ///
                     keepusing(ukey)
+                assert !missing(delta, ukey - xkey)
                 assert reldif(delta, ukey - xkey) < 1e-10
                 keep mid uid
                 sort mid uid

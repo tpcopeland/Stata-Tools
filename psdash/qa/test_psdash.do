@@ -127,12 +127,18 @@ _test_start 4 "overlap returns correct scalars"
 capture {
     psdash overlap treated ps, nograph
     assert r(N) == 500
+    assert !missing(r(N_treated))
     assert r(N_treated) > 0
+    assert !missing(r(N_control))
     assert r(N_control) > 0
+    assert !missing(r(mean_ps_treated))
     assert r(mean_ps_treated) > 0
+    assert !missing(r(mean_ps_control))
     assert r(mean_ps_control) > 0
+    assert !missing(r(overlap_lower))
     assert r(overlap_lower) >= 0
     assert r(overlap_upper) <= 1
+    assert !missing(r(overlap_upper))
     assert r(overlap_upper) >= r(overlap_lower)
 }
 _test_result `=_rc'
@@ -159,10 +165,15 @@ _test_result `=_rc'
 _test_start 9 "balance returns correct r() values"
 capture {
     psdash balance treated ps, covariates(age female bmi)
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(N_treated))
     assert r(N_treated) > 0
+    assert !missing(r(N_control))
     assert r(N_control) > 0
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) >= 0
+    assert !missing(r(n_imbalanced))
     assert r(n_imbalanced) >= 0
     assert r(threshold) == 0.1
     assert "`r(treatment)'" == "treated"
@@ -180,6 +191,7 @@ _test_result `=_rc'
 _test_start 11 "balance with wvar returns adjusted SMD"
 capture {
     psdash balance treated ps, covariates(age female bmi) wvar(ipw)
+    assert !missing(r(max_smd_adj))
     assert r(max_smd_adj) >= 0
     assert "`r(wvar)'" == "ipw"
 }
@@ -190,6 +202,7 @@ capture noisily {
     psdash balance treated ps, covariates(age female bmi) wvar(ipw) loveplot
     * Guard against regression: loveplot path must leave r(balance) intact
     * and the scalars computed before the graph block must survive.
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 0
     assert !missing(r(max_smd_adj))
     tempname rbal
@@ -206,6 +219,7 @@ _test_start 14 "balance auto-generates weights from PS"
 capture {
     psdash balance treated ps, covariates(age female bmi)
     * Should auto-generate weights and show adjusted SMD
+    assert !missing(r(max_smd_adj))
     assert r(max_smd_adj) >= 0
 }
 _test_result `=_rc'
@@ -240,6 +254,7 @@ capture {
         xlsx(`xlsfile'.xlsx)
     confirm file `xlsfile'.xlsx
     * Regression guard: xlsx path must leave scalars and r(balance) intact
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 0
     tempname rbal18
     matrix `rbal18' = r(balance)
@@ -257,17 +272,29 @@ _test_result `=_rc'
 _test_start 20 "weights returns correct r() values"
 capture {
     psdash weights treated ps, wvar(ipw)
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(N_treated))
     assert r(N_treated) > 0
+    assert !missing(r(N_control))
     assert r(N_control) > 0
+    assert !missing(r(mean_wt))
     assert r(mean_wt) > 0
+    assert !missing(r(sd_wt))
     assert r(sd_wt) > 0
+    assert !missing(r(min_wt))
     assert r(min_wt) > 0
+    assert !missing(r(max_wt))
     assert r(max_wt) > 0
+    assert !missing(r(cv))
     assert r(cv) > 0
+    assert !missing(r(ess))
     assert r(ess) > 0
+    assert !missing(r(ess_pct))
     assert r(ess_pct) > 0 & r(ess_pct) <= 100
+    assert !missing(r(ess_treated))
     assert r(ess_treated) > 0
+    assert !missing(r(ess_control))
     assert r(ess_control) > 0
     assert "`r(wvar)'" == "ipw"
     assert "`r(treatment)'" == "treated"
@@ -289,7 +316,9 @@ _test_result `=_rc'
 _test_start 24 "weights trim"
 capture {
     psdash weights treated ps, wvar(ipw) trim(95) generate(ipw_t95) replace
+    assert !missing(r(new_ess))
     assert r(new_ess) >= r(ess)
+    assert !missing(r(max_wt))
     assert r(new_max) <= r(max_wt)
     confirm variable ipw_t95
 }
@@ -306,6 +335,7 @@ _test_result `=_rc'
 _test_start 26 "weights stabilize"
 capture {
     psdash weights treated ps, wvar(ipw) stabilize generate(ipw_stab) replace
+    assert !missing(r(cv))
     assert r(new_cv) < r(cv)
     confirm variable ipw_stab
 }
@@ -329,11 +359,16 @@ _test_result `=_rc'
 _test_start 30 "support returns correct r() values"
 capture {
     psdash support treated ps, nograph
+    assert !missing(r(N))
     assert r(N) > 0
+    assert !missing(r(lower_bound))
     assert r(lower_bound) >= 0
     assert r(upper_bound) <= 1
+    assert !missing(r(upper_bound))
     assert r(upper_bound) >= r(lower_bound)
+    assert !missing(r(n_outside))
     assert r(n_outside) >= 0
+    assert !missing(r(pct_outside))
     assert r(pct_outside) >= 0 & r(pct_outside) <= 100
     assert "`r(treatment)'" == "treated"
     assert "`r(psvar)'" == "ps"
@@ -343,10 +378,12 @@ _test_result `=_rc'
 _test_start 31 "support with crump"
 capture {
     psdash support treated ps, crump nograph
+    assert !missing(r(crump_alpha))
     assert r(crump_alpha) >= 0
     assert r(crump_alpha) < 0.5
     assert r(trim_lower) == r(crump_alpha)
     assert r(trim_upper) == 1 - r(crump_alpha)
+    assert !missing(r(n_trimmed))
     assert r(n_trimmed) >= 0
 }
 _test_result `=_rc'
@@ -356,6 +393,7 @@ capture {
     psdash support treated ps, threshold(0.1) nograph
     assert r(trim_lower) == 0.1
     assert r(trim_upper) == 0.9
+    assert !missing(r(n_trimmed))
     assert r(n_trimmed) >= 0
 }
 _test_result `=_rc'
@@ -369,6 +407,7 @@ capture {
     psdash support treated ps, generate(in_supp) replace nograph
     confirm variable in_supp
     quietly count if in_supp == 1
+    assert !missing(r(N))
     assert r(N) > 0
     quietly count if in_supp == 0
     * May or may not have observations outside
@@ -380,6 +419,7 @@ capture {
     psdash support treated ps, crump generate(in_crump) replace nograph
     confirm variable in_crump
     quietly count if in_crump == 1
+    assert !missing(r(N))
     assert r(N) > 0
 }
 _test_result `=_rc'
@@ -433,6 +473,7 @@ capture {
     capture drop _psdash_wt
     teffects ipw (y) (treated age female bmi)
     psdash overlap, nograph
+    assert !missing(r(N))
     assert r(N) > 0
     assert "`r(treatment)'" == "treated"
     assert "`r(psvar)'" == "auto-generated"
@@ -507,6 +548,7 @@ _test_result `=_rc'
 _test_start 52 "custom graph name for balance loveplot"
 capture noisily {
     psdash balance treated ps, covariates(age female bmi) loveplot name(my_loveplot)
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 0
     capture graph describe my_loveplot
     assert _rc == 0
@@ -522,7 +564,9 @@ capture {
     matrix B = r(balance)
     assert !missing(B[1,4])
     assert B[1,4] > 0
+    assert !missing(r(max_vr_raw))
     assert r(max_vr_raw) > 0
+    assert !missing(r(n_vr_imbalanced))
     assert r(n_vr_imbalanced) >= 0
 }
 _test_result `=_rc'
@@ -533,6 +577,7 @@ capture {
     matrix B = r(balance)
     assert !missing(B[1,9])
     assert B[1,9] > 0
+    assert !missing(r(max_vr_adj))
     assert r(max_vr_adj) > 0
 }
 _test_result `=_rc'
@@ -546,6 +591,7 @@ capture {
     matrix B = r(balance)
     assert !missing(B[1,5])
     assert B[1,5] >= 0
+    assert !missing(r(max_ks_raw))
     assert r(max_ks_raw) >= 0
 }
 _test_result `=_rc'
@@ -560,7 +606,9 @@ _test_result `=_rc'
 _test_start 57 "overlap returns PS boundary counts"
 capture {
     psdash overlap treated ps, nograph
+    assert !missing(r(n_ps_boundary))
     assert r(n_ps_boundary) >= 0
+    assert !missing(r(n_ps_near_boundary))
     assert r(n_ps_near_boundary) >= 0
 }
 _test_result `=_rc'
@@ -568,7 +616,9 @@ _test_result `=_rc'
 _test_start 58 "support returns PS boundary counts"
 capture {
     psdash support treated ps, nograph
+    assert !missing(r(n_ps_boundary))
     assert r(n_ps_boundary) >= 0
+    assert !missing(r(n_ps_near_boundary))
     assert r(n_ps_near_boundary) >= 0
 }
 _test_result `=_rc'
@@ -736,6 +786,7 @@ capture {
     logit treat i.rep78 weight length
     predict double ps_fv, pr
     psdash balance ps_fv
+    assert !missing(r(N))
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     * Expanded: one indicator per non-base rep78 level (2.rep78 .. 5.rep78),
@@ -756,6 +807,7 @@ capture {
     logit treat c.weight##c.length
     predict double ps_fv2, pr
     psdash balance ps_fv2
+    assert !missing(r(N))
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     * The interaction product IS assessed (F2 fix). Old code discarded it and
@@ -774,6 +826,7 @@ capture {
     logit treat i.rep78 c.weight##c.length mpg
     predict double ps_fv3, pr
     psdash balance ps_fv3
+    assert !missing(r(N))
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     assert strpos("`covs_used'", "2.rep78") > 0
@@ -791,6 +844,7 @@ capture {
     logit treat ib3.rep78
     predict double ps_fv4, pr
     psdash balance ps_fv4
+    assert !missing(r(N))
     assert r(N) > 0
     local covs_used "`r(varlist)'"
     * Base moved to level 3: indicators for 1,2,4,5; the level-3 indicator is
@@ -912,6 +966,7 @@ capture {
     capture drop _psdash_wt
     teffects ipwra (y age female bmi) (treated age female bmi)
     psdash overlap, nograph
+    assert !missing(r(N))
     assert r(N) > 0
     assert "`r(treatment)'" == "treated"
 }
@@ -923,6 +978,7 @@ capture {
     capture drop _psdash_wt
     teffects aipw (y age female bmi) (treated age female bmi)
     psdash overlap, nograph
+    assert !missing(r(N))
     assert r(N) > 0
     assert "`r(treatment)'" == "treated"
 }
@@ -990,6 +1046,7 @@ capture {
     psdash balance treated ps, covariates(age female bmi) loveplot ///
         saving("`t96_path'")
     confirm file "`t96_path'"
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 0
     capture erase "`t96_path'"
 }
@@ -1002,6 +1059,7 @@ capture {
     psdash balance treated ps, covariates(age female bmi) nowvar ///
         xlsx("`t97_path'")
     confirm file "`t97_path'"
+    assert !missing(r(max_smd_raw))
     assert r(max_smd_raw) > 0
     capture erase "`t97_path'"
 }
@@ -1016,7 +1074,9 @@ capture {
     assert !missing(r(max_ps_control))
     assert r(min_ps_treated) <= r(max_ps_treated)
     assert r(min_ps_control) <= r(max_ps_control)
+    assert !missing(r(min_ps_treated))
     assert r(min_ps_treated) >= 0 & r(max_ps_treated) <= 1
+    assert !missing(r(min_ps_control))
     assert r(min_ps_control) >= 0 & r(max_ps_control) <= 1
 }
 _test_result `=_rc'
@@ -1057,6 +1117,7 @@ _test_start 102 "balance with if-condition returns subset N"
 capture {
     psdash balance treated ps if age > 50, covariates(age female bmi)
     assert r(N) < 500
+    assert !missing(r(N))
     assert r(N) > 0
 }
 _test_result `=_rc'
@@ -1065,6 +1126,7 @@ _test_start 103 "support with if-condition returns subset N"
 capture {
     psdash support treated ps if female == 1, nograph
     assert r(N) < 500
+    assert !missing(r(N))
     assert r(N) > 0
 }
 _test_result `=_rc'
@@ -1073,6 +1135,7 @@ _test_start 104 "weights with if-condition returns subset N"
 capture {
     psdash weights treated ps if bmi > 25, wvar(ipw)
     assert r(N) < 500
+    assert !missing(r(N))
     assert r(N) > 0
 }
 _test_result `=_rc'
@@ -1560,6 +1623,7 @@ capture noisily {
     assert "`r(estimand)'" == "att"
     psdash weights, detail
     assert "`r(estimand)'" == "att"
+    assert !missing(r(ess))
     assert r(ess) > 0
 }
 local rc133 = _rc
@@ -1586,6 +1650,7 @@ capture noisily {
     matrix `b_after' = e(b)
     local k = colsof(`b_before')
     forvalues j = 1/`k' {
+        assert !missing(`b_before'[1,`j'], `b_after'[1,`j'])
         assert reldif(`b_before'[1,`j'], `b_after'[1,`j']) < 1e-12
     }
 }

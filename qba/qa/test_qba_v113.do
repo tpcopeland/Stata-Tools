@@ -35,7 +35,9 @@ capture noisily {
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
     assert "`e(cmd)'" == "cloglog"
+    assert !missing(_b[x], `b_before')
     assert reldif(_b[x], `b_before') < 1e-12
+    assert !missing(_se[x], `se_before')
     assert reldif(_se[x], `se_before') < 1e-12
 }
 if _rc == 0 {
@@ -60,7 +62,9 @@ capture noisily {
     local cox_rr = r(evalue_rr)
     qba_confound, from_model measure(HR) evalue commonoutcome ///
         p1(.4) p0(.2) rrcd(2)
+    assert !missing(r(evalue), `cox_eval')
     assert reldif(r(evalue), `cox_eval') < 1e-12
+    assert !missing(r(evalue_rr), `cox_rr')
     assert reldif(r(evalue_rr), `cox_rr') < 1e-12
     capture qba_confound, from_model measure(RR) p1(.4) p0(.2) rrcd(2)
     assert _rc == 198
@@ -82,6 +86,7 @@ capture noisily {
     capture qba_confound, from_model p1(.4) p0(.2) rrcd(2)
     assert _rc == 198
     assert "`e(cmd)'" == "stcrreg"
+    assert !missing(_b[x], `shr_before')
     assert reldif(_b[x], `shr_before') < 1e-12
 }
 if _rc == 0 {
@@ -117,9 +122,12 @@ capture noisily {
     quietly count if corrected_rr < . & missing(total_rr)
     assert r(N) == 0
     quietly summarize corrected_rr, detail
+    assert !missing(r(p50), `syst_median')
     assert reldif(r(p50), `syst_median') < 1e-12
     quietly _pctile corrected_rr, percentiles(2.5 97.5)
+    assert !missing(r(r1), `syst_lower')
     assert reldif(r(r1), `syst_lower') < 1e-12
+    assert !missing(r(r2), `syst_upper')
     assert reldif(r(r2), `syst_upper') < 1e-12
     restore
 }

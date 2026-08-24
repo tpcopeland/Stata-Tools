@@ -211,6 +211,7 @@ capture noisily {
     assert strpos("`r(probability_models)'", "1=treatment_denominator") > 0
     assert strpos("`r(probability_models)'", "2=treatment_numerator") > 0
     assert abs(r(clip_threshold) - 0.01) < 1e-12
+    assert !missing(r(n_probability_repairs))
     assert r(n_probability_repairs) > 0
     matrix R = r(probability_repairs)
     local rcols : colnames R
@@ -229,6 +230,7 @@ capture noisily {
         confirm variable `v'
     }
     quietly summarize _msm_treat_den_p if _msm_decision_risk, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0.01
     assert r(max) <= 0.99
     quietly count if _msm_decision_risk & missing(_msm_treat_den_raw)
@@ -358,7 +360,9 @@ capture noisily {
 
     assert abs(C[1, 3]) > 1
     assert abs(`oracle_smd') < 0.05
+    assert !missing(C[1, 4], `oracle_smd')
     assert reldif(C[1, 4], `oracle_smd') < 1e-10
+    assert !missing(C[1, 7], `oracle_ess')
     assert reldif(C[1, 7], `oracle_ess') < 1e-10
 }
 if _rc == 0 {
@@ -422,7 +426,9 @@ capture noisily {
         local oracle_ess = `sum_w'^2 / r(sum)
 
         assert abs(`oracle_smd') < 0.08
+        assert !missing(C[`row', 4], `oracle_smd')
         assert reldif(C[`row', 4], `oracle_smd') < 1e-10
+        assert !missing(C[`row', 7], `oracle_ess')
         assert reldif(C[`row', 7], `oracle_ess') < 1e-10
         drop `diag_use' `weight_sq'
     }

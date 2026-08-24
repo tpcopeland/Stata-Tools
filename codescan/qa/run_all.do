@@ -56,7 +56,7 @@ local core_suites `quick_suites' ///
     validation_codescan_output validation_codescan_describe ///
     validation_codescan_describe_adversarial validation_codescan_crosscheck ///
     test_codescan_adversarial test_codescan_describe_adversarial ///
-    test_codescan_stress_adversarial test_codescan_hostile
+    test_codescan_stress_adversarial test_codescan_hostile test_codescan_oracle
 
 * Canonical release gate: core plus install smoke, documentation examples,
 * and release-surface metadata. No-argument run_all.do maps here.

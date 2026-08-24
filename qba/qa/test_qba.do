@@ -42,6 +42,7 @@ end
 local ++test_count
 capture noisily {
     qba_misclass, a(80) b(120) c(200) d(600) seca(.8) spca(.9)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
 }
 if _rc == 0 {
@@ -175,6 +176,7 @@ capture noisily {
     set seed 42
     _qba_draw_one, dist("uniform 0.5 1.0") gen(_u) n(1000)
     summarize _u, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0.5
     assert r(max) <= 1.0
 
@@ -184,21 +186,25 @@ capture noisily {
 
     _qba_draw_one, dist("beta 2 5") gen(_bt) n(1000)
     summarize _bt, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0
     assert r(max) <= 1
 
     _qba_draw_one, dist("triangular 0.6 0.8 1.0") gen(_t) n(1000)
     summarize _t, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0.6
     assert r(max) <= 1.0
 
     _qba_draw_one, dist("trapezoidal 0.7 0.8 0.9 1.0") gen(_tr) n(1000)
     summarize _tr, meanonly
+    assert !missing(r(min))
     assert r(min) >= 0.7
     assert r(max) <= 1.0
 
     _qba_draw_one, dist("logit-normal 0 1") gen(_ln) n(1000)
     summarize _ln, meanonly
+    assert !missing(r(min))
     assert r(min) > 0
     assert r(max) < 1
 
@@ -221,11 +227,17 @@ else {
 local ++test_count
 capture noisily {
     qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(corrected_a))
     assert r(corrected_a) > 0
+    assert !missing(r(corrected_b))
     assert r(corrected_b) > 0
+    assert !missing(r(corrected_c))
     assert r(corrected_c) > 0
+    assert !missing(r(corrected_d))
     assert r(corrected_d) > 0
     assert "`r(type)'" == "exposure"
     assert "`r(measure)'" == "OR"
@@ -245,6 +257,7 @@ local ++test_count
 capture noisily {
     qba_misclass, a(136) b(297) c(1432) d(6738) seca(.92) spca(.98) type(outcome)
     assert "`r(type)'" == "outcome"
+    assert !missing(r(corrected))
     assert r(corrected) > 0
 }
 if _rc == 0 {
@@ -261,6 +274,7 @@ local ++test_count
 capture noisily {
     qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95) measure(RR)
     assert "`r(measure)'" == "RR"
+    assert !missing(r(corrected))
     assert r(corrected) > 0
 }
 if _rc == 0 {
@@ -276,6 +290,7 @@ else {
 local ++test_count
 capture noisily {
     qba_misclass, a(136) b(297) c(1432) d(6738) seca(.90) spca(.95) secb(.80) spcb(.95)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     assert r(secb) == .80
     assert r(spcb) == .95
@@ -457,15 +472,24 @@ local ++test_count
 capture noisily {
     qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95) ///
         reps(500) seed(99)
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(mean))
     assert r(mean) > 0
+    assert !missing(r(sd))
     assert r(sd) >= 0
+    assert !missing(r(ci_lower))
     assert r(ci_lower) > 0
+    assert !missing(r(ci_upper))
     assert r(ci_upper) > 0
+    assert !missing(r(corrected))
     assert r(ci_lower) <= r(corrected)
+    assert !missing(r(ci_upper))
     assert r(ci_upper) >= r(corrected)
     assert r(reps) == 500
+    assert !missing(r(n_valid))
     assert r(n_valid) > 0
     assert "`r(method)'" == "probabilistic"
 }
@@ -532,9 +556,13 @@ local ++test_count
 capture noisily {
     qba_selection, a(136) b(297) c(1432) d(6738) ///
         sela(.9) selb(.85) selc(.7) seld(.8)
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(bias_factor))
     assert r(bias_factor) > 0
+    assert !missing(r(ratio))
     assert r(ratio) > 0
     assert "`r(method)'" == "simple"
 }
@@ -608,6 +636,7 @@ capture noisily {
     qba_selection, a(136) b(297) c(1432) d(6738) ///
         sela(.9) selb(.85) selc(.7) seld(.8) measure(RR)
     assert "`r(measure)'" == "RR"
+    assert !missing(r(corrected))
     assert r(corrected) > 0
 }
 if _rc == 0 {
@@ -624,7 +653,8 @@ local ++test_count
 capture noisily {
     qba_selection, a(136) b(297) c(1432) d(6738) ///
         sela(.9) selb(.85) selc(.7) seld(.8) ///
-        reps(500) dist_sela("uniform .8 1.0") seed(777)
+    reps(500) dist_sela("uniform .8 1.0") seed(777)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     assert r(reps) == 500
     assert "`r(method)'" == "probabilistic"
@@ -647,7 +677,9 @@ local ++test_count
 capture noisily {
     qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0)
     assert r(observed) == 1.5
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(bias_factor))
     assert r(bias_factor) > 0
     assert "`r(method)'" == "simple"
 }
@@ -665,6 +697,7 @@ local ++test_count
 capture noisily {
     qba_confound, estimate(1.5) p1(.4) p0(.2) rrud(2.0)
     assert r(observed) == 1.5
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     assert r(rrud) == 2.0
 }
@@ -681,8 +714,11 @@ else {
 local ++test_count
 capture noisily {
     qba_confound, estimate(2.0) evalue ci_bound(1.3)
+    assert !missing(r(evalue))
     assert r(evalue) > 0
+    assert !missing(r(evalue_ci))
     assert r(evalue_ci) > 0
+    assert !missing(r(evalue))
     assert r(evalue) > r(evalue_ci)
 }
 if _rc == 0 {
@@ -698,8 +734,11 @@ else {
 local ++test_count
 capture noisily {
     qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0) evalue ci_bound(1.1)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(evalue))
     assert r(evalue) > 0
+    assert !missing(r(evalue_ci))
     assert r(evalue_ci) > 0
 }
 if _rc == 0 {
@@ -778,8 +817,11 @@ capture noisily {
     sysuse auto, clear
     quietly logistic foreign mpg weight
     qba_confound, from_model coef(mpg) p1(.3) p0(.1) rrcd(2.0) evalue
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
+    assert !missing(r(evalue))
     assert r(evalue) > 0
 }
 if _rc == 0 {
@@ -796,8 +838,10 @@ local ++test_count
 capture noisily {
     qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0) ///
         reps(500) dist_p1("beta 8 12") dist_rr("uniform 1.5 3.0") seed(555)
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     assert r(reps) == 500
+    assert !missing(r(sd))
     assert r(sd) > 0
     assert "`r(method)'" == "probabilistic"
 }
@@ -821,7 +865,9 @@ capture noisily {
         seca(.85) spca(.95) ///
         sela(.9) selb(.85) selc(.7) seld(.8) ///
         p1(.4) p0(.2) rrcd(2.0) seed(12345)
+    assert !missing(r(observed))
     assert r(observed) > 0
+    assert !missing(r(corrected))
     assert r(corrected) > 0
     assert r(n_biases) == 3
     assert "`r(method)'" == "multi-bias"
@@ -892,6 +938,7 @@ capture noisily {
     qba_multi, a(136) b(297) c(1432) d(6738) reps(500) measure(RR) ///
         seca(.85) spca(.95) p1(.4) p0(.2) rrcd(2.0) seed(99999)
     assert "`r(measure)'" == "RR"
+    assert !missing(r(corrected))
     assert r(corrected) > 0
 }
 if _rc == 0 {
@@ -1077,6 +1124,7 @@ capture noisily {
     qba_plot, tornado a(300) b(100) c(700) d(300) ///
         param1(se) range1(.05 1) base_sp(.5) steps(20) ///
         name(tornado_missing_test, replace)
+    assert !missing(r(n_missing))
     assert r(n_missing) > 0
     _qba_drop_graph_if_exists tornado_missing_test
 }

@@ -117,7 +117,9 @@ capture {
     assert iptw_tv > 0 if !missing(iptw_tv)
 
     * ESS should be meaningful
+    assert !missing(r(ess))
     assert r(ess) > 0
+    assert !missing(r(ess_pct))
     assert r(ess_pct) > 0 & r(ess_pct) <= 100
 }
 if _rc == 0 {
@@ -207,11 +209,13 @@ capture {
     * Person 1 has gaps. With carryforward(15), exposure extends 15 days past stop.
     * Should have exposure carried forward into gap periods
     quietly count if id == 1
+    assert !missing(r(N))
     assert r(N) >= 3
 
     * Total person-time should be preserved (output uses rx_start/rx_stop names)
     gen double dur = rx_stop - rx_start
     quietly sum dur
+    assert !missing(r(sum))
     assert r(sum) > 0
 }
 if _rc == 0 {
@@ -285,6 +289,7 @@ capture {
         validate replace
 
     * Should complete without error and return validation metrics
+    assert !missing(r(N_persons))
     assert r(N_persons) > 0
     capture erase "tv_validation.dta"
 }
@@ -395,6 +400,7 @@ capture {
         exposure(exp1 med1) validatecoverage
 
     * Should complete (whether gaps exist or not)
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -413,6 +419,7 @@ capture {
         id(id) start(start1 begin1) stop(stop1 end1) ///
         exposure(exp1 med1) validateoverlap
 
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -436,6 +443,7 @@ capture {
     confirm variable t1
     local fmt : format t0
     assert "`fmt'" == "%tdCCYY-NN-DD"
+    assert !missing(r(N))
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -486,6 +494,7 @@ capture {
         entry(study_entry) exit(study_exit)
 
     assert r(n_persons) == `n1'
+    assert !missing(r(n_observations))
     assert r(n_observations) > 0
 }
 if _rc == 0 {
@@ -625,4 +634,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

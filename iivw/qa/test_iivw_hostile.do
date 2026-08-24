@@ -4,7 +4,8 @@ version 16.0
 set seed 303104
 set varabbrev off
 capture log close _all
-log using "test_iivw_hostile.log", replace text nomsg
+tempfile test_log
+log using "`test_log'", replace text nomsg
 local pkg_dir = subinstr("`c(pwd)'", "/qa", "", 1)
 adopath ++ "`pkg_dir'"
 local test_count = 0

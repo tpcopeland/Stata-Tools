@@ -155,7 +155,9 @@ capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue
+    assert !missing(r(evalue_point))
     assert r(evalue_point) >= 1
+    assert !missing(r(evalue_ci))
     assert r(evalue_ci) >= 1
 }
 if _rc == 0 {
@@ -221,10 +223,12 @@ capture noisily {
     msm_sensitivity, confounding_strength(2 3)
     if r(effect) < 1 {
         local expected_corrected = r(effect) * r(bias_factor)
+        assert !missing(r(corrected_effect))
         assert r(corrected_effect) > r(effect)
     }
     else {
         local expected_corrected = r(effect) / r(bias_factor)
+        assert !missing(r(effect))
         assert r(corrected_effect) < r(effect)
     }
     assert abs(r(corrected_effect) - `expected_corrected') < 0.0001
@@ -925,13 +929,21 @@ capture noisily {
     * Re-access stored results from pipeline
     msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         treat_n_cov(age sex) truncate(1 99) nolog replace
+    assert !missing(r(mean_weight))
     assert r(mean_weight) > 0
+    assert !missing(r(sd_weight))
     assert r(sd_weight) > 0
+    assert !missing(r(min_weight))
     assert r(min_weight) > 0
+    assert !missing(r(max_weight))
     assert r(max_weight) > r(min_weight)
+    assert !missing(r(p1_weight))
     assert r(p1_weight) >= r(min_weight)
+    assert !missing(r(max_weight))
     assert r(p99_weight) <= r(max_weight)
+    assert !missing(r(median_weight), r(max_weight))
     assert r(median_weight) >= r(min_weight) & r(median_weight) <= r(max_weight)
+    assert !missing(r(ess))
     assert r(ess) > 0
     assert r(ess) <= _N
 }
@@ -950,10 +962,15 @@ local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_diagnose, balance_covariates(biomarker comorbidity age sex)
+    assert !missing(r(mean_weight))
     assert r(mean_weight) > 0
+    assert !missing(r(sd_weight))
     assert r(sd_weight) > 0
+    assert !missing(r(ess))
     assert r(ess) > 0
+    assert !missing(r(ess_pct))
     assert r(ess_pct) > 0 & r(ess_pct) <= 100
+    assert !missing(r(n_extreme))
     assert r(n_extreme) >= 0
     assert rowsof(r(balance)) == 4
     assert colsof(r(balance)) == 3
@@ -974,13 +991,21 @@ capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue confounding_strength(2 3)
+    assert !missing(r(effect))
     assert r(effect) > 0
+    assert !missing(r(effect_lo))
     assert r(effect_lo) > 0
+    assert !missing(r(effect_hi))
     assert r(effect_hi) > 0
+    assert !missing(r(effect_hi))
     assert r(effect_hi) > r(effect_lo)
+    assert !missing(r(evalue_point))
     assert r(evalue_point) >= 1
+    assert !missing(r(evalue_ci))
     assert r(evalue_ci) >= 1
+    assert !missing(r(bias_factor))
     assert r(bias_factor) > 0
+    assert !missing(r(corrected_effect))
     assert r(corrected_effect) > 0
 }
 if _rc == 0 {
@@ -1000,6 +1025,7 @@ capture noisily {
     msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_predict, times(1 3 5) samples(20) seed(42)
     assert r(n_times) == 3
+    assert !missing(r(n_ref))
     assert r(n_ref) > 0
     assert r(samples) == 20
     assert r(level) == 95
@@ -1150,6 +1176,7 @@ capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) model(cox) nolog
     assert "`e(msm_model)'" == "cox"
+    assert !missing(e(N))
     assert e(N) > 0
     assert _b[treatment] != .
 }
@@ -1170,6 +1197,7 @@ capture noisily {
     msm_fit, outcome_cov(age sex) model(cox) nolog
     msm_sensitivity, evalue
     assert "`r(effect_label)'" == "HR"
+    assert !missing(r(effect))
     assert r(effect) > 0
 }
 if _rc == 0 {

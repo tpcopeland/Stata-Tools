@@ -1,0 +1,2 @@
+# The core lane intentionally exercises the documented nominal Wald interval.
+^[ \t]*FIPTIW warning: citype\(wald\) is a nominal, empirically uncleared interval\.$

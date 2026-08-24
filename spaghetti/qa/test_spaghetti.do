@@ -111,7 +111,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
     if _rc == 0 {
         local ++pass_count
         if `machine' {
-            display "RESULT: pass `test_count' `test_desc'"
+            display "TEST_RESULT: pass `test_count' `test_desc'"
         }
         else if `quiet' == 0 {
             display as result "  PASSED"
@@ -121,7 +121,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' {
-            display "RESULT: fail `test_count' `test_desc' rc=`=_rc'"
+            display "TEST_RESULT: fail `test_count' `test_desc' rc=`=_rc'"
         }
         else {
             display as error "  FAILED (rc=`=_rc')"
@@ -2111,6 +2111,9 @@ else {
     display as result "ALL TESTS PASSED"
 }
 display as text "{hline 70}"
+
+local executed_count = `pass_count' + `fail_count'
+display "RESULT: test_spaghetti tests=`executed_count' pass=`pass_count' fail=`fail_count'"
 
 if `fail_count' > 0 {
     exit 9
