@@ -1,8 +1,8 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.2.0** | 2026-08-16
+**Version 1.3.0** | 2026-08-25
 
-`finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, and optional bootstrap confidence intervals for cumulative-incidence quantities.
+`finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, a stratified baseline subdistribution hazard, piecewise-constant time-varying effects, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 
 ## Quick Start
 
@@ -66,6 +66,8 @@ The usual workflow is to declare survival-time data, fit one model, use `finegra
 
 For delayed entry, declare `enter(time ...)` in `stset` and fit with the package's Weight 1 risk-set construction. Use `strata()` for censoring groups and `truncstrata()` for entry groups; when both are specified, observed combinations form joint weighting groups. Inspect `e(lt_weight)`, `e(lt_vce)`, and the weight diagnostics before interpreting the result.
 
+Three different things are called strata here, and they are three separate options. `bstrata(varname)` stratifies the **baseline** subdistribution hazard — the stratified model of Zhou, Latouche, Rocha and Fine (2011), one unconstrained baseline per level with the coefficient vector shared, and the only one of the three that means what `stcox, strata()` means. `strata()` stratifies the censoring distribution, `truncstrata()` the entry distribution. The axes are independent and compose; `bstrata(v) strata(v)` is the paper's regularly stratified regime. `bstrata()` is right-censoring only and is refused with delayed entry, and it requires `bstratum(#)` when asking `finegray_cif` for a curve.
+
 ## Performance
 
 There are three ways to fit a Fine-Gray model in Stata: `finegray`, Stata's built-in `stcrreg`, and `stcrprep` (Lambert, SSC) followed by a weighted `stcox`. `stcrreg` forms the weighted risk sets internally at every iteration; `stcrprep` expands the data once with time-dependent censoring weights and hands the expanded rows to `stcox`; `finegray` scans the original rows in Mata and expands nothing.
@@ -82,6 +84,16 @@ Simulated competing-risks data, three covariates, median of three timed runs aft
 | 10,000 | 0.358s | 334.140s | 76.550s | 35.374s | **933.4x** | **213.8x** |
 
 The `stcrprep + stcox` column is the whole pipeline, which is what one Fine-Gray fit costs from a standing start. `stcox alone` is what a second model on the same expanded weights costs, since `stcrprep` is designed to compute the weights once and reuse them — and even on that best case it is slower than a *complete* `finegray` fit from N=1,000 upward (35.374s vs 0.358s at N=10,000). The expansion is why: it turns 5,000 subjects into 487,458 weighted rows and 10,000 into 1,790,932, and every operation afterwards pays for them.
+
+A `tvc()` fit runs the same scan once per interval, so it costs roughly `J` times a proportional fit and keeps the same shape in `N`. Measured on simulated competing-risks data with three covariates, one time-varying, boundaries at the cause-event quartiles, `set processors 1`:
+
+| N | proportional | `tvc()`, J=2 | `tvc()`, J=4 |
+|------:|-------------:|-------------:|-------------:|
+| 2,000 | 0.057s | 0.094s (1.65x) | 0.199s (3.49x) |
+| 10,000 | 0.249s | 0.435s (1.75x) | 0.827s (3.32x) |
+| 50,000 | 1.554s | 2.629s (1.69x) | 4.970s (3.20x) |
+
+The ratio is flat across a 25-fold change in `N`, which is the point: the piecewise fit is still linear in the original rows and still expands nothing. `qa/test_finegray_tvc.do` gates that shape rather than the seconds.
 
 Absolute seconds are machine-dependent; the ratios are the portable quantity. All three commands fit the same model — the benchmark scripts print the maximum relative coefficient difference across the three fits alongside the timings (4.6e-11 on `hypoxia`, 1.3e-08 to 3.2e-08 across the simulated sizes). Methodology, the on-demand `stcrprep` install, and how to reproduce the table: [`demo/README.md`](demo/README.md).
 
@@ -170,6 +182,37 @@ finegray ifp tumsize pelnode, compete(status) cause(1) strata(pelnode) cluster(s
 display "clusters = " e(N_clust)
 ```
 
+### 6a. Fit with a stratified baseline subdistribution hazard
+
+```stata
+webuse hypoxia, clear
+gen byte status = failtype
+stset dftime, failure(dfcens == 1) id(stnum)
+finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode)
+display "baseline strata = " e(k_bstrata)
+finegray_cif, attime(1 5) bstratum(0) ci nograph
+finegray_cif, attime(1 5) bstratum(1) ci nograph
+finegray_predict double h0, basecshazard
+tabstat h0, by(pelnode) stat(min max)
+```
+
+### 6b. Fit a piecewise-constant time-varying effect
+
+```stata
+webuse hypoxia, clear
+gen byte status = failtype
+stset dftime, failure(dfcens == 1) id(stnum)
+finegray ifp tumsize pelnode, compete(status) cause(1) tvc(pelnode) tsplit(1)
+test [tvc1]pelnode = [tvc2]pelnode
+finegray_predict double xb_late, xb attime(2)
+finegray_cif, at(ifp=20 tumsize=5 pelnode=0) attime(1 3 5) nograph
+```
+
+The coefficient table gains one equation per interval — `main` for the effects
+held proportional, then `tvc1`, `tvc2`, … — with the interval bounds and the
+cause-event count behind each one printed underneath. `test [tvc1]x = [tvc2]x`
+is the Wald test of whether the effect is in fact constant.
+
 ### 7. Use bootstrap confidence intervals for a CIF profile
 
 ```stata
@@ -217,7 +260,7 @@ From the root of a Stata-Tools checkout, run the comprehensive demonstration:
 stata-mp -b do finegray/demo/demo_finegray.do
 ```
 
-The script adds the local package directory to the session-only `adopath`, exercises fitting, prediction, diagnostics, CIF tables, delayed entry, string identifiers, bootstrap inference, and graph export, and regenerates `demo/finegray_cif.png`, shown below. A sibling `tc_schemes` checkout is optional for graph styling; the script falls back to Stata's `s2color` scheme.
+The script adds the local package directory to the session-only `adopath`, exercises fitting, prediction, diagnostics, CIF tables, delayed entry, string identifiers, bootstrap inference, a stratified baseline subdistribution hazard, a piecewise-constant time-varying effect, `mi estimate, cmdok:`, and graph export, and regenerates both figures below. A sibling `tc_schemes` checkout is optional for graph styling; the script falls back to Stata's `s2color` scheme.
 
 The repository also includes `demo/benchmark_finegray.do` and `demo/benchmark_large.do` for optional timing comparisons.
 
@@ -225,12 +268,16 @@ The main demo regenerates this cumulative-incidence curve with a pointwise 95% c
 
 ![Fine-Gray cumulative-incidence curve with a pointwise 95% confidence band](demo/finegray_cif.png)
 
+It also regenerates the `bstrata()` comparison below: one unconstrained baseline subdistribution hazard per stratum, one shared coefficient vector, with the two curves evaluated at the estimation-sample covariate means. `finegray_cif` draws one stratum per call, so the demo saves each curve with `saving()` and overlays them.
+
+![Cumulative incidence by baseline stratum after a bstrata() fit](demo/finegray_bstrata_cif.png)
+
 ## Command Reference
 
 ### `finegray`
 
 ```stata
-finegray varlist [if] [in], compete(varname) cause(integer) [censvalue(integer) noshr level(#) strata(varlist) truncstrata(varlist) cluster(varname) norobust noadjust nolog basehaz nuisance iterate(integer) tolerance(#)]
+finegray varlist [if] [in], compete(varname) cause(integer) [censvalue(integer) noshr level(#) strata(varlist) truncstrata(varlist) bstrata(varname) tvc(varlist) tsplit(numlist) cluster(varname) norobust noadjust nolog basehaz nuisance iterate(integer) tolerance(#)]
 
 finegray [, noshr level(#)]
 ```
@@ -241,27 +288,29 @@ The second form replays the last `finegray` results without refitting; `noshr` a
 
 The default variance is a finite-sample-adjusted fixed-weight sandwich variance; with delayed entry, both censoring and entry weights are treated as fixed. The default display is the SHR scale. `norobust` requests the model-based inverse-information variance; `noadjust` suppresses the finite-sample sandwich adjustment and is available only with the robust variance. `cluster()` changes the sandwich clustering and `strata()` stratifies the right-censoring model.
 
-`truncstrata()` is for delayed-entry risk-set weighting and requires delayed entry. `nuisance` adds the Fine-Gray right-censoring nuisance term to the sandwich variance and is not available for delayed entry. `basehaz` posts the optional baseline matrix needed for direct inspection. `nolog`, `iterate()`, and `tolerance()` control optimization output and convergence.
+`truncstrata()` is for delayed-entry risk-set weighting and requires delayed entry. `bstrata()` fits a stratified baseline subdistribution hazard with shared coefficients (Zhou et al. 2011); it is right-censoring only and is not available with `nuisance`. `nuisance` adds the Fine-Gray right-censoring nuisance term to the sandwich variance and is not available for delayed entry or `bstrata()`. `basehaz` posts the optional baseline matrix needed for direct inspection. `nolog`, `iterate()`, and `tolerance()` control optimization output and convergence.
 
 ### `finegray_predict`
 
 ```stata
-finegray_predict [type] newvar [if] [in], [xb cif schoenfeld basecshazard timevar(varname) ci level(#) bootstrap(#) seed(#)]
+finegray_predict [type] newvar [if] [in], [xb cif schoenfeld basecshazard timevar(varname) ci level(#) bootstrap(#) seed(#) attime(#)]
 ```
 
 An optional storage type such as `double` may precede `newvar`. The default is `xb`. `cif` generates cumulative incidence at each observation's `_t`, or at the numeric values in `timevar()`. `ci` adds `newvar_lci` and `newvar_uci`; confidence intervals require `cif`, and bootstrap intervals additionally require `bootstrap()` with at least 25 replications. `seed()` requires `bootstrap()`.
 
 `schoenfeld` generates a stub for the raw Schoenfeld residuals, followed by numbered variables for additional model terms. `basecshazard` generates the fitted baseline cumulative subdistribution hazard and cannot be combined with `ci` or `bootstrap()`. The prediction types are mutually exclusive.
 
+After a `tvc()` fit, `xb` is evaluated at each row's own `_t` unless `attime(#)` names a single time; `cif` accumulates the baseline interval by interval; `basecshazard` is unchanged. `schoenfeld` is refused, and `ci` is available only with `bootstrap()`.
+
 ### `finegray_cif`
 
 ```stata
-finegray_cif [, at(string) attime(numlist) timepoints(numlist) ci level(#) saving(filename[, replace]) bootstrap(#) seed(#) nograph twoway_options]
+finegray_cif [, at(string) attime(numlist) timepoints(numlist) bstratum(#) ci level(#) saving(filename[, replace]) bootstrap(#) seed(#) nograph twoway_options]
 ```
 
 Use `at()` to define a covariate profile; unspecified covariates default to estimation-sample means. Use `attime()` for a table at requested horizons or `timepoints()` for a curve grid; the two options are mutually exclusive. With neither option, the command uses the distinct baseline event-time grid, thinned when necessary.
 
-`ci` requests pointwise confidence limits, `nograph` suppresses the graph, and `saving()` writes `time`, `cif`, `se`, `lci`, and `uci` to a Stata dataset. `bootstrap()` refits the model for at least 25 subject- or cluster-level replications; `seed()` requires `bootstrap()`. Remaining options are passed to the underlying twoway graph. In `attime()` mode, graph options are ignored with a note.
+`bstratum(#)` names the baseline stratum and is required after a `bstrata()` fit with more than one level: once the baselines are free, a covariate profile alone no longer identifies a curve. `ci` requests pointwise confidence limits, `nograph` suppresses the graph, and `saving()` writes `time`, `cif`, `se`, `lci`, and `uci` to a Stata dataset. `bootstrap()` refits the model for at least 25 subject- or cluster-level replications; `seed()` requires `bootstrap()`. Remaining options are passed to the underlying twoway graph. In `attime()` mode, graph options are ignored with a note.
 
 ### `finegray_phtest`
 
@@ -282,11 +331,14 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 | `censvalue(#)` | `0`; value treated as right censoring in `compete()`. |
 | `strata(varlist)` | None; stratifies the right-censoring model. |
 | `truncstrata(varlist)` | None; delayed-entry truncation strata for Weight 1 estimation. |
+| `bstrata(varname)` | None; stratifies the **baseline** subdistribution hazard with a shared coefficient vector. Right censoring only; not available with delayed entry, `nuisance`, or `tvc()`. |
+| `tvc(varlist)` | None; covariates whose coefficient is piecewise constant in analysis time. Requires `tsplit()`. Right censoring only; not available with delayed entry, `bstrata()`, or `nuisance`. |
+| `tsplit(numlist)` | None; the *J*−1 interior interval boundaries for `tvc()`, strictly ascending and positive. Requires `tvc()`. Intervals are (lower, upper], so an event exactly on a boundary falls in the earlier interval. |
 | `cluster(varname)` | None; cluster variable for the sandwich variance. |
 | `norobust` | Off; use model-based rather than sandwich variance. |
 | `noadjust` | Off; suppress the finite-sample sandwich adjustment. |
 | `noshr` | Off; display log-SHR coefficients instead of exponentiated coefficients. |
-| `level(#)` | `c(level)`; confidence level from 10 to below 100 for displayed intervals and postestimation. |
+| `level(#)` | `c(level)`; confidence level on Stata's `cilevel` rule — 10 to 99.99 inclusive, at most two decimals — for displayed intervals and postestimation. |
 | `nolog` | Off; suppress the iteration log. |
 | `basehaz` | Off; post the baseline cumulative subdistribution hazard in `e(basehaz)`. |
 | `nuisance` | Off; add the right-censoring nuisance term to the sandwich variance. Not available with delayed entry. |
@@ -299,13 +351,14 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 
 | Option | Use |
 | --- | --- |
-| `xb` | Generate the linear predictor; this is the default prediction type. |
+| `xb` | Generate the linear predictor; this is the default prediction type. After a `tvc()` fit it is a function of time, evaluated at each row's own `_t`. |
+| `attime(#)` | Evaluate `xb` at the single time `#` instead of each row's `_t`. Requires `xb` and a `tvc()` fit. |
 | `cif` | Generate cumulative incidence at `_t` or at `timevar()`. |
 | `schoenfeld` | Generate raw Schoenfeld residual variables on the original estimation data. |
 | `basecshazard` | Generate the baseline cumulative subdistribution hazard. |
 | `timevar(varname)` | Numeric evaluation time for `cif` or `basecshazard`. |
 | `ci` | Add lower- and upper-confidence-limit variables for `cif`. |
-| `level(#)` | `c(level)`; confidence level from 10 to below 100 for `ci`. |
+| `level(#)` | `c(level)`; confidence level on Stata's `cilevel` rule (10 to 99.99, at most two decimals) for `ci`. |
 | `bootstrap(#)` | At least 25 refits for bootstrap CIF confidence limits. |
 | `seed(#)` | Reproducible bootstrap seed; requires `bootstrap()`. |
 
@@ -316,11 +369,12 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 | `at(string)` | Profile values for `finegray_cif`; unspecified covariates use estimation-sample means. |
 | `attime(numlist)` | Fixed horizons for a returned CIF table. |
 | `timepoints(numlist)` | Evaluation grid for a returned CIF curve. |
+| `bstratum(#)` | Baseline stratum to evaluate; required after a `bstrata()` fit with more than one level, because a covariate profile alone no longer identifies a curve. |
 | `saving(filename[, replace])` | Save CIF curve data with `time`, `cif`, `se`, `lci`, and `uci`. |
 | `nograph` | Suppress the CIF graph. |
 | `twoway_options` | Graph options passed to the CIF twoway graph. |
 | `time(function)` | Time scale for `finegray_phtest`: `rank`, `log`, or `identity`; default `rank`. |
-| `detail` | Show the first 20 event-level diagnostic contributions. |
+| `detail` | Show the first 20 rows of the raw Schoenfeld residual matrix for `finegray_phtest`. |
 
 For `finegray_cif`, `attime()` and `timepoints()` cannot be combined. `ci` uses pointwise influence-function limits; `bootstrap()` uses refitted subject- or cluster-level samples and can report requested, successful, and failed replications in `r()`.
 
@@ -330,15 +384,15 @@ For `finegray_cif`, `attime()` and `timepoints()` cannot be combined. `ci` uses 
 
 Standard estimation results include `e(b)`, `e(V)`, `e(sample)`, `e(N)`, `e(depvar)`, and `e(properties)`. `e(depvar)` is `_t`, the `stset` analysis time, as it is after `stcrreg`; the event-type variable is `e(compete)`. For a factor-variable fit, `e(b)` and `e(V)` are named with the terms you typed (`1.pelnode`, `1.pelnode#c.ifp`), so `test`, `testparm`, and `estimates table` address them directly; the internal design columns are listed in `e(covariates)`. The command also posts these scalars (with `e(N_clust)` when clustering is used):
 
-`e(N_fail)`, `e(N_compete)`, `e(N_cens)`, `e(ll)`, `e(ll_0)`, `e(chi2)`, `e(p)`, `e(df_m)`, `e(rank)`, `e(N_clust)`, `e(converged)`, `e(N_delayed)`, `e(N_G_trunc)`, `e(level)`, `e(cause)`, `e(censvalue)`, `e(iterate)`, `e(tolerance)`, `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, and `e(N_weight_warn)`.
+`e(N_fail)`, `e(N_compete)`, `e(N_cens)`, `e(ll)`, `e(ll_0)`, `e(chi2)`, `e(p)`, `e(df_m)`, `e(rank)`, `e(N_clust)`, `e(converged)`, `e(N_delayed)`, `e(N_G_trunc)`, `e(k_bstrata)`, `e(n_intervals)`, `e(k_tvc)`, `e(level)`, `e(cause)`, `e(censvalue)`, `e(iterate)`, `e(tolerance)`, `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, and `e(N_weight_warn)`.
 
-Posted macros are `e(cmd)`, `e(cmdline)`, `e(refitcmd)`, `e(predict)`, `e(compete)`, `e(compete_values)`, `e(covariates)`, `e(entryvar)`, `e(fvvarlist)`, `e(fvsemantic)`, `e(strata)`, `e(truncstrata)`, `e(clustvar)`, `e(lt_weight)`, `e(lt_vce)`, `e(bh_seq)`, `e(weight_warn_strata)`, `e(vce)`, `e(vce_meat)`, `e(title)`, `e(marginsok)`, `e(datasignature)`, and `e(datasignaturevars)`.
+Posted macros are `e(cmd)`, `e(cmdline)`, `e(refitcmd)`, `e(predict)`, `e(compete)`, `e(compete_values)`, `e(covariates)`, `e(entryvar)`, `e(mi_data)`, `e(postest)`, `e(fvvarlist)`, `e(fvsemantic)`, `e(strata)`, `e(truncstrata)`, `e(bstrata)`, `e(bstrata_noevent)`, `e(tvc)`, `e(tsplit)`, `e(tvc_covariates)`, `e(tvc_pos)`, `e(tsplit_nfail)`, `e(clustvar)`, `e(lt_weight)`, `e(lt_vce)`, `e(bh_seq)`, `e(weight_warn_strata)`, `e(vce)`, `e(vce_meat)`, `e(title)`, `e(marginsok)`, `e(datasignature)`, and `e(datasignaturevars)`.
 
 The optional matrix `e(basehaz)` has columns for event time and cumulative baseline subdistribution hazard and is posted only when `basehaz` is specified. `e(N_clust)` is posted when clustering is used; delayed-entry diagnostics are populated when delayed-entry weighting applies.
 
 ### After `finegray_cif`
 
-The returned matrix `r(table)` contains the CIF table or curve, and `r(at)` contains the evaluated profile. Scalars are `r(level)` and `r(cause)`. With `bootstrap()`, the command additionally posts `r(bootstrap_requested)`, `r(bootstrap_success)`, and `r(bootstrap_failed)`; `r(profile_vars)` identifies the profile variables used.
+The returned matrix `r(table)` contains the CIF table or curve, and `r(at)` contains the evaluated profile. Scalars are `r(level)` and `r(cause)`, plus `r(bstratum)` and macro `r(bstrata)` after a `bstrata()` fit. With `bootstrap()`, the command additionally posts `r(bootstrap_requested)`, `r(bootstrap_success)`, and `r(bootstrap_failed)`; `r(profile_vars)` identifies the profile variables used.
 
 ### After `finegray_phtest`
 
@@ -352,7 +406,8 @@ The command posts `r(N_fail)`, `r(time)`, `r(residual_scale)`, and matrix `r(pht
 
 - `stset` must define the analysis time, failure indicator, and `id()`; `finegray` rejects an empty analysis sample and inconsistent competing-event coding.
 - Multiple records per subject are supported when intervals are contiguous and covariates, censoring strata, truncation strata, and cluster membership are constant within subject. The estimation sample is reduced to one subject-level record for the fitted model, while interval records remain available for relevant postestimation quantities.
-- Time-varying covariates, `by` prefixes, fweights, and pweights are not supported. Factor variables and interactions are supported, but a scoring dataset must contain compatible values and factor levels.
+- Time-varying **covariates**, `by` prefixes, fweights, and pweights are not supported. Factor variables and interactions are supported, but a scoring dataset must contain compatible values and factor levels.
+- Time-varying **effects** are supported through `tvc()` with `tsplit()`: the coefficient on a fixed covariate may be piecewise constant in analysis time. This is a different thing from a time-varying covariate — the covariate value stays known for every subject at every time, including after a competing event, so the subdistribution risk set and the CIF remain well defined. Every interval must carry at least one cause-of-interest event or the fit is refused (`r(459)`), and the per-interval event counts are printed with the results because an interval resting on a handful of events can reach a monotone likelihood and still converge. Not available with delayed entry, `bstrata()`, or `nuisance`; after such a fit `finegray_predict, schoenfeld` and `finegray_phtest` are refused and CIF confidence intervals are available by `bootstrap()` only.
 - The default variance treats estimated censoring weights as fixed and, with delayed entry, also treats entry weights as fixed; it uses a sandwich estimator. `norobust` requests model-based information-matrix variance and is not a general replacement when weights are estimated.
 - `nuisance` is limited to right-censoring models, adds the nuisance term to the sandwich variance, and cannot be combined with delayed-entry weighting. The default delayed-entry variance is fixed-weight; coefficient inference that includes weight-estimation variability requires bootstrapping the whole fit externally.
 - Delayed entry uses the package's Weight 1 construction. It checks censoring/truncation positivity and observed grouping support; weights can exceed 1. `strata()` defines censoring groups and `truncstrata()` defines entry groups; observed combinations form joint weight strata, with at most 100 cells and at least 20 estimation-sample subjects per cell. Continuous covariate-dependent entry is not supported.
@@ -374,7 +429,8 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.2.0** (2026-08-16): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, and expanded CIF and diagnostic workflows; `finegray_phtest` is an exploratory residual-correlation diagnostic without an omnibus test. Display and reporting pass: `finegray` now replays its results when typed with no `varlist`; factor-variable coefficients are named with the terms you typed rather than internal design columns (so `test 1.pelnode` and `estimates table` work directly); the header reports the competing event values, the delayed-entry weight and late-entry count, and which variance is in `e(V)`; `e(depvar)` is `_t`, matching `stcrreg`. `finegray_cif` states the covariate profile above the table and under the graph, extends the plotted curve across the flat tail to the end of follow-up, flags requested times outside the estimated support, and labels the `saving()` dataset. New returns: `e(N_delayed)`, `e(N_G_trunc)`, `e(compete_values)`. Documentation and diagnostics pass: the factor-variable naming guidance now matches the user-facing coefficient names stored in `e(b)` and `e(V)`; `ibn.` is documented as estimable inside an interaction but refused as a main effect, with the refusal naming the terms you typed rather than internal design columns; the `margins` limitation is stated precisely (factor terms give `r(322)`, continuous-covariate margins remain valid); post-estimation on an empty `e(sample)` — what `estimates use` leaves behind — now reports that rather than "data have changed", and the help explains how `estimates esample:` restores it; rendered help spacing repaired throughout and the option tables fit an 80-column Viewer. Correctness and rendering fixes: cold-cache CIF and baseline-hazard prediction after multiple-record reduction, prediction with legal long factor-variable names, confidence-level validation in both CIF commands, and a false delayed-entry positivity error for competing exits after the last cause event; the `finegray_cif` table rules now end level with the last printed column instead of stopping short of the confidence-interval pair or overhanging the SE column. The help contracts now also state the exact multiple-record requirements, postestimation data needs, default CIF-grid thinning, option interactions, prediction-variable name limits and labels, and sequentially executable prediction examples. A record whose `compete()` value is **missing** is now refused with `r(198)`, naming how many such records there are and how many of them are `stset` failures. Through 1.1.0 those records were silently dropped from the estimation sample: on `webuse hypoxia`, blanking `compete()` on five records (three of them cause-1 failures) returned `rc 0` with N 109 -> 104, N_fail 33 -> 30 and b(ifp) .0326664 -> .04609379, with nothing on screen. The usual way to reach that state is to `stset` the failure indicator on the event-type variable itself and then `stsplit`, which blanks that variable on every non-terminal episode; that configuration used to end at `r(459)` "positivity violation in the delayed-entry weights", a message about a cause that was not the cause. Post-estimation after `estimates use` now works the same way whether the dataset in memory was saved before or after the fit: previously a dataset saved *before* the fit carried no package characteristic and stopped at `r(301)` "re-run finegray", when the documented one-line `estimates esample:` repair would have worked. `level()` is validated against Stata's own `cilevel` rule (10 to 99.99 inclusive, at most two decimals) in `finegray`, its replay, `finegray_cif` and `finegray_predict` alike -- `level(99.995)` used to be refused by the fit and accepted by the other three, one of which printed a table headed "99.995% CI". `seed()` is validated where it is parsed instead of failing later inside `set seed`. New stored result `e(entryvar)`, the entry-time column of a multiple-record fit, so post-estimation no longer depends on a dataset characteristic to find it. `finegray_cif`'s `at()` now accepts a variable that enters an interaction and carries the setting into every design column the variable appears in, so after `finegray i.pelnode c.ifp i.pelnode#c.ifp`, `at(pelnode=1 ifp=20)` evaluates the interaction at 20 and `at(pelnode=0 ifp=20)` at 0; through 1.1.0 the same specification was refused outright. It also fixes an impossible profile reported at `rc 0`: `at(x=0)` on a fit containing `x` in an interaction pinned `x` to 0 while the interaction column stayed at its estimation-sample mean. A part of a term you do not name is held at its own estimation-sample mean, package-owned `_fg_*` design columns may still be set by name and override anything the named variables imply, and a profile with no `at()`, or with `at()` naming only columns outside a term, is numerically unchanged from 1.1.0.
+- **1.3.0** (2026-08-25): Added `mi estimate, cmdok:` compatibility (post-estimation support runs through temporary variables, so nothing is written to `mi` data; post-estimation on an `mi` fit is refused with `r(301)`, with `mi extract` as the way back); `bstrata(varname)`, the stratified baseline model of Zhou et al. (2011) with a shared coefficient vector, a stratum-aware `e(basehaz)` and `finegray_cif, bstratum(#)` (right censoring only; the reported standard errors remain the eta-only fixed-weight sandwich rather than Zhou et al.'s eta+psi variance, which is why `nuisance` is refused); and `tvc(varlist)` with `tsplit(numlist)`, piecewise-constant time-varying effects reported under equations `main`, `tvc1`, ..., cross-validated against `stcrreg, tvc() texp()` and `cmprsk::crr` (not available with delayed entry, `bstrata()`, or `nuisance`; CIF confidence intervals by `bootstrap()` only). Off `mi` data and without the new options, `e(b)`, `e(V)`, `e(ll)` and `e(basehaz)` are bit-identical to 1.2.0.
+- **1.2.0** (2026-08-16): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, expanded CIF and diagnostic workflows, and a display and documentation pass (replay with no `varlist`, typed factor-variable coefficient names, a fuller header, profile-aware `finegray_cif` output). Correctness fixes: a record with a missing `compete()` value is refused with `r(198)` instead of silently dropped from the estimation sample; `finegray_cif, at()` handles variables inside interactions; post-estimation after `estimates use` works regardless of when the dataset was saved; and `level()` is validated by Stata's `cilevel` rule in all four commands.
 - **1.1.0** (2026-07-10): Added CIF curves, multiple-record support, stratified censoring, and postestimation confidence intervals.
 - **1.0.0** (2026-04-06): Initial Stata-Tools release of `finegray`, `finegray_predict`, and `finegray_phtest`.
 

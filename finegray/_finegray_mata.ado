@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/08/16
+*! _finegray_mata Version 1.3.0  2026/08/25
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -219,9 +219,71 @@ real colvector _finegray_group_index(
     gidx = J(rows(byg_id), 1, .)
     for (g = 1; g <= rows(levels); g++) {
         sel = selectindex(byg_id :== levels[g])
-        gidx[sel] = J(rows(sel), 1, g)
+        /* length(), not rows().  Mata reads a 1 x 1 result as a ROW vector, so
+           selectindex() with no match on a one-row input returns 1 x 0 and
+           rows() answers 1 -- which then asks for a J(1,1,.) assignment into
+           nothing.  length() is rows*cols and is right either way. */
+        if (length(sel) == 0) continue
+        gidx[sel] = J(length(sel), 1, g)
     }
     return(gidx)
+}
+
+/* ------------------------------------------------------------------------
+   Baseline strata -- bstrata().
+
+   A DIFFERENT axis from strata()/truncstrata().  strata() stratifies the
+   Kaplan-Meier censoring distribution G, truncstrata() the entry distribution
+   H; bstrata() leaves both alone and frees the BASELINE subdistribution hazard
+   per stratum, with beta shared -- Zhou, Latouche, Rocha & Fine (2011),
+   Biometrics 67(2):661-670.  The log pseudo-likelihood is then a sum of
+   independent within-stratum terms, so score and information are sums too and
+   the scan runs once per stratum over that stratum's rows.
+
+   Strata are identified by the bstrata() variable's VALUES, never by an
+   `egen group()' code.  A code depends on which levels are present in the
+   sample it was built over, so a post-estimation call restricted to a subset
+   of the fit's rows would renumber the strata and read another stratum's
+   baseline at rc 0.  uniqrows() on the values is stable under subsetting.
+   ------------------------------------------------------------------------ */
+void _finegray_bs_setup(
+    real colvector bsraw,
+    real colvector bslev,
+    real colvector bscode,
+    real scalar K)
+{
+    if (rows(bsraw) == 0) {
+        bslev  = J(0, 1, .)
+        bscode = J(0, 1, .)
+        K = 0
+        return
+    }
+    bslev = uniqrows(bsraw)
+    K = rows(bslev)
+    /* K == 1 is the unstratified fit.  Short-circuit so that every scan below
+       walks exactly the row order it walked before bstrata() existed: the
+       stratum loop runs once, over the untouched ord/entry_ord, and the
+       floating-point accumulation order -- hence the last bit of every
+       estimate -- is unchanged.  Guarded by the K = 1 identity test. */
+    if (K == 1) {
+        bscode = J(rows(bsraw), 1, 1)
+        return
+    }
+    bscode = _finegray_group_index(bsraw, bslev)
+}
+
+/* Row indices of one baseline stratum, in the scan's own order.  Selecting
+   FROM the global permutation (rather than re-sorting the stratum's rows)
+   keeps the within-stratum order identical to the pooled scan's, which is what
+   makes the K = 1 case bit-identical. */
+real colvector _finegray_bs_rows(
+    real colvector ord,
+    real colvector bscode,
+    real scalar kk,
+    real scalar K)
+{
+    if (K <= 1) return(ord)
+    return(select(ord, bscode[ord] :== kk))
 }
 
 /* Evaluate every stratum-specific censoring KM at arbitrary target times, as
@@ -1574,13 +1636,16 @@ real scalar _finegray_loglik(
     real colvector gidx,
     real colvector Gminus,
     real matrix Gt,
-    real colvector Apool)
+    real colvector Apool,
+    real colvector bsraw)
 {
-    real colvector row_id
+    real colvector row_id, ordk, entry_ordk, bslev, bscode
     real scalar n, p, i, j, k, ll, idx, cur_time, g, ng
-    real scalar risk_S0, ep
+    real scalar risk_S0, ep, nk, kk, K
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
     real rowvector raw_bwd
+
+    if (args() < 17) bsraw = J(rows(t), 1, 1)
 
     if (args() < 16) {
         _finegray_prepare_weight_design(t, delta, censval, event_type, G,
@@ -1614,55 +1679,69 @@ real scalar _finegray_loglik(
        entry H == 1 and this is bit-identical to the former G-only path. */
     ng = cols(Gt)
 
-    /* Incremental risk-set tracking */
-    risk_S0 = 0
-    ep = 1
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
+
     ll = 0
-    raw_bwd = J(1, ng, 0)
-    i = 1
 
-    while (i <= n) {
-        cur_time = t[ord[i]]
+    /* bstrata(): the log pseudo-likelihood is the SUM of independent
+       within-stratum terms (Zhou et al. 2011), so each stratum gets its own
+       risk set, its own retained-competing accumulator, and its own entry
+       pointer.  With K == 1 the loop runs once over the untouched ord. */
+    for (kk = 1; kk <= K; kk++) {
+        ordk = _finegray_bs_rows(ord, bscode, kk, K)
+        entry_ordk = _finegray_bs_rows(entry_ord, bscode, kk, K)
+        nk = length(ordk)
+        if (nk == 0) continue
 
-        /* Add entries: subjects with t0 < cur_time AND t >= cur_time */
-        while (ep <= n) {
-            if (t0[entry_ord[ep]] >= cur_time) break
-            if (t[entry_ord[ep]] >= cur_time) {
-                risk_S0 = risk_S0 + expeta[entry_ord[ep]]
+        /* Incremental risk-set tracking */
+        risk_S0 = 0
+        ep = 1
+        raw_bwd = J(1, ng, 0)
+        i = 1
+
+        while (i <= nk) {
+            cur_time = t[ordk[i]]
+
+            /* Add entries: subjects with t0 < cur_time AND t >= cur_time */
+            while (ep <= nk) {
+                if (t0[entry_ordk[ep]] >= cur_time) break
+                if (t[entry_ordk[ep]] >= cur_time) {
+                    risk_S0 = risk_S0 + expeta[entry_ordk[ep]]
+                }
+                ep++
             }
-            ep++
-        }
 
-        /* Find end of this time group */
-        j = i
-        while (j <= n) {
-            if (t[ord[j]] != cur_time) break
-            j++
-        }
-
-        /* Process all cause events at this time (Breslow) */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_cause[idx]) {
-                ll = ll + eta[idx] - log(risk_S0 + Gt[idx, .] * raw_bwd')
+            /* Find end of this time group */
+            j = i
+            while (j <= nk) {
+                if (t[ordk[j]] != cur_time) break
+                j++
             }
-        }
 
-        /* AFTER processing cause events, add competing events to backward */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_compete[idx]) {
-                g = gidx[idx]
-                raw_bwd[g] = raw_bwd[g] + expeta[idx] / Gminus[idx]
+            /* Process all cause events at this time (Breslow) */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_cause[idx]) {
+                    ll = ll + eta[idx] - log(risk_S0 + Gt[idx, .] * raw_bwd')
+                }
             }
-        }
 
-        /* Remove exiting subjects from risk set */
-        for (k = i; k < j; k++) {
-            risk_S0 = risk_S0 - expeta[ord[k]]
-        }
+            /* AFTER processing cause events, add competing events to backward */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_compete[idx]) {
+                    g = gidx[idx]
+                    raw_bwd[g] = raw_bwd[g] + expeta[idx] / Gminus[idx]
+                }
+            }
 
-        i = j
+            /* Remove exiting subjects from risk set */
+            for (k = i; k < j; k++) {
+                risk_S0 = risk_S0 - expeta[ordk[k]]
+            }
+
+            i = j
+        }
     }
 
     return(ll)
@@ -1688,14 +1767,17 @@ void _finegray_score_info(
     real colvector gidx,
     real colvector Gminus,
     real matrix Gt,
-    real colvector Apool)
+    real colvector Apool,
+    real colvector bsraw)
 {
-    real colvector row_id
+    real colvector row_id, ordk, entry_ordk, bslev, bscode
     real scalar n, p, i, j, k, idx, S0_total, cur_time
-    real scalar risk_S0, ep, g, ng
+    real scalar risk_S0, ep, g, ng, nk, kk, K
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
     real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
+
+    if (args() < 19) bsraw = J(rows(t), 1, 1)
 
     if (args() < 18) {
         _finegray_prepare_weight_design(t, delta, censval, event_type, G,
@@ -1730,82 +1812,95 @@ void _finegray_score_info(
        entry H == 1 and this is bit-identical to the former G-only path. */
     ng = cols(Gt)
 
-    /* Incremental risk-set sums */
-    risk_S0 = 0
-    risk_S1 = J(1, p, 0)
-    risk_S2 = J(p, p, 0)
-    ep = 1
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
 
     score = J(p, 1, 0)
     info = J(p, p, 0)
-    bwd_s0_raw = J(1, ng, 0)
-    bwd_s1_raw = J(ng, p, 0)
-    bwd_s2_raw = J(ng, p * p, 0)
 
-    i = 1
-    while (i <= n) {
-        cur_time = t[ord[i]]
+    /* bstrata(): score and information are sums of independent within-stratum
+       contributions, so they accumulate ACROSS the loop while every risk-set
+       state is rebuilt per stratum. */
+    for (kk = 1; kk <= K; kk++) {
+        ordk = _finegray_bs_rows(ord, bscode, kk, K)
+        entry_ordk = _finegray_bs_rows(entry_ord, bscode, kk, K)
+        nk = length(ordk)
+        if (nk == 0) continue
 
-        /* Add entries: (t0, t] means t0 < cur_time */
-        while (ep <= n) {
-            if (t0[entry_ord[ep]] >= cur_time) break
-            idx = entry_ord[ep]
-            if (t[idx] >= cur_time) {
-                risk_S0 = risk_S0 + expeta[idx]
-                risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
-                risk_S2 = risk_S2 + expeta[idx] * (Z[idx, .]' * Z[idx, .])
-            }
-            ep++
-        }
+        /* Incremental risk-set sums */
+        risk_S0 = 0
+        risk_S1 = J(1, p, 0)
+        risk_S2 = J(p, p, 0)
+        ep = 1
 
-        j = i
-        while (j <= n) {
-            if (t[ord[j]] != cur_time) break
-            j++
-        }
+        bwd_s0_raw = J(1, ng, 0)
+        bwd_s1_raw = J(ng, p, 0)
+        bwd_s2_raw = J(ng, p * p, 0)
 
-        /* Process cause events at this time */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_cause[idx]) {
-                S0_total = risk_S0 + Gt[idx, .] * bwd_s0_raw'
-                S1_total = risk_S1 + Gt[idx, .] * bwd_s1_raw
-                S2_total = risk_S2
-                for (g = 1; g <= ng; g++) {
-                    S2_total = S2_total + Gt[idx, g] *
-                        rowshape(bwd_s2_raw[g, .], p)
+        i = 1
+        while (i <= nk) {
+            cur_time = t[ordk[i]]
+
+            /* Add entries: (t0, t] means t0 < cur_time */
+            while (ep <= nk) {
+                if (t0[entry_ordk[ep]] >= cur_time) break
+                idx = entry_ordk[ep]
+                if (t[idx] >= cur_time) {
+                    risk_S0 = risk_S0 + expeta[idx]
+                    risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+                    risk_S2 = risk_S2 + expeta[idx] * (Z[idx, .]' * Z[idx, .])
                 }
-
-                z_bar = S1_total / S0_total
-
-                score = score + (Z[idx, .] - z_bar)'
-                info = info + S2_total / S0_total - z_bar' * z_bar
+                ep++
             }
-        }
 
-        /* Add competing events to backward */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_compete[idx]) {
-                g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
-                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / Gminus[idx] * Z[idx, .]
-                bwd_s2_raw[g, .] = bwd_s2_raw[g, .] +
-                    vec(expeta[idx] / Gminus[idx] *
-                    (Z[idx, .]' * Z[idx, .]))'
+            j = i
+            while (j <= nk) {
+                if (t[ordk[j]] != cur_time) break
+                j++
             }
-        }
 
-        /* Remove exiting subjects */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            risk_S0 = risk_S0 - expeta[idx]
-            risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
-            risk_S2 = risk_S2 - expeta[idx] * (Z[idx, .]' * Z[idx, .])
-        }
+            /* Process cause events at this time */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_cause[idx]) {
+                    S0_total = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                    S1_total = risk_S1 + Gt[idx, .] * bwd_s1_raw
+                    S2_total = risk_S2
+                    for (g = 1; g <= ng; g++) {
+                        S2_total = S2_total + Gt[idx, g] *
+                            rowshape(bwd_s2_raw[g, .], p)
+                    }
 
-        i = j
+                    z_bar = S1_total / S0_total
+
+                    score = score + (Z[idx, .] - z_bar)'
+                    info = info + S2_total / S0_total - z_bar' * z_bar
+                }
+            }
+
+            /* Add competing events to backward */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_compete[idx]) {
+                    g = gidx[idx]
+                    bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
+                    bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                        expeta[idx] / Gminus[idx] * Z[idx, .]
+                    bwd_s2_raw[g, .] = bwd_s2_raw[g, .] +
+                        vec(expeta[idx] / Gminus[idx] *
+                        (Z[idx, .]' * Z[idx, .]))'
+                }
+            }
+
+            /* Remove exiting subjects */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                risk_S0 = risk_S0 - expeta[idx]
+                risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+                risk_S2 = risk_S2 - expeta[idx] * (Z[idx, .]' * Z[idx, .])
+            }
+
+            i = j
+        }
     }
 }
 
@@ -1836,17 +1931,20 @@ real matrix _finegray_score_residuals(
     real colvector gidx,
     real colvector Gminus,
     real matrix Gt,
-    real colvector Apool)
+    real colvector Apool,
+    real colvector bsraw)
 {
-    real colvector row_id
+    real colvector row_id, ordk, entry_ordk, bslev, bscode, rowsk
     real scalar n, p, i, j, k, idx, running_invS0
-    real scalar S0_t, cur_time, risk_S0, ep, g, ng
+    real scalar S0_t, cur_time, risk_S0, ep, g, ng, nk, nrk, kk, K, r
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector cum_invS0, cum_ginvS0, entry_invS0
     real matrix scores, cum_zbars, cum_gzbars, entry_zbars
     real matrix bwd_s1_raw, running_gzbars
     real rowvector bwd_s0_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
     real rowvector running_ginvS0, total_ginvS0, total_gzbars
+
+    if (args() < 17) bsraw = J(rows(t), 1, 1)
 
     if (args() < 16) {
         _finegray_prepare_weight_design(t, delta, censval, event_type, G,
@@ -1865,6 +1963,11 @@ real matrix _finegray_score_residuals(
     eta = Z * beta
     expeta = exp(eta)
     is_cause = (event_type :== cause) :& (delta :== 1)
+    /* The last cause-event time is taken over the WHOLE sample, not within the
+       baseline stratum.  A competing subject past its own stratum's last cause
+       event contributes an exactly zero correction anyway (the reverse sums it
+       multiplies are empty), so the pooled bound changes no number -- and
+       keeping it pooled is what makes the K = 1 case bit-identical. */
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
         (delta :== 1) :& (t :< max(select(t, is_cause)))
 
@@ -1881,116 +1984,137 @@ real matrix _finegray_score_residuals(
        entry H == 1 and this is bit-identical to the former G-only path. */
     ng = cols(Gt)
 
-    risk_S0 = 0
-    risk_S1 = J(1, p, 0)
-    ep = 1
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
 
     scores = J(n, p, 0)
-    bwd_s0_raw = J(1, ng, 0)
-    bwd_s1_raw = J(ng, p, 0)
     cum_zbars = J(n, p, 0)
     cum_invS0 = J(n, 1, 0)
     entry_invS0 = J(n, 1, 0)
     entry_zbars = J(n, p, 0)
-    running_invS0 = 0
-    running_zbar_sum = J(1, p, 0)
-
     cum_ginvS0 = J(n, 1, 0)
     cum_gzbars = J(n, p, 0)
-    running_ginvS0 = J(1, ng, 0)
-    running_gzbars = J(ng, p, 0)
 
-    i = 1
-    while (i <= n) {
-        cur_time = t[ord[i]]
+    /* bstrata(): every quantity below is a within-stratum running sum, and the
+       two post-scan corrections consume that stratum's own totals -- so they
+       run inside the stratum loop rather than once over all rows.  The
+       residuals themselves are written back by ORIGINAL row index, which is why
+       _finegray_robust_var / _finegray_cluster_sums need no change: the meat is
+       still sum over subjects of a per-subject score residual. */
+    for (kk = 1; kk <= K; kk++) {
+        ordk = _finegray_bs_rows(ord, bscode, kk, K)
+        entry_ordk = _finegray_bs_rows(entry_ord, bscode, kk, K)
+        nk = length(ordk)
+        if (nk == 0) continue
+        if (K <= 1) rowsk = row_id
+        else        rowsk = selectindex(bscode :== kk)
+        nrk = length(rowsk)
 
-        while (ep <= n) {
-            if (t0[entry_ord[ep]] >= cur_time) break
-            idx = entry_ord[ep]
-            if (t[idx] >= cur_time) {
-                risk_S0 = risk_S0 + expeta[idx]
-                risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
-                /* cur_time is the first observation time strictly after
-                   t0[idx], so the running sums at admission are exactly the
-                   sums over cause-event times T_m <= t0[idx] -- the events the
-                   subject's (t0, t] window must EXCLUDE. */
-                entry_invS0[idx] = running_invS0
-                entry_zbars[idx, .] = running_zbar_sum
+        risk_S0 = 0
+        risk_S1 = J(1, p, 0)
+        ep = 1
+
+        bwd_s0_raw = J(1, ng, 0)
+        bwd_s1_raw = J(ng, p, 0)
+        running_invS0 = 0
+        running_zbar_sum = J(1, p, 0)
+
+        running_ginvS0 = J(1, ng, 0)
+        running_gzbars = J(ng, p, 0)
+
+        i = 1
+        while (i <= nk) {
+            cur_time = t[ordk[i]]
+
+            while (ep <= nk) {
+                if (t0[entry_ordk[ep]] >= cur_time) break
+                idx = entry_ordk[ep]
+                if (t[idx] >= cur_time) {
+                    risk_S0 = risk_S0 + expeta[idx]
+                    risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+                    /* cur_time is the first observation time strictly after
+                       t0[idx], so the running sums at admission are exactly the
+                       sums over cause-event times T_m <= t0[idx] -- the events the
+                       subject's (t0, t] window must EXCLUDE. */
+                    entry_invS0[idx] = running_invS0
+                    entry_zbars[idx, .] = running_zbar_sum
+                }
+                ep++
             }
-            ep++
-        }
 
-        j = i
-        while (j <= n) {
-            if (t[ord[j]] != cur_time) break
-            j++
-        }
+            j = i
+            while (j <= nk) {
+                if (t[ordk[j]] != cur_time) break
+                j++
+            }
 
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_cause[idx]) {
-                S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
-                S1_t = risk_S1 + Gt[idx, .] * bwd_s1_raw
-                z_bar_t = S1_t / S0_t
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_cause[idx]) {
+                    S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                    S1_t = risk_S1 + Gt[idx, .] * bwd_s1_raw
+                    z_bar_t = S1_t / S0_t
 
-                scores[idx, .] = Z[idx, .] - z_bar_t
-                running_invS0 = running_invS0 + 1 / S0_t
-                running_zbar_sum = running_zbar_sum + z_bar_t / S0_t
-                for (g = 1; g <= ng; g++) {
-                    running_ginvS0[g] = running_ginvS0[g] +
-                        Gt[idx, g] / S0_t
-                    running_gzbars[g, .] = running_gzbars[g, .] +
-                        Gt[idx, g] * z_bar_t / S0_t
+                    scores[idx, .] = Z[idx, .] - z_bar_t
+                    running_invS0 = running_invS0 + 1 / S0_t
+                    running_zbar_sum = running_zbar_sum + z_bar_t / S0_t
+                    for (g = 1; g <= ng; g++) {
+                        running_ginvS0[g] = running_ginvS0[g] +
+                            Gt[idx, g] / S0_t
+                        running_gzbars[g, .] = running_gzbars[g, .] +
+                            Gt[idx, g] * z_bar_t / S0_t
+                    }
                 }
             }
-        }
 
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            cum_invS0[idx] = running_invS0
-            cum_zbars[idx, .] = running_zbar_sum
-            g = gidx[idx]
-            cum_ginvS0[idx] = running_ginvS0[g]
-            cum_gzbars[idx, .] = running_gzbars[g, .]
-        }
-
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_compete[idx]) {
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                cum_invS0[idx] = running_invS0
+                cum_zbars[idx, .] = running_zbar_sum
                 g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
-                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / Gminus[idx] * Z[idx, .]
+                cum_ginvS0[idx] = running_ginvS0[g]
+                cum_gzbars[idx, .] = running_gzbars[g, .]
             }
+
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_compete[idx]) {
+                    g = gidx[idx]
+                    bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
+                    bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                        expeta[idx] / Gminus[idx] * Z[idx, .]
+                }
+            }
+
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                risk_S0 = risk_S0 - expeta[idx]
+                risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+            }
+
+            i = j
         }
 
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            risk_S0 = risk_S0 - expeta[idx]
-            risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+        /* Subtract the at-risk contribution for all subjects, restricted to each
+           subject's own risk window (t0_i, T_i] (entry-to-exit difference) */
+        for (r = 1; r <= nrk; r++) {
+            i = rowsk[r]
+            scores[i, .] = scores[i, .] - expeta[i] *
+                (Z[i, .] * (cum_invS0[i] - entry_invS0[i]) -
+                 (cum_zbars[i, .] - entry_zbars[i, .]))
         }
 
-        i = j
-    }
-
-    /* Subtract the at-risk contribution for all subjects, restricted to each
-       subject's own risk window (t0_i, T_i] (entry-to-exit difference) */
-    for (i = 1; i <= n; i++) {
-        scores[i, .] = scores[i, .] - expeta[i] *
-            (Z[i, .] * (cum_invS0[i] - entry_invS0[i]) -
-             (cum_zbars[i, .] - entry_zbars[i, .]))
-    }
-
-    /* IPCW at-risk correction for competing-event subjects */
-    total_ginvS0 = running_ginvS0
-    for (i = 1; i <= n; i++) {
-        if (is_compete[i]) {
-            g = gidx[i]
-            total_gzbars = running_gzbars[g, .]
-            scores[i, .] = scores[i, .] -
-                (expeta[i] / Gminus[i]) *
-                (Z[i, .] * (total_ginvS0[g] - cum_ginvS0[i]) -
-                 (total_gzbars - cum_gzbars[i, .]))
+        /* IPCW at-risk correction for competing-event subjects */
+        total_ginvS0 = running_ginvS0
+        for (r = 1; r <= nrk; r++) {
+            i = rowsk[r]
+            if (is_compete[i]) {
+                g = gidx[i]
+                total_gzbars = running_gzbars[g, .]
+                scores[i, .] = scores[i, .] -
+                    (expeta[i] / Gminus[i]) *
+                    (Z[i, .] * (total_ginvS0[g] - cum_ginvS0[i]) -
+                     (total_gzbars - cum_gzbars[i, .]))
+            }
         }
     }
 
@@ -2274,12 +2398,19 @@ real matrix _finegray_robust_var(
     real colvector gidx,
     real colvector Gminus,
     real matrix Gt,
-    real colvector Apool)
+    real colvector Apool,
+    real colvector bsraw,
+    real colvector ivl,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
 {
     real scalar n, p, use_cluster
     real matrix scores, meat, clust_scores
 
     if (args() < 15) nuisance = 0
+    if (args() < 21) bsraw = J(rows(t), 1, 1)
+    if (args() < 25) nint = 1
 
     n = rows(t)
     p = cols(Z)
@@ -2288,18 +2419,42 @@ real matrix _finegray_robust_var(
         scores = _finegray_score_residuals(t, delta, cause, censval,
             event_type, Z, beta, G, byg_id, t0, tg_id)
     }
-    else {
+    else if (nint <= 1) {
         scores = _finegray_score_residuals(t, delta, cause, censval,
             event_type, Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx,
-            Gminus, Gt, Apool)
+            Gminus, Gt, Apool, bsraw)
+    }
+    else {
+        /* Piecewise beta(t): the meat is still sum_i U_i U_i', with U_i the
+           subject's residual summed over every interval's cause events. */
+        scores = _finegray_score_residuals_pw(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx,
+            Gminus, Gt, Apool, bsraw, ivl, fixpos, tvcpos, nint)
     }
 
     /* FG (1999) eq. (7)-(8): add the influence contribution from having
        ESTIMATED G.  The caller guarantees right censoring only -- the psi
        derivation does not cover delayed entry -- and _finegray_psi_residuals
        errors rather than silently returning an ungrounded quantity if that
-       guarantee is broken. */
+       guarantee is broken.
+
+       bstrata() is refused with nuisance in the parser for a related but
+       different reason: q_g(t) in eq. (8) is built from the POOLED S0(s) and
+       zbar(s).  Zhou et al. (2011) sec. 4.1 states the stratified form -- FG's
+       psi "with the added subscript k" -- so the quantity is grounded; it is
+       simply not implemented here.  This is the belt to that parser brace: a
+       stratified fit must never reach the unstratified psi term. */
     if (nuisance) {
+        if (nint > 1) {
+            errprintf("finegray: the nuisance (psi) correction is not ")
+            errprintf("derived for piecewise time-varying effects\n")
+            exit(error(198))
+        }
+        if (rows(uniqrows(bsraw)) > 1) {
+            errprintf("finegray: the nuisance (psi) correction is not ")
+            errprintf("derived for baseline strata\n")
+            exit(error(198))
+        }
         scores = scores + _finegray_psi_residuals(t, delta, cause, censval,
             event_type, Z, beta, G, byg_id, t0)
     }
@@ -2437,14 +2592,17 @@ real matrix _finegray_basehazard(
     real colvector gidx,
     real colvector Gminus,
     real matrix Gt,
-    real colvector Apool)
+    real colvector Apool,
+    real colvector bsraw)
 {
-    real colvector row_id
-    real scalar n, p, i, j, k, idx, cum_bh, g, ng
+    real colvector row_id, ordk, entry_ordk, bslev, bscode
+    real scalar n, p, i, j, k, idx, cum_bh, g, ng, nk, kk, K, ncol
     real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep, has_cause
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
     real rowvector bwd_s0_raw
     real matrix result
+
+    if (args() < 17) bsraw = J(rows(t), 1, 1)
 
     if (args() < 16) {
         _finegray_prepare_weight_design(t, delta, censval, event_type, G,
@@ -2477,80 +2635,103 @@ real matrix _finegray_basehazard(
        entry H == 1 and this is bit-identical to the former G-only path. */
     ng = cols(Gt)
 
-    risk_S0 = 0
-    ep = 1
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
 
+    /* bstrata(): each stratum carries its OWN unconstrained baseline, so the
+       curve is a set of K step functions.  The returned matrix is
+       (time, cumhaz) when K == 1 -- the shape every existing consumer knows --
+       and (bstratum, time, cumhaz) when K > 1, with the stratum blocks in
+       ascending LEVEL VALUE order and ascending time within each block.  Column
+       1 carries the bstrata() VALUE, not a 1..K code, so a lookup on a subset
+       of the fit's rows still resolves the right block. */
+    ncol = (K > 1 ? 3 : 2)
     n_events = sum(is_cause)
-    result = J(n_events, 2, .)
-
-    bwd_s0_raw = J(1, ng, 0)
-    cum_bh = 0
+    result = J(n_events, ncol, .)
     ev_idx = 0
 
-    i = 1
-    while (i <= n) {
-        cur_time = t[ord[i]]
+    for (kk = 1; kk <= K; kk++) {
+        ordk = _finegray_bs_rows(ord, bscode, kk, K)
+        entry_ordk = _finegray_bs_rows(entry_ord, bscode, kk, K)
+        nk = length(ordk)
+        if (nk == 0) continue
 
-        /* Add entries: (t0, t] means t0 < cur_time */
-        while (ep <= n) {
-            if (t0[entry_ord[ep]] >= cur_time) break
-            idx = entry_ord[ep]
-            if (t[idx] >= cur_time) {
-                risk_S0 = risk_S0 + expeta[idx]
+        risk_S0 = 0
+        ep = 1
+        bwd_s0_raw = J(1, ng, 0)
+        cum_bh = 0
+
+        i = 1
+        while (i <= nk) {
+            cur_time = t[ordk[i]]
+
+            /* Add entries: (t0, t] means t0 < cur_time */
+            while (ep <= nk) {
+                if (t0[entry_ordk[ep]] >= cur_time) break
+                idx = entry_ordk[ep]
+                if (t[idx] >= cur_time) {
+                    risk_S0 = risk_S0 + expeta[idx]
+                }
+                ep++
             }
-            ep++
-        }
 
-        j = i
-        while (j <= n) {
-            if (t[ord[j]] != cur_time) break
-            j++
-        }
-
-        /* Process cause events - accumulate baseline hazard.
-           The cumulative subhazard is a step function of TIME, so it must have
-           one row per unique cause-event time, not one per event.  Tied events
-           all see the same risk set and hence the same S0, so Breslow adds
-           d/S0(t) once for the d events at t -- but emitting a row per event
-           left e(basehaz) multi-valued at t (50 tied events -> 50 rows, 1
-           unique time), which every step-function lookup downstream then had to
-           tolerate. Accumulate across the tie group, then emit a single row. */
-        has_cause = 0
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_cause[idx]) {
-                S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
-                cum_bh = cum_bh + 1 / S0_t
-                has_cause = 1
+            j = i
+            while (j <= nk) {
+                if (t[ordk[j]] != cur_time) break
+                j++
             }
-        }
-        if (has_cause) {
-            ev_idx++
-            result[ev_idx, 1] = cur_time
-            result[ev_idx, 2] = cum_bh
-        }
 
-        /* Add competing events to backward */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_compete[idx]) {
-                g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
+            /* Process cause events - accumulate baseline hazard.
+               The cumulative subhazard is a step function of TIME, so it must have
+               one row per unique cause-event time, not one per event.  Tied events
+               all see the same risk set and hence the same S0, so Breslow adds
+               d/S0(t) once for the d events at t -- but emitting a row per event
+               left e(basehaz) multi-valued at t (50 tied events -> 50 rows, 1
+               unique time), which every step-function lookup downstream then had to
+               tolerate. Accumulate across the tie group, then emit a single row. */
+            has_cause = 0
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_cause[idx]) {
+                    S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                    cum_bh = cum_bh + 1 / S0_t
+                    has_cause = 1
+                }
             }
-        }
+            if (has_cause) {
+                ev_idx++
+                if (ncol == 3) {
+                    result[ev_idx, 1] = bslev[kk]
+                    result[ev_idx, 2] = cur_time
+                    result[ev_idx, 3] = cum_bh
+                }
+                else {
+                    result[ev_idx, 1] = cur_time
+                    result[ev_idx, 2] = cum_bh
+                }
+            }
 
-        /* Remove exiting subjects */
-        for (k = i; k < j; k++) {
-            risk_S0 = risk_S0 - expeta[ord[k]]
-        }
+            /* Add competing events to backward */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_compete[idx]) {
+                    g = gidx[idx]
+                    bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
+                }
+            }
 
-        i = j
+            /* Remove exiting subjects */
+            for (k = i; k < j; k++) {
+                risk_S0 = risk_S0 - expeta[ordk[k]]
+            }
+
+            i = j
+        }
     }
 
     /* result was sized for the worst case (every cause event at its own time);
        with ties it holds fewer rows.  Trim, or the trailing rows stay missing
        and every consumer sees a step function with a missing tail. */
-    if (ev_idx < 1) return(J(0, 2, .))
+    if (ev_idx < 1) return(J(0, ncol, .))
     if (ev_idx < rows(result)) result = result[(1..ev_idx), .]
 
     return(result)
@@ -2714,14 +2895,19 @@ real matrix _finegray_schoenfeld(
     real colvector byg_id,
     real scalar do_scale,
     real colvector t0,
-    real colvector tg_id)
+    real colvector tg_id,
+    | real colvector bsraw)
 {
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar ev_idx, n_events, risk_S0, ep, g, ng, use_pooled
+    real scalar nk, kk, K, ecount
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord, score_vec
-    real colvector row_id, gidx, Gminus, Apool
+    real colvector row_id, gidx, Gminus, Apool, crank
+    real colvector ordk, entry_ordk, bslev, bscode
     real matrix result, info_mat, bwd_s1_raw, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
+
+    if (args() < 13) bsraw = J(rows(t), 1, 1)
 
     if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
         return(_finegray_schoenfeld_zzf(t, delta, cause, censval,
@@ -2752,76 +2938,100 @@ real matrix _finegray_schoenfeld(
         byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
     ng = cols(Gt)
 
-    risk_S0 = 0
-    risk_S1 = J(1, p, 0)
-    ep = 1
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
 
     n_events = sum(is_cause)
     result = J(n_events, p + 1, .)
 
-    bwd_s0_raw = J(1, ng, 0)
-    bwd_s1_raw = J(ng, p, 0)
-    ev_idx = 0
+    /* Each residual is written to its GLOBAL cause-event rank, not to a
+       per-stratum counter.  finegray_predict and finegray_phtest assign these
+       rows by cumulative cause-event index over the whole sample in time order
+       (_finegray_assign_schoenfeld_vars), so emitting stratum blocks in
+       sequence would hand every residual to the wrong observation at rc 0.
+       With K == 1 the rank IS the sequential counter, so nothing moves. */
+    crank = J(n, 1, .)
+    ecount = 0
+    for (i = 1; i <= n; i++) {
+        idx = ord[i]
+        if (is_cause[idx]) {
+            ecount++
+            crank[idx] = ecount
+        }
+    }
 
-    i = 1
-    while (i <= n) {
-        cur_time = t[ord[i]]
+    for (kk = 1; kk <= K; kk++) {
+        ordk = _finegray_bs_rows(ord, bscode, kk, K)
+        entry_ordk = _finegray_bs_rows(entry_ord, bscode, kk, K)
+        nk = length(ordk)
+        if (nk == 0) continue
 
-        /* Add entries: (t0, t] means t0 < cur_time */
-        while (ep <= n) {
-            if (t0[entry_ord[ep]] >= cur_time) break
-            idx = entry_ord[ep]
-            if (t[idx] >= cur_time) {
-                risk_S0 = risk_S0 + expeta[idx]
-                risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+        risk_S0 = 0
+        risk_S1 = J(1, p, 0)
+        ep = 1
+
+        bwd_s0_raw = J(1, ng, 0)
+        bwd_s1_raw = J(ng, p, 0)
+
+        i = 1
+        while (i <= nk) {
+            cur_time = t[ordk[i]]
+
+            /* Add entries: (t0, t] means t0 < cur_time */
+            while (ep <= nk) {
+                if (t0[entry_ordk[ep]] >= cur_time) break
+                idx = entry_ordk[ep]
+                if (t[idx] >= cur_time) {
+                    risk_S0 = risk_S0 + expeta[idx]
+                    risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+                }
+                ep++
             }
-            ep++
-        }
 
-        j = i
-        while (j <= n) {
-            if (t[ord[j]] != cur_time) break
-            j++
-        }
-
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_cause[idx]) {
-                S0_total = risk_S0 + Gt[idx, .] * bwd_s0_raw'
-                S1_total = risk_S1 + Gt[idx, .] * bwd_s1_raw
-                z_bar = S1_total / S0_total
-
-                ev_idx++
-                result[ev_idx, 1] = t[idx]
-                result[ev_idx, 2..p+1] = Z[idx, .] - z_bar
+            j = i
+            while (j <= nk) {
+                if (t[ordk[j]] != cur_time) break
+                j++
             }
-        }
 
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_compete[idx]) {
-                g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
-                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / Gminus[idx] * Z[idx, .]
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_cause[idx]) {
+                    S0_total = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                    S1_total = risk_S1 + Gt[idx, .] * bwd_s1_raw
+                    z_bar = S1_total / S0_total
+
+                    ev_idx = crank[idx]
+                    result[ev_idx, 1] = t[idx]
+                    result[ev_idx, 2..p+1] = Z[idx, .] - z_bar
+                }
             }
-        }
 
-        /* Remove exiting subjects */
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            risk_S0 = risk_S0 - expeta[idx]
-            risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
-        }
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_compete[idx]) {
+                    g = gidx[idx]
+                    bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
+                    bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                        expeta[idx] / Gminus[idx] * Z[idx, .]
+                }
+            }
 
-        i = j
+            /* Remove exiting subjects */
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                risk_S0 = risk_S0 - expeta[idx]
+                risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+            }
+
+            i = j
+        }
     }
 
     /* Legacy internal diagonal rescaling; no public caller requests it. */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
-            use_pooled, gidx, Gminus, Gt, Apool)
+            use_pooled, gidx, Gminus, Gt, Apool, bsraw)
         real matrix info_inv
         info_inv = _finegray_information_inverse(info_mat,
             "Schoenfeld-residual")
@@ -2844,12 +3054,15 @@ void _finegray_schoenfeld_compute(
     string scalar byg_str,
     string scalar tg_str,
     real scalar do_scale,
-    string scalar t0var)
+    string scalar t0var,
+    | string scalar bs_str)
 {
-    real colvector t, delta, event_type, G, byg_id, beta, t0, tg_id
+    real colvector t, delta, event_type, G, byg_id, beta, t0, tg_id, bsraw
     real matrix Z, sch
     string rowvector vars
     real scalar p
+
+    if (args() < 9) bs_str = ""
 
     vars = tokens(varlist_str)
     p = length(vars)
@@ -2880,8 +3093,13 @@ void _finegray_schoenfeld_compute(
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
 
+    /* bstrata(): residuals are formed against the row's OWN stratum risk set
+       and pooled for the test, which is the same shape the fit's scan takes. */
+    if (bs_str != "") bsraw = st_data(., bs_str)
+    else              bsraw = J(rows(t), 1, 1)
+
     sch = _finegray_schoenfeld(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, do_scale, t0, tg_id)
+        Z, beta, G, byg_id, do_scale, t0, tg_id, bsraw)
 
     st_matrix("_finegray_schoenfeld", sch)
 }
@@ -2900,6 +3118,440 @@ void _finegray_schoenfeld_compute(
    column can be globally full rank yet enter no cause-event risk set (e.g. it
    is nonzero only for subjects censored before the first cause event), leaving
    its direction flat in the likelihood. */
+/* ========================================================================
+   PIECEWISE-CONSTANT TIME-VARYING EFFECTS  --  tvc() / tsplit()
+
+   The model is lambda(t | Z) = lambda_0(t) exp(Z'beta(t)) with beta(t)
+   constant on the intervals tsplit() defines: the covariates named in tvc()
+   carry one coefficient per interval, everything else carries one.
+
+   WHY THIS IS NOT A DESIGN-MATRIX CHANGE.  The scan in _finegray_loglik is
+   O(n log n) because of two invariants (see its header): exp(Z'beta) is
+   computed ONCE before the loop, and a competing-event subject's retained
+   contribution factorises into a subject part and a time part, so it is added
+   once and never revisited.  Both hold because the linear predictor does not
+   depend on t.  Under beta(t) neither holds.
+
+   What DOES still hold is that the linear predictor is constant WITHIN an
+   interval.  At a cause-event time T_m every member of the subdistribution
+   risk set -- at-risk subject and retained competing exit alike -- is weighted
+   by exp(Z'beta_{j(m)}) for the SAME j(m), because beta(t) is evaluated at the
+   event time, not at the subject's own time.  So interval j's contribution to
+   the log pseudo-likelihood, score, information, score residuals and Breslow
+   baseline is exactly what the ordinary scan returns when it is run with
+
+     (a) the design D_j -- the full p' frame with interval j's tvc block filled
+         and every other tvc block zero, and
+     (b) the cause events outside interval j masked away,
+
+   and the total is the sum over j.  Each pass still starts at time 0 and still
+   walks the whole risk set, so the accumulators are rebuilt at every boundary,
+   which is the O(J n p) price of dropping the two invariants; the sorting is
+   the only O(n log n) part and it happens once per pass.  Nothing below
+   re-derives the scan: the five right-censoring scan functions are called
+   unmodified, which is also what keeps a fit WITHOUT tvc() bit-identical --
+   nint <= 1 delegates to exactly the call the engine made before.
+
+   SCOPE.  Refused in the parser and again in the engine: delayed entry (the
+   ZZF branch is the package's own extension and no source covers beta(t)
+   there), bstrata(), and nuisance.  So K == 1 and use_pooled == 0 everywhere
+   below.
+   ======================================================================== */
+
+/* Interval index of each analysis time.  Interval j is (cuts[j-1], cuts[j]],
+   with cuts[0] = 0 and cuts[nint] = +infinity: an event exactly AT a boundary
+   belongs to the EARLIER interval.  That is the (t0, t] convention every risk
+   set in this package is built on, and it is what lets every baseline lookup
+   downstream use the ordinary "largest event time <= s" step search instead of
+   a left limit. */
+real colvector _finegray_tvc_interval(real colvector t, real colvector cuts)
+{
+    real colvector iv
+    real scalar j, ncut
+
+    ncut = rows(cuts)
+    iv = J(rows(t), 1, 1)
+    for (j = 1; j <= ncut; j++) iv = iv :+ (t :> cuts[j])
+    return(iv)
+}
+
+/* Split 1..p into the tvc design columns and the rest, both ASCENDING.
+   tvc_str holds 1-based column indices into the fit's design, not names: the
+   names are package-owned _fg_* columns that post-estimation is allowed to
+   drop and rebuild as tempvars, and a position survives that. */
+void _finegray_tvc_positions(
+    string scalar tvc_str,
+    real scalar p,
+    real colvector fixpos,
+    real colvector tvcpos)
+{
+    real colvector mark
+    real scalar i, q, v, nt, nf
+    string rowvector tok
+
+    tok = tokens(tvc_str)
+    q = length(tok)
+    mark = J(p, 1, 0)
+    for (i = 1; i <= q; i++) {
+        v = strtoreal(tok[i])
+        if (v >= . | v < 1 | v > p | v != trunc(v)) {
+            errprintf("finegray: internal tvc() column index %s is not a ", tok[i])
+            errprintf("column of the fitted design\n")
+            exit(error(198))
+        }
+        if (mark[v]) {
+            errprintf("finegray: internal tvc() column index %g is repeated\n", v)
+            exit(error(198))
+        }
+        mark[v] = 1
+    }
+
+    /* Filled by an explicit loop, not by selectindex().  A 1 x 1 vector is
+       orientation-AMBIGUOUS in Mata, so selectindex() on a one-column design
+       returns a ROW vector, and an empty result comes back 1 x 0 rather than
+       0 x 1 -- which then fails the `real colvector' declaration of every
+       function these are handed to (r(3203), seen on
+       `finegray x1, tvc(x1) tsplit(...)': one covariate, all of it
+       time-varying, so both p == 1 and rows(fixpos) == 0 at once).  Building
+       them by hand fixes the shape for every p, including p == 1 and the
+       all-tvc case where fixpos is legitimately empty. */
+    nt = 0
+    for (i = 1; i <= p; i++) if (mark[i]) nt++
+    nf = p - nt
+    tvcpos = J(nt, 1, .)
+    fixpos = J(nf, 1, .)
+    nt = 0
+    nf = 0
+    for (i = 1; i <= p; i++) {
+        if (mark[i]) {
+            nt++
+            tvcpos[nt] = i
+        }
+        else {
+            nf++
+            fixpos[nf] = i
+        }
+    }
+}
+
+/* Coefficient count of the piecewise frame. */
+real scalar _finegray_tvc_ncoef(
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    return(rows(fixpos) + nint * rows(tvcpos))
+}
+
+/* The interval-j design in the full p' frame:
+     columns 1 .. nfix                     covariates with a single coefficient
+     columns nfix + (k-1)*q + 1 .. + q     the tvc covariates for interval k
+   Every block but interval j's is exactly zero, so a risk set scanned at an
+   interval-j event time sees the inactive blocks as identically-zero
+   covariates: they contribute nothing to S0, S1 or S2 and their score and
+   information entries stay untouched, which is why the per-interval passes can
+   simply be added. */
+real matrix _finegray_tvc_design(
+    real matrix Z,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint,
+    real scalar j)
+{
+    real matrix D
+    real scalar n, nfix, q, c0
+
+    n = rows(Z)
+    nfix = rows(fixpos)
+    q = rows(tvcpos)
+    D = J(n, nfix + nint * q, 0)
+    if (nfix > 0) D[., (1..nfix)] = Z[., fixpos]
+    if (q > 0) {
+        c0 = nfix + (j - 1) * q
+        D[., ((c0 + 1)..(c0 + q))] = Z[., tvcpos]
+    }
+    return(D)
+}
+
+/* event_type with every cause event OUTSIDE interval j relabelled as censored.
+   Such a subject stays in the risk set until its own exit and contributes to
+   neither the likelihood terms nor the retained-competing accumulator --
+   exactly its role in interval j's contribution.  The weight design (G, Gminus,
+   Gt, gidx) is built ONCE by the caller from the TRUE event types and passed
+   in, so this mask never reaches the censoring Kaplan-Meier. */
+real colvector _finegray_tvc_mask(
+    real colvector event_type,
+    real scalar cause,
+    real scalar censval,
+    real colvector ivl,
+    real scalar j)
+{
+    real colvector m
+
+    m = ((event_type :== cause) :& (ivl :!= j))
+    return(event_type :* (1 :- m) :+ censval :* m)
+}
+
+/* Coefficient labels in the piecewise frame, for the rank-failure message.
+   The Stata side builds the user-facing coefficient stripe independently; this
+   is only what _finegray_rank_fail prints. */
+string rowvector _finegray_tvc_labels(
+    string rowvector vars,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    string rowvector lab
+    real scalar i, j, nfix, q
+
+    nfix = rows(fixpos)
+    q = rows(tvcpos)
+    lab = J(1, nfix + nint * q, "")
+    for (i = 1; i <= nfix; i++) lab[i] = vars[fixpos[i]]
+    for (j = 1; j <= nint; j++) {
+        for (i = 1; i <= q; i++) {
+            lab[nfix + (j - 1) * q + i] =
+                vars[tvcpos[i]] + ":tvc" + strofreal(j)
+        }
+    }
+    return(lab)
+}
+
+/* ---- the four piecewise scans ------------------------------------------
+   Each delegates verbatim when nint <= 1, so a fit without tvc() runs the
+   identical call the engine made before this feature existed. */
+
+real scalar _finegray_loglik_pw(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id,
+    real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool,
+    real colvector bsraw,
+    real colvector ivl,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    real scalar ll, j
+    real colvector etj
+    real matrix Dj
+
+    if (nint <= 1) {
+        return(_finegray_loglik(t, delta, cause, censval, event_type, Z,
+            beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
+            Apool, bsraw))
+    }
+
+    ll = 0
+    for (j = 1; j <= nint; j++) {
+        etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
+        Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
+        ll = ll + _finegray_loglik(t, delta, cause, censval, etj, Dj,
+            beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
+            Apool, bsraw)
+    }
+    return(ll)
+}
+
+void _finegray_score_info_pw(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector score,
+    real matrix info,
+    real colvector t0,
+    real colvector tg_id,
+    real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool,
+    real colvector bsraw,
+    real colvector ivl,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    real scalar j, pt
+    real colvector etj, score_j
+    real matrix Dj, info_j
+
+    if (nint <= 1) {
+        _finegray_score_info(t, delta, cause, censval, event_type, Z, beta,
+            G, byg_id, score, info, t0, tg_id, use_pooled, gidx, Gminus,
+            Gt, Apool, bsraw)
+        return
+    }
+
+    pt = rows(beta)
+    score = J(pt, 1, 0)
+    info = J(pt, pt, 0)
+    for (j = 1; j <= nint; j++) {
+        etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
+        Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
+        _finegray_score_info(t, delta, cause, censval, etj, Dj, beta,
+            G, byg_id, score_j, info_j, t0, tg_id, use_pooled, gidx,
+            Gminus, Gt, Apool, bsraw)
+        score = score + score_j
+        info = info + info_j
+    }
+}
+
+real matrix _finegray_score_residuals_pw(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id,
+    real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool,
+    real colvector bsraw,
+    real colvector ivl,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    real scalar j
+    real colvector etj
+    real matrix Dj, S
+
+    if (nint <= 1) {
+        return(_finegray_score_residuals(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx,
+            Gminus, Gt, Apool, bsraw))
+    }
+
+    /* The score residual is a sum over cause-event times, so a subject's
+       residual is the sum of its per-interval residuals.  Every quantity the
+       per-interval pass accumulates -- the at-risk correction, the IPCW
+       correction for a retained competing exit -- is restricted to that
+       interval's events by the mask, and the pieces are disjoint. */
+    S = J(rows(t), rows(beta), 0)
+    for (j = 1; j <= nint; j++) {
+        etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
+        Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
+        S = S + _finegray_score_residuals(t, delta, cause, censval, etj,
+            Dj, beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
+            Apool, bsraw)
+    }
+    return(S)
+}
+
+/* Breslow baseline under beta(t).  There is ONE baseline: the interval
+   structure lives in the linear predictor, not in lambda_0.  Each pass returns
+   that interval's own event times with a cumulative sum that restarts at zero,
+   so the blocks are carried forward and stacked.  Interval j's event times all
+   exceed interval j-1's, so the stack is ascending in time with no duplicate
+   times -- the shape (time, cumhaz) every consumer already knows. */
+real matrix _finegray_basehazard_pw(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id,
+    real scalar use_pooled,
+    real colvector gidx,
+    real colvector Gminus,
+    real matrix Gt,
+    real colvector Apool,
+    real colvector bsraw,
+    real colvector ivl,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    real scalar j, carry
+    real colvector etj
+    real matrix Dj, bhj, out
+
+    if (nint <= 1) {
+        return(_finegray_basehazard(t, delta, cause, censval, event_type, Z,
+            beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
+            Apool, bsraw))
+    }
+
+    out = J(0, 2, .)
+    carry = 0
+    for (j = 1; j <= nint; j++) {
+        etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
+        Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
+        bhj = _finegray_basehazard(t, delta, cause, censval, etj, Dj, beta,
+            G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool,
+            bsraw)
+        if (rows(bhj) == 0) continue
+        if (cols(bhj) != 2) {
+            errprintf("finegray: internal error -- a stratified baseline ")
+            errprintf("reached the tvc() baseline scan\n")
+            exit(error(498))
+        }
+        bhj[., 2] = bhj[., 2] :+ carry
+        carry = bhj[rows(bhj), 2]
+        out = out \ bhj
+    }
+    return(out)
+}
+
+/* Baseline mass accumulated inside each interval up to each horizon.
+   D[i, j] is the part of Lambda_0(times[i]) that falls in interval j, i.e.
+     max(0, min(Lambda_0(times[i]), Lambda_0(cuts[j])) - Lambda_0(cuts[j-1]))
+   with Lambda_0(cuts[0]) = 0 and cuts[nint] = +infinity.  Because interval j
+   is (cuts[j-1], cuts[j]] this needs only the ordinary "largest event time <= s"
+   step value -- no left limits.  H0cut must be the step values AT the cuts,
+   which every baseline source can supply with the same lookup it already runs.
+
+   Lambda(times[i] | z) = sum_j D[i, j] exp(eta_j(z)), and CIF = 1 - exp(-Lambda). */
+real matrix _finegray_tvc_bhpieces(
+    real colvector H0,
+    real rowvector H0cut,
+    real scalar nint)
+{
+    real matrix D
+    real colvector hi
+    real scalar j, lo
+
+    D = J(rows(H0), nint, 0)
+    for (j = 1; j <= nint; j++) {
+        lo = (j == 1 ? 0 : H0cut[j - 1])
+        if (j == nint) hi = H0
+        else           hi = (H0 :< H0cut[j]) :* H0 :+ (H0 :>= H0cut[j]) :* H0cut[j]
+        D[., j] = (hi :> lo) :* (hi :- lo)
+    }
+    return(D)
+}
+
 void _finegray_rank_fail(
     real matrix info_mat,
     string rowvector vars,
@@ -2946,17 +3598,26 @@ void _finegray_engine(
     real scalar show_log,
     real scalar adjust,
     real scalar want_bh,
-    real scalar nuisance)
+    real scalar nuisance,
+    string scalar bs_str,
+    string scalar tvc_str,
+    string scalar tsplit_str)
 {
     real colvector t, delta, event_type, G, byg_id, t0, tg_id
     real matrix Z, V, bh, weight_A
     real colvector beta, beta_new, score_vec, step, clust_id
     real colvector weight_gidx, weight_Gminus, weight_Apool
+    real colvector bsraw
     real matrix info_mat, info_inv
     real scalar n, p, ll, ll_new, ll_0, converged, iter
     real scalar step_scale, halving, max_halvings, chi2, df_m
     real scalar decrement, accepted, n_clust, rank_V, npos, weight_pooled
-    string rowvector vars
+    real scalar K_bs, kb
+    real colvector bslev_e
+    string scalar bs_noev
+    string rowvector vars, coefnames
+    real colvector cuts, ivl, fixpos, tvcpos
+    real scalar nint, ptot
 
     /* Read data */
     vars = tokens(varlist_str)
@@ -2983,6 +3644,71 @@ void _finegray_engine(
         tg_id = J(n, 1, 1)
     }
 
+    /* Baseline strata (bstrata()).  The RAW values travel into every scan; the
+       scans map them to 1..K themselves via uniqrows, so estimation and
+       post-estimation cannot disagree about which stratum is which. */
+    if (bs_str != "") {
+        bsraw = st_data(., bs_str)
+    }
+    else {
+        bsraw = J(n, 1, 1)
+    }
+    K_bs = rows(uniqrows(bsraw))
+
+    /* Piecewise-constant beta(t).  tsplit_str holds the interior boundaries and
+       tvc_str the 1-based positions of the time-varying design columns; both
+       empty means an ordinary fit, and nint == 1 makes every scan below
+       delegate to the exact call the engine made before this feature existed. */
+    if (tsplit_str != "") cuts = strtoreal(tokens(tsplit_str))'
+    else                  cuts = J(0, 1, .)
+    if (tvc_str != "") {
+        _finegray_tvc_positions(tvc_str, p, fixpos, tvcpos)
+        nint = rows(cuts) + 1
+    }
+    else {
+        fixpos = (1::p)
+        tvcpos = J(0, 1, .)
+        nint = 1
+    }
+    if (nint > 1) {
+        ivl = _finegray_tvc_interval(t, cuts)
+        coefnames = _finegray_tvc_labels(vars, fixpos, tvcpos, nint)
+    }
+    else {
+        ivl = J(n, 1, 1)
+        coefnames = vars
+    }
+    ptot = _finegray_tvc_ncoef(fixpos, tvcpos, nint)
+
+    /* Belt to the parser's braces.  Both refusals below are made in
+       finegray.ado, where the message can name the option and the alternative;
+       reaching either scan here with a piecewise design would silently fit a
+       DIFFERENT estimator at rc 0, so they are checked again where the scan is
+       chosen.  bstrata() is refused because Zhou et al. (2011) is a stratified
+       baseline for a single beta and composing the two has no reference
+       implementation; delayed entry is refused because the ZZF branch has no
+       piecewise scan at all. */
+    if (nint > 1 & K_bs > 1) {
+        errprintf("finegray: tvc() is not supported with bstrata()\n")
+        exit(error(198))
+    }
+
+    /* A stratum with no cause event is legitimate -- its terms simply drop out
+       of the pseudo-likelihood -- but it has NO baseline, so `predict, cif' or
+       finegray_cif for that stratum has nothing to answer from and fails
+       closed later.  Say so at fit time, where the user can still act on it. */
+    if (K_bs > 1) {
+        bslev_e = uniqrows(bsraw)
+        bs_noev = ""
+        for (kb = 1; kb <= K_bs; kb++) {
+            if (sum(((event_type :== cause) :& (delta :== 1)) :&
+                (bsraw :== bslev_e[kb])) == 0) {
+                bs_noev = bs_noev + " " + strofreal(bslev_e[kb])
+            }
+        }
+        st_local("_fg_bs_noevent", strtrim(bs_noev))
+    }
+
     /* Compute censoring distribution */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
 
@@ -2993,6 +3719,24 @@ void _finegray_engine(
     _finegray_prepare_weight_design(t, delta, censval, event_type, G, byg_id,
         t0, tg_id, weight_pooled, weight_gidx, weight_Gminus, weight_A,
         weight_Apool)
+
+    /* bstrata() is refused with delayed entry in the parser (Zhou et al. 2011
+       does not cover left truncation, so a stratified ZZF baseline would be an
+       unsourced extension).  This is the belt to that brace: the ZZF branch's
+       five scan functions have no stratum axis, so reaching them with K > 1
+       would silently fit the POOLED-baseline estimator at rc 0. */
+    if (weight_pooled & K_bs > 1) {
+        errprintf("finegray: bstrata() is not supported with delayed entry\n")
+        exit(error(198))
+    }
+
+    /* Same reasoning for beta(t): the delayed-entry scans have no piecewise
+       form, so a tvc() fit that reached them would report the ordinary
+       proportional estimator under a piecewise coefficient stripe. */
+    if (weight_pooled & nint > 1) {
+        errprintf("finegray: tvc() is not supported with delayed entry\n")
+        exit(error(198))
+    }
 
     /* Positivity BEFORE the fit.  A degenerate weight is knowable before a
        single Newton step; reporting it as nonconvergence 200 iterations later
@@ -3011,15 +3755,16 @@ void _finegray_engine(
         exit(error(459))
     }
 
-    /* Starting values: zeros */
-    beta = J(p, 1, 0)
+    /* Starting values: zeros.  ptot == p unless tvc() widened the frame. */
+    beta = J(ptot, 1, 0)
 
     /* Null log-likelihood (beta = 0).  The Fine-Gray partial likelihood has no
        identifiable intercept, so this is the beta=0 null, not a constant-only
        fit. */
-    ll_0 = _finegray_loglik(t, delta, cause, censval, event_type, Z,
-        J(p, 1, 0), G, byg_id, t0, tg_id, weight_pooled, weight_gidx,
-        weight_Gminus, weight_A, weight_Apool)
+    ll_0 = _finegray_loglik_pw(t, delta, cause, censval, event_type, Z,
+        J(ptot, 1, 0), G, byg_id, t0, tg_id, weight_pooled, weight_gidx,
+        weight_Gminus, weight_A, weight_Apool, bsraw, ivl, fixpos, tvcpos,
+        nint)
     if (ll_0 >= .) {
         errprintf("finegray: the null log pseudo-likelihood is not finite\n")
         exit(error(430))
@@ -3035,17 +3780,18 @@ void _finegray_engine(
 
     for (iter = 1; iter <= max_iter; iter++) {
         /* Score and information */
-        _finegray_score_info(t, delta, cause, censval, event_type,
+        _finegray_score_info_pw(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
             weight_pooled, weight_gidx, weight_Gminus, weight_A,
-            weight_Apool)
+            weight_Apool, bsraw, ivl, fixpos, tvcpos, nint)
 
         if (hasmissing(info_mat) | hasmissing(score_vec)) {
             errprintf("finegray: the score or information matrix is not ")
             errprintf("finite at iteration %g\n", iter)
             exit(error(430))
         }
-        if (rank(info_mat) < p) _finegray_rank_fail(info_mat, vars, p)
+        if (rank(info_mat) < ptot)
+            _finegray_rank_fail(info_mat, coefnames, ptot)
 
         info_inv = invsym(info_mat)
         if (missing(info_inv[1,1])) {
@@ -3083,10 +3829,10 @@ void _finegray_engine(
         accepted = 0
         for (halving = 1; halving <= max_halvings; halving++) {
             beta_new = beta + step_scale * step
-            ll_new = _finegray_loglik(t, delta, cause, censval,
+            ll_new = _finegray_loglik_pw(t, delta, cause, censval,
                 event_type, Z, beta_new, G, byg_id, t0, tg_id,
                 weight_pooled, weight_gidx, weight_Gminus, weight_A,
-                weight_Apool)
+                weight_Apool, bsraw, ivl, fixpos, tvcpos, nint)
 
             /* Mata returns exp(overflow) as missing, and (. > x) is TRUE, so a
                bare `ll_new > ll' would accept a missing likelihood as an
@@ -3131,9 +3877,9 @@ void _finegray_engine(
        step after its last likelihood evaluation, so reporting the pre-step ll
        there would post a stale value (with tolerance(1) it posted e(ll) ==
        e(ll_0) exactly while beta was nonzero). */
-    ll = _finegray_loglik(t, delta, cause, censval, event_type, Z, beta, G,
+    ll = _finegray_loglik_pw(t, delta, cause, censval, event_type, Z, beta, G,
         byg_id, t0, tg_id, weight_pooled, weight_gidx, weight_Gminus,
-        weight_A, weight_Apool)
+        weight_A, weight_Apool, bsraw, ivl, fixpos, tvcpos, nint)
     if (ll >= .) {
         errprintf("finegray: the log pseudo-likelihood is not finite at the ")
         errprintf("solution\n")
@@ -3141,15 +3887,16 @@ void _finegray_engine(
     }
 
     /* Final information for variance */
-    _finegray_score_info(t, delta, cause, censval, event_type,
+    _finegray_score_info_pw(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id, weight_pooled,
-        weight_gidx, weight_Gminus, weight_A, weight_Apool)
+        weight_gidx, weight_Gminus, weight_A, weight_Apool, bsraw,
+        ivl, fixpos, tvcpos, nint)
     if (hasmissing(info_mat)) {
         errprintf("finegray: the information matrix is not finite at the ")
         errprintf("solution\n")
         exit(error(430))
     }
-    if (rank(info_mat) < p) _finegray_rank_fail(info_mat, vars, p)
+    if (rank(info_mat) < ptot) _finegray_rank_fail(info_mat, coefnames, ptot)
     info_inv = invsym(info_mat)
     if (missing(info_inv[1,1])) {
         errprintf("finegray: the information matrix is singular at the ")
@@ -3181,13 +3928,13 @@ void _finegray_engine(
                 errprintf("clusters\n")
                 exit(error(459))
             }
-            if (n_clust <= p) {
+            if (n_clust <= ptot) {
                 errprintf("finegray: cluster(%s) identifies %g clusters for ",
                     clust_str, n_clust)
-                errprintf("%g coefficients\n", p)
+                errprintf("%g coefficients\n", ptot)
                 errprintf("the clustered variance matrix has rank at most %g, ",
                     n_clust - 1)
-                errprintf("so it cannot support %g standard errors\n", p)
+                errprintf("so it cannot support %g standard errors\n", ptot)
                 errprintf("use more clusters, or fit fewer covariates\n")
                 exit(error(459))
             }
@@ -3198,7 +3945,7 @@ void _finegray_engine(
         V = _finegray_robust_var(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0, tg_id,
             nuisance, weight_pooled, weight_gidx, weight_Gminus, weight_A,
-            weight_Apool)
+            weight_Apool, bsraw, ivl, fixpos, tvcpos, nint)
 
         /* Finite-sample adjustment, on by default and suppressed by noadjust.
            This is StataCorp's stcrreg contract exactly: g/(g-1) when clustered,
@@ -3226,9 +3973,10 @@ void _finegray_engine(
        the note above _finegray_bh_rebuild), so the Stata matrix stays opt-in.
        Postestimation reads the cache, which is what lets `predict, cif' work on
        NEW data after the estimation sample has been dropped. */
-    bh = _finegray_basehazard(t, delta, cause, censval, event_type,
+    bh = _finegray_basehazard_pw(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, t0, tg_id, weight_pooled, weight_gidx,
-        weight_Gminus, weight_A, weight_Apool)
+        weight_Gminus, weight_A, weight_Apool, bsraw, ivl, fixpos, tvcpos,
+        nint)
     _finegray_bh_store(bh)
 
     /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
@@ -3252,14 +4000,23 @@ void _finegray_engine(
     if (n_clust < .) st_matrix("_finegray_nclust", n_clust)
     if (want_bh) {
         st_matrix("_finegray_basehaz", bh)
-        st_matrixcolstripe("_finegray_basehaz",
-            (J(2,1,""), ("time" \ "cumhazard")))
+        /* K x 2 unstratified -- the shape every released consumer knows -- and
+           K x 3 under bstrata(), whose first column is the stratum VALUE. */
+        if (cols(bh) == 3) {
+            st_matrixcolstripe("_finegray_basehaz",
+                (J(3,1,""), ("bstratum" \ "time" \ "cumhazard")))
+        }
+        else {
+            st_matrixcolstripe("_finegray_basehaz",
+                (J(2,1,""), ("time" \ "cumhazard")))
+        }
     }
     st_matrix("_finegray_ll", ll)
     st_matrix("_finegray_ll_0", ll_0)
     st_matrix("_finegray_chi2", chi2)
     st_matrix("_finegray_df_m", df_m)
     st_matrix("_finegray_conv", converged)
+    st_matrix("_finegray_kbstrata", K_bs)
 }
 
 /* Influence-function variance of the predicted CIF.
@@ -3533,7 +4290,9 @@ real matrix _finegray_cif_core(
     real scalar has_clust,
     real scalar cause,
     real scalar censval,
-    real matrix E)
+    real matrix E,
+    | real colvector bsraw,
+    real colvector Etarget)
 {
     real colvector row_id
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
@@ -3541,12 +4300,15 @@ real matrix _finegray_cif_core(
     real colvector mstars
     real colvector gidx, Gminus, Apool, clust_ord, clust_sum
     real colvector cle, clt0, Acs, invS0, invS0sq, hi, lo
+    real colvector bslev, bscode, ordk, entry_ordk, evsel, inkk
     real matrix info_mat, info_inv, scores, PSIb, zbarm, out, Gt, Gm
     real matrix bwd_s1_raw, Bcs, GmInvS0sq, clust_info, bvecCS
     real rowvector risk_S1, bwd_s0_raw, zstar, bvec, S1_t, Bmstar
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
-    real scalar mp, ii, g, ng, use_pooled
+    real scalar mp, ii, g, ng, use_pooled, nk, kk, K, nev, ee
+
+    if (args() < 14) bsraw = J(rows(t), 1, 1)
 
     if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
         return(_finegray_cif_core_zzf(Z, t, t0, delta, event_type, beta,
@@ -3555,6 +4317,9 @@ real matrix _finegray_cif_core(
 
     n = rows(Z)
     p = cols(Z)
+    ne = rows(E)
+
+    if (args() < 15) Etarget = J(ne, 1, 1)
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
@@ -3566,12 +4331,12 @@ real matrix _finegray_cif_core(
 
     _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
         byg_id, score_vec, info_mat, t0, tg_id, use_pooled, gidx,
-        Gminus, Gt, Apool)
+        Gminus, Gt, Apool, bsraw)
     info_inv = _finegray_information_inverse(info_mat, "CIF")
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
-        Apool)
+        Apool, bsraw)
     PSIb = scores * info_inv
 
     eta = Z * beta
@@ -3588,163 +4353,196 @@ real matrix _finegray_cif_core(
     ord = order((t, row_id), (1, 2))
     entry_ord = order((t0, row_id), (1, 2))
 
-    /* Event scan: per cause-event arrays in ascending time */
-    M = sum(is_cause)
-    Tm = J(M, 1, .); S0m = J(M, 1, .); Gm = J(M, ng, .); obsm = J(M, 1, .)
-    zbarm = J(M, p, .)
-    risk_S0 = 0; risk_S1 = J(1, p, 0); ep = 1
-    bwd_s0_raw = J(1, ng, 0); bwd_s1_raw = J(ng, p, 0); ev = 0; i = 1
-    while (i <= n) {
-        cur_time = t[ord[i]]
-        /* Add entries: (t0, t] means t0 < cur_time */
-        while (ep <= n) {
-            if (t0[entry_ord[ep]] >= cur_time) break
-            idx = entry_ord[ep]
-            if (t[idx] >= cur_time) {
-                risk_S0 = risk_S0 + expeta[idx]
-                risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
-            }
-            ep++
-        }
-        j = i
-        while (j <= n) {
-            if (t[ord[j]] != cur_time) break
-            j++
-        }
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_cause[idx]) {
-                S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
-                S1_t = risk_S1 + Gt[idx, .] * bwd_s1_raw
-                ev++
-                Tm[ev] = t[idx]; S0m[ev] = S0_t
-                Gm[ev, .] = Gt[idx, .]; obsm[ev] = idx
-                zbarm[ev, .] = S1_t / S0_t
-            }
-        }
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            if (is_compete[idx]) {
-                g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
-                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / Gminus[idx] * Z[idx, .]
-            }
-        }
-        for (k = i; k < j; k++) {
-            idx = ord[k]
-            risk_S0 = risk_S0 - expeta[idx]
-            risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
-        }
-        i = j
-    }
-    cum_invS0 = runningsum(1 :/ S0m)
-
-    /* --- Prefix-sum scaffolding for the influence-function `sub' term ------
-       The original per-eval-point loop over the cause events accumulated, for
-       each observation i,
-         sub_i = sum_{m<=mstar} [ 1{t0_i<Tm[m]<=t_i}                        (at-risk)
-                                  + is_compete_i * 1{t_i<Tm[m]} * Gm[m]/G_i ] (fictitious)
-                                 / S0m[m]^2,
-       an O(M*n) inner loop per point. The two indicator families are step
-       functions of the sorted cause-event times (Tm ascending), so cumulative
-       sums over m collapse each observation's contribution to O(1):
-         at-risk term    = A[hi_i] - A[lo_i],       A[k] = sum_{m<=k} 1/S0m^2
-         fictitious term = (B[mstar]-B[hi_i])/G_i,  B[k] = sum_{m<=k} Gm/S0m^2
-       with hi_i = #{m<=mstar : Tm[m]<=t_i}  and  lo_i = #{m<=mstar : Tm[m]<=t0_i}.
-       The risk window is (t0_i, T_i] -- half-open at entry -- so lo_i counts
-       events AT t0_i as excluded, matching the engine's (t0, t] risk sets.
-       cle/clt0 (counts of cause events at/below each observation's exit/entry)
-       are eval-point independent, so they are built once via two-pointer merges
-       over the ascending Tm array.  Preprocessing is O(n log n); after that,
-       each requested horizon needs one O(n) influence-function assembly. */
-    invS0     = 1 :/ S0m
-    invS0sq   = 1 :/ (S0m :^ 2)
-    GmInvS0sq = Gm :/ ((S0m :^ 2) * J(1, ng, 1))
-    Acs = 0 \ runningsum(invS0sq)          /* Acs[k+1] = sum_{m<=k} 1/S0m^2 */
-    /* One censoring-KM column per group.  runningsum() takes a vector only, so
-       accumulate column by column -- Gm is M x ng whenever bygroup() strata are
-       in play (ng > 1) and a whole-matrix call would exit 3201. */
-    Bcs = J(M + 1, ng, 0)
-    for (g = 1; g <= ng; g++) {
-        Bcs[|2, g \ M + 1, g|] = runningsum(GmInvS0sq[., g])
-    }
-    bvecCS = J(M, p, 0)
-    for (j = 1; j <= p; j++) {
-        bvecCS[., j] = runningsum(zbarm[., j] :* invS0)
-    }
-
-    cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
-    clt0 = J(n, 1, 0)                       /* #{cause events with Tm <= t0_i} */
-    mp = 0
-    for (ii = 1; ii <= n; ii++) {
-        idx = ord[ii]
-        /* Mata & is not short-circuit: guard Tm[mp+1] with a nested test */
-        while (mp < M) {
-            if (Tm[mp + 1] <= t[idx]) mp++
-            else break
-        }
-        cle[idx] = mp
-    }
-    mp = 0
-    for (ii = 1; ii <= n; ii++) {
-        idx = entry_ord[ii]
-        while (mp < M) {
-            if (Tm[mp + 1] <= t0[idx]) mp++
-            else break
-        }
-        clt0[idx] = mp
-    }
-
     if (has_clust) {
         clust_ord = order((clust_id, row_id), (1, 2))
         clust_info = panelsetup(clust_id[clust_ord], 1)
     }
 
-    ne = rows(E)
-    /* Binary lookup replaces an O(M) cause-time scan at every horizon. */
-    mstars = _finegray_step_core((Tm, (1::M)), E[., 1])
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
+
     out = J(ne, 2, 0)
-    for (e = 1; e <= ne; e++) {
-        tstar = E[e, 1]
-        zstar = E[e, (2..p + 1)]
-        mstar = mstars[e]
-        if (mstar == 0) {
-            out[e, 1] = 0; out[e, 2] = 0
-            continue
+
+    /* bstrata(): each stratum has its OWN baseline, so CIF(t*|z*) is a
+       stratum-specific quantity.  The event scan, its prefix sums and the
+       influence-function assembly all run within the stratum an evaluation
+       point asks for; beta -- and hence PSIb, computed once above -- is shared,
+       which is exactly the model's structure (shared beta, free baselines).
+       Every quantity a subject outside the stratum contributes to that
+       stratum's baseline is identically zero, so its influence enters only
+       through the shared-beta term. */
+    for (kk = 1; kk <= K; kk++) {
+        if (K <= 1) {
+            evsel = (1::ne)
+            inkk = J(n, 1, 1)
         }
-        L0 = cum_invS0[mstar]
-        bvec = -bvecCS[mstar, .]
-        rstar = exp(zstar * beta)
-        cif = 1 - exp(-L0 * rstar)
-        factor = rstar * exp(-L0 * rstar)
+        else {
+            evsel = selectindex(Etarget :== bslev[kk])
+            inkk = (bscode :== kk)
+        }
+        nev = length(evsel)
+        if (nev == 0) continue
 
-        own = J(n, 1, 0)
-        for (m = 1; m <= mstar; m++) own[obsm[m]] = invS0[m]
+        ordk = _finegray_bs_rows(ord, bscode, kk, K)
+        entry_ordk = _finegray_bs_rows(entry_ord, bscode, kk, K)
+        nk = length(ordk)
+        if (nk == 0) continue
 
-        /* hi_i = #{m<=mstar : Tm[m]<=t_i}; lo_i = #{m<=mstar : Tm[m]<=t0_i} */
-        hi = (cle :> mstar) :* mstar :+ (cle :<= mstar) :* cle
-        lo = (clt0 :> hi) :* hi :+ (clt0 :<= hi) :* clt0
-        Bmstar = Bcs[mstar + 1, .]
-        sub = Acs[hi :+ 1] - Acs[lo :+ 1]
-        for (i = 1; i <= n; i++) {
-            if (is_compete[i]) {
-                g = gidx[i]
-                sub[i] = sub[i] +
-                    (Bmstar[g] - Bcs[hi[i] + 1, g]) / Gminus[i]
+        /* Event scan: per cause-event arrays in ascending time */
+        M = sum(select(is_cause, inkk))
+        if (M == 0) continue
+        Tm = J(M, 1, .); S0m = J(M, 1, .); Gm = J(M, ng, .); obsm = J(M, 1, .)
+        zbarm = J(M, p, .)
+        risk_S0 = 0; risk_S1 = J(1, p, 0); ep = 1
+        bwd_s0_raw = J(1, ng, 0); bwd_s1_raw = J(ng, p, 0); ev = 0; i = 1
+        while (i <= nk) {
+            cur_time = t[ordk[i]]
+            /* Add entries: (t0, t] means t0 < cur_time */
+            while (ep <= nk) {
+                if (t0[entry_ordk[ep]] >= cur_time) break
+                idx = entry_ordk[ep]
+                if (t[idx] >= cur_time) {
+                    risk_S0 = risk_S0 + expeta[idx]
+                    risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+                }
+                ep++
             }
+            j = i
+            while (j <= nk) {
+                if (t[ordk[j]] != cur_time) break
+                j++
+            }
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_cause[idx]) {
+                    S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                    S1_t = risk_S1 + Gt[idx, .] * bwd_s1_raw
+                    ev++
+                    Tm[ev] = t[idx]; S0m[ev] = S0_t
+                    Gm[ev, .] = Gt[idx, .]; obsm[ev] = idx
+                    zbarm[ev, .] = S1_t / S0_t
+                }
+            }
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                if (is_compete[idx]) {
+                    g = gidx[idx]
+                    bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
+                    bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                        expeta[idx] / Gminus[idx] * Z[idx, .]
+                }
+            }
+            for (k = i; k < j; k++) {
+                idx = ordk[k]
+                risk_S0 = risk_S0 - expeta[idx]
+                risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+            }
+            i = j
         }
-        q = own - expeta :* sub
-        psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
+        cum_invS0 = runningsum(1 :/ S0m)
 
-        if (has_clust) {
-            clust_sum = panelsum(psi[clust_ord], clust_info)
-            V = colsum(clust_sum :^ 2)
+        /* --- Prefix-sum scaffolding for the influence-function `sub' term ------
+           The original per-eval-point loop over the cause events accumulated, for
+           each observation i,
+             sub_i = sum_{m<=mstar} [ 1{t0_i<Tm[m]<=t_i}                        (at-risk)
+                                      + is_compete_i * 1{t_i<Tm[m]} * Gm[m]/G_i ] (fictitious)
+                                     / S0m[m]^2,
+           an O(M*n) inner loop per point. The two indicator families are step
+           functions of the sorted cause-event times (Tm ascending), so cumulative
+           sums over m collapse each observation's contribution to O(1):
+             at-risk term    = A[hi_i] - A[lo_i],       A[k] = sum_{m<=k} 1/S0m^2
+             fictitious term = (B[mstar]-B[hi_i])/G_i,  B[k] = sum_{m<=k} Gm/S0m^2
+           with hi_i = #{m<=mstar : Tm[m]<=t_i}  and  lo_i = #{m<=mstar : Tm[m]<=t0_i}.
+           The risk window is (t0_i, T_i] -- half-open at entry -- so lo_i counts
+           events AT t0_i as excluded, matching the engine's (t0, t] risk sets.
+           cle/clt0 (counts of cause events at/below each observation's exit/entry)
+           are eval-point independent, so they are built once via two-pointer merges
+           over the ascending Tm array.  Preprocessing is O(n log n); after that,
+           each requested horizon needs one O(n) influence-function assembly.
+           Under bstrata() they are built over THIS stratum's rows only, and a row
+           outside the stratum keeps cle = clt0 = 0, so its at-risk term is exactly
+           zero -- it was never in this baseline's risk sets. */
+        invS0     = 1 :/ S0m
+        invS0sq   = 1 :/ (S0m :^ 2)
+        GmInvS0sq = Gm :/ ((S0m :^ 2) * J(1, ng, 1))
+        Acs = 0 \ runningsum(invS0sq)          /* Acs[k+1] = sum_{m<=k} 1/S0m^2 */
+        /* One censoring-KM column per group.  runningsum() takes a vector only, so
+           accumulate column by column -- Gm is M x ng whenever bygroup() strata are
+           in play (ng > 1) and a whole-matrix call would exit 3201. */
+        Bcs = J(M + 1, ng, 0)
+        for (g = 1; g <= ng; g++) {
+            Bcs[|2, g \ M + 1, g|] = runningsum(GmInvS0sq[., g])
         }
-        else V = colsum(psi :^ 2)
+        bvecCS = J(M, p, 0)
+        for (j = 1; j <= p; j++) {
+            bvecCS[., j] = runningsum(zbarm[., j] :* invS0)
+        }
 
-        out[e, 1] = cif
-        out[e, 2] = sqrt(V)
+        cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
+        clt0 = J(n, 1, 0)                       /* #{cause events with Tm <= t0_i} */
+        mp = 0
+        for (ii = 1; ii <= nk; ii++) {
+            idx = ordk[ii]
+            /* Mata & is not short-circuit: guard Tm[mp+1] with a nested test */
+            while (mp < M) {
+                if (Tm[mp + 1] <= t[idx]) mp++
+                else break
+            }
+            cle[idx] = mp
+        }
+        mp = 0
+        for (ii = 1; ii <= nk; ii++) {
+            idx = entry_ordk[ii]
+            while (mp < M) {
+                if (Tm[mp + 1] <= t0[idx]) mp++
+                else break
+            }
+            clt0[idx] = mp
+        }
+
+        /* Binary lookup replaces an O(M) cause-time scan at every horizon. */
+        mstars = _finegray_step_core((Tm, (1::M)), E[evsel, 1])
+        for (ee = 1; ee <= nev; ee++) {
+            e = evsel[ee]
+            tstar = E[e, 1]
+            zstar = E[e, (2..p + 1)]
+            mstar = mstars[ee]
+            if (mstar == 0) {
+                out[e, 1] = 0; out[e, 2] = 0
+                continue
+            }
+            L0 = cum_invS0[mstar]
+            bvec = -bvecCS[mstar, .]
+            rstar = exp(zstar * beta)
+            cif = 1 - exp(-L0 * rstar)
+            factor = rstar * exp(-L0 * rstar)
+
+            own = J(n, 1, 0)
+            for (m = 1; m <= mstar; m++) own[obsm[m]] = invS0[m]
+
+            /* hi_i = #{m<=mstar : Tm[m]<=t_i}; lo_i = #{m<=mstar : Tm[m]<=t0_i} */
+            hi = (cle :> mstar) :* mstar :+ (cle :<= mstar) :* cle
+            lo = (clt0 :> hi) :* hi :+ (clt0 :<= hi) :* clt0
+            Bmstar = Bcs[mstar + 1, .]
+            sub = Acs[hi :+ 1] - Acs[lo :+ 1]
+            for (i = 1; i <= n; i++) {
+                if (is_compete[i] & inkk[i]) {
+                    g = gidx[i]
+                    sub[i] = sub[i] +
+                        (Bmstar[g] - Bcs[hi[i] + 1, g]) / Gminus[i]
+                }
+            }
+            q = own - expeta :* sub
+            psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
+
+            if (has_clust) {
+                clust_sum = panelsum(psi[clust_ord], clust_info)
+                V = colsum(clust_sum :^ 2)
+            }
+            else V = colsum(psi :^ 2)
+
+            out[e, 1] = cif
+            out[e, 2] = sqrt(V)
+        }
     }
     return(out)
 }
@@ -3761,11 +4559,17 @@ void _finegray_cif_var_st(
     string scalar tousevar,
     string scalar evalmat,
     string scalar outmat,
-    string scalar t0var)
+    string scalar t0var,
+    | string scalar bsvar,
+    real scalar lev)
 {
     real matrix Z, E, out
     real colvector t, t0, delta, event_type, beta, byg_id, tg_id, clust_id
+    real colvector bsraw
     real scalar n, has_clust
+
+    if (args() < 12) bsvar = ""
+    if (args() < 13) lev = .
 
     Z = st_data(., tokens(zvars), tousevar)
     t = st_data(., "_t", tousevar)
@@ -3782,9 +4586,16 @@ void _finegray_cif_var_st(
     if (has_clust) clust_id = st_data(., clust_str, tousevar)
     else clust_id = J(n, 1, .)
 
+    /* bstrata(): every point in this call belongs to ONE stratum -- the one
+       finegray_cif's bstratum() named -- because at() no longer identifies a
+       curve once the baselines are free. */
+    if (bsvar != "") bsraw = st_data(., bsvar, tousevar)
+    else             bsraw = J(n, 1, 1)
+
     E = st_matrix(evalmat)
     out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id, tg_id,
-        clust_id, has_clust, cause, censval, E)
+        clust_id, has_clust, cause, censval, E, bsraw,
+        J(rows(E), 1, (bsvar != "" ? lev : 1)))
     st_matrix(outmat, out)
 }
 
@@ -3804,12 +4615,15 @@ void _finegray_cif_predict(
     string scalar eval_touse,
     string scalar tvar,
     string scalar sevar,
-    string scalar t0var)
+    string scalar t0var,
+    | string scalar bsvar)
 {
     real matrix Z, Zev, E, out
     real colvector t, t0, delta, event_type, beta, byg_id, tg_id, clust_id
-    real colvector etouse, sel, tev
+    real colvector etouse, sel, tev, bsraw, bstarget
     real scalar n, has_clust
+
+    if (args() < 12) bsvar = ""
 
     Z = st_data(., tokens(zvars), est_touse)
     t = st_data(., "_t", est_touse)
@@ -3832,8 +4646,19 @@ void _finegray_cif_predict(
     Zev = st_data(sel, tokens(zvars))
     E = (tev, Zev)
 
+    /* bstrata(): each evaluation row is answered from the baseline of ITS OWN
+       stratum, so the target vector is that row's bstrata() value. */
+    if (bsvar != "") {
+        bsraw = st_data(., bsvar, est_touse)
+        bstarget = st_data(sel, bsvar)
+    }
+    else {
+        bsraw = J(n, 1, 1)
+        bstarget = J(length(sel), 1, 1)
+    }
+
     out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id, tg_id,
-        clust_id, has_clust, cause, censval, E)
+        clust_id, has_clust, cause, censval, E, bsraw, bstarget)
     /* out[.,1] is the CIF; the analytic point CIF is taken from the step-lookup
        path in finegray_predict, so only the influence-function SE is stored. */
     st_store(sel, sevar, out[., 2])
@@ -3845,13 +4670,15 @@ void _finegray_cif_predict(
    matrix at O(K^2) cost.  Step lookup is binary-search O(ng*log K), not the
    former nested O(ng*K) scan. Returns an ng x 1 matrix. */
 void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar omat,
-    real scalar seq)
+    real scalar seq, | real scalar lev)
 {
     external real matrix _finegray_bh_cache
     external real scalar _finegray_bh_seq
     real rowvector zr
     real colvector beta, gg, cif, H0
     real scalar p, k, xb
+
+    if (args() < 5) lev = .
 
     if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
         rows(_finegray_bh_cache) == 0) {
@@ -3864,7 +4691,9 @@ void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar om
     xb = 0
     for (k = 1; k <= p; k++) xb = xb + zr[k] * beta[k]
     gg = st_matrix(gmat)
-    H0 = _finegray_step_core(_finegray_bh_cache, gg)
+    /* Under bstrata() the replication's cache holds one curve per stratum; the
+       requested stratum is the one the point estimate was built on. */
+    H0 = _finegray_step_core(_finegray_bh_stratum(_finegray_bh_cache, lev), gg)
     cif = 1 :- exp(-H0 :* exp(xb))
     st_matrix(omat, cif)
 }
@@ -3880,12 +4709,15 @@ void _finegray_boot_cif_obs(
     string scalar touse,
     string scalar sumv,
     string scalar ssv,
-    real scalar seq)
+    real scalar seq,
+    | string scalar bsvar)
 {
     external real matrix _finegray_bh_cache
     external real scalar _finegray_bh_seq
     real matrix Z
-    real colvector beta, tt, xb, cif, sumc, ssc, tousev, sel, H0
+    real colvector beta, tt, xb, cif, sumc, ssc, tousev, sel, H0, bsvals
+
+    if (args() < 7) bsvar = ""
 
     if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
         rows(_finegray_bh_cache) == 0) {
@@ -3898,8 +4730,202 @@ void _finegray_boot_cif_obs(
     Z = st_data(sel, tokens(zvars))
     tt = st_data(sel, tvar)
     xb = Z * beta
-    H0 = _finegray_step_core(_finegray_bh_cache, tt)
+    if (bsvar != "") bsvals = st_data(sel, bsvar)
+    else             bsvals = J(length(sel), 1, 1)
+    H0 = _finegray_step_core_bs(_finegray_bh_cache, tt, bsvals)
     cif = 1 :- exp(-H0 :* exp(xb))
+    sumc = st_data(sel, sumv)
+    ssc = st_data(sel, ssv)
+    st_store(sel, sumv, sumc :+ cif)
+    st_store(sel, ssv, ssc :+ cif :^ 2)
+}
+
+/* ------------------------------------------------------------------------
+   CIF under piecewise-constant beta(t).
+
+     Lambda(s | z) = sum_{m: T_m <= s} exp(z' theta_{j(m)}) / S0_{j(m)}(T_m)
+                   = sum_j exp(eta_j(z)) * (baseline mass in interval j up to s)
+     CIF(s | z)    = 1 - exp(-Lambda(s | z))
+
+   There is one baseline: the interval structure lives in the linear predictor.
+   So the point estimate needs only the ordinary Breslow curve (built by the
+   piecewise scan) plus its value AT each boundary, which _finegray_tvc_bhpieces
+   turns into the per-interval masses.
+
+   NO ANALYTIC STANDARD ERROR IS RETURNED.  The influence function in
+   _finegray_cif_core is derived for a single exp(z'beta) multiplying every
+   Breslow increment; under beta(t) each increment carries its own interval's
+   linear predictor and its own S0, so both the prefix-sum scaffolding and the
+   beta-derivative term change shape.  That derivation is not in this release,
+   and returning the proportional-hazards influence function for a piecewise fit
+   would be a wrong standard error at rc 0.  Column 2 is therefore missing, and
+   finegray_cif / finegray_predict refuse an analytic CI on a tvc() fit and
+   offer the bootstrap, which resamples the whole fit and needs no derivation.
+   ------------------------------------------------------------------------ */
+
+/* eta_j(z) for every evaluation profile: an ne x nint matrix of linear
+   predictors, one column per interval. */
+real matrix _finegray_tvc_eta(
+    real matrix Zstar,
+    real colvector beta,
+    real colvector fixpos,
+    real colvector tvcpos,
+    real scalar nint)
+{
+    real matrix eta
+    real scalar j
+
+    eta = J(rows(Zstar), nint, 0)
+    for (j = 1; j <= nint; j++) {
+        eta[., j] = _finegray_tvc_design(Zstar, fixpos, tvcpos, nint, j) * beta
+    }
+    return(eta)
+}
+
+/* Lambda(s|z) from the per-interval baseline masses and per-interval linear
+   predictors. */
+real colvector _finegray_tvc_lambda(
+    real matrix pieces,
+    real matrix eta)
+{
+    return(rowsum(pieces :* exp(eta)))
+}
+
+/* Point CIF at a k x (1+p) matrix of evaluation points (col 1 = time, cols 2..
+   = covariate profile in the FIT'S design frame, p columns -- not p').  Returns
+   k x 2 with the SE column missing; see the header above. */
+void _finegray_cif_point_tvc(
+    string scalar zvars,
+    string scalar events_str,
+    real scalar cause,
+    real scalar censval,
+    string scalar byg_str,
+    string scalar tg_str,
+    string scalar tousevar,
+    string scalar evalmat,
+    string scalar outmat,
+    string scalar t0var,
+    string scalar tvc_str,
+    string scalar tsplit_str)
+{
+    real matrix Z, E, bh, out, pieces, eta
+    real colvector t, t0, delta, event_type, beta, byg_id, tg_id, G, bsraw
+    real colvector gidx, Gminus, Apool, cuts, ivl, fixpos, tvcpos, H0, Lam
+    real matrix Gt
+    real scalar n, p, use_pooled, nint
+
+    Z = st_data(., tokens(zvars), tousevar)
+    t = st_data(., "_t", tousevar)
+    t0 = st_data(., t0var, tousevar)
+    delta = st_data(., "_d", tousevar)
+    event_type = st_data(., events_str, tousevar)
+    n = rows(Z)
+    p = cols(Z)
+    beta = st_matrix("e(b)")'
+    if (byg_str != "") byg_id = st_data(., byg_str, tousevar)
+    else               byg_id = J(n, 1, 1)
+    if (tg_str != "")  tg_id = st_data(., tg_str, tousevar)
+    else               tg_id = J(n, 1, 1)
+    bsraw = J(n, 1, 1)
+
+    cuts = (tsplit_str != "" ? strtoreal(tokens(tsplit_str))' : J(0, 1, .))
+    _finegray_tvc_positions(tvc_str, p, fixpos, tvcpos)
+    nint = rows(cuts) + 1
+    ivl = _finegray_tvc_interval(t, cuts)
+
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+        byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+    bh = _finegray_basehazard_pw(t, delta, cause, censval, event_type, Z,
+        beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool,
+        bsraw, ivl, fixpos, tvcpos, nint)
+
+    E = st_matrix(evalmat)
+    H0 = _finegray_step_core(bh, E[., 1])
+    pieces = _finegray_tvc_bhpieces(H0, _finegray_step_core(bh, cuts)', nint)
+    eta = _finegray_tvc_eta(E[., (2..p + 1)], beta, fixpos, tvcpos, nint)
+    Lam = _finegray_tvc_lambda(pieces, eta)
+
+    out = J(rows(E), 2, .)
+    out[., 1] = 1 :- exp(-Lam)
+    st_matrix(outmat, out)
+}
+
+/* Bootstrap helper (curve mode): piecewise CIF at a grid of times for one
+   covariate profile, from the current refit's e(b) and fit-keyed cache. */
+void _finegray_boot_cif_tvc(
+    string scalar zmat,
+    string scalar gmat,
+    string scalar omat,
+    real scalar seq,
+    string scalar tvc_str,
+    string scalar tsplit_str)
+{
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
+    real matrix eta, pieces
+    real colvector beta, gg, cuts, fixpos, tvcpos, H0
+    real scalar nint
+
+    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+        rows(_finegray_bh_cache) == 0) {
+        errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
+        exit(error(459))
+    }
+    beta = st_matrix("e(b)")'
+    cuts = (tsplit_str != "" ? strtoreal(tokens(tsplit_str))' : J(0, 1, .))
+    nint = rows(cuts) + 1
+    _finegray_tvc_positions(tvc_str, cols(st_matrix(zmat)), fixpos, tvcpos)
+    gg = st_matrix(gmat)
+    H0 = _finegray_step_core(_finegray_bh_cache, gg)
+    pieces = _finegray_tvc_bhpieces(H0,
+        _finegray_step_core(_finegray_bh_cache, cuts)', nint)
+    eta = _finegray_tvc_eta(J(rows(gg), 1, 1) # st_matrix(zmat), beta,
+        fixpos, tvcpos, nint)
+    st_matrix(omat, 1 :- exp(-_finegray_tvc_lambda(pieces, eta)))
+}
+
+/* Bootstrap helper (per-observation mode): piecewise CIF at each evaluation
+   observation's own time, accumulated into the running sum / sum-of-squares. */
+void _finegray_boot_cif_obs_tvc(
+    string scalar zvars,
+    string scalar tvar,
+    string scalar touse,
+    string scalar sumv,
+    string scalar ssv,
+    real scalar seq,
+    string scalar tvc_str,
+    string scalar tsplit_str)
+{
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
+    real matrix Z, eta, pieces
+    real colvector beta, tt, cif, sumc, ssc, tousev, sel, H0
+    real colvector cuts, fixpos, tvcpos
+    real scalar nint
+
+    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+        rows(_finegray_bh_cache) == 0) {
+        errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
+        exit(error(459))
+    }
+    beta = st_matrix("e(b)")'
+    tousev = st_data(., touse)
+    sel = selectindex(tousev :!= 0)
+    if (length(sel) == 0) return
+    Z = st_data(sel, tokens(zvars))
+    tt = st_data(sel, tvar)
+
+    cuts = (tsplit_str != "" ? strtoreal(tokens(tsplit_str))' : J(0, 1, .))
+    nint = rows(cuts) + 1
+    _finegray_tvc_positions(tvc_str, cols(Z), fixpos, tvcpos)
+
+    H0 = _finegray_step_core(_finegray_bh_cache, tt)
+    pieces = _finegray_tvc_bhpieces(H0,
+        _finegray_step_core(_finegray_bh_cache, cuts)', nint)
+    eta = _finegray_tvc_eta(Z, beta, fixpos, tvcpos, nint)
+    cif = 1 :- exp(-_finegray_tvc_lambda(pieces, eta))
+
     sumc = st_data(sel, sumv)
     ssc = st_data(sel, ssv)
     st_store(sel, sumv, sumc :+ cif)
@@ -3939,11 +4965,21 @@ real matrix _finegray_bh_rebuild(
     string scalar byg_str,
     string scalar tg_str,
     string scalar tousevar,
-    string scalar t0var)
+    string scalar t0var,
+    | string scalar bs_str,
+    string scalar tvc_str,
+    string scalar tsplit_str)
 {
     real matrix Z
-    real colvector t, t0, delta, event_type, beta, byg_id, tg_id, G
-    real scalar n
+    real colvector t, t0, delta, event_type, beta, byg_id, tg_id, G, bsraw
+    real scalar n, use_pooled, nint
+    real colvector gidx, Gminus, Apool
+    real colvector cuts, ivl, fixpos, tvcpos
+    real matrix Gt
+
+    if (args() < 9) bs_str = ""
+    if (args() < 10) tvc_str = ""
+    if (args() < 11) tsplit_str = ""
 
     Z = st_data(., tokens(zvars), tousevar)
     t = st_data(., "_t", tousevar)
@@ -3956,11 +4992,35 @@ real matrix _finegray_bh_rebuild(
     else               byg_id = J(n, 1, 1)
     if (tg_str != "")  tg_id = st_data(., tg_str, tousevar)
     else               tg_id = J(n, 1, 1)
+    /* bstrata(): the fit's own stratum column, read from the estimation sample.
+       Rebuilding without it would return the POOLED baseline for a stratified
+       fit -- a different curve, at rc 0. */
+    if (bs_str != "")  bsraw = st_data(., bs_str, tousevar)
+    else               bsraw = J(n, 1, 1)
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
+    _finegray_prepare_weight_design(t, delta, censval, event_type, G,
+        byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool)
+
+    /* Piecewise beta(t): the rebuild must run the SAME baseline scan the fit
+       ran.  Rebuilding with the ordinary scan would return the proportional
+       fit's baseline for a piecewise fit -- a different curve, at rc 0 -- so
+       the interval structure travels with the call.  tvc_str carries POSITIONS
+       into zvars, not names, because post-estimation is allowed to rebuild the
+       design columns as tempvars. */
+    if (tvc_str != "") {
+        cuts = (tsplit_str != "" ? strtoreal(tokens(tsplit_str))' : J(0, 1, .))
+        _finegray_tvc_positions(tvc_str, cols(Z), fixpos, tvcpos)
+        nint = rows(cuts) + 1
+        ivl = _finegray_tvc_interval(t, cuts)
+        return(_finegray_basehazard_pw(t, delta, cause, censval, event_type,
+            Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
+            Apool, bsraw, ivl, fixpos, tvcpos, nint))
+    }
+
     return(_finegray_basehazard(t, delta, cause, censval, event_type, Z, beta,
-        G, byg_id, t0, tg_id))
+        G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool, bsraw))
 }
 
 /* ------------------------------------------------------------------------
@@ -4039,44 +5099,90 @@ void _finegray_bh_unstash()
     _finegray_bh_seq   = _finegray_bh_seq_stash
 }
 
+/* Lambda_0 AT each tsplit() boundary, posted as a 1 x (nint-1) Stata matrix.
+   Every baseline consumer under tvc() needs these and only these extra values:
+   with interval j = (cuts[j-1], cuts[j]] the mass falling in interval j up to
+   time s is min(Lambda_0(s), Lambda_0(cuts[j])) - Lambda_0(cuts[j-1]), so the
+   ordinary step search answers it and no left limit is required.
+
+   It lives HERE, beside the three lookup paths, so that whichever source a
+   caller resolved -- the posted e(basehaz), the Mata cache, or a rebuild -- the
+   boundary values come from the SAME curve as the per-observation values.
+   Reading them from a second, independently resolved curve is how a CIF ends up
+   mixing two baselines at rc 0.  A no-op unless the caller asked. */
+void _finegray_bh_cutvals(
+    real matrix bh,
+    string scalar tsplit_str,
+    string scalar cutmat)
+{
+    real colvector cuts
+
+    if (cutmat == "" | tsplit_str == "") return
+    cuts = strtoreal(tokens(tsplit_str))'
+    if (rows(cuts) == 0) return
+    if (cols(bh) != 2) {
+        errprintf("finegray: a stratified baseline cannot carry tvc() ")
+        errprintf("boundary values\n")
+        exit(error(498))
+    }
+    st_matrix(cutmat, _finegray_step_core(bh, cuts)')
+}
+
 /* Step lookup against the cached curve.  Refuses a mismatched seq rather than
    answering from another fit's baseline. */
 void _finegray_step_lookup_cached(
     real scalar seq,
     string scalar tvar,
     string scalar H0var,
-    string scalar tousevar)
+    string scalar tousevar,
+    | string scalar bsvar,
+    string scalar tsplit_str,
+    string scalar cutmat)
 {
     external real matrix _finegray_bh_cache
     external real scalar _finegray_bh_seq
-    real colvector touse_vec, sel, times, H0
+    real colvector touse_vec, sel, times, H0, bsvals
+
+    if (args() < 5) bsvar = ""
+    if (args() < 6) tsplit_str = ""
+    if (args() < 7) cutmat = ""
 
     if (_finegray_bh_seq >= . | _finegray_bh_seq != seq) {
         errprintf("finegray: cached baseline does not belong to the active fit\n")
         exit(error(459))
     }
+    _finegray_bh_cutvals(_finegray_bh_cache, tsplit_str, cutmat)
     touse_vec = st_data(., tousevar)
     sel = selectindex(touse_vec)
     if (length(sel) == 0) return
     times = st_data(sel, tvar)
-    H0 = _finegray_step_core(_finegray_bh_cache, times)
+    if (bsvar != "") bsvals = st_data(sel, bsvar)
+    else             bsvals = J(length(sel), 1, 1)
+    H0 = _finegray_step_core_bs(_finegray_bh_cache, times, bsvals)
     st_store(sel, H0var, H0)
 }
 
 /* The thinned grid, taken from the cached curve (finegray_cif's curve mode). */
 void _finegray_bh_grid_cached(real scalar seq, real scalar maxpts,
-    string scalar outmat)
+    string scalar outmat, | real scalar lev)
 {
     external real matrix _finegray_bh_cache
     external real scalar _finegray_bh_seq
     real colvector idx
+    real matrix bh
     real scalar nbh, step, r, last
+
+    if (args() < 4) lev = .
 
     if (_finegray_bh_seq >= . | _finegray_bh_seq != seq) {
         errprintf("finegray: cached baseline does not belong to the active fit\n")
         exit(error(459))
     }
-    nbh = rows(_finegray_bh_cache)
+    /* Under bstrata() the curve is one step function per stratum, so the plot
+       grid is the requested stratum's event times -- not every stratum's times
+       pooled, which is a grid no single curve steps on. */
+    bh = _finegray_bh_stratum(_finegray_bh_cache, lev)
+    nbh = rows(bh)
     st_local("_fg_nbh", strofreal(nbh))
     if (nbh == 0) return
 
@@ -4088,7 +5194,7 @@ void _finegray_bh_grid_cached(real scalar seq, real scalar maxpts,
         last = r
     }
     if (last < nbh) idx = idx \ nbh
-    st_matrix(outmat, _finegray_bh_cache[idx, 1])
+    st_matrix(outmat, bh[idx, 1])
 }
 
 /* Shared binary-search step lookup: largest baseline time <= each element of
@@ -4115,6 +5221,70 @@ real colvector _finegray_step_core(real matrix bh, real colvector times)
     return(H0)
 }
 
+/* Baseline-strata step lookup.  A K x 3 curve (bstratum, time, cumhaz) holds
+   one step function per stratum, so each evaluation row is looked up in the
+   block belonging to ITS stratum value.  A K x 2 curve is unstratified and
+   falls through to the pooled lookup, unchanged to the last bit.
+
+   A row whose stratum never appeared in the fit has no baseline at all.  It is
+   refused by name rather than answered with 0 (which is a real cumulative
+   subhazard -- "no events yet" -- and would be read as a CIF of exactly 0) or
+   with missing (which every arithmetic consumer propagates silently). */
+real colvector _finegray_step_core_bs(
+    real matrix bh,
+    real colvector times,
+    real colvector bsvals)
+{
+    real colvector H0, lev, sel, seen, unmatched
+    real scalar g, nlev
+
+    if (cols(bh) < 3) return(_finegray_step_core(bh, times))
+
+    H0 = J(rows(times), 1, .)
+    seen = J(rows(times), 1, 0)
+    lev = uniqrows(bh[., 1])
+    nlev = rows(lev)
+    for (g = 1; g <= nlev; g++) {
+        sel = selectindex(bsvals :== lev[g])
+        if (length(sel) == 0) continue
+        H0[sel] = _finegray_step_core(
+            select(bh[., (2, 3)], bh[., 1] :== lev[g]), times[sel])
+        seen[sel] = J(length(sel), 1, 1)
+    }
+    unmatched = selectindex(seen :== 0)
+    if (length(unmatched) > 0) {
+        errprintf("finegray: baseline stratum %g has no fitted baseline\n",
+            bsvals[unmatched[1]])
+        errprintf("%g observation(s) lie in bstrata() level(s) the fit never saw\n",
+            length(unmatched))
+        errprintf("each stratum carries its own baseline, so there is nothing ")
+        errprintf("to predict from\n")
+        exit(error(459))
+    }
+    return(H0)
+}
+
+/* The rows of one baseline stratum, as a (time, cumhaz) curve.  lev is missing
+   for an unstratified fit, where the whole curve is the answer. */
+real matrix _finegray_bh_stratum(real matrix bh, real scalar lev)
+{
+    real matrix sub
+
+    if (cols(bh) < 3) return(bh)
+    if (lev >= .) {
+        errprintf("finegray: this fit has baseline strata; a stratum must be ")
+        errprintf("named\n")
+        exit(error(198))
+    }
+    sub = select(bh[., (2, 3)], bh[., 1] :== lev)
+    if (rows(sub) == 0) {
+        errprintf("finegray: baseline stratum %g was not present in the fit\n",
+            lev)
+        exit(error(459))
+    }
+    return(sub)
+}
+
 /* Step lookup with the baseline rebuilt in Mata -- the path taken when the user
    did not ask for e(basehaz).  Same values as _finegray_step_lookup(); it just
    never routes the curve through a Stata matrix. */
@@ -4129,18 +5299,30 @@ void _finegray_step_lookup_direct(
     string scalar t0var,
     string scalar tvar,
     string scalar H0var,
-    string scalar eval_touse)
+    string scalar eval_touse,
+    | string scalar bs_str,
+    string scalar tvc_str,
+    string scalar tsplit_str,
+    string scalar cutmat)
 {
     real matrix bh
-    real colvector touse_vec, sel, times, H0
+    real colvector touse_vec, sel, times, H0, bsvals
+
+    if (args() < 12) bs_str = ""
+    if (args() < 13) tvc_str = ""
+    if (args() < 14) tsplit_str = ""
+    if (args() < 15) cutmat = ""
 
     bh = _finegray_bh_rebuild(zvars, events_str, cause, censval, byg_str,
-        tg_str, est_touse, t0var)
+        tg_str, est_touse, t0var, bs_str, tvc_str, tsplit_str)
+    _finegray_bh_cutvals(bh, tsplit_str, cutmat)
     touse_vec = st_data(., eval_touse)
     sel = selectindex(touse_vec)
     if (length(sel) == 0) return
     times = st_data(sel, tvar)
-    H0 = _finegray_step_core(bh, times)
+    if (bs_str != "") bsvals = st_data(sel, bs_str)
+    else              bsvals = J(length(sel), 1, 1)
+    H0 = _finegray_step_core_bs(bh, times, bsvals)
     st_store(sel, H0var, H0)
 }
 
@@ -4159,14 +5341,24 @@ void _finegray_bh_grid(
     string scalar est_touse,
     string scalar t0var,
     real scalar maxpts,
-    string scalar outmat)
+    string scalar outmat,
+    | string scalar bs_str,
+    real scalar lev,
+    string scalar tvc_str,
+    string scalar tsplit_str)
 {
     real matrix bh
     real colvector idx
     real scalar nbh, step, r, last
 
+    if (args() < 11) bs_str = ""
+    if (args() < 12) lev = .
+    if (args() < 13) tvc_str = ""
+    if (args() < 14) tsplit_str = ""
+
     bh = _finegray_bh_rebuild(zvars, events_str, cause, censval, byg_str,
-        tg_str, est_touse, t0var)
+        tg_str, est_touse, t0var, bs_str, tvc_str, tsplit_str)
+    bh = _finegray_bh_stratum(bh, lev)
     nbh = rows(bh)
     st_local("_fg_nbh", strofreal(nbh))
     if (nbh == 0) return
@@ -4191,17 +5383,27 @@ void _finegray_step_lookup(
     string scalar bh_matname,
     string scalar tvar,
     string scalar H0var,
-    string scalar tousevar)
+    string scalar tousevar,
+    | string scalar bsvar,
+    string scalar tsplit_str,
+    string scalar cutmat)
 {
     real matrix bh
-    real colvector times, H0, touse_vec, sel
+    real colvector times, H0, touse_vec, sel, bsvals
+
+    if (args() < 5) bsvar = ""
+    if (args() < 6) tsplit_str = ""
+    if (args() < 7) cutmat = ""
 
     bh = st_matrix(bh_matname)
+    _finegray_bh_cutvals(bh, tsplit_str, cutmat)
     touse_vec = st_data(., tousevar)
     sel = selectindex(touse_vec)
     if (length(sel) == 0) return
     times = st_data(sel, tvar)
-    H0 = _finegray_step_core(bh, times)
+    if (bsvar != "") bsvals = st_data(sel, bsvar)
+    else             bsvals = J(length(sel), 1, 1)
+    H0 = _finegray_step_core_bs(bh, times, bsvals)
     st_store(sel, H0var, H0)
 }
 

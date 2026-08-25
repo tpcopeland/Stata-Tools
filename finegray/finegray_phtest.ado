@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/08/16
+*! finegray_phtest Version 1.3.0  2026/08/25
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -38,8 +38,37 @@ program define finegray_phtest, rclass
 
     * Check finegray was run
     if "`e(cmd)'" != "finegray" {
+        * After `mi estimate, cmdok: finegray ...' the results in e() are mi's
+        * pooled ones, not a finegray fit, and "you must run finegray" reads as
+        * though the user had not -- when they just did.  Name what actually
+        * happened, and where post-estimation does live.
+        if "`e(cmd)'" == "mi estimate" & "`e(cmd_mi)'" == "finegray" {
+            display as error "post-estimation is not available after {bf:mi estimate}"
+            display as error "e() holds the pooled estimates, and pooled estimates have no"
+            display as error "single baseline hazard for {bf:finegray_phtest} to work from"
+            display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
+            display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
+            display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
+            exit 301
+        }
         display as error "last estimates not found"
         display as error "you must run {bf:finegray} before using finegray_phtest"
+        exit 301
+    }
+    * A fit made on multiple-imputation data left no post-estimation support in
+    * the caller's dataset: its design columns and its entry column were
+    * tempvars and are gone (see the mi block in finegray.ado).  There is also
+    * no single baseline hazard to answer from once estimates are pooled across
+    * imputations -- pooling a CIF is a different estimand, not this command.
+    * Refuse by name rather than resolve e(covariates), whose tempvar names the
+    * next command to ask for a tempvar will happily reuse.
+    if `"`e(postest)'"' == "unavailable_mi" {
+        display as error "post-estimation is not available after a fit on mi data"
+        display as error "{bf:finegray_phtest} needs the fit's design columns and its"
+        display as error "baseline hazard, neither of which a fit on mi data leaves behind"
+        display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
+        display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
+        display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
         exit 301
     }
     * Schoenfeld residuals are defined against the fitted beta. A last iterate
@@ -51,6 +80,23 @@ program define finegray_phtest, rclass
         display as error "with a larger iterate() or a different specification"
         exit 430
     }
+    * A tvc() fit does not assume proportional subdistribution hazards for the
+    * covariates it names, so there is nothing here to test for them -- and the
+    * residuals this command consumes are defined interval by interval, with
+    * every other interval's block structurally zero (see the same refusal in
+    * finegray_predict, schoenfeld).  finegray_phtest is the diagnostic that
+    * MOTIVATES a tvc() fit: run it on the proportional fit, and answer a
+    * rejection with tvc().  Running it on the answer is the wrong direction.
+    if `"`e(tvc)'"' != "" {
+        display as error "finegray_phtest is not available after a fit with tvc()"
+        display as error "tvc() already relaxes proportionality for `e(tvc)', so the"
+        display as error "assumption this command tests is not one that fit makes"
+        display as error "run {bf:finegray_phtest} on the proportional fit; a rejection there"
+        display as error "is what {bf:tvc()} answers, and {bf:test [tvc1]x = [tvc2]x} after"
+        display as error "the tvc() fit is the corresponding Wald test"
+        exit 198
+    }
+
     _finegray_check_data
 
     * Default time function
@@ -234,9 +280,25 @@ program define finegray_phtest, rclass
         local _tg_mata "`_tg_grp'"
     }
 
+    * Baseline strata: residuals are formed against the row's OWN stratum risk
+    * set and then pooled for the test, which is the shape the fit's own scan
+    * takes.  Empty on an unstratified fit, where nothing changes.
+    * _finegray_check_data has already verified this variable against the
+    * estimation signature (bstrata() is in e(datasignaturevars)).
+    local _bs_ph `"`e(bstrata)'"'
+    if `"`_bs_ph'"' != "" {
+        capture confirm numeric variable `_bs_ph'
+        if _rc {
+            display as error "baseline strata variable `_bs_ph' not found"
+            display as error "finegray was fit with {bf:bstrata(`_bs_ph')}; the residuals are"
+            display as error "computed within stratum and need that variable in the data"
+            exit 111
+        }
+    }
+
     mata: _finegray_schoenfeld_compute( ///
         "`covariates'", "`events'", `cause', `censvalue', ///
-        "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'")
+        "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bs_ph'")
 
     restore
     local _preserved = 0

@@ -7,6 +7,7 @@
 {viewerjumpto "Syntax" "finegray_phtest##syntax"}{...}
 {viewerjumpto "Description" "finegray_phtest##description"}{...}
 {viewerjumpto "Options" "finegray_phtest##options"}{...}
+{viewerjumpto "Global test" "finegray_phtest##global"}{...}
 {viewerjumpto "Examples" "finegray_phtest##examples"}{...}
 {viewerjumpto "Stored results" "finegray_phtest##results"}{...}
 {viewerjumpto "References" "finegray_phtest##references"}{...}
@@ -29,7 +30,7 @@
 {synopthdr}
 {synoptline}
 {synopt:{opt time(function)}}time function: {cmd:rank} (default), {cmd:log}, or {cmd:identity}{p_end}
-{synopt:{opt det:ail}}display raw Schoenfeld residuals{p_end}
+{synopt:{opt det:ail}}display the first 20 raw Schoenfeld residual rows{p_end}
 {synoptline}
 
 
@@ -76,8 +77,8 @@ with a larger {opt iterate()} or a different specification.
 {bf:Statistical scope.} For each covariate, the command reports the correlation
 {it:rho} between its raw Fine-Gray Schoenfeld residual series and the chosen
 function of event time. That correlation is the entire reported quantity: it is
-a descriptive diagnostic, not a test. {opt detail} displays those same raw
-residuals.
+a descriptive diagnostic, not a test. {opt detail} displays the first 20 rows
+of those same raw residuals.
 
 {pstd}
 Earlier releases squared and rescaled this correlation into {cmd:n*rho^2} and
@@ -88,6 +89,16 @@ chi-squared and p-value are therefore {bf:no longer reported}. Use the
 correlation, the residual pattern, and sensitivity across {opt time()} choices
 as descriptive evidence; use a published subdistribution-PH method for formal
 inference.
+
+{pstd}
+{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made on
+multiple-imputation data -- typed directly, or run by
+{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or entry-time
+column behind, and pooled estimates have no single baseline hazard to run a
+diagnostic against. {cmd:finegray_phtest} stops with {cmd:r(301)} in that case. Refit on a single
+dataset ({cmd:mi extract 0, clear} for the complete cases, or
+{cmd:mi extract} {it:#}{cmd:, clear} for one imputation) and run {cmd:finegray}
+there; see {help finegray##mi:Multiple imputation} in {helpb finegray}.
 
 {marker global}{...}
 {pstd}
@@ -102,9 +113,11 @@ removed rather than relabeled.
 No omnibus test is implemented {it:by this command}, and none ships elsewhere
 in the package. Li, Scheike and Zhang (2015) give cumulative-residual processes
 with simulated null distributions, and Zhou et al. (2013) give a score test; neither
-method is implemented here. {cmd:finegray} also does not fit
-time-varying coefficient effects, so formal follow-up requires software that
-implements one of those published PSH methods.
+method is implemented here. For a formal omnibus test use software that
+implements one of those published PSH methods. To model rather than test a
+departure from proportionality, {cmd:finegray}'s {helpb finegray##tvc:tvc()}
+fits a piecewise-constant beta({it:t}) and {cmd:test [tvc1]}{it:x}
+{cmd:= [tvc2]}{it:x} is the corresponding Wald test.
 
 {pstd}
 The diagnostic is only defined where it can be computed. If every cause event
@@ -126,10 +139,24 @@ would silently be computed against a design the model was never fitted to, so
 {bf:Data requirement:} {cmd:finegray_phtest} computes Schoenfeld residuals on
 the estimation sample and therefore requires the unchanged original {cmd:stset}
 data. It verifies a signature covering {cmd:_t}, {cmd:_t0}, {cmd:_d}, the event
-type, covariates, strata, cluster, and any persisted entry-time variable. If
+type, the covariates, and every variable named in {opt strata()},
+{opt truncstrata()}, {opt bstrata()} or {opt cluster()}, plus any persisted
+entry-time variable; the list is {cmd:e(datasignaturevars)}. If
 those data have changed, it exits with {cmd:r(459)}; re-run
 {cmd:finegray}. Unlike {cmd:finegray_predict, xb}, it cannot be run after
 loading a new dataset.
+
+
+{pstd}
+{bf:Not available after a fit with} {helpb finegray##tvc:tvc()}, and this is the
+direction of the workflow rather than a gap. A {opt tvc()} fit no longer assumes
+proportional subdistribution hazards for the covariates it names, so the
+assumption this command tests is not one that fit makes; and the residuals it
+consumes are defined interval by interval, with every other interval's block
+zero by construction. Run {cmd:finegray_phtest} on the proportional fit, answer a
+rejection with {opt tvc()}, and test whether the effect is in fact constant with
+{cmd:test [tvc1]}{it:x} {cmd:= [tvc2]}{it:x} after that fit. Reaching here on a
+{opt tvc()} fit is {cmd:r(198)}.
 
 
 {marker options}{...}
@@ -189,7 +216,7 @@ less sensitive to extreme event times and is the default screening choice.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(phtest)}}p x 2 matrix: residual-time {cmd:correlation} and event count{p_end}
+{synopt:{cmd:r(phtest)}}p x 2: residual-time {cmd:correlation}, event count{p_end}
 
 {pstd}
 {bf:Diagnostic-only surface.} {cmd:r(phtest)} holds one row per covariate with

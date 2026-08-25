@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/08/16
+*! finegray Version 1.3.0  2026/08/25
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -22,6 +22,7 @@ Optional options:
   noshr             - Display log-SHR instead of SHR
   level(cilevel)    - Confidence level
   strata(varlist)   - Stratify censoring distribution
+  bstrata(varname)  - Stratify the BASELINE subdistribution hazard (shared beta)
   cluster(varname)  - Clustered standard errors
   norobust          - Model-based SEs instead of default sandwich
   nolog             - Suppress iteration log
@@ -46,6 +47,16 @@ program define finegray, eclass sortpreserve
     * preserved yet.  _finegray_display runs its own wrapper.
     if replay() {
         if `"`e(cmd)'"' != "finegray" {
+            * `mi estimate, cmdok: finegray ...' leaves mi's POOLED results in
+            * e(), which finegray cannot replay and mi can.  Say that rather
+            * than "you must run finegray", which reads as though they had not.
+            if `"`e(cmd)'"' == "mi estimate" & `"`e(cmd_mi)'"' == "finegray" {
+                display as error "last estimates are pooled {bf:mi estimate} results, not a finegray fit"
+                display as error "replay them with {bf:mi estimate} (with no command), or refit on a"
+                display as error "single dataset with {bf:mi extract 0, clear} and run {bf:finegray} there;"
+                display as error "see {help finegray##mi:help finegray}"
+                exit 301
+            }
             display as error "last estimates not found"
             display as error "you must run {bf:finegray} before replaying its results"
             exit 301
@@ -68,6 +79,8 @@ program define finegray, eclass sortpreserve
         COMPete(varname numeric) CAUse(integer) ///
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
          STRata(varlist numeric) TRUNCstrata(varlist numeric) ///
+         BSTRata(varname numeric) ///
+         TVC(varlist numeric) TSPLIT(numlist ascending) ///
          CLuster(varname numeric) noROBust ///
          noADJust noLOG BASEHaz NUISance ///
          ITERate(integer 200) TOLerance(real 1e-8)]
@@ -102,6 +115,103 @@ program define finegray, eclass sortpreserve
         exit 198
     }
 
+    * bstrata() frees the baseline per stratum, so S0(s) and zbar(s) become
+    * stratum-specific.  Zhou et al. (2011) sec. 4.1 DOES define the stratified
+    * psi -- it is Fine & Gray (1999) eq. 7-8 "with the added subscript k",
+    * i.e. computed inside the stratum -- so the quantity is grounded; what is
+    * missing is the implementation.  _finegray_psi_residuals builds q_g(t)
+    * from the POOLED S0(s) and zbar(s), and this version does not stratify it.
+    * Accepting the pair would therefore add an unstratified correction to a
+    * stratified sandwich: not the paper's variance, and not this package's
+    * either.  Refuse rather than report it as though it were.
+    if "`nuisance'" != "" & "`bstrata'" != "" {
+        display as error "nuisance is not allowed with bstrata()"
+        display as error "the psi correction is Fine & Gray (1999) eq. 7-8, " ///
+            "computed against a single pooled baseline"
+        display as error "Zhou et al. (2011) sec. 4.1 defines its stratified " ///
+            "form, but finegray does not implement it"
+        display as error "applying the pooled term to a stratified fit would " ///
+            "not be either variance"
+        display as error "use bootstrap coefficient inference instead; " ///
+            "see {help finegray##bstrata:help finegray}"
+        exit 198
+    }
+
+    * =========================================================================
+    * PIECEWISE-CONSTANT beta(t): tvc() / tsplit() OPTION GRAMMAR
+    * =========================================================================
+    * tvc() names the covariates whose effect varies with analysis time and
+    * tsplit() the interior boundaries of the intervals it is constant on.
+    * Neither means anything without the other: tvc() alone does not say WHERE
+    * the effect changes, and tsplit() alone splits nothing.  Refuse both ways
+    * rather than silently ignoring one of them.
+    if "`tvc'" != "" & "`tsplit'" == "" {
+        display as error "tvc() requires tsplit()"
+        display as error "tsplit() gives the interior interval boundaries on " ///
+            "the analysis-time scale"
+        display as error "as in {bf:tvc(x) tsplit(5 10)}; " ///
+            "see {help finegray##tvc:help finegray}"
+        exit 198
+    }
+    if "`tsplit'" != "" & "`tvc'" == "" {
+        display as error "tsplit() requires tvc()"
+        display as error "tvc() names the covariates whose coefficient is " ///
+            "allowed to differ across the intervals"
+        display as error "as in {bf:tvc(x) tsplit(5 10)}; " ///
+            "see {help finegray##tvc:help finegray}"
+        exit 198
+    }
+
+    local _fg_ntv = 0
+    local _fg_nint = 1
+    if "`tvc'" != "" {
+        * `numlist ascending' already refuses a repeated or out-of-order
+        * boundary at the syntax statement (r(124); pinned by T14 in
+        * qa/test_finegray_tvc.do).  What it does NOT enforce is positivity:
+        * tsplit(0) parses, and a boundary at or below zero would define an
+        * empty leading interval (0, 0] carrying its own unidentified
+        * coefficient.
+        local _fg_ncut : word count `tsplit'
+        local _fg_nint = `_fg_ncut' + 1
+        foreach _fg_c of local tsplit {
+            if `_fg_c' <= 0 {
+                display as error "tsplit() boundaries must be positive"
+                display as error "`_fg_c' is not a time inside the follow-up"
+                exit 198
+            }
+        }
+
+        * Both refusals are §3 scope fences, not implementation gaps that a user
+        * can work around by rearranging the command.
+        *
+        * bstrata(): each reshapes the scan on its own axis (per-stratum row
+        * subsets; per-interval accumulator rebuilds).  They compose
+        * mechanically, but the composition has no reference implementation to
+        * validate against and doubles the QA surface of each; it is out of
+        * scope for this release rather than impossible.
+        if "`bstrata'" != "" {
+            display as error "tvc() is not allowed with bstrata()"
+            display as error "each option reshapes the risk-set scan on its own axis, and the"
+            display as error "combination has no reference implementation to validate against"
+            display as error "fit within baseline stratum, or drop one of the two options;"
+            display as error "see {help finegray##tvc:help finegray}"
+            exit 198
+        }
+        * nuisance: the psi term is Fine & Gray (1999) eq. 7-8, built from ONE
+        * S0(s) and zbar(s) per event time.  Under beta(t) both are
+        * interval-specific and the correction has not been re-derived here.
+        if "`nuisance'" != "" {
+            display as error "nuisance is not allowed with tvc()"
+            display as error "the psi correction is Fine & Gray (1999) eq. 7-8, computed from a"
+            display as error "single S0(s) and zbar(s) at each cause-event time"
+            display as error "under a piecewise beta(t) both are interval-specific and the"
+            display as error "corresponding term is not derived here"
+            display as error "use bootstrap coefficient inference instead; " ///
+                "see {help finegray##variance:help finegray}"
+            exit 198
+        }
+    }
+
     * =========================================================================
     * VALIDATE STSET (must come before marksample references _st)
     * =========================================================================
@@ -109,6 +219,57 @@ program define finegray, eclass sortpreserve
     if _rc {
         display as error "data not st; see {helpb stset}"
         exit 119
+    }
+
+    * =========================================================================
+    * MULTIPLE-IMPUTATION DATA DETECTION
+    * =========================================================================
+    * finegray writes package-owned PERMANENT columns into the caller's data --
+    * _fg_entry for a multiple-record fit and one _fg_<term> column per factor
+    * term -- so that post-estimation can rebuild the fit's design.  In mi data
+    * those columns are unregistered variables: `mi describe' reports them, and
+    * under mlong/flong they carry values on some m and not others.  Fitting
+    * `finegray i.grp x' directly on `mi set wide' data left _fg_grp_2 and
+    * _fg_grp_3 behind exactly that way.
+    *
+    * The fix is not new machinery: the fit itself already runs on tempvars
+    * inside `preserve', and only the post-estimation SUPPORT is permanent.  On
+    * mi data that support is routed through tempvars instead, which means it
+    * does not survive the command -- so post-estimation is refused rather than
+    * silently answering from columns that are gone (see e(postest) below and
+    * the guards in finegray_predict / finegray_cif / finegray_phtest).
+    *
+    * The detection has to work in three contexts.  All twelve style x context
+    * cells below were enumerated by running them on 2026-08-25 (hypoxia, two
+    * imputations) and dumping `: char _dta[]' from inside the fitted command:
+    *
+    *   context               mlong     wide      flong        flongsep
+    *   1 typed directly      mlong     wide      flong        flongsep
+    *   2 mi estimate,cmdok:  bad       bad       ABSENT       flongsep
+    *   3 mi xeq #:           flongsep_sub (all four styles)
+    *
+    * so _dta[_mi_style] alone misses exactly one cell: flong inside
+    * `mi estimate'.  That cell is not char-free, however -- it carries
+    * _dta[_mi_substyle] == "bad", the only _mi_* characteristic mi leaves on
+    * the completed dataset it hands the command.  Every other cell carries
+    * _mi_style plus several more (_mi_M, _mi_ivars, _mi_update, ...).
+    *
+    * Detection is therefore "does the DATASET carry any _mi_* characteristic",
+    * which is true in all twelve cells and false on ordinary data.
+    *
+    * It must NOT be "does a variable named _mi_m / _mi_id / _mi_miss exist".
+    * Those are legal names in an ordinary dataset, and the earlier probe on
+    * them was a false positive: `generate long _mi_id = _n' on plain webuse
+    * hypoxia produced e(mi_data)=1, e(postest)=unavailable_mi, and r(301) from
+    * every post-estimation command, on data that had never been near mi.
+    * Reproduced 2026-08-25; regression tests 14-16 in qa/test_finegray_mi.do.
+    local _fg_is_mi = 0
+    local _fg_dtachars : char _dta[]
+    foreach _fg_dtachar of local _fg_dtachars {
+        if substr("`_fg_dtachar'", 1, 4) == "_mi_" {
+            local _fg_is_mi = 1
+            continue, break
+        }
     }
 
     * =========================================================================
@@ -156,6 +317,13 @@ program define finegray, eclass sortpreserve
         local _sig_seen : list posof "`_sig_var'" in _fg_sigvars
         if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_sig_var'"
     }
+    * bstrata() assigns every subject to a baseline.  Changing it after the fit
+    * must make post-estimation FAIL, not silently answer a row from another
+    * stratum's baseline curve.
+    if "`bstrata'" != "" {
+        local _sig_seen : list posof "`bstrata'" in _fg_sigvars
+        if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `bstrata'"
+    }
     if "`cluster'" != "" {
         local _sig_seen : list posof "`cluster'" in _fg_sigvars
         if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `cluster'"
@@ -176,6 +344,7 @@ program define finegray, eclass sortpreserve
     }
     if "`strata'" != "" markout `touse' `strata'
     if "`truncstrata'" != "" markout `touse' `truncstrata'
+    if "`bstrata'" != "" markout `touse' `bstrata'
     if "`cluster'" != "" markout `touse' `cluster'
 
     quietly replace `touse' = 0 if _st != 1
@@ -250,10 +419,23 @@ program define finegray, eclass sortpreserve
     * (start,stop] intervals / stsplit).  When covariates are constant within
     * subject this is purely a data-shape issue: reduce each subject to a
     * single risk-set unit (earliest entry, latest exit, final status) and let
-    * the engine's left-truncation handle the rest. This implementation does
-    * not support time-varying covariates or time-varying coefficient effects.
-    * Internal time-varying covariates generally lack the model's direct CIF
-    * interpretation after a competing event.
+    * the engine's left-truncation handle the rest.
+    *
+    * What is NOT supported here is time-varying COVARIATES: a covariate that
+    * changes value within subject cannot survive the reduction, and internal
+    * time-varying covariates generally lack the model's direct CIF
+    * interpretation after a competing event anyway.  The constancy check below
+    * is what enforces that.
+    *
+    * Time-varying COEFFICIENTS are a different thing and ARE supported here.
+    * tvc()/tsplit() vary beta(t), not x, so the reduction does not touch them:
+    * the subject's one risk-set unit still spans the whole tsplit() grid.  Only
+    * DELAYED ENTRY is refused with tvc() (see the _fg_has_lt guard below), and
+    * on multiple-record data with earliest entry zero that guard does not fire.
+    * Verified 2026-08-25: a 1200-subject fixture split into 2280 zero-entry
+    * (start,stop] episodes and fitted with tvc(x1) tsplit(0.7) returns e(b),
+    * e(V) and e(ll) BIT-IDENTICAL to the single-record fit of the same data.
+    * Pinned by test T26 in qa/test_finegray_tvc.do.
     local _fg_id `"`_dta[st_id]'"'
     local _fg_nrecords = `N'
 
@@ -286,6 +468,13 @@ program define finegray, eclass sortpreserve
         foreach _cv of local truncstrata {
             local _seen : list posof "`_cv'" in _fg_checkvars
             if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `_cv'"
+        }
+        * A subject cannot move baselines part-way through follow-up: bstrata()
+        * must be constant within id().  The constancy loop below reports it in
+        * the same words as a time-varying covariate, which is what it is.
+        if "`bstrata'" != "" {
+            local _seen : list posof "`bstrata'" in _fg_checkvars
+            if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `bstrata'"
         }
         if "`cluster'" != "" {
             local _seen : list posof "`cluster'" in _fg_checkvars
@@ -347,12 +536,18 @@ program define finegray, eclass sortpreserve
         * cleanup zone while a prior fit's e() still refers to it.  Check the
         * name is available now (a pure error path), and materialise the
         * column only once validation has passed.
-        capture confirm variable _fg_entry
-        if !_rc & `"`_dta[_finegray_entryvar]'"' != "_fg_entry" {
-            display as error "variable _fg_entry already exists"
-            display as error "finegray uses this name to record subject entry times"
-            display as error "for multiple-record data; rename or drop it before running finegray"
-            exit 198
+        * On mi data the entry column is a TEMPVAR (see the mi block above), so
+        * it claims no name in the caller's dataset and this check has nothing
+        * to adjudicate: an existing user variable called _fg_entry is not in
+        * its way and must not be refused over a name finegray will not take.
+        if !`_fg_is_mi' {
+            capture confirm variable _fg_entry
+            if !_rc & `"`_dta[_finegray_entryvar]'"' != "_fg_entry" {
+                display as error "variable _fg_entry already exists"
+                display as error "finegray uses this name to record subject entry times"
+                display as error "for multiple-record data; rename or drop it before running finegray"
+                exit 198
+            }
         }
         local _fg_entry_pending = 1
 
@@ -406,6 +601,41 @@ program define finegray, eclass sortpreserve
             "ZZF (2011) Appendix B, which finegray does not implement"
         display as error "use bootstrap coefficient inference instead; " ///
             "see {help finegray##variance:help finegray}"
+        exit 198
+    }
+
+    * Zhou, Latouche, Rocha & Fine (2011) derive the stratified proportional
+    * subdistribution hazards model for RIGHT-CENSORED data; neither that paper
+    * nor Zhang/Zhang/Fine (2011) treats left truncation, so a stratified
+    * baseline on the delayed-entry branch would be a package invention with no
+    * derivation behind it.  This is also what keeps bstrata() a five-scan-
+    * function change instead of a ten: the ZZF branch is untouched.
+    if "`bstrata'" != "" & `_fg_has_lt' {
+        display as error "bstrata() is not supported with delayed entry"
+        display as error "`_fg_n_lt' subject(s) in the estimation sample enter after time 0"
+        display as error "the stratified subdistribution hazard of Zhou et al. (2011) is"
+        display as error "derived for right censoring only, and its left-truncated analogue"
+        display as error "is not published; fitting one here would be unsourced"
+        display as error "fit within stratum, or drop the delayed entry;"
+        display as error "see {help finegray##bstrata:help finegray}"
+        exit 198
+    }
+
+    * The piecewise scans rebuild the risk set and the retained-competing
+    * accumulator at every interval boundary, and they do it by re-running the
+    * RIGHT-CENSORING scan once per interval.  The delayed-entry (ZZF) branch is
+    * a separate family of five scan functions with no piecewise form, and it is
+    * already this package's own extension of Zhang/Zhang/Fine (2011) rather
+    * than a published estimator, so a beta(t) built on top of it would be
+    * unsourced twice over.  Refuse instead of quietly fitting the proportional
+    * estimator under a piecewise coefficient stripe.
+    if "`tvc'" != "" & `_fg_has_lt' {
+        display as error "tvc() is not supported with delayed entry"
+        display as error "`_fg_n_lt' subject(s) in the estimation sample enter after time 0"
+        display as error "the piecewise-constant beta(t) scan is derived for right censoring;"
+        display as error "the delayed-entry weights have no published piecewise analogue"
+        display as error "drop the delayed entry, or model the effect as proportional;"
+        display as error "see {help finegray##tvc:help finegray}"
         exit 198
     }
 
@@ -494,15 +724,26 @@ program define finegray, eclass sortpreserve
     * fit has now run, so writing the package-owned column here cannot strand a
     * prior fit's e() behind a dropped variable.
     if `_fg_entry_pending' {
-        capture confirm variable _fg_entry
-        if !_rc {
-            display as text "(note: replacing existing variable _fg_entry)"
-            quietly drop _fg_entry
+        if `_fg_is_mi' {
+            * mi data: a tempvar, dropped when this command returns.  The fit
+            * itself is unaffected -- the engine consumes this column inside
+            * `preserve' either way -- and nothing is written to the caller's
+            * mi dataset.  Post-estimation is refused on this fit (e(postest)).
+            tempvar _fg_entry_tv
+            quietly gen double `_fg_entry_tv' = `_fg_mint0'
+            local _fg_entryvar "`_fg_entry_tv'"
         }
-        quietly gen double _fg_entry = `_fg_mint0'
-        label variable _fg_entry ///
-            "finegray: earliest subject entry time (multi-record reduction)"
-        local _fg_entryvar "_fg_entry"
+        else {
+            capture confirm variable _fg_entry
+            if !_rc {
+                display as text "(note: replacing existing variable _fg_entry)"
+                quietly drop _fg_entry
+            }
+            quietly gen double _fg_entry = `_fg_mint0'
+            label variable _fg_entry ///
+                "finegray: earliest subject entry time (multi-record reduction)"
+            local _fg_entryvar "_fg_entry"
+        }
     }
 
     * =========================================================================
@@ -583,8 +824,20 @@ program define finegray, eclass sortpreserve
             exit 198
         }
 
-        * Build final varlist and create persistent _fg_ variables
+        * Build final varlist and create the design columns.
+        *
+        * _fv_final holds the columns the engine will read; _fv_names holds the
+        * _fg_<term> NAMES those columns would take in the caller's data.  Off
+        * mi data the two lists are identical.  On mi data _fv_final holds
+        * tempvars (nothing is written to the caller's dataset) while _fv_names
+        * still carries the intended names, so the 32-character truncation
+        * collision test below adjudicates the same specification in both
+        * modes.  A collision cannot actually corrupt anything in mi mode --
+        * the tempvars are distinct whatever the terms are called -- but a fit
+        * that errors on complete-case data and succeeds under `mi estimate'
+        * would be a worse surprise than a refusal the user can act on.
         local _fv_final ""
+        local _fv_names ""
 
         forvalues _i = 1/`_n_sem' {
             local _term : word `_i' of `_fv_semantic'
@@ -598,6 +851,7 @@ program define finegray, eclass sortpreserve
             * If fvrevar returned original variable (not tempvar), use directly
             if substr("`_var'", 1, 2) != "__" {
                 local _fv_final "`_fv_final' `_var'"
+                local _fv_names "`_fv_names' `_var'"
                 continue
             }
 
@@ -649,12 +903,27 @@ program define finegray, eclass sortpreserve
             }
 
             * Detect name collision from truncation within this run
-            local _collision : list posof "`_fg_name'" in _fv_final
+            local _collision : list posof "`_fg_name'" in _fv_names
             if `_collision' > 0 {
                 display as error "factor variable names too similar"
                 display as error "`_fg_name' collides after truncation to 32 characters"
                 display as error "use shorter variable names or fewer interaction levels"
                 exit 198
+            }
+
+            local _fv_names "`_fv_names' `_fg_name'"
+
+            * mi data: the design column is a tempvar.  It claims no name in the
+            * caller's dataset, so the existing-variable check has nothing to
+            * adjudicate and the column does not outlive this command -- which
+            * is the point: an unregistered _fg_<term> column in mi data is what
+            * this branch exists to avoid.  Post-estimation is refused on this
+            * fit (e(postest)), so nothing later reads the column back.
+            if `_fg_is_mi' {
+                tempvar _fg_col
+                quietly generate double `_fg_col' = `_var'
+                local _fv_final "`_fv_final' `_fg_col'"
+                continue
             }
 
             * Check for existing _fg_ variable in dataset
@@ -820,6 +1089,136 @@ program define finegray, eclass sortpreserve
     }
 
     * =========================================================================
+    * MAP tvc() ONTO THE FITTED DESIGN COLUMNS
+    * =========================================================================
+    * tvc() names VARIABLES; the engine works in design columns.  Off factor
+    * variables the two coincide.  With factor variables one variable can supply
+    * several columns (i.grp -> two indicators; c.x#i.grp -> one column per
+    * level), and the rule is stated rather than guessed at: every coefficient
+    * whose TERM involves a tvc() variable becomes interval-specific.  So
+    * tvc(grp) frees all of i.grp's level effects together, and tvc(x) in a model
+    * containing x and c.x#i.grp frees the interaction columns too.
+    *
+    * What travels to the engine is POSITIONS, not names.  The design columns are
+    * package-owned _fg_* variables that post-estimation is allowed to drop and
+    * rebuild as tempvars (see finegray_predict), and a position survives that
+    * where a name does not.
+    local _fg_tvcpos ""
+    local _fg_tvccols ""
+    if "`tvc'" != "" {
+        local _fg_ncols : word count `varlist'
+
+        * One "source variables" list per design column, in column order.
+        forvalues _tv_c = 1/`_fg_ncols' {
+            local _tv_src`_tv_c' ""
+        }
+        if `_has_fv' {
+            local _tv_c = 0
+            foreach _tv_term of local _fv_semantic {
+                if regexm("`_tv_term'", "[0-9]+b\.") continue
+                local ++_tv_c
+                local _tv_parts = subinstr(subinstr("`_tv_term'", "##", "#", .), "#", " ", .)
+                foreach _tv_p of local _tv_parts {
+                    if regexm("`_tv_p'", "\.(.+)$") local _tv_p = regexs(1)
+                    local _tv_seen : list posof "`_tv_p'" in _tv_src`_tv_c'
+                    if `_tv_seen' == 0 local _tv_src`_tv_c' "`_tv_src`_tv_c'' `_tv_p'"
+                }
+            }
+            if `_tv_c' != `_fg_ncols' {
+                display as error "internal error: factor expansion and design columns disagree"
+                display as error "(`_tv_c' non-base terms, `_fg_ncols' design columns)"
+                exit 198
+            }
+        }
+        else {
+            forvalues _tv_c = 1/`_fg_ncols' {
+                local _tv_src`_tv_c' "`: word `_tv_c' of `varlist''"
+            }
+        }
+
+        * Match, in ASCENDING design-column order: that is the order the engine
+        * assigns the piecewise blocks in, and the coefficient stripe built below
+        * has to agree with it column for column.
+        forvalues _tv_c = 1/`_fg_ncols' {
+            local _tv_hit = 0
+            foreach _tv_v of local tvc {
+                local _tv_in : list posof "`_tv_v'" in _tv_src`_tv_c'
+                if `_tv_in' > 0 {
+                    local _tv_hit = 1
+                    continue, break
+                }
+            }
+            if `_tv_hit' {
+                local _fg_tvcpos "`_fg_tvcpos' `_tv_c'"
+                local _fg_tvccols "`_fg_tvccols' `: word `_tv_c' of `varlist''"
+            }
+        }
+        local _fg_tvcpos : list retokenize _fg_tvcpos
+        local _fg_tvccols : list retokenize _fg_tvccols
+
+        * A tvc() variable that names no coefficient is a specification error,
+        * not a no-op: the user asked for a time-varying effect and would have
+        * been handed a fit without one.
+        foreach _tv_v of local tvc {
+            local _tv_any = 0
+            forvalues _tv_c = 1/`_fg_ncols' {
+                local _tv_in : list posof "`_tv_v'" in _tv_src`_tv_c'
+                if `_tv_in' > 0 {
+                    local _tv_any = 1
+                    continue, break
+                }
+            }
+            if !`_tv_any' {
+                display as error "tvc(`_tv_v') is not in the model"
+                display as error "tvc() names covariates the model already fits; add `_tv_v' to"
+                display as error "the varlist, or remove it from tvc()"
+                exit 198
+            }
+        }
+
+        local _fg_ntv : word count `_fg_tvcpos'
+
+        * ---- every interval must carry a cause event ------------------------
+        * Interval j is (cut[j-1], cut[j]], so a boundary at or beyond the last
+        * cause-event time leaves the final interval with no events at all and
+        * its coefficients unidentified.  The information matrix would catch it,
+        * but as "not full rank" naming a design column -- which sends the reader
+        * looking for collinearity.  Name the interval instead.
+        local _fg_lo = 0
+        local _fg_tvnfail ""
+        forvalues _tv_j = 1/`_fg_nint' {
+            if `_tv_j' == `_fg_nint' {
+                local _tv_cond "_t > `_fg_lo'"
+                local _tv_lbl "_t > `_fg_lo'"
+            }
+            else {
+                local _tv_hi : word `_tv_j' of `tsplit'
+                local _tv_cond "_t > `_fg_lo' & _t <= `_tv_hi'"
+                if `_tv_j' == 1 local _tv_lbl "_t <= `_tv_hi'"
+                else            local _tv_lbl "`_fg_lo' < _t <= `_tv_hi'"
+            }
+            quietly count if `touse' & `compete' == `cause' & `_tv_cond'
+            * Kept, not just tested.  An interval is identified as soon as it
+            * carries one cause event, but a coefficient estimated from two or
+            * three of them is a monotone-likelihood accident waiting to happen
+            * -- and the fit converges and prints a finite (enormous) subhazard
+            * ratio when it does.  The count belongs next to the interval in the
+            * output, where the reader can see what each estimate rests on.
+            local _fg_tvnfail "`_fg_tvnfail' `r(N)'"
+            if r(N) == 0 {
+                display as error "tsplit() interval `_tv_j' (`_tv_lbl') contains no cause `cause' event"
+                display as error "its coefficients are not identified by the subdistribution"
+                display as error "likelihood, so the interval cannot be estimated"
+                display as error "move or drop that boundary; the last cause event is the upper"
+                display as error "limit of any usable tsplit() value"
+                exit 459
+            }
+            if `_tv_j' < `_fg_nint' local _fg_lo : word `_tv_j' of `tsplit'
+        }
+        local _fg_tvnfail : list retokenize _fg_tvnfail
+    }
+
+    * =========================================================================
     * LOAD MATA ENGINE
     * =========================================================================
     capture mata: _finegray_mata_ok()
@@ -852,7 +1251,7 @@ program define finegray, eclass sortpreserve
 
         * Use each subject's earliest entry time after multi-record reduction
         * (engine left-truncation consumes _t0). Non-destructive: inside preserve.
-        if `_fg_reduced' quietly replace _t0 = _fg_entry
+        if `_fg_reduced' quietly replace _t0 = `_fg_entryvar'
 
         * Combine multiple strata variables into a single group variable
         local _byg_mata "`strata'"
@@ -953,12 +1352,17 @@ program define finegray, eclass sortpreserve
             display as text "Fitting Fine-Gray model..."
         }
 
+        * Baseline strata travel to the engine as the RAW variable.  The scans
+        * map its values to 1..K themselves (uniqrows), so the fit and every
+        * post-estimation rebuild agree about which stratum is which even when
+        * the later call sees only some of the fit's rows.
         mata: _finegray_engine( ///
             "`varlist'", "`compete'", `cause', `censvalue', ///
             "`_byg_mata'", "`_tg_mata'", "`vce_type'", "`cluster'", ///
             `iterate', `tolerance', ("`log'" != "nolog"), ///
             ("`adjust'" != "noadjust"), ("`basehaz'" != ""), ///
-            ("`nuisance'" != ""))
+            ("`nuisance'" != ""), "`bstrata'", ///
+            "`_fg_tvcpos'", "`tsplit'")
     }
 
     local _rc_fit = _rc
@@ -966,6 +1370,16 @@ program define finegray, eclass sortpreserve
 
     if `_rc_fit' {
         exit `_rc_fit'
+    }
+
+    * Baseline strata that contributed no cause event.  `_fg_bs_noevent' is set
+    * in this scope by _finegray_engine via st_local; it is "" (or unset) when
+    * every stratum has at least one.  These strata are not a fit error -- their
+    * likelihood terms are empty -- but they have no baseline curve, so a later
+    * CIF or basecshazard request for one of them fails closed at r(459).
+    if "`_fg_bs_noevent'" != "" {
+        display as text "(note: bstrata() level(s) `_fg_bs_noevent' contain no cause `cause' event;"
+        display as text " they contribute no likelihood terms and have no baseline to predict from)"
     }
 
     * =========================================================================
@@ -994,7 +1408,12 @@ program define finegray, eclass sortpreserve
     * columns silently repeats the last one across the remainder, which would
     * mislabel every coefficient at rc 0.  The capture guards a term the matrix
     * stripe parser will not take; a fit must never be lost over its labels.
-    local cnames "`varlist'"
+    * One base name per DESIGN COLUMN.  Under tvc() the coefficient vector is
+    * wider than the design (one coefficient per interval for each time-varying
+    * column), so the stripe is built from these in a second step below rather
+    * than being the stripe itself.
+    local _fg_ncol : word count `varlist'
+    local _fg_bnames "`varlist'"
     if `_has_fv' {
         local _cn_fv ""
         foreach _cn_t of local _fv_semantic {
@@ -1002,15 +1421,61 @@ program define finegray, eclass sortpreserve
             local _cn_fv "`_cn_fv' `_cn_t'"
         }
         local _cn_n : word count `_cn_fv'
-        if `_cn_n' == colsof(`b') {
+        if `_cn_n' == `_fg_ncol' {
             local _cn_try : list retokenize _cn_fv
             capture matrix colnames `b' = `_cn_try'
-            if _rc == 0 local cnames "`_cn_try'"
+            if _rc == 0 local _fg_bnames "`_cn_try'"
         }
     }
+
+    * Piecewise beta(t) stripe.  The fixed-effect columns come first, in design
+    * order, under equation `main'; then one equation per interval carrying the
+    * time-varying columns.  Equation names are plain `tvcN' on purpose: the
+    * interval bounds read better (`5 < _t <= 10') but `<' and `=' break
+    * [eqname] parsing, so `test [tvc1]x = [tvc2]x' -- the Wald test of "is this
+    * effect constant?", which is most of the reason to fit the model -- would
+    * fail r(132).  _finegray_display prints the bounds under the table.
+    local cnames ""
+    local ceqs ""
+    if "`tvc'" == "" {
+        local cnames "`_fg_bnames'"
+    }
+    else {
+        forvalues _cn_c = 1/`_fg_ncol' {
+            local _cn_hit : list posof "`_cn_c'" in _fg_tvcpos
+            if `_cn_hit' == 0 {
+                local cnames "`cnames' `: word `_cn_c' of `_fg_bnames''"
+                local ceqs "`ceqs' main"
+            }
+        }
+        forvalues _cn_j = 1/`_fg_nint' {
+            foreach _cn_c of local _fg_tvcpos {
+                local cnames "`cnames' `: word `_cn_c' of `_fg_bnames''"
+                local ceqs "`ceqs' tvc`_cn_j'"
+            }
+        }
+        local cnames : list retokenize cnames
+        local ceqs : list retokenize ceqs
+    }
+
+    * `matrix colnames' given FEWER names than columns silently repeats the LAST
+    * one across the remainder, which mislabels every coefficient after the first
+    * shortfall at rc 0.  Never let that happen by construction alone.
+    local _cn_have : word count `cnames'
+    if `_cn_have' != colsof(`b') {
+        display as error "internal error: `_cn_have' coefficient name(s) for " ///
+            "`=colsof(`b')' coefficients"
+        exit 498
+    }
+
     matrix colnames `b' = `cnames'
     matrix colnames `V' = `cnames'
     matrix rownames `V' = `cnames'
+    if "`ceqs'" != "" {
+        matrix coleq `b' = `ceqs'
+        matrix coleq `V' = `ceqs'
+        matrix roweq `V' = `ceqs'
+    }
 
     local _fg_ll       = _finegray_ll[1,1]
     local _fg_ll_0     = _finegray_ll_0[1,1]
@@ -1072,6 +1537,17 @@ program define finegray, eclass sortpreserve
     * a delayed-entry fit and an ordinary one were display-indistinguishable,
     * and the ZZF weight construction is a materially different estimator.
     ereturn scalar N_delayed = `_fg_n_lt'
+    * Baseline strata actually fitted.  1 on an unstratified fit, so a consumer
+    * never has to test e(bstrata) for emptiness to know the baseline's shape:
+    * e(k_bstrata) > 1 means e(basehaz) is K x 3 and every baseline lookup needs
+    * a stratum.
+    ereturn scalar k_bstrata = _finegray_kbstrata[1,1]
+    * Piecewise beta(t) shape.  A consumer must be able to tell from e() alone
+    * that e(b) is wider than e(covariates) and why: n_intervals is 1 on an
+    * ordinary fit, so `e(n_intervals) > 1' is the single test for "this fit has
+    * interval-specific coefficients".
+    ereturn scalar n_intervals = `_fg_nint'
+    ereturn scalar k_tvc = `_fg_ntv'
     ereturn scalar level = `level'
     ereturn scalar cause = `cause'
     ereturn scalar censvalue = `censvalue'
@@ -1108,12 +1584,32 @@ program define finegray, eclass sortpreserve
     local _refitcmd `"finegray `_orig_varlist', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
     if "`strata'" != ""          local _refitcmd `"`_refitcmd' strata(`strata')"'
     if "`truncstrata'" != ""     local _refitcmd `"`_refitcmd' truncstrata(`truncstrata')"'
+    if "`bstrata'" != ""         local _refitcmd `"`_refitcmd' bstrata(`bstrata')"'
+    if "`tvc'" != ""             local _refitcmd `"`_refitcmd' tvc(`tvc') tsplit(`tsplit')"'
     if "`cluster'" != ""         local _refitcmd `"`_refitcmd' cluster(`cluster')"'
     if "`robust'" == "norobust"  local _refitcmd `"`_refitcmd' norobust"'
     if "`adjust'" == "noadjust"  local _refitcmd `"`_refitcmd' noadjust"'
     ereturn local refitcmd `"`_refitcmd'"'
 
     ereturn local predict "finegray_predict"
+
+    * Multiple-imputation contract.  A consumer must never have to infer from
+    * the data in memory whether this fit left post-estimation support behind.
+    *   e(mi_data)  "1" when the fit ran on mi data (typed directly on an mi
+    *               dataset, or executed by `mi estimate, cmdok:' / `mi xeq');
+    *               absent otherwise
+    *   e(postest)  "unavailable_mi" on such a fit; absent otherwise.  This is
+    *               the flag finegray_predict, finegray_cif, finegray_phtest and
+    *               _finegray_check_data refuse on.
+    * The coefficients and variance are ordinary M-estimator output and pool
+    * under Rubin's rules exactly as they do off mi data; it is only the
+    * row-level post-estimation, which needs the fit's design columns and its
+    * single baseline hazard, that has nothing to run on.
+    if `_fg_is_mi' {
+        ereturn local mi_data "1"
+        ereturn local postest "unavailable_mi"
+    }
+
     ereturn local compete "`compete'"
     * The values `compete' takes in the estimation sample that are neither the
     * cause of interest nor the censoring value -- i.e. what was pooled as a
@@ -1137,6 +1633,37 @@ program define finegray, eclass sortpreserve
     if `_has_fv' ereturn local fvsemantic "`_fv_semantic'"
     if "`strata'" != "" ereturn local strata "`strata'"
     if "`truncstrata'" != "" ereturn local truncstrata "`truncstrata'"
+    * The BASELINE stratification variable.  A different axis from strata()
+    * (censoring KM) and truncstrata() (entry distribution); see the option
+    * table in help finegray.
+    if "`bstrata'" != "" ereturn local bstrata "`bstrata'"
+    * bstrata() levels that carried no cause event.  Their Breslow baseline is
+    * identically zero -- a degenerate curve, not an estimate -- so every
+    * baseline consumer refuses them by name.  Posted rather than recomputed
+    * because `predict, cif' on NEW data is a documented workflow: the
+    * estimation sample may be gone by the time the question is asked.
+    if "`_fg_bs_noevent'" != "" ereturn local bstrata_noevent "`_fg_bs_noevent'"
+    * Piecewise beta(t).
+    *   e(tvc)            the variables the user named
+    *   e(tsplit)         the interior boundaries, ascending
+    *   e(tvc_covariates) the DESIGN COLUMNS those variables resolved to
+    *   e(tvc_pos)        those columns' positions in e(covariates)
+    * Post-estimation reads e(tvc_pos), not e(tvc_covariates): the design
+    * columns are package-owned _fg_* variables that a supported `drop _fg_*'
+    * removes and every rebuild path recreates as tempvars, so a NAME does not
+    * survive the round trip and a position does.  The names are posted anyway
+    * because they are what a reader needs to check the mapping tvc(x) made.
+    if "`tvc'" != "" {
+        ereturn local tvc "`tvc'"
+        ereturn local tsplit "`tsplit'"
+        ereturn local tvc_covariates "`_fg_tvccols'"
+        ereturn local tvc_pos "`_fg_tvcpos'"
+        * Cause events per interval, in interval order.  Reported in the
+        * interval legend; a small count is the visible face of the monotone-
+        * likelihood risk that a piecewise fit runs and a proportional one
+        * does not.
+        ereturn local tsplit_nfail "`_fg_tvnfail'"
+    }
     if "`cluster'" != "" ereturn local clustvar "`cluster'"
 
     * Combined-weight contract.  lt_weight names the weight actually computed:
@@ -1249,7 +1776,11 @@ program define finegray, eclass sortpreserve
     else if "`nuisance'" != ""       ereturn local vce_meat "nuisance_adjusted"
     else                             ereturn local vce_meat "fixed_weight"
     ereturn local title "Fine-Gray competing risks regression"
-    if `_has_fv' {
+    * margins consumes xb as a single linear predictor.  Under tvc() there is no
+    * single xb: the linear predictor depends on which interval the evaluation
+    * time falls in, and margins has no way to say which.  Withdraw it rather
+    * than let margins average a quantity it cannot address.
+    if `_has_fv' | "`tvc'" != "" {
         ereturn local marginsok ""
     }
     else {
@@ -1298,18 +1829,34 @@ program define finegray, eclass sortpreserve
     * wrong CIF at rc 0, which is the failure class that matters.
     ereturn local bh_seq "`_fg_bh_seq'"
 
-    * Store dataset chars for predict
-    char _dta[_finegray_estimated] "1"
-    char _dta[_finegray_compete]   "`compete'"
-    char _dta[_finegray_cause]     "`cause'"
-    char _dta[_finegray_covars]    "`varlist'"
-    char _dta[_finegray_fvvars]    "`_fv_created'"
-    char _dta[_finegray_entryvar]  "`_fg_entryvar'"
-    if `_has_fv' {
-        char _dta[_finegray_fvvarlist] "`_orig_varlist'"
-    }
-    else {
-        char _dta[_finegray_fvvarlist] ""
+    * Store dataset chars for predict.
+    *
+    * NOT on mi data.  These characteristics are the receipt for the permanent
+    * support columns, and on mi data there are none: the entry column and every
+    * _fg_<term> design column were tempvars and are about to be dropped.  A
+    * receipt naming columns that no longer exist is the rc=0-but-wrong shape
+    * this package spends most of its comments avoiding -- worse here than
+    * elsewhere, because a tempvar NAME is reused by the next command that asks
+    * for one, so a stale e(covariates)/char pair could resolve to somebody
+    * else's column rather than failing to resolve at all.
+    *
+    * What is left standing instead is the "0" (INVALIDATED) mark written before
+    * the fit began mutating anything, so _finegray_check_data refuses this
+    * dataset outright.  The explicit e(postest) guards in finegray_predict,
+    * finegray_cif and finegray_phtest fire first and name the actual reason.
+    if !`_fg_is_mi' {
+        char _dta[_finegray_estimated] "1"
+        char _dta[_finegray_compete]   "`compete'"
+        char _dta[_finegray_cause]     "`cause'"
+        char _dta[_finegray_covars]    "`varlist'"
+        char _dta[_finegray_fvvars]    "`_fv_created'"
+        char _dta[_finegray_entryvar]  "`_fg_entryvar'"
+        if `_has_fv' {
+            char _dta[_finegray_fvvarlist] "`_orig_varlist'"
+        }
+        else {
+            char _dta[_finegray_fvvarlist] ""
+        }
     }
 
     * =========================================================================
@@ -1330,6 +1877,7 @@ program define finegray, eclass sortpreserve
     foreach m in _finegray_b _finegray_V _finegray_ll _finegray_ll_0 ///
         _finegray_chi2 _finegray_df_m _finegray_conv ///
         _finegray_rank _finegray_nclust _finegray_basehaz ///
+        _finegray_kbstrata ///
         _finegray_nwstrata _finegray_minprob _finegray_maxwt ///
         _finegray_nprobwarn _finegray_nwtwarn {
         capture matrix drop `m'

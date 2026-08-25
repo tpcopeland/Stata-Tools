@@ -5,6 +5,8 @@
 {viewerjumpto "Syntax" "finegray_cif##syntax"}{...}
 {viewerjumpto "Description" "finegray_cif##description"}{...}
 {viewerjumpto "Options" "finegray_cif##options"}{...}
+{viewerjumpto "Baseline strata" "finegray_cif##bstratum"}{...}
+{viewerjumpto "Time-varying effects" "finegray_cif##tvc"}{...}
 {viewerjumpto "Remarks" "finegray_cif##remarks"}{...}
 {viewerjumpto "Examples" "finegray_cif##examples"}{...}
 {viewerjumpto "Stored results" "finegray_cif##results"}{...}
@@ -29,6 +31,7 @@ cumulative incidence after {help finegray}
 {synopt :{opt at(var=# ...)}}covariate profile for the curve{p_end}
 {synopt :{opt att:ime(numlist)}}table of the CIF at the listed horizons{p_end}
 {synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times{p_end}
+{synopt :{opt bstrat:um(#)}}baseline stratum; required after {cmd:bstrata()}{p_end}
 {synopt :{opt ci}}add pointwise confidence limits{p_end}
 {synopt :{opt boot:strap(#)}}bootstrap the confidence band with {it:#} resamples{p_end}
 {synopt :{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
@@ -111,6 +114,16 @@ correspond to that non-solution. {cmd:finegray_cif} therefore exits with
 that fail to converge are skipped and counted rather than treated as fatal.
 
 
+{pstd}
+{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made on
+multiple-imputation data -- typed directly, or run by
+{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or entry-time
+column behind, and pooled estimates have no single baseline hazard to build a
+curve from. {cmd:finegray_cif} stops with {cmd:r(301)} in that case. Refit on a single
+dataset ({cmd:mi extract 0, clear} for the complete cases, or
+{cmd:mi extract} {it:#}{cmd:, clear} for one imputation) and run {cmd:finegray}
+there; see {help finegray##mi:Multiple imputation} in {helpb finegray}.
+
 {marker options}{...}
 {title:Options}
 
@@ -149,6 +162,60 @@ with {opt attime()}: both name the times the CIF is evaluated at, and
 {opt attime()} additionally selects table output over a plotted curve, so the
 combination is refused rather than resolved silently. Unlike the default grid,
 the requested grid is not thinned.
+
+{marker tvc}{...}
+{phang}
+{bf:After a fit with} {helpb finegray##tvc:tvc()} the coefficient on the named
+covariates is piecewise constant in analysis time, so
+CIF({it:t}|{it:z}) is accumulated interval by interval: the part of the baseline
+falling inside interval {it:j} is multiplied by that interval's
+exp({it:z}'b_j). Point estimates, tables, curves, {opt saving()} and the graph
+are unaffected in form -- {opt at()} still names one covariate profile, and
+there is still one baseline.
+
+{pmore}
+{opt ci} on its own is {bf:not available} on such a fit and is refused with
+{cmd:r(198)}. The analytic interval comes from an influence function derived for
+a single exp({it:z}'b) multiplying every baseline increment; under a piecewise
+b({it:t}) each increment carries its own interval's linear predictor and its own
+risk-set total, and that derivation is not in this release. Reporting the
+proportional one would be a wrong band at {cmd:rc = 0}.
+
+{pmore}
+{opt ci} {opt bootstrap(#)} {bf:is} available and is the supported route. Each
+replication refits the whole model from {cmd:e(refitcmd)}, which carries
+{opt tvc()} and {opt tsplit()}, so every replication is the same estimator as
+the point estimate. Without {opt ci}, {cmd:r(table)}'s {cmd:se}, {cmd:lci} and
+{cmd:uci} columns are missing, as they are for any point-estimate-only call.
+
+{marker bstratum}{...}
+{phang}
+{opt bstratum(#)} names the baseline stratum the CIF belongs to, where {it:#} is
+a value of the {cmd:bstrata()} variable used at fit time. It is
+{bf:required} after a fit with more than one baseline stratum and is refused
+after any other fit.
+
+{pmore}
+The reason it is required rather than defaulted: under {opt bstrata()} each
+stratum has its own baseline subdistribution hazard, so a covariate profile no
+longer identifies a curve -- the same {opt at()} has one CIF per
+stratum. Choosing one silently would report one of {it:K} answers with nothing
+on screen to say which. A stratum-{it:averaged} CIF is a different estimand -- it needs
+declared stratum weights -- and is not implemented.
+
+{pmore}
+The stratum is printed on the {cmd:at:} line above the table and in the graph's
+default {cmd:note()}, and returned in {cmd:r(bstratum)} and
+{cmd:r(bstrata)}. The default (unthinned) time grid, the out-of-support notes
+and the graph's flat right-hand tail are all taken within the requested
+stratum, because those are properties of the curve being drawn and not of the
+pooled sample.
+
+{pmore}
+A value that no estimation-sample subject holds is refused with {cmd:r(459)},
+listing the fitted levels. So is a level that carried no cause-of-interest
+event: its Breslow baseline is identically zero, which is a degenerate curve
+rather than an estimate of one, and a flat CIF at exactly 0 reads as a finding.
 
 {phang}
 {opt ci} adds pointwise confidence limits. The standard error of the CIF is an
@@ -273,6 +340,11 @@ cluster-robust variance and {opt bootstrap()} resamples whole clusters.
 {pstd}Band by subject bootstrap{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci bootstrap(500) seed(12345)}{p_end}
 
+{pstd}After a fit with baseline strata: one curve per stratum{p_end}
+{phang2}{cmd:. finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode)}{p_end}
+{phang2}{cmd:. finegray_cif, attime(1 5) bstratum(0) ci}{p_end}
+{phang2}{cmd:. finegray_cif, attime(1 5) bstratum(1) ci}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -287,9 +359,11 @@ cluster-robust variance and {opt bootstrap()} resamples whole clusters.
 {synopt:{cmd:r(bootstrap_requested)}}requested replications; with {cmd:bootstrap()}{p_end}
 {synopt:{cmd:r(bootstrap_success)}}converged replications used; with {cmd:bootstrap()}{p_end}
 {synopt:{cmd:r(bootstrap_failed)}}skipped replications; with {cmd:bootstrap()}{p_end}
+{synopt:{cmd:r(bstratum)}}baseline stratum evaluated; with {cmd:bstratum()}{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(profile_vars)}}model covariates, in column order of {cmd:r(at)}{p_end}
+{synopt:{cmd:r(bstrata)}}baseline stratification variable; with {cmd:bstratum()}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}one row per evaluated time{p_end}

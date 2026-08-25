@@ -1,4 +1,4 @@
-*! _finegray_resolve_baseline Version 1.2.0  2026/08/16
+*! _finegray_resolve_baseline Version 1.3.0  2026/08/25
 *! Resolve the baseline cumulative subhazard for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (fills a caller-named H0 variable)
@@ -34,6 +34,13 @@
 *
 * If none of the three is available -- the data are gone AND the cache was wiped
 * by `discard' or `mata clear' -- this errors.  It does not guess.
+*
+* BASELINE STRATA.  Under bstrata() the curve is not one step function but K of
+* them, and the caller must say which stratum each evaluation row belongs to:
+* bsvar() names a variable holding that row's bstrata() VALUE.  All three paths
+* carry it, because all three can be reached on a stratified fit and answering
+* from the wrong stratum's baseline is a wrong CIF at rc 0.  A fit made without
+* bstrata() passes bsvar("") and every lookup below is unchanged.
 
 program define _finegray_resolve_baseline
     version 16.0
@@ -46,11 +53,31 @@ program define _finegray_resolve_baseline
         * character is a digit -- `T0VAR' parsed to something that then rejected
         * t0var() as "option not allowed".  This is an internal helper; nobody
         * types these.
-        syntax , tvar(name) h0(name) touse(name) hasbh(integer) [t0var(string)]
+        syntax , tvar(name) h0(name) touse(name) hasbh(integer) ///
+            [t0var(string) bsvar(string) tsplit(string) cutmat(string) ///
+            tvcpos(string)]
+
+        * PIECEWISE beta(t).  Two things change under tvc(), and both have to
+        * travel down whichever of the three paths is taken:
+        *
+        *   tvcpos()/tsplit()  the REBUILD path re-runs the fit's own baseline
+        *                      scan, and the piecewise scan is a different scan.
+        *                      Rebuilding with the proportional one would return
+        *                      a different curve for the same fit, at rc 0.
+        *   cutmat()           every piecewise CIF consumer needs Lambda_0 AT the
+        *                      boundaries as well as at its own times, and both
+        *                      must come from the SAME curve.  Asking a second,
+        *                      independently resolved baseline for the boundary
+        *                      values is how a CIF mixes two curves.
+        if `"`tvcpos'"' != "" & `"`tsplit'"' == "" {
+            display as error "internal error: tvcpos() without tsplit()"
+            exit 198
+        }
 
         * 1. the posted matrix
         if `hasbh' {
-            mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`h0'", "`touse'")
+            mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`h0'", ///
+                "`touse'", "`bsvar'", "`tsplit'", "`cutmat'")
         }
         else {
             * 2. the Mata cache, but only if it belongs to THIS fit
@@ -62,7 +89,7 @@ program define _finegray_resolve_baseline
 
             if `_have' {
                 mata: _finegray_step_lookup_cached(`_seq', "`tvar'", "`h0'", ///
-                    "`touse'")
+                    "`touse'", "`bsvar'", "`tsplit'", "`cutmat'")
             }
             else {
                 * 3. rebuild from the estimation data -- if they are still here
@@ -183,10 +210,30 @@ program define _finegray_resolve_baseline
 
                 if "`t0var'" == "" local t0var "_t0"
 
+                * The rebuild re-runs the fit's own _finegray_basehazard, so it
+                * needs the fit's baseline strata too -- without them it would
+                * return the POOLED curve for a stratified fit, at rc 0.  The
+                * fit-time variable is named in e(bstrata) and is covered by
+                * e(datasignaturevars), which _finegray_check_data just verified.
+                local _bs_est `"`e(bstrata)'"'
+                if `"`_bs_est'"' != "" {
+                    capture confirm numeric variable `_bs_est'
+                    if _rc {
+                        display as error "baseline strata variable `_bs_est' not found"
+                        display as error "the baseline cumulative subhazard is rebuilt from the"
+                        display as error "estimation data, which requires the {bf:bstrata()}"
+                        display as error "variable finegray was fit on; restore it, refit"
+                        display as error "{bf:finegray}, or refit with {bf:basehaz} so the"
+                        display as error "baseline survives in {bf:e(basehaz)}"
+                        exit 111
+                    }
+                }
+
                 mata: _finegray_step_lookup_direct("`_zvars'", ///
                     "`e(compete)'", `=e(cause)', `=e(censvalue)', ///
                     "`_byg_mata'", "`_tg_mata'", "`_es'", "`t0var'", ///
-                    "`tvar'", "`h0'", "`touse'")
+                    "`tvar'", "`h0'", "`touse'", "`_bs_est'", ///
+                    "`tvcpos'", "`tsplit'", "`cutmat'")
             }
         }
     }

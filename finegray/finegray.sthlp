@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  16aug2026}{...}
+{* *! version 1.3.0  25aug2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -10,6 +10,10 @@
 {viewerjumpto "Options" "finegray##options"}{...}
 {viewerjumpto "Remarks" "finegray##remarks"}{...}
 {viewerjumpto "Dataset side effects" "finegray##sideeffects"}{...}
+{viewerjumpto "Multiple imputation" "finegray##mi"}{...}
+{viewerjumpto "Baseline strata" "finegray##bstrata"}{...}
+{viewerjumpto "Time-varying effects" "finegray##tvc"}{...}
+{viewerjumpto "Left truncation" "finegray##lt"}{...}
 {viewerjumpto "Examples" "finegray##examples"}{...}
 {viewerjumpto "Stored results" "finegray##results"}{...}
 {viewerjumpto "Author" "finegray##author"}{...}
@@ -50,6 +54,9 @@
 {synopt:{opt cens:value(#)}}censoring value in {it:compete()}; default is {cmd:0}{p_end}
 {synopt:{opth str:ata(varlist)}}stratify censoring distribution (numeric){p_end}
 {synopt:{opth trunc:strata(varlist)}}stratify entry distribution (numeric){p_end}
+{synopt:{opth bstr:ata(varname)}}stratify the baseline subhazard (numeric){p_end}
+{synopt:{opth tvc(varlist)}}covariates with a time-varying effect{p_end}
+{synopt:{opt tsplit(numlist)}}interior interval boundaries for {opt tvc()}{p_end}
 
 {syntab:SE/Robust}
 {synopt:{opth cl:uster(varname:numvar)}}adjust SEs for intragroup correlation{p_end}
@@ -76,7 +83,8 @@
 {p 4 6 2}
 Data must be {cmd:stset} with {cmd:id()}. A subject may contribute multiple
 records when its intervals are contiguous and the model covariates,
-{opt strata()}, {opt truncstrata()}, and {opt cluster()} variables are constant
+{opt strata()}, {opt truncstrata()}, {opt bstrata()}, and {opt cluster()}
+variables are constant
 within {cmd:id()} (e.g. delayed-entry or {helpb stsplit} data); such records are
 reduced automatically to one risk-set unit. Left-truncated data are supported.
 {p_end}
@@ -90,12 +98,13 @@ reduced automatically to one risk-set unit. Left-truncated data are supported.
 {newvar}
 {ifin}{cmd:,}
 [{opt xb} {opt cif} {opt sch:oenfeld} {opt time:var(varname)} {opt ci}
-{opt basecsh:azard} {opt l:evel(#)} {opt boot:strap(#)} {opt seed(#)}]
+{opt basecsh:azard} {opt l:evel(#)} {opt boot:strap(#)} {opt seed(#)}
+{opt att:ime(#)}]
 
 {p 8 17 2}
 {cmd:finegray_cif}
 [{cmd:,} {opt at(var=# ...)} {opt att:ime(numlist)}
-{opt ti:mepoints(numlist)} {opt ci} {opt l:evel(#)}
+{opt ti:mepoints(numlist)} {opt bstrat:um(#)} {opt ci} {opt l:evel(#)}
 {opt sav:ing(filename[, replace])} {opt boot:strap(#)} {opt seed(#)}
 {opt nograph} {it:twoway_options}]
 
@@ -172,7 +181,7 @@ mechanism differs across groups (e.g., treatment arms or study sites).
 {phang}
 {opth truncstrata(varlist)} stratifies the {it:entry} (left-truncation) distribution by
 the specified variables. Use it when the delayed-entry mechanism differs
-across observed groups — for example, when one arm is enrolled later than
+across observed groups -- for example, when one arm is enrolled later than
 another. It is the entry-side counterpart of {opt strata()}, which remains the
 {it:censoring}-side option; the two are specified independently and are
 cross-classified internally into joint weight strata. {cmd:finegray} never silently
@@ -213,6 +222,118 @@ A(X_i-) is zero that weight is undefined. This is checked before the fit and
 refused with {cmd:r(459)}, naming the count and the offending joint-group
 codes. Splitting into more entry strata makes it {it:more} likely, because each
 stratum's entry distribution is then estimated from fewer subjects.
+
+{phang}
+{opth bstrata(varname)} fits the {it:stratified} proportional subdistribution
+hazards model of Zhou, Latouche, Rocha and Fine (2011): the baseline
+subdistribution hazard is left unconstrained within each level of
+{it:varname}, while the coefficient vector is shared across them,
+
+{pmore2}
+lambda_1k(t | Z) = lambda_1k0(t) exp(Z'b),   k = 1, ..., K.
+
+{pmore}
+Use it to adjust for a discrete factor whose subdistribution hazards are
+markedly non-proportional {it:without} estimating its effect -- a multicentre
+study whose centres have different baseline incidence is the motivating
+case. The factor gets no coefficient, so there is nothing to report for it
+and nothing to mis-specify about its shape. See
+{help finegray##bstrata:Baseline strata} for the scope, the variance, and
+what happens to post-estimation.
+
+{pmore}
+{bf:Three different things are called "strata" here, and they are three}
+{bf:different options.} Only {opt bstrata()} means what {cmd:stcox}'s
+{cmd:strata()} means. {helpb stcrreg} has no stratification option at all,
+so there is no established competing-risks convention to follow; read the
+table rather than assuming one.
+
+{synoptset 18 tabbed}{...}
+{synopt:{cmd:bstrata()}}the baseline subhazard -- what {cmd:stcox, strata()} means{p_end}
+{synopt:{cmd:strata()}}the Kaplan-Meier censoring distribution G{p_end}
+{synopt:{cmd:truncstrata()}}the entry (left-truncation) distribution H{p_end}
+{synoptline}
+
+{pmore}
+The axes are independent and compose. {cmd:bstrata(centre) strata(centre)}
+frees the baseline by centre {it:and} estimates G within centre; that pairing
+is the regularly-stratified regime of Zhou et al. (2011) and is
+{cmd:crrSC::crrs}'s {cmd:ctype = 1}. {cmd:bstrata(centre)} alone frees the
+baseline while pooling G, which is {cmd:crrs}'s {cmd:ctype = 2}. Both
+mappings' coefficients are cross-validated against {cmd:crrs} in the package's
+cross-validation suite.
+
+{pmore}
+{it:varname} must be numeric, must be constant within {cmd:id()} on
+multi-record data (a subject cannot move baselines part-way through follow-up),
+and rows where it is missing are excluded from the estimation sample. It is
+recorded in {cmd:e(bstrata)}, the number of levels fitted in
+{cmd:e(k_bstrata)}, and it is part of {cmd:e(datasignature)} -- changing it
+after the fit makes post-estimation fail rather than answer from another
+stratum's baseline.
+
+{pmore}
+{opt bstrata()} is not allowed with delayed entry, with {opt nuisance}, or with
+{opt tvc()}; all three are refused with {cmd:r(198)} and each refusal is
+explained in {help finegray##bstrata:Baseline strata}.
+
+{phang}
+{opth tvc(varlist)} names the covariates whose coefficient is allowed to differ
+across intervals of analysis time, and {opt tsplit(numlist)} gives the interior
+boundaries of those intervals. The model is the proportional subdistribution
+hazards model with a piecewise-constant coefficient,
+
+{pmore2}
+lambda_1(t | Z) = lambda_10(t) exp(Z'b(t)),   b(t) = b_j for t in interval j.
+
+{pmore}
+{opt tvc()} and {opt tsplit()} are required together; either alone is
+{cmd:r(198)}. {it:J} - 1 boundaries define {it:J} intervals, and each named
+covariate gets {it:J} coefficients -- separate coefficients per interval, not a
+main effect plus offsets. Covariates not named in {opt tvc()} keep a single
+coefficient.
+
+{pmore}
+{bf:Intervals are half-open at the left:} interval {it:j} is
+({it:cut_j-1}, {it:cut_j}], so an event exactly at a boundary belongs to the
+{it:earlier} interval. That is the same {cmd:(}{it:t0}{cmd:,} {it:t}{cmd:]}
+convention every risk set in this command is built on.
+
+{pmore}
+{bf:Reading the output.} The coefficient table gains equations: {cmd:main}
+holds the covariates whose effect is proportional, and {cmd:tvc1}
+... {cmd:tvc}{it:J} hold one interval each, with the bounds printed in a legend
+under the table. Test whether an effect is in fact constant with, for example,
+{cmd:test [tvc1]x = [tvc2]x}.
+
+{pmore}
+{it:varlist} names {it:variables}, not design columns: every coefficient whose
+term involves a named variable becomes interval-specific. So {cmd:tvc(grp)}
+after {cmd:i.grp} frees all of that factor's level effects together, and
+{cmd:tvc(x)} in a model containing {cmd:x} and {cmd:c.x#i.grp} frees the
+interaction columns too. A {opt tvc()} variable that names no coefficient in
+the model is {cmd:r(198)}, not a no-op.
+
+{pmore}
+Every interval must contain at least one cause-of-interest event; an empty one
+is refused with {cmd:r(459)} naming the interval, because its coefficients are
+not identified. A boundary at or beyond the last cause-event time is the usual
+way to trip this.
+
+{pmore}
+{opt tvc()} is not allowed with delayed entry, with {opt bstrata()}, or with
+{opt nuisance}. Post-estimation is restricted: {cmd:finegray_predict}'s
+{cmd:xb}, {cmd:cif} and {cmd:basecshazard} work, {cmd:schoenfeld} and
+{cmd:finegray_phtest} do not, and confidence intervals for the CIF are
+available by bootstrap only. See
+{help finegray##tvc:Time-varying effects} for every one of those and why.
+
+{pmore}
+{bf:Time-varying effects are not time-varying covariates.} {opt tvc()} lets the
+{it:coefficient} on a fixed covariate change with time. It does not let the
+{it:covariate} change with time; {cmd:finegray} refuses records whose
+covariates vary within {cmd:id()} and will continue to. See
+{help finegray##tvc:Time-varying effects}.
 
 {dlgtab:SE/Robust}
 
@@ -270,7 +391,7 @@ standard errors differ by up to 2e-4 in relative terms; the package's own
 cross-validation gates {cmd:stcrreg} standard-error parity as a tolerance, not
 as equality. Under delayed entry the commands use different weights, so
 neither estimates nor standard errors are numerically comparable. Coefficients
-are unaffected by the variance option — only their standard errors change. {cmd:e(lt_vce)}
+are unaffected by the variance option -- only their standard errors change. {cmd:e(lt_vce)}
 records the delayed-entry variance actually computed as
 {cmd:fixed_weight_sandwich} (or {cmd:model_based} under {opt norobust}), and
 {cmd:e(vce_meat)} records which sandwich meat was used on any fit. Under right
@@ -295,7 +416,11 @@ the default. It is therefore not safe to assume the default is the
 
 {pmore}
 {opt nuisance} requires the sandwich, so it is not allowed with
-{opt norobust}. It is {bf:not allowed under delayed entry}: eq. (7)-(8) is
+{opt norobust}. It is also refused with {opt bstrata()} and with {opt tvc()},
+each with {cmd:r(198)}: the psi term is built from a single pooled S0({it:s})
+and zbar({it:s}) per event time, and both options make those quantities
+specific to a stratum or to an interval without a re-derived correction. It is
+{bf:not allowed under delayed entry}: eq. (7)-(8) is
 derived for right censoring with no entry times, and applying a
 right-censoring correction to left-truncated data would return a plausible
 number with no derivation behind it. For nuisance-adjusted inference under
@@ -363,7 +488,9 @@ are a {cmd:finegray} fit; otherwise it exits with {cmd:r(301)}.
 {phang}
 {opt basehaz} posts the baseline cumulative subdistribution hazard in
 {cmd:e(basehaz)}, a matrix with one row per distinct cause-event time and columns
-{cmd:time} and {cmd:cumhazard}. It is not posted by default: that matrix has
+{cmd:time} and {cmd:cumhazard} -- under {opt bstrata()}, a leading
+{cmd:bstratum} column and one such block per stratum. It is not posted by
+default: that matrix has
 roughly N/2 rows, and building a Stata matrix that tall is O(rows^2), which at
 N = 200,000 took longer than the model fit itself. You do not need it for
 post-estimation -- {helpb finegray_cif} and {helpb finegray_predict} rebuild the
@@ -554,6 +681,10 @@ subjects. The data are untouched; only the estimation-sample marker is
 reduced. See {help finegray##lt:Left truncation}.
 
 {pstd}
+{bf:None of items 1-3 is written when the data are {cmd:mi} data}; see
+{help finegray##mi:Multiple imputation}. Otherwise:
+
+{pstd}
 Items 1 and 2 are ordinary variables: {cmd:describe}, {cmd:save} and
 {cmd:drop} all see them. Dropping the {cmd:_fg_*} design columns is supported --
 {helpb finegray_predict}, {helpb finegray_cif} and {helpb finegray_phtest} all
@@ -562,6 +693,365 @@ not drop {cmd:_fg_entry} while post-estimation on a multiple-record fit is still
 needed. Modifying a {cmd:_fg_*} column in place is a different matter: it is
 refused with {cmd:r(459)}, because the fitted coefficients no longer correspond
 to what the column holds.
+
+{marker mi}{...}
+{pstd}
+{bf:Multiple imputation.} {cmd:finegray} runs under
+{helpb mi estimate:mi estimate, cmdok:}. The estimator is an M-estimator whose
+coefficients are on the log-SHR scale with a sandwich variance, so Rubin's rules
+apply to {cmd:e(b)} and {cmd:e(V)} unchanged; nothing about the fit itself is
+different. {cmd:cmdok} is required because {cmd:mi estimate}'s supported-command
+list is internal to Stata and community-contributed commands cannot be added to
+it.
+
+{pstd}
+Pool on the log-SHR scale and exponentiate afterwards, which is what
+{cmd:eform()} does:
+
+{phang2}{cmd:. mi stset dftime, failure(dfcens==1) id(stnum)}{p_end}
+{phang2}{cmd:. mi estimate, cmdok eform("SHR"): finegray ifp, compete(status) cause(1)}{p_end}
+
+{pstd}
+All four {cmd:mi} styles ({cmd:wide}, {cmd:mlong}, {cmd:flong},
+{cmd:flongsep}) work, as do factor variables and multiple-record {cmd:id()}
+data.
+
+{phang}
+{bf:Post-estimation is not available on a fit made on mi data.} All of
+{helpb finegray_predict}, {helpb finegray_cif} and {helpb finegray_phtest}
+stop with {cmd:r(301)}. There are two reasons and each is sufficient. The
+first is mechanical: those commands need the fit's design columns and its
+entry-time column, and on {cmd:mi} data {cmd:finegray} does not write them
+(see below). The second is statistical: after pooling there is no single
+baseline hazard to predict from, and pooling a cumulative incidence curve
+across imputations is a different estimand from pooling a coefficient. To use
+them, refit on a single dataset -- {cmd:mi extract 0, clear} for the complete
+cases, or {cmd:mi extract} {it:#}{cmd:, clear} for one imputation -- and run
+{cmd:finegray} there.
+
+{phang}
+{bf:Why the support columns are not written.} The persistent items 1-3 above
+are post-estimation support, not part of the fit (the fit runs on temporary
+variables inside {cmd:preserve} either way). In {cmd:mi} data they would be
+unregistered variables: {cmd:mi describe} reports them, and under {cmd:mlong}
+or {cmd:flong} they would carry values on some imputations and not
+others. {cmd:finegray} therefore routes them through temporary variables on
+{cmd:mi} data, which is why they do not survive the command -- and why
+post-estimation refuses rather than answering from columns that are gone. The
+fit announces this in a note and records it in {cmd:e(mi_data)} and
+{cmd:e(postest)}.
+
+{phang}
+{bf:What counts as mi data.} Any dataset carrying one of {cmd:mi}'s own
+{it:dataset characteristics} -- {cmd:_dta[_mi_style]}, or
+{cmd:_dta[_mi_substyle]}, which is what {cmd:mi estimate} leaves behind on
+{cmd:flong} data. That covers all four styles, whether the command was typed
+directly or run by {cmd:mi estimate} or {cmd:mi xeq}, and it is why an
+unexpected {cmd:r(301)} from a post-estimation command means the fit behind it
+saw mi characteristics. A variable merely {it:named} {cmd:_mi_m},
+{cmd:_mi_id} or {cmd:_mi_miss} in ordinary data is not mi data and is not
+treated as such: those are legal names, and the dataset carries no
+{cmd:_mi_*} characteristic. {cmd:mi extract} removes the characteristics, so a
+fit after {cmd:mi extract} is an ordinary fit with ordinary post-estimation.
+
+{phang}
+{bf:Typing {cmd:finegray} directly on mi data.} This is detected the same way
+and behaves the same way. On {cmd:wide} data it fits the {cmd:m=0} (complete
+case) analysis; on {cmd:mlong} and {cmd:flong} the imputations are stacked in
+memory, so a subject appears more than once and the fit stops with the
+multiple-record message rather than silently fitting stacked rows. Use
+{cmd:mi extract} for a deliberate single-dataset analysis.
+
+{phang}
+{bf:One combination is refused.} A covariate imputed {it:after} an episode
+split draws a different value on each of a subject's records, which makes it a
+time-varying covariate; {cmd:finegray} refuses it with
+{cmd:covariate} {it:x} {cmd:varies within subject}, on {cmd:mi} data as
+elsewhere. Impute at the subject level and {cmd:mi expand} the completed rows
+instead.
+
+{marker bstrata}{...}
+{pstd}
+{bf:Baseline strata.} {opt bstrata(varname)} fits Zhou, Latouche, Rocha and
+Fine's (2011) stratified proportional subdistribution hazards model: one
+unconstrained baseline subdistribution hazard per level of {it:varname}, one
+shared coefficient vector. No assumption is made about how the baselines relate
+to each other. The log pseudo-likelihood is a sum of independent within-stratum
+terms, so the score and the information are sums too, and every risk set --
+including the retained competing-event subjects the Fine-Gray weights keep in
+it -- is formed {it:inside} the stratum.
+
+{pstd}
+{bf:When to reach for it.} A discrete factor whose subdistribution hazards are
+clearly non-proportional cannot be handled by putting it in {it:varlist}: the
+model would report a hazard ratio that does not exist. Stratifying on it
+adjusts for it without estimating its effect. The cost is that the factor gets
+no coefficient and no test, so this is for nuisance structure -- centre, era,
+registry -- not for the exposure you came to study.
+
+{pstd}
+{bf:This is a different axis from {opt strata()}}, which stratifies the
+Kaplan-Meier censoring distribution G, and from {opt truncstrata()}, which
+stratifies the entry distribution H. They compose freely. Under
+{cmd:bstrata(centre) strata(centre)} the baseline is free by centre and G is
+estimated within centre -- the regularly-stratified regime of Zhou
+et al. (2011) sec. 3.2. Under {cmd:bstrata(centre)} alone G is pooled. Both
+mappings' coefficients
+are cross-validated against the authors' own {cmd:crrSC::crrs} in
+the package's cross-validation suite; the per-stratum baseline, which
+{cmd:crrs} does not return in either regime, is validated instead against a
+closed-form truth.
+
+{pstd}
+{bf:Scope: right censoring only.} {opt bstrata()} with delayed entry is
+refused with {cmd:r(198)}. Zhou et al. (2011) is a right-censoring paper --
+entry times appear nowhere in it -- and neither does Zhang, Zhang and Fine
+(2011) treat baseline stratification. A stratified left-truncated
+subdistribution baseline would be a package invention with no derivation
+behind it, so {cmd:finegray} refuses rather than fit one.
+
+{pstd}
+{bf:Variance.} The reported standard errors are the package's usual
+subject-level sandwich, with the score residuals now formed within stratum and
+summed across subjects as before; it is consistent for a {it:fixed} number of
+strata as the strata grow. Two things follow.
+
+{phang2}
+Zhou et al. (2011) sec. 4.1 gives the regularly-stratified variance as
+Sigma_rk = E{(eta_ki + psi_ki)^2}, i.e. Fine and Gray's (1999) eq. 7-8
+{it:within stratum k}, including the psi term for having estimated
+G. {cmd:finegray} reports the eta-only (fixed-weight) part, exactly as it does
+without {opt bstrata()}; the stratified psi term is not implemented, and
+{opt nuisance} is therefore refused with {opt bstrata()} rather than applying
+the {it:pooled} psi to a stratified fit, which would be neither variance.
+
+{phang2}
+Zhou et al. (2011) sec. 4.2 records that the closed-form stratified variance
+"can be unstable in small sample sizes, owing to variability in Ghat in the
+tails and the small within cluster sample sizes", and their remedy is a
+stratum-level bootstrap. {cmd:finegray} implements no stratum-level
+bootstrap. With many small strata, treat the reported standard errors with
+caution and bootstrap the whole fit for coefficient inference.
+
+{pstd}
+{bf:The highly-stratified regime is out of scope.} Zhou et al. distinguish
+{it:regularly} stratified data (a few large strata) from {it:highly} stratified
+data (many small ones). The estimating equation is the same in both; the
+asymptotics, the variance derivation, and the availability of a baseline are
+not. In the highly-stratified regime the paper states the baseline cumulative
+subdistribution hazard is "infeasible" and the cumulative incidence cannot be
+predicted at all. {cmd:finegray} implements the regular regime: it always
+reports a per-stratum baseline and always lets you ask for a CIF. Nothing in
+the command detects which regime your data are in, so that judgement is yours.
+
+{pstd}
+{bf:What changes downstream.}
+
+{phang2}
+The header gains two lines -- the {opt bstrata()} variable and the number of
+baseline strata fitted -- so a stratified fit and a pooled one are never
+display-indistinguishable. Both come from {cmd:e()}, so a replay prints them
+too.
+
+{phang2}
+{cmd:e(basehaz)} becomes a {it:K}-by-3 matrix -- {it:bstratum}, {it:time},
+{it:cumhazard} -- with one block of rows per stratum, ascending by stratum
+value and by time inside each block. Without {opt bstrata()} it keeps its
+{it:K}-by-2 shape.
+
+{phang2}
+{helpb finegray_predict} {cmd:cif} and {cmd:basecshazard} answer each row from
+{it:its own} stratum's baseline, so the {opt bstrata()} variable must be in the
+data; a row where it is missing is left missing rather than scored from
+another stratum's curve.
+
+{phang2}
+{helpb finegray_cif} requires {opt bstratum(#)}. Once the baselines are free, a
+covariate profile no longer identifies a curve -- the same {opt at()} has {it:K}
+of them -- so the stratum must be named. A stratum-averaged CIF would need
+declared stratum weights and is a different estimand; it is not implemented.
+
+{phang2}
+{helpb finegray_phtest} forms its Schoenfeld residuals within stratum and pools
+them for the diagnostic, which is the same shape the fit's own scan takes.
+
+{pstd}
+{bf:A stratum with no cause-of-interest event} is not an error: its terms drop
+out of the pseudo-likelihood and the fit proceeds, with a note naming the level
+and {cmd:e(bstrata_noevent)} recording it. It has no baseline, though -- the
+Breslow estimator there is identically zero, which is a degenerate curve rather
+than an estimate of one -- so {cmd:predict, cif}, {cmd:predict, basecshazard}
+and {cmd:finegray_cif} refuse it with {cmd:r(459)}. Exclude those rows with
+{cmd:if}, or pool the level into a stratum that has events.
+
+{pstd}
+{bf:Cost.} The scan runs once per stratum over that stratum's rows, so it stays
+linear in {it:n} and the package's scaling is unchanged; what {it:K} adds is a
+constant factor, from selecting each stratum's rows out of the global time
+order. Measured on simulated competing-risks data with two covariates, against
+the same fit without {opt bstrata()}: 1.1x at {it:K} = 4, 1.4-1.6x at
+{it:K} = 20, and 2.1-2.4x at {it:K} = 100, essentially unchanged between
+{it:n} = 50,000 and {it:n} = 200,000 (6.6 s pooled, 7.2 s at {it:K} = 4 and
+15.7 s at {it:K} = 100 for {it:n} = 200,000). The large-{it:K} end of that
+range is the highly-stratified regime this version does not claim to cover
+anyway.
+
+{pstd}
+{bf:With one level} {opt bstrata()} is the unstratified estimator, bit for bit
+-- same {cmd:e(b)}, {cmd:e(V)}, {cmd:e(ll)} and {cmd:e(basehaz)}. That identity
+is asserted rather than assumed.
+
+
+{marker tvc}{...}
+{pstd}
+{bf:Time-varying effects.} {opt tvc(varlist)} with {opt tsplit(numlist)} fits a
+proportional subdistribution hazards model whose coefficient on the named
+covariates is piecewise constant in analysis time:
+
+{pmore2}
+lambda_1(t | Z) = lambda_10(t) exp(Z'b(t)),   b(t) = b_j for t in interval j,
+
+{pstd}
+with {it:J} intervals defined by the {it:J} - 1 interior boundaries in
+{opt tsplit()}. Every named covariate gets {it:J} free coefficients; every other
+covariate keeps one. There is still exactly one baseline
+subdistribution hazard -- the interval structure lives in the linear predictor,
+not in lambda_10.
+
+{pstd}
+{bf:Grounding.} This is the estimator of Fine and Gray (1999), not an extension
+of it. That paper's model takes {it:Z} to be a bounded covariate vector and
+explicitly admits deterministic functions {it:Z}({it:t}) of the baseline
+{it:Z} and {it:t} -- covariate-by-time interactions (sec. 2, pp. 497-498) --
+and the paper's own data analysis uses them, fitting treatment-by-{it:t} and
+treatment-by-{it:t}-squared terms after finding "substantial lack of fit" in the
+proportional model (sec. 7, p. 503). An interval indicator is such a
+deterministic function. What is new here is only the {it:computation}: the
+piecewise design is fitted without expanding the data into episodes. The
+same model is available in {helpb stcrreg} as
+{cmd:tvc()} with an indicator {cmd:texp()}, and the two agree --
+{cmd:finegray, tvc(x) tsplit(}{it:c}{cmd:)} is pinned against
+{cmd:stcrreg, tvc(x) texp(_t > }{it:c}{cmd:)}.
+
+{pstd}
+{bf:Time-varying effects are not time-varying covariates}, and the difference is
+not a technicality. {opt tvc()} changes the {it:coefficient} on a covariate
+whose value is fixed at baseline; the risk set, the subdistribution weights and
+the cumulative incidence are all still well defined, because {it:Z} is known for
+every subject at every time -- including after a competing event, when the
+subject is retained in the Fine-Gray risk set. An {it:internal} time-varying
+covariate is not known there: the subject has failed from another cause, and its
+covariate path has no meaning after that. {cmd:finegray} refuses records whose
+covariates vary within {cmd:id()} for that reason, and {opt tvc()} does not
+change it.
+
+{pstd}
+{bf:Intervals are half-open at the left.} Interval {it:j} is
+({it:cut_j-1}, {it:cut_j}], with {it:cut_0} = 0 and the last interval open on
+the right, so an event exactly at a boundary belongs to the earlier interval. That
+is the {cmd:(}{it:t0}{cmd:,} {it:t}{cmd:]} convention every risk set in
+this command uses, and it is what lets every baseline lookup downstream stay an
+ordinary "largest event time at or before {it:s}" search. The convention is
+pinned by a test with an event placed exactly on a boundary.
+
+{pstd}
+{bf:Reading the coefficient table.} Coefficients arrive in equations: {cmd:main}
+for the covariates whose effect is held proportional, then {cmd:tvc1}
+... {cmd:tvc}{it:J}, one per interval, with the interval bounds printed in a legend
+below the table. The equation names are deliberately plain: {cmd:5 < _t <= 10}
+reads better but breaks {cmd:[}{it:eqname}{cmd:]} parsing, so
+{cmd:test [tvc1]x = [tvc2]x} -- the Wald test of whether the effect is in fact
+constant, which is most of the reason to fit the model -- would fail
+{cmd:r(132)}. Separate coefficients per interval, rather than a main effect plus
+offsets, are what make that a one-line test.
+
+{pstd}
+{bf:Which covariates.} {opt tvc()} names variables. Every coefficient whose
+{it:term} involves a named variable becomes interval-specific: {cmd:tvc(grp)}
+after {cmd:i.grp} frees all of that factor's levels together, and {cmd:tvc(x)}
+in a model containing {cmd:x} and {cmd:c.x#i.grp} frees the interaction columns
+too. The resolved design columns are reported in {cmd:e(tvc_covariates)} so the
+mapping can be checked.
+
+{pstd}
+{bf:Every interval must carry a cause event.} An interval with no
+cause-of-interest event contributes no likelihood terms and its coefficients are
+not identified; {cmd:finegray} refuses it with {cmd:r(459)}, naming the
+interval. A boundary at or past the last cause-event time is the usual cause. This
+is a hard error, not a dropped coefficient: silently omitting an interval
+would change the model without saying so.
+
+{pstd}
+{bf:Scope.} Three combinations are refused with {cmd:r(198)}, and none of them
+is an oversight:
+
+{p2colset 9 24 26 2}{...}
+{p2col:{bf:delayed entry}}the piecewise scan is the right-censoring scan run
+once per interval. The delayed-entry (ZZF) branch is a separate family of scan
+functions with no piecewise form, and it is already this package's extension of
+Zhang et al. (2011) rather than a published estimator; a b({it:t}) built on it
+would be unsourced twice over{p_end}
+{p2col:{opt bstrata()}}each reshapes the risk-set scan on its own axis. They
+compose mechanically, but the composition has no reference implementation to
+validate against{p_end}
+{p2col:{opt nuisance}}the psi term is Fine and Gray (1999) eq. 7-8, built from
+one S0({it:s}) and one zbar({it:s}) at each cause-event time. Under b({it:t})
+both are interval-specific, and that correction is not derived here{p_end}
+{p2colreset}{...}
+
+{pstd}
+A smooth {opt texp()}-style time function is not offered at all. Every scan in
+this package is linear-time because exp({it:Z}'b) is constant within an
+interval and can be computed once; a continuous function of {it:t} in the linear
+predictor destroys that for every risk set, and a slow path is not something
+this package ships quietly.
+
+{pstd}
+{bf:Post-estimation.} What is available after a {opt tvc()} fit, and what is
+not:
+
+{p2colset 9 30 32 2}{...}
+{p2col:{cmd:finegray_predict, xb}}available, and now a function of time. It is
+evaluated at each row's own {cmd:_t}; {opt attime(#)} evaluates every row at one
+fixed time instead. The variable label records which{p_end}
+{p2col:{cmd:finegray_predict, cif}}available. CIF({it:s}|{it:Z}) accumulates the
+baseline over each interval with that interval's own linear predictor{p_end}
+{p2col:{cmd:finegray_predict, basecshazard}}available and unchanged -- there is
+one baseline{p_end}
+{p2col:{cmd:finegray_cif}}available for point estimates and curves{p_end}
+{p2col:{cmd:ci} (analytic)}{bf:not available.} The CIF influence function is
+derived for a single exp({it:z}'b) multiplying every Breslow increment; under
+b({it:t}) each increment carries its own interval's linear predictor and its own
+risk-set total, and both the prefix sums and the b-derivative term change shape. That
+derivation is not in this release, and reporting the proportional one would
+be a wrong band at {cmd:rc = 0}{p_end}
+{p2col:{cmd:ci bootstrap(#)}}available, in both {cmd:finegray_predict} and
+{cmd:finegray_cif}. The bootstrap refits the whole model on each resample --
+{cmd:e(refitcmd)} carries {opt tvc()} and {opt tsplit()} -- so it needs no new
+derivation{p_end}
+{p2col:{cmd:finegray_predict, schoenfeld}}{bf:not available.} Each residual is
+defined inside its own interval, so every other interval's block is zero by
+construction{p_end}
+{p2col:{cmd:finegray_phtest}}{bf:not available}, and this is the point rather
+than a gap: {opt tvc()} is the modelled {it:answer} to a
+{cmd:finegray_phtest} rejection. Run the diagnostic on the proportional fit,
+then fit this one, and use {cmd:test [tvc1]x = [tvc2]x} here{p_end}
+{p2colreset}{...}
+
+{pstd}
+{cmd:margins} is withdrawn ({cmd:e(marginsok)} is empty) because there is no
+single linear predictor to average: which interval's coefficients apply depends
+on the evaluation time, and {cmd:margins} has no way to say which.
+
+{pstd}
+{bf:Cost.} Each interval is one full pass of the scan, so a {it:J}-interval fit
+costs roughly {it:J} times a proportional one plus the wider information
+matrix; the sorting is done once. The two invariants that make the ordinary scan
+linear-time -- exp({it:Z}'b) computed once, and a competing-event subject's
+retained contribution added once and never revisited -- both fail under
+b({it:t}), and rebuilding the accumulators at each boundary is what buys them
+back inside each interval.
+
 
 {marker lt}{...}
 {pstd}
@@ -674,7 +1164,7 @@ warning at run time, and {opt cluster()} uses the cluster-robust form of the
 sandwich.
 
 {pstd}
-{bf:What the sandwich does not do.} It treats the estimated weights as fixed — it
+{bf:What the sandwich does not do.} It treats the estimated weights as fixed -- it
 does not propagate the uncertainty in estimating G and H, so {cmd:e(lt_vce)} is
 reported as {cmd:fixed_weight_sandwich}, not as the Fine and Gray (1999, eq. 7-8)
 nuisance-adjusted variance. Zhang, Zhang and Fine (2011, Appendix B) give a
@@ -727,7 +1217,8 @@ use {cmd:finegray_predict, cif ci}.
 subject contributes more than one in-sample record (delayed entry,
 {cmd:(start,stop]} intervals, or data run through {helpb stsplit}) as long as
 the intervals are contiguous (no gaps or overlaps) and the model covariates,
-{opt strata()}, {opt truncstrata()}, and {opt cluster()} variables are constant
+{opt strata()}, {opt truncstrata()}, {opt bstrata()}, and {opt cluster()}
+variables are constant
 within {cmd:id()}.
 
 {pmore}
@@ -758,14 +1249,18 @@ require to reconstruct the estimation risk sets. It persists like the
 Covariates that change within subject are not supported and produce an error. In
 particular, internal time-varying covariates do not retain the model's
 direct CIF interpretation after a competing event. Deterministic effects of
-baseline covariates that vary with analysis time are defined by Fine and Gray
-(1999), but this implementation does not fit them. See {helpb stcox} for a
-cause-specific model when internal time-varying covariates are scientifically
-appropriate.
+baseline covariates that vary with analysis time -- defined by Fine and Gray
+(1999) -- {it:are} fitted, as a piecewise-constant beta({it:t}); see
+{opt tvc()} under {help finegray##tvc:Time-varying effects}. See
+{helpb stcox} for a cause-specific model when internal time-varying covariates
+are scientifically appropriate.
 
 {pstd}
 {bf:Margins:} {cmd:margins} is supported after {cmd:finegray} for the linear
-predictor ({cmd:predict(xb)}) in models without factor-variable expansion.
+predictor ({cmd:predict(xb)}) in models without factor-variable expansion and
+without {opt tvc()}. After a {opt tvc()} fit {cmd:e(marginsok)} is empty,
+because the linear predictor depends on the evaluation time and {cmd:margins}
+has no way to say which; see {help finegray##tvc:Time-varying effects}.
 
 {pstd}
 For factor-variable models, {cmd:margins} cannot address the
@@ -854,6 +1349,12 @@ subdistribution of a competing risk. {it:JASA} 2019; 114(525): 259-270.
 {pstd}{browse "https://doi.org/10.1080/01621459.2017.1401540":doi:10.1080/01621459.2017.1401540}{p_end}
 
 {pstd}
+Zhou B, Latouche A, Rocha V, Fine J. Competing risks regression for stratified
+data. {it:Biometrics} 2011; 67(2): 661-670.
+
+{pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01493.x":doi:10.1111/j.1541-0420.2010.01493.x}{p_end}
+
+{pstd}
 Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing
 risks data. {it:Journal of Computational and Graphical Statistics}
 2021; 30(3): 685-693.
@@ -867,7 +1368,17 @@ left-truncated Weight 1 in its published b/S form; Geskus (2011) grounds the
 G*H product-limit representation and tie ordering; Bellach et al. (2020) ground
 their continuous-time equivalence. Bellach et al. (2019) ground the
 estimated-weight variance term and the limitation for internal time-varying
-covariates. Kawaguchi et al. (2021) ground only the right-censoring, no-ties
+covariates. Fine and Gray (1999) also ground {opt tvc()}: sec. 2 (pp. 497-498)
+admits deterministic {it:Z}({it:t}) built from the baseline {it:Z} and {it:t},
+and sec. 7 (p. 503) fits exactly such terms; the interval indicators
+{opt tsplit()} builds are one instance, so the estimator is unchanged and only
+the design grows. Zhou et al. (2011) ground {opt bstrata()}: the stratified model,
+the within-stratum risk sets, the additive-over-strata estimating equation, the
+two asymptotic regimes and the within-versus-pooled G that distinguishes them,
+the regular-regime per-stratum Breslow baseline, and the small-stratum variance
+caveat -- but not left truncation, which appears nowhere in that paper, and not
+the highly-stratified closed-form variance, which this package does not
+implement. Kawaguchi et al. (2021) ground only the right-censoring, no-ties
 scan decomposition, not this package's tie, left-truncation, or variance
 extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 
@@ -891,6 +1402,36 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {bf:Stratified censoring distribution}
 
 {phang2}{cmd:. finegray ifp tumsize, compete(status) cause(1) strata(pelnode)}{p_end}
+
+{pstd}
+{bf:Stratified baseline subhazard} (one baseline per group, shared coefficients)
+
+{phang2}{cmd:. finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode)}{p_end}
+{phang2}{cmd:. finegray_cif, attime(1 5) bstratum(0) ci}{p_end}
+{phang2}{cmd:. finegray_cif, attime(1 5) bstratum(1) ci}{p_end}
+
+{pstd}
+{bf:Baseline and censoring distribution both stratified} (Zhou et al. 2011,
+regularly stratified regime)
+
+{phang2}{cmd:. finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode) strata(pelnode)}{p_end}
+
+{pstd}
+{bf:Piecewise-constant time-varying effect} (one coefficient per interval)
+
+{phang2}{cmd:. finegray ifp tumsize pelnode, compete(status) cause(1) tvc(pelnode) tsplit(1)}{p_end}
+
+{pstd}
+Test whether that effect is in fact constant across the two intervals
+
+{phang2}{cmd:. test [tvc1]pelnode = [tvc2]pelnode}{p_end}
+
+{pstd}
+Three intervals, the linear predictor at a chosen time, and the CIF
+
+{phang2}{cmd:. finegray ifp tumsize pelnode, compete(status) cause(1) tvc(pelnode) tsplit(0.5 1.5)}{p_end}
+{phang2}{cmd:. finegray_predict xb2, xb attime(2)}{p_end}
+{phang2}{cmd:. finegray_cif, at(ifp=20 tumsize=5 pelnode=0) attime(1 3 5)}{p_end}
 
 {pstd}
 {bf:Model-based standard errors (default is robust/sandwich)}
@@ -963,18 +1504,21 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(rank)}}rank of {cmd:e(V)}{p_end}
 {synopt:{cmd:e(N_clust)}}number of clusters (only with {opt cluster()}){p_end}
 {synopt:{cmd:e(converged)}}1 if converged, 0 otherwise{p_end}
-{synopt:{cmd:e(N_delayed)}}number of subjects entering after time 0 (delayed entry){p_end}
-{synopt:{cmd:e(N_G_trunc)}}observations with censoring survivor {it:G(t)} floored at 1e-10{p_end}
+{synopt:{cmd:e(N_delayed)}}subjects entering after time 0 (delayed entry){p_end}
+{synopt:{cmd:e(N_G_trunc)}}observations with censoring {it:G(t)} floored at 1e-10{p_end}
+{synopt:{cmd:e(k_bstrata)}}baseline strata fitted; {cmd:1} without {opt bstrata()}{p_end}
+{synopt:{cmd:e(n_intervals)}}time intervals fitted; {cmd:1} without {opt tvc()}{p_end}
+{synopt:{cmd:e(k_tvc)}}design columns with an interval-specific slope{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 {synopt:{cmd:e(cause)}}cause of interest value{p_end}
 {synopt:{cmd:e(censvalue)}}censoring value{p_end}
 {synopt:{cmd:e(iterate)}}maximum iterations{p_end}
 {synopt:{cmd:e(tolerance)}}convergence tolerance{p_end}
-{synopt:{cmd:e(N_weight_strata)}}number of observed joint (censoring x entry) weight strata{p_end}
-{synopt:{cmd:e(min_weight_prob)}}smallest weight probability A actually consulted by the scan{p_end}
+{synopt:{cmd:e(N_weight_strata)}}observed joint (censoring x entry) weight strata{p_end}
+{synopt:{cmd:e(min_weight_prob)}}smallest weight probability A the scan consulted{p_end}
 {synopt:{cmd:e(max_lt_weight)}}largest retained subject-by-cause-time weight{p_end}
-{synopt:{cmd:e(N_prob_warn)}}count of consulted weight probabilities with A < 1e-10{p_end}
-{synopt:{cmd:e(N_weight_warn)}}count of retained subject-by-cause-time weights above 1e6{p_end}
+{synopt:{cmd:e(N_prob_warn)}}consulted weight probabilities with A < 1e-10{p_end}
+{synopt:{cmd:e(N_weight_warn)}}retained subject-by-cause-time weights above 1e6{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
@@ -985,12 +1529,21 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(depvar)}}{cmd:_t} (the {cmd:stset} analysis time; as {helpb stcrreg}){p_end}
 {synopt:{cmd:e(compete)}}competing events variable name{p_end}
 {synopt:{cmd:e(compete_values)}}values of {cmd:e(compete)} pooled as competing events{p_end}
-{synopt:{cmd:e(covariates)}}covariate variable names{p_end}
-{synopt:{cmd:e(entryvar)}}entry-time column of a multiple-record fit; empty otherwise{p_end}
+{synopt:{cmd:e(covariates)}}covariate variable names (temporary under {cmd:mi}){p_end}
+{synopt:{cmd:e(entryvar)}}entry-time column of a multiple-record fit{p_end}
+{synopt:{cmd:e(mi_data)}}{cmd:1} if fitted on {cmd:mi} data; empty otherwise{p_end}
+{synopt:{cmd:e(postest)}}{cmd:unavailable_mi} on such a fit; empty otherwise{p_end}
 {synopt:{cmd:e(fvvarlist)}}original factor-variable specification{p_end}
 {synopt:{cmd:e(fvsemantic)}}factor-variable expansion semantics{p_end}
 {synopt:{cmd:e(strata)}}censoring stratification variables{p_end}
-{synopt:{cmd:e(truncstrata)}}entry stratification variables; if {opt truncstrata()} specified{p_end}
+{synopt:{cmd:e(truncstrata)}}entry stratification variables{p_end}
+{synopt:{cmd:e(bstrata)}}baseline stratification variable{p_end}
+{synopt:{cmd:e(bstrata_noevent)}}strata with no cause event{p_end}
+{synopt:{cmd:e(tvc)}}variables named in {opt tvc()}{p_end}
+{synopt:{cmd:e(tsplit)}}interior interval boundaries{p_end}
+{synopt:{cmd:e(tvc_covariates)}}design columns those variables resolved to{p_end}
+{synopt:{cmd:e(tvc_pos)}}their positions in {cmd:e(covariates)}{p_end}
+{synopt:{cmd:e(tsplit_nfail)}}cause events per interval, in interval order{p_end}
 {synopt:{cmd:e(lt_weight)}}weight computed; see {help finegray##lt:Left truncation}{p_end}
 {synopt:{cmd:e(lt_vce)}}variance computed under delayed entry{p_end}
 {synopt:{cmd:e(bh_seq)}}internal key to the cached baseline; see below{p_end}
@@ -999,7 +1552,7 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
 {synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
 {synopt:{cmd:e(title)}}Fine-Gray competing risks regression{p_end}
-{synopt:{cmd:e(marginsok)}}{cmd:xb} (empty for factor-variable models){p_end}
+{synopt:{cmd:e(marginsok)}}{cmd:xb}; empty under factor variables or {opt tvc()}{p_end}
 {synopt:{cmd:e(properties)}}b V{p_end}
 {synopt:{cmd:e(datasignature)}}signature of the estimation data{p_end}
 {synopt:{cmd:e(datasignaturevars)}}variables covered by {cmd:e(datasignature)}{p_end}
@@ -1010,6 +1563,18 @@ extensions. See {helpb finegray_phtest} for the package diagnostic's scope.
 {synopt:{cmd:e(b)}}coefficient vector (log-SHR){p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix{p_end}
 {synopt:{cmd:e(basehaz)}}baseline cumulative subhazard; only with {opt basehaz}{p_end}
+{synoptline}
+{p2colreset}{...}
+
+{pstd}
+Under {opt tvc()}, {cmd:e(b)} is WIDER than {cmd:e(covariates)}: each
+time-varying design column carries one coefficient per interval. Its column
+stripe is {cmd:main} for the proportional effects and {cmd:tvc1}
+... {cmd:tvc}{it:J} for the intervals, so a coefficient is addressed as
+{cmd:[tvc2]}{it:x}. {cmd:e(k_tvc)} and {cmd:e(n_intervals)} give the two
+dimensions and {cmd:e(tvc_pos)} the mapping back to {cmd:e(covariates)}. Under
+{opt bstrata()}, {cmd:e(basehaz)} is {it:K} x 3 -- {cmd:bstratum},
+{cmd:time}, {cmd:cumhazard} -- rather than {it:K} x 2.
 
 {pstd}
 {cmd:e(bh_seq)} is bookkeeping, not a statistic. The baseline curve is kept in
@@ -1024,7 +1589,11 @@ need to read it.
 {pstd}
 {cmd:e(basehaz)} holds the baseline cumulative subdistribution hazard H0(t) as a
 right-continuous step function: column {it:time} lists the distinct
-cause-of-interest event times and column {it:cumhazard} the corresponding H0(t). It
+cause-of-interest event times and column {it:cumhazard} the corresponding
+H0(t). Under {opt bstrata()} it gains a leading {it:bstratum} column and holds
+one such step function per stratum, in blocks ascending by stratum value and
+by time within each block; without {opt bstrata()} the released two-column
+shape is unchanged. It
 is posted {bf:only when} {opt basehaz} is specified, because a matrix with one
 row per event time is O(rows^2) to create in Stata; see {opt basehaz} under
 {help finegray##options:Options}. For the baseline as a variable, which costs
@@ -1074,7 +1643,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-08-16{p_end}
+{pstd}Version 1.3.0, 2026-08-25{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

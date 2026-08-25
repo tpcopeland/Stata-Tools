@@ -1,0 +1,3 @@
+gated_commit: a519a93
+source_repo: /home/tpcopeland/Stata-Tools
+current_tree: /home/tpcopeland/Stata-Tools/finegray

@@ -1,4 +1,4 @@
-*! _finegray_fv_design Version 1.2.0  2026/08/16
+*! _finegray_fv_design Version 1.3.0  2026/08/25
 *! Resolve the fitted factor-variable design from the FIT-TIME expansion
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -6,7 +6,9 @@
 /*
 Returns, for the factor-variable fit currently in e():
 
-  r(k)        number of non-base design columns (== colsof(e(b)))
+  r(k)        number of non-base design columns (== e(covariates); under
+              tvc() that is NARROWER than e(b), which holds one coefficient
+              per interval for each time-varying column)
   r(terms)    those columns' semantic terms, in order, VERBATIM as
               e(fvsemantic) spells them -- `2.race', `2.race#c.age'
   r(expr#)    a Stata expression that evaluates design column # from the
@@ -140,9 +142,17 @@ program define _finegray_fv_design, rclass
             display as error "the fitted factor-variable design has no estimable columns"
             exit 198
         }
-        if `_k' != colsof(e(b)) {
+        * Compare against the DESIGN width, not colsof(e(b)).  Under tvc() the
+        * coefficient vector is wider than the design -- each time-varying
+        * column carries one coefficient per interval -- so equality with
+        * colsof(e(b)) is the wrong contract there and would reject every
+        * factor-variable tvc() fit at the first rebuild.  e(covariates) names
+        * the design columns and is the quantity this expansion reproduces.
+        local _kexp : word count `e(covariates)'
+        if `_kexp' == 0 local _kexp = colsof(e(b))
+        if `_k' != `_kexp' {
             display as error "fitted factor-variable design does not match e(b)"
-            display as error "(`_k' non-base terms in e(fvsemantic), `=colsof(e(b))' coefficients)"
+            display as error "(`_k' non-base terms in e(fvsemantic), `_kexp' design columns)"
             exit 198
         }
 

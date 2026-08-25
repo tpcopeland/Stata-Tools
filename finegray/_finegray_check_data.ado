@@ -1,4 +1,4 @@
-*! _finegray_check_data Version 1.2.0  2026/08/16
+*! _finegray_check_data Version 1.3.0  2026/08/25
 *! Verify that post-estimation commands still see the finegray estimation data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal
@@ -45,6 +45,21 @@ program define _finegray_check_data
         * untouched by the failed re-fit and would compare equal.  Refuse it
         * outright, and reserve the fall-through for a characteristic that is
         * simply absent.
+        *
+        * Ahead of all of that: a fit on mi data is refused here as well as
+        * at each command's own entry point.  The entry-point guards give the
+        * actionable message; this one exists so that a future post-estimation
+        * path added without its own guard still fails closed rather than
+        * resolving e(covariates) into tempvar names some other command has
+        * since reused.
+        if `"`e(postest)'"' == "unavailable_mi" {
+            display as error "post-estimation is not available after a fit on mi data"
+            display as error "refit on a single dataset ({bf:mi extract 0, clear} for the"
+            display as error "complete-case data) and run {bf:finegray} there;"
+            display as error "see {help finegray##mi:help finegray}"
+            exit 301
+        }
+
         local _fg_state `"`_dta[_finegray_estimated]'"'
         local _fg_restored = 0
         if `"`_fg_state'"' != "1" {

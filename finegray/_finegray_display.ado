@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.2.0  2026/08/16
+*! _finegray_display Version 1.3.0  2026/08/25
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -89,6 +89,24 @@ program define _finegray_display
         display as text "Censoring strata:" _col(24) as result "`e(strata)'"
     }
 
+    * Baseline strata.  Same reason the delayed-entry line below exists: a fit
+    * with a free baseline per stratum and a pooled-baseline fit are different
+    * estimators, and before this they printed identical headers.  The label
+    * says "baseline" because two other options in this command are also called
+    * strata and stratify something else entirely (see help finegray).
+    if `"`e(bstrata)'"' != "" {
+        display as text "Baseline strata:" _col(24) as result "`e(bstrata)'"
+    }
+
+    * Time-varying effects.  A proportional fit and a piecewise beta(t) fit are
+    * different models, and the coefficient table alone shows only that some
+    * rows sit under equation names -- which a reader who did not type the
+    * command has no way to decode.  Name the covariates and the boundaries.
+    if `"`e(tvc)'"' != "" {
+        display as text "Time-varying effects:" _col(24) as result "`e(tvc)'"
+        display as text "Interval boundaries:" _col(24) as result "`e(tsplit)'"
+    }
+
     * Delayed entry.  A ZZF Weight-1 fit and an ordinary right-censored fit used
     * to print identical headers, so two materially different estimators were
     * distinguishable only by running `ereturn list'.
@@ -116,13 +134,30 @@ program define _finegray_display
     }
 
     display as text ""
-    display as text "No. of obs" _col(24) "= " as result %10.0fc e(N)
+    * e(N) is the number of risk-set units the engine actually fitted, which is
+    * the SUBJECT count: finegray.ado recomputes N after the multiple-record
+    * reduction and prints "(note: R records reduced to N subjects)" a screen
+    * earlier.  Labelling it "No. of obs" directly under that note contradicted
+    * the note.  stcrreg prints "No. of subjects" for the same quantity.
+    display as text "No. of subjects" _col(24) "= " as result %10.0fc e(N)
     display as text "No. of cause events" _col(24) "= " as result %10.0fc e(N_fail)
     display as text "No. competing events" _col(24) "= " as result %10.0fc e(N_compete)
     display as text "No. censored" _col(24) "= " as result %10.0fc e(N_cens)
     if `_has_lt' & e(N_delayed) < . {
         display as text "No. delayed entry" _col(24) "= " ///
             as result %10.0fc e(N_delayed)
+    }
+    * How many baselines were actually fitted.  "bstrata(centre)" and "four
+    * centres" are different facts, and only the second one tells the reader
+    * how much data each baseline rests on -- which is the whole small-stratum
+    * caveat in help finegray.
+    if `"`e(bstrata)'"' != "" & e(k_bstrata) < . {
+        display as text "No. baseline strata" _col(24) "= " ///
+            as result %10.0fc e(k_bstrata)
+    }
+    if `"`e(tvc)'"' != "" & e(n_intervals) < . {
+        display as text "No. of intervals" _col(24) "= " ///
+            as result %10.0fc e(n_intervals)
     }
     if `"`e(clustvar)'"' != "" {
         display as text "No. of clusters" _col(24) "= " ///
@@ -210,6 +245,22 @@ program define _finegray_display
         display as text "e(lt_weight)=zzf1_factorized."
     }
 
+    * mi note.  A fit on mi data leaves no post-estimation support behind (its
+    * design columns and entry column were tempvars), so finegray_predict,
+    * finegray_cif and finegray_phtest refuse it.  Say so at fit time AND on
+    * replay -- e() is all this program reads, so both print the same line --
+    * rather than leaving the user to discover it from a later refusal.
+    * Under `mi estimate, cmdok:' the per-imputation fits run quietly, so this
+    * surfaces only where it is actionable: a finegray typed on mi data.
+    if `"`e(postest)'"' == "unavailable_mi" {
+        display as text ""
+        display as text "note: fitted on multiple-imputation data; the coefficients and variance"
+        display as text "are ordinary M-estimator output and pool under Rubin's rules, but"
+        display as text "finegray_predict, finegray_cif and finegray_phtest are unavailable"
+        display as text "on this fit. See Multiple imputation in {help finegray##mi:help finegray}."
+        display as text "e(postest)=unavailable_mi."
+    }
+
     * =====================================================================
     * COEFFICIENT TABLE
     * =====================================================================
@@ -218,6 +269,72 @@ program define _finegray_display
     }
     else {
         ereturn display, eform(SHR) level(`level')
+    }
+
+    * =====================================================================
+    * INTERVAL LEGEND
+    * =====================================================================
+    * The equation names in the table are tvc1, tvc2, ... because `<' and `='
+    * break [eqname] parsing and would make `test [tvc1]x = [tvc2]x' -- the Wald
+    * test of "is this effect constant?" -- fail r(132).  The bounds they stand
+    * for therefore have to be printed, or the table is undecodable from its own
+    * output.  Half-open at the LEFT: an event exactly at a boundary belongs to
+    * the earlier interval, matching the (t0, t] risk sets the fit is built on.
+    if `"`e(tsplit)'"' != "" {
+        local _tvcuts `"`e(tsplit)'"'
+        local _tvJ = e(n_intervals)
+        if `_tvJ' >= . local _tvJ = `: word count `_tvcuts'' + 1
+        * Cause events per interval, posted at fit time.  An interval resting on
+        * a handful of events is where a piecewise fit reaches a monotone
+        * likelihood and prints an enormous but finite subhazard ratio at rc 0;
+        * the count is the only thing in the output that shows it.
+        local _tvnf `"`e(tsplit_nfail)'"'
+        local _tvcz = e(cause)
+        display as text ""
+        display as text "beta(t) is constant on each interval below; " ///
+            "intervals are (lower, upper]:"
+        local _tvlo ""
+        forvalues _tvj = 1/`_tvJ' {
+            if `_tvj' == `_tvJ' local _tvlbl "_t > `_tvlo'"
+            else {
+                local _tvhi : word `_tvj' of `_tvcuts'
+                if `_tvj' == 1 local _tvlbl "_t <= `_tvhi'"
+                else           local _tvlbl "`_tvlo' < _t <= `_tvhi'"
+            }
+            local _tvn : word `_tvj' of `_tvnf'
+            if "`_tvn'" != "" {
+                local _tvewd "events"
+                if `_tvn' == 1 local _tvewd "event"
+                display as text "    tvc`_tvj':" _col(14) as result ///
+                    "`_tvlbl'" _col(38) as text "(`_tvn' cause `_tvcz' `_tvewd')"
+            }
+            else {
+                display as text "    tvc`_tvj':" _col(14) as result "`_tvlbl'"
+            }
+            if `_tvj' < `_tvJ' local _tvlo : word `_tvj' of `_tvcuts'
+        }
+        * The `main' equation exists only when something was left proportional.
+        * Explaining an equation the table does not contain reads as a bug in
+        * the table rather than a note about it.
+        local _tvncov : word count `e(covariates)'
+        local _tvntv = e(k_tvc)
+        if `_tvntv' >= . local _tvntv = 0
+        if `_tvncov' > `_tvntv' {
+            display as text "    (main:" _col(14) as result ///
+                "covariates whose effect is held proportional)"
+        }
+        * The warning belongs beside the numbers it discredits, not in the help
+        * file.  Five is a round figure, not a theoretical threshold.
+        local _tvmin = .
+        foreach _tvn of local _tvnf {
+            if `_tvn' < `_tvmin' local _tvmin = `_tvn'
+        }
+        if `_tvmin' < 5 {
+            display as error "warning: an interval carries only `_tvmin' cause `_tvcz' event(s)"
+            display as text "(its coefficients rest on those events alone; a piecewise fit can"
+            display as text "reach a monotone likelihood there and still converge, printing an"
+            display as text "enormous but finite subhazard ratio -- use fewer, wider intervals)"
+        }
     }
 
     * The Fine-Gray objective is a PSEUDO-likelihood: its weighted score need not

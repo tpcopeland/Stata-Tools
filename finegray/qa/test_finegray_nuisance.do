@@ -327,7 +327,14 @@ capture noisily {
     mata: _fg_psi_invariant("Z", "cg")
     assert scalar(PSISUM) < 1e-8
     assert scalar(ETASUM) < 1e-6
-    assert !missing(r(PSIABS))
+    * scalar(), not r(): _fg_psi_invariant is a Mata void that writes Stata
+    * SCALARS via st_numscalar, and r(PSIABS) is never set.  As written the
+    * guard read a missing value, `!missing(.)' was false, and the test failed
+    * on every run since it was added -- while the assertion it was guarding,
+    * `scalar(PSIABS) > 1e-6', would itself have PASSED on a missing value
+    * (a missing is greater than any number), which is the trivial pass the
+    * guard exists to prevent.
+    assert !missing(scalar(PSIABS))
     assert scalar(PSIABS) > 1e-6
 }
 if _rc == 0 {

@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/08/16
+*! finegray_cif Version 1.3.0  2026/08/25
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -38,6 +38,7 @@ program define finegray_cif, rclass sortpreserve
 
     syntax [, AT(string) ATTime(numlist sort >=0) ///
         TImepoints(numlist sort >=0) CI Level(string) ///
+        BSTRATum(numlist max=1) ///
         SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH *]
 
     * level() is parsed as a string (not cilevel) so an OMITTED level() is empty
@@ -118,8 +119,37 @@ program define finegray_cif, rclass sortpreserve
     * VALIDATE STATE
     * =====================================================================
     if "`e(cmd)'" != "finegray" {
+        * After `mi estimate, cmdok: finegray ...' the results in e() are mi's
+        * pooled ones, not a finegray fit, and "you must run finegray" reads as
+        * though the user had not -- when they just did.  Name what actually
+        * happened, and where post-estimation does live.
+        if "`e(cmd)'" == "mi estimate" & "`e(cmd_mi)'" == "finegray" {
+            display as error "post-estimation is not available after {bf:mi estimate}"
+            display as error "e() holds the pooled estimates, and pooled estimates have no"
+            display as error "single baseline hazard for {bf:finegray_cif} to work from"
+            display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
+            display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
+            display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
+            exit 301
+        }
         display as error "last estimates not found"
         display as error "you must run {bf:finegray} before using finegray_cif"
+        exit 301
+    }
+    * A fit made on multiple-imputation data left no post-estimation support in
+    * the caller's dataset: its design columns and its entry column were
+    * tempvars and are gone (see the mi block in finegray.ado).  There is also
+    * no single baseline hazard to answer from once estimates are pooled across
+    * imputations -- pooling a CIF is a different estimand, not this command.
+    * Refuse by name rather than resolve e(covariates), whose tempvar names the
+    * next command to ask for a tempvar will happily reuse.
+    if `"`e(postest)'"' == "unavailable_mi" {
+        display as error "post-estimation is not available after a fit on mi data"
+        display as error "{bf:finegray_cif} needs the fit's design columns and its"
+        display as error "baseline hazard, neither of which a fit on mi data leaves behind"
+        display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
+        display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
+        display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
         exit 301
     }
     * A nonconverged fit posts e(b), and e(b) is all this command reads. Without
@@ -132,6 +162,115 @@ program define finegray_cif, rclass sortpreserve
         exit 430
     }
     _finegray_check_data
+
+    * =====================================================================
+    * PIECEWISE beta(t)
+    * =====================================================================
+    * The point estimate is defined and computed: CIF(s|z) accumulates the
+    * baseline over each interval with that interval's own linear predictor.
+    * The ANALYTIC interval is not.  Its influence function (see
+    * _finegray_cif_core) is derived for a single exp(z'b) multiplying every
+    * Breslow increment; under beta(t) each increment carries its own interval's
+    * predictor and its own risk-set total, and the prefix-sum scaffolding and
+    * the beta-derivative term both change shape.  Reporting the proportional
+    * one for a piecewise fit would be a wrong band at rc 0, so the bootstrap --
+    * which refits the whole model on each resample and needs no derivation --
+    * is the supported route and is named here rather than left to be found.
+    local _fg_tvc `"`e(tvc)'"'
+    local _fg_cuts `"`e(tsplit)'"'
+    local _fg_tvcpos `"`e(tvc_pos)'"'
+    local _fg_nint = e(n_intervals)
+    if `_fg_nint' >= . local _fg_nint = 1
+    local _fg_istvc = ("`_fg_tvc'" != "")
+    if `_fg_istvc' & (`_fg_nint' < 2 | "`_fg_cuts'" == "" | "`_fg_tvcpos'" == "") {
+        display as error "estimation results predate this version of finegray"
+        display as error "re-run {bf:finegray} before using finegray_cif"
+        exit 301
+    }
+    if `_fg_istvc' & "`ci'" != "" & `bootstrap' == 0 {
+        display as error "the analytic ci is not available after a fit with tvc()"
+        display as error "the CIF influence function is derived for a single exp(z'b) at every"
+        display as error "baseline increment; under a piecewise beta(t) each increment carries"
+        display as error "its own interval's linear predictor and its own risk-set total"
+        display as error "use {bf:bootstrap(#)}, which resamples the whole fit and needs no"
+        display as error "such derivation; see {help finegray_cif##tvc:help finegray_cif}"
+        exit 198
+    }
+
+    * =====================================================================
+    * BASELINE STRATA
+    * =====================================================================
+    * Under bstrata() the baseline subdistribution hazard is free in each
+    * stratum, so at() no longer identifies a curve: the same covariate profile
+    * has K different CIFs, one per stratum.  Requiring bstratum() is the only
+    * honest option -- picking a stratum silently would report one of K answers
+    * with nothing on screen to say which, and averaging them is a different
+    * estimand (it needs declared stratum weights) that this version does not
+    * implement.
+    local _bsvar `"`e(bstrata)'"'
+    local _kbs = 1
+    if "`e(k_bstrata)'" != "" local _kbs = e(k_bstrata)
+    if `"`_bsvar'"' != "" & `_kbs' > 1 {
+        if "`bstratum'" == "" {
+            display as error "bstratum() is required after a fit with bstrata(`_bsvar')"
+            display as error "each baseline stratum has its own baseline subdistribution"
+            display as error "hazard, so a covariate profile alone does not identify a CIF"
+            display as error "name the stratum, as in {bf:finegray_cif, bstratum(#)}, where # is"
+            display as error "a value of `_bsvar'; see {help finegray_cif##bstratum:help finegray_cif}"
+            exit 198
+        }
+        capture confirm numeric variable `_bsvar'
+        if _rc {
+            display as error "baseline strata variable `_bsvar' not found"
+            display as error "finegray was fit with {bf:bstrata(`_bsvar')}; finegray_cif needs"
+            display as error "that variable to identify the requested stratum's baseline"
+            exit 111
+        }
+        * Refuse a stratum the fit never saw, by name and with the fitted levels
+        * listed.  Left to the baseline lookup this surfaces as a bare r(459)
+        * from Mata, several hundred lines of work later.
+        quietly count if e(sample) & `_bsvar' == `bstratum'
+        if r(N) == 0 {
+            quietly levelsof `_bsvar' if e(sample), local(_bslevels) clean
+            display as error "bstratum(`bstratum') is not a fitted baseline stratum"
+            display as error "the estimation sample holds `_bsvar' levels: `_bslevels'"
+            exit 459
+        }
+        * A stratum with no cause event has an identically zero Breslow
+        * baseline.  That is a degenerate curve, not an estimate of one, and a
+        * CIF drawn from it is a flat line at exactly 0 that reads as a finding.
+        * The levels are named at fit time in e(bstrata_noevent).
+        local _bsne `"`e(bstrata_noevent)'"'
+        if `"`_bsne'"' != "" {
+            local _bshit : list posof "`bstratum'" in _bsne
+            if `_bshit' > 0 {
+                display as error "baseline stratum `bstratum' carried no cause `=e(cause)' event"
+                display as error "its baseline subdistribution hazard is identically zero, which is"
+                display as error "a degenerate curve rather than an estimate of one; there is no"
+                display as error "cumulative incidence to report for it"
+                display as error "see {help finegray##bstrata:help finegray}"
+                exit 459
+            }
+        }
+    }
+    else if "`bstratum'" != "" {
+        display as error "bstratum() requires a fit with more than one baseline stratum"
+        if `"`_bsvar'"' == "" {
+            display as error "these estimates were fit without {bf:bstrata()}, so there is a"
+            display as error "single pooled baseline subdistribution hazard and no stratum"
+            display as error "to select"
+        }
+        else {
+            display as error "{bf:bstrata(`_bsvar')} took one value in the estimation sample,"
+            display as error "so the fit has a single baseline and nothing to select from"
+        }
+        exit 198
+    }
+    * The stratum handed to Mata: a real value, or missing on an unstratified
+    * fit, where every baseline call falls through to the pooled curve.
+    local _bslev = "."
+    if "`bstratum'" != "" local _bslev "`bstratum'"
+
     * No e(basehaz) requirement: the baseline is rebuilt in Mata from e(sample)
     * and e(b) (exactly, not approximately -- it re-runs the fit's own
     * _finegray_basehazard).  e(basehaz) is opt-in precisely because materialising
@@ -566,12 +705,13 @@ program define finegray_cif, rclass sortpreserve
             mata: _finegray_bh_have(`_seq', "_have")
         }
         if `_have' {
-            mata: _finegray_bh_grid_cached(`_seq', 400, "`BHG'")
+            mata: _finegray_bh_grid_cached(`_seq', 400, "`BHG'", `_bslev')
         }
         else {
             mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
                 `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
-                "`_t0var'", 400, "`BHG'")
+                "`_t0var'", 400, "`BHG'", "`_bsvar'", `_bslev', ///
+                "`_fg_tvcpos'", "`_fg_cuts'")
         }
         local nbh = `_fg_nbh'
         local grid ""
@@ -603,9 +743,19 @@ program define finegray_cif, rclass sortpreserve
     }
 
     tempname OUT
-    mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
-        `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
-        "`OUT'", "`_t0var'")
+    if `_fg_istvc' {
+        * Point estimate only; column 2 comes back missing by design (see the
+        * piecewise block above).  bstrata() is refused with tvc() at fit time,
+        * so there is one baseline and no stratum to select here.
+        mata: _finegray_cif_point_tvc("`covs'", "`e(compete)'", `=e(cause)', ///
+            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", "`E'", ///
+            "`OUT'", "`_t0var'", "`_fg_tvcpos'", "`_fg_cuts'")
+    }
+    else {
+        mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
+            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
+            "`OUT'", "`_t0var'", "`_bsvar'", `_bslev')
+    }
 
     * =====================================================================
     * BOOTSTRAP STANDARD ERRORS (optional; refits censoring/entry weights)
@@ -699,9 +849,31 @@ program define finegray_cif, rclass sortpreserve
                 * shorter e(b) whose columns no longer align with the stored
                 * profile; using it would silently mispair coefficients.
                 if `"`e(covariates)'"' != `"`covs'"' continue
+                * A resample can lose every cause event in the requested
+                * baseline stratum, or the stratum itself.  That replication
+                * has no curve to contribute; skip it, and let the _bok
+                * accounting below report how many were skipped.  Reaching the
+                * baseline lookup instead would abort the whole bootstrap on a
+                * resample that is merely unlucky.
+                if `"`_bsvar'"' != "" & "`bstratum'" != "" {
+                    local _bsne_r `"`e(bstrata_noevent)'"'
+                    local _bshit_r : list posof "`bstratum'" in _bsne_r
+                    if `_bshit_r' > 0 continue
+                    quietly count if `_bsvar' == `bstratum'
+                    if r(N) == 0 continue
+                }
                 local _fg_repseq `"`e(bh_seq)'"'
-                mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'", ///
-                    strtoreal("`_fg_repseq'"))
+                * The refit replays e(refitcmd), which carries tvc()/tsplit(),
+                * so each replication is the same estimator as the point
+                * estimate and its CIF must be accumulated the same way.
+                if `_fg_istvc' {
+                    mata: _finegray_boot_cif_tvc("`zrow'", "`Gmat'", "`bcif'", ///
+                        strtoreal("`_fg_repseq'"), "`_fg_tvcpos'", "`_fg_cuts'")
+                }
+                else {
+                    mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'", ///
+                        strtoreal("`_fg_repseq'"), `_bslev')
+                }
                 forvalues r = 1/`ngrid' {
                     matrix `BSUM'[`r',1] = `BSUM'[`r',1] + `bcif'[`r',1]
                     matrix `BSS'[`r',1]  = `BSS'[`r',1] + `bcif'[`r',1]^2
@@ -798,6 +970,11 @@ program define finegray_cif, rclass sortpreserve
         local _atline `"`_atline' `_pvn'=`_pvs'"'
     }
     local _atline : list retokenize _atline
+    * Under bstrata() the profile alone does not identify the curve; the stratum
+    * is half of the answer, so it is printed on the same line as the rest of it.
+    if "`bstratum'" != "" {
+        local _atline `"`_atline' `_bsvar'=`bstratum' (baseline stratum)"'
+    }
     local _atsrc "at"
     if `"`at'"' == "" local _atsrc "at (estimation-sample means)"
 
@@ -845,6 +1022,14 @@ program define finegray_cif, rclass sortpreserve
             }
         }
         display as text "{hline 13}{c BT}{hline `_rulew'}"
+        * A column of bare dots invites the reading "the SE is zero" or "this is
+        * broken".  Say which it is, once, under the table it belongs to.
+        if `_fg_istvc' & `bootstrap' == 0 {
+            display as text "note: the analytic standard error is not derived " ///
+                "for a {bf:tvc()} fit;"
+            display as text "add {bf:ci bootstrap(#)} for a bootstrap interval. " ///
+                "See {help finegray_cif##tvc:help finegray_cif}."
+        }
     }
 
     * =====================================================================
@@ -857,7 +1042,13 @@ program define finegray_cif, rclass sortpreserve
     * event -- and a reader can then quote "the CIF at year 999".
     if "`attime'" != "" | "`timepoints'" != "" {
         tempname _tfirst _tlast
-        quietly summarize _t if `es' & `e(compete)' == `=e(cause)', meanonly
+        * Within the requested baseline stratum: the curve steps on THAT
+        * stratum's cause-event times, so a note about "the last cause-event
+        * time" that quoted the pooled maximum would describe a curve nobody
+        * asked for.  `_bsrestrict' is empty on an unstratified fit.
+        local _bsrestrict ""
+        if "`bstratum'" != "" local _bsrestrict "& `_bsvar' == `bstratum'"
+        quietly summarize _t if `es' & `e(compete)' == `=e(cause)' `_bsrestrict', meanonly
         scalar `_tfirst' = r(min)
         scalar `_tlast'  = r(max)
         if !missing(`_tfirst') {
@@ -885,7 +1076,9 @@ program define finegray_cif, rclass sortpreserve
     * Last observed analysis time in the estimation sample.  Read HERE, before
     * the preserve below clears the data: the graph draws the CIF's flat tail
     * out to this time (see the terminal-row block), as sts graph and stcurve do.
-    quietly summarize _t if `es', meanonly
+    local _bsrestrict2 ""
+    if "`bstratum'" != "" local _bsrestrict2 "& `_bsvar' == `bstratum'"
+    quietly summarize _t if `es' `_bsrestrict2', meanonly
     local _maxfu = r(max)
 
     * Build curve dataset for graph and/or saving
@@ -1088,6 +1281,13 @@ program define finegray_cif, rclass sortpreserve
         return matrix at = `zrow'
         return scalar level = `level'
         return scalar cause = e(cause)
+        * The baseline stratum these numbers belong to.  Returned so a caller
+        * assembling several strata into one table never has to re-derive it
+        * from the command line it issued.
+        if "`bstratum'" != "" {
+            return local bstrata "`_bsvar'"
+            return scalar bstratum = `bstratum'
+        }
         * Report the profile in the vocabulary the USER typed.  e(covariates)
         * holds the package-owned design columns (`_fg_grp_2'), which the user
         * never wrote, need not have in their data, and cannot pass to at() --

@@ -7,6 +7,9 @@
 {viewerjumpto "Syntax" "finegray_predict##syntax"}{...}
 {viewerjumpto "Description" "finegray_predict##description"}{...}
 {viewerjumpto "Options" "finegray_predict##options"}{...}
+{viewerjumpto "Time-varying effects" "finegray_predict##tvc"}{...}
+{viewerjumpto "Baseline strata" "finegray_predict##bstrata"}{...}
+{viewerjumpto "Factor-variable alignment" "finegray_predict##fvalign"}{...}
 {viewerjumpto "Examples" "finegray_predict##examples"}{...}
 {viewerjumpto "Stored results" "finegray_predict##results"}{...}
 {viewerjumpto "Author" "finegray_predict##author"}{...}
@@ -35,8 +38,9 @@
 {synopt:{opt sch:oenfeld}}Schoenfeld residuals at cause-event times{p_end}
 {synopt:{opt basecsh:azard}}baseline cumulative subdistribution hazard H0(t){p_end}
 {synopt:{opth time:var(varname)}}use {it:varname} instead of {cmd:_t} for time{p_end}
+{synopt:{opt att:ime(#)}}evaluate {opt xb} at time {it:#} (tvc fits){p_end}
 {synopt:{opt ci}}also generate CIF confidence limits{p_end}
-{synopt:{opt boot:strap(#)}}compute bootstrap-based {opt ci} limits with {it:#} subject resamples{p_end}
+{synopt:{opt boot:strap(#)}}bootstrap {opt ci} limits from {it:#} subject resamples{p_end}
 {synopt:{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
 {synopt:{opt l:evel(#)}}confidence level for {opt ci}; default {cmd:c(level)}{p_end}
 {synoptline}
@@ -69,6 +73,16 @@ rest. Residuals are missing for non-cause-event observations.
 hazard, at each requested time.
 
 {pstd}
+{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made on
+multiple-imputation data -- typed directly, or run by
+{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or entry-time
+column behind, and pooled estimates have no single baseline hazard to predict
+from. {cmd:finegray_predict} stops with {cmd:r(301)} in that case. Refit on a single
+dataset ({cmd:mi extract 0, clear} for the complete cases, or
+{cmd:mi extract} {it:#}{cmd:, clear} for one imputation) and run {cmd:finegray}
+there; see {help finegray##mi:Multiple imputation} in {helpb finegray}.
+
+{pstd}
 {bf:Left truncation (delayed entry).} All prediction types may {bf:move} under
 delayed entry because the fitted coefficients and baseline move. The risk sets
 use Zhang-Zhang-Fine Weight 1. With one weight stratum this is the equivalent
@@ -83,7 +97,7 @@ data.
 
 {pstd}
 {bf:What time point does the CIF use?} By default, {opt cif} evaluates the
-CIF at {bf:each observation's own analysis time} {cmd:_t} — one predicted CIF
+CIF at {bf:each observation's own analysis time} {cmd:_t} -- one predicted CIF
 per subject, at the follow-up (event or censoring) time that subject
 contributes. It is {it:not} a single fixed horizon and {it:not} the baseline
 CIF. {cmd:stcrreg} produces this covariate-adjusted CIF through
@@ -92,8 +106,8 @@ CIF. {cmd:stcrreg} produces this covariate-adjusted CIF through
 obtain the predicted CIF for every observation at a {bf:common} time point
 t*, set a constant time variable and pass it through {opt timevar()} (see
 {it:CIF at custom time points} under Examples). The baseline cumulative
-subdistribution hazard H0(t) — the cumulative-hazard analogue of
-{cmd:stcrreg}'s {cmd:basecif} — is a right-continuous step function. The command
+subdistribution hazard H0(t) -- the cumulative-hazard analogue of
+{cmd:stcrreg}'s {cmd:basecif} -- is a right-continuous step function. The command
 uses {cmd:e(basehaz)} when the fit requested
 {opt basehaz}; otherwise it uses the active fit's cached baseline or rebuilds
 the same curve from the unchanged estimation data. Its baseline CIF is
@@ -106,7 +120,7 @@ CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), equivalently
 rescales the baseline {it:survival} 1 - F0(t), {bf:not} the baseline CIF F0(t)
 itself. The correct adjustment is CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), and
 {bf:not} F0(t)^exp(z'beta). Raising the CIF directly to the exp(z'beta) power is
-a common mistake — it moves the CIF in the wrong direction (toward 0) when
+a common mistake -- it moves the CIF in the wrong direction (toward 0) when
 z'beta > 0. Using {cmd:stcrreg}'s {cmd:basecif} as F0(t),
 {cmd:finegray_predict, cif} matches 1 - (1 - {cmd:basecif})^exp(z'beta) to
 numerical precision.
@@ -126,7 +140,7 @@ rather than erroring, leaving {cmd:e(converged)} at 0 and the fitted coefficient
 and baseline at the last iterate rather than a solution. Every prediction type
 depends on that fitted solution, so it could otherwise return a quantity from a
 non-solution with {cmd:rc 0}. {cmd:finegray_predict} therefore exits with
-{cmd:r(430)} when {cmd:e(converged)} is not 1 — this applies to {opt xb} just as
+{cmd:r(430)} when {cmd:e(converged)} is not 1 -- this applies to {opt xb} just as
 it does to {opt cif} and {opt schoenfeld}. Refit with a larger {opt iterate()}
 or a different specification. (Refits inside {opt bootstrap()} that fail to
 converge are a separate matter: they are skipped and counted, not fatal.)
@@ -156,7 +170,7 @@ and {opt basecshazard} predictions additionally require a time variable
 ({cmd:_t} or {opt timevar()}) and a resolvable cached or posted fitted baseline. All
 prediction types currently run the model-design compatibility checks, so
 the scoring data must contain the model covariates. {opt schoenfeld} residuals
-and {helpb finegray_phtest} require the original {cmd:stset} estimation data —
+and {helpb finegray_phtest} require the original {cmd:stset} estimation data --
 specifically {cmd:_t},
 {cmd:_d}, and a nonempty estimation sample ({cmd:e(sample)}). These commands
 will exit with an informative error if the estimation context is not present.
@@ -180,7 +194,7 @@ different conventions, so an individual residual at a tied time can differ
 between {cmd:finegray} and {cmd:stcrreg}; however, the
 {bf:sum of the residuals within each event time is identical}, as is the
 overall score (their grand total, which is zero at the estimate). Only the
-per-observation values at tied times are affected — untied times, the
+per-observation values at tied times are affected -- untied times, the
 per-time totals, and every quantity that aggregates over event times are
 unchanged.
 
@@ -206,7 +220,7 @@ estimate that looks like a band.
 
 {phang}
 {opt cif} computes the cumulative incidence function (CIF) at each
-observation's analysis time {cmd:_t} (or the time given by {opt timevar()}) —
+observation's analysis time {cmd:_t} (or the time given by {opt timevar()}) --
 one prediction per row, at that subject's follow-up time, not at a single
 shared horizon. The CIF is computed as 1 - exp(-H0(t) * exp(z'beta)) using the
 resolved fitted baseline, evaluated as a step function: for each observation,
@@ -215,6 +229,76 @@ time. The command uses the opt-in {cmd:e(basehaz)} matrix when present and
 otherwise uses the active fit's cached or rebuilt baseline. To predict at a
 fixed horizon for the whole sample, use {opt timevar()} with a constant time
 variable.
+
+{marker tvc}{...}
+{phang}
+{opt attime(#)} fixes the analysis time at which the linear predictor is
+evaluated. It requires {opt xb} and a fit made with
+{helpb finegray##tvc:tvc()}; without {opt tvc()} the linear predictor does not
+depend on time and there is nothing to evaluate it at, so {opt attime()} is
+{cmd:r(198)} rather than a silently ignored option.
+
+{phang}
+{bf:After a fit with} {helpb finegray##tvc:tvc()} the coefficient on the named
+covariates is piecewise constant in analysis time, and that changes what these
+predictions mean:
+
+{pmore}
+{opt xb} becomes a function of time. By default each row is scored at its own
+{cmd:_t} using the coefficients of the interval {cmd:_t} falls in; with
+{opt attime(#)} every row is scored at the single time {it:#} instead. The
+variable label records which was used, so {cmd:describe} can tell the two apart. A
+row whose evaluation time is missing gets a missing prediction rather than the
+first interval's answer. {opt timevar()} is still not allowed with
+{opt xb}; {opt attime()} is the option for this.
+
+{pmore}
+{opt cif} accumulates the baseline interval by interval: the part of H0 falling
+inside interval {it:j} is multiplied by that interval's exp(z'b_j), and the
+CIF is 1 - exp(-{it:sum}). There is one baseline, so {opt basecshazard} is
+unchanged.
+
+{pmore}
+{opt ci} on its own is {bf:not available}: the influence function behind it is
+derived for a single exp(z'b) multiplying every baseline increment, which a
+piecewise b({it:t}) is not. {opt ci} {opt bootstrap(#)} {bf:is} available and is
+the supported route -- each replication refits the whole model, and
+{cmd:e(refitcmd)} carries {opt tvc()} and {opt tsplit()}, so the replications
+are the same estimator as the point estimate.
+
+{pmore}
+{opt schoenfeld} is {bf:not available}. Each residual is defined inside its own
+interval, so every other interval's block is zero by construction and the table
+is not a proportional-hazards diagnostic. Run {helpb finegray_phtest} on the
+proportional fit -- a rejection there is what {opt tvc()} answers -- and use
+{cmd:test [tvc1]}{it:x} {cmd:= [tvc2]}{it:x} after the {opt tvc()} fit.
+
+{marker bstrata}{...}
+{phang}
+{bf:After a fit with} {helpb finegray##bstrata:bstrata()} there is no single
+baseline: each stratum has its own. {opt cif} and {opt basecshazard} therefore
+answer every row from the baseline of {it:that row's} stratum, which means the
+{cmd:bstrata()} variable must be in the data you score -- the estimation
+sample or new data alike. If it is absent altogether, these predictions (and
+{opt schoenfeld}) exit with {cmd:r(111)} naming it; a row where the variable
+is present but {it:missing} is left {it:missing} rather than scored from
+another stratum's curve, the same rule the factor-variable path applies to a
+missing level.
+
+{pmore}
+A row in a stratum that carried no cause-of-interest event is refused with
+{cmd:r(459)}, naming the level. That stratum's Breslow baseline is identically
+zero, which is a degenerate curve rather than an estimate of one, and a CIF of
+exactly 0 for a whole group reads as a finding. Exclude those rows with
+{cmd:if}. The level is also named at fit time, in the note {cmd:finegray}
+prints and in {cmd:e(bstrata_noevent)}.
+
+{pmore}
+{opt xb} is unaffected: it is z'beta and reads no baseline at all, so it is
+available for every row whatever its stratum. {opt schoenfeld} needs the
+{cmd:bstrata()} variable, because the residuals are formed against the row's own
+stratum risk set, but it has no degenerate-stratum problem: a stratum with no
+cause event contributes no residuals.
 
 {phang}
 {opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For a
@@ -236,8 +320,12 @@ under {help finegray_predict##description:Description}).
 
 {phang}
 {opth timevar(varname)} specifies a variable to use as the time axis instead
-of {cmd:_t}. This is useful for generating predictions at specific time points
-or when the data are not currently {cmd:stset}. For {opt cif}, a constant
+of {cmd:_t}. It applies to {opt cif} and {opt basecshazard} only and is
+refused with {cmd:r(198)} alongside {opt xb} or {opt schoenfeld}: {opt xb}
+reads no time at all on a proportional fit (use {opt attime()} after a
+{opt tvc()} fit), and {opt schoenfeld} residuals are defined at the original
+cause-event times. This is useful for generating predictions at specific time
+points or when the data are not currently {cmd:stset}. For {opt cif}, a constant
 variable set to a target horizon (e.g. {cmd:gen t5 = 5}) yields each subject's
 predicted CIF at that horizon.
 
@@ -313,7 +401,7 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 {pstd}
 {bf:Linear predictor (default)}
 
-{phang2}{cmd:. finegray_predict xb_hat,}{p_end}
+{phang2}{cmd:. finegray_predict xb_hat, xb}{p_end}
 
 {pstd}
 {bf:Cumulative incidence function}
@@ -347,6 +435,15 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 {phang2}{cmd:. finegray_predict sch, schoenfeld}{p_end}
 {phang2}{cmd:. list sch* in 1/5}{p_end}
 
+{pstd}
+{bf:After a stratified-baseline fit}: each row is scored from its own stratum's
+baseline
+
+{phang2}{cmd:. finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode)}{p_end}
+{phang2}{cmd:. finegray_predict h0_s, basecshazard}{p_end}
+{phang2}{cmd:. finegray_predict cif_s, cif}{p_end}
+{phang2}{cmd:. tabstat h0_s cif_s, by(pelnode) stat(min max)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -355,7 +452,9 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 {cmd:finegray_predict} creates one or more variables but does not store results
 in {cmd:r()} or {cmd:e()}. The variables are labeled:
 
-{phang2}{cmd:xb}: "Linear prediction (xb)"{p_end}
+{phang2}{cmd:xb}: "Linear prediction (xb)"; after a {opt tvc()} fit the
+evaluation basis is appended -- "Linear prediction (xb) at _t", or
+"Linear prediction (xb) at t = {it:#}" with {opt attime(#)}{p_end}
 {phang2}{cmd:cif}: "CIF at {it:tvar} (cause {it:#})", where {it:tvar} is
 {cmd:_t} or the {opt timevar()} variable and {it:#} is the cause of interest the
 fit was estimated for - so the label records both the cause and the horizon each
