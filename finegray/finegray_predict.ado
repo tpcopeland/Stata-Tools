@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/08/16
+*! finegray_predict Version 1.3.0  2026/08/25
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -37,7 +37,11 @@ program define finegray_predict, rclass sortpreserve
 
     syntax newvarname [if] [in] , ///
         [CIF XB SCHoenfeld BASECSHazard TIMEvar(varname numeric) CI Level(string) ///
-         BOOTstrap(integer 0) SEED(string)]
+         BOOTstrap(integer 0) SEED(string) ATTime(string)]
+
+    * attime() is parsed as a string, not real, so an OMITTED attime() can be
+    * told apart from attime(.) -- and attime(.) is a user error worth naming,
+    * not a silent "use each row's own time".
 
     * level() is parsed as a string (not cilevel) so an OMITTED level() leaves
     * the macro empty and can be told apart from an explicit one; cilevel would
@@ -92,8 +96,37 @@ program define finegray_predict, rclass sortpreserve
 
     * Check finegray was run
     if "`e(cmd)'" != "finegray" {
+        * After `mi estimate, cmdok: finegray ...' the results in e() are mi's
+        * pooled ones, not a finegray fit, and "you must run finegray" reads as
+        * though the user had not -- when they just did.  Name what actually
+        * happened, and where post-estimation does live.
+        if "`e(cmd)'" == "mi estimate" & "`e(cmd_mi)'" == "finegray" {
+            display as error "post-estimation is not available after {bf:mi estimate}"
+            display as error "e() holds the pooled estimates, and pooled estimates have no"
+            display as error "single baseline hazard for {bf:finegray_predict} to work from"
+            display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
+            display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
+            display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
+            exit 301
+        }
         display as error "last estimates not found"
         display as error "you must run {bf:finegray} before using finegray_predict"
+        exit 301
+    }
+    * A fit made on multiple-imputation data left no post-estimation support in
+    * the caller's dataset: its design columns and its entry column were
+    * tempvars and are gone (see the mi block in finegray.ado).  There is also
+    * no single baseline hazard to answer from once estimates are pooled across
+    * imputations -- pooling a CIF is a different estimand, not this command.
+    * Refuse by name rather than resolve e(covariates), whose tempvar names the
+    * next command to ask for a tempvar will happily reuse.
+    if `"`e(postest)'"' == "unavailable_mi" {
+        display as error "post-estimation is not available after a fit on mi data"
+        display as error "{bf:finegray_predict} needs the fit's design columns and its"
+        display as error "baseline hazard, neither of which a fit on mi data leaves behind"
+        display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
+        display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
+        display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
         exit 301
     }
     * A nonconverged fit posts e(b), and every prediction path reads it. Without
@@ -106,6 +139,25 @@ program define finegray_predict, rclass sortpreserve
         exit 430
     }
 
+    * =====================================================================
+    * PIECEWISE beta(t) CONTEXT
+    * =====================================================================
+    * On a tvc() fit e(b) is WIDER than e(covariates): the time-varying design
+    * columns carry one coefficient per interval.  Every branch below that pairs
+    * a coefficient with a column has to know that, and the two that cannot be
+    * answered at all are refused by name.
+    local _fg_tvc `"`e(tvc)'"'
+    local _fg_cuts `"`e(tsplit)'"'
+    local _fg_tvcpos `"`e(tvc_pos)'"'
+    local _fg_nint = e(n_intervals)
+    if `_fg_nint' >= . local _fg_nint = 1
+    local _fg_istvc = ("`_fg_tvc'" != "")
+    if `_fg_istvc' & (`_fg_nint' < 2 | "`_fg_cuts'" == "" | "`_fg_tvcpos'" == "") {
+        display as error "estimation results predate this version of finegray"
+        display as error "re-run {bf:finegray} before using finegray_predict"
+        exit 301
+    }
+
     * Default to xb
     local n_types = ("`cif'" != "") + ("`xb'" != "") + ("`schoenfeld'" != "") ///
         + ("`basecshazard'" != "")
@@ -114,6 +166,24 @@ program define finegray_predict, rclass sortpreserve
         exit 198
     }
     if `n_types' == 0 local xb "xb"
+
+    * Schoenfeld residuals under beta(t).  The residual at an interval-j event
+    * time is D_j(z) - zbar_j, and in the p' frame every OTHER interval's block
+    * is structurally zero there -- the covariate itself is zero in that risk
+    * set.  A table of residuals that is zero by construction for (J-1)/J of its
+    * entries is not a diagnostic, and finegray_phtest, which consumes exactly
+    * these residuals, would test proportionality of a model that no longer
+    * assumes it.  tvc() IS the modelled answer to a phtest rejection: run the
+    * diagnostic on the proportional fit, then fit this one.
+    if "`schoenfeld'" != "" & `_fg_istvc' {
+        display as error "schoenfeld is not available after a fit with tvc()"
+        display as error "under a piecewise beta(t) each residual is defined inside its own"
+        display as error "interval, so every other interval's block is zero by construction"
+        display as error "and the table is not a proportional-hazards diagnostic"
+        display as error "run {bf:finegray_phtest} on the proportional fit instead; a rejection"
+        display as error "there is what {bf:tvc()} answers"
+        exit 198
+    }
 
     * ci/bootstrap()/level() are CIF-only.  basecshazard is a baseline quantity
     * with no covariate profile, so a CI option paired with it would be parsed,
@@ -126,6 +196,53 @@ program define finegray_predict, rclass sortpreserve
     if "`ci'" != "" & "`cif'" == "" {
         display as error "ci requires the cif option"
         exit 198
+    }
+
+    * The analytic CIF interval is the influence function in
+    * _finegray_cif_core, derived for ONE exp(z'beta) multiplying every Breslow
+    * increment.  Under beta(t) each increment carries its own interval's linear
+    * predictor and its own S0(t), so both the prefix-sum scaffolding and the
+    * beta-derivative term change shape; that derivation is not in this release.
+    * Reporting the proportional-hazards influence function for a piecewise fit
+    * would be a wrong standard error at rc 0.  The bootstrap needs no
+    * derivation -- it refits the whole model on each resample -- so it is the
+    * supported route and is named here rather than left to be discovered.
+    if "`ci'" != "" & `_fg_istvc' & `bootstrap' == 0 {
+        display as error "the analytic ci is not available after a fit with tvc()"
+        display as error "the CIF influence function is derived for a single exp(z'b) at every"
+        display as error "baseline increment; under a piecewise beta(t) each increment carries"
+        display as error "its own interval's linear predictor and its own risk-set total"
+        display as error "use {bf:bootstrap(#)}, which resamples the whole fit and needs no"
+        display as error "such derivation; see {help finegray_predict##tvc:help finegray_predict}"
+        exit 198
+    }
+
+    * ---- attime(): the evaluation time for a piecewise linear predictor -----
+    * xb is a pure linear score on a proportional fit and there is nothing to
+    * evaluate it AT.  On a tvc() fit it is a function of time, because which
+    * interval's coefficients are active depends on the time -- so it needs one,
+    * and attime() supplies a single constant one for every row (the default is
+    * each row's own _t).
+    local _fg_attime ""
+    if `"`attime'"' != "" {
+        if "`xb'" == "" {
+            display as error "attime() requires the xb option"
+            display as error "it fixes the time at which the piecewise linear predictor is"
+            display as error "evaluated; for cif and basecshazard use {bf:timevar()}"
+            exit 198
+        }
+        if !`_fg_istvc' {
+            display as error "attime() requires a fit with tvc()"
+            display as error "without tvc() the linear predictor does not depend on time"
+            exit 198
+        }
+        capture confirm number `attime'
+        if _rc | missing(real(`"`attime'"')) | real(`"`attime'"') < 0 {
+            display as error "attime() must be a non-negative number"
+            display as error "{bf:`attime'} is not a usable analysis time"
+            exit 198
+        }
+        local _fg_attime = real(`"`attime'"')
     }
 
     * FG-07: refuse options that the selected statistic silently ignores, so a
@@ -279,6 +396,56 @@ program define finegray_predict, rclass sortpreserve
         }
     }
 
+    * Baseline strata.  Under bstrata() there is no single baseline: each
+    * stratum has its own step function, and every path that reads a baseline
+    * curve (cif, basecshazard) or rebuilds a risk set (schoenfeld, ci) must
+    * know which one a row belongs to.  xb is exempt -- it is Z*b and reads no
+    * baseline at all -- which is also why an unstratified fit is untouched
+    * here: e(bstrata) is empty and every call below passes "".
+    local _bsvar `"`e(bstrata)'"'
+    if `"`_bsvar'"' != "" & ("`cif'" != "" | "`basecshazard'" != "" ///
+        | "`schoenfeld'" != "") {
+        capture confirm numeric variable `_bsvar'
+        if _rc {
+            display as error "baseline strata variable `_bsvar' not found"
+            display as error "finegray was fit with {bf:bstrata(`_bsvar')}, so every row's"
+            display as error "baseline is the one belonging to its stratum; predict requires"
+            display as error "that variable in the data"
+            exit 111
+        }
+        * A row with no stratum value has no baseline.  Leave its prediction
+        * MISSING rather than answering it from some other stratum's curve --
+        * the same rule the factor-variable path applies to a missing level.
+        markout `touse' `_bsvar'
+        quietly count if `touse'
+        if r(N) == 0 {
+            display as error "no observations with non-missing `_bsvar'"
+            exit 2000
+        }
+        * A stratum that carried no cause event has an identically zero Breslow
+        * baseline -- a degenerate curve, not an estimate of one -- so a CIF or
+        * basecshazard there would be an exact 0 that reads as a real finding.
+        * Named at fit time in e(bstrata_noevent); refused here, where the
+        * message can say which level and why.  xb and schoenfeld are exempt:
+        * neither reads a baseline.
+        local _bsne `"`e(bstrata_noevent)'"'
+        if `"`_bsne'"' != "" & ("`cif'" != "" | "`basecshazard'" != "") {
+            local _bshit ""
+            foreach _bsl of local _bsne {
+                quietly count if `touse' & `_bsvar' == `_bsl'
+                if r(N) > 0 local _bshit "`_bshit' `_bsl'"
+            }
+            if "`_bshit'" != "" {
+                display as error "baseline stratum(s)`_bshit' carried no cause `=e(cause)' event"
+                display as error "their baseline subdistribution hazard is identically zero, which"
+                display as error "is a degenerate curve rather than an estimate of one"
+                display as error "exclude those rows with {bf:if}, or pool them into a stratum that"
+                display as error "has events; see {help finegray##bstrata:help finegray}"
+                exit 459
+            }
+        }
+    }
+
     * Build the covariate columns used for prediction.
     * For FV models we reconstruct the design matrix on demand rather than
     * depending on persistent _fg_* columns remaining in the dataset.
@@ -413,8 +580,13 @@ program define finegray_predict, rclass sortpreserve
         local _score_labels : list retokenize _rebuild_labels
 
         local _n_score : word count `_score_varlist'
-        local _n_b = colsof(e(b))
-        if `_n_score' != `_n_b' {
+        * Compare against the DESIGN width, not colsof(e(b)).  Under tvc() the
+        * coefficient vector is wider than the design -- one coefficient per
+        * interval for each time-varying column -- so equality with colsof(e(b))
+        * is the wrong contract there and would reject every factor-variable
+        * tvc() fit.
+        local _n_cov : word count `e(covariates)'
+        if `_n_score' != `_n_cov' {
             display as error "reconstructed factor-variable design does not match stored coefficients"
             exit 198
         }
@@ -435,15 +607,120 @@ program define finegray_predict, rclass sortpreserve
         }
     }
 
+    * =====================================================================
+    * PIECEWISE LINEAR PREDICTORS
+    * =====================================================================
+    * On a tvc() fit the coefficient vector is laid out as
+    *   [ non-tvc columns in design order | interval 1 tvc block | ... ]
+    * (the stripe finegray.ado posts, equations main / tvc1 / ... / tvcJ).  Both
+    * xb and cif need the SAME two pieces from it: the time-constant part of the
+    * linear predictor, and one time-varying part per interval.  Build them once
+    * here, from e(b) BY POSITION -- the coefficient names are the user's terms
+    * and cannot be scored against, and the design columns may be tempvars
+    * rebuilt a moment ago.
+    *
+    * The per-interval blocks are copied element by element into a freshly
+    * created J(1,q,0) rather than sliced out of e(b): a slice of e(b) carries
+    * its equation names, and `matrix score' against an eq-striped vector is not
+    * the operation wanted here.
+    local _fg_xbfix ""
+    if `_fg_istvc' & ("`xb'" != "" | "`cif'" != "") {
+        local _n_cov : word count `_score_varlist'
+        local _fg_q : word count `_fg_tvcpos'
+        local _fg_nfix = `_n_cov' - `_fg_q'
+
+        local _fg_fixvars ""
+        forvalues _pc = 1/`_n_cov' {
+            local _pchit : list posof "`_pc'" in _fg_tvcpos
+            if `_pchit' == 0 {
+                local _fg_fixvars "`_fg_fixvars' `: word `_pc' of `_score_varlist''"
+            }
+        }
+        local _fg_tvcvars ""
+        foreach _pc of local _fg_tvcpos {
+            local _fg_tvcvars "`_fg_tvcvars' `: word `_pc' of `_score_varlist''"
+        }
+        local _fg_fixvars : list retokenize _fg_fixvars
+        local _fg_tvcvars : list retokenize _fg_tvcvars
+
+        tempname _pb
+        tempvar _pxbfix
+        if `_fg_nfix' > 0 {
+            matrix `_pb' = J(1, `_fg_nfix', 0)
+            forvalues _pi = 1/`_fg_nfix' {
+                matrix `_pb'[1, `_pi'] = e(b)[1, `_pi']
+            }
+            matrix colnames `_pb' = `_fg_fixvars'
+            quietly matrix score double `_pxbfix' = `_pb' if `touse'
+        }
+        else quietly gen double `_pxbfix' = 0 if `touse'
+        local _fg_xbfix "`_pxbfix'"
+
+        forvalues _pj = 1/`_fg_nint' {
+            tempvar _pxbtv`_pj'
+            matrix `_pb' = J(1, `_fg_q', 0)
+            forvalues _pi = 1/`_fg_q' {
+                matrix `_pb'[1, `_pi'] = ///
+                    e(b)[1, `= `_fg_nfix' + (`_pj' - 1) * `_fg_q' + `_pi'']
+            }
+            matrix colnames `_pb' = `_fg_tvcvars'
+            quietly matrix score double `_pxbtv`_pj'' = `_pb' if `touse'
+            local _fg_xbtv`_pj' "`_pxbtv`_pj''"
+        }
+    }
+
     if "`xb'" != "" {
         * Linear predictor: matrix score
         if "`typlist'" == "" local typlist "double"
-        tempname b
-        matrix `b' = e(b)
-        matrix colnames `b' = `_score_varlist'
-        matrix score `typlist' `varlist' = `b' if `touse'
-        local _created_vars "`varlist'"
-        label variable `varlist' "Linear prediction (xb)"
+        if !`_fg_istvc' {
+            tempname b
+            matrix `b' = e(b)
+            matrix colnames `b' = `_score_varlist'
+            matrix score `typlist' `varlist' = `b' if `touse'
+            local _created_vars "`varlist'"
+            label variable `varlist' "Linear prediction (xb)"
+        }
+        else {
+            * beta(t): the linear predictor is a function of time, because the
+            * active interval is.  Evaluate at attime() when given and at each
+            * row's own _t otherwise; a row whose evaluation time is missing gets
+            * a missing prediction rather than the first interval's answer.
+            tempvar _pxt
+            if "`_fg_attime'" != "" {
+                quietly gen double `_pxt' = `_fg_attime'
+                local _xblbl "at t = `_fg_attime'"
+            }
+            else {
+                capture confirm variable _t
+                if _rc {
+                    display as error "_t not found"
+                    display as error "after a fit with {bf:tvc()} the linear predictor depends on"
+                    display as error "time; supply one with {bf:attime(#)}, or restore the stset"
+                    display as error "analysis-time variable"
+                    exit 111
+                }
+                quietly gen double `_pxt' = _t
+                local _xblbl "at _t"
+            }
+            markout `touse' `_pxt'
+            quietly count if `touse'
+            if r(N) == 0 {
+                display as error "no observations with a non-missing evaluation time"
+                exit 2000
+            }
+            tempvar _pjv
+            quietly gen byte `_pjv' = 1 if `touse'
+            foreach _pcut of local _fg_cuts {
+                quietly replace `_pjv' = `_pjv' + (`_pxt' > `_pcut') if `touse'
+            }
+            quietly gen `typlist' `varlist' = `_fg_xbfix' if `touse'
+            local _created_vars "`varlist'"
+            forvalues _pj = 1/`_fg_nint' {
+                quietly replace `varlist' = `varlist' + `_fg_xbtv`_pj'' ///
+                    if `touse' & `_pjv' == `_pj'
+            }
+            label variable `varlist' "Linear prediction (xb) `_xblbl'"
+        }
     }
     else if "`basecshazard'" != "" {
         * Baseline cumulative subhazard, as a VARIABLE.  This is stcrreg's own
@@ -490,8 +767,14 @@ program define finegray_predict, rclass sortpreserve
 
         capture confirm matrix e(basehaz)
         local _has_bh = (_rc == 0)
+        * There is ONE baseline under tvc() -- the interval structure lives in
+        * the linear predictor, not in lambda_0 -- so this quantity keeps its
+        * meaning and its shape.  What it must NOT do is rebuild the curve with
+        * the proportional scan: tvcpos()/tsplit() make the rebuild path re-run
+        * the piecewise scan the fit actually ran.
         _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') touse(`touse') ///
-            hasbh(`_has_bh') t0var(`_t0var')
+            hasbh(`_has_bh') t0var(`_t0var') bsvar(`_bsvar') ///
+            tsplit(`_fg_cuts') tvcpos(`_fg_tvcpos')
 
         quietly gen `typlist' `varlist' = `H0_val' if `touse'
         local _created_vars "`varlist'"
@@ -526,12 +809,16 @@ program define finegray_predict, rclass sortpreserve
             exit 2000
         }
 
-        * Compute xb first
+        * Compute xb first.  On a tvc() fit there is no single xb -- the linear
+        * predictor is interval-specific -- so the CIF is accumulated below from
+        * the per-interval predictors built above and this scalar one is unused.
         tempvar xb_val
-        tempname b
-        matrix `b' = e(b)
-        matrix colnames `b' = `_score_varlist'
-        matrix score double `xb_val' = `b' if `touse'
+        if !`_fg_istvc' {
+            tempname b
+            matrix `b' = e(b)
+            matrix colnames `b' = `_score_varlist'
+            matrix score double `xb_val' = `b' if `touse'
+        }
 
         * The step-lookup helper takes a matrix NAME and reads it with
         * st_matrix(), which reads e() matrices directly and for free.  Copying
@@ -561,11 +848,50 @@ program define finegray_predict, rclass sortpreserve
                 exit 111
             }
         }
-        _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') touse(`touse') ///
-            hasbh(`_has_bh') t0var(`_t0var')
+        * Under tvc() the same call also returns Lambda_0 AT each tsplit()
+        * boundary, from the SAME curve it just evaluated per observation.
+        * Reading those from a second, independently resolved baseline is how a
+        * CIF ends up mixing two curves at rc 0.
+        tempname _pcut
+        if `_fg_istvc' {
+            _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') ///
+                touse(`touse') hasbh(`_has_bh') t0var(`_t0var') ///
+                bsvar(`_bsvar') tsplit(`_fg_cuts') cutmat(`_pcut') ///
+                tvcpos(`_fg_tvcpos')
+        }
+        else {
+            _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') touse(`touse') ///
+                hasbh(`_has_bh') t0var(`_t0var') bsvar(`_bsvar')
+        }
 
-        quietly gen `typlist' `varlist' = ///
-            1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
+        if !`_fg_istvc' {
+            quietly gen `typlist' `varlist' = ///
+                1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
+        }
+        else {
+            * CIF(s|z) = 1 - exp(-sum_j m_j(s) exp(eta_j(z))), where m_j(s) is
+            * the baseline mass that falls inside interval j up to s:
+            *   m_j(s) = max(0, min(H0(s), H0(cut_j)) - H0(cut_{j-1}))
+            * with H0(cut_0) = 0 and cut_J = +infinity.  This needs no left
+            * limits because interval j is (cut_{j-1}, cut_j]: a baseline jump
+            * exactly at a boundary belongs to the interval that closes there,
+            * which is the same tie rule the fit used.  min() ignores a missing
+            * argument in Stata, so the open last interval is written as min(H0, .).
+            tempvar _plam _ppiece
+            quietly gen double `_plam' = 0 if `touse'
+            quietly gen double `_ppiece' = .
+            local _plo = 0
+            forvalues _pj = 1/`_fg_nint' {
+                if `_pj' == `_fg_nint' local _phi = .
+                else local _phi = `_pcut'[1, `_pj']
+                quietly replace `_ppiece' = min(`H0_val', `_phi') - `_plo' if `touse'
+                quietly replace `_ppiece' = 0 if `touse' & `_ppiece' < 0
+                quietly replace `_plam' = `_plam' + ///
+                    `_ppiece' * exp(`_fg_xbfix' + `_fg_xbtv`_pj'') if `touse'
+                if `_pj' < `_fg_nint' local _plo = `_phi'
+            }
+            quietly gen `typlist' `varlist' = 1 - exp(-`_plam') if `touse'
+        }
         local _created_vars "`varlist'"
         * Name the evaluation basis in the label.  `cif' without timevar()
         * evaluates at each subject's own _t and `cif timevar(h5)' at h5; the
@@ -610,6 +936,15 @@ program define finegray_predict, rclass sortpreserve
                 tempvar _bsum _bss
                 quietly gen double `_bsum' = 0 if `touse'
                 quietly gen double `_bss' = 0 if `touse'
+
+                * Baseline strata the predictions actually need.  Read from the
+                * CALLER's evaluation sample, once, before any resampling: a
+                * replication that cannot supply a baseline for one of these
+                * cannot contribute to those rows' SE, and is skipped below.
+                local _bsneed ""
+                if `"`_bsvar'"' != "" {
+                    quietly levelsof `_bsvar' if `touse', local(_bsneed) clean
+                }
 
                 tempname _bf
                 frame copy `c(frame)' `_bf'
@@ -664,12 +999,45 @@ program define finegray_predict, rclass sortpreserve
                         * the stored design; skip the replication.
                         if !`_reprc' & `"`e(covariates)'"' != `"`_fgcovs'"' ///
                             local _reprc = 459
+                        * Every stratum the evaluation rows ask for must still
+                        * carry a baseline in this refit.  A resample can drop a
+                        * small stratum, or every cause event in it; that
+                        * replication is skipped and counted, rather than
+                        * aborting the whole bootstrap at the baseline lookup.
+                        if !`_reprc' & "`_bsneed'" != "" {
+                            local _bsne_r `"`e(bstrata_noevent)'"'
+                            foreach _bsl_r of local _bsneed {
+                                local _bshit_r : list posof "`_bsl_r'" in _bsne_r
+                                if `_bshit_r' > 0 {
+                                    local _reprc = 459
+                                    continue, break
+                                }
+                                quietly count if `_bsvar' == `_bsl_r'
+                                if r(N) == 0 {
+                                    local _reprc = 459
+                                    continue, break
+                                }
+                            }
+                        }
                         if !`_reprc' local _fg_repseq `"`e(bh_seq)'"'
                     }
                     if `_reprc' continue
-                    quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
-                        "`tvar'", "`touse'", "`_bsum'", "`_bss'", ///
-                        strtoreal("`_fg_repseq'"))
+                    * The refit replays e(refitcmd), which carries tvc() and
+                    * tsplit(), so each replication is the SAME estimator as the
+                    * point estimate.  Its CIF must therefore be accumulated the
+                    * same way -- piecewise -- or the bootstrap SD would describe
+                    * a proportional CIF wrapped around a piecewise one.
+                    if `_fg_istvc' {
+                        quietly mata: _finegray_boot_cif_obs_tvc( ///
+                            "`_score_varlist'", "`tvar'", "`touse'", ///
+                            "`_bsum'", "`_bss'", strtoreal("`_fg_repseq'"), ///
+                            "`_fg_tvcpos'", "`_fg_cuts'")
+                    }
+                    else {
+                        quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
+                            "`tvar'", "`touse'", "`_bsum'", "`_bss'", ///
+                            strtoreal("`_fg_repseq'"), "`_bsvar'")
+                    }
                     local ++_bok
                 }
                 frame drop `_bf'
@@ -730,11 +1098,19 @@ program define finegray_predict, rclass sortpreserve
                     local _tg_mata "`_tg_grp'"
                 }
 
+                * Belt to the parser brace above: the influence function here
+                * is derived for a single exp(z'b) at every baseline increment
+                * and is NOT the piecewise one.  Reaching it on a tvc() fit
+                * would post a plausible SE with no derivation behind it.
+                if `_fg_istvc' {
+                    display as error "internal error: the analytic CIF variance is not derived for tvc()"
+                    exit 498
+                }
                 mata: _finegray_cif_predict( ///
                     "`_score_varlist'", "`e(compete)'", `=e(cause)', ///
                     `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
                     "`_fvbasis'", "`touse'", "`tvar'", ///
-                    "`se_cif'", "`_t0var'")
+                    "`se_cif'", "`_t0var'", "`_bsvar'")
             }
 
             * Complementary log-log limits keep the interval inside (0,1):
@@ -840,7 +1216,7 @@ program define finegray_predict, rclass sortpreserve
 
         mata: _finegray_schoenfeld_compute( ///
             "`_score_varlist'", "`events_var'", `cause_val', `censvalue_val', ///
-            "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'")
+            "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bsvar'")
 
         restore
 

@@ -37,7 +37,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 |---|---|---|
 | All lanes | Stata 16+ via `stata-mp` | Hard failure |
 | `test_finegray.do` | Sibling `tabtools` package | Hard failure |
-| `python` / `full` | `Rscript`; R packages `cmprsk`, `survival`, `riskRegression`, and `prodlim` | Hard failure; a skip cannot make the lane green |
+| `python` / `full` | `Rscript`; R packages `cmprsk`, `crrSC`, `survival`, `riskRegression`, and `prodlim` | Hard failure; a skip cannot make the lane green |
 | Optional acceleration parity | R package `fastcmprsk` | The optional comparison is omitted; core `cmprsk` parity still runs |
 | Shell wrapper | POSIX shell utilities and Python 3 | Hard failure of the wrapper gate |
 
@@ -53,6 +53,10 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `test_finegray_v120b.do` | Factor coefficient naming, replay, reporting, support notes, saving labels, and v1.2.0 presentation regressions. |
 | `test_finegray_v121.do` | Cold-cache multiple-record prediction, long factor names, cilevel validation, and consulted-only positivity guards. |
 | `test_finegray_v130.do` | Missing-`compete()` refusal (including the `stsplit`-blanked configuration), one `level()` bound across fit/replay/`finegray_cif`/`finegray_predict`, and `seed()` validation in both bootstrap paths. |
+| `test_finegray_mi.do` | `mi estimate, cmdok:` compatibility: no unregistered `_fg_*` columns left in `mi` data, bit-identical estimates off `mi` data, fail-closed post-estimation, detection in all `mi` styles, and hand-computed Rubin pooling. Also the hostile negative cases: an ordinary dataset carrying a variable named `_mi_m`, `_mi_id` or `_mi_miss` is **not** `mi` data and must fit and post-estimate normally; and what `mi estimate` actually leaves in `e(mi_data)`/`e(postest)` (retained state from the last per-imputation fit — the pooled refusal is driven by the `e(cmd)` gate, not by those). |
+| `test_finegray_tvc.do` | `tvc()`/`tsplit()` piecewise-constant beta(t): equivalence with `stcrreg, tvc() texp()` (J=2) and with a hand-split episode Cox fit (any J, on data with no competing events); the pre-feature values a fit without `tvc()` must still return; the (lower, upper] tie convention pinned with an event exactly on a boundary; the `main`/`tvc1`..`tvcJ` coefficient stripe and `test`; the `e()` contract and `e(refitcmd)` replay; determinism; `predict cif` reconciled against a piecewise accumulation rebuilt by hand from `e(basehaz)` and `e(b)` (a consistency check on the assembly, not an independent one — the step search is the package's own); the interval-aware `xb` and `attime()`; factor variables; the cost *shape* across two sample sizes; bootstrap CIF intervals; the cold-cache baseline rebuild; a constant-effect DGP showing no spurious time variation; every refusal (missing partner option, bad cuts, empty interval, unmodelled `tvc()` variable, `bstrata()`, `nuisance`, delayed entry, `schoenfeld`, `finegray_phtest`, the analytic CIF `ci`); factor variables through every rebuild path (CIF profile, cold cache, dropped `_fg_*` columns); prediction on new data after the estimation sample is gone; an all-`tvc()` model including the one-covariate case; the two tool-free likelihood invariants — the null log-likelihood matches the proportional fit, and the nested proportional fit is strictly dominated; and a direct fit on **zero-entry multiple-record data**, asserted bit-identical in `e(b)`, `e(V)` and `e(ll)` to the single-record fit of the same subjects, with a cold-cache baseline rebuild and CIF afterwards. |
+| `test_finegray_bstrata.do` | `bstrata()` baseline stratification: bit-identity of the one-level fit with the unstratified estimator, the `stcox, strata()` equivalence oracle when there are no competing events, the K x 3 `e(basehaz)` layout, `e(refitcmd)` replay, every refusal (delayed entry, `nuisance`, stratum-varying `id()`), the `finegray_cif` `bstratum()` contract, per-stratum `basecshazard` lookup, and the event-free-stratum contract. |
+| `test_finegray_errors.do` | Public error contracts: early option conflicts in the fit, mid-path CIF grid conflicts and the fitted state they must preserve, the PH-diagnostic option contract, and ignored-option probes in prediction. |
 | `test_finegray_release120.do` | VCE contradictions, clustered bootstrap identities, raw residuals, and cluster-label invariance. |
 | `test_finegray_ties.do` | Censor/event tie conventions and delayed-entry risk-set boundaries. |
 | `test_finegray_optimizer.do` | Rank, convergence, tolerance, accepted-likelihood, and Newton-decrement safeguards. |
@@ -84,6 +88,8 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `validation_finegray_cif_recovery.do` | Analytic CIF recovery at reference and nonzero profiles, including plateau and bounds. |
 | `validation_finegray_cif_se.do` | Deterministic analytic CIF inference and delete-one sensitivity envelopes. |
 | `validation_finegray_lt_se.do` | Delayed-entry score identities and coefficient/CIF delete-one sensitivity envelopes. |
+| `validation_tvc_recovery.do` | Known-truth recovery under `tvc()`: data generated by inverting the piecewise subdistribution model's own cumulative incidence, so the interval coefficients are exact. Checks Monte Carlo bias against 4 MC standard errors, 95% coverage of the default fixed-weight sandwich interval, and the mean standard error against the Monte Carlo standard deviation — the last is the only check in the suite that asks whether the piecewise sandwich is the right *size*. |
+| `validation_bstrata_recovery.do` | Known-truth recovery of the shared coefficient vector and of each stratum's closed-form cumulative baseline under `bstrata()`, with the pooled fit's single baseline as the discriminating contrast. |
 | `validation_finegray_zzf_recovery.do` | Multi-hour known-truth recovery gate for delayed-entry Weight 1. |
 | `validation_finegray_zzf_coverage.do` | Multi-hour delayed-entry confidence-interval coverage gate. |
 | `validation_finegray_zzf_factorization.do` | Multi-hour mechanism-conditioning, factorization, support, and positivity gate. |
@@ -99,6 +105,8 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `crossval_predict_phtest.do` | Prediction and diagnostic parity with an R implementation. |
 | `crossval_finegray_zzf.do` | Dataset-level parity with a regenerated direct-equation ZZF Weight 1 oracle. |
 | `crossval_nuisance.do` | Whole variance/covariance matrix parity for the nuisance-adjusted sandwich. |
+| `crossval_tvc.do` | `tvc()`/`tsplit()` coefficient parity with two independent implementations of the same model: `stcrreg, tvc(x) texp(_t > c)` in-session (J=2, the only shape one `texp()` can express) and `cmprsk::crr` with `cov2`/`tf` interval indicators (any J), across a no-ties fixture, a three-interval fixture, and a tie fixture whose grid puts events exactly on the boundary. A third part composes `tvc()` with `strata()` on a fixture whose censoring rate differs by group and pins it against `crr`'s `cengroup`, with the pooled fit as the discriminating contrast. Each run prints its own measured maximum difference. |
+| `crossval_bstrata.do` | `bstrata()` coefficient parity with `crrSC::crrs`, the authors' own implementation of Zhou et al. (2011), at both `ctype` mappings (`bstrata()+strata()` = `ctype 1`, `bstrata()` alone = `ctype 2`), across two/three/four strata and with heavy ties. The coefficient check is the oracle. Regime-1 standard errors are also compared, but only as a **descriptive proximity check / drift alarm, not a variance validation**: `crrs` under `ctype 1` returns Zhou et al. sec. 4.1's `eta + psi` variance, while `finegray` documents and returns the `eta`-only fixed-weight sandwich (which is why `nuisance` is refused with `bstrata()`). The observed 0.11–0.25% agreement measures how small the omitted `psi` term happens to be on these fixtures. Neither variance is validated by this suite; a real gate needs the stratified `psi` term implemented, or an independent oracle for the `eta`-only sandwich. |
 
 ### Support and out-of-band runners
 
@@ -110,7 +118,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `benchmark_finegray_zzf.do` | Standalone scan scaling measurement; not a correctness gate and run on demand. |
 | `_benchmark_finegray_zzf_cell.do` | Fresh-process worker for one benchmark cell. |
 | `run_all.sh`, `test_run_all_wrapper.sh`, `test_finegray_fg02_failclosed.sh` | Reliable shell status, provenance/receipts, wrapper regression, and stale-oracle fail-closed checks. |
-| `crossval_cif_r.R`, `crossval_finegray_r.R`, `crossval_finegray_zzf_beta_r.R`, `crossval_finegray_zzf_r.R`, `crossval_nuisance_r.R`, `crossval_predict_phtest_r.R` | Independent R generators and comparison implementations used by `crossval_*`. |
+| `crossval_tvc_r.R`, `crossval_bstrata_r.R`, `crossval_cif_r.R`, `crossval_finegray_r.R`, `crossval_finegray_zzf_beta_r.R`, `crossval_finegray_zzf_r.R`, `crossval_nuisance_r.R`, `crossval_predict_phtest_r.R` | Independent R generators and comparison implementations used by `crossval_*`. |
 | `validation_finegray_zzf_prereg_r.R` | Independent preregistration of the recovery gate's signed controls. |
 | `gates_transfer_pin.txt`, `run_all_status.txt`, `run_status_full.txt`, `run_status_gates.txt` | Transfer baseline and machine-readable lane receipts. |
 | `_r_environment.txt`, `.gitignore` | Recorded external environment and generated-artifact policy. |
@@ -119,7 +127,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `finegray` | `test_finegray*`, optimizer/variance/bootstrap/ZZF/nuisance suites | Recovery, CIF, LT-SE, and ZZF gate suites | `crossval_finegray*`, `crossval_nuisance`, `crossval_predict_stcrreg` | Documentation examples, contracts, determinism, ties |
+| `finegray` | `test_finegray*`, optimizer/variance/bootstrap/ZZF/nuisance/`bstrata`/`tvc` suites | Recovery, CIF, LT-SE, `bstrata` recovery, `tvc` recovery, and ZZF gate suites | `crossval_finegray*`, `crossval_bstrata`, `crossval_tvc`, `crossval_nuisance`, `crossval_predict_stcrreg` | Documentation examples, contracts, determinism, ties |
 | `finegray_predict` | Postestimation, factor-grammar, options, reporting, v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_predict_phtest`, `crossval_predict_stcrreg`, `crossval_cif` | Determinism, saved-estimate reloads |
 | `finegray_cif` | CIF/bootstrap/reporting/options, `at()` profiles on factor and interaction designs, and v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_cif`, `crossval_finegray`, `crossval_predict_stcrreg` | Documentation examples, determinism, saved-estimate reloads |
 | `finegray_phtest` | Diagnostic, factor, postestimation, and determinism suites | Core invariant suite | `crossval_predict_phtest` | Documentation examples, saved-estimate reloads |
@@ -132,7 +140,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 |---|---|
 | `quick` | All curated functional/regression `test_*` suites. |
 | `core` | `quick`, deterministic/known-truth validation, and native `stcrreg` prediction parity. |
-| `python` | The five R-backed `crossval_*` suites; the name is retained for compatibility. |
+| `python` | The eight R-backed `crossval_*` suites; the name is retained for compatibility. |
 | `full` | `core` plus `python`; default `run_all.do` and release-wrapper gate. |
 | `gates` | The three multi-hour ZZF recovery, coverage, and factorization validations, run on demand. |
 | Shell gates | Wrapper regression on non-`gates` lanes; stale-oracle gate on `python`/`full`; delayed-entry transfer proof on `full`/`gates`. |

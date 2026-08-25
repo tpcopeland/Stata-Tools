@@ -2,7 +2,13 @@
 
     Produces:
       1. Cumulative-incidence curve with confidence band -> .png
-      2. CIF estimates -> temporary .dta, verified and removed
+      2. Stratified-baseline CIF comparison, bstrata()          -> .png
+      3. CIF estimates -> temporary .dta, verified and removed
+
+    Run from the Stata-Tools repository root, from finegray/, or from
+    finegray/demo/:
+      stata-mp -b do finegray/demo/demo_finegray.do
+      stata-mp -b do demo_finegray.do
 */
 
 version 16.0
@@ -12,7 +18,28 @@ set varabbrev off
 set linesize 120
 
 **# Paths and local installation
-local pkg_dir "finegray/demo"
+* Resolve the repository root from the invocation's cwd so the demo runs from
+* the repo root, from finegray/, or from finegray/demo/.  Every path below hangs
+* off repo_dir.  The supported contract used to be the repo root ALONE -- the
+* paths were the bare relative strings "finegray/demo" and `c(pwd)'/finegray --
+* which is what `run demo finegray' supplies (it copies finegray/ plus its
+* sibling deps into a scratch root and runs with cwd = that root), so the CLI
+* runner and a repo-root invocation both worked.  cwd = finegray/demo/ resolved
+* "finegray/demo" against itself and died at r(603) on the first save.  Same
+* pattern as iivw/demo/demo_iivw.do.
+local here = regexr("`c(pwd)'", "/+$", "")
+local basename = substr("`here'", strrpos("`here'", "/") + 1, .)
+if "`basename'" == "demo" {
+    local repo_dir "`here'/../.."
+}
+else if "`basename'" == "finegray" {
+    local repo_dir "`here'/.."
+}
+else {
+    local repo_dir "`here'"
+}
+confirm file "`repo_dir'/finegray/finegray.pkg"
+local pkg_dir "`repo_dir'/finegray/demo"
 capture mkdir "`pkg_dir'"
 capture log close _all
 
@@ -21,11 +48,11 @@ capture log close _all
 * remove whatever finegray (SSC/GitHub) the user had chosen and leave this dev
 * copy behind; a demo must not mutate installed ado state.  `adopath ++' is
 * session-local and is removed again on exit below.
-adopath ++ "`c(pwd)'/finegray"
+adopath ++ "`repo_dir'/finegray"
 * tc_schemes is a graph-cosmetic dependency shipped as a sibling Stata-Tools
 * package.  Put it on the path softly and fall back to s2color -- the numeric
 * demo is unaffected.
-adopath ++ "`c(pwd)'/tc_schemes"
+adopath ++ "`repo_dir'/tc_schemes"
 capture set scheme plotplainblind
 if _rc {
     set scheme s2color
@@ -62,7 +89,7 @@ quietly finegray i.pelnode ifp tumsize, compete(status) cause(1) ///
     cluster(site) nolog
 
 * # Linear predictor and cumulative incidence
-noisily finegray_predict double xb_hat,
+noisily finegray_predict double xb_hat, xb
 noisily finegray_predict double cif_hat, cif
 gen double horizon5 = 5
 noisily finegray_predict double cif5, cif timevar(horizon5) ci level(90)
@@ -152,6 +179,113 @@ stset dftime, failure(dfcens==1) id(subject_id)
 quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
 noisily finegray_cif, attime(1 5 8) ci bootstrap(25) seed(13579)
 
+**# Stratified baseline hazard and time-varying effects (1.3.0)
+webuse hypoxia, clear
+gen byte status = failtype
+stset dftime, failure(dfcens==1) id(stnum)
+
+* # Stratified baseline subdistribution hazard (Zhou et al. 2011)
+* One unconstrained baseline per level of bstrata(), one shared coefficient
+* vector.  This is the only one of the three "strata" options that means what
+* stcox, strata() means; strata() stratifies the censoring distribution and
+* truncstrata() the entry distribution.
+noisily finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode) ///
+    basehaz nolog
+noisily display as text "baseline strata  = " as result e(k_bstrata)
+noisily display as text "bstrata variable = " as result "`e(bstrata)'"
+matrix bh = e(basehaz)
+noisily display as text "e(basehaz) is " as result rowsof(bh) ///
+    as text " x " as result colsof(bh) as text ", columns: " ///
+    as result "`: colnames bh'"
+
+* # A covariate profile no longer identifies a curve: name the stratum
+noisily finegray_cif, attime(1 3 5) bstratum(0) ci nograph
+noisily display as text "r(bstratum) = " as result r(bstratum)
+noisily finegray_cif, attime(1 3 5) bstratum(1) ci nograph
+
+* # The fitted baseline is free within stratum
+noisily finegray_predict double h0_strat, basecshazard
+noisily tabstat h0_strat, by(pelnode) stat(n min max) nototal
+drop h0_strat
+
+* # Piecewise-constant time-varying effect
+* tvc() names covariates whose coefficient is piecewise constant in analysis
+* time; tsplit() gives the J-1 interior boundaries.  Intervals are (lower,
+* upper], so an event exactly on a boundary falls in the earlier interval.
+noisily finegray ifp tumsize pelnode, compete(status) cause(1) ///
+    tvc(pelnode) tsplit(1) nolog
+noisily display as text "intervals   = " as result e(n_intervals)
+noisily display as text "tvc terms   = " as result e(k_tvc)
+noisily display as text "boundaries  = " as result "`e(tsplit)'"
+noisily display as text "events/int. = " as result "`e(tsplit_nfail)'"
+
+* # Wald test of whether the effect is in fact constant
+noisily test [tvc1]pelnode = [tvc2]pelnode
+
+* # xb is a function of time after a tvc() fit
+noisily finegray_predict double xb_own, xb
+noisily finegray_predict double xb_at2, xb attime(2)
+noisily summarize xb_own xb_at2
+noisily correlate xb_own xb_at2
+drop xb_own xb_at2
+
+* # CIF accumulates the baseline interval by interval
+noisily finegray_cif, at(pelnode=0 ifp=20 tumsize=5) attime(1 3 5) nograph
+noisily finegray_cif, at(pelnode=1 ifp=20 tumsize=5) attime(1 3 5) nograph
+
+**# Multiple imputation (1.3.0)
+* finegray runs under mi estimate, cmdok:.  The estimator is an M-estimator on
+* the log-SHR scale with a sandwich variance, so Rubin's rules apply to e(b)
+* and e(V) as they stand.  What changes on mi data is bookkeeping: the
+* package-owned _fg_* design columns a factor-variable fit normally leaves in
+* the caller's data are routed through temporary variables instead, so nothing
+* unregistered is written to an mi dataset.
+webuse hypoxia, clear
+gen byte status = failtype
+replace ifp = . in 1/12
+mi set wide
+mi register imputed ifp
+mi register regular tumsize pelnode status dftime dfcens stnum
+set seed 20260825
+quietly mi impute regress ifp = tumsize pelnode, add(5)
+mi stset dftime, failure(dfcens==1) id(stnum)
+
+* # Pooled estimates over the imputations
+noisily mi estimate, cmdok: finegray ifp tumsize i.pelnode, ///
+    compete(status) cause(1) nolog
+* mi estimate posts its own pooled results OVER the last per-imputation fit's
+* e(), so the two macros finegray posted survive the pooling and can be read
+* here.  That is mi's retained state, not a finegray contract: what refuses
+* post-estimation below is the e(cmd) gate -- e(cmd) is "mi estimate", not
+* "finegray" -- which holds whether or not these survive.  qa/test_finegray_mi
+* .do test 17 pins both halves.
+noisily display as text "e(mi_data) = " as result e(mi_data) ///
+    as text ", e(postest) = " as result "`e(postest)'"
+
+* # No package-owned columns are left behind in the mi data
+noisily mi describe
+capture unab fg_left : _fg_*
+if _rc {
+    noisily display as text ///
+        "none of the unregistered variables are package-owned _fg_* columns"
+}
+else {
+    noisily display as error "unexpected _fg_* columns present: `fg_left'"
+}
+
+* # Post-estimation is refused, and the message names the way back
+capture noisily finegray_cif, attime(1 5)
+noisily display as text "finegray_cif after mi estimate returned rc = " ///
+    as result _rc
+
+* # On a single extracted dataset everything works as usual
+mi extract 1, clear
+stset dftime, failure(dfcens==1) id(stnum)
+quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
+noisily finegray_cif, attime(1 5) ci nograph
+capture unab fg_kept : _fg_*
+noisily display as text "off mi, design columns written: " as result "`fg_kept'"
+
 **# Graph output
 webuse hypoxia, clear
 gen byte status = failtype
@@ -165,10 +299,44 @@ finegray_cif, ci ///
 graph export "`pkg_dir'/finegray_cif.png", replace width(1400)
 capture graph close _all
 
+* # Stratified-baseline CIF comparison
+* One curve per level of bstrata() on a common grid.  finegray_cif draws one
+* stratum at a time, so the two saving() datasets are merged and plotted
+* together here.
+quietly finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode) nolog
+forvalues s = 0/1 {
+    quietly finegray_cif, bstratum(`s') timepoints(0(0.05)8.45) ci nograph ///
+        saving("`pkg_dir'/_bstrata_`s'.dta", replace)
+}
+preserve
+use "`pkg_dir'/_bstrata_0.dta", clear
+rename (cif lci uci) (cif0 lci0 uci0)
+keep time cif0 lci0 uci0
+merge 1:1 time using "`pkg_dir'/_bstrata_1.dta", nogenerate
+rename (cif lci uci) (cif1 lci1 uci1)
+assert inrange(cif0, 0, 1) & inrange(cif1, 0, 1)
+twoway (rarea lci0 uci0 time, color("0 114 178%20") lwidth(none) connect(J J)) ///
+       (rarea lci1 uci1 time, color("213 94 0%20") lwidth(none) connect(J J)) ///
+       (line cif0 time, lcolor("0 114 178") lwidth(medthick) ///
+            lpattern(solid) connect(J)) ///
+       (line cif1 time, lcolor("213 94 0") lwidth(medthick) ///
+            lpattern(solid) connect(J)), ///
+    ytitle("Cumulative incidence of cause 1") ///
+    xtitle("Analysis time (years)") ///
+    title("Stratified baseline subdistribution hazard") ///
+    subtitle("bstrata(pelnode): a free baseline per stratum, shared SHRs") ///
+    legend(order(3 "pelnode = 0" 4 "pelnode = 1") pos(6) rows(1)) ///
+    ylabel(0(0.2)0.8) yscale(range(0 0.8))
+graph export "`pkg_dir'/finegray_bstrata_cif.png", replace width(1400)
+capture graph close _all
+restore
+erase "`pkg_dir'/_bstrata_0.dta"
+erase "`pkg_dir'/_bstrata_1.dta"
+
 **# Cleanup
 capture log close _all
 * Remove the session-local adopath entries added at the top, leaving the user's
 * ado path exactly as we found it.
-capture adopath - "`c(pwd)'/finegray"
-capture adopath - "`c(pwd)'/tc_schemes"
+capture adopath - "`repo_dir'/finegray"
+capture adopath - "`repo_dir'/tc_schemes"
 clear

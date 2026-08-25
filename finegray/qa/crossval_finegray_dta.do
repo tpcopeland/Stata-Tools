@@ -10,7 +10,13 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local qadir "`c(pwd)'"
-local pkg_dir = subinstr("`qadir'", "/qa", "", 1)
+* Anchor the strip to the TRAILING /qa.  `subinstr(..., "/qa", "", 1)' removes
+* the first occurrence ANYWHERE, so any run directory that itself contains a
+* /qa component -- a scratch copy at .../scratchpad/qa5/finegray/qa, which is
+* exactly the isolation layout qa/README.md prescribes -- resolved to
+* .../scratchpad5/finegray and died at r(601) on a stata.toc that was never
+* there.  Every other suite in this directory already uses the anchored form.
+local pkg_dir = regexr("`qadir'", "/qa$", "")
 
 capture log close _all
 log using "crossval_finegray_dta.log", replace text name(_crossval_finegray_dta)

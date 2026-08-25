@@ -8,8 +8,10 @@ d cumulative incidence of a cause of interest in the presence of
 d competing events. The implementation uses a native Mata
 d forward-backward scan algorithm that avoids data expansion
 d entirely. Supports delayed entry with Zhang-Zhang-Fine Weight 1,
-d censoring and entry strata, factor variables, robust/clustered
-d SEs, CIF prediction, and Schoenfeld residuals. Post-estimation
+d censoring and entry strata, a stratified baseline subdistribution
+d hazard, piecewise-constant time-varying effects, factor variables,
+d robust/clustered SEs, CIF prediction,
+d and Schoenfeld residuals. Post-estimation
 d includes an approximate proportional subdistribution hazards
 d diagnostic.
 d
@@ -21,7 +23,7 @@ d KW: survival analysis
 d
 d Requires: Stata version 16
 d
-d Distribution-Date: 20260816
+d Distribution-Date: 20260825
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d Support: timothy.copeland@ki.se

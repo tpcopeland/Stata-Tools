@@ -1,9 +1,10 @@
 # finegray demonstrations and benchmarks
 
-Run the comprehensive demo from the Stata-Tools repository root:
+Run the comprehensive demo from the Stata-Tools repository root, from `finegray/`, or from `finegray/demo/` — it resolves the repository root from the invocation's working directory:
 
 ```bash
 stata-mp -b do finegray/demo/demo_finegray.do
+stata-mp -b do demo_finegray.do
 ```
 
 The demo prefers the `tc_schemes` graph scheme (`plotplainblind`), a sibling Stata-Tools package. If `tc_schemes/` is not present in the checkout it falls back to `s2color`; only the graph cosmetics differ and the numeric demo is unaffected.
@@ -15,8 +16,11 @@ The demo loads the local package and demonstrates the complete public workflow:
 - Rank, log-time, and identity-time proportional subdistribution hazards diagnostics
 - CIF profiles, fixed horizons, custom time grids, analytic and bootstrap intervals, graph options, and verified `saving()` output
 - Multiple-record (`stsplit`) data, delayed entry, and bootstrap inference with string subject identifiers
+- A stratified baseline subdistribution hazard via `bstrata()`: `e(k_bstrata)`, the widened `e(basehaz)` (`bstratum`, `time`, `cumhazard`), the `bstratum(#)` requirement in `finegray_cif`, and a per-stratum `basecshazard` prediction
+- A piecewise-constant time-varying effect via `tvc()` with `tsplit()`: the per-interval equations and event counts, the `test [tvc1]x = [tvc2]x` constancy test, time-dependent `xb` with and without `attime(#)`, and a CIF profile accumulated interval by interval
+- `mi estimate, cmdok:` on `mi set wide` data, confirming that no package-owned `_fg_*` design column is written to the `mi` dataset, that post-estimation is refused with `r(301)`, and that the same fit on an extracted dataset behaves as usual
 
-The generated documentation artifact is `finegray_cif.png`. The temporary CIF dataset is checked for row count, bounds, interval ordering, and summary content, then removed.
+The generated documentation artifacts are `finegray_cif.png` and `finegray_bstrata_cif.png`. The second overlays one CIF curve per baseline stratum; `finegray_cif` draws a single stratum per call, so the demo writes each curve with `saving()` and merges them on a common time grid. The temporary CIF and per-stratum datasets are checked for row count, bounds, and interval ordering, then removed.
 
 ## Performance benchmarks
 
