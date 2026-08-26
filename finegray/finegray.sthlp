@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  25aug2026}{...}
+{* *! version 1.3.0  26aug2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -1478,10 +1478,77 @@ Three intervals, the linear predictor at a chosen time, and the CIF
 {phang2}{cmd:. margins, dydx(ifp) predict(xb)}{p_end}
 
 {pstd}
-{bf:Compare with stcrreg} (requires different stset)
+{bf:Delayed entry with entry strata}. Declare entry in {cmd:stset}; name in
+{opt truncstrata()} the covariates the entry time depends on, and in
+{opt strata()} the covariates censoring depends on. Pooling an entry
+distribution that is not in fact common attenuates the coefficient on the
+covariate that drives entry, so read {cmd:e(lt_weight)} and the weight
+diagnostics before interpreting the fit.
+
+{phang2}{cmd:. stset time, failure(any_event==1) id(id) enter(time entry)}{p_end}
+{phang2}{cmd:. finegray z1 z2, compete(status) cause(1) truncstrata(z1)}{p_end}
+{phang2}{cmd:. display "`e(lt_weight)'"}{p_end}
+{phang2}{cmd:. display e(min_weight_prob), e(max_lt_weight)}{p_end}
+
+{pstd}
+{bf:Grouped cumulative incidence} on {cmd:webuse hiv_si}, the Amsterdam Cohort
+data of {bf:[ST] stcrreg} example 4: SI phenotype as the cause of interest,
+AIDS as the competing event, one binary covariate.
+
+{phang2}{cmd:. webuse hiv_si, clear}{p_end}
+{phang2}{cmd:. gen byte any_event = status > 0}{p_end}
+{phang2}{cmd:. stset time, failure(any_event==1) id(patnr)}{p_end}
+{phang2}{cmd:. finegray ccr5, compete(status) cause(2)}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=0) attime(2 5 10) ci}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=1) attime(2 5 10) ci}{p_end}
+
+{pstd}
+{bf:Multiple imputation}. {cmd:cmdok} is required; {cmd:eform("SHR")} labels
+the pooled column on the scale the coefficients are reported on elsewhere. See
+{help finegray##mi:Multiple imputation} above.
+
+{phang2}{cmd:. mi stset dftime, failure(dfcens==1) id(stnum)}{p_end}
+{phang2}{cmd:. mi estimate, cmdok eform("SHR"): finegray ifp tumsize, compete(status) cause(1)}{p_end}
+
+{pstd}
+{bf:An internal time-varying covariate is refused}. On
+{cmd:webuse pneumonia} ({bf:[ST] stcrreg} example 5) the exposure switches
+mid-stay, so it varies within {cmd:id()} and the fit stops with
+{cmd:r(198)}. Its value at admission is subject-constant and is accepted -- a
+baseline-exposure model, a different estimand from the time-updated
+coefficient {helpb stcrreg} reports on those data.
+
+{phang2}{cmd:. bysort id (ndays): gen byte pneu0 = pneumonia[1]}{p_end}
+{phang2}{cmd:. finegray age pneu0, compete(outcome) cause(1)}{p_end}
+
+{pstd}
+{bf:Bootstrap inference for the coefficients}. Resampling that also propagates
+weight-estimation uncertainty has to re-run {cmd:stset} on the resampled
+identifiers, which the {helpb bootstrap} prefix cannot do on its own; wrap the
+sequence and resample subjects.
+
+{phang2}{cmd:. program define fgboot, eclass}{p_end}
+{phang2}{cmd:.     capture drop _st _d _t _t0}{p_end}
+{phang2}{cmd:.     quietly stset dftime, failure(dfcens==1) id(newid)}{p_end}
+{phang2}{cmd:.     finegray ifp tumsize pelnode, compete(status) cause(1) noshr}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. bootstrap _b, reps(200) cluster(stnum) idcluster(newid): fgboot}{p_end}
+
+{pstd}
+{bf:Compare with stcrreg} (requires a different {cmd:stset}: {cmd:finegray} is
+declared on "any event" and told which value is the cause, {cmd:stcrreg} on the
+cause itself)
 
 {phang2}{cmd:. stset dftime, failure(status==1) id(stnum)}{p_end}
 {phang2}{cmd:. stcrreg ifp tumsize pelnode, compete(status == 2)}{p_end}
+
+{pstd}
+The same comparison for a two-interval time-varying effect. {cmd:stcrreg}
+parameterizes it as a threshold interaction -- its {cmd:main} coefficient
+applies on (0, {it:c}] and {cmd:main}+{cmd:tvc} on {it:t} > {it:c} -- where
+{cmd:finegray} reports the two interval coefficients directly.
+
+{phang2}{cmd:. stcrreg ifp tumsize pelnode, compete(status == 2) tvc(pelnode) texp(_t > 1) noshr}{p_end}
 
 
 {marker results}{...}
@@ -1643,7 +1710,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 2026-08-25{p_end}
+{pstd}Version 1.3.0, 2026-08-26{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -430,10 +430,26 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 {phang2}{cmd:. finegray_predict cif5_bs, cif timevar(mytime_bs) ci bootstrap(200) seed(12345)}{p_end}
 
 {pstd}
+{bf:Baseline cumulative subdistribution hazard}
+
+{phang2}{cmd:. finegray_predict basech, basecshazard}{p_end}
+{phang2}{cmd:. summarize basech}{p_end}
+
+{pstd}
 {bf:Schoenfeld residuals}
 
 {phang2}{cmd:. finegray_predict sch, schoenfeld}{p_end}
 {phang2}{cmd:. list sch* in 1/5}{p_end}
+
+{pstd}
+{bf:After a tvc() fit the linear predictor is a function of time.} Without
+{opt attime()} each row is scored at its own {cmd:_t}; with it, every row is
+scored at one common time.
+
+{phang2}{cmd:. finegray ifp tumsize pelnode, compete(status) cause(1) tvc(pelnode) tsplit(1)}{p_end}
+{phang2}{cmd:. finegray_predict xb_own, xb}{p_end}
+{phang2}{cmd:. finegray_predict xb_at2, xb attime(2)}{p_end}
+{phang2}{cmd:. summarize xb_own xb_at2}{p_end}
 
 {pstd}
 {bf:After a stratified-baseline fit}: each row is scored from its own stratum's

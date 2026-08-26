@@ -9,16 +9,23 @@ stata-mp -b do demo_finegray.do
 
 The demo prefers the `tc_schemes` graph scheme (`plotplainblind`), a sibling Stata-Tools package. If `tc_schemes/` is not present in the checkout it falls back to `s2color`; only the graph cosmetics differ and the numeric demo is unaffected.
 
-The demo loads the local package and demonstrates the complete public workflow:
+The demo uses three of Stata's example datasets: `hypoxia` for the main workflow, `hiv_si` (the Amsterdam Cohort data of [ST] `stcrreg` example 4) for grouped cumulative-incidence curves, and `pneumonia` ([ST] `stcrreg` example 5) for the internal time-varying covariate refusal.
+
+It loads the local package and demonstrates the complete public workflow:
 
 - Core estimation, factor variables, `censvalue()`, reporting controls, stratified censoring, cluster-robust inference, and model-based inference
 - Default `xb`, CIF, fixed-horizon CIF confidence intervals, cluster-bootstrap intervals, compatible-new-data scoring, and Schoenfeld residuals
 - Rank, log-time, and identity-time proportional subdistribution hazards diagnostics
 - CIF profiles, fixed horizons, custom time grids, analytic and bootstrap intervals, graph options, and verified `saving()` output
-- Multiple-record (`stsplit`) data, delayed entry, and bootstrap inference with string subject identifiers
+- Grouped CIF curves on `hiv_si`: one fixed-horizon table per covariate profile, and the `saving()` + append pattern that overlays curves `finegray_cif` draws one at a time
+- Multiple-record (`stsplit`) data, string subject identifiers, CIF bootstrap intervals, and coefficient bootstrap inference through a wrapper program that re-runs `stset` on the resampled identifiers
+- Delayed entry on a cohort whose entry depends on a model covariate: `truncstrata()` against a pooled entry distribution, matching and cross-classified censoring/entry strata, the posted weight label, and the weight diagnostics
+- The internal time-varying covariate refusal on `pneumonia` (`r(198)`), and the subject-constant baseline-exposure fit that is accepted instead
 - A stratified baseline subdistribution hazard via `bstrata()`: `e(k_bstrata)`, the widened `e(basehaz)` (`bstratum`, `time`, `cumhazard`), the `bstratum(#)` requirement in `finegray_cif`, and a per-stratum `basecshazard` prediction
-- A piecewise-constant time-varying effect via `tvc()` with `tsplit()`: the per-interval equations and event counts, the `test [tvc1]x = [tvc2]x` constancy test, time-dependent `xb` with and without `attime(#)`, and a CIF profile accumulated interval by interval
-- `mi estimate, cmdok:` on `mi set wide` data, confirming that no package-owned `_fg_*` design column is written to the `mi` dataset, that post-estimation is refused with `r(301)`, and that the same fit on an extracted dataset behaves as usual
+- A piecewise-constant time-varying effect via `tvc()` with `tsplit()`: the per-interval equations and event counts, the `test [tvc1]x = [tvc2]x` constancy test, time-dependent `xb` with and without `attime(#)`, a CIF profile accumulated interval by interval, and the mapping onto `stcrreg, tvc() texp()`
+- `mi estimate, cmdok eform("SHR"):` on `mi set wide` data, confirming that no package-owned `_fg_*` design column is written to the `mi` dataset, that post-estimation is refused with `r(301)`, and that the same fit on an extracted dataset behaves as usual
+
+Numeric claims in the demo are gated rather than narrated. Agreement with `stcrreg` on `hypoxia` (coefficients, robust standard errors, log pseudo-likelihood) and on `hiv_si`, the `tvc()`/`texp()` parameterization mapping, and the split-record reduction against the single-record fit are each recomputed and asserted, so a regression fails the run instead of printing a wrong number.
 
 The generated documentation artifacts are `finegray_cif.png` and `finegray_bstrata_cif.png`. The second overlays one CIF curve per baseline stratum; `finegray_cif` draws a single stratum per call, so the demo writes each curve with `saving()` and merges them on a common time grid. The temporary CIF and per-stratum datasets are checked for row count, bounds, and interval ordering, then removed.
 

@@ -337,6 +337,32 @@ cluster-robust variance and {opt bootstrap()} resamples whole clusters.
 {pstd}Save the numeric estimates behind the curve{p_end}
 {phang2}{cmd:. finegray_cif, ci nograph saving(cifcurve.dta,replace)}{p_end}
 
+{pstd}
+{bf:One curve per exposure group.} {cmd:finegray_cif} draws one profile per
+call, so a grouped figure is built by exporting each profile with
+{opt saving()} and combining them on a common grid. Here on
+{cmd:webuse hiv_si}, the data of {bf:[ST] stcrreg} example 4.
+
+{phang2}{cmd:. webuse hiv_si, clear}{p_end}
+{phang2}{cmd:. gen byte any_event = status > 0}{p_end}
+{phang2}{cmd:. stset time, failure(any_event==1) id(patnr)}{p_end}
+{phang2}{cmd:. finegray ccr5, compete(status) cause(2)}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=0) attime(2 5 10) ci}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=1) attime(2 5 10) ci}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=0) nograph saving(cif0.dta, replace)}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=1) nograph saving(cif1.dta, replace)}{p_end}
+{phang2}{cmd:. use cif0.dta, clear}{p_end}
+{phang2}{cmd:. gen byte ccr5 = 0}{p_end}
+{phang2}{cmd:. append using cif1.dta}{p_end}
+{phang2}{cmd:. replace ccr5 = 1 if missing(ccr5)}{p_end}
+{phang2}{cmd:. twoway (line cif time if ccr5==0, connect(J)) ///}{p_end}
+{phang2}{cmd:.     (line cif time if ccr5==1, connect(J))}{p_end}
+
+{pstd}
+{cmd:connect(J)} is what makes the step function a step function; a plain
+{cmd:line} interpolates between event times and draws a curve the estimator
+never produced.
+
 {pstd}Band by subject bootstrap{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci bootstrap(500) seed(12345)}{p_end}
 
