@@ -194,6 +194,11 @@ less sensitive to extreme event times and is the default screening choice.
 {phang2}{cmd:. finegray_phtest, time(log)}{p_end}
 
 {pstd}
+{bf:Analysis time itself}
+
+{phang2}{cmd:. finegray_phtest, time(identity)}{p_end}
+
+{pstd}
 {bf:Display residuals}
 
 {phang2}{cmd:. finegray_phtest, detail}{p_end}

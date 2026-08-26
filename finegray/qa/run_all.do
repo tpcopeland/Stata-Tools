@@ -93,7 +93,15 @@ local gates_files validation_finegray_zzf_recovery.do ///
     validation_finegray_zzf_coverage.do ///
     validation_finegray_zzf_factorization.do
 
-local full_files `core_files' `python_files'
+* Adversarial cross-feature suites. They are `full' only, deliberately: quick
+* and core are the lanes a developer runs between edits, and these two exist to
+* probe the interactions BETWEEN features (mi x bstrata(), mi x tvc(), tvc() x
+* strata() x cluster()) and hostile or degenerate fixtures. Nothing in them is
+* a substitute for the per-feature suites already in quick.
+local adversarial_files test_finegray_adversarial_v130.do ///
+    test_finegray_adversarial_v120.do
+
+local full_files `core_files' `adversarial_files' `python_files'
 
 local all_files ``lane'_files'
 
