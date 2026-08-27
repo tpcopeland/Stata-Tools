@@ -187,7 +187,7 @@ program define finegray_cif, rclass sortpreserve
         display as error "re-run {bf:finegray} before using finegray_cif"
         exit 301
     }
-    * FENCE LIFTED 2026-08-26 (v1.4.0).  v1.3.0 refused an analytic ci after a
+    * FENCE LIFTED 2026-08-26 (variance unification).  Development builds refused an analytic ci after a
     * tvc() fit because the CIF influence function was derived for a single
     * exp(z'b) at every baseline increment, and under a piecewise beta(t) each
     * increment carries its own interval's linear predictor and its own
@@ -744,7 +744,7 @@ program define finegray_cif, rclass sortpreserve
     }
 
     tempname OUT
-    * One call either way since v1.4.0: _finegray_cif_var_st dispatches to the
+    * One call either way since the unification: _finegray_cif_var_st dispatches to the
     * piecewise influence function when it is told the interval structure, and
     * both routes reach the same accumulators.  bstrata() needs the stratum
     * column (to rebuild the fit's one-curve-per-stratum baseline) and the

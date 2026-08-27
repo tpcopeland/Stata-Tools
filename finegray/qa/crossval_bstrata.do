@@ -24,7 +24,7 @@
 *                  same object in both implementations.  This is the oracle of
 *                  this suite -- it establishes equality, and it is the only
 *                  comparison here that does.
-*   variance       ctype = 1 ONLY, and since v1.4.0 it is a REAL ORACLE, not a
+*   variance       ctype = 1 ONLY, and since 2026-08-26 it is a REAL ORACLE, not a
 *                  proximity check.  Zhou et al. (2011) sec. 4.1 defines the
 *                  regularly-stratified variance as Sigma_rk = E{(eta_ki +
 *                  psi_ki)^2} summed over strata -- Fine & Gray (1999) eq. 7-8
@@ -110,7 +110,7 @@ quietly net install finegray, from("`pkgroot'") replace
 * (measured: >1e-1).
 local BTOL = 1e-5
 local STOL = 0.02
-* VTOL gates the v1.4.0 VARIANCE ORACLE: finegray's `nuisance bstrata(v)
+* VTOL gates the 2026-08-26 VARIANCE ORACLE: finegray's `nuisance bstrata(v)
 * strata(v)' against crrs ctype=1.  These are the same estimator computed twice
 * -- Zhou (2011) sec. 4.1's Sigma_rk = E{(eta_ki + psi_ki)^2} summed over
 * strata, which crrs assembles as per-stratum crrvv() calls (crrvvs) and
@@ -276,7 +276,7 @@ if `r_available' {
                     }
                 }
 
-                * ---- THE VARIANCE ORACLE (v1.4.0) ----------------------------
+                * ---- THE VARIANCE ORACLE (2026-08-26) ----------------------------
                 * ctype = 1 is crrs's per-stratum crrvvs(): cmprsk's unmodified
                 * FG eq. (7)-(8) variance run on each stratum's rows with that
                 * stratum's own Ghat, summed over strata.  Since 2026-08-26

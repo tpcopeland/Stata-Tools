@@ -248,9 +248,9 @@ else {
 }
 
 * -----------------------------------------------------------------------------
-**# E  SE CALIBRATION under bstrata(): eta-only vs eta+psi (v1.4.0)
+**# E  SE CALIBRATION under bstrata(): eta-only vs eta+psi (2026-08-26)
 * -----------------------------------------------------------------------------
-* Arms A-D are about the POINT estimates.  v1.4.0 made `nuisance' legal with
+* Arms A-D are about the POINT estimates.  The variance unification made `nuisance' legal with
 * bstrata(), so the variance now needs an oracle of its own, and the one that
 * does not depend on R is calibration against the sampling distribution the DGP
 * actually has: across independent replicates the empirical SD of beta-hat IS

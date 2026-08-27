@@ -5,7 +5,7 @@
 * WHY THIS SUITE EXISTS.
 *
 * v1.3.0 refused tvc() together with bstrata(), and the stated reason was that
-* "the combination has no reference implementation to validate against".  v1.4.0
+* "the combination has no reference implementation to validate against".  The unification
 * lifts the fence.  The features reshape the risk-set scan on orthogonal axes --
 * bstrata() partitions ROWS into per-stratum risk sets, tvc() partitions TIME
 * into per-interval passes over a zeroed design -- and the piecewise wrappers
@@ -263,7 +263,7 @@ local fail_count = `fail_count' + r(fail)
 **# 3. J = 1 identity: no tsplit() is the pure bstrata() fit, bit for bit
 * -----------------------------------------------------------------------------
 * tvc() requires tsplit(), so J = 1 cannot be requested directly; what is
-* asserted instead is that the pure bstrata() fit is unchanged by the v1.4.0
+* asserted instead is that the pure bstrata() fit is unchanged by the unification
 * work -- the piecewise wrappers delegate verbatim at nint <= 1 and the
 * stratified baseline stacking must not have touched the single-interval path.
 local ++test_count

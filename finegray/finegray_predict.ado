@@ -207,7 +207,7 @@ program define finegray_predict, rclass sortpreserve
     * would be a wrong standard error at rc 0.  The bootstrap needs no
     * derivation -- it refits the whole model on each resample -- so it is the
     * supported route and is named here rather than left to be discovered.
-    * FENCE LIFTED 2026-08-26 (v1.4.0).  The CIF influence function has been
+    * FENCE LIFTED 2026-08-26 (variance unification).  The CIF influence function has been
     * re-derived for a piecewise beta(t) -- the derivation is written out in the
     * header of _finegray_cif_core_pw in _finegray_mata.ado --
     * and the piecewise variant reuses the SAME accumulators the proportional one

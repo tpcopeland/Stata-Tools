@@ -100,12 +100,12 @@ for (ds in unique(dat$dataset)) {
     for (j in seq_len(nint)) {
         add_row(ds, "coef", paste0("tvc", j), unname(cf[1 + j]))
     }
-    # STANDARD ERRORS (added 2026-08-26 for finegray v1.4.0).
+    # STANDARD ERRORS (added 2026-08-26 with the variance unification).
     # crr$var is the FULL Fine & Gray (1999) sandwich: cmprsk assembles it in
     # the Fortran routine crrvv, whose eta block is eq. (7) and whose q/pi block
     # is eq. (8) -- the psi term for having ESTIMATED G.  (The same routine is
     # vendored by crrSC and is what crrs's ctype=1 sums over strata.)  Until
-    # v1.4.0 finegray refused `nuisance' with tvc(), so there was no finegray
+    # the unification finegray refused `nuisance' with tvc(), so there was no finegray
     # quantity to compare these against and the Stata side deliberately did not
     # compare SEs at all.  There is now: `tvc() nuisance noadjust' computes the
     # same object, so these rows make the piecewise psi term externally checked

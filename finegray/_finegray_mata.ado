@@ -3945,7 +3945,7 @@ void _finegray_engine(
     }
     ptot = _finegray_tvc_ncoef(fixpos, tvcpos, nint)
 
-    /* FENCE LIFTED 2026-08-26 (v1.4.0).  tvc() x bstrata() used to be refused
+    /* FENCE LIFTED 2026-08-26 (variance unification).  tvc() x bstrata() used to be refused
        here as well as in the parser.  Nothing about the two features conflicts:
        they reshape the scan on orthogonal axes -- bstrata() partitions ROWS
        into per-stratum risk sets, tvc() partitions TIME into per-interval
@@ -5151,7 +5151,7 @@ void _finegray_cif_var_st(
     else             bsraw = J(n, 1, 1)
 
     E = st_matrix(evalmat)
-    /* tvc(): the analytic variance is the piecewise one (v1.4.0).  Both routes
+    /* tvc(): the analytic variance is the piecewise one (2026-08-26).  Both routes
        reach the SAME accumulators through _finegray_cif_accum; only the
        combination over intervals differs. */
     if (tvc_str != "" & tsplit_str != "") {
@@ -5240,7 +5240,7 @@ void _finegray_cif_predict(
         bstarget = J(length(sel), 1, 1)
     }
 
-    /* tvc(): the piecewise influence function (v1.4.0).  Both routes reach the
+    /* tvc(): the piecewise influence function (2026-08-26).  Both routes reach the
        same accumulators through _finegray_cif_accum. */
     if (tvc_str != "" & tsplit_str != "") {
         cuts = strtoreal(tokens(tsplit_str))'

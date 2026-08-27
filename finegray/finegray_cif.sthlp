@@ -174,8 +174,8 @@ are unaffected in form -- {opt at()} still names one covariate profile, and
 there is still one baseline.
 
 {pmore}
-{opt ci} on its own {bf:is} available as of version 1.4.0. Through 1.3.0 it was
-refused with {cmd:r(198)}, because the analytic interval came from an influence
+{opt ci} on its own {bf:is} available as of version 1.3.0. Development builds
+refused it with {cmd:r(198)}: the analytic interval came from an influence
 function derived for a single exp({it:z}'b) multiplying every baseline
 increment, and under a piecewise b({it:t}) each increment carries its own
 interval's linear predictor and its own risk-set total. That has now been

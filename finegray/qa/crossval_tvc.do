@@ -32,7 +32,7 @@
 * it is available on the same scale: a scan that accumulated a plausible score
 * from the wrong risk sets would still land on a different maximum.
 *
-* STANDARD ERRORS.  Compared since v1.4.0, against crr only, and only for the
+* STANDARD ERRORS.  Compared since 2026-08-26, against crr only, and only for the
 * `nuisance noadjust' arm.  crr$var is the full Fine & Gray (1999) sandwich --
 * cmprsk's Fortran crrvv computes eq. (7)'s eta and eq. (8)'s psi -- which is
 * exactly the object finegray returns under `nuisance', and `noadjust' removes
@@ -359,9 +359,9 @@ if `r_available' {
                 assert reldif(_b[tvc`j':x1], `rv`nm'_coef_tvc`j'') < `CRRTOL'
             }
 
-            * ---- THE PIECEWISE psi ORACLE (v1.4.0) -----------------------
+            * ---- THE PIECEWISE psi ORACLE (2026-08-26) -----------------------
             * crr$var is the FULL Fine & Gray (1999) sandwich: cmprsk's Fortran
-            * crrvv computes eq. (7)'s eta AND eq. (8)'s psi.  Until v1.4.0
+            * crrvv computes eq. (7)'s eta AND eq. (8)'s psi.  Until the unification
             * finegray refused `nuisance' with tvc(), so there was no finegray
             * quantity to compare it against and this suite compared no SEs at
             * all.  There is now.  `noadjust' removes StataCorp's N/(N-1)
