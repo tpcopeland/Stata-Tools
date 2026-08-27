@@ -174,19 +174,33 @@ are unaffected in form -- {opt at()} still names one covariate profile, and
 there is still one baseline.
 
 {pmore}
-{opt ci} on its own is {bf:not available} on such a fit and is refused with
-{cmd:r(198)}. The analytic interval comes from an influence function derived for
-a single exp({it:z}'b) multiplying every baseline increment; under a piecewise
-b({it:t}) each increment carries its own interval's linear predictor and its own
-risk-set total, and that derivation is not in this release. Reporting the
-proportional one would be a wrong band at {cmd:rc = 0}.
+{opt ci} on its own {bf:is} available as of version 1.4.0. Through 1.3.0 it was
+refused with {cmd:r(198)}, because the analytic interval came from an influence
+function derived for a single exp({it:z}'b) multiplying every baseline
+increment, and under a piecewise b({it:t}) each increment carries its own
+interval's linear predictor and its own risk-set total. That has now been
+re-derived: interval {it:j}'s contribution is the same construction run on that
+interval's events and design, so the influence function is the sum over
+intervals of the pieces the proportional one already computes, plus a
+derivative block for each interval's own coefficients. It reuses the same
+accumulators, and at one interval it collapses to the proportional formula term
+for term.
 
 {pmore}
-{opt ci} {opt bootstrap(#)} {bf:is} available and is the supported route. Each
-replication refits the whole model from {cmd:e(refitcmd)}, which carries
-{opt tvc()} and {opt tsplit()}, so every replication is the same estimator as
-the point estimate. Without {opt ci}, {cmd:r(table)}'s {cmd:se}, {cmd:lci} and
-{cmd:uci} columns are missing, as they are for any point-estimate-only call.
+{opt ci} {opt bootstrap(#)} remains available and is the arm the analytic route
+is checked against. Each replication refits the whole model from
+{cmd:e(refitcmd)}, which carries {opt tvc()} and {opt tsplit()}, so every
+replication is the same estimator as the point estimate. {cmd:r(se_method)}
+reports which route produced the interval: {cmd:analytic} or
+{cmd:bootstrap}. Without {opt ci}, {cmd:r(table)}'s {cmd:lci} and {cmd:uci}
+columns are missing, as they are for any point-estimate-only call.
+
+{pmore}
+{bf:The analytic route is fixed-weight}, here as on a proportional fit: it does
+not propagate the uncertainty in the estimated censoring distribution, so it
+returns the same standard errors after a {helpb finegray##nuisance:nuisance}
+fit as after a default one. Use {opt bootstrap(#)} when the interval should
+include weight re-estimation.
 
 {marker bstratum}{...}
 {phang}
@@ -390,6 +404,7 @@ never produced.
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(profile_vars)}}model covariates, in column order of {cmd:r(at)}{p_end}
 {synopt:{cmd:r(bstrata)}}baseline stratification variable; with {cmd:bstratum()}{p_end}
+{synopt:{cmd:r(se_method)}}how column 3 of {cmd:r(table)} was computed{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}one row per evaluated time{p_end}

@@ -144,3 +144,90 @@ program define _finegray_qa_unident_data
     quietly replace x2 = rnormal() in 1/60
     drop u
 end
+
+* -----------------------------------------------------------------------------
+* Fence probes: assert on (rc, TOKENS), never on a whole sentence.
+*
+* WHY.  Every scope fence in this package is a hard refusal whose message names
+* the reason and the alternative.  Tests that pinned those sentences coupled
+* correctness to wording: one rewording of one refusal turned a lattice of
+* fence tests red at once, and the pressure that creates is to soften the
+* message rather than to keep the fence honest.
+*
+* The stable contract is therefore declared to be two things and only two:
+*
+*   1. the RETURN CODE.  198 is a syntax/option fence (the combination is
+*      refused before any data is touched); 459 is a data fence (something that
+*      should be true of the data is not); 301 is a post-estimation fence (the
+*      fit in e() cannot support this request).
+*   2. the OPTION NAMES the refusal is about, spelled as the user types them --
+*      `nuisance', `bstrata()', `tvc()', `truncstrata()'.  No rewording of a
+*      refusal removes the names of the options it is refusing, and a rewording
+*      that DID remove them would be a real regression in the message.
+*
+* Everything else in the sentence -- the citation, the suggested alternative,
+* the help link -- is prose, and exactly ONE test in the suite pins it:
+* the wording canary in test_finegray_errors.do.  A rewording therefore breaks
+* one test, in one place, on purpose.
+*
+* _finegray_qa_fence runs a command, captures its output, and returns
+*   r(rc)       the return code
+*   r(ntok)     how many of the supplied tokens appeared in the message
+*   r(ok)       1 iff rc matched AND every token appeared
+*   r(log)      the captured output file, for the canary to read
+* -----------------------------------------------------------------------------
+capture program drop _finegray_qa_fence
+program define _finegray_qa_fence, rclass
+    version 16.0
+    * The command travels in an OPTION, not as the leading argument: every
+    * refusal worth probing is an option combination, so the command line is
+    * full of commas and any gettoken split on "," would cut it in half.
+    syntax , CMD(string) [RC(integer 198) TOKens(string) NOCHECKrc]
+
+    tempfile cap
+    capture log close _fgfence
+    quietly log using "`cap'", replace text name(_fgfence)
+    capture noisily `cmd'
+    local got_rc = _rc
+    capture log close _fgfence
+
+    local ntok = 0
+    local nwant : word count `tokens'
+    tempname fh
+    local blob ""
+    file open `fh' using "`cap'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    foreach tk of local tokens {
+        if strpos(`"`blob'"', `"`tk'"') > 0 local ++ntok
+    }
+
+    local ok = 1
+    if "`nocheckrc'" == "" & `got_rc' != `rc' local ok = 0
+    if `ntok' != `nwant' local ok = 0
+
+    return scalar rc = `got_rc'
+    return scalar ntok = `ntok'
+    return scalar nwant = `nwant'
+    return scalar ok = `ok'
+    return local log "`cap'"
+end
+
+* Assert a fence: right return code, every token present.  Fails the enclosing
+* capture block (rc 9) on any mismatch, so the caller needs no if/else.
+capture program drop _finegray_qa_assert_fence
+program define _finegray_qa_assert_fence
+    version 16.0
+    syntax , CMD(string) [RC(integer 198) TOKens(string)]
+    _finegray_qa_fence, cmd(`"`cmd'"') rc(`rc') tokens(`tokens')
+    if r(ok) != 1 {
+        display as error `"fence probe failed: `cmd'"'
+        display as error "  expected rc `rc', got r(rc) = " r(rc)
+        display as error "  tokens matched " r(ntok) " of " r(nwant) ": `tokens'"
+    }
+    assert r(ok) == 1
+end

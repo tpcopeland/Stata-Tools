@@ -259,12 +259,23 @@ CIF is 1 - exp(-{it:sum}). There is one baseline, so {opt basecshazard} is
 unchanged.
 
 {pmore}
-{opt ci} on its own is {bf:not available}: the influence function behind it is
-derived for a single exp(z'b) multiplying every baseline increment, which a
-piecewise b({it:t}) is not. {opt ci} {opt bootstrap(#)} {bf:is} available and is
-the supported route -- each replication refits the whole model, and
+{opt ci} on its own {bf:is} available as of version 1.4.0. Through 1.3.0 it was
+refused, because the influence function behind it was derived for a single
+exp(z'b) multiplying every baseline increment, which a piecewise b({it:t}) is
+not. It has since been re-derived: interval {it:j}'s contribution is the same
+construction evaluated on that interval's events and design, so the influence
+function is the sum over intervals of the pieces the proportional one already
+computes, plus a derivative block for each interval's own coefficients. At one
+interval it collapses to the proportional formula term for term.
+
+{pmore}
+{opt ci} {opt bootstrap(#)} remains available and is the arm the analytic route
+is checked against -- each replication refits the whole model, and
 {cmd:e(refitcmd)} carries {opt tvc()} and {opt tsplit()}, so the replications
-are the same estimator as the point estimate.
+are the same estimator as the point estimate. As on a proportional fit, the
+analytic route is {bf:fixed-weight}: it does not propagate the uncertainty in
+the estimated censoring distribution, so it returns the same standard errors
+after a {helpb finegray##nuisance:nuisance} fit as after a default one.
 
 {pmore}
 {opt schoenfeld} is {bf:not available}. Each residual is defined inside its own

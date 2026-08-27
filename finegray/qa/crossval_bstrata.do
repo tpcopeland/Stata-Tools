@@ -24,40 +24,41 @@
 *                  same object in both implementations.  This is the oracle of
 *                  this suite -- it establishes equality, and it is the only
 *                  comparison here that does.
-*   standard errors ctype = 1 ONLY, at 2%, and ONLY as a DESCRIPTIVE PROXIMITY
-*                  CHECK / DRIFT ALARM.  It does NOT validate that the two
-*                  implementations compute the same variance, because they
-*                  documentedly do not:
-*                    - Zhou et al. (2011) sec. 4.1 defines the regularly-
-*                      stratified variance as Sigma_rk = E{(eta_ki + psi_ki)^2},
-*                      i.e. Fine & Gray (1999) eq. 7-8 within stratum INCLUDING
-*                      the psi term for having estimated G.  crrs implements
-*                      exactly that under ctype = 1 (R/crrs.r dispatches to
-*                      crrvvs(); see _literature/finegray/zhou-2011-biometrics
-*                      .notes.md "Variance" and reference-software.notes.md).
-*                    - finegray reports the eta-only, FIXED-WEIGHT sandwich, as
-*                      help finegray states outright, and refuses `nuisance'
-*                      with bstrata() precisely because the stratified psi term
-*                      is not implemented.
-*                  So the observed 0.11%-0.25% agreement measures how SMALL the
-*                  omitted psi term happens to be on these three fixtures.  It
-*                  is not evidence that the same sandwich was assembled, and a
-*                  future fixture where psi matters would widen it without any
-*                  defect existing.  The 2% gate is kept as an alarm that
-*                  something structural moved -- a wrong stratum axis shifts
-*                  these by >1e-1 -- not as a variance oracle.
+*   variance       ctype = 1 ONLY, and since v1.4.0 it is a REAL ORACLE, not a
+*                  proximity check.  Zhou et al. (2011) sec. 4.1 defines the
+*                  regularly-stratified variance as Sigma_rk = E{(eta_ki +
+*                  psi_ki)^2} summed over strata -- Fine & Gray (1999) eq. 7-8
+*                  within stratum, INCLUDING the psi term for having estimated
+*                  G -- and crrs assembles exactly that under ctype = 1 by
+*                  running cmprsk's unmodified per-stratum crrvv and summing
+*                  (R/crrs.r -> crrvvs()).  finegray computes the same object in
+*                  one scan with a stratum index when asked for it:
+*                      finegray ..., bstrata(v) strata(v) nuisance
+*                  so the two are the same estimator computed twice, by
+*                  independent code, and are gated at VTOL.
+*                    MEASURED 2026-08-26 across the three fixtures: 8.1e-09,
+*                    2.1e-08, 3.1e-08 relative.  Optimizer tolerance.
+*                  The eta-only (fixed-weight, no `nuisance') arm is still
+*                  compared at STOL, but only as a DRIFT ALARM between two
+*                  documentedly different variance contracts.  Its measured gap
+*                  IS the psi term and the suite prints both numbers side by
+*                  side: 1.1e-03/2.3e-03/2.5e-03 on these fixtures, matching
+*                  "psi moves the se by" to the digit.  So a future fixture
+*                  where psi matters more widens the eta-only gap without any
+*                  defect existing -- which is exactly why the eta+psi arm, not
+*                  that one, is the gate.
 *                  ctype = 2 SEs are not compared at all: in the paper ctype is
 *                  also an asymptotic-regime declaration, and ctype = 2 carries
-*                  the highly-stratified (many small strata) variance, which
-*                  finegray does not implement and does not claim to.
+*                  the highly-stratified (many small strata) variance -- a
+*                  different derivation reached by a different C routine,
+*                  crrvvh -- which finegray does not implement and does not
+*                  claim to.  finegray's own bstrata()-without-strata() cell is
+*                  a stratified baseline with a POOLED Ghat, which crrs has no
+*                  counterpart for at all; it is validated by simulation in
+*                  validation_bstrata_recovery.do, not here.
 *                  The Stata side uses noadjust so that the finite-sample
 *                  N/(N-1) factor -- StataCorp's stcrreg contract, not crrs's --
 *                  is out of the comparison.
-*   variance       NOT VALIDATED by this suite, in either regime.  A real gate
-*                  needs either the within-stratum psi term implemented and the
-*                  full variance compared, or an independent oracle for the
-*                  eta-only fixed-weight sandwich finegray does return.  Both
-*                  are future work; help finegray documents the gap.
 *   baseline       NOT COMPARED: crrs returns no baseline in either regime.
 *                  That is the half validation_bstrata_recovery.do covers, by
 *                  simulation against a closed-form truth.
@@ -109,6 +110,16 @@ quietly net install finegray, from("`pkgroot'") replace
 * (measured: >1e-1).
 local BTOL = 1e-5
 local STOL = 0.02
+* VTOL gates the v1.4.0 VARIANCE ORACLE: finegray's `nuisance bstrata(v)
+* strata(v)' against crrs ctype=1.  These are the same estimator computed twice
+* -- Zhou (2011) sec. 4.1's Sigma_rk = E{(eta_ki + psi_ki)^2} summed over
+* strata, which crrs assembles as per-stratum crrvv() calls (crrvvs) and
+* finegray as one scan with a stratum index -- so the gate is a real agreement
+* tolerance, not a proximity alarm.  Each run prints its own measured worst
+* case, so the slack is visible rather than assumed.  Measured 2026-08-26:
+* 8.1e-09 / 2.1e-08 / 3.1e-08, so the gate is ~1.5 orders looser than the worst
+* observed and still ~5 orders tighter than the omitted-psi gap it must catch.
+local VTOL = 1e-6
 
 * -----------------------------------------------------------------------------
 * FIXTURES
@@ -245,26 +256,71 @@ if `r_available' {
                 local worsts = 0
                 foreach v in x1 x2 {
                     local rb = `rv`nm'_`ct'_coef_`v''
+                    assert !missing(_b[`v'], `rb')
                     local db = abs(_b[`v'] - `rb')
                     if `db' > `worstb' local worstb = `db'
                     assert `db' < `BTOL'
 
                     * Regime-1 SE PROXIMITY only -- a drift alarm between two
                     * documented-different variance estimators (crrs: Zhou
-                    * eta+psi; finegray: eta-only fixed weight), not a variance
-                    * oracle.  See the header.
+                    * eta+psi; finegray without nuisance: eta-only fixed
+                    * weight), not a variance oracle.  See the header.  The
+                    * eta+psi arm below is the oracle.
                     if `ct' == 1 {
                         local rs = `rv`nm'_`ct'_se_`v''
+                        assert !missing(_se[`v'], `rs')
+                        assert `rs' > 0
                         local ds_ = abs(_se[`v'] - `rs') / `rs'
                         if `ds_' > `worsts' local worsts = `ds_'
                         assert `ds_' < `STOL'
+                    }
+                }
+
+                * ---- THE VARIANCE ORACLE (v1.4.0) ----------------------------
+                * ctype = 1 is crrs's per-stratum crrvvs(): cmprsk's unmodified
+                * FG eq. (7)-(8) variance run on each stratum's rows with that
+                * stratum's own Ghat, summed over strata.  Since 2026-08-26
+                * finegray computes the same object -- `nuisance bstrata(v)
+                * strata(v)' -- so this is a genuine two-implementation
+                * comparison of the SAME estimator, not a proximity check, and
+                * it is gated tightly.
+                *
+                * It also measures how big the psi term IS on this fixture
+                * (worstpsi), so a run where the eta-only proximity above looks
+                * good only because psi is negligible is visible rather than
+                * flattering.
+                if `ct' == 1 {
+                    local worstpsi = 0
+                    local worstv = 0
+                    tempname SE_ETA
+                    matrix `SE_ETA' = J(1, 2, .)
+                    local jj = 0
+                    foreach v in x1 x2 {
+                        local ++jj
+                        matrix `SE_ETA'[1, `jj'] = _se[`v']
+                    }
+                    quietly finegray x1 x2, compete(status) cause(1) nolog ///
+                        bstrata(strata) strata(strata) nuisance noadjust
+                    assert e(converged) == 1
+                    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+                    local jj = 0
+                    foreach v in x1 x2 {
+                        local ++jj
+                        local rs = `rv`nm'_`ct'_se_`v''
+                        assert !missing(_se[`v'], `rs')
+                        assert _se[`v'] > 0
+                        local dv = abs(_se[`v'] - `rs') / `rs'
+                        if `dv' > `worstv' local worstv = `dv'
+                        local dp = abs(_se[`v'] - `SE_ETA'[1, `jj']) / _se[`v']
+                        if `dp' > `worstpsi' local worstpsi = `dp'
+                        assert `dv' < `VTOL'
                     }
                 }
             }
             if _rc == 0 {
                 if `ct' == 1 {
                     display as result ///
-                        "  PASS: `nm' ctype=1 (bstrata+strata) b within `=string(`worstb',"%8.2e")', se proximity `=string(`worsts',"%8.2e")' (different variance contracts)"
+                        "  PASS: `nm' ctype=1 (bstrata+strata) b within `=string(`worstb',"%8.2e")'; eta+psi se vs crrs `=string(`worstv',"%8.2e")' (same estimator); eta-only proximity `=string(`worsts',"%8.2e")'; psi moves the se by `=string(`worstpsi',"%8.2e")'"
                 }
                 else {
                     display as result ///

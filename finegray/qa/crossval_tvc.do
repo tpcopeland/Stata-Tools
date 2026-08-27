@@ -32,12 +32,27 @@
 * it is available on the same scale: a scan that accumulated a plausible score
 * from the wrong risk sets would still land on a different maximum.
 *
-* WHAT IS NOT COMPARED.  Standard errors.  finegray's default is the
-* fixed-weight sandwich with StataCorp's N/(N-1) adjustment; stcrreg adds the
-* Fine & Gray eq. 7-8 nuisance term and adjusts by g/(g-1); crr uses its own.
-* Those are three different variance estimators of the same coefficient, and
-* calling the difference a defect would be wrong. Coefficient agreement is the
-* claim being tested.
+* STANDARD ERRORS.  Compared since v1.4.0, against crr only, and only for the
+* `nuisance noadjust' arm.  crr$var is the full Fine & Gray (1999) sandwich --
+* cmprsk's Fortran crrvv computes eq. (7)'s eta and eq. (8)'s psi -- which is
+* exactly the object finegray returns under `nuisance', and `noadjust' removes
+* StataCorp's N/(N-1) factor that crr does not apply.  So the two sides compute
+* the SAME estimator and the gate is a real agreement tolerance.
+*
+* That comparison is also the external evidence for the piecewise psi
+* DERIVATION: crr decomposes nothing -- it forms one design with J
+* time-interaction columns and one variance over it -- while finegray runs J
+* masked passes and sums the influence contributions.  Agreement is therefore a
+* statement about the derivation rather than about shared code.
+*
+* Each fixture prints the same comparison WITHOUT nuisance beside it, and the
+* suite asserts the no-psi difference is strictly larger.  A fixture where psi
+* is negligible would let a broken psi term pass the first assertion; this is
+* what stops that from being invisible.
+*
+* stcrreg SEs are still NOT compared: stcrreg adjusts by g/(g-1) and its
+* fixed-weight/nuisance contract differs again.  Coefficient agreement is the
+* claim tested there.
 
 clear all
 set more off
@@ -90,6 +105,24 @@ quietly net install finegray, from("`pkgroot'") replace
 * order 1e-1 -- measured by shifting one boundary past a cluster of events.
 local STCRTOL = 1e-7
 local CRRTOL  = 1e-5
+* CRRSETOL gates the eta+psi standard errors against crr's own.  Same estimator
+* on both sides (see the header), so this is an agreement tolerance.  Measured
+* 2026-08-26 on these fixtures; each run prints its own worst case beside the
+* no-psi comparison, so the slack and the size of the psi term are both visible.
+* MEASURED 2026-08-26: 2.8e-09 / 2.9e-09 / 3.1e-09, against 1.4e-04 / 1.6e-04 /
+* 3.7e-05 for the same fits without psi.  The gate sits between the two by four
+* orders, so it fails on a psi term that is wrong OR absent.
+*
+* This arm has already earned its keep once.  The first implementation of the
+* piecewise psi wrapper handed each interval pass the MASKED event vector, in
+* which out-of-interval cause events carry the censoring code -- so every pass
+* invented censoring events, inflating dNc_g and N^c.  It measured 2.0e-05 /
+* 4.9e-05 / 1.9e-05 here: comfortably inside a 1e-4 gate, visibly better than
+* the eta-only arm, and completely wrong.  What exposed it was that the same
+* psi machinery reaches 3.1e-08 against crrs WITHOUT tvc(), so three orders of
+* extra slack had to be coming from the decomposition.  Set the gate from what
+* the estimator can actually reach, not from what the fixture tolerates.
+local CRRSETOL = 1e-6
 
 capture program drop _cvtv_result
 program define _cvtv_result, rclass
@@ -325,9 +358,54 @@ if `r_available' {
                 assert !missing(_b[tvc`j':x1], `rv`nm'_coef_tvc`j'')
                 assert reldif(_b[tvc`j':x1], `rv`nm'_coef_tvc`j'') < `CRRTOL'
             }
+
+            * ---- THE PIECEWISE psi ORACLE (v1.4.0) -----------------------
+            * crr$var is the FULL Fine & Gray (1999) sandwich: cmprsk's Fortran
+            * crrvv computes eq. (7)'s eta AND eq. (8)'s psi.  Until v1.4.0
+            * finegray refused `nuisance' with tvc(), so there was no finegray
+            * quantity to compare it against and this suite compared no SEs at
+            * all.  There is now.  `noadjust' removes StataCorp's N/(N-1)
+            * factor, which crr does not apply, leaving the same estimator on
+            * both sides -- so this is an agreement gate, not a proximity one.
+            *
+            * It is also the EXTERNAL evidence for the interval decomposition of
+            * psi: crr does not decompose anything, it forms one design with J
+            * time-interaction columns and one variance over it, while finegray
+            * runs J masked passes and sums.  Agreement is therefore a statement
+            * about the derivation, not about shared code.
+            quietly finegray x1 x2, compete(status) cause(1) ///
+                tvc(x1) tsplit(`cuts') nolog nuisance noadjust
+            assert e(converged) == 1
+            assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+            local _mv = 0
+            assert !missing(_se[main:x2], `rv`nm'_se_x2')
+            assert `rv`nm'_se_x2' > 0
+            local _mv = reldif(_se[main:x2], `rv`nm'_se_x2')
+            forvalues j = 1/`nint' {
+                assert !missing(_se[tvc`j':x1], `rv`nm'_se_tvc`j'')
+                assert `rv`nm'_se_tvc`j'' > 0
+                local _d = reldif(_se[tvc`j':x1], `rv`nm'_se_tvc`j'')
+                if `_d' > `_mv' local _mv = `_d'
+            }
+            * How much of that agreement psi is responsible for: the same fit
+            * without nuisance, against the same crr SEs.  If this second number
+            * is not visibly larger than the first, the fixture cannot see the
+            * psi term and the arm above is not evidence about it.
+            quietly finegray x1 x2, compete(status) cause(1) ///
+                tvc(x1) tsplit(`cuts') nolog noadjust
+            local _me = reldif(_se[main:x2], `rv`nm'_se_x2')
+            forvalues j = 1/`nint' {
+                local _d = reldif(_se[tvc`j':x1], `rv`nm'_se_tvc`j'')
+                if `_d' > `_me' local _me = `_d'
+            }
+            display as text "    `nm': max relative SE difference vs crr = " ///
+                as result %9.2e `_mv' as text " with psi, " ///
+                as result %9.2e `_me' as text " without"
+            assert `_mv' < `CRRSETOL'
+            assert `_me' > `_mv'
         }
         local _rc = _rc
-        _cvtv_result `_rc' "B/`nm' finegray tvc()/tsplit() == cmprsk::crr cov2/tf (J=`nint')"
+        _cvtv_result `_rc' "B/`nm' finegray tvc()/tsplit() == cmprsk::crr cov2/tf, b and eta+psi V (J=`nint')"
         local pass_count = `pass_count' + r(pass)
         local fail_count = `fail_count' + r(fail)
     }

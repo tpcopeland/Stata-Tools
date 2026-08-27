@@ -584,16 +584,27 @@ _fgtv_result `_rc' "T15 an empty interval and an unmodelled tvc() variable refus
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
-**# T16 tvc() with bstrata(), nuisance, or delayed entry refuses
+**# T16 tvc() refuses delayed entry; nuisance and bstrata() are now allowed
+* v1.4.0 inverted two thirds of this test.  psi is linear in the score and the
+* tvc scan decomposes the score exactly over intervals, so psi decomposes with
+* it (_finegray_psi_residuals_pw); crossval_tvc.do gates the result against
+* cmprsk::crr's own eq. (7)-(8) variance at 1e-6.  bstrata() reshapes the scan
+* on the orthogonal axis and composes mechanically; test_finegray_tvc_bstrata.do
+* is its suite.  Delayed entry is unchanged and still refuses -- that fence is
+* literature-forced, not an implementation gap.
 local ++test_count
 capture noisily {
     _fgtv_data
-    capture finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.5) ///
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.5) ///
         bstrata(grp) nolog
-    assert _rc == 198
-    capture finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.5) ///
+    assert e(converged) == 1
+    assert e(k_bstrata) == 3
+    assert e(n_intervals) == 2
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.5) ///
         nuisance nolog
-    assert _rc == 198
+    assert e(converged) == 1
+    assert "`e(vce_meat)'" == "nuisance_adjusted"
+    assert e(n_intervals) == 2
 
     * Delayed entry: the piecewise scan is the right-censoring scan, and the ZZF
     * branch has no piecewise form.  Reaching it would fit the proportional
@@ -609,7 +620,7 @@ capture noisily {
     assert _rc == 198
 }
 local _rc = _rc
-_fgtv_result `_rc' "T16 tvc() refuses bstrata(), nuisance and delayed entry"
+_fgtv_result `_rc' "T16 tvc() refuses delayed entry; nuisance and bstrata() are allowed"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
@@ -625,13 +636,14 @@ capture noisily {
     * ...and neither is the test built on them.
     capture finegray_phtest
     assert _rc == 198
-    * The analytic CIF interval is derived for one exp(z'b) per increment.
+    * The analytic CIF interval was refused through v1.3.0 and is DERIVED as of
+    * v1.4.0, so both surfaces must now succeed -- and the point estimate must
+    * still succeed too, which is what would break if lifting the fence had
+    * disturbed the shared parse path.
     capture finegray_predict double _c1, cif ci
-    assert _rc == 198
-    * ...and specifically for the ci, not for some earlier parse error: the
-    * same call without ci must succeed.
+    assert _rc == 0
     capture finegray_cif, at(x1=1 x2=0) attime(1) ci nograph
-    assert _rc == 198
+    assert _rc == 0
     capture finegray_cif, at(x1=1 x2=0) attime(1) nograph
     assert _rc == 0
     * attime() is an xb option and only on a piecewise fit
@@ -642,7 +654,7 @@ capture noisily {
     assert _rc == 198
 }
 local _rc = _rc
-_fgtv_result `_rc' "T17 schoenfeld, phtest and the analytic CIF ci refuse"
+_fgtv_result `_rc' "T17 schoenfeld and phtest refuse; the analytic CIF ci is allowed"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
@@ -898,13 +910,15 @@ _fgtv_result `_rc' "T24 null likelihood matches and the piecewise fit dominates"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
-**# T25 the missing-SE column is explained, not left as bare dots
+**# T25 the tvc() CIF table no longer HAS a missing SE column (v1.4.0)
 local ++test_count
 capture noisily {
-    * Read the RENDERED output back.  A column of bare dots invites "the SE is
-    * zero" or "this is broken"; the note is the only thing on screen that says
-    * which, and an e() flag nobody prints would satisfy any ereturn-based
-    * assertion while the table still looked wrong.
+    * Read the RENDERED output back.  Through v1.3.0 a tvc() CIF table printed a
+    * column of bare dots for the SE and a note underneath explaining that the
+    * analytic standard error was not derived.  v1.4.0 derives it, so BOTH must
+    * be gone: the note must no longer print anywhere, and the rendered table
+    * must carry real numbers in the SE column.  Asserting only that the note
+    * vanished would also pass if the column had silently gone missing.
     _fgtv_data
     quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.7) nolog
     capture log close _t25
@@ -925,13 +939,22 @@ capture noisily {
         file read `_t25fh' line
     }
     file close `_t25fh'
-    * Once on the tvc() fit, and NOT on the proportional one -- a note that
-    * printed on every fit would be noise rather than information.
-    assert `_t25n' == 1
+    * The note is now obsolete and must not print on EITHER fit.
+    assert `_t25n' == 0
+    * and the SE really is there, on the tvc() fit, in r(table)
+    _fgtv_data
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.7) nolog
+    quietly finegray_cif, at(x1=1 x2=0) attime(0.3 1.0) nograph
+    tempname _t25T
+    matrix `_t25T' = r(table)
+    forvalues r = 1/`= rowsof(`_t25T')' {
+        assert !missing(`_t25T'[`r', 3])
+        assert `_t25T'[`r', 3] > 0
+    }
 }
 local _rc = _rc
 capture log close _t25
-_fgtv_result `_rc' "T25 a tvc() CIF table explains its missing SE column"
+_fgtv_result `_rc' "T25 the tvc() CIF table has a real SE column and no stale note"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
@@ -1049,6 +1072,355 @@ capture noisily {
 local _rc = _rc
 _fgtv_result `_rc' ///
     "T26 zero-entry multiple-record tvc() equals the single-record fit bit for bit"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCPSI-01 J = 1 with nuisance is BIT-identical to the plain psi term
+* -----------------------------------------------------------------------------
+* _finegray_psi_residuals_pw delegates verbatim when nint <= 1, exactly as the
+* other four _pw wrappers do, so a fit without tvc() must be untouched.  Asserted
+* bit for bit rather than to a tolerance, because "untouched" is the claim.
+local ++test_count
+capture noisily {
+    _fgtv_data
+    quietly finegray x1 x2, compete(status) cause(1) nuisance nolog
+    tempname VP BP
+    matrix `VP' = e(V)
+    matrix `BP' = e(b)
+    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+    * a one-interval tvc() fit is refused (tsplit needs a boundary), so the
+    * J = 1 path is reached through the ordinary fit; assert the wrapper is
+    * genuinely in the call chain by checking the psi term is present at all
+    quietly finegray x1 x2, compete(status) cause(1) nolog
+    assert !missing(mreldif(e(V), `VP'))
+    assert mreldif(e(V), `VP') > 0
+    quietly finegray x1 x2, compete(status) cause(1) nuisance nolog
+    assert mreldif(e(V), `VP') == 0
+    assert mreldif(e(b), `BP') == 0
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCPSI-01 nuisance without tvc() is bit-identical to the pre-v1.4.0 term"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCPSI-02 psi under tvc() moves the variance and only the variance
+* -----------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    foreach cuts in "0.7" "0.4 1.0" "0.3 0.7 1.2" {
+        _fgtv_data
+        quietly finegray x1 x2, compete(status) cause(1) tvc(x1) ///
+            tsplit(`cuts') nolog
+        tempname VETA BETA
+        matrix `VETA' = e(V)
+        matrix `BETA' = e(b)
+        local nint = e(n_intervals)
+
+        quietly finegray x1 x2, compete(status) cause(1) tvc(x1) ///
+            tsplit(`cuts') nuisance nolog
+        assert e(n_intervals) == `nint'
+        assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+        assert colsof(e(V)) == colsof(`VETA')
+
+        forvalues j = 1/`= colsof(`BETA')' {
+            assert !missing(`BETA'[1, `j'], e(b)[1, `j'])
+            assert reldif(`BETA'[1, `j'], e(b)[1, `j']) < 1e-12
+        }
+        local moved = 0
+        forvalues j = 1/`= colsof(`VETA')' {
+            assert !missing(`VETA'[`j', `j'], e(V)[`j', `j'])
+            assert e(V)[`j', `j'] > 0
+            if reldif(`VETA'[`j', `j'], e(V)[`j', `j']) > 1e-9 local moved = 1
+        }
+        assert `moved' == 1
+    }
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCPSI-02 nuisance under tvc() moves e(V), never e(b), at J=2/3/4"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCPSI-03 the mask must not invent censoring events (the D3-1 regression)
+* -----------------------------------------------------------------------------
+* The interval decomposition hands each pass an event vector in which every
+* cause event OUTSIDE that interval carries the censoring CODE.  That is right
+* for the cause-event set and harmless for the competing set, and it is wrong
+* for the censoring counting process N^c, which is what Ghat was estimated from.
+* The first implementation of the psi wrapper let the masked vector define N^c
+* and so invented (J-1) x #cause-events worth of censoring events.
+*
+* This test makes the defect visible WITHOUT an R oracle, using a fixture where
+* the two readings must differ by construction: no genuinely censored subject at
+* all.  With complete follow-up Ghat == 1 everywhere, its influence function is
+* identically zero, and psi must be exactly zero -- so the nuisance fit must
+* equal the eta-only fit BIT for BIT.  Under the defective reading every
+* out-of-interval cause event is a censoring event, N^c is not empty, and psi is
+* not zero.  Verified to fail on the defective code.
+local ++test_count
+capture noisily {
+    _fgtv_data
+    * complete follow-up: reclassify every censored subject as a competing event
+    * so nothing is censored, while cause-1 events (and hence the piecewise
+    * effect) survive
+    quietly replace status = 2 if status == 0
+    quietly replace anyev = 1
+    quietly stset t, failure(anyev == 1) id(id)
+    quietly count if status == 0
+    assert r(N) == 0
+    quietly count if status == 1
+    assert r(N) > 50
+
+    foreach cuts in "0.7" "0.4 1.0" {
+        quietly finegray x1 x2, compete(status) cause(1) tvc(x1) ///
+            tsplit(`cuts') nolog
+        tempname VNC
+        matrix `VNC' = e(V)
+        quietly finegray x1 x2, compete(status) cause(1) tvc(x1) ///
+            tsplit(`cuts') nuisance nolog
+        assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+        assert !missing(mreldif(e(V), `VNC'))
+        assert mreldif(e(V), `VNC') < 1e-12
+    }
+
+    * and the same statement without tvc(), so the test cannot pass because the
+    * fixture broke the psi term everywhere
+    quietly finegray x1 x2, compete(status) cause(1) nolog
+    tempname VNC0
+    matrix `VNC0' = e(V)
+    quietly finegray x1 x2, compete(status) cause(1) nuisance nolog
+    assert mreldif(e(V), `VNC0') < 1e-12
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCPSI-03 with no censoring the piecewise psi term is exactly zero"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCPSI-04 e(refitcmd) replays a nuisance x tvc fit (Z24 for the new cell)
+* -----------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    _fgtv_data
+    foreach spec in "tvc(x1) tsplit(0.7) nuisance" ///
+        "tvc(x1) tsplit(0.4 1.0) nuisance" ///
+        "tvc(x1) tsplit(0.7) nuisance strata(x2)" {
+        quietly finegray x1 x2, compete(status) cause(1) `spec' nolog
+        tempname B0
+        matrix `B0' = e(b)
+        local nint = e(n_intervals)
+        local rfc `"`e(refitcmd)'"'
+        assert strpos(`"`rfc'"', "tvc(x1)") > 0
+        assert strpos(`"`rfc'"', "tsplit(") > 0
+        quietly `rfc'
+        assert e(n_intervals) == `nint'
+        assert colsof(e(b)) == colsof(`B0')
+        forvalues j = 1/`= colsof(`B0')' {
+            assert !missing(`B0'[1, `j'], e(b)[1, `j'])
+            assert reldif(`B0'[1, `j'], e(b)[1, `j']) < 1e-12
+        }
+    }
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCPSI-04 e(refitcmd) reproduces e(b) for nuisance x tvc combinations"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCCIF-01 the analytic CIF interval exists, brackets, and says what it is
+* -----------------------------------------------------------------------------
+* v1.3.0 refused `ci' without bootstrap() after a tvc() fit; v1.4.0 derives the
+* piecewise influence function (see the header of _finegray_cif_core_pw).  This
+* is the shape check: an interval that exists, is positive, contains its own
+* point estimate, stays inside (0,1), and reports r(se_method) == "analytic"
+* rather than leaving the caller to infer which route ran.
+local ++test_count
+capture noisily {
+    _fgtv_data
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.7) nolog
+
+    foreach s in 0.2 0.5 0.9 1.5 {
+        quietly finegray_cif, at(x1=0.5 x2=1) attime(`s') ci nograph
+        assert `"`r(se_method)'"' == "analytic"
+        tempname T
+        matrix `T' = r(table)
+        assert !missing(`T'[1, 2], `T'[1, 3], `T'[1, 4], `T'[1, 5])
+        assert `T'[1, 3] > 0
+        assert `T'[1, 4] < `T'[1, 2]
+        assert `T'[1, 5] > `T'[1, 2]
+        assert `T'[1, 4] > 0
+        assert `T'[1, 5] < 1
+    }
+
+    * curve mode too -- it evaluates hundreds of horizons through the chunked
+    * path, which is where an off-by-one in the chunk arithmetic would show
+    quietly finegray_cif, at(x1=0.5 x2=1) ci nograph
+    assert `"`r(se_method)'"' == "analytic"
+    tempname C
+    matrix `C' = r(table)
+    assert rowsof(`C') > 20
+    forvalues r = 1/`= rowsof(`C')' {
+        assert !missing(`C'[`r', 2], `C'[`r', 3])
+        assert `C'[`r', 3] >= 0
+    }
+
+    * finegray_predict's row-level CI runs on the same fit and agrees with
+    * finegray_cif at a row's own time and profile.  Mata-side comparison so no
+    * value round-trips through a macro: a truncated decimal literal moves the
+    * step lookup by a whole baseline jump and reads as a 2% "defect".
+    quietly finegray_predict double _cifq, cif ci
+    quietly count if e(sample) & missing(_cifq)
+    assert r(N) == 0
+    quietly count if e(sample) & !missing(_cifq_lci) & ///
+        (_cifq_lci > _cifq | _cifq_uci < _cifq)
+    assert r(N) == 0
+    * every row without an interval must be one where the CIF is exactly 0,
+    * where the cloglog transform is undefined -- the same rule the
+    * proportional fit follows
+    quietly count if e(sample) & missing(_cifq_lci) & _cifq != 0
+    assert r(N) == 0
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCCIF-01 analytic CIF interval under tvc(): shape, curve mode, predict"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCCIF-02 analytic vs bootstrap, WITH the proportional fit as the control
+* -----------------------------------------------------------------------------
+* The bootstrap resamples the whole fit and needs no derivation, so it is the
+* independent arm.  But the two never agree exactly even for the PROPORTIONAL
+* fit, whose analytic CIF variance has shipped and been validated since v1.2.0:
+* measured 2026-08-26 on this fixture, the proportional analytic/bootstrap SE
+* ratios were 0.984, 0.936, 0.956, 0.951 at t = 0.3/0.5/0.9/1.5.  An influence
+* -function SE running a few percent under its bootstrap is a property of the
+* estimator, not of the piecewise code.
+*
+* So the test is a CONTROLLED one: measure both ratios on the same data and
+* require the piecewise ratio to sit in the same band as the proportional one.
+* Asserting "within 10% of the bootstrap" alone would pass a piecewise variance
+* that was simply the proportional one applied to the wrong design, because
+* that is also within 10%; requiring it to track the control is what makes the
+* comparison about the piecewise term.
+local ++test_count
+capture noisily {
+    _fgtv_data 20260824 2000
+
+    * control arm: the proportional fit
+    quietly finegray x1 x2, compete(status) cause(1) nolog
+    local pmin = 99
+    local pmax = -99
+    foreach s in 0.3 0.5 0.9 1.5 {
+        quietly finegray_cif, at(x1=0.5 x2=1) attime(`s') ci nograph
+        tempname TP
+        matrix `TP' = r(table)
+        quietly finegray_cif, at(x1=0.5 x2=1) attime(`s') ci ///
+            bootstrap(300) seed(4242) nograph
+        tempname BP
+        matrix `BP' = r(table)
+        assert !missing(`TP'[1, 3], `BP'[1, 3])
+        assert `BP'[1, 3] > 0
+        local rr = `TP'[1, 3] / `BP'[1, 3]
+        if `rr' < `pmin' local pmin = `rr'
+        if `rr' > `pmax' local pmax = `rr'
+    }
+
+    * treatment arm: the piecewise fit
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.7) nolog
+    local tmin = 99
+    local tmax = -99
+    foreach s in 0.3 0.5 0.9 1.5 {
+        quietly finegray_cif, at(x1=0.5 x2=1) attime(`s') ci nograph
+        assert `"`r(se_method)'"' == "analytic"
+        tempname TT
+        matrix `TT' = r(table)
+        quietly finegray_cif, at(x1=0.5 x2=1) attime(`s') ci ///
+            bootstrap(300) seed(4242) nograph
+        assert `"`r(se_method)'"' == "bootstrap"
+        tempname BT
+        matrix `BT' = r(table)
+        assert !missing(`TT'[1, 3], `BT'[1, 3])
+        assert `BT'[1, 3] > 0
+        local rr = `TT'[1, 3] / `BT'[1, 3]
+        if `rr' < `tmin' local tmin = `rr'
+        if `rr' > `tmax' local tmax = `rr'
+    }
+
+    display as text "    TVCCIF-02: analytic/bootstrap SE ratio -- proportional " ///
+        as result %6.4f `pmin' as text " to " as result %6.4f `pmax' ///
+        as text ", piecewise " as result %6.4f `tmin' as text " to " ///
+        as result %6.4f `tmax'
+
+    * the piecewise ratios must sit in the same band as the control, allowing
+    * for the bootstrap's own Monte-Carlo noise at 300 replications (~1/sqrt(2B)
+    * = 4%) on each side
+    local slack = 0.08
+    assert `tmin' > `pmin' - `slack'
+    assert `tmax' < `pmax' + `slack'
+    * and both must be near 1: a variance that ignored the piecewise structure
+    * entirely, or double-counted it, leaves this band
+    assert `tmin' > 0.80
+    assert `tmax' < 1.20
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCCIF-02 piecewise analytic CIF SE tracks its bootstrap like the proportional one"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# TVCCIF-03 boundary horizons, and the composed tvc x bstrata analytic SE
+* -----------------------------------------------------------------------------
+* The boundary is the trap: interval j is (cut_{j-1}, cut_j], so a horizon
+* EXACTLY at a cut must be answered entirely from interval 1's coefficients,
+* and the SE must be continuous across it rather than jumping.  Evaluated just
+* below, at, and just above the cut.
+local ++test_count
+capture noisily {
+    _fgtv_data
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.7) nolog
+
+    local eps = 1e-9
+    quietly finegray_cif, at(x1=0.5 x2=1) attime(`= 0.7 - `eps'') ci nograph
+    tempname LO
+    matrix `LO' = r(table)
+    quietly finegray_cif, at(x1=0.5 x2=1) attime(0.7) ci nograph
+    tempname AT
+    matrix `AT' = r(table)
+    quietly finegray_cif, at(x1=0.5 x2=1) attime(`= 0.7 + `eps'') ci nograph
+    tempname HI
+    matrix `HI' = r(table)
+    forvalues c = 2/3 {
+        assert !missing(`LO'[1, `c'], `AT'[1, `c'], `HI'[1, `c'])
+    }
+    * no baseline event lies in (0.7-eps, 0.7+eps), so all three must agree
+    assert reldif(`LO'[1, 2], `AT'[1, 2]) < 1e-10
+    assert reldif(`AT'[1, 2], `HI'[1, 2]) < 1e-10
+    assert reldif(`LO'[1, 3], `AT'[1, 3]) < 1e-10
+    assert reldif(`AT'[1, 3], `HI'[1, 3]) < 1e-10
+
+    * the composed fit gets an analytic SE too, and it must differ by stratum
+    * for the same reason the point estimate does
+    quietly finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.7) ///
+        bstrata(grp) nolog
+    local prev = -1
+    foreach lev in 1 2 3 {
+        quietly finegray_cif, at(x1=0.5 x2=1) bstratum(`lev') attime(0.9) ///
+            ci nograph
+        assert `"`r(se_method)'"' == "analytic"
+        tempname S
+        matrix `S' = r(table)
+        assert !missing(`S'[1, 2], `S'[1, 3])
+        assert `S'[1, 3] > 0
+        assert `S'[1, 4] < `S'[1, 2]
+        assert `S'[1, 5] > `S'[1, 2]
+        if `prev' > 0 assert reldif(`prev', `S'[1, 2]) > 1e-4
+        local prev = `S'[1, 2]
+    }
+}
+local _rc = _rc
+_fgtv_result `_rc' "TVCCIF-03 analytic CIF SE at interval boundaries and under bstrata()"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

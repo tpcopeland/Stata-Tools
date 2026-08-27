@@ -207,15 +207,12 @@ program define finegray_predict, rclass sortpreserve
     * would be a wrong standard error at rc 0.  The bootstrap needs no
     * derivation -- it refits the whole model on each resample -- so it is the
     * supported route and is named here rather than left to be discovered.
-    if "`ci'" != "" & `_fg_istvc' & `bootstrap' == 0 {
-        display as error "the analytic ci is not available after a fit with tvc()"
-        display as error "the CIF influence function is derived for a single exp(z'b) at every"
-        display as error "baseline increment; under a piecewise beta(t) each increment carries"
-        display as error "its own interval's linear predictor and its own risk-set total"
-        display as error "use {bf:bootstrap(#)}, which resamples the whole fit and needs no"
-        display as error "such derivation; see {help finegray_predict##tvc:help finegray_predict}"
-        exit 198
-    }
+    * FENCE LIFTED 2026-08-26 (v1.4.0).  The CIF influence function has been
+    * re-derived for a piecewise beta(t) -- the derivation is written out in the
+    * header of _finegray_cif_core_pw in _finegray_mata.ado --
+    * and the piecewise variant reuses the SAME accumulators the proportional one
+    * uses, differing only in the combination over intervals.  bootstrap(#)
+    * remains available and is the arm the analytic route is checked against.
 
     * ---- attime(): the evaluation time for a piecewise linear predictor -----
     * xb is a pure linear score on a proportional fit and there is nothing to
@@ -877,18 +874,67 @@ program define finegray_predict, rclass sortpreserve
             * exactly at a boundary belongs to the interval that closes there,
             * which is the same tie rule the fit used.  min() ignores a missing
             * argument in Stata, so the open last interval is written as min(H0, .).
+            * The tsplit() boundary values of Lambda_0.  Without bstrata() there
+            * is one baseline, so `_pcut' is 1 x (J-1) and every row shares the
+            * same boundaries.  WITH bstrata() the baseline is one curve per
+            * stratum and so are the boundaries: `_pcut' comes back K x J with
+            * the stratum VALUE in column 1 (the e(basehaz) convention), and the
+            * accumulation below has to read each row's own stratum's row.
+            * Materialise them as columns rather than macros, because a macro
+            * cannot vary by observation and a scalar boundary applied to every
+            * stratum is exactly the pooled-baseline answer this composition
+            * exists to avoid.
+            local _p_bs = ("`_bsvar'" != "" & rowsof(`_pcut') > 1)
+            if `_p_bs' {
+                forvalues _pj = 1/`= `_fg_nint' - 1' {
+                    tempvar _pcv`_pj'
+                    quietly gen double `_pcv`_pj'' = . if `touse'
+                }
+                forvalues _pr = 1/`= rowsof(`_pcut')' {
+                    local _plv = `_pcut'[`_pr', 1]
+                    forvalues _pj = 1/`= `_fg_nint' - 1' {
+                        quietly replace `_pcv`_pj'' = `_pcut'[`_pr', `= `_pj' + 1'] ///
+                            if `touse' & `_bsvar' == `_plv'
+                    }
+                }
+                * A row whose stratum the fit never saw has no baseline to
+                * answer from; the H0 lookup above has already refused such a
+                * row, so any missing left here would be a routing error.
+                forvalues _pj = 1/`= `_fg_nint' - 1' {
+                    quietly count if `touse' & missing(`_pcv`_pj'')
+                    if r(N) > 0 {
+                        display as error "internal error: `r(N)' observation(s) have no"
+                        display as error "baseline boundary value for their bstrata() level"
+                        exit 498
+                    }
+                }
+            }
+
             tempvar _plam _ppiece
             quietly gen double `_plam' = 0 if `touse'
             quietly gen double `_ppiece' = .
-            local _plo = 0
+            tempvar _plov
+            quietly gen double `_plov' = 0 if `touse'
             forvalues _pj = 1/`_fg_nint' {
-                if `_pj' == `_fg_nint' local _phi = .
-                else local _phi = `_pcut'[1, `_pj']
-                quietly replace `_ppiece' = min(`H0_val', `_phi') - `_plo' if `touse'
+                if `_pj' == `_fg_nint' {
+                    quietly replace `_ppiece' = `H0_val' - `_plov' if `touse'
+                }
+                else if `_p_bs' {
+                    quietly replace `_ppiece' = ///
+                        min(`H0_val', `_pcv`_pj'') - `_plov' if `touse'
+                }
+                else {
+                    local _phi = `_pcut'[1, `_pj']
+                    quietly replace `_ppiece' = ///
+                        min(`H0_val', `_phi') - `_plov' if `touse'
+                }
                 quietly replace `_ppiece' = 0 if `touse' & `_ppiece' < 0
                 quietly replace `_plam' = `_plam' + ///
                     `_ppiece' * exp(`_fg_xbfix' + `_fg_xbtv`_pj'') if `touse'
-                if `_pj' < `_fg_nint' local _plo = `_phi'
+                if `_pj' < `_fg_nint' {
+                    if `_p_bs' quietly replace `_plov' = `_pcv`_pj'' if `touse'
+                    else       quietly replace `_plov' = `_phi' if `touse'
+                }
             }
             quietly gen `typlist' `varlist' = 1 - exp(-`_plam') if `touse'
         }
@@ -1031,7 +1077,7 @@ program define finegray_predict, rclass sortpreserve
                         quietly mata: _finegray_boot_cif_obs_tvc( ///
                             "`_score_varlist'", "`tvar'", "`touse'", ///
                             "`_bsum'", "`_bss'", strtoreal("`_fg_repseq'"), ///
-                            "`_fg_tvcpos'", "`_fg_cuts'")
+                            "`_fg_tvcpos'", "`_fg_cuts'", "`_bsvar'")
                     }
                     else {
                         quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
@@ -1102,15 +1148,12 @@ program define finegray_predict, rclass sortpreserve
                 * is derived for a single exp(z'b) at every baseline increment
                 * and is NOT the piecewise one.  Reaching it on a tvc() fit
                 * would post a plausible SE with no derivation behind it.
-                if `_fg_istvc' {
-                    display as error "internal error: the analytic CIF variance is not derived for tvc()"
-                    exit 498
-                }
                 mata: _finegray_cif_predict( ///
                     "`_score_varlist'", "`e(compete)'", `=e(cause)', ///
                     `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
                     "`_fvbasis'", "`touse'", "`tvar'", ///
-                    "`se_cif'", "`_t0var'", "`_bsvar'")
+                    "`se_cif'", "`_t0var'", "`_bsvar'", ///
+                    "`_fg_tvcpos'", "`_fg_cuts'")
             }
 
             * Complementary log-log limits keep the interval inside (0,1):

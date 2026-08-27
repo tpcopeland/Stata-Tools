@@ -125,6 +125,129 @@ _fge_record `block_rc' "finegray_predict refuses ignored seed(); legal xb create
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
+**# THE WORDING CANARY
+* -----------------------------------------------------------------------------
+* This is the ONLY test in the whole finegray suite that pins the exact text of
+* a refusal.  Everywhere else -- and in particular in test_finegray_fences.do,
+* which holds the whole option lattice -- the assertions are on the return code
+* and on the OPTION NAMES the message contains.  That split is deliberate: it
+* means rewording a refusal breaks exactly one test, in one file, on purpose,
+* instead of turning a lattice of unrelated suites red and creating pressure to
+* soften the message rather than keep the fence honest.
+*
+* WHEN THIS FAILS.  Read the diff.  If the reword is intended, update the
+* string here and nothing else.  If it is NOT intended, a message changed
+* without anyone deciding to change it -- which is what this test is for.
+*
+* One line per refusal: the FIRST line, which is the sentence a user reads and
+* the one that has to name the reason.  The continuation lines are explanation
+* and are not pinned anywhere.
+local ++test_count
+capture noisily {
+    _fge_make
+    quietly generate byte ctr = 1 + mod(_n, 2)
+    quietly generate double w = rnormal()
+
+    capture program drop _fge_first
+    program define _fge_first, rclass
+        version 16.0
+        syntax , CMD(string) EXPect(string)
+        tempfile cap
+        capture log close _fgecan
+        quietly log using "`cap'", replace text name(_fgecan)
+        capture noisily `cmd'
+        capture log close _fgecan
+        tempname fh
+        local saw = 0
+        file open `fh' using "`cap'", read text
+        file read `fh' line
+        while r(eof) == 0 {
+            if strpos(`"`line'"', `"`expect'"') > 0 local saw = 1
+            file read `fh' line
+        }
+        file close `fh'
+        if !`saw' {
+            display as error `"wording canary: expected first line not found"'
+            display as error `"  command:  `cmd'"'
+            display as error `"  expected: `expect'"'
+        }
+        return scalar saw = `saw'
+    end
+
+    * Three refusals that USED to be pinned here -- nuisance x bstrata(),
+    * nuisance x tvc(), and tvc() x bstrata() -- were lifted in v1.4.0 and have
+    * no message left to pin.  Their cells are now positive assertions in
+    * test_finegray_fences.do (FGFEN-03).
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) nuisance norobust nolog"') ///
+        expect("nuisance is not allowed with norobust")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) cluster(ctr) norobust nolog"') ///
+        expect("cluster() is not allowed with norobust")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) noadjust norobust nolog"') ///
+        expect("noadjust is not allowed with norobust")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) tvc(x) nolog"') ///
+        expect("tvc() requires tsplit()")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) tsplit(6) nolog"') ///
+        expect("tsplit() requires tvc()")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) tvc(x) tsplit(0) nolog"') ///
+        expect("tsplit() boundaries must be positive")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) truncstrata(ctr) nolog"') ///
+        expect("truncstrata() requires delayed entry")
+    assert r(saw) == 1
+
+    * the delayed-entry family needs delayed-entry data
+    quietly generate double ent = cond(mod(_n, 3) == 0, 1, 0)
+    quietly stset time, failure(event) id(id) enter(time ent)
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) nuisance nolog"') ///
+        expect("nuisance is not allowed with delayed entry")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) bstrata(ctr) nolog"') ///
+        expect("bstrata() with delayed entry is an unsourced composition, not implemented")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) tvc(x) tsplit(6) nolog"') ///
+        expect("tvc() is not supported with delayed entry")
+    assert r(saw) == 1
+
+    * post-estimation refusals
+    quietly stset time, failure(event) id(id)
+    quietly finegray x, compete(event) cause(1) tvc(x) tsplit(6) nolog
+
+    * The analytic-ci refusal was LIFTED in v1.4.0 (the CIF influence function
+    * was re-derived for a piecewise beta(t)), so it has no message left to pin.
+    * The schoenfeld and phtest refusals remain and are pinned instead.
+    _fge_first, cmd(`"finegray_predict double schq2, schoenfeld"') ///
+        expect("schoenfeld is not available after a fit with tvc()")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray_phtest"') ///
+        expect("finegray_phtest is not available after a fit with tvc()")
+    assert r(saw) == 1
+
+    quietly finegray x, compete(event) cause(1) bstrata(ctr) nolog
+    _fge_first, cmd(`"finegray_cif, at(x=0) nograph"') ///
+        expect("bstratum() is required after a fit with bstrata(ctr)")
+    assert r(saw) == 1
+}
+local block_rc = _rc
+_fge_record `block_rc' "wording canary: refusal first lines are unchanged"
+if `block_rc' == 0 local ++pass_count
+else local ++fail_count
+
 display "RESULT: test_finegray_errors tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _test_finegray_errors
 if `fail_count' > 0 exit 1
