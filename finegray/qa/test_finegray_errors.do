@@ -175,7 +175,7 @@ capture noisily {
     end
 
     * Three refusals that USED to be pinned here -- nuisance x bstrata(),
-    * nuisance x tvc(), and tvc() x bstrata() -- were lifted in v1.4.0 and have
+    * nuisance x tvc(), and tvc() x bstrata() -- were lifted in the unification and have
     * no message left to pin.  Their cells are now positive assertions in
     * test_finegray_fences.do (FGFEN-03).
 
@@ -227,7 +227,7 @@ capture noisily {
     quietly stset time, failure(event) id(id)
     quietly finegray x, compete(event) cause(1) tvc(x) tsplit(6) nolog
 
-    * The analytic-ci refusal was LIFTED in v1.4.0 (the CIF influence function
+    * The analytic-ci refusal was LIFTED in the unification (the CIF influence function
     * was re-derived for a piecewise beta(t)), so it has no message left to pin.
     * The schoenfeld and phtest refusals remain and are pinned instead.
     _fge_first, cmd(`"finegray_predict double schq2, schoenfeld"') ///

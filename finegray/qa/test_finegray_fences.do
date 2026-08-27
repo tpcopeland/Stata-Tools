@@ -108,7 +108,7 @@ end
 * These three refuse a request that cannot mean anything, whatever the
 * literature says: every one asks for a property of a sandwich that the same
 * command line has just declined to compute.  They are not lattice cells and
-* nothing in v1.4.0 lifts them.
+* nothing in the unification lifts them.
 local ++test_count
 capture noisily {
     _fgfen_data
@@ -167,22 +167,22 @@ local fail_count = `fail_count' + r(fail)
 * -----------------------------------------------------------------------------
 **# 3. THE LATTICE: right-censoring feature pairs
 * -----------------------------------------------------------------------------
-* The three cells the v1.4.0 variance-unification work targets.  Each line is
+* The three cells the variance-unification work targets.  Each line is
 * one cell.  When a cell is lifted, its `_finegray_qa_assert_fence' line becomes
 * a positive assertion here and the reason goes in the comment beside it.
 *
-*   nuisance x bstrata()   LIFTED v1.4.0.  Zhou et al. (2011) sec. 4.1 states
+*   nuisance x bstrata()   LIFTED 2026-08-26.  Zhou et al. (2011) sec. 4.1 states
 *                          the stratified psi exactly -- FG (1999) eq. 7-8
 *                          "with the added subscript k" -- and crrSC::crrs
 *                          computes it (crrvvs).  v1.3.0's refusal was about the
 *                          implementation, not the quantity.  Now allowed, and
 *                          crossval_bstrata.do gates it against crrs ctype=1 at
 *                          1e-6 (measured 8.1e-09 to 3.1e-08).
-*   nuisance x tvc()       LIFTED v1.4.0.  psi is linear in the score and the
+*   nuisance x tvc()       LIFTED 2026-08-26.  psi is linear in the score and the
 *                          score decomposes over intervals, so psi decomposes
 *                          with it; the hand-split equivalence oracle in
 *                          test_finegray_tvc.do is the evidence.
-*   tvc() x bstrata()      LIFTED v1.4.0.  The refusal's premise -- "no
+*   tvc() x bstrata()      LIFTED 2026-08-26.  The refusal's premise -- "no
 *                          reference implementation to validate against" --
 *                          was checked and is half wrong: crrSC::crrs's
 *                          signature takes cov2/tf with strata, but its code
@@ -308,7 +308,7 @@ local fail_count = `fail_count' + r(fail)
 **# 5. Post-estimation fences under tvc()
 * -----------------------------------------------------------------------------
 * rc 198 for an option combination the fitted model cannot support.  The
-* analytic CIF ci was LIFTED in v1.4.0 -- the CIF influence function has been
+* analytic CIF ci was LIFTED in the unification -- the CIF influence function has been
 * re-derived for a piecewise beta(t) -- so what stays fenced is schoenfeld and
 * finegray_phtest, which are descriptive diagnostics OF a proportional effect
 * and cannot mean anything for a fit that models the effect as non-proportional.
@@ -478,7 +478,7 @@ capture noisily {
     matrix `T' = r(table)
     assert !missing(`T'[1, 3])
 
-    * the tvc() fit: since v1.4.0 the analytic route IS derived, so the macro
+    * the tvc() fit: since the unification the analytic route IS derived, so the macro
     * must say "analytic" and the SE column must actually be populated.  Through
     * v1.3.0 this cell read "none" beside a column of dots.
     quietly finegray x w, compete(etype) cause(1) tvc(x) tsplit(6) nolog

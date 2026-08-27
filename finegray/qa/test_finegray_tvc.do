@@ -585,7 +585,7 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 **# T16 tvc() refuses delayed entry; nuisance and bstrata() are now allowed
-* v1.4.0 inverted two thirds of this test.  psi is linear in the score and the
+* The unification inverted two thirds of this test.  psi is linear in the score and the
 * tvc scan decomposes the score exactly over intervals, so psi decomposes with
 * it (_finegray_psi_residuals_pw); crossval_tvc.do gates the result against
 * cmprsk::crr's own eq. (7)-(8) variance at 1e-6.  bstrata() reshapes the scan
@@ -637,7 +637,7 @@ capture noisily {
     capture finegray_phtest
     assert _rc == 198
     * The analytic CIF interval was refused through v1.3.0 and is DERIVED as of
-    * v1.4.0, so both surfaces must now succeed -- and the point estimate must
+    * the unification, so both surfaces must now succeed -- and the point estimate must
     * still succeed too, which is what would break if lifting the fence had
     * disturbed the shared parse path.
     capture finegray_predict double _c1, cif ci
@@ -910,12 +910,12 @@ _fgtv_result `_rc' "T24 null likelihood matches and the piecewise fit dominates"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
-**# T25 the tvc() CIF table no longer HAS a missing SE column (v1.4.0)
+**# T25 the tvc() CIF table no longer HAS a missing SE column (2026-08-26)
 local ++test_count
 capture noisily {
     * Read the RENDERED output back.  Through v1.3.0 a tvc() CIF table printed a
     * column of bare dots for the SE and a note underneath explaining that the
-    * analytic standard error was not derived.  v1.4.0 derives it, so BOTH must
+    * analytic standard error was not derived.  The unification derives it, so BOTH must
     * be gone: the note must no longer print anywhere, and the rendered table
     * must carry real numbers in the SE column.  Asserting only that the note
     * vanished would also pass if the column had silently gone missing.
@@ -1100,7 +1100,7 @@ capture noisily {
     assert mreldif(e(b), `BP') == 0
 }
 local _rc = _rc
-_fgtv_result `_rc' "TVCPSI-01 nuisance without tvc() is bit-identical to the pre-v1.4.0 term"
+_fgtv_result `_rc' "TVCPSI-01 nuisance without tvc() is bit-identical to the pre-unification term"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
@@ -1231,7 +1231,7 @@ local fail_count = `fail_count' + r(fail)
 * -----------------------------------------------------------------------------
 **# TVCCIF-01 the analytic CIF interval exists, brackets, and says what it is
 * -----------------------------------------------------------------------------
-* v1.3.0 refused `ci' without bootstrap() after a tvc() fit; v1.4.0 derives the
+* v1.3.0 refused `ci' without bootstrap() after a tvc() fit; the unification derives the
 * piecewise influence function (see the header of _finegray_cif_core_pw).  This
 * is the shape check: an interval that exists, is positive, contains its own
 * point estimate, stays inside (0,1), and reports r(se_method) == "analytic"

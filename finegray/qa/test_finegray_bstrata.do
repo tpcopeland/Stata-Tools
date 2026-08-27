@@ -326,14 +326,14 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
-**# B06: bstrata() WITH nuisance -- the fence lifted in v1.4.0
+**# B06: bstrata() WITH nuisance -- the fence lifted in the variance unification
 * -----------------------------------------------------------------------------
 * Through v1.3.0 this pair was refused: the psi term is FG (1999) eq. 7-8, whose
 * q_g(t) was built from the POOLED S0(s) and zbar(s), so accepting the pair
 * would have added an UNSTRATIFIED correction to a stratified sandwich --
 * neither the paper's variance nor this package's.  Zhou et al. (2011) sec. 4.1
 * had always DEFINED the stratified form (FG's psi "with the added subscript
-* k"); only the implementation was missing, and v1.4.0 supplies it.
+* k"); only the implementation was missing, and the unification supplies it.
 *
 * This test now asserts the opposite of what it used to, on purpose.  What it
 * keeps from the old version is the discriminating half: each option must still
@@ -664,7 +664,7 @@ local fail_count = `fail_count' + r(fail)
 * -----------------------------------------------------------------------------
 **# BSPSI-1 K = 1 with nuisance is BIT-identical to the unstratified psi term
 * -----------------------------------------------------------------------------
-* The internal half of the v1.4.0 stratified-psi evidence.  crossval_bstrata.do
+* The internal half of the stratified-psi evidence.  crossval_bstrata.do
 * gates the estimator against crrs ctype=1 externally; this gates the other
 * direction -- that adding the stratum index did not perturb the term it was
 * built out of.  Bit-identity, not tolerance: _finegray_psi_residuals takes the
@@ -828,7 +828,7 @@ local fail_count = `fail_count' + r(fail)
 * -----------------------------------------------------------------------------
 **# BSPSI-5 the duplicate-stratum identity: an INTERNAL oracle for stratified psi
 * -----------------------------------------------------------------------------
-* WHY THIS EXISTS.  Mutation-testing the v1.4.0 stratified psi on 2026-08-26
+* WHY THIS EXISTS.  Mutation-testing the stratified psi on 2026-08-26
 * found that BSPSI-1 to BSPSI-4 are BLIND to it: zeroing one stratum's q block
 * entirely left all four green, and only crossval_bstrata.do (which needs R and
 * crrSC) went red.  A feature whose only real guard lives behind an external

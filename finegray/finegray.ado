@@ -115,8 +115,8 @@ program define finegray, eclass sortpreserve
         exit 198
     }
 
-    * FENCE LIFTED 2026-08-26 (v1.4.0).  bstrata() frees the baseline per
-    * stratum, so S0(s) and zbar(s) become stratum-specific; through v1.3.0
+    * FENCE LIFTED 2026-08-26 (variance unification).  bstrata() frees the baseline per
+    * stratum, so S0(s) and zbar(s) become stratum-specific; before the unification
     * _finegray_psi_residuals built q_g(t) from the POOLED S0(s) and zbar(s),
     * so accepting nuisance with bstrata() would have added an unstratified
     * correction to a stratified sandwich -- neither Zhou's variance nor this
@@ -130,7 +130,7 @@ program define finegray, eclass sortpreserve
     * every RISK-SET quantity a k index while leaving every CENSORING-KM
     * quantity on the strata() axis, which reduces to crrvvs() exactly when the
     * two axes coincide (bstrata(c) strata(c) = crrs ctype=1, the crossval) and
-    * to the pre-v1.4.0 term bit-identically at K = 1.  The pooled-Ghat cell --
+    * to the pre-unification term bit-identically at K = 1.  The pooled-Ghat cell --
     * bstrata() without strata() -- has no crrs counterpart and is documented
     * in Methods and formulas as this package's own composition of Zhou's
     * additivity over strata with FG's eq. (8).  The derivation is written out
@@ -180,7 +180,7 @@ program define finegray, eclass sortpreserve
             }
         }
 
-        * FENCE LIFTED 2026-08-26 (v1.4.0).  The v1.3.0 refusal said the pair
+        * FENCE LIFTED 2026-08-26 (variance unification).  The earlier refusal said the pair
         * "has no reference implementation to validate against".  That was
         * wrong, and it was checked rather than re-asserted: crrSC::crrs takes
         * cov2/tf together with its strata argument, so the pair has exactly the
@@ -195,7 +195,7 @@ program define finegray, eclass sortpreserve
         * so the carry-forward that stitches the intervals into one curve is now
         * per stratum (_finegray_basehazard_pw).  A pooled carry would have
         * given every stratum the sum of all the others' mass at rc 0.
-        * FENCE LIFTED 2026-08-26 (v1.4.0).  Through v1.3.0 nuisance was
+        * FENCE LIFTED 2026-08-26 (variance unification).  Until the unification nuisance was
         * refused here because the psi term is Fine & Gray (1999) eq. 7-8 built
         * from ONE S0(s) and zbar(s) per event time, and under beta(t) both are
         * interval-specific.  The re-derivation is short and is written out in

@@ -259,8 +259,8 @@ CIF is 1 - exp(-{it:sum}). There is one baseline, so {opt basecshazard} is
 unchanged.
 
 {pmore}
-{opt ci} on its own {bf:is} available as of version 1.4.0. Through 1.3.0 it was
-refused, because the influence function behind it was derived for a single
+{opt ci} on its own {bf:is} available as of version 1.3.0. Development builds
+refused it, because the influence function behind it was derived for a single
 exp(z'b) multiplying every baseline increment, which a piecewise b({it:t}) is
 not. It has since been re-derived: interval {it:j}'s contribution is the same
 construction evaluated on that interval's events and design, so the influence
