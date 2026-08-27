@@ -326,27 +326,36 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
-**# B06: refusal -- bstrata() with nuisance
+**# B06: bstrata() WITH nuisance -- the fence lifted in v1.4.0
 * -----------------------------------------------------------------------------
-* The psi term is FG (1999) eq. 7-8, whose q_g(t) is built from the POOLED
-* S0(s) and zbar(s).  Zhou et al. (2011) sec. 4.1 defines the stratified form
-* (FG's psi "with the added subscript k"), but finegray does not implement it,
-* so accepting the pair would add an UNSTRATIFIED correction to a stratified
-* sandwich -- neither the paper's variance nor this package's.
+* Through v1.3.0 this pair was refused: the psi term is FG (1999) eq. 7-8, whose
+* q_g(t) was built from the POOLED S0(s) and zbar(s), so accepting the pair
+* would have added an UNSTRATIFIED correction to a stratified sandwich --
+* neither the paper's variance nor this package's.  Zhou et al. (2011) sec. 4.1
+* had always DEFINED the stratified form (FG's psi "with the added subscript
+* k"); only the implementation was missing, and v1.4.0 supplies it.
+*
+* This test now asserts the opposite of what it used to, on purpose.  What it
+* keeps from the old version is the discriminating half: each option must still
+* mean what it meant alone, and e(vce_meat) must report which sandwich came
+* back.  The estimator itself is gated against crrs ctype=1 in
+* crossval_bstrata.do and bit-checked at K=1 in BSPSI-1 below.
 local ++test_count
 capture noisily {
     _fgbs_data
-    capture noisily finegray x1 x2, compete(status) cause(1) nolog ///
+    quietly finegray x1 x2, compete(status) cause(1) nolog ///
         bstrata(ctr) nuisance
-    assert _rc == 198
-    * each half is still allowed on its own
+    assert e(converged) == 1
+    assert "`e(vce_meat)'" == "nuisance_adjusted"
+    assert e(k_bstrata) == 3
+    * each half still means what it means on its own
     quietly finegray x1 x2, compete(status) cause(1) nolog nuisance
     assert "`e(vce_meat)'" == "nuisance_adjusted"
     quietly finegray x1 x2, compete(status) cause(1) nolog bstrata(ctr)
     assert "`e(vce_meat)'" == "fixed_weight"
 }
 local _rc = _rc
-_fgbs_result `_rc' "B06 bstrata() is refused with nuisance (r198)"
+_fgbs_result `_rc' "B06 bstrata() with nuisance fits and reports nuisance_adjusted"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
@@ -649,6 +658,254 @@ capture noisily {
 local _rc = _rc
 capture log close _b14
 _fgbs_result `_rc' "B14 the header reports bstrata() at fit time and on replay"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# BSPSI-1 K = 1 with nuisance is BIT-identical to the unstratified psi term
+* -----------------------------------------------------------------------------
+* The internal half of the v1.4.0 stratified-psi evidence.  crossval_bstrata.do
+* gates the estimator against crrs ctype=1 externally; this gates the other
+* direction -- that adding the stratum index did not perturb the term it was
+* built out of.  Bit-identity, not tolerance: _finegray_psi_residuals takes the
+* K == 1 branches literally (colsum for the initial risk-set totals, qsum
+* aliased to qg rather than re-summed) precisely so the floating-point
+* accumulation order is unchanged, and a tolerance here would not notice if that
+* stopped being true.
+local ++test_count
+capture noisily {
+    _fgbs_data
+    quietly gen byte one = 1
+
+    quietly finegray x1 x2, compete(status) cause(1) nuisance nolog
+    tempname VPLAIN BPLAIN
+    matrix `VPLAIN' = e(V)
+    matrix `BPLAIN' = e(b)
+    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+
+    quietly finegray x1 x2, compete(status) cause(1) nuisance bstrata(one) nolog
+    assert e(k_bstrata) == 1
+    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+    * mreldif is exactly 0 only if every cell matches bit for bit
+    assert !missing(mreldif(e(V), `VPLAIN'))
+    assert mreldif(e(V), `VPLAIN') == 0
+    assert mreldif(e(b), `BPLAIN') == 0
+
+    * and the same with a censoring-KM axis in play, which is where the (g, k)
+    * flattening could have crossed its indices
+    quietly finegray x1 x2, compete(status) cause(1) nuisance strata(ctr) nolog
+    matrix `VPLAIN' = e(V)
+    quietly finegray x1 x2, compete(status) cause(1) nuisance strata(ctr) ///
+        bstrata(one) nolog
+    assert mreldif(e(V), `VPLAIN') == 0
+}
+local _rc = _rc
+_fgbs_result `_rc' "BSPSI-1 bstrata(constant) + nuisance is bit-identical to plain nuisance"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# BSPSI-2 psi under bstrata() moves the variance and only the variance
+* -----------------------------------------------------------------------------
+* Two claims a silently-ignored option would fail: the coefficients must NOT
+* move (psi is a variance correction, and if beta moved the option had reached
+* the wrong place), and the variance MUST move (or nothing was added).
+local ++test_count
+capture noisily {
+    foreach kk in 2 3 5 {
+        _fgbs_data 20260826 900 `kk'
+        quietly finegray x1 x2, compete(status) cause(1) bstrata(ctr) nolog
+        tempname VETA BETA
+        matrix `VETA' = e(V)
+        matrix `BETA' = e(b)
+        assert e(k_bstrata) == `kk'
+
+        quietly finegray x1 x2, compete(status) cause(1) bstrata(ctr) ///
+            nuisance nolog
+        assert e(k_bstrata) == `kk'
+        assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+
+        forvalues j = 1/`= colsof(`BETA')' {
+            assert !missing(`BETA'[1, `j'], e(b)[1, `j'])
+            assert reldif(`BETA'[1, `j'], e(b)[1, `j']) < 1e-12
+        }
+        local moved = 0
+        forvalues j = 1/`= colsof(`VETA')' {
+            assert !missing(`VETA'[`j', `j'], e(V)[`j', `j'])
+            assert e(V)[`j', `j'] > 0
+            if reldif(`VETA'[`j', `j'], e(V)[`j', `j']) > 1e-9 local moved = 1
+        }
+        assert `moved' == 1
+    }
+}
+local _rc = _rc
+_fgbs_result `_rc' "BSPSI-2 nuisance under bstrata() moves e(V), never e(b), at K=2/3/5"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# BSPSI-3 degenerate strata under nuisance
+* -----------------------------------------------------------------------------
+* A stratum with no cause events contributes nothing to the score and nothing to
+* q; a stratum with no competing events has an empty retained-competing
+* accumulator so its q is exactly zero.  Neither may produce a missing or a
+* non-positive variance, and neither may take the fit down.
+local ++test_count
+capture noisily {
+    _fgbs_data 20260826 900 3
+    * stratum 3 keeps only censored and competing records: no cause events
+    quietly replace status = 2 if ctr == 3 & status == 1
+    quietly replace anyev = status != 0
+    quietly stset t, failure(anyev == 1) id(id)
+    quietly finegray x1 x2, compete(status) cause(1) bstrata(ctr) nuisance nolog
+    assert e(converged) == 1
+    assert e(k_bstrata) == 3
+    forvalues j = 1/`= colsof(e(V))' {
+        assert !missing(e(V)[`j', `j'])
+        assert e(V)[`j', `j'] > 0
+    }
+
+    * stratum 2 keeps no competing events
+    _fgbs_data 20260826 900 3
+    quietly replace status = 0 if ctr == 2 & status == 2
+    quietly replace anyev = status != 0
+    quietly stset t, failure(anyev == 1) id(id)
+    quietly finegray x1 x2, compete(status) cause(1) bstrata(ctr) nuisance nolog
+    assert e(converged) == 1
+    forvalues j = 1/`= colsof(e(V))' {
+        assert !missing(e(V)[`j', `j'])
+        assert e(V)[`j', `j'] > 0
+    }
+
+    * no censoring at all: Ghat == 1 everywhere, so psi is identically zero and
+    * the corrected variance must equal the eta-only one exactly
+    _fgbs_data 20260826 900 3
+    quietly replace status = 1 if status == 0
+    quietly replace anyev = 1
+    quietly stset t, failure(anyev == 1) id(id)
+    quietly finegray x1 x2, compete(status) cause(1) bstrata(ctr) nolog
+    tempname VNOCENS
+    matrix `VNOCENS' = e(V)
+    quietly finegray x1 x2, compete(status) cause(1) bstrata(ctr) nuisance nolog
+    assert !missing(mreldif(e(V), `VNOCENS'))
+    assert mreldif(e(V), `VNOCENS') < 1e-12
+}
+local _rc = _rc
+_fgbs_result `_rc' "BSPSI-3 degenerate strata and complete follow-up under nuisance"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# BSPSI-4 e(refitcmd) replays a nuisance x bstrata fit (Z24 for the new cell)
+* -----------------------------------------------------------------------------
+* nuisance is deliberately absent from e(refitcmd) -- it cannot move e(b) and
+* the bootstrap consumers read only e(b) -- so what this asserts is that the
+* newly-legal combination still round-trips the COEFFICIENTS, and that the
+* replay is a bstrata() fit rather than a pooled one.
+local ++test_count
+capture noisily {
+    _fgbs_data
+    foreach spec in "bstrata(ctr) nuisance" "bstrata(ctr) strata(ctr) nuisance" ///
+        "bstrata(ctr) nuisance cluster(ctr)" {
+        quietly finegray x1 x2, compete(status) cause(1) `spec' nolog
+        tempname B0
+        matrix `B0' = e(b)
+        local rfc `"`e(refitcmd)'"'
+        assert strpos(`"`rfc'"', "bstrata(ctr)") > 0
+        quietly `rfc'
+        assert e(k_bstrata) == 3
+        forvalues j = 1/`= colsof(`B0')' {
+            assert !missing(`B0'[1, `j'], e(b)[1, `j'])
+            assert reldif(`B0'[1, `j'], e(b)[1, `j']) < 1e-12
+        }
+    }
+}
+local _rc = _rc
+_fgbs_result `_rc' "BSPSI-4 e(refitcmd) reproduces e(b) for nuisance x bstrata combinations"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# BSPSI-5 the duplicate-stratum identity: an INTERNAL oracle for stratified psi
+* -----------------------------------------------------------------------------
+* WHY THIS EXISTS.  Mutation-testing the v1.4.0 stratified psi on 2026-08-26
+* found that BSPSI-1 to BSPSI-4 are BLIND to it: zeroing one stratum's q block
+* entirely left all four green, and only crossval_bstrata.do (which needs R and
+* crrSC) went red.  A feature whose only real guard lives behind an external
+* dependency is a feature that is unguarded whenever that dependency is missing.
+*
+* THE ORACLE.  Duplicate the dataset, give the copies distinct ids, and label
+* them ctr = 1 and 2.  Then fit with bstrata(ctr) strata(ctr):
+*
+*   - each stratum's rows ARE the original dataset, so its Ghat (estimated
+*     within stratum), its risk-set totals S0_k, its at-risk counts Y_k and
+*     therefore its whole (eta + psi) influence contribution are the original
+*     data's, value for value;
+*   - Zhou (2011) sec. 4.1 makes the score, the information and the meat sums
+*     over strata, so Omega_full = 2 Omega and Sigma_full = 2 Sigma exactly;
+*   - hence beta-hat is unchanged and
+*         V_full = (2 Omega)^-1 (2 Sigma) (2 Omega)^-1 = V / 2.
+*
+* So the stratified psi term must halve the single-dataset psi variance, EXACTLY
+* -- and it can only do that if every stratum's block is present and correct.
+* Zero one and the factor is not 2.  No external package is involved.
+*
+* noadjust on both sides: the N/(N-1) factor sees different N and would spoil
+* the identity for a reason that has nothing to do with psi.
+local ++test_count
+capture noisily {
+    _fgbs_data 20260826 700 2
+
+    quietly finegray x1 x2, compete(status) cause(1) nuisance noadjust nolog
+    tempname V1 B1
+    matrix `V1' = e(V)
+    matrix `B1' = e(b)
+    local n1 = e(N)
+    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+
+    * two labelled copies, ids kept distinct
+    quietly expand 2
+    quietly bysort id: gen byte cpy = _n
+    quietly replace id = id * 2 - 2 + cpy
+    quietly stset t, failure(anyev == 1) id(id)
+    quietly finegray x1 x2, compete(status) cause(1) ///
+        bstrata(cpy) strata(cpy) nuisance noadjust nolog
+    assert e(N) == 2 * `n1'
+    assert e(k_bstrata) == 2
+    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+
+    * beta is unchanged: the score doubled, so its root did not move
+    forvalues j = 1/`= colsof(`B1')' {
+        assert !missing(`B1'[1, `j'], e(b)[1, `j'])
+        assert reldif(`B1'[1, `j'], e(b)[1, `j']) < 1e-8
+    }
+    * and the variance is EXACTLY half.  Not "smaller" -- half.
+    tempname HALF
+    matrix `HALF' = `V1' / 2
+    assert !missing(mreldif(e(V), `HALF'))
+    assert mreldif(e(V), `HALF') < 1e-9
+
+    * The same identity must ALSO hold for the eta-only fit, so a pass here
+    * cannot be explained by the duplication trick failing to see psi at all.
+    * And the two must be different matrices, or psi contributed nothing on
+    * this fixture and the halving test is vacuous.
+    _fgbs_data 20260826 700 2
+    quietly finegray x1 x2, compete(status) cause(1) noadjust nolog
+    tempname V1E
+    matrix `V1E' = e(V)
+    assert mreldif(`V1E', `V1') > 1e-8
+    quietly expand 2
+    quietly bysort id: gen byte cpy = _n
+    quietly replace id = id * 2 - 2 + cpy
+    quietly stset t, failure(anyev == 1) id(id)
+    quietly finegray x1 x2, compete(status) cause(1) ///
+        bstrata(cpy) strata(cpy) noadjust nolog
+    matrix `HALF' = `V1E' / 2
+    assert mreldif(e(V), `HALF') < 1e-9
+}
+local _rc = _rc
+_fgbs_result `_rc' ///
+    "BSPSI-5 duplicating the data into two strata halves e(V) exactly, with psi"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

@@ -46,6 +46,9 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_mi.do ///
     test_finegray_bstrata.do ///
     test_finegray_tvc.do ///
+    test_finegray_tvc_bstrata.do ///
+    test_finegray_fences.do ///
+    test_finegray_mi_lattice.do ///
     test_finegray_release120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///

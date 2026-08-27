@@ -596,7 +596,24 @@ capture noisily {
     quietly finegray i.grp z, compete(status) cause(1) nolog
     assert "`e(mi_data)'" == "1"
     assert "`e(postest)'" == "unavailable_mi"
-    assert `"`: char _dta[_finegray_estimated]'"' == "0"
+    * NO estimation-state characteristic is written at all.
+    *
+    * This line used to assert "0", the INVALIDATED mark.  That was pinning a
+    * defect as a contract: on mi data the fit mutates nothing permanent, so
+    * there is nothing for the mark to invalidate, and writing it put seven
+    * _dta[_finegray_*] characteristics into the caller's mi dataset against
+    * finegray.ado's own stated contract.  Corrected 2026-08-26 with defect
+    * D0-1; the regressions live in qa/test_finegray_mi_lattice.do
+    * (FGML-01/02/03) and the same correction was made to FGMI-1 in
+    * qa/test_finegray_mi.do.  ABSENT means UNKNOWN and is adjudicated against
+    * e(), which is the right state for a dataset the fit never touched.
+    assert `"`: char _dta[_finegray_estimated]'"' == ""
+    local _a5cs : char _dta[]
+    local _a5n = 0
+    foreach _a5c of local _a5cs {
+        if substr("`_a5c'", 1, 10) == "_finegray_" local ++_a5n
+    }
+    assert `_a5n' == 0
     capture quietly ds _fg_*
     assert _rc != 0
     foreach _c in "finegray_predict _a5xb, xb" "finegray_cif, attime(3) nograph" ///

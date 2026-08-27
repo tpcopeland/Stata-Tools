@@ -97,6 +97,42 @@ The ratio is flat across a 25-fold change in `N`, which is the point: the piecew
 
 Absolute seconds are machine-dependent; the ratios are the portable quantity. All three commands fit the same model — the benchmark scripts print the maximum relative coefficient difference across the three fits alongside the timings (4.6e-11 on `hypoxia`, 1.3e-08 to 3.2e-08 across the simulated sizes). Methodology, the on-demand `stcrprep` install, and how to reproduce the table: [`demo/README.md`](demo/README.md).
 
+## Which Standard Error Am I Getting?
+
+One table, and one machine-readable counterpart per row: `e(vce_meat)` for the coefficients, `r(se_method)` for a CIF interval.
+
+**Coefficients** — `e(b)`, `e(V)`:
+
+| You type | You get | `e(vce_meat)` |
+| --- | --- | --- |
+| *(default)* | fixed-weight sandwich | `fixed_weight` |
+| `nuisance` | eta+psi, Fine & Gray (1999) eq. 7–8 | `nuisance_adjusted` |
+| `norobust` | model-based inverse information | `not_applicable` |
+| `cluster()` | cluster-robust, Zhou et al. (2012) | `fixed_weight` |
+| `bstrata()` | per-stratum sandwich, summed | `fixed_weight` |
+| `bstrata()` `nuisance` | Zhou et al. (2011) §4.1 Σ_r | `nuisance_adjusted` |
+| `tvc()` | per-interval sandwich, summed | `fixed_weight` |
+| `tvc()` `nuisance` | piecewise eta+psi | `nuisance_adjusted` |
+| delayed entry | fixed-weight sandwich | `fixed_weight` |
+| delayed entry + `nuisance` | **refused**, `r(198)` | — |
+
+**CIF intervals** — `finegray_cif`, `finegray_predict`:
+
+| You type | You get | `r(se_method)` |
+| --- | --- | --- |
+| `ci` | analytic influence function | `analytic` |
+| `ci bootstrap(#)` | resampled SD over replications | `bootstrap` |
+
+Both CIF routes work on every fit this package produces, `tvc()` and `bstrata()` included. The analytic route is fixed-weight in all cases — it does not propagate the uncertainty in Ĝ even after a `nuisance` fit — so only `bootstrap()` propagates weight re-estimation.
+
+**What is still refused, and why.** Three cells, all on the delayed-entry branch, all `r(198)`, each for its own reason:
+
+| Cell | Reason |
+| --- | --- |
+| `nuisance` + delayed entry | The derivation is *identified* — Zhang, Zhang & Fine (2011) Appendix B — but not held; their own Appendix E ships the first part only for the stratified weight. |
+| `bstrata()` + delayed entry | No source. Both stratified-subdistribution papers are right-censoring-only, and Kim et al. (2020) calls the left-truncated case an open research problem. |
+| `tvc()` + delayed entry | No source for time-varying subdistribution coefficients under left truncation at all, and the delayed-entry branch is already this package's own extension. |
+
 ## Choosing a Workflow
 
 | Goal | Command or pattern | Main considerations |
@@ -457,8 +493,8 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 | `censvalue(#)` | `0`; value treated as right censoring in `compete()`. |
 | `strata(varlist)` | None; stratifies the right-censoring model. |
 | `truncstrata(varlist)` | None; delayed-entry truncation strata for Weight 1 estimation. |
-| `bstrata(varname)` | None; stratifies the **baseline** subdistribution hazard with a shared coefficient vector. Right censoring only; not available with delayed entry, `nuisance`, or `tvc()`. |
-| `tvc(varlist)` | None; covariates whose coefficient is piecewise constant in analysis time. Requires `tsplit()`. Right censoring only; not available with delayed entry, `bstrata()`, or `nuisance`. |
+| `bstrata(varname)` | None; stratifies the **baseline** subdistribution hazard with a shared coefficient vector. Composes with `nuisance` and `tvc()`. Right censoring only; not available with delayed entry. |
+| `tvc(varlist)` | None; covariates whose coefficient is piecewise constant in analysis time. Requires `tsplit()`. Composes with `bstrata()` and `nuisance`. Right censoring only; not available with delayed entry. |
 | `tsplit(numlist)` | None; the *J*−1 interior interval boundaries for `tvc()`, strictly ascending and positive. Requires `tvc()`. Intervals are (lower, upper], so an event exactly on a boundary falls in the earlier interval. |
 | `cluster(varname)` | None; cluster variable for the sandwich variance. |
 | `norobust` | Off; use model-based rather than sandwich variance. |
@@ -555,6 +591,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.0** (pending release): **Variance unification.** Three option pairs that v1.3.0 refused now fit, and one post-estimation refusal is lifted, so the answer to "which standard error am I getting?" is one table rather than a case analysis. `nuisance` composes with `bstrata()` (Zhou et al. 2011 sec. 4.1's per-stratum eta+psi, cross-validated against `crrSC::crrs` `ctype=1` to 3.1e-08 relative); `nuisance` composes with `tvc()` (the piecewise psi, cross-validated against `cmprsk::crr`'s own eq. 7-8 variance to 3.1e-09); `tvc()` composes with `bstrata()`; and the analytic CIF confidence interval is now derived for a piecewise beta(t), so `finegray_cif`/`finegray_predict` no longer require `bootstrap()` after a `tvc()` fit. New machine-readable disclosure: `r(se_method)` on `finegray_cif` says whether an interval came from the analytic influence function or the bootstrap. Three cells remain refused, all on the delayed-entry branch and each for its own documented reason (see the help file's variance table). Fixes: a fit on `mi` data wrote seven `_dta[_finegray_*]` characteristics into the caller's dataset and dropped a prior ordinary fit's design columns, against the contract the same file states twice; a mi-mode fit now leaves the dataset byte-identical. Off the new option combinations, `e(b)`, `e(V)`, `e(ll)`, `e(basehaz)` and every analytic CIF standard error are bit-identical to 1.3.0.
 - **1.3.0** (2026-08-25; documentation revised 2026-08-26): Added `mi estimate, cmdok:` compatibility (post-estimation support runs through temporary variables, so nothing is written to `mi` data; post-estimation on an `mi` fit is refused with `r(301)`, with `mi extract` as the way back); `bstrata(varname)`, the stratified baseline model of Zhou et al. (2011) with a shared coefficient vector, a stratum-aware `e(basehaz)` and `finegray_cif, bstratum(#)` (right censoring only; the reported standard errors remain the eta-only fixed-weight sandwich rather than Zhou et al.'s eta+psi variance, which is why `nuisance` is refused); and `tvc(varlist)` with `tsplit(numlist)`, piecewise-constant time-varying effects reported under equations `main`, `tvc1`, ..., cross-validated against `stcrreg, tvc() texp()` and `cmprsk::crr` (not available with delayed entry, `bstrata()`, or `nuisance`; CIF confidence intervals by `bootstrap()` only). Off `mi` data and without the new options, `e(b)`, `e(V)`, `e(ll)` and `e(basehaz)` are bit-identical to 1.2.0. The documentation was revised on 2026-08-26 with no change to any command's behavior: the worked examples, help-file examples, and demo now draw on `webuse hiv_si` and `webuse pneumonia` alongside `hypoxia`, and cover grouped cumulative-incidence curves, delayed entry on a cohort whose entry depends on a model covariate (with `truncstrata()` against a pooled entry distribution), the internal time-varying covariate refusal and the baseline-exposure fit accepted in its place, `mi estimate, cmdok eform("SHR"):`, bootstrap inference for the coefficients, and the mapping between `tvc()`/`tsplit()` and `stcrreg, tvc() texp()`. The previous delayed-entry example made entry a deterministic function of the outcome time and was replaced. The demo now recomputes and asserts its agreement claims (`stcrreg` on two datasets, the `tvc()`/`texp()` mapping, the split-record reduction) instead of narrating them.
 - **1.2.0** (2026-08-16): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, expanded CIF and diagnostic workflows, and a display and documentation pass (replay with no `varlist`, typed factor-variable coefficient names, a fuller header, profile-aware `finegray_cif` output). Correctness fixes: a record with a missing `compete()` value is refused with `r(198)` instead of silently dropped from the estimation sample; `finegray_cif, at()` handles variables inside interactions; post-estimation after `estimates use` works regardless of when the dataset was saved; and `level()` is validated by Stata's `cilevel` rule in all four commands.
 - **1.1.0** (2026-07-10): Added CIF curves, multiple-record support, stratified censoring, and postestimation confidence intervals.

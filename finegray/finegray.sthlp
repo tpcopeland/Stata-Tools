@@ -273,8 +273,8 @@ after the fit makes post-estimation fail rather than answer from another
 stratum's baseline.
 
 {pmore}
-{opt bstrata()} is not allowed with delayed entry, with {opt nuisance}, or with
-{opt tvc()}; all three are refused with {cmd:r(198)} and each refusal is
+{opt bstrata()} composes with {opt nuisance} and with {opt tvc()}. It is
+{bf:not} allowed with delayed entry, which is refused with {cmd:r(198)} and
 explained in {help finegray##bstrata:Baseline strata}.
 
 {phang}
@@ -321,12 +321,14 @@ not identified. A boundary at or beyond the last cause-event time is the usual
 way to trip this.
 
 {pmore}
-{opt tvc()} is not allowed with delayed entry, with {opt bstrata()}, or with
-{opt nuisance}. Post-estimation is restricted: {cmd:finegray_predict}'s
-{cmd:xb}, {cmd:cif} and {cmd:basecshazard} work, {cmd:schoenfeld} and
-{cmd:finegray_phtest} do not, and confidence intervals for the CIF are
-available by bootstrap only. See
-{help finegray##tvc:Time-varying effects} for every one of those and why.
+{opt tvc()} composes with {opt bstrata()} and with {opt nuisance}. It is
+{bf:not} allowed with delayed entry, which is refused with
+{cmd:r(198)}. Post-estimation is restricted in one place only: {cmd:finegray_predict}'s
+{cmd:xb}, {cmd:cif} and {cmd:basecshazard} work and both analytic and bootstrap
+CIF confidence intervals are available, while {cmd:schoenfeld} and
+{cmd:finegray_phtest} do not run -- they are diagnostics {it:of} a proportional
+effect, which this fit does not assume. See
+{help finegray##tvc:Time-varying effects} for each of those and why.
 
 {pmore}
 {bf:Time-varying effects are not time-varying covariates.} {opt tvc()} lets the
@@ -399,6 +401,65 @@ censoring the Fine and Gray (1999, eq. 7-8) nuisance term is available via
 {opt nuisance}; under delayed entry the corresponding term is Zhang, Zhang and
 Fine (2011, Appendix B), which this package does not implement.
 
+{marker whichse}{...}
+{pmore}
+{bf:Which standard error am I getting?} One table, and one machine-readable
+counterpart for each row. {cmd:e(vce_meat)} is the answer for the
+coefficients; {cmd:r(se_method)} is the answer for a CIF interval from
+{helpb finegray_cif}.
+
+{pmore2}
+{it:Coefficients} -- {cmd:e(b)}, {cmd:e(V)}:
+
+{p2colset 13 46 48 2}{...}
+{p2col:{bf:you type}}{bf:you get} ({cmd:e(vce_meat)}){p_end}
+{p2col:(default)}fixed-weight sandwich ({cmd:fixed_weight}){p_end}
+{p2col:{opt nuisance}}eta+psi, Fine and Gray eq. 7-8 ({cmd:nuisance_adjusted}){p_end}
+{p2col:{opt norobust}}model-based inverse information ({cmd:not_applicable}){p_end}
+{p2col:{opt cluster()}}cluster-robust, Zhou et al. (2012) ({cmd:fixed_weight}){p_end}
+{p2col:{opt bstrata()}}per-stratum sandwich, summed ({cmd:fixed_weight}){p_end}
+{p2col:{opt bstrata()} {opt nuisance}}Zhou et al. (2011) sec. 4.1 Sigma_r ({cmd:nuisance_adjusted}){p_end}
+{p2col:{opt tvc()}}per-interval sandwich, summed ({cmd:fixed_weight}){p_end}
+{p2col:{opt tvc()} {opt nuisance}}piecewise eta+psi ({cmd:nuisance_adjusted}){p_end}
+{p2col:delayed entry}fixed-weight sandwich ({cmd:fixed_weight}){p_end}
+{p2col:delayed entry {opt nuisance}}{bf:refused}, {cmd:r(198)}{p_end}
+{p2colreset}{...}
+
+{pmore2}
+{it:CIF intervals} -- {helpb finegray_cif}, {helpb finegray_predict}:
+
+{p2colset 13 46 48 2}{...}
+{p2col:{bf:you type}}{bf:you get} ({cmd:r(se_method)}){p_end}
+{p2col:{opt ci}}analytic influence function ({cmd:analytic}){p_end}
+{p2col:{opt ci} {opt bootstrap()}}resampled SD over replications ({cmd:bootstrap}){p_end}
+{p2colreset}{...}
+
+{pmore2}
+Both CIF routes are available on every fit this command produces, {opt tvc()}
+and {opt bstrata()} included. The analytic route is
+{bf:fixed-weight in all cases}: it does not propagate the uncertainty in Ghat
+even after a {opt nuisance} fit, so a {opt nuisance} fit and a default fit give
+the same CIF standard errors. Only {opt bootstrap()} propagates weight
+re-estimation.
+
+{pmore2}
+{bf:What is still refused, and why.} Three cells, all on the delayed-entry
+branch, all {cmd:r(198)}, and each for its own reason rather than one shared
+one:
+
+{p2colset 13 34 36 2}{...}
+{p2col:{opt nuisance} + delayed entry}the derivation exists and is
+{it:identified} -- Zhang, Zhang and Fine (2011) Appendix B -- but is not
+held; their own Appendix E ships the first part only for the stratified
+weight{p_end}
+{p2col:{opt bstrata()} + delayed entry}no source. Both stratified
+subdistribution papers are right-censoring-only, and Kim et al. (2020) calls
+the left-truncated case an open research problem{p_end}
+{p2col:{opt tvc()} + delayed entry}no source for time-varying subdistribution
+coefficients under left truncation at all, and the delayed-entry branch is
+already this package's own extension{p_end}
+{p2colreset}{...}
+
 {phang}
 {opt nuisance} adds the Fine and Gray (1999, eq. 7-8, pp. 500-501)
 {it:psi} term to the sandwich meat, so that the meat becomes
@@ -416,15 +477,17 @@ the default. It is therefore not safe to assume the default is the
 
 {pmore}
 {opt nuisance} requires the sandwich, so it is not allowed with
-{opt norobust}. It is also refused with {opt bstrata()} and with {opt tvc()},
-each with {cmd:r(198)}: the psi term is built from a single pooled S0({it:s})
-and zbar({it:s}) per event time, and both options make those quantities
-specific to a stratum or to an interval without a re-derived correction. It is
-{bf:not allowed under delayed entry}: eq. (7)-(8) is
-derived for right censoring with no entry times, and applying a
-right-censoring correction to left-truncated data would return a plausible
-number with no derivation behind it. For nuisance-adjusted inference under
-delayed entry, bootstrap the whole fit; see
+{opt norobust} ({cmd:r(198)}). It {bf:composes} with {opt bstrata()} and with
+{opt tvc()}: under {opt bstrata()} the psi term is Zhou et al.'s (2011,
+sec. 4.1) Sigma_rk, i.e. eq. (7)-(8) computed within stratum, which is what
+{cmd:crrSC::crrs} computes under {cmd:ctype=1}; under {opt tvc()} psi is a
+linear functional of a score that decomposes exactly over intervals, so it
+decomposes with it. It is {bf:not allowed under delayed entry}
+({cmd:r(198)}): eq. (7)-(8) is derived for right censoring with no entry times,
+the left-truncated analogue is Zhang, Zhang and Fine (2011, Appendix B), and
+applying a right-censoring correction to left-truncated data would return a
+plausible number with no derivation behind it. For nuisance-adjusted inference
+under delayed entry, bootstrap the whole fit; see
 {it:Bootstrap coefficient inference} below.
 
 {pmore}
@@ -435,13 +498,15 @@ errors reported from earlier releases. When it is specified,
 
 {pmore}
 {bf:It does not propagate to post-estimation.} {helpb finegray_cif} and
-{helpb finegray_predict} use a fixed-weight analytic CIF influence function. The
-full CIF influence function includes the coefficient-path {it:psi} contribution
-and a separate weight-estimation contribution for the baseline/CIF path. The
-analytic postestimation path includes neither contribution and remains
-fixed-weight, so its standard errors are identical after a {opt nuisance} fit
-and after a default fit. Use those commands' bootstrap options when CIF
-intervals should include weight re-estimation.
+{helpb finegray_predict} use a fixed-weight analytic CIF influence function --
+including on a {opt tvc()} fit, whose piecewise form is derived. The full CIF
+influence function includes the coefficient-path {it:psi} contribution and a
+separate weight-estimation contribution for the baseline/CIF path. The analytic
+postestimation path includes neither contribution and remains fixed-weight, so
+its standard errors are identical after a {opt nuisance} fit and after a default
+fit. {cmd:r(se_method)} records which route produced the interval
+({cmd:analytic} or {cmd:bootstrap}); use those commands' {opt bootstrap()}
+options when CIF intervals should include weight re-estimation.
 
 {pmore}
 {bf:Bootstrap coefficient inference.} The {opt bootstrap()} options of
@@ -806,9 +871,12 @@ closed-form truth.
 {bf:Scope: right censoring only.} {opt bstrata()} with delayed entry is
 refused with {cmd:r(198)}. Zhou et al. (2011) is a right-censoring paper --
 entry times appear nowhere in it -- and neither does Zhang, Zhang and Fine
-(2011) treat baseline stratification. A stratified left-truncated
-subdistribution baseline would be a package invention with no derivation
-behind it, so {cmd:finegray} refuses rather than fit one.
+(2011) treat baseline stratification. The most recent stratified
+subdistribution paper, Kim et al. (2020), raises left truncation only in its
+discussion and calls developing methods for left-truncated data of this kind
+"an important future research problem". A stratified left-truncated
+subdistribution baseline would therefore be a package invention with no
+derivation behind it, and {cmd:finegray} refuses rather than fit one.
 
 {pstd}
 {bf:Variance.} The reported standard errors are the package's usual
@@ -819,11 +887,18 @@ strata as the strata grow. Two things follow.
 {phang2}
 Zhou et al. (2011) sec. 4.1 gives the regularly-stratified variance as
 Sigma_rk = E{(eta_ki + psi_ki)^2}, i.e. Fine and Gray's (1999) eq. 7-8
-{it:within stratum k}, including the psi term for having estimated
-G. {cmd:finegray} reports the eta-only (fixed-weight) part, exactly as it does
-without {opt bstrata()}; the stratified psi term is not implemented, and
-{opt nuisance} is therefore refused with {opt bstrata()} rather than applying
-the {it:pooled} psi to a stratified fit, which would be neither variance.
+{it:within stratum k}, including the psi term for having estimated G. The
+default remains the eta-only (fixed-weight) part, exactly as it is without
+{opt bstrata()}; {opt nuisance} adds the stratified psi and makes the reported
+variance the paper's. {cmd:bstrata(}{it:v}{cmd:) strata(}{it:v}{cmd:)} is
+{cmd:crrs}'s {cmd:ctype=1} -- G estimated within stratum -- and that cell is
+cross-validated against {cmd:crrs} directly. {cmd:bstrata(}{it:v}{cmd:)}
+{it:without} {opt strata()} is a stratified baseline with a {bf:pooled} G,
+which {cmd:crrs} has no counterpart for: its {cmd:ctype=2} is the
+highly-stratified variance of sec. 4.2, a different derivation. That cell is
+this package's own composition of Zhou's additivity over strata with Fine and
+Gray's eq. (8), and it is validated by simulation rather than against an
+external implementation.
 
 {phang2}
 Zhou et al. (2011) sec. 4.2 records that the closed-form stratified variance
@@ -982,8 +1057,8 @@ is a hard error, not a dropped coefficient: silently omitting an interval
 would change the model without saying so.
 
 {pstd}
-{bf:Scope.} Three combinations are refused with {cmd:r(198)}, and none of them
-is an oversight:
+{bf:Scope.} One combination is refused with {cmd:r(198)}, and it is not an
+oversight:
 
 {p2colset 9 24 26 2}{...}
 {p2col:{bf:delayed entry}}the piecewise scan is the right-censoring scan run
@@ -991,12 +1066,6 @@ once per interval. The delayed-entry (ZZF) branch is a separate family of scan
 functions with no piecewise form, and it is already this package's extension of
 Zhang et al. (2011) rather than a published estimator; a b({it:t}) built on it
 would be unsourced twice over{p_end}
-{p2col:{opt bstrata()}}each reshapes the risk-set scan on its own axis. They
-compose mechanically, but the composition has no reference implementation to
-validate against{p_end}
-{p2col:{opt nuisance}}the psi term is Fine and Gray (1999) eq. 7-8, built from
-one S0({it:s}) and one zbar({it:s}) at each cause-event time. Under b({it:t})
-both are interval-specific, and that correction is not derived here{p_end}
 {p2colreset}{...}
 
 {pstd}

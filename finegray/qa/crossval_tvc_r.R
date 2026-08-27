@@ -100,6 +100,21 @@ for (ds in unique(dat$dataset)) {
     for (j in seq_len(nint)) {
         add_row(ds, "coef", paste0("tvc", j), unname(cf[1 + j]))
     }
+    # STANDARD ERRORS (added 2026-08-26 for finegray v1.4.0).
+    # crr$var is the FULL Fine & Gray (1999) sandwich: cmprsk assembles it in
+    # the Fortran routine crrvv, whose eta block is eq. (7) and whose q/pi block
+    # is eq. (8) -- the psi term for having ESTIMATED G.  (The same routine is
+    # vendored by crrSC and is what crrs's ctype=1 sums over strata.)  Until
+    # v1.4.0 finegray refused `nuisance' with tvc(), so there was no finegray
+    # quantity to compare these against and the Stata side deliberately did not
+    # compare SEs at all.  There is now: `tvc() nuisance noadjust' computes the
+    # same object, so these rows make the piecewise psi term externally checked
+    # rather than internally argued.
+    se <- sqrt(diag(fit$var))
+    add_row(ds, "se", "x2", unname(se[1]))
+    for (j in seq_len(nint)) {
+        add_row(ds, "se", paste0("tvc", j), unname(se[1 + j]))
+    }
     add_row(ds, "loglik", "loglik", unname(fit$loglik))
     add_row(ds, "nint", "nint", nint)
 
@@ -120,6 +135,11 @@ for (ds in unique(dat$dataset)) {
             add_row(ds, "coef_cg", "x2", unname(cfg[1]))
             for (j in seq_len(nint)) {
                 add_row(ds, "coef_cg", paste0("tvc", j), unname(cfg[1 + j]))
+            }
+            seg <- sqrt(diag(fit_cg$var))
+            add_row(ds, "se_cg", "x2", unname(seg[1]))
+            for (j in seq_len(nint)) {
+                add_row(ds, "se_cg", paste0("tvc", j), unname(seg[1 + j]))
             }
         }
     }

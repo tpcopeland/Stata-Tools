@@ -115,27 +115,26 @@ program define finegray, eclass sortpreserve
         exit 198
     }
 
-    * bstrata() frees the baseline per stratum, so S0(s) and zbar(s) become
-    * stratum-specific.  Zhou et al. (2011) sec. 4.1 DOES define the stratified
-    * psi -- it is Fine & Gray (1999) eq. 7-8 "with the added subscript k",
-    * i.e. computed inside the stratum -- so the quantity is grounded; what is
-    * missing is the implementation.  _finegray_psi_residuals builds q_g(t)
-    * from the POOLED S0(s) and zbar(s), and this version does not stratify it.
-    * Accepting the pair would therefore add an unstratified correction to a
-    * stratified sandwich: not the paper's variance, and not this package's
-    * either.  Refuse rather than report it as though it were.
-    if "`nuisance'" != "" & "`bstrata'" != "" {
-        display as error "nuisance is not allowed with bstrata()"
-        display as error "the psi correction is Fine & Gray (1999) eq. 7-8, " ///
-            "computed against a single pooled baseline"
-        display as error "Zhou et al. (2011) sec. 4.1 defines its stratified " ///
-            "form, but finegray does not implement it"
-        display as error "applying the pooled term to a stratified fit would " ///
-            "not be either variance"
-        display as error "use bootstrap coefficient inference instead; " ///
-            "see {help finegray##bstrata:help finegray}"
-        exit 198
-    }
+    * FENCE LIFTED 2026-08-26 (v1.4.0).  bstrata() frees the baseline per
+    * stratum, so S0(s) and zbar(s) become stratum-specific; through v1.3.0
+    * _finegray_psi_residuals built q_g(t) from the POOLED S0(s) and zbar(s),
+    * so accepting nuisance with bstrata() would have added an unstratified
+    * correction to a stratified sandwich -- neither Zhou's variance nor this
+    * package's.  The refusal was about the implementation, never about the
+    * quantity: Zhou et al. (2011) sec. 4.1 states it exactly, as Fine & Gray
+    * (1999) eq. 7-8 "with the added subscript k", and the authors' own
+    * crrSC::crrs computes it by running cmprsk's unmodified per-stratum
+    * variance and summing (crrvvs()).
+    *
+    * _finegray_psi_residuals now takes the baseline-stratum column and gives
+    * every RISK-SET quantity a k index while leaving every CENSORING-KM
+    * quantity on the strata() axis, which reduces to crrvvs() exactly when the
+    * two axes coincide (bstrata(c) strata(c) = crrs ctype=1, the crossval) and
+    * to the pre-v1.4.0 term bit-identically at K = 1.  The pooled-Ghat cell --
+    * bstrata() without strata() -- has no crrs counterpart and is documented
+    * in Methods and formulas as this package's own composition of Zhou's
+    * additivity over strata with FG's eq. (8).  The derivation is written out
+    * in the header of _finegray_psi_residuals in _finegray_mata.ado.
 
     * =========================================================================
     * PIECEWISE-CONSTANT beta(t): tvc() / tsplit() OPTION GRAMMAR
@@ -181,35 +180,35 @@ program define finegray, eclass sortpreserve
             }
         }
 
-        * Both refusals are §3 scope fences, not implementation gaps that a user
-        * can work around by rearranging the command.
+        * FENCE LIFTED 2026-08-26 (v1.4.0).  The v1.3.0 refusal said the pair
+        * "has no reference implementation to validate against".  That was
+        * wrong, and it was checked rather than re-asserted: crrSC::crrs takes
+        * cov2/tf together with its strata argument, so the pair has exactly the
+        * same external oracle each half has separately.
         *
-        * bstrata(): each reshapes the scan on its own axis (per-stratum row
-        * subsets; per-interval accumulator rebuilds).  They compose
-        * mechanically, but the composition has no reference implementation to
-        * validate against and doubles the QA surface of each; it is out of
-        * scope for this release rather than impossible.
-        if "`bstrata'" != "" {
-            display as error "tvc() is not allowed with bstrata()"
-            display as error "each option reshapes the risk-set scan on its own axis, and the"
-            display as error "combination has no reference implementation to validate against"
-            display as error "fit within baseline stratum, or drop one of the two options;"
-            display as error "see {help finegray##tvc:help finegray}"
-            exit 198
-        }
-        * nuisance: the psi term is Fine & Gray (1999) eq. 7-8, built from ONE
-        * S0(s) and zbar(s) per event time.  Under beta(t) both are
-        * interval-specific and the correction has not been re-derived here.
-        if "`nuisance'" != "" {
-            display as error "nuisance is not allowed with tvc()"
-            display as error "the psi correction is Fine & Gray (1999) eq. 7-8, computed from a"
-            display as error "single S0(s) and zbar(s) at each cause-event time"
-            display as error "under a piecewise beta(t) both are interval-specific and the"
-            display as error "corresponding term is not derived here"
-            display as error "use bootstrap coefficient inference instead; " ///
-                "see {help finegray##variance:help finegray}"
-            exit 198
-        }
+        * The two features reshape the scan on orthogonal axes -- bstrata()
+        * partitions ROWS into per-stratum risk sets, tvc() partitions TIME into
+        * per-interval passes over a zeroed design -- and the piecewise wrappers
+        * already forwarded the stratum column into the stratified scans, so the
+        * fit needed no new scan code.  What did need writing is the baseline
+        * stacking: each interval pass restarts its cumulative hazard at zero,
+        * so the carry-forward that stitches the intervals into one curve is now
+        * per stratum (_finegray_basehazard_pw).  A pooled carry would have
+        * given every stratum the sum of all the others' mass at rc 0.
+        * FENCE LIFTED 2026-08-26 (v1.4.0).  Through v1.3.0 nuisance was
+        * refused here because the psi term is Fine & Gray (1999) eq. 7-8 built
+        * from ONE S0(s) and zbar(s) per event time, and under beta(t) both are
+        * interval-specific.  The re-derivation is short and is written out in
+        * the header of _finegray_psi_residuals_pw in _finegray_mata.ado: the
+        * tvc scan is an identity (the score IS the sum over
+        * intervals of the unmodified score on a zeroed design with the other
+        * intervals' cause events relabelled), psi is a linear functional of the
+        * score, so psi decomposes over intervals with it.
+        * _finegray_psi_residuals_pw is the fifth member of the existing _pw
+        * wrapper family and adds no new formula.  The evidence is the
+        * hand-split equivalence oracle: a tvc() fit and an explicit
+        * interval x covariate interaction fit are the same model, so under
+        * nuisance they must agree in e(V) as well as e(b).
     }
 
     * =========================================================================
@@ -611,11 +610,11 @@ program define finegray, eclass sortpreserve
     * derivation behind it.  This is also what keeps bstrata() a five-scan-
     * function change instead of a ten: the ZZF branch is untouched.
     if "`bstrata'" != "" & `_fg_has_lt' {
-        display as error "bstrata() is not supported with delayed entry"
+        display as error "bstrata() with delayed entry is an unsourced composition, not implemented"
         display as error "`_fg_n_lt' subject(s) in the estimation sample enter after time 0"
         display as error "the stratified subdistribution hazard of Zhou et al. (2011) is"
-        display as error "derived for right censoring only, and its left-truncated analogue"
-        display as error "is not published; fitting one here would be unsourced"
+        display as error "derived for right censoring only; combining it with the left-truncated"
+        display as error "branch has no published derivation"
         display as error "fit within stratum, or drop the delayed entry;"
         display as error "see {help finegray##bstrata:help finegray}"
         exit 198
@@ -767,13 +766,32 @@ program define finegray, eclass sortpreserve
     * failed mid-mutation fall through to the prior fit's e() and answer from
     * it.  "0" means INVALIDATED and is refused; absent means UNKNOWN and is
     * adjudicated against e().  Guarded by test_finegray_v110.do.
-    char _dta[_finegray_estimated] "0"
-    char _dta[_finegray_compete] ""
-    char _dta[_finegray_cause] ""
-    char _dta[_finegray_covars] ""
-    char _dta[_finegray_fvvars] ""
-    char _dta[_finegray_fvvarlist] ""
-    char _dta[_finegray_entryvar] ""
+    *
+    * On mi data NONE of this happens.  A mi-mode fit mutates nothing permanent
+    * -- the entry column and every _fg_<term> design column are tempvars (see
+    * the mi block near the top and the two branches below) -- so there is no
+    * package-owned state for a failed re-fit to masquerade as, and the mark has
+    * nothing to invalidate.  Writing it anyway put seven _dta[_finegray_*]
+    * characteristics into the caller's mi dataset, which is exactly the
+    * contract this version's mi branch exists to keep ("nothing is written to
+    * the caller's mi dataset").  Worse, blanking _dta[_finegray_fvvars] while
+    * the cleanup below dropped the columns it named left a PRIOR ordinary fit's
+    * e() pointing at design columns that no longer existed and no
+    * characteristic recording that finegray had ever owned them.  The whole
+    * block, cleanup included, is therefore off-mi-data only: a prior fit's
+    * state stays internally consistent and the mi fit adds nothing to it.
+    * Post-estimation on the mi fit is refused on e(postest) before any
+    * characteristic is consulted, so the stale marks cannot be mistaken for
+    * this fit's.  Guarded by FGML-01..03 in qa/test_finegray_mi_lattice.do.
+    if !`_fg_is_mi' {
+        char _dta[_finegray_estimated] "0"
+        char _dta[_finegray_compete] ""
+        char _dta[_finegray_cause] ""
+        char _dta[_finegray_covars] ""
+        char _dta[_finegray_fvvars] ""
+        char _dta[_finegray_fvvarlist] ""
+        char _dta[_finegray_entryvar] ""
+    }
 
     * Check if any FV operators present
     foreach _fv_tok of local varlist {
@@ -785,7 +803,7 @@ program define finegray, eclass sortpreserve
 
     * Clean up the entry-time variable from any prior finegray run when this
     * run did not just (re)create it in the reduction step above.
-    if `"`_prev_estimated'"' == "1" & `"`_prev_entryvar'"' != "" ///
+    if !`_fg_is_mi' & `"`_prev_estimated'"' == "1" & `"`_prev_entryvar'"' != "" ///
         & "`_prev_entryvar'" != "`_fg_entryvar'" {
         capture confirm variable `_prev_entryvar'
         if !_rc quietly drop `_prev_entryvar'
@@ -794,7 +812,7 @@ program define finegray, eclass sortpreserve
     * Clean up FV variables from any prior finegray run, unconditionally.
     * This ensures stale _fg_* columns are dropped even when the new run
     * does not use factor variables.
-    if `"`_prev_estimated'"' == "1" & `"`_prev_fv_created'"' != "" {
+    if !`_fg_is_mi' & `"`_prev_estimated'"' == "1" & `"`_prev_fv_created'"' != "" {
         local _drop_prev ""
         foreach _old_fg of local _prev_fv_created {
             capture confirm variable `_old_fg'

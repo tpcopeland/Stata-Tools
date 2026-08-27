@@ -58,7 +58,8 @@ quietly net install finegray, from("`pkg_dir'") replace
 capture program drop _gen_fgs_dgp
 program define _gen_fgs_dgp
     version 16.0
-    syntax , n(integer) plist(numlist) [seed(integer 1) b1(real 0) b2(real 0)]
+    syntax , n(integer) plist(numlist) ///
+        [seed(integer 1) b1(real 0) b2(real 0) CMAX(real 4)]
     local K : word count `plist'
     clear
     set seed `seed'
@@ -80,7 +81,13 @@ program define _gen_fgs_dgp
     gen double t1 = -ln(1 - (1 - (1 - u * pz)^exp(-lp)) / pk)
     gen double t2 = -ln(runiform())
     gen double tevent = cond(cause == 1, t1, t2)
-    gen double c = runiform() * 4
+    * Censoring ~ U(0, cmax).  cmax defaults to 4, which is what arms A-D were
+    * measured with and must keep.  Arm E lowers it: the psi term exists BECAUSE
+    * Ghat is estimated, so its size is driven by how much of Ghat's tail the
+    * data have to estimate, and at cmax = 4 on this DGP psi moves the standard
+    * error by well under a tenth of a percent -- too little for a calibration
+    * arm to be evidence about it.
+    gen double c = runiform() * `cmax'
     gen double time = min(tevent, c)
     gen byte status = cond(tevent <= c, cause, 0)
     gen byte anyevent = status > 0
@@ -237,6 +244,185 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: D K=1 bit-identity (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+**# E  SE CALIBRATION under bstrata(): eta-only vs eta+psi (v1.4.0)
+* -----------------------------------------------------------------------------
+* Arms A-D are about the POINT estimates.  v1.4.0 made `nuisance' legal with
+* bstrata(), so the variance now needs an oracle of its own, and the one that
+* does not depend on R is calibration against the sampling distribution the DGP
+* actually has: across independent replicates the empirical SD of beta-hat IS
+* the truth, and a correct standard error estimates it.
+*
+* WHY THIS IS THE RIGHT ARM AND NOT A DUPLICATE OF crossval_bstrata.do.  That
+* file compares finegray's eta+psi variance to crrs's -- two implementations of
+* one FORMULA.  If the formula were wrong they would agree with each other and
+* both be wrong.  This arm has no formula in it: it measures whether the
+* reported SE matches the spread that repeated sampling produces.
+*
+* THE CLAIM, from Zhou (2011) sec. 4.1 read together with Fine & Gray (1999)
+* sec. 4: Ghat is ESTIMATED, and psi is the term that accounts for it.  So under
+* estimated G the psi arm must be at least as well calibrated as the eta-only
+* arm -- not merely different from it.  Both directions are asserted:
+*   E1  the eta+psi SE/SD ratio is within Monte-Carlo tolerance of 1
+*   E2  it is no FURTHER from 1 than the eta-only ratio (the plan's condition)
+*   E3  eta+psi CI coverage is within Monte-Carlo tolerance of the nominal 0.95
+*   E4  and not below the eta-only coverage by more than Monte-Carlo noise
+* E2 and E4 are what a psi term with the wrong sign, or one that is simply
+* noise, fails; E1 and E3 are what a missing one fails.
+*
+* Both fits use bstrata(ctr) strata(ctr) -- Zhou's regularly-stratified regime,
+* where Ghat is the within-stratum KM (sec. 3.2) and the psi term is the one the
+* paper defines.  noadjust on both, so the finite-sample N/(N-1) factor is not
+* what either ratio is measuring.
+local ++test_count
+capture noisily {
+    local REPS   = 300
+    local NOBS   = 500
+    local B1TRUE = 0.50
+    local B2TRUE = -0.40
+    * HOW BIG IS psi, AND WHAT THIS ARM CAN THEREFORE PROVE.
+    *
+    * Measured on 2026-08-26 at n = 4000, K = 3, sweeping the censoring
+    * distribution: the psi term moves the reported SE by
+    *
+    *   U(0, cmax)      cmax = 0.5  1.0  1.5  2.0  3.0  4.0  8.0
+    *                   rel move  0.4e-4 2e-4 6e-4 9e-4 7e-4 6e-4 1e-4
+    *   Exponential     rate  0.3  0.6  1.0  2.0
+    *                   rel move  4e-4 10e-4 9e-4 11e-4
+    *
+    * i.e. AT MOST about a tenth of one percent, on every design tried, and
+    * smallest when there is very little censoring (nothing to estimate) or very
+    * much (nothing left to be at risk).  psi is a genuinely small refinement on
+    * well-behaved competing-risks data.
+    *
+    * That is a fact about the estimator, not a defect, but it has a consequence
+    * this arm must be honest about: a calibration comparison at 300 replicates
+    * has Monte-Carlo noise of order 10% in the SE/SD ratio, which is two orders
+    * LARGER than the effect being looked for.  So E1-E4 below cannot detect a
+    * subtly wrong psi term, and they are not claimed to.  What they do prove is
+    * that the corrected variance is calibrated at all and is not made worse.
+    *
+    * The SHARP tests for psi are elsewhere and are pointed at deliberately:
+    *   crossval_bstrata.do  eta+psi vs crrs ctype=1 -- 3.1e-08 with psi against
+    *                        2.5e-03 without, five orders of separation
+    *   BSPSI-5 (test_finegray_bstrata.do)  the duplicate-stratum identity,
+    *                        which halves e(V) exactly only if every stratum's
+    *                        psi block is present
+    *
+    * E0 below still refuses a psi term that returns exactly zero, so this arm
+    * is not vacuous -- it is simply not the precision instrument.
+    *
+    * Exponential censoring at rate 2.0: the design where psi measured largest.
+    local CRATE  = 2.0
+    local PSIMIN = 0.0002
+
+    tempname pf
+    tempfile calib
+    postfile `pf' int rep double(b1 b2 se1e se2e se1p se2p) using "`calib'", replace
+
+    forvalues r = 1/`REPS' {
+        _gen_fgs_dgp, n(`NOBS') plist(0.55 0.70 0.40) seed(`= 900000 + `r'') ///
+            b1(`B1TRUE') b2(`B2TRUE')
+        * re-censor exponentially; the generator's own U(0, cmax) is kept for
+        * arms A-D, whose measured numbers are pinned to it
+        quietly replace c = rexponential(1 / `CRATE')
+        quietly replace time = min(tevent, c)
+        quietly replace status = cond(tevent <= c, cause, 0)
+        quietly replace anyevent = status > 0
+        quietly stset time, failure(anyevent == 1) id(id)
+        capture quietly finegray z1 z2, compete(status) cause(1) nolog ///
+            bstrata(ctr) strata(ctr) noadjust
+        if _rc | e(converged) != 1 continue
+        local _b1 = _b[z1]
+        local _b2 = _b[z2]
+        local _s1e = _se[z1]
+        local _s2e = _se[z2]
+
+        capture quietly finegray z1 z2, compete(status) cause(1) nolog ///
+            bstrata(ctr) strata(ctr) nuisance noadjust
+        if _rc | e(converged) != 1 continue
+        * psi must not have moved the point estimate; if it did, this whole
+        * arm is measuring two different estimators
+        if reldif(_b[z1], `_b1') > 1e-8 continue
+        post `pf' (`r') (`_b1') (`_b2') (`_s1e') (`_s2e') (_se[z1]) (_se[z2])
+    }
+    postclose `pf'
+
+    use "`calib'", clear
+    quietly count
+    local NREP = r(N)
+    assert !missing(`NREP')
+    assert `NREP' >= 0.9 * `REPS'
+
+    * Monte-Carlo tolerances, computed from NREP rather than chosen.  The SD of
+    * an SD estimate over m reps is about SD/sqrt(2m); three of those is the
+    * band.  For 300 reps that is ~12%.
+    local RTOL = 3 / sqrt(2 * `NREP')
+    * coverage: 3 binomial SEs at p = 0.95
+    local CTOL = 3 * sqrt(0.95 * 0.05 / `NREP')
+
+    foreach v in 1 2 {
+        if `v' == 1 local truth = `B1TRUE'
+        else        local truth = `B2TRUE'
+        quietly summarize b`v'
+        local sd_emp = r(sd)
+        local mean_b = r(mean)
+        assert !missing(`sd_emp', `mean_b')
+        assert `sd_emp' > 0
+
+        quietly summarize se`v'e
+        local se_eta = r(mean)
+        quietly summarize se`v'p
+        local se_psi = r(mean)
+        assert !missing(`se_eta', `se_psi')
+        assert `se_eta' > 0 & `se_psi' > 0
+
+        local rat_eta = `se_eta' / `sd_emp'
+        local rat_psi = `se_psi' / `sd_emp'
+        local psi_size = abs(`se_psi' - `se_eta') / `se_eta'
+
+        quietly count if abs(b`v' - `truth') <= 1.959963985 * se`v'e
+        local cov_eta = r(N) / `NREP'
+        quietly count if abs(b`v' - `truth') <= 1.959963985 * se`v'p
+        local cov_psi = r(N) / `NREP'
+
+        display as text "    z`v': empirical SD = " as result %8.5f `sd_emp' ///
+            as text ", mean SE eta-only = " as result %8.5f `se_eta' ///
+            as text " (ratio " as result %6.4f `rat_eta' as text ")" ///
+            as text ", eta+psi = " as result %8.5f `se_psi' ///
+            as text " (ratio " as result %6.4f `rat_psi' as text ")" ///
+            as text "; psi moves the mean SE by " as result %6.4f `psi_size'
+        display as text "    z`v': coverage eta-only = " as result %6.4f `cov_eta' ///
+            as text ", eta+psi = " as result %6.4f `cov_psi' ///
+            as text " (nominal 0.95, MC tol " as result %6.4f `CTOL' as text ")"
+
+        * E0 -- the arm must actually be able to see psi.  Without this, a psi
+        * term returning exactly zero passes E1-E4 by being identical to the
+        * eta-only arm, which is calibrated.
+        assert !missing(`psi_size')
+        assert `psi_size' > `PSIMIN'
+        * E1
+        assert abs(`rat_psi' - 1) < `RTOL'
+        * E2 -- psi must not be WORSE calibrated than eta-only.  A small slack
+        * is allowed because both are estimates of the same ratio; what this
+        * refuses is a psi term that moves the SE the wrong way.
+        assert abs(`rat_psi' - 1) <= abs(`rat_eta' - 1) + `RTOL' / 3
+        * E3
+        assert abs(`cov_psi' - 0.95) < `CTOL'
+        * E4
+        assert `cov_psi' >= `cov_eta' - `CTOL'
+    }
+}
+if _rc == 0 {
+    display as result ///
+        "  PASS: E eta+psi SEs under bstrata() are calibrated and no worse than eta-only"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: E bstrata() SE calibration (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -250,8 +250,24 @@ capture noisily {
     assert `"`e(mi_data)'"' == "1"
     assert `"`e(postest)'"' == "unavailable_mi"
 
-    * and the estimation-state characteristic is left INVALIDATED, not claimed
-    assert `"`: char _dta[_finegray_estimated]'"' == "0"
+    * and NO estimation-state characteristic is written at all.
+    *
+    * This line used to assert "0" -- the INVALIDATED mark.  That was pinning a
+    * defect as a contract: on mi data the fit mutates nothing permanent, so
+    * there is nothing for the mark to invalidate, and writing it put seven
+    * _dta[_finegray_*] characteristics into the caller's mi dataset against
+    * finegray.ado's own stated contract.  Corrected 2026-08-26 with defect
+    * D0-1; the full story and the regressions are in
+    * qa/test_finegray_mi_lattice.do (FGML-01/02/03).  ABSENT means UNKNOWN and
+    * is adjudicated against e(), which is the right state for a dataset the
+    * fit never touched.
+    assert `"`: char _dta[_finegray_estimated]'"' == ""
+    local _cs : char _dta[]
+    local _nfgc = 0
+    foreach _c of local _cs {
+        if substr("`_c'", 1, 10) == "_finegray_" local ++_nfgc
+    }
+    assert `_nfgc' == 0
 }
 local _rc = _rc
 _fgmi_result `_rc' "FGMI-1 fv fit on mi data leaves no unregistered columns"

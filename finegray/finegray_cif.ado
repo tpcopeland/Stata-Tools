@@ -187,15 +187,16 @@ program define finegray_cif, rclass sortpreserve
         display as error "re-run {bf:finegray} before using finegray_cif"
         exit 301
     }
-    if `_fg_istvc' & "`ci'" != "" & `bootstrap' == 0 {
-        display as error "the analytic ci is not available after a fit with tvc()"
-        display as error "the CIF influence function is derived for a single exp(z'b) at every"
-        display as error "baseline increment; under a piecewise beta(t) each increment carries"
-        display as error "its own interval's linear predictor and its own risk-set total"
-        display as error "use {bf:bootstrap(#)}, which resamples the whole fit and needs no"
-        display as error "such derivation; see {help finegray_cif##tvc:help finegray_cif}"
-        exit 198
-    }
+    * FENCE LIFTED 2026-08-26 (v1.4.0).  v1.3.0 refused an analytic ci after a
+    * tvc() fit because the CIF influence function was derived for a single
+    * exp(z'b) at every baseline increment, and under a piecewise beta(t) each
+    * increment carries its own interval's linear predictor and its own
+    * risk-set total.  It has now been re-derived -- the derivation is written
+    * out in the header of _finegray_cif_core_pw in _finegray_mata.ado
+    * -- and the piecewise variant reuses
+    * the SAME accumulators the proportional one uses (_finegray_cif_accum),
+    * differing only in the combination over intervals.  bootstrap(#) remains
+    * available and is the arm the analytic route is checked against.
 
     * =====================================================================
     * BASELINE STRATA
@@ -743,13 +744,17 @@ program define finegray_cif, rclass sortpreserve
     }
 
     tempname OUT
+    * One call either way since v1.4.0: _finegray_cif_var_st dispatches to the
+    * piecewise influence function when it is told the interval structure, and
+    * both routes reach the same accumulators.  bstrata() needs the stratum
+    * column (to rebuild the fit's one-curve-per-stratum baseline) and the
+    * requested stratum (to answer from the right one); passing neither rebuilt
+    * a pooled baseline and returned the same CIF for every stratum at rc 0.
     if `_fg_istvc' {
-        * Point estimate only; column 2 comes back missing by design (see the
-        * piecewise block above).  bstrata() is refused with tvc() at fit time,
-        * so there is one baseline and no stratum to select here.
-        mata: _finegray_cif_point_tvc("`covs'", "`e(compete)'", `=e(cause)', ///
-            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", "`E'", ///
-            "`OUT'", "`_t0var'", "`_fg_tvcpos'", "`_fg_cuts'")
+        mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
+            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
+            "`es'", "`E'", "`OUT'", "`_t0var'", "`_bsvar'", `_bslev', ///
+            "`_fg_tvcpos'", "`_fg_cuts'")
     }
     else {
         mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
@@ -868,7 +873,8 @@ program define finegray_cif, rclass sortpreserve
                 * estimate and its CIF must be accumulated the same way.
                 if `_fg_istvc' {
                     mata: _finegray_boot_cif_tvc("`zrow'", "`Gmat'", "`bcif'", ///
-                        strtoreal("`_fg_repseq'"), "`_fg_tvcpos'", "`_fg_cuts'")
+                        strtoreal("`_fg_repseq'"), "`_fg_tvcpos'", "`_fg_cuts'", ///
+                        `_bslev')
                 }
                 else {
                     mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'", ///
@@ -1024,12 +1030,7 @@ program define finegray_cif, rclass sortpreserve
         display as text "{hline 13}{c BT}{hline `_rulew'}"
         * A column of bare dots invites the reading "the SE is zero" or "this is
         * broken".  Say which it is, once, under the table it belongs to.
-        if `_fg_istvc' & `bootstrap' == 0 {
-            display as text "note: the analytic standard error is not derived " ///
-                "for a {bf:tvc()} fit;"
-            display as text "add {bf:ci bootstrap(#)} for a bootstrap interval. " ///
-                "See {help finegray_cif##tvc:help finegray_cif}."
-        }
+
     }
 
     * =====================================================================
@@ -1315,6 +1316,25 @@ program define finegray_cif, rclass sortpreserve
             return scalar bootstrap_requested = `bootstrap'
             return scalar bootstrap_success = `_bok'
             return scalar bootstrap_failed = `bootstrap' - `_bok'
+        }
+        * WHICH standard error filled column 3 of r(table).  Until this existed
+        * the answer was only inferable -- from whether the caller had typed
+        * bootstrap(), or from r(bootstrap_requested) being absent, which is
+        * also what an analytic SE looks like, or from the SE column being a
+        * run of dots, which is also what a degenerate curve looks like.  That
+        * inference is exactly what the honest-disclosure contract must not
+        * require: the package discloses in PROSE which option combination gets
+        * which variance, and every such disclosure owes a machine counterpart.
+        * e(vce_meat) is the fit-level one; this is the CIF-level one.
+        *   "bootstrap"  resampled SD over the replications
+        *   "analytic"   the delta-method CIF influence function
+        * The note printed under the table says the same thing in words, so the
+        * two must agree -- pinned in qa/test_finegray_fences.do.
+        if `bootstrap' > 0 {
+            return local se_method "bootstrap"
+        }
+        else {
+            return local se_method "analytic"
         }
         if `_side_rc' local rc = `_side_rc'
     }
