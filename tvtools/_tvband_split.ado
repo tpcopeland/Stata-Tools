@@ -1,4 +1,4 @@
-*! _tvband_split Version 1.16.0  2026/08/13
+*! _tvband_split Version 1.17.0  2026/08/28
 *! Shared single-axis interval splitter for tvband / tvsplit / tvage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

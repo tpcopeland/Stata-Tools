@@ -1,4 +1,4 @@
-*! _tvbuild_finalize Version 1.16.0  2026/08/13
+*! _tvbuild_finalize Version 1.17.0  2026/08/28
 *! Attach master payload and impose tvbuild's committed schema on the result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -41,7 +41,6 @@ program define _tvbuild_finalize, rclass
         STARTName(name) STOPName(name) DATEFormat(string) ///
         MASTERIDtype(string) SCHEMA(string) COVerage(string) ///
         [KEEPvars(string) DROPdates(integer 0) ///
-         SRCframes(namelist) SRCVars(string) ///
          DROPVars(string) EVENTVar(name) TIMEVar(name) ENUMVar(name) ///
          GAPSTARTVar(name) GAPSTOPVar(name)]
 
@@ -96,20 +95,6 @@ program define _tvbuild_finalize, rclass
     if "`_cur'" != "`masteridtype'" quietly recast `masteridtype' `id'
     frame change `_caller_frame'
     _tvbuild_carry_meta, srcframe(`xwalkframe') dstframe(`resframe') vars(`id')
-
-    **# Source payload metadata, one visit per normalised source
-    * srcvars() carries one comma-separated group per source frame, because a
-    * source may map several payload variables and `word N of' would split the
-    * groups at the wrong boundary.
-    local _rest `"`srcvars'"'
-    foreach _f of local srcframes {
-        gettoken _grp _rest : _rest, parse(",")
-        gettoken _sep _rest : _rest, parse(",")
-        local _grp = strtrim(stritrim(`"`_grp'"'))
-        if "`_grp'" != "" {
-            _tvbuild_carry_meta, srcframe(`_f') dstframe(`resframe') vars(`_grp')
-        }
-    }
 
     frame change `resframe'
 

@@ -17,12 +17,12 @@
 * benchmark_tvweight_cumprod.do.
 *
 * Manually invoked; deliberately NOT part of any correctness lane and not in
-* qa/_tvtools_qa_manifest.do. It emits BENCH: lines, never a RESULT: line, and
-* never a timing assertion.
+* qa/_tvtools_qa_manifest.do. The shape case is the registered algorithmic
+* scaling gate; ordinary cases emit timings without wall-clock thresholds.
 *
 * Usage (one fresh Stata process per invocation, run serially):
 *   stata-mp -b do benchmark_tvexpose_workflow.do <case> <scale> <rep>
-*     case   clipout | sparse | dense | frameout | chain
+*     case   clipout | sparse | dense | frameout | chain | shape
 *     scale  source episode rows to generate (default 20000)
 *     rep    repetition index; odd/even flips execution order where a case
 *            runs a pair (default 1)
@@ -57,6 +57,7 @@ clear all
 set more off
 set varabbrev off
 set linesize 244
+set processors 1
 
 local case  = cond("`1'" == "", "dense", "`1'")
 local scale = cond("`2'" == "", 20000, real("`2'"))
@@ -194,6 +195,26 @@ program define _bx_report
     args tag secs m e nout rc
     display "BENCH: case=`tag' rep=$BX_REP scale=$BX_SCALE " ///
         "M=`m' E=`e' Nout=`nout' rc=`rc' seconds=`secs'"
+end
+
+capture program drop _bx_time
+program define _bx_time, rclass
+    version 16.0
+    args tag mstfile expfile opts
+    quietly use "`mstfile'", clear
+    capture quietly tvexpose using "`expfile'", id(pid) start(e_start) ///
+        stop(e_stop) exposure(drug) reference(0) entry(s_entry) exit(s_exit) `opts'
+    quietly use "`mstfile'", clear
+    timer clear 91
+    timer on 91
+    capture noisily tvexpose using "`expfile'", id(pid) start(e_start) ///
+        stop(e_stop) exposure(drug) reference(0) entry(s_entry) exit(s_exit) `opts'
+    local rc = _rc
+    timer off 91
+    quietly timer list 91
+    return scalar seconds = r(t91)
+    return scalar rc = `rc'
+    return scalar Nout = _N
 end
 
 global BX_REP   = `rep'
@@ -429,6 +450,44 @@ if "`case'" == "chain" {
     capture frame drop bxA
     capture frame drop bxB
     capture frame drop bxM
+}
+
+**# --- shape: 5x scaling for fast, forced legacy, and duration ------------
+* The gate is on algorithmic shape, not an absolute elapsed-time target.
+* A 5x increase in persons and episodes may take up to 5.5x elapsed time,
+* allowing modest scheduler noise while rejecting superlinear regressions.
+if "`case'" == "shape" {
+    local small = max(100, `scale')
+    local large = 5 * `small'
+    tempfile _bsm _bse _blm _ble
+    _bx_master `small' "`_bsm'"
+    _bx_episodes `small' 5 "`_bse'"
+    _bx_master `large' "`_blm'"
+    _bx_episodes `large' 5 "`_ble'"
+
+    local _bad = 0
+    foreach arm in fast legacy duration {
+        local _opts = cond("`arm'" == "legacy", "nofastpath", ///
+            cond("`arm'" == "duration", ///
+            "duration(1 3) continuousunit(years)", ""))
+        _bx_time `arm'_small "`_bsm'" "`_bse'" "`_opts'"
+        local _ts = r(seconds)
+        local _rs = r(rc)
+        local _ns = r(Nout)
+        _bx_time `arm'_large "`_blm'" "`_ble'" "`_opts'"
+        local _tl = r(seconds)
+        local _rl = r(rc)
+        local _nl = r(Nout)
+        local _ratio = `_tl' / `_ts'
+        display "BENCH: case=shape arm=`arm' Msmall=`small' Mlarge=`large' " ///
+            "Esmall=`=`small'*5' Elarge=`=`large'*5' Nsmall=`_ns' Nlarge=`_nl' " ///
+            "small_seconds=`_ts' large_seconds=`_tl' ratio=`_ratio'"
+        if `_rs' | `_rl' | `_ratio' > 5.5 {
+            local _bad = 1
+            display as error "BENCHBAD: `arm' rc=`_rs'/`_rl' scaling=`_ratio' (>5.5)"
+        }
+    }
+    if `_bad' exit 459
 }
 
 capture erase "`mfile'"

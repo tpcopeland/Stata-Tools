@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.3  2026/08/13
+*! rangematch Version 1.5.4  2026/08/28
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -718,7 +718,7 @@ program define _rangematch_run_backend, sclass
             SHOWProgress(real) STATSmode(real) ASSERTMatch(real) ///
             ASSERTUsing(real) KEEPMASTER(real) KEEPUSING(real) ///
             MAXPairs(real) CLOSEDCode(real) TOLerance(real) ///
-            NEARESTCode(real) TIESCode(real) ///
+            NEARESTCode(real) TIESCode(real) ORDEROutput(real) ///
             OVERLAPMode(real) MIVar(name) UIVar(name)
 
         capture frame drop __rm_out
@@ -735,7 +735,7 @@ program define _rangematch_run_backend, sclass
                 "__rm_out", `keepmaster', `keepusing', `maxpairs', ///
                 `closedcode', `tolerance', `dryrun', `showprogress', ///
                 `statsmode', `assertmatch', `assertusing', ///
-                "`mivar'", "`uivar'")
+                `orderoutput', "`mivar'", "`uivar'")
             local _rm_backend "overlap"
         }
         else {
@@ -747,7 +747,7 @@ program define _rangematch_run_backend, sclass
                     "__rm_out", `keepmaster', `keepusing', ///
                     `maxpairs', `closedcode', `tolerance', `dryrun', ///
                     `showprogress', `statsmode', `assertmatch', ///
-                    `assertusing', `_rm_sweep_mode', ///
+                    `assertusing', `_rm_sweep_mode', `orderoutput', ///
                     "`mivar'", "`uivar'")
                 if "`_rm_err_maxpairs'" != "1" {
                     local _rm_backend "sweep"
@@ -758,7 +758,7 @@ program define _rangematch_run_backend, sclass
                     "__rm_out", `keepmaster', `keepusing', `maxpairs', ///
                     `closedcode', `nearestcode', `tiescode', `tolerance', ///
                     `dryrun', `showprogress', `statsmode', `assertmatch', ///
-                    `assertusing', "`mivar'", "`uivar'")
+                    `assertusing', `orderoutput', "`mivar'", "`uivar'")
             }
         }
 
@@ -886,7 +886,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.3"
+    local _rm_required_mata_version "1.5.4"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1842,7 +1842,7 @@ program define rangematch, rclass
         keepmaster(`keep_unmatched_master') keepusing(`keep_unmatched_using') ///
         maxpairs(`maxpairs') closedcode(`closed_code') ///
         tolerance(`tolerance') nearestcode(`nearest_code') ///
-        tiescode(`ties_code') ///
+        tiescode(`ties_code') orderoutput(`sort_output') ///
         overlapmode(`overlap_mode') mivar(`_rm_mi') uivar(`_rm_ui')
 
     if `_rm_timing' {
@@ -2001,13 +2001,6 @@ program define rangematch, rclass
             label define `_rm_merge_label' 1 "master only" ///
                 2 "using only" 3 "matched", replace
             label values `generate' `_rm_merge_label'
-        }
-    }
-
-    * Apply deterministic output ordering unless the caller requests nosort.
-    if `sort_output' {
-        frame __rm_out {
-            quietly sort `_rm_mi' `_rm_ui'
         }
     }
 

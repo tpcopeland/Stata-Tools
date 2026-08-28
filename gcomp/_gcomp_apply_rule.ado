@@ -1,4 +1,4 @@
-*! _gcomp_apply_rule Version 2.0.0  2026/08/19
+*! _gcomp_apply_rule Version 2.0.1  2026/08/28
 *! Execute validated intervention/derived assignment rules without false success
 *! Author: Timothy P Copeland, Karolinska Institutet
 

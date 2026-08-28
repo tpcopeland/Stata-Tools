@@ -1,8 +1,6 @@
 * test_rangematch_hostile.do - hostile interval/name/state contracts
 clear all
 version 16.1
-capture log close _all
-log using "test_rangematch_hostile.log", replace text name(_rm_hostile)
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
 quietly _rm_qa_bootstrap
 local tests = 0
@@ -67,7 +65,5 @@ capture noisily {
 }
 if _rc == 0 local ++pass
 else local ++fail
-capture noisily _rm_qa_teardown
 display "RESULT: test_rangematch_hostile tests=`tests' pass=`pass' fail=`fail'"
 if `fail' exit 1
-log close _rm_hostile

@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and longitudinal interventions
 
-**Version 2.0.0** | 2026-08-19
+**Version 2.0.1** | 2026-08-28
 
 `gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
 
@@ -451,6 +451,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **2.0.1** (2026-08-28): Accelerated longitudinal simulation by absorbing post-death rows in one pass, scanning observed visit support once per variable, and hoisting invariant monotreatment histories out of the visit loop.
 - **2.0.0** (2026-08-19): Removed journal theme presets from `gcomptab`; use direct formatting options.
 - **1.5.0** (2026-08-19): Added `structural()` rules that fit component models on the nonstructural complement and force deterministic mediator or outcome values from each world’s simulated history.
 - **1.4.8** (2026-08-19): Added unconditional warnings when component models omit eligible observations at fit time, with exact fitted and omitted row counts.

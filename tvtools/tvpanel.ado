@@ -1,4 +1,4 @@
-*! tvpanel Version 1.16.0  2026/08/13
+*! tvpanel Version 1.17.0  2026/08/28
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -489,22 +489,12 @@ program define tvpanel, rclass
     local cumvars ""
     local have_cum_rows 0
     if "`cumulative'" != "" & "`cumclasses'" != "" {
-        quietly {
-            use `grid', clear
-            keep `tp_row' `id' `pstart'
-            joinby `id' using `epi_union'
-            keep if `tp_estart' < `pstart'
-            gen double `tp_days' = max(0, min(`tp_estop', `pstart' - 1) - `tp_estart' + 1)
-            keep if `tp_days' > 0
-            count
-            if r(N) > 0 {
-                collapse (sum) `tp_days', by(`tp_row' `tp_eclass')
-                reshape wide `tp_days', i(`tp_row') j(`tp_eclass')
-                tempfile cum
-                save `cum', replace
-                local have_cum_rows 1
-            }
-        }
+        tempfile cum
+        quietly _tvpanel_cumulative, gridfile("`grid'") episodes("`epi_union'") ///
+            outfile("`cum'") id(`id') row(`tp_row') pstart(`pstart') ///
+            estart(`tp_estart') estop(`tp_estop') class(`tp_eclass') ///
+            days(`tp_days')
+        local have_cum_rows = r(has_rows)
     }
 
     * --- Assemble the panel ---
