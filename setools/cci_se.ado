@@ -1,4 +1,4 @@
-*! cci_se Version 1.5.5  2026/08/13
+*! cci_se Version 1.5.6  2026/08/28
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package

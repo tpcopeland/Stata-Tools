@@ -144,6 +144,124 @@ program define _msm_qa_register_weights
     if `rc' exit `rc'
 end
 
+**# _msm_qa_predict_xb
+*
+* Retained scalar prediction specification used as an independent oracle for
+* the vectorized Mata implementation. This intentionally mirrors msm 1.4.6.
+capture program drop _msm_qa_predict_xb
+program define _msm_qa_predict_xb
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , time(integer) treat_val(integer) ///
+            treatment(varname) period(varname) ///
+            period_spec(string) baseline(real) ///
+            [outcome_cov(string)] b_hat(name) probvar(varname)
+
+        local coef_names: colnames `b_hat'
+        local n_coefs: word count `coef_names'
+        tempvar xb
+        gen double `xb' = 0
+
+        forvalues i = 1/`n_coefs' {
+            local cname: word `i' of `coef_names'
+            if "`cname'" == "_cons" replace `xb' = `xb' + `b_hat'[1, `i']
+            else if "`cname'" == "`treatment'" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `treat_val'
+            }
+        }
+
+        local elapsed = `time' - `baseline'
+        local lag = cond(`elapsed' > 0, `treat_val', 0)
+        local cum = `treat_val' * max(0, `elapsed')
+        local dur = `treat_val' * max(0, `elapsed')
+        local intx = `treat_val' * `lag'
+        forvalues i = 1/`n_coefs' {
+            local cname: word `i' of `coef_names'
+            if "`cname'" == "_msm_hist_lag1" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `lag'
+            }
+            else if "`cname'" == "_msm_hist_cum" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `cum'
+            }
+            else if "`cname'" == "_msm_hist_dur" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `dur'
+            }
+            else if "`cname'" == "_msm_hist_int" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `intx'
+            }
+        }
+
+        forvalues i = 1/`n_coefs' {
+            local cname: word `i' of `coef_names'
+            if "`cname'" == "`period'" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `time'
+            }
+            else if "`cname'" == "_msm_period_sq" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `time'^2
+            }
+            else if "`cname'" == "_msm_period_cu" {
+                replace `xb' = `xb' + `b_hat'[1, `i'] * `time'^3
+            }
+        }
+
+        local knots : char _dta[_msm_per_ns_knots]
+        local ns_df : char _dta[_msm_per_ns_df]
+        if "`knots'" != "" & "`ns_df'" != "" {
+            local ki = 0
+            foreach kv of local knots {
+                local pk`ki' = `kv'
+                local ++ki
+            }
+            forvalues i = 1/`n_coefs' {
+                local cname: word `i' of `coef_names'
+                if "`cname'" == "_msm_per_ns1" {
+                    replace `xb' = `xb' + `b_hat'[1, `i'] * `time'
+                }
+            }
+            if `ns_df' > 1 {
+                local n_int = `ns_df' - 1
+                local t_last = `pk`ns_df''
+                local t_pen = `pk`n_int''
+                forvalues j = 0/`=`n_int'-1' {
+                    local jj = `j' + 2
+                    local d_j = (max(0, `time' - `pk`j'')^3 - ///
+                        max(0, `time' - `t_last')^3) / ///
+                        (`t_last' - `pk`j'')
+                    local d_pen = (max(0, `time' - `t_pen')^3 - ///
+                        max(0, `time' - `t_last')^3) / ///
+                        (`t_last' - `t_pen')
+                    local bval = `d_j' - `d_pen'
+                    forvalues i = 1/`n_coefs' {
+                        local cname: word `i' of `coef_names'
+                        if "`cname'" == "_msm_per_ns`jj'" {
+                            replace `xb' = `xb' + `b_hat'[1, `i'] * `bval'
+                        }
+                    }
+                }
+            }
+        }
+
+        if "`outcome_cov'" != "" {
+            foreach var of local outcome_cov {
+                forvalues i = 1/`n_coefs' {
+                    local cname: word `i' of `coef_names'
+                    if "`cname'" == "`var'" {
+                        replace `xb' = `xb' + `b_hat'[1, `i'] * `var'
+                    }
+                }
+            }
+        }
+
+        replace `probvar' = invlogit(`xb')
+        drop `xb'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 **# _msm_qa_register_fit
 *
 * Register a hand-built coefficient vector as a genuine package-owned fit.

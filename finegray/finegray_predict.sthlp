@@ -1,5 +1,6 @@
 {smcl}
 {vieweralsosee "finegray" "help finegray"}{...}
+{vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
@@ -84,16 +85,13 @@ there; see {help finegray##mi:Multiple imputation} in {helpb finegray}.
 
 {pstd}
 {bf:Left truncation (delayed entry).} All prediction types may {bf:move} under
-delayed entry because the fitted coefficients and baseline move. The risk sets
-use Zhang-Zhang-Fine Weight 1. With one weight stratum this is the equivalent
-Geskus product-limit factor A = G(t-)H(t-); with multiple strata it uses the
-equation-7 pooled time-side stabilizer and stratum-specific subject
-denominators. Different censoring and entry groupings use the package's factorized
-cross-classification. The finite-sample tie rule is package-defined. See
-{help finegray##lt:Left truncation} in {helpb finegray}. Point {cmd:xb} scoring
-needs only {cmd:e(b)}, but {opt ci}, {opt schoenfeld}, and {opt bootstrap()}
-reconstruct the weight design and require the original, unmodified estimation
-data.
+delayed entry because the fitted coefficients and baseline move: the risk sets
+use Zhang-Zhang-Fine Weight 1 with a package-defined finite-sample tie rule. See
+{help finegray##lt:Left truncation} in {helpb finegray} and
+{help finegray_methods##lt:Left truncation} in {helpb finegray_methods}. Point
+{cmd:xb} scoring needs only {cmd:e(b)}, but {opt ci}, {opt schoenfeld}, and
+{opt bootstrap()} reconstruct the weight design and require the original,
+unmodified estimation data.
 
 {pstd}
 {bf:What time point does the CIF use?} By default, {opt cif} evaluates the
@@ -105,25 +103,12 @@ CIF. {cmd:stcrreg} produces this covariate-adjusted CIF through
 {cmd:predict, basecif} gives the baseline (covariate-free) CIF instead. To
 obtain the predicted CIF for every observation at a {bf:common} time point
 t*, set a constant time variable and pass it through {opt timevar()} (see
-{it:CIF at custom time points} under Examples). The baseline cumulative
-subdistribution hazard H0(t) -- the cumulative-hazard analogue of
-{cmd:stcrreg}'s {cmd:basecif} -- is a right-continuous step function. The command
-uses {cmd:e(basehaz)} when the fit requested
-{opt basehaz}; otherwise it uses the active fit's cached baseline or rebuilds
-the same curve from the unchanged estimation data. Its baseline CIF is
-F0(t) = 1 - exp(-H0(t)), and an individual's covariate-adjusted CIF is
-CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), equivalently
-1 - exp(-H0(t) * exp(z'beta)).
-
-{pstd}
-{bf:Converting {cmd:stcrreg}'s {cmd:basecif} by hand:} the exp(z'beta) factor
-rescales the baseline {it:survival} 1 - F0(t), {bf:not} the baseline CIF F0(t)
-itself. The correct adjustment is CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), and
-{bf:not} F0(t)^exp(z'beta). Raising the CIF directly to the exp(z'beta) power is
-a common mistake -- it moves the CIF in the wrong direction (toward 0) when
-z'beta > 0. Using {cmd:stcrreg}'s {cmd:basecif} as F0(t),
-{cmd:finegray_predict, cif} matches 1 - (1 - {cmd:basecif})^exp(z'beta) to
-numerical precision.
+{it:CIF at custom time points} under Examples). The command uses
+{cmd:e(basehaz)} when the fit requested {opt basehaz}; otherwise it uses the
+active fit's cached baseline or rebuilds the same curve from the unchanged
+estimation data. The formulas, and how to convert {cmd:stcrreg}'s
+{cmd:basecif} by hand, are in
+{help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
 {cmd:finegray} must have been run before using {cmd:finegray_predict}. For
@@ -135,23 +120,22 @@ never saw is refused with {cmd:r(459)}; see
 {help finegray_predict##fvalign:Factor-variable alignment} below.
 
 {pstd}
-{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
-rather than erroring, leaving {cmd:e(converged)} at 0 and the fitted coefficients
-and baseline at the last iterate rather than a solution. Every prediction type
-depends on that fitted solution, so it could otherwise return a quantity from a
-non-solution with {cmd:rc 0}. {cmd:finegray_predict} therefore exits with
-{cmd:r(430)} when {cmd:e(converged)} is not 1 -- this applies to {opt xb} just as
-it does to {opt cif} and {opt schoenfeld}. Refit with a larger {opt iterate()}
-or a different specification. (Refits inside {opt bootstrap()} that fail to
-converge are a separate matter: they are skipped and counted, not fatal.)
+{bf:A converged fit is required.} {cmd:finegray_predict} exits with
+{cmd:r(430)} when {cmd:e(converged)} is not 1 -- this applies to {opt xb} just
+as it does to {opt cif} and {opt schoenfeld}, because every prediction type
+depends on the fitted solution. Refit with a larger {opt iterate()} or a
+different specification. (Refits inside {opt bootstrap()} that fail to converge
+are a separate matter: they are skipped and counted, not fatal.) See
+{help finegray_methods##estimator:The estimator}.
 
 {pstd}
-The {opt ci} and {opt schoenfeld} paths verify that the original estimation sample and its
-model variables are unchanged. If those data have been edited, the command
-exits with {cmd:r(459)} and requires {cmd:finegray} to be re-run. That check also covers
-the package-owned {cmd:_fg_*} design columns: dropping them is supported (they are
-rebuilt on demand), but altering one in place is not, because {helpb finegray_cif} and
-{helpb finegray_phtest} read those columns directly.
+The {opt ci} and {opt schoenfeld} paths verify that the original
+estimation sample and its model variables are unchanged. If those data
+have been edited, the command exits with {cmd:r(459)} and requires
+{cmd:finegray} to be re-run. That check also covers the package-owned
+{cmd:_fg_*} design columns: dropping them is supported (they are rebuilt
+on demand), but altering one in place is not, because {helpb finegray_cif}
+and {helpb finegray_phtest} read those columns directly.
 
 {pstd}
 Point {opt xb} predictions remain available on compatible new data. Point
@@ -177,26 +161,15 @@ will exit with an informative error if the estimation context is not present.
 
 {pstd}
 {bf:Relationship to {help stcrreg} predictions:} On fits without delayed entry,
-{cmd:finegray_predict}
-reproduces the post-estimation predictions of Stata's native Fine-Gray
-estimator {helpb stcrreg}. {opt xb} is numerically identical to
-{cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF (all covariates set to 0)
-reproduces {cmd:predict, basecif}; and the fitted baseline cumulative
-subhazard equals H0(t) = -ln(1 - {cmd:basecif}) at each distinct event time. When
-{cmd:finegray} is fit with {opt basehaz}, that curve is also posted in
-{cmd:e(basehaz)}. The per-observation {opt cif} is the covariate-adjusted CIF,
-which {cmd:stcrreg} exposes only through {cmd:stcurve, cif at()} (not
-{cmd:predict}); {cmd:finegray_predict, cif} matches it to numerical
-precision. {opt schoenfeld} residuals are identical to {cmd:predict, schoenfeld}
-{bf:at untied cause-event times}. At a {bf:tied} cause-event time the two
-implementations split the residual among the simultaneous events using
-different conventions, so an individual residual at a tied time can differ
-between {cmd:finegray} and {cmd:stcrreg}; however, the
-{bf:sum of the residuals within each event time is identical}, as is the
-overall score (their grand total, which is zero at the estimate). Only the
-per-observation values at tied times are affected -- untied times, the
-per-time totals, and every quantity that aggregates over event times are
-unchanged.
+{cmd:finegray_predict} reproduces the post-estimation predictions of Stata's
+native Fine-Gray estimator {helpb stcrreg}: {opt xb} is numerically identical
+to {cmd:stcrreg}'s {cmd:predict, xb}, the baseline CIF reproduces
+{cmd:predict, basecif}, the per-observation {opt cif} matches the
+covariate-adjusted CIF {cmd:stcrreg} exposes through {cmd:stcurve, cif at()},
+and {opt schoenfeld} residuals are identical {bf:at untied cause-event times}
+while a tied time splits the residual by a different convention that preserves
+the per-time total. The mapping in full is in
+{help finegray_methods##stcrreg:Comparison with stcrreg}.
 
 
 {marker options}{...}
@@ -259,14 +232,9 @@ CIF is 1 - exp(-{it:sum}). There is one baseline, so {opt basecshazard} is
 unchanged.
 
 {pmore}
-{opt ci} on its own {bf:is} available as of version 1.3.0. Development builds
-refused it, because the influence function behind it was derived for a single
-exp(z'b) multiplying every baseline increment, which a piecewise b({it:t}) is
-not. It has since been re-derived: interval {it:j}'s contribution is the same
-construction evaluated on that interval's events and design, so the influence
-function is the sum over intervals of the pieces the proportional one already
-computes, plus a derivative block for each interval's own coefficients. At one
-interval it collapses to the proportional formula term for term.
+{opt ci} on its own {bf:is} available as of version 1.3.0, from an influence
+function derived for a piecewise b({it:t}); development builds refused it. See
+{help finegray_methods##tvc:Time-varying effects}.
 
 {pmore}
 {opt ci} {opt bootstrap(#)} remains available and is the arm the analytic route
@@ -275,12 +243,12 @@ is checked against -- each replication refits the whole model, and
 are the same estimator as the point estimate. As on a proportional fit, the
 analytic route is {bf:fixed-weight}: it does not propagate the uncertainty in
 the estimated censoring distribution, so it returns the same standard errors
-after a {helpb finegray##nuisance:nuisance} fit as after a default one.
+after a {help finegray_methods##nuisance:nuisance} fit as after a default one.
 
 {pmore}
-{opt schoenfeld} is {bf:not available}. Each residual is defined inside its own
-interval, so every other interval's block is zero by construction and the table
-is not a proportional-hazards diagnostic. Run {helpb finegray_phtest} on the
+{opt schoenfeld} is {bf:not available} and is refused with {cmd:r(198)},
+because each residual is defined inside its own interval and every other
+interval's block is zero by construction. Run {helpb finegray_phtest} on the
 proportional fit -- a rejection there is what {opt tvc()} answers -- and use
 {cmd:test [tvc1]}{it:x} {cmd:= [tvc2]}{it:x} after the {opt tvc()} fit.
 
@@ -298,11 +266,11 @@ missing level.
 
 {pmore}
 A row in a stratum that carried no cause-of-interest event is refused with
-{cmd:r(459)}, naming the level. That stratum's Breslow baseline is identically
-zero, which is a degenerate curve rather than an estimate of one, and a CIF of
-exactly 0 for a whole group reads as a finding. Exclude those rows with
-{cmd:if}. The level is also named at fit time, in the note {cmd:finegray}
-prints and in {cmd:e(bstrata_noevent)}.
+{cmd:r(459)}, naming the level, because that stratum's Breslow baseline is
+identically zero. Exclude those rows with {cmd:if}. The level is also named at
+fit time, in the note {cmd:finegray} prints and in
+{cmd:e(bstrata_noevent)}. See
+{help finegray_methods##refusals:What is refused, and why}.
 
 {pmore}
 {opt xb} is unaffected: it is z'beta and reads no baseline at all, so it is
@@ -312,22 +280,22 @@ stratum risk set, but it has no degenerate-stratum problem: a stratum with no
 cause event contributes no residuals.
 
 {phang}
-{opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For a
-model with {it:p} covariates, {it:p} variables are created: {it:newvar}
-contains residuals for the first covariate, and {it:newvar}{cmd:_2} through
-{it:newvar}{cmd:_}{it:p} contain residuals for the remaining
-covariates. Because the suffix is part of the created name, a one-covariate
-model allows a 32-character {it:newvar}; with multiple covariates, its maximum
-length is 32 - 1 - length(string({it:p})) characters (30 for 2-9 terms, 29 for
-10-99, and so on). An over-long stub is refused with {cmd:r(198)} before any
-residual is computed. Residuals are set to missing for observations that are not
-cause-of-interest events. {opt timevar()} is not allowed with {opt schoenfeld}
-and is rejected with {cmd:r(198)}; residuals are computed at the original event times. The
-residuals match
-{helpb stcrreg}'s {cmd:predict, schoenfeld} exactly at untied event times; at a
-tied event time the per-event split follows {cmd:finegray}'s own convention but
-preserves the per-time total (see {it:Relationship to stcrreg predictions}
-under {help finegray_predict##description:Description}).
+{opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For
+a model with {it:p} covariates, {it:p} variables are created: {it:newvar}
+contains residuals for the first covariate, and {it:newvar}{cmd:_2}
+through {it:newvar}{cmd:_}{it:p} contain residuals for the remaining
+covariates. Because the suffix is part of the created name, a
+one-covariate model allows a 32-character {it:newvar}; with multiple
+covariates, its maximum length is 32 - 1 - length(string({it:p}))
+characters (30 for 2-9 terms, 29 for 10-99, and so on). An over-long stub
+is refused with {cmd:r(198)} before any residual is computed. Residuals
+are set to missing for observations that are not cause-of-interest
+events. {opt timevar()} is not allowed with {opt schoenfeld} and is
+rejected with {cmd:r(198)}; residuals are computed at the original event
+times. The residuals match {helpb stcrreg}'s {cmd:predict, schoenfeld}
+exactly at untied event times; at a tied event time the per-event split
+follows {cmd:finegray}'s own convention but preserves the per-time
+total; see {help finegray_methods##stcrreg:Comparison with stcrreg}.
 
 {phang}
 {opth timevar(varname)} specifies a variable to use as the time axis instead
@@ -342,18 +310,20 @@ predicted CIF at that horizon.
 
 {phang}
 {opt ci} (with {opt cif}) additionally generates {it:newvar}{cmd:_lci} and
-{it:newvar}{cmd:_uci}, the lower and upper confidence limits for each predicted
-CIF. The suffixes are part of the created names, so with {opt ci} the
-{it:newvar} may be at most 28 characters; an over-long name is refused with
-{cmd:r(198)} before any prediction is computed. Limits use an influence-function (sandwich) standard error and are formed
-on the complementary log-log scale so they remain inside (0,1). Because the
-influence functions require the original estimation data, {opt ci} restricts
-the prediction to the estimation sample ({cmd:e(sample)}) and needs {cmd:_t} in
-memory. The standard error treats the inverse-probability-of-censoring weights
-and, under delayed entry, the entry weights as fixed. It therefore omits
-weight-estimation variability. For pointwise confidence limits over a grid of
-times, or a fixed-horizon table for a covariate profile, see
-{helpb finegray_cif}.
+{it:newvar}{cmd:_uci}, the lower and upper confidence limits for each
+predicted CIF. The suffixes are part of the created names, so with
+{opt ci} the {it:newvar} may be at most 28 characters; an over-long name
+is refused with {cmd:r(198)} before any prediction is computed. Limits use
+an influence-function (sandwich) standard error and are formed on the
+complementary log-log scale so they remain inside (0,1). Because the
+influence functions require the original estimation data, {opt ci}
+restricts the prediction to the estimation sample ({cmd:e(sample)}) and
+needs {cmd:_t} in memory. The standard error treats the
+inverse-probability-of-censoring weights and, under delayed entry, the
+entry weights as fixed, so it omits weight-estimation variability; see
+{help finegray_methods##cif:Cumulative incidence}. For pointwise
+confidence limits over a grid of times, or a fixed-horizon table for a
+covariate profile, see {helpb finegray_cif}.
 
 {phang}
 {opt bootstrap(#)} (with {opt ci}) computes the confidence limits by resampling
@@ -362,9 +332,8 @@ influence-function SE. If the original fit specified {opt cluster()}, whole
 clusters are resampled instead. Nonconverged refits, and refits whose resample
 loses a factor level, are skipped (a note reports how many). At least 25
 replications must be requested, and at least 25 must succeed, or
-{cmd:finegray_predict} exits with an error: a standard error is the sample
-standard deviation of the replicate estimates, and below about 25 replications
-that standard deviation is itself mostly noise. The refit is run on the
+{cmd:finegray_predict} exits with an error; see
+{help finegray_methods##cif:Cumulative incidence}. The refit is run on the
 estimation sample, so any {cmd:if} or {cmd:in} qualifier used at fit time does
 not apply to the replications. Each replication re-estimates the model and its
 censoring weights; under delayed entry it also re-estimates the entry weights
@@ -376,10 +345,10 @@ results and {cmd:e(sample)} are preserved.
 {opt bootstrap()}, and must be an integer between {cmd:0} and {cmd:2147483647}.
 
 {phang}
-{opt level(#)} sets the confidence level for {opt ci}; the default is {cmd:c(level)},
-which is initially 95; the setting can be changed by {helpb set level} and must
-be between 10 and 99.99 inclusive, with at most two decimal places -- the same
-rule {cmd:finegray} itself applies.
+{opt level(#)} sets the confidence level for {opt ci}; the default is
+{cmd:c(level)}, which is initially 95; the setting can be changed by
+{helpb set level} and must be between 10 and 99.99 inclusive, with at most
+two decimal places -- the same rule {cmd:finegray} itself applies.
 
 {marker fvalign}{...}
 {pstd}
@@ -392,10 +361,8 @@ offending variable and the levels that were fitted. It does not silently
 collapse such an observation onto the base category.
 
 {pstd}
-This matters whenever the level support changes. Fitting on {cmd:i.grp} over
-levels 1/2/3 and then shifting the data to levels 2/3/4 leaves three factor
-terms in both cases; matching them positionally would apply the coefficient for
-level 2 to level 3, and so on, with no error. Matching by value cannot.
+This matters whenever the level support changes; see
+{help finegray_methods##fv:Factor variables and margins}.
 
 
 {marker examples}{...}
@@ -504,7 +471,7 @@ prediction was evaluated at{p_end}
 {title:Also see}
 
 {psee}
-Online: {helpb finegray}, {helpb finegray_cif}, {helpb finegray_phtest},
-{helpb stcrreg}, {helpb stcox}, {helpb stset}
+Online: {helpb finegray}, {helpb finegray_methods}, {helpb finegray_cif},
+{helpb finegray_phtest}, {helpb stcrreg}, {helpb stcox}, {helpb stset}
 
 {hline}

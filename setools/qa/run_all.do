@@ -1,5 +1,5 @@
-*! run_all.do  2.0.0  2026/07/13
-*! Curated isolated runner with quick/core/full/python/network lanes
+*! run_all.do  2.1.0  2026/08/28
+*! Curated isolated runner with quick/core/full/python/network/benchmark lanes
 
 version 16.0
 capture log close _all
@@ -7,8 +7,8 @@ set more off
 args mode
 local mode = lower(strtrim("`mode'"))
 if "`mode'" == "" local mode "full"
-if !inlist("`mode'", "quick", "core", "full", "python", "network") {
-    display as error "run_all.do mode must be quick, core, full, python, or network"
+if !inlist("`mode'", "quick", "core", "full", "python", "network", "benchmark") {
+    display as error "run_all.do mode must be quick, core, full, python, network, or benchmark"
     display "RESULT: run_all mode=`mode' suites=0 pass=0 fail=1"
     exit 198
 }
@@ -30,6 +30,7 @@ local quick ///
     test_cdp_adversarial ///
     validation_sustainedss_known_answers ///
     validation_pira_known_answers ///
+    validation_setools_performance_identity ///
     test_edss_fixture
 
 local core_extra ///
@@ -65,6 +66,7 @@ local crossval ///
 local full "`core' `crossval'"
 local python "`crossval'"
 local network "test_network_smoke"
+local benchmark "benchmark_setools_performance"
 local suites "``mode''"
 
 do "`qa_dir'/_setools_qa_common.do" setup_runner "`pkg_dir'"

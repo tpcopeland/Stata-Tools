@@ -210,7 +210,7 @@ else {
 
 local ++test_count
 capture noisily {
-    local helper_files "_setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_dta_path.ado"
+    local helper_files "_setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_gmin.ado _setools_pira_rebase.ado _setools_dta_path.ado"
     local source_ados "setools.ado cci_se.ado migrations.ado sustainedss.ado cdp.ado pira.ado `helper_files'"
     foreach f of local helper_files {
         _assert_file_contains "`pkg_dir'/`f'", pattern("c(varabbrev)")
@@ -295,8 +295,11 @@ capture noisily {
     foreach cmd of local public_cmds {
         which `cmd'
     }
-    findfile _setools_dta_path.ado
-    confirm file "`r(fn)'"
+    foreach helper in _setools_cdp_baseline _setools_cdp_thresh ///
+        _setools_cdp_confirm _setools_cdp_core _setools_gmin ///
+        _setools_pira_rebase _setools_dta_path {
+        which `helper'
+    }
 }
 if _rc == 0 {
     local ++pass_count

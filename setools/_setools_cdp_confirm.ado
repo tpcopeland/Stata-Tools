@@ -1,4 +1,4 @@
-*! _setools_cdp_confirm Version 1.5.5  2026/08/13
+*! _setools_cdp_confirm Version 1.5.6  2026/08/28
 *! setools internal: per-person confirmation EDSS value for a candidate date
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -40,7 +40,6 @@ program define _setools_cdp_confirm, nclass
     local datevar `3'
 
     if "`confirmtype'" == "" local confirmtype "sustained"
-    tempvar firstdt firstedss minvalue
     if "`dateout'" == "" {
         tempvar internal_dateout
         local dateout `internal_dateout'
@@ -54,20 +53,20 @@ program define _setools_cdp_confirm, nclass
     * interval.  Its actual date and conservative same-day EDSS are carried to
     * the roving-baseline transition even when sustained confirmation also
     * examines later visits.
-    qui gen long `firstdt' = `datevar' if ///
+    qui gen long `dateout' = `datevar' if ///
         `datevar' >= `canddate' + `confirmdays' & !missing(`canddate')
-    qui egen long `dateout' = min(`firstdt'), by(`idvar')
-    qui gen double `firstedss' = `edssvar' if `datevar' == `dateout'
-    qui egen double `edssout' = min(`firstedss'), by(`idvar')
+    _setools_gmin `dateout', by(`idvar')
+    qui gen double `edssout' = `edssvar' if `datevar' == `dateout'
+    _setools_gmin `edssout', by(`idvar')
 
     if "`confirmtype'" == "visit" {
         qui gen double `generate' = `edssout'
     }
     else {
         * Minimum EDSS across all visits at/after candidate+confirmdays
-        qui gen double `minvalue' = `edssvar' if ///
+        qui gen double `generate' = `edssvar' if ///
             `datevar' >= `canddate' + `confirmdays' & !missing(`canddate')
-        qui egen double `generate' = min(`minvalue'), by(`idvar')
+        _setools_gmin `generate', by(`idvar')
     }
 
     }

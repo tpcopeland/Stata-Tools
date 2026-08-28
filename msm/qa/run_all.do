@@ -3,10 +3,11 @@
 * Master runner for the msm QA surface.
 *
 * Curated scope (see qa/README.md for the named inventory):
-*   - quick:       30 functional/regression suites
-*   - validations:  7 known-answer/recovery suites
+*   - quick:       32 functional/regression suites
+*   - validations:  8 known-answer/recovery suites
 *   - crossval:     3 R/Python parity suites
-*   - full:        all 40 suites (default)
+*   - benchmark:    1 vectorization timing/equivalence guard
+*   - full:        all 43 correctness suites (default; benchmark separate)
 *
 * Usage:
 *   stata-mp -b do run_all.do              // full release gate (default)
@@ -14,6 +15,7 @@
 *   stata-mp -b do run_all.do core         // all Stata-side QA
 *   stata-mp -b do run_all.do validations  // Stata validation suites
 *   stata-mp -b do run_all.do crossval     // cross-language only
+*   stata-mp -b do run_all.do benchmark    // performance guard only
 * Legacy aliases: tests=quick, stata=core, all=full.
 
 version 16.0
@@ -48,23 +50,26 @@ if "`mode'" == "all" local mode "full"
 
 local suite_list ""
 if "`mode'" == "core" {
-    local suite_list "test_qa_harness test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_period_basis test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_hostile test_msm_state_guards test_msm_state_identity test_msm_transaction_regressions test_msm_history_positivity_regressions test_msm_risk_process_regressions test_msm_fit_prediction_regressions test_msm_diagnostics_output_regressions test_msm_release_option_regressions test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_diagnostic_contracts test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_history_recovery"
+    local suite_list "test_qa_harness test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_period_basis test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_hostile test_msm_state_guards test_msm_state_identity test_msm_transaction_regressions test_msm_history_positivity_regressions test_msm_risk_process_regressions test_msm_fit_prediction_regressions test_msm_diagnostics_output_regressions test_msm_release_option_regressions test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_diagnostic_contracts test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_history_recovery validation_msm_predict_vectorized"
 }
 else if "`mode'" == "quick" {
     local suite_list "test_qa_harness test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_period_basis test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_hostile test_msm_state_guards test_msm_state_identity test_msm_transaction_regressions test_msm_history_positivity_regressions test_msm_risk_process_regressions test_msm_fit_prediction_regressions test_msm_diagnostics_output_regressions test_msm_release_option_regressions test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_diagnostic_contracts test_msm_abbrev_reload"
 }
 else if "`mode'" == "validations" {
-    local suite_list "validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_history_recovery"
+    local suite_list "validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_history_recovery validation_msm_predict_vectorized"
 }
 else if "`mode'" == "crossval" {
     local suite_list "crossval_msm crossval_external_models crossval_msm_ipw_dta"
 }
+else if "`mode'" == "benchmark" {
+    local suite_list "benchmark_msm_predict"
+}
 else if "`mode'" == "full" {
-    local suite_list "test_qa_harness test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_period_basis test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_hostile test_msm_state_guards test_msm_state_identity test_msm_transaction_regressions test_msm_history_positivity_regressions test_msm_risk_process_regressions test_msm_fit_prediction_regressions test_msm_diagnostics_output_regressions test_msm_release_option_regressions test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_diagnostic_contracts test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_history_recovery crossval_msm crossval_external_models crossval_msm_ipw_dta"
+    local suite_list "test_qa_harness test_msm test_msm_table test_msm_options test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_period_basis test_msm_fit_guidance test_msm_cox_state test_msm_continuous_exposure test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_hostile test_msm_state_guards test_msm_state_identity test_msm_transaction_regressions test_msm_history_positivity_regressions test_msm_risk_process_regressions test_msm_fit_prediction_regressions test_msm_diagnostics_output_regressions test_msm_release_option_regressions test_package_release test_demo_contract test_msm_psdash_contract test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_diagnostic_contracts test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity validation_msm_recovery validation_msm_dgp_recovery validation_msm_history_recovery validation_msm_predict_vectorized crossval_msm crossval_external_models crossval_msm_ipw_dta"
 }
 else {
     display as error "Unknown run_all mode: `mode'"
-    display as error "Use one of: quick, core, validations, crossval, full"
+    display as error "Use one of: quick, core, validations, crossval, benchmark, full"
     log close master
     sysdir set PLUS "`original_plus'"
     sysdir set PERSONAL "`original_personal'"
@@ -96,6 +101,13 @@ if inlist("`mode'", "validations", "core", "full") {
 }
 if inlist("`mode'", "crossval", "full") {
     local found : dir "`qa_dir'" files "crossval_*.do"
+    foreach f of local found {
+        local stem = substr("`f'", 1, strlen("`f'") - 3)
+        local discovered "`discovered' `stem'"
+    }
+}
+if "`mode'" == "benchmark" {
+    local found : dir "`qa_dir'" files "benchmark_*.do"
     foreach f of local found {
         local stem = substr("`f'", 1, strlen("`f'") - 3)
         local discovered "`discovered' `stem'"

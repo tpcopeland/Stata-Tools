@@ -1,4 +1,4 @@
-*! _msm_post_export_open Version 1.4.6  2026/08/11
+*! _msm_post_export_open Version 1.4.7  2026/08/28
 *! Batch-safe auto-open helper for exported MSM artifacts
 *! Author: Timothy P Copeland, Karolinska Institutet
 

@@ -80,7 +80,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `test_finegray_contracts.do` | Weight-stratum mapping, factor scoring, singleton strata, and fail-closed inversion. |
 | `test_finegray_hostile.do` | No-event and foreign-postestimation refusal with input preservation. |
 | `test_finegray_estimates_use.do` | Saved-estimate reloads for datasets saved before and after the fit, empty `e(sample)` diagnosis, `estimates esample:` recovery, and signature enforcement. |
-| `test_finegray_sthlp_render.do` | Self-contained SMCL render and literal-markup checks for shipped help. |
+| `test_finegray_sthlp_render.do` | Self-contained SMCL render, literal-markup, rendered-whitespace, and `finegray_methods##marker` link-target checks for shipped help. |
 | `test_documentation_examples.do` | Installed-user execution of README/help workflows and advertised baseline options. |
 
 ### Validation

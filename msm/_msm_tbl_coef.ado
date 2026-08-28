@@ -1,4 +1,4 @@
-*! _msm_tbl_coef Version 1.4.6  2026/08/11
+*! _msm_tbl_coef Version 1.4.7  2026/08/28
 *! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_coef, nclass
     version 16.0
