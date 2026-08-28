@@ -1,4 +1,4 @@
-*! desctab Version 2.0.0  2026/08/19 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.0.1  2026/08/28 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -113,18 +113,18 @@ program define desctab, rclass
     /* Validation: Check if vars() is specified */
     if "`vars'" == "" {
         display as error "vars() or varlist required"
-        error 100
+        exit 100
     }
 
     if "`smallcells'" != "" {
         capture confirm integer number `smallcells'
         if _rc {
             display as error "smallcells() must be an integer greater than or equal to 3"
-            error 198
+            exit 198
         }
         if `smallcells' < 3 {
             display as error "smallcells() must be an integer greater than or equal to 3"
-            error 198
+            exit 198
         }
     }
 
@@ -141,7 +141,7 @@ program define desctab, rclass
         capture confirm variable `by'
         if _rc {
             display as error "by() variable `by' not found"
-            error 111
+            exit 111
         }
     }
 
@@ -156,7 +156,7 @@ program define desctab, rclass
         display as error "by() variable name `by' collides with internal reshape columns"
         display as error "Reserved prefixes: N_, m_; reserved names: N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb"
         display as error "Rename the variable (e.g. {bf:rename `by' grp}); see {help table1_tc##technical:help table1_tc}"
-        error 498  // User-defined error
+        exit 498  // User-defined error
     }
 
     /* Check if Excel options are properly specified */
@@ -168,7 +168,7 @@ program define desctab, rclass
 
     if "`total'" != "" & !inlist("`total'", "before", "after") {
         display as error "total() must be before or after"
-        error 198
+        exit 198
     }
 
     // Default sheet name when excel() is specified but sheet() is not
@@ -183,28 +183,28 @@ program define desctab, rclass
     // sheet() only makes sense with excel(); title() also applies to Markdown.
     if !`has_excel' & `has_sheet' {
         display as error "sheet() is only available when using excel()"
-        error 498
+        exit 498
     }
     if !`has_excel' & !`has_markdown' & `has_title' {
         display as error "title() is only available when using excel() or markdown()"
-        error 498
+        exit 498
     }
     if `has_open' & !`has_excel' {
         display as error "open requires excel() or xlsx()"
-        error 498
+        exit 498
     }
 
     /* Validate Excel file path for security */
     if `has_excel' {
         if !regexm(lower(`"`excel'"'), "\.xlsx$") {
             display as error "excel()/xlsx() must specify a .xlsx file"
-            error 198
+            exit 198
         }
         _tabtools_validate_path "`excel'" "excel()"
     }
     if "`mdappend'" != "" & !`has_markdown' {
         display as error "mdappend requires markdown()"
-        error 198
+        exit 198
     }
     if `has_markdown' {
         _tabtools_validate_path `"`markdown'"' "markdown()"
@@ -214,18 +214,18 @@ program define desctab, rclass
              strmatch(`"`_md_lower'"', "*.qmd") | ///
              strmatch(`"`_md_lower'"', "*.rmd")) {
             display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
-            error 198
+            exit 198
         }
     }
 
     /* Validate pdp and highpdp options */
     if `pdp' < 1 | `pdp' > 10 {
         display as error "pdp() must be between 1 and 10"
-        error 198
+        exit 198
     }
     if `highpdp' < 1 | `highpdp' > 10 {
         display as error "highpdp() must be between 1 and 10"
-        error 198
+        exit 198
     }
 
     /* Validate borderstyle option */
@@ -234,13 +234,13 @@ program define desctab, rclass
     // borderstyle only makes sense with excel()
     if `has_borderstyle' & !`has_excel' {
         display as error "borderstyle() is only available when using excel()"
-        error 498
+        exit 498
     }
 
     // borderstyle must be a valid value
     if `has_borderstyle' & !inlist("`borderstyle'", "default", "thin", "medium", "academic") {
         display as error "borderstyle() must be default, thin, medium, or academic"
-        error 498
+        exit 498
     }
 
     /* Validate weight option metadata */
@@ -248,7 +248,7 @@ program define desctab, rclass
         confirm numeric variable `wt'
         if "`weight'" == "fweight" {
             display as error "wt() and fweight cannot be used together"
-            error 198
+            exit 198
         }
     }
     local has_wt = "`wt'" != ""
@@ -402,7 +402,7 @@ program define desctab, rclass
         quietly count if `touse' & `wt' < 0
         if r(N) > 0 {
             display as error "wt() variable must be non-negative"
-            error 498
+            exit 498
         }
         quietly replace `touse' = 0 if `touse' & `wt' <= 0
     }
@@ -411,7 +411,7 @@ program define desctab, rclass
     quietly count if `touse'
     if r(N) == 0 {
         display as error "no observations"
-        error 2000
+        exit 2000
     }
 
     /* Stage the analytical table in frames; no intermediate .dta files. */
@@ -439,7 +439,7 @@ program define desctab, rclass
             capture confirm integer number `_pl'
             if _rc!=0 {
                 display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
-                error 498
+                exit 498
             }
         }
         // Ensure long storage so total sentinel value is exact
@@ -451,7 +451,7 @@ program define desctab, rclass
     // Check that grouping variable values are non-negative
     if `r(min)' < 0 {
         display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
-        error 498
+        exit 498
     }
 
     /* Sentinel value for total column (replaces hardcoded 919) */
@@ -461,7 +461,7 @@ program define desctab, rclass
     qui count if `groupnum' == `_total_code' & `touse'
     if `r(N)' > 0 {
         display as error "by() variable not allowed to take the value `_total_code' due to internal coding. Please recode to any other non-negative integer."
-        error 498
+        exit 498
     }
 
     // Get unique values of the grouping variable
@@ -473,7 +473,7 @@ program define desctab, rclass
         capture confirm integer number `l'
         if _rc!=0 {
             display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
-            error 498
+            exit 498
         }
     }
 
@@ -482,7 +482,7 @@ program define desctab, rclass
     // Check that by() has at least 2 groups if specified
     if `groupcount'<2 & "`by'"!="" {
         display as error "by() variable must have at least 2 levels"
-        error 498
+        exit 498
     }
 
     /* Store group level values for SMD comparisons */

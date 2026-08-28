@@ -97,6 +97,38 @@ if _rc == 0 local ++pass
 else local ++fail
 capture noisily tabtools set clear
 
+* A custom validation message must not be followed by Stata's own stock message.
+* desctab ended every validation branch with `error <rc>` after `display as
+* error`, so the user saw the package message and then Stata's generic one
+* ("invalid syntax"). The package convention elsewhere is `exit <rc>`.
+local ++tests
+capture noisily {
+    sysuse auto, clear
+    tempfile _errbase
+    local _errlog "`_errbase'.log"
+    capture log close _dtmsg
+    log using "`_errlog'", replace text name(_dtmsg)
+    capture noisily desctab price, by(foreign) smallcells(2)
+    local _sc_rc = _rc
+    log close _dtmsg
+    assert `_sc_rc' == 198
+    local _custom_seen 0
+    local _stock_seen 0
+    tempname _fh
+    file open `_fh' using "`_errlog'", read text
+    file read `_fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "smallcells() must be an integer") local _custom_seen 1
+        if strpos(`"`line'"', "invalid syntax") local _stock_seen 1
+        file read `_fh' line
+    }
+    file close `_fh'
+    assert `_custom_seen' == 1
+    assert `_stock_seen' == 0
+}
+if _rc == 0 local ++pass
+else local ++fail
+
 display "RESULT: test_tabtools_errors tests=`tests' pass=`pass' fail=`fail'"
 log close tabtools_errors
 if `fail' exit 1

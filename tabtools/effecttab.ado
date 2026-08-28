@@ -1,4 +1,4 @@
-*! effecttab Version 2.0.0  2026/08/19
+*! effecttab Version 2.0.1  2026/08/28
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -11,11 +11,12 @@ DESCRIPTION:
 	marginal effects.
 
 SYNTAX:
-	effecttab, xlsx(string) sheet(string) [type(string) effect(string) models(string)
+	effecttab, [xlsx(string) sheet(string) type(string) effect(string) models(string)
 	           sep(string asis) title(string) clean tlabels(string asis)]
 
-	xlsx:    Required. Excel file name (requires .xlsx suffix)
-	sheet:   Required. Excel sheet name
+	xlsx:    Optional. Excel file name (requires .xlsx suffix). Omit for console,
+	         frame(), csv(), or markdown() output only
+	sheet:   Optional. Excel sheet name (default: "Effects")
 	type:    Type of results: teffects, margins, or auto (default: auto)
 	effect:  Label for effect column (e.g., ATE, RD, RR, AME). Default varies by type.
 	models:  Label models, separating names with backslash (e.g., Model 1 \ Model 2)

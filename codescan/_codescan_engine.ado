@@ -1,5 +1,5 @@
-*! _codescan_engine Version 4.1.5  2026/08/19
-*! codescan Mata scanning engine (row-loop scan, co-occurrence, sensitivity)
+*! _codescan_engine Version 4.2.0  2026/08/28
+*! codescan Mata scanning engine (single-pass memoized scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan
 
@@ -36,11 +36,12 @@ void _codescan_mata_scan()
     string rowvector pk, epk
     real rowvector   lk, elk
     transmorphic     A
-    string colvector keys
-    string scalar    dval
     real matrix      D
     real colvector   anymatch
-    real scalar      didx, ndistinct, di
+    real scalar      didx, ndistinct
+    real colvector   cellidx
+    real scalar      ci, ncell
+    string colvector colv
 
     // Read parameters from Stata locals
     ncond      = strtoreal(st_local("_mata_ncond"))
@@ -138,108 +139,114 @@ void _codescan_mata_scan()
     match_counts = J(1, ncond, 0)
     mc_name = st_local("_mata_mc_name")
 
-    // ── DISTINCT-VALUE MEMOIZATION ──
+    // ── DISTINCT-VALUE MEMOIZATION, FUSED INTO A SINGLE PASS ──
     // A code's classification (matched AND NOT excluded, per condition) depends
     // ONLY on the string value, never on the row.  Registry data has millions of
-    // cells but only a few thousand distinct codes, so we classify each distinct
-    // (transformed) value once and reuse the result, turning the hot loop into a
-    // hash lookup.  Results are byte-identical to a per-cell scan; only the cost
-    // changes (O(distinct x ncond) pattern tests instead of O(N x nvars x ncond)).
-
-    // Pass 1 — collect the distinct transformed values that will be scanned.
+    // cells but only a few thousand distinct codes, so each distinct
+    // (transformed) value is classified ONCE — on first sight — and every later
+    // cell holding it applies the cached D row.  Results are byte-identical to
+    // a per-cell scan; only the cost changes (O(distinct x ncond) pattern tests
+    // instead of O(N x nvars x ncond)).  Classifying on first sight instead of
+    // in a separate collect pass keeps the scan to ONE traversal of the cells;
+    // the hash probe at ~1us/cell dominates the runtime, so the former
+    // collect-then-apply design paid for every cell twice.
+    //
+    // The j (variable) / i (row) / k (condition) nesting and early-outs of the
+    // original per-cell scan are preserved, so all ordering-dependent outputs
+    // (matched_code first-hit, match_counts, varcounts) are unchanged.
     A = asarray_create("string", 1)
     asarray_notfound(A, 0)
+    ndistinct = 0
+    D         = J(2048, ncond, 0)
+    anymatch  = J(2048, 1, 0)
+
     for (j = 1; j <= nvars; j++) {
         st_sview(col, ., scanvars[j])
-        for (i = 1; i <= N; i++) {
-            if (!touse[i]) continue
-            // Skip empty cells and bare "." placeholders (missing-value
-            // convention in registry data).  This mirrors codescan_describe
-            // so the exploration and scan tools agree on what is scannable.
-            if (col[i] == "" | col[i] == ".") continue
-            val = col[i]
-            if (strip_dots) val = subinstr(val, ".", "", .)
-            if (val == "") continue
-            if (use_nocase & is_prefix) val = ustrupper(val)
-            if (asarray(A, val) == 0) asarray(A, val, 1)
+
+        // Hoist the guards and transforms out of the row loop.  cellidx lists
+        // the scannable cells (in sample, nonempty, not the bare "." placeholder
+        // used as a missing-value convention in registry data — mirrors
+        // codescan_describe so the exploration and scan tools agree on what is
+        // scannable) from one vectorized pass, and nodots/nocase apply to the
+        // whole column at once.  colv holds the transformed values; matched_code
+        // still records the untransformed col[i].  When no transform is active,
+        // colv is a second view on the column, not a copy.
+        cellidx = selectindex(touse :& (col :!= "") :& (col :!= "."))
+        if (strip_dots | (use_nocase & is_prefix)) {
+            colv = col
+            if (strip_dots) colv = subinstr(colv, ".", "", .)
+            if (use_nocase & is_prefix) colv = ustrupper(colv)
         }
-    }
+        else {
+            st_sview(colv, ., scanvars[j])
+        }
+        ncell = rows(cellidx)
 
-    // Pass 2 — classify each distinct value once into D[didx, k]; assign each
-    // key its final index didx (1..ndistinct) in the asarray for O(1) lookup.
-    keys      = asarray_keys(A)
-    ndistinct = rows(keys)
-    D         = J(ndistinct, ncond, 0)
-    anymatch  = J(ndistinct, 1, 0)
-    for (di = 1; di <= ndistinct; di++) {
-        dval = keys[di]
-        asarray(A, dval, di)
-        for (k = 1; k <= ncond; k++) {
-            // ── Inclusion check ──
-            matched = 0
-            if (is_prefix) {
-                pk = *pfx_list[k]
-                lk = *pfx_lens[k]
-                npfx = cols(pk)
-                for (len = 1; len <= npfx; len++) {
-                    if (substr(dval, 1, lk[len]) == pk[len]) {
-                        matched = 1
-                        break
-                    }
+        for (ci = 1; ci <= ncell; ci++) {
+            i = cellidx[ci]
+            val = colv[i]
+            if (val == "") continue      // nodots emptied an all-dots code
+
+            didx = asarray(A, val)
+            if (didx == 0) {
+                // First sight of this value: classify it once, cache in D.
+                ndistinct = ndistinct + 1
+                if (ndistinct > rows(D)) {          // amortized doubling
+                    D        = D \ J(rows(D), ncond, 0)
+                    anymatch = anymatch \ J(rows(anymatch), 1, 0)
                 }
-            }
-            else {
-                // ustrregexm(): unicode-aware ICU engine. Returns 1/0 for valid
-                // patterns (-1 only on an invalid pattern, which the validator
-                // rejects up front); compare ==1 so any stray -1 is a non-match.
-                if (ustrregexm(dval, anchored_pats[k]) == 1) matched = 1
-            }
-            if (!matched) continue
-
-            // ── Exclusion check ──
-            if (has_excl & excl_patterns[k] != "") {
-                excluded = 0
-                if (is_prefix) {
-                    epk = *excl_pfx_list[k]
-                    elk = *excl_pfx_lens[k]
-                    enpfx = cols(epk)
-                    for (len = 1; len <= enpfx; len++) {
-                        if (substr(dval, 1, elk[len]) == epk[len]) {
-                            excluded = 1
-                            break
+                for (k = 1; k <= ncond; k++) {
+                    // ── Inclusion check ──
+                    matched = 0
+                    if (is_prefix) {
+                        pk = *pfx_list[k]
+                        lk = *pfx_lens[k]
+                        npfx = cols(pk)
+                        for (len = 1; len <= npfx; len++) {
+                            if (substr(val, 1, lk[len]) == pk[len]) {
+                                matched = 1
+                                break
+                            }
+                        }
+                    }
+                    else {
+                        // ustrregexm(): unicode-aware ICU engine. Returns 1/0
+                        // for valid patterns (-1 only on an invalid pattern,
+                        // which the validator rejects up front); compare ==1 so
+                        // any stray -1 is a non-match.
+                        if (ustrregexm(val, anchored_pats[k]) == 1) matched = 1
+                    }
+                    if (matched) {
+                        // ── Exclusion check ──
+                        excluded = 0
+                        if (has_excl & excl_patterns[k] != "") {
+                            if (is_prefix) {
+                                epk = *excl_pfx_list[k]
+                                elk = *excl_pfx_lens[k]
+                                enpfx = cols(epk)
+                                for (len = 1; len <= enpfx; len++) {
+                                    if (substr(val, 1, elk[len]) == epk[len]) {
+                                        excluded = 1
+                                        break
+                                    }
+                                }
+                            }
+                            else {
+                                // ==1 guard: a stray -1 must not exclude every
+                                // value.
+                                if (ustrregexm(val, anchored_excl[k]) == 1) excluded = 1
+                            }
+                        }
+                        if (!excluded) {
+                            D[ndistinct, k] = 1
+                            anymatch[ndistinct] = 1
                         }
                     }
                 }
-                else {
-                    // ==1 guard: a stray -1 must not exclude every value.
-                    if (ustrregexm(dval, anchored_excl[k]) == 1) excluded = 1
-                }
-                if (excluded) continue
+                asarray(A, val, ndistinct)
+                didx = ndistinct
             }
 
-            D[di, k] = 1
-            anymatch[di] = 1
-        }
-    }
-
-    // Pass 3 — apply.  Same j (variable) / i (row) / k (condition) nesting and
-    // early-out as the original per-cell scan, so all ordering-dependent outputs
-    // (matched_code first-hit, match_counts, varcounts) are preserved exactly.
-    // The only change: the inline pattern test is now a D[didx, k] lookup.
-    for (j = 1; j <= nvars; j++) {
-        st_sview(col, ., scanvars[j])
-
-        for (i = 1; i <= N; i++) {
-            if (!touse[i]) continue
-            // Guard MUST match Pass 1 exactly (same skip set), or a value
-            // scanned here but absent from asarray A would return didx==0.
-            if (col[i] == "" | col[i] == ".") continue
-
-            val = col[i]
-            if (strip_dots) val = subinstr(val, ".", "", .)
-            if (val == "") continue
-            if (use_nocase & is_prefix) val = ustrupper(val)
-            didx = asarray(A, val)
             // Values that match no condition (common: codes in untargeted
             // chapters) skip the condition loop entirely.
             if (anymatch[didx] == 0) continue

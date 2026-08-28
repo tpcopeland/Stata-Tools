@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.1.5** | 2026-08-19
+**Version 4.2.0** | 2026-08-28
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -368,6 +368,10 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.2.0 (2026-08-28)
+
+- Scan engine fused into a single pass. The scanner previously traversed every cell twice — once to collect distinct code values, once to apply the classification — and the hash probe per cell dominated the runtime. Distinct values are now classified on first sight and applied from the cache in the same traversal, with the per-cell sample/empty guards and `nodots`/`nocase` transforms hoisted into vectorized whole-column operations. On 1M rows x 20 slots x 5 conditions: row-level scan 53s to 21s, `collapse` and `merge` with date summaries 58-59s to 29-30s. Results are byte-identical — indicators, counts, `matched_code`, and `detail` attribution are unchanged, verified against the previous engine across regex, prefix, `nocase`, `nodots`, and `countmode` configurations.
 
 ### 4.1.5 (2026-08-19)
 

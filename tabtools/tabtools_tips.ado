@@ -1,4 +1,4 @@
-*! tabtools_tips Version 2.0.0  2026/08/19
+*! tabtools_tips Version 2.0.1  2026/08/28
 *! Quick links to the tabtools tips reference and worked recipes
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -14,18 +14,12 @@ program define tabtools_tips, nclass
             view help tabtools_tips
         }
         else {
-            display as text ""
             display as result "tabtools tips" as text " - quick reference and worked recipes"
-            display as text "{hline 62}"
-            display as text "Open the merged guide:"
-            display as text "  " as result "{help tabtools_tips:help tabtools_tips}"
-            display as text ""
-            display as text "Jump to:"
-            display as text "  " as result "{help tabtools_tips##quick:quick reference}" ///
-                as text "  - common option patterns by command"
-            display as text "  " as result "{help tabtools_tips##recipes:recipes}" ///
-                as text "          - end-to-end workflows"
-            display as text ""
+            display as text "Merged guide: " as result "{help tabtools_tips:help tabtools_tips}"
+            display as text "Option patterns by command: " ///
+                as result "{help tabtools_tips##quick:quick reference}"
+            display as text "End-to-end workflows: " ///
+                as result "{help tabtools_tips##recipes:recipes}"
         }
     }
     local rc = _rc

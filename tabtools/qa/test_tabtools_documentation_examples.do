@@ -25,13 +25,18 @@ capture noisily {
     assert !missing(r(N))
     assert r(N) > 0
     desctab rep78 foreign, by(foreign)
-    assert !missing(r(N_rows))
-    assert r(N_rows) > 0
+    assert `"`r(varlist)'"' != ""
+    assert `"`r(Dapa)'"' != ""
+    matrix _doc_desctab = r(table)
+    assert rowsof(_doc_desctab) > 0
     table1_tc rep78 foreign, by(foreign)
-    assert !missing(r(N_rows))
-    assert r(N_rows) > 0
+    assert `"`r(varlist)'"' != ""
+    matrix _doc_table1 = r(table)
+    assert rowsof(_doc_table1) > 0
     regress price mpg weight foreign
-    puttab using table.xlsx, sheet("Regression") matrix(e(b))
+    matrix _doc_T = r(table)'
+    puttab using table.xlsx, sheet("Coefs") matrix(_doc_T) ///
+        title("OLS coefficients") digits(3)
     assert !missing(r(n_cols))
     assert r(n_cols) > 0
     tabtools
