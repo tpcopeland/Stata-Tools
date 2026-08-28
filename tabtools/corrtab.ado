@@ -1,4 +1,4 @@
-*! corrtab Version 2.0.0  2026/08/19
+*! corrtab Version 2.0.1  2026/08/28
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -364,8 +364,8 @@ program define corrtab, rclass
         }
 
         return matrix C = `_corr'
-        capture return matrix P = `_pmat'
-        capture return matrix N = `_nmat'
+        return matrix P = `_pmat'
+        return matrix N = `_nmat'
         if "`frame'" != "" return local frame "`frame'"
         if `"`_ret_markdown'"' != "" {
             return local markdown `"`_ret_markdown'"'

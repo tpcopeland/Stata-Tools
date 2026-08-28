@@ -1,7 +1,8 @@
 * test_codescan_perf_equiv.do
 * Equivalence + determinism guard for the distinct-value memoization in
-* _codescan_mata_scan (v2.0.4). The scan classifies each distinct code value
-* once and reuses it; these tests prove the memoized result equals an independent
+* _codescan_mata_scan (v2.0.4; fused into a single traversal in v4.2.0). The
+* scan classifies each distinct code value once — on first sight — and reuses
+* it; these tests prove the memoized result equals an independent
 * brute-force reference and is independent of row (encounter) order.
 
 clear all

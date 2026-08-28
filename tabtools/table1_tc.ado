@@ -1,4 +1,4 @@
-*! table1_tc Version 2.0.0  2026/08/19 - Descriptive Statistics Table Generator
+*! table1_tc Version 2.0.1  2026/08/28 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Frontend for the consolidated desctab engine
@@ -12,6 +12,11 @@ program define table1_tc, rclass
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
+    * return add runs on the error path too, and must: desctab posts its
+    * analytical results before a failed export sets the return code, and the
+    * package contract is that the payload still reaches the caller. Pinned by
+    * "table1_tc preserves r() after export failure" in
+    * qa/test_package_adversarial.do.
     return add
     if `rc' exit `rc'
 end

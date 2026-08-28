@@ -1,4 +1,4 @@
-*! regtab Version 2.0.0  2026/08/19
+*! regtab Version 2.0.1  2026/08/28
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -6,10 +6,11 @@ DESCRIPTION:
 	Formats the collected regression tables; exports point estimate, 95% CI, and p-value to excel; and applies excel formatting (column widths, merges cells, sets column widths). Title appears in cell A1. Top left cell of table is B2.
 
 SYNTAX:
-	regtab, xlsx(string) sheet(string) [models(string) sep(string asis) coef(string) title(string) noint nore stats(string) relabel cutlabels(string asis) addrow(string asis)]
+	regtab, [xlsx(string) sheet(string) models(string) sep(string asis) coef(string) title(string) noint nore stats(string) relabel cutlabels(string asis) addrow(string asis)]
 
-	xlsx:	Required option. Excel file name. Requires .xlsx suffix
-	sheet:	Required option. Excel sheet name.
+	xlsx:	Optional. Excel file name. Requires .xlsx suffix. Omit for console,
+	        frame(), csv(), or markdown() output only
+	sheet:	Optional. Excel sheet name (default: "Regression")
 	models:	Label models, separating model names using backslash (e.g., Model 1 \ Model 2...)
 	coef:	Labels the point estimate (e.g., OR, Coef., HR)
 	title:	Gives spreasheet a table name in cell A1

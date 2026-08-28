@@ -6,8 +6,8 @@
 * naive Stata-level oracle: one ustrregexm() per cell, no memoization, no
 * distinct-value cache, no early exit, no views.
 *
-* The oracle mirrors the scanner's documented semantics exactly (codescan.ado
-* Pass 2/Pass 3): a value matches condition k when ustrregexm(val, "^(pat)")
+* The oracle mirrors the scanner's documented semantics exactly (the fused
+* classify-on-first-sight pass): a value matches condition k when ustrregexm(val, "^(pat)")
 * is 1; exclusion is evaluated PER VALUE, not per row; empty and "." cells are
 * skipped. Anchoring is "^(pat)", or "(?i)^(pat)" under nocase.
 *
