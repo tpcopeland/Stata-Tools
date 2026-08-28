@@ -1,6 +1,8 @@
 {smcl}
 {vieweralsosee "finegray" "help finegray"}{...}
+{vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
+{vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
 {vieweralsosee "stcurve" "help stcurve"}{...}
 {viewerjumpto "Syntax" "finegray_cif##syntax"}{...}
 {viewerjumpto "Description" "finegray_cif##description"}{...}
@@ -48,25 +50,22 @@ cumulative incidence after {help finegray}
 {title:Description}
 
 {pstd}
-{cmd:finegray_cif} computes the predicted cumulative incidence function (CIF) for
-a chosen covariate profile after {helpb finegray}, as
-
-{p 8 8 2}
-CIF(t | z) = 1 - exp( -H0(t) * exp(z'b) ),
+{cmd:finegray_cif} computes the predicted cumulative incidence function (CIF)
+for a chosen covariate profile after {helpb finegray}. The command uses
+{cmd:e(basehaz)} when that opt-in matrix exists and otherwise resolves the
+fit-specific cached or rebuilt baseline; the construction is in
+{help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
-where H0(t) is the fitted baseline cumulative subdistribution hazard. The
-command uses {cmd:e(basehaz)} when that opt-in matrix exists and otherwise
-resolves the fit-specific cached or rebuilt baseline. By default it plots the
-CIF as a right-continuous step function over the event-time grid. When the
-baseline contains more than 400 distinct cause-event times, the default grid is
-thinned to at most 401 points and always includes the final cause-event time; use
-{opt timepoints()} to request an exact grid. The plotted curve and confidence
-band begin at the exact (0,0) boundary, and the plot region is anchored at zero
-on the analysis-time axis. This display-only origin is not added to
-{cmd:r(table)} or {opt saving()} output. With {opt attime()} the command instead
-reports the CIF at specific horizons (for example the 5-year cumulative
-incidence).
+By default it plots the CIF as a right-continuous step function over the
+event-time grid. When the baseline contains more than 400 distinct cause-event
+times, the default grid is thinned to at most 401 points and always includes
+the final cause-event time; use {opt timepoints()} to request an exact
+grid. The plotted curve and confidence band begin at the exact (0,0) boundary,
+and the plot region is anchored at zero on the analysis-time axis. This
+display-only origin is not added to {cmd:r(table)} or {opt saving()}
+output. With {opt attime()} the command instead reports the CIF at specific
+horizons (for example the 5-year cumulative incidence).
 
 {pstd}
 {cmd:finegray_cif} is the {helpb finegray} analogue of {helpb stcurve}{cmd:, cif}
@@ -96,33 +95,33 @@ is not in {cmd:r(table)} and not in the {opt saving()} dataset.
 terminal estimate and a requested time before the first cause-event time returns
 a CIF of exactly 0 with no confidence limits. Both are the correct step-function
 answers, and {cmd:finegray_cif} prints a note naming the boundary time so that
-neither is quoted as an estimate at the requested horizon.
+neither is quoted as an estimate at the requested horizon. See
+{help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
 The command requires the unchanged original {cmd:stset} estimation data in
-memory. It verifies a signature of the estimation sample and the variables used
-by the fit before resolving the baseline or reconstructing influence functions. Re-run
-{cmd:finegray} after changing those data.
+memory. It verifies a signature of the estimation sample and the variables
+used by the fit before resolving the baseline or reconstructing influence
+functions. Re-run {cmd:finegray} after changing those data.
 
 {pstd}
-{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
-rather than erroring, leaving {cmd:e(converged)} at 0 and {cmd:e(b)} at the last
-iterate rather than a solution. The cached, posted, or rebuilt baseline would
-correspond to that non-solution. {cmd:finegray_cif} therefore exits with
-{cmd:r(430)} when {cmd:e(converged)} is not 1; refit with a larger
-{opt iterate()} or a different specification. Refits inside {opt bootstrap()}
-that fail to converge are skipped and counted rather than treated as fatal.
+{bf:A converged fit is required.} {cmd:finegray_cif} exits with {cmd:r(430)}
+when {cmd:e(converged)} is not 1; refit with a larger {opt iterate()} or a
+different specification. Refits inside {opt bootstrap()} that fail to converge
+are skipped and counted rather than treated as fatal. See
+{help finegray_methods##estimator:The estimator}.
 
 
 {pstd}
-{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made on
-multiple-imputation data -- typed directly, or run by
-{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or entry-time
-column behind, and pooled estimates have no single baseline hazard to build a
-curve from. {cmd:finegray_cif} stops with {cmd:r(301)} in that case. Refit on a single
-dataset ({cmd:mi extract 0, clear} for the complete cases, or
-{cmd:mi extract} {it:#}{cmd:, clear} for one imputation) and run {cmd:finegray}
-there; see {help finegray##mi:Multiple imputation} in {helpb finegray}.
+{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made
+on multiple-imputation data -- typed directly, or run by
+{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or
+entry-time column behind, and pooled estimates have no single baseline
+hazard to build a curve from. {cmd:finegray_cif} stops with {cmd:r(301)}
+in that case. Refit on a single dataset ({cmd:mi extract 0, clear} for the
+complete cases, or {cmd:mi extract} {it:#}{cmd:, clear} for one
+imputation) and run {cmd:finegray} there; see
+{help finegray##mi:Multiple imputation} in {helpb finegray}.
 
 {marker options}{...}
 {title:Options}
@@ -174,17 +173,9 @@ are unaffected in form -- {opt at()} still names one covariate profile, and
 there is still one baseline.
 
 {pmore}
-{opt ci} on its own {bf:is} available as of version 1.3.0. Development builds
-refused it with {cmd:r(198)}: the analytic interval came from an influence
-function derived for a single exp({it:z}'b) multiplying every baseline
-increment, and under a piecewise b({it:t}) each increment carries its own
-interval's linear predictor and its own risk-set total. That has now been
-re-derived: interval {it:j}'s contribution is the same construction run on that
-interval's events and design, so the influence function is the sum over
-intervals of the pieces the proportional one already computes, plus a
-derivative block for each interval's own coefficients. It reuses the same
-accumulators, and at one interval it collapses to the proportional formula term
-for term.
+{opt ci} on its own {bf:is} available as of version 1.3.0, from an influence
+function derived for a piecewise b({it:t}); development builds refused it with
+{cmd:r(198)}. See {help finegray_methods##tvc:Time-varying effects}.
 
 {pmore}
 {opt ci} {opt bootstrap(#)} remains available and is the arm the analytic route
@@ -198,9 +189,9 @@ columns are missing, as they are for any point-estimate-only call.
 {pmore}
 {bf:The analytic route is fixed-weight}, here as on a proportional fit: it does
 not propagate the uncertainty in the estimated censoring distribution, so it
-returns the same standard errors after a {helpb finegray##nuisance:nuisance}
-fit as after a default one. Use {opt bootstrap(#)} when the interval should
-include weight re-estimation.
+returns the same standard errors after a
+{help finegray_methods##nuisance:nuisance} fit as after a default one. Use
+{opt bootstrap(#)} when the interval should include weight re-estimation.
 
 {marker bstratum}{...}
 {phang}
@@ -210,12 +201,10 @@ a value of the {cmd:bstrata()} variable used at fit time. It is
 after any other fit.
 
 {pmore}
-The reason it is required rather than defaulted: under {opt bstrata()} each
-stratum has its own baseline subdistribution hazard, so a covariate profile no
-longer identifies a curve -- the same {opt at()} has one CIF per
-stratum. Choosing one silently would report one of {it:K} answers with nothing
-on screen to say which. A stratum-{it:averaged} CIF is a different estimand -- it needs
-declared stratum weights -- and is not implemented.
+It is required rather than defaulted because under {opt bstrata()} a covariate
+profile no longer identifies a curve; a stratum-{it:averaged} CIF is a
+different estimand and is not implemented. See
+{help finegray_methods##bstrata:Baseline strata}.
 
 {pmore}
 The stratum is printed on the {cmd:at:} line above the table and in the graph's
@@ -228,34 +217,35 @@ pooled sample.
 {pmore}
 A value that no estimation-sample subject holds is refused with {cmd:r(459)},
 listing the fitted levels. So is a level that carried no cause-of-interest
-event: its Breslow baseline is identically zero, which is a degenerate curve
-rather than an estimate of one, and a flat CIF at exactly 0 reads as a finding.
+event, whose Breslow baseline is identically zero; see
+{help finegray_methods##refusals:What is refused, and why}.
 
 {phang}
 {opt ci} adds pointwise confidence limits. The standard error of the CIF is an
 influence-function (sandwich) standard error; limits are formed on the
 complementary log-log scale so that they remain inside (0,1). The standard error
-treats the fitted weight functions as known. Under heavy censoring or delayed
-entry it can therefore omit weight-estimation variability; {opt bootstrap()}
-re-estimates the weight functions in each replication.
+treats the fitted weight functions as known, so under heavy censoring or delayed
+entry it can omit weight-estimation variability; {opt bootstrap()}
+re-estimates the weight functions in each replication. See
+{help finegray_methods##cif:Cumulative incidence}.
 
 {phang}
-{opt bootstrap(#)} computes pointwise confidence limits by resampling subjects
-with replacement and refitting the model. It requires {opt ci}. If the original
-fit specified {opt cluster()}, whole clusters are resampled. The resulting limits
-therefore follow the fitted resampling unit and include variability from
-re-estimating the censoring weights. Under delayed entry it also re-estimates
-the entry weights and weight strata. Nonconverged refits, and refits whose
-resample loses a factor level (so the coefficient vector no longer matches the
-stored covariate profile), are skipped and counted in
-{cmd:r(bootstrap_failed)}. At
-least 25 replications must be requested, and at least 25 must succeed, or
-{cmd:finegray_cif} exits with an error: a standard error is the sample standard
-deviation of the replicate estimates, and below about 25 replications that
-standard deviation is itself mostly noise. The refit is run on the estimation
-sample, so any {cmd:if} or {cmd:in} qualifier used at fit time does not apply to
-the replications. Point estimates are unchanged; only the standard error and
-limits differ. The original estimation results and {cmd:e(sample)} are preserved.
+{opt bootstrap(#)} computes pointwise confidence limits by resampling
+subjects with replacement and refitting the model. It requires
+{opt ci}. If the original fit specified {opt cluster()}, whole clusters
+are resampled. The resulting limits therefore follow the fitted resampling
+unit and include variability from re-estimating the censoring
+weights. Under delayed entry it also re-estimates the entry weights and
+weight strata. Nonconverged refits, and refits whose resample loses a
+factor level (so the coefficient vector no longer matches the stored
+covariate profile), are skipped and counted in
+{cmd:r(bootstrap_failed)}. At least 25 replications must be requested, and
+at least 25 must succeed, or {cmd:finegray_cif} exits with an error; see
+{help finegray_methods##cif:Cumulative incidence}. The refit is run on the
+estimation sample, so any {cmd:if} or {cmd:in} qualifier used at fit time
+does not apply to the replications. Point estimates are unchanged; only
+the standard error and limits differ. The original estimation results and
+{cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
@@ -297,17 +287,13 @@ it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 {title:Remarks}
 
 {pstd}
-{bf:Left truncation (delayed entry).} CIF points and standard errors use the same
-Zhang-Zhang-Fine Weight-1 contract as the fit. With one weight stratum this is
-the equivalent Geskus product-limit form A = G(t-)H(t-); with multiple strata
-it uses the equation-7 pooled time-side stabilizer and stratum-specific subject
-denominators. Different censoring and entry groupings use the package's
-factorized cross-classification. Because the finite-sample tie rule is
-package-defined, delayed-entry estimates change relative to
-earlier versions and {helpb stcrreg}, by design. The estimation data must remain
-in memory and unmodified so the weight design can be rebuilt. See
-{help finegray##lt:Left truncation} in {helpb finegray} for the citations,
-assumptions, and support boundaries.
+{bf:Left truncation (delayed entry).} CIF points and standard errors use the
+same Zhang-Zhang-Fine Weight-1 contract as the fit, so delayed-entry estimates
+change relative to earlier versions and to {helpb stcrreg}, by design. The
+estimation data must remain in memory and unmodified so the weight design can be
+rebuilt. See {help finegray##lt:Left truncation} in {helpb finegray} for the
+operational contract and {help finegray_methods##lt:Left truncation} in
+{helpb finegray_methods} for the citations, assumptions, and support boundaries.
 
 {pstd}
 For a confidence interval on the cumulative incidence of {it:each subject} (or a
@@ -316,11 +302,9 @@ per-observation CIF limits at each observation's own time or at a supplied
 {opt timevar()}.
 
 {pstd}
-The confidence band is computed from the per-subject influence functions of the
-CIF, propagating the uncertainty in both the coefficient vector {cmd:e(b)} and
-the baseline cumulative subdistribution hazard. With {opt cluster()} in the
-original {helpb finegray} fit, the analytic band uses the corresponding
-cluster-robust variance and {opt bootstrap()} resamples whole clusters.
+With {opt cluster()} in the original {helpb finegray} fit, the analytic band
+uses the corresponding cluster-robust variance and {opt bootstrap()} resamples
+whole clusters.
 
 
 {marker examples}{...}
@@ -411,7 +395,8 @@ never produced.
 {synopt:{cmd:r(at)}}covariate profile used for the curve{p_end}
 
 {pstd}
-The columns of {cmd:r(table)} are {cmd:time}, {cmd:cif}, {cmd:se}, {cmd:lci}, and {cmd:uci}.
+The columns of {cmd:r(table)} are {cmd:time}, {cmd:cif}, {cmd:se},
+{cmd:lci}, and {cmd:uci}.
 
 {marker author}{...}
 {title:Author}
@@ -422,6 +407,7 @@ The columns of {cmd:r(table)} are {cmd:time}, {cmd:cif}, {cmd:se}, {cmd:lci}, an
 {title:Also see}
 
 {psee}
-Online: {helpb finegray}, {helpb finegray_predict}, {helpb finegray_phtest}, {helpb stcurve}, {helpb stcrreg}
+Online: {helpb finegray}, {helpb finegray_methods}, {helpb finegray_predict},
+{helpb finegray_phtest}, {helpb stcurve}, {helpb stcrreg}
 
 {hline}

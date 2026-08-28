@@ -1,4 +1,4 @@
-*! _msm_xlsx_footnote Version 1.4.6  2026/08/11
+*! _msm_xlsx_footnote Version 1.4.7  2026/08/28
 *! Apply merged Excel footnote styling to an open xl() workbook object
 *! Author: Timothy P Copeland, Karolinska Institutet
 

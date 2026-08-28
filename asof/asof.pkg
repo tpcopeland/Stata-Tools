@@ -1,5 +1,5 @@
 v 3
-d asof: Index-anchored value extraction
+d 'ASOF': Index-anchored value extraction
 d
 d Requires: Stata version 16+
 d Distribution-Date: 20260812

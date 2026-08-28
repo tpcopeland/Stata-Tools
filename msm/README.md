@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.6** | 2026-08-11
+**Version 1.4.7** | 2026-08-28
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 
@@ -497,6 +497,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.7** (2026-08-28): Vectorized counterfactual prediction and Monte Carlo simulation in Mata while preserving seeded results, reducing realistic `msm_predict` runtimes by more than tenfold.
 - **1.4.6** (2026-08-11): Bound downstream artifacts to their owning fit or weights, persisted prediction and balance matrices with saved datasets, corrected fitted-sample sensitivity incidence and RR-scale labels, and exported confounding-strength assumptions and bounds.
 - **1.4.5** (2026-08-05): Made seeded Monte Carlo prediction intervals reproducible across numerically equivalent refits by using the symmetric positive-semidefinite covariance square root.
 - **1.4.4** (2026-08-05): Refused rank-deficient fitted specifications before committing package state and corrected stored-result documentation.

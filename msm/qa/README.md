@@ -5,6 +5,7 @@ Run the curated QA lanes from this directory with the local Stata installation:
 ```bash
 cd msm/qa
 stata-mp -b do run_all.do full
+stata-mp -b do run_all.do benchmark
 ```
 
 `run_all.do` uses explicit suite lists with an inventory check, creates process-specific PLUS and PERSONAL directories, requires every child to publish reconciled test/pass/fail/skip counts, exits nonzero when any child suite fails, and writes runtime dispositions to the gitignored `run_all_status.txt`. The default lane is `full`. `run_all_validations.do` remains only as a compatibility wrapper.
@@ -71,6 +72,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `validation_msm_recovery.do` | Marginal log-odds parameter recovery |
 | `validation_msm_dgp_recovery.do` | Binary-outcome and survival DGP recovery, including censoring timing and replicated MCSE-calibrated recovery |
 | `validation_msm_history_recovery.do` | Known-truth static-regime recovery when lagged treatment affects outcome |
+| `validation_msm_predict_vectorized.do` | Seeded 1.4.6 prediction-matrix equivalence, scalar-oracle parity for covariate/history/spline terms, and degenerate-covariance behavior |
 
 ### Cross-validation suites
 
@@ -80,6 +82,12 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `crossval_external_models.do` | External robust/clustered model and prediction parity |
 | `crossval_msm_ipw_dta.do` | Seeded one-period IPTW `.dta` exchange against `ipw::ipwpoint` and HC1 weighted linear-model point/SE parity |
 
+### Benchmarks
+
+| File | Primary coverage |
+|------|------------------|
+| `benchmark_msm_predict.do` | Same-session vectorized-versus-retained-scalar equivalence and ≥5× timing guard; benchmark lane only |
+
 ## Coverage map
 
 | Command or surface | Principal QA files |
@@ -88,7 +96,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `msm_prepare`, `msm_validate` | `test_msm_prepare_validate_adversarial.do`, `test_msm_hostile.do`, `validation_msm.do`, `validation_msm_known_answers.do` |
 | `msm_weight` | `test_msm_weight_ergonomics.do`, `test_msm_weight_failures.do`, `test_msm_weight_adversarial.do`, `test_msm_history_positivity_regressions.do`, `crossval_msm.do`, `crossval_msm_ipw_dta.do` |
 | `msm_fit` | `test_msm_fit_guidance.do`, `test_msm_cox_state.do`, `test_msm_continuous_exposure.do`, `test_msm_history_positivity_regressions.do`, `validation_msm_recovery.do`, `validation_msm_dgp_recovery.do`, `validation_msm_history_recovery.do` |
-| `msm_predict` | `test_msm.do`, `test_msm_options.do`, `test_msm_expanded.do`, `test_msm_history_positivity_regressions.do`, `validation_msm_history_recovery.do`, `crossval_external_models.do` |
+| `msm_predict` | `test_msm.do`, `test_msm_options.do`, `test_msm_expanded.do`, `test_msm_history_positivity_regressions.do`, `validation_msm_history_recovery.do`, `validation_msm_predict_vectorized.do`, `crossval_external_models.do`, `benchmark_msm_predict.do` |
 | `msm_diagnose`, `msm_diagtab` | `test_msm_diagtab.do`, `test_msm_options.do`, `test_msm_history_positivity_regressions.do`, `test_msm_psdash_contract.do`, `test_export_surface.do` |
 | `msm_plot`, `msm_report`, `msm_table` | `test_msm_table.do`, `test_export_surface.do`, `test_msm_output_adversarial.do`, `test_msm_options.do`, `test_msm_expanded.do` |
 | All commands — per-command option paths | `test_msm.do` (functional), `test_msm_options.do` (options SECTION A–M) |
@@ -100,10 +108,11 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | Lane | Suites |
 |------|--------|
 | `quick` | 30 curated functional, regression, harness, package, demo, export, and adversarial suites listed under Functional and regression suites |
-| `validations` | 7 `validation_*.do` suites listed under Validation suites |
-| `core` | All 37 Stata-side suites (`quick` + `validations`) |
+| `validations` | 8 `validation_*.do` suites listed under Validation suites |
+| `core` | All 40 Stata-side suites (`quick` + `validations`) |
 | `crossval` | `crossval_msm.do`, `crossval_external_models.do`, `crossval_msm_ipw_dta.do` |
-| `full` | All 40 suites (`core` + `crossval`); default release gate |
+| `benchmark` | `benchmark_msm_predict.do`; performance guard kept outside correctness lanes |
+| `full` | All 43 correctness suites (`core` + `crossval`); default release gate |
 
 ## Supporting files
 

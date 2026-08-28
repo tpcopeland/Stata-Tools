@@ -1,4 +1,4 @@
-*! _setools_cdp_core Version 1.5.5  2026/08/13
+*! _setools_cdp_core Version 1.5.6  2026/08/28
 *! setools internal: confirmed disability progression engine (non-roving)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -42,6 +42,10 @@ program define _setools_cdp_core, rclass
 
     if "`confirmtype'" == "" local confirmtype "sustained"
 
+    * Reassert the caller contract once. Upstream egen/merge work can clear
+    * Stata's sorted-by metadata even when the physical row order is unchanged.
+    qui sort `idvar' `datevar' `edssvar'
+
     tempvar pthresh change isprog candidate candidate_base ///
         candidate_thresh criterion okall assessment_date assessment_edss
 
@@ -63,8 +67,8 @@ program define _setools_cdp_core, rclass
     while `cdp_found' == 0 & `cdp_iter' <= `max_cdp_iter' {
         * Earliest remaining candidate progression date per person
         capture drop `candidate' `candidate_base' `candidate_thresh'
-        qui egen long `candidate' = ///
-            min(cond(`isprog' == 1, `datevar', .)), by(`idvar')
+        qui gen long `candidate' = cond(`isprog' == 1, `datevar', .)
+        _setools_gmin `candidate', by(`idvar')
 
         qui count if !missing(`candidate')
         if r(N) == 0 {
@@ -74,10 +78,12 @@ program define _setools_cdp_core, rclass
         * Freeze the reference value and threshold at the candidate event.
         * A later relapse-driven rebaseline must not retroactively change the
         * confirmation criterion for an already-observed candidate.
-        qui egen double `candidate_base' = min(cond( ///
-            `datevar' == `candidate', `baseedss', .)), by(`idvar')
-        qui egen double `candidate_thresh' = min(cond( ///
-            `datevar' == `candidate', `pthresh', .)), by(`idvar')
+        qui gen double `candidate_base' = cond( ///
+            `datevar' == `candidate', `baseedss', .)
+        _setools_gmin `candidate_base', by(`idvar')
+        qui gen double `candidate_thresh' = cond( ///
+            `datevar' == `candidate', `pthresh', .)
+        _setools_gmin `candidate_thresh', by(`idvar')
 
         * Confirmation EDSS value for the candidate (sustained or visit)
         capture drop `criterion' `assessment_date' `assessment_edss'

@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.5** | 2026-08-13
+**Version 1.5.6** | 2026-08-28
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -453,6 +453,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.6** (2026-08-28): Accelerated the registry-scale longitudinal engines without changing their public interface or numerical definitions. `pira, rebaselinerelapse` now uses one forward Mata state-machine pass, while `cdp`, `pira`, and `sustainedss` use a shared sort-free grouped-minimum helper inside their iterative confirmation loops. Added row-level legacy-equivalence validation and a reproducible one-million-visit benchmark.
 - **1.5.5** (2026-08-13): Fixed `migrations` silently dropping the emigration censoring date for a person who immigrated before study start and emigrated permanently after it; because `in_`/`out_` are independently numbered, both events could share one reshape row and the immigration-only pre-filter discarded the row wholesale. This also made wide- and long-format migration files disagree. Corrected the `r(converged)` description in `cdp`, `pira`, and `sustainedss` (it is always 1; non-convergence exits with error r(430)) and removed the unreachable display branches, a no-op wide-format date assignment, and a duplicate-name hazard in the `pira` working varlist.
 - **1.5.4** (2026-08-11): Enforced person-level diagnosis and exit-date consistency across the full sampled data, rejected invalid PIRA relapse-file variable names during syntax parsing, removed a PIRA scratch/output namespace collision, isolated internal helpers from variable-abbreviation state, hardened file-handle cleanup, and simplified decorative console output.
 - **1.5.3** (2026-08-05): Corrected the `migrations` reserved-namespace documentation to match its `_mig_*` working-state contract.

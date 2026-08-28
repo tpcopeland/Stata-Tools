@@ -1,4 +1,4 @@
-*! msm_predict Version 1.4.6  2026/08/11
+*! msm_predict Version 1.4.7  2026/08/28
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -288,10 +288,6 @@ program define msm_predict, rclass
     local lo_pct = `alpha'
     local hi_pct = 100 - `alpha'
 
-    * =====================================================================
-    * POINT ESTIMATES
-    * =====================================================================
-
     * For strategy "never" (treatment=0) and "always" (treatment=1)
     local strategies ""
     if "`strategy'" == "both" | "`strategy'" == "never" {
@@ -301,47 +297,8 @@ program define msm_predict, rclass
         local strategies "`strategies' 1"
     }
 
-    foreach treat_val of local strategies {
-        tempvar _cum_surv_i _prob_i
-        gen double `_cum_surv_i' = 1
-        gen double `_prob_i' = .
-
-        forvalues s = `min_period'/`last_time' {
-            quietly _msm_predict_xb, time(`s') treat_val(`treat_val') ///
-                treatment(`treatment') period(`period') ///
-                period_spec(`period_spec') ///
-                baseline(`min_period') ///
-                outcome_cov(`outcome_cov') b_hat(`b_hat') ///
-                probvar(`_prob_i')
-
-            quietly replace `_cum_surv_i' = `_cum_surv_i' * (1 - `_prob_i')
-
-            * Check if this is a requested time
-            local time_idx = 0
-            foreach t of local times {
-                local ++time_idx
-                if `s' == `t' {
-                    quietly summarize `_cum_surv_i'
-                    local mean_surv = r(mean)
-
-                    if "`type'" == "cum_inc" {
-                        local point_est = 1 - `mean_surv'
-                    }
-                    else {
-                        local point_est = `mean_surv'
-                    }
-
-                    * Column: never=2, always=5
-                    local col = cond(`treat_val' == 0, 2, 5)
-                    matrix `results'[`time_idx', `col'] = `point_est'
-                }
-            }
-        }
-        drop `_cum_surv_i' `_prob_i'
-    }
-
     * =====================================================================
-    * MC CONFIDENCE INTERVALS
+    * VECTORIZED POINT ESTIMATES AND MC CONFIDENCE INTERVALS
     * =====================================================================
 
     display as text "Running `samples' Monte Carlo simulations..."
@@ -370,9 +327,11 @@ program define msm_predict, rclass
     * Reduce to the coefficients with positive fitted variance; a dropped
     * (zero-variance) coefficient is held at its point value in every draw.
     local n_keep = 0
+    local keep_idx ""
     forvalues i = 1/`n_coefs' {
         if `V_hat'[`i', `i'] > 0 {
             local ++n_keep
+            local keep_idx "`keep_idx' `i'"
         }
     }
     * A fully degenerate covariance (every coefficient has zero variance, e.g. a
@@ -418,76 +377,16 @@ program define msm_predict, rclass
         }
     }
 
-    forvalues sim = 1/`samples' {
-        * Draw from MVN(b_hat, V_hat) via the eigen factor F (F F' = V_use), or
-        * hold at b_hat when the covariance is fully degenerate.
-        tempname b_draw
-        matrix `b_draw' = `b_hat'
-        if !`_degenerate' {
-            tempname z_draw b_reduced
-            matrix `z_draw' = J(1, `n_keep', 0)
-            forvalues j = 1/`n_keep' {
-                matrix `z_draw'[1, `j'] = rnormal()
-            }
-            matrix `b_reduced' = `b_use' + `z_draw' * `F_fac''
-
-            * Reconstruct full vector; dropped coefficients keep their point value.
-            local ki = 0
-            forvalues i = 1/`n_coefs' {
-                if `V_hat'[`i', `i'] > 0 {
-                    local ++ki
-                    matrix `b_draw'[1, `i'] = `b_reduced'[1, `ki']
-                }
-            }
-        }
-
-        * Compute for each strategy
-        foreach treat_val of local strategies {
-            tempvar _cum_surv_mc _prob_mc
-            gen double `_cum_surv_mc' = 1
-            gen double `_prob_mc' = .
-
-            forvalues s = `min_period'/`last_time' {
-                quietly _msm_predict_xb, time(`s') treat_val(`treat_val') ///
-                    treatment(`treatment') period(`period') ///
-                    period_spec(`period_spec') ///
-                    baseline(`min_period') ///
-                    outcome_cov(`outcome_cov') b_hat(`b_draw') ///
-                    probvar(`_prob_mc')
-
-                quietly replace `_cum_surv_mc' = `_cum_surv_mc' * (1 - `_prob_mc')
-
-                local time_idx = 0
-                foreach t of local times {
-                    local ++time_idx
-                    if `s' == `t' {
-                        quietly summarize `_cum_surv_mc'
-                        local mean_surv = r(mean)
-
-                        if "`type'" == "cum_inc" {
-                            local pred = 1 - `mean_surv'
-                        }
-                        else {
-                            local pred = `mean_surv'
-                        }
-
-                        if `treat_val' == 0 {
-                            matrix `mc_0'[`sim', `time_idx'] = `pred'
-                        }
-                        else {
-                            matrix `mc_1'[`sim', `time_idx'] = `pred'
-                        }
-                    }
-                }
-            }
-            drop `_cum_surv_mc' `_prob_mc'
-        }
-
-        * Progress
-        if mod(`sim', 50) == 0 {
-            display as text "  ... `sim' of `samples' samples completed"
-        }
-    }
+    * Mata draws the complete Z matrix before arithmetic chunking. rnormal()
+    * fills rows in the same sim-major order as the former scalar ado loop, so
+    * seed() continues to reproduce the identical coefficient draws.
+    local per_ns_knots : char _dta[_msm_per_ns_knots]
+    local per_ns_df    : char _dta[_msm_per_ns_df]
+    mata: _msm_predict_vectorized("`b_hat'", "`b_use'", "`F_fac'", ///
+        "`keep_idx'", "`outcome_cov'", "`treatment'", "`period'", ///
+        "`strategies'", "`times'", "`type'", "`per_ns_knots'", ///
+        "`per_ns_df'", `min_period', `last_time', `samples', ///
+        `_degenerate', "`results'", "`mc_0'", "`mc_1'")
 
     * =====================================================================
     * COMPUTE CIs FROM MC SAMPLES
@@ -874,6 +773,186 @@ string scalar _msm_mvn_factor(string scalar vname, string scalar fname, real sca
     st_matrix(fname, F)
     if (mn > 0) return("psd")
     return("clipped")
+}
+
+// Construct the non-covariate design column for one static strategy and time.
+// Coefficients not matched by these branches or by outcome_cov() remain zero,
+// preserving _msm_predict_xb's legacy behavior for unrecognized names.
+real colvector _msm_predict_feature(
+    string rowvector coef_names,
+    string scalar treatment,
+    string scalar period,
+    real scalar treat_val,
+    real scalar time,
+    real scalar baseline,
+    string scalar knots_s,
+    string scalar df_s)
+{
+    real colvector q
+    real rowvector knots
+    real scalar i, j, df, elapsed, lag, cum, dur, intx, last, pen, dj, dpen
+    string scalar cname
+
+    q = J(cols(coef_names), 1, 0)
+    elapsed = time - baseline
+    lag = (elapsed > 0) * treat_val
+    cum = treat_val * max((0, elapsed))
+    dur = treat_val * max((0, elapsed))
+    intx = treat_val * lag
+
+    if (knots_s != "" & df_s != "") {
+        knots = strtoreal(tokens(knots_s))
+        df = strtoreal(df_s)
+    }
+    else {
+        knots = J(1, 0, .)
+        df = 0
+    }
+
+    for (i = 1; i <= cols(coef_names); i++) {
+        cname = coef_names[i]
+        if (cname == "_cons") q[i] = 1
+        else if (cname == treatment) q[i] = treat_val
+        else if (cname == "_msm_hist_lag1") q[i] = lag
+        else if (cname == "_msm_hist_cum") q[i] = cum
+        else if (cname == "_msm_hist_dur") q[i] = dur
+        else if (cname == "_msm_hist_int") q[i] = intx
+        else if (cname == period) q[i] = time
+        else if (cname == "_msm_period_sq") q[i] = time^2
+        else if (cname == "_msm_period_cu") q[i] = time^3
+        else if (df > 0 & cname == "_msm_per_ns1") q[i] = time
+        else if (df > 1) {
+            last = knots[df + 1]
+            pen = knots[df]
+            for (j = 0; j <= df - 2; j++) {
+                if (cname == "_msm_per_ns" + strofreal(j + 2)) {
+                    dj = (max((0, time - knots[j + 1]))^3 -
+                        max((0, time - last))^3) / (last - knots[j + 1])
+                    dpen = (max((0, time - pen))^3 -
+                        max((0, time - last))^3) / (last - pen)
+                    q[i] = dj - dpen
+                }
+            }
+        }
+    }
+    return(q)
+}
+
+// Fill point predictions and Monte Carlo samples in chunks. The coefficient
+// draws are materialized first so chunk size cannot alter RNG consumption.
+void _msm_predict_vectorized(
+    string scalar bname,
+    string scalar buse_name,
+    string scalar factor_name,
+    string scalar keep_s,
+    string scalar cov_s,
+    string scalar treatment,
+    string scalar period,
+    string scalar strategies_s,
+    string scalar times_s,
+    string scalar type,
+    string scalar knots_s,
+    string scalar df_s,
+    real scalar baseline,
+    real scalar last_time,
+    real scalar samples,
+    real scalar degenerate,
+    string scalar results_name,
+    string scalar mc0_name,
+    string scalar mc1_name)
+{
+    real matrix b, B, Bc, Z, F, buse, X, Xuse, W, S, results, mc0, mc1
+    real rowvector keep, times, strategies, xidx, bidx, ok, pred, hit
+    string rowvector coef_names, cov_names
+    real colvector q
+    real scalar i, j, k, a, s, nids, nrows, chunk, first, last, ti
+    real rowvector src, dest
+
+    b = st_matrix(bname)
+    coef_names = st_matrixcolstripe(bname)[., 2]'
+    times = strtoreal(tokens(times_s))
+    strategies = strtoreal(tokens(strategies_s))
+    results = st_matrix(results_name)
+    mc0 = st_matrix(mc0_name)
+    mc1 = st_matrix(mc1_name)
+
+    nrows = samples + 1
+    B = J(nrows, 1, 1) * b
+    if (!degenerate) {
+        keep = strtoreal(tokens(keep_s))
+        buse = st_matrix(buse_name)
+        F = st_matrix(factor_name)
+        Z = rnormal(samples, cols(keep), 0, 1)
+        B[(2..nrows), keep] = J(samples, 1, 1) * buse + Z * F'
+    }
+
+    cov_names = tokens(cov_s)
+    if (cols(cov_names)) st_view(X, ., cov_names)
+    else X = J(st_nobs(), 0, .)
+
+    xidx = J(1, 0, .)
+    bidx = J(1, 0, .)
+    for (k = 1; k <= cols(cov_names); k++) {
+        for (j = 1; j <= cols(coef_names); j++) {
+            if (coef_names[j] == cov_names[k]) {
+                xidx = xidx, k
+                bidx = bidx, j
+            }
+        }
+    }
+
+    if (cols(xidx)) {
+        Xuse = X[., xidx]
+        ok = selectindex(rowmissing(Xuse) :== 0)
+        if (cols(ok)) Xuse = Xuse[ok, .]
+        else Xuse = J(0, cols(xidx), .)
+    }
+    else Xuse = J(st_nobs(), 0, .)
+
+    nids = rows(Xuse)
+    chunk = min((nrows, max((1, floor(25000000 / max((1, nids)))))))
+
+    for (i = 1; i <= cols(strategies); i++) {
+        a = strategies[i]
+        for (first = 1; first <= nrows; first = first + chunk) {
+            last = min((nrows, first + chunk - 1))
+            Bc = B[(first..last), .]
+            if (cols(xidx)) W = Xuse * Bc[., bidx]'
+            else W = J(nids, rows(Bc), 0)
+            S = J(nids, rows(Bc), 1)
+
+            for (s = baseline; s <= last_time; s++) {
+                if (nids) {
+                    q = _msm_predict_feature(coef_names, treatment, period,
+                        a, s, baseline, knots_s, df_s)
+                    S = S :* (1 :- invlogit(W :+ J(nids, 1, 1) * (Bc * q)'))
+                }
+
+                hit = selectindex(times :== s)
+                if (cols(hit)) {
+                    ti = hit[1]
+                    if (nids) pred = mean(S)
+                    else pred = J(1, rows(Bc), .)
+                    if (type == "cum_inc") pred = 1 :- pred
+
+                    if (first == 1) {
+                        if (a == 0) results[ti, 2] = pred[1]
+                        else results[ti, 5] = pred[1]
+                    }
+                    if (last >= 2) {
+                        src = (max((2, first))..last) :- first :+ 1
+                        dest = (max((2, first))..last) :- 1
+                        if (a == 0) mc0[dest, ti] = pred[src]'
+                        else mc1[dest, ti] = pred[src]'
+                    }
+                }
+            }
+        }
+    }
+
+    st_matrix(results_name, results)
+    st_matrix(mc0_name, mc0)
+    st_matrix(mc1_name, mc1)
 }
 
 real scalar _msm_pctile(string scalar matname, real scalar col, real scalar pct)

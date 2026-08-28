@@ -1,4 +1,4 @@
-*! pira Version 1.5.5  2026/08/13
+*! pira Version 1.5.6  2026/08/28
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -440,45 +440,13 @@ program define pira, rclass
 
         qui bysort `idvar' (`datevar' _pira_is_visit `edssvar' _pira_obs_id): ///
             gen byte _pira_newid = _n == 1
-        qui gen double _pira_cur_bl_edss = .
-        qui gen long _pira_cur_bl_date = .
-        qui gen long _pira_pending_rel = .
-
-        qui count
-        local n_rebase_rows = r(N)
-        forvalues i = 1/`n_rebase_rows' {
-            if _pira_newid[`i'] {
-                qui replace _pira_cur_bl_edss = _pira_bl_edss in `i'
-                qui replace _pira_cur_bl_date = _pira_bl_date in `i'
-                qui replace _pira_pending_rel = . in `i'
-            }
-            else {
-                local j = `i' - 1
-                qui replace _pira_cur_bl_edss = _pira_cur_bl_edss[`j'] in `i'
-                qui replace _pira_cur_bl_date = _pira_cur_bl_date[`j'] in `i'
-                qui replace _pira_pending_rel = _pira_pending_rel[`j'] in `i'
-            }
-
-            if _pira_is_visit[`i'] == 0 {
-                if !missing(`datevar'[`i']) & `datevar'[`i'] > _pira_cur_bl_date[`i'] {
-                    qui replace _pira_pending_rel = `datevar' in `i'
-                }
-            }
-            else {
-                if !missing(_pira_pending_rel[`i']) & `datevar'[`i'] >= _pira_pending_rel[`i'] + 30 {
-                    qui replace _pira_cur_bl_edss = `edssvar' in `i'
-                    qui replace _pira_cur_bl_date = `datevar' in `i'
-                    qui replace _pira_pending_rel = . in `i'
-                }
-                qui replace _pira_bl_edss = _pira_cur_bl_edss[`i'] in `i'
-                qui replace _pira_bl_date = _pira_cur_bl_date[`i'] in `i'
-            }
-        }
+        _setools_pira_rebase `datevar' `edssvar', ///
+            newid(_pira_newid) isvisit(_pira_is_visit) ///
+            baseedss(_pira_bl_edss) basedate(_pira_bl_date)
 
         qui keep if _pira_is_visit == 1
         qui sort `idvar' `datevar' `edssvar'
-        qui drop _pira_is_visit _pira_newid _pira_cur_bl_edss ///
-            _pira_cur_bl_date _pira_pending_rel
+        qui drop _pira_is_visit _pira_newid
     }
 
     // -------------------------------------------------------------------------

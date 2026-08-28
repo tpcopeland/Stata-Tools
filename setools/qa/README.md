@@ -9,6 +9,7 @@ cd setools/qa
 stata-mp -b do run_all.do                 # full lane (default release gate)
 stata-mp -b do run_all.do quick           # fast functional lane
 stata-mp -b do test_setools_v154_regressions.do
+stata-mp -b do benchmark_setools_performance.do 100000
 ```
 
 The `python` alias runs the three external-oracle cross-validation suites, while `network` runs the optional pinned-source checksum smoke. Gate on the final `RESULT:` line or `run_all_status.txt`, not only the shell exit status.
@@ -42,6 +43,7 @@ Stata 16 or later is required throughout. No R package is used.
 | File | Covers |
 |---|---|
 | `test_setools.do` | Public command discovery, overview output, and basic command behavior. |
+| `test_setools_option_errors.do` | Dispatcher invalid-option and mutually-exclusive-option errors. |
 | `test_setools_oracle.do` | Seeded repeated catalog oracle for exact category command lists and counts. |
 | `test_release_integrity.do` | Relocatable package inventory, version, metadata, author, path, helper, and source contracts. |
 | `test_documentation_examples.do` | Runnable README and help examples, including shipped-data CDP behavior. |
@@ -79,6 +81,7 @@ Stata 16 or later is required throughout. No R package is used.
 | `validation_migrations_longwide_equivalence.do` | Equivalent results from long and wide migration layouts. |
 | `validation_migrations_type2_censoring.do` | Type-2 migration censoring known answers. |
 | `validation_pira_known_answers.do` | PIRA/RAW classification known answers. |
+| `validation_setools_performance_identity.do` | Exact legacy-versus-optimized PIRA rebaseline states and grouped-minimum equivalence. |
 | `validation_setools.do` | Broad command-level invariants and stored-result contracts. |
 | `validation_setools_crosschecks.do` | Manual formulas and internal consistency across CDP, sustained EDSS, CCI, and PIRA. |
 | `validation_sustainedss_known_answers.do` | Sustained EDSS threshold and confirmation known answers. |
@@ -96,6 +99,7 @@ Stata 16 or later is required throughout. No R package is used.
 | Path | Contents |
 |---|---|
 | `run_all.do` | Authoritative lane membership and result aggregation. |
+| `benchmark_setools_performance.do` | Seeded registry-scale timing for PIRA, CDP, and sustained EDSS; accepts the person count as its argument. |
 | `_setools_qa_common.do` | Isolated installation and session-state teardown. |
 | `tools/build_edss_fixture.do` | Deterministic EDSS fixture generator, run by hand. |
 | `tools/build_cci_authoritative_fixture.py` | Pinned-source CCI vector builder, run by hand. |
@@ -128,6 +132,7 @@ Stata 16 or later is required throughout. No R package is used.
 | `full` | `core` plus the three independent-oracle cross-validation suites (CCI, EDSS progression, migrations). |
 | `python` | The three independent-oracle cross-validation suites only. |
 | `network` | Pinned upstream CCI download and checksum only; run on demand. |
+| `benchmark` | The non-gating one-million-visit longitudinal-engine benchmark only. |
 
 ## Known gaps
 

@@ -1,4 +1,4 @@
-*! sustainedss Version 1.5.5  2026/08/13
+*! sustainedss Version 1.5.6  2026/08/28
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -208,8 +208,8 @@ program define sustainedss, rclass
             `nextedss' `accepted' {
             capture drop `_ss_work'
         }
-        qui egen long `candidate' = ///
-            min(cond(`eligible', `datevar', .)), by(`idvar')
+        qui gen long `candidate' = cond(`eligible', `datevar', .)
+        _setools_gmin `candidate', by(`idvar')
         qui count if !missing(`candidate')
         if r(N) == 0 {
             qui gen byte `accepted' = 0
@@ -217,25 +217,28 @@ program define sustainedss, rclass
             continue
         }
 
-        qui egen double `minfollow' = min(cond( ///
+        qui gen double `minfollow' = cond( ///
             `datevar' > `candidate' & ///
-            `datevar' <= `candidate' + `confirmwindow', `edssvar', .)), ///
-            by(`idvar')
-        qui egen double `minall' = min(cond( ///
-            `datevar' > `candidate', `edssvar', .)), by(`idvar')
+            `datevar' <= `candidate' + `confirmwindow', `edssvar', .)
+        _setools_gmin `minfollow', by(`idvar')
+        qui gen double `minall' = cond( ///
+            `datevar' > `candidate', `edssvar', .)
+        _setools_gmin `minall', by(`idvar')
 
         if "`confirmvisit'" == "unlimited" {
-            qui egen long `nextdate' = min(cond( ///
-                `datevar' > `candidate', `datevar', .)), by(`idvar')
+            qui gen long `nextdate' = cond( ///
+                `datevar' > `candidate', `datevar', .)
+            _setools_gmin `nextdate', by(`idvar')
         }
         else {
-            qui egen long `nextdate' = min(cond( ///
+            qui gen long `nextdate' = cond( ///
                 `datevar' > `candidate' & ///
-                `datevar' <= `candidate' + `confirmwindow', `datevar', .)), ///
-                by(`idvar')
+                `datevar' <= `candidate' + `confirmwindow', `datevar', .)
+            _setools_gmin `nextdate', by(`idvar')
         }
-        qui egen double `nextedss' = min(cond( ///
-            `datevar' == `nextdate', `edssvar', .)), by(`idvar')
+        qui gen double `nextedss' = cond( ///
+            `datevar' == `nextdate', `edssvar', .)
+        _setools_gmin `nextedss', by(`idvar')
 
         if "`confirmvisit'" == "" {
             * Package convention: no follow-up implies sustainment; observed

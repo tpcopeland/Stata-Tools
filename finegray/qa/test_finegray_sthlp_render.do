@@ -16,10 +16,15 @@
 * The file list is read from the package directory rather than hard-coded, so a
 * help file added later cannot dodge this check by not being on a list.
 *
-* This suite ends with a FAULT INJECTION: it renders a deliberately broken
-* .sthlp and asserts the checker flags it.  Without that, "0 literal-markup
-* lines" is indistinguishable from a checker that cannot fire -- the exact shape
-* qa/README.md records for the determinism test.
+* Every checker here is paired with a FAULT INJECTION: the suite feeds it a
+* deliberately broken .sthlp and asserts it flags it.  Without that, "0
+* literal-markup lines" is indistinguishable from a checker that cannot fire --
+* the exact shape qa/README.md records for the determinism test.
+*
+* Tests 5 and 6 cover a third axis, added with the finegray_methods split: a
+* {help finegray_methods##marker} deep link whose target marker does not exist.
+* That resolves as markup, renders as ordinary text, and silently opens the
+* Viewer at the top of the file instead of the section.
 
 clear all
 set varabbrev off
@@ -297,6 +302,166 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: RENDER-4 whitespace checker miscounts injected faults (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+**# 5. Every {help finegray_methods##marker} target exists as a {marker}
+* -----------------------------------------------------------------------------
+* One-way check, and deliberately so: it asserts that every deep link INTO
+* finegray_methods.sthlp lands somewhere.  A marker in that file that nothing
+* links to is not a defect (a reader can still jump to it from the file's own
+* {viewerjumpto} list), so the reverse direction is not asserted.
+*
+* A dangling ##marker is invisible to every other axis in this package: the
+* source greps see the words, RENDER-1 sees resolved markup, and the Viewer
+* silently opens the file at the top instead of the section.  finegray.sthlp
+* shipped exactly that defect before the methods split -- four help files
+* linked to `finegray##nuisance', which no {marker nuisance} ever defined.
+*
+* Extraction splits on a char(2) sentinel rather than looping regexm/regexs,
+* because a single source line can carry more than one reference and regexs()
+* only ever exposes the first.  bindquote(nobind) is required: these files are
+* full of lines that OPEN a quotation and close it on the next line, and the
+* default binding would swallow the following lines -- a {marker} among them --
+* into one field.
+
+capture program drop _fg_help_targets
+program define _fg_help_targets, rclass
+    version 16.0
+    syntax , SRC(string) TARGET(string)
+
+    quietly import delimited using "`src'", delimiter(`"`=char(1)'"') ///
+        varnames(nonames) stringcols(_all) bindquote(nobind) clear
+    quietly gen strL _w = subinstr(v1, "`target'##", char(2), .)
+    quietly keep if strpos(_w, char(2)) > 0
+    if _N == 0 {
+        clear
+        return local names ""
+        exit
+    }
+    quietly split _w, parse(`"`=char(2)'"') gen(_pc)
+    local names ""
+    unab pcs : _pc*
+    foreach v of local pcs {
+        * _pc1 is the text BEFORE the first reference, never a target name.
+        if "`v'" == "_pc1" continue
+        quietly replace `v' = regexr(`v', "[^a-zA-Z_].*$", "")
+        levelsof `v' if `v' != "", local(these) clean
+        foreach t of local these {
+            local names : list names | t
+        }
+    }
+    clear
+    return local names "`names'"
+end
+
+capture program drop _fg_file_markers
+program define _fg_file_markers, rclass
+    version 16.0
+    syntax , SRC(string)
+
+    quietly import delimited using "`src'", delimiter(`"`=char(1)'"') ///
+        varnames(nonames) stringcols(_all) bindquote(nobind) clear
+    quietly keep if regexm(v1, "^\{marker [a-zA-Z_]+\}")
+    local names ""
+    if _N > 0 {
+        quietly gen strL _m = regexr(regexr(v1, "^\{marker ", ""), "\}.*$", "")
+        levelsof _m, local(these) clean
+        foreach t of local these {
+            local names : list names | t
+        }
+    }
+    clear
+    return local names "`names'"
+end
+
+local ++test_count
+capture noisily {
+    local mfile "`pkg_dir'/finegray_methods.sthlp"
+    confirm file "`mfile'"
+
+    _fg_file_markers, src("`mfile'")
+    local have "`r(names)'"
+    local nhave : word count `have'
+    display as text "  finegray_methods.sthlp defines `nhave' marker(s)"
+    * A parsing failure would leave this empty and the loop would assert nothing.
+    assert `nhave' >= 10
+
+    local helps : dir "`pkg_dir'" files "*.sthlp"
+    local nhelp : word count `helps'
+    assert `nhelp' >= 5
+
+    local missing ""
+    local nref = 0
+    foreach h of local helps {
+        _fg_help_targets, src("`pkg_dir'/`h'") target("finegray_methods")
+        local want "`r(names)'"
+        local nwant : word count `want'
+        local nref = `nref' + `nwant'
+        display as text "  `h': `nwant' distinct finegray_methods##marker target(s)"
+        local gap : list want - have
+        if "`gap'" != "" {
+            display as error "  `h' links to undefined marker(s): `gap'"
+            local missing : list missing | gap
+        }
+    }
+    * The split is only useful if the other files actually deep-link into it.
+    assert `nref' >= 15
+    assert "`missing'" == ""
+}
+if _rc == 0 {
+    display as result "  PASS: RENDER-5 every finegray_methods##marker target is defined"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: RENDER-5 dangling finegray_methods##marker target (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+**# 6. FAULT INJECTION: the marker checker must flag a dangling target
+* -----------------------------------------------------------------------------
+* Same reason as tests 2 and 4: "0 dangling targets" is indistinguishable from
+* an extractor that returns nothing.  Both halves are injected -- a reference
+* that resolves and one that does not -- so a checker that simply reported
+* everything as missing would fail here too.
+local ++test_count
+capture noisily {
+    tempname mfh
+    tempfile injmanchor
+    local mbroken "`injmanchor'_markerinjected.sthlp"
+    file open `mfh' using "`mbroken'", write text replace
+    file write `mfh' "{smcl}" _n
+    file write `mfh' "{* injected fault: do not ship}{...}" _n
+    file write `mfh' "{title:Injected}" _n _n
+    file write `mfh' "{pstd}" _n
+    * Two references on ONE line: the loop-free extractor must return both.
+    file write `mfh' "See {help finegray_methods##variance:Variance} and also" _n
+    file write `mfh' "{help finegray_methods##fg_no_such_marker:nowhere}." _n
+    file write `mfh' "{p_end}" _n
+    file close `mfh'
+
+    _fg_help_targets, src("`mbroken'") target("finegray_methods")
+    local injwant "`r(names)'"
+    display as text "  injected file references: `injwant'"
+
+    _fg_file_markers, src("`pkg_dir'/finegray_methods.sthlp")
+    local have "`r(names)'"
+
+    * The real target must resolve; the invented one must not.
+    local injgap : list injwant - have
+    assert "`injgap'" == "fg_no_such_marker"
+    local resolved : list injwant & have
+    assert "`resolved'" == "variance"
+    capture erase "`mbroken'"
+}
+if _rc == 0 {
+    display as result "  PASS: RENDER-6 marker checker fires on a dangling target only"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: RENDER-6 marker checker miscounts injected targets (rc=`=_rc')"
     local ++fail_count
 }
 
