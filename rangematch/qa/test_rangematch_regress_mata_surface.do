@@ -52,7 +52,8 @@ local ++test_count
 local mata_surface ///
     _rm_mata_version _rm_blank_quoted _rm_first_empty_opt _rm_dta_name ///
     _rm_prepare_sweep_master _rm_pctile _rm_compute_match_stats ///
-    _rm_post_pair_results _rm_build_pairs _rm_build_pairs_sweep ///
+    _rm_post_pair_results _rm_store_pairs _rm_build_pairs ///
+    _rm_build_pairs_sweep ///
     _rm_build_pairs_overlap _rm_interval_nonempty _rm_overlap_count_group ///
     _rm_overlap_emit_group _rm_bsearch_left _rm_bsearch_right ///
     _rm_bsearch_first_gt _rm_bsearch_last_lt _rm_key_block_uobs ///

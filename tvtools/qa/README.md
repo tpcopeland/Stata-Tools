@@ -80,10 +80,12 @@ stata-mp -b do benchmark_tvevent_workflow.do <case> <scale> <rep>
 
 `case` is `none`, `boundary`, `internal`, `dense`, or `frame`. Every `BENCH:` line reports `I` (interval rows in), `E` (event rows in), `S` (split points), and `Nout` beside the elapsed time, and asserts `Nout == I + S`. That assertion is not decoration: the first draft ran `type(single)`, under which `tvevent` truncates follow-up at the first event, so one internal event per person collapsed ten intervals to one output row and the benchmark measured truncation instead of segment construction. The guard reported `expected Nout=22000 but observed 2000`. Every case now runs `type(recurring)`, where all person-time is retained.
 
-`benchmark_tvexpose_workflow.do` measures the default categorical `tvexpose` construction and the end-to-end chain: a non-empty source whose every row clips out, one episode per person, five clean non-overlapping episodes per person, a paired caller-replacement versus `frameout()` control on byte-identical inputs, and `tvexpose` → `tvexpose` → `tvmerge` → `tvevent` with every intermediate held in a frame.
+`benchmark_tvexpose_workflow.do` measures the default categorical `tvexpose` construction and the end-to-end chain: a non-empty source whose every row clips out, one episode per person, five clean non-overlapping episodes per person, a paired caller-replacement versus `frameout()` control on byte-identical inputs, and `tvexpose` → `tvexpose` → `tvmerge` → `tvevent` with every intermediate held in a frame. Its `shape` case compares fast, forced-legacy, and duration construction at 1x/5x scale and rejects a ratio above 5.5. `benchmark_tvexpose_dose_shape.do` holds total episode rows fixed while sweeping 10/50/200 overlapping dose periods per person; `benchmark_tvpanel_cumulative_shape.do` applies the same shape gate to cumulative panel evaluation.
 
 ```
 stata-mp -b do benchmark_tvexpose_workflow.do <case> <scale> <rep>
+stata-mp -b do benchmark_tvexpose_dose_shape.do [total_episode_rows]
+stata-mp -b do benchmark_tvpanel_cumulative_shape.do [total_episode_rows]
 ```
 
 `case` is `clipout`, `sparse`, `dense`, `frameout`, or `chain`. Every `BENCH:` line reports `M` (master persons in), `E` (source episode rows in), and `Nout` beside the elapsed time, because one source episode becomes between one and three output rows depending on where the study bounds fall. `Nout` is known by construction and asserted for every case except `chain`, whose cardinality the generator cannot predict because the merge intersects two different tilings. Like the `tvevent` benchmark it prints `BENCHADO:` and refuses to run when the resolved `tvexpose.ado` is not under the tree being tested.
@@ -142,6 +144,8 @@ The eligible cases cover numeric and fixed-width string ids, a non-empty source 
 Two harness defects surfaced while building it, neither by reasoning about it. `r(combine_map)` legitimately contains double quotes (`101="1+2"`), and embedding one unescaped ended the record line early and killed the run at `r(132)` two cases downstream, after silently capturing 50 of 74. And the `validate` option writes `tv_validation.dta` into the working directory, so without `replace` the *second* run of the harness in the same directory failed at `r(602)` — capture succeeded and compare did not.
 
 It was fault-injected rather than assumed to work. Seven single-line defects in the code the fast path replaces are each detected: the baseline row carrying `reference + 1` (57 cases), the final observable output sort reordered (56), the closing `compress` removed (56), the post-exposure row starting a day late (55), the default reference-label text changed (47), the gap row starting a day late (41), and the gap rule `> 0` weakened to `>= 0` on both halves (12). Six injections into the *new* builder are also each detected, by the baseline and by `test_tvexpose_fastpath.do` independently.
+
+`tvexpose` accepts the undocumented `nofastpath` option solely for QA differential testing. It forces the retained constructor without changing public analytical options; it is intentionally absent from the help file and user README.
 
 Two injections are recorded as undetected, correctly. The `sort id start stop` before `compress` is dominated by the identical sort at commit time, so that intermediate ordering is genuinely unobservable — the reported injection targets the observable one. And patching only the `__gap_start` half of the gap rule heals itself, because `__gap_stop` stays at its initialised `0` and the final truncation drops the bogus row.
 

@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.16.0** | 2026-08-13
+**Version 1.17.0** | 2026-08-28
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -471,6 +471,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.17.0** (2026-08-28): Expanded `tvexpose`'s single-pass constructor across shared geometry cleaning, overlap strategies, diagnostics, and post-construction transformations; replaced quadratic dose and cumulative-panel joins with interval-sweep/running-sum engines; and reduced `tvbuild` peak frame residency by carrying source metadata forward before releasing source frames.
 - **1.16.0** (2026-08-13): `tvage` no longer discards person-time without saying so. An `entry()` date earlier than `dob()` is refused with `r(498)` and a row count instead of being silently truncated to the birth date, and persons dropped because their follow-up lies entirely outside `minage()`/`maxage()` are now reported unconditionally and counted in the new `r(n_persons_dropped)` and `r(n_persons_in)`.
 - **1.15.0** (2026-08-10): Added explicit treatment and censoring numerator models for history-conditioned longitudinal stabilization, exposed both fitted numerator contracts in `r()`, corrected the IPCW documentation to match the time-specific default, and removed package-owned paging changes and decorative empty output lines.
 - **1.14.1** (2026-08-07): Corrected runtime `stset` guidance, verbose table headers, cumulative-weight diagnostics, graph naming, save confirmations, flow notes, event provenance, exported dataset labels, and related console-report polish; added focused regression coverage for each repaired artifact/display path.

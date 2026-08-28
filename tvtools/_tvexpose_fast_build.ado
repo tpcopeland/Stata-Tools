@@ -1,4 +1,4 @@
-*! _tvexpose_fast_build Version 1.16.0  2026/08/13
+*! _tvexpose_fast_build Version 1.17.0  2026/08/28
 *! Build the complete categorical person-time tiling in one in-memory pass
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -53,7 +53,7 @@ program define _tvexpose_fast_build, rclass
 
     capture noisily {
 
-    syntax , REFerence(string) MASTERfile(string)
+    syntax , REFerence(string) MASTERfile(string) [NOCOALESCE MIRROR(name)]
 
     * --- preconditions -------------------------------------------------
     foreach v in id exp_start exp_stop exp_value {
@@ -64,6 +64,7 @@ program define _tvexpose_fast_build, rclass
             exit 111
         }
     }
+    if "`mirror'" != "" confirm variable `mirror', exact
     capture confirm file "`masterfile'"
     if _rc {
         noisily display as error ///
@@ -104,7 +105,7 @@ program define _tvexpose_fast_build, rclass
     *
     * Runs collapse transitively, exactly as the kernel's repeated extension
     * does: [1,10] [11,20] [21,30] with one category become [1,30].
-    if `_n_epi' > 0 {
+    if `_n_epi' > 0 & "`nocoalesce'" == "" {
         tempvar newrun run runstop
         sort id exp_start exp_stop
         quietly by id: generate byte `newrun' = (_n == 1) | ///
@@ -194,6 +195,8 @@ program define _tvexpose_fast_build, rclass
     quietly replace exp_start = `pres'      if `slot' == 1 & `emit' == 1
     quietly replace exp_stop  = `pree'      if `slot' == 1 & `emit' == 1
     quietly replace exp_value = `reference' if `slot' == 1 & `emit' == 1
+    if "`mirror'" != "" ///
+        quietly replace `mirror' = . if `slot' == 1 & `emit' == 1
 
     drop `mk' `k' `pres' `pree' `emit' `nrows' `orow' `slot'
 

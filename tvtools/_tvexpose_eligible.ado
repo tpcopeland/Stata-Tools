@@ -1,4 +1,4 @@
-*! _tvexpose_eligible Version 1.16.0  2026/08/13
+*! _tvexpose_eligible Version 1.17.0  2026/08/28
 *! Decide whether a tvexpose call may use the categorical fast path
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -46,23 +46,30 @@ program define _tvexpose_eligible, rclass
     * a stale name in the caller cannot quietly make an excluded call look
     * eligible. Extending tvexpose's syntax without extending this list is
     * caught by the option-coverage check in qa/test_tvexpose_fastpath.do.
-    local _blocking "pointtime evertreated currentformer duration dose dosecuts"
-    local _blocking "`_blocking' continuousunit expandunit bytype"
-    local _blocking "`_blocking' recency recencyunit grace window"
-    local _blocking "`_blocking' switching switchingdetail statetime"
-    local _blocking "`_blocking' priority split layer combine keepvars"
-    local _blocking "`_blocking' check gaps overlaps summarize validate"
-    local _blocking "`_blocking' flow dropinvalid verbose saveas"
+    local _known "pointtime evertreated currentformer duration dose dosecuts"
+    local _known "`_known' continuousunit expandunit bytype"
+    local _known "`_known' recency recencyunit grace window"
+    local _known "`_known' switching switchingdetail statetime"
+    local _known "`_known' priority split layer combine keepvars"
+    local _known "`_known' check gaps overlaps summarize validate"
+    local _known "`_known' flow dropinvalid verbose saveas"
+
+    * Reporting and post-construction options do not change the episode
+    * geometry consumed by the fast builder. window() is already applied in
+    * the shared clipping pass, before dispatch.
+    local _neutral "window check gaps overlaps summarize validate verbose saveas"
+    local _blocking : list _known - _neutral
 
     local reason ""
     foreach f of local flags {
-        local _known : list f in _blocking
-        if !`_known' {
+        local _recognised : list f in _known
+        if !`_recognised' {
             noisily display as error ///
                 "_tvexpose_eligible: '`f'' is not a recognised blocking option name"
             exit 198
         }
-        if "`reason'" == "" local reason "option `f'"
+        local _blocks : list f in _blocking
+        if "`reason'" == "" & `_blocks' local reason "option `f'"
     }
 
     * stop() is required and pointtime is excluded: the first fast path covers
@@ -76,10 +83,6 @@ program define _tvexpose_eligible, rclass
     * Every data-cleaning knob must be at its default. Each of these rewrites
     * the episode geometry before construction, which the fast builder does
     * not reproduce.
-    if "`reason'" == "" & `mergedays'        != 0 local reason "merge()"
-    if "`reason'" == "" & `lagdays'          != 0 local reason "lag()"
-    if "`reason'" == "" & `washoutdays'      != 0 local reason "washout()"
-    if "`reason'" == "" & `fillgapdays'      != 0 local reason "fillgaps()"
     if "`reason'" == "" & `carryforwarddays' != 0 local reason "carryforward()"
     if "`reason'" == "" & `graceon'          != 0 local reason "grace()"
 

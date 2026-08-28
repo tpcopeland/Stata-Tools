@@ -48,6 +48,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `test_fit_sample_loss.do` | regression | quick | 600s | Stata | exact component-fit row-count warning and quiet-control contracts | 424242/424243 | C09 |
 | `test_structural_rules.do` | regression/known-answer | quick | 900s | Stata | analytic deterministic-structure effects, complement N, saved-arm simulated-history identity, time-varying dispatch, and exact errors | 424242/51002-51007 | C10 |
 | `test_count_commands.do` | regression/known-answer | quick | 900s | Stata | Poisson/NB2 DGP recovery, independent gamma-Poisson standardization, saved count draws, validation, and imputation | 52001-52005 | C11 |
+| `test_gcomp_v201_hotpath.do` | regression | quick | 900s | Stata | exact seeded e()/saved-arm identity plus post-death absorption invariant | 202608281-202608283 | v2.0.1 death/visitcalc/monotreat hot paths |
 | `test_refactor_bootstrap_dispatch.do` | regression | quick/refactor | 600s | Stata | repeated-seed matrix identity plus all-family helper/support oracle | fixed | GCOMP-R01 bootstrap dispatch |
 | `test_refactor_msm_omitted.do` | regression | quick/refactor | 600s | Stata | full matrix stripes and omitted-term absence | fixed | C04 |
 | `test_refactor_display_golden.do` | regression | quick/refactor | 600s | Stata | text snapshot predicates | fixed | display contract |

@@ -1,4 +1,4 @@
-*! tvexpose Version 1.16.0  2026/08/13
+*! tvexpose Version 1.17.0  2026/08/28
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -141,7 +141,7 @@ program define tvexpose, rclass
     * filename. Confirm both resolve here rather than at the dispatch site: a
     * partial installation otherwise surfaces as "command _tvexpose_fast_build
     * is unrecognized", r(199), which names neither the package nor the fix.
-    foreach _tvx_helper in _tvexpose_eligible _tvexpose_fast_build _tvexpose_diagnostics {
+    foreach _tvx_helper in _tvexpose_eligible _tvexpose_fast_data _tvexpose_fast_build _tvexpose_dose_sweep _tvexpose_diagnostics {
         capture findfile `_tvx_helper'.ado
         if _rc {
             noisily display as error "`_tvx_helper'.ado not found; reinstall tvtools"
@@ -197,7 +197,8 @@ program define tvexpose, rclass
         LABel(string) ///
         FLOW ///
         DROPinvalid ///
-        VERBose]
+        VERBose ///
+        NOFASTpath]
     
     * Check that stop() is provided OR pointtime is specified
     * If neither is provided, the command cannot proceed meaningfully
@@ -768,6 +769,8 @@ program define tvexpose, rclass
     * reason is itself an option that makes the call ineligible, so there is
     * no path on which tvexpose could usefully display one.
     local _tvx_fast = r(eligible)
+    if "`nofastpath'" != "" local _tvx_fast = 0
+    local _tvx_fast_build = `_tvx_fast'
 
     * Early validation: verify using dataset exists and contains required variables
     preserve
@@ -1320,31 +1323,9 @@ program define tvexpose, rclass
     * same-class and different-class overlap, nesting, an exact duplicate, and
     * a shared endpoint all put the next row's start at or before this row's
     * stop.
-    if `_tvx_fast' & `exp_cleaned_n' > 0 {
-        tempvar _tvx_nonint _tvx_isref _tvx_ovl
-        quietly generate byte `_tvx_nonint' = ///
-            missing(exp_value) | exp_value != floor(exp_value)
-        quietly generate byte `_tvx_isref' = (exp_value == `reference')
-        quietly by id: generate byte `_tvx_ovl' = ///
-            (_n < _N) & (exp_start[_n+1] <= exp_stop)
-        quietly count if `_tvx_nonint'
-        local _tvx_n_nonint = r(N)
-        quietly count if `_tvx_isref'
-        local _tvx_n_isref = r(N)
-        quietly count if `_tvx_ovl'
-        local _tvx_n_ovl = r(N)
-        drop `_tvx_nonint' `_tvx_isref' `_tvx_ovl'
-
-        if `_tvx_n_nonint' > 0 {
-            local _tvx_fast = 0    // non-integer source category code
-        }
-        else if `_tvx_n_isref' > 0 {
-            local _tvx_fast = 0    // reference-coded source episode
-        }
-        else if `_tvx_n_ovl' > 0 {
-            local _tvx_fast = 0    // within-person episode overlap
-        }
-    }
+    if `_tvx_fast' _tvexpose_fast_data, reference(`reference') mergedays(`merge')
+    if `_tvx_fast' local _tvx_fast = r(eligible)
+    local _tvx_fast_build = `_tvx_fast'
 
     **# EXPOSURE PERIOD PROCESSING
 
@@ -1594,7 +1575,7 @@ program define tvexpose, rclass
 
         if `n_dose_overlaps' > 0 {
             noisily display as text "  Found `n_dose_overlaps' overlapping dose periods to resolve..."
-            tempvar seg_days seg_id contrib
+            tempvar seg_days seg_id
 
             * Step 2: Create all boundary points
             preserve
@@ -1654,28 +1635,9 @@ program define tvexpose, rclass
             tempfile periods_for_join
             quietly save `periods_for_join', replace
 
-            quietly use `segments_with_id', clear
-            joinby id using `periods_for_join'
-
-            * Keep only where segment overlaps with original period
-            quietly keep if seg_start <= __orig_stop & seg_stop >= __orig_start
-
-            * Calculate this period's contribution to this segment
-            * Contribution = segment_days × daily_rate
-            quietly gen double `contrib' = `seg_days' * __orig_daily_rate
-
-            * Sum contributions by segment
-            collapse (sum) exp_value=`contrib' (first) seg_start seg_stop study_entry study_exit, by(id `seg_id')
-
-            rename (seg_start seg_stop) (exp_start exp_stop)
-            drop `seg_id'
-
-            * Add back keepvars if needed
-            if "`keepvars'" != "" {
-                quietly merge m:1 id using `master_dates', keepusing(`keepvars') nogen keep(1 3)
-            }
-
-            sort id exp_start exp_stop
+            _tvexpose_dose_sweep, segments("`segments_with_id'") ///
+                periods("`periods_for_join'") masterfile("`master_dates'") ///
+                segid(`seg_id') segdays(`seg_days') keepvars("`keepvars'")
 
             noisily display as text "  Dose overlap resolution complete."
         }
@@ -2397,8 +2359,30 @@ program define tvexpose, rclass
     }
     * End of gap period creation
     
+    * A call that needed legacy episode cleaning may still use the fast
+    * constructor once merge/grace/overlap work has produced its final,
+    * nonoverlapping episode set. dose, split, and the legacy-flow/debug modes
+    * retain the original constructor because their row semantics differ.
+    local _tvx_recheck = ("`nofastpath'" == "" & "`stop'" != "" & ///
+        "`pointtime'" == "" & "`dose'" == "" & "`dosecuts'" == "" & ///
+        "`split'" == "" & "`flow'" == "" & "`dropinvalid'" == "" & ///
+        "`switching'" == "" & "`switchingdetail'" == "" & "`statetime'" == "")
+    if `_tvx_fast' == 0 & `_tvx_recheck' quietly use `exp_cleaned', clear
+    if `_tvx_fast' == 0 & `_tvx_recheck' & `gap_carryforward' > 0 ///
+        quietly append using `carryforward_gaps'
+    if `_tvx_fast' == 0 & `_tvx_recheck' ///
+        quietly merge m:1 id using `master_dates', update nogen keep(1 3 4)
+    if `_tvx_fast' == 0 & `_tvx_recheck' ///
+        _tvexpose_fast_data, reference(`reference') mergedays(`merge')
+    if `_tvx_fast' == 0 & `_tvx_recheck' local _tvx_fast_build = r(eligible)
+    * The predicate imposes the retained constructor's required sort key.
+    * Persist that order as well: Guard 3b reloads exp_cleaned when the data
+    * verdict remains negative (for example decimal bytype categories).
+    if `_tvx_fast' == 0 & `_tvx_recheck' ///
+        quietly save `exp_cleaned', replace
+
     * Guard 3b of 3: baseline, post-exposure, and the combining append.
-    if `_tvx_fast' == 0 {
+    if `_tvx_fast_build' == 0 {
     **# Step 4: Identify earliest exposure per person
     * Used to create baseline period (pre-first exposure)
     * When there are no exposures, earliest will be empty and Step 5 handles it
@@ -2597,29 +2581,36 @@ program define tvexpose, rclass
     * tempfiles, an append, and two m:1 re-merges of the master windows.
     * Written with single-statement `if's rather than braced blocks: see the
     * guard 3a note above for why extra nested blocks are not free here.
-    if `_tvx_fast' & `exp_cleaned_n' == 0 ///
+    if `_tvx_fast_build' & `exp_cleaned_n' == 0 ///
         noisily display as text "Note: No valid exposure periods found after filtering"
-    if `_tvx_fast' & `exp_cleaned_n' == 0 ///
+    if `_tvx_fast_build' & `exp_cleaned_n' == 0 ///
         noisily display as text "      All person-time will be assigned reference category"
 
     * `_tvx_source_order' is a tvexpose tempvar, so its name begins with __.
     * It must not survive into the appended person rows, where it would be
     * missing for every one of them.
-    if `_tvx_fast' capture drop `_tvx_source_order'
+    if `_tvx_fast_build' capture drop `_tvx_source_order'
 
-    if `_tvx_fast' ///
-        _tvexpose_fast_build, reference(`reference') masterfile("`master_dates'")
+    local _tvx_fast_build_opts ""
+    if `_tvx_fast_build' & `_tvx_fast' == 0 ///
+        local _tvx_fast_build_opts "nocoalesce"
+    if `_tvx_fast_build' & "`combine'" != "" ///
+        local _tvx_fast_build_opts "`_tvx_fast_build_opts' mirror(`combine')"
+
+    if `_tvx_fast_build' ///
+        _tvexpose_fast_build, reference(`reference') masterfile("`master_dates'") ///
+            `_tvx_fast_build_opts'
 
     * The released path re-applies the study-date labels after its closing m:1
     * refresh of the master windows. The append-based build inherits whatever
     * the earlier merge attached, so re-apply them here to reach the same
     * observable metadata by either route.
-    if `_tvx_fast' & "`study_entry_varlab'" != "" ///
+    if `_tvx_fast_build' & "`study_entry_varlab'" != "" ///
         label variable study_entry "`study_entry_varlab'"
-    if `_tvx_fast' & "`study_exit_varlab'" != "" ///
+    if `_tvx_fast_build' & "`study_exit_varlab'" != "" ///
         label variable study_exit "`study_exit_varlab'"
 
-    if `_tvx_fast' sort id exp_start exp_stop exp_value
+    if `_tvx_fast_build' sort id exp_start exp_stop exp_value
 
     * Cache original exposure status before transformations
     * Store binary exposed/unexposed status for later summary calculations
@@ -3901,26 +3892,13 @@ program define tvexpose, rclass
                 quietly replace exp_duration = 1 if __exp_now_dur
             }
             
-            * Carry forward duration to unexposed periods after first exposure
-            sort id exp_start exp_stop
+            * Carry forward duration to unexposed periods after first exposure.
+            * Stata evaluates by-group replace in observation order, so one
+            * recursive pass fills an arbitrarily long run; the former
+            * count/generate loop repeatedly scanned the full dataset.
             quietly bysort id (exp_start): egen double __first_exp = min(cond(__exp_now_dur == 1, _n, .))
-            
-            local changes = 1
-            while `changes' > 0 {
-                quietly bysort id (exp_start): replace exp_duration = exp_duration[_n-1] if _n > 1 & ///
-                    exp_duration == `reference' & exp_duration[_n-1] != `reference' & _n > __first_exp
-                quietly count if exp_duration == `reference' & _n > 1 & _n > __first_exp
-                local remaining = r(N)
-                if `remaining' > 0 {
-                    quietly bysort id (exp_start): gen double __can_carry = (_n > 1 & exp_duration == `reference' & exp_duration[_n-1] != `reference' & _n > __first_exp)
-                    quietly count if __can_carry == 1
-                    local changes = r(N)
-                    quietly drop __can_carry
-                }
-                else {
-                    local changes = 0
-                }
-            }
+            quietly by id: replace exp_duration = exp_duration[_n-1] if _n > 1 & ///
+                exp_duration == `reference' & exp_duration[_n-1] != `reference' & _n > __first_exp
             
             * Enforce monotonicity
             quietly bysort id (exp_start): replace exp_duration = max(exp_duration, exp_duration[_n-1]) if _n > 1 & _n > __first_exp

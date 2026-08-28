@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.3  2026/08/13
+*! _rangematch_mata Version 1.5.4  2026/08/28
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -14,6 +14,7 @@ capture mata: mata drop _rm_prepare_sweep_master()
 capture mata: mata drop _rm_pctile()
 capture mata: mata drop _rm_compute_match_stats()
 capture mata: mata drop _rm_post_pair_results()
+capture mata: mata drop _rm_store_pairs()
 capture mata: mata drop _rm_mata_version()
 capture mata: mata drop _rm_blank_quoted()
 capture mata: mata drop _rm_first_empty_opt()
@@ -37,7 +38,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.5.3")
+    return("1.5.4")
 }
 
 // ============================================================================
@@ -372,6 +373,32 @@ void _rm_post_pair_results(
     st_local("_rm_err_maxpairs", "0")
 }
 
+// Order only the two index columns before materialization. Sorting the fully
+// materialized output frame moves every payload byte even though (mi, ui)
+// alone determine the documented order.
+void _rm_store_pairs(
+    string scalar out_frame,
+    real colvector mi,
+    real colvector ui,
+    real scalar n_pairs,
+    real scalar do_order,
+    string scalar mi_var,
+    string scalar ui_var
+)
+{
+    st_framecurrent(out_frame)
+    if (n_pairs > 0) st_addobs(n_pairs)
+    (void) st_addvar("double", mi_var)
+    (void) st_addvar("double", ui_var)
+    if (n_pairs > 0) {
+        st_store(., mi_var, mi[|1, 1 \ n_pairs, 1|])
+        st_store(., ui_var, ui[|1, 1 \ n_pairs, 1|])
+        if (do_order & n_pairs > 1) {
+            stata("sort " + mi_var + " " + ui_var, 1)
+        }
+    }
+}
+
 void _rm_build_pairs_sweep(
     string scalar master_frame,
     string scalar using_frame,
@@ -387,6 +414,7 @@ void _rm_build_pairs_sweep(
     real scalar assert_match,
     real scalar assert_using,
     real scalar sweep_mode,
+    real scalar do_order,
     string scalar mi_var,
     string scalar ui_var
 )
@@ -605,15 +633,17 @@ void _rm_build_pairs_sweep(
                     ui = ui \ J(rows(ui), 1, .)
                 }
             }
-            for (pos = left; pos < right; pos++) {
-                target = uobs[pos]
-                if (track_using) matched_using[target] = 1
-                n_pairs++
-                if (!dryrun) {
-                    mi[n_pairs] = mobs
-                    ui[n_pairs] = target
-                }
+            if (track_using) {
+                matched_using[uobs[|left, 1 \ right - 1, 1|], 1] =
+                    J(nmatch, 1, 1)
             }
+            if (!dryrun) {
+                mi[|n_pairs + 1, 1 \ n_pairs + nmatch, 1|] =
+                    J(nmatch, 1, mobs)
+                ui[|n_pairs + 1, 1 \ n_pairs + nmatch, 1|] =
+                    uobs[|left, 1 \ right - 1, 1|]
+            }
+            n_pairs = n_pairs + nmatch
         }
 
         if (progress & i >= progress_next) {
@@ -663,18 +693,8 @@ void _rm_build_pairs_sweep(
     match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
         gpresent_map, M, compute_stats)
 
-    if (!dryrun) {
-        st_framecurrent(out_frame)
-        if (n_pairs > 0) {
-            st_addobs(n_pairs)
-        }
-        (void) st_addvar("double", mi_var)
-        (void) st_addvar("double", ui_var)
-        if (n_pairs > 0) {
-            st_store(., mi_var, mi[1..n_pairs])
-            st_store(., ui_var, ui[1..n_pairs])
-        }
-    }
+    if (!dryrun) _rm_store_pairs(out_frame, mi, ui, n_pairs, do_order,
+        mi_var, ui_var)
 
     st_framecurrent(oldframe)
     _rm_post_pair_results(n_pairs, n_matched_pairs, n_matched_master, ///
@@ -697,6 +717,7 @@ void _rm_build_pairs(
     real scalar compute_stats,
     real scalar assert_match,
     real scalar assert_using,
+    real scalar do_order,
     string scalar mi_var,
     string scalar ui_var
 )
@@ -1003,15 +1024,17 @@ void _rm_build_pairs(
                         ui = ui \ J(rows(ui), 1, .)
                     }
                 }
-                for (pos = jlo; pos <= jhi; pos++) {
-                    target = uobs[pos]
-                    if (track_using) matched_using[target] = 1
-                    n_pairs++
-                    if (!dryrun) {
-                        mi[n_pairs] = mobs
-                        ui[n_pairs] = target
-                    }
+                if (track_using) {
+                    matched_using[uobs[|jlo, 1 \ jhi, 1|], 1] =
+                        J(nmatch, 1, 1)
                 }
+                if (!dryrun) {
+                    mi[|n_pairs + 1, 1 \ n_pairs + nmatch, 1|] =
+                        J(nmatch, 1, mobs)
+                    ui[|n_pairs + 1, 1 \ n_pairs + nmatch, 1|] =
+                        uobs[|jlo, 1 \ jhi, 1|]
+                }
+                n_pairs = n_pairs + nmatch
             }
             else {
                 for (kk = 1; kk <= nmatch; kk++) {
@@ -1079,18 +1102,8 @@ void _rm_build_pairs(
     match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
         gpresent_map, M, compute_stats)
 
-    if (!dryrun) {
-        st_framecurrent(out_frame)
-        if (n_pairs > 0) {
-            st_addobs(n_pairs)
-        }
-        (void) st_addvar("double", mi_var)
-        (void) st_addvar("double", ui_var)
-        if (n_pairs > 0) {
-            st_store(., mi_var, mi[1..n_pairs])
-            st_store(., ui_var, ui[1..n_pairs])
-        }
-    }
+    if (!dryrun) _rm_store_pairs(out_frame, mi, ui, n_pairs, do_order,
+        mi_var, ui_var)
 
     st_framecurrent(oldframe)
     _rm_post_pair_results(n_pairs, n_matched_pairs, n_matched_master, ///
@@ -1231,7 +1244,9 @@ void _rm_overlap_count_group(
 }
 
 // Forward-scan sweep over one group, EMITTING pass. Same traversal as the
-// counting pass, but walks each reported range and writes one pair per step.
+// counting pass. Master-owned contiguous ranges are written as blocks; the
+// using-owned scatter stays scalar because vector-index assignment was slower
+// on the measured large-overlap workload.
 //
 // cursor holds, per ORIGINAL master row, the next output slot reserved for that
 // master; the caller sized those blocks from the counting pass. Writing through
@@ -1261,7 +1276,7 @@ void _rm_overlap_emit_group(
     real scalar dryrun
 )
 {
-    real scalar i, j, e, k, idx, target, slot
+    real scalar i, j, e, k, idx, target, n, s0, slot
 
     i = ms
     j = us
@@ -1270,15 +1285,17 @@ void _rm_overlap_emit_group(
             e = (both ? _rm_bsearch_right(vulo, vmhi[i], j, ue)
                       : _rm_bsearch_last_lt(vulo, vmhi[i], j, ue))
             idx = vmidx[i]
-            for (k = j; k <= e; k++) {
-                target = vuobs[k]
-                if (track_using) matched_using[target] = 1
-                if (!dryrun) {
-                    slot = cursor[idx]
-                    mi[slot] = mobs_all[idx]
-                    ui[slot] = target
+            n = e - j + 1
+            if (n > 0) {
+                if (track_using) {
+                    matched_using[vuobs[|j, 1 \ e, 1|], 1] = J(n, 1, 1)
                 }
-                cursor[idx] = cursor[idx] + 1
+                if (!dryrun) {
+                    s0 = cursor[idx]
+                    mi[|s0, 1 \ s0 + n - 1, 1|] = J(n, 1, mobs_all[idx])
+                    ui[|s0, 1 \ s0 + n - 1, 1|] = vuobs[|j, 1 \ e, 1|]
+                }
+                cursor[idx] = cursor[idx] + n
             }
             i++
         }
@@ -1286,15 +1303,20 @@ void _rm_overlap_emit_group(
             e = (both ? _rm_bsearch_right(vmlo, vuhi[j], i, me)
                       : _rm_bsearch_last_lt(vmlo, vuhi[j], i, me))
             target = vuobs[j]
-            for (k = i; k <= e; k++) {
-                idx = vmidx[k]
+            n = e - i + 1
+            if (n > 0) {
+                // Hoist this out of the scatter loop: every pair has the same
+                // using target.
                 if (track_using) matched_using[target] = 1
-                if (!dryrun) {
-                    slot = cursor[idx]
-                    mi[slot] = mobs_all[idx]
-                    ui[slot] = target
+                for (k = i; k <= e; k++) {
+                    idx = vmidx[k]
+                    if (!dryrun) {
+                        slot = cursor[idx]
+                        mi[slot] = mobs_all[idx]
+                        ui[slot] = target
+                    }
+                    cursor[idx] = cursor[idx] + 1
                 }
-                cursor[idx] = cursor[idx] + 1
             }
             j++
         }
@@ -1315,6 +1337,7 @@ void _rm_build_pairs_overlap(
     real scalar compute_stats,
     real scalar assert_match,
     real scalar assert_using,
+    real scalar do_order,
     string scalar mi_var,
     string scalar ui_var
 )
@@ -1701,18 +1724,8 @@ void _rm_build_pairs_overlap(
     match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
         gstart_map, M, compute_stats)
 
-    if (!dryrun) {
-        st_framecurrent(out_frame)
-        if (n_pairs > 0) {
-            st_addobs(n_pairs)
-        }
-        (void) st_addvar("double", mi_var)
-        (void) st_addvar("double", ui_var)
-        if (n_pairs > 0) {
-            st_store(., mi_var, mi[1..n_pairs])
-            st_store(., ui_var, ui[1..n_pairs])
-        }
-    }
+    if (!dryrun) _rm_store_pairs(out_frame, mi, ui, n_pairs, do_order,
+        mi_var, ui_var)
 
     st_framecurrent(oldframe)
     _rm_post_pair_results(n_pairs, n_matched_pairs, n_matched_master, ///

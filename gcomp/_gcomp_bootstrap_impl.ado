@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 2.0.0  2026/08/19
+*! _gcomp_bootstrap_impl Version 2.0.1  2026/08/28
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel
@@ -308,14 +308,12 @@ if "`impute'"!="" {
 	* we determine at which visit each variable in impute is to be imputed
 	if "`mediation'"=="" {
 		forvalues i=1/`imp_nvar' {
+			qui levelsof `tvar' if !missing(`imp_var`i''), local(_gc_vc_visits)
 			forvalues j=1/`maxv' {
-				local k=matvis[`j',1]           
-					qui count if !missing(`imp_var`i'') & `tvar'==`k'
-				if r(N)!=0 {
-					local visitcalc`i'_`j'=1
-				}
-				else {
-					local visitcalc`i'_`j'=0
+				local k=matvis[`j',1]
+				local visitcalc`i'_`j'=0
+				foreach _gc_v of local _gc_vc_visits {
+					if `_gc_v'==`k' local visitcalc`i'_`j'=1
 				}
 			}
 		}
@@ -1549,14 +1547,12 @@ if `_gc_chk_prt'==0 {
 * determine at which visit each variable in varlist2 is to be simulated
 if "`mediation'"=="" {
     forvalues i=1/`nvar' {
+		qui levelsof `tvar' if !missing(`simvar`i''), local(_gc_vc_visits)
         forvalues j=1/`maxv' {
-            local k=matvis[`j',1]           
-			qui count if !missing(`simvar`i'') & `tvar'==`k'
-            if r(N)!=0 {
-                local visitcalc`i'_`j'=1
-            }
-            else {
-                local visitcalc`i'_`j'=0
+			local k=matvis[`j',1]
+			local visitcalc`i'_`j'=0
+			foreach _gc_v of local _gc_vc_visits {
+				if `_gc_v'==`k' local visitcalc`i'_`j'=1
             }
         }
     }
@@ -1578,7 +1574,17 @@ if `_gc_chk_prt'==0 {
 }
 * generate Monte Carlo population
 if "`mediation'"=="" {
-   	* fit parametric models and simulate according to parameter estimates
+	if "`monotreat'"!="" {
+		quietly sort `idvar' `tvar'
+		forvalues i=1/`nvar' {
+			if `is_intvar_`i''==1 {
+				tempvar _gc_prior_treated`i'
+				quietly by `idvar': gen long `_gc_prior_treated`i'' = ///
+					sum((`simvar`i''==1) & (`int_no'==0)) - ((`simvar`i''==1) & (`int_no'==0))
+			}
+		}
+	}
+	* fit parametric models and simulate according to parameter estimates
 	forvalues j=1/`maxv' {
 		forvalues i=1/`nvar' {
 			if `_gc_chk_prt'==0 {
@@ -1605,11 +1611,7 @@ if "`mediation'"=="" {
 					else {
 						local _gc_mono_condition ""
 						if "`monotreat'"!="" & `is_intvar_`i''==1 {
-							tempvar _gc_prior_treated
-							quietly sort `idvar' `tvar'
-							quietly by `idvar': gen long `_gc_prior_treated' = ///
-								sum((`simvar`i''==1) & (`int_no'==0)) - ((`simvar`i''==1) & (`int_no'==0))
-							local _gc_mono_condition "& `_gc_prior_treated'==0"
+							local _gc_mono_condition "& `_gc_prior_treated`i''==0"
 						}
 						if "`eofu'"!="" {
 						if "`pooled'"=="" {
@@ -1667,16 +1669,7 @@ if "`mediation'"=="" {
 								}
 							}
 							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`death'")) {
-								local tc=1
-								while `tc'>0 {
-									qui sort `idvar' `tvar'
-									tempvar temp_count
-									qui by `idvar': gen `temp_count'=`simvar`i''[_n-1]==1
-									qui summ `temp_count'
-									local tc=r(mean)*r(N)
-									qui by `idvar': drop if `simvar`i''[_n-1]==1
-									drop `temp_count'
-								}
+								_gcomp_drop_postdeath, idvar(`idvar') tvar(`tvar') deathvar(`simvar`i'')
 							}
 						}
 					}
@@ -1728,16 +1721,7 @@ if "`mediation'"=="" {
 								_gcomp_diag_capture, varname(`_gc_diag_var') command(`command`i'') visit(`k') `_gc_show_flag'
 							}
 							if "`command`i''"=="logit" {
-								local tc=1
-								while `tc'>0 {
-									qui sort `idvar' `tvar'
-									tempvar temp_count
-									qui by `idvar': gen `temp_count'=`simvar`i''[_n-1]==1
-									qui summ `temp_count'
-									local tc=r(mean)*r(N)
-									qui by `idvar': drop if `simvar`i''[_n-1]==1
-									drop `temp_count'
-								}
+								_gcomp_drop_postdeath, idvar(`idvar') tvar(`tvar') deathvar(`simvar`i'')
 						}
 						}
 						else {

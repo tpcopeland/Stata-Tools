@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.3  13aug2026}{...}
+{* *! version 1.5.4  28aug2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -844,7 +844,7 @@ written -- test those two, not the counts, to decide whether output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.3, 13aug2026{p_end}
+{pstd}Version 1.5.4, 28aug2026{p_end}
 
 
 {title:Also see}

@@ -12,6 +12,7 @@
         {"name": "test_fit_sample_loss", "timeout_seconds": 600},
         {"name": "test_structural_rules", "timeout_seconds": 900},
         {"name": "test_count_commands", "timeout_seconds": 900},
+        {"name": "test_gcomp_v201_hotpath", "timeout_seconds": 900},
         {"name": "test_refactor_bootstrap_dispatch", "timeout_seconds": 600},
         {"name": "test_refactor_msm_omitted", "timeout_seconds": 600},
         {"name": "test_refactor_display_golden", "timeout_seconds": 600},

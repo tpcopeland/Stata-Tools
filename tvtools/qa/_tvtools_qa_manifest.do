@@ -51,8 +51,7 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     validation_tvweight_recovery validation_tvweight_msm_recovery ///
     validation_tvdiagnose validation_flow ///
     validation_boundary validation_tvbuild_conservation validation_supplemental ///
-    crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools test_tvband_oracle ///
-    test_tvband_oracle
+    crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools test_tvband_oracle
 
 local external_suites crossval_tvsplit_lexis crossval_tvweight_ipcw ///
     crossval_tvevent_recurring test_tvm_overlap_drift_guard ///
@@ -111,7 +110,7 @@ local manifest_counts 11 ///
     87 22 15 10 22 ///
     7 5 21 ///
     11 ///
-    165 21 29 17 14 20 52 75 48 35 27 23 18 76 8 20 13 12 15 4 7 ///
+    165 21 29 17 14 20 67 75 48 35 27 23 18 82 8 20 13 12 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///

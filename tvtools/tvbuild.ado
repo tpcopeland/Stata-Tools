@@ -1,4 +1,4 @@
-*! tvbuild Version 1.16.0  2026/08/13
+*! tvbuild Version 1.17.0  2026/08/28
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -464,6 +464,7 @@ program define tvbuild, rclass
         }
         if `i' > 1 local _srcvargroups `"`_srcvargroups',"'
         local _srcvargroups `"`_srcvargroups' `_ov'"'
+        local _srcvars`i' "`_ov'"
     }
     frame change `_caller_frame'
     local _quant "`rate_out' `total_out' `cum_out'"
@@ -579,6 +580,9 @@ program define tvbuild, rclass
             local _srcuncov "`_srcuncov' `=N_uncovered[`i']'"
             frame change `_caller_frame'
         }
+        foreach _sfi of local _srcframes {
+            if "`_sfi'" != "`event_frame'" capture frame drop `_sfi'
+        }
 
         **# Align them
         capture frame drop `_void'
@@ -596,6 +600,17 @@ program define tvbuild, rclass
         local merged        = r(merged)
         local n_gap_ids     = r(n_gap_ids)
         local uncovered_days = r(uncovered_days)
+
+        * The aligned frame is now the compact metadata carrier. Re-assert
+        * each source's complete metadata while its normalised frame still
+        * exists, then release that frame before events, finalisation, backup,
+        * and staged commit can overlap in memory.
+        forvalues i = 1/`n_sources' {
+            local _nfi : word `i' of `_normframes'
+            _tvbuild_carry_meta, srcframe(`_nfi') dstframe(`_acc') ///
+                vars(`_srcvars`i'')
+            capture frame drop `_nfi'
+        }
 
         if "`coverage'" == "allow" & `n_gap_ids' > 0 {
             noisily display as text ///
@@ -624,6 +639,8 @@ program define tvbuild, rclass
             local event_out = r(N_out)
             local _dropvars "`r(dropvars)'"
             local _resframe "`_evout'"
+            _tvbuild_carry_meta, srcframe(`_acc') dstframe(`_evout') ///
+                vars(`payload_vars')
         }
 
         **# Finalise into the committed schema
@@ -633,7 +650,6 @@ program define tvbuild, rclass
             dateformat(`dateformat') masteridtype(`masteridtype') ///
             schema(`_out_names') coverage(`coverage') ///
             keepvars(`keepvars') dropdates(`_dropdates01') ///
-            srcframes(`_normframes') srcvars(`"`_srcvargroups'"') ///
             dropvars(`_dropvars') eventvar(`eventgenerate') ///
             timevar(`timegen') enumvar(`enum') ///
             gapstartvar(`gapstart') gapstopvar(`gapstop')

@@ -103,6 +103,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_missing_option.do` | `missing()` policy and routing cases |
 | `test_rangematch_missing_option_extra.do` | Extended missing-policy interactions |
 | `test_rangematch_adversarial.do` | Parser failures, cleanup, varabbrev, collisions, internal-name regressions |
+| `test_rangematch_hostile.do` | Hostile interval/name/state contracts, empty-master accounting, and runner-safe sandbox ownership |
 | `test_rangematch_return_contract.do` | Stored-result scalars and locals across output modes, and both halves of the failure-time contract: a `saving()` collision keeps the counts while leaving `r(saving)`/`r(frame)` empty, and every abort raised before or during matching clears `r()` entirely (each seeded from a successful run first, so an already-empty `r()` cannot pass the assertion) |
 | `test_rangematch_stats_semantics.do` | What the match-density diagnostics *mean*: percentiles reproduce Stata's own `_pctile` definition (fixtures chosen where nearest rank diverges), and `r(N_empty_groups)` counts groups holding no using row identically in point and overlap mode |
 | `test_rangematch_routing_contract.do` | `frame()`, `saving()`, `dryrun`, and `count` routing contracts |
@@ -133,6 +134,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_v130.do` | v1.3.0 random ties and inverted intervals |
 | `test_rangematch_v132.do` | v1.3.2 deterministic overlap ordering and lower-bound maxpairs messaging |
 | `test_rangematch_v133.do` | v1.3.3 maxpairs, session-state, naming, label, and return-gate regressions |
+| `test_rangematch_v154.do` | v1.5.4 default `(master observation, using observation)` output-order contract across sweep, binary, and overlap backends |
 | `test_rangematch_regress_options_output.do` | Option and output-contract regressions: `keepusing()` pre-validation, date/datetime format preservation, stats-gated density results, `tolerance()` boundaries, output order |
 | `test_rangematch_regress_performance.do` | Performance-path regressions |
 | `test_rangematch_regress_backend_selection.do` | Backend selection: automatic sweep for monotone joins, binary fallback for nonmonotone intervals |
@@ -140,6 +142,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_regress_distance.do` | `distance()` conformability at single-row edges and backend routing |
 | `test_rangematch_regress_mata_surface.do` | Mata backend version handshake; dead functions absent, live functions callable |
 | `test_rangematch_v16compat.do` | Stata 16.1 compatibility surface |
+| `test_rangematch_oracle.do` | Large randomized point-join oracle grid |
 | `validation_rangematch_oracle.do` | Known-answer oracle scenarios |
 | `validation_rangematch_manual.do` | Manual count/statistic validation |
 | `validation_rangematch_nearest.do` | Nearest/ties validation scenarios |

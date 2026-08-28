@@ -1,4 +1,4 @@
-*! _gcomp_warn_fit_sample_loss Version 2.0.0  2026/08/19
+*! _gcomp_warn_fit_sample_loss Version 2.0.1  2026/08/28
 *! Warn when a gcomp component fit omits eligible observations
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

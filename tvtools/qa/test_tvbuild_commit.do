@@ -635,7 +635,7 @@ if `e12_rc' == 0 {
     frame change default
 }
 local ok = (`e12_rc' == 0)
-_tvc_check `ok' "E12a eventlabel() does not fail the event stage" ///
+_tvc_check `ok' "E12a eventlabel() completes the event stage" ///
     "rc=`e12_rc'"
 
 local ++test_count
@@ -988,7 +988,7 @@ capture confirm frame tc_t7man
 local t7_noman = (_rc != 0)
 local ok = (`t7_rc' != 0 & `t7_noout' & `t7_noman')
 _tvc_check `ok' ///
-    "T7 a failed commit into new destinations leaves neither frame behind" ///
+    "T7 rejected commit leaves neither new destination behind" ///
     "rc=`t7_rc' out_absent=`t7_noout' man_absent=`t7_noman'"
 
 * T8: frameout() and manifestframe() may not be the same frame.

@@ -109,10 +109,10 @@ _txf_elig F03_no_reference_given     1 "exptype(timevarying) hasstop(1)"
 _txf_elig F04_no_stop                0 "exptype(timevarying) hasstop(0) reference(0)"
 _txf_elig F05_evertreated_mode       0 "exptype(evertreated) hasstop(1) reference(0)"
 _txf_elig F06_continuous_mode        0 "exptype(continuous) hasstop(1) reference(0)"
-_txf_elig F07_merge_nonzero          0 "`base' mergedays(30)"
-_txf_elig F08_lag_nonzero            0 "`base' lagdays(10)"
-_txf_elig F09_washout_nonzero        0 "`base' washoutdays(10)"
-_txf_elig F10_fillgaps_nonzero       0 "`base' fillgapdays(10)"
+_txf_elig F07_merge_nonzero          1 "`base' mergedays(30)"
+_txf_elig F08_lag_nonzero            1 "`base' lagdays(10)"
+_txf_elig F09_washout_nonzero        1 "`base' washoutdays(10)"
+_txf_elig F10_fillgaps_nonzero       1 "`base' fillgapdays(10)"
 _txf_elig F11_carryforward_nonzero   0 "`base' carryforwarddays(10)"
 _txf_elig F12_grace_on               0 "`base' graceon(1)"
 _txf_elig F12b_noninteger_reference  0 "exptype(timevarying) hasstop(1) reference(0.5)"
@@ -121,10 +121,9 @@ _txf_elig F12b_noninteger_reference  0 "exptype(timevarying) hasstop(1) referenc
 * stopped blocking is exactly the defect this suite exists to catch.
 local _fams "pointtime evertreated currentformer duration dose dosecuts"
 local _fams "`_fams' continuousunit expandunit bytype recency recencyunit"
-local _fams "`_fams' grace window switching switchingdetail statetime"
+local _fams "`_fams' grace switching switchingdetail statetime"
 local _fams "`_fams' priority split layer combine keepvars"
-local _fams "`_fams' check gaps overlaps summarize validate flow"
-local _fams "`_fams' dropinvalid verbose saveas"
+local _fams "`_fams' flow dropinvalid"
 local _famfail = 0
 local _famnames ""
 foreach f of local _fams {
@@ -157,6 +156,8 @@ _txf_check `=(`_hs' == 0)' F15_missing_hasstop_fails_closed "got `_hs'"
 local _allowed "using id start exposure entry exit stop reference"
 local _allowed "`_allowed' generate frameout replace keepdates"
 local _allowed "`_allowed' referencelabel label"
+local _allowed "`_allowed' window check gaps overlaps summarize validate verbose saveas"
+local _allowed "`_allowed' nofastpath"
 
 * The declaration is bounded by its own continuation marker: it starts at the
 * syntax line and ends at the first line that does not carry a trailing
@@ -182,30 +183,25 @@ local _allowed "`_allowed' referencelabel label"
 *    reaching -- the scan had already stopped; the failure was in the read.
 local _sl = "/"
 local _cont "`_sl'`_sl'`_sl'"
-local _dq `"""'
-
 tempname fh
 local _declared ""
 local _insyntax = 0
 file open `fh' using "`pkgdir'/tvexpose.ado", read text
 file read `fh' line
 while r(eof) == 0 {
-    * Does this line continue? Ask before the marker is stripped.
-    local _junk : subinstr local line "`_cont'" "", all count(local _ncont)
-
-    * Neutralise quotes first, then punctuation. All of these read `line' and
-    * `clean' by name, so no content is ever re-quoted.
-    * The from-string is a single double quote, so it needs compound quotes of
-    * its own: writing it plainly yields an empty string plus a stray quote.
-    local clean : subinstr local line `"`_dq'"' "", all
-    local clean : subinstr local clean "`_cont'" " ", all
-    local clean : subinstr local clean "," " ", all
-    local clean : subinstr local clean "[" " ", all
-    local clean : subinstr local clean "]" " ", all
-
-    local _first : word 1 of `clean'
-    if "`_first'" == "syntax" local _insyntax = 1
+    * Search source text by extended-macro substitution, which does not
+    * reparse embedded quotes. Once the declaration ends, stop reading: later
+    * display strings and format tokens are intentionally irrelevant here.
+    if !`_insyntax' {
+        local _junk : subinstr local line "syntax using/" "", all count(local _ns)
+        if `_ns' > 0 local _insyntax = 1
+    }
     if `_insyntax' {
+        local _junk : subinstr local line "`_cont'" "", all count(local _ncont)
+        local clean : subinstr local line "`_cont'" " ", all
+        local clean : subinstr local clean "," " ", all
+        local clean : subinstr local clean "[" " ", all
+        local clean : subinstr local clean "]" " ", all
         * Option tokens look like NAMEname( or a bare NAME flag. Strip the
         * argument spec and lower-case what is left.
         foreach tok of local clean {
@@ -215,7 +211,7 @@ while r(eof) == 0 {
             if "`tok'" != "" & regexm("`tok'", "^[a-z]+$") ///
                 local _declared "`_declared' `tok'"
         }
-        if `_ncont' == 0 local _insyntax = 0
+        if `_ncont' == 0 continue, break
     }
     file read `fh' line
 }
@@ -225,11 +221,10 @@ local _declared : list _declared - _allowed
 
 local _blocking "pointtime evertreated currentformer duration dose dosecuts"
 local _blocking "`_blocking' continuousunit expandunit bytype"
-local _blocking "`_blocking' recency recencyunit grace window"
+local _blocking "`_blocking' recency recencyunit grace"
 local _blocking "`_blocking' switching switchingdetail statetime"
 local _blocking "`_blocking' priority split layer combine keepvars"
-local _blocking "`_blocking' check gaps overlaps summarize validate"
-local _blocking "`_blocking' flow dropinvalid verbose saveas"
+local _blocking "`_blocking' flow dropinvalid"
 * Three buckets, not two. The five numeric knobs are not blocking FLAGS --
 * they are checked by VALUE, because merge(0) is eligible and merge(30) is
 * not -- so they are classified in their own list rather than quietly
@@ -516,7 +511,7 @@ tempname sfh
 file open `sfh' using "`stubdir'/_tvexpose_fast_build.ado", write replace text
 file write `sfh' "program define _tvexpose_fast_build, rclass" _n
 file write `sfh' "    version 16.0" _n
-file write `sfh' "    syntax , REFerence(string) MASTERfile(string)" _n
+file write `sfh' "    syntax , REFerence(string) MASTERfile(string) [NOCOALESCE MIRROR(name)]" _n
 file write `sfh' `"    display as error `_q'TXF_STUB_KERNEL`_q'"' _n
 file write `sfh' "    exit 9931" _n
 file write `sfh' "end" _n
@@ -538,7 +533,8 @@ end
 quietly save "`fPEXP'", replace
 clear
 quietly input long pid int e_start int e_stop byte drug
-    1 21920 21929 0
+    1 21920 21929 1
+    1 21925 21935 2
     2 21925 21935 2
 end
 quietly save "`fPREF'", replace
@@ -579,16 +575,18 @@ _txf_check `=(`_fo_rc' == 9931 & `_fo_n' == 4)' F37_frameout_target_untouched //
     "rc=`_fo_rc', frame rows=`_fo_n' (wanted 9931 and 4)"
 capture frame drop txfout
 
-* A call made ineligible by DATA still succeeds while the kernel is broken.
+* A call initially ineligible because its source overlaps is cleaned by the
+* shared legacy stage, then deliberately reaches the second-stage builder.
 use "`fPMST'", clear
 capture noisily tvexpose using "`fPREF'", id(pid) start(e_start) stop(e_stop) ///
     exposure(drug) reference(0) entry(s_entry) exit(s_exit)
-_txf_check `=(_rc == 0)' F38_data_ineligible_uses_legacy "rc=`=_rc', wanted 0"
+_txf_check `=(_rc == 9931)' F38_postclean_data_uses_fast_kernel ///
+    "rc=`=_rc', wanted the stub's 9931"
 
 * So does a call made ineligible by an OPTION.
 use "`fPMST'", clear
 capture noisily tvexpose using "`fPEXP'", id(pid) start(e_start) stop(e_stop) ///
-    exposure(drug) reference(0) entry(s_entry) exit(s_exit) verbose
+    exposure(drug) reference(0) entry(s_entry) exit(s_exit) dropinvalid
 _txf_check `=(_rc == 0)' F39_option_ineligible_uses_legacy "rc=`=_rc', wanted 0"
 
 * Restore the real kernel.
@@ -622,7 +620,8 @@ _txf_check `=(_rc == 0)' F40_real_kernel_restored "rc=`=_rc', wanted 0"
 * PLUS/PERSONAL/SITE. That was verified out of band against a scratch tree
 * with _tvexpose_fast_build.ado deleted; it is not automated.
 local _hmiss ""
-foreach h in _tvexpose_eligible _tvexpose_fast_build {
+foreach h in _tvexpose_eligible _tvexpose_fast_data _tvexpose_fast_build ///
+        _tvexpose_dose_sweep {
     capture findfile `h'.ado
     if _rc local _hmiss "`_hmiss' `h'"
 }
@@ -641,8 +640,11 @@ file read `gh' line
 while r(eof) == 0 {
     local _j : subinstr local line "foreach" "", all count(local _nf)
     local _j : subinstr local line "_tvexpose_eligible" "", all count(local _n1)
-    local _j : subinstr local line "_tvexpose_fast_build" "", all count(local _n2)
-    if `_nf' > 0 & `_n1' > 0 & `_n2' > 0 local _sawloop = 1
+    local _j : subinstr local line "_tvexpose_fast_data" "", all count(local _n2)
+    local _j : subinstr local line "_tvexpose_fast_build" "", all count(local _n3)
+    local _j : subinstr local line "_tvexpose_dose_sweep" "", all count(local _n4)
+    if `_nf' > 0 & `_n1' > 0 & `_n2' > 0 & `_n3' > 0 & `_n4' > 0 ///
+        local _sawloop = 1
     local _j : subinstr local line "not found; reinstall tvtools" "", all count(local _nm)
     if `_nm' > 0 local _sawmsg = 1
     file read `gh' line
@@ -835,25 +837,61 @@ _txf_oracle_case F45_oracle_negative_reference "`fOM'" "`fO5'" -5
 capture program drop _txf_engine_diff
 program define _txf_engine_diff
     version 16.0
-    args label mstfile expfile
+    args label mstfile expfile opts
     tempfile fastout
     quietly use "`mstfile'", clear
     capture noisily tvexpose using "`expfile'", id(pid) start(e_start) ///
-        stop(e_stop) exposure(drug) reference(0) entry(s_entry) exit(s_exit)
+        stop(e_stop) exposure(drug) reference(0) entry(s_entry) exit(s_exit) `opts'
     local rc1 = _rc
+    local np1 = .
+    local nr1 = .
+    local tt1 = .
+    local et1 = .
+    local ut1 = .
+    local gx1 ""
+    local cm1 ""
+    local by1 ""
+    if `rc1' == 0 {
+        local np1 = r(N_persons)
+        local nr1 = r(N_periods)
+        local tt1 = r(total_time)
+        local et1 = r(exposed_time)
+        local ut1 = r(unexposed_time)
+        local gx1 `"`r(genvar)'"'
+        local cm1 `"`r(combine_map)'"'
+        local by1 `"`r(bytype_map)'"'
+    }
     local n1 = _N
     local sort1 : sortedby
     quietly describe, varlist
     local vl1 `r(varlist)'
     quietly save "`fastout'", replace
 
-    * verbose is data-neutral and blocking, so this is the legacy engine on
-    * byte-identical input.
+    * nofastpath is an internal QA switch: it forces the frozen constructor
+    * while leaving every public option and the byte-identical input intact.
     quietly use "`mstfile'", clear
     capture noisily tvexpose using "`expfile'", id(pid) start(e_start) ///
         stop(e_stop) exposure(drug) reference(0) entry(s_entry) exit(s_exit) ///
-        verbose
+        `opts' nofastpath
     local rc2 = _rc
+    local np2 = .
+    local nr2 = .
+    local tt2 = .
+    local et2 = .
+    local ut2 = .
+    local gx2 ""
+    local cm2 ""
+    local by2 ""
+    if `rc2' == 0 {
+        local np2 = r(N_persons)
+        local nr2 = r(N_periods)
+        local tt2 = r(total_time)
+        local et2 = r(exposed_time)
+        local ut2 = r(unexposed_time)
+        local gx2 `"`r(genvar)'"'
+        local cm2 `"`r(combine_map)'"'
+        local by2 `"`r(bytype_map)'"'
+    }
     local n2 = _N
     local sort2 : sortedby
     quietly describe, varlist
@@ -861,6 +899,10 @@ program define _txf_engine_diff
 
     local ok = (`rc1' == 0 & `rc2' == 0 & `n1' == `n2')
     local ok = `ok' & ("`sort1'" == "`sort2'") & ("`vl1'" == "`vl2'")
+    local ok = `ok' & (`np1' == `np2') & (`nr1' == `nr2')
+    local ok = `ok' & (`tt1' == `tt2') & (`et1' == `et2') & (`ut1' == `ut2')
+    local ok = `ok' & (`"`gx1'"' == `"`gx2'"') & (`"`cm1'"' == `"`cm2'"')
+    local ok = `ok' & (`"`by1'"' == `"`by2'"')
     if `ok' {
         capture cf _all using "`fastout'", verbose
         local ok = (_rc == 0)
@@ -890,6 +932,23 @@ quietly generate byte drug = 1 + mod(seq, 2)
 quietly drop seq
 quietly save "`fBE'", replace
 _txf_engine_diff F49_engine_diff_at_scale "`fBM'" "`fBE'"
+
+* --- F50-F64 newly admitted construction and transformation surfaces
+_txf_engine_diff F50_lag              "`fOM'" "`fO1'" "lag(2)"
+_txf_engine_diff F51_washout          "`fOM'" "`fO1'" "washout(3)"
+_txf_engine_diff F52_fillgaps         "`fOM'" "`fO1'" "fillgaps(3)"
+_txf_engine_diff F53_window           "`fOM'" "`fO1'" "window(0 100)"
+_txf_engine_diff F54_merge            "`fOM'" "`fO1'" "merge(15)"
+_txf_engine_diff F55_grace            "`fOM'" "`fO1'" "grace(15)"
+_txf_engine_diff F56_carryforward     "`fOM'" "`fO1'" "carryforward(5)"
+_txf_engine_diff F57_priority         "`fOM'" "`fO1'" "priority(2 1)"
+_txf_engine_diff F58_layer            "`fOM'" "`fO1'" "layer"
+_txf_engine_diff F59_combine          "`fOM'" "`fO1'" "combine(combo)"
+_txf_engine_diff F60_evertreated      "`fOM'" "`fO1'" "evertreated"
+_txf_engine_diff F61_currentformer    "`fOM'" "`fO1'" "currentformer"
+_txf_engine_diff F62_continuous       "`fOM'" "`fO1'" "continuousunit(years)"
+_txf_engine_diff F63_duration         "`fOM'" "`fO1'" "duration(1 3) continuousunit(years)"
+_txf_engine_diff F64_recency          "`fOM'" "`fO1'" "recency(10 30) recencyunit(days)"
 
 * --- F50 the fast path still emits the released no-episodes note
 tempfile fNM fNE
@@ -928,7 +987,7 @@ if _rc == 0 {
     file close `nh'
 }
 capture erase "`notelog'"
-_txf_check `=(`_noterc' == 0 & `_sawnote' == 1)' F50_no_episode_note ///
+_txf_check `=(`_noterc' == 0 & `_sawnote' == 1)' F65_no_episode_note ///
     "rc=`_noterc', note seen=`_sawnote'"
 
 **# ---------------------------------------------------------------------
