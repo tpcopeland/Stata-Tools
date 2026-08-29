@@ -48,15 +48,17 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_tvc.do ///
     test_finegray_tvc_bstrata.do ///
     test_finegray_fences.do ///
+    test_finegray_weights.do ///
     test_finegray_mi_lattice.do ///
     test_finegray_release120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///
+    test_finegray_cif_over.do test_finegray_margins.do ///
     test_finegray_fvgrammar.do test_finegray_at_profile.do ///
     test_finegray_fg03_diagnostic.do ///
     test_finegray_fg06_vce.do test_finegray_fg07_options.do ///
-    test_finegray_nuisance.do ///
+    test_finegray_nuisance.do test_finegray_nuisance_lt.do ///
     test_finegray_determinism.do test_finegray_reporting.do ///
     test_finegray_contracts.do ///
     test_finegray_hostile.do ///
@@ -69,10 +71,11 @@ local core_files `quick_files' ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     validation_bstrata_recovery.do ///
     validation_tvc_recovery.do ///
+    validation_pweight_recovery.do ///
     crossval_predict_stcrreg.do
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
     crossval_finegray_dta.do crossval_finegray_zzf.do crossval_nuisance.do ///
-    crossval_bstrata.do crossval_tvc.do
+    crossval_bstrata.do crossval_tvc.do crossval_pweight.do
 
 * The ZZF Monte Carlo GATES.  Hours, not minutes -- see the header.  They live in
 * their own lane so that (a) they are wired in and runnable by name rather than

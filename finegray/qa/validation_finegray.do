@@ -675,7 +675,8 @@ capture noisily {
     drop pel_1
     * Factor variable version
     finegray i.pelnode ifp, compete(status) cause(1) nolog
-    matrix b_fg = e(b)
+    * the non-base vector: e(b) leads with the base column 0b.pelnode (= 0)
+    _finegray_bnb, b(b_fg)
     assert abs(b_fg[1,1] - b_ref[1,1]) < `tol'
     assert abs(b_fg[1,2] - b_ref[1,2]) < `tol'
 }
@@ -1076,15 +1077,16 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
-    * All coefficients should be finite and non-missing
-    matrix b = e(b)
+    * All ESTIMATED coefficients should be finite and non-missing; the base
+    * levels e(b) also carries are zeros with zero variance by construction
+    _finegray_bnb, b(b) v(V)
     local p = colsof(b)
+    assert `p' == 4
     forvalues j = 1/`p' {
         assert !missing(b[1,`j'])
         assert abs(b[1,`j']) < 100
     }
     * SEs should be positive
-    matrix V = e(V)
     forvalues j = 1/`p' {
         assert V[`j',`j'] > 0 & V[`j',`j'] < .
     }

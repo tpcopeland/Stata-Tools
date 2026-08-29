@@ -800,7 +800,7 @@ else {
 *
 * The plan (Gate Z-inference) makes e(lt_vce) part of the public contract so a
 * consumer never has to re-derive which variance was used from the option list.
-* Three reachable values, and each is asserted against the branch that produces
+* Four reachable values, and each is asserted against the branch that produces
 * it -- a contract macro that is merely PRESENT (Z9) can still be wrong.
 *
 *   no delayed entry  -> not_applicable        (right-censoring branch, unchanged)
@@ -808,11 +808,8 @@ else {
 *                                               NOT the eq. 7-8 nuisance variance)
 *   LT, norobust      -> model_based           (inverse information; Geskus 2011 p.44)
 *   LT, cluster()     -> fixed_weight_sandwich (same estimator, cluster-robust meat)
-*
-* nuisance_adjusted is NOT reachable and must NOT appear: it is unimplemented on
-* purpose (ZZF 2011 Appendix B's equations are images in every obtainable copy;
-* see literature/_requested.md).  A run that reports it would mean someone wired a
-* label to a variance that was never written.
+*   LT, nuisance      -> nuisance_adjusted     (ZZF 2011 Appendix B terms added;
+*                                               pooled weight only, since 2026-08-28)
 * ---------------------------------------------------------------------------
 local ++test_count
 preserve
@@ -826,6 +823,8 @@ local _v_mod `"`e(lt_vce)'"'
 gen long cl = mod(_n - 1, 50) + 1
 quietly finegray z1 z2, compete(status) cause(1) cluster(cl)
 local _v_cl `"`e(lt_vce)'"'
+quietly finegray z1 z2, compete(status) cause(1) nuisance
+local _v_nui `"`e(lt_vce)'"'
 
 _zzf_fix, n(4000) seed(20260714) notrunc
 quietly stset t, failure(anyev == 1) id(id)
@@ -834,14 +833,15 @@ local _v_nolt `"`e(lt_vce)'"'
 restore
 
 if "`_v_def'" == "fixed_weight_sandwich" & "`_v_mod'" == "model_based" & ///
-   "`_v_cl'"  == "fixed_weight_sandwich" & "`_v_nolt'" == "not_applicable" {
+   "`_v_cl'"  == "fixed_weight_sandwich" & "`_v_nolt'" == "not_applicable" & ///
+   "`_v_nui'" == "nuisance_adjusted" {
     local ++pass_count
-    display as result "  PASS: Z26 e(lt_vce) = fixed_weight_sandwich / model_based / fixed_weight_sandwich(cluster) / not_applicable"
+    display as result "  PASS: Z26 e(lt_vce) = fixed_weight_sandwich / model_based / fixed_weight_sandwich(cluster) / not_applicable / nuisance_adjusted"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z26 e(lt_vce) got default='`_v_def'' norobust='`_v_mod'' cluster='`_v_cl'' noLT='`_v_nolt''"
-    display as error "        expected fixed_weight_sandwich / model_based / fixed_weight_sandwich / not_applicable"
+    display as error "  FAIL: Z26 e(lt_vce) got default='`_v_def'' norobust='`_v_mod'' cluster='`_v_cl'' noLT='`_v_nolt'' nuisance='`_v_nui''"
+    display as error "        expected fixed_weight_sandwich / model_based / fixed_weight_sandwich / not_applicable / nuisance_adjusted"
 }
 
 * ---------------------------------------------------------------------------

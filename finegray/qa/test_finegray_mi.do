@@ -25,7 +25,7 @@
 * it does not survive the command -- so post-estimation must refuse rather than
 * answer from columns that are gone.  Refusing by NAME (e(postest)) rather than
 * by failing to find the columns is not fussiness: a tempvar name is reused by
-* the next command that asks for one, so a stale e(covariates) could resolve to
+* the next command that asks for one, so a stale e(designvars) could resolve to
 * somebody else's column at rc 0.
 *
 * Verified 2026-08-25 against the pre-fix tree (git HEAD of Stata-Tools, v1.2.0)
@@ -918,6 +918,49 @@ capture noisily {
 local _rc = _rc
 _fgmi_result `_rc' ///
     "FGMI-17 pooled e(mi_data)/e(postest) are retained state; refusal is by e(cmd)"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# 18. mi estimate does NOT strip a typed weight
+* -----------------------------------------------------------------------------
+* An external audit (2026-08-29) reported that `mi estimate, cmdok:' silently
+* discards [pw=]/[fw=] -- pooled coefficients identical to the unweighted
+* pooled fit -- and asked for a doc sentence or a refusal.  It does not, on
+* Stata 17 MP: the weight reaches every imputation's fit.  Both halves are
+* pinned here rather than argued, because the failure the report describes is
+* exactly the rc-0-but-wrong shape this package fences everywhere else, and a
+* future Stata that DID strip the weight must turn this red instead of
+* quietly pooling unweighted numbers.
+*   per imputation: e(wtype) survives into the fit (mi xeq)
+*   pooled:         the weighted pooled fit is NOT the unweighted pooled fit
+local ++test_count
+capture noisily {
+    _fgmi_data
+    quietly generate double pw = 0.5 + 2 * runiform()
+    _fgmi_set, style(wide) m(3)
+    quietly mi register regular pw
+
+    * per imputation
+    quietly mi xeq 1: finegray x z [pw = pw], compete(etype) cause(1) nolog
+    assert "`e(wtype)'" == "pweight"
+    assert "`e(wexp)'" == "= pw"
+    tempname bw1
+    matrix `bw1' = e(b)
+    quietly mi xeq 1: finegray x z, compete(etype) cause(1) nolog
+    assert "`e(wtype)'" == ""
+    assert mreldif(`bw1', e(b)) > 1e-6
+
+    * pooled
+    quietly mi estimate, cmdok: finegray x z [pw = pw], compete(etype) cause(1) nolog
+    tempname bmw
+    matrix `bmw' = e(b_mi)
+    quietly mi estimate, cmdok: finegray x z, compete(etype) cause(1) nolog
+    assert mreldif(`bmw', e(b_mi)) > 1e-6
+}
+local _rc = _rc
+_fgmi_result `_rc' ///
+    "FGMI-18 mi estimate/mi xeq carry a typed weight into every imputation's fit"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

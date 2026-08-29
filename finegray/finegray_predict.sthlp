@@ -74,102 +74,21 @@ rest. Residuals are missing for non-cause-event observations.
 hazard, at each requested time.
 
 {pstd}
-{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made on
-multiple-imputation data -- typed directly, or run by
-{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or entry-time
-column behind, and pooled estimates have no single baseline hazard to predict
-from. {cmd:finegray_predict} stops with {cmd:r(301)} in that case. Refit on a single
-dataset ({cmd:mi extract 0, clear} for the complete cases, or
-{cmd:mi extract} {it:#}{cmd:, clear} for one imputation) and run {cmd:finegray}
-there; see {help finegray##mi:Multiple imputation} in {helpb finegray}.
+Not available after a fit on {cmd:mi} data ({cmd:r(301)}); see
+{help finegray##mi:Multiple imputation}. A converged fit is required
+({cmd:r(430)} otherwise). Under delayed entry, predictions may move because the
+fitted coefficients and baseline move; see
+{help finegray##lt:Left truncation}.
 
 {pstd}
-{bf:Left truncation (delayed entry).} All prediction types may {bf:move} under
-delayed entry because the fitted coefficients and baseline move: the risk sets
-use Zhang-Zhang-Fine Weight 1 with a package-defined finite-sample tie rule. See
-{help finegray##lt:Left truncation} in {helpb finegray} and
-{help finegray_methods##lt:Left truncation} in {helpb finegray_methods}. Point
-{cmd:xb} scoring needs only {cmd:e(b)}, but {opt ci}, {opt schoenfeld}, and
-{opt bootstrap()} reconstruct the weight design and require the original,
-unmodified estimation data.
-
-{pstd}
-{bf:What time point does the CIF use?} By default, {opt cif} evaluates the
-CIF at {bf:each observation's own analysis time} {cmd:_t} -- one predicted CIF
-per subject, at the follow-up (event or censoring) time that subject
-contributes. It is {it:not} a single fixed horizon and {it:not} the baseline
-CIF. {cmd:stcrreg} produces this covariate-adjusted CIF through
-{cmd:stcurve, cif at()} rather than {cmd:predict}; after {cmd:stcrreg},
-{cmd:predict, basecif} gives the baseline (covariate-free) CIF instead. To
-obtain the predicted CIF for every observation at a {bf:common} time point
-t*, set a constant time variable and pass it through {opt timevar()} (see
-{it:CIF at custom time points} under Examples). The command uses
-{cmd:e(basehaz)} when the fit requested {opt basehaz}; otherwise it uses the
-active fit's cached baseline or rebuilds the same curve from the unchanged
-estimation data. The formulas, and how to convert {cmd:stcrreg}'s
-{cmd:basecif} by hand, are in
+{opt cif} evaluates the CIF at each observation's own {cmd:_t}; for a common
+horizon, set a constant time variable and use {opt timevar()}. The {opt ci} and
+{opt schoenfeld} paths verify that the estimation data are unchanged
+({cmd:r(459)} otherwise). Point {opt xb} predictions remain available on
+compatible new data, and point {opt cif} and {opt basecshazard} predictions too
+while the fit still holds a resolvable baseline. See
+{help finegray_methods##stcrreg:Comparison with stcrreg} and
 {help finegray_methods##cif:Cumulative incidence}.
-
-{pstd}
-{cmd:finegray} must have been run before using {cmd:finegray_predict}. For
-models fit with factor variables or interactions, the design columns are
-rebuilt from the fit-time expansion by level value, so a fitted level that is
-{bf:absent} from the current data (e.g. after {cmd:drop if}) is not an error --
-prediction succeeds for the rows that remain. An observation at a level the fit
-never saw is refused with {cmd:r(459)}; see
-{help finegray_predict##fvalign:Factor-variable alignment} below.
-
-{pstd}
-{bf:A converged fit is required.} {cmd:finegray_predict} exits with
-{cmd:r(430)} when {cmd:e(converged)} is not 1 -- this applies to {opt xb} just
-as it does to {opt cif} and {opt schoenfeld}, because every prediction type
-depends on the fitted solution. Refit with a larger {opt iterate()} or a
-different specification. (Refits inside {opt bootstrap()} that fail to converge
-are a separate matter: they are skipped and counted, not fatal.) See
-{help finegray_methods##estimator:The estimator}.
-
-{pstd}
-The {opt ci} and {opt schoenfeld} paths verify that the original
-estimation sample and its model variables are unchanged. If those data
-have been edited, the command exits with {cmd:r(459)} and requires
-{cmd:finegray} to be re-run. That check also covers the package-owned
-{cmd:_fg_*} design columns: dropping them is supported (they are rebuilt
-on demand), but altering one in place is not, because {helpb finegray_cif}
-and {helpb finegray_phtest} read those columns directly.
-
-{pstd}
-Point {opt xb} predictions remain available on compatible new data. Point
-{opt cif} and {opt basecshazard} predictions are also available there while the
-active fit still holds its cached or posted baseline. After restoring stored
-estimates in a later session, request {opt basehaz} at estimation if those
-baseline-dependent predictions must work without the original data. {opt xb}
-is a pure linear score, so it does not depend on {cmd:_t}, {cmd:_d}, or
-{opt compete()}; it depends only on pairing each coefficient with the correct
-column, as described below.
-
-{pstd}
-{bf:Data requirements by prediction type:} {opt xb} predictions can be
-computed on compatible data containing the model covariates. Point {opt cif}
-and {opt basecshazard} predictions additionally require a time variable
-({cmd:_t} or {opt timevar()}) and a resolvable cached or posted fitted baseline. All
-prediction types currently run the model-design compatibility checks, so
-the scoring data must contain the model covariates. {opt schoenfeld} residuals
-and {helpb finegray_phtest} require the original {cmd:stset} estimation data --
-specifically {cmd:_t},
-{cmd:_d}, and a nonempty estimation sample ({cmd:e(sample)}). These commands
-will exit with an informative error if the estimation context is not present.
-
-{pstd}
-{bf:Relationship to {help stcrreg} predictions:} On fits without delayed entry,
-{cmd:finegray_predict} reproduces the post-estimation predictions of Stata's
-native Fine-Gray estimator {helpb stcrreg}: {opt xb} is numerically identical
-to {cmd:stcrreg}'s {cmd:predict, xb}, the baseline CIF reproduces
-{cmd:predict, basecif}, the per-observation {opt cif} matches the
-covariate-adjusted CIF {cmd:stcrreg} exposes through {cmd:stcurve, cif at()},
-and {opt schoenfeld} residuals are identical {bf:at untied cause-event times}
-while a tied time splits the residual by a different convention that preserves
-the per-time total. The mapping in full is in
-{help finegray_methods##stcrreg:Comparison with stcrreg}.
 
 
 {marker options}{...}
@@ -212,72 +131,26 @@ depend on time and there is nothing to evaluate it at, so {opt attime()} is
 {cmd:r(198)} rather than a silently ignored option.
 
 {phang}
-{bf:After a fit with} {helpb finegray##tvc:tvc()} the coefficient on the named
-covariates is piecewise constant in analysis time, and that changes what these
-predictions mean:
+{bf:After a fit with} {helpb finegray##tvc:tvc()}: {opt xb} becomes a function of time (scored at each row's
+own {cmd:_t}; {opt attime(#)} scores at one time). {opt cif} accumulates the baseline interval
+by interval. Both analytic {opt ci} and {opt bootstrap(#)} are available; the analytic
+route is fixed-weight. {opt schoenfeld} is {bf:not available} ({cmd:r(198)}). See
+{help finegray##tvc:Time-varying effects}.
 
-{pmore}
-{opt xb} becomes a function of time. By default each row is scored at its own
-{cmd:_t} using the coefficients of the interval {cmd:_t} falls in; with
-{opt attime(#)} every row is scored at the single time {it:#} instead. The
-variable label records which was used, so {cmd:describe} can tell the two apart. A
-row whose evaluation time is missing gets a missing prediction rather than the
-first interval's answer. {opt timevar()} is still not allowed with
-{opt xb}; {opt attime()} is the option for this.
-
-{pmore}
-{opt cif} accumulates the baseline interval by interval: the part of H0 falling
-inside interval {it:j} is multiplied by that interval's exp(z'b_j), and the
-CIF is 1 - exp(-{it:sum}). There is one baseline, so {opt basecshazard} is
-unchanged.
-
-{pmore}
-{opt ci} on its own {bf:is} available as of version 1.3.0, from an influence
-function derived for a piecewise b({it:t}); development builds refused it. See
-{help finegray_methods##tvc:Time-varying effects}.
-
-{pmore}
-{opt ci} {opt bootstrap(#)} remains available and is the arm the analytic route
-is checked against -- each replication refits the whole model, and
-{cmd:e(refitcmd)} carries {opt tvc()} and {opt tsplit()}, so the replications
-are the same estimator as the point estimate. As on a proportional fit, the
-analytic route is {bf:fixed-weight}: it does not propagate the uncertainty in
-the estimated censoring distribution, so it returns the same standard errors
-after a {help finegray_methods##nuisance:nuisance} fit as after a default one.
-
-{pmore}
-{opt schoenfeld} is {bf:not available} and is refused with {cmd:r(198)},
-because each residual is defined inside its own interval and every other
-interval's block is zero by construction. Run {helpb finegray_phtest} on the
-proportional fit -- a rejection there is what {opt tvc()} answers -- and use
-{cmd:test [tvc1]}{it:x} {cmd:= [tvc2]}{it:x} after the {opt tvc()} fit.
+{marker weights}{...}
+{phang}
+{bf:After a weighted fit}: {opt cif}, {opt basecshazard} and {opt ci} use the
+weighted Breslow baseline and weighted influence function. The weight is
+re-evaluated from {cmd:e(wexp)} and reconciled against {cmd:e(sum_w)}. See
+{help finegray##weights:Weights}.
 
 {marker bstrata}{...}
 {phang}
-{bf:After a fit with} {helpb finegray##bstrata:bstrata()} there is no single
-baseline: each stratum has its own. {opt cif} and {opt basecshazard} therefore
-answer every row from the baseline of {it:that row's} stratum, which means the
-{cmd:bstrata()} variable must be in the data you score -- the estimation
-sample or new data alike. If it is absent altogether, these predictions (and
-{opt schoenfeld}) exit with {cmd:r(111)} naming it; a row where the variable
-is present but {it:missing} is left {it:missing} rather than scored from
-another stratum's curve, the same rule the factor-variable path applies to a
-missing level.
-
-{pmore}
-A row in a stratum that carried no cause-of-interest event is refused with
-{cmd:r(459)}, naming the level, because that stratum's Breslow baseline is
-identically zero. Exclude those rows with {cmd:if}. The level is also named at
-fit time, in the note {cmd:finegray} prints and in
-{cmd:e(bstrata_noevent)}. See
-{help finegray_methods##refusals:What is refused, and why}.
-
-{pmore}
-{opt xb} is unaffected: it is z'beta and reads no baseline at all, so it is
-available for every row whatever its stratum. {opt schoenfeld} needs the
-{cmd:bstrata()} variable, because the residuals are formed against the row's own
-stratum risk set, but it has no degenerate-stratum problem: a stratum with no
-cause event contributes no residuals.
+{bf:After a fit with} {helpb finegray##bstrata:bstrata()}: {opt cif} and
+{opt basecshazard} answer each row from its own stratum's baseline, so the
+{cmd:bstrata()} variable must be in the data. A missing value gives a missing
+prediction; a stratum with no cause event is {cmd:r(459)}. {opt xb} is
+unaffected. See {help finegray##bstrata:Baseline strata}.
 
 {phang}
 {opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For
@@ -352,16 +225,10 @@ two decimal places -- the same rule {cmd:finegray} itself applies.
 
 {marker fvalign}{...}
 {pstd}
-{bf:Note on factor variables:} Factor-variable predictions are rebuilt from the
-expansion recorded at estimation ({cmd:e(fvsemantic)}) and are aligned to the
-current data {bf:by level value}, not by position. An observation whose factor
-level was not present when the model was fitted has no coefficient, so it cannot
-be scored: {cmd:finegray_predict} exits with {cmd:r(459)} and names the
-offending variable and the levels that were fitted. It does not silently
-collapse such an observation onto the base category.
-
-{pstd}
-This matters whenever the level support changes; see
+{bf:Factor variables:} Predictions are aligned to the current data by level
+{bf:value}, not position. An observation at a level the fit never saw is
+{cmd:r(459)}, not silently collapsed onto the base. {cmd:xb} honours the
+{cmd:predict} contract {helpb margins} relies on. See
 {help finegray_methods##fv:Factor variables and margins}.
 
 

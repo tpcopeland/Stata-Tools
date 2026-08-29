@@ -177,6 +177,29 @@ else {
     local ++fail_count
 }
 
+**# README block 6c -- sampling weights (also the help-file Sampling weights example)
+local ++test_count
+capture noisily {
+    _docblock "README sampling weights"
+    webuse hypoxia, clear
+    gen byte status = failtype
+    gen double sw = cond(pelnode == 1, 2, 1)
+    stset dftime, failure(dfcens == 1) id(stnum)
+    finegray ifp tumsize [pweight = sw], compete(status) cause(1)
+    finegray_cif, attime(1 5) ci nograph
+    display "`e(wtype)' `e(wexp)'  sum of weights = " e(sum_w)
+    assert "`e(wtype)'" == "pweight"
+    assert !missing(e(sum_w))
+}
+if _rc == 0 {
+    display as result "  PASS: README sampling weights"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README sampling weights (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Doc-advertised new-in-1.2.0 invocations: basehaz + basecshazard
 * These are documented (Options table, Stored results, help) but appear in no
 * README code block; a reader who copies the prose must still be able to run them.

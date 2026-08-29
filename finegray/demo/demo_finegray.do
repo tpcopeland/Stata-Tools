@@ -265,26 +265,26 @@ stset time, failure(any_event==1) id(patnr)
 noisily finegray ccr5, compete(status) cause(2) nolog
 matrix b_fg_hiv = e(b)
 
-* # One fixed-horizon table per covariate profile
-noisily finegray_cif, at(ccr5=0) attime(2 5 10) ci nograph
-noisily finegray_cif, at(ccr5=1) attime(2 5 10) ci nograph
+* # One fixed-horizon table per level of ccr5, in one call
+noisily finegray_cif, over(ccr5) attime(2 5 10) ci nograph
 
-* # Overlaying the two curves: finegray_cif draws one profile per call, so
-* export each with saving() and combine them on a common grid.
-local cif0 "`pkg_dir'/_hiv_cif0.dta"
-local cif1 "`pkg_dir'/_hiv_cif1.dta"
-quietly finegray_cif, at(ccr5=0) nograph saving("`cif0'", replace)
-quietly finegray_cif, at(ccr5=1) nograph saving("`cif1'", replace)
+* # The two curves, overlaid: over() stacks the per-level results in r(table)
+* (sixth column `over') and in the saving() dataset.  Each curve is the same
+* computation as the standalone at(ccr5=#) call; assert that here.
+local cifov "`pkg_dir'/_hiv_cifov.dta"
+quietly finegray_cif, over(ccr5) nograph saving("`cifov'", replace)
+matrix _ov_table = r(table)
+quietly finegray_cif, at(ccr5=1) nograph
+local _n1 = rowsof(r(table))
+local _n0 = rowsof(_ov_table) - `_n1'
+matrix _ov_1 = _ov_table[`=`_n0'+1'..`=`_n0'+`_n1'', 1..5]
+assert mreldif(_ov_1, r(table)) == 0
 preserve
-use "`cif0'", clear
-gen byte ccr5 = 0
-append using "`cif1'"
-replace ccr5 = 1 if missing(ccr5)
+use "`cifov'", clear
 assert inrange(cif, 0, 1)
-noisily tabstat cif, by(ccr5) stat(n min max)
+noisily tabstat cif, by(over) stat(n min max)
 restore
-erase "`cif0'"
-erase "`cif1'"
+erase "`cifov'"
 
 * # Agreement with stcrreg on this second dataset
 stset time, failure(status==2)
@@ -516,38 +516,20 @@ graph export "`pkg_dir'/finegray_cif.png", replace width(1400)
 capture graph close _all
 
 * # Stratified-baseline CIF comparison
-* One curve per level of bstrata() on a common grid.  finegray_cif draws one
-* stratum at a time, so the two saving() datasets are merged and plotted
-* together here.
+* One curve per level of bstrata(), drawn in one call by over() on the
+* bstrata() variable; each curve is its own stratum's bstratum(#) call.
 quietly finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode) nolog
-forvalues s = 0/1 {
-    quietly finegray_cif, bstratum(`s') timepoints(0(0.05)8.45) ci nograph ///
-        saving("`pkg_dir'/_bstrata_`s'.dta", replace)
-}
-preserve
-use "`pkg_dir'/_bstrata_0.dta", clear
-rename (cif lci uci) (cif0 lci0 uci0)
-keep time cif0 lci0 uci0
-merge 1:1 time using "`pkg_dir'/_bstrata_1.dta", nogenerate
-rename (cif lci uci) (cif1 lci1 uci1)
-assert inrange(cif0, 0, 1) & inrange(cif1, 0, 1)
-twoway (rarea lci0 uci0 time, color("0 114 178%20") lwidth(none) connect(J J)) ///
-       (rarea lci1 uci1 time, color("213 94 0%20") lwidth(none) connect(J J)) ///
-       (line cif0 time, lcolor("0 114 178") lwidth(medthick) ///
-            lpattern(solid) connect(J)) ///
-       (line cif1 time, lcolor("213 94 0") lwidth(medthick) ///
-            lpattern(solid) connect(J)), ///
+finegray_cif, over(pelnode) timepoints(0(0.05)8.45) ci ///
     ytitle("Cumulative incidence of cause 1") ///
     xtitle("Analysis time (years)") ///
     title("Stratified baseline subdistribution hazard") ///
     subtitle("bstrata(pelnode): a free baseline per stratum, shared SHRs") ///
-    legend(order(3 "pelnode = 0" 4 "pelnode = 1") pos(6) rows(1)) ///
+    legend(pos(6) rows(1)) ///
     ylabel(0(0.2)0.8) yscale(range(0 0.8))
+matrix _bs_table = r(table)
+assert colsof(_bs_table) == 6
 graph export "`pkg_dir'/finegray_bstrata_cif.png", replace width(1400)
 capture graph close _all
-restore
-erase "`pkg_dir'/_bstrata_0.dta"
-erase "`pkg_dir'/_bstrata_1.dta"
 
 **# Cleanup
 capture log close _all

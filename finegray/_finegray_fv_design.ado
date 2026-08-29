@@ -6,7 +6,7 @@
 /*
 Returns, for the factor-variable fit currently in e():
 
-  r(k)        number of non-base design columns (== e(covariates); under
+  r(k)        number of non-base design columns (== e(designvars); under
               tvc() that is NARROWER than e(b), which holds one coefficient
               per interval for each time-varying column)
   r(terms)    those columns' semantic terms, in order, VERBATIM as
@@ -45,7 +45,7 @@ immune because they read e(fvsemantic); this helper is how the rest of the
 package joins them.
 
 Immune in the DESIGN they compute, that is -- which is not the same as the
-vocabulary they REPORT.  finegray_cif reported e(covariates) in
+vocabulary they REPORT.  finegray_cif reported e(designvars) in
 r(profile_vars) before this fix, so a user who fit `i.grp' and passed
 `at(grp=1)' got `_fg_grp_2 _fg_grp_3' back: internal column names they never
 typed, for a matrix they are told to read positionally.  Now taken from
@@ -146,10 +146,16 @@ program define _finegray_fv_design, rclass
         * coefficient vector is wider than the design -- each time-varying
         * column carries one coefficient per interval -- so equality with
         * colsof(e(b)) is the wrong contract there and would reject every
-        * factor-variable tvc() fit at the first rebuild.  e(covariates) names
+        * factor-variable tvc() fit at the first rebuild.  e(designvars) names
         * the design columns and is the quantity this expansion reproduces.
-        local _kexp : word count `e(covariates)'
-        if `_kexp' == 0 local _kexp = colsof(e(b))
+        local _kexp : word count `e(designvars)'
+        if `_kexp' == 0 {
+            * Results posted before e(designvars) existed carry the narrow
+            * stripe, so colsof(e(b)) is the design width there; a current fit
+            * always posts e(designvars), and its e(b) may be wider (base
+            * columns), so this fallback must never be reached by one.
+            local _kexp = colsof(e(b))
+        }
         if `_k' != `_kexp' {
             display as error "fitted factor-variable design does not match e(b)"
             display as error "(`_k' non-base terms in e(fvsemantic), `_kexp' design columns)"

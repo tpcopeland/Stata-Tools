@@ -12,7 +12,7 @@
 *   V120B-2   `test' and `testparm' address factor terms directly.  Pre-fix,
 *            `test 1.pelnode' died r(111) and the user had to discover
 *            `test _fg_pelnode_1'.
-*   V120B-3   e(covariates) still holds the internal design columns, so the
+*   V120B-3   e(designvars) still holds the internal design columns, so the
 *            post-estimation rebuild contract is unchanged by V120B-1.
 *   V120B-4   Replay: bare `finegray' redisplays.  Pre-fix it was r(100)
 *            "varlist required"; refitting was the only way back to the table.
@@ -32,7 +32,7 @@
 *   V120B-14  finegray_predict, cif labels the evaluation basis (_t vs timevar).
 *   V120B-15  The factor-name help contract agrees with the fitted coefficient
 *            stripe: user-facing terms in e(b)/e(V), internal columns only in
-*            e(covariates).
+*            e(designvars).
 *   V120B-16  The rendered CIF help has no doubled spaces at the two sentence
 *            boundaries split across source lines.
 clear all
@@ -128,14 +128,16 @@ else {
     local ++fail_count
 }
 
-**# 3. e(covariates) is UNCHANGED -- the rebuild contract still uses _fg_*
+**# 3. e(designvars) still holds the _fg_* columns -- the rebuild contract is intact
 * V120B-1 must move the display vocabulary only.  finegray_cif/predict/phtest all
-* read e(covariates) by name; renaming it as well would break every consumer.
+* read the design columns by name.  (The macro was e(covariates) until
+* 2026-08-28; margins reads that name as the covariate list, which is why it
+* moved.)
 local ++test_count
 capture noisily {
     _mk_120b
     finegray i.grp i.pelnode x1, compete(ev) cause(1) nolog
-    assert "`e(covariates)'" == "_fg_grp_2 _fg_grp_3 _fg_pelnode_1 x1"
+    assert "`e(designvars)'" == "_fg_grp_2 _fg_grp_3 _fg_pelnode_1 x1"
     * ...and post-estimation still runs on it after the design columns are gone.
     drop _fg_*
     quietly finegray_cif, attime(3)
@@ -143,11 +145,11 @@ capture noisily {
     assert _c3[1,2] > 0 & _c3[1,2] < 1
 }
 if _rc == 0 {
-    display as result "  PASS: V120B-3 e(covariates) unchanged; rebuild path intact"
+    display as result "  PASS: V120B-3 e(designvars) unchanged; rebuild path intact"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V120B-3 e(covariates)/rebuild (rc=`=_rc')"
+    display as error "  FAIL: V120B-3 e(designvars)/rebuild (rc=`=_rc')"
     local ++fail_count
 }
 

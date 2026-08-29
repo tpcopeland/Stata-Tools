@@ -39,8 +39,14 @@ log using "`qadir'/crossval_finegray.log", ///
 
 * {smcl}
 * {* SETUP}{...}
-capture ado uninstall finegray
-net install finegray, from("`pkgroot'") replace
+* The install goes into an ISOLATED PLUS, not the user's.  A crossval that
+* runs `net install finegray, replace' into the default PLUS replaces whatever
+* build the user has installed -- and, worse, a concurrent reinstall from
+* another lane swaps the build under test mid-run (observed 2026-08-29).
+* `_finegray_qa_bootstrap' points sysdir PLUS/PERSONAL at a process-unique
+* temporary directory first, which is what every test_*.do here already does.
+do "`qadir'/_finegray_qa_common.do"
+quietly _finegray_qa_bootstrap
 
 program define _finegray_use_hypoxia
     local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
@@ -327,7 +333,17 @@ else {
 * {smcl}
 * {* SECTION 5: strata cross-validation}{...}
 
-* C11: strata vs no strata — coefficients differ (different censoring model)
+* C11: strata() moves the estimate, and only a little
+* The numbers themselves are cross-validated against crr(cengroup=) in C51/C52.
+* What is left for this test is the DISCRIMINATING claim its name makes: that
+* strata() is not a no-op.  The old form asserted only an upper bound of 50%
+* relative divergence, which two unrelated numbers satisfy -- a strata() that
+* silently fell back to the pooled censoring KM passed it.  Both bounds are
+* now tied to the measured fixture: on hypoxia with strata(pelnode) the shift
+* is 2.2e-4 (ifp) and 2.1e-3 (tumsize), the same .002 on tumsize that C51's
+* header records as the pooled-accumulator regression.  The floor sits four
+* orders above the 1e-8 convergence tolerance, so it cannot be met by
+* optimizer noise; the ceiling keeps a 6x margin over the observed 0.8%.
 local ++test_count
 capture noisily {
     _setup_hypoxia
@@ -335,17 +351,25 @@ capture noisily {
     matrix b_nostrata = e(b)
     _finegray_xv ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
     matrix b_strata = e(b)
-    * Coefficients should be similar but not identical
-    local diff1 = abs(b_strata[1,1] - b_nostrata[1,1])
-    local diff2 = abs(b_strata[1,2] - b_nostrata[1,2])
     * Both should be non-zero (model ran)
     assert b_strata[1,1] != 0
     assert b_strata[1,2] != 0
-    * Should be in the same ballpark (within 50% of each other)
-    assert abs(b_strata[1,1] - b_nostrata[1,1]) / max(abs(b_nostrata[1,1]), 0.01) < 0.5
+    local c11_moved = 0
+    forvalues j = 1/2 {
+        local c11_ad = abs(b_strata[1,`j'] - b_nostrata[1,`j'])
+        local c11_rd = `c11_ad' / abs(b_nostrata[1,`j'])
+        display as text "  C11 col `j': absdiff=" %10.3e `c11_ad' ///
+            "  reldiff=" %10.3e `c11_rd'
+        * ceiling: a different censoring model, not a different model
+        assert `c11_rd' < 0.05
+        if `c11_ad' > 1e-5 local c11_moved = 1
+    }
+    * floor: at least one coefficient actually moved -- fails if strata() is
+    * ignored and the pooled censoring KM is used for both fits
+    assert `c11_moved' == 1
 }
 if _rc == 0 {
-    display as result "  PASS: C11 strata vs no strata — reasonable divergence"
+    display as result "  PASS: C11 strata() moves the estimate (>1e-5), by < 5%"
     local ++pass_count
 }
 else {
@@ -865,7 +889,8 @@ capture noisily {
     * finegray with factor
     stset t, failure(d) id(id)
     _finegray_xv i.grp x1, compete(status) cause(1) nolog
-    matrix b_fg = e(b)
+    * the non-base vector: e(b) leads with the base column 0b.grp (= 0)
+    _finegray_bnb, b(b_fg)
     * stcrreg with manual indicators (drop factor-created vars first)
     capture drop grp_1
     capture drop grp_2
@@ -1423,7 +1448,8 @@ capture noisily {
     _setup_hypoxia
     * Fit with fvrevar-based ##
     _finegray_xv i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
-    matrix b_fv = e(b)
+    * e(b) carries the base-level columns; compare the non-base vector
+    _finegray_bnb, b(b_fv)
     local ll_fv = e(ll)
     cap drop _fg_*
     * Fit with manual indicators and interaction
@@ -1455,7 +1481,7 @@ capture noisily {
     gen byte ifp_grp = (ifp > 10)
     * Fit with fvrevar
     _finegray_xv i.pelnode##i.ifp_grp tumsize, compete(status) cause(1) nolog
-    matrix b_fv = e(b)
+    _finegray_bnb, b(b_fv)
     local ll_fv = e(ll)
     cap drop _fg_*
     * Manual: create indicators and interaction

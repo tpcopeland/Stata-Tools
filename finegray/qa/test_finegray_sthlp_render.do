@@ -465,6 +465,161 @@ else {
     local ++fail_count
 }
 
+* -----------------------------------------------------------------------------
+**# 7. No {synopt} description overflows its {synoptset} column
+* -----------------------------------------------------------------------------
+* The THIRD render axis, and the one tests 1 and 3 are blind to.  A {synopt}
+* description resolves its markup perfectly and carries no whitespace artifact,
+* and still prints wrong when it is too long: the Viewer wraps it onto a second
+* line under the label column, which reads as a new table row.  Stata's own
+* help files hold the description to (71 - N) characters, N being the governing
+* {synoptset N tabbed}.
+*
+* Found on 2026-08-29 in finegray.sthlp: three Scalars rows -- e(N) at 53,
+* e(N_fail) at 71 and e(N_compete) at 63 against a 51-character column -- had
+* grown an "(weighted total under {cmd:fweight}s)" clause with the pweight
+* work.  Tests 1 and 3 were green over all three, as was every source-text
+* suite in the package.
+*
+* Asserted as an invariant over every shipped file rather than as three pinned
+* strings, for the reason recorded at test 3: the pinned form is what let the
+* identical defect recur in a second file.  A source-side rule is the right
+* shape here because the wrap is a deterministic function of the source
+* lengths, and the package's QA may not depend on _devkit tooling.
+capture program drop _fg_synopt_width
+program define _fg_synopt_width, rclass
+    version 16.0
+    syntax , SRC(string)
+
+    tempname fh
+    local nbad = 0
+    local nrow = 0
+    * Stata's default when a table opens without its own {synoptset}.
+    local width = 20
+    local lineno = 0
+
+    file open `fh' using "`src'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local ++lineno
+        if regexm(`"`macval(line)'"', "\{synoptset +([0-9]+)") ///
+            local width = real(regexs(1))
+
+        if regexm(`"`macval(line)'"', "^\{synopt:") {
+            local ++nrow
+            * Resolve markup the way the Viewer does: {tag:text} shows text,
+            * a bare {tag} shows nothing.  Loop: regexr replaces one match.
+            * The colon form must go FIRST: the bare pattern would otherwise
+            * swallow {help a:b} and lose the text it renders.
+            *
+            * The label is peeled AFTER resolving, not before.  Its form varies
+            * -- {synopt:{cmd:e(N)}}, {synopt:{opt tvc(varlist)}}, a bare
+            * {synopt:name} -- and a prefix regex per form is how the stray `}'
+            * that closes {synopt: survives into the description and inflates
+            * every row by one, which reads as an overflow on a row sitting
+            * exactly at the cap.  Instead: drop the opening {synopt:, resolve
+            * everything, and split at the one unmatched `}' that is left.
+            local _d `"`macval(line)'"'
+            local _d = regexr(`"`macval(_d)'"', "^\{synopt:", "")
+            local _guard = 0
+            while regexm(`"`macval(_d)'"', "\{[a-zA-Z_][^:{}]*:([^{}]*)\}") & `_guard' < 40 {
+                local ++_guard
+                local _d = regexr(`"`macval(_d)'"', "\{[a-zA-Z_][^:{}]*:([^{}]*)\}", "`=regexs(1)'")
+            }
+            local _guard = 0
+            while regexm(`"`macval(_d)'"', "\{[^{}]*\}") & `_guard' < 40 {
+                local ++_guard
+                local _d = regexr(`"`macval(_d)'"', "\{[^{}]*\}", "")
+            }
+            * Everything after the first surviving `}' is the description.
+            local _brk = strpos(`"`macval(_d)'"', "}")
+            if `_brk' > 0 ///
+                local _d = substr(`"`macval(_d)'"', `_brk' + 1, .)
+            local _len = length(`"`macval(_d)'"')
+            local _cap = 71 - `width'
+            if `_len' > `_cap' {
+                local ++nbad
+                if `nbad' <= 10 {
+                    display as error "    line `lineno': `_len' > `_cap' chars: " ///
+                        `"`macval(_d)'"'
+                }
+            }
+        }
+        file read `fh' line
+    }
+    file close `fh'
+
+    return scalar nbad = `nbad'
+    return scalar nrow = `nrow'
+end
+
+local ++test_count
+capture noisily {
+    local helps : dir "`pkg_dir'" files "*.sthlp"
+    local nhelp : word count `helps'
+    assert `nhelp' >= 4
+    local total_bad = 0
+    local total_row = 0
+    foreach h of local helps {
+        _fg_synopt_width, src("`pkg_dir'/`h'")
+        display as text "  `h': " r(nrow) " {synopt} rows, " ///
+            r(nbad) " overflowing"
+        local total_bad = `total_bad' + r(nbad)
+        local total_row = `total_row' + r(nrow)
+    }
+    * A checker that found no rows at all cannot have found an overflow.
+    assert `total_row' > 50
+    assert `total_bad' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: RENDER-7 no {synopt} description overflows its column"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: RENDER-7 {synopt} column overflow (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+**# 8. FAULT INJECTION: the width checker must flag an over-wide description
+* -----------------------------------------------------------------------------
+* Same contract as tests 2, 4 and 6: "0 overflowing" must be a measurement, not
+* a checker that cannot fire.  The injected file carries one row one character
+* over the cap and one row exactly at it, so the boundary is pinned in both
+* directions, plus a row whose length is only reached after markup resolves --
+* the case a naive length(line) would miscount.
+local ++test_count
+capture noisily {
+    tempname wfh
+    tempfile injwidth
+    local wbroken "`injwidth'_widthinjected.sthlp"
+    file open `wfh' using "`wbroken'", write text replace
+    file write `wfh' "{smcl}" _n
+    file write `wfh' "{* injected fault: do not ship}{...}" _n
+    file write `wfh' "{synoptset 20 tabbed}{...}" _n
+    * cap is 71 - 20 = 51.
+    file write `wfh' "{synopt:{cmd:e(ok)}}123456789012345678901234567890123456789012345678901{p_end}" _n
+    file write `wfh' "{synopt:{cmd:e(bad)}}1234567890123456789012345678901234567890123456789012{p_end}" _n
+    * 46 plain characters plus markup that resolves to 6 more = 52, over by one.
+    file write `wfh' "{synopt:{cmd:e(mk)}}1234567890123456789012345678901234567890123456 {cmd:fweight}{p_end}" _n
+    file close `wfh'
+
+    _fg_synopt_width, src("`wbroken'")
+    display as text "  injected: " r(nrow) " rows, " r(nbad) " flagged"
+    assert r(nrow) == 3
+    * the 51-character row must NOT be flagged; the other two must be
+    assert r(nbad) == 2
+    capture erase "`wbroken'"
+}
+if _rc == 0 {
+    display as result "  PASS: RENDER-8 width checker fires on the over-wide rows only"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: RENDER-8 width checker miscounts injected rows (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_sthlp_render tests=`test_count' pass=`pass_count' fail=`fail_count'"

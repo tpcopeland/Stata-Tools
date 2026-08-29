@@ -228,11 +228,14 @@ capture noisily {
     * reads back as `2.grp' or `2bn.grp' depending on which m is in memory.
     * e(fvsemantic) is the package's own record of the fitted expansion and is
     * what every rebuild path reads, so it is the thing worth pinning.
+    * e(b) carries the base level 1b.grp as a zero column, so it is one
+    * wider than the design in both imputations
     quietly mi xeq 1: finegray i.grp x, compete(status) cause(1) nolog
-    assert colsof(e(b)) == 2
+    assert colsof(e(b)) == 3
+    assert "`e(designvars)'" != "" & `: word count `e(designvars)'' == 2
     assert "`e(fvsemantic)'" == "1b.grp 2.grp x"
     quietly mi xeq 2: finegray i.grp x, compete(status) cause(1) nolog
-    assert colsof(e(b)) == 3
+    assert colsof(e(b)) == 4
     assert "`e(fvsemantic)'" == "1b.grp 2.grp 3.grp x"
 
     * so mi refuses to pool them, and says why
@@ -364,7 +367,7 @@ capture noisily {
     assert r(saw) == 1
     quietly ds _fg_*
     assert "`r(varlist)'" == "_fg_grp2_2 _fg_grp2_3 _fg_grp2_4"
-    assert "`e(covariates)'" == "_fg_grp2_2 _fg_grp2_3 _fg_grp2_4 x"
+    assert "`e(designvars)'" == "_fg_grp2_2 _fg_grp2_3 _fg_grp2_4 x"
     * the post-estimation that follows answers from fit 2's design
     quietly finegray_cif, at(grp2=1 x=0) attime(4) nograph
     matrix _a3 = r(at)

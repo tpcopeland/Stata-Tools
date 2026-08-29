@@ -273,17 +273,22 @@ local fail_count = `fail_count' + r(fail)
 * -----------------------------------------------------------------------------
 **# 4. THE LATTICE: delayed entry (the ZZF branch)
 * -----------------------------------------------------------------------------
-* Three literature-forced cells.  Neither Zhou paper mentions left truncation,
-* so a stratified or piecewise fit on the delayed-entry branch, and the psi term
-* under it, would each be an unsourced package extension.  Lifting any of these
-* is gated on a literature survey, not on implementation effort.
+* Literature-forced cells.  Neither Zhou paper mentions left truncation, so a
+* stratified or piecewise fit on the delayed-entry branch would be an unsourced
+* package extension.  The psi term under delayed entry was lifted 2026-08-28
+* for the POOLED weight (ZZF 2011 Appendix B, now held); with weight strata it
+* stays refused, because ZZF's Appendix E treats a stratified weight as known.
+* Lifting any of these is gated on a literature survey, not on implementation
+* effort.
 local ++test_count
 capture noisily {
     _fgfen_data_lt
 
     _finegray_qa_assert_fence, ///
-        cmd(`"finegray x w, compete(etype) cause(1) nuisance nolog"') ///
-        rc(198) tokens("nuisance delayed entry")
+        cmd(`"finegray x w, compete(etype) cause(1) nuisance strata(ctr) nolog"') ///
+        rc(198) tokens("nuisance delayed entry weight strata")
+    quietly finegray x w, compete(etype) cause(1) nuisance nolog
+    assert `"`e(lt_vce)'"' == "nuisance_adjusted"
 
     _finegray_qa_assert_fence, ///
         cmd(`"finegray x w, compete(etype) cause(1) bstrata(ctr) nolog"') ///
@@ -439,6 +444,10 @@ capture noisily {
     quietly finegray x w, compete(etype) cause(1) norobust nolog
     assert `"`e(lt_vce)'"' == "model_based"
 
+    quietly finegray x w, compete(etype) cause(1) nuisance nolog
+    assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+    assert `"`e(lt_vce)'"' == "nuisance_adjusted"
+
     _fgfen_data
     quietly finegray x w, compete(etype) cause(1) nolog
     assert `"`e(lt_vce)'"' == "not_applicable"
@@ -532,6 +541,103 @@ capture noisily {
 }
 local _rc = _rc
 _fgfen_result `_rc' "FGFEN-09 mi post-estimation fences are r(301) and name their reason"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# 10. Design weights: the shipped core and every refused cell
+* -----------------------------------------------------------------------------
+* [pweight=] and [fweight=] are accepted for the right-censoring core (Wogu et
+* al. 2021 eq. 3; oracle survival::finegray + weighted coxph).  Every other cell
+* is refused rather than composed: the model-based variance under pweights, the
+* psi term, censoring/entry strata, the stratified baseline, beta(t), delayed
+* entry, and finegray_phtest.  fweight x norobust is NOT a fence: replicated
+* subjects have a model-based information.  Positive assertions first, so a
+* fence that was widened by accident fails here too.
+local ++test_count
+capture noisily {
+    _fgfen_data
+    quietly generate double pw = 0.5 + runiform()
+    quietly generate byte fw = 1 + floor(runiform() * 3)
+
+    * the shipped core (a 10-level cluster: ctr has two levels, and two
+    * clusters cannot support four coefficients -- that guard is FGFEN-01's)
+    quietly generate byte cl10 = 1 + mod(id, 10)
+    quietly finegray x w i.grp [pw = pw], compete(etype) cause(1) cluster(cl10) nolog
+    assert "`e(wtype)'" == "pweight" & "`e(vce)'" == "cluster"
+    quietly finegray x w [fw = fw], compete(etype) cause(1) norobust nolog
+    assert "`e(wtype)'" == "fweight" & "`e(vce)'" == "oim"
+
+    * refused: option cells
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = pw], compete(etype) cause(1) norobust nolog"') ///
+        rc(198) tokens("pweight norobust")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = pw], compete(etype) cause(1) nuisance nolog"') ///
+        rc(198) tokens("nuisance pweight")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [fw = fw], compete(etype) cause(1) nuisance nolog"') ///
+        rc(198) tokens("nuisance fweight")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = pw], compete(etype) cause(1) strata(ctr) nolog"') ///
+        rc(198) tokens("strata() pweight")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = pw], compete(etype) cause(1) truncstrata(ctr) nolog"') ///
+        rc(198) tokens("truncstrata() pweight")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = pw], compete(etype) cause(1) bstrata(ctr) nolog"') ///
+        rc(198) tokens("bstrata() pweight")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [fw = fw], compete(etype) cause(1) tvc(x) tsplit(6) nolog"') ///
+        rc(198) tokens("tvc() fweight")
+
+    * refused: weight kinds and data
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [aw = pw], compete(etype) cause(1) nolog"') ///
+        rc(101) tokens("aweights")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [iw = pw], compete(etype) cause(1) nolog"') ///
+        rc(101) tokens("iweights")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [fw = pw], compete(etype) cause(1) nolog"') ///
+        rc(401) tokens("noninteger frequency weights")
+
+    * refused: post-estimation
+    quietly finegray x w [pw = pw], compete(etype) cause(1) nolog
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray_phtest"') rc(198) tokens("finegray_phtest pweight")
+
+    * refused: an unsignable weight EXPRESSION.  _n and _N name no variable,
+    * so nothing about them can enter e(datasignature), and post-estimation
+    * re-evaluates e(wexp) on whatever row order and sample size it then sees.
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = 0.5 + (_n > 100)], compete(etype) cause(1) nolog"') ///
+        rc(198) tokens("_n e(datasignature)")
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = 1 / _N], compete(etype) cause(1) nolog"') ///
+        rc(198) tokens("_N e(datasignature)")
+
+    * refused: a weight the data were stset with and that was NOT retyped.
+    * stcox and streg inherit it; finegray does not, and before this fence an
+    * unweighted fit ran at rc 0 on weighted st data (e(wtype) empty, e(b)
+    * bit-identical to the never-weighted fit).  The POSITIVE half is asserted
+    * too: retyping the weight on the command still fits.
+    quietly stset t [pw = pw], failure(anyev == 1) id(id)
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w, compete(etype) cause(1) nolog"') ///
+        rc(198) tokens("stset pweight=pw")
+    quietly finegray x w [pw = pw], compete(etype) cause(1) nolog
+    assert "`e(wtype)'" == "pweight"
+
+    * refused: delayed entry, on the entry fixture
+    _fgfen_data_lt
+    quietly generate double pw = 0.5 + runiform()
+    _finegray_qa_assert_fence, ///
+        cmd(`"finegray x w [pw = pw], compete(etype) cause(1) nolog"') ///
+        rc(198) tokens("pweight delayed entry")
+}
+local _rc = _rc
+_fgfen_result `_rc' "FGFEN-10 design weights: shipped core accepted, every other cell refused by name"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

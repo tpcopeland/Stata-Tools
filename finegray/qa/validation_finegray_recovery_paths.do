@@ -283,7 +283,8 @@ capture noisily {
     quietly stset time, failure(anyevent==1) id(id)
     quietly finegray i.grp, compete(status) cause(1)
     assert e(converged) == 1
-    matrix _bb = e(b)
+    * the non-base vector: e(b) leads with the base column 1b.grp (= 0)
+    _finegray_bnb, b(_bb)
     assert abs(_bb[1,1] - 0.6) < `TOL'
 }
 if _rc == 0 {
@@ -385,7 +386,7 @@ capture noisily {
     quietly finegray i.grp##c.z1, compete(status) cause(1)
     assert e(converged) == 1
     * Column order after fvexpand: 1.grp, z1, 1.grp#c.z1
-    matrix _bb = e(b)
+    _finegray_bnb, b(_bb)
     assert abs(_bb[1,1] - 0.5) < `TOL'
     assert abs(_bb[1,2] - 0.4) < `TOL'
     assert abs(_bb[1,3] - 0.3) < `TOL'

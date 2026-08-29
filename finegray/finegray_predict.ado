@@ -118,7 +118,7 @@ program define finegray_predict, rclass sortpreserve
     * tempvars and are gone (see the mi block in finegray.ado).  There is also
     * no single baseline hazard to answer from once estimates are pooled across
     * imputations -- pooling a CIF is a different estimand, not this command.
-    * Refuse by name rather than resolve e(covariates), whose tempvar names the
+    * Refuse by name rather than resolve e(designvars), whose tempvar names the
     * next command to ask for a tempvar will happily reuse.
     if `"`e(postest)'"' == "unavailable_mi" {
         display as error "post-estimation is not available after a fit on mi data"
@@ -127,6 +127,15 @@ program define finegray_predict, rclass sortpreserve
         display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
         display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
         display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
+        exit 301
+    }
+    * Results posted by a finegray that recorded the design columns as
+    * e(covariates) carry the narrow stripe and no e(designvars); pairing this
+    * version's non-base reader with them would score the right columns by
+    * luck only.  Refuse by name.
+    if `"`e(designvars)'"' == "" & `"`e(covariates)'"' != "" {
+        display as error "estimation results predate this version of finegray"
+        display as error "e(designvars) is not set; re-run {bf:finegray} before using finegray_predict"
         exit 301
     }
     * A nonconverged fit posts e(b), and every prediction path reads it. Without
@@ -142,7 +151,7 @@ program define finegray_predict, rclass sortpreserve
     * =====================================================================
     * PIECEWISE beta(t) CONTEXT
     * =====================================================================
-    * On a tvc() fit e(b) is WIDER than e(covariates): the time-varying design
+    * On a tvc() fit e(b) is WIDER than e(designvars): the time-varying design
     * columns carry one coefficient per interval.  Every branch below that pairs
     * a coefficient with a column has to know that, and the two that cannot be
     * answered at all are refused by name.
@@ -446,8 +455,8 @@ program define finegray_predict, rclass sortpreserve
     * Build the covariate columns used for prediction.
     * For FV models we reconstruct the design matrix on demand rather than
     * depending on persistent _fg_* columns remaining in the dataset.
-    local _score_varlist "`e(covariates)'"
-    local _score_labels "`e(covariates)'"
+    local _score_varlist "`e(designvars)'"
+    local _score_labels "`e(designvars)'"
     if `"`e(fvvarlist)'"' != "" {
         * Rebuild the design from the FIT-TIME expansion, e(fvsemantic), evaluating
         * every factor term against the current data BY LEVEL VALUE.
@@ -582,7 +591,7 @@ program define finegray_predict, rclass sortpreserve
         * interval for each time-varying column -- so equality with colsof(e(b))
         * is the wrong contract there and would reject every factor-variable
         * tvc() fit.
-        local _n_cov : word count `e(covariates)'
+        local _n_cov : word count `e(designvars)'
         if `_n_score' != `_n_cov' {
             display as error "reconstructed factor-variable design does not match stored coefficients"
             exit 198
@@ -612,9 +621,9 @@ program define finegray_predict, rclass sortpreserve
     * (the stripe finegray.ado posts, equations main / tvc1 / ... / tvcJ).  Both
     * xb and cif need the SAME two pieces from it: the time-constant part of the
     * linear predictor, and one time-varying part per interval.  Build them once
-    * here, from e(b) BY POSITION -- the coefficient names are the user's terms
-    * and cannot be scored against, and the design columns may be tempvars
-    * rebuilt a moment ago.
+    * here, from the non-base copy of e(b) BY POSITION -- the coefficient names
+    * are the user's terms and cannot be scored against, and the design columns
+    * may be tempvars rebuilt a moment ago.
     *
     * The per-interval blocks are copied element by element into a freshly
     * created J(1,q,0) rather than sliced out of e(b): a slice of e(b) carries
@@ -640,12 +649,13 @@ program define finegray_predict, rclass sortpreserve
         local _fg_fixvars : list retokenize _fg_fixvars
         local _fg_tvcvars : list retokenize _fg_tvcvars
 
-        tempname _pb
+        tempname _pb _pbnb
         tempvar _pxbfix
+        _finegray_bnb, b(`_pbnb')
         if `_fg_nfix' > 0 {
             matrix `_pb' = J(1, `_fg_nfix', 0)
             forvalues _pi = 1/`_fg_nfix' {
-                matrix `_pb'[1, `_pi'] = e(b)[1, `_pi']
+                matrix `_pb'[1, `_pi'] = `_pbnb'[1, `_pi']
             }
             matrix colnames `_pb' = `_fg_fixvars'
             quietly matrix score double `_pxbfix' = `_pb' if `touse'
@@ -658,7 +668,7 @@ program define finegray_predict, rclass sortpreserve
             matrix `_pb' = J(1, `_fg_q', 0)
             forvalues _pi = 1/`_fg_q' {
                 matrix `_pb'[1, `_pi'] = ///
-                    e(b)[1, `= `_fg_nfix' + (`_pj' - 1) * `_fg_q' + `_pi'']
+                    `_pbnb'[1, `= `_fg_nfix' + (`_pj' - 1) * `_fg_q' + `_pi'']
             }
             matrix colnames `_pb' = `_fg_tvcvars'
             quietly matrix score double `_pxbtv`_pj'' = `_pb' if `touse'
@@ -670,10 +680,37 @@ program define finegray_predict, rclass sortpreserve
         * Linear predictor: matrix score
         if "`typlist'" == "" local typlist "double"
         if !`_fg_istvc' {
+            * The non-base vector: on a factor-variable fit e(b) carries the
+            * base-level columns margins needs, which have no design column.
             tempname b
-            matrix `b' = e(b)
-            matrix colnames `b' = `_score_varlist'
-            matrix score `typlist' `varlist' = `b' if `touse'
+            _finegray_bnb, b(`b')
+            local _n_scorecols : word count `_score_varlist'
+            if colsof(`b') == `_n_scorecols' {
+                matrix colnames `b' = `_score_varlist'
+                matrix score `typlist' `varlist' = `b' if `touse'
+            }
+            else {
+                * e(b) no longer carries the fitted stripe.  margins does this
+                * while it runs: it reposts e(b) renamed onto its own
+                * fvrevar'd level indicators (`__00000G __00000H ifp tumsize'
+                * for `0b.pelnode 1.pelnode ifp tumsize'), sets THOSE columns
+                * to the at() values, and expects predict to score e(b) by
+                * name -- the contract every official predict honours because
+                * it scores e(b) directly.  Without this branch the non-base
+                * filter finds no base marker, keeps every column, and
+                * `matrix colnames' given fewer names than columns repeats the
+                * last one: margins, at(pelnode=(0 1)) printed -13.78 for both
+                * levels at rc 0.  A stripe that names no variable fails here
+                * in `matrix score' with r(111), which is the right answer.
+                matrix `b' = e(b)
+                capture matrix score `typlist' `varlist' = `b' if `touse'
+                if _rc {
+                    display as error "e(b) does not carry the fitted coefficient stripe"
+                    display as error "and its column names cannot be scored as variables;"
+                    display as error "re-run {bf:finegray} before using finegray_predict"
+                    exit 498
+                }
+            }
             local _created_vars "`varlist'"
             label variable `varlist' "Linear prediction (xb)"
         }
@@ -812,7 +849,19 @@ program define finegray_predict, rclass sortpreserve
         tempvar xb_val
         if !`_fg_istvc' {
             tempname b
-            matrix `b' = e(b)
+            _finegray_bnb, b(`b')
+            * The CIF pairs coefficients with the design columns by position
+            * (the baseline rebuild and the influence function read them by
+            * name), so a re-striped e(b) -- what margins posts while it runs
+            * -- cannot be honoured here the way xb honours it; refuse rather
+            * than let `matrix colnames' mislabel by repetition.
+            local _n_scorecols : word count `_score_varlist'
+            if colsof(`b') != `_n_scorecols' {
+                display as error "e(b) does not carry the fitted coefficient stripe"
+                display as error "(`=colsof(`b')' non-base coefficients, `_n_scorecols' design columns);"
+                display as error "re-run {bf:finegray} before using finegray_predict, cif"
+                exit 498
+            }
             matrix colnames `b' = `_score_varlist'
             matrix score double `xb_val' = `b' if `touse'
         }
@@ -965,7 +1014,7 @@ program define finegray_predict, rclass sortpreserve
                 * failed every replication (rc 498, 0/B).
                 local _fgcmd `"`e(refitcmd)'"'
                 local _fgclust `"`e(clustvar)'"'
-                local _fgcovs `"`e(covariates)'"'
+                local _fgcovs `"`e(designvars)'"'
                 tempvar _bsid _bsclust
                 * Repeated draws of the same original cluster need a fresh
                 * bootstrap-cluster identity. Rewrite only the private replay;
@@ -1043,7 +1092,7 @@ program define finegray_predict, rclass sortpreserve
                         * A resample can lose a factor level, so the refit
                         * posts a shorter e(b) that no longer conforms with
                         * the stored design; skip the replication.
-                        if !`_reprc' & `"`e(covariates)'"' != `"`_fgcovs'"' ///
+                        if !`_reprc' & `"`e(designvars)'"' != `"`_fgcovs'"' ///
                             local _reprc = 459
                         * Every stratum the evaluation rows ask for must still
                         * carry a baseline in this refit.  A resample can drop a
@@ -1144,6 +1193,21 @@ program define finegray_predict, rclass sortpreserve
                     local _tg_mata "`_tg_grp'"
                 }
 
+            * Design weights.  A weighted fit's baseline and influence function are
+            * different curves from the unweighted ones, so the weight column is
+            * rebuilt from e(wexp) (the variables it names are in the estimation
+            * signature, verified above) and handed to every Mata entry point below.
+            *   _fg_wmata  the rebuilt column, "" on an unweighted fit
+            *   _fg_wtype  0 none, 1 pweight, 2 fweight
+            local _fg_wmata ""
+            local _fg_wtype = 0
+            if `"`e(wtype)'"' != "" {
+                tempvar _fg_wv
+                _finegray_weight_var, wname(`_fg_wv') touse(`_fvbasis')
+                local _fg_wmata "`_fg_wv'"
+                local _fg_wtype = r(wtype)
+            }
+
                 * Belt to the parser brace above: the influence function here
                 * is derived for a single exp(z'b) at every baseline increment
                 * and is NOT the piecewise one.  Reaching it on a tvc() fit
@@ -1153,7 +1217,7 @@ program define finegray_predict, rclass sortpreserve
                     `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
                     "`_fvbasis'", "`touse'", "`tvar'", ///
                     "`se_cif'", "`_t0var'", "`_bsvar'", ///
-                    "`_fg_tvcpos'", "`_fg_cuts'")
+                    "`_fg_tvcpos'", "`_fg_cuts'", "`_fg_wmata'", `_fg_wtype')
             }
 
             * Complementary log-log limits keep the interval inside (0,1):
@@ -1257,9 +1321,29 @@ program define finegray_predict, rclass sortpreserve
             local _tg_mata "`_tg_grp'"
         }
 
+        * Design weights: the residual is Z_i - zbar_w(T_i), with the weighted
+        * risk-set mean the fit used.  Every row here is estimation-sample.
+        tempvar _fg_sall
+        quietly gen byte `_fg_sall' = 1
+        * Design weights.  A weighted fit's baseline and influence function are
+        * different curves from the unweighted ones, so the weight column is
+        * rebuilt from e(wexp) (the variables it names are in the estimation
+        * signature, verified above) and handed to every Mata entry point below.
+        *   _fg_wmata  the rebuilt column, "" on an unweighted fit
+        *   _fg_wtype  0 none, 1 pweight, 2 fweight
+        local _fg_wmata ""
+        local _fg_wtype = 0
+        if `"`e(wtype)'"' != "" {
+            tempvar _fg_wv
+            _finegray_weight_var, wname(`_fg_wv') touse(`_fg_sall')
+            local _fg_wmata "`_fg_wv'"
+            local _fg_wtype = r(wtype)
+        }
+
         mata: _finegray_schoenfeld_compute( ///
             "`_score_varlist'", "`events_var'", `cause_val', `censvalue_val', ///
-            "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bsvar'")
+            "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bsvar'", ///
+            "`_fg_wmata'", `_fg_wtype')
 
         restore
 

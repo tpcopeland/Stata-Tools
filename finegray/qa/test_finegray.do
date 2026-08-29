@@ -667,7 +667,7 @@ capture noisily {
     assert "`e(depvar)'" == "_t"
     assert "`e(compete)'" == "status"
     assert "`e(compete_values)'" == "2"
-    assert "`e(covariates)'" == "ifp tumsize pelnode"
+    assert "`e(designvars)'" == "ifp tumsize pelnode"
     assert "`e(title)'" == "Fine-Gray competing risks regression"
     * e(properties) drives `estimates'/`_estimates hold'; b V must both be posted.
     assert "`e(properties)'" == "b V"
@@ -1178,7 +1178,10 @@ capture noisily {
     drop pel_1
     * Factor variable version: i.pelnode creates _fg_pelnode_1 (ref=0)
     finegray i.pelnode ifp, compete(status) cause(1) nolog
-    matrix b_fv = e(b)
+    * e(b) also carries the base level 0b.pelnode as a zero; the estimate in
+    * the design frame is the non-base vector
+    assert colsof(e(b)) == 3
+    _finegray_bnb, b(b_fv)
     * Both should have 2 coefficients with identical values
     assert colsof(b_fv) == 2
     assert abs(b_fv[1,1] - b_manual[1,1]) < 1e-8
@@ -2836,7 +2839,8 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray i.pelnode ifp, compete(status) cause(1) nolog
-    local _nb = colsof(e(b))
+    * one phtest row per DESIGN column; e(b) is wider (it carries 0b.pelnode)
+    local _nb : word count `e(designvars)'
     finegray_phtest
     matrix _ph_b0 = r(phtest)
     local _rn0 : rownames _ph_b0
