@@ -483,7 +483,8 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s7_naive = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) lagvars(W) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) lagvars(W) ///
+        wtype(iivw) allowmissingweights nolog replace
     iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar s7_est = _b[months]
     scalar s7_ok = 1

@@ -1,10 +1,10 @@
-*! _psdash_graph_export Version 1.6.8  2026/08/11
+*! _psdash_graph_export Version 1.6.9  2026/08/30
 *! Shared graph export side effect
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 *! Internal helper
 
-program define _psdash_graph_export
+program define _psdash_graph_export, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
@@ -15,5 +15,6 @@ program define _psdash_graph_export
     }
     local rc = _rc
     set varabbrev `_vao'
+    if `rc' == 0 return clear
     if `rc' exit `rc'
 end

@@ -58,6 +58,27 @@ global TVB_FAILED ""
 global TVB_MODE  "`mode'"
 global TVB_DIR   "`dir'"
 
+capture program drop _tvtools_qa_assert_cf_all_exact
+program define _tvtools_qa_assert_cf_all_exact
+    version 16.0
+    syntax using/ [, VERBOSE]
+    unab _actual_vars : _all
+    tempname _oracle_frame
+    capture noisily {
+        frame create `_oracle_frame'
+        frame `_oracle_frame': quietly use `"`using'"', clear
+        frame `_oracle_frame': unab _oracle_vars : _all
+        local _actual_only : list _actual_vars - _oracle_vars
+        local _oracle_only : list _oracle_vars - _actual_vars
+        if `"`_actual_only'"' != "" | `"`_oracle_only'"' != "" error 9
+        if "`verbose'" != "" cf `_actual_vars' using `"`using'"', verbose
+        else cf `_actual_vars' using `"`using'"'
+    }
+    local _compare_rc = _rc
+    capture frame drop `_oracle_frame'
+    if `_compare_rc' exit `_compare_rc'
+end
+
 display as result "tvtools baseline (tvmerge surface): `mode' -- $S_DATE $S_TIME"
 
 **# ---------------------------------------------------------------------
@@ -211,7 +232,7 @@ program define _tvb_record
 
         * cf compares values variable by variable and errors on any mismatch,
         * including a differing variable list or observation count.
-        capture cf _all using "`dir'/`tag'.dta", verbose
+        capture _tvtools_qa_assert_cf_all_exact using "`dir'/`tag'.dta", verbose
         if _rc {
             local ok = 0
             local detail "`detail' data values (cf rc=`=_rc')"

@@ -295,7 +295,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_panel
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+        iivw_weight, endatlastvisit baseline(entry) id(id) time(months) ///
             visit_cov(severity) lagvars(severity) stabcov(sev_bl) ///
             truncfinal(5 95) nolog
         local n_trunc = r(n_truncated)

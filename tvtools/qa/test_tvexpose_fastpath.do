@@ -553,7 +553,7 @@ _txf_check `=(`_elig_rc' == 9931)' F35_eligible_call_uses_fast_kernel ///
 capture confirm variable s_entry
 local _ok = (_rc == 0)
 if `_ok' {
-    capture cf _all using "`fPMST'"
+    capture _tvtools_qa_assert_cf_all_exact using "`fPMST'"
     local _ok = (_rc == 0)
 }
 _txf_check `=`_ok'' F36_caller_restored_after_kernel_failure ///
@@ -904,7 +904,7 @@ program define _txf_engine_diff
     local ok = `ok' & (`"`gx1'"' == `"`gx2'"') & (`"`cm1'"' == `"`cm2'"')
     local ok = `ok' & (`"`by1'"' == `"`by2'"')
     if `ok' {
-        capture cf _all using "`fastout'", verbose
+        capture _tvtools_qa_assert_cf_all_exact using "`fastout'", verbose
         local ok = (_rc == 0)
     }
     _txf_check `ok' `label' ///

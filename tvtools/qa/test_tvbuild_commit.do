@@ -155,7 +155,7 @@ program define _tvc_compare, rclass
         keep `vars'
         order `vars'
         sort pid start stop
-        cf _all using `"`oracle'"'
+        _tvtools_qa_assert_cf_all_exact using `"`oracle'"'
     }
     local _crc = _rc
     frame change `_here'

@@ -652,8 +652,14 @@ capture noisily {
     tempfile before
     save `before'
     psdash overlap treat ps, nograph
+    unab current_vars : _all
+    quietly describe using `before', varlist
+    assert "`current_vars'" == "`r(varlist)'"
     cf _all using `before'
     psdash support treat ps, nograph
+    unab current_vars : _all
+    quietly describe using `before', varlist
+    assert "`current_vars'" == "`r(varlist)'"
     cf _all using `before'
 }
 local rc = _rc

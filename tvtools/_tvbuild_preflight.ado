@@ -1,4 +1,4 @@
-*! _tvbuild_preflight Version 1.17.0  2026/08/28
+*! _tvbuild_preflight Version 1.17.1  2026/08/30
 *! Read-only validation and plan counts shared by tvbuild's real and dry runs
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

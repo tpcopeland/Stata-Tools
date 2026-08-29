@@ -52,9 +52,7 @@ local pass_count 0
 local fail_count 0
 local failed_tests ""
 
-* ==========================================================================
-* NODIAMONDS FIX: pooled effects should show markers + CIs
-* ==========================================================================
+**# NODIAMONDS FIX: pooled effects should show markers + CIs
 
 * Test 1: nodiamonds with subgroup (type=3) and overall (type=5)
 local ++test_count
@@ -132,9 +130,7 @@ else {
 }
 capture graph drop _v202_t3
 
-* ==========================================================================
-* MULTI-MODEL NOCI: no axis distortion
-* ==========================================================================
+**# MULTI-MODEL NOCI: no axis distortion
 
 * Test 4: Multi-model with noci — should not error and axis is reasonable
 local ++test_count
@@ -212,9 +208,7 @@ else {
 capture graph drop _v202_t6
 capture estimates drop _t6_m1 _t6_m2
 
-* ==========================================================================
-* ORDER() WITH COMPOUND QUOTES
-* ==========================================================================
+**# ORDER() WITH COMPOUND QUOTES
 
 * Test 7: order() in data mode
 local ++test_count
@@ -283,9 +277,7 @@ else {
 }
 capture graph drop _v202_t9
 
-* ==========================================================================
-* EDGE CASES
-* ==========================================================================
+**# EDGE CASES
 
 * Test 10: Single observation
 local ++test_count
@@ -317,8 +309,13 @@ capture noisily {
     "Missing" . . .
     end
 
-    capture eplot es lci uci, labels(study) name(_v202_t11, replace)
-    assert _rc != 0
+    capture graph drop _v202_t11
+    capture noisily eplot es lci uci, labels(study) name(_v202_t11, replace)
+    local call_rc = _rc
+    capture graph describe _v202_t11
+    local graph_rc = _rc
+    assert `call_rc' == 2000
+    assert `graph_rc' != 0
 }
 if _rc == 0 {
     display as result "  PASS: Test 11 - Zero valid observations errors correctly"
@@ -356,9 +353,7 @@ else {
 }
 capture graph drop _v202_t12
 
-* ==========================================================================
-* VARABBREV RESTORE
-* ==========================================================================
+**# VARABBREV RESTORE
 
 * Test 13: varabbrev is restored after successful eplot
 local ++test_count
@@ -400,9 +395,7 @@ else {
     local failed_tests "`failed_tests' 14"
 }
 
-* ==========================================================================
-* ABBREVIATION DISAMBIGUATION
-* ==========================================================================
+**# ABBREVIATION DISAMBIGUATION
 
 * Test 15: msymbol() works with full name
 local ++test_count
@@ -442,9 +435,7 @@ else {
 }
 capture graph drop _v202_t16
 
-* ==========================================================================
-* NODIAMONDS VERTICAL MODE
-* ==========================================================================
+**# NODIAMONDS VERTICAL MODE
 
 * Test 17: nodiamonds in vertical layout
 local ++test_count
@@ -497,13 +488,9 @@ else {
 capture graph drop _v202_t18
 capture estimates drop _t18_m1 _t18_m2 _t18_m3
 
-* ==========================================================================
-* SUMMARY
-* ==========================================================================
+**# SUMMARY
 
-display _n as text "{hline 70}"
 display as text "EPLOT EDGE CASE REGRESSION TEST SUMMARY"
-display as text "{hline 70}"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
 display "RESULT: test_edge_cases tests=18 pass=`pass_count' fail=`fail_count' skip=0"
@@ -514,7 +501,6 @@ if `fail_count' > 0 {
 else {
     display as text "Failed:       `fail_count'"
 }
-display as text "{hline 70}"
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED. Review output above."

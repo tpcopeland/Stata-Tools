@@ -37,21 +37,21 @@
 {synopt:{opt comp:onent(iiw|final)}}which weight to describe; default {cmd:iiw}{p_end}
 
 {syntab:Thresholds}
-{synopt:{opt cvcut(#)}}weight CV threshold for low leverage; default {cmd:0.10}{p_end}
-{synopt:{opt essratiocut(#)}}ESS/N threshold for low leverage; default {cmd:0.95}{p_end}
-{synopt:{opt bal:cut(#)}}target-SMD cutoff for the flag; default {cmd:0.10}{p_end}
+{synopt:{opt cvcut(#)}}low-leverage CV cutoff; default {cmd:0.10}{p_end}
+{synopt:{opt essratiocut(#)}}low-leverage ESS/N cutoff; default {cmd:0.95}{p_end}
+{synopt:{opt bal:cut(#)}}target-SMD flag cutoff; default {cmd:0.10}{p_end}
 
 {syntab:Supplementary AG refit}
 {synopt:{opt agr:efit}}also show the refit hazard ratios{p_end}
-{synopt:{opt efr:on}}ignored; the refit replays the stored tie method{p_end}
-{synopt:{opt bre:slow}}ignored; the refit replays the stored tie method{p_end}
+{synopt:{opt efr:on}}ignored; refit replays stored tie method{p_end}
+{synopt:{opt bre:slow}}ignored; refit replays stored tie method{p_end}
 {synopt:{opt nolog}}suppress Cox iteration logs in AG refits{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Reporting}
-{synopt:{opt xlsx(filename)}}write the balance table to an Excel workbook{p_end}
+{synopt:{opt xlsx(filename)}}write the balance table to Excel{p_end}
 {synopt:{opt sheet(sheetname)}}Excel worksheet name; default is {cmd:Balance}{p_end}
-{synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
+{synopt:{opt replace}}overwrite the named worksheet{p_end}
 {synopt:{opt open}}open the Excel workbook after writing it{p_end}
 {synopt:{opt title(string)}}optional Excel title row{p_end}
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
@@ -61,7 +61,7 @@
 {synopt:{opt font(string)}}font family; default {cmd:Arial}{p_end}
 {synopt:{opt fontsize(#)}}font size in points; default {cmd:10}{p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra RGB fill; requires {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -227,9 +227,8 @@ three-rule (top/header/bottom) layout with no vertical rules at all. {cmd:defaul
 is an alias for {cmd:thin}.
 
 {phang}
-{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets
-its point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.
-Both options require {opt xlsx()}.
+{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its
+point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}. Both options require {opt xlsx()}.
 
 {phang}
 {opt headershade} shades the header rows. It is off by default so that output
@@ -456,12 +455,12 @@ disagree sharply.
 {synopt:{cmd:r(weight_cv)}}weight coefficient of variation{p_end}
 {synopt:{cmd:r(ess)}}effective sample size, (sum w)^2 / sum(w^2){p_end}
 {synopt:{cmd:r(ess_ratio)}}effective sample size divided by {cmd:r(N)}{p_end}
-{synopt:{cmd:r(balance_max_shift)}}maximum absolute composition shift; descriptive{p_end}
-{synopt:{cmd:r(balance_max_tsmd)}}maximum absolute target SMD; drives {cmd:r(balance_flag)}{p_end}
-{synopt:{cmd:r(refit_N)}}at-risk intervals used by the visit-model refit{p_end}
+{synopt:{cmd:r(balance_max_shift)}}largest absolute composition shift{p_end}
+{synopt:{cmd:r(balance_max_tsmd)}}largest target SMD; sets {cmd:r(balance_flag)}{p_end}
+{synopt:{cmd:r(refit_N)}}at-risk intervals in visit-model refit{p_end}
 {synopt:{cmd:r(refit_n_censrows)}}terminal at-risk intervals in the refit{p_end}
-{synopt:{cmd:r(refit_ok)}}1 if the refit that supports the verdict completed{p_end}
-{synopt:{cmd:r(refit_n_target_unusable)}}at-risk intervals with no usable baseline hazard{p_end}
+{synopt:{cmd:r(refit_ok)}}1 if the verdict refit completed{p_end}
+{synopt:{cmd:r(refit_n_target_unusable)}}intervals lacking usable baseline hazard{p_end}
 {synopt:{cmd:r(ess_cluster)}}subject-level effective sample size{p_end}
 {synopt:{cmd:r(ess_cluster_ratio)}}{cmd:r(ess_cluster)} divided by {cmd:r(n_ids)}{p_end}
 {synopt:{cmd:r(N_replay)}}rows the visit model was replayed on{p_end}
@@ -483,7 +482,7 @@ disagree sharply.
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
 {synopt:{cmd:r(balance_flag)}}balance verdict; 5 values{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
-{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
+{synopt:{cmd:r(xlsx)}}written workbook; only with {opt xlsx()}{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
 
 {p2col 5 28 32 2:Export scalars}{p_end}

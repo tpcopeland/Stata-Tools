@@ -499,6 +499,8 @@ capture erase "`g14_marker'"
 file open `g14fh' using "`g14_child'", write text replace
 file write `g14fh' "clear all" _n
 file write `g14fh' "set more off" _n
+file write `g14fh' `"sysdir set PLUS "`c(sysdir_plus)'""' _n
+file write `g14fh' `"sysdir set PERSONAL "`c(sysdir_personal)'""' _n
 file write `g14fh' `"capture ado uninstall logdoc"' _n
 file write `g14fh' `"net install logdoc, from("`pkgdir'") replace"' _n
 file write `g14fh' `"cd "`g14_plain'""' _n
@@ -580,6 +582,7 @@ capture erase "`outdir'/session_options.html"
 
 display ""
 display as result "Refactor guard results: `test_pass'/`test_total' passed, `test_fail' failed"
+display as text "RESULT: test_logdoc_refactor_guards tests=`test_total' pass=`test_pass' fail=`test_fail'"
 if `test_fail' > 0 {
     display as error "SOME TESTS FAILED"
     exit 9

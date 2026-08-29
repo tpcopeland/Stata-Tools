@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.8** | 2026-08-11
+**Version 1.2.9** | 2026-08-30
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -55,7 +55,7 @@ net install eplot, from("/path/to/Stata-Tools/eplot") replace
 
 Mode detection checks explicit `matrix()` first, then `frame()`. With no namelist or with `.` it uses active estimation results; a call with three leading numeric variables selects data mode, and estimate names select estimates mode. Use an explicit selector when a variable name and stored estimate name could be confused.
 
-Data mode uses the three variables as estimate, lower confidence limit, and upper confidence limit. Optional `type()` values identify headers, regular effects, pooled subgroup/overall effects, heterogeneity rows, and blank spacers. Matrix mode accepts either two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`), and row names supply plot labels when present.
+Data mode uses the three variables as estimate, lower confidence limit, and upper confidence limit. Optional `type()` values identify headers, regular effects, pooled subgroup/overall effects, heterogeneity rows, and blank spacers. Matrix mode accepts either two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); all required cells must be nonmissing, and row names supply plot labels when present.
 
 Frame mode requires numeric `estimate`, `ll`, and `ul` variables unless `estimate()`, `ll()`, and `ul()` override those names. It automatically uses string `label`, numeric or string `rowtype` or `type`, numeric `weight` or `weights`, and numeric `pvalue` variables when they are present; `type()` and `rowtype()` are mutually exclusive. Frame mode reuses the data-mode plotting options, including groups, headers, pooled rows, weights, prediction intervals, and heterogeneity notes.
 
@@ -97,7 +97,7 @@ eplot base extended, drop(_cons) ///
     modellabels("Base" "Extended") cicap
 ```
 
-A single active model uses `eplot .`; multiple single-equation models share coefficient rows and receive separate legend entries. Multi-equation estimates retain equation prefixes when coefficient names repeat, and plotting named estimates preserves the caller’s active estimation state.
+A single active model uses `eplot .`; multiple single-equation models share coefficient rows and receive separate legend entries. Multi-equation estimates retain equation prefixes when coefficient names repeat, and plotting named estimates preserves the caller’s active estimation state. Confidence intervals and p-values use the t distribution when a model provides positive residual degrees of freedom and the normal distribution otherwise, evaluated separately for each model.
 
 ### 3. Matrix mode: exponentiated effects with stars
 
@@ -161,7 +161,7 @@ The eight core figures below are reproducible from a repository checkout; run `d
 | ![Grouped meta-analysis forest plot with weighted boxes and pooled diamonds](demo/forest_values.png) | `type()`, `weights()`, and pooled rows |
 | ![Grouped odds-ratio coefficient plot with section headers](demo/grouped_coefplot.png) | `groups()` and `eform` |
 | ![Lancet-style coefficient plot with cranberry diamonds and capped intervals](demo/lancet_style.png) | `style(lancet)` |
-| ![Odds-ratio forest plot generated from a matrix](demo/matrix_mode.png) | `matrix()` and `eform` |
+| ![Odds-ratio forest plot generated from a matrix](demo/matrix_mode.png) | Three-column `matrix()` input |
 | ![Meta-analysis forest plot with prediction intervals and heterogeneity note](demo/meta_heterogeneity.png) | `pi()`, `i2()`, `tau2()`, and `qstat()` |
 | ![Three-model coefficient comparison with separate legend colors](demo/multi_model.png) | `modellabels()` and `palette()` |
 | ![Coefficient plot with contrasting significant and non-significant colors](demo/sigcolors.png) | `sigcolors`, `sigcolor()`, and `insigncolor()` |
@@ -182,7 +182,7 @@ Availability tags are `D` = data, `E` = estimates, `M` = matrix, and `F` = frame
 | `type(varname)` | D, F | Row-role variable; omitted rows are regular effects |
 | `rowtype(varname)` | F | Frame synonym for `type()`; auto-detected when present |
 | `pvalue(varname)` | D, F | Numeric p-values in [0, 1] for `stars` and `r(pvalues)`; frame mode auto-detects `pvalue` |
-| `pi(lci_var uci_var)` | D, F | Prediction-limit variables drawn as dashed whiskers behind confidence intervals |
+| `pi(lci_var uci_var)` | D, F | Complete, ordered prediction-limit pairs drawn as dashed whiskers behind confidence intervals |
 
 Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/excluded, 3 = subgroup pooled effect, 4 = heterogeneity row, 5 = overall pooled effect, and 6 = blank spacer. String values `effect`/`regular`, `header`/`section`, `missing`/`reference`, `subgroup`, `hetinfo`, `overall`, and `blank` are also recognized; unknown values are rejected.
 
@@ -192,12 +192,12 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 |--------|-------|----------------------|
 | `keep(coeflist)` | D, E, M, F | Keep only listed names; `*` and `?` wildcards are supported |
 | `drop(coeflist)` | D, E, M, F | Drop listed names; `*` and `?` wildcards are supported |
-| `rename(spec)` | E | Rename estimates for display before labels/groups are applied |
+| `rename(spec)` | E | Rename matched estimates for display before labels/groups are applied |
 | `noconstant` | D, E, M, F | Add `_cons` to the drop list |
-| `coeflabels(spec)` | D, E, M, F | Replace displayed coefficient/effect labels |
-| `groups(spec)` | D, E single, F | Insert bold group headers |
-| `headers(spec)` / `headings(spec)` | D, E single, F | Insert a header before a named effect; `headings()` is an alias |
-| `gap(#)` | D, E single, F | Extra group spacing; default is `0` |
+| `coeflabels(spec)` | D, E, M, F | Replace matched coefficient/effect labels using well-formed mappings |
+| `groups(spec)` | D, E single, F | Insert bold group headers; every named effect must match |
+| `headers(spec)` / `headings(spec)` | D, E single, F | Insert a header before a matched effect; `headings()` is an alias |
+| `gap(#)` | D, E single, F | Nonmissing, nonnegative extra group spacing; default is `0` |
 
 ### Transform, reference lines, and intervals
 
@@ -226,7 +226,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `sigcolor(color)` | D, E single, M, F | Significant-effect color when `sigcolors` is set; default is `cranberry` |
 | `insigncolor(color)` | D, E single, M, F | Non-significant-effect color when `sigcolors` is set; default is `gs10` |
 | `favors(left right)` | D, E, M, F | Add directional labels below a horizontal effect axis |
-| `i2(string)`, `tau2(string)`, `qstat(string)` | D, F | Add supplied heterogeneity text to the graph note; values are not computed |
+| `i2(string)`, `tau2(string)`, `qstat(string)` | D, F | Add supplied heterogeneity text as-is to the graph note; values are not computed |
 | `style(name)` | D, E, M, F | Presets: `forest`, `coef`, `lancet`, `jama`, `nejm`, and `bmj`; explicit options override preset defaults |
 
 ### Layout and model comparison
@@ -236,10 +236,10 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `horizontal` / `vertical` | D, E, M, F | Horizontal is the default; the two orientations are mutually exclusive |
 | `sort` | D, E, M, F | Sort regular effects by estimate; may not be combined with `order()` |
 | `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last; may not be combined with `sort` |
-| `modellabels(strlist)` | E | Legend labels in model order |
-| `offset(#)` | E | Vertical model spacing; default is `0.15` |
-| `palette(colorlist)` | E | Model colors; default is `navy cranberry forest_green dkorange purple teal maroon olive_teal` |
-| `legendopts(string)` | E | Additional legend options; default is `rows(1) pos(6) size(small)` |
+| `modellabels(strlist)` | E multi | Exactly one legend label per model |
+| `offset(#)` | E multi | Nonmissing, nonnegative vertical model spacing; default is `0.15` |
+| `palette(colorlist)` | E multi | Exactly one color per model; default palette starts `navy cranberry forest_green dkorange purple teal maroon olive_teal` |
+| `legendopts(string)` | E multi | Additional legend options; default is `rows(1) pos(6) size(small)` |
 
 ### Markers and graph options
 
@@ -271,16 +271,16 @@ After a successful call, `eplot` returns r-class results. Use `return list` and 
 | `r(table)` | Matrix | `b`, `ll`, and `ul` columns; multi-model estimates use `b_1 ll_1 ul_1 ...` |
 | `r(pvalues)` | Matrix | P-values when supplied in data/frame mode, available for one-model estimates, or requested for a two-column matrix with `stars` |
 
-For a single estimates model or a matrix, `r(table)` is k × 3. For multiple estimates it is k × (3 × number of models), with three columns per model. Data- and frame-mode pooled subgroup and overall rows appear in `r(table)` even though `r(k)` counts regular type-1 rows.
+For a single estimates model or a matrix, `r(table)` is k × 3. For multiple estimates it is k × (3 × number of models), with three columns per model. Data- and frame-mode pooled subgroup and overall rows appear in `r(table)` even though `r(k)` counts regular type-1 rows. Returned matrices use plotted labels as row names when Stata permits them; otherwise they fall back to `row1`, `row2`, and so on without truncating the graph labels.
 
 ## Assumptions and Limits
 
 - Data and frame modes take confidence limits from supplied variables; `level()` is only for intervals constructed in estimates and matrix modes.
-- Supplied lower confidence limits may not exceed upper limits; two-column matrix standard errors must be nonnegative.
+- Supplied lower confidence limits may not exceed upper limits; prediction limits must be complete ordered pairs; two-column matrix standard errors must be nonnegative; and all required matrix cells must be nonmissing.
 - Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
 - Matrix mode requires exactly two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); two-column input is the only matrix form that supports `stars`.
 - `values` and `favors()` require horizontal layout; `values` is available only for a single estimates model.
-- `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; they are ignored for multi-model estimates.
+- `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; multi-model-only options (`modellabels()`, `offset()`, `palette()`, and `legendopts()`) require multiple estimates.
 - `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
 - In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
 - In multi-model estimates, `palette()` controls per-model colors; `sigcolors`, `mcolor()`, and `cicolor()` do not override that palette.
@@ -298,6 +298,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.9** (2026-08-30): Corrected t-based finite-df inference, duplicate-label multi-model returns, prediction-interval transformations and validation, matrix missing-value and `star` handling, exact heterogeneity text, long-label returns, mapping/cardinality validation, native `xline()` errors, and parser state restoration; expanded numerical and negative-path QA.
 - **1.2.8** (2026-08-11): Preserved multi-equation coefficient identities and empty estimation state, corrected multi-model `r(k)`, named-model `eform` labels, and negative rescaling, and added explicit validation for intervals, row types, p-values, conflicting options, covariance matrices, and `favors()` labels.
 - **1.2.7** (2026-08-09): Preserved analytical return values when optional graph saves fail, corrected estimates-mode p-value sizing, and expanded release QA with runnable documentation examples and machine-reconcilable negative-path checks.
 - **1.2.6** (2026-08-05): Kept non-effect rows in their original slots when sorting data/frame input; aligned frame-mode option documentation, dynamic confidence-level defaults, row-type aliases, graph-option prose, and the tabtools integration demo with current behavior.

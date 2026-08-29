@@ -63,12 +63,12 @@
 {synopt:{opt outcomem:ap(string)}}map rate outcomes to model identities{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
+{synopt:{opt xlsx(filename)}}Excel workbook; must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name[, replace])}}save composite to a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite frame{p_end}
 {synopt:{opt forest}}draw an eplot forest plot{p_end}
@@ -78,17 +78,17 @@
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
-{synopt:{opt comp:act}}merge estimate and CI into one column per model{p_end}
+{synopt:{opt comp:act}}combine estimate and CI per model{p_end}
 {synopt:{opt sec:tion(string)}}section labels, one per source frame{p_end}
 {synopt:{opt rela:bel(string)}}rename selected composite rows{p_end}
 {synopt:{opt sep:arator(numlist)}}add borders above selected data rows{p_end}
 {synopt:{opt eff:ect(string)}}rate-mode effect header; default {cmd:aHR}{p_end}
-{synopt:{opt refl:abel(string)}}rate-mode reference-row text; default {cmd:Reference}{p_end}
+{synopt:{opt refl:abel(string)}}reference-row label; default {cmd:Reference}{p_end}
 
 {syntab:Formatting}
 {synopt:{opt font(string)}}set the Excel font family{p_end}
 {synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt labelw:idth(#)}}cap the label-column width{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt bold:p(#)}}bold p-values below threshold{p_end}

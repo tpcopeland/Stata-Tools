@@ -84,7 +84,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v190_panel, nsubj(80)
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) nolog
     * final IIW weight mean is exactly 1
     assert abs(r(mean_weight) - 1) < 1e-8
@@ -92,7 +92,7 @@ capture noisily {
     quietly summarize _iivw_iw if !missing(_iivw_iw), meanonly
     assert abs(r(mean) - 1) < 1e-8
     * FIPTIW: iw component mean 1 (final weight ~ mean of stabilized tw)
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) ///
         replace nolog
     quietly summarize _iivw_iw if !missing(_iivw_iw), meanonly
@@ -112,7 +112,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v190_panel, nsubj(80)
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) nolog
     * A constant rescale of the weights must not move beta or the sandwich SE
     gen double w_scaled = _iivw_weight * 1000

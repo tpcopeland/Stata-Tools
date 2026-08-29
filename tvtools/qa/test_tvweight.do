@@ -489,6 +489,8 @@ if `run_only' == 0 | `run_only' == 14 {
 }
 
 }
+local _qa_capture_rc_33 = _rc
+if `_qa_capture_rc_33' exit `_qa_capture_rc_33'
 
 **# ===== merged from test_tvtools.do L13615-14076: TVWEIGHT comprehensive =====
 
@@ -511,6 +513,8 @@ capture {
     tempfile weight_data
     save `weight_data'
 }
+local _qa_capture_rc_498 = _rc
+if `_qa_capture_rc_498' exit `_qa_capture_rc_498'
 
 * TEST 1.1: Basic binary IPTW with all stored results
 local ++test_count

@@ -718,9 +718,15 @@ capture noisily {
     save `before'
 
     psdash balance treat ps, covariates(x z) wvar(wt)
+    unab current_vars : _all
+    quietly describe using `before', varlist
+    assert "`current_vars'" == "`r(varlist)'"
     cf _all using `before'
 
     psdash weights treat ps, wvar(wt)
+    unab current_vars : _all
+    quietly describe using `before', varlist
+    assert "`current_vars'" == "`r(varlist)'"
     cf _all using `before'
 }
 if _rc == 0 {
@@ -748,6 +754,9 @@ capture noisily {
 
     preserve
     drop w_keep
+    unab current_vars : _all
+    quietly describe using `before', varlist
+    assert "`current_vars'" == "`r(varlist)'"
     cf _all using `before'
     restore
 }
@@ -778,6 +787,9 @@ capture noisily {
     local bal_rc = _rc
     assert `bal_rc' == 2001
     if "`c(varabbrev)'" != "on" exit 9
+    unab current_vars : _all
+    quietly describe using `before', varlist
+    assert "`current_vars'" == "`r(varlist)'"
     cf _all using `before'
 
     _binary_bw_primary

@@ -389,7 +389,9 @@ capture noisily {
     * the weights would be doing nothing and the whole diagnostic is vacuous.
     assert `shift_big' > 0.20
     assert !missing(`shift_big', `shift_small')
-    assert reldif(`shift_big', `shift_small') < 0.5
+    * Allow finite-sample variation at N=400, but require both averages to
+    * describe the same persistent composition shift.
+    assert reldif(`shift_big', `shift_small') < 0.20
 }
 if _rc == 0 {
     local ++pass_count

@@ -1,10 +1,15 @@
-*! _psdash_validate_path Version 1.6.8  2026/08/11
+*! _psdash_validate_path Version 1.6.9  2026/08/30
 *! Validate a user-supplied file path (extension + shell metacharacters)
 *! Author: Timothy P Copeland, Karolinska Institutet
+*! Program class: nclass
 *! Internal helper
 
-program define _psdash_validate_path
+program define _psdash_validate_path, nclass
     version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
     syntax , PATH(string) [OPTion(string) EXTension(string)]
 
     if "`option'" == "" local option "file"
@@ -23,4 +28,9 @@ program define _psdash_validate_path
             exit 198
         }
     }
+    }
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' == 0 return clear
+    if `rc' exit `rc'
 end

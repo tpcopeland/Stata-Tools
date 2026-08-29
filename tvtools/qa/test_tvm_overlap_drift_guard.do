@@ -147,7 +147,7 @@ else {
 
 local ++test_count
 use "`TVMOUT'", clear
-capture cf _all using "`ORACLE'"
+capture _tvtools_qa_assert_cf_all_exact using "`ORACLE'"
 if _rc == 0 local ++pass_count
 else {
     display as error "DRIFT: tvm pair SET != oracle (cf rc=`=_rc')"
@@ -165,7 +165,7 @@ else {
 
 local ++test_count
 use "`RMOUT'", clear
-capture cf _all using "`ORACLE'"
+capture _tvtools_qa_assert_cf_all_exact using "`ORACLE'"
 if _rc == 0 local ++pass_count
 else {
     display as error "DRIFT: rangematch pair SET != oracle (cf rc=`=_rc')"

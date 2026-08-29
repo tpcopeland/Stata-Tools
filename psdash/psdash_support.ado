@@ -1,4 +1,4 @@
-*! psdash_support Version 1.6.8  2026/08/11
+*! psdash_support Version 1.6.9  2026/08/30
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -237,6 +237,11 @@ program define psdash_support, rclass
 
     if "`crump'" != "" & `threshold' != -1 {
         display as error "cannot specify both crump and threshold()"
+        exit 198
+    }
+
+    if "`compare'" != "" & "`crump'" == "" & `threshold' == -1 {
+        display as error "compare requires crump or threshold()"
         exit 198
     }
 
@@ -647,7 +652,7 @@ program define psdash_support, rclass
                 }
             }
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
-                title("`title'") keys(`_xk') vals(`_xv')
+                title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Support table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
@@ -1036,7 +1041,7 @@ program define psdash_support, rclass
                 local _xv `"`_xv' "`=string(`trim_lower',"%6.4f")'" "`n_trimmed'" "`=string(`pct_trimmed',"%5.2f")'" "`=`N'-`n_trimmed''""'
             }
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
-                title("`title'") keys(`_xk') vals(`_xv')
+                title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Support table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc

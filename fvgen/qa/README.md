@@ -1,90 +1,79 @@
-# fvgen — QA suite
+# fvgen QA
 
-Tests for the `fvgen` command (flatten factor-variable interactions into
-labeled main-effect and product variables).
+The `fvgen` QA suite is flat and concern-oriented, with one curated lane runner and independently runnable suites covering generation, provenance, margins replay, installed-user behavior, and known-answer equivalence.
 
 ## How to run
 
-From this directory:
+From the package QA directory:
 
 ```bash
-stata-mp -b do run_all.do          # full release gate (default)
+cd fvgen/qa
+stata-mp -b do run_all.do          # full lane (default release gate)
 stata-mp -b do run_all.do quick    # fastest functional smoke
-stata-mp -b do run_all.do core     # functional + errors + validation
+stata-mp -b do run_all.do core     # functional, error, state, and validation coverage
+stata-mp -b do test_regressions.do # one suite standalone
 ```
 
-Each suite is independently runnable (`stata-mp -b do test_fvgen.do`) and
-self-contained: it sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)` and installs the
-local package source before testing, so an installed or SSC copy cannot shadow
-it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
+`run_all.do` requires one well-formed, arithmetically reconciled `RESULT:` sentinel from every suite and exits nonzero on a suite failure or contract failure.
+
+## Isolation
+
+Each suite redirects `PLUS` and `PERSONAL` to temporary directories through `_fvgen_qa_common.do`, uninstalls any package copy visible in that sandbox, and installs the local source. Use the devkit isolated runner when another process may be running the same lane, because Stata batch logs otherwise share the live `qa/` directory.
 
 ## Conventions
 
-- Counters + `RESULT: <name> tests=N pass=N fail=N` sentinel per file.
-- `exit 1` on any failure.
-- Fresh data per test via `_fvgen_make_data` (no tracked `.dta` fixtures).
+- `test_*` files provide functional and regression coverage; `validation_*` files provide hand-computed and invariant oracles; `crossval_*` is reserved for parity against an independent external implementation; `benchmark_*` is reserved for timing guardrails outside correctness lanes.
+- Every runnable suite ends with exactly one `RESULT: <name> tests=N pass=N fail=N [skip=N]` sentinel and exits nonzero on failure. The full release gate accepts no skips.
+- Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` through `_fvgen_qa_common.do`, so they do not use the user's installed copy.
+- Paths derive from `c(pwd)`; no suite contains a machine-local path.
+- Test data are generated at runtime from seeded builders or explicit hand-computed inputs; no `.dta` fixtures are tracked.
+- Generated `.log`, `.smcl`, `.dta`, workbook, and image artifacts are disposable and gitignored; only documented assets under `demo/` may be tracked.
+- Stata bookmarks (`**#` and `**##`) identify foldable test sections.
+
+`fvgen` is a deterministic transform, so known-answer and native-design validation are the correctness oracles; no external cross-validation layer is needed.
 
 ## File index
 
-| File | Purpose |
-|------|---------|
-| `_fvgen_qa_common.do` | Sandboxed-install bootstrap + seeded data builder |
-| `test_fvgen.do` | Functional: surface, returns, naming, labels, options, missing, if/in, squared self-interaction, `ibn.` all-levels, weight-aware centering, 80-char label truncation, unlabeled-factor `var=level` fallback |
-| `test_ref.do` | `ref()` per-factor reference levels: re-reference, equivalence to native `ibN.`, multi-var, quoted value-label strings, alllevels, no fvset mutation |
-| `test_simple.do` | `simple()` per-group slopes: surface + labels, equivalence to native main+interaction, multi-level moderator, non-moderated main retained, `simple()`+`center` combined |
-| `test_provenance.do` | Provenance chars (`fvgen_role`/`fvgen_term`) on main/interaction/centered vars; `fvgen, drop` teardown, returns, idempotence, absorbed-copy clearing, strict drop-only syntax, edge paths |
-| `test_errors.do` | Failure paths: 3-way→198, >32-char name→198, collision→110, empty sample→2000, ref() 198/111, ref() bad label→198, simple() 198, omit operator `o.`→198, varabbrev restore on error and success |
-| `test_margins.do` | Margins bridge: active `regress` equivalence to native factor-variable margins and VCE, `logit`/`poisson` native-clone equivalence, `svy` prefix with comma options, broad estimator-family matrix (`regress`, `glm`, `qreg`, `rreg`, `logit`/`logistic`, `probit`, `cloglog`, `poisson`, `nbreg`, `tobit`, `ologit`/`oprobit`, `mlogit`, `xtreg`, `svy`), `store()` active-restore contract, `store()` replacement, unsupported center refusal, drop and failed-generation provenance cleanup |
-| `test_regressions.do` | Review regressions: structural output-name collisions, source/output collisions, atomic failure, exact `ref()` label mapping, and margins stale-data guards |
-| `test_fvgen_hostile.do` | Adversarial factor-variable parsing, namespace, and state-preservation cases |
-| `test_fvgen_oracle.do` | Seeded randomized factor-product oracle with generated-name shadow preservation |
-| `validation_fvgen.do` | Known-answer: hand-computed values + exact equivalence to native `##` + centering invariance |
-| `test_package_release.do` | Install smoke, autoload + second in-session call, documented examples, and shipped-help render with a broken-markup positive control |
-| `run_all.do` | Curated lane runner |
+### Functional and regression tests
+
+| File | Covers |
+|------|--------|
+| `test_fvgen.do` | Core generation surface, returns, labels, naming, options, missingness, qualifiers, all four weight types, and weighted level discovery. |
+| `test_ref.do` | Per-factor reference levels, native `ibN.` equivalence, quoted value-label resolution, `alllevels`, and `fvset` preservation. |
+| `test_simple.do` | Per-group slope parameterization, labels, multi-level moderators, retained main effects, and `simple()` with `center`. |
+| `test_errors.do` | Exact error codes for unsupported specifications and options plus `varabbrev` restoration on success and failure. |
+| `test_provenance.do` | Variable and dataset provenance, teardown returns, idempotence, pass-through survival, and strict drop syntax. |
+| `test_margins.do` | Active and stored margins clones, estimator-family and VCE parity, survey replay, store replacement, and unsupported paths. |
+| `test_regressions.do` | Review regressions for name collisions, exact reference-label mapping, stale-data guards, replay-failure restoration, and nonconvergence rejection. |
+| `test_fvgen_hostile.do` | Adversarial namespace collision and empty-data state preservation. |
+| `test_fvgen_oracle.do` | Seeded row-level factor-indicator and product oracles plus generated-name shadow preservation. |
+| `test_package_release.do` | Isolated install resolution, repeated autoload, every visible help workflow, and help-render integrity with a positive control. |
+
+### Validation
+
+| File | Covers |
+|------|--------|
+| `validation_fvgen.do` | Hand-computed dummy/product values, native model-space equivalence, and centering invariance. |
+
+### Support
+
+| File | Covers |
+|------|--------|
+| `_fvgen_qa_common.do` | Sandboxed local-install bootstrap and seeded synthetic-data builder. |
+| `run_all.do` | Curated `quick`, `core`, and `full` lane membership plus suite-sentinel enforcement. |
 
 ## Coverage map
 
-| Surface | Covered by |
-|---------|-----------|
-| cat×cont / cat×cat / cont×cont | `test_fvgen`, `validation_fvgen` |
-| Value label → variable label (incl. `&`, `×`, embedded `"`) | `test_fvgen` (#2, #3) |
-| Over-long label truncated to Stata's 80-char limit | `test_fvgen` (#16) |
-| Unlabeled factor → `var=level` fallback label (main + interaction) | `test_fvgen` (#17) |
-| Empty interaction-cell skipping; base dropped | `test_fvgen` (#4) |
-| Missing propagation (dummies + products) | `test_fvgen` (#5), `validation_fvgen` (#1) |
-| `alllevels`, `center`, `prefix()`, `xsymbol()`, `replace`, `if`/`in` | `test_fvgen` (#3,#6,#7,#8,#9,#10) |
-| `ref()` per-factor reference + native `ibN.` equivalence; quoted value-label strings | `test_ref` |
-| `simple()` per-group slopes + native main+interaction equivalence | `test_simple` |
-| `simple()` + `center` combined (slope-invariance, absorbed centered copy) | `test_simple` (#5) |
-| Squared self-interaction (`c.x##c.x`) label + values | `test_fvgen` (#11) |
-| `ibn.` no-base materializes every level | `test_fvgen` (#12) |
-| Weight-aware centering (aweight/pweight); weighted-mean known answer | `test_fvgen` (#13) |
-| Variable and dataset provenance chars, including margins signature state | `test_provenance` (#1–#3), `test_regressions` (#6–#8) |
-| `fvgen, drop` teardown: returns, idempotence, pass-through survival, strict syntax, edges | `test_provenance` (#3–#7) |
-| `fvgen, margins`: native factor-variable estimator clone and margins VCE parity across linear/GLM/binary/count/censored/ordered/multinomial/panel/survey estimators, `store()` clone, unsupported paths | `test_margins` |
-| `r(allvars/mainvars/intvars/genvars/k_all/k_main/k_int/spec)` | `test_fvgen` (#1) |
-| `r(dropped)`/`r(k_dropped)` | `test_provenance` (#3,#4) |
-| Exact reparameterization (coef + R² + N) vs native `##` | `validation_fvgen` (#2–#4) |
-| Centering leaves interaction coef + fit unchanged | `validation_fvgen` (#5) |
-| Error codes 198 / 110 / 2000; ref() bad label; omit operator `o.`; varabbrev restore | `test_errors`, `test_provenance` (#7) |
-| Structural/source name collisions and failure atomicity | `test_regressions` (#1–#3) |
-| Ambiguous and quoted-numeric `ref()` label mapping | `test_regressions` (#4–#5) |
-| Margins bridge stale source/generated data guards | `test_regressions` (#6–#8) |
-| Install / autoload / crash-on-rerun / doc examples | `test_package_release` |
-| Shipped `.sthlp` render axis + positive control | `test_package_release` (#5–#6) |
+| Command | Functional | Validation | Also exercised in |
+|---------|------------|------------|-------------------|
+| `fvgen` | `test_fvgen`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_regressions` | `validation_fvgen`, `test_fvgen_oracle` | `test_fvgen_hostile`, `test_package_release` |
 
 ## Lane membership
 
-| Suite | quick | core | full |
-|-------|:-----:|:----:|:----:|
-| `test_fvgen` | ✓ | ✓ | ✓ |
-| `test_ref` | | ✓ | ✓ |
-| `test_simple` | | ✓ | ✓ |
-| `test_errors` | | ✓ | ✓ |
-| `test_provenance` | | ✓ | ✓ |
-| `test_margins` | | ✓ | ✓ |
-| `test_regressions` | | ✓ | ✓ |
-| `test_fvgen_hostile` | | ✓ | ✓ |
-| `test_fvgen_oracle` | | ✓ | ✓ |
-| `validation_fvgen` | | ✓ | ✓ |
-| `test_package_release` | | | ✓ |
+`quick` ⊆ `core` ⊆ `full`; `full` is the default release gate.
+
+| Lane | Suites |
+|------|--------|
+| `quick` | `test_fvgen` |
+| `core` | `quick` plus `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
+| `full` | `core` plus `test_package_release` |

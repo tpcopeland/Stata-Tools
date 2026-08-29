@@ -138,7 +138,14 @@ capture noisily {
     * name(g1, replace) must not error and must produce a graph actually named g1
     psdash overlap foreign ps_a, name(g1, replace)
     assert _rc == 0
+    assert !missing(r(N))
+    assert r(N) == 74
+    assert "`r(treatment)'" == "foreign"
     graph describe g1
+    tempfile named_graph
+    local named_svg "`named_graph'.svg"
+    graph export "`named_svg'", name(g1) as(svg) replace
+    confirm file "`named_svg'"
 }
 _t "INT1_name_replace_accepted" `=_rc'
 

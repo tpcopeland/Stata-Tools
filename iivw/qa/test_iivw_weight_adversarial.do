@@ -284,12 +284,24 @@ if `run_only' == 0 | `run_only' == 5 {
         assert _rc == 110
 
         drop severity_lag1
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(marker) lagvars(severity) nolog
+        assert _rc == 416
+        _assert_no_weight_outputs
+        capture confirm variable severity_lag1
+        assert _rc == 111
+
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(marker) ///
-            lagvars(severity) nolog
+            lagvars(severity) allowmissingweights nolog
+        local n_ids = r(n_ids)
+        local n_missing_weight = r(n_missing_weight)
         confirm variable severity_lag1
         bysort id (months): assert missing(severity_lag1) if _n == 1
         bysort id (months): assert abs(severity_lag1 - severity[_n-1]) < 1e-10 ///
             if _n > 1
+        bysort id (months): assert missing(_iivw_weight) if _n == 1
+        bysort id (months): assert !missing(_iivw_weight) if _n > 1
+        assert `n_missing_weight' == `n_ids'
     }
     if _rc == 0 {
         display as result "  PASS: 5 - lagvars values and collision handling"
@@ -431,14 +443,12 @@ if `run_only' == 0 | `run_only' == 9 {
         * ABOUT those rows, so it acknowledges the complete-case analysis.
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity marker) allowmissingweights nolog
-        * id==1 v1 is a first obs with a missing covariate. It has no linear
-        * predictor, so it is not a modelled event however baseline(event)
-        * declared it -- and it takes the same study-entry weight of exactly 1
-        * that baseline(entry) gives every entry visit, assigned after the
-        * fitted component is normalized. It is not dropped.
-        assert !missing(_iivw_weight) if id == 1 & visit == 1
-        quietly summarize _iivw_iw if id == 1 & visit == 1
-        assert abs(r(mean) - 1) < 1e-12
+        * id==1 v1 is a declared baseline event whose covariate is missing.
+        * It has no fitted linear predictor and therefore no fitted weight.
+        * baseline(event) must not replace that unknown quantity with the
+        * structural entry weight used by baseline(entry).
+        assert missing(_iivw_weight) if id == 1 & visit == 1
+        assert missing(_iivw_iw) if id == 1 & visit == 1
 
         * The OTHER first observations do have their covariates, so under
         * baseline(event) they are modelled events carrying fitted weights that
@@ -456,7 +466,7 @@ if `run_only' == 0 | `run_only' == 9 {
         assert missing(_iivw_weight) if id == 2 & visit == 3
         quietly count if missing(_iivw_weight)
         assert !missing(r(N))
-        assert r(N) >= 1
+        assert r(N) >= 2
 
         _adv_panel
         replace treated = . if id == 1 & visit == 2

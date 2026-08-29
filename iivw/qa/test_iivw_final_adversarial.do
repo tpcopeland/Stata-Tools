@@ -545,7 +545,7 @@ if `run_only' == 0 | `run_only' == 12 {
         bysort id (months): replace treated = treated[1]
         gen double y = 10 - 0.2 * severity + 0.3 * treated + rnormal(0, 0.5)
 
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(entry) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) nolog
         assert r(N) == `=`nids' * `nvis''
         assert r(n_ids) == `nids'
@@ -583,7 +583,7 @@ if `run_only' == 0 | `run_only' == 13 {
         gen double constant = 1
         gen double sev = rnormal(2, 0.5)
 
-        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+        capture iivw_weight, endatlastvisit baseline(entry) id(id) time(months) ///
             visit_cov(constant) lagvars(sev) nolog
         local wt_rc = _rc
 
@@ -746,14 +746,14 @@ if `run_only' == 0 | `run_only' == 17 {
         gen double abcdefghijklmnopqrstuvwxyzab = severity * 1.2
 
         * 27-char name + _lag1 = 32: should work
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(entry) id(id) time(months) visit_cov(severity) ///
             lagvars(abcdefghijklmnopqrstuvwxyza) nolog
         confirm variable abcdefghijklmnopqrstuvwxyza_lag1
 
         * 28-char name + _lag1 = 33: should error with rc=198
         _final_panel, seed(10017)
         gen double abcdefghijklmnopqrstuvwxyzab = severity * 1.2
-        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
+        capture iivw_weight, endatlastvisit baseline(entry) id(id) time(months) visit_cov(severity) ///
             lagvars(abcdefghijklmnopqrstuvwxyzab) nolog
         assert _rc == 198
     }

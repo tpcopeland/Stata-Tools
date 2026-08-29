@@ -1,3 +1,7 @@
+*! test_simple.do — QA for fvgen simple() behavior
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set varabbrev off
 version 16.0

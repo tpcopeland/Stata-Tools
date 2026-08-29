@@ -279,8 +279,8 @@ local ++test_count
 capture noisily {
     _iivw_replay_panel
     _iivw_replay_identity, wtype(iivw) ///
-        wopts(visit_cov(L1) lagvars(edss) censor(fu_end) baseline(event) entry(entry_t)) ///
-        rwopts(visitcov(L1) lagvars(edss) censor(fu_end) baseline(event) entry(entry_t))
+        wopts(visit_cov(L1) lagvars(edss) censor(fu_end) baseline(event) entry(entry_t) allowmissingweights) ///
+        rwopts(visitcov(L1) lagvars(edss) censor(fu_end) baseline(event) entry(entry_t) allowmissingweights)
     assert r(maxdif) < `TOL_EXACT'
 }
 local rc = _rc

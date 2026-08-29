@@ -212,7 +212,7 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synopt:{cmd:font} {it:name}}set the default font family{p_end}
 {synopt:{cmd:fontsize} {it:#}}font size in points; integer between 6 and 72{p_end}
 {synopt:{cmd:borderstyle} {it:name}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmd:digits} {it:#}}decimal digits for numeric output; integer between 0 and 6{p_end}
+{synopt:{cmd:digits} {it:#}}numeric display digits; integer from 0 to 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
 {synoptline}

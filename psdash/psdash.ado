@@ -1,4 +1,4 @@
-*! psdash Version 1.6.8  2026/08/11
+*! psdash Version 1.6.9  2026/08/30
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,26 +27,26 @@ program define psdash, rclass
 
         if "`subcmd'" == "" | "`subcmd'" == "," {
             _psdash_overview
-            exit
-        }
-
-        local known_subcmds "overlap balance weights support combined detect"
-
-        local is_subcmd = 0
-        foreach s of local known_subcmds {
-            if "`subcmd'" == "`s'" local is_subcmd = 1
-        }
-
-        if `is_subcmd' {
-            return clear
-            capture noisily psdash_`subcmd' `0'
-            local _psdash_side_rc = _rc
-            local _psdash_return_add = 1
         }
         else {
-            display as error "unknown psdash subcommand: `subcmd'"
-            display as error "valid subcommands: `known_subcmds'"
-            exit 198
+            local known_subcmds "overlap balance weights support combined detect"
+
+            local is_subcmd = 0
+            foreach s of local known_subcmds {
+                if "`subcmd'" == "`s'" local is_subcmd = 1
+            }
+
+            if `is_subcmd' {
+                return clear
+                capture noisily psdash_`subcmd' `0'
+                local _psdash_side_rc = _rc
+                local _psdash_return_add = 1
+            }
+            else {
+                display as error "unknown psdash subcommand: `subcmd'"
+                display as error "valid subcommands: `known_subcmds'"
+                exit 198
+            }
         }
 
     }
@@ -63,8 +63,11 @@ end
 
 
 capture program drop _psdash_overview
-program define _psdash_overview
+program define _psdash_overview, nclass
     version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+    capture noisily {
 
     display as result "psdash" as text " - Propensity Score Diagnostics Dashboard"
     display as text ""
@@ -89,4 +92,9 @@ program define _psdash_overview
     display as text "  {cmd:psdash overlap treat ps}"
     display as text ""
     display as text "Type {cmd:help psdash} for full documentation."
+    }
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' == 0 return clear
+    if `rc' exit `rc'
 end

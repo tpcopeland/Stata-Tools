@@ -441,6 +441,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 capture noisily {
 
@@ -678,6 +680,8 @@ else {
 * FINAL SUMMARY
 
 }
+local _qa_capture_rc_445 = _rc
+if `_qa_capture_rc_445' exit `_qa_capture_rc_445'
 
 
 **# ===== merged from validation_tvtools.do L20762-20938: TVWEIGHT expanded validation =====
@@ -862,6 +866,8 @@ else {
 }
 
 }
+local _qa_capture_rc_687 = _rc
+if `_qa_capture_rc_687' exit `_qa_capture_rc_687'
 
 
 * ===== Summary =====

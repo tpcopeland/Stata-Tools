@@ -22,9 +22,7 @@ set more off
 set seed 12345
 version 16.0
 
-* =============================================================================
-* CONFIGURATION
-* =============================================================================
+**# CONFIGURATION
 if "$RUN_TEST_QUIET" == "" {
     global RUN_TEST_QUIET = 0
 }
@@ -39,9 +37,7 @@ local quiet = $RUN_TEST_QUIET
 local machine = $RUN_TEST_MACHINE
 local run_only = $RUN_TEST_NUMBER
 
-* =============================================================================
-* PATH CONFIGURATION
-* =============================================================================
+**# PATH CONFIGURATION
 else if "`c(os)'" == "Unix" {
 }
 else {
@@ -68,18 +64,12 @@ capture program drop _eplot_process_groups
 capture program drop _eplot_process_headers
 run "`pkg_dir'/eplot.ado"
 
-* =============================================================================
-* HEADER
-* =============================================================================
+**# HEADER
 if `quiet' == 0 {
-    display as text _n "{hline 70}"
     display as text "EPLOT COMMAND FUNCTIONAL TESTING"
-    display as text "{hline 70}"
 }
 
-* =============================================================================
-* TEST COUNTERS
-* =============================================================================
+**# TEST COUNTERS
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -93,13 +83,10 @@ program define _run_test
     }
     if $RUN_TEST_QUIET == 0 {
         display as text _n "TEST `test_num': `test_desc'"
-        display as text "{hline 50}"
     }
 end
 
-* =============================================================================
-* HELPER: Create forest plot test data
-* =============================================================================
+**# HELPER: Create forest plot test data
 capture program drop _make_forest_data
 program define _make_forest_data
     clear
@@ -138,9 +125,7 @@ program define _make_forest_data
     gen byte type = cond(study == "Overall", 5, 1)
 end
 
-* =============================================================================
-* DATA MODE TESTS
-* =============================================================================
+**# DATA MODE TESTS
 
 * TEST 1: Basic data mode (3 variables)
 local ++test_count
@@ -384,9 +369,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* =============================================================================
-* ESTIMATES MODE TESTS
-* =============================================================================
+**# ESTIMATES MODE TESTS
 
 * TEST 11: Estimates mode basic
 local ++test_count
@@ -620,9 +603,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* =============================================================================
-* ERROR HANDLING TESTS
-* =============================================================================
+**# ERROR HANDLING TESTS
 
 * TEST 20: Error - no observations
 local ++test_count
@@ -700,9 +681,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* =============================================================================
-* DATA PRESERVATION TESTS
-* =============================================================================
+**# DATA PRESERVATION TESTS
 
 * TEST 23: Data mode preserves original data
 local ++test_count
@@ -758,9 +737,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* =============================================================================
-* EDGE CASE TESTS
-* =============================================================================
+**# EDGE CASE TESTS
 
 * TEST 25: Single observation
 local ++test_count
@@ -820,20 +797,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* =============================================================================
-* CLEANUP
-* =============================================================================
+**# CLEANUP
 if `quiet' == 0 & `run_only' == 0 {
-    display as text _n "{hline 70}"
     display as text "Cleaning up..."
-    display as text "{hline 70}"
 }
 
 graph drop _all
 
-* =============================================================================
-* SUMMARY
-* =============================================================================
+**# SUMMARY
 local executed_count = `pass_count' + `fail_count'
 local skip_count = `test_count' - `executed_count'
 if `run_only' > 0 & `executed_count' == 0 {
@@ -851,9 +822,7 @@ if `machine' {
     }
 }
 else {
-    display as text _n "{hline 70}"
     display as text "EPLOT FUNCTIONAL TEST SUMMARY"
-    display as text "{hline 70}"
     display as text "Selected tests: `executed_count'"
     if `skip_count' > 0 display as text "Skipped:        `skip_count'"
     display as result "Passed:       `pass_count'"
@@ -864,8 +833,6 @@ else {
     else {
         display as text "Failed:       `fail_count'"
     }
-    display as text "{hline 70}"
-
     if `fail_count' > 0 {
         display as error "Some tests FAILED. Review output above."
     }

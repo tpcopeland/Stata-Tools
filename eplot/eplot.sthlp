@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.8  11aug2026}{...}
+{* *! version 1.2.9  30aug2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -57,7 +57,7 @@ Plot from a graph-ready frame:
 {synopt:{opt wei:ghts(varname)}}variable for marker/box sizing{p_end}
 {synopt:{opt t:ype(varname)}}row type indicator{p_end}
 {synopt:{opt pv:alue(varname)}}p-values for stars and {cmd:r(pvalues)}{p_end}
-{synopt:{opt est:imate(varname)}}frame estimate variable; default {cmd:estimate}{p_end}
+{synopt:{opt est:imate(varname)}}frame estimate variable{p_end}
 {synopt:{opt ll(varname)}}frame lower-limit variable; default {cmd:ll}{p_end}
 {synopt:{opt ul(varname)}}frame upper-limit variable; default {cmd:ul}{p_end}
 {synopt:{opt rowt:ype(varname)}}frame synonym for {opt type()}{p_end}
@@ -88,22 +88,22 @@ Plot from a graph-ready frame:
 {syntab:Confidence intervals}
 {synopt:{opt lev:el(#)}}CI level; default is {cmd:c(level)}{p_end}
 {synopt:{opt noci}}suppress confidence intervals{p_end}
-{synopt:{opt cicap}}draw capped CI lines (rcap instead of rspike){p_end}
+{synopt:{opt cicap}}draw capped CI lines{p_end}
 
 {syntab:Display}
 {synopt:{opt dp(#)}}decimal places; default is 2{p_end}
 {synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
-{synopt:{opt val:ues}}annotate each row with formatted effect text{p_end}
+{synopt:{opt val:ues}}annotate rows with formatted effects{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
 {synopt:{opt star:s}}add significance stars to values{p_end}
-{synopt:{opt sigcolors}}color markers by significance (CI vs null){p_end}
+{synopt:{opt sigcolors}}color markers by CI significance{p_end}
 {synopt:{opt sigcolor(color)}}significant-effect color{p_end}
 {synopt:{opt insignc:olor(color)}}non-significant-effect color{p_end}
 {synopt:{opt sty:le(name)}}plot style preset{p_end}
 {synopt:{opt f:avors(left right)}}directional annotation text{p_end}
 
 {syntab:Prediction intervals (data and frame modes)}
-{synopt:{opt pi(lci_var uci_var)}}draw prediction interval whiskers behind CIs{p_end}
+{synopt:{opt pi(lci_var uci_var)}}draw prediction-interval whiskers{p_end}
 
 {syntab:Heterogeneity (data and frame modes)}
 {synopt:{opt i2(string)}}display I-squared value in note{p_end}
@@ -118,7 +118,7 @@ Plot from a graph-ready frame:
 
 {syntab:Multi-model (estimates mode)}
 {synopt:{opt modell:abels(strlist)}}custom legend labels for each model{p_end}
-{synopt:{opt off:set(#)}}vertical spacing between models; default is 0.15{p_end}
+{synopt:{opt off:set(#)}}set between-model spacing{p_end}
 {synopt:{opt pal:ette(colorlist)}}color palette for models{p_end}
 {synopt:{opt leg:endopts(string)}}additional legend options{p_end}
 
@@ -126,7 +126,7 @@ Plot from a graph-ready frame:
 {synopt:{opt mc:olor(color)}}marker color{p_end}
 {synopt:{opt msy:mbol(symbol)}}marker symbol; default is {cmd:O}{p_end}
 {synopt:{opt msi:ze(size)}}marker size; default is {cmd:medium}{p_end}
-{synopt:{opt boxs:cale(#)}}box size scaling (percentage); default is {cmd:100}{p_end}
+{synopt:{opt boxs:cale(#)}}scale weighted boxes; default {cmd:100}{p_end}
 {synopt:{opt nobox}}suppress weighted boxes{p_end}
 {synopt:{opt nodi:amonds}}replace pooled diamonds with markers{p_end}
 {synopt:{opt cicolor(color)}}CI line color{p_end}
@@ -186,12 +186,21 @@ models continue to align by coefficient name in multi-model comparisons. Plottin
 named estimates preserves the caller's active estimation results, including an
 initially empty {cmd:e()} state.
 
+{pmore}
+Intervals and p-values follow each model's estimation distribution: {cmd:eplot}
+uses the t distribution when {cmd:e(df_r)} is available and positive, and the
+normal distribution otherwise. In multi-model plots this choice is made
+separately for each stored result.
+
 {phang2}
 {bf:3. Matrix mode} — you specify {opt matrix(matname)}. {cmd:eplot} reads a
 Stata matrix with either 2 columns ({it:b}, {it:se}) or 3 columns ({it:b},
 {it:lci}, {it:uci}). Row names become labels. This is useful when results
 come from post-estimation commands or custom calculations. Standard errors
-must be nonnegative, and lower limits may not exceed upper limits.
+must be nonnegative, lower limits may not exceed upper limits, and every
+required matrix cell must be nonmissing. If a row label cannot be represented
+as a Stata matrix stripe, returned matrices use positional row names
+{cmd:row1}, {cmd:row2}, and so on while the graph retains the full label.
 
 {phang2}
 {bf:4. Frame mode} — you specify {opt frame(framename)}. {cmd:eplot} reads a
@@ -324,14 +333,17 @@ drops the constant ({cmd:_cons}) from the plot. This is shorthand for
 
 {phang}
 {opt rename(spec)} {bf:[E]} renames coefficients for
-display. Syntax: {cmd:rename(oldname = newname oldname2 = newname2)}.
+display. Syntax: {cmd:rename(oldname = newname oldname2 = newname2)}. Each
+mapping must contain nonempty names around {cmd:=}, and every source name must
+match a coefficient.
 
 {dlgtab:Labeling}
 
 {phang}
 {opt coeflabels(spec)} assigns custom labels to coefficients or
 effects. Syntax: {cmd:coeflabels(coef1 = "Label 1" coef2 = "Label 2")}. In data
-mode, labels are matched against the {opt labels()} variable.
+mode, labels are matched against the {opt labels()} variable. Each mapping must
+be well formed, and every named effect must exist.
 
 {phang}
 {opt groups(spec)} {bf:[D,F]} {bf:[E single-model]} groups coefficients under
@@ -339,19 +351,22 @@ section headers.{p_end}
 
 {pmore}
 Syntax: {cmd:groups(coef1 coef2 = "Group A" coef3 coef4 = "Group B")}. Group
-headers appear as bold text above the first coefficient in each group.{p_end}
+headers appear as bold text above the first coefficient in each group. Each
+group must have a nonempty coefficient list and label, and every named effect
+must exist.{p_end}
 
 {phang}
 {opt gap(#)} {bf:[D,F]} {bf:[E single-model]} adds extra vertical space between adjacent
 {opt groups()} blocks. The value sets the gap size in row-height units; the default
-is {cmd:0} (no extra space). Useful for visually separating clinical domains in
+is {cmd:0} (no extra space) and must be nonmissing and nonnegative. Useful for visually separating clinical domains in
 forest plots without inserting blank rows in the source data.
 
 {phang}
 {opt headers(spec)} {bf:[D,F]} {bf:[E single-model]} inserts a section header before a specified
 coefficient. Syntax: {cmd:headers(coef1 = "Section Header")}. Use this when you want
 a header above a single coefficient rather than grouping multiple
-coefficients. {opt headings()} is accepted as an alias.
+coefficients. Each mapping must be well formed and match an effect. {opt headings()}
+is accepted as an alias.
 
 {dlgtab:Transform}
 
@@ -497,14 +512,17 @@ draws prediction interval whiskers as dashed lines behind the confidence
 interval whiskers. Specify two numeric variables for the lower and upper
 prediction limits. Prediction intervals are wider than confidence intervals
 and show the range within which a future study's true effect is expected to
-fall.
+fall. For plotted effect and pooled rows, limits must be supplied as complete
+pairs and the lower limit may not exceed the upper limit. Negative
+{opt rescale()} factors preserve lower/upper ordering.
 
 {dlgtab:Heterogeneity (data and frame modes)}
 
 {phang}
 {opt i2(string)} {bf:[D,F]}
 displays the I-squared (I{c 178}) heterogeneity value in the graph note. The value
-is displayed as-is — {cmd:eplot} does not compute it.
+is displayed as-is — {cmd:eplot} does not compute it. Include any desired
+percent sign, for example {cmd:i2("42.1%")}.
 
 {phang}
 {opt tau2(string)} {bf:[D,F]}
@@ -544,24 +562,26 @@ placed at the end. It may not be combined with {opt sort}.
 {phang}
 {opt modellabels(strlist)} {bf:[E]} specifies custom legend labels for each
 model. Provide one label per model, in the same order as the estimate
-names. Quoted strings are supported: {cmd:modellabels("Base Model" "Adjusted")}.
+names. Quoted strings are supported: {cmd:modellabels("Base Model" "Adjusted")}. This
+option requires multiple models and its label count must match exactly.
 
 {phang}
 {opt offset(#)} {bf:[E]}
 controls the vertical spacing between models when overlaying multiple
 estimates on the same coefficient row. Default is {cmd:0.15}. Increase for
-more visual separation; decrease for tighter grouping.
+more visual separation; decrease for tighter grouping. The value must be
+nonmissing and nonnegative, and the option requires multiple models.
 
 {phang}
 {opt palette(colorlist)} {bf:[E]} specifies the color palette for multi-model
 plots. Default is
 {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}. Provide
-one Stata color name per model.
+exactly one Stata color name per model. This option requires multiple models.
 
 {phang}
 {opt legendopts(string)} {bf:[E]}
 passes additional options to the graph legend. Default is
-{cmd:rows(1) pos(6) size(small)}.
+{cmd:rows(1) pos(6) size(small)}. This option requires multiple models.
 
 {dlgtab:Markers}
 
@@ -683,7 +703,7 @@ passthrough behavior.
 
 {phang2}{cmd:. matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)}{p_end}
 {phang2}{cmd:. matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"}{p_end}
-{phang2}{cmd:. eplot, matrix(R) eform effect("Odds Ratio") scheme(plotplainblind)}{p_end}
+{phang2}{cmd:. eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)}{p_end}
 
 {pstd}
 {bf:Example 8: Frame mode}
@@ -741,7 +761,7 @@ passthrough behavior.
 {phang2}{cmd:. "Patel 2023"   -0.09  -0.35   0.17  20.1  1}{p_end}
 {phang2}{cmd:. "Overall"      -0.28  -0.41  -0.15   .    5}{p_end}
 {phang2}{cmd:. end}{p_end}
-{phang2}{cmd:. eplot es lci uci, labels(study) weights(weight) type(type) values vformat(%4.2f) i2("42.1") tau2("0.021") qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)}{p_end}
+{phang2}{cmd:. eplot es lci uci, labels(study) weights(weight) type(type) values vformat(%4.2f) i2("42.1%") tau2("0.021") qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)}{p_end}
 
 
 {marker remarks}{...}
@@ -825,7 +845,7 @@ custom text.
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}display rows, including generated headers{p_end}
-{synopt:{cmd:r(k)}}number of plotted coefficients (excludes headers and diamonds){p_end}
+{synopt:{cmd:r(k)}}plotted coefficients, excluding headers/diamonds{p_end}
 {synopt:{cmd:r(n_models)}}number of models plotted (estimates mode only){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
@@ -850,12 +870,17 @@ overall rows appear in {cmd:r(table)} even though {cmd:r(k)} counts only
 regular type-1 effects. In estimates mode, {cmd:r(k)} is the number of distinct
 coefficient rows, not the number of model-by-coefficient entries.
 
+{pstd}
+Returned matrices use plotted labels as row names when Stata permits them. Labels
+that cannot be represented as matrix stripes leave the graph unchanged
+but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so on.
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.8, 11aug2026{p_end}
+{pstd}Version 1.2.9, 30aug2026{p_end}
 
 
 {marker alsosee}{...}

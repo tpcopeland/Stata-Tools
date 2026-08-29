@@ -271,12 +271,13 @@ capture {
     file read `rfh8' t8_value
     file close `rfh8'
 }
-if `"`t8_value'"' == "/logdoc/v111/home/marker" {
+local t8_read_rc = _rc
+if `t8_read_rc' == 0 & `"`t8_value'"' == "/logdoc/v111/home/marker" {
     display as result "V111-T8 PASS: logdoc_py resolves python= from ~/.logdocrc"
     local test_pass = `test_pass' + 1
 }
 else {
-    display as error `"V111-T8 FAIL: got "`t8_value'" (want /logdoc/v111/home/marker)"'
+    display as error `"V111-T8 FAIL: read rc=`t8_read_rc', got "`t8_value'" (want /logdoc/v111/home/marker)"'
     local test_fail = `test_fail' + 1
 }
 

@@ -1194,6 +1194,8 @@ capture noisily {
         local t_pass = 0
     }
 }
+local _qa_capture_rc_1087 = _rc
+if `_qa_capture_rc_1087' exit `_qa_capture_rc_1087'
 if `t_pass' {
     display as result "  PASS: W5.1 competing risks resolved correctly"
     local ++pass_count
@@ -1649,6 +1651,8 @@ capture noisily {
         display as result "  PASS [W8.1.pt]: PT = 182"
     }
 }
+local _qa_capture_rc_1593 = _rc
+if `_qa_capture_rc_1593' exit `_qa_capture_rc_1593'
 if `t_pass' {
     local ++pass_count
 }
@@ -1701,6 +1705,8 @@ capture noisily {
         display as result "  PASS [W8.2.pt]: PT = 182"
     }
 }
+local _qa_capture_rc_1663 = _rc
+if `_qa_capture_rc_1663' exit `_qa_capture_rc_1663'
 if `t_pass' {
     local ++pass_count
 }
@@ -1976,6 +1982,8 @@ capture noisily {
         display as result "  PASS [W10.1]: event at start → single-day interval"
     }
 }
+local _qa_capture_rc_1943 = _rc
+if `_qa_capture_rc_1943' exit `_qa_capture_rc_1943'
 if `t_pass' {
     local ++pass_count
 }
@@ -2009,6 +2017,8 @@ capture noisily {
         display as result "  PASS [W10.2]: event at stop → no split needed"
     }
 }
+local _qa_capture_rc_1990 = _rc
+if `_qa_capture_rc_1990' exit `_qa_capture_rc_1990'
 if `t_pass' {
     local ++pass_count
 }
@@ -2042,6 +2052,8 @@ capture noisily {
         display as result "  PASS [W10.3]: event 1 day in → 2-day interval"
     }
 }
+local _qa_capture_rc_2023 = _rc
+if `_qa_capture_rc_2023' exit `_qa_capture_rc_2023'
 if `t_pass' {
     local ++pass_count
 }
@@ -2202,6 +2214,8 @@ capture noisily {
         display as result "  PASS [W11.2.event_pt]: censored PT = 106"
     }
 }
+local _qa_capture_rc_2131 = _rc
+if `_qa_capture_rc_2131' exit `_qa_capture_rc_2131'
 if `t_pass' {
     local ++pass_count
 }
@@ -2357,6 +2371,8 @@ capture noisily {
         display as result "  PASS [W12.1.bounds]: all persons span [entry, exit]"
     }
 }
+local _qa_capture_rc_2232 = _rc
+if `_qa_capture_rc_2232' exit `_qa_capture_rc_2232'
 if `t_pass' {
     local ++pass_count
 }
@@ -2445,6 +2461,8 @@ capture noisily {
     tempfile w13_tv
     save `w13_tv'
 }
+local _qa_capture_rc_2397 = _rc
+if `_qa_capture_rc_2397' exit `_qa_capture_rc_2397'
 if `t_pass' {
     local ++pass_count
 }
@@ -2505,6 +2523,8 @@ capture noisily {
         display as result "  PASS [W13.2.pt]: PT = 41"
     }
 }
+local _qa_capture_rc_2459 = _rc
+if `_qa_capture_rc_2459' exit `_qa_capture_rc_2459'
 if `t_pass' {
     local ++pass_count
 }
@@ -2601,6 +2621,8 @@ capture noisily {
         display as result "  PASS [W14.1.exit]: follow-up extends to Jun30"
     }
 }
+local _qa_capture_rc_2536 = _rc
+if `_qa_capture_rc_2536' exit `_qa_capture_rc_2536'
 if `t_pass' {
     local ++pass_count
 }

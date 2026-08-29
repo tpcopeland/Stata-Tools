@@ -77,7 +77,7 @@ Install Python package dependencies, when a package needs them:
 {synopt:{opt save}}write or update {cmd:python=...} in {cmd:.logdocrc}{p_end}
 {synopt:{opt inst:all(string)}}install a requested Python package{p_end}
 {synopt:{opt py:thon(path)}}explicit Python executable to check or save{p_end}
-{synopt:{opt pdf}}also check {cmd:xhtml2pdf} and {cmd:wkhtmltopdf} for {cmd:format(pdf)}{p_end}
+{synopt:{opt pdf}}check PDF converter availability{p_end}
 {synopt:{opt rep:lace}}allow {opt save} to replace the Python setting{p_end}
 {synopt:{opt dry:run}}show the pip command without running it{p_end}
 {synopt:{opt q:uiet}}suppress nonessential output{p_end}
@@ -320,7 +320,7 @@ Show the pip command that would be used for a custom package install:
 {synopt:{cmd:r(ok)}}1 if the requested checks passed, 0 otherwise{p_end}
 {synopt:{cmd:r(python_ok)}}1 if a usable Python executable was found{p_end}
 {synopt:{cmd:r(renderer_ok)}}1 if the renderer smoke check passed{p_end}
-{synopt:{cmd:r(pdf_ok)}}PDF support status; missing unless {opt pdf} was requested{p_end}
+{synopt:{cmd:r(pdf_ok)}}PDF support status when requested{p_end}
 {synopt:{cmd:r(installed)}}1 if {opt install()} completed; missing otherwise{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
@@ -329,10 +329,10 @@ Show the pip command that would be used for a custom package install:
 {synopt:{cmd:r(python_source)}}source of the selected Python executable{p_end}
 {synopt:{cmd:r(renderer)}}path to {cmd:logdoc_render.py}{p_end}
 {synopt:{cmd:r(config)}}path to {cmd:.logdocrc}, when read or written{p_end}
-{synopt:{cmd:r(xhtml2pdf)}}{cmd:installed} when the preferred PDF library is available{p_end}
-{synopt:{cmd:r(wkhtmltopdf)}}path or command name for {cmd:wkhtmltopdf}, when found{p_end}
+{synopt:{cmd:r(xhtml2pdf)}}preferred PDF library status{p_end}
+{synopt:{cmd:r(wkhtmltopdf)}}{cmd:wkhtmltopdf} path when found{p_end}
 {synopt:{cmd:r(required)}}required Python packages; currently empty{p_end}
-{synopt:{cmd:r(optional)}}space-separated optional Python packages, if any{p_end}
+{synopt:{cmd:r(optional)}}optional Python package list{p_end}
 {synopt:{cmd:r(missing)}}space-separated missing Python packages, if any{p_end}
 {synopt:{cmd:r(install_cmd)}}pip command used or proposed by {opt dryrun}{p_end}
 {p2colreset}{...}

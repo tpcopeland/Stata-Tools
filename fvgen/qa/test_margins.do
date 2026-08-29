@@ -1,3 +1,7 @@
+*! test_margins.do — Margins-bridge and estimator-family QA for fvgen
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set varabbrev off
 version 16.0

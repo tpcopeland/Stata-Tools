@@ -1,10 +1,18 @@
-*! _psdash_export_balance Version 1.6.8  2026/08/11
+*! _psdash_export_balance Version 1.6.9  2026/08/30
 *! Write typed, complete balance tables to Excel
 *! Author: Timothy P Copeland, Karolinska Institutet
+*! Program class: nclass
 *! Internal helper
 
-program define _psdash_export_balance
+program define _psdash_export_balance, nclass
     version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+    local _putexcel_open = 0
+    local _xl_open = 0
+    tempname xlbook
+    capture noisily {
+
     syntax , XLSX(string) SHEET(string) TItle(string) MATrix(name) ///
         LABels(string asis) [CONTRASTS(string asis) REFerence(string) HASADJ]
 
@@ -52,6 +60,7 @@ program define _psdash_export_balance
     }
 
     putexcel set "`xlsx'", sheet("`sheet'", replace) modify
+    local _putexcel_open = 1
     putexcel A1 = (`"`title'"'), bold
     if `ncols' > 1 putexcel A1:`last_col'1, merge
 
@@ -86,19 +95,38 @@ program define _psdash_export_balance
         }
     }
     if `nrows' > 0 putexcel B3:`last_col'`=`nrows'+2', nformat(number)
+    putexcel clear
+    local _putexcel_open = 0
 
-    tempname xlbook
     mata: `xlbook' = xl()
+    local _xl_open = 1
     mata: `xlbook'.load_book(`"`xlsx'"')
     mata: `xlbook'.set_sheet(`"`sheet'"')
     mata: `xlbook'.set_column_width(1, 1, 28)
     if `ncols' > 1 mata: `xlbook'.set_column_width(2, `ncols', 16)
     mata: `xlbook'.close_book()
-    capture mata: mata drop `xlbook'
+    local _xl_open = 0
 
     capture confirm file "`xlsx'"
     if _rc {
         display as error "Excel export was not created: `xlsx'"
         exit 601
     }
+    }
+    local rc = _rc
+    local _cleanup_rc = 0
+    if `_xl_open' {
+        capture mata: `xlbook'.close_book()
+        if _rc local _cleanup_rc = _rc
+    }
+    capture mata: mata drop `xlbook'
+    if _rc & `_cleanup_rc' == 0 local _cleanup_rc = _rc
+    if `_putexcel_open' {
+        capture putexcel clear
+        if _rc & `_cleanup_rc' == 0 local _cleanup_rc = _rc
+    }
+    set varabbrev `_vao'
+    if `rc' == 0 & `_cleanup_rc' local rc = `_cleanup_rc'
+    if `rc' == 0 return clear
+    if `rc' exit `rc'
 end

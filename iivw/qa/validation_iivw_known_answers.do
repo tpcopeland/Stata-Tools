@@ -231,7 +231,7 @@ capture noisily {
     bysort id: gen byte t = _n
     gen byte x = mod(id, 2)
     gen double z = 10 * id + t
-    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x) lagvars(z) nolog
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(t) visit_cov(x) lagvars(z) nolog
     sort id t
     by id: assert missing(z_lag1) if _n == 1
     by id: assert z_lag1 == z[_n - 1] if _n > 1
@@ -355,4 +355,3 @@ else {
 local run_only = 0
 iivw_qa_summary, name(validation_iivw_known_answers) tests(`test_count') pass(`pass_count') ///
     fail(`fail_count') runonly(`run_only')
-

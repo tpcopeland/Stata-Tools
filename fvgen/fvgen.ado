@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.4  2026/08/11
+*! fvgen Version 1.2.5  2026/08/30
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -34,6 +34,7 @@ program define fvgen, rclass
     local _fvgen_est_held = 0
     local _fvgen_unhold_rc = 0
     local _fvgen_margins_active = 0
+    local _fvgen_keep_native = 0
     local _fvgen_store_done ""
     tempname _fvgen_est_hold
 
@@ -94,13 +95,14 @@ program define fvgen, rclass
                 exit 198
             }
 
+            capture _estimates hold `_fvgen_est_hold', restore copy nullok
+            if _rc {
+                display as error "fvgen, margins: could not preserve the active estimates"
+                exit _rc
+            }
+            local _fvgen_est_held = 1
+
             if "`store'" != "" {
-                capture _estimates hold `_fvgen_est_hold', restore copy nullok
-                if _rc {
-                    display as error "fvgen, margins store(): could not preserve the active estimates"
-                    exit _rc
-                }
-                local _fvgen_est_held = 1
                 _fvgen_margins_repost
                 if "`replace'" != "" capture estimates drop `store'
                 estimates store `store'
@@ -112,6 +114,7 @@ program define fvgen, rclass
                 _fvgen_margins_repost
                 return local margins "active"
                 local _fvgen_margins_active = 1
+                local _fvgen_keep_native = 1
             }
         }
         else if "`drop'" != "" {
@@ -167,6 +170,9 @@ program define fvgen, rclass
             char _dta[fvgen_centered] ""
             char _dta[fvgen_sigvars] ""
             char _dta[fvgen_signature] ""
+
+            local _fvgen_prevars ""
+            if `=c(k)' > 0 unab _fvgen_prevars : _all
 
             **# Validate the vsref() template up front
             * vsref() appends the reference (base) level to main-effect labels.
@@ -680,7 +686,7 @@ program define fvgen, rclass
             }
 
             **# Dataset-level provenance for post-estimation margins-ready clones
-            local _sigvars : list sourcevars | genvars
+            local _sigvars : list _fvgen_prevars | genvars
             quietly _datasignature `_sigvars'
             char _dta[fvgen_spec] "`expandspec'"
             char _dta[fvgen_terms] "`terms'"
@@ -714,7 +720,12 @@ program define fvgen, rclass
     }
     local rc = _rc
     if `_fvgen_est_held' {
-        capture _estimates unhold `_fvgen_est_hold'
+        if `rc' == 0 & `_fvgen_keep_native' {
+            capture _estimates unhold `_fvgen_est_hold', not
+        }
+        else {
+            capture _estimates unhold `_fvgen_est_hold'
+        }
         local _fvgen_unhold_rc = _rc
     }
     set varabbrev `_orig_varabbrev'
@@ -838,13 +849,13 @@ program define _fvgen_margins_repost, eclass
         capture confirm variable `sigvars'
         if _rc {
             display as error ///
-                "fvgen, margins: source or generated variables changed after fvgen; rerun fvgen and the flattened estimator"
+                "fvgen, margins: data variables present when fvgen ran, or generated variables, changed afterward; rerun fvgen and the flattened estimator"
             exit 498
         }
         quietly _datasignature `sigvars'
         if `"`r(datasignature)'"' != `"`signature'"' {
             display as error ///
-                "fvgen, margins: source or generated variables changed after fvgen; rerun fvgen and the flattened estimator"
+                "fvgen, margins: data variables present when fvgen ran, or generated variables, changed afterward; rerun fvgen and the flattened estimator"
             exit 498
         }
         local centered : char _dta[fvgen_centered]
@@ -886,6 +897,15 @@ program define _fvgen_margins_repost, eclass
                 "fvgen, margins could not rerun the estimator with native factor-variable syntax"
             display as error `"`native_cmdline'"'
             exit `native_rc'
+        }
+        capture confirm scalar e(converged)
+        if !_rc {
+            if e(converged) == 0 {
+                display as error ///
+                    "fvgen, margins: the estimator did not converge with native factor-variable syntax"
+                display as error `"`native_cmdline'"'
+                exit 430
+            }
         }
 
         ereturn local fvgen_margins "1"

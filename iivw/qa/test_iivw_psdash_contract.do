@@ -72,7 +72,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_psdash_panel
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(months) ///
         visit_cov(age sex bl_edss) lagvars(sdmt relapse) ///
         treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
         truncfinal(1 99) efron nolog
@@ -128,13 +128,13 @@ else {
 local ++test_count
 capture noisily {
     _iivw_psdash_panel
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(months) ///
         visit_cov(age sex bl_edss) lagvars(sdmt relapse) ///
         treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
         replace nolog
     assert "`: char _dta[_iivw_ps_var]'" == "_iivw_ps"
 
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(months) ///
         visit_cov(age sex bl_edss) lagvars(sdmt relapse) ///
         replace nolog
 
@@ -167,7 +167,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_psdash_panel
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(months) ///
         visit_cov(age sex bl_edss) lagvars(sdmt relapse) ///
         treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
         generate(custom_) replace nolog

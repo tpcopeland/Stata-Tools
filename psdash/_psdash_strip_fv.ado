@@ -1,10 +1,10 @@
-*! _psdash_strip_fv Version 1.6.8  2026/08/11
+*! _psdash_strip_fv Version 1.6.9  2026/08/30
 *! Strip factor-variable notation from a covariate token list
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 *! Internal helper
 
-program define _psdash_strip_fv
+program define _psdash_strip_fv, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
@@ -34,5 +34,6 @@ program define _psdash_strip_fv
     }
     local rc = _rc
     set varabbrev `_vao'
+    if `rc' == 0 return clear
     if `rc' exit `rc'
 end

@@ -535,6 +535,8 @@ else {
 * RESULTS SUMMARY
 
 }
+local _qa_capture_rc_32 = _rc
+if `_qa_capture_rc_32' exit `_qa_capture_rc_32'
 
 capture noisily {
 
@@ -711,6 +713,8 @@ else {
 }
 
 }
+local _qa_capture_rc_539 = _rc
+if `_qa_capture_rc_539' exit `_qa_capture_rc_539'
 
 capture noisily {
 
@@ -807,6 +811,8 @@ format startB stopB %td
 save "$TVTOOLS_QA_RUN_DIR/tvp_expB.dta", replace
 
 }
+local _qa_capture_rc_715 = _rc
+if `_qa_capture_rc_715' exit `_qa_capture_rc_715'
 
 capture noisily {
 capture program drop assert_exact
@@ -881,6 +887,8 @@ save `events_single', replace
 * TESTS 1-5: TVEXPOSE → TVEVENT SINGLE-DRUG WORKFLOW
 
 }
+local _qa_capture_rc_811 = _rc
+if `_qa_capture_rc_811' exit `_qa_capture_rc_811'
 
 
 **# ===== merged from validation_tvtools.do L20939-21763: invariant and conservation tests =====
@@ -1006,6 +1014,8 @@ else {
 }
 
 }
+local _qa_capture_rc_892 = _rc
+if `_qa_capture_rc_892' exit `_qa_capture_rc_892'
 
 * --- 16b: tvmerge invariants (4 tests) ---
 
@@ -1122,6 +1132,8 @@ capture erase "$TVTOOLS_QA_RUN_DIR/_v16_merge1.dta"
 capture erase "$TVTOOLS_QA_RUN_DIR/_v16_merge2.dta"
 
 }
+local _qa_capture_rc_1012 = _rc
+if `_qa_capture_rc_1012' exit `_qa_capture_rc_1012'
 
 * --- 16c: tvexpose preservation (3 tests) ---
 
@@ -1218,6 +1230,8 @@ else {
 }
 
 }
+local _qa_capture_rc_1128 = _rc
+if `_qa_capture_rc_1128' exit `_qa_capture_rc_1128'
 
 * V3: TVWEIGHT — weight formula validation
 

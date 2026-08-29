@@ -76,7 +76,7 @@ _t "U1_dryrun" `=_rc'
 **# I2 + U2 — verdict returns and configurable thresholds
 display as text _n "--- I2: combined returns verdict/warnings ---"
 capture noisily {
-    psdash combined treat ps, covariates(x1 x2 x3)
+    quietly psdash combined treat ps, covariates(x1 x2 x3)
     assert inlist("`r(verdict)'", "PASS", "FAIL")
     assert !missing(r(n_warnings))
     assert r(n_warnings) >= 0
@@ -86,9 +86,9 @@ capture noisily {
 }
 _t "I2_verdict" `=_rc'
 
-display as text _n "--- U2: tightening overlapmax flips verdict to FAIL ---"
+display as text _n "--- U2: tightening overlapmax produces a negative verdict ---"
 capture noisily {
-    psdash combined treat ps, covariates(x1 x2 x3) overlapmax(0)
+    quietly psdash combined treat ps, covariates(x1 x2 x3) overlapmax(0)
     assert "`r(verdict)'" == "FAIL"
     assert !missing(r(n_warnings))
     assert r(n_warnings) >= 1
@@ -123,8 +123,15 @@ _t "I1_smdmatrix" `=_rc'
 display as text _n "--- F2: strategies overlay ---"
 capture noisily {
     psdash balance treat ps, covariates(x1 x2 x3) strategies(raw ate att) name(t_strat)
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert rowsof(r(balance)) == 3
     capture graph describe t_strat
     assert _rc == 0
+    tempfile strategy_graph
+    local strategy_svg "`strategy_graph'.svg"
+    graph export "`strategy_svg'", name(t_strat) as(svg) replace
+    confirm file "`strategy_svg'"
 }
 _t "F2_overlay" `=_rc'
 
@@ -136,8 +143,15 @@ _t "F2_reject_bad" `=(_rc!=198)'
 display as text _n "--- F1: distribution plot ---"
 capture noisily {
     psdash balance treat ps, covariates(x1 x2 x3) distribution(x1 x2) name(t_dist)
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert rowsof(r(balance)) == 3
     capture graph describe t_dist_dist
     assert _rc == 0
+    tempfile distribution_graph
+    local distribution_svg "`distribution_graph'.svg"
+    graph export "`distribution_svg'", name(t_dist_dist) as(svg) replace
+    confirm file "`distribution_svg'"
 }
 _t "F1_distribution" `=_rc'
 
@@ -171,15 +185,15 @@ capture noisily {
 }
 _t "F3_compare" `=_rc'
 
-display as text _n "--- F3: compare without trimming is skipped (no error) ---"
+display as text _n "--- F3: compare without trimming is rejected ---"
 capture noisily psdash support treat ps, compare nograph
-_t "F3_skip_no_trim" `=_rc'
+_t "F3_reject_no_trim" `=(_rc != 198)'
 
 **# O2 — report workbook
 display as text _n "--- O2: combined report workbook ---"
 capture noisily {
     capture erase "`repx'"
-    psdash combined treat ps, covariates(x1 x2 x3) report("`repx'")
+    quietly psdash combined treat ps, covariates(x1 x2 x3) report("`repx'")
     assert "`r(report)'" == "`repx'"
     preserve
     import excel using "`repx'", describe

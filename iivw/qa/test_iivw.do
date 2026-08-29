@@ -336,7 +336,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 11 {
     capture noisily {
         _setup_relapses
-        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss) lagvars(edss) nolog
+        iivw_weight, endatlastvisit baseline(entry) id(id) time(days) visit_cov(edss) lagvars(edss) nolog
         confirm variable edss_lag1
         * First obs per subject should be missing
         bysort id (days): assert missing(edss_lag1) if _n == 1
@@ -2345,7 +2345,7 @@ if `run_only' == 0 | `run_only' == 92 {
 local ++test_count
 capture noisily {
     _setup_relapses
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
+    iivw_weight, endatlastvisit baseline(entry) id(id) time(days) visit_cov(edss relapse) ///
         lagvars(edss relapse) nolog
     confirm variable edss_lag1
     confirm variable relapse_lag1

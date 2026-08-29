@@ -861,6 +861,8 @@ quietly {
 * SUMMARY
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 capture noisily {
 
@@ -1259,6 +1261,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_865 = _rc
+if `_qa_capture_rc_865' exit `_qa_capture_rc_865'
 
 
 * ===== Summary =====
@@ -1277,4 +1281,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

@@ -90,7 +90,7 @@ capture {
     tvband, id(id) start(entry) stop(exitd) type(calendar) width(1) generate(cb)
     keep id entry exitd
     sort id entry exitd
-    cf _all using "`viasplit'"
+    _tvtools_qa_assert_cf_all_exact using "`viasplit'"
 }
 if _rc==0 {
     display as result "  PASS: tvsplit == composed tvband"

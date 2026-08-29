@@ -28,12 +28,18 @@ local fail_count 0
 local failed_tests ""
 set seed 26082424
 
-* -----------------------------------------------------------------------------
-* Test 1: Package installs and command resolves
-* -----------------------------------------------------------------------------
+**# Test 1: Package installs and command resolves
 local ++test_count
 capture noisily {
     which eplot
+    findfile eplot.ado
+    local resolved "`r(fn)'"
+    assert substr("`resolved'", -9, .) == "eplot.ado"
+    sysuse auto, clear
+    quietly regress price mpg
+    eplot ., drop(_cons) name(_v110_t1, replace)
+    assert r(N) == 1
+    assert r(k) == 1
 }
 if _rc == 0 {
     display as result "  PASS: Test 1 - eplot installs from package directory"
@@ -44,10 +50,9 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' 1"
 }
+capture graph drop _v110_t1
 
-* -----------------------------------------------------------------------------
-* Test 2: gap() adds spacing rows in data mode groups()
-* -----------------------------------------------------------------------------
+**# Test 2: gap() adds spacing rows in data mode groups()
 local ++test_count
 capture noisily {
     clear
@@ -76,9 +81,7 @@ else {
 }
 capture graph drop _v110_t2
 
-* -----------------------------------------------------------------------------
-* Test 3: gap() adds spacing rows in single-model estimates mode
-* -----------------------------------------------------------------------------
+**# Test 3: gap() adds spacing rows in single-model estimates mode
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -102,9 +105,7 @@ else {
 }
 capture graph drop _v110_t3
 
-* -----------------------------------------------------------------------------
-* Test 4: Default horizontal effect axis keeps auto-generated ticks
-* -----------------------------------------------------------------------------
+**# Test 4: Default horizontal effect axis keeps auto-generated ticks
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -127,9 +128,7 @@ else {
 }
 capture graph drop _v110_t4
 
-* -----------------------------------------------------------------------------
-* Test 5: xlabel() passes through to the horizontal effect axis
-* -----------------------------------------------------------------------------
+**# Test 5: xlabel() passes through to the horizontal effect axis
 local ++test_count
 capture noisily {
     clear
@@ -158,9 +157,7 @@ else {
 }
 capture graph drop _v110_t5
 
-* -----------------------------------------------------------------------------
-* Test 6: xlabel() remaps to the effect axis in vertical layout
-* -----------------------------------------------------------------------------
+**# Test 6: xlabel() remaps to the effect axis in vertical layout
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -187,9 +184,7 @@ else {
 }
 capture graph drop _v110_t6
 
-* -----------------------------------------------------------------------------
-* Test 7: Wide vformat() expands the values-column margin
-* -----------------------------------------------------------------------------
+**# Test 7: Wide vformat() expands the values-column margin
 local ++test_count
 capture noisily {
     clear
@@ -235,9 +230,7 @@ else {
 capture graph drop _v110_t7
 capture graph drop _v110_t7_default
 
-* -----------------------------------------------------------------------------
-* Test 8: Mode detection still prefers data mode when names collide
-* -----------------------------------------------------------------------------
+**# Test 8: Mode detection still prefers data mode when names collide
 local ++test_count
 capture noisily {
     clear

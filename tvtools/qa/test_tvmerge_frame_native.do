@@ -127,7 +127,7 @@ clear
 quietly tvmerge, frames(srcA srcB) id(pid) start(a_start b_start) ///
     stop(a_stop b_stop) exposure(drugA drugB)
 local n_frames = _N
-capture cf _all using "`viafile'"
+capture _tvtools_qa_assert_cf_all_exact using "`viafile'"
 local cfrc = _rc
 local ok = (`cfrc' == 0 & `n_file' == `n_frames')
 _tfn_check `ok' "F1 frames() input reproduces the file-input result exactly" ///
@@ -157,7 +157,7 @@ quietly tvmerge, frames(srcA srcB srcC) id(pid) ///
     start(a_start b_start c_start) stop(a_stop b_stop c_stop) ///
     exposure(drugA drugB drugC)
 local n_frames3 = _N
-capture cf _all using "`viafile3'"
+capture _tvtools_qa_assert_cf_all_exact using "`viafile3'"
 local cfrc3 = _rc
 local ok = (`cfrc3' == 0 & `n_file3' == `n_frames3')
 _tfn_check `ok' "F3 three-source frames() matches three-source file input" ///
@@ -225,7 +225,7 @@ clear
 quietly tvmerge, frames(srcA srcB) id(pid) start(a_start b_start) ///
     stop(a_stop b_stop) exposure(drugA drugB)
 frame change srcA
-capture cf _all using "`wd'/_tfn_srcA_before.dta"
+capture _tvtools_qa_assert_cf_all_exact using "`wd'/_tfn_srcA_before.dta"
 local cfa = _rc
 local sorta : sortedby
 frame change default
@@ -234,7 +234,7 @@ _tfn_check `ok' "F8 the first input frame's data is unchanged" "cf rc=`cfa'"
 
 local ++test_count
 frame change srcB
-capture cf _all using "`wd'/_tfn_srcB_before.dta"
+capture _tvtools_qa_assert_cf_all_exact using "`wd'/_tfn_srcB_before.dta"
 local cfb = _rc
 frame change default
 local ok = (`cfb' == 0)

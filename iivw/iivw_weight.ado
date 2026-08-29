@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.0.0  2026/08/19
+*! iivw_weight Version 4.0.1  2026/08/30
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -412,11 +412,9 @@ program define iivw_weight, rclass sortpreserve
         * the visit was unobserved.
         *
         * The weight of exactly 1 is the study-ENTRY convention, and it belongs
-        * to rows that were never declared monitoring events: every first visit
-        * under baseline(entry), and a first visit under baseline(event) whose
-        * covariates are missing so no weight could be fitted at all (:1318).
-        * Both of those are assigned AFTER the mean-1 normalization; this row is
-        * inside it, because it is a fitted weight.
+        * only to first visits under baseline(entry), which were never declared
+        * monitoring events. A baseline(event) row for which no weight can be
+        * fitted remains missing and is handled by the missing-weight gate.
         *
         * Through 3.0.0 the note and iivw_weight.sthlp both promised the 1 while
         * the code fitted a weight, and qa/test_iivw_v192_regressions.do T6
@@ -433,7 +431,7 @@ program define iivw_weight, rclass sortpreserve
                 display as text "  these baseline rows span no risk time, so they contribute no event"
                 display as text "  to the visit-intensity model. They are still observed visits and"
                 display as text "  still carry a fitted weight exp(-xb) from their own covariates;"
-                display as text "  only rows with no fitted weight take the study-entry weight of 1."
+                display as text "  rows with no fitted weight remain missing."
             }
             drop `_first_t0'
         }
@@ -1452,8 +1450,8 @@ program define iivw_weight, rclass sortpreserve
                     local n_miss_first = r(N)
                     noisily display as text "note: `n_miss_first' subjects have no " ///
                         "fitted visit-intensity weight at their first visit"
-                    noisily display as text "  those visits are not modeled events " ///
-                        "and take the study-entry weight of 1"
+                    noisily display as text "  those visits remain unweighted; " ///
+                        "allowmissingweights is required to proceed"
                     if "`lagvars'" != "" {
                         noisily display as text "  with lagvars() this is structural: " ///
                             "a first visit has no prior visit to lag from"
@@ -1599,25 +1597,6 @@ program define iivw_weight, rclass sortpreserve
         }
         else {
             merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
-
-            * A first visit that got no FITTED weight was not a modeled event,
-            * whatever baseline(event) declared it to be. With lagvars() that is
-            * structural rather than accidental: the lag is v[_n-1], so every
-            * subject's first visit has an undefined lag, is dropped from the
-            * Cox risk set, and has no linear predictor to exponentiate.
-            *
-            * Such a row takes the same study-entry weight of 1 that
-            * baseline(entry) gives every entry visit -- and, as there, the 1 is
-            * assigned AFTER the normalization above, so it does not disturb the
-            * scale of the fitted component and the result stays invariant to
-            * the origin of a Cox covariate.
-            *
-            * A first visit that DID get a fitted weight keeps it. That is the
-            * half of the old behaviour that was wrong: it overwrote an
-            * estimated weight with a convention, discarding the fit and mixing
-            * a hard-coded 1 into the pooled scale.
-            bysort `id' (`time'): replace `prefix'iw = 1 ///
-                if _n == 1 & missing(`prefix'iw)
         }
         local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
 

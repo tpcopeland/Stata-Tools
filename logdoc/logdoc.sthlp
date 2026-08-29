@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.6  24aug2026}{...}
+{* *! version 1.1.7  30aug2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -88,7 +88,7 @@ Other subcommands:
 {synopt:{opt f:ormat(string)}}select the output format{p_end}
 {synopt:{opt th:eme(string)}}CSS theme: {bf:light} (default) or {bf:dark}{p_end}
 {synopt:{opt css(filename)}}custom CSS file (overrides theme){p_end}
-{synopt:{opt acc:ent(#RRGGBB)}}brand/accent color for headings, links, and controls{p_end}
+{synopt:{opt acc:ent(#RRGGBB)}}brand/accent color for HTML{p_end}
 
 {syntab:Document metadata}
 {synopt:{opt ti:tle(string)}}document title; defaults to input filename{p_end}
@@ -101,18 +101,18 @@ Other subcommands:
 {synopt:{opt run}}run a .do file before conversion{p_end}
 {synopt:{opt stata:exe(string)}}override the batch Stata executable{p_end}
 {synopt:{opt pre:formatted}}retain legacy preformatted behavior{p_end}
-{synopt:{opt nof:old}}compatibility option; folding is off by default{p_end}
-{synopt:{opt nod:ots}}strip dot prompts from commands for cleaner display{p_end}
-{synopt:{opt fold}}collapse long output blocks into expandable sections{p_end}
-{synopt:{opt high:light}}add Stata syntax highlighting to command blocks{p_end}
-{synopt:{opt tab:les}}parse supported Stata tables into HTML tables{p_end}
-{synopt:{opt copy}}add copy-to-clipboard buttons to command blocks{p_end}
+{synopt:{opt nof:old}}compatibility alias; folding defaults off{p_end}
+{synopt:{opt nod:ots}}strip Stata dot prompts{p_end}
+{synopt:{opt fold}}make long output blocks expandable{p_end}
+{synopt:{opt high:light}}highlight Stata command syntax{p_end}
+{synopt:{opt tab:les}}parse supported tables as HTML{p_end}
+{synopt:{opt copy}}add copy buttons to command blocks{p_end}
 {synopt:{opt down:load}}add a Download .do toolbar button{p_end}
 {synopt:{opt leg:acy}}enable all HTML enhancements in one switch{p_end}
 {synopt:{opt line:numbers}}show line numbers in command blocks{p_end}
-{synopt:{opt toc}}generate a table of contents from section markers{p_end}
-{synopt:{opt note:book}}Jupyter-style cell layout with In/Out labels{p_end}
-{synopt:{opt ema:il}}email-safe HTML with inline CSS (no {cmd:<style>} block){p_end}
+{synopt:{opt toc}}build contents from section markers{p_end}
+{synopt:{opt note:book}}use Jupyter-style In/Out cells{p_end}
+{synopt:{opt ema:il}}inline CSS for email-safe HTML{p_end}
 {synopt:{opt nog:raph}}skip graph detection and embedding{p_end}
 {synopt:{opt graphw:idth(#)}}set embedded graph width in pixels{p_end}
 {synopt:{opt graphh:eight(#)}}set embedded graph height in pixels{p_end}
@@ -124,7 +124,7 @@ Other subcommands:
 {syntab:Other}
 {synopt:{opt open}}open output after generation{p_end}
 {synopt:{opt app:end}}append to a supported existing output{p_end}
-{synopt:{opt ann:otate(filename)}}annotation file with notes to embed in output{p_end}
+{synopt:{opt ann:otate(filename)}}file of annotations to embed{p_end}
 {synopt:{opt py:thon(string)}}explicit path to Python executable{p_end}
 {synopt:{opt q:uiet}}suppress all status messages{p_end}
 {synopt:{opt v:erbose}}show detailed processing information{p_end}
@@ -541,11 +541,11 @@ Replay with different theme:
 {synopt:{cmd:r(filesize)}}output file size in bytes{p_end}
 {synopt:{cmd:r(ngraphs)}}number of graph export commands detected{p_end}
 {synopt:{cmd:r(ntables)}}number of table blocks detected{p_end}
-{synopt:{cmd:r(nwarnings)}}number of renderer warnings, such as missing graph files{p_end}
+{synopt:{cmd:r(nwarnings)}}number of renderer warnings{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(output)}}output file path{p_end}
-{synopt:{cmd:r(input)}}input file path (may differ from {it:using} if {opt run} was specified){p_end}
+{synopt:{cmd:r(input)}}effective input file path{p_end}
 {synopt:{cmd:r(format)}}output format used{p_end}
 {synopt:{cmd:r(theme)}}theme used{p_end}
 {synopt:{cmd:r(accent)}}accent color used, if specified{p_end}

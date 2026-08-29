@@ -1,6 +1,6 @@
-* test_regressions.do - Regression guards for review-discovered fvgen defects.
-* Author: Timothy P Copeland, Karolinska Institutet
-* Requires: Stata 16.0+
+*! test_regressions.do — Regression guards for review-discovered fvgen defects
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
 
 clear all
 set varabbrev off
@@ -13,6 +13,34 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local failed_tests ""
+
+capture program drop _fvgen_replay_probe
+program define _fvgen_replay_probe, eclass
+    version 16.0
+    local replay_cmdline : copy local 0
+    if strpos(`"`replay_cmdline'"', ".") {
+        ereturn clear
+        error 459
+    }
+    quietly regress `replay_cmdline'
+    ereturn local cmdline `"_fvgen_replay_probe `replay_cmdline'"'
+    ereturn local cmd "_fvgen_replay_probe"
+end
+
+capture program drop _fvgen_nonconvergence_probe
+program define _fvgen_nonconvergence_probe, eclass
+    version 16.0
+    local replay_cmdline : copy local 0
+    quietly regress `replay_cmdline'
+    if strpos(`"`replay_cmdline'"', ".") {
+        ereturn scalar converged = 0
+    }
+    else {
+        ereturn scalar converged = 1
+    }
+    ereturn local cmdline `"_fvgen_nonconvergence_probe `replay_cmdline'"'
+    ereturn local cmd "_fvgen_nonconvergence_probe"
+end
 
 **# 1. Distinct interaction terms must not collapse to one generated name
 local ++test_count
@@ -219,6 +247,103 @@ else {
     display as error "  FAIL: unrelated-variable margins control (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 8"
+}
+
+**# 9. Changing the outcome must block a stale margins refit
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    fvgen i.arm##c.age
+    local allvars "`r(allvars)'"
+    quietly regress y `allvars'
+    tempname before_b after_b
+    matrix `before_b' = e(b)
+    local before_cmd "`e(cmd)'"
+
+    replace y = y + 1000 if !missing(y)
+    capture fvgen, margins
+    local command_rc = _rc
+    assert `command_rc' == 498
+    assert "`e(cmd)'" == "`before_cmd'"
+    matrix `after_b' = e(b)
+    assert colsof(`after_b') == colsof(`before_b')
+    forvalues j = 1/`=colsof(`before_b')' {
+        assert !missing(`before_b'[1, `j'], `after_b'[1, `j'])
+        assert reldif(`before_b'[1, `j'], `after_b'[1, `j']) < 1e-14
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: changed outcome blocks stale margins refit"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: changed-outcome margins guard (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9"
+}
+
+**# 10. A failed native replay must restore the active flattened estimate
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    fvgen i.arm##c.age
+    local allvars "`r(allvars)'"
+    _fvgen_replay_probe y `allvars'
+    tempname before_b after_b
+    matrix `before_b' = e(b)
+    local before_cmd "`e(cmd)'"
+
+    capture fvgen, margins
+    local command_rc = _rc
+    assert `command_rc' == 459
+    assert "`e(cmd)'" == "`before_cmd'"
+    matrix `after_b' = e(b)
+    assert colsof(`after_b') == colsof(`before_b')
+    forvalues j = 1/`=colsof(`before_b')' {
+        assert !missing(`before_b'[1, `j'], `after_b'[1, `j'])
+        assert reldif(`before_b'[1, `j'], `after_b'[1, `j']) < 1e-14
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: failed native replay restores active estimates"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: replay-failure estimate restore (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10"
+}
+
+**# 11. A nonconverged native replay must fail and restore active estimates
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    fvgen i.arm##c.age
+    local allvars "`r(allvars)'"
+    _fvgen_nonconvergence_probe y `allvars'
+    tempname before_b after_b
+    matrix `before_b' = e(b)
+    local before_cmd "`e(cmd)'"
+
+    capture fvgen, margins
+    local command_rc = _rc
+    assert `command_rc' == 430
+    assert "`e(cmd)'" == "`before_cmd'"
+    matrix `after_b' = e(b)
+    assert colsof(`after_b') == colsof(`before_b')
+    forvalues j = 1/`=colsof(`before_b')' {
+        assert !missing(`before_b'[1, `j'], `after_b'[1, `j'])
+        assert reldif(`before_b'[1, `j'], `after_b'[1, `j']) < 1e-14
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: nonconverged replay restores active estimates"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: nonconverged replay guard (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 11"
 }
 
 **# Summary

@@ -42,7 +42,7 @@ data may instead be supplied as a named frame via {opt frame()}.
 {synoptline}
 {syntab:Main}
 {synopt:{opth id(varname)}}person identifier in both datasets{p_end}
-{synopt:{opth entry(varname)}}study entry date in the master (anchors the grid){p_end}
+{synopt:{opth entry(varname)}}master study-entry date anchoring grid{p_end}
 {synopt:{opth exit(varname)}}study exit date in the master{p_end}
 {synopt:{opth exposure(name)}}integer exposure-class variable{p_end}
 {synopt:{opt fr:ame(name)}}read episodes from a named frame{p_end}
@@ -51,20 +51,20 @@ data may instead be supplied as a named frame via {opt frame()}.
 {synopt:{opt width(#)}}interval width in days; default {cmd:width(91)}{p_end}
 {synopt:{opt ref:erence(#)}}reference class; default {cmd:0}{p_end}
 {synopt:{opt start(name)}}episode-start variable; default {cmd:start}{p_end}
-{synopt:{opt stop(name)}}episode stop date in the using file; default {cmd:stop}{p_end}
+{synopt:{opt stop(name)}}using-data stop date; default {cmd:stop}{p_end}
 
 {syntab:Output names}
-{synopt:{opt per:iod(name)}}0-based integer period index; default {cmd:period}{p_end}
-{synopt:{opt startgen(name)}}interval start-date variable; default {cmd:start}{p_end}
+{synopt:{opt per:iod(name)}}0-based period index; default {cmd:period}{p_end}
+{synopt:{opt startgen(name)}}interval-start variable; default {cmd:start}{p_end}
 {synopt:{opt stopgen(name)}}interval stop-date variable; default {cmd:stop}{p_end}
-{synopt:{opt gen:erate(name)}}active exposure-class variable; default {cmd:tv_class}{p_end}
+{synopt:{opt gen:erate(name)}}exposure class; default {cmd:tv_class}{p_end}
 {synopt:{opt cum:ulative(unit)}}per-class cumulative exposure{p_end}
 {synopt:{opt pre:fix(string)}}prefix cumulative-variable names{p_end}
 
 {syntab:Other}
-{synopt:{opth keepvars(varlist)}}master variables carried onto every period row{p_end}
+{synopt:{opth keepvars(varlist)}}master variables carried to each row{p_end}
 {synopt:{opt dropinvalid}}remove malformed source rows explicitly{p_end}
-{synopt:{opt verbose}}list up to five malformed rows and reason counts{p_end}
+{synopt:{opt verbose}}list malformed-row examples and counts{p_end}
 {synopt:{opt saveas(filename)}}save the panel to disk{p_end}
 {synopt:{opt replace}}allow {opt saveas()} to overwrite{p_end}
 {synopt:{opt noi:sily}}display a build summary{p_end}

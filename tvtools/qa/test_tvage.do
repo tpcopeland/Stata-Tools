@@ -219,6 +219,8 @@ else {
 }
 
 }
+local _qa_capture_rc_33 = _rc
+if `_qa_capture_rc_33' exit `_qa_capture_rc_33'
 
 capture noisily {
 * Test tvage fixes for precision, labels, and default groupwidth
@@ -251,6 +253,8 @@ assert stop_frac == 0
 drop start_frac stop_frac
 
 }
+local _qa_capture_rc_223 = _rc
+if `_qa_capture_rc_223' exit `_qa_capture_rc_223'
 
 capture noisily {
 * TEST 1: Missing DOB triggers error 416
@@ -638,6 +642,8 @@ display as result "`pass_count' passed" as text ", " ///
     as result "`fail_count' failed" as text " of `test_count' tests"
 
 }
+local _qa_capture_rc_255 = _rc
+if `_qa_capture_rc_255' exit `_qa_capture_rc_255'
 
 
 

@@ -241,40 +241,34 @@ else {
 * T10: PDF generation
 * -----------------------------------------------------------------------
 local test_total = `test_total' + 1
-tempfile wkcheck
-shell which wkhtmltopdf > "`wkcheck'" 2>/dev/null
-local has_wkhtmltopdf = 0
-capture {
-    file open wkfh using "`wkcheck'", read text
-    file read wkfh wkline
-    file close wkfh
-    if regexm("`wkline'", "wkhtmltopdf") {
-        local has_wkhtmltopdf = 1
-    }
-}
-capture noisily {
-    capture erase "`outdir'/test_pdf.pdf"
-    logdoc using "`smcl_fixture'", output("`outdir'/test_pdf.pdf") ///
-        format(pdf) replace
-    confirm file "`outdir'/test_pdf.pdf"
-    if `has_wkhtmltopdf' {
+capture noisily logdoc_py, pdf quiet
+local has_pdf_converter = (_rc == 0)
+capture erase "`outdir'/test_pdf.pdf"
+capture noisily logdoc using "`smcl_fixture'", ///
+    output("`outdir'/test_pdf.pdf") format(pdf) replace
+local pdf_rc = _rc
+local pdf_content_ok = 0
+if `pdf_rc' == 0 {
+    capture noisily {
+        confirm file "`outdir'/test_pdf.pdf"
         tempname pdfh
         file open `pdfh' using "`outdir'/test_pdf.pdf", read text
         file read `pdfh' pdfsig
         file close `pdfh'
         assert strpos("`pdfsig'", "%PDF") == 1
     }
+    local pdf_content_ok = (_rc == 0)
 }
-if `has_wkhtmltopdf' & _rc == 0 {
+if `has_pdf_converter' & `pdf_rc' == 0 & `pdf_content_ok' {
     display as result "PASS: T10 - PDF generation"
     local test_pass = `test_pass' + 1
 }
-else if !`has_wkhtmltopdf' & inlist(_rc, 198, 601) {
+else if !`has_pdf_converter' & inlist(`pdf_rc', 198, 601) {
     display as result "PASS: T10 - PDF dependency correctly enforced"
     local test_pass = `test_pass' + 1
 }
 else {
-    display as error "FAIL: T10 - PDF generation (rc = " _rc ")"
+    display as error "FAIL: T10 - PDF generation (dependency=`has_pdf_converter', rc=`pdf_rc', content=`pdf_content_ok')"
     local test_fail = `test_fail' + 1
 }
 

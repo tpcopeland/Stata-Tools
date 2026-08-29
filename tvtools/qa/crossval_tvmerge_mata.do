@@ -112,7 +112,7 @@ capture noisily {
     sort id start stop
     quietly save `got', replace
     use `got', clear
-    cf _all using `ref'
+    _tvtools_qa_assert_cf_all_exact using `ref'
 }
 if _rc == 0 {
     display as result "  PASS [1]: 2-dataset categorical overlap parity"
@@ -156,7 +156,7 @@ capture noisily {
     sort id start stop
     quietly save `got', replace
     use `got', clear
-    cf _all using `ref'
+    _tvtools_qa_assert_cf_all_exact using `ref'
 }
 if _rc == 0 {
     display as result "  PASS [2]: 3-dataset categorical parity"
@@ -254,7 +254,7 @@ capture noisily {
     sort id start stop
     quietly save `got', replace
     use `got', clear
-    cf _all using `ref'
+    _tvtools_qa_assert_cf_all_exact using `ref'
     assert _N == 1
     assert start[1] == 40 & stop[1] == 60
 }
@@ -293,7 +293,7 @@ capture noisily {
     sort id start stop
     quietly save `got', replace
     use `got', clear
-    cf _all using `ref'
+    _tvtools_qa_assert_cf_all_exact using `ref'
 }
 if _rc == 0 {
     display as result "  PASS [6]: string IDs parity"
@@ -426,7 +426,7 @@ capture noisily {
     sort id start stop
     quietly save `got', replace
     use `got', clear
-    cf _all using `ref'
+    _tvtools_qa_assert_cf_all_exact using `ref'
 }
 if _rc == 0 {
     display as result "  PASS [9]: 500-person scale parity"

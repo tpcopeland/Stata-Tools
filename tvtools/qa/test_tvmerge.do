@@ -68,8 +68,12 @@ capture {
         generate(tv_dmt) ///
         saveas("${DATA_DIR}/_tv_dmt.dta") replace
 }
+local _qa_capture_rc_54 = _rc
+if `_qa_capture_rc_54' exit `_qa_capture_rc_54'
 
 }
+local _qa_capture_rc_33 = _rc
+if `_qa_capture_rc_33' exit `_qa_capture_rc_33'
 
 capture noisily {
 capture program drop assert_exact
@@ -1493,21 +1497,17 @@ capture noisily tvmerge "`ds_a18'.dta" "`ds_b18'.dta", ///
     id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) validatecoverage
 
-if _rc != 0 {
-    * validatecoverage might cause an error when gap detected
-    display as result "  PASS [18.gap_detected]: validatecoverage flagged gap (rc=`=_rc')"
+local test18_rc = _rc
+if `test18_rc' != 0 {
+    display as error "  FAIL [18.run]: validatecoverage returned rc=`test18_rc'"
+    local test18_pass = 0
+}
+else if r(n_gaps) != 1 | _N != 2 {
+    display as error "  FAIL [18.contract]: gaps=" r(n_gaps) ", rows=" _N
+    local test18_pass = 0
 }
 else {
-    * Should run but report gap
-    * The merged result has a gap (Apr1-Jun30 missing from DS_A)
-    quietly count
-    if r(N) >= 1 {
-        display as result "  PASS [18.ran]: validatecoverage ran successfully"
-    }
-    else {
-        display as error "  FAIL [18.ran]: no output rows"
-        local test18_pass = 0
-    }
+    display as result "  PASS [18.contract]: one gap reported without an error"
 }
 
 if `test18_pass' == 1 {
@@ -1554,12 +1554,20 @@ capture noisily tvmerge "`ds_a19'.dta" "`ds_b19'.dta", ///
     id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) validateoverlap
 
-if _rc != 0 {
-    display as result "  PASS [19.overlap_detected]: validateoverlap flagged overlap (rc=`=_rc')"
+local test19_rc = _rc
+if `test19_rc' != 0 {
+    display as error "  FAIL [19.run]: validateoverlap returned rc=`test19_rc'"
+    local test19_pass = 0
+}
+else if r(n_input_overlaps) != 1 | r(n_input_overlaps_ds1) != 1 | ///
+    r(n_input_overlaps_ds2) != 0 | r(n_overlaps) != 0 {
+    display as error "  FAIL [19.contract]: input=" r(n_input_overlaps) ///
+        ", ds1=" r(n_input_overlaps_ds1) ", ds2=" r(n_input_overlaps_ds2) ///
+        ", output=" r(n_overlaps)
+    local test19_pass = 0
 }
 else {
-    * Should complete but with validation info
-    display as result "  PASS [19.ran]: validateoverlap ran (overlap in input expected)"
+    display as result "  PASS [19.contract]: input overlap accounting is exact"
 }
 
 if `test19_pass' == 1 {
@@ -1653,7 +1661,7 @@ else {
         local test21_pass = 0
     }
     else {
-        capture cf _all using `_nobatch'
+        capture _tvtools_qa_assert_cf_all_exact using `_nobatch'
         if _rc == 0 {
             display as result "  PASS [21.noop]: batch() accepted and output unchanged"
         }
@@ -1678,6 +1686,8 @@ capture erase "`ds_a17'.dta"
 capture erase "`ds_b17'.dta"
 
 }
+local _qa_capture_rc_74 = _rc
+if `_qa_capture_rc_74' exit `_qa_capture_rc_74'
 
 
 * ===== Summary =====
@@ -1696,4 +1706,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

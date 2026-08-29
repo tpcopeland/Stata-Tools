@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.8** | 2026-08-11
+**Version 1.6.9** | 2026-08-30
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -393,6 +393,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.6.9** (30 Aug 2026): Review remediation. The dispatcher and detector restore `varabbrev` on every successful path, `support, compare` rejects calls without binary trimming, quoted overlap/support titles round-trip through Excel exports, export helpers clean up workbook resources, and stored-result tables render within Viewer width limits.
 - **v1.6.8** (11 Aug 2026): Compact overlap legend correction. Multi-group compact overlap box plots, including the PS Overlap panel in combined dashboards, now place treatment-group legend entries on one row by default.
 - **v1.6.7** (11 Aug 2026): Detailed multi-group graph correction. Standalone overlap and support graphs now place three GPS components in one filled row, use component-specific data ranges instead of extending every axis to an irrelevant positivity floor, align histogram bins within each component, and render clean titles without literal compound-quote markup.
 - **v1.6.6** (11 Aug 2026): Dashboard graph correction. Multi-group combined dashboards now use one readable graph region each for overlap and support instead of nesting two three-panel composites, graph titles no longer retain literal quote markup, and compact weight histograms compare within-arm fractions on data-driven round axes with a clearly annotated remote-tail display cap. Standalone multi-group density detail and all numerical diagnostics are unchanged.

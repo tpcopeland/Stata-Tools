@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.6  2026/08/24
+*! logdoc Version 1.1.7  2026/08/30
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -193,13 +193,15 @@ program define _logdoc_convert, rclass
             if regexm(`"`_rcline_trim'"', "^([A-Za-z][A-Za-z0-9_]*)=(.*)$") {
                 local _rckey = lower(regexs(1))
                 local _rcval = regexs(2)
-                local _user_value `"`_user_`_rckey''"'
-                if `"`_user_value'"' == "" {
-                    if "`_rckey'" == "python" {
-                        local _config_python `"`_rcval'"'
-                    }
-                    else {
-                        local `_rckey' `"`_rcval'"'
+                if strpos(" `_config_keys' ", " `_rckey' ") {
+                    local _user_value `"`_user_`_rckey''"'
+                    if `"`_user_value'"' == "" {
+                        if "`_rckey'" == "python" {
+                            local _config_python `"`_rcval'"'
+                        }
+                        else {
+                            local `_rckey' `"`_rcval'"'
+                        }
                     }
                 }
             }
@@ -874,6 +876,7 @@ program define _logdoc_convert, rclass
             display as result "Output: `secondary'"
         }
         * --- I5: Store secondary path for return ---
+        local output "`primary_file'"
         local _secondary_path "`secondary'"
     }
     else {
@@ -1331,15 +1334,23 @@ program define _logdoc_combine, rclass
     set varabbrev off
     capture noisily {
 
-    local _cmdline `"`0'"'
-    local _comma_pos = strpos(`"`_cmdline'"', ",")
-    if `_comma_pos' == 0 {
+    local _remaining `"`0'"'
+    local sources ""
+    local _found_comma 0
+    while `"`_remaining'"' != "" {
+        gettoken _piece _remaining : _remaining, parse(",") bind
+        if `"`_piece'"' == "," {
+            local _found_comma 1
+            continue, break
+        }
+        local sources `"`sources' `_piece'"'
+    }
+    if !`_found_comma' {
         display as error "syntax is: logdoc combine using file1 file2 ..., output(filename)"
         exit 198
     }
-    local sources = strtrim(substr(`"`_cmdline'"', 1, `_comma_pos' - 1))
-    local _opts = substr(`"`_cmdline'"', `_comma_pos' + 1, .)
-    local 0 `", `_opts'"'
+    local sources = strtrim(`"`sources'"')
+    local 0 `", `_remaining'"'
 
     syntax , OUTput(string) ///
         [Format(string) THeme(string) TItle(string) DATe(string) ///
@@ -1390,13 +1401,15 @@ program define _logdoc_combine, rclass
             if regexm(`"`_rcline_trim'"', "^([A-Za-z][A-Za-z0-9_]*)=(.*)$") {
                 local _rckey = lower(regexs(1))
                 local _rcval = regexs(2)
-                local _user_value `"`_user_`_rckey''"'
-                if `"`_user_value'"' == "" {
-                    if "`_rckey'" == "python" {
-                        local _config_python `"`_rcval'"'
-                    }
-                    else {
-                        local `_rckey' `"`_rcval'"'
+                if strpos(" `_config_keys' ", " `_rckey' ") {
+                    local _user_value `"`_user_`_rckey''"'
+                    if `"`_user_value'"' == "" {
+                        if "`_rckey'" == "python" {
+                            local _config_python `"`_rcval'"'
+                        }
+                        else {
+                            local `_rckey' `"`_rcval'"'
+                        }
                     }
                 }
             }
@@ -1842,6 +1855,7 @@ program define _logdoc_batch, rclass
     * Loop over files
     local _count = 0
     local _failed = 0
+    local _first_rc = 0
     foreach f of local files {
         local _count = `_count' + 1
         * Build input path
@@ -1866,6 +1880,7 @@ program define _logdoc_batch, rclass
         capture noisily _logdoc_convert using "`_inpath'", ///
             output("`_outpath'") `_opts'
         if _rc {
+            if `_first_rc' == 0 local _first_rc = _rc
             local _failed = `_failed' + 1
         }
     }
@@ -1875,6 +1890,7 @@ program define _logdoc_batch, rclass
 
     return scalar n_files = `_count'
     return scalar n_failed = `_failed'
+    if `_failed' == `_count' exit `_first_rc'
 
     }
     local rc = _rc
@@ -2363,8 +2379,17 @@ program define _logdoc_both_paths
 
     syntax , OUTput(string) primary(name) secondary(name)
 
+    local _slashpos = strrpos("`output'", "/")
+    local _backslashpos = strrpos("`output'", "\")
+    if `_backslashpos' > `_slashpos' local _slashpos = `_backslashpos'
     local _dotpos = strrpos("`output'", ".")
-    if `_dotpos' > 0 {
+    local _has_stem 0
+    if `_dotpos' > `_slashpos' + 1 {
+        local _before_dot = substr("`output'", `_slashpos' + 1, ///
+            `_dotpos' - `_slashpos' - 1)
+        if subinstr("`_before_dot'", ".", "", .) != "" local _has_stem 1
+    }
+    if `_has_stem' {
         local _base = substr("`output'", 1, `_dotpos' - 1)
         local _ext = substr("`output'", `_dotpos', .)
     }
@@ -2409,65 +2434,61 @@ program define _logdoc_find_script
 
     syntax , result(name)
 
+    local _found ""
+
     * 1. Try local package paths first when running from the repo/worktree
     capture confirm file "logdoc_render.py"
     if !_rc {
-        c_local `result' "logdoc_render.py"
-        exit 0
+        local _found "logdoc_render.py"
     }
-    capture confirm file "../logdoc_render.py"
-    if !_rc {
-        c_local `result' "../logdoc_render.py"
-        exit 0
+    if "`_found'" == "" {
+        capture confirm file "../logdoc_render.py"
+        if !_rc local _found "../logdoc_render.py"
     }
-    capture confirm file "logdoc/logdoc_render.py"
-    if !_rc {
-        c_local `result' "logdoc/logdoc_render.py"
-        exit 0
+    if "`_found'" == "" {
+        capture confirm file "logdoc/logdoc_render.py"
+        if !_rc local _found "logdoc/logdoc_render.py"
     }
 
     * 2. Try findfile (searches adopath)
-    capture findfile logdoc_render.py
-    if _rc == 0 {
-        local path "`r(fn)'"
-        * Expand ~ if present
-        if substr("`path'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`path'", 2, .)
-            local path "`homedir'`rest'"
-        }
-        capture confirm file "`path'"
-        if !_rc {
-            c_local `result' "`path'"
-            exit 0
+    if "`_found'" == "" {
+        capture findfile logdoc_render.py
+        if _rc == 0 {
+            local path "`r(fn)'"
+            * Expand ~ if present
+            if substr("`path'", 1, 1) == "~" {
+                local homedir : environment HOME
+                local rest = substr("`path'", 2, .)
+                local path "`homedir'`rest'"
+            }
+            capture confirm file "`path'"
+            if !_rc local _found "`path'"
         }
     }
 
     * 3. Try alongside the located logdoc.ado file
-    capture findfile logdoc.ado
-    if _rc == 0 {
-        local adopath "`r(fn)'"
-        if substr("`adopath'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`adopath'", 2, .)
-            local adopath "`homedir'`rest'"
-        }
-        local _slashpos = strrpos("`adopath'", "/")
-        if `_slashpos' == 0 {
-            local _slashpos = strrpos("`adopath'", "\")
-        }
-        if `_slashpos' > 0 {
-            local adodir = substr("`adopath'", 1, `_slashpos' - 1)
-            capture confirm file "`adodir'/logdoc_render.py"
-            if !_rc {
-                c_local `result' "`adodir'/logdoc_render.py"
-                exit 0
+    if "`_found'" == "" {
+        capture findfile logdoc.ado
+        if _rc == 0 {
+            local adopath "`r(fn)'"
+            if substr("`adopath'", 1, 1) == "~" {
+                local homedir : environment HOME
+                local rest = substr("`adopath'", 2, .)
+                local adopath "`homedir'`rest'"
+            }
+            local _slashpos = strrpos("`adopath'", "/")
+            if `_slashpos' == 0 {
+                local _slashpos = strrpos("`adopath'", "\")
+            }
+            if `_slashpos' > 0 {
+                local adodir = substr("`adopath'", 1, `_slashpos' - 1)
+                capture confirm file "`adodir'/logdoc_render.py"
+                if !_rc local _found "`adodir'/logdoc_render.py"
             }
         }
     }
 
-    * Not found
-    c_local `result' ""
+    c_local `result' "`_found'"
 
     }
     local rc = _rc
@@ -2494,20 +2515,14 @@ program define _logdoc_resolve_python
     local _stata_rc = _rc
     if `_stata_rc' == 0 & `"`_stata_pyexec'"' != "" {
         c_local `result' `"`_stata_pyexec'"'
-        exit 0
     }
-
-    if `"$LOGDOC_PYTHON"' != "" {
+    else if `"$LOGDOC_PYTHON"' != "" {
         c_local `result' `"$LOGDOC_PYTHON"'
-        exit 0
     }
-
-    if `"`configpython'"' != "" {
+    else if `"`configpython'"' != "" {
         c_local `result' `"`configpython'"'
-        exit 0
     }
-
-    if "`c(os)'" == "Windows" {
+    else if "`c(os)'" == "Windows" {
         c_local `result' "python"
     }
     else {

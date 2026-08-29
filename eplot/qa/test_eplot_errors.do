@@ -160,6 +160,6 @@ else local ++fail_count
 capture graph drop epe_matrix_bad epe_matrix_ok epe_graph_guard epe_graph_bad epe_graph_ok
 capture graph drop epe_frame_bad epe_frame_ok epe_file_bad epe_file_ok
 
-display "RESULT: test_eplot_errors tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_eplot_errors tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 exit 1
 exit 0

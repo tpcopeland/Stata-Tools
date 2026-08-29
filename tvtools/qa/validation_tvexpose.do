@@ -5524,6 +5524,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 capture noisily {
 capture program drop assert_approx
@@ -6614,6 +6616,8 @@ else {
 * FINAL SUMMARY
 
 }
+local _qa_capture_rc_5528 = _rc
+if `_qa_capture_rc_5528' exit `_qa_capture_rc_5528'
 
 capture noisily {
 
@@ -6743,6 +6747,8 @@ capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvo2_exp.dta", ///
     continuousunit(years) expandunit(months) generate(cum_yrs)
 
 }
+local _qa_capture_rc_6618 = _rc
+if `_qa_capture_rc_6618' exit `_qa_capture_rc_6618'
 
 capture noisily {
 
@@ -8564,6 +8570,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_6747 = _rc
+if `_qa_capture_rc_6747' exit `_qa_capture_rc_6747'
 
 
 * ===== Summary =====

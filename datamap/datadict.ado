@@ -1,4 +1,4 @@
-*! datadict Version 1.6.7  2026/08/19
+*! datadict Version 1.6.8  2026/08/30
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -24,6 +24,10 @@ program define datadict, rclass
 		          EXClude(string) CONTinuous(string) CATegorical(string) ///
 		          DATEVars(string) DATEFormat(string)]
 
+	foreach opt in title subtitle version author date notes changelog {
+		mata: st_local("`opt'", _datadict_transport_encode(st_local("`opt'")))
+	}
+
 	// Load reusable project defaults before applying command defaults.
 		if `"`config'"' != "" {
 			_datadict_ValidatePath `"`config'"', option("config()")
@@ -31,11 +35,19 @@ program define datadict, rclass
 			_datamap_load_config, config(`"`config'"')
 			foreach opt in output outdir suffix title subtitle version author date notes changelog columns {
 				local cfgval `"`r(`opt')'"'
+				if inlist("`opt'", "title", "subtitle", "version", "author", "date", "notes", "changelog") {
+					mata: st_local("cfgval", _datadict_transport_encode(st_local("cfgval")))
+				}
 				if `"``opt''"' == "" & `"`cfgval'"' != "" {
 					local `opt' `"`cfgval'"'
 				}
 			}
-			if `"`date'"' == "" & `"`r(docdate)'"' != "" local date `"`r(docdate)'"'
+			if `"`date'"' == "" & `"`r(docdate)'"' != "" {
+				local cfgdocdate `"`r(docdate)'"'
+				mata: st_local("cfgdocdate", ///
+					_datadict_transport_encode(st_local("cfgdocdate")))
+				local date `"`macval(cfgdocdate)'"'
+			}
 			foreach opt in exclude continuous categorical datevars dateformat {
 				local cfgval `"`r(`opt')'"'
 				if `"``opt''"' == "" & `"`cfgval'"' != "" {
@@ -213,6 +225,8 @@ program define datadict, rclass
 	_datadict_CollectDatasetNames `"`filelist_tmp'"' `"`names_tmp'"' `nfiles'
 	if `from_memory' {
 		local memory_label : data label
+		mata: st_local("memory_label", ///
+			_datadict_transport_encode(st_local("memory_label")))
 		tempname fh_names_memory
 		quietly file open `fh_names_memory' using `"`names_tmp'"', write text replace
 		file write `fh_names_memory' `"data_in_memory|`macval(memory_label)'"' _n
@@ -253,9 +267,10 @@ program define datadict, rclass
 	if `from_memory' local memoryopt "memory"
 	if "`separate'" != "" {
 		_datadict_ProcessSeparate, filelist(`"`filelist_tmp'"') namesfile(`"`names_tmp'"') ///
-			title(`"`title'"') subtitle(`"`subtitle'"') version(`"`version'"') ///
-				author(`"`author'"') date(`"`date'"') notes(`"`notes'"') ///
-				changelog(`"`changelog'"') nfiles(`nfiles') `showmissing' `showstats' ///
+			title(`"`macval(title)'"') subtitle(`"`macval(subtitle)'"') ///
+				version(`"`macval(version)'"') author(`"`macval(author)'"') ///
+				date(`"`macval(date)'"') notes(`"`macval(notes)'"') ///
+				changelog(`"`macval(changelog)'"') nfiles(`nfiles') `showmissing' `showstats' ///
 				maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
 				uniqcap(`uniqcap') ///
 				exclude(`"`exclude'"') continuous(`"`continuous'"') ///
@@ -266,9 +281,10 @@ program define datadict, rclass
 	}
 	else {
 		_datadict_ProcessCombined, filelist(`"`filelist_tmp'"') namesfile(`"`names_tmp'"') ///
-			output(`"`output'"') title(`"`title'"') subtitle(`"`subtitle'"') ///
-				version(`"`version'"') author(`"`author'"') date(`"`date'"') ///
-				notes(`"`notes'"') changelog(`"`changelog'"') nfiles(`nfiles') ///
+			output(`"`output'"') title(`"`macval(title)'"') ///
+				subtitle(`"`macval(subtitle)'"') version(`"`macval(version)'"') ///
+				author(`"`macval(author)'"') date(`"`macval(date)'"') ///
+				notes(`"`macval(notes)'"') changelog(`"`macval(changelog)'"') nfiles(`nfiles') ///
 				`showmissing' `showstats' maxcat(`maxcat') maxfreq(`maxfreq') ///
 				mincell(`mincell') uniqcap(`uniqcap') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
@@ -341,6 +357,79 @@ program define datadict, rclass
 	}
 end
 
+capture mata: mata drop _datadict_md_escape()
+capture mata: mata drop _datadict_unquote()
+capture mata: mata drop _datadict_parse_name_line()
+capture mata: mata drop _datadict_transport_encode()
+capture mata: mata drop _datadict_transport_decode()
+mata:
+string scalar _datadict_md_escape(string scalar text)
+{
+	text = subinstr(text, "|", char(92) + "|")
+	text = subinstr(text, char(36), "&#36;")
+	text = subinstr(text, char(96), "&#96;")
+	text = subinstr(text, char(10), " ")
+	text = subinstr(text, char(13), " ")
+	text = subinstr(text, "<", "&lt;")
+	text = subinstr(text, ">", "&gt;")
+	return(text)
+}
+
+string scalar _datadict_transport_encode(string scalar text)
+{
+	string scalar prefix
+
+	prefix = "__DATAMAP_68F73A__"
+	text = subinstr(text, prefix, prefix + "P")
+	text = subinstr(text, char(36), prefix + "D")
+	text = subinstr(text, char(96), prefix + "T")
+	text = subinstr(text, char(10), prefix + "N")
+	text = subinstr(text, char(13), prefix + "R")
+	return(text)
+}
+
+string scalar _datadict_transport_decode(string scalar text)
+{
+	string scalar prefix
+
+	prefix = "__DATAMAP_68F73A__"
+	text = subinstr(text, prefix + "D", char(36))
+	text = subinstr(text, prefix + "T", char(96))
+	text = subinstr(text, prefix + "N", char(10))
+	text = subinstr(text, prefix + "R", char(13))
+	text = subinstr(text, prefix + "P", prefix)
+	return(text)
+}
+
+string scalar _datadict_unquote(string scalar value)
+{
+	real scalar nchar
+
+	nchar = strlen(value)
+	while (nchar >= 4 & substr(value, 1, 2) == char(96) + char(34) &
+		substr(value, nchar - 1, 2) == char(34) + char(39)) {
+		value = substr(value, 3, nchar - 4)
+		nchar = strlen(value)
+	}
+	return(value)
+}
+
+void _datadict_parse_name_line(string scalar nameline)
+{
+	real scalar pipepos
+
+	pipepos = strpos(nameline, "|")
+	if (pipepos > 0) {
+		st_local("dsname", substr(nameline, 1, pipepos - 1))
+		st_local("dslabel", substr(nameline, pipepos + 1, .))
+	}
+	else {
+		st_local("dsname", nameline)
+		st_local("dslabel", "")
+	}
+}
+end
+
 // =============================================================================
 // Helper: CollectDatasetNames - extract display names for TOC
 // =============================================================================
@@ -370,6 +459,7 @@ program define _datadict_CollectDatasetNames, nclass
 		else {
 			local dslabel ""
 		}
+		mata: st_local("dslabel", _datadict_transport_encode(st_local("dslabel")))
 
 		// Write: basename|label
 		file write `fh_out' `"`basename'|`macval(dslabel)'"' _n
@@ -396,66 +486,6 @@ program define _datadict_MakeAnchor, rclass
 	local anchor = ustrregexra(`"`anchor'"', "[^a-z0-9-]", "")
 
 	return local anchor "`idx'-`anchor'"
-end
-
-// =============================================================================
-// Helper: EscapeMarkdown - escape special markdown characters
-// =============================================================================
-capture program drop _datadict_EscapeMarkdown
-local _drop_rc = _rc
-if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
-program define _datadict_EscapeMarkdown, rclass
-	version 16.0
-	args text
-
-	local escaped `"`macval(text)'"'
-	// Escape characters that could break markdown table formatting
-	local escaped = subinstr(`"`macval(escaped)'"', "|", "\|", .)
-	local escaped = subinstr(`"`macval(escaped)'"', "`", "\`", .)
-	// Replace newlines/carriage returns with space to prevent table breaks
-	local escaped = subinstr(`"`macval(escaped)'"', char(10), " ", .)
-	local escaped = subinstr(`"`macval(escaped)'"', char(13), " ", .)
-	// Escape HTML angle brackets
-	local escaped = subinstr(`"`macval(escaped)'"', "<", "&lt;", .)
-	local escaped = subinstr(`"`macval(escaped)'"', ">", "&gt;", .)
-
-	return local escaped `"`macval(escaped)'"'
-end
-
-// =============================================================================
-// Helper: Unquote - remove one syntactic outer quote pair, preserve content
-// =============================================================================
-capture program drop _datadict_Unquote
-local _drop_rc = _rc
-if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
-program define _datadict_Unquote, rclass
-	version 16.0
-	local _varabbrev = c(varabbrev)
-	set varabbrev off
-	capture noisily {
-		gettoken value 0 : 0
-		local value `"`macval(value)'"'
-
-		// Helper calls can add nested compound delimiters. Remove those only:
-		// ordinary double quotes are already content by this boundary and must
-		// survive, including when they are the first and last characters.
-		local unwrap_compound = 1
-		while `unwrap_compound' {
-			local unwrap_compound = 0
-			local nchar = length(`"`macval(value)'"')
-			if `nchar' >= 4 & substr(`"`macval(value)'"', 1, 1) == char(96) & ///
-			   substr(`"`macval(value)'"', 2, 1) == char(34) & ///
-			   substr(`"`macval(value)'"', `nchar' - 1, 1) == char(34) & ///
-			   substr(`"`macval(value)'"', `nchar', 1) == char(39) {
-				local value = substr(`"`macval(value)'"', 3, `nchar' - 4)
-				local unwrap_compound = 1
-			}
-		}
-		return local value `"`macval(value)'"'
-	}
-	local rc = _rc
-	set varabbrev `_varabbrev'
-	if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -746,23 +776,21 @@ program define _datadict_FileListMacro, rclass
 	capture noisily {
 		syntax, FILElist(string) MEMory(integer)
 
-		if `memory' {
-			return local files "memory"
-			exit
-		}
-
-		tempname fh
-		file open `fh' using `"`filelist'"', read text
-		local _fh_open = 1
-		local files ""
-		file read `fh' filepath
-		while r(eof) == 0 {
-			if `"`files'"' == "" local files `"`macval(filepath)'"'
-			else local files `"`macval(files)';`macval(filepath)'"'
+		if `memory' local files "memory"
+		else {
+			tempname fh
+			file open `fh' using `"`filelist'"', read text
+			local _fh_open = 1
+			local files ""
 			file read `fh' filepath
+			while r(eof) == 0 {
+				if `"`files'"' == "" local files `"`macval(filepath)'"'
+				else local files `"`macval(files)';`macval(filepath)'"'
+				file read `fh' filepath
+			}
+			file close `fh'
+			local _fh_open = 0
 		}
-		file close `fh'
-		local _fh_open = 0
 		return local files `"`macval(files)'"'
 	}
 	local rc = _rc
@@ -805,19 +833,9 @@ program define _datadict_ParseNameLine, rclass
 	local _varabbrev = c(varabbrev)
 	set varabbrev off
 	capture noisily {
-	args nameline
-
-	local pipepos = strpos(`"`nameline'"', "|")
-	if `pipepos' > 0 {
-		local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
-		local dslabel = substr(`"`nameline'"', `pipepos'+1, .)
-	}
-	else {
-		local dsname `"`nameline'"'
-		local dslabel ""
-	}
-
-	return local dsname `"`dsname'"'
+	gettoken nameline 0 : 0
+	mata: _datadict_parse_name_line(st_local("nameline"))
+	return local dsname `"`macval(dsname)'"'
 	return local dslabel `"`macval(dslabel)'"'
 	}
 	local rc = _rc
@@ -934,8 +952,7 @@ program define _datadict_GetValueLabelString, rclass
 			local labtext ""
 		}
 
-		_datadict_EscapeMarkdown `"`macval(labtext)'"'
-		local labtext `"`r(escaped)'"'
+		mata: st_local("labtext", _datadict_md_escape(st_local("labtext")))
 
 		if `first' {
 			if `"`labtext'"' != "" {
@@ -1062,8 +1079,7 @@ program define _datadict_GetCategoricalStats, rclass
 			local levpct "0.0"
 		}
 
-		_datadict_EscapeMarkdown `"`macval(labtext)'"'
-		local labtext `"`r(escaped)'"'
+		mata: st_local("labtext", _datadict_md_escape(st_local("labtext")))
 
 		if `mincell' > 0 & `levcount' < `mincell' {
 			if `"`labtext'"' != "" {
@@ -1131,8 +1147,7 @@ program define _datadict_GetUnlabeledStats, rclass
 			local levcmp = subinstr(`"`macval(lev)'"', char(34), "", .)
 			quietly count if `vname' == `"`macval(levcmp)'"'
 			local levcount = r(N)
-			_datadict_EscapeMarkdown `"`macval(levcmp)'"'
-			local levdisplay `"`r(escaped)'"'
+			mata: st_local("levdisplay", _datadict_md_escape(st_local("levcmp")))
 		}
 		if `nvalid' > 0 {
 			local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
@@ -1192,26 +1207,29 @@ program define _datadict_WriteTextBlock, nclass
 	version 16.0
 	syntax, HANDLE(name) KIND(string) DATEFormat(string) [TEXT(string asis)]
 
-	_datadict_Unquote `"`macval(text)'"'
-	local text `"`r(value)'"'
+	mata: st_local("text", _datadict_unquote(st_local("text")))
+	mata: st_local("text", _datadict_transport_decode(st_local("text")))
+	mata: st_local("_text_nonempty", strofreal(st_local("text") != ""))
+	local _text_is_file 0
+	if `_text_nonempty' {
+		mata: st_local("_text_is_file", ///
+			strofreal(fileexists(st_local("text"))))
+	}
 
-	if `"`text'"' != "" {
-		capture quietly confirm file `"`text'"'
-		if _rc == 0 {
+	if `_text_nonempty' {
+		if `_text_is_file' {
 			tempname fh_text
-			file open `fh_text' using `"`text'"', read text
+			file open `fh_text' using `"`macval(text)'"', read text
 			file read `fh_text' blockline
 			while r(eof) == 0 {
-				_datadict_EscapeMarkdown `"`macval(blockline)'"'
-				local escaped `"`r(escaped)'"'
+				mata: st_local("escaped", _datadict_md_escape(st_local("blockline")))
 				file write `handle' `"`macval(escaped)'"' _n
 				file read `fh_text' blockline
 			}
 			file close `fh_text'
 		}
 		else {
-			_datadict_EscapeMarkdown `"`macval(text)'"'
-			local escaped `"`r(escaped)'"'
+			mata: st_local("escaped", _datadict_md_escape(st_local("text")))
 			file write `handle' `"`macval(escaped)'"' _n
 		}
 		exit
@@ -1237,8 +1255,7 @@ program define _datadict_DeriveSeparateOutput, rclass
 		syntax, FILEPATH(string asis) DSName(string asis) SUFfix(string) [MEMory OUTDir(string)]
 
 		foreach field in filepath outdir suffix {
-			_datadict_Unquote `"`macval(`field')'"'
-			local `field' `"`r(value)'"'
+			mata: st_local("`field'", _datadict_unquote(st_local("`field'")))
 		}
 
 		local basename = ustrregexra(`"`macval(filepath)'"', ".*[/\\]", "")
@@ -1283,23 +1300,19 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			DSLABEL(string asis) NVARS(integer) [POSTNAME(name) DATASIGnature(string asis)]
 
 	foreach field in source output dsname dslabel {
-		_datadict_Unquote `"`macval(`field')'"'
-		local `field' `"`r(value)'"'
+		mata: st_local("`field'", _datadict_unquote(st_local("`field'")))
 	}
+	mata: st_local("dslabel", _datadict_transport_decode(st_local("dslabel")))
 
 	local vtype: type `vname'
 	local vfmt: format `vname'
 	local vlab: variable label `vname'
 	local vallabname: value label `vname'
 
-	_datadict_EscapeMarkdown `"`macval(vlab)'"'
-	local vlab_safe `"`r(escaped)'"'
-	_datadict_EscapeMarkdown `"`vtype'"'
-	local vtype_safe `"`r(escaped)'"'
-	_datadict_EscapeMarkdown `"`vfmt'"'
-	local vfmt_safe `"`r(escaped)'"'
-	_datadict_EscapeMarkdown `"`vallabname'"'
-	local vallab_safe `"`r(escaped)'"'
+	mata: st_local("vlab_safe", _datadict_md_escape(st_local("vlab")))
+	mata: st_local("vtype_safe", _datadict_md_escape(st_local("vtype")))
+	mata: st_local("vfmt_safe", _datadict_md_escape(st_local("vfmt")))
+	mata: st_local("vallab_safe", _datadict_md_escape(st_local("vallabname")))
 
 	_datadict_GetVariableNotes `vname'
 	local notesstr `"`r(notes)'"'
@@ -1432,10 +1445,8 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			local datefmt "`r(display_format)'"
 			local mindate = string(`vmin_raw', "`datefmt'")
 			local maxdate = string(`vmax_raw', "`datefmt'")
-			_datadict_EscapeMarkdown `"`mindate'"'
-			local mindate `"`r(escaped)'"'
-			_datadict_EscapeMarkdown `"`maxdate'"'
-			local maxdate `"`r(escaped)'"'
+			mata: st_local("mindate", _datadict_md_escape(st_local("mindate")))
+			mata: st_local("maxdate", _datadict_md_escape(st_local("maxdate")))
 			local statsstr "N=`nvalid'<br>Range: `mindate' to `maxdate'"
 		}
 		else {
@@ -1499,8 +1510,7 @@ program define _datadict_GetVariableNotes, rclass
 	forvalues i = 1/`note0' {
 		local notei: char `vname'[note`i']
 		if `"`notei'"' != "" {
-			_datadict_EscapeMarkdown `"`macval(notei)'"'
-			local escaped `"`r(escaped)'"'
+			mata: st_local("escaped", _datadict_md_escape(st_local("notei")))
 			if `"`notes'"' == "" local notes `"`macval(escaped)'"'
 			else local notes `"`macval(notes)'<br>`macval(escaped)'"'
 		}
@@ -1520,8 +1530,7 @@ program define _datadict_GetVariableChars, rclass
 	foreach cname of local allchars {
 		if !regexm("`cname'", "^note[0-9]+$") {
 			local cval: char `vname'[`cname']
-			_datadict_EscapeMarkdown `"`macval(cval)'"'
-			local escaped `"`r(escaped)'"'
+			mata: st_local("escaped", _datadict_md_escape(st_local("cval")))
 			if `"`chars'"' == "" local chars `"`cname'=`macval(escaped)'"'
 			else local chars `"`macval(chars)'<br>`cname'=`macval(escaped)'"'
 		}
@@ -1552,17 +1561,20 @@ program define _datadict_ProcessCombined, rclass
 				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach opt in title subtitle version author date notes changelog {
-			_datadict_Unquote `"`macval(`opt')'"'
-			local `opt' `"`r(value)'"'
+			mata: st_local("`opt'", _datadict_unquote(st_local("`opt'")))
+		}
+		foreach opt in title subtitle version author date {
+			mata: st_local("`opt'_safe", ///
+				_datadict_md_escape(_datadict_transport_decode(st_local("`opt'"))))
 		}
 
 		tempname fh
 		quietly file open `fh' using `"`output'"', write text replace
 		local _fh_open = 1
 
-		file write `fh' `"# `macval(title)'"' _n _n
-		if `"`subtitle'"' != "" file write `fh' `"`macval(subtitle)'"' _n _n
-		if `"`version'"' != "" file write `fh' `"Version `version'"' _n _n
+		file write `fh' `"# `macval(title_safe)'"' _n _n
+		if `"`subtitle'"' != "" file write `fh' `"`macval(subtitle_safe)'"' _n _n
+		if `"`version'"' != "" file write `fh' `"Version `macval(version_safe)'"' _n _n
 
 		file write `fh' "## Table of Contents" _n _n
 		tempname fh_names
@@ -1630,18 +1642,18 @@ program define _datadict_ProcessCombined, rclass
 		local _fh_names2_open = 0
 
 		file write `fh' "## Notes" _n _n
-		_datadict_WriteTextBlock, handle(`fh') kind("notes") ///
-			dateformat("`dateformat'") text(`"`notes'"')
+			_datadict_WriteTextBlock, handle(`fh') kind("notes") ///
+			dateformat("`dateformat'") text(`"`macval(notes)'"')
 		file write `fh' _n _n
 
 		file write `fh' "## Change Log" _n _n
-		_datadict_WriteTextBlock, handle(`fh') kind("changelog") ///
-			dateformat("`dateformat'") text(`"`changelog'"')
+			_datadict_WriteTextBlock, handle(`fh') kind("changelog") ///
+			dateformat("`dateformat'") text(`"`macval(changelog)'"')
 		file write `fh' _n _n
 
-		if `"`version'"' != "" file write `fh' `"**Document Version:** `version'"' _n _n
-		if `"`author'"' != "" file write `fh' `"**Author:** `macval(author)'"' _n _n
-		file write `fh' `"**Last Updated:** `date'"' _n
+		if `"`version'"' != "" file write `fh' `"**Document Version:** `macval(version_safe)'"' _n _n
+		if `"`author'"' != "" file write `fh' `"**Author:** `macval(author_safe)'"' _n _n
+		file write `fh' `"**Last Updated:** `macval(date_safe)'"' _n
 
 		file close `fh'
 		local _fh_open = 0
@@ -1694,8 +1706,11 @@ program define _datadict_ProcessSeparate, rclass
 				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach opt in title subtitle version author date notes changelog {
-			_datadict_Unquote `"`macval(`opt')'"'
-			local `opt' `"`r(value)'"'
+			mata: st_local("`opt'", _datadict_unquote(st_local("`opt'")))
+		}
+		foreach opt in title subtitle version author date {
+			mata: st_local("`opt'_safe", ///
+				_datadict_md_escape(_datadict_transport_decode(st_local("`opt'"))))
 		}
 
 		tempname fh_list fh_names
@@ -1730,9 +1745,9 @@ program define _datadict_ProcessSeparate, rclass
 			quietly file open `fh' using `"`outfile'"', write text replace
 			local _fh_open = 1
 
-			file write `fh' `"# `macval(title)': `macval(dispname)'"' _n _n
-			if `"`subtitle'"' != "" file write `fh' `"`macval(subtitle)'"' _n _n
-			if `"`version'"' != "" file write `fh' `"Version `version'"' _n _n
+			file write `fh' `"# `macval(title_safe)': `macval(dispname)'"' _n _n
+			if `"`subtitle'"' != "" file write `fh' `"`macval(subtitle_safe)'"' _n _n
+			if `"`version'"' != "" file write `fh' `"Version `macval(version_safe)'"' _n _n
 			file write `fh' _n
 
 				_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
@@ -1749,17 +1764,17 @@ program define _datadict_ProcessSeparate, rclass
 
 			file write `fh' "## Notes" _n _n
 			_datadict_WriteTextBlock, handle(`fh') kind("notes") ///
-				dateformat("`dateformat'") text(`"`notes'"')
+				dateformat("`dateformat'") text(`"`macval(notes)'"')
 			file write `fh' _n _n
 
 			file write `fh' "## Change Log" _n _n
 			_datadict_WriteTextBlock, handle(`fh') kind("changelog") ///
-				dateformat("`dateformat'") text(`"`changelog'"')
+				dateformat("`dateformat'") text(`"`macval(changelog)'"')
 			file write `fh' _n _n
 
-			if `"`version'"' != "" file write `fh' `"**Document Version:** `version'"' _n _n
-			if `"`author'"' != "" file write `fh' `"**Author:** `macval(author)'"' _n _n
-			file write `fh' `"**Last Updated:** `date'"' _n
+			if `"`version'"' != "" file write `fh' `"**Document Version:** `macval(version_safe)'"' _n _n
+			if `"`author'"' != "" file write `fh' `"**Author:** `macval(author_safe)'"' _n _n
+			file write `fh' `"**Last Updated:** `macval(date_safe)'"' _n
 
 			file close `fh'
 			local _fh_open = 0
@@ -1815,9 +1830,10 @@ program define _datadict_ProcessOneDataset, rclass
 				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach field in filepath output varspec dsname dslabel {
-			_datadict_Unquote `"`macval(`field')'"'
-			local `field' `"`r(value)'"'
+			mata: st_local("`field'", _datadict_unquote(st_local("`field'")))
 		}
+		local dslabel_transport `"`macval(dslabel)'"'
+		mata: st_local("dslabel", _datadict_transport_decode(st_local("dslabel")))
 
 		capture quietly describe using `"`macval(filepath)'"', short
 		if _rc != 0 {
@@ -1827,8 +1843,10 @@ program define _datadict_ProcessOneDataset, rclass
 		}
 		local obs = r(N)
 		local nvars_file = r(k)
-		if `"`dslabel'"' == "" | `"`dslabel'"' == "." {
+		if `"`dslabel_transport'"' == "" | `"`dslabel_transport'"' == "." {
 			local dslabel "Dataset containing `nvars_file' variables and `obs' observations."
+			mata: st_local("dslabel_transport", ///
+				_datadict_transport_encode(st_local("dslabel")))
 		}
 
 			tempfile classifications
@@ -1887,10 +1905,8 @@ program define _datadict_ProcessOneDataset, rclass
 				local metadata_dsname "memory"
 			}
 			else local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
-			_datadict_EscapeMarkdown `"`macval(dslabel)'"'
-			local dslabel_safe `"`r(escaped)'"'
-			_datadict_EscapeMarkdown `"`macval(filepath)'"'
-			local filepath_safe `"`r(escaped)'"'
+			mata: st_local("dslabel_safe", _datadict_md_escape(st_local("dslabel")))
+			mata: st_local("filepath_safe", _datadict_md_escape(st_local("filepath")))
 
 			file write `handle' `"## `idx'. `dispname'"' _n _n
 			if "`memory'" != "" {
@@ -1934,7 +1950,7 @@ program define _datadict_ProcessOneDataset, rclass
 						uniqcap(`nuniq_cap') ///
 						mincell(`mincell') dateformat("`dateformat'") varclass("`varclass'") ///
 							source(`"`macval(metadata_source)'"') output(`"`output'"') ///
-							dsname(`"`metadata_dsname'"') dslabel(`"`macval(dslabel)'"') ///
+						dsname(`"`metadata_dsname'"') dslabel(`"`macval(dslabel_transport)'"') ///
 						nvars(`nvars_file') datasignature(`"`dsignature'"') `postopt'
 		}
 

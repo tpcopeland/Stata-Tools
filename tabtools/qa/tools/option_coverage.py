@@ -13,8 +13,8 @@ This is the metric reported in qa/README.md (## Option coverage).
 Usage:
     python3 qa/tools/option_coverage.py [--pkg-dir DIR] [--json]
 
-Exit status is 0 when every testable option is exercised (the `open` option is
-excluded by design -- it launches a GUI viewer and is not driven in batch).
+Exit status is 0 when every public option is exercised. GUI-launching `open`
+options use non-launching guard paths where the command exposes one.
 """
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ import sys
 
 # Public commands ship a same-named .ado; helpers are _tabtools_*.
 HELPER_PREFIX = "_tabtools"
-# Options excluded from the testable surface (cannot be exercised in batch).
-EXCLUDED = {"open"}
+# Every public option is testable; GUI launchers use their parser guard paths.
+EXCLUDED = set()
 
 
 def public_commands(pkg_dir):

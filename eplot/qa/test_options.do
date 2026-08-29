@@ -58,9 +58,7 @@ program define run_test
     }
 end
 
-* ==========================================================================
-* MULTI-MODEL COMPARISON
-* ==========================================================================
+**# MULTI-MODEL COMPARISON
 
 * Test 1: Two-model comparison
 local ++test_count
@@ -111,9 +109,7 @@ else {
 capture graph drop _v2_t2
 estimates drop _all
 
-* ==========================================================================
-* VALUES ANNOTATION
-* ==========================================================================
+**# VALUES ANNOTATION
 
 * Test 3: Values annotation in data mode
 local ++test_count
@@ -201,9 +197,7 @@ else {
 }
 capture graph drop _v2_t6
 
-* ==========================================================================
-* SORT AND ORDER
-* ==========================================================================
+**# SORT AND ORDER
 
 * Test 7: Sort option
 local ++test_count
@@ -267,9 +261,7 @@ else {
 }
 capture graph drop _v2_t9
 
-* ==========================================================================
-* CI AND MARKER CUSTOMIZATION
-* ==========================================================================
+**# CI AND MARKER CUSTOMIZATION
 
 * Test 10: cicap option
 local ++test_count
@@ -348,9 +340,7 @@ else {
 }
 capture graph drop _v2_t13
 
-* ==========================================================================
-* WEIGHTED BOX OPTIONS
-* ==========================================================================
+**# WEIGHTED BOX OPTIONS
 
 * Test 14: boxscale option
 local ++test_count
@@ -426,9 +416,7 @@ else {
 }
 capture graph drop _v2_t16
 
-* ==========================================================================
-* MATRIX MODE
-* ==========================================================================
+**# MATRIX MODE
 
 * Test 17: Matrix mode with 3 columns (b, lci, uci)
 local ++test_count
@@ -530,9 +518,7 @@ else {
 }
 capture graph drop _v2_t21
 
-* ==========================================================================
-* MULTI-MODEL OPTIONS
-* ==========================================================================
+**# MULTI-MODEL OPTIONS
 
 * Test 22: modellabels option
 local ++test_count
@@ -612,9 +598,7 @@ else {
 capture graph drop _v2_t25
 estimates drop _all
 
-* ==========================================================================
-* RENAME OPTION
-* ==========================================================================
+**# RENAME OPTION
 
 * Test 26: Rename option in estimates mode
 local ++test_count
@@ -636,9 +620,7 @@ else {
 }
 capture graph drop _v2_t26
 
-* ==========================================================================
-* HEADERS OPTION
-* ==========================================================================
+**# HEADERS OPTION
 
 * Test 27: Headers option in estimates mode
 local ++test_count
@@ -683,9 +665,7 @@ else {
 }
 capture graph drop _v2_t28
 
-* ==========================================================================
-* EFORM + RESCALE INTERACTION
-* ==========================================================================
+**# EFORM + RESCALE INTERACTION
 
 * Test 29: Eform applied before rescale (consistency check)
 local ++test_count
@@ -711,9 +691,7 @@ else {
 }
 capture graph drop _v2_t29
 
-* ==========================================================================
-* VALUES + VERTICAL MODE NOTE
-* ==========================================================================
+**# VALUES + VERTICAL MODE NOTE
 
 * Test 30: Values with vertical mode emits note (no error)
 local ++test_count
@@ -738,9 +716,7 @@ else {
 }
 capture graph drop _v2_t30
 
-* ==========================================================================
-* VARABBREV RESTORE
-* ==========================================================================
+**# VARABBREV RESTORE
 
 * Test 31: varabbrev restored after eplot
 local ++test_count
@@ -770,9 +746,7 @@ else {
 }
 capture graph drop _v2_t31
 
-* ==========================================================================
-* MULTI-MODEL WITH CICAP AND SORT
-* ==========================================================================
+**# MULTI-MODEL WITH CICAP AND SORT
 
 * Test 32: Multi-model with cicap
 local ++test_count
@@ -838,9 +812,7 @@ else {
 capture graph drop _v2_t34
 estimates drop _all
 
-* ==========================================================================
-* MATRIX MODE WITH OPTIONS
-* ==========================================================================
+**# MATRIX MODE WITH OPTIONS
 
 * Test 35: Matrix mode with sort
 local ++test_count
@@ -900,9 +872,7 @@ else {
 }
 capture graph drop _v2_t37
 
-* ==========================================================================
-* VERTICAL MODE
-* ==========================================================================
+**# VERTICAL MODE
 
 * Test 38: Vertical layout in estimates mode
 local ++test_count
@@ -967,9 +937,7 @@ else {
 }
 capture graph drop _v2_t40
 
-* ==========================================================================
-* REFERENCE-LINE (xline) STYLING  -- v1.2.4 passthrough regression
-* ==========================================================================
+**# REFERENCE-LINE (xline) STYLING  -- v1.2.4 passthrough regression
 
 * Test 41: styled xline suboptions pass through (was r(121) invalid numlist)
 local ++test_count
@@ -1081,8 +1049,8 @@ capture noisily {
     "Study B" 0.35 0.20 0.50
     "Study C" 0.10 0.02 0.18
     end
-    capture eplot es lci uci, labels(study) xline(abc) name(_v2_t45, replace)
-    assert _rc != 0
+    capture noisily eplot es lci uci, labels(study) xline(abc) name(_v2_t45, replace)
+    assert _rc == 121
 }
 if _rc == 0 {
     display as result "  PASS: Test 45 - garbage xline() still errors"
@@ -1135,7 +1103,18 @@ capture noisily {
     assert r(table)[2, 1] == 9
     assert r(table)[3, 1] == 2
     assert r(table)[4, 1] == 3
-    cf _all using `sort_input'
+    quietly ds
+    local current_vars `r(varlist)'
+    preserve
+    quietly use `sort_input', clear
+    quietly ds
+    local input_vars `r(varlist)'
+    restore
+    local only_current : list current_vars - input_vars
+    local only_input : list input_vars - current_vars
+    assert "`only_current'" == ""
+    assert "`only_input'" == ""
+    cf `current_vars' using `sort_input'
 }
 if _rc == 0 {
     display as result "  PASS: Test 47 - stable-slot data-mode sort"
@@ -1148,13 +1127,9 @@ else {
 }
 capture graph drop _v2_t47
 
-* ==========================================================================
-* SUMMARY
-* ==========================================================================
+**# SUMMARY
 
-display _n as text "{hline 70}"
 display as text "EPLOT OPTION FEATURE TEST SUMMARY"
-display as text "{hline 70}"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
 display "RESULT: test_options tests=47 pass=`pass_count' fail=`fail_count' skip=0"
@@ -1165,7 +1140,6 @@ if `fail_count' > 0 {
 else {
     display as text "Failed:       `fail_count'"
 }
-display as text "{hline 70}"
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED. Review output above."

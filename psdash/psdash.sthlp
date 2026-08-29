@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.8  11aug2026}{...}
+{* *! version 1.6.9  30aug2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -984,11 +984,11 @@ diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimatio
 {synopt:{cmd:r(auc)}}PS-model C-statistic, when available{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
-{synopt:{cmd:r(min_gps)}}sample minimum of {it:min_j e_j(X)} (multi-group){p_end}
-{synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
-{synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor (multi-group){p_end}
-{synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
-{synopt:{cmd:r(min_gps_group_*)}}minimum arm-{it:j} GPS over units (multi-group){p_end}
+{synopt:{cmd:r(min_gps)}}sample minimum of {it:min_j e_j(X)}{p_end}
+{synopt:{cmd:r(n_gps_violate)}}units below {opt gpsfloor()} on any GPS{p_end}
+{synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor{p_end}
+{synopt:{cmd:r(gps_floor)}}GPS positivity floor used{p_end}
+{synopt:{cmd:r(min_gps_group_*)}}minimum arm-{it:j} GPS across units{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
@@ -1016,16 +1016,16 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(max_smd_raw)}}maximum |SMD| before adjustment{p_end}
 {synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD|, when weighted{p_end}
-{synopt:{cmd:r(max_vr_raw)}}variance ratio with largest deviation from 1{p_end}
+{synopt:{cmd:r(max_vr_raw)}}most deviant raw variance ratio{p_end}
 {synopt:{cmd:r(max_vr_adj)}}most deviant adjusted variance ratio{p_end}
 {synopt:{cmd:r(max_ks_raw)}}maximum KS statistic (raw){p_end}
-{synopt:{cmd:r(max_ks_adj)}}maximum weighted KS statistic (set when weighted){p_end}
+{synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS statistic{p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates exceeding SMD threshold{p_end}
 {synopt:{cmd:r(n_vr_imbalanced)}}nonbinary covariates outside VR bounds{p_end}
-{synopt:{cmd:r(n_binary_vr)}}binary covariates excluded from the VR count{p_end}
+{synopt:{cmd:r(n_binary_vr)}}binary covariates omitted from VR count{p_end}
 {synopt:{cmd:r(vr_na_vars)}}binary covariates excluded from VR{p_end}
-{synopt:{cmd:r(n_cov_incomplete)}}covariates with missing values in the panel sample{p_end}
-{synopt:{cmd:r(n_cov_min)}}smallest per-covariate N behind any table row{p_end}
+{synopt:{cmd:r(n_cov_incomplete)}}covariates with panel-sample missingness{p_end}
+{synopt:{cmd:r(n_cov_min)}}smallest N among covariate rows{p_end}
 {synopt:{cmd:r(threshold)}}threshold used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
@@ -1039,7 +1039,7 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(source)}}detection source{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
-{synopt:{cmd:r(balance)}}balance-statistics matrix; rows are covariates{p_end}
+{synopt:{cmd:r(balance)}}covariate balance-statistics matrix{p_end}
 {synopt:{cmd:r(smd)}}raw/adjusted covariate-by-SMD matrix{p_end}
 
 {pstd}
@@ -1113,7 +1113,7 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(n_outside_treated)}}treated outside support{p_end}
 {synopt:{cmd:r(n_outside_control)}}control outside support{p_end}
 {synopt:{cmd:r(trim_lower)}}lower trimming bound or GPS floor{p_end}
-{synopt:{cmd:r(trim_upper)}}trimming upper bound (binary only; if trimming){p_end}
+{synopt:{cmd:r(trim_upper)}}upper trim bound (binary; if used){p_end}
 {synopt:{cmd:r(n_trimmed)}}observations trimmed (if trimming){p_end}
 {synopt:{cmd:r(pct_trimmed)}}percentage trimmed (if trimming){p_end}
 {synopt:{cmd:r(N_remaining)}}observations retained after trimming{p_end}
@@ -1121,9 +1121,9 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
 {synopt:{cmd:r(min_gps)}}sample minimum of {it:min_j e_j(X)}{p_end}
-{synopt:{cmd:r(n_gps_violate)}}units with {it:min_j e_j(X)} < {opt gpsfloor()} (multi-group){p_end}
+{synopt:{cmd:r(n_gps_violate)}}units below {opt gpsfloor()} on any GPS{p_end}
 {synopt:{cmd:r(pct_gps_violate)}}percentage below the GPS floor{p_end}
-{synopt:{cmd:r(gps_floor)}}practical-positivity floor used (multi-group){p_end}
+{synopt:{cmd:r(gps_floor)}}GPS positivity floor used{p_end}
 {synopt:{cmd:r(min_gps_group_*)}}minimum arm-{it:j} GPS over units{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
@@ -1167,12 +1167,12 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(id)}}longitudinal ID variable, when available{p_end}
 {synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
 {synopt:{cmd:r(method)}}LTMLE method metadata, when available{p_end}
-{synopt:{cmd:r(contract_version)}}producer contract version metadata, when available{p_end}
-{synopt:{cmd:r(levels)}}multi-group treatment levels, if applicable{p_end}
-{synopt:{cmd:r(reference)}}multi-group reference level, if applicable{p_end}
+{synopt:{cmd:r(contract_version)}}producer contract version{p_end}
+{synopt:{cmd:r(levels)}}multi-group treatment levels{p_end}
+{synopt:{cmd:r(reference)}}multi-group reference level{p_end}
 {synopt:{cmd:r(verdict)}}overall verdict, {cmd:"PASS"} or {cmd:"FAIL"}{p_end}
-{synopt:{cmd:r(warnings)}}machine-readable findings with panel labels{p_end}
-{synopt:{cmd:r(report)}}report workbook path, when {opt report()} is used{p_end}
+{synopt:{cmd:r(warnings)}}panel-labeled machine-readable findings{p_end}
+{synopt:{cmd:r(report)}}report workbook path, when used{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(n_warnings)}}total findings across panels{p_end}
@@ -1181,21 +1181,21 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(N_requested)}}requested cross-sectional observations{p_end}
 {synopt:{cmd:r(N_analysis)}}common panel-analysis observations{p_end}
 {synopt:{cmd:r(n_common_excluded)}}observations excluded from all panels{p_end}
-{synopt:{cmd:r(N)}}observations in the longitudinal diagnostic sample{p_end}
+{synopt:{cmd:r(N)}}longitudinal diagnostic-sample N{p_end}
 {synopt:{cmd:r(N_input)}, {cmd:r(N_complete)}, {cmd:r(n_excluded)}}longitudinal sample ledger{p_end}
 {synopt:{cmd:r(n_missing_treatment)}, {cmd:r(n_missing_period)}, {cmd:r(n_missing_ps)}, {cmd:r(n_missing_weight)}}longitudinal input missingness ledger{p_end}
-{synopt:{cmd:r(longitudinal)}}1 for longitudinal (ltmle/msm/tte) diagnostics{p_end}
+{synopt:{cmd:r(longitudinal)}}1 for longitudinal diagnostics{p_end}
 {synopt:{cmd:r(N_periods)}}number of longitudinal periods{p_end}
-{synopt:{cmd:r(max_pct_outside)}}maximum period-specific percentage outside overlap{p_end}
+{synopt:{cmd:r(max_pct_outside)}}maximum period percentage outside overlap{p_end}
 {synopt:{cmd:r(mean_wt)}, {cmd:r(sd_wt)}}mean and SD of producer contract weights{p_end}
-{synopt:{cmd:r(min_wt)}, {cmd:r(max_wt)}}minimum and maximum producer contract weights{p_end}
+{synopt:{cmd:r(min_wt)}, {cmd:r(max_wt)}}producer-weight minimum and maximum{p_end}
 {synopt:{cmd:r(cv)}}contract-weight coefficient of variation{p_end}
-{synopt:{cmd:r(ess)}, {cmd:r(ess_pct)}}overall effective sample size and percentage{p_end}
+{synopt:{cmd:r(ess)}, {cmd:r(ess_pct)}}overall ESS and percentage{p_end}
 {synopt:{cmd:r(min_period_ess_pct)}}minimum period-specific ESS percentage{p_end}
-{synopt:{cmd:r(min_period_arm_ess_pct)}}minimum treatment-arm ESS percentage over periods{p_end}
+{synopt:{cmd:r(min_period_arm_ess_pct)}}minimum period-by-arm ESS percentage{p_end}
 {synopt:{cmd:r(n_single_arm_periods)}, {cmd:r(n_estimable_periods)}}period estimability ledger{p_end}
 {synopt:{cmd:r(p1)}, {cmd:r(p5)}, {cmd:r(p50)}, {cmd:r(p95)}, {cmd:r(p99)}}selected contract-weight percentiles{p_end}
-{synopt:{cmd:r(n_extreme)}, {cmd:r(pct_extreme)}}count and percentage of contract weights above 10{p_end}
+{synopt:{cmd:r(n_extreme)}, {cmd:r(pct_extreme)}}contract weights above 10: N and %{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table{p_end}
@@ -1217,7 +1217,7 @@ position.
 {synopt:{cmd:r(covariates)}}detected/supplied covariate list{p_end}
 {synopt:{cmd:r(wvar)}}weight variable, if any{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
-{synopt:{cmd:r(levels)}, {cmd:r(reference)}}treatment levels and reference (multi-group){p_end}
+{synopt:{cmd:r(levels)}, {cmd:r(reference)}}multi-group treatment levels/reference{p_end}
 {synopt:{cmd:r(id)}, {cmd:r(period)}, {cmd:r(regime)}, {cmd:r(method)}, {cmd:r(contract_version)}}longitudinal metadata, when applicable{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}

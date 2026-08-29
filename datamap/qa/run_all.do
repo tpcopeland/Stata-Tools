@@ -28,7 +28,8 @@ local quick_suites ///
     test_datamvp.do ///
     test_regressions.do ///
     test_datamap_documentation_examples.do ///
-    test_help_render.do
+    test_help_render.do ///
+    test_datamap_v168.do
 
 local core_suites ///
     `quick_suites' ///

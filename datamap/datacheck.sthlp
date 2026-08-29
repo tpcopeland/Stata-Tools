@@ -36,53 +36,53 @@
 {synopthdr}
 {synoptline}
 {syntab:Input}
-{synopt:{opt sing:le(filename)}}profile a saved {opt .dta}; preserve data in memory{p_end}
-{synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
+{synopt:{opt sing:le(filename)}}profile a saved {opt .dta}; preserve memory{p_end}
+{synopt:{opt conf:ig(filename)}}load key-value defaults{p_end}
 
 {syntab:Classification}
 {synopt:{opt maxc:at(#)}}categorical cutoff; default {bf:25}{p_end}
 {synopt:{opt exc:lude(varlist)}}skip these variables entirely{p_end}
-{synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
-{synopt:{opt cat:egorical(varlist)}}force these variables into the categorical group{p_end}
-{synopt:{opt date(varlist)}}force these variables into the date group{p_end}
+{synopt:{opt cont:inuous(varlist)}}force continuous classification{p_end}
+{synopt:{opt cat:egorical(varlist)}}force categorical classification{p_end}
+{synopt:{opt date(varlist)}}force date classification{p_end}
 {synopt:{opt id(keyspec)}}identifier keys; {cmd:\}-separate several{p_end}
 
 {syntab:Detail}
-{synopt:{opt d:etail}}add percentile detail for continuous variables{p_end}
-{synopt:{opt maxf:req(#)}}cap categorical/string levels shown; default {bf:20}{p_end}
-{synopt:{opt rare(#)}}flag categorical levels with a count below {it:#}{p_end}
+{synopt:{opt d:etail}}add continuous percentiles{p_end}
+{synopt:{opt maxf:req(#)}}levels shown per variable; default {bf:20}{p_end}
+{synopt:{opt rare(#)}}flag levels with count below {it:#}{p_end}
 {synopt:{opt min:cell(#)}}flag tabulated cells below {it:#}{p_end}
 {synopt:{opt mask:rare}}mask low-count cells{p_end}
 {synopt:{opt out:liers(#)}}flag values beyond {it:#} IQRs{p_end}
 
 {syntab:Missingness}
 {synopt:{opt nomiss:ing}}suppress the missingness summary block{p_end}
-{synopt:{opt patterns}}add the {help datamvp} missing-value pattern table{p_end}
+{synopt:{opt patterns}}add the {help datamvp} pattern table{p_end}
 
 {syntab:Gate {it:(any gate option turns on gate mode)}}
-{synopt:{opt gates:only}}run gates without printing the descriptive profile{p_end}
-{synopt:{opt expectn(numlist)}}assert {cmd:_N}; exact or inclusive range{p_end}
+{synopt:{opt gates:only}}run validation gates only{p_end}
+{synopt:{opt expectn(numlist)}}require exact {cmd:_N} or a range{p_end}
 {synopt:{opt isid(varlist)}}assert the dataset is unique by this key{p_end}
 {synopt:{opt nodups}}assert no fully duplicated rows{p_end}
 {synopt:{opt req:uire(varlist)}}assert these variables exist{p_end}
-{synopt:{opt notmiss:ing(varlist)}}assert zero missing values in these variables{p_end}
-{synopt:{opt inrange(spec)}}assert ranges; {cmd:\}-separate{p_end}
-{synopt:{opt all:owed(spec)}}assert variables contain only allowed values{p_end}
-{synopt:{opt for:bid(spec)}}assert variables do not contain forbidden values{p_end}
-{synopt:{opt regex(spec)}}assert string variables match regular expressions{p_end}
+{synopt:{opt notmiss:ing(varlist)}}require complete values{p_end}
+{synopt:{opt inrange(spec)}}require ranges; {cmd:\}-separate{p_end}
+{synopt:{opt all:owed(spec)}}restrict to allowed values{p_end}
+{synopt:{opt for:bid(spec)}}reject forbidden values{p_end}
+{synopt:{opt regex(spec)}}require strings to match regexes{p_end}
 {synopt:{opt notv:alues(spec)}}reject sentinel or disallowed values{p_end}
 {synopt:{opt by(varlist)}}evaluate gates/missingness within groups{p_end}
 {synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
-{synopt:{opt check:s(filename)}}read gate specifications from a checks file{p_end}
+{synopt:{opt check:s(filename)}}read checks from file{p_end}
 {synopt:{opt makes:pec(filename[, replace])}}write a starter checks file{p_end}
-{synopt:{opt comp:are(filename)}}compare current schema with a saved file{p_end}
+{synopt:{opt comp:are(filename)}}compare with a saved schema{p_end}
 {synopt:{opt warn}}report gate failures as warnings{p_end}
 
 {syntab:Output}
-{synopt:{opt sav:ing(name[, replace])}}save profile to {opt .dta} or frame{p_end}
+{synopt:{opt sav:ing(name[, replace])}}save profile to {opt .dta}/frame{p_end}
 {synopt:{opt only:flagged}}show only flagged variables/groups{p_end}
-{synopt:{opt show(flagged)}}same display filter as {opt onlyflagged}{p_end}
-{synopt:{opt viol:ations(name[, replace])}}save violation rows to {opt .dta}/frame{p_end}
+{synopt:{opt show(flagged)}}same as {opt onlyflagged}{p_end}
+{synopt:{opt viol:ations(name[, replace])}}save violations to {opt .dta}/frame{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -392,7 +392,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(complete_pct)}}percent complete{p_end}
 {synopt:{cmd:r(n_checks)}}number of checks evaluated{p_end}
 {synopt:{cmd:r(n_passed)}}number of check families without violations{p_end}
-{synopt:{cmd:r(n_failed)}}number of check families with at least one violation{p_end}
+{synopt:{cmd:r(n_failed)}}check families with one or more violations{p_end}
 {synopt:{cmd:r(n_violations)}}number of accumulated violations{p_end}
 {synopt:{cmd:r(n_groups)}}number of groups evaluated by {opt by()} or {opt over()}{p_end}
 {synopt:{cmd:r(gatesonly)}}1 when {opt gatesonly} was specified; otherwise 0{p_end}
@@ -412,10 +412,10 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(mincell)}}small-cell threshold supplied through {opt mincell()}{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was specified; otherwise 0{p_end}
 {synopt:{cmd:r(compare_added)}}number of variables added relative to {opt compare()}{p_end}
-{synopt:{cmd:r(compare_dropped)}}number of variables dropped relative to {opt compare()}{p_end}
+{synopt:{cmd:r(compare_dropped)}}variables dropped relative to {opt compare()}{p_end}
 {synopt:{cmd:r(compare_type_changed)}}number of variables with changed storage type{p_end}
 {synopt:{cmd:r(compare_class_changed)}}number of variables with changed classification{p_end}
-{synopt:{cmd:r(compare_changed)}}total schema-drift count, including N delta when present{p_end}
+{synopt:{cmd:r(compare_changed)}}schema-drift count, including any N delta{p_end}
 {synopt:{cmd:r(n_dup_)}}duplicate-key counts from {opt id()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}

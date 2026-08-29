@@ -23,6 +23,10 @@ tempfile outtoken
 local xlsx "`outtoken'_desctab.xlsx"
 local csv "`outtoken'_desctab.csv"
 local md "`outtoken'_desctab.md"
+local style_xlsx "`outtoken'_desctab_style.xlsx"
+local style_status "`outtoken'_desctab_style_status.txt"
+local checker "`qa_dir'/tools/check_xlsx.py"
+local python_cmd "python3"
 
 **# T1 direct engine creates the expected mixed table
 local ++total
@@ -116,6 +120,8 @@ capture noisily {
     confirm file "`md'"
     assert "`r(xlsx)'" == "`xlsx'"
     assert "`r(markdown)'" == "`md'"
+    assert r(markdown_rows) == 8
+    assert r(markdown_cols) == 6
     preserve
     import excel using "`xlsx'", sheet("Direct") clear allstring
     quietly count if strpos(A, "Direct engine") > 0
@@ -136,24 +142,21 @@ else {
 local ++total
 capture noisily {
     clear
-    input byte group byte category
-    0 0
-    0 0
-    0 1
-    0 1
-    0 1
-    1 0
-    1 0
-    1 0
-    1 1
-    1 1
+    input byte group byte category int frequency
+    0 0 2
+    0 1 8
+    1 0 6
+    1 1 4
     end
+    expand frequency
+    drop frequency
     capture frame drop _dt_safe
     desctab, by(group) vars(category cat) total(after) ///
-        smallcells(5) frame(_dt_safe, replace)
+        test statistic smd smallcells(5) frame(_dt_safe, replace)
     assert r(smallcells) == 5
-    assert !missing(r(N_primary_suppressed))
-    assert r(N_primary_suppressed) > 0
+    assert r(N_primary_suppressed) == 2
+    assert r(N_secondary_suppressed) == 2
+    assert r(N_derived_suppressed) == 4
     matrix _supp = r(suppression)
     assert rowsof(_supp) > 0
     frame _dt_safe {
@@ -220,9 +223,129 @@ else {
     local ++fail
 }
 
+**# T8 direct formatting options change the public frame payload
+local ++total
+capture noisily {
+    sysuse auto, clear
+    capture frame drop _dt_format
+    desctab, by(foreign) ///
+        vars(price contn \\ mpg conts \\ weight contln \\ rep78 cat) ///
+        format(%9.2f) percformat(%5.1f) nformat(%9.0f) ///
+        iqrmiddle(" to ") sdleft(" [") sdright("]") ///
+        gsdleft(" [GSD ") gsdright("]") varlabplus ///
+        pdp(4) highpdp(3) test statistic missingsummary dots ///
+        frame(_dt_format, replace)
+    assert "`r(frame)'" == "_dt_format"
+    frame _dt_format {
+        quietly count if strpos(factor, "median") & ///
+            (strpos(foreign_0, " to ") | strpos(foreign_1, " to "))
+        assert r(N) == 1
+        quietly count if strpos(factor, "geometric mean") & ///
+            (strpos(foreign_0, "[GSD ") | strpos(foreign_1, "[GSD "))
+        assert r(N) == 1
+        quietly count if strtrim(factor) == "Missing"
+        assert r(N) == 1
+        quietly count if statistic != "" & statistic != "Statistic"
+        assert r(N) == 4
+    }
+    frame drop _dt_format
+
+    sysuse auto, clear
+    capture frame drop _dt_percent_n
+    desctab rep78, by(foreign) vars(rep78 cat) percent_n ///
+        percformat(%5.1f) percsign("%") spacelowpercent extraspace ///
+        catrowperc headerperc frame(_dt_percent_n, replace)
+    frame _dt_percent_n {
+        quietly count if strpos(foreign_0, "% (") | strpos(foreign_1, "% (")
+        assert !missing(r(N))
+        assert r(N) > 0
+        quietly count if factor == "Row % (No.)" & strpos(foreign_0, "%")
+        assert r(N) == 1
+    }
+    frame drop _dt_percent_n
+
+    sysuse auto, clear
+    capture frame drop _dt_slash
+    desctab rep78, by(foreign) vars(rep78 cat) slashN ///
+        frame(_dt_slash, replace)
+    frame _dt_slash {
+        quietly count if strpos(foreign_0, "/") | strpos(foreign_1, "/")
+        assert r(N) == 5
+    }
+    frame drop _dt_slash
+
+    sysuse auto, clear
+    desctab rep78, by(foreign) vars(rep78 cat) percent nopvalue clear
+    confirm variable factor
+    capture confirm variable pvalue
+    assert _rc == 111
+    quietly count if foreign_0 == "4" & foreign_1 == "0"
+    assert r(N) == 1
+}
+if _rc == 0 {
+    local ++pass
+}
+else {
+    display as error "  FAIL: direct formatting options (rc=`=_rc')"
+    local ++fail
+}
+
+**# T9 direct Excel style options alter workbook semantics
+local ++total
+capture noisily {
+    clear
+    set obs 100
+    set seed 1234
+    generate byte group = _n > 50
+    generate double x = 10 * group + rnormal()
+    label variable x "Strong signal"
+    capture erase "`style_xlsx'"
+    capture erase "`style_status'"
+    desctab x, by(group) vars(x contn) test smd ///
+        excel("`style_xlsx'") sheet("Style") title("Direct style") ///
+        borderstyle(thin) font("Times New Roman") fontsize(12) ///
+        boldp(0.05) highlight(0.05) smdthreshold(0.1)
+    confirm file "`style_xlsx'"
+    shell `python_cmd' "`checker'" "`style_xlsx'" --sheet "Style" ///
+        --font "Times New Roman" --fontsize 12 --has-borders ///
+        --row-bold-contains "Strong signal" ///
+        --row-fill-contains "Strong signal" "255 255 204" ///
+        --row-fill-contains "Strong signal" "255 235 205" ///
+        --contains "Direct style" --result-file "`style_status'" --quiet
+    tempname style_fh
+    file open `style_fh' using "`style_status'", read text
+    file read `style_fh' style_line
+    file close `style_fh'
+    assert "`style_line'" == "PASS"
+}
+if _rc == 0 {
+    local ++pass
+}
+else {
+    display as error "  FAIL: direct Excel style options (rc=`=_rc')"
+    local ++fail
+}
+
+**# T10 open is parsed and rejected before any GUI launch without excel()
+local ++total
+capture noisily {
+    sysuse auto, clear
+    capture noisily desctab price, by(foreign) open
+    assert _rc == 498
+}
+if _rc == 0 {
+    local ++pass
+}
+else {
+    display as error "  FAIL: open guard path (rc=`=_rc')"
+    local ++fail
+}
+
 capture erase "`xlsx'"
 capture erase "`csv'"
 capture erase "`md'"
+capture erase "`style_xlsx'"
+capture erase "`style_status'"
 
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {

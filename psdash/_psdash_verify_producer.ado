@@ -1,4 +1,4 @@
-*! _psdash_verify_producer Version 1.6.8  2026/08/11
+*! _psdash_verify_producer Version 1.6.9  2026/08/30
 *! Call a producer package's own validity/signature guard before trusting its
 *! post-estimation contract; fail closed on stale, unsigned, or unverifiable state
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -18,7 +18,7 @@
 * itself exits 111/198/459/498 is a genuine REJECTION and must be propagated, not
 * mistaken for an absent producer.
 
-program define _psdash_verify_producer
+program define _psdash_verify_producer, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off

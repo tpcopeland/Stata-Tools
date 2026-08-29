@@ -476,6 +476,8 @@ else {
 * FINAL SUMMARY
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 
 **# ===== merged from validation_tvtools.do L20543-20761: TVAGE expanded validation =====
@@ -699,6 +701,8 @@ else {
 }
 
 }
+local _qa_capture_rc_485 = _rc
+if `_qa_capture_rc_485' exit `_qa_capture_rc_485'
 
 
 * ===== Summary =====

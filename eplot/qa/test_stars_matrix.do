@@ -83,11 +83,8 @@ local failed_tests ""
 
 display _newline "EPLOT STARS AND MATRIX REGRESSION TESTS"
 display "Date: `c(current_date)' `c(current_time)'"
-display _dup(70) "="
 
-* =============================================================================
 **# BUG FIX: Stars + eform p-value computation (CRITICAL)
-* =============================================================================
 
 * Test 1: Stars p-values computed from original b/se, not exp(b)/se
 local ++test_count
@@ -188,9 +185,7 @@ else {
     local failed_tests "`failed_tests' 2"
 }
 
-* =============================================================================
 **# BUG FIX: type() special rows bypass if/in filtering
-* =============================================================================
 
 * Test 3: type() with in condition respects row range
 local ++test_count
@@ -264,9 +259,7 @@ else {
     local failed_tests "`failed_tests' 5"
 }
 
-* =============================================================================
 **# BUG FIX: Matrix mode style(), xlabel(), sigcolors, stars
-* =============================================================================
 
 * Test 6: Matrix mode accepts style()
 local ++test_count
@@ -368,6 +361,10 @@ foreach sty in forest coef lancet jama nejm bmj {
         matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2)
         matrix rownames R = "A" "B"
         eplot, matrix(R) style(`sty')
+        matrix T = r(table)
+        assert rowsof(T) == 2
+        assert colsof(T) == 3
+        assert !missing(T[1, 1], T[1, 2], T[1, 3])
     }
     if _rc != 0 {
         display as error "  FAIL [11.`sty']: style(`sty') in matrix mode"
@@ -383,9 +380,7 @@ else {
     local failed_tests "`failed_tests' 11"
 }
 
-* =============================================================================
 **# BUG FIX: Auto-note without weights
-* =============================================================================
 
 * Test 12: Auto-note doesn't claim weighted boxes when no weights given
 local ++test_count
@@ -437,9 +432,7 @@ else {
     local failed_tests "`failed_tests' 13"
 }
 
-* =============================================================================
 **# NEW FEATURE: favors() annotation
-* =============================================================================
 
 * Test 14: favors() in data mode
 local ++test_count
@@ -508,9 +501,7 @@ else {
     local failed_tests "`failed_tests' 16"
 }
 
-* =============================================================================
 **# NEW FEATURE: Auto-detect effect label from e(cmd)
-* =============================================================================
 
 * Test 17: logit -> "Odds Ratio"
 local ++test_count
@@ -589,9 +580,7 @@ else {
     local failed_tests "`failed_tests' 20"
 }
 
-* =============================================================================
 **# NEW FEATURE: Interaction term note
-* =============================================================================
 
 * Test 21: Interaction terms emit note (captured in return)
 local ++test_count
@@ -613,9 +602,7 @@ else {
     local failed_tests "`failed_tests' 21"
 }
 
-* =============================================================================
 **# NEW FEATURE: r(pvalues) return vector
-* =============================================================================
 
 * Test 22: r(pvalues) returned in single-model estimates mode
 local ++test_count
@@ -689,9 +676,7 @@ else {
 }
 capture estimates drop m1 m2
 
-* =============================================================================
 **# NEW FEATURE: r(k) return scalar
-* =============================================================================
 
 * Test 24: r(k) in estimates mode
 local ++test_count
@@ -753,9 +738,7 @@ else {
     local failed_tests "`failed_tests' 26"
 }
 
-* =============================================================================
 **# NEW FEATURE: style(nejm) and style(bmj)
-* =============================================================================
 
 * Test 27: style(nejm) in estimates mode
 local ++test_count
@@ -815,9 +798,7 @@ else {
     local failed_tests "`failed_tests' 29"
 }
 
-* =============================================================================
 **# Data preservation
-* =============================================================================
 
 * Test 30: Data preserved after all new options
 local ++test_count
@@ -840,9 +821,7 @@ else {
     local failed_tests "`failed_tests' 30"
 }
 
-* =============================================================================
 **# Varabbrev restore
-* =============================================================================
 
 * Test 31: varabbrev restored after eplot with new features
 local ++test_count
@@ -880,9 +859,7 @@ else {
     local failed_tests "`failed_tests' 32"
 }
 
-* =============================================================================
 **# Matrix mode + keep/drop + stars interaction
-* =============================================================================
 
 * Test 33: Matrix mode stars correct after drop
 local ++test_count
@@ -948,13 +925,9 @@ else {
     local failed_tests "`failed_tests' 35"
 }
 
-* =============================================================================
 **# Summary
-* =============================================================================
 
-display _newline _dup(70) "="
 display "TEST SUMMARY"
-display _dup(70) "-"
 display as text "Total:        `test_count'"
 display as result "Passed:       `pass_count'"
 display "RESULT: test_stars_matrix tests=35 pass=`pass_count' fail=`fail_count' skip=0"
@@ -965,7 +938,6 @@ if `fail_count' > 0 {
 else {
     display as text "Failed:       `fail_count'"
 }
-display _dup(70) "="
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED. Review output above."

@@ -103,7 +103,7 @@ else {
 
 local ++test_count
 use "`ENGINE'", clear
-capture cf _all using "`ORACLE'"
+capture _tvtools_qa_assert_cf_all_exact using "`ORACLE'"
 if _rc == 0 local ++pass_count
 else {
     di as error "POINT inner SET mismatch (cf rc=`=_rc')"
@@ -154,7 +154,7 @@ else {
 
 local ++test_count
 use "`ENGINE_UM'", clear
-capture cf _all using "`ORACLE_UM'"
+capture _tvtools_qa_assert_cf_all_exact using "`ORACLE_UM'"
 if _rc == 0 local ++pass_count
 else {
     di as error "POINT unmatched SET mismatch (cf rc=`=_rc')"

@@ -2982,6 +2982,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 capture noisily {
 
@@ -3460,6 +3462,8 @@ else {
 * FINAL SUMMARY
 
 }
+local _qa_capture_rc_2986 = _rc
+if `_qa_capture_rc_2986' exit `_qa_capture_rc_2986'
 
 capture noisily {
 
@@ -4154,6 +4158,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_3464 = _rc
+if `_qa_capture_rc_3464' exit `_qa_capture_rc_3464'
 
 
 * ===== Summary =====

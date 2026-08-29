@@ -2,7 +2,9 @@
 * Usage: cd logdoc/qa && stata-mp -b do run_all.do [quick|core|full]
 
 clear all
+set processors 1
 set more off
+set varabbrev off
 capture log close _all
 
 local qa_dir = regexr("`c(pwd)'", "/+$", "")
@@ -13,19 +15,31 @@ if _rc {
 }
 local pkg_dir = regexr("`qa_dir'", "/qa/?$", "")
 
-local lane = lower(strtrim("`1'"))
+args lane extra
+local lane = lower(strtrim("`lane'"))
 if "`lane'" == "" local lane "full"
-if !inlist("`lane'", "quick", "core", "full") {
+if "`extra'" != "" | !inlist("`lane'", "quick", "core", "full") {
     display as error "lane must be quick, core, or full"
     exit 198
 }
 
+local orig_plus "`c(sysdir_plus)'"
+local orig_personal "`c(sysdir_personal)'"
+tempfile run_token
+local plus_dir "`run_token'_logdoc_plus"
+local personal_dir "`run_token'_logdoc_personal"
+capture mkdir "`plus_dir'"
+capture mkdir "`personal_dir'"
+sysdir set PLUS "`plus_dir'"
+sysdir set PERSONAL "`personal_dir'"
+discard
+
 local suites "test_logdoc test_logdoc_py"
 if "`lane'" == "core" {
-    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_hostile test_logdoc_errors"
+    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_hostile test_logdoc_errors"
 }
 if "`lane'" == "full" {
-    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_hostile test_logdoc_errors"
+    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_hostile test_logdoc_errors"
     local suites "`suites' test_logdoc_refactor_guards test_logdoc_v111 test_logdoc_v112"
 }
 
@@ -54,6 +68,10 @@ foreach f of local suites {
         display as result "PASSED: `f'.do"
     }
 }
+
+sysdir set PLUS "`orig_plus'"
+sysdir set PERSONAL "`orig_personal'"
+discard
 
 display ""
 display as result "=== QA Summary (`lane'): `pass' passed, `fail' failed ==="

@@ -281,6 +281,8 @@ capture noisily {
     local returned_n_cumulative = r(n_cumulative)
     local returned_n_categorical = r(n_categorical)
     local returned_n_invalid = r(n_invalid)
+    * Dynamic families r(n_invalid_ds) and r(n_input_overlaps_ds) are covered
+    * through the exact ds1-ds4 members asserted below.
     local returned_n_invalid_ds1 = r(n_invalid_ds1)
     local returned_n_input_overlaps = r(n_input_overlaps)
     local returned_n_input_overlaps_ds1 = r(n_input_overlaps_ds1)

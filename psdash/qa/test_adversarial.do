@@ -19,11 +19,11 @@ local fail_count = 0
 
 * T1: Completely empty command — no subcommand, no data, no estimation context
 local ++test_count
-capture noisily {
-    clear
-    psdash
-}
+clear
+set varabbrev on
+capture noisily psdash
 if _rc == 0 {
+    assert "`c(varabbrev)'" == "on"
     display as result "  PASS: T1 bare psdash shows help without error"
     local ++pass_count
 }
@@ -45,25 +45,23 @@ local ++pass_count
 
 * T3: String variable as treatment
 local ++test_count
-capture noisily {
-    clear
-    input str10 treat double ps
-    "drug" 0.3
-    "placebo" 0.7
-    end
-    psdash overlap treat ps, nograph
-}
-assert _rc != 0
+clear
+input str10 treat double ps
+"drug" 0.3
+"placebo" 0.7
+end
+capture noisily psdash overlap treat ps, nograph
+assert _rc == 7
+confirm string variable treat
 display as result "  PASS: T3 string treatment rejected"
 local ++pass_count
 
 * T4: No data in memory at all
 local ++test_count
-capture noisily {
-    clear
-    psdash overlap, nograph
-}
+clear
+capture noisily psdash overlap, nograph
 assert _rc != 0
+assert _N == 0
 display as result "  PASS: T4 no data rejected"
 local ++pass_count
 
@@ -158,15 +156,15 @@ else {
 
 * T11: All PS exactly 0.5 — zero SD in PS, but balance should still work
 local ++test_count
-capture noisily {
-    clear
-    set obs 100
-    gen byte treat = mod(_n, 2)
-    gen double ps = 0.5
-    gen double x1 = rnormal()
-    psdash balance treat ps, covariates(x1) nowvar
-}
+clear
+set obs 100
+gen byte treat = mod(_n, 2)
+gen double ps = 0.5
+gen double x1 = rnormal()
+capture noisily psdash balance treat ps, covariates(x1) nowvar
 if _rc == 0 {
+    assert !missing(r(N))
+    assert r(N) == 100
     display as result "  PASS: T11 constant PS handled"
     local ++pass_count
 }
@@ -307,17 +305,23 @@ else {
 
 * T19: User variable named _psdash_ps already exists (used internally)
 local ++test_count
-capture noisily {
-    clear
-    set obs 100
-    gen byte treat = mod(_n, 2)
-    gen double _psdash_ps = runiform()
-    gen double x1 = rnormal()
-    logit treat x1
-    predict double my_ps, pr
-    psdash overlap treat my_ps, nograph
-}
+clear
+set obs 100
+gen byte treat = mod(_n, 2)
+gen double _psdash_ps = runiform()
+gen double x1 = rnormal()
+quietly summarize _psdash_ps, meanonly
+local ps_sum_before = r(sum)
+logit treat x1
+predict double my_ps, pr
+capture noisily psdash overlap treat my_ps, nograph
 if _rc == 0 {
+    assert !missing(r(N))
+    assert r(N) == 100
+    quietly summarize _psdash_ps, meanonly
+    assert !missing(r(sum))
+    assert !missing(`ps_sum_before')
+    assert reldif(r(sum), `ps_sum_before') < 1e-12
     display as result "  PASS: T19 existing _psdash_ps no collision with manual PS"
     local ++pass_count
 }
@@ -381,16 +385,17 @@ local ++pass_count
 
 * T24: generate() already exists WITH replace — should succeed
 local ++test_count
-capture noisily {
-    clear
-    set obs 100
-    gen byte treat = mod(_n, 2)
-    gen double ps = runiform() * 0.8 + 0.1
-    gen byte in_support = 1
-    psdash support treat ps, generate(in_support) replace nograph
-}
+clear
+set obs 100
+gen byte treat = mod(_n, 2)
+gen double ps = runiform() * 0.8 + 0.1
+gen byte in_support = 1
+capture noisily psdash support treat ps, generate(in_support) replace nograph
 if _rc == 0 {
     confirm variable in_support
+    assert inlist(in_support, 0, 1)
+    assert !missing(r(N))
+    assert r(N) == 100
     display as result "  PASS: T24 generate() with replace succeeds"
     local ++pass_count
 }
@@ -685,40 +690,41 @@ local ++pass_count
 
 * T45: varabbrev restored on success
 local ++test_count
-capture noisily {
-    set varabbrev on
-    clear
-    set obs 100
-    gen byte treat = mod(_n, 2)
-    gen double ps = runiform() * 0.8 + 0.1
-    psdash overlap treat ps, nograph
-}
+set varabbrev on
+clear
+set obs 100
+gen byte treat = mod(_n, 2)
+gen double ps = runiform() * 0.8 + 0.1
+capture noisily psdash overlap treat ps, nograph
+assert _rc == 0
 assert c(varabbrev) == "on"
+assert !missing(r(N))
+assert r(N) == 100
 display as result "  PASS: T45 varabbrev restored after success"
 local ++pass_count
 
 * T46: varabbrev restored on error
 local ++test_count
 set varabbrev on
-capture noisily {
-    clear
-    psdash overlap
-}
+clear
+capture noisily psdash overlap
+assert _rc != 0
 assert c(varabbrev) == "on"
 display as result "  PASS: T46 varabbrev restored after error"
 local ++pass_count
 
 * T47: varabbrev restored when initially off
 local ++test_count
-capture noisily {
-    set varabbrev off
-    clear
-    set obs 100
-    gen byte treat = mod(_n, 2)
-    gen double ps = runiform() * 0.8 + 0.1
-    psdash overlap treat ps, nograph
-}
+set varabbrev off
+clear
+set obs 100
+gen byte treat = mod(_n, 2)
+gen double ps = runiform() * 0.8 + 0.1
+capture noisily psdash overlap treat ps, nograph
+assert _rc == 0
 assert c(varabbrev) == "off"
+assert !missing(r(N))
+assert r(N) == 100
 display as result "  PASS: T47 varabbrev=off preserved"
 local ++pass_count
 set varabbrev on
@@ -726,11 +732,9 @@ set varabbrev on
 * T48: varabbrev restored from router on bogus subcommand
 local ++test_count
 set varabbrev on
-capture noisily {
-    clear
-    sysuse auto, clear
-    psdash nonsense_subcmd
-}
+sysuse auto, clear
+capture noisily psdash nonsense_subcmd
+assert _rc == 198
 assert c(varabbrev) == "on"
 display as result "  PASS: T48 varabbrev restored from router error"
 local ++pass_count
@@ -846,6 +850,9 @@ capture noisily {
     teffects ipw (y) (treat x1 x2)
     psdash overlap, nograph
     psdash overlap, nograph
+    assert !missing(r(N))
+    assert r(N) == 500
+    assert "`r(treatment)'" == "treat"
 }
 if _rc == 0 {
     display as result "  PASS: T52 repeated overlap after teffects works"
@@ -882,6 +889,9 @@ capture noisily {
 }
 if _rc == 0 {
     confirm variable supp_flag2
+    assert inlist(supp_flag2, 0, 1)
+    assert !missing(r(N))
+    assert r(N) == 200
     display as result "  PASS: T54 second generate with replace works"
     local ++pass_count
 }
@@ -934,6 +944,10 @@ capture noisily {
     logit treat x1
     predict double ps_var, pr
     psdash overlap ps_var, nograph
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "ps_var"
+    assert !missing(r(N))
+    assert r(N) == 200
 }
 if _rc == 0 {
     display as result "  PASS: T57 single arg after logit interpreted as PS"
@@ -999,6 +1013,9 @@ capture noisily {
     gen float treat = mod(_n, 2)
     gen double ps = runiform() * 0.8 + 0.1
     psdash overlap treat ps, nograph
+    assert !missing(r(N))
+    assert r(N) == 100
+    assert "`r(treatment)'" == "treat"
 }
 if _rc == 0 {
     display as result "  PASS: T60 float 0/1 treatment accepted"
@@ -1061,6 +1078,10 @@ capture noisily {
     replace x1 = . in 1/20
     replace x2 = . in 180/200
     psdash balance treat ps, covariates(x1 x2) nowvar
+    assert !missing(r(n_cov_incomplete))
+    assert r(n_cov_incomplete) == 2
+    assert !missing(r(n_cov_min))
+    assert r(n_cov_min) == 179
 }
 if _rc == 0 {
     display as result "  PASS: T63 pairwise missingness handled"
@@ -1242,6 +1263,9 @@ capture noisily {
     gen byte treat = mod(_n, 2)
     gen double ps = runiform() * 0.8 + 0.1
     psdash combined treat ps, nobalance
+    assert !missing(r(n_panels))
+    assert r(n_panels) == 3
+    assert inlist("`r(verdict)'", "PASS", "FAIL")
 }
 if _rc == 0 {
     display as result "  PASS: T73 combined with nobalance skips covariate requirement"
@@ -1348,7 +1372,10 @@ capture noisily {
     gen byte include = treat != 3
     psdash overlap treat if include, psvars(ps1 ps2 ps3) nograph
 }
-assert _rc != 0
+assert _rc == 198
+assert _N == 150
+quietly count if treat == 3
+assert r(N) == 50
 display as result "  PASS: T79 multi-group empty group after if rejected"
 local ++pass_count
 

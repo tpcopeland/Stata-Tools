@@ -1,4 +1,4 @@
-*! _tvexpose_fast_data Version 1.17.0  2026/08/28
+*! _tvexpose_fast_data Version 1.17.1  2026/08/30
 *! Test whether cleaned episodes satisfy the fast constructor's data contract
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

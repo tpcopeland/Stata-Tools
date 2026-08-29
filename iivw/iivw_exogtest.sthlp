@@ -39,13 +39,13 @@
 {synopt:{opt time(varname)}}visit or test time, numeric{p_end}
 
 {syntab:Model}
-{synopt:{opt adj:ust(varlist)}}baseline or design covariates to condition on{p_end}
+{synopt:{opt adj:ust(varlist)}}conditioning baseline/design covariates{p_end}
 {synopt:{opt by(varname)}}separate diagnostics by level{p_end}
 {synopt:{opt byst:art}}allow time-varying {opt by()} (start values){p_end}
 {synopt:{opt ent:ry(varname)}}subject-specific study entry time{p_end}
 {synopt:{opt cens:or(varname)}}subject-specific end of follow-up{p_end}
 {synopt:{opt max:fu(#)}}common end of follow-up for all subjects{p_end}
-{synopt:{opt endatlast:visit}}follow-up ends at each subject's last visit{p_end}
+{synopt:{opt endatlast:visit}}follow-up ends at the last visit{p_end}
 
 {syntab:Generated lags}
 {synopt:{opt gen:erate(name)}}lag-variable prefix; default {cmd:_iivw_exog_}{p_end}
@@ -58,7 +58,7 @@
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Excel export}
-{synopt:{opt xlsx(filename)}}write the exogeneity table to an Excel workbook{p_end}
+{synopt:{opt xlsx(filename)}}write the exogeneity table to Excel{p_end}
 {synopt:{opt sheet(sheetname)}}Excel worksheet name; default {cmd:Exogeneity}{p_end}
 {synopt:{opt title(string)}}optional Excel title row{p_end}
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
@@ -69,7 +69,7 @@
 {synopt:{opt font(string)}}font family; default {cmd:Arial}{p_end}
 {synopt:{opt fontsize(#)}}font size in points; default {cmd:10}{p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra RGB fill; requires {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -272,9 +272,8 @@ the same layout with medium lines. {cmd:academic} uses a three-rule
 for {cmd:thin}.
 
 {phang}
-{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets
-its point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.
-Both options require {opt xlsx()}.
+{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its
+point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}. Both options require {opt xlsx()}.
 
 {phang}
 {opt headershade} shades the header rows. It is off by default so that output
@@ -399,38 +398,38 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2:Scalars}{p_end}
 {synopt:{cmd:r(N)}}total usable intervals across fitted models{p_end}
-{synopt:{cmd:r(n_ids)}}subjects summed over fitted models (see note){p_end}
+{synopt:{cmd:r(n_ids)}}subjects represented across fitted models{p_end}
 {synopt:{cmd:r(n_models)}}number of fitted Cox models{p_end}
 {synopt:{cmd:r(n_skipped)}}number of skipped groups{p_end}
-{synopt:{cmd:r(n_groups)}}number of groups examined, fitted and skipped{p_end}
+{synopt:{cmd:r(n_groups)}}groups examined, fitted, and skipped{p_end}
 {synopt:{cmd:r(n_terms)}}number of lagged terms tested{p_end}
 {synopt:{cmd:r(min_p)}}minimum unadjusted Wald p-value{p_end}
 {synopt:{cmd:r(joint_min_p)}}minimum raw within-group omnibus p-value{p_end}
-{synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
+{synopt:{cmd:r(holm_min_p)}}minimum Holm-adjusted omnibus p-value{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
 {synopt:{cmd:r(n_unknown)}}groups fitted but not interpretable{p_end}
 {synopt:{cmd:r(n_tests)}}groups in the Holm family{p_end}
 {synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
-{synopt:{cmd:r(tie_multiplicity)}}modeled events per distinct event time (1 if untied){p_end}
-{synopt:{cmd:r(n_event_times)}}distinct event times in the exogeneity models{p_end}
+{synopt:{cmd:r(tie_multiplicity)}}events per distinct time (1 if untied){p_end}
+{synopt:{cmd:r(n_event_times)}}distinct event times in exogeneity models{p_end}
 {synopt:{cmd:r(n_modeled_events)}}modeled events in the exogeneity models{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
 {synopt:{cmd:r(id)}}subject identifier{p_end}
 {synopt:{cmd:r(time)}}visit or measurement time variable{p_end}
-{synopt:{cmd:r(testvars)}}original variables tested through lagged values{p_end}
-{synopt:{cmd:r(lagvars)}}generated lag variables used in the Cox models{p_end}
+{synopt:{cmd:r(testvars)}}variables tested through lagged values{p_end}
+{synopt:{cmd:r(lagvars)}}generated lags used in Cox models{p_end}
 {synopt:{cmd:r(adjust)}}adjustment variables{p_end}
 {synopt:{cmd:r(by)}}by variable, if specified{p_end}
 {synopt:{cmd:r(group_label_}{it:#}{cmd:)}}label of group {it:#}, for {it:#} = 1 to {cmd:r(n_groups)}{p_end}
-{synopt:{cmd:r(skipped_label_}{it:#}{cmd:)}}label of skipped group {it:#}, for {it:#} = 1 to {cmd:r(n_skipped)}{p_end}
-{synopt:{cmd:r(unknown_label_}{it:#}{cmd:)}}label of unknown group {it:#}, for {it:#} = 1 to {cmd:r(n_unknown)}{p_end}
-{synopt:{cmd:r(term_label_}{it:#}{cmd:)}}label of lagged term {it:#}, for {it:#} = 1 to {cmd:r(n_terms)}{p_end}
+{synopt:{cmd:r(skipped_label_}{it:#}{cmd:)}}label for skipped group {it:#}{p_end}
+{synopt:{cmd:r(unknown_label_}{it:#}{cmd:)}}label for unknown group {it:#}{p_end}
+{synopt:{cmd:r(term_label_}{it:#}{cmd:)}}label for lagged term {it:#}{p_end}
 {synopt:{cmd:r(result_row_labels)}}row labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(result_columns)}}column labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(conclusion)}}short diagnostic conclusion{p_end}
-{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
+{synopt:{cmd:r(xlsx)}}written workbook; only with {opt xlsx()}{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}

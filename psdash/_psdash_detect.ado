@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.6.8  2026/08/11
+*! _psdash_detect Version 1.6.9  2026/08/30
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -30,10 +30,11 @@ USAGE:
         samplevar(varname) reference(string) psvars(varlist)]
 */
 
-program define _psdash_detect
+program define _psdash_detect, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _psdash_early_success = 0
     capture noisily {
 
     * Parse using anything to avoid varlist greedy parsing issues
@@ -119,7 +120,8 @@ program define _psdash_detect
                 c_local _psd_source "manual"
                 if "`estimand'" == "" local estimand "ate"
                 c_local _psd_estimand "`estimand'"
-                exit
+                local _psdash_early_success = 1
+                exit 498
             }
             display as error "treatment must have at least 2 levels"
             exit 198
@@ -391,7 +393,8 @@ program define _psdash_detect
                 c_local _psd_wvar_auto "1"
             }
         }
-        exit
+        local _psdash_early_success = 1
+        exit 498
     }
 
     * -----------------------------------------------------------------
@@ -505,7 +508,8 @@ program define _psdash_detect
             c_local _psd_iivw_treatment_wvar "`iivw_twvar'"
             c_local _psd_iivw_final_wvar "`iivw_wvar_final'"
             c_local _psd_iivw_visit_wvar "`iivw_iwvar'"
-            exit
+            local _psdash_early_success = 1
+            exit 498
         }
     }
 
@@ -598,7 +602,8 @@ program define _psdash_detect
             c_local _psd_levels "0 1"
             c_local _psd_reference "0"
             c_local _psd_estimand "`msm_estimand'"
-            exit
+            local _psdash_early_success = 1
+            exit 498
         }
     }
 
@@ -689,7 +694,8 @@ program define _psdash_detect
             c_local _psd_levels "0 1"
             c_local _psd_reference "0"
             c_local _psd_estimand "`tte_estimand'"
-            exit
+            local _psdash_early_success = 1
+            exit 498
         }
     }
 
@@ -871,7 +877,8 @@ program define _psdash_detect
             c_local _psd_wvar_auto "1"
         }
 
-        exit
+        local _psdash_early_success = 1
+        exit 498
     }
 
     * -----------------------------------------------------------------
@@ -1004,7 +1011,8 @@ program define _psdash_detect
         c_local _psd_levels "0 1"
         c_local _psd_reference "0"
         c_local _psd_estimand "`ltmle_estimand'"
-        exit
+        local _psdash_early_success = 1
+        exit 498
     }
 
     * -----------------------------------------------------------------
@@ -1128,7 +1136,8 @@ program define _psdash_detect
                     if "`estimand'" == "" local estimand "ate"
                     c_local _psd_estimand "`estimand'"
                     c_local _psd_source "teffects"
-                    exit
+                    local _psdash_early_success = 1
+                    exit 498
                 }
                 display as error "treatment must have at least 2 levels"
                 exit 198
@@ -1391,7 +1400,8 @@ program define _psdash_detect
 
             c_local _psd_estimand "`estimand'"
             c_local _psd_source "teffects"
-            exit
+            local _psdash_early_success = 1
+            exit 498
         }
         else {
             display as error "unable to parse teffects command line"
@@ -1497,7 +1507,8 @@ program define _psdash_detect
         if "`estimand'" == "" local estimand "ate"
         c_local _psd_estimand "`estimand'"
         c_local _psd_source "estimation"
-        exit
+        local _psdash_early_success = 1
+        exit 498
     }
 
     * -----------------------------------------------------------------
@@ -1616,7 +1627,8 @@ program define _psdash_detect
         if "`estimand'" == "" local estimand "ate"
         c_local _psd_estimand "`estimand'"
         c_local _psd_source "estimation"
-        exit
+        local _psdash_early_success = 1
+        exit 498
     }
 
     * -----------------------------------------------------------------
@@ -1638,6 +1650,10 @@ program define _psdash_detect
 
     } // capture noisily
     local rc = _rc
+    if `_psdash_early_success' & `rc' == 498 {
+        local rc = 0
+        return clear
+    }
     set varabbrev `_vao'
     if `rc' exit `rc'
 end
