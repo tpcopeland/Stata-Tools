@@ -1,10 +1,14 @@
-*! _psdash_contract_info Version 1.6.8  2026/08/11
+*! _psdash_contract_info Version 1.6.9  2026/08/30
 *! Machine-readable producer compatibility matrix for psdash
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define _psdash_contract_info, rclass
     version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
     gettoken source extra : 0
     local source = lower(strtrim("`source'"))
     if "`source'" == "" | strtrim("`extra'") != "" | ///
@@ -55,4 +59,8 @@ program define _psdash_contract_info, rclass
     return local min_version "`min_version'"
     return local max_version "`max_version'"
     return local fields "`fields'"
+    }
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' exit `rc'
 end

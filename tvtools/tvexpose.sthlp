@@ -44,7 +44,7 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt id(varname)}}person identifier linking to master dataset{p_end}
-{synopt:{opt start(varname)}}start date of exposure period in using dataset{p_end}
+{synopt:{opt start(varname)}}exposure-period start date in using data{p_end}
 {synopt:{opt exposure(varname)}}categorical exposure or dose variable{p_end}
 {synopt:{opt reference(#)}}unexposed/reference value{p_end}
 {synopt:{opt entry(varname)}}study entry date from master dataset{p_end}
@@ -52,53 +52,53 @@
 
 {syntab:Core options}
 {synopt:{opt stop(varname)}}exposure-period end date{p_end}
-{synopt:{opt pointtime}}data are point-in-time (start only, no stop date){p_end}
+{synopt:{opt pointtime}}point-in-time data (start only){p_end}
 
 {syntab:Exposure definition}
-{synopt:[none specified]}basic time-varying implementation of exposures{p_end}
+{synopt:[none specified]}basic time-varying exposure mode{p_end}
 {synopt:{opt ever:treated}}binary ever/never exposure{p_end}
 {synopt:{opt cur:rentformer}}never/current/former exposure{p_end}
 {synopt:{opt duration(numlist)}}cumulative-duration categories{p_end}
 {synopt:{opt continuousunit(unit)}}cumulative-exposure unit{p_end}
 {synopt:{opt expandunit(unit)}}continuous-exposure row granularity{p_end}
-{synopt:{opt bytype}}create separate variables for each exposure type{p_end}
+{synopt:{opt bytype}}separate variable per exposure type{p_end}
 {synopt:{opt recency(numlist)}}time since last exposure categories{p_end}
 {synopt:{opt recencyunit(unit)}}unit for {cmd:recency()}: days or years{p_end}
 {synopt:{opt dose}}track cumulative dose{p_end}
-{synopt:{opt dosecuts(numlist)}}cutpoints for dose categorization (use with {cmd:dose}){p_end}
+{synopt:{opt dosecuts(numlist)}}dose-category cutpoints{p_end}
 
 {syntab:Data handling}
-{synopt:{opt grace(#)}}days grace period to merge gaps (default: 0){p_end}
-{synopt:{opt grace(exp=# exp=# ...)}}different grace periods by exposure category{p_end}
+{synopt:{opt grace(#)}}grace days to merge gaps; default 0{p_end}
+{synopt:{opt grace(exp=# exp=# ...)}}grace days by exposure category{p_end}
 {synopt:{opt merge(#)}}merge nearby same-type periods{p_end}
-{synopt:{opt fillgaps(#)}}assume exposure continues # days beyond last record{p_end}
-{synopt:{opt carryforward(#)}}carry forward last exposure # days through gaps{p_end}
+{synopt:{opt fillgaps(#)}}extend exposure # days past last record{p_end}
+{synopt:{opt carryforward(#)}}carry last exposure # days through gaps{p_end}
 {synopt:{opt dropinvalid}}drop malformed rows and report exact counts{p_end}
 
 {syntab:Competing exposures}
 {synopt:{opt layer}}later exposures take precedence{p_end}
 {synopt:{opt priority(numlist)}}priority order when periods overlap{p_end}
 {synopt:{opt split}}split overlapping periods at all boundaries{p_end}
-{synopt:{opt combine(newvar)}}create combined exposure variable for overlaps{p_end}
+{synopt:{opt combine(newvar)}}combined overlap-exposure variable{p_end}
 
 {syntab:Lag and washout}
 {synopt:{opt lag(#)}}days lag before exposure becomes active{p_end}
 {synopt:{opt washout(#)}}days exposure persists after stopping{p_end}
-{synopt:{opt window(# #)}}minimum and maximum days for acute exposure window{p_end}
+{synopt:{opt window(# #)}}acute-window minimum and maximum days{p_end}
 
 {syntab:Pattern tracking}
-{synopt:{opt switching}}create binary indicator for any exposure switching{p_end}
-{synopt:{opt switchingdetail}}create string variable showing switching pattern{p_end}
-{synopt:{opt statetime}}create cumulative time in current exposure state{p_end}
+{synopt:{opt switching}}indicator for any exposure switching{p_end}
+{synopt:{opt switchingdetail}}string describing switching pattern{p_end}
+{synopt:{opt statetime}}time accumulated in current exposure state{p_end}
 
 {syntab:Output}
 {synopt:{opt generate(newvar)}}output exposure variable name{p_end}
-{synopt:{opt referencelabel(text)}}label for reference category (default: "Unexposed"){p_end}
-{synopt:{opt label(text)}}custom variable label for output exposure variable{p_end}
+{synopt:{opt referencelabel(text)}}reference label; default "Unexposed"{p_end}
+{synopt:{opt label(text)}}custom label for output exposure variable{p_end}
 {synopt:{opt saveas(filename)}}save time-varying dataset to file{p_end}
-{synopt:{opt frameo:ut(name)}}place result in a frame; leave current data intact{p_end}
+{synopt:{opt frameo:ut(name)}}write result to frame; keep current data{p_end}
 {synopt:{opt replace}}overwrite existing output file or frame{p_end}
-{synopt:{opt keepvars(varlist)}}additional variables to keep from master dataset{p_end}
+{synopt:{opt keepvars(varlist)}}extra master variables to keep{p_end}
 {synopt:{opt keepdates}}keep entry and exit dates in output{p_end}
 
 {syntab:Diagnostics}
@@ -106,8 +106,8 @@
 {synopt:{opt gaps}}show persons with gaps in coverage{p_end}
 {synopt:{opt overlaps}}show overlapping exposure periods{p_end}
 {synopt:{opt summarize}}display exposure distribution summary{p_end}
-{synopt:{opt validate}}create validation dataset with coverage metrics{p_end}
-{synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
+{synopt:{opt validate}}create coverage-validation dataset{p_end}
+{synopt:{opt flow}}report attrition and return {cmd:r(flow)}{p_end}
 {synopt:{opt verbose}}show diagnostic IDs and dates{p_end}
 
 {synoptline}
@@ -727,7 +727,7 @@ months). To report years on that grid, specify
 
 {p2col 5 28 32 2: Macros}{p_end}
 {synopt:{cmd:r(genvar)}}generated exposure variable or stub{p_end}
-{synopt:{cmd:r(frameout)}}name of the output frame (if {opt frameout()} used){p_end}
+{synopt:{cmd:r(frameout)}}output frame name, if used{p_end}
 {synopt:{cmd:r(overlap_ids)}}IDs with initially detected class conflicts{p_end}
 {synopt:{cmd:r(recency_unit)}}normalized recency unit, if used{p_end}
 {synopt:{cmd:r(recency_cutdays)}}recency cutpoints converted to days{p_end}

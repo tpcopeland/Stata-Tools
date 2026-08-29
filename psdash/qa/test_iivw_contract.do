@@ -103,7 +103,10 @@ capture noisily {
     char _dta[_iivw_weight_var] "_iivw_weight"
     char _dta[_iivw_treat_covars] "_iivw_ps"
     capture noisily psdash overlap, nograph
-    assert _rc != 0
+    assert _rc == 459
+    assert _N == 100
+    local weighted : char _dta[_iivw_weighted]
+    assert "`weighted'" == "1"
 }
 _ct T1_fabricated_iivw_rejected `=_rc'
 

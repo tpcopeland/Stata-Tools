@@ -60,6 +60,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_final_adversarial.do` | Cross-surface hostile-input sweep. |
 | `test_iivw_fit_adversarial.do` | Outcome-model validation and rollback. |
 | `test_iivw_fit_unweighted.do` | Unweighted outcome-model route. |
+| `test_iivw_hostile.do` | Hostile-input and rollback checks across the public workflow. |
 | `test_iivw_inference_contract.do` | Variance, interval, and failed-replicate contracts. |
 | `test_iivw_interval_contract.do` | Visit intervals, censoring rows, and risk sets. |
 | `test_iivw_invariance.do` | Point-estimate invariance under visit-covariate transforms. |
@@ -100,6 +101,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_v310_regressions.do` | Baseline-event and trimming-unit regressions. |
 | `test_iivw_v341_regressions.do` | FIPTIW point-only default and explicit stacked route. |
 | `test_iivw_v343_regressions.do` | End-of-follow-up boundary tolerance, and agreement of the `iivw_weight`, `iivw_exogtest` and `iivw_balance` risk sets. |
+| `test_iivw_v401_regressions.do` | Baseline-event missing-weight refusal and demo return/state regressions. |
 | `test_iivw_weight_adversarial.do` | Weight construction hostile cases. |
 | `test_iivw_weight_validation_guards.do` | Weight-option validation and error codes. |
 

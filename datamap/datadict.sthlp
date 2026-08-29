@@ -32,43 +32,43 @@
 {synoptline}
 {syntab:Input {it:(choose at most one; default is data in memory)}}
 {synopt:{opt si:ngle(filename)}}document one {opt .dta} file{p_end}
-{synopt:{opt dir:ectory(path)}}document every {opt .dta} file in {it:path}{p_end}
-{synopt:{opt file:list(names)}}space-separated dataset names to document{p_end}
-{synopt:{opt man:ifest(filename)}}line-delimited dataset path manifest{p_end}
-{synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
+{synopt:{opt dir:ectory(path)}}document {opt .dta} files in {it:path}{p_end}
+{synopt:{opt file:list(names)}}document listed datasets{p_end}
+{synopt:{opt man:ifest(filename)}}read dataset paths from a manifest{p_end}
+{synopt:{opt rec:ursive}}also scan subdirectories{p_end}
 
 {syntab:Output}
-{synopt:{opt ou:tput(filename)}}Markdown output; default {bf:data_dictionary.md}{p_end}
+{synopt:{opt ou:tput(filename)}}Markdown output filename{p_end}
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
-{synopt:{opt outd:ir(path)}}with {opt separate}, write dictionaries to {it:path}{p_end}
-{synopt:{opt suf:fix(string)}}filename suffix; default {bf:_dictionary}{p_end}
-{synopt:{opt sav:ing(filename[, replace])}}save variable-level metadata dataset{p_end}
+{synopt:{opt outd:ir(path)}}directory for separate outputs{p_end}
+{synopt:{opt suf:fix(string)}}output suffix; default {bf:_dictionary}{p_end}
+{synopt:{opt sav:ing(filename[, replace])}}save variable metadata{p_end}
 
 {syntab:Document metadata}
-{synopt:{opt ti:tle(string)}}document title; default is {bf:Data Dictionary}{p_end}
-{synopt:{opt subt:itle(string)}}subtitle or description line{p_end}
-{synopt:{opt ver:sion(string)}}version number shown in header and footer{p_end}
-{synopt:{opt auth:or(string)}}author name for the footer{p_end}
-{synopt:{opt date(string)}}date string; default is the current date{p_end}
+{synopt:{opt ti:tle(string)}}document title{p_end}
+{synopt:{opt subt:itle(string)}}subtitle or description{p_end}
+{synopt:{opt ver:sion(string)}}document version text{p_end}
+{synopt:{opt auth:or(string)}}footer author{p_end}
+{synopt:{opt date(string)}}document date{p_end}
 
 {syntab:Content}
 {synopt:{opt note:s(string)}}notes text or file{p_end}
-{synopt:{opt change:log(string)}}changelog text, or path to a text file{p_end}
-{synopt:{opt miss:ing}}add a Missing column with count and percent{p_end}
+{synopt:{opt change:log(string)}}changelog text or file{p_end}
+{synopt:{opt miss:ing}}add missing counts and percents{p_end}
 {synopt:{opt st:ats}}add descriptive statistics{p_end}
 {synopt:{opt det:ail}}add technical metadata columns{p_end}
-{synopt:{opt col:umns(fields)}}select and order variable table columns{p_end}
+{synopt:{opt col:umns(fields)}}select and order columns{p_end}
 {synopt:{opt conf:ig(filename)}}load reusable defaults{p_end}
-{synopt:{opt datasig:nature}}include Stata {cmd:datasignature} in provenance{p_end}
+{synopt:{opt datasig:nature}}include {cmd:datasignature}{p_end}
 {synopt:{opt maxc:at(#)}}categorical cutoff; default {bf:25}{p_end}
 {synopt:{opt maxf:req(#)}}frequency display cap; default {bf:25}{p_end}
-{synopt:{opt uniqc:ap(#)}}unique values counted exactly; default {bf:1000}{p_end}
+{synopt:{opt uniqc:ap(#)}}exact-count cap; default {bf:1000}{p_end}
 {synopt:{opt minc:ell(#)}}suppress cells below {it:#}; default {bf:5}{p_end}
-{synopt:{opt exc:lude(varlist)}}omit sensitive vars from dictionary/metadata{p_end}
-{synopt:{opt cont:inuous(varlist)}}force vars into continuous{p_end}
-{synopt:{opt cat:egorical(varlist)}}force vars into categorical{p_end}
-{synopt:{opt datev:ars(varlist)}}force these variables into the date group{p_end}
-{synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
+{synopt:{opt exc:lude(varlist)}}omit sensitive variables{p_end}
+{synopt:{opt cont:inuous(varlist)}}force continuous classification{p_end}
+{synopt:{opt cat:egorical(varlist)}}force categorical classification{p_end}
+{synopt:{opt datev:ars(varlist)}}force date classification{p_end}
+{synopt:{opt datef:ormat(string)}}set the date display format{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -475,10 +475,10 @@ Or pass a short note inline:{p_end}
 {synoptline}
 
 {p2col 5 15 19 2: Macros}{p_end}
-{synopt:{cmd:r(output)}}combined output filename, or semicolon-delimited separate outputs{p_end}
+{synopt:{cmd:r(output)}}combined output or separate-output list{p_end}
 {synopt:{cmd:r(outputs)}}semicolon-delimited output filename list{p_end}
 {synopt:{cmd:r(files)}}semicolon-delimited source file list, or {bf:memory}{p_end}
-{synopt:{cmd:r(mode)}}memory/single/filelist/manifest/directory/directory_recursive{p_end}
+{synopt:{cmd:r(mode)}}input mode used{p_end}
 {synopt:{cmd:r(metadata)}}metadata dataset path, when {opt saving()} is specified{p_end}
 {synoptline}
 {p2colreset}{...}

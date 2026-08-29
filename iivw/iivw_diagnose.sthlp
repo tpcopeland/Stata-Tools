@@ -43,8 +43,8 @@
 {synopt:{opt force}}compare unlike estimands (descriptive){p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt xlsx(filename)}}write results to an Excel workbook{p_end}
-{synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
-{synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
+{synopt:{opt sh:eet(sheetname)}}worksheet; default {cmd:Diagnostics}{p_end}
+{synopt:{opt replace}}overwrite the named worksheet{p_end}
 {synopt:{opt open}}open the Excel workbook after writing it{p_end}
 {synopt:{opt t:itle(string)}}optional Excel title row{p_end}
 {synopt:{opt f:ootnote(string)}}optional Excel footnote row{p_end}
@@ -54,7 +54,7 @@
 {synopt:{opt font(string)}}font family; default {cmd:Arial}{p_end}
 {synopt:{opt fontsize(#)}}font size in points; default {cmd:10}{p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra RGB fill; requires {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -207,9 +207,8 @@ the same layout with medium lines. {cmd:academic} uses a three-rule
 for {cmd:thin}.
 
 {phang}
-{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets
-its point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.
-Both options require {opt xlsx()}.
+{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its
+point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}. Both options require {opt xlsx()}.
 
 {phang}
 {opt headershade} shades the header rows. It is off by default so that output
@@ -383,13 +382,13 @@ noncollapsibility as well as any real artifact.
 {synopt:{cmd:r(adjusted)}}stored adjusted model name{p_end}
 {synopt:{cmd:r(exogeneity)}}exogeneity setting{p_end}
 {synopt:{cmd:r(estimand)}}estimand setting{p_end}
-{synopt:{cmd:r(noncollapsible)}}why the link is not collapsible; empty if it is{p_end}
+{synopt:{cmd:r(noncollapsible)}}noncollapsibility reason; otherwise empty{p_end}
 {synopt:{cmd:r(depvar)}}outcome shared by the three models{p_end}
 {synopt:{cmd:r(ci_dist_unweighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(ci_dist_weighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(ci_dist_adjusted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(conclusion)}}interpretation category{p_end}
-{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
+{synopt:{cmd:r(xlsx)}}written workbook; only with {opt xlsx()}{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
 {synoptline}
 
@@ -397,7 +396,7 @@ noncollapsibility as well as any real artifact.
 {synoptline}
 {synopt:{cmd:r(estimates)}}model estimates and confidence limits{p_end}
 {synopt:{cmd:r(decomp)}}diagnostic decomposition quantities{p_end}
-{synopt:{cmd:r(bias)}}true-value bias quantities; only with {opt true()}{p_end}
+{synopt:{cmd:r(bias)}}true-value bias; only with {opt true()}{p_end}
 {synoptline}
 {p2colreset}{...}
 

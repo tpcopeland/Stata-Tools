@@ -112,14 +112,16 @@ if _rc == 0 local ++pass_count
 else local failed_tests "`failed_tests' 6"
 capture graph drop _all
 
-* Example 7: three-column matrix mode with exponentiation.
+* Example 7: three-column matrix mode with already exponentiated ratios.
 local ++test_count
 capture noisily {
     matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)
     matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"
-    eplot, matrix(R) eform effect("Odds Ratio") scheme(plotplainblind)
+    eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)
+    matrix T = r(table)
     assert r(N) == 3
     assert r(k) == 3
+    assert mreldif(T, R) < 1e-12
 }
 if _rc == 0 local ++pass_count
 else local failed_tests "`failed_tests' 7"
@@ -218,10 +220,13 @@ capture noisily {
     "Overall"     -0.28 -0.41 -0.15  .   5
     end
     eplot es lci uci, labels(study) weights(weight) type(type) values ///
-        vformat(%4.2f) i2("42.1") tau2("0.021") ///
+        vformat(%4.2f) i2("42.1%") tau2("0.021") ///
         qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)
+    local cmd `"`r(cmd)'"'
     assert r(N) == 7
     assert r(k) == 6
+    assert strpos(`"`cmd'"', "I-squared = 42.1%") > 0
+    assert strpos(`"`cmd'"', "42.1%%") == 0
 }
 if _rc == 0 local ++pass_count
 else local failed_tests "`failed_tests' 14"

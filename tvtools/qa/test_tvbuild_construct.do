@@ -81,7 +81,7 @@ program define _tvb_cf, rclass
     keep `varlist'
     order `varlist'
     sort `varlist'
-    capture cf _all using `"`using'"'
+    capture _tvtools_qa_assert_cf_all_exact using `"`using'"'
     return scalar rc = _rc
 end
 

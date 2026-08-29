@@ -574,16 +574,25 @@ else {
     local ++fail_count
 }
 
-* Test: tabtools rejects setting options in display mode
-capture {
-    tabtools, font(ComicSans)
+* Test: tabtools rejects every setting option in display mode
+capture noisily {
+    capture noisily tabtools, font(ComicSans)
+    assert _rc == 198
+    capture noisily tabtools, fontsize(11)
+    assert _rc == 198
+    capture noisily tabtools, borderstyle(thin)
+    assert _rc == 198
+    capture noisily tabtools, headercolor("200 220 240")
+    assert _rc == 198
+    capture noisily tabtools, zebracolor("245 245 245")
+    assert _rc == 198
 }
-if _rc == 198 {
-    display as result "  PASS: tabtools, font(...) - rc=198 outside tabtools set"
+if _rc == 0 {
+    display as result "  PASS: tabtools display mode rejects all setting options"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools, font(...) - expected rc=198, got `=_rc'"
+    display as error "  FAIL: tabtools display-mode setting guards (error `=_rc')"
     local ++fail_count
 }
 

@@ -617,6 +617,8 @@ foreach f in _gold_tvexp_cohort _gold_tvexp_rx ///
 }
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.

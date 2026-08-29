@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 4.0.0** | 2026-08-19
+**Version 4.0.1** | 2026-08-30
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -435,6 +435,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **4.0.1** (2026-08-30): Preserved unfitted `baseline(event)` weights as missing, made the demo restore caller state on failure, corrected its exogeneity return, and repaired Viewer-width documentation tables.
 - **4.0.0** (2026-08-19): Removed journal theme presets from reporting exports and added direct `font()` and `fontsize()` options.
 - **3.4.2** (2026-08-11): Restores `c(varabbrev)` on captured early-error and helper-success branches, makes every internal program class explicit, repairs the `iivw_fit` stored-results table width, and makes the coverage-gate runbook relocatable. The release QA now inventories every shipped `.ado` dynamically and regression-tests the session-state and documentation contracts.
 

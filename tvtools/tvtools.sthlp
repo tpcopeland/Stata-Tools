@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.17.0  28aug2026}{...}
+{* *! version 1.17.1  30aug2026}{...}
 {vieweralsosee "tvbuild" "help tvbuild"}{...}
 {vieweralsosee "tvspec" "help tvspec"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -69,15 +69,15 @@ workflow from data preparation through weighting and estimation.
 {bf:Data Preparation}
 
 {synoptset 16}{...}
-{synopt:{helpb tvbuild}}Build a committed interval frame from a cohort and its sources{p_end}
-{synopt:{helpb tvspec}}Build the multi-source specification frame {cmd:tvbuild} consumes{p_end}
-{synopt:{helpb tvexpose}}Create time-varying exposure variables for survival analysis{p_end}
+{synopt:{helpb tvbuild}}Build an interval frame from a cohort and sources{p_end}
+{synopt:{helpb tvspec}}Build the specification frame consumed by {cmd:tvbuild}{p_end}
+{synopt:{helpb tvexpose}}Create time-varying exposure variables{p_end}
 {synopt:{helpb tvmerge}}Merge multiple time-varying exposure datasets{p_end}
-{synopt:{helpb tvevent}}Integrate events and competing risks into time-varying datasets{p_end}
+{synopt:{helpb tvevent}}Add events and competing risks to interval data{p_end}
 {synopt:{helpb tvage}}Expand one-row-per-person follow-up into age bands{p_end}
 {synopt:{helpb tvband}}Split intervals along one date-derived axis{p_end}
-{synopt:{helpb tvsplit}}Multi-timescale (Lexis) splitting on several axes at once{p_end}
-{synopt:{helpb tvpanel}}Build a fixed-width, entry-anchored person-period panel for MSMs{p_end}
+{synopt:{helpb tvsplit}}Split across multiple Lexis timescales{p_end}
+{synopt:{helpb tvpanel}}Build an entry-anchored person-period panel{p_end}
 
 {pstd}
 {bf:Diagnostics}
@@ -87,7 +87,7 @@ workflow from data preparation through weighting and estimation.
 {pstd}
 {bf:Weighting}
 
-{synopt:{helpb tvweight}}Calculate inverse probability of treatment weights (IPTW){p_end}
+{synopt:{helpb tvweight}}Calculate inverse probability treatment weights{p_end}
 
 
 {marker workflow}{...}

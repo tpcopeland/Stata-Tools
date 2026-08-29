@@ -40,17 +40,17 @@
 {synopt:{opt cov:erage}}coverage diagnostics (requires entry/exit){p_end}
 {synopt:{opt gaps}}gap analysis between periods{p_end}
 {synopt:{opt over:laps}}overlap detection{p_end}
-{synopt:{opt sum:marize}}exposure distribution summary (requires exposure){p_end}
-{synopt:{opt all}}run coverage, gaps, overlaps, and summary when possible{p_end}
-{synopt:{opt swim:lane}}plot an exposure swimlane (interval bars per person){p_end}
+{synopt:{opt sum:marize}}exposure distribution summary{p_end}
+{synopt:{opt all}}run all available diagnostics{p_end}
+{synopt:{opt swim:lane}}plot interval swimlane by person{p_end}
 
 {syntab:Additional options}
 {synopt:{opt exp:osure(varname)}}exposure variable (required for summarize){p_end}
 {synopt:{opt entry(varname)}}study entry date (required for coverage){p_end}
 {synopt:{opt exit(varname)}}study exit date (required for coverage){p_end}
 {synopt:{opt thr:eshold(#)}}flag gaps exceeding # days (default: 30){p_end}
-{synopt:{opt max:ids(#)}}maximum persons to draw in the swimlane (default: 50){p_end}
-{synopt:{opt verbose}}display individual IDs and dates in diagnostic output{p_end}
+{synopt:{opt max:ids(#)}}maximum persons in swimlane; default 50{p_end}
+{synopt:{opt verbose}}list IDs and dates in diagnostic output{p_end}
 {synoptline}
 
 
@@ -213,22 +213,22 @@ detects it. The uncovered 21--24 January span is a four-day gap.
 {synopt:{cmd:r(n_persons)}}number of unique persons{p_end}
 {synopt:{cmd:r(n_observations)}}number of observations{p_end}
 {synopt:{cmd:r(coverage_run)}}1 if coverage was run; 0 otherwise{p_end}
-{synopt:{cmd:r(gaps_run)}}1 if gap analysis was run; 0 otherwise{p_end}
-{synopt:{cmd:r(overlaps_run)}}1 if overlap analysis was run; 0 otherwise{p_end}
-{synopt:{cmd:r(summarize_run)}}1 if exposure summary was run; 0 otherwise{p_end}
+{synopt:{cmd:r(gaps_run)}}whether gap analysis ran (0/1){p_end}
+{synopt:{cmd:r(overlaps_run)}}whether overlap analysis ran (0/1){p_end}
+{synopt:{cmd:r(summarize_run)}}whether exposure summary ran (0/1){p_end}
 {synopt:{cmd:r(mean_coverage)}}mean coverage percentage{p_end}
 {synopt:{cmd:r(min_coverage)}}minimum coverage percentage{p_end}
 {synopt:{cmd:r(max_coverage)}}maximum coverage percentage{p_end}
 {synopt:{cmd:r(n_with_gaps)}}persons with incomplete coverage{p_end}
 {synopt:{cmd:r(n_incomplete_coverage)}}alias of {cmd:r(n_with_gaps)}{p_end}
-{synopt:{cmd:r(n_coverage_gaps)}}uncovered segments across study windows{p_end}
-{synopt:{cmd:r(n_gaps)}}internal gaps between observed periods{p_end}
+{synopt:{cmd:r(n_coverage_gaps)}}uncovered study-window segments{p_end}
+{synopt:{cmd:r(n_gaps)}}gaps between observed periods{p_end}
 {synopt:{cmd:r(n_gap_ids)}}persons with internal gaps{p_end}
 {synopt:{cmd:r(mean_gap)}}mean internal-gap duration in days{p_end}
 {synopt:{cmd:r(median_gap)}}median internal-gap duration in days{p_end}
 {synopt:{cmd:r(max_gap)}}maximum internal-gap duration in days{p_end}
 {synopt:{cmd:r(n_large_gaps)}}gaps exceeding {opt threshold()}{p_end}
-{synopt:{cmd:r(n_large_gap_ids)}}persons with a gap exceeding {opt threshold()}{p_end}
+{synopt:{cmd:r(n_large_gap_ids)}}persons with gap over {opt threshold()}{p_end}
 {synopt:{cmd:r(n_overlaps)}}number of overlapping periods{p_end}
 {synopt:{cmd:r(n_overlap_ids)}}persons with overlapping periods{p_end}
 {synopt:{cmd:r(n_ids_affected)}}alias of {cmd:r(n_overlap_ids)}{p_end}

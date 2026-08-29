@@ -39,6 +39,8 @@ capture noisily {
 clear
 
 }
+local _qa_capture_rc_32 = _rc
+if `_qa_capture_rc_32' exit `_qa_capture_rc_32'
 
 capture noisily {
 local failed_tests ""
@@ -1579,6 +1581,8 @@ capture erase "$TVTOOLS_QA_RUN_DIR/overlap_exposure.dta"
 ********************************************************************************
 
 }
+local _qa_capture_rc_43 = _rc
+if `_qa_capture_rc_43' exit `_qa_capture_rc_43'
 
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.

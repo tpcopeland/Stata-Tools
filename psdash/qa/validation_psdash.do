@@ -574,13 +574,13 @@ else {
 **# V23: Package installation — all commands discoverable
 local ++test_count
 capture noisily {
-    which psdash
-    which psdash_overlap
-    which psdash_balance
-    which psdash_weights
-    which psdash_support
-    which psdash_combined
-    which _psdash_detect
+    local installed_commands psdash psdash_overlap psdash_balance ///
+        psdash_weights psdash_support psdash_combined _psdash_detect
+    foreach command of local installed_commands {
+        which `command'
+        findfile `command'.ado
+        assert strpos("`r(fn)'", "/`command'.ado") > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: V23 All commands discoverable"

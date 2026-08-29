@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.6.8  2026/08/11
+*! psdash_balance Version 1.6.9  2026/08/30
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

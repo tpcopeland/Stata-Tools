@@ -1,4 +1,4 @@
-*! logdoc_py Version 1.1.6  2026/08/24
+*! logdoc_py Version 1.1.7  2026/08/30
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -304,12 +304,13 @@ program define _logdoc_py_check_stata, rclass
     capture quietly python script "`pyscript_path'"
     local stata_rc = _rc
     capture erase "`pyscript_path'"
+    forvalues _once = 1/1 {
     if `stata_rc' {
         if "`verbose'" != "" {
             display as text "  rejected: Stata python: is not configured or failed to initialize"
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     if `"`_stata_pyexec'"' == "" {
@@ -317,7 +318,7 @@ program define _logdoc_py_check_stata, rclass
             display as text "  rejected: Stata python: did not report sys.executable"
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     if !regexm(`"`_stata_pyversion'"', "Python[ ]+([0-9]+)\.([0-9]+)(\.([0-9]+))?") {
@@ -325,7 +326,7 @@ program define _logdoc_py_check_stata, rclass
             display as text `"  rejected: did not report a Python version (`_stata_pyversion')"'
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     local major = real(regexs(1))
@@ -335,7 +336,7 @@ program define _logdoc_py_check_stata, rclass
             display as text `"  rejected: Python `major'.`minor' is older than 3.6"'
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     if "`_renderer_rc'" != "0" | "`_renderer_usage'" != "1" {
@@ -346,7 +347,7 @@ program define _logdoc_py_check_stata, rclass
             }
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     if "`verbose'" != "" {
@@ -356,6 +357,7 @@ program define _logdoc_py_check_stata, rclass
     return local python `"`_stata_pyexec'"'
     return local source "stata"
     return local version `"`_stata_pyversion'"'
+    }
 
     }
     local rc = _rc
@@ -381,12 +383,13 @@ program define _logdoc_py_check_candidate, rclass
     local cmdprefix `""`python'""'
     if `"`python'"' == "py -3" local cmdprefix "py -3"
 
+    forvalues _once = 1/1 {
     if `"`python'"' == "py -3" & "`c(os)'" != "Windows" {
         if "`verbose'" != "" {
             display as text "  rejected: py -3 is only checked on Windows"
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     tempfile pyver pyimport pysmoke
@@ -401,7 +404,7 @@ program define _logdoc_py_check_candidate, rclass
                 display as text `"  rejected: executable not found (`python')"'
             }
             return scalar ok = 0
-            exit 0
+            continue, break
         }
     }
     else if `"`python'"' != "py -3" {
@@ -418,7 +421,7 @@ program define _logdoc_py_check_candidate, rclass
                 display as text `"  rejected: command not found (`python')"'
             }
             return scalar ok = 0
-            exit 0
+            continue, break
         }
     }
 
@@ -431,7 +434,7 @@ program define _logdoc_py_check_candidate, rclass
             display as text `"  rejected: did not report a Python version (`version_line')"'
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     local major = real(regexs(1))
@@ -441,7 +444,7 @@ program define _logdoc_py_check_candidate, rclass
             display as text `"  rejected: Python `major'.`minor' is older than 3.6"'
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     quietly shell `cmdprefix' -c "import argparse,base64,datetime,difflib,html,mimetypes,os,re,sys; print('ok')" > "`pyimport'" 2>&1
@@ -451,7 +454,7 @@ program define _logdoc_py_check_candidate, rclass
             display as text "  rejected: required standard-library imports failed"
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     quietly shell `cmdprefix' "`renderer'" --help > "`pysmoke'" 2>&1
@@ -461,7 +464,7 @@ program define _logdoc_py_check_candidate, rclass
             display as text "  rejected: renderer smoke check failed"
         }
         return scalar ok = 0
-        exit 0
+        continue, break
     }
 
     if "`verbose'" != "" {
@@ -471,6 +474,7 @@ program define _logdoc_py_check_candidate, rclass
     return local python `"`python'"'
     return local source "`source'"
     return local version `"`version_line'"'
+    }
 
     }
     local rc = _rc
@@ -488,50 +492,46 @@ program define _logdoc_py_find_script
 
     syntax , result(name)
 
+    local _found ""
     capture findfile logdoc_render.py
     if _rc == 0 {
         local path "`r(fn)'"
         _logdoc_py_expand_tilde, path(`"`path'"') result(path)
         capture confirm file "`path'"
-        if !_rc {
-            c_local `result' `"`path'"'
-            exit 0
-        }
+        if !_rc local _found `"`path'"'
     }
 
-    foreach ado in logdoc_py.ado logdoc.ado {
-        capture findfile `ado'
-        if _rc == 0 {
-            local adopath "`r(fn)'"
-            _logdoc_py_expand_tilde, path(`"`adopath'"') result(adopath)
-            _logdoc_py_dirname, path(`"`adopath'"') result(adodir)
-            if "`adodir'" != "" {
-                capture confirm file "`adodir'/logdoc_render.py"
-                if !_rc {
-                    c_local `result' `"`adodir'/logdoc_render.py"'
-                    exit 0
+    if `"`_found'"' == "" {
+        foreach ado in logdoc_py.ado logdoc.ado {
+            capture findfile `ado'
+            if _rc == 0 {
+                local adopath "`r(fn)'"
+                _logdoc_py_expand_tilde, path(`"`adopath'"') result(adopath)
+                _logdoc_py_dirname, path(`"`adopath'"') result(adodir)
+                if "`adodir'" != "" {
+                    capture confirm file "`adodir'/logdoc_render.py"
+                    if !_rc {
+                        local _found `"`adodir'/logdoc_render.py"'
+                        continue, break
+                    }
                 }
             }
         }
     }
 
-    capture confirm file "logdoc_render.py"
-    if !_rc {
-        c_local `result' "logdoc_render.py"
-        exit 0
+    if `"`_found'"' == "" {
+        capture confirm file "logdoc_render.py"
+        if !_rc local _found "logdoc_render.py"
     }
-    capture confirm file "../logdoc_render.py"
-    if !_rc {
-        c_local `result' "../logdoc_render.py"
-        exit 0
+    if `"`_found'"' == "" {
+        capture confirm file "../logdoc_render.py"
+        if !_rc local _found "../logdoc_render.py"
     }
-    capture confirm file "logdoc/logdoc_render.py"
-    if !_rc {
-        c_local `result' "logdoc/logdoc_render.py"
-        exit 0
+    if `"`_found'"' == "" {
+        capture confirm file "logdoc/logdoc_render.py"
+        if !_rc local _found "logdoc/logdoc_render.py"
     }
-
-    c_local `result' ""
+    c_local `result' `"`_found'"'
 
     }
     local rc = _rc
@@ -721,14 +721,14 @@ program define _logdoc_py_check_pdf, rclass
     if `"`found'"' == "" | regexm(lower(`"`found'"'), "not found") {
         c_local `path' ""
         return scalar ok = 0
-        exit 0
     }
-
-    c_local `path' `"`found'"'
-    return scalar ok = 1
-    return local wkhtmltopdf `"`found'"'
-    if "`verbose'" != "" {
-        display as text `"wkhtmltopdf found: `found'"'
+    else {
+        c_local `path' `"`found'"'
+        return scalar ok = 1
+        return local wkhtmltopdf `"`found'"'
+        if "`verbose'" != "" {
+            display as text `"wkhtmltopdf found: `found'"'
+        }
     }
 
     }
@@ -776,6 +776,7 @@ program define _logdoc_py_install, rclass
         }
     }
 
+    forvalues _once = 1/1 {
     if `"`packages'"' == "" {
         if "`quiet'" == "" {
             display as result "logdoc has no Python packages to install"
@@ -785,7 +786,7 @@ program define _logdoc_py_install, rclass
         return local optional "`optional'"
         return local missing "`missing'"
         return local install_cmd ""
-        exit 0
+        continue, break
     }
 
     if "`source'" == "stata" {
@@ -803,7 +804,7 @@ program define _logdoc_py_install, rclass
         return local optional "`optional'"
         return local missing "`missing'"
         return local install_cmd `"`install_cmd'"'
-        exit 0
+        continue, break
     }
 
     if "`source'" == "stata" {
@@ -861,6 +862,7 @@ program define _logdoc_py_install, rclass
     return local optional "`optional'"
     return local missing "`missing'"
     return local install_cmd `"`install_cmd'"'
+    }
 
     }
     local rc = _rc

@@ -35,31 +35,31 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt id(varname)}}person identifier variable present in all datasets{p_end}
-{synopt:{opt start(namelist)}}start date variables (one per dataset, in order){p_end}
-{synopt:{opt stop(namelist)}}stop date variables (one per dataset, in order){p_end}
-{synopt:{opt exposure(namelist)}}exposure variables (one per dataset, in order){p_end}
+{synopt:{opt id(varname)}}person identifier in every dataset{p_end}
+{synopt:{opt start(namelist)}}start variables by dataset, in order{p_end}
+{synopt:{opt stop(namelist)}}stop variables by dataset, in order{p_end}
+{synopt:{opt exposure(namelist)}}exposure variables by dataset, in order{p_end}
 
 {syntab:Input}
-{synopt:{opt fr:ames(namelist)}}read inputs from named frames instead of files{p_end}
+{synopt:{opt fr:ames(namelist)}}read named frames instead of files{p_end}
 
 {syntab:Exposure types}
 {synopt:{opt ra:te(namelist)}}rates; unchanged when intervals split{p_end}
-{synopt:{opt tot:al(namelist)}}interval totals; apportioned by inclusive days{p_end}
-{synopt:{opt cum:ulative(namelist)}}row-start cumulative histories; carried unchanged{p_end}
+{synopt:{opt tot:al(namelist)}}interval totals apportioned by days{p_end}
+{synopt:{opt cum:ulative(namelist)}}row-start histories carried unchanged{p_end}
 {synopt:{opt con:tinuous(namelist)}}deprecated alias for {cmd:total()}{p_end}
 
 {syntab:Output naming}
-{synopt:{opt gen:erate(namelist)}}new names for exposure variables (one per dataset){p_end}
+{synopt:{opt gen:erate(namelist)}}new exposure names by dataset{p_end}
 {synopt:{opt pre:fix(string)}}prefix for all exposure variable names{p_end}
-{synopt:{opt idname(string)}}name for output person identifier (default: id){p_end}
-{synopt:{opt startname(string)}}name for output start date variable (default: start){p_end}
-{synopt:{opt stopname(string)}}name for output stop date variable (default: stop){p_end}
+{synopt:{opt idname(string)}}output person-ID name; default {cmd:id}{p_end}
+{synopt:{opt startname(string)}}output start name; default {cmd:start}{p_end}
+{synopt:{opt stopname(string)}}output stop name; default {cmd:stop}{p_end}
 {synopt:{opt dateformat(fmt)}}output date format{p_end}
 
 {syntab:Data management}
 {synopt:{opt saveas(filename)}}save merged dataset to file{p_end}
-{synopt:{opt frameo:ut(name)}}place result in a frame; leave current data intact{p_end}
+{synopt:{opt frameo:ut(name)}}write result to frame; keep current data{p_end}
 {synopt:{opt replace}}overwrite existing file or frame{p_end}
 {synopt:{opt keep(varlist)}}additional source variables to retain{p_end}
 {synopt:{opt dropi:nvalid}}explicitly remove malformed required rows{p_end}
@@ -68,8 +68,8 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {synopt:{opt check}}display coverage diagnostics{p_end}
 {synopt:{opt validatecoverage}}check for person-time gaps{p_end}
 {synopt:{opt validateoverlap}}verify overlapping periods make sense{p_end}
-{synopt:{opt sum:marize}}display summary statistics of start/stop dates{p_end}
-{synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
+{synopt:{opt sum:marize}}summarize output start and stop dates{p_end}
+{synopt:{opt flow}}report attrition and return {cmd:r(flow)}{p_end}
 {synopt:{opt verbose}}show validation IDs and dates{p_end}
 
 {syntab:ID matching}
@@ -515,7 +515,7 @@ numbers.
 {synopt:{cmd:r(n_rate)}}number of rate variables{p_end}
 {synopt:{cmd:r(n_total)}}number of interval-total variables{p_end}
 {synopt:{cmd:r(n_cumulative)}}number of cumulative-history variables{p_end}
-{synopt:{cmd:r(n_continuous)}}number of totals declared through legacy {cmd:continuous()}{p_end}
+{synopt:{cmd:r(n_continuous)}}totals declared by legacy {cmd:continuous()}{p_end}
 {synopt:{cmd:r(n_categorical)}}number of categorical exposures{p_end}
 {synopt:{cmd:r(n_invalid)}}malformed source rows detected{p_end}
 {synopt:{cmd:r(n_invalid_id)}}rows with missing IDs{p_end}
@@ -525,7 +525,7 @@ numbers.
 {synopt:{cmd:r(n_invalid_ds#)}}malformed rows in source dataset #{p_end}
 {synopt:{cmd:r(n_input_overlaps)}}input rows overlapping a running prior maximum{p_end}
 {synopt:{cmd:r(n_input_overlaps_ds#)}}input overlaps in source dataset #{p_end}
-{synopt:{cmd:r(n_gaps)}}output coverage gaps (zero unless validation finds any){p_end}
+{synopt:{cmd:r(n_gaps)}}output coverage gaps found{p_end}
 {synopt:{cmd:r(n_overlaps)}}identical-vector output overlap pairs{p_end}
 {synopt:{cmd:r(n_duplicates_dropped)}}full-row duplicates removed{p_end}
 
@@ -545,7 +545,7 @@ numbers.
 {synopt:{cmd:r(prefix)}}prefix used (if prefix option used){p_end}
 {synopt:{cmd:r(generated_names)}}generated names (if generate option used){p_end}
 {synopt:{cmd:r(output_file)}}output filename (if saveas option used){p_end}
-{synopt:{cmd:r(frameout)}}name of the output frame (if frameout option used){p_end}
+{synopt:{cmd:r(frameout)}}output frame name, if used{p_end}
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Matrices}{p_end}

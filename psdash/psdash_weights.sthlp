@@ -149,7 +149,7 @@ sample sizes differ.
 {synopt:{cmd:r(new_sd)}}modified-weight standard deviation{p_end}
 {synopt:{cmd:r(new_min)}}modified-weight minimum{p_end}
 {synopt:{cmd:r(new_max)}}modified-weight maximum{p_end}
-{synopt:{cmd:r(new_cv)}}modified-weight coefficient of variation{p_end}
+{synopt:{cmd:r(new_cv)}}modified-weight CV{p_end}
 {synopt:{cmd:r(new_ess)}}modified-weight ESS{p_end}
 {synopt:{cmd:r(new_ess_pct)}}modified-weight ESS percentage{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups{p_end}

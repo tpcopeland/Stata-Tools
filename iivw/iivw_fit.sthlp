@@ -38,7 +38,7 @@
 {synopthdr}
 {synoptline}
 {syntab:Unweighted diagnostic fits}
-{synopt:{opt unw:eighted}}fit without applying IIVW/IPTW/FIPTIW weights{p_end}
+{synopt:{opt unw:eighted}}fit without IIVW/IPTW/FIPTIW weights{p_end}
 {synopt:{opt id(varname)}}subject id for {opt unweighted} fits{p_end}
 {synopt:{opt time(varname)}}time variable for {opt unweighted} fits{p_end}
 
@@ -48,12 +48,12 @@
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
 {synopt:{opt times:pec(string)}}time specification; default {cmd:linear}{p_end}
 {synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
-{synopt:{opt categ:orical(varlist)}}expand categorical predictors into labeled dummies{p_end}
+{synopt:{opt categ:orical(varlist)}}expand categoricals into labeled dummies{p_end}
 {synopt:{opt base:cat(#)}}reference category for {opt categorical()}{p_end}
 {synopt:{opt timebase:cat(#)}}reference category for categorical time{p_end}
 
 {syntab:Standard errors}
-{synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
+{synopt:{opt cl:uster(varname)}}cluster variable; default is stored id{p_end}
 {synopt:{opt vce(vcetype)}}{cmd:bootstrap}, {cmd:fixed}, or {cmd:stacked}{p_end}
 {synopt:{opt citype(string)}}interval: {cmd:wald}, {cmd:percentile}, {cmd:bca}, ...{p_end}
 {synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
@@ -64,7 +64,7 @@
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a model fails to converge{p_end}
-{synopt:{opt experimental:mixed}}acknowledge the weighted {opt model(mixed)} caveat{p_end}
+{synopt:{opt experimental:mixed}}acknowledge weighted mixed-model caveat{p_end}
 {synopt:{opt replace}}overwrite generated variables{p_end}
 {synopt:{opt col:lect}}enable the {cmd:collect} framework{p_end}
 {synopt:{opt gee:opts(string)}}additional options passed to {cmd:glm}{p_end}
@@ -888,13 +888,13 @@ cell and the same fixed rule.
 {synoptset 40 tabbed}{...}
 {synopthdr:status}
 {synoptline}
-{synopt:{cmd:cleared-at-studied-settings}}IIW/IPTW refit bootstrap; met the rule{p_end}
+{synopt:{cmd:cleared-at-studied-settings}}IIW/IPTW refit; rule met{p_end}
 {synopt:{cmd:point-only-no-valid-interval}}bare FIPTIW; no interval{p_end}
-{synopt:{cmd:point-only-requested}}explicit {cmd:citype(none)}; outside FIPTIW{p_end}
+{synopt:{cmd:point-only-requested}}{cmd:citype(none)}; outside FIPTIW{p_end}
 {synopt:{cmd:uncleared-stacked-analytic}}explicit {cmd:vce(stacked)} request{p_end}
 {synopt:{cmd:uncleared-low-reps}}fewer than 999 draws{p_end}
 {synopt:{cmd:uncleared-failed-reps}}draws failed, {opt allowfailedreps}{p_end}
-{synopt:{cmd:uncleared-fiptiw-*}}explicit 999-draw FIPTIW refit interval{p_end}
+{synopt:{cmd:uncleared-fiptiw-*}}999-draw FIPTIW refit interval{p_end}
 {synopt:{cmd:uncleared-fixedweights-bootstrap}}weights fixed across draws{p_end}
 {synopt:{cmd:uncleared-fixedweights-analytic}}analytic sandwich{p_end}
 {synopt:{cmd:not-applicable-unweighted}}no weights estimated{p_end}
@@ -1348,9 +1348,9 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_underlying_vce)}}pre-suppression covariance route{p_end}
 {synopt:{cmd:e(iivw_underlying_cmd)}}underlying estimator command{p_end}
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
-{synopt:{cmd:e(iivw_vce_seed)}}resampling seed, when set via {opt vce(bootstrap, seed())}{p_end}
+{synopt:{cmd:e(iivw_vce_seed)}}seed set by {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(vce)}}variance method; {cmd:stacked} when {opt vce(stacked)}{p_end}
-{synopt:{cmd:e(iivw_stacked_terms)}}stacked nuisance parameters propagated by {cmd:vce(stacked)}{p_end}
+{synopt:{cmd:e(iivw_stacked_terms)}}nuisance terms propagated by {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_selfcheck)}}fixed-vs-fitted sandwich reldif; {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_nclust)}}clusters in stacked sandwich; {cmd:vce(stacked)} only{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
@@ -1359,7 +1359,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_vce_seed_explicit)}}1 if a seed was set via {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(iivw_rng)}}RNG type used, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_rngstate_start)}}starting RNG state, when bootstrapped{p_end}
-{synopt:{cmd:e(iivw_wsig)}}signature of the weight contract behind the estimates{p_end}
+{synopt:{cmd:e(iivw_wsig)}}signature for stored weight contract{p_end}
 {synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
@@ -1369,30 +1369,30 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_time)}}time variable used{p_end}
 {synopt:{cmd:e(iivw_time_vars)}}time variables included in the outcome model{p_end}
 {synopt:{cmd:e(iivw_time_cat_vars)}}categorical-time dummies created{p_end}
-{synopt:{cmd:e(iivw_time_basecat)}}reference category for categorical time, when applicable{p_end}
+{synopt:{cmd:e(iivw_time_basecat)}}categorical-time reference, when applicable{p_end}
 {synopt:{cmd:e(iivw_display_vars)}}terms displayed in the formatted effects table{p_end}
-{synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}, when applicable{p_end}
+{synopt:{cmd:e(iivw_interaction)}}{opt interaction()} variables, when applicable{p_end}
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created, when applicable{p_end}
-{synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}, when applicable{p_end}
-{synopt:{cmd:e(iivw_cat_vars)}}categorical dummy variables created, when applicable{p_end}
+{synopt:{cmd:e(iivw_categorical)}}{opt categorical()} variables, when applicable{p_end}
+{synopt:{cmd:e(iivw_cat_vars)}}categorical dummies, when applicable{p_end}
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations in the outcome equation{p_end}
 {synopt:{cmd:e(level)}}confidence level used to construct {cmd:e(iivw_ci)}{p_end}
-{synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} was validated against the outcome design{p_end}
-{synopt:{cmd:e(iivw_vce_locked)}}1 if the underlying VCE passed the variance lock{p_end}
+{synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} matches outcome design{p_end}
+{synopt:{cmd:e(iivw_vce_locked)}}1 if underlying VCE passed variance lock{p_end}
 {synopt:{cmd:e(iivw_bs_reps_requested)}}bootstrap replicates requested{p_end}
 {synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}
-{synopt:{cmd:e(iivw_bs_frame_N)}}rows in the resampling frame ({opt refitweights} only){p_end}
+{synopt:{cmd:e(iivw_bs_frame_N)}}resampling-frame rows ({opt refitweights} only){p_end}
 {synopt:{cmd:e(iivw_outcome_nclust)}}clusters in the outcome equation{p_end}
 {synopt:{cmd:e(iivw_interval_available)}}1 if an interval was reported; 0 for point-only{p_end}
 {synopt:{cmd:e(iivw_ci_explicit)}}1 if {opt citype()} was specified{p_end}
 
 {synoptset 30 tabbed}{...}
 {p2col 5 30 34 2: Matrices}{p_end}
-{synopt:{cmd:e(iivw_ci)}}selected endpoints; missing for {cmd:citype(none)}{p_end}
+{synopt:{cmd:e(iivw_ci)}}endpoints; missing under {cmd:citype(none)}{p_end}
 {synopt:{cmd:e(iivw_ci_percentile)}}percentile endpoints after bootstrap{p_end}
 {synopt:{cmd:e(iivw_ci_basic)}}basic endpoints after bootstrap{p_end}
 {synopt:{cmd:e(iivw_ci_bca)}}BCa endpoints when {cmd:citype(bca)}{p_end}

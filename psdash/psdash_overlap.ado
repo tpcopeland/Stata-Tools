@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.6.8  2026/08/11
+*! psdash_overlap Version 1.6.9  2026/08/30
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -422,7 +422,7 @@ program define psdash_overlap, rclass
                 local _xv `"`_xv' "`=string(`auc',"%6.4f")'""'
             }
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
-                title("`title'") keys(`_xk') vals(`_xv')
+                title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
@@ -669,7 +669,7 @@ program define psdash_overlap, rclass
             local _xk `"`_xk' "Observed-arm overlap lower" "Observed-arm overlap upper" "Outside observed-arm overlap (N)" "Outside observed-arm overlap (%)""'
             local _xv `"`_xv' "`=string(`overlap_lower',"%6.4f")'" "`=string(`overlap_upper',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
-                title("`title'") keys(`_xk') vals(`_xv')
+                title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc

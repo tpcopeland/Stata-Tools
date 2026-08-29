@@ -50,28 +50,28 @@ and {cmd:regtab} frames
 {synopt:{opt outcomemap(string)}}map rate outcomes to model identities{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
+{synopt:{opt xlsx(filename)}}Excel workbook; must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name)}}save output in a named Stata frame{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame for eplot{p_end}
-{synopt:{opt forest}}draw an eplot forest plot from the companion frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready eplot frame{p_end}
+{synopt:{opt forest}}draw an eplot forest plot{p_end}
 {synopt:{opt eploto:ptions(string asis)}}pass options to eplot{p_end}
 {synopt:{opt open}}open Excel file after export{p_end}
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
-{synopt:{opt eff:ect(string)}}header label for the effect column; default {cmd:aHR}{p_end}
+{synopt:{opt eff:ect(string)}}effect-column header; default {cmd:aHR}{p_end}
 {synopt:{opt refl:abel(string)}}text for inferred reference rows{p_end}
 
 {syntab:Formatting}
 {synopt:{opt font(string)}}set the Excel font family{p_end}
 {synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt headers:hade}}shade the 2 header rows{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}

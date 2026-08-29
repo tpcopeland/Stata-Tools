@@ -1,3 +1,7 @@
+*! _fvgen_qa_common.do — Shared sandbox and data builders for fvgen QA
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 version 16.0
 
 * Shared QA scaffold for fvgen.

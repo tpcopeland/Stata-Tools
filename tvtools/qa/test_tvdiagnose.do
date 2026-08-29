@@ -45,6 +45,8 @@ capture {
     tempfile diag_data
     save `diag_data'
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 * TEST 4.1: Coverage report only
 local ++test_count

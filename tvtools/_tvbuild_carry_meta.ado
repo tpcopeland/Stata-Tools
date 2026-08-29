@@ -1,4 +1,4 @@
-*! _tvbuild_carry_meta Version 1.17.0  2026/08/28
+*! _tvbuild_carry_meta Version 1.17.1  2026/08/30
 *! Carry display format, labels, value labels, and characteristics between frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -127,7 +127,7 @@ program define _tvbuild_carry_meta, rclass
         local _dv : word `i' of `vars'
         local _sv : word `i' of `srcvars'
 
-        * Read everything the source declares in one visit to that frame.
+        * Read the source metadata and characteristic inventory.
         frame change `srcframe'
         capture confirm variable `_sv', exact
         if _rc {
@@ -140,9 +140,6 @@ program define _tvbuild_carry_meta, rclass
         local _vlb : variable label `_sv'
         local _vll : value label `_sv'
         mata: st_local("_chars", invtokens(st_dir("char", "`_sv'", "*")'))
-        foreach _c of local _chars {
-            local _charval_`_c' : char `_sv'[`_c']
-        }
         frame change `_caller_frame'
 
         frame change `dstframe'
@@ -155,8 +152,15 @@ program define _tvbuild_carry_meta, rclass
         }
         format `_dv' `_fmt'
         label variable `_dv' `"`_vlb'"'
+        frame change `_caller_frame'
+
+        * Copy one characteristic at a time. Characteristic names may use all
+        * 32 legal name characters, so never embed one in a local-macro name.
         foreach _c of local _chars {
-            char `_dv'[`_c'] `"`_charval_`_c''"'
+            frame change `srcframe'
+            local _charval : char `_sv'[`_c']
+            frame change `dstframe'
+            char `_dv'[`_c'] `"`_charval'"'
         }
         frame change `_caller_frame'
 
@@ -181,11 +185,6 @@ program define _tvbuild_carry_meta, rclass
             frame change `dstframe'
             label values `_dv' `_target'
             frame change `_caller_frame'
-        }
-        * Clear the per-variable char macros so a variable with fewer
-        * characteristics than its predecessor cannot inherit a stale one.
-        foreach _c of local _chars {
-            local _charval_`_c' ""
         }
     }
 

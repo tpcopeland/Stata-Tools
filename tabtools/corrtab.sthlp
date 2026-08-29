@@ -81,7 +81,7 @@ variables. The pairwise observation count matrix is stored in
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Correlation"}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}

@@ -1,10 +1,11 @@
-* Deterministic hostile-input tests for fvgen. Seed: 303101.
+*! test_fvgen_hostile.do — Deterministic hostile-input QA for fvgen
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+* Seed: 303101.
 clear all
 version 16.0
 set seed 303101
 set varabbrev off
-capture log close _all
-log using "test_fvgen_hostile.log", replace text nomsg
 do _fvgen_qa_common.do
 _fvgen_qa_bootstrap
 local test_count = 0
@@ -39,7 +40,5 @@ if _rc == 0 local ++pass_count
 else local ++fail_count
 display "RESULT: test_fvgen_hostile tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
-    capture log close _all
     exit 1
 }
-capture log close _all

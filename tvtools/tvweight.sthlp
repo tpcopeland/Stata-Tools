@@ -39,22 +39,22 @@
 
 {syntab:Weight Options}
 {synopt:{opt gen:erate(name)}}name for weight variable; default is {cmd:iptw}{p_end}
-{synopt:{opt wt:ype(type)}}weight type: {cmd:iptw} (default), {cmd:ato}, or {cmd:matching}{p_end}
+{synopt:{opt wt:ype(type)}}weight type: {cmd:iptw}, {cmd:ato}, or {cmd:matching}{p_end}
 {synopt:{opt stab:ilized}}calculate stabilized weights ({cmd:iptw} only){p_end}
-{synopt:{opt numc:ovariates(varlist)}}covariates retained in the treatment numerator{p_end}
+{synopt:{opt numc:ovariates(varlist)}}treatment-numerator covariates{p_end}
 {synopt:{opt trunc:ate(# #)}}truncate at lower and upper percentiles{p_end}
-{synopt:{opt cum:ulative}}within-person cumulative product weight (MSM){p_end}
+{synopt:{opt cum:ulative}}within-person cumulative product{p_end}
 {synopt:{opt cumg:enerate(name)}}name for the cumulative weight variable{p_end}
 
 {syntab:Censoring weights (IPCW)}
 {synopt:{opt ipcw(varname)}}interval censoring indicator{p_end}
 {synopt:{opt censorc:ovariates(varlist)}}censoring-model covariates{p_end}
-{synopt:{opt censnumc:ovariates(varlist)}}covariates retained in the censoring numerator{p_end}
+{synopt:{opt censnumc:ovariates(varlist)}}censoring-numerator covariates{p_end}
 {synopt:{opt censg:enerate(name)}}cumulative censoring weight name{p_end}
-{synopt:{opt combg:enerate(name)}}name for the combined weight (default: {it:weight}{cmd:_ipcw}){p_end}
+{synopt:{opt combg:enerate(name)}}combined-weight name; default {it:weight}{cmd:_ipcw}{p_end}
 
 {syntab:Model Options}
-{synopt:{opt model(string)}}model type: {cmd:logit} (binary) or {cmd:mlogit} (categorical){p_end}
+{synopt:{opt model(string)}}model: {cmd:logit} or {cmd:mlogit}{p_end}
 {synopt:{opt tvc:ovariates(varlist)}}time-varying covariates{p_end}
 {synopt:{opt id(varname)}}person identifier for time-varying models{p_end}
 {synopt:{opt time(varname)}}time variable for time-varying models{p_end}
@@ -503,23 +503,23 @@ fixed-width MSM grid.
 {synopt:{cmd:r(w_p75)}}75th percentile of the analysis weight{p_end}
 {synopt:{cmd:r(w_p95)}}95th percentile of the analysis weight{p_end}
 {synopt:{cmd:r(w_p99)}}99th percentile of the analysis weight{p_end}
-{synopt:{cmd:r(n_truncated)}}number of truncated observations (if truncate specified){p_end}
+{synopt:{cmd:r(n_truncated)}}observations affected by truncation{p_end}
 {synopt:{cmd:r(trunc_lo)}}lower truncation percentile (if truncate specified){p_end}
 {synopt:{cmd:r(trunc_hi)}}upper truncation percentile (if truncate specified){p_end}
 {synopt:{cmd:r(overlap_lo)}}minimum probability of the observed treatment{p_end}
 {synopt:{cmd:r(overlap_hi)}}maximum probability of the observed treatment{p_end}
-{synopt:{cmd:r(pct_nonoverlap)}}percentage of rows with P(observed treatment) < 0.05{p_end}
+{synopt:{cmd:r(pct_nonoverlap)}}rows with P(observed treatment) below 0.05{p_end}
 {synopt:{cmd:r(n_nonoverlap)}}number of rows with P(observed treatment) < 0.05{p_end}
-{synopt:{cmd:r(top1_wt_share)}}percentage of total weight mass held by the top 1% of rows{p_end}
+{synopt:{cmd:r(top1_wt_share)}}weight mass held by top 1% of rows{p_end}
 {synopt:{cmd:r(n_top1_rows)}}number of rows used for the top-1% statistic{p_end}
 {synopt:{cmd:r(n_ps_extreme)}}rows with P(observed treatment) < .001 or > .999{p_end}
-{synopt:{cmd:r(n_ps_boundary)}}rows with a zero, one, or missing fitted probability{p_end}
+{synopt:{cmd:r(n_ps_boundary)}}rows with boundary or missing treatment PS{p_end}
 {synopt:{cmd:r(n_cens_extreme)}}rows with P(uncensored) < .001 or > .999{p_end}
-{synopt:{cmd:r(n_cens_boundary)}}rows with a zero, one, or missing uncensoring probability{p_end}
-{synopt:{cmd:r(histogram_created)}}1 if the requested histogram was created; 0 otherwise{p_end}
-{synopt:{cmd:r(loveplot_created)}}1 if the requested love plot was created; 0 otherwise{p_end}
+{synopt:{cmd:r(n_cens_boundary)}}rows with boundary or missing censoring PS{p_end}
+{synopt:{cmd:r(histogram_created)}}whether histogram was created (0/1){p_end}
+{synopt:{cmd:r(loveplot_created)}}whether love plot was created (0/1){p_end}
 {synopt:{cmd:r(graph_created)}}1 if either optional graph was created; 0 otherwise{p_end}
-{synopt:{cmd:r(ess_combined)}}effective sample size of the combined weight (if ipcw){p_end}
+{synopt:{cmd:r(ess_combined)}}effective sample size of combined weight{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(exposure)}}name of exposure variable{p_end}
@@ -529,7 +529,7 @@ fixed-width MSM grid.
 {synopt:{cmd:r(generate)}}name of generated weight variable{p_end}
 {synopt:{cmd:r(stabilized)}}stabilized if stabilized weights requested{p_end}
 {synopt:{cmd:r(denominator)}}name of propensity score variable (if requested){p_end}
-{synopt:{cmd:r(estname)}}name of stored propensity model (if estname specified){p_end}
+{synopt:{cmd:r(estname)}}stored propensity-model name, if any{p_end}
 {synopt:{cmd:r(histogram_graph)}}created histogram name (if successful){p_end}
 {synopt:{cmd:r(loveplot_graph)}}created love-plot name (if successful){p_end}
 {synopt:{cmd:r(cumgenerate)}}name of cumulative weight variable (if cumulative){p_end}
@@ -539,7 +539,7 @@ fixed-width MSM grid.
 {synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
 {synopt:{cmd:r(numcovariates)}}treatment-numerator covariates{p_end}
 {synopt:{cmd:r(censnumcovariates)}}censoring-numerator covariates{p_end}
-{synopt:{cmd:r(balance_terms)}}factor-expanded terms indexing {cmd:r(balance)} (if balance){p_end}
+{synopt:{cmd:r(balance_terms)}}factor terms indexing {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(balance_weight)}}analysis weight used for the SMD column{p_end}
 {synopt:{cmd:r(numerator_model)}}stabilized-weight numerator model{p_end}
 {synopt:{cmd:r(censor_numerator_model)}}stabilized censoring numerator model (if ipcw){p_end}

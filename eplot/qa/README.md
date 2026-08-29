@@ -36,6 +36,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 | `test_eplot.do` | Core data and estimates behavior, options, preservation, returns, and targeted-run reporting |
 | `test_options.do` | Multi-model, values, sort/order, matrix, palette, headers, and transform options |
 | `test_edge_cases.do` | Empty and single samples, missing values, option quoting, abbreviation disambiguation, and varabbrev restoration |
+| `test_eplot_errors.do` | Public error codes, caller-state preservation, and graph-file collision behavior across input modes |
 | `test_eplot_frame.do` | Graph-ready `frame()` input and companion-variable routing |
 | `test_graph_options.do` | Titles, scheme, graph regions, legend, and other graph-option passthrough |
 | `test_layout.do` | Group gaps, effect-axis labels, values-column margins, and mode-detection precedence |
@@ -44,6 +45,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 | `test_stars_matrix.do` | Stars, p-values, special row types, matrix styles, weighted markers, and sort alignment |
 | `test_regressions.do` | Analytical return preservation when graph saving fails in each input mode |
 | `test_eplot_v128.do` | Multi-equation identity, estimate state, interval validation, option conflicts, interaction messaging, and rendered help |
+| `test_eplot_v129.do` | Finite-df inference, immutable coefficient identity, prediction intervals, fail-closed parsing, long labels, exact annotations, and shipped-example regressions |
 | `test_examples.do` | Installed-user execution of shipped help examples across all input modes |
 
 ### Validation
@@ -64,7 +66,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 
 | Command | Functional | Validation | Also exercised in |
 |---------|------------|------------|-------------------|
-| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128` |
+| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128`, `test_eplot_v129` |
 
 ## Lane membership
 

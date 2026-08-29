@@ -46,35 +46,35 @@ via {opt frame()}; supply one or the other.
 {syntab:Event definition}
 {synopt:{opt type(string)}}event type: {bf:single} (default) or {bf:recurring}{p_end}
 {synopt:{opt gen:erate(newvar)}}event indicator; default {cmd:_failure}{p_end}
-{synopt:{opt eventl:abel(string)}}custom value labels for the generated event variable{p_end}
+{synopt:{opt eventl:abel(string)}}custom labels for generated event variable{p_end}
 
 {syntab:Interval quantities}
 {synopt:{opt ra:te(varlist)}}rates; unchanged when intervals split{p_end}
-{synopt:{opt tot:al(varlist)}}interval totals; apportioned by inclusive days{p_end}
-{synopt:{opt cum:ulative(varlist)}}row-start cumulative histories; carried unchanged{p_end}
+{synopt:{opt tot:al(varlist)}}interval totals apportioned by days{p_end}
+{synopt:{opt cum:ulative(varlist)}}row-start histories carried unchanged{p_end}
 {synopt:{opt con:tinuous(varlist)}}deprecated alias for {cmd:total()}{p_end}
 
 {syntab:Time generation}
 {synopt:{opt timeg:en(newvar)}}time since the first interval start{p_end}
-{synopt:{opt timeu:nit(string)}}unit for timegen: {bf:days} (default), {bf:months}, or {bf:years}{p_end}
+{synopt:{opt timeu:nit(string)}}time unit: {bf:days}, {bf:months}, or {bf:years}{p_end}
 
 {syntab:Recurrent-event formatting (PWP/AG; requires type(recurring))}
 {synopt:{opt enum(name)}}event-sequence stratum (default: _enum){p_end}
-{synopt:{opt gap:time}}add the gap-time clock that resets at each event{p_end}
+{synopt:{opt gap:time}}add gap-time clock reset at each event{p_end}
 {synopt:{opt gapstart(name)}}name for the gap-time start (default: _t0){p_end}
 {synopt:{opt gapstop(name)}}name for the gap-time stop (default: _t){p_end}
 
 {syntab:Data handling}
-{synopt:{opt keep:vars(varlist)}}additional variables to keep from event dataset{p_end}
+{synopt:{opt keep:vars(varlist)}}extra event-dataset variables to keep{p_end}
 {synopt:{opt dropi:nvalid}}explicitly remove malformed required rows{p_end}
-{synopt:{opt replace}}replace output variables if they already exist{p_end}
+{synopt:{opt replace}}replace existing output variables{p_end}
 {synopt:{opt start(varname)}}interval-start variable; default {cmd:start}{p_end}
 {synopt:{opt stop(varname)}}interval-stop variable; default {cmd:stop}{p_end}
 
 {syntab:Diagnostics}
 {synopt:{opt val:idate}}display event-data validation diagnostics{p_end}
-{synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
-{synopt:{opt verbose}}list examples of malformed rows before stopping{p_end}
+{synopt:{opt flow}}report attrition and return {cmd:r(flow)}{p_end}
+{synopt:{opt verbose}}list malformed rows before stopping{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -411,7 +411,7 @@ labels come from {cmd:event_date} and {cmd:death_date} in the event master.
 {synopt:{cmd:r(n_rate)}}number of rate variables{p_end}
 {synopt:{cmd:r(n_total)}}number of interval-total variables{p_end}
 {synopt:{cmd:r(n_cumulative)}}number of cumulative-history variables{p_end}
-{synopt:{cmd:r(n_continuous)}}number of totals declared by legacy {cmd:continuous()}{p_end}
+{synopt:{cmd:r(n_continuous)}}totals declared by legacy {cmd:continuous()}{p_end}
 {synopt:{cmd:r(n_invalid)}}malformed event and interval rows detected{p_end}
 {synopt:{cmd:r(n_invalid_master)}}malformed event-source rows{p_end}
 {synopt:{cmd:r(n_invalid_master_id)}}event rows with missing IDs{p_end}
@@ -427,16 +427,16 @@ When {cmd:validate} is specified, additional scalars are stored:
 
 {synopt:{cmd:r(v_outside_bounds)}}Number of events outside interval boundaries{p_end}
 {synopt:{cmd:r(v_multiple_events)}}persons with multiple terminal events{p_end}
-{synopt:{cmd:r(v_same_date_compete)}}Number of competing events on same date as primary{p_end}
+{synopt:{cmd:r(v_same_date_compete)}}competing events on primary-event date{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(generate)}}name of the event indicator variable{p_end}
 {synopt:{cmd:r(startvar)}}name of the interval start variable{p_end}
 {synopt:{cmd:r(stopvar)}}name of the interval stop variable{p_end}
-{synopt:{cmd:r(timegen)}}name of the elapsed-time variable (if {cmd:timegen()} used){p_end}
+{synopt:{cmd:r(timegen)}}elapsed-time variable name, if generated{p_end}
 {synopt:{cmd:r(enum)}}event-sequence stratum name{p_end}
-{synopt:{cmd:r(gapstart)}}name of the gap-time start variable (if {cmd:gaptime} used){p_end}
-{synopt:{cmd:r(gapstop)}}name of the gap-time stop variable (if {cmd:gaptime} used){p_end}
+{synopt:{cmd:r(gapstart)}}gap-time start variable name, if generated{p_end}
+{synopt:{cmd:r(gapstop)}}gap-time stop variable name, if generated{p_end}
 {synopt:{cmd:r(rate_vars)}}rate variable names{p_end}
 {synopt:{cmd:r(total_vars)}}interval-total variable names{p_end}
 {synopt:{cmd:r(cumulative_vars)}}cumulative-history variable names{p_end}

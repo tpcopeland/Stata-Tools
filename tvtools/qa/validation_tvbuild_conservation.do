@@ -1123,6 +1123,8 @@ else {
 * SUMMARY
 
 }
+local _qa_capture_rc_32 = _rc
+if `_qa_capture_rc_32' exit `_qa_capture_rc_32'
 
 
 * ===== Summary =====

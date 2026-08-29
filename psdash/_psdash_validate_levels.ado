@@ -1,9 +1,9 @@
-*! _psdash_validate_levels Version 1.6.8  2026/08/11
+*! _psdash_validate_levels Version 1.6.9  2026/08/30
 *! Validate multi-group treatment levels for psdash result-name contracts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
-program define _psdash_validate_levels
+program define _psdash_validate_levels, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
@@ -26,5 +26,6 @@ program define _psdash_validate_levels
     }
     local rc = _rc
     set varabbrev `_vao'
+    if `rc' == 0 return clear
     if `rc' exit `rc'
 end

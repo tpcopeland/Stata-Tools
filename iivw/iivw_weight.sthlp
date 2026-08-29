@@ -54,12 +54,12 @@
 
 {syntab:Weight specification}
 {synopt:{opt wt:ype(string)}}weight type: {cmd:iivw}, {cmd:iptw}, or {cmd:fiptiw}{p_end}
-{synopt:{opt stab:cov(varlist)}}stabilization covariates for IIW numerator{p_end}
+{synopt:{opt stab:cov(varlist)}}IIW numerator stabilization covariates{p_end}
 
 {syntab:Data options}
-{synopt:{opt lag:vars(varlist)}}time-varying covariates to lag by one visit{p_end}
+{synopt:{opt lag:vars(varlist)}}time-varying covariates lagged one visit{p_end}
 {synopt:{opt ent:ry(varname)}}study entry time per subject (default: 0){p_end}
-{synopt:{opt cens:or(varname)}}subject-specific end of follow-up (IIW/FIPTIW){p_end}
+{synopt:{opt cens:or(varname)}}subject end of follow-up (IIW/FIPTIW){p_end}
 {synopt:{opt max:fu(#)}}common end of follow-up (IIW/FIPTIW){p_end}
 {synopt:{opt endatlast:visit}}follow-up ends at last visit (IIW/FIPTIW){p_end}
 
@@ -71,14 +71,14 @@
 {synopt:{opt experimentalnotreatvis:it}}FIPTIW: omit {opt treat()} from the visit model{p_end}
 
 {syntab:Reporting}
-{synopt:{opt gen:erate(name)}}prefix for weight variables (default: {cmd:_iivw_}){p_end}
+{synopt:{opt gen:erate(name)}}weight-variable prefix; default {cmd:_iivw_}{p_end}
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
-{synopt:{opt efr:on}}Efron ties in the Cox visit model (the default){p_end}
+{synopt:{opt efr:on}}Efron ties in Cox visit model (default){p_end}
 {synopt:{opt bre:slow}}Breslow ties in the Cox visit model{p_end}
-{synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
+{synopt:{opt allownonconv:erged}}proceed after weight-model nonconvergence{p_end}
 {synopt:{opt allowmissingw:eights}}accept rows that receive no weight{p_end}
-{synopt:{opt sc:ores}}emit influence-function inputs for {cmd:vce(stacked)}{p_end}
+{synopt:{opt sc:ores}}emit inputs for {cmd:vce(stacked)}{p_end}
 {synopt:{opt base:line(entry|event)}}first visit: entry (default) or event{p_end}
 
 {synoptline}
@@ -159,9 +159,9 @@ row is still an observed visit and still receives a fitted weight
 {cmd:exp(-xb)} computed from its own covariates -- the zero-length interval
 costs it its contribution to the fit, not its weight. The study-entry weight of
 exactly 1 is reserved for rows that were never modeled as monitoring
-events: every first visit under {opt baseline(entry)}, and a first visit under
-{opt baseline(event)} for which no weight could be fitted at all. Only those are
-assigned after the rescaling described under {it:Mean-1 normalization}.
+events: every first visit under {opt baseline(entry)}. Under
+{opt baseline(event)}, a first visit for which no weight can be fitted remains
+missing and is governed by {opt allowmissingweights}.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 
@@ -1246,15 +1246,15 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:r(censor_mode)}}{cmd:censor}, {cmd:maxfu} or {cmd:lastvisit} (IIW/FIPTIW){p_end}
 {synopt:{cmd:r(censor_var)}}the {opt censor()} variable, if used{p_end}
 {synopt:{cmd:r(maxfu)}}the {opt maxfu()} value, if used{p_end}
-{synopt:{cmd:r(n_censor_rows)}}censoring intervals added to the visit-intensity model{p_end}
+{synopt:{cmd:r(n_censor_rows)}}censoring intervals added to visit model{p_end}
 {synopt:{cmd:r(visit_N)}}intervals in the visit-intensity risk set{p_end}
 {synopt:{cmd:r(visit_N_sub)}}subjects in the visit-intensity risk set{p_end}
 {synopt:{cmd:r(stab_N)}}intervals in the stabilization (numerator) model{p_end}
-{synopt:{cmd:r(tie_multiplicity)}}modeled events per distinct event time (1 if untied){p_end}
+{synopt:{cmd:r(tie_multiplicity)}}events per distinct event time (1 if untied){p_end}
 {synopt:{cmd:r(n_event_times)}}distinct event times in the visit-intensity model{p_end}
 {synopt:{cmd:r(n_modeled_events)}}modeled events in the visit-intensity model{p_end}
 {synopt:{cmd:r(ps_N)}}subjects in the propensity model (IPTW/FIPTIW){p_end}
-{synopt:{cmd:r(ps_prevalence)}}treatment prevalence in the propensity model's sample{p_end}
+{synopt:{cmd:r(ps_prevalence)}}treatment prevalence in propensity-model sample{p_end}
 {synopt:{cmd:r(ps_min)}}minimum treatment propensity score (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(ps_max)}}maximum treatment propensity score (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(n_ps_extreme)}}extreme propensity panel rows{p_end}
@@ -1267,13 +1267,13 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:r(tw_var)}}treatment IPTW component variable, when created{p_end}
 {synopt:{cmd:r(ps_var)}}treatment propensity-score variable, when created{p_end}
 {synopt:{cmd:r(visit_covars)}}expanded visit-model covariates used for IIW/FIPTIW{p_end}
-{synopt:{cmd:r(visit_cov_raw)}}the raw {opt visit_cov()} varlist, without the generated lags{p_end}
+{synopt:{cmd:r(visit_cov_raw)}}raw {opt visit_cov()} list, excluding generated lags{p_end}
 {synopt:{cmd:r(lagvars)}}the raw {opt lagvars()} source variables{p_end}
 {synopt:{cmd:r(lag_names)}}the generated {cmd:*_lag1} columns{p_end}
-{synopt:{cmd:r(owned)}}every variable name this call owns under the contract{p_end}
+{synopt:{cmd:r(owned)}}variable names owned by this call{p_end}
 {synopt:{cmd:r(allowmissingweights)}}{cmd:1} if unweighted rows were accepted, else {cmd:0}{p_end}
-{synopt:{cmd:r(score_terms)}}stacked nuisance parameters from {opt scores}, column order{p_end}
-{synopt:{cmd:r(n_score)}}number of stacked nuisance parameters ({cmd:0} without {opt scores}){p_end}
+{synopt:{cmd:r(score_terms)}}stacked nuisance terms from {opt scores}, in column order{p_end}
+{synopt:{cmd:r(n_score)}}stacked nuisance-term count ({cmd:0} without {opt scores}){p_end}
 {synopt:{cmd:r(treat_covars)}}treatment-model covariates used for IPTW/FIPTIW{p_end}
 {synopt:{cmd:r(ps_estimand)}}treatment propensity-score estimand, currently {cmd:ate}{p_end}
 {synopt:{cmd:r(contract_version)}}iivw metadata contract version{p_end}
@@ -1291,7 +1291,7 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:_dta[_iivw_iw_var]}}visit-intensity component variable, when created{p_end}
 {synopt:{cmd:_dta[_iivw_tw_var]}}treatment IPTW component variable, when created{p_end}
 {synopt:{cmd:_dta[_iivw_ps_var]}}treatment propensity-score variable, when created{p_end}
-{synopt:{cmd:_dta[_iivw_visit_covars]}}expanded visit-model covariate list for {cmd:iivw_balance}{p_end}
+{synopt:{cmd:_dta[_iivw_visit_covars]}}visit-model covariates for {cmd:iivw_balance}{p_end}
 {synopt:{cmd:_dta[_iivw_baseevent]}}1 under {opt baseline(entry)}, else 0{p_end}
 {synopt:{cmd:_dta[_iivw_censor_mode]}}the end-of-follow-up specification (IIW/FIPTIW){p_end}
 {synopt:{cmd:_dta[_iivw_censor_var]}}the {opt censor()} variable, if used{p_end}

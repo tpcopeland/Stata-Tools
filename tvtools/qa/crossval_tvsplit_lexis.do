@@ -145,7 +145,7 @@ capture {
 
     use "`tv'", clear
     sort id tstart
-    cf _all using "`ss'"
+    _tvtools_qa_assert_cf_all_exact using "`ss'"
 }
 if _rc==0 {
     display as result "  PASS [A.stsplit]: exact birthday-row parity vs stsplit"
@@ -239,7 +239,7 @@ if `has_r' {
         save "`rsp'"
         use "`tvb'", clear
         sort id tstart
-        cf _all using "`rsp'"
+        _tvtools_qa_assert_cf_all_exact using "`rsp'"
     }
     local xrc = _rc
     capture erase "`_cohort'"

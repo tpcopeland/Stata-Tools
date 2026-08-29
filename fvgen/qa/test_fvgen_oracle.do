@@ -1,3 +1,6 @@
+*! test_fvgen_oracle.do — Seeded factor-product oracle for fvgen
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
 * Seed: 26082403. 200 randomized factor-product checks.
 clear all
 version 16.0

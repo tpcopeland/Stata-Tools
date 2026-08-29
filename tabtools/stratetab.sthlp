@@ -305,7 +305,7 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
-{synopt:{cmd:r(outcome_ids)}}backslash-separated machine-readable outcome identities{p_end}
+{synopt:{cmd:r(outcome_ids)}}machine-readable outcome identities{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph with rate and CI provenance{p_end}
 

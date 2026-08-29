@@ -104,6 +104,8 @@ local test_desc "Basic time-varying exposure"
 _run_test `test_count' "`test_desc'"
 
 }
+local _qa_capture_rc_33 = _rc
+if `_qa_capture_rc_33' exit `_qa_capture_rc_33'
 
 capture noisily {
 capture program drop assert_exact
@@ -2250,6 +2252,8 @@ else {
             local test23_pass = 0
         }
     }
+local _qa_capture_rc_2240 = _rc
+if `_qa_capture_rc_2240' exit `_qa_capture_rc_2240'
 }
 
 if `test23_pass' == 1 {
@@ -2910,6 +2914,8 @@ else {
 }
 
 }
+local _qa_capture_rc_108 = _rc
+if `_qa_capture_rc_108' exit `_qa_capture_rc_108'
 
 capture noisily {
 * TEST 1: window() produces correct date boundaries
@@ -3309,6 +3315,8 @@ else {
 * TEST 9: Version loads
 
 }
+local _qa_capture_rc_2914 = _rc
+if `_qa_capture_rc_2914' exit `_qa_capture_rc_2914'
 
 
 * ===== Summary =====

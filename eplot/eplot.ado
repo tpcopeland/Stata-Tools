@@ -1,4 +1,4 @@
-*! eplot Version 1.2.8  2026/08/11
+*! eplot Version 1.2.9  2026/08/30
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -128,74 +128,62 @@ program define _eplot_parse_mode, sclass
     capture noisily {
         syntax [anything] [if] [in] [, Matrix(name) FRame(name) *]
 
-        // Matrix mode is explicit
+        local _mode ""
         if "`matrix'" != "" {
-            sreturn local mode "matrix"
-            exit
+            local _mode "matrix"
         }
-
-        // Frame mode is explicit
-        if "`frame'" != "" {
-            sreturn local mode "frame"
-            exit
+        else if "`frame'" != "" {
+            local _mode "frame"
         }
-
-        // If anything is empty, assume estimates mode with active estimates
-        if `"`anything'"' == "" {
-            sreturn local mode "estimates"
-            exit
+        else if `"`anything'"' == "" {
+            local _mode "estimates"
         }
+        else {
+            // Data mode needs at least three leading numeric variables.
+            local nwords : word count `anything'
+            if `nwords' >= 3 {
+                local w1 : word 1 of `anything'
+                local w2 : word 2 of `anything'
+                local w3 : word 3 of `anything'
 
-        // Count tokens - data mode needs exactly 3 variables
-        local nwords : word count `anything'
+                capture confirm numeric variable `w1' `w2' `w3'
+                if _rc == 0 local _mode "data"
+            }
 
-        if `nwords' >= 3 {
-            // Check if first three tokens are numeric variables
-            local w1 : word 1 of `anything'
-            local w2 : word 2 of `anything'
-            local w3 : word 3 of `anything'
+            if "`_mode'" == "" {
+                // Classify the remaining tokens: stored estimates vs variables.
+                // "." always denotes the active estimates.
+                local _all_est 1
+                local _any_est 0
+                local _any_var 0
+                foreach name of local anything {
+                    if "`name'" == "." {
+                        local _any_est 1
+                        continue
+                    }
+                    capture estimates dir `name'
+                    if _rc local _all_est 0
+                    else   local _any_est 1
+                    capture confirm variable `name'
+                    if _rc == 0 local _any_var 1
+                }
 
-            capture confirm numeric variable `w1' `w2' `w3'
-            if _rc == 0 {
-                sreturn local mode "data"
-                exit
+                if `_all_est' {
+                    local _mode "estimates"
+                }
+                else if `_any_est' | !`_any_var' {
+                    // Route mistyped estimate names to estimates mode so the
+                    // public error identifies the missing stored result.
+                    local _mode "estimates"
+                }
+                else {
+                    local _mode "data"
+                }
             }
         }
 
-        // Classify the remaining tokens: stored estimates vs variables.
-        // "." always denotes the active estimates.
-        local _all_est 1
-        local _any_est 0
-        local _any_var 0
-        foreach name of local anything {
-            if "`name'" == "." {
-                local _any_est 1
-                continue
-            }
-            capture estimates dir `name'
-            if _rc local _all_est 0
-            else   local _any_est 1
-            capture confirm variable `name'
-            if _rc == 0 local _any_var 1
-        }
-
-        // Every token resolves to a stored estimate (or "."): estimates mode.
-        if `_all_est' {
-            sreturn local mode "estimates"
-            exit
-        }
-
-        // Not all tokens are estimates. If any token is a valid estimate, or no
-        // token names an existing variable, the user intended estimates mode --
-        // route there so a mistyped name raises the proper "estimation results
-        // not found" error instead of a misleading "variable not found".
-        if `_any_est' | !`_any_var' {
-            sreturn local mode "estimates"
-            exit
-        }
-
-        // Tokens are existing variables: data mode.
-        sreturn local mode "data"
+        sreturn clear
+        sreturn local mode "`_mode'"
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -516,6 +504,10 @@ program define _eplot_data, rclass
             display as error "favors() requires horizontal layout"
             exit 198
         }
+        if missing(`gap') | `gap' < 0 {
+            display as error "gap() must be nonmissing and nonnegative"
+            exit 198
+        }
 
     // Parse varlist
     tokenize `varlist'
@@ -661,6 +653,26 @@ program define _eplot_data, rclass
         display as error "lower confidence limits may not exceed upper confidence limits"
         restore
         exit 198
+    }
+
+    if "`pi'" != "" {
+        tokenize `pi'
+        local pi_lci_var `1'
+        local pi_uci_var `2'
+        quietly count if inlist(`rowtype', 1, 3, 5) & ///
+            missing(`pi_lci_var') != missing(`pi_uci_var')
+        if r(N) > 0 {
+            display as error "prediction limits must be supplied as complete lower/upper pairs"
+            restore
+            exit 198
+        }
+        quietly count if inlist(`rowtype', 1, 3, 5) & ///
+            !missing(`pi_lci_var') & `pi_lci_var' > `pi_uci_var'
+        if r(N) > 0 {
+            display as error "lower prediction limits may not exceed upper prediction limits"
+            restore
+            exit 198
+        }
     }
 
     if "`pvalue'" != "" {
@@ -810,18 +822,25 @@ program define _eplot_data, rclass
     // Prediction intervals (data mode)
     tempvar pi_lci pi_uci
     if "`pi'" != "" {
-        tokenize `pi'
-        quietly gen double `pi_lci' = `1'
-        quietly gen double `pi_uci' = `2'
+        quietly gen double `pi_lci' = `pi_lci_var'
+        quietly gen double `pi_uci' = `pi_uci_var'
         if "`eform'" != "" {
             quietly replace `pi_lci' = exp(`pi_lci')
             quietly replace `pi_uci' = exp(`pi_uci')
         }
         if `rescale' != 1 {
-            quietly replace `pi_lci' = `pi_lci' * `rescale'
-            quietly replace `pi_uci' = `pi_uci' * `rescale'
+            tempvar unscaled_pi_lci
+            quietly gen double `unscaled_pi_lci' = `pi_lci'
+            if `rescale' > 0 {
+                quietly replace `pi_lci' = `pi_lci' * `rescale'
+                quietly replace `pi_uci' = `pi_uci' * `rescale'
+            }
+            else {
+                quietly replace `pi_lci' = `pi_uci' * `rescale'
+                quietly replace `pi_uci' = `unscaled_pi_lci' * `rescale'
+            }
         }
-}
+    }
     else {
         quietly gen double `pi_lci' = .
         quietly gen double `pi_uci' = .
@@ -1109,7 +1128,7 @@ program define _eplot_data, rclass
     // Build heterogeneity stats string (plain text for graph note)
     local _het_text ""
     if `"`i2'"' != "" {
-        local _het_text "I-squared = `i2'%"
+        local _het_text "I-squared = `i2'"
     }
     if `"`tau2'"' != "" {
         if `"`_het_text'"' != "" local _het_text "`_het_text', "
@@ -1212,7 +1231,14 @@ program define _eplot_data, rclass
             local _rnm = `label_str'[`i']
             local _rnames `"`_rnames' `"`_rnm'"'"'
         }
-        matrix rownames `_rtable' = `_rnames'
+        capture matrix rownames `_rtable' = `_rnames'
+        if _rc {
+            local _generic_names ""
+            forvalues _gi = 1/`_ntab' {
+                local _generic_names "`_generic_names' row`_gi'"
+            }
+            matrix rownames `_rtable' = `_generic_names'
+        }
         local _has_table 1
     }
     if "`pvalue'" != "" {
@@ -1232,7 +1258,14 @@ program define _eplot_data, rclass
                 local _pnm = `label_str'[`i']
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
-            matrix rownames `_rpvals' = `_pnames'
+            capture matrix rownames `_rpvals' = `_pnames'
+            if _rc {
+                local _generic_names ""
+                forvalues _gi = 1/`_npv' {
+                    local _generic_names "`_generic_names' row`_gi'"
+                }
+                matrix rownames `_rpvals' = `_generic_names'
+            }
             local _has_pvalues 1
         }
     }
@@ -1323,7 +1356,7 @@ program define _eplot_estimates, rclass
             ORDer(string asis) ///
             /// Multi-model
             MODELLabels(string asis) ///
-            OFFset(real 0.15) ///
+            OFFset(string) ///
             PALette(string) ///
             LEGendopts(string asis) ///
             /// Marker options
@@ -1387,6 +1420,10 @@ program define _eplot_estimates, rclass
             display as error "favors() requires horizontal layout"
             exit 198
         }
+        if missing(`gap') | `gap' < 0 {
+            display as error "gap() must be nonmissing and nonnegative"
+            exit 198
+        }
 
     // ====== Parse estimate list ======
     if `"`anything'"' == "" | `"`anything'"' == "." {
@@ -1396,6 +1433,50 @@ program define _eplot_estimates, rclass
         local estlist `"`anything'"'
     }
     local n_models : word count `estlist'
+
+    local _modellabels_supplied = (`"`modellabels'"' != "")
+    local _palette_supplied = (`"`palette'"' != "")
+    local _legendopts_supplied = (`"`legendopts'"' != "")
+    local _offset_supplied = ("`offset'" != "")
+
+    if `_offset_supplied' {
+        capture confirm number `offset'
+        if _rc {
+            display as error "offset() must be numeric"
+            exit 198
+        }
+        local offset = real("`offset'")
+        if missing(`offset') {
+            display as error "offset() must be a nonmissing number"
+            exit 198
+        }
+    }
+
+    if `n_models' == 1 & (`_modellabels_supplied' | `_palette_supplied' | ///
+        `_legendopts_supplied' | `_offset_supplied') {
+        display as error "modellabels(), palette(), legendopts(), and offset() require multiple models"
+        exit 198
+    }
+    if `n_models' > 1 & `_modellabels_supplied' {
+        local _n_modellabels : word count `modellabels'
+        if `_n_modellabels' != `n_models' {
+            display as error "modellabels() requires exactly one label per model"
+            exit 198
+        }
+    }
+    if `n_models' > 1 & `_palette_supplied' {
+        local _n_palette : word count `palette'
+        if `_n_palette' != `n_models' {
+            display as error "palette() requires exactly one color per model"
+            exit 198
+        }
+    }
+    if `_offset_supplied' {
+        if `offset' < 0 {
+            display as error "offset() must be nonnegative"
+            exit 198
+        }
+    }
 
     // ====== Set defaults ======
     if "`horizontal'" == "" & "`vertical'" == "" {
@@ -1411,6 +1492,7 @@ program define _eplot_estimates, rclass
         local null = cond("`eform'" != "", 1, 0)
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
+    if "`offset'" == "" local offset 0.15
 
     // Default palette for multi-model
     if "`palette'" == "" {
@@ -1429,8 +1511,8 @@ program define _eplot_estimates, rclass
         }
     }
 
-    // CI critical value
-    local crit = invnormal(1 - (1 - `level'/100)/2)
+    // Normal critical value for estimators that do not post residual df.
+    local zcrit = invnormal(1 - (1 - `level'/100)/2)
 
     // ====== Identify "." model (current estimates) ======
     local dot_idx 0
@@ -1473,6 +1555,10 @@ program define _eplot_estimates, rclass
             display as error "active estimation results do not contain e(V)"
             exit 498
         }
+        local df_dot = .
+        capture local df_dot = e(df_r)
+        if _rc local df_dot = .
+        if !missing(`df_dot') & `df_dot' <= 0 local df_dot = .
     }
 
     // Auto-detect the effect label from the requested model, not from an
@@ -1607,7 +1693,7 @@ program define _eplot_estimates, rclass
 
     tempname posthn
     tempfile postfn
-    postfile `posthn' str244 coef_name double(es se lci uci) byte model_id ///
+    postfile `posthn' str244 coef_name double(es se lci uci df) byte model_id ///
         using `postfn', replace
     local _post_open 1
 
@@ -1619,6 +1705,11 @@ program define _eplot_estimates, rclass
             local k = colsof(`b_dot')
             _eplot_matrix_coefnames, matrix(`b_dot')
             local names `"`s(names)'"'
+            local model_df = `df_dot'
+            local model_crit = `zcrit'
+            if !missing(`model_df') {
+                local model_crit = invttail(`model_df', (1 - `level'/100) / 2)
+            }
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
@@ -1631,11 +1722,11 @@ program define _eplot_estimates, rclass
                 if `this_se' < 1e-15 continue
 
                 local this_b = `b_dot'[1, `i']
-                local this_lci = `this_b' - `crit' * `this_se'
-                local this_uci = `this_b' + `crit' * `this_se'
+                local this_lci = `this_b' - `model_crit' * `this_se'
+                local this_uci = `this_b' + `model_crit' * `this_se'
 
                 post `posthn' ("`nm'") (`this_b') (`this_se') ///
-                    (`this_lci') (`this_uci') (`m')
+                    (`this_lci') (`this_uci') (`model_df') (`m')
             }
         }
         else {
@@ -1657,6 +1748,14 @@ program define _eplot_estimates, rclass
                 display as error `"estimation results '`est_name'' do not contain e(V)"'
                 exit 498
             }
+            local model_df = .
+            capture local model_df = e(df_r)
+            if _rc local model_df = .
+            if !missing(`model_df') & `model_df' <= 0 local model_df = .
+            local model_crit = `zcrit'
+            if !missing(`model_df') {
+                local model_crit = invttail(`model_df', (1 - `level'/100) / 2)
+            }
 
             local k = colsof(`bm')
             _eplot_matrix_coefnames, matrix(`bm')
@@ -1673,11 +1772,11 @@ program define _eplot_estimates, rclass
                 if `this_se' < 1e-15 continue
 
                 local this_b = `bm'[1, `i']
-                local this_lci = `this_b' - `crit' * `this_se'
-                local this_uci = `this_b' + `crit' * `this_se'
+                local this_lci = `this_b' - `model_crit' * `this_se'
+                local this_uci = `this_b' + `model_crit' * `this_se'
 
                 post `posthn' ("`nm'") (`this_b') (`this_se') ///
-                    (`this_lci') (`this_uci') (`m')
+                    (`this_lci') (`this_uci') (`model_df') (`m')
             }
         }
     }
@@ -1733,10 +1832,13 @@ program define _eplot_estimates, rclass
         _eplot_apply_rename coef_name, rename(`rename')
     }
 
-    // ====== P-values (compute BEFORE eform so z = b/se is valid) ======
+    // ====== P-values (compute BEFORE eform) ======
     if `n_models' == 1 {
-        quietly gen double _pval = 2 * normal(-abs(es / se)) ///
-            if se > 0 & !missing(se) & !missing(es)
+        quietly gen double _pval = .
+        quietly replace _pval = 2 * normal(-abs(es / se)) ///
+            if se > 0 & !missing(se) & !missing(es) & missing(df)
+        quietly replace _pval = 2 * ttail(df, abs(es / se)) ///
+            if se > 0 & !missing(se) & !missing(es) & !missing(df)
     }
 
     // Apply eform
@@ -2230,7 +2332,14 @@ program define _eplot_estimates, rclass
                 local _rnm = coef_name[`i']
                 local _rnames `"`_rnames' `"`_rnm'"'"'
             }
-            matrix rownames `_rtable' = `_rnames'
+            capture matrix rownames `_rtable' = `_rnames'
+            if _rc {
+                local _generic_names ""
+                forvalues _gi = 1/`_ntab' {
+                    local _generic_names "`_generic_names' row`_gi'"
+                }
+                matrix rownames `_rtable' = `_generic_names'
+            }
             local _has_table 1
         }
     }
@@ -2258,11 +2367,12 @@ program define _eplot_estimates, rclass
                 if _coef_tag[`i'] != 1 continue
                 local ++_ri
                 local _rnm = coef_name[`i']
+                local _coef_pos = _base_pos[`i']
                 local _rnames `"`_rnames' `"`_rnm'"'"'
 
                 // Fill in values for each model
-                forvalues j = `i'/`=_N' {
-                    if coef_name[`j'] != `"`_rnm'"' continue
+                forvalues j = 1/`=_N' {
+                    if _base_pos[`j'] != `_coef_pos' continue
                     local _mid = model_id[`j']
                     local _col = (`_mid' - 1) * 3 + 1
                     matrix `_rtable'[`_ri', `_col'] = es[`j']
@@ -2270,7 +2380,14 @@ program define _eplot_estimates, rclass
                     matrix `_rtable'[`_ri', `_col' + 2] = uci[`j']
                 }
             }
-            matrix rownames `_rtable' = `_rnames'
+            capture matrix rownames `_rtable' = `_rnames'
+            if _rc {
+                local _generic_names ""
+                forvalues _gi = 1/`_ntab' {
+                    local _generic_names "`_generic_names' row`_gi'"
+                }
+                matrix rownames `_rtable' = `_generic_names'
+            }
             local _has_table 1
         }
     }
@@ -2293,7 +2410,14 @@ program define _eplot_estimates, rclass
                 local _pnm = coef_name[`i']
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
-            matrix rownames `_rpvals' = `_pnames'
+            capture matrix rownames `_rpvals' = `_pnames'
+            if _rc {
+                local _generic_names ""
+                forvalues _gi = 1/`_npv' {
+                    local _generic_names "`_generic_names' row`_gi'"
+                }
+                matrix rownames `_rpvals' = `_generic_names'
+            }
             local _has_pvalues 1
         }
     }
@@ -2383,7 +2507,7 @@ program define _eplot_matrix, rclass
             SIGColors ///
             SIGColor(string) ///
             INSIGNColor(string) ///
-            STARS ///
+            STARs ///
             Favors(string asis) ///
             /// Layout
             HORizontal ///
@@ -2513,6 +2637,12 @@ program define _eplot_matrix, rclass
     }
 
     if `ncols' == 3 {
+        quietly count if missing(es) | missing(lci) | missing(uci)
+        if r(N) > 0 {
+            display as error "matrix b, lower-limit, and upper-limit cells must be nonmissing"
+            restore
+            exit 198
+        }
         quietly count if !missing(lci) & !missing(uci) & lci > uci
         if r(N) > 0 {
             display as error "matrix lower confidence limits may not exceed upper confidence limits"
@@ -2521,6 +2651,12 @@ program define _eplot_matrix, rclass
         }
     }
     else {
+        quietly count if missing(es) | missing(se)
+        if r(N) > 0 {
+            display as error "matrix coefficient and standard-error cells must be nonmissing"
+            restore
+            exit 198
+        }
         quietly count if !missing(se) & se < 0
         if r(N) > 0 {
             display as error "matrix standard errors must be nonnegative"
@@ -2809,7 +2945,14 @@ program define _eplot_matrix, rclass
             local _rnm = coef_name[`i']
             local _rnames `"`_rnames' `"`_rnm'"'"'
         }
-        matrix rownames `_rtable' = `_rnames'
+        capture matrix rownames `_rtable' = `_rnames'
+        if _rc {
+            local _generic_names ""
+            forvalues _gi = 1/`n_coefs' {
+                local _generic_names "`_generic_names' row`_gi'"
+            }
+            matrix rownames `_rtable' = `_generic_names'
+        }
         local _has_table 1
     }
 
@@ -2831,7 +2974,14 @@ program define _eplot_matrix, rclass
                 local _pnm = coef_name[`i']
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
-            matrix rownames `_rpvals' = `_pnames'
+            capture matrix rownames `_rpvals' = `_pnames'
+            if _rc {
+                local _generic_names ""
+                forvalues _gi = 1/`_npv' {
+                    local _generic_names "`_generic_names' row`_gi'"
+                }
+                matrix rownames `_rpvals' = `_generic_names'
+            }
             local _has_pvalues 1
         }
     }
@@ -3027,6 +3177,7 @@ capture program drop _eplot_build_reflines
 program define _eplot_build_reflines, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _numlist_rc 0
     set varabbrev off
     capture noisily {
         syntax, NULL(real) [XLine(string asis) HORizontal NONULL]
@@ -3050,20 +3201,28 @@ program define _eplot_build_reflines, sclass
                 gettoken _xl_comma _xl_supp : _xl_rest, parse(",")
             }
             if `"`_xl_supp'"' == "" local _xl_supp "lcolor(gs10) lpattern(shortdash)"
-            foreach val of numlist `_xl_pos' {
-                if "`horizontal'" != "" {
-                    local cmd `"`cmd' xline(`val', `_xl_supp')"'
-                }
-                else {
-                    local cmd `"`cmd' yline(`val', `_xl_supp')"'
+            capture noisily numlist "`_xl_pos'"
+            local _numlist_rc = _rc
+            if `_numlist_rc' == 0 {
+                local _xl_values "`r(numlist)'"
+                foreach val of local _xl_values {
+                    if "`horizontal'" != "" {
+                        local cmd `"`cmd' xline(`val', `_xl_supp')"'
+                    }
+                    else {
+                        local cmd `"`cmd' yline(`val', `_xl_supp')"'
+                    }
                 }
             }
         }
 
-        sreturn clear
-        sreturn local cmd `"`cmd'"'
+        if `_numlist_rc' == 0 {
+            sreturn clear
+            sreturn local cmd `"`cmd'"'
+        }
     }
     local rc = _rc
+    if `rc' == 0 & `_numlist_rc' != 0 local rc = `_numlist_rc'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
@@ -3151,12 +3310,29 @@ program define _eplot_apply_coeflabels, nclass
             local coef = trim("`coef'")
 
             gettoken eq remaining : remaining, parse("=")
+            local eq = trim("`eq'")
 
             gettoken label remaining : remaining, parse(" ") bind
             local label = trim(`"`label'"')
 
+            if "`coef'" == "" | "`eq'" != "=" | `"`label'"' == "" {
+                display as error "coeflabels() requires coefficient = nonempty label specifications"
+                exit 198
+            }
+
             if substr(`"`label'"', 1, 1) == `"""' {
                 local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
+            }
+
+            if `"`label'"' == "" {
+                display as error "coeflabels() labels may not be empty"
+                exit 198
+            }
+
+            quietly count if `labelvar' == "`coef'"
+            if r(N) == 0 {
+                display as error `"coeflabels() coefficient '`coef'' not found"'
+                exit 198
             }
 
             quietly replace `labelvar' = `"`label'"' if `labelvar' == "`coef'"
@@ -3260,12 +3436,29 @@ program define _eplot_apply_rename, nclass
             local oldname = trim("`oldname'")
 
             gettoken eq remaining : remaining, parse("=")
+            local eq = trim("`eq'")
 
             gettoken newname remaining : remaining, parse(" ") bind
             local newname = trim(`"`newname'"')
 
+            if "`oldname'" == "" | "`eq'" != "=" | `"`newname'"' == "" {
+                display as error "rename() requires oldname = nonempty newname specifications"
+                exit 198
+            }
+
             if substr(`"`newname'"', 1, 1) == `"""' {
                 local newname = substr(`"`newname'"', 2, length(`"`newname'"') - 2)
+            }
+
+            if `"`newname'"' == "" {
+                display as error "rename() names may not be empty"
+                exit 198
+            }
+
+            quietly count if `labelvar' == "`oldname'"
+            if r(N) == 0 {
+                display as error `"rename() coefficient '`oldname'' not found"'
+                exit 198
             }
 
             quietly replace `labelvar' = `"`newname'"' if `labelvar' == "`oldname'"
@@ -3298,6 +3491,11 @@ program define _eplot_process_groups, rclass
         local n_groups 0
         local group_coefs ""
 
+        if missing(`gap') | `gap' < 0 {
+            display as error "gap() must be nonmissing and nonnegative"
+            exit 198
+        }
+
         while `"`remaining'"' != "" {
             gettoken token remaining : remaining, bind
             local token = trim(`"`token'"')
@@ -3310,9 +3508,27 @@ program define _eplot_process_groups, rclass
                 gettoken label remaining : remaining, bind
                 local label = trim(`"`label'"')
 
+                if trim(`"`group_coefs'"') == "" | `"`label'"' == "" {
+                    display as error "groups() requires coefficient list = nonempty label specifications"
+                    exit 198
+                }
+
                 if substr(`"`label'"', 1, 1) == `"""' {
                     local labellen = length(`"`label'"')
                     local label = substr(`"`label'"', 2, `labellen' - 2)
+                }
+
+                if `"`label'"' == "" {
+                    display as error "groups() labels may not be empty"
+                    exit 198
+                }
+
+                foreach group_coef of local group_coefs {
+                    quietly count if `labelvar' == `"`group_coef'"'
+                    if r(N) == 0 {
+                        display as error `"groups() coefficient '`group_coef'' not found"'
+                        exit 198
+                    }
                 }
 
                 local ++n_groups
@@ -3355,6 +3571,11 @@ program define _eplot_process_groups, rclass
             }
         }
 
+        if trim(`"`group_coefs'"') != "" {
+            display as error "groups() requires each coefficient list to be followed by = label"
+            exit 198
+        }
+
         return scalar n_groups = `n_groups'
     }
     local rc = _rc
@@ -3390,25 +3611,38 @@ program define _eplot_process_headers, rclass
             }
 
             gettoken eq remaining : remaining, parse("=")
+            local eq = trim("`eq'")
 
             gettoken label remaining : remaining, parse(" ") bind
             local label = trim(`"`label'"')
+
+            if "`ref'" == "" | "`eq'" != "=" | `"`label'"' == "" {
+                display as error "headers() requires coefficient = nonempty label specifications"
+                exit 198
+            }
 
             if substr(`"`label'"', 1, 1) == `"""' {
                 local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
             }
 
-            quietly count if `labelvar' == `"`ref'"'
-            if r(N) > 0 {
-                quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
-                local header_pos = r(mean) - 0.5
-
-                local newN = _N + 1
-                quietly set obs `newN'
-                quietly replace `posvar' = `header_pos' in `newN'
-                quietly replace `labelvar' = `"`label'"' in `newN'
-                quietly replace `typevar' = 0 in `newN'
+            if `"`label'"' == "" {
+                display as error "headers() labels may not be empty"
+                exit 198
             }
+
+            quietly count if `labelvar' == `"`ref'"'
+            if r(N) == 0 {
+                display as error `"headers() coefficient '`ref'' not found"'
+                exit 198
+            }
+            quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
+            local header_pos = r(mean) - 0.5
+
+            local newN = _N + 1
+            quietly set obs `newN'
+            quietly replace `posvar' = `header_pos' in `newN'
+            quietly replace `labelvar' = `"`label'"' in `newN'
+            quietly replace `typevar' = 0 in `newN'
         }
     }
     local rc = _rc

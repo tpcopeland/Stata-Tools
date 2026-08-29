@@ -60,8 +60,12 @@ capture {
         generate(tv_dmt) ///
         saveas("${DATA_DIR}/_tv_base.dta") replace
 }
+local _qa_capture_rc_54 = _rc
+if `_qa_capture_rc_54' exit `_qa_capture_rc_54'
 
 }
+local _qa_capture_rc_33 = _rc
+if `_qa_capture_rc_33' exit `_qa_capture_rc_33'
 
 capture noisily {
 * test_tvevent_keepvars_fix.do
@@ -91,9 +95,9 @@ save `events'
 clear
 input long id double start double stop
 1 21500 21550
-1 21550 21600
+1 21551 21600
 2 21500 21550
-2 21550 21600
+2 21551 21600
 end
 format start %td
 format stop %td
@@ -177,11 +181,11 @@ save `events_cr'
 clear
 input long id double start double stop
 1 21500 21550
-1 21550 21600
+1 21551 21600
 2 21500 21550
-2 21550 21600
+2 21551 21600
 3 21500 21550
-3 21550 21600
+3 21551 21600
 end
 format start %td
 format stop %td
@@ -229,6 +233,8 @@ else {
 }
 
 }
+local _qa_capture_rc_66 = _rc
+if `_qa_capture_rc_66' exit `_qa_capture_rc_66'
 
 capture noisily {
 capture program drop assert_exact
@@ -1610,6 +1616,8 @@ else {
 }
 
 }
+local _qa_capture_rc_233 = _rc
+if `_qa_capture_rc_233' exit `_qa_capture_rc_233'
 
 
 * SECTION: v1.5.0 - start()/stop() aliases + returned output-name macros

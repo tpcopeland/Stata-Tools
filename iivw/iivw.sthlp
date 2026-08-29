@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.0.0  19aug2026}
+{* *! version 4.0.1  30aug2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -125,10 +125,10 @@ outside what these weights identify.{p_end}
 
 {synoptset 20}{...}
 {synopt:{helpb iivw_weight}}compute IIW/IPTW/FIPTIW weights{p_end}
-{synopt:{helpb iivw_balance}}check weight leverage and visit-model covariate balance{p_end}
+{synopt:{helpb iivw_balance}}check weight leverage and visit-model balance{p_end}
 {synopt:{helpb iivw_fit}}fit the outcome model (GEE or mixed){p_end}
 {synopt:{helpb iivw_exogtest}}test whether prior outcomes predict visit timing{p_end}
-{synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope movement across models{p_end}
+{synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope changes{p_end}
 
 
 {marker choosing}{...}
@@ -467,7 +467,7 @@ observation times. R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.0.0, 2026-08-19{p_end}
+{pstd}Version 4.0.1, 2026-08-30{p_end}
 
 
 {title:Also see}

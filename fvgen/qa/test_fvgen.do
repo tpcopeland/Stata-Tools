@@ -1,3 +1,7 @@
+*! test_fvgen.do — Functional QA for fvgen generation behavior
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set varabbrev off
 version 16.0
@@ -428,6 +432,67 @@ else {
     display as error "  FAIL: unlabeled-factor fallback label (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 17"
+}
+
+**# 18. fweight and iweight centering match hand-computed weighted means
+local ++test_count
+capture noisily {
+    clear
+    input double x fw iw
+    10 1 0.5
+    20 2 1.0
+    30 3 1.5
+    end
+
+    * Both weight schemes have mean 140/6 = 70/3.
+    fvgen c.x [fweight=fw], center prefix(f_)
+    assert !missing(f_x_c[1], f_x_c[2], f_x_c[3])
+    assert reldif(f_x_c[1], 10 - 70/3) < 1e-12
+    assert reldif(f_x_c[2], 20 - 70/3) < 1e-12
+    assert reldif(f_x_c[3], 30 - 70/3) < 1e-12
+
+    fvgen c.x [iweight=iw], center prefix(i_)
+    assert !missing(i_x_c[1], i_x_c[2], i_x_c[3])
+    assert reldif(i_x_c[1], 10 - 70/3) < 1e-12
+    assert reldif(i_x_c[2], 20 - 70/3) < 1e-12
+    assert reldif(i_x_c[3], 30 - 70/3) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: fweight + iweight centering known answers"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: fweight/iweight centering (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 18"
+}
+
+**# 19. Weights define the level-discovery sample even without center
+local ++test_count
+capture noisily {
+    clear
+    input byte g double fw
+    1 1
+    2 1
+    3 0
+    end
+
+    fvgen i.g [fweight=fw]
+    confirm variable _g_2
+    assert _g_2[1] == 0
+    assert _g_2[2] == 1
+    assert _g_2[3] == 0
+    capture confirm variable _g_3
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: weights restrict level discovery without center"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: weighted level discovery (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 19"
 }
 
 **# Summary

@@ -575,6 +575,8 @@ capture noisily {
             "menu setup already attempted"))
     assert scalar(__menu_guard) == 1
 }
+local _qa_capture_rc_565 = _rc
+if `_qa_capture_rc_565' exit `_qa_capture_rc_565'
 global TVTOOLS_MENU_SETUP_DONE ""
 if _rc == 0 local ++pass_count
 else {

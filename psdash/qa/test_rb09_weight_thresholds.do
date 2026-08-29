@@ -79,6 +79,11 @@ capture noisily {
     replace ps = 0.5 in 1
     psdash weights treat ps, nograph
     assert _rc == 0
+    assert !missing(r(N))
+    assert r(N) == 100
+    assert !missing(r(ess))
+    assert r(ess) > 0 & r(ess) <= r(N)
+    assert "`r(wvar)'" == "auto-generated"
 }
 _t "B6b_interior_ps_positive_control" `=_rc'
 

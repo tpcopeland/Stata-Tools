@@ -41,8 +41,8 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synoptline}
 {syntab:Percentages}
 {synopt:{opt col:pct}}column percentages (default){p_end}
-{synopt:{opt row:pct}}row percentages; may not be combined with {opt colpct} or {opt totalpct}{p_end}
-{synopt:{opt total:pct}}total percentages; may not be combined with {opt colpct} or {opt rowpct}{p_end}
+{synopt:{opt row:pct}}row percentages; see exclusivity rules below{p_end}
+{synopt:{opt total:pct}}total percentages; see exclusivity rules below{p_end}
 {syntab:Association measures}
 {synopt:{opt or}}odds ratio with CI; requires a 2x2 table{p_end}
 {synopt:{opt rr}}risk ratio with CI; requires a 2x2 table{p_end}
@@ -75,10 +75,10 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
-{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt open}}open Excel output; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {pstd}{cmd:crosstab} supports {help weight:fweight}s only, written in the standard
 form {cmd:[fweight=}{it:exp}{cmd:]}, where {it:exp} is a variable or expression
@@ -289,14 +289,14 @@ row accordingly. {it:fweight}s are honored by both.{p_end}
 {p2col 5 15 19 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}total observations{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level used for association intervals{p_end}
-{synopt:{cmd:r(chi2)}}chi-squared statistic when Pearson's chi-squared test is used{p_end}
+{synopt:{cmd:r(chi2)}}Pearson chi-squared statistic{p_end}
 {synopt:{cmd:r(p)}}p-value from the reported test{p_end}
 {synopt:{cmd:r(or)}}odds ratio (2x2){p_end}
 {synopt:{cmd:r(rr)}}risk ratio (2x2){p_end}
 {synopt:{cmd:r(rd)}}risk difference (2x2){p_end}
 {synopt:{cmd:r(p_trend)}}trend p-value (Spearman or Cochran-Armitage){p_end}
 {synopt:{cmd:r(chi2_trend)}}Cochran-Armitage trend chi-squared statistic (1 df){p_end}
-{synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic (when {opt cochran} is used){p_end}
+{synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(smallcells)}}requested threshold when {opt smallcells()} is used{p_end}
@@ -314,7 +314,7 @@ complementary count cells.{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
-{synopt:{cmd:r(trend_method)}}trend test used (Spearman rank correlation or Cochran-Armitage){p_end}
+{synopt:{cmd:r(trend_method)}}trend test method{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}

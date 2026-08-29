@@ -214,7 +214,7 @@ capture noisily {
     frame change `_here'
 
     quietly use "`work'/tvs_tool.dta", clear
-    quietly cf _all using "`work'/tvs_hand.dta", verbose
+    quietly _tvtools_qa_assert_cf_all_exact using "`work'/tvs_hand.dta", verbose
     local e1_d = r(Nsum)
 }
 local rc = _rc
@@ -251,7 +251,7 @@ capture noisily {
     frame change `_here'
 
     quietly use "`work'/tvs_mt.dta", clear
-    quietly cf _all using "`work'/tvs_mh.dta", verbose
+    quietly _tvtools_qa_assert_cf_all_exact using "`work'/tvs_mh.dta", verbose
     local e2_d = r(Nsum)
 }
 local rc = _rc
@@ -345,6 +345,8 @@ capture noisily {
     if _rc == 0 local a1_kept = 1
     frame change `_here'
 }
+local _qa_capture_rc_341 = _rc
+if `_qa_capture_rc_341' exit `_qa_capture_rc_341'
 _tvs_check `=(`rc' == 198 & `a1_rows' == 4 & `a1_kept')' ///
     "A1 add to a frame without the schema is r(198) and changes nothing" ///
     "rc=`rc' rows=`a1_rows' kept=`a1_kept'"
@@ -562,6 +564,8 @@ capture noisily {
     }
     file close `l4fh'
 }
+local _qa_capture_rc_554 = _rc
+if `_qa_capture_rc_554' exit `_qa_capture_rc_554'
 local l4_named = (`l4_saysmissing' & `l4_sayscolumn')
 capture erase "`l4_log'"
 local l4_rows = -1
@@ -571,6 +575,8 @@ capture noisily {
     local l4_rows = _N
     frame change `_here'
 }
+local _qa_capture_rc_568 = _rc
+if `_qa_capture_rc_568' exit `_qa_capture_rc_568'
 _tvs_check `=(`rc' == 198 & `l4_named' & `l4_rows' == 0)' ///
     "L4 a stamped frame missing a column is r(198) naming it, not r(111)" ///
     "rc=`rc' saysmissing=`l4_saysmissing' sayscolumn=`l4_sayscolumn' rows=`l4_rows'"

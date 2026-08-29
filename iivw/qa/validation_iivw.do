@@ -40,7 +40,7 @@ local pass_count = 0
 local fail_count = 0
 
 * =============================================================================
-* V1: IIW weights - first observation always gets weight 1
+* V1: IIW weights - first-observation contract by baseline mode
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
@@ -494,7 +494,7 @@ if `run_only' == 0 | `run_only' == 11 {
             2 11  2.0
         end
 
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(edss) ///
+        iivw_weight, endatlastvisit baseline(entry) id(id) time(months) visit_cov(edss) ///
             lagvars(edss) nolog
 
         * Verify lag values are correct

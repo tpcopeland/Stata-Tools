@@ -50,9 +50,9 @@
 
 {syntab:Output}
 {synopt:{opt gen:erate(name)}}name the generated band variable{p_end}
-{synopt:{opt startg:en(name)}}name for the split interval start; default keeps {opt start()}{p_end}
-{synopt:{opt stopg:en(name)}}name for the split interval stop; default keeps {opt stop()}{p_end}
-{synopt:{opt save:as(filename)}}save the result to a file and restore the data in memory{p_end}
+{synopt:{opt startg:en(name)}}split start name; default keeps {opt start()}{p_end}
+{synopt:{opt stopg:en(name)}}split stop name; default keeps {opt stop()}{p_end}
+{synopt:{opt save:as(filename)}}save result; restore data in memory{p_end}
 {synopt:{opt rep:lace}}overwrite the file in {opt saveas()}{p_end}
 {synopt:{opt noi:sily}}display a summary{p_end}
 {synoptline}

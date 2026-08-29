@@ -60,23 +60,23 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopthdr}
 {synoptline}
 {syntab:Weighting}
-{synopt:{opt wt(varname)}}apply probability or inverse-probability weights{p_end}
+{synopt:{opt wt(varname)}}apply probability/IP weights{p_end}
 
 {syntab:Columns/Rows}
 {synopt:{opt by(varname)}}group observations by {it:varname}{p_end}
-{synopt:{opt total(before|after)}}include a total column before/after group columns{p_end}
+{synopt:{opt total(before|after)}}add total before or after group columns{p_end}
 {synopt:{opt mis:sing}}treat missing values as a category{p_end}
-{synopt:{opt test}}include column describing the significance test used{p_end}
+{synopt:{opt test}}show the significance-test column{p_end}
 {synopt:{opt stat:istic}}show the test statistic{p_end}
 {synopt:{opt headerp:erc}}add percentage of total to sample size row{p_end}
 {synopt:{opt smd}}show standardized mean differences{p_end}
 {synopt:{opt nop:value}}suppress p-value and test columns{p_end}
 
 {syntab:Contents of Cells}
-{synopt:{opt f:ormat(%fmt)}}default display format for continuous variables{p_end}
+{synopt:{opt f:ormat(%fmt)}}default continuous-variable format{p_end}
 {synopt:{opt percf:ormat(%fmt)}}default display format for percentages{p_end}
-{synopt:{opt nf:ormat(%fmt)}}display format for n and N; default is %12.0fc{p_end}
-{synopt:{opt varlabplus}}add data type description after variable labels{p_end}
+{synopt:{opt nf:ormat(%fmt)}}count format; default {cmd:%12.0fc}{p_end}
+{synopt:{opt varlabplus}}append data type to variable labels{p_end}
 {synopt:{opt iqrmiddle("string")}}symbol between Q1 and Q3; default is ", "{p_end}
 {synopt:{opt sdleft("string")}}symbol before SD; default is "±"{p_end}
 {synopt:{opt sdright("string")}}symbol after SD; default is "" (none){p_end}
@@ -84,32 +84,32 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt gsdright("string")}}symbol after GSD; default is ")"{p_end}
 {synopt:{opt percsign("string")}}percent sign; default is "" (none){p_end}
 {synopt:{opt space:lowpercent}}report ( 3%) instead of (3%){p_end}
-{synopt:{opt extraspace}}helps alignment in .docx with non-monospaced fonts{p_end}
-{synopt:{opt percent}}report % only (no N) for categorical/binary vars{p_end}
+{synopt:{opt extraspace}}improve non-monospaced DOCX alignment{p_end}
+{synopt:{opt percent}}show categorical percentages only{p_end}
 {synopt:{opt percent_n}}report % (n) rather than n (%){p_end}
 {synopt:{opt slashN}}report n/N instead of n{p_end}
 {synopt:{opt catrowperc}}report row % for categorical vars{p_end}
 {synopt:{opt pdp(#)}}max decimal places for p < 0.10; default is 3{p_end}
-{synopt:{opt highpdp(#)}}max decimal places for p >= 0.10; default is 2{p_end}
+{synopt:{opt highpdp(#)}}decimal places for p >= 0.10; default 2{p_end}
 
 {syntab:Excel Output}
 {synopt:{opt xlsx("filename")}}save table to Excel file{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
-{synopt:{opt border:style(string)}}border style: default, thin, medium, or academic{p_end}
+{synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt font(string)}}Excel font family; default Arial{p_end}
 {synopt:{opt fontsize(#)}}Excel font size in points; default 10{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
 {synopt:{opt foot:note(string)}}add footnote row below table{p_end}
-{synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt open}}open Excel output after export{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt headers:hade}}apply shading to header rows{p_end}
 {synopt:{opt high:light(#)}}highlight rows where p < threshold{p_end}
-{synopt:{opt smdt:hreshold(#)}}SMD threshold for orange highlighting in Excel{p_end}
+{synopt:{opt smdt:hreshold(#)}}SMD highlighting threshold in Excel{p_end}
 {synopt:{opt headerc:olor(string)}}custom header background color{p_end}
 {synopt:{opt zebrac:olor(string)}}custom zebra stripe color{p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 
 {syntab:Frame & Pipeline}
@@ -119,7 +119,7 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt clear}}replace dataset in memory with the table{p_end}
 {synopt:{opt dots}}show progress dots while processing variables{p_end}
 {synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
-{synopt:{opt smallc:ells(#)}}suppress small counts and prevent exact reconstruction{p_end}
+{synopt:{opt smallc:ells(#)}}suppress small counts and reconstruction{p_end}
 {synopt:{opt wtc:ompare}}show weighted and unweighted statistics{p_end}
 {synopt:{opt wtn}}show weighted effective counts{p_end}
 {synoptline}
@@ -412,14 +412,14 @@ variables and weight.{p_end}
 {p2col 5 32 36 2: Macros}{p_end}
 {synopt:{cmd:r(Dapa)}}resolved data-presentation description{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for resolved tests{p_end}
-{synopt:{cmd:r(varlist)}}space-separated list of processed variables{p_end}
+{synopt:{cmd:r(varlist)}}processed variables{p_end}
 {synopt:{cmd:r(xlsx)}}exported Excel path{p_end}
-{synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}
+{synopt:{cmd:r(sheet)}}Excel sheet name{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 
 {p2col 5 32 36 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}p-values and absolute SMDs; {cmd:.d} when protected{p_end}
+{synopt:{cmd:r(table)}}p-values and absolute SMDs{p_end}
 {synopt:{cmd:r(suppression)}}display-cell suppression codes{p_end}
 
 

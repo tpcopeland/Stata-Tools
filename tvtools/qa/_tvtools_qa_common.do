@@ -295,6 +295,39 @@ program define assert_approx
     }
 end
 
+* Compare values only after proving the current and oracle schemas match in
+* both directions. Stata's cf _all otherwise ignores oracle-only variables.
+capture program drop _tvtools_qa_assert_cf_all_exact
+program define _tvtools_qa_assert_cf_all_exact
+    version 16.0
+    syntax using/ [, VERBOSE]
+
+    unab _actual_vars : _all
+    tempname _oracle_frame
+    capture noisily {
+        frame create `_oracle_frame'
+        frame `_oracle_frame': quietly use `"`using'"', clear
+        frame `_oracle_frame': unab _oracle_vars : _all
+        local _actual_only : list _actual_vars - _oracle_vars
+        local _oracle_only : list _oracle_vars - _actual_vars
+        if `"`_actual_only'"' != "" | `"`_oracle_only'"' != "" {
+            display as error "variable-list mismatch"
+            display as error `"  actual: `_actual_vars'"'
+            display as error `"  oracle: `_oracle_vars'"'
+            error 9
+        }
+        if "`verbose'" != "" {
+            cf `_actual_vars' using `"`using'"', verbose
+        }
+        else {
+            cf `_actual_vars' using `"`using'"'
+        }
+    }
+    local _compare_rc = _rc
+    capture frame drop `_oracle_frame'
+    if `_compare_rc' exit `_compare_rc'
+end
+
 * _validate_tvexpose_output: structural sanity checks on tvexpose output.
 capture program drop _validate_tvexpose_output
 program define _validate_tvexpose_output, rclass

@@ -1,4 +1,4 @@
-*! _psdash_export_kv Version 1.6.8  2026/08/11
+*! _psdash_export_kv Version 1.6.9  2026/08/30
 *! Write a two-column (Metric, Value) summary sheet to an Excel workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -6,10 +6,13 @@
 *! keys() and vals() are parallel lists whose elements may contain spaces
 *! when individually double-quoted, e.g. keys(`""Total N" "Mean PS""') .
 
-program define _psdash_export_kv
+program define _psdash_export_kv, nclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _putexcel_open = 0
+    local _xl_open = 0
+    tempname xlbook
     capture noisily {
         syntax , XLSX(string) SHEET(string) Keys(string asis) Vals(string asis) ///
             [TItle(string)]
@@ -22,6 +25,7 @@ program define _psdash_export_kv
         }
 
         putexcel set "`xlsx'", sheet("`sheet'", replace) modify
+        local _putexcel_open = 1
         putexcel A1 = (`"`title'"'), bold
         putexcel A1:B1, merge
         putexcel A2 = ("Metric") B2 = ("Value"), bold border(bottom)
@@ -34,15 +38,17 @@ program define _psdash_export_kv
             if !_rc putexcel B`row' = (`v'), nformat(number)
             else putexcel B`row' = (`"`v'"')
         }
+        putexcel clear
+        local _putexcel_open = 0
 
-        tempname xlbook
         mata: `xlbook' = xl()
+        local _xl_open = 1
         mata: `xlbook'.load_book(`"`xlsx'"')
         mata: `xlbook'.set_sheet(`"`sheet'"')
         mata: `xlbook'.set_column_width(1, 1, 32)
         mata: `xlbook'.set_column_width(2, 2, 28)
         mata: `xlbook'.close_book()
-        capture mata: mata drop `xlbook'
+        local _xl_open = 0
 
         capture confirm file "`xlsx'"
         if _rc {
@@ -51,6 +57,19 @@ program define _psdash_export_kv
         }
     }
     local rc = _rc
+    local _cleanup_rc = 0
+    if `_xl_open' {
+        capture mata: `xlbook'.close_book()
+        if _rc local _cleanup_rc = _rc
+    }
+    capture mata: mata drop `xlbook'
+    if _rc & `_cleanup_rc' == 0 local _cleanup_rc = _rc
+    if `_putexcel_open' {
+        capture putexcel clear
+        if _rc & `_cleanup_rc' == 0 local _cleanup_rc = _rc
+    }
     set varabbrev `_vao'
+    if `rc' == 0 & `_cleanup_rc' local rc = `_cleanup_rc'
+    if `rc' == 0 return clear
     if `rc' exit `rc'
 end

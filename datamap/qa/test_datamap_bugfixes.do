@@ -96,12 +96,6 @@ else {
 local ++test_count
 capture {
 	sysuse auto, clear
-	datadict, single("`tmp_dir'/_b2_auto.dta") output("`tmp_dir'/_b2.md") stats missing
-	* auto has no .dta file at that path — use data in memory
-}
-* datadict requires a .dta file — save one first
-capture {
-	sysuse auto, clear
 	save "`tmp_dir'/_b2_auto.dta", replace
 	datadict, single("`tmp_dir'/_b2_auto.dta") output("`tmp_dir'/_b2.md") stats missing
 	confirm file "`tmp_dir'/_b2.md"
@@ -271,16 +265,10 @@ else {
 
 * {{{ T8: notes() with inline string writes the text
 local ++test_count
+* Use filelist mode which writes notes section
 capture {
 	sysuse auto, clear
 	save "`tmp_dir'/_d2_auto.dta", replace
-	datadict, single("`tmp_dir'/_d2_auto.dta") output("`tmp_dir'/_d2.md") ///
-		notes("These are inline test notes for the data dictionary.")
-	confirm file "`tmp_dir'/_d2.md"
-	* For single-dataset mode, notes are not written to sections — check multi-dataset
-}
-* Use filelist mode which writes notes section
-capture {
 	datadict, filelist("`tmp_dir'/_d2_auto") ///
 		output("`tmp_dir'/_d2_multi.md") ///
 		notes("These are inline test notes for the data dictionary.")

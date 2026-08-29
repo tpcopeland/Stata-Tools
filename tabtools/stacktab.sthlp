@@ -50,19 +50,19 @@ one composite sheet with {cmd:stacktab}.
 {syntab:Content}
 {synopt:{opt lay:out(string)}}vstack (default) or hstack{p_end}
 {synopt:{opt ti:tle(string)}}title written to cell {cmd:A1}; the table starts at {cmd:B2}{p_end}
-{synopt:{opt no:te(string)}}note row written below the table in the first table column{p_end}
+{synopt:{opt no:te(string)}}note row below the table{p_end}
 {synopt:{opt foot:note(string)}}tabtools-style alias for {opt note()}{p_end}
 {synopt:{opt col:umnmerge(mergespec)}}concatenate column pairs with header label{p_end}
-{synopt:{opt sp:acing(#)}}blank rows inserted between vertically stacked blocks{p_end}
+{synopt:{opt sp:acing(#)}}blank rows between vertical blocks{p_end}
 
 {syntab:Formatting}
-{synopt:{opt st:yle(stylespec)}}row heights and table-relative column widths via Mata {cmd:xl()}{p_end}
+{synopt:{opt st:yle(stylespec)}}row heights and table-relative widths{p_end}
 {synopt:{opt bo:rders(borderspec)}}border specifications via Mata {cmd:xl()}{p_end}
 
 {syntab:Additional outputs}
 {synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame{p_end}
 {synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 {synopt:{opt dis:play}}list the composed table in Results{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
@@ -249,7 +249,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {synopt:{cmd:r(sheet)}}output sheet name{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(book)}}workbook path{p_end}
-{synopt:{cmd:r(table_start)}}top-left Excel cell of the composed table, usually {cmd:B2}{p_end}
+{synopt:{cmd:r(table_start)}}top-left cell of the composed table{p_end}
 {synopt:{cmd:r(title_cell)}}title cell, when {opt title()} is specified{p_end}
 {synopt:{cmd:r(frame)}}frame name, when {opt frame()} is specified{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when {opt csv()} is specified{p_end}

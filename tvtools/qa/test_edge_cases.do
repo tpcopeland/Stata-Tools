@@ -67,17 +67,23 @@ bysort id: egen double study_exit = max(stop)
 format study_entry study_exit %tdCCYY/NN/DD
 
 // =========================================================================
-// TEST #3: tvtools version date sync
+// TEST #3: tvtools dispatcher catalog
 // =========================================================================
 local n_tests = `n_tests' + 1
-display as text "{bf:Test #3: tvtools version date sync}"
+display as text "{bf:Test #3: tvtools dispatcher catalog}"
 capture noisily tvtools
-if _rc == 0 {
-    display as result "  PASSED - tvtools runs without error"
+local cmdrc = _rc
+local catalog_ok = 0
+if `cmdrc' == 0 {
+    local reported_version "`r(version)'"
+    if r(n_commands) == 11 & "`reported_version'" != "" local catalog_ok = 1
+}
+if `catalog_ok' {
+    display as result "  PASSED - dispatcher reports all commands and a version"
     test_pass
 }
 else {
-    display as error "  FAILED - tvtools errored: _rc = `=_rc'"
+    display as error "  FAILED - dispatcher catalog contract: rc=`cmdrc'"
     test_fail "edge-case assertion failed"
 }
 
@@ -202,6 +208,11 @@ else {
 
 display as text _newline "{hline 70}"
 
+}
+local _edge_block1_rc = _rc
+if `_edge_block1_rc' {
+    display as error "  FAILED - first edge-case block aborted: rc=`_edge_block1_rc'"
+    test_fail "first edge-case block aborted"
 }
 
 capture noisily {
@@ -469,6 +480,11 @@ else {
 }
 
 }
+local _edge_block2_rc = _rc
+if `_edge_block2_rc' {
+    display as error "  FAILED - second edge-case block aborted: rc=`_edge_block2_rc'"
+    test_fail "second edge-case block aborted"
+}
 
 capture noisily {
 
@@ -511,11 +527,21 @@ capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/sec_exposure.dta", ///
     exposure(drug_type) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     generate(tv_exp)
-if _rc == 0 {
+local setup_rc = _rc
+if `setup_rc' == 0 {
     save "$TVTOOLS_QA_RUN_DIR/sec_tve.dta", replace
     display as result "  PASS [setup.tvexpose]: time-varying dataset created (`=_N' rows)"
 }
+else {
+    display as error "  FAIL [setup.tvexpose]: setup returned rc=`setup_rc'"
+    error `setup_rc'
+}
 
+}
+local _edge_setup_rc = _rc
+if `_edge_setup_rc' {
+    display as error "  FAILED - edge-case setup block aborted: rc=`_edge_setup_rc'"
+    test_fail "edge-case setup block aborted"
 }
 
 

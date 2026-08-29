@@ -269,6 +269,8 @@ else {
 }
 
 }
+local _qa_capture_rc_34 = _rc
+if `_qa_capture_rc_34' exit `_qa_capture_rc_34'
 
 
 * ===== Summary =====

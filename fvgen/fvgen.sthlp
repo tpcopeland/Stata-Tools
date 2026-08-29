@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.4  11aug2026}{...}
+{* *! version 1.2.5  30aug2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -54,14 +54,14 @@ syntax for {helpb margins}:
 {synoptline}
 {syntab:Main}
 {synopt:{opt all:levels}}materialize every level, base included{p_end}
-{synopt:{opt center}}mean-center continuous terms before forming products{p_end}
+{synopt:{opt center}}mean-center continuous terms before products{p_end}
 {synopt:{opt ref(spec)}}set the reference (base) level per factor{p_end}
 {synopt:{opt simp:le(varname)}}per-group slopes within levels of {it:varname}{p_end}
-{synopt:{opt vs:ref(string)}}append the reference level to main-effect labels{p_end}
-{synopt:{opt pre:fix(name)}}prefix for generated variable names; default is {cmd:_}{p_end}
+{synopt:{opt vs:ref(string)}}append base level to main-effect labels{p_end}
+{synopt:{opt pre:fix(name)}}prefix generated names; default is {cmd:_}{p_end}
 {synopt:{opt replace}}overwrite colliding variable names{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
-{synopt:{opt drop}}drop every fvgen-generated variable in the dataset{p_end}
+{synopt:{opt drop}}drop all fvgen-generated variables{p_end}
 {syntab:Postestimation}
 {synopt:{opt margins}}refit with native factor syntax for {cmd:margins}{p_end}
 {synopt:{opt stor:e(name)}}with {opt margins}, store the clone as {it:name}{p_end}
@@ -69,9 +69,9 @@ syntax for {helpb margins}:
 {p2colreset}{...}
 
 {p 4 6 2}
-{cmd:aweight}s, {cmd:fweight}s, {cmd:pweight}s, and {cmd:iweight}s are allowed
-and are used only by {opt center} (the centering mean is weighted); see
-{help weight}.{p_end}
+{cmd:aweight}s, {cmd:fweight}s, {cmd:pweight}s, and {cmd:iweight}s are
+allowed and restrict the sample used to discover levels and cells; with
+{opt center}, they also weight the centering mean. See {help weight}.{p_end}
 
 
 {marker description}{...}
@@ -119,10 +119,10 @@ command are returned in {cmd:r()}. A typical workflow is:
 {pstd}
 Indicator and product variables are stored in {cmd:double} precision and are set
 to missing wherever any source variable is missing. The {cmd:if}/{cmd:in}
-qualifier restricts which categorical levels and interaction cells are
-materialized (empty cells in the restricted sample are skipped, matching what
-the corresponding model would estimate); the generated variables themselves are
-filled for all observations so they can be reused.
+qualifier and any weight restrict which categorical levels and interaction cells
+are materialized (empty cells in the restricted sample are skipped, matching
+what the corresponding model would estimate); the generated variables themselves
+are filled for all observations so they can be reused.
 
 
 {marker options}{...}
@@ -225,11 +225,13 @@ model on the exact varlist returned by {cmd:fvgen}. It reconstructs the native
 factor-variable command from {cmd:fvgen}'s provenance and reruns the estimator,
 so the estimator itself supplies the hidden factor-variable metadata that
 {helpb margins} expects. The active estimate is changed so {helpb margins} can
-operate on the original factor variables. The bridge verifies a stored signature
-of the source and generated variables before refitting. If any relevant variable
-was changed, dropped, or recast after {cmd:fvgen}, the bridge exits with error 498
-and asks you to rerun {cmd:fvgen} and the flattened estimator. Adding an unrelated
-variable does not invalidate the bridge.
+operate on the original factor variables. The bridge conservatively verifies a
+stored signature of every data variable present when {cmd:fvgen} ran, plus its
+generated variables, before refitting. If any signed variable was changed,
+dropped, or recast, the bridge exits with error 498 and asks you to rerun
+{cmd:fvgen} and the flattened estimator. A variable added after {cmd:fvgen} does
+not invalidate the bridge. If the native replay errors or reports nonconvergence,
+the bridge returns that failure and restores the original active estimate.
 
 {phang}
 {opt store(name)} is used with {opt margins}. Instead of leaving the native
@@ -289,8 +291,9 @@ it: {cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or {
 {cmd:char }{it:var}{cmd:[fvgen_term]} records the factor-variable term it came from (for
 example {cmd:1.foreign#c.mpg}). {cmd:fvgen, drop} uses {cmd:fvgen_role} to identify exactly the
 variables it created. Dataset-level provenance also records the effective
-specification, generated-variable inventory, and a signature of the relevant
-source and generated data used by the {opt margins} bridge.
+specification, generated-variable inventory, and a signature of every data
+variable present when {cmd:fvgen} ran plus its generated data. The {opt margins}
+bridge uses this conservative signature to reject stale refits.
 
 {pstd}
 {bf:No-base factors.} A no-base specification ({cmd:ibn.}{it:var}) materializes
@@ -371,11 +374,11 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 {synopt:{cmd:r(k_int)}}number of interaction variables{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(spec)}}expanded factor-variable specification, with {opt ref()} bases{p_end}
+{synopt:{cmd:r(spec)}}expanded specification with {opt ref()} bases{p_end}
 {synopt:{cmd:r(allvars)}}all model variables, ordered for estimation{p_end}
 {synopt:{cmd:r(mainvars)}}main-effect variables only{p_end}
 {synopt:{cmd:r(intvars)}}interaction variables only{p_end}
-{synopt:{cmd:r(genvars)}}newly created variables (excludes pass-through originals){p_end}
+{synopt:{cmd:r(genvars)}}created variables; excludes pass-through originals{p_end}
 
 {pstd}
 With {opt drop}, {cmd:fvgen} instead stores:
@@ -406,7 +409,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.4, 2026-08-11{p_end}
+{pstd}Version 1.2.5, 2026-08-30{p_end}
 
 
 {title:Also see}

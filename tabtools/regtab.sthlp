@@ -66,7 +66,7 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synoptline}
 {synopt:{opt xlsx(string)}}output Excel filename (must end with .xlsx){p_end}
 {synopt:{opt sheet(string)}}target sheet to create/replace in xlsx(){p_end}
-{synopt:{opt sep(string asis)}}CI-endpoint delimiter for {cmd:collect}; default {cmd:", "}{p_end}
+{synopt:{opt sep(string asis)}}CI delimiter for {cmd:collect}; default {cmd:", "}{p_end}
 {synopt:{opt models(string)}}set merged model labels{p_end}
 {synopt:{opt coef(string)}}header for the estimate column{p_end}
 {synopt:{opt title(string)}}title written to A1, merged across the table{p_end}
@@ -88,13 +88,13 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt border:style(string)}}set the table border style{p_end}
 {synopt:{opt cdisc}}apply CDISC labels and defaults{p_end}
 {synopt:{opt relab:el}}relabel random effects{p_end}
-{synopt:{opt stars}}add significance stars to coefficients (*, **, ***){p_end}
+{synopt:{opt stars}}add coefficient significance stars{p_end}
 {synopt:{opt starsl:evels(numlist)}}custom p-value thresholds for stars{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the table as GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name)}}store output in a named frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
 {synopt:{opt keep(varlist)}}show only rows matching these variable names{p_end}
@@ -103,11 +103,11 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt factorl:abel}}render labels for factor-variable levels{p_end}
 {synopt:{opt ref:cat(string)}}label for reference-category rows{p_end}
 {synopt:{opt cutl:abels(string)}}relabel ordered-model cutpoints{p_end}
-{synopt:{opt comp:act}}merge estimate and CI into one column per model{p_end}
+{synopt:{opt comp:act}}combine estimate and CI per model{p_end}
 {synopt:{opt nop:value}}suppress p-value columns{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom label/value rows{p_end}
-{synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10){p_end}
-{synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10){p_end}
+{synopt:{opt pdp(#)}}decimal places for p < 0.10{p_end}
+{synopt:{opt highpdp(#)}}decimal places for p >= 0.10{p_end}
 {synoptline}
 
 {pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
@@ -485,8 +485,8 @@ threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(N_cols)}}number of columns in output table{p_end}
 {synopt:{cmd:r(N_models)}}number of models{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level carried by the collected intervals{p_end}
-{synopt:{cmd:r(aic_}{it:#}{cmd:)}}Akaike information criterion for model {it:#} (when {cmd:stats(aic)}){p_end}
-{synopt:{cmd:r(bic_}{it:#}{cmd:)}}Bayesian information criterion for model {it:#} (when {cmd:stats(bic)}){p_end}
+{synopt:{cmd:r(aic_}{it:#}{cmd:)}}AIC for model {it:#} when requested{p_end}
+{synopt:{cmd:r(bic_}{it:#}{cmd:)}}BIC for model {it:#} when requested{p_end}
 {synopt:{cmd:r(qic_}{it:#}{cmd:)}}QICu for fixed-scale {cmd:xtgee} model {it:#}, when available{p_end}
 {synopt:{cmd:r(icc_}{it:#}{cmd:)}}ICC for model #, when available{p_end}
 {synopt:{cmd:r(ll_}{it:#}{cmd:)}}log-likelihood for model {it:#} (when {cmd:stats(ll)}){p_end}
@@ -503,7 +503,7 @@ threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
-{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name (if {cmd:eplotframe()} specified){p_end}
+{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric displayed-body coefficients{p_end}

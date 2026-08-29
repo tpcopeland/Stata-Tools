@@ -24,6 +24,7 @@ local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
+local sthlp_width_checker "`tools_dir'/check_sthlp_width.py"
 
 * the Stata shell never sets _rc, so the python3 probe here and its python
 * fallback could not fire and python_cmd was always python3. python3 is a
@@ -1417,6 +1418,47 @@ if `render_rc' == 0 {
 else {
     display as error "  FAIL: rendered .sthlp gate (rc=`render_rc')"
     local ++fail_count
+}
+
+**# Help Viewer synopt-width gate
+
+capture noisily {
+    confirm file "`sthlp_width_checker'"
+    tempfile width_status width_probe_status
+    shell `python_cmd' "`sthlp_width_checker'" "`pkg_dir'" ///
+        --result-file "`width_status'"
+    tempname width_fh
+    file open `width_fh' using "`width_status'", read text
+    file read `width_fh' width_line
+    file close `width_fh'
+    assert "`width_line'" == "PASS"
+
+    * Positive control: synoptset 28 has a 43-character description cap.
+    local width_probe "`output_dir'/_synopt_width_probe.sthlp"
+    tempname width_probe_fh
+    file open `width_probe_fh' using "`width_probe'", write replace text
+    file write `width_probe_fh' "{smcl}" _n
+    file write `width_probe_fh' "{synoptset 28 tabbed}{...}" _n
+    file write `width_probe_fh' ///
+        "{synopt:{opt probe}}This deliberately over-wide description must be rejected by the checker.{p_end}" _n
+    file write `width_probe_fh' "{hline}" _n
+    file close `width_probe_fh'
+    shell `python_cmd' "`sthlp_width_checker'" "`width_probe'" ///
+        --result-file "`width_probe_status'"
+    file open `width_fh' using "`width_probe_status'", read text
+    file read `width_fh' width_probe_line
+    file close `width_fh'
+    assert "`width_probe_line'" == "FAIL"
+    capture erase "`width_probe'"
+}
+if _rc == 0 {
+    display as result "  PASS: synopt descriptions fit the Viewer and the positive control is detected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: synopt Viewer-width gate (rc=`=_rc')"
+    local ++fail_count
+    capture erase "`width_probe'"
 }
 
 

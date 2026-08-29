@@ -98,9 +98,9 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{cmd:using} {it:filename}}optional Excel target workbook{p_end}
 {synopt:{opt sh:eet(string)}}Excel sheet name; default is {cmd:Table}{p_end}
 {synopt:{opt csv(filename)}}also write the assembled table to a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
-{synopt:{opt open}}open the Excel file after export; requires {cmd:using}{p_end}
+{synopt:{opt open}}open Excel output after export{p_end}
 {synoptline}
 
 {dlgtab:Formatting}
@@ -225,7 +225,7 @@ or RGB triplet{p_end}
 
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Scalars}{p_end}
-{synopt:{cmd:r(n_rows)}}rows in the assembled table (title + header + data + footnote){p_end}
+{synopt:{cmd:r(n_rows)}}assembled rows, including title/header/footnote{p_end}
 {synopt:{cmd:r(n_cols)}}content columns, excluding the layout spacer column A{p_end}
 {synopt:{cmd:r(n_datarows)}}number of data rows (excluding title, header, footnote){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}

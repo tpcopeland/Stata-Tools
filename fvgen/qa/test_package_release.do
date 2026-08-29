@@ -1,3 +1,7 @@
+*! test_package_release.do — Installed-user and help-render QA for fvgen
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set varabbrev off
 version 16.0
@@ -155,7 +159,74 @@ else {
     local failed_tests "`failed_tests' 4"
 }
 
-**# 5. Every shipped help file renders without literal SMCL markup
+**# 5. Remaining visible help examples run sequentially as displayed
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"
+    label values rep78 rl
+
+    * Example 1 establishes generated names used by the later replace examples.
+    fvgen i.foreign##c.mpg
+    regress price `r(allvars)'
+    assert e(N) == 74
+
+    fvgen i.foreign##i.rep78, replace
+    regress price `r(allvars)'
+    assert e(N) == 69
+
+    fvgen c.mpg##c.weight, center replace
+    regress price `r(allvars)'
+    assert e(N) == 74
+
+    fvgen i.foreign##i.rep78, alllevels xsymbol(x) replace
+    confirm variable _foreign_0
+    assert ustrpos(`"`: variable label _foreignXrep78_1_3'"', " x ") > 0
+
+    fvgen i.foreign##i.rep78, ref(rep78 3) replace
+    assert strpos("`r(spec)'", "ib3.rep78") > 0
+    regress price `r(allvars)'
+    assert e(N) == 69
+
+    fvgen i.foreign##c.mpg, simple(foreign) replace
+    confirm variable _foreignXmpg_0
+    confirm variable _foreignXmpg_1
+    regress price `r(allvars)'
+    assert e(N) == 74
+
+    fvgen i.foreign##c.mpg, ref(foreign "Domestic") replace
+    assert strpos("`r(spec)'", "ib0.foreign") > 0
+    fvgen, drop
+    assert !missing(r(k_dropped))
+    assert r(k_dropped) > 0
+
+    fvgen i.foreign##i.rep78, vsref("(vs. @)") replace
+    assert `"`: variable label _foreign_1'"' == `"Foreign (vs. Domestic)"'
+    regress price `r(allvars)'
+    assert e(N) == 69
+
+    fvgen i.foreign##c.mpg, replace
+    regress price `r(allvars)'
+    capture estimates drop m_price
+    fvgen, margins store(m_price)
+    assert "`r(margins)'" == "stored"
+    assert "`r(stored)'" == "m_price"
+    estimates restore m_price
+    margins, dydx(mpg) at(foreign=(0 1))
+    assert colsof(r(b)) == 2
+    estimates drop m_price
+}
+if _rc == 0 {
+    display as result "  PASS: remaining documented examples run as displayed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: remaining documented examples (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5"
+}
+
+**# 6. Every shipped help file renders without literal SMCL markup
 local ++test_count
 capture noisily {
     local sthlps : dir "`pkg_dir'" files "*.sthlp"
@@ -174,10 +245,10 @@ if _rc == 0 {
 else {
     display as error "  FAIL: shipped help render (rc=`=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' 5"
+    local failed_tests "`failed_tests' 6"
 }
 
-**# 6. Positive control proves the render oracle detects broken markup
+**# 7. Positive control proves the render oracle detects broken markup
 local ++test_count
 capture noisily {
     tempfile broken
@@ -201,7 +272,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: help-render positive control (rc=`=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' 6"
+    local failed_tests "`failed_tests' 7"
 }
 
 **# Summary

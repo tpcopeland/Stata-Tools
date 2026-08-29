@@ -55,18 +55,18 @@ zebra striping, bold p-values, and custom colors — are supported.{p_end}
 {synoptset 27 tabbed}{...}
 {synoptline}
 {syntab:Required}
-{synopt:{opt times(numlist)}}analysis timepoints for Kaplan-Meier estimates{p_end}
+{synopt:{opt times(numlist)}}Kaplan-Meier analysis timepoints{p_end}
 
 {syntab:Analysis}
-{synopt:{opt by(varname)}}grouping variable for between-group comparison{p_end}
+{synopt:{opt by(varname)}}between-group comparison variable{p_end}
 {synopt:{opt rmst(#)}}compute RMST through time #{p_end}
-{synopt:{opt med:ian}}include median survival with a confidence interval{p_end}
+{synopt:{opt med:ian}}include median survival with CI{p_end}
 {synopt:{opt risk:set}}add number-at-risk rows at each timepoint{p_end}
-{synopt:{opt timeu:nit(string)}}time unit label: {cmd:years} (default), {cmd:months}, {cmd:days}, {cmd:weeks}{p_end}
-{synopt:{opt rev:erse}}report cumulative incidence as 1 minus survival{p_end}
+{synopt:{opt timeu:nit(string)}}time-unit label; default {cmd:years}{p_end}
+{synopt:{opt rev:erse}}report 1 minus survival{p_end}
 {synopt:{opt diff:erence}}add between-group difference column{p_end}
 {synopt:{opt ev:ents}}add aggregate Events / N row per group{p_end}
-{synopt:{opt level(#)}}set the confidence level; default is {cmd:c(level)}{p_end}
+{synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel workbook{p_end}
@@ -74,24 +74,24 @@ zebra striping, bold p-values, and custom colors — are supported.{p_end}
 {synopt:{opt title(string)}}table title in row 1{p_end}
 {synopt:{opt foot:note(string)}}footnote below the table{p_end}
 {synopt:{opt csv(filename)}}export a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 
 {syntab:Formatting}
 {synopt:{opt font(string)}}set the Excel font family{p_end}
 {synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt bold:p(#)}}bold log-rank results below a p threshold{p_end}
 {synopt:{opt headers:hade}}shade header row background{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
-{synopt:{opt high:light(#)}}highlight log-rank summary row when p < threshold{p_end}
+{synopt:{opt high:light(#)}}highlight log-rank row below p threshold{p_end}
 {synopt:{opt dig:its(#)}}set decimals for survival estimates and CIs{p_end}
-{synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10){p_end}
-{synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10){p_end}
+{synopt:{opt pdp(#)}}decimal places for p < 0.10{p_end}
+{synopt:{opt highpdp(#)}}decimal places for p >= 0.10{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below table body{p_end}
 {synoptline}
 
@@ -288,7 +288,7 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(by_var)}}name of the {opt by()} variable (when {opt by()}){p_end}
-{synopt:{cmd:r(group_)}}dynamic group-identity family; see the two entries below{p_end}
+{synopt:{cmd:r(group_)}}dynamic group-identity return family{p_end}
 {synopt:{cmd:r(group_{it:#}_value)}}value of the {opt by()} variable for group {it:#}{p_end}
 {synopt:{cmd:r(group_{it:#}_label)}}value label for group {it:#}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}

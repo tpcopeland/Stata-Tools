@@ -60,20 +60,20 @@ collection must remain unchanged.{p_end}
 {synoptset 27 tabbed}{...}
 {synoptline}
 {synopt:{opt xlsx(string)}}output Excel filename (must end with .xlsx){p_end}
-{synopt:{opt sheet(string)}}target sheet name to create/replace in xlsx(){p_end}
+{synopt:{opt sheet(string)}}target Excel sheet name{p_end}
 {synopt:{opt type(string)}}select the collected-results adapter{p_end}
-{synopt:{opt effect(string)}}header for the effect column (e.g., ATE, RD, RR, AME){p_end}
-{synopt:{opt sep(string asis)}}delimiter between CI endpoints. Default is {cmd:", "}{p_end}
-{synopt:{opt models(string)}}labels for multiple models, separated by backslash{p_end}
+{synopt:{opt effect(string)}}effect-column header{p_end}
+{synopt:{opt sep(string asis)}}CI delimiter; default {cmd:", "}{p_end}
+{synopt:{opt models(string)}}model labels separated by backslashes{p_end}
 {synopt:{opt title(string)}}set the table title in cell A1{p_end}
 {synopt:{opt clean}}clean up teffects row labels{p_end}
 {synopt:{opt tlab:els(string asis)}}explicit treatment-level label pairs{p_end}
 {synopt:{opt foot:note(string)}}add italic footnote text{p_end}
 {synopt:{opt open}}open the exported workbook{p_end}
 {synopt:{opt zebra}}shade alternating rows{p_end}
-{synopt:{opt high:light(#)}}apply yellow fill to rows where p-value < threshold{p_end}
+{synopt:{opt high:light(#)}}yellow-fill rows below p-value threshold{p_end}
 {synopt:{opt bold:p(#)}}bold cells below a p threshold{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt full}}retain normally filtered rows{p_end}
 {synopt:{opt digits(#)}}set decimals for effects and CIs{p_end}
 {synopt:{opt level(#)}}set or verify the confidence level{p_end}
@@ -85,12 +85,12 @@ collection must remain unchanged.{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below the table body{p_end}
 {synopt:{opt ref:cat(string)}}label for reference rows (default {cmd:Reference}){p_end}
-{synopt:{opt pdp(#)}}maximum decimal places for small p-values (p < 0.10){p_end}
-{synopt:{opt highpdp(#)}}maximum decimal places for large p-values (p >= 0.10){p_end}
+{synopt:{opt pdp(#)}}decimal places for p < 0.10{p_end}
+{synopt:{opt highpdp(#)}}decimal places for p >= 0.10{p_end}
 {synoptline}
 
 
@@ -367,7 +367,7 @@ to align compatible sources and rejects ambiguous or conflicting metadata.{p_end
 {synopt:{cmd:r(effect_label)}}effect column label{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
-{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name (if {cmd:eplotframe()} specified){p_end}
+{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric effect estimates and p-values{p_end}

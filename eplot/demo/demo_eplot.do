@@ -14,41 +14,24 @@
 version 16.0
 set more off
 set varabbrev off
-set linesize 250
+set linesize 120
 
-* --- Paths ---
-if fileexists("eplot/eplot.ado") {
-    local cmd_dir "eplot"
-    local pkg_dir "eplot/demo"
-}
-else if fileexists("../eplot.ado") {
-    local cmd_dir ".."
-    local pkg_dir "."
-}
-else if fileexists("eplot.ado") {
-    local cmd_dir "."
-    local pkg_dir "demo"
-}
-else {
+**# Paths
+if !fileexists("eplot/eplot.ado") {
     display as error "Could not locate eplot.ado relative to `c(pwd)'"
     exit 601
 }
-
+local pkg_dir "eplot/demo"
 capture mkdir "`pkg_dir'"
 
-* --- Set default scheme ---
+**# Install local packages and set the graph scheme
+capture ado uninstall eplot
+quietly net install eplot, from("`c(pwd)'/eplot") replace
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
 set scheme plotplainblind
 
-* --- Load and reload command ---
-capture program drop eplot _eplot_parse_mode _eplot_estimates _eplot_data
-capture program drop _eplot_matrix _eplot_apply_coeflabels
-capture program drop _eplot_apply_keep _eplot_apply_drop _eplot_apply_rename
-capture program drop _eplot_process_groups _eplot_process_headers
-quietly run "`cmd_dir'/eplot.ado"
-
-* ============================================================
-* 1. Multi-model coefficient comparison
-* ============================================================
+**# 1. Multi-model coefficient comparison
 
 sysuse auto, clear
 
@@ -79,9 +62,7 @@ eplot base extended full, drop(_cons) ///
 graph export "`pkg_dir'/multi_model.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 2. Forest plot with values annotation and subgroups
-* ============================================================
+**# 2. Forest plot with values annotation and subgroups
 
 clear
 input str24 study double(es lci uci weight) byte type
@@ -108,9 +89,7 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
 graph export "`pkg_dir'/forest_values.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 3. Grouped coefficient plot
-* ============================================================
+**# 3. Grouped coefficient plot
 
 sysuse auto, clear
 
@@ -133,9 +112,7 @@ eplot ., drop(_cons) eform ///
 graph export "`pkg_dir'/grouped_coefplot.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 4. Lancet style preset
-* ============================================================
+**# 4. Lancet style preset
 
 sysuse auto, clear
 
@@ -151,9 +128,7 @@ eplot ., noconstant eform ///
 graph export "`pkg_dir'/lancet_style.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 5. Significance coloring
-* ============================================================
+**# 5. Significance coloring
 
 sysuse auto, clear
 
@@ -173,14 +148,12 @@ eplot ., noconstant ///
 graph export "`pkg_dir'/sigcolors.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 6. Matrix mode
-* ============================================================
+**# 6. Matrix mode
 
 matrix R = (1.82, 1.21, 2.74 \ 0.73, 0.54, 0.99 \ 1.45, 1.08, 1.95 \ 1.12, 0.78, 1.61)
 matrix rownames R = "Drug_A" "Drug_B" "Drug_C" "Drug_D"
 
-eplot, matrix(R) eform ///
+eplot, matrix(R) ///
     effect("Odds Ratio (95% CI)") ///
     coeflabels(Drug_A = "Drug A (experimental)" ///
                Drug_B = "Drug B (standard)" ///
@@ -192,9 +165,7 @@ eplot, matrix(R) eform ///
 graph export "`pkg_dir'/matrix_mode.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 7. Single-model coefficient plot with values annotation
-* ============================================================
+**# 7. Single-model coefficient plot with values annotation
 
 sysuse auto, clear
 
@@ -212,9 +183,7 @@ eplot ., noconstant ///
 graph export "`pkg_dir'/coef_values.png", replace width(1400)
 capture graph close _all
 
-* ============================================================
-* 8. Meta-analysis with heterogeneity and prediction intervals
-* ============================================================
+**# 8. Meta-analysis with heterogeneity and prediction intervals
 
 clear
 input str20 study double(es lci uci pi_lci pi_uci weight) byte type
@@ -238,6 +207,6 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
 graph export "`pkg_dir'/meta_heterogeneity.png", replace width(1400)
 capture graph close _all
 
-* --- Cleanup ---
+**# Cleanup
 estimates drop _all
 clear

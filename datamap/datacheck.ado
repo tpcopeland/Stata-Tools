@@ -1,4 +1,4 @@
-*! datacheck Version 1.6.7  2026/08/19
+*! datacheck Version 1.6.8  2026/08/30
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

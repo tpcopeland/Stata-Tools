@@ -314,7 +314,7 @@ quietly input long pid int evdate
 end
 quietly tvevent using "`fIVL'", id(pid) date(evdate) ///
     start(i_start) stop(i_stop)
-capture cf _all using "`fOUT'", verbose
+capture _tvtools_qa_assert_cf_all_exact using "`fOUT'", verbose
 local cfrc = _rc
 local _ok = (`cfrc' == 0)
 _tes_check `_ok' ///
@@ -489,7 +489,7 @@ quietly save "`fOUT'", replace
 quietly use "`fEV'", clear
 quietly tvevent using "`fIVL'", id(pid) date(evdate) ///
     start(i_start) stop(i_stop) type(recurring)
-capture cf _all using "`fOUT'", verbose
+capture _tvtools_qa_assert_cf_all_exact using "`fOUT'", verbose
 local cfrc = _rc
 local s1 : sortedby
 local _ok = (`cfrc' == 0)

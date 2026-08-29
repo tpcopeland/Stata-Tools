@@ -34,22 +34,22 @@ help for {cmd:datamvp}
 {synoptline}
 {syntab:Display}
 {synopt:{opt not:able}}suppress variable summary table{p_end}
-{synopt:{opt sk:ip}}insert spaces every 5 variables for readability{p_end}
+{synopt:{opt sk:ip}}space variable columns in groups of 5{p_end}
 {synopt:{opt so:rt}}sort variables by descending missingness{p_end}
 {synopt:{opt nod:rop}}include variables with no missing values{p_end}
 {synopt:{opt w:ide}}compact display for many variables{p_end}
 {synopt:{opt nosu:mmary}}suppress summary statistics{p_end}
 
 {syntab:Pattern filtering}
-{synopt:{opt m:infreq(#)}}minimum frequency for pattern display; default is 1{p_end}
-{synopt:{opt minm:issing(#)}}show only patterns with at least # missing vars{p_end}
-{synopt:{opt maxm:issing(#)}}show only patterns with at most # missing vars{p_end}
-{synopt:{opt a:scending}}sort patterns by ascending frequency (rarest first){p_end}
+{synopt:{opt m:infreq(#)}}minimum pattern frequency; default is 1{p_end}
+{synopt:{opt minm:issing(#)}}minimum missing values per pattern{p_end}
+{synopt:{opt maxm:issing(#)}}maximum missing values per pattern{p_end}
+{synopt:{opt a:scending}}sort patterns from rarest to most common{p_end}
 
 {syntab:Statistics}
 {synopt:{opt p:ercent}}display percentages{p_end}
 {synopt:{opt cu:mulative}}display cumulative frequencies/percentages{p_end}
-{synopt:{opt cor:relate}}display tetrachoric correlations of missingness{p_end}
+{synopt:{opt cor:relate}}display missingness correlations{p_end}
 {synopt:{opt mon:otone}}test for monotone missingness pattern{p_end}
 
 {syntab:Output}
@@ -73,12 +73,12 @@ help for {cmd:datamvp}
 {synopt:{opt top(#)}}number of top patterns to show; default is 20{p_end}
 
 {syntab:Matrix heatmap options}
-{synopt:{opt missc:olor(colorstyle)}}color for missing values; default is {cmd:cranberry}{p_end}
-{synopt:{opt obsc:olor(colorstyle)}}color for observed values; default is {cmd:navy*0.2}{p_end}
+{synopt:{opt missc:olor(colorstyle)}}missing-value color{p_end}
+{synopt:{opt obsc:olor(colorstyle)}}observed-value color{p_end}
 
 {syntab:Correlation heatmap options}
 {synopt:{opt textl:abels}}display correlation values in cells{p_end}
-{synopt:{opt colorr:amp(type)}}color scheme: {cmd:bluered} (default), {cmd:redblue}, or {cmd:grayscale}{p_end}
+{synopt:{opt colorr:amp(type)}}correlation color scheme{p_end}
 
 {syntab:Stratification options}
 {synopt:{opt gb:y(varname)}}facet graphs by categorical var{p_end}

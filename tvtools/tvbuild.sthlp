@@ -82,7 +82,7 @@ cohort and one or more longitudinal sources
 {synopt:{opt startn:ame(name)}}output start variable; default {cmd:start}{p_end}
 {synopt:{opt stopn:ame(name)}}output stop variable; default {cmd:stop}{p_end}
 {synopt:{opt datef:ormat(fmt)}}output date format; default {cmd:%tdCCYY/NN/DD}{p_end}
-{synopt:{opt keep:vars(varlist)}}additional master variables to carry through{p_end}
+{synopt:{opt keep:vars(varlist)}}extra master variables carried through{p_end}
 {synopt:{opt dropd:ates}}omit {opt entry()} and {opt exit()} from the output{p_end}
 
 {syntab:Coverage}
@@ -104,10 +104,10 @@ cohort and one or more longitudinal sources
 {synopt:{opt gapsto:p(name)}}gap-time stop; default {cmd:_t}{p_end}
 
 {syntab:Transaction}
-{synopt:{opt manifest:frame(name)}}provenance manifest frame; default {it:frameout}{cmd:_manifest}{p_end}
+{synopt:{opt manifest:frame(name)}}manifest frame; default {it:frameout}{cmd:_manifest}{p_end}
 {synopt:{opt noman:ifest}}do not build a provenance manifest{p_end}
 {synopt:{opt dry:run}}validate and print the plan; change nothing{p_end}
-{synopt:{opt rep:lace}}authorize replacing an existing destination frame{p_end}
+{synopt:{opt rep:lace}}allow replacement of a destination frame{p_end}
 {synoptline}
 
 
@@ -346,11 +346,11 @@ quantity algebra.
 {synoptline}
 {synopt:{cmd:source_name}}required; unique legal Stata name{p_end}
 {synopt:{cmd:source_kind}}required; exactly {cmd:episodes} or {cmd:intervals}{p_end}
-{synopt:{cmd:source_frame}}required; frame locator, empty when {cmd:source_file} is used{p_end}
-{synopt:{cmd:source_file}}required; file locator, empty when {cmd:source_frame} is used{p_end}
+{synopt:{cmd:source_frame}}required frame locator; empty for {cmd:source_file}{p_end}
+{synopt:{cmd:source_file}}required file locator; empty for {cmd:source_frame}{p_end}
 {synopt:{cmd:start_var}}required; exact source start-variable name{p_end}
 {synopt:{cmd:stop_var}}required; exact source stop-variable name{p_end}
-{synopt:{cmd:input_vars}}required; explicit space-separated source variable names{p_end}
+{synopt:{cmd:input_vars}}required space-separated source variable names{p_end}
 {synopt:{cmd:output_vars}}required; explicit output names, mapped by position{p_end}
 {synopt:{cmd:reference}}required numeric; see below{p_end}
 {synopt:{cmd:rate_vars}}optional; subset of {cmd:input_vars} carrying rates{p_end}
@@ -462,7 +462,7 @@ result surfaces.
 {synopt:{cmd:r(exposure_vars)}}unclassified categorical output variables{p_end}
 {synopt:{cmd:r(rate_vars)}}mapped rate outputs; empty when none{p_end}
 {synopt:{cmd:r(total_vars)}}mapped interval-total outputs; empty when none{p_end}
-{synopt:{cmd:r(cumulative_vars)}}mapped row-start-history outputs; empty when none{p_end}
+{synopt:{cmd:r(cumulative_vars)}}mapped row-start-history outputs, or empty{p_end}
 {synopt:{cmd:r(specframe)}}specification frame, when used{p_end}
 {synopt:{cmd:r(frameout)}}planned or committed output frame{p_end}
 {synopt:{cmd:r(coverage)}}{cmd:strict} or {cmd:allow}{p_end}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.7  19aug2026}{...}
+{* *! version 1.6.8  30aug2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -42,18 +42,18 @@
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
 {synopt:{opt app:end}}append to an existing output file{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save common variable-level metadata dataset{p_end}
-{synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
+{synopt:{opt conf:ig(filename)}}load key-value defaults{p_end}
 
 {syntab:Content control}
-{synopt:{opt nost:ats}}suppress summary statistics for continuous variables{p_end}
-{synopt:{opt nofr:eq}}suppress frequency tables for categorical variables{p_end}
-{synopt:{opt nola:bels}}suppress the value-label definitions section{p_end}
+{synopt:{opt nost:ats}}suppress continuous summaries{p_end}
+{synopt:{opt nofr:eq}}suppress categorical frequencies{p_end}
+{synopt:{opt nola:bels}}suppress value-label definitions{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to tabulate; default {bf:25}{p_end}
 {synopt:{opt maxc:at(#)}}categorical cutoff; default {bf:25}{p_end}
-{synopt:{opt uniqc:ap(#)}}max unique values counted exactly; default {bf:1000}{p_end}
+{synopt:{opt uniqc:ap(#)}}exact-count cap; default {bf:1000}{p_end}
 {synopt:{opt minc:ell(#)}}suppress cells below {it:#}; {bf:0} disables{p_end}
 {synopt:{opt nog:uidance}}suppress ANALYSIS GUIDANCE prose{p_end}
-{synopt:{opt com:pact}}write a token-compact map; implies {opt noguidance}{p_end}
+{synopt:{opt com:pact}}write a compact map; implies {opt noguidance}{p_end}
 
 {syntab:Privacy}
 {synopt:{opt exc:lude(varlist)}}omit values/stats for these vars{p_end}
@@ -61,23 +61,23 @@
 {synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
 
 {syntab:Classification overrides}
-{synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
-{synopt:{opt cat:egorical(varlist)}}force these variables into the categorical group{p_end}
-{synopt:{opt date(varlist)}}force these variables into the date group{p_end}
+{synopt:{opt cont:inuous(varlist)}}force continuous classification{p_end}
+{synopt:{opt cat:egorical(varlist)}}force categorical classification{p_end}
+{synopt:{opt date(varlist)}}force date classification{p_end}
 
 {syntab:Detection}
 {synopt:{opt det:ect(options)}}enable specific structure detectors{p_end}
 {synopt:{opt autodet:ect}}enable all detectors at once{p_end}
-{synopt:{opt panel:id(varname)}}specify the panel identifier for panel detection{p_end}
-{synopt:{opt survival:vars(varlist)}}specify survival-analysis variables{p_end}
+{synopt:{opt panel:id(varname)}}set the panel identifier{p_end}
+{synopt:{opt survival:vars(varlist)}}set survival variables{p_end}
 
 {syntab:Data quality}
 {synopt:{opt qu:ality}}flag basic data quality issues{p_end}
-{synopt:{opt qu:ality2(strict)}}flag quality issues with stricter thresholds{p_end}
+{synopt:{opt qu:ality2(strict)}}use stricter quality thresholds{p_end}
 {synopt:{opt miss:ing(option)}}missing-data summary; {bf:detail} or {bf:pattern}{p_end}
 
 {syntab:Sample data}
-{synopt:{opt sam:ples(#)}}include the first {it:#} observations in the output{p_end}
+{synopt:{opt sam:ples(#)}}include the first {it:#} observations{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -558,7 +558,7 @@ Combine multiple privacy and content options:{p_end}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
 {synopt:{cmd:r(nobs)}}observations (single-file or memory mode){p_end}
-{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
+{synopt:{cmd:r(nvars)}}variables in single-file/memory mode{p_end}
 {synopt:{cmd:r(mincell)}}small-cell threshold used{p_end}
 {synopt:{cmd:r(n_categorical)}}number of categorical variables documented{p_end}
 {synopt:{cmd:r(n_continuous)}}number of continuous variables documented{p_end}
@@ -590,7 +590,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.6.7 {hline 2} 19aug2026{p_end}
+{pstd}Version 1.6.8 {hline 2} 30aug2026{p_end}
 
 
 {title:Also see}

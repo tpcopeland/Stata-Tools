@@ -1,4 +1,4 @@
-*! datamvp Version 1.6.7  2026/08/19
+*! datamvp Version 1.6.8  2026/08/30
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -58,6 +58,9 @@ program define datamvp, rclass byable(recall) sortpreserve
         GRAPHOPTions(string asis) /// additional twoway options
     ]
 
+    mata: st_local("title", _datamvp_graph_text(st_local("title")))
+    mata: st_local("subtitle", _datamvp_graph_text(st_local("subtitle")))
+
     local _user_minmissing = (`minmissing' != -999999999)
     local _user_maxmissing = (`maxmissing' != -999999999)
     local _user_top = (`top' != -999999999)
@@ -87,7 +90,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as err "option {bf:scheme()} requires {bf:graph()} option"
             exit 198
         }
-        if `"`title'"' != "" | `"`subtitle'"' != "" {
+        if `"`macval(title)'"' != "" | `"`macval(subtitle)'"' != "" {
             di as err "options {bf:title()} and {bf:subtitle()} require {bf:graph()} option"
             exit 198
         }
@@ -333,11 +336,13 @@ program define datamvp, rclass byable(recall) sortpreserve
                 local _gby_lt_`_gbi' : label `gby_vallbl' `_lev'
             }
             else if `gby_isstr' {
-                local _gby_lt_`_gbi' `"`_lev'"'
+                local _gby_lt_`_gbi' `"`macval(_lev)'"'
             }
             else {
                 local _gby_lt_`_gbi' "`gby' = `_lev'"
             }
+            mata: st_local("_gby_gt_`_gbi'", ///
+                _datamvp_graph_text(st_local("_gby_lt_`_gbi'")))
         }
     }
     local over_levels ""
@@ -362,11 +367,13 @@ program define datamvp, rclass byable(recall) sortpreserve
                 local _over_lt_`_ovi' : label `over_vallbl' `_lev'
             }
             else if `over_isstr' {
-                local _over_lt_`_ovi' `"`_lev'"'
+                local _over_lt_`_ovi' `"`macval(_lev)'"'
             }
             else {
                 local _over_lt_`_ovi' "`over' = `_lev'"
             }
+            mata: st_local("_over_gt_`_ovi'", ///
+                _datamvp_graph_text(st_local("_over_lt_`_ovi'")))
         }
     }
 
@@ -456,7 +463,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         local len 14
         foreach v of local varlist {
             local vlab : var label `v'
-            local len = max(`len', length(`"`vlab'"'))
+            local len = max(`len', length(`"`macval(vlab)'"'))
         }
         
         if "`wide'" != "" {
@@ -480,22 +487,22 @@ program define datamvp, rclass byable(recall) sortpreserve
 
             local vt : type `v'
             local vlab : var label `v'
-            local vl : piece 1 `vlwidth' of `"`vlab'"'
+            local vl : piece 1 `vlwidth' of `"`macval(vlab)'"'
 
             di as txt "{lalign 12:`v'}" "{col 14}{c |}" as res ///
                 _col(16) "`:di %7s abbrev("`vt'",7)'" ///
                 _col(24) %6.0fc `N'-`thismv' ///
                 _col(31) %6.0fc `thismv' ///
                 _col(38) %6.1f `pctmiss' ///
-                _col(47) as txt `"`vl'"'
+                _col(47) as txt `"`macval(vl)'"'
 
             * Rest of variable label
             local j 2
-            local vl : piece `j' `vlwidth' of `"`vlab'"'
-            while `"`vl'"' != "" {
-                di as txt "{col 14}{c |}{col 47}`vl'"
+            local vl : piece `j' `vlwidth' of `"`macval(vlab)'"'
+            while `"`macval(vl)'"' != "" {
+                di as txt "{col 14}{c |}{col 47}" `"`macval(vl)'"'
                 local ++j
-                local vl : piece `j' `vlwidth' of `"`vlab'"'
+                local vl : piece `j' `vlwidth' of `"`macval(vlab)'"'
             }
 
             * Separator line every 5 variables
@@ -917,12 +924,12 @@ program define datamvp, rclass byable(recall) sortpreserve
 
         * Build title/subtitle options
         local titleopts ""
-        if `"`title'"' != "" {
-            local titleopts `"title(`title')"'
+        if `"`macval(title)'"' != "" {
+            local titleopts `"title(`"`macval(title)'"')"'
         }
         local subtitleopts ""
-        if `"`subtitle'"' != "" {
-            local subtitleopts `"subtitle(`subtitle')"'
+        if `"`macval(subtitle)'"' != "" {
+            local subtitleopts `"subtitle(`"`macval(subtitle)'"')"'
         }
 
         * -----------------------------------------------------------------
@@ -952,20 +959,24 @@ program define datamvp, rclass byable(recall) sortpreserve
                     gen str32 varname = ""
                     gen double pctmiss = .
                     gen int varorder = .
-                    gen str80 gbylabel = ""
+                    gen int gbyid = .
+                    tempname gby_graph_label
 
                     local row = 1
                     local _gbi = 0
                     tokenize `varlist'
                     foreach lev of local gby_levels {
                         local ++_gbi
+                        mata: st_vlmodify(st_local("gby_graph_label"), ///
+                            `_gbi', st_local("_gby_gt_`_gbi'"))
                         forv i = 1/`nvar' {
                             replace varname = "``i''" in `row'
                             replace varorder = `i' in `row'
-                            replace gbylabel = `"`_gby_lt_`_gbi''"' in `row'
+                            replace gbyid = `_gbi' in `row'
                             local ++row
                         }
                     }
+                    label values gbyid `gby_graph_label'
 
                     * Now calculate actual percentages using original data
                     * First save the tempfile we just created
@@ -1000,13 +1011,14 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Set default title if not specified
-                local bartitle_text = cond(`"`title'"' != "", "", `"title("Missing Values by Variable and `gby'")"')
+                local bartitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Values by Variable and `gby'")"')
 
                 * Draw faceted bar chart
                 `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
-                    by(gbylabel, note("") `titleopts') ///
+                    by(gbyid, note("") `macval(titleopts)' ///
+                        `macval(subtitleopts)') ///
                     ytitle("Percent missing") ///
-                    `bartitle_text' `subtitleopts' ///
+                    `bartitle_text' ///
                     blabel(bar, format(%4.1f) size(tiny)) ///
                     bar(1, color(`barcolor')) ///
                     `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
@@ -1022,20 +1034,24 @@ program define datamvp, rclass byable(recall) sortpreserve
                     gen str32 varname = ""
                     gen double pctmiss = .
                     gen int varorder = .
-                    gen str80 overlabel = ""
+                    gen int overid = .
+                    tempname over_graph_label
 
                     local row = 1
                     local _ovi = 0
                     tokenize `varlist'
                     foreach lev of local over_levels {
                         local ++_ovi
+                        mata: st_vlmodify(st_local("over_graph_label"), ///
+                            `_ovi', st_local("_over_gt_`_ovi'"))
                         forv i = 1/`nvar' {
                             replace varname = "``i''" in `row'
                             replace varorder = `i' in `row'
-                            replace overlabel = `"`_over_lt_`_ovi''"' in `row'
+                            replace overid = `_ovi' in `row'
                             local ++row
                         }
                     }
+                    label values overid `over_graph_label'
 
                     * Now calculate actual percentages using original data
                     * First save the tempfile we just created
@@ -1070,7 +1086,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Set default title if not specified
-                local bartitle_text = cond(`"`title'"' != "", "", `"title("Missing Values by Variable")"')
+                local bartitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Values by Variable")"')
 
                 * Build gap option
                 local gapopts ""
@@ -1084,11 +1100,11 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Draw grouped bar chart with over() levels side-by-side
-                `barcmd' pctmiss, over(overlabel, `gapopts') ///
+                `barcmd' pctmiss, over(overid, `gapopts') ///
                     over(varname, sort(varorder) label(labsize(`labsz'))) ///
                     ytitle("Percent missing") ///
                     `bartitle_text' ///
-                    `titleopts' `subtitleopts' ///
+                    `macval(titleopts)' `macval(subtitleopts)' ///
                     blabel(bar, format(%4.1f) size(tiny)) ///
                     asyvars ///
                     `legendopts_final' ///
@@ -1111,7 +1127,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Set default title if not specified
-                local bartitle_text = cond(`"`title'"' != "", "", `"title("Missing Values by Variable (Stacked)")"')
+                local bartitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Values by Variable (Stacked)")"')
 
                 * Build bar color options for each variable
                 local baropts ""
@@ -1128,7 +1144,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     over(grp) stack ///
                     ytitle("Percent missing") ///
                     `bartitle_text' ///
-                    `titleopts' `subtitleopts' ///
+                    `macval(titleopts)' `macval(subtitleopts)' ///
                     legend(rows(2) position(6) size(vsmall)) ///
                     `baropts' ///
                     `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
@@ -1152,12 +1168,12 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Set default title if not specified
-                local bartitle_text = cond(`"`title'"' != "", "", `"title("Missing Values by Variable")"')
+                local bartitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Values by Variable")"')
 
                 `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
                     ytitle("Percent missing") ///
                     `bartitle_text' ///
-                    `titleopts' `subtitleopts' ///
+                    `macval(titleopts)' `macval(subtitleopts)' ///
                     blabel(bar, format(%4.1f) size(vsmall)) ///
                     bar(1, color(`barcolor')) ///
                     `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
@@ -1204,17 +1220,21 @@ program define datamvp, rclass byable(recall) sortpreserve
                     keep if _isf
 
                     * Get group labels (use pre-extracted texts)
-                    gen str80 _gbylabel = ""
+                    gen int _gbyid = .
+                    tempname pattern_gby_label
                     local _gbi = 0
                     foreach lev of local gby_levels {
                         local ++_gbi
                         if `gby_isstr' {
-                            replace _gbylabel = `"`_gby_lt_`_gbi''"' if `gby' == `"`lev'"'
+                            replace _gbyid = `_gbi' if `gby' == `"`macval(lev)'"'
                         }
                         else {
-                            replace _gbylabel = `"`_gby_lt_`_gbi''"' if `gby' == `lev'
+                            replace _gbyid = `_gbi' if `gby' == `lev'
                         }
+                        mata: st_vlmodify(st_local("pattern_gby_label"), ///
+                            `_gbi', st_local("_gby_gt_`_gbi'"))
                     }
+                    label values _gbyid `pattern_gby_label'
 
                     * Keep top patterns per group
                     bys `gby' (_ng _mv_n): gen int _patorder = _N - _n + 1
@@ -1228,9 +1248,15 @@ program define datamvp, rclass byable(recall) sortpreserve
                     local pat1 = _mv_patt[1]
                 }
 
-                * Set default title if not specified
-                local pattitle_text = cond(`"`title'"' != "", "", `"title("Missing Value Patterns by `gby'")"')
-                local patsubtitle_text = cond(`"`subtitle'"' != "", "", `"subtitle("(Top `top' patterns per group)")"')
+                * Put graph-level titles inside by() so facet labels remain visible.
+                local patby_titleopts `"`macval(titleopts)'"'
+                if `"`macval(title)'"' == "" {
+                    local patby_titleopts `"title("Missing Value Patterns by `gby'")"'
+                }
+                local patby_subtitleopts `"`macval(subtitleopts)'"'
+                if `"`macval(subtitle)'"' == "" {
+                    local patby_subtitleopts `"subtitle("(Top `top' patterns per group)")"'
+                }
 
                 * Adjust label size
                 local patlabsz "small"
@@ -1245,9 +1271,9 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                 * Draw faceted pattern chart
                 `barcmd' _ng, over(_patid, sort(_patorder) label(labsize(`patlabsz'))) ///
-                    by(_gbylabel, note("") `titleopts') ///
+                    by(_gbyid, note("") `macval(patby_titleopts)' ///
+                        `macval(patby_subtitleopts)') ///
                     ytitle("Frequency") ///
-                    `pattitle_text' `patsubtitle_text' ///
                     blabel(bar, format(%9.0fc) size(tiny)) ///
                     note("P1=`pat1_display'", size(vsmall)) ///
                     bar(1, color(`barcolor')) ///
@@ -1271,8 +1297,8 @@ program define datamvp, rclass byable(recall) sortpreserve
                     }
 
                     * Set default title if not specified
-                    local pattitle_text = cond(`"`title'"' != "", "", `"title("Most Common Missing Value Patterns")"')
-                    local patsubtitle_text = cond(`"`subtitle'"' != "", "", `"subtitle("(Top `npat_graph' patterns)")"')
+                    local pattitle_text = cond(`"`macval(title)'"' != "", "", `"title("Most Common Missing Value Patterns")"')
+                    local patsubtitle_text = cond(`"`macval(subtitle)'"' != "", "", `"subtitle("(Top `npat_graph' patterns)")"')
 
                     * Adjust label size based on number of patterns
                     local patlabsz "small"
@@ -1288,7 +1314,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     `barcmd' `ng', over(patid, sort(patorder) label(labsize(`patlabsz'))) ///
                         ytitle("Frequency") ///
                         `pattitle_text' `patsubtitle_text' ///
-                        `titleopts' `subtitleopts' ///
+                        `macval(titleopts)' `macval(subtitleopts)' ///
                         blabel(bar, format(%9.0fc) size(vsmall)) ///
                         note("P1=`pat1_display'", size(vsmall)) ///
                         bar(1, color(`barcolor')) ///
@@ -1355,8 +1381,8 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             * Set default title if not specified
-            local mattitle_text = cond(`"`title'"' != "", "", `"title("Missing Value Matrix")"')
-            local matsubtitle_text = cond(`"`subtitle'"' != "", "", `"subtitle("`nobs' observations x `nvar' variables")"')
+            local mattitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Value Matrix")"')
+            local matsubtitle_text = cond(`"`macval(subtitle)'"' != "", "", `"subtitle("`nobs' observations x `nvar' variables")"')
 
             * Dynamically size markers based on matrix dimensions
             local msize "tiny"
@@ -1378,7 +1404,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 ylabel(, labsize(tiny) nogrid) ///
                 ytitle("Observation") xtitle("Variable") ///
                 `mattitle_text' `matsubtitle_text' ///
-                `titleopts' `subtitleopts' ///
+                `macval(titleopts)' `macval(subtitleopts)' ///
                 legend(order(1 "Missing" 2 "Observed") rows(1) size(small) position(6)) ///
                 plotregion(margin(zero)) ///
                 `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
@@ -1471,7 +1497,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             * Set default title if not specified
-            local corrtitle_text = cond(`"`title'"' != "", "", `"title("Missingness Correlation Matrix")"')
+            local corrtitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missingness Correlation Matrix")"')
 
             * Build color note based on colorramp
             if "`colorramp'" == "bluered" {
@@ -1548,7 +1574,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 ylabel(`ylabels', angle(0) labsize(`corrlabsz') grid) ///
                 xtitle("") ytitle("") ///
                 `corrtitle_text' ///
-                `titleopts' `subtitleopts' ///
+                `macval(titleopts)' `macval(subtitleopts)' ///
                 legend(off) ///
                 aspectratio(1) ///
                 plotregion(margin(zero)) ///
@@ -1590,6 +1616,25 @@ program define datamvp, rclass byable(recall) sortpreserve
         if `_return_has_corr' return matrix corr_miss = `corrmat'
     }
     if `rc' exit `rc'
+end
+
+capture mata: mata drop _datamvp_graph_text()
+mata:
+string scalar _datamvp_graph_text(string scalar text)
+{
+    real scalar nchar
+
+    nchar = strlen(text)
+    while (nchar >= 4 & substr(text, 1, 2) == char(96) + char(34) &
+        substr(text, nchar - 1, 2) == char(34) + char(39)) {
+        text = substr(text, 3, nchar - 4)
+        nchar = strlen(text)
+    }
+    text = subinstr(text, char(36), "{char 36}")
+    text = subinstr(text, char(96), "{char 96}")
+    text = subinstr(text, char(34), "{char 34}")
+    return(text)
+}
 end
 
 exit

@@ -156,6 +156,8 @@ capture {
     format start2 stop2 %td
     save "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", replace
 }
+local _qa_capture_rc_38 = _rc
+if `_qa_capture_rc_38' exit `_qa_capture_rc_38'
 
 * 17A: TVAGE - Error Handling (6 paths) + Return Values (4) + Options (2)
 
@@ -1317,6 +1319,8 @@ capture noisily {
     replace id = 3 in 3
     save "$TVTOOLS_QA_RUN_DIR/_s18_events.dta", replace
 }
+local _qa_capture_rc_1228 = _rc
+if `_qa_capture_rc_1228' exit `_qa_capture_rc_1228'
 
 * 18A: TVEXPOSE OPTIONS (6 tests)
 
@@ -3362,6 +3366,8 @@ capture {
     end
     save `s25_multiA2', replace
 }
+local _qa_capture_rc_3314 = _rc
+if `_qa_capture_rc_3314' exit `_qa_capture_rc_3314'
 
 * TEST 25.1: tvmerge validatecoverage must not crash when merged result is empty
 * (v1.6.4: `n_gaps' undefined on the empty path -> ">0 invalid name", r(199))
@@ -4673,6 +4679,74 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' 21.4"
 }
+
+**# 1.17.1 review regressions
+
+* Test 22.1: exact dataset comparison rejects an oracle-only variable.
+local ++test_count
+capture noisily {
+    clear
+    input byte x byte y
+        1 2
+    end
+    tempfile schema_oracle
+    save `schema_oracle', replace
+    drop y
+    capture noisily _tvtools_qa_assert_cf_all_exact using `schema_oracle'
+    local schema_rc = _rc
+    assert `schema_rc' == 9
+}
+if _rc == 0 {
+    display as result "  PASS: exact comparison rejects oracle-only variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: exact comparison accepted an oracle-only variable"
+    local ++fail_count
+    local failed_tests "`failed_tests' 22.1"
+}
+
+* Test 22.2: tvbuild carries legal 32-character variable characteristics.
+local ++test_count
+capture frame drop tr_char_src
+capture frame drop tr_char_out
+capture noisily {
+    frame create tr_char_src
+    frame tr_char_src {
+        input long pid double(a_start a_stop) byte drug
+            1 1 10 1
+        end
+        char drug[abcdefghijklmnopqrstuvwx12345678] "first"
+        char drug[abcdefghijklmnopqrstuvwx87654321] "second"
+    }
+
+    clear
+    input long pid double(study_entry study_exit)
+        1 1 10
+    end
+    tvbuild, sourceframe(tr_char_src) id(pid) entry(study_entry) ///
+        exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
+        reference(0) generate(tv_drug) frameout(tr_char_out) ///
+        nomanifest replace
+
+    frame tr_char_out {
+        local char_first : char tv_drug[abcdefghijklmnopqrstuvwx12345678]
+        local char_second : char tv_drug[abcdefghijklmnopqrstuvwx87654321]
+    }
+    assert "`char_first'" == "first"
+    assert "`char_second'" == "second"
+}
+if _rc == 0 {
+    display as result "  PASS: tvbuild carries 32-character metadata names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbuild rejected or lost 32-character metadata names"
+    local ++fail_count
+    local failed_tests "`failed_tests' 22.2"
+}
+capture frame drop tr_char_src
+capture frame drop tr_char_out
 
 
 * TEST RESULTS

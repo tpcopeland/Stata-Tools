@@ -1,4 +1,4 @@
-*! _tvbuild_manifest Version 1.17.0  2026/08/28
+*! _tvbuild_manifest Version 1.17.1  2026/08/30
 *! Build tvbuild's deterministic per-stage provenance manifest
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

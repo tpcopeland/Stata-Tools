@@ -15,12 +15,13 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 
 ## Conventions
 
-- `test_*.do` files contain functional and regression coverage.
-- `validation_*.do` files contain known-answer and invariant checks.
-- Every suite closes its log, prints exactly one `RESULT:` sentinel, and exits nonzero when a check fails.
-- Paths derive from `c(pwd)`; generated logs and disposable outputs are not package artifacts.
-- The full lane is the default. Lane membership is explicit in `run_all.do`, with `quick` contained in `core` and `core` contained in `full`.
-- The package has no external-reference cross-validation: deterministic maps, dictionaries, and QC summaries use hand-computable known answers and invariants as their independent oracle.
+- `test_*` files contain functional and regression coverage; `validation_*` files contain hand-computable known-answer and invariant checks; `crossval_*` is reserved for an independent external implementation; `benchmark_*` is reserved for timing and is never a correctness gate.
+- Every runnable suite ends with exactly one `RESULT: <name> tests=N pass=N fail=N` sentinel and exits nonzero when a check fails. The full lane permits no skips.
+- `run_all.do` redirects PLUS and PERSONAL below `c(tmpdir)` before installing from the package parent, then restores both directories.
+- Paths derive from `c(pwd)`; no suite uses a machine-local path.
+- Test datasets are generated at runtime from built-in or seeded synthetic data.
+- Generated logs and disposable `.dta`, graph, and document outputs are gitignored; only documentation assets under `demo/` may be tracked.
+- The package has no external-reference cross-validation because its deterministic maps, dictionaries, and QC summaries use hand-computable known answers and invariants as their correctness oracle.
 
 ## File index
 
@@ -29,6 +30,8 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | File | Covers |
 |------|--------|
 | `test_datamap.do` | Core text and JSON maps, input modes, outputs, and options. |
+| `test_datamap_errors.do` | Exact error classes and state restoration across invalid inputs. |
+| `test_datamap_documentation_examples.do` | Executability of the shipped README and help-file workflows. |
 | `test_datamap_bugfixes.do` | Focused historical map regressions. |
 | `test_datamap_paths.do` | Parenthesized metadata paths across metadata writers. |
 | `test_datamap_float_format.do` | Stable numeric formatting and gate messages. |
@@ -40,10 +43,12 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `test_datamap_v152.do` | High-cardinality, JSON-number, and identifier regressions. |
 | `test_datamap_v154.do` | Privacy defaults, threshold validation, and graph-option regressions. |
 | `test_datamap_v160.do` | Capped unique counts, frame-based writers, and the shared counter. |
+| `test_datamap_v168.do` | Hostile text payloads, graph-label round-trips, helper state restoration, help widths, and QA-index synchronization. |
 | `test_datadict_v14.do` | Markdown dictionary routes and metadata exports. |
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |
 | `test_datamvp.do` | Missingness patterns, graphs, paths, and return contracts. |
 | `test_datamvp_labels.do` | Value-label and graph-label handling. |
+| `test_datamvp_oracle.do` | Hand-computable missing-pattern counts, filters, ordering, and monotonicity. |
 | `test_regressions.do` | Collision safety, strict graph parsing, return preservation, quoted paths and metadata, stable memory identity, and separate output. |
 | `test_help_render.do` | Help-file rendering and a literal-SMCL positive control. |
 
@@ -62,17 +67,19 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 
 ## Coverage map
 
-| Command | Functional | Validation | Cross-validation |
-|---------|------------|------------|------------------|
-| `datamap` | `test_datamap*.do`, `test_regressions.do` | `validation_datamap.do` | N/A |
-| `datadict` | `test_datadict_v14.do`, `test_datamap*.do`, `test_regressions.do` | `validation_datamap.do` | N/A |
-| `datacheck` | `test_datacheck.do`, `test_datamap_float_format.do`, `test_datamap_v15.do`, `test_regressions.do` | Invariants in `test_datacheck.do` | N/A |
-| `datamvp` | `test_datamvp.do`, `test_datamvp_labels.do`, `test_regressions.do` | `validation_datamvp.do` | N/A |
+| Command | Functional | Validation | Also exercised in |
+|---------|------------|------------|-------------------|
+| `datamap` | `test_datamap*.do`, `test_regressions.do` | `validation_datamap.do` | Documentation and help-render suites |
+| `datadict` | `test_datadict_v14.do`, `test_datamap*.do`, `test_regressions.do` | `validation_datamap.do` | `test_datamap_v168.do` hostile-text regressions |
+| `datacheck` | `test_datacheck.do`, `test_datamap_float_format.do`, `test_datamap_v15.do`, `test_regressions.do` | Invariants in `test_datacheck.do` | Documentation examples |
+| `datamvp` | `test_datamvp.do`, `test_datamvp_labels.do`, `test_regressions.do` | `validation_datamvp.do`, `test_datamvp_oracle.do` | `test_datamap_v168.do` hostile-label regressions |
 
 ## Lane membership
 
+`quick` is contained in `core`, which is contained in `full`; `full` is the default release gate. The explicit suite list in `run_all.do` is authoritative.
+
 | Lane | Suites |
 |------|--------|
-| `quick` | Six smoke and high-value regression suites: one primary suite per public command, `test_regressions.do`, and help rendering. |
+| `quick` | Primary command suites, exact error checks, high-value regressions, documentation examples, help rendering, and current-release regressions. |
 | `core` | Every functional, regression, help-render, and validation suite in the file index. |
 | `full` (default) | Currently the same suites as `core`; reserved for future external-oracle or slow coverage. |

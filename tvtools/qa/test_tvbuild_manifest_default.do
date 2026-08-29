@@ -253,10 +253,10 @@ capture noisily {
     * cf, not datasignature: the signature folds storage type into its checksum
     * and would call two identical value sets different. Both are checked.
     quietly use "`work'/tm_none.dta", clear
-    quietly cf _all using "`work'/tm_def.dta", verbose
+    quietly _tvtools_qa_assert_cf_all_exact using "`work'/tm_def.dta", verbose
     local d1 = r(Nsum)
     quietly use "`work'/tm_none.dta", clear
-    quietly cf _all using "`work'/tm_expl.dta", verbose
+    quietly _tvtools_qa_assert_cf_all_exact using "`work'/tm_expl.dta", verbose
     local d2 = r(Nsum)
 }
 local rc = _rc
@@ -331,6 +331,8 @@ capture noisily {
     if _rc != 0 local e_over = 1
     frame change `_here'
 }
+local _qa_capture_rc_327 = _rc
+if `_qa_capture_rc_327' exit `_qa_capture_rc_327'
 _tvm_check `=(`rc_norep' == 110 & `rc_rep' == 0 & `e_over')' ///
     "E2 explicit manifestframe() still honours replace" ///
     "no_replace_rc=`rc_norep' replace_rc=`rc_rep' overwritten=`e_over'"
@@ -415,6 +417,8 @@ capture noisily {
     if r(N) == 7 & _N == 7 local r_intact = 1
     frame change `_here'
 }
+local _qa_capture_rc_411 = _rc
+if `_qa_capture_rc_411' exit `_qa_capture_rc_411'
 _tvm_hasframe mout
 local r_out = r(yes)
 _tvm_check `=(`rc' == 198 & `r_intact' & !`r_out')' ///
@@ -442,6 +446,8 @@ capture noisily {
     if r(N) == 7 & _N == 7 local r_intact = 1
     frame change `_here'
 }
+local _qa_capture_rc_438 = _rc
+if `_qa_capture_rc_438' exit `_qa_capture_rc_438'
 _tvm_check `=(`rc' == 198 & `r_intact')' ///
     "R2 derived-name collision without replace is r(198), frame intact" ///
     "rc=`rc' intact=`r_intact'"
@@ -467,6 +473,8 @@ capture noisily {
     if r(N) == 7 & _N == 7 local r_intact = 1
     frame change `_here'
 }
+local _qa_capture_rc_463 = _rc
+if `_qa_capture_rc_463' exit `_qa_capture_rc_463'
 _tvm_check `=(`rc' == 0 & `r_intact')' ///
     "R3 nomanifest clears the derived-name collision, frame untouched" ///
     "rc=`rc' intact=`r_intact'"
@@ -493,6 +501,8 @@ capture noisily {
     if r(N) == 7 & _N == 7 local r_intact = 1
     frame change `_here'
 }
+local _qa_capture_rc_489 = _rc
+if `_qa_capture_rc_489' exit `_qa_capture_rc_489'
 _tvm_check `=(`rc' == 0 & `r_expl' & `r_intact')' ///
     "R4 manifestframe() clears the derived-name collision, frame untouched" ///
     "rc=`rc' expl=`r_expl' intact=`r_intact'"
@@ -572,6 +582,8 @@ capture noisily {
     local r7_rows = _N
     frame change `_here'
 }
+local _qa_capture_rc_569 = _rc
+if `_qa_capture_rc_569' exit `_qa_capture_rc_569'
 _tvm_hasframe mout
 local r7_out = r(yes)
 _tvm_check `=(`setup_rc' == 0 & `rc' == 198 & !`r7_out' & `r7_rows' > 0)' ///
@@ -638,6 +650,8 @@ foreach r9_rep in "replace" "" {
         local r9_keeps = (_rc == 0)
         frame change `_here'
     }
+local _qa_capture_rc_633 = _rc
+if `_qa_capture_rc_633' exit `_qa_capture_rc_633'
     _tvm_hasframe mout
     local r9_out = r(yes)
     _tvm_check ///
@@ -673,6 +687,8 @@ capture noisily {
     if _rc == 0 local a_hasid = 1
     frame change `_here'
 }
+local _qa_capture_rc_663 = _rc
+if `_qa_capture_rc_663' exit `_qa_capture_rc_663'
 _tvm_hasframe alias
 local a_out = r(yes)
 _tvm_check `=(`a_rc' == 198 & !`a_out' & `a_n' == 3 & `a_hasid')' ///
@@ -699,6 +715,8 @@ capture noisily {
     if _N == 4 local a_src = 1
     frame change `_here'
 }
+local _qa_capture_rc_696 = _rc
+if `_qa_capture_rc_696' exit `_qa_capture_rc_696'
 _tvm_check `=(`rc' == 198 & !`a_out' & `a_src')' ///
     "A2 derived name aliasing a source frame is r(198)" ///
     "rc=`rc' frameout_created=`a_out' source_intact=`a_src'"
@@ -744,6 +762,8 @@ capture noisily {
     }
     file close `fh'
 }
+local _qa_capture_rc_736 = _rc
+if `_qa_capture_rc_736' exit `_qa_capture_rc_736'
 _tvm_check `=(`rc' == 0 & `d_named')' ///
     "D2 dryrun plan display names the derived manifest frame" ///
     "rc=`rc' named=`d_named'"

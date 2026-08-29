@@ -35,18 +35,11 @@ adopath ++ "`pkg_dir'"
 capture log close _all
 log using "`qa_dir'/validation_eplot.log", replace text nomsg name(val_eplot)
 
-display _n "{hline 70}"
-display "EPLOT VALIDATION TESTS"
-display "Date: `c(current_date)' `c(current_time)'"
-display "{hline 70}" _n
-
 local n_tests 0
 local n_passed 0
 local n_failed 0
 
-// =============================================================================
-// VALIDATION 1: Return value N matches input observations
-// =============================================================================
+**# VALIDATION 1: Return value N matches input observations
 display _n "{bf:VALIDATION 1: Return value N matches input}"
 local ++n_tests
 
@@ -75,9 +68,7 @@ else {
 }
 capture graph drop val1
 
-// =============================================================================
-// VALIDATION 2: Eform transformation correctness
-// =============================================================================
+**# VALIDATION 2: Eform transformation correctness
 display _n "{bf:VALIDATION 2: Eform transformation correctness}"
 local ++n_tests
 
@@ -94,8 +85,32 @@ capture {
 
     eplot log_es log_lci log_uci, labels(study) eform name(val2, replace)
 
-    // The command should work - actual values are in the graph
+    matrix T = r(table)
+    local want_11 = exp(0)
+    local want_12 = exp(-.5)
+    local want_13 = exp(.5)
+    local want_21 = exp(.693)
+    local want_22 = exp(0)
+    local want_23 = exp(1)
     assert r(N) == 2
+    assert !missing(T[1, 1])
+    assert !missing(`want_11')
+    assert reldif(T[1, 1], `want_11') < 1e-12
+    assert !missing(T[1, 2])
+    assert !missing(`want_12')
+    assert reldif(T[1, 2], `want_12') < 1e-12
+    assert !missing(T[1, 3])
+    assert !missing(`want_13')
+    assert reldif(T[1, 3], `want_13') < 1e-12
+    assert !missing(T[2, 1])
+    assert !missing(`want_21')
+    assert reldif(T[2, 1], `want_21') < 1e-12
+    assert !missing(T[2, 2])
+    assert !missing(`want_22')
+    assert reldif(T[2, 2], `want_22') < 1e-12
+    assert !missing(T[2, 3])
+    assert !missing(`want_23')
+    assert reldif(T[2, 3], `want_23') < 1e-12
 }
 
 if _rc == 0 {
@@ -108,9 +123,7 @@ else {
 }
 capture graph drop val2
 
-// =============================================================================
-// VALIDATION 3: Rescale multiplier correctness
-// =============================================================================
+**# VALIDATION 3: Rescale multiplier correctness
 display _n "{bf:VALIDATION 3: Rescale multiplier correctness}"
 local ++n_tests
 
@@ -123,8 +136,12 @@ capture {
     // Rescale by 100
     eplot es lci uci, labels(var) rescale(100) name(val3, replace)
 
-    // Should display 5.0 (2.0, 8.0) instead of 0.05 (0.02, 0.08)
+    matrix T = r(table)
     assert r(N) == 1
+    assert !missing(T[1, 1], T[1, 2], T[1, 3])
+    assert reldif(T[1, 1], 5) < 1e-12
+    assert reldif(T[1, 2], 2) < 1e-12
+    assert reldif(T[1, 3], 8) < 1e-12
 }
 
 if _rc == 0 {
@@ -137,9 +154,7 @@ else {
 }
 capture graph drop val3
 
-// =============================================================================
-// VALIDATION 4: Estimates mode extracts correct number of coefficients
-// =============================================================================
+**# VALIDATION 4: Estimates mode extracts correct number of coefficients
 display _n "{bf:VALIDATION 4: Estimates mode coefficient extraction}"
 local ++n_tests
 
@@ -173,9 +188,7 @@ else {
 }
 capture graph drop val4a val4b val4c
 
-// =============================================================================
-// VALIDATION 5: Type variable correctly identifies row types
-// =============================================================================
+**# VALIDATION 5: Type variable correctly identifies row types
 display _n "{bf:VALIDATION 5: Type variable row identification}"
 local ++n_tests
 
@@ -209,9 +222,7 @@ else {
 }
 capture graph drop val5
 
-// =============================================================================
-// VALIDATION 6: If condition filters correctly
-// =============================================================================
+**# VALIDATION 6: If condition filters correctly
 display _n "{bf:VALIDATION 6: If condition filtering}"
 local ++n_tests
 
@@ -244,19 +255,35 @@ else {
 }
 capture graph drop val6a val6b
 
-// =============================================================================
-// VALIDATION 7: Confidence level in estimates mode
-// =============================================================================
+**# VALIDATION 7: Confidence level in estimates mode
 display _n "{bf:VALIDATION 7: Confidence level affects CI width}"
 local ++n_tests
 
 capture {
     sysuse auto, clear
     quietly regress price mpg
+    local b = _b[mpg]
+    local se = _se[mpg]
+    local df = e(df_r)
+    local crit = invttail(`df', .025)
+    local want_ll = `b' - `crit' * `se'
+    local want_ul = `b' + `crit' * `se'
+    local want_p = 2 * ttail(`df', abs(`b' / `se'))
 
     // 95% CI (default)
     eplot ., drop(_cons) level(95) name(val7, replace)
+    matrix T = r(table)
+    matrix P = r(pvalues)
     assert r(N) == 1
+    assert !missing(T[1, 2])
+    assert !missing(`want_ll')
+    assert reldif(T[1, 2], `want_ll') < 1e-12
+    assert !missing(T[1, 3])
+    assert !missing(`want_ul')
+    assert reldif(T[1, 3], `want_ul') < 1e-12
+    assert !missing(P[1, 1])
+    assert !missing(`want_p')
+    assert reldif(P[1, 1], `want_p') < 1e-12
 }
 
 if _rc == 0 {
@@ -269,9 +296,7 @@ else {
 }
 capture graph drop val7
 
-// =============================================================================
-// VALIDATION 8: Groups creates correct number of header rows
-// =============================================================================
+**# VALIDATION 8: Groups creates correct number of header rows
 display _n "{bf:VALIDATION 8: Groups option processing}"
 local ++n_tests
 
@@ -294,9 +319,9 @@ capture {
         groups(age gender = "Demographics" bp chol = "Clinical") ///
         name(val8b, replace)
 
-    // At minimum, should not error and have at least 4 rows
-    assert !missing(r(N))
-    assert r(N) >= 4
+    assert r(N) == 6
+    assert r(k) == 4
+    assert rowsof(r(table)) == 4
 }
 
 if _rc == 0 {
@@ -309,9 +334,7 @@ else {
 }
 capture graph drop val8a val8b
 
-// =============================================================================
-// VALIDATION 9: Wildcard pattern matching in keep/drop
-// =============================================================================
+**# VALIDATION 9: Wildcard pattern matching in keep/drop
 display _n "{bf:VALIDATION 9: Wildcard pattern matching}"
 local ++n_tests
 
@@ -337,9 +360,7 @@ else {
 }
 capture graph drop val9
 
-// =============================================================================
-// VALIDATION 10: Null line position with and without eform
-// =============================================================================
+**# VALIDATION 10: Null line position with and without eform
 display _n "{bf:VALIDATION 10: Null line position}"
 local ++n_tests
 
@@ -351,12 +372,15 @@ capture {
 
     // Without eform: null should be at 0
     eplot es lci uci, labels(study) null(0) name(val10a, replace)
+    local cmd0 `"`r(cmd)'"'
 
     // With eform: null should be at 1 (automatic)
     eplot es lci uci, labels(study) eform name(val10b, replace)
+    local cmd1 `"`r(cmd)'"'
 
-    // Both should complete without error
     assert r(N) == 1
+    assert strpos(`"`cmd0'"', "xline(0,") > 0
+    assert strpos(`"`cmd1'"', "xline(1,") > 0
 }
 
 if _rc == 0 {
@@ -369,9 +393,7 @@ else {
 }
 capture graph drop val10a val10b
 
-// =============================================================================
-// VALIDATION 11: r(table) contains correct numerical values
-// =============================================================================
+**# VALIDATION 11: r(table) contains correct numerical values
 display _n "{bf:VALIDATION 11: r(table) numerical correctness}"
 local ++n_tests
 
@@ -416,9 +438,7 @@ else {
 }
 capture graph drop val11
 
-// =============================================================================
-// VALIDATION 12: r(table) with eform contains exponentiated values
-// =============================================================================
+**# VALIDATION 12: r(table) with eform contains exponentiated values
 display _n "{bf:VALIDATION 12: r(table) eform transformation}"
 local ++n_tests
 
@@ -455,12 +475,8 @@ else {
 }
 capture graph drop val12
 
-// =============================================================================
-// SUMMARY
-// =============================================================================
-display _n "{hline 70}"
+**# SUMMARY
 display "{bf:VALIDATION SUMMARY}"
-display "{hline 70}"
 display "Total validations:  `n_tests'"
 display as result "Passed:             `n_passed'"
 display "RESULT: validation_eplot tests=12 pass=`n_passed' fail=`n_failed' skip=0"
@@ -470,8 +486,6 @@ if `n_failed' > 0 {
 else {
     display "Failed:             `n_failed'"
 }
-display "{hline 70}"
-
 if `n_failed' > 0 {
     display as error _n "SOME VALIDATIONS FAILED!"
     exit 1
