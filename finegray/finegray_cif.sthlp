@@ -8,6 +8,7 @@
 {viewerjumpto "Description" "finegray_cif##description"}{...}
 {viewerjumpto "Options" "finegray_cif##options"}{...}
 {viewerjumpto "Baseline strata" "finegray_cif##bstratum"}{...}
+{viewerjumpto "Overlaid curves" "finegray_cif##over"}{...}
 {viewerjumpto "Time-varying effects" "finegray_cif##tvc"}{...}
 {viewerjumpto "Remarks" "finegray_cif##remarks"}{...}
 {viewerjumpto "Examples" "finegray_cif##examples"}{...}
@@ -31,6 +32,7 @@ cumulative incidence after {help finegray}
 {synopthdr}
 {synoptline}
 {synopt :{opt at(var=# ...)}}covariate profile for the curve{p_end}
+{synopt :{opt over(varname)}}one curve per level, overlaid{p_end}
 {synopt :{opt att:ime(numlist)}}table of the CIF at the listed horizons{p_end}
 {synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times{p_end}
 {synopt :{opt bstrat:um(#)}}baseline stratum; required after {cmd:bstrata()}{p_end}
@@ -57,71 +59,19 @@ fit-specific cached or rebuilt baseline; the construction is in
 {help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
-By default it plots the CIF as a right-continuous step function over the
-event-time grid. When the baseline contains more than 400 distinct cause-event
-times, the default grid is thinned to at most 401 points and always includes
-the final cause-event time; use {opt timepoints()} to request an exact
-grid. The plotted curve and confidence band begin at the exact (0,0) boundary,
-and the plot region is anchored at zero on the analysis-time axis. This
-display-only origin is not added to {cmd:r(table)} or {opt saving()}
-output. With {opt attime()} the command instead reports the CIF at specific
-horizons (for example the 5-year cumulative incidence).
-
-{pstd}
-{cmd:finegray_cif} is the {helpb finegray} analogue of {helpb stcurve}{cmd:, cif}
-after {helpb stcrreg}, with two additions: it can plot a pointwise confidence
-{it:band} (which {cmd:stcurve} cannot), and it can {opt saving()} the numeric
-estimates behind the curve.
-
-{pstd}
-{bf:The covariate profile is always reported.} Both the table and the graph
-state the profile the CIF was evaluated at, in the vocabulary {opt at()} takes -
-an {cmd:at:} line above the table and a {cmd:note()} under the graph. When
-{opt at()} is omitted the line reads {cmd:at (estimation-sample means):} and
-lists the means used, so a default run is as self-describing as an explicit one. The
-graph note is a default: your own {cmd:note()} in {it:twoway_options}
-replaces it.
-
-{pstd}
-{bf:The plotted curve extends to the end of follow-up.} The estimation grid ends
-at the last cause-event time, but the CIF is flat from there to the last observed
-analysis time, and the graph draws that tail as {helpb sts graph} and
-{helpb stcurve} do. Like the (0,0) origin, the terminal segment is display-only: it
-is not in {cmd:r(table)} and not in the {opt saving()} dataset.
-
-{pstd}
-{bf:Times outside the estimated support are flagged.} With {opt attime()} or
-{opt timepoints()}, a requested time past the last cause-event time repeats the
-terminal estimate and a requested time before the first cause-event time returns
-a CIF of exactly 0 with no confidence limits. Both are the correct step-function
-answers, and {cmd:finegray_cif} prints a note naming the boundary time so that
-neither is quoted as an estimate at the requested horizon. See
+By default it plots the CIF as a right-continuous step function, thinned to at
+most 401 points when the baseline is dense; use {opt timepoints()} for an exact
+grid. With {opt attime()} it reports the CIF at specific horizons
+instead. {opt over(varname)} draws one curve per level of a model variable or
+baseline stratum; see {help finegray_cif##over:Overlaid curves}. The covariate profile is always
+reported in an {cmd:at:} line and graph note. The curve extends to the end of
+follow-up, and times outside the support are flagged. See
 {help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
-The command requires the unchanged original {cmd:stset} estimation data in
-memory. It verifies a signature of the estimation sample and the variables
-used by the fit before resolving the baseline or reconstructing influence
-functions. Re-run {cmd:finegray} after changing those data.
-
-{pstd}
-{bf:A converged fit is required.} {cmd:finegray_cif} exits with {cmd:r(430)}
-when {cmd:e(converged)} is not 1; refit with a larger {opt iterate()} or a
-different specification. Refits inside {opt bootstrap()} that fail to converge
-are skipped and counted rather than treated as fatal. See
-{help finegray_methods##estimator:The estimator}.
-
-
-{pstd}
-{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made
-on multiple-imputation data -- typed directly, or run by
-{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or
-entry-time column behind, and pooled estimates have no single baseline
-hazard to build a curve from. {cmd:finegray_cif} stops with {cmd:r(301)}
-in that case. Refit on a single dataset ({cmd:mi extract 0, clear} for the
-complete cases, or {cmd:mi extract} {it:#}{cmd:, clear} for one
-imputation) and run {cmd:finegray} there; see
-{help finegray##mi:Multiple imputation} in {helpb finegray}.
+The command requires the unchanged {cmd:stset} estimation data. A converged fit
+is required ({cmd:r(430)} otherwise). Not available after a fit on {cmd:mi}
+data ({cmd:r(301)}); see {help finegray##mi:Multiple imputation}.
 
 {marker options}{...}
 {title:Options}
@@ -144,9 +94,46 @@ the unset part is held at its estimation-sample mean. A design column that
 contains no variable you set keeps its own estimation-sample mean.
 
 {phang2}
-The package-owned design columns in {cmd:e(covariates)} may still be set by
+The package-owned design columns in {cmd:e(designvars)} may still be set by
 name, for example {cmd:at(_fg_pelnode_1Xifp=0)}, and such a setting is applied
 after, and therefore overrides, anything implied by the variables you named.
+
+{marker over}{...}
+{phang}
+{opt over(varname)} draws one curve per level of {it:varname} in a single
+call. {it:varname} is either a model variable (a factor variable such as
+{cmd:pelnode} after {cmd:i.pelnode}, or a variable entered directly such as
+{cmd:ccr5} after {cmd:finegray ccr5 ...}) or the {opt bstrata()} variable of
+the fit.
+
+{pmore}
+For a model variable, one curve is evaluated at each distinct
+estimation-sample value of {it:varname}, with every other covariate held as {opt at()}
+says (or at its estimation-sample mean); a variable that enters an interaction
+is carried into every design column it appears in, exactly as {opt at()} does. Each
+curve is the same computation as the standalone call
+{cmd:finegray_cif, at(}{it:varname}{cmd:=}{it:level}{cmd: ...)} and agrees with it bit for bit. {it:varname} may
+not also be set in {opt at()}, and a variable with more than 20 distinct values is
+refused with {cmd:r(198)}: the overlay is for a grouping variable, and a continuous
+covariate is drawn at chosen values with {opt at()}.
+
+{pmore}
+For the {opt bstrata()} variable, one curve is drawn per fitted baseline stratum,
+each the same computation as {cmd:finegray_cif, bstratum(#)}; a stratum that carried
+no cause event has no curve and is omitted with a note. {opt over()} then stands in
+for {opt bstratum()}, and the two may not be combined.
+
+{pmore}
+With {opt attime()} one table is printed per curve; otherwise the curves are
+overlaid on one graph, each confidence band (with {opt ci}) shaded in its own
+curve's color, with a legend entry per level (the value label where one is
+defined). {cmd:r(table)} gains a sixth column, {cmd:over}, holding each row's level, {cmd:r(at)}
+has one row per curve, and the {opt saving()} dataset gains an {cmd:over} variable
+carrying the source variable's value label; {cmd:r(over)} and {cmd:r(levels)} name the
+variable and the levels drawn. With {opt bootstrap()} the replications are shared
+across the curves (one refit scores every profile), counted per curve, and
+{cmd:r(bootstrap_success)} reports the smallest count; a note lists the per-curve
+counts when they differ.
 
 {phang}
 {opt attime(numlist)} requests a table of the CIF at the listed time horizons
@@ -164,61 +151,18 @@ the requested grid is not thinned.
 
 {marker tvc}{...}
 {phang}
-{bf:After a fit with} {helpb finegray##tvc:tvc()} the coefficient on the named
-covariates is piecewise constant in analysis time, so
-CIF({it:t}|{it:z}) is accumulated interval by interval: the part of the baseline
-falling inside interval {it:j} is multiplied by that interval's
-exp({it:z}'b_j). Point estimates, tables, curves, {opt saving()} and the graph
-are unaffected in form -- {opt at()} still names one covariate profile, and
-there is still one baseline.
-
-{pmore}
-{opt ci} on its own {bf:is} available as of version 1.3.0, from an influence
-function derived for a piecewise b({it:t}); development builds refused it with
-{cmd:r(198)}. See {help finegray_methods##tvc:Time-varying effects}.
-
-{pmore}
-{opt ci} {opt bootstrap(#)} remains available and is the arm the analytic route
-is checked against. Each replication refits the whole model from
-{cmd:e(refitcmd)}, which carries {opt tvc()} and {opt tsplit()}, so every
-replication is the same estimator as the point estimate. {cmd:r(se_method)}
-reports which route produced the interval: {cmd:analytic} or
-{cmd:bootstrap}. Without {opt ci}, {cmd:r(table)}'s {cmd:lci} and {cmd:uci}
-columns are missing, as they are for any point-estimate-only call.
-
-{pmore}
-{bf:The analytic route is fixed-weight}, here as on a proportional fit: it does
-not propagate the uncertainty in the estimated censoring distribution, so it
-returns the same standard errors after a
-{help finegray_methods##nuisance:nuisance} fit as after a default one. Use
-{opt bootstrap(#)} when the interval should include weight re-estimation.
+{bf:After a fit with} {helpb finegray##tvc:tvc()} the CIF is accumulated
+interval by interval. Both analytic {opt ci} and {opt bootstrap(#)} are
+available; the analytic route is fixed-weight. See
+{help finegray_methods##tvc:Time-varying effects}.
 
 {marker bstratum}{...}
 {phang}
-{opt bstratum(#)} names the baseline stratum the CIF belongs to, where {it:#} is
-a value of the {cmd:bstrata()} variable used at fit time. It is
-{bf:required} after a fit with more than one baseline stratum and is refused
-after any other fit.
-
-{pmore}
-It is required rather than defaulted because under {opt bstrata()} a covariate
-profile no longer identifies a curve; a stratum-{it:averaged} CIF is a
-different estimand and is not implemented. See
+{opt bstratum(#)} names the baseline stratum the CIF belongs to. {bf:Required}
+after a fit with {opt bstrata()}; refused after any other fit. A value with no
+estimation-sample subjects or no cause events is {cmd:r(459)}. Use {opt over()}
+on the {opt bstrata()} variable for all strata at once. See
 {help finegray_methods##bstrata:Baseline strata}.
-
-{pmore}
-The stratum is printed on the {cmd:at:} line above the table and in the graph's
-default {cmd:note()}, and returned in {cmd:r(bstratum)} and
-{cmd:r(bstrata)}. The default (unthinned) time grid, the out-of-support notes
-and the graph's flat right-hand tail are all taken within the requested
-stratum, because those are properties of the curve being drawn and not of the
-pooled sample.
-
-{pmore}
-A value that no estimation-sample subject holds is refused with {cmd:r(459)},
-listing the fitted levels. So is a level that carried no cause-of-interest
-event, whose Breslow baseline is identically zero; see
-{help finegray_methods##refusals:What is refused, and why}.
 
 {phang}
 {opt ci} adds pointwise confidence limits. The standard error of the CIF is an
@@ -260,8 +204,9 @@ most two decimal places -- the same rule {cmd:finegray} itself applies.
 
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},
-{cmd:cif}, {cmd:se}, {cmd:lci}, and {cmd:uci} (one row per evaluated time) - the
-analogue of {cmd:outfile} after {cmd:stcurve}. Only the optional suboption
+{cmd:cif}, {cmd:se}, {cmd:lci}, and {cmd:uci} (one row per evaluated time), plus
+{cmd:over} with {opt over()} - the analogue of {cmd:outfile} after
+{cmd:stcurve}. Only the optional suboption
 {cmd:replace} is accepted. Shell metacharacters and embedded quote characters
 are rejected in {it:filename}. Every variable is labelled, the dataset label
 names the cause, and a dataset {helpb notes:note} records the covariate profile,
@@ -287,24 +232,20 @@ it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 {title:Remarks}
 
 {pstd}
-{bf:Left truncation (delayed entry).} CIF points and standard errors use the
-same Zhang-Zhang-Fine Weight-1 contract as the fit, so delayed-entry estimates
-change relative to earlier versions and to {helpb stcrreg}, by design. The
-estimation data must remain in memory and unmodified so the weight design can be
-rebuilt. See {help finegray##lt:Left truncation} in {helpb finegray} for the
-operational contract and {help finegray_methods##lt:Left truncation} in
-{helpb finegray_methods} for the citations, assumptions, and support boundaries.
+{bf:Left truncation.} Delayed-entry CIF estimates use the ZZF Weight-1 contract
+and move relative to earlier versions and to {helpb stcrreg}. See
+{help finegray##lt:Left truncation}.
 
 {pstd}
-For a confidence interval on the cumulative incidence of {it:each subject} (or a
-selected subset), see {helpb finegray_predict}{cmd:, cif ci}, which generates
-per-observation CIF limits at each observation's own time or at a supplied
-{opt timevar()}.
+For per-subject CIF limits, see {helpb finegray_predict}{cmd:, cif ci}. With
+{opt cluster()}, the analytic band uses the cluster-robust variance and
+{opt bootstrap()} resamples whole clusters.
 
 {pstd}
-With {opt cluster()} in the original {helpb finegray} fit, the analytic band
-uses the corresponding cluster-robust variance and {opt bootstrap()} resamples
-whole clusters.
+{bf:Weights.} After a weighted fit, the curve uses the weighted Breslow
+baseline and the band uses the weighted influence function. The weight is
+re-evaluated from {cmd:e(wexp)} and reconciled against {cmd:e(sum_w)}. See
+{help finegray##weights:Weights}.
 
 
 {marker examples}{...}
@@ -336,38 +277,36 @@ whole clusters.
 {phang2}{cmd:. finegray_cif, ci nograph saving(cifcurve.dta,replace)}{p_end}
 
 {pstd}
-{bf:One curve per exposure group.} {cmd:finegray_cif} draws one profile per
-call, so a grouped figure is built by exporting each profile with
-{opt saving()} and combining them on a common grid. Here on
-{cmd:webuse hiv_si}, the data of {bf:[ST] stcrreg} example 4.
+{bf:One curve per exposure group.} {opt over()} draws every level of a model
+variable in one call: a table per level with {opt attime()}, or one graph with
+a legend. Here on {cmd:webuse hiv_si}, the data of {bf:[ST] stcrreg} example 4.
 
 {phang2}{cmd:. webuse hiv_si, clear}{p_end}
 {phang2}{cmd:. gen byte any_event = status > 0}{p_end}
 {phang2}{cmd:. stset time, failure(any_event==1) id(patnr)}{p_end}
 {phang2}{cmd:. finegray ccr5, compete(status) cause(2)}{p_end}
-{phang2}{cmd:. finegray_cif, at(ccr5=0) attime(2 5 10) ci}{p_end}
-{phang2}{cmd:. finegray_cif, at(ccr5=1) attime(2 5 10) ci}{p_end}
-{phang2}{cmd:. finegray_cif, at(ccr5=0) nograph saving(cif0.dta, replace)}{p_end}
-{phang2}{cmd:. finegray_cif, at(ccr5=1) nograph saving(cif1.dta, replace)}{p_end}
-{phang2}{cmd:. use cif0.dta, clear}{p_end}
-{phang2}{cmd:. gen byte ccr5 = 0}{p_end}
-{phang2}{cmd:. append using cif1.dta}{p_end}
-{phang2}{cmd:. replace ccr5 = 1 if missing(ccr5)}{p_end}
-{phang2}{cmd:. twoway (line cif time if ccr5==0, connect(J)) ///}{p_end}
-{phang2}{cmd:.     (line cif time if ccr5==1, connect(J))}{p_end}
+{phang2}{cmd:. finegray_cif, over(ccr5) attime(2 5 10) ci}{p_end}
+{phang2}{cmd:. finegray_cif, over(ccr5) ci}{p_end}
 
 {pstd}
-{cmd:connect(J)} is what makes the step function a step function; a plain
-{cmd:line} interpolates between event times and draws a curve the estimator
-never produced.
+The same on a factor variable with an interaction, holding the other covariate
+at a chosen value; the setting is carried into the interaction column on each
+curve.
+
+{phang2}{cmd:. webuse hypoxia, clear}{p_end}
+{phang2}{cmd:. gen byte status = failtype}{p_end}
+{phang2}{cmd:. stset dftime, failure(dfcens==1) id(stnum)}{p_end}
+{phang2}{cmd:. finegray i.pelnode c.ifp i.pelnode#c.ifp tumsize, compete(status) cause(1)}{p_end}
+{phang2}{cmd:. finegray_cif, over(pelnode) at(ifp=20) ci}{p_end}
 
 {pstd}Band by subject bootstrap{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci bootstrap(500) seed(12345)}{p_end}
 
-{pstd}After a fit with baseline strata: one curve per stratum{p_end}
+{pstd}After a fit with baseline strata: one curve per stratum, or all strata at once{p_end}
 {phang2}{cmd:. finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode)}{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5) bstratum(0) ci}{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5) bstratum(1) ci}{p_end}
+{phang2}{cmd:. finegray_cif, over(pelnode) ci}{p_end}
 
 
 {marker results}{...}
@@ -387,16 +326,20 @@ never produced.
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(profile_vars)}}model covariates, in column order of {cmd:r(at)}{p_end}
-{synopt:{cmd:r(bstrata)}}baseline stratification variable; with {cmd:bstratum()}{p_end}
+{synopt:{cmd:r(bstrata)}}baseline strata variable; with {cmd:bstratum()}/{cmd:over()}{p_end}
+{synopt:{cmd:r(over)}}overlay variable; with {cmd:over()}{p_end}
+{synopt:{cmd:r(levels)}}levels drawn, row order of {cmd:r(at)}; with {cmd:over()}{p_end}
 {synopt:{cmd:r(se_method)}}how column 3 of {cmd:r(table)} was computed{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}one row per evaluated time{p_end}
-{synopt:{cmd:r(at)}}covariate profile used for the curve{p_end}
+{synopt:{cmd:r(table)}}one row per evaluated time and curve{p_end}
+{synopt:{cmd:r(at)}}covariate profile(s), one row per curve{p_end}
 
 {pstd}
 The columns of {cmd:r(table)} are {cmd:time}, {cmd:cif}, {cmd:se},
-{cmd:lci}, and {cmd:uci}.
+{cmd:lci}, and {cmd:uci}; with {opt over()} a sixth column, {cmd:over}, holds
+the level (or baseline stratum) each row belongs to, and the rows of
+{cmd:r(at)} are named by level.
 
 {marker author}{...}
 {title:Author}

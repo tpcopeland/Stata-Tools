@@ -60,7 +60,7 @@ program define finegray_phtest, rclass
     * tempvars and are gone (see the mi block in finegray.ado).  There is also
     * no single baseline hazard to answer from once estimates are pooled across
     * imputations -- pooling a CIF is a different estimand, not this command.
-    * Refuse by name rather than resolve e(covariates), whose tempvar names the
+    * Refuse by name rather than resolve e(designvars), whose tempvar names the
     * next command to ask for a tempvar will happily reuse.
     if `"`e(postest)'"' == "unavailable_mi" {
         display as error "post-estimation is not available after a fit on mi data"
@@ -96,6 +96,19 @@ program define finegray_phtest, rclass
         display as error "the tvc() fit is the corresponding Wald test"
         exit 198
     }
+    * A weighted fit's Schoenfeld residuals are well defined (Z_i minus the
+    * weighted risk-set mean; `predict, schoenfeld' returns them), but the
+    * summary this command reports -- a plain correlation over cause events --
+    * has no design-weighted form held in the corpus, and choosing one here
+    * (weight the correlation? by w or by w^2?) would be a package invention
+    * presented as a diagnostic.  Refuse; the residuals remain available.
+    if `"`e(wtype)'"' != "" {
+        display as error "finegray_phtest is not available after a fit with `e(wtype)'s"
+        display as error "no design-weighted form of this correlation diagnostic is held;"
+        display as error "{bf:predict, schoenfeld} still returns the weighted-risk-set"
+        display as error "residuals for inspection; see {help finegray##weights:help finegray}"
+        exit 198
+    }
 
     _finegray_check_data
 
@@ -107,7 +120,7 @@ program define finegray_phtest, rclass
     }
 
     * Get model info from e()
-    local covariates "`e(covariates)'"
+    local covariates "`e(designvars)'"
     local events "`e(compete)'"
     local cause = e(cause)
     local censvalue = e(censvalue)
@@ -229,9 +242,14 @@ program define finegray_phtest, rclass
 
         local _n_lab : word count `covlabels'
         local _n_score : word count `covariates'
-        if `_n_lab' != `_n_score' | `_n_score' != colsof(e(b)) {
+        * Count the NON-BASE coefficients: a factor-variable fit posts the
+        * base-level columns too, and those have no design column.
+        tempname _bnb
+        _finegray_bnb, b(`_bnb')
+        local _n_coef = colsof(`_bnb')
+        if `_n_lab' != `_n_score' | `_n_score' != `_n_coef' {
             display as error "reconstructed FV design does not match stored coefficients"
-            display as error "(`_n_score' columns, `_n_lab' labels, `=colsof(e(b))' coefficients)"
+            display as error "(`_n_score' columns, `_n_lab' labels, `_n_coef' coefficients)"
             exit 198
         }
         local p = `_n_score'

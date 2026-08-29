@@ -13,7 +13,7 @@
 *   FG-H03  the estimation-data signature covered the raw variables but not the
 *           package-owned _fg_* design columns that post-estimation reads back.
 *           Flipping _fg_grp_2 moved the CIF from 0.18367237 to 0.18251435 at rc 0.
-*   FG-H15  the baseline REBUILD path passed e(covariates) to Mata by name,
+*   FG-H15  the baseline REBUILD path passed e(designvars) to Mata by name,
 *           unverified. A tampered _fg_* column answered at rc 0 (mean CIF
 *           0.1150179144 against a truth of 0.2324819505) whenever the Mata
 *           cache happened to be cold, and a DROPPED one -- documented as
@@ -116,7 +116,8 @@ local ++test_count
 capture noisily {
     _mk_fv_pe
     quietly finegray i.grp x, compete(ev) cause(1) nolog
-    matrix b_fit = e(b)
+    * the non-base vector: e(b) leads with the base column 1b.grp (= 0)
+    _finegray_bnb, b(b_fit)
 
     * independent oracle: xb built by hand from the coefficients and the level
     * VALUES. This is what "aligned by value" has to mean.
@@ -181,7 +182,8 @@ capture noisily {
     * finegray_predict does NOT read them -- it rebuilds the design from the raw
     * factor variables -- so the tampered column cannot affect xb, and refusing
     * would be wrong. Assert it still runs AND still gives the right answer.
-    matrix b_fit = e(b)
+    * the non-base vector: e(b) leads with the base column 1b.grp (= 0)
+    _finegray_bnb, b(b_fit)
     capture noisily finegray_predict h03xb, xb
     assert _rc == 0
     gen double _orc3 = b_fit[1,1]*(grp==2) + b_fit[1,2]*(grp==3) + b_fit[1,3]*x
@@ -1041,7 +1043,7 @@ capture noisily {
         cond(this_is_a_very_long_group_name == 1, 0, 1000000000)
     quietly finegray i.this_is_a_very_long_group_name x, ///
         compete(ev) cause(1) nolog
-    local _dc : word 1 of `e(covariates)'
+    local _dc : word 1 of `e(designvars)'
 
     quietly finegray_cif, at(`_dc'=1 x=0) attime(4) nograph
     matrix T_direct = r(table)

@@ -8,36 +8,35 @@
 * not cover is not a completed estimator.
 *
 * ---------------------------------------------------------------------------
-* THE CANDIDATES, AND WHY THERE ARE ONLY TWO
+* THE CANDIDATES
 *
-* fg_zzf_plan.md's Gate Z-inference names three candidates.  Only two of them can
-* be built from a source we have actually read:
+* fg_zzf_plan.md's Gate Z-inference names three candidates:
 *
 *   model_based   Geskus (2011) p.44, eq. 20-21: the ordinary information matrix,
-*                 NO sandwich.  Reachable today as `norobust'.
+*                 NO sandwich.  Reachable as `norobust'.
 *   fixed_weight_sandwich   Fine & Gray (1999) eq. 7-8, extended to carry the combined
-*                 weight A = G(t-)H(t-).  Today's DEFAULT (robust).
+*                 weight A = G(t-)H(t-).  The DEFAULT (robust).
+*   nuisance_adjusted   The ZZF (2011) Appendix B two-part influence function:
+*                 the fixed-weight score residual plus the influence of the
+*                 estimated all-cause survival S and at-risk fraction b behind
+*                 the Weight-1 stabilizer (_finegray_psi_residuals_lt).
+*                 Reachable as `nuisance' on a POOLED-weight delayed-entry fit
+*                 since 2026-08-28, when the published PDF (with the appendix
+*                 equations as live text) entered the corpus.  Until then it was
+*                 deliberately unimplemented: the only obtainable copy rendered
+*                 the equations as images, and an influence function written
+*                 from memory has no provenance.  ZZF's own Appendix E treats
+*                 the weight as known for the STRATIFIED weight, so the two
+*                 truncstrata() arms have no nuisance_adjusted cell and it is
+*                 refused there (r(198)).
 *
-*   nuisance_adjusted   NOT IMPLEMENTED, and deliberately so.  It is the ZZF
-*                 two-part influence function, whose explicit expression lives in
-*                 ZZF (2011) Appendix B.  The appendix PROSE is in our corpus
-*                 (PMC3408877) but every display equation in it is MathML/image
-*                 and did not survive extraction: the text reads "we obtain <gap>
-*                 where <gap> and <gap> is a martingale."  The journal PDF is
-*                 paywalled.  Writing that influence function would therefore mean
-*                 DERIVING IT FROM MEMORY -- a remembered influence function is a
-*                 plausible formula with no provenance, and its boundary cases are
-*                 exactly where memory fails.
-*                 Tracked in literature/_requested.md.  If neither candidate below
-*                 covers, this gate BLOCKS on obtaining that appendix.  It does not
-*                 get guessed.
-*
-* What ZZF Appendix B *does* say, verbatim and in prose (this much is sourced):
-*   "The first term is the main term, whereas the second and third terms account
-*    for the influence due to random weight."
-* -- so a two-part variance exists and the fixed-weight one is an approximation.
-* The question this file answers is whether that approximation MATTERS for OUR
-* weight, which is not the same question as whether it exists.
+* ZZF Appendix B, verbatim: "The first term is the main term, whereas the second
+* and third terms account for the influence due to random weight."  The question
+* this file answers is whether those terms MATTER for OUR weight -- and, now that
+* the third candidate exists, whether it changes the coverage verdict.  Per the
+* 2026-08-28 plan: "if its coverage is indistinguishable from
+* fixed_weight_sandwich, that is a successful result" -- the default does not
+* move on a tie.
 *
 * SCOPE: cluster() fits are NOT adjudicated here and cannot be.  With clustered
 * data the model-based information matrix is wrong for a reason that has nothing to
@@ -156,7 +155,23 @@
 * band in the LT arms irrespective of either scale diagnostic.
 * ---------------------------------------------------------------------------
 *
-* COST.  ~1000 reps x 7 arms x 2 fits.  Smoke:  global ZZF_CVG_REPS 20
+* [Z-INF-RESULT 2026-08-28, third candidate]  1000 reps/arm on the same seeds.
+* nuisance_adjusted covers in every pooled-weight arm and is numerically
+* indistinguishable from fixed_weight_sandwich (mean SE within 0.5%):
+*
+*   arm             fixed_weight_sandwich   nuisance_adjusted   (coverage b1 / b2)
+*   noLT            see log                 same terms as FG psi (right censoring)
+*   light_n500      0.941 / 0.951           0.941 / 0.949
+*   light_n2000     0.954 / 0.957           0.954 / 0.957
+*   heavy_n500      0.948 / 0.943           0.947 / 0.943
+*   heavy_n2000     0.955 / 0.953           0.955 / 0.953
+*   ts_*            0.945 / 0.944, 0.949 / 0.943   n/a (stratified weight; refused)
+*
+* Per the 2026-08-28 plan this is the SUCCESSFUL outcome: the default stays
+* fixed_weight_sandwich, and nuisance is an opt-in with the same coverage.
+*
+* COST.  ~1000 reps x 7 arms x 3 fits (2 in the stratified arms).
+* Smoke:  global ZZF_CVG_REPS 20
 * ---------------------------------------------------------------------------
 
 clear all
@@ -194,6 +209,7 @@ display as text _newline "Gate Z-inference: LT variance coverage study"
 display as text "  REPS = `REPS', base seed = `SEED0'"
 display as text "  truth: b1 = `TRUTH1', b2 = `TRUTH2'"
 display as text "  candidates: model_based (norobust) vs fixed_weight_sandwich (default robust)"
+display as text "              vs nuisance_adjusted (nuisance; pooled-weight arms only)"
 if !`FULL' {
     display as error "  SMOKE SETTINGS (REPS < 1000): this run CANNOT close Gate Z-inference."
 }
@@ -300,8 +316,8 @@ local a7 "ts_bounded_n2000|bygroup|2.0|1.0|2000|truncstrata(z1)"
 
 tempname pf
 tempfile res
-postfile `pf' str32 arm int rep double(b1 b2 se1_rob se2_rob se1_mod se2_mod tf) ///
-    using "`res'", replace
+postfile `pf' str32 arm int rep double(b1 b2 se1_rob se2_rob se1_mod se2_mod ///
+    se1_nui se2_nui tf) using "`res'", replace
 
 forvalues a = 1/`NARM' {
     local spec  "`a`a''"
@@ -322,7 +338,7 @@ forvalues a = 1/`NARM' {
             entryrate(`=max(`erate',0.0001)') entrycap(`ecap')
         if _rc {
             display as error "  FITFAIL `arm' rep `r': generator rc=`=_rc'"
-            post `pf' ("`arm'") (`r') (.) (.) (.) (.) (.) (.) (.)
+            post `pf' ("`arm'") (`r') (.) (.) (.) (.) (.) (.) (.) (.) (.)
             continue
         }
         local tf = r(truncfrac)
@@ -334,7 +350,7 @@ forvalues a = 1/`NARM' {
         if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
         if `fit_rc' {
             display as error "  FITFAIL `arm' rep `r': robust rc=`fit_rc'"
-            post `pf' ("`arm'") (`r') (.) (.) (.) (.) (.) (.) (`tf')
+            post `pf' ("`arm'") (`r') (.) (.) (.) (.) (.) (.) (.) (.) (`tf')
             continue
         }
         local b1  = _b[z1]
@@ -347,20 +363,56 @@ forvalues a = 1/`NARM' {
         if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
         if `fit_rc' {
             display as error "  FITFAIL `arm' rep `r': model-based rc=`fit_rc'"
-            post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (.) (.) (`tf')
+            post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (.) (.) (.) (.) (`tf')
             continue
         }
         * norobust changes only the VCE.  If it changes the point estimate, the
         * paired variance comparison is no longer comparing like with like.
         if max(reldif(_b[z1], `b1'), reldif(_b[z2], `b2')) >= 1e-12 {
             display as error "  FITFAIL `arm' rep `r': robust/norobust coefficients differ"
-            post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (.) (.) (`tf')
+            post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (.) (.) (.) (.) (`tf')
             continue
         }
         local s1m = _se[z1]
         local s2m = _se[z2]
 
-        post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (`s1m') (`s2m') (`tf')
+        * Third fit: the ZZF Appendix B nuisance-adjusted sandwich, on the same
+        * dataset.  Pooled-weight arms only; the stratified arms are refused by
+        * contract (ZZF Appendix E), and a refusal there is asserted, not skipped.
+        local s1n = .
+        local s2n = .
+        if strpos("`opts'", "truncstrata") == 0 {
+            capture quietly finegray z1 z2, compete(status) cause(1) `opts' nuisance
+            local fit_rc = _rc
+            if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
+            if `fit_rc' {
+                display as error "  FITFAIL `arm' rep `r': nuisance rc=`fit_rc'"
+                post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (`s1m') (`s2m') (.) (.) (`tf')
+                continue
+            }
+            if max(reldif(_b[z1], `b1'), reldif(_b[z2], `b2')) >= 1e-12 {
+                display as error "  FITFAIL `arm' rep `r': robust/nuisance coefficients differ"
+                post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (`s1m') (`s2m') (.) (.) (`tf')
+                continue
+            }
+            if "`trunc'" != "none" & `"`e(lt_vce)'"' != "nuisance_adjusted" {
+                display as error "  FITFAIL `arm' rep `r': e(lt_vce) = `e(lt_vce)', expected nuisance_adjusted"
+                post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (`s1m') (`s2m') (.) (.) (`tf')
+                continue
+            }
+            local s1n = _se[z1]
+            local s2n = _se[z2]
+        }
+        else {
+            capture quietly finegray z1 z2, compete(status) cause(1) `opts' nuisance
+            if _rc != 198 {
+                display as error "  FITFAIL `arm' rep `r': nuisance with truncstrata() returned rc=`=_rc', expected 198"
+                post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (`s1m') (`s2m') (.) (.) (`tf')
+                continue
+            }
+        }
+
+        post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (`s1m') (`s2m') (`s1n') (`s2n') (`tf')
 
         if mod(`r', 100) == 0 ///
             display as text "  ... `arm' replication `r' of `REPS' (`c(current_time)')"
@@ -381,9 +433,10 @@ tempname R
 display as text _newline "RESULTS (empirical 95% coverage; SE ratio = mean analytic SE / empirical SD)"
 display as text ""
 
-foreach cand in mod rob {
+foreach cand in mod rob nui {
     if "`cand'" == "mod" local candname "model_based "
     if "`cand'" == "rob" local candname "fixed_weight_sandwich "
+    if "`cand'" == "nui" local candname "nuisance_adjusted "
 
     display as text _newline "CANDIDATE: `candname'"
     display as text "  arm              coef trunc%  reps    bias  mean.SE  SEr/SD SEr/rSD coverage"
@@ -392,6 +445,18 @@ foreach cand in mod rob {
         local spec "`a`a''"
         tokenize "`spec'", parse("|")
         local arm "`1'"
+        local aopts "`11'"
+
+        * nuisance_adjusted has no stratified-weight cell (ZZF Appendix E):
+        * those arms are not a failure of the candidate, they are outside it.
+        if "`cand'" == "nui" & strpos("`aopts'", "truncstrata") > 0 {
+            display as text "  " %-15s "`arm'" "  n/a: stratified weight, nuisance refused by contract (ZZF App. E)"
+            forvalues k = 1/2 {
+                scalar _`cand'_`a'_`k'_ok  = 1
+                scalar _`cand'_`a'_`k'_cov = .
+            }
+            continue
+        }
 
         forvalues k = 1/2 {
             local truth = cond(`k' == 1, `TRUTH1', `TRUTH2')
@@ -452,7 +517,7 @@ foreach cand in mod rob {
 * ---------------------------------------------------------------------------
 * COVERAGE DECISION.  A variance path passes only if it covers in EVERY arm.
 * ---------------------------------------------------------------------------
-foreach cand in mod rob {
+foreach cand in mod rob nui {
     local win_`cand' = 1
     forvalues a = 1/`NARM' {
         forvalues k = 1/2 {
@@ -464,6 +529,7 @@ foreach cand in mod rob {
 display as text _newline "COVERAGE DECISION"
 display as text "  model_based  passes every arm: " cond(`win_mod', "YES", "NO")
 display as text "  fixed_weight_sandwich  passes every arm: " cond(`win_rob', "YES", "NO")
+display as text "  nuisance_adjusted  passes every pooled-weight arm: " cond(`win_nui', "YES", "NO")
 
 display as text _newline "[Z-INF-PREREG] preregistered: model_based covers everywhere; fixed_weight_sandwich"
 display as text "               undercovers, worse at heavier truncation."
@@ -488,11 +554,20 @@ if `win_rob' {
         display as result "  The model-based negative control fails under truncation."
     if `win_rob' & `win_mod' ///
         display as result "  Both variance paths cover on these DGPs; inspect the diagnostics."
+    * DEFAULT RE-ADJUDICATION (the closed _requested.md row's own instruction).
+    * The default moves to nuisance_adjusted only if it covers where the
+    * shipped sandwich does not; when both cover, the default stays -- a tie
+    * is the expected and successful outcome, not a defect to tune away.
+    if `win_nui' ///
+        display as result "  nuisance_adjusted also covers in every pooled-weight arm: the default stays fixed_weight_sandwich."
+    else ///
+        display as error "  nuisance_adjusted does NOT cover in every pooled-weight arm; it must not become the default."
 }
 else {
     display as error _newline "RESULT: FAIL -- the shipped fixed_weight_sandwich does not cover in every supported arm."
-    display as error "  Gate Z-inference BLOCKS.  It does NOT get closed by relabelling a loser, and"
-    display as error "  nuisance_adjusted does NOT get guessed: obtain ZZF (2011) Appendix B first."
+    display as error "  Gate Z-inference BLOCKS.  It does NOT get closed by relabelling a loser."
+    if `win_nui' ///
+        display as error "  nuisance_adjusted covers in every pooled-weight arm: re-adjudicate the default on this evidence."
     display as error "  (`n_fail' failing arm-coefficient cells)"
 }
 

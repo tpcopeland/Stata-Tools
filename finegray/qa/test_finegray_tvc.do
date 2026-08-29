@@ -308,7 +308,7 @@ capture noisily {
     assert "`e(tsplit)'" == ".4 1"
     assert "`e(tvc_covariates)'" == "x1"
     assert "`e(tvc_pos)'" == "1"
-    assert "`e(covariates)'" == "x1 x2"
+    assert "`e(designvars)'" == "x1 x2"
     * Cause events per interval, posted so the reader can see what each
     * interval's estimate rests on.
     local _nf "`e(tsplit_nfail)'"

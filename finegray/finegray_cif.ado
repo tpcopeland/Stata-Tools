@@ -1,12 +1,13 @@
-*! finegray_cif Version 1.3.0  2026/08/25
+*! finegray_cif Version 1.3.0  2026/08/28
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
 Basic syntax:
-  finegray_cif [, at(var=# ...) attime(numlist) timepoints(numlist)
-                  ci level(#) saving(filename) nograph twoway_options]
+  finegray_cif [, at(var=# ...) over(varname) attime(numlist)
+                  timepoints(numlist) ci level(#) saving(filename)
+                  nograph twoway_options]
 
 Description:
   Predicted cumulative incidence function (CIF) after finegray, for a chosen
@@ -17,6 +18,8 @@ Description:
                      event-time grid.
   attime(numlist)    reports a table of CIF (and CI) at the listed horizons.
   at(var=# ...)      sets the covariate profile (default: estimation-sample means).
+  over(varname)      one curve per level of a model variable (or per fitted
+                     baseline stratum), overlaid in one call; results stacked.
   ci                 adds influence-function confidence limits (cloglog scale).
   saving(filename)   writes the numeric estimates (time cif se lci uci) to a
                      dataset (the outfile analogue).
@@ -36,7 +39,7 @@ program define finegray_cif, rclass sortpreserve
 
     capture noisily {
 
-    syntax [, AT(string) ATTime(numlist sort >=0) ///
+    syntax [, AT(string) OVER(varname numeric) ATTime(numlist sort >=0) ///
         TImepoints(numlist sort >=0) CI Level(string) ///
         BSTRATum(numlist max=1) ///
         SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH *]
@@ -141,7 +144,7 @@ program define finegray_cif, rclass sortpreserve
     * tempvars and are gone (see the mi block in finegray.ado).  There is also
     * no single baseline hazard to answer from once estimates are pooled across
     * imputations -- pooling a CIF is a different estimand, not this command.
-    * Refuse by name rather than resolve e(covariates), whose tempvar names the
+    * Refuse by name rather than resolve e(designvars), whose tempvar names the
     * next command to ask for a tempvar will happily reuse.
     if `"`e(postest)'"' == "unavailable_mi" {
         display as error "post-estimation is not available after a fit on mi data"
@@ -212,7 +215,9 @@ program define finegray_cif, rclass sortpreserve
     local _kbs = 1
     if "`e(k_bstrata)'" != "" local _kbs = e(k_bstrata)
     if `"`_bsvar'"' != "" & `_kbs' > 1 {
-        if "`bstratum'" == "" {
+        * over(bstrata variable) draws every stratum, so it stands in for
+        * bstratum(); the pair is refused further down.
+        if "`bstratum'" == "" & "`over'" != "`_bsvar'" {
             display as error "bstratum() is required after a fit with bstrata(`_bsvar')"
             display as error "each baseline stratum has its own baseline subdistribution"
             display as error "hazard, so a covariate profile alone does not identify a CIF"
@@ -227,30 +232,35 @@ program define finegray_cif, rclass sortpreserve
             display as error "that variable to identify the requested stratum's baseline"
             exit 111
         }
-        * Refuse a stratum the fit never saw, by name and with the fitted levels
-        * listed.  Left to the baseline lookup this surfaces as a bare r(459)
-        * from Mata, several hundred lines of work later.
-        quietly count if e(sample) & `_bsvar' == `bstratum'
-        if r(N) == 0 {
-            quietly levelsof `_bsvar' if e(sample), local(_bslevels) clean
-            display as error "bstratum(`bstratum') is not a fitted baseline stratum"
-            display as error "the estimation sample holds `_bsvar' levels: `_bslevels'"
-            exit 459
-        }
-        * A stratum with no cause event has an identically zero Breslow
-        * baseline.  That is a degenerate curve, not an estimate of one, and a
-        * CIF drawn from it is a flat line at exactly 0 that reads as a finding.
-        * The levels are named at fit time in e(bstrata_noevent).
-        local _bsne `"`e(bstrata_noevent)'"'
-        if `"`_bsne'"' != "" {
-            local _bshit : list posof "`bstratum'" in _bsne
-            if `_bshit' > 0 {
-                display as error "baseline stratum `bstratum' carried no cause `=e(cause)' event"
-                display as error "its baseline subdistribution hazard is identically zero, which is"
-                display as error "a degenerate curve rather than an estimate of one; there is no"
-                display as error "cumulative incidence to report for it"
-                display as error "see {help finegray##bstrata:help finegray}"
+        * The two checks below judge the ONE stratum bstratum() named; under
+        * over(`_bsvar') there is none yet, and the overlay block applies the
+        * no-event rule to every fitted level itself.
+        if "`bstratum'" != "" {
+            * Refuse a stratum the fit never saw, by name and with the fitted levels
+            * listed.  Left to the baseline lookup this surfaces as a bare r(459)
+            * from Mata, several hundred lines of work later.
+            quietly count if e(sample) & `_bsvar' == `bstratum'
+            if r(N) == 0 {
+                quietly levelsof `_bsvar' if e(sample), local(_bslevels) clean
+                display as error "bstratum(`bstratum') is not a fitted baseline stratum"
+                display as error "the estimation sample holds `_bsvar' levels: `_bslevels'"
                 exit 459
+            }
+            * A stratum with no cause event has an identically zero Breslow
+            * baseline.  That is a degenerate curve, not an estimate of one, and a
+            * CIF drawn from it is a flat line at exactly 0 that reads as a finding.
+            * The levels are named at fit time in e(bstrata_noevent).
+            local _bsne `"`e(bstrata_noevent)'"'
+            if `"`_bsne'"' != "" {
+                local _bshit : list posof "`bstratum'" in _bsne
+                if `_bshit' > 0 {
+                    display as error "baseline stratum `bstratum' carried no cause `=e(cause)' event"
+                    display as error "its baseline subdistribution hazard is identically zero, which is"
+                    display as error "a degenerate curve rather than an estimate of one; there is no"
+                    display as error "cumulative incidence to report for it"
+                    display as error "see {help finegray##bstrata:help finegray}"
+                    exit 459
+                }
             }
         }
     }
@@ -344,7 +354,7 @@ program define finegray_cif, rclass sortpreserve
         }
     }
 
-    local covs "`e(covariates)'"
+    local covs "`e(designvars)'"
     local p : word count `covs'
 
     * =====================================================================
@@ -355,7 +365,7 @@ program define finegray_cif, rclass sortpreserve
     * consumer to rebuild on demand.  finegray_predict rebuilds from the fit-time
     * expansion e(fvsemantic) by level VALUE; do the same here.  The influence-
     * function SE path reads these columns from the data BY NAME (st_data over
-    * e(covariates)), so they must be materialized as the real _fg_* names, not
+    * e(designvars)), so they must be materialized as the real _fg_* names, not
     * tempvars -- but only the ones we create are dropped again in the cleanup
     * zone, so a read-only finegray_cif never leaks columns into the caller's
     * data.  A dropped RAW covariate (the user's own variable) cannot be rebuilt
@@ -363,7 +373,7 @@ program define finegray_cif, rclass sortpreserve
     local _fvsem_r `"`e(fvsemantic)'"'
     local _nbterms ""
     if `"`_fvsem_r'"' != "" & `"`_fvsem_r'"' != "." {
-        * Non-base semantic terms align 1:1, in order, with e(covariates).
+        * Non-base semantic terms align 1:1, in order, with e(designvars).
         foreach _t of local _fvsem_r {
             if regexm("`_t'", "[0-9]+b\.") continue
             local _nbterms `"`_nbterms' `_t'"'
@@ -410,7 +420,169 @@ program define finegray_cif, rclass sortpreserve
     }
 
     * =====================================================================
-    * BUILD COVARIATE PROFILE (default: estimation-sample means)
+    * OVERLAY: over(varname) draws one curve per level in a single call
+    * =====================================================================
+    * A factor-level margin after this estimator is, nearly always, a request
+    * for group CIFs -- the curves finegray_cif already draws, one profile per
+    * call.  over() runs that same one-profile path once per level and stacks
+    * the results, so each overlaid curve is BIT-IDENTICAL to its standalone
+    * at()/bstratum() call (pinned in qa/test_finegray_cif_over.do).  Two
+    * shapes: over(model variable) varies that variable across its observed
+    * estimation-sample values with every other covariate held as at() says,
+    * and over(bstrata variable) draws the fitted baseline strata.
+    local _overmode ""
+    local _ovlevs ""
+    local _ncurve = 1
+    if "`over'" != "" {
+        if "`over'" == "`_bsvar'" & `_kbs' > 1 {
+            if "`bstratum'" != "" {
+                display as error "over(`over') and bstratum() may not be combined"
+                display as error "over() draws every fitted baseline stratum; bstratum() selects one"
+                exit 198
+            }
+            local _overmode "bstrata"
+            quietly levelsof `_bsvar' if e(sample), local(_ovall) clean
+            local _bsne `"`e(bstrata_noevent)'"'
+            local _ovlevs : list _ovall - _bsne
+            local _ovlevs : list retokenize _ovlevs
+            if "`_ovlevs'" == "" {
+                display as error "no baseline stratum of `_bsvar' carried a cause `=e(cause)' event"
+                display as error "there is no cumulative incidence curve to draw"
+                exit 459
+            }
+            * A stratum with no cause event has an identically zero baseline
+            * and is refused by name under bstratum(); the overlay omits it and
+            * says so, rather than drawing a flat line at 0 that reads as a
+            * finding.
+            local _ovskip : list _ovall - _ovlevs
+            if "`_ovskip'" != "" {
+                display as text "note: baseline stratum/strata `_ovskip' of `_bsvar' carried no"
+                display as text "cause `=e(cause)' event and are omitted from the overlay"
+            }
+        }
+        else {
+            * Membership is checked once the fit-time design is resolved below.
+            local _overmode "cov"
+        }
+        local _ncurve : word count `_ovlevs'
+        if "`_overmode'" == "cov" local _ncurve = 0
+    }
+
+    * =====================================================================
+    * FIT-TIME DESIGN  (needed by at() and by over() on a covariate)
+    * =====================================================================
+    * Resolve the fit-time design FIRST and copy every r() out before any
+    * other command runs.  r() is one shared queue: the `summarize' and
+    * `count' calls below wipe r(pieces#)/r(rawvars) on their first use.
+    * Verified 2026-08-18: r(expr1) = "(grp == 2)" before `summarize x',
+    * empty after.
+    local _fvk = 0
+    local _rawvars ""
+    local _fvars   ""
+    if (`"`at'"' != "" | "`_overmode'" == "cov") & ///
+       `"`e(fvsemantic)'"' != "" & `"`e(fvsemantic)'"' != "." {
+        _finegray_fv_design, caller(finegray_cif)
+        local _fvk = r(k)
+        local _rawvars `"`r(rawvars)'"'
+        local _fvars   `"`r(fvars)'"'
+        forvalues _c = 1/`_fvk' {
+            local _pieces`_c' `"`r(pieces`_c')'"'
+        }
+        * The helper already checks _k against colsof(e(b)); covs is built
+        * from e(designvars).  A disagreement here would mispair a column
+        * with a term silently, so refuse rather than index into it.
+        if `_fvk' != `p' {
+            display as error "fitted design columns do not match e(designvars)"
+            display as error "(`_fvk' non-base terms, `p' design columns); re-run {bf:finegray}"
+            exit 198
+        }
+        * Belt for the r()-clobbering failure mode above: an empty pieces
+        * list would silently leave that column at its mean.
+        forvalues _c = 1/`_fvk' {
+            if `"`_pieces`_c''"' == "" {
+                display as error "the fitted design for column `_c' could not be resolved"
+                display as error "re-run {bf:finegray} before {bf:finegray_cif}"
+                exit 198
+            }
+        }
+    }
+
+    * Number of estimation-sample rows, for the proportion of an unset
+    * factor indicator.  Taken once, here, because r(N) is as volatile as
+    * everything else in r().
+    quietly count if e(sample)
+    local _nes = r(N)
+
+    * over() on a covariate: it must be a model variable (raw or design
+    * column), must not also be fixed by at(), and must have few enough
+    * distinct values to be a grouping.  Twenty is a display limit, not a
+    * statistical one: an overlay of more step functions than that is
+    * unreadable, and a continuous covariate typed here by mistake would
+    * otherwise draw hundreds of curves and a legend to match.
+    local _ovcols ""
+    if "`_overmode'" == "cov" {
+        local _israw : list posof "`over'" in _rawvars
+        local _isdir : list posof "`over'" in covs
+        if !`_israw' & !`_isdir' {
+            display as error "over(): `over' is not a model covariate"
+            if `"`_rawvars'"' != "" {
+                display as error "model variables are: `_rawvars'"
+            }
+            display as error "design columns are: `covs'"
+            if `"`_bsvar'"' != "" {
+                display as error "(the baseline strata variable is `_bsvar')"
+            }
+            exit 198
+        }
+        local _rest `"`at'"'
+        while `"`_rest'"' != "" {
+            gettoken _pair _rest : _rest, parse(" ")
+            local _eqp = strpos(`"`_pair'"', "=")
+            if `_eqp' == 0 continue
+            local _avar = strtrim(substr(`"`_pair'"', 1, `_eqp' - 1))
+            if "`_avar'" == "`over'" {
+                display as error "over(`over') and at(`over'=#) may not be combined"
+                display as error "over() varies `over' across its levels; at() would fix it"
+                exit 198
+            }
+        }
+        quietly levelsof `over' if e(sample), local(_ovlevs) clean
+        local _ncurve : word count `_ovlevs'
+        if `_ncurve' > 20 {
+            display as error "over(`over') would draw `_ncurve' curves"
+            display as error "over() is for a grouping variable with at most 20 distinct values;"
+            display as error "use {bf:at(`over'=#)} to draw the profiles you want"
+            exit 198
+        }
+        * Design columns the over() variable enters -- excluded from the
+        * shared profile line, since they take a different value on every
+        * curve.
+        if `_fvk' > 0 {
+            forvalues _c = 1/`_fvk' {
+                foreach _pc of local _pieces`_c' {
+                    local _cp = strpos("`_pc'", ":")
+                    local _pvar = cond(`_cp', substr("`_pc'", 1, `_cp' - 1), "`_pc'")
+                    if "`_pvar'" == "`over'" local _ovcols "`_ovcols' `_c'"
+                }
+            }
+        }
+        else if `_isdir' local _ovcols "`_isdir'"
+        local _ovcols : list uniq _ovcols
+    }
+
+    * Curve labels, read while the source variable is still in memory (the
+    * graph block runs on a preserved, cleared dataset).
+    local _ovvar "`over'"
+    if "`_overmode'" == "bstrata" local _ovvar "`_bsvar'"
+    if "`_overmode'" != "" {
+        forvalues g = 1/`_ncurve' {
+            local _lev`g' : word `g' of `_ovlevs'
+            local _lbl`g' : label (`_ovvar') `_lev`g''
+        }
+    }
+
+    * =====================================================================
+    * BUILD COVARIATE PROFILE(S)  (default: estimation-sample means)
     * =====================================================================
     * Every column starts at its own estimation-sample mean -- unchanged from
     * v1.2.0, and unchanged for any column at() does not reach.  This matters:
@@ -418,14 +590,29 @@ program define finegray_cif, rclass sortpreserve
     * the means (i.grp##c.x, live: _fg_grp_2Xx mean 1.6344536 against
     * 0.33333 * 4.97502 = 1.6583), so recomputing untouched columns from a raw
     * profile would silently move the default curve of every factor fit.
-    tempname zrow
-    matrix `zrow' = J(1, `p', 0)
+    tempname zmeans
+    matrix `zmeans' = J(1, `p', 0)
     local j 0
     foreach v of local covs {
         local ++j
         quietly summarize `v' if e(sample), meanonly
-        matrix `zrow'[1, `j'] = r(mean)
+        matrix `zmeans'[1, `j'] = r(mean)
     }
+
+    * One profile per curve.  Without over() the loop runs once with the
+    * user's at() and the fit's own stratum selection; with over() on a
+    * covariate each pass appends `over'=level to at(), and with over() on
+    * the bstrata() variable each pass selects that stratum.  The parser is
+    * exactly the one-profile parser, so a level reached through over() and
+    * the same level typed into at() build the same row.
+    forvalues g = 1/`_ncurve' {
+        local _at_cur `"`at'"'
+        local _bslev`g' "`_bslev'"
+        if "`_overmode'" == "cov"     local _at_cur `"`at' `over'=`_lev`g''"'
+        if "`_overmode'" == "bstrata" local _bslev`g' "`_lev`g''"
+        tempname _zr
+        local zrow`g' "`_zr'"
+        matrix `_zr' = `zmeans'
 
     * Override means with user-specified at(var=#).  A name may be either a
     * RAW model variable (`grp', `x') or a package-owned design column
@@ -434,62 +621,19 @@ program define finegray_cif, rclass sortpreserve
     * through v1.2.0 at(grp=1) after `i.grp##c.x' was refused outright, and
     * at(x=0) was ACCEPTED while _fg_grp_2Xx stayed at its mean 1.63 -- a
     * profile no subject can have, reported at rc 0.
-    if `"`at'"' != "" {
-        * -----------------------------------------------------------------
-        * Resolve the fit-time design FIRST and copy every r() out before any
-        * other command runs.  r() is one shared queue: the `summarize' and
-        * `count' calls below wipe r(pieces#)/r(rawvars) on their first use.
-        * Verified 2026-08-18: r(expr1) = "(grp == 2)" before `summarize x',
-        * empty after.
-        * -----------------------------------------------------------------
-        local _fvk = 0
-        local _rawvars ""
-        local _fvars   ""
-        if `"`e(fvsemantic)'"' != "" & `"`e(fvsemantic)'"' != "." {
-            _finegray_fv_design, caller(finegray_cif)
-            local _fvk = r(k)
-            local _rawvars `"`r(rawvars)'"'
-            local _fvars   `"`r(fvars)'"'
-            forvalues _c = 1/`_fvk' {
-                local _pieces`_c' `"`r(pieces`_c')'"'
-            }
-            * The helper already checks _k against colsof(e(b)); covs is built
-            * from e(covariates).  A disagreement here would mispair a column
-            * with a term silently, so refuse rather than index into it.
-            if `_fvk' != `p' {
-                display as error "fitted design columns do not match e(covariates)"
-                display as error "(`_fvk' non-base terms, `p' design columns); re-run {bf:finegray}"
-                exit 198
-            }
-            * Belt for the r()-clobbering failure mode above: an empty pieces
-            * list would silently leave that column at its mean.
-            forvalues _c = 1/`_fvk' {
-                if `"`_pieces`_c''"' == "" {
-                    display as error "the fitted design for column `_c' could not be resolved"
-                    display as error "re-run {bf:finegray} before {bf:finegray_cif}"
-                    exit 198
-                }
-            }
-        }
-
-        * Number of estimation-sample rows, for the proportion of an unset
-        * factor indicator.  Taken once, here, because r(N) is as volatile as
-        * everything else in r().
-        quietly count if e(sample)
-        local _nes = r(N)
-
+    if `"`_at_cur'"' != "" {
         * -----------------------------------------------------------------
         * Parse at() into raw-variable settings and direct column settings.
         * A name that is a raw model variable is treated as raw even when a
         * design column shares its spelling (a continuous main effect keeps
-        * its own name in e(covariates)); that is what lets a setting reach
+        * its own name in e(designvars)); that is what lets a setting reach
         * the interaction columns the variable also enters.
         * -----------------------------------------------------------------
         local _rvars ""
         local _rvals ""
         local _dcols ""
         local _dvals ""
-        local _rest `"`at'"'
+        local _rest `"`_at_cur'"'
         while `"`_rest'"' != "" {
             gettoken _pair _rest : _rest, parse(" ")
             if `"`_pair'"' == "" continue
@@ -601,7 +745,7 @@ program define finegray_cif, rclass sortpreserve
                         scalar `_cval' = `_cval' * r(mean)
                     }
                 }
-                matrix `zrow'[1, `_c'] = `_cval'
+                matrix `_zr'[1, `_c'] = `_cval'
             }
         }
 
@@ -614,9 +758,10 @@ program define finegray_cif, rclass sortpreserve
             local _dc : word `_d' of `_dcols'
             local _dv : word `_d' of `_dvals'
             local _pos : list posof "`_dc'" in covs
-            matrix `zrow'[1, `_pos'] = `_dv'
+            matrix `_zr'[1, `_pos'] = `_dv'
         }
     }
+    } /* end per-curve profile loop */
 
     * Load Mata engine
     capture mata: _finegray_mata_ok()
@@ -659,8 +804,24 @@ program define finegray_cif, rclass sortpreserve
         local _tg_mata "`_tg_grp'"
     }
 
+    * Design weights.  A weighted fit's baseline and influence function are
+    * different curves from the unweighted ones, so the weight column is
+    * rebuilt from e(wexp) (the variables it names are in the estimation
+    * signature, verified above) and handed to every Mata entry point below.
+    *   _fg_wmata  the rebuilt column, "" on an unweighted fit
+    *   _fg_wtype  0 none, 1 pweight, 2 fweight
+    local _fg_wmata ""
+    local _fg_wtype = 0
+    if `"`e(wtype)'"' != "" {
+        tempvar _fg_wv
+        _finegray_weight_var, wname(`_fg_wv') touse(`es')
+        local _fg_wmata "`_fg_wv'"
+        local _fg_wtype = r(wtype)
+    }
+
     * =====================================================================
-    * BUILD TIME GRID
+    * BUILD TIME GRID  (per curve: under over(bstrata) each stratum has its
+    * own event times, so the default grid differs by curve)
     * =====================================================================
     * Curve mode plots the distinct baseline event times, thinned to <= 400.  It
     * used to read them out of e(basehaz), which no longer exists unless the user
@@ -671,100 +832,117 @@ program define finegray_cif, rclass sortpreserve
     * attime() and timepoints() are mutually exclusive (refused at parse time),
     * so this order expresses a preference over nothing.
     if "`attime'" != "" {
-        local grid "`attime'"
         local mode "table"
         * attime() draws no graph, so any leftover twoway options cannot apply.
         if `"`options'"' != "" {
             display as text "note: graph (twoway) options are ignored with attime()"
         }
     }
-    else if "`timepoints'" != "" {
-        local grid "`timepoints'"
-        local mode "curve"
-    }
-    else {
-        * Use distinct baseline-hazard times; thin to <= 400 for the matrix/plot.
-        * The thinning (stride, then always close on the last row) happens inside
-        * _finegray_bh_grid, which reproduces the former Stata-side loop exactly.
-        * A stride > 1 steps OVER the final row whenever nbh is not congruent to
-        * 1 mod step: with nbh = 402 and step = 2 the last grid point is row 401
-        * and the terminal event time is silently dropped -- while nbh = 481
-        * happens to land on it. The CIF's terminal value is its plateau, i.e.
-        * the number most readers take off the curve, so it must never depend on
-        * the parity of the event count. Always close the grid on the last row.
-        local mode "curve"
-        tempname BHG
-
-        * Prefer the Mata cache (free) over rebuilding (one linear pass).  Both
-        * give the same curve; the cache refuses a seq from a different fit, so a
-        * stale baseline cannot leak in.  finegray_cif always runs on the
-        * estimation data (_finegray_check_data enforces it), so the rebuild is
-        * always available as the fallback after `discard' / `mata clear'.
-        local _seq `"`e(bh_seq)'"'
-        local _have = 0
-        if "`_seq'" != "" {
-            mata: _finegray_bh_have(`_seq', "_have")
+    else local mode "curve"
+    forvalues g = 1/`_ncurve' {
+        if "`attime'" != "" {
+            local grid`g' "`attime'"
         }
-        if `_have' {
-            mata: _finegray_bh_grid_cached(`_seq', 400, "`BHG'", `_bslev')
+        else if "`timepoints'" != "" {
+            local grid`g' "`timepoints'"
+        }
+        else if `g' > 1 & "`_overmode'" != "bstrata" {
+            * Same baseline for every curve: one grid, computed once.
+            local grid`g' "`grid1'"
         }
         else {
-            mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
-                `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
-                "`_t0var'", 400, "`BHG'", "`_bsvar'", `_bslev', ///
-                "`_fg_tvcpos'", "`_fg_cuts'")
-        }
-        local nbh = `_fg_nbh'
-        local grid ""
-        if `nbh' > 0 {
-            local _ngb = rowsof(`BHG')
-            forvalues r = 1/`_ngb' {
-                local grid "`grid' `=`BHG'[`r',1]'"
+            * Use distinct baseline-hazard times; thin to <= 400 for the matrix/plot.
+            * The thinning (stride, then always close on the last row) happens inside
+            * _finegray_bh_grid, which reproduces the former Stata-side loop exactly.
+            * A stride > 1 steps OVER the final row whenever nbh is not congruent to
+            * 1 mod step: with nbh = 402 and step = 2 the last grid point is row 401
+            * and the terminal event time is silently dropped -- while nbh = 481
+            * happens to land on it. The CIF's terminal value is its plateau, i.e.
+            * the number most readers take off the curve, so it must never depend on
+            * the parity of the event count. Always close the grid on the last row.
+            tempname BHG
+
+            * Prefer the Mata cache (free) over rebuilding (one linear pass).  Both
+            * give the same curve; the cache refuses a seq from a different fit, so a
+            * stale baseline cannot leak in.  finegray_cif always runs on the
+            * estimation data (_finegray_check_data enforces it), so the rebuild is
+            * always available as the fallback after `discard' / `mata clear'.
+            local _seq `"`e(bh_seq)'"'
+            local _have = 0
+            if "`_seq'" != "" {
+                mata: _finegray_bh_have(`_seq', "_have")
+            }
+            if `_have' {
+                mata: _finegray_bh_grid_cached(`_seq', 400, "`BHG'", `_bslev`g'')
+            }
+            else {
+                mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
+                    `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
+                    "`_t0var'", 400, "`BHG'", "`_bsvar'", `_bslev`g'', ///
+                    "`_fg_tvcpos'", "`_fg_cuts'", "`_fg_wmata'", `_fg_wtype')
+            }
+            local nbh = `_fg_nbh'
+            local grid`g' ""
+            if `nbh' > 0 {
+                local _ngb = rowsof(`BHG')
+                forvalues r = 1/`_ngb' {
+                    local grid`g' "`grid`g'' `=`BHG'[`r',1]'"
+                }
             }
         }
-    }
-    local ngrid : word count `grid'
-    if `ngrid' == 0 {
-        display as error "no time points to evaluate"
-        exit 198
-    }
-
-    * =====================================================================
-    * EVALUATION MATRIX  (k x (1+p): time, profile)
-    * =====================================================================
-    tempname E
-    matrix `E' = J(`ngrid', `=`p'+1', 0)
-    local r 0
-    foreach tt of local grid {
-        local ++r
-        matrix `E'[`r', 1] = `tt'
-        forvalues c = 1/`p' {
-            matrix `E'[`r', `=`c'+1'] = `zrow'[1, `c']
+        local ngrid`g' : word count `grid`g''
+        if `ngrid`g'' == 0 {
+            display as error "no time points to evaluate"
+            exit 198
         }
     }
 
-    tempname OUT
-    * One call either way since the unification: _finegray_cif_var_st dispatches to the
-    * piecewise influence function when it is told the interval structure, and
-    * both routes reach the same accumulators.  bstrata() needs the stratum
-    * column (to rebuild the fit's one-curve-per-stratum baseline) and the
-    * requested stratum (to answer from the right one); passing neither rebuilt
-    * a pooled baseline and returned the same CIF for every stratum at rc 0.
-    if `_fg_istvc' {
-        mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
-            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
-            "`es'", "`E'", "`OUT'", "`_t0var'", "`_bsvar'", `_bslev', ///
-            "`_fg_tvcpos'", "`_fg_cuts'")
-    }
-    else {
-        mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
-            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
-            "`OUT'", "`_t0var'", "`_bsvar'", `_bslev')
+    * =====================================================================
+    * EVALUATION MATRIX  (k x (1+p): time, profile) and CIF, per curve
+    * =====================================================================
+    forvalues g = 1/`_ncurve' {
+        tempname _E _O
+        local OUT`g' "`_O'"
+        matrix `_E' = J(`ngrid`g'', `=`p'+1', 0)
+        local r 0
+        foreach tt of local grid`g' {
+            local ++r
+            matrix `_E'[`r', 1] = `tt'
+            forvalues c = 1/`p' {
+                matrix `_E'[`r', `=`c'+1'] = `zrow`g''[1, `c']
+            }
+        }
+        * One call either way since the unification: _finegray_cif_var_st dispatches to the
+        * piecewise influence function when it is told the interval structure, and
+        * both routes reach the same accumulators.  bstrata() needs the stratum
+        * column (to rebuild the fit's one-curve-per-stratum baseline) and the
+        * requested stratum (to answer from the right one); passing neither rebuilt
+        * a pooled baseline and returned the same CIF for every stratum at rc 0.
+        if `_fg_istvc' {
+            mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
+                `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
+                "`es'", "`_E'", "`_O'", "`_t0var'", "`_bsvar'", `_bslev`g'', ///
+                "`_fg_tvcpos'", "`_fg_cuts'", "`_fg_wmata'", `_fg_wtype')
+        }
+        else {
+            * The two empty strings are the tvc()/tsplit() slots (positional):
+            * the weight column and its type code follow them.
+            mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
+                `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`_E'", ///
+                "`_O'", "`_t0var'", "`_bsvar'", `_bslev`g'', "", "", ///
+                "`_fg_wmata'", `_fg_wtype')
+        }
     }
 
     * =====================================================================
     * BOOTSTRAP STANDARD ERRORS (optional; refits censoring/entry weights)
     * =====================================================================
+    * One replication loop serves every curve: each refit is scored at every
+    * profile, so an overlay costs the same B refits as a single curve, and
+    * with the same seed() each curve sees exactly the resamples its
+    * standalone call would (bsample is the only consumer of the RNG).
+    * Replications are counted PER CURVE, because under over(bstrata) a
+    * resample can lose one stratum's cause events without touching another.
     if `bootstrap' > 0 {
         * e(refitcmd), not e(cmdline): the refit runs on data already restricted
         * to e(sample) and then resampled, so the user's `if'/`in' qualifier is
@@ -785,12 +963,20 @@ program define finegray_cif, rclass sortpreserve
                 exit 498
             }
         }
-        tempname Gmat
-        matrix `Gmat' = J(`ngrid', 1, 0)
-        local r 0
-        foreach tt of local grid {
-            local ++r
-            matrix `Gmat'[`r', 1] = `tt'
+        forvalues g = 1/`_ncurve' {
+            tempname _G _S1 _S2
+            local Gmat`g' "`_G'"
+            local BSUM`g' "`_S1'"
+            local BSS`g'  "`_S2'"
+            matrix `_G' = J(`ngrid`g'', 1, 0)
+            local r 0
+            foreach tt of local grid`g' {
+                local ++r
+                matrix `_G'[`r', 1] = `tt'
+            }
+            matrix `_S1' = J(`ngrid`g'', 1, 0)
+            matrix `_S2' = J(`ngrid`g'', 1, 0)
+            local _bok`g' = 0
         }
         * Protect the user's estimation results across the refits. Hold
         * BEFORE preserve: hold records e(sample) in a hidden variable, and
@@ -826,10 +1012,7 @@ program define finegray_cif, rclass sortpreserve
 
         if "`seed'" != "" set seed `seed'
 
-        tempname BSUM BSS bcif
-        matrix `BSUM' = J(`ngrid', 1, 0)
-        matrix `BSS' = J(`ngrid', 1, 0)
-        local _bok = 0
+        tempname bcif
         forvalues b = 1/`bootstrap' {
             quietly {
                 use `"`_bdata'"', clear
@@ -853,38 +1036,40 @@ program define finegray_cif, rclass sortpreserve
                 * A resample can lose a factor level, so the refit posts a
                 * shorter e(b) whose columns no longer align with the stored
                 * profile; using it would silently mispair coefficients.
-                if `"`e(covariates)'"' != `"`covs'"' continue
-                * A resample can lose every cause event in the requested
-                * baseline stratum, or the stratum itself.  That replication
-                * has no curve to contribute; skip it, and let the _bok
-                * accounting below report how many were skipped.  Reaching the
-                * baseline lookup instead would abort the whole bootstrap on a
-                * resample that is merely unlucky.
-                if `"`_bsvar'"' != "" & "`bstratum'" != "" {
-                    local _bsne_r `"`e(bstrata_noevent)'"'
-                    local _bshit_r : list posof "`bstratum'" in _bsne_r
-                    if `_bshit_r' > 0 continue
-                    quietly count if `_bsvar' == `bstratum'
-                    if r(N) == 0 continue
-                }
+                if `"`e(designvars)'"' != `"`covs'"' continue
+                local _bsne_r `"`e(bstrata_noevent)'"'
                 local _fg_repseq `"`e(bh_seq)'"'
-                * The refit replays e(refitcmd), which carries tvc()/tsplit(),
-                * so each replication is the same estimator as the point
-                * estimate and its CIF must be accumulated the same way.
-                if `_fg_istvc' {
-                    mata: _finegray_boot_cif_tvc("`zrow'", "`Gmat'", "`bcif'", ///
-                        strtoreal("`_fg_repseq'"), "`_fg_tvcpos'", "`_fg_cuts'", ///
-                        `_bslev')
+                forvalues g = 1/`_ncurve' {
+                    * A resample can lose every cause event in the requested
+                    * baseline stratum, or the stratum itself.  That replication
+                    * has no curve to contribute; skip it, and let the _bok
+                    * accounting below report how many were skipped.  Reaching the
+                    * baseline lookup instead would abort the whole bootstrap on a
+                    * resample that is merely unlucky.
+                    if `"`_bsvar'"' != "" & "`_bslev`g''" != "." {
+                        local _bshit_r : list posof "`_bslev`g''" in _bsne_r
+                        if `_bshit_r' > 0 continue
+                        quietly count if `_bsvar' == `_bslev`g''
+                        if r(N) == 0 continue
+                    }
+                    * The refit replays e(refitcmd), which carries tvc()/tsplit(),
+                    * so each replication is the same estimator as the point
+                    * estimate and its CIF must be accumulated the same way.
+                    if `_fg_istvc' {
+                        mata: _finegray_boot_cif_tvc("`zrow`g''", "`Gmat`g''", "`bcif'", ///
+                            strtoreal("`_fg_repseq'"), "`_fg_tvcpos'", "`_fg_cuts'", ///
+                            `_bslev`g'')
+                    }
+                    else {
+                        mata: _finegray_boot_cif("`zrow`g''", "`Gmat`g''", "`bcif'", ///
+                            strtoreal("`_fg_repseq'"), `_bslev`g'')
+                    }
+                    forvalues r = 1/`ngrid`g'' {
+                        matrix `BSUM`g''[`r',1] = `BSUM`g''[`r',1] + `bcif'[`r',1]
+                        matrix `BSS`g''[`r',1]  = `BSS`g''[`r',1] + `bcif'[`r',1]^2
+                    }
+                    local ++_bok`g'
                 }
-                else {
-                    mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'", ///
-                        strtoreal("`_fg_repseq'"), `_bslev')
-                }
-                forvalues r = 1/`ngrid' {
-                    matrix `BSUM'[`r',1] = `BSUM'[`r',1] + `bcif'[`r',1]
-                    matrix `BSS'[`r',1]  = `BSS'[`r',1] + `bcif'[`r',1]^2
-                }
-                local ++_bok
             }
         }
         restore
@@ -898,59 +1083,110 @@ program define finegray_cif, rclass sortpreserve
         mata: _finegray_bh_unstash()
         local _bh_stashed = 0
 
-        if `_bok' < `_minboot' {
-            display as error "bootstrap failed: only `_bok' of `bootstrap' replications succeeded"
-            display as error "at least `_minboot' are required to estimate a standard error"
-            exit 498
+        local _bokmin = `bootstrap'
+        local _bokvary = 0
+        forvalues g = 1/`_ncurve' {
+            if `_bok`g'' < `_minboot' {
+                display as error "bootstrap failed: only `_bok`g'' of `bootstrap' replications succeeded"
+                if "`_overmode'" != "" {
+                    display as error `"(curve `_ovvar' = `_lbl`g'')"'
+                }
+                display as error "at least `_minboot' are required to estimate a standard error"
+                exit 498
+            }
+            if `_bok`g'' < `_bokmin' local _bokmin = `_bok`g''
+            if `_bok`g'' != `_bok1' local _bokvary = 1
         }
-        if `_bok' < `bootstrap' {
-            display as text "(note: `=`bootstrap'-`_bok'' of `bootstrap' bootstrap replications failed and were skipped)"
+        if `_bokvary' {
+            * Different curves used different numbers of replications: say
+            * which, because r(bootstrap_success) reports only the minimum.
+            local _bokline ""
+            forvalues g = 1/`_ncurve' {
+                local _bokline "`_bokline' `_ovvar'=`_lev`g'': `_bok`g''"
+            }
+            display as text "(note: replications used per curve --`_bokline')"
+        }
+        if `_bokmin' < `bootstrap' {
+            display as text "(note: `=`bootstrap'-`_bokmin'' of `bootstrap' bootstrap replications failed and were skipped)"
         }
         * Replace the analytic SE column with the bootstrap SD
-        forvalues r = 1/`ngrid' {
-            local _m = `BSUM'[`r',1]/`_bok'
-            local _v = (`BSS'[`r',1] - `_bok'*`_m'^2)/(`_bok'-1)
-            * Clamp at 0.  This is the computational form of the variance, so
-            * replicates that agree to machine precision (a grid point before
-            * the first cause event, where every replication returns CIF = 0)
-            * leave a tiny NEGATIVE residual after the cancellation, and
-            * sqrt() of it is MISSING.  A missing SE then suppresses the
-            * confidence limits below, reporting "we cannot quantify this"
-            * where the truth is a bootstrap SD of exactly zero.
-            if `_v' < 0 local _v = 0
-            matrix `OUT'[`r',2] = sqrt(`_v')
+        forvalues g = 1/`_ncurve' {
+            forvalues r = 1/`ngrid`g'' {
+                local _m = `BSUM`g''[`r',1]/`_bok`g''
+                local _v = (`BSS`g''[`r',1] - `_bok`g''*`_m'^2)/(`_bok`g''-1)
+                * Clamp at 0.  This is the computational form of the variance, so
+                * replicates that agree to machine precision (a grid point before
+                * the first cause event, where every replication returns CIF = 0)
+                * leave a tiny NEGATIVE residual after the cancellation, and
+                * sqrt() of it is MISSING.  A missing SE then suppresses the
+                * confidence limits below, reporting "we cannot quantify this"
+                * where the truth is a bootstrap SD of exactly zero.
+                if `_v' < 0 local _v = 0
+                matrix `OUT`g''[`r',2] = sqrt(`_v')
+            }
         }
     }
 
     * =====================================================================
-    * ASSEMBLE RESULTS  (time cif se lci uci)
+    * ASSEMBLE RESULTS  (time cif se lci uci [over]), per curve then stacked
     * =====================================================================
     local z = invnormal(1 - (1 - `level'/100)/2)
-    tempname R
-    matrix `R' = J(`ngrid', 5, .)
-    forvalues r = 1/`ngrid' {
-        local tt : word `r' of `grid'
-        local cifv = `OUT'[`r', 1]
-        local sev  = `OUT'[`r', 2]
-        matrix `R'[`r', 1] = `tt'
-        matrix `R'[`r', 2] = `cifv'
-        matrix `R'[`r', 3] = `sev'
-        * Confidence limits, or NOTHING.  `R' is initialised to missing, and a
-        * limit we cannot compute must stay missing.  Writing the point estimate
-        * into lci/uci instead -- which is what this did through v1.1.0 --
-        * manufactures a zero-width interval and presents it as a real one: an
-        * interior CIF whose SE came back nonfinite was reported as an exact,
-        * uncertainty-free estimate. It also meant r(table) carried
-        * lci = uci = cif whenever ci was NOT requested, so a caller reading
-        * those columns got a fabricated interval it never asked for.
-        if "`ci'" != "" & `cifv' > 0 & `cifv' < 1 & `sev' < . & `sev' > 0 {
-            local g = ln(-ln(1 - `cifv'))
-            local seg = `sev' / ((1 - `cifv') * (-ln(1 - `cifv')))
-            matrix `R'[`r', 4] = 1 - exp(-exp(`g' - `z' * `seg'))
-            matrix `R'[`r', 5] = 1 - exp(-exp(`g' + `z' * `seg'))
+    forvalues g = 1/`_ncurve' {
+        tempname _R
+        local R`g' "`_R'"
+        matrix `_R' = J(`ngrid`g'', 5, .)
+        forvalues r = 1/`ngrid`g'' {
+            local tt : word `r' of `grid`g''
+            local cifv = `OUT`g''[`r', 1]
+            local sev  = `OUT`g''[`r', 2]
+            matrix `_R'[`r', 1] = `tt'
+            matrix `_R'[`r', 2] = `cifv'
+            matrix `_R'[`r', 3] = `sev'
+            * Confidence limits, or NOTHING.  `R' is initialised to missing, and a
+            * limit we cannot compute must stay missing.  Writing the point estimate
+            * into lci/uci instead -- which is what this did through v1.1.0 --
+            * manufactures a zero-width interval and presents it as a real one: an
+            * interior CIF whose SE came back nonfinite was reported as an exact,
+            * uncertainty-free estimate. It also meant r(table) carried
+            * lci = uci = cif whenever ci was NOT requested, so a caller reading
+            * those columns got a fabricated interval it never asked for.
+            if "`ci'" != "" & `cifv' > 0 & `cifv' < 1 & `sev' < . & `sev' > 0 {
+                local g_ = ln(-ln(1 - `cifv'))
+                local seg = `sev' / ((1 - `cifv') * (-ln(1 - `cifv')))
+                matrix `_R'[`r', 4] = 1 - exp(-exp(`g_' - `z' * `seg'))
+                matrix `_R'[`r', 5] = 1 - exp(-exp(`g_' + `z' * `seg'))
+            }
         }
+        matrix colnames `_R' = time cif se lci uci
     }
-    matrix colnames `R' = time cif se lci uci
+    * The stacked result.  Without over() it IS the single curve's table, so
+    * r(table) keeps its five documented columns; with over() a sixth column
+    * carries the level (or baseline stratum) each row belongs to, appended so
+    * that positional readers of columns 1-5 are unaffected.  A seventh,
+    * private column indexes the curve for the graph builder and is never
+    * returned.
+    tempname R RALL ZR
+    if "`_overmode'" == "" {
+        matrix `R' = `R1'
+        matrix `ZR' = `zrow1'
+    }
+    else {
+        forvalues g = 1/`_ncurve' {
+            tempname _Rg
+            matrix `_Rg' = `R`g'', J(`ngrid`g'', 1, `_lev`g''), J(`ngrid`g'', 1, `g')
+            if `g' == 1 {
+                matrix `RALL' = `_Rg'
+                matrix `ZR' = `zrow1'
+            }
+            else {
+                matrix `RALL' = `RALL' \ `_Rg'
+                matrix `ZR' = `ZR' \ `zrow`g''
+            }
+        }
+        matrix colnames `RALL' = time cif se lci uci over _curve
+        matrix rownames `ZR' = `_ovlevs'
+        matrix `R' = `RALL'[1..., 1..6]
+    }
 
     * =====================================================================
     * PROFILE LINE  (the covariate values the numbers belong to)
@@ -962,7 +1198,10 @@ program define finegray_cif, rclass sortpreserve
     * print an `at:' line above the table; do the same.
     *
     * Spelled in the user's vocabulary (`grp=1'), not the package-owned design
-    * columns, using exactly the term list r(profile_vars) reports.
+    * columns, using exactly the term list r(profile_vars) reports.  With
+    * over() on a covariate the columns that variable enters are left off the
+    * shared line -- they take a different value on every curve, and the
+    * curve's own label says which.
     local _pv_disp : list retokenize _nbterms
     local _pv_dn : word count `_pv_disp'
     if `"`_pv_disp'"' == "" | `_pv_dn' != `p' local _pv_disp "`covs'"
@@ -970,7 +1209,9 @@ program define finegray_cif, rclass sortpreserve
     local _ai = 0
     foreach _pvn of local _pv_disp {
         local ++_ai
-        local _pvv = `zrow'[1, `_ai']
+        local _skip : list posof "`_ai'" in _ovcols
+        if `_skip' continue
+        local _pvv = `zrow1'[1, `_ai']
         local _pvs : display %9.3g `_pvv'
         local _pvs = trim("`_pvs'")
         local _atline `"`_atline' `_pvn'=`_pvs'"'
@@ -983,6 +1224,9 @@ program define finegray_cif, rclass sortpreserve
     }
     local _atsrc "at"
     if `"`at'"' == "" local _atsrc "at (estimation-sample means)"
+    local _overline ""
+    if "`_overmode'" == "cov"     local _overline "over: `over'"
+    if "`_overmode'" == "bstrata" local _overline "over: `_bsvar' (baseline strata)"
 
     * =====================================================================
     * OUTPUT: table (attime) and/or graph (curve)
@@ -998,39 +1242,43 @@ program define finegray_cif, rclass sortpreserve
                 as text ")"
         }
         display as text "`_atsrc': " as result `"`_atline'"'
+        if "`_overline'" != "" display as text "`_overline'"
         * Rule width tracks the widest data line, which depends on whether the
         * CI pair is printed: the last field ends at column 56 with `ci' and at
         * column 34 without it.  A fixed 40 left the CI table's rules two
         * columns short of the upper limit and hung 20 columns past the SE in
         * the no-CI table.  Stem is 13 + 1 (the {c TT}/{c +}/{c BT} glyph).
         local _rulew = cond("`ci'" != "", 42, 20)
-        display as text "{hline 13}{c TT}{hline `_rulew'}"
-        if "`ci'" != "" {
-            display as text %12s "time" " {c |}" ///
-                _col(18) "CIF" _col(30) "SE" _col(42) "[`level'% CI]"
-        }
-        else {
-            display as text %12s "time" " {c |}" _col(18) "CIF" _col(30) "SE"
-        }
-        display as text "{hline 13}{c +}{hline `_rulew'}"
-        forvalues r = 1/`ngrid' {
-            local tt = `R'[`r', 1]
-            local cf = `R'[`r', 2]
-            local se = `R'[`r', 3]
+        forvalues g = 1/`_ncurve' {
+            if "`_overmode'" != "" {
+                display as text ""
+                display as text "-> `_ovvar' = " as result `"`_lbl`g''"'
+            }
+            display as text "{hline 13}{c TT}{hline `_rulew'}"
             if "`ci'" != "" {
-                display as text %12.0g `tt' " {c |}" as result ///
-                    _col(16) %7.4f `cf' _col(28) %7.4f `se' ///
-                    _col(40) %7.4f `R'[`r',4] _col(50) %7.4f `R'[`r',5]
+                display as text %12s "time" " {c |}" ///
+                    _col(18) "CIF" _col(30) "SE" _col(42) "[`level'% CI]"
             }
             else {
-                display as text %12.0g `tt' " {c |}" as result ///
-                    _col(16) %7.4f `cf' _col(28) %7.4f `se'
+                display as text %12s "time" " {c |}" _col(18) "CIF" _col(30) "SE"
             }
+            display as text "{hline 13}{c +}{hline `_rulew'}"
+            forvalues r = 1/`ngrid`g'' {
+                local tt = `R`g''[`r', 1]
+                local cf = `R`g''[`r', 2]
+                local se = `R`g''[`r', 3]
+                if "`ci'" != "" {
+                    display as text %12.0g `tt' " {c |}" as result ///
+                        _col(16) %7.4f `cf' _col(28) %7.4f `se' ///
+                        _col(40) %7.4f `R`g''[`r',4] _col(50) %7.4f `R`g''[`r',5]
+                }
+                else {
+                    display as text %12.0g `tt' " {c |}" as result ///
+                        _col(16) %7.4f `cf' _col(28) %7.4f `se'
+                }
+            }
+            display as text "{hline 13}{c BT}{hline `_rulew'}"
         }
-        display as text "{hline 13}{c BT}{hline `_rulew'}"
-        * A column of bare dots invites the reading "the SE is zero" or "this is
-        * broken".  Say which it is, once, under the table it belongs to.
-
     }
 
     * =====================================================================
@@ -1041,46 +1289,68 @@ program define finegray_cif, rclass sortpreserve
     * last one.  Both were silent, which let `attime(999)' print 0.3010 with
     * nothing on screen to say that 999 is 992 years past the last observed
     * event -- and a reader can then quote "the CIF at year 999".
+    *
+    * Within the requested baseline stratum: the curve steps on THAT
+    * stratum's cause-event times, so a note about "the last cause-event
+    * time" that quoted the pooled maximum would describe a curve nobody
+    * asked for.  Under over(bstrata) the boundary differs by curve, so the
+    * note is per curve; otherwise every curve shares one baseline and the
+    * note is printed once.
     if "`attime'" != "" | "`timepoints'" != "" {
         tempname _tfirst _tlast
-        * Within the requested baseline stratum: the curve steps on THAT
-        * stratum's cause-event times, so a note about "the last cause-event
-        * time" that quoted the pooled maximum would describe a curve nobody
-        * asked for.  `_bsrestrict' is empty on an unstratified fit.
-        local _bsrestrict ""
-        if "`bstratum'" != "" local _bsrestrict "& `_bsvar' == `bstratum'"
-        quietly summarize _t if `es' & `e(compete)' == `=e(cause)' `_bsrestrict', meanonly
-        scalar `_tfirst' = r(min)
-        scalar `_tlast'  = r(max)
-        if !missing(`_tfirst') {
-            local _nafter = 0
-            local _nbefore = 0
-            foreach _tt of local grid {
-                if `_tt' > `_tlast'  local ++_nafter
-                if `_tt' < `_tfirst' local ++_nbefore
-            }
-            local _tl : display %9.0g `_tlast'
-            local _tl = trim("`_tl'")
-            local _tf : display %9.0g `_tfirst'
-            local _tf = trim("`_tf'")
-            if `_nafter' > 0 {
-                display as text "note: `_nafter' requested time(s) exceed the last cause-event time (`_tl');"
-                display as text "the CIF is flat beyond it, so those rows repeat the terminal estimate"
-            }
-            if `_nbefore' > 0 {
-                display as text "note: `_nbefore' requested time(s) precede the first cause-event time (`_tf');"
-                display as text "the CIF is exactly 0 there and has no confidence limits"
+        local _nnote = cond("`_overmode'" == "bstrata", `_ncurve', 1)
+        forvalues g = 1/`_nnote' {
+            local _bsrestrict ""
+            if "`_bslev`g''" != "." local _bsrestrict "& `_bsvar' == `_bslev`g''"
+            quietly summarize _t if `es' & `e(compete)' == `=e(cause)' `_bsrestrict', meanonly
+            scalar `_tfirst' = r(min)
+            scalar `_tlast'  = r(max)
+            if !missing(`_tfirst') {
+                local _nafter = 0
+                local _nbefore = 0
+                foreach _tt of local grid`g' {
+                    if `_tt' > `_tlast'  local ++_nafter
+                    if `_tt' < `_tfirst' local ++_nbefore
+                }
+                local _tl : display %9.0g `_tlast'
+                local _tl = trim("`_tl'")
+                local _tf : display %9.0g `_tfirst'
+                local _tf = trim("`_tf'")
+                local _which ""
+                if "`_overmode'" == "bstrata" local _which `" (`_bsvar' = `_lbl`g'')"'
+                if `_nafter' > 0 {
+                    display as text "note: `_nafter' requested time(s) exceed the last cause-event time (`_tl')`_which';"
+                    display as text "the CIF is flat beyond it, so those rows repeat the terminal estimate"
+                }
+                if `_nbefore' > 0 {
+                    display as text "note: `_nbefore' requested time(s) precede the first cause-event time (`_tf')`_which';"
+                    display as text "the CIF is exactly 0 there and has no confidence limits"
+                }
             }
         }
     }
 
-    * Last observed analysis time in the estimation sample.  Read HERE, before
-    * the preserve below clears the data: the graph draws the CIF's flat tail
-    * out to this time (see the terminal-row block), as sts graph and stcurve do.
-    local _bsrestrict2 ""
-    if "`bstratum'" != "" local _bsrestrict2 "& `_bsvar' == `bstratum'"
-    quietly summarize _t if `es' `_bsrestrict2', meanonly
-    local _maxfu = r(max)
+    * Last observed analysis time in the estimation sample, per curve.  Read
+    * HERE, before the preserve below clears the data: the graph draws the
+    * CIF's flat tail out to this time (see the terminal-row block), as sts
+    * graph and stcurve do.
+    forvalues g = 1/`_ncurve' {
+        local _bsrestrict2 ""
+        if "`_bslev`g''" != "." local _bsrestrict2 "& `_bsvar' == `_bslev`g''"
+        quietly summarize _t if `es' `_bsrestrict2', meanonly
+        local _maxfu`g' = r(max)
+    }
+    * The over() variable's value label, carried into the saving() dataset so
+    * its `over' column reads as the source variable does.  Read now: the
+    * preserved dataset below is cleared, and value labels go with it.
+    local _ovvl ""
+    if "`_overmode'" != "" {
+        local _ovvl : value label `_ovvar'
+        if "`_ovvl'" != "" {
+            tempfile _ovvlfile
+            quietly label save `_ovvl' using `"`_ovvlfile'"', replace
+        }
+    }
 
     * Build curve dataset for graph and/or saving
     if "`mode'" == "curve" & "`graph'" != "nograph" | `"`savefile'"' != "" {
@@ -1088,7 +1358,12 @@ program define finegray_cif, rclass sortpreserve
         local _preserved = 1
         quietly {
             clear
-            svmat double `R', names(col)
+            if "`_overmode'" == "" svmat double `R', names(col)
+            else svmat double `RALL', names(col)
+            if "`_ovvl'" != "" {
+                run `"`_ovvlfile'"'
+                label values over `_ovvl'
+            }
         }
         if "`mode'" == "curve" & "`graph'" != "nograph" {
             * A cumulative incidence curve is a right-continuous step function.
@@ -1096,7 +1371,7 @@ program define finegray_cif, rclass sortpreserve
             * add the known (0,0) boundary only to the live graph dataset.  The
             * display-only row and band variables are removed before saving(),
             * leaving r(table) and the exported numeric estimates unchanged.
-            tempvar _graph_origin _graph_lci _graph_uci
+            tempvar _graph_origin _graph_lci _graph_uci _graph_g
             local _graph_origin_made = 0
             local _graph_lci_made = 0
             local _graph_uci_made = 0
@@ -1109,48 +1384,59 @@ program define finegray_cif, rclass sortpreserve
                     local _graph_lci_made = 1
                     gen double `_graph_uci' = uci
                     local _graph_uci_made = 1
-                    summarize time, meanonly
+                    * The curve index: the private 7th column with over(), or
+                    * a constant 1 -- so the per-curve block below is one code
+                    * path.  Selection is by index, not by level value, so a
+                    * level that does not round-trip through a macro cannot
+                    * misfile a row.
+                    if "`_overmode'" != "" gen byte `_graph_g' = _curve
+                    else gen byte `_graph_g' = 1
                 }
-                * Read the terminal grid row NOW, before any display-only row is
-                * appended: the origin row is appended at the end of the data,
-                * so a later `cif[_N-1]' would read the origin, not the last
-                * estimate.
-                local _graph_tmax = r(max)
-                quietly summarize cif if time == `_graph_tmax', meanonly
-                local _graph_lastcif = r(mean)
-                quietly summarize `_graph_lci' if time == `_graph_tmax', meanonly
-                local _graph_lastlci = r(mean)
-                quietly summarize `_graph_uci' if time == `_graph_tmax', meanonly
-                local _graph_lastuci = r(mean)
-                quietly summarize time, meanonly
-                if r(min) > 0 {
-                    local _graph_newobs = _N + 1
-                    quietly set obs `_graph_newobs'
-                    quietly replace `_graph_origin' = 1 in `_graph_newobs'
-                    local _graph_origin_added = 1
-                    quietly replace time = 0 in `_graph_newobs'
-                    quietly replace cif = 0 in `_graph_newobs'
-                }
-                * ...and the same treatment at the right edge.  The analytical
-                * grid ends at the LAST CAUSE-EVENT time, but follow-up runs on
-                * past it, and the CIF is flat over that stretch.  Drawn without
-                * this row the curve stops short of the plot's right edge and
-                * reads as "no information here", which is not what a flat tail
-                * means -- sts graph and stcurve both extend it.  Display-only,
-                * like the origin: removed before saving(), so r(table) and the
-                * exported numeric estimates are unchanged.
-                if `_maxfu' < . & `_graph_tmax' < . & ///
-                   `_maxfu' > `_graph_tmax' + 1e-12 {
-                    local _graph_newobs = _N + 1
-                    quietly set obs `_graph_newobs'
-                    quietly replace `_graph_origin' = 1 in `_graph_newobs'
-                    local _graph_origin_added = 1
-                    quietly replace time = `_maxfu' in `_graph_newobs'
-                    quietly replace cif = `_graph_lastcif' in `_graph_newobs'
-                    quietly replace `_graph_lci' = `_graph_lastlci' ///
-                        in `_graph_newobs'
-                    quietly replace `_graph_uci' = `_graph_lastuci' ///
-                        in `_graph_newobs'
+                forvalues g = 1/`_ncurve' {
+                    * Read the terminal grid row NOW, before any display-only
+                    * row is appended: the origin row is appended at the end
+                    * of the data, so a later `cif[_N-1]' would read the
+                    * origin, not the last estimate.
+                    quietly summarize time if `_graph_g' == `g' & !`_graph_origin', meanonly
+                    local _graph_tmax = r(max)
+                    local _graph_tmin = r(min)
+                    quietly summarize cif if `_graph_g' == `g' & time == `_graph_tmax', meanonly
+                    local _graph_lastcif = r(mean)
+                    quietly summarize `_graph_lci' if `_graph_g' == `g' & time == `_graph_tmax', meanonly
+                    local _graph_lastlci = r(mean)
+                    quietly summarize `_graph_uci' if `_graph_g' == `g' & time == `_graph_tmax', meanonly
+                    local _graph_lastuci = r(mean)
+                    if `_graph_tmin' > 0 {
+                        local _graph_newobs = _N + 1
+                        quietly set obs `_graph_newobs'
+                        quietly replace `_graph_origin' = 1 in `_graph_newobs'
+                        local _graph_origin_added = 1
+                        quietly replace `_graph_g' = `g' in `_graph_newobs'
+                        quietly replace time = 0 in `_graph_newobs'
+                        quietly replace cif = 0 in `_graph_newobs'
+                    }
+                    * ...and the same treatment at the right edge.  The analytical
+                    * grid ends at the LAST CAUSE-EVENT time, but follow-up runs on
+                    * past it, and the CIF is flat over that stretch.  Drawn without
+                    * this row the curve stops short of the plot's right edge and
+                    * reads as "no information here", which is not what a flat tail
+                    * means -- sts graph and stcurve both extend it.  Display-only,
+                    * like the origin: removed before saving(), so r(table) and the
+                    * exported numeric estimates are unchanged.
+                    if `_maxfu`g'' < . & `_graph_tmax' < . & ///
+                       `_maxfu`g'' > `_graph_tmax' + 1e-12 {
+                        local _graph_newobs = _N + 1
+                        quietly set obs `_graph_newobs'
+                        quietly replace `_graph_origin' = 1 in `_graph_newobs'
+                        local _graph_origin_added = 1
+                        quietly replace `_graph_g' = `g' in `_graph_newobs'
+                        quietly replace time = `_maxfu`g'' in `_graph_newobs'
+                        quietly replace cif = `_graph_lastcif' in `_graph_newobs'
+                        quietly replace `_graph_lci' = `_graph_lastlci' ///
+                            in `_graph_newobs'
+                        quietly replace `_graph_uci' = `_graph_lastuci' ///
+                            in `_graph_newobs'
+                    }
                 }
                 * The complementary-log-log interval is undefined at a boundary
                 * CIF, but its graphical band has the exact zero-width limit.
@@ -1158,7 +1444,7 @@ program define finegray_cif, rclass sortpreserve
                     if missing(`_graph_lci') & inlist(cif, 0, 1)
                 quietly replace `_graph_uci' = cif ///
                     if missing(`_graph_uci') & inlist(cif, 0, 1)
-                quietly sort time
+                quietly sort `_graph_g' time
 
                 * Default legend is a single row; because repeated legend()
                 * options merge, anything in `options' (e.g. legend(off),
@@ -1168,33 +1454,71 @@ program define finegray_cif, rclass sortpreserve
                 * reason the table now prints an `at:' line: a saved .png of a
                 * CIF curve otherwise carries no record of which profile it is.
                 * `options' is expanded last, so a user's own note() wins.
-                if "`ci'" != "" {
-                    twoway ///
-                        (rarea `_graph_lci' `_graph_uci' time, ///
-                            color(%30) lwidth(none) connect(stairstep)) ///
-                        (line cif time, lwidth(medthick) connect(stairstep)), ///
-                        ytitle("Cumulative incidence") ///
-                        xtitle("Analysis time") ///
-                        legend(order(2 "CIF" 1 "`level'% CI") rows(1)) ///
-                        note(`"`_atsrc': `_atline'"') ///
-                        xscale(range(0 .)) plotregion(margin(zero)) `options'
+                if "`_overmode'" == "" {
+                    if "`ci'" != "" {
+                        twoway ///
+                            (rarea `_graph_lci' `_graph_uci' time, ///
+                                color(%30) lwidth(none) connect(stairstep)) ///
+                            (line cif time, lwidth(medthick) connect(stairstep)), ///
+                            ytitle("Cumulative incidence") ///
+                            xtitle("Analysis time") ///
+                            legend(order(2 "CIF" 1 "`level'% CI") rows(1)) ///
+                            note(`"`_atsrc': `_atline'"') ///
+                            xscale(range(0 .)) plotregion(margin(zero)) `options'
+                    }
+                    else {
+                        twoway ///
+                            (line cif time, lwidth(medthick) connect(stairstep)), ///
+                            ytitle("Cumulative incidence") ///
+                            xtitle("Analysis time") legend(rows(1)) ///
+                            note(`"`_atsrc': `_atline'"') ///
+                            xscale(range(0 .)) plotregion(margin(zero)) `options'
+                    }
                 }
                 else {
-                    twoway ///
-                        (line cif time, lwidth(medthick) connect(stairstep)), ///
+                    * One band per curve first (so every line is drawn on top
+                    * of every band), then one line per curve.  Band and line
+                    * g share pstyle p<g>, so a band is its own curve's colour
+                    * at 30% opacity; pstyles cycle after the scheme's 15.
+                    * The legend names the lines; the bands are named once in
+                    * the note.
+                    local _plots ""
+                    local _legord ""
+                    forvalues g = 1/`_ncurve' {
+                        local _ps = mod(`g' - 1, 15) + 1
+                        if "`ci'" != "" {
+                            local _plots `"`_plots' (rarea `_graph_lci' `_graph_uci' time if `_graph_g' == `g', pstyle(p`_ps') color(%30) lwidth(none) connect(stairstep))"'
+                        }
+                    }
+                    local _nband = cond("`ci'" != "", `_ncurve', 0)
+                    forvalues g = 1/`_ncurve' {
+                        local _ps = mod(`g' - 1, 15) + 1
+                        local _plots `"`_plots' (line cif time if `_graph_g' == `g', pstyle(p`_ps') lwidth(medthick) connect(stairstep))"'
+                        local _legord `"`_legord' `=`_nband' + `g'' `"`_ovvar' = `_lbl`g''"'"'
+                    }
+                    * Two note lines: the shared profile, then the overlay
+                    * and the band -- one line ran past the plot width.
+                    local _gnote2 `"`_overline'"'
+                    if "`ci'" != "" local _gnote2 `"`_overline'; shaded: `level'% CI"'
+                    if `"`_atline'"' != "" local _gnote1 `"`_atsrc': `_atline'"'
+                    else local _gnote1 `"`_gnote2'"'
+                    if `"`_atline'"' == "" local _gnote2 ""
+                    twoway `_plots', ///
                         ytitle("Cumulative incidence") ///
-                        xtitle("Analysis time") legend(rows(1)) ///
-                        note(`"`_atsrc': `_atline'"') ///
+                        xtitle("Analysis time") ///
+                        legend(order(`_legord') rows(1)) ///
+                        note(`"`_gnote1'"' `"`_gnote2'"') ///
                         xscale(range(0 .)) plotregion(margin(zero)) `options'
                 }
             }
             local _graph_rc = _rc
             * Cleanup is required even after a graph-side failure so saving()
-            * still receives only the documented five analytical variables.
+            * still receives only the documented analytical variables.
             if `_graph_origin_added' quietly drop if `_graph_origin' == 1
             if `_graph_origin_made' drop `_graph_origin'
             if `_graph_lci_made' drop `_graph_lci'
             if `_graph_uci_made' drop `_graph_uci'
+            capture drop `_graph_g'
             if `_graph_rc' {
                 if !`_side_rc' local _side_rc = `_graph_rc'
                 display as error "failed to draw cumulative-incidence graph"
@@ -1206,11 +1530,16 @@ program define finegray_cif, rclass sortpreserve
             * limit"); five unlabelled columns in the same package was an
             * inconsistency a recipient pays for, not the author.
             quietly {
+                capture drop _curve
                 label variable time "Analysis time"
                 label variable cif  "Cumulative incidence (cause `=e(cause)')"
                 label variable se   "Standard error of CIF"
                 label variable lci  "CIF lower `level'% limit"
                 label variable uci  "CIF upper `level'% limit"
+                if "`_overmode'" != "" {
+                    label variable over "`_ovvar' (curve)"
+                    sort over time
+                }
             }
             * The profile goes in a dataset NOTE, not the dataset label: a label
             * is capped at 80 characters and a wide at() profile would be cut
@@ -1218,6 +1547,8 @@ program define finegray_cif, rclass sortpreserve
             quietly label data ///
                 "finegray_cif: cumulative incidence (cause `=e(cause)')"
             local _dnote `"finegray_cif `_atsrc': `_atline'"'
+            if "`_overline'" != "" local _dnote `"`_dnote'; `_overline'"'
+            if "`_overline'" != "" & `"`_atline'"' == "" local _dnote `"finegray_cif `_overline'"'
             quietly notes _dta : `_dnote'
             * -quietly-: Stata's own "file X saved" and the package's
             * "(estimates saved to X)" said the same thing twice.  The package
@@ -1279,7 +1610,7 @@ program define finegray_cif, rclass sortpreserve
     * failed; callers can inspect r() while still receiving the side-effect rc.
     if `rc' == 0 {
         return matrix table = `R'
-        return matrix at = `zrow'
+        return matrix at = `ZR'
         return scalar level = `level'
         return scalar cause = e(cause)
         * The baseline stratum these numbers belong to.  Returned so a caller
@@ -1289,19 +1620,26 @@ program define finegray_cif, rclass sortpreserve
             return local bstrata "`_bsvar'"
             return scalar bstratum = `bstratum'
         }
-        * Report the profile in the vocabulary the USER typed.  e(covariates)
+        * The overlay: which variable, and which of its values, row by row of
+        * r(at) and in the `over' column of r(table).
+        if "`_overmode'" != "" {
+            return local over "`_ovvar'"
+            return local levels "`_ovlevs'"
+            if "`_overmode'" == "bstrata" return local bstrata "`_bsvar'"
+        }
+        * Report the profile in the vocabulary the USER typed.  e(designvars)
         * holds the package-owned design columns (`_fg_grp_2'), which the user
         * never wrote, need not have in their data, and cannot pass to at() --
         * at() itself takes `grp=1', so reporting internal names made the input
         * and output vocabularies disagree.  `_nbterms' is the fit-time
         * expansion's non-base terms (`2.grp'), built above and already relied
-        * on for 1:1 alignment with e(covariates) by the rebuild loop.  Same
+        * on for 1:1 alignment with e(designvars) by the rebuild loop.  Same
         * defect class fixed in finegray_phtest on 2026-07-21; the sweep had
-        * stopped one command short.  Fall back to e(covariates) for non-factor
+        * stopped one command short.  Fall back to e(designvars) for non-factor
         * fits (where the two are identical) and, defensively, whenever the
         * counts disagree -- a short list silently mispairs with r(at).
         * retokenize: `_nbterms' is built by appending, so it carries a leading
-        * space.  e(covariates) does not, and r(profile_vars) is a documented
+        * space.  e(designvars) does not, and r(profile_vars) is a documented
         * return that callers string-compare -- a stray space would make the
         * factor and non-factor forms unequal for no reason a user could see.
         local _pv : list retokenize _nbterms
@@ -1314,8 +1652,8 @@ program define finegray_cif, rclass sortpreserve
         }
         if `bootstrap' > 0 {
             return scalar bootstrap_requested = `bootstrap'
-            return scalar bootstrap_success = `_bok'
-            return scalar bootstrap_failed = `bootstrap' - `_bok'
+            return scalar bootstrap_success = `_bokmin'
+            return scalar bootstrap_failed = `bootstrap' - `_bokmin'
         }
         * WHICH standard error filled column 3 of r(table).  Until this existed
         * the answer was only inferable -- from whether the caller had typed

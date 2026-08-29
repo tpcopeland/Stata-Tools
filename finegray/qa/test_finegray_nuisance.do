@@ -235,10 +235,12 @@ else {
     display as error "  FAIL: N3 (rc=`=_rc')"
 }
 
-**# N4. nuisance is refused under delayed entry
+**# N4. nuisance under delayed entry: pooled weight accepted, stratified refused
 * FG eq. (7)-(8) is derived without entry times; the LT analogue is ZZF (2011)
-* Appendix B, which finegray does not implement.  Refusing beats returning a
-* plausible number with no derivation behind it.
+* Appendix B, implemented since 2026-08-28 for the pooled weight
+* (_finegray_psi_residuals_lt; suite test_finegray_nuisance_lt.do).  With
+* weight strata ZZF's own Appendix E treats the weight as known, so that cell
+* is refused rather than approximated.
 local ++test_count
 capture noisily {
     _mk_f1
@@ -249,12 +251,19 @@ capture noisily {
     assert _rc == 0
     assert !missing(e(lt_weight))
     assert e(lt_weight) != "right_censoring"
-    capture finegray Z, compete(eps) cause(1) censvalue(0) nuisance nolog
+    tempname Vf
+    matrix `Vf' = e(V)
+    quietly finegray Z, compete(eps) cause(1) censvalue(0) nuisance nolog
+    assert e(lt_vce) == "nuisance_adjusted"
+    assert e(vce_meat) == "nuisance_adjusted"
+    assert mreldif(`Vf', e(V)) > 0
+    gen byte _wg = _n > _N / 2
+    capture finegray Z, compete(eps) cause(1) censvalue(0) nuisance strata(_wg) nolog
     assert _rc == 198
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: N4 nuisance + delayed entry refused (198), positive control clean"
+    display as result "  PASS: N4 nuisance + delayed entry: pooled accepted, stratified refused (198)"
 }
 else {
     local ++fail_count

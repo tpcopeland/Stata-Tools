@@ -50,13 +50,24 @@ program define _finegray_check_data
         * at each command's own entry point.  The entry-point guards give the
         * actionable message; this one exists so that a future post-estimation
         * path added without its own guard still fails closed rather than
-        * resolving e(covariates) into tempvar names some other command has
+        * resolving e(designvars) into tempvar names some other command has
         * since reused.
         if `"`e(postest)'"' == "unavailable_mi" {
             display as error "post-estimation is not available after a fit on mi data"
             display as error "refit on a single dataset ({bf:mi extract 0, clear} for the"
             display as error "complete-case data) and run {bf:finegray} there;"
             display as error "see {help finegray##mi:help finegray}"
+            exit 301
+        }
+
+        * Results from a finegray that recorded the design columns as
+        * e(covariates) carry the narrow coefficient stripe and no
+        * e(designvars); this version's consumers read e(b) through the
+        * non-base filter and would pair such results by luck.  Same refusal
+        * as finegray_predict's entry, for the commands that come through here.
+        if `"`e(designvars)'"' == "" & `"`e(covariates)'"' != "" {
+            display as error "estimation results predate this version of finegray"
+            display as error "e(designvars) is not set; re-run {bf:finegray} before this post-estimation command"
             exit 301
         }
 
@@ -82,10 +93,15 @@ program define _finegray_check_data
             exit 301
         }
 
+        * EXISTENCE only, not type: a weight expression may read a STRING
+        * variable -- [pw = real(strvar)] -- and strvar is in the signature
+        * because the rebuilt weight depends on it.  A type change is still
+        * refused, by the signature comparison below: _datasignature checksums
+        * a string variable differently from the numeric one it replaced.
         foreach _v of local _sigvars {
-            capture confirm numeric variable `_v'
+            capture confirm variable `_v'
             if _rc {
-                display as error "estimation variable `_v' is missing or has changed type"
+                display as error "estimation variable `_v' no longer exists"
                 display as error "re-run {bf:finegray} before this post-estimation command"
                 exit 459
             }
@@ -129,7 +145,7 @@ program define _finegray_check_data
         * read these columns by name, so flipping _fg_grp_2 silently moved the
         * CIF from 0.21287138 to 0.21088124 at rc 0.
         *
-        * e(fvsemantic) lists the fit-time terms in order and e(covariates) the
+        * e(fvsemantic) lists the fit-time terms in order and e(designvars) the
         * columns they were stored in, so the two pair up positionally HERE --
         * both were written by the same fit, which is what makes it safe (the
         * defect this guards was pairing against the *current* data instead).
@@ -140,11 +156,11 @@ program define _finegray_check_data
                 if regexm("`_t'", "[0-9]+b\.") continue
                 local _nb_terms "`_nb_terms' `_t'"
             }
-            local _covcols "`e(covariates)'"
+            local _covcols "`e(designvars)'"
             local _n_nb : word count `_nb_terms'
             local _n_cc : word count `_covcols'
             if `_n_nb' != `_n_cc' {
-                display as error "internal error: e(fvsemantic) and e(covariates) disagree"
+                display as error "internal error: e(fvsemantic) and e(designvars) disagree"
                 exit 198
             }
 

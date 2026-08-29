@@ -130,7 +130,7 @@ program define _finegray_resolve_baseline
                 tempvar _es
                 quietly gen byte `_es' = e(sample)
 
-                * Which columns to hand the engine.  e(covariates) names the
+                * Which columns to hand the engine.  e(designvars) names the
                 * package-owned _fg_* design columns, and dropping those is a
                 * DOCUMENTED, supported operation (finegray.sthlp: "finegray_predict
                 * rebuilds design columns on demand") -- the score path does
@@ -146,7 +146,7 @@ program define _finegray_resolve_baseline
                 * catch that.  The rebuilt columns are tempvars over e(sample):
                 * this helper is read-only from the caller's point of view, so it
                 * must not materialise _fg_* names it would then have to clean up.
-                local _zvars "`e(covariates)'"
+                local _zvars "`e(designvars)'"
                 local _need_rebuild = 0
                 foreach _cv of local _zvars {
                     capture confirm numeric variable `_cv'
@@ -173,7 +173,7 @@ program define _finegray_resolve_baseline
                     local _nz : word count `_zvars'
                     if `_fvk' != `_nz' {
                         display as error "reconstructed FV design does not match the fitted model"
-                        display as error "(`_fvk' non-base terms in e(fvsemantic), `_nz' in e(covariates))"
+                        display as error "(`_fvk' non-base terms in e(fvsemantic), `_nz' in e(designvars))"
                         exit 198
                     }
                     local _rbvars ""
@@ -229,11 +229,27 @@ program define _finegray_resolve_baseline
                     }
                 }
 
+            * Design weights.  A weighted fit's baseline and influence function are
+            * different curves from the unweighted ones, so the weight column is
+            * rebuilt from e(wexp) (the variables it names are in the estimation
+            * signature, verified above) and handed to every Mata entry point below.
+            *   _fg_wmata  the rebuilt column, "" on an unweighted fit
+            *   _fg_wtype  0 none, 1 pweight, 2 fweight
+            local _fg_wmata ""
+            local _fg_wtype = 0
+            if `"`e(wtype)'"' != "" {
+                tempvar _fg_wv
+                _finegray_weight_var, wname(`_fg_wv') touse(`_es')
+                local _fg_wmata "`_fg_wv'"
+                local _fg_wtype = r(wtype)
+            }
+
                 mata: _finegray_step_lookup_direct("`_zvars'", ///
                     "`e(compete)'", `=e(cause)', `=e(censvalue)', ///
                     "`_byg_mata'", "`_tg_mata'", "`_es'", "`t0var'", ///
                     "`tvar'", "`h0'", "`touse'", "`_bs_est'", ///
-                    "`tvcpos'", "`tsplit'", "`cutmat'")
+                    "`tvcpos'", "`tsplit'", "`cutmat'", ///
+                    "`_fg_wmata'", `_fg_wtype')
             }
         }
     }

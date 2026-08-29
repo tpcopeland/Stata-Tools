@@ -507,7 +507,10 @@ else {
     local ++fail_count
 }
 
-**# 15. finegray e(marginsok): xb for plain model, empty for FV model
+**# 15. finegray e(marginsok): xb for plain AND factor-variable models, empty under tvc()
+* A factor-variable fit posts the base-level columns margins needs (see
+* qa/test_finegray_margins.do), so margins is no longer withdrawn there; only a
+* tvc() fit, which has no single linear predictor, withdraws it.
 local ++test_count
 capture noisily {
     _mk_hypoxia
@@ -515,6 +518,8 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1)
     assert "`e(marginsok)'" == "xb"
     finegray i.pelnode c.ifp, compete(status) cause(1)
+    assert "`e(marginsok)'" == "xb"
+    finegray i.pelnode c.ifp, compete(status) cause(1) tvc(ifp) tsplit(3)
     assert "`e(marginsok)'" == ""
 }
 if _rc == 0 {

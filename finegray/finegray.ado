@@ -5,7 +5,7 @@
 
 /*
 Basic syntax:
-  finegray varlist [if] [in], compete(varname) cause(#) [options]
+  finegray varlist [if] [in] [pweight fweight], compete(varname) cause(#) [options]
 
 Description:
   Fits Fine-Gray subdistribution hazard model for competing risks.
@@ -28,6 +28,14 @@ Optional options:
   nolog             - Suppress iteration log
   iterate(#)        - Max iterations (default: 200)
   tolerance(#)      - Convergence tolerance (default: 1e-8)
+
+Weights:
+  pweight  - design/sampling weights: every subject's risk-set contribution and
+             event term is multiplied by w_i (Wogu, Zhao, Nichols & Cai 2021,
+             eq. 3); the censoring KM stays unweighted; sandwich meat
+             sum_i (w_i s_i)^2.  Right-censoring core only (see the fences).
+  fweight  - frequency weights: replication semantics, including in the
+             censoring KM and in N.
 
 See help finegray for complete documentation
 */
@@ -75,7 +83,7 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * SYNTAX PARSING
     * =========================================================================
-    syntax varlist(numeric fv) [if] [in] , ///
+    syntax varlist(numeric fv) [if] [in] [pweight fweight] , ///
         COMPete(varname numeric) CAUse(integer) ///
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
          STRata(varlist numeric) TRUNCstrata(varlist numeric) ///
@@ -112,6 +120,120 @@ program define finegray, eclass sortpreserve
         display as error "nuisance is not allowed with norobust"
         display as error "the nuisance (psi) correction applies to the " ///
             "robust (sandwich) variance only"
+        exit 198
+    }
+
+    * =========================================================================
+    * DESIGN WEIGHTS: SCOPE FENCES
+    * =========================================================================
+    * [pweight=] and [fweight=] are accepted for the RIGHT-CENSORING core --
+    * the Fine-Gray score with a per-subject weight on every risk-set sum and
+    * every event term (Wogu, Zhao, Nichols & Cai 2021, eq. 3 p.167, whose
+    * case-cohort availability weight is exactly a per-subject pweight; oracle
+    * survival::finegray(weights=) + coxph(weights=, robust=TRUE)).  Every other
+    * cell is refused rather than composed:
+    *   pweight x norobust  the inverse information is not a variance under
+    *                       informative sampling; fweight x norobust is fine
+    *                       (replicated subjects, model-based information)
+    *   weight x nuisance   the estimated-G psi term is not held under weights
+    *                       (Wogu sec. 4 writes psi with a weighted at-risk
+    *                       count that differs from the sec. 3 estimator; not
+    *                       adjudicated in this release)
+    *   weight x strata()   conservatism, not the absence of an oracle.  R's
+    *                       survival::finegray DOES stratify the censoring
+    *                       Kaplan-Meier: a strata() term in the formula
+    *                       becomes istrat and Gsurv is
+    *                       survfit(Surv(...) ~ istrat, se.fit = FALSE)
+    *                       (source read, survival 3.8.6, 2026-08-29), and the
+    *                       same call takes weights, so the pair CAN be
+    *                       cross-validated.  What is missing is the crossval
+    *                       arm, not the reference implementation.  Wogu et
+    *                       al. p. 167 likewise allow a stratified Ghat.
+    *   weight x truncstrata()  no weighted source for the delayed-entry H
+    *                       side; cmprsk::crr(cengroup=) has no weights and
+    *                       Kim et al. (2020) is not held
+    *   weight x bstrata()  Zhou et al. (2011) derive the stratified PSH model
+    *                       unweighted; no crossval arm
+    *   weight x tvc()      no crossval arm
+    *   weight x delayed entry  refused below, once the entry times are known:
+    *                       the ZZF branch is already this package's own
+    *                       extension and no source weights it
+    * aweight and iweight are refused by `syntax' itself (r(101)).
+    if "`weight'" == "pweight" & "`robust'" == "norobust" {
+        display as error "pweight is not allowed with norobust"
+        display as error "the model-based (inverse information) variance is not a " ///
+            "variance under sampling weights; use the default sandwich, " ///
+            "or cluster()"
+        exit 198
+    }
+    if "`weight'" != "" & "`nuisance'" != "" {
+        display as error "nuisance is not allowed with `weight's"
+        display as error "the estimated-G (psi) term of the sandwich is not derived " ///
+            "under design weights in this release; omit {bf:nuisance}, or " ///
+            "use bootstrap inference"
+        exit 198
+    }
+    if "`weight'" != "" & "`strata'" != "" {
+        display as error "strata() is not allowed with `weight's"
+        display as error "the pair has no cross-validation arm in this release " ///
+            "(an oracle exists -- survival::finegray stratifies its censoring " ///
+            "KM -- but the arm is not written); fit without strata(), " ///
+            "or without weights"
+        exit 198
+    }
+    if "`weight'" != "" & "`truncstrata'" != "" {
+        display as error "truncstrata() is not allowed with `weight's"
+        display as error "weights are supported for right-censored data only"
+        exit 198
+    }
+    if "`weight'" != "" & "`bstrata'" != "" {
+        display as error "bstrata() is not allowed with `weight's"
+        display as error "the stratified subdistribution hazard of Zhou et al. " ///
+            "(2011) is derived without design weights and the pair has no " ///
+            "cross-validation arm; see {help finegray##weights:help finegray}"
+        exit 198
+    }
+    if "`weight'" != "" & "`tvc'" != "" {
+        display as error "tvc() is not allowed with `weight's"
+        display as error "a weighted piecewise beta(t) fit has no cross-validation " ///
+            "arm; see {help finegray##weights:help finegray}"
+        exit 198
+    }
+
+    * =========================================================================
+    * A WEIGHT CARRIED BY stset IS NOT INHERITED -- IT IS REFUSED
+    * =========================================================================
+    * stcox and streg read the weight the data were `stset' with.  finegray
+    * does not: its weight comes from the command line only.  Before this
+    * guard, `stset t [pw=w], failure(...) id(id)' followed by an unweighted
+    * `finegray' fitted the UNWEIGHTED estimator at rc 0 -- e(wtype) empty,
+    * e(b) bit-identical to the never-weighted fit (mreldif 0) and 0.106 away
+    * from the explicitly weighted one (webuse hypoxia, verified 2026-08-29).
+    * Nothing in the output said so, and a user arriving from weighted st data
+    * had no way to see it.
+    *
+    * Inheriting the weight instead is the other repair, and it is the wrong
+    * one here.  The weighted cell is deliberately narrow -- norobust,
+    * strata(), truncstrata(), bstrata(), tvc(), nuisance and delayed entry
+    * are all refused with weights -- so adopting a stset weight silently
+    * would turn working unweighted fits into refusals, and would change the
+    * numbers of everyone who ever stset a weight for some other command
+    * without their asking for a weighted Fine-Gray fit.  Refusing names the
+    * choice and hands it back: retype the weight, or re-stset without it.
+    *
+    * The refusal is on the stset CHARACTERISTIC, not on any variable: _dta[st_w]
+    * holds the literal weight specification (for example "[pweight=wv]"), and
+    * it is empty on data stset without a weight.  aweight/iweight stset data
+    * reach here too; `syntax' would refuse them with r(101) if retyped, which
+    * is why the message also offers the re-stset repair.
+    local _fg_stset_w : char _dta[st_w]
+    if `"`_fg_stset_w'"' != "" & "`weight'" == "" {
+        display as error `"the data are stset with `_fg_stset_w' and no weight was typed on finegray"'
+        display as error "finegray does not read weights from stset; a fit here would be " ///
+            "silently unweighted"
+        display as error `"type the weight on the command -- finegray ... `_fg_stset_w', compete() cause()"'
+        display as error "-- or re-stset without it for a deliberately unweighted fit"
+        display as error "see {help finegray##weights:help finegray}"
         exit 198
     }
 
@@ -288,6 +410,35 @@ program define finegray, eclass sortpreserve
     tempvar _fg_row0
     quietly gen long `_fg_row0' = _n
 
+    * =========================================================================
+    * DESIGN WEIGHTS: MATERIALISE
+    * =========================================================================
+    * `marksample' has already dropped zero and missing weights from `touse'
+    * and refused a negative one (r(402)).  The expression is evaluated ONCE,
+    * here, into a package-owned column the engine reads; post-estimation
+    * re-evaluates e(wexp) on the data it sees, and the variables the
+    * expression names are put into the estimation-data signature below so a
+    * changed weight makes every post-estimation command fail rather than
+    * answer under different weights.
+    *   _fg_wtype  0 none, 1 pweight, 2 fweight -- the engine's code
+    local _fg_w ""
+    local _fg_wtype = 0
+    if "`weight'" != "" {
+        tempvar _fg_w
+        quietly generate double `_fg_w' `exp' if `touse'
+        if "`weight'" == "fweight" {
+            local _fg_wtype = 2
+            * Stata's own contract for frequency weights; `syntax' does not
+            * enforce it, and a fractional replication count has no meaning.
+            capture assert `_fg_w' == int(`_fg_w') if `touse'
+            if _rc {
+                display as error "may not use noninteger frequency weights"
+                exit 401
+            }
+        }
+        else local _fg_wtype = 1
+    }
+
     * Save original varlist before FV expansion (for e(fvvarlist))
     local _orig_varlist "`varlist'"
 
@@ -326,6 +477,47 @@ program define finegray, eclass sortpreserve
     if "`cluster'" != "" {
         local _sig_seen : list posof "`cluster'" in _fg_sigvars
         if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `cluster'"
+    }
+    * Every variable the weight expression names.  The expression is not itself
+    * signable, but its inputs are; a function name or a numeric literal
+    * fragment that happens to be a variable name is over-inclusion, never
+    * under-inclusion.
+    * `confirm variable', NOT `confirm numeric variable': a STRING variable can
+    * feed the weight through a function -- [pw = real(strvar)] -- and a numeric
+    * test drops it from the signature, after which post-estimation re-evaluates
+    * e(wexp) live and rebuilds a DIFFERENT weight column at rc 0.
+    * _datasignature signs string variables and detects changes in them.
+    * _n and _N are the one class of token that is BOTH unsignable and
+    * order/size dependent: [pw = (_n > 100)] names no variable, so nothing
+    * about it enters e(datasignature), and post-estimation re-evaluates
+    * e(wexp) live -- on data the user may since have sorted, subset or
+    * appended -- rebuilding a DIFFERENT weight column at rc 0.  There is no
+    * signature that can catch it, so the expression itself is refused; the
+    * repair is one `generate'.  Scalars, e()/c() values and subscripted
+    * references (w[1]) are unsignable for the same reason and are NOT refused
+    * here: _finegray_weight_var reconciles the rebuilt column's total over
+    * e(sample) against e(sum_w) at every post-estimation entry and refuses
+    * r(459) when it has moved, which catches every member of that class
+    * (see the Weights section of the help).
+    if "`weight'" != "" {
+        local _fg_wrest `"`exp'"'
+        while regexm(`"`_fg_wrest'"', "[A-Za-z_][A-Za-z0-9_]*") {
+            local _fg_wtok = regexs(0)
+            local _fg_wrest = regexr(`"`_fg_wrest'"', "[A-Za-z_][A-Za-z0-9_]*", " ")
+            if "`_fg_wtok'" == "_n" | "`_fg_wtok'" == "_N" {
+                display as error "the weight expression may not use `_fg_wtok'"
+                display as error "`_fg_wtok' names no variable, so it cannot enter e(datasignature), and"
+                display as error "post-estimation re-evaluates e(wexp) on whatever row order and"
+                display as error "sample size it then sees -- silently, at rc 0"
+                display as error "generate the weight into a variable first, then use that variable"
+                exit 198
+            }
+            capture confirm variable `_fg_wtok'
+            if !_rc {
+                local _sig_seen : list posof "`_fg_wtok'" in _fg_sigvars
+                if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_fg_wtok'"
+            }
+        }
     }
 
     * Mark out missing values in variables referenced by FV specifications
@@ -502,6 +694,24 @@ program define finegray, eclass sortpreserve
             }
         }
 
+        * A weight is a property of the SUBJECT: the same subject cannot carry
+        * one sampling probability on its first episode and another on its
+        * last.  Same test as the covariates above, its own words.
+        if "`weight'" != "" {
+            capture drop `_fg_vary'
+            quietly by `_fg_id': gen byte `_fg_vary' = ///
+                (`touse' & abs(`_fg_w' - `_fg_w'[1]) >= 1e-9)
+            quietly count if `_fg_vary'
+            if r(N) > 0 {
+                display as error "finegray requires the `weight' constant within id()"
+                display as error "the weight varies within subject for `r(N)' record(s)"
+                display as error "a design weight belongs to the subject, not to the episode;"
+                display as error "carry one value onto every record, or collapse to one"
+                display as error "record per subject before fitting"
+                exit 198
+            }
+        }
+
         * --- gap / overlap check: intervals must be contiguous within id ---
         * Check every adjacent boundary.  Comparing total covered time with the
         * overall span is insufficient: an overlap and an equal-sized gap cancel
@@ -589,16 +799,20 @@ program define finegray, eclass sortpreserve
 
     * The psi term is Fine & Gray (1999) eq. 7-8, derived for right censoring
     * with no entry times.  Its delayed-entry analogue is the ZZF (2011)
-    * Appendix B term, which this package does not implement.  Refuse rather
-    * than apply a right-censoring correction to left-truncated data, which
-    * would return a plausible number with no derivation behind it.
-    if "`nuisance'" != "" & `_fg_has_lt' {
-        display as error "nuisance is not allowed with delayed entry"
-        display as error "the psi correction is Fine & Gray (1999) eq. 7-8, " ///
-            "derived for right censoring only"
-        display as error "under left truncation the corresponding term is " ///
-            "ZZF (2011) Appendix B, which finegray does not implement"
-        display as error "use bootstrap coefficient inference instead; " ///
+    * Appendix B influence function, implemented since 2026-08-28 for the
+    * POOLED Weight 1 (_finegray_psi_residuals_lt).  With weight strata --
+    * strata() or truncstrata() -- ZZF (Appendix E, p.1949) themselves
+    * estimate the variance "treating the weight function known", which is
+    * the default fixed_weight_sandwich; a nuisance term for that cell would
+    * be a package invention, so it is refused rather than approximated.
+    if "`nuisance'" != "" & `_fg_has_lt' & ///
+       ("`strata'" != "" | "`truncstrata'" != "") {
+        display as error "nuisance is not allowed with delayed entry and weight strata"
+        display as error "the delayed-entry psi term (Zhang, Zhang and Fine 2011, " ///
+            "Appendix B) is derived for the pooled weight; for a stratified"
+        display as error "weight their Appendix E treats the weight as known, " ///
+            "which is the default (fixed-weight) sandwich"
+        display as error "omit {bf:nuisance}, or use bootstrap coefficient inference; " ///
             "see {help finegray##variance:help finegray}"
         exit 198
     }
@@ -635,6 +849,22 @@ program define finegray, eclass sortpreserve
         display as error "the delayed-entry weights have no published piecewise analogue"
         display as error "drop the delayed entry, or model the effect as proportional;"
         display as error "see {help finegray##tvc:help finegray}"
+        exit 198
+    }
+
+    * Weights are supported for right censoring only.  The delayed-entry
+    * branch (ZZF Weight 1) is already this package's own extension of Zhang,
+    * Zhang and Fine (2011), and no source derives a design-weighted version
+    * of it; weighting it would be unsourced twice over -- the same argument
+    * that fences tvc() and bstrata() off that branch.
+    if "`weight'" != "" & `_fg_has_lt' {
+        display as error "`weight's are not supported with delayed entry"
+        display as error "`_fg_n_lt' subject(s) in the estimation sample enter after time 0"
+        display as error "the weighted subdistribution score is derived for right censoring"
+        display as error "(Wogu et al. 2021); the delayed-entry weights have no published"
+        display as error "design-weighted analogue"
+        display as error "drop the delayed entry, or fit without weights;"
+        display as error "see {help finegray##weights:help finegray}"
         exit 198
     }
 
@@ -683,6 +913,28 @@ program define finegray, eclass sortpreserve
     * Count censored
     quietly count if `compete' == `censvalue' & `touse'
     local N_cens = r(N)
+
+    * Frequency weights replicate subjects, so every count the header reports
+    * -- and e(N), the N of the finite-sample adjustment -- is the replicated
+    * one, as it would be on the expanded data.  Probability weights leave the
+    * counts alone: e(N) is the number of subjects, as in every official
+    * pweight estimator.  e(sum_w) carries the weight total either way.
+    local _fg_Nrep = `N'
+    local _fg_sumw = .
+    if "`weight'" != "" {
+        quietly summarize `_fg_w' if `touse', meanonly
+        local _fg_sumw = r(sum)
+        if "`weight'" == "fweight" {
+            local _fg_Nrep = r(sum)
+            quietly summarize `_fg_w' if `compete' == `cause' & `touse', meanonly
+            local N_fail = r(sum)
+            quietly summarize `_fg_w' if `compete' != `censvalue' ///
+                & `compete' != `cause' & `touse', meanonly
+            local N_compete = r(sum)
+            quietly summarize `_fg_w' if `compete' == `censvalue' & `touse', meanonly
+            local N_cens = r(sum)
+        }
+    }
 
     * FG-M06: the "no competing events" and "no censored observations" guards that
     * used to sit here are GONE.  Both are legitimate limiting cases of the model,
@@ -1043,7 +1295,7 @@ program define finegray, eclass sortpreserve
 
         * Name the offending terms the way the USER wrote them.  `varlist' is
         * the design columns here, and the non-base fit-time terms pair 1:1 and
-        * in order with them (the same pairing e(covariates)/e(fvsemantic) is
+        * in order with them (the same pairing e(designvars)/e(fvsemantic) is
         * built on), so an omitted column maps back by position.  Reporting
         * `_fg_grp_2' left the reader to work out which level that was, for a
         * name they never typed.
@@ -1380,7 +1632,7 @@ program define finegray, eclass sortpreserve
             `iterate', `tolerance', ("`log'" != "nolog"), ///
             ("`adjust'" != "noadjust"), ("`basehaz'" != ""), ///
             ("`nuisance'" != ""), "`bstrata'", ///
-            "`_fg_tvcpos'", "`tsplit'")
+            "`_fg_tvcpos'", "`tsplit'", "`_fg_w'", `_fg_wtype')
     }
 
     local _rc_fit = _rc
@@ -1411,7 +1663,7 @@ program define finegray, eclass sortpreserve
     * Column names.  For a factor-variable fit these are the terms the USER
     * typed (`1.pelnode', `1.pelnode#c.ifp'), taken from the fit-time expansion,
     * NOT the package-owned design-column names.  The internal names stay in
-    * e(covariates), which is what the post-estimation rebuild machinery reads
+    * e(designvars), which is what the post-estimation rebuild machinery reads
     * and what finegray_predict re-stripes onto its own scoring copy of e(b);
     * the coefficient stripe is what the READER sees -- and with it `test',
     * `testparm', `estimates table' and every estout-style exporter.
@@ -1495,6 +1747,56 @@ program define finegray, eclass sortpreserve
         matrix roweq `V' = `ceqs'
     }
 
+    * Base-level columns.  Official estimators post a factor's base level as a
+    * `0b.pelnode' column holding a zero coefficient and a zero row/column of
+    * e(V); `margins', `contrast' and `pwcompare' enumerate a factor's levels
+    * from that stripe, so without it `margins, at(pelnode=(0 1))' stops with
+    * "at level for factor pelnode not present during estimation".  Widen the
+    * posted stripe to the full fit-time expansion in e(fvsemantic), base terms
+    * included, in the order fvexpand produced them.
+    *
+    * The ESTIMATE stays in the design frame.  Everything inside this package
+    * that pairs a coefficient with a design column -- the CIF, the linear
+    * predictor, the Schoenfeld residuals, the bootstrap refits, the baseline
+    * rebuild -- reads the non-base vector through _finegray_bnb (Stata) or
+    * _finegray_beta() (Mata), which drop the `Nb.' columns again by stripe.
+    * They read the LIVE e(b) rather than a stored narrow copy because margins
+    * computes its delta-method Jacobian by reposting a perturbed e(b) and
+    * calling predict; a private copy would leave that derivative at zero.
+    *
+    * Not under tvc(): the tvc stripe is one equation per interval, margins is
+    * withdrawn there (no single linear predictor), and a base column has no
+    * natural equation in that layout.  Not when the fitted-term naming above
+    * fell back to design-column names: the base terms would then be the only
+    * factor-operator names in the stripe and margins would misread the rest.
+    local _fg_wide = 0
+    if `_has_fv' & "`tvc'" == "" & "`_fg_bnames'" != "`varlist'" {
+        local _wn_names : list retokenize _fv_semantic
+        local _wn_k : word count `_wn_names'
+        tempname _wS
+        matrix `_wS' = J(`_wn_k', `_fg_ncol', 0)
+        local _wn_j = 0
+        forvalues _wn_i = 1/`_wn_k' {
+            local _wn_t : word `_wn_i' of `_wn_names'
+            if regexm("`_wn_t'", "[0-9]+b\.") continue
+            local ++_wn_j
+            if `_wn_j' <= `_fg_ncol' matrix `_wS'[`_wn_i', `_wn_j'] = 1
+        }
+        if `_wn_j' == `_fg_ncol' & `_wn_k' > `_fg_ncol' {
+            tempname _wb _wV
+            matrix `_wb' = `b' * `_wS''
+            matrix `_wV' = `_wS' * `V' * `_wS''
+            capture matrix colnames `_wb' = `_wn_names'
+            if _rc == 0 {
+                matrix colnames `_wV' = `_wn_names'
+                matrix rownames `_wV' = `_wn_names'
+                matrix `b' = `_wb'
+                matrix `V' = `_wV'
+                local _fg_wide = 1
+            }
+        }
+    }
+
     local _fg_ll       = _finegray_ll[1,1]
     local _fg_ll_0     = _finegray_ll_0[1,1]
     local _fg_chi2     = _finegray_chi2[1,1]
@@ -1537,9 +1839,27 @@ program define finegray, eclass sortpreserve
     * Post results.  depname("_t") matches stcrreg: the modelled outcome is
     * time-to-cause on the stset clock, not the event-type variable, and a
     * `status |' stub said otherwise.  The event-type variable is e(compete).
-    ereturn post `b' `V', obs(`N') esample(`touse') depname("_t") properties(b V)
+    * buildfvinfo: with it, ereturn display treats a base-level column as a
+    * base (hidden by default, "(base)" under showbaselevels) as every
+    * official estimator does; without it the same zero coefficient with zero
+    * variance prints as "(empty)", which reads as a level with no
+    * observations.  addcons, and the hidden marginsprop below, are what
+    * stcox posts for the same no-intercept situation: margins' estimability
+    * check builds its H matrix from this fv info, and without an implicit
+    * constant it declares every factor-level margin "not estimable" (the
+    * base indicator is 1 - 1.pelnode only when a constant exists).
+    * The weight specification rides on the post: `ereturn post' sets
+    * e(wtype) and e(wexp) from it, which is the contract every consumer
+    * (post-estimation here, `estimates table', user code) reads.
+    ereturn post `b' `V' [`weight'`exp'], obs(`_fg_Nrep') esample(`touse') ///
+        depname("_t") properties(b V)
+    * ADDCONS is accepted by repost only, and only spelled so (stcox.ado does
+    * exactly this).
+    ereturn repost, buildfvinfo ADDCONS
+    ereturn hidden local marginsprop "addcons allcons"
 
-    ereturn scalar N = `N'
+    ereturn scalar N = `_fg_Nrep'
+    if "`weight'" != "" ereturn scalar sum_w = `_fg_sumw'
     ereturn scalar N_fail = `N_fail'
     ereturn scalar N_compete = `N_compete'
     ereturn scalar N_cens = `N_cens'
@@ -1561,7 +1881,7 @@ program define finegray, eclass sortpreserve
     * a stratum.
     ereturn scalar k_bstrata = _finegray_kbstrata[1,1]
     * Piecewise beta(t) shape.  A consumer must be able to tell from e() alone
-    * that e(b) is wider than e(covariates) and why: n_intervals is 1 on an
+    * that e(b) is wider than e(designvars) and why: n_intervals is 1 on an
     * ordinary fit, so `e(n_intervals) > 1' is the single test for "this fit has
     * interval-specific coefficients".
     ereturn scalar n_intervals = `_fg_nint'
@@ -1599,7 +1919,16 @@ program define finegray, eclass sortpreserve
     * only the sandwich meat in e(V), never e(b), and the bootstrap consumers of
     * e(refitcmd) read only each replicate's e(b) -- replaying it would pay the
     * psi-term cost once per replication for a variance nobody reads.
-    local _refitcmd `"finegray `_orig_varlist', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
+    * The weight travels too: a resample keeps each subject's weight column,
+    * and a bootstrap refit that dropped it would describe the UNWEIGHTED
+    * estimator around a weighted point estimate.  The weight clause is built
+    * as its own fragment rather than the command line twice: two copies of a
+    * string this long drift the moment an option is added to one of them, and
+    * the unweighted branch is the one a reader would forget.  Empty for an
+    * unweighted fit, so the line below reduces to what it always was.
+    local _fg_wspec ""
+    if "`weight'" != "" local _fg_wspec `" [`weight'`exp']"'
+    local _refitcmd `"finegray `_orig_varlist'`_fg_wspec', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
     if "`strata'" != ""          local _refitcmd `"`_refitcmd' strata(`strata')"'
     if "`truncstrata'" != ""     local _refitcmd `"`_refitcmd' truncstrata(`truncstrata')"'
     if "`bstrata'" != ""         local _refitcmd `"`_refitcmd' bstrata(`bstrata')"'
@@ -1633,7 +1962,12 @@ program define finegray, eclass sortpreserve
     * cause of interest nor the censoring value -- i.e. what was pooled as a
     * competing event.  Empty when there are none.
     ereturn local compete_values "`_fg_cvals'"
-    ereturn local covariates "`varlist'"
+    * The package-owned design columns, in coefficient order.  NOT e(covariates):
+    * margins reads that name as the fit's covariate list when it is present
+    * and resolves factor terms against it instead of against the e(b) stripe,
+    * which is why `margins pelnode' used to stop with r(322) "factor pelnode
+    * not found in list of covariates" (the list held _fg_pelnode_1).
+    ereturn local designvars "`varlist'"
     * The package-owned entry-time column of a multiple-record fit, empty for a
     * single-record fit.  It is also written to _dta[_finegray_entryvar], but a
     * dataset characteristic travels with the DATA and e() travels with the
@@ -1665,7 +1999,7 @@ program define finegray, eclass sortpreserve
     *   e(tvc)            the variables the user named
     *   e(tsplit)         the interior boundaries, ascending
     *   e(tvc_covariates) the DESIGN COLUMNS those variables resolved to
-    *   e(tvc_pos)        those columns' positions in e(covariates)
+    *   e(tvc_pos)        those columns' positions in e(designvars)
     * Post-estimation reads e(tvc_pos), not e(tvc_covariates): the design
     * columns are package-owned _fg_* variables that a supported `drop _fg_*'
     * removes and every rebuild path recreates as tempvars, so a NAME does not
@@ -1731,19 +2065,25 @@ program define finegray, eclass sortpreserve
     *                  FIXED.  It is cluster-robust when cluster() is given.  This
     *                  is NOT the full Fine-Gray (1999) eq. 7-8 / ZZF (2011)
     *                  nuisance-adjusted variance: the two-part influence term for
-    *                  having ESTIMATED G (and H) is not added.  That term's
-    *                  explicit form is in ZZF (2011) Appendix B, whose display
-    *                  equations are images in every copy obtainable and are not
-    *                  being written from memory (see literature/_requested.md);
-    *                  its omission is documented and, in the right-censored and
-    *                  tested left-truncated settings, empirically small (see
-    *                  finegray.sthlp, Variance).  For nuisance-adjusted
-    *                  coefficient inference, bootstrap the whole fit (help
-    *                  finegray, "Bootstrap coefficient inference").
+    *                  having ESTIMATED G (and H) is not added.  Its omission
+    *                  is documented and empirically small: Gate Z-inference
+    *                  puts fixed_weight_sandwich inside [0.925, 0.975] in
+    *                  every arm up to 69% truncation (finegray_methods.sthlp,
+    *                  Variance).
+    *   nuisance_adjusted  the sandwich with the ZZF (2011) Appendix B
+    *                  influence terms added (_finegray_psi_residuals_lt): the
+    *                  contribution of the estimated all-cause survival S and
+    *                  at-risk fraction b behind the Weight-1 stabilizer.
+    *                  Reached by `nuisance' on a delayed-entry fit with the
+    *                  pooled weight (no strata()/truncstrata()); the
+    *                  stratified cell is refused (ZZF Appendix E treat the
+    *                  weight as known there).  Without delayed entry the same
+    *                  terms reduce to FG's psi, asserted in QA.
     *   not_applicable no delayed entry -- the right-censoring branch is unchanged
     *                  from prior releases and its variance is not at issue here
     if !`_fg_has_lt'                      ereturn local lt_vce "not_applicable"
     else if "`robust'" == "norobust"      ereturn local lt_vce "model_based"
+    else if "`nuisance'" != ""            ereturn local lt_vce "nuisance_adjusted"
     else                                  ereturn local lt_vce "fixed_weight_sandwich"
 
     * Weight-sensitivity diagnostics, computed once by _finegray_weight_diag over
@@ -1794,11 +2134,23 @@ program define finegray, eclass sortpreserve
     else if "`nuisance'" != ""       ereturn local vce_meat "nuisance_adjusted"
     else                             ereturn local vce_meat "fixed_weight"
     ereturn local title "Fine-Gray competing risks regression"
-    * margins consumes xb as a single linear predictor.  Under tvc() there is no
-    * single xb: the linear predictor depends on which interval the evaluation
-    * time falls in, and margins has no way to say which.  Withdraw it rather
-    * than let margins average a quantity it cannot address.
-    if `_has_fv' | "`tvc'" != "" {
+    * margins consumes xb as a single linear predictor.  e(marginsok) lists the
+    * predict() statistics margins may ADD to that default; emptying it does NOT
+    * withdraw margins -- verified 2026-08-29: after `finegray c.ifp##c.tumsize'
+    * (empty here, no base level to widen on) `margins, dydx(ifp)' and
+    * `margins, dydx(ifp) predict(xb)' both run, because predict(xb) names the
+    * default rather than adding to it.  What this macro says is narrower: xb is
+    * the only statistic margins may be pointed at.
+    *
+    * Under tvc() there is no single xb -- the linear predictor depends on which
+    * interval the evaluation time falls in -- so there is no statistic to
+    * offer.  margins refuses such a fit on its own, at r(498) ("default
+    * prediction is a function of possibly stochastic quantities other than
+    * e(b)"), which is the actual fence; this macro records the same fact for a
+    * reader of e().  A factor-variable fit is offered xb only when the stripe
+    * was widened above: the fallback stripe has no base-level columns for
+    * margins to enumerate, so `margins grp' there stops at r(322).
+    if "`tvc'" != "" | (`_has_fv' & !`_fg_wide') {
         ereturn local marginsok ""
     }
     else {
@@ -1855,7 +2207,7 @@ program define finegray, eclass sortpreserve
     * receipt naming columns that no longer exist is the rc=0-but-wrong shape
     * this package spends most of its comments avoiding -- worse here than
     * elsewhere, because a tempvar NAME is reused by the next command that asks
-    * for one, so a stale e(covariates)/char pair could resolve to somebody
+    * for one, so a stale e(designvars)/char pair could resolve to somebody
     * else's column rather than failing to resolve at all.
     *
     * What is left standing instead is the "0" (INVALIDATED) mark written before

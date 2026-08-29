@@ -73,7 +73,7 @@ capture noisily {
     _mk_fvg
     finegray ibn.grp#c.x, compete(ev) cause(1) nolog
     * legal names only: _fg_grp_1Xx _fg_grp_2Xx _fg_grp_3Xx (no "bn.")
-    local cov "`e(covariates)'"
+    local cov "`e(designvars)'"
     assert strpos("`cov'", "bn.") == 0
     assert strpos("`cov'", ".") == 0
     foreach c of local cov {

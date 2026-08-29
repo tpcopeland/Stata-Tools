@@ -32,7 +32,7 @@ local pass_count = 0
 local fail_count = 0
 
 * i.grp##c.x: three-level factor crossed with a continuous covariate.
-* e(covariates) = _fg_grp_2 _fg_grp_3 x _fg_grp_2Xx _fg_grp_3Xx
+* e(designvars) = _fg_grp_2 _fg_grp_3 x _fg_grp_2Xx _fg_grp_3Xx
 capture program drop _mk_atp
 program define _mk_atp
     version 16.0
@@ -48,7 +48,7 @@ program define _mk_atp
 end
 
 * i.a##i.b: two binary factors, so all four (a,b) cells are reachable.
-* e(covariates) = _fg_a_2 _fg_b_2 _fg_a_2Xb_2
+* e(designvars) = _fg_a_2 _fg_b_2 _fg_a_2Xb_2
 capture program drop _mk_atp_ff
 program define _mk_atp_ff
     version 16.0
@@ -68,7 +68,7 @@ local ++test_count
 capture noisily {
     _mk_atp
     quietly finegray i.grp##c.x, compete(ev) cause(1) nolog
-    assert "`e(covariates)'" == "_fg_grp_2 _fg_grp_3 x _fg_grp_2Xx _fg_grp_3Xx"
+    assert "`e(designvars)'" == "_fg_grp_2 _fg_grp_3 x _fg_grp_2Xx _fg_grp_3Xx"
 
     quietly finegray_cif, at(grp=2 x=10) attime(4) ci nograph
     matrix Z_nat = r(at)
@@ -186,7 +186,7 @@ local ++test_count
 capture noisily {
     _mk_atp
     quietly finegray i.grp##c.x, compete(ev) cause(1) nolog
-    local _covs "`e(covariates)'"
+    local _covs "`e(designvars)'"
     quietly finegray_cif, attime(4) nograph
     matrix Z_def = r(at)
     local _cj = 0
@@ -209,7 +209,7 @@ capture noisily {
     * same pin on a main-effects-only fit
     _mk_atp
     quietly finegray i.grp x, compete(ev) cause(1) nolog
-    local _covs2 "`e(covariates)'"
+    local _covs2 "`e(designvars)'"
     quietly finegray_cif, attime(4) nograph
     matrix Z_def2 = r(at)
     local _cj = 0
@@ -272,7 +272,7 @@ local ++test_count
 capture noisily {
     _mk_atp_ff
     quietly finegray i.a##i.b, compete(ev) cause(1) nolog
-    assert "`e(covariates)'" == "_fg_a_2 _fg_b_2 _fg_a_2Xb_2"
+    assert "`e(designvars)'" == "_fg_a_2 _fg_b_2 _fg_a_2Xb_2"
     forvalues _ai = 1/2 {
         forvalues _bi = 1/2 {
             quietly finegray_cif, at(a=`_ai' b=`_bi') attime(4) nograph
@@ -323,8 +323,8 @@ capture noisily {
     quietly stset t, failure(ev) id(id)
     quietly finegray i.abcdefghij_group##c.x, compete(ev) cause(1) nolog
 
-    local _c1 : word 1 of `e(covariates)'
-    local _c3 : word 3 of `e(covariates)'
+    local _c1 : word 1 of `e(designvars)'
+    local _c3 : word 3 of `e(designvars)'
     assert length("`_c3'") == 32
     * the name a string-builder would have constructed does not exist
     capture confirm variable _fg_abcdefghij_group_1000000000Xx
@@ -559,7 +559,7 @@ local ++test_count
 capture noisily {
     _mk_atp
     quietly finegray ibn.grp#c.x, compete(ev) cause(1) nolog
-    assert "`e(covariates)'" == "_fg_grp_1Xx _fg_grp_2Xx _fg_grp_3Xx"
+    assert "`e(designvars)'" == "_fg_grp_1Xx _fg_grp_2Xx _fg_grp_3Xx"
 
     quietly finegray_cif, at(grp=2 x=10) attime(4) nograph
     matrix Z_bn = r(at)

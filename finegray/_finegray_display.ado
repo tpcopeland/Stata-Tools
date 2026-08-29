@@ -133,6 +133,13 @@ program define _finegray_display
         display as text "Variance:" _col(24) as result "`_vtxt'"
     }
 
+    * Design weights.  A weighted and an unweighted fit print the same table
+    * otherwise, and e(N) under fweights is the REPLICATED count, so the
+    * reader has to be told which they are looking at.
+    if `"`e(wtype)'"' != "" {
+        display as text "Weights:" _col(24) as result "`e(wtype)' `e(wexp)'"
+    }
+
     display as text ""
     * e(N) is the number of risk-set units the engine actually fitted, which is
     * the SUBJECT count: finegray.ado recomputes N after the multiple-record
@@ -316,7 +323,7 @@ program define _finegray_display
         * The `main' equation exists only when something was left proportional.
         * Explaining an equation the table does not contain reads as a bug in
         * the table rather than a note about it.
-        local _tvncov : word count `e(covariates)'
+        local _tvncov : word count `e(designvars)'
         local _tvntv = e(k_tvc)
         if `_tvntv' >= . local _tvntv = 0
         if `_tvncov' > `_tvntv' {

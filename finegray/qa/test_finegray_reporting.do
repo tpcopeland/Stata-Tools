@@ -3,7 +3,7 @@
 * (shipped in 1.2.0; "the pre-fix build" below means 1.2.0 as of 2026-07-23).
 *
 * REP-1..4  r(profile_vars) reports the vocabulary the USER typed.
-*   Through the pre-fix build finegray_cif returned e(covariates) -- the package-owned
+*   Through the pre-fix build finegray_cif returned e(designvars) -- the package-owned
 *   design columns -- so a fit on `i.grp' reported `_fg_grp_2 _fg_grp_3'.  Those
 *   are names the user never wrote, need not have in their data (dropping them
 *   is a documented, supported thing to do), and cannot hand back to at(),
@@ -61,12 +61,12 @@ local ++test_count
 capture noisily {
     _mk_fgrep
     quietly finegray x1 i.grp, compete(ev) cause(1) nolog
-    * The internal columns really are what e(covariates) holds -- assert that,
+    * The internal columns really are what e(designvars) holds -- assert that,
     * so this test cannot pass by the design having quietly changed shape.
-    assert "`e(covariates)'" == "x1 _fg_grp_2 _fg_grp_3"
+    assert "`e(designvars)'" == "x1 _fg_grp_2 _fg_grp_3"
     quietly finegray_cif, at(x1=0 grp=1) attime(5)
     local _pv "`r(profile_vars)'"
-    display as text "  e(covariates)    = `e(covariates)'"
+    display as text "  e(designvars)    = `e(designvars)'"
     display as text "  r(profile_vars)  = `_pv'"
     assert "`_pv'" == "x1 2.grp 3.grp"
     * and no leading/trailing whitespace crept in from the accumulator
@@ -88,8 +88,8 @@ capture noisily {
     quietly finegray x1 x2, compete(ev) cause(1) nolog
     quietly finegray_cif, at(x1=0 x2=1) attime(5)
     assert "`r(profile_vars)'" == "x1 x2"
-    assert "`r(profile_vars)'" == "`e(covariates)'"
-    display as text "  non-factor fit: r(profile_vars) == e(covariates) == x1 x2"
+    assert "`r(profile_vars)'" == "`e(designvars)'"
+    display as text "  non-factor fit: r(profile_vars) == e(designvars) == x1 x2"
 }
 if _rc == 0 {
     display as result "  PASS: REP-2 non-factor r(profile_vars) unchanged"
@@ -114,7 +114,8 @@ capture noisily {
     local _np : word count `_pv'
     display as text "  r(at) is 1 x " colsof(_A121) ", r(profile_vars) has `_np' words"
     assert `_np' == colsof(_A121)
-    assert `_np' == colsof(e(b))
+    * one word per DESIGN column: e(b) is wider (it carries the base level)
+    assert `_np' == `: word count `e(designvars)''
     * the requested level must be the one that scored: grp=3 -> 2.grp=0, 3.grp=1
     assert _A121[1, 2] == 0
     assert _A121[1, 3] == 1
@@ -149,9 +150,9 @@ capture noisily {
     foreach _w of local _pv {
         assert substr("`_w'", 1, 4) != "_fg_"
     }
-    * and the expansion must still line up with the coefficient vector
+    * and the expansion must still line up with the design columns
     local _np : word count `_pv'
-    assert `_np' == colsof(e(b))
+    assert `_np' == `: word count `e(designvars)''
 }
 if _rc == 0 {
     display as result "  PASS: REP-4 interaction terms reported in typed form"

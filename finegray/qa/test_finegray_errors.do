@@ -207,12 +207,43 @@ capture noisily {
         expect("truncstrata() requires delayed entry")
     assert r(saw) == 1
 
+    * design weights (2026-08-28): the option-cell refusals name the weight kind
+    quietly generate double pw = 1 + runiform()
+    _fge_first, cmd(`"finegray x [pw = pw], compete(event) cause(1) norobust nolog"') ///
+        expect("pweight is not allowed with norobust")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x [pw = pw], compete(event) cause(1) nuisance nolog"') ///
+        expect("nuisance is not allowed with pweights")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x [pw = pw], compete(event) cause(1) strata(ctr) nolog"') ///
+        expect("strata() is not allowed with pweights")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x [pw = pw], compete(event) cause(1) bstrata(ctr) nolog"') ///
+        expect("bstrata() is not allowed with pweights")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x [pw = pw], compete(event) cause(1) tvc(x) tsplit(6) nolog"') ///
+        expect("tvc() is not allowed with pweights")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x [fw = pw], compete(event) cause(1) nolog"') ///
+        expect("may not use noninteger frequency weights")
+    assert r(saw) == 1
+
+    quietly finegray x [pw = pw], compete(event) cause(1) nolog
+    _fge_first, cmd(`"finegray_phtest"') ///
+        expect("finegray_phtest is not available after a fit with pweights")
+    assert r(saw) == 1
+
     * the delayed-entry family needs delayed-entry data
     quietly generate double ent = cond(mod(_n, 3) == 0, 1, 0)
     quietly stset time, failure(event) id(id) enter(time ent)
 
-    _fge_first, cmd(`"finegray x, compete(event) cause(1) nuisance nolog"') ///
-        expect("nuisance is not allowed with delayed entry")
+    _fge_first, cmd(`"finegray x, compete(event) cause(1) nuisance strata(ctr) nolog"') ///
+        expect("nuisance is not allowed with delayed entry and weight strata")
     assert r(saw) == 1
 
     _fge_first, cmd(`"finegray x, compete(event) cause(1) bstrata(ctr) nolog"') ///
@@ -221,6 +252,10 @@ capture noisily {
 
     _fge_first, cmd(`"finegray x, compete(event) cause(1) tvc(x) tsplit(6) nolog"') ///
         expect("tvc() is not supported with delayed entry")
+    assert r(saw) == 1
+
+    _fge_first, cmd(`"finegray x [pw = pw], compete(event) cause(1) nolog"') ///
+        expect("pweights are not supported with delayed entry")
     assert r(saw) == 1
 
     * post-estimation refusals

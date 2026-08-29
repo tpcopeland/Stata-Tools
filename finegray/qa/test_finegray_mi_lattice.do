@@ -365,8 +365,8 @@ local fail_count = `fail_count' + r(fail)
 * -----------------------------------------------------------------------------
 **# 6. strata() and nuisance under mi -- e(vce_meat) is the machine counterpart
 * -----------------------------------------------------------------------------
-* nuisance is refused with delayed entry, so its mi cell is a right-censoring
-* fit.  The claim under test is not "it runs" but that the option reaches the
+* This mi cell is a right-censoring fit (the delayed-entry nuisance cell is
+* test_finegray_nuisance_lt.do's).  The claim under test is not "it runs" but that the option reaches the
 * engine: e(vce_meat) must read nuisance_adjusted and e(V) must actually differ
 * from the fixed-weight fit on the same imputation.
 local ++test_count

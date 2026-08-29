@@ -10,6 +10,7 @@ d forward-backward scan algorithm that avoids data expansion
 d entirely. Supports delayed entry with Zhang-Zhang-Fine Weight 1,
 d censoring and entry strata, a stratified baseline subdistribution
 d hazard, piecewise-constant time-varying effects, factor variables,
+d sampling (pweight) and frequency weights,
 d robust/clustered SEs, CIF prediction,
 d and Schoenfeld residuals. Post-estimation
 d includes an approximate proportional subdistribution hazards
@@ -23,7 +24,7 @@ d KW: survival analysis
 d
 d Requires: Stata version 16
 d
-d Distribution-Date: 20260828
+d Distribution-Date: 20260829
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d Support: timothy.copeland@ki.se
@@ -32,11 +33,13 @@ f finegray.ado
 f finegray.sthlp
 f finegray_methods.sthlp
 f _finegray_mata.ado
+f _finegray_bnb.ado
 f _finegray_check_data.ado
 f _finegray_check_level.ado
 f _finegray_display.ado
 f _finegray_fv_design.ado
 f _finegray_weight_groups.ado
+f _finegray_weight_var.ado
 f _finegray_resolve_baseline.ado
 f finegray_predict.ado
 f finegray_predict.sthlp

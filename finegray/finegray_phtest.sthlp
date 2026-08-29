@@ -56,29 +56,10 @@ score tests exist in the literature, but none ships with this package; see
 statistic was withdrawn and what to use instead.
 
 {pstd}
-{bf:Left truncation (delayed entry).} The weighted risk sets underlying the
-Schoenfeld residuals use Zhang-Zhang-Fine Weight 1, not a censoring-only
-weight, so under delayed entry the residuals and diagnostic summaries differ
-from the right-censoring path and from {helpb stcrreg}. See
-{help finegray##lt:Left truncation} in {helpb finegray} and
-{help finegray_methods##lt:Left truncation} in {helpb finegray_methods}.
-
-{pstd}
-{bf:A converged fit is required.} {cmd:finegray_phtest} exits with
-{cmd:r(430)} when {cmd:e(converged)} is not 1, because Schoenfeld residuals
-taken at a non-solution do not have the fitted score property. Refit with a
-larger {opt iterate()} or a different specification.
-
-{pstd}
-{bf:Not available after a fit on {cmd:mi} data.} A {cmd:finegray} fit made
-on multiple-imputation data -- typed directly, or run by
-{helpb mi estimate:mi estimate, cmdok:} -- leaves no design columns or
-entry-time column behind, and pooled estimates have no single baseline
-hazard to run a diagnostic against. {cmd:finegray_phtest} stops with
-{cmd:r(301)} in that case. Refit on a single dataset
-({cmd:mi extract 0, clear} for the complete cases, or {cmd:mi extract}
-{it:#}{cmd:, clear} for one imputation) and run {cmd:finegray} there; see
-{help finegray##mi:Multiple imputation} in {helpb finegray}.
+Under delayed entry, residuals use ZZF Weight 1 and differ from
+{helpb stcrreg}; see {help finegray##lt:Left truncation}. A converged fit
+is required ({cmd:r(430)}). Not available after a fit on {cmd:mi} data
+({cmd:r(301)}); see {help finegray##mi:Multiple imputation}.
 
 {marker global}{...}
 {pstd}
@@ -99,37 +80,13 @@ row. The same applies to any individual term whose raw residuals do
 not vary across cause-event times.
 
 {pstd}
-{cmd:finegray_phtest} reads the package-owned {cmd:_fg_*} factor-variable
-columns by name. If they have been {it:dropped}, they are rebuilt on
-demand and the test proceeds as normal. If one is still present but has
-been {it:altered}, the test would silently be computed against a design
-the model was never fitted to, so {cmd:finegray_phtest} exits with
-{cmd:r(459)} and {cmd:finegray} must be re-run. Output and {cmd:r(phtest)}
-rownames use the underlying factor term names, not the internal
-{cmd:_fg_*} names.
+Requires the unchanged {cmd:stset} estimation data ({cmd:r(459)} if changed). Dropped
+{cmd:_fg_*} design columns are rebuilt on demand; altered ones are {cmd:r(459)}.
 
 {pstd}
-{bf:Data requirement:} {cmd:finegray_phtest} computes Schoenfeld residuals on
-the estimation sample and therefore requires the unchanged original {cmd:stset}
-data. It verifies a signature covering {cmd:_t}, {cmd:_t0}, {cmd:_d}, the event
-type, the covariates, and every variable named in {opt strata()},
-{opt truncstrata()}, {opt bstrata()} or {opt cluster()}, plus any persisted
-entry-time variable; the list is {cmd:e(datasignaturevars)}. If
-those data have changed, it exits with {cmd:r(459)}; re-run
-{cmd:finegray}. Unlike {cmd:finegray_predict, xb}, it cannot be run after
-loading a new dataset.
-
-
-{pstd}
-{bf:Not available after a fit with} {helpb finegray##tvc:tvc()}, and this is the
-direction of the workflow rather than a gap. A {opt tvc()} fit no longer assumes
-proportional subdistribution hazards for the covariates it names, so the
-assumption this command tests is not one that fit makes; and the residuals it
-consumes are defined interval by interval, with every other interval's block
-zero by construction. Run {cmd:finegray_phtest} on the proportional fit, answer a
-rejection with {opt tvc()}, and test whether the effect is in fact constant with
-{cmd:test [tvc1]}{it:x} {cmd:= [tvc2]}{it:x} after that fit. Reaching here on a
-{opt tvc()} fit is {cmd:r(198)}.
+{bf:Not available} after a {helpb finegray##tvc:tvc()} fit ({cmd:r(198)}) -- run the diagnostic on the
+proportional fit, then use {cmd:test [tvc1]}{it:x} {cmd:= [tvc2]}{it:x} after the {opt tvc()} fit. Not
+available after a weighted fit ({cmd:r(198)}); see {help finegray_methods##weights:Design weights}.
 
 
 {marker options}{...}
