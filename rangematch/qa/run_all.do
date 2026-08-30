@@ -107,6 +107,9 @@ if "`mode'" == "full" {
     local suites `suites' validation_rangematch_known_answers.do
     local suites `suites' validation_rangematch_overlap_oracle.do
     local suites `suites' validation_rangematch_option_fuzz.do
+    local suites `suites' validation_public_examples.do
+    local suites `suites' crossval_survival_neardate.do
+    local suites `suites' crossval_datatable_public_studies.do
 }
 
 local suite_count = 0

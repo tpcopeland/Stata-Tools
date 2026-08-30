@@ -40,6 +40,7 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 |---|---|---|
 | `crossval_tvsplit_lexis.do` | `Rscript` and R package `Epi` | Standalone external may skip only when `Rscript` is absent; full/release fail on any skip |
 | `crossval_tvevent_recurring.do` | `Rscript` | Same policy |
+| `crossval_public_heart.do`, `crossval_public_pbc.do` | `Rscript` and R package `survival` | Same policy; `survival` or oracle failures are hard failures once R is present |
 | External/full/release integration | Sibling `rangematch` and `psdash` packages | Hard failure |
 | Dialog release check | A graphical Stata session via `run_dialog_gui.sh` | Run separately from the batch runner |
 
@@ -115,6 +116,7 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `validation_flow.do` | Attrition-matrix counts and labels. |
 | `validation_known_answers.do` | Hand-computed package-wide results. |
 | `validation_phase0_semantics.do` | Foundational interval and role semantics. |
+| `validation_public_study_workflows.do` | Hand-enumerated Stanford transplant and Mayo PBC interval workflows, including delayed entry and boundary-day events. |
 | `validation_supplemental.do` | Supplemental invariants and edge oracles. |
 | `validation_tvage.do` | Exact age-boundary answers. |
 | `validation_tvband.do` | Exact single-axis band answers. |
@@ -135,6 +137,8 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 
 | File | Oracle |
 |---|---|
+| `crossval_public_heart.do` | R `survival::survSplit` on the public Stanford heart-transplant data at two elapsed-time grids. |
+| `crossval_public_pbc.do` | R `survival::tmerge`, R `coxph`, and the published Mayo PBC time-dependent-covariate example. |
 | `crossval_tvevent_recurring.do` | Independent R recurrent-event construction. |
 | `crossval_tvexpose_expand.do` | Day-expanded exposure oracle. |
 | `crossval_tvmerge_mata.do` | Day-expanded and join-based merge oracles. |
@@ -177,14 +181,14 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `tvtools` | `test_tvtools`, `test_tvtools_catalog` | `validation_known_answers` | `crossval_tvtools` | integration, state, release |
 | `tvbuild` | dryrun, construct, commit, manifest, regressions | `validation_tvbuild_conservation` | frozen primitive pipelines | integration, state, fixtures |
 | `tvspec` | `test_tvspec` | hand-built plan equivalence | — | `tvbuild` suites |
-| `tvexpose` | command, diagnostics, fast path | exposure audit and known answers | `crossval_tvexpose_expand` | integration, state, edge cases |
-| `tvmerge` | command, frame-native, `idname()` | merge audit and known answers | `crossval_tvmerge_mata`, drift guard | integration, state, edge cases |
-| `tvevent` | command and segments | event audit and known answers | `crossval_tvevent_recurring` | integration, state, edge cases |
+| `tvexpose` | command, diagnostics, fast path | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases |
+| `tvmerge` | command, frame-native, `idname()` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases |
+| `tvevent` | command and segments | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases |
 | `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration and verbose paths |
 | `tvweight` | command, cumulative product, regressions | balance and recovery suites | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
 | `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming and missing-value suites |
 | `tvband` | command and hand oracle | `validation_tvband` | — | naming and missing-value suites |
-| `tvsplit` | `test_tvsplit` | split audit and known answers | `crossval_tvsplit_lexis` | options and missing-value suites |
+| `tvsplit` | `test_tvsplit` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |
 | `tvpanel` | `test_tvpanel` | panel audit and known answers | — | integration and missing-value suites |
 
 ## Lane membership

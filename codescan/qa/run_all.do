@@ -1,5 +1,5 @@
 *! run_all.do — canonical QA runner for codescan
-*! Usage: cd codescan/qa && stata-mp -b do run_all.do [quick|core|full]
+*! Usage: cd codescan/qa && stata-mp -b do run_all.do [quick|core|crossval|full]
 
 version 16.0
 local _runner_more0 "`c(more)'"
@@ -25,9 +25,9 @@ if "`extra'" != "" {
     exit 198
 }
 
-if !inlist("`mode'", "quick", "core", "full") {
+if !inlist("`mode'", "quick", "core", "crossval", "full") {
     display as error "Unknown QA mode: `mode'"
-    display as error "Supported modes: quick, core, full"
+    display as error "Supported modes: quick, core, crossval, full"
     exit 198
 }
 
@@ -51,6 +51,7 @@ local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
 local core_suites `quick_suites' ///
     validation_codescan_known_answers validation_codescan_dgp_recovery ///
     validation_codescan_dgp_recovery2 ///
+    validation_codescan_public_known_answers ///
     validation_mata ///
     validation_codescan_io ///
     validation_codescan_output validation_codescan_describe ///
@@ -58,9 +59,14 @@ local core_suites `quick_suites' ///
     test_codescan_adversarial test_codescan_describe_adversarial ///
     test_codescan_stress_adversarial test_codescan_hostile test_codescan_oracle
 
-* Canonical release gate: core plus install smoke, documentation examples,
-* and release-surface metadata. No-argument run_all.do maps here.
-local full_suites `core_suites' ///
+* Independent implementation lane: the official Stata ICD-10 classifier on a
+* fixed public Stata Press dataset is the row-level oracle for codescan.
+local crossval_suites crossval_codescan_icd10
+
+* Canonical release gate: core plus independent cross-validation, install
+* smoke, documentation examples, and release-surface metadata. No-argument
+* run_all.do maps here.
+local full_suites `core_suites' `crossval_suites' ///
     test_codescan_install_docs test_documentation_examples ///
     test_release_integrity
 

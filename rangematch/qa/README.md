@@ -1,10 +1,10 @@
-# rangematch QA suite
+# rangematch QA
 
 The `rangematch` QA suite uses a flat `qa/` root and one curated lane runner,
 `run_all.do`. The tests cover the single public command through functional,
 adversarial, routing, return-contract, documentation-example, install, release,
-and known-answer validation suites. Test data are generated at runtime with
-temporary files; generated logs are ignored.
+known-answer validation, and external R cross-validation suites. Test data are
+generated at runtime with temporary files; generated logs are ignored.
 
 ## How to run
 
@@ -14,8 +14,8 @@ stata-mp -b do run_all.do
 stata-mp -b do run_all.do quick
 ```
 
-`full` is the default release gate and adds all validation suites to the
-functional tests. `quick` runs the functional and release-surface suites only.
+`full` is the default release gate and adds all validation and cross-validation
+suites to the functional tests. `quick` runs the functional and release-surface suites only.
 The runner uses an explicit suite list rather than auto-discovery and exits
 nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 
@@ -24,6 +24,8 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 - `test_*.do` files cover functional, option, state, regression, release, and
   adversarial contracts for the public command.
 - `validation_*.do` files contain hand-computable or invariant oracles.
+- `crossval_*.do` files compare exact row-level pair mappings against independent
+  R implementations on public examples and study datasets.
 - **Every** suite emits exactly one terminal
   `RESULT: <file-stem> tests=N pass=N fail=N` sentinel. `run_all.do` requires the
   exact suite name, `N>0`, `pass+fail=N`, and `fail=0`; duplicate, malformed,
@@ -78,6 +80,13 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
   a named contract, the fuzz file finds the combination nobody named. It
   compares the **pair set** through `masterid()`/`usingid()` rather than
   `r(N_pairs)`, since two joins can agree on the count and pair the wrong rows.
+
+## Dependencies
+
+| Suite | Needs | If missing |
+|-------|-------|------------|
+| `crossval_survival_neardate.do` | `Rscript` and R package `survival` | Hard failure |
+| `crossval_datatable_public_studies.do` | `Rscript` and R packages `data.table`, `survival` | Hard failure |
 
 ## File Index
 
@@ -149,20 +158,23 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `validation_rangematch_known_answers.do` | 21 hand-computed scenarios: 4 closure rules, inverted/degenerate intervals, wildcard vs literal open bounds, `missing()` policy, scalar key-offsets, `by()` isolation, match statistics, `maxpairs()` guard, point-mode distance, tolerance boundaries, full-outer accounting, overlap incl. open-ended bounds |
 | `validation_rangematch_overlap_oracle.do` | Overlap backend vs a brute-force `cross` oracle (both closures, `tolerance()`, every interval relation), emission order, and the scaling contract |
 | `validation_rangematch_option_fuzz.do` | Randomized differential validation over the option **cross-product** against a `joinby` oracle: point mode (`closed()` x `tolerance()` x `by()` x backend), `nearest()`/`ties()`, and `overlap()` plus the `stats` diagnostics incl. the p50/p90/p99 family against `_pctile`. Compares the pair set via `masterid()`/`usingid()`, not counts alone |
+| `validation_public_examples.do` | Hand-computed pair sets from the official `data.table::foverlaps()` examples and a deterministic `survival::neardate()` example subset |
+| `crossval_survival_neardate.do` + `crossval_survival_neardate_r.R` | Exact after/prior/21-day match parity with the public `survival::neardate()` example |
+| `crossval_datatable_public_studies.do` + `crossval_datatable_public_studies_r.R` | Exact `foverlaps()` pair-set parity on ChickWeight growth phases and PBC sequential visit spells |
 
 ## Coverage Map
 
 | Command | Functional | Validation | Cross-val | Also Exercised In |
 |---------|------------|------------|-----------|-------------------|
-| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle, option_fuzz | N/A | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity |
+| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle, option_fuzz, public_examples | survival::neardate, data.table::foverlaps on ChickWeight and pbcseq | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity |
 
-`rangematch` is a deterministic data-join command, so no external R/Python
-cross-validation suite is required. The validation layer uses hand-built oracle
-datasets and invariant checks.
+The external layer compares exact pair identities, not only counts. R companions
+build their expected results at runtime from independent implementations and
+public datasets; no expected pair is copied from `rangematch`.
 
 ## Lane Membership
 
 | Lane | Suites |
 |------|--------|
 | `quick` | All `test_*.do` suites listed in `run_all.do`, including complete backend/output parity, edge, label, missing-using, tie, behavior-named regression, documentation, doc-contract, demo-contract, lane-isolation, benchmark-smoke, strict runner-contract, install, and release gates |
-| `full` | All `quick` suites plus `validation_rangematch_oracle.do`, `validation_rangematch_manual.do`, `validation_rangematch_nearest.do`, `validation_rangematch_known_answers.do`, `validation_rangematch_overlap_oracle.do`, `validation_rangematch_option_fuzz.do` |
+| `full` | All `quick` suites plus every `validation_*.do` and `crossval_*.do` suite explicitly listed in `run_all.do` |
