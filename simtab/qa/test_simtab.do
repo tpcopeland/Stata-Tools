@@ -2,11 +2,10 @@
 * Consolidated in v1.7.0 from: test_simtab.do, test_simtab_ingest.do, test_simtab_styling.do
 
 clear all
-set more off
 set varabbrev off
 version 17.0
 
-capture log close _simtab
+capture log close _all
 log using "test_simtab.log", replace text name(_simtab)
 
 local test_count = 0
@@ -1282,6 +1281,126 @@ else {
 }
 capture frame drop _c01_okfr
 capture frame drop _c01_okpf
+
+**# O01: threshold and percentage-format options change returned content
+capture noisily {
+    clear
+    input byte estid double(est se truev pvalue)
+    1 -1.5 1 0 .05
+    1  1.5 1 0 .06
+    end
+    capture frame drop _o01_table
+    capture frame drop _o01_plot
+    simtab estid, estimate(est) se(se) true(truev) pvalue(pvalue) ///
+        level(80) alpha(.05) warnreps(3) pctdigits(2) ///
+        metrics(coverage power n) frame(_o01_table, replace) ///
+        plotframe(_o01_plot, replace)
+    assert r(level) == 80
+    assert !missing(r(alpha))
+    assert reldif(r(alpha), .05) < 1e-12
+    frame _o01_plot: assert reldif(coverage[1], 0) < 1e-12
+    frame _o01_plot: assert reldif(power[1], .5) < 1e-12
+    frame _o01_table: assert strpos(c3[2], "50.00%") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: O01 level/alpha/warnreps/pctdigits contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: O01 threshold/format options (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _o01_table
+capture frame drop _o01_plot
+
+**# O02: Excel synonym, theme, and explicit header/zebra colors
+local _o02_xlsx "`output_dir'/_options_styles.xlsx"
+local _o02_result "`output_dir'/_options_styles_result.txt"
+capture erase "`_o02_xlsx'"
+capture erase "`_o02_result'"
+capture noisily {
+    _simtab_make_data, reps(4) estimands(1)
+    keep if sc == 1
+    simtab estid, estimate(est) se(se) true(truev) ///
+        metrics(mean n) theme(nejm) headershade headercolor("10 20 30") ///
+        zebra zebracolor("40 50 60") excel("`_o02_xlsx'") sheet("Options")
+    assert "`r(xlsx)'" == "`_o02_xlsx'"
+    shell python3 "`checker'" "`_o02_xlsx'" --sheet "Options" ///
+        --font Arial --fill-color 1 "10 20 30" --fill-color 3 "40 50 60" ///
+        --result-file "`_o02_result'" --quiet
+    _xl_pass "`_o02_result'"
+}
+if _rc == 0 {
+    display as result "  PASS: O02 Excel synonym and styling options"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: O02 Excel/style options (rc=`=_rc')"
+    local ++fail_count
+}
+capture erase "`_o02_xlsx'"
+capture erase "`_o02_result'"
+
+**# O03: mdappend preserves the first table and appends a second table
+local _o03_md "`output_dir'/_options_append.md"
+capture erase "`_o03_md'"
+capture noisily {
+    _simtab_make_data, reps(4) estimands(1)
+    keep if sc == 1
+    simtab estid, estimate(est) se(se) true(truev) metrics(mean n) ///
+        markdown("`_o03_md'") title("First table")
+    simtab estid, estimate(est) se(se) true(truev) metrics(mean n) ///
+        markdown("`_o03_md'") mdappend title("Second table")
+    tempname _mdfh
+    local _first = 0
+    local _second = 0
+    local _tables = 0
+    file open `_mdfh' using "`_o03_md'", read text
+    file read `_mdfh' _mdline
+    while r(eof) == 0 {
+        if strpos(`"`_mdline'"', "First table") local _first = 1
+        if strpos(`"`_mdline'"', "Second table") local _second = 1
+        if strpos(`"`_mdline'"', "| ---") local ++_tables
+        file read `_mdfh' _mdline
+    }
+    file close `_mdfh'
+    assert `_first' == 1
+    assert `_second' == 1
+    assert `_tables' == 2
+}
+if _rc == 0 {
+    display as result "  PASS: O03 mdappend content contract"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: O03 mdappend content contract (rc=`=_rc')"
+    local ++fail_count
+}
+capture erase "`_o03_md'"
+
+**# O04: XLSX export preserves a caller's Mata object named b
+local _o04_xlsx "`output_dir'/_mata_state.xlsx"
+capture erase "`_o04_xlsx'"
+capture noisily {
+    _simtab_make_data, reps(4) estimands(1)
+    keep if sc == 1
+    mata: b = 42
+    simtab estid, estimate(est) se(se) true(truev) metrics(mean n) ///
+        xlsx("`_o04_xlsx'")
+    tempname _bvalue
+    mata: st_numscalar("`_bvalue'", b)
+    assert scalar(`_bvalue') == 42
+}
+if _rc == 0 {
+    display as result "  PASS: O04 XLSX export preserves caller Mata state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: O04 XLSX export clobbered caller Mata state (rc=`=_rc')"
+    local ++fail_count
+}
+capture mata: mata drop b
+capture erase "`_o04_xlsx'"
 
 * =====================================================================
 

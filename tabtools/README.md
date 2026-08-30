@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.0.1** | 2026-08-30
+**Version 2.0.2** | 2026-08-30
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -465,6 +465,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.0.2** (2026-08-30): Preserved caller-owned Mata objects across every Excel export by replacing fixed workbook and scratch-vector names with process-unique names. `stacktab` now stages its frame, CSV, Markdown, and workbook outputs and commits them as one transaction, so a late workbook or styling failure leaves all requested destinations unchanged. Documented matrices and scalars are now posted without `capture`; `survtab` posts two-group RMST differences only when exactly two groups define that result. Added fail-first regressions for caller Mata-state preservation, late multi-sink rollback, and uncaptured stored-result contracts.
 - **2.0.1** (2026-08-28): Stopped `desctab` and `table1_tc` printing Stata's stock message after their own. Every validation branch in `desctab` ended with `error <rc>` following a `display as error`, so an invalid option produced the package's explanation and then a second, less informative line (`smallcells() must be an integer greater than or equal to 3` followed by `invalid syntax`); the branches now end with `exit <rc>`, the convention already used by the other twenty-six shipped programs. Return codes are unchanged. `corrtab` now posts its documented `r(P)` and `r(N)` matrices unconditionally: both are built on every path, but the `capture` in front of each return would have silently dropped a documented matrix rather than failing if that ever stopped being true. `tabtools_tips` prints its index without decorative blank lines and rules. Corrected the `regtab` and `effecttab` source headers, which described `xlsx()` and `sheet()` as required options although both commands have supported console, `frame()`, `csv()`, and `markdown()` output without them since 1.12.0.
 - **2.0.0** (2026-08-19): Removed journal theme presets. Use explicit `font()`, `fontsize()`, border, header, and zebra options instead.
 - **2.0.0** (2026-08-19): Raised the package baseline to Stata 17 and consolidated the descriptive subsystem. `table1_tc` is now a stable forwarding frontend to the `desctab` engine; the former standalone collect-formatter interface of `desctab` was removed. The finalized Table 1 passes through a private Stata collection and the shared collect renderer, and crude/weighted aggregation staging now uses frames instead of intermediate `.dta` files. The `table1_tc` syntax, output sinks, and stored-result contract are preserved.

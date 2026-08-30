@@ -1,4 +1,4 @@
-*! stratetab Version 2.0.1  2026/08/28
+*! stratetab Version 2.0.2  2026/08/30
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -37,6 +37,7 @@ program define stratetab, rclass
 	local _xlsx_ok 0
 	local _fatal_rc 0
 	local _userdata_saved 0
+	tempname _xlsx_book
 
 tempfile _userdata_outer
 local _userdata_path `"`_userdata_outer'"'
@@ -765,10 +766,10 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 
 * Return results
 	if `_total_cats' > 0 {
-		capture return matrix rates = `_rrates'
+		return matrix rates = `_rrates'
 	}
 	if "`rateratio'" != "" & `n_exposures' >= 2 {
-		capture return matrix ratios = `_rratios'
+		return matrix ratios = `_rratios'
 	}
 if "`frame'" != "" return local frame "`frame'"
 if `"`_ret_markdown'"' != "" {
@@ -791,7 +792,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 	* Export to Excel
 	if `_has_xlsx' {
 		order title c*
-		capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sht'") book(b)
+		capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sht'") book(`_xlsx_book')
 		if _rc {
 			local saved_rc = _rc
 			noi di as err "Failed to export to `xlsx'"
@@ -903,7 +904,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				if `"`footnote'"' != "" {
 					local _fn_row = `lastrow' + 1
 					local _fn_fontsize = max(`_fontsize' - 2, 6)
-					mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+					mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
 					matrix `_style_rules' = `_style_rules' \ ///
 						(14, `_fn_row', `_fn_row', 2, `_total_cols', 0, 0, 0, 0) \ ///
 						(5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
@@ -913,10 +914,10 @@ return local methods "Incidence rates and confidence intervals were formatted at
 						(3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
 				}
 
-				_tabtools_xlsx_apply_styles, book(b) sheet("`sht'") ///
+				_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sht'") ///
 					rules(`_style_rules') font("`_font'") ///
 					color1("`_headercolor'") color2("`_zebracolor'")
-				mata: b.close_book()
+				mata: `_xlsx_book'.close_book()
 
 				* xl() appends a style record for every styled cell instead of
 				* reusing one per distinct format, so collapse the pools here;
@@ -926,8 +927,8 @@ return local methods "Incidence rates and confidence intervals were formatted at
 			}
 			if _rc {
 				local saved_rc = _rc
-				capture mata: b.close_book()
-				capture mata: mata drop b
+				capture mata: `_xlsx_book'.close_book()
+				capture mata: mata drop `_xlsx_book'
 				noi di as err "Excel formatting failed with error `saved_rc'"
 				noi di as err "Hint: ensure the xlsx file is not open in another application"
 				qui use "`_userdata_path'", clear
@@ -936,7 +937,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				exit `saved_rc'
 			}
 			else {
-				capture mata: mata drop b
+				capture mata: mata drop `_xlsx_book'
 				capture confirm file "`xlsx'"
 				if _rc {
 				    noisily display as error "Export command succeeded but file not found"

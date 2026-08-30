@@ -1,6 +1,6 @@
 # comorbidity — Charlson and Elixhauser scores from ICD-10 fields
 
-**Version 1.0.0**
+**Version 1.0.1**
 
 `comorbidity` scans wide-format ICD-10 diagnosis fields and creates patient-level Charlson, Elixhauser, or custom weighted scores. It is for analysts who need to turn one or more diagnosis variables per encounter into condition indicators and a reproducible comorbidity score.
 
@@ -63,7 +63,7 @@ net install comorbidity, from("https://raw.githubusercontent.com/tpcopeland/Stat
 
 ### 1. Charlson scores and score bands
 
-`band` adds patient-level counts and percentages for negative scores, 0, greater than 0 to less than 3, 3 to less than 5, and 5 or greater to `r(bands)`. These bands are exhaustive for integer and fractional scores.
+`band` adds patient-level counts and percentages for negative scores, 0, greater than 0 to less than 3, 3 to less than 5, and 5 or greater to `r(bands)`. These bands are exhaustive for integer and fractional scores. The nonnegative cutpoints reproduce Charlson et al. (1987); for Elixhauser and custom scores they are descriptive categories rather than validated risk strata.
 
 ```stata
 clear
@@ -216,10 +216,12 @@ After a successful run, `comorbidity` stores:
 ## Assumptions and Limits
 
 - The input diagnosis fields are wide-format variables containing ICD-10 codes that can be matched by `codescan`.
-- Charlson hierarchy rules supersede uncomplicated diabetes with complicated diabetes, mild liver disease with severe liver disease, and any malignancy with metastatic cancer.
-- Elixhauser hierarchy rules supersede uncomplicated hypertension with complicated hypertension, solid tumor without metastasis with metastatic cancer, and uncomplicated diabetes with complicated diabetes.
-- `elixhauser(ahrq_mortality)` and `elixhauser(ahrq_readmission)` are reserved but not implemented in this development build and exit with error code `r(198)`.
-- Custom code files are limited to `.csv` and `.dta` extensions and must provide one nonmissing numeric weight per unique condition name. The schema and output names are checked before diagnosis scanning begins.
+- The package-defined Charlson hierarchy supersedes uncomplicated diabetes with complicated diabetes, mild liver disease with severe liver disease, and any malignancy with metastatic cancer.
+- The package-defined Elixhauser hierarchy supersedes uncomplicated hypertension with complicated hypertension, solid tumor without metastasis with metastatic cancer, and uncomplicated diabetes with complicated diabetes. These hierarchy rules are package conventions rather than rules established by the cited scoring papers.
+- The Quan ICD-10 Charlson dictionary combines solid tumors, leukemia, and lymphoma into one `cancer` indicator. `charlson(original)` therefore reproduces Charlson's weights but cannot separately add those three original conditions when more than one is present.
+- The `quan2011` weight vector is cross-validated against R `comorbidity` 1.1.0. That parity check is not an independent audit of the primary paper's exact condition-level weight table.
+- `elixhauser(ahrq_mortality)` and `elixhauser(ahrq_readmission)` are reserved but not implemented in this release and exit with error code `r(198)`.
+- Custom code files are limited to `.csv` and `.dta` extensions and must provide one nonmissing numeric weight per unique condition name. The schema, output names, and aggregate numeric range of the weights are checked before diagnosis scanning begins.
 - `replace` cannot overwrite `id()`, diagnosis variables, `date()`, or `refdate()` through either the score name or a custom condition name.
 
 ## References
@@ -235,7 +237,8 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.0.0**: Initial development build with Charlson original, Charlson Quan 2011, Elixhauser van Walraven, custom weighted code files, and hierarchy handling
+- **1.0.1**: Prevent custom-weight overflow from changing caller data; strengthen method caveats, released-package wording, and QA oracles
+- **1.0.0**: Initial release with Charlson original, Charlson Quan 2011, Elixhauser van Walraven, custom weighted code files, and hierarchy handling
 
 ## Author
 

@@ -8,6 +8,15 @@ if (length(args) != 2) {
 suppressPackageStartupMessages(library(comorbidity))
 suppressPackageStartupMessages(library(haven))
 
+expected_comorbidity_version <- package_version("1.1.0")
+loaded_comorbidity_version <- packageVersion("comorbidity")
+if (loaded_comorbidity_version != expected_comorbidity_version) {
+    stop(
+        "cross-validation requires R comorbidity 1.1.0; loaded ",
+        as.character(loaded_comorbidity_version)
+    )
+}
+
 input <- read_dta(args[[1]])
 code_columns <- grep("^dx[0-9]+$", names(input), value = TRUE)
 if (!"pid" %in% names(input) || length(code_columns) == 0) {

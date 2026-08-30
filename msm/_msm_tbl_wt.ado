@@ -1,4 +1,4 @@
-*! _msm_tbl_wt Version 1.4.7  2026/08/28
+*! _msm_tbl_wt Version 1.4.8  2026/08/30
 *! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_wt, nclass
     version 16.0

@@ -44,7 +44,7 @@
 {syntab:Export}
 {synopt:{opt exp:ort(string)}}file path for export{p_end}
 {synopt:{opt for:mat(string)}}{cmd:display} (default), {cmd:csv}, {cmd:excel}, or {cmd:latex}{p_end}
-{synopt:{opt replace}}replace Protocol sheet or existing text file{p_end}
+{synopt:{opt replace}}replace existing export{p_end}
 {synoptline}
 
 

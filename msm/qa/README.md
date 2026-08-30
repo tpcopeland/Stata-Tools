@@ -51,7 +51,7 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 | `test_msm_fit_prediction_regressions.do` | Fit, prediction, inference, support, spline, and VCE regressions |
 | `test_msm_diagnostics_output_regressions.do` | Sensitivity, diagnostics, output error propagation, and formatting regressions |
 | `test_msm_release_option_regressions.do` | Release manifest and incompatible-option regressions |
-| `test_package_release.do` | Exact package manifest, version/date, SMCL rendering, install, example-data, and public-command contracts |
+| `test_package_release.do` | Exact package manifest, version/date, SMCL and Viewer-width rendering, install, example-data, and public-command contracts |
 | `test_demo_contract.do` | Shipped demo workflow plus workbook structure and PNG signature/dimension contracts |
 | `test_msm_psdash_contract.do` | Propensity-score dashboard interoperability contract |
 | `test_export_surface.do` | Export surfaces and package-root artifact hygiene |
@@ -121,6 +121,6 @@ Legacy lane aliases remain accepted: `tests` maps to `quick`, `stata` maps to `c
 - `_msm_qa_common.do` provides registered fixtures and shared assertions.
 - `_cleanup_runtime_artifacts.do` removes disposable child logs and cross-validation products before a lane.
 - `_crossval_dgp_generate.do` is a dependency invoked by the cross-validation suite `crossval_msm.do`; it is not a standalone lane.
-- `crossval_external_models.R`, `crossval_external_models.py`, `crossval_r.R`, `crossval_python.py`, `crossval_msm_ipw_dta.R`, `tools/check_xlsx.py`, and `tools/check_png.py` provide external reference calculations and artifact inspection.
+- `crossval_external_models.R`, `crossval_external_models.py`, `crossval_r.R`, `crossval_python.py`, `crossval_msm_ipw_dta.R`, `tools/check_xlsx.py`, `tools/check_png.py`, and `tools/check_sthlp_width.py` provide external reference calculations and artifact inspection.
 
 Batch Stata may create `run_all.log`; the runner also writes `run_all_runner.log`, `run_all_status.txt`, and any logs opened by child suites. These are runtime evidence only, are gitignored, and must not be committed.

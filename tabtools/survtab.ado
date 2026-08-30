@@ -1,4 +1,4 @@
-*! survtab Version 2.0.1  2026/08/28
+*! survtab Version 2.0.2  2026/08/30
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,6 +32,7 @@ program define survtab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    tempname _xlsx_book
 
 capture noisily {
 
@@ -822,11 +823,11 @@ capture noisily {
     }
 
 **# Return Results
-    capture return matrix table = `_rtable'
+    return matrix table = `_rtable'
     return scalar N_rows = `num_rows'
     if "`median'" != "" {
         forvalues g = 1/`n_groups' {
-            capture return scalar median_`g' = `med_g`g''
+            return scalar median_`g' = `med_g`g''
         }
     }
     if "`events'" != "" {
@@ -846,25 +847,25 @@ capture noisily {
         return local by_var "`by'"
         return scalar n_groups = `n_groups'
         forvalues g = 1/`n_groups' {
-            capture return local group_`g'_value `"`glevel_`g''"'
-            capture return local group_`g'_label `"`glabel_`g''"'
+            return local group_`g'_value `"`glevel_`g''"'
+            return local group_`g'_label `"`glabel_`g''"'
         }
     }
     if `has_rmst' {
         forvalues g = 1/`n_groups' {
-            capture return scalar rmst_`g' = `rmst_g`g''
-            capture return scalar rmst_se_`g' = `rmst_se_g`g''
-            capture return scalar rmst_lb_`g' = `rmst_lb_g`g''
-            capture return scalar rmst_ub_`g' = `rmst_ub_g`g''
-        }
-        if `n_groups' >= 2 {
-            capture return scalar rmst_diff = `rmst_diff'
+            return scalar rmst_`g' = `rmst_g`g''
+            return scalar rmst_se_`g' = `rmst_se_g`g''
+            return scalar rmst_lb_`g' = `rmst_lb_g`g''
+            return scalar rmst_ub_`g' = `rmst_ub_g`g''
         }
         if `has_by' & `n_groups' == 2 {
-            capture return scalar rmst_diff_se = `rmst_diff_se'
-            capture return scalar rmst_diff_lb = `rmst_diff_lb'
-            capture return scalar rmst_diff_ub = `rmst_diff_ub'
-            capture return scalar rmst_diff_p  = `rmst_diff_p'
+            return scalar rmst_diff = `rmst_diff'
+        }
+        if `has_by' & `n_groups' == 2 {
+            return scalar rmst_diff_se = `rmst_diff_se'
+            return scalar rmst_diff_lb = `rmst_diff_lb'
+            return scalar rmst_diff_ub = `rmst_diff_ub'
+            return scalar rmst_diff_p  = `rmst_diff_p'
         }
     }
     if "`frame'" != "" return local frame "`frame'"
@@ -895,7 +896,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -972,7 +973,7 @@ capture noisily {
             if `"`footnote'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
                 matrix `_style_rules' = `_style_rules' \ ///
                     (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
                     (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
@@ -982,11 +983,11 @@ capture noisily {
                     (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
-            _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'") ///
                 color3("255 255 204")
-            mata: b.close_book()
+            mata: `_xlsx_book'.close_book()
 
             * xl() appends a style record for every styled cell instead of
             * reusing one per distinct format, so collapse the pools here;
@@ -996,12 +997,12 @@ capture noisily {
         }
         if _rc {
             local saved_rc = _rc
-            capture mata: b.close_book()
-            capture mata: mata drop b
+            capture mata: `_xlsx_book'.close_book()
+            capture mata: mata drop `_xlsx_book'
             noisily display as error "Excel formatting failed with error `saved_rc'"
             exit `saved_rc'
         }
-        capture mata: mata drop b
+        capture mata: mata drop `_xlsx_book'
 
         capture confirm file "`xlsx'"
         if _rc {

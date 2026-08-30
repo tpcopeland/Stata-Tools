@@ -32,7 +32,7 @@
 {synopt:{opt for:mat(string)}}{cmd:display} (default), {cmd:csv}, or {cmd:excel}{p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default {cmd:4}{p_end}
 {synopt:{opt eform}}exponentiated coefficients{p_end}
-{synopt:{opt replace}}replace report sheet(s) in an existing workbook{p_end}
+{synopt:{opt replace}}replace existing report sheet(s){p_end}
 
 {syntab:Excel formatting}
 {synopt:{opt tit:le(string)}}title for cell A1{p_end}

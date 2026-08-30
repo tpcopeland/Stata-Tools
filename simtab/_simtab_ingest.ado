@@ -1,4 +1,4 @@
-*! _simtab_ingest Version 2.0.0  2026/08/19
+*! _simtab_ingest Version 2.0.1  2026/08/30
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -260,6 +260,16 @@ program _simtab_ingest_summary, rclass
         local _measure_keep `"`_measure_keep' `_std'"'
     }
 
+    foreach _tok in coverage power {
+        if `: list _tok in _mapped' {
+            quietly count if !missing(`_std_`_tok'') & !inrange(`_std_`_tok'', 0, 1)
+            if r(N) > 0 {
+                display as error "measures(): `_tok' must contain proportions between 0 and 1"
+                exit 198
+            }
+        }
+    }
+
     keep `_byord' `_bylab' `_estord' `_estlab' `_emdord' `_emdlab' `_measure_keep'
     rename `_byord' byord
     rename `_bylab' bylab
@@ -375,6 +385,27 @@ program _simtab_ingest_simsum, rclass
     }
     else {
         local _nbylev = 1
+    }
+
+    * Each mapped measure must identify exactly one row per by-cell.
+    tempvar _mapped_code
+    quietly gen byte `_mapped_code' = 0
+    foreach _code of local _codes {
+        quietly replace `_mapped_code' = 1 if perfmeascode == "`_code'"
+    }
+    tempvar _mapped_dups
+    if `_has_by' {
+        quietly bysort `_bytag' perfmeascode: gen long `_mapped_dups' = sum(`_mapped_code')
+    }
+    else {
+        quietly bysort perfmeascode: gen long `_mapped_dups' = sum(`_mapped_code')
+    }
+    quietly count if `_mapped_code' & `_mapped_dups' > 1
+    local _n_mapped_dups = r(N)
+    quietly sort `_obs'
+    if `_n_mapped_dups' > 0 {
+        display as error "duplicate simsum measure rows found within a by() cell"
+        exit 459
     }
 
     * Disambiguate repeated method labels, then honor data/sorted order.

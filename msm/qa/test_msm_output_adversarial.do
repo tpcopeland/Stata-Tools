@@ -225,6 +225,95 @@ else {
     set varabbrev off
 }
 
+* --- OUTADV6: auto-open rejects shell metacharacters before batch skipping ---
+* The batch branch makes this safe to exercise: the pre-fix helper returns 0
+* without launching anything, while the guard must still reject the path.
+local ++test_count
+capture noisily {
+    local bad_dollar = "report" + char(36) + "(id).xlsx"
+    local bad_tick = "report" + char(96) + "id" + char(96) + ".xlsx"
+    local bad_quote = "report" + char(34) + "oops.xlsx"
+    local bad_semi = "report;id.xlsx"
+    local bad_amp = "report&id.xlsx"
+    local bad_pipe = "report|id.xlsx"
+    local bad_redir = "report>output.xlsx"
+    local bad_percent = "report" + char(37) + "PATH" + char(37) + ".xlsx"
+    local bad_bang = "report!PATH!.xlsx"
+    local bad_caret = "report^id.xlsx"
+
+    foreach bad_path in bad_dollar bad_tick bad_quote bad_semi bad_amp ///
+        bad_pipe bad_redir bad_percent bad_bang bad_caret {
+        set varabbrev on
+        capture noisily _msm_post_export_open, file(`"``bad_path''"')
+        local open_rc = _rc
+        assert `open_rc' == 198
+        assert c(varabbrev) == "on"
+    }
+
+    _msm_post_export_open, file("safe O'Brien report.xlsx")
+    assert c(varabbrev) == "on"
+}
+local outadv6_rc = _rc
+set varabbrev off
+if `outadv6_rc' == 0 {
+    display as result "PASS OUTADV6: auto-open rejects hostile paths and accepts a safe path"
+    local ++pass_count
+}
+else {
+    display as error "FAIL OUTADV6: auto-open shell-path guard (rc=`outadv6_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' OUTADV6"
+}
+
+* --- OUTADV7: public exporters validate before creating a hostile path ---
+local ++test_count
+capture noisily {
+    _outadv_setup_pipeline
+    local hostile_xlsx = "`c(tmpdir)'/msm_report" + char(36) + "(id).xlsx"
+    capture erase `"`hostile_xlsx'"'
+    set varabbrev on
+    capture noisily msm_table, xlsx(`"`hostile_xlsx'"') weights replace open
+    local table_rc = _rc
+    capture confirm file `"`hostile_xlsx'"'
+    local file_rc = _rc
+    capture erase `"`hostile_xlsx'"'
+    assert `table_rc' == 198
+    assert `file_rc' != 0
+    assert c(varabbrev) == "on"
+}
+local outadv7_rc = _rc
+set varabbrev off
+if `outadv7_rc' == 0 {
+    display as result "PASS OUTADV7: public export rejects hostile path before file creation"
+    local ++pass_count
+}
+else {
+    display as error "FAIL OUTADV7: public export path validation (rc=`outadv7_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' OUTADV7"
+}
+
+* --- OUTADV8: shell restrictions do not narrow ordinary file export ---
+local ++test_count
+capture noisily {
+    _outadv_setup_pipeline
+    local literal_dollar = "`c(tmpdir)'/msm_literal" + char(36) + ".xlsx"
+    capture erase `"`literal_dollar'"'
+    msm_table, xlsx(`"`literal_dollar'"') weights replace
+    confirm file `"`literal_dollar'"'
+    capture erase `"`literal_dollar'"'
+}
+local outadv8_rc = _rc
+if `outadv8_rc' == 0 {
+    display as result "PASS OUTADV8: non-open export preserves literal path support"
+    local ++pass_count
+}
+else {
+    display as error "FAIL OUTADV8: shell guard leaked into ordinary export (rc=`outadv8_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' OUTADV8"
+}
+
 display as text ""
 display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'

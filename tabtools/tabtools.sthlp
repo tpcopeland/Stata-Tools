@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.1  28aug2026}{...}
+{* *! version 2.0.2  30aug2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -400,6 +400,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.0.1{p_end}
+{pstd}{bf:Version} 2.0.2{p_end}
 
 {hline}

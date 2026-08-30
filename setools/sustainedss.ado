@@ -1,4 +1,4 @@
-*! sustainedss Version 1.5.6  2026/08/28
+*! sustainedss Version 1.5.7  2026/08/30
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -17,7 +17,7 @@ program define sustainedss, rclass
         GENerate(name) ///
         CONFirmwindow(integer 182) ///
         CONFirmvisit(string) ///
-        BASElinethreshold(real -1) ///
+        BASElinethreshold(string) ///
         EVENTvar(name) ///
         EXIT(varname) ///
         KEEPall ///
@@ -46,7 +46,7 @@ program define sustainedss, rclass
     }
     
     // Check threshold value
-    if `threshold' <= 0 {
+    if missing(`threshold') | `threshold' <= 0 {
         di as error "threshold() must be positive"
         exit 198
     }
@@ -56,12 +56,21 @@ program define sustainedss, rclass
         exit 198
     }
 
-    if `baselinethreshold' == -1 {
+    if "`baselinethreshold'" == "" {
         local baselinethreshold = `threshold'
     }
-    else if `baselinethreshold' < 0 {
-        di as error "baselinethreshold() must be non-negative"
-        exit 198
+    else {
+        local _ss_baseline_words : word count `baselinethreshold'
+        capture confirm number `baselinethreshold'
+        if _rc | `_ss_baseline_words' != 1 {
+            di as error "baselinethreshold() must be non-negative"
+            exit 198
+        }
+        local baselinethreshold = `baselinethreshold'
+        if missing(`baselinethreshold') | `baselinethreshold' < 0 {
+            di as error "baselinethreshold() must be non-negative"
+            exit 198
+        }
     }
 
     local confirmvisit = lower(strtrim("`confirmvisit'"))

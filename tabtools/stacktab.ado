@@ -1,4 +1,4 @@
-*! stacktab Version 2.0.1  2026/08/28
+*! stacktab Version 2.0.2  2026/08/30
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -21,6 +21,16 @@ program define stacktab, rclass
     local _vao = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
+    local _stage_frame_created = 0
+    local _backup_frame_created = 0
+    local _preserve_backups = 0
+    local _stage_book ""
+    local _stage_csv ""
+    local _stage_markdown ""
+    local _backup_book ""
+    local _backup_csv ""
+    local _backup_markdown ""
+    tempname _stage_frame _backup_frame
     capture noisily {
 
         syntax using/ , ///
@@ -602,31 +612,55 @@ program define stacktab, rclass
             _stacktab_validate_style, `_st_styleopt' `_st_bordersopt'
         }
 
-        * ================================================================
-        * OPTIONAL DATASET OUTPUTS
-        * ================================================================
+        * Stage every destination before committing any caller-visible state.
+        * This keeps a late workbook/style failure from leaving a new frame,
+        * CSV, or Markdown file behind.
         tempfile finaldata
         quietly save `"`finaldata'"', replace
 
+        tempfile _stage_book_token
+        local _stage_book `"`_stage_book_token'.xlsx"'
+        quietly copy `"`using'"' `"`_stage_book'"', replace
+
         if `"`frame'"' != "" {
-            if `frame_exists' {
-                capture frame drop `frame_name'
-            }
-            frame put _all, into(`frame_name')
+            frame put _all, into(`_stage_frame')
+            local _stage_frame_created = 1
         }
 
+        local _stage_csv ""
+        local _csv_existed = 0
         if `"`csv'"' != "" {
-            quietly _tabtools_csv_write using `"`csv'"', reservedrow ///
+            capture confirm file `"`csv'"'
+            local _csv_existed = (_rc == 0)
+            tempfile _stage_csv_token
+            local _stage_csv `"`_stage_csv_token'.csv"'
+            quietly _tabtools_csv_write using `"`_stage_csv'"', reservedrow ///
                 title(`"`title'"') footnote(`"`note'"')
         }
 
         local _ret_markdown ""
         local _ret_markdown_rows .
         local _ret_markdown_cols .
+        local _stage_markdown ""
+        local _markdown_existed = 0
         if `"`markdown'"' != "" {
+            capture confirm file `"`markdown'"'
+            local _markdown_existed = (_rc == 0)
+            tempfile _stage_markdown_token
+            local _stage_markdown `"`_stage_markdown_token'.md"'
+            * tempfile tracks only its extensionless token. Program-scoped
+            * tokens are reused on later calls, so remove any orphan carrying
+            * the appended Markdown extension before staging into that path.
+            capture confirm file `"`_stage_markdown'"'
+            if !_rc erase `"`_stage_markdown'"'
             local _mdappend_opt ""
-            if "`mdappend'" != "" local _mdappend_opt "append"
-            capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+            if "`mdappend'" != "" {
+                local _mdappend_opt "append"
+                if `_markdown_existed' {
+                    quietly copy `"`markdown'"' `"`_stage_markdown'"', replace
+                }
+            }
+            capture noisily _tabtools_markdown_write using `"`_stage_markdown'"', ///
                 `_mdappend_opt' headerstart(1) datastart(2) ///
                 title(`"`title'"') footnote(`"`note'"') strictheaders
             if _rc {
@@ -639,13 +673,9 @@ program define stacktab, rclass
             local _ret_markdown_cols = r(n_cols)
         }
 
-        * ================================================================
-        * EXPORT TO SHEET
-        * ================================================================
-
         quietly use `"`finaldata'"', clear
 
-        _stacktab_xlsx_write using `"`using'"', sheet(`"`sheet'"') ///
+        _stacktab_xlsx_write using `"`_stage_book'"', sheet(`"`sheet'"') ///
             startrow(`export_start_row') startcol(`export_start_col') ///
             `sheetreplace'
 
@@ -666,7 +696,7 @@ program define stacktab, rclass
             if `"`section_rows'"' != "" {
                 local _sectionrowsopt `"sectionrows(`section_rows')"'
             }
-            _stacktab_apply_style, book(`"`using'"') sheet(`"`sheet'"') ///
+            _stacktab_apply_style, book(`"`_stage_book'"') sheet(`"`sheet'"') ///
                 `_styleopt' `_bordersopt' widths(`"`width_values'"') ///
                 rows(`rows_written') cols(`final_ncols') ///
                 startrow(`export_start_row') startcol(`export_start_col') ///
@@ -674,12 +704,12 @@ program define stacktab, rclass
 
         local last_sheet_col = `export_start_col' + `final_ncols' - 1
         if `"`title'"' != "" & `export_title_row' > 0 {
-            mata: _stacktab_xlsx_put_text_mata(`"`using'"', `"`sheet'"', ///
+            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`sheet'"', ///
                 `export_title_row', 1, 1, `last_sheet_col', `"`title'"', ///
                 12, `title_height', 1, 0)
         }
         if `"`note'"' != "" {
-            mata: _stacktab_xlsx_put_text_mata(`"`using'"', `"`sheet'"', ///
+            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`sheet'"', ///
                 `note_row', `export_start_col', `export_start_col', ///
                 `last_sheet_col', `"`note'"', 8, `note_height', 0, 1)
         }
@@ -690,7 +720,135 @@ program define stacktab, rclass
         * accumulates sheets, so collapse the pools before handing the file
         * back; without it the run walks into Stata's 65,536-record ceiling
         * and fails with r(16147).
-        _tabtools_xlsx_compact_styles using `"`using'"'
+        _tabtools_xlsx_compact_styles using `"`_stage_book'"'
+
+        * Deterministic QA injection after every stage has succeeded and before
+        * any destination is committed.
+        if "$TABTOOLS_QA_STACK_FAIL" == "1" exit 459
+
+        * Back up replaceable destinations, then commit the staged transaction.
+        tempfile _backup_book_token
+        local _backup_book `"`_backup_book_token'.xlsx"'
+        quietly copy `"`using'"' `"`_backup_book'"', replace
+
+        local _backup_csv ""
+        if `"`csv'"' != "" & `_csv_existed' {
+            tempfile _backup_csv_token
+            local _backup_csv `"`_backup_csv_token'.csv"'
+            quietly copy `"`csv'"' `"`_backup_csv'"', replace
+        }
+
+        local _backup_markdown ""
+        if `"`markdown'"' != "" & `_markdown_existed' {
+            tempfile _backup_markdown_token
+            local _backup_markdown `"`_backup_markdown_token'.md"'
+            quietly copy `"`markdown'"' `"`_backup_markdown'"', replace
+        }
+
+        if `"`frame'"' != "" & `frame_exists' {
+            frame copy `frame_name' `_backup_frame'
+            local _backup_frame_created = 1
+        }
+
+        capture noisily {
+            quietly copy `"`_stage_book'"' `"`using'"', replace
+            if `"`csv'"' != "" {
+                quietly copy `"`_stage_csv'"' `"`csv'"', replace
+            }
+            if `"`markdown'"' != "" {
+                quietly copy `"`_stage_markdown'"' `"`markdown'"', replace
+            }
+            if `"`frame'"' != "" {
+                if `frame_exists' frame drop `frame_name'
+                frame rename `_stage_frame' `frame_name'
+                local _stage_frame_created = 0
+            }
+        }
+        local _commit_rc = _rc
+        if `_commit_rc' {
+            local _rollback_rc = 0
+            capture quietly copy `"`_backup_book'"' `"`using'"', replace
+            local _this_rollback_rc = _rc
+            if `_this_rollback_rc' & !`_rollback_rc' {
+                local _rollback_rc = `_this_rollback_rc'
+            }
+            if `"`csv'"' != "" {
+                if `_csv_existed' {
+                    capture quietly copy `"`_backup_csv'"' `"`csv'"', replace
+                    local _this_rollback_rc = _rc
+                    if `_this_rollback_rc' & !`_rollback_rc' {
+                        local _rollback_rc = `_this_rollback_rc'
+                    }
+                }
+                else {
+                    capture confirm file `"`csv'"'
+                    if !_rc {
+                        capture erase `"`csv'"'
+                        local _this_rollback_rc = _rc
+                        if `_this_rollback_rc' & !`_rollback_rc' {
+                            local _rollback_rc = `_this_rollback_rc'
+                        }
+                    }
+                }
+            }
+            if `"`markdown'"' != "" {
+                if `_markdown_existed' {
+                    capture quietly copy `"`_backup_markdown'"' `"`markdown'"', replace
+                    local _this_rollback_rc = _rc
+                    if `_this_rollback_rc' & !`_rollback_rc' {
+                        local _rollback_rc = `_this_rollback_rc'
+                    }
+                }
+                else {
+                    capture confirm file `"`markdown'"'
+                    if !_rc {
+                        capture erase `"`markdown'"'
+                        local _this_rollback_rc = _rc
+                        if `_this_rollback_rc' & !`_rollback_rc' {
+                            local _rollback_rc = `_this_rollback_rc'
+                        }
+                    }
+                }
+            }
+            if `"`frame'"' != "" {
+                capture frame `frame_name': quietly count
+                if !_rc {
+                    capture frame drop `frame_name'
+                    local _this_rollback_rc = _rc
+                    if `_this_rollback_rc' & !`_rollback_rc' {
+                        local _rollback_rc = `_this_rollback_rc'
+                    }
+                }
+                if `frame_exists' {
+                    capture frame copy `_backup_frame' `frame_name'
+                    local _this_rollback_rc = _rc
+                    if `_this_rollback_rc' & !`_rollback_rc' {
+                        local _rollback_rc = `_this_rollback_rc'
+                    }
+                }
+            }
+            if `_rollback_rc' {
+                local _preserve_backups = 1
+                noisily display as error ///
+                    "stacktab: commit failed with r(`_commit_rc'); rollback also failed with r(`_rollback_rc')"
+                foreach _recovery_path in `"`_backup_book'"' ///
+                    `"`_backup_csv'"' `"`_backup_markdown'"' {
+                    if `"`_recovery_path'"' != "" {
+                        noisily display as text ///
+                            `"recovery copy retained at `_recovery_path'"'
+                    }
+                }
+                if `_backup_frame_created' {
+                    noisily display as text ///
+                        "recovery frame retained as `_backup_frame'"
+                }
+            }
+            exit `_commit_rc'
+        }
+        if `_backup_frame_created' {
+            frame drop `_backup_frame'
+            local _backup_frame_created = 0
+        }
 
         local _ret_blocks_loaded = `n_blocks'
         local _ret_rows_written = `rows_written'
@@ -711,7 +869,46 @@ program define stacktab, rclass
     if `_restore_needed' {
         capture restore
     }
+    if `_stage_frame_created' capture frame drop `_stage_frame'
+    if `_backup_frame_created' & !`_preserve_backups' {
+        capture frame drop `_backup_frame'
+    }
+    * Appending required output extensions to tempfile tokens puts the actual
+    * files outside Stata's automatic tempfile registry. Remove every staged
+    * or backup artifact explicitly on both success and failure paths.
+    foreach _tmp_path in `"`_stage_book'"' `"`_stage_csv'"' ///
+        `"`_stage_markdown'"' {
+        capture confirm file `"`_tmp_path'"'
+        if !_rc {
+            capture erase `"`_tmp_path'"'
+            local _tmp_erase_rc = _rc
+            if `_tmp_erase_rc' & !`rc' {
+                noisily display as text ///
+                    `"note: stacktab could not remove temporary file `_tmp_path'"'
+            }
+        }
+    }
+    if !`_preserve_backups' {
+        foreach _tmp_path in `"`_backup_book'"' `"`_backup_csv'"' ///
+            `"`_backup_markdown'"' {
+            capture confirm file `"`_tmp_path'"'
+            if !_rc {
+                capture erase `"`_tmp_path'"'
+                local _tmp_erase_rc = _rc
+                if `_tmp_erase_rc' & !`rc' {
+                    noisily display as text ///
+                        `"note: stacktab could not remove temporary file `_tmp_path'"'
+                }
+            }
+        }
+    }
     set varabbrev `_vao'
+    * Successful capture-based cleanup probes may leave _rc at 601 even though
+    * the public command succeeded. Reset that captured status before posting
+    * the return surface; the saved local rc still governs real failures.
+    capture version 17.0
+    local _rc_reset = _rc
+    if `_rc_reset' & !`rc' local rc = `_rc_reset'
     if `rc' exit `rc'
 
     return scalar blocks_loaded = `_ret_blocks_loaded'
@@ -742,7 +939,6 @@ program define _stacktab_xlsx_write, rclass
     version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
-    local _book_name "_stacktab_write_book"
     capture noisily {
         syntax using/ , SHEET(string) STARTRow(integer) STARTCol(integer) ///
             [SHEETreplace]
@@ -780,8 +976,6 @@ program define _stacktab_xlsx_write, rclass
         return local xlsx `"`using'"'
     }
     local rc = _rc
-    capture mata: `_book_name'.close_book()
-    capture mata: mata drop `_book_name'
     set varabbrev `_vao'
     if `rc' exit `rc'
 end
@@ -1201,6 +1395,7 @@ program define _stacktab_apply_style, nclass
     local _vao = c(varabbrev)
     set varabbrev off
     local _book_open = 0
+    tempname _style_book
     capture noisily {
     syntax , BOOK(string) SHEET(string) ROWS(integer) COLS(integer) ///
         [STYLE(string asis) BORDERS(string asis) WIDTHS(numlist) ///
@@ -1236,38 +1431,38 @@ program define _stacktab_apply_style, nclass
         if `nrh_end' > 0 local nrh = real(substr(`"`nrh_tail'"', 1, `nrh_end' - 1))
     }
 
-    mata: _stacktab_book = xl()
+    mata: `_style_book' = xl()
     local _book_open = 1
-    mata: _stacktab_book.load_book("`book'")
-    mata: _stacktab_book.set_sheet("`sheet'")
-    mata: _stacktab_book.set_mode("open")
+    mata: `_style_book'.load_book("`book'")
+    mata: `_style_book'.set_sheet("`sheet'")
+    mata: `_style_book'.set_mode("open")
 
     local endrow = `startrow' + `rows' - 1
     local endcol = `startcol' + `cols' - 1
     local last_sheet_col = max(`endcol', 1)
 
-    mata: _stacktab_book.set_font((`startrow', `endrow'), ///
+    mata: `_style_book'.set_font((`startrow', `endrow'), ///
         (`startcol', `endcol'), "Arial", 10)
-    mata: _stacktab_book.set_text_wrap((`startrow', `endrow'), ///
+    mata: `_style_book'.set_text_wrap((`startrow', `endrow'), ///
         (`startcol', `endcol'), "on")
-    mata: _stacktab_book.set_vertical_align((`startrow', `endrow'), ///
+    mata: `_style_book'.set_vertical_align((`startrow', `endrow'), ///
         (`startcol', `endcol'), "center")
-    mata: _stacktab_book.set_font_bold((`startrow', `startrow'), ///
+    mata: `_style_book'.set_font_bold((`startrow', `startrow'), ///
         (`startcol', `endcol'), "on")
-    mata: _stacktab_book.set_bottom_border((`startrow', `startrow'), ///
+    mata: `_style_book'.set_bottom_border((`startrow', `startrow'), ///
         (`startcol', `endcol'), "thin")
-    mata: _stacktab_book.set_bottom_border((`endrow', `endrow'), ///
+    mata: `_style_book'.set_bottom_border((`endrow', `endrow'), ///
         (`startcol', `endcol'), "thin")
 
     if `"`sectionrows'"' != "" {
         foreach sr of numlist `sectionrows' {
             if `sr' >= 1 & `sr' <= `rows' {
                 local sheet_row = `startrow' + `sr' - 1
-                mata: _stacktab_book.set_font_bold((`sheet_row', ///
+                mata: `_style_book'.set_font_bold((`sheet_row', ///
                     `sheet_row'), (`startcol', `endcol'), "on")
-                mata: _stacktab_book.set_top_border((`sheet_row', ///
+                mata: `_style_book'.set_top_border((`sheet_row', ///
                     `sheet_row'), (`startcol', `endcol'), "thin")
-                mata: _stacktab_book.set_bottom_border((`sheet_row', ///
+                mata: `_style_book'.set_bottom_border((`sheet_row', ///
                     `sheet_row'), (`startcol', `endcol'), "thin")
             }
         }
@@ -1279,7 +1474,7 @@ program define _stacktab_apply_style, nclass
             local ++wi
             if `wi' <= `cols' {
                 local wc = `startcol' + `wi' - 1
-                mata: _stacktab_book.set_column_width(`wc', `wc', `w')
+                mata: `_style_book'.set_column_width(`wc', `wc', `w')
             }
         }
     }
@@ -1309,7 +1504,7 @@ program define _stacktab_apply_style, nclass
                     local resolved `"`r(name)'"'
                     local cw_index = real(subinstr(`"`resolved'"', "_xcol", "", 1))
                     local excel_col = `startcol' + `cw_index' - 1
-                    mata: _stacktab_book.set_column_width(`excel_col', ///
+                    mata: `_style_book'.set_column_width(`excel_col', ///
                         `excel_col', `cw_width')
                 }
             }
@@ -1317,34 +1512,34 @@ program define _stacktab_apply_style, nclass
     }
 
     if strpos(lower(`"`borders'"'), "outer(all)") {
-        mata: _stacktab_book.set_top_border((`startrow', `startrow'), ///
+        mata: `_style_book'.set_top_border((`startrow', `startrow'), ///
             (`startcol', `endcol'), "thin")
-        mata: _stacktab_book.set_bottom_border((`endrow', `endrow'), ///
+        mata: `_style_book'.set_bottom_border((`endrow', `endrow'), ///
             (`startcol', `endcol'), "thin")
-        mata: _stacktab_book.set_left_border((`startrow', `endrow'), ///
+        mata: `_style_book'.set_left_border((`startrow', `endrow'), ///
             (`startcol', `startcol'), "thin")
-        mata: _stacktab_book.set_right_border((`startrow', `endrow'), ///
+        mata: `_style_book'.set_right_border((`startrow', `endrow'), ///
             (`endcol', `endcol'), "thin")
     }
     if strpos(lower(`"`borders'"'), "top(row 1)") {
-        mata: _stacktab_book.set_top_border((`startrow', `startrow'), ///
+        mata: `_style_book'.set_top_border((`startrow', `startrow'), ///
             (`startcol', `endcol'), "thin")
     }
     if strpos(lower(`"`borders'"'), "bottom(last)") | ///
         strpos(lower(`"`borders'"'), "bottom(row `rows')") {
-        mata: _stacktab_book.set_bottom_border((`endrow', `endrow'), ///
+        mata: `_style_book'.set_bottom_border((`endrow', `endrow'), ///
             (`startcol', `endcol'), "thin")
     }
 
-    mata: _stacktab_book.close_book()
+    mata: `_style_book'.close_book()
     local _book_open = 0
-    mata: mata drop _stacktab_book
+    mata: mata drop `_style_book'
     }
     local rc = _rc
     if `_book_open' {
-        capture mata: _stacktab_book.close_book()
+        capture mata: `_style_book'.close_book()
     }
-    capture mata: mata drop _stacktab_book
+    capture mata: mata drop `_style_book'
     set varabbrev `_vao'
     if `rc' exit `rc'
 end

@@ -137,7 +137,7 @@ unrelated sheets. Without {cmd:replace}, an existing file is an error.
 {synopt:{cmd:p99_weight}}99th-percentile weight{p_end}
 {synopt:{cmd:n_extreme}}number of weights above P99{p_end}
 {synopt:{cmd:n_imbalanced}}number above the weighted-SMD threshold{p_end}
-{synopt:{cmd:max_abs_smd}}maximum |weighted SMD| (missing if balance not assessed){p_end}
+{synopt:{cmd:max_abs_smd}}maximum |weighted SMD|; missing without balance{p_end}
 
 {pstd}
 Missing balance values are shown as {cmd:n/a} in the exported sheet.

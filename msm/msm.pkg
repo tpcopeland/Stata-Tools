@@ -10,7 +10,7 @@ d regression adjustment fails.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260828
+d Distribution-Date: 20260830
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -76,6 +76,8 @@ f _msm_natural_spline.ado
 f _msm_period_basis.ado
 f _msm_pipeline_state.ado
 f _msm_post_export_open.ado
+f _msm_validate_path.ado
+f _msm_diag_frame_check.ado
 f _msm_smd.ado
 f _msm_time_invariant_hint.ado
 f _msm_timefixed.ado

@@ -1,13 +1,11 @@
-*! _simtab_common Version 2.0.0  2026/08/19
+*! _simtab_common Version 2.0.1  2026/08/30
 *! Shared utility programs for simtab package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
 DESCRIPTION:
-    Common utility programs shared across the simtab suite of table export
-    commands. These utilities handle Excel column letter conversion, path
-    validation, footnotes, file opening, variable type detection,
-    format resolution, and sheet validation.
+    Internal utilities used by simtab for Excel layout, path and sheet
+    validation, formatting, frames, and display.
 
 PROGRAMS INCLUDED:
     _simtab_col_letter        - Convert column number to Excel letter (A, B, ..., Z, AA, AB, ...)
@@ -31,9 +29,9 @@ PROGRAMS INCLUDED:
     _simtab_helpers_ready     - Verify the helper bundle is fully loaded
     _simtab_require_helpers   - Exit with package reinstall message if helpers are incomplete
 USAGE:
-    These programs are called internally by simtab commands (table1_tc, regtab,
-    effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
-    Each helper independently restores the caller's variable-abbreviation state.
+    These programs are called internally by simtab. They are not intended for
+    direct use. Each helper independently restores the caller's
+    variable-abbreviation state.
 */
 
 * =============================================================================
@@ -592,7 +590,7 @@ end
 * _simtab_resolve_format: Resolve font/fontsize/borderstyle from options,
 *   globals, and themes
 * =============================================================================
-* Centralizes the format resolution logic shared across all simtab commands.
+* Centralizes simtab's format-resolution logic.
 * Resolves: user option -> theme -> $SIMTAB_* global -> default.
 *
 * Sets c_local variables in the caller's scope:
@@ -1213,7 +1211,6 @@ string scalar _st_strip_outer_quotes(string scalar x)
 
 end
 
-* End of file
 capture program drop _simtab_visible_vars
 program define _simtab_visible_vars, nclass
     version 17.0
@@ -1265,3 +1262,5 @@ program define _simtab_visible_vars, nclass
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
+
+* End of file

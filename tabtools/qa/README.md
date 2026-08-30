@@ -11,7 +11,7 @@ stata-mp -b do run_all.do quick      # fast functional lane
 stata-mp -b do test_desctab.do       # one suite standalone
 ```
 
-`release` adds the benchmark to `full`; `benchmark` runs only the timing guardrail. Gate on the terminal `RESULT:` line or `run_all_status.txt`, because Stata batch shell status is not the suite verdict.
+`release` adds the benchmark to `full`; `benchmark` runs only the timing guardrail. Direct `run_all.do` users should gate on its terminal `RESULT:` line, because Stata batch shell status is not the suite verdict.
 
 ## Isolation
 
@@ -79,6 +79,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_tabtools_oracle.do` | Seeded command-catalog and category return-surface oracle. |
 | `test_tabtools_tips.do` | Quick-reference behavior, README Quick Start, and fresh-session recipes. |
 | `test_tabtools_v1163.do` | Missing-summary row attachment and group-specific count regression. |
+| `test_tabtools_v202.do` | Caller Mata namespace preservation, unconditional stored results, and atomic multi-sink composition. |
 | `test_theme_removed.do` | Rejection of the removed `theme()` surface. |
 | `test_xlsx_style_compaction.do` | Style-pool compaction, workbook equivalence, verification guards, and platform paths. |
 

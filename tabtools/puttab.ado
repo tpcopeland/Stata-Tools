@@ -1,4 +1,4 @@
-*! puttab Version 2.0.1  2026/08/28
+*! puttab Version 2.0.2  2026/08/30
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,6 +33,7 @@ program define puttab, rclass
     local _restore_needed = 0
     local _book_open = 0
     local _return_ready = 0
+    tempname _xlsx_book
     local _ret_rows .
     local _ret_cols .
     local _ret_data .
@@ -426,14 +427,14 @@ program define puttab, rclass
             }
 
             * ===== write the sheet and apply the styling =====
-            _tabtools_xlsx_write using `"`using'"', sheet(`"`sheet'"') book(b)
+            _tabtools_xlsx_write using `"`using'"', sheet(`"`sheet'"') book(`_xlsx_book')
             local _book_open = 1
 
-            _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
+            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`sheet'"') ///
                 rules(`_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
 
-            mata: b.close_book()
+            mata: `_xlsx_book'.close_book()
             local _book_open = 0
 
             * xl() appends a style record for every styled cell instead of
@@ -441,7 +442,7 @@ program define puttab, rclass
             * a workbook that keeps growing would otherwise reach Stata's
             * 65,536-record ceiling and fail with r(16147).
             _tabtools_xlsx_compact_styles using "`using'"
-            capture mata: mata drop b
+            capture mata: mata drop `_xlsx_book'
 
             capture confirm file `"`using'"'
             if _rc {
@@ -461,9 +462,9 @@ program define puttab, rclass
     }
     local rc = _rc
     if `_book_open' {
-        capture mata: b.close_book()
+        capture mata: `_xlsx_book'.close_book()
     }
-    capture mata: mata drop b
+    capture mata: mata drop `_xlsx_book'
     if `_restore_needed' capture restore
     set varabbrev `_orig_varabbrev'
     if `_return_ready' {

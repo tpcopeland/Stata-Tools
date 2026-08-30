@@ -31,7 +31,7 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt dx:date(varname)}}diagnosis date variable; must be a daily {cmd:%td} date{p_end}
+{synopt:{opt dx:date(varname)}}daily {cmd:%td} diagnosis date{p_end}
 {synopt:{opt rel:apses(filename)}}relapse-event dataset path{p_end}
 
 {syntab:Relapse file}
@@ -44,9 +44,9 @@
 
 {syntab:CDP parameters}
 {synopt:{opt gen:erate(name)}}PIRA date variable name{p_end}
-{synopt:{opt raw:generate(name)}}name for the RAW date variable; default is {cmd:raw_date}{p_end}
-{synopt:{opt conf:irmdays(#)}}days required for CDP confirmation; default is {cmd:180}{p_end}
-{synopt:{opt confirmt:ype(type)}}confirmation rule: {cmd:sustained} (default) or {cmd:visit}{p_end}
+{synopt:{opt raw:generate(name)}}RAW date variable; default {cmd:raw_date}{p_end}
+{synopt:{opt conf:irmdays(#)}}CDP confirmation days; default {cmd:180}{p_end}
+{synopt:{opt confirmt:ype(type)}}{cmd:sustained} (default) or {cmd:visit} rule{p_end}
 {synopt:{opt base:linewindow(#)}}baseline window; default 730 days{p_end}
 {synopt:{opt three:tier}}use three-tier EDSS thresholds{p_end}
 
@@ -342,7 +342,7 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(confirmdays)}}CDP confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(pira_varname)}}name of the generated PIRA date variable{p_end}

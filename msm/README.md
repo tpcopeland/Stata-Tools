@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.7** | 2026-08-28
+**Version 1.4.8** | 2026-08-30
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 
@@ -322,7 +322,7 @@ Syntax: ``msm_diagnose [, balance_covariates(varlist) by_period threshold(#) pos
 - `by_period` is off by default and prints weight statistics separately by period.
 - `threshold()` defaults to `0.1` for weighted-SMD balance flags.
 - `positivity()` defaults to `0.01` and is applied to the smallest probability of the treatment actually observed, not simply the lower tail of P(A=1).
-- `accumulate(name)` is off by default and appends one cross-contrast summary row to a named frame. `contrast()` is required with it; `outcome()` is an optional row label.
+- `accumulate(name)` is off by default and appends one cross-contrast summary row to a named frame. `contrast()` is required with it and accepts at most 80 bytes; `outcome()` is an optional label of at most 40 bytes.
 
 ### `msm_diagtab`
 
@@ -497,6 +497,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.8** (2026-08-30): Guarded auto-open paths against shell metacharacters, made accumulated diagnostics fail before state changes on incompatible frames, restored caller abbreviation settings on helper early returns, and corrected Viewer-width help tables.
 - **1.4.7** (2026-08-28): Vectorized counterfactual prediction and Monte Carlo simulation in Mata while preserving seeded results, reducing realistic `msm_predict` runtimes by more than tenfold.
 - **1.4.6** (2026-08-11): Bound downstream artifacts to their owning fit or weights, persisted prediction and balance matrices with saved datasets, corrected fitted-sample sensitivity incidence and RR-scale labels, and exported confounding-strength assumptions and bounds.
 - **1.4.5** (2026-08-05): Made seeded Monte Carlo prediction intervals reproducible across numerically equivalent refits by using the symmetric positive-semidefinite covariance square root.

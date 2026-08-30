@@ -1,4 +1,4 @@
-*! crosstab Version 2.0.1  2026/08/28
+*! crosstab Version 2.0.2  2026/08/30
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,6 +22,7 @@ program define crosstab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    tempname _xlsx_book
 
 capture noisily {
 
@@ -755,7 +756,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -841,7 +842,7 @@ capture noisily {
             if `"`footnote'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
                 matrix `_style_rules' = `_style_rules' \ ///
                     (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
                     (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
@@ -851,10 +852,10 @@ capture noisily {
                     (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
-            _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
-            mata: b.close_book()
+            mata: `_xlsx_book'.close_book()
 
             * xl() appends a style record for every styled cell instead of
             * reusing one per distinct format, so collapse the pools here;
@@ -864,13 +865,13 @@ capture noisily {
         }
         if _rc {
             local _format_rc = _rc
-            capture mata: b.close_book()
-            capture mata: mata drop b
+            capture mata: `_xlsx_book'.close_book()
+            capture mata: mata drop `_xlsx_book'
             noisily display as error "Excel formatting failed with error `_format_rc'"
             restore
             exit `_format_rc'
         }
-        capture mata: mata drop b
+        capture mata: mata drop `_xlsx_book'
         capture confirm file "`xlsx'"
         if _rc {
             noisily display as error "Export command succeeded but file not found"

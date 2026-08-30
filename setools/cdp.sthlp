@@ -33,9 +33,9 @@
 {synopt:{opt dx:date(varname)}}per-person diagnosis date{p_end}
 
 {syntab:Optional}
-{synopt:{opt gen:erate(name)}}name for CDP date variable; default is {cmd:cdp_date}{p_end}
-{synopt:{opt conf:irmdays(#)}}days required for confirmation; default is {cmd:180}{p_end}
-{synopt:{opt confirmt:ype(type)}}confirmation rule: {cmd:sustained} (default) or {cmd:visit}{p_end}
+{synopt:{opt gen:erate(name)}}CDP date variable; default {cmd:cdp_date}{p_end}
+{synopt:{opt conf:irmdays(#)}}confirmation days; default {cmd:180}{p_end}
+{synopt:{opt confirmt:ype(type)}}{cmd:sustained} (default) or {cmd:visit} rule{p_end}
 {synopt:{opt base:linewindow(#)}}baseline window; default 730 days{p_end}
 {synopt:{opt three:tier}}use three-tier EDSS thresholds{p_end}
 {synopt:{opt event:var(name)}}0/1 CDP event indicator{p_end}
@@ -300,7 +300,7 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(confirmdays)}}confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated CDP date variable{p_end}

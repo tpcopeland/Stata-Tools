@@ -3,7 +3,7 @@ d 'COMORBIDITY': Charlson and Elixhauser comorbidity indices from ICD code field
 d
 d Requires: Stata version 16+; codescan
 d
-d Distribution-Date: 20260619
+d Distribution-Date: 20260830
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

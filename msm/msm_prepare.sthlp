@@ -224,7 +224,7 @@ see the current pipeline state:{p_end}
 {synopt:{cmd:r(period)}}name of the period variable{p_end}
 {synopt:{cmd:r(treatment)}}name of the treatment variable{p_end}
 {synopt:{cmd:r(outcome)}}name of the outcome variable{p_end}
-{synopt:{cmd:r(censor)}}name of the censoring variable (empty if not specified){p_end}
+{synopt:{cmd:r(censor)}}censoring variable; empty if omitted{p_end}
 {synopt:{cmd:r(covariates)}}time-varying covariates{p_end}
 {synopt:{cmd:r(baseline_covariates)}}baseline covariates{p_end}
 

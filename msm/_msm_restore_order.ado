@@ -1,4 +1,4 @@
-*! _msm_restore_order Version 1.4.7  2026/08/28
+*! _msm_restore_order Version 1.4.8  2026/08/30
 *! Restore observation order from a temporary sequence variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility

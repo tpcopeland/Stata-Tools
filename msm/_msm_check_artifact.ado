@@ -1,4 +1,4 @@
-*! _msm_check_artifact Version 1.4.7  2026/08/28
+*! _msm_check_artifact Version 1.4.8  2026/08/30
 *! Verify and optionally hydrate downstream MSM artifacts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

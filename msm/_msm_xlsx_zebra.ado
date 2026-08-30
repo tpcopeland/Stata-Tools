@@ -1,4 +1,4 @@
-*! _msm_xlsx_zebra Version 1.4.7  2026/08/28
+*! _msm_xlsx_zebra Version 1.4.8  2026/08/30
 *! Apply alternating row fill to an open xl() workbook object
 *! Author: Timothy P Copeland, Karolinska Institutet
 

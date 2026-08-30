@@ -30,9 +30,9 @@
 {synopthdr}
 {synoptline}
 {synopt:{opt eva:lue}}compute E-value; default with no options{p_end}
-{synopt:{opt conf:ounding_strength(# #)}}RR(U,D) and RR(U,Y) for bias factor computation{p_end}
+{synopt:{opt conf:ounding_strength(# #)}}RR(U,D) and RR(U,Y) for bias factor{p_end}
 {synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
-{synopt:{opt rarethr:eshold(#)}}rare/common cumulative-incidence cut; default {cmd:0.15}{p_end}
+{synopt:{opt rarethr:eshold(#)}}rare-outcome cut; default {cmd:0.15}{p_end}
 {synopt:{opt orapprox}}force the raw OR/HR as the RR scale{p_end}
 {synoptline}
 
@@ -193,11 +193,11 @@ RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 {p2col 5 25 29 2: Scalars}{p_end}
 {synopt:{cmd:r(evalue_point)}}E-value for the point estimate{p_end}
 {synopt:{cmd:r(evalue_ci)}}E-value for the CI limit closest to the null{p_end}
-{synopt:{cmd:r(effect)}}treatment effect estimate (OR, HR, or coefficient){p_end}
+{synopt:{cmd:r(effect)}}effect estimate (OR, HR, or coefficient){p_end}
 {synopt:{cmd:r(effect_lo)}}lower confidence bound{p_end}
 {synopt:{cmd:r(effect_hi)}}upper confidence bound{p_end}
 {synopt:{cmd:r(effect_se)}}standard error of the effect term{p_end}
-{synopt:{cmd:r(bias_factor)}}computed bias factor (with {opt confounding_strength()}){p_end}
+{synopt:{cmd:r(bias_factor)}}bias factor from {opt confounding_strength()}{p_end}
 {synopt:{cmd:r(bound)}}bias-adjusted bound on the RR scale{p_end}
 {synopt:{cmd:r(corrected_effect)}}backward-compatible alias of {cmd:r(bound)}{p_end}
 {synopt:{cmd:r(rr_ud)}}hypothetical RR(U,D) specified{p_end}

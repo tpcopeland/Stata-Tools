@@ -46,7 +46,7 @@ capture noisily {
     1 "E119"
     end
     capture comorbidity dx1, charlson(original)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: missing id rejected"

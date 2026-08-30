@@ -1,4 +1,4 @@
-*! msm_table Version 1.4.7  2026/08/28
+*! msm_table Version 1.4.8  2026/08/30
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -54,6 +54,10 @@ program define msm_table, nclass
         TITle(string) REPLACE Font(string) FONTSize(integer 10) ///
         BORDERstyle(string) NFORmat(string) ZEBRA BOLDp(real 0) ///
         HIGHlight(real 0) FOOTnote(string) OPEN]
+
+    if "`open'" != "" {
+        _msm_validate_path, path(`"`macval(xlsx)'"') context("xlsx()")
+    }
 
     * Defaults
     if "`sep'" == "" local sep ", "

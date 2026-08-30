@@ -1,4 +1,4 @@
-*! simtab Version 2.0.0  2026/08/19
+*! simtab Version 2.0.1  2026/08/30
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -54,6 +54,7 @@ program define simtab, rclass
     local _ret_md_cols .
     local _ret_xlsx ""
     local _ret_sheet ""
+    tempname _book
     capture noisily {
 
         capture putexcel close
@@ -593,7 +594,7 @@ program define simtab, rclass
                     quietly replace `rejected' = (`reject' != 0) if !missing(`reject')
                 }
                 else if `"`pvalue'"' != "" {
-                    quietly replace `rejected' = (`pvalue' < `alpha') if !missing(`pvalue')
+                    quietly replace `rejected' = (`pvalue' <= `alpha') if !missing(`pvalue')
                 }
                 else {
                     display as error "power requested but neither reject() nor pvalue() was supplied"
@@ -602,12 +603,13 @@ program define simtab, rclass
             }
 
             * ----- squared deviation for MSE -----
-            tempvar sqdev
+            tempvar sqdev sqse mean_sqse
             quietly gen double `sqdev' = (`estimate' - `truev')^2
+            quietly gen double `sqse' = `se'^2
 
             * ----- collapse to cell level -----
             collapse (count) n=`estimate' n_coverage=`covered' n_power=`rejected' ///
-                (mean) m_mean=`estimate' m_meanse=`se' ///
+                (mean) m_mean=`estimate' `mean_sqse'=`sqse' ///
                 truev=`truev' m_coverage=`covered' m_power=`rejected' m_mse=`sqdev' ///
                 (sd) m_empse=`estimate' _sd_sqdev=`sqdev', ///
                 by(`byord' `bylab_t' `estord' `estlab_t' `emdord' `emdlab_t')
@@ -620,6 +622,8 @@ program define simtab, rclass
             rename `emdlab_t' emdlab
 
             * ----- derived metrics -----
+            quietly gen double m_meanse  = sqrt(`mean_sqse')
+            quietly drop `mean_sqse'
             quietly gen double m_bias    = m_mean - truev
             quietly gen double m_pctbias = 100*m_bias/truev
             quietly gen double m_rmse    = sqrt(m_mse)
@@ -968,7 +972,7 @@ program define simtab, rclass
             if "`_hborder'" == "none"   local _hbc = 4
 
             * ----- write the sheet -----
-            _simtab_xlsx_write using `"`xlsx'"', sheet(`"`sheet'"') book(b)
+            _simtab_xlsx_write using `"`xlsx'"', sheet(`"`sheet'"') book(`_book')
             local _book_open = 1
 
             * ----- build style rules -----
@@ -1061,11 +1065,11 @@ program define simtab, rclass
             }
 
             _simtab_xlsx_build_styles, matrix(`_rules') rules(`"`_spec'"') cols(9)
-            _simtab_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
+            _simtab_xlsx_apply_styles, book(`_book') sheet(`"`sheet'"') ///
                 rules(`_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
 
-            mata: b.close_book()
+            mata: `_book'.close_book()
             local _book_open = 0
 
             * xl() appends a style record for every styled cell instead of
@@ -1073,7 +1077,7 @@ program define simtab, rclass
             * a workbook that keeps growing would otherwise reach Stata's
             * 65,536-record ceiling and fail with r(16147).
             _simtab_xlsx_compact_styles using "`xlsx'"
-            capture mata: mata drop b
+            capture mata: mata drop `_book'
 
             capture confirm file `"`xlsx'"'
             if _rc {
@@ -1088,9 +1092,9 @@ program define simtab, rclass
     }
     local rc = _rc
     if `_book_open' {
-        capture mata: b.close_book()
+        capture mata: `_book'.close_book()
     }
-    capture mata: mata drop b
+    capture mata: mata drop `_book'
     if `_restore_needed' capture restore
     set varabbrev `_orig_varabbrev'
 
