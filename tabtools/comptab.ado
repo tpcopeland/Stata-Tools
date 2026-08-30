@@ -1,4 +1,4 @@
-*! comptab Version 2.0.2  2026/08/30
+*! comptab Version 2.0.3  2026/08/30
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1447,93 +1447,85 @@ program define _comptab_rates, rclass
             return local sheet "`sheet'"
         }
         if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
-    }
 
-	    local _rc = _rc
-	    if `_rc' {
-	        if `"`_display_build_name'"' != "" capture frame drop `_display_build_name'
-	        if `"`_eplot_build_name'"' != "" capture frame drop `_eplot_build_name'
-	        if `_userdata_saved' capture quietly use "`_userdata_path'", clear
-        set varabbrev `_orig_varabbrev'
-        exit `_rc'
-    }
-
-    local _forest_rc_hold 0
-    if "`forest'" != "" {
-        capture which eplot
-        local _which_eplot_rc = _rc
-        if `_which_eplot_rc' {
-            display as error "forest requires eplot"
-            display as error `"Install with: net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace"'
-	            local _forest_rc_hold 111
-        }
-        else {
-            local _eplotoptions_clean = strtrim(`"`eplotoptions'"')
-            if substr(`"`_eplotoptions_clean'"', 1, 1) == "," {
-                local _eplotoptions_clean = strtrim(substr(`"`_eplotoptions_clean'"', 2, .))
-            }
-	            frame `_eplot_build_name': quietly count if rowtype == "effect"
-            if r(N) == 0 {
-                display as error "forest requires an eplotframe with effect rows"
-	                local _forest_rc_hold 2000
+        local _forest_rc_hold 0
+        if "`forest'" != "" {
+            capture which eplot
+            local _which_eplot_rc = _rc
+            if `_which_eplot_rc' {
+                display as error "forest requires eplot"
+                display as error `"Install with: net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace"'
+                local _forest_rc_hold 111
             }
             else {
-	                capture noisily eplot, frame(`_eplot_build_name') labels(label) rowtype(rowtype) ///
-                    style(forest) effect("`effect'") values `_eplotoptions_clean'
-                local _eplot_rc = _rc
-                if `_eplot_rc' local _forest_rc_hold = `_eplot_rc'
+                local _eplotoptions_clean = strtrim(`"`eplotoptions'"')
+                if substr(`"`_eplotoptions_clean'"', 1, 1) == "," {
+                    local _eplotoptions_clean = strtrim(substr(`"`_eplotoptions_clean'"', 2, .))
+                }
+                frame `_eplot_build_name': quietly count if rowtype == "effect"
+                if r(N) == 0 {
+                    display as error "forest requires an eplotframe with effect rows"
+                    local _forest_rc_hold 2000
+                }
+                else {
+                    capture noisily eplot, frame(`_eplot_build_name') labels(label) rowtype(rowtype) ///
+                        style(forest) effect("`effect'") values `_eplotoptions_clean'
+                    local _eplot_rc = _rc
+                    if `_eplot_rc' local _forest_rc_hold = `_eplot_rc'
+                }
             }
         }
-	    }
 
-	    if `_forest_rc_hold' != 0 local _rc = `_forest_rc_hold'
-	    if `_rc' {
-	        if `"`_display_build_name'"' != "" capture frame drop `_display_build_name'
-	        if `"`_eplot_build_name'"' != "" capture frame drop `_eplot_build_name'
-	        quietly use "`_userdata_path'", clear
-	        set varabbrev `_orig_varabbrev'
-	        exit `_rc'
-	    }
+        if `_forest_rc_hold' != 0 exit `_forest_rc_hold'
 
-	    * Final frame commit: validate both staged schemas, then replace caller
-	    * destinations only after every preceding operation has succeeded.
-	    if `"`_display_build_name'"' != "" {
-	        frame `_display_build_name': confirm variable title
-	        frame `_display_build_name': confirm variable c1
-	    }
-	    if `"`_eplot_build_name'"' != "" {
-	        foreach _v in label estimate ll ul pvalue model model_label rowtype source_row source_frame {
-	            frame `_eplot_build_name': confirm variable `_v'
-	        }
-	    }
-	    if `"`_eplot_build_name'"' != "" & !`_eplotframe_temporary' {
-	        capture confirm frame `_eplotframe_name'
-	        if !_rc frame drop `_eplotframe_name'
-	        frame rename `_eplot_build_name' `_eplotframe_name'
-	        local _eplot_build_name ""
-	    }
-	    if `"`_display_build_name'"' != "" {
-	        capture confirm frame `_displayframe_name'
-	        if !_rc frame drop `_displayframe_name'
-	        frame rename `_display_build_name' `_displayframe_name'
-	        local _display_build_name ""
-	    }
-	    if `_eplotframe_temporary' & `"`_eplot_build_name'"' != "" {
-	        capture frame drop `_eplot_build_name'
-	        local _eplot_build_name ""
-	    }
-	    quietly use "`_userdata_path'", clear
-	    set varabbrev `_orig_varabbrev'
-	    return clear
-	    if `"`_displayframe_name'"' != "" return local frame "`_displayframe_name'"
+        * Final frame commit: validate both staged schemas, then replace caller
+        * destinations only after every preceding operation has succeeded.
+        if `"`_display_build_name'"' != "" {
+            frame `_display_build_name': confirm variable title
+            frame `_display_build_name': confirm variable c1
+        }
+        if `"`_eplot_build_name'"' != "" {
+            foreach _v in label estimate ll ul pvalue model model_label rowtype source_row source_frame {
+                frame `_eplot_build_name': confirm variable `_v'
+            }
+        }
+        if `"`_eplot_build_name'"' != "" & !`_eplotframe_temporary' {
+            capture confirm frame `_eplotframe_name'
+            if !_rc frame drop `_eplotframe_name'
+            frame rename `_eplot_build_name' `_eplotframe_name'
+            local _eplot_build_name ""
+        }
+        if `"`_display_build_name'"' != "" {
+            capture confirm frame `_displayframe_name'
+            if !_rc frame drop `_displayframe_name'
+            frame rename `_display_build_name' `_displayframe_name'
+            local _display_build_name ""
+        }
+        if `_eplotframe_temporary' & `"`_eplot_build_name'"' != "" {
+            capture frame drop `_eplot_build_name'
+            local _eplot_build_name ""
+        }
+        quietly use "`_userdata_path'", clear
+    } // end capture noisily
+    local _rc = _rc
+    if `_rc' {
+        if `"`_display_build_name'"' != "" capture frame drop `_display_build_name'
+        if `"`_eplot_build_name'"' != "" capture frame drop `_eplot_build_name'
+        if `_userdata_saved' capture quietly use "`_userdata_path'", clear
+    }
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
+
+    return clear
+    if `"`_displayframe_name'"' != "" return local frame "`_displayframe_name'"
     return scalar N_rows = `lastrow'
     return scalar N_outcomes = `outcomes'
     return scalar N_sections = `n_sections'
     return scalar N_modelrows = `_selected_total'
     return scalar N_modelframes = `n_frames'
-	    return scalar ci_level = `_ci_level'
-	    return local rateframe "`_rateframe_original'"
-	    return local modelframes "`_modelframes_original'"
+    return scalar ci_level = `_ci_level'
+    return local rateframe "`_rateframe_original'"
+    return local modelframes "`_modelframes_original'"
     return local effect "`effect'"
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
     if "`csv'" != "" return local csv "`csv'"

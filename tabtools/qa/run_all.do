@@ -1,4 +1,4 @@
-* run_all.do - QA runner for tabtools (flat layout, v2.0.2)
+* run_all.do - QA runner for tabtools (flat layout, v2.0.3)
 * Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
 *
 * Lanes:
