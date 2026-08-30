@@ -1,4 +1,4 @@
-*! cci_se Version 1.5.6  2026/08/28
+*! cci_se Version 1.5.7  2026/08/30
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -28,7 +28,7 @@ program define cci_se, rclass
     syntax [if] [in], ID(varname) ICD(varlist) ///
         DATE(varname) ///
         [GENerate(name) COMPonents DATEs PREFIX(string) ///
-         DATEFormat(string) INDEXDate(varname) LOOKback(integer -1) NOIsily]
+         DATEFormat(string) INDEXDate(varname) LOOKback(string) NOIsily]
 
     * ---------------------------------------------------------------
     * Defaults
@@ -135,7 +135,14 @@ program define cci_se, rclass
             exit 109
         }
     }
-    if `lookback' != -1 {
+    if "`lookback'" != "" {
+        local _cci_lookback_words : word count `lookback'
+        capture confirm integer number `lookback'
+        if _rc | `_cci_lookback_words' != 1 {
+            display as error "lookback() must be a positive integer (days)"
+            exit 198
+        }
+        local lookback = `lookback'
         if "`indexdate'" == "" {
             display as error "lookback() requires indexdate()"
             exit 198
@@ -267,7 +274,7 @@ program define cci_se, rclass
             quietly drop if missing(`indexdate')
         }
         quietly drop if `parsed_date' > `indexdate'
-        if `lookback' != -1 {
+        if "`lookback'" != "" {
             quietly drop if `parsed_date' < `indexdate' - `lookback'
         }
         quietly count
@@ -493,7 +500,7 @@ program define cci_se, rclass
     return scalar mean_cci   = `mean_cci'
     return scalar max_cci    = `max_cci'
     return scalar N_excluded_window = `N_excluded_window'
-    if `lookback' != -1 {
+    if "`lookback'" != "" {
         return scalar lookback = `lookback'
     }
 

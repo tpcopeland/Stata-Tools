@@ -1,4 +1,4 @@
-*! _comorbidity_dictionary Version 1.0.0  2026/06/19
+*! _comorbidity_dictionary Version 1.0.1  2026/08/30
 *! Built-in ICD-10 condition dictionaries for comorbidity
 *! Author: Timothy P Copeland, Karolinska Institutet
 

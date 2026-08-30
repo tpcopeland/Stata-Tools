@@ -25,11 +25,14 @@ capture noisily {
     1 .20 .05 0
     end
     tempfile before out
+    unab vars_before : _all
     save "`before'", replace
     local xlsx "`out'.xlsx"
     capture noisily simtab estimator, estimate(estimate) se(se) true(true) xlsx("`xlsx'") sheet("bad:name")
     local rc = _rc
     assert `rc' == 198
+    unab vars_after : _all
+    assert "`vars_after'" == "`vars_before'"
     cf _all using "`before'"
 }
 if _rc == 0 local ++pass
@@ -44,15 +47,93 @@ capture noisily {
     1 .20 .05 0
     end
     tempfile before out
+    unab vars_before : _all
     save "`before'", replace
     local xlsx "`out'.xlsx"
     capture noisily simtab estimator, estimate(estimate) se(se) true(true) ///
         digits(-2) sedigits(2) xlsx("`xlsx'") sheet("Results")
     local rc = _rc
     assert `rc' == 198
+    unab vars_after : _all
+    assert "`vars_after'" == "`vars_before'"
     cf _all using "`before'"
     capture confirm file "`xlsx'"
     assert _rc == 601
+}
+if _rc == 0 local ++pass
+else local ++fail
+
+* Summary coverage mappings must be proportions in [0,1].
+local ++tests
+capture noisily {
+    clear
+    input byte method double value
+    1 1.2
+    end
+    tempfile before
+    unab vars_before : _all
+    save "`before'", replace
+    capture noisily simtab, from(summary) estimatorvar(method) ///
+        measures(coverage=value) display
+    assert _rc == 198
+    unab vars_after : _all
+    assert "`vars_after'" == "`vars_before'"
+    cf _all using "`before'"
+}
+if _rc == 0 local ++pass
+else local ++fail
+
+* Summary power mappings must also be proportions in [0,1].
+local ++tests
+capture noisily {
+    clear
+    input byte method double value
+    1 -0.1
+    end
+    tempfile before
+    unab vars_before : _all
+    save "`before'", replace
+    capture noisily simtab, from(summary) estimatorvar(method) ///
+        measures(power=value) display
+    assert _rc == 198
+    unab vars_after : _all
+    assert "`vars_after'" == "`vars_before'"
+    cf _all using "`before'"
+}
+if _rc == 0 local ++pass
+else local ++fail
+
+* Duplicate simsum measure rows cannot be mapped to a unique cell.
+local ++tests
+capture noisily {
+    clear
+    input str8 perfmeascode double estimate0
+    "bias" 1
+    "bias" 2
+    end
+    label variable estimate0 "Method A"
+    tempfile before
+    unab vars_before : _all
+    save "`before'", replace
+    capture noisily simtab, from(simsum) display
+    assert _rc == 459
+    unab vars_after : _all
+    assert "`vars_after'" == "`vars_before'"
+    cf _all using "`before'"
+}
+if _rc == 0 local ++pass
+else local ++fail
+
+* open is valid only with an Excel output target.
+local ++tests
+capture noisily {
+    clear
+    input byte estimator double estimate se true
+    1 .10 .05 0
+    1 .20 .05 0
+    end
+    capture noisily simtab estimator, estimate(estimate) se(se) true(true) open display
+    assert _rc == 198
 }
 if _rc == 0 local ++pass
 else local ++fail

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.6  28aug2026}{...}
+{* *! version 1.5.7  30aug2026}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
@@ -30,9 +30,9 @@
 {synoptset 24 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt l:ist}}display only command names for the selected category{p_end}
+{synopt:{opt l:ist}}list commands in the selected category{p_end}
 {synopt:{opt d:etail}}display grouped descriptions{p_end}
-{synopt:{opt c:ategory(category)}}filter to {cmd:all}, {cmd:codes}, {cmd:migration}, or {cmd:ms}; default is {cmd:all}{p_end}
+{synopt:{opt c:ategory(category)}}filter category; default {cmd:all}{p_end}
 {synoptline}
 
 
@@ -89,12 +89,12 @@ is {cmd:all}.
 {bf:Registry Code Utilities}
 
 {synoptset 16}{...}
-{synopt:{helpb cci_se}}Swedish Charlson Comorbidity Index (ICD-7 through ICD-10){p_end}
+{synopt:{helpb cci_se}}Swedish Charlson Index for ICD-7 through ICD-10{p_end}
 
 {pstd}
 {bf:Migration Registry}
 
-{synopt:{helpb migrations}}Process Swedish migration registry data for cohort studies{p_end}
+{synopt:{helpb migrations}}Prepare migration-registry cohort data{p_end}
 
 {pstd}
 {bf:MS Disability Progression}
@@ -141,9 +141,9 @@ To install or update setools:
 {synopt:{cmd:r(n_commands)}}number of commands in the selected category{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(commands)}}space-separated command list for the selected category{p_end}
+{synopt:{cmd:r(commands)}}space-separated list for the selected category{p_end}
 {synopt:{cmd:r(version)}}package version{p_end}
-{synopt:{cmd:r(categories)}}allowed values for {opt category()}: {cmd:all codes migration ms}{p_end}
+{synopt:{cmd:r(categories)}}category values: {cmd:all codes migration ms}{p_end}
 {synopt:{cmd:r(category)}}selected category filter{p_end}
 {synopt:{cmd:r(display)}}display mode used: {cmd:grouped}, {cmd:list}, or {cmd:detail}{p_end}
 

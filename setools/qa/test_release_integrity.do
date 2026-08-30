@@ -48,7 +48,7 @@ assert strlen("`distdate'") == 8
 local release_date = substr("`distdate'", 1, 4) + "-" + ///
     substr("`distdate'", 5, 2) + "-" + substr("`distdate'", 7, 2)
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
-local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_dta_path.ado"
+local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_dta_path.ado _setools_gmin.ado _setools_pira_rebase.ado"
 local metadata_files "README.md setools.pkg stata.toc"
 
 capture program drop _assert_file_contains

@@ -3,10 +3,13 @@ clear all
 set more off
 set varabbrev off
 version 16.0
-local qa_dir "`c(pwd)'"
-local pkg_dir = regexr("`qa_dir'", "/qa$", "")
-capture ado uninstall comorbidity
-quietly net install comorbidity, from("`pkg_dir'") replace
+
+capture log close _all
+log using "test_comorbidity_oracle.log", replace text nomsg
+
+do "_comorbidity_qa_common.do"
+_comorbidity_qa_bootstrap
+
 set seed 26082431
 
 local test_count = 200
@@ -48,18 +51,23 @@ forvalues rep = 1/200 {
     capture noisily comorbidity dx1 dx2, id(pid) charlson(original) collapse generate(orc_)
     local call_rc = _rc
     if `call_rc' == 0 {
-        merge 1:1 pid using "`expected'", nogen
-        assert orc_mi == p_mi
-        assert orc_chf == p_chf
-        assert orc_dm_uncomp == p_dm_uncomp
-        assert orc_dm_comp == p_dm_comp
-        assert orc_cancer == p_cancer
-        assert orc_metastatic == p_metastatic
-        assert orc_score == exp_score
-        assert _N == `expected_N'
+        capture noisily {
+            merge 1:1 pid using "`expected'", nogen
+            assert orc_mi == p_mi
+            assert orc_chf == p_chf
+            assert orc_dm_uncomp == p_dm_uncomp
+            assert orc_dm_comp == p_dm_comp
+            assert orc_cancer == p_cancer
+            assert orc_metastatic == p_metastatic
+            assert orc_score == exp_score
+            assert _N == `expected_N'
+        }
+        local check_rc = _rc
     }
-    if _rc == 0 local ++pass_count
+    else local check_rc = `call_rc'
+    if `check_rc' == 0 local ++pass_count
     else local ++fail_count
 }
-display "RESULT: test_comorbidity_oracle tests=`test_count' pass=`pass_count' fail=`fail_count'"
-if `fail_count' > 0 exit 1
+
+_comorbidity_result test_comorbidity_oracle `test_count' `pass_count' `fail_count'
+capture log close _all

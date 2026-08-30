@@ -17,6 +17,7 @@ log using "test_package_release.log", replace text nomsg
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
+local width_checker "`qa_dir'/tools/check_sthlp_width.py"
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
@@ -308,13 +309,40 @@ capture noisily {
     _qa_sthlp_render `broken'
     assert r(nbad) == 1
     erase "`broken'"
+
+    * Literal-SMCL rendering cannot detect a {synopt} description that wraps
+    * past the Viewer's fixed column. Run a self-contained source-width oracle.
+    tempfile width_status
+    capture noisily shell python3 "`width_checker'" "`pkg_dir'" ///
+        --result-file "`width_status'"
+    tempname wsfh
+    file open `wsfh' using "`width_status'", read text
+    file read `wsfh' width_result
+    file close `wsfh'
+    assert "`width_result'" == "PASS"
+
+    * Positive control: the width oracle must reject a valid-SMCL table whose
+    * description is one character wider than its Viewer column.
+    tempfile width_probe width_probe_status
+    tempname wpfh
+    file open `wpfh' using "`width_probe'", write replace text
+    file write `wpfh' "{smcl}" _n
+    file write `wpfh' "{synoptset 20 tabbed}{...}" _n
+    file write `wpfh' "{synopt:{opt probe}}1234567890123456789012345678901234567890123456789012{p_end}" _n
+    file close `wpfh'
+    capture noisily shell python3 "`width_checker'" "`width_probe'" ///
+        --result-file "`width_probe_status'"
+    file open `wsfh' using "`width_probe_status'", read text
+    file read `wsfh' width_probe_result
+    file close `wsfh'
+    assert "`width_probe_result'" == "FAIL"
 }
 if _rc == 0 {
-    display as result "PASS R6: all help renders cleanly and the oracle rejects its broken probe"
+    display as result "PASS R6: help render and Viewer-width oracles pass their controls"
     local ++pass_count
 }
 else {
-    display as error "FAIL R6: rendered-help contract (rc=`=_rc')"
+    display as error "FAIL R6: rendered-help/Viewer-width contract (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' R6"
 }

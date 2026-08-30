@@ -1,4 +1,4 @@
-*! _comorbidity_hierarchy Version 1.0.0  2026/06/19
+*! _comorbidity_hierarchy Version 1.0.1  2026/08/30
 *! Canonical comorbidity supersession hierarchies
 *! Author: Timothy P Copeland, Karolinska Institutet
 

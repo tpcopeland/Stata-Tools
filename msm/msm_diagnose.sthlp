@@ -30,9 +30,9 @@
 {synopthdr}
 {synoptline}
 {synopt:{opth bal:ance_covariates(varlist)}}covariates for SMD balance assessment{p_end}
-{synopt:{opt by_:period}}show weight statistics separately by period{p_end}
+{synopt:{opt by_:period}}show weight statistics by period{p_end}
 {synopt:{opt thr:eshold(#)}}SMD balance threshold; default is {cmd:0.1}{p_end}
-{synopt:{opt posit:ivity(#)}}operational positivity floor; default {cmd:0.01}{p_end}
+{synopt:{opt posit:ivity(#)}}positivity floor; default {cmd:0.01}{p_end}
 {synopt:{opt accum:ulate(name)}}append a diagnostic row to a named frame{p_end}
 {synopt:{opt cont:rast(string)}}label for the accumulated diagnostic row{p_end}
 {synopt:{opt out:come(string)}}outcome label for the accumulate row{p_end}
@@ -197,11 +197,12 @@ missing only when there are no covariates to assess.
 {phang}
 {opt contrast(string)} supplies the contrast label written to the
 {cmd:contrast} column of the accumulate row. It is {bf:required} whenever
-{cmd:accumulate()} is given.
+{cmd:accumulate()} is given and may contain at most 80 bytes.
 
 {phang}
 {opt outcome(string)} supplies an optional outcome label written to the
-{cmd:outcome} column of the accumulate row. It is left empty if not given.
+{cmd:outcome} column of the accumulate row. It may contain at most 40 bytes
+and is left empty if not given.
 
 
 {marker examples}{...}
@@ -274,15 +275,15 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 {synopt:{cmd:r(p99_weight)}}99th percentile weight{p_end}
 {synopt:{cmd:r(ess)}}effective sample size{p_end}
 {synopt:{cmd:r(ess_pct)}}ESS as a percentage of total observations{p_end}
-{synopt:{cmd:r(n_extreme)}}number of observations with extreme weights (above P99){p_end}
+{synopt:{cmd:r(n_extreme)}}observations with weights above P99{p_end}
 {synopt:{cmd:r(n_unavailable)}}covariates whose weighted SMD could not be computed{p_end}
 {synopt:{cmd:r(positivity_threshold)}}operational positivity floor used{p_end}
 {synopt:{cmd:r(n_positivity_violations)}}periods whose {cmd:obs_min} falls below the floor{p_end}
-{synopt:{cmd:r(min_obs_probability)}}smallest estimated P(observed treatment) in the risk set{p_end}
+{synopt:{cmd:r(min_obs_probability)}}minimum P(observed treatment) in risk set{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(treatment_balance)}}primary period/history-specific treatment balance{p_end}
-{synopt:{cmd:r(censor_balance)}}separate period-specific censoring balance, when IPCW exists{p_end}
+{synopt:{cmd:r(censor_balance)}}period-specific censoring balance, when available{p_end}
 {synopt:{cmd:r(support)}}period-specific propensity overlap and ESS{p_end}
 {synopt:{cmd:r(balance)}}secondary pooled person-period balance matrix{p_end}
 

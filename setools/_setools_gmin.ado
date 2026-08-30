@@ -1,4 +1,4 @@
-*! _setools_gmin Version 1.5.6  2026/08/28
+*! _setools_gmin Version 1.5.7  2026/08/30
 *! setools internal: sort-free in-place group minimum
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,4 +1,4 @@
-*! comorbidity Version 1.0.0  2026/06/19
+*! comorbidity Version 1.0.1  2026/08/30
 *! Charlson and Elixhauser comorbidity indices from wide-format ICD code fields
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -210,6 +210,8 @@ program define comorbidity, rclass
                 }
             }
 
+            tempname custom_abs_total
+            scalar `custom_abs_total' = 0
             forvalues i = 1/`custom_n' {
                 local custom_name_`i' = name[`i']
                 local custom_pattern = pattern[`i']
@@ -248,6 +250,11 @@ program define comorbidity, rclass
 
                 local custom_names "`custom_names' `custom_name_`i''"
                 local custom_weight = weight[`i']
+                scalar `custom_abs_total' = `custom_abs_total' + abs(`custom_weight')
+                if missing(`custom_abs_total') {
+                    display as error "sum of absolute custom() weights exceeds Stata's numeric range"
+                    exit 198
+                }
                 local custom_weights "`custom_weights' `custom_weight'"
             }
             quietly save `"`custom_snapshot_path'"', replace

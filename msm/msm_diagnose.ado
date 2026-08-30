@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.4.7  2026/08/28
+*! msm_diagnose Version 1.4.8  2026/08/30
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -64,6 +64,14 @@ program define msm_diagnose, rclass
         display as error "contrast()/outcome() require accumulate()"
         exit 198
     }
+    if strlen(`"`macval(contrast)'"') > 80 {
+        display as error "contrast() may not exceed 80 bytes"
+        exit 198
+    }
+    if strlen(`"`macval(outcome)'"') > 40 {
+        display as error "outcome() may not exceed 40 bytes"
+        exit 198
+    }
 
     * The SMD threshold must be finite and nonnegative (audit A26): a negative
     * threshold makes |SMD| > threshold always true (everything "imbalanced"),
@@ -71,6 +79,17 @@ program define msm_diagnose, rclass
     if `threshold' < 0 | `threshold' >= . {
         display as error "threshold() must be finite and nonnegative; got `threshold'"
         exit 198
+    }
+
+    * Existing accumulation frames must match the documented fixed schema
+    * exactly. Validate before diagnostics matrices or characteristics are
+    * committed, so a rejected frame leaves the prior pipeline state untouched.
+    if "`accumulate'" != "" {
+        capture frame `accumulate': describe
+        if _rc == 0 {
+            capture noisily frame `accumulate': _msm_diag_frame_check
+            if _rc exit _rc
+        }
     }
 
     * Preserve the accumulate labels before the internal `outcome' local (set

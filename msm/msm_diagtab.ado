@@ -1,4 +1,4 @@
-*! msm_diagtab Version 1.4.7  2026/08/28
+*! msm_diagtab Version 1.4.8  2026/08/30
 *! Export an accumulated cross-contrast MSM weight-diagnostics frame to Excel
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -27,6 +27,10 @@ program define msm_diagtab, nclass
         FOOTnote(string) DECimals(integer 3) THReshold(real 0.1) ///
         Font(string) FONTSize(integer 10) BORDERstyle(string) ///
         ZEBRA OPEN REPLACE]
+
+    if "`open'" != "" {
+        _msm_validate_path, path(`"`macval(xlsx)'"') context("xlsx()")
+    }
 
     * Defaults
     if `"`sheet'"' == "" local sheet "Weight Diagnostics"
@@ -63,6 +67,8 @@ program define msm_diagtab, nclass
         display as error "frame `frame' not found"
         exit 111
     }
+    capture noisily frame `frame': _msm_diag_frame_check
+    if _rc exit _rc
     quietly frame `frame': count
     local n_contrasts = r(N)
     if `n_contrasts' == 0 {

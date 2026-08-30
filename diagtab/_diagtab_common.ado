@@ -1,4 +1,4 @@
-*! _diagtab_common Version 2.0.0  2026/08/19
+*! _diagtab_common Version 2.0.1  2026/08/30
 *! Shared utility programs for diagtab package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -635,6 +635,16 @@ program _diagtab_resolve_format, nclass
     }
     if "`borderstyle'" == "default" local borderstyle "thin"
     local _hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
+
+    capture confirm number `_fontsize'
+    if _rc {
+        display as error "font size must be a positive nonmissing number"
+        exit 198
+    }
+    if missing(`_fontsize') | `_fontsize' <= 0 {
+        display as error "font size must be a positive nonmissing number"
+        exit 198
+    }
 
     * Return via c_local to caller's scope
     c_local _font "`_font'"

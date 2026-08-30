@@ -1,4 +1,4 @@
-*! _msm_post_export_open Version 1.4.7  2026/08/28
+*! _msm_post_export_open Version 1.4.8  2026/08/30
 *! Batch-safe auto-open helper for exported MSM artifacts
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -8,6 +8,11 @@ program define _msm_post_export_open
     set varabbrev off
     capture noisily {
         syntax , FILE(string)
+
+        * Guard before the batch branch as well as before every shell call. A
+        * batch-only test must exercise the same validation as an interactive
+        * auto-open request.
+        _msm_validate_path, path(`"`macval(file)'"') context("file()")
 
         if "`c(mode)'" == "batch" {
             display as text "note: automatic open skipped in batch mode"

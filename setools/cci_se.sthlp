@@ -43,9 +43,9 @@
 {synopt:{opt gen:erate(name)}}Charlson score variable name{p_end}
 {synopt:{opt comp:onents}}generate component indicators{p_end}
 {synopt:{opt date:s}}generate earliest component dates{p_end}
-{synopt:{opt prefix(string)}}prefix for component variable names; default is {cmd:cci_}{p_end}
+{synopt:{opt prefix(string)}}component-variable prefix; default {cmd:cci_}{p_end}
 {synopt:{opt datef:ormat(string)}}date format: {cmd:stata}, {cmd:yyyymmdd}, or {cmd:ymd}{p_end}
-{synopt:{opt indexd:ate(varname)}}restrict diagnoses to on/before this index date{p_end}
+{synopt:{opt indexd:ate(varname)}}restrict diagnoses through an index date{p_end}
 {synopt:{opt look:back(#)}}pre-index window in days{p_end}
 {synopt:{opt noi:sily}}display summary of results{p_end}
 {synoptline}
@@ -364,13 +364,13 @@ ID/date exclusions and, when requested, all {opt indexdate()} and
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(N_input)}}number of retained diagnosis-level observations used{p_end}
+{synopt:{cmd:r(N_input)}}diagnosis rows retained for scoring{p_end}
 {synopt:{cmd:r(N_patients)}}number of unique patients in output{p_end}
 {synopt:{cmd:r(N_any)}}number of patients with CCI > 0{p_end}
 {synopt:{cmd:r(mean_cci)}}mean Charlson score{p_end}
 {synopt:{cmd:r(max_cci)}}maximum Charlson score{p_end}
 {synopt:{cmd:r(N_excluded_window)}}diagnoses outside the index window{p_end}
-{synopt:{cmd:r(lookback)}}lookback window in days (only if {opt lookback()} specified){p_end}
+{synopt:{cmd:r(lookback)}}lookback days; only when specified{p_end}
 
 
 {marker references}{...}

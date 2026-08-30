@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  2026/08/19}{...}
+{* *! version 2.0.1  2026/08/30}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}
@@ -62,62 +62,62 @@ table-grade measures itself from replication-level data.{p_end}
 {synoptset 28 tabbed}{...}
 {synopthdr:input (compute mode)}
 {synoptline}
-{synopt:{opt est:imate(varname)}}replication-level point estimate (required){p_end}
-{synopt:{opt se(varname)}}replication-level model-based SE (required){p_end}
-{synopt:{opt true(#|varname)}}true parameter value: literal or variable (required){p_end}
-{synopt:{opt by(varname)}}scenario / data-generating process (row groups){p_end}
-{synopt:{opt estim:and(varname)}}target parameter (column groups){p_end}
-{synopt:{opt sim(varname)}}replication identifier (enables duplicate check){p_end}
-{synopt:{opt cov:erage(varname)}}pre-computed 0/1 coverage indicator{p_end}
-{synopt:{opt lc:i(varname)}}lower CI limit (for coverage){p_end}
-{synopt:{opt uc:i(varname)}}upper CI limit (for coverage){p_end}
-{synopt:{opt pv:alue(varname)}}replication-level p-value (for power){p_end}
-{synopt:{opt rej:ect(varname)}}pre-computed 0/1 rejection indicator (for power){p_end}
-{synopt:{opt nsim(#)}}set intended replications per cell{p_end}
+{synopt:{opt est:imate(varname)}}point-estimate variable (required){p_end}
+{synopt:{opt se(varname)}}model-based SE variable (required){p_end}
+{synopt:{opt true(#|varname)}}true value, as a number or variable{p_end}
+{synopt:{opt by(varname)}}scenario grouping variable{p_end}
+{synopt:{opt estim:and(varname)}}target-parameter grouping variable{p_end}
+{synopt:{opt sim(varname)}}replication identifier{p_end}
+{synopt:{opt cov:erage(varname)}}0/1 coverage indicator{p_end}
+{synopt:{opt lc:i(varname)}}lower confidence limit{p_end}
+{synopt:{opt uc:i(varname)}}upper confidence limit{p_end}
+{synopt:{opt pv:alue(varname)}}p-value for rejection{p_end}
+{synopt:{opt rej:ect(varname)}}0/1 rejection indicator{p_end}
+{synopt:{opt nsim(#)}}intended replications per cell{p_end}
 {synoptline}
 
 {synopthdr:input (ingest mode)}
 {synoptline}
 {synopt:{opt from(spec)}}{cmd:simsum}, {cmd:siman}, or {cmd:summary}{p_end}
-{synopt:{opt byv:ar(name)}}scenario column ({cmd:from(summary)}){p_end}
-{synopt:{opt estimatorv:ar(name)}}method column ({cmd:from(summary)}){p_end}
-{synopt:{opt estimandv:ar(name)}}target column ({cmd:from(summary)}){p_end}
-{synopt:{opt meas:ures(map)}}column mapping, e.g. {cmd:measures(mean=m bias=b n=nr)}{p_end}
+{synopt:{opt byv:ar(name)}}summary-data scenario column{p_end}
+{synopt:{opt estimatorv:ar(name)}}summary-data method column{p_end}
+{synopt:{opt estimandv:ar(name)}}summary-data target column{p_end}
+{synopt:{opt meas:ures(map)}}measure-to-column mapping{p_end}
 {synoptline}
 
 {synopthdr:metrics and computation}
 {synoptline}
 {synopt:{opt met:rics(tokens)}}metrics to display{p_end}
-{synopt:{opt lev:el(#)}}nominal CI level for Wald coverage; default {cmd:95}{p_end}
-{synopt:{opt alp:ha(#)}}rejection threshold for power; default {cmd:0.05}{p_end}
-{synopt:{opt min:reps(#)}}minimum usable replications per cell; default {cmd:2}{p_end}
-{synopt:{opt warn:reps(#)}}low-precision warning threshold; default {cmd:100}{p_end}
-{synopt:{opt order(data|sort)}}level ordering; default {cmd:data} (first occurrence){p_end}
+{synopt:{opt lev:el(#)}}Wald CI level; default {cmd:95}{p_end}
+{synopt:{opt alp:ha(#)}}rejection cutoff; default {cmd:0.05}{p_end}
+{synopt:{opt min:reps(#)}}minimum cell replications; default {cmd:2}{p_end}
+{synopt:{opt warn:reps(#)}}warning threshold; default {cmd:100}{p_end}
+{synopt:{opt order(data|sort)}}level ordering; default {cmd:data}{p_end}
 {synoptline}
 
 {synopthdr:formatting and output}
 {synoptline}
-{synopt:{opt dig:its(#)}}decimals for estimate-scale metrics; default 2{p_end}
-{synopt:{opt sedig:its(#)}}decimals for SE-scale metrics; default = {cmd:digits()}{p_end}
-{synopt:{opt pctdig:its(#)}}decimals for percent metrics; default 0{p_end}
-{synopt:{opt nosig:n}}suppress leading + on signed metrics{p_end}
-{synopt:{opt xlsx(file)}}Excel workbook (.xlsx); {opt excel()} is a synonym{p_end}
-{synopt:{opt sh:eet(name)}}Excel sheet name; default {cmd:Simulation}{p_end}
+{synopt:{opt dig:its(#)}}estimate-scale decimals; default {cmd:2}{p_end}
+{synopt:{opt sedig:its(#)}}SE-scale decimals; default {opt digits()}{p_end}
+{synopt:{opt pctdig:its(#)}}percentage decimals; default {cmd:0}{p_end}
+{synopt:{opt nosig:n}}omit leading + from signed metrics{p_end}
+{synopt:{opt xlsx(file)}}Excel workbook; {opt excel()} is a synonym{p_end}
+{synopt:{opt sh:eet(name)}}worksheet name; default {cmd:Simulation}{p_end}
 {synopt:{opt csv(file)}}CSV export (.csv){p_end}
-{synopt:{opt mark:down(file)}}Markdown export (.md/.markdown/.qmd/.rmd){p_end}
+{synopt:{opt mark:down(file)}}Markdown output file{p_end}
 {synopt:{opt mdapp:end}}append to an existing Markdown file{p_end}
-{synopt:{opt fra:me(name[, replace])}}store the rendered table as a frame{p_end}
-{synopt:{opt plotf:rame(name[, replace])}}store the numeric companion frame{p_end}
+{synopt:{opt fra:me(name[, replace])}}rendered-table frame{p_end}
+{synopt:{opt plotf:rame(name[, replace])}}numeric companion frame{p_end}
 {synopt:{opt ti:tle(string)}}table title{p_end}
 {synopt:{opt foot:note(string)}}table footnote{p_end}
-{synopt:{opt the:me(name)}}journal theme; see {helpb simtab##themes:simtab} for the accepted names{p_end}
-{synopt:{opt border:style(name)}}default, thin, medium, academic{p_end}
+{synopt:{opt the:me(name)}}journal-formatting theme{p_end}
+{synopt:{opt border:style(name)}}default, thin, medium, or academic{p_end}
 {synopt:{opt headerc:olor(c)}}header fill color{p_end}
 {synopt:{opt zebrac:olor(c)}}zebra stripe color{p_end}
 {synopt:{opt headers:hade}}shade the header row{p_end}
 {synopt:{opt zebra}}alternate-row shading{p_end}
-{synopt:{opt dis:play}}display the table in the Results window{p_end}
-{synopt:{opt open}}open the Excel workbook after export{p_end}
+{synopt:{opt dis:play}}show the table in Results{p_end}
+{synopt:{opt open}}open the exported workbook{p_end}
 {synoptline}
 {p2colreset}{...}
 {p 4 6 2}At least one output target ({opt xlsx()}, {opt csv()}, {opt markdown()},
@@ -307,7 +307,7 @@ true value, n the usable replications in a cell):{p_end}
 {p2col:{cmd:bias}}mean(theta-hat) - theta{p_end}
 {p2col:{cmd:pctbias}}100 * bias / theta{p_end}
 {p2col:{cmd:empse}}sd(theta-hat){p_end}
-{p2col:{cmd:meanse}}mean(se){p_end}
+{p2col:{cmd:meanse}}sqrt(mean(se^2)){p_end}
 {p2col:{cmd:relerr}}100 * (meanse/empse - 1){p_end}
 {p2col:{cmd:mse}}mean((theta-hat - theta)^2){p_end}
 {p2col:{cmd:rmse}}sqrt(mse){p_end}
@@ -318,7 +318,7 @@ true value, n the usable replications in a cell):{p_end}
 {p2colreset}{...}
 
 {pstd}{bf:Coverage source priority}: {opt coverage()} -> {opt lci()}/{opt uci()} -> Wald interval from
-{opt estimate()} + {opt se()} at {opt level()}. {bf:Power source priority}: {opt reject()} -> {opt pvalue()} <
+{opt estimate()} + {opt se()} at {opt level()}. {bf:Power source priority}: {opt reject()} -> {opt pvalue()} <=
 {opt alpha()}.{p_end}
 
 {pstd}{bf:Monte Carlo SEs} (stored in {opt plotframe()}, used to flag coverage): mcse_mean =
@@ -374,30 +374,32 @@ or per-replication bias plot, which need replication-level CIs. Use {cmd:siman}'
 {marker examples}{...}
 {title:Examples}
 
-{pstd}The examples below are workflow sketches. They assume a simulation has posted
-one row per replication in memory (compute mode), or that {helpb simsum}/{cmd:siman}
-output is loaded (ingest mode); {cmd:sim_results_long.dta} stands in for your own
-posted simulation results.{p_end}
+{pstd}{bf:Compute mode with a self-contained fixture}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set obs 40}{p_end}
+{phang2}{cmd:. gen long sim = ceil(_n / 2)}{p_end}
+{phang2}{cmd:. bysort sim: gen byte method = _n}{p_end}
+{phang2}{cmd:. gen double true_value = 0}{p_end}
+{phang2}{cmd:. gen double estimate = cond(method == 1, 0, .05) + (sim - 10.5) / 100}{p_end}
+{phang2}{cmd:. gen double se = .10}{p_end}
+{phang2}{cmd:. simtab method, estimate(estimate) se(se) true(true_value) sim(sim) ///}{p_end}
+{phang2}{cmd:    metrics(mean bias empse meanse coverage n) ///}{p_end}
+{phang2}{cmd:    plotframe(sim_plot, replace) display}{p_end}
 
-{pstd}Compute mode, multiple estimands, full export:{p_end}
-{p 8 8 2}{cmd:. simtab estimator, estimate(estimate) se(se) true(true_value) ///}{p_end}
-{p 12 12 2}{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(1000) ///}{p_end}
-{p 12 12 2}{cmd:metrics(mean bias empse meanse coverage n nonconv) ///}{p_end}
-{p 12 12 2}{cmd:xlsx("sim.xlsx") sheet("Table 2") title("Simulation results") ///}{p_end}
-{p 12 12 2}{cmd:borderstyle(academic) digits(3) plotframe(sim_plot, replace) display}{p_end}
+{pstd}{bf:Export the same results to Excel}{p_end}
+{phang2}{cmd:. simtab method, estimate(estimate) se(se) true(true_value) sim(sim) ///}{p_end}
+{phang2}{cmd:    metrics(mean bias empse meanse coverage n) ///}{p_end}
+{phang2}{cmd:    xlsx("simulation.xlsx") sheet("Performance") theme(nejm)}{p_end}
 
-{pstd}Ingest mode, analysis by simsum, table by simtab:{p_end}
-{p 8 8 2}{cmd:. use sim_results_long.dta, clear}{p_end}
-{p 8 8 2}{cmd:. simsum estimate, true(true_value) se(se) methodvar(estimator) id(sim) mcse clear}{p_end}
-{p 8 8 2}{cmd:. simtab, from(simsum) xlsx("sim.xlsx") sheet("Table 2") display}{p_end}
-
-{pstd}Wide IIVW postfile to long (compute mode), then simtab:{p_end}
-{p 8 8 2}{cmd:. rename (b_mrg se_mrg cov_mrg) (estimate_marginal se_marginal covered_marginal)}{p_end}
-{p 8 8 2}{cmd:. rename (b_slp se_slp cov_slp) (estimate_contrast se_contrast covered_contrast)}{p_end}
-{p 8 8 2}{cmd:. reshape long estimate_ se_ covered_, i(sim scenario estimator) j(estimand) string}{p_end}
-{p 8 8 2}{cmd:. rename (estimate_ se_ covered_) (estimate se covered)}{p_end}
-{p 8 8 2}{cmd:. gen true_value = cond(estimand=="marginal", 0.10, 0.50)}{p_end}
-{p 8 8 2}{cmd:. simtab estimator, estimate(estimate) se(se) true(true_value) by(scenario) estimand(estimand) sim(sim) coverage(covered) display}{p_end}
+{pstd}{bf:Render a pre-computed summary}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input str8 method double(mean bias empse meanse coverage n)}{p_end}
+{phang2}{cmd:  "Method A" 0.01  0.01 0.10 0.11 0.94 500}{p_end}
+{phang2}{cmd:  "Method B" 0.03  0.03 0.12 0.13 0.91 500}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. simtab, from(summary) estimatorvar(method) ///}{p_end}
+{phang2}{cmd:    measures(mean=mean bias=bias empse=empse meanse=meanse ///}{p_end}
+{phang2}{cmd:        coverage=coverage n=n) display}{p_end}
 
 {marker stored}{...}
 {title:Stored results}
@@ -407,7 +409,7 @@ posted simulation results.{p_end}
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(N_cells)}}number of by x estimator x estimand cells{p_end}
-{synopt:{cmd:r(N_input)}}replications passing if/in and all non-SE requirements{p_end}
+{synopt:{cmd:r(N_input)}}input replications before missing-SE exclusions{p_end}
 {synopt:{cmd:r(n_dropped_se)}}replications excluded for a missing {opt se()}{p_end}
 {synopt:{cmd:r(n_by)}}number of by groups{p_end}
 {synopt:{cmd:r(n_estimators)}}number of estimator levels{p_end}
@@ -456,6 +458,6 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 2.0.0{p_end}
+{pstd}Version 2.0.1, 2026-08-30{p_end}
 
 {hline}

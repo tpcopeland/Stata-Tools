@@ -1,4 +1,4 @@
-*! run_all.do  2.1.0  2026/08/28
+*! run_all.do  2.1.1  2026/08/30
 *! Curated isolated runner with quick/core/full/python/network/benchmark lanes
 
 version 16.0
@@ -21,6 +21,7 @@ local quick ///
     test_setools_option_errors ///
     test_release_integrity ///
     test_documentation_examples ///
+    test_setools_sthlp_render ///
     test_audit_regressions ///
     test_setools_v154_regressions ///
     test_setools_v155_regressions ///

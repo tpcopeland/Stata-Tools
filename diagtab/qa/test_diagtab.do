@@ -13,6 +13,8 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local output_dir "`qa_dir'/output"
 if "$DIAGTAB_QA_OUTPUT_DIR" != "" local output_dir "$DIAGTAB_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
+local tools_dir "`qa_dir'/tools"
+local checker "`tools_dir'/check_xlsx.py"
 
 capture ado uninstall diagtab
 quietly net install diagtab, from("`pkg_dir'") replace
@@ -155,6 +157,119 @@ else {
     local ++fail_count
 }
 capture matrix drop C
+
+**## close and scientific cutoffs retain distinct identifiers and labels
+local ++test_count
+capture noisily {
+    clear
+    input byte gold double score
+    1 1.00000015
+    1 2
+    0 1.00000015
+    0 0
+    end
+
+    capture frame drop diag_close_cutoffs
+    diagtab score gold, cutoffs(1.0000001 1.0000002) ///
+        frame(diag_close_cutoffs, replace)
+    matrix C = r(cutoff_table)
+    local cutoff_rows : rownames C
+    assert word("`cutoff_rows'", 1) != word("`cutoff_rows'", 2)
+    assert C[1, 1] == 1
+    assert C[2, 1] == 0.5
+
+    frame diag_close_cutoffs: generate byte _cutoff_row = ///
+        strpos(c1, "Cutoff >=") == 1
+    frame diag_close_cutoffs: bysort c1: generate byte _cutoff_dup = _N
+    frame diag_close_cutoffs: assert _cutoff_dup == 1 if _cutoff_row
+
+    capture frame drop diag_close_cutoffs
+    clear
+    input byte gold double score
+    1 1e-10
+    1 1.0000000001e-10
+    0 0
+    0 2e-10
+    end
+    diagtab score gold, cutoffs(1e-10 1.0000000001e-10) ///
+        frame(diag_close_cutoffs, replace)
+    matrix C = r(cutoff_table)
+    local cutoff_rows : rownames C
+    assert word("`cutoff_rows'", 1) != word("`cutoff_rows'", 2)
+    assert C[1, 1] == 1
+    assert C[2, 1] == 0.5
+    frame diag_close_cutoffs: generate byte _cutoff_row = ///
+        strpos(c1, "Cutoff >=") == 1
+    frame diag_close_cutoffs: bysort c1: generate byte _cutoff_dup = _N
+    frame diag_close_cutoffs: assert _cutoff_dup == 1 if _cutoff_row
+
+    * A threshold that needs 17 significant digits must not shift upward when
+    * normalized: a score exactly equal to it remains test-positive.
+    capture frame drop diag_close_cutoffs
+    clear
+    input byte gold double score
+    1 1.2345678901234567
+    1 2
+    0 0
+    0 0.5
+    end
+    diagtab score gold, cutoffs(1.2345678901234567)
+    matrix C = r(cutoff_table)
+    assert C[1, 1] == 1
+    assert abs(real(word("`r(cutoffs)'", 1)) - ///
+        1.2345678901234567) < 1e-16
+
+    diagtab score gold, cutoff(1.2345678901234567)
+    assert r(sensitivity) == 1
+    assert r(specificity) == 1
+
+    diagtab score gold, optimal
+    assert r(sensitivity) == 1
+    assert r(specificity) == 1
+    assert abs(r(optimal_cutoff) - 1.2345678901234567) < 1e-16
+}
+if _rc == 0 {
+    display as result "  PASS: close/scientific cutoffs have unique names and labels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: close/scientific cutoff mapping (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop diag_close_cutoffs
+capture matrix drop C
+
+**## cutoffs() preserves numeric sorting and numlist range expansion
+local ++test_count
+capture noisily {
+    clear
+    input byte gold double score
+    1 0.9
+    1 0.6
+    0 0.4
+    0 0.1
+    end
+
+    diagtab score gold, cutoffs(0.8 0.2 0.5)
+    assert rowsof(r(cutoff_table)) == 3
+    assert abs(real(word("`r(cutoffs)'", 1)) - 0.2) < 1e-15
+    assert abs(real(word("`r(cutoffs)'", 2)) - 0.5) < 1e-15
+    assert abs(real(word("`r(cutoffs)'", 3)) - 0.8) < 1e-15
+
+    diagtab score gold, cutoffs(0.2(0.3)0.8)
+    assert rowsof(r(cutoff_table)) == 3
+    assert abs(real(word("`r(cutoffs)'", 1)) - 0.2) < 1e-15
+    assert abs(real(word("`r(cutoffs)'", 2)) - 0.5) < 1e-15
+    assert abs(real(word("`r(cutoffs)'", 3)) - 0.8) < 1e-15
+}
+if _rc == 0 {
+    display as result "  PASS: cutoffs() sorts values and expands numlist ranges"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: cutoffs() sorting/range expansion (rc=`=_rc')"
+    local ++fail_count
+}
 
 **## cutoffs() renders undefined predictive values explicitly
 local ++test_count
@@ -603,6 +718,53 @@ else {
     local ++fail_count
 }
 
+* Test: Markdown export, append mode, and return metadata
+capture noisily {
+    use `diagdata', clear
+    tempname md_tag md_fh
+    local md_path "`output_dir'/`md_tag'.md"
+    capture erase "`md_path'"
+
+    diagtab test_binary gold, markdown("`md_path'") ///
+        title("First diagnostic table") footnote("First footnote")
+    assert `"`r(markdown)'"' == `"`md_path'"'
+    assert !missing(r(markdown_rows))
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) == 3
+
+    diagtab test_binary gold, markdown("`md_path'") mdappend ///
+        title("Second diagnostic table") footnote("Second footnote")
+    assert `"`r(markdown)'"' == `"`md_path'"'
+    assert !missing(r(markdown_rows))
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) == 3
+
+    file open `md_fh' using "`md_path'", read text
+    file read `md_fh' md_line
+    local saw_first = 0
+    local saw_second = 0
+    local saw_footnote = 0
+    while r(eof) == 0 {
+        if strpos(`"`md_line'"', "First diagnostic table") local saw_first = 1
+        if strpos(`"`md_line'"', "Second diagnostic table") local saw_second = 1
+        if strpos(`"`md_line'"', "Second footnote") local saw_footnote = 1
+        file read `md_fh' md_line
+    }
+    file close `md_fh'
+    assert `saw_first' == 1
+    assert `saw_second' == 1
+    assert `saw_footnote' == 1
+    capture erase "`md_path'"
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab Markdown append and return metadata"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab Markdown append/returns (rc=`=_rc')"
+    local ++fail_count
+}
+
 * Test: diagtab frame output
 capture noisily {
     use `diagdata', clear
@@ -1028,50 +1190,86 @@ else {
 
 
 
-**# Migrated: border abbreviation
+**# Migrated: border abbreviation and rich Excel alias contract
 
-* T3: diagtab `border`
+* T3: excel() aliases xlsx(), formatting options affect the artifact, and
+*     r(xlsx) reports the actual destination.
 sysuse auto, clear
 gen byte _gold = foreign
 gen byte _test = (mpg >= 25)
-capture noisily diagtab _test _gold, ///
-    border(thin)
+local _t3_xlsx "`output_dir'/_diagtab_excel_alias.xlsx"
+local _t3_status "`output_dir'/_diagtab_excel_alias.status"
+capture erase "`_t3_xlsx'"
+capture erase "`_t3_status'"
+capture noisily {
+    confirm file "`checker'"
+    diagtab _test _gold, excel("`_t3_xlsx'") sheet("Alias") ///
+        title("QA title") footnote("QA footnote") digits(2) border(thin)
+    assert `"`r(xlsx)'"' == `"`_t3_xlsx'"'
+    shell python3 "`checker'" "`_t3_xlsx'" --sheet "Alias" ///
+        --contains "QA title" --contains "QA footnote" ///
+        --contains "50.00%" --has-borders --border-style thin ///
+        --result-file "`_t3_status'" --quiet
+    tempname _t3_fh
+    file open `_t3_fh' using "`_t3_status'", read text
+    file read `_t3_fh' _t3_result
+    file close `_t3_fh'
+    assert "`_t3_result'" == "PASS"
+}
+local _t3_rc = _rc
 drop _gold _test
-if _rc == 0 {
-    display as result "  PASS T3: diagtab border abbreviation"
+if `_t3_rc' == 0 {
+    display as result "  PASS T3: excel alias, digits/title/footnote, border, and r(xlsx)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL T3: diagtab abbreviations (rc=`=_rc')"
+    display as error "  FAIL T3: rich Excel alias contract (rc=`_t3_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T3"
 }
+capture erase "`_t3_xlsx'"
+capture erase "`_t3_status'"
 
 
 **# Migrated: single-cutoff zebra + headershade
 
-* T11: diagtab single-cutoff zebra + headershade. Pre-1.0.3 the measures
-*      header was hardcoded to row 6 and zebra started at the Test- row,
-*      shading the confusion-matrix block instead of the measures section.
-*      The smoke test here is just that the export still succeeds end-to-end
-*      with both options enabled (no out-of-bounds putexcel).
+* T11: inspect the workbook rather than accepting rc=0 as evidence that
+*      headercolor(), zebracolor(), headershade, and zebra were applied.
 sysuse auto, clear
 gen byte _gold = foreign
 gen byte _test = (mpg >= 25)
-capture noisily diagtab _test _gold, ///
-    xlsx("`output_dir'/_v103_diagtab.xlsx") sheet("Test") ///
-    zebra headershade border(thin)
-if _rc == 0 {
-    display as result "  PASS T11: diagtab single-cutoff zebra/headershade"
+local _t11_xlsx "`output_dir'/_v103_diagtab.xlsx"
+local _t11_status "`output_dir'/_v103_diagtab.status"
+capture erase "`_t11_xlsx'"
+capture erase "`_t11_status'"
+capture noisily {
+    confirm file "`checker'"
+    diagtab _test _gold, xlsx("`_t11_xlsx'") sheet("Test") ///
+        zebra zebracolor("217 234 247") ///
+        headershade headercolor("31 78 121") border(thin)
+    shell python3 "`checker'" "`_t11_xlsx'" --sheet "Test" ///
+        --row-fill-contains "Gold +" "31 78 121" ///
+        --row-fill-contains "Sensitivity" "217 234 247" ///
+        --result-file "`_t11_status'" --quiet
+    tempname _t11_fh
+    file open `_t11_fh' using "`_t11_status'", read text
+    file read `_t11_fh' _t11_result
+    file close `_t11_fh'
+    assert "`_t11_result'" == "PASS"
+}
+local _t11_rc = _rc
+if `_t11_rc' == 0 {
+    display as result "  PASS T11: header and zebra fills match requested colors"
     local ++pass_count
 }
 else {
-    display as error "  FAIL T11: diagtab zebra (rc=`=_rc')"
+    display as error "  FAIL T11: workbook fill assertions (rc=`_t11_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T11"
 }
 drop _gold _test
-capture erase "`output_dir'/_v103_diagtab.xlsx"
+capture erase "`_t11_xlsx'"
+capture erase "`_t11_status'"
 
 * ============================================================
 

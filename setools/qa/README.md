@@ -43,10 +43,11 @@ Stata 16 or later is required throughout. No R package is used.
 | File | Covers |
 |---|---|
 | `test_setools.do` | Public command discovery, overview output, and basic command behavior. |
-| `test_setools_option_errors.do` | Dispatcher invalid-option and mutually-exclusive-option errors. |
+| `test_setools_option_errors.do` | Numeric option boundaries, exact rollback, dispatcher invalid-option, and mutually-exclusive-option errors. |
 | `test_setools_oracle.do` | Seeded repeated catalog oracle for exact category command lists and counts. |
 | `test_release_integrity.do` | Relocatable package inventory, version, metadata, author, path, helper, and source contracts. |
 | `test_documentation_examples.do` | Runnable README and help examples, including shipped-data CDP behavior. |
+| `test_setools_sthlp_render.do` | Self-contained literal-SMCL and synopt-width gates with fault injection. |
 | `test_audit_regressions.do` | Cross-command regressions found by prior adversarial audits. |
 | `test_cci_engine_smoke.do` | Minimal installed CCI engine execution. |
 | `test_cci_dates_parity.do` | Component-date and score parity across CCI paths. |
@@ -101,6 +102,7 @@ Stata 16 or later is required throughout. No R package is used.
 | `run_all.do` | Authoritative lane membership and result aggregation. |
 | `benchmark_setools_performance.do` | Seeded registry-scale timing for PIRA, CDP, and sustained EDSS; accepts the person count as its argument. |
 | `_setools_qa_common.do` | Isolated installation and session-state teardown. |
+| `_expected_warnings.txt` | Narrow declarations for warning messages deliberately provoked by negative-path suites. |
 | `tools/build_edss_fixture.do` | Deterministic EDSS fixture generator, run by hand. |
 | `tools/build_cci_authoritative_fixture.py` | Pinned-source CCI vector builder, run by hand. |
 | `tools/compare_cci_fixture.py` | Independent Python CCI comparator used by cross-validation. |
@@ -114,12 +116,12 @@ Stata 16 or later is required throughout. No R package is used.
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `setools` | `test_setools`, `test_setools_abbrev_and_namespace` | `validation_setools` | — | `test_release_integrity` |
-| `cci_se` | CCI engine, date-parity, adversarial, and versioned suites | CCI era, score, date, mapping, boundary, and crosscheck validations | `crossval_cci_se_python` | `test_documentation_examples`, `test_audit_regressions` |
-| `migrations` | Migration regression, rollback, namespace, and versioned suites | Migration boundary, type-2, long/wide, general, and crosscheck validations | `crossval_migrations_python` | `test_documentation_examples`, `test_audit_regressions` |
-| `sustainedss` | Adversarial and versioned regression suites | Known-answer, boundary, general, and crosscheck validations | `crossval_edss_python` | `test_documentation_examples`, `test_audit_regressions` |
-| `cdp` | Adversarial, roving, date-consistency, and versioned suites | Fixed/roving/threshold/boundary/general crosschecks | `crossval_edss_python` | `test_documentation_examples`, `test_audit_regressions` |
-| `pira` | Parser, censoring, and versioned regression suites | PIRA known answers, boundary, general, and crosscheck validations | `crossval_edss_python` | `test_documentation_examples`, `test_audit_regressions` |
+| `setools` | `test_setools`, `test_setools_abbrev_and_namespace` | `validation_setools` | — | `test_release_integrity`, `test_setools_sthlp_render` |
+| `cci_se` | CCI engine, date-parity, adversarial, and versioned suites | CCI era, score, date, mapping, boundary, and crosscheck validations | `crossval_cci_se_python` | Documentation, audit, and help-render suites |
+| `migrations` | Migration regression, rollback, namespace, and versioned suites | Migration boundary, type-2, long/wide, general, and crosscheck validations | `crossval_migrations_python` | Documentation, audit, and help-render suites |
+| `sustainedss` | Adversarial and versioned regression suites | Known-answer, boundary, general, and crosscheck validations | `crossval_edss_python` | Documentation, audit, and help-render suites |
+| `cdp` | Adversarial, roving, date-consistency, and versioned suites | Fixed/roving/threshold/boundary/general crosschecks | `crossval_edss_python` | Documentation, audit, and help-render suites |
+| `pira` | Parser, censoring, and versioned regression suites | PIRA known answers, boundary, general, and crosscheck validations | `crossval_edss_python` | Documentation, audit, and help-render suites |
 
 ## Lane membership
 
@@ -127,7 +129,7 @@ Stata 16 or later is required throughout. No R package is used.
 
 | Lane | Suites |
 |---|---|
-| `quick` | Release/install surfaces, documentation examples, high-risk audit regressions, CCI smoke/date checks, CDP adversarial checks, MS known answers, and the EDSS fixture. |
+| `quick` | Release/install surfaces, documentation examples, help rendering, high-risk audit regressions, CCI smoke/date checks, CDP adversarial checks, MS known answers, and the EDSS fixture. |
 | `core` | `quick` plus every remaining deterministic Stata functional, regression, validation, and internal-crosscheck suite. |
 | `full` | `core` plus the three independent-oracle cross-validation suites (CCI, EDSS progression, migrations). |
 | `python` | The three independent-oracle cross-validation suites only. |
@@ -136,6 +138,6 @@ Stata 16 or later is required throughout. No R package is used.
 
 ## Known gaps
 
-- SMCL rendering and the repository-root version badge are checked by `artifact help` and `check version`, not by the relocatable Stata lane.
+- The repository-root version badge is checked by `check version`, not by the relocatable Stata lane.
 - The optional network checksum is deliberately outside `full`; deterministic release evidence comes from the pinned local fixture and Python parity.
 - `crossval_edss_python` is a coverage-gap filler, not a regression test: it passes on the pre-1.5.5 code as well, because no EDSS-progression defect was known. Its negative controls (perturbed and empty result files must be rejected) are what demonstrate the comparator can fail. `crossval_migrations_python` does fail on pre-1.5.5 code.

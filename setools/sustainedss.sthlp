@@ -33,7 +33,7 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt th:reshold(#)}}EDSS threshold for progression (e.g., 4 or 6){p_end}
+{synopt:{opt th:reshold(#)}}positive EDSS milestone threshold{p_end}
 
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}generated date variable name{p_end}
@@ -43,7 +43,7 @@
 {synopt:{opt event:var(name)}}0/1 sustained-event indicator{p_end}
 {synopt:{opt exit(varname)}}per-person study-exit date{p_end}
 {synopt:{opt keep:all}}retain observations without events{p_end}
-{synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
+{synopt:{opt q:uietly}}suppress progress and summary output{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -130,7 +130,7 @@ so no later assessment is required.
 across all available follow-up in the default and unlimited modes, or through
 the bounded period in window mode. A lower value explicitly permits that amount
 of tolerance; for example, with {cmd:threshold(4) baselinethreshold(3)}, only a
-later value below 3 reverses the candidate.
+later value below 3 reverses the candidate. The value must be nonnegative.
 
 {phang}
 {opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a sustained
@@ -288,7 +288,7 @@ date.{p_end}
 {synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
 {synopt:{cmd:r(threshold)}}EDSS threshold used{p_end}
 {synopt:{cmd:r(confirmwindow)}}confirmation window in days{p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit; only with {opt exit()}{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit with {opt exit()}{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated date variable{p_end}

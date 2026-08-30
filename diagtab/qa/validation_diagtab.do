@@ -1183,6 +1183,55 @@ else {
     local ++fail_count
 }
 
+* --- VC13.10: boundary prevalence-adjusted intervals must not imply certainty ---
+local ++n_total
+capture noisily {
+    clear
+    input byte gold test double score
+    1 1 0.9
+    1 1 0.8
+    0 0 0.2
+    0 0 0.1
+    end
+
+    capture frame drop _val_prev_boundary
+    diagtab test gold, prevalence(0.2) ///
+        frame(_val_prev_boundary, replace)
+    assert r(ppv) == 1
+    assert r(npv) == 1
+    assert missing(r(ppv_lb))
+    assert missing(r(ppv_ub))
+    assert missing(r(npv_lb))
+    assert missing(r(npv_ub))
+    * Direct binomial intervals remain informative at the same boundary.
+    assert r(sensitivity_lb) < 1
+    assert r(specificity_lb) < 1
+    assert strpos("`r(methods)'", "unavailable at boundary") > 0
+    frame _val_prev_boundary {
+        count if inlist(c1, "PPV", "NPV") & c3 == ""
+        assert r(N) == 2
+    }
+
+    diagtab score gold, cutoffs(0.5) prevalence(0.2)
+    matrix C = r(cutoff_table)
+    assert C[1, 7] == 1
+    assert missing(C[1, 8])
+    assert missing(C[1, 9])
+    assert C[1, 10] == 1
+    assert missing(C[1, 11])
+    assert missing(C[1, 12])
+}
+if _rc == 0 {
+    display as result "  PASS: VC13.10 — adjusted predictive-value CIs are unavailable at Se/Sp boundaries"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VC13.10 — boundary adjusted predictive-value intervals (rc=`=_rc')"
+    local ++fail_count
+}
+capture matrix drop C
+capture frame drop _val_prev_boundary
+
 * =========================================================================
 
 **# Summary

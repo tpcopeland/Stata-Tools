@@ -1,4 +1,4 @@
-*! msm_report Version 1.4.7  2026/08/28
+*! msm_report Version 1.4.8  2026/08/30
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -49,6 +49,10 @@ program define msm_report, rclass
     syntax [, EXPort(string) FORmat(string) DECimals(integer 4) ///
         EFORM REPLACE TITle(string) Font(string) FONTSize(integer 10) ///
         BORDERstyle(string) ZEBRA FOOTnote(string) OPEN]
+
+    if "`open'" != "" & `"`export'"' != "" {
+        _msm_validate_path, path(`"`macval(export)'"') context("export()")
+    }
 
     _msm_check_prepared
     _msm_get_settings

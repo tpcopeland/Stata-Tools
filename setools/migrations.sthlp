@@ -28,7 +28,7 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt mig:file(filename)}}path to migration data file (wide or long format){p_end}
+{synopt:{opt mig:file(filename)}}migration data file (wide or long){p_end}
 
 {syntab:Optional}
 {synopt:{opt id:var(varname)}}ID variable; default is {cmd:id}{p_end}
@@ -41,8 +41,8 @@
 {synopt:{opt q:uietly}}suppress the processing summary{p_end}
 {synopt:{opt keep:immigrants}}include post-start immigrants{p_end}
 {synopt:{opt flag}}flag rather than drop exclusions{p_end}
-{synopt:{opt intype(codes)}}long-format {cmd:event_type} values denoting immigration{p_end}
-{synopt:{opt outtype(codes)}}long-format {cmd:event_type} values denoting emigration{p_end}
+{synopt:{opt intype(codes)}}immigration {cmd:event_type} codes{p_end}
+{synopt:{opt outtype(codes)}}emigration {cmd:event_type} codes{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -360,13 +360,13 @@ lookback for comorbidity scoring is complete.{p_end}
 
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2: Scalars}{p_end}
-{synopt:{cmd:r(N_excluded_emigrated)}}Type 1: emigrated before study start, never returned{p_end}
+{synopt:{cmd:r(N_excluded_emigrated)}}Type 1: pre-start emigrants, no return{p_end}
 {synopt:{cmd:r(N_excluded_inmigration)}}Type 2: immigration after study start only{p_end}
 {synopt:{cmd:r(N_excluded_abroad)}}Type 3: abroad at baseline{p_end}
 {synopt:{cmd:r(N_excluded_minresidence)}}Type 4: insufficient continuous residence{p_end}
 {synopt:{cmd:r(N_excluded_total)}}total number excluded across all types{p_end}
 {synopt:{cmd:r(N_censored)}}persons with emigration censoring{p_end}
-{synopt:{cmd:r(N_included_inmigration)}}post-start immigrants included (with {opt keepimmigrants}){p_end}
+{synopt:{cmd:r(N_included_inmigration)}}post-start immigrants kept{p_end}
 {synopt:{cmd:r(N_final)}}analytic sample after exclusions{p_end}
 {synopt:{cmd:r(N_analytic)}}analytic sample after exclusions{p_end}
 {synopt:{cmd:r(N_returned)}}rows returned to memory{p_end}

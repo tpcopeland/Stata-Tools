@@ -1,4 +1,4 @@
-*! desctab Version 2.0.1  2026/08/28 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.0.2  2026/08/30 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -8,6 +8,7 @@ program define desctab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    tempname _xlsx_book _p_raw_mata _smd_raw_mata
 
     capture noisily {
 
@@ -1514,7 +1515,7 @@ program define desctab, rclass
     local _processed_varlist = strtrim("`_processed_varlist'")
     return local varlist "`_processed_varlist'"
     if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
-        capture return matrix table = `_rtable'
+        return matrix table = `_rtable'
     }
 
     * The finalized sink-neutral table now passes through one Stata 17
@@ -1587,14 +1588,14 @@ program define desctab, rclass
 	            capture confirm variable `p_raw'
 	            if !_rc {
 	                local _had_p_raw = 1
-	                mata: _p_raw_save = st_data(., "`p_raw'")
+	                mata: `_p_raw_mata' = st_data(., "`p_raw'")
 	                drop `p_raw'
 	            }
 	            local _had_smd_raw = 0
 	            capture confirm variable `smd_raw'
 	            if !_rc {
 	                local _had_smd_raw = 1
-	                mata: _smd_raw_save = st_data(., "`smd_raw'")
+	                mata: `_smd_raw_mata' = st_data(., "`smd_raw'")
 	                drop `smd_raw'
 	            }
             * Safety: drop any surviving internal variables before export
@@ -1604,23 +1605,23 @@ program define desctab, rclass
 	            capture drop _columnb_*
 	            capture drop m_*
 	            capture drop _uwn*
-		            capture noisily _tabtools_xlsx_write using "`excel'", sheet("`sheet'") book(b)
+		            capture noisily _tabtools_xlsx_write using "`excel'", sheet("`sheet'") book(`_xlsx_book')
 		            local _xlsx_write_rc = _rc
 		            if `_had_p_raw' {
 		                gen double `p_raw' = .
-		                mata: st_store(., "`p_raw'", _p_raw_save)
-		                mata: mata drop _p_raw_save
+		                mata: st_store(., "`p_raw'", `_p_raw_mata')
+		                mata: mata drop `_p_raw_mata'
 		            }
 		            if `_had_smd_raw' {
 		                gen double `smd_raw' = .
-		                mata: st_store(., "`smd_raw'", _smd_raw_save)
-		                mata: mata drop _smd_raw_save
+		                mata: st_store(., "`smd_raw'", `_smd_raw_mata')
+		                mata: mata drop `_smd_raw_mata'
 		            }
 		            if `_xlsx_write_rc' {
 			                local saved_rc = `_xlsx_write_rc'
-			                capture mata: b.close_book()
+			                capture mata: `_xlsx_book'.close_book()
 			                local _xlsx_close_cleanup_rc = _rc
-			                capture mata: mata drop b
+			                capture mata: mata drop `_xlsx_book'
 			                local _xlsx_drop_cleanup_rc = _rc
 			                noisily display as error "Failed to export to `excel'"
 	                noisily display as error "Hint: ensure the xlsx file is not open in another application"
@@ -1971,17 +1972,17 @@ program define desctab, rclass
                 if `"`footnote'"' != "" {
                     local _fn_row = `num_rows' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
-                    mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                    mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
 	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' `_font_code' 0 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0 0"'
                 }
 
 	                _tabtools_xlsx_build_styles, matrix(`_xlsx_style_rules') ///
 	                    rules(`_xlsx_style_rule_spec') cols(10)
-	                _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+	                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
 	                    rules(`_xlsx_style_rules') font("`_font'") ///
 	                    color1("`_headercolor'") color2("`_zebracolor'") ///
 	                    color3("255 255 204") color4("255 235 205")
-                mata: b.close_book()
+                mata: `_xlsx_book'.close_book()
 
                 * xl() appends a style record for every styled cell instead of
                 * reusing one per distinct format, so collapse the pools here;
@@ -1991,23 +1992,22 @@ program define desctab, rclass
             }
 	            if _rc {
 	                local saved_rc = _rc
-	                capture mata: b.close_book()
+	                capture mata: `_xlsx_book'.close_book()
 	                local _style_close_cleanup_rc = _rc
-	                capture mata: mata drop b
+	                capture mata: mata drop `_xlsx_book'
 	                local _style_drop_b_cleanup_rc = _rc
 	                * Drop the saved-state Mata vectors so a failed Excel write
-	                * does not leak _p_raw_save / _smd_raw_save into the user's
-	                * Mata workspace. Without this, a retry on a different table
-	                * size would hit a stale-vector error.
-	                capture mata: mata drop _p_raw_save
+	                * does not leak temporary raw values into Mata. Without this,
+	                * a retry on a different table size could hit stale vectors.
+	                capture mata: mata drop `_p_raw_mata'
 	                local _style_drop_p_cleanup_rc = _rc
-	                capture mata: mata drop _smd_raw_save
+	                capture mata: mata drop `_smd_raw_mata'
 	                local _style_drop_s_cleanup_rc = _rc
                 noisily display as error "Excel formatting failed with error `saved_rc'"
                 restore
                 exit `saved_rc'
             }
-            capture mata: mata drop b
+            capture mata: mata drop `_xlsx_book'
 
             /* Clean up temporary p-value and SMD variables */
             capture drop `p_raw'
@@ -2129,10 +2129,9 @@ program define desctab, rclass
     } // end capture noisily
     local _rc = _rc
     * Unconditional Mata cleanup — runs on success AND on any error path so a
-    * failure mid-Excel-write cannot leak _p_raw_save / _smd_raw_save into the
-    * user's Mata workspace.
-    capture mata: mata drop _p_raw_save
-    capture mata: mata drop _smd_raw_save
+    * failure mid-Excel-write cannot leak its temporary Mata vectors.
+    capture mata: mata drop `_p_raw_mata'
+    capture mata: mata drop `_smd_raw_mata'
     capture frame change `_caller_frame'
     capture frame drop `_result_frame'
     capture frame drop `_wtc_crude_table'

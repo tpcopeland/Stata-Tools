@@ -1,4 +1,4 @@
-* run_all.do - QA runner for tabtools (flat layout, v2.0.1)
+* run_all.do - QA runner for tabtools (flat layout, v2.0.2)
 * Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
 *
 * Lanes:
@@ -86,6 +86,7 @@ local test_files "`test_files' test_tabtools_documentation_examples.do"
 local test_files "`test_files' test_tabtools_oracle.do"
 local test_files "`test_files' test_tabtools_tips.do"
 local test_files "`test_files' test_tabtools_v1163.do"
+local test_files "`test_files' test_tabtools_v202.do"
 local test_files "`test_files' test_theme_removed.do"
 local test_files "`test_files' test_option_coverage.do"
 local test_files "`test_files' test_issue_review_1_11_0.do"

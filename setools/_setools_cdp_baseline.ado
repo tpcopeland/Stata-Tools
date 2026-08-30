@@ -1,4 +1,4 @@
-*! _setools_cdp_baseline Version 1.5.6  2026/08/28
+*! _setools_cdp_baseline Version 1.5.7  2026/08/30
 *! setools internal: per-person baseline EDSS and baseline date columns
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

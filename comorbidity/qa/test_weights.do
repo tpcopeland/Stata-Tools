@@ -77,6 +77,35 @@ else {
 
 local ++test_count
 capture noisily {
+    local names "chf arrhythmia valvular pulmonary_circ pvd htn_uncomp htn_comp"
+    local names "`names' paralysis neuro_other copd dm_uncomp dm_comp hypothyroid renal"
+    local names "`names' liver pud hiv lymphoma metastatic solid_tumor rheumatoid"
+    local names "`names' coagulopathy obesity weight_loss fluid_electrolyte"
+    local names "`names' blood_loss_anemia deficiency_anemia alcohol drug psychoses depression"
+    _comorbidity_weights, index(elixhauser) scheme(vanwalraven) names("`names'")
+    local weights "`r(weights)'"
+    assert wordcount("`weights'") == 31
+    tempname negative positive
+    scalar `negative' = 0
+    scalar `positive' = 0
+    foreach weight of local weights {
+        if `weight' < 0 scalar `negative' = `negative' + `weight'
+        if `weight' > 0 scalar `positive' = `positive' + `weight'
+    }
+    assert `negative' == -19
+    assert `positive' == 89
+}
+if _rc == 0 {
+    display as result "  PASS: van Walraven published score extrema"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: van Walraven score extrema (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
     _comorbidity_weights, index(elixhauser) scheme(vanwalraven) ///
         names("cmb_chf cmb_drug") prefix(cmb_)
     assert "`r(w_cmb_chf)'" == "7"

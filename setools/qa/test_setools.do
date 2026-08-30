@@ -40,7 +40,8 @@ capture noisily {
     assert "$SETOOLS_QA_ACTIVE" == "1"
     foreach ado in setools cci_se migrations sustainedss cdp pira ///
         _setools_cdp_baseline _setools_cdp_thresh ///
-        _setools_cdp_confirm _setools_cdp_core _setools_dta_path {
+        _setools_cdp_confirm _setools_cdp_core _setools_dta_path ///
+        _setools_gmin _setools_pira_rebase {
         findfile `ado'.ado
         local resolved `"`r(fn)'"'
         assert strpos(`"`resolved'"', "$SETOOLS_QA_ISO/plus/") == 1

@@ -1,11 +1,10 @@
 * validation_simtab.do - exact known-answer + simsum oracle for simtab
 
 clear all
-set more off
 set varabbrev off
 version 17.0
 
-capture log close _simtabval
+capture log close _all
 log using "validation_simtab.log", replace text name(_simtabval)
 
 local qa_dir "`c(pwd)'"
@@ -98,7 +97,42 @@ foreach chk in ///
     else local ++fail
 }
 
-* =====================================================================
+**# Regression: model-based SE is root mean square, not arithmetic mean
+* SEs 1 and 3 imply sqrt((1^2 + 3^2)/2) = sqrt(5).
+capture noisily {
+    clear
+    input byte estid double(est se truev)
+    1 -1 1 0
+    1  1 3 0
+    end
+    capture frame drop rms_pf
+    simtab estid, estimate(est) se(se) true(truev) ///
+        metrics(meanse relerr) plotframe(rms_pf, replace)
+    frame rms_pf: assert !missing(meanse[1], relerr[1])
+    frame rms_pf: assert reldif(meanse[1], sqrt(5)) < 1e-12
+    frame rms_pf: assert reldif(relerr[1], 100 * (sqrt(5) / sqrt(2) - 1)) < 1e-12
+}
+if _rc == 0 local ++pass
+else local ++fail
+capture frame drop rms_pf
+
+**# Regression: p-values equal to alpha count as rejections
+capture noisily {
+    clear
+    input byte estid double(est se truev pvalue)
+    1 -1 1 0 .05
+    1  1 1 0 .06
+    end
+    capture frame drop alpha_pf
+    simtab estid, estimate(est) se(se) true(truev) pvalue(pvalue) alpha(.05) ///
+        metrics(power) plotframe(alpha_pf, replace)
+    frame alpha_pf: assert !missing(power[1])
+    frame alpha_pf: assert reldif(power[1], .5) < 1e-12
+}
+if _rc == 0 local ++pass
+else local ++fail
+capture frame drop alpha_pf
+
 **# simsum cross-validation oracle (capture-guarded)
 *   For a tool in simsum's territory, parity with simsum is the bar.
 * =====================================================================
@@ -178,9 +212,7 @@ else {
     }
 }
 
-display as text "{hline 60}"
 display as result "simtab known-answer + oracle: `pass' passed, `fail' failed"
-display as text "{hline 60}"
 local _tc = `pass' + `fail'
 display "RESULT: validation_simtab tests=`_tc' pass=`pass' fail=`fail'"
 assert `fail' == 0

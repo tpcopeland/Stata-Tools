@@ -32,12 +32,12 @@
 {synopthdr}
 {synoptline}
 {syntab:Treatment weight models}
-{synopt:{opt treat_d_cov(varlist)}}covariates for the treatment denominator model{p_end}
+{synopt:{opt treat_d_cov(varlist)}}treatment-denominator covariates{p_end}
 {synopt:{opt treat_n_cov(varlist)}}treatment numerator covariates{p_end}
 
 {syntab:Censoring weight models}
-{synopt:{opt cen:sor_d_cov(varlist)}}covariates for the censoring denominator model{p_end}
-{synopt:{opt cen:sor_n_cov(varlist)}}covariates for the censoring numerator model{p_end}
+{synopt:{opt cen:sor_d_cov(varlist)}}censoring-denominator covariates{p_end}
+{synopt:{opt cen:sor_n_cov(varlist)}}censoring-numerator covariates{p_end}
 
 {syntab:Model time basis}
 {synopt:{opt period_d_spec(spec)}}denominator time basis{p_end}
@@ -48,9 +48,9 @@
 
 {syntab:Model behavior}
 {synopt:{opt fitfailure(policy)}}failure policy; default is {cmd:error}{p_end}
-{synopt:{opt probpolicy(policy)}}probability-support policy; default is {cmd:error}{p_end}
-{synopt:{opt clip(#)}}probability bound required with {cmd:probpolicy(clip)}{p_end}
-{synopt:{opt preview}}display resolved model specs without fitting{p_end}
+{synopt:{opt probpolicy(policy)}}probability-support policy; default {cmd:error}{p_end}
+{synopt:{opt clip(#)}}bound required with {cmd:probpolicy(clip)}{p_end}
+{synopt:{opt preview}}preview model specifications{p_end}
 {synopt:{opt replace}}replace existing weight variables{p_end}
 {synopt:{opt nolog}}suppress logistic model iteration log{p_end}
 {synoptline}
@@ -470,13 +470,13 @@ Scalars are available only after fitting. They are not returned by
 {synopt:{cmd:r(max_weight)}}maximum weight on decision-risk rows{p_end}
 {synopt:{cmd:r(p1_weight)}}1st percentile weight on decision-risk rows{p_end}
 {synopt:{cmd:r(median_weight)}}median weight on decision-risk rows{p_end}
-{synopt:{cmd:r(p99_weight)}}99th percentile weight on decision-risk rows{p_end}
+{synopt:{cmd:r(p99_weight)}}99th percentile risk-set weight{p_end}
 {synopt:{cmd:r(ess)}}effective sample size on decision-risk rows{p_end}
 {synopt:{cmd:r(n_truncated)}}number of decision-risk rows truncated{p_end}
-{synopt:{cmd:r(n_fitfail_fallback)}}number of model-level marginal fallback events{p_end}
+{synopt:{cmd:r(n_fitfail_fallback)}}model-level marginal fallback count{p_end}
 {synopt:{cmd:r(fitfailure_fallback)}}1 if any fallback was used, 0 otherwise{p_end}
-{synopt:{cmd:r(n_probability_repairs)}}total missing, low, and high probability repairs{p_end}
-{synopt:{cmd:r(clip_threshold)}}explicit probability bound, with {cmd:probpolicy(clip)}{p_end}
+{synopt:{cmd:r(n_probability_repairs)}}missing/low/high probability repairs{p_end}
+{synopt:{cmd:r(clip_threshold)}}bound used with {cmd:probpolicy(clip)}{p_end}
 
 {p2col 5 28 32 2: Matrices}{p_end}
 {synopt:{cmd:r(probability_repairs)}}model-period-cell probability audit{p_end}
@@ -487,11 +487,11 @@ The specification macros are returned both after fitting and after
 {cmd:preview}, except {cmd:r(weight_var)} and {cmd:r(fitfailure_models)}, which
 are meaningful after fitting.
 
-{synopt:{cmd:r(weight_var)}}name of the final weight variable ({cmd:_msm_weight}){p_end}
+{synopt:{cmd:r(weight_var)}}final weight variable ({cmd:_msm_weight}){p_end}
 {synopt:{cmd:r(fitfailure_policy)}}resolved failure policy ({cmd:error} or {cmd:marginal}){p_end}
-{synopt:{cmd:r(fitfailure_models)}}model identifiers that used marginal fallback{p_end}
+{synopt:{cmd:r(fitfailure_models)}}models using marginal fallback{p_end}
 {synopt:{cmd:r(probability_policy)}}resolved policy ({cmd:error} or {cmd:clip}){p_end}
-{synopt:{cmd:r(probability_models)}}numeric model codes used in the repair matrix{p_end}
+{synopt:{cmd:r(probability_models)}}model codes in repair matrix{p_end}
 {synopt:{cmd:r(preview)}}{cmd:1} if preview mode was used, {cmd:0} otherwise{p_end}
 {synopt:{cmd:r(treat_d_cov)}}resolved treatment denominator covariates{p_end}
 {synopt:{cmd:r(treat_d_cov_source)}}{cmd:explicit} or {cmd:prepared}{p_end}

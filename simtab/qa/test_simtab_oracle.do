@@ -62,8 +62,11 @@ forvalues rep = 1/200 {
             local want_mean`g' = r(mean)
             quietly summarize est if method == "`label'" & usable
             local want_empse`g' = r(sd)
-            quietly summarize se if method == "`label'" & usable, meanonly
-            local want_meanse`g' = r(mean)
+            tempvar sesq
+            gen double `sesq' = se^2 if method == "`label'" & usable
+            quietly summarize `sesq', meanonly
+            local want_meanse`g' = sqrt(r(mean))
+            drop `sesq'
             tempvar sq
             gen double `sq' = (est - truev)^2 if method == "`label'" & usable
             quietly summarize `sq', meanonly

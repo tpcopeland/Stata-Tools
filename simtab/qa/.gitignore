@@ -4,6 +4,7 @@ run_all.log
 *.xlsx
 *.csv
 *.md
+!README.md
 *.dta
 output/
 __pycache__/

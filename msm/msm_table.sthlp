@@ -37,23 +37,23 @@
 {synopt:{opt coef:ficients}}model coefficients from {helpb msm_fit}{p_end}
 {synopt:{opt pred:ictions}}counterfactual predictions from {helpb msm_predict}{p_end}
 {synopt:{opt bal:ance}}covariate balance (SMD) from {helpb msm_diagnose}{p_end}
-{synopt:{opt weight:s}}weight distribution summary from {helpb msm_diagnose}{p_end}
+{synopt:{opt weight:s}}weight summary from {helpb msm_diagnose}{p_end}
 {synopt:{opt sens:itivity}}E-value analysis from {helpb msm_sensitivity}{p_end}
-{synopt:{opt all}}all available tables on separate sheets (default){p_end}
+{synopt:{opt all}}all available tables; default{p_end}
 
 {syntab:Formatting}
 {synopt:{opt ef:orm}}exponentiate coefficients (OR/HR){p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default is {cmd:3}{p_end}
 {synopt:{opt sep(string)}}CI delimiter; default is {cmd:", "}{p_end}
 {synopt:{opt tit:le(string)}}title for cell A1 of each sheet{p_end}
-{synopt:{opt replace}}replace selected sheet(s) in an existing workbook{p_end}
+{synopt:{opt replace}}replace selected sheet(s){p_end}
 {synopt:{opt f:ont(name)}}font name; default is {cmd:Arial}{p_end}
 {synopt:{opt fonts:ize(#)}}font size in points; default is {cmd:10}{p_end}
 {synopt:{opt border:style(style)}}{cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt nfor:mat(string)}}Excel number format for numeric cells{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt bold:p(#)}}bold p-values below threshold{p_end}
-{synopt:{opt high:light(#)}}highlight significant rows (Coefficients sheet only){p_end}
+{synopt:{opt high:light(#)}}highlight significant coefficient rows{p_end}
 {synopt:{opt foot:note(string)}}merged footnote below each table{p_end}
 {synopt:{opt open}}auto-open Excel file after export{p_end}
 {synoptline}

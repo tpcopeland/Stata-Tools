@@ -32,7 +32,7 @@
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt mod:el(string)}}model type: {cmd:logistic} (default), {cmd:linear}, or {cmd:cox}{p_end}
+{synopt:{opt mod:el(string)}}model: {cmd:logistic} (default), {cmd:linear}, or {cmd:cox}{p_end}
 {synopt:{opt outcome_cov(varlist)}}additional time-fixed outcome covariates{p_end}
 {synopt:{opt exp:osure(varname)}}continuous/time-varying exposure term{p_end}
 {synopt:{opt tvc:ov(varlist)}}time-varying outcome covariates{p_end}
@@ -41,7 +41,7 @@
 {synopt:{opt cl:uster(varname)}}cluster variable; default is ID{p_end}
 {synopt:{opt vce(string)}}robust or clustered standard errors{p_end}
 {synopt:{opt str:ata(varlist)}}Cox-only baseline hazard strata{p_end}
-{synopt:{opt boot:strap(#)}}bootstrap replicates (not yet implemented){p_end}
+{synopt:{opt boot:strap(#)}}bootstrap replicates; not implemented{p_end}
 {synopt:{opt level(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synoptline}

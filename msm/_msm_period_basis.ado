@@ -1,4 +1,4 @@
-*! _msm_period_basis Version 1.4.7  2026/08/28
+*! _msm_period_basis Version 1.4.8  2026/08/30
 *! Build a time basis for the msm weighting models from a period spec
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -36,51 +36,49 @@ program define _msm_period_basis
         local spec = lower(strtrim("`spec'"))
         if "`spec'" == "" local spec "none"
 
-        if "`spec'" == "none" exit
-
-        * linear needs no basis columns: the period variable is the basis.
+        * none needs no regressors; linear uses the period variable directly.
         if "`spec'" == "linear" {
             c_local _msm_period_basis_vars "`x'"
-            exit
         }
+        else if "`spec'" != "none" {
+            if !inlist("`spec'", "quadratic", "cubic") & ///
+                !regexm("`spec'", "^ns\([0-9]+\)$") {
+                display as error ///
+                    "period spec must be none, linear, quadratic, cubic, or ns(#)"
+                exit 198
+            }
 
-        if !inlist("`spec'", "quadratic", "cubic") & ///
-            !regexm("`spec'", "^ns\([0-9]+\)$") {
-            display as error ///
-                "period spec must be none, linear, quadratic, cubic, or ns(#)"
-            exit 198
-        }
+            * A basis column that collides with an existing variable belongs to
+            * the caller's data; refuse rather than overwrite it.
+            capture ds `prefix'*
+            if _rc == 0 {
+                display as error ///
+                    "reserved period-basis name(s) already in the data: `r(varlist)'"
+                display as error "Drop or rename them before weighting."
+                exit 110
+            }
 
-        * A basis column that collides with an existing variable belongs to the
-        * caller's data; refuse rather than overwrite it.
-        capture ds `prefix'*
-        if _rc == 0 {
-            display as error ///
-                "reserved period-basis name(s) already in the data: `r(varlist)'"
-            display as error "Drop or rename them before weighting."
-            exit 110
+            if regexm("`spec'", "^ns\(([0-9]+)\)$") {
+                local _df = regexs(1)
+                local _touse_opt ""
+                if "`touse'" != "" local _touse_opt "touse(`touse')"
+                _msm_natural_spline `x', df(`_df') prefix(`prefix') `_touse_opt'
+                c_local _msm_period_basis_vars "`_msm_spline_vars'"
+                c_local _msm_period_basis_created "`_msm_spline_vars'"
+            }
+            else {
+                quietly gen double `prefix'1 = `x'^2
+                label variable `prefix'1 "Period squared"
+                local created "`prefix'1"
+                if "`spec'" == "cubic" {
+                    quietly gen double `prefix'2 = `x'^3
+                    label variable `prefix'2 "Period cubed"
+                    local created "`created' `prefix'2"
+                }
+                c_local _msm_period_basis_vars "`x' `created'"
+                c_local _msm_period_basis_created "`created'"
+            }
         }
-
-        if regexm("`spec'", "^ns\(([0-9]+)\)$") {
-            local _df = regexs(1)
-            local _touse_opt ""
-            if "`touse'" != "" local _touse_opt "touse(`touse')"
-            _msm_natural_spline `x', df(`_df') prefix(`prefix') `_touse_opt'
-            c_local _msm_period_basis_vars "`_msm_spline_vars'"
-            c_local _msm_period_basis_created "`_msm_spline_vars'"
-            exit
-        }
-
-        quietly gen double `prefix'1 = `x'^2
-        label variable `prefix'1 "Period squared"
-        local created "`prefix'1"
-        if "`spec'" == "cubic" {
-            quietly gen double `prefix'2 = `x'^3
-            label variable `prefix'2 "Period cubed"
-            local created "`created' `prefix'2"
-        }
-        c_local _msm_period_basis_vars "`x' `created'"
-        c_local _msm_period_basis_created "`created'"
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  19jun2026}{...}
+{* *! version 1.0.1  30aug2026}{...}
 {vieweralsosee "codescan" "help codescan"}{...}
 {viewerjumpto "Syntax" "comorbidity##syntax"}{...}
 {viewerjumpto "Description" "comorbidity##description"}{...}
@@ -45,16 +45,16 @@
 {syntab:Shape and windows}
 {synopt:{opt coll:apse}}collapse to one row per {cmd:id()}; default{p_end}
 {synopt:{opt mer:ge}}merge scores back to encounter rows{p_end}
-{synopt:{opt date(varname)}}encounter date variable passed to {cmd:codescan}{p_end}
-{synopt:{opt refd:ate(varname)}}reference date variable passed to {cmd:codescan}{p_end}
-{synopt:{opt lookb:ack(#)}}look back this many days from {cmd:refdate()}{p_end}
-{synopt:{opt lookf:orward(#)}}look forward this many days from {cmd:refdate()}{p_end}
-{synopt:{opt incl:usive}}include the reference date in the time window{p_end}
+{synopt:{opt date(varname)}}encounter date passed to {cmd:codescan}{p_end}
+{synopt:{opt refd:ate(varname)}}reference date passed to {cmd:codescan}{p_end}
+{synopt:{opt lookb:ack(#)}}lower window in days from {cmd:refdate()}{p_end}
+{synopt:{opt lookf:orward(#)}}upper window in days from {cmd:refdate()}{p_end}
+{synopt:{opt incl:usive}}include the reference date in the window{p_end}
 
 {syntab:Output}
 {synopt:{opt gen:erate(prefix)}}prefix indicators; create {it:prefix}{cmd:score}{p_end}
 {synopt:{opt rep:lace}}overwrite nonstructural outputs{p_end}
-{synopt:{opt nohier:archy}}do not apply canonical supersession rules{p_end}
+{synopt:{opt nohier:archy}}skip package supersession rules{p_end}
 {synopt:{opt band}}return patient-level score bands{p_end}
 {synopt:{opt noi:sily}}pass verbose progress to {cmd:codescan}{p_end}
 {synoptline}
@@ -65,7 +65,7 @@
 
 {pstd}
 {cmd:comorbidity} builds ICD-10 condition dictionaries, delegates code matching
-to {cmd:codescan}, applies published hierarchy rules, and computes a weighted
+to {cmd:codescan}, applies package-defined hierarchy rules, and computes a weighted
 patient-level comorbidity score.
 
 {pstd}
@@ -98,7 +98,7 @@ Exactly one of {opt charl:son(scheme)}, {opt elix:hauser(scheme)}, and
 is {cmd:elixhauser(vanwalraven)}, while
 {cmd:elixhauser(ahrq_mortality)} and
 {cmd:elixhauser(ahrq_readmission)} are reserved and return an error in this
-development build.
+release.
 
 {phang}
 {opt cust:om(filename)} uses a user-supplied {cmd:.csv} or {cmd:.dta}
@@ -106,7 +106,8 @@ code file. The file must contain {cmd:name}, {cmd:pattern}, and {cmd:weight}
 columns. {cmd:name} is the condition variable name, {cmd:pattern} is the
 ICD-10 pattern passed to {cmd:codescan}, and {cmd:weight} is the numeric
 score weight. The schema, weights, and generated names are validated before
-the caller's data are scanned.
+the caller's data are scanned. The sum of the absolute weights must fit within
+Stata's numeric range.
 
 {phang}
 {opt collapse} and {opt merge} control the output shape. {cmd:collapse}
@@ -146,7 +147,10 @@ negative scores, score 0, scores greater than 0 and less than 3, scores from 3
 to less than 5, and scores 5 or greater. The row names are
 {cmd:score_negative}, {cmd:score0}, {cmd:score1_2}, {cmd:score3_4}, and
 {cmd:score5plus}. The categories are exhaustive for nonmissing scores, including
-fractional custom scores, and {cmd:merge} counts each {cmd:id()} once.
+fractional custom scores, and {cmd:merge} counts each {cmd:id()} once. The 0,
+1-2, 3-4, and 5+ cutpoints reproduce Charlson et al. (1987); for
+Elixhauser and custom scores they are descriptive categories, not validated
+risk strata.
 
 {phang}
 {opt noisily} passes verbose output through to {cmd:codescan}.
@@ -164,6 +168,19 @@ The built-in Charlson and Elixhauser ICD-10 definitions follow Tables 1 and 2
 of Quan et al. (2005). Scores are computed as the sum of each binary condition
 indicator multiplied by its scheme weight after hierarchy is applied.
 
+{pstd}
+For {cmd:charlson(original)}, the Quan ICD-10 dictionary combines solid tumors,
+leukemia, and lymphoma into one {cmd:cancer} indicator. The command therefore
+reproduces Charlson's weights but cannot separately add those three original
+conditions when more than one is present. The supersession hierarchy described
+under {cmd:nohierarchy} is a package convention rather than a rule established
+by the cited scoring papers.
+
+{pstd}
+The {cmd:quan2011} vector is cross-validated against R {cmd:comorbidity}
+1.1.0. That parity check is not an independent audit of the primary paper's exact
+condition-level weight table.
+
 {marker results}{...}
 {title:Stored results}
 
@@ -173,7 +190,7 @@ indicator multiplied by its scheme weight after hierarchy is applied.
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}patient-level observations from {cmd:codescan}{p_end}
-{synopt:{cmd:r(hierarchy)}}1 if canonical hierarchy was applied, 0 otherwise{p_end}
+{synopt:{cmd:r(hierarchy)}}1 if hierarchy applied; 0 otherwise{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(index)}}resolved index name{p_end}
@@ -264,7 +281,7 @@ van Walraven, C., P. C. Austin, A. Jennings, H. Quan, and A. J. Forster. 2009. A
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-06-19{p_end}
+{pstd}Version 1.0.1, 2026-08-30{p_end}
 
 {title:Also see}
 

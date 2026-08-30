@@ -36,6 +36,12 @@ capture noisily {
     capture comorbidity dx1, id(pid) custom("`bad'.dta") collapse
     local cmd_rc = _rc
     assert `cmd_rc' == 198
+    unab current_vars : _all
+    preserve
+    use "`before'", clear
+    unab expected_vars : _all
+    restore
+    assert "`current_vars'" == "`expected_vars'"
     cf _all using "`before'", all
 }
 if _rc == 0 {
@@ -58,6 +64,12 @@ capture noisily {
     capture comorbidity dx1, id(charlson) charlson(original) collapse replace
     local cmd_rc = _rc
     assert `cmd_rc' == 198
+    unab current_vars : _all
+    preserve
+    use "`before'", clear
+    unab expected_vars : _all
+    restore
+    assert "`current_vars'" == "`expected_vars'"
     cf _all using "`before'", all
 }
 if _rc == 0 {
@@ -87,6 +99,12 @@ capture noisily {
     capture comorbidity dx1, id(pid) custom("`custom_collision'.dta") collapse replace
     local cmd_rc = _rc
     assert `cmd_rc' == 198
+    unab current_vars : _all
+    preserve
+    use "`before'", clear
+    unab expected_vars : _all
+    restore
+    assert "`current_vars'" == "`expected_vars'"
     cf _all using "`before'", all
 }
 if _rc == 0 {
@@ -95,6 +113,42 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: custom indicator/score collision guard (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    tempfile custom_base before
+    local custom_path "`custom_base'.dta"
+    clear
+    input str8 name str8 pattern double weight
+    "one" "E11" 8e307
+    "two" "E1"  8e307
+    end
+    save "`custom_path'", replace
+
+    clear
+    input long pid str8 dx1 byte marker
+    1 "E119" 42
+    end
+    save "`before'", replace
+    capture noisily comorbidity dx1, id(pid) custom("`custom_path'") collapse band
+    local cmd_rc = _rc
+    assert `cmd_rc' == 198
+    unab current_vars : _all
+    preserve
+    use "`before'", clear
+    unab expected_vars : _all
+    restore
+    assert "`current_vars'" == "`expected_vars'"
+    cf _all using "`before'", all
+}
+if _rc == 0 {
+    display as result "  PASS: scoring overflow fails without changing caller data"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: scoring overflow failure atomicity (error `=_rc')"
     local ++fail_count
 }
 

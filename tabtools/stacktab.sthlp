@@ -207,12 +207,13 @@ specification currently supports {cmd:outer(all)}, {cmd:top(row 1)}, and {cmd:bo
 {title:Frame and CSV output}
 
 {p 4 4 2}
-{opt frame()} stores the composed table before Excel and Markdown export. Title and
-note cells are Excel-only formatting elements and are not added to the frame
+{opt frame()} stores the composed table. Title and note cells are Excel-only
+formatting elements and are not added to the frame
 or CSV. Specify {cmd:frame("myframe, replace")} to replace an existing frame. {opt csv()}
 writes the same composed table to a delimited file and requires a {cmd:.csv}
-extension. All requested destinations are preflighted before any frame or file is
-replaced; an existing {opt markdown()} file requires {opt mdappend}.
+extension. All requested destinations are staged and committed together, so a
+failed export leaves existing frames and files unchanged. An existing
+{opt markdown()} file requires {opt mdappend}.
 
 {marker examples}{...}
 {title:Examples}

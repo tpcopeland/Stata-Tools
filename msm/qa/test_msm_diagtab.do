@@ -374,6 +374,157 @@ else {
     local failed_tests "`failed_tests' T12"
 }
 
+* -------------------------------------------------------------------------
+* T13: an incompatible accumulation frame fails before diagnostics state is
+* committed. A failed output side effect must not authorize new artifacts.
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture frame drop wdbad
+    frame create wdbad int wrong
+    use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+        covariates(biomarker comorbidity) baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) truncate(1 99) nolog
+    local diag_before : char _dta[_msm_diag_saved]
+    local bal_before : char _dta[_msm_bal_saved]
+
+    capture noisily msm_diagnose, accumulate(wdbad) ///
+        contrast("Bad schema") outcome("death")
+    local diagnose_rc = _rc
+    local diag_after : char _dta[_msm_diag_saved]
+    local bal_after : char _dta[_msm_bal_saved]
+    frame wdbad: count
+    local bad_rows = r(N)
+
+    assert `diagnose_rc' != 0
+    assert "`diag_after'" == "`diag_before'"
+    assert "`bal_after'" == "`bal_before'"
+    assert `bad_rows' == 0
+}
+if _rc == 0 {
+    display as result "  PASS T13: bad accumulate schema leaves diagnostics state unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T13: bad accumulate schema stranded diagnostics state (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T13"
+}
+capture frame drop wdbad
+
+* -------------------------------------------------------------------------
+* T14: the fixed accumulation schema includes exact string widths and double
+* storage. A narrow look-alike frame must error, never truncate labels.
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture frame drop wdnarrow
+    frame create wdnarrow str1 contrast str1 outcome ///
+        double(n_obs ess ess_pct max_weight p99_weight n_extreme ///
+               n_imbalanced max_abs_smd)
+    use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+        covariates(biomarker comorbidity) baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) truncate(1 99) nolog
+
+    capture noisily msm_diagnose, accumulate(wdnarrow) ///
+        contrast("Must not truncate") outcome("death")
+    local narrow_rc = _rc
+    local diag_after : char _dta[_msm_diag_saved]
+    local bal_after : char _dta[_msm_bal_saved]
+    frame wdnarrow: count
+    local narrow_rows = r(N)
+
+    assert `narrow_rc' == 459
+    assert "`diag_after'" == ""
+    assert "`bal_after'" == ""
+    assert `narrow_rows' == 0
+}
+if _rc == 0 {
+    display as result "  PASS T14: narrow accumulate frame is rejected without truncation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T14: narrow accumulate frame was accepted or changed state (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T14"
+}
+capture frame drop wdnarrow
+
+* -------------------------------------------------------------------------
+* T15: labels wider than the fixed frame schema must error before diagnostics
+* state or an accumulation frame is created; truncation is never acceptable.
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture frame drop wdlong
+    use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+        covariates(biomarker comorbidity) baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) truncate(1 99) nolog
+
+    local long_contrast ""
+    forvalues _i = 1/81 {
+        local long_contrast "`long_contrast'x"
+    }
+    local long_outcome ""
+    forvalues _i = 1/41 {
+        local long_outcome "`long_outcome'x"
+    }
+    capture noisily msm_diagnose, accumulate(wdlong) ///
+        contrast("`long_contrast'") outcome("death")
+    local contrast_rc = _rc
+    capture noisily msm_diagnose, accumulate(wdlong) ///
+        contrast("Valid contrast") outcome("`long_outcome'")
+    local outcome_rc = _rc
+    capture frame wdlong: describe
+    local frame_rc = _rc
+    local diag_after : char _dta[_msm_diag_saved]
+    local bal_after : char _dta[_msm_bal_saved]
+
+    assert `contrast_rc' == 198
+    assert `outcome_rc' == 198
+    assert `frame_rc' != 0
+    assert "`diag_after'" == ""
+    assert "`bal_after'" == ""
+}
+if _rc == 0 {
+    display as result "  PASS T15: over-width labels are rejected without truncation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T15: over-width label changed state (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T15"
+}
+capture frame drop wdlong
+
+* -------------------------------------------------------------------------
+* T16: a zero-variable frame is also an incompatible fixed schema and must
+* return the same documented data-contract error as other malformed frames.
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture frame drop wdempty
+    frame create wdempty
+    capture noisily frame wdempty: _msm_diag_frame_check
+    assert _rc == 459
+}
+if _rc == 0 {
+    display as result "  PASS T16: zero-variable accumulation frame returns rc 459"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T16: zero-variable frame contract (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T16"
+}
+capture frame drop wdempty
+
 display as text ""
 display as text "========================================"
 display as text "MSM_DIAGTAB QA SUMMARY"

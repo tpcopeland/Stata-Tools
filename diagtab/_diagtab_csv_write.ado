@@ -1,4 +1,4 @@
-*! _diagtab_csv_write Version 2.0.0  2026/08/19
+*! _diagtab_csv_write Version 2.0.1  2026/08/30
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

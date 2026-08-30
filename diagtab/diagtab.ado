@@ -1,4 +1,4 @@
-*! diagtab Version 2.0.0  2026/08/19
+*! diagtab Version 2.0.1  2026/08/30
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -72,7 +72,7 @@ capture noisily {
 **# Syntax and Validation
     syntax varlist(min=2 max=2 numeric) [if] [in], ///
         [xlsx(string) excel(string) sheet(string) ///
-        CUToff(real -999) CUTOffs(numlist sort) ///
+        CUToff(string) CUTOffs(string asis) ///
         PREValence(real -1) EXact WILson ///
         AUC OPTimal ///
         Level(cilevel) ///
@@ -84,6 +84,88 @@ capture noisily {
 
     gettoken testvar goldvar : varlist
 
+    * Validate, expand, sort, and losslessly reformat cutoffs(). The built-in
+    * syntax numlist parser renders values with only about nine significant
+    * digits, so two distinct scientific-notation thresholds can otherwise
+    * collapse before the calculation begins.
+    if `"`cutoffs'"' != "" {
+        local _cutoffs_raw = strtrim(`"`cutoffs'"')
+        capture numlist `"`_cutoffs_raw'"', sort
+        if _rc {
+            noisily display as error "cutoffs() must contain a valid numeric list"
+            exit 198
+        }
+        local _cutoffs_source `"`r(numlist)'"'
+        if !strpos(`"`_cutoffs_raw'"', "(") & ///
+                !strpos(`"`_cutoffs_raw'"', "/") & ///
+                !strpos(`"`_cutoffs_raw'"', "...") {
+            local _cutoffs_source `"`_cutoffs_raw'"'
+        }
+
+        local _ncuts_raw : word count `_cutoffs_source'
+        tempname _cut_values
+        matrix `_cut_values' = J(`_ncuts_raw', 1, .)
+        local _cut_i 0
+        foreach _cut_token of local _cutoffs_source {
+            local _cut_i = `_cut_i' + 1
+            capture confirm number `_cut_token'
+            if _rc {
+                noisily display as error "cutoffs() may contain only nonmissing real numbers"
+                exit 198
+            }
+            if missing(`_cut_token') {
+                noisily display as error "cutoffs() may contain only nonmissing real numbers"
+                exit 198
+            }
+            matrix `_cut_values'[`_cut_i', 1] = `_cut_token'
+        }
+        mata: st_matrix("`_cut_values'", sort(st_matrix("`_cut_values'"), 1))
+
+        forvalues _cut_i = 1/`_ncuts_raw' {
+            if `_cut_i' > 1 {
+                if `_cut_values'[`_cut_i', 1] == ///
+                        `_cut_values'[`=`_cut_i'-1', 1] {
+                    noisily display as error "cutoffs() values must be distinct"
+                    exit 198
+                }
+            }
+            * Prefer a short representation, but expand to 17 significant
+            * digits whenever reparsing it would change the IEEE double.
+            local _cut_text : display %21.16g `_cut_values'[`_cut_i', 1]
+            local _cut_text = strtrim("`_cut_text'")
+            if real("`_cut_text'") != `_cut_values'[`_cut_i', 1] {
+                local _cut_text : display %24.17g ///
+                    `_cut_values'[`_cut_i', 1]
+                local _cut_text = strtrim("`_cut_text'")
+            }
+            local _cut_text`_cut_i' "`_cut_text'"
+        }
+        if `_ncuts_raw' >= 2 {
+            forvalues _cut_i = 2/`_ncuts_raw' {
+                local _cut_prev_i = `_cut_i' - 1
+                if `"`_cut_text`_cut_i''"' == `"`_cut_text`_cut_prev_i''"' {
+                    local _cut_text : display %24.17g ///
+                        `_cut_values'[`_cut_i', 1]
+                    local _cut_text = strtrim("`_cut_text'")
+                    local _cut_text`_cut_i' "`_cut_text'"
+                    local _cut_text : display %24.17g ///
+                        `_cut_values'[`_cut_prev_i', 1]
+                    local _cut_text = strtrim("`_cut_text'")
+                    local _cut_text`_cut_prev_i' "`_cut_text'"
+                }
+            }
+        }
+        local cutoffs ""
+        forvalues _cut_i = 1/`_ncuts_raw' {
+            local cutoffs "`cutoffs' `_cut_text`_cut_i''"
+        }
+        local cutoffs = strtrim("`cutoffs'")
+    }
+
+    if "`xlsx'" != "" & "`excel'" != "" {
+        noisily display as error "xlsx() and excel() are mutually exclusive aliases"
+        exit 198
+    }
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local _has_xlsx = "`xlsx'" != ""
     if "`open'" != "" & !`_has_xlsx' {
@@ -95,7 +177,15 @@ capture noisily {
 
     * Resolve digits option
     if `digits' == -1 {
-        if "$DIAGTAB_DIGITS" != "" local digits = $DIAGTAB_DIGITS
+        if "$DIAGTAB_DIGITS" != "" {
+            local _global_digits "$DIAGTAB_DIGITS"
+            capture confirm integer number `_global_digits'
+            if _rc {
+                noisily display as error "$DIAGTAB_DIGITS must be an integer between 0 and 6"
+                exit 198
+            }
+            local digits = `_global_digits'
+        }
         else local digits = 1
     }
     if `digits' < 0 | `digits' > 6 {
@@ -126,13 +216,35 @@ capture noisily {
             exit 198
         }
     }
+    if `"`frame'"' != "" {
+        _diagtab_frame_preflight `"`frame'"' "frame()"
+    }
     if `prevalence' != -1 & (`prevalence' <= 0 | `prevalence' >= 1) {
         noisily display as error "prevalence() must be between 0 and 1"
         exit 198
     }
 
+    local _has_cutoff = (`"`cutoff'"' != "")
+    if `_has_cutoff' {
+        capture confirm number `cutoff'
+        if _rc {
+            noisily display as error "cutoff() must be a nonmissing real number"
+            exit 198
+        }
+        if missing(`cutoff') {
+            noisily display as error "cutoff() must be a nonmissing real number"
+            exit 198
+        }
+    }
+    foreach _cv of local cutoffs {
+        if missing(`_cv') {
+            noisily display as error "cutoffs() may not contain missing values"
+            exit 198
+        }
+    }
+
     * Conflict check: cutoff() and cutoffs() are mutually exclusive
-    if `cutoff' != -999 & "`cutoffs'" != "" {
+    if `_has_cutoff' & "`cutoffs'" != "" {
         noisily display as error "cutoff() and cutoffs() are mutually exclusive"
         exit 198
     }
@@ -185,7 +297,7 @@ capture noisily {
             exit 198
         }
     }
-    if `cutoff' == -999 & "`cutoffs'" == "" & "`optimal'" == "" {
+    if !`_has_cutoff' & "`cutoffs'" == "" & "`optimal'" == "" {
         qui levelsof `testvar' if `touse', local(_testlevels)
         local _ntest : word count `_testlevels'
         if `_ntest' > 2 {
@@ -209,6 +321,7 @@ capture noisily {
 
     local _ci_method = cond("`exact'" != "", "exact", "wilson")
     local _has_undefined 0
+    local _prev_ci_boundary 0
     return clear
 
     if "`cutoffs'" != "" {
@@ -286,20 +399,26 @@ capture noisily {
                     local _npv_d = (1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence')
                     if `_ppv_d' > 0 local PPV = (`Se' * `prevalence') / `_ppv_d'
                     if `_npv_d' > 0 local NPV = (`Sp' * (1 - `prevalence')) / `_npv_d'
+                    local PPV_lo = .
+                    local PPV_hi = .
+                    local NPV_lo = .
+                    local NPV_hi = .
                     * Delta-method intervals with fixed external prevalence;
                     * both sensitivity and specificity uncertainty contribute.
                     local _p = `prevalence'
                     local _vse = `Se' * (1 - `Se') / (`TP' + `FN')
                     local _vsp = `Sp' * (1 - `Sp') / (`TN' + `FP')
                     local _z = invnormal(1 - (100 - `level')/200)
-                    if `_ppv_d' > 0 & !missing(`PPV') {
+                    local _delta_ok = `Se' > 0 & `Se' < 1 & `Sp' > 0 & `Sp' < 1
+                    if !`_delta_ok' local _prev_ci_boundary 1
+                    if `_delta_ok' & `_ppv_d' > 0 & !missing(`PPV') {
                         local _dse = `_p' * (1 - `Sp') * (1 - `_p') / (`_ppv_d'^2)
                         local _dsp = (`Se' * `_p') * (1 - `_p') / (`_ppv_d'^2)
                         local _seppv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
                         local PPV_lo = max(0, `PPV' - `_z' * `_seppv')
                         local PPV_hi = min(1, `PPV' + `_z' * `_seppv')
                     }
-                    if `_npv_d' > 0 & !missing(`NPV') {
+                    if `_delta_ok' & `_npv_d' > 0 & !missing(`NPV') {
                         local _dse = (`Sp' * (1 - `_p')) * `_p' / (`_npv_d'^2)
                         local _dsp = (1 - `_p') * (1 - `Se') * `_p' / (`_npv_d'^2)
                         local _senpv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
@@ -335,14 +454,41 @@ capture noisily {
 
         }
 
-        * Return matrix with cutoff row names
+        * Return matrix with unique cutoff row names. Row order maps to the
+        * exact round-trip values in r(cutoffs); matrix identifiers sanitize
+        * those tokens and add a suffix only if truncation collides.
         local _rnames ""
+        local _used_tags ""
+        local _cuti 0
         foreach _cv of local cutoffs {
-            local _cv_fmt : display %9.0g `_cv'
-            local _cv_fmt = strtrim("`_cv_fmt'")
-            local _cv_tag = subinstr("`_cv_fmt'", "-", "m", .)
+            local _cuti = `_cuti' + 1
+            local _cv_label "`_cut_text`_cuti''"
+            if substr("`_cv_label'", 1, 1) == "." local _cv_label "0`_cv_label'"
+            if substr("`_cv_label'", 1, 2) == "-." {
+                local _cv_tail = substr("`_cv_label'", 2, .)
+                local _cv_label "-0`_cv_tail'"
+            }
+            if substr("`_cv_label'", 1, 2) == "+." {
+                local _cv_tail = substr("`_cv_label'", 2, .)
+                local _cv_label "+0`_cv_tail'"
+            }
+            local _cut`_cuti'_label `"`_cv_label'"'
+
+            local _cv_tag = lower("`_cut_text`_cuti''")
+            local _cv_tag = subinstr("`_cv_tag'", "-", "m", .)
+            local _cv_tag = subinstr("`_cv_tag'", "+", "p", .)
             local _cv_tag = subinstr("`_cv_tag'", ".", "p", .)
-            local _rnames `"`_rnames' cut_`_cv_tag'"'
+            local _cv_base = substr("`_cv_tag'", 1, 28)
+            local _cv_unique "`_cv_base'"
+            local _tag_n = 1
+            while strpos(" `_used_tags' ", " `_cv_unique' ") {
+                local _tag_n = `_tag_n' + 1
+                local _suffix "_`_tag_n'"
+                local _tag_keep = 28 - strlen("`_suffix'")
+                local _cv_unique = substr("`_cv_base'", 1, `_tag_keep') + "`_suffix'"
+            }
+            local _used_tags "`_used_tags' `_cv_unique'"
+            local _rnames `"`_rnames' cut_`_cv_unique'"'
         }
         matrix rownames `_cutmat' = `_rnames'
         return matrix cutoff_table = `_cutmat'
@@ -372,25 +518,7 @@ capture noisily {
         qui replace c3 = "(`level'% CI)" in `row'
         local _header_row = `row'
 
-        * Build output rows from stored locals
-        * Section labels are rendered at one fixed precision -- the widest seen
-        * in the cutoff list -- with a leading zero. %9.0g rendered each cutoff
-        * independently and dropped leading and trailing zeros, so a
-        * cutoffs(.3 .32 .34) run labelled its sections ".3", ".32", ".34":
-        * ragged precision and no leading zero. (Stata's own numlist parser
-        * normalises 0.30 to .3 before diagtab sees it, so the original token
-        * text cannot be recovered here; a uniform format is what can be.)
-        * The r(cutoff_table) rownames keep their existing tags -- they are
-        * identifiers on a returned matrix, not prose.
-        local _cut_dec = 0
-        foreach _cv of local cutoffs {
-            local _dotpos = strpos("`_cv'", ".")
-            if `_dotpos' > 0 {
-                local _ndec = strlen("`_cv'") - `_dotpos'
-                if `_ndec' > `_cut_dec' local _cut_dec = `_ndec'
-            }
-        }
-        local _cut_lab_fmt "%21.`_cut_dec'f"
+        * Build output rows from readable labels that remain unique.
         local _section_rows ""
         local _cuti 0
         foreach _cv of local cutoffs {
@@ -399,8 +527,7 @@ capture noisily {
             * Section header
             local row = `row' + 1
             qui set obs `row'
-            local _cv_fmt = strtrim(string(`_cv', "`_cut_lab_fmt'"))
-            qui replace c1 = "Cutoff >= `_cv_fmt'" in `row'
+            qui replace c1 = "Cutoff >= `_cut`_cuti'_label'" in `row'
             local _section_rows `"`_section_rows' `row'"'
 
             * Measure rows (indented)
@@ -435,15 +562,18 @@ capture noisily {
         * ============================================================
 
     * Optimal cutoff (Youden's J = Se + Sp - 1)
-    local _opt_cutoff = .
+    tempname _opt_cutoff
+    scalar `_opt_cutoff' = .
     if "`optimal'" != "" {
-        qui levelsof `testvar' if `touse', local(_opt_candidates)
-        tempname _optcell
-        mata: st_matrix("`_optcell'", _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", "`touse'", strtoreal(tokens("`_opt_candidates'")), 1))
+        tempname _optcell _opt_values
+        mata: st_matrix("`_opt_values'", ///
+            uniqrows(sort(st_data(., "`testvar'", "`touse'"), 1)))
+        mata: st_matrix("`_optcell'", ///
+            _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", ///
+            "`touse'", st_matrix("`_opt_values'")', 1))
         local _best_j = -1
-        local _opti 0
-        foreach _c of local _opt_candidates {
-            local _opti = `_opti' + 1
+        local _nopt = rowsof(`_opt_values')
+        forvalues _opti = 1/`_nopt' {
             local _tp_c = `_optcell'[`_opti', 1]
             local _fp_c = `_optcell'[`_opti', 2]
             local _fn_c = `_optcell'[`_opti', 3]
@@ -456,30 +586,34 @@ capture noisily {
                 local _j_c = `_se_c' + `_sp_c' - 1
                 if `_j_c' > `_best_j' {
                     local _best_j = `_j_c'
-                    local _opt_cutoff = `_c'
+                    scalar `_opt_cutoff' = `_opt_values'[`_opti', 1]
                 }
             }
         }
-        if `cutoff' == -999 {
+        if !`_has_cutoff' {
             if missing(`_opt_cutoff') {
                 noisily display as error "Could not determine an optimal cutoff from `testvar'"
                 exit 498
             }
-            local cutoff = `_opt_cutoff'
+            local _has_cutoff 1
         }
     }
 
 **# Compute 2x2 Cells
-    if `cutoff' != -999 {
-        local _diag_cut = `cutoff'
+    tempname _onecut
+    if `_has_cutoff' {
+        if `"`cutoff'"' != "" matrix `_onecut' = (`cutoff')
+        else matrix `_onecut' = (`_opt_cutoff')
         local _diag_usecut = 1
     }
     else {
-        local _diag_cut = 1
+        matrix `_onecut' = (1)
         local _diag_usecut = 0
     }
     tempname _onecell
-    mata: st_matrix("`_onecell'", _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", "`touse'", (`_diag_cut'), `_diag_usecut'))
+    mata: st_matrix("`_onecell'", ///
+        _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", ///
+        "`touse'", st_matrix("`_onecut'"), `_diag_usecut'))
     local TP = `_onecell'[1, 1]
     local FP = `_onecell'[1, 2]
     local FN = `_onecell'[1, 3]
@@ -581,20 +715,26 @@ capture noisily {
             local _npv_d = (1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence')
             if `_ppv_d' > 0 local PPV = (`Se' * `prevalence') / `_ppv_d'
             if `_npv_d' > 0 local NPV = (`Sp' * (1 - `prevalence')) / `_npv_d'
+            local PPV_lo = .
+            local PPV_hi = .
+            local NPV_lo = .
+            local NPV_hi = .
             * Delta-method intervals with fixed external prevalence;
             * both sensitivity and specificity uncertainty contribute.
             local _p = `prevalence'
             local _vse = `Se' * (1 - `Se') / (`TP' + `FN')
             local _vsp = `Sp' * (1 - `Sp') / (`TN' + `FP')
             local _z = invnormal(1 - (100 - `level')/200)
-            if `_ppv_d' > 0 & !missing(`PPV') {
+            local _delta_ok = `Se' > 0 & `Se' < 1 & `Sp' > 0 & `Sp' < 1
+            if !`_delta_ok' local _prev_ci_boundary 1
+            if `_delta_ok' & `_ppv_d' > 0 & !missing(`PPV') {
                 local _dse = `_p' * (1 - `Sp') * (1 - `_p') / (`_ppv_d'^2)
                 local _dsp = (`Se' * `_p') * (1 - `_p') / (`_ppv_d'^2)
                 local _seppv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
                 local PPV_lo = max(0, `PPV' - `_z' * `_seppv')
                 local PPV_hi = min(1, `PPV' + `_z' * `_seppv')
             }
-            if `_npv_d' > 0 & !missing(`NPV') {
+            if `_delta_ok' & `_npv_d' > 0 & !missing(`NPV') {
                 local _dse = (`Sp' * (1 - `_p')) * `_p' / (`_npv_d'^2)
                 local _dsp = (1 - `_p') * (1 - `Se') * `_p' / (`_npv_d'^2)
                 local _senpv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
@@ -701,7 +841,9 @@ capture noisily {
         else if "`_m'" == "Acc" qui replace c1 = "Accuracy" in `row'
         if !missing(``_m'') {
             qui replace c2 = strtrim(string(``_m'' * 100, "%21.`digits'f")) + "%" in `row'
-            qui replace c3 = "(" + strtrim(string(``_m'_lo' * 100, "%21.`digits'f")) + ", " + strtrim(string(``_m'_hi' * 100, "%21.`digits'f")) + ")" in `row'
+            if !missing(``_m'_lo') & !missing(``_m'_hi') {
+                qui replace c3 = "(" + strtrim(string(``_m'_lo' * 100, "%21.`digits'f")) + ", " + strtrim(string(``_m'_hi' * 100, "%21.`digits'f")) + ")" in `row'
+            }
         }
         else {
             local _has_undefined 1
@@ -850,7 +992,10 @@ capture noisily {
     * identical precisely because neither is used for that quantity.
     if `prevalence' > 0 & `prevalence' < 1 {
         local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported for the directly estimated binomial proportions (sensitivity, specificity, and accuracy)."
-        local _methods "`_methods' Predictive values were adjusted to an external prevalence of `prevalence' by Bayes' theorem; their `level'% confidence intervals are symmetric delta-method intervals propagating sensitivity and specificity uncertainty at that fixed prevalence, truncated to the unit interval. The external prevalence is treated as known without error, so these intervals do not reflect uncertainty in it."
+        local _methods "`_methods' Predictive values were adjusted to an external prevalence of `prevalence' by Bayes' theorem. At interior sensitivity and specificity estimates, their `level'% confidence intervals are symmetric delta-method intervals propagating sensitivity and specificity uncertainty at that fixed prevalence, truncated to the unit interval. The external prevalence is treated as known without error, so these intervals do not reflect uncertainty in it."
+        if `_prev_ci_boundary' {
+            local _methods "`_methods' Adjusted predictive-value confidence intervals are unavailable at boundary sensitivity or specificity estimates and are returned missing to avoid false precision."
+        }
     }
     else {
         local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported."
