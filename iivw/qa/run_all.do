@@ -147,6 +147,7 @@ local core_suites ///
     validation_iivw ///
     validation_iivw_expanded ///
     validation_iivw_known_answers ///
+    validation_iivw_links_known_answers ///
     test_iivw_balance ///
     test_iivw_performance ///
     test_iivw_weight_validation_guards ///
@@ -257,7 +258,8 @@ if "`mode'" == "full" {
         capture erase "`qa_dir'/`rsrc'.ok"
     }
 
-    local suites `suites' crossval_iivw crossval_iivw_external crossval_iivw_dta
+    local suites `suites' crossval_iivw crossval_iivw_external ///
+        crossval_iivw_dta crossval_iivw_pbcseq
 }
 
 * -----------------------------------------------------------------------------

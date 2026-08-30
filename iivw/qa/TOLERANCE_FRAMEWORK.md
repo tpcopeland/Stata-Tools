@@ -84,7 +84,13 @@ tie-handling — so **not** Class E.
 | Visit-model coefficient `γ̂` vs. IrregLong `coxph` | `reldif < 1e-6` |
 | Row-level observed-visit weights vs. IrregLong `iiw.weights` | `reldif < 1e-6` |
 | Outcome coefficients vs. R `geeglm` | `reldif < 1e-5` |
+| PBCseq visit-model/exogeneity coefficients vs. `coxph` | `abs(diff) < 1e-7` |
+| PBCseq normalized modeled-visit weights vs. R rate-ratio weights | `abs(diff) < 1e-8` |
+| PBCseq fixed-weight robust SEs vs. `geeglm` | relative difference `< 0.05` |
+| PBCseq clustered exogeneity SE vs. `coxph`, after the explicit Stata `M/(M-1)` finite-cluster correction | relative difference `< 1e-4` |
 | Interval counts / risk-set membership | **exact equality** |
+
+The PBCseq exogeneity comparison keeps the same variance estimand on both sides. `survival::coxph` returns the uncorrected subject-clustered sandwich; Stata applies `M/(M-1)` to the covariance. The R companion therefore multiplies its SE by `sqrt(M/(M-1))`, with `M=259`, before the tight parity assertion and exports the raw SE as an audit value. This is an explicit estimator alignment, not a tolerance for different answers.
 
 > **Banned:** correlation-only or single-draw bias bounds such as the retired
 > FIPTIW arm's `correlation > 0.75` and `absolute bias < 0.25`. Those are not

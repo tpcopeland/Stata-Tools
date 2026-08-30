@@ -499,7 +499,7 @@ capture noisily {
     while r(eof) == 0 {
         if strpos(`"`line'"', "label a factor term by its design column") > 0 ///
             local stale_names = 1
-        if strpos(`"`line'"', "the factor-variable terms you typed") > 0 ///
+        if strpos(`"`line'"', "Coefficient names follow the user's") > 0 ///
             local user_names = 1
         file read `fh4' line
     }

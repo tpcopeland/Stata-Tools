@@ -15,7 +15,7 @@ local skip = 0
 
 local suites_quick test_psdash.do validation_psdash.do validation_known_answers.do ///
     validation_multigroup_longitudinal.do validation_method_contracts.do ///
-    validation_extended_known_answers.do ///
+    validation_extended_known_answers.do validation_public_known_answers.do ///
     test_refactor_qa_bootstrap_contract.do test_refactor_install_autoload.do ///
     test_refactor_doc_contract.do test_refactor_display_contracts.do ///
     test_refactor_option_abbrev_contract.do ///
@@ -46,7 +46,7 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_excel_fidelity.do test_return_surface_remaining.do
 
 local suites_external crossval_python_psdash.do crossval_cobalt.do ///
-    crossval_external_references.do
+    crossval_external_references.do crossval_public_studies.do
 
 if "`mode'" == "quick" local suite_files "`suites_quick'"
 else if "`mode'" == "external" local suite_files "`suites_external'"
