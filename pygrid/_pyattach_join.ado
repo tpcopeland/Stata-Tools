@@ -1,4 +1,4 @@
-*! _pyattach_join Version 1.0.0  2026/08/12
+*! _pyattach_join Version 1.0.1  2026/08/30
 *! Compute the regular pygrid bucket for event dates
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

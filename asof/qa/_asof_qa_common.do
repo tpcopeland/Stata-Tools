@@ -1,3 +1,7 @@
+*! _asof_qa_common.do - Sandboxed installation bootstrap for asof QA
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 version 16.0
 
 capture program drop _asof_qa_bootstrap

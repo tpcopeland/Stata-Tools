@@ -52,6 +52,7 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 | `test_doc_examples.do` | Executable README and help workflows with semantic value assertions after local installation. |
 | `test_pygrid_errors.do` | Exact public pygrid/pyattach failure codes and no-mutation contracts. |
 | `test_pygrid_hostile.do` | Overlapping episode refusal under an adversarial denominator shape. |
+| `test_regressions.do` | Reversed-window rejection, stamped-grid integrity, order-stable signatures, and the exact multi-month calendar origin. |
 
 ### Validation
 
@@ -82,8 +83,8 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `pygrid` | `test_pygrid.do`, error contracts | `validation_pygrid_known_truth.do` | `crossval_pygrid.do` | Package contracts, doc examples, MOGAD rewrite, and attachment suites |
-| `pyattach` | `test_pyattach.do` | `validation_pyattach_known_truth.do`, `validation_pyattach_reference.do` | `crossval_pygrid.do` | Package contracts, doc examples, and MOGAD rewrite |
+| `pygrid` | `test_pygrid.do`, error contracts, regressions | `validation_pygrid_known_truth.do` | `crossval_pygrid.do` | Package contracts, doc examples, MOGAD rewrite, and attachment suites |
+| `pyattach` | `test_pyattach.do`, regressions | `validation_pyattach_known_truth.do`, `validation_pyattach_reference.do` | `crossval_pygrid.do` | Package contracts, doc examples, and MOGAD rewrite |
 
 ## Lane membership
 

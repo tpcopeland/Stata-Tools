@@ -1,14 +1,27 @@
-* Randomized oracle for asof. Seed: 26082301. 200 repetitions.
+*! test_asof_oracle.do - Seeded brute-force parity for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Seed: 26082301; repetitions: 200
+
 clear all
-set more off
+set processors 1
+set varabbrev off
 version 16.0
 
-quietly do "`c(pwd)'/_asof_qa_common.do"
-_asof_qa_bootstrap
+capture log close _all
+log using "test_asof_oracle.log", replace text nomsg
 global ASOF_QA_STATUS "fail"
+
+quietly do "`c(pwd)'/_asof_qa_common.do"
+quietly _asof_qa_bootstrap
 set seed 26082301
 
+local test_count = 0
+local pass_count = 0
+local fail_count = 0
+
 forvalues rep = 1/200 {
+    local ++test_count
+    capture noisily {
     tempfile master events expected
     clear
     set obs 23
@@ -56,9 +69,14 @@ forvalues rep = 1/200 {
     assert got_gap == want_gap if keepme
     assert missing(got_score) & missing(got_visit) & missing(got_gap) & missing(got_match) if !keepme
     assert substr(_asof_shadow, 1, 7) == "master_"
+    }
+    if _rc == 0 local ++pass_count
+    else local ++fail_count
 }
 
 * Missing keys and an exact nearest tie use the documented unchanged/before rules.
+local ++test_count
+capture noisily {
 clear
 input byte(id) double(anchor) byte keepme
 1 10 1
@@ -82,5 +100,14 @@ asof score using "`hostile_events'" if keepme, id(id) date(visit) anchor(anchor)
 assert got == 80 & gdate == 8 & ggap == -2 & gmatch == 1 in 1
 assert missing(got) & missing(gdate) & missing(ggap) & missing(gmatch) in 2/4
 assert _asof_shadow == "master"
-display as result "RESULT: test_asof_oracle tests=201 pass=201 fail=0"
+}
+if _rc == 0 local ++pass_count
+else local ++fail_count
+
+display as result "RESULT: test_asof_oracle tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+if `fail_count' > 0 {
+    capture log close _all
+    exit 1
+}
 global ASOF_QA_STATUS "pass"
+log close _all

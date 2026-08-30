@@ -1,3 +1,7 @@
+*! test_asof_types.do - Identifier, date, carried-value, and frame types
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

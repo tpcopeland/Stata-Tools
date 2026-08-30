@@ -1,3 +1,7 @@
+*! validation_asof_mogad.do - Exact MOGAD extraction-site contracts
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

@@ -46,18 +46,18 @@
 {synopt:{opth req:uire(varlist)}}required nonmissing using variables{p_end}
 
 {syntab:Output}
-{synopt:{opt suf:fix(string)}}append text to carried names; default {cmd:_asof}{p_end}
+{synopt:{opt suf:fix(string)}}append text; default {cmd:_asof}{p_end}
 {synopt:{opt pre:fix(string)}}prepend text to carried names{p_end}
-{synopt:{opt gen:erate(namelist)}}explicit output names, one per carried variable{p_end}
+{synopt:{opt gen:erate(namelist)}}explicit output names{p_end}
 {synopt:{opt daten:ame(name)}}matched measurement date{p_end}
 {synopt:{opt gapn:ame(name)}}signed gap in days{p_end}
 {synopt:{opt matchn:ame(name)}}matched-record indicator{p_end}
 {synopt:{opt replace}}overwrite existing output variables{p_end}
 
 {syntab:Behavior}
-{synopt:{opt ties(rule)}}tie rule: {cmd:before}, {cmd:after}, {cmd:first}, {cmd:last}, or {cmd:error}{p_end}
-{synopt:{opt frame(name)}}read the using data from a frame copied by {cmd:asof}{p_end}
-{synopt:{opt nowarn}}suppress the unmatched-observation message{p_end}
+{synopt:{opt ties(rule)}}tie-resolution rule{p_end}
+{synopt:{opt frame(name)}}copy using data from a frame{p_end}
+{synopt:{opt nowarn}}suppress unmatched-row message{p_end}
 {synopt:{opt noi:sily}}display full match coverage{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -187,7 +187,7 @@ name. The source frame is not changed.
 Suppose the anchor is day 100 and eligible visits occur on days 70, 90, 110,
 and 140:
 
-{p2colset 8 26 28 2}{...}
+{p2colset 8 29 31 2}{...}
 {p2col:{bf:Rule}}{bf:Selected day}{p_end}
 {p2col:{cmd:before + nearest}}90{p_end}
 {p2col:{cmd:onorbefore + first}}70{p_end}
@@ -245,7 +245,7 @@ Select the latest record on or before the end of observable follow-up:
 {synopt:{cmd:r(N_keys)}}distinct nonmissing identifier-anchor keys{p_end}
 {synopt:{cmd:r(N_matched)}}master rows receiving a match{p_end}
 {synopt:{cmd:r(N_unmatched)}}valid-key master rows without a match{p_end}
-{synopt:{cmd:r(N_nokey)}}selected master rows with a missing identifier or anchor{p_end}
+{synopt:{cmd:r(N_nokey)}}selected rows missing id or anchor{p_end}
 {synopt:{cmd:r(N_using)}}using rows read before eligibility filtering{p_end}
 {synopt:{cmd:r(N_eligible)}}distinct using rows eligible for at least one key{p_end}
 {synopt:{cmd:r(N_ties)}}distinct keys whose selected rank was tied{p_end}

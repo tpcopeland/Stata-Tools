@@ -1,4 +1,4 @@
-*! test_pyattach.do Version 1.0.0  2026/08/12
+*! test_pyattach.do Version 1.0.1  2026/08/30
 *! Functional and error-path tests for pyattach
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -118,7 +118,7 @@ capture noisily {
         if(kind == 1) orphans(report)
     assert all_events == 2 & kind_events == 1
     local stamp : char _dta[pygrid_version]
-    assert "`stamp'" == "1.0.0"
+    assert "`stamp'" == "1.0.1"
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("repeated attachment and stamp persistence") ///
@@ -231,7 +231,7 @@ capture noisily {
     capture noisily pyattach using `events', id(id) date(event_date) count(n)
     assert _rc == 459
     assert r(N_orphan) == 1 & r(N_attached) == 0
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
     capture confirm variable n
     assert _rc == 111
 }
@@ -472,7 +472,7 @@ capture noisily {
     capture noisily pyattach using `events', id(id) date(event_date) count(n) ///
         orphans(report)
     assert _rc == 459
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("fractional event-date rejection") ///
@@ -493,7 +493,7 @@ capture noisily {
     capture noisily pyattach using `events', id(id) date(event_date) ///
         count(n) rate(rate) orphans(report)
     assert _rc == 459
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("person-time integrity rejection") ///
@@ -517,7 +517,7 @@ capture noisily {
     capture noisily pyattach using `events', id(event_id) date(event_date) ///
         count(n) orphans(report)
     assert _rc == 109
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("strL identifier rejection") ///

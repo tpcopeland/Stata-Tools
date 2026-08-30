@@ -1,4 +1,4 @@
-*! pyattach Version 1.0.0  2026/08/12
+*! pyattach Version 1.0.1  2026/08/30
 *! Attach zero-filled event measures to a pygrid denominator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -23,12 +23,15 @@ program define pyattach, rclass
         local grid_stop : char _dta[pygrid_stop]
         local grid_pytime : char _dta[pygrid_pytime]
         local grid_period : char _dta[pygrid_period]
+        local grid_episode : char _dta[pygrid_episode]
         local grid_axis : char _dta[pygrid_axis]
         local grid_width : char _dta[pygrid_width]
         local grid_unit : char _dta[pygrid_unit]
         local grid_pyunit : char _dta[pygrid_pyunit]
         local grid_convention : char _dta[pygrid_pyconvention]
         local grid_origin : char _dta[pygrid_origin]
+        local grid_contract : char _dta[pygrid_contract]
+        local grid_signature : char _dta[pygrid_signature]
 
         if "`grid_version'" == "" | "`grid_id'" == "" | ///
             "`grid_start'" == "" | "`grid_stop'" == "" | ///
@@ -36,6 +39,11 @@ program define pyattach, rclass
             "`grid_axis'" == "" | "`grid_width'" == "" | "`grid_unit'" == "" | ///
             "`grid_pyunit'" == "" | "`grid_convention'" == "" {
             display as error "data in memory are not a pygrid grid; run pygrid before pyattach"
+            exit 459
+        }
+        if "`grid_episode'" == "" | `"`grid_contract'"' == "" | ///
+            `"`grid_signature'"' == "" {
+            display as error "pygrid integrity stamp is missing; run pygrid again"
             exit 459
         }
         if !inlist("`grid_axis'", "calendar", "anniversary", "fixed") | ///
@@ -50,14 +58,14 @@ program define pyattach, rclass
             display as error "pygrid contract variable `grid_id' is missing; run pygrid again"
             exit 459
         }
-        foreach required in `grid_start' `grid_stop' `grid_pytime' `grid_period' {
+        foreach required in `grid_start' `grid_stop' `grid_pytime' `grid_period' `grid_episode' {
             capture confirm numeric variable `required'
             if _rc {
                 display as error "pygrid contract variable `required' is missing or nonnumeric; run pygrid again"
                 exit 459
             }
         }
-        local structural_names "`grid_id' `grid_start' `grid_stop' `grid_pytime' `grid_period'"
+        local structural_names "`grid_id' `grid_start' `grid_stop' `grid_pytime' `grid_period' `grid_episode'"
         if "`grid_origin'" != "" local structural_names "`structural_names' `grid_origin'"
         local unique_structural : list uniq structural_names
         local n_structural : word count `structural_names'
@@ -84,6 +92,19 @@ program define pyattach, rclass
         }
         if "`grid_axis'" == "calendar" & `grid_width' != floor(`grid_width') {
             display as error "pygrid width characteristic is invalid; run pygrid again"
+            exit 459
+        }
+
+        local expected_contract `"`grid_version'|`grid_id'|`grid_start'|`grid_stop'|`grid_pytime'|`grid_period'|`grid_episode'|`grid_axis'|`grid_width'|`grid_unit'|`grid_pyunit'|`grid_convention'|`grid_origin'"'
+        if `"`grid_contract'"' != `"`expected_contract'"' {
+            display as error "pygrid characteristics have changed; run pygrid again"
+            exit 459
+        }
+        capture quietly _datasignature `grid_id' `grid_start' `grid_stop' ///
+            `grid_pytime' `grid_period' `grid_episode' `grid_origin', ///
+            nodefault nonames
+        if _rc | `"`r(datasignature)'"' != `"`grid_signature'"' {
+            display as error "pygrid structural data have changed; run pygrid again"
             exit 459
         }
 

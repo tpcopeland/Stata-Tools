@@ -1,3 +1,7 @@
+*! test_pygrid_hostile.do Version 1.0.1  2026/08/30
+*! Adversarial denominator-shape contracts for pygrid
+*! Author: Timothy P Copeland, Karolinska Institutet
+
 * Hostile pygrid shape, missingness, and collision contracts.
 version 16.0
 clear all

@@ -1,4 +1,4 @@
-*! test_package_contracts.do Version 1.0.0  2026/08/12
+*! test_package_contracts.do Version 1.0.1  2026/08/30
 *! Installed-user, characteristics, state, and help-source contracts
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -53,12 +53,20 @@ capture noisily {
     use `grid', clear
     local before : char _dta[pygrid_start]
     local pyunit_before : char _dta[pygrid_pyunit]
+    local episode_before : char _dta[pygrid_episode]
+    local contract_before : char _dta[pygrid_contract]
+    local signature_before : char _dta[pygrid_signature]
     pyattach using `events', id(id) date(event_date) count(n) orphans(report)
     local after : char _dta[pygrid_start]
     local pyunit_after : char _dta[pygrid_pyunit]
+    local contract_after : char _dta[pygrid_contract]
+    local signature_after : char _dta[pygrid_signature]
     assert "`before'" == "period_start"
     assert "`after'" == "period_start"
     assert "`pyunit_before'" == "year" & "`pyunit_after'" == "year"
+    assert "`episode_before'" == "_pygrid_episode"
+    assert `"`contract_before'"' != "" & `"`contract_after'"' == `"`contract_before'"'
+    assert `"`signature_before'"' != "" & `"`signature_after'"' == `"`signature_before'"'
     assert n == 1
 }
 local case_rc = _rc
@@ -79,14 +87,14 @@ capture noisily {
     save `before'
     capture noisily pyattach using `events', id(id) date(event_date) count(n)
     assert _rc == 459
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
     _pygrid_make_calendar, n(1) start(`d2010') end(`e2010')
     pygrid, id(id) start(window_start) end(window_end) axis(calendar)
     replace person_years = .
     save `before', replace
     capture noisily pyattach using `events', id(id) date(event_date) count(n)
     assert _rc == 459
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("corrupt grid stamp rejection") ///
@@ -101,7 +109,7 @@ capture noisily {
     capture noisily pygrid, id(id) start(window_start) end(window_end) ///
         axis(calendar) unit(day) width(7) first(100)
     assert _rc == 2000
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("mid-build rollback") ///
@@ -123,7 +131,7 @@ capture noisily {
     save `before'
     capture noisily pyattach using `bad', id(id) date(event_date) count(bad_n)
     assert _rc == 459
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
     assert good_n == 1
 }
 local case_rc = _rc

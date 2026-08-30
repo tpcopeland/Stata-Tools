@@ -1,4 +1,4 @@
-*! _pygrid_expand Version 1.0.0  2026/08/12
+*! _pygrid_expand Version 1.0.1  2026/08/30
 *! Expand resolved windows into regular person-period rows
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

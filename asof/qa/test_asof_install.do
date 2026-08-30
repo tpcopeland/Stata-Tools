@@ -1,3 +1,7 @@
+*! test_asof_install.do - Isolated installed-user contracts for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off
@@ -19,13 +23,13 @@ local fail_count = 0
 local ++test_count
 capture noisily {
     discard
-    which asof
-    which _asof_parse_rules
-    which _asof_load_using
-    which _asof_join
-    which _asof_report
-    findfile _asof_mata.ado
-    findfile asof.sthlp
+    local installed_root = subinstr("$ASOF_QA_PLUS", "\", "/", .)
+    foreach file in asof.ado _asof_parse_rules.ado _asof_load_using.ado ///
+        _asof_join.ado _asof_report.ado _asof_mata.ado asof.sthlp {
+        findfile `file'
+        local resolved = subinstr(`"`r(fn)'"', "\", "/", .)
+        assert strpos(`"`resolved'"', "`installed_root'/") == 1
+    }
 }
 if _rc == 0 local ++pass_count
 else local ++fail_count
@@ -107,8 +111,28 @@ else local ++fail_count
 **# Package metadata declares every shipped runtime source
 local ++test_count
 capture noisily {
-    foreach file in asof.ado _asof_parse_rules.ado _asof_load_using.ado ///
-        _asof_join.ado _asof_report.ado _asof_mata.ado asof.sthlp {
+    local expected asof.ado _asof_parse_rules.ado _asof_load_using.ado ///
+        _asof_join.ado _asof_report.ado _asof_mata.ado asof.sthlp
+    local listed ""
+    local listed_count = 0
+    tempname manifest_handle
+    file open `manifest_handle' using "`pkg_dir'/asof.pkg", read text
+    file read `manifest_handle' line
+    while r(eof) == 0 {
+        local stripped = strtrim(`"`line'"')
+        if substr(`"`stripped'"', 1, 2) == "f " {
+            local ++listed_count
+            local listed `listed' `=substr(`"`stripped'"', 3, .)'
+        }
+        file read `manifest_handle' line
+    }
+    file close `manifest_handle'
+
+    local expected_count : word count `expected'
+    assert `listed_count' == `expected_count'
+    foreach file of local expected {
+        local present : list file in listed
+        assert `present'
         confirm file "`pkg_dir'/`file'"
     }
     confirm file "`pkg_dir'/asof.pkg"

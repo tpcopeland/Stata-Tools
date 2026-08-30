@@ -1,7 +1,12 @@
-* Deterministic hostile-input contract tests for asof.
+*! test_asof_hostile.do - Deterministic hostile-input contracts for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
+clear all
+set processors 1
+set varabbrev off
 version 16.0
 set seed 303001
-set varabbrev off
 
 capture log close _all
 log using "test_asof_hostile.log", replace text nomsg
@@ -87,7 +92,7 @@ capture noisily {
 if _rc == 0 local ++pass_count
 else local ++fail_count
 
-display "RESULT: test_asof_hostile tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_asof_hostile tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     capture log close _all
     exit 1

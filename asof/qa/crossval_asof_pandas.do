@@ -1,3 +1,7 @@
+*! crossval_asof_pandas.do - pandas.merge_asof parity for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+, Python 3, pandas, and NumPy
+
 clear all
 set processors 1
 set varabbrev off

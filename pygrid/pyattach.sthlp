@@ -28,14 +28,14 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt id(varname)}}identifier in the using event data{p_end}
-{synopt:{opt date(varname)}}numeric daily event date in the using data{p_end}
+{synopt:{opt date(varname)}}daily event date{p_end}
 
 {syntab:Measures}
 {synopt:{opt count(name)}}event-row count{p_end}
 {synopt:{opt sum(varname [name])}}sum of a numeric event variable{p_end}
-{synopt:{opt any(name)}}indicator for one or more attached event rows{p_end}
+{synopt:{opt any(name)}}one-or-more-event indicator{p_end}
 {synopt:{opt max(varname [name])}}maximum of a numeric event variable{p_end}
-{synopt:{opt if(expression)}}restrict eligible rows in the using data{p_end}
+{synopt:{opt if(expression)}}using-data row filter{p_end}
 {synopt:{opt rate(name)}}{cmd:count()}/person-time{p_end}
 
 {syntab:Behavior}
@@ -63,10 +63,12 @@ with a missing identifier or date, or rows excluded by {cmd:if()}, are not
 eligible and are not counted as orphans.
 
 {pstd}
-The grid is recognized through dataset characteristics written by
-{cmd:pygrid}. Commands that discard characteristics, edit stamped intervals or
-person-time, or remove required structural variables invalidate the contract; run
-{cmd:pyattach} before aggregation.
+The grid is recognized through dataset characteristics and a structural data
+signature written by {cmd:pygrid}. Reordering rows or adding event-measure
+columns is allowed. Editing stamped metadata or structural values, removing
+required structural variables, or using a grid created before integrity stamps
+were introduced invalidates the contract; run {cmd:pygrid} again before
+attachment.
 
 {pstd}
 Multiple nonoverlapping source episodes may share the same {cmd:id()} and

@@ -1,3 +1,7 @@
+*! run_all.do Version 1.0.1  2026/08/30
+*! Curated pygrid QA lane runner
+*! Author: Timothy P Copeland, Karolinska Institutet
+
 version 16.0
 args mode extra
 
@@ -11,7 +15,7 @@ if !inlist("`mode'", "quick", "core", "crossval", "full", "benchmark") {
     exit 198
 }
 
-local quick "test_pygrid.do test_pyattach.do test_package_contracts.do test_doc_examples.do test_pygrid_errors.do test_pygrid_hostile.do"
+local quick "test_pygrid.do test_pyattach.do test_package_contracts.do test_doc_examples.do test_pygrid_errors.do test_pygrid_hostile.do test_regressions.do"
 local core "`quick' validation_pygrid_known_truth.do validation_pyattach_known_truth.do validation_pyattach_reference.do validation_mogad_section4d.do"
 local crossval "crossval_pygrid.do"
 local full "`core' `crossval'"

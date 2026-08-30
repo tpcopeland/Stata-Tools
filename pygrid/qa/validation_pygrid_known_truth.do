@@ -1,4 +1,4 @@
-*! validation_pygrid_known_truth.do Version 1.0.0  2026/08/12
+*! validation_pygrid_known_truth.do Version 1.0.1  2026/08/30
 *! Hand-computed person-time and partition validation for pygrid
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -142,16 +142,24 @@ local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("clamp and coverage partition") ///
     tests(`test_count') passes(`pass_count') fails(`fail_count')
 
-**## Empty windows are counted while missing bounds error
+**## Restriction-induced empty windows are counted while malformed input errors
 capture noisily {
+    clear
+    input long id double(window_start window_end coverage_start)
+        1 10 20 30
+        2 10 20 10
+    end
+    pygrid, id(id) start(window_start) end(window_end) axis(fixed) ///
+        pyunit(day) coverage(coverage_start)
+    assert _N == 1 & id == 2
+    assert r(N_empty_window) == 1
     clear
     input long id double(window_start window_end)
         1 10 9
         2 10 20
     end
-    pygrid, id(id) start(window_start) end(window_end) axis(fixed) pyunit(day)
-    assert _N == 1 & id == 2
-    assert r(N_empty_window) == 1
+    capture noisily pygrid, id(id) start(window_start) end(window_end) axis(fixed)
+    assert _rc == 459
     clear
     input long id double(window_start window_end)
         1 10 .a
@@ -160,7 +168,7 @@ capture noisily {
     assert _rc == 416
 }
 local case_rc = _rc
-_pygrid_record, rc(`case_rc') name("empty versus missing window") ///
+_pygrid_record, rc(`case_rc') name("restricted, malformed, and missing windows") ///
     tests(`test_count') passes(`pass_count') fails(`fail_count')
 
 **# Randomized partition and ordering invariants

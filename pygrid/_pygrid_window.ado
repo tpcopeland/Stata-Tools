@@ -1,4 +1,4 @@
-*! _pygrid_window Version 1.0.0  2026/08/12
+*! _pygrid_window Version 1.0.1  2026/08/30
 *! Resolve protocol and coverage bounds for pygrid
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

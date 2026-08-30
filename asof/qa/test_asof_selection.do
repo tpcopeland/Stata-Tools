@@ -1,3 +1,7 @@
+*! test_asof_selection.do - Direction and selection-rule contracts for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

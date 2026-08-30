@@ -1,3 +1,7 @@
+*! test_asof_edge_cases.do - Edge-case contracts for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

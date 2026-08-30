@@ -1,5 +1,9 @@
+*! test_asof_errors.do - Error-path and recovery contracts for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
-set more off
+set processors 1
 set varabbrev off
 version 16.0
 
@@ -99,7 +103,7 @@ capture noisily {
 if _rc == 0 local ++pass_count
 else local ++fail_count
 
-display "RESULT: test_asof_errors tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_asof_errors tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 {
     capture log close _all
     exit 1

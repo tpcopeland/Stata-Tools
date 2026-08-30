@@ -1,3 +1,7 @@
+*! validation_asof_known_truth.do - Hand-computed and brute-force oracles
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

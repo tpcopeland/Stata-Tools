@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate independent pandas.merge_asof parity fixtures for asof QA."""
+"""Generate independent pandas.merge_asof parity fixtures for asof QA.
+
+Author: Timothy P Copeland, Karolinska Institutet
+"""
 
 from __future__ import annotations
 

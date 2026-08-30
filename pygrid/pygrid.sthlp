@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  12aug2026}{...}
+{* *! version 1.0.1  30aug2026}{...}
 {vieweralsosee "pyattach" "help pyattach"}{...}
 {vieweralsosee "tvband" "help tvband"}{...}
 {vieweralsosee "stsplit" "help stsplit"}{...}
@@ -52,13 +52,13 @@
 {synopt:{opt cov:erage(#|varname)}}coverage-start truncation{p_end}
 
 {syntab:Output}
-{synopt:{opt gen:erate(name)}}period-number variable; default is {cmd:period}{p_end}
+{synopt:{opt gen:erate(name)}}period variable; default {cmd:period}{p_end}
 {synopt:{opt rel:gen(name)}}relative-period variable name{p_end}
-{synopt:{opt startg:en(name)}}observed period start; default is {cmd:period_start}{p_end}
-{synopt:{opt stopg:en(name)}}observed period stop; default is {cmd:period_stop}{p_end}
-{synopt:{opt pyt:ime(name)}}person-time variable; default is {cmd:person_years}{p_end}
+{synopt:{opt startg:en(name)}}observed start; default {cmd:period_start}{p_end}
+{synopt:{opt stopg:en(name)}}observed stop; default {cmd:period_stop}{p_end}
+{synopt:{opt pyt:ime(name)}}person-time; default {cmd:person_years}{p_end}
 {synopt:{opt pyu:nit(unit)}}{cmd:year} or {cmd:day}; default is {cmd:year}{p_end}
-{synopt:{opt noincl:usive}}use {it:stop - start} rather than {it:stop - start + 1}{p_end}
+{synopt:{opt noincl:usive}}exclude the terminal day{p_end}
 {synopt:{opt keep(varlist)}}variables copied to period rows{p_end}
 {synopt:{opt save:as(filename)}}save grid and preserve memory{p_end}
 {synopt:{opt replace}}replace an existing {cmd:saveas()} file{p_end}
@@ -78,17 +78,18 @@ written to disk and the original data remain in memory.
 
 {pstd}
 For {cmd:axis(calendar)}, period boundaries follow calendar days, months, or
-years. Multi-month periods are anchored at January and multi-year periods at
-year zero. For {cmd:axis(anniversary)}, boundaries are measured from
+years. Multi-month periods are anchored at January 1960 and multi-year periods
+at year zero. For {cmd:axis(anniversary)}, boundaries are measured from
 {cmd:origin()}; year widths use 365.25 days and integer daily-date boundaries. {cmd:axis(fixed)}
 produces one row spanning the resolved window.
 
 {pstd}
 Missing identifiers or window bounds are denominator errors and produce
-{cmd:r(416)}. Daily-date inputs must be integer valued. Source episodes for one
-identifier may not overlap. A nonmissing window that becomes empty after
-clamping or coverage restrictions is dropped and counted in
-{cmd:r(N_empty_window)}.
+{cmd:r(416)}. Daily-date inputs must be integer valued. A source window with
+{cmd:end()} before {cmd:start()} is malformed and produces {cmd:r(459)}. Source
+episodes for one identifier may not overlap. An otherwise valid window that
+becomes empty after clamping or coverage restrictions is dropped and counted
+in {cmd:r(N_empty_window)}.
 
 
 {marker options}{...}
@@ -239,7 +240,7 @@ Anniversary grid retaining only complete years:
 {synopt:{cmd:r(N_persons)}}distinct identifiers with a period{p_end}
 {synopt:{cmd:r(N_rows)}}grid rows created{p_end}
 {synopt:{cmd:r(N_empty_window)}}source rows dropped after resolving the window{p_end}
-{synopt:{cmd:r(N_uncovered)}}source rows whose start was truncated by {cmd:coverage()}{p_end}
+{synopt:{cmd:r(N_uncovered)}}rows truncated by {cmd:coverage()}{p_end}
 {synopt:{cmd:r(N_partial)}}partial rows identified before {cmd:partial(drop)}{p_end}
 {synopt:{cmd:r(pytotal)}}total person-time{p_end}
 {synopt:{cmd:r(pymin)}}minimum row-level person-time{p_end}
@@ -257,7 +258,7 @@ Anniversary grid retaining only complete years:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-08-12{p_end}
+{pstd}Version 1.0.1, 2026-08-30{p_end}
 
 
 {title:Also see}
