@@ -1,3 +1,7 @@
+*! _pygrid_qa_common.do Version 1.0.1  2026/08/30
+*! Shared sandbox, fixtures, assertions, and result accounting for pygrid QA
+*! Author: Timothy P Copeland, Karolinska Institutet
+
 version 16.0
 
 capture program drop _pygrid_qa_bootstrap
@@ -66,6 +70,39 @@ program define _pygrid_record
     c_local test_count `tests'
     c_local pass_count `passes'
     c_local fail_count `fails'
+end
+
+capture program drop _pygrid_assert_data_equal
+program define _pygrid_assert_data_equal
+    version 16.0
+    syntax using/ [, ORDER]
+
+    * cf _all checks only variables present in memory. Compare the exact
+    * schema first so a check cannot pass after silently dropping a variable,
+    * then compare values and attributes. order additionally pins variable
+    * order for rollback and no-mutation contracts.
+    tempname compare_frame
+    local frame_open = 0
+    capture noisily {
+        unab current_vars : _all
+        frame create `compare_frame'
+        local frame_open = 1
+        frame `compare_frame': quietly use `using', clear
+        frame `compare_frame': unab using_vars : _all
+        if "`order'" == "" {
+            local current_schema : list sort current_vars
+            local using_schema : list sort using_vars
+        }
+        else {
+            local current_schema "`current_vars'"
+            local using_schema "`using_vars'"
+        }
+        assert `"`current_schema'"' == `"`using_schema'"'
+        cf `current_vars' using `using', all
+    }
+    local rc = _rc
+    if `frame_open' capture frame drop `compare_frame'
+    if `rc' exit `rc'
 end
 
 capture program drop _pygrid_make_calendar

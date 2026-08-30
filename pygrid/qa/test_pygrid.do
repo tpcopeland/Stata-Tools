@@ -1,4 +1,4 @@
-*! test_pygrid.do Version 1.0.0  2026/08/12
+*! test_pygrid.do Version 1.0.1  2026/08/30
 *! Functional and error-path tests for pygrid
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -45,7 +45,7 @@ capture noisily {
     assert "`r(unit)'" == "year"
     assert "`r(pyconvention)'" == "inclusive"
     local stamp : char _dta[pygrid_version]
-    assert "`stamp'" == "1.0.0"
+    assert "`stamp'" == "1.0.1"
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("calendar defaults and stored contract") ///
@@ -220,7 +220,7 @@ capture noisily {
     save `original'
     pygrid, id(id) start(window_start) end(window_end) axis(calendar) ///
         keep(marker) saveas(`saved') replace
-    cf _all using `original', all
+    _pygrid_assert_data_equal using `original', order
     local spaced_path "pygrid saveas path with space.dta"
     capture erase "`spaced_path'"
     pygrid, id(id) start(window_start) end(window_end) axis(calendar) ///
@@ -285,7 +285,7 @@ capture noisily {
     capture noisily pygrid, id(id) start(window_start) end(window_end) ///
         axis(fixed) generate(result) pytime(result)
     assert _rc == 198
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
     generate double period = 7
     capture noisily pygrid, id(id) start(window_start) end(window_end) axis(fixed)
     assert _rc == 110
@@ -386,7 +386,7 @@ capture noisily {
     capture noisily pygrid, id(id) start(window_start) end(window_end) ///
         axis(fixed) pyunit(day)
     assert _rc == 459
-    cf _all using `before', all
+    _pygrid_assert_data_equal using `before', order
 
     replace window_start = 1 in 1
     replace window_end = 2 in 1

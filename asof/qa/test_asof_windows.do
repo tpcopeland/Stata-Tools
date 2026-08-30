@@ -1,3 +1,7 @@
+*! test_asof_windows.do - Protocol, observability, and missingness contracts
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

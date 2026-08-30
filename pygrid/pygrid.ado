@@ -1,4 +1,4 @@
-*! pygrid Version 1.0.0  2026/08/12
+*! pygrid Version 1.0.1  2026/08/30
 *! Build a person-period denominator grid with exact person-time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -210,6 +210,11 @@ program define pygrid, rclass
             display as error "`=r(N)' selected observation(s) have noninteger start() or end() daily dates"
             exit 459
         }
+        quietly count if `touse' & `end' < `start'
+        if r(N) > 0 {
+            display as error "`=r(N)' selected observation(s) have end() before start()"
+            exit 459
+        }
         if "`origin'" != "" {
             quietly count if `touse' & missing(`origin')
             if r(N) > 0 {
@@ -316,8 +321,9 @@ program define pygrid, rclass
         local stamp_origin ""
         if "`origin'" != "" local stamp_origin "origin(_pygrid_origin)"
         quietly _pygrid_stamp, id(`id') start(`startgen') stop(`stopgen') ///
-            pytime(`pytime') period(`generate') axis(`axis') width(`width') ///
-            unit(`unit') pyunit(`pyunit') convention(`convention') `stamp_origin'
+            pytime(`pytime') period(`generate') episode(_pygrid_episode) ///
+            axis(`axis') width(`width') unit(`unit') pyunit(`pyunit') ///
+            convention(`convention') `stamp_origin'
 
         local _return_ready = 1
         if `"`saveas'"' != "" {

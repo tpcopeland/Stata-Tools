@@ -1,3 +1,7 @@
+*! benchmark_asof_scaling.do - Scaling-shape guardrail for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev off

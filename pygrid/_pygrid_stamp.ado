@@ -1,4 +1,4 @@
-*! _pygrid_stamp Version 1.0.0  2026/08/12
+*! _pygrid_stamp Version 1.0.1  2026/08/30
 *! Stamp the dataset contract consumed by pyattach
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -12,9 +12,9 @@ program define _pygrid_stamp
 
     capture noisily {
         syntax , ID(varname) START(varname numeric) STOP(varname numeric) ///
-            PYTIME(varname numeric) PERIOD(varname numeric) AXIS(string) ///
-            WIDTH(real) UNIT(string) PYUNIT(string) CONVENTION(string) ///
-            [ ORIGIN(varname numeric) ]
+            PYTIME(varname numeric) PERIOD(varname numeric) ///
+            EPISODE(varname numeric) AXIS(string) WIDTH(real) UNIT(string) ///
+            PYUNIT(string) CONVENTION(string) [ ORIGIN(varname numeric) ]
 
         quietly findfile pygrid.ado
         local _pygrid_path `"`r(fn)'"'
@@ -35,12 +35,24 @@ program define _pygrid_stamp
         char _dta[pygrid_stop] "`stop'"
         char _dta[pygrid_pytime] "`pytime'"
         char _dta[pygrid_period] "`period'"
+        char _dta[pygrid_episode] "`episode'"
         char _dta[pygrid_axis] "`axis'"
         char _dta[pygrid_width] "`width'"
         char _dta[pygrid_unit] "`unit'"
         char _dta[pygrid_pyunit] "`pyunit'"
         char _dta[pygrid_pyconvention] "`convention'"
         char _dta[pygrid_origin] "`origin'"
+
+        local _contract `"`_version'|`id'|`start'|`stop'|`pytime'|`period'|`episode'|`axis'|`width'|`unit'|`pyunit'|`convention'|`origin'"'
+        quietly _datasignature `id' `start' `stop' `pytime' `period' ///
+            `episode' `origin', nodefault nonames
+        local _signature `"`r(datasignature)'"'
+        if `"`_signature'"' == "" {
+            display as error "internal error: could not compute the pygrid data signature"
+            exit 459
+        }
+        char _dta[pygrid_contract] `"`_contract'"'
+        char _dta[pygrid_signature] `"`_signature'"'
     }
     local rc = _rc
     if `_file_open' capture file close `_version_fh'

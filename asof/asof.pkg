@@ -2,7 +2,7 @@ v 3
 d 'ASOF': Index-anchored value extraction
 d
 d Requires: Stata version 16+
-d Distribution-Date: 20260812
+d Distribution-Date: 20260830
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

@@ -1,4 +1,4 @@
-*! _pygrid_pytime Version 1.0.0  2026/08/12
+*! _pygrid_pytime Version 1.0.1  2026/08/30
 *! Compute person-time and verify the period partition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

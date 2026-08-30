@@ -529,7 +529,7 @@ See [qa/README.md](qa/README.md) for the test runbook and coverage map.
 
 ## Version History
 
-Version 0.1.0, 2026-08-12.
+Version 0.1.0, 2026-08-30.
 
 - 0.1.0 (2026-08-12): Initial release.
 

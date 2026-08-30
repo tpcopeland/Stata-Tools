@@ -32,7 +32,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
-| [asof](https://github.com/tpcopeland/Stata-Tools/tree/main/asof) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--12-brightgreen) | Attach one eligible measurement record per identifier-anchor key with explicit direction, selection, tie, and window rules |
+| [asof](https://github.com/tpcopeland/Stata-Tools/tree/main/asof) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Attach one eligible measurement record per identifier-anchor key with explicit direction, selection, tie, and window rules |
 | [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-4.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--28-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
 | [compress_tc](https://github.com/tpcopeland/Stata-Tools/tree/main/compress_tc) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Two-stage compression for string-heavy Stata data via strL and compress |
 | [datamap](https://github.com/tpcopeland/Stata-Tools/tree/main/datamap) | ![version](https://img.shields.io/badge/version-1.6.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Privacy-safe dataset maps, Markdown dictionaries, console QC/expectation gates (datacheck), and missing-value pattern analysis (datamvp) |
@@ -59,7 +59,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
-| [pygrid](https://github.com/tpcopeland/Stata-Tools/tree/main/pygrid) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--12-brightgreen) | Person-period denominator grids with zero-filled event attachment |
+| [pygrid](https://github.com/tpcopeland/Stata-Tools/tree/main/pygrid) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Person-period denominator grids with zero-filled event attachment |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.5.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Swedish registry tools for Charlson scoring, migrations, and MS progression endpoints |
 | [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.17.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
 

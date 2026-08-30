@@ -1,6 +1,6 @@
 # pygrid
 
-**Version 1.0.0** | 2026-08-12
+**Version 1.0.1** | 2026-08-30
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
@@ -15,6 +15,10 @@ net install pygrid, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 The package requires Stata 16 or later and has no runtime dependencies.
 
 Identifiers may be numeric or fixed-width strings. All date variables and numeric date bounds must contain integer Stata daily dates; datetime and fractional values are rejected.
+
+Source windows must have `end()` on or after `start()`. Calendar month blocks are anchored at January 1960, so odd widths remain stable across years.
+
+Every generated grid carries an integrity stamp over its structural metadata and data. Row reordering and added event-measure columns remain valid, but editing structural values or metadata requires rebuilding the grid before calling `pyattach`; grids created before version 1.0.1 must also be rebuilt.
 
 ## Syntax
 
@@ -473,6 +477,7 @@ The checked-in `.log` files are plain-text Stata output; `logdoc` also generates
 
 ## Version history
 
+- **1.0.1** (30 August 2026): Rejects reversed source windows, adds tamper-detecting grid integrity stamps while preserving row-reordering support, pins and documents the January 1960 month-block origin, and strengthens rollback QA against asymmetric dataset comparisons.
 - **1.0.0** (12 August 2026): Initial implementation of calendar, anniversary, and fixed grids; exact person-time; coverage and partial-period rules; zero-filled event attachment; orphan policies; and rate construction.
 
 ## QA

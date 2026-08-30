@@ -1,3 +1,7 @@
+*! test_pygrid_errors.do Version 1.0.1  2026/08/30
+*! Exact public error-code and rollback contracts for pygrid and pyattach
+*! Author: Timothy P Copeland, Karolinska Institutet
+
 * Public early and late error contracts for pygrid and pyattach.
 version 16.0
 clear all

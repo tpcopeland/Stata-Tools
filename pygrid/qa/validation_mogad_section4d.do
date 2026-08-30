@@ -1,4 +1,4 @@
-*! validation_mogad_section4d.do Version 1.0.0  2026/08/12
+*! validation_mogad_section4d.do Version 1.0.1  2026/08/30
 *! Reproduce the six MOGAD Combined section 4d tables with pygrid/pyattach
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -301,7 +301,7 @@ capture noisily {
     generate double er_rate_per_py = total_er / total_py
     drop if n_patients < 5
     sort mogad rel_year
-    capture noisily cf _all using `ref_er', all
+    capture noisily _pygrid_assert_data_equal using `ref_er'
     local compare_rc = _rc
     if `compare_rc' == 0 local ++tables_passed
     else display as error "Obj3a ER table differs (rc=`compare_rc')"
@@ -318,7 +318,7 @@ capture noisily {
     generate double visit_rate_per_py = total_visits / total_py
     drop if n_patients < 5
     sort mogad rel_year
-    capture noisily cf _all using `ref_op', all
+    capture noisily _pygrid_assert_data_equal using `ref_op'
     local compare_rc = _rc
     if `compare_rc' == 0 local ++tables_passed
     else display as error "Obj3b outpatient table differs (rc=`compare_rc')"
@@ -336,7 +336,7 @@ capture noisily {
     generate double admission_rate_per_py = total_admissions / total_py
     drop if n_patients < 5
     sort mogad rel_year
-    capture noisily cf _all using `ref_ip', all
+    capture noisily _pygrid_assert_data_equal using `ref_ip'
     local compare_rc = _rc
     if `compare_rc' == 0 local ++tables_passed
     else display as error "Obj3c-e inpatient table differs (rc=`compare_rc')"
@@ -359,7 +359,7 @@ capture noisily {
     drop if n_patients < 5
     generate double mean_cost_eur = mean_cost / `sek_per_eur'
     sort mogad rel_year
-    capture noisily cf _all using `ref_rx', all
+    capture noisily _pygrid_assert_data_equal using `ref_rx'
     local compare_rc = _rc
     if `compare_rc' == 0 local ++tables_passed
     else display as error "Obj3f medication table differs (rc=`compare_rc')"
@@ -373,7 +373,7 @@ capture noisily {
         by(mogad rel_year)
     drop if n_patients < 5
     sort mogad rel_year
-    capture noisily cf _all using `ref_related', all
+    capture noisily _pygrid_assert_data_equal using `ref_related'
     local compare_rc = _rc
     if `compare_rc' == 0 local ++tables_passed
     else display as error "Obj3g related-visit table differs (rc=`compare_rc')"
@@ -395,7 +395,7 @@ capture noisily {
         (p50) median_total=total_direct_2024, by(mogad rel_year)
     drop if n_npr < 5
     sort mogad rel_year
-    capture noisily cf _all using `ref_cost', all
+    capture noisily _pygrid_assert_data_equal using `ref_cost'
     local compare_rc = _rc
     if `compare_rc' == 0 local ++tables_passed
     else display as error "Obj3h direct-cost table differs (rc=`compare_rc')"

@@ -44,9 +44,12 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 | `test_asof_ties.do` | Equidistant and duplicate-date ties, input-order behavior, and strict tie errors. |
 | `test_asof_edge_cases.do` | Unmatched and absent persons, empty using data, extended missings, internal-name exhaustion, strings, sample restriction, and empty keys. |
 | `test_asof_types.do` | Numeric and string identifiers, storage formats, `%td`/`%tc` units, incompatible types, and frame sources. |
-| `test_asof_install.do` | Installed command/helper discovery, Mata reload, documented workflow, and package metadata presence. |
+| `test_asof_install.do` | Installed command/helper discovery from the isolated sandbox, Mata reload, documented workflow, and exact package-manifest membership. |
+| `test_asof_help.do` | Installed SMCL rendering with a positive control and synopsis-width limits. |
 | `test_asof_examples.do` | Inline synthetic fixtures, exact execution of all three documented workflows, and public-example path hygiene. |
+| `test_asof_errors.do` | Exact error codes, unchanged master data, and successful recovery after invalid calls. |
 | `test_asof_hostile.do` | 31/32-character output-name rejection, structural collisions, empty restrictions, repeated calls, and unsorted-row preservation. |
+| `test_asof_oracle.do` | Seeded brute-force `joinby` parity over randomized fixtures plus missing-key and exact-tie cases. |
 
 ### Validation
 
@@ -82,8 +85,8 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 
 | Lane | Suites |
 |---|---|
-| `quick` | All `test_asof_*` functional, hostile, and install suites. |
-| `core` | `quick` plus both `validation_asof_*` suites. |
+| `quick` | Functional, hostile, install, help-render, example, and error suites; excludes the randomized oracle. |
+| `core` | `quick` plus both `validation_asof_*` suites and `test_asof_oracle.do`. |
 | `crossval` | `crossval_asof_pandas.do`. |
 | `full` | `core` plus `crossval`. |
 | `benchmark` | `benchmark_asof_scaling.do` only, on demand. |

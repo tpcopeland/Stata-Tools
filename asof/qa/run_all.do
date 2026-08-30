@@ -1,5 +1,6 @@
 *! run_all.do — curated QA runner for asof
 *! Usage: stata-mp -b do run_all.do [quick|core|crossval|full|benchmark]
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 version 16.0
 set varabbrev off
@@ -21,7 +22,7 @@ quietly _asof_qa_bootstrap
 
 local quick_suites test_asof_syntax test_asof_selection test_asof_windows ///
     test_asof_ties test_asof_edge_cases test_asof_types test_asof_install ///
-    test_asof_examples test_asof_errors test_asof_hostile
+    test_asof_help test_asof_examples test_asof_errors test_asof_hostile
 local core_suites `quick_suites' validation_asof_known_truth ///
     validation_asof_mogad test_asof_oracle
 local crossval_suites crossval_asof_pandas

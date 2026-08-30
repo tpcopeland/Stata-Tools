@@ -1,4 +1,4 @@
-*! _pygrid_report Version 1.0.0  2026/08/12
+*! _pygrid_report Version 1.0.1  2026/08/30
 *! Display compact pygrid and pyattach reports
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

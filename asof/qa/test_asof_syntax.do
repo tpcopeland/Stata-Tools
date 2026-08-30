@@ -1,3 +1,7 @@
+*! test_asof_syntax.do - Syntax, naming, returns, and state contracts for asof
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Requires: Stata 16.0+
+
 clear all
 set processors 1
 set varabbrev on
