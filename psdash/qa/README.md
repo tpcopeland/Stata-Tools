@@ -36,7 +36,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | Suite or lane | Needs | If missing |
 |---|---|---|
 | `quick` / `test_excel_fidelity.do` | Python 3 and `openpyxl` | Suite failure. |
-| `external` / `crossval_cobalt.do` | `Rscript` and R package `cobalt` | Lane exits with dependency skip. |
+| `external` / `crossval_cobalt.do`, `crossval_public_studies.do` | `Rscript` and R packages `cobalt` and `MASS` | Lane exits with dependency skip. |
 | `external` / `crossval_external_references.do` | Python 3, NumPy, pandas, statsmodels, and scikit-learn | Suite failure after the Python reference command cannot create its oracle files. |
 | `external` / `crossval_python_psdash.do` | Python 3 standard library | Lane exits with dependency skip. |
 
@@ -98,6 +98,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `validation_extended_known_answers.do` | Extended row-level and boundary known answers. |
 | `validation_method_contracts.do` | Documented estimator definitions and invariant contracts. |
 | `validation_multigroup_longitudinal.do` | Multi-group and longitudinal known-answer matrices and counts. |
+| `validation_public_known_answers.do` | Exact tied-AUC, quantile-support, and uneven-group ESS answers. |
 
 ### Cross-validation
 
@@ -105,6 +106,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 |---|---|
 | `crossval_cobalt.do` | R `cobalt` binary and pairwise multi-group SMD, variance-ratio, and KS parity. |
 | `crossval_external_references.do` | statsmodels/scikit-learn reference datasets and independently calculated diagnostics. |
+| `crossval_public_studies.do` | R/cobalt parity on the public Lalonde job-training and MASS low-birth-weight study data. |
 | `crossval_python_psdash.do` | Independent Python formula implementation for core diagnostics. |
 
 ### Support
@@ -116,6 +118,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `_cobalt_reference_psdash.R` | R `cobalt` oracle writer. |
 | `_external_reference_psdash.py` | NumPy/pandas/statsmodels/scikit-learn reference generator. |
 | `_psdash_python_reference.py` | Standard-library formula oracle. |
+| `_public_studies_reference_psdash.R` | Public-study data, propensity-model, balance, support, and weight oracle generator. |
 | `tools/check_xlsx.py` | Vendored workbook structure, numeric-cell, and presentation checker. |
 
 ## Coverage map
@@ -124,10 +127,10 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 |---|---|---|---|---|
 | `psdash` | `test_psdash`, dispatch/refactor suites | — | — | Install/autoload and adversarial suites. |
 | `psdash detect` | Detection, producer-contract, and sample-ledger suites | `validation_multigroup_longitudinal` | External reference workflows | Every auto-detected panel path. |
-| `psdash overlap` | Binary/multi-group overlap and adversarial suites | Known-answer suites | Python/external references | Combined and producer integrations. |
-| `psdash balance` | Binary/multi-group balance, factors, VR, and export suites | Known-answer and method suites | R `cobalt`, Python, and external references | Combined and teffects paths. |
-| `psdash weights` | Binary/multi-group weights, estimands, thresholds, and exports | Known-answer and method suites | Python/external references | Combined and producer integrations. |
-| `psdash support` | Binary/multi-group support, trimming, Crump, and guards | Known-answer and method suites | Python/external references | Combined and GPS-positivity suites. |
+| `psdash overlap` | Binary/multi-group overlap and adversarial suites | Known-answer suites | Python, external references, and public studies | Combined and producer integrations. |
+| `psdash balance` | Binary/multi-group balance, factors, VR, and export suites | Known-answer and method suites | R `cobalt`, Python, external references, and public studies | Combined and teffects paths. |
+| `psdash weights` | Binary/multi-group weights, estimands, thresholds, and exports | Known-answer and method suites | Python, external references, and public studies | Combined and producer integrations. |
+| `psdash support` | Binary/multi-group support, trimming, Crump, and guards | Known-answer and method suites | Python, external references, and public studies | Combined and GPS-positivity suites. |
 | `psdash combined` | Verdict, threshold, common-sample, report, and longitudinal suites | Multi-group/longitudinal validation | External reference workflows | Real producer integrations. |
 
 ## Lane membership

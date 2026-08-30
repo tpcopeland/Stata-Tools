@@ -42,6 +42,16 @@ R 4.6.1 · `survival` 3.8.6 · `IrregLong` 0.4.1 · `geepack` 1.3.13 · `ipw` 1.
 | **Lalonde** | 🟡 Propensity/balance fixture. Useful, but see the gap below. |
 | **Does NOT prove** | Corrected variance (the external outcome comparisons are fixed-weight) or the recommended full-risk-window FIPTIW construction. |
 
+### 🟢 `crossval_iivw_pbcseq` — natural irregular follow-up
+
+| | |
+|---|---|
+| **Module** | `survival::pbcseq`, `survival::coxph`, and `geepack::geeglm` |
+| **Authority** | Public sequential measurements from the randomized Mayo PBC trial, shipped and documented by `survival`; the R script independently builds the counting-process data. |
+| **Proves** | Exact risk-set counts and visit-model coefficients under subject-specific `censor()` plus `baseline(entry)`; row-level stabilized IIW with lagged bilirubin; quadratic-time weighted Gaussian GEE point and fixed-weight robust-SE parity; and `iivw_exogtest` coefficient/clustered-SE parity. |
+| **Does NOT prove** | Causal treatment effects in PBC, corrected weight-estimation variance, or performance when incomplete laboratory rows are retained rather than restricted to the variables used by the oracle. |
+| **Disposition** | **RETAIN.** It combines natural irregularity, outcome history, subject-specific follow-up, quadratic time, and a reporting command on one public study. |
+
 ---
 
 ## 2. Phase-2 IPTW gap — closed
@@ -72,8 +82,7 @@ so stale CSVs cannot close the gate.
 |---|---|
 | `quick` | **none** — R lanes explicitly skipped. *(This is why the 43/43 quick PASS proves so little.)* |
 | `core` | none |
-| `external` | `crossval_iivw_irreglong`, `crossval_iivw_external`, **`crossval_iivw_iptw` (new)**, `crossval_iivw_fiptiw` (new, full-risk-set) |
-| `full` | core + freshly regenerated external parity |
+| `full` | core + freshly regenerated `crossval_iivw`, `crossval_iivw_external`, `crossval_iivw_dta`, and `crossval_iivw_pbcseq` parity |
 | `benchmark` | the ≥1,000-rep coverage gate (`TOLERANCE_FRAMEWORK.md` Class C) |
 | `legacy` | legacy recovery scenarios; the `crossval_fiptiw` arms are explicitly labelled legacy within the mixed full cross-validation file |
 | `sensitivity` (`sim` alias) | post-hoc scenario envelopes, reported separately from validation |

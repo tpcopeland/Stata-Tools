@@ -116,6 +116,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `validation_iivw_inference.do` | Long-running preregistered interval-coverage study. |
 | `validation_iivw_iptw_oracle.do` | Stabilized IPTW known-answer oracle. |
 | `validation_iivw_known_answers.do` | Additional hand-computable results. |
+| `validation_iivw_links_known_answers.do` | Exact Poisson-log quadratic-time and binomial-logit outcome-model solutions. |
 | `validation_iivw_recovery.do` | Supported-estimator parameter recovery. |
 | `validation_iivw_recovery_extended.do` | Legacy recovery construction. |
 | `validation_iivw_recovery_extended2.do` | Additional legacy recovery construction. |
@@ -127,6 +128,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `crossval_iivw.do` | Weight and outcome parity with `IrregLong`, `survival`, and `geepack`. |
 | `crossval_iivw_external.do` | External datasets and independent IPTW/GEE references. |
 | `crossval_iivw_dta.do` | Fresh `.dta` exchange parity for baseline-event Efron weights and independence-GEE point estimates and sandwich SEs. |
+| `crossval_iivw_pbcseq.do` | Mayo PBC sequential-study parity for subject-specific censoring, lagged-outcome IIW, quadratic-time GEE, and exogeneity diagnostics. |
 
 ### Diagnostics and sensitivity scripts
 
@@ -166,10 +168,10 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
 | `iivw` | `test_iivw`, release adversarial | version/distribution invariants | — | installed-user smoke |
-| `iivw_weight` | command, adversarial, interval, tie, regression suites | recovery and IPTW/FIPTIW oracles | all three cross-validation suites | fit, balance, psdash, diagnostics |
+| `iivw_weight` | command, adversarial, interval, tie, regression suites | recovery and IPTW/FIPTIW oracles | all cross-validation suites | fit, balance, psdash, diagnostics |
 | `iivw_balance` | command, exports, adversarial regressions | known-answer balance checks | — | weighting and diagnostic workflow |
-| `iivw_fit` | command, unweighted, inference, stacked, replay, regressions | recovery suites | all three cross-validation suites | bootstrap and psdash workflow |
-| `iivw_exogtest` | command, adversarial, exports, ties | diagnostic known answers | — | diagnostic workflow |
+| `iivw_fit` | command, unweighted, inference, stacked, replay, regressions | recovery and canonical-link known answers | all cross-validation suites | bootstrap and psdash workflow |
+| `iivw_exogtest` | command, adversarial, exports, ties | diagnostic known answers | `crossval_iivw_pbcseq` | diagnostic workflow |
 | `iivw_diagnose` | command, exports, workflow | diagnostic known answers | — | unweighted/weighted/adjusted comparison |
 
 ## Lane membership
@@ -180,7 +182,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 |---|---|
 | `quick` | Fast public-command, state, recovery, documentation, and release contracts. |
 | `core` | `quick` plus supported Stata validation, adversarial, stacked, tie, and regression suites. |
-| `full` | `core` plus regenerated R references and all three cross-validation suites. |
+| `full` | `core` plus regenerated R references and all cross-validation suites. |
 | `legacy` | Historical recovery constructions, outside the supported-estimator gate. |
 | `sensitivity` (`sim`) | Post-hoc scenario envelopes, outside validation lanes. |
 

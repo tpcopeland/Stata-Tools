@@ -67,7 +67,8 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_documentation_examples.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
-    validation_finegray_recovery_paths.do validation_finegray_cif_recovery.do ///
+    validation_finegray_recovery_paths.do validation_cluster_recovery.do ///
+    validation_finegray_cif_recovery.do ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     validation_bstrata_recovery.do ///
     validation_tvc_recovery.do ///
@@ -75,7 +76,8 @@ local core_files `quick_files' ///
     crossval_predict_stcrreg.do
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
     crossval_finegray_dta.do crossval_finegray_zzf.do crossval_nuisance.do ///
-    crossval_bstrata.do crossval_tvc.do crossval_pweight.do
+    crossval_bstrata.do crossval_public_studies.do ///
+    crossval_tvc.do crossval_pweight.do
 
 * The ZZF Monte Carlo GATES.  Hours, not minutes -- see the header.  They live in
 * their own lane so that (a) they are wired in and runnable by name rather than
