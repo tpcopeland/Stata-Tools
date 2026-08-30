@@ -1,4 +1,4 @@
-# codescan QA suite
+# codescan QA
 
 Tests, validation, and release checks for the `codescan` package
 (`codescan`, `codescan_describe`). The suite follows the house QA layout:
@@ -12,6 +12,8 @@ cd codescan/qa
 stata-mp -b do run_all.do            # full lane (default release gate)
 stata-mp -b do run_all.do quick      # fast dev loop
 stata-mp -b do run_all.do core       # all validation + adversarial, no install/docs
+stata-mp -b do run_all.do crossval   # public-data parity with official ICD tools
+stata-mp -b do crossval_codescan_icd10.do  # one suite standalone
 ```
 
 Or via the CLI:
@@ -35,7 +37,7 @@ is to exercise the package as a freshly installed user sees it.
 The last line of a run is the aggregate sentinel:
 
 ```
-RESULT: run_all_full tests=34 pass=34 fail=0
+RESULT: run_all_full tests=N pass=N fail=0
 ```
 
 Gate on that line, not on the shell exit status — `stata-mp -b do` exits 0 even
@@ -45,7 +47,9 @@ name and counters back to the runner; a missing report, zero-test report,
 counter mismatch, or nonzero reported failure makes the lane red even when the
 suite do-file itself returns 0.
 
-### Dependency: Python + openpyxl
+## Dependencies
+
+### Python + openpyxl
 
 `validation_codescan_output.do` (core and full lanes) shells out to
 `tools/check_codescan_artifacts.py`, which needs `python3` with **openpyxl**:
@@ -57,6 +61,10 @@ pip install --break-system-packages openpyxl
 The suite probes for it and exits `499` when it is missing — it does not skip.
 The `quick` lane has no Python dependency.
 
+### Public Stata Press ICD-10 data
+
+`crossval_codescan_icd10.do` and `validation_codescan_public_known_answers.do` load the fixed public Release 17 `australia10.dta` fixture over HTTPS. Network or source failure is a hard failure, not a skip; the fixed URL prevents a later Stata release from silently changing the known answers.
+
 ## Conventions
 
 - Every suite ends with `RESULT: <name> tests=N pass=N fail=N`, publishes the
@@ -64,9 +72,7 @@ The `quick` lane has no Python dependency.
   The runner verifies both the handshake and its counter arithmetic; the log
   parser keys on the displayed result line.
 - No decorative display lines; `**#`/`**##` bookmarks mark sections.
-- Test data is built inline (seeded `input` blocks / generators); no `.dta`
-  fixtures are tracked. Generated `.dta`/`.xlsx`/`.csv`/`.log` artifacts land
-  at the `qa/` root and are gitignored.
+- Test data is built inline (seeded `input` blocks / generators), except the fixed public Stata Press ICD-10 fixture loaded at runtime by the two public-data suites; no `.dta` fixtures are tracked. Generated `.dta`/`.xlsx`/`.csv`/`.log` artifacts land at the `qa/` root and are gitignored.
 - Paths are derived from `c(pwd)` — nothing hardcodes a home, repo, or `/tmp/`
   path. Fixed `/tmp/` filenames are shared by every checkout and every
   concurrent run, so residue from an earlier run reads as this run's output;
@@ -103,6 +109,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_v410.do` | functional | 12 | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
 | `test_codescan_v415.do` | functional | 7 | v4.1.5: Unicode `level()` prefix truncation (`usubstr` vs `substr`), `export()` pattern/exclusion `str244` width, `codescan_describe` early `save()` extension validation, `graph` bar label `format()` passthrough, `error 2000` without duplicate message |
 | `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
+| `test_codescan_oracle.do` | functional | dynamic | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
 | `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
 | `test_codescan_describe_adversarial.do` | functional | 11 | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
 | `test_codescan_stress_adversarial.do` | functional | 7 | Scale/sparsity/name-collision stress |
@@ -113,6 +120,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `validation_codescan.do` | validation | 26 | Core hand-computed matching, prefix, window, collapse, date-summary, and option oracles for `codescan` |
 | `validation_codescan_extended.do` | validation | 37 | Extended exclusion, output, co-occurrence, merge, sensitivity, frame, export, and invariant oracles split from the former validation monolith |
 | `validation_codescan_known_answers.do` | validation | 9 | Known-answer matrix across option combinations |
+| `validation_codescan_public_known_answers.do` | validation | 8 | Pinned counts, death totals, sex-stratified collapse results, wide-slot totals, inventory returns, and Quan et al. boundary cases using the public Australian mortality fixture |
 | `validation_codescan_dgp_recovery.do` | validation | 22 | DGP known-answer recovery (batch 1): simulated wide-format code data with an independent (ustrregexm/substr/date-arithmetic) oracle across matching, windows, counting, collapse/merge, cooccurrence, sensitivity, and describe |
 | `validation_codescan_dgp_recovery2.do` | validation | 19 | DGP known-answer recovery (batch 2): the option/output paths batch 1 omitted — matched_code first-hit, unmatched flag, regex/prefix alternation in one condition, multi-pattern & prefix exclusion, multi-window lookback + fixed lookforward, merge-broadcast date/count summaries, countrows+collapse, countmode+merge, patient-level cooccurrence, tostring numeric codes, label() variable labels, detail varcounts first-slot attribution, combined multi-output collapse, alldates shorthand, and empty-window boundary contract |
 | `validation_mata.do` | validation | 9 | Known-answer equivalence for the Mata fast paths |
@@ -122,8 +130,10 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `validation_codescan_describe_adversarial.do` | validation | 10 | `codescan_describe` adversarial oracles |
 | `validation_codescan_crosscheck.do` | validation | 33 | `codescan` vs hand-computed `regexm()`/manual collapse |
 | `validation_countrows.do` | validation | 9 | `countrows` oracles |
+| `crossval_codescan_icd10.do` | cross-validation | 7 | Row-level parity with Stata's official `icd10 generate` on the public Australian mortality example, including Quan et al. definitions, dotted codes, wide slots, and exclusion boundaries |
 | `_codescan_qa_common.do` | scaffold | — | Sandboxed-install bootstrap |
 | `run_all.do` | runner | — | Curated lane runner |
+| `CROSSVAL_MODULE_MAP.md` | support | — | Source provenance, exact-parity contract, mapping from external comparisons to pinned known answers, and revision triggers |
 | `benchmark_codescan_scale.do` | benchmark | — | Exploratory wall-time timing at 100k and 1M rows, prefix vs ICU regex; not in any lane |
 | `benchmark_codescan_vs_manual.do` | benchmark | — | Exploratory head-to-head vs a hand-coded `gen`/`replace` + `regexm()` loop for the same task; asserts identical columns, reports the time ratio; not in any lane |
 | `tools/check_codescan_artifacts.py` | tool | — | Package-local `xlsx` and `svg` artifact checker (openpyxl) |
@@ -141,9 +151,7 @@ Performance *correctness* is gated instead by `test_codescan_perf_equiv.do`,
 which is in every lane and asserts the memoized fast path returns exactly what
 the brute-force reference returns.
 
-There is no true cross-validation suite: `codescan` has no external R/Python
-reference implementation, so all numeric checks are validation against
-hand-computable oracles.
+`crossval_codescan_icd10.do` uses Stata's official ICD-10 classifier as an independent implementation. It compares every source row rather than only aggregate totals; the companion known-answer suite pins the independently resolved aggregates so a shared runtime or source-data change cannot pass silently.
 
 ## Coverage map
 
@@ -197,6 +205,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `validation_codescan_extended` | ✓ | ✓ | ✓ |
 | `validation_countrows` | ✓ | ✓ | ✓ |
 | `validation_codescan_known_answers` |  | ✓ | ✓ |
+| `validation_codescan_public_known_answers` |  | ✓ | ✓ |
 | `validation_codescan_dgp_recovery` |  | ✓ | ✓ |
 | `validation_codescan_dgp_recovery2` |  | ✓ | ✓ |
 | `validation_mata` |  | ✓ | ✓ |
@@ -205,6 +214,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `validation_codescan_describe` |  | ✓ | ✓ |
 | `validation_codescan_describe_adversarial` |  | ✓ | ✓ |
 | `validation_codescan_crosscheck` |  | ✓ | ✓ |
+| `crossval_codescan_icd10` |  |  | ✓ |
 | `test_codescan_adversarial` |  | ✓ | ✓ |
 | `test_codescan_describe_adversarial` |  | ✓ | ✓ |
 | `test_codescan_stress_adversarial` |  | ✓ | ✓ |
@@ -213,14 +223,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_documentation_examples` |  |  | ✓ |
 | `test_release_integrity` |  |  | ✓ |
 
-`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **34 suites**
-(754 assertions as of 2026-08-10 — the sum of the per-suite table above; the
-figure previously carried here also counted the aggregate `run_all_full`
-sentinel, one per suite, and so ran 34 high). The authoritative counts are the
-`RESULT: ... tests=N` sentinels each suite prints, aggregated into the
-`RESULT: run_all_full ...` line — not this snapshot. Every runnable suite
-belongs to at least one lane except the two exploratory benchmarks above; there
-is no `_skip.txt`.
+`quick` ⊆ `core` ⊆ `full`; `full` is the release gate. The orthogonal `crossval` lane runs `crossval_codescan_icd10.do` alone, and `full` includes it. The authoritative counts are the `RESULT:` sentinels, not this README. Every runnable suite belongs to a lane except the two exploratory benchmarks above; there is no `_skip.txt`.
 
 ## Adversarial coverage notes
 

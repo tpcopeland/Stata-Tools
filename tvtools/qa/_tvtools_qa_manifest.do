@@ -41,7 +41,8 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     validation_audit_tvweight validation_audit_tvdiagnose ///
     validation_audit_tvsplit ///
     test_package_fixtures ///
-    validation_known_answers validation_dgp_known_answers ///
+    validation_known_answers validation_public_study_workflows ///
+    validation_dgp_known_answers ///
     validation_dgp_known_answers2 ///
     validation_tvage validation_tvband validation_tvsplit ///
     validation_tvevent validation_tvexpose ///
@@ -54,7 +55,8 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools test_tvband_oracle
 
 local external_suites crossval_tvsplit_lexis crossval_tvweight_ipcw ///
-    crossval_tvevent_recurring test_tvm_overlap_drift_guard ///
+    crossval_tvevent_recurring crossval_public_heart crossval_public_pbc ///
+    test_tvm_overlap_drift_guard ///
     test_package_optional_integration
 
 local core_suites `quick_suites' `core_only_suites'
@@ -91,6 +93,7 @@ local manifest_suites test_package_runner_contract ///
     validation_audit_tvweight validation_audit_tvdiagnose ///
     validation_audit_tvsplit ///
     test_package_fixtures validation_known_answers ///
+    validation_public_study_workflows ///
     validation_dgp_known_answers validation_dgp_known_answers2 ///
     validation_tvage validation_tvband validation_tvsplit ///
     validation_tvevent validation_tvexpose validation_tvexpose_statetime ///
@@ -100,7 +103,8 @@ local manifest_suites test_package_runner_contract ///
     validation_boundary validation_tvbuild_conservation validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools test_tvband_oracle ///
     crossval_tvsplit_lexis crossval_tvweight_ipcw ///
-    crossval_tvevent_recurring test_tvm_overlap_drift_guard ///
+    crossval_tvevent_recurring crossval_public_heart crossval_public_pbc ///
+    test_tvm_overlap_drift_guard ///
     test_package_optional_integration test_package_release
 
 local manifest_counts 11 ///
@@ -111,7 +115,7 @@ local manifest_counts 11 ///
     7 5 21 ///
     11 ///
     167 21 29 17 14 20 67 75 48 35 27 23 18 82 8 20 13 12 15 4 7 ///
-    15 28 14 15 9 9 7 7 4 29 ///
+    15 28 14 15 9 9 7 7 4 29 5 ///
     20 25 ///
     13 4 2 ///
     84 177 2 ///
@@ -121,7 +125,7 @@ local manifest_counts 11 ///
     20 16 47 ///
     9 5 7 200 ///
     3 3 ///
-    2 4 ///
+    2 2 3 4 ///
     4 12
 
 * Only external-oracle suites may report a dependency-absence skip, and only
@@ -129,13 +133,13 @@ local manifest_counts 11 ///
 * flags and require zero skips.
 * The leading run of no-skip flags is sized from manifest_suites rather than
 * from a literal, so adding a suite above cannot silently desynchronise the
-* three columns. The trailing six are the external-oracle suites plus the
+* three columns. The trailing eight are the external-oracle suites plus the
 * release suite, in manifest_suites order.
 local manifest_allow_skips ""
-local _n_trailing = 6
+local _n_trailing = 8
 local _n_manifest : word count `manifest_suites'
 local _n_leading = `_n_manifest' - `_n_trailing'
 forvalues i = 1/`_n_leading' {
     local manifest_allow_skips "`manifest_allow_skips' 0"
 }
-local manifest_allow_skips "`manifest_allow_skips' 1 1 1 0 0 0"
+local manifest_allow_skips "`manifest_allow_skips' 1 1 1 1 1 0 0 0"
