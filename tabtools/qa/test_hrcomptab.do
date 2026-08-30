@@ -511,6 +511,64 @@ else {
 }
 
 * -------------------------------------------------------------------------
+* 4b. A successful-but-destructive forest dependency cannot strand caller data
+* -------------------------------------------------------------------------
+local ++test_count
+capture frame drop hrc_dep_display
+capture frame drop hrc_dep_plot
+frame create hrc_dep_display
+frame hrc_dep_display: set obs 1
+frame hrc_dep_display: generate str20 sentinel = "display-old"
+frame create hrc_dep_plot
+frame hrc_dep_plot: set obs 1
+frame hrc_dep_plot: generate str20 sentinel = "plot-old"
+
+clear
+set obs 3
+generate long caller_order = _n
+generate str20 caller_sentinel = "caller-data"
+quietly datasignature
+local _hrc_caller_sig `"`r(datasignature)'"'
+tempfile _hrc_caller_data
+quietly save "`_hrc_caller_data'", replace
+
+capture program drop eplot
+program define eplot
+    version 17.0
+    syntax, FRAme(name) [*]
+    frame drop `frame'
+end
+
+set varabbrev on
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+    frame(hrc_dep_display, replace) eplotframe(hrc_dep_plot, replace) forest
+local _hrc_dep_rc = _rc
+local _hrc_dep_varabbrev = c(varabbrev)
+capture noisily {
+    assert `_hrc_dep_rc' != 0
+    quietly datasignature
+    assert `"`r(datasignature)'"' == `"`_hrc_caller_sig'"'
+    assert "`_hrc_dep_varabbrev'" == "on"
+    frame hrc_dep_display: assert sentinel[1] == "display-old"
+    frame hrc_dep_plot: assert sentinel[1] == "plot-old"
+}
+local _hrc_dep_test_rc = _rc
+capture program drop eplot
+capture quietly use "`_hrc_caller_data'", clear
+set varabbrev off
+capture frame drop hrc_dep_display
+capture frame drop hrc_dep_plot
+if `_hrc_dep_test_rc' == 0 {
+    display as result "  PASS: hrcomptab restores caller state after a destructive forest dependency"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab destructive forest cleanup (rc=`_hrc_dep_test_rc')"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
 * 5. Ambiguous mixed layouts are rejected
 * -------------------------------------------------------------------------
 local ++test_count

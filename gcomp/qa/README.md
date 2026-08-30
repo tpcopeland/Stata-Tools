@@ -70,6 +70,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `validation_gcomp.do` | validation | core | 1800s | Stata | DGP and stored-result known answers | explicit per test | D01, C06 |
 | `validation_timevarying.do` | validation | core | 900s | Stata | subject counts and final-row invariance | 20260421 | longitudinal core |
 | `crossval_fixture_provenance.do` | provenance | external | 2400s | Python/R | cell-by-cell regenerated-fixture diff | `data/fixture_manifest.json` | Q06 |
+| `crossval_daniel2011_published.do` | published cross-validation | external | 1200s | Stata | Daniel et al. (2011) static/dynamic tables on the original public `tvc1` dataset | 79/801; Stata Journal fixture | C12 |
 | `crossval_gcomp.do` | cross-validation | external | 1200s | Stata + R fixture | analytical truth and R mediation | `generate_r_benchmarks.R`; 42/12345 | mediation triangulation |
 | `crossval_external_replication.do` | cross-validation | external | 1200s | Stata + Python fixture | statsmodels plug-in effects | `generate_external_replication.py`; listed seeds | OBE/EOFU point effects |
 | `crossval_mediation_se.do` | cross-validation | external | 1800s | Stata + Python fixture | statsmodels bootstrap point/SE/V | `generate_mediation_se_reference.py`; manifest | mediation inference |
@@ -82,6 +83,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `validation_gcomp_recovery.do` | known-answer | slow | 1800s | Stata | forward-simulation truth | documented seed | longitudinal recovery |
 | `validation_gcomp_recovery_extended.do` | known-answer | slow | 2400s | Stata | finite-sample analytical DGP truth | documented seeds | estimand recovery |
 | `validation_gcomp_recovery_surface.do` | known-answer | slow | 3600s | Stata | 15 bespoke analytical/forward DGPs | documented seeds | option-surface recovery |
+| `validation_daniel2011_regime_rules.do` | known-answer | slow | 1200s | Stata | exact saved histories for persistent versus instantaneous CD4-threshold regimes | 802; Stata Journal fixture | C13 |
 | `validation_peripartum_readiness.do` | applied validation | slow | 2400s | Stata | study-shaped known-answer DGP | documented seed | applied mediation |
 | `test_package_release.do` | release/static | release | 900s | Python stdlib | package/version/SMCL/XLSX semantic contract | shipped demo workbook | D01-D07, GCTAB-H01, Q05, Q08 |
 | `test_install_smoke.do` | install smoke | release | 900s | Stata | isolated PLUS/PERSONAL command/helper discovery | fixed | Q03 |
@@ -90,6 +92,8 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 ## External fixture policy
 
 Ordinary cross-validation reads committed fixtures and never runs a generator in place. `crossval_fixture_provenance.do` copies `data/` to a temporary directory, verifies the pinned runtime versions, executes every command in `data/fixture_manifest.json`, and compares headers, row counts, string cells, and numeric cells to the committed files. A drift artifact is reported in the suite log; tracked fixtures are never rewritten. The manifest records method, command, seeds, and the narrow tolerance used only for serialization-level floating-point drift.
+
+`data/daniel2011_tvc1.dta` is an immutable published-data fixture rather than generated output. It is the original Stata Journal `st0238/tvc1.dta` file from `https://www.stata-journal.com/software/sj11-4/st0238/tvc1.dta`, pinned at SHA-256 `14341aa076691bb2ba8b2f36b40543b1edad1a89a6708a46ce6be884fa38c5f5`; the published-example suite additionally checks its subject count, event count, panel key, and visit support before estimation.
 
 ## Install and artifact hygiene
 
