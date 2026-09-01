@@ -1,5 +1,5 @@
 v 3
-d 'FINEGRAY': module for fast Fine-Gray competing risks regression
+d 'FINEGRAY': Fast Fine-Gray regression with delayed-entry weighting in Stata
 d
 d finegray fits the Fine and Gray (1999) subdistribution hazard
 d model for competing risks data. It estimates subdistribution
