@@ -224,6 +224,80 @@ else {
     local ++fail_count
 }
 
+**# help finegray, Multiple imputation -- BOTH printed blocks, verbatim
+* WATCHED FAIL 2026-09-01.  Both blocks used to open at `mi stset', on data that
+* had never been `mi set': a reader who copied them got r(119) "data are not mi
+* set" and no fit at all.  The README's section 10 carries the four setup lines
+* the help file omitted; they are now printed in the help file too, and both
+* blocks are exercised here as printed.  The assertion is on CONTENT, not on
+* rc: `mi estimate' posts its own e(), so e(cmd_mi) is what names the command
+* that was actually pooled, and the pooled e(b) must carry one column per
+* covariate typed.
+local ++test_count
+capture noisily {
+    _docblock "help finegray -- mi, one covariate"
+    webuse hypoxia, clear
+    gen byte status = failtype
+    replace ifp = . in 1/12
+    mi set wide
+    mi register imputed ifp
+    mi register regular tumsize pelnode status dftime dfcens stnum
+    mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)
+    mi stset dftime, failure(dfcens==1) id(stnum)
+    mi estimate, cmdok eform("SHR"): finegray ifp, compete(status) cause(1)
+    assert "`e(cmd)'" == "mi estimate"
+    assert "`e(cmd_mi)'" == "finegray"
+    * The POOLED coefficient vector is e(b_mi), not e(b): after `mi estimate'
+    * e(b) is empty (a 0 x 0 copy), so an assertion written against e(b) would
+    * be vacuous rather than wrong.  It also has to be copied to a named matrix
+    * first -- in an EXPRESSION e(b_mi) resolves as a scalar e() result and
+    * colsof() is r(109) type mismatch.
+    tempname _mib1
+    matrix `_mib1' = e(b_mi)
+    assert colsof(`_mib1') == 1
+    assert `_mib1'[1,1] < .
+    assert "`: colnames `_mib1''" == "ifp"
+}
+if _rc == 0 {
+    display as result "  PASS: help finegray -- mi, one covariate"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: help finegray -- mi, one covariate (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    _docblock "help finegray -- mi, two covariates"
+    webuse hypoxia, clear
+    gen byte status = failtype
+    replace ifp = . in 1/12
+    mi set wide
+    mi register imputed ifp
+    mi register regular tumsize pelnode status dftime dfcens stnum
+    mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)
+    mi stset dftime, failure(dfcens==1) id(stnum)
+    mi estimate, cmdok eform("SHR"): finegray ifp tumsize, compete(status) cause(1)
+    assert "`e(cmd_mi)'" == "finegray"
+    tempname _mib2
+    matrix `_mib2' = e(b_mi)
+    assert colsof(`_mib2') == 2
+    assert `_mib2'[1,1] < . & `_mib2'[1,2] < .
+    assert "`: colnames `_mib2''" == "ifp tumsize"
+    * post-estimation after a pooled fit is refused by name, as the help says
+    capture finegray_cif, attime(5) nograph
+    assert _rc == 301
+}
+if _rc == 0 {
+    display as result "  PASS: help finegray -- mi, two covariates"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: help finegray -- mi, two covariates (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count'"

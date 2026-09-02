@@ -1,6 +1,6 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.3.0** | 2026-08-29
+**Version 1.3.0** | 2026-09-02
 
 `finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, a stratified baseline subdistribution hazard, piecewise-constant time-varying effects, sampling (`pweight`) and frequency weights, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 
@@ -553,6 +553,10 @@ The default `time(rank)` scale uses event-time ranks; `time(log)` uses log event
 | `attime(numlist)` | Fixed horizons for a returned CIF table. |
 | `timepoints(numlist)` | Evaluation grid for a returned CIF curve. |
 | `bstratum(#)` | Baseline stratum to evaluate; required after a `bstrata()` fit with more than one level, because a covariate profile alone no longer identifies a curve. |
+| `ci` | Add pointwise confidence limits to the `finegray_cif` table and curve. |
+| `level(#)` | `c(level)`; confidence level on Stata's `cilevel` rule (10 to 99.99, at most two decimals) for `finegray_cif`; requires `ci`. |
+| `bootstrap(#)` | At least 25 subject- or cluster-level refits for a bootstrap `finegray_cif` band; requires `ci`, and is refused after an `fweight` fit. |
+| `seed(#)` | Reproducible bootstrap seed for `finegray_cif`; requires `bootstrap()`. |
 | `saving(filename[, replace])` | Save CIF curve data with `time`, `cif`, `se`, `lci`, and `uci` (plus `over` with `over()`). |
 | `nograph` | Suppress the CIF graph. |
 | `twoway_options` | Graph options passed to the CIF twoway graph. |
@@ -605,6 +609,9 @@ The command posts `r(N_fail)`, `r(time)`, `r(residual_scale)`, and matrix `r(pht
 - Bellach A, Kosorok MR, Gilbert PB, and Fine JP (2020). General regression model for the subdistribution of a competing risk under left-truncation and right-censoring. *Biometrika*, 107(4), 949–964. [doi:10.1093/biomet/asaa034](https://doi.org/10.1093/biomet/asaa034).
 - Kawaguchi ES, Shen JI, Suchard MA, and Li G (2021). Scalable algorithms for large competing risks data. *Journal of Computational and Graphical Statistics*, 30(3), 685–693. [doi:10.1080/10618600.2020.1841650](https://doi.org/10.1080/10618600.2020.1841650).
 - Li J, Scheike TH, and Zhang MJ (2015). Checking Fine and Gray subdistribution hazards model with cumulative sums of residuals. *Lifetime Data Analysis*, 21(2), 197–217. [doi:10.1007/s10985-014-9313-9](https://doi.org/10.1007/s10985-014-9313-9).
+- Zhou B, Latouche A, Rocha V, and Fine J (2011). Competing risks regression for stratified data. *Biometrics*, 67(2), 661–670. [doi:10.1111/j.1541-0420.2010.01493.x](https://doi.org/10.1111/j.1541-0420.2010.01493.x).
+- Zhou B, Fine J, Latouche A, and Labopin M (2012). Competing risks regression for clustered data. *Biostatistics*, 13(3), 371–383. [doi:10.1093/biostatistics/kxr032](https://doi.org/10.1093/biostatistics/kxr032).
+- Fekadu Wogu A, Zhao S, Bogan Nichols H, and Cai J (2021). Proportional subdistribution hazards model for competing risks in case-cohort studies. *American Journal of Applied Mathematics*, 9(5), 165–174. [doi:10.11648/j.ajam.20210905.12](https://doi.org/10.11648/j.ajam.20210905.12).
 
 ## QA
 
@@ -612,7 +619,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.3.0** (2026-08-29): Variance unification, composable option axes, and weighted estimation. New features: `mi estimate, cmdok:` compatibility; `bstrata(varname)` for the stratified baseline model of Zhou et al. (2011); `tvc(varlist)` with `tsplit(numlist)` for piecewise-constant time-varying effects; `finegray_cif, over(varname)` for grouped CIF curves; `[pweight=]` and `[fweight=]` for sampling and frequency weights (Wogu et al. 2021); and native `margins`/`contrast`/`pwcompare` support for factor terms. The three right-censoring option pairs (`nuisance`, `bstrata()`, `tvc()`) compose freely, and `nuisance` is now accepted on delayed-entry fits with the pooled weight (Zhang, Zhang & Fine 2011 Appendix B). Methods, formulas, grounding and refusal rationales are split into the new shipped help topic `finegray_methods.sthlp`. Worked examples expanded with `webuse hiv_si` and `webuse pneumonia`. Without the new options, `e(b)`, `e(V)`, `e(ll)` and `e(basehaz)` are bit-identical to 1.2.0. Breaking change: `e(covariates)` renamed to `e(designvars)`; results saved by an earlier build are refused with `r(301)`.
+- **1.3.0** (2026-09-02): Variance unification, composable option axes, and weighted estimation. New features: `mi estimate, cmdok:` compatibility; `bstrata(varname)` for the stratified baseline model of Zhou et al. (2011); `tvc(varlist)` with `tsplit(numlist)` for piecewise-constant time-varying effects; `finegray_cif, over(varname)` for grouped CIF curves; `[pweight=]` and `[fweight=]` for sampling and frequency weights (Wogu et al. 2021); and native `margins`/`contrast`/`pwcompare` support for factor terms. The three right-censoring option pairs (`nuisance`, `bstrata()`, `tvc()`) compose freely, and `nuisance` is now accepted on delayed-entry fits with the pooled weight (Zhang, Zhang & Fine 2011 Appendix B). Methods, formulas, grounding and refusal rationales are split into the new shipped help topic `finegray_methods.sthlp`. Worked examples expanded with `webuse hiv_si` and `webuse pneumonia`. Without the new options, `e(b)`, `e(V)`, `e(ll)` and `e(basehaz)` are bit-identical to 1.2.0. Breaking change: `e(covariates)` renamed to `e(designvars)`; results saved by an earlier build are refused with `r(301)`. Pre-release review fixes: `bootstrap()` is refused (`r(198)`) after an `fweight` fit, because `bsample` resamples rows rather than the replicated subjects the frequency weights stand for (the analytic `ci` is exact there); data in which a subject's failure record is not its last record (a second failure, or follow-up continued past it, as `stset ..., exit(time .)` permits) are refused (`r(198)`) instead of being silently reduced to each subject's last record; `bootstrap()` now restores the caller's random-number state; duplicate values in `finegray_cif, attime()`/`timepoints()` are collapsed instead of printing duplicate rows; and `finegray_phtest` widens its variable column so long design names are no longer abbreviated into collisions.
 - **1.2.0** (2026-08-16): Added delayed-entry Weight 1 paths, robust-variance adjustment controls, nuisance-adjusted sandwich inference, optional baseline-hazard output, expanded CIF and diagnostic workflows, and a display and documentation pass (replay with no `varlist`, typed factor-variable coefficient names, a fuller header, profile-aware `finegray_cif` output). Correctness fixes: a record with a missing `compete()` value is refused with `r(198)` instead of silently dropped from the estimation sample; `finegray_cif, at()` handles variables inside interactions; post-estimation after `estimates use` works regardless of when the dataset was saved; and `level()` is validated by Stata's `cilevel` rule in all four commands.
 - **1.1.0** (2026-07-10): Added CIF curves, multiple-record support, stratified censoring, and postestimation confidence intervals.
 - **1.0.0** (2026-04-06): Initial Stata-Tools release of `finegray`, `finegray_predict`, and `finegray_phtest`.

@@ -400,6 +400,63 @@ else {
     local ++fail_count
 }
 
+**# FG-B14  bootstrap(#) with seed() leaves the caller's RNG stream where it was
+* WATCHED FAIL 2026-09-01: on the pre-fix build a `finegray_cif, ci
+* bootstrap(25) seed(4321)' left c(rngstate) sitting wherever the 25 bsample
+* draws had walked it, so the NEXT random number the user drew was not the one
+* they would have drawn had they not asked for a confidence band -- and a
+* do-file that seeds once at the top and calls a bootstrap in the middle
+* stopped being reproducible from that line on.  seed() is a promise about the
+* REPLICATIONS, not a licence to reposition the session.
+* The probe is c(rngstate) itself (a string), and then the DRAW: two identical
+* rnormal() sequences either side of a bootstrap call.
+local ++test_count
+capture noisily {
+    _mk_hypoxia_boot
+    quietly finegray ifp tumsize, compete(status) cause(1) nolog
+
+    * (a) finegray_cif
+    set seed 20260901
+    local _st0 = c(rngstate)
+    quietly finegray_cif, at(ifp=20) attime(5) ci bootstrap(25) seed(4321) nograph
+    local _st1 = c(rngstate)
+    display as text "  finegray_cif rngstate preserved = " ("`_st0'" == "`_st1'")
+    assert "`_st0'" == "`_st1'"
+
+    * (b) finegray_predict
+    set seed 20260901
+    local _st0 = c(rngstate)
+    quietly finegray_predict double _fgb14, cif ci bootstrap(25) seed(4321)
+    local _st2 = c(rngstate)
+    display as text "  finegray_predict rngstate preserved = " ("`_st0'" == "`_st2'")
+    assert "`_st0'" == "`_st2'"
+    capture drop _fgb14*
+
+    * (c) the observable consequence: the caller's next draws are unchanged
+    set seed 777
+    quietly gen double _fgb14_a = runiform()
+    set seed 777
+    quietly finegray_cif, at(ifp=20) attime(5) ci bootstrap(25) seed(4321) nograph
+    quietly gen double _fgb14_b = runiform()
+    quietly assert _fgb14_a == _fgb14_b
+    drop _fgb14_a _fgb14_b
+
+    * (d) and the band itself is still reproducible from the same seed
+    quietly finegray_cif, at(ifp=20) attime(5) ci bootstrap(25) seed(4321) nograph
+    tempname _B1
+    matrix `_B1' = r(table)
+    quietly finegray_cif, at(ifp=20) attime(5) ci bootstrap(25) seed(4321) nograph
+    assert mreldif(r(table), `_B1') == 0
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B14 bootstrap(seed()) restores the caller's RNG state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B14 bootstrap RNG state (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_bootstrap tests=`test_count' pass=`pass_count' fail=`fail_count'"

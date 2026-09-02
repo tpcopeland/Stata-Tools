@@ -605,7 +605,16 @@ capture noisily {
     stset t, failure(status==1) id(id)
     stcrreg x1, compete(status == 2)
     local b_ref = e(b)[1,1]
-    assert abs(`b_fg' - `b_ref') < 0.01
+    * TOLERANCE 1e-7.  finegray and stcrreg solve the SAME estimating equation,
+    * so the only source of disagreement is where the two solvers stop.
+    * MEASURED 2026-09-01 on this seeded fixture: |b_fg - b_stcrreg| = 1.904e-09
+    * (echoed below, so the next tightening has a number to read).  1e-7 is
+    * about 50x that.  The 0.01 that stood here was a decision threshold, not a
+    * numerical one: it would have accepted a coefficient wrong in its second
+    * decimal on a comparison that agrees in its eighth.
+    local c19_ad = abs(`b_fg' - `b_ref')
+    display as text "  C19 |b_fg - b_stcrreg| = " %10.3e `c19_ad'
+    assert `c19_ad' < 1e-7
 }
 if _rc == 0 {
     display as result "  PASS: C19 high censoring finegray vs stcrreg"
@@ -1260,14 +1269,20 @@ if `r_available' {
         local s_coef = b_stata[1, `pos']
         local adiff = abs(`s_coef' - `r_coef')
         display as text "  coef[`var']: Stata=" %10.6f `s_coef' " R=" %10.6f `r_coef' ///
-            " diff=" %8.6f `adiff'
-        if `adiff' >= 0.01 {
-            display as error "  FAIL [C33.`var']: diff `adiff' >= 0.01"
+            " diff=" %10.3e `adiff'
+        * TOLERANCE 1e-6.  finegray and cmprsk::crr maximise the same
+        * partial likelihood on the same weights, so only the two solvers'
+        * convergence tolerances separate them.  MEASURED 2026-09-01:
+        * 1.407e-09 (ifp), 7.826e-09 (tumsize), 1.918e-08 (pelnode) -- 1e-6 is
+        * about 50x the largest.  The 0.01 that stood here is the same order as
+        * the coefficients themselves (0.033 for ifp) and could not have failed.
+        if `adiff' >= 1e-6 {
+            display as error "  FAIL [C33.`var']: diff `adiff' >= 1e-6"
             local t33_pass = 0
         }
     }
     if `t33_pass' {
-        display as result "  PASS: C33 coefficients vs cmprsk::crr (< 0.01)"
+        display as result "  PASS: C33 coefficients vs cmprsk::crr (< 1e-6)"
         local ++pass_count
     }
     else {
@@ -1294,14 +1309,25 @@ if `r_available' {
         local s_se = sqrt(V_stata[`pos', `pos'])
         local rdiff = abs(`s_se' - `r_se') / `r_se'
         display as text "  se_robust[`var']: Stata=" %10.6f `s_se' " R=" %10.6f `r_se' ///
-            " rel_diff=" %6.3f `rdiff'
-        if `rdiff' >= 0.15 {
-            display as error "  FAIL [C34.`var']: rel_diff `rdiff' >= 0.15"
+            " rel_diff=" %10.3e `rdiff'
+        * TOLERANCE 0.01 RELATIVE, and it cannot go lower.  finegray's DEFAULT
+        * sandwich omits the Fine-Gray psi (weight-estimation) term that
+        * cmprsk::crr always includes, so these two SEs are not estimating the
+        * same quantity to machine precision -- the documented gap is about
+        * 0.4% on the SE (0.8% on the variance) for this fit.  MEASURED
+        * 2026-09-01: 4.802e-03 (ifp), 4.455e-03 (tumsize), 5.433e-03
+        * (pelnode).  0.01 is about 2x the measured maximum, which is
+        * the right multiple here: 10x would re-open the 5% band this test
+        * exists to close, and 1e-6 would pin a difference the estimator is
+        * documented to have.  A REGRESSION in the psi omission would move
+        * this by an order of magnitude, not by a factor of two.
+        if `rdiff' >= 0.01 {
+            display as error "  FAIL [C34.`var']: rel_diff `rdiff' >= 0.01"
             local t34_pass = 0
         }
     }
     if `t34_pass' {
-        display as result "  PASS: C34 robust SEs vs cmprsk::crr (< 15%)"
+        display as result "  PASS: C34 robust SEs vs cmprsk::crr (< 1%)"
         local ++pass_count
     }
     else {
@@ -1336,14 +1362,20 @@ if `r_available' {
         local s_se = sqrt(V_nr[`pos', `pos'])
         local rdiff = abs(`s_se' - `r_se') / `r_se'
         display as text "  se_model[`var']: Stata=" %10.6f `s_se' " R=" %10.6f `r_se' ///
-            " rel_diff=" %6.3f `rdiff'
-        if `rdiff' >= 0.15 {
-            display as error "  FAIL [C35.`var']: rel_diff `rdiff' >= 0.15"
+            " rel_diff=" %10.3e `rdiff'
+        * TOLERANCE 1e-6 RELATIVE.  Unlike C34 there is no psi term on either
+        * side: both are the inverse observed information at the same beta, so
+        * they agree to solver precision.  MEASURED 2026-09-01: 2.916e-08
+        * (ifp), 6.881e-10 (tumsize), 2.320e-08 (pelnode) -- 1e-6 is about 34x
+        * the largest.  The 15% that stood here would have accepted a
+        * completely different information matrix.
+        if `rdiff' >= 1e-6 {
+            display as error "  FAIL [C35.`var']: rel_diff `rdiff' >= 1e-6"
             local t35_pass = 0
         }
     }
     if `t35_pass' {
-        display as result "  PASS: C35 model-based SEs vs crr$invinf (< 15%)"
+        display as result "  PASS: C35 model-based SEs vs crr$invinf (< 1e-6 rel)"
         local ++pass_count
     }
     else {
@@ -1410,9 +1442,15 @@ if `r_available' {
         local adiff = abs(`s_cif' - `r_cif')
         local ++t37_ncmp
         display as text "  CIF(t=`tt',z=0): Stata=" %8.6f `s_cif' " R=" %8.6f `r_cif' ///
-            " diff=" %8.6f `adiff'
-        if `adiff' >= 0.01 {
-            display as error "  FAIL [C37.t`tt']: diff `adiff' >= 0.01"
+            " diff=" %10.3e `adiff'
+        * TOLERANCE 1e-7 ABSOLUTE.  Both sides are 1 - exp(-H0(t)) from a
+        * Breslow baseline built on the same weighted risk sets, so the only
+        * separation is the coefficient agreement of C33 propagated through
+        * exp(.).  MEASURED 2026-09-01: 1.076e-09 (t=2), 1.102e-09 (t=5),
+        * 3.498e-09 (t=10) -- 1e-7 is about 29x the largest.  The 0.01 that
+        * stood here is one sixth of the CIF being compared (0.058 at t = 2).
+        if `adiff' >= 1e-7 {
+            display as error "  FAIL [C37.t`tt']: diff `adiff' >= 1e-7"
             local t37_pass = 0
         }
     }
@@ -1421,7 +1459,7 @@ if `r_available' {
         local t37_pass = 0
     }
     if `t37_pass' {
-        display as result "  PASS: C37 CIF at z=0 vs predict.crr (< 0.01)"
+        display as result "  PASS: C37 CIF at z=0 vs predict.crr (< 1e-7)"
         local ++pass_count
     }
     else {

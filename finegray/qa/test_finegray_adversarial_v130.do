@@ -1352,6 +1352,125 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
+**# C7  a failure record that is not the subject's last is refused, not silently reduced
+* -----------------------------------------------------------------------------
+* WATCHED FAIL 2026-09-01.  `stset ..., exit(time .)' lets a subject carry more
+* than one _d == 1 record.  finegray's multiple-record reduction keeps the
+* record at max(_t) and drops the rest from touse, so a subject whose CAUSE-1
+* event at t1 is followed by a COMPETING event at t2 entered the estimation as
+* a cause-2 subject: the cause-of-interest failure vanished from the numerator
+* and from e(N_fail), at rc 0, with only the routine "records reduced to
+* subjects" note on screen.  Measured on the pre-fix build with the fixture
+* below: e(N_fail) = 100 against the 200 cause-1 events the data holds.
+*
+* The fixture is built so the OLD code CONVERGES -- 200 single-record cause-1
+* subjects keep the likelihood well posed -- because a fixture that merely
+* errors differently proves nothing about a silent drop.
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260901
+    quietly set obs 200
+    gen long id = _n
+    gen double x = rnormal()
+    * two records: cause 1 at t1, then a competing event at t2
+    gen double t1 = 1 + floor(5 * runiform())
+    gen double t2 = t1 + 1 + floor(5 * runiform())
+    expand 2
+    bysort id: gen byte rec = _n
+    gen double t0 = cond(rec == 1, 0, t1)
+    gen double t  = cond(rec == 1, t1, t2)
+    gen byte status = cond(rec == 1, 1, 2)
+    * 200 ordinary single-record subjects so the model is identified either way
+    quietly count
+    local _add = r(N)
+    quietly set obs `=`_add' + 200'
+    quietly replace id = 1000 + (_n - `_add') if missing(id)
+    quietly replace x = rnormal() if missing(x)
+    quietly replace t0 = 0 if missing(t0)
+    quietly replace t = 1 + floor(8 * runiform()) if missing(t)
+    quietly replace status = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0)) ///
+        if missing(status)
+    quietly replace rec = 1 if missing(rec)
+    quietly stset t, failure(status) id(id) time0(t0) exit(time .)
+    * the data really does carry two failure records for 200 subjects
+    quietly count if _d == 1
+    local _nfailrec = r(N)
+    quietly bysort id: egen byte _nf = total(_d == 1)
+    quietly count if _nf > 1 & rec == 1
+    display as text "  fixture: `r(N)' subjects carry more than one failure record"
+    assert r(N) == 200
+    drop _nf
+
+    capture noisily finegray x, compete(status) cause(1) nolog
+    display as text "  multi-failure-record fit rc = `=_rc'"
+    assert _rc == 198
+
+    * SECOND SHAPE (independent review 2026-09-01).  ONE failure record, then
+    * follow-up continued past it as a censored record.  Counting _d == 1
+    * rows per subject does not see this -- there is only one -- yet the
+    * reduction keeps the censored record and the subject enters as
+    * censored.  Measured on the count-based guard: rc 0, e(N_fail) 161
+    * against 197 cause-1 subjects.
+    clear
+    set seed 20260902
+    quietly set obs 300
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t1 = 1 + floor(5 * runiform())
+    gen byte s1 = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    expand 2 if s1 == 1 & id <= 60
+    bysort id: gen byte rec = _n
+    gen double t0 = cond(rec == 1, 0, t1)
+    gen double t  = cond(rec == 1, t1, t1 + 3)
+    gen byte status = cond(rec == 1, s1, 0)
+    quietly stset t, failure(status) id(id) time0(t0) exit(time .)
+    quietly bysort id: egen byte _nrec = count(rec)
+    quietly count if _nrec > 1 & rec == 1 & _d == 1
+    display as text "  fixture: `r(N)' subjects have a failure followed by a censored record"
+    assert r(N) > 0
+    quietly bysort id: egen byte _nf = total(_d == 1)
+    quietly count if _nf > 1
+    assert r(N) == 0
+    drop _nrec _nf
+    capture noisily finegray x, compete(status) cause(1) nolog
+    display as text "  failure-then-censored fit rc = `=_rc'"
+    assert _rc == 198
+
+    * POSITIVE CONTROL.  An ordinary stsplit multi-record fixture -- one failure
+    * per subject spread over several contiguous intervals -- still fits, so the
+    * guard refuses recurrent failures and not multiple records as such.
+    clear
+    set seed 20260901
+    quietly set obs 400
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = 1 + floor(8 * runiform())
+    gen byte status = cond(runiform() < .45, 1, cond(runiform() < .5, 2, 0))
+    quietly stset t, failure(status) id(id)
+    quietly stsplit iv, at(2 4 6)
+    * stsplit blanks the failure() variable on every non-terminal episode; carry
+    * the subject's event type onto all of them, as finegray's own message says
+    * to.  _d still marks exactly one terminal failure per subject, which is the
+    * property the C7 guard counts.
+    quietly bysort id (_t): replace status = status[_N]
+    quietly count
+    display as text "  stsplit control: `r(N)' records"
+    assert r(N) > 400
+    capture noisily finegray x, compete(status) cause(1) nolog
+    display as text "  stsplit multi-record fit rc = `=_rc'"
+    assert _rc == 0
+    assert e(N) == 400
+    quietly count if _d == 1 & status == 1
+    assert e(N_fail) == r(N)
+}
+local _rc = _rc
+capture restore
+_fgadv_result `_rc' "C7 failure record not the subject's last (second failure, or follow-up past it) refused r(198); ordinary stsplit multi-record data still fits"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
 **# Summary
 * -----------------------------------------------------------------------------
 display "RESULT: test_finegray_adversarial_v130 tests=`test_count' pass=`pass_count' fail=`fail_count'"

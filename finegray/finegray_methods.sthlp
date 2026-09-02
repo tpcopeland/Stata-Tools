@@ -147,7 +147,12 @@ undercoverage of inverse-information inference. Do not use {opt norobust} for
 inference on left-truncated data.
 
 {pstd}
-{bf:Clustering.} The clustered variance matrix is a sum of {it:g} cluster-score
+{bf:Clustering.} {opt cluster()} fits the marginal (population-average)
+proportional subdistribution hazards model of Zhou, Fine, Latouche and Labopin
+(2012), whose sandwich sums the influence functions {it:within} cluster before
+squaring them (their sec. 2.3, p. 376); with one subject per cluster it reduces
+exactly to Fine and Gray (1999). The clustered variance matrix is a sum of
+{it:g} cluster-score
 outer products whose totals sum to zero at the solution, so its rank is at most
 {it:g}-1. {cmd:finegray} therefore requires more clusters than coefficients and
 errors out otherwise, rather than reporting standard errors that the g-inverse
@@ -220,9 +225,17 @@ for the {bf:pooled} weight only: for the stratified weight (their eq. 7) ZZF's
 Appendix E (p. 1949) estimate the variance "treating the weight function
 known", which is the default sandwich, so {opt nuisance} with {opt strata()}
 or {opt truncstrata()} under delayed entry is refused ({cmd:r(198)}) rather
-than approximated. Gate Z-inference fits the third candidate in every
-pooled-weight arm; the default stays {cmd:fixed_weight_sandwich} unless
-{cmd:nuisance_adjusted} covers where it does not.
+than approximated. Gate Z-inference is the preregistered coverage study in
+{cmd:qa/validation_finegray_zzf_coverage.do}: it fits each candidate variance
+in every arm that candidate is defined for -- {cmd:nuisance_adjusted} in the
+pooled-weight arms only -- and gates each on empirical 95% Wald coverage
+falling in [0.925, 0.975], with mean-SE/SD ratios reported as diagnostics
+rather than as a second pass/fail rule. On the 2026-09-01 run (receipt in
+{cmd:qa/run_status_gates.txt}; 1,000 replications per arm, truncation 37% to
+69%) {cmd:fixed_weight_sandwich} covers in every arm, {cmd:nuisance_adjusted}
+covers in every pooled-weight arm, and {cmd:model_based} does not (coverage
+0.74 to 0.91). The shipped default is {cmd:fixed_weight_sandwich} and
+{opt nuisance} is an opt-in.
 
 {pstd}
 {bf:Why it stops at the coefficients.} {helpb finegray_cif} and
@@ -1211,6 +1224,12 @@ Zhou B, Fine J, Laird G. Goodness-of-fit test for proportional subdistribution
 hazards model. {it:Statistics in Medicine} 2013; 32(22): 3804-3811.
 
 {pstd}{browse "https://doi.org/10.1002/sim.5815":doi:10.1002/sim.5815}{p_end}
+
+{pstd}
+Zhou B, Fine J, Latouche A, Labopin M. Competing risks regression for clustered
+data. {it:Biostatistics} 2012; 13(3): 371-383.
+
+{pstd}{browse "https://doi.org/10.1093/biostatistics/kxr032":doi:10.1093/biostatistics/kxr032}{p_end}
 
 {pstd}
 Zhou B, Latouche A, Rocha V, Fine J. Competing risks regression for stratified

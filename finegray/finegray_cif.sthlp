@@ -32,7 +32,7 @@ cumulative incidence after {help finegray}
 {synopthdr}
 {synoptline}
 {synopt :{opt at(var=# ...)}}covariate profile for the curve{p_end}
-{synopt :{opt over(varname)}}one curve per level, overlaid{p_end}
+{synopt :{opth over(varname)}}one curve per level, overlaid{p_end}
 {synopt :{opt att:ime(numlist)}}table of the CIF at the listed horizons{p_end}
 {synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times{p_end}
 {synopt :{opt bstrat:um(#)}}baseline stratum; required after {cmd:bstrata()}{p_end}
@@ -192,6 +192,16 @@ the standard error and limits differ. The original estimation results and
 {cmd:e(sample)} are preserved.
 
 {phang}
+{opt bootstrap()} is refused ({cmd:r(198)}) after a fit with
+{cmd:[fweight=}{it:exp}{cmd:]}: {helpb bsample} resamples rows, and an
+fweighted fit stores its replication in a weight column rather than in rows, so
+the replicate SD would describe a much smaller design than the fit. The
+analytic {opt ci} is exact under frequency weights -- an fweighted fit is the
+fit of the replicated data -- so use it, or {helpb expand} the data by the
+weight and bootstrap the expanded fit. {cmd:[pweight=}{it:exp}{cmd:]} fits are
+unaffected.
+
+{phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
 reproducibility. It requires {opt bootstrap()}, and must be an integer between
 {cmd:0} and {cmd:2147483647}.
@@ -317,7 +327,7 @@ curve.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(level)}}confidence level{p_end}
+{synopt:{cmd:r(level)}}confidence level; always posted; default c(level){p_end}
 {synopt:{cmd:r(cause)}}cause of interest{p_end}
 {synopt:{cmd:r(bootstrap_requested)}}requested replications; with {cmd:bootstrap()}{p_end}
 {synopt:{cmd:r(bootstrap_success)}}converged replications used; with {cmd:bootstrap()}{p_end}

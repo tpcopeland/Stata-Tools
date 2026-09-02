@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.0  2026/08/29
+*! _finegray_mata Version 1.3.0  2026/09/02
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -3311,8 +3311,9 @@ real matrix _finegray_schoenfeld(
        diagonal vs full matrix, no factor d, no +beta recentring.  And GT's null
        covariance identity is a partial-likelihood result; the IPCW-weighted
        Fine-Gray score is an estimating function, so it would not transport
-       even in full-matrix form.  See
-       _literature/finegray/grambsch-therneau-1994.notes.md.  */
+       even in full-matrix form.  See Grambsch, P. M. and T. M. Therneau.
+       1994.  Proportional hazards tests and diagnostics based on weighted
+       residuals.  Biometrika 81: 515-526, sections 3-5, pp.517-523.  */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
@@ -3848,9 +3849,10 @@ real matrix _finegray_psi_residuals_pw(
 }
 
 /* ------------------------------------------------------------------------
-   psi_i under DELAYED ENTRY -- Zhang, Zhang & Fine (2011) Appendix B,
-   pp.1944-1945; transcription in
-   _literature/finegray/zhang-zhang-fine-2011.notes.md, "Appendix B".
+   psi_i under DELAYED ENTRY -- Zhang, X., M. Zhang and J. Fine.  2011.  A
+   proportional hazards regression model for the subdistribution with
+   right-censored and left-truncated competing risks data.  Statistics in
+   Medicine 30: 1933-1951; Appendix B, pp.1944-1945.
 
    ZZF write the i.i.d. representation of the Weight-1 score as
 

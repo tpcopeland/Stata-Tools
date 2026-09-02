@@ -1,4 +1,4 @@
-*! finegray Version 1.3.0  2026/08/29
+*! finegray Version 1.3.0  2026/09/02
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -734,6 +734,45 @@ program define finegray, eclass sortpreserve
             exit 198
         }
         quietly by `_fg_id': gen double `_fg_mint0' = _t0[1] if `touse'
+
+        * --- one failure per subject, and it must be the last record --------
+        * The reduction below keeps ONE record per subject -- the one at
+        * max(_t) -- and drops the rest from `touse'.  Under `stset ...,
+        * exit(time .)' a subject may carry a _d==1 record that is NOT its
+        * last: a second failure after the first (recurrent events), or
+        * censored follow-up continued past the failure.  Either way the
+        * reduction silently discards the failure: a subject whose cause-1
+        * event at t1 is followed by a competing event at t2 enters the
+        * estimation as a cause-2 subject, one followed by a censored record
+        * enters as censored -- at rc 0, with the cause-of-interest failure
+        * gone from the numerator and from e(N_fail).  finegray models the
+        * SUBDISTRIBUTION of a single first event per subject, so there is no
+        * defensible record to pick silently.  Count first, refuse by name.
+        *
+        * The rows are sorted (id, -touse, _t0, _t) here and the intervals are
+        * contiguous, so within a subject the in-sample rows come first in
+        * time order and the last of them is the record the reduction keeps.
+        * A failure on any earlier in-sample row is the defect.  Counting
+        * `_d == 1' rows alone is not enough: a failure followed by ONE
+        * censored record is a single failure record and still vanishes.
+        tempvar _fg_earlyfail _fg_efsub
+        quietly by `_fg_id': gen byte `_fg_earlyfail' = ///
+            (`touse' & _d == 1 & _n < _N & `touse'[_n + 1] == 1)
+        quietly by `_fg_id': gen byte `_fg_efsub' = ///
+            (_n == _N & sum(`_fg_earlyfail') > 0)
+        quietly count if `_fg_efsub'
+        if r(N) > 0 {
+            display as error "finegray: `r(N)' subject(s) have a failure record that is not their last record"
+            display as error "finegray models a single first event per subject; the multiple-record"
+            display as error "reduction keeps only the record at the latest exit time, so a failure"
+            display as error "followed by further records -- a second failure, or follow-up continued"
+            display as error "past it, as {bf:stset, exit(time .)} permits -- would be dropped silently"
+            display as error "keep each subject's FIRST event (re-{bf:stset} without {bf:exit(time .)})"
+            display as error "or recode the outcome"
+            exit 198
+        }
+        capture drop `_fg_earlyfail'
+        capture drop `_fg_efsub'
 
         * --- claim the entry-time name, but do not write it yet ---
         * Post-estimation (finegray_cif, finegray_predict ci/schoenfeld,

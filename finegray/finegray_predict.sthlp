@@ -214,6 +214,16 @@ and weight strata. Point predictions are unchanged, and the original {cmd:e()}
 results and {cmd:e(sample)} are preserved.
 
 {phang}
+{opt bootstrap()} is refused ({cmd:r(198)}) after a fit with
+{cmd:[fweight=}{it:exp}{cmd:]}: {helpb bsample} resamples rows, and an
+fweighted fit stores its replication in a weight column rather than in rows, so
+the replicate SD would describe a much smaller design than the fit. The
+analytic {opt ci} is exact under frequency weights -- an fweighted fit is the
+fit of the replicated data -- so use it, or {helpb expand} the data by the
+weight and bootstrap the expanded fit. {cmd:[pweight=}{it:exp}{cmd:]} fits are
+unaffected.
+
+{phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()}. It requires
 {opt bootstrap()}, and must be an integer between {cmd:0} and {cmd:2147483647}.
 
